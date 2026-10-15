@@ -8,12 +8,14 @@ import {
   profilePostsCreate,
   profilePostsDelete,
   profilePostsGet,
+  profilePostsHardDelete,
   profilePostsUpdate,
   usersFollow,
   usersUnfollow,
 } from "@sermo/core/contracts";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, requireIds } from "@/lib/sermo/ids";
@@ -126,6 +128,33 @@ export async function deleteWallItem(
   if (!deleted.ok) return { error: deleted.error };
   refresh();
   return {};
+}
+
+// Erases a deleted wall post and its comments for good. The backend does a large wall in steps
+// of 500 comments, one call each; one request makes at most this many calls and the button can be
+// pressed again to go on.
+const HARD_DELETE_CALLS = 20;
+export async function hardDeleteWallPost(
+  id: number,
+  _previous: WallState,
+  formData: FormData,
+): Promise<WallState> {
+  requireIds(id);
+  const reason = String(formData.get("reason") ?? "");
+  for (let step = 0; step < HARD_DELETE_CALLS; step++) {
+    const erased = await attempt("/", () =>
+      call(profilePostsHardDelete, { profilePostId: id, reason }),
+    );
+    if (!erased.ok) return { error: erased.error };
+    if (erased.value.completed) {
+      refresh();
+      return {};
+    }
+  }
+  refresh();
+  return {
+    error: (await getTranslations("threads.moderation"))("hardDeleteMore"),
+  };
 }
 
 // The form says which state it wants (`following` is "true" or "false"), so a second click on a

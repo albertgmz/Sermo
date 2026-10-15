@@ -38,6 +38,7 @@ const may = {
   merge: false,
   split: false,
   delete: false,
+  hardDelete: false,
   attach: false,
   restoreDeleted: false,
   restoreWaiting: false,
@@ -133,5 +134,26 @@ test("a moderator sees approve on a post waiting for approval, inside the bar", 
   expect(html).toContain("Approve");
   expect(draw({ state: "moderated" }, { noteState: true })).not.toContain(
     "Approve",
+  );
+});
+
+test("a deleted reply offers deleting it for good only to who holds the permission", () => {
+  const deleted = {
+    state: "deleted",
+    canEdit: false,
+    canDelete: false,
+    canReport: false,
+  };
+  const withIt = { may: { ...may, hardDelete: true }, noteState: true };
+  expect(draw({ ...deleted, position: 3 }, withIt)).toContain(
+    "Delete permanently",
+  );
+  expect(draw({ ...deleted, position: 3 }, { noteState: true })).not.toContain(
+    "Delete permanently",
+  );
+  // A live post is deleted first, and the opening post goes with its thread.
+  expect(draw({ position: 3 }, withIt)).not.toContain("Delete permanently");
+  expect(draw({ ...deleted, position: 0 }, withIt)).not.toContain(
+    "Delete permanently",
   );
 });

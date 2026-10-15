@@ -200,7 +200,9 @@
     }
   },
   "composer": {
-    "aria": { "close": "Cerrar" }
+    "aria": {
+      "close": "Cerrar"
+    }
   },
   "threadComposer": {
     "post": "Publicar",
@@ -263,7 +265,12 @@
     "reported": "Gracias. Los moderadores lo revisarán.",
     "save": "Guardar cambios",
     "editPlaceholder": "Edita tu texto…",
-    "sourceFailed": "No se pudo cargar el texto para editarlo."
+    "sourceFailed": "No se pudo cargar el texto para editarlo.",
+    "deleteWarning": "Nadie salvo los moderadores volverá a verlo. Los moderadores pueden verlo y restaurarlo.",
+    "hardDelete": "Eliminar para siempre",
+    "hardDeleteConfirm": "Eliminar para siempre",
+    "hardDeletePostWarning": "El mensaje y sus reacciones, archivos y denuncias se borran para siempre. No se puede deshacer.",
+    "hardDeleteWallWarning": "La publicación del muro, sus comentarios, reacciones y denuncias se borran para siempre. No se puede deshacer."
   },
   "editedMark": {
     "label": "Editado <time></time>"

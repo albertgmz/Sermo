@@ -90,7 +90,11 @@
     "delete": "Delete thread",
     "confirmDelete": "Delete thread",
     "cancel": "Cancel",
-    "reason": "Reason (optional)"
+    "reason": "Reason (optional)",
+    "hardDelete": "Delete permanently",
+    "hardDeleteConfirm": "Delete the thread permanently",
+    "hardDeleteWarning": "The thread, its posts, reactions, files and reports are erased for good. Only its title and author stay in the moderator log. This cannot be undone.",
+    "hardDeleteMore": "A large one is erased in steps. Some of it is still there: press the button again to carry on."
   },
   "edit": {
     "metaTitle": "Edit post",

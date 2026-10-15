@@ -224,6 +224,7 @@ export function ContentActions({
             confirm={t("confirmDelete")}
             cancel={t("cancel")}
             reasonLabel={remove.withReason ? t("deleteReason") : undefined}
+            warning={t("deleteWarning")}
           />
         </div>
       )}

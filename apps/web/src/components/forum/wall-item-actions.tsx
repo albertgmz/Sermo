@@ -7,9 +7,11 @@ import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import {
   deleteWallItem,
   editWallItem,
+  hardDeleteWallPost,
   wallItemSource,
 } from "@/app/[locale]/(main)/members/actions";
 import { ContentActions } from "@/components/forum/content-actions";
+import { DeleteControl } from "@/components/forum/delete-control";
 import { InlineEditForm } from "@/components/forum/inline-edit-form";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
@@ -41,6 +43,7 @@ export function WallItemActions({
   reactionTypes,
   start,
   viewList,
+  mayHardDelete = false,
 }: {
   kind: "post" | "comment";
   item: Item;
@@ -51,6 +54,8 @@ export function WallItemActions({
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
   start?: React.ReactNode;
   viewList?: boolean;
+  // Deleting a deleted wall post for good (`profilePost.hardDelete`).
+  mayHardDelete?: boolean;
 }) {
   const t = useTranslations("forum.contentActions");
   const compact = kind === "comment";
@@ -99,6 +104,20 @@ export function WallItemActions({
         item.canDelete && live
           ? { action: deleteWallItem.bind(null, kind, item.id) }
           : undefined
+      }
+      moderation={
+        mayHardDelete &&
+        kind === "post" &&
+        item.state === "deleted" && (
+          <DeleteControl
+            action={hardDeleteWallPost.bind(null, item.id)}
+            label={t("hardDelete")}
+            confirm={t("hardDeleteConfirm")}
+            cancel={t("cancel")}
+            reasonLabel={t("deleteReason")}
+            warning={t("hardDeleteWallWarning")}
+          />
+        )
       }
       report={
         viewerId !== null &&

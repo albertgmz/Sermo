@@ -39,3 +39,9 @@ test("a post or thread is brought back by the flag of its state", () => {
   expect(mayRestore(approver, "deleted")).toBe(false);
   expect(mayRestore(undeleter, "visible")).toBe(false);
 });
+
+test("deleting for good follows its own flag, which alone shows the moderation menu", () => {
+  expect(threadMay({ "forum.hardDelete": true }).hardDelete).toBe(true);
+  expect(threadMay({ "forum.hardDelete": true }).any).toBe(true);
+  expect(threadMay({ "forum.deleteAny": true }).hardDelete).toBe(false);
+});

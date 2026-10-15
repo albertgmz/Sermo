@@ -200,7 +200,9 @@
     }
   },
   "composer": {
-    "aria": { "close": "Close" }
+    "aria": {
+      "close": "Close"
+    }
   },
   "threadComposer": {
     "post": "Post",
@@ -263,7 +265,12 @@
     "reported": "Thank you. The moderators will look at this.",
     "save": "Save changes",
     "editPlaceholder": "Edit your text…",
-    "sourceFailed": "The text could not be loaded for editing."
+    "sourceFailed": "The text could not be loaded for editing.",
+    "deleteWarning": "Everyone except the moderators stops seeing it. The moderators can still see it and restore it.",
+    "hardDelete": "Delete permanently",
+    "hardDeleteConfirm": "Delete permanently",
+    "hardDeletePostWarning": "The post and its reactions, files and reports are erased for good. This cannot be undone.",
+    "hardDeleteWallWarning": "The wall post, its comments, reactions and reports are erased for good. This cannot be undone."
   },
   "editedMark": {
     "label": "Edited <time></time>"

@@ -70,6 +70,7 @@ function WallPost({
   reactionTypes,
   viewList,
   returnTo,
+  mayHardDelete,
 }: {
   post: ApiWallPost;
   // The newest few, or one page of them where the post is open.
@@ -82,6 +83,7 @@ function WallPost({
   reactionTypes: ReactionTypes;
   viewList: boolean;
   returnTo: string;
+  mayHardDelete: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations("members.wall");
@@ -119,6 +121,7 @@ function WallPost({
           picker={picker}
           reactionTypes={reactionTypes}
           viewList={viewList}
+          mayHardDelete={mayHardDelete}
           start={
             commentsHref ? (
               <Link
@@ -335,6 +338,9 @@ export async function Wall({
                 reactionTypes={reactionTypes}
                 viewList={viewList}
                 returnTo={returnTo}
+                mayHardDelete={
+                  viewer.resolvedPermissions["profilePost.hardDelete"] === true
+                }
               />
             );
           })}

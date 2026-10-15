@@ -368,7 +368,10 @@
       "user_superAdmin": "Super admin status changed",
       "warning_add": "Warning given",
       "word_filter_remove": "Word filter removed",
-      "word_filter_upsert": "Word filter saved"
+      "word_filter_upsert": "Word filter saved",
+      "thread_hardDelete": "Thread deleted permanently",
+      "post_hardDelete": "Post deleted permanently",
+      "profile_post_hardDelete": "Profile post deleted permanently"
     }
   }
 }

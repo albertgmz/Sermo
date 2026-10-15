@@ -6,6 +6,7 @@ export type KeptState = {
   done?: boolean;
   title?: string;
   prefixId?: string;
+  summary?: string;
 };
 
 // A form's action state, submitted by hand so that React does not reset the form once the action

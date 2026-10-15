@@ -3,10 +3,12 @@
 import {
   postsDelete,
   postsGet,
+  postsHardDelete,
   postsRestore,
   postsUpdate,
   threadsDelete,
   threadsGet,
+  threadsHardDelete,
   threadsMarkRead,
   threadsMerge,
   threadsMove,
@@ -156,6 +158,53 @@ export async function restoreThreadAction(
     call(threadsRestore, { threadId }),
   );
   if (!restored.ok) return { error: restored.error };
+  backToThread(threadId);
+}
+
+// A large thread is erased by the backend in steps of 500 posts, one call each. One request makes
+// at most this many calls, so its work stays bounded; the button can be pressed again to go on.
+const HARD_DELETE_CALLS = 20;
+
+// Erases a deleted thread for good and goes to its forum.
+export async function hardDeleteThreadAction(
+  threadId: number,
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  requireIds(threadId);
+  const reason = textOf(formData, "reason");
+  // The forum is read first: once the thread is gone there is nothing to ask.
+  const found = await attempt(`/threads/${threadId}`, () =>
+    call(threadsGet, { threadId, countView: false }),
+  );
+  if (!found.ok) return { error: found.error };
+  for (let step = 0; step < HARD_DELETE_CALLS; step++) {
+    const erased = await attempt(`/threads/${threadId}`, () =>
+      call(threadsHardDelete, { threadId, reason }),
+    );
+    if (!erased.ok) return { error: erased.error };
+    if (erased.value.completed) {
+      refresh();
+      redirect(`/forums/${found.value.node.id}`);
+    }
+  }
+  return {
+    error: (await getTranslations("threads.moderation"))("hardDeleteMore"),
+  };
+}
+
+// Erases a deleted reply for good and shows the thread again.
+export async function hardDeletePostAction(
+  threadId: number,
+  postId: number,
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  requireIds(threadId, postId);
+  const erased = await attempt(`/threads/${threadId}`, () =>
+    call(postsHardDelete, { postId, reason: textOf(formData, "reason") }),
+  );
+  if (!erased.ok) return { error: erased.error };
   backToThread(threadId);
 }
 

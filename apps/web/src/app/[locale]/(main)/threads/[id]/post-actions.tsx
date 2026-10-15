@@ -8,11 +8,13 @@ import {
 import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import {
   deletePostAction,
+  hardDeletePostAction,
   quoteSource,
   restorePostAction,
 } from "@/app/[locale]/(main)/threads/actions";
 import { ActionForm } from "@/components/forum/action-form";
 import { ContentActions } from "@/components/forum/content-actions";
+import { DeleteControl } from "@/components/forum/delete-control";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
@@ -45,6 +47,7 @@ export function PostActions({
   viewList?: boolean;
 }) {
   const t = useTranslations("threads.page");
+  const actions = useTranslations("forum.contentActions");
   const reactions = {
     target: "post" as const,
     id: post.id,
@@ -95,12 +98,33 @@ export function PostActions({
           : undefined
       }
       moderation={
-        noteState &&
-        mayRestore(may, post.state) && (
-          <ActionForm
-            action={restorePostAction.bind(null, post.threadId, post.id)}
-            submit={post.state === "moderated" ? t("approve") : t("restore")}
-          />
+        noteState && (
+          <>
+            {mayRestore(may, post.state) && (
+              <ActionForm
+                action={restorePostAction.bind(null, post.threadId, post.id)}
+                submit={
+                  post.state === "moderated" ? t("approve") : t("restore")
+                }
+              />
+            )}
+            {may.hardDelete &&
+              post.state === "deleted" &&
+              post.position > 0 && (
+                <DeleteControl
+                  action={hardDeletePostAction.bind(
+                    null,
+                    post.threadId,
+                    post.id,
+                  )}
+                  label={actions("hardDelete")}
+                  confirm={actions("hardDeleteConfirm")}
+                  cancel={actions("cancel")}
+                  reasonLabel={actions("deleteReason")}
+                  warning={actions("hardDeletePostWarning")}
+                />
+              )}
+          </>
         )
       }
     />

@@ -9,6 +9,8 @@ import { cache, Suspense } from "react";
 import { ForumWatch } from "@/app/[locale]/(main)/forums/[id]/forum-watch";
 import { moreThreads } from "@/app/[locale]/(main)/forums/[id]/more-threads";
 import { threadsPage } from "@/app/[locale]/(main)/forums/[id]/thread-page";
+import { batchUpdateThreadsAction } from "@/app/[locale]/(main)/forums/actions";
+import { forumsOtherThan } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ForumCard } from "@/components/forum/forum-card";
 import { JsonLd } from "@/components/forum/json-ld";
@@ -21,6 +23,8 @@ import {
   ThreadRowSkeleton,
 } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
+import { ThreadBatch } from "@/components/staff/thread-batch";
+import { batchActionsFor } from "@/components/staff/thread-batch-state";
 import { buttonVariants } from "@/components/ui/button";
 import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
@@ -120,7 +124,9 @@ export default async function ForumPage({
     params,
     searchParams,
   ]);
-  const { node, breadcrumbs, watching } = await getNode(nodeIdOf(raw));
+  const { node, breadcrumbs, watching, resolvedPermissions } = await getNode(
+    nodeIdOf(raw),
+  );
   const seo = await seoOf(raw, searchParams);
   const [{ user }, t] = await Promise.all([
     getViewer(),
@@ -193,6 +199,7 @@ export default async function ForumPage({
             pages={pagesParam(pages)}
             newThread={newThread}
             signedIn={user !== null}
+            resolved={resolvedPermissions}
           />
         ) : (
           <CategoryForums nodeId={node.id} />
@@ -242,6 +249,7 @@ async function ForumThreads({
   pages,
   newThread,
   signedIn,
+  resolved,
 }: {
   nodeId: number;
   prefix: string | undefined;
@@ -249,6 +257,8 @@ async function ForumThreads({
   pages: number;
   newThread: React.ReactNode;
   signedIn: boolean;
+  // The viewer's permissions in the forum, for the staff tools on its list.
+  resolved: Record<string, boolean | number>;
 }) {
   const prefixId = /^[1-9]\d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
   const [first, { items: allPrefixes }, t] = await Promise.all([
@@ -260,6 +270,14 @@ async function ForumThreads({
     .filter((entry) => entry.isActive)
     .flatMap((entry) => prefixView(entry) ?? []);
   const listed = first.rows.length > 0;
+  // Staff who may change threads tick them in the list and apply one change to all.
+  const batchActions = listed ? batchActionsFor(resolved) : [];
+  const batchForums = batchActions.includes("move")
+    ? (await forumsOtherThan(nodeId)).map(({ id, title }) => ({
+        id,
+        label: title,
+      }))
+    : [];
 
   return (
     <>
@@ -268,22 +286,29 @@ async function ForumThreads({
       )}
 
       {listed ? (
-        <PagedList
-          first={first}
-          more={moreThreads.bind(null, nodeId, prefixId)}
-          pages={pages}
-          start={cursor}
-          listKey={["forum", nodeId, prefixId ?? 0]}
-          hrefBase={`/forums/${nodeId}${prefixId === undefined ? "" : `?prefix=${prefixId}`}`}
-          moreLabel={t("nextPage")}
-          estimateSize={72}
-          as="ul"
-          className={cn(
-            "overflow-hidden rounded-lg border bg-card",
-            prefixes.length > 0 ? "mt-1" : "mt-4",
-          )}
-          moreClassName="mt-3"
-        />
+        <ThreadBatch
+          action={batchUpdateThreadsAction.bind(null, nodeId)}
+          actions={batchActions}
+          forums={batchForums}
+          prefixes={prefixes.map(({ id, label }) => ({ id, label }))}
+        >
+          <PagedList
+            first={first}
+            more={moreThreads.bind(null, nodeId, prefixId)}
+            pages={pages}
+            start={cursor}
+            listKey={["forum", nodeId, prefixId ?? 0]}
+            hrefBase={`/forums/${nodeId}${prefixId === undefined ? "" : `?prefix=${prefixId}`}`}
+            moreLabel={t("nextPage")}
+            estimateSize={72}
+            as="ul"
+            className={cn(
+              "overflow-hidden rounded-lg border bg-card",
+              prefixes.length > 0 ? "mt-1" : "mt-4",
+            )}
+            moreClassName="mt-3"
+          />
+        </ThreadBatch>
       ) : (
         <div
           className={cn(

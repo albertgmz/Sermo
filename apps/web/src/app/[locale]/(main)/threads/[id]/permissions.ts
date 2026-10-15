@@ -11,6 +11,8 @@ export type ThreadMay = {
   merge: boolean;
   split: boolean;
   delete: boolean;
+  // Deleting a deleted thread or post for good.
+  hardDelete: boolean;
   attach: boolean;
   // Bringing back a deleted, or approving a waiting, post or thread.
   restoreDeleted: boolean;
@@ -29,6 +31,7 @@ export function threadMay(resolved: Resolved): ThreadMay {
     merge: flag("forum.merge"),
     split: flag("forum.split"),
     delete: flag("forum.deleteAny"),
+    hardDelete: flag("forum.hardDelete"),
     attach: flag("forum.uploadAttachments"),
     restoreDeleted: flag("forum.undelete"),
     restoreWaiting: flag("forum.approve"),
@@ -43,6 +46,7 @@ export function threadMay(resolved: Resolved): ThreadMay {
       may.merge ||
       may.split ||
       may.delete ||
+      may.hardDelete ||
       may.restoreDeleted ||
       may.restoreWaiting,
   };

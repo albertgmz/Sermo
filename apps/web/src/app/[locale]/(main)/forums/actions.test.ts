@@ -7,6 +7,10 @@ let answer: { status: number; body: unknown } = { status: 200, body: {} };
 
 mock.module("server-only", () => ({}));
 mock.module("next/cache", () => ({ refresh: () => {} }));
+mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
+  getTranslations: async () => (key: string) => key,
+}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {} }),
@@ -41,9 +45,11 @@ async function redirectedTo(run: () => Promise<unknown>) {
   return undefined;
 }
 
-const form = (fields: Record<string, string>) => {
+const form = (fields: Record<string, string | string[]>) => {
   const data = new FormData();
-  for (const [name, value] of Object.entries(fields)) data.append(name, value);
+  for (const [name, value] of Object.entries(fields))
+    for (const each of Array.isArray(value) ? value : [value])
+      data.append(name, each);
   return data;
 };
 
@@ -175,4 +181,88 @@ test("an id that is not a record id never becomes a path", async () => {
     await assert.rejects(() => actions.createThreadAction(id, {}, form({})));
   }
   assert.equal(asked.length, 0);
+});
+
+const batch = (fields: Record<string, string | string[]>) =>
+  actions.batchUpdateThreadsAction(4, {}, form(fields));
+
+test("a batch change sends the ticked threads, the change and the reason, and says how it went", async () => {
+  answer = {
+    status: 200,
+    body: {
+      results: [
+        { threadId: 7, changed: true, error: null },
+        { threadId: 8, changed: false, error: null },
+        {
+          threadId: 9,
+          changed: false,
+          error: { code: "forbidden", message: "No lock here." },
+        },
+      ],
+    },
+  };
+  const state = await batch({
+    threadIds: ["7", "8", "9"],
+    action: "lock",
+    reason: "calm",
+  });
+  assert.equal(state.done, true);
+  assert.equal(state.error, undefined);
+  assert.match(state.summary ?? "", /batchDone/);
+  assert.match(state.summary ?? "", /batchRefused/);
+  assert.equal(asked[0].method, "POST");
+  assert.equal(asked[0].url, `${ROOT}/threads/batch`);
+  assert.deepEqual(asked[0].body, {
+    threadIds: [7, 8, 9],
+    update: { action: "lock" },
+    reason: "calm",
+  });
+});
+
+test("a move names its forum and a prefix change may clear the prefix", async () => {
+  answer = {
+    status: 200,
+    body: { results: [{ threadId: 7, changed: true, error: null }] },
+  };
+  await batch({ threadIds: ["7"], action: "move", forumId: "12" });
+  assert.deepEqual((asked[0].body as { update: unknown }).update, {
+    action: "move",
+    nodeId: 12,
+  });
+  await batch({ threadIds: ["7"], action: "setPrefix", prefixId: "" });
+  assert.deepEqual((asked[1].body as { update: unknown }).update, {
+    action: "setPrefix",
+    prefixId: null,
+  });
+  await batch({ threadIds: ["7"], action: "setPrefix", prefixId: "5" });
+  assert.deepEqual((asked[2].body as { update: unknown }).update, {
+    action: "setPrefix",
+    prefixId: 5,
+  });
+});
+
+test("a batch with nothing ticked, an unknown change, no forum or too many threads asks nothing", async () => {
+  assert.deepEqual(await batch({ action: "lock" }), { error: "batchChoose" });
+  assert.deepEqual(await batch({ threadIds: ["7"], action: "explode" }), {
+    error: "batchChoose",
+  });
+  assert.deepEqual(await batch({ threadIds: ["7"], action: "move" }), {
+    error: "noForum",
+  });
+  const many = Array.from({ length: 101 }, (_, i) => String(i + 1));
+  assert.deepEqual(await batch({ threadIds: many, action: "lock" }), {
+    error: "batchTooMany",
+  });
+  await assert.rejects(() => batch({ threadIds: ["0"], action: "lock" }));
+  assert.equal(asked.length, 0);
+});
+
+test("a refusal of the whole batch is what the bar shows", async () => {
+  answer = {
+    status: 403,
+    body: { error: { code: "forbidden", message: "Not for you." } },
+  };
+  assert.deepEqual(await batch({ threadIds: ["7"], action: "stick" }), {
+    error: "Not for you.",
+  });
 });

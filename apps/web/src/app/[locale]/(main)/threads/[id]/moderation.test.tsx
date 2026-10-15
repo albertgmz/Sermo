@@ -30,7 +30,11 @@ test("a forum picker is given ids, titles and depths and no picture of a forum",
   expect(JSON.stringify(options)).not.toContain("/api/v1/files");
 });
 
-async function menu(state: string, staffPick: boolean) {
+async function menu(
+  state: string,
+  staffPick: boolean,
+  extra: Record<string, boolean> = {},
+) {
   const may = {
     stick: false,
     feature: true,
@@ -39,10 +43,12 @@ async function menu(state: string, staffPick: boolean) {
     merge: false,
     split: false,
     delete: false,
+    hardDelete: false,
     attach: false,
     restoreDeleted: false,
     restoreWaiting: false,
     any: true,
+    ...extra,
   };
   const node = await ModerationMenu({
     thread: {
@@ -69,4 +75,13 @@ test("Feature is offered on a visible thread, Unfeature on a pick, and neither F
   const hidden = await menu("deleted", false);
   expect(hidden).not.toContain("Feature<");
   expect(hidden).not.toContain("Unfeature");
+});
+
+test("Delete permanently is offered on a deleted thread to who holds the permission, and nowhere else", async () => {
+  const may = { hardDelete: true, delete: true };
+  expect(await menu("deleted", false, may)).toContain("Delete permanently");
+  expect(await menu("visible", false, may)).not.toContain("Delete permanently");
+  expect(await menu("deleted", false, { delete: true })).not.toContain(
+    "Delete permanently",
+  );
 });

@@ -414,3 +414,85 @@ test("an id that is not a record id never becomes a path", async () => {
   );
   assert.equal(asked.length, 0);
 });
+
+const readable = {
+  thread,
+  node: { id: 4, title: "Forum" },
+  seo: {
+    title: "t",
+    description: "d",
+    canonical: "https://example.test/threads/7",
+    robots: "index,follow",
+    redirect: false,
+    jsonLd: [],
+  },
+  watching: null,
+  featured: null,
+  permissions: {
+    canReply: false,
+    canEditTitle: false,
+    canModerate: true,
+    canReport: false,
+    canRemoveCover: false,
+    canWatch: true,
+  },
+  resolvedPermissions: {},
+};
+
+test("deleting a thread for good repeats the backend call until it is done, then goes to the forum", async () => {
+  let calls = 0;
+  byUrl = (url, method) => {
+    if (method === "GET") return { status: 200, body: readable };
+    if (!url.endsWith("/threads/7/hard-delete")) return undefined;
+    calls += 1;
+    return {
+      status: 200,
+      body: { completed: calls === 3, removedPosts: calls === 3 ? 20 : 500 },
+    };
+  };
+  const digest = await redirectedTo(() =>
+    actions.hardDeleteThreadAction(7, {}, form({ reason: "illegal" })),
+  );
+  assert.match(digest ?? "", /;\/forums\/4;/);
+  assert.equal(calls, 3);
+  const erasing = asked.filter((request) => request.method === "POST");
+  assert.deepEqual(erasing[0].body, { reason: "illegal" });
+});
+
+test("deleting a thread for good stops after a bounded number of calls and says to go on", async () => {
+  let calls = 0;
+  byUrl = (url, method) => {
+    if (method === "GET") return { status: 200, body: readable };
+    if (!url.endsWith("/threads/7/hard-delete")) return undefined;
+    calls += 1;
+    return { status: 200, body: { completed: false, removedPosts: 500 } };
+  };
+  assert.deepEqual(await actions.hardDeleteThreadAction(7, {}, form({})), {
+    error: "hardDeleteMore",
+  });
+  assert.equal(calls, 20);
+});
+
+test("deleting a thread for good shows the backend's refusal and asks nothing more", async () => {
+  byUrl = (_url, method) =>
+    method === "GET" ? { status: 200, body: readable } : refusal;
+  assert.deepEqual(await actions.hardDeleteThreadAction(7, {}, form({})), {
+    error: "You may not do that.",
+  });
+  assert.equal(asked.filter((request) => request.method === "POST").length, 1);
+});
+
+test("deleting a post for good shows the thread, and a refusal is shown as it is", async () => {
+  answer = { status: 200, body: { ok: true } };
+  const digest = await redirectedTo(() =>
+    actions.hardDeletePostAction(7, 31, {}, form({ reason: "doxxing" })),
+  );
+  assert.match(digest ?? "", /;\/threads\/7;/);
+  assert.equal(asked[0].method, "POST");
+  assert.equal(asked[0].url, `${ROOT}/posts/31/hard-delete`);
+  assert.deepEqual(asked[0].body, { reason: "doxxing" });
+  answer = refusal;
+  assert.deepEqual(await actions.hardDeletePostAction(7, 31, {}, form({})), {
+    error: "You may not do that.",
+  });
+});

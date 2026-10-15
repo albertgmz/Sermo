@@ -12,6 +12,10 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {} }),
 }));
+mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
+  getTranslations: async () => (key: string) => key,
+}));
 let refreshed = 0;
 const nextCache = await import("next/cache");
 mock.module("next/cache", () => ({
@@ -22,9 +26,8 @@ mock.module("next/cache", () => ({
   },
 }));
 
-const { deleteWallItem, editWallItem, wallItemSource } = await import(
-  "./actions"
-);
+const { deleteWallItem, editWallItem, hardDeleteWallPost, wallItemSource } =
+  await import("./actions");
 const { reportContent } = await import("../actions");
 const { deleteMessageAction, editMessageAction } = await import(
   "../conversations/actions"
@@ -223,4 +226,33 @@ test("editing a message sends its text, leaves its files alone and returns to it
       body: { body: "new" },
     },
   ]);
+});
+
+test("deleting a wall post for good repeats the call until it is done and then draws the page again", async () => {
+  let calls = 0;
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    calls += 1;
+    asked.push({
+      method: init.method ?? "GET",
+      url,
+      body: JSON.parse(String(init.body)),
+    });
+    return Response.json({ completed: calls === 2, removedComments: 500 });
+  }) as unknown as typeof fetch;
+  assert.deepEqual(
+    await hardDeleteWallPost(9, {}, form({ reason: "abuse" })),
+    {},
+  );
+  assert.equal(calls, 2);
+  assert.equal(asked[0].method, "POST");
+  assert.match(asked[0].url, /\/profile-posts\/9\/hard-delete$/);
+  assert.deepEqual(asked[0].body, { reason: "abuse" });
+  assert.equal(refreshed, 1);
+});
+
+test("a refusal of deleting a wall post for good is shown", async () => {
+  answer = refusal();
+  assert.deepEqual(await hardDeleteWallPost(9, {}, form()), {
+    error: "You may not do that.",
+  });
 });

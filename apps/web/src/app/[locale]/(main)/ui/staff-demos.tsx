@@ -1,5 +1,9 @@
 import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
-import { confirmSample, saveSample } from "@/app/[locale]/(main)/ui/actions";
+import {
+  confirmSample,
+  discardForm,
+  saveSample,
+} from "@/app/[locale]/(main)/ui/actions";
 import { StaffNavigation } from "@/app/[locale]/(staff)/navigation";
 import type { NavSection } from "@/app/[locale]/(staff)/navigation-data";
 import { UserLink } from "@/components/forum/user-link";
@@ -18,6 +22,7 @@ import {
 } from "@/components/staff/permission-matrix";
 import { PictureField } from "@/components/staff/picture-field";
 import { RuleBuilder } from "@/components/staff/rule-builder";
+import { ThreadBatch, ThreadTick } from "@/components/staff/thread-batch";
 import { Input } from "@/components/ui/input";
 import { plainMember } from "@/lib/sermo/members";
 
@@ -207,6 +212,36 @@ export function StaffDemos() {
         <div className="max-w-xs rounded-lg border bg-card p-2">
           <StaffNavigation sections={NAV} label="Administration" />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">Thread batch</h3>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          The tick beside each thread of a forum&apos;s list, and the bar that
+          appears once some are ticked: one change for all of them, a reason,
+          and a line saying how many changed and why the others were refused.
+          Applying here changes nothing.
+        </p>
+        <ThreadBatch
+          action={discardForm}
+          actions={["lock", "unlock", "stick", "unstick", "move", "setPrefix"]}
+          forums={[
+            { id: 1, label: "General" },
+            { id: 2, label: "Help" },
+          ]}
+          prefixes={[{ id: 1, label: "News" }]}
+        >
+          <ul className="divide-y overflow-hidden rounded-lg border bg-card">
+            {["A thread", "Another thread", "A third thread"].map(
+              (title, index) => (
+                <li key={title} className="flex items-center gap-3 px-4 py-3">
+                  <ThreadTick id={index + 1} title={title} />
+                  <span className="text-sm">{title}</span>
+                </li>
+              ),
+            )}
+          </ul>
+        </ThreadBatch>
       </div>
 
       <div className="space-y-2">

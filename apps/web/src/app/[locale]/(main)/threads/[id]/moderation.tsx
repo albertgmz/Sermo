@@ -10,6 +10,7 @@ import {
 } from "@/app/[locale]/(main)/threads/[id]/permissions";
 import {
   deleteThreadAction,
+  hardDeleteThreadAction,
   mergeThreadAction,
   moveThreadAction,
   previewMergeAction,
@@ -182,7 +183,7 @@ export async function ModerationMenu({
           </Section>
         )}
 
-        {(may.delete || mayRestore(may, thread.state)) && (
+        {(may.delete || may.hardDelete || mayRestore(may, thread.state)) && (
           <Section title={t("stateHeading")}>
             {mayRestore(may, thread.state) && (
               <ActionForm
@@ -199,6 +200,16 @@ export async function ModerationMenu({
                 confirm={t("confirmDelete")}
                 cancel={t("cancel")}
                 reasonLabel={t("reason")}
+              />
+            )}
+            {may.hardDelete && thread.state === "deleted" && (
+              <DeleteControl
+                action={hardDeleteThreadAction.bind(null, id)}
+                label={t("hardDelete")}
+                confirm={t("hardDeleteConfirm")}
+                cancel={t("cancel")}
+                reasonLabel={t("reason")}
+                warning={t("hardDeleteWarning")}
               />
             )}
           </Section>

@@ -7,6 +7,7 @@ import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
+import { ThreadTick } from "@/components/staff/thread-batch";
 import { formatCompact } from "@/lib/format";
 import type { membersFor } from "@/lib/sermo/members";
 import { type ApiThread, threadCard } from "@/lib/sermo/threads";
@@ -36,6 +37,7 @@ export function ThreadRow({
           "bg-primary/5 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary",
       )}
     >
+      <ThreadTick id={thread.id} title={card.title} />
       {card.coverPicture && (
         <Art
           category="threadCovers"
