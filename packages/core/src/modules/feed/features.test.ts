@@ -267,7 +267,7 @@ describe("featured threads in hot", () => {
     expect(await featuredIds(w, GUEST)).toEqual([]);
   });
 
-  test("features fill at most the 50 places of hot, newest first, and nothing is paged", async () => {
+  test("at most 10 features are pinned, newest first, and the ranked threads fill the rest", async () => {
     const w = world();
     const ids = fillThreads(w.ctx, w.open.id, w.aliceUser.id, 55);
     w.ctx.sqlite
@@ -281,7 +281,25 @@ describe("featured threads in hot", () => {
     }
     const hot = await w.call("feed.list", GUEST, { scope: "hot" });
     expect(hot.nextCursor).toBeNull();
-    expect(hot.items.map((item: Item) => item.thread.id)).toEqual(ids.slice(5).reverse());
+    expect(hot.items.map((item: Item) => item.thread.id)).toEqual(ids.slice(-10).reverse());
+    // A ranked thread is not pushed out, and a featured thread beyond the 10 shows where it ranks,
+    // with its mark.
+    const busy = ids[0]!;
+    w.ctx.sqlite.prepare("UPDATE threads SET reply_count = 9 WHERE id = ?1").run(busy);
+    const other = await w.thread(w.bob, w.open.id, "Busy and plain");
+    w.ctx.sqlite.prepare("UPDATE threads SET reply_count = 8 WHERE id = ?1").run(other.thread.id);
+    refreshRankings(w.ctx);
+    const items = (await w.call("feed.list", GUEST, { scope: "hot" })).items as Item[];
+    expect(items.map((item) => [item.thread.id, item.featured])).toEqual([
+      ...ids
+        .slice(-10)
+        .reverse()
+        .map((id) => [id, "paid"]),
+      [busy, "paid"],
+      [other.thread.id, null],
+    ]);
+    // The home block still lists them in order, beyond what Hot pins.
+    expect(await featuredIds(w, GUEST, 20)).toEqual(ids.slice(-20).reverse());
   });
 
   test("the cards of the other feeds mark a featured thread too", async () => {
@@ -336,6 +354,17 @@ describe("threads.featured", () => {
     await feature(w, w.mod, t.thread.id);
     const { items } = await w.call("threads.featured", GUEST, {});
     expect(items).toMatchObject([{ kind: "staff", endsAt: null }]);
+  });
+
+  test("a thread whose opening post is not visible is left out, as in hot", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Hidden opening");
+    const shown = await w.thread(w.alice, w.open.id, "Shown");
+    await feature(w, w.mod, t.thread.id);
+    await feature(w, w.mod, shown.thread.id);
+    w.ctx.sqlite.prepare("UPDATE posts SET state = 'deleted' WHERE id = ?1").run(t.post.id);
+    expect(await hotIds(w, GUEST)).toEqual([shown.thread.id]);
+    expect(await featuredIds(w, GUEST)).toEqual([shown.thread.id]);
   });
 
   test("keeps filling the limit past features the viewer cannot open", async () => {

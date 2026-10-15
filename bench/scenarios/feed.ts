@@ -6,6 +6,14 @@ let followingUserId = 0;
 let prefixedForumId = 0;
 let prefixId = 0;
 
+/** The busiest threads spread over their forums, best first within each forum. */
+const seedHot = (env: BenchEnv) => {
+  env.ctx.sqlite.exec("DELETE FROM rankings WHERE kind = 'hot'");
+  env.ctx.sqlite.exec(
+    "INSERT INTO rankings (kind, node_id, position, target_id, score) SELECT 'hot', node_id, rank - 1, id, reply_count FROM (SELECT id, node_id, reply_count, row_number() OVER (PARTITION BY node_id ORDER BY reply_count DESC, id DESC) AS rank FROM threads WHERE state = 'visible' AND first_post_id IS NOT NULL AND reply_count > 0) WHERE rank <= 100",
+  );
+};
+
 /**
  * Thirty featured threads that the hot ranking would not list (no replies): two thirds staff
  * picks, one third paid promotions with a day left. Removed again by `unfeature`.
@@ -57,10 +65,7 @@ export const scenarios: Scenario[] = [
     kind: "read",
     setup(env) {
       // The busiest threads spread over their forums, best first within each forum.
-      env.ctx.sqlite.exec("DELETE FROM rankings WHERE kind = 'hot'");
-      env.ctx.sqlite.exec(
-        "INSERT INTO rankings (kind, node_id, position, target_id, score) SELECT 'hot', node_id, rank - 1, id, reply_count FROM (SELECT id, node_id, reply_count, row_number() OVER (PARTITION BY node_id ORDER BY reply_count DESC, id DESC) AS rank FROM threads WHERE state = 'visible' AND first_post_id IS NOT NULL AND reply_count > 0) WHERE rank <= 100",
-      );
+      seedHot(env);
     },
     run: (env, i) => env.call("feed.list", env.actors.member(i), { scope: "hot" }),
   },
@@ -70,10 +75,7 @@ export const scenarios: Scenario[] = [
     name: "feed.list hot featured",
     kind: "read",
     setup(env) {
-      env.ctx.sqlite.exec("DELETE FROM rankings WHERE kind = hot");
-      env.ctx.sqlite.exec(
-        "INSERT INTO rankings (kind, node_id, position, target_id, score) SELECT hot, node_id, rank - 1, id, reply_count FROM (SELECT id, node_id, reply_count, row_number() OVER (PARTITION BY node_id ORDER BY reply_count DESC, id DESC) AS rank FROM threads WHERE state = visible AND first_post_id IS NOT NULL AND reply_count > 0) WHERE rank <= 100",
-      );
+      seedHot(env);
       feature(env);
     },
     teardown: unfeature,

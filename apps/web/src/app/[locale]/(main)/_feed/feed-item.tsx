@@ -1,5 +1,5 @@
 import type { feedList } from "@sermo/core/contracts";
-import { Eye, Megaphone, MessageCircle, Sparkles, Star } from "lucide-react";
+import { Eye, MessageCircle, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import type { ComponentProps } from "react";
@@ -11,6 +11,7 @@ import { commentOnWallPost } from "@/app/[locale]/(main)/members/actions";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { Art } from "@/components/forum/art";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
+import { FeatureMark } from "@/components/forum/feature-mark";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LevelBadge } from "@/components/forum/level";
 import { LineComposer } from "@/components/forum/line-composer";
@@ -147,14 +148,10 @@ function Card({
         {(highlighted || featured) && (
           <div className="flex shrink-0 flex-col items-end gap-1">
             {featured && (
-              <span className="inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">
-                {featured === "paid" ? (
-                  <Megaphone aria-hidden="true" className="size-3" />
-                ) : (
-                  <Star aria-hidden="true" className="size-3" />
-                )}
-                {t(featured === "paid" ? "promoted" : "featured")}
-              </span>
+              <FeatureMark
+                kind={featured}
+                className="text-(length:--text-caption)"
+              />
             )}
             {highlighted && (
               <span className="inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">

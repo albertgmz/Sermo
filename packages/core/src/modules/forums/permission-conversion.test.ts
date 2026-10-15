@@ -19,6 +19,7 @@ import {
   threadsListOp,
   threadsMoveOp,
   threadsRestoreOp,
+  threadsSetFeaturedOp,
   threadsSetLockedOp,
   threadsSetStickyOp,
   threadsUpdateOp,
@@ -352,6 +353,38 @@ test("custom approve and undelete grants apply to their states and visible no-op
     execute(ctx, threadsRestoreOp, approver.actor, { threadId: thread.thread.id }),
   ).rejects.toBeInstanceOf(ForbiddenError);
   await execute(ctx, threadsRestoreOp, undelete.actor, { threadId: thread.thread.id });
+});
+
+test("a feature grant on one forum does not reach another, and forum.stick does not feature", async () => {
+  const ctx = createTestContext();
+  const forumA = insertNode(ctx, {});
+  const forumB = insertNode(ctx, {});
+  invalidate(ctx, "node_tree");
+  const author = userActor(insertUser(ctx));
+  const inA = await execute(ctx, threadsCreateOp, author, {
+    nodeId: forumA.id,
+    title: "A",
+    body: "x",
+  });
+  const inB = await execute(ctx, threadsCreateOp, author, {
+    nodeId: forumB.id,
+    title: "B",
+    body: "x",
+  });
+  const feature = (actor: ReturnType<typeof customMember>["actor"], threadId: number) =>
+    execute(ctx, threadsSetFeaturedOp, actor, { threadId, isFeatured: true });
+  const operator = customMember(ctx);
+  await expect(feature(operator.actor, inA.thread.id)).rejects.toBeInstanceOf(ForbiddenError);
+  setEntry(ctx, operator.groupId, "forum.feature", 1, forumA.id);
+  expect((await feature(operator.actor, inA.thread.id)).id).toBe(inA.thread.id);
+  await expect(feature(operator.actor, inB.thread.id)).rejects.toBeInstanceOf(ForbiddenError);
+  const sticker = customMember(ctx);
+  setEntry(ctx, sticker.groupId, "forum.stick", 1, forumA.id);
+  setEntry(ctx, sticker.groupId, "forum.lock", 1, forumA.id);
+  await expect(feature(sticker.actor, inA.thread.id)).rejects.toBeInstanceOf(ForbiddenError);
+  expect(ctx.sqlite.prepare("SELECT thread_id FROM thread_features").all()).toEqual([
+    { thread_id: inA.thread.id },
+  ]);
 });
 
 test("custom grants separately control stick, lock, move, and locked replies", async () => {

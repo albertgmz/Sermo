@@ -9,6 +9,10 @@
     "failed": "That did not save. Try again.",
     "busy": "Another change is still saving. Wait a moment and try again."
   },
+  "featureMark": {
+    "featured": "Featured",
+    "promoted": "Promoted"
+  },
   "framing": {
     "avatarTitle": "Frame your avatar",
     "coverTitle": "Frame your cover",

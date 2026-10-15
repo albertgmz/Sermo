@@ -77,9 +77,10 @@ export const feedList = defineContract({
     "opening post and its views, divided by its age (a gravity formula), and is not listed " +
     "before it has 3 replies or 3 reactions on its opening post. Threads hidden since the last " +
     "refresh are left out and replaced by the next best, as far as the stored ranking " +
-    "reaches. Featured threads (staff picks and paid promotions, see `threads.featured`) come " +
-    "first, newest feature first, whatever their activity, then the ranked threads without them, " +
-    "all within the same 50; they follow the same visibility rules. Threads of ignored " +
+    "reaches. Up to 10 featured threads (staff picks and paid promotions, see " +
+    "`threads.featured`) come first, newest feature first, whatever their activity, then the " +
+    "ranked threads without them, all within the same 50; they follow the same visibility rules. " +
+    "A featured thread beyond the 10 is listed only where it ranks. Threads of ignored " +
     "members are left out. `top` is the former name of `hot` and is accepted as an alias for " +
     "one release. A thread entry says whether the viewer may reply to it (`canReply`) and why " +
     "it is featured, if it is (`featured`; `latest` and `following` mark features too).",

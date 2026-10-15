@@ -9,6 +9,10 @@
     "failed": "No se guardó. Inténtalo de nuevo.",
     "busy": "Otro cambio se está guardando todavía. Espera un momento e inténtalo de nuevo."
   },
+  "featureMark": {
+    "featured": "Recomendado",
+    "promoted": "Promocionado"
+  },
   "framing": {
     "avatarTitle": "Encuadra tu avatar",
     "coverTitle": "Encuadra tu portada",

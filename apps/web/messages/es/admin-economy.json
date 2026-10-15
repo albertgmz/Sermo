@@ -341,7 +341,7 @@
         "threadCover": "Se usa en un tema que el miembro creó: le da la portada elegida.",
         "highlight": "Se usa en un tema que el miembro creó: las listas lo muestran destacado durante unos días.",
         "bump": "Se usa en un tema que el miembro creó: se ordena como si tuviera un mensaje nuevo.",
-        "promote": "Se usa en un tema que el miembro creó: se recomienda durante 24 horas, aparece en En tendencia y se muestra en el inicio. Se vende por unidades; no se devuelve nada si el tema se elimina después.",
+        "promote": "Se usa en un tema que el miembro creó: se recomienda durante 24 horas, aparece en la pestaña En tendencia y se muestra en el inicio. Se vende por unidades; no se devuelve nada si el tema se elimina después.",
         "usernameChange": "Una unidad paga un cambio de nombre de usuario."
       },
       "frame": "Marco",

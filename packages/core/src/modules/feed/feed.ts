@@ -17,7 +17,13 @@ import {
   profilePostValues,
 } from "../profiles";
 import { loadThreads, postsInThreads } from "./authors";
-import { FEED_HOT_SIZE, firstSurvivors, rankingSql, storedRanking } from "./rankings";
+import {
+  FEED_HOT_PINNED,
+  FEED_HOT_SIZE,
+  firstSurvivors,
+  rankingSql,
+  storedRanking,
+} from "./rankings";
 import { SCAN_CAP } from "./scan";
 import { followedAmong, followedAuthors, ignoredAmong, visibleNodes } from "./viewer";
 
@@ -477,16 +483,19 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
       const passing = accept(candidates);
       return candidates.filter((row) => passing.has(row)).map((row) => ({ kind: "post", row }));
     };
-    // Featured threads come first, newest feature first, whatever their activity; the ranked
-    // threads follow without them. Both go through the same visibility filter.
+    // Up to FEED_HOT_PINNED featured threads come first, newest feature first, whatever their
+    // activity; the ranked threads follow without them. Both go through the same visibility filter.
     const featured = kindsOf(activeFeatures(ctx, ctx.now()));
     const pinned = firstSurvivors(
       [...featured.keys()].map((id) => ({ target_id: id })),
-      FEED_HOT_SIZE,
+      FEED_HOT_PINNED,
       loadOpenings,
     );
+    const pinnedIds = new Set(
+      pinned.flatMap((item) => (item.kind === "post" ? [item.row.thread_id] : [])),
+    );
     const ranked = firstSurvivors(
-      storedRanking(ctx, "hot", nodes).filter((row) => !featured.has(row.target_id)),
+      storedRanking(ctx, "hot", nodes).filter((row) => !pinnedIds.has(row.target_id)),
       FEED_HOT_SIZE - pinned.length,
       loadOpenings,
     );

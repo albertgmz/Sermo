@@ -1,7 +1,7 @@
 import { threadsFeatured } from "@sermo/core/contracts";
-import { Megaphone, Star } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { ThreadTitle } from "@/app/[locale]/(main)/_feed/thread-title";
+import { FeatureMark } from "@/components/forum/feature-mark";
 import { SectionCard } from "@/components/forum/section-card";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
@@ -22,16 +22,11 @@ export async function FeaturedThreads() {
   return (
     <SectionCard title={t("title")}>
       {items.map(({ kind, thread }) => {
-        const Mark = kind === "paid" ? Megaphone : Star;
         return (
           <div key={thread.id} className="px-4 py-2.5">
             <ThreadTitle thread={thread} member={member} />
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1 font-medium text-primary-ink">
-                <Mark aria-hidden="true" className="size-3" />
-                {t(kind === "paid" ? "promoted" : "featured")}
-              </span>{" "}
-              · {thread.node.title}
+              <FeatureMark kind={kind} /> · {thread.node.title}
             </p>
           </div>
         );

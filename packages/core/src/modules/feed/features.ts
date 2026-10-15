@@ -1,15 +1,18 @@
+import { prepared } from "../../context";
 import { threadsFeatured } from "../../contracts/feed";
 import { implement } from "../../operation";
 import { iso, isoOrNull } from "../../time";
 import { threadRowsByIds, threadValuesFor } from "../forums";
 import { activeFeatures, type FeatureRow } from "../forums/features";
+import { feedSql } from "./feed";
 import { firstSurvivors } from "./rankings";
 import { ignoredAmong, visibleNodes } from "./viewer";
 
 /**
  * The threads featured right now that the viewer may open, newest feature first. The same rules
- * as the hot feed: a forum the viewer cannot open, a thread that is not visible (deleted,
- * awaiting approval, merged away) and a thread of a member the viewer ignores are left out. A
+ * as the hot feed: a forum the viewer cannot open, a thread or an opening post that is not
+ * visible (deleted, awaiting approval, merged away) and a thread of a member the viewer ignores
+ * are left out. A
  * thread with a staff pick and a paid promotion is listed once, as its staff pick.
  */
 export const threadsFeaturedOp = implement(threadsFeatured, (ctx, actor, input) => {
@@ -27,6 +30,19 @@ export const threadsFeaturedOp = implement(threadsFeatured, (ctx, actor, input) 
         chunk.map((feature) => feature.thread_id),
       ).map((thread) => [thread.id, thread]),
     );
+    const openings = new Map(
+      prepared(ctx, "feed.hotPosts", () =>
+        ctx.sqlite.prepare<{ id: number; state: string }, [string]>(feedSql.hotPosts),
+      )
+        .all(
+          JSON.stringify(
+            [...threads.values()].flatMap((thread) =>
+              thread.first_post_id ? [thread.first_post_id] : [],
+            ),
+          ),
+        )
+        .map((post) => [post.id, post.state] as const),
+    );
     const ignored = ignoredAmong(
       ctx,
       actor,
@@ -37,6 +53,7 @@ export const threadsFeaturedOp = implement(threadsFeatured, (ctx, actor, input) 
       return thread &&
         thread.state === "visible" &&
         thread.merged_into_id === null &&
+        openings.get(thread.first_post_id ?? 0) === "visible" &&
         nodes.has(thread.node_id) &&
         !ignored.has(thread.user_id)
         ? [{ feature, thread }]

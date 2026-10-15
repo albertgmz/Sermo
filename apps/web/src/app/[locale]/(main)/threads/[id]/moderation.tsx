@@ -85,6 +85,8 @@ export async function ModerationMenu({
     may.move ? forumsOtherThan(thread.nodeId) : Promise.resolve([]),
   ]);
   const id = thread.id;
+  // Only a visible thread can be featured; a pick that is already made can always be ended.
+  const mayFeature = may.feature && (staffPick || thread.state === "visible");
   return (
     <details className="group w-full" open={selecting || undefined}>
       <summary
@@ -101,7 +103,7 @@ export async function ModerationMenu({
         />
       </summary>
       <div className="mt-2 space-y-4 rounded-lg border bg-card p-3">
-        {(may.stick || may.feature || may.lock || mayRemoveCover) && (
+        {(may.stick || mayFeature || may.lock || mayRemoveCover) && (
           <div className="flex flex-wrap gap-2">
             {may.stick && (
               <ActionForm
@@ -109,7 +111,7 @@ export async function ModerationMenu({
                 submit={thread.isSticky ? t("unstick") : t("stick")}
               />
             )}
-            {may.feature && (
+            {mayFeature && (
               <ActionForm
                 action={setFeaturedAction.bind(null, id, !staffPick)}
                 submit={staffPick ? t("unfeature") : t("feature")}

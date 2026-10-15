@@ -23,6 +23,12 @@ const RANKING_WINDOW_DAYS = 30;
 const THREAD_RANKING_STORED = 40;
 /** The most threads the hot feed shows. */
 export const FEED_HOT_SIZE = 50;
+/**
+ * The most featured threads the hot feed pins above the ranked ones, newest feature first. Staff
+ * picks do not end by themselves, so without a cap old picks would fill Hot and push the busy
+ * threads out. Features beyond it still show on the home page and carry their mark when they rank.
+ */
+export const FEED_HOT_PINNED = 10;
 /** Threads the hot list keeps per forum: twice what a feed shows, for the same reason. */
 const FEED_HOT_STORED = 100;
 
