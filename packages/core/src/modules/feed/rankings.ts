@@ -5,10 +5,15 @@ import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
 import { getNodeTree } from "../../permissions";
 import { type ThreadRow, threadColumns, threadRowsByIds, threadValuesFor } from "../forums";
+import { purgeEndedFeatures } from "../forums/features";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { ignoredAmong, visibleNodes } from "./viewer";
 
 const DAY = 86_400_000;
+/** Ended thread features are kept this long, then deleted by the rankings job. */
+const FEATURE_KEEP_DAYS = 30;
+/** Ended thread features deleted per run. */
+const FEATURE_PURGE_BATCH = 500;
 /** Threads count for the "most" rankings while their last post is this recent. */
 const RANKING_WINDOW_DAYS = 30;
 /**
@@ -228,6 +233,8 @@ function* recompute(ctx: Ctx): Generator<void, void, void> {
     });
     yield;
   }
+  // Thread features that ended long ago are rows nobody reads: one bounded delete each run.
+  writeTx(ctx, () => purgeEndedFeatures(ctx, now - FEATURE_KEEP_DAYS * DAY, FEATURE_PURGE_BATCH));
 }
 
 /** Recomputes every ranking now, without yielding. For tests and administration tools. */
@@ -275,10 +282,10 @@ export function storedRanking(ctx: Ctx, kind: Kind, nodes: Iterable<number>): St
  * out, so the targets read never exceed the stored rows (and in the usual case, where almost
  * everything survives, they are `2 * want` at most).
  */
-export function firstSurvivors<T>(
-  ranked: StoredRow[],
+export function firstSurvivors<T, Row = StoredRow>(
+  ranked: Row[],
   want: number,
-  load: (chunk: StoredRow[]) => T[],
+  load: (chunk: Row[]) => T[],
 ): T[] {
   const size = Math.max(want * 2, 1);
   const out: T[] = [];

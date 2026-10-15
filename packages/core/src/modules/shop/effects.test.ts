@@ -16,6 +16,7 @@ import { can } from "../../permissions";
 import { moveCredits } from "../../shared/credits";
 import { operations as appearanceOperations } from "../appearance";
 import { insertCatalogImage, insertPaletteColor } from "../appearance/catalog-fixtures";
+import { operations as feedOperations } from "../feed";
 import { operations as forumOperations } from "../forums";
 import { operations } from "./index";
 
@@ -32,7 +33,12 @@ function fixture() {
   const member = insertUser(ctx);
   const other = insertUser(ctx);
   const actor = userActor(member);
-  const all: AnyOperation[] = [...operations, ...forumOperations, ...appearanceOperations];
+  const all: AnyOperation[] = [
+    ...operations,
+    ...forumOperations,
+    ...appearanceOperations,
+    ...feedOperations,
+  ];
   const call = (name: string, input: unknown = {}, as: Actor = actor) =>
     // biome-ignore lint/suspicious/noExplicitAny: tests read the output of any operation
     execute(ctx, all.find((op) => op.name === name)!, as, input) as Promise<any>;
@@ -362,6 +368,124 @@ describe("shop.use on a thread", () => {
     await expect(w.call("shop.use", { inventoryId, threadId: w.mine })).rejects.toBeInstanceOf(
       NotFoundError,
     );
+  });
+
+  test("a promotion features the thread for 24 hours, takes one unit and lists it in hot", async () => {
+    const w = await threadWorld();
+    const { use, inventoryId } = await w.use({ type: "promote" }, { price: 40 });
+    const balance = () =>
+      w.ctx.sqlite
+        .prepare<{ credits: number }, [number]>("SELECT credits FROM users WHERE id = ?1")
+        .get(w.member.id)!.credits;
+    // Two units cost 80; using one charges nothing more.
+    expect(balance()).toBe(1000 - 80);
+    const startedAt = w.ctx.now();
+    expect(await use()).toMatchObject({ quantity: 1, state: "unused" });
+    expect(balance()).toBe(1000 - 80);
+    expect(
+      w.ctx.sqlite
+        .prepare("SELECT thread_id, kind, user_id, started_at, ends_at FROM thread_features")
+        .all(),
+    ).toEqual([
+      {
+        thread_id: w.mine,
+        kind: "paid",
+        user_id: w.member.id,
+        started_at: startedAt,
+        ends_at: startedAt + 24 * 3_600_000,
+      },
+    ]);
+    expect((await w.call("threads.get", { threadId: w.mine })).featured).toBe("paid");
+    const hot = await w.call("feed.list", { scope: "hot" }, GUEST);
+    expect(
+      hot.items.map((item: { thread: { id: number }; featured: string }) => [
+        item.thread.id,
+        item.featured,
+      ]),
+    ).toEqual([[w.mine, "paid"]]);
+    expect((await w.call("threads.featured", {}, GUEST)).items).toMatchObject([
+      { kind: "paid", thread: { id: w.mine } },
+    ]);
+    expect(
+      w.ctx.sqlite.prepare("SELECT payload FROM domain_events WHERE type = 'shop.item_used'").all(),
+    ).toHaveLength(1);
+    // It ends by itself, with no job.
+    w.ctx.clock.advance(24 * 3_600_000);
+    expect((await w.call("threads.get", { threadId: w.mine })).featured).toBeNull();
+    expect((await w.call("feed.list", { scope: "hot" }, GUEST)).items).toEqual([]);
+    expect((await w.call("threads.featured", {}, GUEST)).items).toEqual([]);
+    // The thread may be promoted again with the second unit.
+    await w.call("shop.use", { inventoryId, threadId: w.mine });
+    expect((await w.call("threads.get", { threadId: w.mine })).featured).toBe("paid");
+    expect(
+      w.ctx.sqlite.prepare("SELECT state FROM shop_inventory WHERE id = ?1").get(inventoryId),
+    ).toEqual({ state: "used" });
+  });
+
+  test("one purchase is one promotion: a second use of the last unit is refused", async () => {
+    const w = await threadWorld();
+    const item = await w.sell({ type: "promote" }, { isConsumable: true });
+    const bought = await w.call("shop.buy", { itemId: item.id });
+    const inventoryId = bought.inventory.id as number;
+    await w.call("shop.use", { inventoryId, threadId: w.mine });
+    w.ctx.clock.advance(25 * 3_600_000);
+    await expect(w.call("shop.use", { inventoryId, threadId: w.mine })).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+    expect(w.ctx.sqlite.prepare("SELECT COUNT(*) AS n FROM thread_features").get()).toEqual({
+      n: 1,
+    });
+  });
+
+  test("a promotion is refused for a thread that is not the member's, not visible, locked or already featured, and keeps the unit", async () => {
+    const w = await threadWorld();
+    const { inventoryId } = await w.use({ type: "promote" });
+    const moderator = userActor(insertUser(w.ctx, { groupId: 3 }));
+    const theirs = (await w.threads(userActor(w.other))).thread.id;
+    const locked = (await w.threads()).thread.id;
+    const gone = (await w.threads()).thread.id;
+    const waiting = (await w.threads()).thread.id;
+    const picked = (await w.threads()).thread.id;
+    const promoted = (await w.threads()).thread.id;
+    await w.call("threads.setLocked", { threadId: locked, isLocked: true }, moderator);
+    await w.call("threads.delete", { threadId: gone }, moderator);
+    w.ctx.sqlite.prepare("UPDATE threads SET state = 'moderated' WHERE id = ?1").run(waiting);
+    await w.call("threads.setFeatured", { threadId: picked, isFeatured: true }, moderator);
+    await w.call("shop.use", { inventoryId, threadId: promoted });
+    const attempt = (threadId: number) => w.call("shop.use", { inventoryId, threadId });
+    await expect(attempt(theirs)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(attempt(gone)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(attempt(waiting)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(attempt(locked)).rejects.toBeInstanceOf(ConflictError);
+    await expect(attempt(picked)).rejects.toBeInstanceOf(ConflictError);
+    await expect(attempt(promoted)).rejects.toBeInstanceOf(ConflictError);
+    await expect(attempt(999999)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(w.call("shop.use", { inventoryId })).rejects.toBeInstanceOf(ValidationError);
+    expect(
+      w.ctx.sqlite
+        .prepare("SELECT quantity, state FROM shop_inventory WHERE id = ?1")
+        .get(inventoryId),
+    ).toEqual({ quantity: 1, state: "unused" });
+    expect(w.ctx.sqlite.prepare("SELECT thread_id FROM thread_features ORDER BY id").all()).toEqual(
+      [{ thread_id: picked }, { thread_id: promoted }],
+    );
+  });
+
+  test("a promotion is sold in units, and nothing is refunded when the thread is deleted later", async () => {
+    const w = await threadWorld();
+    await expect(w.sell({ type: "promote" }, { isConsumable: false })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    const { use } = await w.use({ type: "promote" }, { price: 25 });
+    await use();
+    const credits = () =>
+      w.ctx.sqlite
+        .prepare<{ credits: number }, [number]>("SELECT credits FROM users WHERE id = ?1")
+        .get(w.member.id)!.credits;
+    const spent = credits();
+    await w.call("threads.delete", { threadId: w.mine }, w.admin);
+    expect(credits()).toBe(spent);
+    expect((await w.call("feed.list", { scope: "hot" }, GUEST)).items).toEqual([]);
   });
 });
 

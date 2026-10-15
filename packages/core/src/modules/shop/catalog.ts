@@ -88,6 +88,8 @@ function validateItem(
   const effect = value.effect;
   if (effect.type === "usernameChange" && !value.isConsumable)
     throw new ValidationError("isConsumable: a username change is sold in units.");
+  if (effect.type === "promote" && !value.isConsumable)
+    throw new ValidationError("isConsumable: a promotion is sold in units.");
   if (effect.type === "nameIcon" && value.isConsumable)
     throw new ValidationError("isConsumable: a name icon is worn, not used up.");
   grantPermissions(ctx, actor, effect);

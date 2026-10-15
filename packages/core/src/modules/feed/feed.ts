@@ -2,11 +2,13 @@ import * as z from "zod";
 import { type Actor, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { type FeedItem, feedList, feedNewCount } from "../../contracts/feed";
+import type { FeatureKind } from "../../db/schema";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can } from "../../permissions";
 import { iso } from "../../time";
 import { repliableThreads, type ThreadRow, threadRowsByIds } from "../forums";
+import { activeFeatures, featureKinds, kindsOf } from "../forums/features";
 import {
   latestComments,
   mayViewProfile,
@@ -275,9 +277,26 @@ function acceptWall(ctx: Ctx, actor: Actor) {
   };
 }
 
-/** Builds the feed entries of the picked posts and wall posts, each reader loading once. */
-function build(ctx: Ctx, actor: Actor, picked: Picked[], threads: Map<number, ThreadRow>) {
+/**
+ * Builds the feed entries of the picked posts and wall posts, each reader loading once.
+ * `featured` says why threads are featured when the caller already knows (the hot list).
+ */
+function build(
+  ctx: Ctx,
+  actor: Actor,
+  picked: Picked[],
+  threads: Map<number, ThreadRow>,
+  featured?: Map<number, FeatureKind>,
+) {
   const postRows = picked.flatMap((item) => (item.kind === "post" ? [item.row] : []));
+  // Why each thread shown is featured: Hot already read it, the other scopes ask for the page.
+  const kinds =
+    featured ??
+    featureKinds(
+      ctx,
+      postRows.map((row) => row.thread_id),
+      ctx.now(),
+    );
   const wallRows = picked.flatMap((item) => (item.kind === "wall" ? [item.row] : []));
   const followed = followedAmong(
     ctx,
@@ -319,6 +338,7 @@ function build(ctx: Ctx, actor: Actor, picked: Picked[], threads: Map<number, Th
         createdAt: entry.post.createdAt,
         following,
         canReply: repliable.has(entry.thread.id),
+        featured: kinds.get(entry.thread.id) ?? null,
         thread: entry.thread,
         post: entry.post,
       },
@@ -435,32 +455,45 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
 
   if (scope === "hot") {
     const accept = acceptPosts(ctx, actor, nodes, threads);
-    const picked = firstSurvivors(
-      storedRanking(ctx, "hot", nodes),
+    // The opening posts of the threads in a chunk of stored rows that the viewer may see.
+    const loadOpenings = (chunk: { target_id: number }[]): Picked[] => {
+      for (const thread of threadRowsByIds(
+        ctx,
+        chunk.map((row) => row.target_id),
+      ))
+        threads.set(thread.id, thread);
+      const openings = chunk.flatMap((row) => {
+        const id = threads.get(row.target_id)?.first_post_id;
+        return id ? [id] : [];
+      });
+      const byId = new Map(
+        prepared(ctx, "feed.hotPosts", () =>
+          ctx.sqlite.prepare<PostCandidate, [string]>(feedSql.hotPosts),
+        )
+          .all(JSON.stringify(openings))
+          .map((row) => [row.id, row] as const),
+      );
+      const candidates = openings.flatMap((id) => byId.get(id) ?? []);
+      const passing = accept(candidates);
+      return candidates.filter((row) => passing.has(row)).map((row) => ({ kind: "post", row }));
+    };
+    // Featured threads come first, newest feature first, whatever their activity; the ranked
+    // threads follow without them. Both go through the same visibility filter.
+    const featured = kindsOf(activeFeatures(ctx, ctx.now()));
+    const pinned = firstSurvivors(
+      [...featured.keys()].map((id) => ({ target_id: id })),
       FEED_HOT_SIZE,
-      (chunk): Picked[] => {
-        for (const thread of threadRowsByIds(
-          ctx,
-          chunk.map((row) => row.target_id),
-        ))
-          threads.set(thread.id, thread);
-        const openings = chunk.flatMap((row) => {
-          const id = threads.get(row.target_id)?.first_post_id;
-          return id ? [id] : [];
-        });
-        const byId = new Map(
-          prepared(ctx, "feed.hotPosts", () =>
-            ctx.sqlite.prepare<PostCandidate, [string]>(feedSql.hotPosts),
-          )
-            .all(JSON.stringify(openings))
-            .map((row) => [row.id, row] as const),
-        );
-        const candidates = openings.flatMap((id) => byId.get(id) ?? []);
-        const passing = accept(candidates);
-        return candidates.filter((row) => passing.has(row)).map((row) => ({ kind: "post", row }));
-      },
+      loadOpenings,
     );
-    return { items: build(ctx, actor, picked, threads), nextCursor: null };
+    const ranked = firstSurvivors(
+      storedRanking(ctx, "hot", nodes).filter((row) => !featured.has(row.target_id)),
+      FEED_HOT_SIZE - pinned.length,
+      loadOpenings,
+    );
+    return {
+      items: build(ctx, actor, [...pinned, ...ranked], threads, featured),
+      nextCursor: null,
+    };
   }
 
   const batch = Math.max(input.limit, MIN_BATCH);

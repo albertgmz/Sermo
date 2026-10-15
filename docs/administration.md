@@ -431,6 +431,7 @@ short, none of it happens. Free items still create purchases but no credit ledge
 | `group` | Adds a secondary group while held. This is how to sell a paid rank; the item cannot be consumable. |
 | `frame`, `nameColor` | Store a frame key or a `#rrggbb` color; using the item only publishes `shop.item_used`. |
 | `threadCover`, `highlight`, `bump` | Store the effect; use needs `threadId`, a visible thread started by the member in a forum they can see, and only publishes `shop.item_used`. |
+| `promote` | A consumable. Use needs `threadId` (an unlocked, visible thread of the member, not already featured) and features it for 24 hours: listed in Hot whatever its activity and shown on the home page, marked as promoted. One unit is one promotion; nothing is refunded if the thread is deleted afterwards. |
 | `usernameChange` | Use needs the proposed name in `value` and only publishes `shop.item_used`. |
 
 Only `permission` and `group` apply now, as part of the purchase. The other effects are validated
@@ -538,7 +539,7 @@ moderation (deleting, approving, editing posts) is not rank-checked.
 
 | Permission | What it allows | Default |
 | --- | --- | --- |
-| `forum.manageReports`, `forum.approve`, `forum.deleteAny`, `forum.undelete`, `forum.editAny`, `forum.viewModerated`, `forum.viewDeleted`, `forum.viewHistory`, `forum.lock`, `forum.replyLocked`, `forum.stick`, `forum.move`, `forum.merge`, `forum.split`, `forum.threadBan`, `forum.bypassNodeRules`, `forum.viewLog` | Moderation inside a node (and the nodes beneath it) | Moderator, Administrator |
+| `forum.manageReports`, `forum.approve`, `forum.deleteAny`, `forum.undelete`, `forum.editAny`, `forum.viewModerated`, `forum.viewDeleted`, `forum.viewHistory`, `forum.lock`, `forum.replyLocked`, `forum.stick`, `forum.feature`, `forum.move`, `forum.merge`, `forum.split`, `forum.threadBan`, `forum.bypassNodeRules`, `forum.viewLog` | Moderation inside a node (and the nodes beneath it) | Moderator, Administrator |
 | `profilePost.approve`, `profilePost.deleteAny`, `profilePost.undelete`, `profilePost.editAny`, `profilePost.viewModerated`, `profilePost.viewDeleted` | Moderating profile posts and comments | Moderator, Administrator |
 | `report.manageProfiles` | Handling reports on profile content and on members | Moderator, Administrator |
 | `member.warn`, `member.restrict`, `warning.view` | Warnings and restrictions; reading anyone's warnings and restrictions | Moderator, Administrator |
@@ -622,8 +623,9 @@ the queue; edited content sent back to the queue notifies nobody.
   `unlock` up to 100 items at once. `move`, `lock` and `unlock` take threads only; `move` needs
   `forum.move` on the destination forum (`nodeId`) and on each thread's forum. If any item fails,
   nothing changes.
-- Per thread: `PUT /threads/{threadId}/sticky` (`forum.stick`), `PUT /threads/{threadId}/lock`
-  (`forum.lock`), `POST /threads/{threadId}/move` (`forum.move` on both forums). Replying in a
+- Per thread: `PUT /threads/{threadId}/sticky` (`forum.stick`), `PUT /threads/{threadId}/feature`
+  (`forum.feature`: a staff pick, listed in Hot and on the home page until it is ended),
+  `PUT /threads/{threadId}/lock` (`forum.lock`), `POST /threads/{threadId}/move` (`forum.move` on both forums). Replying in a
   locked thread needs `forum.replyLocked`.
 - `GET /posts/{postId}/revisions` (`postRevisions.list`, `forum.viewHistory`) shows earlier bodies
   of an edited post.

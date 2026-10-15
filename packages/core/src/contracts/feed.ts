@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { defineContract } from "../operation";
 import { Id, Page, pageInput, Timestamp } from "./common";
-import { Post, Thread } from "./forums";
+import { FeatureKind, Post, Thread } from "./forums";
 import { ProfilePost } from "./profiles";
 
 /*
@@ -23,7 +23,8 @@ export const PostInThread = z.object({ post: Post, thread: Thread }).meta({ id: 
  * `posts.create` would take a reply from the viewer in that thread, before it looks at the reply
  * itself: the reply permission, a thread ban, a locked thread and the forum's posting rules
  * (read-only, minimum account age and post count), as `threads.get` answers it. A wall post says
- * the same in `profilePost.canComment`.
+ * the same in `profilePost.canComment`. `featured` is why the thread is featured right now
+ * (`staff`, `paid`) or null, for the card's mark.
  */
 export const FeedItem = z
   .discriminatedUnion("type", [
@@ -32,6 +33,7 @@ export const FeedItem = z
       createdAt: Timestamp,
       following: z.boolean(),
       canReply: z.boolean(),
+      featured: FeatureKind.nullable(),
       thread: Thread,
       post: Post,
     }),
@@ -40,6 +42,7 @@ export const FeedItem = z
       createdAt: Timestamp,
       following: z.boolean(),
       canReply: z.boolean(),
+      featured: FeatureKind.nullable(),
       thread: Thread,
       post: Post,
     }),
@@ -74,9 +77,12 @@ export const feedList = defineContract({
     "opening post and its views, divided by its age (a gravity formula), and is not listed " +
     "before it has 3 replies or 3 reactions on its opening post. Threads hidden since the last " +
     "refresh are left out and replaced by the next best, as far as the stored ranking " +
-    "reaches. Threads of ignored members are left out. `top` is the former name of `hot` and " +
-    "is accepted as an alias for one release. A thread entry says whether the viewer may " +
-    "reply to it (`canReply`).",
+    "reaches. Featured threads (staff picks and paid promotions, see `threads.featured`) come " +
+    "first, newest feature first, whatever their activity, then the ranked threads without them, " +
+    "all within the same 50; they follow the same visibility rules. Threads of ignored " +
+    "members are left out. `top` is the former name of `hot` and is accepted as an alias for " +
+    "one release. A thread entry says whether the viewer may reply to it (`canReply`) and why " +
+    "it is featured, if it is (`featured`; `latest` and `following` mark features too).",
   kind: "read",
   input: z.object({ scope: z.enum([...FEED_SCOPES, "top"]).default("latest"), ...pageInput }),
   output: Page(FeedItem),
@@ -123,6 +129,29 @@ export const threadsRanked = defineContract({
     limit: z.number().int().min(1).max(20).default(10),
   }),
   output: z.object({ items: z.array(Thread) }),
+});
+
+export const FeaturedThread = z
+  .object({
+    kind: FeatureKind,
+    /** When the feature began. */
+    startedAt: Timestamp,
+    /** When it ends; null for a staff pick, which lasts until a moderator ends it. */
+    endsAt: Timestamp.nullable(),
+    thread: Thread,
+  })
+  .meta({ id: "FeaturedThread" });
+
+export const threadsFeatured = defineContract({
+  name: "threads.featured",
+  summary:
+    "The threads featured right now (staff picks, and paid promotions until their 24 hours " +
+    "end), newest feature first, limited to threads the viewer may open (same rules as the " +
+    "hot feed: forums the viewer can see, visible threads, authors the viewer does not ignore). " +
+    "For the home page. Public.",
+  kind: "read",
+  input: z.object({ limit: z.number().int().min(1).max(20).default(3) }),
+  output: z.object({ items: z.array(FeaturedThread) }),
 });
 
 export const threadsByAuthor = defineContract({

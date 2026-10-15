@@ -138,6 +138,8 @@
   "permission.forum.replyLocked.description": "Allows forum reply locked.",
   "permission.forum.stick": "forum stick",
   "permission.forum.stick.description": "Allows forum stick.",
+  "permission.forum.feature": "forum feature",
+  "permission.forum.feature.description": "Allows forum feature.",
   "permission.forum.move": "forum move",
   "permission.forum.move.description": "Allows forum move.",
   "permission.forum.manageReports": "forum manage reports",

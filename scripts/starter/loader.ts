@@ -26,7 +26,7 @@ type Effect =
   | { type: "group"; group: string }
   | { type: "highlight"; days: number }
   | { type: "permission"; permission: string; value?: number }
-  | { type: "bump" | "usernameChange" };
+  | { type: "bump" | "promote" | "usernameChange" };
 interface ItemData {
   category: string;
   name: string;

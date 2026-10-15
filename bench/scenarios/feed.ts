@@ -1,10 +1,27 @@
-import type { Scenario } from "../harness";
+import type { BenchEnv, Scenario } from "../harness";
 
 const choose = (values: number[], i: number) => values[i % values.length]!;
 
 let followingUserId = 0;
 let prefixedForumId = 0;
 let prefixId = 0;
+
+/**
+ * Thirty featured threads that the hot ranking would not list (no replies): two thirds staff
+ * picks, one third paid promotions with a day left. Removed again by `unfeature`.
+ */
+const feature = (env: BenchEnv) => {
+  env.ctx.sqlite.exec("DELETE FROM thread_features");
+  const now = env.ctx.now();
+  env.ctx.sqlite
+    .prepare(
+      "INSERT INTO thread_features (thread_id, kind, user_id, started_at, ends_at) SELECT id, CASE WHEN n % 3 = 0 THEN 'paid' ELSE 'staff' END, user_id, ?1 + n, CASE WHEN n % 3 = 0 THEN ?2 ELSE NULL END FROM (SELECT id, user_id, row_number() OVER (ORDER BY id DESC) AS n FROM threads WHERE state = 'visible' AND first_post_id IS NOT NULL AND reply_count = 0 LIMIT 30)",
+    )
+    .run(now, now + 86_400_000);
+};
+const unfeature = (env: BenchEnv) => {
+  env.ctx.sqlite.exec("DELETE FROM thread_features");
+};
 
 /**
  * The seeded data has no prefixes and no rankings (the ranking job reads only the last 30 days,
@@ -46,6 +63,35 @@ export const scenarios: Scenario[] = [
       );
     },
     run: (env, i) => env.call("feed.list", env.actors.member(i), { scope: "hot" }),
+  },
+  {
+    // The hot read with features: one more indexed read of the active features, their threads
+    // and opening posts loaded in the same chunks as the ranked ones.
+    name: "feed.list hot featured",
+    kind: "read",
+    setup(env) {
+      env.ctx.sqlite.exec("DELETE FROM rankings WHERE kind = hot");
+      env.ctx.sqlite.exec(
+        "INSERT INTO rankings (kind, node_id, position, target_id, score) SELECT hot, node_id, rank - 1, id, reply_count FROM (SELECT id, node_id, reply_count, row_number() OVER (PARTITION BY node_id ORDER BY reply_count DESC, id DESC) AS rank FROM threads WHERE state = visible AND first_post_id IS NOT NULL AND reply_count > 0) WHERE rank <= 100",
+      );
+      feature(env);
+    },
+    teardown: unfeature,
+    run: (env, i) => env.call("feed.list", env.actors.member(i), { scope: "hot" }),
+  },
+  {
+    name: "threads.featured home",
+    kind: "read",
+    setup: feature,
+    teardown: unfeature,
+    run: (env, i) => env.call("threads.featured", env.actors.member(i), { limit: 3 }),
+  },
+  {
+    name: "feed.list latest featured marks",
+    kind: "read",
+    setup: feature,
+    teardown: unfeature,
+    run: (env, i) => env.call("feed.list", env.actors.member(i), { limit: 20 }),
   },
   {
     name: "threads.ranked latestPosts",

@@ -48,6 +48,7 @@ import {
 import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { resolvedFileUrl } from "../storage/url";
+import { addFeature, endStaffFeature, featureKinds } from "./features";
 import { forumPrefixOperations, requireActivePrefix } from "./prefixes";
 import { nodeTabs, threadPresenter } from "./presentation";
 
@@ -984,6 +985,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
   const userId = actorUserId(actor);
   return {
     thread: threadValue(ctx, actor, row.id),
+    featured: featureKinds(ctx, [row.id], ctx.now()).get(row.id) ?? null,
     seo: { ...seoForThread(ctx, actor, row.id), redirect: targetId !== input.threadId },
     node: { id: node.id, title: node.title },
     watching:
@@ -1671,6 +1673,41 @@ export const threadsSetStickyOp = implement(contracts.threadsSetSticky, (ctx, ac
       {
         isSticky: input.isSticky,
       },
+      current.node_id,
+    );
+  });
+  return threadValue(ctx, actor, row.id);
+});
+export const threadsSetFeaturedOp = implement(contracts.threadsSetFeatured, (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  const { row } = requireThread(ctx, actor, input.threadId);
+  requirePermission(ctx, actor, "forum.feature", { nodeId: row.node_id });
+  writeTx(ctx, () => {
+    const moderator = currentActor(ctx, actor);
+    const current = requireThread(ctx, moderator, row.id).row;
+    requirePermission(ctx, moderator, "forum.feature", { nodeId: current.node_id });
+    const now = ctx.now();
+    if (input.isFeatured) {
+      if (current.state !== "visible")
+        throw new ConflictError("Only a visible thread can be featured.");
+      const picked = featureKinds(ctx, [row.id], now).get(row.id) === "staff";
+      if (picked) return;
+      addFeature(ctx, {
+        threadId: row.id,
+        kind: "staff",
+        userId: actorUserId(actor)!,
+        now,
+        endsAt: null,
+      });
+    } else if (!endStaffFeature(ctx, row.id, now)) return;
+    appendModeratorLog(
+      ctx,
+      actor,
+      "thread.feature",
+      "thread",
+      row.id,
+      input.reason,
+      { isFeatured: input.isFeatured },
       current.node_id,
     );
   });
@@ -2946,6 +2983,7 @@ export const operations = [
   threadsUpdateOp,
   threadsRemoveCoverOp,
   threadsSetStickyOp,
+  threadsSetFeaturedOp,
   threadsSetLockedOp,
   threadsMoveOp,
   threadsDeleteOp,

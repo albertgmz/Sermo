@@ -21,11 +21,15 @@ import { ImageReference } from "./images";
  * - `nameIcon`: an icon drawn before or after the member's name. The key is validated by shape
  *   only (the web app owns the icon set). Never consumable; a member wears one at a time.
  *
- * Three act on a visible thread the member started, when used with `shop.use` (which takes the
+ * Four act on a visible thread the member started, when used with `shop.use` (which takes the
  * thread), in the same transaction that takes the unit:
  * - `threadCover`: gives the thread that cover of the picture catalog (kind `thread_cover`).
  * - `highlight`: lists show the thread highlighted for `days` more days.
  * - `bump`: the thread sorts as if it had a post now.
+ * - `promote`: the thread is featured for 24 hours: listed in Hot whatever its activity (marked
+ *   as promoted) and shown on the home page. A consumable, one unit per promotion. The thread
+ *   must be unlocked and not already featured. Nothing is refunded when the thread is deleted
+ *   later or the promotion is cut short.
  *
  * And one is spent by another operation:
  * - `usernameChange`: one unit pays for one `users.changeUsername`. It is sold in units, so
@@ -49,6 +53,7 @@ export const ShopEffect = z
     z.object({ type: z.literal("threadCover"), coverId: Id }),
     z.object({ type: z.literal("highlight"), days: z.number().int().min(1).max(365) }),
     z.object({ type: z.literal("bump") }),
+    z.object({ type: z.literal("promote") }),
     z.object({ type: z.literal("usernameChange") }),
   ])
   .meta({ id: "ShopEffect" });
@@ -343,9 +348,11 @@ export const shopInventory = defineContract({
 export const shopUse = defineContract({
   name: "shop.use",
   summary:
-    "Use an item of your own inventory on a thread: `threadCover`, `highlight` and `bump` take " +
-    "`threadId`, a visible thread the member started, apply their effect to it and, for a " +
+    "Use an item of your own inventory on a thread: `threadCover`, `highlight`, `bump` and " +
+    "`promote` take `threadId`, a visible thread the member started, apply their effect to it and, for a " +
     "consumable, take one unit, all in one transaction (the last unit moves the row to `used`); " +
+    "`promote` refuses (a conflict, the unit kept) a locked thread or one that is already " +
+    "featured, and is a not found for a thread that is not the member's or not visible; " +
     "it also publishes `shop.item_used`. A consumable `permission` item is used without a " +
     "thread. Every other item cannot be used: `frame`, `nameColor` and `nameIcon` are worn with " +
     "appearance.set, `usernameChange` is spent by users.changeUsername, and `group` items and " +

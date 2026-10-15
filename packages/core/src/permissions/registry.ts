@@ -292,6 +292,8 @@ export const PERMISSIONS = {
   "forum.lock": nodeModerator(),
   "forum.replyLocked": nodeModerator(),
   "forum.stick": nodeModerator(),
+  /** Feature a thread as a staff pick (Hot and the home page), or end the pick. */
+  "forum.feature": nodeModerator(),
   "forum.move": nodeModerator(),
   "forum.manageReports": nodeModerator(),
   "forum.merge": nodeModerator(),

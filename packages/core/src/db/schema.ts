@@ -694,6 +694,43 @@ export const threads = sqliteTable(
   ],
 );
 
+/** Why a thread is featured: a moderator picked it, or its author paid for a promotion. */
+export const FEATURE_KINDS = ["staff", "paid"] as const;
+export type FeatureKind = (typeof FEATURE_KINDS)[number];
+
+/**
+ * A thread featured in Hot and on the home page. A feature counts while `ends_at` is null (a
+ * staff pick, until a moderator ends it by setting `ends_at`) or in the future (a paid promotion,
+ * 24 hours), so readers need no job to be correct. At most one staff pick per thread is active;
+ * a paid promotion is refused while the thread is featured at all. Ended rows are deleted by the
+ * rankings job once they are old.
+ */
+export const threadFeatures = sqliteTable(
+  "thread_features",
+  {
+    id: integer("id").primaryKey(),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => threads.id),
+    kind: text("kind", { enum: FEATURE_KINDS }).notNull(),
+    /** The moderator who picked it, or the member who paid. */
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    startedAt: integer("started_at").notNull(),
+    endsAt: integer("ends_at"),
+  },
+  (t) => [
+    // The active features: WHERE ends_at IS NULL OR ends_at > ?; also the cleanup of old rows.
+    index("thread_features_end").on(t.endsAt),
+    // The features of some threads: WHERE thread_id IN (...) AND (ends_at IS NULL OR ends_at > ?).
+    index("thread_features_thread").on(t.threadId, t.endsAt),
+    uniqueIndex("thread_features_staff")
+      .on(t.threadId)
+      .where(sql`kind = 'staff' AND ends_at IS NULL`),
+  ],
+);
+
 export const posts = sqliteTable(
   "posts",
   {

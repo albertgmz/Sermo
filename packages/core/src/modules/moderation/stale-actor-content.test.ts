@@ -27,6 +27,7 @@ const ACTIONS = [
   "forum.approve",
   "forum.lock",
   "forum.stick",
+  "forum.feature",
   "forum.move",
   "forum.split",
   "forum.merge",
@@ -109,6 +110,7 @@ async function scenario() {
   };
   const threads = {
     sticky: await thread("Sticky"),
+    feature: await thread("Feature"),
     lock: await thread("Lock"),
     move: await thread("Move"),
     delete: await thread("Delete"),
@@ -409,6 +411,16 @@ const attempts: Record<
     banned: N,
     sight: N,
   },
+  "threads.setFeatured": {
+    run: (ctx, actor, s) =>
+      execute(ctx, op("threads.setFeatured"), actor, {
+        threadId: s.threads.feature,
+        isFeatured: true,
+      }),
+    lost: F,
+    banned: N,
+    sight: N,
+  },
   "threads.setLocked": {
     run: (ctx, actor, s) =>
       execute(ctx, op("threads.setLocked"), actor, { threadId: s.threads.lock, isLocked: true }),
@@ -702,6 +714,7 @@ for (const [name, permission, thread] of [
   ["threads.setLocked", "forum.lock", "lock"],
   ["threads.delete", "forum.deleteAny", "delete"],
   ["threads.setSticky", "forum.stick", "sticky"],
+  ["threads.setFeatured", "forum.feature", "feature"],
 ] as const)
   test(`${name} judges the forum the thread was moved into meanwhile`, async () => {
     const s = await scenario();
@@ -716,7 +729,12 @@ for (const [name, permission, thread] of [
           .prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2")
           .run(s.nodeB.id, s.threads[thread]),
       );
-      const input = { threadId: s.threads[thread], isLocked: true, isSticky: true };
+      const input = {
+        threadId: s.threads[thread],
+        isLocked: true,
+        isSticky: true,
+        isFeatured: true,
+      };
       await expectRefused(s, execute(s.here, op(name), s.actor, input), F);
     } finally {
       s.database.close();

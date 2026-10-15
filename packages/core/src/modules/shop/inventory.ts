@@ -25,6 +25,7 @@ import {
 import { moveCredits } from "../../shared/credits";
 import { requireNotErased } from "../admin/erased";
 import { catalogImageById } from "../appearance";
+import { addFeature, featureKinds, PAID_FEATURE_MS } from "../forums/features";
 import { allAllowFor, allowedBy } from "./audience";
 import {
   category,
@@ -315,7 +316,10 @@ export const use = implement(contracts.shopUse, (ctx, actor, input) =>
     if (effect.type === "usernameChange")
       throw new ConflictError("Spend this item with users.changeUsername.");
     const needsThread =
-      effect.type === "threadCover" || effect.type === "highlight" || effect.type === "bump";
+      effect.type === "threadCover" ||
+      effect.type === "highlight" ||
+      effect.type === "bump" ||
+      effect.type === "promote";
     if (needsThread !== (input.threadId !== undefined))
       throw new ValidationError(
         needsThread ? "A thread is required." : "This item does not take a thread.",
@@ -326,6 +330,7 @@ export const use = implement(contracts.shopUse, (ctx, actor, input) =>
         node_id: number;
         state: string;
         merged_into_id: number | null;
+        is_locked: number;
       }>(ctx, shopSql.thread).get(input.threadId!);
       if (
         !thread ||
@@ -335,12 +340,17 @@ export const use = implement(contracts.shopUse, (ctx, actor, input) =>
       )
         throw new NotFoundError();
       requirePermission(ctx, current, "node.view", { nodeId: thread.node_id }, { notFound: true });
+      // A promotion of a locked thread would advertise one nobody can answer.
+      if (effect.type === "promote" && thread.is_locked)
+        throw new ConflictError("A locked thread cannot be promoted.");
     }
     // An inactive entry still applies, since the member paid for it; one without a picture
     // cannot be drawn.
     if (effect.type === "threadCover" && !catalogImageById(ctx, effect.coverId)?.image)
       throw new ConflictError("This cover has no picture yet.");
     const now = ctx.now();
+    if (effect.type === "promote" && featureKinds(ctx, [input.threadId!], now).has(input.threadId!))
+      throw new ConflictError("This thread is already featured.");
     // The expiry job marks a lapsed row up to a minute late: it cannot be used meanwhile.
     if (row.expires_at !== null && row.expires_at <= now)
       throw new ConflictError("This item has expired.");
@@ -357,7 +367,15 @@ export const use = implement(contracts.shopUse, (ctx, actor, input) =>
         releaseUnheldWear(ctx, member.userId);
       }
     } else if (row.state !== "active") throw new ConflictError("This item is not active.");
-    if (needsThread) {
+    if (effect.type === "promote")
+      addFeature(ctx, {
+        threadId: input.threadId!,
+        kind: "paid",
+        userId: member.userId,
+        now,
+        endsAt: now + PAID_FEATURE_MS,
+      });
+    else if (needsThread) {
       // The thread edit: no counter, last-post column or read state moves. A bump only sets
       // bumped_at, and the generated sort_at moves the thread by itself.
       statement(

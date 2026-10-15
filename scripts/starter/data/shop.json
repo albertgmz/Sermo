@@ -1452,6 +1452,17 @@
       }
     },
     {
+      "category": "Boosts",
+      "name": "Promote my thread for 24 h",
+      "description": "Feature one of your threads for a full day: it is listed first in Hot and shown on the home page, marked as promoted. Not refunded if the thread is deleted.",
+      "price": 1000,
+      "consumable": true,
+      "image": null,
+      "effect": {
+        "type": "promote"
+      }
+    },
+    {
       "category": "Permissions",
       "name": "Signature",
       "description": "Add a short signature that is shown under your posts.",

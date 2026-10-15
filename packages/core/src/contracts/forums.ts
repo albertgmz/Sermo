@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { NODE_TYPES, NODE_WATCH_MODES } from "../db/schema";
+import { FEATURE_KINDS, NODE_TYPES, NODE_WATCH_MODES } from "../db/schema";
 import { defineContract } from "../operation";
 import { Attachment, AttachmentIds } from "./attachments";
 import {
@@ -23,6 +23,9 @@ import { ImageReference } from "./images";
 import { SeoMetadata } from "./seo";
 
 export const NodeType = z.enum(NODE_TYPES);
+
+/** Why a thread is featured: `staff` (a moderator picked it) or `paid` (its author paid for 24 hours). */
+export const FeatureKind = z.enum(FEATURE_KINDS).meta({ id: "FeatureKind" });
 
 /** The prefix shown in front of a thread title. */
 export const ThreadPrefixTag = z
@@ -365,11 +368,13 @@ export const threadsGet = defineContract({
   summary:
     "One thread. Counts a view (buffered; never writes during the read) unless `countView` is " +
     "false, which edit and moderation pages send. For a signed-in viewer, `watching` says " +
-    "whether they watch the thread (null when they do not and for guests).",
+    "whether they watch the thread (null when they do not and for guests). `featured` is why " +
+    "the thread is featured right now, or null (a staff pick wins over a paid promotion).",
   kind: "read",
   input: z.object({ threadId: Id, countView: z.boolean().default(true) }),
   output: z.object({
     thread: Thread,
+    featured: FeatureKind.nullable(),
     seo: SeoMetadata,
     node: z.object({ id: Id, title: z.string() }),
     watching: z.object({ email: z.boolean() }).nullable(),
@@ -423,6 +428,20 @@ export const threadsSetSticky = defineContract({
   summary: "Stick or unstick a thread. Moderators only.",
   kind: "write",
   input: z.object({ ...moderationNotice, threadId: Id, isSticky: z.boolean() }),
+  output: Thread,
+});
+
+export const threadsSetFeatured = defineContract({
+  name: "threads.setFeatured",
+  summary:
+    "Feature or unfeature a thread as a staff pick. A featured thread is listed in Hot whatever " +
+    "its activity and shown on the home page, until a moderator unfeatures it. Requires " +
+    "forum.feature in the thread's forum. Only a visible thread can be featured (a conflict " +
+    "otherwise). Asking for the state the thread already has changes and logs nothing. A paid " +
+    "promotion is not touched: it runs to its end, and a staff pick may be added while one " +
+    "runs. Logged in the moderator log as `thread.feature` (`details.isFeatured`) with the reason; the author is not notified.",
+  kind: "write",
+  input: z.object({ threadId: Id, isFeatured: z.boolean(), reason: moderationNotice.reason }),
   output: Thread,
 });
 
