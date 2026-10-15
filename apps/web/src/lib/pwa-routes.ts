@@ -26,12 +26,40 @@ type Matched = {
   sameOrigin: boolean;
 };
 
+// A picture under that prefix is the data saver's business: the proxy answers it with a placeholder
+// while LITE mode is on, and the worker must neither keep that placeholder nor answer a real
+// picture from the cache once LITE is on. The extensions are those of `lite-images.ts`.
+const PICTURE =
+  /\.(?:avif|apng|bmp|gif|heic|heif|ico|jfif|jpe?g|png|svg|tiff?|webp)[. ]*$/i;
+
 // Registered for GET only, so a POST never reaches it.
 export function isStaticAsset({
   url,
   sameOrigin,
 }: Pick<Matched, "url" | "sameOrigin">) {
-  return sameOrigin && url.pathname.startsWith("/_next/static/");
+  return (
+    sameOrigin &&
+    url.pathname.startsWith("/_next/static/") &&
+    !PICTURE.test(decodeURIComponentSafe(url.pathname))
+  );
+}
+
+function decodeURIComponentSafe(path: string) {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
+}
+
+// Next sends its hashed files with `immutable` and the placeholder with `no-store`: only the first
+// is worth keeping for a month.
+export function isImmutable(response: {
+  headers: { get(name: string): string | null };
+}) {
+  return /(?:^|[\s,])immutable(?:$|[\s,])/i.test(
+    response.headers.get("cache-control") ?? "",
+  );
 }
 
 // The browser loading a page (a link followed, an address typed, a reload): `navigate`. Not what

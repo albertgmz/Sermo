@@ -9,6 +9,7 @@ import {
   ownedBy,
   type Storage,
 } from "../src/lib/consent/inventory";
+import { STATIC_CACHE } from "../src/lib/pwa-routes";
 import { exportedStrings, scanSource } from "./consent-scan";
 import { sourceFiles } from "./lite-scan";
 
@@ -262,4 +263,14 @@ test("every optional category lists what it stores, and every item has its words
   expect(Object.keys(en.items).sort()).toEqual(
     INVENTORY.map((item) => item.id).sort(),
   );
+});
+
+// The service worker's storage is not found by the scan above (it looks for cookies and
+// localStorage/sessionStorage writes): the names it uses are checked against the inventory here.
+test("the caches and the database of the service worker are in the inventory", () => {
+  expect(ownedBy("necessary", STATIC_CACHE, "cacheStorage")).toBe(true);
+  expect(
+    ownedBy("necessary", "serwist-precache-v2-https://x.test/", "cacheStorage"),
+  ).toBe(true);
+  expect(ownedBy("necessary", "serwist-expiration", "indexedDB")).toBe(true);
 });

@@ -34,7 +34,12 @@ export const CONSENT_COOKIE = "forum_consent";
 export const REFERRAL_COOKIE = "forum_ref";
 
 // Where a value lives. A name ending in `*` is a prefix (the part after it varies).
-export type Storage = "cookie" | "localStorage" | "sessionStorage";
+export type Storage =
+  | "cookie"
+  | "localStorage"
+  | "sessionStorage"
+  | "cacheStorage"
+  | "indexedDB";
 
 export type InventoryItem = {
   // Key of `items.<id>` in the cookies messages.
@@ -115,6 +120,25 @@ export const INVENTORY: readonly InventoryItem[] = [
     category: "necessary",
     storage: "localStorage",
     names: ["forum-stats-open", "forum-category-*", "styleguide-*"],
+    party: "first",
+  },
+  {
+    // The service worker (public/sw.js, registered in production) keeps the scripts, styles and
+    // fonts of the site so that pages load faster, and the offline page. It is strictly necessary
+    // in the sense the other items here are: it holds only the site's own public static files,
+    // no account data, no page and no identifier, and the site works without it. Nothing is read
+    // back to tell visitors apart. The registration itself is part of this item.
+    id: "offlineFiles",
+    category: "necessary",
+    storage: "cacheStorage",
+    names: ["sermo-static-*", "serwist-precache-*"],
+    party: "first",
+  },
+  {
+    id: "offlineFilesIndex",
+    category: "necessary",
+    storage: "indexedDB",
+    names: ["serwist-expiration"],
     party: "first",
   },
   {

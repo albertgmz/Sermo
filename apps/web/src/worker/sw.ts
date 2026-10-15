@@ -7,6 +7,7 @@ import {
 } from "serwist";
 import {
   deleteStaleCaches,
+  isImmutable,
   isPageNavigation,
   isStaticAsset,
   offlineFallback,
@@ -24,6 +25,8 @@ declare const self: {
   ): void;
 };
 
+// The install fails as a whole when /offline.html cannot be fetched (a deploy in progress, a
+// challenge page in front of the site); the browser tries again on a later visit.
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   // `cleanURLs` off: it would also answer `/offline` with the offline page.
@@ -33,14 +36,20 @@ const serwist = new Serwist({
   // from the old build and a worker from the new one never disagree about a file.
   skipWaiting: true,
   clientsClaim: true,
-  // The worker starts before a page can be asked for; this asks the network at the same time.
-  navigationPreload: true,
+  // No navigation preload: the browser would ask for a page before the worker decides, and
+  // for the navigations the worker leaves alone (a file opened in a tab) it would ask twice.
   runtimeCaching: [
     {
       matcher: isStaticAsset,
       handler: new CacheFirst({
         cacheName: STATIC_CACHE,
         plugins: [
+          // Only what the server says never changes: a placeholder or an error page that
+          // answered a static address is not kept.
+          {
+            cacheWillUpdate: async ({ response }) =>
+              isImmutable(response) ? response : null,
+          },
           new ExpirationPlugin({
             maxEntries: 200,
             maxAgeSeconds: 30 * 24 * 60 * 60,

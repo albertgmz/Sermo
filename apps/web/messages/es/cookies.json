@@ -48,7 +48,9 @@
     "storages": {
       "cookie": "Cookie",
       "localStorage": "Almacenamiento local",
-      "sessionStorage": "Almacenamiento de sesión"
+      "sessionStorage": "Almacenamiento de sesión",
+      "cacheStorage": "Almacenamiento en caché",
+      "indexedDB": "IndexedDB"
     },
     "cookielessNote": "Este sitio mide las visitas con Matomo en su modo sin cookies: no guarda ninguna cookie y no necesita tu consentimiento. Que eso se permita sin consentimiento varía según el país.",
     "noNames": "La pone el proveedor, no este sitio",
@@ -133,6 +135,16 @@
     "panels": {
       "title": "Paneles plegados",
       "purpose": "Recuerda qué categorías de foros y paneles plegaste.",
+      "lifetime": "Hasta que borres los datos del sitio en tu navegador."
+    },
+    "offlineFiles": {
+      "title": "Archivos del sitio guardados para ir más rápido",
+      "purpose": "Un pequeño ayudante (un service worker) guarda en tu dispositivo los scripts, estilos y fuentes del propio sitio para que las páginas carguen más rápido, y una página breve para cuando no tienes conexión. No guarda ninguna página, ningún dato de tu cuenta ni ningún identificador.",
+      "lifetime": "Cada archivo hasta 30 días, como máximo 200 archivos; la página sin conexión hasta que el sitio la cambie."
+    },
+    "offlineFilesIndex": {
+      "title": "Índice de archivos del sitio",
+      "purpose": "Recuerda cuándo se usó por última vez cada archivo guardado, para retirar los antiguos.",
       "lifetime": "Hasta que borres los datos del sitio en tu navegador."
     },
     "matomo": {

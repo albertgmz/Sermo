@@ -20,7 +20,11 @@ WORKDIR /app/apps/web
 # `output: "standalone"`: the build traces the files the server needs, including those of the
 # workspace packages in the repository root.
 ARG SERMO_API_URL=http://sermo:3000
+# Set to 1 to build the service worker that removes itself (docs/administration.md, "Retiring the
+# worker").
+ARG SERMO_RETIRE_WORKER=
 ENV SERMO_API_URL=${SERMO_API_URL} \
+    SERMO_RETIRE_WORKER=${SERMO_RETIRE_WORKER} \
     NEXT_PRIVATE_STANDALONE=true \
     NEXT_TELEMETRY_DISABLED=1
 RUN bun --bun run build

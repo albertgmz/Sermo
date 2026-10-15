@@ -7,8 +7,8 @@ type Workers = {
   ): Promise<unknown>;
 };
 
-// Asks the browser to run the service worker. Only a production build has a worker to run (in
-// development the route that builds it does not exist), and only a secure origin may have one:
+// Asks the browser to run the service worker. Only a production build has a worker to run
+// (`bun run build` writes public/sw.js; a development checkout has none), and only a secure origin may have one:
 // `https`, or `localhost`. A browser without service workers has nothing to register with. A
 // failed registration leaves the site as it was, so the answer is dropped. Returns whether the
 // browser was asked.

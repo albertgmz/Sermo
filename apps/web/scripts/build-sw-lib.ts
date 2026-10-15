@@ -13,6 +13,7 @@ import { build } from "esbuild";
 
 export const OFFLINE_FILE = "public/offline.html";
 export const WORKER_SOURCE = "src/worker/sw.ts";
+export const RETIRE_SOURCE = "src/worker/sw-retire.ts";
 export const WORKER_FILE = "public/sw.js";
 
 export function precacheManifest(root: string) {
@@ -23,10 +24,16 @@ export function precacheManifest(root: string) {
   return [{ url: "/offline.html", revision }];
 }
 
-// The worker script as text, for `root` (the folder of the web app).
-export async function bundleWorker(root: string) {
+// The worker script as text, for `root` (the folder of the web app). With `retire` it is the worker
+// that removes itself and what it kept (`docs/administration.md`, "Retiring the worker").
+// `alias` replaces modules, for a test that runs the bundle outside a browser.
+export async function bundleWorker(
+  root: string,
+  retire = false,
+  alias: Record<string, string> = {},
+) {
   const result = await build({
-    entryPoints: [join(root, WORKER_SOURCE)],
+    entryPoints: [join(root, retire ? RETIRE_SOURCE : WORKER_SOURCE)],
     bundle: true,
     // A classic script: every browser that has service workers can register one.
     format: "iife",
@@ -34,9 +41,12 @@ export async function bundleWorker(root: string) {
     target: "es2020",
     minify: true,
     write: false,
+    alias,
     define: {
       "process.env.NODE_ENV": '"production"',
-      "self.__SW_MANIFEST": JSON.stringify(precacheManifest(root)),
+      ...(retire
+        ? {}
+        : { "self.__SW_MANIFEST": JSON.stringify(precacheManifest(root)) }),
     },
   });
   return result.outputFiles[0].text;

@@ -1330,11 +1330,12 @@ mark when there is none (`/manifest.webmanifest`). The site reads them again wit
 change, but a device that already installed it keeps what it had until the system refreshes the
 manifest.
 
-A small service worker (`/sw.js`, a file bundled with the app by `bun run build`) is registered by production builds on `https` and
-`localhost`, once a page has loaded. It does two things only:
+A small service worker (`/sw.js`, a file `bun run build` bundles with the app) is registered by
+production builds on `https` and `localhost`, once a page has loaded. It does two things only:
 
-- It keeps the scripts, styles and fonts of the build (`/_next/static/`, named by their content,
-  so they never change) and serves them from the device first, at most 200 files for 30 days.
+- It keeps the scripts, styles and fonts of the build (`/_next/static/`, named by their content, so
+  they never change; pictures are left out, the data saver decides those) and serves them from the
+  device first, at most 200 files for 30 days.
 - When a page cannot be loaded because the device has no connection, it shows a short page in
   English and Spanish with a button to try again. This page is kept from the first visit
   (`/offline.html`).
@@ -1343,10 +1344,25 @@ Pages, the API, files, uploads and everything a member writes always go to the n
 never kept: there is no offline reading, no background sync and no push (the worker has no handler
 for the Web Push messages described above). A new deploy takes effect on the next visit: the
 browser checks the worker script every time, a new worker replaces the old one at once, and it
-drops the caches of an older version. To clear what a device holds, use the browser's site
-settings (clear site data) or unregister the worker in its developer tools; to drop a cache for
-every device after changing what the worker keeps, raise the version in `STATIC_CACHE`
-(`apps/web/src/lib/pwa-routes.ts`).
+drops the caches of an older version.
+
+What the worker keeps in a browser (the worker itself, Cache Storage `sermo-static-*` and
+`serwist-precache-*`, and the IndexedDB database `serwist-expiration`) is listed on the cookie
+policy page as strictly necessary: it holds only the site's own public files, no account data and
+no identifier, and the site works without it. A visitor clears it with the browser's site data.
+Changing what is kept or why is a reason to raise the policy version (**Ask everyone again**, see "Cookie banner and consent").
+
+### Retiring the worker
+
+If the worker ever misbehaves, deploy a build whose `/sw.js` removes it: set `SERMO_RETIRE_WORKER=1`
+for the build (`docker compose build --build-arg SERMO_RETIRE_WORKER=1 web`, or the variable in
+the environment of `bun run build`). That `sw.js` has no fetch handling at all: a browser that has
+the real worker finds it on its next visit (it checks the script every time), installs it at once,
+and it deletes the `sermo-` and `serwist-` caches and the `serwist-expiration` database and
+unregisters itself. Keep that build deployed for at least a month, so devices that come back
+rarely are caught, and only then remove `<WorkerRegistration />` from the layout and the worker's
+files: removing them first leaves the workers already installed in place. Rebuild without the
+variable to bring the worker back.
 
 ## Formatting for members
 

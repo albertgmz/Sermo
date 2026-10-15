@@ -48,7 +48,9 @@
     "storages": {
       "cookie": "Cookie",
       "localStorage": "Local storage",
-      "sessionStorage": "Session storage"
+      "sessionStorage": "Session storage",
+      "cacheStorage": "Cache storage",
+      "indexedDB": "IndexedDB"
     },
     "noNames": "Set by the provider, not by this site",
     "cookielessNote": "This site measures visits with Matomo in its cookieless mode: it sets no cookie and does not need your consent. Whether that is allowed without consent varies by country.",
@@ -133,6 +135,16 @@
     "panels": {
       "title": "Collapsed panels",
       "purpose": "Remembers which forum categories and panels you folded.",
+      "lifetime": "Until you clear your browser's site data."
+    },
+    "offlineFiles": {
+      "title": "Site files kept for speed",
+      "purpose": "A small helper (a service worker) keeps the site's own scripts, styles and fonts on your device so pages load faster, and a short offline page for when you have no connection. It keeps no page, no account data and no identifier.",
+      "lifetime": "Each file up to 30 days, at most 200 files; the offline page until the site changes it."
+    },
+    "offlineFilesIndex": {
+      "title": "Site files index",
+      "purpose": "Remembers when each kept file was last used, so that old ones are removed.",
       "lifetime": "Until you clear your browser's site data."
     },
     "matomo": {

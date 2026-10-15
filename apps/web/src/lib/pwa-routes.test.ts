@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
   deleteStaleCaches,
+  isImmutable,
   isPageNavigation,
   isStaticAsset,
   OFFLINE_URL,
@@ -110,26 +111,31 @@ test("the offline page is a file the worker can keep, in both languages", () => 
   expect(page).not.toMatch(/<(?:link|img)\b|src=|href=/);
 });
 
-// The worker's wiring is Serwist's, which only runs in a browser: the file is read for the rules
-// the brief fixes.
-test("the worker keeps to its few rules", () => {
-  const worker = readFileSync(
-    new URL("../worker/sw.ts", import.meta.url),
-    "utf8",
-  );
-  // Static files and page loads are the only routes; none names a method, so each is GET only.
-  expect(worker).toContain("matcher: isStaticAsset");
-  expect(worker).toContain("matcher: isPageNavigation");
-  expect(worker.match(/matcher:/g)).toHaveLength(2);
-  expect(worker).not.toMatch(/\bmethod\s*:/);
-  // A page load goes to the network as it is; only its failure is answered.
-  expect(worker).toMatch(/isPageNavigation, handler: new NetworkOnly\(\)/);
-  expect(worker).toContain("fallbacks: { entries: [offlineFallback] }");
-  // Taking over deletes the caches of an older version.
-  expect(worker).toMatch(
-    /addEventListener\("activate"[\s\S]*deleteStaleCaches\(caches\)/,
-  );
-  // No push and no background sync.
-  const code = worker.replace(/\/\/.*$/gm, "");
-  expect(code).not.toMatch(/\bpush\b|\bsync\b|BackgroundSync/i);
+test("a picture under the build's folder is left to the browser, as the data saver answers it", () => {
+  for (const path of [
+    "/_next/static/media/logo.png",
+    "/_next/static/media/Logo.SVG",
+    "/_next/static/media/a.webp",
+    "/_next/static/media/a.png.",
+    "/_next/static/media/a%2Epng",
+  ])
+    expect(isStaticAsset(here(path)), path).toBe(false);
+  expect(isStaticAsset(here("/_next/static/media/inter.woff2"))).toBe(true);
+});
+
+test("only what the server calls immutable is worth keeping", () => {
+  const answer = (cacheControl?: string) =>
+    new Response(
+      "",
+      cacheControl ? { headers: { "cache-control": cacheControl } } : {},
+    );
+  expect(isImmutable(answer("public, max-age=31536000, immutable"))).toBe(true);
+  expect(isImmutable(answer("immutable"))).toBe(true);
+  for (const value of [
+    "no-store",
+    "public, max-age=0",
+    "max-age=3, notimmutable",
+    undefined,
+  ])
+    expect(isImmutable(answer(value)), String(value)).toBe(false);
 });
