@@ -30,7 +30,7 @@ import {
   resolvedPermissions,
   viewableNodeIds,
 } from "../../permissions";
-import { storeContentReferences, storeSpoilers } from "../../render";
+import { bbCodeText, storeContentReferences, storeSpoilers } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
@@ -1405,8 +1405,10 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
         )
         .get(thread.id, user.userId, now)!;
       forumDb(ctx)
-        .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
-        .run(post.id, refs.source, html);
+        .prepare(
+          "INSERT INTO post_bodies (post_id, body_source, body_html, body_text) VALUES (?1, ?2, ?3, ?4)",
+        )
+        .run(post.id, refs.source, html, bbCodeText(refs.source));
       storeContentReferences(ctx, "post", post.id, refs);
       storeSpoilers(ctx, "post", post.id, refs.spoilers);
       setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
@@ -1484,8 +1486,10 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
         )
         .get(row.id, user.userId, position, state, now)!;
       forumDb(ctx)
-        .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
-        .run(post.id, refs.source, html);
+        .prepare(
+          "INSERT INTO post_bodies (post_id, body_source, body_html, body_text) VALUES (?1, ?2, ?3, ?4)",
+        )
+        .run(post.id, refs.source, html, bbCodeText(refs.source));
       storeContentReferences(ctx, "post", post.id, refs);
       storeSpoilers(ctx, "post", post.id, refs.spoilers);
       setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
@@ -1634,8 +1638,10 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
     setAttachments(ctx, actorUserId(actor)!, "post", post.id, input.attachmentIds);
     validateEmbeddedAttachments(ctx, "post", post.id, html);
     forumDb(ctx)
-      .prepare("UPDATE post_bodies SET body_source = ?1, body_html = ?2 WHERE post_id = ?3")
-      .run(refs.source, html, post.id);
+      .prepare(
+        "UPDATE post_bodies SET body_source = ?1, body_html = ?2, body_text = ?3 WHERE post_id = ?4",
+      )
+      .run(refs.source, html, bbCodeText(refs.source), post.id);
     const { newlyMentioned } = storeContentReferences(ctx, "post", post.id, refs);
     storeSpoilers(ctx, "post", post.id, refs.spoilers);
     if (decision.moderated) moderateEditedContent(ctx, moderator, { type: "post", id: post.id });

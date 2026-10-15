@@ -920,10 +920,12 @@ export const postBodies = sqliteTable("post_bodies", {
   postId: integer("post_id")
     .primaryKey()
     .references(() => posts.id),
-  /** Markdown source as written by the author. */
+  /** BB code source as written by the author. */
   bodySource: text("body_source").notNull(),
   /** Sanitized HTML rendered from bodySource at write time. */
   bodyHtml: text("body_html").notNull(),
+  /** The source without its tags, for the search index (empty: the index reads the source). */
+  bodyText: text("body_text").notNull().default(""),
 });
 
 export const threadReads = sqliteTable(
