@@ -37,6 +37,10 @@ const MEASURED = new Set([
   "holds_awards",
   "thread_banned",
   "banned_before",
+  "reactions_given_by_type",
+  "reactions_received_by_type",
+  "most_reacted_post",
+  "quoted_by_others",
 ]);
 
 const entry = (
@@ -137,6 +141,18 @@ export const CRITERIA: Criterion[] = [
   entry("moderator_actions", "atLeast", "count", { cost: "background" }),
   entry("days_since_last_post", "atLeast", "days", { cost: "background" }),
   entry("mentioned_by_others", "atLeast", "count", { cost: "background" }),
+  entry("quoted_by_others", "atLeast", "count", { cost: "background" }),
+  entry("reactions_given_by_type", "atLeast", "count", {
+    cost: "background",
+    idKind: "reactionTypes",
+    modes: ["all", "one", "each"],
+  }),
+  entry("reactions_received_by_type", "atLeast", "count", {
+    cost: "background",
+    idKind: "reactionTypes",
+    modes: ["all", "one", "each"],
+  }),
+  entry("most_reacted_post", "atLeast", "count"),
   entry("referrals_at_least", "atLeast", "count"),
   entry("was_referred", "boolean", "boolean"),
   entry("referrals_this_month", "atLeast", "count", { cost: "background" }),

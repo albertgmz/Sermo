@@ -371,6 +371,7 @@ export function StaffDemos() {
                   awards: [{ id: 1, label: "Veteran" }],
                   shopCategories: [],
                   creditRules: [],
+                  reactionTypes: [{ id: 1, label: "Like" }],
                 }}
               />
             </div>

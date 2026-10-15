@@ -39,6 +39,7 @@ export type RuleChoices = {
   awards: Choice[];
   shopCategories: Choice[];
   creditRules: Choice[];
+  reactionTypes: Choice[];
 };
 
 // The search of threads the builder is given (a server action of the page that draws it).
@@ -119,6 +120,7 @@ export function RuleBuilder({
     awards: choices.awards.length > 0,
     shopCategories: choices.shopCategories.length > 0,
     creditRules: choices.creditRules.length > 0,
+    reactionTypes: choices.reactionTypes.length > 0,
   };
   const offered = offeredCriteria(criteria, place, available);
   const title = (criterion: string) =>
@@ -333,6 +335,10 @@ function Control({
       options: choices.shopCategories,
     },
     creditRules: { known: choices.creditRules, options: choices.creditRules },
+    reactionTypes: {
+      known: choices.reactionTypes,
+      options: choices.reactionTypes,
+    },
     members: { known: choices.members, search: searchMembers },
     threads: { known: choices.threads, search: searchThreads },
   };

@@ -21,6 +21,7 @@ const everything = {
   awards: true,
   shopCategories: true,
   creditRules: true,
+  reactionTypes: true,
 };
 const ids = (place: Place, available = everything) =>
   offeredCriteria(CRITERIA, place, available).map((entry) => entry.id);
@@ -61,6 +62,7 @@ test("a criterion that needs something to choose is not offered when there is no
     awards: false,
     shopCategories: false,
     creditRules: false,
+    reactionTypes: false,
   };
   const without = ids("promotion", nothing);
   for (const id of [
@@ -72,6 +74,8 @@ test("a criterion that needs something to choose is not offered when there is no
     "bought_in_category",
     "holds_awards",
     "credits_from_rule",
+    "reactions_given_by_type",
+    "reactions_received_by_type",
   ])
     expect(without, id).not.toContain(id);
   // Members and threads are searched, never chosen from a list held in the page.
@@ -81,10 +85,24 @@ test("a criterion that needs something to choose is not offered when there is no
   expect(ids("promotion", { ...nothing, awards: true })).toContain(
     "holds_awards",
   );
+  expect(ids("promotion", { ...nothing, reactionTypes: true })).toContain(
+    "reactions_given_by_type",
+  );
   expect(ids("promotion", { ...nothing, items: true })).toContain("owns_item");
   expect(ids("promotion", { ...nothing, items: true })).not.toContain(
     "bought_in_category",
   );
+});
+
+test("the reaction criteria: the best post is cheap, the counts by type are background, and none is offered to a reaction type", () => {
+  // Counted by type: history, so promotions and awards only.
+  for (const place of ["notice", "shopItem", "reactionType"] as const)
+    expect(ids(place)).not.toContain("reactions_given_by_type");
+  expect(ids("promotion")).toContain("reactions_received_by_type");
+  // The best post is one seek: allowed where only cheap criteria are, but it measures history,
+  // which a reaction type's rule may not.
+  expect(ids("shopItem")).toContain("most_reacted_post");
+  expect(ids("reactionType")).not.toContain("most_reacted_post");
 });
 
 test("an empty rule means everyone, manual only for an award, and is refused for a promotion", () => {

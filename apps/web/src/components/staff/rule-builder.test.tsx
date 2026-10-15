@@ -17,6 +17,7 @@ const choices = {
   awards: [{ id: 2, label: "Veteran" }],
   shopCategories: [{ id: 3, label: "Frames" }],
   creditRules: [{ id: 6, label: "Daily visit" }],
+  reactionTypes: [{ id: 3, label: "Insightful" }],
 };
 const nothing: Rule = { match: "all", conditions: [] };
 
@@ -87,6 +88,7 @@ test("without awards, credit rules, shop categories or items, the criteria that 
     draw("promotion", nothing, {
       awards: [],
       creditRules: [],
+      reactionTypes: [],
       shopCategories: [],
       items: [],
     }),
@@ -94,6 +96,8 @@ test("without awards, credit rules, shop categories or items, the criteria that 
   for (const id of [
     "holds_awards",
     "credits_from_rule",
+    "reactions_given_by_type",
+    "reactions_received_by_type",
     "bought_in_category",
     "owns_item",
     "wears_item",
@@ -148,6 +152,31 @@ test("a list condition draws its chosen names, a number, the mode and the window
   expect(html).toMatch(/: Look back this many days"[^>]*value="30"/);
   expect(html.split(': Look back this many days"').length - 1).toBe(2);
   expect(html).toContain(`max="${LIMITS.days}"`);
+});
+
+test("a reaction count by type draws the chosen type's name, a number and the mode, and is sent back as it was", () => {
+  const rule: Rule = {
+    match: "all",
+    conditions: [
+      {
+        criterion: "reactions_given_by_type",
+        ids: [3],
+        value: 10,
+        mode: "each",
+      },
+      { criterion: "reactions_received_by_type", ids: [3, 77], value: 5 },
+      { criterion: "most_reacted_post", value: 20 },
+    ],
+  };
+  const html = draw("promotion", rule);
+  // The type by name, and one the page has no name for by its number.
+  expect(html).toContain("Insightful");
+  expect(html).toContain("#77");
+  expect(html).toContain(
+    '<option value="each" selected="">Each of them</option>',
+  );
+  expect(html.split(': How the list is read"').length - 1).toBe(2);
+  expect(sent(html)).toEqual(rule);
 });
 
 test("a rule with the new conditions is sent back as it was, in order", () => {

@@ -48,6 +48,7 @@ export type Available = {
   awards: boolean;
   shopCategories: boolean;
   creditRules: boolean;
+  reactionTypes: boolean;
 };
 
 // What a criterion takes in a condition, from the backend's definition: a number (everything but a
@@ -74,6 +75,8 @@ const choosable = (criterion: Criterion, available: Available) => {
       return available.shopCategories;
     case "creditRules":
       return available.creditRules;
+    case "reactionTypes":
+      return available.reactionTypes;
     default:
       return true;
   }

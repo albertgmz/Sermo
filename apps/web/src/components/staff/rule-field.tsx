@@ -105,7 +105,7 @@ export async function RuleField({
     getRuleKit(),
     shopChoices(),
   ]);
-  const { items: criteria, groups, awards, creditRules } = kit;
+  const { items: criteria, groups, awards, creditRules, reactionTypes } = kit;
   const named = (idKind: string) => {
     const kinds = new Set(
       criteria.filter((entry) => entry.idKind === idKind).map(({ id }) => id),
@@ -134,6 +134,7 @@ export async function RuleField({
       .map(titled),
     shopCategories: shop.categories,
     creditRules: creditRules.map(titled),
+    reactionTypes: reactionTypes.map(titled),
   };
   return (
     <FieldRow name={name} label={t(`label.${place}`)} help={t(`help.${place}`)}>
