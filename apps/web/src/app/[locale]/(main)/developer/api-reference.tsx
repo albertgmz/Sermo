@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { forBrowser, SPEC_PATH } from "./prepare-spec";
+import { forBrowser, SPEC_PATH, withJsonType } from "./prepare-spec";
 
 type Labels = {
   region: string;
@@ -69,7 +69,10 @@ function Reference({ labels, retry }: { labels: Labels; retry: () => void }) {
         // The library's default asks swagger.io to validate the document.
         validatorUrl: null,
         persistAuthorization: false,
+        // Not the same as "no cookies": a request to this site always carries the visitor's own
+        // session cookie. This only concerns requests to other origins, and there are none.
         withCredentials: false,
+        requestInterceptor: withJsonType,
       });
       setState("ready");
     })().catch(() => {
@@ -77,7 +80,6 @@ function Reference({ labels, retry }: { labels: Labels; retry: () => void }) {
     });
     return () => {
       controller.abort();
-      node.replaceChildren();
     };
   }, []);
 

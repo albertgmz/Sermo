@@ -65,3 +65,24 @@ export function forBrowser(spec: Json, origin: string): Json {
     },
   };
 }
+
+// The part of a Try it out request that is changed here.
+type TryItRequest = {
+  method?: string;
+  body?: unknown;
+  headers?: Record<string, string>;
+};
+
+// A write that carries a session cookie must say it is JSON, even when it has no body (a DELETE
+// with only a path parameter): the API answers 415 otherwise. Swagger UI sends no Content-Type for
+// such a request, so one is added. A request with a body (a JSON one, or a multipart upload whose
+// boundary the browser sets) keeps its own.
+export function withJsonType<T extends TryItRequest>(request: T): T {
+  const writes = !/^(?:get|head|options)$/i.test(request.method ?? "GET");
+  const typed = Object.keys(request.headers ?? {}).some(
+    (name) => name.toLowerCase() === "content-type",
+  );
+  if (!writes || typed || request.body) return request;
+  request.headers = { ...request.headers, "Content-Type": "application/json" };
+  return request;
+}

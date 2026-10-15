@@ -4,7 +4,10 @@ import { join, relative } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { IntlProvider } from "use-intl";
 import { DeveloperIntro } from "../src/app/[locale]/(main)/developer/intro";
-import { forBrowser } from "../src/app/[locale]/(main)/developer/prepare-spec";
+import {
+  forBrowser,
+  withJsonType,
+} from "../src/app/[locale]/(main)/developer/prepare-spec";
 import type { Locale } from "../src/i18n/locales";
 import { messagesFor } from "../src/i18n/messages";
 import { LOCALE_DIRS } from "./locales";
@@ -111,7 +114,13 @@ test("the page names no other address in its scripts, styles or configuration", 
   // The library's own default asks swagger.io to validate the document.
   expect(reference).toContain("validatorUrl: null");
   // The specification is the site's own, and nothing is kept by the page.
-  expect(reference).toContain("SPEC_PATH");
+  expect(reference).toContain(
+    'fetch(SPEC_PATH, { signal, credentials: "omit" })',
+  );
+  // The address stays the page's own, and the library reads no configuration from it.
+  expect(reference).toContain("deepLinking: false");
+  expect(reference).toContain("withCredentials: false");
+  expect(reference).not.toMatch(/queryConfigEnabled|configUrl|urls:/);
   expect(reference).not.toMatch(
     /localStorage|sessionStorage|persistAuthorization: true/,
   );
@@ -220,4 +229,76 @@ test("a document without components or paths still gets the site as its server",
     paths: {},
     components: { securitySchemes: {} },
   });
+});
+
+test("the real shape of the specification: the session cookies go, the key and the sign-in service stay", () => {
+  const real = {
+    paths: {
+      "/api/v1/threads": {
+        post: {
+          security: [
+            { sessionCookie: [] },
+            { secureSessionCookie: [] },
+            { bearerApiKey: [] },
+          ],
+        },
+      },
+      "/api/auth/sign-in/email": { post: { security: [{ bearerAuth: [] }] } },
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: { type: "http", scheme: "bearer" },
+        sessionCookie: {
+          type: "apiKey",
+          in: "cookie",
+          name: "sermo.session_token",
+        },
+        secureSessionCookie: {
+          type: "apiKey",
+          in: "cookie",
+          name: "__Secure-sermo.session_token",
+        },
+        bearerApiKey: { type: "http", scheme: "bearer" },
+      },
+    },
+  };
+  const shown = forBrowser(real, "http://localhost:3000") as typeof real;
+  expect(Object.keys(shown.components.securitySchemes)).toEqual([
+    "bearerAuth",
+    "bearerApiKey",
+  ]);
+  expect(shown.paths["/api/v1/threads"].post.security).toEqual([
+    { bearerApiKey: [] },
+  ]);
+  expect(shown.paths["/api/auth/sign-in/email"].post.security).toEqual([
+    { bearerAuth: [] },
+  ]);
+});
+
+test("a write without a body says it is JSON, and nothing else is changed", () => {
+  // A DELETE with only a path parameter: the API answers 415 to a cookie request without it.
+  expect(
+    withJsonType({ method: "DELETE", headers: { Accept: "*/*" } }),
+  ).toEqual({
+    method: "DELETE",
+    headers: { Accept: "*/*", "Content-Type": "application/json" },
+  });
+  const post: Parameters<typeof withJsonType>[0] = { method: "POST" };
+  expect(withJsonType(post).headers).toEqual({
+    "Content-Type": "application/json",
+  });
+  // A body (JSON, or an upload whose boundary the browser sets), a type already named, and
+  // reads are left alone.
+  const untouched: Parameters<typeof withJsonType>[0][] = [
+    { method: "POST", body: "{}", headers: {} },
+    { method: "POST", body: new FormData(), headers: {} },
+    { method: "PUT", headers: { "content-type": "text/plain" } },
+    { method: "GET", headers: {} },
+    { method: "head" },
+    {},
+  ];
+  for (const request of untouched) {
+    const before = JSON.stringify(request.headers ?? null);
+    expect(JSON.stringify(withJsonType(request).headers ?? null)).toBe(before);
+  }
 });
