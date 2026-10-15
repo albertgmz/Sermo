@@ -399,3 +399,24 @@ export function changeCommentCount(ctx: Ctx, postId: number, delta: number) {
     ),
   ).run(postId, delta);
 }
+
+/** Whether the actor may edit a wall post or comment its author wrote. */
+export function mayEditWallContent(ctx: Ctx, actor: Actor, authorId: number): boolean {
+  return (
+    can(ctx, actor, "profilePost.editAny") ||
+    can(ctx, actor, "profilePost.editOwn", { ownerId: authorId })
+  );
+}
+/** Whether the actor may delete a wall post or comment its author wrote on a member's wall. */
+export function mayDeleteWallContent(
+  ctx: Ctx,
+  actor: Actor,
+  authorId: number,
+  wallOwnerId: number,
+): boolean {
+  return (
+    can(ctx, actor, "profilePost.deleteAny") ||
+    can(ctx, actor, "profilePost.deleteOwn", { ownerId: authorId }) ||
+    can(ctx, actor, "profilePost.manageOwnWall", { ownerId: wallOwnerId })
+  );
+}

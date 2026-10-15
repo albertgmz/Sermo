@@ -14,7 +14,7 @@ import { ConflictError, ForbiddenError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, permissionsOf, requirePermission } from "../../permissions";
+import { can, currentActor, permissionsOf, requirePermission } from "../../permissions";
 import { renderContent, storeContentReferences, storeSpoilers } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
 import {
@@ -31,6 +31,8 @@ import {
   commentValue,
   commentValues,
   mayCommentOnWall,
+  mayDeleteWallContent,
+  mayEditWallContent,
   requireComment,
   requirePost,
   touchProfile,
@@ -125,17 +127,15 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
 export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { comment, post } = requireComment(ctx, actor, input.commentId);
-  if (
-    !can(ctx, actor, "profilePost.editAny") &&
-    !can(ctx, actor, "profilePost.editOwn", { ownerId: comment.user_id })
-  )
-    throw new ForbiddenError();
+  if (!mayEditWallContent(ctx, actor, comment.user_id)) throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
   const refs = renderContent(ctx, actor, content.source, {
     edit: { contentType: "profile_post_comment", contentId: comment.id, authorId: comment.user_id },
   });
   const html = refs.html;
   writeTx(ctx, () => {
+    const fresh = currentActor(ctx, actor);
+    if (!mayEditWallContent(ctx, fresh, comment.user_id)) throw new ForbiddenError();
     const decision = prepareModeratedContent(ctx, actor, input.body, false);
     if (decision.source !== content.source)
       throw new ConflictError("Moderation rules changed; retry.");
@@ -152,7 +152,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
     );
     storeSpoilers(ctx, "profile_post_comment", comment.id, refs.spoilers);
     if (decision.moderated)
-      moderateEditedContent(ctx, actor, { type: "profile_post_comment", id: comment.id });
+      moderateEditedContent(ctx, fresh, { type: "profile_post_comment", id: comment.id });
     if (comment.state === "visible") touchProfile(ctx, post.profile_user_id);
     publishEvent(ctx, {
       type: "content.edited",
@@ -160,7 +160,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
       targetId: comment.id,
       payload: { ...noticeForOther(actor, comment.user_id, input), newlyMentioned },
     });
-    if (can(ctx, actor, "profilePost.editAny"))
+    if (can(ctx, fresh, "profilePost.editAny"))
       appendModeratorLog(ctx, actor, "profile_comment.edit", "profile_post_comment", comment.id);
   });
   return profileCommentsGetOp.run(ctx, actor, input);
@@ -168,13 +168,12 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
 export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { comment, post } = requireComment(ctx, actor, input.commentId);
-  if (
-    !can(ctx, actor, "profilePost.deleteAny") &&
-    !can(ctx, actor, "profilePost.deleteOwn", { ownerId: comment.user_id }) &&
-    !can(ctx, actor, "profilePost.manageOwnWall", { ownerId: post.profile_user_id })
-  )
+  if (!mayDeleteWallContent(ctx, actor, comment.user_id, post.profile_user_id))
     throw new ForbiddenError();
   writeTx(ctx, () => {
+    const fresh = currentActor(ctx, actor);
+    if (!mayDeleteWallContent(ctx, fresh, comment.user_id, post.profile_user_id))
+      throw new ForbiddenError();
     const current = prepared(ctx, "profiles.commentState", () =>
       ctx.sqlite.prepare<{ state: CommentRow["state"] }, [number]>(
         "SELECT state FROM profile_post_comments WHERE id = ?1",
@@ -199,7 +198,7 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
           ...noticeForOther(actor, comment.user_id, input),
         },
       });
-    if (can(ctx, actor, "profilePost.deleteAny"))
+    if (can(ctx, fresh, "profilePost.deleteAny"))
       appendModeratorLog(ctx, actor, "profile_comment.delete", "profile_post_comment", comment.id);
   });
   return commentValue(ctx, actor, { ...comment, state: "deleted" }, post.profile_user_id);
@@ -213,8 +212,9 @@ export const profileCommentsRestoreOp = implement(profileCommentsRestore, (ctx, 
         "SELECT state FROM profile_post_comments WHERE id = ?1",
       ),
     ).get(comment.id)!;
-    if (current.state === "deleted") requirePermission(ctx, actor, "profilePost.undelete");
-    else requirePermission(ctx, actor, "profilePost.approve");
+    const fresh = currentActor(ctx, actor);
+    if (current.state === "deleted") requirePermission(ctx, fresh, "profilePost.undelete");
+    else requirePermission(ctx, fresh, "profilePost.approve");
     const result = prepared(ctx, "profiles.restoreComment", () =>
       ctx.sqlite.prepare<unknown, [number, string]>(
         "UPDATE profile_post_comments SET state = 'visible' WHERE id = ?1 AND state = ?2",

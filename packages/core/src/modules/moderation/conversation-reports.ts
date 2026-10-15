@@ -4,7 +4,7 @@ import { reportsViewConversationMessage } from "../../contracts/moderation";
 import { writeTx } from "../../db/tx";
 import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
-import { can, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { iso } from "../../time";
 import { appendModeratorLog } from "./index";
 
@@ -22,6 +22,8 @@ export const reportsViewConversationMessageOp = implement(
     requireAuthenticated(actor);
     requirePermission(ctx, actor, "conversation.moderate");
     return writeTx(ctx, () => {
+      const current = currentActor(ctx, actor);
+      requirePermission(ctx, current, "conversation.moderate");
       const report = prepared(ctx, "conversationReports.target", () =>
         ctx.sqlite.prepare<
           {
@@ -35,7 +37,7 @@ export const reportsViewConversationMessageOp = implement(
         ),
       ).get(input.groupId);
       if (!report) throw new NotFoundError();
-      const showHidden = Number(can(ctx, actor, "conversation.viewHidden"));
+      const showHidden = Number(can(ctx, current, "conversation.viewHidden"));
       const before = prepared(ctx, "conversationReports.before", () =>
         ctx.sqlite.prepare<Message, [number, number, number]>(
           "SELECT m.id, m.user_id AS author_id, u.username AS author_username, m.body_html, m.created_at FROM conversation_messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ?1 AND m.id < ?2 AND (m.state = 'visible' OR ?3 = 1) ORDER BY m.id DESC LIMIT 3",

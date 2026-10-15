@@ -199,76 +199,84 @@ test("posts and search results never expose the temporary positions of a merge i
     expect(finalPositions.find((p) => p.id === id)!.position).toBe(position);
 });
 
-test("posts.list pages through every post of the target exactly once at every step of a merge", async () => {
-  const ctx = createTestContext();
-  const node = insertNode(ctx, {});
-  invalidate(ctx, "node_tree");
-  const author = insertUser(ctx);
-  const moderator = userActor(insertUser(ctx, { groupId: 3 }));
-  registerModerationJobs(ctx);
-  const target = await execute(ctx, threadsCreateOp, userActor(author), {
-    nodeId: node.id,
-    title: "Target",
-    body: "Body",
-  });
-  const source = await execute(ctx, threadsCreateOp, userActor(author), {
-    nodeId: node.id,
-    title: "Source",
-    body: "Body",
-  });
-  const start = ctx.now() + 1000;
-  // Interleaved in time, so that renumbering mixes the two streams.
-  addPosts(ctx, target.thread.id, author.id, 100, start);
-  addPosts(ctx, source.thread.id, author.id, 600, start + 5);
-  await execute(ctx, threadsMergeOp, moderator, {
-    threadId: target.thread.id,
-    sourceThreadIds: [source.thread.id],
-  });
-
-  const phases = new Set<string>();
-  const check = async () => {
-    const ids = [];
-    let cursor: string | undefined;
-    do {
-      const page = await execute(ctx, postsListOp, moderator, {
-        threadId: target.thread.id,
-        limit: 37,
-        cursor,
-      });
-      ids.push(...page.items.map((post) => post.id));
-      cursor = page.nextCursor ?? undefined;
-    } while (cursor);
-    const stored = ctx.sqlite
-      .prepare<{ id: number }, [number]>("SELECT id FROM posts WHERE thread_id = ?1")
-      .all(target.thread.id)
+// The target's posts are newer than the source's in one case and older in the other, so the
+// renumbering moves posts between the two streams in opposite directions.
+for (const [layout, targetStart, sourceStart] of [
+  ["interleaved", 0, 5],
+  ["target newer", 2000, 0],
+  ["target older", 0, 2000],
+] as const)
+  test(`posts.list gives every post one stable place while a merge runs between page requests (${layout})`, async () => {
+    const ctx = createTestContext();
+    const node = insertNode(ctx, {});
+    invalidate(ctx, "node_tree");
+    const author = insertUser(ctx);
+    const moderator = userActor(insertUser(ctx, { groupId: 3 }));
+    registerModerationJobs(ctx);
+    const target = await execute(ctx, threadsCreateOp, userActor(author), {
+      nodeId: node.id,
+      title: "Target",
+      body: "Body",
+    });
+    const source = await execute(ctx, threadsCreateOp, userActor(author), {
+      nodeId: node.id,
+      title: "Source",
+      body: "Body",
+    });
+    const start = ctx.now() + 1000;
+    addPosts(ctx, target.thread.id, author.id, 100, start + targetStart);
+    addPosts(ctx, source.thread.id, author.id, 600, start + sourceStart);
+    const everyPost = ctx.sqlite
+      .prepare<{ id: number }, [number, number]>(
+        "SELECT id FROM posts WHERE thread_id IN (?1, ?2) ORDER BY id",
+      )
+      .all(target.thread.id, source.thread.id)
       .map((post) => post.id);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect([...ids].sort((a, b) => a - b)).toEqual(stored.sort((a, b) => a - b));
-  };
-  for (let i = 0; i < 80; i++) {
-    const job = nextJob(ctx);
-    if (!job) break;
-    if (job.type === "forums.mergeFinalize") {
-      const phase = (JSON.parse(job.payload).phase ?? "streams") as string;
-      const negative = ctx.sqlite
-        .prepare<{ n: number }, [number]>(
-          "SELECT COUNT(*) AS n FROM posts WHERE thread_id = ?1 AND position < 0",
+    await execute(ctx, threadsMergeOp, moderator, {
+      threadId: target.thread.id,
+      sourceThreadIds: [source.thread.id],
+    });
+
+    // One full traversal, with a job step between every two page requests.
+    const traverse = async () => {
+      const seen: { id: number; position: number }[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await execute(ctx, postsListOp, moderator, {
+          threadId: target.thread.id,
+          limit: 37,
+          cursor,
+        });
+        seen.push(...page.items.map((post) => ({ id: post.id, position: post.position })));
+        cursor = page.nextCursor ?? undefined;
+        const job = nextJob(ctx);
+        if (job?.type === "forums.mergeFinalize")
+          phases.add((JSON.parse(job.payload).phase ?? "streams") as string);
+        if (cursor) await runDueJobs(ctx, { limit: 1 });
+      } while (cursor);
+      return seen;
+    };
+    const traversals = [];
+    const phases = new Set<string>();
+    for (let i = 0; i < 40 && nextJob(ctx); i++) traversals.push(await traverse());
+    expect(nextJob(ctx)).toBeNull();
+    expect([...phases]).toEqual(expect.arrayContaining(["streams", "flip", "reads"]));
+    traversals.push(await traverse());
+
+    const final = new Map(
+      ctx.sqlite
+        .prepare<{ id: number; position: number }, [number]>(
+          "SELECT id, position FROM posts WHERE thread_id = ?1",
         )
-        .get(target.thread.id)!.n;
-      phases.add(negative > 0 ? `${phase} with renumbered posts` : phase);
+        .all(target.thread.id)
+        .map((post) => [post.id, post.position]),
+    );
+    expect(final.size).toBe(everyPost.length);
+    for (const seen of traversals) {
+      expect(seen.map((post) => post.id).sort((a, b) => a - b)).toEqual(everyPost);
+      for (const [index, post] of seen.entries()) {
+        expect(post.position).toBe(final.get(post.id)!);
+        if (index > 0) expect(post.position).toBeGreaterThan(seen[index - 1]!.position);
+      }
     }
-    await check();
-    await runDueJobs(ctx, { limit: 1 });
-  }
-  expect(nextJob(ctx)).toBeNull();
-  expect([...phases]).toEqual(
-    expect.arrayContaining(["streams with renumbered posts", "flip", "reads"]),
-  );
-  await check();
-  const final = await execute(ctx, postsListOp, moderator, {
-    threadId: target.thread.id,
-    page: 8,
-    limit: 100,
   });
-  expect(final.items.map((post) => post.position)).toEqual([700, 701]);
-});

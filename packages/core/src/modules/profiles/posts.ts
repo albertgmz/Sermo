@@ -47,6 +47,8 @@ import { resolvedFileUrl } from "../storage/url";
 import { profileFieldChanges, storeProfileChanges } from "./fields";
 import {
   latestComments,
+  mayDeleteWallContent,
+  mayEditWallContent,
   mayPostOnWall,
   type PostRow,
   type ProfileAccess,
@@ -342,17 +344,15 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
 export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const row = requirePost(ctx, actor, input.profilePostId);
-  if (
-    !can(ctx, actor, "profilePost.editAny") &&
-    !can(ctx, actor, "profilePost.editOwn", { ownerId: row.user_id })
-  )
-    throw new ForbiddenError();
+  if (!mayEditWallContent(ctx, actor, row.user_id)) throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
   const refs = renderContent(ctx, actor, content.source, {
     edit: { contentType: "profile_post", contentId: row.id, authorId: row.user_id },
   });
   const html = refs.html;
   writeTx(ctx, () => {
+    const fresh = currentActor(ctx, actor);
+    if (!mayEditWallContent(ctx, fresh, row.user_id)) throw new ForbiddenError();
     const decision = prepareModeratedContent(ctx, actor, input.body, false);
     if (decision.source !== content.source)
       throw new ConflictError("Moderation rules changed; retry.");
@@ -365,7 +365,7 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
     ).run(refs.source, html, ctx.now(), row.id);
     const { newlyMentioned } = storeContentReferences(ctx, "profile_post", row.id, refs);
     storeSpoilers(ctx, "profile_post", row.id, refs.spoilers);
-    if (decision.moderated) moderateEditedContent(ctx, actor, { type: "profile_post", id: row.id });
+    if (decision.moderated) moderateEditedContent(ctx, fresh, { type: "profile_post", id: row.id });
     if (row.state === "visible") touchProfile(ctx, row.profile_user_id);
     publishEvent(ctx, {
       type: "content.edited",
@@ -373,7 +373,7 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
       targetId: row.id,
       payload: { ...noticeForOther(actor, row.user_id, input), newlyMentioned },
     });
-    if (can(ctx, actor, "profilePost.editAny"))
+    if (can(ctx, fresh, "profilePost.editAny"))
       appendModeratorLog(ctx, actor, "profile_post.edit", "profile_post", row.id);
   });
   return profilePostsGetOp.run(ctx, actor, input);
@@ -381,13 +381,12 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
 export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const row = requirePost(ctx, actor, input.profilePostId);
-  if (
-    !can(ctx, actor, "profilePost.deleteAny") &&
-    !can(ctx, actor, "profilePost.deleteOwn", { ownerId: row.user_id }) &&
-    !can(ctx, actor, "profilePost.manageOwnWall", { ownerId: row.profile_user_id })
-  )
+  if (!mayDeleteWallContent(ctx, actor, row.user_id, row.profile_user_id))
     throw new ForbiddenError();
   writeTx(ctx, () => {
+    const fresh = currentActor(ctx, actor);
+    if (!mayDeleteWallContent(ctx, fresh, row.user_id, row.profile_user_id))
+      throw new ForbiddenError();
     const result = prepared(ctx, "profiles.deletePost", () =>
       ctx.sqlite.prepare<unknown, [number]>(
         "UPDATE profile_posts SET state = 'deleted' WHERE id = ?1 AND state != 'deleted'",
@@ -405,7 +404,7 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
         },
       });
     if (result.changes && row.state === "visible") touchProfile(ctx, row.profile_user_id);
-    if (can(ctx, actor, "profilePost.deleteAny"))
+    if (can(ctx, fresh, "profilePost.deleteAny"))
       appendModeratorLog(ctx, actor, "profile_post.delete", "profile_post", row.id);
   });
   return postValue(ctx, actor, { ...row, state: "deleted" });
@@ -420,8 +419,9 @@ export const profilePostsRestoreOp = implement(profilePostsRestore, (ctx, actor,
       ),
     ).get(row.id);
     if (!current) throw new NotFoundError();
-    if (current.state === "deleted") requirePermission(ctx, actor, "profilePost.undelete");
-    else requirePermission(ctx, actor, "profilePost.approve");
+    const fresh = currentActor(ctx, actor);
+    if (current.state === "deleted") requirePermission(ctx, fresh, "profilePost.undelete");
+    else requirePermission(ctx, fresh, "profilePost.approve");
     const result = prepared(ctx, "profiles.restorePost", () =>
       ctx.sqlite.prepare<unknown, [number, string]>(
         "UPDATE profile_posts SET state = 'visible' WHERE id = ?1 AND state = ?2",

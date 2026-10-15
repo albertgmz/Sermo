@@ -133,18 +133,6 @@ const threadDetailColumns = threadColumns
 /** A merge stores position p as -(p + 1) while it renumbers; reads return the real position. */
 const storedPosition = (column: string) =>
   `CASE WHEN ${column} < 0 THEN -${column} - 1 ELSE ${column} END`;
-/**
- * While a merge renumbers its target the stored column no longer pages. A post's slot is its
- * decoded position; while the streams are merged it is the order they stand in: the first post,
- * the renumbered posts by their new position, then the ones still to renumber in the order they
- * were moved in.
- */
-const mergingSlot = (streams: boolean) =>
-  streams
-    ? `ROW_NUMBER() OVER (ORDER BY CASE WHEN position = 0 THEN 0 WHEN position < 0 THEN 1 ELSE 2 END, ${storedPosition("position")}) - 1`
-    : storedPosition("position");
-const mergingPostsSql = (streams: boolean) =>
-  `(SELECT id, ${mergingSlot(streams)} AS slot FROM posts WHERE thread_id = ?1) s JOIN posts p ON p.id = s.id`;
 const postVisible =
   "(p.state = 'visible' OR (p.state = 'moderated' AND (?4 = 1 OR p.user_id = ?6)) OR (p.state = 'deleted' AND ?5 = 1))";
 const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
@@ -157,10 +145,9 @@ export const forumSql = {
   threadPage: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?7)) OR (state = 'deleted' AND ?3 = 1)) AND (sort_at, id) < (?4, ?5) ORDER BY sort_at DESC, id DESC LIMIT ?6`,
   threadPageByPrefix: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?8 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?7)) OR (state = 'deleted' AND ?3 = 1)) AND (sort_at, id) < (?4, ?5) ORDER BY sort_at DESC, id DESC LIMIT ?6`,
   postPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND p.position BETWEEN ?2 AND ?3 AND (p.state = 'visible' OR (p.state = 'moderated' AND (?4 = 1 OR p.user_id = ?6)) OR (p.state = 'deleted' AND ?5 = 1)) ORDER BY p.position`,
-  mergingPostPage: (streams: boolean) =>
-    `SELECT ${postColumns}, b.body_html FROM ${mergingPostsSql(streams)} JOIN post_bodies b ON b.post_id = p.id WHERE s.slot BETWEEN ?2 AND ?3 AND ${postVisible} ORDER BY s.slot`,
-  mergingPostBeyond: (streams: boolean) =>
-    `SELECT p.id FROM ${mergingPostsSql(streams)} WHERE s.slot > ?3 AND ${postVisible} LIMIT 1`,
+  // A merge's target while its posts are renumbered: positions are stored as -(p + 1) or as p.
+  decodedPostPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND (p.position BETWEEN ?2 AND ?3 OR p.position BETWEEN -?3 - 1 AND -?2 - 1) AND ${postVisible} ORDER BY ${storedPosition("p.position")}`,
+  decodedPostBeyond: `SELECT p.id FROM posts p WHERE p.thread_id = ?1 AND (p.position > ?3 OR p.position < -?3 - 1) AND ${postVisible} LIMIT 1`,
   postBeyond:
     "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (state = 'visible' OR (state = 'moderated' AND (?3 = 1 OR user_id = ?5)) OR (state = 'deleted' AND ?4 = 1)) ORDER BY position LIMIT 1",
   threadDetail: `SELECT ${threadDetailColumns}, x.role AS transfer_role, x.failed_at AS transfer_failed_at, EXISTS(SELECT 1 FROM thread_bans WHERE thread_id = t.id AND user_id = ?2 AND (expires_at IS NULL OR expires_at > ?3)) AS thread_banned FROM threads t LEFT JOIN thread_transfers x ON x.thread_id = t.id WHERE t.id = ?1`,
@@ -207,7 +194,7 @@ function threadRow(ctx: Ctx, id: number, viewerId = 0): ThreadRow | undefined {
     ) ?? undefined
   );
 }
-/** Inside a write transaction: the forum a thread is in as committed now. */
+/** Inside a write transaction: the forum a thread is in as committed now, tombstones of merges included. */
 function committedNodeId(ctx: Ctx, threadId: number): number {
   const row = threadRow(ctx, threadId);
   if (!row) throw new NotFoundError();
@@ -216,7 +203,8 @@ function committedNodeId(ctx: Ctx, threadId: number): number {
 /** Inside a write transaction: the split permission, as the moderator holds it now, on the source and the new forum. */
 function requireCurrentSplitter(ctx: Ctx, actor: Actor, sourceId: number, nodeId: number): void {
   const moderator = currentActor(ctx, actor);
-  requirePermission(ctx, moderator, "forum.split", { nodeId: committedNodeId(ctx, sourceId) });
+  const source = requireThread(ctx, moderator, sourceId).row;
+  requirePermission(ctx, moderator, "forum.split", { nodeId: source.node_id });
   requirePermission(ctx, moderator, "node.view", { nodeId }, { notFound: true });
   requirePermission(ctx, moderator, "forum.split", { nodeId });
 }
@@ -1025,6 +1013,86 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
   };
 });
 
+type MergeState = { sourceIds: number[]; streamStarts: number[]; phase?: string };
+type MergeRow = {
+  id: number;
+  thread_id: number;
+  position: number;
+  created_at: number;
+  state: State;
+  user_id: number;
+};
+/**
+ * The state of the merge whose target this is: the finalize job's, or, before it exists, the
+ * one every move job carries.
+ */
+function mergeStateOf(ctx: Ctx, targetId: number): MergeState | null {
+  const finalize = statement<{ payload: string }, [string]>(
+    ctx,
+    "mergeFinalizeState",
+    "SELECT payload FROM jobs WHERE unique_key = ?1",
+  ).get(finalizeJobKey(targetId));
+  if (finalize) return JSON.parse(finalize.payload) as MergeState;
+  const move = statement<{ payload: string }, [string, string]>(
+    ctx,
+    "mergeMoveState",
+    "SELECT payload FROM jobs WHERE unique_key >= ?1 AND unique_key < ?2 LIMIT 1",
+  ).get(`forums.merge.${targetId}.`, `forums.merge.${targetId}/`);
+  return move ? (JSON.parse(move.payload) as { finalState: MergeState }).finalState : null;
+}
+/**
+ * The posts of a merge that has not renumbered its target yet, with the position each will end
+ * up in. The streams (the target's own posts and each source's, in their provisional order) are
+ * merged by creation time, exactly as the renumbering does, so a post's slot is the same before,
+ * during and after its renumbering and paging is not disturbed by the chunks running between
+ * two requests. Posts that have not moved yet are counted where they will land.
+ */
+function mergeSlots(ctx: Ctx, targetId: number, state: MergeState) {
+  const rows = statement<MergeRow, [string]>(
+    ctx,
+    "mergeUniverse",
+    "SELECT id, thread_id, position, created_at, state, user_id FROM posts WHERE thread_id IN (SELECT value FROM json_each(?1))",
+  ).all(JSON.stringify([targetId, ...state.sourceIds]));
+  const slots = new Map<number, number>();
+  const streams: { row: MergeRow; at: number }[][] = state.streamStarts.map(() => []);
+  let next = 1;
+  for (const row of rows) {
+    if (row.thread_id === targetId && row.position <= 0) {
+      // The first post, or one already renumbered (stored as -(p + 1)).
+      const slot = row.position < 0 ? -row.position - 1 : 0;
+      slots.set(row.id, slot);
+      next = Math.max(next, slot + 1);
+      continue;
+    }
+    const source = state.sourceIds.indexOf(row.thread_id);
+    const at = row.position + (source < 0 ? 0 : state.streamStarts[source + 1]!);
+    let stream = 0;
+    while (stream + 1 < state.streamStarts.length && state.streamStarts[stream + 1]! <= at)
+      stream++;
+    streams[stream]!.push({ row, at });
+  }
+  for (const stream of streams) stream.sort((a, b) => a.at - b.at);
+  const heads = streams.map(() => 0);
+  for (;;) {
+    let best = -1;
+    for (let i = 0; i < streams.length; i++) {
+      const row = streams[i]![heads[i]!]?.row;
+      const chosen = best < 0 ? undefined : streams[best]![heads[best]!]!.row;
+      if (
+        row &&
+        (!chosen ||
+          row.created_at < chosen.created_at ||
+          (row.created_at === chosen.created_at && row.id < chosen.id))
+      )
+        best = i;
+    }
+    if (best < 0) break;
+    slots.set(streams[best]![heads[best]!]!.row.id, next++);
+    heads[best]!++;
+  }
+  return { rows, slots };
+}
+
 /** One snapshot of a page of the target of a merge in progress, and whether posts follow it. */
 function mergingPostPage(
   ctx: Ctx,
@@ -1035,25 +1103,40 @@ function mergingPostPage(
 ) {
   return ctx.db.transaction(
     () => {
-      const finalize = statement<{ payload: string }, [string]>(
-        ctx,
-        "mergeFinalizeState",
-        "SELECT payload FROM jobs WHERE unique_key = ?1",
-      ).get(finalizeJobKey(threadId));
-      // Until the finalize job has left the streams step, posts renumbered so far stand apart.
-      const streams =
-        !!finalize && (JSON.parse(finalize.payload) as { phase?: string }).phase === undefined;
+      const state = mergeStateOf(ctx, threadId);
+      if (!state || state.phase !== undefined)
+        return {
+          rows: statement<PostRow, [number, number, number, number, number, number]>(
+            ctx,
+            "decodedPostPage",
+            forumSql.decodedPostPage,
+          ).all(threadId, start, end, viewModerated, viewDeleted, viewer),
+          beyond: statement<{ id: number }, [number, number, number, number, number, number]>(
+            ctx,
+            "decodedPostBeyond",
+            forumSql.decodedPostBeyond,
+          ).get(threadId, start, end, viewModerated, viewDeleted, viewer),
+        };
+      const { rows, slots } = mergeSlots(ctx, threadId, state);
+      const shown = rows
+        .filter(
+          (row) =>
+            row.state === "visible" ||
+            (row.state === "moderated" && (viewModerated === 1 || row.user_id === viewer)) ||
+            (row.state === "deleted" && viewDeleted === 1),
+        )
+        .map((row) => ({ id: row.id, slot: slots.get(row.id)! }));
+      const page = shown
+        .filter((row) => row.slot >= start && row.slot <= end)
+        .sort((a, b) => a.slot - b.slot);
+      const byId = new Map(
+        statement<PostRow, [string]>(ctx, "mergePageRows", forumSql.postsByIds)
+          .all(JSON.stringify(page.map((row) => row.id)))
+          .map((row) => [row.id, row]),
+      );
       return {
-        rows: statement<PostRow, [number, number, number, number, number, number]>(
-          ctx,
-          `mergingPostPage.${streams}`,
-          forumSql.mergingPostPage(streams),
-        ).all(threadId, start, end, viewModerated, viewDeleted, viewer),
-        beyond: statement<{ id: number }, [number, number, number, number, number, number]>(
-          ctx,
-          `mergingPostBeyond.${streams}`,
-          forumSql.mergingPostBeyond(streams),
-        ).get(threadId, start, end, viewModerated, viewDeleted, viewer),
+        rows: page.map((entry) => ({ ...byId.get(entry.id)!, position: entry.slot })),
+        beyond: shown.some((row) => row.slot > end) ? { id: 0 } : undefined,
       };
     },
     { behavior: "deferred" },
@@ -1355,7 +1438,9 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
     throw new ValidationError("Send a title, a prefix, or both.");
   if (!mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
   writeTx(ctx, () => {
-    const current = threadRow(ctx, row.id)!;
+    const moderator = currentActor(ctx, actor);
+    const current = requireThread(ctx, moderator, row.id).row;
+    if (!mayEditTitle(ctx, moderator, current)) throw new ForbiddenError();
     if (input.prefixId != null && input.prefixId !== current.prefix_id)
       requireActivePrefix(ctx, input.prefixId);
     forumDb(ctx)
@@ -1373,7 +1458,7 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
       targetId: row.id,
       payload: moderationPayload(actor, row.user_id, input),
     });
-    if (can(ctx, actor, "forum.editAny", { nodeId: row.node_id }))
+    if (can(ctx, moderator, "forum.editAny", { nodeId: current.node_id }))
       appendModeratorLog(
         ctx,
         actor,
@@ -1382,7 +1467,7 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
         row.id,
         input.reason,
         input.prefixId === undefined ? {} : { prefixId: input.prefixId },
-        row.node_id,
+        current.node_id,
       );
   });
   return threadValue(ctx, actor, row.id);
@@ -1391,9 +1476,10 @@ export const threadsRemoveCoverOp = implement(contracts.threadsRemoveCover, (ctx
   requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
   if (!mayRemoveCover(ctx, actor, row)) throw new ForbiddenError();
-  const moderator = can(ctx, actor, "forum.editAny", { nodeId: row.node_id });
   writeTx(ctx, () => {
-    const current = threadRow(ctx, row.id)!;
+    const fresh = currentActor(ctx, actor);
+    const current = requireThread(ctx, fresh, row.id).row;
+    if (!mayRemoveCover(ctx, fresh, current)) throw new ForbiddenError();
     if (current.cover_id === null) return;
     forumDb(ctx)
       .prepare("UPDATE threads SET cover_id = NULL, content_updated_at = ?1 WHERE id = ?2")
@@ -1404,7 +1490,7 @@ export const threadsRemoveCoverOp = implement(contracts.threadsRemoveCover, (ctx
       targetId: row.id,
       payload: moderationPayload(actor, row.user_id, input),
     });
-    if (moderator)
+    if (can(ctx, fresh, "forum.editAny", { nodeId: current.node_id }))
       appendModeratorLog(
         ctx,
         actor,
@@ -1413,7 +1499,7 @@ export const threadsRemoveCoverOp = implement(contracts.threadsRemoveCover, (ctx
         row.id,
         input.reason,
         { coverId: current.cover_id },
-        row.node_id,
+        current.node_id,
       );
   });
   return threadValue(ctx, actor, row.id);
@@ -1430,6 +1516,17 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
   });
   const html = refs.html;
   writeTx(ctx, () => {
+    const moderator = currentActor(ctx, actor);
+    const now = requirePost(ctx, moderator, post.id);
+    if (
+      !mayEdit(
+        permissionsOf(ctx, moderator),
+        now.thread.row.node_id,
+        now.post,
+        now.thread.row.is_locked,
+      )
+    )
+      throw new ForbiddenError();
     if (input.attachmentIds?.length) {
       const attached = new Set(
         statement<{ file_id: number }, [number]>(
@@ -1441,7 +1538,9 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
           .map((row) => row.file_id),
       );
       if (input.attachmentIds.some((id) => !attached.has(id)))
-        requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: thread.row.node_id });
+        requirePermission(ctx, moderator, "forum.uploadAttachments", {
+          nodeId: now.thread.row.node_id,
+        });
     }
     const decision = prepareModeratedContent(ctx, actor, input.body, false);
     if (decision.source !== content.source)
@@ -1454,15 +1553,15 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
       .run(refs.source, html, post.id);
     const { newlyMentioned } = storeContentReferences(ctx, "post", post.id, refs);
     storeSpoilers(ctx, "post", post.id, refs.spoilers);
-    if (decision.moderated) moderateEditedContent(ctx, actor, { type: "post", id: post.id });
+    if (decision.moderated) moderateEditedContent(ctx, moderator, { type: "post", id: post.id });
     forumDb(ctx).prepare("UPDATE posts SET edited_at = ?1 WHERE id = ?2").run(ctx.now(), post.id);
     forumDb(ctx)
       .prepare("UPDATE threads SET content_updated_at = ?1 WHERE id = ?2")
-      .run(ctx.now(), post.thread_id);
-    if (post.id === thread.row.first_post_id)
+      .run(ctx.now(), now.post.thread_id);
+    if (post.id === now.thread.row.first_post_id)
       forumDb(ctx)
         .prepare("UPDATE threads SET excerpt = ?1 WHERE id = ?2")
-        .run(excerptFromMarkdown(content.source), post.thread_id);
+        .run(excerptFromMarkdown(content.source), now.post.thread_id);
     publishEvent(ctx, {
       type: "content.edited",
       targetType: "post",
@@ -1470,7 +1569,7 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
       payload: { ...moderationPayload(actor, post.user_id, input), newlyMentioned },
     });
     if (
-      can(ctx, actor, "forum.editAny", { nodeId: thread.row.node_id }) &&
+      can(ctx, moderator, "forum.editAny", { nodeId: now.thread.row.node_id }) &&
       post.user_id !== actorUserId(actor)
     )
       appendModeratorLog(
@@ -1481,7 +1580,7 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
         post.id,
         input.reason,
         {},
-        thread.row.node_id,
+        now.thread.row.node_id,
       );
   });
   return postValue(ctx, actor, post.id, true) as z.infer<typeof contracts.PostDetail>;
@@ -1492,9 +1591,9 @@ export const threadsSetStickyOp = implement(contracts.threadsSetSticky, (ctx, ac
   const { row } = requireThread(ctx, actor, input.threadId);
   requirePermission(ctx, actor, "forum.stick", { nodeId: row.node_id });
   writeTx(ctx, () => {
-    requirePermission(ctx, currentActor(ctx, actor), "forum.stick", {
-      nodeId: committedNodeId(ctx, row.id),
-    });
+    const moderator = currentActor(ctx, actor);
+    const current = requireThread(ctx, moderator, row.id).row;
+    requirePermission(ctx, moderator, "forum.stick", { nodeId: current.node_id });
     forumDb(ctx)
       .prepare("UPDATE threads SET is_sticky = ?1 WHERE id = ?2")
       .run(Number(input.isSticky), row.id);
@@ -1514,7 +1613,7 @@ export const threadsSetStickyOp = implement(contracts.threadsSetSticky, (ctx, ac
       {
         isSticky: input.isSticky,
       },
-      row.node_id,
+      current.node_id,
     );
   });
   return threadValue(ctx, actor, row.id);
@@ -1524,9 +1623,9 @@ export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, ac
   const { row } = requireThread(ctx, actor, input.threadId);
   requirePermission(ctx, actor, "forum.lock", { nodeId: row.node_id });
   writeTx(ctx, () => {
-    requirePermission(ctx, currentActor(ctx, actor), "forum.lock", {
-      nodeId: committedNodeId(ctx, row.id),
-    });
+    const moderator = currentActor(ctx, actor);
+    const current = requireThread(ctx, moderator, row.id).row;
+    requirePermission(ctx, moderator, "forum.lock", { nodeId: current.node_id });
     forumDb(ctx)
       .prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2")
       .run(Number(input.isLocked), row.id);
@@ -1546,7 +1645,7 @@ export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, ac
       {
         isLocked: input.isLocked,
       },
-      row.node_id,
+      current.node_id,
     );
   });
   return threadValue(ctx, actor, row.id);
@@ -1562,8 +1661,8 @@ export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input
     throw new ValidationError("Threads can only be moved to forums.");
   writeTx(ctx, () => {
     assertTransferIdle(ctx, row.id);
-    const current = threadRow(ctx, row.id)!;
     const moderator = currentActor(ctx, actor);
+    const current = requireThread(ctx, moderator, row.id).row;
     requirePermission(ctx, moderator, "forum.move", { nodeId: current.node_id });
     requirePermission(ctx, moderator, "node.view", { nodeId: input.nodeId }, { notFound: true });
     requirePermission(ctx, moderator, "forum.move", { nodeId: input.nodeId });
@@ -1639,9 +1738,9 @@ export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, i
   requirePermission(ctx, actor, "forum.deleteAny", { nodeId: row.node_id });
   writeTx(ctx, () => {
     assertTransferIdle(ctx, row.id);
-    requirePermission(ctx, currentActor(ctx, actor), "forum.deleteAny", {
-      nodeId: committedNodeId(ctx, row.id),
-    });
+    const moderator = currentActor(ctx, actor);
+    const current = requireThread(ctx, moderator, row.id).row;
+    requirePermission(ctx, moderator, "forum.deleteAny", { nodeId: current.node_id });
     if (changeThreadState(ctx, row.id, "deleted"))
       publishEvent(ctx, {
         type: "content.deleted",
@@ -1661,7 +1760,7 @@ export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, i
       row.id,
       input.reason,
       {},
-      row.node_id,
+      current.node_id,
     );
   });
   return threadValue(ctx, actor, row.id);
@@ -1673,9 +1772,9 @@ export const threadsRestoreOp = implement(contracts.threadsRestore, (ctx, actor,
   requireRestorer(ctx, actor, row.state, row.node_id);
   writeTx(ctx, () => {
     assertTransferIdle(ctx, row.id);
-    const current = threadRow(ctx, row.id);
-    if (!current) throw new NotFoundError();
-    requireRestorer(ctx, currentActor(ctx, actor), current.state, current.node_id);
+    const moderator = currentActor(ctx, actor);
+    const current = requireThread(ctx, moderator, row.id).row;
+    requireRestorer(ctx, moderator, current.state, current.node_id);
     if (changeThreadState(ctx, row.id, "visible"))
       publishEvent(ctx, {
         type: "content.state_changed",
@@ -1695,7 +1794,7 @@ export const threadsRestoreOp = implement(contracts.threadsRestore, (ctx, actor,
       row.id,
       input.reason,
       {},
-      row.node_id,
+      current.node_id,
     );
   });
   return threadValue(ctx, actor, row.id);
@@ -1738,7 +1837,7 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
   if (post.state === "deleted") throw new ValidationError("The post is already deleted.");
   writeTx(ctx, () => {
     const moderator = currentActor(ctx, actor);
-    const current = threadRow(ctx, thread.row.id)!;
+    const current = requirePost(ctx, moderator, post.id).thread.row;
     if (!mayDelete(permissionsOf(ctx, moderator), current.node_id, post.user_id, current.is_locked))
       throw new ForbiddenError();
     if (changePostState(ctx, post.id, "deleted"))
@@ -1761,7 +1860,7 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
         post.id,
         input.reason,
         {},
-        thread.row.node_id,
+        current.node_id,
       );
   });
   return postValue(ctx, actor, post.id);
@@ -1772,14 +1871,9 @@ export const postsRestoreOp = implement(contracts.postsRestore, (ctx, actor, inp
   const nodeId = thread.row.node_id;
   requireRestorer(ctx, actor, post.state, nodeId);
   writeTx(ctx, () => {
-    const current = postRow(ctx, post.id);
-    if (!current) throw new NotFoundError();
-    requireRestorer(
-      ctx,
-      currentActor(ctx, actor),
-      current.state,
-      committedNodeId(ctx, current.thread_id),
-    );
+    const moderator = currentActor(ctx, actor);
+    const current = requirePost(ctx, moderator, post.id);
+    requireRestorer(ctx, moderator, current.post.state, current.thread.row.node_id);
     if (changePostState(ctx, post.id, "visible"))
       publishEvent(ctx, {
         type: "content.state_changed",
@@ -1799,7 +1893,7 @@ export const postsRestoreOp = implement(contracts.postsRestore, (ctx, actor, inp
       post.id,
       input.reason,
       {},
-      thread.row.node_id,
+      current.thread.row.node_id,
     );
   });
   return postValue(ctx, actor, post.id);
