@@ -48,6 +48,7 @@ const defaults: StoredSiteSettingsValue = {
   linksRule: { match: "all", conditions: [] },
   approvalRule: { match: "all", conditions: [] },
   approveSignups: false,
+  feedExcludedForumIds: [],
   homeTab: { rules: [], fallback: "latest" },
   threadTitleTemplate: "{title} | {site}",
   nodeTitleTemplate: "{title} | {site}",
@@ -181,6 +182,24 @@ export function updateSiteSettings(
       settingChanges.signatureFormats = [...new Set(settingChanges.signatureFormats)];
     if (settingChanges.turnstileForms)
       settingChanges.turnstileForms = [...new Set(settingChanges.turnstileForms)];
+    if (settingChanges.feedExcludedForumIds) {
+      const ids = [...new Set(settingChanges.feedExcludedForumIds)];
+      settingChanges.feedExcludedForumIds = ids;
+      const known = new Set(
+        prepared(ctx, "settings.nodeIds", () =>
+          ctx.sqlite.prepare<{ id: number }, [string]>(
+            "SELECT id FROM nodes WHERE id IN (SELECT value FROM json_each(?1))",
+          ),
+        )
+          .all(JSON.stringify(ids))
+          .map((row) => row.id),
+      );
+      const unknown = ids.filter((id) => !known.has(id));
+      if (unknown.length > 0) {
+        const message = `There is no forum with id ${unknown.join(", ")}.`;
+        throw new ValidationError(message, [{ path: ["feedExcludedForumIds"], message }]);
+      }
+    }
     const secretSet =
       turnstileSecret === undefined
         ? storedTurnstileSecret(ctx) !== null

@@ -17,13 +17,8 @@ import {
   profilePostValues,
 } from "../profiles";
 import { loadThreads, postsInThreads } from "./authors";
-import {
-  FEED_HOT_PINNED,
-  FEED_HOT_SIZE,
-  firstSurvivors,
-  rankingSql,
-  storedRanking,
-} from "./rankings";
+import { type FeedPlan, planFeed } from "./filter";
+import { FEED_HOT_PINNED, FEED_HOT_SIZE, firstSurvivors, storedRanking } from "./rankings";
 import { SCAN_CAP } from "./scan";
 import { followedAmong, followedAuthors, ignoredAmong, visibleNodes } from "./viewer";
 
@@ -217,7 +212,8 @@ function merge<PostKey, WallKey>(
  * What the viewer may see of a batch of posts, with the threads loaded on the way. `once` makes
  * the feed a list of conversations: `newest` takes only a thread's newest visible post (what the
  * walk of threads by activity hands in, one candidate per thread); `perAnswer` keeps the first
- * post of a thread this request accepts and drops the older ones.
+ * post of a thread this request accepts and drops the older ones. `extra` is the feed filter's
+ * check on the threads that passed everything else (see `planFeed`).
  */
 export const acceptPosts = markPublic(
   "Filters a batch of posts to what the viewer may see; the viewer's forums are passed in.",
@@ -227,6 +223,7 @@ export const acceptPosts = markPublic(
     nodes: Set<number>,
     threads: Map<number, ThreadRow>,
     once?: "newest" | "perAnswer",
+    extra?: (threads: ThreadRow[]) => Set<number>,
   ) {
     const gates = readGates(ctx, actor);
     const taken = new Set<number>();
@@ -242,23 +239,31 @@ export const acceptPosts = markPublic(
         actor,
         rows.map((row) => row.user_id),
       );
+      const open = rows.filter((row) => {
+        const thread = threads.get(row.thread_id);
+        return (
+          row.state === "visible" &&
+          thread !== undefined &&
+          thread.state === "visible" &&
+          thread.merged_into_id === null &&
+          nodes.has(thread.node_id) &&
+          // A thread the viewer may not open, or a post whose text is closed to them, is left out.
+          gates.opens(thread.node_id, thread.user_id) &&
+          gates.reads(thread.node_id, row.user_id) &&
+          !ignored.has(row.user_id) &&
+          (once !== "newest" || row.id === thread.last_post_id)
+        );
+      });
+      const passing = extra
+        ? extra([...new Set(open.map((row) => threads.get(row.thread_id)!))])
+        : undefined;
+      // `perAnswer` takes a thread once per request, so it counts what everything else let through.
       return new Set(
-        rows.filter((row) => {
-          const thread = threads.get(row.thread_id);
-          return (
-            row.state === "visible" &&
-            thread !== undefined &&
-            thread.state === "visible" &&
-            thread.merged_into_id === null &&
-            nodes.has(thread.node_id) &&
-            // A thread the viewer may not open, or a post whose text is closed to them, is left out.
-            gates.opens(thread.node_id, thread.user_id) &&
-            gates.reads(thread.node_id, row.user_id) &&
-            !ignored.has(row.user_id) &&
-            (once !== "newest" || row.id === thread.last_post_id) &&
-            (once !== "perAnswer" || first(thread.id))
-          );
-        }),
+        open.filter(
+          (row) =>
+            (!passing || passing.has(row.thread_id)) &&
+            (once !== "perAnswer" || first(row.thread_id)),
+        ),
       );
     };
   },
@@ -369,15 +374,14 @@ function build(
 function latestSources(
   ctx: Ctx,
   actor: Actor,
-  nodes: Set<number>,
+  plan: FeedPlan,
   threads: Map<number, ThreadRow>,
   cursor: z.infer<typeof cursorSchema.latest>,
   since?: number,
 ) {
   const [lastPostBefore, threadBefore, wallBefore] = cursor;
-  const latestThreads = prepared(ctx, "feed.latestPosts", () =>
-    ctx.sqlite.prepare<ThreadRow, [number, number, number]>(rankingSql.latestPosts),
-  );
+  // Threads older than the unread window are all read: the walk stops there.
+  const floor = plan.unreadAfter === undefined ? since : Math.max(since ?? 0, plan.unreadAfter);
   const latestWall = prepared(ctx, "feed.wall", () =>
     ctx.sqlite.prepare<WallCandidate, [number, number]>(feedSql.wall),
   );
@@ -385,19 +389,19 @@ function latestSources(
   const posts = source<PostCandidate, ThreadKey>({
     rank: 0,
     before: [lastPostBefore, threadBefore],
-    since,
+    since: floor,
     fetch: ([lastPostAt, threadId], count) =>
-      latestThreads.all(lastPostAt, threadId, count).map((thread) => {
+      plan.walk.fetch(lastPostAt, threadId, count).map((thread) => {
         threads.set(thread.id, thread);
         return {
           id: thread.last_post_id ?? 0,
           thread_id: thread.id,
           user_id: thread.last_poster_id,
           state: "visible",
-          created_at: thread.last_post_at,
+          created_at: plan.walk.time(thread),
         };
       }),
-    accept: acceptPosts(ctx, actor, nodes, threads, "newest"),
+    accept: acceptPosts(ctx, actor, plan.nodes, threads, "newest", plan.accept),
     keyOf: (row) => [row.created_at, row.thread_id],
     from: ([lastPostAt, threadId]) => [lastPostAt, threadId + 1],
     end: [0, 0],
@@ -409,7 +413,8 @@ function latestSources(
     fetch: (before, count) => latestWall.all(before, count),
     accept: acceptWall(ctx, actor),
     ...byId,
-    disabled: !can(ctx, actor, "profile.view") || !can(ctx, actor, "profilePost.view"),
+    disabled:
+      plan.threadsOnly || !can(ctx, actor, "profile.view") || !can(ctx, actor, "profilePost.view"),
   });
   return { posts, walls };
 }
@@ -421,7 +426,7 @@ function latestSources(
 function followingSources(
   ctx: Ctx,
   actor: Actor,
-  nodes: Set<number>,
+  plan: FeedPlan,
   threads: Map<number, ThreadRow>,
   cursor: z.infer<typeof cursorSchema.following>,
   since?: number,
@@ -446,7 +451,7 @@ function followingSources(
     since,
     fetch: (before, count) =>
       authors.length === 0 ? [] : newest(followedPosts.all(authorsJson, before, count), count),
-    accept: acceptPosts(ctx, actor, nodes, threads, "perAnswer"),
+    accept: acceptPosts(ctx, actor, plan.nodes, threads, "perAnswer", plan.accept),
     ...byId,
   });
   const walls = source<WallCandidate, number>({
@@ -457,7 +462,8 @@ function followingSources(
       authors.length === 0 ? [] : newest(followedWall.all(authorsJson, before, count), count),
     accept: acceptWall(ctx, actor),
     ...byId,
-    disabled: !can(ctx, actor, "profile.view") || !can(ctx, actor, "profilePost.view"),
+    disabled:
+      plan.threadsOnly || !can(ctx, actor, "profile.view") || !can(ctx, actor, "profilePost.view"),
   });
   return { posts, walls };
 }
@@ -465,11 +471,12 @@ function followingSources(
 export const feedListOp = implement(feedList, (ctx, actor, input) => {
   const { scope } = input;
   if (scope === "following") requireAuthenticated(actor);
-  const nodes = visibleNodes(ctx, actor);
+  const plan = planFeed(ctx, actor, input, visibleNodes(ctx, actor));
+  if (plan.empty) return { items: [], nextCursor: null };
   const threads = new Map<number, ThreadRow>();
 
   if (scope === "hot") {
-    const accept = acceptPosts(ctx, actor, nodes, threads);
+    const accept = acceptPosts(ctx, actor, plan.nodes, threads, undefined, plan.accept);
     // The opening posts of the threads in a chunk of stored rows that the viewer may see.
     const loadOpenings = (chunk: { target_id: number }[]): Picked[] => {
       for (const thread of threadRowsByIds(
@@ -504,7 +511,7 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
       pinned.flatMap((item) => (item.kind === "post" ? [item.row.thread_id] : [])),
     );
     const ranked = firstSurvivors(
-      storedRanking(ctx, "hot", nodes).filter((row) => !pinnedIds.has(row.target_id)),
+      storedRanking(ctx, "hot", plan.nodes).filter((row) => !pinnedIds.has(row.target_id)),
       FEED_HOT_SIZE - pinned.length,
       loadOpenings,
     );
@@ -520,7 +527,7 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
     const { posts, walls } = latestSources(
       ctx,
       actor,
-      nodes,
+      plan,
       threads,
       input.cursor
         ? decodeCursor(input.cursor, cursorSchema.latest)
@@ -537,7 +544,7 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
   const { posts, walls } = followingSources(
     ctx,
     actor,
-    nodes,
+    plan,
     threads,
     input.cursor
       ? decodeCursor(input.cursor, cursorSchema.following)
@@ -563,13 +570,14 @@ const countNew = <PostKey, WallKey>(sources: {
 export const feedNewCountOp = implement(feedNewCount, (ctx, actor, input) => {
   if (input.scope === "following") requireAuthenticated(actor);
   const since = Date.parse(input.since);
-  const nodes = visibleNodes(ctx, actor);
+  const plan = planFeed(ctx, actor, input, visibleNodes(ctx, actor));
+  if (plan.empty) return { count: 0, more: false };
   const threads = new Map<number, ThreadRow>();
   const top = Number.MAX_SAFE_INTEGER;
   // The same walks and filters as the list, from its top, stopping at what the client holds.
   const found =
     input.scope === "latest"
-      ? countNew(latestSources(ctx, actor, nodes, threads, [top, top, top], since))
-      : countNew(followingSources(ctx, actor, nodes, threads, [top, top], since));
+      ? countNew(latestSources(ctx, actor, plan, threads, [top, top, top], since))
+      : countNew(followingSources(ctx, actor, plan, threads, [top, top], since));
   return { count: Math.min(found, NEW_COUNT_CAP), more: found > NEW_COUNT_CAP };
 });

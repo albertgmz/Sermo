@@ -58,10 +58,46 @@ export const FeedItem = z
 
 export const FEED_SCOPES = ["latest", "following", "hot"] as const;
 
+/** What a thread is, for the feed filter: featured (a staff pick or a paid promotion), sticky or locked. */
+export const FEED_THREAD_TYPES = ["featured", "sticky", "locked"] as const;
+/** Forums one filter may name (each also takes the forums under it). */
+export const FEED_FILTER_FORUMS = 20;
+/** Filters a member may keep saved. */
+export const FEED_FILTER_LIMIT = 10;
+/** Forums a member may keep out of their own feed. */
+export const FEED_HIDDEN_LIMIT = 100;
+
+/**
+ * The fields that narrow the feed. Each one that is set must hold for an entry, and a filter
+ * never shows what the viewer may not open. `forumIds`: threads in these forums or the forums
+ * under them. `prefixId`: threads carrying that prefix. `type`: see FEED_THREAD_TYPES. `tag`:
+ * threads carrying the tag (by name, or an alias of it). `watched`: threads the viewer watches
+ * (their 500 most recent watches). `unread`: threads with posts the viewer has not read, within
+ * the 30 days a thread can count as unread. `watched` and `unread` need an account. Wall posts
+ * belong to no forum, so with any field on (`false` is off) the feed holds threads only.
+ * "People I follow" is the `following` scope, which takes the same fields.
+ */
+export const feedFilterFields = {
+  forumIds: z.array(Id).max(FEED_FILTER_FORUMS).optional(),
+  prefixId: Id.optional(),
+  type: z.enum(FEED_THREAD_TYPES).optional(),
+  tag: z.string().trim().min(1).max(100).optional(),
+  watched: z.boolean().optional(),
+  unread: z.boolean().optional(),
+};
+export const FeedFilter = z.object(feedFilterFields).meta({ id: "FeedFilter" });
+
 export const feedList = defineContract({
   name: "feed.list",
   summary:
-    "The feed of conversations, newest first: threads and wall posts the viewer may open. " +
+    "The feed of conversations: threads and wall posts the viewer may open, newest first (`hot` " +
+    "is the exception, best first). Forums the site leaves out of the feed (`settings.update`, " +
+    "`feedExcludedForumIds`) and forums the viewer hides from their own (`feed.hideForum`) " +
+    "are not listed, with their subforums; naming a hidden forum in `forumIds` lists it again, " +
+    "a site-excluded one never. The filter fields (`forumIds`, `prefixId`, `type`, `tag`, " +
+    "`watched`, `unread`) narrow every scope, can be combined, and never widen what the " +
+    "viewer may open; with one on, only threads are listed, and a page can be short while " +
+    "`nextCursor` is set. `watched` and `unread` need an account. " +
     "`latest` is everyone's activity, one entry per thread: the visible threads are walked by " +
     "their last activity and each is listed once, with its newest visible post (its opening " +
     "post, or its newest reply), merged with the wall posts by time. A reply moves its thread " +
@@ -70,8 +106,8 @@ export const feedList = defineContract({
     "`following` is the activity of the members the viewer follows (the 100 followed most " +
     "recently, when there are more) and requires an account: a thread is listed at the newest " +
     "post one of them wrote in it, once per answer; a later page may list the same thread " +
-    "again, with an older post of a followed member. A cursor belongs to the scope that " +
-    "issued it. " +
+    "again, with an older post of a followed member. A cursor belongs to the scope and " +
+    "filter that issued it. " +
     "`hot` is the threads that are busy right now among the forums the viewer can see, at most " +
     "50, each as its opening post, best first; it is recomputed every five minutes and not " +
     "paginated (`nextCursor` is always null). A thread scores its replies, the reactions on its " +
@@ -85,7 +121,11 @@ export const feedList = defineContract({
     "members are left out. A thread entry says whether the viewer may reply to it (`canReply`) and why " +
     "it is featured, if it is (`featured`; `latest` and `following` mark features too).",
   kind: "read",
-  input: z.object({ scope: z.enum(FEED_SCOPES).default("latest"), ...pageInput }),
+  input: z.object({
+    scope: z.enum(FEED_SCOPES).default("latest"),
+    ...feedFilterFields,
+    ...pageInput,
+  }),
   output: Page(FeedItem),
 });
 
@@ -97,14 +137,85 @@ export const feedNewCount = defineContract({
     "`scope` is `latest` or `following` (which requires an account); `hot` is recomputed " +
     "every few minutes and has nothing to poll. The entries are those `feed.list` would put " +
     "above `since` for this viewer, with the same filters (forums the viewer may open, wall " +
-    "posts they may see, ignored members), counted through the same walks but never built: a " +
+    "posts they may see, ignored members) and the same filter fields, counted through the same " +
+    "walks but never built: a " +
     "thread that gets a reply counts again, as it moves to the top, and the viewer's own posts " +
     "count too. A post approved after newer ones were posted keeps its old time and is not " +
     "counted, nor is an entry made in the very millisecond of `since`. `count` is at most 99 and `more` is true when there are more than that. A " +
     "hundred hidden entries in a row may make the count too low.",
   kind: "read",
-  input: z.object({ scope: z.enum(["latest", "following"]).default("latest"), since: Timestamp }),
+  input: z.object({
+    scope: z.enum(["latest", "following"]).default("latest"),
+    since: Timestamp,
+    ...feedFilterFields,
+  }),
   output: z.object({ count: z.number().int().min(0).max(99), more: z.boolean() }),
+});
+
+/** A filter a member saved: the tab it opens on and the fields that narrow it. */
+export const SavedFeedFilter = z
+  .object({
+    id: Id,
+    name: z.string(),
+    scope: z.enum(FEED_SCOPES),
+    filter: FeedFilter,
+    createdAt: Timestamp,
+  })
+  .meta({ id: "SavedFeedFilter" });
+
+export const feedOptions = defineContract({
+  name: "feed.options",
+  summary:
+    "What a client needs to draw the feed's filters in one read: the forums the site leaves " +
+    "out of the feed (`excludedForumIds`, a setting), and, for a signed-in member, the forums " +
+    "they hide from their own feed (`hiddenForumIds`) and their saved filters, oldest first " +
+    "(`filters`, at most `filterLimit`). Guests get the site's list and nothing else. A forum " +
+    "listed here also stands for the forums under it. Public.",
+  kind: "read",
+  input: z.object({}),
+  output: z.object({
+    excludedForumIds: z.array(Id),
+    hiddenForumIds: z.array(Id),
+    filters: z.array(SavedFeedFilter),
+    filterLimit: z.number().int(),
+  }),
+});
+
+export const feedSaveFilter = defineContract({
+  name: "feed.saveFilter",
+  summary:
+    "Save a feed filter under a name, for the signed-in member: the tab it opens on and the " +
+    "filter fields. A name is one filter whatever its case (1 to 40 characters, trimmed): " +
+    "saving it again replaces that filter. A member keeps at most 10 filters; a new name past " +
+    "that is a conflict. Saving checks the shape only: a forum or prefix that later goes away " +
+    "just lists nothing.",
+  kind: "write",
+  input: z.object({
+    name: z.string().trim().min(1).max(40),
+    scope: z.enum(FEED_SCOPES),
+    filter: FeedFilter,
+  }),
+  output: SavedFeedFilter,
+});
+
+export const feedDeleteFilter = defineContract({
+  name: "feed.deleteFilter",
+  summary: "Delete one of the signed-in member's saved feed filters. Not found for anyone else's.",
+  kind: "write",
+  input: z.object({ filterId: Id }),
+  output: z.object({ deleted: z.literal(true) }),
+});
+
+export const feedHideForum = defineContract({
+  name: "feed.hideForum",
+  summary:
+    "Keep a forum (and the forums under it) out of the signed-in member's own feed, or put it " +
+    "back (`hidden`). Needs a forum the member can see to hide it; showing it again always " +
+    "works. At most 100 forums can be hidden. It changes the member's feed only: the forum " +
+    "stays open and listed everywhere else.",
+  kind: "write",
+  input: z.object({ nodeId: Id, hidden: z.boolean() }),
+  output: z.object({ hidden: z.boolean() }),
 });
 
 export const THREAD_RANKINGS = [

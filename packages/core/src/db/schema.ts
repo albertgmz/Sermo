@@ -858,6 +858,19 @@ export const threads = sqliteTable(
     index("threads_prefix")
       .on(t.prefixId, t.nodeId, t.isSticky, t.sortAt, t.id)
       .where(sql`prefix_id IS NOT NULL`),
+    // The feed filtered by prefix, across forums:
+    // WHERE prefix_id = ? AND state = 'visible' ORDER BY last_post_at DESC, id DESC.
+    index("threads_prefix_feed")
+      .on(t.prefixId, t.state, desc(t.lastPostAt), desc(t.id))
+      .where(sql`prefix_id IS NOT NULL`),
+    // The feed filtered by thread type, across forums (only the few sticky or locked threads are
+    // indexed): WHERE is_sticky = 1 AND state = 'visible' ORDER BY last_post_at DESC, id DESC.
+    index("threads_sticky_feed")
+      .on(t.state, desc(t.lastPostAt), desc(t.id))
+      .where(sql`is_sticky = 1`),
+    index("threads_locked_feed")
+      .on(t.state, desc(t.lastPostAt), desc(t.id))
+      .where(sql`is_locked = 1`),
   ],
 );
 
@@ -1690,6 +1703,47 @@ export const userIgnores = sqliteTable(
     index("user_ignores_ignored").on(t.ignoredId, t.userId),
     index("user_ignores_user_recent").on(t.userId, t.id),
   ],
+);
+
+/**
+ * A feed filter a member saved under a name. `scope` is the tab it opens on; `filter` is the
+ * JSON of the filter fields (`forumIds`, `prefixId`, `type`, `tag`, `watched`, `unread`). A
+ * member keeps at most a handful (`FEED_FILTER_LIMIT`), and a name is one filter per member
+ * whatever its case (`name_key`).
+ */
+export const feedFilters = sqliteTable(
+  "feed_filters",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    nameKey: text("name_key").notNull(),
+    scope: text("scope").notNull(),
+    filter: text("filter").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("feed_filters_user_name").on(t.userId, t.nameKey),
+    index("feed_filters_user").on(t.userId, t.id),
+  ],
+);
+
+/** A forum (or category, with everything under it) a member keeps out of their own feed. */
+export const feedHiddenNodes = sqliteTable(
+  "feed_hidden_nodes",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    nodeId: integer("node_id")
+      .notNull()
+      .references(() => nodes.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("feed_hidden_nodes_pair").on(t.userId, t.nodeId)],
 );
 
 // ---------------------------------------------------------------------------

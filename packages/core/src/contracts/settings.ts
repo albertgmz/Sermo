@@ -131,6 +131,12 @@ export const SiteSettings = z
      * confirmed. Off by default; accounts already waiting stay in the queue when it is turned off.
      */
     approveSignups: z.boolean().default(false),
+    /**
+     * Forums (or categories, with everything under them) the home feed leaves out for the whole
+     * site: `feed.list` never lists their threads, whoever asks, even when a forum filter names
+     * one. The forums themselves are untouched. Ids of forums that do not exist are refused.
+     */
+    feedExcludedForumIds: z.array(Id).max(100).default([]),
     /** The home page tab of members who chose none, and of guests. */
     homeTab: HomeTabSetting.default({ rules: [], fallback: "latest" }),
     threadTitleTemplate: z.string().min(1).max(200),
