@@ -34,7 +34,10 @@ const NOTE = "This conversation is locked: no new replies.";
 const draw = (over: Partial<typeof conversation>) =>
   renderToStaticMarkup(
     withIntl(
-      createElement(ReplyArea, { conversation: { ...conversation, ...over } }),
+      createElement(ReplyArea, {
+        conversation: { ...conversation, ...over },
+        tailKey: "conversation:3",
+      }),
     ),
   );
 

@@ -6,21 +6,25 @@ import { useState, useTransition } from "react";
 import { FormError } from "@/components/forum/form-error";
 import { useMemberCardReload } from "@/components/forum/member-card-scope";
 import { Button } from "@/components/ui/button";
+import { changeItem, useItemState } from "@/lib/item-state";
 import { cn } from "@/lib/utils";
 
-// Follows or unfollows from where a member is drawn, without leaving the page. `action` asks for
-// the opposite of what is shown and ends in a refresh; a refusal is shown under the button.
+// Follows or unfollows from where a member is drawn, without leaving the page. `action` is asked
+// for the opposite of what is shown, which shows at once (on every button of that member) and is
+// put back when the backend refuses; the refusal is shown under the button.
 export function MemberFollowButton({
+  userId,
   username,
-  following,
+  following: drawn,
   action,
   className,
   labelClassName,
   errorClassName,
 }: {
+  userId: number;
   username: string;
   following: boolean;
-  action: () => Promise<{ error?: string }>;
+  action: (follow: boolean) => Promise<{ error?: string }>;
   className?: string;
   // How the visible text is hidden where only the icon fits.
   labelClassName?: string;
@@ -31,6 +35,8 @@ export function MemberFollowButton({
   const reloadCard = useMemberCardReload();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | undefined>();
+  const stateKey = `follow:${userId}`;
+  const following = useItemState(stateKey, drawn);
   return (
     <>
       <Button
@@ -45,7 +51,9 @@ export function MemberFollowButton({
         className={cn("aria-disabled:opacity-50", className)}
         onClick={() =>
           start(async () => {
-            const { error: refused } = await action();
+            const refused = await changeItem(stateKey, drawn, !following, () =>
+              action(!following),
+            );
             setError(refused);
             // Inside a member card the page's refresh does not reach the card: read it again.
             if (!refused) reloadCard();

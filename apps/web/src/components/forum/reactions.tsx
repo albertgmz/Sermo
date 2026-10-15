@@ -1,7 +1,7 @@
 import { type ReactionTarget, react } from "@/app/[locale]/(main)/actions";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { canReact, ReactionControl } from "@/components/forum/reaction-control";
-import { ReactionSummary } from "@/components/forum/reaction-summary";
+import { ReactionSummaryLive } from "@/components/forum/reaction-summary-live";
 import { loadReactionUsers } from "@/components/forum/reaction-users-action";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import { reactionsView } from "@/lib/sermo/reactions";
@@ -46,21 +46,28 @@ export function Reactions({
   className?: string;
 }) {
   const view = reactionsView(reactions, reactionTypes);
+  const stateKey = `reaction:${target}:${id}`;
+  const pressable = canReact(viewerId, authorId, picker);
   return (
     <ReactionControl
+      stateKey={stateKey}
       action={react.bind(null, target, id)}
       total={reactions.total}
       viewerTypeId={reactions.mine}
       picker={picker}
       viewerId={viewerId}
       authorId={authorId}
+      // Where the viewer can react, the summary may gain its first reaction in place.
       summary={
-        view.total > 0 && (
-          <ReactionSummary
-            reactions={view}
+        (view.total > 0 || pressable) && (
+          <ReactionSummaryLive
+            stateKey={stateKey}
+            summary={view}
+            drawnMine={view.viewerTypeId}
+            offered={picker}
             loadUsers={loadReactionUsers.bind(null, CONTENT_TYPE[target], id)}
             size={size}
-            showTotal={!canReact(viewerId, authorId, picker)}
+            showTotal={!pressable}
           />
         )
       }

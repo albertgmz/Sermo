@@ -83,11 +83,11 @@ function onPage(referer?: string, host = referer && new URL(referer).host) {
   incoming = new Headers(referer && host ? { referer, host } : {});
 }
 
-test("a reaction is one write, refreshes the page once and revalidates no path", async () => {
+test("a reaction is one write and draws nothing again", async () => {
   onPage("http://localhost:3105/threads/5?page=2");
   const asked = backend(Response.json(SUMMARY));
   expect(await react("post", 9, 2)).toEqual({});
-  expect(refreshed).toBe(1);
+  expect(refreshed).toBe(0);
   expect(revalidated).toEqual([]);
   expect(asked).toHaveLength(1);
   expect(asked[0].path).toBe("/api/v1/reactions/post/9");
@@ -96,7 +96,7 @@ test("a reaction is one write, refreshes the page once and revalidates no path",
 
 // Every page that draws the reactions element: the feed and its views, a thread, a profile and
 // its tabs, a conversation.
-test("a reaction shows the page it was made on again, wherever that is", async () => {
+test("a reaction refreshes no page, wherever it was made", async () => {
   for (const referer of [
     "http://localhost:3105/",
     "http://localhost:3105/?tab=top&cursor=abc",
@@ -108,7 +108,7 @@ test("a reaction shows the page it was made on again, wherever that is", async (
     onPage(referer);
     backend(Response.json(SUMMARY));
     expect(await react("post", 9, 2)).toEqual({});
-    expect(refreshed, referer).toBe(1);
+    expect(refreshed, referer).toBe(0);
   }
 });
 
@@ -281,22 +281,22 @@ test("a thread id that is not a record id never reaches the backend", async () =
   expect(asked).toHaveLength(0);
 });
 
-test("following from a page is one write that refreshes the page and does not redirect", async () => {
+test("following from a page is one write that refreshes nothing and does not redirect", async () => {
   onPage("http://localhost:3105/threads/5?page=2");
   const asked = backend(Response.json({ following: true, followerCount: 3 }));
   expect(await followFromPage(8, true)).toEqual({});
-  expect(refreshed).toBe(1);
+  expect(refreshed).toBe(0);
   expect(revalidated).toEqual([]);
   expect(asked).toHaveLength(1);
   expect(asked[0].method).toBe("PUT");
   expect(asked[0].path).toBe("/api/v1/users/8/follow");
 });
 
-test("unfollowing from a page asks to stop and refreshes once", async () => {
+test("unfollowing from a page asks to stop and refreshes nothing", async () => {
   onPage("http://localhost:3105/conversations/3");
   const asked = backend(Response.json({ ok: true }));
   expect(await followFromPage(8, false)).toEqual({});
-  expect(refreshed).toBe(1);
+  expect(refreshed).toBe(0);
   expect(asked[0].method).toBe("DELETE");
   expect(asked[0].path).toBe("/api/v1/users/8/follow");
 });
@@ -326,11 +326,11 @@ test("a member id that cannot be a record is refused before the backend is asked
   expect(asked).toHaveLength(0);
 });
 
-test("bookmarking from a page is one PUT that refreshes the page and does not redirect", async () => {
+test("bookmarking from a page is one PUT that refreshes nothing and does not redirect", async () => {
   onPage("http://localhost:3105/threads/5");
   const asked = backend(Response.json({ ok: true }));
   expect(await setBookmark("post", 12, true)).toEqual({});
-  expect(refreshed).toBe(1);
+  expect(refreshed).toBe(0);
   expect(asked).toHaveLength(1);
   expect(asked[0].method).toBe("PUT");
   expect(asked[0].path).toBe("/api/v1/bookmarks");

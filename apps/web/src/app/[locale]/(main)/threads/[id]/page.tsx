@@ -1,43 +1,31 @@
 import { postsList, seoThread, threadsGet } from "@sermo/core/contracts";
-import { Hourglass, Lock, PenLine, Sparkles, Trash2 } from "lucide-react";
+import { Hourglass, Lock, Trash2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
 import { MarkRead } from "@/app/[locale]/(main)/threads/[id]/mark-read";
-import {
-  SPLIT_FORM,
-  SplitPanel,
-} from "@/app/[locale]/(main)/threads/[id]/moderation";
-import {
-  pageCount,
-  threadHref,
-} from "@/app/[locale]/(main)/threads/[id]/pages";
+import { SplitPanel } from "@/app/[locale]/(main)/threads/[id]/moderation";
+import { pageCount } from "@/app/[locale]/(main)/threads/[id]/pages";
 import {
   type ThreadMay,
   threadMay,
 } from "@/app/[locale]/(main)/threads/[id]/permissions";
-import { PostActions } from "@/app/[locale]/(main)/threads/[id]/post-actions";
-import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { PostItem } from "@/app/[locale]/(main)/threads/[id]/post-item";
 import { ReplyComposer } from "@/app/[locale]/(main)/threads/[id]/reply-composer";
 import { ThreadTools } from "@/app/[locale]/(main)/threads/[id]/thread-tools";
 import { Art } from "@/components/forum/art";
-import { EditedMark } from "@/components/forum/edited-mark";
 import { EmptyState } from "@/components/forum/empty-state";
-import { HtmlContent } from "@/components/forum/html-content";
 import { JsonLd } from "@/components/forum/json-ld";
+import { LiveTail, PendingBody } from "@/components/forum/live-tail";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import { PrefixTag } from "@/components/forum/prefix-tag";
-import type { ReactionType } from "@/components/forum/reaction-button";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
-import { HashLink } from "@/components/layout/hash-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
@@ -47,11 +35,8 @@ import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
-import { type ApiPost, prefixView } from "@/lib/sermo/threads";
-import type { AuthorView } from "@/lib/sermo/views";
+import { prefixView } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
-
-const LABEL = "sr-only sm:not-sr-only";
 
 // The thread is asked once for the metadata and the page: asking counts a view. The backend
 // follows a merge; the proxy sends a page load there already, but a soft navigation reaches this.
@@ -83,146 +68,6 @@ function threadIdOf(raw: string) {
   const id = parsePageId(raw);
   if (id === null) notFound();
   return id;
-}
-
-function PostItem({
-  post,
-  author,
-  byThreadAuthor,
-  noteState,
-  highlighted,
-  signed,
-  viewerId,
-  picker,
-  reactionTypes,
-  may,
-  isFirst,
-  selecting,
-  canQuote,
-  bookmarked,
-}: {
-  post: ApiPost;
-  author: AuthorView;
-  byThreadAuthor: boolean;
-  // Whether the post says it is waiting or deleted; the thread says so already for its own state.
-  noteState: boolean;
-  highlighted: boolean;
-  signed: boolean;
-  viewerId: number | null;
-  // What the picker offers; none when the viewer may not react to this post.
-  picker: ReactionType[];
-  reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
-  may: ThreadMay;
-  // The opening post cannot be deleted or split off on its own.
-  isFirst: boolean;
-  // The posts carry a tick for the split form.
-  selecting: boolean;
-  canQuote: boolean;
-  bookmarked: boolean | null;
-}) {
-  const t = useTranslations("threads.page");
-  const number = post.position + 1;
-  const href = threadHref(post.threadId, post.position, post.id);
-
-  return (
-    <PostFrame
-      id={`post-${post.id}`}
-      author={author}
-      createdAt={post.createdAt}
-      highlighted={highlighted}
-      edited={post.editedAt && <EditedMark date={post.editedAt} />}
-      trailing={
-        <>
-          {highlighted && (
-            <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">
-              <Sparkles aria-hidden="true" className="size-3" />
-              <span className={LABEL}>{t("highlightedLabel")}</span>
-            </span>
-          )}
-          {byThreadAuthor && (
-            <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium">
-              <PenLine aria-hidden="true" className="hidden size-3 sm:block" />
-              {t.rich("authorLabel", {
-                hidden: (chunks) => <span className="sr-only">{chunks}</span>,
-              })}
-            </span>
-          )}
-          <HashLink
-            href={href}
-            className="inline-flex h-10 min-w-10 items-center justify-center px-1.5 tabular-nums hover:text-foreground md:h-7 md:min-w-7"
-          >
-            {t("postNumber", { number })}
-          </HashLink>
-        </>
-      }
-      signed={signed}
-      actions={
-        <PostActions
-          post={post}
-          viewerId={viewerId}
-          picker={picker}
-          reactionTypes={reactionTypes}
-          may={may}
-          noteState={noteState}
-          canQuote={canQuote}
-          bookmarked={bookmarked}
-        />
-      }
-    >
-      {/* The first post cannot be split off: a hint that copies the backend's threads.split rule,
-            whose refusal is shown under the split form if the hint is ever wrong. */}
-      {selecting && !isFirst && (
-        <label className="mt-1 flex min-h-10 items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="postIds"
-            value={post.id}
-            form={SPLIT_FORM}
-            className="size-5 accent-primary"
-          />
-          {t("selectPost", { number })}
-        </label>
-      )}
-
-      {noteState && post.state === "moderated" && (
-        <PostNote icon={Hourglass}>{t("awaitingApproval")}</PostNote>
-      )}
-      {noteState && post.state === "deleted" && (
-        <PostNote icon={Trash2}>{t("deleted")}</PostNote>
-      )}
-      {post.state === "deleted" ? (
-        <details className="mt-2">
-          <summary className="flex min-h-10 cursor-pointer items-center text-sm text-muted-foreground">
-            {t("showDeleted")}
-          </summary>
-          <HtmlContent
-            content={{ type: "post", id: post.id }}
-            attachments={post.attachments}
-          >
-            {post.bodyHtml}
-          </HtmlContent>
-          <PostAttachments
-            attachments={post.attachments}
-            inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}
-          />
-        </details>
-      ) : (
-        <>
-          <HtmlContent
-            className="md:mt-1"
-            content={{ type: "post", id: post.id }}
-            attachments={post.attachments}
-          >
-            {post.bodyHtml}
-          </HtmlContent>
-          <PostAttachments
-            attachments={post.attachments}
-            inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}
-          />
-        </>
-      )}
-    </PostFrame>
-  );
 }
 
 export async function generateMetadata({
@@ -364,6 +209,12 @@ export default async function ThreadPage({
             <ReplyComposer
               key={thread.lastPost.postId}
               threadId={thread.id}
+              tailKey={tailKey(thread.id)}
+              rowContext={{
+                threadAuthorId: thread.author.id,
+                may,
+                canQuote: permissions.canReply,
+              }}
               attachIn={may.attach ? node.id : null}
             />
           </>
@@ -399,6 +250,9 @@ export default async function ThreadPage({
     </PageLayout>
   );
 }
+
+// What the end of the last page of this thread is kept under while the page is open.
+const tailKey = (threadId: number) => `thread:${threadId}`;
 
 function pageHref(
   threadId: number,
@@ -439,7 +293,7 @@ async function ThreadPosts({
       bookmarks,
     },
     reactionTypes,
-    { permissions },
+    { permissions, user },
     t,
     format,
   ] = await Promise.all([
@@ -464,7 +318,11 @@ async function ThreadPosts({
   ]);
   // An empty page past the first is a page that does not exist.
   if (posts.length === 0 && page > 1) notFound();
-  const author = await authorsFor(posts.map((post) => post.author));
+  // The viewer is among the authors: the row drawn for a reply they are sending is theirs.
+  const author = await authorsFor([
+    ...posts.map((post) => post.author),
+    ...(user ? [user] : []),
+  ]);
   const picker = permissions.canReact ? pickerTypes(reactionTypes) : [];
   // One signature per member on the page: under their first post.
   const seen = new Set<number>();
@@ -476,7 +334,15 @@ async function ThreadPosts({
     }),
   );
   const pages = pageCount(thread.lastPost.position);
-  const lastPosition = posts.at(-1)?.position;
+  const lastPost = posts.at(-1);
+  const lastPosition = lastPost?.position;
+  // The last page goes on while it is open: replies that arrive and the viewer's own end it.
+  const goesOn =
+    lastPost !== undefined &&
+    !cursor &&
+    !selecting &&
+    page >= pages &&
+    !nextCursor;
 
   return (
     <>
@@ -506,6 +372,24 @@ async function ThreadPosts({
             bookmarked={bookmarks ? bookmarks.has(post.id) : null}
           />
         ))}
+        {goesOn && (
+          <LiveTail
+            tailKey={tailKey(thread.id)}
+            drawn={{ id: lastPost.id, mark: lastPost.position }}
+            pendingRow={
+              user && (
+                <PostFrame
+                  id="post-pending"
+                  author={author(user.id)}
+                  createdAt={new Date().toISOString()}
+                  actions={null}
+                >
+                  <PendingBody />
+                </PostFrame>
+              )
+            }
+          />
+        )}
       </div>
       {(pages > 1 || page > 1 || nextCursor) && (
         <nav

@@ -78,9 +78,10 @@ export function MemberActionsView({
     >
       {(relation.canFollow || relation.following) && (
         <MemberFollowButton
+          userId={id}
           username={username}
           following={relation.following}
-          action={followAction.bind(null, id, !relation.following)}
+          action={followAction.bind(null, id)}
           className={BUTTON[form]}
           labelClassName={LABEL[form]}
           errorClassName={ERROR[form]}

@@ -240,12 +240,14 @@ export const REACTIONS: ReactionsSummary = {
     { type: REACTION_TYPES[1], count: 2 },
     { type: REACTION_TYPES[2], count: 1 },
   ],
-  users: [
-    { user: ADMIN, type: REACTION_TYPES[0] },
-    { user: MODERATOR, type: REACTION_TYPES[1] },
-    { user: MEMBER, type: REACTION_TYPES[0] },
-  ],
 };
+
+// Who reacted, for the list in the popover of a summary.
+export const REACTION_USERS = [
+  { user: ADMIN, type: REACTION_TYPES[0] },
+  { user: MODERATOR, type: REACTION_TYPES[1] },
+  { user: MEMBER, type: REACTION_TYPES[0] },
+];
 
 // A picture is the backdrop of an award's card, never part of its round icon.
 export const AWARDS: (AwardArt & { id: number; image?: { url: string } })[] = [

@@ -1,25 +1,19 @@
 import { useTranslations } from "next-intl";
-import { MemberCardScope } from "@/components/forum/member-card-scope";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { ReactionPicture } from "@/components/forum/reaction-picture";
 import { ReactionUsers } from "@/components/forum/reaction-users";
-import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserLink } from "@/components/forum/user-link";
 import {
   Popover,
   PopoverContent,
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
-// A summary of the reactions on one item: the counts by type and, where the list is at hand, who
-// reacted.
+// A summary of the reactions on one item: the counts by type.
 export type ReactionsSummary = {
   total: number;
   byType: { type: ReactionType; count: number }[];
-  users?: { user: MemberView; type: ReactionType }[];
 };
 
 const TYPES_SHOWN = 3;
@@ -38,12 +32,15 @@ const SIZES = {
 export function ReactionSummary({
   reactions,
   loadUsers,
+  members,
   size = "default",
   showTotal = true,
   className,
 }: {
-  // `users` when the list is at hand, `loadUsers` when it is read once the popover opens.
   reactions: ReactionsSummary;
+  // Who reacted: the list itself (a `ReactionMemberList`) when it is at hand, `loadUsers` when it
+  // is read once the popover opens.
+  members?: React.ReactNode;
   loadUsers?: () => Promise<React.ReactNode>;
   size?: keyof typeof SIZES;
   // False where the button beside it already shows the number.
@@ -89,30 +86,7 @@ export function ReactionSummary({
             </span>
           ))}
         </PopoverTitle>
-        {reactions.users ? (
-          <MemberCardScope disabled>
-            <ul className="max-h-64 overflow-y-auto py-1">
-              {reactions.users.map(({ user, type }) => (
-                <li
-                  key={user.id}
-                  className="flex min-h-10 items-center gap-2 px-3 text-sm"
-                >
-                  <UserAvatar user={user} size="sm" />
-                  <UserLink user={user} className="min-w-0 flex-1 truncate" />
-                  <span title={type.label}>
-                    <ReactionPicture
-                      emoji={type.emoji}
-                      picture={type.picture}
-                      label={type.label}
-                    />
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </MemberCardScope>
-        ) : loadUsers ? (
-          <ReactionUsers load={loadUsers} />
-        ) : null}
+        {members ?? (loadUsers ? <ReactionUsers load={loadUsers} /> : null)}
       </PopoverContent>
     </Popover>
   );

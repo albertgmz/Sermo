@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { ReactionControl } from "@/components/forum/reaction-control";
 
@@ -24,8 +24,10 @@ export function ReactionDemo({
   size?: "default" | "sm";
 }) {
   const [typeId, setTypeId] = useState(initial);
+  const stateKey = `demo:${useId()}`;
   return (
     <ReactionControl
+      stateKey={stateKey}
       action={async (next) => {
         setTypeId(next);
         return undefined;

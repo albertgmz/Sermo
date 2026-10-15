@@ -1,0 +1,119 @@
+"use client";
+
+import {
+  createContext,
+  Fragment,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
+import {
+  EMPTY_TAIL,
+  readTail,
+  updateTail,
+  useTail,
+  writeTail,
+} from "@/lib/tail";
+
+const PendingText = createContext("");
+
+// The text of a message or reply that has been sent and not yet answered, inside the row the
+// server drew for it (`LiveTail` gives each waiting text to its own copy of that row).
+export function PendingBody() {
+  const text = useContext(PendingText);
+  return (
+    <p className="mt-1 whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">
+      {text}
+    </p>
+  );
+}
+
+const pendingId = (tailKey: string, id: number) => `${tailKey}-pending-${id}`;
+
+// Whether the visitor is reading the end of the page: a row that arrives then keeps it in view.
+const NEAR_END_PX = 240;
+const nearEnd = () =>
+  window.innerHeight + window.scrollY >=
+  document.documentElement.scrollHeight - NEAR_END_PX;
+
+// Where a conversation, or the last page of a thread, goes on after the rows the server drew: the
+// rows that came since (see `lib/tail`) and the texts being sent. It is the last child of the list
+// of rows, so a row is a `li` there (`as`) or the row itself. `drawn` is the newest row the server
+// drew; a screen drawn again that holds rows of the tail takes them over, and they leave the tail.
+export function LiveTail({
+  tailKey,
+  drawn,
+  as,
+  pendingRow,
+}: {
+  tailKey: string;
+  drawn: { id: number; mark: number };
+  as?: "li";
+  // The row the server drew for the visitor's own text, with a `PendingBody` where the text goes.
+  pendingRow: ReactNode;
+}) {
+  const tail = useTail(tailKey) ?? EMPTY_TAIL;
+  const Row = as ?? Fragment;
+  const atEnd = useRef(false);
+
+  useEffect(() => {
+    writeTail(tailKey, readTail(tailKey) ?? EMPTY_TAIL);
+    return () => writeTail(tailKey, undefined);
+  }, [tailKey]);
+
+  useEffect(() => {
+    updateTail(tailKey, (held) =>
+      held.rows.some((row) => row.mark <= drawn.mark)
+        ? {
+            ...held,
+            rows: held.rows.filter((row) => row.mark > drawn.mark),
+          }
+        : held,
+    );
+  }, [tailKey, drawn.mark]);
+
+  useEffect(() => {
+    const note = () => {
+      atEnd.current = nearEnd();
+    };
+    note();
+    window.addEventListener("scroll", note, { passive: true });
+    window.addEventListener("resize", note, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", note);
+      window.removeEventListener("resize", note);
+    };
+  }, []);
+
+  // The element that is the end of the list now: the newest text being sent, else the newest row.
+  const lastPending = tail.pending.at(-1);
+  const end = lastPending
+    ? pendingId(tailKey, lastPending.id)
+    : tail.rows.at(-1)?.key;
+  useLayoutEffect(() => {
+    if (end && atEnd.current) {
+      document.getElementById(end)?.scrollIntoView({ block: "end" });
+    }
+  }, [end]);
+
+  return (
+    <>
+      {tail.rows.map((row) => (
+        <Row key={row.key}>{row.node}</Row>
+      ))}
+      {tail.pending.map(({ id, text }) => (
+        <Row key={`pending-${id}`}>
+          <div
+            id={pendingId(tailKey, id)}
+            aria-busy="true"
+            className="opacity-60"
+          >
+            <PendingText value={text}>{pendingRow}</PendingText>
+          </div>
+        </Row>
+      ))}
+    </>
+  );
+}

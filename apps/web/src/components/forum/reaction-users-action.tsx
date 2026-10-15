@@ -1,10 +1,7 @@
 "use server";
 
 import { reactionsList } from "@sermo/core/contracts";
-import { MemberCardScope } from "@/components/forum/member-card-scope";
-import { ReactionPicture } from "@/components/forum/reaction-picture";
-import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserLink } from "@/components/forum/user-link";
+import { ReactionMemberList } from "@/components/forum/reaction-member-list";
 import { call } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { asType, getReactionTypes } from "@/lib/sermo/reactions";
@@ -25,33 +22,11 @@ export async function loadReactionUsers(
   ]);
   const member = await membersFor(items.map((item) => item.user));
   return (
-    <MemberCardScope disabled>
-      <ul className="max-h-64 overflow-y-auto py-1">
-        {items.map(({ user, reactionTypeId }) => {
-          const type = types.find((entry) => entry.id === reactionTypeId);
-          return (
-            <li
-              key={user.id}
-              className="flex min-h-10 items-center gap-2 px-3 text-sm"
-            >
-              <UserAvatar user={member(user.id)} size="sm" />
-              <UserLink
-                user={member(user.id)}
-                className="min-w-0 flex-1 truncate"
-              />
-              {type && (
-                <span title={type.title}>
-                  <ReactionPicture
-                    emoji={type.emoji}
-                    picture={asType(type).picture}
-                    label={type.title}
-                  />
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </MemberCardScope>
+    <ReactionMemberList
+      rows={items.map(({ user, reactionTypeId }) => {
+        const type = types.find((entry) => entry.id === reactionTypeId);
+        return { user: member(user.id), type: type && asType(type) };
+      })}
+    />
   );
 }

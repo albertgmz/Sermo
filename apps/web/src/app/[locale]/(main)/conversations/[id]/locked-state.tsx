@@ -20,7 +20,13 @@ export function LockedBadge() {
 
 // Below the messages: the reply form, with a note above it when the conversation is locked and the
 // viewer may still reply; the note alone when they may not.
-export function ReplyArea({ conversation }: { conversation: Conversation }) {
+export function ReplyArea({
+  conversation,
+  tailKey,
+}: {
+  conversation: Conversation;
+  tailKey: string;
+}) {
   const t = useTranslations("conversations.conversation");
   if (!conversation.canReply)
     return (
@@ -37,6 +43,7 @@ export function ReplyArea({ conversation }: { conversation: Conversation }) {
       )}
       <ReplyForm
         conversationId={conversation.id}
+        tailKey={tailKey}
         placeholder={t("placeholder")}
         submitLabel={t("submit")}
       />

@@ -131,11 +131,9 @@ export async function react(
           reactionTypeId: typeId,
         }),
   );
+  // The page is not drawn again: the button and the summary of the item already show the reaction
+  // (`lib/item-state`), and a refusal puts the old one back.
   if (!done.ok) return { error: done.error };
-  // The page the member is on is drawn again with the reaction in it: the button keeps its own
-  // choice only until the action ends. Which page that is does not matter, and nothing is cached
-  // per visitor, so no path is named.
-  refresh();
   return {};
 }
 
@@ -169,7 +167,7 @@ export async function reportContent(
 }
 
 // Follows or unfollows a member from where their name is drawn (a post, a card) and stays on the
-// page: it is drawn again, so the scroll position and the address of a post survive. The caller
+// page, which is not drawn again: the buttons of that member show the new state already. The caller
 // says which state it wants, so a second click on a stale page cannot flip it back.
 export async function followFromPage(
   userId: number,
@@ -182,15 +180,15 @@ export async function followFromPage(
     else await call(usersUnfollow, { userId });
   });
   if (!done.ok) return { error: done.error };
-  refresh();
   return {};
 }
 
 export type BookmarkState = { error?: string };
 const BOOKMARKABLE = ["thread", "post", "conversation"] as const;
 
-// Bookmarks or un-bookmarks an item from where it is drawn and stays on the page. The caller says
-// which state it wants, so a second click on a stale page cannot flip it back.
+// Bookmarks or un-bookmarks an item from where it is drawn and stays on the page, which is not
+// drawn again. The caller says which state it wants, so a second click on a stale page cannot flip
+// it back.
 export async function setBookmark(
   contentType: (typeof BOOKMARKABLE)[number],
   contentId: number,
@@ -203,7 +201,6 @@ export async function setBookmark(
     call(bookmarksSet, { contentType, contentId, bookmarked }),
   );
   if (!done.ok) return { error: done.error };
-  refresh();
   return {};
 }
 

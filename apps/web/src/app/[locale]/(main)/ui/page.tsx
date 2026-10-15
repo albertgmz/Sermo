@@ -69,6 +69,7 @@ import { Podium } from "@/components/forum/podium";
 import { PostFrame } from "@/components/forum/post-frame";
 import { Postbit } from "@/components/forum/postbit";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import { ReactionMemberList } from "@/components/forum/reaction-member-list";
 import { ReactionPicture } from "@/components/forum/reaction-picture";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -162,6 +163,7 @@ import {
   PREFIXES,
   REACTION_PICTURE_TYPES,
   REACTION_TYPES,
+  REACTION_USERS,
   REACTIONS,
   RELATION,
   RESTRICTED_AUTHOR,
@@ -298,6 +300,8 @@ function Section({
 }
 
 // Sample HTML as the backend writes a mention.
+const reactionMembers = <ReactionMemberList rows={REACTION_USERS} />;
+
 const MENTION_HTML = `<p>Thanks <a href="/members/${ADMIN.id}" class="mention" data-user-id="${ADMIN.id}">@${ADMIN.username}</a> for the help.</p>`;
 
 export default async function StyleguidePage() {
@@ -850,14 +854,22 @@ export default async function StyleguidePage() {
               types={REACTION_TYPES}
               others={REACTIONS.total}
               summary={
-                <ReactionSummary reactions={REACTIONS} showTotal={false} />
+                <ReactionSummary
+                  reactions={REACTIONS}
+                  members={reactionMembers}
+                  showTotal={false}
+                />
               }
             />
             <ReactionDemo
               types={REACTION_TYPES}
               others={REACTIONS.total}
               summary={
-                <ReactionSummary reactions={REACTIONS} showTotal={false} />
+                <ReactionSummary
+                  reactions={REACTIONS}
+                  members={reactionMembers}
+                  showTotal={false}
+                />
               }
               initial={REACTION_TYPES[1].id}
             />
@@ -867,6 +879,7 @@ export default async function StyleguidePage() {
               summary={
                 <ReactionSummary
                   reactions={REACTIONS}
+                  members={reactionMembers}
                   size="sm"
                   showTotal={false}
                 />
@@ -876,7 +889,12 @@ export default async function StyleguidePage() {
             <ReactionDemo
               types={REACTION_TYPES}
               others={REACTIONS.total}
-              summary={<ReactionSummary reactions={REACTIONS} />}
+              summary={
+                <ReactionSummary
+                  reactions={REACTIONS}
+                  members={reactionMembers}
+                />
+              }
               own
             />
             <ReactionDemo types={REACTION_TYPES} others={0} summary={null} />
@@ -933,7 +951,11 @@ export default async function StyleguidePage() {
                 <p className="text-sm">The text of the post.</p>
                 <ContentActions
                   summary={
-                    <ReactionSummary reactions={REACTIONS} showTotal={false} />
+                    <ReactionSummary
+                      reactions={REACTIONS}
+                      members={reactionMembers}
+                      showTotal={false}
+                    />
                   }
                   react={
                     <ReactionDemo
@@ -958,7 +980,11 @@ export default async function StyleguidePage() {
                 <p className="text-sm">The text of the post.</p>
                 <ContentActions
                   summary={
-                    <ReactionSummary reactions={REACTIONS} showTotal={false} />
+                    <ReactionSummary
+                      reactions={REACTIONS}
+                      members={reactionMembers}
+                      showTotal={false}
+                    />
                   }
                   quote={{
                     postId: 1,

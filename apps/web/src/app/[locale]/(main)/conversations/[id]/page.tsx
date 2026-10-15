@@ -2,7 +2,7 @@ import {
   conversationsGet,
   conversationsListMessages,
 } from "@sermo/core/contracts";
-import { ChevronUp, Hourglass, LogOut, Trash2 } from "lucide-react";
+import { ChevronUp, LogOut } from "lucide-react";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
@@ -16,21 +16,18 @@ import {
   ReplyArea,
 } from "@/app/[locale]/(main)/conversations/[id]/locked-state";
 import { MarkReadProvider } from "@/app/[locale]/(main)/conversations/[id]/mark-read-state";
-import { MessageActions } from "@/app/[locale]/(main)/conversations/[id]/message-actions";
+import { MessageItem } from "@/app/[locale]/(main)/conversations/[id]/message-item";
 import { MessagesSkeleton } from "@/app/[locale]/(main)/conversations/[id]/messages-skeleton";
 import { WidgetsSheet } from "@/app/[locale]/(main)/conversations/[id]/widgets-sheet";
-import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
-import { EditedMark } from "@/components/forum/edited-mark";
-import { HtmlContent } from "@/components/forum/html-content";
+import { LiveTail, PendingBody } from "@/components/forum/live-tail";
 import { LoadMore } from "@/components/forum/load-more";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
-import { PostFrame, PostNote } from "@/components/forum/post-frame";
+import { PostFrame } from "@/components/forum/post-frame";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserLink } from "@/components/forum/user-link";
 import { getCounters } from "@/components/layout/header-data";
 import { PageLayout } from "@/components/layout/page-layout";
-import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
@@ -41,6 +38,9 @@ import { getMember } from "@/lib/sermo/session";
 
 type Conversation = z.output<typeof conversationsGet.output>;
 type Members = Awaited<ReturnType<typeof membersFor>>;
+
+// What the end of this conversation is kept under while the page is open.
+const tailKey = (conversationId: number) => `conversation:${conversationId}`;
 
 function conversationIdOf(raw: string) {
   const id = parseId(raw);
@@ -163,7 +163,10 @@ export default async function ConversationPage({
         </div>
 
         <section className="mt-4">
-          <ReplyArea conversation={conversation} />
+          <ReplyArea
+            conversation={conversation}
+            tailKey={tailKey(conversation.id)}
+          />
         </section>
       </PageLayout>
     </MarkReadProvider>
@@ -208,7 +211,11 @@ async function Messages({
   ]);
   // The backend lists from the newest end; the page reads from the oldest of its messages down.
   const messages = newestFirst.toReversed();
-  const author = await authorsFor(messages.map((message) => message.author));
+  // The viewer is among the authors: the row drawn for a message they are sending is theirs.
+  const author = await authorsFor([
+    ...messages.map((message) => message.author),
+    ...(user ? [user] : []),
+  ]);
   // One signature per member on the page: under their first message.
   const seen = new Set<number>();
   const firstOfAuthor = new Set(
@@ -219,6 +226,7 @@ async function Messages({
     }),
   );
   const picker = canReact ? pickerTypes(reactionTypes) : [];
+  const newest = messages.at(-1);
   return (
     <>
       {nextCursor && (
@@ -234,46 +242,34 @@ async function Messages({
       <ol className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
         {messages.map((message) => (
           <li key={message.id}>
-            <PostFrame
-              id={`message-${message.id}`}
+            <MessageItem
+              message={message}
               author={author(message.author.id)}
-              createdAt={message.createdAt}
-              edited={
-                message.editedAt && <EditedMark date={message.editedAt} />
-              }
               signed={firstOfAuthor.has(message.id)}
-              actions={
-                <MessageActions
-                  message={message}
-                  viewerId={user?.id ?? null}
-                  picker={picker}
-                  reactionTypes={reactionTypes}
-                />
-              }
-            >
-              {message.state === "moderated" && (
-                <PostNote icon={Hourglass}>{t("awaitingApproval")}</PostNote>
-              )}
-              {message.state === "deleted" && (
-                <PostNote icon={Trash2}>{t("deleted")}</PostNote>
-              )}
-              <HtmlContent
-                className="md:mt-1"
-                content={{ type: "conversation_message", id: message.id }}
-                attachments={message.attachments}
-              >
-                {message.bodyHtml}
-              </HtmlContent>
-              <PostAttachments
-                attachments={message.attachments}
-                inline={inlineAttachmentIds(
-                  message.bodyHtml,
-                  message.attachments,
-                )}
-              />
-            </PostFrame>
+              viewerId={user?.id ?? null}
+              picker={picker}
+              reactionTypes={reactionTypes}
+            />
           </li>
         ))}
+        {/* Only the newest page goes on: what is sent or arrives while it is open ends it. */}
+        {!cursor && user && newest && (
+          <LiveTail
+            tailKey={tailKey(conversation.id)}
+            drawn={{ id: newest.id, mark: newest.id }}
+            as="li"
+            pendingRow={
+              <PostFrame
+                id="message-pending"
+                author={author(user.id)}
+                createdAt={new Date().toISOString()}
+                actions={null}
+              >
+                <PendingBody />
+              </PostFrame>
+            }
+          />
+        )}
       </ol>
       {cursor && (
         <LoadMore

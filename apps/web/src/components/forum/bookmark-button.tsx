@@ -2,15 +2,17 @@
 
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useOptimistic, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { setBookmark } from "@/app/[locale]/(main)/actions";
 import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
+import { changeItem, useItemState } from "@/lib/item-state";
 import { cn } from "@/lib/utils";
 
 // Bookmarks or un-bookmarks an item from where it is drawn and stays on the page: the action asks
-// for the opposite of what is shown and ends in a refresh; a refusal is shown under the button. The
-// label carries the state (no `aria-pressed`: a reader would say "Remove bookmark, pressed").
+// for the opposite of what is shown, which shows at once and is put back when the backend refuses
+// (the refusal is shown under the button). The label carries the state (no `aria-pressed`: a
+// reader would say "Remove bookmark, pressed").
 export function BookmarkButton({
   contentType,
   contentId,
@@ -28,7 +30,8 @@ export function BookmarkButton({
 }) {
   const t = useTranslations("ui.bookmark");
   const [pending, start] = useTransition();
-  const [shown, setShown] = useOptimistic(bookmarked);
+  const stateKey = `bookmark:${contentType}:${contentId}`;
+  const shown = useItemState(stateKey, bookmarked);
   const [error, setError] = useState<string | undefined>();
   const label = t(shown ? "remove" : "add");
   return (
@@ -46,13 +49,11 @@ export function BookmarkButton({
         )}
         onClick={() =>
           start(async () => {
-            setShown(!shown);
-            const { error: refused } = await setBookmark(
-              contentType,
-              contentId,
-              !shown,
+            setError(
+              await changeItem(stateKey, bookmarked, !shown, () =>
+                setBookmark(contentType, contentId, !shown),
+              ),
             );
-            setError(refused);
           })
         }
       >

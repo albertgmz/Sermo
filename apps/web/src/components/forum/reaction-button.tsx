@@ -4,13 +4,7 @@ import { ChevronDown, Heart } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  useEffect,
-  useOptimistic,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import { messageActionClass } from "@/components/forum/message-action";
 import {
   ReactionPicture,
@@ -28,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+import { changeItem, useItemState } from "@/lib/item-state";
 import { cn } from "@/lib/utils";
 
 // What the picker offers and a summary names: the id is the backend's, the key its string form.
@@ -67,6 +62,7 @@ const SIZES = {
 };
 
 export function ReactionButton({
+  stateKey,
   action,
   total,
   viewerTypeId,
@@ -76,6 +72,9 @@ export function ReactionButton({
   size = "default",
   className,
 }: {
+  // What the viewer's reaction on this item is kept under, so that everything that shows it
+  // follows the change without the page being drawn again.
+  stateKey: string;
   // Resolves with the backend's message when it refused the reaction.
   action: (typeId: number | null) => Promise<{ error?: string } | undefined>;
   total: number;
@@ -87,8 +86,7 @@ export function ReactionButton({
   className?: string;
 }) {
   const t = useTranslations("forum.reactionButton");
-  const [current, setCurrent] = useOptimistic(viewerTypeId);
-  const [, startTransition] = useTransition();
+  const current = useItemState(stateKey, viewerTypeId);
   const [refusal, setRefusal] = useState<string>();
   const pathname = usePathname();
   const search = useSearchParams().toString();
@@ -185,15 +183,10 @@ export function ReactionButton({
     if (open && viaTrigger.current) gesture.button.current?.focus();
     show(false);
     setRefusal(undefined);
-    startTransition(async () => {
-      setCurrent(typeId);
-      try {
-        // The optimistic value reverts when the transition ends.
-        setRefusal((await action(typeId))?.error);
-      } catch {
-        // Nothing more to say than the revert.
-      }
-    });
+    // Shown at once; a refusal puts the old reaction back and says why.
+    void changeItem(stateKey, viewerTypeId, typeId, () => action(typeId)).then(
+      setRefusal,
+    );
   }
 
   const hover = {

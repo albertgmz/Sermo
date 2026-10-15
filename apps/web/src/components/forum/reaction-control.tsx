@@ -19,6 +19,7 @@ export function canReact(
 // summary beside it (drawn on the server, it lists members) opens who reacted and shows the
 // number only where there is no button (see `canReact`), so the number appears once.
 export function ReactionControl({
+  stateKey,
   action,
   total,
   viewerTypeId,
@@ -30,6 +31,8 @@ export function ReactionControl({
   part = "both",
   className,
 }: {
+  // See `ReactionButton`.
+  stateKey: string;
   action: (typeId: number | null) => Promise<{ error?: string } | undefined>;
   total: number;
   viewerTypeId: number | null;
@@ -58,6 +61,7 @@ export function ReactionControl({
     >
       {pressable && (
         <ReactionButton
+          stateKey={stateKey}
           action={action}
           total={total}
           viewerTypeId={viewerTypeId}
