@@ -1,5 +1,19 @@
+import type { Ctx } from "../../context";
+import { prepared } from "../../context";
+import type { DomainEvent } from "../../events";
 import { counted, countOf, listed } from "./build";
 import type { Spec } from "./types";
+
+/** A new reply changes the replies its thread's author has received. */
+function threadAuthorOfReply(ctx: Ctx, event: DomainEvent): number[] {
+  if (event.targetType !== "post") return [];
+  const row = prepared(ctx, "shared.criteriaReplyThreadAuthor", () =>
+    ctx.sqlite.prepare<{ user_id: number }, [number]>(
+      "SELECT t.user_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
+    ),
+  ).get(event.targetId);
+  return row ? [row.user_id] : [];
+}
 
 /**
  * What a member has written, kept and followed. All of these count rows of the member's
@@ -20,18 +34,26 @@ export const contentSpecs: readonly Spec[] = [
     { modes: ["each", "one", "all"], value: true },
   ),
   // Every visible reply in their threads, their own replies included.
-  counted("replies_received", {
-    shape: "scalar",
-    sql:
-      "SELECT t.user_id AS user_id, NULL AS id, sum(t.reply_count) AS n FROM threads t INDEXED BY threads_user_id " +
-      "WHERE t.user_id IN (SELECT value FROM json_each(?1)) AND t.state = 'visible' GROUP BY t.user_id",
-  }),
-  counted("busiest_thread_replies", {
-    shape: "scalar",
-    sql:
-      "SELECT t.user_id AS user_id, NULL AS id, max(t.reply_count) AS n FROM threads t INDEXED BY threads_user_id " +
-      "WHERE t.user_id IN (SELECT value FROM json_each(?1)) AND t.state = 'visible' GROUP BY t.user_id",
-  }),
+  counted(
+    "replies_received",
+    {
+      shape: "scalar",
+      sql:
+        "SELECT t.user_id AS user_id, NULL AS id, sum(t.reply_count) AS n FROM threads t INDEXED BY threads_user_id " +
+        "WHERE t.user_id IN (SELECT value FROM json_each(?1)) AND t.state = 'visible' GROUP BY t.user_id",
+    },
+    { refresh: { on: ["content.created"], members: threadAuthorOfReply } },
+  ),
+  counted(
+    "busiest_thread_replies",
+    {
+      shape: "scalar",
+      sql:
+        "SELECT t.user_id AS user_id, NULL AS id, max(t.reply_count) AS n FROM threads t INDEXED BY threads_user_id " +
+        "WHERE t.user_id IN (SELECT value FROM json_each(?1)) AND t.state = 'visible' GROUP BY t.user_id",
+    },
+    { refresh: { on: ["content.created"], members: threadAuthorOfReply } },
+  ),
   counted(
     "profile_posts_written",
     countOf("profile_posts", "user_id", "profile_posts_user_id", "state = 'visible'"),

@@ -1,10 +1,12 @@
 import type * as z from "zod";
+import type { Ctx } from "../../context";
 import type {
   CRITERION_ID_KINDS,
   CRITERION_MODES,
   CriteriaCondition,
   CriteriaRule,
 } from "../../contracts/criteria";
+import type { DomainEvent, EventType } from "../../events";
 
 export type Rule = z.infer<typeof CriteriaRule>;
 export type Condition = z.infer<typeof CriteriaCondition>;
@@ -78,6 +80,13 @@ export interface Spec {
   guests: boolean;
   /** Set where `source` is `measure`. */
   measure?: Measurer;
+  /**
+   * The members whose fact this event may have changed, so a background consumer can check them
+   * at once instead of at the next sweep. Only for events the consumers do not already follow
+   * (the author of new content, the recipient of a reaction, warnings, credits, a buyer, groups
+   * and profile edits); a fact that no event tells of is left to the sweep.
+   */
+  refresh?: { on: readonly EventType[]; members: (ctx: Ctx, event: DomainEvent) => number[] };
   holds(facts: Facts, condition: Condition): boolean;
 }
 

@@ -11,6 +11,9 @@ import {
   scalarOf,
 } from "./types";
 
+/** What a criterion needs besides its statement: which events change its fact. */
+type Refresh = Pick<Spec, "refresh">;
+
 type Kind = Spec["kind"];
 type Unit = Spec["unit"];
 
@@ -88,9 +91,10 @@ export function lookup(id: string, measure: Measurer): Spec {
 export function counted(
   id: string,
   measure: Measurer,
-  options: { unit?: Unit; window?: boolean } = {},
+  options: { unit?: Unit; window?: boolean } & Refresh = {},
 ): Spec {
   return {
+    ...(options.refresh && { refresh: options.refresh }),
     id,
     kind: "atLeast",
     unit: options.unit ?? "count",
@@ -117,9 +121,10 @@ export function listed(
     value?: boolean;
     window?: boolean;
     cost?: CostClass;
-  },
+  } & Refresh,
 ): Spec {
   return {
+    ...(options.refresh && { refresh: options.refresh }),
     id,
     kind: options.value ? "atLeast" : "ids",
     unit: options.value ? "count" : "ids",

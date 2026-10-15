@@ -1,7 +1,12 @@
 import type { Ctx } from "../../context";
 import { writeTx } from "../../db/tx";
 import { type DomainEvent, registerEventSubscriber } from "../../events";
-import { loadFacts, evaluate as ruleHolds } from "../../shared/criteria";
+import {
+  isRefreshedBy,
+  loadFacts,
+  membersAffected,
+  evaluate as ruleHolds,
+} from "../../shared/criteria";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "../jobs/queue";
 import { grantAward } from "./grants";
 import { type AwardRow, all, awardSql, one, ruleOf, type TotalRow } from "./store";
@@ -117,7 +122,15 @@ function onEvent(ctx: Ctx, event: DomainEvent): void {
       event.payload.source === "shop")
   )
     userId = event.targetId;
-  if (userId !== null) evaluateMember(ctx, userId);
+  const members = new Set(userId === null ? [] : [userId]);
+  if (isRefreshedBy(event))
+    for (const id of membersAffected(
+      ctx,
+      event,
+      activePlans(ctx).map((plan) => plan.rule),
+    ))
+      members.add(id);
+  for (const id of members) evaluateMember(ctx, id);
 }
 
 export function registerAwardJobs(ctx: Ctx): void {

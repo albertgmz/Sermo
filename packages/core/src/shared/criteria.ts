@@ -2,8 +2,10 @@ import { type Actor, actorUserId } from "../actor";
 import type { Ctx } from "../context";
 import { prepared } from "../context";
 import { ValidationError } from "../errors";
+import type { DomainEvent } from "../events";
 import { withIds, withValue, yes } from "./criteria/build";
 import { contentSpecs } from "./criteria/content";
+import { economySpecs } from "./criteria/economy";
 import {
   type Condition,
   type CostClass,
@@ -101,6 +103,7 @@ const specs: readonly Spec[] = [
     (f, ids) => f.memberId !== null && ids.includes(f.memberId),
   ),
   ...contentSpecs,
+  ...economySpecs,
 ];
 const byId = new Map(specs.map((spec) => [spec.id, spec]));
 
@@ -357,6 +360,28 @@ export function loadFacts(
   }
   return facts;
 }
+
+/**
+ * The members, besides the ones a consumer already follows, whose facts for the criteria of
+ * `rules` this event may have changed. Each is to be checked again at once.
+ */
+export function membersAffected(ctx: Ctx, event: DomainEvent, rules: Iterable<Rule>): number[] {
+  const refreshers = new Set<NonNullable<Spec["refresh"]>>();
+  for (const rule of rules)
+    for (const condition of rule.conditions) {
+      const refresh = byId.get(condition.criterion)?.refresh;
+      if (refresh?.on.includes(event.type)) refreshers.add(refresh);
+    }
+  const members = new Set<number>();
+  for (const refresh of refreshers)
+    for (const id of refresh.members(ctx, event))
+      if (Number.isInteger(id) && id > 0) members.add(id);
+  return [...members];
+}
+
+/** Whether any criterion wants this kind of event; a consumer asks before it loads its rules. */
+export const isRefreshedBy = (event: DomainEvent): boolean =>
+  specs.some((spec) => spec.refresh?.on.includes(event.type));
 
 /** The facts of whoever makes a request: a guest's, or the signed-in member's loaded for `rules`. */
 export function actorFacts(ctx: Ctx, actor: Actor, rules: Iterable<Rule>): Facts {

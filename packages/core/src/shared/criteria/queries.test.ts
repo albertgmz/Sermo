@@ -213,6 +213,205 @@ describe("content criteria", () => {
   });
 });
 
+function category(ctx: Ctx) {
+  return insertRow(
+    ctx,
+    "INSERT INTO shop_categories (name, created_at, updated_at) VALUES ('Cat', 0, 0)",
+  );
+}
+function item(ctx: Ctx, categoryId: number, effect: object = { type: "bump" }) {
+  return insertRow(
+    ctx,
+    "INSERT INTO shop_items (category_id, name, price, effect, created_at, updated_at) VALUES (?1, 'Item', 5, ?2, 0, 0)",
+    categoryId,
+    JSON.stringify(effect),
+  );
+}
+function holding(ctx: Ctx, userId: number, itemId: number, state: string, expiresAt?: number) {
+  insertRow(
+    ctx,
+    "INSERT INTO shop_inventory (user_id, item_id, state, expires_at, acquired_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, 0)",
+    userId,
+    itemId,
+    state,
+    expiresAt ?? null,
+  );
+}
+function purchase(ctx: Ctx, buyer: number, itemId: number, recipient = buyer, quantity = 1) {
+  insertRow(
+    ctx,
+    "INSERT INTO shop_purchases (item_id, buyer_id, recipient_id, quantity, price, created_at) VALUES (?1, ?2, ?3, ?4, 5, 0)",
+    itemId,
+    buyer,
+    recipient,
+    quantity,
+  );
+}
+
+describe("economy criteria", () => {
+  test("owns_item holds for an item in effect or a consumable with units left, not a spent one", () => {
+    const { ctx, member, other } = world();
+    const cat = category(ctx);
+    const [active, unused, used, expired, late, never] = Array.from({ length: 6 }, () =>
+      item(ctx, cat),
+    ) as [number, number, number, number, number, number];
+    holding(ctx, member, active, "active");
+    holding(ctx, member, unused, "unused");
+    holding(ctx, member, used, "used");
+    holding(ctx, member, expired, "expired");
+    holding(ctx, member, late, "active", ctx.now() - 1);
+    holding(ctx, other, never, "active");
+    const asks = (ids: number[], mode: "one" | "each") =>
+      holdsFor(ctx, [member, other], { criterion: "owns_item", ids, mode });
+    expect(asks([active], "one")).toEqual([true, false]);
+    expect(asks([unused], "one")).toEqual([true, false]);
+    expect(asks([used, expired, late], "one")).toEqual([false, false]);
+    expect(asks([active, unused], "each")).toEqual([true, false]);
+    expect(asks([active, used], "each")).toEqual([false, false]);
+    expect(asks([active, used], "one")).toEqual([true, false]);
+    expect(asks([never], "one")).toEqual([false, true]);
+  });
+
+  test("wears_item holds when the frame, name colour or name icon the item gives is chosen", () => {
+    const { ctx, member, other } = world();
+    const cat = category(ctx);
+    const frame = item(ctx, cat, { type: "frame", frameId: 11 });
+    const color = item(ctx, cat, { type: "nameColor", colorId: 12 });
+    const icon = item(ctx, cat, { type: "nameIcon", icon: "star", position: "before" });
+    const spare = item(ctx, cat, { type: "frame", frameId: 13 });
+    for (const id of [frame, color, icon, spare]) holding(ctx, member, id, "active");
+    ctx.sqlite
+      .prepare(
+        "UPDATE users SET frame_id = 11, name_color_id = 12, name_icon_item_id = ?2 WHERE id = ?1",
+      )
+      .run(member, icon);
+    // The other member has the same frame chosen but never bought the item.
+    ctx.sqlite.prepare("UPDATE users SET frame_id = 11 WHERE id = ?1").run(other);
+    const asks = (ids: number[], mode: "one" | "each") =>
+      holdsFor(ctx, [member, other], { criterion: "wears_item", ids, mode });
+    expect(asks([frame], "one")).toEqual([true, false]);
+    expect(asks([color], "one")).toEqual([true, false]);
+    expect(asks([icon], "one")).toEqual([true, false]);
+    // Owned but not the one chosen.
+    expect(asks([spare], "one")).toEqual([false, false]);
+    expect(asks([frame, color, icon], "each")).toEqual([true, false]);
+    expect(asks([frame, spare], "each")).toEqual([false, false]);
+    // An expired purchase no longer counts as worn.
+    ctx.sqlite
+      .prepare("UPDATE shop_inventory SET state = 'expired' WHERE user_id = ?1 AND item_id = ?2")
+      .run(member, frame);
+    expect(asks([frame], "one")).toEqual([false, false]);
+  });
+
+  test("bought_in_category holds for a purchase in the category, a gift included", () => {
+    const { ctx, member, other } = world();
+    const [c1, c2, c3] = [category(ctx), category(ctx), category(ctx)];
+    const [i1, i2] = [item(ctx, c1), item(ctx, c2)];
+    purchase(ctx, member, i1);
+    purchase(ctx, member, i2, other);
+    purchase(ctx, other, i1, member);
+    const asks = (ids: number[], mode: "one" | "each") =>
+      holdsFor(ctx, [member, other], { criterion: "bought_in_category", ids, mode });
+    expect(asks([c1], "one")).toEqual([true, true]);
+    expect(asks([c2], "one")).toEqual([true, false]);
+    expect(asks([c3], "one")).toEqual([false, false]);
+    expect(asks([c1, c2], "each")).toEqual([true, false]);
+    expect(asks([c1, c3], "one")).toEqual([true, true]);
+    expect(asks([c1, c3], "each")).toEqual([false, false]);
+  });
+
+  test("gifted_items sums the units the member paid for that went to someone else", () => {
+    const { ctx, member, other } = world();
+    const i1 = item(ctx, category(ctx));
+    purchase(ctx, member, i1, other, 2);
+    purchase(ctx, member, i1, other, 1);
+    purchase(ctx, member, i1);
+    purchase(ctx, other, i1, member, 9);
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other], { criterion: "gifted_items", value });
+    expect(asks(3)).toEqual([true, true]);
+    expect(asks(4)).toEqual([false, true]);
+    expect(asks(10)).toEqual([false, false]);
+  });
+
+  test("credits_earned is the net of rules and awards, in all time or a window", () => {
+    const { ctx, member, other } = world();
+    const ago = (days: number) => ctx.now() - days * 86_400_000;
+    const ledger = (userId: number, amount: number, type: string, at: number) =>
+      insertRow(
+        ctx,
+        "INSERT INTO credit_transactions (user_id, amount, balance_after, type, created_at) VALUES (?1, ?2, 0, ?3, ?4)",
+        userId,
+        amount,
+        type,
+        at,
+      );
+    ledger(member, 30, "event", ago(40));
+    ledger(member, 20, "award", ago(3));
+    ledger(member, 10, "event", ago(7));
+    ledger(member, -4, "event_reversal", ago(1));
+    ledger(member, -2, "award_revoked", ago(1));
+    ledger(member, 500, "adjustment", ago(1));
+    ledger(member, -50, "purchase", ago(1));
+    ledger(other, 5, "event", ago(1));
+    const asks = (value: number, days?: number) =>
+      holdsFor(ctx, [member, other], {
+        criterion: "credits_earned",
+        value,
+        ...(days === undefined ? {} : { days }),
+      });
+    expect(asks(54)).toEqual([true, false]);
+    expect(asks(55)).toEqual([false, false]);
+    // Seven days back includes the row exactly seven days old.
+    expect(asks(24, 7)).toEqual([true, false]);
+    expect(asks(25, 7)).toEqual([false, false]);
+    expect(asks(24, 6)).toEqual([false, false]);
+    expect(asks(14, 6)).toEqual([true, false]);
+  });
+
+  test("credits_from_rule sums the applied credits of the chosen rules", () => {
+    const { ctx, member, other } = world();
+    const ago = (days: number) => ctx.now() - days * 86_400_000;
+    let source = 0;
+    const applied = (
+      userId: number,
+      rule: number,
+      amount: number,
+      at: number,
+      state = "applied",
+    ) => {
+      source += 1;
+      return insertRow(
+        ctx,
+        "INSERT INTO credit_rule_applications (rule_id, user_id, source_type, source_id, amount, state, created_at) VALUES (?1, ?2, 'post', ?3, ?4, ?5, ?6)",
+        rule,
+        userId,
+        source,
+        amount,
+        state,
+        at,
+      );
+    };
+    applied(member, 1, 10, ago(40));
+    applied(member, 1, 5, ago(2));
+    applied(member, 2, 7, ago(2));
+    applied(member, 2, 100, ago(2), "reverted");
+    applied(member, 3, 50, ago(2));
+    applied(other, 1, 3, ago(2));
+    const asks = (condition: Omit<Condition, "criterion">) =>
+      holdsFor(ctx, [member, other], { criterion: "credits_from_rule", ...condition });
+    expect(asks({ ids: [1], value: 15, mode: "one" })).toEqual([true, false]);
+    expect(asks({ ids: [1], value: 16, mode: "one" })).toEqual([false, false]);
+    expect(asks({ ids: [1, 2], value: 22, mode: "all" })).toEqual([true, false]);
+    expect(asks({ ids: [1, 2], value: 23, mode: "all" })).toEqual([false, false]);
+    expect(asks({ ids: [1, 2], value: 7, mode: "each" })).toEqual([true, false]);
+    expect(asks({ ids: [1, 2], value: 8, mode: "each" })).toEqual([false, false]);
+    // A window leaves out the old application of rule 1.
+    expect(asks({ ids: [1], value: 5, days: 30, mode: "one" })).toEqual([true, false]);
+    expect(asks({ ids: [1], value: 6, days: 30, mode: "one" })).toEqual([false, false]);
+  });
+});
+
 describe("measured criteria", () => {
   test("every measured criterion's statement is answered from indexes", () => {
     const ctx = createTestContext();

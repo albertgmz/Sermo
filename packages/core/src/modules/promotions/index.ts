@@ -27,7 +27,9 @@ import {
   criterionDefinitions,
   type Facts,
   groupsReadBy,
+  isRefreshedBy,
   loadFacts,
+  membersAffected,
   parseRule,
   type Rule,
   evaluate as ruleHolds,
@@ -851,7 +853,14 @@ function onEvent(ctx: Ctx, event: DomainEvent): void {
     (event.payload.source === "admin" || event.payload.source === "shop")
   )
     userId = event.targetId;
-  if (userId !== null) evaluateMember(ctx, userId);
+  const members = new Set(userId === null ? [] : [userId]);
+  if (isRefreshedBy(event)) {
+    const rules = evaluationRows(ctx)
+      .filter((p) => p.is_active)
+      .map((p) => planFor(p).rule);
+    for (const id of membersAffected(ctx, event, rules)) members.add(id);
+  }
+  for (const id of members) evaluateMember(ctx, id);
 }
 export function registerPromotionJobs(ctx: Ctx): void {
   registerJobHandler(ctx, "promotions.sweep", (context, payload) => {

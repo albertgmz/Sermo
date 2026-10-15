@@ -43,6 +43,29 @@ const measured = (
   measure: Measure,
 ): Facts => facts({ measures: new Map([[measureKey({ criterion, ...condition }), measure]]) });
 const counts = (...pairs: [number, number][]) => new Map(pairs);
+/** The cases of a criterion that holds items, categories or the like: one of them, or each. */
+const ownCases = (criterion: string): Case[] => [
+  ["one of several", { ids: [1, 2] }, measured(criterion, { ids: [1, 2] }, counts([2, 1])), true],
+  [
+    "one of several, mode one",
+    { ids: [1, 2], mode: "one" },
+    measured(criterion, { ids: [1, 2] }, counts([1, 1])),
+    true,
+  ],
+  ["none of them", { ids: [1, 2], mode: "one" }, facts(), false],
+  [
+    "each: all held",
+    { ids: [1, 2], mode: "each" },
+    measured(criterion, { ids: [1, 2] }, counts([1, 1], [2, 1])),
+    true,
+  ],
+  [
+    "each: one missing",
+    { ids: [1, 2], mode: "each" },
+    measured(criterion, { ids: [1, 2] }, counts([1, 1])),
+    false,
+  ],
+];
 /** The cases of a criterion that counts rows and holds from a given number. */
 const countCases = (criterion: string): Case[] => [
   ["above", { value: 5 }, measured(criterion, {}, 6), true],
@@ -211,6 +234,74 @@ const table: Record<string, Case[]> = {
   bookmarks_at_least: countCases("bookmarks_at_least"),
   watching_forums_at_least: countCases("watching_forums_at_least"),
   watching_threads_at_least: countCases("watching_threads_at_least"),
+  owns_item: ownCases("owns_item"),
+  wears_item: ownCases("wears_item"),
+  bought_in_category: ownCases("bought_in_category"),
+  gifted_items: countCases("gifted_items"),
+  credits_earned: [
+    ["all time, above", { value: 50 }, measured("credits_earned", {}, 60), true],
+    ["all time, edge", { value: 50 }, measured("credits_earned", {}, 50), true],
+    ["all time, below", { value: 50 }, measured("credits_earned", {}, 49), false],
+    ["net of reversals can be negative", { value: 0 }, measured("credits_earned", {}, -3), false],
+    [
+      "in a window, reached",
+      { value: 50, days: 7 },
+      measured("credits_earned", { days: 7 }, 50),
+      true,
+    ],
+    [
+      "in a window, short",
+      { value: 50, days: 7 },
+      measured("credits_earned", { days: 7 }, 49),
+      false,
+    ],
+    [
+      "a window is a different measurement from all time",
+      { value: 50, days: 7 },
+      measured("credits_earned", {}, 500),
+      false,
+    ],
+    ["nothing earned", { value: 1 }, facts(), false],
+  ],
+  credits_from_rule: [
+    [
+      "all combined reach it",
+      { ids: [1, 2], value: 30, mode: "all" },
+      measured("credits_from_rule", { ids: [1, 2] }, counts([1, 10], [2, 20])),
+      true,
+    ],
+    [
+      "all combined fall short",
+      { ids: [1, 2], value: 31, mode: "all" },
+      measured("credits_from_rule", { ids: [1, 2] }, counts([1, 10], [2, 20])),
+      false,
+    ],
+    [
+      "all combined is the default",
+      { ids: [1, 2], value: 30 },
+      measured("credits_from_rule", { ids: [1, 2] }, counts([1, 10], [2, 20])),
+      true,
+    ],
+    [
+      "one rule is enough",
+      { ids: [1, 2], value: 20, mode: "one" },
+      measured("credits_from_rule", { ids: [1, 2] }, counts([1, 10], [2, 20])),
+      true,
+    ],
+    [
+      "each rule must reach it",
+      { ids: [1, 2], value: 20, mode: "each" },
+      measured("credits_from_rule", { ids: [1, 2] }, counts([1, 10], [2, 20])),
+      false,
+    ],
+    [
+      "in a window",
+      { ids: [1], value: 5, days: 30, mode: "one" },
+      measured("credits_from_rule", { ids: [1], days: 30 }, counts([1, 5])),
+      true,
+    ],
+    ["no credits from them", { ids: [1], value: 1, mode: "one" }, facts(), false],
+  ],
 };
 
 describe("evaluate: every criterion", () => {
