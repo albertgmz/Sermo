@@ -22,9 +22,11 @@ export function LazyEditor({
   name,
   placeholder,
   defaultValue,
-  minHeight = 40,
+  compact = true,
+  minHeight = compact ? 40 : 120,
   toolbarContainer,
   findMembers,
+  insertEvent,
   onChange,
   className,
 }: {
@@ -32,12 +34,18 @@ export function LazyEditor({
   placeholder: string;
   // The text it opens with, to edit something written before.
   defaultValue?: string;
+  // False for the roomy editor of a page's own reply form: more padding and a formatting bar of
+  // its own.
+  compact?: boolean;
   // One line unless the composer gives the text more room.
   minHeight?: number;
   // The element of the composer's own bar that takes the formatting bar; without one it sits
   // above the text.
   toolbarContainer?: HTMLElement | null;
   findMembers?: EditorProps["findMembers"];
+  // The name of a window event whose detail is Markdown to add at the end (the quote button of a
+  // post). The plain field takes it until the editor does.
+  insertEvent?: string;
   // The text as it is written, in the plain field and in the editor alike.
   onChange?: (text: string) => void;
   className?: string;
@@ -71,14 +79,24 @@ export function LazyEditor({
       }
     });
   }, []);
+  const quotes = useRef<string[]>([]);
   const editorReady = useCallback(() => {
     ready.current = true;
     for (const request of queue.current.splice(0)) {
       requestOnComposer(form.current, request);
     }
-  }, []);
+    // The editor listens for the event from an effect that runs just after this call.
+    const held = quotes.current.splice(0);
+    if (insertEvent && held.length > 0) {
+      setTimeout(() => {
+        for (const detail of held) {
+          window.dispatchEvent(new CustomEvent(insertEvent, { detail }));
+        }
+      }, 0);
+    }
+  }, [insertEvent]);
 
-  function load() {
+  const load = useCallback(() => {
     if (asked.current) return;
     asked.current = true;
     setWaiting(true);
@@ -95,12 +113,35 @@ export function LazyEditor({
         setWaiting(false);
       },
     );
-  }
+  }, []);
+
+  // Text added from elsewhere on the page goes at the end of the plain field, as it would in the
+  // editor, and the editor is asked for so that it is there for what comes next.
+  useEffect(() => {
+    if (!insertEvent) return;
+    const listener = (event: Event) => {
+      if (ready.current) return;
+      const markdown = String((event as CustomEvent<string>).detail ?? "");
+      const box = field.current;
+      if (!box) {
+        quotes.current.push(markdown);
+        return;
+      }
+      const current = box.value.trimEnd();
+      box.value = `${current ? `${current}\n\n` : ""}${markdown}\n\n`;
+      box.setSelectionRange(box.value.length, box.value.length);
+      box.focus();
+      changed.current?.(box.value);
+      load();
+    };
+    window.addEventListener(insertEvent, listener);
+    return () => window.removeEventListener(insertEvent, listener);
+  }, [insertEvent, load]);
 
   if (loaded) {
     return (
       <loaded.Editor
-        compact
+        compact={compact}
         toolbar={ownBar}
         toolbarContainer={toolbarContainer}
         autoFocus={loaded.focused}
@@ -109,6 +150,7 @@ export function LazyEditor({
         defaultValue={loaded.text}
         minHeight={minHeight}
         findMembers={findMembers}
+        insertEvent={insertEvent}
         onChange={onChange}
         onInsertReady={editorReady}
         className={className}
@@ -141,7 +183,10 @@ export function LazyEditor({
           onChange?.(event.currentTarget.value);
         }}
         style={{ minHeight }}
-        className="block field-sizing-content w-full resize-none bg-transparent px-3 py-2 text-base leading-relaxed outline-none placeholder:text-muted-foreground md:text-sm"
+        className={cn(
+          "block field-sizing-content w-full resize-none bg-transparent text-base leading-relaxed outline-none placeholder:text-muted-foreground md:text-sm",
+          compact ? "px-3 py-2" : "px-4 py-3",
+        )}
       />
     </div>
   );

@@ -8,8 +8,8 @@ import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import { replyAction } from "@/app/[locale]/(main)/threads/actions";
 import { replyInPlace } from "@/app/[locale]/(main)/threads/reply-in-place";
 import { AttachmentField } from "@/components/forum/attachment-field";
-import { Editor } from "@/components/forum/editor";
 import { FormError } from "@/components/forum/form-error";
+import { LazyEditor } from "@/components/forum/lazy-editor";
 import { useTailForm } from "@/components/forum/use-tail-form";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +26,7 @@ export function ReplyComposer({
 }) {
   const t = useTranslations("threads.replyComposer");
   const tFailed = useTranslations("lib.errors");
+  const tEditor = useTranslations("editor.editor");
   // A reply that is taken shows at the end of the page at once and the form starts over; a refused
   // one stays in the form.
   const { state, pending, generation, onSubmit } = useTailForm({
@@ -37,9 +38,11 @@ export function ReplyComposer({
   const [uploading, setUploading] = useState(false);
   return (
     <form onSubmit={onSubmit} data-shortcut="reply" className="space-y-3">
-      <Editor
+      <LazyEditor
         key={`editor-${generation}`}
         name="body"
+        compact={false}
+        placeholder={tEditor("placeholder")}
         findMembers={findRecipients}
         insertEvent={QUOTE_EVENT}
       />

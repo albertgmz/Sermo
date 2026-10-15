@@ -29,10 +29,24 @@ test("the one-line composers reach the editor's code only through the import mad
     "components/forum/line-composer.tsx",
     "app/[locale]/(main)/members/post-composer.tsx",
     "app/[locale]/(main)/conversations/[id]/reply-form.tsx",
+    "app/[locale]/(main)/threads/[id]/reply-composer.tsx",
   ]) {
     const imports = source(path).match(/^import (?!type )[^;]*;/gm) ?? [];
     for (const line of imports) {
       expect(line, path).not.toMatch(/forum\/editor|lexical/);
     }
   }
+});
+
+test("the roomy plain field keeps the editor's padding and height, so the page does not move", () => {
+  const html = renderToStaticMarkup(
+    <LazyEditor name="body" placeholder="Write" compact={false} />,
+  );
+  expect(html).toContain("px-4 py-3");
+  expect(html).toContain("min-height:120px");
+  const compact = renderToStaticMarkup(
+    <LazyEditor name="body" placeholder="Write" />,
+  );
+  expect(compact).toContain("px-3 py-2");
+  expect(compact).toContain("min-height:40px");
 });

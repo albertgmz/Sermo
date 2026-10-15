@@ -79,6 +79,10 @@ export function focusReply(doc: Document) {
   const [form] = marked(doc, "reply");
   if (!form) return false;
   form.scrollIntoView({ block: "center" });
-  form.querySelector<HTMLElement>('[contenteditable="true"]')?.focus();
+  form
+    .querySelector<HTMLElement>(
+      '[contenteditable="true"], textarea[name="body"]',
+    )
+    ?.focus();
   return true;
 }
