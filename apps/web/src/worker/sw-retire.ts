@@ -12,6 +12,14 @@ declare const self: {
   ): void;
 };
 
+// Settles when the browser has answered the request, whatever the answer: a database the old
+// worker still holds open reports `blocked`, and the browser deletes it once that worker stops.
+const deleteDatabase = (name: string) =>
+  new Promise<void>((resolve) => {
+    const request = indexedDB.deleteDatabase(name);
+    request.onsuccess = request.onerror = request.onblocked = () => resolve();
+  });
+
 self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (event) => {
@@ -23,7 +31,7 @@ self.addEventListener("activate", (event) => {
           name.startsWith(`${CACHE_PREFIX}-`) || name.startsWith("serwist-"),
       );
       await Promise.all(names.map((name) => caches.delete(name)));
-      indexedDB.deleteDatabase("serwist-expiration");
+      await deleteDatabase("serwist-expiration");
       await self.registration.unregister();
     })(),
   );

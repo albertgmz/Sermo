@@ -6,6 +6,10 @@ const withNextIntl = createNextIntlPlugin();
 const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
+  // The page's script registers the service worker, except in the build that retires it.
+  env: {
+    SERMO_RETIRE_WORKER: process.env.SERMO_RETIRE_WORKER === "1" ? "1" : "",
+  },
   images: { unoptimized: true },
   partialPrefetching: true,
   transpilePackages: ["@sermo/core", "@sermo/api"],

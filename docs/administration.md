@@ -1359,7 +1359,8 @@ for the build (`docker compose build --build-arg SERMO_RETIRE_WORKER=1 web`, or 
 the environment of `bun run build`). That `sw.js` has no fetch handling at all: a browser that has
 the real worker finds it on its next visit (it checks the script every time), installs it at once,
 and it deletes the `sermo-` and `serwist-` caches and the `serwist-expiration` database and
-unregisters itself. Keep that build deployed for at least a month, so devices that come back
+unregisters itself. That build registers no worker on any page, so a device that never had it does not
+install the retiring one. Keep that build deployed for at least a month, so devices that come back
 rarely are caught, and only then remove `<WorkerRegistration />` from the layout and the worker's
 files: removing them first leaves the workers already installed in place. Rebuild without the
 variable to bring the worker back.

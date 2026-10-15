@@ -10,6 +10,7 @@ export function WorkerRegistration() {
     const register = () =>
       registerWorker({
         production: process.env.NODE_ENV === "production",
+        retire: process.env.SERMO_RETIRE_WORKER === "1",
         secure: window.isSecureContext,
         workers: navigator.serviceWorker,
       });

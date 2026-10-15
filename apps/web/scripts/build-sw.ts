@@ -8,12 +8,12 @@ import { bundleWorker, WORKER_FILE } from "./build-sw-lib";
 
 const root = resolve(".");
 try {
-  const script = await bundleWorker(
-    root,
-    process.env.SERMO_RETIRE_WORKER === "1",
-  );
+  const retire = process.env.SERMO_RETIRE_WORKER === "1";
+  const script = await bundleWorker(root, retire);
   writeFileSync(resolve(root, WORKER_FILE), script);
-  console.log(`build-sw: ${WORKER_FILE} (${script.length} bytes)`);
+  console.log(
+    `build-sw: ${WORKER_FILE}${retire ? " (the worker that removes itself)" : ""} (${script.length} bytes)`,
+  );
 } catch (error) {
   console.error(
     `build-sw: ${error instanceof Error ? error.message : String(error)}`,

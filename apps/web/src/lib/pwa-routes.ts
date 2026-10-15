@@ -14,9 +14,13 @@ import { OFFLINE_URL } from "./pwa";
 export { OFFLINE_URL };
 
 // The prefix of every cache this worker makes by name, and the one that holds the static files.
-// Raise the version in the name when what that cache holds changes: the worker deletes the older
-// ones when it takes over (`staleCaches`). Serwist keeps the offline page in its own precache
-// (`serwist-precache-...`), whose entries it replaces itself when the file's content changes.
+// Raise the version in the name only when the way the files are kept changes: the worker deletes
+// the older caches when it takes over (`staleCaches`), and a tab still open on the previous deploy
+// then loses the lazy chunks it had cached and not yet loaded (it asks the server, which no longer
+// has them, and gets a 404). A new deploy does not need a bump: the files are named by their
+// content, and the cache drops the oldest after 200 files or 30 days. Serwist keeps the offline
+// page in its own precache (`serwist-precache-...`), whose entries it replaces itself when the
+// file's content changes.
 export const CACHE_PREFIX = "sermo";
 export const STATIC_CACHE = `${CACHE_PREFIX}-static-v1`;
 

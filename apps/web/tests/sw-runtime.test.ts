@@ -76,12 +76,24 @@ function boot(script: string) {
     claimed: false,
     unregistered: false,
     databases: [] as string[],
+    // How the browser answers a request to delete a database, and when it has.
+    databaseAnswer: "onsuccess" as "onsuccess" | "onerror" | "onblocked",
+    databasesDeleted: 0,
   };
   const sandbox: Record<string, unknown> = {
     caches,
     FetchEvent,
     indexedDB: {
-      deleteDatabase: (name: string) => scope.databases.push(name),
+      deleteDatabase: (name: string) => {
+        scope.databases.push(name);
+        const request: Record<string, (() => void) | undefined> = {};
+        // The browser answers later, in a task of its own.
+        setTimeout(() => {
+          scope.databasesDeleted += 1;
+          request[scope.databaseAnswer]?.();
+        }, 5);
+        return request;
+      },
     },
     Request,
     Response,
@@ -362,7 +374,19 @@ test("the retiring worker deletes what the worker kept and unregisters itself", 
   await worker.dispatch("activate");
   expect(await worker.caches.keys()).toEqual(["another-app"]);
   expect(worker.scope.databases).toEqual(["serwist-expiration"]);
+  // The delete was answered before the event finished, and only then did it unregister.
+  expect(worker.scope.databasesDeleted).toBe(1);
   expect(worker.scope.unregistered).toBe(true);
   // It answers no request: every page and file goes to the network.
   expect(worker.listeners.has("fetch")).toBe(false);
+});
+
+test("the retiring worker does not wait forever for a database that is blocked or fails", async () => {
+  for (const answer of ["onblocked", "onerror"] as const) {
+    const worker = boot(await bundleWorker(dir, true));
+    worker.scope.databaseAnswer = answer;
+    await worker.dispatch("activate");
+    expect(worker.scope.databasesDeleted, answer).toBe(1);
+    expect(worker.scope.unregistered, answer).toBe(true);
+  }
 });

@@ -33,7 +33,7 @@
   "policy": {
     "metaTitle": "Política de cookies",
     "title": "Política de cookies",
-    "intro": "Esta página enumera todo lo que este sitio guarda en tu navegador, para qué y durante cuánto tiempo. Se tratan por igual las cookies y el almacenamiento similar (almacenamiento local y de sesión). Las estrictamente necesarias se indican a título informativo y no requieren tu consentimiento; el resto de categorías permanece desactivado hasta que las aceptes.",
+    "intro": "Esta página enumera todo lo que este sitio guarda en tu navegador, para qué y durante cuánto tiempo. Se tratan por igual las cookies y el almacenamiento similar (almacenamiento local, de sesión, en caché e IndexedDB). Las estrictamente necesarias se indican a título informativo y no requieren tu consentimiento; el resto de categorías permanece desactivado hasta que las aceptes.",
     "version": "Versión de la política {version}",
     "openSettings": "Cambiar tus opciones",
     "yourChoice": "Para ver o cambiar lo que permitiste, usa «Ajustes de cookies» en el pie de página o el botón de abajo. Al retirar una categoría se borran sus cookies.",

@@ -33,7 +33,7 @@
   "policy": {
     "metaTitle": "Cookie policy",
     "title": "Cookie policy",
-    "intro": "This page lists everything this site stores in your browser, why, and for how long. Cookies and similar storage (local storage and session storage) are covered alike. The strictly necessary ones are listed for information and do not need your consent; every other category stays off until you accept it.",
+    "intro": "This page lists everything this site stores in your browser, why, and for how long. Cookies and similar storage (local storage, session storage, cache storage and IndexedDB) are covered alike. The strictly necessary ones are listed for information and do not need your consent; every other category stays off until you accept it.",
     "version": "Policy version {version}",
     "openSettings": "Change your choices",
     "yourChoice": "To see or change what you allowed, use “Cookie settings” in the page footer, or the button below. Withdrawing a category deletes its cookies.",
