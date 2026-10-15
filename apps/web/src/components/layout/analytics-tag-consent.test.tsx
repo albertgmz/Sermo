@@ -50,6 +50,20 @@ const choice = (revision: number, ...categories: string[]) =>
   encodeURIComponent(JSON.stringify({ categories, revision }));
 const tag = async () => JSON.stringify(await AnalyticsTag());
 
+test("the provider's script is fetched once the page is idle, and its settings are queued at once, in order", async () => {
+  consent = choice(1, "necessary", "analytics");
+  // The tag is a fragment: the scripts in order, then the page-view reporter.
+  type Script = { props: { id: string; strategy: string } };
+  const tree = (await AnalyticsTag()) as unknown as {
+    props: { children: [Script[], unknown] };
+  };
+  const [config, loader] = tree.props.children[0];
+  expect(config.props.id).toBe("analytics-matomo");
+  expect(config.props.strategy).toBe("afterInteractive");
+  expect(loader.props.id).toBe("analytics-matomo-js");
+  expect(loader.props.strategy).toBe("lazyOnload");
+});
+
 test("no tag before a choice, after a refusal, for another category or another policy version", async () => {
   for (const value of [
     undefined,
