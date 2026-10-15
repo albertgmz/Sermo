@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import {
   clearSignature,
   clearTitle,
@@ -32,13 +32,15 @@ import { getViewer } from "@/lib/sermo/session";
 
 const MONTHS = Array.from({ length: 12 }, (_, month) => month + 1);
 
-async function Pictures() {
-  const [t, self, worn] = await Promise.all([
+export async function Pictures() {
+  const [t, self, worn, viewer] = await Promise.all([
     getTranslations("account.pictures"),
     getSelf(),
     getWorn(),
+    getViewer(),
   ]);
   const { profile } = self;
+  const may = viewer.resolvedPermissions;
   return (
     <>
       <PictureRow
@@ -47,6 +49,7 @@ async function Pictures() {
         description={t("avatarHelp")}
         current={<UserAvatar user={profile.card} size="2xl" link={false} />}
         hasPicture={Boolean(profile.avatar)}
+        canUpload={may["profile.uploadAvatar"] !== false}
         remove={removePicture.bind(null, "avatar")}
       />
       <PictureRow
@@ -65,6 +68,7 @@ async function Pictures() {
           )
         }
         hasPicture={Boolean(profile.cover)}
+        canUpload={may["profile.uploadCover"] !== false}
         note={worn.coverPresetId === null ? undefined : t("coverGalleryWorn")}
         remove={removePicture.bind(null, "cover")}
       />
@@ -72,7 +76,7 @@ async function Pictures() {
   );
 }
 
-async function Username() {
+export async function Username() {
   const [t, self, viewer] = await Promise.all([
     getTranslations("account.username"),
     getSelf(),
@@ -80,6 +84,30 @@ async function Username() {
   ]);
   const { username } = self.profile;
   const free = viewer.resolvedPermissions["profile.renameFree"] === true;
+  // Staff-only renaming and a used-up limit come from the backend's word on this member.
+  const { reason, availableAt } = self.usernameChange;
+  if (reason) {
+    const format = await getFormatter();
+    return (
+      <SettingsRow
+        id="username"
+        title={t("label")}
+        description={
+          reason === "approval"
+            ? t("approval")
+            : availableAt
+              ? t("limit", {
+                  date: format.dateTime(new Date(availableAt), {
+                    dateStyle: "long",
+                  }),
+                })
+              : t("limitAll")
+        }
+      >
+        <p className="text-sm [overflow-wrap:anywhere]">{username}</p>
+      </SettingsRow>
+    );
+  }
   // Asked only where it decides: a member who renames freely needs no count.
   const units = free ? null : await getRenameUnits();
   if (free || (units ?? 0) > 0) {

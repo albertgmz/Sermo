@@ -179,6 +179,26 @@ test("the button and the summary draw a type's picture instead of its emoji", ()
   expect(html).not.toContain("✨");
 });
 
+test("without reaction.viewList the summary shows the counts and offers no list of who reacted", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <Reactions
+        part="summary"
+        target="post"
+        id={5}
+        reactions={some}
+        authorId={7}
+        viewerId={9}
+        picker={picker}
+        reactionTypes={reactionTypes}
+        viewList={false}
+      />,
+    ),
+  );
+  expect(html).toContain("4 reactions, show the reactions");
+  expect(html).not.toContain("show who reacted");
+});
+
 test("a bar draws the button and the summary apart, each once", () => {
   const button = render(9, some, 7, picker, "button");
   expect(button).toContain("Choose a reaction");

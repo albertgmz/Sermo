@@ -19,12 +19,14 @@ export function MessageActions({
   viewerId,
   picker,
   reactionTypes,
+  viewList,
 }: {
   message: Message;
   viewerId: number | null;
   // What the picker offers; none when the viewer may not react.
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
+  viewList?: boolean;
 }) {
   const reactions = {
     target: "message" as const,
@@ -34,6 +36,7 @@ export function MessageActions({
     viewerId,
     picker: message.state === "visible" ? picker : [],
     reactionTypes,
+    viewList,
   };
   return (
     <ContentActions

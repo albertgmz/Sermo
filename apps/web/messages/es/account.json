@@ -56,6 +56,7 @@
     "coverLabel": "Portada",
     "coverHelp": "Se muestra detrás de tu perfil, tus mensajes y tu tarjeta de miembro. Elige una imagen y luego encuádrala.",
     "limit": "Hasta {size} MB.",
+    "notAllowed": "Tu cuenta no puede subir esta imagen.",
     "overLimit": "Esta imagen supera los {size} MB que permite el sitio.",
     "coverGalleryWorn": "Llevas una portada de la galería, así que se muestra en lugar de la que subes. Quítala en Apariencia para mostrar la tuya.",
     "remove": "Quitar",
@@ -78,7 +79,10 @@
     "none": "No te queda ningún cambio de nombre de usuario. <shop>Consigue uno en la tienda</shop>",
     "confirmation": "Quiero cambiar mi nombre de usuario a {username}.",
     "submit": "Cambiar nombre de usuario",
-    "limited": "El cambio de nombre de usuario se confirma primero porque está limitado y los demás miembros te conocen por este nombre."
+    "limited": "El cambio de nombre de usuario se confirma primero porque está limitado y los demás miembros te conocen por este nombre.",
+    "approval": "Solo el personal puede cambiar tu nombre de usuario. Pídeselo a un miembro del personal.",
+    "limit": "Has usado los cambios de nombre de usuario que tienes permitidos. Podrás volver a cambiarlo el {date}.",
+    "limitAll": "Has usado todos los cambios de nombre de usuario que tienes permitidos."
   },
   "about": {
     "aboutLabel": "Acerca de ti",

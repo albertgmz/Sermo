@@ -198,6 +198,7 @@ export function FeedItem({
   viewerId,
   picker,
   reactionTypes,
+  viewList,
 }: {
   item: ApiFeedItem;
   author: (id: number) => AuthorView;
@@ -207,6 +208,7 @@ export function FeedItem({
   // What the picker offers; none when the viewer may not react.
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
+  viewList?: boolean;
 }) {
   const t = useTranslations("home.feedItem");
   if (item.type === "profilePost") {
@@ -249,6 +251,7 @@ export function FeedItem({
             viewerId={viewerId}
             picker={profilePost.state === "visible" ? picker : []}
             reactionTypes={reactionTypes}
+            viewList={viewList}
           />
         }
         href={href}
@@ -271,6 +274,7 @@ export function FeedItem({
               viewerId={viewerId}
               picker={picker}
               reactionTypes={reactionTypes}
+              viewList={viewList}
               className="mt-0"
             />
           )
@@ -329,6 +333,7 @@ export function FeedItem({
           viewerId={viewerId}
           picker={picker}
           reactionTypes={reactionTypes}
+          viewList={viewList}
         />
       }
       href={href}

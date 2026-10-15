@@ -10,7 +10,7 @@ import { getMember } from "@/lib/sermo/session";
 export default async function NewConversationPage({
   searchParams,
 }: PageProps<"/[locale]/conversations/new">) {
-  const [{ to }, { permissions }, t] = await Promise.all([
+  const [{ to }, { permissions, resolvedPermissions }, t] = await Promise.all([
     searchParams,
     getMember(),
     getTranslations("conversations.newConversation"),
@@ -36,7 +36,10 @@ export default async function NewConversationPage({
       </h1>
       <div className="mt-4">
         {permissions.canStartConversations ? (
-          <NewConversationForm preselected={preselected} />
+          <NewConversationForm
+            preselected={preselected}
+            canAttach={resolvedPermissions["conversation.attach"] !== false}
+          />
         ) : (
           <div className="rounded-lg border bg-card">
             <EmptyState

@@ -147,7 +147,9 @@
     "placeholder": "Write something on {username}'s profile…",
     "emptyTitle": "No messages yet",
     "emptyDescription": "Be the first to write something on <user>{username}</user>'s profile.",
-    "login": "Log in to post"
+    "login": "Log in to post",
+    "unavailableTitle": "The wall is not available",
+    "unavailableDescription": "Your account cannot read profile posts."
   },
   "postComposer": {
     "title": "New post",

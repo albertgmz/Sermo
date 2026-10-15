@@ -291,7 +291,7 @@ async function ThreadPosts({
       bookmarks,
     },
     reactionTypes,
-    { permissions, user },
+    { permissions, user, resolvedPermissions: viewerCan },
     t,
     format,
   ] = await Promise.all([
@@ -365,6 +365,7 @@ async function ThreadPosts({
             viewerId={viewerId}
             picker={post.state === "visible" ? picker : []}
             reactionTypes={reactionTypes}
+            viewList={viewerCan["reaction.viewList"] !== false}
             may={may}
             isFirst={post.id === thread.firstPostId}
             selecting={selecting}

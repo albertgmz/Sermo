@@ -43,6 +43,7 @@ export function PostItem({
   selecting,
   canQuote,
   bookmarked,
+  viewList,
 }: {
   post: ApiPost;
   author: AuthorView;
@@ -62,6 +63,7 @@ export function PostItem({
   selecting: boolean;
   canQuote: boolean;
   bookmarked: boolean | null;
+  viewList?: boolean;
 }) {
   const t = useTranslations("threads.page");
   const number = post.position + 1;
@@ -109,6 +111,7 @@ export function PostItem({
           noteState={noteState}
           canQuote={canQuote}
           bookmarked={bookmarked}
+          viewList={viewList}
         />
       }
     >
@@ -174,7 +177,11 @@ export function PostItem({
 // page, so none is drawn here.
 export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
   if (posts.length === 0) return [];
-  const [{ user, permissions }, reactionTypes, found] = await Promise.all([
+  const [
+    { user, permissions, resolvedPermissions: viewerCan },
+    reactionTypes,
+    found,
+  ] = await Promise.all([
     getViewer(),
     getReactionTypes(),
     call(threadsGet, { threadId: posts[0].threadId, countView: false }),
@@ -211,6 +218,7 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
         viewerId={user?.id ?? null}
         picker={post.state === "visible" ? picker : []}
         reactionTypes={reactionTypes}
+        viewList={viewerCan["reaction.viewList"] !== false}
         may={context.may}
         isFirst={false}
         selecting={false}

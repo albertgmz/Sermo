@@ -147,7 +147,8 @@
     "failed": "No se pudo cargar la lista.",
     "total": "{count, plural, one {{count} reacción} other {{count} reacciones}}",
     "aria": {
-      "trigger": "{total}, mostrar quién reaccionó"
+      "trigger": "{total}, mostrar quién reaccionó",
+      "triggerCounts": "{total}, mostrar las reacciones"
     }
   },
   "userBadges": {

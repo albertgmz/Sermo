@@ -40,6 +40,7 @@ export function WallItemActions({
   picker,
   reactionTypes,
   start,
+  viewList,
 }: {
   kind: "post" | "comment";
   item: Item;
@@ -49,6 +50,7 @@ export function WallItemActions({
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
   start?: React.ReactNode;
+  viewList?: boolean;
 }) {
   const t = useTranslations("forum.contentActions");
   const compact = kind === "comment";
@@ -62,6 +64,7 @@ export function WallItemActions({
     picker: item.state === "visible" ? picker : [],
     reactionTypes,
     size: compact ? ("sm" as const) : undefined,
+    viewList,
   };
   const live = item.state !== "deleted";
   return (

@@ -14,8 +14,11 @@ import { Label } from "@/components/ui/label";
 
 export function NewConversationForm({
   preselected,
+  canAttach = true,
 }: {
   preselected?: { id: number; username: string };
+  // Whether the viewer's groups allow attaching files to messages (`conversation.attach`).
+  canAttach?: boolean;
 }) {
   const t = useTranslations("conversations.newConversationForm");
   // A refused conversation stays in the form, files included: the form is not reset by its action.
@@ -38,7 +41,7 @@ export function NewConversationForm({
         <p className="text-sm leading-none font-medium">{t("messageLabel")}</p>
         <Editor name="body" placeholder={t("messagePlaceholder")} />
       </div>
-      <AttachmentField onBusy={setUploading} />
+      {canAttach && <AttachmentField onBusy={setUploading} />}
       {state.error && <FormError>{state.error}</FormError>}
       <Button
         type="submit"

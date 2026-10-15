@@ -20,6 +20,7 @@ export function EditMessageForm({
   source,
   back,
   attached,
+  canAttach = true,
 }: {
   conversationId: number;
   messageId: number;
@@ -28,6 +29,8 @@ export function EditMessageForm({
   // Where the message is in its conversation.
   back: string;
   attached: AttachedFile[];
+  // Whether the viewer's groups allow adding files (`conversation.attach`); kept ones stay.
+  canAttach?: boolean;
 }) {
   const t = useTranslations("conversations.editForm");
   const { state, pending, onSubmit } = useKeptForm(
@@ -50,7 +53,9 @@ export function EditMessageForm({
         }}
       />
       <input type="hidden" name="body" value={body} />
-      <AttachmentField initial={attached} onBusy={setUploading} />
+      {(canAttach || attached.length > 0) && (
+        <AttachmentField initial={attached} onBusy={setUploading} />
+      )}
       <FormFooter
         error={state.error}
         cancelHref={back}

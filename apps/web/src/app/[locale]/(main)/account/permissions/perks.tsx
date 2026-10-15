@@ -71,7 +71,7 @@ export async function PerksList() {
     {
       key: "username",
       icon: AtSign,
-      has: free || units > 0,
+      has: self.usernameChange.reason === null && (free || units > 0),
       detail: free
         ? t("renameFree")
         : units > 0

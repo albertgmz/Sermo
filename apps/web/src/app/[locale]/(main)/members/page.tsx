@@ -1,6 +1,7 @@
 import { standingsWinners, usersStaff } from "@sermo/core/contracts";
 import { Crown } from "lucide-react";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { Directory } from "@/app/[locale]/(main)/members/directory";
@@ -167,7 +168,10 @@ export default async function MembersPage({
   // A search or a sort without a view is a link to the directory.
   const param = first(params.view) || (query || sort ? "all" : "");
   const view = VIEWS.find((entry) => entry.value === param) ?? VIEWS[0];
-  const viewerId = (await getViewer()).user?.id;
+  const viewer = await getViewer();
+  // The member list is the backend's to refuse: a viewer without `member.viewList` finds none.
+  if (viewer.resolvedPermissions["member.viewList"] === false) notFound();
+  const viewerId = viewer.user?.id;
 
   return (
     <PageLayout

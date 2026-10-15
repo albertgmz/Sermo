@@ -41,6 +41,10 @@ export async function feedPage(
   // A reaction type may be limited to forums: what is offered depends on the forum of the item.
   const pickerFor = (forumId: number | null) =>
     viewer.permissions.canReact ? pickerTypes(reactionTypes, forumId) : [];
+  // Wall posts are reacted to with `profilePost.react`; who reacted needs `reaction.viewList`.
+  const mayReactOnWalls =
+    viewer.resolvedPermissions["profilePost.react"] !== false;
+  const viewList = viewer.resolvedPermissions["reaction.viewList"] !== false;
   const now = Date.now();
   return {
     nextCursor: feed.nextCursor,
@@ -63,10 +67,15 @@ export async function feedPage(
             author={author}
             now={now}
             viewerId={viewer.user?.id ?? null}
-            picker={pickerFor(
-              item.type === "profilePost" ? null : item.thread.node.id,
-            )}
+            picker={
+              item.type === "profilePost" && !mayReactOnWalls
+                ? []
+                : pickerFor(
+                    item.type === "profilePost" ? null : item.thread.node.id,
+                  )
+            }
             reactionTypes={reactionTypes}
+            viewList={viewList}
           />
         ),
       };

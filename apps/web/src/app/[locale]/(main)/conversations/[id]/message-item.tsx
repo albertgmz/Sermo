@@ -28,6 +28,7 @@ export function MessageItem({
   viewerId,
   picker,
   reactionTypes,
+  viewList,
 }: {
   message: ApiMessage;
   author: AuthorView;
@@ -36,6 +37,7 @@ export function MessageItem({
   viewerId: number | null;
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
+  viewList?: boolean;
 }) {
   const t = useTranslations("conversations.conversation");
   return (
@@ -51,6 +53,7 @@ export function MessageItem({
           viewerId={viewerId}
           picker={picker}
           reactionTypes={reactionTypes}
+          viewList={viewList}
         />
       }
     >
@@ -79,12 +82,13 @@ export function MessageItem({
 // stays under the author's first message on the page, so none is drawn here.
 export async function messageRows(messages: ApiMessage[]): Promise<TailRow[]> {
   if (messages.length === 0) return [];
-  const [{ user, permissions }, reactionTypes] = await Promise.all([
-    getViewer(),
-    getReactionTypes(),
-  ]);
+  const [{ user, permissions, resolvedPermissions }, reactionTypes] =
+    await Promise.all([getViewer(), getReactionTypes()]);
   const author = await authorsFor(messages.map((message) => message.author));
-  const picker = permissions.canReact ? pickerTypes(reactionTypes, null) : [];
+  const picker =
+    permissions.canReact && resolvedPermissions["conversation.react"] !== false
+      ? pickerTypes(reactionTypes, null)
+      : [];
   return messages.map((message) => ({
     key: `message-${message.id}`,
     id: message.id,
@@ -97,6 +101,7 @@ export async function messageRows(messages: ApiMessage[]): Promise<TailRow[]> {
         viewerId={user?.id ?? null}
         picker={picker}
         reactionTypes={reactionTypes}
+        viewList={resolvedPermissions["reaction.viewList"] !== false}
       />
     ),
   }));

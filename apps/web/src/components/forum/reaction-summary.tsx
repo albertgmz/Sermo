@@ -53,7 +53,10 @@ export function ReactionSummary({
   return (
     <Popover>
       <PopoverTrigger
-        aria-label={t("aria.trigger", { total })}
+        aria-label={t(
+          members || loadUsers ? "aria.trigger" : "aria.triggerCounts",
+          { total },
+        )}
         className={cn(
           "inline-flex h-10 items-center justify-center gap-1.5 rounded-md px-1 font-medium tabular-nums text-muted-foreground transition-colors hover:text-foreground",
           SIZES[size].trigger,

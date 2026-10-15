@@ -27,6 +27,7 @@ export function Reactions({
   size,
   part,
   className,
+  viewList = true,
 }: {
   target: ReactionTarget;
   id: number;
@@ -44,6 +45,8 @@ export function Reactions({
   // `button` and `summary` draw one half each, for a bar that keeps them apart.
   part?: "both" | "button" | "summary";
   className?: string;
+  // Whether the viewer may open the list of who reacted (`reaction.viewList`).
+  viewList?: boolean;
 }) {
   const view = reactionsView(reactions, reactionTypes);
   const stateKey = `reaction:${target}:${id}`;
@@ -68,7 +71,11 @@ export function Reactions({
             summary={view}
             drawnMine={view.viewerTypeId}
             offered={picker}
-            loadUsers={loadReactionUsers.bind(null, CONTENT_TYPE[target], id)}
+            loadUsers={
+              viewList
+                ? loadReactionUsers.bind(null, CONTENT_TYPE[target], id)
+                : undefined
+            }
             size={size}
             showTotal={!pressable}
           />

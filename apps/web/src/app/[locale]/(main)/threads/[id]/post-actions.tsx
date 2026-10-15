@@ -29,6 +29,7 @@ export function PostActions({
   noteState,
   canQuote,
   bookmarked,
+  viewList,
 }: {
   post: ApiPost;
   viewerId: number | null;
@@ -41,6 +42,7 @@ export function PostActions({
   canQuote: boolean;
   // Null for a guest or when the state could not be read: no toggle is drawn.
   bookmarked: boolean | null;
+  viewList?: boolean;
 }) {
   const t = useTranslations("threads.page");
   const reactions = {
@@ -51,6 +53,7 @@ export function PostActions({
     viewerId,
     picker,
     reactionTypes,
+    viewList,
   };
   const live = viewerId !== null && post.state !== "deleted";
   return (

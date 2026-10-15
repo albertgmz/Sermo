@@ -147,7 +147,9 @@
     "placeholder": "Escribe algo en el perfil de {username}…",
     "emptyTitle": "Aún no hay publicaciones",
     "emptyDescription": "Sé el primero en escribir algo en el perfil de <user>{username}</user>.",
-    "login": "Inicia sesión para publicar"
+    "login": "Inicia sesión para publicar",
+    "unavailableTitle": "El muro no está disponible",
+    "unavailableDescription": "Tu cuenta no puede leer las publicaciones de perfil."
   },
   "postComposer": {
     "title": "Nueva publicación",

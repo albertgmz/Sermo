@@ -57,6 +57,7 @@ export function WallComments({
   viewerId,
   picker,
   reactionTypes,
+  viewList,
   className,
 }: {
   // The id of the post's element on the page.
@@ -77,6 +78,7 @@ export function WallComments({
   // What the picker offers; none when the viewer may not react.
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
+  viewList?: boolean;
   className?: string;
 }) {
   const t = useTranslations("forum.wallComments");
@@ -112,6 +114,7 @@ export function WallComments({
               viewerId={viewerId}
               picker={picker}
               reactionTypes={reactionTypes}
+              viewList={viewList}
             />
           }
         >

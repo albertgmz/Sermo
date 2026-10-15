@@ -4,7 +4,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 
 mock.module("@/app/[locale]/(main)/conversations/[id]/reply-form", () => ({
-  ReplyForm: () => createElement("form", { id: "reply-form" }),
+  ReplyForm: (props: { canAttach?: boolean }) =>
+    createElement("form", {
+      id: "reply-form",
+      "data-attach": String(props.canAttach),
+    }),
 }));
 
 const { LockedBadge, ReplyArea } = await import("./locked-state");
@@ -31,12 +35,13 @@ const conversation = {
   canLock: false,
 };
 const NOTE = "This conversation is locked: no new replies.";
-const draw = (over: Partial<typeof conversation>) =>
+const draw = (over: Partial<typeof conversation>, canAttach?: boolean) =>
   renderToStaticMarkup(
     withIntl(
       createElement(ReplyArea, {
         conversation: { ...conversation, ...over },
         tailKey: "conversation:3",
+        canAttach,
       }),
     ),
   );
@@ -58,6 +63,11 @@ test("a moderator of a locked conversation sees the note above the form", () => 
   expect(html).toContain(NOTE);
   expect(html).toContain("reply-form");
   expect(html.indexOf(NOTE)).toBeLessThan(html.indexOf("reply-form"));
+});
+
+test("the form is told whether files may be attached", () => {
+  expect(draw({}, false)).toContain('data-attach="false"');
+  expect(draw({}, true)).toContain('data-attach="true"');
 });
 
 test("anyone else sees the note instead of the form", () => {

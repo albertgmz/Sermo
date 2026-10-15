@@ -68,6 +68,7 @@ function WallPost({
   viewerId,
   picker,
   reactionTypes,
+  viewList,
   returnTo,
 }: {
   post: ApiWallPost;
@@ -79,6 +80,7 @@ function WallPost({
   viewerId: number | null;
   picker: ReactionType[];
   reactionTypes: ReactionTypes;
+  viewList: boolean;
   returnTo: string;
 }) {
   const locale = useLocale();
@@ -116,6 +118,7 @@ function WallPost({
           viewerId={viewerId}
           picker={picker}
           reactionTypes={reactionTypes}
+          viewList={viewList}
           start={
             commentsHref ? (
               <Link
@@ -153,6 +156,7 @@ function WallPost({
             viewerId={viewerId}
             picker={picker}
             reactionTypes={reactionTypes}
+            viewList={viewList}
           />
         )
       }
@@ -190,6 +194,17 @@ export async function Wall({
   // wall continues from the page that has it. Alerts exist only for members: a guest gets the
   // first page.
   const viewer = await getViewer();
+  // The backend refuses the wall to a viewer without `profilePost.view`: draw none.
+  if (viewer.resolvedPermissions["profilePost.view"] === false) {
+    const t = await getTranslations("members.wall");
+    return (
+      <EmptyState
+        icon={PenLine}
+        title={t("unavailableTitle")}
+        description={t("unavailableDescription")}
+      />
+    );
+  }
   const walk =
     focus && requested === undefined && viewer.user
       ? await pageHolding(
@@ -243,9 +258,12 @@ export async function Wall({
     ...(viewer.user ? [viewer.user] : []),
   ]);
   const viewerId = viewer.user?.id ?? null;
-  const picker = viewer.permissions.canReact
-    ? pickerTypes(reactionTypes, null)
-    : [];
+  const picker =
+    viewer.permissions.canReact &&
+    viewer.resolvedPermissions["profilePost.react"] !== false
+      ? pickerTypes(reactionTypes, null)
+      : [];
+  const viewList = viewer.resolvedPermissions["reaction.viewList"] !== false;
   const returnTo = wallHref(profile.id, { cursor });
 
   return (
@@ -315,6 +333,7 @@ export async function Wall({
                 viewerId={viewerId}
                 picker={picker}
                 reactionTypes={reactionTypes}
+                viewList={viewList}
                 returnTo={returnTo}
               />
             );

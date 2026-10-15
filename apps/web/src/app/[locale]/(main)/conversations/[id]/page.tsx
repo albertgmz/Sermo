@@ -123,12 +123,13 @@ export default async function ConversationPage({
     searchParams,
   ]);
   const conversationId = conversationIdOf(raw);
-  const [conversation, { permissions }, bookmarks, t] = await Promise.all([
-    read(conversationsGet, { conversationId }),
-    getMember(),
-    bookmarkedAmong("conversation", [conversationId]),
-    getTranslations("conversations.conversation"),
-  ]);
+  const [conversation, { permissions, resolvedPermissions }, bookmarks, t] =
+    await Promise.all([
+      read(conversationsGet, { conversationId }),
+      getMember(),
+      bookmarkedAmong("conversation", [conversationId]),
+      getTranslations("conversations.conversation"),
+    ]);
   const member = await membersFor(
     conversation.participants.map((participant) => participant.user),
   );
@@ -159,7 +160,11 @@ export default async function ConversationPage({
               conversation={conversation}
               cursor={typeof cursor === "string" ? cursor : undefined}
               focus={typeof message === "string" ? parseId(message) : null}
-              canReact={permissions.canReact}
+              canReact={
+                permissions.canReact &&
+                resolvedPermissions["conversation.react"] !== false
+              }
+              viewList={resolvedPermissions["reaction.viewList"] !== false}
             />
           </Suspense>
         </div>
@@ -168,6 +173,7 @@ export default async function ConversationPage({
           <ReplyArea
             conversation={conversation}
             tailKey={tailKey(conversation.id)}
+            canAttach={resolvedPermissions["conversation.attach"] !== false}
           />
         </section>
       </PageLayout>
@@ -180,12 +186,14 @@ async function Messages({
   cursor: requested,
   focus,
   canReact,
+  viewList,
 }: {
   conversation: Conversation;
   cursor: string | undefined;
   // A message an address names, which the page of messages that holds it is opened at.
   focus: number | null;
   canReact: boolean;
+  viewList: boolean;
 }) {
   const readPage = (at: string | undefined) =>
     read(conversationsListMessages, {
@@ -251,6 +259,7 @@ async function Messages({
               viewerId={user?.id ?? null}
               picker={picker}
               reactionTypes={reactionTypes}
+              viewList={viewList}
             />
           </li>
         ))}

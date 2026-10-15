@@ -26,7 +26,7 @@ export default async function EditMessagePage({
   const conversationId = parseId(id);
   const messageId = parseId(rawMessage);
   if (conversationId === null || messageId === null) notFound();
-  const [, t] = await Promise.all([
+  const [{ resolvedPermissions }, t] = await Promise.all([
     getMember(),
     getTranslations("conversations.edit"),
   ]);
@@ -56,6 +56,7 @@ export default async function EditMessagePage({
           messageId={messageId}
           source={message.bodySource}
           back={back}
+          canAttach={resolvedPermissions["conversation.attach"] !== false}
           attached={message.attachments.map((file) => ({
             id: file.fileId,
             name: fileName(file.url, file.fileId),

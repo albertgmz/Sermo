@@ -23,9 +23,11 @@ export function LockedBadge() {
 export function ReplyArea({
   conversation,
   tailKey,
+  canAttach,
 }: {
   conversation: Conversation;
   tailKey: string;
+  canAttach?: boolean;
 }) {
   const t = useTranslations("conversations.conversation");
   if (!conversation.canReply)
@@ -46,6 +48,7 @@ export function ReplyArea({
         tailKey={tailKey}
         placeholder={t("placeholder")}
         submitLabel={t("submit")}
+        canAttach={canAttach}
       />
     </>
   );

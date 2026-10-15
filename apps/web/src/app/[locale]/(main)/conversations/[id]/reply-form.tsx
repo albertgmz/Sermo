@@ -20,12 +20,15 @@ export function ReplyForm({
   tailKey,
   placeholder,
   submitLabel,
+  canAttach = true,
 }: {
   conversationId: number;
   // Where the end of the conversation is kept while the newest page is open.
   tailKey: string;
   placeholder: string;
   submitLabel: string;
+  // Whether the viewer's groups allow attaching files to messages (`conversation.attach`).
+  canAttach?: boolean;
 }) {
   const t = useTranslations("lib.errors");
   // A refused message stays in the form, files included: the form is not reset by its action. A
@@ -71,7 +74,9 @@ export function ReplyForm({
         placeholder={placeholder}
         minHeight={96}
       />
-      <AttachmentField key={`files-${generation}`} onBusy={setUploading} />
+      {canAttach && (
+        <AttachmentField key={`files-${generation}`} onBusy={setUploading} />
+      )}
       {state.error && <FormError>{state.error}</FormError>}
       <div className="flex justify-end">
         <Button

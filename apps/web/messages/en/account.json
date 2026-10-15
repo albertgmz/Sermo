@@ -56,6 +56,7 @@
     "coverLabel": "Cover",
     "coverHelp": "Shown behind your profile, your posts and your member card. Choose a picture, then frame it.",
     "limit": "Up to {size} MB.",
+    "notAllowed": "Your account cannot upload this picture.",
     "overLimit": "This picture is larger than the {size} MB the site allows.",
     "coverGalleryWorn": "A cover from the gallery is worn, so it shows instead of the one you upload. Take it off in Appearance to show yours.",
     "remove": "Remove",
@@ -78,7 +79,10 @@
     "none": "You have no username change left. <shop>Get one in the shop</shop>",
     "confirmation": "I want to change my username to {username}.",
     "submit": "Change username",
-    "limited": "Changing your username is confirmed first because it is limited and other members know you by this name."
+    "limited": "Changing your username is confirmed first because it is limited and other members know you by this name.",
+    "approval": "Only staff can change your username. Ask a staff member.",
+    "limit": "You have used the username changes you are allowed. You can change it again on {date}.",
+    "limitAll": "You have used all the username changes you are allowed."
   },
   "about": {
     "aboutLabel": "About you",

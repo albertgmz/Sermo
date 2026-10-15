@@ -23,6 +23,7 @@ export function PictureRow({
   hasPicture,
   note,
   remove,
+  canUpload = true,
 }: {
   kind: PictureKind;
   title: string;
@@ -32,6 +33,8 @@ export function PictureRow({
   hasPicture: boolean;
   note?: string;
   remove: () => Promise<SaveResult>;
+  // Whether the viewer's groups allow uploading this picture; removing one needs nothing.
+  canUpload?: boolean;
 }) {
   const t = useTranslations("account.pictures");
   const router = useRouter();
@@ -86,34 +89,38 @@ export function PictureRow({
       <div className="flex flex-wrap items-center gap-4">
         <div className="min-w-0 shrink-0">{current}</div>
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            ref={input}
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            tabIndex={-1}
-            aria-label={t(`aria.${kind}`)}
-            onChange={(event) => {
-              const chosen = event.target.files?.[0] ?? null;
-              event.target.value = "";
-              if (!chosen) return;
-              if (!chosen.type.startsWith("image/")) {
-                setRefused(t("notImage"));
-                return;
-              }
-              setRefused("");
-              setFile(chosen);
-            }}
-          />
-          <Button
-            ref={choose}
-            type="button"
-            variant="outline"
-            className="min-h-10 px-4"
-            onClick={() => input.current?.click()}
-          >
-            {hasPicture ? t("replace") : t("choose")}
-          </Button>
+          {canUpload && (
+            <>
+              <input
+                ref={input}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                tabIndex={-1}
+                aria-label={t(`aria.${kind}`)}
+                onChange={(event) => {
+                  const chosen = event.target.files?.[0] ?? null;
+                  event.target.value = "";
+                  if (!chosen) return;
+                  if (!chosen.type.startsWith("image/")) {
+                    setRefused(t("notImage"));
+                    return;
+                  }
+                  setRefused("");
+                  setFile(chosen);
+                }}
+              />
+              <Button
+                ref={choose}
+                type="button"
+                variant="outline"
+                className="min-h-10 px-4"
+                onClick={() => input.current?.click()}
+              >
+                {hasPicture ? t("replace") : t("choose")}
+              </Button>
+            </>
+          )}
           {hasPicture && (
             <Button
               ref={removeButton}
@@ -163,6 +170,9 @@ export function PictureRow({
         <p role="alert" className="text-xs font-medium text-destructive">
           {refused}
         </p>
+      )}
+      {!canUpload && (
+        <p className="text-xs text-muted-foreground">{t("notAllowed")}</p>
       )}
       {note && <p className="text-xs text-muted-foreground">{note}</p>}
       <FramingDialog
