@@ -10,6 +10,7 @@ import { economySpecs } from "./criteria/economy";
 import { engagementSpecs } from "./criteria/engagement";
 import { moderationSpecs } from "./criteria/moderation";
 import { profileSpecs } from "./criteria/profile";
+import { referralSpecs } from "./criteria/referrals";
 import {
   type Condition,
   type CostClass,
@@ -112,6 +113,7 @@ const specs: readonly Spec[] = [
   ...profileSpecs,
   ...moderationSpecs,
   ...engagementSpecs,
+  ...referralSpecs,
 ];
 const byId = new Map(specs.map((spec) => [spec.id, spec]));
 
@@ -252,6 +254,8 @@ const noFacts = (memberId: number | null, now: number): Facts => ({
   restrictedPosting: false,
   restrictedConversations: false,
   restrictedProfilePosts: false,
+  referralCount: 0,
+  wasReferred: false,
   awardCount: 0,
   awardXp: 0,
   measures: new Map(),
@@ -282,11 +286,13 @@ type MemberRow = {
   restricted_posting: number;
   restricted_conversations: number;
   restricted_profile_posts: number;
+  referral_count: number;
+  was_referred: number;
 };
 
 /** The statement of the facts on the member's own row, for tests that check its plan. */
 export const memberFactsSql =
-  "SELECT u.id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified, u.award_count, u.award_xp, (u.cover_file_id IS NOT NULL OR u.cover_preset_id IS NOT NULL) AS has_cover, (u.name_color_id IS NOT NULL) AS has_name_color, (u.accent_color_id IS NOT NULL) AS has_accent_color, (u.frame_id IS NOT NULL) AS has_frame, ((u.social_discord != '') + (u.social_telegram != '') + (u.social_x != '')) AS social_links, (u.avatar_file_id IS NOT NULL AND u.about != '' AND u.location != '' AND u.birthday_md IS NOT NULL) AS profile_complete, u.username_changed_at, (coalesce(u.restricted_posting_until, 0) > ?2) AS restricted_posting, (coalesce(u.restricted_conversations_until, 0) > ?2) AS restricted_conversations, (coalesce(u.restricted_profile_posts_until, 0) > ?2) AS restricted_profile_posts FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id IN (SELECT value FROM json_each(?1))";
+  "SELECT u.id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified, u.award_count, u.award_xp, (u.cover_file_id IS NOT NULL OR u.cover_preset_id IS NOT NULL) AS has_cover, (u.name_color_id IS NOT NULL) AS has_name_color, (u.accent_color_id IS NOT NULL) AS has_accent_color, (u.frame_id IS NOT NULL) AS has_frame, ((u.social_discord != '') + (u.social_telegram != '') + (u.social_x != '')) AS social_links, (u.avatar_file_id IS NOT NULL AND u.about != '' AND u.location != '' AND u.birthday_md IS NOT NULL) AS profile_complete, u.username_changed_at, (coalesce(u.restricted_posting_until, 0) > ?2) AS restricted_posting, (coalesce(u.restricted_conversations_until, 0) > ?2) AS restricted_conversations, (coalesce(u.restricted_profile_posts_until, 0) > ?2) AS restricted_profile_posts, u.referral_count, (u.referred_by IS NOT NULL) AS was_referred FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id IN (SELECT value FROM json_each(?1))";
 
 type MeasureRow = { user_id: number; id: number | null; n: number | null };
 
@@ -356,6 +362,8 @@ export function loadFacts(
         restrictedPosting: row.restricted_posting !== 0,
         restrictedConversations: row.restricted_conversations !== 0,
         restrictedProfilePosts: row.restricted_profile_posts !== 0,
+        referralCount: row.referral_count,
+        wasReferred: row.was_referred !== 0,
       });
   if (sources.has("warnings"))
     for (const row of prepared(ctx, "shared.criteriaWarnings", () =>

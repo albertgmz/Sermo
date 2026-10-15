@@ -56,6 +56,8 @@ export interface Facts {
   restrictedPosting: boolean;
   restrictedConversations: boolean;
   restrictedProfilePosts: boolean;
+  referralCount: number;
+  wasReferred: boolean;
   /** Awards held, each grant counting, and the XP of those grants. */
   awardCount: number;
   awardXp: number;

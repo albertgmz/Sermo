@@ -412,6 +412,46 @@ describe("economy criteria", () => {
   });
 });
 
+describe("referral criteria", () => {
+  const set = (ctx: Ctx, userId: number, columns: string) =>
+    ctx.sqlite.prepare(`UPDATE users SET ${columns} WHERE id = ?1`).run(userId);
+
+  test("referrals and having been referred are read from the member's row", () => {
+    const { ctx, member, other } = world();
+    set(ctx, member, "referral_count = 3");
+    set(ctx, other, "referred_by = 1, referred_at = 5");
+    const asks = (criterion: string, value: number) =>
+      holdsFor(ctx, [member, other], { criterion, value });
+    expect(asks("referrals_at_least", 3)).toEqual([true, false]);
+    expect(asks("referrals_at_least", 4)).toEqual([false, false]);
+    expect(asks("was_referred", 1)).toEqual([false, true]);
+    expect(asks("was_referred", 0)).toEqual([true, false]);
+  });
+
+  test("referrals_this_month counts the members brought in since the first of the month, UTC", () => {
+    const { ctx, member, other } = world();
+    const monthStart = Date.UTC(
+      new Date(ctx.now()).getUTCFullYear(),
+      new Date(ctx.now()).getUTCMonth(),
+      1,
+    );
+    const referred = (by: number, at: number) => {
+      const id = insertUser(ctx).id;
+      set(ctx, id, `referred_by = ${by}, referred_at = ${at}`);
+    };
+    referred(member, monthStart);
+    referred(member, monthStart + 1000);
+    // The last millisecond of last month is not this month.
+    referred(member, monthStart - 1);
+    referred(other, monthStart + 5);
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other], { criterion: "referrals_this_month", value });
+    expect(asks(2)).toEqual([true, false]);
+    expect(asks(3)).toEqual([false, false]);
+    expect(asks(1)).toEqual([true, true]);
+  });
+});
+
 describe("engagement criteria", () => {
   test("days_since_last_post is read from the newest visible post", () => {
     const { ctx, member, other, node } = world();
@@ -754,6 +794,125 @@ describe("measured criteria", () => {
     };
     expect(statements(1)).toBe(3);
     expect(statements(40)).toBe(3);
+  });
+});
+
+/** A condition carrying everything the definition says its criterion takes. */
+function conditionOf(
+  definition: (typeof criterionDefinitions)[number],
+  ids: Record<string, number>,
+): Condition {
+  const takesValue = !["groups", "members", "ids"].includes(definition.kind);
+  return {
+    criterion: definition.id,
+    ...(takesValue && { value: 1 }),
+    ...(definition.idKind && { ids: [ids[definition.idKind] ?? 1] }),
+    ...(definition.window && { days: 7 }),
+    ...(definition.modes[0] && { mode: definition.modes[0] }),
+  };
+}
+
+/** One row of every kind a list of ids may name. */
+function seedIds(ctx: Ctx, owner: number, node: number): Record<string, number> {
+  const cat = category(ctx);
+  return {
+    groups: 1,
+    members: owner,
+    threads: thread(ctx, owner, node),
+    awards: insertRow(
+      ctx,
+      "INSERT INTO awards (name, tier, created_at, updated_at) VALUES ('A', 'bronze', 0, 0)",
+    ),
+    shopItems: item(ctx, cat),
+    shopCategories: cat,
+    creditRules: insertRow(
+      ctx,
+      "INSERT INTO credit_rules (title, trigger, amount, created_at, updated_at) VALUES ('R', 'daily_activity', 1, 0, 0)",
+    ),
+  };
+}
+
+describe("every criterion", () => {
+  test("is accepted with what its definition says it takes, where its cost allows", () => {
+    const { ctx, member, node } = world();
+    const ids = seedIds(ctx, member, node);
+    for (const definition of criterionDefinitions) {
+      const condition = conditionOf(definition, ids);
+      assertRule(ctx, rule(condition), "background");
+      if (definition.cost === "cheap") assertRule(ctx, rule(condition), "cheap");
+      else
+        expect(() => assertRule(ctx, rule(condition), "cheap"), definition.id).toThrow(
+          ValidationError,
+        );
+    }
+  });
+
+  test("refuses an id that does not exist, whatever it names", () => {
+    const { ctx, member, node } = world();
+    seedIds(ctx, member, node);
+    for (const definition of criterionDefinitions) {
+      const kind = definition.idKind;
+      if (!kind || kind === "members") continue;
+      expect(
+        () => assertRule(ctx, rule(conditionOf(definition, { [kind]: 987_654 })), "background"),
+        definition.id,
+      ).toThrow(/Unknown/);
+    }
+  });
+
+  test("refuses a number, a list, a window or a mode it does not take", () => {
+    const { ctx, member, node } = world();
+    const ids = seedIds(ctx, member, node);
+    for (const definition of criterionDefinitions) {
+      const ok = conditionOf(definition, ids);
+      const refused = (condition: Condition) =>
+        expect(() => assertRule(ctx, rule(condition), "background"), definition.id).toThrow(
+          ValidationError,
+        );
+      if (ok.value === undefined) refused({ ...ok, value: 1 });
+      else {
+        const { value: _value, ...without } = ok;
+        refused(without);
+      }
+      if (ok.ids === undefined) refused({ ...ok, ids: [1] });
+      else {
+        const { ids: _ids, ...without } = ok;
+        refused(without);
+      }
+      if (!definition.window) refused({ ...ok, days: 7 });
+      if (definition.modes.length === 0) refused({ ...ok, mode: "one" });
+      else
+        for (const mode of ["one", "all", "each", "none"] as const)
+          if (!definition.modes.includes(mode)) refused({ ...ok, mode });
+    }
+  });
+
+  test("loads a page of members in as many statements as it has for one", () => {
+    const { ctx, member, node } = world();
+    const named = seedIds(ctx, member, node);
+    const page = [member, ...Array.from({ length: 39 }, () => insertUser(ctx).id)];
+    const statements = (members: number[], condition: Condition) => {
+      // Prepared statements are cached per context; forget them so each load prepares its own.
+      ctx.statements.clear();
+      const seen: string[] = [];
+      const original = ctx.sqlite.prepare.bind(ctx.sqlite);
+      (ctx.sqlite as { prepare: unknown }).prepare = (sql: string) => {
+        seen.push(sql);
+        return original(sql);
+      };
+      try {
+        loadFacts(ctx, members, [rule(condition)]);
+      } finally {
+        (ctx.sqlite as { prepare: unknown }).prepare = original;
+      }
+      return seen.length;
+    };
+    for (const definition of criterionDefinitions) {
+      const condition = conditionOf(definition, named);
+      const one = statements([member], condition);
+      expect(one, definition.id).toBeLessThanOrEqual(1);
+      expect(statements(page, condition), definition.id).toBe(one);
+    }
   });
 });
 

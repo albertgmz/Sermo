@@ -44,6 +44,8 @@ const facts = (overrides: Partial<Facts> = {}): Facts => ({
   restrictedPosting: false,
   restrictedConversations: false,
   restrictedProfilePosts: false,
+  referralCount: 0,
+  wasReferred: false,
   awardCount: 0,
   awardXp: 0,
   measures: new Map(),
@@ -326,6 +328,14 @@ const table: Record<string, Case[]> = {
     ],
     ["never posted", { value: 7 }, facts(), true],
   ],
+  was_referred: yesNo("wasReferred"),
+  referrals_at_least: [
+    ["above", { value: 3 }, facts({ referralCount: 4 }), true],
+    ["edge", { value: 3 }, facts({ referralCount: 3 }), true],
+    ["below", { value: 3 }, facts({ referralCount: 2 }), false],
+    ["none, none asked", { value: 0 }, facts(), true],
+  ],
+  referrals_this_month: countCases("referrals_this_month"),
   awards_held_at_least: [
     ["above", { value: 3 }, facts({ awardCount: 4 }), true],
     ["edge", { value: 3 }, facts({ awardCount: 3 }), true],
