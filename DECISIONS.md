@@ -1114,7 +1114,7 @@ bump is not a post: unread state, counters and last-post data do not move.
 
 **Rankings are computed in the background and kept per forum** (`rankings`, job every five
 minutes and at startup): the most replied-to, most reacted-to and most viewed threads, and the
-week's most reacted-to posts. A reader merges the rankings of the forums the viewer can see,
+hot threads (see "Hot replaces Top"). A reader merges the rankings of the forums the viewer can see,
 filters by current state and ignored authors, then cuts (`threads.ranked` applies the viewer's
 ignores to the three "most" rankings; `latestPosts` and `latestThreads` do not). Two earlier designs were rejected by
 review: one global list (hidden forums pushed everything out, and its emptiness hinted at hidden
@@ -2297,3 +2297,14 @@ top. Award holders, the credits ledger, the member directory, the rankings and t
 scroll on the shared list. Not converted: profile wall, credits inventory and shop, staff lists,
 the conversation's older/newest links. Not checked in a browser: sign-out and sign-in on one tab, a
 session ending under a click, "show" with more than a page of new entries.
+
+**Hot replaces Top.** The feed's `top` scope (the week's most reacted-to posts, where a thread could
+appear many times) is now `hot`: threads, each shown as its opening post, scored by
+`(4*replies + 3*reactions on the opening post + 0.1*views) / (age_hours + 2)^1.2` (named constants in
+`rankings.ts`; age from the thread's creation, so a revived old thread does not come back), and
+needing 3 replies or 3 reactions on the opening post to be listed. Same rankings job and cadence
+(every five minutes), same stored table (kind `hot`); the week scan of posts is gone, and migration
+`0037` deletes the old `feedTop` rows. Gravity 1.2 is gentler than a news feed because a forum moves
+slower. Views are the raw counter, uncapped, until bots can be excluded. `top` is accepted as an
+alias of `hot` in `feed.list` and in the web `?tab=` for one release. The Hot tab does not poll for
+new entries. Spanish label "En tendencia".
