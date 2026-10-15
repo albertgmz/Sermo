@@ -41,3 +41,9 @@ export async function changeItem<T>(
 
 // For tests: the stored changes.
 export const itemChanges = changes;
+
+// Shows `value` for an item that the server drew as `drawn`, for something learned without the
+// visitor doing anything (a poll).
+export function setItemState<T>(key: string, drawn: T, value: T) {
+  changes.set(key, { drawn, value });
+}

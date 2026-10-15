@@ -15,6 +15,7 @@ import {
 import { PostItem } from "@/app/[locale]/(main)/threads/[id]/post-item";
 import { ReplyComposer } from "@/app/[locale]/(main)/threads/[id]/reply-composer";
 import { ThreadTools } from "@/app/[locale]/(main)/threads/[id]/thread-tools";
+import { pollPosts } from "@/app/[locale]/(main)/threads/poll-posts";
 import { Art } from "@/components/forum/art";
 import { EmptyState } from "@/components/forum/empty-state";
 import { JsonLd } from "@/components/forum/json-ld";
@@ -26,6 +27,7 @@ import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { POLL_MS } from "@/lib/poll-intervals";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
@@ -376,6 +378,12 @@ async function ThreadPosts({
           <LiveTail
             tailKey={tailKey(thread.id)}
             drawn={{ id: lastPost.id, mark: lastPost.position }}
+            poll={pollPosts.bind(null, thread.id, {
+              threadAuthorId: thread.author.id,
+              may,
+              canQuote,
+            })}
+            intervalMs={POLL_MS.thread}
             pendingRow={
               user && (
                 <PostFrame

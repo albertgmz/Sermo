@@ -33,6 +33,7 @@ export function MessagesPanel({
       label={t("label")}
       title={t("title")}
       unread={unread}
+      counter="conversations"
       icon={<Inbox />}
       className={cn(headerIconClass, className)}
       loadingLabel={t("loading")}
@@ -64,6 +65,7 @@ export function AlertsPanel({
       label={t("label")}
       title={t("title")}
       unread={unread}
+      counter="notifications"
       icon={<Bell />}
       className={cn(headerIconClass, className)}
       loadingLabel={t("loading")}

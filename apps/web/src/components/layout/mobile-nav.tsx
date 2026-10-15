@@ -10,6 +10,7 @@ import {
   type LinkItem,
   linkProps,
 } from "@/components/layout/nav";
+import { useCounter } from "@/lib/counters";
 
 export function MobileNav({
   items,
@@ -21,8 +22,8 @@ export function MobileNav({
   const t = useTranslations("layout.mobileNav");
   const pathname = usePathname();
   const counts: Record<string, number> = {
-    "mobile.messages": unread.conversations,
-    "mobile.alerts": unread.notifications,
+    "mobile.messages": useCounter("conversations", unread.conversations),
+    "mobile.alerts": useCounter("notifications", unread.notifications),
   };
 
   return (

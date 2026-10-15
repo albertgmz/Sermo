@@ -129,6 +129,17 @@ export async function call<I extends z.ZodType, O extends z.ZodType>(
   return callWith((await visitor()).forward, contract, input);
 }
 
+// For a poll: the call as the visitor, with nothing asked about them first. `call` settles who is
+// asking on one auth.me read per request, which would double the requests of every poll; a poll
+// carries the session as it is and a dead one is a refusal like any other, on which the caller
+// stops polling.
+export async function callForPoll<I extends z.ZodType, O extends z.ZodType>(
+  contract: Described<I, O>,
+  input: z.input<I>,
+): Promise<z.output<O>> {
+  return callWith(await forwardFromRequest(), contract, input);
+}
+
 // For a block beside a page (a ranking in a side column): the answer, or null when the backend
 // does not give it to this visitor because it needs a permission or an account they lack. The
 // block then shows nothing; the page neither goes to the login page nor fails. Any other failure

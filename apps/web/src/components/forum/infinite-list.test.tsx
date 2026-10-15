@@ -11,6 +11,7 @@ import {
   InfiniteList,
   listQueryOptions,
   mergeRefreshed,
+  prependFresh,
   watchSentinel,
   withKept,
 } from "./infinite-list";
@@ -346,4 +347,69 @@ test("the first page of a list is asked for by a null cursor, like any other", a
   await observer.refetch();
   expect(loadPage.calls[0]).toEqual([null]);
   stop();
+});
+
+test("new entries are put in front of the pages held, which stay", () => {
+  const held = {
+    pages: [page(["c", "d"], "c1"), page(["e"], null)],
+    pageParams: [null, "c1"],
+  };
+  const next = prependFresh(held, page(["a", "b"], "c0"), null);
+  expect(next.pages.map((p) => p.rows.map((r) => r.key))).toEqual([
+    ["a", "b"],
+    ["c", "d"],
+    ["e"],
+  ]);
+  expect(next.pageParams).toEqual([null, null, "c1"]);
+  // The list still ends where it did.
+  expect(next.pages.at(-1)?.nextCursor).toBeNull();
+  expect(flattenRows(next.pages).map((r) => r.key)).toEqual([
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+  ]);
+});
+
+test("a thread that moved to the top is shown once, where the newer page has it", () => {
+  const held = {
+    pages: [page(["a", "b", "c"], "c1")],
+    pageParams: [null],
+  };
+  const fresh = {
+    rows: [
+      { key: "c", node: <b>newer c</b> },
+      { key: "x", node: <b>new x</b> },
+      { key: "a", node: <b>newer a</b> },
+    ],
+    nextCursor: "c9",
+  };
+  const rows = flattenRows(prependFresh(held, fresh, null).pages);
+  expect(rows.map((r) => r.key)).toEqual(["c", "x", "a", "b"]);
+  expect(renderToStaticMarkup(rows[0].node)).toBe("<b>newer c</b>");
+});
+
+test("the bar of new entries is not in the server's markup, which knows of none", () => {
+  const html = renderToStaticMarkup(
+    withQuery(
+      withIntl(
+        <InfiniteList
+          listKey={["bar"]}
+          stamp={1}
+          start={null}
+          pages={[page(["a"], null)]}
+          loadPage={async () => page(["a"], null)}
+          hrefBase="/"
+          moreLabel="More"
+          estimateSize={100}
+          fresh={{
+            check: async () => ({ count: 0, more: false }),
+            intervalMs: 30_000,
+          }}
+        />,
+      ),
+    ),
+  );
+  expect(html).not.toContain("new post");
 });

@@ -1,7 +1,6 @@
 "use server";
 
 import {
-  postsCreate,
   postsDelete,
   postsGet,
   postsRestore,
@@ -25,6 +24,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { parseThreadRef } from "@/app/[locale]/(main)/threads/[id]/thread-ref";
+import { sendReply } from "@/app/[locale]/(main)/threads/send-reply";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, parseId, requireIds } from "@/lib/sermo/ids";
@@ -60,12 +60,7 @@ export async function replyAction(
   _previous: ReplyState,
   formData: FormData,
 ): Promise<ReplyState> {
-  requireIds(threadId);
-  const body = textOf(formData, "body");
-  const attachmentIds = formIds(formData, "attachmentIds");
-  const created = await attempt(`/threads/${threadId}`, () =>
-    call(postsCreate, { threadId, body, attachmentIds }),
-  );
+  const created = await sendReply(threadId, formData);
   if (!created.ok) return { error: created.error };
   const { id, position } = created.value;
   backToPost(threadHref(threadId, position, id));

@@ -95,3 +95,7 @@ export async function sendIntoTail(
     throw error;
   }
 }
+
+// What a poll of the tail answers: the rows after what the tail holds, that the thread was
+// changed under it and the page must be drawn again, or that polling is over.
+export type TailPoll = { rows: TailRow[] } | { reload: true } | { stop: true };

@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { SermoError } from "@/lib/sermo/errors";
 
-// One row of a list drawn on the server: its key and what it shows.
-export type ListRow = { key: string; node: ReactNode };
+// One row of a list drawn on the server: its key and what it shows. `at` is the time of the entry
+// for a list that asks whether anything newer has come (the feed).
+export type ListRow = { key: string; node: ReactNode; at?: string };
 
 // One page of such a list. `nextCursor` is the backend's keyset cursor; null at the end.
 export type ListPage = { rows: ListRow[]; nextCursor: string | null };

@@ -11,7 +11,7 @@ import {
   type Range,
   useWindowVirtualizer,
 } from "@tanstack/react-virtual";
-import { ChevronDown, LoaderCircle } from "lucide-react";
+import { ArrowUp, ChevronDown, LoaderCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   type ReactNode,
@@ -31,6 +31,7 @@ import {
   listId,
   placeHref,
 } from "@/lib/list-pages";
+import { usePolling } from "@/lib/polling";
 import { cn } from "@/lib/utils";
 
 // How the rows of a list are kept apart. The first row of the list never has a separator, whichever
@@ -73,6 +74,21 @@ export function mergeRefreshed(
       ...pageParamsOf(start, fresh),
       ...held.pageParams.slice(fresh.length),
     ],
+  };
+}
+
+// The list with the page of the newest entries put in front of what it holds. The page overlaps
+// the first one held when little is new: a row that is on both is shown once, where the newer
+// page has it (`flattenRows` keeps the first), which is how a thread that moved to the top is not
+// shown twice. The pages the visitor loaded stay.
+export function prependFresh(
+  held: InfiniteData<ListPage, unknown>,
+  fresh: ListPage,
+  start: string | null,
+): InfiniteData<ListPage, unknown> {
+  return {
+    pages: [fresh, ...held.pages],
+    pageParams: [start, ...held.pageParams],
   };
 }
 
@@ -184,6 +200,7 @@ export function InfiniteList({
   header,
   className,
   moreClassName,
+  fresh,
 }: ListQuery & {
   // The address of the screen, to which `cursor` is added: the link that shows the next page
   // when scripts do not run.
@@ -197,6 +214,15 @@ export function InfiniteList({
   header?: ReactNode;
   className?: string;
   moreClassName?: string;
+  // For a list that begins at the newest entry and can ask whether newer ones have come (the
+  // feed): `check` is given the time of the newest row held. A bar offers the new entries, which
+  // are put in front of the pages held.
+  fresh?: {
+    check: (
+      since: string,
+    ) => Promise<{ count: number; more: boolean } | { stop: true }>;
+    intervalMs: number;
+  };
 }) {
   const t = useTranslations("forum.infiniteList");
   const options = listQueryOptions({ listKey, start, pages, loadPage });
@@ -229,6 +255,45 @@ export function InfiniteList({
   const shown = live ? loaded : loaded.slice(0, 1);
   const rows = useMemo(() => flattenRows(shown), [shown]);
   const nextCursor = shown[shown.length - 1]?.nextCursor ?? null;
+  const newestAt = rows[0]?.at;
+  const newestRef = useRef(newestAt);
+  newestRef.current = newestAt;
+  const [waiting, setWaiting] = useState<{
+    count: number;
+    more: boolean;
+  } | null>(null);
+  const [showing, setShowing] = useState(false);
+  usePolling(
+    async () => {
+      const since = newestRef.current;
+      if (!fresh || !since) return;
+      const answer = await fresh.check(since);
+      if ("stop" in answer) return "stop";
+      setWaiting(answer.count > 0 ? answer : null);
+    },
+    {
+      intervalMs: fresh?.intervalMs ?? 0,
+      enabled: fresh !== undefined && live && start === null && !!newestAt,
+    },
+  );
+  async function showNew() {
+    setShowing(true);
+    try {
+      const page = await loadPage(null);
+      if (page.rows.length > 0) {
+        client.setQueryData(options.queryKey, (held) =>
+          held ? prependFresh(held, page, start) : held,
+        );
+      }
+      setWaiting(null);
+      // The new entries are at the top of the list.
+      window.scrollTo({ top: Math.max(0, scrollMargin - 16) });
+    } catch {
+      // The bar stays: pressing it again asks again.
+    } finally {
+      setShowing(false);
+    }
+  }
   const box = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
   useLayoutEffect(() => {
@@ -311,6 +376,29 @@ export function InfiniteList({
   const Row = as === "ul" ? "li" : "div";
   return (
     <>
+      {waiting && (
+        // Zero high, so that it appearing moves nothing; it floats over the top of the list.
+        <div className="sticky top-2 z-20 h-0">
+          <div className="flex justify-center">
+            <Button
+              type="button"
+              className="h-10 rounded-full px-4 shadow-md"
+              disabled={showing}
+              onClick={() => void showNew()}
+            >
+              {showing ? (
+                <LoaderCircle className="animate-spin" />
+              ) : (
+                <ArrowUp />
+              )}
+              {t("newRows", {
+                count: waiting.count,
+                more: String(waiting.more),
+              })}
+            </Button>
+          </div>
+        </div>
+      )}
       <div className={className}>
         {header}
         <div

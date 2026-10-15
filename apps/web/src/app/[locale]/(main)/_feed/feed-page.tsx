@@ -52,6 +52,7 @@ export async function feedPage(
       const key = `${item.type}-${item.type === "profilePost" ? item.profilePost.id : item.post.id}`;
       return {
         key,
+        at: item.createdAt,
         node: (
           <FeedItem
             item={item}

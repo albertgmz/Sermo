@@ -264,6 +264,7 @@
   "infiniteList": {
     "loading": "Cargando más…",
     "failed": "No se pudo cargar la página siguiente.",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "newRows": "{more, select, true {{count}+ publicaciones nuevas} other {{count, plural, one {# publicación nueva} other {# publicaciones nuevas}}}} — mostrar"
   }
 }

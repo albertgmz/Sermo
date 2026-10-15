@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { NoticeBanner } from "@/components/forum/notice-banner";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { AnalyticsTag } from "@/components/layout/analytics-tag";
+import { CountersPoll } from "@/components/layout/counters-poll";
 import { HashTarget } from "@/components/layout/hash-target";
 import { getAccent, getCounters } from "@/components/layout/header-data";
 import { LocaleSyncGate } from "@/components/layout/locale-sync-gate";
@@ -52,7 +53,12 @@ async function MobileNavigation() {
   const items = mobileItems(
     toNavItems(navigation.mobile, user && `/members/${user.id}`),
   );
-  return <MobileNav items={items} unread={unread} />;
+  return (
+    <>
+      {user && <CountersPoll drawn={unread} />}
+      <MobileNav items={items} unread={unread} />
+    </>
+  );
 }
 
 export default function MainLayout({ children }: LayoutProps<"/[locale]">) {

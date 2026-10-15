@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { moreFeed } from "@/app/[locale]/(main)/_feed/feed-actions";
+import {
+  moreFeed,
+  newFeedCount,
+} from "@/app/[locale]/(main)/_feed/feed-actions";
 import {
   feedHref,
   feedPage,
@@ -27,6 +30,7 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { pagesParam } from "@/lib/list-pages";
+import { POLL_MS } from "@/lib/poll-intervals";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -178,6 +182,14 @@ async function HomeFeed({ searchParams }: PageProps<"/[locale]">) {
           moreLabel={t("loadMore")}
           estimateSize={320}
           spacing="spaced"
+          fresh={
+            tab === "top"
+              ? undefined
+              : {
+                  check: newFeedCount.bind(null, tab),
+                  intervalMs: POLL_MS.feed,
+                }
+          }
         />
       )}
     </>

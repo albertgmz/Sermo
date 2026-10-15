@@ -7,7 +7,6 @@ import {
   conversationsLeave,
   conversationsMarkRead,
   conversationsRename,
-  conversationsReply,
   conversationsSetLocked,
   conversationsUpdateMessage,
   usersSearch,
@@ -15,6 +14,7 @@ import {
 import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
+import { sendMessage } from "@/app/[locale]/(main)/conversations/send-message";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, requireIds } from "@/lib/sermo/ids";
@@ -27,12 +27,7 @@ export async function replyAction(
   _previous: ReplyState,
   formData: FormData,
 ): Promise<ReplyState> {
-  requireIds(conversationId);
-  const body = String(formData.get("body") ?? "");
-  const attachmentIds = formIds(formData, "attachmentIds");
-  const sent = await attempt(`/conversations/${conversationId}`, () =>
-    call(conversationsReply, { conversationId, body, attachmentIds }),
-  );
+  const sent = await sendMessage(conversationId, formData);
   if (!sent.ok) return { error: sent.error };
   // The page the member lands on is rendered afresh, with their message on it.
   redirect(`/conversations/${conversationId}`);

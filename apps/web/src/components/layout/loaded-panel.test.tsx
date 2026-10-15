@@ -42,6 +42,7 @@ test("the rows are fetched again for a new unread count only under an open panel
       label: "Alerts",
       title: "Alerts",
       unread: 1,
+      counter: "notifications",
       icon: null,
       loadingLabel: "Loading",
       footer: null,

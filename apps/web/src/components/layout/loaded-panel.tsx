@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { type CounterKind, useCounter } from "@/lib/counters";
 
 const emptyClass = "px-4 py-8 text-center text-sm text-muted-foreground";
 
@@ -34,7 +35,8 @@ function PanelSkeleton({ label }: { label: string }) {
 export function LoadedPanel({
   label,
   title,
-  unread,
+  unread: drawn,
+  counter,
   icon,
   className,
   loadingLabel,
@@ -43,7 +45,9 @@ export function LoadedPanel({
 }: {
   label: string;
   title: string;
+  // The count the page drew, and which count it is: a poll finds newer ones.
   unread: number;
+  counter: CounterKind;
   icon: React.ReactNode;
   className?: string;
   loadingLabel: string;
@@ -51,6 +55,7 @@ export function LoadedPanel({
   footer: React.ReactNode;
 }) {
   const t = useTranslations("layout.headerPanels");
+  const unread = useCounter(counter, drawn);
   const [rows, setRows] = useState<React.ReactNode>();
   const [failed, setFailed] = useState(false);
   const [, startTransition] = useTransition();

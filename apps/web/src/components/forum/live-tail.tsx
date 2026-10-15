@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   createContext,
   Fragment,
@@ -9,9 +10,13 @@ import {
   useLayoutEffect,
   useRef,
 } from "react";
+import { usePolling } from "@/lib/polling";
 import {
+  appendRows,
   EMPTY_TAIL,
+  newestHeld,
   readTail,
+  type TailPoll,
   updateTail,
   useTail,
   writeTail,
@@ -47,13 +52,20 @@ export function LiveTail({
   drawn,
   as,
   pendingRow,
+  poll,
+  intervalMs,
 }: {
   tailKey: string;
   drawn: { id: number; mark: number };
   as?: "li";
   // The row the server drew for the visitor's own text, with a `PendingBody` where the text goes.
   pendingRow: ReactNode;
+  // Asks the server for the rows after the newest one held (an action); polled every `intervalMs`
+  // while the tab is visible.
+  poll: (held: { id: number; mark: number }) => Promise<TailPoll>;
+  intervalMs: number;
 }) {
+  const router = useRouter();
   const tail = useTail(tailKey) ?? EMPTY_TAIL;
   const Row = as ?? Fragment;
   const atEnd = useRef(false);
@@ -86,6 +98,21 @@ export function LiveTail({
       window.removeEventListener("resize", note);
     };
   }, []);
+
+  usePolling(
+    async () => {
+      const answer = await poll(
+        newestHeld(readTail(tailKey) ?? EMPTY_TAIL, drawn),
+      );
+      if ("stop" in answer) return "stop";
+      // The thread changed under the page (a merge moved posts): draw it again.
+      if ("reload" in answer) return router.refresh();
+      if (answer.rows.length > 0) {
+        updateTail(tailKey, (held) => appendRows(held, answer.rows));
+      }
+    },
+    { intervalMs },
+  );
 
   // The element that is the end of the list now: the newest text being sent, else the newest row.
   const lastPending = tail.pending.at(-1);

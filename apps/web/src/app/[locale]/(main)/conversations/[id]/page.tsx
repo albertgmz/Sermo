@@ -19,6 +19,7 @@ import { MarkReadProvider } from "@/app/[locale]/(main)/conversations/[id]/mark-
 import { MessageItem } from "@/app/[locale]/(main)/conversations/[id]/message-item";
 import { MessagesSkeleton } from "@/app/[locale]/(main)/conversations/[id]/messages-skeleton";
 import { WidgetsSheet } from "@/app/[locale]/(main)/conversations/[id]/widgets-sheet";
+import { pollMessages } from "@/app/[locale]/(main)/conversations/poll-messages";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { LiveTail, PendingBody } from "@/components/forum/live-tail";
 import { LoadMore } from "@/components/forum/load-more";
@@ -28,6 +29,7 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserLink } from "@/components/forum/user-link";
 import { getCounters } from "@/components/layout/header-data";
 import { PageLayout } from "@/components/layout/page-layout";
+import { POLL_MS } from "@/lib/poll-intervals";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
@@ -258,6 +260,8 @@ async function Messages({
             tailKey={tailKey(conversation.id)}
             drawn={{ id: newest.id, mark: newest.id }}
             as="li"
+            poll={pollMessages.bind(null, conversation.id)}
+            intervalMs={POLL_MS.messages}
             pendingRow={
               <PostFrame
                 id="message-pending"
