@@ -198,3 +198,13 @@ test("closing an entry a link made is followed by the router too", () => {
   expect(b.routerAddress()).toBe("/?tab=media");
   expect(b.address()).toBe("/?tab=media");
 });
+
+test("a second press while a picture is open adds no second entry", () => {
+  const b = browser("/?tab=media");
+  b.history.open(ref(5));
+  b.history.open(ref(6));
+  expect(b.address()).toBe("/?tab=media&picture=post-5-7");
+  expect(b.log).toEqual(["push"]);
+  b.history.close();
+  expect(b.address()).toBe("/?tab=media");
+});

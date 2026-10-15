@@ -1,4 +1,8 @@
-import { type PictureRef, withPicture } from "@/components/forum/picture-ref";
+import {
+  PICTURE_PARAM,
+  type PictureRef,
+  withPicture,
+} from "@/components/forum/picture-ref";
 
 // What the viewer needs of the browser, as functions so that nothing is read before it is used (the
 // viewer is drawn on the server too).
@@ -33,6 +37,9 @@ function isOwn(state: unknown) {
 export function pictureHistory(env: HistoryEnv) {
   return {
     open(ref: PictureRef) {
+      // A second press before the viewer's code has arrived must not add a second entry.
+      const url = new URL(env.here(), "http://picture.invalid");
+      if (url.searchParams.has(PICTURE_PARAM)) return;
       env.history().pushState(own(), "", withPicture(env.here(), ref));
     },
     change(ref: PictureRef) {

@@ -161,6 +161,10 @@ export default function PictureLightbox({
               finger.current = null;
               touches.current.delete(event.pointerId);
             }}
+            onLostPointerCapture={(event) => {
+              finger.current = null;
+              touches.current.delete(event.pointerId);
+            }}
           >
             {picture ? (
               <PictureImage
