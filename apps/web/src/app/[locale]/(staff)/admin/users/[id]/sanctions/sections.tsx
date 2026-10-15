@@ -219,7 +219,7 @@ export async function Warnings({
               name="days"
               type="number"
               inputMode="numeric"
-              min={1}
+              min={0}
             />
           </FieldRow>
           <NoticeRows />

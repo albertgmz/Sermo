@@ -1384,6 +1384,7 @@ export const warningActionFires = sqliteTable(
   (t) => [
     uniqueIndex("warning_action_fires_member").on(t.userId, t.actionId),
     index("warning_action_fires_action").on(t.actionId),
+    index("warning_action_fires_ends").on(t.groupEndsAt).where(sql`group_ends_at IS NOT NULL`),
   ],
 );
 

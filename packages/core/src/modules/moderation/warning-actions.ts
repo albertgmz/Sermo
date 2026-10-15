@@ -13,7 +13,7 @@ import { insertAuthorizedRestriction } from "./restrictions";
 
 const DAY_MS = 86_400_000;
 /** Fires a sweep transaction settles at most; the job runs again until none is left. */
-const SWEEP_BATCH = 20;
+const SWEEP_BATCH = 100;
 
 type ActionRow = {
   id: number;
@@ -38,6 +38,8 @@ export const warningSql = {
   due: "SELECT a.id, a.threshold, a.kind, a.days, a.group_id, a.restriction_kind FROM warning_actions a WHERE a.threshold <= ?1 AND NOT EXISTS (SELECT 1 FROM warning_action_fires f WHERE f.user_id = ?2 AND f.action_id = a.id) ORDER BY a.threshold, a.id",
   below:
     "SELECT f.id, f.user_id, f.action_id, f.group_id, f.group_added_at FROM warning_action_fires f JOIN warning_actions a ON a.id = f.action_id WHERE f.user_id = ?1 AND a.threshold > ?2",
+  ended:
+    "SELECT id, user_id, action_id, group_id, group_added_at FROM warning_action_fires WHERE group_ends_at <= ?1 LIMIT ?2",
 };
 
 function statement<T>(ctx: Ctx, key: string, sql: string) {
@@ -248,11 +250,7 @@ export function applyWarningActions(
 export function sweepWarningActions(ctx: Ctx): number {
   return writeTx(ctx, () => {
     const now = ctx.now();
-    const ended = statement<FireRow>(
-      ctx,
-      "ended",
-      "SELECT id, user_id, action_id, group_id, group_added_at FROM warning_action_fires WHERE group_ends_at <= ?1 LIMIT ?2",
-    ).all(now, SWEEP_BATCH);
+    const ended = statement<FireRow>(ctx, "ended", warningSql.ended).all(now, SWEEP_BATCH);
     for (const fire of ended) {
       statement(
         ctx,
@@ -261,6 +259,7 @@ export function sweepWarningActions(ctx: Ctx): number {
       ).run(fire.id);
       removeAddedGroup(ctx, fire);
     }
+    // Every fire is looked at: only members currently over a threshold have one, a small table.
     const below = statement<FireRow>(
       ctx,
       "below",

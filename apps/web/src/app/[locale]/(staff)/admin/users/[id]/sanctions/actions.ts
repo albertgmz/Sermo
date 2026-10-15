@@ -63,7 +63,7 @@ export async function issueWarning(
   const points = rawPoints === "" ? undefined : whole(rawPoints);
   if (points === null) return { fields: { points: t("points") } };
   let expiresAt: string | null | undefined = null;
-  if (text(formData, "days").trim() !== "0") {
+  if (whole(text(formData, "days")) !== 0) {
     expiresAt = endsAfter(formData, "days");
     if (expiresAt === null) return { fields: { days: t("days") } };
   }

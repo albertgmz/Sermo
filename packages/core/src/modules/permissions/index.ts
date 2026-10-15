@@ -570,6 +570,8 @@ export const permissionsSetOp = implement(permissionsSet, async (ctx, actor, inp
           if (soldByShop(ctx, groupId)) throw new ConflictError("A shop item sells this group.");
           if (grantedByPromotion(ctx, groupId))
             throw new ConflictError("A promotion grants this group.");
+          if (addedByWarning(ctx, groupId))
+            throw new ConflictError("A warning action adds this group.");
         }
       }
       const definitionId = find.get(entry.permission)!.id;

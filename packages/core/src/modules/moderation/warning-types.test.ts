@@ -319,15 +319,60 @@ describe("warning actions", () => {
     });
   });
 
-  test("a group used by an action cannot be deleted", async () => {
+  test("a group used by an action cannot be deleted or made to decide administration", async () => {
     const w = world();
     const group = w.group("Probation");
     const action = await w.createAction({ kind: "group", groupId: group });
-    await expect(
-      execute(w.ctx, op("groups.delete"), w.admin, { groupId: group, actorPassword: "x" }),
-    ).rejects.toThrow();
+    await expect(execute(w.ctx, op("groups.delete"), w.admin, { groupId: group })).rejects.toThrow(
+      "A warning action adds this group.",
+    );
     expect(w.ctx.sqlite.prepare("SELECT id FROM groups WHERE id = ?1").get(group)).not.toBeNull();
+    for (const value of ["allow", "never"])
+      await expect(
+        execute(w.ctx, op("permissions.set"), w.admin, {
+          groupId: group,
+          entries: [{ permission: "admin.permissions", value }],
+        }),
+      ).rejects.toThrow("A warning action adds this group.");
     await execute(w.ctx, op("warningActions.delete"), w.admin, { actionId: action.id });
+    await execute(w.ctx, op("groups.delete"), w.admin, { groupId: group });
+  });
+
+  test("changing an action leaves the fires it made as they were", async () => {
+    const w = world();
+    const first = w.group("Probation");
+    const second = w.group("Watched");
+    const action = await w.createAction({ threshold: 1, kind: "group", groupId: first, days: 30 });
+    const member = insertUser(w.ctx);
+    w.warn(member.id, 1, "Rule", w.ctx.now() + DAY);
+    await execute(w.ctx, op("warningActions.update"), w.admin, {
+      actionId: action.id,
+      threshold: 1,
+      kind: "group",
+      groupId: second,
+      days: 30,
+    });
+    w.warn(insertUser(w.ctx).id, 1);
+    // The member keeps the first group until their points fall; the second applies to others.
+    expect(w.groupsOf(member.id)).toEqual([first]);
+    w.ctx.clock.advance(2 * DAY);
+    sweepWarningActions(w.ctx);
+    expect(w.groupsOf(member.id)).toEqual([]);
+  });
+
+  test("the sweep settles more fires than one batch holds", async () => {
+    const w = world();
+    const group = w.group("Probation");
+    await w.createAction({ threshold: 1, kind: "group", groupId: group, days: 30 });
+    const members = Array.from({ length: 130 }, () => insertUser(w.ctx));
+    for (const member of members) w.warn(member.id, 1, "Rule", w.ctx.now() + DAY);
+    w.ctx.clock.advance(2 * DAY);
+    let settled = 0;
+    for (let batch = sweepWarningActions(w.ctx); batch > 0; batch = sweepWarningActions(w.ctx))
+      settled += batch;
+    expect(settled).toBe(130);
+    expect(w.groupsOf(members[0]!.id)).toEqual([]);
+    expect(w.groupsOf(members[129]!.id)).toEqual([]);
   });
 
   test("a ban fires once at the crossing and not again above it", async () => {
@@ -648,6 +693,7 @@ test("a warning's lookups use an index", () => {
   expectNoTableScan(ctx, warningSql.activePoints, [1, 0]);
   expectNoTableScan(ctx, warningSql.due, [5, 1]);
   expectNoTableScan(ctx, warningSql.below, [1, 0]);
+  expectNoTableScan(ctx, warningSql.ended, [0, 100]);
 });
 
 describe("the sweep job", () => {

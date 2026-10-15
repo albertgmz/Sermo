@@ -813,7 +813,9 @@ refuses the warning with its reason. When points fall below the threshold (a war
 group memberships an action added for a limited time are taken back, and so are those whose time
 ends; an hourly job notices both. Bans and restrictions end on their own date and are never lifted
 early; permanent memberships, and memberships the member already had, stay. Changing an action
-counts from the next warning; deleting one ends the timed memberships it added.
+counts from the next warning; deleting one ends the timed memberships it added. A newly created action
+applies to a member already over its threshold at their next warning. A member's groups saved by
+hand (`users.setGroups`) make a membership an action added theirs: it is no longer taken back.
 
 ### Bans
 
