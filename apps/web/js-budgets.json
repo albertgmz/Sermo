@@ -13,7 +13,7 @@
     {
       "name": "editor",
       "match": "^/\\[locale\\]/\\(main\\)/(threads/\\[id\\]/edit/|conversations/new$|conversations/\\[id\\]/edit/)",
-      "maxBytes": 396000
+      "maxBytes": 286000
     },
     {
       "name": "forum",

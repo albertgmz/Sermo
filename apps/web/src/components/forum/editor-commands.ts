@@ -150,7 +150,8 @@ export function $removeAttachTags(id: number) {
 }
 
 // The tags that only format or lay out their text: what Remove formatting takes off. The others
-// (links, mentions, attachments, media, spoilers, code, tables) carry content and stay.
+// (links, mentions, attachments, media, spoilers, code, tables, and a quote with an attribution,
+// which names the post it quotes) carry content and stay.
 const FORMATTING_TAG =
   /\[(B|I|U|S|COLOR|FONT|SIZE|LEFT|CENTER|RIGHT|INDENT|ICODE|HEADING|QUOTE)(?:=[^\]\n]*)?\]([\s\S]*?)\[\/\1\]/gi;
 const LIST_TAG = /\[LIST(?:=[^\]\n]*)?\]([\s\S]*?)\[\/LIST\]/gi;
@@ -163,7 +164,9 @@ function withoutFormattingTags(text: string) {
       .replace(LIST_TAG, (_, items: string) =>
         items.replace(/^\s*\[\*\]\s*/, "").replace(/\s*\[\*\]\s*/g, ITEM_BREAK),
       )
-      .replace(FORMATTING_TAG, "$2");
+      .replace(FORMATTING_TAG, (whole, name: string, inner: string) =>
+        /^\[QUOTE=/i.test(whole) && /^quote$/i.test(name) ? whole : inner,
+      );
   let out = text;
   for (let next = strip(out); next !== out; ) {
     out = next;

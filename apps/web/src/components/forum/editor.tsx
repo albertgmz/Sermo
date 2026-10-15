@@ -93,6 +93,7 @@ import {
   onComposerRequest,
   withoutAttachTag,
 } from "@/components/forum/composer-insert";
+import { $placeSelection } from "@/components/forum/editor-caret";
 import {
   $applyLink,
   $insertText,
@@ -229,6 +230,26 @@ function initialEditorState(bb: string): string | undefined {
   const state = scratch.getEditorState();
   unregister();
   return state.isEmpty() ? undefined : JSON.stringify(state);
+}
+
+// Takes the focus with the selection where the plain box it replaces had its own.
+function FocusAt({
+  source,
+  start,
+  end,
+}: {
+  source: string;
+  start: number;
+  end: number;
+}) {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    editor.update(() => $placeSelection(source, start, end), {
+      discrete: true,
+    });
+    editor.focus();
+  }, [editor, source, start, end]);
+  return null;
 }
 
 function RemoveFormattingShortcut() {
@@ -646,6 +667,9 @@ export type EditorProps = {
   toolbarContainer?: HTMLElement | null;
   // Takes the focus once it is on the page, with the caret after what it holds.
   autoFocus?: boolean;
+  // With `autoFocus`: where the focus goes in `defaultValue`, as the offsets of the selection of the
+  // box the editor takes the place of (the caret lands after as many characters of the text).
+  selection?: { start: number; end: number };
   // The BB code as it is sent.
   onChange?: (bbCode: string) => void;
   resetKey?: string | number;
@@ -672,6 +696,7 @@ export function Editor({
   toolbar = !compact,
   toolbarContainer,
   autoFocus,
+  selection,
   onChange,
   resetKey,
   className,
@@ -845,7 +870,16 @@ export function Editor({
         <ListPlugin />
         <LinkPlugin />
         <ClearEditorPlugin />
-        {autoFocus && <AutoFocusPlugin />}
+        {autoFocus &&
+          (selection ? (
+            <FocusAt
+              source={defaultValue ?? ""}
+              start={selection.start}
+              end={selection.end}
+            />
+          ) : (
+            <AutoFocusPlugin />
+          ))}
         {insertEvent && <InsertPlugin event={insertEvent} />}
       </LexicalComposer>
     </SourceContext.Provider>

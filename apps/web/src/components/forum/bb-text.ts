@@ -18,17 +18,46 @@ const plain = (tag: string) => `[PLAIN]${tag}[/PLAIN]`;
 
 type Range = { start: number; end: number };
 
+// The tags that pair with a closing tag of their name. A closing tag in the body with no opener in
+// the body would pair with one written before the quote and leave the quote's own opener as text.
+const PAIRED = new Set([
+  "B",
+  "I",
+  "U",
+  "S",
+  "URL",
+  "EMAIL",
+  "COLOR",
+  "FONT",
+  "SIZE",
+  "ISPOILER",
+  "SPOILER",
+  "LEFT",
+  "CENTER",
+  "RIGHT",
+  "INDENT",
+  "LIST",
+  "TABLE",
+  "HEADING",
+  "TR",
+  "TH",
+  "TD",
+]);
+
 // The text with the tags that would reach outside the quote made plain text: the QUOTE tags that
 // have no partner, so that a quoted body can neither end its own quote early (a closing tag with no
 // opener) nor swallow the closing tag of the quote around it (an opener never closed), and the
 // tags that read their content as it is (code, plain text, a picture, a link...) and have no
-// closing tag in the body, which would find one in what is written after the quote. What such a
+// closing tag in the body, which would find one in what is written after the quote, and the
+// closing tags (of a format, a link, a list...) with no opener in the body, which would pair with
+// one written before the quote. What such a
 // tag holds is not read, so a QUOTE tag in it is left alone. Balanced quotes stay quotes.
 function balanced(source: string) {
   const find = closerFinder(source);
   const re = new RegExp(TAG_SOURCE, "g");
   const open: Range[] = [];
   const edits: Range[] = [];
+  const opened = new Map<string, number>();
   for (let m = re.exec(source); m; m = re.exec(source)) {
     const tag = tagOf(m);
     if (!tag) {
@@ -46,6 +75,11 @@ function balanced(source: string) {
     } else if (tag.name === "QUOTE") {
       if (!tag.closing) open.push(range);
       else if (open.length) open.pop();
+      else edits.push(range);
+    } else if (PAIRED.has(tag.name)) {
+      const count = opened.get(tag.name) ?? 0;
+      if (!tag.closing) opened.set(tag.name, count + 1);
+      else if (count > 0) opened.set(tag.name, count - 1);
       else edits.push(range);
     }
   }

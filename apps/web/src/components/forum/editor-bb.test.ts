@@ -19,6 +19,7 @@ import {
   type LexicalEditor,
   type TextFormatType,
 } from "lexical";
+import { renderBbCode } from "../../../../../packages/core/src/render";
 import {
   $appendBb,
   $exportBb,
@@ -257,4 +258,55 @@ test("what is pasted keeps the space at its edges", () => {
   const spaced = editorWith("ab", 1, 1);
   run(spaced, () => $insertBb(" ", true));
   expect(bbOf(spaced)).toBe("a b");
+});
+
+// Code that shows BB code, closing tags included, is drawn as that text by the renderer.
+test("code that holds its own closing tag is written so that the page shows it as code text", () => {
+  for (const text of [
+    "[CODE]print(1)[/CODE]",
+    "[B]x[/B]\n[/CODE] [I]y[/I]",
+    "a [/PLAIN] b [/plain]",
+  ]) {
+    const editor = editorWith("");
+    run(editor, () => {
+      $getRoot()
+        .clear()
+        .append($createParagraphNode().append($createTextNode(text)));
+      $getRoot().getFirstChild()?.selectStart();
+      $setBlock("paragraph", "code");
+    });
+    const bb = bbOf(editor);
+    const html = renderBbCode(bb);
+    const shown = html
+      .replace(/<br \/>/g, "\n")
+      .replace(/<[^>]*>/g, "")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">");
+    expect(html, bb).toContain("<pre><code>");
+    expect(html, bb).not.toContain("<strong>");
+    expect(shown, bb).toBe(text);
+    // And it comes back into the editor as the same code block.
+    const again = editorWith("");
+    run(again, () => $replaceWithBb(bb));
+    expect(bbOf(again)).toBe(bb);
+    again.read(() => {
+      expect($getRoot().getFirstChild()?.getType()).toBe("code");
+    });
+  }
+});
+
+test("inline code that holds its closing tag is written so that the page shows it as code text", () => {
+  const editor = editorWith("");
+  run(editor, () => {
+    const code = $createTextNode("a[/ICODE]b").toggleFormat("code");
+    const bold = $createTextNode("bold ").toggleFormat("bold");
+    $getRoot().clear().append($createParagraphNode().append(bold, code));
+  });
+  const bb = bbOf(editor);
+  const html = renderBbCode(bb);
+  expect(html, bb).toContain("<code>a[/ICODE]b</code>");
+  expect(html, bb).toContain("<strong>bold </strong>");
+  const again = editorWith("");
+  run(again, () => $replaceWithBb(bb));
+  expect(bbOf(again)).toBe(bb);
 });

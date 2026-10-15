@@ -42,7 +42,11 @@ import {
   type Mark,
   parseBb,
 } from "@/components/forum/bb-parse";
-import { isCodeLanguage, isLinkAddress } from "@/components/forum/bb-scan";
+import {
+  isCodeLanguage,
+  isLinkAddress,
+  richCode,
+} from "@/components/forum/bb-scan";
 
 // The editor holds BB code as rich text and writes it back. `bb-parse.ts` says what is shown as
 // formatting; this file builds the editor's nodes from that and writes the nodes as BB code.
@@ -240,7 +244,11 @@ function inlineBb(parent: ElementNode): string {
         out += `[${tag}]`;
         open.push(tag);
       }
-      out += text;
+      // Inline code that holds its closing tag is rich code around plain text.
+      out +=
+        node.hasFormat("code") && /\[\/icode\]/i.test(text)
+          ? richCode("ICODE", text)
+          : text;
     } else if ($isLineBreakNode(node)) {
       // Formats go on over a break unless inline code, which cannot hold one.
       keepOnly(tagsOf(after[index]));
@@ -275,7 +283,9 @@ function listBb(list: ListNode): string {
       items.push([text, ...lists].filter(Boolean).join("\n"));
     }
   }
-  if (!items.some((item) => item.trim())) return "";
+  // Enter at the end of the last item leaves an empty one: it is not written.
+  while (items.length && !items[items.length - 1].trim()) items.pop();
+  if (!items.length) return "";
   const tag = list.getListType() === "number" ? "[LIST=1]" : "[LIST]";
   return `${tag}\n${items.map((item) => `[*]${item}`).join("\n")}\n[/LIST]`;
 }
@@ -283,8 +293,8 @@ function listBb(list: ListNode): string {
 function codeBb(code: ElementNode): string {
   const text = code.getTextContent().replace(/^\n+|\n+$/g, "");
   if (!text.trim()) return "";
-  // Code that holds the closing tag cannot be wrapped: it is written as lines of text.
-  if (/\[\/code\]/i.test(text)) return text;
+  // Code that holds its closing tag is written as rich code around plain text.
+  if (/\[\/code\]/i.test(text)) return richCode("CODE", text);
   const language = $isCodeNode(code) ? code.getLanguage() : undefined;
   const option = language && isCodeLanguage(language) ? `=${language}` : "";
   return `[CODE${option}]\n${text}\n[/CODE]`;

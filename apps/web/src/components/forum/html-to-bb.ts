@@ -135,21 +135,44 @@ const BLOCK_START = /^\[(?:LIST|HEADING|QUOTE|CODE)\b/;
 // Text that holds a closing tag, or the opening of a tag that reads what follows it as text, or
 // the start of a list item, would be read as BB code.
 const TAG_TEXT =
-  /\[\/[A-Za-z]{1,10}\]|\[(?:code|icode|plain|img|url|email|media|user|attach)\b[^\]]*\]|\[\*\]/i;
+  /\[\/[A-Za-z]{1,10}\]|\[(?:code|icode|plain|img|url|email|media|user|attach)\b[^\]\n]{0,200}\]|\[\*\]/i;
+
+// The text after a node in the page, as far as a tag can reach (a tag can be split between
+// elements: `<span>[/</span><span>B]</span>`).
+const REACH = 200;
 
 // Such text is put between PLAIN tags to stay text. Between those tags a closing PLAIN tag cannot
-// be written, so it is broken by an invisible character.
-function literal(text: string): string {
-  if (!TAG_TEXT.test(text)) return text;
-  return `[PLAIN]${text.replace(/\[\/(plain)\]/gi, "[/​$1]")}[/PLAIN]`;
+// be written, so it is broken by an invisible character. A tag that begins in this text and ends
+// in what follows it is found too.
+function literal(text: string, after: () => string): string {
+  const open = text.lastIndexOf("[");
+  const dangling =
+    open >= 0 && text.length - open <= REACH && !text.includes("]", open);
+  const found = TAG_TEXT.exec(dangling ? text + after() : text);
+  if (!found || found.index >= text.length) return text;
+  return `[PLAIN]${text.replace(/\[\/(plain)\]/gi, "[/\u200b$1]")}[/PLAIN]`;
 }
 
-type Context = { link: boolean; marks: ReadonlySet<string> };
+type Context = {
+  link: boolean;
+  marks: ReadonlySet<string>;
+  // The text of what comes after the node being read.
+  after: () => string;
+};
 
 function kidsOf(node: DomNode, context: Context): string {
   let out = "";
-  for (let i = 0; i < node.childNodes.length; i++) {
-    out += walk(node.childNodes[i], context);
+  const kids = node.childNodes;
+  for (let i = 0; i < kids.length; i++) {
+    // What follows a child: its next siblings, then what follows its parent.
+    const after = () => {
+      let text = "";
+      for (let k = i + 1; k < kids.length && text.length < REACH; k++) {
+        text += (kids[k].textContent ?? "").slice(0, REACH);
+      }
+      return text.length < REACH ? text + context.after() : text;
+    };
+    out += walk(kids[i], { ...context, after });
   }
   return out;
 }
@@ -226,7 +249,10 @@ function preText(node: DomNode): string {
 function walk(node: DomNode, context: Context): string {
   if (node.nodeType === TEXT) {
     const text = (node.textContent ?? "").replace(BOUNDARIES, "");
-    return literal(text.replace(/ /g, " ").replace(/[ \t\r\n\f]+/g, " "));
+    return literal(
+      text.replace(/ /g, " ").replace(/[ \t\r\n\f]+/g, " "),
+      context.after,
+    );
   }
   if (node.nodeType !== ELEMENT) return "";
   const name = node.nodeName.toUpperCase();
@@ -235,7 +261,13 @@ function walk(node: DomNode, context: Context): string {
   if (name === "HR") return HARD;
   if (name === "IMG") {
     const src = node.getAttribute?.("src") ?? "";
-    return isWebAddress(src) ? `[IMG]${src}[/IMG]` : "";
+    if (isWebAddress(src)) return `[IMG]${src}[/IMG]`;
+    // Any other picture is its alt text.
+    const alt = (node.getAttribute?.("alt") ?? "")
+      .replace(BOUNDARIES, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return alt ? literal(alt, context.after) : "";
   }
   // A block whose style says its spaces and breaks are its text (code pasted from an editor is).
   if (
@@ -248,7 +280,7 @@ function walk(node: DomNode, context: Context): string {
       .replace(/^\n+|\n+$/g, "");
     if (!text.trim()) return "";
     if (/\[\/code\]/i.test(text)) {
-      return `${HARD}${literal(text)}${HARD}`;
+      return `${HARD}${literal(text, () => "")}${HARD}`;
     }
     return `${HARD}[CODE]\n${text}\n[/CODE]${HARD}`;
   }
@@ -272,6 +304,7 @@ function walk(node: DomNode, context: Context): string {
   const inner = CODE.has(name)
     ? codeOf(node)
     : kidsOf(node, {
+        ...context,
         link: context.link || asLink,
         marks: new Set([...context.marks, ...own]),
       });
@@ -289,9 +322,13 @@ function walk(node: DomNode, context: Context): string {
 function codeOf(node: DomNode): string {
   const text = (node.textContent ?? "").replace(BOUNDARIES, "");
   if (!text.trim()) return "";
-  return /[\n[]/.test(text) ? literal(text) : `[ICODE]${text}[/ICODE]`;
+  return /[\n[]/.test(text)
+    ? literal(text, () => "")
+    : `[ICODE]${text}[/ICODE]`;
 }
 
 export function htmlToBb(root: DomNode): string {
-  return settle(kidsOf(root, { link: false, marks: new Set() })).trim();
+  return settle(
+    kidsOf(root, { link: false, marks: new Set(), after: () => "" }),
+  ).trim();
 }

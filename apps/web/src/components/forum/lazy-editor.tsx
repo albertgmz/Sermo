@@ -13,7 +13,13 @@ import { quoteInbox } from "@/components/forum/lazy-quotes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-type Loaded = { Editor: typeof Editor; text: string; focused: boolean };
+type Loaded = {
+  Editor: typeof Editor;
+  text: string;
+  focused: boolean;
+  // Where the caret or selection of the box was in `text`.
+  selection: { start: number; end: number };
+};
 
 // A plain box that becomes the editor, formatting bar included, when the member goes to write
 // in it. The editor's code is asked for only then, so it is no part of the page's first load. The
@@ -99,6 +105,10 @@ export function LazyEditor({
           Editor,
           text: field.current?.value ?? "",
           focused: document.activeElement === field.current,
+          selection: {
+            start: field.current?.selectionStart ?? 0,
+            end: field.current?.selectionEnd ?? 0,
+          },
         }),
       // The box keeps working as it is, and asks again the next time it is entered.
       () => {
@@ -130,6 +140,7 @@ export function LazyEditor({
         toolbar={ownBar}
         toolbarContainer={toolbarContainer}
         autoFocus={loaded.focused}
+        selection={loaded.selection}
         name={name}
         placeholder={placeholder}
         defaultValue={loaded.text}

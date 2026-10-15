@@ -583,7 +583,7 @@ test("with nothing selected a quote becomes one paragraph with its lines", () =>
   expect(outline(editor)).toEqual(["paragraph:one\ntwo"]);
 });
 
-test("typed QUOTE tags, with or without attribution, are stripped", () => {
+test("a typed QUOTE tag is stripped, and one with an attribution stays: it names the post it quotes", () => {
   const editor = richEditor(() => {
     $getRoot().append(
       $createParagraphNode().append(
@@ -594,7 +594,9 @@ test("typed QUOTE tags, with or without attribution, are stripped", () => {
     );
   });
   run(editor, () => $removeFormatting());
-  expect(outline(editor)).toEqual(["paragraph:hi there"]);
+  expect(outline(editor)).toEqual([
+    'paragraph:hi [QUOTE="wren, post: 1"]there[/QUOTE]',
+  ]);
 });
 
 test("typed LIST tags are stripped and their items become separate lines", () => {

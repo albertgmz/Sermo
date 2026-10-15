@@ -6,6 +6,7 @@ import {
   readsLiterally,
   TAG_SOURCE,
   tagOf,
+  unbreakPlainCloser,
 } from "@/components/forum/bb-scan";
 
 // BB code read into what the rich editor can hold. The editor shows bold, italic, underline,
@@ -205,7 +206,19 @@ function parseTree(source: string): Tree[] {
     const rich =
       (name === "CODE" || name === "ICODE") && option?.toLowerCase() === "rich";
     if (rich || readsLiterally(name, option)) {
-      const closer = find(name, end);
+      let closer = find(name, end);
+      // Rich code around plain text ends after the plain text, whatever the text holds.
+      if (rich && source.startsWith("[PLAIN]", end)) {
+        const plainEnd = find("PLAIN", end + 7);
+        const after = plainEnd + 8;
+        if (
+          plainEnd >= 0 &&
+          source.slice(after, after + name.length + 3).toUpperCase() ===
+            `[/${name}]`
+        ) {
+          closer = after;
+        }
+      }
       if (closer < 0) {
         addText(head);
         continue;
@@ -219,7 +232,16 @@ function parseTree(source: string): Tree[] {
         continue;
       }
       if (rich) {
-        addText(raw);
+        // Rich code around plain text is code that holds its closing tag, as the editor writes it.
+        const shown = /^\[PLAIN\]([\s\S]*)\[\/PLAIN\]$/.exec(inner);
+        if (shown && !/\[\/plain\]/i.test(shown[1])) {
+          const s = unbreakPlainCloser(shown[1]);
+          top().kids.push(
+            name === "CODE" ? { k: "code", s, raw } : { k: "icode", s, raw },
+          );
+        } else {
+          addText(raw);
+        }
       } else if (name === "CODE") {
         // Nothing to show: an empty block (its language is text) stays as it is.
         if (inner.trim()) {

@@ -133,7 +133,9 @@ function htmlEdits(
         tag,
         start,
         blocked,
-        nodeEnd: offset + node.value.length,
+        // An element that is never closed loses only its opening tag: the text after it is
+        // never touched.
+        nodeEnd: end,
         text,
       });
       if (VOID.has(tag) || /\/\s*>$/.test(match[0])) finish(end);

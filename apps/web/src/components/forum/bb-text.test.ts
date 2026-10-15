@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { renderBbCode } from "../../../../../packages/core/src/render";
 import { mentionOf, quoteOf } from "./bb-text";
 
 const quoted = (source: string) => quoteOf(5, "ember", 9, source);
@@ -62,6 +63,21 @@ test("a tag that reads its content as it is and never closes no longer takes a l
   expect(quoted("[URL]https://a.test[/URL] [URL=https://a.test]x")).toBe(
     '[QUOTE="ember, post: 5, member: 9"][URL]https://a.test[/URL] [URL=https://a.test]x[/QUOTE]',
   );
+});
+
+test("a closing tag with no opener in the body no longer pairs with one before the quote", () => {
+  const out = quoted("fixed [/B] and [/URL] and [/SPOILER]");
+  expect(out).toBe(
+    '[QUOTE="ember, post: 5, member: 9"]fixed [PLAIN][/B][/PLAIN] and [PLAIN][/URL][/PLAIN] and [PLAIN][/SPOILER][/PLAIN][/QUOTE]',
+  );
+  // Tags closed in the body are left alone.
+  const kept = "[B]a[/B] [LIST][*]x[/LIST]";
+  expect(quoted(kept)).toBe(
+    `[QUOTE="ember, post: 5, member: 9"]${kept}[/QUOTE]`,
+  );
+  // Written after an unclosed [B], the quote is still a quote.
+  const html = renderBbCode(`[B]open ${quoted("a [/B] b")} after`);
+  expect(html).toContain('<blockquote class="bb-quote">');
 });
 
 test("a capital letter of another alphabet does not move what is found after it", () => {

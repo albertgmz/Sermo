@@ -136,6 +136,17 @@ export function isOtherTag(name: string, option: string | undefined) {
   return false;
 }
 
+// Code that holds its own closing tag (`[CODE]x[/CODE]` shown as a sample) is written as rich code
+// around plain text: `[CODE=rich][PLAIN]...[/PLAIN][/CODE]`, which the renderer draws as a code
+// block (or `[ICODE=rich]` as inline code) of exactly that text. A closing PLAIN tag in the text
+// cannot be written there, so an invisible character is put inside it.
+export const breakPlainCloser = (text: string) =>
+  text.replace(/\[\/(plain)\]/gi, "[/\u200b$1]");
+export const unbreakPlainCloser = (text: string) =>
+  text.replace(/\[\/\u200b(plain)\]/gi, "[/$1]");
+export const richCode = (tag: "CODE" | "ICODE", text: string) =>
+  `[${tag}=rich][PLAIN]${breakPlainCloser(text)}[/PLAIN][/${tag}]`;
+
 // Finds `[/NAME]` after a position. A search that found nothing is not repeated, and one that
 // found a closer is reused for every opener before it, so a text full of unclosed tags is read in
 // linear time. The search is on the source itself: changing its case can change its length.

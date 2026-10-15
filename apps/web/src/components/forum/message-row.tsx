@@ -71,7 +71,8 @@ export function MessageRow({
   );
 }
 
-// The body of a row: HTML the backend rendered from its BB code. A long one is cut short when
+// The body of a row: HTML the backend rendered from its BB code (and sanitised: it is drawn as it
+// is, so only such HTML may be given). A long one is cut short when
 // `clamp` is set.
 export function MessageBody({
   children,

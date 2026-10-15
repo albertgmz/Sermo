@@ -196,6 +196,29 @@ test("text that looks like a media tag is escaped by the backend and is never to
   assert.equal(stripHtmlMedia(html, parseLiteCookie("postImages")), html);
 });
 
+test("an element that is never closed loses only its opening tag", () => {
+  const state = parseLiteCookie("postImages");
+  const cases: [string, string][] = [
+    [
+      "<p>Use the <video> tag for clips.</p><p>Second paragraph stays?</p><ul><li>item</li></ul>",
+      "<p>Use the DATA SAVER tag for clips.</p><p>Second paragraph stays?</p><ul><li>item</li></ul>",
+    ],
+    [
+      "<p>I export <svg> files from Figma.</p><p>Next para</p>",
+      "<p>I export DATA SAVER files from Figma.</p><p>Next para</p>",
+    ],
+    // An end tag of an outer element abandons the open one inside it.
+    ['a <div><video src="x.mp4"></div> tail', "a <div>DATA SAVER</div> tail"],
+    // Nested: the inner media element closes, the outer one stays open.
+    [
+      'a <video><source src="x.mp4"></video> b <audio> c<p>d</p>',
+      "a DATA SAVER b DATA SAVER c<p>d</p>",
+    ],
+  ];
+  for (const [input, expected] of cases)
+    assert.equal(stripHtmlMedia(input, state), expected, input);
+});
+
 test("a closed element disappears whole, URL included", () => {
   assert.equal(
     stripHtmlMedia(

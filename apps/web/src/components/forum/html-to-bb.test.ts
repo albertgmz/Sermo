@@ -332,3 +332,40 @@ test("a style that says important is read, and long runs of odd spaces are read 
   htmlToBb(root(h("b", {}, `a${"　".repeat(20000)}b`)));
   expect(performance.now() - start).toBeLessThan(100);
 });
+
+test("a closing tag split between elements stays text", () => {
+  const dom = root(
+    h("p", {}, h("b", {}, "x")),
+    h("p", {}, h("span", {}, "[/"), h("span", {}, "B]"), " tail"),
+    h("p", {}, h("i", {}, "[/"), "b]"),
+  );
+  const out = htmlToBb(dom);
+  expect(out).toContain("[PLAIN][/[/PLAIN]B]");
+  expect(out).toContain("[B]x[/B]");
+  // The tags the page wrote are the only live ones.
+  expect(out).toBe(
+    "[B]x[/B]\n\n[PLAIN][/[/PLAIN]B] tail\n\n[I][PLAIN][/[/PLAIN][/I]b]",
+  );
+});
+
+test("a picture that is not on the web is its alt text", () => {
+  const dom = root(
+    h(
+      "p",
+      {},
+      "see ",
+      h("img", { src: "data:image/png;base64,AA", alt: "a cat" }),
+      " and ",
+      h("img", { src: "//x.test/a.png", alt: "" }),
+    ),
+  );
+  expect(htmlToBb(dom)).toBe("see a cat and");
+});
+
+test("text that opens tags over and over is read in a short time", () => {
+  for (const unit of ["[url", "[img x", "[code ", "[plain", "[/"]) {
+    const start = performance.now();
+    htmlToBb(root(h("p", {}, unit.repeat(40000))));
+    expect(performance.now() - start, unit).toBeLessThan(400);
+  }
+});

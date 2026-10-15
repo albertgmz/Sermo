@@ -238,7 +238,7 @@
   },
   "bbCode": {
     "codeLabel": "Código:",
-    "richCodeLabel": "Enriquecido (BB code):",
+    "richCodeLabel": "Enriquecido (código BB):",
     "said": "dijo:",
     "spoiler": "Spoiler",
     "spoilerFailed": "No se pudo cargar ese spoiler.",
