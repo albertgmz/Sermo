@@ -2124,3 +2124,15 @@ mentions, attachments, media, spoilers, images, e-mail, tables, `[PLAIN]` and co
 command is written by hand (Lexical has none). Known limits: a tag pair split by a line break is
 left, typed `[CODE]` blocks lose the formatting tags written inside them, and `Ctrl+\` cannot be
 typed on layouts where `\` needs AltGr (the button still works).
+
+**Press, slide and release to react.** Holding the reaction button for 450 ms opens the picker;
+without lifting, the reaction under the finger grows and shows its name above it, and lifting gives
+it (or takes it back). Lifting on the button or near the picker leaves it open for a tap; sliding
+more than 48 px away cancels. A quick tap still gives or removes the first reaction. The reaction
+under the finger is found by position (`elementFromPoint`), since the button keeps the pointer.
+While the picker is open the page does not scroll, select text or show the long-press menu, until
+the finger lifts; moving before 450 ms is a scroll. One pointer at a time. Mouse: hover still opens
+the picker, and press-drag-release works too. The gesture is a pure state machine
+(`reaction-gesture.ts`) with its placement maths (`reaction-placement.ts`: 16 px margins, 40 px
+reactions, flips below when there is no room above), used by the one reaction button everywhere.
+Not yet checked on real phones; a second finger during a slide can still double a reaction.
