@@ -2070,7 +2070,8 @@ everyone, a group (primary or secondary) or named members, with an optional link
 when in the audience; the old send skipped them, which is why the owner, the only admin, never saw
 one. The alert row shows the text and opens the link (external links in a new tab).
 
-**Notices.** Site-wide banners for everyone, guests, members or one group, with optional start and
+**Notices.** Site-wide banners whose audience is a criteria rule (everyone, guests, members, one
+group or any other rule; see "One criteria engine" below), with optional start and
 end (UTC). Members dismiss per account, guests in the `forum_notices_dismissed` cookie. One
 permission, `admin.announcements`, covers alerts and notices. No styles, types or page criteria.
 
@@ -2160,3 +2161,21 @@ schemas and the error answers their handlers give. Seven warnings are left on pu
 Auth's callback and username-check entries have no success answer (they redirect), and
 `/robots.txt`, `/sitemap.xml`, `/feed.atom` and `/health` have no 4xx path. A test checks the real
 upload answer against the documented schema. The Dockerfile copies `VERSION` in its own late layer.
+
+**One criteria engine.** Promotions, automatic awards, notices and shop categories and items all
+store a rule `{ match: all | any, conditions }` (column and field `rule`, migration `0036`
+converts the old data and aborts on malformed JSON, so run
+`SELECT id FROM promotions WHERE NOT json_valid(criteria)` and the same for awards before
+deploying). `shared/criteria.ts` is the registry, loads only the facts the rules ask for (one
+query per kind) and holds the one decision function, `evaluate`. An empty rule means everyone;
+an award with no conditions is manual only, and a promotion needs at least one. Audience criteria
+`is_guest`, `is_member`, `in_group`, `not_in_group` were added; guests are in no group, and
+`in_group` counts every group a member holds however it was obtained. A promotion may not read a
+group that it or any other promotion grants (refused at save), so promotions cannot chain or flip
+members back and forth. Gaining or losing a shop group re-evaluates promotions and awards.
+Criteria are `cheap` or `background` (`warning_points_below`, a sum over warnings); notices and the
+shop take only cheap ones. A shop rule applies to the buyer and to a gift's recipient; an item
+hidden by its rule reads as not available, and the rule is shown only to shop managers (award
+rules only to award managers). Announcements keep their own audience for now. A notice with an
+unknown audience value migrates as inactive. OpenAPI schema names changed (`CriteriaRule`,
+`CriterionDefinition`).
