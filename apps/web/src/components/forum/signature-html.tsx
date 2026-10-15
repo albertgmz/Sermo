@@ -19,10 +19,7 @@ export function SignatureHtml({
         className,
       )}
     >
-      <HtmlContent
-        noLabel
-        className="text-xs leading-relaxed [&_:is(h1,h2,h3,h4,h5,h6)]:text-xs [&_:is(h1,h2,h3,h4,h5,h6)]:leading-relaxed [&_:is(h1,h2,h3,h4,h5,h6)]:tracking-normal [&_:is(ul,ol)]:space-y-0 [&_a]:font-normal [&_a]:text-muted-foreground [&_a]:hover:text-foreground [&_img]:max-h-[3lh] [&_img]:w-auto [&_img]:align-text-bottom [&>*+*]:mt-0"
-      >
+      <HtmlContent className="text-xs leading-relaxed [&_:is(h1,h2,h3,h4,h5,h6)]:text-xs [&_:is(h1,h2,h3,h4,h5,h6)]:leading-relaxed [&_:is(h1,h2,h3,h4,h5,h6)]:tracking-normal [&_:is(ul,ol)]:space-y-0 [&_a]:font-normal [&_a]:text-muted-foreground [&_a]:hover:text-foreground [&_img]:max-h-[3lh] [&_img]:w-auto [&_img]:align-text-bottom [&>*+*]:mt-0">
         {children}
       </HtmlContent>
     </div>

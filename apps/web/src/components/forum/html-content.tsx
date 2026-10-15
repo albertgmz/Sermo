@@ -49,8 +49,6 @@ export async function HtmlContent(props: {
   className?: string;
   content?: SpoilerContent;
   attachments?: TaggedAttachment[];
-  // A blocked picture leaves nothing where it was, instead of the LITE label (a signature).
-  noLabel?: boolean;
 }) {
   const [state, origin, label, t] = await Promise.all([
     getLiteState(),
@@ -59,9 +57,7 @@ export async function HtmlContent(props: {
     getTranslations("forum.bbCode"),
   ]);
   let html = withSpoilerButtons(
-    await withEmbedGate(
-      stripHtmlMedia(props.children, state, origin, props.noLabel ? "" : label),
-    ),
+    await withEmbedGate(stripHtmlMedia(props.children, state, origin, label)),
     props.content !== undefined,
   );
   if (html.includes("bb-attach")) {

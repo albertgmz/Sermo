@@ -362,6 +362,17 @@ test("a picture that is not on the web is its alt text", () => {
   expect(htmlToBb(dom)).toBe("see a cat and");
 });
 
+test("a page of many empty elements after text that could open a tag is read in a short time", () => {
+  const kids: Kid[] = [];
+  for (let i = 0; i < 3000; i++) {
+    kids.push(h("span", {}, "["));
+    for (let k = 0; k < 100; k++) kids.push(h("i", {}));
+  }
+  const start = performance.now();
+  htmlToBb(root(h("p", {}, ...kids)));
+  expect(performance.now() - start).toBeLessThan(400);
+});
+
 test("text that opens tags over and over is read in a short time", () => {
   for (const unit of ["[url", "[img x", "[code ", "[plain", "[/"]) {
     const start = performance.now();

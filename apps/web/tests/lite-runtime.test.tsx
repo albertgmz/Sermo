@@ -732,8 +732,8 @@ test("tag-looking text never costs the reader the text after it", async () => {
 // The old statement (a signature never shows its pictures or the LITE label, whatever the visitor
 // chose) held for the styleguide's Markdown signature, which dropped pictures for everyone. What
 // members see is the backend's HTML, whose pictures the site's signature settings decide: those are
-// drawn unless the visitor blocked them, and a blocked one leaves nothing, not even the label.
-test("a signature never shows the LITE label or a picture the visitor blocked, and keeps its words", async () => {
+// drawn unless the visitor blocked them, and a blocked one is the LITE label, as in any text.
+test("a signature kept as HTML follows LITE like any text, and keeps its words", async () => {
   const body =
     '<p>Hello <img src="https://pictures.test/b.png"> world</p><p>Use the &lt;video&gt; tag, Array&lt;object&gt; and &lt;svg&gt; files here</p>';
   for (const mode of [undefined, "avatars"]) {
@@ -745,7 +745,8 @@ test("a signature never shows the LITE label or a picture the visitor blocked, a
   for (const mode of ["postImages", "all"]) {
     cookie = mode;
     const html = await markup(<SignatureHtml>{body}</SignatureHtml>);
-    expect(html, mode).not.toMatch(/DATA SAVER|pictures\.test|<img/);
+    expect(html, mode).not.toMatch(/pictures\.test|<img/);
+    expect(html, mode).toContain("DATA SAVER");
     for (const text of ["Hello", "world", "tag,", "files here"])
       expect(html, `${mode}: ${text}`).toContain(text);
   }

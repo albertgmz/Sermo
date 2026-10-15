@@ -80,6 +80,16 @@ test("a closing tag with no opener in the body no longer pairs with one before t
   expect(html).toContain('<blockquote class="bb-quote">');
 });
 
+test("a player tag with an id the renderer does not take no longer hides a quote tag", () => {
+  const out = quoted('[MEDIA=youtube]x[QUOTE="q, post: 1, member: 2"][/MEDIA]');
+  expect(out).toContain('[PLAIN][QUOTE="q, post: 1, member: 2"][/PLAIN]');
+  // A valid one is left alone.
+  const valid = "[MEDIA=youtube]kQ0Eo1UccEE[/MEDIA]";
+  expect(quoted(valid)).toBe(
+    `[QUOTE="ember, post: 5, member: 9"]${valid}[/QUOTE]`,
+  );
+});
+
 test("a capital letter of another alphabet does not move what is found after it", () => {
   const body = "İİİ [CODE]\n[/QUOTE]\n[/CODE] [QUOTE]";
   expect(quoted(body)).toBe(

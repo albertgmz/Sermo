@@ -139,28 +139,28 @@ export function isOtherTag(name: string, option: string | undefined) {
 // Code that holds its own closing tag (`[CODE]x[/CODE]` shown as a sample) is written as rich code
 // around plain text: `[CODE=rich][PLAIN]...[/PLAIN][/CODE]`, which the renderer draws as a code
 // block (or `[ICODE=rich]` as inline code) of exactly that text. A closing PLAIN tag in the text
-// cannot be written there, so an invisible character is put inside it.
-export const breakPlainCloser = (text: string) =>
-  text.replace(/\[\/(plain)\]/gi, "[/\u200b$1]");
-export const unbreakPlainCloser = (text: string) =>
-  text.replace(/\[\/\u200b(plain)\]/gi, "[/$1]");
+// cannot be written inside PLAIN, so the text is cut in the middle of it into two PLAIN tags that
+// follow one another: `[/` ends the first and `PLAIN]` begins the second (nothing invisible).
 export const richCode = (tag: "CODE" | "ICODE", text: string) =>
-  `[${tag}=rich][PLAIN]${breakPlainCloser(text)}[/PLAIN][/${tag}]`;
+  `[${tag}=rich][PLAIN]${text.replace(/\[\/(plain)\]/gi, "[/[/PLAIN][PLAIN]$1]")}[/PLAIN][/${tag}]`;
 
-// Finds `[/NAME]` after a position. A search that found nothing is not repeated, and one that
-// found a closer is reused for every opener before it, so a text full of unclosed tags is read in
-// linear time. The search is on the source itself: changing its case can change its length.
+// Finds `[/NAME]` after a position. A search that found nothing is not repeated for a later
+// position, and one that found a closer is reused for every position between where it began and the
+// closer, so a text full of unclosed tags is read in linear time (a search from an earlier position
+// than the last one is made again). The search is on the source itself: changing its case can
+// change its length.
 export function closerFinder(source: string) {
-  const known = new Map<string, number>();
+  const known = new Map<string, { from: number; at: number }>();
   return (name: string, from: number): number => {
     const key = name.toUpperCase();
     const last = known.get(key);
-    if (last === -1) return -1;
-    if (last !== undefined && last >= from) return last;
+    if (last && from >= last.from && (last.at === -1 || last.at >= from)) {
+      return last.at;
+    }
     const closer = new RegExp(String.raw`\[\/${key}\]`, "gi");
     closer.lastIndex = from;
     const at = closer.exec(source)?.index ?? -1;
-    known.set(key, at);
+    known.set(key, { from, at });
     return at;
   };
 }

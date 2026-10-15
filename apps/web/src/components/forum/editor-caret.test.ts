@@ -64,3 +64,28 @@ test("a selection is placed from where it began to where it ended", () => {
 test("an editor with no text takes no selection and does not fail", () => {
   expect(placed("", 0)).toBeUndefined();
 });
+
+// A reply that quotes: the quote's tags are text in the editor, so the caret counts them.
+const REPLY =
+  '[QUOTE="Wren, post: 12, member: 3"]quoted words[/QUOTE]\n\nmy reply here';
+
+test("a caret after a quote with an attribution is after the quote's tags, not inside them", () => {
+  expect(placed(REPLY, REPLY.length)?.before).toBe("my reply here");
+  // In the middle of the reply, and in the quoted words.
+  expect(placed(REPLY, REPLY.indexOf("ply") + 1)?.before).toBe("my rep");
+  expect(
+    placed(REPLY, REPLY.indexOf("words") + 2)?.before.endsWith("quoted wo"),
+  ).toBe(true);
+});
+
+test("a caret at the start of a line is before its first character", () => {
+  expect(placed(REPLY, REPLY.indexOf("my"))?.before).toBe("");
+  expect(placed("ab\n\ncd", 4)?.before).toBe("");
+});
+
+test("a caret inside code is inside its text", () => {
+  const code = "text\n\n[CODE]\nlet a = 1;\nlet b = 2;\n[/CODE]";
+  const at = code.indexOf("let b") + 5;
+  expect(placed(code, at)?.before).toBe("let b");
+  expect(charsBefore(code, at)).toBe("textleta=1;letb".length);
+});

@@ -159,14 +159,21 @@ const LIST_TAG = /\[LIST(?:=[^\]\n]*)?\]([\s\S]*?)\[\/LIST\]/gi;
 const ITEM_BREAK = "\u0001";
 
 function withoutFormattingTags(text: string) {
-  const strip = (from: string) =>
+  const strip = (from: string): string =>
     from
       .replace(LIST_TAG, (_, items: string) =>
         items.replace(/^\s*\[\*\]\s*/, "").replace(/\s*\[\*\]\s*/g, ITEM_BREAK),
       )
-      .replace(FORMATTING_TAG, (whole, name: string, inner: string) =>
-        /^\[QUOTE=/i.test(whole) && /^quote$/i.test(name) ? whole : inner,
-      );
+      .replace(FORMATTING_TAG, (whole, name: string, inner: string): string => {
+        if (!/^\[QUOTE=/i.test(whole)) return inner;
+        // A quote with an attribution keeps its tags (and the post it names), not its formatting.
+        const tags = name.length + 3;
+        return (
+          whole.slice(0, whole.length - inner.length - tags) +
+          strip(inner) +
+          whole.slice(whole.length - tags)
+        );
+      });
   let out = text;
   for (let next = strip(out); next !== out; ) {
     out = next;

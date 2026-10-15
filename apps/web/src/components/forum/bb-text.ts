@@ -69,7 +69,12 @@ function balanced(source: string) {
       const closer = find(tag.name, range.end);
       if (closer < 0) {
         edits.push(range);
-      } else if (literalContentOk(tag.name, source.slice(range.end, closer))) {
+      } else if (
+        // What the renderer takes as a player is checked for its site, which is not done here: what
+        // is in a player tag is read like the rest (a valid one holds no tag).
+        tag.name !== "MEDIA" &&
+        literalContentOk(tag.name, source.slice(range.end, closer))
+      ) {
         re.lastIndex = closer + tag.name.length + 3;
       }
     } else if (tag.name === "QUOTE") {

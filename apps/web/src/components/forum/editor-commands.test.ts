@@ -599,6 +599,22 @@ test("a typed QUOTE tag is stripped, and one with an attribution stays: it names
   ]);
 });
 
+test("inside a quote with an attribution, formatting goes and the attribution stays", () => {
+  const editor = richEditor(() => {
+    $getRoot().append(
+      $createParagraphNode().append(
+        $createTextNode(
+          '[QUOTE="W, post: 1, member: 2"][COLOR=red]x[/COLOR] [SIZE=5]y[/SIZE] [B]b[/B][CENTER]c[/CENTER][/QUOTE] [COLOR=red]z[/COLOR]',
+        ),
+      ),
+    );
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual([
+    'paragraph:[QUOTE="W, post: 1, member: 2"]x y bc[/QUOTE] z',
+  ]);
+});
+
 test("typed LIST tags are stripped and their items become separate lines", () => {
   const editor = richEditor(() => {
     $getRoot().append(

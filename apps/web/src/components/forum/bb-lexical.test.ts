@@ -63,6 +63,12 @@ const SAME = [
   // Rich code, and tags whose content is not what they need, are read as text.
   "[CODE=rich]a\n[LIST][*]x[/LIST]\n[HEADING=1]h[/HEADING][/CODE]",
   "[ICODE=rich]x[LIST=1]x[/LIST][/ICODE]",
+  // Rich code with nothing in it stays as it is, and code that holds its closing tags is stable.
+  "a[CODE=rich][PLAIN][/PLAIN][/CODE]b",
+  "[CODE=rich][PLAIN]  [/PLAIN][/CODE]",
+  "[LIST]\n[*]x[CODE=rich][PLAIN][/PLAIN][/CODE]\n[/LIST]",
+  "[ICODE=rich][PLAIN][/PLAIN][/ICODE]",
+  "[CODE=rich][PLAIN]x[/[/PLAIN][PLAIN]PLAIN]y[/CODE][/PLAIN][/CODE]",
   "[IMG][B]x[/B][/IMG]",
   "[ATTACH]not a number[/ATTACH]",
   '[QUOTE="a]b"]x[/QUOTE]',
@@ -200,4 +206,17 @@ test("a text of unclosed tags is read in linear time", () => {
 test("tags nest only as deep as the backend allows, and the rest is text", () => {
   const source = `${"[B]".repeat(40)}x${"[/B]".repeat(40)}`;
   expect(roundTrip(source).replace(/\[\/?B\]/g, "")).toBe("x");
+});
+
+test("rich code around plain text that never closes is read in linear time", () => {
+  for (const unit of [
+    "[CODE=rich][PLAIN]x[/PLAIN]",
+    "[ICODE=rich][PLAIN]",
+    "[CODE=rich][PLAIN]a[/[/PLAIN][PLAIN]PLAIN]",
+  ]) {
+    const source = unit.repeat(Math.ceil(20000 / unit.length));
+    const start = performance.now();
+    roundTrip(source);
+    expect(performance.now() - start, unit).toBeLessThan(1500);
+  }
 });

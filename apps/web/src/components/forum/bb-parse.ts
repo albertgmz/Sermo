@@ -6,7 +6,6 @@ import {
   readsLiterally,
   TAG_SOURCE,
   tagOf,
-  unbreakPlainCloser,
 } from "@/components/forum/bb-scan";
 
 // BB code read into what the rich editor can hold. The editor shows bold, italic, underline,
@@ -115,7 +114,11 @@ const hasTagText = (kid: Tree): boolean =>
       ? kid.s.includes("\n")
       : kid.k === "el" && kid.kids.some(hasTagText);
 
-function parseTree(source: string): Tree[] {
+function parseTree(
+  source: string,
+  // Told the tags still open at the end, innermost first.
+  unclosed?: (names: string[]) => void,
+): Tree[] {
   const find = closerFinder(source);
   const root: Frame = { name: "", open: "", kids: [] };
   const stack: Frame[] = [root];
@@ -207,16 +210,24 @@ function parseTree(source: string): Tree[] {
       (name === "CODE" || name === "ICODE") && option?.toLowerCase() === "rich";
     if (rich || readsLiterally(name, option)) {
       let closer = find(name, end);
-      // Rich code around plain text ends after the plain text, whatever the text holds.
+      // Rich code around plain text (one PLAIN tag, or several that follow one another) ends after
+      // the plain text, whatever the text holds.
+      let shown: string[] | null = null;
       if (rich && source.startsWith("[PLAIN]", end)) {
-        const plainEnd = find("PLAIN", end + 7);
-        const after = plainEnd + 8;
+        const parts: string[] = [];
+        let at = end;
+        while (source.startsWith("[PLAIN]", at)) {
+          const plainEnd = find("PLAIN", at + 7);
+          if (plainEnd < 0) break;
+          parts.push(source.slice(at + 7, plainEnd));
+          at = plainEnd + 8;
+        }
         if (
-          plainEnd >= 0 &&
-          source.slice(after, after + name.length + 3).toUpperCase() ===
-            `[/${name}]`
+          parts.length &&
+          source.slice(at, at + name.length + 3).toUpperCase() === `[/${name}]`
         ) {
-          closer = after;
+          closer = at;
+          shown = parts;
         }
       }
       if (closer < 0) {
@@ -233,9 +244,9 @@ function parseTree(source: string): Tree[] {
       }
       if (rich) {
         // Rich code around plain text is code that holds its closing tag, as the editor writes it.
-        const shown = /^\[PLAIN\]([\s\S]*)\[\/PLAIN\]$/.exec(inner);
-        if (shown && !/\[\/plain\]/i.test(shown[1])) {
-          const s = unbreakPlainCloser(shown[1]);
+        // Nothing in it: it stays as it is.
+        const s = shown?.join("") ?? "";
+        if (s.trim()) {
           top().kids.push(
             name === "CODE" ? { k: "code", s, raw } : { k: "icode", s, raw },
           );
@@ -299,6 +310,13 @@ function parseTree(source: string): Tree[] {
     }
   }
   addText(source.slice(pos));
+  unclosed?.(
+    stack
+      .slice(1)
+      .filter((frame) => !frame.opaque && frame.name !== "*")
+      .map((frame) => frame.name)
+      .reverse(),
+  );
   while (stack.length > 1) literalize();
   return root.kids;
 }
@@ -519,6 +537,50 @@ function element(el: El, sink: Sink, marks: Mark[], link: boolean) {
   } else {
     sink.blocks.push({ t: "quote", kids });
   }
+}
+
+// The closing tags of the formats a text leaves open at its end, innermost first.
+export function closersOf(source: string): string {
+  let closers = "";
+  parseTree(source.replace(/\r\n?/g, "\n"), (names) => {
+    closers = names.map((name) => `[/${name}]`).join("");
+  });
+  return closers;
+}
+
+const countNonSpace = (text: string) => text.replace(/\s/g, "").length;
+const inlineChars = (kids: Inline[]): number =>
+  kids.reduce(
+    (sum, kid) =>
+      sum +
+      (kid.t === "text"
+        ? countNonSpace(kid.text)
+        : kid.t === "link"
+          ? inlineChars(kid.kids)
+          : 0),
+    0,
+  );
+const listChars = (list: ListSpec): number =>
+  list.items.reduce(
+    (sum, item) =>
+      sum +
+      inlineChars(item.kids) +
+      item.nested.reduce((n, l) => n + listChars(l), 0),
+    0,
+  );
+
+// The characters that are not space in the text the editor shows for these blocks.
+export function textChars(blocks: Block[]): number {
+  return blocks.reduce(
+    (sum, block) =>
+      sum +
+      (block.t === "code"
+        ? countNonSpace(block.text)
+        : block.t === "list"
+          ? listChars(block)
+          : inlineChars(block.kids)),
+    0,
+  );
 }
 
 // The blocks BB code holds. With `literal` the text is taken as typed: no tag is read, only the

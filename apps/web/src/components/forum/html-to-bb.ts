@@ -140,6 +140,7 @@ const TAG_TEXT =
 // The text after a node in the page, as far as a tag can reach (a tag can be split between
 // elements: `<span>[/</span><span>B]</span>`).
 const REACH = 200;
+const SIBLINGS = 400;
 
 // Such text is put between PLAIN tags to stay text. Between those tags a closing PLAIN tag cannot
 // be written, so it is broken by an invisible character. A tag that begins in this text and ends
@@ -167,7 +168,12 @@ function kidsOf(node: DomNode, context: Context): string {
     // What follows a child: its next siblings, then what follows its parent.
     const after = () => {
       let text = "";
-      for (let k = i + 1; k < kids.length && text.length < REACH; k++) {
+      // As far as a tag can reach, in characters and in siblings (empty ones add no text).
+      for (
+        let k = i + 1;
+        k < kids.length && k - i <= SIBLINGS && text.length < REACH;
+        k++
+      ) {
         text += (kids[k].textContent ?? "").slice(0, REACH);
       }
       return text.length < REACH ? text + context.after() : text;
