@@ -8,7 +8,7 @@ import { ADVERSARIAL_INPUTS } from "./adversarial-inputs";
 import { Deadline, TOO_COMPLEX } from "./deadline";
 
 const RUNS = 10;
-/** Well under the 50 ms the renderer allows itself. */
+/** Well under the 50 ms the renderer allows itself (ten runs, so this bounds the slowest of them). */
 const P95_LIMIT_MS = 30;
 
 async function world() {
@@ -83,15 +83,19 @@ describe("adversarial inputs", () => {
     expect(renderBbCode("[".repeat(10_000))).toBe(`<p>${"[".repeat(10_000)}</p>`);
     expect(renderBbCode("[B][I]x[/B][/I]")).toBe("<p><strong>[I]x</strong>[/I]</p>");
     expect(renderBbCode("[CODE]".repeat(1600))).toContain("[CODE]");
-    // Twice the text, about twice the time.
+    // Four times the text, about four times the time (a quadratic stage would take sixteen).
     const cost = (n: number) => {
       const source = "[B][I]x[/B][/I]".repeat(n);
       renderBbCode(source);
-      const started = performance.now();
-      for (let i = 0; i < 5; i++) renderBbCode(source);
-      return performance.now() - started;
+      let best = Number.POSITIVE_INFINITY;
+      for (let batch = 0; batch < 4; batch++) {
+        const started = performance.now();
+        for (let i = 0; i < 10; i++) renderBbCode(source);
+        best = Math.min(best, performance.now() - started);
+      }
+      return best;
     };
-    expect(cost(660)).toBeLessThan(cost(165) * 8 + 20);
+    expect(cost(660)).toBeLessThan(cost(165) * 8);
   });
 
   test("a message that cannot be output safely is refused, not rendered", () => {
@@ -134,7 +138,7 @@ describe("the time bound", () => {
     // "hi" is too short for the per-step checks: only the explicit ones read the clock.
     for (const slowFrom of [4, 5]) {
       let reads = 0;
-      const clock = () => (++reads >= slowFrom ? 1_000 : 0);
+      const clock = () => (++reads >= slowFrom ? reads * 1_000 : 0);
       expect(() => renderBbCode("hi", { clock }), `read ${slowFrom}`).toThrow(ValidationError);
     }
   });
@@ -155,11 +159,55 @@ describe("the time bound", () => {
 
   test("an actor render keeps its lookups out of the bound", async () => {
     const { ctx, reader } = await world();
-    const now = 0;
-    // The clock moves only when the renderer reads it, so database time cannot add to it.
-    const clock = () => now;
-    expect(
-      renderContent(ctx, reader, "[B]x[/B] @abcdefghi", { clock }).mentionedUserIds,
-    ).toHaveLength(1);
+    let now = 0;
+    // Every database statement run takes a second on this clock.
+    const prepare = ctx.sqlite.prepare.bind(ctx.sqlite);
+    // biome-ignore lint/suspicious/noExplicitAny: a test double for the statement API
+    (ctx.sqlite as any).prepare = (sql: string) =>
+      // biome-ignore lint/suspicious/noExplicitAny: a test double for the statement API
+      new Proxy(prepare(sql) as any, {
+        get(target, key) {
+          const value = target[key];
+          if (typeof value !== "function") return value;
+          return (...args: unknown[]) => {
+            if (key === "all" || key === "get" || key === "run") now += 1_000;
+            return value.apply(target, args);
+          };
+        },
+      });
+    ctx.statements.clear();
+    const rendered = renderContent(ctx, reader, "[B]x[/B] @abcdefghi", { clock: () => now });
+    expect(rendered.mentionedUserIds).toHaveLength(1);
+    expect(now).toBeGreaterThanOrEqual(1_000);
+  });
+
+  test("a slow first try is rendered once more, a second one refuses", () => {
+    // Slow for the first five reads (the first try), still afterwards.
+    let reads = 0;
+    const slowOnce = () => 60 * Math.min(++reads, 5);
+    expect(renderBbCode("[B]x[/B]", { clock: slowOnce })).toBe("<p><strong>x</strong></p>");
+    expect(reads).toBeGreaterThan(5);
+    let now = 0;
+    const alwaysSlow = () => (now += 60);
+    expect(() => renderBbCode("[B]x[/B]", { clock: alwaysSlow })).toThrow(ValidationError);
+    // Other refusals are not tried again.
+    let renders = 0;
+    const counting = () => {
+      renders++;
+      return 0;
+    };
+    expect(() =>
+      renderBbCode(`${"[B]".repeat(31)}x${"[/B]".repeat(31)}`, { clock: counting }),
+    ).toThrow(ValidationError);
+    expect(renders).toBeLessThan(10);
+  });
+
+  test("the renderer is warmed up when a context is created, once per process", async () => {
+    const probe = (when: "before" | "after") =>
+      Bun.spawnSync(["bun", `${import.meta.dir}/warm-probe.ts`, when])
+        .stdout.toString()
+        .trim();
+    expect(probe("before")).toBe("cold");
+    expect(probe("after")).toBe("warm");
   });
 });

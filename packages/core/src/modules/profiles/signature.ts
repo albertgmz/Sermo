@@ -14,6 +14,7 @@ export interface SignatureLimits {
   signatureMaxImages: number;
   signatureMaxSmilies: number;
   signatureMaxTextSize: number;
+  signatureMaxLines: number;
   signatureFormats: readonly SignatureFormat[];
 }
 
@@ -133,14 +134,22 @@ export function renderSignature(source: string, limits: SignatureLimits): string
   // One block: a blank line starts another paragraph, and a heading, list or aligned block is one.
   if (countBlocks(source) > 1) refuse(STRUCTURE_MESSAGE);
   const html = renderBbCode(source);
-  const elements: { kind: Kind; size: number }[] = [];
+  const elements: { kind: Kind; size: number; line: boolean }[] = [];
   let text = "";
   sanitizeHtml(html, {
     allowedTags: [],
     allowedAttributes: {},
     transformTags: {
       "*": (tagName, attribs) => {
-        elements.push({ kind: kindOf(tagName, attribs), size: sizeOf(tagName, attribs) });
+        const kind = kindOf(tagName, attribs);
+        // What starts a new line when drawn: a break, a paragraph, an item, a heading, an aligned block.
+        const line =
+          tagName === "br" ||
+          tagName === "li" ||
+          kind === "paragraph" ||
+          kind === "heading" ||
+          kind === "align";
+        elements.push({ kind, size: sizeOf(tagName, attribs), line });
         return { tagName, attribs };
       },
     },
@@ -157,6 +166,10 @@ export function renderSignature(source: string, limits: SignatureLimits): string
   // Nothing to see: no text but invisible characters, and no picture.
   if (text.replace(INVISIBLE, "") === "" && !elements.some((element) => element.kind === "image"))
     refuse("A signature must have something to show.");
+  // Lines as drawn, not as typed: a list of ten items is ten lines on one source line.
+  const lines = elements.filter((element) => element.line).length;
+  if (lines > limits.signatureMaxLines)
+    refuse(`A signature is at most ${limits.signatureMaxLines} lines long.`);
   const allowed = new Set<string>(limits.signatureFormats);
   const used = new Set(elements.map((element) => element.kind));
   const refused = (Object.keys(LABEL) as SignatureFormat[]).filter(

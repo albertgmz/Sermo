@@ -1,3 +1,4 @@
+import { MAX_MEDIA_EMBEDS } from "../limits";
 import type { Deadline } from "./deadline";
 import { escapeHtml } from "./escape";
 import { highlightCode } from "./highlight";
@@ -30,6 +31,7 @@ interface Env {
   deadline: Deadline;
   highlighted: number;
   highlightedBlocks: number;
+  embeds: number;
 }
 
 function trimNewlines(text: string, leading = true, trailing = true): string {
@@ -40,6 +42,8 @@ function trimNewlines(text: string, leading = true, trailing = true): string {
   return text.slice(start, end);
 }
 
+const isBlankSpace = (code: number): boolean => code === 32 || code === 9 || code === 160;
+
 /** Splits at blank lines (a newline, optional spaces, a newline); the blank run is dropped. */
 function splitBlank(text: string): string[] {
   const parts: string[] = [];
@@ -47,7 +51,7 @@ function splitBlank(text: string): string[] {
   let at = text.indexOf("\n");
   while (at >= 0) {
     let next = at + 1;
-    while (text.charCodeAt(next) === 32 || text.charCodeAt(next) === 9) next++;
+    while (isBlankSpace(text.charCodeAt(next))) next++;
     if (text.charCodeAt(next) === 10) {
       let end = next + 1;
       while (end < text.length && /\s/.test(text[end]!)) end++;
@@ -214,8 +218,17 @@ function atom(tok: Tok, plainInline: boolean, env: Env, inLink: boolean): string
         : `<div class="bb-plain">${text(trimNewlines(tok.text!), false)}</div>`;
     case "IMG":
       return `<img src="${escapeHtml(tok.href!)}" alt="">`;
-    case "MEDIA":
+    case "MEDIA": {
+      const address = escapeHtml(tok.href!);
+      // No link inside a link: a link to a provider's page is only named.
+      if (tok.embed === "link" && inLink) return address;
+      // Players past the limit are links to their page.
+      if (tok.embed === "iframe" && ++env.embeds > MAX_MEDIA_EMBEDS)
+        return inLink
+          ? address
+          : `<a class="bb-media-link bb-media-${tok.id}" href="${address}">${address}</a>`;
       return tok.html!;
+    }
     case "ATTACH":
       return `<span class="bb-attach" data-attach-id="${tok.id}" data-attach-size="${tok.size}">${tok.id}</span>`;
     case "URL":
@@ -377,7 +390,12 @@ function node(kid: Node, env: Env, inLink: boolean, pre: boolean): string {
 
 /** The HTML of a tree (unsanitized: the caller passes it through the sanitizer). */
 export function renderTree(kids: Node[], deadline: Deadline, sink?: SpoilerSink): string {
-  return blocks(kids, { sink, deadline, highlighted: 0, highlightedBlocks: 0 }, false, "root");
+  return blocks(
+    kids,
+    { sink, deadline, highlighted: 0, highlightedBlocks: 0, embeds: 0 },
+    false,
+    "root",
+  );
 }
 
 /** How many paragraphs and blocks the top level of a tree holds. */

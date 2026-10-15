@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
 import { ValidationError } from "../errors";
+import { MAX_MEDIA_EMBEDS } from "../limits";
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "../modules/seo/excerpt";
 import { renderBbCode, renderContent, renderPlainText } from "../render";
 
@@ -746,6 +747,67 @@ describe("BB code review limits", () => {
     );
     // Outside a link both still work.
     expect(renderContent(ctx, actor, "[ISPOILER]s[/ISPOILER]").spoilers).toEqual(["s"]);
+  });
+
+  test("a player link inside a link is only named, players past the limit are links", () => {
+    const inLink = md("[URL=http://a.b][MEDIA=twitter]1[/MEDIA] text[/URL]");
+    expect(inLink.match(/<a /g)).toHaveLength(1);
+    expect(inLink).toContain("https://x.com/i/status/1 text</a>");
+    // A player inside a link is fine.
+    expect(md("[URL=http://a.b][MEDIA=youtube]kQ0Eo1UccEE[/MEDIA][/URL]")).toContain("<iframe");
+    const many = md("[MEDIA=vimeo]1[/MEDIA]".repeat(60));
+    expect(many.match(/<iframe/g)).toHaveLength(MAX_MEDIA_EMBEDS);
+    expect(
+      many.match(/<a class="bb-media-link bb-media-vimeo" href="https:\/\/vimeo.com\/1"/g),
+    ).toHaveLength(60 - MAX_MEDIA_EMBEDS);
+    expect(
+      md("[MEDIA=reddit]r/test/comments/abc123[/MEDIA]".repeat(60)).match(/<a /g),
+    ).toHaveLength(60);
+  });
+
+  test("an unclosed rich code tag is text and changes nothing after it", () => {
+    for (const open of ["[CODE=rich]", "[ICODE=rich]"]) {
+      const html = md(`${open} hello\n[QUOTE]q[/QUOTE]\n[LIST][*]a[/LIST] https://a.example`);
+      expect(html).toContain("<blockquote");
+      expect(html).toContain("<ul><li>a</li></ul>");
+      expect(html).toContain('<a href="https://a.example"');
+    }
+    // Closed, it still turns them into text.
+    expect(md("[CODE=rich][QUOTE]q[/QUOTE][/CODE]")).not.toContain("<blockquote");
+  });
+
+  test("addresses are found whatever their case, and may hold an apostrophe", () => {
+    expect(md("Http://a.b/c")).toContain('<a href="Http://a.b/c"');
+    const mixed = md("HTTP://A.B/C and http://x.y");
+    expect(mixed.match(/<a /g)).toHaveLength(2);
+    expect(md("WWW.a.b")).toContain('<a href="https://WWW.a.b"');
+    expect(md("see https://en.wikipedia.org/wiki/Alice's_Adventures.")).toContain(
+      'href="https://en.wikipedia.org/wiki/Alice\'s_Adventures"',
+    );
+    expect(md("[URL=https://a.example/it's]x[/URL]")).toContain('href="https://a.example/it\'s"');
+    expect(md("[URL=http://a.b/\u0000x]x[/URL]")).not.toContain('href="http://a.b/\u0000');
+  });
+
+  test("a link option may be 2,000 characters, other options 200", () => {
+    const long = `https://example.com/${"a".repeat(1_900)}`;
+    expect(md(`[URL=${long}]x[/URL]`)).toContain(`href="${long}"`);
+    expect(md(`[URL=${long}${"a".repeat(200)}]x[/URL]`)).toContain("]x[/URL]");
+    expect(md(`[QUOTE=${"a".repeat(201)}]x[/QUOTE]`)).not.toContain("<blockquote");
+    expect(md(`[URL=${long}[b]x[/b][/URL]`)).toContain("<strong>x</strong>[/URL]");
+  });
+
+  test("[URL]www.example.com[/URL] links like a bare address", () => {
+    expect(md("[URL]www.example.com[/URL]")).toBe(
+      '<p><a href="https://www.example.com" rel="nofollow ugc noopener">www.example.com</a></p>',
+    );
+    expect(md("[URL]example.com[/URL]")).toBe("<p>[URL]example.com[/URL]</p>");
+    const brackets = md("[URL]http://a.b/[b]x[/b][/URL]");
+    expect(brackets).toContain("[URL]");
+    expect(brackets).not.toContain('href="http://a.b/[');
+  });
+
+  test("a line holding only a no-break space still ends a paragraph", () => {
+    expect(md("a\n \nb")).toBe("<p>a</p><p>b</p>");
   });
 
   test("EMAIL takes plain addresses only", () => {

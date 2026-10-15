@@ -96,6 +96,9 @@ export function createContext(options: CreateContextOptions): Ctx {
   };
   // Permissions added to the registry since the last start get their definition and defaults.
   if (options.migrate) syncPermissionRegistry(ctx);
+  // The first message rendered after a start must not pay for the renderer warming up. (Loaded on
+  // use: the renderer imports this file.)
+  (require("./render") as typeof import("./render")).warmUpRenderer();
   return ctx;
 }
 

@@ -235,6 +235,27 @@ describe("signature limits, measured on the rendered html", () => {
     await sign(w, "[CENTER]one block[/CENTER]");
   });
 
+  test("lines are counted as drawn: a one-line list of many items is many lines", async () => {
+    const w = world();
+    await settings(w, { signatureFormats: ["list", "align", "heading"], signatureMaxLines: 4 });
+    const items = (count: number) => `[LIST]${"[*]a".repeat(count)}[/LIST]`;
+    await sign(w, items(4));
+    expect(await refusal(w, items(5))).toBe("A signature is at most 4 lines long.");
+    // Nested lists add up, and so do items on several source lines.
+    expect(await refusal(w, "[LIST][*]a[LIST][*]b[*]c[*]d[/LIST][*]e[/LIST]")).toBe(
+      "A signature is at most 4 lines long.",
+    );
+    await settings(w, { signatureMaxLines: 20 });
+    await sign(w, items(20));
+    expect(await refusal(w, items(21))).toBe("A signature is at most 20 lines long.");
+    // Line breaks in the text count too.
+    await settings(w, { signatureMaxLines: 2 });
+    await sign(w, "a\nb");
+    expect(await refusal(w, "[CENTER]a\nb\nc[/CENTER]")).toBe(
+      "A signature is at most 2 lines long.",
+    );
+  });
+
   test("length and lines still count the source", async () => {
     const w = world();
     await settings(w, { signatureMaxLength: 10, signatureMaxLines: 2 });

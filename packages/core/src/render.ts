@@ -2,7 +2,7 @@ import { convert } from "html-to-text";
 import sanitizeHtml from "sanitize-html";
 import type { Actor } from "./actor";
 import { actorUserId } from "./actor";
-import { Deadline, RENDER_LIMIT_MS } from "./bbcode/deadline";
+import { Deadline, RENDER_LIMIT_MS, TOO_COMPLEX } from "./bbcode/deadline";
 import { blockCount, renderTree, type SpoilerSink } from "./bbcode/html";
 import { MEDIA_ALLOW, MEDIA_IFRAME_HOSTS, MEDIA_SANDBOX } from "./bbcode/media";
 import { COLOR_STYLE, lex, pair } from "./bbcode/scan";
@@ -222,7 +222,48 @@ function previousContent(ctx: Ctx, edit?: ContentEdit) {
   };
 }
 
+/**
+ * Renders once more when the time bound trips: a slow moment (the first render after a start, a
+ * garbage collection, a busy machine) is not the message's fault, and a message that is too
+ * complex trips it again.
+ */
 function render(
+  source: string,
+  ctx?: Ctx,
+  actor?: Actor,
+  edit?: ContentEdit,
+  maxLength = MAX_BODY_LENGTH,
+  timing: RenderTiming = {},
+): Rendered {
+  try {
+    return renderOnce(source, ctx, actor, edit, maxLength, timing);
+  } catch (error) {
+    if (error instanceof ValidationError && error.message === TOO_COMPLEX)
+      return renderOnce(source, ctx, actor, edit, maxLength, timing);
+    throw error;
+  }
+}
+
+let warmedUp = false;
+const WARM_UP_SAMPLE =
+  "[B]bold[/B] [URL=https://a.example]link[/URL] https://b.example @name\n\n" +
+  "[QUOTE=a]q[/QUOTE]\n[LIST][*]a[*]b[/LIST]\n[TABLE][TR][TD]x[/TD][/TR][/TABLE]\n" +
+  "[CODE=js]var a = 1;[/CODE] [CODE=php]echo 1;[/CODE] [MEDIA=youtube]kQ0Eo1UccEE[/MEDIA]\n" +
+  "[SPOILER=t]s[/SPOILER] [ISPOILER]i[/ISPOILER] [HEADING=2]h[/HEADING] [HR]";
+
+/**
+ * Renders a small sample of every kind of tag, once per process, so the first message after a
+ * start does not pay for the code and the sanitizer warming up inside its 50 ms.
+ */
+export function warmUpRenderer(): boolean {
+  if (warmedUp) return false;
+  warmedUp = true;
+  for (let round = 0; round < 3; round++)
+    renderBbCode(WARM_UP_SAMPLE, { limitMs: Number.POSITIVE_INFINITY });
+  return true;
+}
+
+function renderOnce(
   source: string,
   ctx?: Ctx,
   actor?: Actor,
@@ -344,22 +385,26 @@ function render(
       (state === "moderated"
         ? ownerId === editorId || can(ctx, actor, "forum.viewModerated", { nodeId })
         : can(ctx, actor, "forum.viewDeleted", { nodeId }));
+    // A post is checked once, however many times it is quoted.
+    const checked = new Set<number>();
     for (const el of tree.quotes) {
       const quote = el.quote!;
       const row = byPost.get(quote.postId!);
-      if (
-        !row ||
-        (!previous.quotes.has(row.id) &&
+      if (!row) throw new ValidationError("The quoted post is not visible.");
+      if (!checked.has(row.id)) {
+        if (
+          !previous.quotes.has(row.id) &&
           (!can(ctx, actor, "node.view", { nodeId: row.node_id }) ||
             !visible(row.thread_state, row.thread_user_id, row.node_id) ||
-            !visible(row.post_state, row.user_id, row.node_id)))
-      ) {
-        throw new ValidationError("The quoted post is not visible.");
+            !visible(row.post_state, row.user_id, row.node_id))
+        ) {
+          throw new ValidationError("The quoted post is not visible.");
+        }
+        checked.add(row.id);
+        quotes.push({ postId: row.id, userId: previous.quotes.get(row.id) ?? row.user_id });
       }
       quote.resolvedAuthor = previous.quoteAuthors.get(row.id) ?? row.username;
       quote.userId = previous.quotes.get(row.id) ?? row.user_id;
-      if (!quotes.some((entry) => entry.postId === row.id))
-        quotes.push({ postId: row.id, userId: quote.userId });
     }
   }
   const storedSource = canonicalSource(source, tree.quotes);
@@ -481,4 +526,5 @@ export function renderPlainText(html: string, maxLength?: number): string {
   return `${(boundary > 0 ? fragment.slice(0, boundary) : "").trimEnd()}…`;
 }
 
+export { bbCodeText } from "./bbcode/mask";
 export { MAX_BODY_LENGTH };

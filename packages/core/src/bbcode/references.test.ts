@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { createTestContext, expectNoTableScan, insertUser, userActor } from "@sermo/core/testing";
 import { writeTx } from "../db/tx";
 import { ValidationError } from "../errors";
@@ -13,8 +13,15 @@ import {
 import { searchQueryOp } from "../modules/search";
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "../modules/seo/excerpt";
 import { execute } from "../operation";
+import * as permissions from "../permissions";
 import { PRINCIPAL_COLUMNS } from "../permissions";
-import { renderBbCode, renderContent, renderPlainText, storeContentReferences } from "../render";
+import {
+  bbCodeText,
+  renderBbCode,
+  renderContent,
+  renderPlainText,
+  storeContentReferences,
+} from "../render";
 
 describe("BB code references", () => {
   test("mentions resolve case-insensitively, including quoted names, but not code or links", () => {
@@ -413,6 +420,58 @@ describe("BB code references", () => {
     }
     // Typed Markdown is text, and an excerpt keeps it as typed.
     expect(excerptFromMarkdown("snake_case **bold** #tag")).toBe("snake_case **bold** #tag");
+  });
+
+  test("excerpts keep text that only looks like a tag and drop what is not text", () => {
+    expect(excerptFromMarkdown("x = arr[i] + arr[b] [s] [/u]")).toBe(
+      "x = arr[i] + arr[b] [s] [/u]",
+    );
+    expect(
+      excerptFromMarkdown(
+        "see [IMG]https://a.example/p.png[/IMG] [ATTACH=full]12[/ATTACH][MEDIA=youtube]kQ0Eo1UccEE[/MEDIA] now[HR]",
+      ),
+    ).toBe("see now");
+    expect(
+      excerptFromMarkdown(
+        "[B]bold[/B] [URL]www.a.b[/URL] [CODE]a[i][/CODE] [PLAIN][b][/PLAIN] [USER=3]Al[/USER]",
+      ),
+    ).toBe("bold www.a.b a[i] [b] Al");
+    // A stray closing tag in a cut text does not hide what follows.
+    expect(maskMarkupForExcerpt("a [/SPOILER] b", 100)).toBe("a [/SPOILER] b");
+    expect(maskMarkupForExcerpt("a [SPOILER]s", 5)).not.toContain("s");
+  });
+
+  test("the search text keeps the words in spoilers and drops tags and attributions", () => {
+    expect(
+      bbCodeText(
+        '[QUOTE="Alice, post: 12, member: 3"]quoted[/QUOTE] [SPOILER=T]secret[/SPOILER] [B]b[/B] arr[i]',
+      ),
+    ).toBe("quoted secret b arr[i]");
+  });
+
+  test("a post quoted many times is checked once", async () => {
+    const ctx = createTestContext();
+    const admin = userActor(insertUser(ctx, { groupId: 4 }));
+    const author = userActor(insertUser(ctx, { username: "Alice" }));
+    const other = userActor(insertUser(ctx));
+    const forum = await execute(ctx, nodesCreateOp, admin, {
+      parentId: null,
+      type: "forum",
+      title: "Forum",
+    });
+    const thread = await execute(ctx, threadsCreateOp, author, {
+      nodeId: forum.id,
+      title: "Topic",
+      body: "Original",
+    });
+    const quote = `[QUOTE="post: ${thread.post.id}"]x[/QUOTE]`;
+    const view = spyOn(permissions, "can");
+    const result = renderContent(ctx, other, quote.repeat(200));
+    const checks = view.mock.calls.filter(([, , id]) => id === "node.view").length;
+    view.mockRestore();
+    expect(result.quotes).toHaveLength(1);
+    expect(result.html.match(/Alice<\/a> wrote:/g)).toHaveLength(200);
+    expect(checks).toBe(1);
   });
 
   test("thread and search excerpts never expose spoiler content", async () => {

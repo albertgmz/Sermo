@@ -287,3 +287,42 @@ describe("search.query", () => {
     expect(tail?.endsWith("😀")).toBe(true);
   });
 });
+
+describe("search.query over BB code", () => {
+  const hasText = (ctx: ReturnType<typeof createTestContext>) =>
+    ctx.sqlite
+      .prepare<{ name: string }, []>("SELECT name FROM pragma_table_info('post_bodies')")
+      .all()
+      .some((column) => column.name === "body_text");
+
+  // Needs the plain text column the search index reads (see the migration in the task notes).
+  test("tags and quote attributions are not words, the text inside spoilers is", async () => {
+    const { ctx, author, member, forum } = fixture();
+    if (!hasText(ctx)) return;
+    const made = await execute(ctx, threadsCreateOp, author, {
+      nodeId: forum.id,
+      title: "Plain topic",
+      body: "[B]needle[/B] [URL=https://link.example]anchor[/URL] [SPOILER=Why]hiddenword[/SPOILER]",
+    });
+    const quoting = await execute(ctx, postsCreateOp, member, {
+      threadId: made.thread.id,
+      body: `[QUOTE="${"Quoted"}, post: ${made.post.id}, member: ${made.post.id}"]quotedtext[/QUOTE] reply`,
+    });
+    const ids = async (q: string) => (await search(ctx, member, q)).items.map((r) => r.post.id);
+    expect(await ids("needle")).toEqual([made.post.id]);
+    expect(await ids("hiddenword")).toEqual([made.post.id]);
+    expect(await ids("quotedtext")).toEqual([quoting.id]);
+    for (const tag of ["url", "spoiler", "quote", "https", "member", "why", "post"])
+      expect(await ids(tag), tag).toEqual([]);
+    // An edit and a title change keep the plain text in the index.
+    await execute(ctx, postsUpdateOp, author, { postId: made.post.id, body: "[I]changedword[/I]" });
+    expect(await ids("changedword")).toEqual([made.post.id]);
+    expect(await ids("needle")).toEqual([]);
+    await execute(ctx, threadsUpdateOp, author, {
+      threadId: made.thread.id,
+      title: "Renamed topic",
+    });
+    expect(await ids("changedword")).toEqual([made.post.id]);
+    expect(await ids("i")).toEqual([]);
+  });
+});

@@ -10,6 +10,8 @@ import { mediaHtml, resolveMedia } from "./media";
  */
 
 const MAX_OPTION_LENGTH = 200;
+/** A link address can be longer than the other options. */
+const MAX_URL_OPTION_LENGTH = 2_000;
 
 /** One tag of the source (text between tags is not a token: it is the gap between two). */
 export interface Tok {
@@ -29,6 +31,8 @@ export interface Tok {
   id?: string;
   size?: string;
   language?: string;
+  /** MEDIA: whether the embed is a player or only a link. */
+  embed?: "iframe" | "link";
 }
 
 /** Tags whose content is read as BB code. */
@@ -121,9 +125,14 @@ const FONTS = [
 export const FONT_CLASS = new Map(
   FONTS.map((font) => [font.toLowerCase(), font.toLowerCase().replace(/ /g, "-")]),
 );
-const URL_PATTERN = /^https?:\/\/[^\s<>"'`\\]{1,2000}$/i;
+/**
+ * One character of an address: no space, control character, bracket, angle bracket, double quote,
+ * backtick or backslash (an apostrophe is fine: it is escaped where it is written).
+ */
+export const ADDRESS_CHAR = '[^\\s<>"`\\\\\\[\\]\\u0000-\\u001f\\u007f]';
+export const URL_PATTERN = new RegExp(`^https?:\\/\\/${ADDRESS_CHAR}{1,2000}$`, "i");
 /** A link to a page of the site itself: a path from the root, never `//host`. */
-const SITE_PATH = /^\/(?!\/)[^\s<>"'`\\]{0,2000}$/;
+const SITE_PATH = new RegExp(`^\\/(?!\\/)${ADDRESS_CHAR}{0,2000}$`);
 const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,200}\.[A-Za-z]{2,24}$/;
 /** Longest content a literal tag is checked against; anything longer cannot be valid. */
 const MAX_LITERAL_CONTENT = 2_100;
@@ -194,11 +203,13 @@ function readHead(source: string, at: number): Head | null {
   p++;
   const quoted = source.charCodeAt(p) === 34;
   const from = quoted ? p + 1 : p;
-  const limit = Math.min(source.length, from + MAX_OPTION_LENGTH);
+  const link = name === "URL";
+  const limit = Math.min(source.length, from + (link ? MAX_URL_OPTION_LENGTH : MAX_OPTION_LENGTH));
   let q = from;
   for (; q < limit; q++) {
     const code = source.charCodeAt(q);
-    if (code === 93 || code === 10 || code === 34) break;
+    // An address has no bracket, so a link option stops at the next one and the scan stays short.
+    if (code === 93 || code === 10 || code === 34 || (link && code === 91)) break;
   }
   if (quoted) {
     if (source.charCodeAt(q) !== 34 || source.charCodeAt(q + 1) !== 93) return null;
@@ -232,7 +243,7 @@ class Closers {
   }
 }
 
-type AtomTok = Pick<Tok, "text" | "href" | "html" | "id" | "size" | "language">;
+type AtomTok = Pick<Tok, "text" | "href" | "html" | "id" | "size" | "language" | "embed">;
 
 /** What a literal tag holds, or null when its content is not valid (the tag stays text). */
 function atomFor(head: Head, inner: string): AtomTok | null {
@@ -248,8 +259,11 @@ function atomFor(head: Head, inner: string): AtomTok | null {
       return inner.length <= MAX_LITERAL_CONTENT && URL_PATTERN.test(href) ? { href } : null;
     }
     case "URL": {
-      const href = inner.trim();
-      return inner.length <= MAX_LITERAL_CONTENT && URL_PATTERN.test(href) ? { href } : null;
+      const text = inner.trim();
+      if (inner.length > MAX_LITERAL_CONTENT) return null;
+      // Like a bare address, www.example.com is a link to https://www.example.com.
+      const href = /^www\./i.test(text) ? `https://${text}` : text;
+      return URL_PATTERN.test(href) ? { href, text } : null;
     }
     case "EMAIL": {
       const address = inner.trim();
@@ -261,7 +275,9 @@ function atomFor(head: Head, inner: string): AtomTok | null {
       const site = option!.toLowerCase();
       if (inner.length > MAX_LITERAL_CONTENT) return null;
       const media = resolveMedia(site, inner.trim());
-      return media ? { html: mediaHtml(site, media) } : null;
+      return media
+        ? { html: mediaHtml(site, media), href: media.url, id: site, embed: media.kind }
+        : null;
     }
     case "ATTACH": {
       const id = inner.trim();
@@ -384,12 +400,26 @@ export function pair(toks: Tok[], deadline: Deadline): void {
     if (isRich(toks[index]!)) rich++;
   };
 
+  // A rich-code opener with no closer left after it is text, and must not turn later tags into text.
+  const closable = new Set<number>();
+  const closers = new Map<string, number>();
+  for (let index = toks.length - 1; index >= 0; index--) {
+    const tok = toks[index]!;
+    if (tok.kind === "close") {
+      closers.set(tok.name, (closers.get(tok.name) ?? 0) + 1);
+    } else if (tok.kind === "open" && isRich(tok) && closers.get(tok.name)) {
+      closers.set(tok.name, closers.get(tok.name)! - 1);
+      closable.add(index);
+    }
+  }
+
   for (let index = 0; index < toks.length; index++) {
     deadline.tick();
     const tok = toks[index]!;
     if (tok.kind === "atom") continue;
     const top = stack[stack.length - 1];
     if (tok.kind === "open") {
+      if (isRich(tok) && !closable.has(index)) continue;
       if (rich > 0 && BLOCK_NAMES.has(tok.name)) continue;
       if (tok.name === "*") {
         if (!top || !open.get("LIST")) continue;

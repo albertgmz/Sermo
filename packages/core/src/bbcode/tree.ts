@@ -1,6 +1,6 @@
 import { ValidationError } from "../errors";
 import type { Deadline } from "./deadline";
-import type { Tok } from "./scan";
+import { ADDRESS_CHAR, type Tok, URL_PATTERN } from "./scan";
 
 const MAX_QUOTE_DEPTH = 10;
 const MAX_SPOILER_DEPTH = 10;
@@ -85,9 +85,10 @@ const tooDeep = (limit: number) =>
  * What the text between tags can hold besides text: a bare address (http, https or www) becomes a
  * link and `@name` or `@"two words"` a mention. One pass, every part bounded.
  */
-const INLINE_MARKS =
-  /(?<![\p{L}\p{N}_])(?:https?:\/\/|www\.)[^\s<>"'`\\[\]]+|(?<=^|[\s\p{P}])@(?:"([\p{L}\p{N}_][\p{L}\p{N} ._-]{1,30}[\p{L}\p{N}_])"|([\p{L}\p{N}_][\p{L}\p{N}._-]{1,30}[\p{L}\p{N}_]))(?![\p{L}\p{N}_-])/giu;
-const BARE_URL = /^https?:\/\/[^\s<>"'`\\]{1,2000}$/i;
+const INLINE_MARKS = new RegExp(
+  `(?<![\\p{L}\\p{N}_])(?:https?:\\/\\/|www\\.)${ADDRESS_CHAR}+|(?<=^|[\\s\\p{P}])@(?:"([\\p{L}\\p{N}_][\\p{L}\\p{N} ._-]{1,30}[\\p{L}\\p{N}_])"|([\\p{L}\\p{N}_][\\p{L}\\p{N}._-]{1,30}[\\p{L}\\p{N}_]))(?![\\p{L}\\p{N}_-])`,
+  "giu",
+);
 
 /** The address without the punctuation a sentence puts after it. */
 function trimAddress(address: string): string {
@@ -137,7 +138,7 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
   const stack: Frame[] = [root];
 
   const splitText = (frame: Frame, text: string): void => {
-    if (frame.rich || !/[@]|http|www\./.test(text)) {
+    if (frame.rich || !/@|http|www\./i.test(text)) {
       frame.kids.push({ t: "text", text });
       return;
     }
@@ -161,8 +162,8 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
         continue;
       }
       const address = trimAddress(found[0]);
-      const href = address.startsWith("www.") ? `https://${address}` : address;
-      if (!BARE_URL.test(href)) continue;
+      const href = /^www\./i.test(address) ? `https://${address}` : address;
+      if (!URL_PATTERN.test(href)) continue;
       if (from > last) frame.kids.push({ t: "text", text: text.slice(last, from) });
       frame.kids.push({ t: "link", href, text: address });
       last = from + address.length;
