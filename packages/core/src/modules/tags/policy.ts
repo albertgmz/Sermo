@@ -3,30 +3,35 @@ import type { Ctx } from "../../context";
 import { ForbiddenError } from "../../errors";
 import { can } from "../../permissions";
 import type { HashtagRules } from "../../render";
-import { resolveTagNames } from "./store";
+import { knownTagNames } from "./store";
 
 /**
  * Who may set the tags of a thread: the thread's author while it is unlocked, and staff (whoever
- * may edit any thread of the forum, or manage tags), each also holding tag.apply unless they
- * manage tags.
+ * may edit any thread of the forum, or manage tags), each also holding tag.apply (which a posting
+ * restriction takes away). It does not depend on the title-edit time limit or on the forum being
+ * read-only.
  */
 export function mayTag(
   ctx: Ctx,
   actor: Actor,
   thread: { node_id: number; user_id: number; is_locked: number },
 ): boolean {
-  if (can(ctx, actor, "tag.manage")) return true;
   if (!can(ctx, actor, "tag.apply")) return false;
   return (
+    can(ctx, actor, "tag.manage") ||
     can(ctx, actor, "forum.editAny", { nodeId: thread.node_id }) ||
     (!thread.is_locked && thread.user_id === actorUserId(actor))
   );
 }
 
-/** A listed tag nobody used yet needs tag.create; one that exists (under any name) does not. */
+/**
+ * A listed tag nobody used yet needs tag.create; one the writer can see in use (under any name)
+ * does not. A tag used only where the writer cannot look counts as new, so the answer does not
+ * tell them it exists.
+ */
 export function requireTagCreate(ctx: Ctx, actor: Actor, keys: string[]): void {
   if (keys.length === 0 || can(ctx, actor, "tag.create")) return;
-  const known = resolveTagNames(ctx, keys);
+  const known = knownTagNames(ctx, actor, keys);
   const unknown = keys.filter((key) => !known.has(key));
   if (unknown.length > 0)
     throw new ForbiddenError(

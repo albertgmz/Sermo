@@ -48,6 +48,8 @@ export interface HashtagNode {
   /** As typed, with the `#`. */
   text: string;
   link: string | null;
+  /** In a spoiler or a quote: it may link where it is, but never tags the thread. */
+  hidden: boolean;
 }
 
 export type Node =
@@ -167,7 +169,13 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
         const tag = normalizeTag(found[3]!);
         if (!tag) continue;
         if (from > last) frame.kids.push({ t: "text", text: text.slice(last, from) });
-        const hashtag: HashtagNode = { t: "hashtag", tag, text: found[0], link: null };
+        const hashtag: HashtagNode = {
+          t: "hashtag",
+          tag,
+          text: found[0],
+          link: null,
+          hidden: frame.spoilers > 0 || frame.quotes > 0,
+        };
         hashtags.push(hashtag);
         frame.kids.push(hashtag);
         last = from + found[0].length;

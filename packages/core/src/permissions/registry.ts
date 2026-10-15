@@ -194,6 +194,7 @@ export const PERMISSIONS = {
     type: "flag",
     defaults: POSTERS,
     requiresAccount: true,
+    restriction: "posting",
   },
   /** Make a tag nobody used before: by listing it on a thread or typing a new #hashtag in an opening post. */
   "tag.create": {
@@ -202,6 +203,7 @@ export const PERMISSIONS = {
     type: "flag",
     defaults: POSTERS,
     requiresAccount: true,
+    restriction: "posting",
   },
   /** Rename, merge and delete tags (the tags screen of the staff panel). */
   "tag.manage": {

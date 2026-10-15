@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
+import { createTestContext, insertNode, insertUser, userActor } from "@sermo/core/testing";
+import { invalidate } from "../context";
+import { fillThreads } from "../modules/feed/fixtures.test";
 import { renderBbCode, renderContent, renderPlainText } from "../render";
 import { Deadline } from "./deadline";
 import { MAX_TAG_LENGTH, normalizeTag } from "./hashtag";
@@ -92,10 +94,32 @@ describe("which text is a hashtag", () => {
 
 describe("rendering a hashtag", () => {
   const ctx = createTestContext();
-  const actor = userActor(insertUser(ctx));
+  const user = insertUser(ctx);
+  const actor = userActor(user);
+  // Two tags in use in a forum the writer can open, and one used only in a forum nobody can.
+  const open = insertNode(ctx, {});
+  const closed = insertNode(ctx, {});
   ctx.sqlite
-    .prepare("INSERT INTO tags (name, created_at) VALUES ('café', ?1), ('hello', ?1)")
+    .prepare("INSERT INTO node_permissions (node_id, group_id, can_view) VALUES (?1, 2, 0)")
+    .run(closed.id);
+  invalidate(ctx, "node_tree");
+  invalidate(ctx, "permissions");
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO tags (name, created_at) VALUES ('café', ?1), ('hello', ?1), ('secret', ?1)",
+    )
     .run(ctx.now());
+  const use = (name: string, nodeId: number) => {
+    const [thread] = fillThreads(ctx, nodeId, user.id, 1);
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO thread_tags (thread_id, tag_id, added_by, sort_at, live, node_id, author_id, created_at) SELECT ?1, id, ?2, 1, 1, ?3, ?2, 1 FROM tags WHERE name = ?4",
+      )
+      .run(thread!, user.id, nodeId, name);
+  };
+  use("café", open.id);
+  use("hello", open.id);
+  use("secret", closed.id);
   const render = (source: string, hashtags = { create: false, slots: 0 }) =>
     renderContent(ctx, actor, source, { hashtags });
 
@@ -135,6 +159,35 @@ describe("rendering a hashtag", () => {
     expect(links.html).not.toContain('new1"');
   });
 
+  test("a tag used only in forums the writer cannot open is no tag to them", () => {
+    const hidden = render("#secret #hello");
+    expect(hidden.html).toBe(
+      '<p>#secret <a href="/tags/hello" class="hashtag" rel="nofollow ugc noopener">#hello</a></p>',
+    );
+    // A writer who may make tags gets the same answer for it as for a new name: a link, no more.
+    const made = render("#secret #fresh", { create: true, slots: 5 });
+    expect(made.html.match(/class="hashtag"/g)).toHaveLength(2);
+  });
+
+  test("a hashtag in a spoiler or a quote links where it is when the tag is known, and tags nothing", () => {
+    const result = render(
+      "#hello [SPOILER]#hello #fresh #café[/SPOILER] [QUOTE=bob]#fresh2 #café[/QUOTE]",
+      { create: true, slots: 5 },
+    );
+    // Only the hashtag in the open is a thread tag.
+    expect(result.hashtags).toEqual(["hello"]);
+    const inside = result.spoilers.join("");
+    expect(inside).toContain('href="/tags/hello"');
+    expect(inside).toContain('href="/tags/caf%C3%A9"');
+    expect(inside).not.toContain("/tags/fresh");
+    expect(result.html).not.toContain("/tags/fresh2");
+    expect(result.html).toContain('href="/tags/caf%C3%A9"');
+    // Alone in a spoiler, a new name stays text and takes no slot.
+    const alone = render("[SPOILER]#fresh[/SPOILER]", { create: true, slots: 5 });
+    expect(alone.hashtags).toEqual([]);
+    expect(alone.spoilers.join("")).not.toContain("/tags/");
+  });
+
   test("code, links and spoilers: only text outside the skipped parts links", () => {
     const html = render("[CODE]#hello[/CODE] [URL=https://a.example]#hello[/URL] #hello").html;
     expect(html.match(/class="hashtag"/g)).toHaveLength(1);
@@ -172,6 +225,29 @@ describe("rendering a hashtag", () => {
     const started = performance.now();
     renderContent(ctx, actor, source, { hashtags: { create: true, slots: 10 } });
     expect(performance.now() - started).toBeLessThan(500);
+  });
+});
+
+describe("what a name is", () => {
+  test("a run of # is no hashtag", () => {
+    expect(found("##x")).toEqual([]);
+    expect(found("## Title and #real")).toEqual(["real"]);
+    expect(found("###x ###")).toEqual([]);
+  });
+
+  test("a Greek final sigma is one spelling with the other", () => {
+    expect(normalizeTag("ΑΣ")).toBe("ασ");
+    expect(normalizeTag("ας")).toBe("ασ");
+    expect(found("#ΑΣ #ασ #ας")).toEqual(["ασ", "ασ", "ασ"]);
+  });
+
+  test("a name needs a letter that draws something", () => {
+    for (const filler of ["\u3164", "\u115F", "\u1160", "\uFFA0", "\u3164\u3164_1"])
+      expect(normalizeTag(filler), JSON.stringify(filler)).toBeNull();
+    expect(found("#\u3164 #\u115F\u1160")).toEqual([]);
+    // Combining marks and digits do not make a name either; a real letter does.
+    expect(normalizeTag("\u0301")).toBeNull();
+    expect(normalizeTag("\u3164a")).toBe("\u3164a");
   });
 });
 

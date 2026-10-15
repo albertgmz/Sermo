@@ -7,13 +7,13 @@ import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { requirePermission } from "../../permissions";
+import { currentActor, requirePermission } from "../../permissions";
 import { iso } from "../../time";
 import { threadValuesFor } from "../forums";
 import { requireSiteView, siteOpenToGuests } from "../members/site-access";
 import { appendModeratorLog } from "../moderation";
 import { seoForTag, TAG_INDEX_MIN_THREADS } from "../seo";
-import { hubReach, hubThreads } from "./hub";
+import { hubPage, hubReach, hubThreads } from "./hub";
 import { tagKeys } from "./store";
 
 type TagRow = { id: number; name: string; thread_count: number; created_at: number };
@@ -102,21 +102,31 @@ const tagsThreadsOp = implement(contracts.tagsThreads, (ctx, actor, input) => {
   const cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
     : null;
-  const rows = hubThreads(ctx, hubReach(ctx, actor), tag.id, cursor, input.limit + 1);
+  const { rows, resume } = hubPage(ctx, hubReach(ctx, actor), tag.id, cursor, input.limit + 1);
   const page = rows.slice(0, input.limit);
   // The first page of a tag with nothing to show is a missing page, as in tags.get.
   if (page.length === 0 && !cursor) throw new NotFoundError();
   const last = page.at(-1);
   return {
     items: threadValuesFor(ctx, actor, page),
-    nextCursor: rows.length > input.limit && last ? encodeCursor([last.sort_at, last.id]) : null,
+    // A page that spent its budget on threads the viewer cannot see goes on from where it stopped.
+    nextCursor:
+      rows.length > input.limit && last
+        ? encodeCursor([last.sort_at, last.id])
+        : resume
+          ? encodeCursor(resume)
+          : null,
   };
 });
 
 const tagsListOp = implement(contracts.tagsList, (ctx, actor, input) => {
   requirePermission(ctx, actor, "tag.manage");
   const cursor = input.cursor ? decodeCursor(input.cursor, cursorShape)[0] : "";
-  const prefix = (input.query ?? "").replace(/^#/, "").normalize("NFC").toLowerCase();
+  const prefix = (input.query ?? "")
+    .replace(/^#/, "")
+    .normalize("NFC")
+    .toLowerCase()
+    .replaceAll("ς", "σ");
   const rows = prepared(ctx, "tags.list", () =>
     ctx.sqlite.prepare<TagRow, [string, string, string, number]>(adminTagSql.list),
   ).all(cursor, prefix, prefix + AFTER_ALL, input.limit + 1);
@@ -138,6 +148,7 @@ const tagsRenameOp = implement(contracts.tagsRename, (ctx, actor, input) => {
   requirePermission(ctx, actor, "tag.manage");
   const [key] = tagKeys([input.name]);
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "tag.manage");
     const row = tagRow(ctx, input.tagId);
     if (row.name === key) return adminValues(ctx, [row])[0]!;
     requireFreeName(ctx, key!, row.id);
@@ -156,13 +167,14 @@ const tagsMergeOp = implement(contracts.tagsMerge, (ctx, actor, input) => {
   if (input.tagId === input.intoTagId)
     throw new ValidationError("Choose a tag other than the one being merged.");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "tag.manage");
     const from = tagRow(ctx, input.tagId);
     const into = tagRow(ctx, input.intoTagId);
     // Inserts and deletes, not an update of tag_id: the triggers keep the counters.
     ctx.sqlite
       .prepare(
-        "INSERT INTO thread_tags (thread_id, tag_id, added_by, from_post, sort_at, created_at) " +
-          "SELECT thread_id, ?2, added_by, from_post, sort_at, created_at FROM thread_tags WHERE tag_id = ?1 " +
+        "INSERT INTO thread_tags (thread_id, tag_id, added_by, from_post, sort_at, live, node_id, author_id, created_at) " +
+          "SELECT thread_id, ?2, added_by, from_post, sort_at, live, node_id, author_id, created_at FROM thread_tags WHERE tag_id = ?1 " +
           "ON CONFLICT (thread_id, tag_id) DO UPDATE SET from_post = from_post AND excluded.from_post",
       )
       .run(from.id, into.id);
@@ -185,6 +197,7 @@ const tagsMergeOp = implement(contracts.tagsMerge, (ctx, actor, input) => {
 const tagsDeleteOp = implement(contracts.tagsDelete, (ctx, actor, input) => {
   requirePermission(ctx, actor, "tag.manage");
   writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "tag.manage");
     const row = tagRow(ctx, input.tagId);
     ctx.sqlite.prepare("DELETE FROM thread_tags WHERE tag_id = ?1").run(row.id);
     ctx.sqlite.prepare("DELETE FROM tags WHERE id = ?1").run(row.id);

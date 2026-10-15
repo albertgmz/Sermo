@@ -11,7 +11,7 @@ import { type Ctx, prepared } from "./context";
 import { ValidationError } from "./errors";
 import { MAX_BODY_LENGTH } from "./limits";
 import { readGates } from "./modules/forums/read-gates";
-import { resolveTagNames } from "./modules/tags/store";
+import { knownTagNames } from "./modules/tags/store";
 import {
   can,
   memberActor,
@@ -287,20 +287,31 @@ export function warmUpRenderer(): boolean {
  * links to its current name, a new one links when the rules let it be made, and every other
  * stays as typed. Returns the tags the text puts on its thread.
  */
-function resolveHashtags(ctx: Ctx, nodes: HashtagNode[], rules: HashtagRules): string[] {
-  const known = resolveTagNames(ctx, [...new Set(nodes.map((node) => node.tag))]);
+function resolveHashtags(
+  ctx: Ctx,
+  actor: Actor,
+  nodes: HashtagNode[],
+  rules: HashtagRules,
+): string[] {
+  // A tag the writer cannot see used anywhere is no tag to them: it is not linked and not refused,
+  // so a link or its absence says nothing about forums they cannot open.
+  const known = knownTagNames(ctx, actor, [...new Set(nodes.map((node) => node.tag))]);
   const chosen = new Map<string, string | null>();
   const attach: string[] = [];
+  // Hashtags in a spoiler or a quote are not what the post says in the open: they link where they
+  // are when the tag is known, and never make a tag or tag the thread.
   for (const node of nodes) {
-    if (!chosen.has(node.tag)) {
-      const name = known.get(node.tag);
-      const fits = attach.length < rules.slots;
-      const link = name ?? (rules.create && fits ? node.tag : null);
-      chosen.set(node.tag, link);
-      if (link !== null && fits && !attach.includes(link)) attach.push(link);
-    }
-    node.link = chosen.get(node.tag) ?? null;
+    if (node.hidden || chosen.has(node.tag)) continue;
+    const name = known.get(node.tag);
+    const fits = attach.length < rules.slots;
+    const link = name ?? (rules.create && fits ? node.tag : null);
+    chosen.set(node.tag, link);
+    if (link !== null && fits && !attach.includes(link)) attach.push(link);
   }
+  for (const node of nodes)
+    node.link = node.hidden
+      ? (known.get(node.tag) ?? chosen.get(node.tag) ?? null)
+      : (chosen.get(node.tag) ?? null);
   return attach;
 }
 
@@ -401,7 +412,8 @@ function renderOnce(
       }
     }
     mentionedUserIds.push(...accepted);
-    if (timing.hashtags) hashtags.push(...resolveHashtags(ctx, tree.hashtags, timing.hashtags));
+    if (timing.hashtags)
+      hashtags.push(...resolveHashtags(ctx, actor, tree.hashtags, timing.hashtags));
 
     const quoteIds = [...new Set(tree.quotes.map((el) => el.quote!.postId!))];
     const rows = quoteIds.length

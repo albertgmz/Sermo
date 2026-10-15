@@ -102,11 +102,12 @@ export const contentSpecs: readonly Spec[] = [
       "purpose = 'attachment' AND deleted_at IS NULL AND visibility != 'unattached'",
     ),
   ),
-  // The tags the member has put on threads that still carry them: a counter on the member's row
-  // that triggers on thread_tags keep, so it is read like the awards held, never counted.
+  // The tags the member has put on threads that are visible and still carry them (as post_count
+  // counts visible posts of visible threads): a counter on the member's row that triggers keep,
+  // so it is read like the awards held, never counted.
   refreshing(
     withValue("tags_added_at_least", "atLeast", "count", "member", (f, v) => f.tagCount >= v),
-    ["content.created", "content.edited"],
+    ["content.created", "content.edited", "content.state_changed", "content.deleted"],
     taggers,
   ),
   counted("bookmarks_at_least", countOf("bookmarks", "user_id", "bookmarks_user")),

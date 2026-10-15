@@ -156,7 +156,13 @@ describe("tags of a thread", () => {
       w.call("threads.update", w.alice, { threadId: created.thread.id }),
     ).rejects.toThrow(ValidationError);
     // Someone who may set tags but not the title can still set the tags.
-    const manager = customMember(w.ctx, ["tag.manage", "tag.create", "site.view", "node.view"]);
+    const manager = customMember(w.ctx, [
+      "tag.manage",
+      "tag.apply",
+      "tag.create",
+      "site.view",
+      "node.view",
+    ]);
     await w.call("threads.update", manager.actor, { threadId: created.thread.id, tags: ["x"] });
     await expect(
       w.call("threads.update", manager.actor, { threadId: created.thread.id, title: "No" }),
@@ -274,7 +280,7 @@ describe("permissions: create, apply, manage", () => {
     const w = world();
     const created = await tagged(w, w.alice, "One", ["old"]);
     const tagId = tagRows(w).length && (await idOf(w, "old"));
-    const manage = customMember(w.ctx, ["tag.manage"]);
+    const manage = customMember(w.ctx, ["tag.manage", "tag.apply"]);
     for (const [name, input] of [
       ["tags.list", {}],
       ["tags.rename", { tagId, name: "new" }],
@@ -434,11 +440,23 @@ describe("the tag page", () => {
 
   test("the page's query reads the tag's index, not the table", () => {
     const w = world();
-    expectNoTableScan(
-      w.ctx,
-      hubSql(),
-      [1, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, "[1]", "[]", "[]", "[]", 5, 21, "[1]"],
-      { allowTempBTree: false },
+    const from = [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
+    // Each stream seeks its own index and sorts nothing: the live threads, the hidden ones, the
+    // viewer's own. A pile of deleted threads is never in the way of the live ones.
+    expectNoTableScan(w.ctx, hubSql.byLive, [1, 1, ...from, 21]);
+    expectNoTableScan(w.ctx, hubSql.byLive, [1, 0, ...from, 21]);
+    expectNoTableScan(w.ctx, hubSql.byAuthor, [1, 5, ...from, 21]);
+    const plan = (sql: string, ...params: number[]) =>
+      w.ctx.sqlite
+        .prepare<{ detail: string }, number[]>(`EXPLAIN QUERY PLAN ${sql}`)
+        .all(...params)
+        .map((row) => row.detail)
+        .join("\n");
+    expect(plan(hubSql.byLive, 1, 1, ...from, 21)).toContain(
+      "thread_tags_hub (tag_id=? AND live=?",
+    );
+    expect(plan(hubSql.byAuthor, 1, 5, ...from, 21)).toContain(
+      "thread_tags_author (tag_id=? AND author_id=?",
     );
   });
 });
@@ -692,6 +710,7 @@ describe("the statements read indexes", () => {
   test("names, aliases, a thread's tags and the admin list", () => {
     const w = world();
     expectNoTableScan(w.ctx, tagSql.resolve, ['["a","b"]']);
+    expectNoTableScan(w.ctx, tagSql.known, ['["a","b"]', "[1,2,3]"]);
     expectNoTableScan(w.ctx, tagSql.idByName, ["a"]);
     expectNoTableScan(w.ctx, tagSql.idByAlias, ["a"]);
     expectNoTableScan(w.ctx, tagSql.rows, [1]);
@@ -801,7 +820,13 @@ describe("accounting for edits", () => {
   test("staff who may only manage tags are logged when they change another member's thread", async () => {
     const w = world();
     const created = await tagged(w, w.alice, "T", ["a"]);
-    const manager = customMember(w.ctx, ["tag.manage", "tag.create", "site.view", "node.view"]);
+    const manager = customMember(w.ctx, [
+      "tag.manage",
+      "tag.apply",
+      "tag.create",
+      "site.view",
+      "node.view",
+    ]);
     await w.call("threads.update", manager.actor, { threadId: created.thread.id, tags: ["b"] });
     const logged = w.ctx.sqlite
       .prepare<{ action: string; actor_id: number }, []>(

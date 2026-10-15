@@ -1672,6 +1672,9 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
         actorUserId(actor)!,
         wantedTags,
         can(ctx, moderator, "tag.create"),
+        // The tags the opening post's hashtags put there are its text: left as they are for
+        // someone who cannot read it, who was never shown them.
+        !readGates(ctx, moderator).reads(current.node_id, current.user_id),
       );
     }
     if (input.prefixId != null && input.prefixId !== current.prefix_id)

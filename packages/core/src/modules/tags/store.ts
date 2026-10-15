@@ -1,12 +1,15 @@
+import type { Actor } from "../../actor";
 import { normalizeTag } from "../../bbcode/hashtag";
 import { type Ctx, prepared } from "../../context";
 import { ConflictError, ValidationError } from "../../errors";
 import { MAX_THREAD_TAGS } from "../../limits";
+import { viewableNodeIds } from "../../permissions";
 
 /**
  * The rows behind tags: names, aliases and the tags of a thread. Everything here runs inside the
  * caller's transaction when it writes; permissions are decided by the callers. Counters
- * (tags.thread_count, users.tag_count) and thread_tags.sort_at are kept by triggers.
+ * (tags.thread_count, users.tag_count) and the copies of thread columns in thread_tags (sort_at,
+ * live, node_id) are kept by triggers.
  */
 
 type Params = (string | number | null)[];
@@ -17,18 +20,30 @@ export const tagSql = {
     "SELECT n.value AS typed, t.name AS name FROM json_each(?1) n JOIN tags t ON t.name = n.value " +
     "UNION ALL SELECT n.value AS typed, t.name AS name FROM json_each(?1) n " +
     "JOIN tag_aliases a ON a.name = n.value JOIN tags t ON t.id = a.tag_id",
+  /**
+   * The same, for the tags used in a forum of `?2` (a JSON list): a seek on thread_tags_node for
+   * each forum, whatever the number of threads. A tag used only elsewhere is not there.
+   */
+  known:
+    "SELECT n.value AS typed, t.name AS name FROM json_each(?1) n JOIN tags t ON t.name = n.value " +
+    "WHERE EXISTS (SELECT 1 FROM thread_tags tt WHERE tt.tag_id = t.id AND tt.node_id IN (SELECT value FROM json_each(?2))) " +
+    "UNION ALL SELECT n.value AS typed, t.name AS name FROM json_each(?1) n " +
+    "JOIN tag_aliases a ON a.name = n.value JOIN tags t ON t.id = a.tag_id " +
+    "WHERE EXISTS (SELECT 1 FROM thread_tags tt WHERE tt.tag_id = t.id AND tt.node_id IN (SELECT value FROM json_each(?2)))",
   idByName: "SELECT id FROM tags WHERE name = ?1",
   idByAlias: "SELECT tag_id AS id FROM tag_aliases WHERE name = ?1",
   insertTag: "INSERT INTO tags (name, created_by, created_at) VALUES (?1, ?2, ?3) RETURNING id",
   insertThreadTag:
-    "INSERT INTO thread_tags (thread_id, tag_id, added_by, from_post, sort_at, created_at) " +
-    "SELECT ?1, ?2, ?3, ?4, t.sort_at, ?5 FROM threads t WHERE t.id = ?1 " +
+    "INSERT INTO thread_tags (thread_id, tag_id, added_by, from_post, sort_at, live, node_id, author_id, created_at) " +
+    "SELECT ?1, ?2, ?3, ?4, t.sort_at, t.state = 'visible' AND t.merged_into_id IS NULL, t.node_id, t.user_id, ?5 FROM threads t WHERE t.id = ?1 " +
     "ON CONFLICT (thread_id, tag_id) DO NOTHING",
   rows: "SELECT tt.tag_id, tt.from_post, t.name FROM thread_tags tt JOIN tags t ON t.id = tt.tag_id WHERE tt.thread_id = ?1",
   removeRows:
     "DELETE FROM thread_tags WHERE thread_id = ?1 AND tag_id IN (SELECT value FROM json_each(?2))",
+  // A tag that has old names is kept: they are curated, and a thread may carry the tag again.
   dropUnused:
-    "DELETE FROM tags WHERE thread_count <= 0 AND id IN (SELECT value FROM json_each(?1))",
+    "DELETE FROM tags WHERE thread_count <= 0 AND id IN (SELECT value FROM json_each(?1)) " +
+    "AND NOT EXISTS (SELECT 1 FROM tag_aliases a WHERE a.tag_id = tags.id)",
   names:
     "SELECT t.name FROM thread_tags tt JOIN tags t ON t.id = tt.tag_id WHERE tt.thread_id = ?1 AND (?2 = 1 OR tt.from_post = 0) ORDER BY t.name",
 };
@@ -44,6 +59,22 @@ export function resolveTagNames(ctx: Ctx, names: string[]): Map<string, string> 
       ctx.sqlite.prepare<{ typed: string; name: string }, [string]>(tagSql.resolve),
     )
       .all(JSON.stringify(names))
+      .map((row) => [row.typed, row.name]),
+  );
+}
+
+/**
+ * The names a writer may link or list: the tags used in a forum they can open (any state of the
+ * thread), under the name they have now. A tag used only where they cannot look is no tag to
+ * them, so neither a link nor a refusal tells them it exists. One query, however many names.
+ */
+export function knownTagNames(ctx: Ctx, actor: Actor, names: string[]): Map<string, string> {
+  if (names.length === 0) return new Map();
+  return new Map(
+    prepared(ctx, "tags.known", () =>
+      ctx.sqlite.prepare<{ typed: string; name: string }, [string, string]>(tagSql.known),
+    )
+      .all(JSON.stringify(names), JSON.stringify(viewableNodeIds(ctx, actor)))
       .map((row) => [row.typed, row.name]),
   );
 }
@@ -162,13 +193,17 @@ export function addThreadTags(
   requireRoom(ctx, threadId);
 }
 
-/** Makes `names` the whole list of tags a thread carries (by hand). */
+/**
+ * Makes `names` the whole list of tags a thread carries (by hand). Whoever may not read the
+ * thread's text (`keepPostTags`) never saw the tags its hashtags put there, so those stay.
+ */
 export function replaceThreadTags(
   ctx: Ctx,
   threadId: number,
   userId: number,
   names: string[],
   create: boolean,
+  keepPostTags: boolean,
 ): void {
   names = canonicalKeys(ctx, names);
   const wanted = new Set(names);
@@ -176,7 +211,7 @@ export function replaceThreadTags(
     ctx.sqlite.prepare<{ tag_id: number; from_post: number; name: string }, [number]>(tagSql.rows),
   )
     .all(threadId)
-    .filter((row) => !wanted.has(row.name))
+    .filter((row) => !wanted.has(row.name) && !(keepPostTags && row.from_post === 1))
     .map((row) => row.tag_id);
   removeThreadTags(ctx, threadId, gone);
   addThreadTags(

@@ -2295,11 +2295,7 @@ export const tags = sqliteTable(
     createdBy: integer("created_by"),
     createdAt: integer("created_at").notNull(),
   },
-  (t) => [
-    uniqueIndex("tags_name").on(t.name),
-    // The sitemap: tags with enough threads.
-    index("tags_thread_count").on(t.threadCount, t.id),
-  ],
+  (t) => [uniqueIndex("tags_name").on(t.name)],
 );
 
 /** Old names of a renamed or merged tag: stored links and typed hashtags still reach it. */
@@ -2317,9 +2313,11 @@ export const tagAliases = sqliteTable(
 
 /**
  * The tags of a thread. `from_post` marks the ones the opening post's hashtags put there (an
- * edit of that post takes them off again); `sort_at` copies threads.sort_at (a trigger keeps it)
- * so a tag page pages by activity without reading every thread. Triggers also keep
- * tags.thread_count and users.tag_count.
+ * edit of that post takes them off again). Copies of the thread's own columns, kept by triggers,
+ * let the tag page seek what a viewer may see without reading every thread: `sort_at`
+ * (threads.sort_at), `live` (the thread is visible and not merged away), `node_id` and
+ * `author_id`. Triggers also keep tags.thread_count and users.tag_count (which counts only the
+ * rows of live threads).
  */
 export const threadTags = sqliteTable(
   "thread_tags",
@@ -2334,12 +2332,19 @@ export const threadTags = sqliteTable(
     addedBy: integer("added_by"),
     fromPost: bool("from_post").notNull().default(false),
     sortAt: integer("sort_at").notNull(),
+    live: bool("live").notNull().default(true),
+    nodeId: integer("node_id").notNull(),
+    authorId: integer("author_id").notNull(),
     createdAt: integer("created_at").notNull(),
   },
   (t) => [
     uniqueIndex("thread_tags_thread_tag").on(t.threadId, t.tagId),
-    // The tag page: WHERE tag_id = ? ORDER BY sort_at DESC, thread_id DESC.
-    index("thread_tags_hub").on(t.tagId, t.sortAt, t.threadId),
+    // The tag page: WHERE tag_id = ? AND live = ? ORDER BY sort_at DESC, thread_id DESC.
+    index("thread_tags_hub").on(t.tagId, t.live, t.sortAt, t.threadId),
+    // The author's own threads of a tag, whatever their state.
+    index("thread_tags_author").on(t.tagId, t.authorId, t.sortAt, t.threadId),
+    // Is the tag used in a forum the writer can see?
+    index("thread_tags_node").on(t.tagId, t.nodeId),
   ],
 );
 
