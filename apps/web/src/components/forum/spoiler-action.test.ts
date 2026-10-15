@@ -1,5 +1,6 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { serializeLiteCookie } from "@/lib/lite-preferences";
+import { translator } from "@/lib/test-intl";
 
 // Only the request and the network are stood in for; the client, the LITE filter and the contract
 // are the real ones.
@@ -15,7 +16,7 @@ mock.module("next/headers", () => ({
 }));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
-  getTranslations: async () => (key: string) => key,
+  getTranslations: async (namespace: string) => translator(namespace),
 }));
 const { revealSpoiler } = await import("./spoiler-action");
 

@@ -8,7 +8,12 @@ import {
 } from "@/components/forum/spoiler-reveal";
 import { placeAttachments, type TaggedAttachment } from "@/lib/attachment-tags";
 import { stripHtmlMedia } from "@/lib/lite-markdown";
-import { getLiteOrigin, getLiteState, liteBlocks } from "@/lib/lite-mode";
+import {
+  getLiteLabel,
+  getLiteOrigin,
+  getLiteState,
+  liteBlocks,
+} from "@/lib/lite-mode";
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 import { cn } from "@/lib/utils";
 
@@ -44,13 +49,14 @@ export async function HtmlContent(props: {
   content?: SpoilerContent;
   attachments?: TaggedAttachment[];
 }) {
-  const [state, origin, t] = await Promise.all([
+  const [state, origin, label, t] = await Promise.all([
     getLiteState(),
     getLiteOrigin(),
+    getLiteLabel(),
     getTranslations("forum.bbCode"),
   ]);
   let html = withSpoilerButtons(
-    stripHtmlMedia(props.children, state, origin),
+    stripHtmlMedia(props.children, state, origin, label),
     props.content !== undefined,
   );
   if (html.includes("bb-attach")) {

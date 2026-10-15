@@ -270,6 +270,12 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+// What the placeholder of a blocked picture address says, in the visitor's language.
+const PLACEHOLDER_LABEL: Record<Locale, string> = {
+  en: "DATA SAVER",
+  es: "AHORRO DE DATOS",
+};
+
 function notFound(request: NextRequest, locale: Locale) {
   const response = NextResponse.rewrite(
     new URL(`/${locale}/not-found`, request.url),
@@ -291,8 +297,9 @@ function legacyForumRedirect(request: NextRequest) {
   return NextResponse.redirect(target, 308);
 }
 
-// The Data saver's page used to be called LITE mode, and its addresses said so. Query and
-// language are kept.
+// The Data saver's page used to be called LITE mode, and its addresses said so. The query is
+// kept, and an address that names a language (`/es/lite`) goes straight to the new one without
+// it, as the prefix redirect would have done.
 const DATA_SAVER_ADDRESSES: Record<string, string> = {
   "/lite": "/data-saver",
   "/account/lite": "/account/data-saver",
@@ -301,7 +308,9 @@ const DATA_SAVER_ADDRESSES: Record<string, string> = {
 function dataSaverRedirect(request: NextRequest) {
   if (request.method !== "GET" && request.method !== "HEAD") return undefined;
   const { pathname } = request.nextUrl;
-  const current = DATA_SAVER_ADDRESSES[pathname];
+  const locale = LOCALES.find((code) => pathname.startsWith(`/${code}/`));
+  const current =
+    DATA_SAVER_ADDRESSES[locale ? pathname.slice(locale.length + 1) : pathname];
   if (!current) return undefined;
   const target = request.nextUrl.clone();
   target.pathname = current;
@@ -322,13 +331,15 @@ async function visitorOf(request: NextRequest, hasSession: boolean) {
 async function handleRequest(request: NextRequest) {
   // The API is served by the rewrite in next.config.ts; nothing here applies to it.
   if (request.nextUrl.pathname.startsWith("/api/")) return;
+  const renamed = dataSaverRedirect(request);
+  if (renamed) return renamed;
   const prefixed = localePrefixRedirect(request);
   if (prefixed) return prefixed;
   const locale = await localeOf(request);
   const lite = parseLiteCookieHeader(request.headers.get("cookie") ?? "");
   if (blocksImageRequest(lite, request.nextUrl.pathname)) {
     return new NextResponse(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90" viewBox="0 0 160 90"><text x="80" y="45" text-anchor="middle" dominant-baseline="middle" fill="var(--muted-foreground, currentColor)">DATA SAVER</text></svg>',
+      `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90" viewBox="0 0 160 90"><text x="80" y="45" text-anchor="middle" dominant-baseline="middle" font-size="13" fill="var(--muted-foreground, currentColor)">${PLACEHOLDER_LABEL[locale]}</text></svg>`,
       {
         status: 200,
         headers: {
@@ -363,8 +374,6 @@ async function handleRequest(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/_next/")) return;
   const legacy = legacyForumRedirect(request);
   if (legacy) return legacy;
-  const renamed = dataSaverRedirect(request);
-  if (renamed) return renamed;
   if (isUnknownUnsafePath(request.nextUrl.pathname))
     return notFound(request, locale);
   let pathname: string;

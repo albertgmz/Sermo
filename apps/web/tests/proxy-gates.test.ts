@@ -470,6 +470,10 @@ test("the old LITE mode addresses go to the Data saver ones with a 308, keeping 
     ["/lite?saved=1", "/data-saver?saved=1"],
     ["/account/lite", "/account/data-saver"],
     ["/account/lite?saved=1", "/account/data-saver?saved=1"],
+    // A language in the address goes in the same single hop, and is not kept in it.
+    ["/es/lite", "/data-saver"],
+    ["/en/lite?saved=1", "/data-saver?saved=1"],
+    ["/es/account/lite?x=1", "/account/data-saver?x=1"],
   ]) {
     for (const cookie of [undefined, SESSION]) {
       const response = await ask(from, { cookie });
@@ -484,6 +488,16 @@ test("the old LITE mode addresses go to the Data saver ones with a 308, keeping 
   // An action posts to the page it is on: nothing is redirected.
   const posted = await ask("/lite", { method: "POST" });
   assert.notEqual(posted?.status, 308);
+});
+
+test("a blocked picture address answers with the placeholder in the visitor's language", async () => {
+  reset();
+  const english = await ask("/pictures/tobi.jpg", { cookie: "forum_lite=all" });
+  assert.ok((await english?.text())?.includes(">DATA SAVER<"));
+  const spanish = await ask("/pictures/tobi.jpg", {
+    cookie: "forum_lite=all; forum_locale=es",
+  });
+  assert.ok((await spanish?.text())?.includes(">AHORRO DE DATOS<"));
 });
 
 test("the legacy LITE cookie is replaced on a page that carries the header", async () => {

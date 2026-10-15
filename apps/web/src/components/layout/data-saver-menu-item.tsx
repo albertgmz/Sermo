@@ -18,7 +18,10 @@ export function DataSaverMenuItem({
 }) {
   const t = useTranslations("lite.menuItem");
   return (
-    <DropdownMenuItem className="min-h-10" render={<Link href={href} />}>
+    <DropdownMenuItem
+      className="min-h-10 md:min-h-8"
+      render={<Link href={href} />}
+    >
       <Leaf />
       <span>{t("label")}</span>
       <span className="ml-auto text-xs text-muted-foreground">

@@ -9,6 +9,7 @@ import { blocks, type LiteState } from "./lite-preferences";
 const parser = unified().use(remarkParse).use(remarkGfm);
 const ALL: LiteState = { master: true, blocked: [] };
 type Edit = { start: number; end: number; text: string };
+// The English label, for a caller that does not know the visitor's language.
 const LABEL = "DATA SAVER";
 
 const MEDIA = new Set([
@@ -144,8 +145,9 @@ export function stripMarkdownHtml(
   markdown: string,
   state: LiteState,
   origin?: string,
+  label = LABEL,
 ): string {
-  return filterMarkdown(markdown, state, origin, false, LABEL);
+  return filterMarkdown(markdown, state, origin, false, label);
 }
 
 // Edit source ranges so links and the rest of the member's formatting survive.
@@ -246,10 +248,11 @@ export function stripHtmlMedia(
   html: string,
   state: LiteState,
   origin?: string,
+  label = LABEL,
 ): string {
   if (!state.master && state.blocked.length === 0) return html;
   return applyEdits(
     html,
-    htmlEdits([{ value: html, offset: 0 }], state, LABEL, origin),
+    htmlEdits([{ value: html, offset: 0 }], state, label, origin),
   );
 }

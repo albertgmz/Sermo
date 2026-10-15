@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { stripMarkdownHtml, stripMarkdownImages } from "./lite-markdown";
+import {
+  stripHtmlMedia,
+  stripMarkdownHtml,
+  stripMarkdownImages,
+} from "./lite-markdown";
 import { parseLiteCookie } from "./lite-preferences";
 
 test("strips inline and nested image syntax without changing links", () => {
@@ -275,5 +279,22 @@ test("the label of a removed picture can be left out", () => {
       "",
     ),
     "Hi   x\n\n\n\n",
+  );
+});
+
+test("a caller can name the label that stands in for a blocked picture", () => {
+  const html = '<p>a <img src="/pictures/ring.png"> b</p>';
+  assert.equal(
+    stripHtmlMedia(html, { master: true, blocked: [] }, undefined, "AHORRO"),
+    "<p>a AHORRO b</p>",
+  );
+  assert.equal(
+    stripMarkdownHtml(
+      'a <img src="/pictures/ring.png"> b',
+      { master: true, blocked: [] },
+      undefined,
+      "AHORRO",
+    ),
+    "a AHORRO b",
   );
 });

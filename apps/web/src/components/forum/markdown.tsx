@@ -4,7 +4,7 @@ import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { MarkdownContent } from "@/components/forum/markdown-content";
 import { blocksContentImage } from "@/lib/lite-images";
 import { stripMarkdownHtml } from "@/lib/lite-markdown";
-import { getLiteOrigin, getLiteState } from "@/lib/lite-mode";
+import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
 
 async function MarkdownImage({ alt, ...props }: React.ComponentProps<"img">) {
   const [state, origin] = await Promise.all([getLiteState(), getLiteOrigin()]);
@@ -33,10 +33,14 @@ export async function Markdown(props: {
   children: string;
   className?: string;
 }) {
-  const [state, origin] = await Promise.all([getLiteState(), getLiteOrigin()]);
+  const [state, origin, label] = await Promise.all([
+    getLiteState(),
+    getLiteOrigin(),
+    getLiteLabel(),
+  ]);
   return (
     <MarkdownContent className={props.className} images={images}>
-      {stripMarkdownHtml(props.children, state, origin)}
+      {stripMarkdownHtml(props.children, state, origin, label)}
     </MarkdownContent>
   );
 }

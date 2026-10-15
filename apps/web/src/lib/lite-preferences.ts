@@ -109,24 +109,22 @@ export function parseLiteCookieHeader(header: string): LiteState {
   return parseLiteCookie(value);
 }
 
-// The settings form submits its whole selection with every save, so for it the
-// submitted categories are stored whatever the mode. The avatar-menu toggle
-// submits only a mode and keeps the stored selection.
+// The settings form submits its whole selection with every save, so the submitted
+// categories are stored for `all` and `custom`; `off` keeps the stored selection.
 export function updateLiteState(
   current: LiteState,
   mode: FormDataEntryValue | null,
   categories: FormDataEntryValue[],
-  fromSettings = false,
 ): LiteState | null {
   if (mode !== "all" && mode !== "custom" && mode !== "off") return null;
   return {
     master: mode === "all",
     blocked:
-      mode === "custom" || (fromSettings && mode === "all")
-        ? LITE_CATEGORIES.filter(({ key }) => categories.includes(key)).map(
+      mode === "off"
+        ? current.blocked
+        : LITE_CATEGORIES.filter(({ key }) => categories.includes(key)).map(
             ({ key }) => key,
-          )
-        : current.blocked,
+          ),
   };
 }
 

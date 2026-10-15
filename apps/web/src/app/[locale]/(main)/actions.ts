@@ -42,7 +42,6 @@ export async function setLiteMode(formData: FormData) {
     parseLiteCookieHeader(store.toString()),
     mode,
     categories,
-    formData.get("source") === "settings",
   );
   if (state) {
     const value = serializeLiteCookie(state);

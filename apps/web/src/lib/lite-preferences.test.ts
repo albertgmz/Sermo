@@ -13,9 +13,9 @@ import {
   updateLiteState,
 } from "./lite-preferences";
 
-test("master toggles remember the custom selection", () => {
+test("the master switch keeps the submitted selection, and off keeps the stored one", () => {
   const custom = parseLiteCookie("frames.postImages");
-  const on = updateLiteState(custom, "all", []);
+  const on = updateLiteState(custom, "all", ["frames", "postImages"]);
   assert.ok(on);
   assert.equal(serializeLiteCookie(on), "all.frames.postImages");
   assert.deepEqual(parseLiteCookie(serializeLiteCookie(on)), on);
@@ -167,47 +167,42 @@ test("every picture suffix is blocked under any selection", () => {
 
 test("a settings save with the master on stores the submitted categories", () => {
   const empty = parseLiteCookie();
-  const both = updateLiteState(empty, "all", ["frames", "avatars"], true);
+  const both = updateLiteState(empty, "all", ["frames", "avatars"]);
   assert.ok(both);
   assert.equal(serializeLiteCookie(both), "all.avatars.frames");
 
   // Unticking every category must be able to clear a stored selection.
   const stored = parseLiteCookie("avatars.frames");
-  const cleared = updateLiteState(stored, "all", [], true);
+  const cleared = updateLiteState(stored, "all", []);
   assert.deepEqual(cleared, { master: true, blocked: [] });
   assert.equal(serializeLiteCookie(cleared as LiteState), "all");
 
   // Unknown tokens are dropped, as for custom.
-  assert.deepEqual(updateLiteState(empty, "all", ["avatars", "nope"], true), {
+  assert.deepEqual(updateLiteState(empty, "all", ["avatars", "nope"]), {
     master: true,
     blocked: ["avatars"],
   });
 });
 
-test("the avatar-menu toggle keeps the stored selection", () => {
-  const stored = parseLiteCookie("avatars.frames");
-  assert.deepEqual(updateLiteState(stored, "all", []), {
-    master: true,
-    blocked: ["avatars", "frames"],
-  });
+test("turning the mode off keeps the stored selection", () => {
   assert.deepEqual(updateLiteState(parseLiteCookie("all.frames"), "off", []), {
     master: false,
     blocked: ["frames"],
   });
 });
 
-test("custom saves and invalid modes behave the same from the settings form", () => {
+test("custom saves and invalid modes", () => {
   const stored = parseLiteCookie("frames");
-  assert.deepEqual(updateLiteState(stored, "custom", ["avatars"], true), {
+  assert.deepEqual(updateLiteState(stored, "custom", ["avatars"]), {
     master: false,
     blocked: ["avatars"],
   });
-  assert.deepEqual(updateLiteState(stored, "custom", [], true), {
+  assert.deepEqual(updateLiteState(stored, "custom", []), {
     master: false,
     blocked: [],
   });
   for (const mode of [null, "", "ALL", "unknown"]) {
-    assert.equal(updateLiteState(stored, mode, ["avatars"], true), null);
+    assert.equal(updateLiteState(stored, mode, ["avatars"]), null);
   }
 });
 

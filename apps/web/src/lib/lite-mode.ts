@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies, headers } from "next/headers";
+import { getTranslations } from "next-intl/server";
 import { cache } from "react";
 import { stripMarkdownImages } from "@/lib/lite-markdown";
 import {
@@ -22,6 +23,11 @@ export const liteBlocks = cache(async (category: LiteCategory) => {
   return blocks(await getLiteState(), category);
 });
 
+// What stands in for a blocked picture, in the visitor's language.
+export const getLiteLabel = cache(async () => {
+  return (await getTranslations("lite.litePlaceholder"))("label");
+});
+
 export const getLiteOrigin = cache(async () => {
   const request = await headers();
   const host = request.get("x-forwarded-host") ?? request.get("host");
@@ -30,6 +36,10 @@ export const getLiteOrigin = cache(async () => {
 });
 
 export async function filterLiteMarkdown(markdown: string): Promise<string> {
-  const [state, origin] = await Promise.all([getLiteState(), getLiteOrigin()]);
-  return stripMarkdownImages(markdown, state, origin);
+  const [state, origin, label] = await Promise.all([
+    getLiteState(),
+    getLiteOrigin(),
+    getLiteLabel(),
+  ]);
+  return stripMarkdownImages(markdown, state, origin, label);
 }

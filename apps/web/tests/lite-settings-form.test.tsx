@@ -88,7 +88,6 @@ test("every editable control and the save button are disabled while the save is 
         .map(({ name, value }) => [name, value]),
     ).toEqual([
       ["returnTo", "/data-saver?saved=1"],
-      ["source", "settings"],
       ["mode", "custom"],
     ]);
   }
@@ -101,6 +100,5 @@ test("locking the controls leaves the submitted field set unchanged", () => {
     );
   }
   const names = controls(false, false).map((control) => control.name);
-  expect(names).toContain("source");
   expect(names).toContain("returnTo");
 });

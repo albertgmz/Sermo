@@ -2,7 +2,7 @@
 
 import { spoilersGet } from "@sermo/core/contracts";
 import { stripHtmlMedia } from "@/lib/lite-markdown";
-import { getLiteOrigin, getLiteState } from "@/lib/lite-mode";
+import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
@@ -21,13 +21,17 @@ export async function revealSpoiler(
   });
   if (!input.success) return null;
   try {
-    const [{ html }, state, origin] = await Promise.all([
+    const [{ html }, state, origin, label] = await Promise.all([
       call(spoilersGet, input.data),
       getLiteState(),
       getLiteOrigin(),
+      getLiteLabel(),
     ]);
     return {
-      html: withSpoilerButtons(stripHtmlMedia(html, state, origin), true),
+      html: withSpoilerButtons(
+        stripHtmlMedia(html, state, origin, label),
+        true,
+      ),
     };
   } catch (error) {
     if (error instanceof SermoError) return null;
