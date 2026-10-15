@@ -2361,3 +2361,19 @@ time and marking the five listed would not be "all". Bookmarks shows no count, b
 have no unread state. The staff panel's top bar uses the same menu; its badge is drawn at page load
 and does not poll. Known limits: a status draft is lost on Esc; neighbouring rows in the Account
 tab's two columns can start at different offsets, because only some links have icons.
+
+**Keyboard shortcuts.** Built on `@tanstack/react-hotkeys`, pinned at exactly 0.12.1 (MIT; it is
+pre-1.0, so expect API changes on upgrade). It handles sequences and ignores fields itself, and
+adds about 8 KB gzip, loaded once in the main layout for every visitor. `?` opens a help dialog
+listing every shortcut; `/` goes to search; `j` and `k` move between thread posts, conversation
+messages, feed cards and forum thread rows, stopping at the ends, and start from the window when
+the focused item has scrolled away; `r` focuses the reply editor; `c` follows the forum's New
+thread link, because the Create button is not built; `g h`, `g n` and `g c` go home, to
+notifications and to conversations. `Esc` and `Ctrl+\` stay native and are only listed. Nothing
+fires in a field, while a dialog or menu is open, with a modifier held, or for a key something else
+has already handled. A key is cancelled only when its shortcut did something, so browser type-ahead
+find keeps working. `/` acts only on the real `/` character, not on the key in that position on
+Spanish, German or French layouts. Members turn shortcuts off in Preferences
+(`users.keyboard_shortcuts`, default on, migration `0040`, carried by `auth.me`); guests have them
+on. Known limits: the staff panel and sign-in pages have no shortcuts; on non-Latin layouts letter
+keys can still match by position.

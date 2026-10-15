@@ -281,6 +281,13 @@
       "when": 1792054386034,
       "tag": "0039_thread_features",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1792058009754,
+      "tag": "0040_keyboard_shortcuts",
+      "breakpoints": true
     }
   ]
 }

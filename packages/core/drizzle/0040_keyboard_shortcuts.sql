@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `keyboard_shortcuts` integer DEFAULT true NOT NULL;
