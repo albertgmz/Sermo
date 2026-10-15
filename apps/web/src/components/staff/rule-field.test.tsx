@@ -42,7 +42,12 @@ test("the rule is edited with what criteria.list gives, and the shop's items", a
   backend = fakeBackend({
     "auth.me": () => Response.json(viewerBody(true)),
     "criteria.list": () =>
-      Response.json({ items: CRITERIA_BODY, groups: GROUPS }),
+      Response.json({
+        items: CRITERIA_BODY,
+        groups: GROUPS,
+        awards: [],
+        creditRules: [],
+      }),
     "shopCategories.list": () => Response.json({ items: [CATEGORY] }),
     "shopItems.list": () => Response.json({ items: [ITEM], nextCursor: null }),
   });
@@ -66,10 +71,139 @@ test("the rule is edited with what criteria.list gives, and the shop's items", a
     expect(operations()).not.toContain(old);
 });
 
+const when = "2026-01-01T00:00:00.000Z";
+const someone = { id: 3, username: "ember" };
+const THREAD_ANSWER = {
+  thread: {
+    id: 31,
+    nodeId: 2,
+    node: { id: 2, title: "Forum" },
+    title: "Rules of the house",
+    prefix: null,
+    excerpt: "",
+    cover: null,
+    highlightedUntil: null,
+    bumpedAt: null,
+    author: someone,
+    state: "visible",
+    isSticky: false,
+    isLocked: false,
+    createdAt: when,
+    replyCount: 0,
+    viewCount: 0,
+    firstPostId: 1,
+    lastPost: { postId: 1, position: 0, postedAt: when, user: someone },
+    readPosition: null,
+    isUnread: false,
+  },
+  seo: {
+    title: "t",
+    description: "d",
+    canonical: "https://example.test/threads/31",
+    robots: "index,follow",
+    redirect: false,
+    jsonLd: [],
+  },
+  node: { id: 2, title: "Forum" },
+  watching: null,
+  permissions: {
+    canReply: false,
+    canEditTitle: false,
+    canModerate: false,
+    canReport: false,
+    canRemoveCover: false,
+    canWatch: false,
+  },
+  resolvedPermissions: {},
+};
+
+test("the awards, credit rules and shop categories a rule names are shown by name", async () => {
+  backend = fakeBackend({
+    "auth.me": () => Response.json(viewerBody(true)),
+    "criteria.list": () =>
+      Response.json({
+        items: CRITERIA_BODY,
+        groups: [],
+        awards: [{ id: 4, title: "Veteran" }],
+        creditRules: [{ id: 9, title: "Daily visit" }],
+      }),
+    "shopCategories.list": () => Response.json({ items: [CATEGORY] }),
+    "shopItems.list": () => Response.json({ items: [ITEM], nextCursor: null }),
+  });
+  const html = await draw({
+    match: "all",
+    conditions: [
+      { criterion: "holds_awards", ids: [4], mode: "none" },
+      { criterion: "bought_in_category", ids: [CATEGORY.id], mode: "one" },
+    ],
+  });
+  expect(html).toContain("Veteran");
+  expect(html).toContain(CATEGORY.name);
+  // The shop takes cheap criteria only: the awards and the category criteria are cheap, the
+  // credit rule one is not.
+  expect(html).toContain('<option value="holds_awards"');
+  expect(html).toContain('<option value="bought_in_category"');
+  expect(html).not.toContain('<option value="credits_from_rule"');
+  const promotion = renderToStaticMarkup(
+    withIntl(await RuleField({ place: "promotion" })),
+  );
+  expect(promotion).toContain('<option value="credits_from_rule"');
+});
+
+test("the threads a rule names are shown by title, one the viewer cannot see by its number", async () => {
+  backend = fakeBackend({
+    "auth.me": () => Response.json(viewerBody(true)),
+    "criteria.list": () =>
+      Response.json({
+        items: CRITERIA_BODY,
+        groups: [],
+        awards: [],
+        creditRules: [],
+      }),
+    "shopCategories.list": () => Response.json({ items: [] }),
+    "threads.get": () => Response.json(THREAD_ANSWER),
+  });
+  const rule: Rule = {
+    match: "all",
+    conditions: [{ criterion: "posts_in_threads", ids: [31], value: 2 }],
+  };
+  const html = renderToStaticMarkup(
+    withIntl(await RuleField({ place: "promotion", rule })),
+  );
+  expect(html).toContain("Rules of the house");
+  expect(operations()?.filter((name) => name === "threads.get")).toHaveLength(
+    1,
+  );
+  backend.restore();
+  backend = fakeBackend({
+    "auth.me": () => Response.json(viewerBody(true)),
+    "criteria.list": () =>
+      Response.json({
+        items: CRITERIA_BODY,
+        groups: [],
+        awards: [],
+        creditRules: [],
+      }),
+    "shopCategories.list": () => Response.json({ items: [] }),
+    "threads.get": () => refusal(404, "not_found", "No."),
+  });
+  const hidden = renderToStaticMarkup(
+    withIntl(await RuleField({ place: "promotion", rule })),
+  );
+  expect(hidden).toContain("#31");
+  expect(hidden).not.toContain("Rules of the house");
+});
+
 test("with no groups the group criteria are not offered", async () => {
   backend = fakeBackend({
     "auth.me": () => Response.json(viewerBody(true)),
-    "criteria.list": () => Response.json({ items: CRITERIA_BODY, groups: [] }),
+    "criteria.list": () =>
+      Response.json({
+        items: CRITERIA_BODY,
+        groups: [],
+        awards: [],
+        creditRules: [],
+      }),
     "shopCategories.list": () => Response.json({ items: [] }),
   });
   const html = await draw();
@@ -80,7 +214,13 @@ test("with no groups the group criteria are not offered", async () => {
 test("the builder is keyed by the place, the record and the rule, so another record starts afresh", async () => {
   backend = fakeBackend({
     "auth.me": () => Response.json(viewerBody(true)),
-    "criteria.list": () => Response.json({ items: CRITERIA_BODY, groups: [] }),
+    "criteria.list": () =>
+      Response.json({
+        items: CRITERIA_BODY,
+        groups: [],
+        awards: [],
+        creditRules: [],
+      }),
     "shopCategories.list": () => Response.json({ items: [] }),
   });
   const one: Rule = {

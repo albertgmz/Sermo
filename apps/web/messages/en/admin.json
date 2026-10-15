@@ -216,7 +216,20 @@
       "days": "days",
       "points": "points"
     },
+    "modes": {
+      "label": "How the list is read",
+      "one": "Any one of them",
+      "all": "All of them added together",
+      "each": "Each of them",
+      "none": "None of them"
+    },
+    "window": {
+      "label": "Look back this many days",
+      "within": "Within the last",
+      "ever": "ever"
+    },
     "picker": {
+      "placeholderThreads": "Words of the title, or the thread number",
       "placeholder": "Type to search",
       "search": "search",
       "remove": "Remove {name}",

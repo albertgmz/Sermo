@@ -8,8 +8,18 @@ type Definition = z.output<typeof CriterionDefinition>;
 // What the rule builder needs to know about a criterion: the backend's own listing, trimmed.
 export type Criterion = Pick<
   Definition,
-  "id" | "title" | "help" | "kind" | "unit" | "cost"
+  | "id"
+  | "title"
+  | "help"
+  | "kind"
+  | "unit"
+  | "cost"
+  | "idKind"
+  | "window"
+  | "modes"
 >;
+export type IdKind = NonNullable<Criterion["idKind"]>;
+export type Mode = Criterion["modes"][number];
 
 // Where a rule is edited: what the place allows and what an empty rule means there. A place that
 // is only checked while a request is served takes the `cheap` criteria alone (the backend refuses
@@ -23,9 +33,45 @@ export const PLACES = {
 } as const;
 export type Place = keyof typeof PLACES;
 
-// What a condition can name, when the choices exist: a criterion that needs a group or a shop item
-// cannot be added when there is none to choose.
-export type Available = { groups: boolean; items: boolean };
+// What a condition can name, when the choices exist: a criterion that needs a group, a shop item
+// and so on cannot be added when there is none to choose. Members and threads are searched, so
+// they are always there to choose.
+export type Available = {
+  groups: boolean;
+  items: boolean;
+  awards: boolean;
+  shopCategories: boolean;
+  creditRules: boolean;
+};
+
+// What a criterion takes in a condition, from the backend's definition: a number (everything but a
+// bare list), a list of ids, a window of days, and the modes the list may be read in.
+export function takes(criterion: Criterion) {
+  return {
+    value: !["groups", "members", "ids"].includes(criterion.kind),
+    ids: criterion.idKind,
+    window: criterion.window,
+    modes: criterion.modes,
+  };
+}
+
+const choosable = (criterion: Criterion, available: Available) => {
+  if (criterion.kind === "item") return available.items;
+  switch (criterion.idKind) {
+    case "groups":
+      return available.groups;
+    case "shopItems":
+      return available.items;
+    case "awards":
+      return available.awards;
+    case "shopCategories":
+      return available.shopCategories;
+    case "creditRules":
+      return available.creditRules;
+    default:
+      return true;
+  }
+};
 
 // The criteria a rule may gain in a place, in the order the backend lists them.
 export function offeredCriteria(
@@ -36,22 +82,25 @@ export function offeredCriteria(
   return criteria.filter(
     (criterion) =>
       (!PLACES[place].cheapOnly || criterion.cost === "cheap") &&
-      !(criterion.kind === "groups" && !available.groups) &&
-      !(criterion.kind === "item" && !available.items),
+      choosable(criterion, available),
   );
 }
 
-// A condition the builder draws a control for: its criterion is known and offered, and it has the
-// kind of input the criterion takes. Any other is shown as it is and saved back unchanged.
+// A condition the builder draws a control for: its criterion is known and offered, and it has
+// only what that criterion takes (a number, a list, a window, a mode it lists). Any other is shown
+// as it is and saved back unchanged.
 export function controlFor(
   condition: Condition,
   offered: readonly Criterion[],
 ): Criterion | null {
   const criterion = offered.find((entry) => entry.id === condition.criterion);
   if (!criterion) return null;
-  const takesIds = criterion.kind === "groups" || criterion.kind === "members";
-  if (takesIds) return condition.value === undefined ? criterion : null;
-  if (condition.ids !== undefined) return null;
+  const accepts = takes(criterion);
+  if (condition.value !== undefined && !accepts.value) return null;
+  if (condition.ids !== undefined && accepts.ids === null) return null;
+  if (condition.days !== undefined && !accepts.window) return null;
+  if (condition.mode !== undefined && !accepts.modes.includes(condition.mode))
+    return null;
   // A yes/no condition holds 1 or 0 (or is new and has none yet); the control shows nothing else.
   if (
     criterion.kind === "boolean" &&
@@ -82,12 +131,12 @@ export const ruleOfDraft = (draft: Draft): Rule => ({
   conditions: draft.entries.map((entry) => entry.condition),
 });
 
-// A new condition starts empty, except a yes/no one, which starts as "must hold".
+// A new condition starts empty, except a yes/no one, which starts as "must hold", and a list that
+// can be read in modes, which starts in the first one (the one the backend assumes).
 export function addCondition(draft: Draft, criterion: Criterion): Draft {
-  const condition: Condition =
-    criterion.kind === "boolean"
-      ? { criterion: criterion.id, value: 1 }
-      : { criterion: criterion.id };
+  const condition: Condition = { criterion: criterion.id };
+  if (criterion.kind === "boolean") condition.value = 1;
+  if (criterion.modes[0]) condition.mode = criterion.modes[0];
   return {
     ...draft,
     entries: [...draft.entries, { key: draft.next, condition }],
@@ -100,22 +149,35 @@ export const removeCondition = (draft: Draft, key: number): Draft => ({
   entries: draft.entries.filter((entry) => entry.key !== key),
 });
 
-export type Change = { value?: number | undefined; ids?: number[] | undefined };
+// What of a condition can change. A field named here is replaced (undefined, and no ids, take it
+// out); one left out stays as it was.
+export type Change = {
+  value?: number | undefined;
+  ids?: number[] | undefined;
+  days?: number | undefined;
+  mode?: Mode | undefined;
+};
 
-// A condition with its number or its ids replaced; undefined leaves the field out.
+// A condition with the named fields replaced.
 export function changeCondition(
   draft: Draft,
   key: number,
-  input: Change,
+  change: Change,
 ): Draft {
   return {
     ...draft,
     entries: draft.entries.map((entry) => {
       if (entry.key !== key) return entry;
-      const condition: Condition = { criterion: entry.condition.criterion };
-      if (input.value !== undefined) condition.value = input.value;
-      if (input.ids !== undefined && input.ids.length > 0)
-        condition.ids = input.ids;
+      const condition: Condition = { ...entry.condition };
+      if ("value" in change) delete condition.value;
+      if ("ids" in change) delete condition.ids;
+      if ("days" in change) delete condition.days;
+      if ("mode" in change) delete condition.mode;
+      if (change.value !== undefined) condition.value = change.value;
+      if (change.ids !== undefined && change.ids.length > 0)
+        condition.ids = change.ids;
+      if (change.days !== undefined) condition.days = change.days;
+      if (change.mode !== undefined) condition.mode = change.mode;
       return { key, condition };
     }),
   };
@@ -123,7 +185,12 @@ export function changeCondition(
 
 // The limits of a rule, from the shared schema (`MAX_*` in the contract); a client component
 // takes them as a prop because it must not import the contracts.
-export type RuleLimits = { conditions: number; value: number; ids: number };
+export type RuleLimits = {
+  conditions: number;
+  value: number;
+  ids: number;
+  days: number;
+};
 
 // The number typed in a field, or undefined for anything that is not a whole number up to `max`.
 export function numberOf(raw: string, max: number) {

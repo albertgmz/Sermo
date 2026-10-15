@@ -103,6 +103,17 @@ describe("an award that needs other awards", () => {
     expect(held(member.id)).toEqual([a, b, c].sort((x, y) => x - y));
   });
 
+  test("an award earlier in the same pass is seen by the awards after it", async () => {
+    const { ctx, create, requires, held, member } = setup();
+    const a = await create("A", posts);
+    const b = await create("B", requires(a));
+    const c = await create("C", requires(a, b));
+    ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);
+    // One pass grants all three, because each award sees the ones granted before it.
+    expect(evaluateMember(ctx, member.id)).toBe(3);
+    expect(held(member.id)).toEqual([a, b, c]);
+  });
+
   test("none of the selected awards: the member qualifies once the award is taken away", async () => {
     const { ctx, call, create, held, drain, member } = setup();
     const a = await create("A", { match: "all", conditions: [] });

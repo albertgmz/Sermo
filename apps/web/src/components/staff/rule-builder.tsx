@@ -16,6 +16,7 @@ import {
   controlFor,
   type Draft,
   draftOf,
+  type Mode,
   numberOf,
   offeredCriteria,
   PLACES,
@@ -24,15 +25,26 @@ import {
   type RuleLimits,
   removeCondition,
   ruleOfDraft,
+  takes,
 } from "./criteria-rule";
 import { selectClass } from "./rows";
 
-// What a condition can name.
+// What a condition can name: the lists held in the page, and the names of the members and threads
+// the rule already holds (the rest of those are found by searching).
 export type RuleChoices = {
   groups: Choice[];
   items: Choice[];
   members: Choice[];
+  threads: Choice[];
+  awards: Choice[];
+  shopCategories: Choice[];
+  creditRules: Choice[];
 };
+
+// The search of threads the builder is given (a server action of the page that draws it).
+export type FindThreads = (
+  text: string,
+) => Promise<{ id: number; title: string }[]>;
 
 // The search of members the builder is given (a server action of the page that draws it).
 export type FindMembers = (
@@ -53,8 +65,11 @@ export type FindMembers = (
 //   criteria  What the backend lists (every criterion; the place filters).
 //   rule      The rule being edited.
 //   choices   The groups, shop items and members that conditions may name.
-//   limits    What the shared schema allows: conditions in a rule, a condition's number and ids.
+//   limits    What the shared schema allows: conditions in a rule, a condition's number, ids and
+//             window.
 //   findMembers  Finds members by the start of their username, for the member criteria.
+//   findThreads  Finds threads by the words of their title, or by their number, for the thread
+//                criteria.
 //   name      The field the rule is sent in. Default "rule".
 export function RuleBuilder({
   place,
@@ -63,6 +78,7 @@ export function RuleBuilder({
   choices,
   limits,
   findMembers,
+  findThreads,
   name = "rule",
 }: {
   place: Place;
@@ -71,6 +87,7 @@ export function RuleBuilder({
   choices: RuleChoices;
   limits: RuleLimits;
   findMembers: FindMembers;
+  findThreads: FindThreads;
   name?: string;
 }) {
   const t = useTranslations("admin.ruleBuilder");
@@ -85,11 +102,23 @@ export function RuleBuilder({
         })),
     [findMembers],
   );
+  const searchThreads = useMemo(
+    () =>
+      async (text: string): Promise<Choice[]> =>
+        (await findThreads(text)).map((thread) => ({
+          id: thread.id,
+          label: thread.title,
+        })),
+    [findThreads],
+  );
   const [draft, setDraft] = useState<Draft>(() => draftOf(rule));
   const [adding, setAdding] = useState("");
   const available: Available = {
     groups: choices.groups.length > 0,
     items: choices.items.length > 0,
+    awards: choices.awards.length > 0,
+    shopCategories: choices.shopCategories.length > 0,
+    creditRules: choices.creditRules.length > 0,
   };
   const offered = offeredCriteria(criteria, place, available);
   const title = (criterion: string) =>
@@ -173,6 +202,7 @@ export function RuleBuilder({
                     choices={choices}
                     limits={limits}
                     searchMembers={searchMembers}
+                    searchThreads={searchThreads}
                     onChange={(input) =>
                       setDraft((now) => changeCondition(now, key, input))
                     }
@@ -233,10 +263,13 @@ function detailOf(condition: Condition) {
   const parts: string[] = [];
   if (condition.value !== undefined) parts.push(String(condition.value));
   if (condition.ids) parts.push(condition.ids.join(", "));
+  if (condition.mode) parts.push(condition.mode);
+  if (condition.days !== undefined) parts.push(`${condition.days}d`);
   return parts.join(" · ");
 }
 
-// The control of one condition, by the kind of input its criterion takes.
+// The control of one condition, by what its criterion takes: yes/no, one shop item, or a list of
+// ids to choose with a number, a window of days and the mode the list is read in.
 function Control({
   criterion,
   condition,
@@ -244,6 +277,7 @@ function Control({
   choices,
   limits,
   searchMembers,
+  searchThreads,
   onChange,
 }: {
   criterion: Criterion;
@@ -252,68 +286,74 @@ function Control({
   choices: RuleChoices;
   limits: RuleLimits;
   searchMembers: (prefix: string) => Promise<Choice[]>;
+  searchThreads: (text: string) => Promise<Choice[]>;
   onChange: (input: Change) => void;
 }) {
   const t = useTranslations("admin.ruleBuilder");
+  const accepts = takes(criterion);
   const text = {
     chosen: criterion.title,
     search: `${criterion.title}: ${t("picker.search")}`,
-    placeholder: t("picker.placeholder"),
+    placeholder:
+      criterion.idKind === "threads"
+        ? t("picker.placeholderThreads")
+        : t("picker.placeholder"),
     noMatch: t("picker.noMatch"),
     remove: (name: string) => t("picker.remove", { name }),
   };
-  switch (criterion.kind) {
-    case "boolean":
-      return (
-        <select
-          aria-labelledby={labelId}
-          value={condition.value ?? 1}
-          onChange={(event) => onChange({ value: Number(event.target.value) })}
-          className={selectClass}
-        >
-          <option value={1}>{t("holds")}</option>
-          <option value={0}>{t("notHold")}</option>
-        </select>
-      );
-    case "item":
-      return (
-        <IdPicker
-          single
-          ids={condition.value === undefined ? [] : [condition.value]}
-          known={choices.items}
-          options={choices.items}
-          text={text}
-          onChange={([value]) => onChange({ value })}
-        />
-      );
-    case "groups":
-      return (
+  if (criterion.kind === "boolean")
+    return (
+      <select
+        aria-labelledby={labelId}
+        value={condition.value ?? 1}
+        onChange={(event) => onChange({ value: Number(event.target.value) })}
+        className={selectClass}
+      >
+        <option value={1}>{t("holds")}</option>
+        <option value={0}>{t("notHold")}</option>
+      </select>
+    );
+  if (criterion.kind === "item")
+    return (
+      <IdPicker
+        single
+        ids={condition.value === undefined ? [] : [condition.value]}
+        known={choices.items}
+        options={choices.items}
+        text={text}
+        onChange={([value]) => onChange({ value })}
+      />
+    );
+  const list = {
+    groups: { known: choices.groups, options: choices.groups },
+    shopItems: { known: choices.items, options: choices.items },
+    awards: { known: choices.awards, options: choices.awards },
+    shopCategories: {
+      known: choices.shopCategories,
+      options: choices.shopCategories,
+    },
+    creditRules: { known: choices.creditRules, options: choices.creditRules },
+    members: { known: choices.members, search: searchMembers },
+    threads: { known: choices.threads, search: searchThreads },
+  };
+  const unit = accepts.value
+    ? t(`units.${criterion.unit as "count" | "days" | "points"}`)
+    : "";
+  return (
+    <div className="space-y-2">
+      {accepts.ids && (
         <IdPicker
           ids={condition.ids ?? []}
-          known={choices.groups}
-          options={choices.groups}
+          {...list[accepts.ids]}
           limit={limits.ids}
           text={text}
           onChange={(ids) => onChange({ ids })}
         />
-      );
-    case "members":
-      return (
-        <IdPicker
-          ids={condition.ids ?? []}
-          known={choices.members}
-          search={searchMembers}
-          limit={limits.ids}
-          text={text}
-          onChange={(ids) => onChange({ ids })}
-        />
-      );
-    default: {
-      const unit = t(`units.${criterion.unit as "count" | "days" | "points"}`);
-      return (
+      )}
+      {accepts.value && (
         <div className="flex items-center gap-2">
           <span className="shrink-0 text-xs text-muted-foreground">
-            {t(`kinds.${criterion.kind}`)}
+            {t(`kinds.${criterion.kind as "atLeast" | "atMost" | "below"}`)}
           </span>
           <Input
             type="number"
@@ -333,7 +373,44 @@ function Control({
             </span>
           )}
         </div>
-      );
-    }
-  }
+      )}
+      {accepts.modes.length > 1 && (
+        <select
+          aria-label={t("modes.label")}
+          value={condition.mode ?? accepts.modes[0]}
+          onChange={(event) => onChange({ mode: event.target.value as Mode })}
+          className={selectClass}
+        >
+          {accepts.modes.map((mode) => (
+            <option key={mode} value={mode}>
+              {t(`modes.${mode}`)}
+            </option>
+          ))}
+        </select>
+      )}
+      {accepts.window && (
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {t("window.within")}
+          </span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={limits.days}
+            placeholder={t("window.ever")}
+            aria-label={t("window.label")}
+            defaultValue={condition.days}
+            onChange={(event) => {
+              const days = numberOf(event.target.value, limits.days);
+              onChange({ days: days === 0 ? undefined : days });
+            }}
+          />
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {t("units.days")}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }

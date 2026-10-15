@@ -7,6 +7,7 @@ import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import type { Criterion } from "@/components/staff/criteria-rule";
 import { CursorList } from "@/components/staff/cursor-list";
+import { findThreads } from "@/components/staff/find-threads";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { LogTable } from "@/components/staff/log-table";
 import { Notice } from "@/components/staff/notice";
@@ -19,47 +20,55 @@ import { RuleBuilder } from "@/components/staff/rule-builder";
 import { Input } from "@/components/ui/input";
 import { plainMember } from "@/lib/sermo/members";
 
+const criterion = (
+  id: string,
+  title: string,
+  kind: Criterion["kind"],
+  unit: Criterion["unit"],
+  more: Partial<Criterion> = {},
+): Criterion => ({
+  id,
+  title,
+  help: "",
+  kind,
+  unit,
+  cost: "cheap",
+  idKind: null,
+  window: false,
+  modes: [],
+  ...more,
+});
+
 const CRITERIA: Criterion[] = [
-  {
-    id: "post_count",
-    title: "Posts",
+  criterion("post_count", "Posts", "atLeast", "count", {
     help: "How many posts the member has written.",
-    kind: "atLeast",
-    unit: "count",
-    cost: "cheap",
-  },
-  {
-    id: "has_avatar",
-    title: "Has a picture",
-    help: "",
-    kind: "boolean",
-    unit: "boolean",
-    cost: "cheap",
-  },
-  {
-    id: "warning_points_below",
-    title: "Warning points",
+  }),
+  criterion("has_avatar", "Has a picture", "boolean", "boolean"),
+  criterion("warning_points_below", "Warning points", "below", "points", {
     help: "Unexpired points, summed in the background.",
-    kind: "below",
-    unit: "points",
     cost: "background",
-  },
-  {
-    id: "in_group",
-    title: "In one of these groups",
-    help: "",
-    kind: "groups",
-    unit: "groups",
-    cost: "cheap",
-  },
-  {
-    id: "is_member",
-    title: "Is one of these members",
-    help: "",
-    kind: "members",
-    unit: "members",
-    cost: "cheap",
-  },
+  }),
+  criterion("in_group", "In one of these groups", "groups", "groups", {
+    idKind: "groups",
+  }),
+  criterion("is_member", "Is one of these members", "members", "members", {
+    idKind: "members",
+  }),
+  criterion("posts_in_threads", "Posts in threads", "atLeast", "count", {
+    help: "Posts in the chosen threads, in each, in any one or all added together.",
+    cost: "background",
+    idKind: "threads",
+    modes: ["each", "one", "all"],
+  }),
+  criterion("credits_earned", "Credits earned", "atLeast", "count", {
+    help: "Earned from credit rules and awards, in total or within the last days.",
+    cost: "background",
+    window: true,
+  }),
+  criterion("holds_awards", "Holds awards", "ids", "ids", {
+    idKind: "awards",
+    modes: ["one", "none", "each"],
+  }),
 ];
 
 const MATRIX: MatrixPermission[] = [
@@ -341,8 +350,14 @@ export function StaffDemos() {
                     { criterion: "has_avatar", value: 1 },
                   ],
                 }}
-                limits={{ conditions: 20, value: 1_000_000_000, ids: 500 }}
+                limits={{
+                  conditions: 20,
+                  value: 1_000_000_000,
+                  ids: 500,
+                  days: 3650,
+                }}
                 findMembers={findRecipients}
+                findThreads={findThreads}
                 choices={{
                   groups: [
                     { id: 3, label: "Moderators" },
@@ -350,6 +365,10 @@ export function StaffDemos() {
                   ],
                   items: [],
                   members: [],
+                  threads: [],
+                  awards: [{ id: 1, label: "Veteran" }],
+                  shopCategories: [],
+                  creditRules: [],
                 }}
               />
             </div>

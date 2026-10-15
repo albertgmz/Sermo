@@ -178,13 +178,54 @@ everywhere. A rule is `{ "match": "all" | "any", "conditions": [...] }`: `all` n
 | `not_in_group` | `ids` (groups) | the member is in none of them, however obtained (a guest is in none) |
 | `is_member` | `ids` (members) | the member is one of the listed members |
 
-Each criterion is `cheap` (read from the member's own row or one indexed lookup) or `background`
-(`warning_points_below`). `GET /criteria` (`criteria.list`; open to anyone with `admin.promotions`,
-`admin.awards`, `admin.shop` or `admin.announcements`, and also giving the groups a rule may name),
+Each criterion is `cheap` (read from the member's own row, or one indexed lookup) or `background`
+(it counts or sums the member's history). `GET /criteria` (`criteria.list`; open to anyone with
+`admin.promotions`, `admin.awards`, `admin.shop` or `admin.announcements`, and also giving the groups,
+awards and credit rules a rule may name),
 `GET /promotions/criteria` and `GET /awards/criteria` list the class as `cost`. Promotions and
 awards are checked in the background and take every criterion. Notices and shop categories and
 items are checked while a request is served and refuse a `background`
 criterion. Guests satisfy only the audience criteria.
+
+#### More criteria
+
+A condition may also carry a list of `ids` (threads, awards, shop items, shop categories or credit
+rules), a look-back window `days` and a `mode` that says how the list is read: `one` (any one of
+them reaches the number), `each` (every one does), `all` (the numbers added together do) or `none`
+(no one does). `criteria.list` gives each criterion's `idKind`, `window` and `modes` (the first
+mode is the default). Below, `n` is `value`; a cost of `cheap` can be used in notices and the shop.
+
+| Area | Criterion | Takes | Holds when | Cost |
+| --- | --- | --- | --- | --- |
+| Content | `posts_in_threads` | `ids` (threads), `n`, `mode` (each, one, all) | visible posts in the threads reach `n` | background |
+| | `replies_received` | `n` | visible replies in the member's visible threads add up to `n` (their own replies included) | background |
+| | `busiest_thread_replies` | `n` | the member's thread with most replies has `n` | background |
+| | `profile_posts_written`, `profile_comments_written`, `attachments_uploaded` | `n` | the member wrote or uploaded `n` (visible, attached) | background |
+| | `bookmarks_at_least`, `watching_forums_at_least`, `watching_threads_at_least` | `n` | the member has `n` | background |
+| Economy | `owns_item`, `wears_item` | `ids` (shop items), `mode` (one, each) | the member holds the item now, or holds it and has the frame, name color or name icon it gives in use | cheap |
+| | `bought_in_category` | `ids` (shop categories), `mode` (one, each) | the member bought something in the category, gifts included | cheap |
+| | `gifted_items` | `n` | the member paid for `n` units that went to others | background |
+| | `credits_earned` | `n`, optional `days` | credits from rules and awards, net of reversals, reach `n` | background |
+| | `credits_from_rule` | `ids` (credit rules), `n`, optional `days`, `mode` (all, one, each) | the rules paid `n` | background |
+| Awards | `awards_held_at_least`, `award_xp_at_most` | `n` | awards held (each grant counts) or their XP | cheap |
+| | `holds_awards` | `ids` (awards), `mode` (one, none, each) | the member holds one, none or each of the awards | cheap |
+| Profile | `has_cover`, `has_name_color`, `has_accent_color`, `has_frame`, `profile_complete` | `value` 1 or 0 | the member has set it (complete: avatar, about, location and birthday) | cheap |
+| | `social_links_at_least` | `n` (up to 3) | Discord, Telegram and X handles filled in | cheap |
+| | `username_changed_within_days` | `n` | the username changed in the last `n` days | cheap |
+| Moderation | `restricted_posting`, `restricted_conversations`, `restricted_profile_posts` | `value` 1 or 0 | an active restriction of that kind | cheap |
+| | `thread_banned`, `banned_before` | `value` 1 or 0 | banned from a thread with the ban in force; any ban on record | cheap |
+| | `reports_resolved`, `moderator_actions` | `n` | reports the member filed that were resolved; entries under their name in the moderator log | background |
+| Engagement | `days_since_last_post` | `n` | no visible post for `n` days (never posting counts) | background |
+| | `mentioned_by_others` | `n` | mentioned `n` times in other members' visible posts, profile posts and comments | background |
+| Referrals | `referrals_at_least`, `referrals_this_month` | `n` | members referred, in total or since the first of the month (UTC) | cheap, background |
+| | `was_referred` | `value` 1 or 0 | the member has a referrer | cheap |
+
+Promotions and awards check a member again at once when an event changes the fact (a reply, a gift,
+a used item, a mention, a restriction, ban or thread ban, a resolved report, an award given or taken
+away); the facts no event tells of (bookmarks, watches, referrals, moderator actions, a restriction
+running out) wait for the daily sweep. An award's rule may read other awards, and giving or taking one
+away checks the member's other awards again, so an award cannot require itself, directly or through
+other awards: saving one that does is refused.
 
 Notices (`rule`) are shown to the members the rule holds for. Shop categories and items (`rule`)
 are listed to, and may be bought by, only the members the rule holds for; an administrator with

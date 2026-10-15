@@ -13,6 +13,10 @@ const choices = {
   ],
   items: [{ id: 8, label: "Shop: Golden frame" }],
   members: [{ id: 5, label: "ember" }],
+  threads: [{ id: 21, label: "Welcome thread" }],
+  awards: [{ id: 2, label: "Veteran" }],
+  shopCategories: [{ id: 3, label: "Frames" }],
+  creditRules: [{ id: 6, label: "Daily visit" }],
 };
 const nothing: Rule = { match: "all", conditions: [] };
 
@@ -26,6 +30,7 @@ function draw(place: Place, rule: Rule = nothing, over = {}) {
         choices={{ ...choices, ...over }}
         limits={LIMITS}
         findMembers={async () => []}
+        findThreads={async () => []}
       />,
     ),
   );
@@ -69,6 +74,86 @@ test("without groups to choose from, the group criteria are not offered", () => 
   expect(list).not.toContain("in_group");
   expect(list).not.toContain("not_in_group");
   expect(list).toContain("is_member");
+});
+
+test("without awards, credit rules, shop categories or items, the criteria that need them are not offered", () => {
+  const list = addable(
+    draw("promotion", nothing, {
+      awards: [],
+      creditRules: [],
+      shopCategories: [],
+      items: [],
+    }),
+  );
+  for (const id of [
+    "holds_awards",
+    "credits_from_rule",
+    "bought_in_category",
+    "owns_item",
+    "wears_item",
+    "purchased_item",
+  ])
+    expect(list, id).not.toContain(id);
+  // Threads are searched, so they are always there to choose.
+  expect(list).toContain("posts_in_threads");
+});
+
+test("a list condition draws its chosen names, a number, the mode and the window it takes", () => {
+  const html = draw("promotion", {
+    match: "all",
+    conditions: [
+      { criterion: "posts_in_threads", ids: [21, 99], value: 4, mode: "all" },
+      { criterion: "credits_earned", value: 50, days: 30 },
+      { criterion: "holds_awards", ids: [2], mode: "none" },
+      { criterion: "bought_in_category", ids: [3], mode: "each" },
+      { criterion: "credits_from_rule", ids: [6], value: 9 },
+    ],
+  });
+  // Threads by title, and one the page has no name for by its number.
+  expect(html).toContain("Welcome thread");
+  expect(html).toContain("#99");
+  // Awards, shop categories and credit rules by name.
+  expect(html).toContain("Veteran");
+  expect(html).toContain("Frames");
+  expect(html).toContain("Daily visit");
+  // The mode select shows the condition's own mode, among the modes its criterion lists.
+  expect(html).toContain(
+    '<option value="all" selected="">All of them added together</option>',
+  );
+  expect(html).toContain(
+    '<option value="none" selected="">None of them</option>',
+  );
+  expect(html).toContain(
+    '<option value="each" selected="">Each of them</option>',
+  );
+  // A criterion with no mode to choose draws no mode select.
+  expect(html.split('aria-label="How the list is read"').length - 1).toBe(4);
+  // A window: its number, only where the criterion takes one.
+  expect(html).toContain('aria-label="Look back this many days"');
+  expect(html).toMatch(/aria-label="Look back this many days"[^>]*value="30"/);
+  expect(html.split('aria-label="Look back this many days"').length - 1).toBe(
+    2,
+  );
+  expect(html).toContain(`max="${LIMITS.days}"`);
+});
+
+test("a rule with the new conditions is sent back as it was, in order", () => {
+  const rule: Rule = {
+    match: "any",
+    conditions: [
+      { criterion: "posts_in_threads", ids: [21], value: 2, mode: "each" },
+      {
+        criterion: "credits_from_rule",
+        ids: [6],
+        value: 9,
+        days: 7,
+        mode: "one",
+      },
+      { criterion: "holds_awards", ids: [2, 3] },
+      { criterion: "credits_earned", value: 1 },
+    ],
+  };
+  expect(sent(draw("award", rule))).toEqual(rule);
 });
 
 test("an empty rule says who it covers in plain words", () => {

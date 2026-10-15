@@ -15,7 +15,13 @@ import {
   ruleOfDraft,
 } from "./criteria-rule";
 
-const everything = { groups: true, items: true };
+const everything = {
+  groups: true,
+  items: true,
+  awards: true,
+  shopCategories: true,
+  creditRules: true,
+};
 const ids = (place: Place, available = everything) =>
   offeredCriteria(CRITERIA, place, available).map((entry) => entry.id);
 
@@ -28,22 +34,50 @@ test("notices and the shop are offered every cheap criterion and no background o
   const cheap = CRITERIA.filter((entry) => entry.cost === "cheap").map(
     (entry) => entry.id,
   );
+  const background = CRITERIA.filter((entry) => entry.cost === "background");
+  // The new criteria that count history are background; the ones on the member's row are cheap.
+  expect(background.map((entry) => entry.id)).toContain("posts_in_threads");
+  expect(background.map((entry) => entry.id)).toContain("credits_earned");
+  expect(cheap).toContain("holds_awards");
+  expect(cheap).toContain("has_cover");
   expect(cheap).not.toContain("warning_points_below");
-  expect(cheap.length).toBe(CRITERIA.length - 1);
+  expect(cheap.length + background.length).toBe(CRITERIA.length);
   for (const place of ["notice", "shopCategory", "shopItem"] as const) {
     expect(PLACES[place].cheapOnly).toBe(true);
     expect(ids(place)).toEqual(cheap);
   }
 });
 
-test("a criterion that needs a group or a shop item is not offered when there is none to choose", () => {
-  const without = ids("promotion", { groups: false, items: false });
-  expect(without).not.toContain("in_group");
-  expect(without).not.toContain("not_in_group");
-  expect(without).not.toContain("purchased_item");
-  expect(without).toContain("is_member");
-  expect(ids("promotion", { groups: true, items: false })).toContain(
+test("a criterion that needs something to choose is not offered when there is nothing to choose", () => {
+  const nothing = {
+    groups: false,
+    items: false,
+    awards: false,
+    shopCategories: false,
+    creditRules: false,
+  };
+  const without = ids("promotion", nothing);
+  for (const id of [
     "in_group",
+    "not_in_group",
+    "purchased_item",
+    "owns_item",
+    "wears_item",
+    "bought_in_category",
+    "holds_awards",
+    "credits_from_rule",
+  ])
+    expect(without, id).not.toContain(id);
+  // Members and threads are searched, never chosen from a list held in the page.
+  expect(without).toContain("is_member");
+  expect(without).toContain("posts_in_threads");
+  expect(ids("promotion", { ...nothing, groups: true })).toContain("in_group");
+  expect(ids("promotion", { ...nothing, awards: true })).toContain(
+    "holds_awards",
+  );
+  expect(ids("promotion", { ...nothing, items: true })).toContain("owns_item");
+  expect(ids("promotion", { ...nothing, items: true })).not.toContain(
+    "bought_in_category",
   );
 });
 
@@ -67,6 +101,9 @@ test("a rule goes into the builder and out of it unchanged, duplicates and any i
         { criterion: "made_up", value: 1 },
         { criterion: "has_avatar", value: 0 },
         { criterion: "post_count", ids: [1] },
+        { criterion: "posts_in_threads", ids: [5, 6], value: 3, mode: "all" },
+        { criterion: "credits_earned", value: 50, days: 30 },
+        { criterion: "holds_awards", ids: [2], mode: "none" },
       ],
     },
   ];
@@ -80,20 +117,27 @@ test("adding gives a condition that is empty, except a yes/no one that must hold
     if (!found) throw new Error(id);
     return found;
   };
-  const [post, avatar, group] = ["post_count", "has_avatar", "in_group"].map(
-    find,
-  );
-  const draft = [post, avatar, group, post].reduce(
+  const [post, avatar, group, threads, earned] = [
+    "post_count",
+    "has_avatar",
+    "in_group",
+    "posts_in_threads",
+    "credits_earned",
+  ].map(find);
+  const draft = [post, avatar, group, post, threads, earned].reduce(
     (now, criterion) => addCondition(now, criterion as Criterion),
     start,
   );
+  // A list that can be read in modes starts in the first one, the backend's own default.
   expect(ruleOfDraft(draft).conditions).toEqual([
     { criterion: "post_count" },
     { criterion: "has_avatar", value: 1 },
     { criterion: "in_group" },
     { criterion: "post_count" },
+    { criterion: "posts_in_threads", mode: "each" },
+    { criterion: "credits_earned" },
   ]);
-  expect(new Set(draft.entries.map((entry) => entry.key)).size).toBe(4);
+  expect(new Set(draft.entries.map((entry) => entry.key)).size).toBe(6);
 });
 
 test("removing and changing touch one condition, even among duplicates", () => {
@@ -127,6 +171,30 @@ test("removing and changing touch one condition, even among duplicates", () => {
   expect(draft.match).toBe("any");
 });
 
+test("changing a number, a list, a window or a mode leaves the rest of the condition as it was", () => {
+  let draft = draftOf({
+    match: "all",
+    conditions: [
+      { criterion: "posts_in_threads", ids: [5], value: 3, mode: "each" },
+      { criterion: "credits_earned", value: 50 },
+    ],
+  });
+  const [first = -1, second = -1] = draft.entries.map((entry) => entry.key);
+  draft = changeCondition(draft, first, { mode: "all" });
+  draft = changeCondition(draft, first, { ids: [5, 6] });
+  draft = changeCondition(draft, second, { days: 30 });
+  expect(ruleOfDraft(draft).conditions).toEqual([
+    { criterion: "posts_in_threads", ids: [5, 6], value: 3, mode: "all" },
+    { criterion: "credits_earned", value: 50, days: 30 },
+  ]);
+  // A window left empty is taken out.
+  draft = changeCondition(draft, second, { days: undefined });
+  expect(ruleOfDraft(draft).conditions[1]).toEqual({
+    criterion: "credits_earned",
+    value: 50,
+  });
+});
+
 test("a condition is drawn only when its criterion is offered and it has the input that criterion takes", () => {
   const offered = offeredCriteria(CRITERIA, "notice", everything);
   expect(controlFor({ criterion: "post_count", value: 3 }, offered)?.id).toBe(
@@ -142,6 +210,26 @@ test("a condition is drawn only when its criterion is offered and it has the inp
   );
   expect(controlFor({ criterion: "has_avatar", value: 2 }, offered)).toBeNull();
   expect(controlFor({ criterion: "made_up", value: 1 }, offered)).toBeNull();
+  // The new inputs: a list with a number and a mode, a window, a list with a mode only.
+  const everyPlace = offeredCriteria(CRITERIA, "promotion", everything);
+  const draws = (condition: Rule["conditions"][number]) =>
+    controlFor(condition, everyPlace)?.id ?? null;
+  expect(
+    draws({ criterion: "posts_in_threads", ids: [1], value: 2, mode: "one" }),
+  ).toBe("posts_in_threads");
+  expect(
+    draws({ criterion: "posts_in_threads", ids: [1], mode: "none" }),
+  ).toBeNull();
+  expect(draws({ criterion: "credits_earned", value: 5, days: 7 })).toBe(
+    "credits_earned",
+  );
+  expect(draws({ criterion: "post_count", value: 5, days: 7 })).toBeNull();
+  expect(draws({ criterion: "post_count", value: 5, mode: "one" })).toBeNull();
+  expect(draws({ criterion: "holds_awards", ids: [1], mode: "none" })).toBe(
+    "holds_awards",
+  );
+  expect(draws({ criterion: "holds_awards", ids: [1], value: 1 })).toBeNull();
+  expect(draws({ criterion: "holds_awards" })).toBe("holds_awards");
   // Background in a notice: kept, not drawn.
   expect(
     controlFor({ criterion: "warning_points_below", value: 3 }, offered),

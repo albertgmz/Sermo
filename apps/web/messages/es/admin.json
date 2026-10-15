@@ -216,7 +216,20 @@
       "days": "días",
       "points": "puntos"
     },
+    "modes": {
+      "label": "Cómo se lee la lista",
+      "one": "Cualquiera de ellos",
+      "all": "Todos sumados",
+      "each": "Cada uno de ellos",
+      "none": "Ninguno de ellos"
+    },
+    "window": {
+      "label": "Mirar atrás este número de días",
+      "within": "En los últimos",
+      "ever": "siempre"
+    },
     "picker": {
+      "placeholderThreads": "Palabras del título o el número del hilo",
       "placeholder": "Escribe para buscar",
       "search": "buscar",
       "remove": "Quitar {name}",
