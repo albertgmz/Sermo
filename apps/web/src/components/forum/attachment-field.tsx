@@ -38,6 +38,7 @@ export function AttachmentField({
   nodeId,
   initial = [],
   compact = false,
+  allowed = true,
   onBusy,
 }: {
   // The forum the post is for. A message or a profile post has none.
@@ -46,6 +47,9 @@ export function AttachmentField({
   // For a one-line composer: only the paperclip, which takes its place in the composer's own row
   // (a wrapping flex row), with the chosen files on a line of their own before it.
   compact?: boolean;
+  // Whether files may be added here. Without it the paperclip is gone and the files already
+  // chosen stay listed, so they can be removed.
+  allowed?: boolean;
   // Told whether a file is still on its way, so the form can wait for it.
   onBusy?: (busy: boolean) => void;
 }) {
@@ -253,14 +257,14 @@ export function AttachmentField({
       <div className="contents">
         {chosen}
         {uploading}
-        {trigger}
+        {allowed && trigger}
       </div>
     );
   }
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        {trigger}
+        {allowed && trigger}
         {limit !== null && (
           <span className="text-xs text-muted-foreground">
             {t("limit", { size: megabytes(limit) })}

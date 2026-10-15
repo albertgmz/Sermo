@@ -7,10 +7,11 @@ import { withIntl } from "@/lib/test-intl";
 // The composer hands on server actions.
 mock.module("server-only", () => ({}));
 
-const { ThreadComposer, threadReady, composeAddress } = await import(
-  "./thread-composer"
-);
+const { ThreadComposer, threadReady, composeAddress, sendUnlessPicking } =
+  await import("./thread-composer");
 const { ComposerForm } = await import("./composer");
+const { panelKey } = await import("./forum-choice-panel");
+const { AttachmentField } = await import("./attachment-field");
 
 const FORUMS = [
   { id: 1, parentId: null, title: "Support", type: "category", canPost: false },
@@ -147,4 +148,89 @@ test("a wall post and a new thread are written in the same composer component", 
       /<LazyEditor|<Editor|<AttachmentField|visualViewport/,
     );
   }
+});
+
+test("Enter in the forum search does nothing, so it cannot send the thread", () => {
+  let prevented = 0;
+  let back = 0;
+  const key = (name: string, tagName: string) => ({
+    key: name,
+    target: { tagName },
+    preventDefault: () => {
+      prevented++;
+    },
+    stopPropagation: () => {},
+  });
+  panelKey(key("Enter", "INPUT"), () => {
+    back++;
+  });
+  expect(prevented).toBe(1);
+  expect(back).toBe(0);
+  // Escape goes back to the composer.
+  panelKey(key("Escape", "INPUT"), () => {
+    back++;
+  });
+  expect(back).toBe(1);
+  // Other keys, and Enter on a button, are left alone.
+  panelKey(key("a", "INPUT"), () => {});
+  panelKey(key("Enter", "BUTTON"), () => {});
+  expect(prevented).toBe(2);
+});
+
+test("a submit while the forum choice is open is stopped and sends nothing", () => {
+  let prevented = 0;
+  let sent = 0;
+  const event = {
+    preventDefault: () => {
+      prevented++;
+    },
+  };
+  sendUnlessPicking(true, event, () => {
+    sent++;
+  });
+  expect(prevented).toBe(1);
+  expect(sent).toBe(0);
+  sendUnlessPicking(false, event, () => {
+    sent++;
+  });
+  expect(prevented).toBe(1);
+  expect(sent).toBe(1);
+});
+
+test("the closed composer's draft is kept, restored once the page is drawn, and cleared on send", () => {
+  const src = source("components/forum/thread-composer.tsx");
+  expect(src).toContain("readThreadDraft()");
+  expect(src).toContain("writeThreadDraft(");
+  expect(src).toContain("clearThreadDraft()");
+  // Storage is read in an effect, never while drawing; sending clears it, a refusal writes it again.
+  expect(src).toMatch(
+    /useEffect\(\(\) => \{\s*const draft = readThreadDraft\(\)/,
+  );
+  expect(src).toMatch(
+    /if \(pending\) clearThreadDraft\(\);\s*else writeThreadDraft/,
+  );
+});
+
+test("the files already added stay listed when the forum no longer allows attaching", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <AttachmentField
+        compact
+        allowed={false}
+        initial={[{ id: 4, name: "plan.pdf", size: 2048 }]}
+      />,
+    ),
+  );
+  expect(html).toContain("plan.pdf");
+  expect(html).toContain('name="attachmentIds" value="4"');
+  expect(html).not.toContain('type="file"');
+  const allowed = renderToStaticMarkup(withIntl(<AttachmentField compact />));
+  expect(allowed).toContain('type="file"');
+});
+
+test("the composer pins its bar on a page and never hides the attachment list", () => {
+  const src = source("components/forum/composer.tsx");
+  expect(src).toContain("allowed={attach}");
+  expect(src).not.toMatch(/attach \? "contents" : "hidden"/);
+  expect(src).toMatch(/frame\.kind === "page" &&\s*"sticky/);
 });

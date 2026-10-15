@@ -16,6 +16,30 @@ import { cn } from "@/lib/utils";
 const ROW =
   "flex min-h-10 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+// The keys of the panel. Enter in the search box would send the form the panel stands in, so it
+// does nothing; Escape goes back to the composer.
+export function panelKey(
+  event: {
+    key: string;
+    target: EventTarget | { tagName?: string };
+    preventDefault: () => void;
+    stopPropagation: () => void;
+  },
+  back: () => void,
+) {
+  if (
+    event.key === "Enter" &&
+    "tagName" in event.target &&
+    event.target.tagName === "INPUT"
+  ) {
+    event.preventDefault();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    back();
+  }
+}
+
 // A composer's choice of forum, drawn in place of the composer itself: a search box and the forums
 // the member may post in, under their categories, which fold. Choosing one hands its id on.
 export function ForumChoicePanel({
@@ -77,12 +101,7 @@ export function ForumChoicePanel({
   return (
     <fieldset
       className="flex min-h-0 min-w-0 flex-1 flex-col"
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        event.stopPropagation();
-        onBack();
-      }}
+      onKeyDown={(event) => panelKey(event, onBack)}
     >
       <legend className="sr-only">{t("heading")}</legend>
       <div className="flex items-center gap-2 border-b p-2">

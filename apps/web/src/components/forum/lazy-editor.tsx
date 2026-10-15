@@ -47,6 +47,8 @@ export function LazyEditor({
   const [waiting, setWaiting] = useState(false);
   const [loaded, setLoaded] = useState<Loaded>();
   const ownBar = toolbarContainer === undefined;
+  const changed = useRef(onChange);
+  changed.current = onChange;
 
   // Requests from elsewhere in the composer (an attachment's tag to put in or take out) are taken
   // by the plain field until the editor is there. Those that arrive after the field is gone and
@@ -62,8 +64,10 @@ export function LazyEditor({
       if (!box) queue.current.push(request);
       else if ("insert" in request) {
         insertAtCaret(box, request.insert, asked.current);
+        changed.current?.(box.value);
       } else {
         box.value = withoutAttachTag(box.value, request.remove);
+        changed.current?.(box.value);
       }
     });
   }, []);

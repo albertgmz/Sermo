@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { type RefObject, useEffect, useState } from "react";
 import { AttachmentField } from "@/components/forum/attachment-field";
+import { COMPOSER_PAGE_CLASS } from "@/components/forum/composer-page";
 import type { EditorProps } from "@/components/forum/editor";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
@@ -83,16 +84,7 @@ export function ComposerPage({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <div
-      className={cn(
-        "flex min-h-[70dvh] flex-col overflow-hidden rounded-lg border bg-card md:min-h-[34rem]",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
+  return <div className={cn(COMPOSER_PAGE_CLASS, className)}>{children}</div>;
 }
 
 export type ComposerFrame =
@@ -133,7 +125,8 @@ export function ComposerForm({
   // The text as it is written, for a caller that decides from it.
   onBodyChange?: (text: string) => void;
   error?: string;
-  // Whether files may be added. Files already added stay with the form while this is false.
+  // Whether files may be added. The files already added stay in view (and can be removed) while
+  // this is false: only the paperclip goes.
   attach?: boolean;
   // The forum the post is for; a message or a wall post has none.
   attachNodeId?: number;
@@ -203,14 +196,20 @@ export function ComposerForm({
           />
           {error && <FormError className="px-3 pb-3">{error}</FormError>}
         </div>
-        <div className="flex flex-wrap items-center gap-x-1 gap-y-2 border-t px-1.5 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] md:pb-1">
-          <div className={attach ? "contents" : "hidden"}>
-            <AttachmentField
-              compact
-              nodeId={attachNodeId}
-              onBusy={setUploading}
-            />
-          </div>
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-x-1 gap-y-2 border-t px-1.5 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] md:pb-1",
+            // On a page the bar stays in view above the phone's bottom navigation.
+            frame.kind === "page" &&
+              "sticky bottom-(--spacing-mobile-nav) z-10 bg-card md:bottom-0",
+          )}
+        >
+          <AttachmentField
+            compact
+            allowed={attach}
+            nodeId={attachNodeId}
+            onBusy={setUploading}
+          />
           <div ref={setBar} className="min-w-0 flex-1" />
         </div>
       </div>

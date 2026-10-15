@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { COMPOSER_PAGE_CLASS } from "@/components/forum/composer-page";
 import { Container } from "@/components/layout/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -171,10 +172,7 @@ export function EditorSkeleton({
 // bar of tools.
 export function ComposerSkeleton() {
   return (
-    <div
-      aria-hidden="true"
-      className="flex min-h-[70dvh] flex-col overflow-hidden rounded-lg border bg-card md:min-h-[34rem]"
-    >
+    <div aria-hidden="true" className={COMPOSER_PAGE_CLASS}>
       <div className="flex items-center justify-between border-b p-2">
         <Skeleton className="size-10" />
         <Skeleton className="h-10 w-20 rounded-full" />
