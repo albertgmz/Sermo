@@ -2444,9 +2444,7 @@ export const pollAnswers = sqliteTable(
     pollId: integer("poll_id")
       .notNull()
       .references(() => polls.id),
-    questionId: integer("question_id")
-      .notNull()
-      .references(() => pollQuestions.id),
+    questionId: integer("question_id").notNull(),
     position: integer("position").notNull(),
     text: text("text").notNull(),
     imageFileId: integer("image_file_id"),
