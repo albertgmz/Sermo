@@ -25,6 +25,8 @@ const EMISSION_GATES: Record<string, string> = {
     "Draws the attachments a text places inline only when HtmlContent found postImages allowed (liteImages); a blocked picture becomes the placeholder and its address is never written.",
   "src/components/layout/site-icon.tsx":
     "Checks brand before emitting the favicon link.",
+  "src/lib/pwa.ts":
+    "Names the icons of the web app manifest; src/app/manifest.ts checks the category before asking for them and leaves them out when it is blocked.",
   "src/components/layout/logo.tsx":
     "Checks brand before emitting the site logo picture.",
   "src/components/layout/page-backdrop.tsx":
@@ -142,6 +144,7 @@ test("inline SVG artwork is classified and consults its LITE category", () => {
 const BACKEND_PICTURE_GATES: Record<string, string> = {
   "src/components/layout/logo.tsx": "site_logo",
   "src/components/layout/site-icon.tsx": "site_icon",
+  "src/app/manifest.ts": "site_icon",
   "src/components/layout/page-backdrop.tsx": "site_backdrop",
   // Where the pictures reach the data the reaction gate draws from.
   "src/lib/sermo/reactions.ts": "reaction_image",

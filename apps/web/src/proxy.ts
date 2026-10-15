@@ -35,6 +35,7 @@ import {
   parseLiteCookieHeader,
   serializeLiteCookie,
 } from "@/lib/lite-preferences";
+import { isPwaPath } from "@/lib/pwa";
 import { REFERRAL_MAX_AGE, referralStep } from "@/lib/referral/cookie";
 import { REFERRAL_PARAM } from "@/lib/referral/link";
 import {
@@ -405,6 +406,9 @@ async function visitorOf(request: NextRequest, hasSession: boolean) {
 async function handleRequest(request: NextRequest) {
   // The API is served by the rewrite in next.config.ts; nothing here applies to it.
   if (request.nextUrl.pathname.startsWith("/api/")) return;
+  // The manifest, the service worker and the offline page are files of the installed app, not
+  // pages of a language: they are served as they are.
+  if (isPwaPath(request.nextUrl.pathname)) return;
   const renamed = dataSaverRedirect(request);
   if (renamed) return renamed;
   const prefixed = localePrefixRedirect(request);

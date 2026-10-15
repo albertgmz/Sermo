@@ -3,8 +3,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 // Colours come from the tokens in globals.css so both themes keep working. The styleguide draws
-// sample art with fixed colours, and the admin colour input needs a #rrggbb value to start from.
+// sample art with fixed colours, the admin colour input needs a #rrggbb value to start from, and
+// the web app manifest is read by the operating system, which knows no CSS variables.
 const ALLOWED = [
+  "lib/pwa.ts",
   "app/[locale]/(main)/ui/samples.ts",
   "app/[locale]/(staff)/admin/appearance/colour-rows.tsx",
 ];

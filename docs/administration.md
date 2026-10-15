@@ -1322,6 +1322,32 @@ subscription the push service reports as gone (404 or 410) is removed. Redirects
 413 replies are logged and that message is dropped (a 403 usually means the VAPID keys are wrong;
 subscriptions are kept). Other failures are retried.
 
+## Installing the forum
+
+A browser can install the forum on a phone or computer: the site's name, description and first
+accent colour come from the site settings, and its icon is the uploaded site icon, or the default
+mark when there is none (`/manifest.webmanifest`). The site reads them again within a minute of a
+change, but a device that already installed it keeps what it had until the system refreshes the
+manifest.
+
+A small service worker (`/serwist/sw.js`) is registered by production builds on `https` and
+`localhost`, once a page has loaded. It does two things only:
+
+- It keeps the scripts, styles and fonts of the build (`/_next/static/`, named by their content,
+  so they never change) and serves them from the device first, at most 200 files for 30 days.
+- When a page cannot be loaded because the device has no connection, it shows a short page in
+  English and Spanish with a button to try again. This page is kept from the first visit
+  (`/offline.html`).
+
+Pages, the API, files, uploads and everything a member writes always go to the network and are
+never kept: there is no offline reading, no background sync and no push (the worker has no handler
+for the Web Push messages described above). A new deploy takes effect on the next visit: the
+browser checks the worker script every time, a new worker replaces the old one at once, and it
+drops the caches of an older version. To clear what a device holds, use the browser's site
+settings (clear site data) or unregister the worker in its developer tools; to drop a cache for
+every device after changing what the worker keeps, raise the version in `STATIC_CACHE`
+(`apps/web/src/lib/pwa-routes.ts`).
+
 ## Formatting for members
 
 Posts, profile posts, comments and conversation messages are BB code (XenForo's tags: `[B] [I]

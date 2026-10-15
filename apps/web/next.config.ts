@@ -1,3 +1,4 @@
+import { withSerwist } from "@serwist/turbopack";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
@@ -21,6 +22,16 @@ const nextConfig: NextConfig = {
       ],
     };
   },
+  // The service worker script is checked for a new version on every visit, whatever a cache in
+  // front of the app was told.
+  async headers() {
+    return [
+      {
+        source: "/serwist/:path*",
+        headers: [{ key: "Cache-Control", value: "no-cache" }],
+      },
+    ];
+  },
   experimental: {
     // The proxy copies a request body to read it twice, up to this size. Actions take 1 MB at the
     // most and a picture goes through its own route, which the proxy skips.
@@ -39,4 +50,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+export default withNextIntl(withSerwist(nextConfig));

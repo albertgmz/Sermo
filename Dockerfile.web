@@ -35,6 +35,8 @@ ENV NODE_ENV=production \
 WORKDIR /app/apps/web
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone /app
 COPY --from=build --chown=node:node /app/apps/web/.next/static .next/static
+# The offline page of the service worker is a file of public/, which the standalone output leaves out.
+COPY --from=build --chown=node:node /app/apps/web/public public
 
 USER node
 EXPOSE 3000

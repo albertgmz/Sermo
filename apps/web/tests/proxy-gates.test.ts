@@ -1177,6 +1177,37 @@ test("the API, the icon and the upload routes stay at their public addresses", a
     assert.equal(matcher.test(path), true, path);
 });
 
+test("the manifest, the service worker and the offline page are left alone", async () => {
+  reset();
+  const lite = "forum_lite=all";
+  for (const path of [
+    "/manifest.webmanifest",
+    "/serwist/sw.js",
+    "/serwist/sw.js.map",
+    "/offline.html",
+    "/pwa-icon/192",
+    "/pwa-icon/512",
+  ]) {
+    for (const init of [
+      { headers: { "accept-language": "es" } },
+      { cookie: `forum_locale=es; ${lite}` },
+    ]) {
+      const response = await ask(path, init);
+      assert.equal(rewriteOf(response) ?? null, null, path);
+      assert.equal(response?.headers.get("location") ?? null, null, path);
+      assert.equal(response?.status ?? 200, 200, path);
+    }
+  }
+  // Only those addresses: a page that merely starts the same way is still a page.
+  const page = await ask("/offline", { headers: { "accept-language": "es" } });
+  assert.equal(rewriteOf(page), "http://localhost/es/offline");
+  // Nor is any other file under the worker's folder: the route would build the worker for it.
+  const other = await ask("/serwist/other.js", {
+    headers: { "accept-language": "es" },
+  });
+  assert.equal(rewriteOf(other), "http://localhost/es/serwist/other.js");
+});
+
 test("Next's own picture addresses are not rewritten into a language", async () => {
   reset();
   for (const path of [
