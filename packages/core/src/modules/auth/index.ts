@@ -44,6 +44,12 @@ import {
   takePasswordGuess,
 } from "../admin/password-guesses";
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
+import {
+  parseReferrer,
+  referOnRegistration,
+  settlePendingReferral,
+  settleReferralAtSignIn,
+} from "../members/referrals";
 import { queueCounts } from "../moderation";
 import { requestLocation } from "../security/location";
 import { logMemberIp } from "../security/log";
@@ -242,6 +248,8 @@ export function promoteVerifiedMember(ctx: Ctx, userId: number): boolean {
           source: "verification",
         },
       });
+    // The registration may have named a referrer that waited for this confirmation.
+    if (changed) settlePendingReferral(ctx, userId);
     return changed;
   });
 }
@@ -739,6 +747,7 @@ function buildAuth(ctx: Ctx) {
               request?: Request;
             } | null;
             if (context?.path === "/sign-up/email") return;
+            settleReferralAtSignIn(ctx, Number(session.userId));
             const headers = context?.headers ?? context?.request?.headers;
             try {
               await recordSignIn(ctx, {
@@ -824,6 +833,12 @@ function buildAuth(ctx: Ctx) {
                     ctx.now(),
                   );
                 const headers = (hookContext as { headers?: Headers } | undefined)?.headers;
+                // The sign-up form may carry the member whose link brought the visitor.
+                const referrer = parseReferrer(
+                  (hookContext as { body?: { ref?: unknown } } | undefined)?.body?.ref,
+                );
+                if (referrer !== null)
+                  referOnRegistration(ctx, Number(user.id), referrer, mailEnabled);
                 logMemberIp(
                   ctx,
                   Number(user.id),

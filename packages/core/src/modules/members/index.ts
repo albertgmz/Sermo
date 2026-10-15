@@ -2,7 +2,7 @@ import { usersAuthors, usersCards } from "../../contracts/members";
 import { implement } from "../../operation";
 import { usersChangeUsernameOp } from "../auth/username";
 import { loadViewerAuthors, loadViewerCards } from "./cards";
-import { usersBirthdaysOp, usersListOp, usersSetReferrerOp, usersStaffOp } from "./directory";
+import { usersBirthdaysOp, usersListOp, usersStaffOp } from "./directory";
 import { standingsMonthOp, standingsWinnersOp } from "./standings";
 
 export { loadMemberAuthors, loadMemberCards } from "./cards";
@@ -38,7 +38,6 @@ export const operations = [
   usersListOp,
   usersStaffOp,
   usersBirthdaysOp,
-  usersSetReferrerOp,
   standingsMonthOp,
   standingsWinnersOp,
   usersChangeUsernameOp,

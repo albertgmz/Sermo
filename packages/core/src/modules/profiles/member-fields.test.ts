@@ -321,7 +321,6 @@ describe("profiles.self", () => {
     expect(self).toMatchObject({
       signatureSource: "src",
       birthYear: 1985,
-      referrerId: null,
       may: { setSignature: true, setCustomTitle: true },
       limits: { signatureMaxLength: 300, signatureMaxLines: 4, customTitleMaxLength: 40 },
     });
@@ -340,17 +339,6 @@ describe("profiles.self", () => {
     });
     const self = await w.call("profiles.self", w.memberActor, {});
     expect(self.limits).toMatchObject({ signatureMaxLength: 99, customTitleMaxLength: 12 });
-  });
-
-  test("a referrer can be named once, in the first seven days", async () => {
-    const w = world();
-    expect((await w.call("profiles.self", w.memberActor, {})).canSetReferrer).toBe(true);
-    w.set(w.member.id, { referred_by: w.moderator.id });
-    const named = await w.call("profiles.self", w.memberActor, {});
-    expect(named).toMatchObject({ canSetReferrer: false, referrerId: w.moderator.id });
-    w.set(w.member.id, { referred_by: null });
-    w.ctx.clock.advance(7 * 86_400_000);
-    expect((await w.call("profiles.self", w.memberActor, {})).canSetReferrer).toBe(false);
   });
 });
 

@@ -289,6 +289,12 @@ export const users = sqliteTable(
     /** The member who brought this one; set once, in the first days of the account. */
     referredBy: integer("referred_by"),
     referredAt: integer("referred_at"),
+    /**
+     * The referrer a registration named while the member still had to confirm their address: it
+     * becomes referred_by when the address is confirmed or at the next sign-in, within seven days
+     * of registering, and is cleared either way.
+     */
+    pendingReferrer: integer("pending_referrer"),
     /** Members whose referred_by is this member. */
     referralCount: counter("referral_count"),
     /** Awards currently held, counting each grant (the sum of member_award_totals.count). */

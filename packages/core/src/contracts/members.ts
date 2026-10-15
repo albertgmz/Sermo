@@ -2,7 +2,7 @@ import * as z from "zod";
 import { AWARD_TIERS } from "../db/schema";
 import { defineContract } from "../operation";
 import { FramePlacement } from "./appearance";
-import { Empty, IconKey, Id, Ok, Page, pageInput, Timestamp } from "./common";
+import { Empty, IconKey, Id, Page, pageInput, Timestamp } from "./common";
 import { ImageReference } from "./images";
 
 /*
@@ -168,18 +168,6 @@ export const usersBirthdays = defineContract({
   kind: "read",
   input: Empty,
   output: z.object({ items: z.array(MemberCard) }),
-});
-
-export const usersSetReferrer = defineContract({
-  name: "users.setReferrer",
-  summary:
-    "Name the member who brought you here. Allowed once, during the first seven days of the " +
-    "account, to members who may edit their own profile (profile.editOwn). Never yourself, " +
-    "never a banned member, and never the member who named you as their referrer. The " +
-    "referrer's referral count goes up by one.",
-  kind: "write",
-  input: z.object({ userId: Id }),
-  output: Ok,
 });
 
 // Member of the month --------------------------------------------------------------------------

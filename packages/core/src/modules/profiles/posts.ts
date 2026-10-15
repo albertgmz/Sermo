@@ -33,7 +33,6 @@ import { storeContentReferences, storeSpoilers } from "../../render";
 import { iso } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { loadMemberDetails } from "../members/cards";
-import { REFERRAL_WINDOW_MS } from "../members/directory";
 import {
   appendModeratorLog,
   moderateEditedContent,
@@ -85,7 +84,6 @@ type ProfileRow = PrincipalRow & {
   following_count: number;
   credits: number;
   referral_count: number;
-  referred_by: number | null;
   last_activity_at: number | null;
 };
 function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
@@ -102,7 +100,7 @@ function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
     }
   );
 }
-export const PROFILE_SQL = `SELECT u.id, u.username, u.group_id, g.title AS group_title, u.about, u.avatar_file_id, u.custom_title, u.signature_source, u.location, u.website, u.birthday_md, u.birth_year, u.social_discord, u.social_telegram, u.social_x, u.follower_count, u.following_count, u.credits, u.referral_count, u.referred_by, u.last_activity_at, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`;
+export const PROFILE_SQL = `SELECT u.id, u.username, u.group_id, g.title AS group_title, u.about, u.avatar_file_id, u.custom_title, u.signature_source, u.location, u.website, u.birthday_md, u.birth_year, u.social_discord, u.social_telegram, u.social_x, u.follower_count, u.following_count, u.credits, u.referral_count, u.last_activity_at, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`;
 const MINUTE_MS = 60_000;
 function readProfileRow(ctx: Ctx, userId: number): ProfileRow {
   const row = prepared(ctx, "profiles.profile", () =>
@@ -226,8 +224,6 @@ export const profilesSelfOp = implement(profilesSelf, (ctx, actor) => {
     customTitle: row.custom_title,
     signatureSource: row.signature_source,
     birthYear: row.birth_year,
-    referrerId: row.referred_by,
-    canSetReferrer: row.referred_by === null && ctx.now() - row.created_at < REFERRAL_WINDOW_MS,
     may: {
       setSignature: can(ctx, actor, "profile.signature"),
       setCustomTitle: can(ctx, actor, "profile.customTitle"),

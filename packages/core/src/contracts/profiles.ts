@@ -178,9 +178,6 @@ export const profilesSelf = defineContract({
     customTitle: z.string().nullable(),
     signatureSource: z.string().nullable(),
     birthYear: z.number().int().nullable(),
-    /** Who referred this member, if anyone, and whether they may still name a referrer. */
-    referrerId: Id.nullable(),
-    canSetReferrer: z.boolean(),
     may: z.object({ setSignature: z.boolean(), setCustomTitle: z.boolean() }),
     limits: z.object({
       signatureMaxLength: z.number().int(),

@@ -205,7 +205,6 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["DELETE", "/users/{userId}/ignore", "users.unignore"],
   ["PATCH", "/profile", "profiles.update"],
   ["GET", "/profile", "profiles.self"],
-  ["PUT", "/profile/referrer", "users.setReferrer"],
   ["GET", "/member-cards", "users.cards"],
   ["GET", "/member-authors", "users.authors"],
   ["GET", "/member-relations", "users.relations"],

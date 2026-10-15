@@ -1,13 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { GUEST } from "../../actor";
 import { MEMBER_SORTS } from "../../contracts/members";
-import {
-  ConflictError,
-  ForbiddenError,
-  NotFoundError,
-  UnauthenticatedError,
-  ValidationError,
-} from "../../errors";
+import { ForbiddenError, ValidationError } from "../../errors";
 import { expectNoTableScan } from "../../testing";
 import { birthdaySql, listSql, staffBanSql, staffSql } from "./directory";
 import { type World, world } from "./fixtures.test";
@@ -306,95 +300,5 @@ describe("users.birthdays", () => {
   test("the query reads users_birthday", () => {
     const w = world();
     expectNoTableScan(w.ctx, birthdaySql, ["01-01", 0, 51]);
-  });
-});
-
-describe("users.setReferrer", () => {
-  const refer = (w: World, actor: object, userId: number) =>
-    w.call("users.setReferrer", actor, { userId });
-  const row = (w: World, id: number) =>
-    w.ctx.sqlite
-      .prepare<
-        { referred_by: number | null; referred_at: number | null; referral_count: number },
-        [number]
-      >("SELECT referred_by, referred_at, referral_count FROM users WHERE id = ?1")
-      .get(id)!;
-
-  test("names the referrer once and counts it", async () => {
-    const w = world();
-    expect(await refer(w, w.memberActor, w.moderator.id)).toEqual({ ok: true });
-    expect(row(w, w.member.id)).toMatchObject({
-      referred_by: w.moderator.id,
-      referred_at: w.ctx.now(),
-    });
-    expect(row(w, w.moderator.id).referral_count).toBe(1);
-    const other = w.user();
-    await refer(w, { kind: "user", userId: other.id, groupId: 2, sessionId: 0 }, w.moderator.id);
-    expect(row(w, w.moderator.id).referral_count).toBe(2);
-  });
-
-  test("every refusal leaves the counters alone", async () => {
-    const w = world();
-    await expect(refer(w, GUEST, w.moderator.id)).rejects.toBeInstanceOf(UnauthenticatedError);
-    await expect(refer(w, w.memberActor, w.member.id)).rejects.toBeInstanceOf(ValidationError);
-    await expect(refer(w, w.memberActor, 987654)).rejects.toBeInstanceOf(NotFoundError);
-    await refer(w, w.memberActor, w.moderator.id);
-    await expect(refer(w, w.memberActor, w.admin.id)).rejects.toBeInstanceOf(ConflictError);
-    expect(row(w, w.admin.id).referral_count).toBe(0);
-    expect(row(w, w.member.id).referred_by).toBe(w.moderator.id);
-    const old = w.user();
-    w.ctx.clock.advance(7 * 86_400_000);
-    await expect(
-      refer(w, { kind: "user", userId: old.id, groupId: 2, sessionId: 0 }, w.admin.id),
-    ).rejects.toBeInstanceOf(ConflictError);
-    expect(row(w, w.admin.id).referral_count).toBe(0);
-    expect(row(w, old.id).referred_by).toBeNull();
-  });
-
-  test("needs profile.editOwn, and a banned member has lost it", async () => {
-    const w = world();
-    await w.call("permissions.set", w.adminActor, {
-      groupId: 2,
-      entries: [{ permission: "profile.editOwn", value: "never" }],
-    });
-    await expect(refer(w, w.memberActor, w.moderator.id)).rejects.toBeInstanceOf(ForbiddenError);
-    expect(row(w, w.member.id).referred_by).toBeNull();
-    expect(row(w, w.moderator.id).referral_count).toBe(0);
-    const w2 = world();
-    w2.set(w2.member.id, { banned_permanently: 1 });
-    await expect(refer(w2, w2.memberActor, w2.moderator.id)).rejects.toBeInstanceOf(ForbiddenError);
-    expect(row(w2, w2.moderator.id).referral_count).toBe(0);
-  });
-
-  test("a banned member cannot be named: not found, like a member who does not exist", async () => {
-    const w = world();
-    const gone = w.user();
-    const later = w.user();
-    w.set(gone.id, { banned_permanently: 1 });
-    w.set(later.id, { banned_until: w.ctx.now() + 86_400_000 });
-    for (const target of [gone, later])
-      await expect(refer(w, w.memberActor, target.id)).rejects.toBeInstanceOf(NotFoundError);
-    expect(row(w, w.member.id).referred_by).toBeNull();
-    w.set(later.id, { banned_until: w.ctx.now() - 1 });
-    await refer(w, w.memberActor, later.id);
-    expect(row(w, later.id).referral_count).toBe(1);
-  });
-
-  test("a member who named you as their referrer cannot be named back", async () => {
-    const w = world();
-    const other = w.user();
-    const otherActor = { kind: "user", userId: other.id, groupId: 2, sessionId: 0 };
-    await refer(w, otherActor, w.member.id);
-    await expect(refer(w, w.memberActor, other.id)).rejects.toBeInstanceOf(ConflictError);
-    expect(row(w, w.member.id).referred_by).toBeNull();
-    expect(row(w, other.id).referral_count).toBe(0);
-    expect(row(w, w.member.id).referral_count).toBe(1);
-  });
-
-  test("the last day of the window still works", async () => {
-    const w = world();
-    w.ctx.clock.advance(7 * 86_400_000 - 1);
-    await refer(w, w.memberActor, w.moderator.id);
-    expect(row(w, w.moderator.id).referral_count).toBe(1);
   });
 });

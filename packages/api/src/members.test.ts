@@ -74,18 +74,8 @@ test("the directory and standing routes answer to guests", async () => {
 });
 
 test("the account routes need a signed-in member", async () => {
-  const { get, app, env } = setup();
+  const { get } = setup();
   expect((await get("/api/v1/profile")).status).toBe(401);
-  const put = await app.request(
-    "/api/v1/profile/referrer",
-    {
-      method: "PUT",
-      headers: { "content-type": "application/json", origin: "http://localhost:3000" },
-      body: JSON.stringify({ userId: 1 }),
-    },
-    env,
-  );
-  expect(put.status).toBe(401);
 });
 
 test("/member-relations takes up to 50 ids, answers a guest with false flags and refuses 51", async () => {
