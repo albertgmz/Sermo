@@ -185,6 +185,7 @@
     "membersEmptyTitle": "No members used this address",
     "membersEmptyDescription": "Failed sign-ins are not counted, and nothing is logged for actions from before the log began.",
     "memberHeading": "Addresses used by {name}",
+    "memberRefused": "You cannot see this member's addresses: they rank at or above you, or do not exist.",
     "memberEmptyTitle": "No addresses logged",
     "memberEmptyDescription": "Nothing has been logged for this member yet.",
     "times": "{count, plural, one {# time} other {# times}}",

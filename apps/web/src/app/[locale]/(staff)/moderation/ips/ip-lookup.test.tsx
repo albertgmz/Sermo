@@ -91,6 +91,12 @@ function backend(holdsViewIps = true) {
         nextCursor: null,
       });
     }
+    if (url.pathname === "/api/v1/admin/users/9/ips") {
+      return Response.json(
+        { error: { code: "forbidden", message: "Forbidden." } },
+        { status: 403 },
+      );
+    }
     if (url.pathname === "/api/v1/admin/ips/members") {
       if (url.searchParams.get("ip") === "nonsense") {
         return Response.json(
@@ -156,6 +162,13 @@ test("a member's addresses are listed with counts and first and last seen, each 
   expect(page).toContain("Addresses used by ");
   expect(page).toContain("network 2001:db8:0:1::/64");
   expect(page).toContain("2026");
+});
+
+test("a member the viewer does not outrank is shown as refused, not as an error", async () => {
+  backend();
+  const page = await html(IpLookup({ searchParams: search({ member: "9" }) }));
+  expect(page).toContain(messages.moderation.ips.memberRefused);
+  expect(page).not.toContain("Addresses used by");
 });
 
 test("an address lists the members who used it, with the network the backend matched", async () => {

@@ -44,7 +44,11 @@ export const targetMember = markPublic(
  * Whether the actor holds a permission that is otherwise checked against a member (a list of
  * members or of bans has none). The resolved permissions apply no member-dependent condition.
  */
-export function requireHeld(ctx: Ctx, actor: Actor, id: "admin.members" | "member.ban"): void {
+export function requireHeld(
+  ctx: Ctx,
+  actor: Actor,
+  id: "admin.members" | "member.ban" | "member.viewIps",
+): void {
   requireAuthenticated(actor);
   if (resolvedPermissions(ctx, actor)[id] !== true) throw new ForbiddenError();
 }

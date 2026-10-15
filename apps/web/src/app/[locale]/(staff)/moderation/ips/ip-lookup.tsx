@@ -6,7 +6,7 @@ import { linkClass } from "@/components/staff/rows";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDateTime } from "@/lib/format";
-import { call, read } from "@/lib/sermo/client";
+import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
@@ -90,9 +90,30 @@ export async function IpLookup({
 
   if (memberId !== null && !ip) {
     const [page, name] = await Promise.all([
-      read(usersIps, { userId: memberId, cursor: cursorFrom(params) }),
+      call(usersIps, { userId: memberId, cursor: cursorFrom(params) }).catch(
+        (error) => {
+          // A member of equal or higher rank, or none at all: shown as refused, not as an error.
+          if (
+            error instanceof SermoError &&
+            (error.code === "forbidden" || error.code === "not_found")
+          ) {
+            return null;
+          }
+          throw error;
+        },
+      ),
       memberNames([memberId]),
     ]);
+    if (!page) {
+      return (
+        <section className="space-y-3 rounded-lg border bg-card p-4">
+          {form}
+          <p role="alert" className="text-xs font-medium text-destructive">
+            {t("memberRefused")}
+          </p>
+        </section>
+      );
+    }
     const heading = t("memberHeading", { name: name(memberId) });
     return (
       <CursorList

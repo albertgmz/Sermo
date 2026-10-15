@@ -4,6 +4,7 @@ import {
   expectNoTableScan,
   insertNode,
   insertUser,
+  tokenActor,
   userActor,
 } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
@@ -19,6 +20,7 @@ import {
   DEVICE_CACHE_SIZE,
   deviceOf,
   deviceParseCount,
+  isBotAgent,
   NO_DEVICE,
 } from "./device";
 import { securitySql } from "./index";
@@ -96,21 +98,20 @@ describe("device detection", () => {
     });
   });
 
-  test("an enumerable member another library added to a prototype does not break parsing", () => {
-    // drizzle-kit does this to Array.prototype, and the detector walks its patterns with for...in.
-    Object.defineProperty(Array.prototype, "random", {
-      value: () => 0,
-      enumerable: true,
-      configurable: true,
-      writable: true,
-    });
-    try {
-      clearDeviceCache();
-      expect(deviceOf(CHROME)).toMatchObject({ browser: "Chrome", os: "Windows" });
-      expect(deviceOf(IPHONE)).toMatchObject({ brand: "Apple" });
-    } finally {
-      Reflect.deleteProperty(Array.prototype, "random");
-    }
+  test("the crawler check alone answers from its own cache and agrees with the full parse", () => {
+    clearDeviceCache();
+    const before = deviceParseCount();
+    expect(isBotAgent(GOOGLEBOT)).toBe(true);
+    expect(isBotAgent(CHROME)).toBe(false);
+    expect(isBotAgent(CHROME)).toBe(false);
+    expect(deviceParseCount()).toBe(before + 2);
+    expect(isBotAgent(undefined)).toBe(false);
+    expect(deviceOf(GOOGLEBOT).isBot).toBe(true);
+    expect(deviceOf(CHROME).isBot).toBe(false);
+    // A user agent whose device is cached needs no second parse.
+    const parsed = deviceParseCount();
+    expect(isBotAgent(CHROME)).toBe(false);
+    expect(deviceParseCount()).toBe(parsed);
   });
 
   test("a crawler is a bot and an empty user agent has no device", () => {
@@ -141,6 +142,24 @@ describe("device detection", () => {
     expect(deviceParseCount()).toBe(parsed + 1);
   });
 });
+
+// A member of a new group of rank 20 (above members, below moderators) that holds View IPs.
+function readerOf(w: Awaited<ReturnType<typeof world>>) {
+  const group = w.ctx.sqlite
+    .prepare<{ id: number }, []>(
+      "INSERT INTO groups (title, rank) VALUES ('IP readers', 20) RETURNING id",
+    )
+    .get()!.id;
+  const definition = w.ctx.sqlite
+    .prepare<{ id: number }, [string]>("SELECT id FROM permission_definitions WHERE key = ?1")
+    .get("member.viewIps")!.id;
+  w.ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1)",
+    )
+    .run(definition, group);
+  return insertUser(w.ctx, { groupId: group });
+}
 
 async function world() {
   const ctx = createTestContext();
@@ -471,22 +490,52 @@ describe("the staff views", () => {
       await expect(w.call(name, w.at(w.admin), input)).resolves.toBeDefined();
     }
     // Granted to a group, a member of it may look.
-    const group = w.ctx.sqlite
-      .prepare<{ id: number }, []>(
-        "INSERT INTO groups (title, rank) VALUES ('IP readers', 20) RETURNING id",
-      )
-      .get()!.id;
-    const definition = w.ctx.sqlite
-      .prepare<{ id: number }, [string]>("SELECT id FROM permission_definitions WHERE key = ?1")
-      .get("member.viewIps")!.id;
-    w.ctx.sqlite
-      .prepare(
-        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1)",
-      )
-      .run(definition, group);
-    const reader = insertUser(w.ctx, { groupId: group });
+    const reader = readerOf(w);
     for (const [name, input] of operations)
       await expect(w.call(name, w.at(reader), input)).resolves.toBeDefined();
+    // A token acts with its owner's permissions: the owner's rights decide.
+    const token = { ...tokenActor(reader), clientIp: "198.51.100.9" };
+    await expect(w.call("users.ips", token, { userId: w.member.id })).resolves.toBeDefined();
+    await expect(
+      w.call("users.ips", tokenActor(w.other), { userId: w.member.id }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  test("a holder reads only the addresses of members they outrank", async () => {
+    const w = await filled();
+    const rival = insertUser(w.ctx, { groupId: 4 });
+    const post = await w.call("posts.create", w.at(rival, "203.0.113.7"), {
+      threadId: w.first.thread.id,
+      body: "From the same address",
+    });
+    const reader = readerOf(w);
+    const admin = w.at(w.admin);
+    // Over a member of lower rank: allowed. Over an administrator: refused by the reader, and
+    // by another administrator of equal rank.
+    await expect(w.call("users.ips", w.at(reader), { userId: w.member.id })).resolves.toBeDefined();
+    await expect(w.call("users.ips", w.at(reader), { userId: rival.id })).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    await expect(w.call("users.ips", admin, { userId: rival.id })).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    // Members the reader does not outrank are left out of an address's members...
+    const shared = await w.call("ips.members", w.at(reader), { ip: "203.0.113.7" });
+    expect(ids(shared.items).sort()).toEqual([w.member.id, w.other.id].sort());
+    expect(ids((await w.call("ips.members", admin, { ip: "203.0.113.7" })).items)).not.toContain(
+      rival.id,
+    );
+    // ...and the address of their content is not shown, as if none were logged.
+    const ofRival = await w.call("ips.content", w.at(reader), {
+      contentType: "post",
+      contentId: post.id,
+    });
+    expect(ofRival.entry).toBeNull();
+    const ofMember = await w.call("ips.content", w.at(reader), {
+      contentType: "post",
+      contentId: w.first.post.id,
+    });
+    expect(ofMember.entry).toMatchObject({ ip: "203.0.113.7" });
   });
 
   test("the staff reads search their covering indexes", async () => {
@@ -524,6 +573,29 @@ describe("sign-in, registration and failed sign-ins", () => {
       )
       .all(Number(result.user.id));
     expect(rows).toEqual([{ action: "register", ip: "203.0.113.20", browser: "Chrome" }]);
+  });
+
+  test("an IPv6 sign-in logs the address the client used, not Better Auth's masked /64", async () => {
+    const w = await accounts();
+    const ada = await w.register("Ada");
+    await getAuth(w.ctx).api.signInEmail({
+      body: { email: "ada@example.test", password: PASSWORD },
+      headers: headers("2001:db8:0:1::5"),
+    });
+    const rows = w.ctx.sqlite
+      .prepare<{ ip: string; ip_net: string; action: string }, [number]>(
+        "SELECT ip, ip_net, action FROM ip_log WHERE user_id = ?1",
+      )
+      .all(ada.id);
+    expect(rows).toEqual([
+      { ip: "2001:db8:0:1::5", ip_net: "2001:db8:0:1::/64", action: "sign_in" },
+    ]);
+    const stored = w.ctx.sqlite
+      .prepare<{ ip_address: string }, [number]>(
+        "SELECT ip_address FROM auth_session WHERE user_id = ?1 ORDER BY id DESC",
+      )
+      .get(ada.id)!.ip_address;
+    expect(stored).not.toBe("2001:db8:0:1::5"); // Better Auth keeps the masked form
   });
 
   test("a sign-in writes a row and a wrong password writes a failed one for that member", async () => {

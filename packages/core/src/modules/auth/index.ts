@@ -724,17 +724,24 @@ function buildAuth(ctx: Ctx) {
             if (isClosed(ctx, Number(session.userId))) throw accountBanned();
           },
           // A session is a sign-in: its address and user agent are the ones Better Auth read.
-          // Registration logs its own row, so the session it opens is not a second one. A log
-          // that cannot be written never fails the sign-in.
+          // Registration logs its own row, so the session it opens is not a second one. The
+          // address is the trusted header, not the session's: Better Auth masks an IPv6 address
+          // to its /64 there. A log that cannot be written never fails the sign-in.
           after: async (session, hookContext) => {
-            if ((hookContext as { path?: string } | null)?.path === "/sign-up/email") return;
+            const context = hookContext as {
+              path?: string;
+              headers?: Headers;
+              request?: Request;
+            } | null;
+            if (context?.path === "/sign-up/email") return;
+            const headers = context?.headers ?? context?.request?.headers;
             try {
               writeTx(ctx, () =>
                 logMemberIp(
                   ctx,
                   Number(session.userId),
-                  session.ipAddress,
-                  session.userAgent,
+                  headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
+                  session.userAgent ?? headers?.get("user-agent"),
                   "sign_in",
                 ),
               );
@@ -1103,7 +1110,10 @@ export async function resolveActor(
   }
   const cookie = headers.get("cookie");
   if (!cookie || !/(?:^|;\s*)(?:__Secure-)?sermo\.session_token=/.test(cookie))
-    return { actor: userAgent ? { kind: "guest", userAgent } : GUEST, setCookies: [] };
+    return {
+      actor: userAgent ? Object.freeze({ kind: "guest" as const, userAgent }) : GUEST,
+      setCookies: [],
+    };
   const result = await getAuth(ctx).api.getSession({ headers, returnHeaders: true });
   const session = result.response;
   if (!session) throw new UnauthenticatedError();

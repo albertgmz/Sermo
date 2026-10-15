@@ -549,7 +549,7 @@ moderation (deleting, approving, editing posts) is not rank-checked.
 | `member.ban`, `member.spamCleanup` | Global bans and spam cleanup | Administrator |
 | `conversation.moderate`, `conversation.viewHidden` | Moderating private conversation messages and their reports; seeing hidden messages there | Administrator |
 | `wordFilter.manage`, `moderatorLog.view` | Managing word filters; reading the whole moderator log | Administrator |
-| `member.viewIps` | "View IPs": the addresses members signed in, registered and posted from, and who shares them | Administrator |
+| `member.viewIps` | "View IPs": the addresses members signed in, registered and posted from, and who shares them; only for members the holder outranks | Administrator |
 | `member.immuneToAutoBan` | Held by the warned member: reaching the warning threshold does not ban them | Administrator |
 
 Most moderation calls accept `notify` (default `true`) and an optional `message` (up to 1,000
@@ -653,7 +653,10 @@ trusted proxy header), written normalised: an IPv4-mapped IPv6 address is stored
 IPv6 address is also kept with its /64 network, so members behind one connection group together.
 Nothing is logged for an action without a usable address (loaders, scripts).
 
-`member.viewIps` opens three reads and the **IP addresses** screen of the moderation panel
+`member.viewIps` works like the member-sessions read: it only reaches members the holder outranks
+(a super admin reaches everyone). `users.ips` is refused for any other member, `ips.members` leaves
+them out and `ips.content` shows no address for their content. Views are not written to the
+moderator log. It opens three reads and the **IP addresses** screen of the moderation panel
 (`/moderation/ips`): `ips.content` (the address a post or other content was made from; a thread's
 is its first post's), `users.ips` (every address a member used, with counts and first and last
 seen) and `ips.members` (the members who used an address, or an IPv6 /64). Failed sign-ins are

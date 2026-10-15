@@ -420,7 +420,7 @@ export const PERMISSIONS = {
   "wordFilter.manage": globalAdmin("moderation"),
   "moderatorLog.view": globalAdmin("moderation"),
   /** See the addresses members signed in, registered and posted from, and who shares them. */
-  "member.viewIps": globalAdmin("moderation"),
+  "member.viewIps": { ...globalAdmin("moderation"), hierarchy: true },
 
   // Economy (global) --------------------------------------------------------------------
   /** Give or take credits by hand, with a reason. */

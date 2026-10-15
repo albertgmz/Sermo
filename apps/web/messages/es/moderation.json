@@ -185,6 +185,7 @@
     "membersEmptyTitle": "Ningún miembro usó esta dirección",
     "membersEmptyDescription": "Los inicios de sesión fallidos no cuentan, y no hay registro de las acciones anteriores al registro.",
     "memberHeading": "Direcciones usadas por {name}",
+    "memberRefused": "No puedes ver las direcciones de este miembro: tiene un rango igual o superior al tuyo, o no existe.",
     "memberEmptyTitle": "Sin direcciones registradas",
     "memberEmptyDescription": "Todavía no se ha registrado nada de este miembro.",
     "times": "{count, plural, one {# vez} other {# veces}}",

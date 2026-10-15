@@ -45,7 +45,7 @@ import {
   recordPostRevision,
   withSpamCheck,
 } from "../moderation";
-import { deviceOf } from "../security/device";
+import { isBotAgent } from "../security/device";
 import { logIp } from "../security/log";
 import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
@@ -984,7 +984,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
   }
   const { row, node } = requireThread(ctx, actor, targetId);
   // Crawlers read threads too: their visits are not views.
-  if (input.countView && !deviceOf(actor.userAgent).isBot)
+  if (input.countView && !isBotAgent(actor.userAgent))
     ctx.views.set(row.id, (ctx.views.get(row.id) ?? 0) + 1);
   const userId = actorUserId(actor);
   return {

@@ -7,6 +7,12 @@ import { createTestContext } from "../testing";
 import * as authSchema from "./auth-schema";
 import * as schema from "./schema";
 
+// drizzle-kit/api adds enumerable members to the built-in prototypes (`Array.prototype.random`,
+// String helpers). Other suites in this process walk arrays with `for...in` (the user agent
+// detector does), which would read them as data, so they are made non-enumerable here.
+for (const prototype of [Array.prototype, Object.prototype, String.prototype] as object[])
+  for (const key in prototype) Object.defineProperty(prototype, key, { enumerable: false });
+
 // Preserve string literals and expression grouping while ignoring SQL formatting and identifier quotes.
 function sqlTokens(sql: string): string[] {
   return [
