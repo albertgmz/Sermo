@@ -385,7 +385,8 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
         .run(input.primaryGroupId, input.userId);
     if (input.secondaryGroupIds !== undefined) {
       // Rows for groups that stay are left alone: their creation time is how a timed group a
-      // warning action added is told from one assigned by hand.
+      // warning action added is told from one assigned by hand (the unique index
+      // user_groups_user_group is what lets INSERT OR IGNORE skip the ones that stay).
       const keep = [...new Set(input.secondaryGroupIds)];
       ctx.sqlite
         .prepare(

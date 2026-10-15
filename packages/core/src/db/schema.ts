@@ -1316,6 +1316,8 @@ export const warningTypes = sqliteTable("warning_types", {
   defaultReason: text("default_reason").notNull().default(""),
   locked: bool("locked").notNull().default(false),
   createdAt: integer("created_at").notNull(),
+  /** Set when deletion began: the type is gone for everyone and a job is forgetting its warnings. */
+  deletedAt: integer("deleted_at"),
 });
 
 export const warnings = sqliteTable(
@@ -1356,6 +1358,8 @@ export const warningActions = sqliteTable(
     groupId: integer("group_id").references(() => groups.id),
     restrictionKind: text("restriction_kind", { enum: RESTRICTION_KINDS }),
     createdAt: integer("created_at").notNull(),
+    /** Set when deletion began: the action no longer fires and a job is taking its groups back. */
+    deletedAt: integer("deleted_at"),
   },
   (t) => [index("warning_actions_threshold").on(t.threshold, t.id)],
 );

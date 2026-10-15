@@ -26,10 +26,9 @@ import {
 import { viewerLanguage } from "../../shared/language";
 import { confirmActorPassword } from "../admin/shared";
 import { appendModeratorLog } from "./index";
-import { releaseActionGroups, WARNING_BATCH } from "./warning-actions";
+import { cleanupJob } from "./warning-actions";
 
 const DAY_MS = 86_400_000;
-const tick = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 type TypeRow = {
   id: number;
@@ -56,8 +55,6 @@ function statement<T>(ctx: Ctx, key: string, sql: string) {
   );
 }
 
-/** Warnings a type forgets per transaction when it is deleted. */
-const TYPE_BATCH = 1000;
 const typeColumns = "id, name_en, name_es, points, expiry_days, default_reason, locked";
 
 function typeValue(row: TypeRow, language: Language) {
@@ -105,7 +102,7 @@ export function resolveWarning(
     const type = statement<TypeRow>(
       ctx,
       "typeById",
-      `SELECT ${typeColumns} FROM warning_types WHERE id = ?1`,
+      `SELECT ${typeColumns} FROM warning_types WHERE id = ?1 AND deleted_at IS NULL`,
     ).get(input.typeId);
     if (!type) throw new NotFoundError();
     if (
@@ -132,7 +129,11 @@ function requireTypeReader(ctx: Ctx, actor: Actor): void {
 }
 
 const listTypes = (ctx: Ctx, language: Language) =>
-  statement<TypeRow>(ctx, "types", `SELECT ${typeColumns} FROM warning_types ORDER BY id`)
+  statement<TypeRow>(
+    ctx,
+    "types",
+    `SELECT ${typeColumns} FROM warning_types WHERE deleted_at IS NULL ORDER BY id`,
+  )
     .all()
     .map((row) => typeValue(row, language));
 
@@ -172,7 +173,7 @@ export const warningTypesUpdateOp = implement(warningTypesUpdate, (ctx, actor, i
     const row = statement<TypeRow>(
       ctx,
       "typeUpdate",
-      `UPDATE warning_types SET name_en = ?2, name_es = ?3, points = ?4, expiry_days = ?5, default_reason = ?6, locked = ?7 WHERE id = ?1 RETURNING ${typeColumns}`,
+      `UPDATE warning_types SET name_en = ?2, name_es = ?3, points = ?4, expiry_days = ?5, default_reason = ?6, locked = ?7 WHERE id = ?1 AND deleted_at IS NULL RETURNING ${typeColumns}`,
     ).get(
       input.typeId,
       input.nameEn,
@@ -190,33 +191,30 @@ export const warningTypesUpdateOp = implement(warningTypesUpdate, (ctx, actor, i
   });
 });
 
-export const warningTypesDeleteOp = implement(warningTypesDelete, async (ctx, actor, input) => {
+export const warningTypesDeleteOp = implement(warningTypesDelete, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.settings");
-  // Warnings keep their points, expiry and reason; they only forget the label. A type with many
-  // warnings forgets them a bounded batch per transaction, and goes with the last batch.
-  for (;;) {
-    const done = writeTx(ctx, () => {
-      requirePermission(ctx, currentActor(ctx, actor), "admin.settings");
-      const forgotten = statement(
-        ctx,
-        "typeForget",
-        "UPDATE warnings SET type_id = NULL WHERE id IN (SELECT id FROM warnings WHERE type_id = ?1 LIMIT ?2)",
-      ).run(input.typeId, TYPE_BATCH).changes;
-      if (forgotten === TYPE_BATCH) return false;
-      const removed = statement<{ name_en: string }>(
-        ctx,
-        "typeDelete",
-        "DELETE FROM warning_types WHERE id = ?1 RETURNING name_en",
-      ).get(input.typeId);
-      if (!removed) throw new NotFoundError();
-      appendModeratorLog(ctx, actor, "warning_type.delete", "warning_type", input.typeId, "", {
-        name: removed.name_en,
-      });
-      return true;
+  return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.settings");
+    // The type is gone for everyone from here. Its warnings keep their points, expiry and reason
+    // and only forget the label: a job does that a bounded batch at a time, and removes the row.
+    const marked = statement<{ name_en: string }>(
+      ctx,
+      "typeMark",
+      "UPDATE warning_types SET deleted_at = ?2 WHERE id = ?1 AND deleted_at IS NULL RETURNING name_en",
+    ).get(input.typeId, ctx.now());
+    if (!marked) throw new NotFoundError();
+    appendModeratorLog(ctx, actor, "warning_type.delete", "warning_type", input.typeId, "", {
+      name: marked.name_en,
     });
-    if (done) return { ok: true as const };
-    await tick();
-  }
+    const used = statement(
+      ctx,
+      "typeUsed",
+      "SELECT 1 FROM warnings WHERE type_id = ?1 LIMIT 1",
+    ).get(input.typeId);
+    if (used) cleanupJob(ctx, "type", input.typeId);
+    else statement(ctx, "typeDelete", "DELETE FROM warning_types WHERE id = ?1").run(input.typeId);
+    return { ok: true as const };
+  });
 });
 
 const actionColumns =
@@ -229,7 +227,7 @@ export const warningActionsListOp = implement(warningActionsList, (ctx, actor) =
     items: statement<ActionRow>(
       ctx,
       "actions",
-      `SELECT ${actionColumns} FROM ${actionFrom} ORDER BY a.threshold, a.id`,
+      `SELECT ${actionColumns} FROM ${actionFrom} WHERE a.deleted_at IS NULL ORDER BY a.threshold, a.id`,
     )
       .all()
       .map(actionValue),
@@ -286,7 +284,7 @@ function readAction(ctx: Ctx, id: number): ActionRow {
   const row = statement<ActionRow>(
     ctx,
     "actionById",
-    `SELECT ${actionColumns} FROM ${actionFrom} WHERE a.id = ?1`,
+    `SELECT ${actionColumns} FROM ${actionFrom} WHERE a.id = ?1 AND a.deleted_at IS NULL`,
   ).get(id);
   if (!row) throw new NotFoundError();
   return row;
@@ -297,7 +295,7 @@ function readAction(ctx: Ctx, id: number): ActionRow {
  * was or will be a group action needs. "gated" says the early check and the password covered
  * it; an action that became a group action meanwhile is refused rather than let through.
  */
-function checkStored(
+export function checkStored(
   ctx: Ctx,
   current: Actor,
   stored: ActionRow,
@@ -383,21 +381,29 @@ export const warningActionsDeleteOp = implement(warningActionsDelete, async (ctx
     requireGroupGate(ctx, actor);
     await confirmActorPassword(ctx, actor, input.actorPassword);
   }
-  // Timed memberships it added end now, a bounded batch of members per transaction (each one
-  // publishes an event); the action goes with the last batch.
-  for (;;) {
-    const done = writeTx(ctx, () => {
-      const current = currentActor(ctx, actor);
-      requirePermission(ctx, current, "admin.settings");
-      checkStored(ctx, current, readAction(ctx, input.actionId), null, gated);
-      if (releaseActionGroups(ctx, input.actionId, WARNING_BATCH) === WARNING_BATCH) return false;
+  return writeTx(ctx, () => {
+    const current = currentActor(ctx, actor);
+    requirePermission(ctx, current, "admin.settings");
+    checkStored(ctx, current, readAction(ctx, input.actionId), null, gated);
+    appendModeratorLog(ctx, actor, "warning_action.delete", "warning_action", input.actionId);
+    // Only a fire that added a group membership has anything to take back. Without one the row
+    // goes at once and its fires with it (one cascade). Otherwise the action stops firing now and
+    // a job takes the memberships back, a bounded batch at a time, and removes the row.
+    const lifts = statement(
+      ctx,
+      "actionLifts",
+      "SELECT 1 FROM warning_action_fires WHERE action_id = ?1 AND group_added_at IS NOT NULL LIMIT 1",
+    ).get(input.actionId);
+    if (lifts) {
+      statement(ctx, "actionMark", "UPDATE warning_actions SET deleted_at = ?2 WHERE id = ?1").run(
+        input.actionId,
+        ctx.now(),
+      );
+      cleanupJob(ctx, "action", input.actionId);
+    } else
       statement(ctx, "actionDelete", "DELETE FROM warning_actions WHERE id = ?1").run(
         input.actionId,
       );
-      appendModeratorLog(ctx, actor, "warning_action.delete", "warning_action", input.actionId);
-      return true;
-    });
-    if (done) return { ok: true as const };
-    await tick();
-  }
+    return { ok: true as const };
+  });
 });

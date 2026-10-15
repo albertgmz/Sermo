@@ -801,8 +801,8 @@ expiry in days (none = never) and an optional default reason. A moderator sends 
 `warnings.create` and may change `points`, `reason` and `expiresAt` unless the type is locked, which
 fixes points and expiry (the reason stays free). Without a type the warning is custom and needs
 `points` and a `reason`; the lock binds the type, not moderators in general, so a custom warning
-still takes any points and expiry. Deleting a type keeps its warnings, as custom ones (it forgets
-them a thousand per transaction).
+still takes any points and expiry. Deleting a type keeps its warnings, as custom ones (the type is gone at once; a job forgets
+it on its warnings, a thousand per transaction).
 
 **Automatic actions** (`/moderation/warning-actions`, `admin.settings`) fire when a member's active
 points reach a threshold, in the same transaction as the warning: a ban, adding the member to a
@@ -822,10 +822,14 @@ configured like `users.setGroups`: besides `admin.settings` it needs `admin.memb
 administrator's own password (`actorPassword`; an API key is refused) and a rank above the group's,
 to create it, change it or delete it (also when it is a group action that is being changed into a ban);
 ban and restriction actions need only `admin.settings`. The rank is enforced when the action is
-configured; when it fires the system acts, whoever warns. Deleting an action ends its timed
-memberships a hundred members per transaction. Saving a member's groups with `users.setGroups` keeps
-the rows of the groups that stay, so a timed group is still taken back; removing the group and adding it
-again makes it the member's own. A warning given with `notify: false` adds and takes back the group
+configured; when it fires the system acts, whoever warns. Deleting an action stops it firing at once; a job
+takes back the timed memberships it added, a hundred members per transaction, and removes the row
+(an action with nothing to take back goes immediately, with its fires). A super admin has no
+rank ceiling when assigning a group by hand but has one here. Saving a member's groups with `users.setGroups` keeps
+the rows of the groups that stay, so a timed group is still taken back (ticking it again changes nothing);
+removing the group, saving, and adding it again makes it the member's own. When the system takes
+back a membership the member still holds another way (made primary since), no "removed" event
+is published. A warning given with `notify: false` adds and takes back the group
 without a notification. The removal by the system leaves no moderator-log entry (the log needs an
 acting member); its `member.groups_changed` event names the action (`reason: "warning_action"`).
 

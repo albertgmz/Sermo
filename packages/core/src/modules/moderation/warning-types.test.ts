@@ -9,6 +9,7 @@ import {
 import { type Actor, GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { RESTRICTION_PERMANENT } from "../../db/schema";
+import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, UnauthenticatedError } from "../../errors";
 import { dispatchEvents } from "../../events";
 import { execute } from "../../operation";
@@ -18,7 +19,8 @@ import { runDueJobs } from "../jobs";
 import { runHourlyTasks } from "../jobs/scheduler";
 import { registerNotificationJobs } from "../notifications";
 import { addWarning, listWarnings, registerModerationJobs } from ".";
-import { sweepWarningActions, WARNING_BATCH, warningSql } from "./warning-actions";
+import { settleDeletion, sweepWarningActions, warningSql } from "./warning-actions";
+import { checkStored } from "./warning-config";
 
 const DAY = 86_400_000;
 const op = (name: string) => getOperation(name);
@@ -636,7 +638,9 @@ describe("warning actions", () => {
     const member = insertUser(w.ctx);
     w.warn(member.id, 1);
     expect(w.groupsOf(member.id).sort()).toEqual([timedGroup, permanentGroup].sort());
+    registerModerationJobs(w.ctx);
     await execute(w.ctx, op("warningActions.delete"), w.admin, { actionId: timed.id });
+    await runDueJobs(w.ctx);
     expect(w.groupsOf(member.id)).toEqual([permanentGroup]);
     await execute(w.ctx, op("warningActions.delete"), w.admin, { actionId: permanent.id });
     expect(w.groupsOf(member.id)).toEqual([permanentGroup]);
@@ -906,46 +910,155 @@ describe("notices of a group an action adds", () => {
   });
 });
 
-describe("deleting in bounded steps", () => {
-  test("an action with more fires than a batch ends them all and goes", async () => {
+describe("deleting an action or a type", () => {
+  const removedEvents = (w: ReturnType<typeof world>) =>
+    w.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT count(*) AS n FROM domain_events WHERE type = 'member.groups_changed' AND payload NOT LIKE '%\"removed\":[]%'",
+      )
+      .get()!.n;
+  const cleanupJobs = (w: ReturnType<typeof world>) =>
+    w.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT count(*) AS n FROM jobs WHERE type = 'moderation.warningCleanup'",
+      )
+      .get()!.n;
+  const count = (w: ReturnType<typeof world>, table: string) =>
+    w.ctx.sqlite.prepare<{ n: number }, []>(`SELECT count(*) AS n FROM ${table}`).get()!.n;
+
+  test("an action with memberships to take back stops firing at once and a job takes them back", async () => {
+    const w = world();
+    registerModerationJobs(w.ctx);
+    const group = w.group("Probation");
+    const action = await w.createAction({ threshold: 1, kind: "group", groupId: group, days: 30 });
+    const first = insertUser(w.ctx);
+    w.warn(first.id, 1);
+    await execute(w.ctx, op("warningActions.delete"), w.admin, { actionId: action.id });
+    // Gone for the admin screens and for the engine, before any membership is touched.
+    expect(
+      ((await execute(w.ctx, op("warningActions.list"), w.admin, {})) as { items: Action[] }).items,
+    ).toHaveLength(0);
+    expect(w.groupsOf(first.id)).toEqual([group]);
+    const second = insertUser(w.ctx);
+    w.warn(second.id, 5);
+    expect(w.groupsOf(second.id)).toEqual([]);
+    expect(w.fires(second.id)).toBe(0);
+    expect(cleanupJobs(w)).toBe(1);
+    await expect(
+      execute(w.ctx, op("warningActions.delete"), w.admin, { actionId: action.id }),
+    ).rejects.toThrow(NotFoundError);
+    await runDueJobs(w.ctx);
+    expect(w.groupsOf(first.id)).toEqual([]);
+    expect(count(w, "warning_actions")).toBe(0);
+    expect(count(w, "warning_action_fires")).toBe(0);
+  });
+
+  test("an action with nothing to take back goes at once, with its fires, and queues no job", async () => {
+    const w = world();
+    const group = w.group("Watched");
+    await w.createAction({ threshold: 1, kind: "ban", days: 1 });
+    const permanent = await w.createAction({
+      threshold: 1,
+      kind: "group",
+      groupId: group,
+      days: null,
+    });
+    for (let i = 0; i < 3; i++) w.warn(insertUser(w.ctx).id, 1);
+    expect(count(w, "warning_action_fires")).toBe(6);
+    const actions = (
+      (await execute(w.ctx, op("warningActions.list"), w.admin, {})) as {
+        items: Action[];
+      }
+    ).items;
+    for (const action of actions)
+      await execute(w.ctx, op("warningActions.delete"), w.admin, { actionId: action.id });
+    expect(permanent.id).toBeGreaterThan(0);
+    expect(count(w, "warning_actions")).toBe(0);
+    expect(count(w, "warning_action_fires")).toBe(0);
+    expect(cleanupJobs(w)).toBe(0);
+    // The permanent memberships stay.
+    expect(count(w, "user_groups")).toBe(3);
+  });
+
+  test("the cleanup of an action settles a bounded batch per step, with an empty step after an exact multiple", async () => {
     const w = world();
     const group = w.group("Probation");
     const action = await w.createAction({ threshold: 1, kind: "group", groupId: group, days: 30 });
-    const members = Array.from({ length: WARNING_BATCH * 2 + 5 }, () => insertUser(w.ctx));
+    const members = Array.from({ length: 6 }, () => insertUser(w.ctx));
     for (const member of members) w.warn(member.id, 1);
     await execute(w.ctx, op("warningActions.delete"), w.admin, { actionId: action.id });
-    expect(
-      w.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM user_groups").get()!.n,
-    ).toBe(0);
-    expect(
-      w.ctx.sqlite
-        .prepare<{ n: number }, []>("SELECT count(*) AS n FROM warning_action_fires")
-        .get()!.n,
-    ).toBe(0);
-    expect(
-      w.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM warning_actions").get()!.n,
-    ).toBe(0);
+    const target = { kind: "action", id: action.id } as const;
+    const before = removedEvents(w);
+    expect(settleDeletion(w.ctx, target, 3)).toEqual({ settled: 3, done: false });
+    expect(removedEvents(w) - before).toBe(3);
+    expect(count(w, "user_groups")).toBe(3);
+    // A stopped run resumes from the rows: the job finishes what a step began.
+    registerModerationJobs(w.ctx);
+    await runDueJobs(w.ctx);
+    expect(count(w, "user_groups")).toBe(0);
+    expect(count(w, "warning_actions")).toBe(0);
   });
 
-  test("a type with more warnings than a batch is deleted and its warnings keep their data", async () => {
+  test("steps over an exact multiple of the batch end with an empty step that removes the row", async () => {
     const w = world();
+    const group = w.group("Probation");
+    const action = await w.createAction({ threshold: 1, kind: "group", groupId: group, days: 30 });
+    for (let i = 0; i < 6; i++) w.warn(insertUser(w.ctx).id, 1);
+    await execute(w.ctx, op("warningActions.delete"), w.admin, { actionId: action.id });
+    const target = { kind: "action", id: action.id } as const;
+    expect(settleDeletion(w.ctx, target, 3)).toEqual({ settled: 3, done: false });
+    expect(settleDeletion(w.ctx, target, 3)).toEqual({ settled: 3, done: false });
+    expect(count(w, "warning_actions")).toBe(1);
+    expect(settleDeletion(w.ctx, target, 3)).toEqual({ settled: 0, done: true });
+    expect(count(w, "warning_actions")).toBe(0);
+    expect(count(w, "user_groups")).toBe(0);
+  });
+
+  test("a type is gone at once, its warnings forget it in bounded steps, and a stopped run resumes", async () => {
+    const w = world();
+    registerModerationJobs(w.ctx);
     const type = await w.createType();
     const member = insertUser(w.ctx);
     const insert = w.ctx.sqlite.prepare(
       "INSERT INTO warnings (user_id, moderator_id, points, reason, created_at, type_id) VALUES (?1, ?1, 1, 'Spam', ?2, ?3)",
     );
-    for (let i = 0; i < 2105; i++) insert.run(member.id, w.ctx.now(), type.id);
+    for (let i = 0; i < 8; i++) insert.run(member.id, w.ctx.now(), type.id);
     await execute(w.ctx, op("warningTypes.delete"), w.admin, { typeId: type.id });
+    expect(
+      ((await execute(w.ctx, op("warningTypes.list"), w.admin, {})) as { items: Type[] }).items,
+    ).toHaveLength(0);
+    await expect(
+      execute(w.ctx, op("warnings.create"), w.admin, { userId: member.id, typeId: type.id }),
+    ).rejects.toThrow(NotFoundError);
+    // Warnings already read as custom, whatever the cleanup has reached.
+    expect(listWarnings(w.ctx, w.admin, member.id).items[0]).toMatchObject({
+      type_id: null,
+      type_name: null,
+    });
+    const target = { kind: "type", id: type.id } as const;
+    expect(settleDeletion(w.ctx, target, 4)).toEqual({ settled: 4, done: false });
+    expect(
+      w.ctx.sqlite
+        .prepare<{ n: number }, []>("SELECT count(*) AS n FROM warnings WHERE type_id IS NOT NULL")
+        .get()!.n,
+    ).toBe(4);
+    await runDueJobs(w.ctx);
     expect(
       w.ctx.sqlite
         .prepare<{ n: number }, []>(
           "SELECT count(*) AS n FROM warnings WHERE type_id IS NULL AND reason = 'Spam'",
         )
         .get()!.n,
-    ).toBe(2105);
-    expect(
-      w.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM warning_types").get()!.n,
-    ).toBe(0);
+    ).toBe(8);
+    expect(count(w, "warning_types")).toBe(0);
+  });
+
+  test("a type with no warnings is removed at once", async () => {
+    const w = world();
+    const type = await w.createType();
+    await execute(w.ctx, op("warningTypes.delete"), w.admin, { typeId: type.id });
+    expect(count(w, "warning_types")).toBe(0);
+    expect(cleanupJobs(w)).toBe(0);
   });
 });
 
@@ -1015,6 +1128,150 @@ describe("more cases of the engine", () => {
       plan.some((line) => /SEARCH w USING (COVERING )?INDEX warnings_user_expiry/.test(line)),
     ).toBe(true);
     expect(plan.some((line) => /SCAN w\b|SCAN warnings/.test(line))).toBe(false);
+  });
+});
+
+describe("stale administrators and changed actions", () => {
+  test("a group action needs admin.members inside the transaction, against what is committed now", async () => {
+    const fixture = createTestContext();
+    const founder = userActor(insertUser(fixture, { groupId: 4 }));
+    const staffGroup = (await execute(fixture, op("groups.create"), founder, {
+      title: "Settings and members",
+      rank: 40,
+    })) as { id: number };
+    await execute(fixture, op("permissions.set"), founder, {
+      groupId: staffGroup.id,
+      entries: ["admin.settings", "admin.members"].map((permission) => ({
+        permission,
+        value: "allow",
+      })),
+    });
+    const staff = insertUser(fixture, { groupId: staffGroup.id });
+    const probation = (await execute(fixture, op("groups.create"), founder, {
+      title: "Probation",
+      rank: 1,
+    })) as { id: number };
+    const action = (await execute(fixture, op("warningActions.create"), founder, {
+      threshold: 1,
+      kind: "group",
+      groupId: probation.id,
+      days: 1,
+    })) as Action;
+    const database = sharedDatabase(fixture);
+    const here = database.open();
+    const elsewhere = database.open();
+    try {
+      const actor = resolvedActor(here, staff.id);
+      await execute(elsewhere, op("permissions.set"), founder, {
+        groupId: staffGroup.id,
+        entries: [{ permission: "admin.members", value: "unset" }],
+      });
+      const attempts: [string, Record<string, unknown>][] = [
+        ["warningActions.create", { threshold: 2, kind: "group", groupId: probation.id, days: 1 }],
+        [
+          "warningActions.update",
+          { actionId: action.id, threshold: 1, kind: "group", groupId: probation.id, days: 2 },
+        ],
+        ["warningActions.update", { actionId: action.id, threshold: 1, kind: "ban", days: 2 }],
+        ["warningActions.delete", { actionId: action.id }],
+      ];
+      for (const [name, input] of attempts)
+        await expect(execute(here, op(name), actor, input)).rejects.toThrow(ForbiddenError);
+      // A ban action is still theirs to make: admin.settings is enough.
+      await execute(here, op("warningActions.create"), actor, {
+        threshold: 3,
+        kind: "ban",
+        days: 1,
+      });
+      expect(
+        elsewhere.sqlite
+          .prepare<{ n: number }, []>("SELECT count(*) AS n FROM warning_actions")
+          .get()!.n,
+      ).toBe(2);
+    } finally {
+      database.close();
+    }
+  });
+
+  test("an action that became a group action since the early check is refused", () => {
+    const w = world();
+    const group = w.group("Probation", 1);
+    const stored = {
+      id: 1,
+      threshold: 1,
+      kind: "group",
+      days: 1,
+      group_id: group,
+      group_title: "Probation",
+      restriction_kind: null,
+    } as const;
+    const ban = {
+      threshold: 1,
+      kind: "ban",
+      days: 1,
+      groupId: null,
+      restrictionKind: null,
+    } as const;
+    const current = w.admin;
+    expect(() => writeTx(w.ctx, () => checkStored(w.ctx, current, stored, ban, false))).toThrow(
+      ConflictError,
+    );
+    expect(() =>
+      writeTx(w.ctx, () => checkStored(w.ctx, current, { ...stored, kind: "ban" }, ban, false)),
+    ).not.toThrow();
+    // Inside the transaction the gate is decided against the actor as committed, whatever the
+    // early check said: a moderator holds no admin.members.
+    expect(() => writeTx(w.ctx, () => checkStored(w.ctx, w.moderator, stored, null, true))).toThrow(
+      ForbiddenError,
+    );
+    expect(() =>
+      writeTx(w.ctx, () => checkStored(w.ctx, w.admin, stored, null, true)),
+    ).not.toThrow();
+    expect(() =>
+      writeTx(w.ctx, () =>
+        checkStored(
+          w.ctx,
+          current,
+          { ...stored, kind: "ban" },
+          { ...ban, kind: "group", groupId: group },
+          false,
+        ),
+      ),
+    ).toThrow(ConflictError);
+  });
+});
+
+describe("a group the member holds another way", () => {
+  test("the system takes back its own row but says nothing when the member still holds the group", async () => {
+    const w = world();
+    const group = w.group("Probation");
+    await w.createAction({ threshold: 1, kind: "group", groupId: group, days: 30 });
+    const member = insertUser(w.ctx);
+    w.warn(member.id, 1, "Rule", w.ctx.now() + DAY);
+    await execute(w.ctx, op("users.setGroups"), w.admin, {
+      userId: member.id,
+      primaryGroupId: group,
+    });
+    const before = w.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT count(*) AS n FROM domain_events WHERE type = 'member.groups_changed'",
+      )
+      .get()!.n;
+    w.ctx.clock.advance(2 * DAY);
+    expect(sweepWarningActions(w.ctx)).toBe(1);
+    expect(w.groupsOf(member.id)).toEqual([]);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ group_id: number }, [number]>("SELECT group_id FROM users WHERE id = ?1")
+        .get(member.id)!.group_id,
+    ).toBe(group);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ n: number }, []>(
+          "SELECT count(*) AS n FROM domain_events WHERE type = 'member.groups_changed'",
+        )
+        .get()!.n,
+    ).toBe(before);
   });
 });
 

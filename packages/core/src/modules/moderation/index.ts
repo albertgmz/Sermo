@@ -1690,7 +1690,7 @@ export function listWarnings(
   }>(
     ctx,
     "warningList",
-    "SELECT w.*, t.name_en AS type_name_en, t.name_es AS type_name_es FROM warnings w LEFT JOIN warning_types t ON t.id = w.type_id WHERE w.user_id = ?1 AND w.id < ?2 ORDER BY w.id DESC LIMIT ?3",
+    "SELECT w.id, w.user_id, w.moderator_id, w.points, w.reason, w.created_at, w.expires_at, t.id AS type_id, t.name_en AS type_name_en, t.name_es AS type_name_es FROM warnings w LEFT JOIN warning_types t ON t.id = w.type_id AND t.deleted_at IS NULL WHERE w.user_id = ?1 AND w.id < ?2 ORDER BY w.id DESC LIMIT ?3",
   ).all(userId, cursor, limit + 1);
   return {
     items: rows.slice(0, limit).map(({ type_name_en, type_name_es, ...warning }) => ({

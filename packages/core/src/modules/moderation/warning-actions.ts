@@ -6,7 +6,7 @@ import { writeTx } from "../../db/tx";
 import { ConflictError } from "../../errors";
 import { publishEvent } from "../../events";
 import { can, groupDecidesAdministration } from "../../permissions";
-import { registerJobHandler } from "../jobs";
+import { enqueueJob, registerJobHandler } from "../jobs";
 import { appendModeratorLog, insertAuthorizedBan, principalMember } from "./index";
 import type { Notice } from "./notify";
 import { insertAuthorizedRestriction } from "./restrictions";
@@ -14,7 +14,8 @@ import { insertAuthorizedRestriction } from "./restrictions";
 const DAY_MS = 86_400_000;
 /** Fires one transaction settles at most (the sweep, an action being deleted). */
 export const WARNING_BATCH = 100;
-const SWEEP_BATCH = WARNING_BATCH;
+/** Warnings one transaction lets go of their type at most, when a type is deleted. */
+export const TYPE_BATCH = 1000;
 
 type ActionRow = {
   id: number;
@@ -37,7 +38,7 @@ type FireRow = {
 export const warningSql = {
   activePoints:
     "SELECT coalesce(sum(points), 0) AS n FROM warnings WHERE user_id = ?1 AND (expires_at IS NULL OR expires_at > ?2)",
-  due: "SELECT a.id, a.threshold, a.kind, a.days, a.group_id, a.restriction_kind FROM warning_actions a WHERE a.threshold <= ?1 AND NOT EXISTS (SELECT 1 FROM warning_action_fires f WHERE f.user_id = ?2 AND f.action_id = a.id) ORDER BY a.threshold, a.id",
+  due: "SELECT a.id, a.threshold, a.kind, a.days, a.group_id, a.restriction_kind FROM warning_actions a WHERE a.threshold <= ?1 AND a.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM warning_action_fires f WHERE f.user_id = ?2 AND f.action_id = a.id) ORDER BY a.threshold, a.id",
   below:
     "SELECT f.id, f.user_id, f.action_id, f.group_id, f.group_added_at, f.notify FROM warning_action_fires f JOIN warning_actions a ON a.id = f.action_id WHERE f.user_id = ?1 AND a.threshold > ?2",
   ended:
@@ -45,8 +46,9 @@ export const warningSql = {
   // The sweep reads every fire (see sweepWarningActions) and seeks warnings_user_expiry for each.
   sweepBelow:
     "SELECT f.id, f.user_id, f.action_id, f.group_id, f.group_added_at, f.notify FROM warning_action_fires f JOIN warning_actions a ON a.id = f.action_id WHERE a.threshold > (SELECT coalesce(sum(w.points), 0) FROM warnings w WHERE w.user_id = f.user_id AND (w.expires_at IS NULL OR w.expires_at > ?1)) LIMIT ?2",
+  // Fires of a deleted action that still hold a membership to take back.
   byAction:
-    "SELECT id, user_id, action_id, group_id, group_added_at, notify FROM warning_action_fires WHERE action_id = ?1 LIMIT ?2",
+    "SELECT id, user_id, action_id, group_id, group_added_at, notify FROM warning_action_fires WHERE action_id = ?1 AND group_added_at IS NOT NULL LIMIT ?2",
 };
 
 function statement<T>(ctx: Ctx, key: string, sql: string) {
@@ -79,7 +81,8 @@ function removeAddedGroup(ctx: Ctx, fire: FireRow): void {
     "removeGroup",
     "DELETE FROM user_groups WHERE user_id = ?1 AND group_id = ?2 AND created_at = ?3",
   ).run(fire.user_id, fire.group_id, fire.group_added_at);
-  if (removed.changes > 0)
+  // A group the member holds another way (made primary since) is not one they lost.
+  if (removed.changes > 0 && !heldElsewhere(ctx, fire.user_id, fire.group_id))
     publishEvent(ctx, {
       type: "member.groups_changed",
       targetType: "user",
@@ -118,17 +121,6 @@ export function reconcileWarningActions(ctx: Ctx, userId: number, now: number): 
     activeWarningPoints(ctx, userId, now),
   );
   for (const fire of fires) liftFire(ctx, fire);
-}
-
-/**
- * Forgets up to `limit` fires of an action and lifts the group memberships they added (the
- * action is going away). Inside the caller's write transaction; returns how many it settled, so
- * the caller repeats it, one transaction each, until none is left.
- */
-export function releaseActionGroups(ctx: Ctx, actionId: number, limit: number): number {
-  const fires = statement<FireRow>(ctx, "fireByAction", warningSql.byAction).all(actionId, limit);
-  for (const fire of fires) liftFire(ctx, fire);
-  return fires.length;
 }
 
 /** Whether the member belongs to the group through a source other than `user_groups`. */
@@ -270,7 +262,7 @@ export function applyWarningActions(
 export function sweepWarningActions(ctx: Ctx): number {
   return writeTx(ctx, () => {
     const now = ctx.now();
-    const ended = statement<FireRow>(ctx, "ended", warningSql.ended).all(now, SWEEP_BATCH);
+    const ended = statement<FireRow>(ctx, "ended", warningSql.ended).all(now, WARNING_BATCH);
     for (const fire of ended) {
       statement(
         ctx,
@@ -282,13 +274,70 @@ export function sweepWarningActions(ctx: Ctx): number {
     // Every fire is looked at, one seek into warnings each. A fire stays while its member's
     // points stay over the threshold, so the table grows with the members who ever crossed one
     // and whose warnings do not expire; the plan test keeps the seek on the index.
-    const below = statement<FireRow>(ctx, "below", warningSql.sweepBelow).all(now, SWEEP_BATCH);
+    const below = statement<FireRow>(ctx, "below", warningSql.sweepBelow).all(now, WARNING_BATCH);
     for (const fire of below) liftFire(ctx, fire);
     return ended.length + below.length;
   });
 }
 
+export type DeletionTarget = { kind: "action" | "type"; id: number };
+
+/** Queues the cleanup that follows the deletion of an action or a type. Inside a write transaction. */
+export function cleanupJob(ctx: Ctx, kind: DeletionTarget["kind"], id: number): void {
+  enqueueJob(ctx, "moderation.warningCleanup", { kind, id } satisfies DeletionTarget, {
+    uniqueKey: `moderation.warningCleanup.${kind}.${id}`,
+  });
+}
+
+/**
+ * One bounded transaction of the cleanup after a deletion began. An action takes back the group
+ * memberships of up to `limit` fires (each publishes an event); a type lets up to `limit`
+ * warnings go. The row itself goes with the first step that finds less than a full batch, so an
+ * exact multiple takes one empty step more. All state is in the rows, so a stopped run resumes
+ * from the next one.
+ */
+export function settleDeletion(
+  ctx: Ctx,
+  target: DeletionTarget,
+  limit = target.kind === "action" ? WARNING_BATCH : TYPE_BATCH,
+): { settled: number; done: boolean } {
+  return writeTx(ctx, () => {
+    let settled: number;
+    if (target.kind === "action") {
+      const fires = statement<FireRow>(ctx, "fireByAction", warningSql.byAction).all(
+        target.id,
+        limit,
+      );
+      for (const fire of fires) liftFire(ctx, fire);
+      settled = fires.length;
+    } else {
+      settled = statement(
+        ctx,
+        "typeForget",
+        "UPDATE warnings SET type_id = NULL WHERE id IN (SELECT id FROM warnings WHERE type_id = ?1 LIMIT ?2)",
+      ).run(target.id, limit).changes;
+    }
+    if (settled === limit) return { settled, done: false };
+    // The action's fires without a membership go with its row, in one cascade.
+    statement(
+      ctx,
+      target.kind === "action" ? "actionRemove" : "typeRemove",
+      target.kind === "action"
+        ? "DELETE FROM warning_actions WHERE id = ?1 AND deleted_at IS NOT NULL"
+        : "DELETE FROM warning_types WHERE id = ?1 AND deleted_at IS NOT NULL",
+    ).run(target.id);
+    return { settled, done: true };
+  });
+}
+
 export function registerWarningJobs(ctx: Ctx): void {
+  registerJobHandler(ctx, "moderation.warningCleanup", async (_ctx, payload) => {
+    const target = payload as Partial<DeletionTarget>;
+    if ((target.kind !== "action" && target.kind !== "type") || !Number.isSafeInteger(target.id))
+      throw new Error("Invalid warning cleanup job.");
+    while (!settleDeletion(ctx, target as DeletionTarget).done)
+      await new Promise<void>((resolve) => setImmediate(resolve));
+  });
   registerJobHandler(ctx, "moderation.warningSweep", async () => {
     while (sweepWarningActions(ctx) > 0)
       await new Promise<void>((resolve) => setImmediate(resolve));
