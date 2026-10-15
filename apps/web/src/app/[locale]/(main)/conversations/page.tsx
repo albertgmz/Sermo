@@ -1,23 +1,24 @@
-import { conversationsList } from "@sermo/core/contracts";
 import { MessagesSquare, Plus } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { ConversationRow } from "@/app/[locale]/(main)/conversations/conversation-row";
-import { LoadMore } from "@/app/[locale]/(main)/conversations/load-more";
+import { conversationsPage } from "@/app/[locale]/(main)/conversations/conversation-page";
+import { moreConversations } from "@/app/[locale]/(main)/conversations/more-conversations";
 import { EmptyState } from "@/components/forum/empty-state";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
+import { PagedList } from "@/components/forum/paged-list";
 import {
   ConversationListSkeleton,
   LoadingRegion,
 } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { read } from "@/lib/sermo/client";
-import { membersFor } from "@/lib/sermo/members";
+import { pagesParam } from "@/lib/list-pages";
 import { cn } from "@/lib/utils";
 
-export default async function ConversationsPage() {
+export default async function ConversationsPage({
+  searchParams,
+}: PageProps<"/[locale]/conversations">) {
   const t = await getTranslations("conversations.list");
   return (
     <PageLayout className="pt-2">
@@ -42,21 +43,24 @@ export default async function ConversationsPage() {
             </LoadingRegion>
           }
         >
-          <ConversationList />
+          <ConversationList searchParams={searchParams} />
         </Suspense>
       </div>
     </PageLayout>
   );
 }
 
-async function ConversationList() {
-  const [{ items, nextCursor }, t] = await Promise.all([
-    read(conversationsList, {}),
+async function ConversationList({
+  searchParams,
+}: Pick<PageProps<"/[locale]/conversations">, "searchParams">) {
+  const [params, t] = await Promise.all([
+    searchParams,
     getTranslations("conversations.list"),
   ]);
-  const member = await membersFor(items.map((c) => c.lastMessage.user));
+  const cursor = typeof params.cursor === "string" ? params.cursor : undefined;
+  const first = await conversationsPage(cursor);
 
-  if (!items.length) {
+  if (!first.rows.length && !first.nextCursor) {
     return (
       <EmptyState
         icon={MessagesSquare}
@@ -66,17 +70,17 @@ async function ConversationList() {
     );
   }
   return (
-    <ul className="divide-y">
-      {items.map((conversation) => (
-        <ConversationRow
-          key={conversation.id}
-          conversation={conversation}
-          member={member(conversation.lastMessage.user.id)}
-        />
-      ))}
-      {nextCursor && (
-        <LoadMore key={nextCursor} cursor={nextCursor} label={t("older")} />
-      )}
-    </ul>
+    <PagedList
+      first={first}
+      more={moreConversations}
+      pages={pagesParam(params.pages)}
+      start={cursor}
+      listKey={["conversations"]}
+      hrefBase="/conversations"
+      moreLabel={t("older")}
+      estimateSize={72}
+      as="ul"
+      moreClassName="p-2"
+    />
   );
 }

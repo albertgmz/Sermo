@@ -1,7 +1,8 @@
 import { ConversationPreview } from "@/components/forum/conversation-preview";
 import type { MemberView } from "@/lib/sermo/views";
 
-// One row of the list of conversations: the preview, whose title link covers the whole row.
+// One row of the list of conversations: the preview, whose title link covers the whole row. The
+// list around it makes it a list item.
 export function ConversationRow({
   conversation,
   member,
@@ -10,8 +11,8 @@ export function ConversationRow({
   member: MemberView;
 }) {
   return (
-    <li className="relative flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50">
+    <div className="relative flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50">
       <ConversationPreview linked conversation={conversation} member={member} />
-    </li>
+    </div>
   );
 }

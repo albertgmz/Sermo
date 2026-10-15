@@ -1,55 +1,35 @@
-import {
-  nodesGet,
-  nodesList,
-  threadPrefixesList,
-  threadsList,
-} from "@sermo/core/contracts";
-import {
-  Eye,
-  Lock,
-  MessageCircle,
-  MessagesSquare,
-  Pin,
-  Plus,
-} from "lucide-react";
+import { nodesGet, nodesList, threadPrefixesList } from "@sermo/core/contracts";
+import { MessagesSquare, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { useFormatter, useLocale, useNow, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
 import { ForumWatch } from "@/app/[locale]/(main)/forums/[id]/forum-watch";
-import { Art } from "@/components/forum/art";
+import { moreThreads } from "@/app/[locale]/(main)/forums/[id]/more-threads";
+import { threadsPage } from "@/app/[locale]/(main)/forums/[id]/thread-page";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ForumCard } from "@/components/forum/forum-card";
 import { JsonLd } from "@/components/forum/json-ld";
-import { LoadMore } from "@/components/forum/load-more";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
+import { PagedList } from "@/components/forum/paged-list";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import {
   LoadingRegion,
   TabsSkeleton,
   ThreadRowSkeleton,
 } from "@/components/forum/skeletons";
-import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
-import { UnreadDot } from "@/components/forum/unread-dot";
-import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { formatCompact } from "@/lib/format";
+import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
 import { parsePageId } from "@/lib/sermo/ids";
 import { membersFor } from "@/lib/sermo/members";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
-import {
-  type ApiThread,
-  prefixView,
-  threadCard,
-  threadMembers,
-} from "@/lib/sermo/threads";
+import { prefixView } from "@/lib/sermo/threads";
 import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -110,131 +90,19 @@ function PrefixFilter({
   );
 }
 
-function ThreadRow({
-  thread,
-  member,
-  highlighted,
-}: {
-  thread: ApiThread;
-  member: Awaited<ReturnType<typeof membersFor>>;
-  highlighted: boolean;
-}) {
-  const locale = useLocale();
-  const t = useTranslations("forums.forum");
-  const format = useFormatter();
-  const now = useNow();
-  const card = threadCard(thread, member);
-  return (
-    <li
-      className={cn(
-        "relative isolate flex items-center gap-3 px-3 py-2.5 md:px-4",
-        highlighted &&
-          "bg-primary/5 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary",
-      )}
-    >
-      {card.coverPicture && (
-        <Art
-          category="threadCovers"
-          src={card.coverPicture.url}
-          className="absolute inset-y-0 right-0 -z-10 w-2/3 opacity-25 [mask-image:linear-gradient(to_left,black,transparent)] md:w-1/2"
-        />
-      )}
-      <UserAvatar
-        user={card.author.member}
-        size="lg"
-        className="relative z-10"
-      />
-      <div className="min-w-0 flex-1">
-        <Link
-          href={`/threads/${thread.id}`}
-          aria-hidden="true"
-          tabIndex={-1}
-          className="absolute inset-0"
-        />
-        <ThreadHoverCard
-          thread={card}
-          className={cn(
-            "relative z-10 flex w-fit max-w-full items-start gap-1.5 text-sm hover:underline",
-            thread.isUnread ? "font-bold" : "font-medium",
-          )}
-        >
-          {thread.isUnread && <UnreadDot className="mt-1.5" />}
-          {thread.isSticky && (
-            <Pin
-              aria-label={t("aria.pinned")}
-              className="mt-0.5 size-3.5 shrink-0 text-primary-ink"
-            />
-          )}
-          {thread.isLocked && (
-            <Lock
-              aria-label={t("aria.locked")}
-              className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
-            />
-          )}
-          <span className="line-clamp-2 [overflow-wrap:anywhere]">
-            {card.prefix && (
-              <PrefixTag
-                prefix={card.prefix}
-                className="mr-1.5 align-(--prefix-offset)"
-              />
-            )}
-            {card.title}
-            {highlighted && (
-              <span className="sr-only">{t("aria.highlighted")}</span>
-            )}
-          </span>
-        </ThreadHoverCard>
-        <p className="truncate text-xs text-muted-foreground">
-          {t.rich("created", {
-            author: () => (
-              <UserLink user={card.author.member} className="relative z-10" />
-            ),
-            time: format.relativeTime(new Date(thread.createdAt), now),
-          })}
-        </p>
-      </div>
-      <dl className="flex shrink-0 flex-col items-end gap-1 text-xs text-muted-foreground tabular-nums sm:flex-row sm:gap-0">
-        <div className="flex items-center gap-1 sm:w-16 sm:justify-end">
-          <dt>
-            <MessageCircle aria-hidden="true" className="size-3.5" />
-            <span className="sr-only">{t("aria.replies")}</span>
-          </dt>
-          <dd>{formatCompact(card.replyCount, locale)}</dd>
-        </div>
-        <div className="flex items-center gap-1 sm:w-16 sm:justify-end">
-          <dt>
-            <Eye aria-hidden="true" className="size-3.5" />
-            <span className="sr-only">{t("aria.views")}</span>
-          </dt>
-          <dd>{formatCompact(card.views, locale)}</dd>
-        </div>
-      </dl>
-      <p className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground md:block">
-        {t.rich("lastPost", {
-          time: format.relativeTime(new Date(card.lastPost.createdAt), now),
-          author: () => (
-            <UserLink
-              user={card.lastPost.author.member}
-              className="relative z-10"
-            />
-          ),
-        })}
-      </p>
-    </li>
-  );
-}
-
 // The backend has one address for a forum; a list continued by cursor or narrowed by prefix is a
 // copy of it.
 async function seoOf(
   id: string,
   searchParams: PageProps<"/[locale]/forums/[id]">["searchParams"],
 ) {
-  const [{ seo }, { prefix, cursor }] = await Promise.all([
+  const [{ seo }, { prefix, cursor, pages }] = await Promise.all([
     getNode(nodeIdOf(id)),
     searchParams,
   ]);
-  return prefix !== undefined || cursor !== undefined ? copyOf(seo) : seo;
+  return prefix !== undefined || cursor !== undefined || pages !== undefined
+    ? copyOf(seo)
+    : seo;
 }
 
 export async function generateMetadata({
@@ -248,7 +116,7 @@ export default async function ForumPage({
   params,
   searchParams,
 }: PageProps<"/[locale]/forums/[id]">) {
-  const [{ id: raw }, { prefix, cursor }] = await Promise.all([
+  const [{ id: raw }, { prefix, cursor, pages }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -321,6 +189,7 @@ export default async function ForumPage({
             nodeId={node.id}
             prefix={typeof prefix === "string" ? prefix : undefined}
             cursor={typeof cursor === "string" ? cursor : undefined}
+            pages={pagesParam(pages)}
             newThread={newThread}
             signedIn={user !== null}
           />
@@ -369,30 +238,27 @@ async function ForumThreads({
   nodeId,
   prefix,
   cursor,
+  pages,
   newThread,
   signedIn,
 }: {
   nodeId: number;
   prefix: string | undefined;
   cursor: string | undefined;
+  pages: number;
   newThread: React.ReactNode;
   signedIn: boolean;
 }) {
-  const prefixId = /^[1-9]\d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
-  const [list, { items: allPrefixes }, t] = await Promise.all([
-    read(threadsList, { nodeId, prefixId, cursor }),
+  const prefixId = /^[1-9]d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
+  const [first, { items: allPrefixes }, t] = await Promise.all([
+    threadsPage(nodeId, prefixId, cursor),
     read(threadPrefixesList, {}),
     getTranslations("forums.forum"),
   ]);
-  const threads = [...list.sticky, ...list.items];
-  const member = await membersFor(threads.flatMap(threadMembers));
   const prefixes = allPrefixes
     .filter((entry) => entry.isActive)
     .flatMap((entry) => prefixView(entry) ?? []);
-  const now = Date.now();
-  const next = new URLSearchParams();
-  if (prefixId !== undefined) next.set("prefix", String(prefixId));
-  if (list.nextCursor) next.set("cursor", list.nextCursor);
+  const listed = first.rows.length > 0;
 
   return (
     <>
@@ -400,27 +266,30 @@ async function ForumThreads({
         <PrefixFilter id={nodeId} prefixes={prefixes} active={prefixId} />
       )}
 
-      <div
-        className={cn(
-          "overflow-hidden rounded-lg border bg-card",
-          prefixes.length > 0 ? "mt-1" : "mt-4",
-        )}
-      >
-        {threads.length > 0 ? (
-          <ul className="divide-y divide-border">
-            {threads.map((thread) => (
-              <ThreadRow
-                key={thread.id}
-                thread={thread}
-                member={member}
-                highlighted={
-                  thread.highlightedUntil !== null &&
-                  Date.parse(thread.highlightedUntil) > now
-                }
-              />
-            ))}
-          </ul>
-        ) : (
+      {listed ? (
+        <PagedList
+          first={first}
+          more={moreThreads.bind(null, nodeId, prefixId)}
+          pages={pages}
+          start={cursor}
+          listKey={["forum", nodeId, prefixId ?? 0]}
+          hrefBase={`/forums/${nodeId}${prefixId === undefined ? "" : `?prefix=${prefixId}`}`}
+          moreLabel={t("nextPage")}
+          estimateSize={72}
+          as="ul"
+          className={cn(
+            "overflow-hidden rounded-lg border bg-card",
+            prefixes.length > 0 ? "mt-1" : "mt-4",
+          )}
+          moreClassName="mt-3"
+        />
+      ) : (
+        <div
+          className={cn(
+            "overflow-hidden rounded-lg border bg-card",
+            prefixes.length > 0 ? "mt-1" : "mt-4",
+          )}
+        >
           <EmptyState
             icon={MessagesSquare}
             title={t("empty")}
@@ -434,12 +303,7 @@ async function ForumThreads({
           >
             {newThread}
           </EmptyState>
-        )}
-      </div>
-      {list.nextCursor && (
-        <LoadMore href={`/forums/${nodeId}?${next}`} className="mt-3">
-          {t("nextPage")}
-        </LoadMore>
+        </div>
       )}
     </>
   );

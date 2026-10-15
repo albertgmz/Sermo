@@ -1,0 +1,84 @@
+import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const source = (path: string) =>
+  readFileSync(join(import.meta.dir, "..", "src", path), "utf8");
+
+const SCREENS = [
+  ["feed", "app/[locale]/(main)/page.tsx", "_feed/feed-actions.ts"],
+  [
+    "forum thread lists",
+    "app/[locale]/(main)/forums/[id]/page.tsx",
+    "forums/[id]/more-threads.ts",
+  ],
+  [
+    "conversations",
+    "app/[locale]/(main)/conversations/page.tsx",
+    "conversations/more-conversations.ts",
+  ],
+  [
+    "search results",
+    "app/[locale]/(main)/search/results.tsx",
+    "search/more-results.ts",
+  ],
+  [
+    "profile activity",
+    "app/[locale]/(main)/members/[id]/activity.tsx",
+    "members/[id]/more-activity.ts",
+  ],
+  [
+    "bookmarks",
+    "app/[locale]/(main)/account/bookmarks/bookmark-list.tsx",
+    "account/bookmarks/more-bookmarks.ts",
+  ],
+  [
+    "notifications",
+    "app/[locale]/(main)/notifications/page.tsx",
+    "notifications/more-notifications.ts",
+  ],
+] as const;
+
+// The pager of these screens is the one shared list: a screen that still draws its own link to
+// the next page, or reads the page count from nowhere, has drifted from it.
+for (const [name, screen, action] of SCREENS) {
+  test(`${name} draw their list through the shared paged list`, () => {
+    const code = source(screen);
+    expect(code).toContain("<PagedList");
+    expect(code).not.toContain("LoadMore");
+    expect(code).toMatch(/pages=\{pagesParam\(|pages=\{pages\}/);
+    expect(code).toMatch(/more=\{more\w+(\.bind\([^)]*\))?\}/);
+  });
+
+  test(`${name} ask for the pages after the first through a server action`, () => {
+    const code = readFileSync(
+      join(
+        import.meta.dir,
+        "..",
+        "src/app/[locale]/(main)",
+        action.replace(/^app\/\[locale\]\/\(main\)\//, ""),
+      ),
+      "utf8",
+    );
+    expect(code.startsWith('"use server";')).toBe(true);
+  });
+}
+
+test("the shared list keeps the place in the address and takes its first page from the server", () => {
+  const list = source("components/forum/infinite-list.tsx");
+  expect(list).toContain("placeHref(");
+  expect(list).toContain("window.history.replaceState");
+  // Nothing is fetched on mount: the server's pages are the data and it never goes stale.
+  expect(list).toContain("initialData");
+  expect(list).toContain("staleTime: Number.POSITIVE_INFINITY");
+  expect(list).toContain("IntersectionObserver");
+  expect(list).toContain("useWindowVirtualizer");
+  expect(list).toContain("measureElement");
+});
+
+test("the query client is set up once, in the root layout", () => {
+  expect(source("app/[locale]/layout.tsx")).toContain("<QueryProvider>");
+  const uses = ["components/forum/infinite-list.tsx"];
+  for (const path of uses)
+    expect(source(path)).not.toContain("new QueryClient");
+});

@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
+import { pagesParam } from "@/lib/list-pages";
 import { SearchBody } from "./search-body";
 import { FormSkeleton, ResultsSkeleton } from "./skeletons";
 
@@ -46,6 +47,7 @@ export default async function SearchPage({
           prefix={idOf(first(params.prefix))}
           author={first(params.author)}
           cursor={first(params.cursor) || undefined}
+          pages={pagesParam(params.pages)}
         />
       </Suspense>
     </PageLayout>

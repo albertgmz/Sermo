@@ -1,14 +1,13 @@
-import { notificationsList } from "@sermo/core/contracts";
 import { Bell, CheckCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { notificationEntries } from "@/app/[locale]/(main)/notifications/entries";
 import { MarkAllReadForm } from "@/app/[locale]/(main)/notifications/mark-all-read";
+import { moreNotifications } from "@/app/[locale]/(main)/notifications/more-notifications";
+import { notificationsPage } from "@/app/[locale]/(main)/notifications/notification-page";
 import { EmptyState } from "@/components/forum/empty-state";
-import { LoadMore } from "@/components/forum/load-more";
-import { NotificationRow } from "@/components/forum/notification-row";
+import { PagedList } from "@/components/forum/paged-list";
 import { PageLayout } from "@/components/layout/page-layout";
-import { read } from "@/lib/sermo/client";
+import { pagesParam } from "@/lib/list-pages";
 import { NOINDEX } from "@/lib/sermo/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,12 +21,10 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function NotificationsPage({
   searchParams,
 }: PageProps<"/[locale]/notifications">) {
-  const { cursor } = await searchParams;
-  const list = await read(notificationsList, {
-    cursor: typeof cursor === "string" ? cursor : undefined,
-  });
-  const [{ entries, member }, t] = await Promise.all([
-    notificationEntries(list.items),
+  const { cursor: raw, pages } = await searchParams;
+  const cursor = typeof raw === "string" ? raw : undefined;
+  const [{ page: first, unreadCount }, t] = await Promise.all([
+    notificationsPage(cursor),
     getTranslations("notifications.notifications"),
   ]);
 
@@ -39,13 +36,13 @@ export default async function NotificationsPage({
             {t("heading")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {t("notifications", { count: list.unreadCount })}
+            {t("notifications", { count: unreadCount })}
           </p>
         </div>
-        {entries.length > 0 && (
+        {first.rows.length > 0 && (
           <MarkAllReadForm
             variant="outline"
-            disabled={list.unreadCount === 0}
+            disabled={unreadCount === 0}
             className="h-10 px-3 md:h-8"
           >
             <CheckCheck />
@@ -54,36 +51,28 @@ export default async function NotificationsPage({
         )}
       </div>
 
-      <section className="mt-4 overflow-hidden rounded-lg border bg-card">
-        {entries.length === 0 ? (
+      {first.rows.length === 0 ? (
+        <section className="mt-4 overflow-hidden rounded-lg border bg-card">
           <EmptyState
             icon={Bell}
             title={t("emptyTitle")}
             description={t("emptyDescription")}
           />
-        ) : (
-          <ul className="divide-y divide-border">
-            {entries.map(({ item, href, emoji }) => (
-              <li key={item.id}>
-                <NotificationRow
-                  item={item}
-                  href={href}
-                  emoji={emoji}
-                  member={member}
-                  size="lg"
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      {list.nextCursor && (
-        <LoadMore
-          href={`/notifications?cursor=${encodeURIComponent(list.nextCursor)}`}
-          className="mt-3"
-        >
-          {t("nextPage")}
-        </LoadMore>
+        </section>
+      ) : (
+        <PagedList
+          first={first}
+          more={moreNotifications}
+          pages={pagesParam(pages)}
+          start={cursor}
+          listKey={["notifications"]}
+          hrefBase="/notifications"
+          moreLabel={t("nextPage")}
+          estimateSize={72}
+          as="ul"
+          className="mt-4 overflow-hidden rounded-lg border bg-card"
+          moreClassName="mt-3"
+        />
       )}
     </PageLayout>
   );

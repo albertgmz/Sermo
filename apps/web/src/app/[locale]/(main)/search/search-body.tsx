@@ -13,7 +13,8 @@ export async function SearchBody({
   prefix,
   author,
   cursor,
-}: Filters & { cursor?: string }) {
+  pages,
+}: Filters & { cursor?: string; pages: number }) {
   const [{ items: nodes }, { items: allPrefixes }] = await Promise.all([
     read(nodesList, {}),
     read(threadPrefixesList, {}),
@@ -32,7 +33,7 @@ export async function SearchBody({
     <>
       <SearchForm filters={filters} nodes={nodes} prefixes={prefixes} />
       <Suspense fallback={<ResultsSkeleton />}>
-        <Results filters={filters} cursor={cursor} />
+        <Results filters={filters} cursor={cursor} pages={pages} />
       </Suspense>
     </>
   );

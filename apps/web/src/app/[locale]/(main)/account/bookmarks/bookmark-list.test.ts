@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
 import { translator, withIntl } from "@/lib/test-intl";
+import { withQuery } from "@/lib/test-query";
 import { viewerBody } from "@/lib/test-viewer";
 
 const realFetch = globalThis.fetch;
@@ -38,7 +39,8 @@ mock.module("next-intl", () => ({
 }));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
-const { BookmarkList, bookmarkHref } = await import("./bookmark-list");
+const { BookmarkList } = await import("./bookmark-list");
+const { bookmarkHref } = await import("./bookmark-page");
 
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
@@ -133,7 +135,7 @@ test("a bookmark leads to its thread, its post by position or its conversation",
 test("every bookmark line shows its type, author and time", async () => {
   backend();
   const element = await BookmarkList({ searchParams: Promise.resolve({}) });
-  const stream = await renderToReadableStream(withIntl(element));
+  const stream = await renderToReadableStream(withIntl(withQuery(element)));
   await stream.allReady;
   const html = await new Response(stream).text();
   for (const title of ["A thread", "A post", "A conversation"])

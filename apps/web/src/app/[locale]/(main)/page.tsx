@@ -1,16 +1,21 @@
-import { feedList } from "@sermo/core/contracts";
 import { PenLine, Rss, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { FeedItem } from "@/app/[locale]/(main)/_feed/feed-item";
+import { moreFeed } from "@/app/[locale]/(main)/_feed/feed-actions";
+import {
+  feedHref,
+  feedPage,
+  TABS,
+  tabOf,
+} from "@/app/[locale]/(main)/_feed/feed-page";
 import { FeedSidebar } from "@/app/[locale]/(main)/_feed/feed-sidebar";
 import { postToWall } from "@/app/[locale]/(main)/members/actions";
 import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
 import { EmptyState } from "@/components/forum/empty-state";
-import { LoadMore } from "@/components/forum/load-more";
+import { PagedList } from "@/components/forum/paged-list";
 import {
   FeedSkeleton,
   LoadingRegion,
@@ -21,11 +26,9 @@ import { TabLinks } from "@/components/forum/tab-links";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { read } from "@/lib/sermo/client";
-import { authorsFor, membersFor } from "@/lib/sermo/members";
-import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
+import { pagesParam } from "@/lib/list-pages";
+import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
-import { threadMembers } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -35,18 +38,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // The window the backend ranks the top feed over.
 const TOP_DAYS = 7;
-
-const TABS = ["latest", "following", "top"] as const;
-
-type Tab = (typeof TABS)[number];
-
-function feedHref(tab: Tab, cursor?: string) {
-  const params = new URLSearchParams();
-  if (tab !== "latest") params.set("tab", tab);
-  if (cursor) params.set("cursor", cursor);
-  const query = params.toString();
-  return query ? `/?${query}` : "/";
-}
 
 export default function HomePage(props: PageProps<"/[locale]">) {
   const t = useTranslations("home.page");
@@ -127,30 +118,15 @@ async function HomeComposer() {
 }
 
 async function HomeFeed({ searchParams }: PageProps<"/[locale]">) {
-  const [params, viewer, reactionTypes] = await Promise.all([
+  const [params, viewer, t] = await Promise.all([
     searchParams,
     getViewer(),
-    getReactionTypes(),
+    getTranslations("home.page"),
   ]);
-  const tab = TABS.find((value) => value === params.tab) ?? "latest";
+  const tab = tabOf(params.tab);
   const cursor = typeof params.cursor === "string" ? params.cursor : undefined;
   const needsLogin = tab === "following" && !viewer.user;
-  const feed = needsLogin
-    ? { items: [], nextCursor: null }
-    : await read(feedList, { scope: tab, cursor });
-  const author = await authorsFor(
-    feed.items.flatMap((item) =>
-      item.type === "profilePost"
-        ? [
-            item.profilePost.author,
-            ...item.profilePost.latestComments.map((comment) => comment.author),
-          ]
-        : [item.post.author, ...threadMembers(item.thread)],
-    ),
-  );
-  const picker = viewer.permissions.canReact ? pickerTypes(reactionTypes) : [];
-  const t = await getTranslations("home.page");
-  const now = Date.now();
+  const first = needsLogin ? null : await feedPage(tab, cursor);
 
   return (
     <>
@@ -170,7 +146,7 @@ async function HomeFeed({ searchParams }: PageProps<"/[locale]">) {
         </p>
       )}
 
-      {needsLogin ? (
+      {first === null ? (
         <EmptyState
           icon={Users}
           title={t("loginTitle")}
@@ -184,7 +160,7 @@ async function HomeFeed({ searchParams }: PageProps<"/[locale]">) {
             {t("login")}
           </Link>
         </EmptyState>
-      ) : feed.items.length === 0 && !feed.nextCursor ? (
+      ) : first.rows.length === 0 && !first.nextCursor ? (
         <EmptyState
           icon={Rss}
           title={t("emptyTitle")}
@@ -192,25 +168,17 @@ async function HomeFeed({ searchParams }: PageProps<"/[locale]">) {
           className="rounded-lg border bg-card"
         />
       ) : (
-        <>
-          {feed.items.map((item) => (
-            <FeedItem
-              key={`${item.type}-${item.type === "profilePost" ? item.profilePost.id : item.post.id}`}
-              item={item}
-              author={author}
-              now={now}
-              viewerId={viewer.user?.id ?? null}
-              picker={picker}
-              reactionTypes={reactionTypes}
-              returnTo={feedHref(tab, cursor)}
-            />
-          ))}
-          {feed.nextCursor && (
-            <LoadMore href={feedHref(tab, feed.nextCursor)}>
-              {t("loadMore")}
-            </LoadMore>
-          )}
-        </>
+        <PagedList
+          first={first}
+          more={moreFeed.bind(null, tab)}
+          pages={pagesParam(params.pages)}
+          start={cursor}
+          listKey={["feed", tab]}
+          hrefBase={feedHref(tab)}
+          moreLabel={t("loadMore")}
+          estimateSize={320}
+          spacing="spaced"
+        />
       )}
     </>
   );

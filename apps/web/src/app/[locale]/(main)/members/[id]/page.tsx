@@ -5,10 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import {
-  PostsTab,
-  ThreadsTab,
-} from "@/app/[locale]/(main)/members/[id]/activity";
+import { ActivityTab } from "@/app/[locale]/(main)/members/[id]/activity";
 import {
   getHeldAwards,
   getProfile,
@@ -71,6 +68,7 @@ function seoOf(profile: Profile, query: Record<string, unknown>) {
   const copy =
     query.tab !== undefined ||
     query.cursor !== undefined ||
+    query.pages !== undefined ||
     query.comments !== undefined ||
     query.commentsCursor !== undefined ||
     query.post !== undefined ||
@@ -419,6 +417,7 @@ export default async function ProfilePage({
               profile={profile}
               tab={tab}
               cursor={first(query.cursor)}
+              pages={query.pages}
               comments={first(query.comments)}
               commentsCursor={first(query.commentsCursor)}
               post={first(query.post)}
@@ -458,6 +457,7 @@ function ProfileActivity({
   profile,
   tab,
   cursor,
+  pages,
   comments,
   commentsCursor,
   post,
@@ -466,6 +466,7 @@ function ProfileActivity({
   profile: Profile;
   tab: Tab;
   cursor?: string;
+  pages?: string | string[];
   comments?: string;
   commentsCursor?: string;
   post?: string;
@@ -474,9 +475,10 @@ function ProfileActivity({
   const postId = Number(comments);
   const focusId = parseId(post ?? "");
   const commentId = parseId(comment ?? "");
-  if (tab === "posts") return <PostsTab profile={profile} cursor={cursor} />;
-  if (tab === "threads") {
-    return <ThreadsTab profile={profile} cursor={cursor} />;
+  if (tab === "posts" || tab === "threads") {
+    return (
+      <ActivityTab tab={tab} profile={profile} cursor={cursor} pages={pages} />
+    );
   }
   return (
     <Wall
