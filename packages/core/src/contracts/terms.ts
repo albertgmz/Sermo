@@ -31,7 +31,7 @@ export const termsAccept = defineContract({
     "(`auth.me` lists what is pending). Records one acceptance per kind with the time and the " +
     "trusted client address; repeating an acceptance changes nothing. A version that is no " +
     "longer the current one, or a page that is not published, is a conflict: read the pages " +
-    "again. Requires an account; an API key acts as its member.",
+    "again. Requires a signed-in session: an API key cannot accept for its member (forbidden).",
   kind: "write",
   input: z.object({ accept: z.array(PendingAcceptance).min(1).max(ACCEPTANCE_KINDS.length) }),
   output: Ok,
@@ -50,7 +50,8 @@ export const usersAdminAcceptances = defineContract({
   name: "users.adminAcceptances",
   summary:
     "The versions of the terms and the rules a member accepted, by page then version (at most 100): kind, version, " +
-    "when, and the address recorded (null when the request carried none), together with the " +
+    "when, and the address recorded (null when none was recorded, or when the reader lacks " +
+    "member.viewIps over the member), together with the " +
     "versions the site publishes now (`current`, null for a page that is not published), so " +
     "the reader sees what is missing. Read-only. Requires admin.members over the member.",
   kind: "read",

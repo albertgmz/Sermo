@@ -207,8 +207,6 @@
     "body": "Puedes seguir leyendo. Para publicar, reaccionar o enviar mensajes, lee y acepta:",
     "terms": "Términos",
     "rules": "Reglas",
-    "accept": "Acepto",
-    "accepting": "Guardando…",
-    "failed": "No se pudo guardar tu respuesta. Inténtalo de nuevo."
+    "accept": "Acepto"
   }
 }

@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { expectNoTableScan, insertNode, tokenActor, userActor } from "@sermo/core/testing";
+import {
+  createKeyFromSession,
+  expectNoTableScan,
+  insertNode,
+  insertUser,
+  tokenActor,
+  userActor,
+} from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { ACCEPTANCE_REQUIRED_PATH } from "../../contracts/terms";
@@ -171,6 +178,26 @@ describe("page versions", () => {
       .get()!;
     expect(JSON.parse(logged.details)).toMatchObject({ version: 2, newVersion: true });
   });
+
+  test("a page created again after a delete starts above every version a member accepted", async () => {
+    const w = await world();
+    await w.publish("terms");
+    await w.accept(w.poster.actor);
+    await w.publish("terms", { newVersion: true });
+    await w.accept(w.poster.actor);
+    await w.run("pages.delete", w.admin.actor, { slug: "terms" });
+    expect(await w.pending(w.poster.actor)).toEqual([]);
+    expect((await w.publish("terms")).version).toBe(3);
+    expect(await w.pending(w.poster.actor)).toEqual([{ kind: "terms", version: 3 }]);
+    // A page nobody accepted under starts at one, and an unrelated slug is not affected.
+    expect((await w.publish("rules")).version).toBe(1);
+    const privacy = await w.run("pages.save", w.admin.actor, {
+      slug: "privacy",
+      title: "Privacy",
+      body: "Privacy",
+    });
+    expect(privacy.version).toBe(1);
+  });
 });
 
 describe("sign-up", () => {
@@ -302,6 +329,36 @@ describe("enforcement", () => {
     await w.run("posts.create", key, { threadId: w.theirs.thread.id, body: "Now fine" });
   });
 
+  test("a key resolved from the request carries the versions, is refused the writes and cannot accept", async () => {
+    const w = await world();
+    await w.publish("terms");
+    const member = await signUp(w, "Keyed", { accept: false });
+    const key = await createKeyFromSession(getAuth(w.ctx), member.cookie, "script", PASSWORD);
+    const { actor } = await resolveActor(
+      w.ctx,
+      new Headers({ authorization: `Bearer ${key.key}` }),
+    );
+    expect(actor).toMatchObject({ kind: "token", acceptance: { terms: 0, rules: 0 } });
+    expect(
+      isAcceptanceRefusal(
+        await outcome(w.run("posts.create", actor, { threadId: w.theirs.thread.id, body: "x" })),
+      ),
+    ).toBe(true);
+    // Accepting is for the member in a browser session, not for a script holding their key.
+    const refused = await outcome(
+      w.run("terms.accept", actor, { accept: [{ kind: "terms", version: 1 }] }),
+    );
+    expect(refused).toBeInstanceOf(ForbiddenError);
+    expect(isAcceptanceRefusal(refused)).toBe(false);
+    expect(acceptances(w, member.id)).toEqual([]);
+    await w.accept(member.actor);
+    const accepted = (
+      await resolveActor(w.ctx, new Headers({ authorization: `Bearer ${key.key}` }))
+    ).actor;
+    expect(accepted).toMatchObject({ acceptance: { terms: 1, rules: 0 } });
+    await w.run("posts.create", accepted, { threadId: w.theirs.thread.id, body: "Now fine" });
+  });
+
   test("the resolved actor carries the accepted versions, so the check reads nothing more", async () => {
     const w = await world();
     await w.publish("terms");
@@ -406,6 +463,38 @@ describe("staff view", () => {
     await expect(
       w.run("users.adminAcceptances", GUEST, { userId: w.poster.id }),
     ).rejects.toBeInstanceOf(UnauthenticatedError);
+  });
+});
+
+describe("staff view of addresses", () => {
+  test("the address needs member.viewIps as well as admin.members", async () => {
+    const w = await world();
+    await w.publish("terms");
+    await w.run(
+      "terms.accept",
+      { ...w.poster.actor, clientIp: "203.0.113.9" },
+      { accept: [{ kind: "terms", version: 1 }] },
+    );
+    const group = w.ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('Member managers', 20) RETURNING id",
+      )
+      .get()!.id;
+    const definition = w.ctx.sqlite
+      .prepare<{ id: number }, [string]>("SELECT id FROM permission_definitions WHERE key = ?1")
+      .get("admin.members")!.id;
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1)",
+      )
+      .run(definition, group);
+    invalidate(w.ctx, "permissions");
+    const manager = insertUser(w.ctx, { groupId: group });
+    const seen = await w.run("users.adminAcceptances", userActor(manager), { userId: w.poster.id });
+    expect(seen.items).toHaveLength(1);
+    expect(seen.items[0].ip).toBeNull();
+    const full = await w.run("users.adminAcceptances", w.admin.actor, { userId: w.poster.id });
+    expect(full.items[0].ip).toBe("203.0.113.9");
   });
 });
 

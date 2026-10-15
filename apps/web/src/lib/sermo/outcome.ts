@@ -7,7 +7,8 @@ import { SermoError } from "./errors";
 
 // A refusal for a missing acceptance: the page is drawn again, so the notice with the Accept button
 // is there (a soft navigation keeps the layout it already has, which was drawn before the member
-// was asked). Imported when needed, and a failure to redraw is no reason to lose the message.
+// was asked). `refresh` is imported here, only when a refusal needs it: most callers of this file
+// never see one. A failure to redraw is no reason to lose the message.
 async function showAcceptancePrompt(error: unknown) {
   if (!(error instanceof SermoError) || !isAcceptanceRefusal(error)) return;
   try {

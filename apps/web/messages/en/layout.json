@@ -207,8 +207,6 @@
     "body": "You can keep reading. To post, react or send messages, read and accept:",
     "terms": "Terms",
     "rules": "Rules",
-    "accept": "I accept",
-    "accepting": "Saving…",
-    "failed": "Your answer could not be saved. Try again."
+    "accept": "I accept"
   }
 }

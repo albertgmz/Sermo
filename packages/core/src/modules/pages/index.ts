@@ -10,7 +10,7 @@ import {
 } from "../../contracts/pages";
 import { termsAccept } from "../../contracts/terms";
 import { writeTx } from "../../db/tx";
-import { ConflictError, NotFoundError } from "../../errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { can, requirePermission } from "../../permissions";
 import { renderMarkdown } from "../../render";
@@ -96,9 +96,11 @@ const save = implement(pagesSave, (ctx, actor, input) => {
     const existing = bySlug(ctx, input.slug);
     if (!existing && ctx.sqlite.prepare<{ n: number }, []>(pageSql.count).get()!.n >= PAGE_LIMIT)
       throw new ConflictError(`The site holds at most ${PAGE_LIMIT} pages.`);
+    // A page that is created again after a delete starts above every version a member accepted
+    // under its slug, so a later new version is never lower than what they hold.
     const row = ctx.sqlite
       .prepare<PageRow, (string | number)[]>(
-        "INSERT INTO static_pages (slug, title, body_source, body_html, is_published, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6) ON CONFLICT (slug) DO UPDATE SET title = excluded.title, body_source = excluded.body_source, body_html = excluded.body_html, is_published = excluded.is_published, version = static_pages.version + ?7, updated_at = excluded.updated_at RETURNING *",
+        "INSERT INTO static_pages (slug, title, body_source, body_html, is_published, version, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, (SELECT COALESCE(MAX(version), 0) + 1 FROM terms_acceptances WHERE kind = ?1), ?6, ?6) ON CONFLICT (slug) DO UPDATE SET title = excluded.title, body_source = excluded.body_source, body_html = excluded.body_html, is_published = excluded.is_published, version = static_pages.version + ?7, updated_at = excluded.updated_at RETURNING *",
       )
       .get(
         input.slug,
@@ -134,6 +136,10 @@ const accept = implement(
   termsAccept,
   (ctx, actor, input) => {
     const user = requireAuthenticated(actor);
+    // Accepting is the member's own answer to a page they were shown: a key acting for them in a
+    // script cannot give it.
+    if (user.kind === "token")
+      throw new ForbiddenError("Accept the terms and rules in the browser; an API key cannot.");
     return writeTx(ctx, () => {
       // Read inside the transaction: a version published a moment ago is the one that counts.
       const published = publishedVersions(ctx);

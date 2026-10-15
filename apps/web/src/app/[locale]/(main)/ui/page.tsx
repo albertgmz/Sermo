@@ -28,6 +28,7 @@ import { ReactionDemo } from "@/app/[locale]/(main)/ui/reaction-demo";
 import { SettingsDemo } from "@/app/[locale]/(main)/ui/settings-demo";
 import { SkeletonDemos } from "@/app/[locale]/(main)/ui/skeleton-demos";
 import { StaffDemos } from "@/app/[locale]/(main)/ui/staff-demos";
+import { AcceptanceStrip } from "@/components/forum/acceptance-prompt";
 import { Art } from "@/components/forum/art";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
@@ -1666,6 +1667,21 @@ export default async function StyleguidePage() {
                 bodyHtml: "<p>Read the <a href='/pages/rules'>rules</a>.</p>",
                 dismissible: false,
               },
+            ]}
+          />
+        </Section>
+
+        <Section title="Terms and rules prompt">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            The band under the notices for a member who has not accepted the
+            current terms or rules: a link to each page and one button. Reading
+            goes on; posting, reacting and messaging wait for the answer. The
+            forum layout draws it from `auth.me`.
+          </p>
+          <AcceptanceStrip
+            pending={[
+              { kind: "terms", version: 2 },
+              { kind: "rules", version: 1 },
             ]}
           />
         </Section>
