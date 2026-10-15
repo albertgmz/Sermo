@@ -2810,3 +2810,29 @@ warn the same member without `postId`. It is not a "warn per forum" limit on mod
 moderator log. Admin: `admin.prefixes`, `admin.navigation`, `admin.pages`. Known limits: no
 moderator screen for warn-from-post or profile edit (the member pages need `admin.members`); ranked
 lists leave out whole forums where others' threads are closed.
+
+**Installable forum and a first service worker (item 32).** The web app serves a manifest
+(`app/manifest.ts`: site name, description and first accent, the uploaded icon or a default mark)
+and a small Serwist worker, a build artifact (`public/sw.js`, bundled by `scripts/build-sw.ts`
+before `next build`, served at `/sw.js`) because a route that bundles at request time is dynamic
+under `cacheComponents` and the image holds no source. The worker never keeps anything that belongs
+to a visitor: it holds the immutable files of `/_next/static/` (content-named, cache-first, no
+pictures, which the data saver decides) and the offline page (precached, shown only when a page load
+fails on the network); pages, `/api`, files, uploads and every non-GET request are left to the
+browser, and it asks for no navigation preload. There is no push, no background sync and no offline
+reading (owner, 2026-10-15: "por ahora sin notificaciones, algo sencillo"). An update takes over at
+once (`skipWaiting`, `clientsClaim`), which is safe because the worker holds no page; the browser
+checks the script on every visit and the worker drops older `sermo-*` caches when it activates (a
+bump of `STATIC_CACHE` also costs an open old-deploy tab its cached lazy chunks, so it is only for a
+change in how files are kept). Serwist's default precache of every build file was rejected for the
+data saver's sake, and `SerwistProvider` for its `history` patching and reload on `online`;
+registration is a small component that runs after load, when idle, in production, on secure origins.
+Its Cache Storage and IndexedDB database are listed on the cookie policy page as strictly necessary
+device storage (own public files only, no account data, no identifier, the site works without them).
+To retire the worker, deploy a build with `SERMO_RETIRE_WORKER=1`: its `sw.js` deletes what the
+worker kept (waiting for the database delete) and unregisters itself even when that cleanup fails,
+and that build registers nothing, so devices without the worker do not install it on every visit;
+keep it deployed a month, then remove the registration and the worker's files. Default icons are PNG
+bytes in code because `public/` holds no pictures; LITE mode cannot hide the manifest's icons from
+the install flow because a browser fetches them without cookies, so that gate only answers requests
+that carry the cookie.
