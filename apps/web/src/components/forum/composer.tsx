@@ -44,10 +44,14 @@ function useVisualViewport(active: boolean) {
     if (!active || !viewport) return;
     const fit = () => {
       const covered = window.innerHeight - viewport.height - viewport.offsetTop;
-      setView({
-        height: viewport.height,
-        inset: covered > KEYBOARD_MIN ? covered : 0,
-      });
+      const height = viewport.height;
+      const inset = covered > KEYBOARD_MIN ? covered : 0;
+      // Scroll events fire constantly; a new object each time would redraw the whole form.
+      setView((last) =>
+        last.height === height && last.inset === inset
+          ? last
+          : { height, inset },
+      );
     };
     fit();
     viewport.addEventListener("resize", fit);
