@@ -14,14 +14,13 @@
     "tabs": {
       "latest": "Recientes",
       "following": "Siguiendo",
-      "top": "Populares"
+      "hot": "En tendencia"
     },
     "empty": {
       "latest": "Aquí aparecerán los temas nuevos, las respuestas y las publicaciones de perfil.",
       "following": "Aquí aparecerán las publicaciones de los miembros a quienes sigues.",
-      "top": "Nada ha recibido reacciones en {count, plural, one {el último día} other {los últimos # días}}."
+      "hot": "Nada está en tendencia ahora mismo. Los hilos con algunas respuestas o reacciones aparecerán aquí."
     },
-    "days": "Lo que más reacciones recibió en {count, plural, one {el último día} other {los últimos # días}}.",
     "loginTitle": "Sigue a miembros para crear tu actividad",
     "loginDescription": "Inicia sesión para ver las publicaciones de los miembros a quienes sigues.",
     "login": "Iniciar sesión",

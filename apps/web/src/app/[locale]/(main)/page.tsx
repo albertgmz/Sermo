@@ -40,9 +40,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
-// The window the backend ranks the top feed over.
-const TOP_DAYS = 7;
-
 export default function HomePage(props: PageProps<"/[locale]">) {
   const t = useTranslations("home.page");
   return (
@@ -144,11 +141,6 @@ async function HomeFeed({ searchParams }: PageProps<"/[locale]">) {
         label={t("aria.feed")}
         variant="segmented"
       />
-      {tab === "top" && (
-        <p className="text-xs text-muted-foreground">
-          {t("days", { count: TOP_DAYS })}
-        </p>
-      )}
 
       {first === null ? (
         <EmptyState
@@ -168,7 +160,7 @@ async function HomeFeed({ searchParams }: PageProps<"/[locale]">) {
         <EmptyState
           icon={Rss}
           title={t("emptyTitle")}
-          description={t(`empty.${tab}`, { count: TOP_DAYS })}
+          description={t(`empty.${tab}`)}
           className="rounded-lg border bg-card"
         />
       ) : (

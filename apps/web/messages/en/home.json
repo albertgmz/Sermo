@@ -14,14 +14,13 @@
     "tabs": {
       "latest": "Latest",
       "following": "Following",
-      "top": "Top"
+      "hot": "Hot"
     },
     "empty": {
       "latest": "New threads, replies and profile posts will show up here.",
       "following": "Posts from the members you follow will show up here.",
-      "top": "Nothing has been reacted to in the last {count, plural, one {# day} other {# days}}."
+      "hot": "Nothing is hot right now. Threads with a few replies or reactions will show up here."
     },
-    "days": "Most reacted in the last {count, plural, one {# day} other {# days}}.",
     "loginTitle": "Follow members to build your feed",
     "loginDescription": "Log in to see posts from the members you follow.",
     "login": "Log in",

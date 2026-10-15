@@ -7,12 +7,15 @@ import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
 import { threadMembers } from "@/lib/sermo/threads";
 
-export const TABS = ["latest", "following", "top"] as const;
+export const TABS = ["latest", "following", "hot"] as const;
 
 export type Tab = (typeof TABS)[number];
 
+// `top` is the former name of `hot`: old links and bookmarks keep working.
 export function tabOf(value: unknown): Tab {
-  return TABS.find((tab) => tab === value) ?? "latest";
+  return (
+    TABS.find((tab) => tab === (value === "top" ? "hot" : value)) ?? "latest"
+  );
 }
 
 export function feedHref(tab: Tab, cursor?: string) {
