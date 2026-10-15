@@ -309,6 +309,13 @@
       "when": 1792065433786,
       "tag": "0043_criteria_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1792067619683,
+      "tag": "0044_security_log",
+      "breakpoints": true
     }
   ]
 }

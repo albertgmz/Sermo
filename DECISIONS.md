@@ -2458,3 +2458,36 @@ now writes three more index entries, two on `reactions` and one on `posts` when 
 zero. Folding `reactions_recipient` into the new `(content_user_id, reaction_type_id)` index is
 left for the benchmark to justify. Each reaction re-counts the giver's and receiver's reactions of
 the listed types for the rules that use them, which grows with a member's reactions.
+
+**Location, sign-in history, last active, new-device alert and retention (item 8b).** Migration
+`0044` adds `ip_log.country/region/city`, a partial index for a member's sign-ins, an index on
+`ip_log.created_at` and a `session_activity` table (Better Auth's tables are never written).
+- *Location.* The api deletes its internal `x-sermo-client-country/-region/-city` headers on every
+  request and sets them from Cloudflare's `cf-ipcountry/cf-region/cf-ipcity` only when
+  `SERMO_TRUST_LOCATION_HEADERS=true`, a trusted proxy header is configured and was present on that
+  request. The proxy header alone is not enough: the shipped compose always sets it, so any visitor
+  could forge a country. The shipped Caddyfile drops `CF-*`; a deployment behind Cloudflare removes
+  those lines. Without trusted headers an optional MaxMind City database (`SERMO_GEOIP_DATABASE`,
+  library `maxmind`, loaded only when the path is set; a missing file stops the start) gives the
+  place, looked up once per sign-in.
+- *Retention.* `SERMO_IP_LOG_RETENTION_DAYS` (default 180) is deployment config, not a site
+  setting. A daily job deletes older rows 200 per transaction. `privacy.logRetention` gives the age
+  to `/cookies` and `/privacy`, which say what the log and live sessions keep.
+- *Last active.* `resolveActor` notes a session in memory at most once per 5 minutes; the 5-second
+  task writes the notes in one transaction, inserted from `auth_session` so a session already gone
+  writes nothing. `auth.sessionDevices` returns place and last use; `auth.signInHistory` lists the
+  member's own sign-ins (no address) on `/account/security`.
+- *Alert.* A sign-in from a browser (name + system) or country not among the member's retained
+  successful sign-ins sends the `newDevice` mail. A crawler, empty or unreadable user agent is one
+  browser, "unknown", and alerts the first time: a real crawler never signs in, so an exemption
+  would only hide an attacker. No alert on the first sign-in or when no country source exists. A
+  failing check never costs the sign-in its log row.
+- *"This wasn't me".* The mail links to a page with a button (a scanner opening the link changes
+  nothing). The token is an HMAC over member, issue time and expiry (7 days) with no table: it is
+  spent by `users.sessions_revoked_at >= issuedAt`. `auth.notMe` revokes API keys, marks the cut in
+  the transaction that spends the link (so cached session cookies stop at once), deletes sessions,
+  marks again and revokes keys again for a key made in between. A failure before the mark leaves
+  the link usable.
+Known limits: no alert for a member whose sign-ins were all purged; two simultaneous first
+sign-ins from a new browser can each send a mail; staff IP views do not show the place; the
+MaxMind adapter has not been tried with a real database file.
