@@ -2104,3 +2104,12 @@ escaped BB tags (`[*]`, `[SIZE=5]`, `[URL=…x_y]`) and the raw content of `URL`
 **No stat tiles on the account screen.** `/account` no longer shows messages, reputation,
 followers and following; the member's public profile still does. Their skeleton and the four
 `account.profile.*Label` keys went with them.
+
+**LITE mode is called Data saver.** Every visible mention reads "Data saver" ("Ahorro de datos"),
+including the label drawn where a picture was held back (in the visitor's language, also in the
+proxy's placeholder picture). The internal names stay (`lite-*` files, the `forum_lite` cookie,
+`LiteState`, message keys), so saved preferences keep working. The pages are `/data-saver` and
+`/account/data-saver`; `/lite` and `/account/lite`, with or without a language prefix, answer one
+308 to the new address with the query kept. The avatar menu holds one entry that shows On, Off or
+Custom and opens the page; the quick switch is gone. Guests reach the same page from a small
+settings menu in the header, which replaces "a guest has no link to the Data saver page".
