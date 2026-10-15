@@ -1,5 +1,7 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import {
+  browserRecoveryEnv,
+  forgetReload,
   type RecoveryEnv,
   recoverFromChunkFailure,
 } from "./lazy-popup-recovery";
@@ -19,6 +21,9 @@ function setup(options: {
         getItem: (key) => store[key] ?? null,
         setItem: (key, value) => {
           store[key] = value;
+        },
+        removeItem: (key) => {
+          delete store[key];
         },
       };
     },
@@ -67,4 +72,46 @@ test("offline nothing is reloaded: the page would become the browser's error pag
   expect(recoverFromChunkFailure(env, { reloaded: false })).toBe("gave-up");
   expect(calls.reloads).toBe(0);
   expect(Object.keys(store)).toHaveLength(0);
+});
+
+test("a popup whose code arrives clears the mark, so a later stale chunk there reloads again", () => {
+  const { env, calls, store } = setup({});
+  expect(recoverFromChunkFailure(env, { reloaded: false })).toBe("reloaded");
+  forgetReload(env);
+  expect(Object.keys(store)).toHaveLength(0);
+  expect(recoverFromChunkFailure(env, { reloaded: false })).toBe("reloaded");
+  expect(calls.reloads).toBe(2);
+});
+
+const realWindow = (globalThis as { window?: unknown }).window;
+afterEach(() => {
+  (globalThis as { window?: unknown }).window = realWindow;
+});
+
+test("in the browser the address leaves the fragment out and keeps the query, and the page is reloaded", () => {
+  const calls = { reload: 0, assign: 0 };
+  (globalThis as { window?: unknown }).window = {
+    sessionStorage: {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    },
+    location: {
+      pathname: "/threads/12",
+      search: "?page=3",
+      hash: "#post-40",
+      reload: () => {
+        calls.reload += 1;
+      },
+      assign: () => {
+        calls.assign += 1;
+      },
+    },
+    navigator: { onLine: true },
+  };
+  expect(browserRecoveryEnv.address()).toBe("/threads/12?page=3");
+  expect(recoverFromChunkFailure(browserRecoveryEnv, { reloaded: false })).toBe(
+    "reloaded",
+  );
+  expect(calls).toEqual({ reload: 1, assign: 0 });
 });

@@ -27,6 +27,8 @@ export type ControllerEnv = {
     run: (event: never) => void,
   ) => void;
   recover: () => Recovery;
+  // The popup's code arrived.
+  loaded: () => void;
 };
 
 export type ControllerCallbacks = {
@@ -73,6 +75,7 @@ export function createController<C>(
             set({ busy });
           },
     show: () => {
+      env.loaded();
       set({ shown: true });
       callbacks().onOpen?.();
     },

@@ -8,7 +8,7 @@ export type Recovery = "reloaded" | "gave-up";
 
 export type RecoveryEnv = {
   // `sessionStorage`; reading it may throw (blocked storage, a private window).
-  storage: () => Pick<Storage, "getItem" | "setItem">;
+  storage: () => Pick<Storage, "getItem" | "setItem" | "removeItem">;
   // The address without its fragment: a fragment is a place in the page, not another page.
   address: () => string;
   online: () => boolean;
@@ -18,6 +18,16 @@ export type RecoveryEnv = {
 // Without usable storage the guard falls back to once per page load.
 const page = { reloaded: false };
 
+const keyOf = (env: RecoveryEnv) => `lazy-popup-reload:${env.address()}`;
+
+// A popup's code arrived: an earlier reload at this address (a network blip) is not counted against
+// a later stale chunk here.
+export function forgetReload(env: RecoveryEnv) {
+  try {
+    env.storage().removeItem(keyOf(env));
+  } catch {}
+}
+
 export function recoverFromChunkFailure(
   env: RecoveryEnv,
   memory: { reloaded: boolean } = page,
@@ -26,7 +36,7 @@ export function recoverFromChunkFailure(
   if (!env.online()) return "gave-up";
   try {
     const storage = env.storage();
-    const key = `lazy-popup-reload:${env.address()}`;
+    const key = keyOf(env);
     if (storage.getItem(key)) return "gave-up";
     storage.setItem(key, "1");
   } catch {

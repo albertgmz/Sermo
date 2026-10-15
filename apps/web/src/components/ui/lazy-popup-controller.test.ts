@@ -37,6 +37,7 @@ function fakeEnv(recovery: Recovery = "reloaded") {
       log.recovered += 1;
       return recovery;
     },
+    loaded: () => {},
   };
   const count = () =>
     [...listeners.values()].reduce((sum, set) => sum + set.size, 0);

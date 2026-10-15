@@ -17,6 +17,7 @@ import type { OpenedBy, Opening } from "@/components/ui/lazy-popup-intent";
 import { LazyPopupNotice } from "@/components/ui/lazy-popup-notice";
 import {
   browserRecoveryEnv,
+  forgetReload,
   recoverFromChunkFailure,
 } from "@/components/ui/lazy-popup-recovery";
 
@@ -63,6 +64,7 @@ const browserEnv: ControllerEnv = {
   unlisten: (type, run) =>
     document.removeEventListener(type, run as (event: Event) => void),
   recover: () => recoverFromChunkFailure(browserRecoveryEnv),
+  loaded: () => forgetReload(browserRecoveryEnv),
 };
 
 export function LazyPopup<P extends object>({
