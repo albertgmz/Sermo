@@ -267,6 +267,13 @@
       "when": 1792049009975,
       "tag": "0037_hot_rankings",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1792052520296,
+      "tag": "0038_reaction_rules",
+      "breakpoints": true
     }
   ]
 }

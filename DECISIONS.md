@@ -2308,3 +2308,21 @@ needing 3 replies or 3 reactions on the opening post to be listed. Same rankings
 slower. Views are the raw counter, uncapped, until bots can be excluded. `top` is accepted as an
 alias of `hot` in `feed.list` and in the web `?tab=` for one release. The Hot tab does not poll for
 new entries. Spanish label "En tendencia".
+
+**Reactions you unlock.** Each reaction type has a rule (`reaction_types.rule`, the criteria
+engine's `{match, conditions}`, cheap criteria only; empty = everyone with `reaction.react`), a
+forum list (`forum_ids`: exactly the forums listed, not their subforums; empty = everywhere; a
+non-empty list refuses wall posts, comments and messages) and `hide_when_locked` (per type: a
+member the rule excludes either sees the type greyed with a padlock and a hint, or does not see it).
+Migration `0038` adds the three columns; existing types read as "everyone, everywhere". The check
+runs in the write transaction on a fresh row, only for a new reaction or a change to another type:
+a reaction already given is kept and counted after access is lost, and removing is never checked.
+Measured criteria (thread bans, ban history, awards, owned or worn items, purchases) are refused in
+reaction rules so the picker costs at most one statement per page (the viewer's facts), filtered
+in memory per item. The hint names number and yes/no criteria ("Unlocks with: Post count: 500 or
+more"); anything else, and every group condition, reads "Locked", because group titles are not
+public. The alert names the type ("gave your post the Crown reaction"); grouped alerts say "a
+reaction". `criteria.list` is open to `admin.reactionTypes` so the reaction form can draw the
+builder, and `awards.delete` lists reaction types among an award's readers. Known limits: a
+deleted group in a rule leaves the type locked until edited; a held reaction cannot be removed if
+the picker offers no type at all.
