@@ -165,13 +165,26 @@ describe("feed filters: forum, prefix, type, tag", () => {
     const { w } = await scene();
     await thread(w, w.alice, w.open.id, "Hashed", { body: "About #quiet things" });
     await thread(w, w.alice, w.open.id, "Listed", { tags: ["quiet"] });
-    expect(await feed(w, w.bob, { tag: "quiet" })).toEqual(["Listed", "Hashed"]);
-    // Titles only for members: the thread opens in lists, its text does not.
+    await thread(w, w.alice, w.open.id, "Listed2", { tags: ["quiet"] });
+    // Bob replies to two of them: his reply is then the newest post, which he may read.
+    const id = async (title: string) =>
+      (await w.call("threads.list", w.bob, { nodeId: w.open.id })).items.find(
+        (item: { title: string }) => item.title === title,
+      ).id;
+    for (const title of ["Hashed", "Listed2"]) {
+      w.ctx.clock.advance(60_000);
+      await w.call("posts.create", w.bob, { threadId: await id(title), body: "Bob adds" });
+    }
+    expect(await feed(w, w.carol, { tag: "quiet" })).toEqual(["Listed2", "Hashed", "Listed"]);
+    // Titles only for members: a thread opens in lists, its text does not.
     for (const group of [1, 2]) setEntry(w.ctx, group, "forum.viewContent", -1, w.open.id);
-    expect(await feed(w, w.bob, { tag: "quiet" })).toEqual([]);
-    // The author reads their own text; staff read all.
-    expect(await feed(w, w.alice, { tag: "quiet" })).toEqual(["Listed", "Hashed"]);
-    expect(await feed(w, w.mod, { tag: "quiet" })).toEqual(["Listed", "Hashed"]);
+    expect(await feed(w, w.carol, { tag: "quiet" })).toEqual([]);
+    // Bob reads his own replies, not the opening text that gave "Hashed" its tag: that thread
+    // stays out, and "Listed2", whose tag was listed, does not need the text.
+    expect(await feed(w, w.bob, { tag: "quiet" })).toEqual(["Listed2"]);
+    // Alice reads her own posts only; staff read all.
+    expect(await feed(w, w.alice, { tag: "quiet" })).toEqual(["Listed"]);
+    expect(await feed(w, w.mod, { tag: "quiet" })).toEqual(["Listed2", "Hashed", "Listed"]);
   });
 });
 
@@ -220,6 +233,16 @@ describe("feed filters: watched and unread", () => {
     w.ctx.clock.advance(31 * 86_400_000);
     await thread(w, w.bob, w.open.id, "New");
     expect(await feed(w, w.carol, { unread: true })).toEqual(["New"]);
+    // The same in the scopes that do not walk by activity: following, watched and hot.
+    await w.call("users.follow", w.carol, { userId: w.bobUser.id });
+    expect(await feed(w, w.carol, { scope: "following", unread: true })).toEqual(["New"]);
+    expect(await feed(w, w.carol, { scope: "following" })).toEqual(["New", "Old"]);
+    const old = (await w.call("threads.list", w.bob, { nodeId: w.open.id })).items.find(
+      (item: { title: string }) => item.title === "Old",
+    );
+    await w.call("threads.watch", w.carol, { threadId: old.id, email: false });
+    expect(await feed(w, w.carol, { watched: true })).toEqual(["Old"]);
+    expect(await feed(w, w.carol, { watched: true, unread: true })).toEqual([]);
   });
 
   test("unread works in the following scope and in hot", async () => {
