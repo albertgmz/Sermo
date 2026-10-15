@@ -2275,3 +2275,25 @@ ledger until it has an index, so it is decided by the daily sweep only (an `any`
 waits up to a day). "Replies on their threads" includes the author's own. Not built: reactions given
 and received by type, quoted by others and most-reacted post (each needs an index or counter
 column), ranking criteria (rankings are not built), polls and tags (items 9 and 10).
+
+**Reactions, bookmarks, follows and sends update in place; the open screens poll.** A reaction,
+bookmark or follow shows at once and is put back if the backend refuses, if the call fails (with a
+message) or if the session has ended (the answer says where to sign in); none draws the page again
+(a click was 31-40 reads with 8 pages loaded, now one write). The change is kept by key in a store
+outside the row, because rows far from the window are unmounted and drawn again from the server's
+markup; it shows only while the markup is older than the server's answer to it, so a header drawn
+again after "Mark all read" wins. A client component must keep the element it builds from what the
+server sent (a test scans for it). An older answer never overwrites a newer change. The stores are
+emptied when the page is drawn for another member. A message or reply written on the newest page
+of a conversation, or the last page of a thread, shows at the end while it is sent and is replaced
+by the server's row; a refusal removes it and keeps the form; a reply saved but not drawn counts as
+sent. One polling hook: a conversation every 3 s, the last page of a thread every 10 s (reloaded
+when `afterPostId` differs or is null), the feed every 30 s for a "N new posts - show" bar, the
+badges every 60 s; it pauses while the tab is hidden, doubles its wait on failures up to 60 s and
+stops after 10 minutes without input. A poll starts after the newest row a poll returned, never
+after the member's own row. An empty poll is one backend request; one tab asks for at most 21 reads
+a minute. "Show" adds every new entry or restarts the list from the newest page, and goes to the
+top. Award holders, the credits ledger, the member directory, the rankings and the month's standing
+scroll on the shared list. Not converted: profile wall, credits inventory and shop, staff lists,
+the conversation's older/newest links. Not checked in a browser: sign-out and sign-in on one tab, a
+session ending under a click, "show" with more than a page of new entries.
