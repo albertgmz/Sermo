@@ -2346,3 +2346,18 @@ so a refusal keeps the unit. The starter item costs 1000 credits. Known limits: 
 end a paid promotion; an unused unit with a duration can lapse; per-user node moderators made
 before this change do not get `forum.feature`; a staff pick on a deleted thread stays until
 unfeatured.
+
+**One account menu.** The avatar opens one menu: avatar with "Edit", name, title and Log out on
+top; tabs Alerts, Conversations, Account and Bookmarks; "Update your status" at the bottom (a post
+to the member's own wall, shown to members who may post on profiles). It is a popover on wide
+screens and a bottom sheet below `md`. The avatar carries one badge (unread alerts plus
+conversations, from the existing counter poll), and the menu opens on Alerts if any are unread,
+else Conversations, else Account. A tab loads its list only when opened (TanStack Query). The
+Account tab draws the site's account navigation entries and then the account page's own links
+from one shared list (`account/links.ts`), plus Data saver and the theme. The separate Messages and
+Alerts header buttons are gone at every width; the phone bottom bar keeps its two, and Search stays
+a field. Conversations has no "mark all read", because the backend marks one conversation at a
+time and marking the five listed would not be "all". Bookmarks shows no count, because bookmarks
+have no unread state. The staff panel's top bar uses the same menu; its badge is drawn at page load
+and does not poll. Known limits: a status draft is lost on Esc; neighbouring rows in the Account
+tab's two columns can start at different offsets, because only some links have icons.
