@@ -168,6 +168,69 @@ export const PERMISSIONS = {
     unit: "count",
     defaults: { unconfirmed: 10, registered: 10, moderator: -1, admin: -1 },
   },
+  // Anti-spam. The daily limits count what the member made in the last 24 hours, whatever became
+  // of it afterwards (-1 or 0: no limit; to stop a group writing, take its posting permission). The bypasses are for members whose writes the
+  // site's flood interval, word filter or spam check should not hold back.
+  "antispam.postsPerDay": {
+    scope: "global",
+    category: "general",
+    type: "integer",
+    unit: "count",
+    defaults: MEMBERS_UNLIMITED,
+  },
+  "antispam.threadsPerDay": {
+    scope: "global",
+    category: "general",
+    type: "integer",
+    unit: "count",
+    defaults: MEMBERS_UNLIMITED,
+  },
+  "antispam.conversationsPerDay": {
+    scope: "global",
+    category: "general",
+    type: "integer",
+    unit: "count",
+    defaults: MEMBERS_UNLIMITED,
+  },
+  "antispam.negativeReactionsPerDay": {
+    scope: "global",
+    category: "general",
+    type: "integer",
+    unit: "count",
+    defaults: MEMBERS_UNLIMITED,
+  },
+  /** Embed pictures and media from other sites; without it they are shown as links. */
+  "antispam.embedExternalMedia": {
+    scope: "global",
+    category: "general",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+  },
+  /** Write again sooner than the site's flood interval allows. */
+  "antispam.bypassFlood": {
+    scope: "global",
+    category: "moderation",
+    type: "flag",
+    defaults: STAFF,
+    requiresAccount: true,
+  },
+  /** Post without the word filter replacing or holding back the text. */
+  "antispam.bypassWordFilter": {
+    scope: "global",
+    category: "moderation",
+    type: "flag",
+    defaults: ADMINS,
+    requiresAccount: true,
+  },
+  /** Post without the external spam check (StopForumSpam, Akismet) judging the text. */
+  "antispam.bypassSpamCheck": {
+    scope: "global",
+    category: "moderation",
+    type: "flag",
+    defaults: ADMINS,
+    requiresAccount: true,
+  },
   "member.follow": {
     scope: "global",
     category: "general",

@@ -6,6 +6,7 @@ export const SUPPORTED_LANGUAGES = ["en", "es"] as const;
 
 import { defineContract } from "../operation";
 import { Empty, Id } from "./common";
+import { CriteriaRule } from "./criteria";
 
 const Mime = z
   .string()
@@ -54,6 +55,23 @@ export const SiteSettings = z
     firstPostsToModerate: z.number().int().min(0).max(100),
     moderateLinksFromNewMembers: z.boolean(),
     newMemberDays: z.number().int().min(1).max(365).default(7),
+    /**
+     * Seconds a member must wait between two posts: threads, replies, wall posts, wall comments
+     * and conversation messages share one clock. 0 turns it off; antispam.bypassFlood is exempt.
+     */
+    floodSeconds: z.number().int().min(0).max(3600).default(0),
+    /**
+     * A member whose text holds a link, or a picture or media from another site, must hold this
+     * rule to post it (cheap criteria only: the member's own row, checked on every write). An
+     * empty rule means everyone may.
+     */
+    linksRule: CriteriaRule.default({ match: "all", conditions: [] }),
+    /**
+     * New threads and replies wait for approval until the member holds this rule (cheap criteria
+     * only), on top of firstPostsToModerate and each forum's own approval switches. An empty rule
+     * means nobody is held back.
+     */
+    approvalRule: CriteriaRule.default({ match: "all", conditions: [] }),
     warningBanThreshold: z.number().int().min(0).max(1000),
     warningBanDays: z.number().int().min(1).max(3650),
     threadTitleTemplate: z.string().min(1).max(200),

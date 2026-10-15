@@ -23,7 +23,7 @@ import { publishEvent } from "../../events";
 import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, currentActor, permissionsOf, requirePermission } from "../../permissions";
-import { renderContent, storeContentReferences, storeSpoilers } from "../../render";
+import { storeContentReferences, storeSpoilers } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
@@ -32,6 +32,8 @@ import {
   appendModeratorLog,
   moderateEditedContent,
   prepareModeratedContent,
+  renderModeratedContent,
+  requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
@@ -347,7 +349,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
   if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const refs = renderContent(ctx, actor, content.source);
+    const refs = renderModeratedContent(ctx, actor, content);
     const html = refs.html;
     const now = ctx.now();
     const { conversationId, messageId } = writeTx(ctx, () => {
@@ -355,6 +357,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source || decision.moderated !== content.moderated)
         throw new ConflictError("Moderation rules changed; retry.");
+      requireWriteRoom(ctx, actor, "conversation");
       const conversationId = Number(
         prepared(ctx, "conversations.insertConversation", () =>
           ctx.sqlite.prepare(
@@ -471,7 +474,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
   if (before.is_locked === 1) requirePermission(ctx, actor, "conversation.moderate");
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const refs = renderContent(ctx, actor, content.source);
+    const refs = renderModeratedContent(ctx, actor, content);
     const html = refs.html;
     const now = ctx.now();
     const messageId = writeTx(ctx, () => {
@@ -481,6 +484,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source || decision.moderated !== content.moderated)
         throw new ConflictError("Moderation rules changed; retry.");
+      requireWriteRoom(ctx, actor, "message");
       const id = Number(
         prepared(ctx, "conversations.insertMessage", () =>
           ctx.sqlite.prepare(
@@ -792,7 +796,7 @@ export const conversationsUpdateMessageOp = implement(
     if (message.state === "deleted") throw new ConflictError("The message is deleted.");
     if (!mayEdit(permissionsOf(ctx, actor), conversation, message)) throw new ForbiddenError();
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const refs = renderContent(ctx, actor, content.source, {
+    const refs = renderModeratedContent(ctx, actor, content, {
       edit: {
         contentType: "conversation_message",
         contentId: message.id,

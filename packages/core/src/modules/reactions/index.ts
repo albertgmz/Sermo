@@ -34,7 +34,7 @@ import { iso } from "../../time";
 import { reactableConversationMessage } from "../conversations";
 import { reactablePost } from "../forums";
 import { attachUploadedFile, releaseFile } from "../images/attach";
-import { appendModeratorLog } from "../moderation";
+import { appendModeratorLog, requireNegativeReactionRoom } from "../moderation";
 import { reactableProfileComment, reactableProfilePost } from "../profiles";
 import { publicPicture } from "../storage/url";
 
@@ -453,12 +453,16 @@ export const reactionsSetOp = implement(reactionsSet, (ctx, actor, input) => {
     const json = countsRow(ctx, input.contentType, input.contentId);
     if (previous?.reaction_type_id === type.id) return reactionSummary(json, type.id);
     requireUsable(ctx, actor, type, input.contentType, input.contentId);
+    // Giving a negative reaction (or turning a kind one into it) spends the daily budget.
+    const negative = type.score < 0;
+    if (negative && (previous?.score ?? 0) >= 0) requireNegativeReactionRoom(ctx, actor);
     if (previous) {
+      // A reaction turned negative counts as given now, or it would keep its old date.
       prepared(ctx, "reactions.change", () =>
-        ctx.sqlite.prepare<unknown, [number, number, number]>(
-          "UPDATE reactions SET reaction_type_id = ?1, score = ?2 WHERE id = ?3",
+        ctx.sqlite.prepare<unknown, [number, number, number, number]>(
+          "UPDATE reactions SET reaction_type_id = ?1, score = ?2, created_at = CASE WHEN ?2 < 0 AND score >= 0 THEN ?4 ELSE created_at END WHERE id = ?3",
         ),
-      ).run(type.id, type.score, previous.id);
+      ).run(type.id, type.score, previous.id, ctx.now());
     } else {
       prepared(ctx, "reactions.insert", () =>
         ctx.sqlite.prepare<unknown, [string, number, number, number, number, number, number]>(

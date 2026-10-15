@@ -29,7 +29,7 @@ import {
   requestVersions,
   requirePermission,
 } from "../../permissions";
-import { renderContent, storeContentReferences, storeSpoilers } from "../../render";
+import { storeContentReferences, storeSpoilers } from "../../render";
 import { iso } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { loadMemberDetails } from "../members/cards";
@@ -38,6 +38,8 @@ import {
   appendModeratorLog,
   moderateEditedContent,
   prepareModeratedContent,
+  renderModeratedContent,
+  requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
@@ -304,12 +306,13 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
   if (!mayPostOnWall(ctx, actor, input.userId)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const refs = renderContent(ctx, actor, content.source);
+    const refs = renderModeratedContent(ctx, actor, content);
     const html = refs.html;
     const row = writeTx(ctx, () => {
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source)
         throw new ConflictError("Moderation rules changed; retry.");
+      requireWriteRoom(ctx, actor, "wall_post");
       if (
         !prepared(ctx, "profiles.userExists", () =>
           ctx.sqlite.prepare<{ id: number }, [number]>("SELECT id FROM users WHERE id = ?1"),
@@ -348,7 +351,7 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
   const row = requirePost(ctx, actor, input.profilePostId);
   if (!mayEditWallContent(ctx, actor, row.user_id)) throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
-  const refs = renderContent(ctx, actor, content.source, {
+  const refs = renderModeratedContent(ctx, actor, content, {
     edit: { contentType: "profile_post", contentId: row.id, authorId: row.user_id },
   });
   const html = refs.html;

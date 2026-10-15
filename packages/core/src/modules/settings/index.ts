@@ -4,8 +4,10 @@ import { requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { SiteSettings, settingsGet, settingsUpdate } from "../../contracts/settings";
 import { writeTx } from "../../db/tx";
+import { ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { currentActor, requirePermission } from "../../permissions";
+import { assertRule } from "../../shared/criteria";
 import { attachUploadedFile, releaseFile } from "../images/attach";
 import { appendModeratorLog } from "../moderation";
 
@@ -32,6 +34,9 @@ const defaults: StoredSiteSettingsValue = {
   firstPostsToModerate: 0,
   moderateLinksFromNewMembers: false,
   newMemberDays: 7,
+  floodSeconds: 0,
+  linksRule: { match: "all", conditions: [] },
+  approvalRule: { match: "all", conditions: [] },
   warningBanThreshold: 0,
   warningBanDays: 7,
   threadTitleTemplate: "{title} | {site}",
@@ -106,6 +111,16 @@ const SITE_PICTURES = [
   ["backdropFileId", "site_backdrop"],
 ] as const;
 
+function assertCheapRule(ctx: Ctx, key: string, rule: SiteSettingsValue["linksRule"]): void {
+  try {
+    assertRule(ctx, rule, "cheap");
+  } catch (error) {
+    if (error instanceof ValidationError)
+      throw new ValidationError(error.message, [{ path: [key], message: error.message }]);
+    throw error;
+  }
+}
+
 export function updateSiteSettings(
   ctx: Ctx,
   actor: Actor,
@@ -122,6 +137,11 @@ export function updateSiteSettings(
       if (wanted === undefined || wanted === current[key]) continue;
       if (wanted !== null) attachUploadedFile(ctx, user.userId, wanted, purpose);
       if (current[key] !== null) releaseFile(ctx, current[key]);
+    }
+    // Both rules are decided on every write, so only criteria that read the member's own row.
+    for (const key of ["linksRule", "approvalRule"] as const) {
+      const rule = changes[key];
+      if (rule) assertCheapRule(ctx, key, rule);
     }
     const next = SiteSettings.parse({
       ...current,

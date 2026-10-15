@@ -15,12 +15,14 @@ import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, currentActor, permissionsOf, requirePermission } from "../../permissions";
-import { renderContent, storeContentReferences, storeSpoilers } from "../../render";
+import { storeContentReferences, storeSpoilers } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
 import {
   appendModeratorLog,
   moderateEditedContent,
   prepareModeratedContent,
+  renderModeratedContent,
+  requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
@@ -80,7 +82,7 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
   if (post.state !== "visible") throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const refs = renderContent(ctx, actor, content.source);
+    const refs = renderModeratedContent(ctx, actor, content);
     const html = refs.html;
     const comment = writeTx(ctx, () => {
       if (
@@ -91,6 +93,7 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source)
         throw new ConflictError("Moderation rules changed; retry.");
+      requireWriteRoom(ctx, actor, "comment");
       const row = prepared(ctx, "profiles.insertComment", () =>
         ctx.sqlite.prepare<CommentRow, [number, number, string, number, string, string]>(
           "INSERT INTO profile_post_comments (profile_post_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *",
@@ -131,7 +134,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
   const { comment, post } = requireComment(ctx, actor, input.commentId);
   if (!mayEditWallContent(ctx, actor, comment.user_id)) throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
-  const refs = renderContent(ctx, actor, content.source, {
+  const refs = renderModeratedContent(ctx, actor, content, {
     edit: { contentType: "profile_post_comment", contentId: comment.id, authorId: comment.user_id },
   });
   const html = refs.html;

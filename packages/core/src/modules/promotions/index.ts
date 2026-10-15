@@ -424,15 +424,16 @@ function status(ctx: Ctx, m: Member, p: PromotionRow) {
 }
 
 /**
- * Whoever edits a rule: the permissions of promotions, awards, notices, the shop and reaction
- * types.
+ * Whoever edits a rule: the permissions of promotions, awards, notices, the shop, reaction types
+ * and the settings.
  */
 function requireRuleEditor(ctx: Ctx, actor: Actor) {
   if (
     can(ctx, actor, "admin.awards") ||
     can(ctx, actor, "admin.shop") ||
     can(ctx, actor, "admin.announcements") ||
-    can(ctx, actor, "admin.reactionTypes")
+    can(ctx, actor, "admin.reactionTypes") ||
+    can(ctx, actor, "admin.settings")
   )
     return;
   requirePermission(ctx, actor, "admin.promotions");

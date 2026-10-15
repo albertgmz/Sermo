@@ -30,7 +30,7 @@ import {
   resolvedPermissions,
   viewableNodeIds,
 } from "../../permissions";
-import { renderContent, storeContentReferences, storeSpoilers } from "../../render";
+import { storeContentReferences, storeSpoilers } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
@@ -43,6 +43,8 @@ import {
   moderateEditedContent,
   prepareModeratedContent,
   recordPostRevision,
+  renderModeratedContent,
+  requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
 import { isBotAgent } from "../security/device";
@@ -1355,13 +1357,14 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, true);
     permissionValue(ctx, actor, "mention.maxPerItem");
-    const refs = renderContent(ctx, actor, content.source);
+    const refs = renderModeratedContent(ctx, actor, content);
     const html = refs.html;
     const ids = writeTx(ctx, () => {
       const decision = prepareModeratedContent(ctx, actor, input.body, true);
       if (decision.source !== content.source)
         throw new ConflictError("Moderation rules changed; retry.");
       const settings = checkNodePostingRules(ctx, actor, input.nodeId);
+      requireWriteRoom(ctx, actor, "thread");
       if (input.prefixId !== null) requireActivePrefix(ctx, input.prefixId);
       const state =
         decision.moderated ||
@@ -1435,7 +1438,7 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
     requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: row.node_id });
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, true);
-    const refs = renderContent(ctx, actor, content.source);
+    const refs = renderModeratedContent(ctx, actor, content);
     const html = refs.html;
     const id = writeTx(ctx, () => {
       const decision = prepareModeratedContent(ctx, actor, input.body, true);
@@ -1445,6 +1448,7 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
       if (current.node_id !== row.node_id || current.state !== row.state)
         throw new ConflictError("Thread changed; retry.");
       const settings = checkNodePostingRules(ctx, actor, current.node_id);
+      requireWriteRoom(ctx, actor, "reply");
       const state =
         decision.moderated ||
         spam ||
@@ -1577,7 +1581,7 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
   if (!mayEdit(permissions, thread.row.node_id, post, thread.row.is_locked))
     throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
-  const refs = renderContent(ctx, actor, content.source, {
+  const refs = renderModeratedContent(ctx, actor, content, {
     edit: { contentType: "post", contentId: post.id, authorId: post.user_id },
   });
   const html = refs.html;

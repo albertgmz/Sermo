@@ -22,6 +22,7 @@ import {
   requirePermission,
   viewableNodeIds,
 } from "../../permissions";
+import { renderContent } from "../../render";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
 import { revokeUserCredentials } from "../auth";
@@ -34,10 +35,13 @@ import { mayViewProfile } from "../profiles/shared";
 import { logIp } from "../security/log";
 import { readSiteSettings } from "../settings";
 import { reportsViewConversationMessageOp } from "./conversation-reports";
+import { externalMediaAsLinks, hasExternalLinks, ownHosts } from "./external";
+import { ruleShortfall } from "./member-rules";
 import { type Notice, noticeForOther } from "./notify";
 import { describeQueueItems, NO_CONTEXT, queueContextKey } from "./queue-context";
 import { restrictionsCreateOp, restrictionsLiftOp, restrictionsListOp } from "./restrictions";
 
+export { requireNegativeReactionRoom, requireWriteRoom } from "./limits";
 export type { SpamChecker, SpamFetch, SpamSubmission, SpamVerdict } from "./spam";
 export { akismetChecker, disabledSpamChecker, stopForumSpamChecker } from "./spam";
 
@@ -51,7 +55,7 @@ export const checkContentSpam = markPublic(
     kind: "forum-post" | "reply" | "message",
   ): Promise<boolean> {
     const checker = ctx.config.spamChecker;
-    if (!checker) return false;
+    if (!checker || can(ctx, actor, "antispam.bypassSpamCheck")) return false;
     const user = requireAuthenticated(actor);
     if (!user.clientIp) throw new ValidationError("A client IP is required for spam checks.");
     const identity = ctx.sqlite
@@ -80,7 +84,7 @@ export const withSpamCheck = markPublic(
     kind: "forum-post" | "reply" | "message",
     write: (spam: boolean) => T,
   ): T | Promise<T> {
-    if (!ctx.config.spamChecker) return write(false);
+    if (!ctx.config.spamChecker || can(ctx, actor, "antispam.bypassSpamCheck")) return write(false);
     return checkContentSpam(ctx, actor, body, kind).then(write);
   },
 );
@@ -1262,7 +1266,9 @@ export const prepareModeratedContent = markPublic(
   "Content callers authorize submissions before approval rules.",
   function prepareModeratedContent(ctx: Ctx, actor: Actor, source: string, forumPost: boolean) {
     const userId = requireAuthenticated(actor).userId;
-    const filtered = applyWordFilters(ctx, source);
+    const filtered = can(ctx, actor, "antispam.bypassWordFilter")
+      ? { source, moderated: false }
+      : applyWordFilters(ctx, source);
     const settings = readSiteSettings(ctx);
     const user = read<{ created_at: number }>(
       ctx,
@@ -1282,12 +1288,57 @@ export const prepareModeratedContent = markPublic(
       ).all(userId, settings.firstPostsToModerate).length < settings.firstPostsToModerate;
     return {
       source: filtered.source,
+      /** Whether the member may embed pictures and media from other sites. */
+      externalMedia: can(ctx, actor, "antispam.embedExternalMedia"),
       moderated:
         filtered.moderated ||
         firstPosts ||
+        (forumPost && ruleShortfall(ctx, actor, settings.approvalRule) !== null) ||
         (settings.moderateLinksFromNewMembers &&
           newMember &&
           /(?:https?:\/\/|www\.)/i.test(filtered.source)),
+    };
+  },
+);
+
+/**
+ * Renders content that went through `prepareModeratedContent`, applying the rules about links:
+ * a text with a link, or a picture or media from another site, is refused unless the member
+ * holds the site's links rule (not when staff edit someone else's text), and without the
+ * permission to embed outside media those pictures and players are shown as links. Decided here,
+ * at write time, because the stored HTML is what every read serves.
+ */
+export const renderModeratedContent = markPublic(
+  "Content callers authorize submissions before rendering.",
+  function renderModeratedContent(
+    ctx: Ctx,
+    actor: Actor,
+    content: ReturnType<typeof prepareModeratedContent>,
+    options?: Parameters<typeof renderContent>[3],
+  ) {
+    const refs = renderContent(ctx, actor, content.source, options);
+    const settings = readSiteSettings(ctx);
+    const ruled =
+      settings.linksRule.conditions.length > 0 &&
+      !(options?.edit && options.edit.authorId !== actorUserId(actor));
+    if (!ruled && content.externalMedia) return refs;
+    const own = ownHosts([
+      ctx.config.siteBaseURL,
+      ctx.config.auth?.baseURL,
+      ctx.config.publicFileBaseURL,
+    ]);
+    if (ruled && hasExternalLinks([refs.html, ...refs.spoilers], own)) {
+      const shortfall = ruleShortfall(ctx, actor, settings.linksRule);
+      if (shortfall) {
+        const message = `You cannot post links, pictures or media from other sites yet. You need ${shortfall.needs}.`;
+        throw new ForbiddenError(message, [{ path: ["body"], message }]);
+      }
+    }
+    if (content.externalMedia) return refs;
+    return {
+      ...refs,
+      html: externalMediaAsLinks(refs.html, own),
+      spoilers: refs.spoilers.map((spoiler) => externalMediaAsLinks(spoiler, own)),
     };
   },
 );

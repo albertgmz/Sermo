@@ -102,7 +102,7 @@ export const criteriaList = defineContract({
     "promotions.criteria and awards.criteria) and the groups, awards and credit rules a rule may " +
     "name, by id and title. " +
     "Requires any of admin.promotions, admin.awards, admin.shop, admin.announcements or " +
-    "admin.reactionTypes, the permissions of the places that hold a rule.",
+    "admin.reactionTypes or admin.settings, the permissions of the places that hold a rule.",
   kind: "read",
   input: Empty,
   output: z.object({

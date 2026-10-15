@@ -752,6 +752,8 @@ export const threads = sqliteTable(
     // threads.ranked latestThreads, per forum: WHERE node_id = ? AND state = ? ORDER BY id DESC
     index("threads_node_state_id").on(t.nodeId, t.state, t.id),
     index("threads_user_id").on(t.userId, t.id),
+    // Daily thread limit: threads a member started since a time, index-only.
+    index("threads_user_created").on(t.userId, t.createdAt),
     index("threads_cover").on(t.coverId).where(sql`cover_id IS NOT NULL`),
     // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY sort_at DESC, id DESC
     index("threads_node_sort").on(t.nodeId, t.isSticky, t.sortAt, t.id),
@@ -828,6 +830,8 @@ export const posts = sqliteTable(
     index("posts_user").on(t.userId, t.state, t.threadId),
     index("posts_state_id").on(t.state, t.id),
     index("posts_user_id").on(t.userId, t.id),
+    // Daily post limit: posts a member made since a time, index-only.
+    index("posts_user_created").on(t.userId, t.createdAt),
   ],
 );
 
@@ -931,24 +935,31 @@ export const profilePostComments = sqliteTable(
 // ---------------------------------------------------------------------------
 // Conversations
 
-export const conversations = sqliteTable("conversations", {
-  id: integer("id").primaryKey(),
-  title: text("title").notNull(),
-  /** Starter. */
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
-  createdAt: integer("created_at").notNull(),
-  lastMessageAt: integer("last_message_at").notNull(),
-  lastMessageId: integer("last_message_id"),
-  lastMessageUserId: integer("last_message_user_id").notNull(),
-  /** Visible messages, including the first. */
-  messageCount: counter("message_count"),
-  /** Active participants. */
-  participantCount: counter("participant_count"),
-  /** Set by the starter or an administrator; only administrators reply while it is locked. */
-  isLocked: bool("is_locked").notNull().default(false),
-});
+export const conversations = sqliteTable(
+  "conversations",
+  {
+    id: integer("id").primaryKey(),
+    title: text("title").notNull(),
+    /** Starter. */
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer("created_at").notNull(),
+    lastMessageAt: integer("last_message_at").notNull(),
+    lastMessageId: integer("last_message_id"),
+    lastMessageUserId: integer("last_message_user_id").notNull(),
+    /** Visible messages, including the first. */
+    messageCount: counter("message_count"),
+    /** Active participants. */
+    participantCount: counter("participant_count"),
+    /** Set by the starter or an administrator; only administrators reply while it is locked. */
+    isLocked: bool("is_locked").notNull().default(false),
+  },
+  (t) => [
+    // Daily conversation limit: conversations a member started since a time, index-only.
+    index("conversations_user_created").on(t.userId, t.createdAt),
+  ],
+);
 
 export const conversationParticipants = sqliteTable(
   "conversation_participants",
@@ -1059,6 +1070,9 @@ export const reactions = sqliteTable(
     uniqueIndex("reactions_content_user").on(t.contentType, t.contentId, t.userId),
     // Counter rebuild: the reaction score a user received, index-only.
     index("reactions_recipient").on(t.contentUserId, t.score),
+    // Daily negative-reaction limit: negative reactions a member gave since a time. Partial, so
+    // the common positive reaction pays nothing for it.
+    index("reactions_negative_given").on(t.userId, t.createdAt).where(sql`score < 0`),
   ],
 );
 

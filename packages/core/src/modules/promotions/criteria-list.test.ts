@@ -29,6 +29,7 @@ describe("criteria.list", () => {
     "admin.shop",
     "admin.announcements",
     "admin.reactionTypes",
+    "admin.settings",
   ])
     test(`a holder of only ${permission} gets the criteria and the groups`, async () => {
       const { ctx, founder, manager, group } = await managerOf(permission);
