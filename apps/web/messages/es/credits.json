@@ -73,7 +73,7 @@
     "threadCoverUnnamed": "Una portada para uno de tus temas",
     "highlight": "Destaca uno de tus temas durante {days, plural, one {un día} other {# días}}",
     "bump": "Devuelve uno de tus temas a lo más alto de su foro",
-    "promote": "Promociona uno de tus temas durante 24 horas: aparece en la pestaña En tendencia y en el inicio",
+    "promote": "Promociona uno de tus temas durante 24 horas: se marca como promocionado, aparece en el inicio y va primero en En tendencia mientras esté entre las 10 recomendaciones más recientes",
     "usernameChange": "Un cambio de tu nombre de usuario",
     "permission": "Desbloquea: {name}",
     "permissionValue": "{name}: {unlimited, select, true {sin límite} other {{value}}}",

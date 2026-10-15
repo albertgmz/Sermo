@@ -21,16 +21,14 @@ export async function FeaturedThreads() {
   ]);
   return (
     <SectionCard title={t("title")}>
-      {items.map(({ kind, thread }) => {
-        return (
-          <div key={thread.id} className="px-4 py-2.5">
-            <ThreadTitle thread={thread} member={member} />
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              <FeatureMark kind={kind} /> · {thread.node.title}
-            </p>
-          </div>
-        );
-      })}
+      {items.map(({ kind, thread }) => (
+        <div key={thread.id} className="px-4 py-2.5">
+          <ThreadTitle thread={thread} member={member} />
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            <FeatureMark kind={kind} /> · {thread.node.title}
+          </p>
+        </div>
+      ))}
     </SectionCard>
   );
 }

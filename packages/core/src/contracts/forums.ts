@@ -434,8 +434,10 @@ export const threadsSetSticky = defineContract({
 export const threadsSetFeatured = defineContract({
   name: "threads.setFeatured",
   summary:
-    "Feature or unfeature a thread as a staff pick. A featured thread is listed in Hot whatever " +
-    "its activity and shown on the home page, until a moderator unfeatures it. Requires " +
+    "Feature or unfeature a thread as a staff pick. A pick lasts until a moderator unfeatures " +
+    "it. The 10 newest features are listed first in Hot whatever their activity; an older one " +
+    "is listed there only where it ranks; `threads.featured` (the home page) lists every current " +
+    "feature, newest first. Requires " +
     "forum.feature in the thread's forum. Only a visible thread can be featured (a conflict " +
     "otherwise). Asking for the state the thread already has changes and logs nothing. A paid " +
     "promotion is not touched: it runs to its end, and a staff pick may be added while one " +

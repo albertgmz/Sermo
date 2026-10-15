@@ -26,8 +26,9 @@ import { ImageReference } from "./images";
  * - `threadCover`: gives the thread that cover of the picture catalog (kind `thread_cover`).
  * - `highlight`: lists show the thread highlighted for `days` more days.
  * - `bump`: the thread sorts as if it had a post now.
- * - `promote`: the thread is featured for 24 hours: listed in Hot whatever its activity (marked
- *   as promoted) and shown on the home page. A consumable, one unit per promotion. The thread
+ * - `promote`: the thread is featured for 24 hours (marked as promoted). The 10 newest features
+ *   are listed first in Hot whatever their activity, an older one only where it ranks; the home
+ *   page lists the newest features. A consumable, one unit per promotion. The thread
  *   must be unlocked and not already featured. Nothing is refunded when the thread is deleted
  *   later or the promotion is cut short.
  *

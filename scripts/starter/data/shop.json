@@ -1454,7 +1454,7 @@
     {
       "category": "Boosts",
       "name": "Promote my thread for 24 h",
-      "description": "Feature one of your threads for a full day: it is listed first in Hot and shown on the home page, marked as promoted. Not refunded if the thread is deleted.",
+      "description": "Feature one of your threads for a full day: it is marked as promoted and shown on the home page, and listed first in Hot while it is among the 10 newest features (an older one is listed only where it ranks). Not refunded if the thread is deleted.",
       "price": 1000,
       "consumable": true,
       "image": null,

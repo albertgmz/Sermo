@@ -341,7 +341,7 @@
         "threadCover": "Used on a thread the member started: gives it the chosen cover.",
         "highlight": "Used on a thread the member started: lists show it highlighted for some days.",
         "bump": "Used on a thread the member started: it sorts as if it had a new post.",
-        "promote": "Used on a thread the member started: it is featured for 24 hours, listed in Hot and shown on the home page. Sold in units; nothing is refunded if the thread is deleted later.",
+        "promote": "Used on a thread the member started: it is featured for 24 hours and shown on the home page, and listed first in Hot while it is among the 10 newest features (an older one is listed only where it ranks). Sold in units; nothing is refunded if the thread is deleted later.",
         "usernameChange": "One unit pays for one change of username."
       },
       "frame": "Frame",

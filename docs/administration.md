@@ -431,7 +431,7 @@ short, none of it happens. Free items still create purchases but no credit ledge
 | `group` | Adds a secondary group while held. This is how to sell a paid rank; the item cannot be consumable. |
 | `frame`, `nameColor` | Store a frame key or a `#rrggbb` color; using the item only publishes `shop.item_used`. |
 | `threadCover`, `highlight`, `bump` | Store the effect; use needs `threadId`, a visible thread started by the member in a forum they can see, and only publishes `shop.item_used`. |
-| `promote` | A consumable. Use needs `threadId` (an unlocked, visible thread of the member, not already featured) and features it for 24 hours: listed in Hot whatever its activity and shown on the home page, marked as promoted. One unit is one promotion; nothing is refunded if the thread is deleted afterwards. |
+| `promote` | A consumable. Use needs `threadId` (an unlocked, visible thread of the member, not already featured) and features it for 24 hours, marked as promoted. The 10 newest features are listed first in Hot whatever their activity; an older one is listed there only where it ranks. The home page lists the newest features. One unit is one promotion; nothing is refunded if the thread is deleted afterwards. |
 | `usernameChange` | Use needs the proposed name in `value` and only publishes `shop.item_used`. |
 
 Only `permission` and `group` apply now, as part of the purchase. The other effects are validated
@@ -624,7 +624,7 @@ the queue; edited content sent back to the queue notifies nobody.
   `forum.move` on the destination forum (`nodeId`) and on each thread's forum. If any item fails,
   nothing changes.
 - Per thread: `PUT /threads/{threadId}/sticky` (`forum.stick`), `PUT /threads/{threadId}/feature`
-  (`forum.feature`: a staff pick, listed in Hot and on the home page until it is ended),
+  (`forum.feature`: a staff pick that lasts until it is ended; the 10 newest features are listed first in Hot, an older one only where it ranks, and `GET /featured-threads` lists every current one for the home page),
   `PUT /threads/{threadId}/lock` (`forum.lock`), `POST /threads/{threadId}/move` (`forum.move` on both forums). Replying in a
   locked thread needs `forum.replyLocked`.
 - `GET /posts/{postId}/revisions` (`postRevisions.list`, `forum.viewHistory`) shows earlier bodies
