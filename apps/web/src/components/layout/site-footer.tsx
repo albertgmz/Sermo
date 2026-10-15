@@ -202,7 +202,7 @@ async function FooterCopyright() {
         <li>
           <button
             type="button"
-            data-cc="show-preferencesModal"
+            data-consent-settings=""
             className={FOOTER_LINK}
           >
             {t("cookieSettings")}

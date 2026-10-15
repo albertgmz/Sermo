@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { Suspense } from "react";
 import { UploadLimitProvider } from "@/components/forum/upload-limit";
+import { CookieBanner } from "@/components/layout/cookie-banner";
+import { EmbedLoader } from "@/components/layout/embed-loader";
 import { widthScript } from "@/components/layout/narrow-width";
 import { SiteIcon } from "@/components/layout/site-icon";
 import { themeScript } from "@/components/layout/theme";
@@ -63,6 +65,10 @@ export default async function RootLayout({
         <Suspense>
           <SiteIcon />
         </Suspense>
+        <Suspense>
+          <CookieBanner locale={locale} />
+        </Suspense>
+        <EmbedLoader />
         <NextIntlClientProvider>
           <UploadLimitProvider bytes={maxUploadBytes}>
             {children}

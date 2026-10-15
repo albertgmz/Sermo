@@ -97,7 +97,7 @@ export default async function CookiePolicyPage() {
         <p className="mt-6">{t("intro")}</p>
         <p className="mt-3">{t("yourChoice")}</p>
         <div className="mt-4 flex flex-wrap items-center gap-4">
-          <Button data-cc="show-preferencesModal" className="h-10 md:h-8">
+          <Button data-consent-settings="" className="h-10 md:h-8">
             {t("openSettings")}
           </Button>
           <Link

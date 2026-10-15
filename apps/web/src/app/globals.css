@@ -4,6 +4,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "vanilla-cookieconsent/dist/cookieconsent.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -599,4 +600,53 @@
 }
 .bb-content .bb-spoiler-open:focus {
   outline: none;
+}
+
+/*
+ * The cookie banner (components/layout/cookie-consent-root.tsx): the library's own sheet, drawn
+ * with the site's tokens so it follows both themes. Accept, reject and choose are one look, so
+ * none is easier to press than another. Above the bottom navigation (z-40) and below dialogs.
+ */
+#cc-main {
+  --cc-font-family: var(--font-inter), system-ui, sans-serif;
+  --cc-z-index: 60;
+  --cc-modal-border-radius: var(--radius-md);
+  --cc-btn-border-radius: var(--radius-md);
+  --cc-bg: var(--popover);
+  --cc-primary-color: var(--foreground);
+  --cc-secondary-color: var(--muted-foreground);
+  --cc-link-color: var(--primary-ink);
+  --cc-btn-primary-bg: var(--secondary);
+  --cc-btn-primary-color: var(--foreground);
+  --cc-btn-primary-border-color: var(--border);
+  --cc-btn-primary-hover-bg: var(--accent);
+  --cc-btn-primary-hover-color: var(--accent-foreground);
+  --cc-btn-primary-hover-border-color: var(--border);
+  --cc-btn-secondary-bg: var(--secondary);
+  --cc-btn-secondary-color: var(--foreground);
+  --cc-btn-secondary-border-color: var(--border);
+  --cc-btn-secondary-hover-bg: var(--accent);
+  --cc-btn-secondary-hover-color: var(--accent-foreground);
+  --cc-btn-secondary-hover-border-color: var(--border);
+  --cc-separator-border-color: var(--border);
+  --cc-section-category-border: var(--border);
+  --cc-cookie-category-block-bg: var(--muted);
+  --cc-cookie-category-block-border: var(--border);
+  --cc-cookie-category-block-hover-bg: var(--accent);
+  --cc-cookie-category-block-hover-border: var(--border);
+  --cc-cookie-category-expanded-block-bg: var(--popover);
+  --cc-cookie-category-expanded-block-hover-bg: var(--accent);
+  --cc-toggle-on-bg: var(--primary);
+  --cc-toggle-off-bg: var(--muted-foreground);
+  --cc-toggle-on-knob-bg: var(--primary-foreground);
+  --cc-toggle-off-knob-bg: var(--background);
+  --cc-toggle-enabled-icon-color: var(--primary);
+  --cc-toggle-disabled-icon-color: var(--muted-foreground);
+  --cc-toggle-readonly-bg: var(--muted);
+  --cc-toggle-readonly-knob-bg: var(--muted-foreground);
+  --cc-toggle-readonly-knob-icon-color: var(--muted);
+  --cc-footer-bg: var(--muted);
+  --cc-footer-color: var(--muted-foreground);
+  --cc-footer-border-color: var(--border);
+  --cc-overlay-bg: color-mix(in oklab, var(--background) 60%, transparent);
 }
