@@ -469,7 +469,9 @@ function buildAuth(ctx: Ctx) {
           // Guest forms only. Account mail is not Turnstile's business while the site sends none
           // (the endpoint refuses by itself), and a signed-in member asking for their own
           // confirmation mail is not a guest.
-          const form = TURNSTILE_PATHS[hook.path];
+          // A call made inside the server (an administrator sending a reset link) has no request
+          // and no visitor: there is nobody to ask.
+          const form = hook.request ? TURNSTILE_PATHS[hook.path] : undefined;
           if (
             form &&
             (mailEnabled || (form !== "passwordReset" && form !== "resendConfirmation")) &&

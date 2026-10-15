@@ -100,6 +100,29 @@ describe("signature limits, measured on the rendered html", () => {
     await sign(w, "# top");
   });
 
+  test("emoji and text size treat 0 and -1 alike", async () => {
+    const w = world();
+    await settings(w, { signatureFormats: ["size"] });
+    for (const value of [0, -1]) {
+      await settings(w, { signatureMaxSmilies: value, signatureMaxTextSize: value });
+      await sign(w, "😀".repeat(30) + " [SIZE=7]big[/SIZE]");
+    }
+  });
+
+  test("a signature that draws nothing, or several blocks, is refused", async () => {
+    const w = world();
+    expect(await refusal(w, "[a]: http://x.example")).toBe(
+      "A signature must have something to show.",
+    );
+    await settings(w, { signatureFormats: ["heading", "align"], signatureMaxTextSize: 0 });
+    expect(await refusal(w, "# a\n\n# b")).toStartWith("A signature is one short block");
+    expect(await refusal(w, "[CENTER]a[/CENTER]\n\n[RIGHT]b[/RIGHT]")).toStartWith(
+      "A signature is one short block",
+    );
+    await sign(w, "# one heading");
+    await sign(w, "[CENTER]one block[/CENTER]");
+  });
+
   test("length and lines still count the source", async () => {
     const w = world();
     await settings(w, { signatureMaxLength: 10, signatureMaxLines: 2 });

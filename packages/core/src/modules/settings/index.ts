@@ -97,7 +97,7 @@ const defaults: StoredSiteSettingsValue = {
   backdropFileId: null,
   turnstileEnabled: false,
   turnstileSiteKey: "",
-  turnstileForms: ["register", "login", "passwordReset", "resendConfirmation"],
+  turnstileForms: ["register", "passwordReset", "resendConfirmation"],
 };
 
 export function readSiteSettings(ctx: Ctx): StoredSiteSettingsValue {

@@ -256,7 +256,8 @@ export const SiteSettings = z
     iconFileId: Id.nullable().default(null),
     backdropFileId: Id.nullable().default(null),
     /**
-     * Cloudflare Turnstile on the guest forms named in `turnstileForms`. The backend verifies
+     * Cloudflare Turnstile on the guest forms named in `turnstileForms` (sign-in is not among the
+     * defaults: a wrong secret would lock the administrator out too). The backend verifies
      * every token with Cloudflare and refuses the form when the token is missing, wrong or
      * Cloudflare cannot be reached (it fails closed). It can be on only with a site key and a
      * secret stored.
@@ -267,7 +268,7 @@ export const SiteSettings = z
     turnstileForms: z
       .array(z.enum(TURNSTILE_FORMS))
       .max(TURNSTILE_FORMS.length)
-      .default([...TURNSTILE_FORMS]),
+      .default(["register", "passwordReset", "resendConfirmation"]),
     /**
      * Whether a secret is stored. The secret itself is write-only: it is sent as
      * `turnstileSecret` to settings.update and no read returns it. Ignored on update.

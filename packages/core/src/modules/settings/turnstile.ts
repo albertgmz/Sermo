@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import type { Ctx } from "../../context";
 import type { TurnstileForm } from "../../contracts/settings";
 import { readSiteSettings } from "./index";
@@ -80,7 +81,7 @@ const unavailable = () =>
   );
 
 /** Whether the setting guards this form. */
-export function turnstileGuards(ctx: Ctx, form: TurnstileForm): boolean {
+function turnstileGuards(ctx: Ctx, form: TurnstileForm): boolean {
   const settings = readSiteSettings(ctx);
   return settings.turnstileEnabled && settings.turnstileForms.includes(form);
 }
@@ -110,7 +111,8 @@ export async function checkTurnstile(
       body: JSON.stringify({
         secret,
         response: token,
-        ...(clientIp ? { remoteip: clientIp } : {}),
+        // The adapter writes "unknown" when it has no address: Cloudflare is not sent that.
+        ...(clientIp && isIP(clientIp) !== 0 ? { remoteip: clientIp } : {}),
       }),
       redirect: "error",
       signal: AbortSignal.timeout(SITEVERIFY_TIMEOUT_MS),

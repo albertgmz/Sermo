@@ -110,8 +110,13 @@ const plural = (count: number, noun: string) =>
  * refusal says what is over. Mentions stay plain text (nothing resolves them here).
  */
 export function renderSignature(source: string, limits: SignatureLimits): string {
-  if (hasRawHtml(new Marked({ gfm: true, breaks: true }).lexer(source))) refuse(STRUCTURE_MESSAGE);
+  const blocks = new Marked({ gfm: true, breaks: true }).lexer(source);
+  if (hasRawHtml(blocks)) refuse(STRUCTURE_MESSAGE);
+  // One block: a blank line starts another (reference definitions draw nothing).
+  if (blocks.filter((block) => block.type !== "space" && block.type !== "def").length > 1)
+    refuse(STRUCTURE_MESSAGE);
   const html = renderMarkdown(source);
+  if (html.trim() === "") refuse("A signature must have something to show.");
   const elements: { kind: Kind; size: number }[] = [];
   let text = "";
   sanitizeHtml(html, {

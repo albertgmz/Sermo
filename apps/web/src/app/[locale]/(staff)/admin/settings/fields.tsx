@@ -144,7 +144,7 @@ export async function SecretRow({
         id={id}
         name={name}
         type="password"
-        autoComplete="off"
+        autoComplete="new-password"
         autoCapitalize="none"
         spellCheck={false}
         placeholder={stored ? t(`${name}.placeholderStored`) : undefined}

@@ -121,7 +121,8 @@ describe("settings", () => {
       turnstileEnabled: false,
       turnstileSiteKey: "",
       turnstileSecretSet: false,
-      turnstileForms: ["register", "login", "passwordReset", "resendConfirmation"],
+      // Sign-in is not guarded by default: a wrong secret must not lock the administrator out.
+      turnstileForms: ["register", "passwordReset", "resendConfirmation"],
     });
     expect((await s.call("site.get", {}, {})).turnstile).toBeNull();
   });
@@ -171,7 +172,7 @@ describe("settings", () => {
     // The public part is the key and the forms, and only while it is on.
     expect((await s.call("site.get", {}, {})).turnstile).toEqual({
       siteKey: SITE_KEY,
-      forms: ["register", "login", "passwordReset", "resendConfirmation"],
+      forms: ["register", "passwordReset", "resendConfirmation"],
     });
     await s.settings({ turnstileEnabled: false });
     expect((await s.call("site.get", {}, {})).turnstile).toBeNull();
@@ -284,6 +285,16 @@ describe("registration", () => {
     warn.mockRestore();
   });
 
+  test("a client address the adapter could not read is not sent to Cloudflare", async () => {
+    const s = site();
+    await s.enable();
+    const cf = cloudflare({ success: true });
+    expect((await s.signUp("Alice", { token: "t", ip: "unknown" })).status).toBe(200);
+    expect(cf.calls[0]!.body).toEqual({ secret: SECRET, response: "t" });
+    expect((await s.signUp("Bob", { token: "t", ip: "2001:db8::7" })).status).toBe(200);
+    expect(cf.calls[1]!.body.remoteip).toBe("2001:db8::7");
+  });
+
   test("the deadline is short", () => {
     expect(SITEVERIFY_TIMEOUT_MS).toBeLessThanOrEqual(10_000);
   });
@@ -388,6 +399,18 @@ describe("members never see it", () => {
     const member = userActor(insertUser(s.ctx));
     await s.call("profiles.update", member, { about: "hello" });
     await s.call("auth.me", member);
+    expect(cf.calls).toHaveLength(0);
+  });
+
+  test("a call made inside the server has no visitor to ask: the administrator's reset link goes out", async () => {
+    const s = site({ mail: true });
+    await s.signUp("Alice");
+    await s.enable({ turnstileForms: ["passwordReset", "register", "login"] });
+    const cf = cloudflare({ success: true });
+    const auth = getAuth(s.ctx);
+    await auth.api.requestPasswordReset({
+      body: { email: "alice@example.test", redirectTo: `${ORIGIN}/reset-password` },
+    });
     expect(cf.calls).toHaveLength(0);
   });
 
