@@ -399,6 +399,7 @@ describe("profiles", () => {
         "profilePosts.update",
         "profilePosts.delete",
         "profilePosts.restore",
+        "profilePosts.hardDelete",
         "profileComments.list",
         "profileComments.get",
         "profileComments.create",

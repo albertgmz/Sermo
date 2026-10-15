@@ -23,6 +23,7 @@ const ACTIONS = [
   "report.create",
   "forum.manageReports",
   "forum.deleteAny",
+  "forum.hardDelete",
   "forum.undelete",
   "forum.approve",
   "forum.lock",
@@ -38,6 +39,7 @@ const ACTIONS = [
   "award.grant",
   "profilePost.editAny",
   "profilePost.deleteAny",
+  "profilePost.hardDelete",
   "profilePost.undelete",
   "conversation.moderate",
 ];
@@ -122,6 +124,7 @@ async function scenario() {
     mergeTarget: await thread("Merge target"),
     mergeSource: await thread("Merge source"),
     postHolder: await thread("Posts"),
+    hardDelete: await thread("Hard delete"),
     movedPosts: await thread("Moved posts"),
     bigMergeTarget: await thread("Big merge target"),
     bigMergeSource: await thread("Big merge source"),
@@ -145,9 +148,12 @@ async function scenario() {
     reported: await reply(threads.postHolder),
     split: await reply(threads.splitSource),
     moved: await reply(threads.movedPosts),
+    hardDelete: await reply(threads.postHolder),
   };
   await execute(fixture, op("threads.delete"), founder, { threadId: threads.restore });
   await execute(fixture, op("posts.delete"), founder, { postId: posts.restore });
+  await execute(fixture, op("posts.delete"), founder, { postId: posts.hardDelete });
+  await execute(fixture, op("threads.delete"), founder, { threadId: threads.hardDelete });
   await execute(fixture, op("moderation.setState"), founder, {
     target: { type: "post", id: posts.stateRestore },
     state: "deleted",
@@ -202,8 +208,10 @@ async function scenario() {
     delete: await wallPost("Delete"),
     restore: await wallPost("Restore"),
     host: await wallPost("Host"),
+    hardDelete: await wallPost("Hard delete"),
   };
   await execute(fixture, op("profilePosts.delete"), founder, { profilePostId: wall.restore });
+  await execute(fixture, op("profilePosts.delete"), founder, { profilePostId: wall.hardDelete });
   const wallComment = async (body: string) =>
     (
       (await execute(fixture, op("profileComments.create"), author, {
@@ -441,6 +449,30 @@ const attempts: Record<
     lost: F,
     banned: N,
     sight: N,
+  },
+  "threads.hardDelete": {
+    run: (ctx, actor, s) =>
+      execute(ctx, op("threads.hardDelete"), actor, { threadId: s.threads.hardDelete }),
+    lost: F,
+    banned: N,
+    sight: N,
+  },
+  "posts.hardDelete": {
+    run: (ctx, actor, s) =>
+      execute(ctx, op("posts.hardDelete"), actor, { postId: s.posts.hardDelete }),
+    lost: F,
+    banned: N,
+    sight: N,
+  },
+  "profilePosts.hardDelete": {
+    run: (ctx, actor, s) =>
+      execute(ctx, op("profilePosts.hardDelete"), actor, { profilePostId: s.wall.hardDelete }),
+    lost: F,
+    banned: F,
+    unseen: [
+      { unset: ["profile.view"], error: F },
+      { unset: ["profilePost.viewDeleted"], error: N },
+    ],
   },
   "threads.restore": {
     run: (ctx, actor, s) =>

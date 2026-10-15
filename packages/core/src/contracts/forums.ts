@@ -479,6 +479,80 @@ export const threadsRestore = defineContract({
   output: Thread,
 });
 
+export const threadsHardDelete = defineContract({
+  name: "threads.hardDelete",
+  summary:
+    "Delete a thread for good: its posts, reactions, attachments, alerts, bookmarks, reports, " +
+    "watches, reads, bans, features and the credits it paid, and the thread itself. Only a " +
+    "soft-deleted thread can be deleted for good (a conflict otherwise), and one with a merge or " +
+    "split pending is refused. Requires forum.hardDelete in the thread's forum (administrators " +
+    "by default) and the right to see deleted threads there. At most 500 posts go in one call, " +
+    "newest first and the opening post last: the thread stays (deleted) until a call returns " +
+    "`completed: true`, so a large thread takes several calls. Each call is one transaction and " +
+    "is logged as `thread.hardDelete` (`details.removedPosts`, `details.completed`, and the " +
+    "title and author, which stay in the log after the thread is gone). The member counters need " +
+    "no change, because a deleted thread no longer counts; the author's reaction score gives " +
+    "back the reactions the removed posts held.",
+  kind: "write",
+  input: z.object({ threadId: Id, reason: moderationNotice.reason }),
+  output: z.object({ completed: z.boolean(), removedPosts: z.number().int().nonnegative() }),
+});
+
+const BatchResultError = z.object({
+  code: z.enum([
+    "validation",
+    "unauthenticated",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "rate_limited",
+  ]),
+  message: z.string(),
+});
+/** What to do to every thread of a batch. */
+export const ThreadBatchUpdate = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("move"), nodeId: Id }),
+  z.object({ action: z.literal("lock") }),
+  z.object({ action: z.literal("unlock") }),
+  z.object({ action: z.literal("stick") }),
+  z.object({ action: z.literal("unstick") }),
+  z.object({ action: z.literal("delete") }),
+  z.object({ action: z.literal("restore") }),
+  z.object({ action: z.literal("feature") }),
+  z.object({ action: z.literal("unfeature") }),
+  z.object({ action: z.literal("setPrefix"), prefixId: Id.nullable() }),
+]);
+export const threadsBatchUpdate = defineContract({
+  name: "threads.batchUpdate",
+  summary:
+    "Apply one change to up to 100 threads: move, lock, unlock, stick, unstick, delete (soft), " +
+    "restore, feature, unfeature, or set (or clear, with `prefixId: null`) the prefix. Every " +
+    "thread is judged on its own, with the permission of the single action in the thread's own " +
+    "forum (`forum.move` in both forums, `forum.lock`, `forum.stick`, `forum.deleteAny`, " +
+    "`forum.undelete` or `forum.approve`, `forum.feature`; a prefix follows `threads.update`) and " +
+    "the same rules (a transfer pending, a thread that cannot be featured). The answer lists " +
+    "every thread in the order given: `changed` says whether it differed, `error` says why a " +
+    "thread was refused. A refused thread changes nothing; the others are applied, all in one " +
+    "transaction. Each thread is logged in the moderator log as the single action is, with the " +
+    "shared reason, and its author is notified as for the single action unless `notify` is " +
+    "false. A thread listed twice is a validation error.",
+  kind: "write",
+  input: z.object({
+    ...moderationNotice,
+    threadIds: z
+      .array(Id)
+      .min(1)
+      .max(100)
+      .refine((ids) => new Set(ids).size === ids.length, "List each thread once."),
+    update: ThreadBatchUpdate,
+  }),
+  output: z.object({
+    results: z.array(
+      z.object({ threadId: Id, changed: z.boolean(), error: BatchResultError.nullable() }),
+    ),
+  }),
+});
+
 export const threadsRemoveCover = defineContract({
   name: "threads.removeCover",
   summary:
@@ -578,6 +652,20 @@ export const postsRestore = defineContract({
   kind: "write",
   input: z.object({ ...moderationNotice, postId: Id }),
   output: Post,
+});
+
+export const postsHardDelete = defineContract({
+  name: "posts.hardDelete",
+  summary:
+    "Delete a post for good, with its revisions, reactions, attachments, alerts, bookmarks and " +
+    "reports. Only a soft-deleted post can be deleted for good (a conflict otherwise); the " +
+    "first post goes with its thread (`threads.hardDelete`). Requires forum.hardDelete in the " +
+    "thread's forum and the right to see deleted posts there. Other posts keep their positions, " +
+    "so the thread's numbering has a gap where the post was. Logged as `post.hardDelete` " +
+    "with the post's thread and author.",
+  kind: "write",
+  input: z.object({ postId: Id, reason: moderationNotice.reason }),
+  output: Ok,
 });
 
 // Thread merge and split, node moderators -------------------------------------------------------

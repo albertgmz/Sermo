@@ -9,7 +9,7 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
-  type SermoError,
+  SermoError,
   UnauthenticatedError,
   ValidationError,
 } from "../../errors";
@@ -48,6 +48,7 @@ import {
   requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
+import { PURGE_CHUNK, purgeContent, purgeThread } from "../purge/purge";
 import { isBotAgent } from "../security/device";
 import { logIp } from "../security/log";
 import { seoForNode, seoForThread } from "../seo";
@@ -1667,251 +1668,286 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
   return postValue(ctx, actor, post.id, true) as z.infer<typeof contracts.PostDetail>;
 });
 
+type Notice = { reason: string; notify: boolean; message?: string };
+/**
+ * The thread-level moderator actions below run inside a write transaction, as the moderator
+ * stands now (`currentActor`), and return whether the thread differed afterwards. The single
+ * operations and `threads.batchUpdate` share them, so a batch is judged exactly as one action is.
+ */
+function stickThread(ctx: Ctx, moderator: Actor, id: number, isSticky: boolean, notice: Notice) {
+  const current = requireThread(ctx, moderator, id).row;
+  requirePermission(ctx, moderator, "forum.stick", { nodeId: current.node_id });
+  forumDb(ctx).prepare("UPDATE threads SET is_sticky = ?1 WHERE id = ?2").run(Number(isSticky), id);
+  publishEvent(ctx, {
+    type: "content.edited",
+    targetType: "thread",
+    targetId: id,
+    payload: moderationPayload(moderator, current.user_id, notice),
+  });
+  appendModeratorLog(
+    ctx,
+    moderator,
+    "thread.sticky",
+    "thread",
+    id,
+    notice.reason,
+    {
+      isSticky,
+    },
+    current.node_id,
+  );
+  return !!current.is_sticky !== isSticky;
+}
 export const threadsSetStickyOp = implement(contracts.threadsSetSticky, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
   requirePermission(ctx, actor, "forum.stick", { nodeId: row.node_id });
   writeTx(ctx, () => {
-    const moderator = currentActor(ctx, actor);
-    const current = requireThread(ctx, moderator, row.id).row;
-    requirePermission(ctx, moderator, "forum.stick", { nodeId: current.node_id });
-    forumDb(ctx)
-      .prepare("UPDATE threads SET is_sticky = ?1 WHERE id = ?2")
-      .run(Number(input.isSticky), row.id);
-    publishEvent(ctx, {
-      type: "content.edited",
-      targetType: "thread",
-      targetId: row.id,
-      payload: moderationPayload(actor, row.user_id, input),
-    });
-    appendModeratorLog(
-      ctx,
-      actor,
-      "thread.sticky",
-      "thread",
-      row.id,
-      input.reason,
-      {
-        isSticky: input.isSticky,
-      },
-      current.node_id,
-    );
+    stickThread(ctx, currentActor(ctx, actor), row.id, input.isSticky, input);
   });
   return threadValue(ctx, actor, row.id);
 });
+function featureThread(
+  ctx: Ctx,
+  moderator: Actor,
+  id: number,
+  isFeatured: boolean,
+  notice: Notice,
+) {
+  const current = requireThread(ctx, moderator, id).row;
+  requirePermission(ctx, moderator, "forum.feature", { nodeId: current.node_id });
+  const now = ctx.now();
+  if (isFeatured) {
+    if (current.state !== "visible")
+      throw new ConflictError("Only a visible thread can be featured.");
+    const picked = featureKinds(ctx, [id], now).get(id) === "staff";
+    if (picked) return false;
+    addFeature(ctx, {
+      threadId: id,
+      kind: "staff",
+      userId: actorUserId(moderator)!,
+      now,
+      endsAt: null,
+    });
+  } else if (!endStaffFeature(ctx, id, now)) return false;
+  appendModeratorLog(
+    ctx,
+    moderator,
+    "thread.feature",
+    "thread",
+    id,
+    notice.reason,
+    { isFeatured },
+    current.node_id,
+  );
+  return true;
+}
 export const threadsSetFeaturedOp = implement(contracts.threadsSetFeatured, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
   requirePermission(ctx, actor, "forum.feature", { nodeId: row.node_id });
   writeTx(ctx, () => {
-    const moderator = currentActor(ctx, actor);
-    const current = requireThread(ctx, moderator, row.id).row;
-    requirePermission(ctx, moderator, "forum.feature", { nodeId: current.node_id });
-    const now = ctx.now();
-    if (input.isFeatured) {
-      if (current.state !== "visible")
-        throw new ConflictError("Only a visible thread can be featured.");
-      const picked = featureKinds(ctx, [row.id], now).get(row.id) === "staff";
-      if (picked) return;
-      addFeature(ctx, {
-        threadId: row.id,
-        kind: "staff",
-        userId: actorUserId(actor)!,
-        now,
-        endsAt: null,
-      });
-    } else if (!endStaffFeature(ctx, row.id, now)) return;
-    appendModeratorLog(
-      ctx,
-      actor,
-      "thread.feature",
-      "thread",
-      row.id,
-      input.reason,
-      { isFeatured: input.isFeatured },
-      current.node_id,
-    );
+    featureThread(ctx, currentActor(ctx, actor), row.id, input.isFeatured, {
+      reason: input.reason,
+      notify: false,
+    });
   });
   return threadValue(ctx, actor, row.id);
 });
+function lockThread(ctx: Ctx, moderator: Actor, id: number, isLocked: boolean, notice: Notice) {
+  const current = requireThread(ctx, moderator, id).row;
+  requirePermission(ctx, moderator, "forum.lock", { nodeId: current.node_id });
+  forumDb(ctx).prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2").run(Number(isLocked), id);
+  publishEvent(ctx, {
+    type: "content.edited",
+    targetType: "thread",
+    targetId: id,
+    payload: moderationPayload(moderator, current.user_id, notice),
+  });
+  appendModeratorLog(
+    ctx,
+    moderator,
+    "thread.lock",
+    "thread",
+    id,
+    notice.reason,
+    {
+      isLocked,
+    },
+    current.node_id,
+  );
+  return !!current.is_locked !== isLocked;
+}
 export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
   requirePermission(ctx, actor, "forum.lock", { nodeId: row.node_id });
   writeTx(ctx, () => {
-    const moderator = currentActor(ctx, actor);
-    const current = requireThread(ctx, moderator, row.id).row;
-    requirePermission(ctx, moderator, "forum.lock", { nodeId: current.node_id });
-    forumDb(ctx)
-      .prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2")
-      .run(Number(input.isLocked), row.id);
-    publishEvent(ctx, {
-      type: "content.edited",
-      targetType: "thread",
-      targetId: row.id,
-      payload: moderationPayload(actor, row.user_id, input),
-    });
-    appendModeratorLog(
-      ctx,
-      actor,
-      "thread.lock",
-      "thread",
-      row.id,
-      input.reason,
-      {
-        isLocked: input.isLocked,
-      },
-      current.node_id,
-    );
+    lockThread(ctx, currentActor(ctx, actor), row.id, input.isLocked, input);
   });
   return threadValue(ctx, actor, row.id);
 });
+function moveThread(ctx: Ctx, moderator: Actor, id: number, nodeId: number, notice: Notice) {
+  assertTransferIdle(ctx, id);
+  const current = requireThread(ctx, moderator, id).row;
+  requirePermission(ctx, moderator, "forum.move", { nodeId: current.node_id });
+  requirePermission(ctx, moderator, "node.view", { nodeId }, { notFound: true });
+  requirePermission(ctx, moderator, "forum.move", { nodeId });
+  if (current.node_id === nodeId) {
+    appendModeratorLog(
+      ctx,
+      moderator,
+      "thread.move",
+      "thread",
+      id,
+      notice.reason,
+      {
+        nodeId,
+        changed: false,
+      },
+      current.node_id,
+    );
+    return false;
+  }
+  forumDb(ctx).prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2").run(nodeId, id);
+  forumDb(ctx)
+    .prepare(
+      "UPDATE report_groups SET node_id = ?1 WHERE target_type = 'post' AND target_id IN (SELECT id FROM posts WHERE thread_id = ?2)",
+    )
+    .run(nodeId, id);
+  forumDb(ctx)
+    .prepare(
+      "UPDATE moderator_log SET node_id = ?1 WHERE target_type = 'post' AND target_id IN (SELECT id FROM posts WHERE thread_id = ?2)",
+    )
+    .run(nodeId, id);
+  forumDb(ctx)
+    .prepare(
+      "UPDATE moderator_log SET node_id = ?1 WHERE target_type = 'thread' AND target_id = ?2",
+    )
+    .run(nodeId, id);
+  if (current.state === "visible") {
+    forumDb(ctx)
+      .prepare(
+        "UPDATE nodes SET thread_count = thread_count + ?1, post_count = post_count + ?2 WHERE id = ?3",
+      )
+      .run(-1, -(current.reply_count + 1), current.node_id);
+    forumDb(ctx)
+      .prepare(
+        "UPDATE nodes SET thread_count = thread_count + ?1, post_count = post_count + ?2 WHERE id = ?3",
+      )
+      .run(1, current.reply_count + 1, nodeId);
+    updateNodeLast(ctx, current.node_id);
+    updateNodeLast(ctx, nodeId);
+  }
+  publishEvent(ctx, {
+    type: "content.edited",
+    targetType: "thread",
+    targetId: id,
+    payload: moderationPayload(moderator, current.user_id, notice),
+  });
+  appendModeratorLog(
+    ctx,
+    moderator,
+    "thread.move",
+    "thread",
+    id,
+    notice.reason,
+    { nodeId },
+    nodeId,
+  );
+  return true;
+}
+/** The target of a move: a forum the actor can see and move threads into. */
+function requireMoveTarget(ctx: Ctx, actor: Actor, nodeId: number) {
+  const target = requireNode(ctx, actor, nodeId);
+  requirePermission(ctx, actor, "forum.move", { nodeId });
+  if (target.node.type !== "forum")
+    throw new ValidationError("Threads can only be moved to forums.");
+}
 export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input) => {
   requireAuthenticated(actor);
   assertTransferIdle(ctx, input.threadId);
   const { row } = requireThread(ctx, actor, input.threadId);
   requirePermission(ctx, actor, "forum.move", { nodeId: row.node_id });
-  const target = requireNode(ctx, actor, input.nodeId);
-  requirePermission(ctx, actor, "forum.move", { nodeId: input.nodeId });
-  if (target.node.type !== "forum")
-    throw new ValidationError("Threads can only be moved to forums.");
+  requireMoveTarget(ctx, actor, input.nodeId);
   writeTx(ctx, () => {
-    assertTransferIdle(ctx, row.id);
-    const moderator = currentActor(ctx, actor);
-    const current = requireThread(ctx, moderator, row.id).row;
-    requirePermission(ctx, moderator, "forum.move", { nodeId: current.node_id });
-    requirePermission(ctx, moderator, "node.view", { nodeId: input.nodeId }, { notFound: true });
-    requirePermission(ctx, moderator, "forum.move", { nodeId: input.nodeId });
-    if (current.node_id === input.nodeId) {
-      appendModeratorLog(
-        ctx,
-        actor,
-        "thread.move",
-        "thread",
-        row.id,
-        input.reason,
-        {
-          nodeId: input.nodeId,
-          changed: false,
-        },
-        current.node_id,
-      );
-      return;
-    }
-    forumDb(ctx).prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2").run(input.nodeId, row.id);
-    forumDb(ctx)
-      .prepare(
-        "UPDATE report_groups SET node_id = ?1 WHERE target_type = 'post' AND target_id IN (SELECT id FROM posts WHERE thread_id = ?2)",
-      )
-      .run(input.nodeId, row.id);
-    forumDb(ctx)
-      .prepare(
-        "UPDATE moderator_log SET node_id = ?1 WHERE target_type = 'post' AND target_id IN (SELECT id FROM posts WHERE thread_id = ?2)",
-      )
-      .run(input.nodeId, row.id);
-    forumDb(ctx)
-      .prepare(
-        "UPDATE moderator_log SET node_id = ?1 WHERE target_type = 'thread' AND target_id = ?2",
-      )
-      .run(input.nodeId, row.id);
-    if (current.state === "visible") {
-      forumDb(ctx)
-        .prepare(
-          "UPDATE nodes SET thread_count = thread_count + ?1, post_count = post_count + ?2 WHERE id = ?3",
-        )
-        .run(-1, -(current.reply_count + 1), current.node_id);
-      forumDb(ctx)
-        .prepare(
-          "UPDATE nodes SET thread_count = thread_count + ?1, post_count = post_count + ?2 WHERE id = ?3",
-        )
-        .run(1, current.reply_count + 1, input.nodeId);
-      updateNodeLast(ctx, current.node_id);
-      updateNodeLast(ctx, input.nodeId);
-    }
-    publishEvent(ctx, {
-      type: "content.edited",
-      targetType: "thread",
-      targetId: row.id,
-      payload: moderationPayload(actor, row.user_id, input),
-    });
-    appendModeratorLog(
-      ctx,
-      actor,
-      "thread.move",
-      "thread",
-      row.id,
-      input.reason,
-      { nodeId: input.nodeId },
-      input.nodeId,
-    );
+    moveThread(ctx, currentActor(ctx, actor), row.id, input.nodeId, input);
   });
   return threadValue(ctx, actor, row.id);
 });
+function deleteThread(ctx: Ctx, moderator: Actor, id: number, notice: Notice) {
+  assertTransferIdle(ctx, id);
+  const current = requireThread(ctx, moderator, id).row;
+  requirePermission(ctx, moderator, "forum.deleteAny", { nodeId: current.node_id });
+  const changed = changeThreadState(ctx, id, "deleted");
+  if (changed)
+    publishEvent(ctx, {
+      type: "content.deleted",
+      targetType: "thread",
+      targetId: id,
+      payload: {
+        previousState: current.state,
+        state: "deleted",
+        ...moderationPayload(moderator, current.user_id, notice),
+      },
+    });
+  appendModeratorLog(
+    ctx,
+    moderator,
+    "thread.delete",
+    "thread",
+    id,
+    notice.reason,
+    {},
+    current.node_id,
+  );
+  return changed;
+}
 export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
   assertTransferIdle(ctx, input.threadId);
   const { row } = requireThread(ctx, actor, input.threadId);
   requirePermission(ctx, actor, "forum.deleteAny", { nodeId: row.node_id });
   writeTx(ctx, () => {
-    assertTransferIdle(ctx, row.id);
-    const moderator = currentActor(ctx, actor);
-    const current = requireThread(ctx, moderator, row.id).row;
-    requirePermission(ctx, moderator, "forum.deleteAny", { nodeId: current.node_id });
-    if (changeThreadState(ctx, row.id, "deleted"))
-      publishEvent(ctx, {
-        type: "content.deleted",
-        targetType: "thread",
-        targetId: row.id,
-        payload: {
-          previousState: row.state,
-          state: "deleted",
-          ...moderationPayload(actor, row.user_id, input),
-        },
-      });
-    appendModeratorLog(
-      ctx,
-      actor,
-      "thread.delete",
-      "thread",
-      row.id,
-      input.reason,
-      {},
-      current.node_id,
-    );
+    deleteThread(ctx, currentActor(ctx, actor), row.id, input);
   });
   return threadValue(ctx, actor, row.id);
 });
+function restoreThread(ctx: Ctx, moderator: Actor, id: number, notice: Notice) {
+  assertTransferIdle(ctx, id);
+  const current = requireThread(ctx, moderator, id).row;
+  requireRestorer(ctx, moderator, current.state, current.node_id);
+  const changed = changeThreadState(ctx, id, "visible");
+  if (changed)
+    publishEvent(ctx, {
+      type: "content.state_changed",
+      targetType: "thread",
+      targetId: id,
+      payload: {
+        previousState: current.state,
+        state: "visible",
+        ...moderationPayload(moderator, current.user_id, notice),
+      },
+    });
+  appendModeratorLog(
+    ctx,
+    moderator,
+    "thread.restore",
+    "thread",
+    id,
+    notice.reason,
+    {},
+    current.node_id,
+  );
+  return changed;
+}
 export const threadsRestoreOp = implement(contracts.threadsRestore, (ctx, actor, input) => {
   requireAuthenticated(actor);
   assertTransferIdle(ctx, input.threadId);
   const { row } = requireThread(ctx, actor, input.threadId);
   requireRestorer(ctx, actor, row.state, row.node_id);
   writeTx(ctx, () => {
-    assertTransferIdle(ctx, row.id);
-    const moderator = currentActor(ctx, actor);
-    const current = requireThread(ctx, moderator, row.id).row;
-    requireRestorer(ctx, moderator, current.state, current.node_id);
-    if (changeThreadState(ctx, row.id, "visible"))
-      publishEvent(ctx, {
-        type: "content.state_changed",
-        targetType: "thread",
-        targetId: row.id,
-        payload: {
-          previousState: row.state,
-          state: "visible",
-          ...moderationPayload(actor, row.user_id, input),
-        },
-      });
-    appendModeratorLog(
-      ctx,
-      actor,
-      "thread.restore",
-      "thread",
-      row.id,
-      input.reason,
-      {},
-      current.node_id,
-    );
+    restoreThread(ctx, currentActor(ctx, actor), row.id, input);
   });
   return threadValue(ctx, actor, row.id);
 });
@@ -1967,6 +2003,8 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
           ...moderationPayload(actor, post.user_id, input),
         },
       });
+    // A moderator's delete is logged with their reason; a member's own is logged as the author's,
+    // so staff can tell the two apart and still restore it.
     if (can(ctx, moderator, "forum.deleteAny", { nodeId: current.node_id }))
       appendModeratorLog(
         ctx,
@@ -1976,6 +2014,17 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
         post.id,
         input.reason,
         {},
+        current.node_id,
+      );
+    else
+      appendModeratorLog(
+        ctx,
+        actor,
+        "post.delete",
+        "post",
+        post.id,
+        "deleted by author",
+        { byAuthor: true },
         current.node_id,
       );
   });
@@ -2992,6 +3041,182 @@ export const threadsMergeOp = implement(contracts.threadsMerge, (ctx, actor, inp
   };
 });
 
+/** A thread's prefix set or cleared, as `threads.update` allows it. */
+function setThreadPrefix(
+  ctx: Ctx,
+  moderator: Actor,
+  id: number,
+  prefixId: number | null,
+  notice: Notice,
+) {
+  const current = requireThread(ctx, moderator, id).row;
+  if (!mayEditTitle(ctx, moderator, current)) throw new ForbiddenError();
+  if (prefixId !== null && prefixId !== current.prefix_id) requireActivePrefix(ctx, prefixId);
+  forumDb(ctx)
+    .prepare("UPDATE threads SET prefix_id = ?1, content_updated_at = ?2 WHERE id = ?3")
+    .run(prefixId, ctx.now(), id);
+  publishEvent(ctx, {
+    type: "content.edited",
+    targetType: "thread",
+    targetId: id,
+    payload: moderationPayload(moderator, current.user_id, notice),
+  });
+  if (can(ctx, moderator, "forum.editAny", { nodeId: current.node_id }))
+    appendModeratorLog(
+      ctx,
+      moderator,
+      "thread.update",
+      "thread",
+      id,
+      notice.reason,
+      { prefixId },
+      current.node_id,
+    );
+  return prefixId !== current.prefix_id;
+}
+function batchItem(
+  ctx: Ctx,
+  moderator: Actor,
+  id: number,
+  update: z.infer<typeof contracts.ThreadBatchUpdate>,
+  notice: Notice,
+): boolean {
+  switch (update.action) {
+    case "move":
+      return moveThread(ctx, moderator, id, update.nodeId, notice);
+    case "lock":
+    case "unlock":
+      return lockThread(ctx, moderator, id, update.action === "lock", notice);
+    case "stick":
+    case "unstick":
+      return stickThread(ctx, moderator, id, update.action === "stick", notice);
+    case "delete":
+      return deleteThread(ctx, moderator, id, notice);
+    case "restore":
+      return restoreThread(ctx, moderator, id, notice);
+    case "feature":
+    case "unfeature":
+      return featureThread(ctx, moderator, id, update.action === "feature", notice);
+    case "setPrefix":
+      return setThreadPrefix(ctx, moderator, id, update.prefixId, notice);
+  }
+}
+export const threadsBatchUpdateOp = implement(contracts.threadsBatchUpdate, (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  if (input.update.action === "move") requireMoveTarget(ctx, actor, input.update.nodeId);
+  return writeTx(ctx, () => {
+    const moderator = currentActor(ctx, actor);
+    // Each thread in its own savepoint: a refused one is undone alone and the others stay.
+    const results = input.threadIds.map((threadId) => {
+      try {
+        const changed = writeTx(ctx, () =>
+          batchItem(ctx, moderator, threadId, input.update, input),
+        );
+        return { threadId, changed, error: null };
+      } catch (error) {
+        if (!(error instanceof SermoError)) throw error;
+        return { threadId, changed: false, error: { code: error.code, message: error.message } };
+      }
+    });
+    return { results };
+  });
+});
+
+// Deleting for good ---------------------------------------------------------------------------
+
+export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  assertTransferIdle(ctx, input.threadId);
+  const { row } = requireThread(ctx, actor, input.threadId);
+  requirePermission(ctx, actor, "forum.hardDelete", { nodeId: row.node_id });
+  return writeTx(ctx, () => {
+    assertTransferIdle(ctx, row.id);
+    const moderator = currentActor(ctx, actor);
+    const current = requireThread(ctx, moderator, row.id).row;
+    requirePermission(ctx, moderator, "forum.hardDelete", { nodeId: current.node_id });
+    if (current.state !== "deleted")
+      throw new ConflictError(
+        "Delete the thread first; only a deleted thread can be removed for good.",
+      );
+    // Newest posts first, the opening post with the last of them.
+    const found = forumDb(ctx)
+      .prepare<{ id: number; state: State }, [number, number, number]>(
+        "SELECT id, state FROM posts WHERE thread_id = ?1 AND id != ?2 ORDER BY position DESC, id DESC LIMIT ?3",
+      )
+      .all(current.id, current.first_post_id ?? 0, PURGE_CHUNK + 1);
+    const more = found.length > PURGE_CHUNK;
+    const chunk = found.slice(0, PURGE_CHUNK);
+    const ids = chunk.map((post) => post.id);
+    if (!more && current.first_post_id) ids.push(current.first_post_id);
+    purgeContent(ctx, "post", ids);
+    if (more) {
+      // The thread stays, deleted: keep its own figures true for the staff who can still open it.
+      const visibleGone = chunk.filter((post) => post.state === "visible").length;
+      forumDb(ctx)
+        .prepare("UPDATE threads SET reply_count = max(0, reply_count - ?1) WHERE id = ?2")
+        .run(visibleGone, current.id);
+      const last = forumDb(ctx)
+        .prepare<{ id: number; user_id: number; created_at: number }, [number]>(forumSql.threadLast)
+        .get(current.id);
+      if (last)
+        forumDb(ctx)
+          .prepare(
+            "UPDATE threads SET last_post_at = ?1, last_post_id = ?2, last_poster_id = ?3 WHERE id = ?4",
+          )
+          .run(last.created_at, last.id, last.user_id, current.id);
+    } else {
+      purgeThread(ctx, current.id);
+    }
+    // The title and author stay in the log: the thread itself will not.
+    appendModeratorLog(
+      ctx,
+      actor,
+      "thread.hardDelete",
+      "thread",
+      current.id,
+      input.reason,
+      {
+        title: current.title,
+        authorId: current.user_id,
+        removedPosts: ids.length,
+        completed: !more,
+      },
+      current.node_id,
+    );
+    return { completed: !more, removedPosts: ids.length };
+  });
+});
+export const postsHardDeleteOp = implement(contracts.postsHardDelete, (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  const { post, thread } = requirePost(ctx, actor, input.postId);
+  assertTransferIdle(ctx, thread.row.id);
+  requirePermission(ctx, actor, "forum.hardDelete", { nodeId: thread.row.node_id });
+  return writeTx(ctx, () => {
+    assertTransferIdle(ctx, thread.row.id);
+    const moderator = currentActor(ctx, actor);
+    const current = requirePost(ctx, moderator, post.id);
+    requirePermission(ctx, moderator, "forum.hardDelete", { nodeId: current.thread.row.node_id });
+    if (current.post.id === current.thread.row.first_post_id)
+      throw new ValidationError("Delete the thread instead.");
+    if (current.post.state !== "deleted")
+      throw new ConflictError(
+        "Delete the post first; only a deleted post can be removed for good.",
+      );
+    purgeContent(ctx, "post", [post.id]);
+    appendModeratorLog(
+      ctx,
+      actor,
+      "post.hardDelete",
+      "post",
+      post.id,
+      input.reason,
+      { threadId: current.thread.row.id, authorId: post.user_id },
+      current.thread.row.node_id,
+    );
+    return { ok: true as const };
+  });
+});
+
 export const operations = [
   nodesListOp,
   nodesGetOp,
@@ -3009,6 +3234,8 @@ export const operations = [
   threadsMoveOp,
   threadsDeleteOp,
   threadsRestoreOp,
+  threadsHardDeleteOp,
+  threadsBatchUpdateOp,
   threadsMarkReadOp,
   threadsMergeOp,
   threadsSplitOp,
@@ -3018,5 +3245,6 @@ export const operations = [
   postsUpdateOp,
   postsDeleteOp,
   postsRestoreOp,
+  postsHardDeleteOp,
   ...forumPrefixOperations,
 ];

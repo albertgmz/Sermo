@@ -5,6 +5,7 @@ import {
   profilePostsCreate,
   profilePostsDelete,
   profilePostsGet,
+  profilePostsHardDelete,
   profilePostsList,
   profilePostsRestore,
   profilePostsUpdate,
@@ -43,6 +44,7 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
+import { PURGE_CHUNK, purgeContent } from "../purge/purge";
 import { logIp } from "../security/log";
 import { profileSeo } from "../seo/pages";
 import { readSiteSettings } from "../settings";
@@ -415,8 +417,57 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
     if (result.changes && now.state === "visible") touchProfile(ctx, row.profile_user_id);
     if (can(ctx, fresh, "profilePost.deleteAny"))
       appendModeratorLog(ctx, actor, "profile_post.delete", "profile_post", row.id);
+    else if (result.changes)
+      appendModeratorLog(
+        ctx,
+        actor,
+        "profile_post.delete",
+        "profile_post",
+        row.id,
+        actorUserId(actor) === row.user_id ? "deleted by author" : "deleted by wall owner",
+        { byAuthor: actorUserId(actor) === row.user_id },
+      );
   });
   return postValue(ctx, actor, { ...row, state: "deleted" });
+});
+export const profilePostsHardDeleteOp = implement(profilePostsHardDelete, (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  const row = requirePost(ctx, actor, input.profilePostId);
+  requirePermission(ctx, actor, "profilePost.hardDelete");
+  return writeTx(ctx, () => {
+    const fresh = currentActor(ctx, actor);
+    const current = requirePost(ctx, fresh, row.id);
+    requirePermission(ctx, fresh, "profilePost.hardDelete");
+    if (current.state !== "deleted")
+      throw new ConflictError(
+        "Delete the profile post first; only a deleted one can be removed for good.",
+      );
+    // Newest comments first; the post goes with the last of them.
+    const found = prepared(ctx, "profiles.hardDeleteComments", () =>
+      ctx.sqlite.prepare<{ id: number }, [number, number]>(
+        "SELECT id FROM profile_post_comments WHERE profile_post_id = ?1 ORDER BY id DESC LIMIT ?2",
+      ),
+    ).all(row.id, PURGE_CHUNK + 1);
+    const more = found.length > PURGE_CHUNK;
+    const comments = found.slice(0, PURGE_CHUNK).map((comment) => comment.id);
+    purgeContent(ctx, "profile_post_comment", comments);
+    if (!more) purgeContent(ctx, "profile_post", [row.id]);
+    appendModeratorLog(
+      ctx,
+      actor,
+      "profile_post.hardDelete",
+      "profile_post",
+      row.id,
+      input.reason,
+      {
+        authorId: row.user_id,
+        profileUserId: row.profile_user_id,
+        removedComments: comments.length,
+        completed: !more,
+      },
+    );
+    return { completed: !more, removedComments: comments.length };
+  });
 });
 export const profilePostsRestoreOp = implement(profilePostsRestore, (ctx, actor, input) => {
   requireAuthenticated(actor);

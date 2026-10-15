@@ -213,6 +213,16 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
       });
     if (can(ctx, fresh, "profilePost.deleteAny"))
       appendModeratorLog(ctx, actor, "profile_comment.delete", "profile_post_comment", comment.id);
+    else if (result.changes)
+      appendModeratorLog(
+        ctx,
+        actor,
+        "profile_comment.delete",
+        "profile_post_comment",
+        comment.id,
+        actorUserId(actor) === comment.user_id ? "deleted by author" : "deleted by wall owner",
+        { byAuthor: actorUserId(actor) === comment.user_id },
+      );
   });
   return commentValue(ctx, actor, { ...comment, state: "deleted" }, post.profile_user_id);
 });

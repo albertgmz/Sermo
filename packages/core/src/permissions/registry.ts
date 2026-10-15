@@ -458,6 +458,17 @@ export const PERMISSIONS = {
   "forum.viewDeleted": nodeModerator(),
   "forum.editAny": nodeModerator(),
   "forum.deleteAny": nodeModerator(),
+  /**
+   * Delete a thread or post for good, once it is soft-deleted. Administrators by default; grant
+   * it to moderators per forum.
+   */
+  "forum.hardDelete": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: ADMINS,
+    requiresAccount: true,
+  },
   "forum.undelete": nodeModerator(),
   "forum.approve": nodeModerator(),
   "forum.viewHistory": nodeModerator(),
@@ -544,6 +555,14 @@ export const PERMISSIONS = {
   "profilePost.viewDeleted": globalModerator("profile"),
   "profilePost.editAny": globalModerator("profile"),
   "profilePost.deleteAny": globalModerator("profile"),
+  /** Delete a soft-deleted profile post, with its comments, for good. */
+  "profilePost.hardDelete": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: ADMINS,
+    requiresAccount: true,
+  },
   "profilePost.undelete": globalModerator("profile"),
   "profilePost.approve": globalModerator("profile"),
 

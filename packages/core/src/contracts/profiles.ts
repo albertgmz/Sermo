@@ -256,6 +256,20 @@ export const profilePostsDelete = defineContract({
   output: ProfilePost,
 });
 
+export const profilePostsHardDelete = defineContract({
+  name: "profilePosts.hardDelete",
+  summary:
+    "Delete a profile post for good, with its comments, reactions, attachments, alerts and " +
+    "reports. Only a soft-deleted profile post can be deleted for good (a conflict otherwise). " +
+    "Requires profilePost.hardDelete (administrators by default) and the right to see deleted " +
+    "profile posts. At most 500 comments go in one call, newest first: the post stays (deleted) " +
+    "until a call returns `completed: true`. Each call is one transaction and is logged as " +
+    "`profile_post.hardDelete`.",
+  kind: "write",
+  input: z.object({ profilePostId: Id, reason: moderationNotice.reason }),
+  output: z.object({ completed: z.boolean(), removedComments: z.number().int().nonnegative() }),
+});
+
 export const profilePostsRestore = defineContract({
   name: "profilePosts.restore",
   summary: "Make a deleted or unapproved profile post visible again. Moderators only.",
