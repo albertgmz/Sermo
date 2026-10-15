@@ -16,9 +16,8 @@ export const NO_CONSENT: Consent = { decided: false, accepted: [] };
 // outside Europe too.
 export type SiteConsent = { version: number; bannerOutsideEu: boolean };
 
-// A visitor the site does not ask (the banner is for Europe only and they are elsewhere) who has
-// chosen nothing is treated as having accepted every category, until they choose in the settings.
-// Anyone who did choose keeps their choice.
+// A visitor the site does not ask (see `isUnasked`) is treated as having accepted every category,
+// until they choose in the settings. Anyone who did choose keeps their choice.
 export function withoutBanner(own: Consent): Consent {
   return own.decided ? own : { decided: false, accepted: OPTIONAL_CATEGORIES };
 }
@@ -56,17 +55,50 @@ export function parseChoice(
   };
 }
 
-// The consent of a visitor from their cookie value. Whether the banner applies to them is asked
-// (`bannerApplies`) only for a visitor who has chosen nothing on a site whose banner is for
-// Europe only.
+// Whether the cookie value holds a choice of another policy version than the one in force. Such a
+// visitor has answered the banner before: a version bump asks them again, and until they answer
+// nothing optional runs, whatever their country.
+export function hasEarlierChoice(
+  value: string | undefined,
+  version: number,
+): boolean {
+  if (!value) return false;
+  try {
+    const { categories, revision } = JSON.parse(decodeURIComponent(value));
+    return Array.isArray(categories) && revision !== version;
+  } catch {
+    return false;
+  }
+}
+
+// Whether the site does not ask this visitor: its banner is for Europe only, the visitor is a guest
+// who never answered it (under any policy version) and the backend says the banner does not apply
+// to them. Anyone who answered once, and anyone signed in, is asked, so a refusal is never turned
+// into an acceptance. The backend is asked only when everything else says "unasked".
+export async function isUnasked(
+  value: string | undefined,
+  site: SiteConsent,
+  signedIn: boolean,
+  bannerApplies: () => Promise<boolean>,
+): Promise<boolean> {
+  if (site.bannerOutsideEu || signedIn) return false;
+  if (parseChoice(value, site.version) || hasEarlierChoice(value, site.version))
+    return false;
+  return !(await bannerApplies());
+}
+
+// The consent of a visitor from their cookie value.
 export async function consentOf(
   value: string | undefined,
   site: SiteConsent,
+  signedIn: boolean,
   bannerApplies: () => Promise<boolean>,
 ): Promise<Consent> {
   const own = parseConsent(value, site.version);
-  if (own.decided || site.bannerOutsideEu) return own;
-  return (await bannerApplies()) ? own : withoutBanner(own);
+  if (own.decided) return own;
+  return (await isUnasked(value, site, signedIn, bannerApplies))
+    ? withoutBanner(own)
+    : own;
 }
 
 export function parseConsent(

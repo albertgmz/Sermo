@@ -3,7 +3,9 @@ import {
   allows,
   analyticsFor,
   consentOf,
+  hasEarlierChoice,
   isCookielessMatomo,
+  isUnasked,
   mayEmbed,
   mayStoreReferral,
   NO_CONSENT,
@@ -133,7 +135,7 @@ test("a visitor the banner is not shown to counts as accepting, until they choos
   expect(withoutBanner(chosen)).toBe(chosen);
 });
 
-test("the backend is asked whether the banner applies only to a visitor who has chosen nothing on a Europe-only site", async () => {
+test("the backend is asked whether the banner applies only to a guest who never answered it, on a Europe-only site", async () => {
   let asked = 0;
   const shown = (answer: boolean) => async () => {
     asked += 1;
@@ -143,32 +145,67 @@ test("the backend is asked whether the banner applies only to a visitor who has 
   const everywhere = { version: 2, bannerOutsideEu: true };
   const europeOnly = { version: 2, bannerOutsideEu: false };
   // The banner is for everyone: nobody is asked about it.
-  expect(await consentOf(undefined, everywhere, shown(false))).toEqual(
+  expect(await consentOf(undefined, everywhere, false, shown(false))).toEqual(
     NO_CONSENT,
   );
   // A choice under the current version stands wherever the visitor is.
-  expect(await consentOf(accepted, europeOnly, shown(false))).toEqual({
+  expect(await consentOf(accepted, europeOnly, false, shown(false))).toEqual({
     decided: true,
     accepted: ["embeds"],
   });
   expect(asked).toBe(0);
-  // No choice (or one under another version): inside the banner's reach the answer is none,
-  // outside it everything is accepted.
-  expect(await consentOf(undefined, europeOnly, shown(true))).toEqual(
+  // No choice at all: inside the banner's reach the answer is none, outside it everything is
+  // accepted.
+  expect(await consentOf(undefined, europeOnly, false, shown(true))).toEqual(
     NO_CONSENT,
   );
   expect(
-    (await consentOf(undefined, europeOnly, shown(false))).accepted,
+    (await consentOf(undefined, europeOnly, false, shown(false))).accepted,
   ).toEqual(["analytics", "referrals", "embeds"]);
+});
+
+test("a visitor who answered an earlier policy version is asked again, never treated as accepting, whatever the country", async () => {
+  const europeOnly = { version: 2, bannerOutsideEu: false };
+  let asked = 0;
+  const outside = async () => {
+    asked += 1;
+    return false;
+  };
+  for (const earlier of [
+    cookie({ categories: ["necessary"], revision: 1 }),
+    cookie({ categories: ["necessary", "analytics", "embeds"], revision: 1 }),
+    // A later version than the site's (a rollback) is the same: not this version's answer.
+    cookie({ categories: ["necessary"], revision: 3 }),
+  ]) {
+    expect(await consentOf(earlier, europeOnly, false, outside)).toEqual(
+      NO_CONSENT,
+    );
+    expect(await isUnasked(earlier, europeOnly, false, outside)).toBe(false);
+  }
+  // Nothing readable is no answer: garbage is an unasked guest.
+  expect(hasEarlierChoice("garbage", 2)).toBe(false);
+  expect(hasEarlierChoice(cookie({ revision: 1 }), 2)).toBe(false);
+  expect(hasEarlierChoice(cookie({ categories: [], revision: 2 }), 2)).toBe(
+    false,
+  );
+  expect(hasEarlierChoice(cookie({ categories: [], revision: 1 }), 2)).toBe(
+    true,
+  );
+  // The backend is not even asked.
+  expect(asked).toBe(0);
+});
+
+test("a signed-in visitor is asked: the site's silence covers guests only", async () => {
+  const europeOnly = { version: 2, bannerOutsideEu: false };
   expect(
-    (
-      await consentOf(
-        cookie({ categories: ["analytics"], revision: 1 }),
-        europeOnly,
-        shown(false),
-      )
-    ).accepted,
-  ).toEqual(["analytics", "referrals", "embeds"]);
+    await consentOf(undefined, europeOnly, true, async () => false),
+  ).toEqual(NO_CONSENT);
+  expect(await isUnasked(undefined, europeOnly, true, async () => false)).toBe(
+    false,
+  );
+  expect(await isUnasked(undefined, europeOnly, false, async () => false)).toBe(
+    true,
+  );
 });
 
 test("cookieless Matomo is emitted without any choice, with cookies disabled before the first page view", () => {

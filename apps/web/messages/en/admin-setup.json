@@ -172,7 +172,7 @@
     },
     "cookieBannerOutsideEu": {
       "label": "Cookie banner outside Europe",
-      "help": "On (the default): everyone is asked. Off: only visitors in the EU, the EEA, the United Kingdom and Switzerland, and visitors whose country is not known, are asked. Everyone else is treated as having accepted every category until they choose in the cookie settings, so the statistics, referrals and embeds work for them without a banner. The country is read only from the location a trusted proxy reports (see the deployment guide); without one every visitor is asked.",
+      "help": "On (the default): everyone is asked. Off: only visitors in the EU, the EEA, the United Kingdom and Switzerland, and visitors whose country is not known, are asked. Guests elsewhere who have never answered the banner are treated as having accepted every category until they choose in the cookie settings, so the statistics, referrals and embeds work for them without a banner. Members, and anyone who answered before (under any policy version), are always asked. The country is read only from the location a trusted proxy reports (see the deployment guide); without one every visitor is asked.",
       "switch": "Show the banner to visitors outside Europe"
     },
     "matomoCookieless": {

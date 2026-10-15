@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { login } from "@/app/[locale]/(auth)/actions";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
+import { useHardNavigation } from "@/app/[locale]/(auth)/use-hard-navigation";
 import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +18,8 @@ export function LoginForm({ next }: { next: string }) {
     error: "",
     username: "",
   });
+
+  useHardNavigation(state.assign);
 
   return (
     <form action={action} className="space-y-4">

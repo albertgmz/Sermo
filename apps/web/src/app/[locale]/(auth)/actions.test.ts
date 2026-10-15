@@ -49,6 +49,7 @@ afterAll(() => {
 beforeEach(() => {
   record = null;
   siteVersion = 1;
+  europeOnly = false;
   consentCalls.length = 0;
   written.length = 0;
   removed.length = 0;
@@ -62,6 +63,8 @@ afterEach(() => {
 // What the account says about the cookie choice (`consent.mine`), and the version the site is on.
 let record: Record<string, unknown> | null = null;
 let siteVersion = 1;
+// The site shows its banner in Europe only, and the backend places every visitor outside it.
+let europeOnly = false;
 // Every request the actions make besides the ones for the consent and the site, which are answered
 // from the variables above and counted apart.
 const consentCalls: { method: string; body: unknown }[] = [];
@@ -71,7 +74,14 @@ function backend(response: () => Response) {
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
     const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
     if (url.endsWith("/api/v1/site"))
-      return Response.json(siteBody({ cookiePolicyVersion: siteVersion }));
+      return Response.json(
+        siteBody({
+          cookiePolicyVersion: siteVersion,
+          cookieBannerOutsideEu: !europeOnly,
+        }),
+      );
+    if (url.endsWith("/api/v1/consent/banner"))
+      return Response.json({ show: false });
     if (url.endsWith("/api/v1/consent")) {
       consentCalls.push({ method: init?.method ?? "GET", body });
       return init?.method === "PUT"
@@ -283,7 +293,15 @@ test("a choice made as a guest is saved on the account at sign-in when the accou
   expect(await signIn()).toMatch(/^NEXT_REDIRECT/);
   expect(consentCalls).toEqual([
     { method: "GET", body: {} },
-    { method: "PUT", body: { categories: ["embeds"], policyVersion: 1 } },
+    {
+      method: "PUT",
+      // With the time the visitor chose, not the time they signed in.
+      body: {
+        categories: ["embeds"],
+        policyVersion: 1,
+        decidedAt: "2026-10-01T10:00:00.000Z",
+      },
+    },
   ]);
   expect(consentCookieWritten()).toBeUndefined();
 });
@@ -343,30 +361,74 @@ test("a record of an older policy version is no choice: nothing is adopted, and 
   await signIn();
   expect(consentCalls).toEqual([
     { method: "GET", body: {} },
-    { method: "PUT", body: { categories: [], policyVersion: 3 } },
+    {
+      method: "PUT",
+      body: {
+        categories: [],
+        policyVersion: 3,
+        decidedAt: "2026-10-03T10:00:00.000Z",
+      },
+    },
   ]);
 });
 
-test("when both hold a choice and they differ, the later one wins", async () => {
+test("when both hold a choice and they differ, the account's stands, whoever chose last and whatever the clocks say", async () => {
   record = accountChoice(1, "2026-10-02T10:00:00.000Z", "analytics");
-  jar.set("forum_consent", choiceCookie(1, "2026-10-01T10:00:00Z", "embeds"));
   backend(SIGNED_UP);
-  await signIn();
-  expect(
-    parseChoice(onTheWire(consentCookieWritten() as never).raw, 1)?.accepted,
-  ).toEqual(["analytics"]);
-  expect(consentCalls.map((call) => call.method)).toEqual(["GET"]);
-  consentCalls.length = 0;
-  written.length = 0;
-  jar.set("forum_consent", choiceCookie(1, "2026-10-05T10:00:00Z", "embeds"));
-  await signIn();
-  expect(consentCalls.map((call) => call.method)).toEqual(["GET", "PUT"]);
-  expect(consentCookieWritten()).toBeUndefined();
+  for (const at of [
+    "2026-10-01T10:00:00Z",
+    "2026-10-05T10:00:00Z",
+    "2031-01-01T00:00:00Z",
+  ]) {
+    written.length = 0;
+    consentCalls.length = 0;
+    jar.set("forum_consent", choiceCookie(1, at, "embeds"));
+    await signIn();
+    expect(
+      parseChoice(onTheWire(consentCookieWritten() as never).raw, 1)?.accepted,
+      at,
+    ).toEqual(["analytics"]);
+    expect(
+      consentCalls.map((call) => call.method),
+      at,
+    ).toEqual(["GET"]);
+  }
   // Equal choices need nothing.
+  written.length = 0;
   consentCalls.length = 0;
   record = accountChoice(1, "2026-10-06T10:00:00.000Z", "embeds");
   await signIn();
   expect(consentCalls.map((call) => call.method)).toEqual(["GET"]);
+  expect(consentCookieWritten()).toBeUndefined();
+});
+
+test("after the account's choice is adopted the next page is a full load, so the running banner reads it", async () => {
+  record = accountChoice(1, "2026-10-02T10:00:00.000Z", "analytics");
+  backend(SIGNED_UP);
+  const state = await login(
+    { error: "", username: "" },
+    form({ username: "ann", password: "right", next: "/threads/3" }),
+  );
+  expect(state).toEqual({ error: "", username: "ann", assign: "/threads/3" });
+  // Nothing adopted, an ordinary redirect as before.
+  record = null;
+  written.length = 0;
+  expect(await signIn()).toMatch(/^NEXT_REDIRECT/);
+});
+
+test("registering with a choice adopted from the account is a full load too", async () => {
+  record = accountChoice(1, "2026-10-02T10:00:00.000Z", "embeds");
+  backend(SIGNED_UP);
+  const state = await register(
+    { error: "", username: "" },
+    form({
+      username: "ann",
+      email: "ann@example.test",
+      password: "right-password",
+      terms: "on",
+    }),
+  );
+  expect(state).toEqual({ error: "", username: "ann", assign: "/" });
 });
 
 test("a new member's choice as a guest is saved when the sign-up signs them in, not when it does not", async () => {
@@ -428,4 +490,23 @@ test("the session that was just opened speaks for the member, not the cookies th
   }) as unknown as typeof fetch;
   await signIn();
   expect(seen).toEqual(["sermo.session_token=tok", "sermo.session_token=tok"]);
+});
+
+test("a refusal from an earlier policy version is not used as acceptance when registering outside Europe", async () => {
+  siteVersion = 2;
+  europeOnly = true;
+  try {
+    // Accepted referrals at version 1, then the site asked again: the visitor is asked, not
+    // treated as accepting, so the held referral cookie is not used (the form's referrer is).
+    jar.set(
+      "forum_consent",
+      choiceCookie(1, "2026-10-01T10:00:00Z", "referrals"),
+    );
+    jar.set("forum_ref", "7");
+    backend(SIGNED_UP);
+    await signUp({ ref: "12" });
+    expect(bodies[0]).toMatchObject({ ref: 12 });
+  } finally {
+    europeOnly = false;
+  }
 });

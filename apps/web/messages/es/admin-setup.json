@@ -172,7 +172,7 @@
     },
     "cookieBannerOutsideEu": {
       "label": "Aviso de cookies fuera de Europa",
-      "help": "Activado (por defecto): se pregunta a todos. Desactivado: solo se pregunta a los visitantes de la UE, del EEE, del Reino Unido y de Suiza, y a los de país desconocido. Al resto se le trata como si hubiera aceptado todas las categorías hasta que elija en la configuración de cookies, así que las estadísticas, las invitaciones y los contenidos incrustados funcionan para ellos sin aviso. El país se lee solo de la ubicación que informa un proxy de confianza (consulta la guía de despliegue); sin ella se pregunta a todos.",
+      "help": "Activado (por defecto): se pregunta a todos. Desactivado: solo se pregunta a los visitantes de la UE, del EEE, del Reino Unido y de Suiza, y a los de país desconocido. A los invitados de otros países que nunca han respondido al aviso se les trata como si hubieran aceptado todas las categorías hasta que elijan en la configuración de cookies, así que las estadísticas, las invitaciones y los contenidos incrustados funcionan para ellos sin aviso. A los miembros, y a quien ya respondió antes (con cualquier versión de la política), siempre se les pregunta. El país se lee solo de la ubicación que informa un proxy de confianza (consulta la guía de despliegue); sin ella se pregunta a todos.",
       "switch": "Mostrar el aviso a visitantes de fuera de Europa"
     },
     "matomoCookieless": {

@@ -4,6 +4,7 @@ import { cache } from "react";
 import { bannerApplies } from "@/lib/sermo/banner";
 import { forwardFromRequest } from "@/lib/sermo/client";
 import { getSite } from "@/lib/sermo/site";
+import { sermoCookies } from "@/lib/sermo/transport";
 import { CONSENT_COOKIE } from "./inventory";
 import { type Consent, consentOf } from "./state";
 
@@ -12,13 +13,18 @@ import { type Consent, consentOf } from "./state";
 // does not ask (its banner is for Europe only) is treated as having accepted; the backend is
 // asked about that only when the site is set that way.
 export const getConsent = cache(async (): Promise<Consent> => {
-  const [store, site] = await Promise.all([cookies(), getSite()]);
+  const [store, site, forward] = await Promise.all([
+    cookies(),
+    getSite(),
+    forwardFromRequest(),
+  ]);
   return consentOf(
     store.get(CONSENT_COOKIE)?.value,
     {
       version: site.cookiePolicyVersion,
       bannerOutsideEu: site.cookieBannerOutsideEu,
     },
-    async () => bannerApplies(await forwardFromRequest()),
+    sermoCookies(forward.cookie) !== "",
+    () => bannerApplies(forward),
   );
 });

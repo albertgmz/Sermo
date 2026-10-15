@@ -65,7 +65,12 @@ test("a member's choice in the banner is sent to the account as the cookie holds
   await saveConsentChoice();
   expect(saved).toEqual([
     {
-      body: { categories: ["analytics", "embeds"], policyVersion: 2 },
+      // With the time the banner recorded for the choice.
+      body: {
+        categories: ["analytics", "embeds"],
+        policyVersion: 2,
+        decidedAt: "2026-10-02T10:00:00.000Z",
+      },
       cookie: "sermo.session_token=tok",
     },
   ]);
@@ -74,7 +79,11 @@ test("a member's choice in the banner is sent to the account as the cookie holds
   jar.set("forum_consent", choice(2));
   await saveConsentChoice();
   expect(saved.map((call) => call.body)).toEqual([
-    { categories: [], policyVersion: 2 },
+    {
+      categories: [],
+      policyVersion: 2,
+      decidedAt: "2026-10-02T10:00:00.000Z",
+    },
   ]);
 });
 

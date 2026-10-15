@@ -16,6 +16,7 @@ import { redirect } from "next/navigation";
 import type { LineComposerState } from "@/components/forum/line-composer";
 import { LOCALE_COOKIE, LOCALE_COOKIE_OPTIONS } from "@/i18n/locale-cookie";
 import { isLocale } from "@/i18n/locales";
+import { forgetAdoptedConsent } from "@/lib/consent/sync";
 import { normalizeImagePath } from "@/lib/lite-images";
 import {
   LITE_COOKIE,
@@ -95,6 +96,7 @@ export async function dismissNotice(noticeId: number) {
 
 export async function logout() {
   await signOut();
+  await forgetAdoptedConsent();
   redirect("/");
 }
 

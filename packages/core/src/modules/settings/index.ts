@@ -138,7 +138,7 @@ function assertCheapRule(ctx: Ctx, key: string, rule: SiteSettingsValue["linksRu
 export function updateSiteSettings(
   ctx: Ctx,
   actor: Actor,
-  changes: Partial<SiteSettingsValue>,
+  changes: Partial<Omit<SiteSettingsValue, "cookiePolicyVersion">>,
 ): SiteSettingsValue {
   requirePermission(ctx, actor, "admin.settings");
   const user = requireAuthenticated(actor);

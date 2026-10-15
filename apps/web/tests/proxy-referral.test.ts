@@ -293,3 +293,22 @@ test("when the backend cannot say, a cookie already held stays, and nothing new 
     expect(referralCookie(await ask("/?ref=12"))).toBeUndefined();
   });
 });
+
+test("a refusal made under an earlier policy version stays a refusal for a visitor the banner is not shown to", async () => {
+  site.cookiePolicyVersion = 2;
+  try {
+    await withBannerFor(false, async (asked) => {
+      // Refused everything at version 1; the site is now at 2 and the visitor is outside Europe.
+      expect(referralCookie(await ask("/?ref=12", choice(1)))).toBeUndefined();
+      // The referral cookie held from before goes, as for any visitor who has not accepted it.
+      const cleared = referralCookie(
+        await ask("/forums", `${choice(1)}; forum_ref=7`),
+      );
+      expect(cleared).toContain("forum_ref=;");
+      // Asked again, not silently treated as accepting, and the backend is not even asked.
+      expect(asked()).toBe(0);
+    });
+  } finally {
+    site.cookiePolicyVersion = 1;
+  }
+});

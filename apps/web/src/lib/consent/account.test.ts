@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 import { CONSENT_CATEGORIES } from "@sermo/core/contracts";
 import { onTheWire } from "../../../tests/wire-cookies";
-import { type AccountRecord, consentCookieValue, reconcile } from "./account";
+import {
+  type AccountRecord,
+  cameFromAccount,
+  consentCookieValue,
+  reconcile,
+} from "./account";
 import { OPTIONAL_CATEGORIES } from "./inventory";
 import { parseChoice, parseConsent } from "./state";
 
@@ -39,14 +44,15 @@ test("a browser's choice goes to an account that has none for the current versio
   ).toBe("save");
 });
 
-test("when both have a choice and they differ, the later one wins; equal choices need nothing", () => {
+test("when both have a choice and they differ, the account wins whoever chose last; equal choices need nothing", () => {
+  // The browser's choice is newer, but a previous user of a shared browser must not replace the
+  // member's own answer.
   expect(
     reconcile(device(LATE, "embeds"), record(2, EARLY, "analytics"), 2),
-  ).toBe("save");
+  ).toBe("adopt");
   expect(
     reconcile(device(EARLY, "embeds"), record(2, LATE, "analytics"), 2),
   ).toBe("adopt");
-  // The same moment: the account, which is the proof, stays.
   expect(
     reconcile(device(LATE, "embeds"), record(2, LATE, "analytics"), 2),
   ).toBe("adopt");
@@ -58,6 +64,38 @@ test("when both have a choice and they differ, the later one wins; equal choices
     ),
   ).toBe("none");
   expect(reconcile(device(EARLY), record(2, LATE), 2)).toBe("none");
+});
+
+test("a browser clock that is a day ahead decides nothing", () => {
+  const ahead = "2026-12-31T10:00:00.000Z";
+  const behind = "2026-01-01T10:00:00.000Z";
+  // The record is the newest real choice; the browser's clock says otherwise in either direction.
+  expect(
+    reconcile(device(ahead, "embeds"), record(2, LATE, "analytics"), 2),
+  ).toBe("adopt");
+  expect(
+    reconcile(device(behind, "embeds"), record(2, LATE, "analytics"), 2),
+  ).toBe("adopt");
+  // And the browser's choice reaches an account that has nothing for this version at any clock.
+  expect(reconcile(device(ahead, "embeds"), null, 2)).toBe("save");
+  expect(
+    reconcile(device(behind, "embeds"), record(1, LATE, "analytics"), 2),
+  ).toBe("save");
+});
+
+test("a cookie written from the account says so, one the library wrote does not", () => {
+  const value = consentCookieValue(record(2, LATE, "embeds"), "en", "id-1");
+  const { raw } = onTheWire({ name: "forum_consent", value, path: "/" });
+  expect(cameFromAccount(raw)).toBe(true);
+  expect(cameFromAccount(undefined)).toBe(false);
+  expect(cameFromAccount("garbage")).toBe(false);
+  expect(
+    cameFromAccount(
+      encodeURIComponent(
+        JSON.stringify({ categories: ["necessary"], revision: 2, data: null }),
+      ),
+    ),
+  ).toBe(false);
 });
 
 test("the cookie written from a record is read back as that record, and only for its version", () => {

@@ -14,11 +14,12 @@ export type AccountRecord = {
 
 // What to do at sign-in with the choice this browser holds (null when it holds none for the policy
 // version in force) and the member's record:
-// - "save": the browser's choice goes to the account (the account has none for this version, or
-//   the browser's is the later of two that differ);
-// - "adopt": the browser takes the account's choice (it holds none, or the account's is the later);
+// - "save": the browser's choice goes to the account, which has none for this version;
+// - "adopt": the browser takes the account's choice (it holds none, or a different one);
 // - "none": nothing to do.
-// A record of another version than the current one is no choice, as in the browser.
+// The account wins whenever it holds a choice for the current version, so what a previous user of a
+// shared browser clicked never replaces the member's own answer, and no clock decides. A record of
+// another version than the current one is no choice, as in the browser.
 export type Reconciled = "save" | "adopt" | "none";
 
 const sameCategories = (
@@ -32,10 +33,26 @@ export function reconcile(
   version: number,
 ): Reconciled {
   const held = record?.policyVersion === version ? record : null;
-  if (device === null) return held ? "adopt" : "none";
-  if (held === null) return "save";
-  if (sameCategories(device.accepted, held.categories)) return "none";
-  return device.at > Date.parse(held.decidedAt) ? "save" : "adopt";
+  if (held === null) return device === null ? "none" : "save";
+  if (device !== null && sameCategories(device.accepted, held.categories))
+    return "none";
+  return "adopt";
+}
+
+// The mark a cookie written from the account carries in the library's own `data` field, so
+// signing out can take it off the browser (it is the member's, not this browser's).
+const FROM_ACCOUNT = { source: "account" };
+
+// Whether a consent cookie value (as the browser holds it) was written from an account.
+export function cameFromAccount(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    return (
+      JSON.parse(decodeURIComponent(value)).data?.source === FROM_ACCOUNT.source
+    );
+  } catch {
+    return false;
+  }
 }
 
 // How long the banner library keeps its cookie.
@@ -53,7 +70,7 @@ export function consentCookieValue(
   return JSON.stringify({
     categories,
     revision: record.policyVersion,
-    data: null,
+    data: FROM_ACCOUNT,
     consentTimestamp: record.decidedAt,
     consentId,
     services: Object.fromEntries(CATEGORIES.map((name) => [name, []])),

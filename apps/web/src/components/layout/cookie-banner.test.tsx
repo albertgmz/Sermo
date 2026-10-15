@@ -9,9 +9,20 @@ mock.module("next/cache", () => ({
   cacheLife: () => {},
   cacheTag: () => {},
 }));
+let cookie: string | undefined;
+let requestCookie = "";
 mock.module("next/headers", () => ({
-  headers: async () => new Headers({ "cf-ipcountry": "US" }),
-  cookies: async () => ({ get: () => undefined }),
+  headers: async () =>
+    new Headers({
+      "cf-ipcountry": "US",
+      ...(requestCookie ? { cookie: requestCookie } : {}),
+    }),
+  cookies: async () => ({
+    get: (name: string) =>
+      name === "forum_consent" && cookie !== undefined
+        ? { name, value: cookie }
+        : undefined,
+  }),
 }));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
@@ -24,6 +35,8 @@ let site: Record<string, unknown> = {};
 let banner = true;
 let bannerAsked = 0;
 beforeEach(() => {
+  cookie = undefined;
+  requestCookie = "";
   forgetBanner();
   site = {};
   banner = true;
@@ -65,6 +78,26 @@ test("a Europe-only site has the backend say whether this visitor is asked", asy
   forgetBanner();
   expect((await propsOf()).quiet).toBe(false);
   expect(bannerAsked).toBe(2);
+});
+
+test("a visitor who answered an earlier version, or who is signed in, is asked even where the site is silent", async () => {
+  site = { cookieBannerOutsideEu: false, cookiePolicyVersion: 3 };
+  banner = false;
+  cookie = undefined;
+  expect((await propsOf()).quiet).toBe(true);
+  cookie = encodeURIComponent(
+    JSON.stringify({ categories: ["necessary"], revision: 2 }),
+  );
+  expect((await propsOf()).quiet).toBe(false);
+  // Garbage is no answer.
+  cookie = "garbage";
+  expect((await propsOf()).quiet).toBe(true);
+  cookie = undefined;
+  requestCookie = "sermo.session_token=tok";
+  expect((await propsOf()).quiet).toBe(false);
+  requestCookie = "";
+  // The backend is asked only for the guests who never answered (once: its answer is kept).
+  expect(bannerAsked).toBe(1);
 });
 
 test("cookieless Matomo takes the statistics choice out of the banner, other analytics does not", async () => {

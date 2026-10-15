@@ -6,11 +6,15 @@ afterEach(() => {
   globalThis.fetch = realFetch;
   revalidated.length = 0;
   cookieSets.length = 0;
+  cookieDeletes.length = 0;
+  consentCookie = undefined;
   refreshed = 0;
 });
 
 let incoming = new Headers();
 const cookieSets: unknown[][] = [];
+const cookieDeletes: unknown[][] = [];
+let consentCookie: string | undefined;
 const revalidated: unknown[][] = [];
 let refreshed = 0;
 mock.module("server-only", () => ({}));
@@ -18,7 +22,11 @@ mock.module("next/headers", () => ({
   headers: async () => incoming,
   cookies: async () => ({
     set: (...args: unknown[]) => cookieSets.push(args),
-    delete: () => {},
+    get: (name: string) =>
+      name === "forum_consent" && consentCookie !== undefined
+        ? { name, value: consentCookie }
+        : undefined,
+    delete: (...args: unknown[]) => cookieDeletes.push(args),
     toString: () => "",
   }),
 }));
@@ -34,6 +42,7 @@ mock.module("next/cache", () => ({
 const source = "./actions.ts?reactions";
 const {
   followFromPage,
+  logout,
   react,
   replyFromFeed,
   setBookmark,
@@ -364,4 +373,48 @@ test("the language cookie is written for a supported language only", async () =>
   expect(cookieSets).toHaveLength(1);
   expect(cookieSets[0]?.slice(0, 2)).toEqual(["forum_locale", "es"]);
   expect(cookieSets[0]?.[2]).toMatchObject({ path: "/", httpOnly: false });
+});
+
+// The consent cookie as the banner library writes it, with what the library keeps under `data`.
+const consentCookieWith = (data: unknown) =>
+  encodeURIComponent(
+    JSON.stringify({ categories: ["necessary"], revision: 1, data }),
+  );
+
+test("signing out takes off a consent cookie that was written from the account, and only that one", async () => {
+  globalThis.fetch = (async () =>
+    Response.json({ success: true })) as unknown as typeof fetch;
+  consentCookie = consentCookieWith({ source: "account" });
+  expect(await redirectOf(logout())).toEqual([
+    "NEXT_REDIRECT",
+    "replace",
+    "/",
+    "307",
+    "",
+  ]);
+  expect(cookieDeletes).toEqual([[{ name: "forum_consent", path: "/" }]]);
+  // A choice made in this browser, or none, stays.
+  cookieDeletes.length = 0;
+  for (const value of [consentCookieWith(null), undefined]) {
+    consentCookie = value;
+    await redirectOf(logout());
+  }
+  expect(cookieDeletes).toEqual([]);
+});
+
+test("on a site with a host name the adopted cookie is taken off for that host, as it was written", async () => {
+  const before = process.env.SERMO_PUBLIC_URL;
+  process.env.SERMO_PUBLIC_URL = "https://forum.example.test";
+  try {
+    globalThis.fetch = (async () =>
+      Response.json({ success: true })) as unknown as typeof fetch;
+    consentCookie = consentCookieWith({ source: "account" });
+    await redirectOf(logout());
+    expect(cookieDeletes).toEqual([
+      [{ name: "forum_consent", path: "/", domain: "forum.example.test" }],
+    ]);
+  } finally {
+    if (before === undefined) delete process.env.SERMO_PUBLIC_URL;
+    else process.env.SERMO_PUBLIC_URL = before;
+  }
 });

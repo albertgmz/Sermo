@@ -6,6 +6,7 @@ import { useActionState, useState } from "react";
 import { register } from "@/app/[locale]/(auth)/actions";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
 import { PasswordStrength } from "@/app/[locale]/(auth)/password-strength";
+import { useHardNavigation } from "@/app/[locale]/(auth)/use-hard-navigation";
 import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,6 +24,7 @@ export function RegisterForm({ referrer }: { referrer?: string }) {
     username: "",
   });
   const [password, setPassword] = useState("");
+  useHardNavigation(state.assign);
 
   return (
     <form action={action} className="space-y-4">

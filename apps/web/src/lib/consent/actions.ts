@@ -24,6 +24,9 @@ export async function saveConsentChoice(): Promise<void> {
     await callWith(forward, consentSave, {
       categories: choice.accepted,
       policyVersion: version,
+      ...(choice.at > 0
+        ? { decidedAt: new Date(choice.at).toISOString() }
+        : {}),
     });
   } catch (error) {
     console.error("The cookie choice could not be saved on the account", error);

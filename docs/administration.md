@@ -1134,8 +1134,11 @@ Settings are on **Cookies and privacy** (`/admin/settings/cookies`, `admin.setti
   visitors whose country is not known, are asked (`consent.banner`). The country is read only from the
   location headers of a trusted proxy (`SERMO_TRUST_LOCATION_HEADERS=true`, see
   `docs/deployment.md`); nothing a browser sends counts, and without a trusted country every visitor
-  is asked. A visitor who is not asked and has not chosen is treated as having accepted every
-  category until they choose in **Cookie settings** (footer); a choice they make is kept as any other. Raising the policy version resets such a visitor too: a choice from before counts as none, and they are not asked, so they are treated as accepting again until they choose.
+  is asked. A guest who is not asked and has never answered the banner is treated as having
+  accepted every category until they choose in **Cookie settings** (footer); a choice they make
+  is kept as any other. Anyone who answered the banner before, under any policy version, and every
+  signed-in member, is asked: raising the policy version never turns an earlier refusal into an
+  acceptance, and until they answer nothing optional runs.
 - **Matomo without cookies** (`matomoCookieless`, off by default). The Matomo tag then runs with
   `disableCookies` and is loaded without consent; the banner has no statistics choice and the cookie
   policy page says the statistics need none. It does nothing for Google Analytics. Whether
@@ -1147,8 +1150,11 @@ Settings are on **Cookies and privacy** (`/admin/settings/cookies`, `admin.setti
 **Saved on the account.** For a signed-in member the banner also saves the choice (the optional
 categories accepted, the policy version, the time) with `consent.save`, and it follows them: at
 sign-in or registration the browser's choice is saved if the account has none for the current
-version, and a browser that holds none takes the account's, so it is not asked again; if both hold a
-different choice, the later one wins. Changing the choice on any device updates the record.
+version; if the account has one it stands: a browser that holds none or a different one takes the
+account's (the page after such a sign-in is a full load, so the banner reads it), so it is not asked
+again, and what an earlier user of a shared browser clicked never replaces the member's answer. The
+record's time is the one the banner recorded for the choice (never later than the server's clock),
+else the time it was saved. Signing out removes a consent cookie that was written from the account. Changing the choice on any device updates the record.
 `consent.mine` reads it. A device keeps the cookie it has until its own next choice or sign-in, so
 a choice withdrawn on another device reaches it then. The record is one row per member (the latest
 choice, not a history) and is deleted when the member is erased. Staff who may view a member's details

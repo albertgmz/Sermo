@@ -43,7 +43,8 @@ export const consentSave = defineContract({
   summary:
     "Save the signed-in member's cookie choice on their account, replacing the previous one: " +
     "the optional categories accepted (none to refuse all) and the policy version answered, " +
-    "stamped with the time of the call. The version must be the site's current one " +
+    "stamped with `decidedAt`, the time the member made the choice (the banner's own record of it), " +
+    "else the time of the call; a `decidedAt` later than the call is replaced by the time of the call. The version must be the site's current one " +
     "(`site.get` `cookiePolicyVersion`); a choice made under an older text is a conflict. " +
     "Members only.",
   kind: "write",
@@ -53,6 +54,7 @@ export const consentSave = defineContract({
       .max(CONSENT_CATEGORIES.length)
       .refine((list) => new Set(list).size === list.length, "Name each category once."),
     policyVersion: PolicyVersion,
+    decidedAt: Timestamp.optional(),
   }),
   output: z.object({ record: ConsentRecord }),
 });

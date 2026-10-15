@@ -266,6 +266,7 @@ async function referralsAccepted(request: NextRequest) {
   const consent = await consentOf(
     request.cookies.get(CONSENT_COOKIE)?.value,
     { version: cookiePolicyVersion, bannerOutsideEu },
+    SESSION_COOKIES.some((name) => request.cookies.has(name)),
     async () => {
       const shown = await bannerAppliesOrUnknown(
         forwardFromHeaders(request.headers),

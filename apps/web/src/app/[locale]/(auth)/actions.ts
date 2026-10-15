@@ -18,7 +18,8 @@ import {
 } from "@/lib/sermo/auth";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 
-export type AuthState = { error: string; username: string };
+// `assign`: go to this address with a full page load (see `useHardNavigation`).
+export type AuthState = { error: string; username: string; assign?: string };
 
 // Better Auth's error code to the key under auth.actions.errors.
 const ERRORS: Record<string, string> = {
@@ -67,8 +68,13 @@ export async function login(
     ? await signInWithEmail(username, password, remember)
     : await signInWithUsername(username, password, remember);
   if (!result.ok) return failure(result, username);
-  if (result.signedIn) await syncConsentAfterSignIn(result.cookie);
-  redirect(safeReturnPath(formData.get("next")));
+  const adopted =
+    result.signedIn && (await syncConsentAfterSignIn(result.cookie));
+  const next = safeReturnPath(formData.get("next"));
+  // The banner running in this page started without a choice; only a full load lets it read the
+  // one just adopted, so its dialog does not stay open over a page drawn for a visitor who chose.
+  if (adopted) return { error: "", username, assign: next };
+  redirect(next);
 }
 
 export async function register(
@@ -101,7 +107,9 @@ export async function register(
   });
   if (!result.ok) return failure(result, username);
   if (store.has(REFERRAL_COOKIE)) store.delete(REFERRAL_COOKIE);
-  if (result.signedIn) await syncConsentAfterSignIn(result.cookie);
+  const adopted =
+    result.signedIn && (await syncConsentAfterSignIn(result.cookie));
+  if (adopted) return { error: "", username, assign: "/" };
   redirect(result.signedIn ? "/" : "/login?registered=1");
 }
 

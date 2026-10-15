@@ -53,6 +53,23 @@ describe("consent.save and consent.mine", () => {
     expect(await run(f.ctx, "consent.mine", f.member)).toEqual({ record: saved.record });
   });
 
+  test("the record carries the time of the choice when the client names it, never a future one", async () => {
+    const f = setup();
+    const chosen = new Date(f.ctx.now() - 3 * 24 * 3600 * 1000).toISOString();
+    const send = (decidedAt?: string) =>
+      run(f.ctx, "consent.save", f.member, {
+        categories: ["embeds"],
+        policyVersion: 1,
+        ...(decidedAt ? { decidedAt } : {}),
+      });
+    expect((await send(chosen)).record.decidedAt).toBe(chosen);
+    // A client clock ahead of the server's cannot put a choice in the future.
+    const future = new Date(f.ctx.now() + 24 * 3600 * 1000).toISOString();
+    expect((await send(future)).record.decidedAt).toBe(new Date(f.ctx.now()).toISOString());
+    // Without it the time of the call.
+    expect((await send()).record.decidedAt).toBe(new Date(f.ctx.now()).toISOString());
+  });
+
   test("refusing everything is a record too, and a later choice replaces the earlier one", async () => {
     const f = setup();
     expect((await f.save([])).record.categories).toEqual([]);

@@ -86,7 +86,8 @@ export const operations = [
           userId,
           JSON.stringify(categories),
           input.policyVersion,
-          ctx.now(),
+          // The time of the choice when the client says it, never later than now.
+          Math.min(ctx.now(), input.decidedAt ? Date.parse(input.decidedAt) : ctx.now()),
         );
         return { record: readConsentRecord(ctx, userId)! };
       });

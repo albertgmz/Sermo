@@ -95,11 +95,10 @@ test("a visitor who chose keeps the choice, and the backend is not asked", async
   expect(bannerAsked).toEqual([]);
 });
 
-test("the backend is told the proxy's location, and not who the visitor is", async () => {
+test("the backend is told the proxy's location of a guest", async () => {
   site = { cookieBannerOutsideEu: false };
   banner = "hidden";
   requestHeaders = {
-    cookie: "sermo.session_token=tok",
     "cf-ipcountry": "US",
     "x-forwarded-for": "198.51.100.7",
   };
@@ -108,4 +107,23 @@ test("the backend is told the proxy's location, and not who the visitor is", asy
   expect(bannerAsked[0]?.get("cf-ipcountry")).toBe("US");
   expect(bannerAsked[0]?.get("x-forwarded-for")).toBe("198.51.100.7");
   expect(bannerAsked[0]?.get("cookie")).toBeNull();
+});
+
+test("a version bump asks again: an earlier refusal is never turned into acceptance, in any country", async () => {
+  site = { cookieBannerOutsideEu: false, cookiePolicyVersion: 2 };
+  banner = "hidden";
+  requestHeaders = { "cf-ipcountry": "US" };
+  for (const earlier of [choice(1), choice(1, "analytics", "embeds")]) {
+    consent = earlier;
+    expect(await getConsent()).toEqual({ decided: false, accepted: [] });
+  }
+  expect(bannerAsked).toEqual([]);
+});
+
+test("a member is asked like anyone else: the site's silence outside Europe covers guests only", async () => {
+  site = { cookieBannerOutsideEu: false };
+  banner = "hidden";
+  requestHeaders = { cookie: "sermo.session_token=tok", "cf-ipcountry": "US" };
+  expect(await getConsent()).toEqual({ decided: false, accepted: [] });
+  expect(bannerAsked).toEqual([]);
 });
