@@ -95,7 +95,10 @@ export default function PictureLightbox({
   // A picture the details call gone (deleted since the list was drawn) is not kept on screen.
   const gone = typeof result === "object" && result.status === "gone";
   const picture = gone ? undefined : (entry ?? details?.picture);
+  // The one finger that may be swiping: a second finger down is a pinch, which zooms the picture
+  // and is not a swipe.
   const finger = useRef<{ x: number; y: number } | null>(null);
+  const touches = useRef(new Set<number>());
 
   const step = (to: PictureEntry | null) => {
     if (to) onChange(to.ref);
@@ -134,14 +137,19 @@ export default function PictureLightbox({
           <DialogTitle className="sr-only">{t("title")}</DialogTitle>
           <div
             className="relative flex h-[55dvh] shrink-0 items-center justify-center overflow-hidden bg-muted md:h-auto md:min-w-0 md:flex-1"
-            style={{ touchAction: "pan-y" }}
+            style={{ touchAction: "pan-y pinch-zoom" }}
             onPointerDown={(event) => {
               if (event.pointerType === "mouse") return;
-              finger.current = { x: event.clientX, y: event.clientY };
+              touches.current.add(event.pointerId);
+              finger.current =
+                touches.current.size === 1
+                  ? { x: event.clientX, y: event.clientY }
+                  : null;
             }}
             onPointerUp={(event) => {
               const from = finger.current;
               finger.current = null;
+              touches.current.delete(event.pointerId);
               if (!from) return;
               const to = swipeStep(
                 event.clientX - from.x,
@@ -149,8 +157,9 @@ export default function PictureLightbox({
               );
               if (to) step(to === "next" ? next : previous);
             }}
-            onPointerCancel={() => {
+            onPointerCancel={(event) => {
               finger.current = null;
+              touches.current.delete(event.pointerId);
             }}
           >
             {picture ? (
