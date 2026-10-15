@@ -7,24 +7,39 @@ import {
   measureRoutes,
 } from "./js-budget-lib";
 
-// Usage (from apps/web, after `next build`):
-//   bun scripts/js-budget.ts [--dir .next] [--budgets js-budgets.json] [--all]
-// Prints gzip client JavaScript per budget group and exits 1 when a route is over its budget.
-// `--all` lists every route with its size, to set or revise the budgets.
+// Usage (from apps/web, after `next build`): bun scripts/js-budget.ts [--all]
+// Reads .next and js-budgets.json, prints gzip client JavaScript per budget group and exits 1 when
+// a route is over its budget. `--all` lists every route with its size, to set or revise the budgets.
 
-function arg(name: string, fallback: string): string {
-  const i = process.argv.indexOf(name);
-  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
+function fail(message: string): never {
+  console.error(`js-budget: ${message}`);
+  process.exit(1);
 }
 
-const routes = measureRoutes(resolve(arg("--dir", ".next")));
+function budgets(path: string): BudgetFile {
+  let file: BudgetFile;
+  try {
+    file = JSON.parse(readFileSync(path, "utf8"));
+  } catch (error) {
+    fail(
+      `cannot read ${path}: ${error instanceof Error ? error.message : error}`,
+    );
+  }
+  if (!Array.isArray(file.budgets)) fail(`${path} has no "budgets" list`);
+  return file;
+}
+
+let routes: ReturnType<typeof measureRoutes>;
+try {
+  routes = measureRoutes(resolve(".next"));
+} catch (error) {
+  fail(error instanceof Error ? error.message : String(error));
+}
+const file = budgets(resolve("js-budgets.json"));
 if (process.argv.includes("--all")) {
   for (const r of routes)
     console.log(`${String(r.bytes).padStart(8)}  ${r.route}`);
 }
-const budgets: BudgetFile = JSON.parse(
-  readFileSync(resolve(arg("--budgets", "js-budgets.json")), "utf8"),
-);
-const result = checkBudgets(routes, budgets);
+const result = checkBudgets(routes, file);
 console.log(formatReport(result));
 process.exit(result.ok ? 0 : 1);

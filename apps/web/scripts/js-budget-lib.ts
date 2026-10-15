@@ -7,7 +7,10 @@ import { gzipSync } from "node:zlib";
 // the framework's root files plus the chunks of every entry its tree holds: the layouts, the
 // error and not-found boundaries, and the page. The count is the worst case: a chunk behind a
 // conditional that never renders is still counted, because the router preloads it with the entry.
-// Sizes are gzip (default level) of each distinct chunk, counted once per route.
+// Sizes are gzip (default level) of each distinct chunk, counted once per route. Against the HTML
+// a page really sends this is a close estimate, not exact: the router's own two chunks (about 8 KB
+// gz, 2%) are missing, and a chunk no one renders (a Base UI button) can be counted. The
+// `nomodule` polyfill is left out on purpose: current browsers skip it.
 
 const MANIFEST_SUFFIX = "page_client-reference-manifest.js";
 

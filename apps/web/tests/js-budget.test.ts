@@ -157,3 +157,9 @@ test("the first matching budget applies to a route", () => {
   expect(result.groups[0].routes.length).toBe(1);
   expect(result.groups[1].routes.length).toBe(1);
 });
+
+test("a missing build says to run the build first", () => {
+  const dir = mkdtempSync(join(tmpdir(), "js-budget-"));
+  dirs.push(dir);
+  expect(() => measureRoutes(dir)).toThrow("run the build first");
+});
