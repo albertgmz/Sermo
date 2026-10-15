@@ -1678,8 +1678,8 @@ cannot already list.
 
 **`VERSION` at the root is the version of Sermo.** One line, `major.minor.patch`. Every commit on
 `main` raises it, by a patch step unless the change calls for more; a task branch raises it once,
-in the commit that is merged. The `version` fields of the packages are not maintained and nothing
-reads the file yet: it is the number a person or a release note names.
+in the commit that is merged. The `version` fields of the packages are not maintained; the OpenAPI
+document reads the file once at start (its `info.version`), so a missing file stops the server.
 
 ## The Upgrade link lives in the account menu
 
@@ -2153,3 +2153,10 @@ reads the actor again inside its transaction and re-runs the lookup it made befo
 profile post or comment, as now committed), so losing sight of the content gives NotFound, losing
 the action permission gives Forbidden, and a ban stops the write. Each has a test where another
 connection revokes the permission between the request and the write.
+
+**The OpenAPI document passes Redocly's recommended lint.** `info.version` is `VERSION`, `servers`
+is `/`, list query parameters say `style: form, explode: true`, and file, feed and SEO answers have
+schemas and the error answers their handlers give. Seven warnings are left on purpose: Better
+Auth's callback and username-check entries have no success answer (they redirect), and
+`/robots.txt`, `/sitemap.xml`, `/feed.atom` and `/health` have no 4xx path. A test checks the real
+upload answer against the documented schema. The Dockerfile copies `VERSION` in its own late layer.
