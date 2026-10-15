@@ -9,6 +9,8 @@ export interface PollThread {
   user_id: number;
   is_locked: number;
   state: string;
+  /** The viewer is banned from the thread (set where the thread is read for them). */
+  thread_banned?: number;
 }
 
 /** What they need of the poll. */
@@ -93,7 +95,7 @@ export const pollRights = markPublic(
         open &&
         poll.kind === "poll" &&
         !!poll.allow_custom &&
-        permissions.can("poll.addAnswer", { nodeId }),
+        permissions.can("poll.addAnswer", { nodeId, threadBanned: !!thread.thread_banned }),
       viewVoters:
         poll.kind === "poll" && !poll.anonymous && permissions.can("poll.viewVoters", { nodeId }),
     };

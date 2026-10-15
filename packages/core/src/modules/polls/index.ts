@@ -10,12 +10,13 @@ import { currentActor, permissionsOf, requirePermission } from "../../permission
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { loadAttachments } from "../attachments";
-import { readGates, requireThread } from "../forums";
+import { checkNodePostingRules, readGates, requireThread } from "../forums";
 import { requireSiteView } from "../members/site-access";
 import { appendModeratorLog } from "../moderation";
+import { requireTermsAccepted } from "../pages/acceptance";
 import { purgePolls } from "../purge/purge";
 import { isClosed, mayAddPoll, type PollThread, pollRights, resultsShown } from "./policy";
-import { requirePoll } from "./readable";
+import { CLOSED, requirePoll } from "./readable";
 import {
   castVote,
   insertCustomAnswer,
@@ -31,7 +32,6 @@ import {
 import { type CleanPoll, cleanAnswerText, cleanPoll } from "./text";
 import { pollValues } from "./view";
 
-const CLOSED_FORUM = "The posts of this forum are not open to you.";
 const voterCursor = z.tuple([z.number().int()]);
 
 /** The poll as the viewer sees it now (after a write, read again). */
@@ -90,12 +90,14 @@ const createOp = implement(contracts.pollsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
   requireSiteView(ctx, actor);
-  if (!readGates(ctx, actor).reads(row.node_id, row.user_id))
-    throw new ForbiddenError(CLOSED_FORUM);
+  if (!readGates(ctx, actor).reads(row.node_id, row.user_id)) throw new ForbiddenError(CLOSED);
   if (!mayAddPoll(permissionsOf(ctx, actor), actor, row)) {
     requirePermission(ctx, actor, "poll.create", { nodeId: row.node_id });
     throw new ForbiddenError("Only the thread's author or staff can add a poll to it.");
   }
+  requireTermsAccepted(ctx, actor);
+  // A poll is written content: the forum's own posting rules (read-only, account age, post count) hold.
+  checkNodePostingRules(ctx, actor, row.node_id);
   const clean = cleanPoll(ctx, actor, input.poll);
   requireNotHeld(clean);
   if (needsUpload(ctx, null, clean))
@@ -103,7 +105,12 @@ const createOp = implement(contracts.pollsCreate, (ctx, actor, input) => {
   const pollId = writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     const thread = requireThread(ctx, current, input.threadId).row;
+    if (!readGates(ctx, current).reads(thread.node_id, thread.user_id))
+      throw new ForbiddenError(CLOSED);
     if (!mayAddPoll(permissionsOf(ctx, current), current, thread)) throw new ForbiddenError();
+    checkNodePostingRules(ctx, current, thread.node_id);
+    if (needsUpload(ctx, null, clean))
+      requirePermission(ctx, current, "forum.uploadAttachments", { nodeId: thread.node_id });
     if (pollOfThread(ctx, thread.id)) throw new ConflictError("This thread already has a poll.");
     if (JSON.stringify(cleanPoll(ctx, current, input.poll)) !== JSON.stringify(clean))
       throw new ConflictError("Moderation rules changed; retry.");
@@ -146,6 +153,8 @@ const updateOp = implement(contracts.pollsUpdate, (ctx, actor, input) => {
       ctx.now(),
     );
     if (!now.edit) throw new ForbiddenError();
+    if (needsUpload(ctx, fresh.poll.id, clean))
+      requirePermission(ctx, current, "forum.uploadAttachments", { nodeId: fresh.thread.node_id });
     if (
       JSON.stringify(cleanPoll(ctx, current, edited, fresh.poll.closes_at)) !==
       JSON.stringify(clean)
@@ -177,7 +186,7 @@ const voteOp = implement(contracts.pollsVote, (ctx, actor, input) => {
     const fresh = requirePoll(ctx, current, input.pollId);
     requireVoting(ctx, current, fresh.poll, fresh.thread);
     if (castVote(ctx, fresh.poll, user.userId, input.questionId, input.answerIds))
-      publishVoted(ctx, poll.id, user.userId);
+      publishVoted(ctx, user.userId);
   });
   return present(ctx, actor, input.pollId);
 });
@@ -187,9 +196,14 @@ const addAnswerOp = implement(contracts.pollsAddAnswer, (ctx, actor, input) => {
   requireSiteView(ctx, actor);
   const { poll, thread } = requirePoll(ctx, actor, input.pollId);
   requireVoting(ctx, actor, poll, thread);
-  requirePermission(ctx, actor, "poll.addAnswer", { nodeId: thread.node_id });
+  requirePermission(ctx, actor, "poll.addAnswer", {
+    nodeId: thread.node_id,
+    threadBanned: !!thread.thread_banned,
+  });
   if (poll.kind !== "poll" || !poll.allow_custom)
     throw new ConflictError("This poll takes no custom answers.");
+  requireTermsAccepted(ctx, actor);
+  checkNodePostingRules(ctx, actor, thread.node_id);
   const answer = cleanAnswerText(ctx, actor, input.text);
   if (answer.moderated)
     throw new ValidationError(
@@ -199,7 +213,11 @@ const addAnswerOp = implement(contracts.pollsAddAnswer, (ctx, actor, input) => {
     const current = currentActor(ctx, actor);
     const fresh = requirePoll(ctx, current, input.pollId);
     requireVoting(ctx, current, fresh.poll, fresh.thread);
-    requirePermission(ctx, current, "poll.addAnswer", { nodeId: fresh.thread.node_id });
+    requirePermission(ctx, current, "poll.addAnswer", {
+      nodeId: fresh.thread.node_id,
+      threadBanned: !!fresh.thread.thread_banned,
+    });
+    checkNodePostingRules(ctx, current, fresh.thread.node_id);
     if (!fresh.poll.allow_custom) throw new ConflictError("This poll takes no custom answers.");
     if (cleanAnswerText(ctx, current, input.text).text !== answer.text)
       throw new ConflictError("Moderation rules changed; retry.");
@@ -225,6 +243,11 @@ const closeOp = implement(contracts.pollsClose, (ctx, actor, input) => {
       ctx.now(),
     );
     if (!now.close) throw new ForbiddenError();
+    if (
+      !input.closed &&
+      !permissionsOf(ctx, current).can("poll.closeAny", { nodeId: fresh.thread.node_id })
+    )
+      requireNotClosedByStaff(ctx, fresh.poll);
     setClosed(ctx, fresh.poll.id, input.closed);
     if (fresh.poll.user_id !== user.userId)
       appendModeratorLog(
@@ -240,6 +263,20 @@ const closeOp = implement(contracts.pollsClose, (ctx, actor, input) => {
   });
   return present(ctx, actor, input.pollId);
 });
+
+/**
+ * A poll that a moderator closed (the log says so: a creator's own close is not logged) is not
+ * reopened by its creator with poll.closeOwn alone.
+ */
+function requireNotClosedByStaff(ctx: Ctx, poll: PollRow): void {
+  const last = prepared(ctx, "polls.lastClose", () =>
+    ctx.sqlite.prepare<{ action: string }, [number, number]>(
+      "SELECT action FROM moderator_log WHERE target_type = 'thread' AND target_id = ?1 AND action IN ('poll.close', 'poll.reopen') AND json_extract(details, '$.pollId') = ?2 ORDER BY id DESC LIMIT 1",
+    ),
+  ).get(poll.thread_id, poll.id);
+  if (last?.action === "poll.close")
+    throw new ForbiddenError("A moderator closed this poll; only a moderator can reopen it.");
+}
 
 const deleteOp = implement(contracts.pollsDelete, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);

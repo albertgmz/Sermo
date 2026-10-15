@@ -1574,8 +1574,14 @@ data saver blocks it like any post picture.
   `poll.closeAny`, `poll.viewVoters` (members by default) and `poll.manage` (moderators and
   administrators: edit and delete any poll, add one to any thread). Voting needs a visible thread
   whose posts the viewer may read (`forum.viewContent`): a titles-only reader sees no poll. Every
-  write re-checks the member inside its transaction. The creator may delete a poll nobody voted in
-  and remove an answer nobody voted for; staff may do either any time (the votes go with them).
+  write re-checks the member inside its transaction. A new poll and a voter's own answer are written
+  content: the forum's posting rules (read-only, minimum account age and post count; `forum.bypassNodeRules`
+  skips them) and the terms hold, and a member banned from the thread cannot add an answer; voting is
+  not posting and follows only `poll.vote` (a locked thread still takes votes). The creator may delete a poll nobody voted in
+  and remove or reword an answer nobody voted for; staff may do either any time (the votes go with
+  them). A poll a moderator closed is reopened by a moderator only (the log says who closed it).
+  Lowering `maxChoices` leaves earlier votes as they were. Deleting a poll with a very large
+  number of voters is one transaction (about 90 ms per 50,000 voters).
 - **What happens to a poll.** Hiding a thread hides its poll; hard deleting a thread removes it
   with its votes and pictures. Merging threads moves the poll of the merged thread to the target when
   the target has none; otherwise it stays on the merged-away thread, out of sight, until that thread

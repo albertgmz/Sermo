@@ -12,6 +12,7 @@ import {
   type DraftAnswer,
   type DraftPicture,
   type DraftQuestion,
+  listedAnswers,
   type PollDraft,
 } from "@/lib/sermo/polls";
 import { cn } from "@/lib/utils";
@@ -345,7 +346,7 @@ export function PollForm({
     patch({
       questions: draft.questions.map((item, i) => (i === at ? question : item)),
     });
-  const answerCount = draft.questions[0]?.answers.length ?? 2;
+  const answerCount = listedAnswers(draft);
   const choices = Array.from(
     { length: Math.max(answerCount, 1) },
     (_, i) => i + 1,
@@ -425,7 +426,7 @@ export function PollForm({
             </label>
             <select
               id={`${id}-max`}
-              value={Math.min(draft.maxChoices, answerCount)}
+              value={Math.max(1, Math.min(draft.maxChoices, answerCount))}
               onChange={(event) =>
                 patch({ maxChoices: Number(event.target.value) })
               }

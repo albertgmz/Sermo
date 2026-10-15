@@ -739,13 +739,13 @@ describe("editing and deleting", () => {
       { results: "after_vote", allowCustom: true },
       { text: "Best colour of all?" },
     );
-    input.questions[0]!.answers[0]!.text = "Crimson";
+    input.questions[0]!.answers[1]!.text = "Crimson";
     input.questions[0]!.answers.push({ text: "Yellow" } as never);
     const updated = await w.call("polls.update", w.alice, { pollId: poll.id, poll: input });
     expect(updated.questions[0].text).toBe("Best colour of all?");
     expect(updated.questions[0].answers.map((a: AnswerValue) => a.text)).toEqual([
+      "Red",
       "Crimson",
-      "Blue",
       "Green",
       "Yellow",
     ]);

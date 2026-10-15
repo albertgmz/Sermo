@@ -49,8 +49,9 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  *   credits, actorId } (actorId null for an automatic grant) plus `reason`.
  * - `shop.purchased`: target the purchase (targetType "shop_purchase"); payload { itemId,
  *   buyerId, recipientId, quantity, price, inventoryId }.
- * - `poll.voted`: target the poll (targetType "poll"); payload { userId }. Published when a member
- *   takes part in a poll or quiz for the first time (their first vote or answer).
+ * - `poll.voted`: target the member (targetType "user"); no payload. Published when a member takes
+ *   part in a poll or quiz for the first time (their first vote or answer). It names no poll: the
+ *   event log is never purged and an anonymous poll must not leave its voters in it.
  * - `shop.item_used`: target the inventory row (targetType "shop_inventory"); payload { userId,
  *   itemId, effect, threadId?, quantityLeft }. The effect on a thread (cover, highlight, bump) is
  *   already applied by `shop.use` in the transaction that publishes this; the event reports the

@@ -144,7 +144,10 @@ export function PollBlock({
       {!editing && (
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t pt-3">
           {poll.voterCount !== null && (
-            <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <p
+              data-nosnippet
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+            >
               <Users aria-hidden="true" className="size-3.5" />
               {t(quiz ? "takers" : "voters", { n: poll.voterCount })}
             </p>

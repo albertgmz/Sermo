@@ -586,6 +586,7 @@ export const PERMISSIONS = {
     defaults: POSTERS,
     requiresAccount: true,
     restriction: "posting",
+    threadBan: true,
   },
   /** Close and reopen the polls one made. */
   "poll.closeOwn": {

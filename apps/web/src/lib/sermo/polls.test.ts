@@ -161,3 +161,26 @@ test("a share is a whole percent of the whole, nothing of nothing", () => {
   expect(percentOf(2, 3)).toBe(67);
   expect(percentOf(0, 0)).toBe(0);
 });
+
+test("a vote never picks more answers than are listed once blank rows are dropped", () => {
+  const draft = written("Q");
+  draft.maxChoices = 3;
+  expect(draftToInput(draft).maxChoices).toBe(3);
+  question(draft).answers.pop();
+  question(draft).answers.push({ text: "", correct: false, picture: null });
+  expect(draftToInput(draft).maxChoices).toBe(2);
+});
+
+test("a close date left alone is sent as the backend gave it, a changed one is not", () => {
+  const draft = blankDraft();
+  const was = "2030-05-06T07:08:09.123Z";
+  draft.closesAt = toLocalInput(was);
+  draft.closesAtWas = was;
+  expect(draftToInput(draft).closesAt).toBe(was);
+  draft.closesAt = "2031-01-02T03:04";
+  expect(draftToInput(draft).closesAt).toBe(
+    new Date("2031-01-02T03:04").toISOString(),
+  );
+  draft.closesAt = "";
+  expect(draftToInput(draft).closesAt).toBeNull();
+});

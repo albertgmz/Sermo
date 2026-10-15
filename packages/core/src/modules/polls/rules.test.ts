@@ -352,9 +352,9 @@ describe("the criterion: polls voted in", () => {
         {
           id: 1,
           type: "poll.voted",
-          targetType: "poll",
-          targetId: two.poll.id,
-          payload: { userId: w.bobUser.id },
+          targetType: "user",
+          targetId: w.bobUser.id,
+          payload: {},
           createdAt: 0,
         },
         [rule],
@@ -493,6 +493,22 @@ describe("anonymous polls", () => {
       expect(everything).not.toContain(user.username);
       expect(everything).not.toMatch(new RegExp(`"(user|voter|member)(Id|s)?":\\[?${user.id}\\b`));
     }
+    // The event log is never purged: what it holds names a member and no poll.
+    const events = w.ctx.sqlite
+      .prepare<{ target_type: string; payload: string }, []>(
+        "SELECT target_type, payload FROM domain_events WHERE type = 'poll.voted'",
+      )
+      .all();
+    expect(events.length).toBeGreaterThan(0);
+    for (const event of events) {
+      expect(event.target_type).toBe("user");
+      expect(event.payload).toBe("{}");
+    }
+    expect(
+      w.ctx.sqlite
+        .prepare("SELECT count(*) AS n FROM domain_events WHERE target_type = 'poll'")
+        .get(),
+    ).toEqual({ n: 0 });
     // The log of the moderators, as moderators read it.
     const listed = JSON.stringify(await w.call("moderatorLog.list", w.admin, { limit: 50 }));
     for (const user of names) expect(listed).not.toContain(user.username);

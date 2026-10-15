@@ -40,8 +40,7 @@ function taggers(ctx: Ctx, event: DomainEvent): number[] {
 
 /** The member who just took part in a poll or quiz. */
 function voters(_ctx: Ctx, event: DomainEvent): number[] {
-  const userId = Number(event.payload.userId);
-  return event.type === "poll.voted" && userId > 0 ? [userId] : [];
+  return event.type === "poll.voted" ? [event.targetId] : [];
 }
 
 /**

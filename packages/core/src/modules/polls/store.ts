@@ -251,6 +251,20 @@ export function replacePoll(
   }
   if (!manage && removedAnswers.some((row) => row.vote_count > 0))
     throw new ForbiddenError("Only staff can remove an answer that has votes.");
+  // The people who voted for an answer voted for its words: only staff reword it.
+  if (
+    !manage &&
+    !quiz &&
+    clean.questions.some((question) =>
+      question.answers.some(
+        (answer) =>
+          answer.id !== null &&
+          answerById.get(answer.id)!.vote_count > 0 &&
+          answerById.get(answer.id)!.text !== answer.text,
+      ),
+    )
+  )
+    throw new ForbiddenError("Only staff can reword an answer that has votes.");
   requirePictures(ctx, pictureIds(clean.questions));
   const now = ctx.now();
   statement(
@@ -430,14 +444,13 @@ export function castVote(
   return !ballot;
 }
 
-/** A member became a voter: the criteria that count participation look at them again. */
-export function publishVoted(ctx: Ctx, pollId: number, userId: number): void {
-  publishEvent(ctx, {
-    type: "poll.voted",
-    targetType: "poll",
-    targetId: pollId,
-    payload: { userId },
-  });
+/**
+ * A member took part in a poll or quiz for the first time: the criteria that count participation
+ * look at them again. The event names the member and not the poll, so the event log, which is
+ * never purged, holds nothing about who voted in an anonymous poll.
+ */
+export function publishVoted(ctx: Ctx, userId: number): void {
+  publishEvent(ctx, { type: "poll.voted", targetType: "user", targetId: userId });
 }
 
 /**

@@ -152,8 +152,9 @@ test("a poll shows its question, the answers with their shares and the voters co
   expect(html).toContain("25% (1)");
   expect(html).toContain("4 voters");
   expect(html).toContain("Added by a voter");
-  // The results are kept out of snippets.
+  // The results, the voters count included, are kept out of snippets.
   expect(html).toContain("data-nosnippet");
+  expect(html.split("<p data-nosnippet")[1]).toContain("4 voters");
 });
 
 test("a result the backend did not send is never drawn as zero", () => {

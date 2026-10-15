@@ -321,7 +321,7 @@ function postingRuleRefusal(ctx: Ctx, actor: Actor, settings: NodeRow): SermoErr
     return new ForbiddenError("You need more posts before posting in this forum.");
   return null;
 }
-function checkNodePostingRules(ctx: Ctx, actor: Actor, nodeId: number): NodeRow {
+export function checkNodePostingRules(ctx: Ctx, actor: Actor, nodeId: number): NodeRow {
   const settings = nodeRows(ctx, nodeId).get(nodeId);
   if (!settings) throw new NotFoundError();
   const refusal = postingRuleRefusal(ctx, actor, settings);

@@ -276,3 +276,24 @@ test("the composer pins its bar on a page and never hides the attachment list", 
     /frame\.kind === "dialog"\s*\?\s*"pb-\[calc\(0\.25rem\+env\(safe-area-inset-bottom\)\)\]/,
   );
 });
+
+test("the section for a poll or quiz is part of the form of a member who may start one", () => {
+  const draw = (canPoll: boolean) =>
+    renderToStaticMarkup(
+      withIntl(
+        <ThreadComposer
+          forumId={2}
+          forums={[...FORUMS]}
+          prefixes={[]}
+          canAttach={false}
+          canTag={false}
+          canPoll={canPoll}
+          memberId={1}
+        />,
+      ),
+    );
+  expect(draw(true)).toContain("Add a poll or quiz");
+  expect(draw(false)).not.toContain("Add a poll or quiz");
+  // Closed, it sends nothing: the thread has no poll unless the section was opened.
+  expect(draw(true)).not.toContain('name="poll"');
+});

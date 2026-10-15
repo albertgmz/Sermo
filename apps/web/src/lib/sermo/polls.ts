@@ -40,6 +40,9 @@ export type PollDraft = {
   results: "always" | "after_vote" | "after_close";
   // A `datetime-local` value, in the browser's time zone; empty for none.
   closesAt: string;
+  // The close date the poll has now, as the backend gave it: sent back as it was while the field is
+  // left alone, since the field holds no seconds.
+  closesAtWas?: string;
   questions: DraftQuestion[];
 };
 
@@ -67,6 +70,19 @@ export const blankDraft = (): PollDraft => ({
   questions: [blankQuestion()],
 });
 
+// How many answers the first question will have once blank new rows are left out.
+export const listedAnswers = (draft: PollDraft) =>
+  (draft.questions[0]?.answers ?? []).filter(
+    (answer) => answer.id !== undefined || answer.text.trim() !== "",
+  ).length;
+
+function closesAtOf(draft: PollDraft): string | null {
+  if (!draft.closesAt) return null;
+  if (draft.closesAtWas && draft.closesAt === toLocalInput(draft.closesAtWas))
+    return draft.closesAtWas;
+  return new Date(draft.closesAt).toISOString();
+}
+
 // An ISO time as a `datetime-local` value (the browser's own zone), and back.
 export function toLocalInput(iso: string | null): string {
   if (!iso) return "";
@@ -86,6 +102,7 @@ export function draftFromDefinition(definition: PollDefinitionView): PollDraft {
     allowChange: definition.allowChange,
     results: definition.results,
     closesAt: toLocalInput(definition.closesAt),
+    ...(definition.closesAt && { closesAtWas: definition.closesAt }),
     questions: definition.questions.map((question) => ({
       id: question.id,
       text: question.text,
@@ -110,11 +127,14 @@ export function draftToInput(draft: PollDraft): PollInputValue {
   return {
     kind: draft.kind,
     anonymous: draft.anonymous,
-    maxChoices: quiz ? 1 : draft.maxChoices,
+    // A vote cannot pick more answers than are left once the blank rows are dropped.
+    maxChoices: quiz
+      ? 1
+      : Math.max(1, Math.min(draft.maxChoices, listedAnswers(draft))),
     allowCustom: quiz ? false : draft.allowCustom,
     allowChange: draft.allowChange,
     results: draft.results,
-    closesAt: draft.closesAt ? new Date(draft.closesAt).toISOString() : null,
+    closesAt: closesAtOf(draft),
     questions: draft.questions.map((question) => ({
       ...(question.id !== undefined && { id: question.id }),
       text: question.text,

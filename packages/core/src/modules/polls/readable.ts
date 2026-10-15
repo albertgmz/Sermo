@@ -5,7 +5,7 @@ import { markPublic } from "../../operation";
 import { readGates, requireThread, type ThreadRow } from "../forums";
 import { type PollRow, pollById } from "./store";
 
-const CLOSED = "The posts of this forum are not open to you.";
+export const CLOSED = "The posts of this forum are not open to you.";
 
 /**
  * The poll and its thread for someone who may read the thread: not found when the poll is gone
