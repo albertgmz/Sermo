@@ -187,3 +187,18 @@ test("a page reached through ?ref= names itself without it as the canonical addr
     else process.env.SERMO_PUBLIC_URL = before;
   }
 });
+
+test("a path that starts with two slashes cannot name another host as canonical", async () => {
+  const before = process.env.SERMO_PUBLIC_URL;
+  process.env.SERMO_PUBLIC_URL = "https://forum.example.test";
+  try {
+    const response = await ask("//evil.example/x?ref=3");
+    const link = response?.headers.get("link");
+    if (link !== null && link !== undefined) {
+      expect(link.startsWith("<https://forum.example.test/")).toBe(true);
+    }
+  } finally {
+    if (before === undefined) delete process.env.SERMO_PUBLIC_URL;
+    else process.env.SERMO_PUBLIC_URL = before;
+  }
+});

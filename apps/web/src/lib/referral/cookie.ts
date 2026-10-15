@@ -33,7 +33,10 @@ export function referralStep(
   const held = referrerOf(cookies.referral) !== null;
   let canonical: string | null = null;
   if (url.searchParams.has(REFERRAL_PARAM)) {
-    const plain = new URL(url.pathname + url.search, origin);
+    // Built from the origin, never from the path alone: a path starting with // would name a host.
+    const plain = new URL(origin);
+    plain.pathname = url.pathname.replace(/^\/{2,}/, "/");
+    plain.search = url.search;
     plain.searchParams.delete(REFERRAL_PARAM);
     canonical = plain.href;
   }

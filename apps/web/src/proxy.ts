@@ -266,7 +266,8 @@ function withReferral(
     pageLoad,
     publicUrl(),
   );
-  // Only a page that is served says where it really is; a redirect or a 404 does not.
+  // A redirect has no address of its own to name. A rewrite is answered 200 here even when the
+  // page it reaches turns out to be a 404; the page's own canonical link is the authority.
   const served = response === undefined || response.status === 200;
   const canonical = pageLoad && served ? step.canonical : null;
   if (step.set === null && !step.clear && canonical === null) return response;

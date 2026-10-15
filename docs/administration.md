@@ -1056,7 +1056,8 @@ cookie is deleted once the account exists.
 - On a site without account email, the referrer is recorded at registration.
 - On a site that asks members to confirm their address, the registration only holds the referrer
   (`users.pending_referrer`). It is recorded when the address is confirmed, or at the member's
-  next sign-in if that comes first, so an address nobody confirmed brings no referral at once.
+  next sign-in if that comes first (signing in does not require a confirmed address), so the
+  referral is never recorded in the sign-up itself.
 - A referrer is accepted only within seven days of the registration, and never when it is the
   member themselves, a member who is banned or erased, a member the new member already referred, or
   when the member already has a referrer. A refused referrer is dropped without a message: it never

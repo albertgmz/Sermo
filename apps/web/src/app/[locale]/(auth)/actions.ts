@@ -3,7 +3,12 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { REFERRAL_COOKIE } from "@/lib/consent/inventory";
+import {
+  CONSENT_COOKIE,
+  POLICY_VERSION,
+  REFERRAL_COOKIE,
+} from "@/lib/consent/inventory";
+import { mayStoreReferral, parseConsent } from "@/lib/consent/state";
 import { referrerOf } from "@/lib/referral/link";
 import {
   requestPasswordReset,
@@ -83,8 +88,13 @@ export async function register(
   // whether and when it counts. The cookie, kept once the visitor accepted it, was set by the
   // first link they followed and so wins; without it the form carries the `?ref=` of the page.
   const store = await cookies();
+  // The proxy removes a cookie that is no longer accepted on the next page load, which may come
+  // after this request: consent is checked here too.
+  const accepted = mayStoreReferral(
+    parseConsent(store.get(CONSENT_COOKIE)?.value, POLICY_VERSION),
+  );
   const referrer =
-    referrerOf(store.get(REFERRAL_COOKIE)?.value) ??
+    (accepted ? referrerOf(store.get(REFERRAL_COOKIE)?.value) : null) ??
     referrerOf(String(formData.get("ref") ?? ""));
   const result = await signUp({
     username,

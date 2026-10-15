@@ -73,8 +73,9 @@ export function recordReferral(ctx: Ctx, userId: number, referrerId: number): bo
 
 /**
  * A registration that names a referrer. A member who still has to confirm their address is only
- * marked with it (`pending_referrer`): it is recorded when they confirm or sign in again, so an
- * address nobody confirmed brings no referral. Any other member's referrer is recorded now.
+ * marked with it (`pending_referrer`): it is recorded when they confirm or sign in again (a
+ * sign-in does not need the address confirmed), not at the sign-up. Any other member's referrer
+ * is recorded now.
  * A referrer that cannot be used is dropped; it never fails the registration. Call it inside the
  * write transaction that inserts the member.
  */

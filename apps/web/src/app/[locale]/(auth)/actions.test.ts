@@ -8,6 +8,9 @@ const written: Record<string, unknown>[] = [];
 const jar = new Map<string, string>();
 const removed: string[] = [];
 const bodies: Record<string, unknown>[] = [];
+const ACCEPTED = encodeURIComponent(
+  JSON.stringify({ categories: ["necessary", "referrals"], revision: 1 }),
+);
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
@@ -142,6 +145,7 @@ test("registering from a ?ref= link sends the referrer with the sign-up", async 
 });
 
 test("registering with the referral cookie sends its referrer and then drops the cookie", async () => {
+  jar.set("forum_consent", ACCEPTED);
   jar.set("forum_ref", "7");
   backend(SIGNED_UP);
   await signUp();
@@ -150,6 +154,7 @@ test("registering with the referral cookie sends its referrer and then drops the
 });
 
 test("the first referrer wins: the cookie over the form", async () => {
+  jar.set("forum_consent", ACCEPTED);
   jar.set("forum_ref", "7");
   backend(SIGNED_UP);
   await signUp({ ref: "12" });
@@ -157,6 +162,7 @@ test("the first referrer wins: the cookie over the form", async () => {
 });
 
 test("a cookie that names no member does not hide the referrer of the form", async () => {
+  jar.set("forum_consent", ACCEPTED);
   jar.set("forum_ref", "junk");
   backend(SIGNED_UP);
   await signUp({ ref: "12" });
@@ -172,7 +178,18 @@ test("without a referrer, or with an invalid one, the sign-up carries none", asy
   }
 });
 
+test("a cookie the visitor no longer accepts is not used, the form's referrer is", async () => {
+  jar.set("forum_ref", "7");
+  backend(SIGNED_UP);
+  await signUp({ ref: "12" });
+  expect(bodies[0]).toMatchObject({ ref: 12 });
+  bodies.length = 0;
+  await signUp();
+  expect(bodies[0]).not.toHaveProperty("ref");
+});
+
 test("a sign-up the backend refuses keeps the cookie", async () => {
+  jar.set("forum_consent", ACCEPTED);
   jar.set("forum_ref", "7");
   backend(() =>
     Response.json({ code: "USER_ALREADY_EXISTS" }, { status: 422 }),
