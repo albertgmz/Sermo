@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { OpenKey } from "@/components/ui/lazy-popup-handlers";
+import { replayOnce } from "@/components/ui/lazy-popup-replay";
 import { type OpenedBy, menuOpening } from "@/components/ui/lazy-popup-intent";
 
 // Where focus goes when a sheet or popover that mounted open takes it, matching what Base UI does
@@ -21,19 +22,9 @@ export function useMenuOpening(openedBy: OpenedBy, openKey?: OpenKey) {
   const [{ defaultOpen, replay }] = useState(() =>
     menuOpening(openedBy, openKey),
   );
+  const [run] = useState(() => replayOnce());
   useLayoutEffect(() => {
-    const element = trigger.current;
-    if (!replay || !element) return;
-    element.focus();
-    if (replay === "click") element.click();
-    else
-      element.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: replay,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-  }, [replay]);
+    run(trigger.current, replay);
+  }, [run, replay]);
   return { defaultOpen, trigger };
 }

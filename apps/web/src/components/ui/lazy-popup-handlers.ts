@@ -32,6 +32,7 @@ export type TriggerHandlers = {
   onPointerCancel: () => void;
   onTouchStart: () => void;
   onFocus: () => void;
+  onBlur: () => void;
   onClick: (event: Click) => void;
   onKeyDown: (event: Key) => void;
   onKeyUp: (event: Key) => void;
@@ -112,6 +113,10 @@ export function createTrigger<T = unknown>(
     },
     onTouchStart: () => opener.warm(),
     onFocus: () => opener.warm(),
+    // A Space that went down here and came up after focus left is not a press of this link.
+    onBlur: () => {
+      spaceDown = false;
+    },
     onClick: (event) => {
       on(event);
       if (opening === "hover" || !isPlainClick(event)) return;

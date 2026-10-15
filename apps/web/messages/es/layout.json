@@ -103,6 +103,9 @@
       "menu": "Opciones del sitio"
     }
   },
+  "lazyPopup": {
+    "failed": "No se pudo cargar este menú. Recarga la página e inténtalo de nuevo."
+  },
   "staffBar": {
     "admin": "Administración",
     "moderation": "Moderación",

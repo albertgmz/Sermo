@@ -248,3 +248,11 @@ test("a click outside the trigger is not a press of it", () => {
   expect(trigger.isTrigger(inside)).toBe(true);
   expect(trigger.isTrigger({})).toBe(false);
 });
+
+test("a Space that went down on the link and came up after focus left opens nothing", () => {
+  const { handlers, calls } = setup("link");
+  handlers.onKeyDown(key(" "));
+  handlers.onBlur();
+  handlers.onKeyUp(key(" "));
+  expect(calls).toEqual([]);
+});

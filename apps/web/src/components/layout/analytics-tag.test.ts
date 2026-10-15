@@ -62,7 +62,7 @@ test("values reach the script as escaped literals", () => {
 
 test("only navigations after the first page view are reported to matomo", () => {
   const paq: unknown[][] = [];
-  const report = pageViewReporter(paq);
+  const report = pageViewReporter(() => paq);
   report("https://f.example/", "Home");
   expect(paq).toEqual([]);
   report("https://f.example/forums/1?x=2", "A forum");
@@ -87,4 +87,26 @@ test("the public layout renders the tag and nothing in the staff panel does", ()
     /\.tsx?$/.test(f),
   ))
     expect(readFileSync(file, "utf8"), file).not.toMatch(/analytics-tag/);
+});
+
+test("a navigation after Matomo has replaced its queue is pushed on the new one", () => {
+  // Once loaded, Matomo swaps `window._paq` for its own object and no longer reads the old array.
+  let current: unknown[][] = [];
+  const first = current;
+  const report = pageViewReporter(() => current);
+  report("https://f.example/", "Home");
+  report("https://f.example/a", "A");
+  const proxy: unknown[][] = [];
+  current = proxy;
+  report("https://f.example/b", "B");
+  expect(first.map((command) => command[0])).toEqual([
+    "setCustomUrl",
+    "setDocumentTitle",
+    "trackPageView",
+  ]);
+  expect(proxy).toEqual([
+    ["setCustomUrl", "https://f.example/b"],
+    ["setDocumentTitle", "B"],
+    ["trackPageView"],
+  ]);
 });

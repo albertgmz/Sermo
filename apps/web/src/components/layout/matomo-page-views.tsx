@@ -17,8 +17,10 @@ export function MatomoPageViews() {
   const report = useRef<ReturnType<typeof pageViewReporter>>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a navigation is a change of either
   useEffect(() => {
-    window._paq = window._paq || [];
-    report.current ??= pageViewReporter(window._paq);
+    report.current ??= pageViewReporter(() => {
+      window._paq = window._paq || [];
+      return window._paq;
+    });
     // The title is set once the new page has rendered.
     const timer = setTimeout(
       () => report.current?.(window.location.href, document.title),

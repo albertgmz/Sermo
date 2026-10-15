@@ -59,15 +59,18 @@ type Paq = unknown[][];
 
 // What Matomo is told about page views after the first one (the snippet reports that one): a
 // client navigation changes the address and the title without loading the page again.
-export function pageViewReporter(paq: Paq) {
+// `paq` is read at each report: once Matomo has loaded it replaces `window._paq` with its own
+// object, and a command pushed on the array read before then is never run.
+export function pageViewReporter(paq: () => Paq) {
   let first = true;
   return (href: string, title: string) => {
     if (first) {
       first = false;
       return;
     }
-    paq.push(["setCustomUrl", href]);
-    paq.push(["setDocumentTitle", title]);
-    paq.push(["trackPageView"]);
+    const queue = paq();
+    queue.push(["setCustomUrl", href]);
+    queue.push(["setDocumentTitle", title]);
+    queue.push(["trackPageView"]);
   };
 }

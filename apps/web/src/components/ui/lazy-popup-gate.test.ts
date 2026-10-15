@@ -143,3 +143,37 @@ test("a withdrawn press is not reported when the fetch then fails", async () => 
   await tick();
   expect(seen.failed).toBe(0);
 });
+
+test("opening a trigger whose code is already there withdraws another's waiting press of the kind", async () => {
+  const slow = deferred();
+  const waiting = recorder(() => slow.promise, "press");
+  const ready = recorder(async () => ({ default: "phone menu" }), "press");
+  ready.opener.warm();
+  await tick();
+  waiting.opener.open();
+  expect(waiting.opener.pending).toBe(true);
+
+  ready.opener.open();
+  expect(ready.seen.shown).toBe(1);
+  expect(waiting.opener.pending).toBe(false);
+  expect(waiting.seen.busy).toEqual([true, false]);
+
+  slow.resolve({ default: "user menu" });
+  await tick();
+  // The user menu never opens on top of the phone menu.
+  expect(waiting.seen.shown).toBe(0);
+});
+
+test("the one that opens at once does not take the slot, so it cannot be withdrawn later by a stale claim", async () => {
+  const ready = recorder(async () => ({ default: "popup" }), "press");
+  ready.opener.warm();
+  await tick();
+  ready.opener.open();
+  const slow = deferred();
+  const other = recorder(() => slow.promise, "press");
+  other.opener.open();
+  expect(ready.seen.busy).toEqual([]);
+  slow.resolve({ default: "later" });
+  await tick();
+  expect(other.seen.shown).toBe(1);
+});

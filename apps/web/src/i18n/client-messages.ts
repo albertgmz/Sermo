@@ -64,6 +64,7 @@ export const CLIENT_NAMESPACES = [
   "layout.guestMenu",
   "layout.headerPanel",
   "layout.headerPanels",
+  "layout.lazyPopup",
   "layout.mobileNav",
   "layout.narrowToggle",
   "layout.noticeBanner",

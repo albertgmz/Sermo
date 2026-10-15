@@ -103,6 +103,9 @@
       "menu": "Site options"
     }
   },
+  "lazyPopup": {
+    "failed": "This menu could not be loaded. Reload the page and try again."
+  },
   "staffBar": {
     "admin": "Admin",
     "moderation": "Moderation",

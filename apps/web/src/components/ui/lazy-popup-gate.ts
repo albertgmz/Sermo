@@ -63,12 +63,14 @@ export function createOpener<C>(load: Loader<C>, options: OpenerOptions) {
       fetchCode(load).catch(() => {});
     },
     open() {
+      if (wanted) return;
+      // Whatever else of this kind is still waiting is withdrawn, also when this one opens at once:
+      // it would otherwise open on top of this one when its code arrived.
+      claimed.get(slot)?.();
       if (settled.has(load)) {
         show();
         return;
       }
-      if (wanted) return;
-      claimed.get(slot)?.();
       claimed.set(slot, cancel);
       wanted = true;
       busy?.(true);

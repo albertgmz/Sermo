@@ -1,16 +1,24 @@
 "use client";
 
-import { type ComponentType, useEffect, useRef, useState } from "react";
 import {
-  createOpener,
-  type Loader,
-  loadedCode,
-} from "@/components/ui/lazy-popup-gate";
+  type ComponentType,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
-  createTrigger,
-  type OpenKey,
-} from "@/components/ui/lazy-popup-handlers";
+  type ControllerEnv,
+  createController,
+} from "@/components/ui/lazy-popup-controller";
+import { type Loader, loadedCode } from "@/components/ui/lazy-popup-gate";
+import type { OpenKey } from "@/components/ui/lazy-popup-handlers";
 import type { OpenedBy, Opening } from "@/components/ui/lazy-popup-intent";
+import { LazyPopupNotice } from "@/components/ui/lazy-popup-notice";
+import {
+  browserRecoveryEnv,
+  recoverFromChunkFailure,
+} from "@/components/ui/lazy-popup-recovery";
 
 // A menu, popover, sheet or tooltip whose code (Base UI and the positioning library with it) is
 // not part of the page's first load. Until the visitor reaches for it, the page holds a plain
@@ -18,7 +26,9 @@ import type { OpenedBy, Opening } from "@/components/ui/lazy-popup-intent";
 // first pointer over it, touch or focus fetches the code; the click, key or hover that asks for the
 // popup swaps in the real component, which mounts open, so one gesture is enough. A gesture that
 // arrives before the code does is kept, shown on the trigger as busy, and withdrawn by a second
-// press, Escape or a press elsewhere. A code that cannot be fetched (twice) reloads the page.
+// press, Escape or a press elsewhere. A code that cannot be fetched (twice) reloads the page, once
+// per address per session; after that the visitor is told to reload it. The behaviour is in
+// `lazy-popup-controller.ts`; this draws it.
 
 // What the plain trigger puts on its element: the handlers take the real events, which carry more
 // than they read.
@@ -29,6 +39,7 @@ export type LazyTriggerProps = {
   onPointerCancel: () => void;
   onTouchStart: () => void;
   onFocus: () => void;
+  onBlur: () => void;
   onClick: (event: React.MouseEvent<HTMLElement>) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void;
   onKeyUp: (event: React.KeyboardEvent<HTMLElement>) => void;
@@ -42,6 +53,16 @@ export type OpenedProps = {
   openedBy: OpenedBy;
   // The arrow key that opened a menu.
   openKey?: OpenKey;
+};
+
+const NOTICE_MS = 8000;
+
+const browserEnv: ControllerEnv = {
+  listen: (type, run) =>
+    document.addEventListener(type, run as (event: Event) => void),
+  unlisten: (type, run) =>
+    document.removeEventListener(type, run as (event: Event) => void),
+  recover: () => recoverFromChunkFailure(browserRecoveryEnv),
 };
 
 export function LazyPopup<P extends object>({
@@ -62,62 +83,43 @@ export function LazyPopup<P extends object>({
   opening?: Opening;
   // The popup is being swapped in to open, for a parent that keeps the open state itself.
   onOpen?: () => void;
-  // The code could not be fetched, twice. Without it a press reloads the page (a tooltip, which is
-  // no button, stays as it is).
+  // The code could not be fetched, twice. Without it a press reloads the page once, then tells the
+  // visitor (a tooltip, which is no button, stays as it is). A trigger that is a link says where
+  // to go instead.
   onLoadError?: () => void;
 }) {
-  const [shown, setShown] = useState(false);
-  const [busy, setBusy] = useState(false);
   const latest = useRef({ onOpen, onLoadError });
   latest.current = { onOpen, onLoadError };
-
-  const [made] = useState(() => {
-    const opener = createOpener(load, {
-      slot: opening === "hover" ? "hover" : "press",
-      busy: setBusy,
-      show: () => {
-        setShown(true);
-        latest.current.onOpen?.();
-      },
-      fail: () => {
-        if (latest.current.onLoadError) latest.current.onLoadError();
-        else if (opening !== "hover")
-          window.location.assign(window.location.href);
-      },
-    });
-    return { opener, ...createTrigger(opener, opening) };
-  });
-
-  // The trigger is gone: nothing is left resting or waiting.
-  useEffect(
-    () => () => {
-      made.dispose();
-      made.opener.cancel();
-    },
-    [made],
+  const [controller] = useState(() =>
+    createController(load, opening, browserEnv, () => latest.current),
+  );
+  const state = useSyncExternalStore(
+    controller.subscribe,
+    controller.getState,
+    controller.getState,
   );
 
-  // While the popup is on its way, Escape or a press anywhere but on the trigger withdraws it.
-  useEffect(() => {
-    if (!busy) return;
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") made.opener.cancel();
-    };
-    const away = (event: PointerEvent) => {
-      if (!made.isTrigger(event.target)) made.opener.cancel();
-    };
-    document.addEventListener("keydown", escape);
-    document.addEventListener("pointerdown", away);
-    return () => {
-      document.removeEventListener("keydown", escape);
-      document.removeEventListener("pointerdown", away);
-    };
-  }, [busy, made]);
+  // The trigger is gone: nothing is left resting or waiting.
+  useEffect(() => () => controller.dispose(), [controller]);
 
-  const Loaded = shown ? loadedCode(load) : undefined;
-  if (Loaded) return <Loaded {...popup} {...made.gesture()} />;
-  const { handlers } = made;
-  return trigger(
-    busy ? { ...handlers, "aria-busy": true, "data-loading": "" } : handlers,
+  // The notice goes by itself.
+  useEffect(() => {
+    if (!state.notice) return;
+    const timer = setTimeout(controller.dismissNotice, NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [state.notice, controller]);
+
+  const Loaded = state.shown ? loadedCode(load) : undefined;
+  if (Loaded) return <Loaded {...popup} {...controller.gesture()} />;
+  const { handlers } = controller;
+  return (
+    <>
+      {trigger(
+        state.busy
+          ? { ...handlers, "aria-busy": true, "data-loading": "" }
+          : handlers,
+      )}
+      {state.notice && <LazyPopupNotice />}
+    </>
   );
 }
