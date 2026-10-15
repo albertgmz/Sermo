@@ -15,7 +15,7 @@ export const EMBED_PROVIDERS: Record<string, string> = {
 };
 
 // The hosts a player is served from, the iframe sandbox and the permissions it asks for: the same
-// as the backend's sanitizer uses (`packages/core/src/markdown/media.ts`; a test keeps them equal).
+// as the backend's sanitizer uses (`packages/core/src/bbcode/media.ts`; a test keeps them equal).
 export const EMBED_HOSTS: readonly string[] = [
   "www.youtube-nocookie.com",
   "player.vimeo.com",

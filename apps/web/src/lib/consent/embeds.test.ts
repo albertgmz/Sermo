@@ -5,7 +5,7 @@ import {
   MEDIA_SANDBOX,
   mediaHtml,
   resolveMedia,
-} from "../../../../../packages/core/src/markdown/media";
+} from "../../../../../packages/core/src/bbcode/media";
 import { blocksInParagraphs } from "../test-paragraphs";
 import {
   EMBED_ALLOW,

@@ -13,7 +13,7 @@ import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { can, requirePermission } from "../../permissions";
-import { renderMarkdown } from "../../render";
+import { renderBbCode } from "../../render";
 import { iso } from "../../time";
 import { appendModeratorLog } from "../moderation";
 import { insertAcceptances, publishedVersions, startingVersion } from "./acceptance";
@@ -91,7 +91,7 @@ const getSource = implement(pagesGetSource, (ctx, actor, input) => {
 const save = implement(pagesSave, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.settings");
   // Rendered before the transaction and without an actor: a page resolves no mentions or quotes.
-  const html = renderMarkdown(input.body, { maxLength: PAGE_BODY_LENGTH });
+  const html = renderBbCode(input.body, { maxLength: PAGE_BODY_LENGTH });
   return writeTx(ctx, () => {
     const existing = bySlug(ctx, input.slug);
     if (!existing && ctx.sqlite.prepare<{ n: number }, []>(pageSql.count).get()!.n >= PAGE_LIMIT)

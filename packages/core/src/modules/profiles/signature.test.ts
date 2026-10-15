@@ -16,16 +16,19 @@ const refusal = async (w: World, signature: string) => {
 };
 
 describe("signature limits, measured on the rendered html", () => {
-  test("links: over and at the limit, Markdown and BB code count alike", async () => {
+  test("links: over and at the limit, tags and bare addresses count alike", async () => {
     const w = world();
     await settings(w, { signatureMaxLinks: 2 });
-    await sign(w, "[a](https://a.test) [b](https://b.test)");
-    expect(await refusal(w, "[a](https://a.test) [b](https://b.test) [c](https://c.test)")).toBe(
-      "A signature may hold at most 2 links; this one has 3.",
-    );
-    expect(await refusal(w, "[a](https://a.test) [URL=https://b.test]b[/URL] https://c.test")).toBe(
-      "A signature may hold at most 2 links; this one has 3.",
-    );
+    await sign(w, "[URL=https://a.test]a[/URL] [URL=https://b.test]b[/URL]");
+    expect(
+      await refusal(
+        w,
+        "[URL=https://a.test]a[/URL] [URL=https://b.test]b[/URL] [URL=https://c.test]c[/URL]",
+      ),
+    ).toBe("A signature may hold at most 2 links; this one has 3.");
+    expect(
+      await refusal(w, "[URL=https://a.test]a[/URL] [URL=https://b.test]b[/URL] https://c.test"),
+    ).toBe("A signature may hold at most 2 links; this one has 3.");
     expect(
       await refusal(
         w,
@@ -36,7 +39,9 @@ describe("signature limits, measured on the rendered html", () => {
 
   test("0 and -1 mean no limit, as for the anti-spam counts", async () => {
     const w = world();
-    const many = Array.from({ length: 8 }, (_, i) => `[l${i}](https://e${i}.test)`).join(" ");
+    const many = Array.from({ length: 8 }, (_, i) => `[URL=https://e${i}.test]l${i}[/URL]`).join(
+      " ",
+    );
     for (const value of [0, -1]) {
       await settings(w, {
         signatureMaxLinks: value,
@@ -51,16 +56,13 @@ describe("signature limits, measured on the rendered html", () => {
 
   test("pictures need their kind and then obey the count", async () => {
     const w = world();
-    const one = "![x](https://i.test/a.png)";
+    const one = "[IMG]https://i.test/a.png[/IMG]";
     expect(await refusal(w, one)).toBe("A signature cannot use pictures.");
-    expect(await refusal(w, "[IMG]https://i.test/a.png[/IMG]")).toBe(
-      "A signature cannot use pictures.",
-    );
     await settings(w, {
       signatureFormats: ["bold", "image"],
       signatureMaxImages: 2,
     });
-    const profile = await sign(w, `${one} ![y](https://i.test/b.png)`);
+    const profile = await sign(w, `${one} [IMG]https://i.test/b.png[/IMG]`);
     expect(profile.signatureHtml).toContain("<img");
     expect(await refusal(w, `${one} ${one} ${one}`)).toBe(
       "A signature may hold at most 2 pictures; this one has 3.",
@@ -162,7 +164,6 @@ describe("signature limits, measured on the rendered html", () => {
       "\u200B\u200B",
       "\u200D\uFEFF\u2060",
       "\u00A0\u200B \u00A0",
-      "**\u200B**",
       "[B]\u200B[/B]",
       // Marks and fillers that draw nothing, however unusual.
       "\u200E\u200F",
@@ -187,7 +188,7 @@ describe("signature limits, measured on the rendered html", () => {
     await sign(w, "hello\u00A0");
     await sign(w, "\u200Ehello \u202Eworld");
     await settings(w, { signatureFormats: ["image"] });
-    await sign(w, "![x](https://i.test/a.png)");
+    await sign(w, "[IMG]https://i.test/a.png[/IMG]");
   });
 
   test("text size: the largest [size] and heading allowed", async () => {
@@ -197,14 +198,15 @@ describe("signature limits, measured on the rendered html", () => {
     expect(await refusal(w, "[SIZE=5]big[/SIZE]")).toBe(
       "A signature's text may be at most size 4; this one uses size 5.",
     );
-    // h4 is size 4, h3 is size 5.
-    await sign(w, "#### small heading");
-    expect(await refusal(w, "### larger heading")).toContain("uses size 5");
+    // A heading counts as 8 minus its level: heading 3 is size 5, heading 1 is size 7.
+    expect(await refusal(w, "[HEADING=3]larger heading[/HEADING]")).toContain("uses size 5");
+    await settings(w, { signatureMaxTextSize: 5 });
+    await sign(w, "[HEADING=3]small heading[/HEADING]");
     expect(await refusal(w, "[HEADING=1]x[/HEADING]")).toContain("uses size 7");
     await settings(w, { signatureMaxTextSize: 0 });
     await sign(w, "[SIZE=7]huge[/SIZE]");
     await settings(w, { signatureMaxTextSize: 7 });
-    await sign(w, "# top");
+    await sign(w, "[HEADING=1]top[/HEADING]");
   });
 
   test("emoji and text size treat 0 and -1 alike", async () => {
@@ -218,15 +220,18 @@ describe("signature limits, measured on the rendered html", () => {
 
   test("a signature that draws nothing, or several blocks, is refused", async () => {
     const w = world();
-    expect(await refusal(w, "[a]: http://x.example")).toBe(
-      "A signature must have something to show.",
-    );
+    expect(await refusal(w, "[B] [/B]")).toBe("A signature must have something to show.");
     await settings(w, { signatureFormats: ["heading", "align"], signatureMaxTextSize: 0 });
-    expect(await refusal(w, "# a\n\n# b")).toStartWith("A signature is one short block");
+    expect(await refusal(w, "[HEADING=1]a[/HEADING]\n\n[HEADING=1]b[/HEADING]")).toStartWith(
+      "A signature is one short block",
+    );
+    expect(await refusal(w, "[HEADING=1]a[/HEADING] and text")).toStartWith(
+      "A signature is one short block",
+    );
     expect(await refusal(w, "[CENTER]a[/CENTER]\n\n[RIGHT]b[/RIGHT]")).toStartWith(
       "A signature is one short block",
     );
-    await sign(w, "# one heading");
+    await sign(w, "[HEADING=1]one heading[/HEADING]");
     await sign(w, "[CENTER]one block[/CENTER]");
   });
 
@@ -242,19 +247,19 @@ describe("signature limits, measured on the rendered html", () => {
 
 describe("allowed formatting", () => {
   const cases: [string, string, string][] = [
-    ["bold", "**x**", "bold text"],
     ["bold", "[B]x[/B]", "bold text"],
-    ["italic", "*x*", "italic text"],
+    ["italic", "[I]x[/I]", "italic text"],
     ["underline", "[U]x[/U]", "underlined text"],
-    ["strikethrough", "~~x~~", "strikethrough text"],
-    ["code", "`x`", "inline code"],
+    ["strikethrough", "[S]x[/S]", "strikethrough text"],
+    ["code", "[ICODE]x[/ICODE]", "inline code"],
     ["color", "[COLOR=red]x[/COLOR]", "coloured text"],
     ["font", "[FONT=Arial]x[/FONT]", "fonts"],
     ["size", "[SIZE=2]x[/SIZE]", "text sizes"],
-    ["heading", "## x", "headings"],
-    ["link", "[x](https://a.test)", "links"],
-    ["image", "![x](https://i.test/a.png)", "pictures"],
-    ["list", "- x\n- y", "lists"],
+    ["heading", "[HEADING=2]x[/HEADING]", "headings"],
+    ["link", "[URL=https://a.test]x[/URL]", "links"],
+    ["link", "https://a.test", "links"],
+    ["image", "[IMG]https://i.test/a.png[/IMG]", "pictures"],
+    ["list", "[LIST][*]x[*]y[/LIST]", "lists"],
     ["align", "[CENTER]x[/CENTER]", "alignment"],
   ];
 
@@ -276,7 +281,7 @@ describe("allowed formatting", () => {
   test("a refusal names every kind that is not allowed", async () => {
     const w = world();
     await settings(w, { signatureFormats: ["bold"] });
-    expect(await refusal(w, "**a** *b* [c](https://c.test)")).toBe(
+    expect(await refusal(w, "[B]a[/B] [I]b[/I] [URL=https://c.test]c[/URL]")).toBe(
       "A signature cannot use italic text, links.",
     );
   });
@@ -309,32 +314,36 @@ describe("allowed formatting", () => {
       signatureMaxLines: 20,
     });
     for (const source of [
-      "> quoted",
       "[QUOTE]x[/QUOTE]",
       "[SPOILER]x[/SPOILER]",
-      "!<secret>!",
-      ":::spoiler\nx\n:::",
-      "```\ncode\n```",
+      "[ISPOILER]x[/ISPOILER]",
       "[CODE]x[/CODE]",
-      "| a | b |\n| - | - |\n| 1 | 2 |",
       "[TABLE][TR][TD]x[/TD][/TR][/TABLE]",
       "[INDENT]x[/INDENT]",
       "[MEDIA=youtube]dQw4w9WgXcQ[/MEDIA]",
-      "---",
+      "[HR]",
+      "[PLAIN]a\n\nb[/PLAIN]",
       "two\n\nparagraphs",
-      "<b>raw html</b>",
     ]) {
       expect(await refusal(w, source), source).toStartWith("A signature is one short block");
     }
   });
 
+  test("Markdown and HTML typed in a signature are plain text", async () => {
+    const w = world();
+    await settings(w, { signatureFormats: [], signatureMaxLinks: 0 });
+    const source = "**x** > y <b>z</b> ~~s~~ `c`";
+    const profile = await sign(w, source);
+    expect(profile.signatureHtml).toBe("<p>**x** &gt; y &lt;b&gt;z&lt;/b&gt; ~~s~~ `c`</p>");
+  });
+
   test("a signature stored before a kind was dropped is not touched until it is saved again", async () => {
     const w = world();
-    await sign(w, "**kept**");
+    await sign(w, "[B]kept[/B]");
     await settings(w, { signatureFormats: ["italic"] });
     const profile = await w.call("profiles.get", w.memberActor, { userId: w.moderator.id });
     expect(profile.signatureHtml).toContain("<strong>kept</strong>");
-    expect(await refusal(w, "**kept**")).toBe("A signature cannot use bold text.");
+    expect(await refusal(w, "[B]kept[/B]")).toBe("A signature cannot use bold text.");
     expect((await sign(w, null)).signatureHtml).toBeNull();
   });
 
@@ -468,13 +477,13 @@ describe("the signature rule", () => {
     w.set(w.member.id, { post_count: 0 });
     await w.call("users.adminUpdateProfile", w.adminActor, {
       userId: w.member.id,
-      signature: "**by staff**",
+      signature: "[B]by staff[/B]",
       reason: "test",
     });
     await expect(
       w.call("users.adminUpdateProfile", w.adminActor, {
         userId: w.member.id,
-        signature: "*not allowed*",
+        signature: "[I]not allowed[/I]",
         reason: "test",
       }),
     ).rejects.toBeInstanceOf(ValidationError);

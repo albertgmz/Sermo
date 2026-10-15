@@ -12,7 +12,7 @@ import { ValidationError } from "./errors";
 import { enqueueJob, registerJobHandler, runDueJobs } from "./modules/jobs/queue";
 import { defineContract, execute, implement } from "./operation";
 import { decodeCursor, encodeCursor } from "./pagination";
-import { renderMarkdown } from "./render";
+import { renderBbCode } from "./render";
 import { loadViewerReactions, reactionSummary } from "./shared/reactions";
 import { loadUserSummaries } from "./shared/users";
 import { createTestContext, expectNoTableScan, insertNode, insertUser, userActor } from "./testing";
@@ -166,22 +166,27 @@ describe("cursors", () => {
 });
 
 describe("rendering", () => {
-  test("renders markdown", () => {
-    expect(renderMarkdown("**hi** _there_")).toBe("<p><strong>hi</strong> <em>there</em></p>");
+  test("renders BB code and leaves Markdown as typed", () => {
+    expect(renderBbCode("[B]hi[/B] [I]there[/I]")).toBe(
+      "<p><strong>hi</strong> <em>there</em></p>",
+    );
+    expect(renderBbCode("**hi** _there_")).toBe("<p>**hi** _there_</p>");
   });
 
   test("escapes raw HTML and strips dangerous URLs", () => {
-    const html = renderMarkdown(
-      '<script>alert(1)</script>\n\n[x](javascript:alert(1)) <img src=x onerror="alert(1)">',
+    const html = renderBbCode(
+      '<script>alert(1)</script>\n\n[URL=javascript:alert(1)]x[/URL] <img src=x onerror="alert(1)">',
     );
     expect(html).not.toContain("<script");
-    expect(html).not.toContain("javascript:");
+    expect(html).not.toContain("<a ");
     expect(html).not.toContain("<img");
     expect(html).toContain("&lt;script&gt;");
   });
 
   test("adds rel to links", () => {
-    expect(renderMarkdown("[a](https://example.com)")).toContain('rel="nofollow ugc noopener"');
+    expect(renderBbCode("[URL=https://example.com]a[/URL]")).toContain(
+      'rel="nofollow ugc noopener"',
+    );
   });
 });
 
@@ -305,8 +310,10 @@ describe("review regressions", () => {
   });
 
   test("deeply nested quotes are a validation error, not a crash", () => {
-    expect(() => renderMarkdown(">".repeat(5000))).toThrow(ValidationError);
-    expect(renderMarkdown("> > quoted twice")).toContain("<blockquote>");
+    expect(() => renderBbCode("[QUOTE]".repeat(5000) + "[/QUOTE]".repeat(5000))).toThrow(
+      ValidationError,
+    );
+    expect(renderBbCode("[QUOTE][QUOTE]quoted twice[/QUOTE][/QUOTE]")).toContain("<blockquote");
   });
 
   test("expectNoTableScan resolves aliases and rejects temp B-tree sorts", () => {

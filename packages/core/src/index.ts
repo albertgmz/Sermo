@@ -104,5 +104,5 @@ export {
   resolvedPermissions,
   syncPermissionRegistry,
 } from "./permissions";
-export { renderMarkdown } from "./render";
+export { renderBbCode } from "./render";
 export { iso, isoOrNull } from "./time";

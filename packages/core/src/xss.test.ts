@@ -164,7 +164,7 @@ describe("stored content HTML rejects XSS", () => {
       });
       const read = () => storedHtml(ctx, "post_bodies", "post_id", post.id);
       expectSafeHtml(read());
-      await execute(ctx, postsUpdateOp, author, { postId: post.id, body: "**replacement**" });
+      await execute(ctx, postsUpdateOp, author, { postId: post.id, body: "[B]replacement[/B]" });
       expect(read()).toContain("<strong>replacement</strong>");
       await execute(ctx, postsUpdateOp, author, { postId: post.id, body: payload });
       expect(read()).not.toContain("replacement");
@@ -183,7 +183,7 @@ describe("stored content HTML rejects XSS", () => {
       expectSafeHtml(read());
       await execute(ctx, profilePostsUpdateOp, author, {
         profilePostId: post.id,
-        body: "**replacement**",
+        body: "[B]replacement[/B]",
       });
       expect(read()).toContain("<strong>replacement</strong>");
       await execute(ctx, profilePostsUpdateOp, author, { profilePostId: post.id, body: payload });
@@ -207,7 +207,7 @@ describe("stored content HTML rejects XSS", () => {
       expectSafeHtml(read());
       await execute(ctx, profileCommentsUpdateOp, author, {
         commentId: comment.id,
-        body: "**replacement**",
+        body: "[B]replacement[/B]",
       });
       expect(read()).toContain("<strong>replacement</strong>");
       await execute(ctx, profileCommentsUpdateOp, author, { commentId: comment.id, body: payload });
@@ -233,12 +233,12 @@ describe("stored content HTML rejects XSS", () => {
     });
   }
 
-  test("harmless Markdown remains formatted in all four stored content types", async () => {
+  test("harmless BB code remains formatted in all four stored content types", async () => {
     const ctx = createTestContext();
     const admin = userActor(insertUser(ctx, { groupId: 4 }));
     const author = userActor(insertUser(ctx));
     const recipient = insertUser(ctx);
-    const body = "**bold** [link](https://example.com)\n\n- one\n- two";
+    const body = "[B]bold[/B] [URL=https://example.com]link[/URL]\n\n[LIST][*]one[*]two[/LIST]";
     const forum = await execute(ctx, nodesCreateOp, admin, {
       parentId: null,
       type: "forum",
@@ -306,7 +306,7 @@ describe("stored content HTML rejects XSS", () => {
     for (const [label, payload] of payloads) {
       const post = await execute(ctx, profilePostsCreateOp, author, {
         userId: wall.id,
-        body: `[SPOILER]${payload}[/SPOILER] >!${payload}!<`,
+        body: `[SPOILER]${payload}[/SPOILER] [ISPOILER]${payload}[/ISPOILER]`,
       });
       expectSafeHtml(storedHtml(ctx, "profile_posts", "id", post.id));
       const spoilers = ctx.sqlite
@@ -319,7 +319,7 @@ describe("stored content HTML rejects XSS", () => {
     }
   });
 
-  test("nested spoilers in quotes and forged directive attributes stay safe", async () => {
+  test("nested spoilers in quotes and forged quote attributes stay safe", async () => {
     const ctx = createTestContext();
     const admin = userActor(insertUser(ctx, { groupId: 4 }));
     const author = userActor(insertUser(ctx, { username: "Alice" }));
@@ -334,7 +334,7 @@ describe("stored content HTML rejects XSS", () => {
       title: "Source",
       body: "Original",
     });
-    const payload = `:::quote{post=${quoted.post.id} author="<img src=x onerror=alert(1)>"}\n:::spoiler{title="<svg onload=alert(1)>"}\n[bad](javascript:alert(1))\n:::\n:::`;
+    const payload = `[QUOTE="<img src=x onerror=alert(1)>, post: ${quoted.post.id}"][SPOILER="<svg onload=alert(1)>"][URL=javascript:alert(1)]bad[/URL][/SPOILER][/QUOTE]`;
     const post = await execute(ctx, postsCreateOp, reader, {
       threadId: quoted.thread.id,
       body: payload,

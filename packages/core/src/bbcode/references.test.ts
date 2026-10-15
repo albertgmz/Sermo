@@ -14,9 +14,9 @@ import { searchQueryOp } from "../modules/search";
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "../modules/seo/excerpt";
 import { execute } from "../operation";
 import { PRINCIPAL_COLUMNS } from "../permissions";
-import { renderContent, renderMarkdown, renderPlainText, storeContentReferences } from "../render";
+import { renderBbCode, renderContent, renderPlainText, storeContentReferences } from "../render";
 
-describe("Markdown extensions", () => {
+describe("BB code references", () => {
   test("mentions resolve case-insensitively, including quoted names, but not code or links", () => {
     const ctx = createTestContext();
     const author = userActor(insertUser(ctx));
@@ -25,7 +25,7 @@ describe("Markdown extensions", () => {
     const result = renderContent(
       ctx,
       author,
-      '@ALICE @"mary jane" @Nobody `@Alice`\n\n```\n@Alice\n```\n\n[@Alice](https://example.com)',
+      '@ALICE @"mary jane" @Nobody [ICODE]@Alice[/ICODE]\n\n[CODE]\n@Alice\n[/CODE]\n\n[URL=https://example.com]@Alice[/URL]\n\n[PLAIN]@Alice[/PLAIN]',
     );
     expect(result.mentionedUserIds).toEqual([alice.id, space.id]);
     expect(result.html).toContain(`data-user-id="${alice.id}"`);
@@ -33,12 +33,13 @@ describe("Markdown extensions", () => {
     expect(result.html).toContain(`>@Mary Jane</a>`);
     expect(result.html).toContain("@Nobody");
     expect(result.html).toContain("<code>@Alice</code>");
+    expect(result.html.match(/class="mention"/g)).toHaveLength(2);
     expect(result.html).not.toContain(
       '<a href="https://example.com" rel="nofollow ugc noopener"><a',
     );
   });
 
-  test("email addresses and image alt text never become mentions", () => {
+  test("email addresses and text inside links never become mentions", () => {
     const ctx = createTestContext();
     const author = userActor(insertUser(ctx));
     insertUser(ctx, { username: "b.com" });
@@ -46,11 +47,12 @@ describe("Markdown extensions", () => {
     const result = renderContent(
       ctx,
       author,
-      "contact a@b.com now ![see @Alice](https://example.com/a.png) @Alice",
+      "contact a@b.com now [URL=https://example.com/a]see @Alice[/URL] [IMG]https://example.com/a.png[/IMG] @Alice",
     );
     expect(result.mentionedUserIds).toEqual([alice.id]);
-    expect(result.html).toContain('href="mailto:a@b.com"');
-    expect(result.html).toContain('alt="see @Alice"');
+    expect(result.html).toContain("contact a@b.com now");
+    expect(result.html.match(/class="mention"/g)).toHaveLength(1);
+    expect(result.html).toContain("see @Alice</a>");
   });
 
   test("names may start and end with underscores", () => {
@@ -60,22 +62,23 @@ describe("Markdown extensions", () => {
     expect(renderContent(ctx, author, "@_Bob_").mentionedUserIds).toEqual([target.id]);
   });
 
-  test("block start scans stay fast and preserve ordinary paragraphs", () => {
-    renderMarkdown("warmup");
+  test("tag scans stay fast and preserve ordinary paragraphs", () => {
+    renderBbCode("warmup");
     for (const source of [
-      ">!".repeat(5000),
-      ":::\n".repeat(2500),
+      "[".repeat(5000),
+      "[/".repeat(2500),
       "a:::".repeat(2500),
-      "a >!".repeat(2500),
+      "[ISPOILER".repeat(1000),
+      "@a".repeat(2500),
     ]) {
       const start = performance.now();
-      renderMarkdown(source);
+      renderBbCode(source);
       expect(performance.now() - start).toBeLessThan(100);
     }
-    expect(renderMarkdown("foo >!bar!< baz")).toBe(
+    expect(renderBbCode("foo [ISPOILER]bar[/ISPOILER] baz")).toBe(
       '<p>foo <span class="spoiler">bar</span> baz</p>',
     );
-    expect(renderMarkdown("a:::b")).toBe("<p>a:::b</p>");
+    expect(renderBbCode("a:::b")).toBe("<p>a:::b</p>");
   });
 
   test("new member and permission limits leave excess mentions as text", () => {
@@ -215,12 +218,12 @@ describe("Markdown extensions", () => {
     const edit = {
       edit: { contentType: "post" as const, contentId: thread.post.id, authorId: authorUser.id },
     };
-    expect(renderContent(ctx, editor, `:::quote{post=${own.id}}\ntext\n:::`, edit).quotes).toEqual([
-      { postId: own.id, userId: editorUser.id },
-    ]);
+    expect(
+      renderContent(ctx, editor, `[QUOTE="post: ${own.id}"]text[/QUOTE]`, edit).quotes,
+    ).toEqual([{ postId: own.id, userId: editorUser.id }]);
     ctx.sqlite.prepare("UPDATE posts SET state = 'moderated' WHERE id = ?1").run(thread.post.id);
     expect(() =>
-      renderContent(ctx, editor, `:::quote{post=${thread.post.id}}\ntext\n:::`, edit),
+      renderContent(ctx, editor, `[QUOTE="post: ${thread.post.id}"]text[/QUOTE]`, edit),
     ).toThrow(ValidationError);
   });
 
@@ -294,32 +297,38 @@ describe("Markdown extensions", () => {
       body: "Original",
     });
     const postId = thread.post.id;
-    const quote = `:::quote{post=${postId} author="Fake"}\n**quoted**\n:::`;
+    const canonical = `[QUOTE="Alice, post: ${postId}, member: ${authorUser.id}"]`;
+    const quote = `[QUOTE="Fake, post: ${postId}, member: 999"][B]quoted[/B][/QUOTE]`;
     const result = renderContent(ctx, other, quote);
     expect(result.quotes).toEqual([{ postId, userId: authorUser.id }]);
     expect(result.html).toContain(`data-post-id="${postId}"`);
     expect(result.html).toContain("Alice</a> wrote:");
-    expect(result.source).toContain(`:::quote{post=${postId} author="Alice"}`);
-    expect(renderContent(ctx, other, `:::quote{post=${postId}}\ntext\n:::`).source).toContain(
-      `:::quote{post=${postId} author="Alice"}`,
-    );
-    expect(renderContent(ctx, other, `:::quote{post=${postId}}\ntext\n:::`).html).toContain(
-      "Alice</a> wrote:",
-    );
+    expect(result.html).not.toContain("Fake");
+    expect(result.source).toBe(`${canonical}[B]quoted[/B][/QUOTE]`);
+    // XenForo's other spellings of a quote of a post.
+    for (const option of [`post: ${postId}`, `Fake, post: ${postId}`, `"Fake, post: ${postId}"`]) {
+      const spelled = renderContent(ctx, other, `[quote=${option}]text[/quote]`);
+      expect(spelled.source).toBe(`${canonical}text[/quote]`);
+      expect(spelled.html).toContain("Alice</a> wrote:");
+    }
     const nested = renderContent(
       ctx,
       other,
-      `:::quote{post=${postId} author="Fake"}\n:::quote{post=${postId} author="Also Fake"}\nNested\n:::\n:::`,
+      `[QUOTE="Fake, post: ${postId}"][QUOTE="Also Fake, post: ${postId}"]Nested[/QUOTE][/QUOTE]`,
     );
-    expect(nested.source.match(/author="Alice"/g)).toHaveLength(2);
+    expect(nested.source.match(/\[QUOTE="Alice, post: /g)).toHaveLength(2);
     const placed = renderContent(
       ctx,
       other,
-      `- :::quote{post=${postId} author="Fake"}\n  list quote\n  :::\n\n> :::quote{post=${postId} author="Fake"}\n> block quote\n> :::\n`,
+      `[LIST][*][QUOTE="Fake, post: ${postId}"]list quote[/QUOTE][/LIST]\n\n[SPOILER][QUOTE="Fake, post: ${postId}"]in a spoiler[/QUOTE][/SPOILER]`,
     );
-    expect(placed.source.match(/author="Alice"/g)).toHaveLength(2);
+    expect(placed.source.match(/\[QUOTE="Alice, post: /g)).toHaveLength(2);
+    // Inside code or plain it is not a quote at all.
+    const literal = `[CODE][QUOTE="Fake, post: ${postId}"]x[/QUOTE][/CODE]`;
+    expect(renderContent(ctx, other, literal).source).toBe(literal);
+    expect(renderContent(ctx, other, literal).quotes).toEqual([]);
     expect(
-      renderContent(ctx, other, `:::quote{post=${postId}}\r\nCRLF\r\n:::`).source,
+      renderContent(ctx, other, `[QUOTE="post: ${postId}"]\r\nCRLF\r\n[/QUOTE]`).source,
     ).not.toContain("\r");
     const reply = await execute(ctx, postsCreateOp, other, {
       threadId: thread.thread.id,
@@ -331,7 +340,7 @@ describe("Markdown extensions", () => {
           "SELECT body_source FROM post_bodies WHERE post_id = ?1",
         )
         .get(reply.id)!.body_source,
-    ).toContain(`author="Alice"`);
+    ).toContain(`[QUOTE="Alice, post: `);
     expect(
       ctx.sqlite
         .prepare<{ quoted_post_id: number }, []>("SELECT quoted_post_id FROM content_quotes")
@@ -347,21 +356,22 @@ describe("Markdown extensions", () => {
     expect(() => renderContent(ctx, other, quote)).toThrow(ValidationError);
     await execute(ctx, postsUpdateOp, other, { postId: reply.id, body: "No quote" });
     expect(ctx.sqlite.prepare("SELECT id FROM content_quotes").all()).toHaveLength(0);
-    expect(() => renderContent(ctx, other, ':::quote{post=99999 author="Fake"}\nx\n:::')).toThrow(
+    expect(() => renderContent(ctx, other, '[QUOTE="Fake, post: 99999"]x[/QUOTE]')).toThrow(
       ValidationError,
     );
   });
 
   test("spoilers and plain text hide concealed content", () => {
-    const html = renderMarkdown(
-      ':::spoiler{title="Ending"}\nSecret **ending**\n:::\n\n>!inline secret!<',
+    const html = renderBbCode(
+      '[SPOILER="Ending"]Secret [B]ending[/B][/SPOILER]\n\n[ISPOILER]inline secret[/ISPOILER]',
     );
-    expect(html).toContain('<details class="spoiler"><summary>Spoiler: Ending</summary>');
+    expect(html).toContain(
+      '<details class="spoiler"><summary class="bb-spoiler-summary bb-has-title">Ending</summary>',
+    );
     expect(html).toContain('<span class="spoiler">inline secret</span>');
-    expect(renderMarkdown(':::spoiler{title="A &amp; B"}\nsecret\n:::')).toContain(
-      "Spoiler: A &amp; B</summary>",
-    );
-    expect(renderMarkdown(':::spoiler{title="A &amp; B"}\nsecret\n:::')).not.toContain("&amp;amp;");
+    const entity = renderBbCode('[SPOILER="A & B"]secret[/SPOILER]');
+    expect(entity).toContain(">A &amp; B</summary>");
+    expect(entity).not.toContain("&amp;amp;");
     expect(renderPlainText(html)).not.toContain("secret");
     expect(renderPlainText(html)).toContain("[spoiler]");
     expect(renderPlainText("<blockquote><p>quoted text</p></blockquote>")).toBe("> quoted text");
@@ -384,23 +394,25 @@ describe("Markdown extensions", () => {
     ).not.toContain("(a@b.com)");
   });
 
-  test("fenced code cannot close a spoiler container", () => {
-    const html = renderMarkdown(":::spoiler\n```text\n:::\n```\ninside\n:::");
-    expect(html).toContain(":::\n</code>");
-    expect(html).toContain("<p>inside</p>");
-    expect(html).toContain("</details>");
+  test("a code block cannot close a spoiler", () => {
+    const html = renderBbCode("[SPOILER][CODE]\n[/SPOILER]\n[/CODE]\ninside[/SPOILER]");
+    expect(html).toContain("[/SPOILER]</code>");
+    expect(html).toContain("inside");
+    expect(html.match(/<\/details>/g)).toHaveLength(1);
   });
 
-  test("stored and search excerpts hide spoilers and omit quote directive syntax", () => {
+  test("stored and search excerpts hide spoilers and omit tags", () => {
     const source =
-      'before\n:::spoiler{title="Ending"}\nsecret end\n:::\nafter >!inline secret!<\n- :::quote{post=1 author="Alice"}\n  quoted words\n  :::';
+      'before\n[SPOILER=Ending]secret end[/SPOILER]\nafter [ISPOILER]inline secret[/ISPOILER]\n[QUOTE="Alice, post: 1, member: 2"]quoted words[/QUOTE]';
     for (const text of [excerptFromMarkdown(source), maskMarkupForExcerpt(source)]) {
       expect(text).toContain("[spoiler]");
       expect(text).toContain("quoted words");
       expect(text).not.toContain("secret end");
       expect(text).not.toContain("inline secret");
-      expect(text).not.toContain(":::quote");
+      expect(text).not.toContain("[QUOTE");
     }
+    // Typed Markdown is text, and an excerpt keeps it as typed.
+    expect(excerptFromMarkdown("snake_case **bold** #tag")).toBe("snake_case **bold** #tag");
   });
 
   test("thread and search excerpts never expose spoiler content", async () => {
@@ -415,7 +427,7 @@ describe("Markdown extensions", () => {
     const thread = await execute(ctx, threadsCreateOp, author, {
       nodeId: forum.id,
       title: "Excerpt topic",
-      body: "needle before >!private inline!<\n:::spoiler\nprivate block\n:::\nafter",
+      body: "needle before [ISPOILER]private inline[/ISPOILER]\n[SPOILER]private block[/SPOILER]\nafter",
     });
     const stored = ctx.sqlite
       .prepare<{ excerpt: string }, [number]>("SELECT excerpt FROM threads WHERE id = ?1")
@@ -423,20 +435,20 @@ describe("Markdown extensions", () => {
     expect(stored).not.toContain("private");
     const reply = await execute(ctx, postsCreateOp, author, {
       threadId: thread.thread.id,
-      body: `needle reply\n:::spoiler\nprivate block\n:::\n:::quote{post=${thread.post.id}}\nquoted words\n:::`,
+      body: `needle reply\n[SPOILER]private block[/SPOILER]\n[QUOTE="post: ${thread.post.id}"]quoted words[/QUOTE]`,
     });
     const result = await execute(ctx, searchQueryOp, author, { q: "needle" });
     const item = result.items.find((entry) => entry.post.id === reply.id);
     expect(item?.post.excerpt).toContain("quoted words");
     expect(item?.post.excerpt).not.toContain("private");
-    expect(item?.post.excerpt).not.toContain(":::quote");
+    expect(item?.post.excerpt).not.toContain("[QUOTE");
   });
 
-  test("nested quote directives obey the depth limit", () => {
+  test("nested quotes obey the depth limit", () => {
     const nested = (count: number) =>
-      `${':::quote{post=1 author="Alice"}\n'.repeat(count)}text\n${":::\n".repeat(count)}`;
-    expect(renderMarkdown(nested(10))).toContain("<blockquote>");
-    expect(() => renderMarkdown(nested(11))).toThrow(ValidationError);
+      `${'[QUOTE="Alice, post: 1"]'.repeat(count)}text${"[/QUOTE]".repeat(count)}`;
+    expect(renderBbCode(nested(10))).toContain("<blockquote");
+    expect(() => renderBbCode(nested(11))).toThrow(ValidationError);
   });
 
   test("reference lookups use indexes", () => {

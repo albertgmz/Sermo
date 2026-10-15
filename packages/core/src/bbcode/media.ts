@@ -1,4 +1,4 @@
-import { escapeHtml } from "./extensions";
+import { escapeHtml } from "./escape";
 
 /**
  * [MEDIA=site]id[/MEDIA]: every provider id is validated against a fixed pattern and the embed or

@@ -1,6 +1,6 @@
+import { escapeHtml } from "../../bbcode/escape";
 import { type Ctx, prepared } from "../../context";
 import { languageFor, phrase } from "../../i18n";
-import { escapeHtml } from "../../markdown/extensions";
 import type { PushPhraseRenderer } from "../push/delivery";
 import { readSiteSettings } from "../settings";
 

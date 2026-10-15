@@ -7,7 +7,7 @@ import { blocksInParagraphs } from "@/lib/test-paragraphs";
 import {
   mediaHtml,
   resolveMedia,
-} from "../../../../../packages/core/src/markdown/media";
+} from "../../../../../packages/core/src/bbcode/media";
 import lite from "../../../messages/en/lite.json";
 
 let cookie: string | undefined;

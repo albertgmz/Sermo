@@ -12,7 +12,7 @@ import { writeTx } from "../../db/tx";
 import { NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { requirePermission } from "../../permissions";
-import { renderMarkdown } from "../../render";
+import { renderBbCode } from "../../render";
 import { actorFacts, assertRule, evaluate, parseRule, type Rule } from "../../shared/criteria";
 import { iso, isoOrNull } from "../../time";
 
@@ -108,7 +108,7 @@ type Fields = {
 
 /** Renders the body (before any transaction) and returns the check that builds the stored columns. */
 function prepare(input: Fields): (ctx: Ctx) => Stored {
-  const html = renderMarkdown(input.body);
+  const html = renderBbCode(input.body);
   return (ctx) => {
     assertRule(ctx, input.rule, "cheap");
     const startsAt = input.startsAt === null ? null : Date.parse(input.startsAt);

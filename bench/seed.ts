@@ -20,7 +20,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { closeContext, createContext, DEFAULT_CONFIG, renderMarkdown, schema } from "@sermo/core";
+import { closeContext, createContext, DEFAULT_CONFIG, renderBbCode, schema } from "@sermo/core";
 import { Rng, ZipfSampler } from "./rng";
 
 export const SIZES = {
@@ -1869,7 +1869,7 @@ function buildBodies(rng: Rng, word: () => string, n: number): { source: string;
     if (rng.chance(0.05))
       paragraphs.push(`See [${word()}](https://example.com/${word()}) for more.`);
     const source = paragraphs.join("\n\n");
-    out.push({ source, html: renderMarkdown(source) });
+    out.push({ source, html: renderBbCode(source) });
   }
   return out;
 }

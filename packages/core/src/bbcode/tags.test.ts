@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
 import { ValidationError } from "../errors";
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "../modules/seo/excerpt";
-import { renderContent, renderMarkdown, renderPlainText } from "../render";
+import { renderBbCode, renderContent, renderPlainText } from "../render";
 
-const md = renderMarkdown;
+const md = renderBbCode;
 
 describe("BB code tags", () => {
   test("text styles", () => {
@@ -60,7 +60,7 @@ describe("BB code tags", () => {
     );
     expect(html).toContain('rel="nofollow ugc noopener">Email me</a>');
     expect(md('[URL="https://a.example/x"]q[/URL]')).toContain('href="https://a.example/x"');
-    expect(md("[URL=https://a.example]**bold** link[/URL]")).toContain(
+    expect(md("[URL=https://a.example][B]bold[/B] link[/URL]")).toContain(
       "<strong>bold</strong> link</a>",
     );
   });
@@ -88,11 +88,9 @@ describe("BB code tags", () => {
     }
   });
 
-  test("IMG renders the same image element as Markdown", () => {
+  test("IMG renders an image element", () => {
     expect(md("[IMG]https://xenforo.com/logo.png[/IMG]")).toBe(
-      md("![](https://xenforo.com/logo.png)")
-        .replace("<p><img", "<p><img")
-        .replace(' alt=""', ' alt=""'),
+      '<p><img src="https://xenforo.com/logo.png" alt="" /></p>',
     );
   });
 
@@ -145,9 +143,17 @@ describe("BB code tags", () => {
       "<ul><li>one<ol><li>a</li><li>b</li></ol></li><li>two</li></ul>",
     );
     expect(md("[LIST=a][*]x[/LIST]")).toBe("<p>[LIST=a][*]x[/LIST]</p>");
-    expect(md("[LIST]\n[*][B]bold[/B] and *md*\n[/LIST]")).toContain(
-      "<li><strong>bold</strong> and <em>md</em></li>",
+    expect(md("[LIST]\n[*][B]bold[/B] and [I]it[/I]\n[/LIST]")).toContain(
+      "<li><strong>bold</strong> and <em>it</em></li>",
     );
+    // Text before the first [*] is an item of its own, blank text is dropped.
+    expect(md("[LIST]first[*]second[/LIST]")).toBe("<ul><li>first</li><li>second</li></ul>");
+    expect(md("[LIST]\n  \n[*]only[/LIST]")).toBe("<ul><li>only</li></ul>");
+    // A [*] outside a list, or inside another tag of the list, is text.
+    expect(md("[*]stray")).toBe("<p>[*]stray</p>");
+    expect(md("[LIST][*][QUOTE][*]x[/QUOTE][/LIST]")).toContain("[*]x");
+    // A tag open across two items closes at the second [*] and stays text.
+    expect(md("[LIST][*][B]a[*]b[/B][/LIST]")).toBe("<ul><li>[B]a</li><li>b[/B]</li></ul>");
   });
 
   test("alignment, indentation and headings are blocks, also several on one line", () => {
@@ -159,7 +165,7 @@ describe("BB code tags", () => {
     expect(
       md("Regular text\n[INDENT]Indented text[/INDENT]\n[INDENT=2]More indented[/INDENT]"),
     ).toBe(
-      '<p>Regular text</p>\n<div class="bb-indent bb-indent-1">Indented text</div><div class="bb-indent bb-indent-2">More indented</div>',
+      '<p>Regular text</p><div class="bb-indent bb-indent-1">Indented text</div><div class="bb-indent bb-indent-2">More indented</div>',
     );
     expect(md("[INDENT=1][INDENT=2]deep[/INDENT][/INDENT]")).toBe(
       '<div class="bb-indent bb-indent-1"><div class="bb-indent bb-indent-2">deep</div></div>',
@@ -172,18 +178,54 @@ describe("BB code tags", () => {
     ).toBe("<h1>Major heading</h1><h2>Minor heading</h2><h3>Subheading</h3>");
     expect(md("[HEADING=4]x[/HEADING]")).toBe("<p>[HEADING=4]x[/HEADING]</p>");
     expect(md("before [CENTER]mid[/CENTER] after")).toBe(
-      '<p>before </p>\n<div class="bb-center">mid</div><p> after</p>',
+      '<p>before</p><div class="bb-center">mid</div><p>after</p>',
     );
   });
 
-  test("Markdown renders inside block tags and BB code inside Markdown", () => {
-    const html = md("[CENTER]\n# Title\n\n- one\n- **two**\n[/CENTER]");
-    expect(html).toContain('<div class="bb-center"><h1>Title</h1>');
-    expect(html).toContain("<li><strong>two</strong></li>");
-    expect(md("- item [B]bold[/B]\n> [I]quoted[/I]")).toContain("<strong>bold</strong>");
-    expect(md("> [I]quoted[/I]")).toContain("<blockquote>\n<p><em>quoted</em></p>");
-    expect(md("`[B]code[/B]`")).toBe("<p><code>[B]code[/B]</code></p>");
-    expect(md("```\n[B]fenced[/B]\n```")).toContain("[B]fenced[/B]");
+  test("Markdown typed in a message stays literal text", () => {
+    const typed = "# Title\n\n- one\n- **two** _x_ `code` [a](https://b.example)\n> quote";
+    const html = md(typed);
+    expect(html).not.toMatch(/<(h1|ul|li|strong|em|blockquote)/);
+    expect(html).toContain("# Title");
+    expect(html).toContain("- **two** _x_ `code`");
+    expect(html).toContain("&gt; quote");
+    expect(md("```\n[B]fenced[/B]\n```")).toContain("<strong>fenced</strong>");
+    expect(md("[CENTER]\n# Title\n\n- one\n[/CENTER]")).toBe(
+      '<div class="bb-center"><p># Title</p><p>- one</p></div>',
+    );
+  });
+
+  test("tags inside block tags and block tags inside inline tags", () => {
+    expect(md("[CENTER]a [B]bold[/B][/CENTER]")).toBe(
+      '<div class="bb-center">a <strong>bold</strong></div>',
+    );
+    expect(md("[B]a[QUOTE]q[/QUOTE]b[/B]")).toBe(
+      '<strong>a<blockquote class="bb-quote">q</blockquote>b</strong>',
+    );
+  });
+
+  test("line breaks are <br>, blank lines start a paragraph", () => {
+    expect(md("a\nb\n\n\nc  \n \nd")).toBe("<p>a<br />b</p><p>c</p><p>d</p>");
+    expect(md("[B]a\n\nb[/B]")).toBe("<p><strong>a<br /><br />b</strong></p>");
+    expect(md("[QUOTE]a\n\nb[/QUOTE]")).toContain("<p>a</p><p>b</p>");
+    expect(md("\n\n  \n")).toBe("");
+  });
+
+  test("bare addresses become links, nothing else is recognised", () => {
+    const html = md("see https://a.example/x?y=1, (http://b.example/p_(q)) and www.c.example.");
+    expect(html).toContain('<a href="https://a.example/x?y=1" rel="nofollow ugc noopener">');
+    expect(html).toContain('href="http://b.example/p_(q)"');
+    expect(html).toContain(
+      '<a href="https://www.c.example" rel="nofollow ugc noopener">www.c.example</a>.',
+    );
+    expect(md("javascript:alert(1) ftp://x.example data:text/html,x")).not.toContain("<a ");
+    expect(md("xhttps://a.example")).not.toContain("<a ");
+    expect(md("https://")).not.toContain("<a ");
+    // Not inside code or plain, and not inside a link.
+    expect(md("[CODE]https://a.example[/CODE] [PLAIN]https://a.example[/PLAIN]")).not.toContain(
+      "<a ",
+    );
+    expect(md("[URL=https://x.example]https://a.example[/URL]").match(/<a /g)).toHaveLength(1);
   });
 
   test("QUOTE keeps the author as data, not as words", () => {
@@ -211,10 +253,15 @@ describe("BB code tags", () => {
     ).toBe(
       '<table class="bb-table"><tbody><tr><th>Header 1</th><th>Header 2</th></tr><tr><td>Content 1</td><td>Content 2</td></tr></tbody></table>',
     );
-    expect(md("[TABLE][TR][TD]**md** [B]bb[/B][/TD][/TR][/TABLE]")).toContain(
-      "<td><strong>md</strong> <strong>bb</strong></td>",
+    expect(md("[TABLE][TR][TD][I]md[/I] [B]bb[/B][/TD][/TR][/TABLE]")).toContain(
+      "<td><em>md</em> <strong>bb</strong></td>",
     );
     expect(md("[TABLE]just text[/TABLE]")).toBe("<p>[TABLE]just text[/TABLE]</p>");
+    // Cells outside a row are text; text between cells is dropped.
+    expect(md("[TD]x[/TD]")).toBe("<p>[TD]x[/TD]</p>");
+    expect(md("[TABLE][TR]stray[TD]a[/TD]stray[/TR][/TABLE]")).toBe(
+      '<table class="bb-table"><tbody><tr><td>a</td></tr></tbody></table>',
+    );
   });
 
   test("PLAIN is literal, also across blank lines", () => {
@@ -344,7 +391,7 @@ describe("BB code code", () => {
 
   test("a closing tag inside code does not end an enclosing tag", () => {
     expect(md("[QUOTE][CODE][/QUOTE][/CODE]still quoted[/QUOTE]")).toEndWith(
-      "still quoted</p>\n</blockquote>",
+      "still quoted</p></blockquote>",
     );
   });
 });
@@ -456,9 +503,9 @@ describe("BB code spoilers", () => {
     const result = renderContent(
       ctx,
       author,
-      '[SPOILER]Simple spoiler[/SPOILER]\n[SPOILER=Spoiler Title]Titled **md**[/SPOILER]\nclick [ISPOILER]word[/ISPOILER] and >!inline!<\n\n:::spoiler{title="Old"}\nold style\n:::',
+      '[SPOILER]Simple spoiler[/SPOILER]\n[SPOILER=Spoiler Title]Titled [B]bb[/B][/SPOILER]\nclick [ISPOILER]word[/ISPOILER] and [ISPOILER]inline[/ISPOILER]\n\n[SPOILER="Old"]first\n\nsecond[/SPOILER]',
     );
-    expect(result.html).not.toMatch(/Simple spoiler|Titled|word|inline!|old style/);
+    expect(result.html).not.toMatch(/Simple spoiler|Titled|>word|first|second/);
     expect(result.html).toContain('<div class="bb-spoiler" data-spoiler="0"></div>');
     expect(result.html).toContain(
       '<div class="bb-spoiler" data-spoiler="1" data-spoiler-title="Spoiler Title"></div>',
@@ -474,10 +521,10 @@ describe("BB code spoilers", () => {
     );
     expect(result.spoilers).toEqual([
       "Simple spoiler",
-      "Titled <strong>md</strong>",
+      "Titled <strong>bb</strong>",
       "word",
       "inline",
-      "<p>old style</p>",
+      "<p>first</p><p>second</p>",
     ]);
   });
 
@@ -485,7 +532,7 @@ describe("BB code spoilers", () => {
     const result = renderContent(
       ctx,
       author,
-      "[SPOILER]outer [ISPOILER]inner[/ISPOILER]\n\n[SPOILER=T]deepest[/SPOILER][/SPOILER] after >!md!<",
+      "[SPOILER]outer [ISPOILER]inner[/ISPOILER]\n\n[SPOILER=T]deepest[/SPOILER][/SPOILER] after [ISPOILER]md[/ISPOILER]",
     );
     expect(result.spoilers).toHaveLength(4);
     expect(result.spoilers[0]).toContain('data-spoiler="1"');
@@ -503,7 +550,8 @@ describe("BB code spoilers", () => {
       author,
       "[SPOILER]<script>alert(1)</script> [URL=javascript:x]a[/URL] <img src=x onerror=alert(1)>[/SPOILER]",
     );
-    expect(result.spoilers[0]).not.toMatch(/<script|onerror=|<img|href="javascript/);
+    expect(result.spoilers[0]).not.toMatch(/<script|<img|href="javascript|<a /);
+    expect(result.spoilers[0]).toContain("&lt;script&gt;");
   });
 
   test("plain text of rendered content shows [spoiler]", () => {
@@ -520,11 +568,6 @@ describe("BB code spoilers", () => {
     expect(
       renderPlainText(md("[SPOILER]x secret[/SPOILER] [ISPOILER]y secret[/ISPOILER]")),
     ).not.toContain("secret");
-  });
-
-  test("more than 1000 spoilers are refused", () => {
-    expect(() => renderContent(ctx, author, ">!a!< ".repeat(1001))).toThrow(ValidationError);
-    expect(renderContent(ctx, author, ">!a!<\n\n".repeat(1000)).spoilers).toHaveLength(1000);
   });
 
   test("excerpts and search text mask every spoiler form", () => {
@@ -635,9 +678,9 @@ describe("BB code review limits", () => {
     );
     expect(nested.match(/<a /g)).toHaveLength(1);
     expect(nested).toContain("see inner and x@y.example</a>");
-    const markdown = md("[URL=https://a.example]see [inner](https://b.example) here[/URL]");
-    expect(markdown.match(/<a /g)).toHaveLength(1);
-    expect(markdown).toContain("see inner here</a>");
+    const bare = md("[URL=https://a.example]see https://b.example here[/URL]");
+    expect(bare.match(/<a /g)).toHaveLength(1);
+    expect(bare).toContain("see https://b.example here</a>");
     expect(
       md("[EMAIL=a@b.example]mail [URL=https://c.example]c[/URL][/EMAIL]").match(/<a /g),
     ).toHaveLength(1);
@@ -645,8 +688,6 @@ describe("BB code review limits", () => {
     for (const source of [
       "[URL=https://a.example]go [ISPOILER]SECRET[/ISPOILER][/URL]",
       "[EMAIL=a@b.example]go [ISPOILER]SECRET[/ISPOILER][/EMAIL]",
-      "[go >!SECRET!<](https://a.example)",
-      "[go [ISPOILER]SECRET[/ISPOILER]](https://a.example)",
     ]) {
       const spoiler = renderContent(ctx, actor, source);
       expect(spoiler.html).not.toContain("SECRET");

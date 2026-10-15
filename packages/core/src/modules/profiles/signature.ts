@@ -1,11 +1,10 @@
-import { Marked, type Token } from "marked";
 import sanitizeHtml from "sanitize-html";
 import type { Actor } from "../../actor";
 import type { Ctx } from "../../context";
 import type { SignatureFormat } from "../../contracts/settings";
 import { ForbiddenError, ValidationError } from "../../errors";
 import { markPublic } from "../../operation";
-import { renderMarkdown } from "../../render";
+import { countBlocks, renderBbCode } from "../../render";
 import { evaluate, loadFacts, type Rule } from "../../shared/criteria";
 import { ruleShortfall } from "../moderation/member-rules";
 
@@ -24,14 +23,6 @@ const STRUCTURE_MESSAGE =
 const refuse = (message: string): never => {
   throw new ValidationError(message, [{ path: ["signature"], message }]);
 };
-
-function hasRawHtml(tokens: Token[]): boolean {
-  return tokens.some((token) => {
-    const children = (token as { tokens?: Token[]; items?: Token[] }).tokens ?? [];
-    const items = (token as { items?: Token[] }).items ?? [];
-    return token.type === "html" || hasRawHtml(children) || hasRawHtml(items);
-  });
-}
 
 const LABEL: Record<SignatureFormat, string> = {
   bold: "bold text",
@@ -129,21 +120,17 @@ const plural = (count: number, noun: string) =>
   `${count} ${noun}${count === 1 || noun === "emoji" ? "" : "s"}`;
 
 /**
- * The HTML of a signature. The renderer turns raw HTML into literal text, so a signature that
- * holds some is refused from the Markdown's own tokens; everything else is judged on the
- * rendered HTML, read with the sanitiser's parser, so Markdown and BB code that draw the same
- * thing count the same. Quotes, tables, code blocks, spoilers, media and more than one paragraph
- * are never allowed; each other kind of formatting is refused unless the site lists it, and the
+ * The HTML of a signature, judged on the rendered HTML, read with the sanitiser's parser, so
+ * whichever tags draw the same thing count the same. Typed HTML is shown as text, like anything
+ * the renderer does not know. Quotes, tables, code blocks, spoilers, media and more than one
+ * paragraph are never allowed; each other kind of formatting is refused unless the site lists it, and the
  * links, pictures, emoji and text size are held to the site's limits (0 or -1: no limit). A
  * refusal says what is over. Mentions stay plain text (nothing resolves them here).
  */
 export function renderSignature(source: string, limits: SignatureLimits): string {
-  const blocks = new Marked({ gfm: true, breaks: true }).lexer(source);
-  if (hasRawHtml(blocks)) refuse(STRUCTURE_MESSAGE);
-  // One block: a blank line starts another (reference definitions draw nothing).
-  if (blocks.filter((block) => block.type !== "space" && block.type !== "def").length > 1)
-    refuse(STRUCTURE_MESSAGE);
-  const html = renderMarkdown(source);
+  // One block: a blank line starts another paragraph, and a heading, list or aligned block is one.
+  if (countBlocks(source) > 1) refuse(STRUCTURE_MESSAGE);
+  const html = renderBbCode(source);
   const elements: { kind: Kind; size: number }[] = [];
   let text = "";
   sanitizeHtml(html, {

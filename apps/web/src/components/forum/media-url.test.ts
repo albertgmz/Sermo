@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { resolveMedia } from "../../../../../packages/core/src/markdown/media";
+import { resolveMedia } from "../../../../../packages/core/src/bbcode/media";
 import { mediaTagOf } from "./media-url";
 
 const CASES: [string, string][] = [

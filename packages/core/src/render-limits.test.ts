@@ -5,7 +5,7 @@ import { ValidationError } from "./errors";
 import { nodesCreateOp, postsCreateOp, postsUpdateOp, threadsCreateOp } from "./modules/forums";
 import { readSiteSettings } from "./modules/settings";
 import { execute } from "./operation";
-import { MAX_BODY_LENGTH, renderContent, renderMarkdown, storeContentReferences } from "./render";
+import { MAX_BODY_LENGTH, renderBbCode, renderContent, storeContentReferences } from "./render";
 
 /** Returns what the function throws without echoing a large returned value on failure. */
 function thrown(run: () => unknown): unknown {
@@ -34,7 +34,7 @@ describe("canonical source length", () => {
       title: "Topic",
       body: "Original",
     });
-    const quote = `:::quote{post=${thread.post.id} author="Alice"}\nx\n:::\n`;
+    const quote = `[QUOTE="Alice, post: ${thread.post.id}, member: ${quotedUser.id}"]x[/QUOTE]\n`;
     const body = quote + "x".repeat(MAX_BODY_LENGTH - quote.length);
     const reply = await execute(ctx, postsCreateOp, author, {
       threadId: thread.thread.id,
@@ -61,18 +61,18 @@ describe("canonical source length", () => {
       ValidationError,
     );
     const fresh = renderContent(ctx, author, quote);
-    expect(fresh.source).toContain(`author="${renamed}"`);
+    expect(fresh.source).toContain(`[QUOTE="${renamed}, post: `);
     expect(fresh.html).toContain(`${renamed}</a> wrote:`);
 
     // Neither deleting nor forging an attribution can change a saved quote's label.
-    for (const attributes of ["", ' author="Forged"']) {
+    for (const option of ["", "Forged, "]) {
       const edited = renderContent(
         ctx,
         author,
-        `:::quote{post=${thread.post.id}${attributes}}\nchanged\n:::`,
+        `[QUOTE="${option}post: ${thread.post.id}"]changed[/QUOTE]`,
         options,
       );
-      expect(edited.source).toContain('author="Alice"');
+      expect(edited.source).toContain('[QUOTE="Alice, post: ');
       expect(edited.html).toContain("Alice</a> wrote:");
     }
   });
@@ -92,8 +92,8 @@ describe("canonical source length", () => {
       body: "Original",
     });
     const other = userActor(insertUser(ctx));
-    const quote = `:::quote{post=${thread.post.id}}\nx\n:::\n`;
-    const body = quote.repeat(Math.floor(6900 / quote.length));
+    const quote = `[QUOTE="post: ${thread.post.id}"]x[/QUOTE]\n`;
+    const body = quote.repeat(Math.floor(9_500 / quote.length));
     expect(body.length).toBeLessThanOrEqual(MAX_BODY_LENGTH);
     expect(thrown(() => renderContent(ctx, other, body))).toBeInstanceOf(ValidationError);
     // A body whose canonical form still fits is stored as before.
@@ -122,14 +122,11 @@ describe("canonical source length", () => {
       threadId: thread.thread.id,
       body: "Another post",
     });
-    const quote = `:::quote{post=${thread.post.id}}\nx\n:::`;
+    const quote = `[QUOTE="post: ${thread.post.id}"]x[/QUOTE]`;
     const source = [
-      `:::spoiler\n${quote}\n:::`,
-      `- ${quote.split("\n").join("\n  ")}`,
-      quote
-        .split("\n")
-        .map((line) => `> ${line}`)
-        .join("\n"),
+      `[SPOILER]${quote}[/SPOILER]`,
+      `[LIST][*]${quote}[/LIST]`,
+      `[QUOTE]${quote}[/QUOTE]`,
     ].join("\n\n");
     const reply = await execute(ctx, postsCreateOp, author, {
       threadId: thread.thread.id,
@@ -140,24 +137,26 @@ describe("canonical source length", () => {
         "SELECT body_source FROM post_bodies WHERE post_id = ?1",
       )
       .get(reply.id)!.body_source;
-    expect(saved.match(/author="Alice"/g)).toHaveLength(3);
+    expect(saved.match(/\[QUOTE="Alice, post: /g)).toHaveLength(3);
     ctx.sqlite
       .prepare("UPDATE users SET username = 'Mary Jane', username_key = 'mary jane' WHERE id = ?1")
       .run(quotedUser.id);
     const result = renderContent(
       ctx,
       author,
-      `${saved}\n\n:::quote{post=${newer.id} author="Fake"}\ny\n:::`,
+      `${saved}\n\n[QUOTE="Fake, post: ${newer.id}"]y[/QUOTE]`,
       {
         edit: { contentType: "post", contentId: reply.id, authorId: authorUser.id },
       },
     );
     expect(result.source.startsWith(saved)).toBe(true);
-    expect(result.source.match(/author="Alice"/g)).toHaveLength(3);
+    expect(result.source.match(/\[QUOTE="Alice, post: /g)).toHaveLength(3);
     // The quote inside the spoiler is in the spoiler's own HTML, not in the body's.
     const shown = [result.html, ...result.spoilers].join("");
     expect(shown.match(/Alice<\/a> wrote:/g)).toHaveLength(3);
-    expect(result.source).toContain(`:::quote{post=${newer.id} author="Mary Jane"}`);
+    expect(result.source).toContain(
+      `[QUOTE="Mary Jane, post: ${newer.id}, member: ${quotedUser.id}"]`,
+    );
     expect(result.html).toContain("Mary Jane</a> wrote:");
   });
 });
@@ -276,78 +275,69 @@ describe("mention limit on edit", () => {
 });
 
 describe("container depth", () => {
-  test("a 39-character spoiler around ten Markdown quotes remains valid", () => {
-    const source = `:::spoiler\n${"> ".repeat(10)}text\n:::`;
-    expect(source).toHaveLength(39);
-    const html = renderMarkdown(source);
-    expect(html.match(/<blockquote>/g)).toHaveLength(10);
+  const wrap = (tag: string, body: string, depth: number) =>
+    `${`[${tag}]`.repeat(depth)}${body}${`[/${tag}]`.repeat(depth)}`;
+
+  test("ten quotes inside a spoiler remain valid", () => {
+    const html = renderBbCode(wrap("SPOILER", wrap("QUOTE", "text", 10), 1));
+    expect(html.match(/<blockquote/g)).toHaveLength(10);
     expect(html.match(/<details /g)).toHaveLength(1);
   });
 
   test("quotes and spoilers have independent ten-level boundaries", () => {
-    const spoilers = (body: string, depth: number) =>
-      `${":::spoiler\n".repeat(depth)}${body}\n${":::\n".repeat(depth)}`;
-    const quotes = (body: string, depth: number) =>
-      `${":::quote{post=1}\n".repeat(depth)}${body}\n${":::\n".repeat(depth)}`;
-    for (const source of [spoilers(quotes("text", 10), 10), quotes(spoilers("text", 10), 10)]) {
-      const html = renderMarkdown(source);
-      expect(html.match(/<blockquote>/g)).toHaveLength(10);
+    for (const source of [
+      wrap("SPOILER", wrap("QUOTE", "text", 10), 10),
+      wrap("QUOTE", wrap("SPOILER", "text", 10), 10),
+    ]) {
+      const html = renderBbCode(source);
+      expect(html.match(/<blockquote/g)).toHaveLength(10);
       expect(html.match(/<details /g)).toHaveLength(10);
     }
-    for (const source of [spoilers("text", 11), quotes("text", 11)]) {
-      expect(thrown(() => renderMarkdown(source))).toBeInstanceOf(ValidationError);
+    for (const source of [wrap("SPOILER", "text", 11), wrap("QUOTE", "text", 11)]) {
+      expect(thrown(() => renderBbCode(source))).toBeInstanceOf(ValidationError);
     }
-    const insideQuotes = spoilers("text", 10)
-      .split("\n")
-      .map((line) => `${"> ".repeat(10)}${line}`)
-      .join("\n");
-    expect(renderMarkdown(insideQuotes).match(/<details /g)).toHaveLength(10);
-    expect(thrown(() => renderMarkdown(`:::spoiler\n${"> ".repeat(11)}text\n:::`))).toBeInstanceOf(
-      ValidationError,
-    );
-    expect(
-      renderMarkdown(`${spoilers("first", 10)}\n${spoilers("second", 10)}`).match(/<details /g),
-    ).toHaveLength(20);
+    const first = wrap("SPOILER", "first", 10);
+    const second = wrap("SPOILER", "second", 10);
+    expect(renderBbCode(`${first}\n${second}`).match(/<details /g)).toHaveLength(20);
   });
 
-  test.each(["- ", "1. "])(
-    "spoilers nested through %s list items stop at eleven levels",
-    (prefix) => {
+  test.each(["LEFT", "INDENT", "LIST"])(
+    "spoilers nested through %s stop at eleven levels",
+    (tag) => {
       const nested = (depth: number) => {
         let body = "text";
-        for (let i = 0; i < depth; i++) {
-          const indented = body.split("\n").join(`\n${" ".repeat(prefix.length)}`);
-          body = `:::spoiler\n${prefix}${indented}\n:::`;
-        }
+        for (let i = 0; i < depth; i++) body = `[SPOILER][${tag}]${body}[/${tag}][/SPOILER]`;
         return body;
       };
-      expect(renderMarkdown(nested(10)).match(/<details /g)).toHaveLength(10);
-      expect(thrown(() => renderMarkdown(nested(11)))).toBeInstanceOf(ValidationError);
+      expect(renderBbCode(nested(10)).match(/<details /g)).toHaveLength(10);
+      expect(thrown(() => renderBbCode(nested(11)))).toBeInstanceOf(ValidationError);
     },
   );
 
-  test("spoilers nested through lists count toward the depth limit like quotes", () => {
+  test("tags of any kind nest at most thirty deep", () => {
+    expect(renderBbCode(wrap("B", "x", 30))).toContain("x");
+    expect(thrown(() => renderBbCode(wrap("B", "x", 31)))).toBeInstanceOf(ValidationError);
     let content = "text";
-    for (let i = 0; i < 40; i++) content = `:::spoiler\n- ${content.split("\n").join("\n  ")}\n:::`;
+    for (let i = 0; i < 40; i++) content = `[SPOILER][LEFT]${content}[/LEFT][/SPOILER]`;
     expect(content.length).toBeLessThan(MAX_BODY_LENGTH);
-    expect(thrown(() => renderMarkdown(content))).toBeInstanceOf(ValidationError);
+    expect(thrown(() => renderBbCode(content))).toBeInstanceOf(ValidationError);
+  });
 
-    let shallow = "text";
-    for (let i = 0; i < 5; i++) shallow = `:::spoiler\n- ${shallow.split("\n").join("\n  ")}\n:::`;
-    expect(renderMarkdown(shallow)).toContain("<details");
+  test("unclosed tags do not count toward the depth limit", () => {
+    expect(renderBbCode("[QUOTE]".repeat(40) + "text")).toContain("[QUOTE]");
   });
 });
 
-describe("renderMarkdown maxLength", () => {
+describe("renderBbCode maxLength", () => {
   test("the default limit is unchanged and maxLength raises it", () => {
     const text = "word ".repeat(3_000).slice(0, MAX_BODY_LENGTH + 1);
-    expect(thrown(() => renderMarkdown(text))).toBeInstanceOf(ValidationError);
-    expect(renderMarkdown(text, { maxLength: MAX_BODY_LENGTH + 1 })).toContain("word");
-    expect(renderMarkdown("x".repeat(MAX_BODY_LENGTH))).toContain("x");
+    expect(thrown(() => renderBbCode(text))).toBeInstanceOf(ValidationError);
+    expect(renderBbCode(text, { maxLength: MAX_BODY_LENGTH + 1 })).toContain("word");
+    expect(renderBbCode("x".repeat(MAX_BODY_LENGTH))).toContain("x");
   });
 
   test("a raised limit is still a limit", () => {
-    const error = thrown(() => renderMarkdown("x".repeat(101), { maxLength: 100 }));
+    const error = thrown(() => renderBbCode("x".repeat(101), { maxLength: 100 }));
     expect(error).toBeInstanceOf(ValidationError);
   });
 });
