@@ -2395,3 +2395,26 @@ every main page). Avatars and pictures in posts load lazily, except the header, 
 account avatars, which load at once. Fonts were already Latin-only through `next/font`, and there
 is no animation library. Known limits: Markdown pictures and the site logo have no stored size, so
 they can shift the page as they load.
+
+**IP log, device detection and View IPs (item 8a).** One `ip_log` row (migration `0041`) is
+written for every sign-in, registration, failed sign-in on an existing account, thread, post,
+conversation start and reply, profile post, comment and report. Each row holds the member, the
+address, the action, the content reference, the parsed device and the time. Writes go in the same
+transaction as the action; sign-in and registration go through Better Auth hooks, and a logging
+failure never fails the sign-in. The address is the trusted `x-sermo-client-ip` that the api
+middleware strips and re-sets, not Better Auth's masked session address, normalised with
+`ipaddr.js` (IPv4-mapped IPv6 becomes IPv4; IPv6 is grouped by /64 for "members sharing an
+address"). This is only safe while the backend is reachable solely through the proxy. Guests'
+addresses are never stored. Devices come from `node-device-detector`, parsed once per user agent
+behind a bounded cache; the agent is cut to 300 characters. It replaces the web's own parser:
+sessions show the stored device. Thread views skip bots with the detector's cheap bot check, not
+a full parse. Staff read addresses with the new `member.viewIps` permission (administrators by
+default) through `users.ips`, `ips.members` and `ips.content`, on one screen
+`/moderation/ips` plus an address line on report and approval pages. The permission follows the
+member hierarchy like `users.adminSessions`: a member of equal or higher rank is refused, so an
+administrator cannot see a fellow administrator's addresses. `ips.content` answers only for content
+the reader may see. Erasing an account deletes its rows. Known limits: the views are not written
+to the moderator log; failed sign-in rows keep strangers' addresses under the targeted account,
+and nothing is deleted yet (retention, a `created_at` index and the privacy text are item 8b);
+`ips.members` can return a short page with more behind it; the detector costs about 90 ms and
+57 MB at backend start.
