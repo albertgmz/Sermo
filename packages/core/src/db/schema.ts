@@ -1987,12 +1987,12 @@ export const forumTabs = sqliteTable(
   (t) => [index("forum_tabs_position").on(t.position, t.id)],
 );
 
-export const RANKING_KINDS = ["mostReplied", "mostReacted", "mostViewed", "feedTop"] as const;
+export const RANKING_KINDS = ["mostReplied", "mostReacted", "mostViewed", "hot"] as const;
 
 /**
  * Rankings a background job recomputes, kept PER FORUM: the best threads of each forum by
- * replies, by reactions on the opening post and by views (target = thread id), and its most
- * reacted-to posts of the last week (target = post id). A reader merges the rankings of the
+ * replies, by reactions on the opening post, by views and by hot score (target = thread id;
+ * the hot score is stored multiplied by a million). A reader merges the rankings of the
  * forums the viewer can see, so a forum the viewer cannot see neither shows up nor pushes
  * anything out.
  */

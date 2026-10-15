@@ -16,12 +16,36 @@ const RANKING_WINDOW_DAYS = 30;
  * reading (threads deleted, hidden or moved since the refresh), so the job stores twice that.
  */
 const THREAD_RANKING_STORED = 40;
-/** The feed's top list: the most reacted-to posts of the last seven days. */
-const FEED_TOP_DAYS = 7;
-/** The most posts a feed shows. */
-export const FEED_TOP_SIZE = 50;
-/** Posts the top list keeps per forum: twice what a feed shows, for the same reason. */
-const FEED_TOP_STORED = 100;
+/** The most threads the hot feed shows. */
+export const FEED_HOT_SIZE = 50;
+/** Threads the hot list keeps per forum: twice what a feed shows, for the same reason. */
+const FEED_HOT_STORED = 100;
+
+/*
+ * The hot score of a thread: points / (age_hours + HOT_AGE_OFFSET_HOURS) ^ HOT_GRAVITY, where the
+ * points are the thread's replies, the reactions on its opening post and its views, and the age is
+ * counted from the thread's creation. A thread under the activity floor scores nothing.
+ */
+/** Points a reply is worth. */
+export const HOT_REPLY_POINTS = 4;
+/** Points a reaction on the opening post is worth. */
+export const HOT_REACTION_POINTS = 3;
+/** Points a view is worth: one point per ten views, so reading alone cannot outweigh talking. */
+export const HOT_VIEW_POINTS = 0.1;
+/**
+ * How fast the score falls with age. A forum moves slower than a news feed, so this is gentle:
+ * the same points score about 1/14 as much at a day old as at an hour old, and 1/128 at a week.
+ */
+export const HOT_GRAVITY = 1.2;
+/** Added to the age so a thread's first minutes do not divide by almost nothing. */
+export const HOT_AGE_OFFSET_HOURS = 2;
+/** A thread is not hot with fewer replies than this ... */
+export const HOT_MIN_REPLIES = 3;
+/** ... unless its opening post has at least this many reactions. */
+export const HOT_MIN_REACTIONS = 3;
+/** The rankings table keeps integers: the score is stored multiplied by this. */
+export const HOT_SCORE_SCALE = 1_000_000;
+const HOUR = 3_600_000;
 /** Rows one slice of the recomputation reads before it yields to the event loop. */
 const SLICE = 2000;
 
@@ -43,17 +67,9 @@ export const rankingSql = {
     "SELECT node_id, position, target_id, score FROM rankings WHERE kind = ?1 AND node_id IN (SELECT value FROM json_each(?2))",
   /** Recomputation: one slice of the recently active visible threads, newest activity first. */
   activeThreads:
-    "SELECT id, node_id, reply_count, view_count, first_post_id, last_post_at FROM threads WHERE state = 'visible' AND last_post_at >= ?1 AND (last_post_at, id) < (?2, ?3) ORDER BY last_post_at DESC, id DESC LIMIT ?4",
+    "SELECT id, node_id, reply_count, view_count, first_post_id, created_at, last_post_at FROM threads WHERE state = 'visible' AND last_post_at >= ?1 AND (last_post_at, id) < (?2, ?3) ORDER BY last_post_at DESC, id DESC LIMIT ?4",
   reactionCounts:
     "SELECT id, reaction_counts FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
-  /** The first post at or after an id: the probe of the search for the oldest post of the week. */
-  postAtOrAfter: "SELECT id, created_at FROM posts WHERE id >= ?1 ORDER BY id LIMIT 1",
-  lastPostId: "SELECT max(id) AS id FROM posts",
-  /** One slice of the posts of the week, by id range. */
-  recentPosts:
-    "SELECT id, thread_id, reaction_counts FROM posts WHERE id >= ?1 AND id < ?2 AND state = 'visible' AND created_at >= ?3",
-  visibleThreads:
-    "SELECT id, node_id FROM threads WHERE state = 'visible' AND id IN (SELECT value FROM json_each(?1))",
   replace: "DELETE FROM rankings WHERE kind = ?1",
   insert:
     "INSERT INTO rankings (kind, node_id, position, target_id, score) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -97,14 +113,36 @@ export function reactionTotal(json: string): number {
   return total;
 }
 
-type Kind = "mostReplied" | "mostViewed" | "mostReacted" | "feedTop";
+/**
+ * The hot score of a thread, multiplied by `HOT_SCORE_SCALE` and rounded: 0 when the thread is
+ * under the activity floor (fewer than `HOT_MIN_REPLIES` replies and fewer than
+ * `HOT_MIN_REACTIONS` reactions on its opening post), and so never listed.
+ */
+export function hotScore(thread: {
+  replies: number;
+  reactions: number;
+  views: number;
+  createdAt: number;
+  now: number;
+}): number {
+  if (thread.replies < HOT_MIN_REPLIES && thread.reactions < HOT_MIN_REACTIONS) return 0;
+  const points =
+    thread.replies * HOT_REPLY_POINTS +
+    thread.reactions * HOT_REACTION_POINTS +
+    thread.views * HOT_VIEW_POINTS;
+  const ageHours = Math.max(0, thread.now - thread.createdAt) / HOUR;
+  return Math.round((points / (ageHours + HOT_AGE_OFFSET_HOURS) ** HOT_GRAVITY) * HOT_SCORE_SCALE);
+}
+
+type Kind = "mostReplied" | "mostViewed" | "mostReacted" | "hot";
 
 /**
  * Recomputes the rankings in slices: each slice reads a bounded index range, so the event loop
  * gets control between slices when the job drives it (`yield` marks the boundaries). Each forum
  * keeps its own best entries, grouped in memory. The only writes are one short transaction per
  * kind at the end. This job and nothing else scans threads by activity or totals reaction
- * counts; readers only read `rankings`.
+ * counts; readers only read `rankings`. The hot list is scored from the same slices as the
+ * other thread rankings (target = thread id, score = `hotScore`).
  */
 function* recompute(ctx: Ctx): Generator<void, void, void> {
   const now = ctx.now();
@@ -113,7 +151,7 @@ function* recompute(ctx: Ctx): Generator<void, void, void> {
     mostReplied: new PerForum(THREAD_RANKING_STORED),
     mostViewed: new PerForum(THREAD_RANKING_STORED),
     mostReacted: new PerForum(THREAD_RANKING_STORED),
-    feedTop: new PerForum(FEED_TOP_STORED),
+    hot: new PerForum(FEED_HOT_STORED),
   };
   const threadSlice = prepared(ctx, "feed.rankActive", () =>
     ctx.sqlite.prepare<
@@ -123,6 +161,7 @@ function* recompute(ctx: Ctx): Generator<void, void, void> {
         reply_count: number;
         view_count: number;
         first_post_id: number | null;
+        created_at: number;
         last_post_at: number;
       },
       [number, number, number, number]
@@ -156,61 +195,22 @@ function* recompute(ctx: Ctx): Generator<void, void, void> {
         score: firstPosts.get(row.first_post_id ?? 0) ?? 0,
       })),
     );
+    results.hot.addAll(
+      rows.flatMap((row) => {
+        const score = hotScore({
+          replies: row.reply_count,
+          reactions: firstPosts.get(row.first_post_id ?? 0) ?? 0,
+          views: row.view_count,
+          createdAt: row.created_at,
+          now,
+        });
+        return score > 0 ? [{ nodeId: row.node_id, id: row.id, score }] : [];
+      }),
+    );
     lastAt = rows.at(-1)!.last_post_at;
     lastId = rows.at(-1)!.id;
     yield;
     if (rows.length < SLICE) break;
-  }
-
-  // The posts of the last week. Post ids grow with time, so the week is the id range from the
-  // oldest post created inside it: found by bisecting on the primary key (about 20 probes),
-  // then read in id slices. A post created in the week with a lower id than an older post
-  // (an import) would be missed; posts written by the application never are.
-  const weekStart = now - FEED_TOP_DAYS * DAY;
-  const probe = prepared(ctx, "feed.rankProbe", () =>
-    ctx.sqlite.prepare<{ id: number; created_at: number }, [number]>(rankingSql.postAtOrAfter),
-  );
-  const top = ctx.sqlite.prepare<{ id: number | null }, []>(rankingSql.lastPostId).get()?.id ?? 0;
-  let low = 1;
-  let high = top + 1;
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    const found = probe.get(middle);
-    if (found && found.created_at >= weekStart) high = middle;
-    else low = found ? Math.min(found.id + 1, high) : high;
-  }
-  const slicePosts = prepared(ctx, "feed.rankRecent", () =>
-    ctx.sqlite.prepare<
-      { id: number; thread_id: number; reaction_counts: string },
-      [number, number, number]
-    >(rankingSql.recentPosts),
-  );
-  const visibleThreads = prepared(ctx, "feed.rankVisibleThreads", () =>
-    ctx.sqlite.prepare<{ id: number; node_id: number }, [string]>(rankingSql.visibleThreads),
-  );
-  for (let from = low; from <= top; from += SLICE) {
-    const positive = slicePosts
-      .all(from, from + SLICE, weekStart)
-      .map((row) => ({
-        id: row.id,
-        thread_id: row.thread_id,
-        score: reactionTotal(row.reaction_counts),
-      }))
-      .filter((row) => row.score > 0);
-    if (positive.length > 0) {
-      const live = new Map(
-        visibleThreads
-          .all(JSON.stringify([...new Set(positive.map((row) => row.thread_id))]))
-          .map((row) => [row.id, row.node_id] as const),
-      );
-      results.feedTop.addAll(
-        positive.flatMap((row) => {
-          const nodeId = live.get(row.thread_id);
-          return nodeId === undefined ? [] : [{ nodeId, id: row.id, score: row.score }];
-        }),
-      );
-    }
-    yield;
   }
 
   const clear = prepared(ctx, "feed.rankClear", () =>

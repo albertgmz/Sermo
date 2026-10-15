@@ -36,18 +36,16 @@ export const scenarios: Scenario[] = [
       env.call("feed.list", env.actors.user(followingUserId), { scope: "following", limit: 20 }),
   },
   {
-    name: "feed.list top",
+    name: "feed.list hot",
     kind: "read",
     setup(env) {
-      // The posts spread over their forums, best first within each forum.
-      env.ctx.sqlite.exec("DELETE FROM rankings WHERE kind = 'feedTop'");
-      env.ctx.sqlite
-        .prepare(
-          "INSERT INTO rankings (kind, node_id, position, target_id, score) SELECT 'feedTop', node_id, row_number() OVER (PARTITION BY node_id ORDER BY score DESC, id) - 1, id, score FROM (SELECT p.id AS id, t.node_id AS node_id, 1000 - j.key AS score FROM json_each(?1) AS j JOIN posts p ON p.id = j.value JOIN threads t ON t.id = p.thread_id)",
-        )
-        .run(JSON.stringify(env.meta.postAuthors.slice(0, 200).map(([postId]) => postId)));
+      // The busiest threads spread over their forums, best first within each forum.
+      env.ctx.sqlite.exec("DELETE FROM rankings WHERE kind = 'hot'");
+      env.ctx.sqlite.exec(
+        "INSERT INTO rankings (kind, node_id, position, target_id, score) SELECT 'hot', node_id, rank - 1, id, reply_count FROM (SELECT id, node_id, reply_count, row_number() OVER (PARTITION BY node_id ORDER BY reply_count DESC, id DESC) AS rank FROM threads WHERE state = 'visible' AND first_post_id IS NOT NULL AND reply_count > 0) WHERE rank <= 100",
+      );
     },
-    run: (env, i) => env.call("feed.list", env.actors.member(i), { scope: "top" }),
+    run: (env, i) => env.call("feed.list", env.actors.member(i), { scope: "hot" }),
   },
   {
     name: "threads.ranked latestPosts",

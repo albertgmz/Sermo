@@ -140,12 +140,13 @@ describe("feed.newCount latest", () => {
     expect((await count(w, tokenActor(w.carolUser), since)).count).toBe(1);
   });
 
-  test("a time that is not an ISO timestamp, or the top scope, is refused", async () => {
+  test("a time that is not an ISO timestamp, or the hot scope (or its old name), is refused", async () => {
     const w = world();
     for (const input of [
       { since: "yesterday" },
       { since: 12345 },
       {},
+      { since: EPOCH, scope: "hot" },
       { since: EPOCH, scope: "top" },
     ])
       await expect(w.call("feed.newCount", w.carol, input)).rejects.toBeInstanceOf(ValidationError);

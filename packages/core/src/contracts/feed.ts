@@ -52,7 +52,7 @@ export const FeedItem = z
   ])
   .meta({ id: "FeedItem" });
 
-export const FEED_SCOPES = ["latest", "following", "top"] as const;
+export const FEED_SCOPES = ["latest", "following", "hot"] as const;
 
 export const feedList = defineContract({
   name: "feed.list",
@@ -68,14 +68,17 @@ export const feedList = defineContract({
     "post one of them wrote in it, once per answer; a later page may list the same thread " +
     "again, with an older post of a followed member. A cursor belongs to the scope that " +
     "issued it. " +
-    "`top` is the most reacted-to thread posts of the last seven days among the forums the " +
-    "viewer can see, at most 50, recomputed every few minutes and not paginated (`nextCursor` is " +
-    "always null); it ranks posts, so a thread can appear there more than once. Content " +
-    "hidden since the last refresh is left out and replaced by the next best, as far as the " +
-    "stored ranking reaches. Content of ignored members is left out. A thread entry says " +
-    "whether the viewer may reply to it (`canReply`).",
+    "`hot` is the threads that are busy right now among the forums the viewer can see, at most " +
+    "50, each as its opening post, best first; it is recomputed every five minutes and not " +
+    "paginated (`nextCursor` is always null). A thread scores its replies, the reactions on its " +
+    "opening post and its views, divided by its age (a gravity formula), and is not listed " +
+    "before it has 3 replies or 3 reactions on its opening post. Threads hidden since the last " +
+    "refresh are left out and replaced by the next best, as far as the stored ranking " +
+    "reaches. Threads of ignored members are left out. `top` is the former name of `hot` and " +
+    "is accepted as an alias for one release. A thread entry says whether the viewer may " +
+    "reply to it (`canReply`).",
   kind: "read",
-  input: z.object({ scope: z.enum(FEED_SCOPES).default("latest"), ...pageInput }),
+  input: z.object({ scope: z.enum([...FEED_SCOPES, "top"]).default("latest"), ...pageInput }),
   output: Page(FeedItem),
 });
 
@@ -84,7 +87,7 @@ export const feedNewCount = defineContract({
   summary:
     "How many entries of the feed are newer than `since`, for a client that polls to offer " +
     '"N new posts". `since` is the `createdAt` of the newest entry the client shows. ' +
-    "`scope` is `latest` or `following` (which requires an account); `top` is recomputed " +
+    "`scope` is `latest` or `following` (which requires an account); `hot` is recomputed " +
     "every few minutes and has nothing to poll. The entries are those `feed.list` would put " +
     "above `since` for this viewer, with the same filters (forums the viewer may open, wall " +
     "posts they may see, ignored members), counted through the same walks but never built: a " +

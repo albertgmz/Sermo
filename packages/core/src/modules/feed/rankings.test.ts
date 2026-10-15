@@ -4,9 +4,22 @@ import { GUEST } from "../../actor";
 import { runDueJobs } from "../jobs/queue";
 import { runMinuteTasks } from "../jobs/scheduler";
 import { fillThreads, world } from "./fixtures.test";
-import { rankingSql, reactionTotal, refreshRankings, registerRankingJobs } from "./rankings";
+import {
+  HOT_AGE_OFFSET_HOURS,
+  HOT_GRAVITY,
+  HOT_REACTION_POINTS,
+  HOT_REPLY_POINTS,
+  HOT_SCORE_SCALE,
+  HOT_VIEW_POINTS,
+  hotScore,
+  rankingSql,
+  reactionTotal,
+  refreshRankings,
+  registerRankingJobs,
+} from "./rankings";
 
 const DAY = 86_400_000;
+const HOUR = 3_600_000;
 const ids = (page: { items: { id: number }[] }) => page.items.map((thread) => thread.id);
 const stored = (w: ReturnType<typeof world>, kind: string) =>
   w.ctx.sqlite
@@ -95,56 +108,114 @@ describe("the ranking job", () => {
     expect(replied.some((row) => row.node_id === w.secret.id)).toBe(false);
   });
 
-  test("feedTop: the week's most reacted-to visible posts, positive totals only, best first", async () => {
-    const w = world();
-    const t = await w.thread(w.alice, w.open.id, "Week");
-    const p1 = await w.reply(w.bob, t.thread.id, "low");
-    const p2 = await w.reply(w.bob, t.thread.id, "high");
-    const p3 = await w.reply(w.bob, t.thread.id, "none");
-    const hidden = await w.thread(w.admin, w.secret.id, "Hidden forum");
-    const dead = await w.thread(w.alice, w.open.id, "Dead");
-    await w.call("threads.delete", w.mod, { threadId: dead.thread.id, reason: "x", notify: false });
-    const removed = await w.reply(w.bob, t.thread.id, "removed");
-    await w.call("posts.delete", w.mod, { postId: removed.id, reason: "x", notify: false });
-    const set = (id: number, counts: string) =>
-      w.ctx.sqlite.prepare("UPDATE posts SET reaction_counts = ?1 WHERE id = ?2").run(counts, id);
-    set(p1.id, '{"1":1}');
-    set(p2.id, '{"1":2,"2":2}');
-    set(p3.id, "{}");
-    set(hidden.post.id, '{"1":50}');
-    set(dead.post.id, '{"1":50}');
-    set(removed.id, '{"1":50}');
-    // Older than a week: not in the window however well it did.
-    const oldReply = await w.reply(w.bob, t.thread.id, "old");
-    set(oldReply.id, '{"1":99}');
+  /** Sets the numbers the hot score reads: replies, views, reactions on the opening post, age. */
+  function heat(
+    w: ReturnType<typeof world>,
+    t: { thread: { id: number }; post: { id: number } },
+    n: { replies: number; views: number; reactions: number; hours: number },
+  ) {
     w.ctx.sqlite
-      .prepare("UPDATE posts SET created_at = ?1 WHERE id = ?2")
-      .run(w.ctx.now() - 8 * DAY, oldReply.id);
+      .prepare(
+        "UPDATE threads SET reply_count = ?1, view_count = ?2, created_at = ?3, last_post_at = ?4 WHERE id = ?5",
+      )
+      .run(n.replies, n.views, w.ctx.now() - n.hours * HOUR, w.ctx.now(), t.thread.id);
+    w.ctx.sqlite
+      .prepare("UPDATE posts SET reaction_counts = ?1 WHERE id = ?2")
+      .run(n.reactions ? `{"1":${n.reactions}}` : "{}", t.post.id);
+  }
+  const scoreOf = (w: ReturnType<typeof world>, id: number) =>
+    stored(w, "hot").find((row) => row.target_id === id)?.score;
+
+  test("hot: a busy new thread beats a busier old one, and a quiet thread is not listed", async () => {
+    const w = world();
+    const old = await w.thread(w.alice, w.open.id, "Old and busy");
+    const fresh = await w.thread(w.alice, w.open.id, "New and busy");
+    const quiet = await w.thread(w.alice, w.open.id, "Quiet");
+    heat(w, old, { replies: 40, reactions: 30, views: 2000, hours: 120 });
+    heat(w, fresh, { replies: 12, reactions: 10, views: 400, hours: 6 });
+    heat(w, quiet, { replies: 2, reactions: 1, views: 50, hours: 10 });
     refreshRankings(w.ctx);
-    expect(stored(w, "feedTop").map((row) => [row.target_id, row.score])).toEqual([
-      [hidden.post.id, 50],
-      [p2.id, 4],
-      [p1.id, 1],
+    // 450 points / (120 + 2)^1.2 = 1.41 against 118 points / (6 + 2)^1.2 = 9.73; the quiet
+    // thread would make 16 / (10 + 2)^1.2 = 0.81 but has neither 3 replies nor 3 reactions.
+    expect(stored(w, "hot").map((row) => row.target_id)).toEqual([fresh.thread.id, old.thread.id]);
+    expect(scoreOf(w, fresh.thread.id)! / HOT_SCORE_SCALE).toBeCloseTo(9.73, 2);
+    expect(scoreOf(w, old.thread.id)! / HOT_SCORE_SCALE).toBeCloseTo(1.41, 2);
+    expect(scoreOf(w, quiet.thread.id)).toBeUndefined();
+  });
+
+  test("hot: the same activity scores less as the thread ages", () => {
+    const at = (hours: number) =>
+      hotScore({ replies: 10, reactions: 5, views: 100, createdAt: 0, now: hours * HOUR });
+    expect(at(1)).toBeGreaterThan(at(6));
+    expect(at(6)).toBeGreaterThan(at(24));
+    expect(at(24)).toBeGreaterThan(at(24 * 7));
+    // A thread dated after now (a clock step back) counts as brand new, not as negative age.
+    const input = { replies: 10, reactions: 5, views: 100 };
+    expect(hotScore({ ...input, createdAt: 5 * HOUR, now: 0 })).toBe(
+      hotScore({ ...input, createdAt: 0, now: 0 }),
+    );
+  });
+
+  test("hot: the points are replies, reactions on the opening post and views", () => {
+    const base = { views: 0, createdAt: 0, now: 0 };
+    const unit = HOT_SCORE_SCALE / HOT_AGE_OFFSET_HOURS ** HOT_GRAVITY;
+    expect(hotScore({ ...base, replies: 3, reactions: 0 })).toBe(
+      Math.round(3 * HOT_REPLY_POINTS * unit),
+    );
+    expect(hotScore({ ...base, replies: 0, reactions: 3 })).toBe(
+      Math.round(3 * HOT_REACTION_POINTS * unit),
+    );
+    expect(hotScore({ ...base, replies: 3, reactions: 0, views: 100 })).toBe(
+      Math.round((3 * HOT_REPLY_POINTS + 100 * HOT_VIEW_POINTS) * unit),
+    );
+  });
+
+  test("hot: the activity floor is 3 replies or 3 reactions, however many views", async () => {
+    const w = world();
+    const two = await w.thread(w.alice, w.open.id, "Two replies");
+    const three = await w.thread(w.alice, w.open.id, "Three replies");
+    const reacted2 = await w.thread(w.alice, w.open.id, "Two reactions");
+    const reacted3 = await w.thread(w.alice, w.open.id, "Three reactions");
+    const viewed = await w.thread(w.alice, w.open.id, "Only views");
+    const brandNew = await w.thread(w.alice, w.open.id, "Brand new");
+    heat(w, two, { replies: 2, reactions: 2, views: 0, hours: 1 });
+    heat(w, three, { replies: 3, reactions: 0, views: 0, hours: 1 });
+    heat(w, reacted2, { replies: 0, reactions: 2, views: 0, hours: 1 });
+    heat(w, reacted3, { replies: 0, reactions: 3, views: 0, hours: 1 });
+    heat(w, viewed, { replies: 0, reactions: 0, views: 100_000, hours: 1 });
+    heat(w, brandNew, { replies: 0, reactions: 0, views: 0, hours: 0 });
+    refreshRankings(w.ctx);
+    expect(stored(w, "hot").map((row) => row.target_id)).toEqual([
+      three.thread.id,
+      reacted3.thread.id,
     ]);
   });
 
-  test("feedTop keeps the 100 best of each forum", () => {
+  test("hot: threads that are not visible or quiet for 30 days are not ranked", async () => {
     const w = world();
-    const thread = w.ctx.sqlite
-      .prepare<{ id: number }, [number, number, number]>(
-        "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id) VALUES (?1, ?2, 't', 'visible', ?3, ?3, ?2) RETURNING id",
-      )
-      .get(w.open.id, w.aliceUser.id, w.ctx.now())!;
-    const insert = w.ctx.sqlite.prepare(
-      "INSERT INTO posts (thread_id, user_id, position, state, created_at, reaction_counts) VALUES (?1, ?2, ?3, 'visible', ?4, ?5)",
-    );
-    for (let i = 0; i < 130; i++)
-      insert.run(thread.id, w.aliceUser.id, i, w.ctx.now(), `{"1":${i + 1}}`);
+    const live = await w.thread(w.alice, w.open.id, "Live");
+    const gone = await w.thread(w.alice, w.open.id, "Gone");
+    const stale = await w.thread(w.alice, w.open.id, "Stale");
+    for (const t of [live, gone, stale])
+      heat(w, t, { replies: 5, reactions: 0, views: 0, hours: 5 });
+    w.ctx.sqlite
+      .prepare("UPDATE threads SET last_post_at = ?1 WHERE id = ?2")
+      .run(w.ctx.now() - 31 * DAY, stale.thread.id);
+    await w.call("threads.delete", w.mod, { threadId: gone.thread.id, reason: "x", notify: false });
     refreshRankings(w.ctx);
-    const top = stored(w, "feedTop");
-    expect(top).toHaveLength(100);
-    expect(top[0]!.score).toBe(130);
-    expect(top.at(-1)!.score).toBe(31);
+    expect(stored(w, "hot").map((row) => row.target_id)).toEqual([live.thread.id]);
+  });
+
+  test("hot keeps the 100 best threads of each forum", () => {
+    const w = world();
+    const ids = fillThreads(w.ctx, w.open.id, w.aliceUser.id, 130, {
+      replies: (i) => i + 3,
+    });
+    refreshRankings(w.ctx);
+    const hot = stored(w, "hot");
+    expect(hot).toHaveLength(100);
+    expect(hot[0]!.target_id).toBe(ids.at(-1)!);
+    expect(hot.map((row) => row.position).sort((a, b) => a - b)).toEqual([...hot.keys()]);
   });
 
   test("with no posts or threads the rankings are empty and the job still runs", () => {
@@ -211,18 +282,14 @@ describe("the ranking job", () => {
       [good.thread.id, 2],
       [bad.thread.id, 0],
     ]);
-    expect(stored(w, "feedTop").map((row) => row.target_id)).toEqual([good.post.id]);
+    expect(stored(w, "hot")).toEqual([]);
   });
 
   test("every query of the job is bounded by an index", () => {
     const w = world();
     expectNoTableScan(w.ctx, rankingSql.activeThreads, [0, 100, 100, 2000]);
     expectNoTableScan(w.ctx, rankingSql.reactionCounts, ["[1]"]);
-    expectNoTableScan(w.ctx, rankingSql.postAtOrAfter, [1]);
-    expectNoTableScan(w.ctx, rankingSql.lastPostId);
-    expectNoTableScan(w.ctx, rankingSql.recentPosts, [1, 2001, 0]);
-    expectNoTableScan(w.ctx, rankingSql.visibleThreads, ["[1]"]);
-    expectNoTableScan(w.ctx, rankingSql.replace, ["feedTop"]);
+    expectNoTableScan(w.ctx, rankingSql.replace, ["hot"]);
     expectNoTableScan(w.ctx, rankingSql.stored, ["mostReplied", "[1,2]"]);
   });
 });

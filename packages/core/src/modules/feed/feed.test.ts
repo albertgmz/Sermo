@@ -213,12 +213,12 @@ describe("feed.list latest", () => {
       .prepare("UPDATE posts SET reaction_counts = '{\"1\":5}' WHERE thread_id = ?1")
       .run(deep.thread.id);
     refreshRankings(w.ctx);
-    for (const scope of ["latest", "top"])
+    for (const scope of ["latest", "hot"])
       expect((await w.call("feed.list", w.bob, { scope })).items.map(describeItem)).not.toContain(
         "thread:Deep body",
       );
     expect(
-      (await w.call("feed.list", w.admin, { scope: "top" })).items.map(describeItem),
+      (await w.call("feed.list", w.admin, { scope: "hot" })).items.map(describeItem),
     ).toContain("thread:Deep body");
     expect((await w.call("feed.list", w.bob, {})).items.map(describeItem)).toEqual([
       "thread:Open body",
@@ -541,165 +541,185 @@ describe("feed.list following", () => {
   });
 });
 
-describe("feed.list top", () => {
-  test("lists the ranked posts the viewer may open, in ranking order, ignoring the cursor", async () => {
-    const w = world();
-    const a = await w.thread(w.alice, w.open.id, "A");
-    const b = await w.reply(w.bob, a.thread.id, "B reply");
-    const secret = await w.thread(w.admin, w.secret.id, "S");
-    const set = (id: number, counts: string) =>
-      w.ctx.sqlite.prepare("UPDATE posts SET reaction_counts = ?1 WHERE id = ?2").run(counts, id);
-    set(a.post.id, '{"1":2}');
-    set(b.id, '{"1":3,"2":1}');
-    set(secret.post.id, '{"1":9}');
-    refreshRankings(w.ctx);
-    const guest = await w.call("feed.list", GUEST, { scope: "top", cursor: "ignored", limit: 1 });
-    expect(guest.nextCursor).toBeNull();
-    expect(guest.items.map(describeItem)).toEqual(["post:B reply", "thread:A body"]);
-    expect((await w.call("feed.list", w.admin, { scope: "top" })).items.map(describeItem)).toEqual([
-      "thread:S body",
-      "post:B reply",
-      "thread:A body",
-    ]);
-    // An ignored author is left out; a post removed since the last refresh is too.
-    await w.call("users.ignore", w.alice, { userId: w.bobUser.id });
-    expect((await w.call("feed.list", w.alice, { scope: "top" })).items.map(describeItem)).toEqual([
-      "thread:A body",
-    ]);
-    await w.call("posts.delete", w.mod, { postId: b.id, reason: "x", notify: false });
-    expect((await w.call("feed.list", GUEST, { scope: "top" })).items.map(describeItem)).toEqual([
-      "thread:A body",
-    ]);
-  });
-
-  test("better posts in a forum the viewer cannot see do not push out the ones they can", async () => {
-    const w = world();
-    const open = await w.thread(w.alice, w.open.id, "Open");
-    const hidden = await w.thread(w.admin, w.secret.id, "Hidden");
-    w.ctx.sqlite
-      .prepare("UPDATE posts SET reaction_counts = '{\"1\":1}' WHERE id = ?1")
-      .run(open.post.id);
-    const insert = w.ctx.sqlite.prepare<{ id: number }, [number, number, number, number, string]>(
-      "INSERT INTO posts (thread_id, user_id, position, state, created_at, reaction_counts) VALUES (?1, ?2, ?3, 'visible', ?4, ?5) RETURNING id",
+describe("feed.list hot", () => {
+  /**
+   * Adds visible threads with an opening post and a body to a forum, one per reply count (the
+   * count the hot score reads), created now; returns their ids and opening post ids, in order.
+   */
+  function addHot(w: World, nodeId: number, userId: number, replies: number[]) {
+    const thread = w.ctx.sqlite.prepare<{ id: number }, [number, number, number, number]>(
+      "INSERT INTO threads (node_id, user_id, title, state, created_at, reply_count, last_post_at, last_poster_id) VALUES (?1, ?2, 'filler', 'visible', ?3, ?4, ?3, ?2) RETURNING id",
+    );
+    const post = w.ctx.sqlite.prepare<{ id: number }, [number, number, number]>(
+      "INSERT INTO posts (thread_id, user_id, position, state, created_at) VALUES (?1, ?2, 0, 'visible', ?3) RETURNING id",
     );
     const body = w.ctx.sqlite.prepare(
       "INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, 'x', '<p>x</p>')",
     );
-    for (let i = 1; i <= 200; i++)
-      body.run(insert.get(hidden.thread.id, w.aliceUser.id, i, w.ctx.now(), `{"1":${i + 10}}`)!.id);
+    const link = w.ctx.sqlite.prepare(
+      "UPDATE threads SET first_post_id = ?1, last_post_id = ?1 WHERE id = ?2",
+    );
+    return replies.map((count) => {
+      const id = thread.get(nodeId, userId, w.ctx.now(), count)!.id;
+      const postId = post.get(id, userId, w.ctx.now())!.id;
+      body.run(postId);
+      link.run(postId, id);
+      return { id, postId };
+    });
+  }
+  const setReplies = (w: World, threadId: number, replies: number) =>
+    w.ctx.sqlite
+      .prepare("UPDATE threads SET reply_count = ?1 WHERE id = ?2")
+      .run(replies, threadId);
+  const hotIds = async (w: World, viewer: Parameters<World["call"]>[1], scope = "hot") =>
+    (await w.call("feed.list", viewer, { scope })).items.map((item: Item) => item.thread.id);
+
+  test("lists the hot threads the viewer may open as their opening posts, in ranking order, ignoring the cursor", async () => {
+    const w = world();
+    const a = await w.thread(w.alice, w.open.id, "A");
+    const b = await w.thread(w.bob, w.open.id, "B");
+    const secret = await w.thread(w.admin, w.secret.id, "S");
+    const quiet = await w.thread(w.alice, w.open.id, "Quiet");
+    setReplies(w, a.thread.id, 5);
+    setReplies(w, b.thread.id, 8);
+    setReplies(w, secret.thread.id, 9);
+    setReplies(w, quiet.thread.id, 2);
     refreshRankings(w.ctx);
-    for (const viewer of [w.bob, GUEST])
-      expect((await w.call("feed.list", viewer, { scope: "top" })).items.map(describeItem)).toEqual(
-        ["thread:Open body"],
-      );
-    const staff = await w.call("feed.list", w.admin, { scope: "top" });
+    const guest = await w.call("feed.list", GUEST, { scope: "hot", cursor: "ignored", limit: 1 });
+    expect(guest.nextCursor).toBeNull();
+    expect(guest.items.map(describeItem)).toEqual(["thread:B body", "thread:A body"]);
+    expect(guest.items[0].post.id).toBe(b.post.id);
+    expect((await w.call("feed.list", w.admin, { scope: "hot" })).items.map(describeItem)).toEqual([
+      "thread:S body",
+      "thread:B body",
+      "thread:A body",
+    ]);
+    // An ignored author is left out; a thread removed since the last refresh is too.
+    await w.call("users.ignore", w.alice, { userId: w.bobUser.id });
+    expect((await w.call("feed.list", w.alice, { scope: "hot" })).items.map(describeItem)).toEqual([
+      "thread:A body",
+    ]);
+    await w.call("threads.delete", w.mod, { threadId: a.thread.id, reason: "x", notify: false });
+    expect((await w.call("feed.list", GUEST, { scope: "hot" })).items.map(describeItem)).toEqual([
+      "thread:B body",
+    ]);
+    expect(await hotIds(w, w.carol)).toEqual([b.thread.id]);
+  });
+
+  test("a thread that becomes hot by reactions to its opening post is listed without replies", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Loved");
+    w.ctx.sqlite
+      .prepare("UPDATE posts SET reaction_counts = '{\"1\":3}' WHERE id = ?1")
+      .run(t.post.id);
+    refreshRankings(w.ctx);
+    expect(await hotIds(w, GUEST)).toEqual([t.thread.id]);
+  });
+
+  test("top is accepted as the former name of hot", async () => {
+    const w = world();
+    const a = addHot(w, w.open.id, w.aliceUser.id, [4, 7]);
+    refreshRankings(w.ctx);
+    expect(await hotIds(w, GUEST, "top")).toEqual([a[1]!.id, a[0]!.id]);
+    expect(await w.call("feed.list", GUEST, { scope: "top" })).toEqual(
+      await w.call("feed.list", GUEST, { scope: "hot" }),
+    );
+  });
+
+  test("hotter threads in a forum the viewer cannot see do not push out the ones they can", async () => {
+    const w = world();
+    const [open] = addHot(w, w.open.id, w.aliceUser.id, [3]);
+    addHot(
+      w,
+      w.secret.id,
+      w.aliceUser.id,
+      Array.from({ length: 200 }, (_, i) => 100 + i),
+    );
+    refreshRankings(w.ctx);
+    for (const viewer of [w.bob, GUEST]) expect(await hotIds(w, viewer)).toEqual([open!.id]);
+    const staff = await w.call("feed.list", w.admin, { scope: "hot" });
     expect(staff.items).toHaveLength(50);
     expect(staff.items.every((item: Item) => item.thread.node.id === w.secret.id)).toBe(true);
   });
 
-  /** Adds visible posts with bodies to a thread, one per score; returns their ids, in order. */
-  function addScored(w: World, threadId: number, userId: number, scores: number[]): number[] {
-    const insert = w.ctx.sqlite.prepare<{ id: number }, [number, number, number, number, string]>(
-      "INSERT INTO posts (thread_id, user_id, position, state, created_at, reaction_counts) VALUES (?1, ?2, ?3, 'visible', ?4, ?5) RETURNING id",
-    );
-    const body = w.ctx.sqlite.prepare(
-      "INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, 'x', '<p>x</p>')",
-    );
-    const start =
-      w.ctx.sqlite
-        .prepare<{ p: number }, [number]>(
-          "SELECT max(position) AS p FROM posts WHERE thread_id = ?1",
-        )
-        .get(threadId)!.p + 1;
-    return scores.map((score, i) => {
-      const id = insert.get(threadId, userId, start + i, w.ctx.now(), `{"1":${score}}`)!.id;
-      body.run(id);
-      return id;
-    });
-  }
-  const topIds = async (w: World, viewer: Parameters<World["call"]>[1]) =>
-    (await w.call("feed.list", viewer, { scope: "top" })).items.map((item: Item) => item.post.id);
-
-  test("a viewer who ignores the author of the 60 best posts of a forum still gets the others", async () => {
+  test("a viewer who ignores the author of the 60 hottest threads of a forum still gets the others", async () => {
     const w = world();
-    const t = await w.thread(w.alice, w.open.id, "Busy");
-    addScored(
+    addHot(
       w,
-      t.thread.id,
+      w.open.id,
       w.aliceUser.id,
       Array.from({ length: 60 }, (_, i) => 1000 + i),
     );
-    const bobs = addScored(
+    const bobs = addHot(
       w,
-      t.thread.id,
+      w.open.id,
       w.bobUser.id,
-      Array.from({ length: 10 }, (_, i) => i + 1),
+      Array.from({ length: 10 }, (_, i) => i + 3),
     );
     refreshRankings(w.ctx);
     await w.call("users.ignore", w.carol, { userId: w.aliceUser.id });
-    expect(await topIds(w, w.carol)).toEqual([...bobs].reverse());
-    expect(await topIds(w, w.bob)).toHaveLength(50);
+    expect(await hotIds(w, w.carol)).toEqual(bobs.map((b) => b.id).reverse());
+    expect(await hotIds(w, w.bob)).toHaveLength(50);
   });
 
-  test("with several forums the merged top stays in order when an ignored author fills the best places", async () => {
+  test("with several forums the merged list stays in order when an ignored author fills the best places", async () => {
     const w = world();
     const other = insertNode(w.ctx, { parentId: w.category.id });
-    const a = await w.thread(w.alice, w.open.id, "A");
-    const b = await w.thread(w.alice, other.id, "B");
-    addScored(
-      w,
-      a.thread.id,
-      w.aliceUser.id,
-      Array.from({ length: 60 }, (_, i) => 1000 + i),
-    );
-    addScored(
-      w,
-      b.thread.id,
-      w.aliceUser.id,
-      Array.from({ length: 60 }, (_, i) => 500 + i),
-    );
-    const inA = addScored(w, a.thread.id, w.bobUser.id, [3, 1, 2, 5, 4]);
-    const inB = addScored(w, b.thread.id, w.bobUser.id, [8, 6, 10, 7, 9]);
+    const big = (from: number) => Array.from({ length: 60 }, (_, i) => from + i);
+    addHot(w, w.open.id, w.aliceUser.id, big(1000));
+    addHot(w, other.id, w.aliceUser.id, big(500));
+    const inA = addHot(w, w.open.id, w.bobUser.id, [3, 4, 5, 6, 7]);
+    const inB = addHot(w, other.id, w.bobUser.id, [8, 9, 10, 11, 12]);
     refreshRankings(w.ctx);
     await w.call("users.ignore", w.carol, { userId: w.aliceUser.id });
-    const scoreOf = new Map([
-      ...inA.map((id, i) => [id, [3, 1, 2, 5, 4][i]!] as const),
-      ...inB.map((id, i) => [id, [8, 6, 10, 7, 9][i]!] as const),
-    ]);
-    const expected = [...scoreOf].sort((x, y) => y[1] - x[1] || y[0] - x[0]).map(([id]) => id);
-    expect(await topIds(w, w.carol)).toEqual(expected);
+    expect(await hotIds(w, w.carol)).toEqual([...inA, ...inB].map((t) => t.id).reverse());
   });
 
-  test("posts removed since the last refresh are replaced by the next best", async () => {
+  test("threads removed since the last refresh are replaced by the next best", async () => {
     const w = world();
-    const t = await w.thread(w.alice, w.open.id, "Busy");
-    const posts = addScored(
+    const threads = addHot(
       w,
-      t.thread.id,
+      w.open.id,
       w.aliceUser.id,
-      Array.from({ length: 80 }, (_, i) => i + 1),
+      Array.from({ length: 80 }, (_, i) => i + 3),
     );
     refreshRankings(w.ctx);
-    const remove = w.ctx.sqlite.prepare("UPDATE posts SET state = 'deleted' WHERE id = ?1");
-    for (const id of posts.slice(40)) remove.run(id);
-    expect(await topIds(w, GUEST)).toEqual(posts.slice(0, 40).reverse());
+    const remove = w.ctx.sqlite.prepare("UPDATE threads SET state = 'deleted' WHERE id = ?1");
+    for (const t of threads.slice(40)) remove.run(t.id);
+    expect(await hotIds(w, GUEST)).toEqual(
+      threads
+        .slice(0, 40)
+        .map((t) => t.id)
+        .reverse(),
+    );
+  });
+
+  test("a thread merged into another since the last refresh is left out", async () => {
+    const w = world();
+    const [kept, merged] = addHot(w, w.open.id, w.aliceUser.id, [4, 6]);
+    refreshRankings(w.ctx);
+    w.ctx.sqlite
+      .prepare("UPDATE threads SET merged_into_id = ?1 WHERE id = ?2")
+      .run(kept!.id, merged!.id);
+    expect(await hotIds(w, GUEST)).toEqual([kept!.id]);
   });
 
   test("shows at most 50 and an empty ranking is an empty page", async () => {
     const w = world();
-    expect(await w.call("feed.list", GUEST, { scope: "top" })).toEqual({
+    expect(await w.call("feed.list", GUEST, { scope: "hot" })).toEqual({
       items: [],
       nextCursor: null,
     });
-    const t = await w.thread(w.alice, w.open.id, "Many");
-    const ids: number[] = [t.post.id];
-    for (let i = 0; i < 55; i++) ids.push((await w.reply(w.bob, t.thread.id, `p${i}`)).id);
-    for (const id of ids)
-      w.ctx.sqlite.prepare("UPDATE posts SET reaction_counts = '{\"1\":1}' WHERE id = ?1").run(id);
+    const threads = addHot(
+      w,
+      w.open.id,
+      w.aliceUser.id,
+      Array.from({ length: 55 }, () => 3),
+    );
     refreshRankings(w.ctx);
-    const top = await w.call("feed.list", GUEST, { scope: "top", limit: 100 });
-    expect(top.items).toHaveLength(50);
-    expect(top.items[0].post.id).toBe(ids.at(-1));
+    const hot = await w.call("feed.list", GUEST, { scope: "hot", limit: 100 });
+    expect(hot.items).toHaveLength(50);
+    expect(hot.items[0].thread.id).toBe(threads.at(-1)!.id);
   });
 });
 
@@ -791,7 +811,7 @@ describe("feed.list canReply", () => {
     expect(await canReplyOf(w, w.bob, "following")).toEqual({ Open: true, Closed: false });
     w.ctx.sqlite.prepare("UPDATE posts SET reaction_counts = '{\"1\":5}'").run();
     refreshRankings(w.ctx);
-    expect(await canReplyOf(w, w.bob, "top")).toEqual({ Open: true, Closed: false });
+    expect(await canReplyOf(w, w.bob, "hot")).toEqual({ Open: true, Closed: false });
   });
 
   test("a member banned from a thread may not reply to it, until the ban ends", async () => {
@@ -937,8 +957,8 @@ describe("the feed queries read their indexes", () => {
     expectNoTableScan(w.ctx, feedSql.followedWall, ["[1,2]", 100, 20]);
     expectNoTableScan(w.ctx, PROFILE_ACCESS_SQL, [1, "[1,2]"]);
     expectNoTableScan(w.ctx, feedSql.wallRows, ["[1,2]"]);
-    expectNoTableScan(w.ctx, rankingSql.stored, ["feedTop", "[1,2]"]);
-    expectNoTableScan(w.ctx, feedSql.topPosts, ["[1,2]"]);
+    expectNoTableScan(w.ctx, rankingSql.stored, ["hot", "[1,2]"]);
+    expectNoTableScan(w.ctx, feedSql.hotPosts, ["[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.ignored, [1, "[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.principals, ["[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.followedAmong, [1, "[1,2]"]);

@@ -6,7 +6,7 @@ import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can } from "../../permissions";
 import { iso } from "../../time";
-import { repliableThreads, type ThreadRow } from "../forums";
+import { repliableThreads, type ThreadRow, threadRowsByIds } from "../forums";
 import {
   latestComments,
   mayViewProfile,
@@ -15,7 +15,7 @@ import {
   profilePostValues,
 } from "../profiles";
 import { loadThreads, postsInThreads } from "./authors";
-import { FEED_TOP_SIZE, firstSurvivors, rankingSql, storedRanking } from "./rankings";
+import { FEED_HOT_SIZE, firstSurvivors, rankingSql, storedRanking } from "./rankings";
 import { SCAN_CAP } from "./scan";
 import { followedAmong, followedAuthors, ignoredAmong, visibleNodes } from "./viewer";
 
@@ -49,7 +49,7 @@ export const feedSql = {
   followedWall:
     "SELECT p.id, p.profile_user_id, p.user_id, p.state, p.created_at FROM json_each(?1) AS j CROSS JOIN profile_posts p WHERE p.id IN (SELECT p2.id FROM profile_posts p2 WHERE p2.user_id = j.value AND p2.id < ?2 ORDER BY p2.id DESC LIMIT ?3)",
   wallRows: "SELECT * FROM profile_posts WHERE id IN (SELECT value FROM json_each(?1))",
-  topPosts:
+  hotPosts:
     "SELECT id, thread_id, user_id, state, created_at FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
 };
 
@@ -427,25 +427,35 @@ function followingSources(
 }
 
 export const feedListOp = implement(feedList, (ctx, actor, input) => {
-  const scope = input.scope;
+  // `top` is the former name of `hot`.
+  const scope = input.scope === "top" ? "hot" : input.scope;
   if (scope === "following") requireAuthenticated(actor);
   const nodes = visibleNodes(ctx, actor);
   const threads = new Map<number, ThreadRow>();
 
-  if (scope === "top") {
+  if (scope === "hot") {
     const accept = acceptPosts(ctx, actor, nodes, threads);
     const picked = firstSurvivors(
-      storedRanking(ctx, "feedTop", nodes),
-      FEED_TOP_SIZE,
+      storedRanking(ctx, "hot", nodes),
+      FEED_HOT_SIZE,
       (chunk): Picked[] => {
+        for (const thread of threadRowsByIds(
+          ctx,
+          chunk.map((row) => row.target_id),
+        ))
+          threads.set(thread.id, thread);
+        const openings = chunk.flatMap((row) => {
+          const id = threads.get(row.target_id)?.first_post_id;
+          return id ? [id] : [];
+        });
         const byId = new Map(
-          prepared(ctx, "feed.topPosts", () =>
-            ctx.sqlite.prepare<PostCandidate, [string]>(feedSql.topPosts),
+          prepared(ctx, "feed.hotPosts", () =>
+            ctx.sqlite.prepare<PostCandidate, [string]>(feedSql.hotPosts),
           )
-            .all(JSON.stringify(chunk.map((row) => row.target_id)))
+            .all(JSON.stringify(openings))
             .map((row) => [row.id, row] as const),
         );
-        const candidates = chunk.flatMap((row) => byId.get(row.target_id) ?? []);
+        const candidates = openings.flatMap((id) => byId.get(id) ?? []);
         const passing = accept(candidates);
         return candidates.filter((row) => passing.has(row)).map((row) => ({ kind: "post", row }));
       },
