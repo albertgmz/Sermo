@@ -795,6 +795,8 @@ export const conversationsRenameOp = implement(conversationsRename, (ctx, actor,
   const before = activeConversation(ctx, actor, input.conversationId);
   if (before.user_id !== user.userId) throw new ForbiddenError();
   requirePermission(ctx, actor, "conversation.reply");
+  // The title reaches every participant: it is member text like a message.
+  requireTermsAccepted(ctx, actor);
   writeTx(ctx, () => {
     const row = activeConversation(ctx, actor, input.conversationId);
     if (row.user_id !== user.userId) throw new ForbiddenError();

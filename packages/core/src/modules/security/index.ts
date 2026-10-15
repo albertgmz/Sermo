@@ -368,5 +368,5 @@ export const operations: AnyOperation[] = [
 export { configureSecurity, type GeoLookup, resolveLocation } from "./config";
 export { openGeoDatabase } from "./geo-maxmind";
 export { proxyLocation, requestLocation, setLocationHeaders } from "./location";
-export { purgeIpLog, registerSecurityJobs } from "./retention";
+export { purgeAcceptanceAddresses, purgeIpLog, registerSecurityJobs } from "./retention";
 export { flushSessionActivity } from "./session";

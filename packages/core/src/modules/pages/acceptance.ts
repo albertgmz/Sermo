@@ -22,8 +22,10 @@ export const acceptanceSql = {
     "SELECT kind, MAX(version) AS version FROM terms_acceptances WHERE user_id = ?1 GROUP BY kind",
   insert:
     "INSERT OR IGNORE INTO terms_acceptances (user_id, kind, version, ip, accepted_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+  // Newest first, so the latest acceptance of each kind is always among the rows read.
   member:
-    "SELECT kind, version, ip, accepted_at FROM terms_acceptances WHERE user_id = ?1 ORDER BY kind, version LIMIT 100",
+    "SELECT kind, version, ip, accepted_at FROM terms_acceptances WHERE user_id = ?1 ORDER BY accepted_at DESC, version DESC LIMIT 100",
+  highest: "SELECT COALESCE(MAX(version), 0) AS version FROM terms_acceptances WHERE kind = ?1",
   erase: "DELETE FROM terms_acceptances WHERE user_id = ?1",
   /** The two newest-version columns the actor lookup adds to its member row. */
   newestColumns:
@@ -39,6 +41,20 @@ export function publishedVersions(ctx: Ctx): PublishedVersions {
   ).all();
   for (const row of rows) out[row.slug] = row.version;
   return out;
+}
+
+/**
+ * The version a page created now starts at: above every version a member accepted under its slug
+ * (1 for a slug that is not an acceptance kind or was never accepted). Reads every acceptance of
+ * the kind, so ask only when a page is created.
+ */
+export function startingVersion(ctx: Ctx, slug: string): number {
+  if (!(ACCEPTANCE_KINDS as readonly string[]).includes(slug)) return 1;
+  return (
+    prepared(ctx, "pages.acceptanceHighest", () =>
+      ctx.sqlite.prepare<{ version: number }, [string]>(acceptanceSql.highest),
+    ).get(slug)!.version + 1
+  );
 }
 
 /** The newest version of each kind the member holds a record for (0 = none). */

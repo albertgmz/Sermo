@@ -23,7 +23,8 @@ export async function Acceptances({ userId }: { userId: number }) {
         {KINDS.map((kind) => {
           const current = view.current[kind];
           const mine = view.items.filter((item) => item.kind === kind);
-          const newest = mine.at(-1);
+          // Newest first: the backend lists the latest acceptance of each kind first.
+          const newest = mine[0];
           return (
             <li key={kind} className="space-y-2 p-4 text-sm">
               <p className="font-medium">{t(kind)}</p>

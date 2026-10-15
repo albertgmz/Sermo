@@ -11,10 +11,16 @@ export type PendingPage = { kind: "terms" | "rules"; version: number };
 // to each page and one button. Reading goes on; posting, reacting and messaging wait for the
 // answer. Drawn under the header like the site notices. `auth.me` already says what is pending,
 // so it costs no request.
+// What is pending for a viewer. A backend from before the field was added leaves it out: nothing
+// is pending then, and the layout must not fail over it.
+export const pendingOf = (
+  user: { pendingAcceptance?: PendingPage[] } | null,
+): PendingPage[] => user?.pendingAcceptance ?? [];
+
 export async function AcceptancePrompt() {
-  const { user } = await getViewer();
-  if (!user || user.pendingAcceptance.length === 0) return null;
-  return <AcceptanceStrip pending={user.pendingAcceptance} />;
+  const pending = pendingOf((await getViewer()).user);
+  if (pending.length === 0) return null;
+  return <AcceptanceStrip pending={pending} />;
 }
 
 export async function AcceptanceStrip({ pending }: { pending: PendingPage[] }) {

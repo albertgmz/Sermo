@@ -33,7 +33,15 @@ export const termsAccept = defineContract({
     "longer the current one, or a page that is not published, is a conflict: read the pages " +
     "again. Requires a signed-in session: an API key cannot accept for its member (forbidden).",
   kind: "write",
-  input: z.object({ accept: z.array(PendingAcceptance).min(1).max(ACCEPTANCE_KINDS.length) }),
+  input: z.object({
+    accept: z
+      .array(PendingAcceptance)
+      .min(1)
+      .max(ACCEPTANCE_KINDS.length)
+      .refine((items) => new Set(items.map((item) => item.kind)).size === items.length, {
+        message: "Name each page once.",
+      }),
+  }),
   output: Ok,
 });
 
@@ -49,11 +57,11 @@ export const MemberAcceptance = z
 export const usersAdminAcceptances = defineContract({
   name: "users.adminAcceptances",
   summary:
-    "The versions of the terms and the rules a member accepted, by page then version (at most 100): kind, version, " +
-    "when, and the address recorded (null when none was recorded, or when the reader lacks " +
-    "member.viewIps over the member), together with the " +
-    "versions the site publishes now (`current`, null for a page that is not published), so " +
-    "the reader sees what is missing. Read-only. Requires admin.members over the member.",
+    "The versions of the terms and the rules a member accepted, newest first (at most 100): " +
+    "kind, version, when, and the address recorded (null when none was recorded, when it was " +
+    "dropped at the log retention age, or when the reader lacks member.viewIps over the " +
+    "member), together with the versions the site publishes now (`current`, null for a page " +
+    "that is not published), so the reader sees what is missing. Read-only. Requires admin.members over the member.",
   kind: "read",
   input: z.object({ userId: Id }),
   output: z.object({

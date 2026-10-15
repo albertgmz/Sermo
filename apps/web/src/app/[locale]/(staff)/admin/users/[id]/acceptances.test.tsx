@@ -32,18 +32,19 @@ test("the versions a member accepted are listed with their date and address, and
   backend = fakeBackend({
     "users.adminAcceptances": () =>
       Response.json({
+        // Newest first, as the backend lists them.
         items: [
-          {
-            kind: "terms",
-            version: 1,
-            acceptedAt: "2026-02-03T10:00:00.000Z",
-            ip: "203.0.113.9",
-          },
           {
             kind: "terms",
             version: 2,
             acceptedAt: "2026-05-04T10:00:00.000Z",
             ip: null,
+          },
+          {
+            kind: "terms",
+            version: 1,
+            acceptedAt: "2026-02-03T10:00:00.000Z",
+            ip: "203.0.113.9",
           },
         ],
         current: { terms: 2, rules: 1 },

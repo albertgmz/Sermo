@@ -21,9 +21,12 @@ function Required({ children }: { children: React.ReactNode }) {
 export function RegisterForm({
   referrer,
   turnstileKey,
+  pages,
 }: {
   referrer?: string;
   turnstileKey: string | null;
+  // Which of the terms and the rules the site publishes: the checkbox names only those.
+  pages: "both" | "terms" | "rules" | "none";
 }) {
   const t = useTranslations("auth.registerForm");
   const [state, action, pending] = useActionState(register, {
@@ -96,6 +99,7 @@ export function RegisterForm({
           className="block leading-normal font-normal text-muted-foreground"
         >
           {t.rich("terms", {
+            pages,
             terms: (chunks) => (
               <Link href="/terms" className="font-medium text-foreground">
                 {chunks}

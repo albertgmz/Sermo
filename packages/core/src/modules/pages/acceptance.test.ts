@@ -10,9 +10,23 @@ import {
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { ACCEPTANCE_REQUIRED_PATH } from "../../contracts/terms";
-import { ConflictError, ForbiddenError, type SermoError, UnauthenticatedError } from "../../errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  type SermoError,
+  UnauthenticatedError,
+  ValidationError,
+} from "../../errors";
 import { accounts, closeAll, PASSWORD } from "../admin/fixtures.test";
 import { getAuth, resolveActor } from "../auth";
+import { runDueJobs } from "../jobs/queue";
+import { runDailyTasks } from "../jobs/scheduler";
+import {
+  IP_LOG_PURGE_BATCH,
+  purgeAcceptanceAddresses,
+  registerSecurityJobs,
+} from "../security/retention";
+import { traceStatements } from "../statement-trace";
 import { acceptanceSql } from "./acceptance";
 
 afterEach(closeAll);
@@ -124,6 +138,13 @@ async function world() {
       { conversationId: conversation.conversation.id, userIds: [third.id] },
     ],
     ["conversations.updateMessage", { messageId: conversation.message.id, body: "Edited" }],
+    // The title reaches every participant.
+    ["conversations.rename", { conversationId: conversation.conversation.id, title: "Renamed" }],
+    // Text other members read on the profile.
+    ["profiles.update", { about: "About me" }],
+    ["profiles.update", { location: "Somewhere" }],
+    ["profiles.update", { website: "https://example.org" }],
+    ["profiles.update", { socials: { discord: "someone" } }],
   ];
   const reads: [string, object][] = [
     ["threads.get", { threadId: theirs.thread.id }],
@@ -131,7 +152,8 @@ async function world() {
     ["profilePosts.list", { userId: poster.id }],
     ["conversations.listMessages", { conversationId: conversation.conversation.id }],
     ["reactions.remove", { contentType: "post", contentId: theirs.post.id }],
-    ["conversations.rename", { conversationId: conversation.conversation.id, title: "Renamed" }],
+    // Clearing a field or changing a preference sends no text to anyone.
+    ["profiles.update", { about: "", birthday: null }],
     ["auth.me", {}],
   ];
   return {
@@ -431,6 +453,19 @@ describe("terms.accept", () => {
     expect(acceptances(w, w.other.id)[0]).toMatchObject({ ip: null });
   });
 
+  test("names each page once", async () => {
+    const w = await world();
+    await w.publish("terms");
+    await expect(
+      w.run("terms.accept", w.poster.actor, {
+        accept: [
+          { kind: "terms", version: 1 },
+          { kind: "terms", version: 1 },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
   test("needs an account", async () => {
     const w = await world();
     await w.publish("terms");
@@ -536,12 +571,104 @@ describe("erasure", () => {
   });
 });
 
+describe("page saves", () => {
+  test("an update of an existing page never reads the acceptances; a new acceptance page does", async () => {
+    const w = await world();
+    const trace = traceStatements(w.ctx);
+    await w.publish("terms");
+    expect(trace.count(/terms_acceptances/)).toBe(1);
+    await w.publish("terms", { body: "A typo fixed" });
+    await w.publish("terms", { body: "New text", newVersion: true });
+    expect(trace.count(/terms_acceptances/)).toBe(1);
+    // A page that is not an acceptance kind never asks.
+    await w.run("pages.save", w.admin.actor, { slug: "privacy", title: "P", body: "p" });
+    await w.run("pages.save", w.admin.actor, { slug: "privacy", title: "P", body: "p2" });
+    expect(trace.count(/terms_acceptances/)).toBe(1);
+    await w.publish("rules");
+    expect(trace.count(/terms_acceptances/)).toBe(2);
+  });
+});
+
+describe("staff list order", () => {
+  test("newest first, so the latest acceptance of each kind is always listed", async () => {
+    const w = await world();
+    await w.publish("terms");
+    await w.publish("rules");
+    const insert = w.ctx.sqlite.prepare(
+      "INSERT INTO terms_acceptances (user_id, kind, version, ip, accepted_at) VALUES (?1, ?2, ?3, NULL, ?4)",
+    );
+    // 120 old versions of the terms, then one acceptance of the rules, then the current terms.
+    for (let version = 1; version <= 120; version++)
+      insert.run(w.poster.id, "terms", version, version);
+    insert.run(w.poster.id, "rules", 1, 1000);
+    insert.run(w.poster.id, "terms", 121, 2000);
+    const view = await w.run("users.adminAcceptances", w.admin.actor, { userId: w.poster.id });
+    expect(view.items).toHaveLength(100);
+    expect(view.items[0]).toMatchObject({ kind: "terms", version: 121 });
+    expect(view.items[1]).toMatchObject({ kind: "rules", version: 1 });
+    expect(view.items.at(-1)).toMatchObject({ kind: "terms", version: 23 });
+  });
+});
+
+describe("address retention", () => {
+  test("the job drops acceptance addresses older than the log retention and keeps the rows", async () => {
+    const w = await world();
+    await w.publish("terms");
+    const day = 86_400_000;
+    const accept = (member: { actor: object }, ip: string) =>
+      w.run(
+        "terms.accept",
+        { ...member.actor, clientIp: ip },
+        { accept: [{ kind: "terms", version: 1 }] },
+      );
+    await accept(w.poster, "203.0.113.1");
+    w.ctx.clock.advance(100 * day);
+    await accept(w.other, "203.0.113.2");
+    w.ctx.clock.advance(100 * day);
+    // 200 days after the first, 100 after the second: only the first is past 180 days.
+    registerSecurityJobs(w.ctx);
+    runDailyTasks(w.ctx);
+    await runDueJobs(w.ctx);
+    expect(acceptances(w, w.poster.id)).toEqual([
+      expect.objectContaining({ kind: "terms", version: 1, ip: null }),
+    ]);
+    expect(acceptances(w, w.other.id)).toEqual([
+      expect.objectContaining({ kind: "terms", version: 1, ip: "203.0.113.2" }),
+    ]);
+    expect(await purgeAcceptanceAddresses(w.ctx)).toBe(0);
+    w.ctx.clock.advance(100 * day);
+    expect(await purgeAcceptanceAddresses(w.ctx)).toBe(1);
+    expect(acceptances(w, w.other.id)[0]).toMatchObject({ ip: null, version: 1 });
+  });
+
+  test("a long run is cleared in batches", async () => {
+    const w = await world();
+    await w.publish("terms");
+    const insert = w.ctx.sqlite.prepare(
+      "INSERT INTO terms_acceptances (user_id, kind, version, ip, accepted_at) VALUES (?1, 'terms', ?2, '203.0.113.9', ?3)",
+    );
+    const old = w.ctx.now() - 400 * 86_400_000;
+    for (let version = 1; version <= IP_LOG_PURGE_BATCH * 2 + 5; version++)
+      insert.run(w.poster.id, version, old);
+    insert.run(w.poster.id, 9999, w.ctx.now());
+    expect(await purgeAcceptanceAddresses(w.ctx)).toBe(IP_LOG_PURGE_BATCH * 2 + 5);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ n: number }, []>(
+          "SELECT count(*) AS n FROM terms_acceptances WHERE ip IS NOT NULL",
+        )
+        .get()!.n,
+    ).toBe(1);
+  });
+});
+
 describe("queries", () => {
   test("every lookup uses an index", async () => {
     const w = await world();
     expectNoTableScan(w.ctx, acceptanceSql.published, []);
     expectNoTableScan(w.ctx, acceptanceSql.newest, [w.poster.id]);
-    expectNoTableScan(w.ctx, acceptanceSql.member, [w.poster.id]);
+    // A handful of rows of one member, sorted newest first.
+    expectNoTableScan(w.ctx, acceptanceSql.member, [w.poster.id], { allowTempBTree: true });
     expectNoTableScan(w.ctx, `SELECT ${acceptanceSql.newestColumns} FROM users u WHERE u.id = ?1`, [
       w.poster.id,
     ]);

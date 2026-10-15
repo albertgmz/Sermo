@@ -206,6 +206,14 @@ export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
 export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "profile.editOwn");
+  // Text other members read (not a preference, not clearing a field) waits for the acceptance.
+  if (
+    [input.about, input.location, input.website, input.customTitle, input.signature].some(
+      (text) => text != null && text !== "",
+    ) ||
+    Object.values(input.socials ?? {}).some((handle) => handle != null && handle !== "")
+  )
+    requireTermsAccepted(ctx, actor);
   const { changes, settingTitle, settingSignature } = profileFieldChanges(ctx, input, {
     customTitle: () => requirePermission(ctx, actor, "profile.customTitle"),
     signature: () => {

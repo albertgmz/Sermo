@@ -30,7 +30,7 @@ mock.module("@/components/forum/action-form", () => ({
   ),
 }));
 
-const { AcceptancePrompt, AcceptanceStrip } = await import(
+const { AcceptancePrompt, AcceptanceStrip, pendingOf } = await import(
   "./acceptance-prompt"
 );
 
@@ -90,4 +90,12 @@ test("nothing pending, or a guest, draws nothing", async () => {
   expect(await AcceptancePrompt()).toBeNull();
   viewer(null);
   expect(await AcceptancePrompt()).toBeNull();
+});
+
+test("a viewer from a backend without the field has nothing pending", () => {
+  expect(pendingOf({})).toEqual([]);
+  expect(pendingOf(null)).toEqual([]);
+  expect(
+    pendingOf({ pendingAcceptance: [{ kind: "terms", version: 1 }] }),
+  ).toHaveLength(1);
 });

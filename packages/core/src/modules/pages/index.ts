@@ -16,7 +16,7 @@ import { can, requirePermission } from "../../permissions";
 import { renderMarkdown } from "../../render";
 import { iso } from "../../time";
 import { appendModeratorLog } from "../moderation";
-import { insertAcceptances, publishedVersions } from "./acceptance";
+import { insertAcceptances, publishedVersions, startingVersion } from "./acceptance";
 
 /** The most pages the site holds. */
 export const PAGE_LIMIT = 100;
@@ -97,10 +97,12 @@ const save = implement(pagesSave, (ctx, actor, input) => {
     if (!existing && ctx.sqlite.prepare<{ n: number }, []>(pageSql.count).get()!.n >= PAGE_LIMIT)
       throw new ConflictError(`The site holds at most ${PAGE_LIMIT} pages.`);
     // A page that is created again after a delete starts above every version a member accepted
-    // under its slug, so a later new version is never lower than what they hold.
+    // under its slug, so a later new version is never lower than what they hold. Only a new page
+    // asks: the lookup reads every acceptance of the kind, which an update must not do.
+    const first = existing ? 1 : startingVersion(ctx, input.slug);
     const row = ctx.sqlite
       .prepare<PageRow, (string | number)[]>(
-        "INSERT INTO static_pages (slug, title, body_source, body_html, is_published, version, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, (SELECT COALESCE(MAX(version), 0) + 1 FROM terms_acceptances WHERE kind = ?1), ?6, ?6) ON CONFLICT (slug) DO UPDATE SET title = excluded.title, body_source = excluded.body_source, body_html = excluded.body_html, is_published = excluded.is_published, version = static_pages.version + ?7, updated_at = excluded.updated_at RETURNING *",
+        "INSERT INTO static_pages (slug, title, body_source, body_html, is_published, version, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?8, ?6, ?6) ON CONFLICT (slug) DO UPDATE SET title = excluded.title, body_source = excluded.body_source, body_html = excluded.body_html, is_published = excluded.is_published, version = static_pages.version + ?7, updated_at = excluded.updated_at RETURNING *",
       )
       .get(
         input.slug,
@@ -110,6 +112,7 @@ const save = implement(pagesSave, (ctx, actor, input) => {
         input.isPublished ? 1 : 0,
         ctx.now(),
         input.newVersion ? 1 : 0,
+        first,
       )!;
     appendModeratorLog(ctx, actor, "page.save", "static_page", row.id, "", {
       slug: row.slug,

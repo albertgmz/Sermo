@@ -1,5 +1,6 @@
 import "server-only";
 
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { errorMessage, isAcceptanceRefusal } from "./client";
@@ -7,14 +8,14 @@ import { SermoError } from "./errors";
 
 // A refusal for a missing acceptance: the page is drawn again, so the notice with the Accept button
 // is there (a soft navigation keeps the layout it already has, which was drawn before the member
-// was asked). `refresh` is imported here, only when a refusal needs it: most callers of this file
-// never see one. A failure to redraw is no reason to lose the message.
-async function showAcceptancePrompt(error: unknown) {
+// was asked). `refresh` throws outside a server action; the message must still reach the form.
+function showAcceptancePrompt(error: unknown) {
   if (!(error instanceof SermoError) || !isAcceptanceRefusal(error)) return;
   try {
-    const { refresh } = await import("next/cache");
     refresh();
-  } catch {}
+  } catch {
+    // Not in a server action: there is nothing to redraw.
+  }
 }
 
 export type Outcome<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -31,7 +32,7 @@ export async function attempt<T>(
     if (error instanceof SermoError && error.code === "unauthenticated") {
       redirect(`/login?next=${encodeURIComponent(returnTo)}`);
     }
-    await showAcceptancePrompt(error);
+    showAcceptancePrompt(error);
     return { ok: false, error: await errorMessage(error) };
   }
 }
@@ -50,7 +51,7 @@ export async function attemptInPlace<T>(
     return { ok: true, value: await run() };
   } catch (error) {
     const message = await errorMessage(error);
-    await showAcceptancePrompt(error);
+    showAcceptancePrompt(error);
     if (error instanceof SermoError && error.code === "unauthenticated") {
       return {
         ok: false,
