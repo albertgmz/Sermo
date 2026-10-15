@@ -692,9 +692,8 @@ the queue; edited content sent back to the queue notifies nobody.
   refused thread changes nothing and the others are applied, in one transaction. Every thread is
   logged as the single action is. The forum's thread list offers it to staff as ticks and a bar.
 
-A member's own delete (a reply, a wall post or a comment) is a soft delete too: it is logged as
-"deleted by author" and moderators can see and restore it. Only staff delete for good, and only
-content that is already soft-deleted:
+A member's own delete (a reply, a wall post or a comment) is a soft delete too: moderators can see
+and restore it. Only staff delete for good, and only content that is already soft-deleted:
 
 - `POST /threads/{threadId}/hard-delete` (`threads.hardDelete`, `forum.hardDelete` in the
   thread's forum), `POST /posts/{postId}/hard-delete` (`posts.hardDelete`, not the opening post)
