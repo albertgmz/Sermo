@@ -2326,3 +2326,23 @@ reaction". `criteria.list` is open to `admin.reactionTypes` so the reaction form
 builder, and `awards.delete` lists reaction types among an award's readers. Known limits: a
 deleted group in a rule leaves the type locked until edited; a held reaction cannot be removed if
 the picker offers no type at all.
+
+**Staff picks and paid promotion.** A feature is a row in `thread_features` (migration `0039`):
+thread, kind (`staff` or `paid`), who, start, end (null = until unfeatured; paid = 24 hours). A
+table rather than thread columns, because a thread can hold a staff pick and a promotion at once and
+the reads want one small index over the active rows. A feature counts while its end is null or in
+the future, so expiry needs no job. The rankings job deletes features that ended over 30 days ago.
+Moderators feature and unfeature with `threads.setFeatured` under the new node permission
+`forum.feature` (like `forum.stick`), logged as `thread.feature`, re-checked in the transaction.
+It sends no notification to the author. Hot pins at most 10 features (newest first) at the top,
+whatever their activity, with the same visibility rules as Hot. The rest of the 50 come from the
+ranking, and an older feature appears only where it ranks. Pinning rather than a score boost makes
+"shown regardless of the floor" literal and keeps the read to one indexed lookup. Cards in Latest,
+Following and Hot show "Featured" or "Promoted" ("Recomendado" and "Promocionado"). The home page
+shows a "Featured" card with up to three current features (`threads.featured`). The shop effect
+`promote` is a consumable used on one of the buyer's own visible, unlocked, unfeatured threads, like
+bump. Credits are taken at purchase, and the unit is spent with the feature row in one transaction,
+so a refusal keeps the unit. The starter item costs 1000 credits. Known limits: a moderator cannot
+end a paid promotion; an unused unit with a duration can lapse; per-user node moderators made
+before this change do not get `forum.feature`; a staff pick on a deleted thread stays until
+unfeatured.
