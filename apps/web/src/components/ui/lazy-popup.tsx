@@ -11,6 +11,7 @@ import {
   isPlainClick,
   type Opening,
   opensFromKey,
+  spaceOpens,
 } from "@/components/ui/lazy-popup-intent";
 
 // A menu, popover, sheet or tooltip whose code (Base UI and the positioning library with it) is
@@ -28,6 +29,7 @@ export type LazyTriggerProps = {
   onFocus: (event: React.FocusEvent<HTMLElement>) => void;
   onClick: (event: React.MouseEvent<HTMLElement>) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void;
+  onKeyUp: (event: React.KeyboardEvent<HTMLElement>) => void;
 };
 
 export function LazyPopup<P extends object>({
@@ -35,6 +37,7 @@ export function LazyPopup<P extends object>({
   popup,
   trigger,
   opening = "click",
+  onOpen,
   onLoadError,
 }: {
   // `() => import("./the-popup")`, a function that lives at module level (the code is fetched once
@@ -45,18 +48,23 @@ export function LazyPopup<P extends object>({
   // The plain trigger, given the handlers to spread on its element.
   trigger: (lazy: LazyTriggerProps) => React.ReactElement;
   opening?: Opening;
+  // The popup is being swapped in to open, for a parent that keeps the open state itself.
+  onOpen?: () => void;
   // The code could not be fetched; the trigger stays as it is and asks again next time.
   onLoadError?: () => void;
 }) {
   const [shown, setShown] = useState(false);
-  const failed = useRef(onLoadError);
-  failed.current = onLoadError;
+  const latest = useRef({ onOpen, onLoadError });
+  latest.current = { onOpen, onLoadError };
 
   const handlers = useMemo<LazyTriggerProps>(() => {
     const opener = createOpener(
       load,
-      () => setShown(true),
-      () => failed.current?.(),
+      () => {
+        setShown(true);
+        latest.current.onOpen?.();
+      },
+      () => latest.current.onLoadError?.(),
     );
     return {
       onPointerEnter: (event) => {
@@ -82,7 +90,13 @@ export function LazyPopup<P extends object>({
         opener.open();
       },
       onKeyDown: (event) => {
+        if (spaceOpens(opening, event.key)) event.preventDefault();
         if (!opensFromKey(opening, event.key)) return;
+        event.preventDefault();
+        opener.open();
+      },
+      onKeyUp: (event) => {
+        if (!spaceOpens(opening, event.key)) return;
         event.preventDefault();
         opener.open();
       },

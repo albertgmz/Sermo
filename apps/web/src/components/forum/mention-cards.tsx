@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  isPressOnAnchor,
-  opensCard,
-  opensCardKey,
-  returnsFocusToLink,
-} from "@/components/forum/member-card-intent";
-import {
-  MemberCardSurface,
-  useMemberCard,
-} from "@/components/forum/member-card-popup";
+import { lazy, Suspense, useLayoutEffect, useState } from "react";
+import { opensCard, opensCardKey } from "@/components/forum/member-card-intent";
 import { useMemberCardsEnabled } from "@/components/forum/member-card-scope";
+import { fetchCode } from "@/components/ui/lazy-popup-gate";
+
+// The card (Base UI, the positioning, the sheet and the server action that reads it) is fetched
+// when a mention is first reached for, and shown by the click that follows.
+const loadPopup = () => import("@/components/forum/mention-popup");
+const MentionPopup = lazy(loadPopup);
 
 const MENTION = "a.mention[data-user-id]";
 
@@ -75,6 +72,10 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
     // biome-ignore lint/a11y/noStaticElementInteractions: one delegate for the mention links inside, which are the focusable, keyboard-reachable elements
     <div
       className="contents"
+      onPointerOver={(event) => {
+        if (mentionAt(event.target, event.currentTarget))
+          fetchCode(loadPopup).catch(() => {});
+      }}
       onClick={(event) => {
         const mention = clickedMention(event, event.currentTarget);
         if (!mention) return;
@@ -91,58 +92,14 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
     >
       {children}
       {target && (
-        <MentionPopup
-          key={target.seq}
-          mention={target}
-          onDismiss={() => setTarget(null)}
-        />
+        <Suspense fallback={null}>
+          <MentionPopup
+            key={target.seq}
+            mention={target}
+            onDismiss={() => setTarget(null)}
+          />
+        </Suspense>
       )}
     </div>
-  );
-}
-
-function MentionPopup({
-  mention,
-  onDismiss,
-}: {
-  mention: Mention;
-  onDismiss: () => void;
-}) {
-  const { card, load } = useMemberCard(mention.id, mention.name);
-  const popup = useRef<HTMLDivElement>(null);
-  const reason = useRef<string | undefined>(undefined);
-  useEffect(load, [load]);
-  // The link says it opens a dialog, and that it is open, while the card is.
-  useEffect(() => {
-    const { link } = mention;
-    link.setAttribute("aria-haspopup", "dialog");
-    link.setAttribute("aria-expanded", "true");
-    return () => {
-      link.removeAttribute("aria-haspopup");
-      link.removeAttribute("aria-expanded");
-    };
-  }, [mention]);
-  return (
-    <MemberCardSurface
-      open
-      onOpenChange={(next, details) => {
-        reason.current = details.reason;
-        if (!next && !isPressOnAnchor(details, mention.link)) onDismiss();
-      }}
-      popupRef={popup}
-      name={mention.name}
-      card={card}
-      reload={load}
-      anchor={mention.link}
-      finalFocus={() =>
-        returnsFocusToLink({
-          reason: reason.current,
-          focusInside: popup.current?.contains(document.activeElement) ?? false,
-          connected: mention.link.isConnected,
-        })
-          ? (mention.link as HTMLElement)
-          : false
-      }
-    />
   );
 }

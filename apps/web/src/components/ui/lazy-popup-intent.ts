@@ -1,9 +1,10 @@
 // When a gesture on a not-yet-loaded trigger asks for the popup to open, and when it only asks for
 // its code to be fetched. Plain functions, so the rules can be tested without a browser.
 
-// How the popup opens: a click (Enter and Space on a button are clicks), or, for a menu, the arrow
-// keys as well; a tooltip opens on a mouse or pen pointer over the trigger and on keyboard focus.
-export type Opening = "click" | "menu" | "hover";
+// How the popup opens: a click (Enter and Space on a button are clicks); for a menu, the arrow keys
+// as well; for a link, Space too (a link is not clicked by it); a tooltip opens on a mouse or pen
+// pointer over the trigger and on keyboard focus.
+export type Opening = "click" | "menu" | "link" | "hover";
 
 type PointerLike = { pointerType?: string };
 
@@ -14,6 +15,11 @@ export const hovers = (event: PointerLike) => event.pointerType !== "touch";
 // The key that opens a menu from its button, as the button's own handler does once loaded.
 export const opensFromKey = (opening: Opening, key: string) =>
   opening === "menu" && (key === "ArrowDown" || key === "ArrowUp");
+
+// Space on a link. Its key down only keeps the page from scrolling; it opens on key up, as a button
+// is clicked.
+export const spaceOpens = (opening: Opening, key: string) =>
+  opening === "link" && key === " ";
 
 // A click that opens the popup: the primary button with no modifier. A modified click (new tab,
 // download) and a middle or right click keep the browser's own behaviour, for a trigger that is

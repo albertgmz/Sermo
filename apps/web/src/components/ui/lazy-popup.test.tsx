@@ -187,3 +187,19 @@ test("every popup module has a default export, which is what the trigger loads",
     );
   }
 });
+
+const FORUM = join(import.meta.dir, "../forum");
+
+test("a member's name and a mention reach the card only through the import made on first use", () => {
+  const CARD =
+    /^import (?!type )[^;]*?from "@\/components\/forum\/(member-card-popup|member-card-opened|mention-popup)";/m;
+  for (const [file, loaded] of [
+    ["member-card-trigger.tsx", "member-card-opened"],
+    ["mention-cards.tsx", "mention-popup"],
+  ]) {
+    const source = readFileSync(join(FORUM, file), "utf8");
+    expect(source, file).not.toMatch(HEAVY);
+    expect(source, file).not.toMatch(CARD);
+    expect(source, file).toContain(`import("@/components/forum/${loaded}")`);
+  }
+});

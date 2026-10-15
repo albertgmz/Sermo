@@ -1,22 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import {
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
-import { opensCard } from "@/components/forum/member-card-intent";
-import {
-  MemberCardSurface,
-  useMemberCard,
-} from "@/components/forum/member-card-popup";
+import { useLayoutEffect, useState, useSyncExternalStore } from "react";
+import type { OpenedMemberCardProps } from "@/components/forum/member-card-opened";
 import { useMemberCardsEnabled } from "@/components/forum/member-card-scope";
-import { PopoverTrigger } from "@/components/ui/popover";
+import { LazyPopup } from "@/components/ui/lazy-popup";
 import { getCommittedLiteValue, subscribeLiteValue } from "@/lib/lite-sync";
 import { cn } from "@/lib/utils";
+
+// The card (Base UI, the positioning, the sheet and the server action that reads it) is fetched when
+// a name or avatar is first reached for.
+const loadCard = () => import("@/components/forum/member-card-opened");
 
 type Props = {
   id: number;
@@ -40,7 +34,7 @@ const classes = (avatar: boolean | undefined, className?: string) =>
       );
 
 // A link to a member's profile that opens the member's card when clicked (mouse, touch, pen, or
-// Enter and Space on the keyboard). A modified click goes to the profile as a link does. Inside
+// Enter and Space on the keyboard). Until it is first reached for it is a plain link. A modified click goes to the profile as a link does. Inside
 // a card (`MemberCardScope`) it is just the link.
 export function MemberCardTrigger(props: Props) {
   const preference = useSyncExternalStore(
@@ -75,13 +69,6 @@ function MemberCardWithPreference({
   ...rest
 }: Props) {
   const [open, setOpen] = useState(false);
-  const { card, load } = useMemberCard(id, name);
-  const trigger = useRef<HTMLElement>(null);
-  // One function for the life of the trigger: a new one on every render would make the trigger
-  // let go of its element and take it again each time the card changes.
-  const setTrigger = useCallback((element: HTMLElement | null) => {
-    trigger.current = element;
-  }, []);
 
   // The page can be kept hidden when the visitor navigates away (Activity): a card is transient.
   useLayoutEffect(
@@ -91,44 +78,42 @@ function MemberCardWithPreference({
     [],
   );
 
-  function toggle() {
-    if (!open) load();
-    setOpen(!open);
-  }
-
+  const classNames = classes(avatar, className);
+  const popup: OpenedMemberCardProps = {
+    id,
+    href,
+    name,
+    className: classNames,
+    style,
+    "aria-label": rest["aria-label"],
+    children,
+    open,
+    onOpenChange: setOpen,
+  };
   return (
-    <MemberCardSurface
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) setOpen(false);
+    <LazyPopup
+      load={loadCard}
+      popup={popup}
+      opening="link"
+      onOpen={() => setOpen(true)}
+      onLoadError={() => {
+        // Without the card the name is still a link.
+        window.location.assign(href);
       }}
-      name={name}
-      card={card}
-      reload={load}
-      trigger={
-        <PopoverTrigger
-          ref={setTrigger}
-          nativeButton={false}
+      trigger={(lazy) => (
+        <Link
+          href={href}
           role="link"
-          render={<Link href={href} />}
           aria-label={rest["aria-label"]}
           aria-haspopup="dialog"
-          aria-expanded={open}
-          className={classes(avatar, className)}
+          aria-expanded="false"
+          className={classNames}
           style={style}
-          onClick={(event) => {
-            // Enter is a click on the link and Space becomes one on key up (Base UI), so this is
-            // the one way in. The popover's own handler is replaced by this one; a modified click
-            // is the link's.
-            event.preventBaseUIHandler();
-            if (!opensCard(event)) return;
-            event.preventDefault();
-            toggle();
-          }}
+          {...lazy}
         >
           {children}
-        </PopoverTrigger>
-      }
+        </Link>
+      )}
     />
   );
 }

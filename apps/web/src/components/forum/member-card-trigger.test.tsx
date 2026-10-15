@@ -121,3 +121,13 @@ test("inside a disabled scope a linked avatar is the plain link", async () => {
   expect(out).toContain('aria-label="ember"');
   expect(out).not.toContain('role="link"');
 });
+
+test("until it is reached for the trigger is a plain link with no Base UI part", async () => {
+  const out = await html(
+    <MemberCardTrigger id={3} href="/members/3" name="ember">
+      ember
+    </MemberCardTrigger>,
+  );
+  expect(out).not.toContain("data-slot");
+  expect(out).not.toContain("data-base-ui");
+});
