@@ -2657,3 +2657,25 @@ that still hold one keeps that walk short. Staff read a member's versions, dates
 Known limits: the staff panels have no prompt, the register page reads both pages in full to know
 which exist, and a sign-up through the API can claim acceptance with `acceptTerms` without having
 seen the pages.
+
+**Deleting one's own account (item 7g).** `users.deleteOwnAccount` (`POST /me/delete-account`, `{
+password }`) is the member's way out and runs the same function as `users.adminErase`
+(`eraseMember`: mark, permanent ban, one `member.erase` log entry, sessions and keys, address and
+password, profile, pictures, follows, push devices, consent and acceptance records, IP log, referral
+links, then the name `Deleted member <id>`); content, ledger, warnings and log stay. The self path
+also bans for good, because every rule about an erased account (no lifting, referrers treat it as
+absent, the last-super-admin search skips it) reads the ban. Who may: `profile.deleteAccount`, a
+plain allow flag held by every built-in group but Guest (Unconfirmed included, so a mistyped sign-up
+address can be abandoned), turned off with a `never`; it is checked before the password and again on
+the re-read actor in the first transaction. A session actor only (an API key is refused with the
+usual message), with the member's own password under the shared guess limiter (field `password`). A
+super admin is refused outright (hand the flag on first), and the last administrator is refused by
+the ban step, which rolls everything back. The log entry names the member as actor with the reason
+"Deleted by the member". The web puts a danger panel at the end of Security (hidden when the
+permission is not held; the backend still decides) with the username typed out and the password,
+signs the browser out and lands on the home page with a one-line notice. Known limits: a run
+interrupted after the first transaction is logged as `[users.eraseInterrupted]` with the member id
+and step and can only be finished by an administrator through the API with `users.adminErase` (the
+member's sessions are gone and the panel draws no erase form for an erased member); the web cannot
+tell a super admin or the last administrator beforehand, so it shows the panel and relays the
+refusal.
