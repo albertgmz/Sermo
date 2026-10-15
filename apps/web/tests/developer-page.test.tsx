@@ -8,6 +8,10 @@ import {
   forBrowser,
   withJsonType,
 } from "../src/app/[locale]/(main)/developer/prepare-spec";
+import {
+  followSiteTheme,
+  releaseSiteTheme,
+} from "../src/app/[locale]/(main)/developer/site-theme";
 import type { Locale } from "../src/i18n/locales";
 import { messagesFor } from "../src/i18n/messages";
 import { LOCALE_DIRS } from "./locales";
@@ -37,6 +41,7 @@ test("the intro is written in every language, with the same facts", async () => 
     for (const key of [
       "lead",
       "authHeading",
+      "realRequests",
       "keysHeading",
       "limitsHeading",
     ] as const) {
@@ -79,13 +84,16 @@ test("the reference library is asked for with a dynamic import and nowhere else"
     const source = readFileSync(file, "utf8");
     if (!source.includes("swagger-ui-dist")) continue;
     holders.push(relative(ROOT, file).replaceAll("\\", "/"));
-    // A static import of the script would put it in the first load of the page.
-    expect(source, file).not.toMatch(
-      /import\s[^;]*from\s*["']swagger-ui-dist[^"']*\.js["']/,
-    );
-    expect(source, file).toMatch(
-      /import\(\s*["']swagger-ui-dist\/swagger-ui-es-bundle\.js["']\s*\)/,
-    );
+    // A static import of the script, in any form (named, default, side-effect, require), would put
+    // it in the first load of the page. Once the one dynamic import and the stylesheet's
+    // side-effect import are taken out, the library is not named at all.
+    const dynamic =
+      /import\(\s*["']swagger-ui-dist\/swagger-ui-es-bundle\.js["']\s*\)/g;
+    expect(source, file).toMatch(dynamic);
+    const rest = source
+      .replace(dynamic, "")
+      .replace(/^import\s+["']swagger-ui-dist\/swagger-ui\.css["'];?$/m, "");
+    expect(rest, file).not.toContain("swagger-ui-dist");
   }
   expect(holders).toEqual([
     "src/app/[locale]/(main)/developer/api-reference.tsx",
@@ -120,7 +128,8 @@ test("the page names no other address in its scripts, styles or configuration", 
   // The address stays the page's own, and the library reads no configuration from it.
   expect(reference).toContain("deepLinking: false");
   expect(reference).toContain("withCredentials: false");
-  expect(reference).not.toMatch(/queryConfigEnabled|configUrl|urls:/);
+  expect(reference).toContain("queryConfigEnabled: false");
+  expect(reference).not.toMatch(/\b(?:configUrl|urls|url)\s*:/);
   expect(reference).not.toMatch(
     /localStorage|sessionStorage|persistAuthorization: true/,
   );
@@ -278,27 +287,146 @@ test("the real shape of the specification: the session cookies go, the key and t
 test("a write without a body says it is JSON, and nothing else is changed", () => {
   // A DELETE with only a path parameter: the API answers 415 to a cookie request without it.
   expect(
-    withJsonType({ method: "DELETE", headers: { Accept: "*/*" } }),
+    withJsonType({
+      url: "/api/v1/threads/4",
+      method: "DELETE",
+      headers: { Accept: "*/*" },
+    }),
   ).toEqual({
+    url: "/api/v1/threads/4",
     method: "DELETE",
     headers: { Accept: "*/*", "Content-Type": "application/json" },
   });
-  const post: Parameters<typeof withJsonType>[0] = { method: "POST" };
+  const post: Parameters<typeof withJsonType>[0] = {
+    url: "/api/v1/threads",
+    method: "POST",
+  };
   expect(withJsonType(post).headers).toEqual({
     "Content-Type": "application/json",
   });
   // A body (JSON, or an upload whose boundary the browser sets), a type already named, and
   // reads are left alone.
   const untouched: Parameters<typeof withJsonType>[0][] = [
-    { method: "POST", body: "{}", headers: {} },
-    { method: "POST", body: new FormData(), headers: {} },
-    { method: "PUT", headers: { "content-type": "text/plain" } },
-    { method: "GET", headers: {} },
-    { method: "head" },
+    { url: "/api/v1/x", method: "POST", body: "{}", headers: {} },
+    { url: "/api/v1/x", method: "POST", body: new FormData(), headers: {} },
+    {
+      url: "/api/v1/x",
+      method: "PUT",
+      headers: { "content-type": "text/plain" },
+    },
+    { url: "/api/v1/x", method: "GET", headers: {} },
+    { url: "/api/v1/x", method: "head" },
     {},
   ];
   for (const request of untouched) {
     const before = JSON.stringify(request.headers ?? null);
     expect(JSON.stringify(withJsonType(request).headers ?? null)).toBe(before);
   }
+});
+
+test("the Authorize dialog says which scheme takes the key", () => {
+  const spec = {
+    components: {
+      securitySchemes: {
+        bearerAuth: { type: "http", scheme: "bearer" },
+        sessionCookie: { type: "apiKey", in: "cookie", name: "sermo.session" },
+        bearerApiKey: { type: "http", scheme: "bearer" },
+        other: { type: "http", scheme: "basic" },
+      },
+    },
+  };
+  const { securitySchemes } = (
+    forBrowser(spec, "https://forum.example") as {
+      components: { securitySchemes: Record<string, Record<string, string>> };
+    }
+  ).components;
+  expect(securitySchemes.bearerApiKey.description).toContain("API key");
+  expect(securitySchemes.bearerApiKey.description).toContain("session");
+  expect(securitySchemes.bearerAuth.description).toContain("Not for API keys");
+  // A scheme the page does not know keeps what the document says, and the scheme itself stays.
+  expect(securitySchemes.other).toEqual({ type: "http", scheme: "basic" });
+  expect(securitySchemes.bearerApiKey.scheme).toBe("bearer");
+  // The input is not changed.
+  expect(
+    (spec.components.securitySchemes.bearerApiKey as Record<string, string>)
+      .description,
+  ).toBeUndefined();
+});
+
+test("a bodyless write gets the JSON type only on the REST API", () => {
+  const write = (url: string) =>
+    withJsonType({
+      url,
+      method: "DELETE",
+      headers: {} as Record<string, string>,
+    }).headers;
+  expect(write("http://localhost:3000/api/v1/threads/4")).toEqual({
+    "Content-Type": "application/json",
+  });
+  // The sign-in service, the SEO documents and anything else have no such rule.
+  for (const url of [
+    "http://localhost:3000/api/auth/api-key/delete",
+    "http://localhost:3000/health",
+    "http://localhost:3000/api/v1",
+    "not a url",
+  ]) {
+    expect(write(url), url).toEqual({});
+  }
+  expect(withJsonType({ method: "DELETE", headers: {} }).headers).toEqual({});
+});
+
+// A class list that can be looked at: the page's root element in a test.
+function root(...names: string[]) {
+  const set = new Set(names);
+  let writes = 0;
+  return {
+    set,
+    get writes() {
+      return writes;
+    },
+    classList: {
+      contains: (name: string) => set.has(name),
+      toggle: (name: string, force: boolean) => {
+        writes += 1;
+        if (force) set.add(name);
+        else set.delete(name);
+      },
+      remove: (name: string) => {
+        writes += 1;
+        set.delete(name);
+      },
+    },
+  };
+}
+
+test("the library's dark look follows the site's theme and is gone when the page is left", () => {
+  const html = root("dark", "h-full");
+  followSiteTheme(html);
+  expect([...html.set].sort()).toEqual(["dark", "dark-mode", "h-full"]);
+  // Following again changes nothing, so an observer of the class list is not called again.
+  const written = html.writes;
+  followSiteTheme(html);
+  expect(html.writes).toBe(written);
+  // The site turns light: the library's class goes with it.
+  html.set.delete("dark");
+  followSiteTheme(html);
+  expect([...html.set]).toEqual(["h-full"]);
+  followSiteTheme(html);
+  expect(html.writes).toBe(written + 1);
+  // Leaving the page removes the class whatever the theme, and the site's own classes stay.
+  html.set.add("dark");
+  followSiteTheme(html);
+  releaseSiteTheme(html);
+  expect([...html.set].sort()).toEqual(["dark", "h-full"]);
+  // A light site never gets the class.
+  const light = root("h-full");
+  followSiteTheme(light);
+  expect([...light.set]).toEqual(["h-full"]);
+  expect(light.writes).toBe(0);
+});
+
+test("the component follows the theme through the pure helpers", () => {
+  const reference = read("src/app/[locale]/(main)/developer/api-reference.tsx");
+  expect(reference).toContain("followSiteTheme(root)");
+  expect(reference).toContain("releaseSiteTheme(root)");
 });

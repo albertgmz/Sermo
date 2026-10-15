@@ -7,6 +7,7 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { forBrowser, SPEC_PATH, withJsonType } from "./prepare-spec";
+import { followSiteTheme, releaseSiteTheme } from "./site-theme";
 
 type Labels = {
   region: string;
@@ -15,24 +16,18 @@ type Labels = {
   retry: string;
 };
 
-// Swagger UI draws a dark look of its own under `html.dark-mode`. The site's theme is the `dark`
-// class on the same element, so the one follows the other for as long as the reference is on the
-// page.
+// The library draws its dark look under `html.dark-mode`: it follows the site's theme for as
+// long as the reference is on the page (site-theme.ts).
 function useSiteTheme() {
   useEffect(() => {
     const root = document.documentElement;
-    const follow = () => {
-      const dark = root.classList.contains("dark");
-      if (root.classList.contains("dark-mode") !== dark) {
-        root.classList.toggle("dark-mode", dark);
-      }
-    };
+    const follow = () => followSiteTheme(root);
     follow();
     const observer = new MutationObserver(follow);
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
     return () => {
       observer.disconnect();
-      root.classList.remove("dark-mode");
+      releaseSiteTheme(root);
     };
   }, []);
 }
@@ -69,6 +64,8 @@ function Reference({ labels, retry }: { labels: Labels; retry: () => void }) {
         // The library's default asks swagger.io to validate the document.
         validatorUrl: null,
         persistAuthorization: false,
+        // A link cannot make the page read another specification or configuration.
+        queryConfigEnabled: false,
         // Not the same as "no cookies": a request to this site always carries the visitor's own
         // session cookie. This only concerns requests to other origins, and there are none.
         withCredentials: false,

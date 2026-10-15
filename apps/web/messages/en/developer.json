@@ -12,6 +12,7 @@
     "specLink": "Download the OpenAPI specification",
     "authHeading": "Signing in",
     "authSession": "While you are signed in, Try it out runs as you, with your session. Signed out, it runs as a guest. If every call answers 401 and you sent no key, your session has ended: sign out and in again.",
+    "realRequests": "Try it out sends real requests, with your own session or key, to this live site. A write changes real data, and staff operations act with your staff permissions. The values the reference fills in are only examples: check them before you press Execute.",
     "authKey": "To call the API from your own scripts and tools, use an API key and send it as a Bearer token: <code>Authorization: Bearer your-key</code>. In the reference, press Authorize and paste the key to try operations with it. The page keeps the key in memory only and forgets it when you leave or reload.",
     "createKey": "Create a key while you are signed in, with <code>POST /api/auth/api-key/create</code> (under Api-key, \"Create a new API key for a user\"). Its body also needs your current password in <code>password</code>. The key is shown once, so copy it then, and treat it like a password: it acts as you.",
     "keysHeading": "What a key cannot do",

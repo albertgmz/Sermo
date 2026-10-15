@@ -30,6 +30,9 @@ export function DeveloperIntro() {
       </p>
       <Heading>{t("authHeading")}</Heading>
       <p className="mt-2">{t("authSession")}</p>
+      <p className="mt-2 rounded-lg border border-primary/40 p-3 font-medium">
+        {t("realRequests")}
+      </p>
       <p className="mt-2">{t.rich("authKey", { code })}</p>
       <p className="mt-2">{t.rich("createKey", { code })}</p>
       <Heading>{t("keysHeading")}</Heading>

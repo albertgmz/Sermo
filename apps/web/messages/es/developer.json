@@ -12,6 +12,7 @@
     "specLink": "Descargar la especificación OpenAPI",
     "authHeading": "Iniciar sesión",
     "authSession": "Con la sesión iniciada, Try it out actúa como tú, con tu sesión. Sin iniciarla, actúa como invitado. Si todas las llamadas responden 401 y no enviaste ninguna clave, tu sesión ha terminado: cierra sesión y vuelve a entrar.",
+    "realRequests": "Try it out envía peticiones reales, con tu propia sesión o clave, a este sitio en vivo. Una escritura cambia datos reales, y las operaciones del personal actúan con tus permisos de personal. Los valores que rellena la referencia son solo ejemplos: revísalos antes de pulsar Execute.",
     "authKey": "Para llamar a la API desde tus propios scripts y herramientas, usa una clave de API y envíala como token Bearer: <code>Authorization: Bearer tu-clave</code>. En la referencia, pulsa Authorize y pega la clave para probar las operaciones con ella. La página guarda la clave solo en memoria y la olvida al salir o recargar.",
     "createKey": "Crea una clave con la sesión iniciada, con <code>POST /api/auth/api-key/create</code> (en Api-key, \"Create a new API key for a user\"). Su cuerpo pide además tu contraseña actual en <code>password</code>. La clave se muestra una sola vez, así que cópiala entonces y trátala como una contraseña: actúa como tú.",
     "keysHeading": "Lo que una clave no puede hacer",

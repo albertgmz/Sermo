@@ -2,6 +2,7 @@
 // declared.
 declare module "swagger-ui-dist/swagger-ui-es-bundle.js" {
   interface TryItRequest {
+    url?: string;
     method?: string;
     body?: unknown;
     headers?: Record<string, string>;
@@ -16,6 +17,7 @@ declare module "swagger-ui-dist/swagger-ui-es-bundle.js" {
     filter: boolean;
     validatorUrl: string | null;
     persistAuthorization: boolean;
+    queryConfigEnabled: boolean;
     withCredentials: boolean;
     requestInterceptor: (request: TryItRequest) => TryItRequest;
   }
