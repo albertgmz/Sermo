@@ -111,10 +111,14 @@ export function ReactionButton({
     picker,
     given: current,
     open: () => {
+      clearTimeout(timer.current);
       viaTrigger.current = false;
       show(true);
     },
-    close: () => show(false),
+    close: () => {
+      clearTimeout(timer.current);
+      show(false);
+    },
     choose: (typeId) => choose(typeId),
   });
 
@@ -194,7 +198,10 @@ export function ReactionButton({
 
   const hover = {
     onPointerEnter: (event: React.PointerEvent) => {
-      if (event.pointerType === "mouse") schedule(true, HOVER_OPEN_MS);
+      // Right after a drag the enter is the capture letting go: it must not open the picker again.
+      if (event.pointerType === "mouse" && !gesture.justReleased()) {
+        schedule(true, HOVER_OPEN_MS);
+      }
     },
     onPointerLeave: (event: React.PointerEvent) => {
       if (event.pointerType !== "mouse") clearTimeout(timer.current);

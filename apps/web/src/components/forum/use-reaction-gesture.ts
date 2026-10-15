@@ -120,18 +120,24 @@ export function useReactionGesture({
   // also after a slide away has closed the picker. React listens to touchmove passively, so the
   // block is a native listener, attached whenever the button is drawn (it may be drawn later than
   // the hook runs). Before the picker opens the page scrolls normally, which cancels the hold.
-  const buttonRef = useCallback((node: HTMLButtonElement | null) => {
-    button.current = node;
-    if (!node) return;
-    const block = (event: TouchEvent) => {
-      if (locksPage(state.current) && event.cancelable) event.preventDefault();
-    };
-    node.addEventListener("touchmove", block, { passive: false });
-    return () => {
-      node.removeEventListener("touchmove", block);
-      button.current = null;
-    };
-  }, []);
+  const buttonRef = useCallback(
+    (node: HTMLButtonElement | null) => {
+      button.current = node;
+      if (!node) return;
+      const block = (event: TouchEvent) => {
+        if (locksPage(state.current) && event.cancelable)
+          event.preventDefault();
+      };
+      node.addEventListener("touchmove", block, { passive: false });
+      return () => {
+        node.removeEventListener("touchmove", block);
+        button.current = null;
+        // A button drawn away mid-gesture never hears the end: let go of the page.
+        dispatch({ type: "cancel", pointerId: state.current.pointerId });
+      };
+    },
+    [dispatch],
+  );
 
   // Nor does it select text meanwhile.
   useEffect(() => {
@@ -190,7 +196,6 @@ export function useReactionGesture({
       onPointerDown(event: React.PointerEvent<HTMLButtonElement>) {
         touch.current = event.pointerType !== "mouse";
         if (!touch.current && event.button !== 0) return;
-        if (state.current.phase !== "idle") return;
         clearTimeout(swallowTimer.current);
         swallow.current = false;
         try {
@@ -236,6 +241,7 @@ export function useReactionGesture({
       // The capture ending for any other reason ends the gesture.
       onLostPointerCapture(event: React.PointerEvent<HTMLButtonElement>) {
         dispatch({ type: "cancel", pointerId: event.pointerId });
+        end();
       },
       // A held touch would open the browser's menu over the picker.
       onContextMenu(event: React.MouseEvent) {

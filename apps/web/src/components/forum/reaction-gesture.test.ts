@@ -350,6 +350,17 @@ describe("a second pointer", () => {
     expect(effects).toEqual([{ type: "startHold" }]);
   });
 
+  test("the same pointer pressing again after an end that never came starts over", () => {
+    const stale = run([touchDown(), { type: "hold" }, move(far)]).state;
+    expect(stale.phase).toBe("cancelled");
+    const { state, effects } = run([touchDown(3)], stale);
+    expect(state.phase).toBe("pressing");
+    expect(state.given).toBe(3);
+    expect(state.hover).toBeNull();
+    expect(locksPage(state)).toBe(false);
+    expect(effects).toEqual([{ type: "startHold" }]);
+  });
+
   test("once the first finger has lifted a new press is accepted", () => {
     const { state } = run([
       touchDown(),

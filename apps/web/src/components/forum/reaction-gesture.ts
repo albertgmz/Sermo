@@ -102,8 +102,11 @@ function slide(state: GestureState, hit: Hit, effects: GestureEffect[]): Step {
 
 export function reduceGesture(state: GestureState, event: GestureEvent): Step {
   if (event.type === "down") {
-    // A second finger while a gesture runs is not a new press.
-    if (state.phase !== "idle") return stay(state);
+    // A second finger while a gesture runs is not a new press. The same pointer pressing again
+    // means the end of the last gesture never arrived, so it starts over.
+    if (state.phase !== "idle" && event.pointerId !== state.pointerId) {
+      return stay(state);
+    }
   } else if ("pointerId" in event && event.pointerId !== state.pointerId) {
     return stay(state);
   }
