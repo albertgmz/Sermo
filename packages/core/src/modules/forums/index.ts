@@ -48,6 +48,7 @@ import {
   requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
+import { requireTermsAccepted } from "../pages/acceptance";
 import { assertRemovalNotBegun, PURGE_CHUNK, purgeContent, purgeThread } from "../purge/purge";
 import { isBotAgent } from "../security/device";
 import { logIp } from "../security/log";
@@ -1360,6 +1361,7 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
   const user = requireAuthenticated(actor);
   const { node } = requireNode(ctx, actor, input.nodeId);
   requirePermission(ctx, actor, "forum.createThread", { nodeId: input.nodeId });
+  requireTermsAccepted(ctx, actor);
   if (node.type !== "forum") throw new ValidationError("Categories cannot hold threads.");
   checkNodePostingRules(ctx, actor, input.nodeId);
   if (input.attachmentIds?.length)
@@ -1443,6 +1445,7 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
     threadBanned: !!row.thread_banned,
   });
   if (row.is_locked) requirePermission(ctx, actor, "forum.replyLocked", { nodeId: row.node_id });
+  requireTermsAccepted(ctx, actor);
   checkNodePostingRules(ctx, actor, row.node_id);
   if (input.attachmentIds?.length)
     requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: row.node_id });
@@ -1517,6 +1520,7 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
   if (input.title === undefined && input.prefixId === undefined)
     throw new ValidationError("Send a title, a prefix, or both.");
   if (!mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
+  requireTermsAccepted(ctx, actor);
   writeTx(ctx, () => {
     const moderator = currentActor(ctx, actor);
     const current = requireThread(ctx, moderator, row.id).row;
@@ -1590,6 +1594,7 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
   const permissions = permissionsOf(ctx, actor);
   if (!mayEdit(permissions, thread.row.node_id, post, thread.row.is_locked))
     throw new ForbiddenError();
+  requireTermsAccepted(ctx, actor);
   const content = prepareModeratedContent(ctx, actor, input.body, false);
   const refs = renderModeratedContent(ctx, actor, content, {
     edit: { contentType: "post", contentId: post.id, authorId: post.user_id },

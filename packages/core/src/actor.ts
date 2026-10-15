@@ -32,6 +32,12 @@ export interface ClientLocation {
   readonly city: string | null;
 }
 
+/** The newest version of each acceptance kind the member holds a record for (0 = none). */
+export interface AcceptedVersions {
+  readonly terms: number;
+  readonly rules: number;
+}
+
 export interface PermissionVersions {
   readonly permissions: number;
   readonly nodeTree: number;
@@ -64,6 +70,8 @@ export type Actor =
       readonly clientLocation?: ClientLocation;
       readonly userAgent?: string;
       readonly principal?: Principal;
+      /** The newest terms and rules versions the member accepted, read with the principal. */
+      readonly acceptance?: AcceptedVersions;
       /**
        * Set only by the HTTP layer on an actor it resolved from a browser session cookie. An
        * interactive session must confirm group and permission writes with its password
@@ -81,6 +89,8 @@ export type Actor =
       readonly clientLocation?: ClientLocation;
       readonly userAgent?: string;
       readonly principal?: Principal;
+      /** The newest terms and rules versions the member accepted, read with the principal. */
+      readonly acceptance?: AcceptedVersions;
     };
 
 export type AuthenticatedActor = Exclude<Actor, { kind: "guest" }>;

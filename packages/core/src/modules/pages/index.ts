@@ -1,3 +1,4 @@
+import { requireAuthenticated } from "../../actor";
 import type { Ctx } from "../../context";
 import {
   PAGE_BODY_LENGTH,
@@ -7,6 +8,7 @@ import {
   pagesList,
   pagesSave,
 } from "../../contracts/pages";
+import { termsAccept } from "../../contracts/terms";
 import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError } from "../../errors";
 import { implement } from "../../operation";
@@ -14,6 +16,7 @@ import { can, requirePermission } from "../../permissions";
 import { renderMarkdown } from "../../render";
 import { iso } from "../../time";
 import { appendModeratorLog } from "../moderation";
+import { insertAcceptances, publishedVersions } from "./acceptance";
 
 /** The most pages the site holds. */
 export const PAGE_LIMIT = 100;
@@ -25,13 +28,14 @@ interface PageRow {
   body_source: string;
   body_html: string;
   is_published: number;
+  version: number;
   created_at: number;
   updated_at: number;
 }
 
 export const pageSql = {
   bySlug: "SELECT * FROM static_pages WHERE slug = ?1",
-  all: "SELECT slug, title, is_published, updated_at FROM static_pages ORDER BY slug",
+  all: "SELECT slug, title, is_published, version, updated_at FROM static_pages ORDER BY slug",
   count: "SELECT COUNT(*) AS n FROM static_pages",
 };
 
@@ -40,6 +44,7 @@ const pageValue = (row: PageRow) => ({
   title: row.title,
   bodyHtml: row.body_html,
   isPublished: !!row.is_published,
+  version: row.version,
   updatedAt: iso(row.updated_at),
 });
 const detailValue = (row: PageRow) => ({ ...pageValue(row), bodySource: row.body_source });
@@ -62,12 +67,15 @@ const list = implement(pagesList, (ctx, actor) => {
   requirePermission(ctx, actor, "admin.settings");
   return {
     items: ctx.sqlite
-      .prepare<Pick<PageRow, "slug" | "title" | "is_published" | "updated_at">, []>(pageSql.all)
+      .prepare<Pick<PageRow, "slug" | "title" | "is_published" | "version" | "updated_at">, []>(
+        pageSql.all,
+      )
       .all()
       .map((row) => ({
         slug: row.slug,
         title: row.title,
         isPublished: !!row.is_published,
+        version: row.version,
         updatedAt: iso(row.updated_at),
       })),
   };
@@ -90,12 +98,22 @@ const save = implement(pagesSave, (ctx, actor, input) => {
       throw new ConflictError(`The site holds at most ${PAGE_LIMIT} pages.`);
     const row = ctx.sqlite
       .prepare<PageRow, (string | number)[]>(
-        "INSERT INTO static_pages (slug, title, body_source, body_html, is_published, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6) ON CONFLICT (slug) DO UPDATE SET title = excluded.title, body_source = excluded.body_source, body_html = excluded.body_html, is_published = excluded.is_published, updated_at = excluded.updated_at RETURNING *",
+        "INSERT INTO static_pages (slug, title, body_source, body_html, is_published, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6) ON CONFLICT (slug) DO UPDATE SET title = excluded.title, body_source = excluded.body_source, body_html = excluded.body_html, is_published = excluded.is_published, version = static_pages.version + ?7, updated_at = excluded.updated_at RETURNING *",
       )
-      .get(input.slug, input.title, input.body, html, input.isPublished ? 1 : 0, ctx.now())!;
+      .get(
+        input.slug,
+        input.title,
+        input.body,
+        html,
+        input.isPublished ? 1 : 0,
+        ctx.now(),
+        input.newVersion ? 1 : 0,
+      )!;
     appendModeratorLog(ctx, actor, "page.save", "static_page", row.id, "", {
       slug: row.slug,
       created: !existing,
+      version: row.version,
+      newVersion: !!existing && input.newVersion,
     });
     return detailValue(row);
   });
@@ -112,4 +130,23 @@ const remove = implement(pagesDelete, (ctx, actor, input) => {
   });
 });
 
-export const operations = [get, list, getSource, save, remove];
+const accept = implement(
+  termsAccept,
+  (ctx, actor, input) => {
+    const user = requireAuthenticated(actor);
+    return writeTx(ctx, () => {
+      // Read inside the transaction: a version published a moment ago is the one that counts.
+      const published = publishedVersions(ctx);
+      for (const item of input.accept)
+        if (published[item.kind] !== item.version)
+          throw new ConflictError(
+            `The ${item.kind} page changed or is no longer published. Read it again.`,
+          );
+      insertAcceptances(ctx, user.userId, input.accept, user.clientIp);
+      return { ok: true as const };
+    });
+  },
+  { public: "A signed-in member accepts for themselves; there is nothing to grant or refuse." },
+);
+
+export const operations = [get, list, getSource, save, remove, accept];

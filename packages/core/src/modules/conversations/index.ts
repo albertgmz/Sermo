@@ -46,6 +46,7 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
+import { requireTermsAccepted } from "../pages/acceptance";
 import { logIp } from "../security/log";
 
 interface ConversationRow {
@@ -370,6 +371,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
   const starter = requireAuthenticated(actor);
   const permissions = permissionsOf(ctx, actor);
   if (!permissions.can("conversation.start")) throw new ForbiddenError();
+  requireTermsAccepted(ctx, actor);
   const ids = [...new Set(input.recipientIds)].filter((id) => id !== starter.userId);
   if (!ids.length) throw new ValidationError("At least one other recipient is required.");
   const maxRecipients = permissions.value("conversation.maxRecipients");
@@ -524,6 +526,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
   const permissions = permissionsOf(ctx, actor);
   requirePermission(ctx, actor, "conversation.reply");
   if (before.is_locked === 1) requirePermission(ctx, actor, "conversation.moderate");
+  requireTermsAccepted(ctx, actor);
   requireAttach(ctx, actor, input.attachmentIds);
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
@@ -723,6 +726,7 @@ export const conversationsAddParticipantsOp = implement(
     const before = activeConversation(ctx, actor, input.conversationId);
     if (before.user_id !== user.userId) throw new ForbiddenError();
     requirePermission(ctx, actor, "conversation.start");
+    requireTermsAccepted(ctx, actor);
     const ids = [...new Set(input.userIds)].filter((id) => id !== user.userId);
     if (!ids.length) throw new ValidationError("At least one other person is required.");
     const found = new Set(
@@ -854,6 +858,7 @@ export const conversationsUpdateMessageOp = implement(
     const { message, conversation } = visibleTarget(ctx, actor, input.messageId);
     if (message.state === "deleted") throw new ConflictError("The message is deleted.");
     if (!mayEdit(permissionsOf(ctx, actor), conversation, message)) throw new ForbiddenError();
+    requireTermsAccepted(ctx, actor);
     requireAttach(ctx, actor, input.attachmentIds, message.id);
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const refs = renderModeratedContent(ctx, actor, content, {

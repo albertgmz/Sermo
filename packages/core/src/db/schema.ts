@@ -2271,10 +2271,43 @@ export const staticPages = sqliteTable(
     bodySource: text("body_source").notNull(),
     bodyHtml: text("body_html").notNull(),
     isPublished: bool("is_published").notNull().default(true),
+    /**
+     * Raised only when an administrator publishes the page as a new version. For the `terms` and
+     * `rules` pages it is the version members must have accepted (see `terms_acceptances`).
+     */
+    version: integer("version").notNull().default(1),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
   (t) => [uniqueIndex("static_pages_slug").on(t.slug)],
+);
+
+/** The static pages members must accept; the page's slug is the kind. */
+export const ACCEPTANCE_KINDS = ["terms", "rules"] as const;
+export type AcceptanceKind = (typeof ACCEPTANCE_KINDS)[number];
+
+/**
+ * One row per acceptance: which version of the terms page or the rules page a member accepted,
+ * when, and from which address (the trusted client address, normalised; null when the request
+ * carried none). Written at sign-up and when the member accepts on the prompt. A member has
+ * accepted the current version of a kind when they hold a row of that kind at that version or
+ * a later one. Deleted with the member (the erase also deletes it, because an erased member's
+ * row stays).
+ */
+export const termsAcceptances = sqliteTable(
+  "terms_acceptances",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ACCEPTANCE_KINDS }).notNull(),
+    version: integer("version").notNull(),
+    ip: text("ip"),
+    acceptedAt: integer("accepted_at").notNull(),
+  },
+  // One acceptance per member, kind and version; also the lookup of a member's newest version.
+  (t) => [uniqueIndex("terms_acceptances_member").on(t.userId, t.kind, t.version)],
 );
 
 // ---------------------------------------------------------------------------

@@ -36,6 +36,7 @@ import { reactablePost } from "../forums";
 import { attachUploadedFile, releaseFile } from "../images/attach";
 import { requireSiteView } from "../members/site-access";
 import { appendModeratorLog, requireNegativeReactionRoom } from "../moderation";
+import { requireTermsAccepted } from "../pages/acceptance";
 import { reactableProfileComment, reactableProfilePost } from "../profiles";
 import { publicPicture } from "../storage/url";
 
@@ -460,6 +461,7 @@ export const reactionsSetOp = implement(reactionsSet, (ctx, actor, input) => {
       !can(ctx, actor, "profilePost.react"))
   )
     throw new ForbiddenError();
+  requireTermsAccepted(ctx, actor);
   return writeTx(ctx, () => {
     const target = reactables[input.contentType](ctx, actor, input.contentId);
     if (!target.isVisible || target.authorId === user.userId) throw new ForbiddenError();

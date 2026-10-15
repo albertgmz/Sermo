@@ -11,6 +11,7 @@ import { renameThroughAuth } from "../auth/username";
 import { deleteConsentRecord } from "../consent";
 import { clearMemberPicture } from "../images";
 import { appendModeratorLog, insertAuthorizedBan } from "../moderation";
+import { acceptanceSql } from "../pages/acceptance";
 import { ipLogSql } from "../security/log";
 import { endMemberFollows } from "../social";
 import { requireTakeoverRights, targetMember, verifyActorPassword } from "./shared";
@@ -141,6 +142,7 @@ export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, i
     ctx.sqlite.prepare(eraseSql.pushDevices).run(input.userId);
     ctx.sqlite.prepare(ipLogSql.erase).run(input.userId);
     deleteConsentRecord(ctx, input.userId);
+    ctx.sqlite.prepare(acceptanceSql.erase).run(input.userId);
     ctx.sqlite.prepare(eraseSql.uncountReferral).run(input.userId);
     ctx.sqlite.prepare(eraseSql.endReferrals).run(input.userId);
   });

@@ -26,6 +26,7 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
+import { requireTermsAccepted } from "../pages/acceptance";
 import { logIp } from "../security/log";
 import {
   COMMENTS_SQL,
@@ -80,6 +81,7 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
   requirePermission(ctx, actor, "profilePost.comment");
   if (!mayCommentOnWall(ctx, actor, post.profile_user_id)) throw new ForbiddenError();
   if (post.state !== "visible") throw new ForbiddenError();
+  requireTermsAccepted(ctx, actor);
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const refs = renderModeratedContent(ctx, actor, content);
@@ -133,6 +135,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
   requireAuthenticated(actor);
   const { comment, post } = requireComment(ctx, actor, input.commentId);
   if (!mayEditWallContent(ctx, actor, comment.user_id)) throw new ForbiddenError();
+  requireTermsAccepted(ctx, actor);
   const content = prepareModeratedContent(ctx, actor, input.body, false);
   const refs = renderModeratedContent(ctx, actor, content, {
     edit: { contentType: "profile_post_comment", contentId: comment.id, authorId: comment.user_id },

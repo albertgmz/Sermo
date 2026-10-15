@@ -63,6 +63,7 @@ describe("pages", () => {
         "slug",
         "title",
         "updatedAt",
+        "version",
       ]);
     }
   });
@@ -114,7 +115,13 @@ describe("pages", () => {
     await save("alpha", { isPublished: false, body: "*src*" });
     const { items } = await run(ctx, "pages.list", admin);
     expect(items.map((page: { slug: string }) => page.slug)).toEqual(["alpha", "zeta"]);
-    expect(Object.keys(items[0]).sort()).toEqual(["isPublished", "slug", "title", "updatedAt"]);
+    expect(Object.keys(items[0]).sort()).toEqual([
+      "isPublished",
+      "slug",
+      "title",
+      "updatedAt",
+      "version",
+    ]);
     expect(items[0]).toMatchObject({ title: "Title alpha", isPublished: false });
   });
 
@@ -246,6 +253,7 @@ describe("pages", () => {
       "slug",
       "title",
       "is_published",
+      "version",
       "updated_at",
     ]);
   });

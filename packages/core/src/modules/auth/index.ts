@@ -7,7 +7,7 @@ import { verifyJWT } from "better-auth/crypto";
 import { parseUserOutput } from "better-auth/db";
 import { openAPI, type username } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
-import { type Actor, GUEST, type Principal } from "../../actor";
+import { type AcceptedVersions, type Actor, GUEST, type Principal } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { authCounters, authMe } from "../../contracts/auth";
 import type { TurnstileForm } from "../../contracts/settings";
@@ -52,6 +52,12 @@ import {
   settleReferralAtSignIn,
 } from "../members/referrals";
 import { queueCounts } from "../moderation";
+import {
+  acceptanceSql,
+  acceptedFromRow,
+  pendingAcceptances,
+  recordSignUpAcceptance,
+} from "../pages/acceptance";
 import { requestLocation } from "../security/location";
 import { logMemberIp } from "../security/log";
 import { noteSessionActive, recordSignIn } from "../security/session";
@@ -880,10 +886,18 @@ function buildAuth(ctx: Ctx) {
                 );
                 if (referrer !== null)
                   referOnRegistration(ctx, Number(user.id), referrer, mailEnabled);
+                const ip = headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip");
+                // The form's checkbox covers the terms and the rules published now. A sign-up
+                // without it records nothing: the member is asked on their first visit.
+                if (
+                  (hookContext as { body?: { acceptTerms?: unknown } } | undefined)?.body
+                    ?.acceptTerms === true
+                )
+                  recordSignUpAcceptance(ctx, Number(user.id), ip);
                 logMemberIp(
                   ctx,
                   Number(user.id),
-                  headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
+                  ip,
                   headers?.get("user-agent"),
                   "register",
                   undefined,
@@ -1050,13 +1064,16 @@ type ForumUser = { group_id: number };
 type MemberRow = PrincipalRow & {
   pv: number | null;
   tv: number | null;
+  accepted_terms: number | null;
+  accepted_rules: number | null;
   erased_at: number | null;
   sessions_revoked_at: number | null;
 };
 const MEMBER_SQL =
   `SELECT ${PRINCIPAL_COLUMNS}, u.erased_at, u.sessions_revoked_at, ` +
   "(SELECT version FROM cache_versions WHERE key = 'permissions') AS pv, " +
-  "(SELECT version FROM cache_versions WHERE key = 'node_tree') AS tv FROM users u WHERE u.id = ?1";
+  "(SELECT version FROM cache_versions WHERE key = 'node_tree') AS tv, " +
+  `${acceptanceSql.newestColumns} FROM users u WHERE u.id = ?1`;
 
 /**
  * The member's primary group (repairing a missing forum row), then their permission principal
@@ -1065,7 +1082,12 @@ const MEMBER_SQL =
 function memberFor(
   ctx: Ctx,
   userId: number,
-): { groupId: number; principal: Principal; sessionsRevokedAt: number | null } {
+): {
+  groupId: number;
+  principal: Principal;
+  acceptance: AcceptedVersions;
+  sessionsRevokedAt: number | null;
+} {
   const groupId = groupFor(ctx, userId);
   const row = prepared(ctx, "auth.member", () =>
     ctx.sqlite.prepare<MemberRow, [number]>(MEMBER_SQL),
@@ -1082,6 +1104,7 @@ function memberFor(
   return {
     groupId,
     principal: principalFromRow(row, { permissions: row.pv ?? 0, nodeTree: row.tv ?? 0 }),
+    acceptance: acceptedFromRow(row),
     sessionsRevokedAt: row.sessions_revoked_at,
   };
 }
@@ -1156,7 +1179,7 @@ export async function resolveActor(
     if (!/^\d+$/.test(row.reference_id)) throw new UnauthenticatedError();
     const userId = Number(row.reference_id);
     if (!Number.isSafeInteger(userId) || userId <= 0) throw new UnauthenticatedError();
-    const { groupId, principal } = memberFor(ctx, userId);
+    const { groupId, principal, acceptance } = memberFor(ctx, userId);
     return {
       actor: {
         kind: "token",
@@ -1164,6 +1187,7 @@ export async function resolveActor(
         groupId,
         tokenId: row.id,
         principal,
+        acceptance,
         ...(clientIp ? { clientIp } : {}),
         ...(clientLocation ? { clientLocation } : {}),
         ...(userAgent ? { userAgent } : {}),
@@ -1196,7 +1220,7 @@ export async function resolveActor(
     sessionId <= 0
   )
     throw new UnauthenticatedError();
-  const { groupId, principal, sessionsRevokedAt } = memberFor(ctx, userId);
+  const { groupId, principal, acceptance, sessionsRevokedAt } = memberFor(ctx, userId);
   // The member's sessions were cut off after this one was issued: the cookie cache may still
   // hold it, so the member's own row (already loaded) decides, not the cache.
   if (
@@ -1213,6 +1237,7 @@ export async function resolveActor(
       groupId,
       sessionId,
       principal,
+      acceptance,
       ...(clientIp ? { clientIp } : {}),
       ...(clientLocation ? { clientLocation } : {}),
       ...(userAgent ? { userAgent } : {}),
@@ -1410,6 +1435,7 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
       keyboardShortcuts: row.keyboard_shortcuts === 1,
       homeTab: row.home_tab,
       openHomeTab: resolveHomeTab(ctx, actor, readSiteSettings(ctx).homeTab),
+      pendingAcceptance: pendingAcceptances(ctx, actor),
       displayGroup: display && {
         id: display.groupId,
         title: display.title,

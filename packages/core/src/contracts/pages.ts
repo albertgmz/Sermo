@@ -26,6 +26,11 @@ export const StaticPage = z
     title: z.string(),
     bodyHtml: z.string(),
     isPublished: z.boolean(),
+    /**
+     * Raised only when an administrator saves the page "as a new version". For the `terms` and
+     * `rules` pages it is the version members must accept (see `terms.accept`).
+     */
+    version: z.number().int().positive(),
     updatedAt: Timestamp,
   })
   .meta({ id: "StaticPage" });
@@ -57,6 +62,7 @@ export const pagesList = defineContract({
         slug: z.string(),
         title: z.string(),
         isPublished: z.boolean(),
+        version: z.number().int().positive(),
         updatedAt: Timestamp,
       }),
     ),
@@ -74,14 +80,18 @@ export const pagesGetSource = defineContract({
 export const pagesSave = defineContract({
   name: "pages.save",
   summary:
-    "Create the page with this slug, or replace its title, text and published state. Requires " +
-    "admin.settings.",
+    "Create the page with this slug, or replace its title, text and published state. A new " +
+    "page starts at version 1; `newVersion` raises the version by one, which for the `terms` " +
+    "and `rules` pages makes every member accept it again before they can post, react or " +
+    "message (`newVersion` on a page that does not exist yet changes nothing). Fixing a typo " +
+    "leaves it false. Requires admin.settings.",
   kind: "write",
   input: z.object({
     slug: PageSlug,
     title: z.string().trim().min(1).max(150),
     body: PageBody,
     isPublished: z.boolean().default(true),
+    newVersion: z.boolean().default(false),
   }),
   output: StaticPageDetail,
 });

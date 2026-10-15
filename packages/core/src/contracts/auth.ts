@@ -2,6 +2,7 @@ import * as z from "zod";
 import { HOME_TABS } from "../db/schema";
 import { defineContract } from "../operation";
 import { DisplayGroup, Empty, Id, ResolvedPermissions, Timestamp } from "./common";
+import { PendingAcceptance } from "./terms";
 
 /*
  * Registration, sign-in, sign-out, sessions and API keys are served by Better Auth's own
@@ -40,6 +41,13 @@ export const SelfUser = z
      * (`homeTab`), else the site's home tab rules decided for them, else the site's fallback.
      */
     openHomeTab: z.enum(HOME_TABS),
+    /**
+     * The published terms and rules pages the member has not accepted at their current version
+     * (empty when nothing is pending). While it is not empty, posting, reacting and messaging
+     * are refused with a `forbidden` error whose issue path is `acceptance`; `terms.accept`
+     * accepts what is listed here.
+     */
+    pendingAcceptance: z.array(PendingAcceptance),
   })
   .meta({ id: "SelfUser" });
 

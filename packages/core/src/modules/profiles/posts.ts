@@ -45,6 +45,7 @@ import {
 } from "../moderation";
 import { ruleShortfall } from "../moderation/member-rules";
 import { noticeForOther } from "../moderation/notify";
+import { requireTermsAccepted } from "../pages/acceptance";
 import { assertRemovalNotBegun, PURGE_CHUNK, purgeContent } from "../purge/purge";
 import { logIp } from "../security/log";
 import { profileSeo } from "../seo/pages";
@@ -323,6 +324,7 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
   const user = requireAuthenticated(actor);
   requireProfileView(ctx, actor, input.userId);
   if (!mayPostOnWall(ctx, actor, input.userId)) throw new ForbiddenError();
+  requireTermsAccepted(ctx, actor);
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const refs = renderModeratedContent(ctx, actor, content);
@@ -369,6 +371,7 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
   requireAuthenticated(actor);
   const row = requirePost(ctx, actor, input.profilePostId);
   if (!mayEditWallContent(ctx, actor, row.user_id)) throw new ForbiddenError();
+  requireTermsAccepted(ctx, actor);
   const content = prepareModeratedContent(ctx, actor, input.body, false);
   const refs = renderModeratedContent(ctx, actor, content, {
     edit: { contentType: "profile_post", contentId: row.id, authorId: row.user_id },
