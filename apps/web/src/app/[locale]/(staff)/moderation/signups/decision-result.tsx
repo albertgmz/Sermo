@@ -1,5 +1,8 @@
 import { getTranslations } from "next-intl/server";
-import { MemberOutcomeList } from "@/components/staff/member-outcomes";
+import {
+  MemberOutcomeList,
+  outcomeTone,
+} from "@/components/staff/member-outcomes";
 import { type Params, readResult } from "./result";
 
 // What the last decision did, from the address it redirected to: the counts, and for each account
@@ -18,7 +21,7 @@ export async function DecisionResult({
   return (
     <div className="space-y-2">
       <output
-        className={`block rounded-lg border bg-card px-4 py-2.5 text-xs font-medium ${done === 0 ? "text-muted-foreground" : "text-success"}`}
+        className={`block rounded-lg border bg-card px-4 py-2.5 text-xs font-medium ${outcomeTone(result)}`}
       >
         {t(decision, { done, skipped, failed })}
       </output>

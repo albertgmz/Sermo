@@ -34,7 +34,7 @@
       "announcement": "Anuncio: {titled, select, yes {«{title}»} other {léelo}}",
       "accountSecurity": "Hay un aviso de seguridad sobre tu cuenta",
       "unknown": "Tienes una nueva notificación",
-      "moderatorSignup": "Una cuenta nueva espera aprobación"
+      "moderatorSignup": "{count, plural, =0 {Una cuenta nueva espera aprobación} one {<actors></actors> se ha dado de alta y espera aprobación} other {<actors></actors> se han dado de alta y esperan aprobación}}"
     }
   },
   "loading": {

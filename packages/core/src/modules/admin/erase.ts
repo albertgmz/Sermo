@@ -28,11 +28,12 @@ interface MemberRow {
 export const eraseSql = {
   member:
     "SELECT u.username, u.username_key, u.banned_permanently, u.erased_at, a.email FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
-  // An erased account is not waiting in the sign-up queue.
-  mark: "UPDATE users SET erased_at = ?2, sessions_revoked_at = ?2, signup_review = NULL WHERE id = ?1 AND erased_at IS NULL",
+  mark: "UPDATE users SET erased_at = ?2, sessions_revoked_at = ?2 WHERE id = ?1 AND erased_at IS NULL",
   holder: "SELECT id FROM users WHERE username_key = ?1",
-  // Every account email of the member that is not running, finished ones included: they hold the address.
-  mail: "DELETE FROM jobs WHERE type = 'email.account' AND status <> 'running' AND json_extract(payload, '$.userId') = ?1",
+  // Every account email of the member that is not running, finished ones included: they hold the
+  // address. The rejection of a sign-up is spared: it is the one mail the erasure itself sends, and
+  // it drops the address once it is done.
+  mail: "DELETE FROM jobs WHERE type = 'email.account' AND status <> 'running' AND json_extract(payload, '$.userId') = ?1 AND json_extract(payload, '$.kind') <> 'signupRejected'",
   rejectedAddress: "DELETE FROM undeliverable_emails WHERE email = ?1",
   failedMail: "DELETE FROM email_failures WHERE user_id = ?1 OR email = ?2",
   pushDevices: "DELETE FROM push_subscriptions WHERE user_id = ?1",
@@ -43,7 +44,9 @@ export const eraseSql = {
     "UPDATE users SET referred_by = NULL, referred_at = NULL, referral_count = CASE WHEN id = ?1 THEN 0 ELSE referral_count END WHERE id = ?1 OR referred_by = ?1",
   clear:
     "UPDATE users SET about = '', custom_title = NULL, signature_source = NULL, signature_html = NULL, location = '', website = '', birthday_md = NULL, birth_year = NULL, social_discord = '', social_telegram = '', social_x = '', accent_color_id = NULL, name_color_id = NULL, frame_id = NULL, name_icon_item_id = NULL, cover_preset_id = NULL, content_updated_at = ?2 WHERE id = ?1",
-  touch: "UPDATE users SET content_updated_at = ?1, username_changed_at = ?1 WHERE id = ?2",
+  // The last step: an erased account no longer waits in the sign-up queue.
+  touch:
+    "UPDATE users SET content_updated_at = ?1, username_changed_at = ?1, signup_review = NULL WHERE id = ?2",
 };
 
 /** The numbers tried after `Deleted member <id>` when that name is somehow taken. */
@@ -113,14 +116,6 @@ export async function eraseMember(
       // The flag goes with the account; the last super admin cannot be erased.
       if (isSuperAdminRow(ctx, userId)) assertOtherSuperAdmin(ctx, userId);
       ctx.sqlite.prepare("UPDATE users SET is_super_admin = 0 WHERE id = ?1").run(userId);
-      // An account that waited in the sign-up queue leaves it: its alert clears with it.
-      if (isAwaiting(ctx, userId))
-        publishEvent(ctx, {
-          type: "member.signup_decided",
-          targetType: "user",
-          targetId: userId,
-          payload: { decision: "reject", moderatorId: actorUserId(actor) },
-        });
       ctx.sqlite.prepare(eraseSql.mark).run(userId, ctx.now());
       appendModeratorLog(ctx, actor, entry.action, "user", userId, reason, entry.details);
     }
@@ -170,6 +165,15 @@ export async function eraseMember(
     await renameErased(ctx, userId);
     await revokeUserCredentials(ctx, userId);
     writeTx(ctx, () => {
+      // An account that waited in the sign-up queue leaves it now, and its alert clears: an erasure
+      // that stopped part way keeps it waiting, so staff can decide again and finish it.
+      if (isAwaiting(ctx, userId))
+        publishEvent(ctx, {
+          type: "member.signup_decided",
+          targetType: "user",
+          targetId: userId,
+          payload: { decision: "reject", moderatorId: actorUserId(actor) },
+        });
       ctx.sqlite.prepare(eraseSql.touch).run(ctx.now(), userId);
       markSessionsRevoked(ctx, userId);
       publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: userId });
@@ -192,17 +196,30 @@ export async function eraseAsAdministrator(
   actor: Actor,
   userId: number,
   reason: string,
+  options: {
+    entry?: { action: string; details: Record<string, unknown> };
+    /** The caller's own decision, run in the first transaction on the actor read again there. */
+    also?: (current: Actor) => void;
+  } = {},
 ): Promise<void> {
   const admin = requireAuthenticated(actor);
   if (admin.userId === userId) throw new ConflictError("You cannot erase your own account.");
   const target = targetMember(ctx, actor, userId);
   requirePermission(ctx, actor, "admin.members", { target });
   requireTakeoverRights(ctx, actor, target);
-  await eraseMember(ctx, actor, userId, reason, (current) => {
-    const fresh = targetMember(ctx, current, userId, true);
-    requirePermission(ctx, current, "admin.members", { target: fresh });
-    requireTakeoverRights(ctx, current, fresh);
-  });
+  await eraseMember(
+    ctx,
+    actor,
+    userId,
+    reason,
+    (current) => {
+      const fresh = targetMember(ctx, current, userId, true);
+      requirePermission(ctx, current, "admin.members", { target: fresh });
+      requireTakeoverRights(ctx, current, fresh);
+      options.also?.(current);
+    },
+    options.entry,
+  );
 }
 
 export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, input) => {

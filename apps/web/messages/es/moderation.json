@@ -62,6 +62,7 @@
     "signupsNone": "Elige al menos una alta.",
     "signupsTooMany": "Una decisión admite como máximo {count} altas a la vez.",
     "signupsMode": "Elige borrar o expulsar.",
+    "signupsDays": "Introduce un número de días de 1 a 3650, o expulsa para siempre.",
     "signupsPassword": "Introduce tu contraseña para borrar las cuentas."
   },
   "noticeFields": {
@@ -209,6 +210,7 @@
     "emptyDescription": "Las cuentas nuevas aparecen aquí cuando el sitio aprueba las altas a mano.",
     "flagged": "Marcada por el control de spam",
     "email": "Correo",
+    "emailHidden": "oculto: no gestionas esta cuenta",
     "signedUp": "Fecha de alta",
     "country": "País",
     "address": "Dirección",
@@ -235,13 +237,19 @@
       "reason": "Motivo (opcional)",
       "modeLabel": "Qué hace rechazar",
       "mode": {
-        "delete": "Borrar la cuenta",
-        "ban": "Expulsar para siempre"
+        "ban": "Expulsar la cuenta",
+        "delete": "Borrar la cuenta"
       },
       "modeHelp": {
-        "delete": "El mismo borrado que al borrar un miembro en el panel: no se puede deshacer y pide tu contraseña.",
-        "ban": "La cuenta se conserva y queda expulsada para siempre. Hace falta el permiso para expulsar para siempre."
-      }
+        "ban": "Conserva la cuenta, con la dirección desde la que se dio de alta y su registro de los términos, que la cola muestra para la siguiente cuenta. Queda cerrada para siempre, o retenida fuera de la cola hasta que acabe la expulsión.",
+        "delete": "Elimina la cuenta junto con la dirección desde la que se dio de alta y su registro de los términos. No se puede deshacer y pide tu contraseña."
+      },
+      "banLength": "Cuánto dura la expulsión",
+      "banDays": "Días de expulsión",
+      "banDaysUnit": "días",
+      "banForever": "Para siempre",
+      "banLengthHelpAny": "Una expulsión para siempre cierra la cuenta. Una expulsión por días la retiene fuera de la cola hasta que acabe.",
+      "banLengthHelpMax": "{count, plural, one {Puedes expulsar hasta # día.} other {Puedes expulsar hasta # días.}} La cuenta queda retenida fuera de la cola hasta que acabe la expulsión."
     },
     "result": {
       "approve": "{done, plural, one {# alta aprobada} other {# altas aprobadas}}{skipped, plural, =0 {} other {, omitidos: #}}{failed, plural, =0 {} other {, fallidos: #}}.",

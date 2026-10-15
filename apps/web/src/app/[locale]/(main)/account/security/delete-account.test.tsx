@@ -9,7 +9,7 @@ mock.module("next-intl/server", () => ({
 }));
 
 let viewer: {
-  user: { username: string } | null;
+  user: { username: string; awaitingApproval?: boolean } | null;
   resolvedPermissions: Record<string, boolean>;
 };
 mock.module("@/lib/sermo/session", () => ({ getViewer: async () => viewer }));
@@ -35,6 +35,17 @@ test("a member whose groups allow it sees what is removed and kept, and the conf
   expect(html).toContain("Removed:");
   expect(html).toContain("Kept:");
   expect(html).toContain("Type your username (ember) to confirm");
+  expect(html).toContain('name="confirmUsername"');
+  expect(html).toContain('name="actorPassword"');
+});
+
+test("a member whose account waits for approval keeps the way out, as the backend's permission list says", async () => {
+  viewer = {
+    user: { username: "ember", awaitingApproval: true },
+    resolvedPermissions: { "profile.deleteAccount": true },
+  };
+  const html = await markup();
+  expect(html).toContain("Delete account");
   expect(html).toContain('name="confirmUsername"');
   expect(html).toContain('name="actorPassword"');
 });

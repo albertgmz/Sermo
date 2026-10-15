@@ -20,6 +20,7 @@ import { allCombinations, flagAt } from "../../permissions/state";
 import { deliverEmail, type EmailItem } from "../email";
 import { readGates } from "../forums/read-gates";
 import { enqueueJob, registerJobHandler } from "../jobs";
+import { inQueueSql } from "../members/signup-review";
 import { deliverPush, type PushItem } from "../push/delivery";
 import { readSiteSettings } from "../settings";
 import { notificationChannels, typeById } from "./types";
@@ -862,7 +863,9 @@ function deliverBatch(
       ? `reaction:${contentType}:${contentId}`
       : stage.type === "thread.watched"
         ? `thread:${item?.threadId}`
-        : null;
+        : stage.type === "moderator.signup"
+          ? "signups"
+          : null;
   // Each member's open group row (unread, current epoch), and the members whose group row this
   // event or a later one already wrote (a replay). Both seek by member: a member's full history
   // can hold tens of thousands of rows.
@@ -1308,6 +1311,27 @@ function deleteUnreadBatch(
   return rows.map((row) => row.id);
 }
 
+/**
+ * Marks every unread notice of one type read, for the sign-up alert once nobody waits (the
+ * alert is one standing row per staff member, not one per account).
+ */
+function markTypeReadBatch(ctx: Ctx, type: string, eventId: number, after: number): number[] {
+  const rows = prepared(ctx, "notifications.unreadOfTypeAll", () =>
+    ctx.sqlite.prepare<UnreadRow, [string, number, number]>(
+      "SELECT n.id, n.user_id, n.epoch, u.notification_epoch AS current_epoch FROM notifications n JOIN users u ON u.id = n.user_id WHERE n.type = ?1 AND n.id > ?3 AND n.read_at IS NULL AND n.last_event_id < ?2 ORDER BY n.id LIMIT 40",
+    ),
+  ).all(type, eventId, after);
+  if (rows.length) {
+    prepared(ctx, "notifications.markRows", () =>
+      ctx.sqlite.prepare<unknown, [number, string]>(
+        "UPDATE notifications SET read_at = ?1 WHERE id IN (SELECT value FROM json_each(?2))",
+      ),
+    ).run(ctx.now(), JSON.stringify(rows.map((row) => row.id)));
+    countDown(ctx, rows);
+  }
+  return rows.map((row) => row.id);
+}
+
 /** Marks one notice type of one content read for everyone, such as moderators' approval notices. */
 function markReadBatch(
   ctx: Ctx,
@@ -1332,6 +1356,14 @@ function markReadBatch(
   }
   return rows.map((row) => row.id);
 }
+
+/** Whether any account waits in the sign-up queue (one indexed read). */
+const someoneWaits = (ctx: Ctx): boolean =>
+  !!prepared(ctx, "notifications.someoneWaits", () =>
+    ctx.sqlite.prepare<{ id: number }, [number]>(
+      `SELECT u.id FROM users u WHERE ${inQueueSql(1)} LIMIT 1`,
+    ),
+  ).get(ctx.now());
 
 const saveProgress = (ctx: Ctx) =>
   prepared(ctx, "notifications.progress", () =>
@@ -1441,11 +1473,9 @@ async function processEvent(ctx: Ctx, progress: Progress): Promise<void> {
     await inBatches(ctx, (after) =>
       markReadBatch(ctx, "report_group", event.targetId, "moderator.report", event.id, after),
     );
-  // The alert about a sign-up clears once staff decided.
-  if (event.type === "member.signup_decided")
-    await inBatches(ctx, (after) =>
-      markReadBatch(ctx, "user", event.targetId, "moderator.signup", event.id, after),
-    );
+  // The sign-up alert clears once nobody waits any more (one decision leaves it standing).
+  if (event.type === "member.signup_decided" && !someoneWaits(ctx))
+    await inBatches(ctx, (after) => markTypeReadBatch(ctx, "moderator.signup", event.id, after));
   const phases = stages(ctx, event, item);
   for (const stage of phases)
     if (

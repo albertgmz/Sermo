@@ -28,9 +28,17 @@ mock.module("@/app/[locale]/(main)/notifications/notification-link", () => ({
   ),
 }));
 
+// The avatar reads the viewer's settings; the row's words are what is under test.
+const avatar = { ...(await import("@/components/forum/user-avatar")) };
+mock.module("@/components/forum/user-avatar", () => ({
+  ...avatar,
+  UserAvatar: () => <span />,
+}));
+
 const { NotificationRow } = await import("./notification-row");
 
 afterAll(() => {
+  mock.module("@/components/forum/user-avatar", () => avatar);
   mock.module(
     "@/app/[locale]/(main)/notifications/notification-link",
     () => link,
@@ -131,4 +139,47 @@ test("a grouped reaction alert does not name one type for several members", () =
   );
   expect(html).toContain("gave your post a reaction");
   expect(html).not.toContain("Crown");
+});
+
+const signup = (actors: string[], actorCount: number) => ({
+  id: 3,
+  type: "moderator.signup",
+  contentType: "user",
+  actors: actors.map((username, index) => ({ id: index + 1, username })),
+  actorCount,
+  contentTitle: null,
+  data: {},
+  createdAt: "2026-01-01T00:00:00.000Z",
+  read: false,
+});
+
+const drawSignup = (item: ReturnType<typeof signup>) =>
+  renderToStaticMarkup(
+    withIntl(
+      <NotificationRow
+        item={item}
+        href="/moderation/signups"
+        member={(id) => ({ id, username: "x" }) as never}
+      />,
+    ),
+  ).replace(/<[^>]+>/g, "");
+
+test("the sign-up alert names the newcomers who wait, with the others counted as other grouped alerts do", () => {
+  expect(drawSignup(signup(["wren"], 1))).toContain(
+    "wren signed up and waits for approval",
+  );
+  expect(drawSignup(signup(["wren", "robin"], 2))).toContain(
+    "wren and robin signed up and wait for approval",
+  );
+  // The most recent five are named; the count says how many wait in all.
+  expect(drawSignup(signup(["a", "b", "c", "d", "e"], 12))).toContain(
+    "a and b and 10 others signed up and wait for approval".replace(
+      "a and b and",
+      "a, b and",
+    ),
+  );
+  // An alert with no one named keeps the plain line.
+  expect(drawSignup(signup([], 0))).toContain(
+    "A new account is waiting for approval",
+  );
 });

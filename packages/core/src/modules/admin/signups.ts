@@ -21,12 +21,13 @@ import {
 import { iso } from "../../time";
 import { queueAccountEmail } from "../email/account";
 import { isBanned } from "../members/access";
+import { inQueueSql } from "../members/signup-review";
 import { appendModeratorLog, insertAuthorizedBan, requireBanLength } from "../moderation";
 import { acceptanceSql } from "../pages/acceptance";
 import { securitySql } from "../security";
-import { eraseMember } from "./erase";
+import { eraseAsAdministrator } from "./erase";
 import { outcomeOf, SkipMember, tally } from "./outcomes";
-import { targetMember, verifyActorPassword } from "./shared";
+import { requireHeld, targetMember, verifyActorPassword } from "./shared";
 
 /*
  * The sign-up approval queue: which accounts wait (`signups.list`) and what staff decide
@@ -43,7 +44,7 @@ type Row = PrincipalRow & {
 };
 
 export const signupSql = {
-  page: `SELECT u.id, u.group_id, u.username, u.created_at, u.signup_review, a.email, ${PRINCIPAL_COLUMNS} FROM users u JOIN auth_user a ON a.id = u.id WHERE ${AWAITING_SQL} AND u.id < ?1 ORDER BY u.id DESC LIMIT ?2`,
+  page: `SELECT u.id, u.group_id, u.username, u.created_at, u.signup_review, a.email, ${PRINCIPAL_COLUMNS} FROM users u JOIN auth_user a ON a.id = u.id WHERE ${inQueueSql(3)} AND u.id < ?1 ORDER BY u.id DESC LIMIT ?2`,
   // The address it signed up from: its first register row, found through the member's rows.
   registered:
     "SELECT ip, ip_net, country FROM ip_log WHERE user_id = ?1 AND action = 'register' ORDER BY id LIMIT 1",
@@ -99,15 +100,16 @@ export const signupsListOp = implement(signupsList, (ctx, actor, input) => {
   requirePermission(ctx, actor, "member.approveRegistrations", { target: GUEST });
   const [before] = input.cursor ? decodeCursor(input.cursor, Cursor) : [Number.MAX_SAFE_INTEGER];
   const rows = prepared(ctx, "signups.page", () =>
-    ctx.sqlite.prepare<Row, [number, number]>(signupSql.page),
-  ).all(before, input.limit + 1);
+    ctx.sqlite.prepare<Row, [number, number, number]>(signupSql.page),
+  ).all(before, input.limit + 1, ctx.now());
   const page = rows.slice(0, input.limit);
   const versions = requestVersions(ctx, actor);
   return {
     items: page.map((row) => {
-      const readIps = can(ctx, actor, "member.viewIps", {
-        target: memberActor(row.id, row.group_id, row, versions),
-      });
+      const target = memberActor(row.id, row.group_id, row, versions);
+      const readIps = can(ctx, actor, "member.viewIps", { target });
+      // The address is a member's private detail: staff who manage members see it, others a mask.
+      const emailHidden = !can(ctx, actor, "admin.members", { target });
       const registered = prepared(ctx, "signups.registered", () =>
         ctx.sqlite.prepare<{ ip: string; ip_net: string; country: string | null }, [number]>(
           signupSql.registered,
@@ -115,7 +117,8 @@ export const signupsListOp = implement(signupsList, (ctx, actor, input) => {
       ).get(row.id);
       return {
         user: { id: row.id, username: row.username },
-        email: row.email,
+        email: emailHidden ? maskEmail(row.email) : row.email,
+        emailHidden,
         createdAt: iso(row.created_at),
         flagged: row.signup_review === "flagged",
         country: registered?.country ?? null,
@@ -142,6 +145,12 @@ export const signupsListOp = implement(signupsList, (ctx, actor, input) => {
   };
 });
 
+/** `j***@example.com`: the first letter and the domain. */
+export const maskEmail = (email: string): string => {
+  const at = email.lastIndexOf("@");
+  return at < 1 ? "***" : `${email[0]}***${email.slice(at)}`;
+};
+
 const waiting = (ctx: Ctx, userId: number) =>
   prepared(ctx, "signups.waiting", () =>
     ctx.sqlite.prepare<{ id: number; email: string }, [number]>(signupSql.waiting),
@@ -167,30 +176,39 @@ function approve(ctx: Ctx, actor: Actor, userId: number, reason: string) {
   });
 }
 
-/** Rejects by banning for good: the account stays, closed, with the ban on record. */
-function rejectByBan(ctx: Ctx, actor: Actor, userId: number, reason: string) {
+/**
+ * Rejects by banning, as the actor's own ban: member.ban over the account, the length bounded by
+ * member.banMaxDays. A ban for good closes the account; a ban for a time keeps it held (out of the
+ * queue while the ban runs) so it cannot become a member when the ban ends.
+ */
+function rejectByBan(
+  ctx: Ctx,
+  actor: Actor,
+  userId: number,
+  reason: string,
+  expiresAt: number | null,
+  days: number | null,
+) {
   writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     requireApprover(ctx, current, userId);
     requirePermission(ctx, current, "member.ban", {
       target: targetMember(ctx, current, userId, true),
     });
-    requireBanLength(ctx, current, null);
+    requireBanLength(ctx, current, expiresAt);
     const row = waiting(ctx, userId);
     if (!row) throw new SkipMember("This account is not waiting for approval.");
-    ctx.sqlite.prepare(signupSql.clear).run(userId);
+    if (expiresAt === null) ctx.sqlite.prepare(signupSql.clear).run(userId);
     // The ban is the log entry of the rejection; the member gets the rejection mail, not a ban mail.
     insertAuthorizedBan(
       ctx,
       actor,
       userId,
       reason || NO_REASON,
-      null,
+      expiresAt,
       { notify: false },
       "signup.reject",
-      {
-        mode: "ban",
-      },
+      { mode: "ban", days },
     );
     publishDecided(ctx, actor, userId, "reject");
     queueAccountEmail(ctx, { kind: "signupRejected", userId, email: row.email, reason });
@@ -206,50 +224,41 @@ function publishDecided(ctx: Ctx, actor: Actor, userId: number, decision: "appro
   });
 }
 
-/** Rejects by erasing the account (the erasure of `users.adminErase`), then tells the member. */
+/**
+ * Rejects by erasing the account: the erasure of `users.adminErase` (admin.members over it). The
+ * rejection mail is queued in the erasure's first transaction, while the address is still the
+ * member's (the erasure spares it), so an erasure that stops part way has still told them; it
+ * leaves the account waiting, and deciding again finishes it without a second mail.
+ */
 async function rejectByErasing(ctx: Ctx, actor: Actor, userId: number, reason: string) {
-  requirePermission(ctx, actor, "member.approveRegistrations", {
-    target: targetMember(ctx, actor, userId),
+  requireApprover(ctx, actor, userId);
+  if (!waiting(ctx, userId)) throw new SkipMember("This account is not waiting for approval.");
+  await eraseAsAdministrator(ctx, actor, userId, reason || NO_REASON, {
+    entry: { action: "signup.reject", details: { mode: "delete" } },
+    also: (current) => {
+      requireApprover(ctx, current, userId);
+      const row = waiting(ctx, userId);
+      if (!row) throw new SkipMember("This account is not waiting for approval.");
+      // A resumed erasure may already hold the placeholder address: the mail went the first time.
+      if (!row.email.endsWith("@invalid"))
+        queueAccountEmail(ctx, { kind: "signupRejected", userId, email: row.email, reason });
+    },
   });
-  const row = waiting(ctx, userId);
-  if (!row) throw new SkipMember("This account is not waiting for approval.");
-  // The address goes with the erasure, and so do the account mails still queued: the mail is
-  // queued after it, and also when it stops part way (the account is closed by then).
-  const tell = () =>
-    writeTx(ctx, () =>
-      queueAccountEmail(ctx, { kind: "signupRejected", userId, email: row.email, reason }),
-    );
-  const erased = () =>
-    !!prepared(ctx, "signups.erased", () =>
-      ctx.sqlite.prepare<{ id: number }, [number]>(
-        "SELECT id FROM users WHERE id = ?1 AND erased_at IS NOT NULL",
-      ),
-    ).get(userId);
-  try {
-    await eraseMember(
-      ctx,
-      actor,
-      userId,
-      reason || NO_REASON,
-      (current) => {
-        requireApprover(ctx, current, userId);
-        if (!waiting(ctx, userId))
-          throw new SkipMember("This account is not waiting for approval.");
-      },
-      { action: "signup.reject", details: { mode: "delete" } },
-    );
-  } catch (error) {
-    if (erased()) tell();
-    throw error;
-  }
-  tell();
 }
 
 export const signupsDecideOp = implement(signupsDecide, async (ctx, actor, input) => {
   const { userId: actorId } = requireAuthenticated(actor);
   requirePermission(ctx, actor, "member.approveRegistrations", { target: GUEST });
   const erasing = input.decision === "reject" && input.mode === "delete";
+  const banning = input.decision === "reject" && input.mode === "ban";
+  const expiresAt = input.banDays === null ? null : ctx.now() + input.banDays * 86_400_000;
+  // Refused once, up front, rather than once for every account.
+  if (banning) {
+    requireHeld(ctx, actor, "member.ban");
+    requireBanLength(ctx, actor, expiresAt);
+  }
   if (erasing) {
+    requireHeld(ctx, actor, "admin.members");
     if (input.actorPassword === undefined)
       throw new ValidationError("The acting administrator's password is required.", [
         { path: ["actorPassword"], message: "Required" },
@@ -270,7 +279,8 @@ export const signupsDecideOp = implement(signupsDecide, async (ctx, actor, input
       await outcomeOf(userId, names.get(userId) ?? String(userId), async () => {
         if (userId === actorId) throw new SkipMember("You cannot decide on your own account.");
         if (input.decision === "approve") approve(ctx, actor, userId, input.reason);
-        else if (input.mode === "ban") rejectByBan(ctx, actor, userId, input.reason);
+        else if (input.mode === "ban")
+          rejectByBan(ctx, actor, userId, input.reason, expiresAt, input.banDays);
         else await rejectByErasing(ctx, actor, userId, input.reason);
       }),
     );

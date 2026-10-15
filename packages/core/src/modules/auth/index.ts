@@ -68,6 +68,7 @@ import { readSiteSettings } from "../settings";
 import { resolveHomeTab } from "../settings/home-tab";
 import { checkTurnstile, TurnstileRefusal } from "../settings/turnstile";
 import { usernameChange } from "./rename-marker";
+import { requestLanguage } from "./request-language";
 import { forgiveSignInGuess, takeSignInGuess } from "./sign-in-limit";
 import { staffAccess } from "./staff";
 
@@ -888,9 +889,10 @@ function buildAuth(ctx: Ctx) {
             try {
               writeTx(ctx, () => {
                 const review = signupReviewFor(ctx, flagged);
+                const headers = (hookContext as { headers?: Headers } | undefined)?.headers;
                 ctx.sqlite
                   .prepare(
-                    "INSERT INTO users (id, username, username_key, group_id, created_at, signup_review) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    "INSERT INTO users (id, username, username_key, group_id, created_at, signup_review, language) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                   )
                   .run(
                     Number(user.id),
@@ -899,8 +901,9 @@ function buildAuth(ctx: Ctx) {
                     mailEnabled ? GROUP_IDS.unconfirmed : GROUP_IDS.member,
                     ctx.now(),
                     review,
+                    // The language the visitor read the sign-up page in, for the mails to come.
+                    requestLanguage(headers),
                   );
-                const headers = (hookContext as { headers?: Headers } | undefined)?.headers;
                 // The sign-up form may carry the member whose link brought the visitor.
                 const referrer = parseReferrer(
                   (hookContext as { body?: { ref?: unknown } } | undefined)?.body?.ref,

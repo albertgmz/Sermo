@@ -446,6 +446,45 @@ test("the email calls ask for the link to come back to this site", async () => {
   assert.equal(JSON.parse(String(seen[0].body)).acceptTerms, true);
 });
 
+test("a sign-up passes on the language the visitor reads in, and no other cookie of theirs", async () => {
+  incoming.set(
+    "cookie",
+    "theme=dark; forum_locale=es; sermo.session_token=old",
+  );
+  incoming.set("accept-language", "es-ES,es;q=0.9,en;q=0.5");
+  try {
+    const seen = backend(answer([], { body: { status: true } }));
+    await signUp({
+      username: "ann",
+      email: "ann@example.test",
+      password: "pw",
+      acceptTerms: true,
+    });
+    assert.equal(seen[0].url, "http://127.0.0.1:8787/api/auth/sign-up/email");
+    assert.equal(
+      seen[0].headers.get("cookie"),
+      "sermo.session_token=old; forum_locale=es",
+    );
+    assert.equal(
+      seen[0].headers.get("accept-language"),
+      "es-ES,es;q=0.9,en;q=0.5",
+    );
+    // A cookie value that is no language code is not passed on.
+    incoming.set("cookie", "forum_locale=es%3Bx; theme=dark");
+    const odd = backend(answer([], { body: { status: true } }));
+    await signUp({
+      username: "ann",
+      email: "ann@example.test",
+      password: "pw",
+      acceptTerms: true,
+    });
+    assert.equal(odd[0].headers.get("cookie"), null);
+  } finally {
+    incoming.set("cookie", "theme=dark; sermo.session_token=old");
+    incoming.delete("accept-language");
+  }
+});
+
 test("the reset sends the token with the new password", async () => {
   const seen = backend(answer([], { body: { status: true } }));
   assert.equal((await resetPassword("abc", "new-password")).ok, true);

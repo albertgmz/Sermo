@@ -1,6 +1,6 @@
 import { ClipboardCheck, Flag, UserCheck } from "lucide-react";
 import Link from "next/link";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getFormatter, getTranslations } from "next-intl/server";
 import { StatTile } from "@/components/forum/stat";
 import { getCounters } from "@/components/layout/header-data";
 import { getViewer } from "@/lib/sermo/session";
@@ -13,13 +13,12 @@ const LINK =
 // Open reports, the approval queue and the sign-ups waiting, each shown only to a member who may open its screen and
 // linked to it once that screen is built.
 export async function PendingWork({ heading }: { heading?: boolean }) {
-  const [viewer, t, locale, counters] = await Promise.all([
+  const [viewer, t, format, counters] = await Promise.all([
     getViewer(),
     getTranslations("admin.homePending"),
-    getLocale(),
+    getFormatter(),
     getCounters(),
   ]);
-  const format = new Intl.NumberFormat(locale);
   const reports = canOpen(viewer, screenByKey("moderationReports"))
     ? counters.openReports
     : null;
@@ -62,8 +61,8 @@ export async function PendingWork({ heading }: { heading?: boolean }) {
         {tiles.map(({ key, label, icon, queue, href }) => {
           const shown = pendingCount(queue ?? { count: 0, more: false });
           const value = shown.more
-            ? t("capped", { count: format.format(shown.count) })
-            : format.format(shown.count);
+            ? t("capped", { count: format.number(shown.count) })
+            : format.number(shown.count);
           return (
             <div key={key}>
               <StatTile label={label} value={value} icon={icon} />

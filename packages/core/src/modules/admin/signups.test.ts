@@ -16,7 +16,7 @@ import { createStorage, localDriver } from "../storage";
 import { closeAll } from "./fixtures.test";
 import { adminSql } from "./members";
 import { PASSWORD, queueWorld } from "./signup-fixtures.test";
-import { signupSql } from "./signups";
+import { maskEmail, signupSql } from "./signups";
 
 afterEach(closeAll);
 
@@ -40,7 +40,9 @@ describe("signups.list", () => {
     expect(rest.nextCursor).toBeNull();
     expect(page.items[0]).toMatchObject({
       user: { id: third.id, username: "Third" },
-      email: "third@example.test",
+      // A moderator does not manage members: the address is masked.
+      email: "t***@example.test",
+      emailHidden: true,
       flagged: false,
       country: null,
       ip: null,
@@ -87,6 +89,8 @@ describe("signups.list", () => {
       (item: { user: { id: number } }) => item.user.id === newcomer.id,
     );
     expect(asAdmin).toMatchObject({
+      email: "newcomer@example.test",
+      emailHidden: false,
       country: "ES",
       ip: "203.0.113.7",
       acceptances: [{ kind: "terms", version: 3 }],
@@ -211,23 +215,33 @@ describe("signups.decide", () => {
     expect(mail.text).toContain("Reason: Looks like spam");
   });
 
-  test("rejecting by ban keeps the closed account and needs the reach to ban for good", async () => {
+  test("rejecting by ban is the actor's own ban: bounded by banMaxDays, held while it runs, closed when for good", async () => {
     const w = await queueWorld({ mail: true });
     const newcomer = await w.join("Newcomer");
     w.confirm(newcomer.id);
-    const reject = (actor: object) =>
-      w.run("signups.decide", actor, {
-        userIds: [newcomer.id],
-        decision: "reject",
-        mode: "ban",
-      });
-    // A moderator's bans are bounded to 30 days: they cannot reject by banning for good.
-    expect(await reject(w.moderator.actor)).toMatchObject({
-      skipped: 1,
-      items: [{ status: "skipped", message: "You may not ban for good." }],
-    });
+    const reject = (actor: object, extra: object = {}) =>
+      w.run("signups.decide", actor, { userIds: [newcomer.id], decision: "reject", ...extra });
+    // A moderator's bans are bounded to 30 days: not for good, not longer than that.
+    await expect(reject(w.moderator.actor)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(reject(w.moderator.actor, { banDays: 90 })).rejects.toBeInstanceOf(ForbiddenError);
     expect(w.review(newcomer.id)).toBe("pending");
 
+    // For a time: the account is banned and held out of the queue until the ban ends.
+    expect(await reject(w.moderator.actor, { banDays: 7, reason: "Suspicious" })).toMatchObject({
+      done: 1,
+    });
+    expect(w.review(newcomer.id)).toBe("pending");
+    expect(w.logOf(newcomer.id)).toMatchObject([
+      { action: "signup.reject", reason: "Suspicious", details: { mode: "ban", days: 7 } },
+    ]);
+    expect((await w.run("signups.list", w.moderator.actor, {})).items).toEqual([]);
+    expect((await w.run("auth.counters", w.moderator.actor, {})).pendingSignups.count).toBe(0);
+    w.ctx.clock.advance(8 * 86_400_000);
+    // The ban ended: it is a waiting account again, not a member.
+    expect((await w.run("signups.list", w.moderator.actor, {})).items).toHaveLength(1);
+    expect((await w.run("auth.counters", w.moderator.actor, {})).pendingSignups.count).toBe(1);
+
+    // For good, by an administrator (member.banMaxDays -1): the account is closed.
     expect(await reject(w.founder.actor)).toMatchObject({ done: 1 });
     const row = w.ctx.sqlite
       .prepare<{ erased_at: number | null; banned_permanently: number }, [number]>(
@@ -236,15 +250,26 @@ describe("signups.decide", () => {
       .get(newcomer.id)!;
     expect(row).toEqual({ erased_at: null, banned_permanently: 1 });
     expect(w.review(newcomer.id)).toBeNull();
-    expect(w.logOf(newcomer.id)).toMatchObject([
-      { action: "signup.reject", details: { mode: "ban" } },
-    ]);
     await w.drain();
     const mails = w.capture!.messages.filter((m) => m.to === "newcomer@example.test");
     // The rejection mail, not a ban mail as well.
     expect(mails.map((m) => m.subject)).not.toContain("Your Sermo account was banned");
     expect(mails.at(-1)!.subject).toBe("Your Sermo registration was not approved");
-    expect(mails.at(-1)!.text).not.toContain("Reason");
+  });
+
+  test("ban is the default of a rejection, and the sign-up address stays for the next account", async () => {
+    const w = await queueWorld();
+    const spam = await w.join("Spammer");
+    const next = await w.join("Another");
+    for (const id of [spam.id, next.id])
+      logMemberIp(w.ctx, id, "203.0.113.9", "Mozilla/5.0", "register");
+    await w.run("signups.decide", w.founder.actor, { userIds: [spam.id], decision: "reject" });
+    expect(
+      w.ctx.sqlite.prepare("SELECT banned_permanently FROM users WHERE id = ?1").get(spam.id),
+    ).toEqual({ banned_permanently: 1 });
+    const entry = (await w.run("signups.list", w.founder.actor, {})).items[0];
+    expect(entry.user.id).toBe(next.id);
+    expect(entry.sharedAddress).toMatchObject({ accounts: 1, banned: 1 });
   });
 
   test("decides on many at once, reporting each: gone, not waiting and fine ones", async () => {
@@ -360,7 +385,23 @@ describe("a node members only read", () => {
 });
 
 describe("signups.decide edge cases", () => {
-  test("an erasure that stops part way still clears the alert and tells the member", async () => {
+  test("rejecting by erasure needs what erasing a member needs: admin.members and the password", async () => {
+    const w = await queueWorld();
+    const newcomer = await w.join("Newcomer");
+    const input = {
+      userIds: [newcomer.id],
+      decision: "reject",
+      mode: "delete",
+      actorPassword: PASSWORD,
+    };
+    await expect(w.run("signups.decide", w.moderator.actor, input)).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    expect(w.review(newcomer.id)).toBe("pending");
+    expect(await w.run("signups.decide", w.founder.actor, input)).toMatchObject({ done: 1 });
+  });
+
+  test("an erasure that stops part way leaves the account waiting; deciding again finishes it and mails once", async () => {
     const w = await queueWorld({ mail: true });
     const newcomer = await w.join("Newcomer");
     w.confirm(newcomer.id);
@@ -371,16 +412,17 @@ describe("signups.decide edge cases", () => {
       throw new Error("injected");
     };
     const logged = spyOn(console, "error").mockImplementation(() => {});
-    try {
-      const result = await w.run("signups.decide", w.founder.actor, {
+    const decide = () =>
+      w.run("signups.decide", w.founder.actor, {
         userIds: [newcomer.id],
         decision: "reject",
         mode: "delete",
         reason: "Spam",
         actorPassword: PASSWORD,
       });
+    try {
       // The batch goes on: this one is reported as failed, without the internal message.
-      expect(result).toMatchObject({
+      expect(await decide()).toMatchObject({
         failed: 1,
         items: [{ status: "failed", message: "The change failed." }],
       });
@@ -388,23 +430,21 @@ describe("signups.decide edge cases", () => {
       authContext.internalAdapter.deleteAccounts = original;
       logged.mockRestore();
     }
-    // The account is closed and out of the queue, the alert is cleared, and the mail is queued.
-    expect(w.review(newcomer.id)).toBeNull();
+    // Closed, but still waiting: it can be decided again, and the member was mailed already.
+    expect(w.review(newcomer.id)).toBe("pending");
     expect(
       w.ctx.sqlite.prepare("SELECT erased_at FROM users WHERE id = ?1").get(newcomer.id),
     ).not.toEqual({ erased_at: null });
-    const decided = w.ctx.sqlite
-      .prepare(
-        "SELECT 1 FROM domain_events WHERE type = 'member.signup_decided' AND target_id = ?1",
-      )
-      .get(newcomer.id);
-    expect(decided).not.toBeNull();
     await w.drain();
-    expect(
-      w.capture!.messages.some(
-        (m) => m.to === "newcomer@example.test" && /not approved/.test(m.subject),
-      ),
-    ).toBe(true);
+    expect(w.capture!.messages.filter((m) => /not approved/.test(m.subject))).toHaveLength(1);
+
+    expect(await decide()).toMatchObject({ done: 1 });
+    expect(w.review(newcomer.id)).toBeNull();
+    expect(w.logOf(newcomer.id).filter((entry) => entry.action === "signup.reject")).toHaveLength(
+      1,
+    );
+    await w.drain();
+    expect(w.capture!.messages.filter((m) => /not approved/.test(m.subject))).toHaveLength(1);
     const alerts = (await w.run("notifications.list", w.moderator.actor, { limit: 10 })).items;
     expect(
       alerts
@@ -439,8 +479,7 @@ describe("signups.decide edge cases", () => {
     w.ctx.sqlite.prepare("UPDATE users SET group_id = 4 WHERE id = ?1").run(newcomer.id);
     for (const input of [
       { decision: "approve" },
-      { decision: "reject", mode: "ban" },
-      { decision: "reject", mode: "delete", actorPassword: PASSWORD },
+      { decision: "reject", mode: "ban", banDays: 7 },
     ] as const) {
       const result = await w.run("signups.decide", w.moderator.actor, {
         userIds: [newcomer.id],
@@ -473,7 +512,7 @@ describe("signups.decide edge cases", () => {
 
   test("the queue and the administration list read the waiting accounts through the index", () => {
     const ctx = createTestContext();
-    expectNoTableScan(ctx, signupSql.page, [Number.MAX_SAFE_INTEGER, 21]);
+    expectNoTableScan(ctx, signupSql.page, [Number.MAX_SAFE_INTEGER, 21, 0]);
     expectNoTableScan(ctx, adminSql.awaiting, [Number.MAX_SAFE_INTEGER, 21]);
   });
 
@@ -493,4 +532,9 @@ describe("signups.decide edge cases", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+});
+
+test("an address is masked to its first letter and its domain", () => {
+  expect(maskEmail("jane.doe@example.org")).toBe("j***@example.org");
+  expect(maskEmail("nonsense")).toBe("***");
 });

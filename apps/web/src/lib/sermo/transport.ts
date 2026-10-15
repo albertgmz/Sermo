@@ -1,4 +1,5 @@
 import type * as z from "zod";
+import { LOCALE_COOKIE, localeCookieValue } from "@/i18n/locale-cookie";
 import { apiUrl, publicUrl } from "./config";
 import { SermoError } from "./errors";
 import { buildRequest } from "./request";
@@ -22,6 +23,10 @@ export type Forward = {
   cookie?: string;
   userAgent?: string;
   clientIp?: string;
+  // The language the visitor reads in: their `forum_locale` cookie (the value only) and their
+  // Accept-Language. The backend keeps the language an account signed up in, for its mails.
+  locale?: string;
+  acceptLanguage?: string;
   location?: Partial<Record<(typeof LOCATION_HEADERS)[number], string>>;
 };
 
@@ -36,11 +41,17 @@ export function lastForwardedFor(value: string | null): string | undefined {
   return value?.split(",").at(-1)?.trim() || undefined;
 }
 
+// A language code as the cookie holds it (`es`, `en-GB`), or undefined for anything else.
+const languageCode = (value: string | undefined) =>
+  value && /^[a-zA-Z-]{2,10}$/.test(value) ? value : undefined;
+
 export function forwardFromHeaders(headers: Headers): Forward {
   return {
     cookie: headers.get("cookie") ?? undefined,
     userAgent: headers.get("user-agent") ?? undefined,
     clientIp: lastForwardedFor(headers.get("x-forwarded-for")),
+    locale: languageCode(localeCookieValue(headers.get("cookie") ?? "")),
+    acceptLanguage: headers.get("accept-language") ?? undefined,
     location: Object.fromEntries(
       LOCATION_HEADERS.flatMap((name) => {
         const value = headers.get(name);
@@ -63,8 +74,16 @@ export function sermoCookies(cookie: string | undefined): string {
 // Headers that identify the visitor to the backend; shared by the operation and sign-in calls.
 export function forwardHeaders(forward: Forward, hasBody: boolean): Headers {
   const headers = new Headers({ origin: new URL(publicUrl()).origin });
-  const cookie = sermoCookies(forward.cookie);
+  const cookie = [
+    sermoCookies(forward.cookie),
+    forward.locale ? `${LOCALE_COOKIE}=${forward.locale}` : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
   if (cookie) headers.set("cookie", cookie);
+  if (forward.acceptLanguage) {
+    headers.set("accept-language", forward.acceptLanguage);
+  }
   if (hasBody) headers.set("content-type", "application/json");
   if (forward.turnstile) headers.set(TURNSTILE_HEADER, forward.turnstile);
   if (forward.userAgent) headers.set("user-agent", forward.userAgent);

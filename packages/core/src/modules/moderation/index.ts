@@ -17,7 +17,6 @@ import { publishEvent } from "../../events";
 import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
-  AWAITING_SQL,
   can,
   currentActor,
   currentVersions,
@@ -48,6 +47,7 @@ import {
   takeOverLock,
 } from "../forums";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
+import { inQueueSql } from "../members/signup-review";
 import { assertAdministrator } from "../permissions";
 import { mayViewProfile } from "../profiles/shared";
 import { assertRemovalNotBegun } from "../purge/purge";
@@ -612,6 +612,7 @@ export function queueCounts(
     const rows = query<{ id: number }>(ctx, "signupQueue", signupQueueSql).all(
       Number.MAX_SAFE_INTEGER,
       QUEUE_WINDOW,
+      ctx.now(),
     );
     pendingSignups = {
       count: Math.min(rows.length, QUEUE_COUNT_CAP),
@@ -636,7 +637,7 @@ export function queueCounts(
 }
 
 /** The newest accounts that wait in the sign-up queue, from the partial index on `signup_review`. */
-export const signupQueueSql = `SELECT u.id FROM users u WHERE ${AWAITING_SQL} AND u.id < ?1 ORDER BY u.id DESC LIMIT ?2`;
+export const signupQueueSql = `SELECT u.id FROM users u WHERE ${inQueueSql(3)} AND u.id < ?1 ORDER BY u.id DESC LIMIT ?2`;
 
 export function getReportGroup(ctx: Ctx, actor: Actor, groupId: number) {
   requireAuthenticated(actor);

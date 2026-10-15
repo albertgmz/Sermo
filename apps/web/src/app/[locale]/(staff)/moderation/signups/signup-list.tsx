@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { hrefFor, type Standing } from "../../registry";
+import { rejectOptions } from "./reject-options";
 import { RESULT_KEYS } from "./result";
 import { DecideControls } from "./signup-controls";
 import { SignupSelection, SignupTick } from "./signup-selection";
@@ -91,7 +92,15 @@ function Row({
           {entry.flagged && <Badge variant="destructive">{t("flagged")}</Badge>}
         </p>
         <dl className="grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
-          <Fact label={t("email")}>{entry.email}</Fact>
+          <Fact label={t("email")}>
+            {entry.email}
+            {entry.emailHidden && (
+              <span className="text-muted-foreground">
+                {" "}
+                ({t("emailHidden")})
+              </span>
+            )}
+          </Fact>
           <Fact label={t("signedUp")}>
             <RelativeTime date={entry.createdAt} />
           </Fact>
@@ -149,7 +158,7 @@ function Row({
             </Fact>
           )}
         </dl>
-        <DecideControls userIds={[user.id]} />
+        <DecideControls userIds={[user.id]} options={rejectOptions(viewer)} />
       </div>
     </article>
   );
@@ -170,7 +179,10 @@ export async function SignupList({ searchParams }: { searchParams: Params }) {
     read(signupsList, { cursor: cursorFrom(params), limit: 20 }),
   ]);
   return (
-    <SignupSelection pageIds={page.items.map((entry) => entry.user.id)}>
+    <SignupSelection
+      pageIds={page.items.map((entry) => entry.user.id)}
+      options={rejectOptions(viewer)}
+    >
       <CursorList
         items={page.items}
         nextCursor={page.nextCursor}

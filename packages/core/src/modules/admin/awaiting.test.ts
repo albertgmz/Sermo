@@ -8,7 +8,7 @@ import { can, resolvedPermissions } from "../../permissions";
 import { getAuth } from "../auth";
 import { signupQueueSql } from "../moderation";
 import { closeAll } from "./fixtures.test";
-import { queueWorld } from "./signup-fixtures.test";
+import { PASSWORD, queueWorld } from "./signup-fixtures.test";
 
 afterEach(closeAll);
 
@@ -96,7 +96,11 @@ describe("an account that waits", () => {
     expect(can(w.ctx, actor, "profile.view")).toBe(can(w.ctx, GUEST, "profile.view"));
     const held = resolvedPermissions(w.ctx, actor);
     const guest = resolvedPermissions(w.ctx, GUEST);
-    for (const [id, value] of Object.entries(guest)) expect(held[id]).toBe(value);
+    // The one thing it keeps is leaving: deleting its own account.
+    for (const [id, value] of Object.entries(guest))
+      if (id !== "profile.deleteAccount") expect(held[id]).toBe(value);
+    expect(held["profile.deleteAccount"]).toBe(true);
+    expect(guest["profile.deleteAccount"]).toBe(false);
     const me = await w.run("auth.me", actor, {});
     expect(me.staff.panel).toBe(false);
     expect(me.permissions).toMatchObject({ isAdmin: false, isModerator: false });
@@ -112,7 +116,8 @@ describe("an account that waits", () => {
     const actors = [w.as(newcomer), { ...w.as(newcomer), kind: "token" as const, tokenId: 1 }];
     let refused = 0;
     for (const op of operations) {
-      if (op.kind !== "write") continue;
+      // Leaving the forum is the one write a waiting account keeps (tested apart).
+      if (op.kind !== "write" || op.name === "users.deleteOwnAccount") continue;
       for (const actor of actors) {
         const outcome = await execute(w.ctx, op, actor as never, {}).catch((error) => error);
         const approval =
@@ -226,7 +231,7 @@ describe("the counter and the alert", () => {
       more: true,
       cap: 99,
     });
-    expectNoTableScan(w.ctx, signupQueueSql, [Number.MAX_SAFE_INTEGER, 100]);
+    expectNoTableScan(w.ctx, signupQueueSql, [Number.MAX_SAFE_INTEGER, 100, 0]);
   });
 
   test("staff who hold the permission get an alert, which clears once someone decides", async () => {
@@ -263,5 +268,108 @@ describe("the counter and the alert", () => {
     const types = await w.run("notifications.types", w.moderator.actor, {});
     expect(types.items.some((item: { id: string }) => item.id === "moderator.signup")).toBe(true);
     expect(getOperation("signups.decide").kind).toBe("write");
+  });
+});
+
+describe("fix round: the alert, leaving, the language", () => {
+  test("one standing alert per staff member lists the newcomers, and clears when nobody waits", async () => {
+    const w = await queueWorld();
+    const people = [await w.join("Ann"), await w.join("Ben"), await w.join("Cat")];
+    await w.drain();
+    const alerts = async () =>
+      (await w.run("notifications.list", w.moderator.actor, { limit: 20 })).items.filter(
+        (item: { type: string }) => item.type === "moderator.signup",
+      );
+    const [alert, ...others] = await alerts();
+    expect(others).toEqual([]);
+    expect(alert).toMatchObject({ actorCount: 3, read: false });
+    expect(alert.actors.map((actor: { username: string }) => actor.username).sort()).toEqual([
+      "Ann",
+      "Ben",
+      "Cat",
+    ]);
+    expect((await w.run("auth.counters", w.moderator.actor, {})).notifications).toBe(1);
+
+    // One decision leaves it standing; the last one clears it.
+    await w.run("signups.decide", w.moderator.actor, {
+      userIds: [people[0]!.id],
+      decision: "approve",
+    });
+    await w.drain();
+    expect((await alerts())[0].read).toBe(false);
+    await w.run("signups.decide", w.moderator.actor, {
+      userIds: [people[1]!.id, people[2]!.id],
+      decision: "approve",
+    });
+    await w.drain();
+    expect((await alerts())[0].read).toBe(true);
+    expect((await w.run("auth.counters", w.moderator.actor, {})).notifications).toBe(0);
+    // A later newcomer starts a fresh unread alert.
+    await w.join("Dan");
+    await w.drain();
+    expect((await alerts()).map((item: { read: boolean }) => item.read)).toEqual([false, true]);
+  });
+
+  test("a waiting member may delete their own account, and leaves the queue", async () => {
+    const w = await queueWorld();
+    const newcomer = await w.join("Newcomer");
+    await w.drain();
+    await expect(
+      w.run("users.deleteOwnAccount", w.as(newcomer), { password: "not the password" }),
+    ).rejects.toBeDefined();
+    expect(await w.run("users.deleteOwnAccount", w.as(newcomer), { password: PASSWORD })).toEqual({
+      ok: true,
+    });
+    expect(w.review(newcomer.id)).toBeNull();
+    expect((await w.run("signups.list", w.moderator.actor, {})).items).toEqual([]);
+    await w.drain();
+    expect((await w.run("auth.counters", w.moderator.actor, {})).notifications).toBe(0);
+  });
+
+  test("the language of the sign-up request is kept: the cookie first, then Accept-Language", async () => {
+    const w = await queueWorld();
+    const language = async (name: string, headers: Record<string, string>) => {
+      const response = await getAuth(w.ctx).api.signUpEmail({
+        body: {
+          name,
+          username: name,
+          email: `${name.toLowerCase()}@example.test`,
+          password: "Password123!",
+        },
+        headers: new Headers({ "x-sermo-client-ip": "198.51.100.9", ...headers }),
+        asResponse: true,
+      });
+      const id = Number(((await response.json()) as { user: { id: string } }).user.id);
+      return w.ctx.sqlite
+        .prepare<{ language: string | null }, [number]>("SELECT language FROM users WHERE id = ?1")
+        .get(id)!.language;
+    };
+    expect(await language("Uno", { cookie: "a=b; forum_locale=es" })).toBe("es");
+    expect(await language("Dos", { "accept-language": "fr-FR,es-ES;q=0.8,en;q=0.5" })).toBe("es");
+    expect(await language("Tres", { cookie: "forum_locale=en", "accept-language": "es" })).toBe(
+      "en",
+    );
+    expect(await language("Cuatro", { "accept-language": "de" })).toBeNull();
+    expect(await language("Cinco", {})).toBeNull();
+  });
+
+  test("an administrator moving a held account out of Unconfirmed makes it wait, and staff hear of it", async () => {
+    const w = await queueWorld({ mail: true });
+    const newcomer = await w.join("Newcomer");
+    expect(events(w, "member.awaiting_approval")).toEqual([]);
+    await w.run("users.setGroups", w.founder.actor, {
+      userId: newcomer.id,
+      primaryGroupId: 2,
+      actorPassword: PASSWORD,
+    });
+    expect(events(w, "member.awaiting_approval")).toEqual([newcomer.id]);
+    expect((await w.run("signups.list", w.moderator.actor, {})).items).toHaveLength(1);
+    // A change of another group of an account that already waits announces nothing again.
+    await w.run("users.setGroups", w.founder.actor, {
+      userId: newcomer.id,
+      secondaryGroupIds: [3],
+      actorPassword: PASSWORD,
+    });
+    expect(events(w, "member.awaiting_approval")).toEqual([newcomer.id]);
   });
 });

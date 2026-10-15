@@ -163,7 +163,7 @@
     },
     "approveSignups": {
       "label": "Approve new accounts",
-      "help": "On: a new account waits for staff approval once its email is confirmed. Until then it reads the forum like a guest and cannot write. Accounts already waiting stay in the queue if you turn this off. Staff with the approve-registrations permission decide on the Sign-ups screen of the moderation section.",
+      "help": "Turning this off lets new accounts in at once. The accounts already waiting stay in the queue, and staff can still decide them.",
       "switch": "New accounts wait for staff approval"
     },
     "floodSeconds": {

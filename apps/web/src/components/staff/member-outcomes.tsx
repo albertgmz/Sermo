@@ -2,6 +2,9 @@
 // done, skipped (a rule says no) or failed, and the backend's reason for the last two. Server-safe.
 // Used by the sign-up decisions and by the batch update of members.
 //
+// `outcomeTone` gives the text colour of the line that sums a run up: every member done is
+// success, any failure is destructive, anything else (skipped members, nobody changed) is muted.
+//
 // Props
 //   items  One entry per member, as the backend answers (`name`, `status`, `message`).
 //   label  Accessible name of the list. Default: "Result for each member".
@@ -20,6 +23,20 @@ const VARIANTS = {
   skipped: "secondary",
   failed: "destructive",
 } as const;
+
+export function outcomeTone({
+  done,
+  skipped,
+  failed,
+}: {
+  done: number;
+  skipped: number;
+  failed: number;
+}): string {
+  if (failed > 0) return "text-destructive";
+  if (done > 0 && skipped === 0) return "text-success";
+  return "text-muted-foreground";
+}
 
 export function MemberOutcomeList({
   items,

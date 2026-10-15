@@ -35,6 +35,14 @@ export function queueAccountEmail(ctx: Ctx, job: AccountJob, uniqueKey?: string)
 }
 
 export function registerAccountEmailJobs(ctx: Ctx): void {
+  // The member of a rejected sign-up was erased: the job must not keep their address once it is
+  // done with it (sent, or given up on).
+  const dropAddress = (jobId: number) =>
+    writeTx(ctx, () =>
+      ctx.sqlite
+        .prepare("UPDATE jobs SET payload = json_set(payload, '$.email', '') WHERE id = ?1")
+        .run(jobId),
+    );
   registerJobHandler(ctx, "email.account", async (_context, payload, claimed) => {
     const job = payload as AccountJob;
     if (!job || typeof job.email !== "string" || !Number.isSafeInteger(job.userId))
@@ -90,13 +98,7 @@ export function registerAccountEmailJobs(ctx: Ctx): void {
         ...(state.config.replyTo ? { replyTo: state.config.replyTo } : {}),
         ...rendered,
       });
-      // The member of a rejected sign-up was erased: the finished job must not keep their address.
-      if (job.kind === "signupRejected")
-        writeTx(ctx, () =>
-          ctx.sqlite
-            .prepare("UPDATE jobs SET payload = json_set(payload, '$.email', '') WHERE id = ?1")
-            .run(claimed.id),
-        );
+      if (job.kind === "signupRejected") dropAddress(claimed.id);
     } catch (error) {
       const rejected = mailboxRejected(error);
       const attempts =
@@ -105,15 +107,21 @@ export function registerAccountEmailJobs(ctx: Ctx): void {
             "SELECT attempts FROM jobs WHERE id = ?1",
           ),
         ).get(claimed.id)?.attempts ?? 0;
+      const last = rejected || attempts >= MAX_ATTEMPTS;
+      // The member of a rejected sign-up may be erased: no record of the failure keeps their address.
+      const erased = job.kind === "signupRejected";
       recordFailure(
         ctx,
         job.userId,
-        job.email,
+        erased ? `erased-${job.userId}@invalid` : job.email,
         job.kind,
-        error,
-        rejected || attempts >= MAX_ATTEMPTS,
-        rejected,
+        erased && error instanceof Error
+          ? new Error(error.message.split(job.email).join(""))
+          : error,
+        last,
+        erased ? false : rejected,
       );
+      if (erased && last) dropAddress(claimed.id);
       if (!rejected) throw error;
     }
   });

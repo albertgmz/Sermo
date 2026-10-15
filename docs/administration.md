@@ -79,7 +79,7 @@ Registered needs the ones it uses.
 | --- | --- | --- |
 | `site.view`: open forums, threads, the feed, search, profiles, the member list and its pages, spoilers, bookmarks and the files of posts and wall posts (conversation files stay). When the Guest group lacks it, the public surfaces serve nothing too: Atom feeds, sitemaps, `llms.txt`, the SEO operations and the IndexNow announcements. A guest without it is asked to sign in; a member's own card and avatar files stay. Writes are not gated, and the email and push alerts of posts a closed-out member subscribed to are still sent. | flag | everyone |
 | `member.viewList`: the member list and the pages of `/members` (staff, birthdays, the monthly race and winners), the rankings, and the holders of an award. It covers those lists, not every query that returns members: the prefix search for mentions and recipients stays open. | flag | everyone |
-| `profile.deleteAccount`: delete one's own account from **Security** on `/account/security` (`users.deleteOwnAccount`). Turn it off for a group with `never`; the page then leaves the section out. A member under a temporary ban holds no permissions, so cannot use it. | flag | members |
+| `profile.deleteAccount`: delete one's own account from **Security** on `/account/security` (`users.deleteOwnAccount`). Turn it off for a group with `never`; the page then leaves the section out. A member under a temporary ban holds no permissions, so cannot use it. A member whose sign-up still waits for approval keeps it. | flag | members |
 | `profile.uploadAvatar`, `profile.uploadCover`: upload or set the picture. Taking it off needs nothing. | flags | members |
 | `bookmark.create`: adding a bookmark. Removing one needs nothing. | flag | members |
 | `tag.apply`, `tag.create`: put tags on a thread (its author, and staff on any thread), and make a tag nobody used before. Without `tag.create` a member uses tags that exist and a typed `#word` that is no tag stays plain text. See Tags below. | flags | posters |
@@ -1031,7 +1031,7 @@ is authorized by its signed token. `announcements.create` needs `admin.announcem
 | `moderation.content`, `moderation.member` | A member whose content or account a moderator acted on (with `notify`) |
 | `report.resolved` | Reporters, when their report is resolved or rejected (with `notify`) |
 | `moderator.report`, `moderator.approval` | Moderators who can handle a new report or approve new content |
-| `moderator.signup` | Staff who hold `member.approveRegistrations`, when a new account starts waiting for approval; it clears when someone decides |
+| `moderator.signup` | Staff who hold `member.approveRegistrations`: one standing alert that lists the newest accounts waiting for approval; it clears when nobody waits |
 | `member.groups` | A member whose groups changed (not when email confirmation moves them to Member) |
 | `announcement` | Every member, for `POST /announcements` (`announcements.create`, needs `admin.announcements`) |
 | `account.security` | Reserved: email only and cannot be turned off. Nothing creates it in this release; account emails are sent separately (see [Account emails](#account-emails)). |
@@ -1239,43 +1239,63 @@ they referred lose their referrer.
 The site setting `approveSignups` (off by default; **Settings > Members** in the panel) makes new
 accounts wait for staff. An account is held when it registers (`users.signup_review`); it
 **awaits approval** once its email is confirmed too (at once on a site that asks for no
-confirmation), and until then it is an ordinary unconfirmed account. Turning the setting off lets
-new accounts in again but leaves the ones already waiting in the queue.
+confirmation, or when an administrator moves it out of the Unconfirmed group), and until then it is
+an ordinary unconfirmed account. Turning the setting off lets new accounts in again but leaves the
+ones already waiting in the queue: staff can still decide them, the queue stays reachable
+(`/moderation/signups` opens for the permission, whatever the setting says) and holds them until it is
+empty, and an unconfirmed account that was held joins it when it confirms.
 
 An account that awaits approval can sign in and read exactly what a guest reads: its permissions
 are the Guest group's, whatever groups it holds, and it takes no staff rights. Every operation that
 writes and is not open to anyone (an account's own removals such as unfollowing, and accepting the
 terms, stay open) is refused with a `forbidden` error whose issue path is `approval`, so it cannot
-post, react, message or edit its profile. It is left out of the member list, the member search and
-the profile pages of others (staff who bypass profile privacy and the member themselves still open
-it), and the web app shows it a notice. `auth.me` says `awaitingApproval`.
+post, react, message or edit its profile, nor upload. The one thing it keeps is leaving: it can
+delete its own account (`users.deleteOwnAccount`, see Deleting an account), which takes it out of the
+queue. It is left out of the member list, the member search and the profile pages of others (staff
+who bypass profile privacy and the member themselves still open it), and the web app shows it a
+notice. `auth.me` says `awaitingApproval`. The language of the sign-up request (the `forum_locale`
+cookie, else `Accept-Language`) is stored as the member's language, so the mails are in it.
 
 The queue is `GET /admin/signups` (`signups.list`; `/moderation/signups` in the panel), newest first,
 for holders of `member.approveRegistrations` (moderators and administrators by default). Each entry
-shows the username, email, when it signed up, whether the spam check flagged it, the country and,
-for holders of `member.viewIps`, the address and the other accounts seen on it, and the terms
-accepted; every holder sees the email address, whatever they hold for members. There are no registration questions, so none are shown. A sign-up the spam check flags is
-refused when the setting is off, as before; with it on it lands in the queue marked and is never
-approved by itself. `pendingSignups` in `auth.counters` counts the waiting accounts (at most 99, as the
-other queues) for staff who hold the permission, and they get a `moderator.signup` alert for each new one.
+shows the username, when it signed up, whether the spam check flagged it, the country and, for
+holders of `member.viewIps`, the address and the other accounts seen on it, and the terms accepted.
+The email address is shown in full only to staff who hold `admin.members` over the account, as in the
+member pages; to the others it is masked (`j***@example.com`). There are no registration questions,
+so none are shown. A sign-up the spam check flags is refused when the setting is off, as before;
+with it on it lands in the queue marked and is never approved by itself. `pendingSignups` in
+`auth.counters` counts the waiting accounts (at most 99, as the other queues) for staff who hold the
+permission. A banned account that waits is not in the queue while the ban runs. Staff who hold the
+permission get one standing `moderator.signup` alert listing the newest newcomers (it grows with
+each, rather than one alert per account) and it clears when nobody waits any more.
 
 `POST /admin/signups/decide` (`signups.decide`) approves or rejects up to 50 accounts, one by one:
 an account no longer waiting, or one the actor may not act on, is skipped and reported without
-stopping the rest. Approving clears the hold and emails the member. Rejecting either **erases** the account (the
-default: the erasure of `users.adminErase`, allowed by `member.approveRegistrations` alone because
-the account never was a member; the actor's own password is required and an API key is refused) or **bans**
-it for good (needs `member.ban` and a `member.banMaxDays` of −1; the account stays, closed). Either way the member is emailed the
-reason, if one was given (after the erasure; the address is dropped from the finished mail job), in
-their language. Each decision is one moderator log entry, `signup.approve` or
+stopping the rest. Approving clears the hold and emails the member. **Rejecting bans the account by
+default**, which keeps the sign-up address and the terms record that the queue shows for the next
+account of a spam wave. The ban is the actor's own: it needs `member.ban` over the account and is
+bounded by `member.banMaxDays` exactly like `bans.create` (`banDays` null bans for good and needs
+−1; otherwise the days may not exceed the bound). A ban for good closes the account; a ban for a time
+keeps the account held and out of the queue until the ban ends, so it cannot become a member by
+waiting it out. **Rejecting by erasure** is a choice (`mode` `delete`): it is the erasure of
+`users.adminErase`, so it needs `admin.members` over the account (and `admin.permissions` when the
+account holds any), the actor's own password and a session (an API key is refused), and it removes
+the sign-up address and the terms record. An erasure that stopped part way leaves the account
+waiting; deciding again finishes it (it sends no second mail). Either way the member is emailed the
+reason, if one was given, in their language; the address is dropped from the finished mail job and
+no failure record keeps it. Each decision is one moderator log entry, `signup.approve` or
 `signup.reject` (an erasure also writes its ban entry, as any erasure does).
 
 ## Batch update members
 
 `/admin/users/batch` in the panel (`users.batchPreview`, `users.batchUpdate`; both need
-`admin.members`) applies one action to many members. Choose them by a rule of the same criteria
-engine promotions use (never an empty rule), or by a list of ids and usernames (up to 100). A run
-looks at most 10,000 members in id order and takes the first 100 that match; the answer's `next` is
-where to continue. Preview first: it lists who would be changed and the names that matched nobody.
+`admin.members`) applies one action to many members, in two steps. **Preview** chooses the members
+by a rule of the same criteria engine promotions use (never an empty rule, and only the criteria that
+are cheap to check in a request; one that counts a member's history is refused by name), or by a list
+of ids and usernames (up to 100), and returns the matching ids: a run looks at most 10,000 members in
+id order and takes the first 100, and `next` says where to continue. **Apply** takes exactly those ids
+(`userIds`, never the rule or list again), so what runs is what was shown; the panel hides Apply when the
+rule or list is edited after a preview.
 
 The actions: set the primary group, add or remove a secondary group, set or clear the custom
 title, remove the avatar, remove the signature, ban (for a number of days within the actor's
@@ -1284,9 +1304,10 @@ Groups and erasing need the actor's own password (session only) and erasing a re
 actions do; bans need `member.ban` and a reason. Each member goes through the single action's own
 checks and transaction: one the actor may not act on (rank, permissions), a super admin, the actor
 themselves, an erased account, or one with nothing to change is **skipped** and reported with the
-reason, and the rest go on; a name that matches nobody is reported as failed. Each member changed
-is one moderator log entry, written as the single action writes it; the batch writes none of its
-own. Nothing holds a write transaction for the whole run.
+reason, and the rest go on; an id that is no member is reported as failed. An erasure that stopped
+part way is finished by erasing again. Each member changed is one moderator log entry, written as the
+single action writes it; the batch writes none of its own. Nothing holds a write transaction for the
+whole run.
 
 ## Deleting an account
 

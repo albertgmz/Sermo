@@ -12,7 +12,10 @@ import { useFormStatus } from "react-dom";
 import { FormError } from "@/components/forum/form-error";
 import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { FieldErrors, FieldRow } from "@/components/staff/form-rows";
-import { MemberOutcomeList } from "@/components/staff/member-outcomes";
+import {
+  MemberOutcomeList,
+  outcomeTone,
+} from "@/components/staff/member-outcomes";
 import { Section, selectClass } from "@/components/staff/rows";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,24 +102,49 @@ function PreviewBlock({ state }: { state: Preview | undefined }) {
   );
 }
 
-// What the last good answers showed. A refusal carries neither a preview nor a result, and must not
-// take the choice of change (and what was typed in it) off the page. A new preview replaces the
-// result; a new result raises `round`, which empties the confirmation and the password so that a
-// repeat on the next members is confirmed again.
-export type Kept = { preview?: Preview; result?: Result; round: number };
+// What the form shows of the answers so far. A refusal carries neither a preview nor a result and
+// must not take the choice of change (and what was typed in it) off the page, so the last good
+// preview stays. The change applies to that preview's members and to no others: any edit of the
+// choice of members drops the preview (and where a run resumes), and so does a result. A new
+// preview replaces the result; a new result raises `round`, which empties the confirmation and
+// the password so that every run is confirmed on its own. `seen` is the last answer taken in, so
+// a dropped preview is not taken in again.
+export type Kept = {
+  preview?: Preview;
+  result?: Result;
+  // The id a criteria run resumes after, from the last preview (null when nothing may follow).
+  resume: number | null;
+  round: number;
+  seen: BatchState;
+};
+
+export const FRESH: Kept = { resume: null, round: 0, seen: null };
 
 export function keepAnswers(kept: Kept, state: BatchState): Kept {
-  if (state?.preview && state.preview !== kept.preview) {
-    return { preview: state.preview, round: kept.round };
-  }
-  if (state?.result && state.result !== kept.result) {
+  if (state === kept.seen) return kept;
+  if (state?.preview) {
     return {
-      preview: kept.preview,
-      result: state.result,
-      round: kept.round + 1,
+      preview: state.preview,
+      resume: state.preview.next,
+      round: kept.round,
+      seen: state,
     };
   }
-  return kept;
+  if (state?.result) {
+    return {
+      result: state.result,
+      resume: kept.resume,
+      round: kept.round + 1,
+      seen: state,
+    };
+  }
+  return { ...kept, seen: state };
+}
+
+// The choice of members was edited: the preview no longer describes it.
+export function dropPreview(kept: Kept): Kept {
+  if (!kept.preview && kept.resume === null) return kept;
+  return { ...kept, preview: undefined, resume: null };
 }
 
 type Props = {
@@ -130,7 +158,7 @@ type Props = {
 export function BatchForm(props: Props) {
   const [state, formAction] = useActionState(runBatch, null as BatchState);
   // What the last good answers showed stays while a refused step is corrected.
-  const [kept, setKept] = useState<Kept>({ round: 0 });
+  const [kept, setKept] = useState<Kept>(FRESH);
   const shown = keepAnswers(kept, state);
   if (shown !== kept) setKept(shown);
   return (
@@ -138,6 +166,9 @@ export function BatchForm(props: Props) {
       {...props}
       state={state}
       answers={shown}
+      onEdit={() =>
+        setKept((current) => dropPreview(keepAnswers(current, state)))
+      }
       formAction={formAction}
     />
   );
@@ -152,18 +183,22 @@ export function BatchView({
   criteria,
   state,
   answers,
+  onEdit,
   formAction,
 }: Props & {
   state: BatchState;
   answers: Kept;
+  // Called when the choice of members is edited.
+  onEdit: () => void;
+
   formAction: (formData: FormData) => void;
 }) {
   const t = useTranslations("adminUsers.batch");
   const [kind, setKind] = useState<"criteria" | "list">("criteria");
   const [chosen, setChosen] = useState<BatchActionName | "">("");
   const [forever, setForever] = useState(false);
-  const { preview, result, round } = answers;
-  const choosing = Boolean(preview && preview.count > 0) || Boolean(result);
+  const { preview, result, round, resume } = answers;
+  const choosing = Boolean(preview && preview.count > 0);
   const fields = state?.fields ?? {};
   return (
     <form
@@ -181,7 +216,7 @@ export function BatchView({
           heading={t("who.heading")}
           description={t("who.description", { count: limit })}
         >
-          <div className="divide-y">
+          <div className="divide-y" onChange={onEdit} onInput={onEdit}>
             <FieldRow name="selection" label={t("who.kind")}>
               <fieldset className="flex flex-wrap gap-x-5">
                 <legend className="sr-only">{t("who.kind")}</legend>
@@ -240,6 +275,11 @@ export function BatchView({
             description={t("what.description")}
           >
             <div className="divide-y">
+              <input
+                type="hidden"
+                name="userIds"
+                value={preview?.ids.join(",") ?? ""}
+              />
               <FieldRow
                 name="action"
                 label={t("what.action")}
@@ -420,7 +460,10 @@ export function BatchView({
       {result && (
         <Section heading={t("result.heading")}>
           <div className="space-y-3 p-4">
-            <p role="status" className="text-sm font-medium text-success">
+            <p
+              role="status"
+              className={`text-sm font-medium ${outcomeTone(result)}`}
+            >
               {t("result.counts", {
                 done: result.done,
                 skipped: result.skipped,
@@ -430,22 +473,16 @@ export function BatchView({
             {result.items.length > 0 && (
               <MemberOutcomeList items={result.items} />
             )}
-            {result.next !== null && (
+            {resume !== null && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
                   {t("result.more")}
                 </p>
-                {isOneOf(NEEDS_PASSWORD, chosen) ||
-                isOneOf(DESTRUCTIVE, chosen) ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("result.confirmAgain")}
-                  </p>
-                ) : null}
                 <StepButton
-                  step={`apply@${result.next}`}
+                  step={`preview@${resume}`}
                   variant="outline"
-                  label={t("result.continue")}
-                  pendingLabel={t("what.applying")}
+                  label={t("result.previewNext")}
+                  pendingLabel={t("preview.pending")}
                 />
               </div>
             )}

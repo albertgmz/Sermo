@@ -48,7 +48,7 @@ function wordsOf(raw: string): string[] {
 }
 
 // The selection the form describes, or the state that refuses it. A criteria run resumes after
-// `after` (the step "apply@<id>" of the button that continues a run).
+// `after` (the step "preview@<id>" of the button that looks at the next members).
 async function selectionOf(
   formData: FormData,
   after: number | null,
@@ -130,26 +130,44 @@ async function actionOf(
   }
 }
 
-// One step of the batch update of members: "preview" asks who a selection names, "apply" applies
-// the chosen change to them, "apply@<id>" does so for the members after <id> (the next stretch of
-// a criteria run). The backend decides who may be changed and answers for each member.
+// The ids of the form's `userIds` field (the members the last preview named): ids separated by
+// commas, each once; null when one is not an id.
+function idsOf(raw: string): number[] | null {
+  const ids = raw
+    .split(",")
+    .map((word) => word.trim())
+    .filter((word) => word !== "")
+    .map((word) => parseId(word));
+  if (ids.some((id) => id === null)) return null;
+  return [...new Set(ids as number[])];
+}
+
+// One step of the batch update of members: "preview" asks who a selection names, "preview@<id>"
+// does so for the members after <id> (the next stretch of a criteria run), and "apply" applies the
+// chosen change to the members the last preview named (`userIds`; the rule or list is not read
+// again). The backend decides who may be changed and answers for each member.
 export async function runBatch(
   _previous: BatchState,
   formData: FormData,
 ): Promise<BatchState> {
-  const step = /^(preview|apply)(?:@([1-9]\d{0,14}))?$/.exec(
+  const step = /^(?:(preview)(?:@([1-9]\d{0,14}))?|(apply))$/.exec(
     text(formData, "step"),
   );
   if (!step) return { error: await invalidArgument() };
-  const chosen = await selectionOf(formData, step[2] ? Number(step[2]) : null);
-  if ("refused" in chosen) return chosen.refused;
-  const { selection } = chosen;
 
   if (step[1] === "preview") {
+    const chosen = await selectionOf(
+      formData,
+      step[2] ? Number(step[2]) : null,
+    );
+    if ("refused" in chosen) return chosen.refused;
     try {
-      const found = await call(usersBatchPreview, { selection });
+      const found = await call(usersBatchPreview, {
+        selection: chosen.selection,
+      });
       return {
         preview: {
+          ids: found.items.map((item) => item.id),
           count: found.items.length,
           names: found.items
             .slice(0, PREVIEW_NAMES)
@@ -164,6 +182,14 @@ export async function runBatch(
   }
 
   const t = await getTranslations("adminUsers.batch.errors");
+  const userIds = idsOf(text(formData, "userIds"));
+  if (
+    userIds === null ||
+    userIds.length === 0 ||
+    userIds.length > BATCH_MEMBER_LIMIT
+  ) {
+    return { error: t("noPreview") };
+  }
   const picked = await actionOf(formData);
   if ("refused" in picked) return picked.refused;
   const { action } = picked;
@@ -180,7 +206,7 @@ export async function runBatch(
   }
   try {
     const done = await call(usersBatchUpdate, {
-      selection,
+      userIds,
       action,
       reason,
       ...(actorPassword === undefined ? {} : { actorPassword }),
@@ -195,7 +221,6 @@ export async function runBatch(
         done: done.done,
         skipped: done.skipped,
         failed: done.failed,
-        next: done.next,
       },
     };
   } catch (error) {

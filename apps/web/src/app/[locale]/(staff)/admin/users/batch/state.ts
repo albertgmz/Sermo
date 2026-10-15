@@ -26,9 +26,11 @@ export const isOneOf = <T extends string>(
   value: string,
 ): value is T => (list as readonly string[]).includes(value);
 
-// Who a preview found: how many, the first names, the words of a list that matched nobody, and
-// where a criteria run resumes (null when nothing may follow).
+// Who a preview found: the ids a change is then applied to (the run acts on exactly these), how
+// many, the first names, the words of a list that matched nobody, and where a criteria run
+// resumes (null when nothing may follow).
 export type Preview = {
+  ids: number[];
   count: number;
   names: string[];
   unknown: string[];
@@ -46,7 +48,6 @@ export type Result = {
   done: number;
   skipped: number;
   failed: number;
-  next: number | null;
 };
 
 // What the action answers. A refusal is `error` (or `fields`, under the control it is about); a

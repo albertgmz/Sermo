@@ -40,9 +40,9 @@ export const PLACES = {
   signature: { cheapOnly: true, noMeasured: false, empty: "everyone" },
   // Decided on every home page view of a visitor who chose no tab.
   homeTab: { cheapOnly: true, noMeasured: false, empty: "everyone" },
-  // Evaluated once, for the members of a batch update: any criterion, and a rule with no
-  // condition names nobody.
-  memberBatch: { cheapOnly: false, noMeasured: false, empty: "selection" },
+  // Evaluated while the preview request is served, for the members of a batch update: the cheap
+  // criteria alone (the backend refuses the others), and a rule with no condition names nobody.
+  memberBatch: { cheapOnly: true, noMeasured: false, empty: "selection" },
 } as const;
 export type Place = keyof typeof PLACES;
 

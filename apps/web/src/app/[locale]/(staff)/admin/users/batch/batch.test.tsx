@@ -24,7 +24,9 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
 
-const { BatchView, keepAnswers } = await import("./batch-form");
+const { BatchView, dropPreview, FRESH, keepAnswers } = await import(
+  "./batch-form"
+);
 const { BatchScreen } = await import("./batch-screen");
 const { BATCH_ACTIONS } = await import("./state");
 
@@ -35,6 +37,19 @@ afterAll(() => {
 });
 
 const b = messages.adminUsers.batch;
+const PREVIEW = {
+  ids: [11, 12, 13],
+  count: 3,
+  names: ["wren"],
+  unknown: [],
+  next: null,
+};
+const RESULT = {
+  items: [{ name: "wren", status: "done" as const, message: null }],
+  done: 1,
+  skipped: 0,
+  failed: 0,
+};
 const GROUPS = [
   { id: 2, title: "Members" },
   { id: 5, title: "Veterans" },
@@ -51,9 +66,7 @@ type State = Parameters<typeof BatchView>[0]["state"];
 
 // The form after the answers in order, as the client keeps them.
 const after = (...states: State[]) =>
-  states.reduce<Answers>((kept, state) => keepAnswers(kept, state), {
-    round: 0,
-  });
+  states.reduce<Answers>((kept, state) => keepAnswers(kept, state), FRESH);
 
 const draw = (state: State, answers: Answers = after(state)) =>
   renderToStaticMarkup(
@@ -65,6 +78,7 @@ const draw = (state: State, answers: Answers = after(state)) =>
         criteria={<p>RULE BUILDER</p>}
         state={state}
         answers={answers}
+        onEdit={() => {}}
         formAction={() => {}}
       />,
     ),
@@ -92,6 +106,7 @@ test("the list of ids and names is the other way to choose, and says its limit",
 test("a preview shows how many, the first names, the names nobody has and that more may follow", () => {
   const html = draw({
     preview: {
+      ids: [3, 4],
       count: 120,
       names: ["wren", "robin"],
       unknown: ["ghost"],
@@ -112,7 +127,7 @@ test("a preview shows how many, the first names, the names nobody has and that m
 
 test("a preview that finds nobody offers no change", () => {
   const html = draw({
-    preview: { count: 0, names: [], unknown: ["ghost"], next: null },
+    preview: { ids: [], count: 0, names: [], unknown: ["ghost"], next: null },
   });
   expect(html).toContain("Nobody matches.");
   expect(html).not.toContain(b.what.heading);
@@ -127,8 +142,8 @@ test("the answer of a refused step shows under the control it is about, and the 
   expect(draw({ error: "Not allowed." })).toContain("Not allowed.");
 });
 
-test("the result lists each member with what happened, and offers the next stretch of a rule", () => {
-  const html = draw({
+test("the result lists each member with what happened, and offers a preview of the next stretch of a rule", () => {
+  const answer: NonNullable<State> = {
     result: {
       items: [
         { name: "wren", status: "done", message: null },
@@ -142,31 +157,34 @@ test("the result lists each member with what happened, and offers the next stret
       done: 1,
       skipped: 1,
       failed: 1,
-      next: 321,
     },
-  });
+  };
+  const html = draw(
+    answer,
+    after({ preview: { ...PREVIEW, next: 321 } }, answer),
+  );
   expect(html).toContain("1 member changed, 1 skipped, 1 failed.");
+  // A failure shows in the line's colour, as it does for sign-up decisions.
+  expect(html).toMatch(
+    /class="text-sm font-medium text-destructive"[^>]*>1 member changed/,
+  );
   expect(html).toContain("Outranks you.");
   expect(html).toContain("No member goes by that name.");
   expect(html).toContain(messages.admin.memberOutcomes.status.skipped);
-  expect(has(html, "step", "apply@321")).toBe(true);
-  expect(html).toContain(b.result.continue);
-  // The change stays on the page to repeat on the next members.
-  expect(html).toContain(b.what.heading);
+  expect(has(html, "step", "preview@321")).toBe(true);
+  expect(html).toContain(b.result.previewNext);
+  // A new run needs a new preview: nothing to apply is left on the page.
+  expect(html).not.toContain(b.what.heading);
+  expect(has(html, "step", "apply")).toBe(false);
 });
 
-test("a result with nothing more to follow does not offer to continue", () => {
-  const html = draw({
-    result: {
-      items: [{ name: "wren", status: "done", message: null }],
-      done: 1,
-      skipped: 0,
-      failed: 0,
-      next: null,
-    },
-  });
-  expect(html).not.toContain(b.result.continue);
-  expect(html).not.toContain("apply@");
+test("a result with nothing more to follow does not offer to preview the next members", () => {
+  const html = draw(
+    { result: RESULT },
+    after({ preview: PREVIEW }, { result: RESULT }),
+  );
+  expect(html).not.toContain(b.result.previewNext);
+  expect(html).not.toContain("preview@");
 });
 
 // The screen: which groups and which changes the viewer is offered ------------------------------
@@ -216,15 +234,6 @@ test("the screen offers every group but the guest group, and bans only to a view
   expect(editor.actions).toContain("delete");
 });
 
-const PREVIEW = { count: 3, names: ["wren"], unknown: [], next: null };
-const RESULT = {
-  items: [{ name: "wren", status: "done" as const, message: null }],
-  done: 1,
-  skipped: 0,
-  failed: 0,
-  next: 321,
-};
-
 test("a refused apply keeps the choice of change on the page, with its message next to the button", () => {
   const preview = { preview: PREVIEW };
   const refused = {
@@ -243,10 +252,11 @@ test("a refused apply keeps the choice of change on the page, with its message n
 
 test("the answers kept: a refusal changes nothing, a preview replaces the result, a result raises the round", () => {
   const first = after({ preview: PREVIEW });
-  expect(keepAnswers(first, { error: "No." })).toBe(first);
-  expect(keepAnswers(first, null)).toBe(first);
+  const refused = keepAnswers(first, { error: "No." });
+  expect(refused.preview).toBe(PREVIEW);
   const done = keepAnswers(first, { result: RESULT });
-  expect(done.preview).toBe(PREVIEW);
+  // A result drops the preview: a new run needs a new preview.
+  expect(done.preview).toBeUndefined();
   expect(done.result).toBe(RESULT);
   expect(done.round).toBe(first.round + 1);
   const again = keepAnswers(done, { preview: { ...PREVIEW, count: 2 } });
@@ -254,9 +264,31 @@ test("the answers kept: a refusal changes nothing, a preview replaces the result
   expect(again.round).toBe(done.round);
 });
 
+test("editing the choice of members drops the preview, and the change cannot be applied until a new one", () => {
+  const preview = { preview: { ...PREVIEW, next: 400 } };
+  const previewed = after(preview);
+  expect(previewed.resume).toBe(400);
+  const edited = dropPreview(previewed);
+  expect(edited.preview).toBeUndefined();
+  expect(edited.resume).toBeNull();
+  // The same answer is not taken in again after the drop.
+  expect(keepAnswers(edited, preview)).toBe(edited);
+  const html = draw(preview, edited);
+  expect(html).not.toContain(b.what.heading);
+  expect(has(html, "step", "apply")).toBe(false);
+  expect(html).not.toContain('name="userIds"');
+  // Nothing to drop: the same object.
+  expect(dropPreview(FRESH)).toBe(FRESH);
+});
+
+test("apply carries the ids of the last preview, not the fields of the choice", () => {
+  const html = draw({ preview: PREVIEW });
+  expect(html).toMatch(/<input[^>]*name="userIds"[^>]*value="11,12,13"/);
+});
+
 test("a stretch of a rule that found nobody but may go on offers to look further", () => {
   const html = draw({
-    preview: { count: 0, names: [], unknown: [], next: 400 },
+    preview: { ids: [], count: 0, names: [], unknown: [], next: 400 },
   });
   expect(html).not.toContain("Nobody matches.");
   expect(html).toContain(b.preview.noneYet);

@@ -23,7 +23,10 @@ export const MAX_SIGNUP_DECISIONS = 50;
 export const SignupEntry = z
   .object({
     user: UserSummary,
+    /** The address, or a masked form of it (j***@example.com) when `emailHidden`. */
     email: z.string(),
+    /** The viewer does not manage members (admin.members over the account): the address is masked. */
+    emailHidden: z.boolean(),
     createdAt: Timestamp,
     /** The spam check flagged the sign-up. A flagged account is never approved automatically. */
     flagged: z.boolean(),
@@ -62,8 +65,9 @@ export const signupsList = defineContract({
     "when it signed up, whether the spam check flagged it, the country and (with member.viewIps) " +
     "the address and the other accounts seen on it, and the terms it accepted. Only confirmed " +
     "accounts are listed (an account that has not confirmed its email is not waiting for staff " +
-    "yet). The address is shown to every holder of the permission, whatever they hold for members. " +
-    "Requires member.approveRegistrations.",
+    "yet), and neither are the ones a ban holds back: a rejected one banned for good is closed, one " +
+    "banned for a time returns when the ban ends. The email is masked unless the viewer holds " +
+    "admin.members over the account. Requires member.approveRegistrations.",
   kind: "read",
   input: z.object({ ...pageInput }),
   output: Page(SignupEntry),
@@ -75,13 +79,17 @@ export const signupsDecide = defineContract({
     "Approve or reject accounts that wait for approval, up to 50 at a time, one by one: an " +
     "account that is no longer waiting, or that the actor may not act on, is skipped and " +
     "reported, and does not stop the rest. Approving lets the account act as the member it is " +
-    "and emails it. Rejecting erases or bans the account and emails it the reason, if one was " +
-    "given. Erasing (the default) is the erasure of `users.adminErase` (read its summary), allowed " +
-    "by member.approveRegistrations alone because the account never was a member, and needs the " +
-    "actor's own password, session actors only; the mail follows the erasure. Banning (`mode` `ban`) bans for good and needs member.ban over " +
-    "the account and the reach to ban for good, member.banMaxDays -1. Each account changed is one " +
-    "moderator log entry (`signup.approve`, `signup.reject`). Requires " +
-    "member.approveRegistrations over the account.",
+    "and emails it. Rejecting emails it the reason, if one was given, and either bans the " +
+    "account (`mode` `ban`, the default: the ban is the actor's own, so it needs member.ban " +
+    "over the account and is bounded by member.banMaxDays like `bans.create`: `banDays` null " +
+    "bans for good and needs -1, otherwise the days may not exceed the bound; a ban for good " +
+    "closes the account, a ban for a time keeps it held and out of the queue until the ban " +
+    "ends) or erases it (`mode` `delete`: the erasure of `users.adminErase`, so it needs " +
+    "admin.members over the account, as erasing a member does, and the actor's own password, " +
+    "session actors only; an erasure that stopped part way is finished by deciding again). " +
+    "Banning keeps the sign-up address and the terms record the queue shows for the next " +
+    "account; erasing removes them. Each account changed is one moderator log entry " +
+    "(`signup.approve`, `signup.reject`). Requires member.approveRegistrations over the account.",
   kind: "write",
   input: z.object({
     userIds: z.array(Id).min(1).max(MAX_SIGNUP_DECISIONS),
@@ -89,7 +97,9 @@ export const signupsDecide = defineContract({
     /** Sent to the member in the email; kept in the log. Optional. */
     reason: z.string().trim().max(1000).default(""),
     /** What rejecting does; ignored when approving. */
-    mode: z.enum(SIGNUP_REJECT_MODES).default("delete"),
+    mode: z.enum(SIGNUP_REJECT_MODES).default("ban"),
+    /** The length of a reject ban in days; null bans for good. Ignored unless banning. */
+    banDays: z.number().int().min(1).max(3650).nullable().default(null),
     actorPassword: ActorPassword.optional(),
   }),
   output: MemberOutcomes,

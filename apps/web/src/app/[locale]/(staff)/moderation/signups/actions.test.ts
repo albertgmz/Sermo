@@ -131,7 +131,7 @@ test("a rejection names what it does: an unknown or missing mode is refused with
   expect(backend.asked).toEqual([]);
 });
 
-test("rejecting by a ban sends no password", async () => {
+test("rejecting by a ban sends its length and no password", async () => {
   backend = fakeBackend({ "signups.decide": decided });
   await redirectedTo(() =>
     decideSignups(
@@ -140,7 +140,21 @@ test("rejecting by a ban sends no password", async () => {
         decision: "reject",
         userIds: "7,8",
         mode: "ban",
+        duration: "days",
+        banDays: "14",
         actorPassword: "left over in the form",
+      }),
+    ),
+  );
+  await redirectedTo(() =>
+    decideSignups(
+      null,
+      form({
+        decision: "reject",
+        userIds: "7",
+        mode: "ban",
+        duration: "forever",
+        banDays: "14",
       }),
     ),
   );
@@ -149,7 +163,35 @@ test("rejecting by a ban sends no password", async () => {
     decision: "reject",
     reason: "",
     mode: "ban",
+    banDays: 14,
   });
+  // For good is a null length.
+  expect(sent()?.[1]?.body).toEqual({
+    userIds: [7],
+    decision: "reject",
+    reason: "",
+    mode: "ban",
+    banDays: null,
+  });
+});
+
+test("a ban with no usable length is refused without a call", async () => {
+  backend = fakeBackend({ "signups.decide": decided });
+  for (const banDays of ["", "0", "3651", "x", "1.5"]) {
+    expect(
+      await decideSignups(
+        null,
+        form({
+          decision: "reject",
+          userIds: "7",
+          mode: "ban",
+          duration: "days",
+          banDays,
+        }),
+      ),
+    ).toEqual({ error: messages.moderation.errors.signupsDays });
+  }
+  expect(backend.asked).toEqual([]);
 });
 
 test("rejecting to delete without the password is refused before any call", async () => {

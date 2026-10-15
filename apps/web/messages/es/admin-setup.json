@@ -163,7 +163,7 @@
     },
     "approveSignups": {
       "label": "Aprobar cuentas nuevas",
-      "help": "Activado: una cuenta nueva espera la aprobación del personal cuando ya ha confirmado su correo. Hasta entonces lee el foro como un invitado y no puede escribir. Las cuentas que ya esperan siguen en la cola si lo desactivas. El personal con el permiso de aprobar altas decide en la pantalla de altas pendientes de la sección de moderación.",
+      "help": "Si lo desactivas, las cuentas nuevas entran de inmediato. Las cuentas que ya esperan siguen en la cola y el personal aún puede decidir sobre ellas.",
       "switch": "Las cuentas nuevas esperan la aprobación del personal"
     },
     "floodSeconds": {

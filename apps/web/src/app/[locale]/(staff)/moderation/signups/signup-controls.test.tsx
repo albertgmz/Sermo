@@ -17,17 +17,31 @@ afterAll(() => {
   mock.module("next-intl/server", () => intl);
 });
 
+import type { RejectOptions } from "./reject-options";
+
 const { DecideControls } = await import("./signup-controls");
-const { SignupSelection, SignupTick, onPage } = await import(
-  "./signup-selection"
-);
+const { SignupSelection, SignupTick } = await import("./signup-selection");
+const { onPage } = await import("@/components/staff/row-selection");
 
 const s = messages.moderation.signups;
 
-test("approve and reject name the same accounts, and rejecting offers deleting first", () => {
-  const html = renderToStaticMarkup(
-    withIntl(<DecideControls userIds={[7, 8]} />),
+const BOTH: RejectOptions = {
+  erase: true,
+  ban: { forever: true, maxDays: 3650 },
+};
+
+const controls = (options: RejectOptions) =>
+  renderToStaticMarkup(
+    withIntl(<DecideControls userIds={[7, 8]} options={options} />),
   );
+
+const radiosOf = (html: string, name: string) =>
+  (html.match(/<input[^>]*type="radio"[^>]*>/g) ?? []).filter((radio) =>
+    radio.includes(`name="${name}"`),
+  );
+
+test("approve and reject name the same accounts, and rejecting offers a ban first", () => {
+  const html = controls(BOTH);
   // Approve: a form of its own with the ids and the decision.
   expect(html).toContain('name="decision" value="approve"');
   expect(html).toContain('name="userIds" value="7,8"');
@@ -38,20 +52,65 @@ test("approve and reject name the same accounts, and rejecting offers deleting f
   expect(html).toContain(s.reject.reason);
   expect(html).toContain(s.reject.mode.delete);
   expect(html).toContain(s.reject.mode.ban);
-  // Deleting is the default: it is checked, and it asks for the password.
-  const radios = html.match(/<input[^>]*type="radio"[^>]*>/g) ?? [];
-  expect(radios.map((radio) => radio.includes("checked"))).toEqual([
+  // Banning is the default: it is checked and listed first, and no password is asked.
+  const modes = radiosOf(html, "mode");
+  expect(modes.map((radio) => radio.includes("checked"))).toEqual([
     true,
     false,
   ]);
-  expect(radios[0]).toContain('value="delete"');
-  expect(html).toContain('name="actorPassword"');
+  expect(modes[0]).toContain('value="ban"');
+  expect(html).not.toContain('name="actorPassword"');
+  // Each choice says what it keeps or loses.
+  expect(html).toContain(s.reject.modeHelp.ban);
+  expect(html).toContain(s.reject.modeHelp.delete);
+});
+
+test("a ban has a length: days, and for good only where the viewer may", () => {
+  const any = controls(BOTH);
+  expect(
+    radiosOf(any, "duration").map(
+      (radio) => /value="([a-z]+)"/.exec(radio)?.[1],
+    ),
+  ).toEqual(["days", "forever"]);
+  expect(any).toContain('name="banDays"');
+  expect(any).toContain(s.reject.banForever);
+  expect(any).toContain('max="3650"');
+
+  const bounded = controls({
+    erase: false,
+    ban: { forever: false, maxDays: 30 },
+  });
+  expect(bounded).not.toContain(s.reject.banForever);
+  expect(radiosOf(bounded, "duration")).toHaveLength(1);
+  expect(bounded).toContain('max="30"');
+  expect(bounded).toContain("up to 30 days");
+});
+
+test("rejecting offers only what the viewer may do, and nothing when neither", () => {
+  const eraseOnly = controls({ erase: true, ban: null });
+  expect(eraseOnly).toContain(s.reject.mode.delete);
+  expect(eraseOnly).not.toContain(s.reject.mode.ban);
+  // Erasing is the only choice, so it is the checked one and asks for the password.
+  expect(radiosOf(eraseOnly, "mode")).toHaveLength(1);
+  expect(eraseOnly).toContain('name="actorPassword"');
+  expect(eraseOnly).not.toContain('name="banDays"');
+
+  const banOnly = controls({
+    erase: false,
+    ban: { forever: true, maxDays: 3650 },
+  });
+  expect(banOnly).toContain(s.reject.mode.ban);
+  expect(banOnly).not.toContain(s.reject.mode.delete);
+
+  const neither = controls({ erase: false, ban: null });
+  expect(neither).toContain(s.approve);
+  expect(neither).not.toContain(s.reject.summary);
 });
 
 test("the list bar waits for ticks: nothing to decide on until a row is selected", () => {
   const html = renderToStaticMarkup(
     withIntl(
-      <SignupSelection pageIds={[7, 8]}>
+      <SignupSelection pageIds={[7, 8]} options={BOTH}>
         <SignupTick id={7} name="wren" />
       </SignupSelection>,
     ),
@@ -66,7 +125,11 @@ test("the list bar waits for ticks: nothing to decide on until a row is selected
 test("an empty page has no bar, and a tick outside the list draws nothing", () => {
   expect(
     renderToStaticMarkup(
-      withIntl(<SignupSelection pageIds={[]}>x</SignupSelection>),
+      withIntl(
+        <SignupSelection pageIds={[]} options={BOTH}>
+          x
+        </SignupSelection>,
+      ),
     ),
   ).toBe("x");
   expect(

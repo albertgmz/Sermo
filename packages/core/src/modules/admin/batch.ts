@@ -42,6 +42,9 @@ export const batchSql = {
     "SELECT id, username, username_key FROM users WHERE id IN (SELECT value FROM json_each(?1)) OR username_key IN (SELECT value FROM json_each(?2))",
   title: "SELECT custom_title FROM users WHERE id = ?1",
   signature: "SELECT signature_source FROM users WHERE id = ?1",
+  erased:
+    "SELECT u.erased_at, u.username_key, a.email FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
+  names: "SELECT id, username FROM users WHERE id IN (SELECT value FROM json_each(?1))",
   bans: "SELECT id FROM bans WHERE user_id = ?1 AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > ?2) ORDER BY id",
 };
 
@@ -81,7 +84,8 @@ async function pick(
     }
     return { members, unknown, next: null };
   }
-  assertRule(ctx, selection.rule, "background");
+  // Only criteria cheap to check in a request: the ones that count a history are for background jobs.
+  assertRule(ctx, selection.rule, "cheap");
   const found: Picked[] = [];
   let after = selection.after ?? 0;
   let scanned = 0;
@@ -113,6 +117,21 @@ export const usersBatchPreviewOp = implement(usersBatchPreview, async (ctx, acto
   return { items: members, unknown, next };
 });
 
+/** Whether an erased account has been through every step: renamed, and its address replaced. */
+function erasureFinished(ctx: Ctx, id: number): boolean {
+  const row = prepared(ctx, "batch.erased", () =>
+    ctx.sqlite.prepare<{ erased_at: number | null; username_key: string; email: string }, [number]>(
+      batchSql.erased,
+    ),
+  ).get(id);
+  return (
+    !!row &&
+    row.erased_at !== null &&
+    row.email === `erased-${id}@invalid` &&
+    /^deleted member [0-9]+(-[0-9]+)?$/.test(row.username_key)
+  );
+}
+
 const needReason = (reason: string) => {
   if (reason === "") throw new ValidationError("A reason is required.");
 };
@@ -120,7 +139,10 @@ const needReason = (reason: string) => {
 /** What one member goes through, by action; every helper checks the actor's rights over them. */
 function member(ctx: Ctx, actor: Actor, action: Action, reason: string, expiresAt: number | null) {
   return async (id: number): Promise<void> => {
-    requireNotErased(ctx, id);
+    // An erasure that stopped part way is finished by erasing again; anything else leaves an erased account alone.
+    if (action.type === "delete") {
+      if (erasureFinished(ctx, id)) throw new SkipMember("This member's account was erased.");
+    } else requireNotErased(ctx, id);
     if (isSuperAdminRow(ctx, id))
       throw new SkipMember("A super admin is never changed in a batch.");
     switch (action.type) {
@@ -239,22 +261,31 @@ export const usersBatchUpdateOp = implement(usersBatchUpdate, async (ctx, actor,
       await verifyActorPassword(ctx, actor, input.actorPassword);
       break;
   }
-  const { members, unknown, next } = await pick(ctx, input.selection);
+  const ids = [...new Set(input.userIds)];
+  const names = new Map(
+    prepared(ctx, "batch.names", () => ctx.sqlite.prepare<Picked, [string]>(batchSql.names))
+      .all(JSON.stringify(ids))
+      .map((row) => [row.id, row.username]),
+  );
   const run = member(ctx, actor, action, input.reason, expiresAt);
   const items = [];
-  for (const picked of members)
+  for (const id of ids) {
+    const name = names.get(id);
+    if (name === undefined) {
+      items.push({
+        userId: null,
+        name: String(id),
+        status: "failed" as const,
+        message: "No member has this id.",
+      });
+      continue;
+    }
     items.push(
-      await outcomeOf(picked.id, picked.username, async () => {
-        if (picked.id === actorId) throw new SkipMember("You cannot apply this to yourself.");
-        await run(picked.id);
+      await outcomeOf(id, name, async () => {
+        if (id === actorId) throw new SkipMember("You cannot apply this to yourself.");
+        await run(id);
       }),
     );
-  for (const word of unknown)
-    items.push({
-      userId: null,
-      name: word,
-      status: "failed" as const,
-      message: "No member has this name or id.",
-    });
-  return { ...tally(items), next };
+  }
+  return tally(items);
 });

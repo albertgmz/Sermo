@@ -69,10 +69,12 @@ export async function execute<I extends z.ZodType, O extends z.ZodType>(
   rawInput: unknown,
 ): Promise<z.output<O>> {
   // An account that waits for approval takes no write, whatever the operation checks: only the
-  // operations open to anyone (own sign-out-like removals, accepting the terms) are left.
+  // operations open to anyone (own sign-out-like removals, accepting the terms) are left, and
+  // leaving the forum.
   if (
     op.kind === "write" &&
     !op.public &&
+    op.name !== "users.deleteOwnAccount" &&
     actor.kind !== "guest" &&
     actor.principal?.awaitingApproval
   )

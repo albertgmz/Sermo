@@ -424,7 +424,8 @@
       "group": "Choose a group.",
       "days": "Enter a number of days from 1 to 3650, or ban for good.",
       "reason": "Enter a reason.",
-      "confirm": "Tick the box to confirm."
+      "confirm": "Tick the box to confirm.",
+      "noPreview": "Preview the members first, then choose the change."
     },
     "who": {
       "heading": "1. Choose the members",
@@ -441,13 +442,13 @@
       "count": "{count, plural, =0 {Nobody matches.} one {# member matches.} other {# members match.}}",
       "more": "and {count} more",
       "unknown": "Not found: {names}",
-      "next": "More members may match beyond these. Apply the change, then continue with the next members.",
+      "next": "More members may match beyond these. Apply the change, then preview the next members.",
       "noneYet": "None of the members checked so far match. More may follow.",
       "further": "Look further"
     },
     "what": {
       "heading": "2. Choose the change",
-      "description": "The change applies to the members chosen above, as the preview showed them.",
+      "description": "The change applies to the members the preview above showed, and to them alone. Editing the choice of members asks for a new preview.",
       "action": "Change",
       "choose": "Choose a change…",
       "group": "Group",
@@ -492,8 +493,7 @@
       "heading": "Result",
       "counts": "{done, plural, one {# member changed} other {# members changed}}, {skipped} skipped, {failed} failed.",
       "more": "This was one stretch of the rule's matches. More members may follow.",
-      "continue": "Continue with the next members",
-      "confirmAgain": "To continue, confirm again: tick the confirmation and type your password, where this change asks for them."
+      "previewNext": "Preview the next members"
     }
   }
 }

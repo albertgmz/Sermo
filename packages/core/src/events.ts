@@ -21,7 +21,7 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  *   "verification" is a confirmed email moving the member from Unconfirmed to Member; "shop" is
  *   a group bought as a shop item, or lost when that item expired.
  * - `member.registered`: target the new member; no payload. Published with the member's row.
- * - `member.awaiting_approval`: target the member (targetType "user"); no payload. An account
+ * - `member.awaiting_approval`: target the member (targetType "user"); payload { userId }. An account
  *   that the sign-up queue holds is now waiting for staff (its email is confirmed, or none is
  *   asked for). Staff who hold member.approveRegistrations get an alert.
  * - `member.signup_decided`: target the member; payload { decision, moderatorId }. Staff approved

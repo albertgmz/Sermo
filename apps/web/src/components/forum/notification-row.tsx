@@ -114,6 +114,8 @@ export function NotificationRow({
         >
           {t.rich(`texts.${key}`, {
             actors: () => actors,
+            // How many are named: texts that agree with their number (several new accounts).
+            count: item.actorCount,
             titled: item.contentTitle ? "yes" : "no",
             title: item.contentTitle ?? "",
             kind: item.contentType,

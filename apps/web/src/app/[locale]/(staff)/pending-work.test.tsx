@@ -17,6 +17,7 @@ mock.module("next/headers", () => ({
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
+  getFormatter: async () => ({ number: (value: number) => String(value) }),
   getTranslations: async (namespace: string) => translator(namespace, true),
 }));
 

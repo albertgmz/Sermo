@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { expectNoTableScan, insertUser } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
@@ -6,6 +6,7 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { can } from "../../permissions";
 import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
+import { getAuth } from "../auth";
 import { batchSql } from "./batch";
 import { accounts, closeAll, PASSWORD } from "./fixtures.test";
 
@@ -39,8 +40,18 @@ async function world() {
   const members = [];
   for (const name of names) members.push(await w.register(name));
   const chosen = await w.run("groups.create", founder.actor, { title: "Chosen", rank: 20 });
-  const batch = (actor: object, selection: object, action: object, extra: object = {}) =>
-    w.run("users.batchUpdate", actor, { selection, action, ...extra });
+  // The way the panel does it: preview a selection, then apply to the ids the preview returned.
+  const preview = (selection: object, actor: object = founder.actor) =>
+    w.run("users.batchPreview", actor, { selection });
+  const apply = (actor: object, userIds: number[], action: object, extra: object = {}) =>
+    w.run("users.batchUpdate", actor, { userIds, action, ...extra });
+  const batch = async (actor: object, selection: object, action: object, extra: object = {}) =>
+    apply(
+      actor,
+      (await preview(selection)).items.map((item: { id: number }) => item.id),
+      action,
+      extra,
+    );
   const list = (...who: (string | number)[]) => ({
     kind: "list" as const,
     members: who.map(String),
@@ -61,6 +72,8 @@ async function world() {
     members,
     chosen,
     batch,
+    preview,
+    apply,
     list,
     entries,
     stored,
@@ -170,7 +183,7 @@ describe("users.batchUpdate", () => {
       { type: "setGroup", groupId: w.chosen.id },
       { actorPassword: PASSWORD },
     );
-    expect(set).toMatchObject({ done: 4, skipped: 0, failed: 0, next: null });
+    expect(set).toMatchObject({ done: 4, skipped: 0, failed: 0 });
     for (const id of ids) {
       expect(w.stored(id).group_id).toBe(w.chosen.id);
       expect(w.entries(id)).toEqual(["user.groups"]);
@@ -419,22 +432,89 @@ describe("users.batchUpdate", () => {
     ]);
   });
 
-  test("a name that matches nobody is a failure of that line only", async () => {
+  test("an id that is no member is a failure of that line only", async () => {
     const w = await world();
-    const result = await w.batch(w.founder.actor, w.list("Alpha", "Nobody"), {
+    const result = await w.apply(w.founder.actor, [w.members[0]!.id, 999_999], {
       type: "setTitle",
       title: "Hi",
     });
     expect(result).toMatchObject({ done: 1, failed: 1 });
     expect(result.items.at(-1)).toEqual({
       userId: null,
-      name: "Nobody",
+      name: "999999",
       status: "failed",
-      message: "No member has this name or id.",
+      message: "No member has this id.",
     });
   });
 
-  test("works through criteria and answers where to resume", async () => {
+  test("acts on the ids that were previewed, not on a selection read again", async () => {
+    const w = await world();
+    const [alpha, bravo] = w.members;
+    for (const member of [alpha!])
+      await w.run("users.setGroups", w.founder.actor, {
+        userId: member.id,
+        secondaryGroupIds: [w.chosen.id],
+        actorPassword: PASSWORD,
+      });
+    const previewed = await w.preview(inGroup(w.chosen.id));
+    expect(previewed.items.map((item: { id: number }) => item.id)).toEqual([alpha!.id]);
+    // The rule matches someone else by the time of the apply: only the previewed one is changed.
+    await w.run("users.setGroups", w.founder.actor, {
+      userId: bravo!.id,
+      secondaryGroupIds: [w.chosen.id],
+      actorPassword: PASSWORD,
+    });
+    const result = await w.apply(w.founder.actor, [alpha!.id], {
+      type: "setTitle",
+      title: "Previewed",
+    });
+    expect(result).toMatchObject({ done: 1 });
+    expect(w.stored(alpha!.id).custom_title).toBe("Previewed");
+    expect(w.stored(bravo!.id).custom_title).toBeNull();
+  });
+
+  test("refuses a rule that holds a criterion too heavy for a request, naming it", async () => {
+    const w = await world();
+    const heavy = {
+      kind: "criteria",
+      rule: { match: "all", conditions: [{ criterion: "warning_points_below", value: 5 }] },
+    };
+    await expect(w.preview(heavy)).rejects.toThrow(/warning_points_below.*too heavy/);
+  });
+
+  test("finishes an erasure that stopped part way, and skips one that is complete", async () => {
+    const w = await world();
+    const [alpha] = w.members;
+    const authContext = await getAuth(w.ctx).$context;
+    const original = authContext.internalAdapter.deleteAccounts;
+    authContext.internalAdapter.deleteAccounts = async () => {
+      throw new Error("injected");
+    };
+    const logged = spyOn(console, "error").mockImplementation(() => {});
+    const run = () =>
+      w.apply(
+        w.founder.actor,
+        [alpha!.id],
+        { type: "delete" },
+        { reason: "Clean up", actorPassword: PASSWORD },
+      );
+    try {
+      expect(await run()).toMatchObject({ failed: 1 });
+    } finally {
+      authContext.internalAdapter.deleteAccounts = original;
+      logged.mockRestore();
+    }
+    expect(w.stored(alpha!.id).erased_at).not.toBeNull();
+    expect(w.stored(alpha!.id).username).toBe("Alpha");
+    // Again: the half-done erasure is finished, not skipped as erased.
+    expect(await run()).toMatchObject({ done: 1 });
+    expect(w.stored(alpha!.id).username).toBe("Deleted member " + alpha!.id);
+    const again = await run();
+    expect(again).toMatchObject({ skipped: 1 });
+    expect(w.entries(alpha!.id).filter((entry) => entry === "member.erase")).toHaveLength(1);
+  });
+
+  test("works through criteria in runs of a hundred, resuming where the preview stopped", async () => {
     const w = await world();
     const many = [];
     for (let i = 0; i < 130; i++) many.push(insertUser(w.ctx).id);
@@ -443,18 +523,26 @@ describe("users.batchUpdate", () => {
         "INSERT INTO user_groups (user_id, group_id, created_at) SELECT value, ?2, 1 FROM json_each(?1)",
       )
       .run(JSON.stringify(many), w.chosen.id);
-    const first = await w.batch(w.founder.actor, inGroup(w.chosen.id), {
-      type: "setTitle",
-      title: "Chosen one",
-    });
-    expect(first).toMatchObject({ done: 100, skipped: 0, failed: 0 });
-    expect(first.next).not.toBeNull();
-    const second = await w.batch(
-      w.founder.actor,
-      { ...inGroup(w.chosen.id), after: first.next },
-      { type: "setTitle", title: "Chosen one" },
-    );
-    expect(second).toMatchObject({ done: 30, next: null });
+    const action = { type: "setTitle", title: "Chosen one" };
+    const first = await w.preview(inGroup(w.chosen.id));
+    expect(first.items).toHaveLength(100);
+    expect(
+      await w.apply(
+        w.founder.actor,
+        first.items.map((i: { id: number }) => i.id),
+        action,
+      ),
+    ).toMatchObject({ done: 100, skipped: 0, failed: 0 });
+    const second = await w.preview({ ...inGroup(w.chosen.id), after: first.next });
+    expect(second.items).toHaveLength(30);
+    expect(second.next).toBeNull();
+    expect(
+      await w.apply(
+        w.founder.actor,
+        second.items.map((i: { id: number }) => i.id),
+        action,
+      ),
+    ).toMatchObject({ done: 30 });
   });
 
   test("is for those who manage members, and bans need the ban permission as well", async () => {
@@ -509,7 +597,7 @@ describe("users.batchUpdate", () => {
     ];
     for (const action of actions) {
       const result = await execute(here, getOperation("users.batchUpdate"), actor, {
-        selection: w.list("Alpha", "Bravo"),
+        userIds: [w.members[0]!.id, w.members[1]!.id],
         action,
         reason: "Stale",
         actorPassword: PASSWORD,

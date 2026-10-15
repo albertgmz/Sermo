@@ -52,6 +52,8 @@ export interface PermissionContext {
  * confirmed. One statement of it for every read of `users`; `u.` is the table's alias.
  */
 export const AWAITING_SQL = `u.signup_review IS NOT NULL AND u.group_id <> ${GROUP_IDS.unconfirmed}`;
+/** What an account that waits for approval keeps whatever it reads as: leaving the forum. */
+const AWAITING_KEEPS: ReadonlySet<string> = new Set(["profile.deleteAccount"]);
 const AWAITING_COLUMN = `(${AWAITING_SQL}) AS awaiting_approval`;
 
 /** Columns of `users` (aliased `u`) that make up a principal; select them with the member row. */
@@ -251,7 +253,8 @@ function evaluate(
 ): { granted: boolean; denial?: Denial; resolved: Resolved; nodeIndex: number } {
   const def = PERMISSIONS[id] as FlagDefinition;
   requireContext(id, def, context);
-  const resolved = known ?? resolve(ctx, actor);
+  const keeps = AWAITING_KEEPS.has(id);
+  const resolved = known && !keeps ? known : resolve(ctx, actor, keeps);
   const nodeIndex =
     def.scope === "node" ? (resolved.state.nodeIndex.get(context.nodeId!) ?? -1) : -1;
   const deny = (denial: Denial) => ({ granted: false, denial, resolved, nodeIndex });
@@ -259,7 +262,8 @@ function evaluate(
   // Bans and restrictions come first and override every grant.
   if (isBanned(resolved.principal, now)) return deny("banned");
   if (def.requiresAccount && actor.kind === "guest") return deny("account");
-  if (def.requiresAccount && resolved.principal?.awaitingApproval) return deny("awaiting");
+  if (def.requiresAccount && resolved.principal?.awaitingApproval && !keeps)
+    return deny("awaiting");
   if (
     def.restriction &&
     resolved.principal &&
@@ -390,6 +394,8 @@ export function resolvedPermissions(
   scope: { nodeId?: number } = {},
 ): Record<string, boolean | number> {
   const resolved = resolve(ctx, actor);
+  // What a waiting account keeps is read by the groups it really holds.
+  const real = resolved.principal?.awaitingApproval ? resolve(ctx, actor, true) : resolved;
   const now = ctx.now();
   const banned = isBanned(resolved.principal, now);
   const nodeIndex =
@@ -404,15 +410,19 @@ export function resolvedPermissions(
         : integerAt(resolved.combination, id as IntegerPermissionId, nodeIndex);
       continue;
     }
+    const keeps = AWAITING_KEEPS.has(id);
     result[id] =
       !banned &&
-      !(def.requiresAccount && (actor.kind === "guest" || resolved.principal?.awaitingApproval)) &&
+      !(
+        def.requiresAccount &&
+        (actor.kind === "guest" || (resolved.principal?.awaitingApproval && !keeps))
+      ) &&
       !(
         def.restriction &&
         resolved.principal &&
         isRestricted(resolved.principal, def.restriction, now)
       ) &&
-      flagAt(resolved.combination, id as FlagPermissionId, nodeIndex);
+      flagAt((keeps ? real : resolved).combination, id as FlagPermissionId, nodeIndex);
   }
   return result;
 }

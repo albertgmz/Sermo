@@ -42,6 +42,7 @@ const ENTRIES = [
   {
     user: { id: 41, username: "wren" },
     email: "wren@example.test",
+    emailHidden: false,
     createdAt: at,
     flagged: true,
     country: "ES",
@@ -62,7 +63,8 @@ const ENTRIES = [
   {
     // What a viewer without the address permission is given: no address, nothing shared.
     user: { id: 42, username: "finch" },
-    email: "finch@example.test",
+    email: "f***@example.test",
+    emailHidden: true,
     createdAt: at,
     flagged: false,
     country: null,
@@ -132,7 +134,11 @@ test("each waiting account shows what the backend gave, and nothing it left out"
   expect(page.split(s.flagged)).toHaveLength(2);
   expect(page.split(s.address)).toHaveLength(2);
   expect(page.split(`>${s.country}<`)).toHaveLength(2);
-  expect(page).toContain("finch@example.test");
+  // A viewer who does not manage the account is shown the masked address, with a hint that it is
+  // masked, and the real one nowhere.
+  expect(page).toContain("f***@example.test");
+  expect(page).not.toContain("finch@example.test");
+  expect(page.split(s.emailHidden)).toHaveLength(2);
   // Both can be ticked, approved and rejected one by one; the list pages by cursor.
   expect(page).toContain(s.select.replace("{name}", "wren"));
   expect(page).toContain(s.select.replace("{name}", "finch"));
@@ -230,6 +236,14 @@ test("a decision that changed nobody is not drawn in the success colour", async 
     failed: "0",
   });
   expect(some).toContain("text-success");
+  const broken = await result({
+    decided: "approve",
+    done: "2",
+    skipped: "0",
+    failed: "1",
+  });
+  expect(broken).toContain("text-destructive");
+  expect(broken).not.toContain("text-success");
 });
 
 test("a rejection says so, and lines left out of the address are counted", async () => {

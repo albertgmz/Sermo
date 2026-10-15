@@ -43,6 +43,7 @@ import { helpFor, titleFor, viewerLanguage } from "../../shared/language";
 import { requireNotErased } from "../admin/erased";
 import { confirmActorPassword } from "../admin/shared";
 import { guardSuperAdmins } from "../admin/super-admin";
+import { announceWaiting, isAwaiting } from "../members/signup-review";
 import { appendModeratorLog } from "../moderation";
 
 export type { NodeTree, NodeTreeEntry } from "../../permissions";
@@ -378,6 +379,7 @@ export function changeMemberGroups(
     const wasAdministrator = can(ctx, target, "admin.permissions");
     const keepSuperAdmin = guardSuperAdmins(ctx);
     const before = memberGroups(ctx, userId);
+    const wasAwaiting = isAwaiting(ctx, userId);
     const input = typeof change === "function" ? change(before) : change;
     if (input === null) return null;
     const ids = [input.primaryGroupId, ...(input.secondaryGroupIds ?? [])].filter(
@@ -415,6 +417,8 @@ export function changeMemberGroups(
     }
     assertAdministrator(ctx, { userId: userId, wasAdministrator });
     keepSuperAdmin();
+    // Moving a held account out of Unconfirmed makes it wait for staff: they hear of it.
+    if (!wasAwaiting && isAwaiting(ctx, userId)) announceWaiting(ctx, userId);
     appendModeratorLog(ctx, actor, "user.groups", "user", userId);
     const after = memberGroups(ctx, userId);
     const oldIds = new Set([

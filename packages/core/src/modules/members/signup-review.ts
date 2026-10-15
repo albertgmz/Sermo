@@ -17,6 +17,14 @@ export function signupReviewFor(ctx: Ctx, flagged: boolean): SignupReview | null
   return readSiteSettings(ctx).approveSignups ? "pending" : null;
 }
 
+/**
+ * The accounts the queue lists and counts: waiting, and not held back by a ban in force (a ban for
+ * good closes the account, one for a time returns it to the queue when it ends). `now` is the
+ * number of the parameter that carries the time.
+ */
+export const inQueueSql = (now: number): string =>
+  `${AWAITING_SQL} AND u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?${now})`;
+
 /** Whether the account waits for staff right now. */
 export function isAwaiting(ctx: Ctx, userId: number): boolean {
   return !!prepared(ctx, "members.awaiting", () =>
@@ -28,5 +36,11 @@ export function isAwaiting(ctx: Ctx, userId: number): boolean {
 
 /** Tells the staff who hold the permission that an account now waits (inside the caller's write transaction). */
 export function announceWaiting(ctx: Ctx, userId: number): void {
-  publishEvent(ctx, { type: "member.awaiting_approval", targetType: "user", targetId: userId });
+  publishEvent(ctx, {
+    type: "member.awaiting_approval",
+    targetType: "user",
+    targetId: userId,
+    // The newcomer is the alert's actor: one standing alert per staff member lists the newest.
+    payload: { userId },
+  });
 }

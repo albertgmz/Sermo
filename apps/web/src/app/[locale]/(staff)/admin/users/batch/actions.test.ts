@@ -36,8 +36,14 @@ function form(fields: Record<string, string | boolean>) {
   return data;
 }
 
+// A form as the page sends it: the rule typed, and the ids the last preview named.
 const byRule = (fields: Record<string, string | boolean> = {}) =>
-  form({ selection: "criteria", rule: JSON.stringify(RULE), ...fields });
+  form({
+    selection: "criteria",
+    rule: JSON.stringify(RULE),
+    userIds: "1,2,3",
+    ...fields,
+  });
 
 const found = (
   names: string[],
@@ -54,7 +60,6 @@ const outcomes = (
     status: "done" | "skipped" | "failed";
     message?: string | null;
   }[],
-  next: number | null = null,
 ) => ({
   items: items.map((item, index) => ({
     userId: index + 1,
@@ -64,7 +69,6 @@ const outcomes = (
   done: items.filter((item) => item.status === "done").length,
   skipped: items.filter((item) => item.status === "skipped").length,
   failed: items.filter((item) => item.status === "failed").length,
-  next,
 });
 
 const sent = (operation: string) =>
@@ -83,6 +87,7 @@ test("a preview by a rule sends the rule and shows the count, the first names an
   });
   expect(state).toEqual({
     preview: {
+      ids: names.map((_, index) => index + 1),
       count: 30,
       names: names.slice(0, 20),
       unknown: [],
@@ -108,7 +113,13 @@ test("a preview by a list sends each word once, trimmed, and reports the names n
     selection: { kind: "list", members: ["wren", "12", "ghost"] },
   });
   expect(state).toEqual({
-    preview: { count: 1, names: ["wren"], unknown: ["ghost"], next: null },
+    preview: {
+      ids: [1],
+      count: 1,
+      names: ["wren"],
+      unknown: ["ghost"],
+      next: null,
+    },
   });
 });
 
@@ -158,7 +169,14 @@ test("a selection that names nobody, an empty rule and a bad step are refused wi
       form({ step: "preview", selection: "criteria", rule: "not json" }),
     ),
   ).toHaveProperty("fields.rule");
-  for (const step of ["", "delete", "apply@0", "apply@x", "preview@3x"]) {
+  for (const step of [
+    "",
+    "delete",
+    "apply@120",
+    "preview@0",
+    "preview@x",
+    "preview@3x",
+  ]) {
     expect(await runBatch(null, byRule({ step }))).toEqual({
       error: messages.lib.errors.generic,
     });
@@ -181,22 +199,19 @@ test("changing the primary group sends the group and the password, and shows wha
   backend = fakeBackend({
     "users.batchUpdate": () =>
       Response.json(
-        outcomes(
-          [
-            { name: "wren", status: "done" },
-            {
-              name: "robin",
-              status: "skipped",
-              message: "Already in that primary group.",
-            },
-            {
-              name: "#9",
-              status: "failed",
-              message: "No member goes by that name.",
-            },
-          ],
-          null,
-        ),
+        outcomes([
+          { name: "wren", status: "done" },
+          {
+            name: "robin",
+            status: "skipped",
+            message: "Already in that primary group.",
+          },
+          {
+            name: "#9",
+            status: "failed",
+            message: "No member goes by that name.",
+          },
+        ]),
       ),
   });
   const state = await runBatch(
@@ -210,7 +225,7 @@ test("changing the primary group sends the group and the password, and shows wha
     }),
   );
   expect(sent("users.batchUpdate")[0]?.body).toEqual({
-    selection: { kind: "criteria", rule: RULE },
+    userIds: [1, 2, 3],
     action: { type: "setGroup", groupId: 5 },
     reason: "tidy up",
     actorPassword: "secret",
@@ -233,7 +248,6 @@ test("changing the primary group sends the group and the password, and shows wha
       done: 1,
       skipped: 1,
       failed: 1,
-      next: null,
     },
   });
 });
@@ -270,30 +284,74 @@ test("every group change asks for the password, and a wrong one is shown on that
   ).toEqual({ fields: { groupId: messages.adminUsers.batch.errors.group } });
 });
 
-test("a continued run resumes after the id the button names", async () => {
+test("the next members are previewed after the id the button names, for a rule only", async () => {
+  backend = fakeBackend({
+    "users.batchPreview": () => Response.json(found(["wren"], { next: 250 })),
+  });
+  const state = await runBatch(null, byRule({ step: "preview@120" }));
+  expect(sent("users.batchPreview")[0]?.body).toEqual({
+    selection: { kind: "criteria", rule: RULE, after: 120 },
+  });
+  expect(state?.preview?.next).toBe(250);
+  // A list is never resumed.
+  await runBatch(
+    null,
+    form({ step: "preview@120", selection: "list", members: "wren" }),
+  );
+  expect(sent("users.batchPreview")[1]?.body).toEqual({
+    selection: { kind: "list", members: ["wren"] },
+  });
+});
+
+test("apply acts on the ids of the preview and does not read the rule or the list again", async () => {
   backend = fakeBackend({
     "users.batchUpdate": () =>
-      Response.json(outcomes([{ name: "wren", status: "done" }], 250)),
+      Response.json(outcomes([{ name: "wren", status: "done" }])),
   });
-  const state = await runBatch(
+  // The fields of the choice are not even valid: only the ids count.
+  await runBatch(
     null,
-    byRule({ step: "apply@120", action: "removeAvatar" }),
+    form({
+      step: "apply",
+      selection: "criteria",
+      rule: "not json",
+      userIds: " 7, 9,7 ",
+      action: "removeAvatar",
+    }),
   );
   expect(sent("users.batchUpdate")[0]?.body).toEqual({
-    selection: { kind: "criteria", rule: RULE, after: 120 },
+    userIds: [7, 9],
     action: { type: "removeAvatar" },
     reason: "",
   });
-  expect(state?.result?.next).toBe(250);
+  expect(sent("users.batchPreview")).toHaveLength(0);
 });
 
-test("continuing a ban or an erasure asks again for the confirmation and the password", async () => {
+test("apply without the ids of a preview is refused without a call", async () => {
+  backend = fakeBackend({
+    "users.batchUpdate": () => Response.json(outcomes([])),
+  });
+  const tooMany = Array.from({ length: 101 }, (_, index) => index + 1).join(
+    ",",
+  );
+  for (const userIds of ["", " , ", "x", "1,x", "0", tooMany]) {
+    expect(
+      await runBatch(
+        null,
+        byRule({ step: "apply", action: "removeAvatar", userIds }),
+      ),
+    ).toEqual({ error: messages.adminUsers.batch.errors.noPreview });
+  }
+  expect(backend.asked).toEqual([]);
+});
+
+test("a ban or an erasure asks for the confirmation and the password on every run", async () => {
   backend = fakeBackend({
     "users.batchUpdate": () =>
-      Response.json(outcomes([{ name: "wren", status: "done" }], 250)),
+      Response.json(outcomes([{ name: "wren", status: "done" }])),
   });
   const again = (fields: Record<string, string | boolean>) =>
-    byRule({ step: "apply@120", reason: "spam", ...fields });
+    byRule({ step: "apply", reason: "spam", ...fields });
   expect(await runBatch(null, again({ action: "ban", days: "7" }))).toEqual({
     error: messages.adminUsers.batch.errors.confirm,
   });
@@ -308,27 +366,6 @@ test("continuing a ban or an erasure asks again for the confirmation and the pas
   expect(backend.asked).toEqual([]);
   await runBatch(null, again({ action: "ban", days: "7", confirm: true }));
   expect(sent("users.batchUpdate")).toHaveLength(1);
-});
-
-test("a list is never resumed", async () => {
-  backend = fakeBackend({
-    "users.batchUpdate": () =>
-      Response.json(outcomes([{ name: "wren", status: "done" }])),
-  });
-  await runBatch(
-    null,
-    form({
-      step: "apply@120",
-      selection: "list",
-      members: "wren",
-      action: "removeSignature",
-    }),
-  );
-  expect(sent("users.batchUpdate")[0]?.body).toEqual({
-    selection: { kind: "list", members: ["wren"] },
-    action: { type: "removeSignature" },
-    reason: "",
-  });
 });
 
 test("the title is set, or cleared when left empty", async () => {
@@ -407,7 +444,7 @@ test("lifting bans sends the notify switch and needs no reason", async () => {
     byRule({ step: "apply", action: "liftBans", notify: true }),
   );
   expect(sent("users.batchUpdate")[0]?.body).toEqual({
-    selection: { kind: "criteria", rule: RULE },
+    userIds: [1, 2, 3],
     action: { type: "liftBans", notify: true },
     reason: "",
   });
@@ -421,8 +458,7 @@ test("erasing needs a reason, a confirmation and the password", async () => {
   const erase = (fields: Record<string, string | boolean>) =>
     form({
       step: "apply",
-      selection: "list",
-      members: "wren",
+      userIds: "4",
       action: "delete",
       ...fields,
     });
@@ -441,7 +477,7 @@ test("erasing needs a reason, a confirmation and the password", async () => {
     erase({ reason: "spam", confirm: true, actorPassword: "secret" }),
   );
   expect(sent("users.batchUpdate")[0]?.body).toEqual({
-    selection: { kind: "list", members: ["wren"] },
+    userIds: [4],
     action: { type: "delete" },
     reason: "spam",
     actorPassword: "secret",
@@ -476,4 +512,14 @@ test("the backend's refusal of the change is the form's error", async () => {
       }),
     ),
   ).toEqual({ error: "You may not ban." });
+});
+
+test("a rule the backend finds too heavy to check is refused with its message", async () => {
+  const message =
+    "The criterion Posts in threads is too heavy to check while a request is served.";
+  backend = fakeBackend({
+    "users.batchPreview": () => refusal(400, "invalid_argument", message),
+  });
+  const state = await runBatch(null, byRule({ step: "preview" }));
+  expect(JSON.stringify(state)).toContain(message);
 });

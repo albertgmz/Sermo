@@ -62,6 +62,7 @@
     "signupsNone": "Select at least one sign-up.",
     "signupsTooMany": "A decision takes at most {count} sign-ups at a time.",
     "signupsMode": "Choose delete or ban.",
+    "signupsDays": "Enter a number of days from 1 to 3650, or ban for good.",
     "signupsPassword": "Enter your password to delete the accounts."
   },
   "noticeFields": {
@@ -209,6 +210,7 @@
     "emptyDescription": "New accounts appear here when the site approves sign-ups by hand.",
     "flagged": "Flagged by the spam check",
     "email": "Email",
+    "emailHidden": "hidden: you do not manage this account",
     "signedUp": "Signed up",
     "country": "Country",
     "address": "Address",
@@ -235,13 +237,19 @@
       "reason": "Reason (optional)",
       "modeLabel": "What rejecting does",
       "mode": {
-        "delete": "Delete the account",
-        "ban": "Ban for good"
+        "ban": "Ban the account",
+        "delete": "Delete the account"
       },
       "modeHelp": {
-        "delete": "The same erasure as erasing a member in the panel: it cannot be undone and asks for your password.",
-        "ban": "The account is kept and banned for good. It needs the permission to ban for good."
-      }
+        "ban": "Keeps the account, with the address it signed up from and its record of the terms, which the queue shows for the next account. It stays closed for good, or held out of the queue until the ban ends.",
+        "delete": "Removes the account together with the address it signed up from and its record of the terms. It cannot be undone and asks for your password."
+      },
+      "banLength": "How long the ban lasts",
+      "banDays": "Days of the ban",
+      "banDaysUnit": "days",
+      "banForever": "For good",
+      "banLengthHelpAny": "A ban for good closes the account. A ban for days holds it out of the queue until the ban ends.",
+      "banLengthHelpMax": "{count, plural, one {You may ban for up to # day.} other {You may ban for up to # days.}} The account is held out of the queue until the ban ends."
     },
     "result": {
       "approve": "{done, plural, one {# sign-up approved} other {# sign-ups approved}}{skipped, plural, =0 {} other {, # skipped}}{failed, plural, =0 {} other {, # failed}}.",

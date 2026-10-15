@@ -50,6 +50,7 @@ test("notices and the shop are offered every cheap criterion and no background o
     "postLinks",
     "postApproval",
     "signature",
+    "memberBatch",
   ] as const) {
     expect(PLACES[place].cheapOnly).toBe(true);
     expect(ids(place)).toEqual(cheap);

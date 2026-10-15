@@ -424,7 +424,8 @@
       "group": "Elige un grupo.",
       "days": "Introduce un número de días de 1 a 3650, o expulsa para siempre.",
       "reason": "Introduce un motivo.",
-      "confirm": "Marca la casilla para confirmar."
+      "confirm": "Marca la casilla para confirmar.",
+      "noPreview": "Haz primero la vista previa de los miembros y luego elige el cambio."
     },
     "who": {
       "heading": "1. Elige los miembros",
@@ -441,13 +442,13 @@
       "count": "{count, plural, =0 {No coincide nadie.} one {Coincide # miembro.} other {Coinciden # miembros.}}",
       "more": "y {count} más",
       "unknown": "No encontrados: {names}",
-      "next": "Puede haber más miembros que coincidan además de estos. Aplica el cambio y sigue con los miembros siguientes.",
+      "next": "Puede haber más miembros que coincidan además de estos. Aplica el cambio y haz después la vista previa de los miembros siguientes.",
       "noneYet": "Ninguno de los miembros revisados hasta ahora coincide. Puede haber más.",
       "further": "Seguir buscando"
     },
     "what": {
       "heading": "2. Elige el cambio",
-      "description": "El cambio se aplica a los miembros elegidos arriba, como los mostró la vista previa.",
+      "description": "El cambio se aplica a los miembros que mostró la vista previa de arriba, y solo a ellos. Si cambias la elección de miembros, hace falta una vista previa nueva.",
       "action": "Cambio",
       "choose": "Elige un cambio…",
       "group": "Grupo",
@@ -492,8 +493,7 @@
       "heading": "Resultado",
       "counts": "{done, plural, one {# miembro cambiado} other {# miembros cambiados}}, omitidos: {skipped}, fallidos: {failed}.",
       "more": "Esto fue un tramo de las coincidencias de la regla. Puede haber más miembros.",
-      "continue": "Seguir con los miembros siguientes",
-      "confirmAgain": "Para seguir, confirma de nuevo: marca la confirmación y escribe tu contraseña, donde este cambio los pida."
+      "previewNext": "Vista previa de los miembros siguientes"
     }
   }
 }

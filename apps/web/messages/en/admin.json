@@ -211,7 +211,7 @@
       "postApproval": "New threads and replies by members who do not meet this wait for a moderator, on top of the first-posts count and each forum's own approval switches. Leave it empty to hold nobody. Only conditions that can be checked on every post are offered.",
       "signature": "A member must meet this to set a signature, on top of the permission. A signature kept by a member who no longer meets it stays stored but is not shown. Leave it empty to let everyone who may. Only conditions that can be checked on every post are offered.",
       "homeTab": "Visitors who meet this open the home page on the tab chosen below, unless they picked their own. Guests are visitors who are not signed in. Only conditions that can be checked on every page are offered.",
-      "memberBatch": "The members who meet these conditions, taken in the order of their ids; one run looks at the first matches and a message says when more may follow. Every condition is offered, including those that measure a member's history, so a run on a large site can take a moment."
+      "memberBatch": "The members who meet these conditions, taken in the order of their ids; one run looks at the first matches and a message says when more may follow. Only conditions that can be checked while the preview runs are offered; those that count a member's history are not."
     },
     "match": {
       "legend": "How the conditions combine",

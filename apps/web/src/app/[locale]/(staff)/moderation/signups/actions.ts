@@ -7,7 +7,7 @@ import type * as z from "zod";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text } from "../../admin/groups/form-errors";
+import { formFailure, text, whole } from "../../admin/groups/form-errors";
 import { resultQuery } from "./result";
 
 // The ids of a form's `userIds` field: record ids separated by commas, each once.
@@ -46,6 +46,14 @@ export async function decideSignups(
     if (mode === "delete") {
       input.actorPassword = text(formData, "actorPassword");
       if (input.actorPassword === "") return { error: t("signupsPassword") };
+    } else if (text(formData, "duration") === "forever") {
+      input.banDays = null;
+    } else {
+      const days = whole(text(formData, "banDays"));
+      if (days === null || days < 1 || days > 3650) {
+        return { error: t("signupsDays") };
+      }
+      input.banDays = days;
     }
   }
   let answer: z.output<typeof signupsDecide.output>;
