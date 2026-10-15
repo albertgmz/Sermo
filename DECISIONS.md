@@ -489,7 +489,7 @@ test setups) is a later cleanup for the owner to schedule.
 groups, and restrictions in phase 2): the actor's highest rank must be strictly above the
 target's. Routine content moderation inside a node a moderator moderates is not rank-checked;
 reading "moderate anyone" as covering every post would stop moderators handling each other's
-posts. Needs owner review.
+posts. **Accepted by the owner.**
 
 **Permission ids are flat strings grouped by area** (`forum.reply`, `profilePost.editAny`,
 `admin.permissions`). Phrase keys for labels and descriptions are `permission.<id>` and
@@ -599,7 +599,7 @@ counts maintained in the write transaction. Ignoring applies only while the igno
 
 **Hierarchy applies to member-directed actions only** (warn, ban, restrict, spam cleanup, member
 admin): nobody acts on a member whose highest group ranks at or above their own, and moderators
-cannot warn themselves. Content moderation is not ranked. Owner review.
+cannot warn themselves. Content moderation is not ranked. **Accepted by the owner.**
 
 **Privacy denials look like missing content** (NotFound), so profile privacy cannot be probed.
 Authors keep access to their own posts on walls that became private.
@@ -667,8 +667,8 @@ no notice.
 **Channels:** turning in-app off for a type stops email and push for it too (notice rows feed every
 channel). Email and push go out once per unread group. For watched threads and forums the watch's
 email flag decides unless the member turned that type's email off; an admin `notificationDefaults`
-email value for those types has no effect. Owner review: independent channels would need notice
-rows for members with in-app off.
+email value for those types has no effect. Independent channels would need notice
+rows for members with in-app off. **Accepted by the owner.**
 
 ## Milestone 24: mailer, notification email, digest
 
@@ -738,7 +738,7 @@ daily job recomputes balances from the ledger as a repair. A purchase is a condi
 
 **Balances may go below zero, but never through a purchase.** Penalties (a negative rule, a
 revoked award's credits, a reversal of hidden content, a manual removal) apply in full; if they
-stopped at zero, spending first would dodge them. Owner review.
+stopped at zero, spending first would dodge them. **Accepted by the owner.**
 
 **The ledger is ready for wagers and a lottery without being built for them.** The row type is
 plain text checked in code, the cause is a generic `(source_type, source_id)` reference, and
@@ -756,7 +756,7 @@ a rolling window of hours, reverted rows included, so deleting does not free the
 
 **Hiding a thread takes back what the thread itself paid, not what its replies paid.** Reverting
 every reply of a 10,000-reply thread would move credits of thousands of members in one event, for
-content they did not remove. Reply rules are bounded by their limits. Owner review.
+content they did not remove. Reply rules are bounded by their limits. **Accepted by the owner.**
 
 **Rule ids are never reused** (`AUTOINCREMENT`, the one table that uses it): applications outlive
 a deleted rule so their content can still be reverted, and a later rule must not inherit them.
@@ -804,7 +804,7 @@ a non-consumable until it expires, a consumable while units are left.
 
 **Temporary items end within a minute of their expiry, not at the instant.** A job marks them
 expired and removes their grants; checking the expiry inside every permission check would put a
-query (or a per-member timer) on the one path that must stay a memory lookup. Owner review.
+query (or a per-member timer) on the one path that must stay a memory lookup. **Accepted by the owner.**
 
 **An item that was bought keeps its effect, kind and duration**, and an item or award that was
 ever bought or granted can only be deactivated, not deleted: members hold what they paid for, and
@@ -817,7 +817,7 @@ cannot be given away.
 **No hierarchy condition on `credits.adjust` and `award.grant`.** Giving credits or an award is
 not a sanction, and with the condition the only administrator could not credit themselves or a
 colleague. The cost is that a moderator given `credits.adjust` could debit an administrator.
-Owner review.
+**Accepted by the owner.**
 
 **The seed gains the economy** after all earlier content and with its own random sequence:
 14 credit rules, 400,000 rule applications with their ledger rows, 60 awards and 150,000 grants
@@ -1037,7 +1037,7 @@ request checks the session table, and a revoked session stops working on the nex
 `/api/auth/*` and deliver every `Set-Cookie` of the answer to the browser with its attributes.
 The account switcher, the login without a password and the social sign-in button (no provider is
 configured) are gone. "Stay logged in" maps to Better Auth's `rememberMe`. The terms checkbox is
-required and checked on the server; acceptance is not recorded. **Owner review.**
+required and checked on the server; acceptance is not recorded. **Accepted by the owner:** sign-in stays in Better Auth. **Owner review:** whether acceptance should be recorded.
 
 **The client address reaches the backend in `x-forwarded-for`**, which the backend trusts through
 `SERMO_TRUSTED_PROXY_HEADER`. The web app forwards the last entry of the header it received. Next
@@ -1078,13 +1078,13 @@ function per catalog that later features extend.
 
 **The picture of an entry that was never activated is readable by its file id.** Catalog art is
 not secret, and an entry deactivated because it is in use must stay readable, so files do not
-follow the entry's active flag. **Owner review.**
+follow the entry's active flag. **Accepted by the owner.**
 
 **A frame's placement is measured at upload** (`modules/images/frame-geometry.ts`) and stored
 with the file; `catalogImages.create` uses it unless a placement is given, and the administrator
 can adjust it afterwards. The rule was recovered from the 93 frames the frontend shipped and its
 hand-generated table: it reproduces 45 of them within half a percent and 86 within about two.
-It proposes; it does not replace looking at the preview. **Owner review.**
+It proposes; it does not replace looking at the preview. **Accepted by the owner.**
 
 **The default palette is seeded by the migration** (6 accents, 11 name colours, 8 prefix
 colours, the values the frontend had in its stylesheet), so a new site looks right before anyone
@@ -1179,7 +1179,7 @@ way to create one; this is the smallest real behaviour behind those numbers. **O
 change them (new members got 0; only the demo data had values). Reputation is shown as the
 existing reaction score; vouches are dropped from the screens. This departs from assumption A5,
 which asked for both to be built with the frontend's behaviour as the specification: there is no
-behaviour to specify. **Owner review.**
+behaviour to specify. **Accepted by the owner.**
 
 **A birthday publishes its day and month only.** The year is stored for the member and never
 returned to others.
@@ -1232,7 +1232,7 @@ event is still published. A bump sets `bumped_at` and nothing else: it is not a 
 frontend's policy, core's grammar). The unit is taken first and given back if Better Auth refuses
 the name; if the process dies in between, a unit is lost without a rename. Better Auth's own
 update endpoint refuses a username change unless it comes from this operation. Before this, any
-member could rename themselves freely through that endpoint. **Owner review.**
+member could rename themselves freely through that endpoint. **Accepted by the owner.**
 
 **A rank is upgraded by paying the difference, less what the old rank is worth**
 (`shop.upgrade`, assumption A6). A member's current rank is the most expensive `group` item of the
@@ -1251,7 +1251,7 @@ price was later raised to 200, upgraded to 250, credits 100 and costs 150. Migra
 backfills existing rows from the newest purchase that gave the member the item (a consumable: the
 sum of its purchases), else the item's current price; a rank that was itself reached by an
 upgrade is therefore valued at the difference it was recorded at, not its full value. The frontend also granted an award with a rank: an award with
-the existing "has bought item" criterion does that without new code. **Owner review.**
+the existing "has bought item" criterion does that without new code. **Accepted by the owner.**
 
 **`shop.buy` refuses a yes/no permission the recipient already holds another way**, as the
 frontend refused selling a perk a rank or a staff role already gave. *Changed after review.* The
@@ -1355,7 +1355,7 @@ and `nextCursor` says where to go on. `users.adminList` reads a group through it
 indexes (primary and by hand, merged in the application), unconfirmed through its group, and a
 prefix by two range scans. A prefix cannot keep "newest first" without sorting every match, so its
 results are ordered by username (members whose username starts with it) and then by email (those
-matched by address alone); the cursor carries the position. **Owner review.** The rosters read each
+matched by address alone); the cursor carries the position. **Accepted by the owner.** The rosters read each
 group on its own bound and return `truncated`. `admin.activity` keeps its result 60 seconds per set
 of kinds, and counts reports only for someone who handles them site-wide.
 
