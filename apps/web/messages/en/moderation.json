@@ -2,7 +2,7 @@
   "landing": {
     "metaTitle": "Moderation",
     "heading": "Moderation",
-    "subtitle": "Reports and content waiting for a decision.",
+    "subtitle": "Reports, content and sign-ups waiting for a decision.",
     "screensHeading": "Screens",
     "screensEmpty": "No moderation screen is available to you yet.",
     "screensEmptyDescription": "Screens appear here as they are added.",
@@ -58,7 +58,11 @@
     "id": "That is not a valid record.",
     "state": "Choose one of the offered states.",
     "type": "That kind of content cannot be handled here.",
-    "decision": "Choose approve or reject."
+    "decision": "Choose approve or reject.",
+    "signupsNone": "Select at least one sign-up.",
+    "signupsTooMany": "A decision takes at most {count} sign-ups at a time.",
+    "signupsMode": "Choose delete or ban.",
+    "signupsPassword": "Enter your password to delete the accounts."
   },
   "noticeFields": {
     "reason": "Reason",
@@ -194,5 +198,55 @@
     "lastSeen": "Last seen",
     "allAddresses": "All addresses",
     "madeFrom": "Made from"
+  },
+  "signups": {
+    "metaTitle": "Sign-ups",
+    "heading": "Sign-ups",
+    "subtitle": "New accounts waiting for approval, newest first. Until you approve one, the member reads the forum like a guest and cannot write. An account is listed once it has confirmed its email.",
+    "list": "Sign-ups waiting for approval",
+    "loading": "Loading the sign-ups…",
+    "emptyTitle": "Nobody is waiting",
+    "emptyDescription": "New accounts appear here when the site approves sign-ups by hand.",
+    "flagged": "Flagged by the spam check",
+    "email": "Email",
+    "signedUp": "Signed up",
+    "country": "Country",
+    "address": "Address",
+    "sharedAddress": "Same address",
+    "sharedCount": "{accounts, plural, one {# other account} other {# other accounts}}{banned, plural, =0 {} other {, # banned}}",
+    "accepted": "Accepted",
+    "acceptedItem": "{kind} version {version}, {date}",
+    "kind": {
+      "terms": "Terms",
+      "rules": "Rules"
+    },
+    "select": "Select {name}",
+    "bar": "Decide on the selected sign-ups",
+    "selected": "{count, plural, one {# sign-up selected} other {# sign-ups selected}}",
+    "selectAll": "Select all on this page",
+    "clear": "Clear",
+    "approve": "Approve",
+    "approving": "Approving…",
+    "reject": {
+      "summary": "Reject…",
+      "submit": "Reject",
+      "pending": "Rejecting…",
+      "warning": "The member is emailed the reason, if you give one.",
+      "reason": "Reason (optional)",
+      "modeLabel": "What rejecting does",
+      "mode": {
+        "delete": "Delete the account",
+        "ban": "Ban for good"
+      },
+      "modeHelp": {
+        "delete": "The same erasure as erasing a member in the panel: it cannot be undone and asks for your password.",
+        "ban": "The account is kept and banned for good. It needs the permission to ban for good."
+      }
+    },
+    "result": {
+      "approve": "{done, plural, one {# sign-up approved} other {# sign-ups approved}}{skipped, plural, =0 {} other {, # skipped}}{failed, plural, =0 {} other {, # failed}}.",
+      "reject": "{done, plural, one {# sign-up rejected} other {# sign-ups rejected}}{skipped, plural, =0 {} other {, # skipped}}{failed, plural, =0 {} other {, # failed}}.",
+      "more": "{count, plural, one {# more is not listed.} other {# more are not listed.}}"
+    }
   }
 }

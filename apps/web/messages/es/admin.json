@@ -108,7 +108,9 @@
       "toolsPromotionLog": "Registro de promociones",
       "toolsCreditLedger": "Registro de créditos",
       "toolsShopPurchases": "Compras de la tienda",
-      "toolsTasks": "Tareas en segundo plano"
+      "toolsTasks": "Tareas en segundo plano",
+      "usersBatch": "Cambio masivo de miembros",
+      "moderationSignups": "Altas pendientes"
     }
   },
   "home": {
@@ -131,7 +133,8 @@
     "reports": "Denuncias abiertas",
     "approvals": "Esperando aprobación",
     "capped": "{count}+",
-    "open": "Abrir la cola"
+    "open": "Abrir la cola",
+    "signups": "Altas en espera"
   },
   "homeActivity": {
     "heading": "Actividad registrada",
@@ -194,7 +197,8 @@
       "postLinks": "Pueden publicar enlaces",
       "postApproval": "Publican sin revisión",
       "signature": "Pueden poner una firma",
-      "homeTab": "Abren el inicio en"
+      "homeTab": "Abren el inicio en",
+      "memberBatch": "Miembros que cumplen"
     },
     "help": {
       "promotion": "Los grupos de abajo se añaden mientras se cumplen las condiciones y se quitan cuando dejan de cumplirse.",
@@ -206,7 +210,8 @@
       "postLinks": "Un miembro debe cumplir esto para publicar enlaces, imágenes o medios de otros sitios. Déjalo vacío para permitirlo a todos. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
       "postApproval": "Los hilos y respuestas nuevos de quienes no cumplan esto esperan a un moderador, además del número de primeros mensajes y de los interruptores de aprobación de cada foro. Déjalo vacío para no retener a nadie. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
       "signature": "Un miembro debe cumplir esto para poner una firma, además del permiso. Una firma guardada por un miembro que ya no lo cumple sigue guardada pero no se muestra. Déjalo vacío para que pueda cualquiera con el permiso. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
-      "homeTab": "Los visitantes que cumplan esto abren el inicio en la pestaña elegida abajo, salvo que hayan elegido la suya. Los invitados son los visitantes que no han iniciado sesión. Solo se ofrecen condiciones que se pueden comprobar en cada página."
+      "homeTab": "Los visitantes que cumplan esto abren el inicio en la pestaña elegida abajo, salvo que hayan elegido la suya. Los invitados son los visitantes que no han iniciado sesión. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
+      "memberBatch": "Los miembros que cumplen estas condiciones, tomados por el orden de sus ids; cada pasada mira las primeras coincidencias y un mensaje avisa cuando puede haber más. Se ofrecen todas las condiciones, también las que miden el historial del miembro, así que en un sitio grande una pasada puede tardar un poco."
     },
     "match": {
       "legend": "Cómo se combinan las condiciones",
@@ -216,7 +221,8 @@
     "empty": {
       "everyone": "Todos. Añade una condición para acotarlo.",
       "manual": "Solo a mano: nadie lo recibe automáticamente. Añade una condición para concederlo automáticamente.",
-      "required": "Una promoción necesita al menos una condición. Añade una abajo."
+      "required": "Una promoción necesita al menos una condición. Añade una abajo.",
+      "selection": "Añade al menos una condición para elegir miembros."
     },
     "remove": "Quitar {title}",
     "kept": "No se edita aquí, se guarda tal cual: {detail}",
@@ -384,7 +390,17 @@
       "word_filter_upsert": "Filtro de palabras guardado",
       "thread_hardDelete": "Tema eliminado para siempre",
       "post_hardDelete": "Mensaje eliminado para siempre",
-      "profile_post_hardDelete": "Publicación de perfil eliminada para siempre"
+      "profile_post_hardDelete": "Publicación de perfil eliminada para siempre",
+      "signup_approve": "Alta aprobada",
+      "signup_reject": "Alta rechazada"
+    }
+  },
+  "memberOutcomes": {
+    "list": "Resultado de cada miembro",
+    "status": {
+      "done": "Hecho",
+      "skipped": "Omitido",
+      "failed": "Fallido"
     }
   }
 }

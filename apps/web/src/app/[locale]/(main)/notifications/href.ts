@@ -46,6 +46,10 @@ async function targetOf(item: ApiNotification): Promise<string | null> {
   ) {
     return `/moderation/approvals/${item.contentType}/${item.contentId}`;
   }
+  // An account waiting in the sign-up queue: the queue, where staff who may decide find it.
+  if (item.type === "moderator.signup" && item.contentType === "user") {
+    return "/moderation/signups";
+  }
   // A new follower is the news: the notification names the member who followed, not the viewer.
   if (item.type === "member.followed") {
     const follower = item.actors[0];

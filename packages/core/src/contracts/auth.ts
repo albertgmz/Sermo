@@ -48,6 +48,12 @@ export const SelfUser = z
      * accepts what is listed here.
      */
     pendingAcceptance: z.array(PendingAcceptance),
+    /**
+     * The account waits for staff to approve it (the site approves new accounts by hand and this
+     * one has confirmed its email). It reads as a guest and takes no write until staff decide;
+     * those refusals are `forbidden` errors whose issue path is `approval`.
+     */
+    awaitingApproval: z.boolean(),
   })
   .meta({ id: "SelfUser" });
 
@@ -71,7 +77,8 @@ export const authCounters = defineContract({
   summary:
     "What the signed-in member has not seen yet: unread notifications, and unread " +
     "conversations among their 100 most recently active ones (so at most 100). Zeros for guests. " +
-    "For staff who may open the queues, `openReports` and `pendingApprovals` count what they " +
+    "For staff who may open the queues, `openReports`, `pendingApprovals` and `pendingSignups` (accounts " +
+    "waiting for approval, for those who hold member.approveRegistrations) count what they " +
     "may act on among the newest 100 entries of each queue (at most `cap`, 99), and `more` says " +
     "the scan stopped at that bound, so `count` may be incomplete (a moderator of one forum on " +
     "a busy site can get a small `count` with `more` true: the 100 entries were not all " +
@@ -84,6 +91,7 @@ export const authCounters = defineContract({
     conversations: z.number().int().nonnegative(),
     openReports: QueueCount,
     pendingApprovals: QueueCount,
+    pendingSignups: QueueCount,
   }),
 });
 

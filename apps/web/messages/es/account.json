@@ -322,6 +322,10 @@
       "account_security": {
         "title": "Seguridad de la cuenta",
         "body": "Mensajes sobre la seguridad de tu cuenta."
+      },
+      "moderator_signup": {
+        "title": "Altas nuevas",
+        "body": "Una cuenta espera a que el personal la apruebe."
       }
     }
   },

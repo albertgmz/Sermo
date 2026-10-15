@@ -30,6 +30,7 @@ import {
 import { publishEvent } from "../../events";
 import { type AnyOperation, implement } from "../../operation";
 import {
+  AWAITING_SQL,
   combinationsGranting,
   memberDisplay,
   PRINCIPAL_COLUMNS,
@@ -51,6 +52,7 @@ import {
   settlePendingReferral,
   settleReferralAtSignIn,
 } from "../members/referrals";
+import { announceWaiting, isAwaiting, signupReviewFor } from "../members/signup-review";
 import { queueCounts } from "../moderation";
 import {
   acceptanceSql,
@@ -270,6 +272,8 @@ export function promoteVerifiedMember(ctx: Ctx, userId: number): boolean {
       });
     // The registration may have named a referrer that waited for this confirmation.
     if (changed) settlePendingReferral(ctx, userId);
+    // An account the sign-up queue holds starts waiting for staff once its email is confirmed.
+    if (changed && isAwaiting(ctx, userId)) announceWaiting(ctx, userId);
     return changed;
   });
 }
@@ -292,6 +296,9 @@ function sessionCookieCache(ctx: Ctx): boolean {
   return ctx.config.auth?.sessionCookieCache !== false;
 }
 
+/** How long a flagged sign-up is remembered while its account is made. */
+const FLAG_MEMORY_MS = 300_000;
+
 function buildAuth(ctx: Ctx) {
   const config = ctx.config.auth;
   if (!config) throw new Error("Better Auth requires ctx.config.auth.");
@@ -305,6 +312,9 @@ function buildAuth(ctx: Ctx) {
   if (!usernamePlugin || !apiKeyPlugin)
     throw new Error("Better Auth username and API key plugins are required.");
   const mailEnabled = accountEmailEnabled(ctx);
+  // Usernames the spam check flagged at sign-up, from the hook before the account is made to the
+  // hook after it (one request); a sign-up that failed in between leaves its entry to expire.
+  const flaggedSignups = new Map<string, number>();
   const auth = betterAuth({
     ...authSchemaOptions,
     secret: config.secret,
@@ -411,7 +421,8 @@ function buildAuth(ctx: Ctx) {
             afterEmailVerification: async (user: { id: string; email: string }) => {
               const userId = Number(user.id);
               const promoted = promoteVerifiedMember(ctx, userId);
-              if (promoted) queueAccountEmail(ctx, { kind: "welcome", userId, email: user.email });
+              if (promoted && !isAwaiting(ctx, userId))
+                queueAccountEmail(ctx, { kind: "welcome", userId, email: user.email });
             },
           },
         }
@@ -691,7 +702,8 @@ function buildAuth(ctx: Ctx) {
             const promoted = !holder.emailVerified && promoteVerifiedMember(ctx, userId);
             for (const address of new Set([email, updateTo]))
               queueAccountEmail(ctx, { kind: "emailChanged", userId, email: address });
-            if (promoted) queueAccountEmail(ctx, { kind: "welcome", userId, email: updateTo });
+            if (promoted && !isAwaiting(ctx, userId))
+              queueAccountEmail(ctx, { kind: "welcome", userId, email: updateTo });
             return {
               ...holder,
               id: String(userId),
@@ -850,11 +862,17 @@ function buildAuth(ctx: Ctx) {
                 username,
                 kind: "signup",
               });
-              if (verdict.spam)
-                throw new APIError("BAD_REQUEST", {
-                  message: "Registration requires review.",
-                  code: "SPAM_REJECTED",
-                });
+              if (verdict.spam) {
+                // While the site approves sign-ups by hand a flagged one waits in the queue, marked.
+                if (!readSiteSettings(ctx).approveSignups)
+                  throw new APIError("BAD_REQUEST", {
+                    message: "Registration requires review.",
+                    code: "SPAM_REJECTED",
+                  });
+                for (const [name, at] of flaggedSignups)
+                  if (at < ctx.now() - FLAG_MEMORY_MS) flaggedSignups.delete(name);
+                flaggedSignups.set(username.toLowerCase(), ctx.now());
+              }
             }
           },
           after: async (user, hookContext) => {
@@ -866,11 +884,13 @@ function buildAuth(ctx: Ctx) {
                 message: "Username is required.",
                 code: "USERNAME_REQUIRED",
               });
+            const flagged = flaggedSignups.delete(normalized);
             try {
               writeTx(ctx, () => {
+                const review = signupReviewFor(ctx, flagged);
                 ctx.sqlite
                   .prepare(
-                    "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    "INSERT INTO users (id, username, username_key, group_id, created_at, signup_review) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                   )
                   .run(
                     Number(user.id),
@@ -878,6 +898,7 @@ function buildAuth(ctx: Ctx) {
                     normalized,
                     mailEnabled ? GROUP_IDS.unconfirmed : GROUP_IDS.member,
                     ctx.now(),
+                    review,
                   );
                 const headers = (hookContext as { headers?: Headers } | undefined)?.headers;
                 // The sign-up form may carry the member whose link brought the visitor.
@@ -908,6 +929,8 @@ function buildAuth(ctx: Ctx) {
                   targetType: "user",
                   targetId: Number(user.id),
                 });
+                // With no email to confirm the account waits for staff at once.
+                if (review !== null && !mailEnabled) announceWaiting(ctx, Number(user.id));
               });
             } catch (error) {
               const mapped = userConstraintError(error);
@@ -1146,9 +1169,16 @@ function groupFor(ctx: Ctx, userId: number): number {
         : GROUP_IDS.member;
     ctx.sqlite
       .prepare(
-        "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO users (id, username, username_key, group_id, created_at, signup_review) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
       )
-      .run(userId, username, normalized, repairedGroup, identity.created_at);
+      .run(
+        userId,
+        username,
+        normalized,
+        repairedGroup,
+        identity.created_at,
+        signupReviewFor(ctx, false),
+      );
     publishEvent(ctx, { type: "member.registered", targetType: "user", targetId: userId });
     return repairedGroup;
   });
@@ -1415,10 +1445,11 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
         language: string | null;
         keyboard_shortcuts: number;
         home_tab: HomeTab | null;
+        awaiting: number;
       },
       [number]
     >(
-      "SELECT u.id, u.username, a.email, u.group_id, u.created_at, u.language, u.keyboard_shortcuts, u.home_tab FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
+      `SELECT u.id, u.username, a.email, u.group_id, u.created_at, u.language, u.keyboard_shortcuts, u.home_tab, (${AWAITING_SQL}) AS awaiting FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1`,
     ),
   ).get(actor.userId);
   if (!row) throw new UnauthenticatedError();
@@ -1436,6 +1467,7 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
       homeTab: row.home_tab,
       openHomeTab: resolveHomeTab(ctx, actor, readSiteSettings(ctx).homeTab),
       pendingAcceptance: pendingAcceptances(ctx, actor),
+      awaitingApproval: row.awaiting === 1,
       displayGroup: display && {
         id: display.groupId,
         title: display.title,

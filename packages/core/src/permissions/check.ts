@@ -5,6 +5,7 @@
  * restrictions, read once when the request's actor was resolved.
  */
 import type { Actor, PermissionVersions, Principal } from "../actor";
+import { approvalPending } from "../approval";
 import type { Ctx } from "../context";
 import { GROUP_IDS, RESTRICTION_PERMANENT, type RestrictionKind } from "../db/schema";
 import { ForbiddenError, NotFoundError, UnauthenticatedError } from "../errors";
@@ -46,10 +47,18 @@ export interface PermissionContext {
 
 // Principals -------------------------------------------------------------------------------
 
+/**
+ * An account waits in the sign-up queue once the site holds it (`signup_review`) and its email is
+ * confirmed. One statement of it for every read of `users`; `u.` is the table's alias.
+ */
+export const AWAITING_SQL = `u.signup_review IS NOT NULL AND u.group_id <> ${GROUP_IDS.unconfirmed}`;
+const AWAITING_COLUMN = `(${AWAITING_SQL}) AS awaiting_approval`;
+
 /** Columns of `users` (aliased `u`) that make up a principal; select them with the member row. */
 export const PRINCIPAL_COLUMNS =
   "u.permission_combination_id, u.banned_until, u.banned_permanently, u.restricted_posting_until, " +
-  "u.restricted_conversations_until, u.restricted_profile_posts_until, u.created_at, u.post_count, u.is_super_admin";
+  "u.restricted_conversations_until, u.restricted_profile_posts_until, u.created_at, u.post_count, u.is_super_admin, " +
+  AWAITING_COLUMN;
 
 export interface PrincipalRow {
   permission_combination_id: number;
@@ -61,6 +70,7 @@ export interface PrincipalRow {
   created_at: number;
   post_count: number;
   is_super_admin: number;
+  awaiting_approval: number;
 }
 
 export function principalFromRow(row: PrincipalRow, versions: PermissionVersions): Principal {
@@ -74,6 +84,7 @@ export function principalFromRow(row: PrincipalRow, versions: PermissionVersions
     createdAt: row.created_at,
     postCount: row.post_count,
     isSuperAdmin: !!row.is_super_admin,
+    awaitingApproval: !!row.awaiting_approval,
     versions,
   };
 }
@@ -156,7 +167,11 @@ function syntheticCombination(
   return computeCombination(state, -1, { userId, groupIds });
 }
 
-function resolve(ctx: Ctx, actor: Actor): Resolved {
+/**
+ * The actor's principal, combination and state. `byGroups` resolves an account that waits for
+ * approval by the groups it really holds (to rank it); otherwise it reads as a guest.
+ */
+function resolve(ctx: Ctx, actor: Actor, byGroups = false): Resolved {
   if (actor.kind === "guest") {
     const state = permissionState(ctx, actor.versions);
     return {
@@ -170,6 +185,9 @@ function resolve(ctx: Ctx, actor: Actor): Resolved {
   if (!principal) {
     return { principal, combination: syntheticCombination(state, 0, [actor.groupId]), state };
   }
+  // An account waiting for approval reads what a guest reads, whatever groups it holds.
+  if (principal.awaitingApproval && !byGroups)
+    return { principal, combination: syntheticCombination(state, 0, [GROUP_IDS.guest]), state };
   const id = principal.combinationId;
   let combination = id > 0 ? combinationById(state, id) : undefined;
   if (!combination && id > 0) {
@@ -216,6 +234,7 @@ function requireContext(id: PermissionId, def: PermissionDefinition, context: Pe
 type Denial =
   | "banned"
   | "account"
+  | "awaiting"
   | "restricted"
   | "threadBan"
   | "notOwner"
@@ -240,6 +259,7 @@ function evaluate(
   // Bans and restrictions come first and override every grant.
   if (isBanned(resolved.principal, now)) return deny("banned");
   if (def.requiresAccount && actor.kind === "guest") return deny("account");
+  if (def.requiresAccount && resolved.principal?.awaitingApproval) return deny("awaiting");
   if (
     def.restriction &&
     resolved.principal &&
@@ -259,7 +279,8 @@ function evaluate(
     if (minutes !== -1 && now - context.createdAt! > minutes * 60_000) return deny("timeLimit");
   }
   if (def.hierarchy) {
-    const target = resolve(ctx, context.target!);
+    // A waiting account ranks by the groups it holds, not as the guest it reads as.
+    const target = resolve(ctx, context.target!, true);
     // A super admin acts on anyone; nobody else acts on a super admin, whatever the ranks.
     if (!resolved.principal?.isSuperAdmin) {
       if (target.principal?.isSuperAdmin) return deny("hierarchy");
@@ -306,6 +327,7 @@ export function requirePermission(
   if (result.granted) return;
   if (options.notFound) throw new NotFoundError();
   if (result.denial === "account") throw new UnauthenticatedError();
+  if (result.denial === "awaiting") throw approvalPending();
   throw new ForbiddenError();
 }
 
@@ -384,7 +406,7 @@ export function resolvedPermissions(
     }
     result[id] =
       !banned &&
-      !(def.requiresAccount && actor.kind === "guest") &&
+      !(def.requiresAccount && (actor.kind === "guest" || resolved.principal?.awaitingApproval)) &&
       !(
         def.restriction &&
         resolved.principal &&

@@ -1,6 +1,6 @@
-import { ClipboardCheck, Flag } from "lucide-react";
+import { ClipboardCheck, Flag, UserCheck } from "lucide-react";
 import Link from "next/link";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { StatTile } from "@/components/forum/stat";
 import { getCounters } from "@/components/layout/header-data";
 import { getViewer } from "@/lib/sermo/session";
@@ -10,20 +10,24 @@ import { canOpen, hrefFor, screenByKey } from "./registry";
 const LINK =
   "mt-3 inline-flex min-h-10 items-center text-xs text-primary-ink underline-offset-4 hover:underline";
 
-// Open reports and the approval queue, each shown only to a member who may open its screen and
+// Open reports, the approval queue and the sign-ups waiting, each shown only to a member who may open its screen and
 // linked to it once that screen is built.
 export async function PendingWork({ heading }: { heading?: boolean }) {
-  const [viewer, t, format, counters] = await Promise.all([
+  const [viewer, t, locale, counters] = await Promise.all([
     getViewer(),
     getTranslations("admin.homePending"),
-    getFormatter(),
+    getLocale(),
     getCounters(),
   ]);
+  const format = new Intl.NumberFormat(locale);
   const reports = canOpen(viewer, screenByKey("moderationReports"))
     ? counters.openReports
     : null;
   const approvals = canOpen(viewer, screenByKey("moderationApprovals"))
     ? counters.pendingApprovals
+    : null;
+  const signups = canOpen(viewer, screenByKey("moderationSignups"))
+    ? counters.pendingSignups
     : null;
   const tiles = [
     {
@@ -40,6 +44,13 @@ export async function PendingWork({ heading }: { heading?: boolean }) {
       queue: approvals,
       href: hrefFor(viewer, "moderationApprovals"),
     },
+    {
+      key: "signups",
+      label: t("signups"),
+      icon: UserCheck,
+      queue: signups,
+      href: hrefFor(viewer, "moderationSignups"),
+    },
   ].filter((tile) => tile.queue !== null);
   if (tiles.length === 0) return null;
   return (
@@ -51,8 +62,8 @@ export async function PendingWork({ heading }: { heading?: boolean }) {
         {tiles.map(({ key, label, icon, queue, href }) => {
           const shown = pendingCount(queue ?? { count: 0, more: false });
           const value = shown.more
-            ? t("capped", { count: format.number(shown.count) })
-            : format.number(shown.count);
+            ? t("capped", { count: format.format(shown.count) })
+            : format.format(shown.count);
           return (
             <div key={key}>
               <StatTile label={label} value={value} icon={icon} />

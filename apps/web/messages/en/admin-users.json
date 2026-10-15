@@ -25,6 +25,7 @@
   "states": {
     "valid": "Valid",
     "unconfirmed": "Unconfirmed",
+    "awaiting": "Awaiting approval",
     "banned": "Banned",
     "erased": "Erased"
   },
@@ -90,7 +91,8 @@
     "apply": "Apply",
     "reset": "Reset",
     "emptyTitle": "No members here",
-    "emptyDescription": "No member on this page matches. If a next page is offered, continue: a page can be empty while more rows follow."
+    "emptyDescription": "No member on this page matches. If a next page is offered, continue: a page can be empty while more rows follow.",
+    "batchLink": "Batch update members"
   },
   "identity": {
     "metaTitle": "Member details",
@@ -408,5 +410,90 @@
     "upToDate": "Accepted at the current version.",
     "address": "Address",
     "noAddress": "Not recorded"
+  },
+  "batch": {
+    "metaTitle": "Batch update members",
+    "heading": "Batch update members",
+    "subtitle": "Apply one change to many members at once: choose them with a rule or a list, preview who they are, then apply. The backend checks every member on its own and reports what it did to each.",
+    "loading": "Loading the form…",
+    "errors": {
+      "noMembers": "Type at least one username or id.",
+      "tooMany": "A run takes at most {count} members. Split the list.",
+      "noConditions": "Add at least one condition.",
+      "noAction": "Choose a change.",
+      "group": "Choose a group.",
+      "days": "Enter a number of days from 1 to 3650, or ban for good.",
+      "reason": "Enter a reason.",
+      "confirm": "Tick the box to confirm."
+    },
+    "who": {
+      "heading": "1. Choose the members",
+      "description": "At most {count} members are changed in one run.",
+      "kind": "How to choose",
+      "criteria": "By a rule",
+      "list": "From a list",
+      "members": "Usernames or ids",
+      "membersHelp": "One per line or separated by commas, at most {count}. A word made only of digits is an id."
+    },
+    "preview": {
+      "submit": "Preview",
+      "pending": "Looking…",
+      "count": "{count, plural, =0 {Nobody matches.} one {# member matches.} other {# members match.}}",
+      "more": "and {count} more",
+      "unknown": "Not found: {names}",
+      "next": "More members may match beyond these. Apply the change, then continue with the next members.",
+      "noneYet": "None of the members checked so far match. More may follow.",
+      "further": "Look further"
+    },
+    "what": {
+      "heading": "2. Choose the change",
+      "description": "The change applies to the members chosen above, as the preview showed them.",
+      "action": "Change",
+      "choose": "Choose a change…",
+      "group": "Group",
+      "chooseGroup": "Choose a group…",
+      "groupHelp": {
+        "setGroup": "Becomes the primary group of each member. It asks for your own password.",
+        "addGroup": "Added to the groups each member holds by hand. It asks for your own password.",
+        "removeGroup": "Taken off the groups each member holds by hand. Groups from promotions or purchases stay. It asks for your own password."
+      },
+      "title": "Custom title",
+      "titleHelp": "Leave it empty to take the custom title off.",
+      "duration": "Length of the ban",
+      "durationHelp": "Bans obey the longest ban you may give.",
+      "days": "Days",
+      "daysUnit": "days",
+      "forever": "For good",
+      "notify": "Notify",
+      "notifyLabel": "Tell each member by email",
+      "reason": "Reason",
+      "reasonHelp": "Kept in the moderator log.",
+      "reasonRequired": "Required. Kept in the moderator log and, for a ban, sent to the member.",
+      "confirm": "Confirm",
+      "confirmText": {
+        "ban": "I confirm that the members chosen above will be banned.",
+        "delete": "I confirm that the members chosen above will be erased. This cannot be undone."
+      },
+      "apply": "Apply",
+      "applying": "Applying…"
+    },
+    "actions": {
+      "setGroup": "Set the primary group",
+      "addGroup": "Add a secondary group",
+      "removeGroup": "Remove a secondary group",
+      "setTitle": "Set or clear the custom title",
+      "removeAvatar": "Remove the avatar",
+      "removeSignature": "Remove the signature",
+      "ban": "Ban",
+      "liftBans": "Lift the bans in force",
+      "delete": "Erase the accounts"
+    },
+    "result": {
+      "heading": "Result",
+      "counts": "{done, plural, one {# member changed} other {# members changed}}, {skipped} skipped, {failed} failed.",
+      "more": "This was one stretch of the rule's matches. More members may follow.",
+      "continue": "Continue with the next members",
+      "confirmAgain": "To continue, confirm again: tick the confirmation and type your password, where this change asks for them."
+    }
   }
 }

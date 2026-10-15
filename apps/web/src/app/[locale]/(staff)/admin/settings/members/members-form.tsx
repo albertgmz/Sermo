@@ -20,6 +20,7 @@ export async function MembersForm() {
         name="moderateLinksFromNewMembers"
         value={settings.moderateLinksFromNewMembers}
       />
+      <SwitchRow name="approveSignups" value={settings.approveSignups} />
       <NumberRow
         name="newMemberMentionLimit"
         value={settings.newMemberMentionLimit}

@@ -45,7 +45,7 @@ export type StaffFormState = {
   fields?: Record<string, string>;
 } | null;
 
-const FieldErrors = createContext<Record<string, string>>({});
+export const FieldErrors = createContext<Record<string, string>>({});
 
 // The error line of a control of the form it is in, by the control's name: for a row that is not
 // a `FieldRow` (like `ConfirmPassword`) and needs to show it itself.

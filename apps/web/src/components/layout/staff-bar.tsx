@@ -17,14 +17,16 @@ const ITEM =
 
 // What the staff bar links to for this viewer: the panel when it has a home for them (the backend
 // says there is anything in it, or a screen of it opens), and moderation when they may open a moderation screen.
-// Moderation leads to the first queue the viewer may open (approvals, then reports) and to the
-// landing page only when they have neither.
+// Moderation leads to the first queue the viewer may open (approvals, reports, then sign-ups) and
+// to the landing page only when they have none.
 export function staffLinks(viewer: Standing) {
   const moderationHref = canOpen(viewer, screenByKey("moderationApprovals"))
     ? "/moderation/approvals"
     : canOpen(viewer, screenByKey("moderationReports"))
       ? "/moderation/reports"
-      : "/moderation";
+      : canOpen(viewer, screenByKey("moderationSignups"))
+        ? "/moderation/signups"
+        : "/moderation";
   return {
     admin: canOpen(viewer, screenByKey("home")),
     moderation: canOpen(viewer, screenByKey("moderationHome")),
@@ -32,12 +34,19 @@ export function staffLinks(viewer: Standing) {
   };
 }
 
-// The moderation link's badge: the open reports and the approvals waiting together, or null when
-// there are none. A "+" follows the count when a queue was cut off at the backend's bound.
+// The moderation link's badge: the open reports, the approvals and the sign-ups waiting together,
+// or null when there are none. A "+" follows the count when a queue was cut off at the backend's bound.
 export function pendingBadge(
-  counters: Pick<Counters, "openReports" | "pendingApprovals">,
+  counters: Pick<
+    Counters,
+    "openReports" | "pendingApprovals" | "pendingSignups"
+  >,
 ): PendingCount | null {
-  return pendingTotal(counters.openReports, counters.pendingApprovals);
+  return pendingTotal(
+    counters.openReports,
+    counters.pendingApprovals,
+    counters.pendingSignups,
+  );
 }
 
 export function StaffBar({

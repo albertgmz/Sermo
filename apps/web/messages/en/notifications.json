@@ -33,7 +33,8 @@
       "memberGroups": "Your member groups changed",
       "announcement": "Announcement: {titled, select, yes {“{title}”} other {read it}}",
       "accountSecurity": "There is a security notice about your account",
-      "unknown": "You have a new notification"
+      "unknown": "You have a new notification",
+      "moderatorSignup": "A new account is waiting for approval"
     }
   },
   "loading": {

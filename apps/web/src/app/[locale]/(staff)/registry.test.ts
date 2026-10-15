@@ -226,6 +226,29 @@ test("a moderator everywhere and a full administrator open the moderation screen
   expect(may(administrator, "/admin/users/12/economy")).toBe(true);
 });
 
+test("the sign-up queue opens for the permission alone, and the batch screen for the members permission", () => {
+  const reviewer = standing(["member.approveRegistrations"]);
+  expect(may(reviewer, "/moderation")).toBe(true);
+  expect(may(reviewer, "/moderation/signups")).toBe(true);
+  expect(may(reviewer, "/moderation/reports")).toBe(false);
+  expect(may(reviewer, "/moderation/approvals")).toBe(false);
+  expect(may(singleForumModerator, "/moderation/signups")).toBe(false);
+  expect(
+    visibleSections(reviewer).map((s) => [s.id, s.screens.map((x) => x.key)]),
+  ).toContainEqual(["moderation", ["moderationHome", "moderationSignups"]]);
+  expect(screenAt("/admin/users/batch")?.key).toBe("usersBatch");
+  expect(screenAt("/admin/users/7")?.key).toBe("usersEdit");
+  const members = standing(["admin.members"]);
+  expect(may(members, "/admin/users/batch")).toBe(true);
+  expect(may(reviewer, "/admin/users/batch")).toBe(false);
+  // A form behind the members list: gated like the others, not in the navigation.
+  expect(
+    visibleSections(members)
+      .flatMap((section) => section.screens.map((x) => x.key))
+      .includes("usersBatch" as never),
+  ).toBe(false);
+});
+
 function routeFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);

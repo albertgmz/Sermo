@@ -15,6 +15,7 @@ import { findThreads } from "@/components/staff/find-threads";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { ForumPicker } from "@/components/staff/forum-picker";
 import { LogTable } from "@/components/staff/log-table";
+import { MemberOutcomeList } from "@/components/staff/member-outcomes";
 import { Notice } from "@/components/staff/notice";
 import {
   type MatrixPermission,
@@ -493,6 +494,31 @@ export function StaffDemos() {
         <Notice
           searchParams={Promise.resolve({ notice: "saved" })}
           notices={{ saved: "Saved. The change is live." }}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">Member outcome list</h3>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          What a batch of member actions did to each member (the sign-up
+          decisions and the batch update of members): the name, whether it was
+          done, skipped or failed, and the backend&apos;s reason for the last
+          two.
+        </p>
+        <MemberOutcomeList
+          items={[
+            { name: "wren", status: "done", message: null },
+            {
+              name: "robin",
+              status: "skipped",
+              message: "Already in that primary group.",
+            },
+            {
+              name: "ghost",
+              status: "failed",
+              message: "No member goes by that name.",
+            },
+          ]}
         />
       </div>
 

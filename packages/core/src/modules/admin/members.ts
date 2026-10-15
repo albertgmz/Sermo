@@ -8,6 +8,7 @@ import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
+  AWAITING_SQL,
   isSuperAdmin,
   memberActor,
   PRINCIPAL_COLUMNS,
@@ -43,6 +44,7 @@ export const adminSql = {
   banned:
     "SELECT id FROM users WHERE (banned_permanently = 1 OR banned_until IS NOT NULL) AND id < ?1 ORDER BY id DESC LIMIT ?2",
   erased: "SELECT id FROM users WHERE erased_at IS NOT NULL AND id < ?1 ORDER BY id DESC LIMIT ?2",
+  awaiting: `SELECT u.id FROM users u WHERE ${AWAITING_SQL} AND u.id < ?1 ORDER BY u.id DESC LIMIT ?2`,
   /** A group's members: those with it as primary group, and those who hold it by hand. */
   groupPrimary: "SELECT id FROM users WHERE group_id = ?3 AND id < ?1 ORDER BY id DESC LIMIT ?2",
   groupSecondary:
@@ -56,7 +58,7 @@ export const adminSql = {
     "SELECT user_id FROM user_groups WHERE group_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
 };
 
-/** `erased`, then `banned` while a ban is in force, then `unconfirmed`, else `valid`. */
+/** `erased`, then `banned` while a ban is in force, then `unconfirmed`, `awaiting`, else `valid`. */
 const accountState = (row: AdminRow, now: number): Admin["state"] =>
   row.erased_at !== null
     ? "erased"
@@ -64,7 +66,9 @@ const accountState = (row: AdminRow, now: number): Admin["state"] =>
       ? "banned"
       : row.group_id === GROUP_IDS.unconfirmed
         ? "unconfirmed"
-        : "valid";
+        : row.awaiting_approval
+          ? "awaiting"
+          : "valid";
 
 export function loadAdminRows(ctx: Ctx, ids: number[]): AdminRow[] {
   if (ids.length === 0) return [];
@@ -183,7 +187,9 @@ export const usersAdminListOp = implement(usersAdminList, (ctx, actor, input) =>
           ? "banned"
           : input.state === "erased"
             ? "erased"
-            : "all";
+            : input.state === "awaiting"
+              ? "awaiting"
+              : "all";
   const groupId = input.groupId ?? GROUP_IDS.unconfirmed;
   const ids = (name: keyof typeof adminSql, params: (string | number)[]) =>
     prepared(ctx, `admin.list.${name}`, () =>

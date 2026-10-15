@@ -47,6 +47,7 @@ const defaults: StoredSiteSettingsValue = {
   floodSeconds: 0,
   linksRule: { match: "all", conditions: [] },
   approvalRule: { match: "all", conditions: [] },
+  approveSignups: false,
   homeTab: { rules: [], fallback: "latest" },
   threadTitleTemplate: "{title} | {site}",
   nodeTitleTemplate: "{title} | {site}",

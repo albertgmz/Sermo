@@ -816,6 +816,15 @@ export const PERMISSIONS = {
     unset: 30,
   },
   "member.spamCleanup": { ...globalAdmin("moderation"), hierarchy: true },
+  /** Approve or reject the new accounts that wait in the sign-up queue. */
+  "member.approveRegistrations": {
+    scope: "global",
+    category: "moderation",
+    type: "flag",
+    defaults: STAFF,
+    requiresAccount: true,
+    hierarchy: true,
+  },
   /** Held by the warned member: reaching the warning threshold does not ban them. */
   "member.immuneToAutoBan": globalAdmin("moderation"),
   "wordFilter.view": globalModerator("moderation"),

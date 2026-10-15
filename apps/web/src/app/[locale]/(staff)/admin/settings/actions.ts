@@ -93,6 +93,7 @@ const MEMBERS: Spec = {
   newMemberDays: "int",
   firstPostsToModerate: "int",
   moderateLinksFromNewMembers: "bool",
+  approveSignups: "bool",
   newMemberMentionLimit: "int",
 };
 

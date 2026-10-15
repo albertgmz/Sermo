@@ -28,6 +28,7 @@ const FORMS = {
   postApproval: ["settings/antispam/antispam-form.tsx", "settings/actions.ts"],
   signature: ["settings/antispam/antispam-form.tsx", "settings/actions.ts"],
   homeTab: ["settings/home/home-form.tsx", "settings/actions.ts"],
+  memberBatch: ["users/batch/batch-screen.tsx", "users/batch/actions.ts"],
 } as const;
 
 test("there is a form for every place a rule is edited", () => {

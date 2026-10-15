@@ -72,3 +72,34 @@ export function ContentSkeleton() {
     </div>
   );
 }
+
+// A panel of sign-ups: each row a tick, a name line, a few facts and the two buttons.
+export function SignupsSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="overflow-hidden rounded-lg border bg-card"
+    >
+      <div className="divide-y">
+        {Array.from({ length: rows }, (_, row) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: a fixed run of identical placeholders.
+          <div key={row} className="flex gap-3 p-4">
+            <Skeleton className="mt-1 size-4" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-10 w-24" />
+                <Skeleton className="h-10 w-20" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

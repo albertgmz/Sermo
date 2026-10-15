@@ -126,6 +126,11 @@ export const SiteSettings = z
      * means nobody is held back.
      */
     approvalRule: CriteriaRule.default({ match: "all", conditions: [] }),
+    /**
+     * On: a new account waits for staff to approve it (see `signups.list`) once its email is
+     * confirmed. Off by default; accounts already waiting stay in the queue when it is turned off.
+     */
+    approveSignups: z.boolean().default(false),
     /** The home page tab of members who chose none, and of guests. */
     homeTab: HomeTabSetting.default({ rules: [], fallback: "latest" }),
     threadTitleTemplate: z.string().min(1).max(200),

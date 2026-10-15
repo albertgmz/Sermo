@@ -37,7 +37,9 @@ export type AccountTemplate =
   | "emailChanged"
   | "apiKeyCreated"
   | "banned"
-  | "newDevice";
+  | "newDevice"
+  | "signupApproved"
+  | "signupRejected";
 
 /** Security mail shares the layout but never includes unsubscribe links. */
 export function renderAccountEmail(input: {
@@ -72,7 +74,11 @@ export function renderAccountEmail(input: {
     language,
     site,
     subject: phrase(language, `email.account.${kind}.subject`, values),
-    body: phrase(language, `email.account.${kind}.body`, values),
+    body: phrase(
+      language,
+      `email.account.${kind === "signupRejected" && !input.reason ? "signupRejected.noReason" : kind}.body`,
+      values,
+    ),
     ...(input.url
       ? { links: [{ label: phrase(language, `email.account.${kind}.link`), url: input.url }] }
       : {}),

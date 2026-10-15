@@ -123,7 +123,7 @@ export const staffAdministrators = defineContract({
 
 // Members ------------------------------------------------------------------------------------
 
-export const ACCOUNT_STATES = ["valid", "unconfirmed", "banned", "erased"] as const;
+export const ACCOUNT_STATES = ["valid", "unconfirmed", "awaiting", "banned", "erased"] as const;
 
 export const AdminMember = z
   .object({
@@ -133,7 +133,8 @@ export const AdminMember = z
     emailVerified: z.boolean(),
     /**
      * `erased` once an administrator erased the account (it wins over the rest), `banned`
-     * while a ban is in force, `unconfirmed` while in the unconfirmed group.
+     * while a ban is in force, `unconfirmed` while in the unconfirmed group, `awaiting` while
+     * the account waits in the sign-up queue.
      */
     state: z.enum(ACCOUNT_STATES),
     /** When the account was erased; null if never. */

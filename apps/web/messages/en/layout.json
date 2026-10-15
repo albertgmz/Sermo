@@ -178,7 +178,9 @@
     "throttledTitle": "Too many requests",
     "throttledDescription": "You have asked for a lot of pages in a short time. Wait a moment and try again.",
     "retry": "Try again",
-    "home": "Back to the home page"
+    "home": "Back to the home page",
+    "approvalTitle": "Waiting for approval",
+    "approvalDescription": "Your account is waiting for staff to approve it. This page opens once they have; until then you can read the forum like a guest."
   },
   "shortcuts": {
     "title": "Keyboard shortcuts",
@@ -211,5 +213,10 @@
     "terms": "Terms",
     "rules": "Rules",
     "accept": "I accept"
+  },
+  "awaitingNotice": {
+    "label": "Account waiting for approval",
+    "title": "Your account is waiting for approval",
+    "body": "Your account is waiting for staff to approve it. You can read the forum like a guest until then."
   }
 }

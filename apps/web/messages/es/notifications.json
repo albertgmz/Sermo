@@ -33,7 +33,8 @@
       "memberGroups": "Tus grupos de miembro han cambiado",
       "announcement": "Anuncio: {titled, select, yes {«{title}»} other {léelo}}",
       "accountSecurity": "Hay un aviso de seguridad sobre tu cuenta",
-      "unknown": "Tienes una nueva notificación"
+      "unknown": "Tienes una nueva notificación",
+      "moderatorSignup": "Una cuenta nueva espera aprobación"
     }
   },
   "loading": {

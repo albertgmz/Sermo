@@ -1,3 +1,4 @@
+import type * as z from "zod";
 import { type Actor, requireAuthenticated } from "../../actor";
 import type { Ctx } from "../../context";
 import { usersAdminUpdateProfile } from "../../contracts/admin";
@@ -105,7 +106,16 @@ function requireProfileEditor(
     throw new ForbiddenError("What a member wears needs administration of members.");
 }
 
-export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx, actor, input) => {
+/**
+ * One administrative edit of a member's profile: the permission over the member (checked again
+ * inside the write transaction), the fields, what they wear and the pictures taken off, and one
+ * log entry. Answers whether anything was changed (a picture that was not there changes nothing).
+ */
+export function editMemberProfile(
+  ctx: Ctx,
+  actor: Actor,
+  input: z.output<typeof usersAdminUpdateProfile.input>,
+): boolean {
   requireAuthenticated(actor);
   requireProfileEditor(ctx, actor, targetMember(ctx, actor, input.userId), input);
   requireNotErased(ctx, input.userId);
@@ -117,9 +127,9 @@ export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx
     ...(input.removeAvatar ? (["avatar"] as const) : []),
     ...(input.removeCover ? (["cover"] as const) : []),
   ];
-  if (keys.length === 0 && pictures.length === 0) return viewFor(ctx, actor, input.userId);
+  if (keys.length === 0 && pictures.length === 0) return false;
 
-  writeTx(ctx, () => {
+  return writeTx(ctx, () => {
     // The administrator may have lost the permission since the request began.
     const current = currentActor(ctx, actor);
     requireProfileEditor(ctx, current, targetMember(ctx, current, input.userId, true), input);
@@ -133,12 +143,17 @@ export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx
       publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: input.userId });
     }
     // A picture that was not there changes nothing, and leaves nothing to log.
-    if (keys.length === 0 && removed.length === 0) return;
+    if (keys.length === 0 && removed.length === 0) return false;
     appendModeratorLog(ctx, actor, "member.profile", "user", input.userId, input.reason, {
       // Which fields, never what they held.
       fields: keys,
       removed,
     });
+    return true;
   });
+}
+
+export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx, actor, input) => {
+  editMemberProfile(ctx, actor, input);
   return viewFor(ctx, actor, input.userId);
 });

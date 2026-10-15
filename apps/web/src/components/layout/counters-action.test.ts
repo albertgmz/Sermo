@@ -29,6 +29,7 @@ test("the counters are one request, and only the two unread counts are kept", as
       notifications: 5,
       openReports: { count: 1, more: false, cap: 99 },
       pendingApprovals: { count: 0, more: false, cap: 99 },
+      pendingSignups: { count: 0, more: false, cap: 99 },
     });
   }) as unknown as typeof fetch;
   expect(await readCounters()).toEqual({ conversations: 2, notifications: 5 });

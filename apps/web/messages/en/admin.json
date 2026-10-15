@@ -108,7 +108,9 @@
       "toolsPromotionLog": "Promotion history",
       "toolsCreditLedger": "Credit ledger",
       "toolsShopPurchases": "Shop purchases",
-      "toolsTasks": "Background tasks"
+      "toolsTasks": "Background tasks",
+      "usersBatch": "Batch update members",
+      "moderationSignups": "Sign-ups"
     }
   },
   "home": {
@@ -131,7 +133,8 @@
     "reports": "Open reports",
     "approvals": "Waiting for approval",
     "capped": "{count}+",
-    "open": "Open the queue"
+    "open": "Open the queue",
+    "signups": "Sign-ups waiting"
   },
   "homeActivity": {
     "heading": "Logged activity",
@@ -194,7 +197,8 @@
       "postLinks": "May post links",
       "postApproval": "Posts go live without review for",
       "signature": "May set a signature",
-      "homeTab": "Opens the home page on"
+      "homeTab": "Opens the home page on",
+      "memberBatch": "Members matching"
     },
     "help": {
       "promotion": "The groups below are added while the conditions hold and removed when they stop holding.",
@@ -206,7 +210,8 @@
       "postLinks": "A member must meet this to post links, pictures or media from other sites. Leave it empty to let everyone. Only conditions that can be checked on every post are offered.",
       "postApproval": "New threads and replies by members who do not meet this wait for a moderator, on top of the first-posts count and each forum's own approval switches. Leave it empty to hold nobody. Only conditions that can be checked on every post are offered.",
       "signature": "A member must meet this to set a signature, on top of the permission. A signature kept by a member who no longer meets it stays stored but is not shown. Leave it empty to let everyone who may. Only conditions that can be checked on every post are offered.",
-      "homeTab": "Visitors who meet this open the home page on the tab chosen below, unless they picked their own. Guests are visitors who are not signed in. Only conditions that can be checked on every page are offered."
+      "homeTab": "Visitors who meet this open the home page on the tab chosen below, unless they picked their own. Guests are visitors who are not signed in. Only conditions that can be checked on every page are offered.",
+      "memberBatch": "The members who meet these conditions, taken in the order of their ids; one run looks at the first matches and a message says when more may follow. Every condition is offered, including those that measure a member's history, so a run on a large site can take a moment."
     },
     "match": {
       "legend": "How the conditions combine",
@@ -216,7 +221,8 @@
     "empty": {
       "everyone": "Everyone. Add a condition to narrow it down.",
       "manual": "Manual only: nobody is given it automatically. Add a condition to give it automatically.",
-      "required": "A promotion needs at least one condition. Add one below."
+      "required": "A promotion needs at least one condition. Add one below.",
+      "selection": "Add at least one condition to choose members."
     },
     "remove": "Remove {title}",
     "kept": "Not edited here, saved as it is: {detail}",
@@ -384,7 +390,17 @@
       "word_filter_upsert": "Word filter saved",
       "thread_hardDelete": "Thread deleted permanently",
       "post_hardDelete": "Post deleted permanently",
-      "profile_post_hardDelete": "Profile post deleted permanently"
+      "profile_post_hardDelete": "Profile post deleted permanently",
+      "signup_approve": "Sign-up approved",
+      "signup_reject": "Sign-up rejected"
+    }
+  },
+  "memberOutcomes": {
+    "list": "Result for each member",
+    "status": {
+      "done": "Done",
+      "skipped": "Skipped",
+      "failed": "Failed"
     }
   }
 }

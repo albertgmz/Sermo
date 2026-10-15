@@ -1,4 +1,4 @@
-import { type Actor, actorUserId } from "../../actor";
+import { type Actor, actorUserId, GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
@@ -682,6 +682,15 @@ function stages(ctx: Ctx, event: DomainEvent, item: Content | null): Stage[] {
         0,
       ),
     );
+  if (event.type === "member.awaiting_approval")
+    result.push(
+      source(
+        "signup-staff",
+        "moderator.signup",
+        "SELECT id AS user_id FROM users WHERE permission_combination_id = ?1 AND id > ?2 ORDER BY id LIMIT ?3",
+        0,
+      ),
+    );
   if (event.type === "announcement.published") {
     const row = prepared(ctx, "notifications.announcementAudience", () =>
       ctx.sqlite.prepare<
@@ -743,6 +752,12 @@ function moderatorCombinations(
 ): string {
   const state = permissionState(ctx);
   const type = stage.type;
+  if (type === "moderator.signup")
+    return JSON.stringify(
+      allCombinations(ctx, state)
+        .filter((combination) => flagAt(combination, "member.approveRegistrations", -1))
+        .map((combination) => combination.id),
+    );
   if (type === "moderator.report")
     stage.reportTargetType = prepared(ctx, "notifications.reportTarget", () =>
       ctx.sqlite.prepare<{ target_type: string }, [number]>(
@@ -897,7 +912,10 @@ function deliverBatch(
                 ? event.payload.moderatorId
                 : (item?.userId ?? null);
   // Moderator duty notices reach moderators even when they ignore the member involved.
-  const duty = stage.type === "moderator.report" || stage.type === "moderator.approval";
+  const duty =
+    stage.type === "moderator.report" ||
+    stage.type === "moderator.approval" ||
+    stage.type === "moderator.signup";
   const ignored =
     actorId === null || duty
       ? new Set<number>()
@@ -1041,6 +1059,11 @@ function deliverBatch(
     )
       continue;
     if (ignorable && ignored.has(row.id)) continue;
+    if (
+      stage.type === "moderator.signup" &&
+      !can(ctx, recipient, "member.approveRegistrations", { target: GUEST })
+    )
+      continue;
     if (stage.type === "moderator.report") {
       const nodeId = typeof event.payload.nodeId === "number" ? event.payload.nodeId : null;
       const allowed =
@@ -1418,9 +1441,18 @@ async function processEvent(ctx: Ctx, progress: Progress): Promise<void> {
     await inBatches(ctx, (after) =>
       markReadBatch(ctx, "report_group", event.targetId, "moderator.report", event.id, after),
     );
+  // The alert about a sign-up clears once staff decided.
+  if (event.type === "member.signup_decided")
+    await inBatches(ctx, (after) =>
+      markReadBatch(ctx, "user", event.targetId, "moderator.signup", event.id, after),
+    );
   const phases = stages(ctx, event, item);
   for (const stage of phases)
-    if (stage.type === "moderator.report" || stage.type === "moderator.approval")
+    if (
+      stage.type === "moderator.report" ||
+      stage.type === "moderator.approval" ||
+      stage.type === "moderator.signup"
+    )
       stage.selector = moderatorCombinations(ctx, event, item, stage);
   // Resume at the saved stage. When the stages changed since (the content changed state), start
   // over: delivery is idempotent per event.

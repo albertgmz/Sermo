@@ -108,6 +108,12 @@ export const NODE_WATCH_MODES = ["threads", "posts"] as const;
 export const RESTRICTION_KINDS = ["posting", "conversations", "profile_posts"] as const;
 export type RestrictionKind = (typeof RESTRICTION_KINDS)[number];
 /**
+ * Why a new account waits in the sign-up queue: `pending`, or `flagged` when the spam check
+ * flagged it at sign-up. Null for an account the queue never held (or no longer holds).
+ */
+export const SIGNUP_REVIEWS = ["pending", "flagged"] as const;
+export type SignupReview = (typeof SIGNUP_REVIEWS)[number];
+/**
  * Kinds of credit ledger rows. The column is plain text, so a later feature (a lottery, a wager)
  * adds its kinds here without a migration.
  */
@@ -274,6 +280,12 @@ export const users = sqliteTable(
      * refused, whatever its cookie cache still says.
      */
     sessionsRevokedAt: integer("sessions_revoked_at"),
+    /**
+     * Set at sign-up while the site approves new accounts by hand and cleared when staff decide.
+     * The account is "awaiting approval" once it is set and the email is confirmed (the primary
+     * group is no longer Unconfirmed): it reads as a guest and takes no write.
+     */
+    signupReview: text("signup_review", { enum: SIGNUP_REVIEWS }),
     /** Shown under the name while the member holds profile.customTitle. */
     customTitle: text("custom_title"),
     signatureSource: text("signature_source"),
@@ -334,6 +346,9 @@ export const users = sqliteTable(
       .where(sql`referred_by IS NOT NULL`),
     // users.adminList with state `banned`: the members with a ban column set, newest first.
     index("users_banned").on(t.id).where(sql`banned_permanently = 1 OR banned_until IS NOT NULL`),
+    // The sign-up queue and its counter: the accounts awaiting approval (held, and past the
+    // Unconfirmed group: the same text as AWAITING_SQL), newest first.
+    index("users_signup_review").on(t.id).where(sql`signup_review IS NOT NULL AND group_id <> 5`),
     // users.adminList with state `erased`: the erased members, newest first.
     index("users_erased").on(t.id).where(sql`erased_at IS NOT NULL`),
     // "Is this the last super admin?" before the flag is removed.

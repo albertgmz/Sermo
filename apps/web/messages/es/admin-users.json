@@ -25,6 +25,7 @@
   "states": {
     "valid": "Activa",
     "unconfirmed": "Sin confirmar",
+    "awaiting": "Pendiente de aprobación",
     "banned": "Expulsado",
     "erased": "Borrado"
   },
@@ -90,7 +91,8 @@
     "apply": "Aplicar",
     "reset": "Restablecer",
     "emptyTitle": "No hay miembros aquí",
-    "emptyDescription": "Ningún miembro de esta página coincide. Si se ofrece una página siguiente, continúa: una página puede estar vacía mientras siguen más filas."
+    "emptyDescription": "Ningún miembro de esta página coincide. Si se ofrece una página siguiente, continúa: una página puede estar vacía mientras siguen más filas.",
+    "batchLink": "Cambio masivo de miembros"
   },
   "identity": {
     "metaTitle": "Datos del miembro",
@@ -408,5 +410,90 @@
     "upToDate": "Aceptó la versión vigente.",
     "address": "Dirección",
     "noAddress": "Sin registrar"
+  },
+  "batch": {
+    "metaTitle": "Cambio masivo de miembros",
+    "heading": "Cambio masivo de miembros",
+    "subtitle": "Aplica un mismo cambio a muchos miembros a la vez: elígelos con una regla o una lista, mira quiénes son y aplica. El servidor comprueba cada miembro por separado e informa de lo que hizo con cada uno.",
+    "loading": "Cargando el formulario…",
+    "errors": {
+      "noMembers": "Escribe al menos un nombre de usuario o un id.",
+      "tooMany": "Una pasada admite como máximo {count} miembros. Divide la lista.",
+      "noConditions": "Añade al menos una condición.",
+      "noAction": "Elige un cambio.",
+      "group": "Elige un grupo.",
+      "days": "Introduce un número de días de 1 a 3650, o expulsa para siempre.",
+      "reason": "Introduce un motivo.",
+      "confirm": "Marca la casilla para confirmar."
+    },
+    "who": {
+      "heading": "1. Elige los miembros",
+      "description": "En cada pasada se cambian como máximo {count} miembros.",
+      "kind": "Cómo elegir",
+      "criteria": "Con una regla",
+      "list": "Con una lista",
+      "members": "Nombres de usuario o ids",
+      "membersHelp": "Uno por línea o separados por comas, como máximo {count}. Una palabra formada solo por cifras es un id."
+    },
+    "preview": {
+      "submit": "Vista previa",
+      "pending": "Buscando…",
+      "count": "{count, plural, =0 {No coincide nadie.} one {Coincide # miembro.} other {Coinciden # miembros.}}",
+      "more": "y {count} más",
+      "unknown": "No encontrados: {names}",
+      "next": "Puede haber más miembros que coincidan además de estos. Aplica el cambio y sigue con los miembros siguientes.",
+      "noneYet": "Ninguno de los miembros revisados hasta ahora coincide. Puede haber más.",
+      "further": "Seguir buscando"
+    },
+    "what": {
+      "heading": "2. Elige el cambio",
+      "description": "El cambio se aplica a los miembros elegidos arriba, como los mostró la vista previa.",
+      "action": "Cambio",
+      "choose": "Elige un cambio…",
+      "group": "Grupo",
+      "chooseGroup": "Elige un grupo…",
+      "groupHelp": {
+        "setGroup": "Pasa a ser el grupo principal de cada miembro. Pide tu propia contraseña.",
+        "addGroup": "Se añade a los grupos que cada miembro tiene a mano. Pide tu propia contraseña.",
+        "removeGroup": "Se quita de los grupos que cada miembro tiene a mano. Los grupos de promociones o compras se quedan. Pide tu propia contraseña."
+      },
+      "title": "Título personalizado",
+      "titleHelp": "Déjalo vacío para quitar el título personalizado.",
+      "duration": "Duración de la expulsión",
+      "durationHelp": "Las expulsiones respetan la más larga que puedes dar.",
+      "days": "Días",
+      "daysUnit": "días",
+      "forever": "Para siempre",
+      "notify": "Avisar",
+      "notifyLabel": "Avisar a cada miembro por correo",
+      "reason": "Motivo",
+      "reasonHelp": "Se guarda en el registro de moderación.",
+      "reasonRequired": "Obligatorio. Se guarda en el registro de moderación y, en una expulsión, se envía al miembro.",
+      "confirm": "Confirmar",
+      "confirmText": {
+        "ban": "Confirmo que los miembros elegidos arriba serán expulsados.",
+        "delete": "Confirmo que los miembros elegidos arriba serán borrados. No se puede deshacer."
+      },
+      "apply": "Aplicar",
+      "applying": "Aplicando…"
+    },
+    "actions": {
+      "setGroup": "Fijar el grupo principal",
+      "addGroup": "Añadir un grupo secundario",
+      "removeGroup": "Quitar un grupo secundario",
+      "setTitle": "Fijar o quitar el título personalizado",
+      "removeAvatar": "Quitar el avatar",
+      "removeSignature": "Quitar la firma",
+      "ban": "Expulsar",
+      "liftBans": "Levantar las expulsiones vigentes",
+      "delete": "Borrar las cuentas"
+    },
+    "result": {
+      "heading": "Resultado",
+      "counts": "{done, plural, one {# miembro cambiado} other {# miembros cambiados}}, omitidos: {skipped}, fallidos: {failed}.",
+      "more": "Esto fue un tramo de las coincidencias de la regla. Puede haber más miembros.",
+      "continue": "Seguir con los miembros siguientes",
+      "confirmAgain": "Para seguir, confirma de nuevo: marca la confirmación y escribe tu contraseña, donde este cambio los pida."
+    }
   }
 }

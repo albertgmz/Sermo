@@ -1,5 +1,5 @@
 import { createElement, type ReactNode } from "react";
-import { IntlProvider } from "use-intl";
+import { createTranslator, IntlProvider } from "use-intl";
 import { messages } from "@/i18n/messages";
 
 // What `getTranslations(namespace)` gives in a test: the message as written in the messages files,
@@ -24,6 +24,16 @@ export function translator(namespace: string, interpolate = false) {
     return typeof value === "string";
   };
   return Object.assign(t, { rich: t, has });
+}
+
+// What `getTranslations(namespace)` gives in a test that needs the message formatted as the app
+// does: plurals and selects resolved, placeholders filled.
+export function formattedTranslator(namespace: string) {
+  return createTranslator({
+    locale: "en",
+    messages,
+    namespace: namespace as never,
+  });
 }
 
 // Client components read their text from a provider; this one serves the same message files.

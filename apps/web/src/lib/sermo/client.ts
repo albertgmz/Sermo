@@ -1,6 +1,10 @@
 import "server-only";
 
-import { ACCEPTANCE_REQUIRED_PATH, authMe } from "@sermo/core/contracts";
+import {
+  ACCEPTANCE_REQUIRED_PATH,
+  APPROVAL_PENDING_PATH,
+  authMe,
+} from "@sermo/core/contracts";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -192,6 +196,18 @@ export function isAcceptanceRefusal(error: SermoError): boolean {
   );
 }
 
+// The backend refuses a write because the account waits for staff to approve it: a refusal
+// (forbidden) that names the `approval` issue.
+export function isApprovalRefusal(error: SermoError): boolean {
+  return (
+    error.code === "forbidden" &&
+    (error.issues ?? []).some(
+      (issue) =>
+        Array.isArray(issue.path) && issue.path[0] === APPROVAL_PENDING_PATH,
+    )
+  );
+}
+
 // For actions: what a form can show for a failed call. Only the backend's own refusals carry a
 // message meant for visitors; an error raised on our side (code "internal": the API could not be
 // reached, its answer made no sense) is logged and replaced by a generic line.
@@ -203,6 +219,9 @@ export async function errorMessage(error: unknown): Promise<string> {
   }
   if (isAcceptanceRefusal(error)) {
     return (await getTranslations("lib.errors"))("acceptanceRequired");
+  }
+  if (isApprovalRefusal(error)) {
+    return (await getTranslations("lib.errors"))("approvalPending");
   }
   if (error.code === "validation" && error.issues?.length) {
     return error.issues

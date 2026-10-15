@@ -76,6 +76,8 @@ const IDS = [
   "restriction.lift",
   "settings.update",
   "shop.item.image",
+  "signup.approve",
+  "signup.reject",
   "spam.cleanup.queued",
   "spam.cleanup.batch",
   "spam.cleanup.message",

@@ -79,6 +79,7 @@ const me = {
     homeTab: null,
     openHomeTab: "latest",
     pendingAcceptance: [],
+    awaitingApproval: false,
   },
   permissions: {
     isAdmin: false,

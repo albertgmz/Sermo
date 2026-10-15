@@ -22,14 +22,19 @@ import { getSite } from "@/lib/sermo/site";
 // unreadable backend does not invent one.
 export type Counters = Omit<
   z.output<typeof authCounters.output>,
-  "openReports" | "pendingApprovals"
-> & { openReports: PendingCount; pendingApprovals: PendingCount };
+  "openReports" | "pendingApprovals" | "pendingSignups"
+> & {
+  openReports: PendingCount;
+  pendingApprovals: PendingCount;
+  pendingSignups: PendingCount;
+};
 
 const NONE: Counters = {
   conversations: 0,
   notifications: 0,
   openReports: { count: 0, more: false },
   pendingApprovals: { count: 0, more: false },
+  pendingSignups: { count: 0, more: false },
 };
 
 // How many rows the avatar menu lists: a short first page of the pages' own operations.

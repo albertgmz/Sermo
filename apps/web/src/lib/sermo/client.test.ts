@@ -245,3 +245,19 @@ test("a refusal for a missing acceptance is told apart and worded by the web app
     "You may not do that.",
   );
 });
+
+test("a refusal for an account waiting for approval is told apart and worded by the web app", async () => {
+  const waiting = new SermoError("forbidden", 403, "backend wording", [
+    { path: ["approval"], message: "awaiting" },
+  ]);
+  assert.equal(await errorMessage(waiting), lib.errors.approvalPending);
+  // Only a forbidden refusal that names the issue: the path alone on another code is no such thing.
+  assert.equal(
+    await errorMessage(
+      new SermoError("validation", 422, "Check the form.", [
+        { path: ["approval"], message: "x" },
+      ]),
+    ),
+    "x",
+  );
+});

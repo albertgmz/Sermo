@@ -161,6 +161,11 @@
       "help": "On: posts by new members that contain links wait for a moderator.",
       "switch": "Hold posts with links from new members"
     },
+    "approveSignups": {
+      "label": "Approve new accounts",
+      "help": "On: a new account waits for staff approval once its email is confirmed. Until then it reads the forum like a guest and cannot write. Accounts already waiting stay in the queue if you turn this off. Staff with the approve-registrations permission decide on the Sign-ups screen of the moderation section.",
+      "switch": "New accounts wait for staff approval"
+    },
     "floodSeconds": {
       "label": "Flood interval",
       "help": "Seconds a member must wait between two posts. Threads, replies, wall posts, wall comments and conversation messages share one clock. 0 turns it off. Groups with the flood bypass permission are exempt.",

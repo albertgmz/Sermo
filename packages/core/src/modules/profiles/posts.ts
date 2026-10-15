@@ -20,6 +20,7 @@ import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
+  AWAITING_SQL,
   can,
   currentActor,
   memberActor,
@@ -267,10 +268,9 @@ export const profilesSelfOp = implement(profilesSelf, (ctx, actor) => {
     },
   };
 });
-export const USER_SEARCH_SQL =
-  "SELECT id, username FROM users WHERE username_key >= ?1 AND username_key < ?2 ORDER BY username_key LIMIT ?3";
-export const USER_SEARCH_TAIL_SQL =
-  "SELECT id, username FROM users WHERE username_key >= ?1 ORDER BY username_key LIMIT ?2";
+// An account that waits in the sign-up queue is not found.
+export const USER_SEARCH_SQL = `SELECT u.id, u.username FROM users u WHERE u.username_key >= ?1 AND u.username_key < ?2 AND NOT (${AWAITING_SQL}) ORDER BY u.username_key LIMIT ?3`;
+export const USER_SEARCH_TAIL_SQL = `SELECT u.id, u.username FROM users u WHERE u.username_key >= ?1 AND NOT (${AWAITING_SQL}) ORDER BY u.username_key LIMIT ?2`;
 export function prefixSuccessor(prefix: string): string | null {
   const points = Array.from(prefix);
   while (points.length) {

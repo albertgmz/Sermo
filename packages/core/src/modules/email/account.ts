@@ -90,6 +90,13 @@ export function registerAccountEmailJobs(ctx: Ctx): void {
         ...(state.config.replyTo ? { replyTo: state.config.replyTo } : {}),
         ...rendered,
       });
+      // The member of a rejected sign-up was erased: the finished job must not keep their address.
+      if (job.kind === "signupRejected")
+        writeTx(ctx, () =>
+          ctx.sqlite
+            .prepare("UPDATE jobs SET payload = json_set(payload, '$.email', '') WHERE id = ?1")
+            .run(claimed.id),
+        );
     } catch (error) {
       const rejected = mailboxRejected(error);
       const attempts =

@@ -296,6 +296,7 @@ export const PermissionExplanation = z
       .enum([
         "banned",
         "account",
+        "awaiting",
         "restricted",
         "threadBan",
         "notOwner",

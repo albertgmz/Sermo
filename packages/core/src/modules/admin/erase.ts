@@ -1,4 +1,4 @@
-import { type Actor, requireAuthenticated } from "../../actor";
+import { type Actor, actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { usersAdminErase } from "../../contracts/admin";
 import { writeTx } from "../../db/tx";
@@ -10,6 +10,7 @@ import { deletePendingTokens, getAuth, markSessionsRevoked, revokeUserCredential
 import { renameThroughAuth } from "../auth/username";
 import { deleteConsentRecord } from "../consent";
 import { clearMemberPicture } from "../images";
+import { isAwaiting } from "../members/signup-review";
 import { appendModeratorLog, insertAuthorizedBan } from "../moderation";
 import { acceptanceSql } from "../pages/acceptance";
 import { ipLogSql } from "../security/log";
@@ -27,7 +28,8 @@ interface MemberRow {
 export const eraseSql = {
   member:
     "SELECT u.username, u.username_key, u.banned_permanently, u.erased_at, a.email FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
-  mark: "UPDATE users SET erased_at = ?2, sessions_revoked_at = ?2 WHERE id = ?1 AND erased_at IS NULL",
+  // An erased account is not waiting in the sign-up queue.
+  mark: "UPDATE users SET erased_at = ?2, sessions_revoked_at = ?2, signup_review = NULL WHERE id = ?1 AND erased_at IS NULL",
   holder: "SELECT id FROM users WHERE username_key = ?1",
   // Every account email of the member that is not running, finished ones included: they hold the address.
   mail: "DELETE FROM jobs WHERE type = 'email.account' AND status <> 'running' AND json_extract(payload, '$.userId') = ?1",
@@ -88,7 +90,9 @@ async function renameErased(ctx: Ctx, userId: number): Promise<void> {
  * finishes the job and writes no second entry. What identifies the member goes before the rename,
  * which nothing else waits for. `guard` is the caller's own permission decision: it runs inside the
  * first transaction on the actor read again there, so a permission revoked in another process
- * since the request began stops the erasure before anything is written.
+ * since the request began stops the erasure before anything is written. `entry` names the log
+ * entry the first transaction writes (the default is `member.erase`; rejecting a sign-up writes
+ * its own).
  */
 export async function eraseMember(
   ctx: Ctx,
@@ -96,6 +100,10 @@ export async function eraseMember(
   userId: number,
   reason: string,
   guard: (current: Actor) => void,
+  entry: { action: string; details: Record<string, unknown> } = {
+    action: "member.erase",
+    details: {},
+  },
 ): Promise<void> {
   // 1. Mark, ban for good (refused for the last holder of admin.permissions) and log, together.
   writeTx(ctx, () => {
@@ -105,8 +113,16 @@ export async function eraseMember(
       // The flag goes with the account; the last super admin cannot be erased.
       if (isSuperAdminRow(ctx, userId)) assertOtherSuperAdmin(ctx, userId);
       ctx.sqlite.prepare("UPDATE users SET is_super_admin = 0 WHERE id = ?1").run(userId);
+      // An account that waited in the sign-up queue leaves it: its alert clears with it.
+      if (isAwaiting(ctx, userId))
+        publishEvent(ctx, {
+          type: "member.signup_decided",
+          targetType: "user",
+          targetId: userId,
+          payload: { decision: "reject", moderatorId: actorUserId(actor) },
+        });
       ctx.sqlite.prepare(eraseSql.mark).run(userId, ctx.now());
-      appendModeratorLog(ctx, actor, "member.erase", "user", userId, reason, {});
+      appendModeratorLog(ctx, actor, entry.action, "user", userId, reason, entry.details);
     }
     if (own?.banned_permanently !== 1)
       insertAuthorizedBan(ctx, actor, userId, reason, null, { notify: false });
@@ -166,17 +182,32 @@ export async function eraseMember(
   }
 }
 
-export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, input) => {
+/**
+ * An administrator erases another member: admin.members over them, and admin.permissions when
+ * they hold any administration permission (checked again in the first transaction). The caller
+ * has verified the actor's own password.
+ */
+export async function eraseAsAdministrator(
+  ctx: Ctx,
+  actor: Actor,
+  userId: number,
+  reason: string,
+): Promise<void> {
   const admin = requireAuthenticated(actor);
-  await verifyActorPassword(ctx, actor, input.actorPassword);
-  if (admin.userId === input.userId) throw new ConflictError("You cannot erase your own account.");
-  const target = targetMember(ctx, actor, input.userId);
+  if (admin.userId === userId) throw new ConflictError("You cannot erase your own account.");
+  const target = targetMember(ctx, actor, userId);
   requirePermission(ctx, actor, "admin.members", { target });
   requireTakeoverRights(ctx, actor, target);
-  await eraseMember(ctx, actor, input.userId, input.reason, (current) => {
-    const fresh = targetMember(ctx, current, input.userId, true);
+  await eraseMember(ctx, actor, userId, reason, (current) => {
+    const fresh = targetMember(ctx, current, userId, true);
     requirePermission(ctx, current, "admin.members", { target: fresh });
     requireTakeoverRights(ctx, current, fresh);
   });
+}
+
+export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  await verifyActorPassword(ctx, actor, input.actorPassword);
+  await eraseAsAdministrator(ctx, actor, input.userId, input.reason);
   return { ok: true as const };
 });

@@ -8,6 +8,7 @@ import { fileTypeFromFile } from "file-type";
 import sharp from "sharp";
 import type { Actor } from "../../actor";
 import { actorUserId, requireAuthenticated } from "../../actor";
+import { approvalPending } from "../../approval";
 import { type Ctx, prepared } from "../../context";
 import { filesGet } from "../../contracts/storage";
 import {
@@ -358,6 +359,8 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       purpose: Purpose = "attachment",
     ) {
       const user = requireAuthenticated(actor);
+      // The upload route does not go through `execute`: an account that waits for approval is refused here.
+      if (user.principal?.awaitingApproval) throw approvalPending();
       const catalog = isCatalogPurpose(purpose);
       if (catalog) requireCatalogUpload(ctx, actor, purpose);
       if (purpose === "avatar") requirePermission(ctx, actor, "profile.uploadAvatar");

@@ -1,4 +1,5 @@
 export {
+  AWAITING_SQL,
   can,
   combinationsGranting,
   currentActor,

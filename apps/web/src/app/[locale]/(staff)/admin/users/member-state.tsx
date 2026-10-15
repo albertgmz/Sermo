@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 const VARIANTS = {
   valid: "success",
   unconfirmed: "secondary",
+  awaiting: "secondary",
   banned: "destructive",
   erased: "outline",
 } as const;

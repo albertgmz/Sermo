@@ -52,6 +52,10 @@ test("the staff bar links the panel when it holds something and moderation when 
     admin: true,
     moderation: false,
   });
+  // The sign-up permission alone opens moderation, whatever the backend says about a panel.
+  expect(
+    staffLinks(standing({ "member.approveRegistrations": true })),
+  ).toMatchObject({ moderation: true, moderationHref: "/moderation/signups" });
   // A moderator of one forum has no global flag: the staff summary shows them.
   expect(
     staffLinks(standing({}, { panel: true, moderatedNodeIds: [3] })),
@@ -79,31 +83,47 @@ test("the moderation link leads to a queue the viewer may open", () => {
   expect(href({ "profilePost.approve": true })).toBe("/moderation/approvals");
   // Reports without approvals must not be sent to a page that answers 404.
   expect(href({ "report.manageProfiles": true })).toBe("/moderation/reports");
-  // The log alone has neither queue: the landing page.
+  // Sign-ups alone lead to the sign-up queue, and only when no other queue opens.
+  expect(href({ "member.approveRegistrations": true })).toBe(
+    "/moderation/signups",
+  );
+  expect(
+    href({
+      "member.approveRegistrations": true,
+      "report.manageProfiles": true,
+    }),
+  ).toBe("/moderation/reports");
+  // The log alone has no queue: the landing page.
   expect(href({ "moderatorLog.view": true })).toBe("/moderation");
 });
 
-test("the moderation badge adds the two queues and marks a cut-off queue with more", () => {
+test("the moderation badge adds the three queues and marks a cut-off queue with more", () => {
   const queue = (count: number, more = false) => ({ count, more, cap: 99 });
-  expect(
-    pendingBadge({ openReports: queue(0), pendingApprovals: queue(0) }),
-  ).toBeNull();
-  expect(
-    pendingBadge({ openReports: queue(2), pendingApprovals: queue(3) }),
-  ).toEqual({ count: 5, more: false });
-  expect(
-    pendingBadge({ openReports: queue(99, true), pendingApprovals: queue(4) }),
-  ).toEqual({ count: 103, more: true });
+  const badge = (
+    openReports: ReturnType<typeof queue>,
+    pendingApprovals: ReturnType<typeof queue>,
+    pendingSignups = queue(0),
+  ) => pendingBadge({ openReports, pendingApprovals, pendingSignups });
+  expect(badge(queue(0), queue(0))).toBeNull();
+  expect(badge(queue(2), queue(3))).toEqual({ count: 5, more: false });
+  expect(badge(queue(99, true), queue(4))).toEqual({ count: 103, more: true });
   // A scan that stopped at its bound says nothing about a viewer who has nothing of their own.
-  expect(
-    pendingBadge({ openReports: queue(0, true), pendingApprovals: queue(0) }),
-  ).toBeNull();
-  expect(
-    pendingBadge({ openReports: queue(0, true), pendingApprovals: queue(3) }),
-  ).toEqual({ count: 3, more: false });
-  expect(
-    pendingBadge({ openReports: queue(3, true), pendingApprovals: queue(0) }),
-  ).toEqual({ count: 3, more: true });
+  expect(badge(queue(0, true), queue(0))).toBeNull();
+  expect(badge(queue(0, true), queue(3))).toEqual({ count: 3, more: false });
+  expect(badge(queue(3, true), queue(0))).toEqual({ count: 3, more: true });
+  // The sign-ups count with the rest, and alone they raise the badge.
+  expect(badge(queue(2), queue(3), queue(4))).toEqual({
+    count: 9,
+    more: false,
+  });
+  expect(badge(queue(0), queue(0), queue(5))).toEqual({
+    count: 5,
+    more: false,
+  });
+  expect(badge(queue(0), queue(0), queue(5, true))).toEqual({
+    count: 5,
+    more: true,
+  });
 });
 
 test("the shell never imports the removed demo data or session modules", () => {

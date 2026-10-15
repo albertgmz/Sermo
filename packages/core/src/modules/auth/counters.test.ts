@@ -11,10 +11,11 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { countersSql } from "./index";
 
-/** What a viewer who handles no queue gets for the two queue counters. */
+/** What a viewer who handles no queue gets for the queue counters. */
 const QUIET = {
   openReports: { count: 0, more: false, cap: 99 },
   pendingApprovals: { count: 0, more: false, cap: 99 },
+  pendingSignups: { count: 0, more: false, cap: 99 },
 };
 type TestContext = ReturnType<typeof createTestContext>;
 const counters = (ctx: TestContext, actor: Parameters<typeof execute>[2]) =>
@@ -23,6 +24,7 @@ const counters = (ctx: TestContext, actor: Parameters<typeof execute>[2]) =>
     conversations: number;
     openReports: { count: number; more: boolean; cap: number };
     pendingApprovals: { count: number; more: boolean; cap: number };
+    pendingSignups: { count: number; more: boolean; cap: number };
   }>;
 
 function conversation(

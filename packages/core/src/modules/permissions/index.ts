@@ -354,17 +354,32 @@ export const usersGetGroupsOp = implement(usersGetGroups, (ctx, actor, input) =>
     return memberGroups(ctx, input.userId);
   }),
 );
-export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, input) => {
-  requirePermission(ctx, actor, "admin.members", { target: GUEST });
-  await confirmActorPassword(ctx, actor, input.actorPassword);
+/** What a change of groups sets: the primary group and/or the whole list of hand-assigned ones. */
+export type GroupChange = { primaryGroupId?: number; secondaryGroupIds?: number[] };
+
+/**
+ * Changes one member's groups in a write transaction of its own, with the checks of
+ * `users.setGroups`: admin.members over the member on the actor as committed now, the rank
+ * ceiling, and that an administrator and a usable super admin remain. `change` may be a function
+ * of the groups the member holds when the transaction runs; returning null leaves them as they
+ * are (answers null, and no log entry is written).
+ */
+export function changeMemberGroups(
+  ctx: Ctx,
+  actor: Actor,
+  userId: number,
+  change: GroupChange | ((held: ReturnType<typeof memberGroups>) => GroupChange | null),
+): ReturnType<typeof memberGroups> | null {
   return writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
-    const target = getMember(ctx, input.userId);
+    const target = getMember(ctx, userId);
     requirePermission(ctx, current, "admin.members", { target });
-    requireNotErased(ctx, input.userId);
+    requireNotErased(ctx, userId);
     const wasAdministrator = can(ctx, target, "admin.permissions");
     const keepSuperAdmin = guardSuperAdmins(ctx);
-    const before = memberGroups(ctx, input.userId);
+    const before = memberGroups(ctx, userId);
+    const input = typeof change === "function" ? change(before) : change;
+    if (input === null) return null;
     const ids = [input.primaryGroupId, ...(input.secondaryGroupIds ?? [])].filter(
       (id): id is number => id !== undefined,
     );
@@ -382,7 +397,7 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
     if (input.primaryGroupId !== undefined)
       ctx.sqlite
         .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2")
-        .run(input.primaryGroupId, input.userId);
+        .run(input.primaryGroupId, userId);
     if (input.secondaryGroupIds !== undefined) {
       // Rows for groups that stay are left alone: their creation time is how a timed group a
       // warning action added is told from one assigned by hand (the unique index
@@ -392,16 +407,16 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
         .prepare(
           "DELETE FROM user_groups WHERE user_id = ?1 AND group_id NOT IN (SELECT value FROM json_each(?2))",
         )
-        .run(input.userId, JSON.stringify(keep));
+        .run(userId, JSON.stringify(keep));
       const insert = ctx.sqlite.prepare(
         "INSERT OR IGNORE INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, ?3)",
       );
-      for (const id of keep) insert.run(input.userId, id, ctx.now());
+      for (const id of keep) insert.run(userId, id, ctx.now());
     }
-    assertAdministrator(ctx, { userId: input.userId, wasAdministrator });
+    assertAdministrator(ctx, { userId: userId, wasAdministrator });
     keepSuperAdmin();
-    appendModeratorLog(ctx, actor, "user.groups", "user", input.userId);
-    const after = memberGroups(ctx, input.userId);
+    appendModeratorLog(ctx, actor, "user.groups", "user", userId);
+    const after = memberGroups(ctx, userId);
     const oldIds = new Set([
       before.primaryGroupId,
       ...before.secondaryGroupIds,
@@ -420,7 +435,7 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
       publishEvent(ctx, {
         type: "member.groups_changed",
         targetType: "user",
-        targetId: input.userId,
+        targetId: userId,
         payload: {
           added,
           removed,
@@ -430,6 +445,17 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
       });
     return after;
   });
+}
+
+export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, input) => {
+  requirePermission(ctx, actor, "admin.members", { target: GUEST });
+  await confirmActorPassword(ctx, actor, input.actorPassword);
+  return changeMemberGroups(ctx, actor, input.userId, {
+    ...(input.primaryGroupId === undefined ? {} : { primaryGroupId: input.primaryGroupId }),
+    ...(input.secondaryGroupIds === undefined
+      ? {}
+      : { secondaryGroupIds: input.secondaryGroupIds }),
+  })!;
 });
 
 export const permissionsDefinitionsOp = implement(permissionsDefinitions, (ctx, actor) =>

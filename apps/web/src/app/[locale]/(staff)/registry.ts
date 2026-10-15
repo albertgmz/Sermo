@@ -73,8 +73,15 @@ const canApprove = (me: Standing) =>
 const canReadModeratorLog = (me: Standing) =>
   holds(me, "moderatorLog.view") || moderates(me);
 
+// The sign-up queue is a global permission, so the moderation overview opens for it alone.
+const canReviewSignups = (me: Standing) =>
+  holds(me, "member.approveRegistrations");
+
 const canModerate = (me: Standing) =>
-  canHandleReports(me) || canApprove(me) || canReadModeratorLog(me);
+  canHandleReports(me) ||
+  canApprove(me) ||
+  canReadModeratorLog(me) ||
+  canReviewSignups(me);
 
 // The panel's home opens for anyone the backend says has a panel, and for anyone who may open at
 // least one other listed screen: a permission outside the moderation and administration categories
@@ -291,6 +298,13 @@ export const SECTIONS = [
         path: "/admin/users",
         access: ["admin.members"],
         built: true,
+      },
+      {
+        key: "usersBatch",
+        path: "/admin/users/batch",
+        access: ["admin.members"],
+        built: true,
+        listed: false,
       },
       {
         key: "usersBans",
@@ -589,6 +603,12 @@ export const SECTIONS = [
         access: canApprove,
         built: true,
         listed: false,
+      },
+      {
+        key: "moderationSignups",
+        path: "/moderation/signups",
+        access: ["member.approveRegistrations"],
+        built: true,
       },
       {
         key: "moderationIps",

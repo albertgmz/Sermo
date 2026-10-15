@@ -166,7 +166,7 @@ test("a language the contract does not list is refused without a call", async ()
   });
 });
 
-test("the new-member form sends exactly its four keys", async () => {
+test("the new-member form sends exactly its five keys, the sign-up approval switch among them", async () => {
   backend = fakeBackend({ "settings.update": read });
   await redirectedTo(() =>
     saveMembers(
@@ -175,6 +175,7 @@ test("the new-member form sends exactly its four keys", async () => {
         ["newMemberDays", "14"],
         ["firstPostsToModerate", "2"],
         ["moderateLinksFromNewMembers", "on"],
+        ["approveSignups", "on"],
         ["newMemberMentionLimit", "1"],
       ]),
     ),
@@ -183,9 +184,21 @@ test("the new-member form sends exactly its four keys", async () => {
     newMemberDays: 14,
     firstPostsToModerate: 2,
     moderateLinksFromNewMembers: true,
+    approveSignups: true,
     newMemberMentionLimit: 1,
   });
   expect(expired).toEqual([]);
+});
+
+test("an unticked sign-up approval switch turns the setting off", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  await redirectedTo(() =>
+    saveMembers(null, form([["newMemberDays", "14"]], "approveSignups")),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    newMemberDays: 14,
+    approveSignups: false,
+  });
 });
 
 const POST_COUNT_RULE = {

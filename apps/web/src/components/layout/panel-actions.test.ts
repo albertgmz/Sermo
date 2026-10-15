@@ -36,6 +36,7 @@ const member = {
     homeTab: null,
     openHomeTab: "latest",
     pendingAcceptance: [],
+    awaitingApproval: false,
   },
   permissions: {
     isAdmin: false,

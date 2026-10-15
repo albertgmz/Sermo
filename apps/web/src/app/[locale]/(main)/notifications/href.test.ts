@@ -219,6 +219,16 @@ const cases: [string, Record<string, unknown>, string][] = [
     "/moderation/approvals/profile_post/12",
   ],
   [
+    "a new account waiting for approval: the sign-up queue",
+    {
+      type: "moderator.signup",
+      contentType: "user",
+      contentId: 41,
+      threadId: null,
+    },
+    "/moderation/signups",
+  ],
+  [
     "the outcome of a report you made: a reporter has no page for it",
     {
       type: "report.resolved",

@@ -178,7 +178,9 @@
     "throttledTitle": "Demasiadas solicitudes",
     "throttledDescription": "Has pedido muchas páginas en poco tiempo. Espera un momento e inténtalo de nuevo.",
     "retry": "Reintentar",
-    "home": "Volver al inicio"
+    "home": "Volver al inicio",
+    "approvalTitle": "Pendiente de aprobación",
+    "approvalDescription": "Tu cuenta espera a que el personal la apruebe. Esta página se abrirá cuando lo hagan; hasta entonces puedes leer el foro como un invitado."
   },
   "shortcuts": {
     "title": "Atajos de teclado",
@@ -211,5 +213,10 @@
     "terms": "Términos",
     "rules": "Reglas",
     "accept": "Acepto"
+  },
+  "awaitingNotice": {
+    "label": "Cuenta pendiente de aprobación",
+    "title": "Tu cuenta está pendiente de aprobación",
+    "body": "Tu cuenta espera a que el personal la apruebe. Hasta entonces puedes leer el foro como un invitado."
   }
 }

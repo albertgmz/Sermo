@@ -2,7 +2,7 @@
   "landing": {
     "metaTitle": "Moderación",
     "heading": "Moderación",
-    "subtitle": "Denuncias y contenido a la espera de una decisión.",
+    "subtitle": "Denuncias, contenido y altas pendientes que esperan una decisión.",
     "screensHeading": "Pantallas",
     "screensEmpty": "Todavía no tienes disponible ninguna pantalla de moderación.",
     "screensEmptyDescription": "Las pantallas aparecen aquí a medida que se añaden.",
@@ -58,7 +58,11 @@
     "id": "Ese registro no es válido.",
     "state": "Elige uno de los estados ofrecidos.",
     "type": "Ese tipo de contenido no se puede gestionar aquí.",
-    "decision": "Elige aprobar o rechazar."
+    "decision": "Elige aprobar o rechazar.",
+    "signupsNone": "Elige al menos una alta.",
+    "signupsTooMany": "Una decisión admite como máximo {count} altas a la vez.",
+    "signupsMode": "Elige borrar o expulsar.",
+    "signupsPassword": "Introduce tu contraseña para borrar las cuentas."
   },
   "noticeFields": {
     "reason": "Motivo",
@@ -194,5 +198,55 @@
     "lastSeen": "Vista por última vez",
     "allAddresses": "Todas las direcciones",
     "madeFrom": "Hecho desde"
+  },
+  "signups": {
+    "metaTitle": "Altas pendientes",
+    "heading": "Altas pendientes",
+    "subtitle": "Cuentas nuevas que esperan aprobación, las más recientes primero. Hasta que apruebes una, el miembro lee el foro como un invitado y no puede escribir. Una cuenta aparece aquí cuando ha confirmado su correo.",
+    "list": "Altas pendientes de aprobación",
+    "loading": "Cargando las altas…",
+    "emptyTitle": "Nadie está esperando",
+    "emptyDescription": "Las cuentas nuevas aparecen aquí cuando el sitio aprueba las altas a mano.",
+    "flagged": "Marcada por el control de spam",
+    "email": "Correo",
+    "signedUp": "Fecha de alta",
+    "country": "País",
+    "address": "Dirección",
+    "sharedAddress": "Misma dirección",
+    "sharedCount": "{accounts, plural, one {# cuenta más} other {# cuentas más}}{banned, plural, =0 {} other {, expulsadas: #}}",
+    "accepted": "Aceptado",
+    "acceptedItem": "{kind} versión {version}, {date}",
+    "kind": {
+      "terms": "Términos",
+      "rules": "Reglas"
+    },
+    "select": "Elegir a {name}",
+    "bar": "Decidir sobre las altas elegidas",
+    "selected": "{count, plural, one {# alta elegida} other {# altas elegidas}}",
+    "selectAll": "Elegir todos los de esta página",
+    "clear": "Quitar la selección",
+    "approve": "Aprobar",
+    "approving": "Aprobando…",
+    "reject": {
+      "summary": "Rechazar…",
+      "submit": "Rechazar",
+      "pending": "Rechazando…",
+      "warning": "Se envía al miembro el motivo por correo, si lo indicas.",
+      "reason": "Motivo (opcional)",
+      "modeLabel": "Qué hace rechazar",
+      "mode": {
+        "delete": "Borrar la cuenta",
+        "ban": "Expulsar para siempre"
+      },
+      "modeHelp": {
+        "delete": "El mismo borrado que al borrar un miembro en el panel: no se puede deshacer y pide tu contraseña.",
+        "ban": "La cuenta se conserva y queda expulsada para siempre. Hace falta el permiso para expulsar para siempre."
+      }
+    },
+    "result": {
+      "approve": "{done, plural, one {# alta aprobada} other {# altas aprobadas}}{skipped, plural, =0 {} other {, omitidos: #}}{failed, plural, =0 {} other {, fallidos: #}}.",
+      "reject": "{done, plural, one {# alta rechazada} other {# altas rechazadas}}{skipped, plural, =0 {} other {, omitidos: #}}{failed, plural, =0 {} other {, fallidos: #}}.",
+      "more": "{count, plural, one {Otro más no se muestra.} other {# más no se muestran.}}"
+    }
   }
 }

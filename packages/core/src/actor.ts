@@ -18,6 +18,11 @@ export interface Principal {
   /** The member is a super admin: hierarchy checks do not bind them, and bind others against them. */
   readonly isSuperAdmin: boolean;
   /**
+   * The account waits in the sign-up queue (its email is confirmed, staff have not decided): it
+   * reads as a guest and takes no write.
+   */
+  readonly awaitingApproval: boolean;
+  /**
    * Cache versions read with the principal. The in-memory permission state is refreshed only
    * when it is older than these, so a request sees changes committed before it started.
    */

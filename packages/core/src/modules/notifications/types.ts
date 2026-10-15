@@ -59,6 +59,7 @@ export const notificationTypes: readonly NotificationDefinition[] = [
   entry("report.resolved", ["report.state_changed"], "reporter"),
   entry("moderator.report", ["report.created"], "moderator"),
   entry("moderator.approval", ["content.created"], "moderator"),
+  entry("moderator.signup", ["member.awaiting_approval"], "moderator"),
   entry("member.groups", ["member.groups_changed"], "affected member"),
   entry("announcement", ["announcement.published"], "every member"),
   entry("account.security", [], "account owner", null, true),

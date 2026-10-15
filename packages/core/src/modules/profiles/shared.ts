@@ -3,7 +3,7 @@ import { actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { NotFoundError } from "../../errors";
 import { markPublic } from "../../operation";
-import { can, permissionsOf, requirePermission } from "../../permissions";
+import { AWAITING_SQL, can, permissionsOf, requirePermission } from "../../permissions";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
@@ -20,8 +20,7 @@ export type ProfileAccess = {
  * The privacy settings of one member and whether that member follows the viewer, as
  * `profileAccessMany` reads them for a page.
  */
-export const PROFILE_ACCESS_SQL =
-  "SELECT id, profile_view_privacy, profile_post_privacy, EXISTS(SELECT 1 FROM user_follows WHERE user_id = users.id AND followed_id = ?1) AS follows FROM users WHERE id IN (SELECT value FROM json_each(?2))";
+export const PROFILE_ACCESS_SQL = `SELECT u.id, CASE WHEN ${AWAITING_SQL} THEN 'self' ELSE u.profile_view_privacy END AS profile_view_privacy, u.profile_post_privacy, EXISTS(SELECT 1 FROM user_follows WHERE user_id = u.id AND followed_id = ?1) AS follows FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))`;
 export const profileAccess = markPublic(
   "Callers enforce profile visibility before returning content.",
   function profileAccess(ctx: Ctx, actor: Actor, userId: number): ProfileAccess {

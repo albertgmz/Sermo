@@ -124,3 +124,13 @@ test("any other refusal of a reaction draws nothing again", async () => {
   expect(state.error).toBe("backend wording");
   expect(refreshed).toBe(0);
 });
+
+test("a reaction refused for an account waiting for approval says so in the web app's words and brings the notice up", async () => {
+  backend(
+    refusal(403, "forbidden", [{ path: ["approval"], message: "awaiting" }]),
+  );
+  const state = await react("post", 9, 2);
+  expect(state.error).toBe(translator("lib.errors")("approvalPending"));
+  expect(state.error).not.toBe("backend wording");
+  expect(refreshed).toBe(1);
+});

@@ -108,7 +108,13 @@ const CACHE_LIMIT = 1000;
  */
 export function moderationOf(ctx: Ctx, actor: Exclude<Actor, { kind: "guest" }>): NodeModeration {
   const principal = actor.principal;
-  if (principal && (principal.bannedPermanently || (principal.bannedUntil ?? 0) > ctx.now()))
+  // A banned account moderates nothing, nor does one that waits for approval (it reads as a guest).
+  if (
+    principal &&
+    (principal.bannedPermanently ||
+      (principal.bannedUntil ?? 0) > ctx.now() ||
+      principal.awaitingApproval)
+  )
     return { everywhere: false, nodeIds: [] };
   const versions = requestVersions(ctx, actor);
   const state = permissionState(ctx, versions);

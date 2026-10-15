@@ -30,6 +30,7 @@ const member = {
     homeTab: null,
     openHomeTab: "latest",
     pendingAcceptance: [],
+    awaitingApproval: false,
   },
   permissions: {
     isAdmin: false,
@@ -119,6 +120,7 @@ for (const [what, answer] of MEFAILS) {
         notifications: 0,
         openReports: { count: 0, more: false },
         pendingApprovals: { count: 0, more: false },
+        pendingSignups: { count: 0, more: false },
       });
       // Nothing but the one read that failed went out: no member's data is asked for a guest.
       assert.deepEqual([...new Set(asked)], ["/api/v1/me"]);

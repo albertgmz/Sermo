@@ -161,6 +161,11 @@
       "help": "Activado: los mensajes de miembros nuevos que contienen enlaces esperan a un moderador.",
       "switch": "Retener los mensajes con enlaces de miembros nuevos"
     },
+    "approveSignups": {
+      "label": "Aprobar cuentas nuevas",
+      "help": "Activado: una cuenta nueva espera la aprobación del personal cuando ya ha confirmado su correo. Hasta entonces lee el foro como un invitado y no puede escribir. Las cuentas que ya esperan siguen en la cola si lo desactivas. El personal con el permiso de aprobar altas decide en la pantalla de altas pendientes de la sección de moderación.",
+      "switch": "Las cuentas nuevas esperan la aprobación del personal"
+    },
     "floodSeconds": {
       "label": "Intervalo anti-flood",
       "help": "Segundos que un miembro debe esperar entre dos mensajes. Hilos, respuestas, publicaciones y comentarios del muro y mensajes de conversación comparten un mismo reloj. 0 lo desactiva. Los grupos con el permiso de omitir el intervalo quedan exentos.",

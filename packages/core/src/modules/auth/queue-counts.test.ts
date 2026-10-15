@@ -269,8 +269,8 @@ describe("auth.counters: reports and approvals", () => {
     await w.counters(actor);
     w.trace.sql.length = 0;
     await w.counters(actor);
-    // The member's counters, the report queue, and the five approval kinds at most.
-    expect(w.trace.sql.length).toBeLessThanOrEqual(7);
+    // The member's counters, the report queue, the five approval kinds and the sign-up queue at most.
+    expect(w.trace.sql.length).toBeLessThanOrEqual(8);
     for (const sql of w.trace.sql.slice(1)) {
       expect(sql).not.toMatch(/count\(/i);
       expect(sql).toMatch(/LIMIT \?\d/);

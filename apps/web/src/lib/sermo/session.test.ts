@@ -54,6 +54,7 @@ const member = {
     homeTab: null,
     openHomeTab: "latest",
     pendingAcceptance: [],
+    awaitingApproval: false,
   },
 };
 
@@ -130,6 +131,7 @@ for (const [what, answer] of FAILURES) {
           notifications: 0,
           openReports: { count: 0, more: false, cap: 99 },
           pendingApprovals: { count: 0, more: false, cap: 99 },
+          pendingSignups: { count: 0, more: false, cap: 99 },
         });
       }) as unknown as typeof fetch;
       await call(authCounters, {});

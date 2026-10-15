@@ -3,14 +3,16 @@ import "server-only";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { errorMessage, isAcceptanceRefusal } from "./client";
+import { errorMessage, isAcceptanceRefusal, isApprovalRefusal } from "./client";
 import { SermoError } from "./errors";
 
-// A refusal for a missing acceptance: the page is drawn again, so the notice with the Accept button
-// is there (a soft navigation keeps the layout it already has, which was drawn before the member
-// was asked). `refresh` throws outside a server action; the message must still reach the form.
-function showAcceptancePrompt(error: unknown) {
-  if (!(error instanceof SermoError) || !isAcceptanceRefusal(error)) return;
+// A refusal for a missing acceptance, or for an account that waits for approval: the page is drawn
+// again, so the notice (the Accept button, or the line about the approval) is there (a soft
+// navigation keeps the layout it already has, which was drawn before the member was asked).
+// `refresh` throws outside a server action; the message must still reach the form.
+function redrawForNotice(error: unknown) {
+  if (!(error instanceof SermoError)) return;
+  if (!isAcceptanceRefusal(error) && !isApprovalRefusal(error)) return;
   try {
     refresh();
   } catch {
@@ -32,7 +34,7 @@ export async function attempt<T>(
     if (error instanceof SermoError && error.code === "unauthenticated") {
       redirect(`/login?next=${encodeURIComponent(returnTo)}`);
     }
-    showAcceptancePrompt(error);
+    redrawForNotice(error);
     return { ok: false, error: await errorMessage(error) };
   }
 }
@@ -51,7 +53,7 @@ export async function attemptInPlace<T>(
     return { ok: true, value: await run() };
   } catch (error) {
     const message = await errorMessage(error);
-    showAcceptancePrompt(error);
+    redrawForNotice(error);
     if (error instanceof SermoError && error.code === "unauthenticated") {
       return {
         ok: false,

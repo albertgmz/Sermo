@@ -17,6 +17,7 @@ import { publishEvent } from "../../events";
 import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
+  AWAITING_SQL,
   can,
   currentActor,
   currentVersions,
@@ -27,6 +28,7 @@ import {
   type PrincipalRow,
   permissionsOf,
   permissionValue,
+  requestVersions,
   requirePermission,
   viewableNodeIds,
 } from "../../permissions";
@@ -554,8 +556,9 @@ const NO_QUEUE: QueueCount = Object.freeze({ count: 0, more: false, cap: QUEUE_C
 export function queueCounts(
   ctx: Ctx,
   actor: Actor,
-): Record<"openReports" | "pendingApprovals", QueueCount> {
-  if (actor.kind === "guest") return { openReports: NO_QUEUE, pendingApprovals: NO_QUEUE };
+): Record<"openReports" | "pendingApprovals" | "pendingSignups", QueueCount> {
+  if (actor.kind === "guest")
+    return { openReports: NO_QUEUE, pendingApprovals: NO_QUEUE, pendingSignups: NO_QUEUE };
   const grants = permissionsOf(ctx, actor);
   const forums = moderationOf(ctx, actor).nodeIds;
   const inSomeForum = (id: "forum.manageReports" | "forum.approve") =>
@@ -599,6 +602,23 @@ export function queueCounts(
   if (grants.can("conversation.moderate"))
     read("approvalMessages", approvalMessagesSql, "conversation_message");
   const window = waiting.sort((a, b) => b.id - a.id).slice(0, QUEUE_WINDOW);
+  let pendingSignups = NO_QUEUE;
+  // The target is a guest on the viewer's own cache versions: no further read to build it.
+  if (
+    grants.can("member.approveRegistrations", {
+      target: { kind: "guest", versions: requestVersions(ctx, actor) },
+    })
+  ) {
+    const rows = query<{ id: number }>(ctx, "signupQueue", signupQueueSql).all(
+      Number.MAX_SAFE_INTEGER,
+      QUEUE_WINDOW,
+    );
+    pendingSignups = {
+      count: Math.min(rows.length, QUEUE_COUNT_CAP),
+      more: rows.length >= QUEUE_WINDOW,
+      cap: QUEUE_COUNT_CAP,
+    };
+  }
   return {
     openReports,
     pendingApprovals: waiting.length
@@ -611,8 +631,12 @@ export function queueCounts(
           cap: QUEUE_COUNT_CAP,
         }
       : NO_QUEUE,
+    pendingSignups,
   };
 }
+
+/** The newest accounts that wait in the sign-up queue, from the partial index on `signup_review`. */
+export const signupQueueSql = `SELECT u.id FROM users u WHERE ${AWAITING_SQL} AND u.id < ?1 ORDER BY u.id DESC LIMIT ?2`;
 
 export function getReportGroup(ctx: Ctx, actor: Actor, groupId: number) {
   requireAuthenticated(actor);
@@ -1649,7 +1673,7 @@ function requireBanReach(ctx: Ctx, actor: Actor, expiresAt: number | null): void
   if (expiresAt === null || expiresAt > ctx.now() + days * DAY_MS)
     throw new ForbiddenError("This ban is longer than you may set, so you may not lift it.");
 }
-function requireBanLength(ctx: Ctx, actor: Actor, expiresAt: number | null): void {
+export function requireBanLength(ctx: Ctx, actor: Actor, expiresAt: number | null): void {
   const days = permissionValue(ctx, actor, "member.banMaxDays");
   if (days === -1) return;
   if (days === 0) throw new ForbiddenError("You may not ban members.");

@@ -28,6 +28,7 @@ const TEXTS = {
   "report.resolved": "reportResolved",
   "moderator.report": "moderatorReport",
   "moderator.approval": "moderatorApproval",
+  "moderator.signup": "moderatorSignup",
   "member.groups": "memberGroups",
   announcement: "announcement",
   "account.security": "accountSecurity",

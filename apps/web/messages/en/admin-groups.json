@@ -229,6 +229,7 @@
     "rules": {
       "banned": "the member is banned",
       "account": "it needs an account",
+      "awaiting": "the account waits for staff to approve it",
       "restricted": "the member is under a restriction",
       "threadBan": "the member is banned from the thread",
       "notOwner": "it applies to the member's own content only",

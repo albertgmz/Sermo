@@ -617,6 +617,7 @@ moderation (deleting, approving, editing posts) is not rank-checked.
 | `member.spamCleanup` | Spam cleanup, which also bans for good: `member.banMaxDays` does not bound it | Administrator |
 | `conversation.moderate`, `conversation.viewHidden` | Moderating private conversation messages and their reports; seeing hidden messages there | Administrator |
 | `wordFilter.manage`, `moderatorLog.view` | Managing word filters; reading the whole moderator log | Administrator |
+| `member.approveRegistrations` | Approving or rejecting the new accounts that wait in the sign-up queue (see [Sign-up approval](#sign-up-approval)) | Moderator, Administrator |
 | `member.viewIps` | "View IPs": the addresses members signed in, registered and posted from, and who shares them; only for members the holder outranks | Administrator |
 | `member.immuneToAutoBan` | Held by the warned member: reaching a warning threshold applies no automatic action to them | Administrator |
 
@@ -1030,6 +1031,7 @@ is authorized by its signed token. `announcements.create` needs `admin.announcem
 | `moderation.content`, `moderation.member` | A member whose content or account a moderator acted on (with `notify`) |
 | `report.resolved` | Reporters, when their report is resolved or rejected (with `notify`) |
 | `moderator.report`, `moderator.approval` | Moderators who can handle a new report or approve new content |
+| `moderator.signup` | Staff who hold `member.approveRegistrations`, when a new account starts waiting for approval; it clears when someone decides |
 | `member.groups` | A member whose groups changed (not when email confirmation moves them to Member) |
 | `announcement` | Every member, for `POST /announcements` (`announcements.create`, needs `admin.announcements`) |
 | `account.security` | Reserved: email only and cannot be turned off. Nothing creates it in this release; account emails are sent separately (see [Account emails](#account-emails)). |
@@ -1231,6 +1233,60 @@ cookie is deleted once the account exists.
 
 Erasing a member ends their links as before: the referrer's count drops by one and the members
 they referred lose their referrer.
+
+## Sign-up approval
+
+The site setting `approveSignups` (off by default; **Settings > Members** in the panel) makes new
+accounts wait for staff. An account is held when it registers (`users.signup_review`); it
+**awaits approval** once its email is confirmed too (at once on a site that asks for no
+confirmation), and until then it is an ordinary unconfirmed account. Turning the setting off lets
+new accounts in again but leaves the ones already waiting in the queue.
+
+An account that awaits approval can sign in and read exactly what a guest reads: its permissions
+are the Guest group's, whatever groups it holds, and it takes no staff rights. Every operation that
+writes and is not open to anyone (an account's own removals such as unfollowing, and accepting the
+terms, stay open) is refused with a `forbidden` error whose issue path is `approval`, so it cannot
+post, react, message or edit its profile. It is left out of the member list, the member search and
+the profile pages of others (staff who bypass profile privacy and the member themselves still open
+it), and the web app shows it a notice. `auth.me` says `awaitingApproval`.
+
+The queue is `GET /admin/signups` (`signups.list`; `/moderation/signups` in the panel), newest first,
+for holders of `member.approveRegistrations` (moderators and administrators by default). Each entry
+shows the username, email, when it signed up, whether the spam check flagged it, the country and,
+for holders of `member.viewIps`, the address and the other accounts seen on it, and the terms
+accepted; every holder sees the email address, whatever they hold for members. There are no registration questions, so none are shown. A sign-up the spam check flags is
+refused when the setting is off, as before; with it on it lands in the queue marked and is never
+approved by itself. `pendingSignups` in `auth.counters` counts the waiting accounts (at most 99, as the
+other queues) for staff who hold the permission, and they get a `moderator.signup` alert for each new one.
+
+`POST /admin/signups/decide` (`signups.decide`) approves or rejects up to 50 accounts, one by one:
+an account no longer waiting, or one the actor may not act on, is skipped and reported without
+stopping the rest. Approving clears the hold and emails the member. Rejecting either **erases** the account (the
+default: the erasure of `users.adminErase`, allowed by `member.approveRegistrations` alone because
+the account never was a member; the actor's own password is required and an API key is refused) or **bans**
+it for good (needs `member.ban` and a `member.banMaxDays` of −1; the account stays, closed). Either way the member is emailed the
+reason, if one was given (after the erasure; the address is dropped from the finished mail job), in
+their language. Each decision is one moderator log entry, `signup.approve` or
+`signup.reject` (an erasure also writes its ban entry, as any erasure does).
+
+## Batch update members
+
+`/admin/users/batch` in the panel (`users.batchPreview`, `users.batchUpdate`; both need
+`admin.members`) applies one action to many members. Choose them by a rule of the same criteria
+engine promotions use (never an empty rule), or by a list of ids and usernames (up to 100). A run
+looks at most 10,000 members in id order and takes the first 100 that match; the answer's `next` is
+where to continue. Preview first: it lists who would be changed and the names that matched nobody.
+
+The actions: set the primary group, add or remove a secondary group, set or clear the custom
+title, remove the avatar, remove the signature, ban (for a number of days within the actor's
+`member.banMaxDays`, or for good where that allows), lift the bans in force, and erase the account.
+Groups and erasing need the actor's own password (session only) and erasing a reason, as the single
+actions do; bans need `member.ban` and a reason. Each member goes through the single action's own
+checks and transaction: one the actor may not act on (rank, permissions), a super admin, the actor
+themselves, an erased account, or one with nothing to change is **skipped** and reported with the
+reason, and the rest go on; a name that matches nobody is reported as failed. Each member changed
+is one moderator log entry, written as the single action writes it; the batch writes none of its
+own. Nothing holds a write transaction for the whole run.
 
 ## Deleting an account
 

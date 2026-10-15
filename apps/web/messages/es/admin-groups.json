@@ -229,6 +229,7 @@
     "rules": {
       "banned": "el miembro está expulsado",
       "account": "requiere una cuenta",
+      "awaiting": "la cuenta espera la aprobación del personal",
       "restricted": "el miembro tiene una restricción",
       "threadBan": "el miembro está expulsado del tema",
       "notOwner": "se aplica solo al contenido del propio miembro",

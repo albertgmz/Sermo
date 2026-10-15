@@ -159,7 +159,8 @@ export function RuleBuilder({
         <p
           data-empty={PLACES[place].empty}
           className={
-            PLACES[place].empty === "required"
+            PLACES[place].empty === "required" ||
+            PLACES[place].empty === "selection"
               ? "text-sm font-medium"
               : "text-sm text-muted-foreground"
           }

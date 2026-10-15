@@ -322,6 +322,10 @@
       "account_security": {
         "title": "Account security",
         "body": "Messages about the safety of your account."
+      },
+      "moderator_signup": {
+        "title": "New sign-ups",
+        "body": "An account is waiting for staff to approve it."
       }
     }
   },

@@ -1,5 +1,10 @@
 const RATE_LIMITED = "rate_limited";
 export const RATE_LIMITED_DIGEST = "sermo.rate_limited";
+export const APPROVAL_PENDING_DIGEST = "sermo.approval_pending";
+// The issue path of the refusal an account waiting for approval gets: the contracts'
+// APPROVAL_PENDING_PATH, written out because this file reaches the browser and the contracts
+// must not (a test holds the two equal).
+export const APPROVAL_ISSUE_PATH = "approval";
 
 export type SermoIssue = { path?: unknown; message?: string };
 
@@ -23,6 +28,14 @@ export class SermoError extends Error {
     this.status = status;
     this.issues = issues;
     if (code === RATE_LIMITED) this.digest = RATE_LIMITED_DIGEST;
+    else if (
+      code === "forbidden" &&
+      issues?.some(
+        (issue) =>
+          Array.isArray(issue.path) && issue.path[0] === APPROVAL_ISSUE_PATH,
+      )
+    )
+      this.digest = APPROVAL_PENDING_DIGEST;
   }
 }
 
