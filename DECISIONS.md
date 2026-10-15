@@ -2219,3 +2219,19 @@ MCP endpoint, the Atom feed and the sitemap. It is not an operation (no contract
 is documented in the OpenAPI document like `robots.txt`. The ingress's `/*.txt` rule reaches it; a
 deployment that sends every path to the web app needs a rule for it, as for `robots.txt`. Not
 built: `llms-full.txt`, browser tools.
+
+**One rule builder.** Promotions, awards, notices and shop categories and items edit their rule with
+one component (`components/staff/rule-builder.tsx`, drawn by `RuleField` for a place). The rule
+travels in one JSON field read with the shared `CriteriaRule` schema; conditions are never merged,
+and one the builder cannot draw is saved back unchanged. Notices and the shop are offered only
+`cheap` criteria. An empty rule reads "Everyone" (awards: manual only; a promotion asks for a
+condition). The criteria and the groups a rule may name come from one read, `criteria.list`, open
+to holders of admin.promotions, admin.awards, admin.shop or admin.announcements, so each editor
+needs only its own place's permission; `promotions.criteria` and `awards.criteria` stay for external
+clients. The builder is keyed by place, record and rule, so choosing another record on the same
+page never posts the last draft. The limits (20 conditions, numbers up to 1,000,000,000, 500 ids)
+are exported by the contract and shown inline. Member, group and shop-item picking is one
+`IdPicker`, shared with the conversation recipient picker. A stored rule naming a deleted group is
+refused by name until its chip is removed. Known limits: the shop-item picker lists the first 100
+items per category (no shop-wide item search yet); new-record forms on list pages keep the last
+draft, like their other fields.
