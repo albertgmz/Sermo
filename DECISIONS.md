@@ -2491,3 +2491,23 @@ the listed types for the rules that use them, which grows with a member's reacti
 Known limits: no alert for a member whose sign-ins were all purged; two simultaneous first
 sign-ins from a new browser can each send a mail; staff IP views do not show the place; the
 MaxMind adapter has not been tried with a real database file.
+
+**Home tab per member (item 14).** Five tabs in a fixed order: Latest, Hot, Following (members
+only), Forums (the forum list, the same component as `/forums`, which is unchanged) and Media.
+Every tab has a stable `/?tab=` address. With no tab in the address the member's own choice
+(`users.home_tab`) applies, else the site setting `homeTab` (ordered `{ rule, tab }` entries of
+the shared criteria engine, cheap criteria only, plus a fallback; first match wins; Settings, Home
+page). The backend decides: `auth.me` carries the stored choice (`homeTab`) and the decided tab
+(`openHomeTab`), so a member's home page makes no extra request; guests are decided by the same
+rules (`site.homeTab`, cached with the site, Latest if it cannot be read). Following needs an
+account: a rule a guest can meet and the fallback cannot pick it (refused at save), and a guest
+asking for `?tab=following` gets Latest, not a sign-in prompt. The bar shows three tabs: the
+default plus the first tabs of the fixed order that are not it, drawn in the fixed order, with the
+open tab always shown in place of the last non-default one; the rest are in a More menu (not in
+the HTML without JavaScript). No per-member pin editing. The wall composer and Featured card show
+on the feed tabs only. The `top` alias of `hot` is gone. `media.list` walks the attachments of
+posts and wall posts newest first through the new index `attachments_type_id`, at most 400
+examined per request (a page can be short and still carry a cursor), with the feed's visibility
+checks plus `forum.viewAttachments`; conversation attachments are never listed. Thumbnails load
+lazily behind the LITE gate (`LazyArt`); a file with no thumbnail shows an icon. Migration `0045`:
+`users.home_tab` and the index. Known gaps: the static LITE category scan does not know `LazyArt`.
