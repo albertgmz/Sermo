@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { expectNoTableScan } from "@sermo/core/testing";
+import { expectNoTableScan, insertNode } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
-import { ForbiddenError, NotFoundError } from "../../errors";
+import { invalidate } from "../../context";
+import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { PERMISSIONS } from "../../permissions";
 import { fillPosts, type World, world } from "../feed/fixtures.test";
 import { forumSql, ownThreadSql } from "../forums";
@@ -405,5 +406,34 @@ describe("the other doors, second round", () => {
     expect(JSON.stringify(seoForThread(w.ctx, GUEST, theirs.thread.id).jsonLd)).toContain(
       "Bob public text",
     );
+  });
+});
+
+describe("quoting", () => {
+  const quote = (postId: number, memberId: number) =>
+    `[QUOTE="Bob, post: ${postId}, member: ${memberId}"]text[/QUOTE] answer`;
+
+  test("a post of a thread the writer cannot open, or whose text is closed to them, is not quoted", async () => {
+    const w = world();
+    const theirs = await w.thread(w.bob, w.open.id, "Theirs", "Bob text");
+    // The writer's own thread is in another forum, open to them.
+    const elsewhere = insertNode(w.ctx, { parentId: w.category.id });
+    invalidate(w.ctx, "node_tree");
+    const mine = await w.thread(w.alice, elsewhere.id, "Mine", "Alice text");
+    const reply = (actor: Parameters<typeof w.reply>[0]) =>
+      w.reply(actor, mine.thread.id, quote(theirs.post.id, w.bobUser.id));
+    await reply(w.alice);
+
+    close(w, "forum.viewContent");
+    await expect(reply(w.alice)).rejects.toThrow(ValidationError);
+    // Staff keep the forum, and so may quote.
+    await reply(w.mod);
+
+    setEntry(w.ctx, MEMBERS, "forum.viewContent", 1, w.open.id);
+    setEntry(w.ctx, GUESTS, "forum.viewContent", 1, w.open.id);
+    await reply(w.alice);
+    close(w, "forum.viewOthers");
+    await expect(reply(w.alice)).rejects.toThrow(ValidationError);
+    await reply(w.mod);
   });
 });

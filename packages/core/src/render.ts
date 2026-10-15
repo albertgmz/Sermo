@@ -10,6 +10,7 @@ import { build, type El } from "./bbcode/tree";
 import { type Ctx, prepared } from "./context";
 import { ValidationError } from "./errors";
 import { MAX_BODY_LENGTH } from "./limits";
+import { readGates } from "./modules/forums/read-gates";
 import {
   can,
   memberActor,
@@ -385,6 +386,9 @@ function renderOnce(
       (state === "moderated"
         ? ownerId === editorId || can(ctx, actor, "forum.viewModerated", { nodeId })
         : can(ctx, actor, "forum.viewDeleted", { nodeId }));
+    // A thread other members started, and a post whose text is closed, may be closed to the
+    // writer in its forum: quoting one would tell them it exists.
+    const gates = readGates(ctx, actor);
     // A post is checked once, however many times it is quoted.
     const checked = new Set<number>();
     for (const el of tree.quotes) {
@@ -396,7 +400,9 @@ function renderOnce(
           !previous.quotes.has(row.id) &&
           (!can(ctx, actor, "node.view", { nodeId: row.node_id }) ||
             !visible(row.thread_state, row.thread_user_id, row.node_id) ||
-            !visible(row.post_state, row.user_id, row.node_id))
+            !visible(row.post_state, row.user_id, row.node_id) ||
+            !gates.opens(row.node_id, row.thread_user_id) ||
+            !gates.reads(row.node_id, row.user_id))
         ) {
           throw new ValidationError("The quoted post is not visible.");
         }
