@@ -22,6 +22,7 @@ import awards from "../../messages/en/awards.json";
 import conversations from "../../messages/en/conversations.json";
 import cookies from "../../messages/en/cookies.json";
 import credits from "../../messages/en/credits.json";
+import developer from "../../messages/en/developer.json";
 import editor from "../../messages/en/editor.json";
 import forum from "../../messages/en/forum.json";
 import forums from "../../messages/en/forums.json";
@@ -56,6 +57,7 @@ export const messages = {
   conversations,
   cookies,
   credits,
+  developer,
   editor,
   forum,
   forums,
@@ -94,6 +96,7 @@ const FILES: Record<keyof Messages, string> = {
   conversations: "conversations",
   cookies: "cookies",
   credits: "credits",
+  developer: "developer",
   editor: "editor",
   forum: "forum",
   forums: "forums",

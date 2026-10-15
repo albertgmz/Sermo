@@ -1,0 +1,32 @@
+{
+  "page": {
+    "metaTitle": "Referencia de la API",
+    "metaDescription": "Consulta todas las operaciones de la API REST del foro, lo que piden y lo que responden, y pruébalas desde la página.",
+    "title": "Referencia de la API",
+    "aria": {
+      "loading": "Cargando la página…"
+    }
+  },
+  "intro": {
+    "lead": "Todo lo que hace este sitio pasa por una única API REST, y puedes llamarla desde tus propias herramientas. La referencia de abajo se genera a partir de la especificación en vivo y te deja probar cada operación.",
+    "specLink": "Descargar la especificación OpenAPI",
+    "authHeading": "Iniciar sesión",
+    "authSession": "Con la sesión iniciada, Try it out actúa como tú, con tu sesión. Sin iniciarla, actúa como invitado.",
+    "authKey": "Para llamar a la API desde tus propios scripts y herramientas, usa una clave de API y envíala como token Bearer: <code>Authorization: Bearer tu-clave</code>. En la referencia, pulsa Authorize y pega la clave para probar las operaciones con ella. La página guarda la clave solo en memoria y la olvida al salir o recargar.",
+    "createKey": "Crea una clave con la sesión iniciada, con la operación Create API key (<code>POST /api/auth/api-key/create</code>, en Api-key). Su cuerpo pide además tu contraseña actual en <code>password</code>. La clave se muestra una sola vez, así que cópiala entonces y trátala como una contraseña: actúa como tú.",
+    "keysHeading": "Lo que una clave no puede hacer",
+    "keysAccess": "Una clave puede hacer lo que puede su propietario, salvo lo que sigue.",
+    "keysManage": "No puede crear, listar ni revocar claves, cambiar la contraseña, el correo ni el nombre de usuario, ni abrir una sesión.",
+    "keysPassword": "Se rechaza en toda operación que pida tu contraseña, como cambiar grupos, permisos, moderadores y promociones, o borrar a un miembro. Esas necesitan una sesión iniciada.",
+    "keysEnd": "Una clave deja de funcionar cuando su propietario es expulsado o borrado, cuando caduca y cuando el propietario cambia o restablece su contraseña.",
+    "limitsHeading": "Límites y rechazos",
+    "limitsRate": "Las peticiones tienen un límite por minuto, y las lecturas, las escrituras y las búsquedas se cuentan por separado. Pasado un límite, la API responde 429 con una cabecera Retry-After.",
+    "limitsStaff": "También se listan las operaciones que solo puede usar el personal. Si no has iniciado sesión la API responde 401, si te falta el permiso responde 403, y si lo que pides está oculto para ti responde 404."
+  },
+  "apiReference": {
+    "region": "Operaciones de la API",
+    "loading": "Cargando la referencia…",
+    "failed": "No se pudo cargar la referencia.",
+    "retry": "Reintentar"
+  }
+}

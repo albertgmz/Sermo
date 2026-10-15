@@ -425,6 +425,19 @@ test("either session cookie counts as having a session", async () => {
   }
 });
 
+test("the developer page is open to a guest and to a member, in the visitor's language, with no backend read", async () => {
+  reset();
+  const asked = backend({});
+  passes(await ask("/developer"), "http://localhost/en/developer");
+  passes(
+    await ask("/developer", { headers: { "accept-language": "es" } }),
+    "http://localhost/es/developer",
+  );
+  passes(await ask("/developer", { cookie: SESSION }));
+  assert.equal(asked.length, 0);
+  assert.equal(state.viewerAsked, 0);
+});
+
 test("a page request carries the path and query in x-sermo-path", async () => {
   reset();
   const response = await ask("/forums?page=2");

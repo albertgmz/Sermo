@@ -56,6 +56,11 @@
       "maxBytes": 467000
     },
     {
+      "name": "developer",
+      "match": "^/\\[locale\\]/\\(main\\)/developer$",
+      "maxBytes": 358000
+    },
+    {
       "name": "other",
       "match": "^/\\[locale\\]/\\(main\\)/",
       "maxBytes": 313000

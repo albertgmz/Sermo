@@ -1,0 +1,25 @@
+/*
+ * The reference draws itself with Swagger UI's own stylesheet (swagger-ui-dist, bundled with the
+ * site) and its own dark look, which api-reference.tsx switches on with `html.dark-mode` while the
+ * site is dark. Only the seams with the site are set here: the page behind it, the surface it sits
+ * on, and the width it needs at 360px. Colours come from the site's tokens.
+ */
+html.dark-mode.dark {
+  background: var(--background);
+}
+
+.developer-reference .swagger-ui,
+html.dark-mode .developer-reference .swagger-ui {
+  background: transparent;
+}
+
+.developer-reference .swagger-ui .wrapper {
+  max-width: none;
+  padding-inline: 0.75rem;
+}
+
+@media (width >= 48rem) {
+  .developer-reference .swagger-ui .wrapper {
+    padding-inline: 1.25rem;
+  }
+}
