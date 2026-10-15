@@ -35,7 +35,7 @@ export function queueAccountEmail(ctx: Ctx, job: AccountJob, uniqueKey?: string)
 }
 
 const escapeRegExp = (text: string) =>
-  text.replace(/[.*+?^${}()|[]\]/g, "export function registerAccountEmailJobs(");
+  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export function registerAccountEmailJobs(ctx: Ctx): void {
   // The member of a rejected sign-up was erased: the job must not keep their address once it is

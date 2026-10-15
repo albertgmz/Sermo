@@ -123,6 +123,21 @@ describe("the rejection mail job", () => {
     ).toBe(0);
   });
 
+  test("an address with characters a pattern treats specially is cut out as well", async () => {
+    const w = await queueWorld({ mail: true });
+    const newcomer = await w.join("Newcomer");
+    w.confirm(newcomer.id);
+    w.ctx.sqlite
+      .prepare("UPDATE auth_user SET email = 'news+spam.(x)@example.test' WHERE id = ?1")
+      .run(newcomer.id);
+    accountMailState(w.ctx)!.mailer.send = async () => {
+      throw new Error("421 try later for news+spam.(x)@example.test");
+    };
+    await w.run("signups.decide", w.founder.actor, { userIds: [newcomer.id], decision: "reject" });
+    await runDueJobs(w.ctx);
+    expect(job(w).last_error ?? "").not.toMatch(/example\.test/i);
+  });
+
   test("an address the mailer cannot deliver to leaves the job at once, unsent", async () => {
     const w = await queueWorld({ mail: true });
     const other = await w.join("Other");
