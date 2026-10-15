@@ -13,7 +13,7 @@ mock.module("next/headers", () => ({
 }));
 
 const { ShortcutsGate } = await import("./shortcuts-gate");
-const { ShortcutsProvider } = await import("./shortcuts-provider");
+const { LazyShortcuts } = await import("./shortcuts-lazy");
 
 function backend(body: unknown) {
   globalThis.fetch = (async () =>
@@ -22,7 +22,7 @@ function backend(body: unknown) {
 
 async function enabled() {
   const element = await ShortcutsGate();
-  expect(element.type).toBe(ShortcutsProvider);
+  expect(element.type).toBe(LazyShortcuts);
   return (element.props as { enabled: boolean }).enabled;
 }
 
