@@ -11,7 +11,11 @@ import { replyFromFeed } from "@/app/[locale]/(main)/actions";
 import { commentOnWallPost } from "@/app/[locale]/(main)/members/actions";
 import { LineComposer } from "@/components/forum/line-composer";
 import { PictureImage } from "@/components/forum/picture-image";
-import { arrowStep, swipeStep } from "@/components/forum/picture-input";
+import {
+  arrowStep,
+  closeAnswer,
+  swipeStep,
+} from "@/components/forum/picture-input";
 import {
   formatRef,
   neighbours,
@@ -102,17 +106,14 @@ export default function PictureLightbox({
       open
       onOpenChange={(open, details) => {
         if (open) return;
-        // Esc belongs to what is open on top of the viewer first (the mention list, the reaction
-        // picker, who reacted): that closes, the viewer stays.
-        if (
-          details.reason === "escape-key" &&
-          (details.event.defaultPrevented ||
-            document.querySelector('[data-slot="popover-content"][data-open]'))
-        ) {
-          details.cancel();
-          return;
-        }
-        onClose();
+        const answer = closeAnswer(
+          details.reason,
+          details.event.defaultPrevented,
+          document.querySelector('[data-slot="popover-content"][data-open]') !==
+            null,
+        );
+        if (answer === "keep") details.cancel();
+        else onClose();
       }}
     >
       <DialogPrimitive.Portal>

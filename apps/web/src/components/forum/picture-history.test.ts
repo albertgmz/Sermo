@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { pictureHistory } from "./picture-history";
-import { arrowStep, SWIPE_PX, swipeStep } from "./picture-input";
+import { arrowStep, closeAnswer, SWIPE_PX, swipeStep } from "./picture-input";
 
 // A browser's history reduced to what the viewer uses: a stack of addresses and a place in it.
 function browser(start: string) {
@@ -98,4 +98,15 @@ test("a swipe steps when it is long enough and more across than down", () => {
   expect(swipeStep(SWIPE_PX - 1, 0)).toBeNull();
   // A scroll that drifted sideways is not a swipe.
   expect(swipeStep(-60, 60)).toBeNull();
+});
+
+test("only the close button, and Esc with nothing on top, close the viewer", () => {
+  expect(closeAnswer("close-press", false, false)).toBe("close");
+  expect(closeAnswer("escape-key", false, false)).toBe("close");
+  // Esc meant for a mention list that handled it, or for an open reaction picker or list.
+  expect(closeAnswer("escape-key", true, false)).toBe("keep");
+  expect(closeAnswer("escape-key", false, true)).toBe("keep");
+  // A press or focus in a popup drawn outside the viewer never closes it.
+  expect(closeAnswer("outside-press", false, false)).toBe("keep");
+  expect(closeAnswer("focus-out", false, false)).toBe("keep");
 });
