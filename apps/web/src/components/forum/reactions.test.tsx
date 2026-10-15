@@ -185,3 +185,24 @@ test("the summary alone shows the number where there is no button, and nothing w
   expect(render(9, none, 7, picker, "summary")).toBe("");
   expect(render(7, some, 7, picker, "button")).toBe("");
 });
+
+test("a tap on the button names the first reaction the viewer may give, not a locked one", () => {
+  const locked = {
+    ...picker[0],
+    locked: "Unlocks with: Post count: 500 or more",
+  };
+  const html = render(9, none, 7, [locked, picker[1]], "button");
+  expect(html).toContain('aria-label="Love, 0 reactions"');
+  expect(html).not.toContain('aria-label="Like, 0 reactions"');
+});
+
+test("when every reaction is locked the button is still drawn, to open the picker", () => {
+  const html = render(
+    9,
+    none,
+    7,
+    picker.map((type) => ({ ...type, locked: "Locked" })),
+    "button",
+  );
+  expect(html).toContain("Choose a reaction");
+});

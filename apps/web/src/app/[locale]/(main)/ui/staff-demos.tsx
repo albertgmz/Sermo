@@ -9,6 +9,7 @@ import type { Criterion } from "@/components/staff/criteria-rule";
 import { CursorList } from "@/components/staff/cursor-list";
 import { findThreads } from "@/components/staff/find-threads";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { ForumPicker } from "@/components/staff/forum-picker";
 import { LogTable } from "@/components/staff/log-table";
 import { Notice } from "@/components/staff/notice";
 import {
@@ -373,6 +374,25 @@ export function StaffDemos() {
               />
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">Forum picker</h3>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          Chooses forums by name for an administration form (the list is held in
+          the page). The ids travel in one field named <code>forumIds</code>,
+          comma-separated, empty when none is chosen.
+        </p>
+        <div className="max-w-md rounded-lg border bg-card p-4">
+          <ForumPicker
+            choices={[
+              { id: 1, label: "Support" },
+              { id: 2, label: "— Bug reports" },
+              { id: 3, label: "Lounge" },
+            ]}
+            chosen={[1]}
+          />
         </div>
       </div>
 

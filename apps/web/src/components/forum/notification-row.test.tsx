@@ -60,3 +60,59 @@ test("an alert shows the text of its announcement under the title", () => {
   expect(html).toContain("Maintenance");
   expect(html).toContain("Tonight at ten");
 });
+
+const reaction = {
+  id: 2,
+  type: "content.reaction",
+  contentType: "post",
+  actors: [],
+  actorCount: 0,
+  contentTitle: "Welcome",
+  data: { reactionTypeId: 4 },
+  createdAt: "2026-01-01T00:00:00.000Z",
+  read: false,
+};
+const member = (id: number) => ({ id, username: "x" }) as never;
+
+test("a reaction alert names the reaction type that was given", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <NotificationRow
+        item={reaction}
+        href="/threads/1"
+        emoji="👑"
+        reaction="Crown"
+        member={member}
+      />,
+    ),
+  );
+  expect(html).toContain("gave your post the Crown reaction 👑 in “Welcome”");
+});
+
+test("a reaction alert whose type is gone says a reaction", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <NotificationRow item={reaction} href="/threads/1" member={member} />,
+    ),
+  );
+  expect(html).toContain("gave your post a reaction");
+});
+
+test("the alert reads the same in Spanish", async () => {
+  const { IntlProvider } = await import("use-intl");
+  const es = (await import("../../../messages/es/notifications.json")).default;
+  const html = renderToStaticMarkup(
+    <IntlProvider locale="es" messages={{ notifications: es }} timeZone="UTC">
+      <NotificationRow
+        item={reaction}
+        href="/threads/1"
+        emoji="👑"
+        reaction="Corona"
+        member={member}
+      />
+    </IntlProvider>,
+  );
+  expect(html).toContain(
+    "dio a tu mensaje la reacción «Corona» 👑 en «Welcome»",
+  );
+});

@@ -243,7 +243,9 @@ export async function Wall({
     ...(viewer.user ? [viewer.user] : []),
   ]);
   const viewerId = viewer.user?.id ?? null;
-  const picker = viewer.permissions.canReact ? pickerTypes(reactionTypes) : [];
+  const picker = viewer.permissions.canReact
+    ? pickerTypes(reactionTypes, null)
+    : [];
   const returnTo = wallHref(profile.id, { cursor });
 
   return (

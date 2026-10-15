@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Heart } from "lucide-react";
+import { ChevronDown, Heart, Lock } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -33,6 +33,9 @@ export type ReactionType = {
   emoji: string;
   // Null when the type has no picture or LITE blocks it: the emoji is drawn.
   picture: ReactionPictureData | null;
+  // Set when the viewer may not give it yet: why, in words. The picker shows it greyed with a
+  // padlock; it cannot be chosen. The backend refuses it as well.
+  locked?: string;
 };
 
 const HOVER_OPEN_MS = 350;
@@ -96,6 +99,8 @@ export function ReactionButton(props: {
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const [open, setOpen] = useState(false);
+  // The locked reaction pressed last, and why it is locked: touch has no hover to show it.
+  const [lockedNote, setLockedNote] = useState<ReactionType>();
   const [placement, setPlacement] = useState<PickerPlacement>();
   const anchor = useRef<HTMLSpanElement>(null);
   const picker = useRef<HTMLDivElement>(null);
@@ -131,6 +136,8 @@ export function ReactionButton(props: {
     SIZES[size],
   );
   const active = types.find((type) => type.id === current);
+  // A tap on the button gives the first reaction the viewer may give.
+  const first = types.find((type) => type.locked === undefined);
   const count =
     total - Number(viewerTypeId !== null) + Number(current !== null);
   const content = (
@@ -172,6 +179,7 @@ export function ReactionButton(props: {
         }),
       );
     }
+    if (!next) setLockedNote(undefined);
     setOpen(next);
   }
 
@@ -238,14 +246,16 @@ export function ReactionButton(props: {
           type="button"
           aria-pressed={current !== null}
           aria-label={t("aria.state", {
-            label: (active ?? types[0]).label,
+            label: (active ?? first ?? types[0]).label,
             count,
           })}
           className={buttonClass}
           {...gesture.handlers}
           onClick={() => {
             if (gesture.consumeSwallowedClick()) return;
-            choose(current === null ? types[0].id : null);
+            if (current !== null) choose(null);
+            else if (first) choose(first.id);
+            else show(true);
           }}
         >
           {content}
@@ -275,37 +285,69 @@ export function ReactionButton(props: {
         className={PICKER_CLASS}
         {...hover}
       >
-        {types.map((type) => (
-          <button
-            key={type.id}
-            type="button"
-            title={type.label}
-            aria-label={type.label}
-            aria-pressed={type.id === current}
-            data-reaction-id={type.id}
-            data-hovered={type.id === gesture.hover}
-            onClick={() => choose(type.id === current ? null : type.id)}
-            className="group relative flex size-10 select-none items-center justify-center rounded-full text-xl leading-none aria-pressed:bg-muted"
-          >
-            <span className="flex transition-transform group-hover:scale-125 group-focus-visible:scale-125 group-data-[hovered=true]:-translate-y-1 group-data-[hovered=true]:scale-150">
-              <ReactionPicture emoji={type.emoji} picture={type.picture} />
-            </span>
-            {type.id === gesture.hover && (
-              // Zero wide and centred on the reaction; the label is pulled back inside the screen.
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute bottom-full left-1/2 mb-2 flex w-0 justify-center"
-              >
-                <span
-                  ref={keepInViewport}
-                  className="whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-xs leading-normal text-background"
-                >
-                  {type.label}
-                </span>
+        {types.map((type) =>
+          type.locked !== undefined ? (
+            <button
+              key={type.id}
+              type="button"
+              title={`${type.label}: ${type.locked}`}
+              aria-label={t("aria.locked", {
+                label: type.label,
+                hint: type.locked,
+              })}
+              aria-disabled="true"
+              onClick={() => setLockedNote(type)}
+              onFocus={() => setLockedNote(type)}
+              className="relative flex size-10 select-none items-center justify-center rounded-full text-xl leading-none"
+            >
+              <span className="flex opacity-40 grayscale">
+                <ReactionPicture emoji={type.emoji} picture={type.picture} />
               </span>
-            )}
-          </button>
-        ))}
+              <Lock
+                aria-hidden="true"
+                className="absolute bottom-1 right-1 size-3.5 text-foreground"
+              />
+            </button>
+          ) : (
+            <button
+              key={type.id}
+              type="button"
+              title={type.label}
+              aria-label={type.label}
+              aria-pressed={type.id === current}
+              data-reaction-id={type.id}
+              data-hovered={type.id === gesture.hover}
+              onClick={() => choose(type.id === current ? null : type.id)}
+              className="group relative flex size-10 select-none items-center justify-center rounded-full text-xl leading-none aria-pressed:bg-muted"
+            >
+              <span className="flex transition-transform group-hover:scale-125 group-focus-visible:scale-125 group-data-[hovered=true]:-translate-y-1 group-data-[hovered=true]:scale-150">
+                <ReactionPicture emoji={type.emoji} picture={type.picture} />
+              </span>
+              {type.id === gesture.hover && (
+                // Zero wide and centred on the reaction; the label is pulled back inside the screen.
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute bottom-full left-1/2 mb-2 flex w-0 justify-center"
+                >
+                  <span
+                    ref={keepInViewport}
+                    className="whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-xs leading-normal text-background"
+                  >
+                    {type.label}
+                  </span>
+                </span>
+              )}
+            </button>
+          ),
+        )}
+        {lockedNote && (
+          <p
+            role="status"
+            className="basis-full px-3 pb-1 pt-0.5 text-xs text-muted-foreground"
+          >
+            {lockedNote.label}: {lockedNote.locked}
+          </p>
+        )}
       </PopoverContent>
     </Popover>
   );

@@ -30,6 +30,7 @@ export const PLACES = {
   notice: { cheapOnly: true, empty: "everyone" },
   shopCategory: { cheapOnly: true, empty: "everyone" },
   shopItem: { cheapOnly: true, empty: "everyone" },
+  reactionType: { cheapOnly: true, empty: "everyone" },
 } as const;
 export type Place = keyof typeof PLACES;
 

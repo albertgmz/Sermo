@@ -167,6 +167,13 @@
     "emptyTitle": "No hay nada aquí",
     "emptyDescription": "No hay nada que listar."
   },
+  "forumPicker": {
+    "chosen": "Foros elegidos",
+    "search": "Buscar foros",
+    "placeholder": "Escribe el nombre de un foro…",
+    "noMatch": "Ningún foro coincide.",
+    "remove": "Quitar {name}"
+  },
   "formRows": {
     "save": "Guardar cambios",
     "saving": "Guardando…"
@@ -177,14 +184,16 @@
       "award": "Se concede automáticamente cuando",
       "notice": "Se muestra a",
       "shopCategory": "Disponible para",
-      "shopItem": "Disponible para"
+      "shopItem": "Disponible para",
+      "reactionType": "Quién puede usarla"
     },
     "help": {
       "promotion": "Los grupos de abajo se añaden mientras se cumplen las condiciones y se quitan cuando dejan de cumplirse.",
       "award": "Déjalo vacío para un trofeo que solo se concede a mano. Un trofeo concedido automáticamente nunca se retira, y no se vuelve a conceder tras una revocación.",
       "notice": "Los invitados son los visitantes que no han iniciado sesión; los miembros son todos los demás. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
       "shopCategory": "Quién ve esta categoría y sus artículos. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
-      "shopItem": "Quién ve y puede comprar este artículo, además del público de su categoría. Solo se ofrecen condiciones que se pueden comprobar en cada página."
+      "shopItem": "Quién ve y puede comprar este artículo, además del público de su categoría. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
+      "reactionType": "Los miembros que no cumplan las condiciones no pueden dar esta reacción; la que dieron antes se mantiene y sigue contando. Solo se ofrecen condiciones que se pueden comprobar en cada reacción."
     },
     "match": {
       "legend": "Cómo se combinan las condiciones",

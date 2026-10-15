@@ -320,7 +320,9 @@ async function ThreadPosts({
     ...posts.map((post) => post.author),
     ...(user ? [user] : []),
   ]);
-  const picker = permissions.canReact ? pickerTypes(reactionTypes) : [];
+  const picker = permissions.canReact
+    ? pickerTypes(reactionTypes, thread.node.id)
+    : [];
   // One signature per member on the page: under their first post.
   const seen = new Set<number>();
   const firstOfAuthor = new Set(

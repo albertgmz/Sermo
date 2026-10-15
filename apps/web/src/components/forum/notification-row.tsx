@@ -52,12 +52,15 @@ export function NotificationRow({
   item,
   href,
   emoji = "",
+  reaction = "",
   member,
   size = "md",
 }: {
   item: NotificationItem;
   href: string;
   emoji?: string;
+  // The title of the reaction a reaction notification is about.
+  reaction?: string;
   member: (id: number) => MemberView;
   size?: "md" | "lg";
 }) {
@@ -114,6 +117,8 @@ export function NotificationRow({
             title: item.contentTitle ?? "",
             kind: item.contentType,
             emoji,
+            named: reaction ? "yes" : "no",
+            reaction,
             action: text(item.data.action),
             state: text(item.data.state),
           })}

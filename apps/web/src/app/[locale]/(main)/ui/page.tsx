@@ -149,6 +149,7 @@ import {
   LEVEL_HALF,
   LEVEL_NEW,
   LEVEL_START,
+  LOCKED_REACTION_TYPES,
   MEMBER,
   MEMBERS,
   MODERATOR,
@@ -898,6 +899,11 @@ export default async function StyleguidePage() {
               own
             />
             <ReactionDemo types={REACTION_TYPES} others={0} summary={null} />
+            <ReactionDemo
+              types={LOCKED_REACTION_TYPES}
+              others={0}
+              summary={null}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xl">
             {[REACTION_TYPES[0], ...pictureTypes].map((type) => (
@@ -931,7 +937,9 @@ export default async function StyleguidePage() {
             reaction can carry a picture instead of its emoji: a plain image is
             drawn whole, a sprite sheet steps through its frames (still with
             reduced motion), and where the Data saver blocks the category the
-            emoji is drawn.
+            emoji is drawn. A reaction the member has not unlocked (the last
+            demo above) is greyed with a padlock and cannot be chosen; pressing
+            it says what unlocks it.
           </p>
         </Section>
 
@@ -1605,12 +1613,13 @@ export default async function StyleguidePage() {
           </p>
           <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
             <ul className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
-              {NOTIFICATIONS.map(({ item, href, emoji }, index) => (
+              {NOTIFICATIONS.map(({ item, href, emoji, reaction }, index) => (
                 <li key={item.id}>
                   <NotificationRow
                     item={item}
                     href={href}
                     emoji={emoji}
+                    reaction={reaction}
                     member={memberOf}
                     size={index > 0 ? "lg" : "md"}
                   />
@@ -1676,12 +1685,13 @@ export default async function StyleguidePage() {
             className={headerIconClass}
           >
             <ul className="max-h-96 divide-y divide-border overflow-y-auto">
-              {NOTIFICATIONS.map(({ item, href, emoji }) => (
+              {NOTIFICATIONS.map(({ item, href, emoji, reaction }) => (
                 <li key={item.id}>
                   <NotificationRow
                     item={item}
                     href={href}
                     emoji={emoji}
+                    reaction={reaction}
                     member={memberOf}
                   />
                 </li>

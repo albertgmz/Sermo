@@ -1,4 +1,4 @@
-import { reactionTypesList } from "@sermo/core/contracts";
+import { nodesList, reactionTypesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { ReactionPicture } from "@/components/forum/reaction-picture";
 import { ConfirmStep } from "@/components/staff/confirm-step";
@@ -10,12 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { asType, withoutBlockedPictures } from "@/lib/sermo/reactions";
+import { AccessFields } from "./access-fields";
 import {
   createReactionType,
   saveReactionOrder,
   setReactionTypeActive,
 } from "./actions";
-
 import { ReactionRowForm } from "./row-form";
 
 // Every reaction type in the backend's display order, then the order form and the form for a new
@@ -25,10 +25,18 @@ export async function ReactionList({
 }: {
   searchParams: Promise<{ notice?: string | string[] }>;
 }) {
-  const [t, { items }] = await Promise.all([
+  const [t, { items }, { items: nodes }] = await Promise.all([
     getTranslations("adminContent.reactions"),
     read(reactionTypesList, {}),
+    read(nodesList, {}),
   ]);
+  // Only forums hold posts, so only forums can be chosen.
+  const forums = nodes
+    .filter((node) => node.type === "forum")
+    .map((node) => ({
+      id: node.id,
+      label: `${"— ".repeat(node.depth)}${node.title}`,
+    }));
   // What a visitor would see: a picture LITE blocks is the emoji here too.
   const shown = (await withoutBlockedPictures(items)).map(asType);
   const lastPosition = items.reduce(
@@ -68,6 +76,14 @@ export async function ReactionList({
                 title={item.title}
                 score={item.score}
                 frames={item.frames && { ...item.frames }}
+                access={
+                  <AccessFields
+                    idPrefix={`reaction-${item.id}`}
+                    owner={item.id}
+                    type={item}
+                    forums={forums}
+                  />
+                }
                 current={
                   item.image ? (
                     <ReactionPicture
@@ -202,6 +218,7 @@ export async function ReactionList({
             min={1}
           />
         </FieldRow>
+        <AccessFields idPrefix="new" forums={forums} />
         <FieldRow
           name="score"
           label={t("create.score")}

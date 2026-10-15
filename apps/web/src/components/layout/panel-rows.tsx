@@ -51,12 +51,13 @@ export function AlertRows({
   const t = useTranslations("layout.headerPanels.alerts");
   return notifications.length > 0 ? (
     <ul className={listClass}>
-      {notifications.map(({ item, href, emoji }) => (
+      {notifications.map(({ item, href, emoji, reaction }) => (
         <li key={item.id}>
           <NotificationRow
             item={item}
             href={href}
             emoji={emoji}
+            reaction={reaction}
             member={member}
           />
         </li>

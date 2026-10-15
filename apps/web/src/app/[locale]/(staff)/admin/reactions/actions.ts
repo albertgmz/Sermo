@@ -7,12 +7,15 @@ import {
 } from "@sermo/core/contracts";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import type { Rule } from "@/components/staff/criteria-rule";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import {
   formFailure,
   type OrderChange,
+  ruleOf,
+  ruleRefusal,
   saveInOrder,
   text,
   whole,
@@ -27,6 +30,8 @@ const FIELDS = [
   "frameWidth",
   "frameHeight",
   "frameCount",
+  "rule",
+  "forumIds",
 ];
 
 const FRAME_FIELDS = ["frameWidth", "frameHeight", "frameCount"] as const;
@@ -50,6 +55,40 @@ function optionalWhole(raw: string): number | null | undefined {
   return raw.trim() === "" ? undefined : whole(raw);
 }
 
+// Who may give the type and where, from the rows of `AccessFields`: the rule, the forums
+// (comma-separated ids, empty for everywhere) and what excluded members see. A form that does not
+// carry a row leaves that part unsent, so the backend keeps (or defaults) it.
+async function accessFields(formData: FormData): Promise<
+  | {
+      rule?: Rule;
+      forumIds?: number[];
+      hideWhenLocked?: boolean;
+    }
+  | { refused: StaffFormState }
+> {
+  const access: { rule?: Rule; forumIds?: number[]; hideWhenLocked?: boolean } =
+    {};
+  if (formData.has("rule")) {
+    const rule = ruleOf(formData);
+    if (rule === null) return { refused: await ruleRefusal(formData) };
+    access.rule = rule;
+  }
+  if (formData.has("forumIds")) {
+    const t = await getTranslations("adminContent.errors");
+    const ids = text(formData, "forumIds")
+      .split(",")
+      .map((raw) => raw.trim())
+      .filter((raw) => raw !== "")
+      .map(parseId);
+    if (ids.includes(null))
+      return { refused: { fields: { forumIds: t("id") } } };
+    access.forumIds = ids as number[];
+  }
+  if (formData.has("hideWhenLocked"))
+    access.hideWhenLocked = text(formData, "hideWhenLocked") === "1";
+  return access;
+}
+
 export async function createReactionType(
   _previous: StaffFormState,
   formData: FormData,
@@ -65,8 +104,11 @@ export async function createReactionType(
   for (const name of FRAME_FIELDS)
     if (picture[name] === null) fields[name] = t("number");
   if (Object.keys(fields).length > 0) return { fields };
+  const access = await accessFields(formData);
+  if ("refused" in access) return access.refused;
   try {
     await call(reactionTypesCreate, {
+      ...access,
       fileId: picture.fileId ?? undefined,
       frameWidth: picture.frameWidth ?? undefined,
       frameHeight: picture.frameHeight ?? undefined,
@@ -98,6 +140,8 @@ export async function updateReactionType(
   for (const name of FRAME_FIELDS)
     if (picture[name] === null) fields[name] = t("number");
   if (Object.keys(fields).length > 0) return { fields };
+  const access = await accessFields(formData);
+  if ("refused" in access) return access.refused;
   // A new file replaces the picture; the remove control takes it away, frames included.
   const file =
     picture.fileId != null
@@ -119,6 +163,7 @@ export async function updateReactionType(
       emoji: text(formData, "emoji"),
       title: text(formData, "title"),
       score,
+      ...access,
       ...file,
       ...frames,
     });

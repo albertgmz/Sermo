@@ -1,6 +1,7 @@
 import "server-only";
 
 import { reactionTypesList } from "@sermo/core/contracts";
+import { getLocale } from "next-intl/server";
 import { cache } from "react";
 import type * as z from "zod";
 import type { ReactionType } from "@/components/forum/reaction-button";
@@ -37,11 +38,15 @@ export async function withoutBlockedPictures(
   );
 }
 
-// Every type, inactive ones included: old reactions keep showing with their emoji.
-export const getReactionTypes = cache(
-  async (): Promise<ApiReactionType[]> =>
-    withoutBlockedPictures((await read(reactionTypesList, {})).items),
-);
+// Every type, inactive ones included: old reactions keep showing with their emoji. Each carries
+// what the visitor may do with it (`access`), and the hint of a locked one in the language the
+// page is drawn in.
+export const getReactionTypes = cache(async (): Promise<ApiReactionType[]> => {
+  const language = (await getLocale()) === "es" ? "es" : "en";
+  return withoutBlockedPictures(
+    (await read(reactionTypesList, { language })).items,
+  );
+});
 
 export function asType(type: ApiReactionType): ReactionType {
   return {
@@ -55,9 +60,34 @@ export function asType(type: ApiReactionType): ReactionType {
   };
 }
 
-// What the picker offers: the active types, in the order the backend lists them.
-export function pickerTypes(types: ApiReactionType[]): ReactionType[] {
-  return types.filter((type) => type.isActive).map(asType);
+// Whether a type may be given in a place: everywhere when it names no forums, else only in those
+// forums. `forumId` is the forum the item is in, null for what is not in a forum (wall posts,
+// comments, conversations), where a type limited to forums is not offered. The backend decides
+// again when the reaction is given.
+export function usableIn(type: RawReactionType, forumId: number | null) {
+  return (
+    type.forumIds.length === 0 ||
+    (forumId !== null && type.forumIds.includes(forumId))
+  );
+}
+
+// What the picker offers on an item in `forumId`: the active types that may be given there, in
+// the order the backend lists them. One the visitor's standing rules out is offered locked, with
+// the hint, or left out when the type is set to hide.
+export function pickerTypes(
+  types: ApiReactionType[],
+  forumId: number | null,
+): ReactionType[] {
+  return types
+    .filter(
+      (type) =>
+        type.isActive && type.access !== "hidden" && usableIn(type, forumId),
+    )
+    .map((type) =>
+      type.access === "locked"
+        ? { ...asType(type), locked: type.lockHint ?? "" }
+        : asType(type),
+    );
 }
 
 // The summary of an item in the shape the reaction components take.

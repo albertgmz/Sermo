@@ -84,7 +84,7 @@ export async function messageRows(messages: ApiMessage[]): Promise<TailRow[]> {
     getReactionTypes(),
   ]);
   const author = await authorsFor(messages.map((message) => message.author));
-  const picker = permissions.canReact ? pickerTypes(reactionTypes) : [];
+  const picker = permissions.canReact ? pickerTypes(reactionTypes, null) : [];
   return messages.map((message) => ({
     key: `message-${message.id}`,
     id: message.id,

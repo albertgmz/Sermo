@@ -47,7 +47,9 @@ export async function feedPage(
         : [item.post.author, ...threadMembers(item.thread)],
     ),
   );
-  const picker = viewer.permissions.canReact ? pickerTypes(reactionTypes) : [];
+  // A reaction type may be limited to forums: what is offered depends on the forum of the item.
+  const pickerFor = (forumId: number | null) =>
+    viewer.permissions.canReact ? pickerTypes(reactionTypes, forumId) : [];
   const now = Date.now();
   return {
     nextCursor: feed.nextCursor,
@@ -70,7 +72,9 @@ export async function feedPage(
             author={author}
             now={now}
             viewerId={viewer.user?.id ?? null}
-            picker={picker}
+            picker={pickerFor(
+              item.type === "profilePost" ? null : item.thread.node.id,
+            )}
             reactionTypes={reactionTypes}
           />
         ),

@@ -227,7 +227,7 @@ async function Messages({
       return [message.id];
     }),
   );
-  const picker = canReact ? pickerTypes(reactionTypes) : [];
+  const picker = canReact ? pickerTypes(reactionTypes, null) : [];
   const newest = messages.at(-1);
   return (
     <>

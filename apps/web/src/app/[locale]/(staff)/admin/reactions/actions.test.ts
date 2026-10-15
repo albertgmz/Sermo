@@ -37,6 +37,11 @@ const TYPE = {
   isActive: true,
   image: null,
   frames: null,
+  forumIds: [],
+  hideWhenLocked: false,
+  rule: { match: "all", conditions: [] },
+  access: "open",
+  lockHint: null,
 };
 
 test("a new type sends what the form showed and leaves an empty score to the backend", async () => {
@@ -388,4 +393,98 @@ test("an edit that keeps the picture does not send a file", async () => {
     ),
   );
   expect(backend.asked[0]?.body).not.toHaveProperty("fileId");
+});
+
+const RULE = {
+  match: "all",
+  conditions: [{ criterion: "post_count", value: 500 }],
+};
+
+test("a new type sends the rule, the forums and what excluded members see", async () => {
+  backend = fakeBackend({ "reactionTypes.create": () => Response.json(TYPE) });
+  await redirectedTo(() =>
+    createReactionType(
+      null,
+      form([
+        ["emoji", "x"],
+        ["title", "Fire"],
+        ["rule", JSON.stringify(RULE)],
+        ["forumIds", "3, 8"],
+        ["hideWhenLocked", "1"],
+        ["isActive", "on"],
+      ]),
+    ),
+  );
+  expect(backend.asked[0]?.body).toEqual({
+    emoji: "x",
+    title: "Fire",
+    isActive: true,
+    rule: RULE,
+    forumIds: [3, 8],
+    hideWhenLocked: true,
+  });
+});
+
+test("an edit sends the access rows, and an empty forum list means everywhere", async () => {
+  backend = fakeBackend({ "reactionTypes.update": () => Response.json(TYPE) });
+  await redirectedTo(() =>
+    updateReactionType(
+      null,
+      form([
+        ["id", "4"],
+        ["emoji", "y"],
+        ["title", "Love"],
+        ["score", "1"],
+        ["rule", JSON.stringify({ match: "all", conditions: [] })],
+        ["forumIds", ""],
+        ["hideWhenLocked", "0"],
+      ]),
+    ),
+  );
+  expect(backend.asked[0]?.body).toMatchObject({
+    rule: { match: "all", conditions: [] },
+    forumIds: [],
+    hideWhenLocked: false,
+  });
+});
+
+test("a forum list that is not ids, or a rule that is not one, is refused without a call", async () => {
+  backend = fakeBackend({});
+  const forums = await createReactionType(
+    null,
+    form([
+      ["emoji", "x"],
+      ["title", "Fire"],
+      ["forumIds", "3,../4"],
+    ]),
+  );
+  expect(forums).toEqual({
+    fields: { forumIds: messages.adminContent.errors.id },
+  });
+  const rule = await createReactionType(
+    null,
+    form([
+      ["emoji", "x"],
+      ["title", "Fire"],
+      ["rule", "not json"],
+    ]),
+  );
+  expect(rule?.fields?.rule).toBeTruthy();
+  expect(backend.asked).toEqual([]);
+});
+
+test("the backend's refusal of the rule or the forums is shown next to its field", async () => {
+  backend = fakeBackend({
+    "reactionTypes.create": () =>
+      invalid("forumIds", "forumIds must be existing forums."),
+  });
+  const state = await createReactionType(
+    null,
+    form([
+      ["emoji", "x"],
+      ["title", "Fire"],
+      ["forumIds", "99"],
+    ]),
+  );
+  expect(state?.fields?.forumIds).toBe("forumIds must be existing forums.");
 });

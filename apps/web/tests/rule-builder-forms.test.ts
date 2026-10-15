@@ -22,6 +22,7 @@ const FORMS = {
     "shop/categories/actions.ts",
   ],
   shopItem: ["shop/items/item-form.tsx", "shop/items/actions.ts"],
+  reactionType: ["reactions/access-fields.tsx", "reactions/actions.ts"],
 } as const;
 
 test("there is a form for every place a rule is edited", () => {

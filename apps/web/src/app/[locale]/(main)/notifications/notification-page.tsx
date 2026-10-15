@@ -16,13 +16,14 @@ export async function notificationsPage(
     unreadCount: list.unreadCount,
     page: {
       nextCursor: list.nextCursor,
-      rows: entries.map(({ item, href, emoji }) => ({
+      rows: entries.map(({ item, href, emoji, reaction }) => ({
         key: String(item.id),
         node: (
           <NotificationRow
             item={item}
             href={href}
             emoji={emoji}
+            reaction={reaction}
             member={member}
             size="lg"
           />

@@ -40,6 +40,14 @@
       "save": "Guardar",
       "saving": "Guardando…"
     },
+    "access": {
+      "forums": "Dónde",
+      "forumsHelp": "Déjalo vacío para permitir la reacción en todas partes. Si no, solo se podrá dar en mensajes de los foros elegidos (no en sus subforos), y nunca en publicaciones del muro, comentarios ni conversaciones.",
+      "locked": "Miembros que no pueden usarla",
+      "lockedShow": "La ven atenuada, con una pista",
+      "lockedHide": "No la ven",
+      "lockedHelp": "Se aplica a la regla de arriba. Una reacción ya dada se queda en el mensaje elijas lo que elijas."
+    },
     "order": {
       "heading": "Orden",
       "description": "Los tipos se ofrecen por posición, de menor a mayor.",

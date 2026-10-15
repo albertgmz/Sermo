@@ -195,6 +195,28 @@ export const REACTION_TYPES: ReactionType[] = [
   { id: 4, key: "4", label: "Wow", emoji: "😮", picture: null },
 ];
 
+// A picker where the viewer has not unlocked a reaction yet: greyed with a padlock and the hint
+// the backend phrases from the reaction's rule.
+export const LOCKED_REACTION_TYPES: ReactionType[] = [
+  ...REACTION_TYPES.slice(0, 3),
+  {
+    id: 5,
+    key: "5",
+    label: "Fire",
+    emoji: "🔥",
+    picture: null,
+    locked: "Unlocks with: Post count: 500 or more",
+  },
+  {
+    id: 6,
+    key: "6",
+    label: "Crown",
+    emoji: "👑",
+    picture: null,
+    locked: "Unlocks with: Member of VIP",
+  },
+];
+
 // Reaction pictures as the backend would hand them (sealed by hand: the styleguide has no backend,
 // and the page checks LITE itself before using them): a plain image and a sprite sheet of four
 // 32 x 32 frames (a dot that grows). The page checks LITE before using them, as the real pages do.
@@ -481,6 +503,7 @@ export const NOTIFICATIONS = [
     actorCount: 1,
     contentTitle: "What are you reading?",
     emoji: "",
+    reaction: "",
   },
   {
     type: "content.reaction",
@@ -489,6 +512,7 @@ export const NOTIFICATIONS = [
     actorCount: 4,
     contentTitle: "Welcome to the forum",
     emoji: "👍",
+    reaction: "Like",
   },
   {
     type: "member.followed",
@@ -497,11 +521,13 @@ export const NOTIFICATIONS = [
     actorCount: 1,
     contentTitle: null,
     emoji: "",
+    reaction: "",
   },
-].map(({ emoji, ...item }, id) => ({
+].map(({ emoji, reaction, ...item }, id) => ({
   item: { ...item, id, data: {}, createdAt: SAMPLE_DATE, read: id > 0 },
   href: id === 0 ? "/threads/2" : "/ui",
   emoji,
+  reaction,
 }));
 
 export const CONVERSATIONS = [

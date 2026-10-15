@@ -40,6 +40,14 @@
       "save": "Save",
       "saving": "Saving…"
     },
+    "access": {
+      "forums": "Where",
+      "forumsHelp": "Leave it empty to allow the reaction everywhere. Otherwise it can be given only on posts in the forums chosen (not in their subforums), and never on wall posts, comments or conversations.",
+      "locked": "Members who cannot use it",
+      "lockedShow": "See it greyed out, with a hint",
+      "lockedHide": "Do not see it",
+      "lockedHelp": "Applies to the rule above. A reaction already given stays on the post whichever you choose."
+    },
     "order": {
       "heading": "Order",
       "description": "Types are offered by position, lowest first.",

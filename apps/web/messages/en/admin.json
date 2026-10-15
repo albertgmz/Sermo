@@ -167,6 +167,13 @@
     "emptyTitle": "Nothing here",
     "emptyDescription": "There is nothing to list."
   },
+  "forumPicker": {
+    "chosen": "Forums chosen",
+    "search": "Search forums",
+    "placeholder": "Type a forum name…",
+    "noMatch": "No forum matches.",
+    "remove": "Remove {name}"
+  },
   "formRows": {
     "save": "Save changes",
     "saving": "Saving…"
@@ -177,14 +184,16 @@
       "award": "Given automatically when",
       "notice": "Shown to",
       "shopCategory": "Available to",
-      "shopItem": "Available to"
+      "shopItem": "Available to",
+      "reactionType": "Who can use it"
     },
     "help": {
       "promotion": "The groups below are added while the conditions hold and removed when they stop holding.",
       "award": "Leave it empty for an award given by hand only. An award given automatically is never taken back, and never given again after a revoke.",
       "notice": "Guests are visitors who are not signed in; members are everyone who is. Only conditions that can be checked on every page are offered.",
       "shopCategory": "Who sees this category and the items in it. Only conditions that can be checked on every page are offered.",
-      "shopItem": "Who sees and can buy this item, on top of the audience of its category. Only conditions that can be checked on every page are offered."
+      "shopItem": "Who sees and can buy this item, on top of the audience of its category. Only conditions that can be checked on every page are offered.",
+      "reactionType": "Members who do not meet the conditions cannot give this reaction; one they gave before stays and still counts. Only conditions that can be checked on every reaction are offered."
     },
     "match": {
       "legend": "How the conditions combine",

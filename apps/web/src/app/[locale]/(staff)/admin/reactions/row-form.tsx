@@ -16,6 +16,7 @@ export function ReactionRowForm({
   score,
   frames,
   current,
+  access,
 }: {
   id: number;
   emoji: string;
@@ -25,6 +26,8 @@ export function ReactionRowForm({
   frames: { width: number; height: number; count: number } | null;
   // The picture now, drawn through the LITE gate by the page; none when there is no picture.
   current?: React.ReactNode;
+  // Who may give the type and where: the rows of `AccessFields`, drawn by the page.
+  access?: React.ReactNode;
 }) {
   const t = useTranslations("adminContent.reactions.row");
   const [state, action] = useActionState<StaffFormState, FormData>(
@@ -113,6 +116,7 @@ export function ReactionRowForm({
         />
       </div>
       <p className="text-xs text-muted-foreground">{t("framesHelp")}</p>
+      {access && <div className="-mx-4 divide-y border-y">{access}</div>}
       <output className="block text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden">
         {[state?.error, ...Object.values(state?.fields ?? {})]
           .filter(Boolean)
