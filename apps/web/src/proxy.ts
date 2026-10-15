@@ -291,6 +291,23 @@ function legacyForumRedirect(request: NextRequest) {
   return NextResponse.redirect(target, 308);
 }
 
+// The Data saver's page used to be called LITE mode, and its addresses said so. Query and
+// language are kept.
+const DATA_SAVER_ADDRESSES: Record<string, string> = {
+  "/lite": "/data-saver",
+  "/account/lite": "/account/data-saver",
+};
+
+function dataSaverRedirect(request: NextRequest) {
+  if (request.method !== "GET" && request.method !== "HEAD") return undefined;
+  const { pathname } = request.nextUrl;
+  const current = DATA_SAVER_ADDRESSES[pathname];
+  if (!current) return undefined;
+  const target = request.nextUrl.clone();
+  target.pathname = current;
+  return NextResponse.redirect(target, 308);
+}
+
 // The viewer for a gate: null for a guest, undefined when the backend could not be asked.
 async function visitorOf(request: NextRequest, hasSession: boolean) {
   if (!hasSession) return null;
@@ -311,7 +328,7 @@ async function handleRequest(request: NextRequest) {
   const lite = parseLiteCookieHeader(request.headers.get("cookie") ?? "");
   if (blocksImageRequest(lite, request.nextUrl.pathname)) {
     return new NextResponse(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90" viewBox="0 0 160 90"><text x="80" y="45" text-anchor="middle" dominant-baseline="middle" fill="var(--muted-foreground, currentColor)">LITE MODE</text></svg>',
+      '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90" viewBox="0 0 160 90"><text x="80" y="45" text-anchor="middle" dominant-baseline="middle" fill="var(--muted-foreground, currentColor)">DATA SAVER</text></svg>',
       {
         status: 200,
         headers: {
@@ -346,6 +363,8 @@ async function handleRequest(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/_next/")) return;
   const legacy = legacyForumRedirect(request);
   if (legacy) return legacy;
+  const renamed = dataSaverRedirect(request);
+  if (renamed) return renamed;
   if (isUnknownUnsafePath(request.nextUrl.pathname))
     return notFound(request, locale);
   let pathname: string;

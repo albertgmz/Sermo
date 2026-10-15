@@ -62,7 +62,7 @@ test("the forums entries also match threads and the mobile profile matches the a
     "/members/7",
   );
   expect(isCurrent("/threads/1", mobileForums)).toBe(true);
-  expect(isCurrent("/account/lite", profile)).toBe(true);
+  expect(isCurrent("/account/data-saver", profile)).toBe(true);
   expect(isCurrent("/members/7", profile)).toBe(true);
 });
 

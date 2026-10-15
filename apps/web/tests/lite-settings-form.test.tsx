@@ -40,7 +40,7 @@ mock.module("@/app/[locale]/(main)/actions", () => ({
 }));
 
 const { LiteSettingsForm } = await import(
-  "../src/app/[locale]/(main)/lite/settings-form"
+  "../src/app/[locale]/(main)/data-saver/settings-form"
 );
 
 type Control = { name: string; value: string; disabled: boolean };
@@ -50,7 +50,7 @@ function controls(masterOn: boolean, isPending: boolean): Control[] {
   const html = renderToStaticMarkup(
     createElement(LiteSettingsForm, {
       state: parseLiteCookie(masterOn ? "all.avatars" : "avatars"),
-      returnTo: "/lite?saved=1",
+      returnTo: "/data-saver?saved=1",
     }),
   );
   pending = false;
@@ -87,7 +87,7 @@ test("every editable control and the save button are disabled while the save is 
         .filter((control) => !control.disabled)
         .map(({ name, value }) => [name, value]),
     ).toEqual([
-      ["returnTo", "/lite?saved=1"],
+      ["returnTo", "/data-saver?saved=1"],
       ["source", "settings"],
       ["mode", "custom"],
     ]);

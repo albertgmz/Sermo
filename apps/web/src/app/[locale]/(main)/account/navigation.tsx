@@ -21,7 +21,7 @@ const GROUPS = [
       { label: "preferences", href: "/account/preferences" },
       { label: "perks", href: "/account/permissions" },
       // Labelled from the LITE messages.
-      { label: null, href: "/account/lite" },
+      { label: null, href: "/account/data-saver" },
       { label: "security", href: "/account/security" },
     ],
   },

@@ -8,8 +8,8 @@ test("strips inline and nested image syntax without changing links", () => {
     'Before ![photo](https://pictures.test/a_(b).jpg "caption") after [![alt](https://pictures.test/b.png)](/thread).';
   const result = stripMarkdownImages(input);
   assert.ok(!result.includes("pictures.test"));
-  assert.ok(result.includes("[LITE MODE](/thread)"));
-  assert.ok(result.startsWith("Before LITE MODE after"));
+  assert.ok(result.includes("[DATA SAVER](/thread)"));
+  assert.ok(result.startsWith("Before DATA SAVER after"));
   assert.equal(
     stripMarkdownImages("A [link](https://pictures.test/a.jpg)."),
     "A [link](https://pictures.test/a.jpg).",
@@ -83,7 +83,7 @@ for (const url of [
         parseLiteCookie("frames"),
         "https://forum.test",
       ),
-      "Before LITE MODE after.",
+      "Before DATA SAVER after.",
     );
   });
 }
@@ -93,7 +93,7 @@ test("a category selection blocks local pictures, which belong to none, and leav
     "![avatar](/pictures/tobi.jpg) ![remote](https://pictures.test/pictures/ring.png)";
   assert.equal(
     stripMarkdownImages(input, parseLiteCookie("frames"), "https://forum.test"),
-    "LITE MODE ![remote](https://pictures.test/pictures/ring.png)",
+    "DATA SAVER ![remote](https://pictures.test/pictures/ring.png)",
   );
   assert.equal(
     stripMarkdownImages(input, parseLiteCookie(), "https://forum.test"),
@@ -106,7 +106,7 @@ test("postImages blocks remote and local Markdown images", () => {
     "![remote](https://pictures.test/photo.png) ![frame](/pictures/ring.png)",
     parseLiteCookie("postImages"),
   );
-  assert.equal(result, "LITE MODE LITE MODE");
+  assert.equal(result, "DATA SAVER DATA SAVER");
 });
 
 test("off preserves Markdown images and reference definitions", () => {
@@ -211,7 +211,7 @@ test("the server HTML pass preserves Markdown images for their image renderer", 
     '![image](/pictures/ring.png) <svg><path d="secret"/></svg> `<img src="example">`';
   assert.equal(
     stripMarkdownHtml(input, parseLiteCookie("all")),
-    '![image](/pictures/ring.png) LITE MODE `<img src="example">`',
+    '![image](/pictures/ring.png) DATA SAVER `<img src="example">`',
   );
 });
 
@@ -220,7 +220,7 @@ test("media CSS URLs can span lines and use HTML entities", () => {
     '<div style="background: url(\n&#47;pictures/ring.png\n)">fallback</div>';
   assert.equal(
     stripMarkdownImages(input, parseLiteCookie("frames")),
-    "LITE MODE",
+    "DATA SAVER",
   );
 });
 
@@ -229,26 +229,26 @@ test("an element that is never closed loses only its opening tag", () => {
   const cases: [string, string][] = [
     [
       "Use the <video> tag for clips.\n\nSecond paragraph stays?\n\n- item",
-      "Use the LITE MODE tag for clips.\n\nSecond paragraph stays?\n\n- item",
+      "Use the DATA SAVER tag for clips.\n\nSecond paragraph stays?\n\n- item",
     ],
     [
       "Array<object> and Map<string, embed> end",
-      "ArrayLITE MODE and Map<string, embed> end",
+      "ArrayDATA SAVER and Map<string, embed> end",
     ],
     [
       "I export <svg> files from Figma.\n\nNext para",
-      "I export LITE MODE files from Figma.\n\nNext para",
+      "I export DATA SAVER files from Figma.\n\nNext para",
     ],
     // An end tag of an outer element abandons the open one inside it.
-    ['a <div><video src="x.mp4"></div> tail', "a <div>LITE MODE</div> tail"],
+    ['a <div><video src="x.mp4"></div> tail', "a <div>DATA SAVER</div> tail"],
     [
       "<div>\n\nUse <video> tag\n\n</div>\n\nend",
-      "<div>\n\nUse LITE MODE tag\n\n</div>\n\nend",
+      "<div>\n\nUse DATA SAVER tag\n\n</div>\n\nend",
     ],
     // Nested: the inner media element closes, the outer one stays open.
     [
       'a <video><source src="x.mp4"></video> b <audio> c\n\nd',
-      "a LITE MODE b LITE MODE c\n\nd",
+      "a DATA SAVER b DATA SAVER c\n\nd",
     ],
   ];
   for (const [input, expected] of cases)
@@ -262,7 +262,7 @@ test("a closed element still disappears whole, URL included", () => {
       'a <video src="https://pictures.test/v.mp4">fallback</video> b',
       state,
     ),
-    "a LITE MODE b",
+    "a DATA SAVER b",
   );
 });
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { LiteSettingsForm } from "@/app/[locale]/(main)/lite/settings-form";
+import { LiteSettingsForm } from "@/app/[locale]/(main)/data-saver/settings-form";
 import { getLiteState } from "@/lib/lite-mode";
 import { serializeLiteCookie } from "@/lib/lite-preferences";
 import { getMember } from "@/lib/sermo/session";
@@ -27,7 +27,7 @@ export default async function LitePage({
     <LiteSettingsForm
       key={serializeLiteCookie(state)}
       state={state}
-      returnTo="/account/lite?saved=1"
+      returnTo="/account/data-saver?saved=1"
       saved={saved === "1"}
     />
   );

@@ -26,7 +26,7 @@ const slot = (id: number, size: "thumb" | "full" = "thumb") =>
 const context: InlineContext = {
   locale: "en",
   liteImages: false,
-  liteLabel: "LITE MODE",
+  liteLabel: "DATA SAVER",
   liteAria: "Picture hidden",
   missingLabel: "Attachment",
 };
@@ -106,7 +106,7 @@ test("with post pictures blocked no address of the picture reaches the page", ()
   });
   expect(html).not.toContain("/api/v1/files/1");
   expect(html).not.toContain("<img");
-  expect(html.match(/LITE MODE/g)).toHaveLength(2);
+  expect(html.match(/DATA SAVER/g)).toHaveLength(2);
 });
 
 test("with post pictures blocked a file that is not a picture is still a link", () => {

@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { Container } from "@/components/layout/container";
+import { GuestMenu } from "@/components/layout/guest-menu";
 import { getCounters, getViewerCard } from "@/components/layout/header-data";
 import { headerIconClass } from "@/components/layout/header-icon-class";
 import {
@@ -20,6 +21,7 @@ import { toNavItems } from "@/components/layout/nav-server";
 import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getLiteState } from "@/lib/lite-mode";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -145,6 +147,7 @@ async function AccountTools() {
         </>
       ) : (
         <>
+          <GuestMenu lite={await getLiteState()} />
           <Link
             href="/login"
             className={cn(

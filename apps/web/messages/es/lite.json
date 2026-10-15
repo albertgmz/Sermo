@@ -2,19 +2,19 @@
   "status": {
     "off": "Desactivado",
     "on": "Activado",
-    "partial": "{count} de {total}"
+    "partial": "Personalizado"
   },
   "page": {
-    "metaTitle": "Modo LITE",
+    "metaTitle": "Ahorro de datos",
     "demo": {
-      "title": "Modo LITE",
+      "title": "Ahorro de datos",
       "description": "Bloquea todas las imágenes o elige categorías concretas. Estos controles guardan la preferencia de tu navegador y actualizan los ejemplos de esta página.",
       "artworkLabel": "Marcador de ilustración",
       "avatarLabel": "Marcadores de avatar y compactos"
     }
   },
   "settingsForm": {
-    "title": "Modo LITE",
+    "title": "Ahorro de datos",
     "description": "Elige qué imágenes dejan de cargarse en este navegador. El texto y los iconos de la interfaz siguen visibles.",
     "masterLabel": "Bloquear todas las imágenes",
     "masterDescription": "Activa todas las categorías con un solo control.",
@@ -22,24 +22,19 @@
     "categoriesDescription": "Activa una categoría para que sus imágenes dejen de cargarse.",
     "masterNotice": "Todas las imágenes están bloqueadas. Desactiva el interruptor general para elegir categorías concretas.",
     "saveButton": "Guardar cambios",
-    "savedMessage": "Tus ajustes de LITE se han guardado.",
-    "loadingLabel": "Cargando ajustes de LITE…"
+    "savedMessage": "Se han guardado tus ajustes del ahorro de datos.",
+    "loadingLabel": "Cargando los ajustes del ahorro de datos…"
   },
-  "liteModeToggle": {
-    "label": "Modo LITE",
-    "settingsLink": "Ajustes de LITE",
-    "aria": {
-      "enable": "Activar el modo LITE",
-      "disable": "Desactivar el modo LITE"
-    }
+  "menuItem": {
+    "label": "Ahorro de datos"
   },
   "navigation": {
-    "label": "Modo LITE"
+    "label": "Ahorro de datos"
   },
   "litePlaceholder": {
-    "label": "MODO LITE",
+    "label": "AHORRO DE DATOS",
     "aria": {
-      "label": "Imagen bloqueada por el modo LITE"
+      "label": "Imagen bloqueada por el ahorro de datos"
     }
   },
   "liteMenuDemo": {

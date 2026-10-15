@@ -9,7 +9,7 @@ import { blocks, type LiteState } from "./lite-preferences";
 const parser = unified().use(remarkParse).use(remarkGfm);
 const ALL: LiteState = { master: true, blocked: [] };
 type Edit = { start: number; end: number; text: string };
-const LABEL = "LITE MODE";
+const LABEL = "DATA SAVER";
 
 const MEDIA = new Set([
   "img",

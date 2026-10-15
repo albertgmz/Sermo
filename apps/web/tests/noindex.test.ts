@@ -11,7 +11,7 @@ const COVERED = [
   "src/app/[locale]/(main)/account/layout.tsx",
   "src/app/[locale]/(main)/conversations/layout.tsx",
   "src/app/[locale]/(main)/notifications/page.tsx",
-  "src/app/[locale]/(main)/lite/page.tsx",
+  "src/app/[locale]/(main)/data-saver/page.tsx",
   "src/app/[locale]/(main)/ui/page.tsx",
 ];
 

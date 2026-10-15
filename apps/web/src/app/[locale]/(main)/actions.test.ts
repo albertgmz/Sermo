@@ -198,7 +198,7 @@ async function liteGoesTo(returnTo: string) {
 }
 
 test("the viewing mode goes back to a path of this site and to nowhere else", async () => {
-  expect(await liteGoesTo("/lite?saved=1")).toBe("/lite?saved=1");
+  expect(await liteGoesTo("/data-saver?saved=1")).toBe("/data-saver?saved=1");
   expect(await liteGoesTo("/forums/3-general#top")).toBe(
     "/forums/3-general#top",
   );

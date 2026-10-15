@@ -1,8 +1,8 @@
 import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { setLiteMode } from "@/app/[locale]/(main)/actions";
-import { LiteCheckbox } from "@/app/[locale]/(main)/lite/checkbox";
-import { LiteStatus } from "@/app/[locale]/(main)/lite/status";
+import { LiteCheckbox } from "@/app/[locale]/(main)/data-saver/checkbox";
+import { LiteStatus } from "@/app/[locale]/(main)/data-saver/status";
 import { PendingButton } from "@/components/forum/pending-button";
 import { LITE_CATEGORIES, type LiteState } from "@/lib/lite-preferences";
 

@@ -52,7 +52,7 @@ test("asks the backend for the spoiler and returns it with buttons for the ones 
   expect(result?.html).not.toContain("disabled");
 });
 
-test("the returned HTML is filtered like a body in LITE mode", async () => {
+test("the returned HTML is filtered like a body with the Data saver on", async () => {
   const html =
     '<p>x <img src="https://pictures.test/a.png"> y</p><iframe src="https://player.vimeo.com/video/1" data-media-url="https://vimeo.com/1"></iframe>';
   backend(() => Response.json({ html }));
@@ -60,7 +60,7 @@ test("the returned HTML is filtered like a body in LITE mode", async () => {
   const lite = await revealSpoiler("profile_post", 1, 0);
   expect(lite?.html).not.toContain("<img");
   expect(lite?.html).not.toContain("<iframe");
-  expect(lite?.html).toContain("LITE MODE");
+  expect(lite?.html).toContain("DATA SAVER");
   expect(lite?.html).toContain('<a href="https://vimeo.com/1"');
   cookie = "";
   expect((await revealSpoiler("profile_post", 1, 0))?.html).toContain("<img");

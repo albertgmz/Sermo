@@ -4,7 +4,7 @@ import { ChevronDown, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { logout } from "@/app/[locale]/(main)/actions";
-import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
+import { DataSaverMenuItem } from "@/components/layout/data-saver-menu-item";
 import { type LinkItem, linkProps } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";
 import { ThemeMenuItems } from "@/components/layout/theme-control";
@@ -59,7 +59,7 @@ export function UserMenu({
             <NavLabel item={link} withDefault className="" />
           </DropdownMenuItem>
         ))}
-        <LiteModeToggle state={lite} />
+        <DataSaverMenuItem state={lite} href="/account/data-saver" />
         <DropdownMenuSeparator />
         <ThemeMenuItems />
         <DropdownMenuSeparator />

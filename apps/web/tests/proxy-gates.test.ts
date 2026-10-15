@@ -463,6 +463,29 @@ test("the API, pictures and the 404 rewrites carry no x-sermo-path", async () =>
   assert.equal(missing?.headers.get("x-middleware-override-headers"), null);
 });
 
+test("the old LITE mode addresses go to the Data saver ones with a 308, keeping the query", async () => {
+  reset();
+  for (const [from, to] of [
+    ["/lite", "/data-saver"],
+    ["/lite?saved=1", "/data-saver?saved=1"],
+    ["/account/lite", "/account/data-saver"],
+    ["/account/lite?saved=1", "/account/data-saver?saved=1"],
+  ]) {
+    for (const cookie of [undefined, SESSION]) {
+      const response = await ask(from, { cookie });
+      assert.ok(response, from);
+      assert.equal(response.status, 308, from);
+      assert.equal(response.headers.get("location"), `http://localhost${to}`);
+    }
+  }
+  // The new addresses are pages, not redirects.
+  passes(await ask("/data-saver"));
+  passes(await ask("/account/data-saver", { cookie: SESSION }));
+  // An action posts to the page it is on: nothing is redirected.
+  const posted = await ask("/lite", { method: "POST" });
+  assert.notEqual(posted?.status, 308);
+});
+
 test("the legacy LITE cookie is replaced on a page that carries the header", async () => {
   reset();
   const response = await ask("/forums", { cookie: "forum_lite=1" });

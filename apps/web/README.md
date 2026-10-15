@@ -40,5 +40,5 @@ bun run lint       # from the repository root
 - `src/components`: `ui` (primitives), `forum` (reusable pieces), `layout` (shell), `staff` (panel).
 - `/ui` is the styleguide: every reusable component with fixed sample data.
 - `messages/<locale>/`: all interface text, one file per zone (`en` is the source of the types).
-- LITE mode (a visitor preference that stops pictures from loading) is guarded by the suites in
+- The Data saver (code name LITE; a visitor preference that stops pictures from loading) is guarded by the suites in
   `tests/` and `src/lib/lite-*.test.ts`.

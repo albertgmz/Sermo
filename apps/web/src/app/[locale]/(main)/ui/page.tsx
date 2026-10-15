@@ -14,7 +14,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { AccountNavigation } from "@/app/[locale]/(main)/account/navigation";
-import { LiteSettingsForm } from "@/app/[locale]/(main)/lite/settings-form";
+import { LiteSettingsForm } from "@/app/[locale]/(main)/data-saver/settings-form";
 import {
   discard,
   discardForm,
@@ -912,8 +912,8 @@ export default async function StyleguidePage() {
             there is nothing to press and the summary shows the number. A
             reaction can carry a picture instead of its emoji: a plain image is
             drawn whole, a sprite sheet steps through its frames (still with
-            reduced motion), and where LITE blocks the category the emoji is
-            drawn.
+            reduced motion), and where the Data saver blocks the category the
+            emoji is drawn.
           </p>
         </Section>
 
@@ -1209,7 +1209,7 @@ export default async function StyleguidePage() {
         <Section title="Members">
           <p className="max-w-prose text-sm text-muted-foreground">
             The members directory draws these cards. A member&apos;s cover fades
-            behind the header; LITE mode replaces it with a placeholder.
+            behind the header; the Data saver replaces it with a placeholder.
           </p>
           <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
             <MemberCard user={COVERED_CARD} />

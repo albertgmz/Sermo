@@ -181,7 +181,7 @@ async function placeholder(
   expect(response.headers.get("x-middleware-next"), context).toBe(null);
   const body = await response.text();
   expect(body, context).toMatch(
-    /^<svg\b[^>]*><text\b[^>]*>LITE MODE<\/text><\/svg>$/,
+    /^<svg\b[^>]*><text\b[^>]*>DATA SAVER<\/text><\/svg>$/,
   );
   expect(body, context).not.toMatch(
     /<path\b|<image\b|\bhref=|data:image|url\(/,
@@ -447,7 +447,7 @@ test("Art blocks every category before emitting its URL and preserves caller siz
       cookie = mode;
       const hidden = renderToStaticMarkup(await Art(props));
       noArtwork(hidden);
-      expect(hidden).toContain("LITE MODE");
+      expect(hidden).toContain("DATA SAVER");
       for (const token of sizing.split(" ")) {
         expect(rootClasses(hidden)).toContain(token);
         expect(rootClasses(visible)).toContain(token);
@@ -637,7 +637,7 @@ test("backend HTML drops its pictures when post images are blocked and gains not
     const hidden = await render();
     noArtwork(hidden);
     expect(hidden).not.toContain("pictures.test");
-    expect(hidden).toContain("LITE MODE");
+    expect(hidden).toContain("DATA SAVER");
     expect(hidden).toContain('<a href="/destination">a link</a>');
     expect(hidden).toContain("<h2>Using the site</h2>");
     expect(hidden).not.toMatch(/<script|<style|<link|on\w+=/i);
@@ -685,7 +685,7 @@ test("the server filters Markdown before passing editor props to the client", as
     if (mode === "postImages" || mode === "all") {
       expect(value).not.toContain("pictures.test");
       expect(value).not.toContain("![");
-      expect(value).toContain("[LITE MODE](/destination)");
+      expect(value).toContain("[DATA SAVER](/destination)");
     } else expect(value).toBe(source);
   }
 });
@@ -721,7 +721,7 @@ test("a signature never shows its pictures or the LITE label, whatever the visit
     cookie = mode;
     const html = await markup(<Signature>{source}</Signature>);
     expect(html, String(mode)).not.toMatch(
-      /LITE MODE|pictures\.test|\/pictures\/|<img/,
+      /DATA SAVER|pictures\.test|\/pictures\/|<img/,
     );
     for (const text of [
       "Hello",

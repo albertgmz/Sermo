@@ -75,7 +75,7 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
     const response = await request(path, cookie);
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.equal(response.headers.get("content-type"), "image/svg+xml");
-    assert.ok((await response.text()).includes("LITE MODE"));
+    assert.ok((await response.text()).includes("DATA SAVER"));
   }
   const legacy = await request("/", "1");
   const migrated = legacy.headers.get("set-cookie");

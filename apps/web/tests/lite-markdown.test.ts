@@ -17,8 +17,8 @@ test("Markdown filtering strips inline, reference, collapsed, shortcut and linke
   expect(output).not.toContain("pictures.test");
   expect(output).not.toContain("Photo title");
   expect(output).not.toContain("![");
-  expect(output).toContain("Before LITE MODE after.");
-  expect(output).toContain("[LITE MODE](/thread/42)");
+  expect(output).toContain("Before DATA SAVER after.");
+  expect(output).toContain("[DATA SAVER](/thread/42)");
   expect(output).toContain("[linked reference][destination]");
   expect(output).toContain("[destination]: /destination");
   expect(output).toContain("[ordinary](https://example.test/page)");
@@ -31,7 +31,7 @@ test("ordinary text, image-looking links and code samples retain their source fo
   const shared =
     "![picture][shared] [visit][shared]\n\n[shared]: https://example.test/page";
   expect(stripMarkdownImages(shared)).toBe(
-    "LITE MODE [visit][shared]\n\n[shared]: https://example.test/page",
+    "DATA SAVER [visit][shared]\n\n[shared]: https://example.test/page",
   );
   expect(stripMarkdownImages("")).toBe("");
 });
@@ -43,7 +43,7 @@ test("a picture can be dropped without a label, as signatures do", () => {
     undefined,
     "",
   );
-  expect(output).not.toContain("LITE MODE");
+  expect(output).not.toContain("DATA SAVER");
   expect(output).not.toContain("pictures.test");
   expect(output).toContain("Before  after.");
 });
@@ -56,7 +56,7 @@ test("HTML filtering replaces pictures and the elements around them, and leaves 
   const all = { master: true, blocked: [] };
   const output = stripHtmlMedia(html, all);
   expect(output).toBe(
-    '<p>a <a href="https://example.test/x">link</a></p>LITE MODE<p>text LITE MODE end</p>',
+    '<p>a <a href="https://example.test/x">link</a></p>DATA SAVER<p>text DATA SAVER end</p>',
   );
   expect(stripHtmlMedia(html, { master: false, blocked: [] })).toBe(html);
   // Another category alone does not touch a remote picture.
@@ -66,7 +66,7 @@ test("HTML filtering replaces pictures and the elements around them, and leaves 
   );
   expect(
     stripHtmlMedia(remote, { master: false, blocked: ["postImages"] }),
-  ).toBe("<p>LITE MODE</p>");
+  ).toBe("<p>DATA SAVER</p>");
 });
 
 test("an embedded player becomes a link to its page when pictures are blocked", () => {
@@ -82,10 +82,12 @@ test("an embedded player becomes a link to its page when pictures are blocked", 
   expect(stripHtmlMedia(html, { master: false, blocked: [] })).toBe(html);
   // Without a page address (or with an unsafe one) it is the usual label.
   const bare = '<iframe src="https://player.vimeo.com/video/1"></iframe>';
-  expect(stripHtmlMedia(bare, { master: true, blocked: [] })).toBe("LITE MODE");
+  expect(stripHtmlMedia(bare, { master: true, blocked: [] })).toBe(
+    "DATA SAVER",
+  );
   const unsafe =
     '<iframe src="https://player.vimeo.com/video/1" data-media-url="javascript:alert(1)"></iframe>';
   expect(stripHtmlMedia(unsafe, { master: true, blocked: [] })).toBe(
-    "LITE MODE",
+    "DATA SAVER",
   );
 });

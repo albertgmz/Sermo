@@ -17,7 +17,7 @@ test("the links group lists the other account screens from the navigation, not t
     "/account/notifications",
     "/account/preferences",
     "/account/permissions",
-    "/account/lite",
+    "/account/data-saver",
     "/account/security",
   ]);
   expect(html).toContain(messages.account.navigation.privacy);

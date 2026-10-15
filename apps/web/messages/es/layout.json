@@ -81,6 +81,11 @@
       "account": "Menú de la cuenta"
     }
   },
+  "guestMenu": {
+    "aria": {
+      "menu": "Opciones del sitio"
+    }
+  },
   "staffBar": {
     "admin": "Administración",
     "moderation": "Moderación",

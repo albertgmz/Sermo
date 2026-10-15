@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
+import { DataSaverMenuItem } from "@/components/layout/data-saver-menu-item";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,7 +20,7 @@ export function LiteMenuDemo({ state }: { state: LiteState }) {
         {t("menuButton")}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-52">
-        <LiteModeToggle state={state} />
+        <DataSaverMenuItem state={state} href="/account/data-saver" />
       </DropdownMenuContent>
     </DropdownMenu>
   );
