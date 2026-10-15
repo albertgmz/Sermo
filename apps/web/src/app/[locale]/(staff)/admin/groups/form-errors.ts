@@ -1,6 +1,11 @@
 import "server-only";
 
-import { CriteriaRule } from "@sermo/core/contracts";
+import {
+  CriteriaRule,
+  MAX_CONDITION_IDS,
+  MAX_CONDITION_VALUE,
+  MAX_RULE_CONDITIONS,
+} from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type { Rule } from "@/components/staff/criteria-rule";
 import type { StaffFormState } from "@/components/staff/form-rows";
@@ -105,4 +110,33 @@ export function ruleOf(formData: FormData): Rule | null {
   } catch {
     return null;
   }
+}
+
+// The state of a form whose `rule` ruleOf could not read. A rule that is JSON but fails the
+// schema names the limits (the builder holds the draft, so nothing is lost); a missing field or
+// text that is not a rule means the page and the form disagree, and asks for a reload.
+export async function ruleRefusal(
+  formData: FormData,
+): Promise<{ fields: Record<string, string> }> {
+  const t = await getTranslations("adminGroups.errors");
+  let sent: unknown;
+  try {
+    sent = JSON.parse(text(formData, "rule"));
+  } catch {
+    return { fields: { rule: t("rule") } };
+  }
+  const shaped =
+    typeof sent === "object" &&
+    sent !== null &&
+    Array.isArray((sent as { conditions?: unknown }).conditions);
+  if (!shaped) return { fields: { rule: t("rule") } };
+  return {
+    fields: {
+      rule: t("ruleLimits", {
+        conditions: MAX_RULE_CONDITIONS,
+        value: MAX_CONDITION_VALUE,
+        ids: MAX_CONDITION_IDS,
+      }),
+    },
+  };
 }

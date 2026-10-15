@@ -30,7 +30,9 @@ test("there is a form for every place a rule is edited", () => {
 
 test("each form draws its rule with the builder, in its own place", () => {
   for (const [place, [form]] of Object.entries(FORMS))
-    expect(read(form)).toContain(`<RuleField place="${place}"`);
+    expect(read(form)).toMatch(
+      new RegExp(String.raw`<RuleField\s+place="${place}"`),
+    );
 });
 
 test("each action reads the rule with the shared helper", () => {

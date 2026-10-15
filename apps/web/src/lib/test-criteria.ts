@@ -1,4 +1,16 @@
-import type { Criterion } from "@/components/staff/criteria-rule";
+import {
+  MAX_CONDITION_IDS,
+  MAX_CONDITION_VALUE,
+  MAX_RULE_CONDITIONS,
+} from "@sermo/core/contracts";
+import type { Criterion, RuleLimits } from "@/components/staff/criteria-rule";
+
+// The limits of the shared schema, as the builder is given them.
+export const LIMITS: RuleLimits = {
+  conditions: MAX_RULE_CONDITIONS,
+  value: MAX_CONDITION_VALUE,
+  ids: MAX_CONDITION_IDS,
+};
 
 type Kind = Criterion["kind"];
 type Unit = Criterion["unit"];

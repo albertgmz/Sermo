@@ -45,7 +45,7 @@ export async function NoticeFields({
           aria-describedby={`${id("body")}-help`}
         />
       </FieldRow>
-      <RuleField place="notice" rule={notice?.rule} />
+      <RuleField place="notice" owner={notice?.id} rule={notice?.rule} />
       <FieldRow
         name="dismissible"
         label={t("dismissible")}

@@ -112,10 +112,18 @@ test("a bad tier, number or rule is refused; the backend answer is shown", async
   expect(await saveAward(null, form({ ...base, xp: "x" }))).toEqual({
     fields: { xp: e.number },
   });
-  for (const rule of ["", "{broken", '{"match":"some","conditions":[]}'])
+  const unread = messages.adminGroups.errors.rule;
+  for (const rule of ["", "{broken", "[]"])
     expect(await saveAward(null, form({ ...base, rule }))).toEqual({
-      fields: { rule: e.rule },
+      fields: { rule: unread },
     });
+  // A rule over a limit is told apart from a form that sent nothing readable.
+  expect(
+    await saveAward(
+      null,
+      form({ ...base, rule: '{"match":"some","conditions":[]}' }),
+    ),
+  ).toEqual({ fields: { rule: messages.adminGroups.errors.ruleLimits } });
   const none = JSON.stringify({ match: "all", conditions: [] });
   expect(await saveAward(null, form({ ...base, id: "7", rule: none }))).toEqual(
     {

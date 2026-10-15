@@ -5,8 +5,7 @@
     "group": "Choose a group.",
     "usernames": "Type at least one username.",
     "date": "Enter a valid date and time.",
-    "id": "That notice cannot be identified.",
-    "rule": "The rule could not be read. Reload the page and try again."
+    "id": "That notice cannot be identified."
   },
   "announcements": {
     "metaTitle": "Send alert",

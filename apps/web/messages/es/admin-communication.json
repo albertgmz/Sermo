@@ -5,8 +5,7 @@
     "group": "Elige un grupo.",
     "usernames": "Escribe al menos un nombre de usuario.",
     "date": "Escribe una fecha y hora válidas.",
-    "id": "No se puede identificar ese aviso.",
-    "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo."
+    "id": "No se puede identificar ese aviso."
   },
   "announcements": {
     "metaTitle": "Enviar alerta",

@@ -178,8 +178,7 @@
       "id": "Ese trofeo no es válido.",
       "tier": "Elige uno de los niveles ofrecidos.",
       "number": "Escribe un número entero.",
-      "file": "Ese archivo subido no es válido.",
-      "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo."
+      "file": "Ese archivo subido no es válido."
     }
   },
   "grants": {
@@ -259,8 +258,7 @@
     },
     "errors": {
       "id": "Esa categoría no es válida.",
-      "whole": "Escribe un número entero.",
-      "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo."
+      "whole": "Escribe un número entero."
     }
   },
   "items": {
@@ -397,8 +395,7 @@
       "category": "Elige una categoría.",
       "number": "Escribe un número entero.",
       "effect": "Completa el efecto: elige lo que necesita.",
-      "file": "Ese archivo subido no es válido.",
-      "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo."
+      "file": "Ese archivo subido no es válido."
     }
   },
   "member": {

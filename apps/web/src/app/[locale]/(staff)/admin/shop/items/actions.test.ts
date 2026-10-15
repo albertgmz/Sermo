@@ -122,7 +122,7 @@ test("the rule the builder wrote is sent with the item, and a missing one is ref
   const { rule: _rule, ...without } = base;
   expect(
     await saveItem(null, form({ ...without, effectType: "bump" })),
-  ).toEqual({ fields: { rule: messages.adminEconomy.items.errors.rule } });
+  ).toEqual({ fields: { rule: messages.adminGroups.errors.rule } });
   expect(backend.asked).toHaveLength(1);
 });
 

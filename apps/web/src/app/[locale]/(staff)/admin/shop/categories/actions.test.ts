@@ -74,7 +74,7 @@ test("a new category may name its place; an edit never sends a position", async 
     { name: "A", description: "", isActive: false, rule: RULE },
   ]);
   expect(await saveCategory(null, form({ name: "A" }))).toEqual({
-    fields: { rule: messages.adminEconomy.categories.errors.rule },
+    fields: { rule: messages.adminGroups.errors.rule },
   });
 });
 

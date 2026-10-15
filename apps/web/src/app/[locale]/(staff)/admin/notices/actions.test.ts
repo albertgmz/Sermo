@@ -105,15 +105,18 @@ test("unticked switches are sent off, and the rule goes as the builder wrote it"
 test("a missing or damaged rule or a bad date is refused before sending", async () => {
   backend = fakeBackend({});
   const errors = messages.adminCommunication.errors;
-  for (const rule of [
-    undefined,
-    "{broken",
-    '{"match":"none","conditions":[]}',
-  ]) {
+  for (const [rule, refusal] of [
+    [undefined, messages.adminGroups.errors.rule],
+    ["{broken", messages.adminGroups.errors.rule],
+    [
+      '{"match":"none","conditions":[]}',
+      messages.adminGroups.errors.ruleLimits,
+    ],
+  ] as const) {
     const sent = fields().filter(([name]) => name !== "rule");
     if (rule !== undefined) sent.push(["rule", rule]);
     expect(await createNotice(null, form(sent))).toEqual({
-      fields: { rule: errors.rule },
+      fields: { rule: refusal },
     });
   }
   expect(

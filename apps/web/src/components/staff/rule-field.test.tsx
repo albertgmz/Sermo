@@ -80,11 +80,44 @@ test("with no groups the group criteria are not offered", async () => {
   expect(html).not.toContain('<option value="in_group"');
 });
 
+test("the builder is keyed by the place, the record and the rule, so another record starts afresh", async () => {
+  backend = fakeBackend({
+    "auth.me": () => Response.json(viewerBody(true)),
+    "criteria.list": () => Response.json({ items: CRITERIA_BODY, groups: [] }),
+    "shopCategories.list": () => Response.json({ items: [] }),
+  });
+  const one: Rule = {
+    match: "all",
+    conditions: [{ criterion: "is_guest", value: 1 }],
+  };
+  const other: Rule = { match: "all", conditions: [] };
+  const keyOf = async (
+    owner: number | undefined,
+    rule: Rule,
+    place: "shopCategory" | "notice" = "shopCategory",
+  ) => {
+    const row = (await RuleField({ place, owner, rule })) as {
+      props: { children: { key: string } };
+    };
+    return row.props.children.key;
+  };
+  const keys = [
+    await keyOf(2, one),
+    await keyOf(3, one),
+    await keyOf(2, other),
+    await keyOf(undefined, one),
+    await keyOf(2, one, "notice"),
+  ];
+  // Every difference gives a new builder; the same inputs give the same one.
+  expect(new Set(keys).size).toBe(keys.length);
+  expect(await keyOf(2, one)).toBe(keys[0] as string);
+});
+
 test("a viewer the backend refuses gets no editor", async () => {
   backend = fakeBackend({
     "auth.me": () => Response.json(viewerBody(true)),
     "criteria.list": refused,
     "shopCategories.list": () => Response.json({ items: [] }),
   });
-  await expect(draw()).rejects.toBeDefined();
+  await expect(draw()).rejects.toMatchObject({ code: "forbidden" });
 });

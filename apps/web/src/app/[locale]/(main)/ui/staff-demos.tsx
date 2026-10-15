@@ -340,6 +340,7 @@ export function StaffDemos() {
                     { criterion: "has_avatar", value: 1 },
                   ],
                 }}
+                limits={{ conditions: 20, value: 1_000_000_000, ids: 500 }}
                 choices={{
                   groups: [
                     { id: 3, label: "Moderators" },

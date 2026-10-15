@@ -121,9 +121,15 @@ export function changeCondition(
   };
 }
 
-// The number typed in a field, or undefined for anything that is not a whole number.
-export const numberOf = (raw: string) =>
-  /^\d{1,10}$/.test(raw.trim()) ? Number(raw.trim()) : undefined;
+// The limits of a rule, from the shared schema (`MAX_*` in the contract); a client component
+// takes them as a prop because it must not import the contracts.
+export type RuleLimits = { conditions: number; value: number; ids: number };
+
+// The number typed in a field, or undefined for anything that is not a whole number up to `max`.
+export function numberOf(raw: string, max: number) {
+  const value = /^\d{1,10}$/.test(raw.trim()) ? Number(raw.trim()) : undefined;
+  return value !== undefined && value <= max ? value : undefined;
+}
 
 // The rule with no conditions.
 export const everyone = (): Rule => ({ match: "all", conditions: [] });

@@ -61,6 +61,17 @@ describe("criteria.list", () => {
       );
   });
 
+  // The other readers of groups.list are not rule editors: exactly the four permissions open it.
+  for (const permission of ["admin.groups", "admin.members", "admin.permissions"])
+    test(`a holder of only ${permission} is refused`, async () => {
+      const { ctx, manager } = await managerOf(permission);
+      await expect(execute(ctx, op("criteria.list"), manager, {})).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+      // That permission does open the group list, so the refusal is about this read alone.
+      await expect(execute(ctx, op("groups.list"), manager, {})).resolves.toBeDefined();
+    });
+
   test("the older reads keep their own permission", async () => {
     const { ctx, manager } = await managerOf("admin.shop");
     for (const name of ["promotions.criteria", "awards.criteria"])

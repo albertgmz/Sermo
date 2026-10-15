@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { CRITERIA } from "@/lib/test-criteria";
+import { CRITERIA, LIMITS } from "@/lib/test-criteria";
 import {
   addCondition,
   type Criterion,
@@ -148,9 +148,21 @@ test("a condition is drawn only when its criterion is offered and it has the inp
   ).toBeNull();
 });
 
-test("a typed number is a whole number or nothing", () => {
-  expect(numberOf(" 12 ")).toBe(12);
-  expect(numberOf("0")).toBe(0);
-  for (const bad of ["", "-1", "1.5", "1e3", "x", "12345678901"])
-    expect(numberOf(bad)).toBeUndefined();
+test("a typed number is a whole number up to the schema's limit, or nothing", () => {
+  const max = LIMITS.value;
+  expect(numberOf(" 12 ", max)).toBe(12);
+  expect(numberOf("0", max)).toBe(0);
+  expect(numberOf(String(max), max)).toBe(max);
+  // Ten digits fit the pattern but not the schema.
+  for (const bad of [
+    "",
+    "-1",
+    "1.5",
+    "1e3",
+    "x",
+    "12345678901",
+    "2000000000",
+    String(max + 1),
+  ])
+    expect(numberOf(bad, max)).toBeUndefined();
 });

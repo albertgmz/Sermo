@@ -121,12 +121,13 @@ test("an edited promotion goes to its own address with the ticked groups", async
 
 test("a rule that is not one is refused before saving", async () => {
   backend = fakeBackend({});
-  for (const bad of [
-    undefined,
-    "{broken",
-    "[]",
-    '{"match":"all","conditions":[{"value":3}]}',
-  ])
+  const errors = messages.adminGroups.errors;
+  for (const [bad, refusal] of [
+    [undefined, errors.rule],
+    ["{broken", errors.rule],
+    ["[]", errors.rule],
+    ['{"match":"all","conditions":[{"value":3}]}', errors.ruleLimits],
+  ] as const)
     expect(
       await savePromotion(
         null,
@@ -136,7 +137,7 @@ test("a rule that is not one is refused before saving", async () => {
           ["groupIds", "7"],
         ]),
       ),
-    ).toEqual({ fields: { rule: messages.adminGroups.errors.rule } });
+    ).toEqual({ fields: { rule: refusal } });
   expect(backend.asked).toEqual([]);
 });
 

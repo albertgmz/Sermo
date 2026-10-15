@@ -53,7 +53,11 @@ export async function PromotionForm({ promotion }: { promotion?: Promotion }) {
           {t("isActiveHelp")}
         </label>
       </FieldRow>
-      <RuleField place="promotion" rule={promotion?.rule} />
+      <RuleField
+        place="promotion"
+        owner={promotion?.id}
+        rule={promotion?.rule}
+      />
       <FieldRow name="groupIds" label={t("groups")} help={t("groupsHelp")}>
         <fieldset className="grid gap-1 sm:grid-cols-2">
           <legend className="sr-only">{t("groups")}</legend>

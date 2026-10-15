@@ -2,6 +2,11 @@ import * as z from "zod";
 import { defineContract } from "../operation";
 import { Empty, Id } from "./common";
 
+/** The most a rule's conditions, a condition's number and a condition's ids may be. */
+export const MAX_RULE_CONDITIONS = 20;
+export const MAX_CONDITION_VALUE = 1_000_000_000;
+export const MAX_CONDITION_IDS = 500;
+
 /**
  * One condition of a rule. `criterion` is an id from the criteria registry; which of `value`
  * and `ids` it takes depends on the criterion (see `CriterionDefinition.kind`): a threshold or
@@ -11,12 +16,12 @@ import { Empty, Id } from "./common";
 export const CriteriaCondition = z
   .object({
     criterion: z.string().min(1).max(50),
-    value: z.number().int().min(0).max(1_000_000_000).optional(),
-    ids: z.array(Id).min(1).max(500).optional(),
+    value: z.number().int().min(0).max(MAX_CONDITION_VALUE).optional(),
+    ids: z.array(Id).min(1).max(MAX_CONDITION_IDS).optional(),
   })
   .meta({ id: "CriteriaCondition" });
 
-const conditions = z.array(CriteriaCondition).max(20);
+const conditions = z.array(CriteriaCondition).max(MAX_RULE_CONDITIONS);
 
 /**
  * Who something applies to: `match` `all` needs every condition to hold, `any` needs one. An

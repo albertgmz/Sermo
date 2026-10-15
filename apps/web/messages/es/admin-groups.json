@@ -13,7 +13,8 @@
     "password": "Introduce tu contraseña para confirmar el cambio.",
     "value": "Introduce un número entero para {title}.",
     "groupIds": "Elige los grupos de la lista.",
-    "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo."
+    "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo.",
+    "ruleLimits": "La regla supera un límite: como máximo {conditions} condiciones, un número de hasta {value} y {ids} grupos o miembros en una condición. Acórtala y guarda de nuevo."
   },
   "colourPicker": {
     "legend": "Color del nombre",

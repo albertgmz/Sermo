@@ -12,7 +12,13 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, ruleOf, text, whole } from "../groups/form-errors";
+import {
+  formFailure,
+  ruleOf,
+  ruleRefusal,
+  text,
+  whole,
+} from "../groups/form-errors";
 
 const FIELDS = [
   "name",
@@ -50,7 +56,7 @@ export async function saveAward(
   const removePicture = text(formData, "fileIdRemove") === "1";
 
   const rule = ruleOf(formData);
-  if (rule === null) return { fields: { rule: t("rule") } };
+  if (rule === null) return ruleRefusal(formData);
 
   const fields = {
     name: text(formData, "name"),

@@ -1,7 +1,18 @@
-import { expect, mock, test } from "bun:test";
+import { afterAll, expect, mock, test } from "bun:test";
+import { messages } from "@/i18n/messages";
+import { translator } from "@/lib/test-intl";
 
 mock.module("server-only", () => ({}));
-const { orderRefusal, ruleOf } = await import("./form-errors");
+const intl = await import("next-intl/server");
+mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
+  getTranslations: async (namespace: string) => translator(namespace),
+}));
+const { orderRefusal, ruleOf, ruleRefusal } = await import("./form-errors");
+
+afterAll(() => {
+  mock.module("next-intl/server", () => intl);
+});
 
 test("a refusal part-way names the row and counts what was saved", () => {
   expect(orderRefusal(1, 3, "Rules", "Not allowed.")).toEqual({
@@ -52,4 +63,30 @@ test("anything that is not a rule is null", () => {
   expect(ruleOf(form('{"match":"all"}'))).toBeNull();
   expect(ruleOf(form('{"match":"most","conditions":[]}'))).toBeNull();
   expect(ruleOf(form('{"match":"all","conditions":[{"value":1}]}'))).toBeNull();
+});
+
+test("a rule over a schema limit is told apart from a form that sent no rule", async () => {
+  const many = Array.from({ length: 21 }, () => ({
+    criterion: "post_count",
+    value: 1,
+  }));
+  const limited = [
+    JSON.stringify({
+      match: "all",
+      conditions: [{ criterion: "post_count", value: 2_000_000_000 }],
+    }),
+    JSON.stringify({ match: "all", conditions: many }),
+  ];
+  for (const sent of limited) {
+    expect(ruleOf(form(sent))).toBeNull();
+    expect(await ruleRefusal(form(sent))).toEqual({
+      fields: { rule: messages.adminGroups.errors.ruleLimits },
+    });
+  }
+  for (const sent of [undefined, "{broken", "[]", "null", '{"match":"all"}'])
+    expect(await ruleRefusal(form(sent))).toEqual({
+      fields: { rule: messages.adminGroups.errors.rule },
+    });
+  // The limit message names the numbers of the shared schema.
+  expect(messages.adminGroups.errors.ruleLimits).toContain("{conditions}");
 });

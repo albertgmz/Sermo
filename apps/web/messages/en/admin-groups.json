@@ -13,7 +13,8 @@
     "password": "Enter your password to confirm the change.",
     "value": "Enter a whole number for {title}.",
     "groupIds": "Choose the groups from the list.",
-    "rule": "The rule could not be read. Reload the page and try again."
+    "rule": "The rule could not be read. Reload the page and try again.",
+    "ruleLimits": "The rule is over a limit: at most {conditions} conditions, a number up to {value}, and {ids} groups or members in one condition. Shorten it and save again."
   },
   "colourPicker": {
     "legend": "Name colour",

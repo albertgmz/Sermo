@@ -151,7 +151,7 @@ export async function AwardForm({ award }: { award?: Award }) {
           {t("activeHelp")}
         </label>
       </FieldRow>
-      <RuleField place="award" rule={award?.rule} />
+      <RuleField place="award" owner={award?.id} rule={award?.rule} />
     </FormRows>
   );
 }

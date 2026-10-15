@@ -11,7 +11,7 @@ import type * as z from "zod";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, ruleOf, text } from "../groups/form-errors";
+import { formFailure, ruleOf, ruleRefusal, text } from "../groups/form-errors";
 import { dateValue } from "./dates";
 
 const FIELDS = ["title", "body", "rule", "startsAt", "endsAt"];
@@ -24,7 +24,7 @@ async function fields(
 ): Promise<Parsed | { fields: Record<string, string> }> {
   const t = await getTranslations("adminCommunication.errors");
   const rule = ruleOf(formData);
-  if (rule === null) return { fields: { rule: t("rule") } };
+  if (rule === null) return ruleRefusal(formData);
   const startsAt = dateValue(text(formData, "startsAt"));
   if (startsAt === undefined) return { fields: { startsAt: t("date") } };
   const endsAt = dateValue(text(formData, "endsAt"));

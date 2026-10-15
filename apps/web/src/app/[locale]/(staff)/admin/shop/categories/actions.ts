@@ -14,6 +14,7 @@ import {
   formFailure,
   type OrderChange,
   ruleOf,
+  ruleRefusal,
   saveInOrder,
   text,
   whole,
@@ -37,7 +38,7 @@ export async function saveCategory(
   const position = typed === "" ? undefined : whole(typed);
   if (position === null) return { fields: { position: t("whole") } };
   const rule = ruleOf(formData);
-  if (rule === null) return { fields: { rule: t("rule") } };
+  if (rule === null) return ruleRefusal(formData);
   const fields = {
     name: text(formData, "name"),
     description: text(formData, "description"),

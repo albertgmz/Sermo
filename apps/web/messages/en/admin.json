@@ -201,7 +201,8 @@
     "add": {
       "label": "Add a condition",
       "choose": "Add a condition…",
-      "button": "Add"
+      "button": "Add",
+      "limit": "A rule takes at most {count} conditions."
     },
     "holds": "Must hold",
     "notHold": "Must not hold",

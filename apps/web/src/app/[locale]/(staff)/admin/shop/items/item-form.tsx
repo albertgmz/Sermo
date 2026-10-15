@@ -232,7 +232,7 @@ export async function ItemForm({
         text={t("activeHelp")}
         defaultChecked={item ? item.isActive : true}
       />
-      <RuleField place="shopItem" rule={item?.rule} />
+      <RuleField place="shopItem" owner={item?.id} rule={item?.rule} />
     </FormRows>
   );
 }

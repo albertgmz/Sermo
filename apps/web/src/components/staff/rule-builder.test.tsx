@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CRITERIA } from "@/lib/test-criteria";
+import { CRITERIA, LIMITS } from "@/lib/test-criteria";
 import { withIntl } from "@/lib/test-intl";
 import { PLACES, type Place, type Rule } from "./criteria-rule";
 
@@ -28,6 +28,7 @@ function draw(place: Place, rule: Rule = nothing, over = {}) {
         criteria={CRITERIA}
         rule={rule}
         choices={{ ...choices, ...over }}
+        limits={LIMITS}
       />,
     ),
   );
@@ -141,6 +142,34 @@ test("each condition draws the input its criterion asks for", () => {
   expect(html).toContain("ember");
   // Each one can be removed.
   expect(html.match(/aria-label="Remove /g)?.length).toBeGreaterThanOrEqual(5);
+});
+
+test("a rule stops taking conditions at the schema's limit", () => {
+  const conditions = (count: number) =>
+    Array.from({ length: count }, () => ({
+      criterion: "post_count",
+      value: 1,
+    }));
+  const room = draw("promotion", {
+    match: "all",
+    conditions: conditions(LIMITS.conditions - 1),
+  });
+  expect(room).toContain('aria-label="Add a condition"');
+  expect(room).not.toContain("takes at most");
+  const full = draw("promotion", {
+    match: "all",
+    conditions: conditions(LIMITS.conditions),
+  });
+  expect(full).not.toContain('aria-label="Add a condition"');
+  expect(full).toContain(`takes at most ${LIMITS.conditions} conditions`);
+});
+
+test("a number field stops at the schema's limit", () => {
+  const html = draw("award", {
+    match: "all",
+    conditions: [{ criterion: "post_count", value: 3 }],
+  });
+  expect(html).toContain(`max="${LIMITS.value}"`);
 });
 
 test("a condition the builder does not draw is shown as it is and sent back unchanged", () => {

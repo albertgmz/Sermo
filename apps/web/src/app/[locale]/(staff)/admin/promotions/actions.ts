@@ -15,6 +15,7 @@ import {
   formFailure,
   missingPassword,
   ruleOf,
+  ruleRefusal,
   text,
 } from "../groups/form-errors";
 
@@ -40,7 +41,7 @@ export async function savePromotion(
   const groupIds = groupIdsOf(formData);
   if (groupIds === null) return { fields: { groupIds: t("groupIds") } };
   const rule = ruleOf(formData);
-  if (rule === null) return { fields: { rule: t("rule") } };
+  if (rule === null) return ruleRefusal(formData);
   const fields = {
     title: text(formData, "title"),
     isActive: formData.get("isActive") !== null,

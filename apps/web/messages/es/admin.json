@@ -201,7 +201,8 @@
     "add": {
       "label": "Añadir una condición",
       "choose": "Añadir una condición…",
-      "button": "Añadir"
+      "button": "Añadir",
+      "limit": "Una regla admite como máximo {count} condiciones."
     },
     "holds": "Debe cumplirse",
     "notHold": "No debe cumplirse",

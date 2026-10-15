@@ -178,8 +178,7 @@
       "id": "That is not a valid award.",
       "tier": "Choose one of the tiers offered.",
       "number": "Enter a whole number.",
-      "file": "That is not a valid uploaded file.",
-      "rule": "The rule could not be read. Reload the page and try again."
+      "file": "That is not a valid uploaded file."
     }
   },
   "grants": {
@@ -259,8 +258,7 @@
     },
     "errors": {
       "id": "That is not a valid category.",
-      "whole": "Enter a whole number.",
-      "rule": "The rule could not be read. Reload the page and try again."
+      "whole": "Enter a whole number."
     }
   },
   "items": {
@@ -397,8 +395,7 @@
       "category": "Choose a category.",
       "number": "Enter a whole number.",
       "effect": "Complete the effect: choose what it needs.",
-      "file": "That is not a valid uploaded file.",
-      "rule": "The rule could not be read. Reload the page and try again."
+      "file": "That is not a valid uploaded file."
     }
   },
   "member": {

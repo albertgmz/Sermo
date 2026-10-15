@@ -13,7 +13,13 @@ import type * as z from "zod";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, ruleOf, text, whole } from "../../groups/form-errors";
+import {
+  formFailure,
+  ruleOf,
+  ruleRefusal,
+  text,
+  whole,
+} from "../../groups/form-errors";
 
 const FIELDS = [
   "categoryId",
@@ -113,7 +119,7 @@ export async function saveItem(
   const effect = effectOf(formData);
   if (effect === null) return { fields: { effect: t("effect") } };
   const rule = ruleOf(formData);
-  if (rule === null) return { fields: { rule: t("rule") } };
+  if (rule === null) return ruleRefusal(formData);
   const typedFile = text(formData, "fileId");
   const fileId = typedFile === "" ? undefined : parseId(typedFile);
   if (fileId === null) return { error: t("file") };

@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
+import { type Choice, IdPicker } from "@/components/forum/id-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,10 +22,10 @@ import {
   PLACES,
   type Place,
   type Rule,
+  type RuleLimits,
   removeCondition,
   ruleOfDraft,
 } from "./criteria-rule";
-import { type Choice, IdPicker } from "./id-picker";
 import { selectClass } from "./rows";
 
 // What a condition can name.
@@ -55,18 +56,21 @@ async function findMembers(prefix: string): Promise<Choice[]> {
 //   criteria  What the backend lists (every criterion; the place filters).
 //   rule      The rule being edited.
 //   choices   The groups, shop items and members that conditions may name.
+//   limits    What the shared schema allows: conditions in a rule, a condition's number and ids.
 //   name      The field the rule is sent in. Default "rule".
 export function RuleBuilder({
   place,
   criteria,
   rule,
   choices,
+  limits,
   name = "rule",
 }: {
   place: Place;
   criteria: readonly Criterion[];
   rule: Rule;
   choices: RuleChoices;
+  limits: RuleLimits;
   name?: string;
 }) {
   const t = useTranslations("admin.ruleBuilder");
@@ -81,6 +85,7 @@ export function RuleBuilder({
   const title = (criterion: string) =>
     criteria.find((entry) => entry.id === criterion)?.title ?? criterion;
   const empty = draft.entries.length === 0;
+  const full = draft.entries.length >= limits.conditions;
 
   return (
     <div className="space-y-3">
@@ -156,6 +161,7 @@ export function RuleBuilder({
                     condition={condition}
                     labelId={labelId}
                     choices={choices}
+                    limits={limits}
                     onChange={(input) =>
                       setDraft((now) => changeCondition(now, key, input))
                     }
@@ -170,7 +176,12 @@ export function RuleBuilder({
           })}
         </ul>
       )}
-      {offered.length > 0 && (
+      {full && (
+        <p className="text-sm text-muted-foreground">
+          {t("add.limit", { count: limits.conditions })}
+        </p>
+      )}
+      {offered.length > 0 && !full && (
         <div className="flex gap-2">
           <select
             aria-label={t("add.label")}
@@ -220,15 +231,24 @@ function Control({
   condition,
   labelId,
   choices,
+  limits,
   onChange,
 }: {
   criterion: Criterion;
   condition: Condition;
   labelId: string;
   choices: RuleChoices;
+  limits: RuleLimits;
   onChange: (input: Change) => void;
 }) {
   const t = useTranslations("admin.ruleBuilder");
+  const text = {
+    chosen: criterion.title,
+    search: `${criterion.title}: ${t("picker.search")}`,
+    placeholder: t("picker.placeholder"),
+    noMatch: t("picker.noMatch"),
+    remove: (name: string) => t("picker.remove", { name }),
+  };
   switch (criterion.kind) {
     case "boolean":
       return (
@@ -249,7 +269,7 @@ function Control({
           ids={condition.value === undefined ? [] : [condition.value]}
           known={choices.items}
           options={choices.items}
-          label={criterion.title}
+          text={text}
           onChange={([value]) => onChange({ value })}
         />
       );
@@ -259,7 +279,8 @@ function Control({
           ids={condition.ids ?? []}
           known={choices.groups}
           options={choices.groups}
-          label={criterion.title}
+          limit={limits.ids}
+          text={text}
           onChange={(ids) => onChange({ ids })}
         />
       );
@@ -269,7 +290,8 @@ function Control({
           ids={condition.ids ?? []}
           known={choices.members}
           search={findMembers}
-          label={criterion.title}
+          limit={limits.ids}
+          text={text}
           onChange={(ids) => onChange({ ids })}
         />
       );
@@ -284,11 +306,12 @@ function Control({
             type="number"
             inputMode="numeric"
             min={0}
+            max={limits.value}
             required
             aria-labelledby={labelId}
             defaultValue={condition.value}
             onChange={(event) =>
-              onChange({ value: numberOf(event.target.value) })
+              onChange({ value: numberOf(event.target.value, limits.value) })
             }
           />
           {unit && (

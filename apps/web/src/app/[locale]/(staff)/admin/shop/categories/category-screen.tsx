@@ -60,7 +60,11 @@ async function CategoryForm({ category }: { category?: Category }) {
         text={t("activeHelp")}
         defaultChecked={category ? category.isActive : true}
       />
-      <RuleField place="shopCategory" rule={category?.rule} />
+      <RuleField
+        place="shopCategory"
+        owner={category?.id}
+        rule={category?.rule}
+      />
     </FormRows>
   );
 }
