@@ -3997,3 +3997,22 @@ split involving the forum, as source or target, has not finished, failed ones in
 must be run again first), so a transfer already under way never runs its remaining chunks under a
 setting that changed beneath it. The switch exists on forums only (the category form hides it and
 leaves the flag alone), and the importer writes the flag directly from XenForo's `count_messages`.
+
+### Imported usernames (item 7)  Accounts the importer marks with `users.imported` keep the username
+they came with, even when it fails the registration rule, while every new name still meets it. The
+column is set only by the importer; nothing in the forum's operations sets it. Sign-in by username
+takes any name of 1 to 100 characters (the Better Auth username plugin no longer applies Sermo's
+length bounds or pattern), because a name nobody holds finds nothing and no account outside the
+import can hold an invalid one; display, user search and `[USER=id]` mentions never checked the rule
+at read time. The rule for new names moved into `usernameRefusal` and is applied by the auth
+module's before hook on sign-up, update-user and is-username-available, with the same error codes as
+before, and by its database hooks for the display name; `checkUsername` (renames, administrator
+edits) uses the same function, so renaming an imported account to an invalid name is refused. The
+one place the flag is read is the undoing of a failed rename: the undo names the name it restores
+(the rename marker's `restores`), and only an imported account's hook accepts that exact name
+although it fails the rule; any other name through the undo is refused. On the web, the sign-in form
+treats the input as an email only when it has the shape of an address (265 dump names hold an `@`),
+the `@` menu opens for any prefix without spaces or `@` (so a name such as `#Bishop` can be
+offered), and the editor inserts `[USER=id]name[/USER]` for a chosen member whose name neither
+`@name` nor `@"name"` can hold; the mention syntax itself is unchanged. Names that look like an
+address (about 8 in the dump) sign in with their email.
