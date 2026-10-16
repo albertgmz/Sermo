@@ -3398,3 +3398,38 @@ main checkout's build, not this branch. The consent cookie is a copy of the libr
 (`lib/consent/account.ts` writes the same one), so a change there needs the runner's `consentCookie`
 kept in step. Scores move by a few points with other work on the machine (item 26 runs Playwright);
 no jump was seen between runs.
+
+### Phone suite on the production build (item 26b)  **The avatar menu's alert rows register their
+client component where every page can see it.** `loadAlerts` is a server action that returns
+`AlertRows`, which draws the client component `NotificationLink`. React can only serialise a
+reference to a client component that the route's client reference manifest lists, and Next lists
+only the client modules a server module of that route imports; what a server action imports does not
+count. In the staging build 2 of 133 route manifests listed `notification-link` (the notifications
+page and the styleguide), so on every other page a production build answered the first open of the
+menu with React error #441 (an error in the Server Components render, its message left out of
+production builds) and the page showed its error screen. A development server has one manifest for
+everything, which is why the phone suite never saw it. `components/layout/panel-parts.ts` lists the
+component (the pattern of `member-card-parts.ts`, frozen so the import is kept) and
+`account-menu.tsx`, which every page with the menu renders, imports it. `panel-parts.test.ts` fails
+without that import. The messages and bookmarks tabs hold only client components the pages list
+already.  **Test faults found on a production build, each fixed in the test with its reason.** - The
+bottom bar check counted the unread dot (it sticks out of the icon's box on purpose) and the
+clipped screen-reader text of a member who has unread alerts. It now measures elements that draw
+text and are not `.sr-only`. - The menu opens on the tab with something unread; the theme buttons
+and the data-saver link are on   the Account tab. The tests that need them now open that tab. - The
+reaction picker was measured while its 100 ms scale-in ran (39.99997 px): the test waits for   the
+popover's animations. The Like button was only brought into view, which can leave it under the
+fixed bottom bar (an administrator's thread header is taller): it is now centred. - The compact list
+test reloaded the page while the toggle's save was in flight (a large forum   answers slowly),
+cancelling it or colliding with the page's own reload. It waits until the   document it marked is
+gone, also at the end so the next project starts from cards. - Below 360 px a row with a reaction
+chip leaves its title less than 120 px: annotated, as   `expectFits` does, since the design promises
+nothing under that width. Other projects still fail. - The guest theme test used the home feed,
+whose endless list keeps moving the footer down while it   is scrolled to (a press landed where the
+button had been, WebKit). It uses the forum list. - The large seed's attachments are rows of the
+bench `fake` storage driver: their pictures answer   400 "Storage driver is unavailable" and the
+browser logs a line each. The console lines are   forgiven by count, as many as such answers were
+seen (Chromium's console line has no address);   any other 400 beyond that count still fails the
+test. - The sign-in helper probed the limiter every one or two seconds while it was closed. A probe
+that   lands as the window ends is refused and starts it again, so the probing kept it closed. It
+now   waits the `x-retry-after` it was told, sending nothing.
