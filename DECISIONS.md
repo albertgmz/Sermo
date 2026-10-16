@@ -3433,3 +3433,64 @@ seen (Chromium's console line has no address);   any other 400 beyond that count
 test. - The sign-in helper probed the limiter every one or two seconds while it was closed. A probe
 that   lands as the window ends is refused and starts it again, so the probing kept it closed. It
 now   waits the `x-retry-after` it was told, sending nothing.
+
+### WAL growth under load (item 27b)  **Cause.** Staging's WAL reached 32.6 GB because a stream of
+back-to-back commits never lets the WAL restart. A PASSIVE checkpoint copies the frames that existed
+when it began; SQLite restarts the WAL (writes from the first frame again) only when a write begins
+and finds every frame copied. The notification fan-out commits a batch of 40 recipients, yields one
+event-loop turn and commits again, so a checkpoint always ends with newer frames behind it and the
+WAL only grows, for as long as the fan-out runs (and the job holds checkpoints for up to 30 s
+besides). Each recipient costs about 5 KB of WAL (a row in `notifications` and its nine indexes, the
+member's unread counter, the job's progress row; 1.3 frames per row), so a post in a forum with
+100,000 watchers is about 0.5 GB of WAL; a few dozen such posts (the Playwright suite) are the 32
+GB. No `journal_size_limit` was set either, so the file stayed at its high-water mark after a reset
+(`wal_checkpoint(TRUNCATE)` reported `log: 0` over a 32 GB file). The fan-out transactions were
+already bounded (40 rows), so batching was not the cause. **Reproduced** in process with no server
+(`bench/seed.ts --scale 10` and `--scale 2`; the script wrote posts into the hot forum and thread
+with every member watching, ran the job worker, event dispatch and the checkpoint thread as the
+backend does, and two reader threads): at 2 posts per second, 331,000 notifications left a 1,696 MB
+WAL (431,000 frames, never restarted), at 8 posts per second with readers holding short transactions
+7,500 MB for 597,000 notifications; at scale 2, 225,000 notifications left 1,301 MB. **Fix 1:
+`paceWal` (`db/checkpointer.ts`).** Between batches the fan-out calls `betweenBatches` (the old
+event-loop yield plus `paceWal`). When the WAL file is past `journal_size_limit` the job stops
+writing and asks the checkpoint thread for a checkpoint now, waits for the second complete
+checkpoint (the first may have begun before the job stopped), and its next write restarts the WAL.
+The fan-out resumes from the saved batch position as before; the pause only delays the next batch.
+**This is the one exception to the holds rule** ("background jobs hold checkpoints at most 30 s",
+"WAL checkpoints during background jobs"): holds still delay the periodic checkpoint, but a pace
+checkpoint ignores them. While the job awaits, the event loop serves requests, so request writes and
+event dispatch can commit beside that checkpoint, the overlap the older entry blames for 0.3 to 6 s
+commit stalls. The overlap is bounded: one extra checkpoint per 64 MiB of fan-out WAL (about 13,000
+notifications), not one per tick, and a hold-free checkpoint of an unbounded WAL was due at least
+every 30 s anyway. The wait goes on while a checkpoint is running (the same one seen twice 5 ms
+apart) or the frames it copied keep changing, so a slow disk is waited for; it ends after 10 s
+without progress (a reader keeps an old snapshot), and then waits again only once the WAL has
+doubled, a memory dropped as soon as the file is back under the limit, so a stuck reader cannot slow
+a job to one batch per 10 s and never switches the protection off for good. Stopping the
+checkpointer ends a wait. Costs a pragma read and a `stat` per batch (microseconds), nothing without
+a checkpointer. Applied to every loop in `notifications/delivery.ts` (fan-out, deletes, mark-read,
+retention purge). Other jobs that stream commits (credit rules, awards, shop expiry, moderation
+batches) do not call it yet (not measured); the call is one line where one proves to need it.
+**First thing to read on the next staging run:** whether a pace wait ever gave up (the WAL stays
+above 64 MiB and grows) on the cold 18.9 GB file; if so the checkpoint is slower than the progress
+rule can see. **Fix 2: `journal_size_limit` = 64 MiB on every connection (`openDatabase`).** The
+connection whose write restarts the WAL cuts the file back to the limit (checked: setting it only on
+the checkpoint thread does nothing), so the file follows the live WAL instead of its high-water
+mark, and "file larger than the limit" means "live frames beyond the limit", which is what `paceWal`
+tests. **Rejected:** a `wal_checkpoint(RESTART)` or `FULL` escalation (it blocks request writes for
+the whole copy, the reason checkpoints moved to a thread); smaller or larger fan-out batches (frames
+per row barely change with the batch size, the rows land on different pages); releasing the hold
+sooner (the stalls the hold prevents come back). **Measured, same script, before then after:** 2
+posts per second for 60 s on the 1/10 forum: peak WAL 1,696 MB then 65 MB, all 331,143 notifications
+delivered in 74 s then 70 s, post p95 6 ms then 6 ms, reader p95 0.1 ms in both; 8 posts per second
+with readers in transactions: 7,477 MB then 64 MB (delivery 12% slower while the job is saturated,
+524,000 against 597,000 rows in the same time, because it now pauses to checkpoint; reads and posts
+unaffected); 1/2 forum (1.7 GB file, 30,000 watchers): 1,301 MB then 64 MB for 224,817
+notifications, 26 s then 30 s. Commit stalls of 100 ms or more: 6 then 0 at 8 posts per second.
+**Not measured:** the 18.9 GB staging file on cold storage (stalls of 1 to 5 s there came from
+checkpoints overlapping commits, which fewer, smaller checkpoints made while the job is paused
+should reduce; check on the next staging run: `load/write-waits.ts` and the WAL size afterwards).
+**Tests:** `foundation.test.ts` (the pragma is applied; `paceWal` makes a held WAL restart and the
+file shrink to the limit, returns at once without a checkpointer, and gives up and backs off on a
+reader-held checkpoint) and `notifications/index.test.ts` (an 800-watcher fan-out reaches everyone
+and the file stays under twice the limit: 0.5 MB paced against 1.7 MB with the call removed).
