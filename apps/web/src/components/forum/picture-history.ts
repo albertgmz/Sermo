@@ -1,6 +1,7 @@
 import {
   PICTURE_PARAM,
   type PictureRef,
+  parseRef,
   withPicture,
 } from "@/components/forum/picture-ref";
 
@@ -39,7 +40,7 @@ export function pictureHistory(env: HistoryEnv) {
     open(ref: PictureRef) {
       // A second press before the viewer's code has arrived must not add a second entry.
       const url = new URL(env.here(), "http://picture.invalid");
-      if (url.searchParams.has(PICTURE_PARAM)) return;
+      if (parseRef(url.searchParams.get(PICTURE_PARAM))) return;
       env.history().pushState(own(), "", withPicture(env.here(), ref));
     },
     change(ref: PictureRef) {

@@ -208,3 +208,10 @@ test("a second press while a picture is open adds no second entry", () => {
   b.history.close();
   expect(b.address()).toBe("/?tab=media");
 });
+
+test("an address with a picture the viewer cannot read still lets a card open one", () => {
+  const b = browser("/?tab=media&picture=junk");
+  b.history.open(ref(5));
+  expect(b.address()).toBe("/?tab=media&picture=post-5-7");
+  expect(b.log).toEqual(["push"]);
+});
