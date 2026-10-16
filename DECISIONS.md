@@ -3018,3 +3018,16 @@ pages that carry a cursor; `watched` on Latest is 500 watches; scrolled-to pages
 forum's cards until reload; hiding has no undo; tabs drop the filter; filtered addresses are
 indexable; account erasure keeps saved filter names; `thread type` has no poll value until item 10
 lands.
+
+**SEO for the home tabs (item 18).** Each tab has its own title, description, canonical and robots
+in the page language, built from the site name; the bare address is the canonical of the tab guests
+open on, other tabs canonicalise to `/?tab=x`, and only the plain address of a public tab is
+indexed: every address with a cursor, `pages`, a feed filter, a picture, a section or any other key,
+and every address whose tab the page did not open, is `noindex, follow` and points at its tab (as
+`copyOf` does), which closes the known limit that filtered feed addresses were indexable. Tracking
+parameters (`utm_*`, `fbclid`, `gclid`, `ref`) do not make a copy. Following is never indexed. The
+owner's site description speaks for the home address; the other tabs use fixed translated text. No
+hreflang (no locale in addresses) and no sitemap change (the sitemap lists no home address). Known
+limits: the Forums tab duplicates `/forums`; no social card. The head of the home page is now
+request-time: it reads the search params and the viewer, so it is streamed with the page instead of
+being part of the prerendered shell.
