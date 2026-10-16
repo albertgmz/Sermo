@@ -3540,3 +3540,60 @@ after hydration; a banner in the first flush would make LCP early on every page 
 touches consent handling and was not attempted. Not done, for these reasons: `inlineCss` (no
 measurement, risk as in 25), the remaining Base UI popups (about 0.1 s of simulated LCP per 17 KB:
 measured, +1 point for 17 KB).  **Phone suite** on this build: 39 passed (android-small).
+
+### Phone suite on the large forum (item 26c)  The six failures of the phone suite on the large
+forum were test problems, not slow code. The feed view toggle saves the choice on the member's
+account, so the choice outlives a run. The compact list test pressed Compact and expected a save and
+a reload, but a run that had stopped earlier (the stale-build run) left the account on compact: the
+button was already pressed, `FeedViewToggle` ignores a press of the chosen option, no action was
+sent and the page never reloaded. With the account on cards the test passes on the large forum in
+about 2 s, and the action itself answers in about 30 ms. The test now starts by pressing Cards when
+Compact is already pressed, then goes on as before. The account menu test now looks for the panel of
+the tab it just chose (`getByRole("tabpanel", { name })`) because the leaving panel is still in the
+page, inert, while it animates out. No app or backend change.  ### A form sent before the page's
+script ran (item 26c, round 3)  A form of the `(auth)` pages that the browser posts by itself (a
+press before hydration, scripts that do not load) was answered with a document nothing could draw:
+the action's state as flight data in script tags with no `<html>`, plus a not-found tree. That held
+for every outcome, not only the sign-in that adopts the saved cookie choice: a wrong password, a
+refusal by the limiter and a sign-up error all left a blank page, and a sign-in that worked left the
+member signed in on it. A `redirect()` from such a post is answered properly (303 to a real page).
+With JavaScript switched off altogether the streamed forms stay hidden (React reveals them with an
+inline script), so that case is not supported; what is supported is a submit before hydration and
+scripts that fail.  Decision (safe option): keep `assign` for the hydrated form, so the banner reads
+the adopted cookie after a full load, and answer every other submit with a `redirect()`. The two are
+told apart by a hidden field, `hydrated`, which `HydrationMark` renders empty in the server's page
+and as `1` after hydration (`useSyncExternalStore`, server snapshot empty). A submit that React
+handled carries it; a native one does not. No header is used, so nothing depends on what Next sends.
+A refusal of a form sent that way is a redirect to the form's page with `?refused=<key>` (plus
+`next`, `ref`, `token` or `form=resend` where the page needs them to draw the same form again). The
+key is one of the keys under `auth.actions.errors` (`REFUSALS` in `native-form.ts`, checked against
+both languages by a test); the page validates it, translates it on the server and gives it to the
+form as its first state, so the message is in the HTML before any script. The name typed is not put
+in the address. Applies to sign-in, sign-up, forgot password, choose password, resend confirmation
+and the "not me" confirmation; the app has no 2FA step. No new strings.  Test rule:
+`apps/web/e2e/native-forms.e2e.ts` blocks `/_next/static/chunks/*.js` (the page's inline scripts
+still run; the service worker is blocked too, or it answers the scripts from its cache) and sends
+the sign-in by Enter, after asserting that the form is not hydrated. It failed on the staging build
+without the fix (blank /login) and passes on the production build of the fix (iphone-large, tablet
+and the three Android and iPhone projects of the full suite). What no browser test drives: forgot,
+reset, resend and the "not me" step are covered by unit tests only (staging has mail off), and the
+pages' reading of `refused`, including the sign-in page's `form=resend` routing, has no test. The
+native refusals are coarser than the hydrated ones: an empty email says `invalidEmail` where the
+hydrated form says "required", the "not me" step says `generic` for any failure but a bad link, and
+a refused sign-up or reset loses the typed fields. That is acceptable for a fallback path.  The
+hydration field is set in a layout effect, which runs in the commit that hydrates the form, so React
+never handles a submit while the field is still empty (a passive effect left a moment in which the
+action took the native branch from a hydrated page: a soft redirect, the refusal text not shown, the
+banner not reading an adopted choice). The hidden input has `autoComplete="off"` so a browser that
+restores field values cannot carry the `1` of an earlier visit into a page that is not hydrated.
+Test rules for the sign-in limits (round 4). There are two limits on a sign-in: Better Auth's pace
+limit (a few tries per ten seconds per address; it answers 429 with `x-retry-after`) and the
+account's wrong passwords (ten in fifteen minutes per name and address; no wait of a test gives them
+back). The native sign-in tests ran with the member's name and wrong password, so five projects of
+one run spent half of the member's budget and the auth tests of the later projects were refused. Now
+a native test that needs a wrong password uses a name nobody has, new for every test, a refusal for
+pace is waited out the way the sign-in fixture does (`limiterWait`, a probe that cannot succeed,
+nothing sent meanwhile) and a refusal that names no wait fails with its cause. The tests block the
+page's scripts with `serviceWorkers: "block"` as well: a service worker with the scripts cached
+answers past the route, the page hydrated, and the "native" form was a hydrated one (this is why the
+iphone-large run waited two minutes for a navigation that could not come).
