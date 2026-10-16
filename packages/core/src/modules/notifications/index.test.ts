@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   createTestContext,
   expectNoTableScan,
@@ -7,7 +10,8 @@ import {
   userActor,
 } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
-import { invalidate } from "../../context";
+import { type Ctx, closeContext, createContext, invalidate } from "../../context";
+import { startCheckpointer } from "../../db/checkpointer";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
 import { dispatchEvents, publishEvent } from "../../events";
@@ -28,7 +32,7 @@ import {
   registerNotificationJobs,
 } from "./index";
 
-async function drain(ctx: ReturnType<typeof createTestContext>) {
+async function drain(ctx: Ctx) {
   await dispatchEvents(ctx);
   await runDueJobs(ctx);
 }
@@ -494,5 +498,66 @@ describe("notifications", () => {
         )
         .get(member.id)?.n,
     ).toBe(0);
+  });
+});
+
+describe("notification fan-out and the WAL", () => {
+  test("a fan-out to many watchers keeps the WAL file near its limit and still reaches everyone", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sermo-test-"));
+    const path = join(dir, "test.db");
+    // Migrations leave a large WAL behind: reopen so the file starts empty.
+    closeContext(createContext({ path, migrate: true }));
+    const ctx = createContext({ path });
+    const limit = 256 * 1024;
+    ctx.sqlite.run(`PRAGMA journal_size_limit = ${limit}`);
+    const stopCheckpointer = startCheckpointer(ctx, { intervalMs: 20 });
+    try {
+      registerNotificationJobs(ctx);
+      const author = insertUser(ctx);
+      const node = insertNode(ctx, {});
+      invalidate(ctx, "node_tree");
+      const thread = await execute(ctx, threadsCreateOp, userActor(author), {
+        nodeId: node.id,
+        title: "Topic",
+        body: "First",
+      });
+      const watchers = Array.from({ length: 800 }, () => insertUser(ctx));
+      writeTx(ctx, () => {
+        const watch = ctx.sqlite.prepare(
+          "INSERT INTO thread_watches (user_id, thread_id, created_at) VALUES (?1, ?2, ?3)",
+        );
+        for (const watcher of watchers) watch.run(watcher.id, thread.thread.id, ctx.now());
+      });
+      await drain(ctx);
+      await execute(ctx, postsCreateOp, userActor(author), {
+        threadId: thread.thread.id,
+        body: "Reply",
+      });
+      // The setup wrote far more than the limit. Once the checkpointer has caught up, the next
+      // write restarts the WAL and the file is cut back to the limit.
+      ctx.sqlite.run("CREATE TABLE settle (n INTEGER)");
+      const walSize = () => Bun.file(`${path}-wal`).size;
+      for (let i = 0; walSize() > limit && i < 200; i++) {
+        await Bun.sleep(20);
+        ctx.sqlite.run("INSERT INTO settle VALUES (1)");
+      }
+      expect(walSize()).toBeLessThanOrEqual(limit);
+      // The fan-out writes several times the limit; the file size is the high-water mark.
+      let largest = 0;
+      const sample = setInterval(() => {
+        largest = Math.max(largest, walSize());
+      }, 1);
+      await drain(ctx);
+      clearInterval(sample);
+      const delivered = ctx.sqlite
+        .query("SELECT COUNT(*) AS n FROM notifications WHERE type = 'thread.watched'")
+        .get() as { n: number };
+      expect(delivered.n).toBe(watchers.length);
+      expect(largest).toBeLessThan(limit * 2);
+    } finally {
+      await stopCheckpointer();
+      closeContext(ctx);
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

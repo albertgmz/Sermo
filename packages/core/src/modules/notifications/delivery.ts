@@ -1,6 +1,7 @@
 import { type Actor, actorUserId, GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
+import { paceWal } from "../../db/checkpointer";
 import { writeTx } from "../../db/tx";
 import {
   CONTENT_EVENT_TYPES,
@@ -1366,6 +1367,12 @@ const someoneWaits = (ctx: Ctx): boolean =>
     ctx.sqlite.prepare<{ id: number }, [number, number]>(someoneWaitsSql),
   ).get(ctx.now(), Number.MAX_SAFE_INTEGER);
 
+/** Between the batches of a job: lets requests run, and the WAL restart once it has grown large. */
+async function betweenBatches(ctx: Ctx): Promise<void> {
+  await new Promise((resolve) => setImmediate(resolve));
+  await paceWal(ctx);
+}
+
 const saveProgress = (ctx: Ctx) =>
   prepared(ctx, "notifications.progress", () =>
     ctx.sqlite.prepare<unknown, [string, number, string]>(
@@ -1383,7 +1390,7 @@ async function inBatches(ctx: Ctx, step: (after: number) => number[]): Promise<v
     const ids = writeTx(ctx, () => step(after));
     if (ids.length < BATCH) return;
     after = ids.at(-1)!;
-    await new Promise((resolve) => setImmediate(resolve));
+    await betweenBatches(ctx);
   }
 }
 
@@ -1409,7 +1416,7 @@ async function deleteUnread(
         } else after = done.at(-1)!;
       }
     });
-    await new Promise((resolve) => setImmediate(resolve));
+    await betweenBatches(ctx);
   }
 }
 
@@ -1457,7 +1464,7 @@ async function processEvent(ctx: Ctx, progress: Progress): Promise<void> {
           );
         });
         if (rows.length < BATCH) break;
-        await new Promise((resolve) => setImmediate(resolve));
+        await betweenBatches(ctx);
       }
       progress.deleteAfter = after;
     }
@@ -1519,7 +1526,7 @@ async function processEvent(ctx: Ctx, progress: Progress): Promise<void> {
       });
       if (!rows || rows.length < BATCH) break;
       after = rows.at(-1)!;
-      await new Promise((resolve) => setImmediate(resolve));
+      await betweenBatches(ctx);
     }
   }
 }
@@ -1588,7 +1595,7 @@ export function registerNotificationJobs(ctx: Ctx): void {
         return ids.length;
       });
       if (size === 0) break;
-      await new Promise((resolve) => setImmediate(resolve));
+      await betweenBatches(db);
     }
   });
   registerJobHandler(ctx, "notifications.retention", async (db) => {
@@ -1616,6 +1623,6 @@ export async function purgeReadNotifications(ctx: Ctx): Promise<number> {
     });
     deleted += size;
     if (size < BATCH) return deleted;
-    await new Promise((resolve) => setImmediate(resolve));
+    await betweenBatches(ctx);
   }
 }

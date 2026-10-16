@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,7 +7,7 @@ import * as z from "zod";
 import { GUEST } from "./actor";
 import { cached, closeContext, createContext, invalidate } from "./context";
 import * as contracts from "./contracts";
-import { holdCheckpoints, startCheckpointer } from "./db/checkpointer";
+import { holdCheckpoints, paceWal, startCheckpointer } from "./db/checkpointer";
 import { writeTx } from "./db/tx";
 import { ValidationError } from "./errors";
 import { enqueueJob, registerJobHandler, runDueJobs } from "./modules/jobs/queue";
@@ -36,6 +37,7 @@ describe("database connection", () => {
     expect(pragma("synchronous")).toBe(1); // NORMAL
     expect(pragma("foreign_keys")).toBe(1);
     expect(pragma("busy_timeout")).toBe(5000);
+    expect(pragma("journal_size_limit")).toBe(64 * 1024 * 1024);
     closeContext(ctx);
   });
 
@@ -376,6 +378,76 @@ describe("checkpointer", () => {
     for (let i = 0; i < 200; i++) insertUser(ctx);
     expect(walSize()).toBe(released);
     await stop();
+    closeContext(ctx);
+  });
+
+  test("paceWal stops a job until the WAL can restart once the file is past its limit", async () => {
+    const path = tempDbPath();
+    const ctx = createContext({ path, migrate: true });
+    ctx.sqlite.run("CREATE TABLE junk (id INTEGER PRIMARY KEY, v BLOB)");
+    const limit = 256 * 1024;
+    ctx.sqlite.run(`PRAGMA journal_size_limit = ${limit}`);
+    const stop = startCheckpointer(ctx, { intervalMs: 20 });
+    const walSize = () => Bun.file(`${path}-wal`).size;
+    const insert = ctx.sqlite.prepare("INSERT INTO junk (v) VALUES (randomblob(2000))");
+    // A job writing back to back: its hold keeps the periodic checkpoints away for 30 s.
+    const release = holdCheckpoints(ctx);
+    for (let i = 0; i < 1000; i++) insert.run();
+    expect(walSize()).toBeGreaterThan(limit * 4);
+    await paceWal(ctx);
+    // Everything was copied while the job waited, so the next write restarts the WAL and the
+    // file is cut back to the limit.
+    insert.run();
+    expect(walSize()).toBeLessThanOrEqual(limit);
+    release();
+    await stop();
+    closeContext(ctx);
+  });
+
+  test("paceWal gives up on a checkpoint a reader holds back, and waits again only once the WAL doubles", async () => {
+    const path = tempDbPath();
+    const ctx = createContext({ path, migrate: true });
+    ctx.sqlite.run("CREATE TABLE junk (id INTEGER PRIMARY KEY, v BLOB)");
+    ctx.sqlite.run("PRAGMA journal_size_limit = 65536");
+    const stop = startCheckpointer(ctx, { intervalMs: 20 });
+    const insert = ctx.sqlite.prepare("INSERT INTO junk (v) VALUES (randomblob(2000))");
+    const grow = (rows: number) => {
+      for (let i = 0; i < rows; i++) insert.run();
+    };
+    const timed = async () => {
+      const started = performance.now();
+      await paceWal(ctx, 300);
+      return performance.now() - started;
+    };
+    // A reader at an old snapshot: the checkpoint can never copy every frame.
+    const reader = new Database(path);
+    reader.run("BEGIN");
+    reader.query("SELECT COUNT(*) FROM junk").get();
+    grow(200);
+    expect(await timed()).toBeGreaterThanOrEqual(300);
+    expect(await timed()).toBeLessThan(100);
+    grow(400);
+    expect(await timed()).toBeGreaterThanOrEqual(300);
+    reader.run("COMMIT");
+    reader.close();
+    await stop();
+    closeContext(ctx);
+  });
+
+  test("paceWal returns at once when no checkpointer runs", async () => {
+    const path = tempDbPath();
+    const ctx = createContext({ path, migrate: true });
+    ctx.sqlite.run("CREATE TABLE junk (id INTEGER PRIMARY KEY, v BLOB)");
+    ctx.sqlite.run("PRAGMA journal_size_limit = 65536");
+    ctx.sqlite.run("PRAGMA wal_autocheckpoint = 0");
+    const insert = ctx.sqlite.prepare("INSERT INTO junk (v) VALUES (randomblob(2000))");
+    for (let i = 0; i < 100; i++) insert.run();
+    const size = Bun.file(`${path}-wal`).size;
+    expect(size).toBeGreaterThan(65536);
+    const started = performance.now();
+    await paceWal(ctx); // no checkpointer: nothing would ever finish a checkpoint
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(Bun.file(`${path}-wal`).size).toBe(size);
     closeContext(ctx);
   });
 

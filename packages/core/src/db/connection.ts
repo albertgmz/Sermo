@@ -9,6 +9,13 @@ const schema = { ...sermoSchema, ...authSchema };
 
 export type Db = BunSQLiteDatabase<typeof schema> & { $client: Database };
 
+/**
+ * The WAL file is cut back to this size when a write restarts it, so the file stays near the live
+ * WAL instead of at its high-water mark (without a limit it never shrinks). It is also the size
+ * past which a background job waits for a checkpoint (`paceWal`).
+ */
+const JOURNAL_SIZE_LIMIT = 64 * 1024 * 1024;
+
 const MIGRATIONS_FOLDER = fileURLToPath(new URL("../../drizzle", import.meta.url));
 
 /** Opens a database file (or ":memory:") with the pragmas every connection must use. */
@@ -18,6 +25,7 @@ export function openDatabase(path: string): Db {
   sqlite.run("PRAGMA busy_timeout = 5000");
   if (path !== ":memory:") sqlite.run("PRAGMA journal_mode = WAL");
   sqlite.run("PRAGMA synchronous = NORMAL");
+  sqlite.run(`PRAGMA journal_size_limit = ${JOURNAL_SIZE_LIMIT}`);
   sqlite.run("PRAGMA foreign_keys = ON");
   sqlite.run("PRAGMA temp_store = MEMORY");
   sqlite.run("PRAGMA cache_size = -65536"); // 64 MiB page cache
