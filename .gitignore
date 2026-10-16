@@ -148,3 +148,8 @@ AGENTS.md
 *.db-wal
 *.db-shm
 .bench/
+
+# Playwright output (apps/web)
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/blob-report/

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   type ComposerRequest,
   insertAtCaret,
@@ -100,16 +101,20 @@ export function LazyEditor({
     asked.current = true;
     setWaiting(true);
     import("@/components/forum/editor").then(
+      // The text is read and the editor put in its place in one go: a key pressed in between
+      // would be typed into a box that is about to go.
       ({ Editor }) =>
-        setLoaded({
-          Editor,
-          text: field.current?.value ?? "",
-          focused: document.activeElement === field.current,
-          selection: {
-            start: field.current?.selectionStart ?? 0,
-            end: field.current?.selectionEnd ?? 0,
-          },
-        }),
+        flushSync(() =>
+          setLoaded({
+            Editor,
+            text: field.current?.value ?? "",
+            focused: document.activeElement === field.current,
+            selection: {
+              start: field.current?.selectionStart ?? 0,
+              end: field.current?.selectionEnd ?? 0,
+            },
+          }),
+        ),
       // The box keeps working as it is, and asks again the next time it is entered.
       () => {
         asked.current = false;

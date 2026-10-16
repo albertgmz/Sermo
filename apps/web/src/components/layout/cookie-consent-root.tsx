@@ -10,6 +10,7 @@ import { saveConsentChoice } from "@/lib/consent/actions";
 import { consentCallbacks, mustReloadForQuiet } from "@/lib/consent/callbacks";
 import { type ConsentTexts, consentConfig } from "@/lib/consent/config";
 import type { OptionalCategory } from "@/lib/consent/inventory";
+import { reserveBannerSpace } from "@/lib/consent/space";
 
 // Starts the cookie banner once and keeps it in step with the page (`effectOf` says how). Anything
 // marked `data-consent-settings` (the footer button, the cookie policy page) opens the settings.
@@ -35,11 +36,20 @@ export function CookieConsentRoot({
   const first = useRef({ texts, locale, version, quiet, omit });
   useEffect(() => {
     const { texts, locale, version, quiet, omit } = first.current;
+    let release: (() => void) | undefined;
     startConsent({
       ...consentConfig(texts, locale, version, window.location.hostname, {
         quiet,
         omit,
       }),
+      onModalShow: ({ modalName }) => {
+        const banner = document.querySelector("#cc-main .cm");
+        if (modalName === "consentModal" && banner)
+          release = reserveBannerSpace(document.documentElement, banner);
+      },
+      onModalHide: ({ modalName }) => {
+        if (modalName === "consentModal") release?.();
+      },
       ...consentCallbacks({
         quiet,
         omit,

@@ -1,0 +1,353 @@
+import { readFileSync } from "node:fs";
+import {
+  box,
+  editorReady,
+  expect,
+  expectFits,
+  MEMBER_STATE,
+  phoneWidth,
+  ready,
+  rejectCookies,
+  SEED_FILE,
+  type Seed,
+  screen,
+  test,
+  visit,
+} from "./fixtures";
+
+// Browser checks that earlier items could not run: gestures, popups, focus, touch targets and the
+// pages' own metadata. Each one names the item it closes.
+
+const seed = (): Seed => JSON.parse(readFileSync(SEED_FILE, "utf8"));
+
+// The reaction button of a post: the member's own reaction or "Like", with its count.
+const REACTION_BUTTON = /^[A-Za-z]+, \d+ reactions?$/;
+
+test.describe("signed in", () => {
+  test.use({ storageState: MEMBER_STATE });
+
+  // Items 16 and 16c: six cells in the bottom bar, labels whole, in both languages. A 320 px phone
+  // is narrower than the design width: the labels are measured from 360 px.
+  test("no label of the bottom bar is cut off @all", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    test.skip(!phoneWidth(page), "the bottom bar is for phones");
+    test.skip(
+      screen(page).width < 360,
+      "the bar is designed for 360 px and up",
+    );
+    for (const language of ["en", "es"]) {
+      await context.addCookies([
+        { name: "forum_locale", value: language, url: baseURL ?? "" },
+      ]);
+      await visit(page, "/");
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+      const cut = await page.evaluate(() =>
+        [...document.querySelectorAll('nav[aria-label="Primary"] *')]
+          .filter((element) => element.scrollWidth > element.clientWidth + 1)
+          .map(
+            (element) =>
+              `${element.textContent?.trim()} (${element.scrollWidth} in ${element.clientWidth})`,
+          ),
+      );
+      expect(cut, `cropped labels in the bottom bar (${language})`).toEqual([]);
+    }
+    await context.addCookies([
+      { name: "forum_locale", value: "en", url: baseURL ?? "" },
+    ]);
+  });
+
+  // Item 10c: holding the reaction button opens the picker inside the screen.
+  test("holding the Like button opens the reaction picker inside the screen", async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(
+      browserName !== "chromium",
+      "touch events are sent through the Chrome protocol",
+    );
+    const { peerThreadId } = seed();
+    test.skip(
+      peerThreadId === null,
+      "the setup could not make a thread by another member",
+    );
+    await visit(page, `/threads/${peerThreadId}`);
+    const like = page.getByRole("button", { name: REACTION_BUTTON }).first();
+    const chosen = ((await like.getAttribute("aria-label")) ?? "").includes(
+      "Haha",
+    )
+      ? "Wow"
+      : "Haha";
+    await like.scrollIntoViewIfNeeded();
+    const spot = await box(like);
+    const x = spot.x + spot.width / 2;
+    const y = spot.y + spot.height / 2;
+    const touch = await context.newCDPSession(page);
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y }],
+    });
+    const picker = page.locator('[data-slot="popover-content"]').first();
+    await expect(picker).toBeVisible();
+    const frame = await box(picker);
+    const size = screen(page);
+    expect(frame.x).toBeGreaterThanOrEqual(16 - 1);
+    expect(frame.x + frame.width).toBeLessThanOrEqual(size.width - 16 + 1);
+    const reactions = picker.getByRole("button");
+    for (let index = 0; index < (await reactions.count()); index += 1) {
+      const target = await box(reactions.nth(index));
+      expect(target.width).toBeGreaterThanOrEqual(40);
+      expect(target.height).toBeGreaterThanOrEqual(40);
+    }
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    // Released on the button: the picker stays open for a tap on a reaction.
+    await expect(picker).toBeVisible();
+    await picker.getByRole("button", { name: chosen }).tap();
+    await expect(
+      page
+        .getByRole("button", { name: new RegExp(`^${chosen}, 1 reaction`) })
+        .first(),
+    ).toBeVisible();
+    await expectFits(page, "after reacting");
+  });
+
+  test("a short press that slides away opens no picker", async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(
+      browserName !== "chromium",
+      "touch events are sent through the Chrome protocol",
+    );
+    const { peerThreadId } = seed();
+    test.skip(
+      peerThreadId === null,
+      "the setup could not make a thread by another member",
+    );
+    await visit(page, `/threads/${peerThreadId}`);
+    const like = page.getByRole("button", { name: REACTION_BUTTON }).first();
+    await like.scrollIntoViewIfNeeded();
+    const spot = await box(like);
+    const x = spot.x + spot.width / 2;
+    const y = spot.y + spot.height / 2;
+    const touch = await context.newCDPSession(page);
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y }],
+    });
+    for (let step = 1; step <= 5; step += 1) {
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x, y: y - step * 20 }],
+      });
+    }
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await page.waitForTimeout(700);
+    await expect(page.locator('[data-slot="popover-content"]')).toHaveCount(0);
+  });
+
+  // Item 15: the compact list.
+  test("the compact feed list is kept over a reload and every row fits @all", async ({
+    page,
+  }) => {
+    await visit(page, "/");
+    await page.getByRole("button", { name: "Compact list" }).click();
+    await expect(
+      page.getByRole("button", { name: "Compact list" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await page.reload();
+    await ready(page);
+    await expect(
+      page.getByRole("button", { name: "Compact list" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expectFits(page, "compact list");
+    const rows = page.getByRole("main").getByRole("article");
+    const count = Math.min(await rows.count(), 6);
+    for (let index = 0; index < count; index += 1) {
+      const row = await box(rows.nth(index));
+      expect(
+        row.height,
+        `row ${index} is tall enough to press`,
+      ).toBeGreaterThanOrEqual(40);
+      const link = rows.nth(index).locator('h2 a[href^="/threads/"]');
+      if ((await link.count()) === 0) continue;
+      const title = await box(link.first());
+      expect(
+        title.width,
+        `the title of row ${index} is not squeezed`,
+      ).toBeGreaterThanOrEqual(120);
+    }
+    await page.getByRole("button", { name: "Cards" }).click();
+    await expect(page.getByRole("button", { name: "Cards" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  // Item 13: the filter sheet.
+  test("the feed filter sheet opens inside the screen, applies a forum and clears @all", async ({
+    page,
+  }) => {
+    await visit(page, "/");
+    await page.getByRole("button", { name: "Filters" }).click();
+    const sheet = page.getByRole("dialog", { name: "Filter the feed" });
+    await expect(sheet).toBeVisible();
+    await expectFits(page, "filter sheet");
+    const frame = await box(sheet);
+    const size = screen(page);
+    expect(frame.x + frame.width).toBeLessThanOrEqual(size.width + 1);
+    expect(frame.y + frame.height).toBeLessThanOrEqual(size.height + 1);
+
+    await sheet
+      .getByRole("list", { name: "Forums" })
+      .getByRole("checkbox")
+      .first()
+      .check();
+    await sheet.getByRole("button", { name: "Show results" }).click();
+    await expect(page).toHaveURL(/forums=\d+/);
+    await expect(
+      page.getByRole("button", { name: /^Filters \(1\)/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /^Remove the filter/ }),
+    ).toBeVisible();
+    await expectFits(page, "filtered feed");
+    await page.getByRole("link", { name: "Clear filters" }).click();
+    await expect(page).not.toHaveURL(/forums=/);
+  });
+
+  // Item 19: text typed before the editor is in reaches it.
+  test("text typed before the editor has loaded is not lost", async ({
+    page,
+  }) => {
+    const { threadId } = seed();
+    test.skip(threadId === null, "the setup could not make a thread");
+    await visit(page, `/threads/${threadId}?page=3`);
+    const reply = page.getByRole("region", { name: "Reply" });
+    const field = reply.getByRole("textbox", {
+      name: "Type your message here.",
+    });
+    await field.click();
+    await field.pressSequentially("typed at once without waiting", {
+      delay: 40,
+    });
+    await editorReady(reply);
+    await expect(field).toContainText("typed at once without waiting");
+  });
+
+  // Item 21: keyboard shortcuts.
+  test("the shortcut help opens with ?, Esc closes it, and g then c opens the conversations", async ({
+    page,
+  }) => {
+    await visit(page, "/");
+    await page.keyboard.press("?");
+    const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+    await expect(help).toBeVisible();
+    await expectFits(page, "shortcut help");
+    await page.keyboard.press("Escape");
+    await expect(help).toBeHidden();
+    await page.keyboard.press("g");
+    await page.keyboard.press("c");
+    await expect(page).toHaveURL(/\/conversations/);
+  });
+
+  // Items 1c and 16c: data saver on.
+  test("with the data saver on the account menu draws no picture", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await context.addCookies([
+      { name: "forum_lite", value: "all", url: baseURL ?? "" },
+    ]);
+    const pictures: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/v1/files/"))
+        pictures.push(request.url());
+    });
+    await visit(page, "/");
+    await page.getByRole("button", { name: "Account menu" }).click();
+    const menu = page.getByRole("dialog", { name: "Account menu" });
+    await expect(menu).toBeVisible();
+    expect(await menu.locator("img").count()).toBe(0);
+    expect(pictures).toEqual([]);
+    await expect(menu.getByRole("link", { name: /^Data saver/ })).toContainText(
+      "On",
+    );
+    await expectFits(page, "account menu with the data saver");
+  });
+});
+
+test.describe("guest", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  // Item 30: a popup that is fetched on demand opens on the first press and gives the focus back.
+  test("the site options menu opens with the keyboard, takes the focus and gives it back @all", async ({
+    page,
+  }) => {
+    await visit(page, "/");
+    await rejectCookies(page);
+    const trigger = page.getByRole("button", { name: "Site options" });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    expect(
+      await menu.evaluate((element) =>
+        element.contains(document.activeElement),
+      ),
+    ).toBe(true);
+    await expectFits(page, "site options");
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(trigger).toBeFocused();
+    // The arrow keys put the focus on an item.
+    await page.keyboard.press("ArrowDown");
+    await expect(menu.getByRole("menuitem").first()).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+  });
+
+  // Item 18: each home tab says what it is in the page's own head.
+  test("the home tabs carry their own title, canonical address and robots rule", async ({
+    request,
+    baseURL,
+  }) => {
+    const head = async (path: string, language = "en") => {
+      const response = await request.get(path, {
+        headers: { "accept-language": language, "user-agent": "Googlebot" },
+      });
+      expect(response.ok(), path).toBe(true);
+      const html = await response.text();
+      return {
+        title: html.match(/<title>([^<]*)<\/title>/)?.[1],
+        canonical: html.match(/<link rel="canonical" href="([^"]*)"/)?.[1],
+        robots: html.match(/<meta name="robots" content="([^"]*)"/)?.[1],
+        og: /<meta property="og:/.test(html),
+      };
+    };
+    const latest = await head("/");
+    const hot = await head("/?tab=hot");
+    expect(hot.title).not.toBe(latest.title);
+    expect(hot.canonical).toBe(`${baseURL}/?tab=hot`);
+    expect(hot.robots).toMatch(/^index/);
+    const paged = await head("/?tab=hot&cursor=x");
+    expect(paged.robots).toMatch(/^noindex/);
+    expect(paged.canonical).toBe(`${baseURL}/?tab=hot`);
+    const following = await head("/?tab=following");
+    expect(following.robots).toMatch(/^noindex/);
+    expect(latest.og || hot.og).toBe(false);
+    const spanish = await head("/?tab=hot", "es");
+    expect(spanish.title).not.toBe(hot.title);
+  });
+});

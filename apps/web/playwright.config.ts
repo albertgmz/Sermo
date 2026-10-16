@@ -1,0 +1,75 @@
+import { defineConfig, devices } from "@playwright/test";
+
+// Phone and tablet checks of a running site. The address comes from E2E_BASE_URL (a local stack or
+// staging); the suite starts no server. The member is E2E_USER with E2E_PASSWORD.
+//
+// Every project runs the flows tagged "@all"; the 360 px phone (`android-small`) runs all of them.
+// The iPhone and iPad projects use WebKit, the rest Chromium.
+const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+
+const everyFlow = /@all/;
+
+export default defineConfig({
+  testDir: "./e2e",
+  testMatch: /.*\.e2e\.ts/,
+  // The session and the seed note are kept in test-results/.state, outside the folder Playwright
+  // empties at the start of every run.
+  outputDir: "./test-results/output",
+  // The first visit of a page on a development server compiles it, which takes seconds.
+  timeout: 120_000,
+  expect: { timeout: 20_000 },
+  fullyParallel: false,
+  workers: Number(process.env.E2E_WORKERS ?? 1),
+  retries: 0,
+  reporter: [["list"], ["html", { open: "never" }]],
+  use: {
+    baseURL,
+    actionTimeout: 30_000,
+    navigationTimeout: 90_000,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
+  projects: [
+    {
+      name: "setup",
+      testMatch: /setup\.e2e\.ts/,
+      use: { ...devices["Galaxy S8"] },
+    },
+    {
+      // 360 x 740 CSS pixels: the width the web app is designed for.
+      name: "android-small",
+      testIgnore: /setup\.e2e\.ts/,
+      use: { ...devices["Galaxy S8"] },
+      dependencies: ["setup"],
+    },
+    {
+      name: "android-large",
+      testIgnore: /setup\.e2e\.ts/,
+      grep: everyFlow,
+      use: { ...devices["Pixel 7"] },
+      dependencies: ["setup"],
+    },
+    {
+      // 320 x 568: narrower than the design width.
+      name: "iphone-small",
+      testIgnore: /setup\.e2e\.ts/,
+      grep: everyFlow,
+      use: { ...devices["iPhone SE"] },
+      dependencies: ["setup"],
+    },
+    {
+      name: "iphone-large",
+      testIgnore: /setup\.e2e\.ts/,
+      grep: everyFlow,
+      use: { ...devices["iPhone 15 Pro Max"] },
+      dependencies: ["setup"],
+    },
+    {
+      name: "tablet",
+      testIgnore: /setup\.e2e\.ts/,
+      grep: everyFlow,
+      use: { ...devices["iPad Mini"] },
+      dependencies: ["setup"],
+    },
+  ],
+});

@@ -65,7 +65,7 @@ export function MobileNav(props: {
                     <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-primary ring-2 ring-background" />
                   )}
                 </span>
-                <span className="max-w-full truncate px-1">
+                <span className="max-w-full truncate px-0.5">
                   {count
                     ? t.rich("unread", {
                         label: item.title,

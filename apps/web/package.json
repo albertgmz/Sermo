@@ -10,7 +10,8 @@
     "test": "bun test",
     "format": "biome format --write",
     "typecheck": "next typegen && tsc --noEmit",
-    "js-budget": "bun scripts/js-budget.ts"
+    "js-budget": "bun scripts/js-budget.ts",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
@@ -43,6 +44,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@playwright/test": "1.64.1",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "20.19.43",
     "@types/react": "19.3.0",

@@ -119,7 +119,10 @@ async function AccountTools() {
   const t = await getTranslations("layout.siteHeader");
   return (
     <>
-      <CreateButton variant="header" member={!!viewer.user} />
+      {/* A guest's Create only leads to sign-in: on a tablet that room goes to the sign-in buttons. */}
+      <span className={viewer.user ? "contents" : "hidden lg:contents"}>
+        <CreateButton variant="header" member={!!viewer.user} />
+      </span>
       {viewer.user && card ? (
         <AccountMenu />
       ) : (
@@ -129,11 +132,11 @@ async function AccountTools() {
             href="/login"
             className={cn(
               buttonVariants({ variant: "outline" }),
-              "h-10 w-10 px-0 sm:w-auto sm:px-3",
+              "h-10 w-10 px-0 lg:w-auto lg:px-3",
             )}
           >
-            <LogIn aria-hidden="true" className="sm:hidden" />
-            <span className="sr-only sm:not-sr-only">{t("login")}</span>
+            <LogIn aria-hidden="true" className="lg:hidden" />
+            <span className="sr-only lg:not-sr-only">{t("login")}</span>
           </Link>
           <Link href="/register" className={cn(buttonVariants(), "h-10 px-3")}>
             {t("register")}
