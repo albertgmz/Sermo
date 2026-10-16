@@ -14,6 +14,18 @@ import {
 
 const html = (page: Page) => page.locator("html");
 
+// The menu opens on the tab with something unread, which is the alerts of a member who has some:
+// the theme buttons are on the Account tab.
+async function openAccountTab(page: Page) {
+  await page.getByRole("button", { name: "Account menu" }).click();
+  const menu = page.getByRole("dialog", { name: "Account menu" });
+  await menu
+    .getByRole("tablist", { name: "Account menu sections" })
+    .getByRole("tab", { name: "Account" })
+    .click();
+  return menu;
+}
+
 test.describe("signed in", () => {
   test.use({ storageState: MEMBER_STATE });
 
@@ -80,8 +92,7 @@ test.describe("signed in", () => {
     page,
   }) => {
     await visit(page, "/");
-    await page.getByRole("button", { name: "Account menu" }).click();
-    const menu = page.getByRole("dialog", { name: "Account menu" });
+    const menu = await openAccountTab(page);
     const group = menu.getByRole("group", { name: "Theme" });
     await group.getByRole("button", { name: "Dark" }).click();
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
@@ -97,7 +108,7 @@ test.describe("signed in", () => {
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
     await expectFits(page, "dark after a reload");
 
-    await page.getByRole("button", { name: "Account menu" }).click();
+    await openAccountTab(page);
     await menu
       .getByRole("group", { name: "Theme" })
       .getByRole("button", { name: "Light" })
@@ -106,7 +117,7 @@ test.describe("signed in", () => {
     await page.keyboard.press("Escape");
     await expectFits(page, "light");
     // Back to following the system, as the other flows expect.
-    await page.getByRole("button", { name: "Account menu" }).click();
+    await openAccountTab(page);
     await menu
       .getByRole("group", { name: "Theme" })
       .getByRole("button", { name: "System" })
@@ -121,7 +132,9 @@ test.describe("guest", () => {
     page,
   }) => {
     await page.emulateMedia({ colorScheme: "dark" });
-    await visit(page, "/");
+    // The forum list, not the feed: the footer of an endless list keeps moving down as the next
+    // pages load while it is scrolled to, and a press lands where the button was.
+    await visit(page, "/forums");
     await rejectCookies(page);
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
     await page.emulateMedia({ colorScheme: "light" });

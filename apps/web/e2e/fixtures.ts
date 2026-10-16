@@ -189,21 +189,22 @@ export async function rejectCookies(page: Page) {
   await expect(reject).toBeHidden();
 }
 
-// Asks the sign-in limiter (three tries in ten seconds, per address and path) where it stands, with
+// Asks the sign-in limiter (a few tries in ten seconds, per address and path) where it stands, with
 // a try that cannot succeed, under a name nobody has so no member's wrong-password count is
-// spent: 429 means it is closed.
-async function limiterClosed(page: Page) {
+// spent. Returns the seconds the answer says to wait (429 and x-retry-after), or 0 when it is open.
+async function limiterWait(page: Page) {
   const probe = await page.request.post("/api/auth/sign-in/username", {
     data: { username: "limiter-probe-nobody", password: "not the password" },
     headers: { origin: new URL(page.url()).origin },
   });
-  return probe.status() === 429;
+  if (probe.status() !== 429) return 0;
+  return Number(probe.headers()["x-retry-after"]) || 1;
 }
 
 // Fills the sign-in form and sends it. The page either leaves the form or shows the form's own
-// message. When the limiter refuses, its state is polled until it opens (the answer names its own
-// wait in x-retry-after) and the form is sent again; a form that has been sent is emptied, so it
-// is filled again. After three tries the test ends with the form's message.
+// message. When the limiter refuses, the wait it names (x-retry-after) is waited out and the form
+// is sent again; a form that has been sent is emptied, so it is filled again. After three tries the
+// test ends with the form's message.
 export async function signInWith(
   page: Page,
   how: "button" | "enter" = "button",
@@ -233,13 +234,10 @@ export async function signInWith(
       );
     if (left) return;
     message = (await page.getByRole("alert").allInnerTexts()).join(" ").trim();
-    if (await limiterClosed(page))
-      await expect
-        .poll(() => limiterClosed(page), {
-          intervals: [1_000, 2_000],
-          timeout: 30_000,
-        })
-        .toBe(false);
+    // Nothing is sent while it waits: a probe that lands as the window ends is refused and starts
+    // the window again, so probing every second keeps the limiter closed for good.
+    const wait = await limiterWait(page);
+    if (wait > 0) await page.waitForTimeout((wait + 2) * 1_000);
   }
   throw new Error(`the sign-in form did not let the member in: ${message}`);
 }

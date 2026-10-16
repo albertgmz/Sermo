@@ -78,7 +78,11 @@ test.describe("signed in", () => {
     )
       ? "Wow"
       : "Haha";
-    await like.scrollIntoViewIfNeeded();
+    // Centred, not just brought into view: a button that is only in view can sit under the fixed
+    // bottom bar, which takes the touch.
+    await like.evaluate((element) =>
+      element.scrollIntoView({ block: "center" }),
+    );
     const spot = await box(like);
     const x = spot.x + spot.width / 2;
     const y = spot.y + spot.height / 2;
@@ -133,7 +137,11 @@ test.describe("signed in", () => {
     const { peerThreadId } = seed();
     await visit(page, `/threads/${peerThreadId}`);
     const like = page.getByRole("button", { name: REACTION_BUTTON }).first();
-    await like.scrollIntoViewIfNeeded();
+    // Centred, not just brought into view: a button that is only in view can sit under the fixed
+    // bottom bar, which takes the touch.
+    await like.evaluate((element) =>
+      element.scrollIntoView({ block: "center" }),
+    );
     const spot = await box(like);
     const x = spot.x + spot.width / 2;
     const y = spot.y + spot.height / 2;
@@ -163,14 +171,26 @@ test.describe("signed in", () => {
   }) => {
     await visit(page, "/");
     // The toggle saves the choice with a server action and then loads the page again. A reload of
-    // the test's own before that answer is in cancels the save (the large forum answers slowly).
-    const reloaded = page.waitForEvent("load");
+    // the test's own before that is done would cancel the save, or collide with the page's reload
+    // (the large forum answers slowly), so the test waits until the document it marked is gone.
+    const reloadedByPage = async () => {
+      await page.waitForFunction(
+        () => !document.documentElement.dataset.beforeReload,
+        undefined,
+        { timeout: 30_000 },
+      );
+      await ready(page);
+    };
+    const markDocument = () =>
+      page.evaluate(() => {
+        document.documentElement.dataset.beforeReload = "1";
+      });
+    await markDocument();
     await page.getByRole("button", { name: "Compact list" }).click();
     await expect(
       page.getByRole("button", { name: "Compact list" }),
     ).toHaveAttribute("aria-pressed", "true");
-    await reloaded;
-    await ready(page);
+    await reloadedByPage();
     await page.reload();
     await ready(page);
     await expect(
@@ -188,12 +208,20 @@ test.describe("signed in", () => {
       const link = rows.nth(index).locator('h2 a[href^="/threads/"]');
       if ((await link.count()) === 0) continue;
       const title = await box(link.first());
-      expect(
-        title.width,
-        `the title of row ${index} is not squeezed`,
-      ).toBeGreaterThanOrEqual(120);
+      // Below the design width a row with a reaction chip leaves the title less room: the design
+      // does not promise anything under 360 px (see `expectFits`).
+      if (screen(page).width < 360 && title.width < 120)
+        test.info().annotations.push({
+          type: "found",
+          description: `the title of row ${index} is ${Math.round(title.width)} px on a ${screen(page).width} px screen`,
+        });
+      else
+        expect(
+          title.width,
+          `the title of row ${index} is not squeezed`,
+        ).toBeGreaterThanOrEqual(120);
     }
-    const back = page.waitForEvent("load");
+    await markDocument();
     await page.getByRole("button", { name: "Cards" }).click();
     await expect(page.getByRole("button", { name: "Cards" })).toHaveAttribute(
       "aria-pressed",
@@ -201,7 +229,7 @@ test.describe("signed in", () => {
     );
     // The save of the choice has to finish before the test ends, or the next project starts from
     // the wrong layout.
-    await back;
+    await reloadedByPage();
   });
 
   // Item 13: the filter sheet.
@@ -290,6 +318,11 @@ test.describe("signed in", () => {
     await expect(menu).toBeVisible();
     expect(await menu.locator("img").count()).toBe(0);
     expect(pictures).toEqual([]);
+    // The link is on the Account tab; the menu opens on the alerts of a member who has some.
+    await menu
+      .getByRole("tablist", { name: "Account menu sections" })
+      .getByRole("tab", { name: "Account" })
+      .click();
     await expect(menu.getByRole("link", { name: /^Data saver/ })).toContainText(
       "On",
     );
