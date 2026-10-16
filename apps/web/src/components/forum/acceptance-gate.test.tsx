@@ -157,3 +157,38 @@ test("a viewer from a backend without the field has nothing pending", () => {
     pendingOf({ pendingAcceptance: [{ kind: "terms", version: 1 }] }),
   ).toHaveLength(1);
 });
+
+// The element of a drawn tree whose children hold an element of this component, without calling
+// any component.
+function parentOf(node: unknown, component: unknown): unknown {
+  if (!node || typeof node !== "object") return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = parentOf(child, component);
+      if (found) return found;
+    }
+    return null;
+  }
+  const { children } = (node as { props?: { children?: unknown } }).props ?? {};
+  const kids = Array.isArray(children) ? children : [children];
+  if (kids.some((kid) => (kid as { type?: unknown })?.type === component))
+    return node;
+  return parentOf(children, component);
+}
+
+test("the site's mark is hidden from screen readers, since its name is written beside it", async () => {
+  cookie = "sermo.session_token=abc";
+  backend([{ kind: "terms", version: 3 }]);
+  const gate = (await AcceptanceGate({ children: requested })) as {
+    props: { children: { props: unknown; type: (p: unknown) => unknown }[] };
+  };
+  const screen = gate.props.children.find(
+    (child) => typeof child?.type === "function",
+  );
+  const drawn = await screen?.type(screen.props);
+  const { LogoMark } = await import("@/components/layout/logo");
+  expect(parentOf(drawn, LogoMark)).toMatchObject({
+    props: { "aria-hidden": "true" },
+  });
+  expect(await textOf(drawn)).toContain("Garden Club");
+});

@@ -1707,7 +1707,7 @@ export default async function StyleguidePage() {
             text in a box that scrolls, one button, and a way to log out. The
             forum layout draws it from `auth.me`; here it fills a frame.
           </p>
-          <div className="h-[32rem] overflow-hidden rounded-lg border">
+          <div className="h-[32rem] overflow-y-auto rounded-lg border">
             <AcceptanceScreen
               pending={[
                 { kind: "terms", version: 2 },
