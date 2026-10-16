@@ -1,4 +1,4 @@
-import { group } from "k6";
+import { group, sleep } from "k6";
 import { SharedArray } from "k6/data";
 import { json, META, OPS, pick, read, signIn, think, write } from "./lib.js";
 import { handleSummary as summarize } from "./summary.js";
@@ -89,8 +89,11 @@ export function setup() {
     if (sessions.length >= profile.pool) break;
     if (seen.has(userId)) continue;
     seen.add(userId);
-    const cookie = signIn(userId, password[0], sessions.length);
+    const cookie = signIn(userId, password[0]);
     if (cookie) sessions.push({ userId, conversationId, cookie });
+    // Better Auth allows 3 sign-ins per 10 s per address, and reads the address from the socket
+    // (the staging backend trusts no proxy header), so the pool is signed in at that pace.
+    sleep(3.5);
   }
   if (sessions.length === 0) throw new Error("no member could sign in");
   console.log(`signed in ${sessions.length} members`);

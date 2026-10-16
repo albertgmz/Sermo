@@ -53,7 +53,7 @@ Four scenarios (`ramping-vus`), each a share of the peak VUs:
 
 `setup()` signs in a pool of members once (6, 40 or 60, each in a conversation they belong to)
 and every VU reuses one of their session cookies, since Better Auth's sign-in limit (3 per 10 s
-per address) cannot be raised. Setup takes up to a few minutes for the larger pools.
+per address) cannot be raised. Sign-ins are paced at one every 3.5 s, so setup takes about 20 s (smoke), 2.5 min (hundreds) or 3.5 min (thousands) before the ramp starts.
 
 The thresholds are an initial report bar, not budgets: http errors under 1% (reads and writes
 separately), reads p95 under 200 ms, writes p95 under 500 ms. The end report lists every
@@ -61,8 +61,9 @@ operation with its count, average, p95, p99 and maximum.
 
 ## Database write waits
 
-The backend does not log or expose waits on its write lock or its commits (see DECISIONS "Load
-test (item 27)"). `write-waits.ts` reads what there is: lines of the backend log written during
-the run that report a locked database, the number of failed requests logged, and the size of the
-write-ahead log afterwards. The write latency in the k6 report (`writes`, `posts.create`,
-`conversations.reply`) is the client's view of those waits.
+`writeTx` logs `[db.write-wait] at=<time> wait=<ms> hold=<ms> commit=<ms>` to the backend log for a
+write that waited for the write lock or took to commit for 100 ms or more (fast writes are not
+logged). `write-waits.ts` reads the log from the byte noted before the run and reports the number
+of slow writes with p95 and maximum of wait, hold and commit, the locked-database failures, and the
+size of the write-ahead log afterwards. The write latency in the k6 report (`writes`,
+`posts.create`, `conversations.reply`) is the client's view of the same waits.

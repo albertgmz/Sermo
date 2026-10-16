@@ -94,7 +94,7 @@ export function json(res) {
 }
 
 /** Signs one member in, waiting out Better Auth's own limit (3 per 10 s per address) if met. */
-export function signIn(id, password, index) {
+export function signIn(id, password) {
   const body = JSON.stringify({
     email: `user${id}@example.test`,
     password,
@@ -105,8 +105,6 @@ export function signIn(id, password, index) {
       headers: {
         "Content-Type": "application/json",
         Origin: ORIGIN,
-        // A distinct client address per member, in case the limit reads this header.
-        "X-Forwarded-For": `10.${(index >> 8) & 255}.${index & 255}.1`,
       },
       jar: noJar,
       tags: { name: "auth.signIn", kind: "setup" },
