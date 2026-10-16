@@ -33,6 +33,15 @@ describe("cleanFilename", () => {
     expect(cleanFilename("evil\u202egnp.exe")).toBe("evilgnp.exe");
   });
 
+  test("keeps the joiners of emoji sequences and Persian names, and drops lone surrogates", () => {
+    expect(cleanFilename("\u{1F468}‍\u{1F469}‍\u{1F467}.png")).toBe(
+      "\u{1F468}‍\u{1F469}‍\u{1F467}.png",
+    );
+    expect(cleanFilename("می‌خواهم.txt")).toBe("می‌خواهم.txt");
+    expect(cleanFilename("a\ud800b.txt")).toBe("a�b.txt");
+    expect(cleanFilename("a​b﻿.txt")).toBe("ab.txt");
+  });
+
   test("gives nothing for an empty or dotted name, and caps the length", () => {
     for (const name of [null, undefined, "", "   ", ".", "..", "dir/"])
       expect(cleanFilename(name)).toBeNull();
@@ -50,6 +59,31 @@ describe("contentDisposition", () => {
     );
     expect(contentDisposition("attachment", null, "file-7")).toBe(
       `attachment; filename="file-7"; filename*=UTF-8''file-7`,
+    );
+  });
+});
+
+describe("contentDisposition with a stored value that was never cleaned", () => {
+  test("a lone surrogate is replaced instead of throwing", () => {
+    expect(contentDisposition("attachment", "a\ud800b", "file-1")).toBe(
+      `attachment; filename="a_b"; filename*=UTF-8''a%EF%BF%BDb`,
+    );
+  });
+
+  test("a backslash and a quote cannot break the quoted name", () => {
+    expect(contentDisposition("attachment", "a\\", "file-1")).toBe(
+      `attachment; filename="a_"; filename*=UTF-8''a%5C`,
+    );
+    expect(contentDisposition("attachment", 'x".txt', "file-1")).toBe(
+      `attachment; filename="x_.txt"; filename*=UTF-8''x%22.txt`,
+    );
+  });
+
+  test("a CR or LF never reaches the header", () => {
+    const header = contentDisposition("attachment", "a\r\nX-Evil: 1\n", "file-1");
+    expect(header).not.toMatch(/[\r\n]/);
+    expect(header).toBe(
+      `attachment; filename="a__X-Evil: 1_"; filename*=UTF-8''a%0D%0AX-Evil%3A%201%0A`,
     );
   });
 });

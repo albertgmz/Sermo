@@ -244,6 +244,43 @@ describe("profile comment attachments", () => {
     expect(getFileRecord(s.ctx, GUEST, mine).id).toBe(mine);
   });
 
+  test("a visible comment on a wall post that is deleted or awaiting approval keeps its files from guests and other members", async () => {
+    const s = setup();
+    for (const state of ["deleted", "moderated"]) {
+      const post = await s.wallPost();
+      const mine = s.file(s.commenter.userId, "text/plain", "plan.txt");
+      await execute(s.ctx, profileCommentsCreateOp, s.commenter, {
+        profilePostId: post.id,
+        body: "files",
+        attachmentIds: [mine],
+      });
+      expect(getFileRecord(s.ctx, GUEST, mine).id).toBe(mine);
+      s.ctx.sqlite.prepare("UPDATE profile_posts SET state = ?1 WHERE id = ?2").run(state, post.id);
+      expect(() => getFileRecord(s.ctx, GUEST, mine)).toThrow(NotFoundError);
+      expect(() => getFileRecord(s.ctx, s.other, mine)).toThrow(NotFoundError);
+      expect(() => getFileRecord(s.ctx, s.commenter, mine)).toThrow(NotFoundError);
+      expect(getFileRecord(s.ctx, s.admin, mine).id).toBe(mine);
+    }
+  });
+
+  test("the file of a comment awaiting approval is limited to its author and moderators", async () => {
+    const s = setup();
+    const post = await s.wallPost();
+    const mine = s.file(s.commenter.userId, "text/plain", "plan.txt");
+    const comment = await execute(s.ctx, profileCommentsCreateOp, s.commenter, {
+      profilePostId: post.id,
+      body: "files",
+      attachmentIds: [mine],
+    });
+    s.ctx.sqlite
+      .prepare("UPDATE profile_post_comments SET state = 'moderated' WHERE id = ?1")
+      .run(comment.id);
+    expect(() => getFileRecord(s.ctx, GUEST, mine)).toThrow(NotFoundError);
+    expect(() => getFileRecord(s.ctx, s.other, mine)).toThrow(NotFoundError);
+    expect(getFileRecord(s.ctx, s.commenter, mine).id).toBe(mine);
+    expect(getFileRecord(s.ctx, s.admin, mine).id).toBe(mine);
+  });
+
   test("deleting the wall post for good removes the comments' files", async () => {
     const s = setup();
     const post = await s.wallPost();
