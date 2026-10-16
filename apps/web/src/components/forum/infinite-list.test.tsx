@@ -475,3 +475,33 @@ test("the list follows cursors by itself past at most two empty pages in a row, 
   expect(emptyRun([])).toBe(0);
   expect(AUTO_EMPTY_PAGES).toBe(2);
 });
+
+test("the note about a walk that found nothing is drawn only while no row is loaded and the list can go on", () => {
+  const draw = (pages: ListPage[]) =>
+    renderToStaticMarkup(
+      withIntl(
+        withQuery(
+          <InfiniteList
+            listKey={["test"]}
+            stamp={1}
+            start={null}
+            pages={pages}
+            loadPage={async () => page([], null)}
+            hrefBase="/"
+            moreLabel="Load more"
+            emptyNote="Nothing yet in what was looked at"
+            estimateSize={72}
+          />,
+        ),
+      ),
+    );
+  expect(draw([page([], "next")])).toContain(
+    "Nothing yet in what was looked at",
+  );
+  expect(draw([page(["a"], "next")])).not.toContain(
+    "Nothing yet in what was looked at",
+  );
+  expect(draw([page([], null)])).not.toContain(
+    "Nothing yet in what was looked at",
+  );
+});

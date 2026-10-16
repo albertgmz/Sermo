@@ -264,15 +264,6 @@ async function HomeFeed({ tab, params }: { tab: Tab; params: Params }) {
     />
   ) : (
     <>
-      {first.rows.length === 0 && (
-        // The walk looked at part of the feed and found nothing yet: say so above the button.
-        <p
-          role="status"
-          className="rounded-lg border bg-card p-4 text-sm text-muted-foreground"
-        >
-          {t("emptyMore")}
-        </p>
-      )}
       <PagedList
         first={first}
         more={moreFeed.bind(null, tab, filter)}
@@ -281,6 +272,7 @@ async function HomeFeed({ tab, params }: { tab: Tab; params: Params }) {
         listKey={["feed", tab, filterKey(filter)]}
         hrefBase={feedHref(tab, filter)}
         moreLabel={t("loadMore")}
+        emptyNote={t("emptyMore")}
         estimateSize={320}
         spacing="spaced"
         fresh={

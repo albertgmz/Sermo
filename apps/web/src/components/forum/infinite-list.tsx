@@ -225,6 +225,7 @@ export function InfiniteList({
   header,
   className,
   moreClassName,
+  emptyNote,
   fresh,
 }: ListQuery & {
   // The address of the screen, to which `cursor` is added: the link that shows the next page
@@ -239,6 +240,9 @@ export function InfiniteList({
   header?: ReactNode;
   className?: string;
   moreClassName?: string;
+  // Said above the button while no row is loaded and the list can go on (a filtered walk found
+  // nothing in what it looked at); it goes when a row arrives.
+  emptyNote?: string;
   // For a list that begins at the newest entry and can ask whether newer ones have come (the
   // feed): `check` is given the time of the newest row held. A bar offers the new entries, which
   // are put in front of the pages held.
@@ -424,6 +428,14 @@ export function InfiniteList({
             </Button>
           </div>
         </div>
+      )}
+      {emptyNote && rows.length === 0 && nextCursor && (
+        <p
+          role="status"
+          className="rounded-lg border bg-card p-4 text-sm text-muted-foreground"
+        >
+          {emptyNote}
+        </p>
       )}
       <div className={className}>
         {header}

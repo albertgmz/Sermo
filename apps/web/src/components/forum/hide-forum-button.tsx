@@ -43,11 +43,9 @@ export function HideForumButton({
       className={className}
     >
       <EyeOff aria-hidden="true" />
-      {failed && (
-        <span role="status" className="sr-only">
-          {t("failed")}
-        </span>
-      )}
+      <span role="status" className="sr-only">
+        {failed ? t("failed") : ""}
+      </span>
     </button>
   );
 }
