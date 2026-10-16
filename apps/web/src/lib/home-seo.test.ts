@@ -92,6 +92,32 @@ test("a cursor, pages, a feed filter, a picture, a section or a notice make a co
   }
 });
 
+test("tracking parameters and the referral code do not make a copy", () => {
+  for (const key of [
+    "utm_source",
+    "utm_campaign",
+    "UTM_Medium",
+    "fbclid",
+    "gclid",
+    "ref",
+  ]) {
+    expect(address("latest", { [key]: "x" }), key).toEqual({
+      path: "/",
+      index: true,
+    });
+    expect(address("hot", { tab: "hot", [key]: "x" }), key).toEqual({
+      path: "/?tab=hot",
+      index: true,
+    });
+  }
+  // With a real variant beside them the address is still a copy.
+  expect(
+    address("hot", { tab: "hot", utm_source: "x", cursor: "c" }).index,
+  ).toBe(false);
+  // And an unlisted parameter that merely looks like tracking is not ignored.
+  expect(address("latest", { utmx: "x", reference: "y" }).index).toBe(false);
+});
+
 test("a tab that names none, or names two, is a copy of the tab the page opened", () => {
   expect(address("latest", { tab: "top" })).toEqual({
     path: "/",
@@ -110,11 +136,10 @@ test("only the plain address of a public tab is indexed, whatever the tab", () =
   }
 });
 
-test("the head carries the title, description, canonical, robots and the card", () => {
+test("the head carries the title, description, canonical and robots, and no Open Graph card", () => {
   const head = homeMetadata({
     address: { path: "/?tab=hot", index: true },
     origin: "https://forum.example",
-    siteName: "Garden Club",
     title: "Hot threads",
     description: "Hot on Garden Club.",
   });
@@ -123,13 +148,6 @@ test("the head carries the title, description, canonical, robots and the card", 
     description: "Hot on Garden Club.",
     alternates: { canonical: "https://forum.example/?tab=hot" },
     robots: { index: true, follow: true },
-    openGraph: {
-      type: "website",
-      title: "Hot threads - Garden Club",
-      description: "Hot on Garden Club.",
-      url: "https://forum.example/?tab=hot",
-      siteName: "Garden Club",
-    },
   });
 });
 
@@ -137,7 +155,6 @@ test("a copy is noindex, follow, and points at its tab", () => {
   const head = homeMetadata({
     address: { path: "/", index: false },
     origin: "https://forum.example",
-    siteName: "Garden Club",
     title: "t",
     description: "d",
   });

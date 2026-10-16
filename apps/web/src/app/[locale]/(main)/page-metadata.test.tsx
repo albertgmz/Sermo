@@ -88,12 +88,7 @@ test("each tab has its own title and description, built from the site's name", a
     seen.add(`${metadata.title}|${metadata.description}`);
   }
   expect(seen.size).toBe(4);
-  const hot = await head({ tab: "hot" });
-  expect(hot.openGraph).toMatchObject({
-    title: "Hot threads - Garden Club",
-    siteName: "Garden Club",
-    description: hot.description,
-  });
+  expect((await head({ tab: "hot" })).openGraph).toBeUndefined();
 });
 
 test("the texts are in the page language", async () => {
@@ -162,4 +157,22 @@ test("the owner's own description speaks for the home address only", async () =>
   backend({ description: "A club for gardeners." });
   expect((await head()).description).toBe("A club for gardeners.");
   expect((await head({ tab: "hot" })).description).toContain("Garden Club");
+});
+
+test("a member whose own tab differs gets the head of the tab shown; a guest does not depend on it", async () => {
+  backend({ member: true, siteTab: "latest", own: "hot" });
+  const member = await head();
+  expect(member.title).toBe("Hot threads");
+  expect(member.alternates?.canonical).toBe("http://localhost:3000/?tab=hot");
+  backend({ siteTab: "latest" });
+  const guest = await head();
+  expect(guest.title).toBe("Latest threads and posts");
+  expect(guest.alternates?.canonical).toBe("http://localhost:3000/");
+});
+
+test("tracking parameters leave a plain tab address indexed", async () => {
+  backend();
+  const metadata = await head({ utm_source: "news", fbclid: "x", ref: "7" });
+  expect(metadata.robots).toEqual({ index: true, follow: true });
+  expect(metadata.alternates?.canonical).toBe("http://localhost:3000/");
 });

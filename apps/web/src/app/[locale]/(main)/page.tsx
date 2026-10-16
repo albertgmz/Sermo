@@ -76,7 +76,6 @@ export async function generateMetadata(
   return homeMetadata({
     address,
     origin: publicUrl(),
-    siteName: site.name,
     title: t(`${tab}.title`),
     description:
       (address.path === "/" && site.description) ||

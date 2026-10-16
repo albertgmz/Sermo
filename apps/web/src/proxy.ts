@@ -300,7 +300,8 @@ async function referralsAccepted(request: NextRequest) {
 
 // What a request does to the referral cookie (see `referralStep`). The canonical address of a
 // page reached through `?ref=` needs nothing here: the pages that have one take it from the
-// backend (`seoMetadata`), which never carries a query, and the others have none.
+// backend (`seoMetadata`) or build it without the query (the home page, `homeAddress`), and
+// none carries a query.
 async function withReferral(
   request: NextRequest,
   response: NextResponse | undefined,
