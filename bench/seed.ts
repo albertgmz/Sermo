@@ -19,7 +19,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { parseArgs } from "node:util";
 import { closeContext, createContext, DEFAULT_CONFIG, renderBbCode, schema } from "@sermo/core";
 import { Rng, ZipfSampler } from "./rng";
 
@@ -66,6 +67,98 @@ export const SIZES = {
   shopGrantHolders: 1_000,
 } as const;
 
+type Widen<T> = { -readonly [K in keyof T]: T[K] extends number ? number : Widen<T[K]> };
+export type Sizes = Widen<typeof SIZES> & {
+  /**
+   * Share (0 to 1) of the oldest posts, profile posts, comments and messages that keep only
+   * the first paragraph of their body, to bound the file. Absent: every body is whole.
+   */
+  shortBodyShare?: number;
+};
+
+/**
+ * Values that do not grow with the forum: the catalog the generator builds (forums, groups,
+ * awards, shop items) and the short-body share, which is a fraction.
+ */
+const FIXED_SIZES: ReadonlySet<string> = new Set([
+  "nodes",
+  "groups",
+  "promotions",
+  "awards",
+  "shopCategories",
+  "shopItems",
+  "shortBodyShare",
+]);
+
+/** Divides every activity count by `divisor` (at least 1 each, 100 members at least). */
+export function scaleSizes(sizes: Sizes, divisor: number): Sizes {
+  if (divisor === 1) return sizes;
+  const scale = (value: number) => Math.max(1, Math.round(value / divisor));
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(sizes)) {
+    if (FIXED_SIZES.has(key)) out[key] = value;
+    else if (typeof value === "number") out[key] = scale(value);
+    else
+      out[key] = Object.fromEntries(
+        Object.entries(value as Record<string, number>).map(([k, v]) => [k, scale(v)]),
+      );
+  }
+  const scaled = out as Sizes;
+  scaled.users = Math.max(100, scaled.users);
+  return scaled;
+}
+
+/**
+ * The generator's profiles. `bench` is the benchmark dataset and must not change (the budgets
+ * are measured on it). `large` is a forum of about 1,000,000 members and 10,000,000 posts, for
+ * staging and load checks, written to one file by `bun run seed:large`.
+ */
+export const PROFILES = {
+  bench: SIZES,
+  large: {
+    nodes: 60,
+    users: 100_000,
+    threads: 500_000,
+    posts: 10_000_000,
+    profilePosts: 1_000_000,
+    profilePostComments: 3_000_000,
+    conversations: 200_000,
+    conversationMessages: 4_000_000,
+    reactions: {
+      post: 14_000_000,
+      profile_post: 2_500_000,
+      profile_post_comment: 1_500_000,
+      conversation_message: 2_000_000,
+    },
+    threadReads: 400_000,
+    attachments: 600_000,
+    reportGroups: 40_000,
+    warnings: 20_000,
+    moderatorLog: 400_000,
+    lurkers: 900_000,
+    groups: 40,
+    groupCombinations: 3_000,
+    promotions: 50,
+    notifications: 4_000_000,
+    threadWatches: 880_000,
+    nodeWatches: 120_000,
+    hotThreadWatchers: 20_000,
+    hotNodeWatchers: 50_000,
+    follows: 200_000,
+    ignores: 100_000,
+    creditRuleApplications: 1_000_000,
+    awards: 60,
+    memberAwards: 300_000,
+    shopCategories: 6,
+    shopItems: 90,
+    shopPurchases: 160_000,
+    shopGrantHolders: 1_000,
+    shortBodyShare: 0.8,
+  },
+} satisfies Record<string, Sizes>;
+
+export type ProfileName = keyof typeof PROFILES;
+
 /** Bump when the generator's output changes. */
 const SEED_VERSION = 9;
 const SEED = 20261004;
@@ -76,7 +169,7 @@ export const SEED_PASSWORD = "password";
 
 export interface SeedMeta {
   version: number;
-  sizes: typeof SIZES;
+  sizes: Sizes;
   adminId: number;
   moderatorIds: number[];
   /** Active members (frequent posters), useful as actors. */
@@ -161,7 +254,7 @@ export async function ensureSeed(): Promise<{ path: string; meta: SeedMeta }> {
     const tmp = `${paths.db}.${process.pid}.tmp`;
     for (const suffix of ["", "-wal", "-shm"]) rmSync(tmp + suffix, { force: true });
     const started = performance.now();
-    const meta = await generate(tmp);
+    const meta = await generate(tmp, SIZES);
     if (existsSync(paths.db)) {
       // Another process finished first; keep its copy.
       rmSync(tmp, { force: true });
@@ -187,16 +280,20 @@ const REACTION_TYPE_WEIGHTS: [id: number, weight: number, score: number][] = [
   [6, 4, 0],
 ];
 
+/** Collects first, so the memory figure is what the stage keeps and garbage cannot pile up. */
 function log(step: string, started: number): void {
-  console.log(`  ${step} (${((performance.now() - started) / 1000).toFixed(1)} s)`);
+  Bun.gc(true);
+  const seconds = ((performance.now() - started) / 1000).toFixed(1);
+  console.log(`  ${step} (${seconds} s, ${(process.memoryUsage.rss() / 1e9).toFixed(1)} GB)`);
 }
 
-async function generate(path: string): Promise<SeedMeta> {
+async function generate(path: string, sizes: Sizes): Promise<SeedMeta> {
   const started = performance.now();
   const rng = new Rng(SEED);
   const ctx = createContext({ path, migrate: true });
   const db = ctx.sqlite;
   db.run("PRAGMA synchronous = OFF");
+  db.run("PRAGMA cache_size = -524288");
 
   // Bulk insert without the FTS triggers; the index is rebuilt in one pass at the end.
   const triggers = db
@@ -211,6 +308,11 @@ async function generate(path: string): Promise<SeedMeta> {
   const wordSampler = new ZipfSampler(vocab.length, 1.05);
   const word = () => vocab[wordSampler.sample(rng)]!;
   const bodies = buildBodies(rng, word, 4096);
+  const shortShare = sizes.shortBodyShare ?? 0;
+  const shortBodies = shortShare > 0 ? shortenBodies(bodies) : bodies;
+  /** Body `index` for row `row` of `total`: the short variant for the oldest rows. */
+  const bodyAt = (index: number, row: number, total: number) =>
+    (row < total * shortShare ? shortBodies : bodies)[index]!;
   const title = () => {
     const n = rng.int(3, 8);
     const words: string[] = [];
@@ -221,7 +323,7 @@ async function generate(path: string): Promise<SeedMeta> {
   log("text pool", started);
 
   // Users ----------------------------------------------------------------------
-  const U = SIZES.users;
+  const U = sizes.users;
   const passwordHash = await Bun.password.hash(SEED_PASSWORD, DEFAULT_CONFIG.passwordHash);
   const userGroup = new Uint8Array(U + 1);
   const userPostCount = new Uint32Array(U + 1);
@@ -265,8 +367,8 @@ async function generate(path: string): Promise<SeedMeta> {
   const forumSampler = new ZipfSampler(forumOrder.length, 0.8);
 
   // Threads and posts (computed in memory first) -------------------------------
-  const T = SIZES.threads;
-  const P = SIZES.posts;
+  const T = sizes.threads;
+  const P = sizes.posts;
   const threadNode = new Uint16Array(T + 1);
   const threadAuthor = new Uint32Array(T + 1);
   const threadCreated = new Float64Array(T + 1);
@@ -348,7 +450,7 @@ async function generate(path: string): Promise<SeedMeta> {
       if (threadState[t] === 0) userPostCount[postAuthor[k]!]!++;
     }
   }
-  const postReactions = allocate(rng, SIZES.reactions.post, P, 1.5, 300);
+  const postReactions = allocate(rng, sizes.reactions.post, P, 1.5, 300);
   log("threads and posts planned", started);
 
   // Write users, nodes, threads --------------------------------------------------
@@ -466,7 +568,7 @@ async function generate(path: string): Promise<SeedMeta> {
       const id = rank + 1;
       const author = postAuthor[k]!;
       const counts = react("post", id, author, postTime[k]!, postReactions[k]!, anyUser);
-      const body = bodies[postBody[k]!]!;
+      const body = bodyAt(postBody[k]!, rank, P);
       insertPost.run(
         id,
         postThread[k]!,
@@ -480,14 +582,18 @@ async function generate(path: string): Promise<SeedMeta> {
     });
   }
   // The total the most-reacted-post criterion reads, as the reactions module keeps it.
-  db.run(
-    "UPDATE posts SET reaction_total = (SELECT coalesce(sum(value), 0) FROM json_each(reaction_counts)) WHERE reaction_counts != '{}'",
+  postChunks(P, (from, to) =>
+    db
+      .prepare(
+        "UPDATE posts SET reaction_total = (SELECT coalesce(sum(value), 0) FROM json_each(reaction_counts)) WHERE reaction_counts != '{}' AND id > ?1 AND id <= ?2",
+      )
+      .run(from, to),
   );
   log("posts and post reactions", started);
 
   // Profile posts and comments -------------------------------------------------
-  const PP = SIZES.profilePosts;
-  const PC = SIZES.profilePostComments;
+  const PP = sizes.profilePosts;
+  const PC = sizes.profilePostComments;
   const ppTimes = sortedUniform(rng, PP, T0, T1 - DAY);
   const ppOwner = new Uint32Array(PP + 1);
   const ppAuthor = new Uint32Array(PP + 1);
@@ -533,8 +639,8 @@ async function generate(path: string): Promise<SeedMeta> {
       if (cTime[k]! > ppLastComment[p]!) ppLastComment[p] = cTime[k]!;
     }
   }
-  const ppReactions = allocate(rng, SIZES.reactions.profile_post, PP, 1.5, 200);
-  const cReactions = allocate(rng, SIZES.reactions.profile_post_comment, PC, 1.5, 100);
+  const ppReactions = allocate(rng, sizes.reactions.profile_post, PP, 1.5, 200);
+  const cReactions = allocate(rng, sizes.reactions.profile_post_comment, PC, 1.5, 100);
   {
     const insertPP = db.prepare(
       "INSERT INTO profile_posts (id, profile_user_id, user_id, state, created_at, body_source, body_html, reaction_counts, comment_count, last_comment_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -542,7 +648,7 @@ async function generate(path: string): Promise<SeedMeta> {
     batched(db, PP, (i0) => {
       const i = i0 + 1;
       const time = ppTimes[i0]!;
-      const body = rng.pick(bodies);
+      const body = bodyAt(rng.int(0, bodies.length - 1), i0, PP);
       const counts = react("profile_post", i, ppAuthor[i]!, time, ppReactions[i0]!, anyUser);
       insertPP.run(
         i,
@@ -563,7 +669,7 @@ async function generate(path: string): Promise<SeedMeta> {
     batched(db, PC, (rank) => {
       const k = cOrder[rank]!;
       const id = rank + 1;
-      const body = rng.pick(bodies);
+      const body = bodyAt(rng.int(0, bodies.length - 1), rank, PC);
       const counts = react(
         "profile_post_comment",
         id,
@@ -587,8 +693,8 @@ async function generate(path: string): Promise<SeedMeta> {
   log("profile posts and comments", started);
 
   // Conversations ----------------------------------------------------------------
-  const C = SIZES.conversations;
-  const M = SIZES.conversationMessages;
+  const C = sizes.conversations;
+  const M = sizes.conversationMessages;
   const convTimes = sortedUniform(rng, C, T0, T1 - DAY);
   const convParticipants: number[][] = new Array(C + 1);
   const convMessageTotal = new Uint32Array(C + 1);
@@ -642,7 +748,7 @@ async function generate(path: string): Promise<SeedMeta> {
   const mReactions = new Uint8Array(M);
   for (
     let placed = 0, guard = 0;
-    placed < SIZES.reactions.conversation_message && guard < M * 20;
+    placed < sizes.reactions.conversation_message && guard < M * 20;
     guard++
   ) {
     const k = rng.int(0, M - 1);
@@ -687,7 +793,7 @@ async function generate(path: string): Promise<SeedMeta> {
       const k = mOrder[rank]!;
       const id = rank + 1;
       const parts = convParticipants[mConv[k]!]!;
-      const body = rng.pick(bodies);
+      const body = bodyAt(rng.int(0, bodies.length - 1), rank, M);
       const counts = react("conversation_message", id, mAuthor[k]!, mTime[k]!, mReactions[k]!, () =>
         rng.pick(parts),
       );
@@ -705,8 +811,9 @@ async function generate(path: string): Promise<SeedMeta> {
       "INSERT INTO thread_reads (user_id, thread_id, last_read_post_id, last_read_position, read_at) VALUES (?, ?, ?, ?, ?)",
     );
     const readers = new Set<number>();
-    while (readers.size < 2000) readers.add(activeUser());
-    const perUser = SIZES.threadReads / readers.size;
+    const readerCount = Math.min(2000, Math.floor(U / 5));
+    while (readers.size < readerCount) readers.add(activeUser());
+    const perUser = sizes.threadReads / readers.size;
     for (const userId of readers) {
       const seen = new Set<number>();
       while (seen.size < perUser) {
@@ -725,8 +832,12 @@ async function generate(path: string): Promise<SeedMeta> {
   log("reaction scores and thread reads", started);
 
   // Search index, triggers, statistics -------------------------------------------
-  db.run(
-    "INSERT INTO search_fts (rowid, title, body) SELECT p.id, CASE WHEN t.first_post_id = p.id THEN t.title ELSE '' END, b.body_source FROM posts p JOIN threads t ON t.id = p.thread_id JOIN post_bodies b ON b.post_id = p.id",
+  postChunks(P, (from, to) =>
+    db
+      .prepare(
+        "INSERT INTO search_fts (rowid, title, body) SELECT p.id, CASE WHEN t.first_post_id = p.id THEN t.title ELSE '' END, b.body_source FROM posts p JOIN threads t ON t.id = p.thread_id JOIN post_bodies b ON b.post_id = p.id WHERE p.id > ?1 AND p.id <= ?2",
+      )
+      .run(from, to),
   );
   log("search index", started);
 
@@ -738,12 +849,12 @@ async function generate(path: string): Promise<SeedMeta> {
   const insertAttachment = db.prepare(
     "INSERT INTO attachments (file_id, content_type, content_id, position, created_at) SELECT id, 'post', id, 0, created_at FROM posts WHERE id = ?1",
   );
-  batched(db, SIZES.attachments, (i) => {
+  batched(db, sizes.attachments, (i) => {
     const id = i + 1;
     insertFile.run(id);
     insertAttachment.run(id);
   });
-  db.run(`UPDATE posts SET attachment_count = 1 WHERE id <= ${SIZES.attachments}`);
+  db.run(`UPDATE posts SET attachment_count = 1 WHERE id <= ${sizes.attachments}`);
   log("fake attachments", started);
 
   const insertGroup = db.prepare(
@@ -752,7 +863,7 @@ async function generate(path: string): Promise<SeedMeta> {
   const insertReport = db.prepare(
     "INSERT INTO reports (group_id, reporter_id, reason, created_at) VALUES (?1, ?2, 'Seeded report', ?3)",
   );
-  batched(db, SIZES.reportGroups, (i) => {
+  batched(db, sizes.reportGroups, (i) => {
     const id = i + 1;
     const state = i % 8 === 0 ? "resolved" : i % 5 === 0 ? "assigned" : "open";
     const at = T0 + i * 1000;
@@ -762,14 +873,14 @@ async function generate(path: string): Promise<SeedMeta> {
   const insertWarning = db.prepare(
     "INSERT INTO warnings (user_id, moderator_id, points, reason, created_at, expires_at) VALUES (?1, ?2, ?3, 'Seeded warning', ?4, ?5)",
   );
-  batched(db, SIZES.warnings, (i) => {
+  batched(db, sizes.warnings, (i) => {
     const at = T0 + i * 1000;
     insertWarning.run(22 + (i % (U - 21)), 2 + (i % 20), 1 + (i % 5), at, at + 30 * DAY);
   });
   const insertLog = db.prepare(
     "INSERT INTO moderator_log (actor_id, action, target_type, target_id, reason, created_at) VALUES (?1, 'post.review', 'post', ?2, 'Seeded action', ?3)",
   );
-  batched(db, SIZES.moderatorLog, (i) => {
+  batched(db, sizes.moderatorLog, (i) => {
     insertLog.run(2 + (i % 20), 1 + (i % P), T0 + i * 1000);
   });
   log("moderation queues", started);
@@ -784,6 +895,7 @@ async function generate(path: string): Promise<SeedMeta> {
     if (!hotThread || threadPostTotal[t]! > threadPostTotal[hotThread]!) hotThread = t;
   }
   const thirdPass = seedThirdPass(db, rng, {
+    sizes,
     users: U,
     threads: T,
     passwordHash,
@@ -799,7 +911,8 @@ async function generate(path: string): Promise<SeedMeta> {
   log("third pass: groups, watches, follows, notifications", started);
   for (const t of triggers) db.run(t.sql);
   const economy = seedEconomy(db, {
-    totalUsers: U + SIZES.lurkers,
+    sizes,
+    totalUsers: U + sizes.lurkers,
     forumIds,
     customGroupIds: thirdPass.customGroupIds,
   });
@@ -809,7 +922,7 @@ async function generate(path: string): Promise<SeedMeta> {
   db.run("PRAGMA wal_checkpoint(TRUNCATE)");
   log("analyze", started);
 
-  const meta = { ...buildMeta(db, vocab, forumIds), ...thirdPass, ...economy };
+  const meta = { ...buildMeta(db, sizes, vocab, forumIds), ...thirdPass, ...economy };
   closeContext(ctx);
   for (const suffix of ["-wal", "-shm"]) rmSync(path + suffix, { force: true });
   return meta;
@@ -817,6 +930,8 @@ async function generate(path: string): Promise<SeedMeta> {
 
 // ---------------------------------------------------------------------------
 
+/** One statement over every post keeps the whole result in the WAL; chunks let it checkpoint. */
+const POST_CHUNK = 1_000_000;
 const STATES = ["visible", "moderated", "deleted"] as const;
 
 function makeReactor(rng: Rng, insert: Statement, scores: Int32Array) {
@@ -856,6 +971,7 @@ function makeReactor(rng: Rng, insert: Statement, scores: Int32Array) {
 }
 
 interface ThirdPassInput {
+  sizes: Sizes;
   /** Original (active) member count; lurkers get the ids after it. */
   users: number;
   threads: number;
@@ -887,8 +1003,11 @@ type ThirdPassMeta = Pick<
  * added by the permission-core seed step.
  */
 function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPassMeta {
+  const { sizes } = input;
   const firstLurker = input.users + 1;
-  const totalUsers = input.users + SIZES.lurkers;
+  const totalUsers = input.users + sizes.lurkers;
+  /** Multiplier that makes (row, user) pairs unique numbers whatever the member count. */
+  const pairBase = totalUsers + 1;
   const now = T1;
 
   // Groups: 35 admin-created groups beside the five built-in ones.
@@ -897,7 +1016,7 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
     const insertGroup = db.prepare(
       "INSERT INTO groups (id, title, can_view_nodes, can_post, can_view_profiles, can_post_profile, can_start_conversations, can_react, description, rank, user_title, badge) VALUES (?1, ?2, 1, 1, 1, 1, 1, 1, '', ?3, ?2, ?4)",
     );
-    for (let id = 6; id <= SIZES.groups; id++) {
+    for (let id = 6; id <= sizes.groups; id++) {
       const w = input.vocab[(id * 104_729) % input.vocab.length]!;
       const title = `${w.charAt(0).toUpperCase()}${w.slice(1)} ${id}`;
       insertGroup.run(id, title, 10 + (id % 30), id % 4 === 0 ? `badge-${id}` : "");
@@ -915,7 +1034,7 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
   const insertLurker = db.prepare(
     "INSERT INTO users (id, username, username_key, group_id, about, created_at) VALUES (?1, ?2, ?3, 2, '', ?4)",
   );
-  batched(db, SIZES.lurkers, (i) => {
+  batched(db, sizes.lurkers, (i) => {
     const id = firstLurker + i;
     const w = input.vocab[(id * 7919) % input.vocab.length]!;
     const username = `${w.charAt(0).toUpperCase()}${w.slice(1)}${id}`;
@@ -936,7 +1055,7 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
   // most common, then a Zipf tail; every set is used by at least one member.
   const sets: number[][] = [[]];
   const seen = new Set<string>([""]);
-  while (sets.length < SIZES.groupCombinations) {
+  while (sets.length < sizes.groupCombinations) {
     const k = rng.int(1, 4);
     const chosen = new Set<number>();
     while (chosen.size < k) chosen.add(rng.pick(customGroupIds));
@@ -1066,7 +1185,7 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
     const insert = db.prepare(
       "INSERT INTO promotions (id, title, is_active, rule, group_ids, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
     );
-    for (let id = 1; id <= SIZES.promotions; id++) {
+    for (let id = 1; id <= sizes.promotions; id++) {
       const criteria = [
         { criterion: "post_count", value: rng.int(1, 40) * 25 },
         { criterion: "days_registered", value: rng.int(1, 36) * 30 },
@@ -1102,23 +1221,23 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
     "INSERT INTO thread_watches (user_id, thread_id, email, created_at) VALUES (?1, ?2, ?3, ?4)",
   );
   const watchThread = (userId: number, threadId: number) => {
-    const key = threadId * 100_000 + userId;
+    const key = threadId * pairBase + userId;
     if (pairs.has(key)) return false;
     pairs.add(key);
     threadWatch.run(userId, threadId, rng.chance(0.3) ? 1 : 0, now - rng.int(0, 900) * DAY);
     return true;
   };
   tx(db, () => {
-    const hotWatchers = shuffle(rng, range(2, totalUsers)).slice(0, SIZES.hotThreadWatchers);
+    const hotWatchers = shuffle(rng, range(2, totalUsers)).slice(0, sizes.hotThreadWatchers);
     for (const userId of hotWatchers) watchThread(userId, input.hotThread);
   });
   {
     const threadSampler = new ZipfSampler(input.threads, 0.6);
     const threadOrder = shuffle(rng, range(1, input.threads));
-    let placed = SIZES.hotThreadWatchers;
-    while (placed < SIZES.threadWatches) {
+    let placed = sizes.hotThreadWatchers;
+    while (placed < sizes.threadWatches) {
       tx(db, () => {
-        for (let n = 0; n < 50_000 && placed < SIZES.threadWatches; ) {
+        for (let n = 0; n < 50_000 && placed < sizes.threadWatches; ) {
           const threadId = threadOrder[threadSampler.sample(rng)]!;
           if (input.threadState[threadId] !== 0) continue;
           if (watchThread(input.activeUser(), threadId)) {
@@ -1135,7 +1254,7 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
     );
     const nodePairs = new Set<number>();
     const watchNode = (userId: number, nodeId: number) => {
-      const key = nodeId * 100_000 + userId;
+      const key = nodeId * pairBase + userId;
       if (nodePairs.has(key)) return false;
       nodePairs.add(key);
       nodeWatch.run(
@@ -1147,9 +1266,9 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
       );
       return true;
     };
-    for (const userId of shuffle(rng, range(2, totalUsers)).slice(0, SIZES.hotNodeWatchers))
+    for (const userId of shuffle(rng, range(2, totalUsers)).slice(0, sizes.hotNodeWatchers))
       watchNode(userId, input.hotNode);
-    for (let placed = SIZES.hotNodeWatchers; placed < SIZES.nodeWatches; )
+    for (let placed = sizes.hotNodeWatchers; placed < sizes.nodeWatches; )
       if (watchNode(anyMember(), rng.pick(input.forumIds))) placed++;
   });
 
@@ -1160,11 +1279,11 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
   const insertFollow = db.prepare(
     "INSERT INTO user_follows (user_id, followed_id, created_at) VALUES (?1, ?2, ?3)",
   );
-  batched(db, SIZES.follows, () => {
+  batched(db, sizes.follows, () => {
     for (;;) {
       const follower = anyMember();
       const followed = input.activeUser();
-      const key = follower * 100_000 + followed;
+      const key = follower * pairBase + followed;
       if (follower === followed || followPairs.has(key)) continue;
       followPairs.add(key);
       followerCount[followed]!++;
@@ -1177,11 +1296,11 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
   const insertIgnore = db.prepare(
     "INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)",
   );
-  batched(db, SIZES.ignores, () => {
+  batched(db, sizes.ignores, () => {
     for (;;) {
       const userId = anyMember();
       const ignored = input.activeUser();
-      const key = userId * 100_000 + ignored;
+      const key = userId * pairBase + ignored;
       if (userId === ignored || ignorePairs.has(key)) continue;
       ignorePairs.add(key);
       insertIgnore.run(userId, ignored, now - rng.int(0, 900) * DAY);
@@ -1203,12 +1322,12 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
   const unreadKeys = new Set<string>();
   const recipientOrder = shuffle(rng, range(2, totalUsers));
   const recipientSampler = new ZipfSampler(recipientOrder.length, 0.9);
-  const postCount = SIZES.posts;
-  const times = sortedUniform(rng, SIZES.notifications, T1 - 365 * DAY, T1);
+  const postCount = sizes.posts;
+  const times = sortedUniform(rng, sizes.notifications, T1 - 365 * DAY, T1);
   const insertNotification = db.prepare(
     "INSERT INTO notifications (user_id, type, content_type, content_id, thread_id, actor_id, actor_count, actor_ids, group_key, data, last_event_id, created_at, updated_at, read_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, '{}', 0, ?10, ?10, ?11)",
   );
-  batched(db, SIZES.notifications, (i) => {
+  batched(db, sizes.notifications, (i) => {
     const userId = recipientOrder[recipientSampler.sample(rng)]!;
     const at = times[i]!;
     const postId = rng.int(1, postCount);
@@ -1305,13 +1424,18 @@ const ITEM_KINDS = [
  */
 function seedEconomy(
   db: Database,
-  input: { totalUsers: number; forumIds: number[]; customGroupIds: number[] },
+  input: { sizes: Sizes; totalUsers: number; forumIds: number[]; customGroupIds: number[] },
 ): EconomyMeta {
+  const { sizes } = input;
   const rng = new Rng(SEED + 1);
   const users = input.totalUsers;
   const now = T1;
   const balance = new Int32Array(users + 1);
   let ledgerAt = T0;
+  // 225 s per row spreads the benchmark ledger over the five years; other profiles keep the span.
+  const ledgerStep = Math.round(
+    (225_000 * SIZES.creditRuleApplications) / sizes.creditRuleApplications,
+  );
   const insertLedger = db.prepare(
     "INSERT INTO credit_transactions (user_id, amount, balance_after, type, source_type, source_id, actor_id, reason, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
   );
@@ -1325,7 +1449,7 @@ function seedEconomy(
     reason = "",
   ) => {
     balance[userId] = balance[userId]! + amount;
-    ledgerAt += 225_000;
+    ledgerAt += ledgerStep;
     insertLedger.run(
       userId,
       amount,
@@ -1376,7 +1500,7 @@ function seedEconomy(
     .query<{ id: number; user_id: number }, [number]>(
       "SELECT id, user_id FROM posts WHERE state = 'visible' AND position > 0 ORDER BY id LIMIT ?1",
     )
-    .all(SIZES.creditRuleApplications - sources.length))
+    .all(Math.max(0, sizes.creditRuleApplications - sources.length)))
     sources.push({ ...row, rule: replyRule, type: "post", amount: 2 });
   const insertApplication = db.prepare(
     "INSERT INTO credit_rule_applications (rule_id, user_id, source_type, source_id, amount, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -1402,7 +1526,7 @@ function seedEconomy(
     const insert = db.prepare(
       "INSERT INTO awards (id, name, description, icon, tier, xp, credits, is_stackable, is_active, rule, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
     );
-    for (let id = 1; id <= SIZES.awards; id++) {
+    for (let id = 1; id <= sizes.awards; id++) {
       const xp = 10 * rng.int(1, 50);
       const credits = id % 3 === 0 ? 25 * rng.int(1, 8) : 0;
       const criteria =
@@ -1435,23 +1559,23 @@ function seedEconomy(
   const heavyMember = 25;
   const xpTotal = new Int32Array(users + 1);
   const held = new Map<number, { count: number; last: number; auto: boolean }>();
-  const grantCount = new Int32Array(SIZES.awards + 1);
+  const grantCount = new Int32Array(sizes.awards + 1);
   const insertGrant = db.prepare(
     "INSERT INTO member_awards (user_id, award_id, granted_by, reason, xp, credits, created_at, revoked_at, revoked_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
   );
   let grantId = 0;
   let attempt = 0;
-  while (grantId < SIZES.memberAwards) {
+  while (grantId < sizes.memberAwards) {
     tx(db, () => {
-      for (let n = 0; n < 50_000 && grantId < SIZES.memberAwards; attempt++) {
+      for (let n = 0; n < 50_000 && grantId < sizes.memberAwards; attempt++) {
         const userId = attempt % 40 === 0 ? heavyMember : 1 + ((attempt * 48_271) % users);
-        const awardId = 1 + ((attempt * 31 + Math.floor(attempt / 60)) % SIZES.awards);
+        const awardId = 1 + ((attempt * 31 + Math.floor(attempt / 60)) % sizes.awards);
         const key = userId * 64 + awardId;
         const entry = held.get(key);
         if (entry && !stackable[awardId]) continue;
         grantId++;
         n++;
-        const at = T0 + Math.floor(((T1 - T0) / SIZES.memberAwards) * grantId);
+        const at = T0 + Math.floor(((T1 - T0) / sizes.memberAwards) * grantId);
         const revoked = grantId % 50 === 0;
         // Awards with criteria (every fourth) reach a member automatically the first time.
         const automatic = !entry && awardId % 4 === 0;
@@ -1493,7 +1617,7 @@ function seedEconomy(
   });
   tx(db, () => {
     const update = db.prepare("UPDATE awards SET grant_count = ?1 WHERE id = ?2");
-    for (let id = 1; id <= SIZES.awards; id++) update.run(grantCount[id]!, id);
+    for (let id = 1; id <= sizes.awards; id++) update.run(grantCount[id]!, id);
   });
 
   // Shop: categories and items. Items repeat ITEM_KINDS in order, so item id -> kind is known.
@@ -1511,8 +1635,8 @@ function seedEconomy(
     const insertCategory = db.prepare(
       "INSERT INTO shop_categories (id, name, description, position, is_active, created_at, updated_at) VALUES (?1, ?2, '', ?1, ?3, ?4, ?4)",
     );
-    for (let id = 1; id <= SIZES.shopCategories; id++)
-      insertCategory.run(id, `Category ${id}`, id === SIZES.shopCategories ? 0 : 1, now);
+    for (let id = 1; id <= sizes.shopCategories; id++)
+      insertCategory.run(id, `Category ${id}`, id === sizes.shopCategories ? 0 : 1, now);
     const insertItem = db.prepare(
       "INSERT INTO shop_items (id, category_id, name, description, icon, price, is_active, stock, is_consumable, is_giftable, duration_seconds, effect, position, created_at, updated_at) VALUES (?1, ?2, ?3, '', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?1, ?12, ?12)",
     );
@@ -1524,7 +1648,7 @@ function seedEconomy(
     const insertColor = db.prepare(
       "INSERT INTO palette_colors (kind, name, color, foreground, position, is_active, created_at, updated_at) VALUES ('name', ?1, ?2, NULL, ?3, 1, ?4, ?4)",
     );
-    for (let id = 1; id <= SIZES.shopItems; id++) {
+    for (let id = 1; id <= sizes.shopItems; id++) {
       const kind = ITEM_KINDS[(id - 1) % ITEM_KINDS.length]!;
       const round = Math.floor((id - 1) / ITEM_KINDS.length);
       const consumable = kind === "highlight" || kind === "bump" || kind === "usernameChange";
@@ -1581,11 +1705,11 @@ function seedEconomy(
       stockLeft.push(stock);
       insertItem.run(
         id,
-        1 + (round % (SIZES.shopCategories - 1)),
+        1 + (round % (sizes.shopCategories - 1)),
         `Item ${id}`,
         `item-${id}`,
         price,
-        id > SIZES.shopItems - ITEM_KINDS.length ? 0 : 1,
+        id > sizes.shopItems - ITEM_KINDS.length ? 0 : 1,
         stock,
         consumable ? 1 : 0,
         kind === "permission" || kind === "group" ? 0 : 1,
@@ -1623,19 +1747,19 @@ function seedEconomy(
   const insertGroupGrant = db.prepare(
     "INSERT INTO shop_group_grants (user_id, inventory_id, group_id, created_at) VALUES (?1, ?2, ?3, ?4)",
   );
-  const sellable = SIZES.shopItems - ITEM_KINDS.length;
+  const sellable = sizes.shopItems - ITEM_KINDS.length;
   let purchaseId = 0;
   let inventoryId = 0;
   let grantHolders = 0;
   attempt = 0;
-  while (purchaseId < SIZES.shopPurchases) {
+  while (purchaseId < sizes.shopPurchases) {
     tx(db, () => {
-      for (let n = 0; n < 20_000 && purchaseId < SIZES.shopPurchases; attempt++) {
+      for (let n = 0; n < 20_000 && purchaseId < sizes.shopPurchases; attempt++) {
         const itemId = 1 + ((attempt * 37) % sellable);
         const item = items[itemId]!;
         const grants = item.kind === "permission" || item.kind === "group";
         // Purchased permissions and groups stay rare: each holder has a combination to resolve.
-        if (grants && (attempt % 8 !== 0 || grantHolders >= SIZES.shopGrantHolders)) continue;
+        if (grants && (attempt % 8 !== 0 || grantHolders >= sizes.shopGrantHolders)) continue;
         const buyerId = 22 + ((attempt * 48_271) % (users - 21));
         const gift = !grants && attempt % 20 === 0;
         const recipientId = gift ? 22 + ((attempt * 7919 + 1) % (users - 21)) : buyerId;
@@ -1644,7 +1768,7 @@ function seedEconomy(
         if (owned && !item.consumable) continue;
         const quantity = item.consumable ? rng.int(1, 3) : 1;
         const cost = item.price * quantity;
-        const at = T0 + Math.floor(((T1 - T0) / SIZES.shopPurchases) * purchaseId);
+        const at = T0 + Math.floor(((T1 - T0) / sizes.shopPurchases) * purchaseId);
         if (balance[buyerId]! < cost)
           ledger(
             buyerId,
@@ -1667,7 +1791,7 @@ function seedEconomy(
           continue;
         }
         inventoryId++;
-        const expired = item.duration !== null && purchaseId < SIZES.shopPurchases / 2;
+        const expired = item.duration !== null && purchaseId < sizes.shopPurchases / 2;
         // One consumable row in ten has been used up.
         const usedUp = item.consumable && inventoryId % 10 === 0;
         inventory.set(key, { id: inventoryId, quantity: usedUp ? 0 : quantity });
@@ -1700,7 +1824,7 @@ function seedEconomy(
   }
   tx(db, () => {
     const update = db.prepare("UPDATE shop_items SET stock = ?1 WHERE id = ?2");
-    for (let id = 1; id <= SIZES.shopItems; id++)
+    for (let id = 1; id <= sizes.shopItems; id++)
       if (stockLeft[id] !== null) update.run(stockLeft[id]!, id);
   });
 
@@ -1723,14 +1847,14 @@ function seedEconomy(
   return {
     economy: {
       ruleIds,
-      awardIds: range(1, SIZES.awards),
-      stackableAwardIds: range(1, SIZES.awards).filter((id) => stackable[id] && id % 10 !== 7),
+      awardIds: range(1, sizes.awards),
+      stackableAwardIds: range(1, sizes.awards).filter((id) => stackable[id] && id % 10 !== 7),
       awardHeavyUserId: heavyMember,
       richUserIds: ids("SELECT id FROM users WHERE group_id = 2 ORDER BY credits DESC LIMIT 200"),
       inventoryHeavyUserIds: ids(
         "SELECT user_id AS id FROM shop_inventory GROUP BY user_id ORDER BY count(*) DESC LIMIT 10",
       ),
-      categoryIds: range(1, SIZES.shopCategories),
+      categoryIds: range(1, sizes.shopCategories),
       itemIds: {
         permanent: itemsOfKind("frame"),
         consumable: itemsOfKind("bump"),
@@ -1744,6 +1868,7 @@ function seedEconomy(
 
 function buildMeta(
   db: Database,
+  sizes: Sizes,
   vocab: string[],
   forumIds: number[],
 ): Omit<SeedMeta, keyof ThirdPassMeta | keyof EconomyMeta> {
@@ -1757,7 +1882,7 @@ function buildMeta(
   );
   return {
     version: SEED_VERSION,
-    sizes: SIZES,
+    sizes,
     adminId: 1,
     moderatorIds: ids("SELECT id FROM users WHERE group_id = 3 ORDER BY id"),
     memberIds,
@@ -1876,6 +2001,14 @@ function buildBodies(rng: Rng, word: () => string, n: number): { source: string;
   return out;
 }
 
+/** The same bodies cut to their first paragraph. */
+function shortenBodies(bodies: { source: string; html: string }[]): typeof bodies {
+  return bodies.map(({ source }) => {
+    const first = source.split("\n\n")[0]!;
+    return { source: first, html: renderBbCode(first) };
+  });
+}
+
 function range(from: number, to: number): number[] {
   const out: number[] = [];
   for (let i = from; i <= to; i++) out.push(i);
@@ -1942,6 +2075,11 @@ function allocate(
   return counts;
 }
 
+/** Runs `fn(from, to)` over post ids in (from, to], 1,000,000 at a time, one transaction each. */
+function postChunks(posts: number, fn: (from: number, to: number) => void): void {
+  for (let from = 0; from < posts; from += POST_CHUNK) fn(from, Math.min(posts, from + POST_CHUNK));
+}
+
 function tx(db: Database, fn: () => void): void {
   db.transaction(fn).immediate();
 }
@@ -1956,7 +2094,57 @@ function batched(db: Database, n: number, fn: (i: number) => void): void {
   }
 }
 
+/**
+ * Writes `sizes` to `out` and its meta to `${out}.json` (the bench meta plus the profile name
+ * and `SEED_PASSWORD`), replacing what is there. The database is built under a temporary name
+ * and renamed when complete, so a file at `out` is never partial; a rerun starts clean.
+ */
+export async function writeProfile(
+  name: string,
+  sizes: Sizes,
+  out: string,
+): Promise<{ path: string; meta: SeedMeta }> {
+  mkdirSync(dirname(out), { recursive: true });
+  const tmp = `${out}.partial`;
+  for (const base of [tmp, out])
+    for (const suffix of ["", "-wal", "-shm"]) rmSync(base + suffix, { force: true });
+  rmSync(`${out}.json`, { force: true });
+  const meta = await generate(tmp, sizes);
+  renameSync(tmp, out);
+  writeFileSync(
+    `${out}.json`,
+    JSON.stringify({ ...meta, profile: name, password: SEED_PASSWORD }, null, 2),
+  );
+  return { path: out, meta };
+}
+
 if (import.meta.main) {
-  const { path } = await ensureSeed();
-  console.log(path);
+  const { values } = parseArgs({
+    options: {
+      profile: { type: "string", default: "bench" },
+      out: { type: "string" },
+      scale: { type: "string", default: "1" },
+    },
+  });
+  const name = values.profile as string;
+  const divisor = Number(values.scale);
+  if (!Object.hasOwn(PROFILES, name) || !Number.isInteger(divisor) || divisor < 1) {
+    console.error(
+      `Usage: bun bench/seed.ts [--profile ${Object.keys(PROFILES).join("|")}] [--scale <divisor>] [--out <file>]`,
+    );
+    process.exit(2);
+  }
+  if (values.out === undefined && name === "bench" && divisor === 1) {
+    const { path } = await ensureSeed();
+    console.log(path);
+  } else if (values.out === undefined && (name === "bench" || divisor !== 1)) {
+    console.error("--out is required for the bench profile and for a scaled profile.");
+    process.exit(2);
+  } else {
+    const out = resolve(values.out ?? join(benchDir(), name, "sermo.db"));
+    const started = performance.now();
+    const sizes = scaleSizes(PROFILES[name as ProfileName], divisor);
+    const { path } = await writeProfile(divisor === 1 ? name : `${name}/${divisor}`, sizes, out);
+    console.log(`${path} written in ${((performance.now() - started) / 1000).toFixed(1)} s`);
+  }
 }
