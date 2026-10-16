@@ -30,12 +30,22 @@ afterEach(() => {
 const STAFF = "sermo.session_token=staff";
 const MEMBER = "sermo.session_token=member";
 
-// The backend: the posts it shows each kind of visitor, by path. Anything else is not found.
-function backend(visible: Record<string, Record<string, unknown>>) {
+// The backend: the posts it shows each kind of visitor, by path; the paths in `closed` are forum
+// posts closed to that visitor. Anything else is not found.
+function backend(
+  visible: Record<string, Record<string, unknown>>,
+  closed: string[] = [],
+) {
   globalThis.fetch = (async (url: string, init: RequestInit) => {
     const { pathname } = new URL(url);
     const who = new Headers(init.headers).get("cookie") ?? "";
     if (pathname === "/api/v1/me") return Response.json(viewerBody(who !== ""));
+    if (closed.includes(`${who}|${pathname}`)) {
+      return Response.json(
+        { error: { code: "forbidden", message: "Closed." } },
+        { status: 403 },
+      );
+    }
     const shown = visible[`${who}|${pathname}`];
     if (shown) return Response.json(postBody(shown));
     return Response.json(
@@ -56,7 +66,7 @@ async function open(id: string) {
   throw new Error("the page answered with a page");
 }
 
-const redirectTo = (path: string) => `NEXT_REDIRECT;replace;${path};308;`;
+const redirectTo = (path: string) => `NEXT_REDIRECT;replace;${path};307;`;
 const NOT_FOUND = "NEXT_HTTP_ERROR_FALLBACK;404";
 
 test("a post on the first page goes to its thread with its anchor and no page", async () => {
@@ -112,4 +122,13 @@ test("an id that is not a plain number is a 404 and the backend is not asked", a
   for (const id of ["0", "x", "07", "1e2", "5-news"])
     expect(await open(id)).toBe(NOT_FOUND);
   expect(asked).toEqual([]);
+});
+
+test("a post in a forum whose posts are closed to the visitor is a 404, as a missing one is", async () => {
+  backend({}, ["|/api/v1/posts/60", `${MEMBER}|/api/v1/posts/60`]);
+  const missing = await open("61");
+  expect(missing).toBe(NOT_FOUND);
+  expect(await open("60")).toBe(missing);
+  cookie = MEMBER;
+  expect(await open("60")).toBe(missing);
 });

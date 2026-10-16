@@ -586,26 +586,33 @@ const AWARD = {
 };
 
 // The backend shows each visitor the posts it lists for their cookie ("" is a guest); a post it
-// does not list for them is not found.
-function postsBackend(visible: Record<string, Record<string, unknown>>) {
+// does not list for them is not found, and one whose forum closes its posts to them is forbidden.
+function postsBackend(
+  visible: Record<string, Record<string, unknown>>,
+  closed: string[] = [],
+) {
   const asked: Asked[] = [];
   globalThis.fetch = (async (input: string, init: RequestInit) => {
     const url = new URL(input);
     const headers = new Headers(init.headers);
     asked.push({ method: init.method ?? "GET", url, headers });
-    const shown = visible[`${headers.get("cookie") ?? ""}|${url.pathname}`];
-    return shown ? Response.json(postBody(shown)) : refusal(404, "not_found");
+    const key = `${headers.get("cookie") ?? ""}|${url.pathname}`;
+    if (closed.includes(key)) return refusal(403, "forbidden");
+    return visible[key]
+      ? Response.json(postBody(visible[key]))
+      : refusal(404, "not_found");
   }) as unknown as typeof fetch;
   return asked;
 }
 
 function redirectsTo(response: Response | undefined, path: string) {
   assert.ok(response);
-  assert.equal(response.status, 308);
+  assert.equal(response.status, 307);
   assert.equal(response.headers.get("location"), `http://localhost${path}`);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
 }
 
-test("a post's address is a permanent redirect to its thread's page and anchor", async () => {
+test("a post's address is a temporary, private redirect to its thread's page and anchor", async () => {
   const asked = postsBackend({
     "|/api/v1/posts/31": { id: 31, threadId: 7, position: POSTS_PER_PAGE - 1 },
     "|/api/v1/posts/90": {
@@ -646,6 +653,18 @@ test("a post of a private forum is a 404 for a guest and sends the visitor's coo
     "/threads/12#post-50",
   );
   assert.equal(asked[1].headers.get("cookie"), SESSION);
+});
+
+test("a post in a forum whose posts are closed to the visitor is a 404, as a missing one is", async () => {
+  postsBackend({}, ["|/api/v1/posts/60", `${SESSION}|/api/v1/posts/60`]);
+  isNotFound(await ask("/posts/60"));
+  isNotFound(await ask("/posts/60", { cookie: SESSION }));
+  isNotFound(await ask("/posts/61"));
+});
+
+test("a guest who must sign in first goes on to the page, as for any record", async () => {
+  backend({ "/api/v1/posts/62": refusal(401, "unauthenticated") });
+  passes(await ask("/posts/62"));
 });
 
 test("an id that cannot exist is a 404 unasked, a sub-address is left to the router and an outage to the page", async () => {

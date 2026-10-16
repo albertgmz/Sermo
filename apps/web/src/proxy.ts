@@ -142,8 +142,9 @@ function seoPage(
 }
 
 // A post's address goes to the page of its thread that holds it, at its anchor. The backend's
-// read of the post is the visibility check: a post the visitor may not see is "not found", the
-// same as an id that was never used.
+// read of the post is the visibility check: a post the visitor may not see ("not found", or
+// "forbidden" for a forum whose posts are closed to them) is a 404, the same as an id that was
+// never used. A visitor who must sign in first goes on to the page, as for any record.
 const postPage: Finder = async (raw, action, request) => {
   const postId = parseId(raw);
   if (postId === null) return false;
@@ -153,12 +154,19 @@ const postPage: Finder = async (raw, action, request) => {
     const post = await callWith(forwardFromHeaders(request.headers), postsGet, {
       postId,
     });
-    return NextResponse.redirect(
+    // Temporary and private: a split or a move changes the post's thread, and the answer depends
+    // on who asks.
+    const response = NextResponse.redirect(
       new URL(threadHref(post.threadId, post.position, post.id), request.url),
-      308,
+      307,
     );
+    response.headers.set("cache-control", "private, no-store");
+    return response;
   } catch (error) {
-    return !(error instanceof SermoError && error.code === "not_found");
+    return !(
+      error instanceof SermoError &&
+      (error.code === "not_found" || error.code === "forbidden")
+    );
   }
 };
 
