@@ -3195,3 +3195,46 @@ administrator's username (read from the database) and `user<id>@example.test`, w
 password from the meta JSON next to the database (`adminId`, `password`). Staging is opened as
 `http://localhost:4400` (the web binds `localhost`, which is `[::1]` on this machine); the phone
 tests, Lighthouse and the load test use that address, not `127.0.0.1`.
+
+### Phone profiles (item 26)  `@playwright/test` 1.64.1 (the one new dev dependency, `apps/web`)
+drives the site in five device profiles from Playwright's own list: Galaxy S8 (360 x 740, the design
+width; Galaxy S9+ is 320 wide in this version, so it was not used), Pixel 7 (412), iPhone SE (320),
+iPhone 15 Pro Max (430) and iPad Mini (768). The iPhones and the iPad run on WebKit, the rest on
+Chromium. The suite is `apps/web/e2e/*.e2e.ts` (named so `bun test` does not collect it) with
+`playwright.config.ts`, started by `bun run e2e` in `apps/web`. It is not part of `check` or
+`check:fast`: it needs a running stack, which it never starts.  Where it runs and as whom:
+`E2E_BASE_URL` is the address (default `http://localhost:3000`, the dev fixture). For any other
+address `E2E_USER`, `E2E_PEER` (another member, for conversations and for content that is not the
+member's own, such as reactions) and `E2E_PASSWORD` (one password for both) are required, and the
+run stops before the first test when one is missing. The setup does not skip either: it fails if the
+member may post nowhere, if the peer cannot sign in or write a thread, or if the long thread gets
+fewer than 22 posts. A setup project signs in through the form once, makes a thread with three pages
+and one by the peer (through the REST API, as each member), opens the main pages so a development
+server has compiled them, and keeps the session. A run leaves its content on the target: that
+thread, a discussion, a poll, wall posts with a picture, a conversation and messages, every time. Do
+not point it at a site whose data matters.  What a test waits for is a condition, never a fixed
+pause: `ready()` waits until every control of the page has been taken over by React (a press before
+that races the hydration of popups) and fails after 30 s; a sign-in waits for the form's server
+action and, when the limiter refuses (three tries in ten seconds, `x-retry-after` on its answer),
+polls the limiter until it opens; a saved choice waits for its action's answer; a draft waits for
+the tab's storage; a gesture that must open nothing runs the page's clock past the hold timer. Every
+flow runs at 360 px (`android-small`); flows tagged `@all` also run on the other four. Every test
+fails on a console error, an uncaught page error or horizontal page scroll; below 360 px an overflow
+is recorded as a "found" annotation instead (the design promises nothing narrower, so a green
+`iphone-small` does not say the pages fit 320 px). The service worker test registers the worker and
+cuts the network; it skips itself on a development server (its pages load the hot reload client) and
+was run against a production build on Chromium.  Four small web fixes came out of the first run. The
+cookie banner now leaves room under the page content as tall as itself while it is open
+(`--consent-space`, set from the banner's own height and given back when it closes or the page
+unmounts), because it covered the sign-in button of the login page at 360 x 740; a short page, such
+as the sign-in page, gets a vertical scrollbar of that height while the banner is open, also on a
+desktop. The bottom bar labels lose a pixel of padding so "Messages" is not cut off at 360 px in
+either language. The guest header gives up its own Create button between 768 and 1023 px (`md` to
+`lg`) and shows Log in as an icon there (the text from `lg`, where it used to come at `sm`, 640 px):
+on a tablet in portrait the header was 110 px wider than the screen. A guest therefore has no Create
+entry at those widths (the bottom bar is phone-only); it only led to the sign-in page, which Log in
+and Create Account reach, and the room is not there. The lazy editor now reads the typed text and
+swaps in the editor in one synchronous commit: a key pressed while the editor chunk arrived was
+lost. Only an end-to-end test guards that, and it reproduces on a development server, where the
+chunk compiles slowly; on a production build it passes with or without the fix. There is no draft
+for a reply; the drafts tested are the new thread's.
