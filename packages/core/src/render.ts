@@ -164,14 +164,20 @@ type Rendered = ContentReferences & {
   hashtags: string[];
 };
 
-/** The source with each resolved quote's opening tag naming its author and member. */
+/** The source with each quote's opening tag naming its author and member (resolved) or only its author. */
 function canonicalSource(source: string, quotes: El[]): string {
   let result = "";
   let position = 0;
   for (const el of quotes) {
     const quote = el.quote!;
-    if (!quote.resolvedAuthor) continue;
-    result += `${source.slice(position, el.start)}[QUOTE="${quote.resolvedAuthor}, post: ${quote.postId}, member: ${quote.userId}"]`;
+    // A quote an import could not link keeps only its author's name, so the stored text, the
+    // HTML and a later edit agree that it is not a reference to a post.
+    const tag = quote.resolvedAuthor
+      ? `[QUOTE="${quote.resolvedAuthor}, post: ${quote.postId}, member: ${quote.userId}"]`
+      : quote.author
+        ? `[QUOTE="${quote.author}"]`
+        : "[QUOTE]";
+    result += `${source.slice(position, el.start)}${tag}`;
     position = el.end;
   }
   return result + source.slice(position);

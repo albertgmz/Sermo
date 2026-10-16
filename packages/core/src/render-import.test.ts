@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { insertUser } from "@sermo/core/testing";
+import { insertNode, insertUser } from "@sermo/core/testing";
+import { invalidate } from "./context";
 import { writeTx } from "./db/tx";
 import { ValidationError } from "./errors";
 import { world } from "./modules/feed/fixtures.test";
+import { setEntry } from "./modules/permissions/group-fixture";
 import { MAX_BODY_LENGTH, renderContent, renderForImport, storeContentReferences } from "./render";
 
 const quote = (author: string, postId: number, text = "quoted words") =>
@@ -53,7 +55,7 @@ describe("renderForImport", () => {
       expect(result.html).toContain('<cite class="bb-quote-author">Bob</cite>');
       expect(result.html).not.toContain("/posts/");
       expect(result.quotes).toEqual([]);
-      expect(result.source).toBe(quote("Bob", postId));
+      expect(result.source).toBe('[QUOTE="Bob"]quoted words[/QUOTE]');
     }
     const live = render(visible.id);
     expect(live.html).toContain(`href="/posts/${visible.id}"`);
@@ -72,7 +74,7 @@ describe("renderForImport", () => {
     expect(result.html).not.toContain("secret opening words");
     expect(result.html).not.toContain("Hidden topic");
     expect(result.quotes).toEqual([]);
-    expect(result.source).toBe(body);
+    expect(result.source).toBe('[QUOTE="Insider"]only what the quote says[/QUOTE]');
     // The same quote inside the private forum links: its readers can open the source.
     const inside = renderForImport(w.ctx, w.admin, body, { nodeId: w.secret.id });
     expect(inside.html).toContain(`href="/posts/${secret.post.id}"`);
@@ -84,6 +86,49 @@ describe("renderForImport", () => {
         .prepare("SELECT 1 FROM content_quotes WHERE quoted_post_id = ?1")
         .all(secret.post.id),
     ).toEqual([]);
+  });
+
+  test("a quote the guest read gates close is plain from a public thread", async () => {
+    const w = world();
+    const closed = (key: "forum.viewOthers" | "forum.viewContent") => {
+      const node = insertNode(w.ctx, { parentId: w.category.id });
+      setEntry(w.ctx, 1, key, -1, node.id);
+      invalidate(w.ctx, "node_tree");
+      return node;
+    };
+    for (const key of ["forum.viewOthers", "forum.viewContent"] as const) {
+      const node = closed(key);
+      const thread = await w.thread(w.alice, node.id, "Closed to guests", "closed words");
+      const body = quote("Alice", thread.post.id);
+      const fromPublic = renderForImport(w.ctx, w.admin, body, { nodeId: w.open.id });
+      expect(fromPublic.html).not.toContain("/posts/");
+      expect(fromPublic.html).not.toContain("closed words");
+      expect(fromPublic.quotes).toEqual([]);
+    }
+  });
+
+  test("a post stored with a plain quote can be edited through posts.update", async () => {
+    const w = world();
+    const secret = await w.thread(w.admin, w.secret.id, "Hidden topic");
+    const thread = await w.thread(w.alice, w.open.id, "Topic");
+    const reply = await w.reply(w.bob, thread.thread.id, "placeholder");
+    const lost = quote("Gone", 99_999, "old words");
+    const private_ = quote("Insider", secret.post.id, "private words");
+    for (const body of [lost, private_]) {
+      const rendered = renderForImport(w.ctx, w.admin, `${body} mine`, { nodeId: w.open.id });
+      expect(rendered.source).not.toContain("post:");
+      w.ctx.sqlite
+        .prepare("UPDATE post_bodies SET body_source = ?1, body_html = ?2 WHERE post_id = ?3")
+        .run(rendered.source, rendered.html, reply.id);
+      expect(() => renderContent(w.ctx, w.bob, rendered.source)).not.toThrow();
+      await w.call("posts.update", w.bob, { postId: reply.id, body: `${rendered.source} edited` });
+      const stored = w.ctx.sqlite
+        .prepare<{ body_source: string }, [number]>(
+          "SELECT body_source FROM post_bodies WHERE post_id = ?1",
+        )
+        .get(reply.id)!;
+      expect(stored.body_source.endsWith("mine edited")).toBe(true);
+    }
   });
 
   test("mentions are not cut by the limit of a new member", () => {
