@@ -51,11 +51,11 @@ function isAlive(pid: number): boolean {
   }
 }
 
-/** The HTTP status of the service's health address, or null when nothing listens there. */
+/** The HTTP status of the health address (a redirect is not followed), or null when nothing listens. */
 async function probe(service: Service): Promise<number | null> {
   try {
     const response = await fetch(HEALTH[service], {
-      redirect: "follow",
+      redirect: "manual",
       signal: AbortSignal.timeout(10_000),
     });
     await response.body?.cancel();
@@ -111,7 +111,7 @@ function launch(paths: StagingPaths, service: Service, secret: string): number {
             stdio: ["ignore", log, log],
             windowsHide: true,
           })
-        : spawn(nodeBinary(), [nextBin(), "start", "-p", String(WEB_PORT), "-H", "127.0.0.1"], {
+        : spawn(nodeBinary(), [nextBin(), "start", "-p", String(WEB_PORT)], {
             cwd: webDir,
             env,
             detached: true,
