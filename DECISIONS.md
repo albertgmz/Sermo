@@ -3628,3 +3628,20 @@ the 1rem gutter, above the bottom bar. The text may take up to 40dvh (the librar
 text and the policy link after about six lines at 320 px); a 1px border separates it from the page
 in dark; the policy link ("Read our cookie policy", also on /privacy) is always underlined, since a
 phone has no hover. `forum_consent`, the categories and the library version are unchanged.
+
+### Rules gate: a full screen before anything else (item 4)  When a signed-in member has pages to
+accept (`auth.me` lists them), the `(main)` layout draws `AcceptanceGate` in place of the page: the
+site mark and name, a title and one line, the text of each pending page (terms and/or rules, from
+the existing `pages.get`, rendered as on their own pages) in a box that scrolls, then "I accept"
+(the same `acceptTerms` action and versions as before) and "Log out". The requested page is not
+drawn (Next may still prepare its segment; the backend lets that member read the same pages), and
+the header, staff bar, notices, footer and phone bar are hidden and out of the Tab order while the
+gate shows. Accepting redraws the current address, so the member lands on the page they asked for.
+Guests and members with nothing pending get the normal page with no extra request (the check reuses
+the request's `auth.me`). The old strip under the header and its styleguide entry are gone. On
+phones the buttons are full width; on a short screen the whole gate scrolls and the text box keeps
+at least 10rem; while the cookie banner shows, the gate keeps `--consent-space` free under the
+buttons. Every `(main)` route is gated, `/account`, `/terms` and `/rules` included; `(staff)`
+routes are not. Known limits: a gated member sees the header for about two round trips before the
+gate on a full load; keyboard shortcuts stay on (they change the address only); on a first load
+the main area starts empty instead of its skeleton, because the gate reads the request.
