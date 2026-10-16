@@ -98,16 +98,26 @@ const readScenario = (
 export const scenarios: Scenario[] = [
   readScenario("feed.list filter forum", (env) => ({ forumIds: big(env) })),
   readScenario("feed.list filter forums (three)", (env) => ({ forumIds: big(env, 3) })),
-  // The most forums one walk visits: each refill reads that many forums' newest threads.
-  readScenario("feed.list filter forums (twelve)", (env) => ({ forumIds: big(env, 12) })),
+  // The most forums one walk visits one by one: each refill reads that many forums' newest threads.
+  readScenario("feed.list filter forums (up to 64)", (env) => ({ forumIds: big(env, 64) })),
+  readScenario("feed.list filter rare prefix with forums left out", () => ({ prefixId }), {
+    async setup(env) {
+      addPrefix(env, 5000);
+      await env.call("settings.update", env.actors.admin, { feedExcludedForumIds: big(env, 3) });
+    },
+    async teardown(env) {
+      await env.call("settings.update", env.actors.admin, { feedExcludedForumIds: [] });
+      dropPrefix(env);
+    },
+  }),
   readScenario(
     "feed.list filter forum and a rare prefix",
     (env) => ({ forumIds: big(env), prefixId }),
     { setup: (env) => addPrefix(env, 5000), teardown: dropPrefix },
   ),
   readScenario(
-    "feed.list filter forums (twelve) and unread, all read",
-    (env) => ({ forumIds: big(env, 12), unread: true }),
+    "feed.list filter forums (up to 64) and unread, all read",
+    (env) => ({ forumIds: big(env, 64), unread: true }),
     {
       // The worst case for unread: the member has read everything recent, so every candidate
       // is probed and none passes.
@@ -116,16 +126,15 @@ export const scenarios: Scenario[] = [
         readerId = env.meta.memberIds[1]!;
         env.ctx.sqlite
           .prepare(
-            "INSERT OR REPLACE INTO thread_reads (user_id, thread_id, last_read_post_id, last_read_position, read_at) SELECT ?1, id, last_post_id, 0, ?2 FROM threads WHERE node_id = ?3 AND state = 'visible' ORDER BY id DESC LIMIT 600",
-          )
-          .run(readerId, env.ctx.now(), big(env)[0]!);
-      },
-      teardown(env) {
-        env.ctx.sqlite
-          .prepare(
-            "DELETE FROM thread_reads WHERE user_id = ?1 AND thread_id IN (SELECT id FROM threads WHERE node_id = ?2)",
+            "INSERT OR IGNORE INTO thread_reads (user_id, thread_id, last_read_post_id, last_read_position, read_at) SELECT ?1, id, last_post_id, 0, 1 FROM threads WHERE node_id = ?2 AND state = 'visible' ORDER BY id DESC LIMIT 600",
           )
           .run(readerId, big(env)[0]!);
+      },
+      teardown(env) {
+        // Only the rows marked with a read time of 1: the seeded reads stay.
+        env.ctx.sqlite
+          .prepare("DELETE FROM thread_reads WHERE user_id = ?1 AND read_at = 1")
+          .run(readerId);
         calm(env);
       },
     },
