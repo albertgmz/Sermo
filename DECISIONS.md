@@ -3878,3 +3878,22 @@ those pages (the pages, alert links and the desktop buttons remain); the last en
 navigation need Tab or Shift+wheel to reach; a staff bar between 640 and 767 px with a long site
 name has a title of about 110 px; the look in a browser, the change in first-load size and a real
 phone have not been checked.
+
+## XenForo import round
+
+### Imported bcrypt passwords (item 1)  Sign-in now accepts XenForo bcrypt hashes and replaces them
+with argon2id on the first successful sign-in. A stored hash starting with `$2` is an imported
+`XF:Core12` hash (Sermo itself hashes with argon2id only, and `CoreConfig.passwordHash` is now typed
+as argon2 options so that stays true); it is verified with PHP's semantics, passing only the first
+72 UTF-8 bytes of the password as bytes, because Bun pre-hashes longer passwords and would refuse a
+password that XenForo accepted. Better Auth has no needs-rehash hook, so Sermo's after-sign-in hook
+(sign-in by email or username, session created) re-reads the credential account, re-verifies the
+typed password against the stored bcrypt hash, hashes it with the configured argon2id parameters and
+writes it through Better Auth's own adapter (`updateMany` on `account`) conditioned on the old hash
+still being stored, so a password changed in the meantime is never overwritten; failures are logged
+and never fail the sign-in. The rule that Better Auth tables are written only through Better Auth
+keeps one exception, the importer's direct bulk writes to `auth_user` and `auth_account`
+(investigation report gap 1); the rehash goes through the adapter and is not part of it. Reason: the
+importer must keep XenForo ids and emails exactly, which Better Auth's sign-up path cannot do for
+70,000 rows, and the hash scheme has to keep working for 6,934 live members until each has signed in
+once.
