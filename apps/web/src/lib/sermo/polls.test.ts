@@ -13,6 +13,7 @@ import {
   percentOf,
   pollForClient,
   pollFromJson,
+  pollRequestChanged,
   toLocalInput,
 } from "./polls";
 
@@ -440,4 +441,18 @@ test("asking for a poll opens the section; no longer asking closes a blank one a
   const typed = blankDraft();
   typed.questions[0].text = "Which?";
   expect(draftWhenWanted(typed, false)).toBe(typed);
+});
+
+test("asking for a poll again counts as a request, so a section that was removed opens again", () => {
+  expect(
+    pollRequestChanged({ wanted: true, asked: 1 }, { wanted: true, asked: 1 }),
+  ).toBe(false);
+  expect(
+    pollRequestChanged({ wanted: true, asked: 1 }, { wanted: true, asked: 2 }),
+  ).toBe(true);
+  expect(
+    pollRequestChanged({ wanted: true, asked: 2 }, { wanted: false, asked: 2 }),
+  ).toBe(true);
+  // The section the member removed is closed (no draft), and a request opens it.
+  expect(draftWhenWanted(null, true)).toEqual(blankDraft());
 });

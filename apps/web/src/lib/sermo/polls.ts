@@ -153,6 +153,13 @@ export function draftWhenWanted(
   return draft && !isBlankDraft(draft) ? draft : null;
 }
 
+export type PollRequest = { wanted: boolean; asked: number };
+
+// Whether the member asked for a poll, or no longer does, since the section last looked: asking
+// again (the count moves while `wanted` stays) counts, so a section that was removed opens again.
+export const pollRequestChanged = (seen: PollRequest, now: PollRequest) =>
+  seen.wanted !== now.wanted || seen.asked !== now.asked;
+
 // How many answers the first question will have once blank new rows are left out.
 export const listedAnswers = (draft: PollDraft) =>
   (draft.questions[0]?.answers ?? []).filter(

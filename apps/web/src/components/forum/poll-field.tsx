@@ -11,6 +11,7 @@ import {
   draftToJson,
   draftWhenWanted,
   type PollDraft,
+  pollRequestChanged,
 } from "@/lib/sermo/polls";
 
 // The form is asked for only when the member opens the section, so it is no part of the first
@@ -27,20 +28,23 @@ const PollForm = dynamic(
 // `wanted`: the member asked for a poll (and not a discussion). When it turns true the section
 // opens if it was closed; when it turns false a blank section closes, so a plain discussion never
 // sends a poll, and one the member wrote stays.
+// `asked` counts the times a poll was asked for: asking again opens a section the member removed.
 export function PollField({
   attachIn,
   wanted = false,
+  asked = 0,
 }: {
   attachIn: number | null;
   wanted?: boolean;
+  asked?: number;
 }) {
   const t = useTranslations("forum.poll");
   const [draft, setDraft] = useState<PollDraft | null>(() =>
     draftWhenWanted(null, wanted),
   );
-  const [seen, setSeen] = useState(wanted);
-  if (seen !== wanted) {
-    setSeen(wanted);
+  const [seen, setSeen] = useState({ wanted, asked });
+  if (pollRequestChanged(seen, { wanted, asked })) {
+    setSeen({ wanted, asked });
     setDraft(draftWhenWanted(draft, wanted));
   }
   if (!draft) {
