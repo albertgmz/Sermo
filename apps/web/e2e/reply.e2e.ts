@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import {
   box,
   editorReady,
@@ -19,7 +19,27 @@ test.use({ storageState: MEMBER_STATE });
 const replyBox = (page: Page) =>
   page.getByRole("textbox", { name: "Type your message here." });
 
-test("the reply editor's toolbar fits a phone, scrolls, and its buttons can be pressed @all", async ({
+// Turns a command on or off from its button, or, when the bar is too narrow to show it, from the
+// menu that holds it.
+async function choose(
+  page: Page,
+  toolbar: Locator,
+  menu: string,
+  command: string,
+) {
+  const button = toolbar.getByRole("button", { name: command, exact: true });
+  if (await button.isVisible()) {
+    await button.click();
+    return;
+  }
+  await toolbar.getByRole("button", { name: menu, exact: true }).click();
+  await page
+    .getByRole("menuitemcheckbox", { name: command, exact: true })
+    .click();
+  await expect(page.getByRole("menu")).toBeHidden();
+}
+
+test("the reply editor's toolbar fits a phone without scrolling and its menu items work @all", async ({
   page,
 }) => {
   const { threadId } = seed();
@@ -33,34 +53,56 @@ test("the reply editor's toolbar fits a phone, scrolls, and its buttons can be p
   expect(frame.x).toBeGreaterThanOrEqual(0);
   expect(frame.x + frame.width).toBeLessThanOrEqual(size.width);
   await expectFits(page, "toolbar");
+  // The bar has no scroll of its own: what does not fit is in its menus.
+  expect(
+    await toolbar.evaluate((bar) => bar.scrollWidth <= bar.clientWidth),
+  ).toBe(true);
 
-  // On a phone each button is a touch target (a tablet has the desktop size), and the last one is
-  // reachable by scrolling the bar.
+  // On a phone each button is a touch target (a tablet has the desktop size), and every one is in
+  // view inside the bar.
   const buttons = toolbar.getByRole("button");
   const count = await buttons.count();
-  expect(count).toBeGreaterThanOrEqual(15);
+  expect(count).toBeGreaterThanOrEqual(6);
   for (let index = 0; index < count; index += 1) {
-    const size = await box(buttons.nth(index));
+    const button = await box(buttons.nth(index));
     const least = phoneWidth(page) ? 40 : 32;
-    expect(size.width).toBeGreaterThanOrEqual(least);
-    expect(size.height).toBeGreaterThanOrEqual(least);
+    expect(button.width).toBeGreaterThanOrEqual(least);
+    expect(button.height).toBeGreaterThanOrEqual(least);
+    expect(button.x).toBeGreaterThanOrEqual(frame.x);
+    expect(button.x + button.width).toBeLessThanOrEqual(frame.x + frame.width);
   }
-  await buttons.last().scrollIntoViewIfNeeded();
-  const last = await box(buttons.last());
-  expect(last.x + last.width).toBeLessThanOrEqual(size.width);
 
-  // Bold wraps the typed word, and the BB code source shows it as text.
+  // Bold wraps the typed word, and the editor keeps the focus and the selection.
   const editor = replyBox(page);
   await editor.click();
   await editor.pressSequentially("phone");
   await editor.press("Control+A");
-  await toolbar.getByRole("button", { name: "Bold" }).click();
-  await toolbar.getByRole("button", { name: "BB code source" }).click();
+  await choose(page, toolbar, "Text", "Bold");
+  await expect(editor).toBeFocused();
+
+  // The Text menu shows what is on, and Escape closes it with the focus back on its button.
+  const text = toolbar.getByRole("button", { name: "Text", exact: true });
+  await text.click();
+  const bold = toolbar.getByRole("button", { name: "Bold", exact: true });
+  if (await bold.isVisible()) {
+    await expect(bold).toHaveAttribute("aria-pressed", "true");
+  } else {
+    await expect(
+      page.getByRole("menuitemcheckbox", { name: "Bold", exact: true }),
+    ).toHaveAttribute("aria-checked", "true");
+  }
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toBeHidden();
+  await expect(text).toBeFocused();
+
+  // The BB code source shows the bold word as text, and the rich text reads it back.
+  await choose(page, toolbar, "More", "BB code source");
   const source = reply.locator("textarea").first();
   await expect(source).toHaveValue(/\[B\]phone\[\/B\]/);
+  await expect(source).toBeFocused();
   await expectFits(page, "source");
   await source.fill("[I]changed[/I]");
-  await toolbar.getByRole("button", { name: "BB code source" }).click();
+  await choose(page, toolbar, "More", "BB code source");
   await expect(replyBox(page)).toContainText("changed");
   await expectFits(page, "back to rich text");
 });

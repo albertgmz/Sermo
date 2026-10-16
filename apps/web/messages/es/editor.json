@@ -25,6 +25,12 @@
     "codeBlockLabel": "Bloque de código",
     "mediaLabel": "Multimedia",
     "sourceLabel": "Código BB",
+    "menus": {
+      "text": "Texto",
+      "paragraph": "Párrafo",
+      "insert": "Insertar",
+      "more": "Más"
+    },
     "mediaPrompt": "Dirección del vídeo, la canción o la publicación",
     "linkUnsupported": "Eso no es una dirección web. Usa una que empiece por http:// o https://, o una página de este sitio que empiece por /.",
     "mediaUnsupported": "Esa dirección no es de un sitio que se pueda insertar."
