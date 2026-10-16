@@ -147,3 +147,17 @@ test("known keys have their own icon and every other entry a generic one", () =>
   expect(iconFor("account.bookmarks")).not.toBe(iconFor(null));
   expect(iconFor("something.else")).toBe(iconFor(null));
 });
+
+test("the phone bar's Home is current on the forums and threads too, which it holds as a tab", () => {
+  const [home] = toNavItems([entry("mobile.home", "/")]);
+  expect(isCurrent("/", home)).toBe(true);
+  expect(isCurrent("/forums", home)).toBe(true);
+  expect(isCurrent("/forums/2-news", home)).toBe(true);
+  expect(isCurrent("/threads/1", home)).toBe(true);
+  expect(isCurrent("/members/3", home)).toBe(false);
+  expect(isCurrent("/forumsx", home)).toBe(false);
+  // Any other entry for the root stays current for the root only.
+  const [root] = toNavItems([entry(null, "/")]);
+  expect(isCurrent("/forums", root)).toBe(false);
+  expect(isCurrent("/", root)).toBe(true);
+});

@@ -48,6 +48,8 @@ const ICONS: Record<string, LucideIcon> = {
 // Paths that also mark an entry as current.
 const MATCH: Record<string, string[]> = {
   "header.forums": ["/threads"],
+  // The phone bar has no Forums entry: the forums are a tab of Home.
+  "mobile.home": ["/forums", "/threads"],
   "mobile.profile": ["/account"],
 };
 
@@ -121,8 +123,9 @@ export function isActivePath(
   href: string,
   match: string[] = [],
 ) {
-  if (href === "/") return pathname === "/";
-  return [href, ...match].some(
+  // Every path is below the root: besides itself, the root is current only on its match paths.
+  if (pathname === href) return true;
+  return (href === "/" ? match : [href, ...match]).some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
