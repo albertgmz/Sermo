@@ -18,3 +18,12 @@ export const DEFAULT_FEED_VIEW: FeedView = "cards";
 export function parseFeedView(value: unknown): FeedView | null {
   return FEED_VIEWS.find((view) => view === value) ?? null;
 }
+
+// What the list assumes a row is high, in pixels, until the row has been measured (the gap above
+// it included): a card is about 320 on a phone; a compact row is two lines, 40 px of buttons and
+// `py-2` (58 on a phone, 55 on a desktop) plus the 16 px gap. A wrong guess only moves the scroll
+// bar until the rows draw, but compact rows guessed at card height made it four times too long.
+export const FEED_ROW_ESTIMATE: Record<FeedView, number> = {
+  cards: 320,
+  compact: 72,
+};

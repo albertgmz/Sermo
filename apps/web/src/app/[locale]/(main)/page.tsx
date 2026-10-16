@@ -44,6 +44,7 @@ import {
   filterKey,
   isFiltered,
 } from "@/lib/feed-filters";
+import { FEED_ROW_ESTIMATE } from "@/lib/feed-view";
 import { homeAddress, homeMetadata } from "@/lib/home-seo";
 import {
   barOf,
@@ -55,6 +56,7 @@ import {
 import { pagesParam } from "@/lib/list-pages";
 import { POLL_MS } from "@/lib/poll-intervals";
 import { publicUrl } from "@/lib/sermo/config";
+import { getFeedView } from "@/lib/sermo/feed-view";
 import { getGuestTab } from "@/lib/sermo/home-tab";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
@@ -273,7 +275,12 @@ async function HomeFeed({ tab, params }: { tab: Tab; params: Params }) {
   const t = await getTranslations("home.page");
   const cursor = typeof params.cursor === "string" ? params.cursor : undefined;
   const filter = filterFromParams(params);
-  const first = await feedPage(tab, cursor, undefined, filter);
+  // The layout is part of what the list holds: a change draws other rows, so it is another list,
+  // and its rows are sized for it until they are measured.
+  const [first, view] = await Promise.all([
+    feedPage(tab, cursor, undefined, filter),
+    getFeedView(),
+  ]);
 
   return first.rows.length === 0 && !first.nextCursor ? (
     <EmptyState
@@ -288,11 +295,11 @@ async function HomeFeed({ tab, params }: { tab: Tab; params: Params }) {
       more={moreFeed.bind(null, tab, filter)}
       pages={pagesParam(params.pages)}
       start={cursor}
-      listKey={["feed", tab, filterKey(filter)]}
+      listKey={["feed", tab, filterKey(filter), view]}
       hrefBase={feedHref(tab, filter)}
       moreLabel={t("loadMore")}
       emptyNote={t("emptyMore")}
-      estimateSize={320}
+      estimateSize={FEED_ROW_ESTIMATE[view]}
       spacing="spaced"
       fresh={
         tab === "hot"
