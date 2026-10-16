@@ -192,7 +192,7 @@ export async function rejectCookies(page: Page) {
 // Asks the sign-in limiter (a few tries in ten seconds, per address and path) where it stands, with
 // a try that cannot succeed, under a name nobody has so no member's wrong-password count is
 // spent. Returns the seconds the answer says to wait (429 and x-retry-after), or 0 when it is open.
-async function limiterWait(page: Page) {
+export async function limiterWait(page: Page) {
   const probe = await page.request.post("/api/auth/sign-in/username", {
     data: { username: "limiter-probe-nobody", password: "not the password" },
     headers: { origin: new URL(page.url()).origin },
