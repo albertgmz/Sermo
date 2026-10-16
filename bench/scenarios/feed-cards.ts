@@ -59,9 +59,13 @@ const newest = (env: BenchEnv, count: number) =>
     .all(count)
     .map((row) => row.id);
 
+// `env.call` answers the response text, as the API sends it.
 const readPage = async (env: BenchEnv) =>
-  ((await env.call("feed.list", env.actors.user(readerId), { limit: 20 })) as { items: Item[] })
-    .items;
+  (
+    JSON.parse(
+      (await env.call("feed.list", env.actors.user(readerId), { limit: 20 })) as string,
+    ) as { items: Item[] }
+  ).items;
 
 /** Prepares, then checks the first page; on a page that is not what the scenario needs, undoes it. */
 async function prepare(
