@@ -205,13 +205,12 @@
       "removeFormatting": "Remove formatting (Cmd instead of Ctrl on a Mac)"
     }
   },
-  "acceptancePrompt": {
-    "label": "Terms and rules",
-    "title": "Please accept the terms and rules",
-    "body": "You can keep reading. To post, react or send messages, read and accept:",
-    "terms": "Terms",
-    "rules": "Rules",
-    "accept": "I accept"
+  "acceptanceGate": {
+    "label": "{which, select, terms {Terms} rules {Rules} other {Terms and rules}}",
+    "title": "{which, select, terms {Please accept the terms} rules {Please accept the rules} other {Please accept the terms and rules}}",
+    "body": "To keep using {site}, read the text below and accept it.",
+    "accept": "I accept",
+    "logout": "Log out"
   },
   "awaitingNotice": {
     "label": "Account waiting for approval",

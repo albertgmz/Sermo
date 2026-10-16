@@ -96,9 +96,9 @@ export async function dismissNotice(noticeId: number) {
   refresh();
 }
 
-// Accepts the terms and rules the prompt showed, at the versions it showed (`kind:version` in each
+// Accepts the terms and rules the gate showed, at the versions it showed (`kind:version` in each
 // `accept` field). A version that moved on since is refused by the backend, and the page is drawn
-// again with the new prompt.
+// again with the new gate.
 export async function acceptTerms(
   _previous: { error?: string },
   formData: FormData,
@@ -115,7 +115,7 @@ export async function acceptTerms(
       accept: accept.flatMap((item) => (item.success ? [item.data] : [])),
     }),
   );
-  // Either way the page is drawn again: without the prompt once accepted, with the pages as they
+  // Either way the page is drawn again: without the gate once accepted, with the pages as they
   // are now when the version moved on.
   refresh();
   return done.ok ? {} : { error: done.error };

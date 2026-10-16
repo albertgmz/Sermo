@@ -63,7 +63,7 @@
   },
   "errors": {
     "generic": "Algo salió mal. Inténtalo de nuevo.",
-    "acceptanceRequired": "Primero debes aceptar los términos y las reglas vigentes. El aviso de la parte superior de la página tiene el botón.",
+    "acceptanceRequired": "Primero debes aceptar los términos y las reglas vigentes.",
     "approvalPending": "Tu cuenta espera a que el personal la apruebe. Hasta entonces puedes leer el foro como un invitado."
   },
   "format": {

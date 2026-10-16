@@ -1,6 +1,6 @@
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
-import { AcceptancePrompt } from "@/components/forum/acceptance-prompt";
+import { AcceptanceGate } from "@/components/forum/acceptance-gate";
 import { AwaitingNotice } from "@/components/forum/awaiting-notice";
 import { NoticeBanner } from "@/components/forum/notice-banner";
 import { LoadingRegion } from "@/components/forum/skeletons";
@@ -152,9 +152,6 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         <Suspense>
           <AwaitingNotice />
         </Suspense>
-        <Suspense>
-          <AcceptancePrompt />
-        </Suspense>
         <Suspense
           fallback={
             <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden">
@@ -188,11 +185,19 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         >
           <MobileNavigation />
         </Suspense>
-        <div className="relative isolate flex flex-1 flex-col">
+        <div
+          data-forum-body=""
+          className="relative isolate flex flex-1 flex-col"
+        >
           <PageBackdrop />
           {/* At least a screen below the header, so the footer starts below the fold and a page that
             grows as it streams in does not push it out of view (a layout shift). */}
-          <main className="min-h-[calc(100svh-3.5rem)] flex-1">{children}</main>
+          <main className="min-h-[calc(100svh-3.5rem)] flex-1">
+            {/* A member who has terms or rules to accept gets the gate instead of the page. */}
+            <Suspense>
+              <AcceptanceGate>{children}</AcceptanceGate>
+            </Suspense>
+          </main>
           <SiteFooter />
         </div>
       </div>

@@ -63,7 +63,7 @@
   },
   "errors": {
     "generic": "Something went wrong. Try again.",
-    "acceptanceRequired": "You need to accept the current terms and rules first. The notice at the top of the page has the button.",
+    "acceptanceRequired": "You need to accept the current terms and rules first.",
     "approvalPending": "Your account is waiting for staff to approve it. You can read the forum like a guest until then."
   },
   "format": {

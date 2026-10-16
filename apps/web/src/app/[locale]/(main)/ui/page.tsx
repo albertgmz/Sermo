@@ -28,7 +28,7 @@ import { ReactionDemo } from "@/app/[locale]/(main)/ui/reaction-demo";
 import { SettingsDemo } from "@/app/[locale]/(main)/ui/settings-demo";
 import { SkeletonDemos } from "@/app/[locale]/(main)/ui/skeleton-demos";
 import { StaffDemos } from "@/app/[locale]/(main)/ui/staff-demos";
-import { AcceptanceStrip } from "@/components/forum/acceptance-prompt";
+import { AcceptanceScreen } from "@/components/forum/acceptance-gate";
 import { Art } from "@/components/forum/art";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
@@ -1700,19 +1700,35 @@ export default async function StyleguidePage() {
           />
         </Section>
 
-        <Section title="Terms and rules prompt">
+        <Section title="Terms and rules gate">
           <p className="max-w-prose text-sm text-muted-foreground">
-            The band under the notices for a member who has not accepted the
-            current terms or rules: a link to each page and one button. Reading
-            goes on; posting, reacting and messaging wait for the answer. The
-            forum layout draws it from `auth.me`.
+            The whole screen for a member who has not accepted the current terms
+            or rules, in place of the page they asked for: the pending pages'
+            text in a box that scrolls, one button, and a way to log out. The
+            forum layout draws it from `auth.me`; here it fills a frame.
           </p>
-          <AcceptanceStrip
-            pending={[
-              { kind: "terms", version: 2 },
-              { kind: "rules", version: 1 },
-            ]}
-          />
+          <div className="h-[32rem] overflow-hidden rounded-lg border">
+            <AcceptanceScreen
+              pending={[
+                { kind: "terms", version: 2 },
+                { kind: "rules", version: 1 },
+              ]}
+              pages={[
+                {
+                  slug: "terms",
+                  title: "Terms of use",
+                  bodyHtml:
+                    "<p>Be kind, stay on topic and respect other members' work.</p>",
+                },
+                {
+                  slug: "rules",
+                  title: "Forum rules",
+                  bodyHtml:
+                    "<ol><li>No spam.</li><li>No personal attacks.</li><li>Post in the right forum.</li></ol>",
+                },
+              ]}
+            />
+          </div>
         </Section>
 
         <Section title="Header panel">

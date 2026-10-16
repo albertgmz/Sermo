@@ -205,13 +205,12 @@
       "removeFormatting": "Quitar el formato (Cmd en lugar de Ctrl en un Mac)"
     }
   },
-  "acceptancePrompt": {
-    "label": "Términos y reglas",
-    "title": "Acepta los términos y las reglas",
-    "body": "Puedes seguir leyendo. Para publicar, reaccionar o enviar mensajes, lee y acepta:",
-    "terms": "Términos",
-    "rules": "Reglas",
-    "accept": "Acepto"
+  "acceptanceGate": {
+    "label": "{which, select, terms {Términos} rules {Reglas} other {Términos y reglas}}",
+    "title": "{which, select, terms {Acepta los términos} rules {Acepta las reglas} other {Acepta los términos y las reglas}}",
+    "body": "Para seguir usando {site}, lee el texto de abajo y acéptalo.",
+    "accept": "Acepto",
+    "logout": "Cerrar sesión"
   },
   "awaitingNotice": {
     "label": "Cuenta pendiente de aprobación",
