@@ -3897,3 +3897,18 @@ keeps one exception, the importer's direct bulk writes to `auth_user` and `auth_
 importer must keep XenForo ids and emails exactly, which Better Auth's sign-up path cannot do for
 70,000 rows, and the hash scheme has to keep working for 6,934 live members until each has signed in
 once.
+
+### Import render path (item 2)  The import render path renders a body with no length cap and never
+refuses a quote, so the importer can load XenForo history that normal writes would reject.
+`renderForImport(ctx, actor, source, { nodeId })` is the one entry the importer calls: it lifts the
+10,000-character cap (normal writes keep it), raises the render time bound to one second, keeps
+every mention (the actor is not the writer, so the new-member limit does not apply), and turns a
+quote whose source post is missing, deleted or hidden, or whose thread is, into a plain quote that
+names the author written in its tag and carries no link and no stored reference. The actor of an
+import sees everything, so a quote links only when a guest could follow it: when a guest can open
+the forum the body lives in (`nodeId`) and not the forum of the quoted post, the quote is drawn
+plain with its own text only, so no link or content of a private forum reaches a public reader; a
+body inside a private forum links normally, since only administrators read it. A quote the import
+draws plain is stored as `[QUOTE="Name"]` without its post reference, so the stored text, the HTML
+and a later edit through `posts.update` agree that it points at no post. "Public" means a guest can
+open the forum.
