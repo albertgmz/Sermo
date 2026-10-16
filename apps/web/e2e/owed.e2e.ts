@@ -22,7 +22,7 @@ const REACTION_BUTTON = /^[A-Za-z]+, \d+ reactions?$/;
 test.describe("signed in", () => {
   test.use({ storageState: MEMBER_STATE });
 
-  // Items 16 and 16c: six cells in the bottom bar, labels whole, in both languages. A 320 px phone
+  // Items 16 and 16c: five cells in the bottom bar, labels whole, in both languages. A 320 px phone
   // is narrower than the design width: the labels are measured from 360 px.
   test("no label of the bottom bar is cut off @all", async ({
     page,
