@@ -18,7 +18,8 @@
       "reply": "Responder",
       "attachments": "Adjuntos",
       "pages": "Páginas",
-      "pictures": "Imágenes"
+      "pictures": "Imágenes",
+      "media": "Vídeo y audio"
     },
     "awaitingApproval": "Este mensaje está pendiente de aprobación. Solo tú y los moderadores pueden verlo.",
     "deleted": "Este mensaje fue eliminado. Solo los moderadores pueden verlo.",

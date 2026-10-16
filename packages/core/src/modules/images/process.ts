@@ -16,7 +16,18 @@ export interface ProcessedImage {
   variant: string | null;
 }
 
+// Every input is a fresh temp file read once, so libvips gains nothing from holding it open, and
+// an open GIF cannot be deleted on Windows (the upload's clean-up failed with EBUSY).
+sharp.cache({ files: 0 });
+
 const MAX_PIXELS = 16_000_000;
+/** All frames of an animated picture together; each frame alone stays within `MAX_PIXELS`. */
+const MAX_ANIMATED_PIXELS = 100_000_000;
+/**
+ * Purposes whose main rendition keeps the animation of an animated GIF or WebP (as animated
+ * WebP). Their smaller renditions (thumbnails, small avatars) are the first frame.
+ */
+const ANIMATED_PURPOSES: ReadonlySet<ImagePurpose> = new Set(["attachment", "avatar", "cover"]);
 const inputTypes = new Map([
   ["image/jpeg", "jpeg"],
   ["image/png", "png"],
@@ -113,7 +124,11 @@ export async function processImage(
     throw new ValidationError(
       `Reaction pictures are at most ${REACTION_IMAGE_SIDE} pixels on a side.`,
     );
-  if ((metadata.pages ?? 1) > 1) throw new ValidationError("Animated images are not supported.");
+  const pages = metadata.pages ?? 1;
+  if (pages > 1 && !ANIMATED_PURPOSES.has(purpose))
+    throw new ValidationError("Animated images are not supported.");
+  if (metadata.width * metadata.height * pages > MAX_ANIMATED_PIXELS)
+    throw new ValidationError("The animation has too many frames.");
 
   const output: ProcessedImage[] = [];
   const paths: string[] = [];
@@ -123,21 +138,29 @@ export async function processImage(
     for (const size of sizes) {
       const path = join(tempDir, `sermo-image-${randomUUID()}`);
       paths.push(path);
-      const pipeline = sharp(inputPath, { limitInputPixels: MAX_PIXELS, failOn: "error" })
+      const animated = pages > 1 && size.variant === null;
+      const pipeline = sharp(inputPath, {
+        limitInputPixels: animated ? MAX_ANIMATED_PIXELS : MAX_PIXELS,
+        failOn: "error",
+        animated,
+      })
         .autoOrient()
         .resize(size.width, size.height, {
           fit: size.fit,
           withoutEnlargement: size.fit === "inside",
         });
-      if (size.mime === "image/jpeg") pipeline.jpeg({ quality: 85 });
-      else if (size.mime === "image/png") pipeline.png();
+      // Only WebP of the formats stored keeps the frames (a still GIF attachment stays PNG).
+      const mime = animated ? "image/webp" : size.mime;
+      if (mime === "image/jpeg") pipeline.jpeg({ quality: 85 });
+      else if (mime === "image/png") pipeline.png();
       else pipeline.webp(size.webp ?? { quality: 82 });
       const info = await pipeline.toFile(path);
       output.push({
         path,
-        contentType: size.mime,
+        contentType: mime,
         width: info.width,
-        height: info.height,
+        // An animation is written as its frames stacked; one frame is what is shown.
+        height: info.pageHeight ?? info.height,
         byteSize: info.size,
         variant: size.variant,
       });

@@ -140,3 +140,30 @@ test("a file row shows the name the file was uploaded with", async () => {
   expect(out).toContain('<span class="truncate">informe económico.pdf</span>');
   expect(out).toContain('<span class="truncate">5</span>');
 });
+
+test("video and audio play in the browser's player, with nothing started and a row to download", async () => {
+  for (const blocked of [undefined, "all"]) {
+    cookie = blocked;
+    const out = await html([
+      file(4, { contentType: "video/mp4", filename: "clip.mp4" }),
+      file(5, { contentType: "audio/mpeg", filename: "song.mp3" }),
+    ]);
+    expect(out).toContain('aria-label="Video and audio"');
+    const video = /<video [^>]*>/.exec(out)?.[0] ?? "";
+    expect(video).toContain('src="/api/v1/files/4"');
+    expect(video).toContain("controls");
+    expect(video).toContain('preload="metadata"');
+    expect(video).toContain('aria-label="clip.mp4"');
+    const audio = /<audio [^>]*>/.exec(out)?.[0] ?? "";
+    expect(audio).toContain('src="/api/v1/files/5"');
+    expect(audio).toContain("controls");
+    expect(audio).toContain('preload="metadata"');
+    expect(out).not.toContain("autoplay");
+    expect(out).not.toContain("autoPlay");
+    expect(out).toContain('href="/api/v1/files/4" download="clip.mp4"');
+    expect(out).toContain('href="/api/v1/files/5" download="song.mp3"');
+    expect(out).toContain('<span class="truncate">clip.mp4</span>');
+    // Not listed again among the other files.
+    expect(out).not.toContain('aria-label="Attachments"');
+  }
+});

@@ -56,7 +56,7 @@ describe("image processing", () => {
     }
   });
 
-  test("accepts a static GIF and rejects an animated GIF", async () => {
+  test("accepts a static GIF as PNG and keeps an animated GIF moving", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sermo-images-"));
     try {
       const staticGif = await sharp({
@@ -79,8 +79,98 @@ describe("image processing", () => {
       expect((await sharp(animated).metadata()).pages).toBe(2);
       const animatedPath = join(dir, "animated.gif");
       await writeFile(animatedPath, animated);
-      await expect(processImage(animatedPath, "image/gif", "attachment", dir)).rejects.toThrow(
+      // Its two frames are the same picture, which the encoder keeps as one: the frames of a
+      // real animation are checked below.
+      const [main] = await processImage(animatedPath, "image/gif", "attachment", dir);
+      expect(main?.contentType).toBe("image/webp");
+      // A catalog picture is never animated.
+      await expect(processImage(animatedPath, "image/gif", "frame", dir)).rejects.toThrow(
         "Animated images are not supported",
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
+  // Four frames of 300x200, each its own colour.
+  async function animation(format: "gif" | "webp", width = 300, height = 200, frames = 4) {
+    const pixels = await Promise.all(
+      Array.from({ length: frames }, (_, index) =>
+        sharp({
+          create: {
+            width,
+            height,
+            channels: 4,
+            background: { r: (index * 60) % 256, g: 255 - ((index * 60) % 256), b: 40, alpha: 1 },
+          },
+        })
+          .raw()
+          .toBuffer(),
+      ),
+    );
+    const strip = sharp(Buffer.concat(pixels), {
+      raw: { width, height: height * frames, channels: 4, pageHeight: height },
+    });
+    return format === "gif"
+      ? strip.gif({ delay: Array(frames).fill(100) }).toBuffer()
+      : strip.webp({ delay: Array(frames).fill(100) }).toBuffer();
+  }
+
+  test("an animated attachment, avatar or cover moves at full size and is still in its small renditions", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sermo-images-"));
+    try {
+      for (const format of ["gif", "webp"] as const) {
+        const input = join(dir, `animated.${format}`);
+        await writeFile(input, await animation(format));
+        const attachment = await processImage(input, `image/${format}`, "attachment", dir);
+        expect(attachment.map((item) => [item.variant, item.contentType])).toEqual([
+          [null, "image/webp"],
+          ["thumbnail", "image/webp"],
+        ]);
+        expect((await sharp(attachment[0]!.path).metadata()).pages).toBe(4);
+        expect((await sharp(attachment[1]!.path).metadata()).pages).toBeUndefined();
+        expect([attachment[0]!.width, attachment[0]!.height]).toEqual([300, 200]);
+        const avatar = await processImage(input, `image/${format}`, "avatar", dir);
+        expect(avatar.map((item) => item.variant)).toEqual([
+          null,
+          "square_256",
+          "square_128",
+          "square_64",
+        ]);
+        for (const item of avatar) {
+          const meta = await sharp(item.path, { animated: true }).metadata();
+          expect(item.contentType).toBe("image/webp");
+          expect(meta.pages, `${format} avatar ${item.variant}`).toBe(
+            item.variant === null ? 4 : undefined,
+          );
+          // The size recorded is one frame's.
+          expect([item.width, item.height]).toEqual([meta.width, meta.pageHeight ?? meta.height]);
+        }
+        expect([avatar[0]!.width, avatar[0]!.height]).toEqual([512, 512]);
+        const cover = await processImage(input, `image/${format}`, "cover", dir);
+        expect(cover.map((item) => item.variant)).toEqual([null, "cover_small"]);
+        expect((await sharp(cover[0]!.path).metadata()).pages).toBe(4);
+        expect((await sharp(cover[1]!.path).metadata()).pages).toBeUndefined();
+        expect([cover[0]!.width, cover[0]!.height]).toEqual([300, 200]);
+        // The frames keep their own pictures: the second frame is not the first.
+        const frames = await Promise.all(
+          [0, 1].map((page) => sharp(avatar[0]!.path, { page }).raw().toBuffer()),
+        );
+        expect(frames[0]!.equals(frames[1]!)).toBe(false);
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
+  test("an animation with too many pixels across its frames is refused", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sermo-images-"));
+    try {
+      // 1000x1000 x 101 frames: each frame is small enough, all of them are not.
+      const input = join(dir, "long.gif");
+      await writeFile(input, await animation("gif", 1000, 1000, 101));
+      await expect(processImage(input, "image/gif", "attachment", dir)).rejects.toThrow(
+        "The animation has too many frames.",
       );
     } finally {
       await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });

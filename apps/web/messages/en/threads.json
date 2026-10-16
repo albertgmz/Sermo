@@ -18,7 +18,8 @@
       "reply": "Reply",
       "attachments": "Attachments",
       "pages": "Pages",
-      "pictures": "Pictures"
+      "pictures": "Pictures",
+      "media": "Video and audio"
     },
     "awaitingApproval": "This post is awaiting approval. Only you and the moderators can see it.",
     "deleted": "This post was deleted. Only moderators can see it.",

@@ -382,7 +382,7 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     const fileId = Number(c.req.param("fileId"));
     if (!Number.isSafeInteger(fileId) || fileId < 1)
       return c.json(errorBody("validation", "Invalid file ID."), 400);
-    return createStorage(ctx, options.storage).serve(c.get("actor"), fileId);
+    return createStorage(ctx, options.storage).serve(c.get("actor"), fileId, c.req.header("range"));
   });
 
   for (const { route, op } of routeOperations) {

@@ -126,9 +126,34 @@ export const storageSql = {
 } as const;
 
 const safeInline = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+/** Video and audio a browser plays in its own player: stored as uploaded and served inline. */
+const playable = new Set([
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/ogg",
+  "audio/wav",
+]);
+/** Other names browsers and the content sniffer give the playable types. */
+const playableAliases = new Map([
+  ["video/x-m4v", "video/mp4"],
+  ["audio/x-m4a", "audio/mp4"],
+  ["audio/m4a", "audio/mp4"],
+  ["audio/mp3", "audio/mpeg"],
+  ["audio/ogg; codecs=opus", "audio/ogg"],
+  ["audio/opus", "audio/ogg"],
+  ["audio/x-wav", "audio/wav"],
+  ["audio/wave", "audio/wav"],
+  ["audio/vnd.wave", "audio/wav"],
+]);
+/** The one name a content type is stored and checked under. */
+const typeName = (type: string) => playableAliases.get(type.toLowerCase()) ?? type;
 const knownText = new Set(["text/plain", "text/csv"]);
 const allowedTypes = new Set([
   ...safeInline,
+  ...playable,
   ...knownText,
   "application/pdf",
   "application/zip",
@@ -160,6 +185,30 @@ function requireCatalogUpload(ctx: Ctx, actor: Actor, purpose: Purpose): void {
 }
 /** The catalog purposes as an SQL list: these files are left out of the attachment.storageQuota sum. */
 const quotaPurposes = CATALOG_FILE_PURPOSES.map((purpose) => `'${purpose}'`).join(", ");
+
+/**
+ * The one byte range a `Range` header asks of a file of `size` bytes (`end` included), or null to
+ * send the whole file: no header, another unit, several ranges or a malformed one (RFC 9110 lets
+ * a server ignore those). A range that starts past the end cannot be sent.
+ */
+function byteRange(
+  header: string | null | undefined,
+  size: number,
+): { start: number; end: number } | "unsatisfiable" | null {
+  const match = /^bytes=(\d{0,15})-(\d{0,15})$/.exec(header?.trim() ?? "");
+  if (!match || (match[1] === "" && match[2] === "")) return null;
+  const last = size - 1;
+  if (match[1] === "") {
+    const suffix = Number(match[2]);
+    return suffix === 0 || size === 0
+      ? "unsatisfiable"
+      : { start: Math.max(0, size - suffix), end: last };
+  }
+  const start = Number(match[1]);
+  const end = match[2] === "" ? last : Number(match[2]);
+  if (match[2] !== "" && end < start) return null;
+  return start > last ? "unsatisfiable" : { start, end: Math.min(end, last) };
+}
 
 async function fileHash(path: string): Promise<string> {
   const hash = createHash("sha256");
@@ -372,7 +421,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
     async upload(
       actor: Actor,
       source: ReadableStream<Uint8Array>,
-      declaredType: string,
+      clientType: string,
       purpose: Purpose = "attachment",
       /** The name the client gave the file; kept (cleaned) for attachments only and used to download them. */
       originalName?: string | null,
@@ -385,6 +434,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       if (catalog) requireCatalogUpload(ctx, actor, purpose);
       if (purpose === "avatar") requirePermission(ctx, actor, "profile.uploadAvatar");
       if (purpose === "cover") requirePermission(ctx, actor, "profile.uploadCover");
+      const declaredType = typeName(clientType);
       if (
         !allowedTypes.has(declaredType) ||
         (catalog
@@ -433,7 +483,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
         );
         if (size === 0) throw new ValidationError("File is empty.");
         const detected = await fileTypeFromFile(tempPath);
-        if (detected && detected.mime !== declaredType)
+        if (detected && typeName(detected.mime) !== declaredType)
           throw new ValidationError("File type does not match its content.");
         if (!detected && !knownText.has(declaredType))
           throw new ValidationError("File type could not be verified.");
@@ -611,21 +661,34 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
         return { id: fileId, url: fileUrl(fileId), visibility };
       });
     },
-    serve(actor: Actor, id: number) {
+    /** `range` is the request's `Range` header: players ask for parts of a file to seek. */
+    serve(actor: Actor, id: number, range?: string | null) {
       const row = getFileRecord(ctx, actor, id);
       if (row.driver !== driver.name) throw new ValidationError("Storage driver is unavailable.");
+      const part = byteRange(range, row.byte_size);
+      if (part === "unsatisfiable")
+        return new Response(null, {
+          status: 416,
+          headers: { "Content-Range": `bytes */${row.byte_size}`, "Accept-Ranges": "bytes" },
+        });
       const blob = driver.read(row.storage_key);
-      if (row.purpose === "attachment" && row.parent_file_id === null)
+      // A player asks again for every seek: only a request from the first byte is a download.
+      if (row.purpose === "attachment" && row.parent_file_id === null && (part?.start ?? 0) === 0)
         ctx.downloads.set(id, (ctx.downloads.get(id) ?? 0) + 1);
-      const disposition = safeInline.has(row.content_type) ? "inline" : "attachment";
-      return new Response(blob, {
+      const inline = safeInline.has(row.content_type) || playable.has(row.content_type);
+      return new Response(part ? blob.slice(part.start, part.end + 1) : blob, {
+        status: part ? 206 : 200,
         headers: {
-          "Content-Type": safeInline.has(row.content_type)
-            ? row.content_type
-            : "application/octet-stream",
-          "Content-Length": String(row.byte_size),
+          "Content-Type": inline ? row.content_type : "application/octet-stream",
+          "Content-Length": String(part ? part.end - part.start + 1 : row.byte_size),
+          ...(part && { "Content-Range": `bytes ${part.start}-${part.end}/${row.byte_size}` }),
+          "Accept-Ranges": "bytes",
           "X-Content-Type-Options": "nosniff",
-          "Content-Disposition": contentDisposition(disposition, row.filename, `file-${row.id}`),
+          "Content-Disposition": contentDisposition(
+            inline ? "inline" : "attachment",
+            row.filename,
+            `file-${row.id}`,
+          ),
           "Cache-Control":
             row.visibility === "public" && row.purpose !== "attachment"
               ? // A replaced catalog picture gets a new file id, so what a URL serves never changes.

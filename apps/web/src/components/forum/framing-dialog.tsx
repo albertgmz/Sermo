@@ -37,6 +37,7 @@ import {
   dragBy,
   encodeFramed,
   type Framing,
+  isAnimated,
   MAX_ZOOM,
   outputName,
   outputSize,
@@ -123,6 +124,8 @@ function Framer({
   const [image, setImage] = useState<ImageBitmap | null>(null);
   const [small, setSmall] = useState<ImageBitmap | null>(null);
   const [unreadable, setUnreadable] = useState(false);
+  // A moving GIF or WebP, which framing would make still: it can be sent as it is instead.
+  const [animated, setAnimated] = useState(false);
   const [framing, setFraming] = useState<Framing>({ zoom: 1, cx: 0, cy: 0 });
   const [error, setError] = useState("");
 
@@ -160,6 +163,18 @@ function Framer({
       for (const bitmap of made) bitmap.close();
     };
   }, [file, shape]);
+
+  useEffect(() => {
+    if (file.type !== "image/gif" && file.type !== "image/webp") return;
+    let live = true;
+    file
+      .arrayBuffer()
+      .then((bytes) => live && setAnimated(isAnimated(new Uint8Array(bytes))))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [file]);
 
   useEffect(() => {
     const context = canvas.current?.getContext("2d");
@@ -358,8 +373,8 @@ function Framer({
           </div>
         </div>
       )}
-      {file.type === "image/gif" && !unreadable && (
-        <p className="text-xs text-muted-foreground">{t("gifStill")}</p>
+      {animated && !unreadable && (
+        <p className="text-xs text-muted-foreground">{t("animatedStill")}</p>
       )}
       <output
         aria-live="polite"
@@ -377,9 +392,10 @@ function Framer({
         >
           {t("cancel")}
         </Button>
-        {unreadable ? (
+        {(unreadable || animated) && (
           <Button
             type="button"
+            variant={unreadable ? "default" : "outline"}
             className="min-h-10 px-4"
             disabled={busy}
             onClick={() => {
@@ -388,9 +404,10 @@ function Framer({
               void send(file, file.name);
             }}
           >
-            {busy ? t("saving") : t("useOriginal")}
+            {busy && unreadable ? t("saving") : t("useOriginal")}
           </Button>
-        ) : (
+        )}
+        {!unreadable && (
           <Button
             type="button"
             className="min-h-10 px-4"

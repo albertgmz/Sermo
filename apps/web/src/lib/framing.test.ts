@@ -5,6 +5,7 @@ import {
   cropRect,
   dragBy,
   encodeFramed,
+  isAnimated,
   MAX_ZOOM,
   outputName,
   outputSize,
@@ -167,4 +168,43 @@ test("a WebP request that comes back as PNG is made again as JPEG", async () => 
   expect(await encodeFramed(async () => null, { type: "image/webp" })).toBe(
     null,
   );
+});
+
+test("a GIF or WebP of several frames is told from a still one", () => {
+  // A 1x1 GIF with a two-colour table and the given number of frames, each after its extension.
+  const gif = (frames: number) =>
+    new Uint8Array([
+      ...[0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1, 0, 1, 0, 0x80, 0, 0],
+      ...[255, 0, 0, 0, 0, 255],
+      ...Array.from({ length: frames }, () => [
+        ...[0x21, 0xf9, 0x04, 0x00, 0x0a, 0x00, 0x00, 0x00],
+        ...[0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0],
+        ...[0x02, 0x02, 0x44, 0x01, 0x00],
+      ]).flat(),
+      0x3b,
+    ]);
+  expect(isAnimated(gif(1))).toBe(false);
+  expect(isAnimated(gif(2))).toBe(true);
+  // A local colour table is skipped as well.
+  const local = gif(2);
+  local[13 + 6 + 8 + 9] = 0x80;
+  const withTable = new Uint8Array([
+    ...local.subarray(0, 13 + 6 + 8 + 10),
+    255,
+    255,
+    255,
+    0,
+    0,
+    0,
+    ...local.subarray(13 + 6 + 8 + 10),
+  ]);
+  expect(isAnimated(withTable)).toBe(true);
+  const webp = (flags: number) =>
+    new Uint8Array([
+      ...[0x52, 0x49, 0x46, 0x46, 30, 0, 0, 0, 0x57, 0x45, 0x42, 0x50],
+      ...[0x56, 0x50, 0x38, 0x58, 10, 0, 0, 0, flags, 0, 0, 0],
+    ]);
+  expect(isAnimated(webp(0x02))).toBe(true);
+  expect(isAnimated(webp(0x10))).toBe(false);
+  expect(isAnimated(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toBe(false);
 });

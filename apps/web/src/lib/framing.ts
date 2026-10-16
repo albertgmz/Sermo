@@ -135,3 +135,38 @@ export async function encodeFramed(
   }
   return blob;
 }
+
+// Whether a GIF or WebP has more than one frame: framing draws one frame, so the dialog offers to
+// send such a picture as it is. A GIF is walked block by block to its second image; a WebP says so
+// in the animation flag of its extended header.
+export function isAnimated(bytes: Uint8Array): boolean {
+  const text = (start: number, length: number) =>
+    String.fromCharCode(...bytes.subarray(start, start + length));
+  if (text(0, 4) === "RIFF" && text(8, 4) === "WEBP")
+    return text(12, 4) === "VP8X" && ((bytes[20] ?? 0) & 0x02) !== 0;
+  if (text(0, 3) !== "GIF") return false;
+  // A colour table of 3 x 2^(n+1) bytes follows a descriptor whose flags have the top bit set.
+  const table = (flags: number) =>
+    flags & 0x80 ? 3 * 2 ** ((flags & 0x07) + 1) : 0;
+  // Data sub-blocks: a length byte and that many bytes, until a zero length.
+  const skipBlocks = (at: number) => {
+    let position = at;
+    while (position < bytes.length && bytes[position] !== 0)
+      position += bytes[position] + 1;
+    return position + 1;
+  };
+  let position = 13 + table(bytes[10] ?? 0);
+  let images = 0;
+  while (position < bytes.length) {
+    const block = bytes[position];
+    if (block === 0x21) position = skipBlocks(position + 2);
+    else if (block === 0x2c) {
+      images += 1;
+      if (images > 1) return true;
+      position = skipBlocks(
+        position + 10 + table(bytes[position + 9] ?? 0) + 1,
+      );
+    } else return false;
+  }
+  return false;
+}

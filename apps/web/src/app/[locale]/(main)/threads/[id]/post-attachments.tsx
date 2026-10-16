@@ -1,10 +1,10 @@
 import type { postsList } from "@sermo/core/contracts";
-import { Paperclip } from "lucide-react";
+import { Download, Paperclip } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
-import { fileName } from "@/lib/attachment-tags";
+import { fileName, MEDIA_CLASS, mediaKind } from "@/lib/attachment-tags";
 import { formatBytes } from "@/lib/format";
 import { liteBlocks } from "@/lib/lite-mode";
 
@@ -15,8 +15,8 @@ type Attachment = z.output<
 >["items"][number]["attachments"][number];
 
 // What a post has attached, as the backend returns it: pictures drawn (through the LITE gate for
-// post pictures, so a blocked one never puts its address in the page) and every other file as a
-// row to download. The ones the text placed inline (`inline`, their ids) are not listed again.
+// post pictures, so a blocked one never puts its address in the page), video and audio in the
+// browser's player with their row to download, and every other file as a row to download. The ones the text placed inline (`inline`, their ids) are not listed again.
 export async function PostAttachments({
   attachments: all,
   inline = [],
@@ -34,7 +34,10 @@ export async function PostAttachments({
     (file) =>
       file.contentType.startsWith("image/") && file.width && file.height,
   );
-  const files = attachments.filter((file) => !pictures.includes(file));
+  const media = attachments.filter((file) => mediaKind(file.contentType));
+  const files = attachments.filter(
+    (file) => !pictures.includes(file) && !media.includes(file),
+  );
   return (
     <>
       {pictures.length > 0 && (
@@ -71,6 +74,49 @@ export async function PostAttachments({
                     />
                   </a>
                 )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {media.length > 0 && (
+        <ul aria-label={t("aria.media")} className="mt-3 flex flex-col gap-2">
+          {media.map((file) => {
+            const name = fileName(file);
+            const player =
+              mediaKind(file.contentType) === "video" ? (
+                // biome-ignore lint/a11y/useMediaCaption: a member's uploaded file comes with no captions
+                <video
+                  controls
+                  preload="metadata"
+                  playsInline
+                  src={file.url}
+                  aria-label={name}
+                  className={MEDIA_CLASS.video}
+                />
+              ) : (
+                // biome-ignore lint/a11y/useMediaCaption: a member's uploaded file comes with no captions
+                <audio
+                  controls
+                  preload="metadata"
+                  src={file.url}
+                  aria-label={name}
+                  className={MEDIA_CLASS.audio}
+                />
+              );
+            return (
+              <li key={file.fileId} className={MEDIA_CLASS.box}>
+                {player}
+                <a href={file.url} download={name} className={MEDIA_CLASS.row}>
+                  <Download
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                  />
+                  <span className="truncate">{name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {formatBytes(file.byteSize, locale)}
+                  </span>
+                </a>
               </li>
             );
           })}

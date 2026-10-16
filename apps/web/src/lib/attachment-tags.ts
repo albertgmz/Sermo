@@ -27,6 +27,23 @@ export function fileName({
   }
 }
 
+// Video and audio play in the browser's own player; the backend stores only types browsers play.
+export function mediaKind(contentType: string): "video" | "audio" | null {
+  if (contentType.startsWith("video/")) return "video";
+  if (contentType.startsWith("audio/")) return "audio";
+  return null;
+}
+
+// The look of a played file, the same in the list under a text and in its place in the text: the
+// player as wide as the column (up to the width of an embedded player) and under it the file's
+// row, which downloads it. Nothing starts on its own; only the length and size are fetched.
+export const MEDIA_CLASS = {
+  box: "block w-full max-w-140 overflow-hidden rounded-md border bg-muted/40",
+  video: "block max-h-[70vh] w-full bg-muted",
+  audio: "block w-full p-2",
+  row: "flex min-h-10 items-center gap-2 border-t px-3 text-sm font-normal! text-foreground! no-underline! hover:bg-muted md:min-h-8",
+};
+
 // What the renderer leaves for `[ATTACH]id[/ATTACH]` and `[ATTACH=full]id[/ATTACH]`: a span that
 // carries the file's id twice, as an attribute and as its fallback text. Anything else, in any
 // attribute order, is not a placeholder.
@@ -96,9 +113,21 @@ function drawn(
   inLink: boolean,
 ) {
   const name = escapeHtml(fileName(file));
+  const media = mediaKind(file.contentType);
   if (!file.contentType.startsWith("image/")) {
     // A link inside a link is no link: inside one, the file is just its name.
     if (inLink) return name;
+    // Spans, not blocks: the place can be inside a paragraph.
+    if (media) {
+      const url = escapeHtml(file.url);
+      return (
+        `<span class="my-1 ${MEDIA_CLASS.box}">` +
+        `<${media} controls preload="metadata"${media === "video" ? " playsinline" : ""} src="${url}" aria-label="${name}" class="${MEDIA_CLASS[media]}"></${media}>` +
+        `<a href="${url}" download="${name}" class="${MEDIA_CLASS.row}">` +
+        `<span class="truncate">${name}</span>` +
+        `<span class="shrink-0 text-xs text-muted-foreground tabular-nums">${escapeHtml(formatBytes(file.byteSize, context.locale))}</span></a></span>`
+      );
+    }
     return (
       `<a href="${escapeHtml(file.url)}" class="inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border bg-muted/40 px-3 align-middle text-sm font-normal! text-foreground! no-underline! hover:bg-muted md:min-h-8">` +
       `<span class="truncate">${name}</span>` +

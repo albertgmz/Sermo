@@ -163,3 +163,40 @@ test("a file placed inline shows its uploaded name", () => {
   expect(html).toContain("informe económico.pdf");
   expect(html).not.toContain(">plan.png<");
 });
+
+test("video and audio placed inline play in the browser's player, with a row to download", () => {
+  const video = file(3, {
+    contentType: "video/webm",
+    url: "/api/v1/files/3",
+    filename: "clip.webm",
+    width: null,
+    height: null,
+  });
+  const audio = file(4, {
+    contentType: "audio/ogg",
+    url: "/api/v1/files/4",
+    filename: "song.ogg",
+    width: null,
+    height: null,
+  });
+  const html = placeAttachments(
+    `<p>${slot(3)} and ${slot(4, "full")}</p>`,
+    [video, audio],
+    { ...context, liteImages: true },
+  );
+  expect(html).toContain(
+    '<video controls preload="metadata" playsinline src="/api/v1/files/3" aria-label="clip.webm"',
+  );
+  expect(html).toContain(
+    '<audio controls preload="metadata" src="/api/v1/files/4" aria-label="song.ogg"',
+  );
+  expect(html).not.toContain("autoplay");
+  expect(html).toContain('<a href="/api/v1/files/3" download="clip.webm"');
+  expect(html).toContain('<a href="/api/v1/files/4" download="song.ogg"');
+  // Inside a paragraph nothing but inline elements is placed.
+  expect(html).not.toMatch(/<(?:div|figure)\b/);
+  // Inside a link it is only its name.
+  expect(
+    placeAttachments(`<a href="/x">${slot(3)}</a>`, [video], context),
+  ).toBe('<a href="/x">clip.webm</a>');
+});
