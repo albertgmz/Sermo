@@ -29,8 +29,11 @@ export interface AuthConfig {
 }
 
 export interface CoreConfig {
-  /** Options for Bun.password.hash. Production uses Bun's defaults; only tests lower the cost. */
-  passwordHash: Bun.Password.Argon2Algorithm | Bun.Password.BCryptAlgorithm;
+  /**
+   * Options for Bun.password.hash. Production uses Bun's defaults; only tests lower the cost.
+   * Argon2 only: `modules/auth` reads a `$2` hash as an imported XenForo bcrypt one.
+   */
+  passwordHash: Bun.Password.Argon2Algorithm;
   sessionTtlMs: number;
   /** Required by the auth module; the server reads it from the environment. */
   auth?: AuthConfig;

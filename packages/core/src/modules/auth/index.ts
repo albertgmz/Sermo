@@ -118,6 +118,51 @@ async function proceedsWithoutSession(hook: AuthHookContext): Promise<boolean> {
  */
 export const DISABLED_PATHS: readonly string[] = ["/verify-password"];
 
+/** PHP's `password_hash(PASSWORD_BCRYPT)` ignores everything after the first 72 bytes. */
+const BCRYPT_MAX_BYTES = 72;
+
+/**
+ * Sermo hashes with argon2id only, so a `$2` hash is a bcrypt one imported from XenForo. It is
+ * checked the way PHP does: Bun would pre-hash a password over 72 bytes, which no longer matches
+ * the stored hash, so only its first 72 UTF-8 bytes go in (as bytes, not a string slice).
+ */
+function verifyPassword(password: string, hash: string): Promise<boolean> {
+  if (!hash.startsWith("$2")) return Bun.password.verify(password, hash);
+  return Bun.password.verify(
+    new TextEncoder().encode(password).subarray(0, BCRYPT_MAX_BYTES),
+    hash,
+  );
+}
+
+/**
+ * After a successful sign-in with an imported bcrypt hash, replace it with Sermo's own hash
+ * through Better Auth's adapter. The stored hash is read again and must still accept the typed
+ * password, and the update names it, so a password changed meanwhile is never overwritten. A
+ * sign-in never fails because of this, so errors are only logged.
+ */
+async function rehashBcryptPassword(
+  authContext: AuthHookContext["context"],
+  userId: string,
+  password: string,
+): Promise<void> {
+  try {
+    const account = await authContext.internalAdapter.findCredentialAccount(userId);
+    const old = account?.password;
+    if (!old?.startsWith("$2") || !(await verifyPassword(password, old))) return;
+    await authContext.adapter.updateMany({
+      model: "account",
+      where: [
+        { field: "userId", value: userId },
+        { field: "providerId", value: "credential" },
+        { field: "password", value: old },
+      ],
+      update: { password: await authContext.password.hash(password) },
+    });
+  } catch (error) {
+    console.error("The imported password could not be rehashed", error);
+  }
+}
+
 /** Marks, on the per-request auth context, that the request's session cookies were dead. */
 const DEAD_SESSION_COOKIE = "sermoDeadSessionCookie";
 
@@ -360,7 +405,7 @@ function buildAuth(ctx: Ctx) {
       maxPasswordLength: 256,
       password: {
         hash: (password) => Bun.password.hash(password, ctx.config.passwordHash),
-        verify: ({ password, hash }) => Bun.password.verify(password, hash),
+        verify: ({ password, hash }) => verifyPassword(password, hash),
       },
     },
     session: {
@@ -763,6 +808,15 @@ function buildAuth(ctx: Ctx) {
           const holder = Reflect.get(hook.context, RESET_HOLDER) ?? hook.context.session?.user.id;
           if (holder !== undefined) await revokeApiKeys(ctx, Number(holder));
         }
+        const signedIn = hook.context.newSession;
+        const typed: unknown = hook.body?.password;
+        if (
+          !failed &&
+          signedIn &&
+          typeof typed === "string" &&
+          (hook.path === "/sign-in/email" || hook.path === "/sign-in/username")
+        )
+          await rehashBcryptPassword(hook.context, signedIn.user.id, typed);
         if (!mailEnabled) return;
         if (failed) return;
         if (hook.path === "/change-password") {
