@@ -254,6 +254,24 @@ test("a refused reply from a feed card answers its form with the backend's messa
   expect(refreshed).toBe(0);
 });
 
+test("a reply refused for the permission, or for posting too fast, answers the form with the backend's message", async () => {
+  for (const [status, code, message] of [
+    [403, "forbidden", "You may not reply in this forum."],
+    [429, "rate_limited", "Wait 20 seconds before posting again."],
+    [403, "forbidden", "You are banned from this thread."],
+  ] as const) {
+    refreshed = 0;
+    onPage("http://localhost:3105/?tab=top");
+    const asked = backend(refusal(status, code, message));
+    expect(await replyFromFeed(7, {}, replyForm("hello"))).toEqual({
+      error: message,
+    });
+    // One write, no redirect, and the page is not drawn again: what was typed stays.
+    expect(asked).toHaveLength(1);
+    expect(refreshed).toBe(0);
+  }
+});
+
 test("a reply from a feed card does not follow an address that is not on this site", async () => {
   for (const [referer, host] of [
     ["https://elsewhere.example/?pages=2", "localhost:3105"],

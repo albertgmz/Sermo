@@ -9,7 +9,7 @@ import { CompactFeedItem } from "@/app/[locale]/(main)/_feed/compact-item";
 import { replyFromFeed } from "@/app/[locale]/(main)/actions";
 import { wallHref } from "@/app/[locale]/(main)/members/[id]/wall";
 import { commentOnWallPost } from "@/app/[locale]/(main)/members/actions";
-import { threadHref as postLink } from "@/app/[locale]/(main)/threads/[id]/pages";
+import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { Art } from "@/components/forum/art";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
@@ -326,8 +326,8 @@ export function FeedItem({
 
   const { thread, post } = item;
   const isThread = item.type === "thread";
-  const threadHref = `/threads/${thread.id}`;
-  const href = isThread ? threadHref : `${threadHref}#post-${post.id}`;
+  const threadPath = `/threads/${thread.id}`;
+  const href = isThread ? threadPath : `${threadPath}#post-${post.id}`;
   const card = threadCard(thread, (id) => author(id).member);
   const anchor = `feed-post-${post.id}`;
   return (
@@ -376,7 +376,7 @@ export function FeedItem({
         <>
           {item.unread && (
             <FirstUnreadLink
-              href={postLink(
+              href={threadHref(
                 thread.id,
                 item.unread.firstPosition,
                 item.unread.firstPostId,

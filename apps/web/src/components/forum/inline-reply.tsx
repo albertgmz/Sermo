@@ -11,8 +11,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-// The composer's code comes when the box is first opened, so a card does not carry it, and a feed
-// of twenty cards carries it once, if at all.
+// The composer's code comes when the box is first opened, so a page of thread cards does not carry
+// it, and a feed of twenty carries it once, if at all. (A wall post's comment box is the same
+// composer, drawn with the page: a page that holds one loads the code anyway.)
 const LazyLineComposer = dynamic(
   () =>
     import("@/components/forum/line-composer").then(
