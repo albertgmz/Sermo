@@ -263,28 +263,26 @@ async function HomeFeed({ tab, params }: { tab: Tab; params: Params }) {
       className="rounded-lg border bg-card"
     />
   ) : (
-    <>
-      <PagedList
-        first={first}
-        more={moreFeed.bind(null, tab, filter)}
-        pages={pagesParam(params.pages)}
-        start={cursor}
-        listKey={["feed", tab, filterKey(filter)]}
-        hrefBase={feedHref(tab, filter)}
-        moreLabel={t("loadMore")}
-        emptyNote={t("emptyMore")}
-        estimateSize={320}
-        spacing="spaced"
-        fresh={
-          tab === "hot"
-            ? undefined
-            : {
-                check: newFeedCount.bind(null, tab, filter),
-                intervalMs: POLL_MS.feed,
-              }
-        }
-      />
-    </>
+    <PagedList
+      first={first}
+      more={moreFeed.bind(null, tab, filter)}
+      pages={pagesParam(params.pages)}
+      start={cursor}
+      listKey={["feed", tab, filterKey(filter)]}
+      hrefBase={feedHref(tab, filter)}
+      moreLabel={t("loadMore")}
+      emptyNote={t("emptyMore")}
+      estimateSize={320}
+      spacing="spaced"
+      fresh={
+        tab === "hot"
+          ? undefined
+          : {
+              check: newFeedCount.bind(null, tab, filter),
+              intervalMs: POLL_MS.feed,
+            }
+      }
+    />
   );
 }
 
