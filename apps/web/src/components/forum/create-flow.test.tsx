@@ -362,7 +362,7 @@ test("the narrower page a visitor chose narrows the Create dialog's writing colu
     "utf8",
   );
   expect(css).toMatch(
-    /:root\[data-width="narrow"\] \[data-forum-layout\] \{\s*--container-width: 1100px;/,
+    /:root\[data-width="narrow"\] \[data-forum-layout\][^{]*\{\s*--container-width: 1100px;/,
   );
   expect(classes(STEP_COLUMN.writing)).toContain("max-w-(--container-width)");
 });
