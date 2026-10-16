@@ -11,17 +11,23 @@ import {
   pollsVoters,
 } from "@sermo/core/contracts";
 import { refresh } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { call } from "@/lib/sermo/client";
+import { SermoError } from "@/lib/sermo/errors";
 import { requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 import {
+  definitionForClient,
   type PollDefinitionView,
   type PollView,
+  pollForClient,
   pollFromJson,
 } from "@/lib/sermo/polls";
 
 // What the poll screens hear back: the poll as the viewer sees it now, or the backend's refusal.
-export type PollAnswer = { poll: PollView } | { error: string };
+export type PollAnswer =
+  | { poll: PollView }
+  | { error: string; conflict?: true };
 export type VotersAnswer =
   | {
       items: { id: number; username: string }[];
@@ -41,7 +47,7 @@ export async function pollVoteAction(
   const done = await attempt(back(threadId), () =>
     call(pollsVote, { pollId, questionId, answerIds }),
   );
-  return done.ok ? { poll: done.value } : { error: done.error };
+  return done.ok ? { poll: pollForClient(done.value) } : { error: done.error };
 }
 
 export async function pollAddAnswerAction(
@@ -53,7 +59,7 @@ export async function pollAddAnswerAction(
   const done = await attempt(back(threadId), () =>
     call(pollsAddAnswer, { pollId, text }),
   );
-  return done.ok ? { poll: done.value } : { error: done.error };
+  return done.ok ? { poll: pollForClient(done.value) } : { error: done.error };
 }
 
 export async function pollCloseAction(
@@ -67,7 +73,7 @@ export async function pollCloseAction(
   );
   if (!done.ok) return { error: done.error };
   refresh();
-  return { poll: done.value };
+  return { poll: pollForClient(done.value) };
 }
 
 export async function pollDeleteAction(
@@ -77,15 +83,21 @@ export async function pollDeleteAction(
   formData: FormData,
 ): Promise<{ error?: string; done?: boolean }> {
   requireIds(threadId, pollId);
-  const done = await attempt(back(threadId), () =>
-    call(pollsDelete, {
-      pollId,
-      reason: String(formData.get("reason") ?? ""),
-    }),
-  );
-  if (!done.ok) return { error: done.error };
+  const reason = String(formData.get("reason") ?? "");
+  // A poll with very many voters goes in batches: the call is repeated until the backend says it is
+  // done, within a bound; past it the staff member is told to go on.
+  for (let step = 0; step < 50; step++) {
+    const done = await attempt(back(threadId), () =>
+      call(pollsDelete, { pollId, reason }),
+    );
+    if (!done.ok) return { error: done.error };
+    if (done.value.completed) {
+      refresh();
+      return { done: true };
+    }
+  }
   refresh();
-  return { done: true };
+  return { error: (await getTranslations("forum.poll"))("deleteUnfinished") };
 }
 
 export async function pollVotersAction(
@@ -118,7 +130,9 @@ export async function pollDefinitionAction(
   const done = await attempt(back(threadId), () =>
     call(pollsDefinition, { pollId }),
   );
-  return done.ok ? { definition: done.value } : { error: done.error };
+  return done.ok
+    ? { definition: definitionForClient(done.value) }
+    : { error: done.error };
 }
 
 // Saves the poll of a thread: a new one when `pollId` is null, the edited one otherwise. The
@@ -127,17 +141,34 @@ export async function pollSaveAction(
   threadId: number,
   pollId: number | null,
   json: string,
+  loadedAt?: string,
 ): Promise<PollAnswer> {
   requireIds(threadId);
   if (pollId !== null) requireIds(pollId);
   const input = pollFromJson(json);
-  if (!input) return { error: "" };
-  const done = await attempt(back(threadId), () => {
-    if (pollId === null) return call(pollsCreate, { threadId, poll: input });
-    const { kind: _kind, anonymous: _anonymous, ...edit } = input;
-    return call(pollsUpdate, { pollId, poll: edit });
+  if (!input)
+    return { error: (await getTranslations("forum.poll"))("invalid") };
+  let conflict = false;
+  const done = await attempt(back(threadId), async () => {
+    try {
+      if (pollId === null)
+        return await call(pollsCreate, { threadId, poll: input });
+      const { kind: _kind, anonymous: _anonymous, ...edit } = input;
+      return await call(pollsUpdate, {
+        pollId,
+        poll: edit,
+        ...(loadedAt ? { loadedAt } : {}),
+      });
+    } catch (error) {
+      if (error instanceof SermoError && error.code === "conflict")
+        conflict = true;
+      throw error;
+    }
   });
-  if (!done.ok) return { error: done.error };
+  if (!done.ok)
+    return conflict
+      ? { error: done.error, conflict: true as const }
+      : { error: done.error };
   refresh();
-  return { poll: done.value };
+  return { poll: pollForClient(done.value) };
 }

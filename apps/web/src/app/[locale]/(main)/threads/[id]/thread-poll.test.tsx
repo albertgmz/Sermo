@@ -5,12 +5,15 @@ let answer: () => Promise<unknown> = async () => ({
   poll: null,
   canCreate: false,
 });
+let blocked = false;
 mock.module("server-only", () => ({}));
 mock.module("@/lib/sermo/client", () => ({
   readIfAllowed: () => answer(),
 }));
+mock.module("@/lib/lite-mode", () => ({ liteBlocks: async () => blocked }));
 
 const { ThreadPoll } = await import("./thread-poll");
+const { LazyArt } = await import("@/components/forum/art");
 
 const image = (fileId: number) => ({
   fileId,
@@ -19,7 +22,7 @@ const image = (fileId: number) => ({
   byteSize: 1,
   width: 1,
   height: 1,
-  thumbnailUrl: null,
+  thumbnailUrl: `/api/v1/files/${fileId + 1000}`,
 });
 const poll = {
   id: 5,
@@ -36,8 +39,27 @@ const poll = {
   ],
 };
 
+type Drawn = {
+  key: string;
+  props: {
+    poll: unknown;
+    pictures: Record<
+      number,
+      { type: unknown; props: { src: string; category: string } }
+    >;
+    attachIn: number;
+  };
+};
+const draw = async (attachIn: number | null = null) =>
+  (await ThreadPoll({
+    threadId: 9,
+    signedIn: true,
+    attachIn,
+  })) as unknown as Drawn;
+
 beforeEach(() => {
   answer = async () => ({ poll: null, canCreate: false });
+  blocked = false;
 });
 
 test("a thread with no poll draws nothing", async () => {
@@ -46,46 +68,55 @@ test("a thread with no poll draws nothing", async () => {
   ).toBeNull();
 });
 
-test("a poll the backend refuses to this visitor, or no longer has, is no poll and no error", async () => {
+test("a poll the backend refuses to this visitor, no longer has, or fails to read is no poll and no error", async () => {
+  for (const failure of [
+    new SermoError("not_found", 404, "Gone."),
+    new SermoError("internal", 500, "Down."),
+    new SermoError("rate_limited", 429, "Slow down."),
+  ]) {
+    answer = async () => {
+      throw failure;
+    };
+    expect(
+      await ThreadPoll({ threadId: 9, signedIn: false, attachIn: null }),
+    ).toBeNull();
+  }
   answer = async () => null;
   expect(
     await ThreadPoll({ threadId: 9, signedIn: false, attachIn: null }),
   ).toBeNull();
-  answer = async () => {
-    throw new SermoError("not_found", 404, "Gone.");
-  };
-  expect(
-    await ThreadPoll({ threadId: 9, signedIn: false, attachIn: null }),
-  ).toBeNull();
 });
 
-test("any other failure is raised, not hidden", async () => {
+test("what is not the backend's answer is raised, not hidden", async () => {
   answer = async () => {
-    throw new SermoError("internal", 500, "Down.");
+    throw new TypeError("bug");
   };
   await expect(
     ThreadPoll({ threadId: 9, signedIn: true, attachIn: null }),
-  ).rejects.toThrow("Down.");
+  ).rejects.toThrow("bug");
 });
 
 test("each picture goes through the data saver's gate as a post picture, by file id", async () => {
   answer = async () => ({ poll, canCreate: false });
-  const element = (await ThreadPoll({
-    threadId: 9,
-    signedIn: true,
-    attachIn: 4,
-  })) as {
-    key: string;
-    props: {
-      pictures: Record<number, { props: { src: string; category: string } }>;
-      attachIn: number;
-    };
-  };
+  const element = await draw(4);
   expect(element.key).toBe("2026-01-01T00:00:00.000Z");
   expect(Object.keys(element.props.pictures).sort()).toEqual(["70", "71"]);
   for (const id of [70, 71]) {
+    expect(element.props.pictures[id]?.type).toBe(LazyArt);
     expect(element.props.pictures[id]?.props.category).toBe("postImages");
-    expect(element.props.pictures[id]?.props.src).toBe(`/api/v1/files/${id}`);
   }
   expect(element.props.attachIn).toBe(4);
+});
+
+test("the client is given no picture address, with the data saver on or off", async () => {
+  answer = async () => ({ poll, canCreate: false });
+  for (const state of [true, false]) {
+    blocked = state;
+    const element = await draw();
+    // What the block reads of the poll names pictures by id only.
+    const data = JSON.stringify(element.props.poll);
+    expect(data).not.toContain("/files/");
+    expect(data).not.toContain("thumbnail");
+    expect(data).toContain('"fileId":70');
+  }
 });

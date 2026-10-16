@@ -304,11 +304,15 @@ test("a poll written with the thread travels with it, and a form without one sen
     form({ title: "T", body: "B", poll: "" }),
   );
   assert.equal("poll" in (asked[0].body as object), false);
+  // A poll field that is not a poll refuses the thread; nothing is sent without it.
   asked.length = 0;
-  await actions.createThreadAction(
-    4,
-    {},
-    form({ title: "T", body: "B", poll: "not json" }),
+  assert.deepEqual(
+    await actions.createThreadAction(
+      4,
+      {},
+      form({ title: "T", body: "B", poll: "not json" }),
+    ),
+    { error: "invalid", title: "T", prefixId: "" },
   );
-  assert.equal("poll" in (asked[0].body as object), false);
+  assert.equal(asked.length, 0);
 });

@@ -3,10 +3,73 @@ import type { z } from "zod";
 
 // What a poll or quiz looks like to the screens, and the draft the creator's form holds. The
 // backend decides every rule (sizes, counts, who may); nothing here judges a text or a limit.
-export type PollView = z.infer<typeof Poll>;
-export type PollDefinitionView = z.infer<typeof PollDefinition>;
+// The client is given only what it draws. A picture reaches it as its file id, which is the key of
+// the picture the server drew (through the data saver's gate) and what an editor names to keep it;
+// never as an address: where the data saver blocks pictures no address is written for the browser.
+export type ContractPoll = z.infer<typeof Poll>;
+type ContractDefinition = z.infer<typeof PollDefinition>;
+type Picture = { fileId: number } | null;
+export type PollView = Omit<ContractPoll, "questions"> & {
+  questions: (Omit<ContractPoll["questions"][number], "image" | "answers"> & {
+    image: Picture;
+    answers: (Omit<
+      ContractPoll["questions"][number]["answers"][number],
+      "image"
+    > & {
+      image: Picture;
+    })[];
+  })[];
+};
+export type PollDefinitionView = Omit<ContractDefinition, "questions"> & {
+  questions: (Omit<
+    ContractDefinition["questions"][number],
+    "image" | "answers"
+  > & {
+    image: Picture;
+    answers: (Omit<
+      ContractDefinition["questions"][number]["answers"][number],
+      "image"
+    > & {
+      image: Picture;
+    })[];
+  })[];
+};
 export type PollQuestionView = PollView["questions"][number];
 export type PollAnswerView = PollQuestionView["answers"][number];
+
+const idOf = (image: { fileId: number } | null): Picture =>
+  image ? { fileId: image.fileId } : null;
+
+// A poll as the backend gave it, cut down to what the screens draw (no picture address).
+export function pollForClient(poll: ContractPoll): PollView {
+  return {
+    ...poll,
+    questions: poll.questions.map((question) => ({
+      ...question,
+      image: idOf(question.image),
+      answers: question.answers.map((answer) => ({
+        ...answer,
+        image: idOf(answer.image),
+      })),
+    })),
+  };
+}
+
+export function definitionForClient(
+  definition: ContractDefinition,
+): PollDefinitionView {
+  return {
+    ...definition,
+    questions: definition.questions.map((question) => ({
+      ...question,
+      image: idOf(question.image),
+      answers: question.answers.map((answer) => ({
+        ...answer,
+        image: idOf(answer.image),
+      })),
+    })),
+  };
+}
 type PollInputValue = z.input<typeof PollInput>;
 
 // A picture the creator chose: the id of the uploaded file, and its name to show in the form.
@@ -43,6 +106,9 @@ export type PollDraft = {
   // The close date the poll has now, as the backend gave it: sent back as it was while the field is
   // left alone, since the field holds no seconds.
   closesAtWas?: string;
+  // When the definition the form started from was last changed: sent back, so a save over a newer
+  // one (an answer a voter added) is refused instead of deleting it.
+  loadedAt?: string;
   questions: DraftQuestion[];
 };
 
@@ -103,6 +169,8 @@ export function draftFromDefinition(definition: PollDefinitionView): PollDraft {
     results: definition.results,
     closesAt: toLocalInput(definition.closesAt),
     ...(definition.closesAt && { closesAtWas: definition.closesAt }),
+    loadedAt: definition.updatedAt,
+
     questions: definition.questions.map((question) => ({
       id: question.id,
       text: question.text,

@@ -43,6 +43,16 @@ export async function createThreadAction(
     .map((value) => parseId(String(value)));
   requireIds(...attachmentIds);
 
+  // A poll field that is not a poll refuses the thread: it must not be sent without it, silently.
+  const pollText = String(formData.get("poll") ?? "");
+  const poll = pollFromJson(pollText);
+  if (pollText.trim() !== "" && !poll)
+    return {
+      error: (await getTranslations("forum.poll"))("invalid"),
+      title,
+      prefixId,
+    };
+
   const created = await attempt(`/forums/${nodeId}/new`, () =>
     call(threadsCreate, {
       nodeId,
@@ -51,7 +61,7 @@ export async function createThreadAction(
       attachmentIds: attachmentIds as number[],
       prefixId: prefixId ? (parseId(prefixId) as number) : null,
       tags: tagsFromText(String(formData.get("tags") ?? "")),
-      poll: pollFromJson(String(formData.get("poll") ?? "")) ?? undefined,
+      poll: poll ?? undefined,
     }),
   );
   if (!created.ok) return { error: created.error, title, prefixId };

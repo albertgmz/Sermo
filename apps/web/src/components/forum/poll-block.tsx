@@ -439,7 +439,9 @@ function PollQuestion({
               {t("addAnswerButton")}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">{t("customRules")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("customRules", { max: poll.answerMaxLength })}
+          </p>
           {add.error && <FormError>{add.error}</FormError>}
         </div>
       )}

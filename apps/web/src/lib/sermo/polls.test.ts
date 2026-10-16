@@ -9,6 +9,7 @@ import {
   type PollDefinitionView,
   type PollDraft,
   percentOf,
+  pollForClient,
   pollFromJson,
   toLocalInput,
 } from "./polls";
@@ -109,20 +110,13 @@ test("a definition becomes a draft that keeps ids, pictures and what voters adde
     results: "always",
     closesAt: null,
     ballotCount: 2,
+    updatedAt: "2026-01-01T00:00:00.000Z",
     questions: [
       {
         id: 11,
         text: "Q",
         explanation: "Why",
-        image: {
-          fileId: 70,
-          url: "/api/v1/files/70",
-          contentType: "image/png",
-          byteSize: 1,
-          width: 1,
-          height: 1,
-          thumbnailUrl: null,
-        },
+        image: { fileId: 70 },
         answers: [
           {
             id: 21,
@@ -183,4 +177,95 @@ test("a close date left alone is sent as the backend gave it, a changed one is n
   );
   draft.closesAt = "";
   expect(draftToInput(draft).closesAt).toBeNull();
+});
+
+test("the form keeps the version of the definition it started from", () => {
+  const draft = draftFromDefinition({
+    id: 5,
+    threadId: 2,
+    kind: "poll",
+    anonymous: false,
+    maxChoices: 1,
+    allowCustom: false,
+    allowChange: true,
+    results: "always",
+    closesAt: null,
+    ballotCount: 0,
+    updatedAt: "2026-02-03T04:05:06.007Z",
+    questions: [],
+  });
+  expect(draft.loadedAt).toBe("2026-02-03T04:05:06.007Z");
+  // It is not part of what is sent for the poll.
+  expect(JSON.stringify(draftToInput(draft))).not.toContain("2026-02-03");
+});
+
+test("a poll reaches the client with the file ids of its pictures and no address", () => {
+  const picture = {
+    fileId: 70,
+    url: "/api/v1/files/70",
+    contentType: "image/png",
+    byteSize: 1,
+    width: 1,
+    height: 1,
+    thumbnailUrl: "/api/v1/files/71",
+  };
+  const poll = pollForClient({
+    id: 1,
+    threadId: 2,
+    kind: "poll",
+    anonymous: false,
+    maxChoices: 1,
+    allowCustom: false,
+    allowChange: true,
+    results: "always",
+    closesAt: null,
+    closed: false,
+    answerMaxLength: 100,
+    resultsShown: true,
+    voterCount: 0,
+    questions: [
+      {
+        id: 3,
+        text: "Q",
+        image: picture,
+        explanation: null,
+        answered: false,
+        answers: [
+          {
+            id: 4,
+            text: "A",
+            image: picture,
+            votes: 0,
+            chosen: false,
+            correct: null,
+            custom: false,
+          },
+          {
+            id: 5,
+            text: "B",
+            image: null,
+            votes: 0,
+            chosen: false,
+            correct: null,
+            custom: false,
+          },
+        ],
+      },
+    ],
+    mine: { voted: false, answered: 0, correct: 0, completed: false },
+    permissions: {
+      canVote: true,
+      canAddAnswer: false,
+      canEdit: false,
+      canDelete: false,
+      canClose: false,
+      canViewVoters: false,
+    },
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  });
+  expect(poll.questions[0]?.image).toEqual({ fileId: 70 });
+  expect(poll.questions[0]?.answers[0]?.image).toEqual({ fileId: 70 });
+  expect(poll.questions[0]?.answers[1]?.image).toBeNull();
+  expect(JSON.stringify(poll)).not.toMatch(/files|thumbnail|url/);
 });

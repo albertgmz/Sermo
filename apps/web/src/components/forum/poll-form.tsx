@@ -451,7 +451,7 @@ export function PollForm({
             <span>
               {t("allowCustom")}
               <span className="block text-xs text-muted-foreground">
-                {t("customRules")}
+                {t("customHelp")}
               </span>
             </span>
           </label>

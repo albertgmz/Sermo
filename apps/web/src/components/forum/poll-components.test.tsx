@@ -40,6 +40,7 @@ function poll(over: Partial<PollView> = {}): PollView {
     results: "always",
     closesAt: null,
     closed: false,
+    answerMaxLength: 100,
     resultsShown: true,
     voterCount: 4,
     questions: [
@@ -381,5 +382,39 @@ test("the colours are the theme tokens and the accent is drawn as ink", () => {
     const text = source(name);
     expect(text).not.toMatch(/\btext-primary\b(?!-)/);
     expect(text).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+  }
+});
+
+test("a member who started a quiz that has since closed is told so instead of a dead button", () => {
+  const html = player(
+    quiz([0], {
+      closed: true,
+      permissions: { ...PERMISSIONS, canVote: false },
+    }),
+  );
+  expect(html).toContain("Question 2 of 2");
+  expect(html).toContain("This quiz is closed.");
+  expect(html).not.toContain(">Answer<");
+  expect(html).toContain("See your score");
+  expect(html).toContain("disabled");
+});
+
+test("the length an answer may have comes from the backend, not from the strings", () => {
+  const html = block(
+    poll({
+      answerMaxLength: 77,
+      allowCustom: true,
+      permissions: { ...PERMISSIONS, canVote: true, canAddAnswer: true },
+    }),
+  );
+  expect(html).toContain("up to 77 characters");
+  for (const lang of ["en", "es"]) {
+    const text = readFileSync(
+      join(import.meta.dir, `../../../messages/${lang}/forum.json`),
+      "utf8",
+    );
+    const messages = JSON.parse(text).poll as Record<string, string>;
+    expect(messages.customRules).toContain("{max}");
+    expect(messages.customHelp).not.toMatch(/\d/);
   }
 });

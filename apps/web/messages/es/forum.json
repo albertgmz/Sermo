@@ -325,7 +325,7 @@
     "customLabel": "Añadir una respuesta",
     "customPlaceholder": "Añade tu propia respuesta",
     "addAnswerButton": "Añadir",
-    "customRules": "Una línea de texto, hasta 100 caracteres; el BB code solo se lee por sus palabras y se aplica el filtro de palabras del foro. Una respuesta cada uno.",
+    "customRules": "Una línea de texto, hasta {max} caracteres; el BB code solo se lee por sus palabras y se aplican el filtro de palabras y las reglas de enlaces del foro. Una respuesta cada uno.",
     "pictureFailed": "No se pudo enviar la imagen.",
     "picture": "Imagen: {name}",
     "removePicture": "Quitar imagen",
@@ -378,6 +378,11 @@
     "rightAnswer": "Respuesta correcta",
     "nextQuestion": "Siguiente pregunta",
     "seeScore": "Ver tu puntuación",
-    "answer": "Responder"
+    "answer": "Responder",
+    "invalid": "No se pudo leer la encuesta. Revísala e inténtalo de nuevo.",
+    "deleteUnfinished": "La encuesta tiene tantos votos que aún no se terminó de eliminar. Vuelve a eliminarla para continuar.",
+    "changed": "Esta encuesta cambió desde que la abriste (por ejemplo, un votante añadió una respuesta). Recárgala y vuelve a hacer tu cambio.",
+    "reload": "Recargar la encuesta",
+    "customHelp": "Cada votante puede añadir una respuesta propia; se aplican las mismas reglas de texto que a las tuyas."
   }
 }

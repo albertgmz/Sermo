@@ -131,6 +131,9 @@ export function QuizPlayer({
     );
 
   const answered = question.answered;
+  // Nothing more can be answered (closed, or the right to answer is gone): the questions answered
+  // keep their feedback, the others say why they cannot be answered.
+  const locked = !answered && !poll.permissions.canVote;
 
   function send() {
     if (picked === null || !question) return;
@@ -178,7 +181,7 @@ export function QuizPlayer({
                 <input
                   type="radio"
                   name={`quiz-${poll.id}-${question.id}`}
-                  disabled={answered || pending}
+                  disabled={answered || pending || locked}
                   checked={answered ? answer.chosen : picked === answer.id}
                   onChange={() => setPicked(answer.id)}
                   className="size-5 shrink-0"
@@ -211,11 +214,24 @@ export function QuizPlayer({
             {index + 1 < total ? t("nextQuestion") : t("seeScore")}
           </Button>
         </>
+      ) : locked ? (
+        <>
+          <p className="text-sm text-muted-foreground">
+            {t(poll.closed ? "quizClosed" : "cannotVote")}
+          </p>
+          <Button
+            type="button"
+            className="h-10 px-4"
+            onClick={() => setIndex(total)}
+          >
+            {t("seeScore")}
+          </Button>
+        </>
       ) : (
         <Button
           type="button"
           className="h-10 px-4"
-          disabled={pending || picked === null || !poll.permissions.canVote}
+          disabled={pending || picked === null}
           onClick={send}
         >
           {t("answer")}

@@ -36,8 +36,13 @@ export function PollEditor({
   );
   const [locked, setLocked] = useState(false);
   const [error, setError] = useState<string>();
+  // The poll changed since the form was loaded: what is typed is not saved over it.
+  const [stale, setStale] = useState(false);
   const [pending, start] = useTransition();
+  // Bumped to read the definition again.
+  const [load, setLoad] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `load` asks for another read
   useEffect(() => {
     if (pollId === null) return;
     let current = true;
@@ -49,18 +54,26 @@ export function PollEditor({
           answer.definition.kind === "quiz" &&
             answer.definition.ballotCount > 0,
         );
+        setError(undefined);
+        setStale(false);
       } else setError(answer.error || t("failed"));
     });
     return () => {
       current = false;
     };
-  }, [threadId, pollId, t]);
+  }, [threadId, pollId, t, load]);
 
   function save() {
     if (!draft) return;
     start(async () => {
-      const answer = await pollSaveAction(threadId, pollId, draftToJson(draft));
+      const answer = await pollSaveAction(
+        threadId,
+        pollId,
+        draftToJson(draft),
+        draft.loadedAt,
+      );
       if ("poll" in answer) onClose();
+      else if (answer.conflict) setStale(true);
       else setError(answer.error || t("failed"));
     });
   }
@@ -83,11 +96,27 @@ export function PollEditor({
         locked={locked}
         error={error}
       />
+      {stale && (
+        <div role="alert" className="space-y-2 text-sm text-destructive">
+          <p>{t("changed")}</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 px-3"
+            onClick={() => {
+              setDraft(null);
+              setLoad((n) => n + 1);
+            }}
+          >
+            {t("reload")}
+          </Button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
           className="h-10 px-4"
-          disabled={pending}
+          disabled={pending || stale}
           onClick={save}
         >
           {pollId === null ? t("create") : t("save")}

@@ -36,6 +36,7 @@ const poll = {
   results: "always",
   closesAt: null,
   closed: false,
+  answerMaxLength: 100,
   resultsShown: true,
   voterCount: 1,
   questions: [
@@ -167,7 +168,7 @@ test("a new poll is created on its thread; an edited one is updated without its 
   // Not a poll at all: nothing is asked.
   asked.length = 0;
   assert.deepEqual(await actions.pollSaveAction(9, null, "oops"), {
-    error: "",
+    error: "invalid",
   });
   assert.equal(asked.length, 0);
 });
@@ -196,7 +197,7 @@ test("the voters of an answer come a page at a time, as members", async () => {
 });
 
 test("deleting a poll sends the reason and redraws the page", async () => {
-  answer = { status: 200, body: { ok: true } };
+  answer = { status: 200, body: { ok: true, completed: true } };
   const data = new FormData();
   data.append("reason", "Spam");
   assert.deepEqual(await actions.pollDeleteAction(9, 5, {}, data), {
@@ -206,4 +207,86 @@ test("deleting a poll sends the reason and redraws the page", async () => {
   assert.equal(asked[0].url, `${ROOT}/polls/5`);
   assert.deepEqual(asked[0].body, { reason: "Spam" });
   assert.equal(refreshed, 1);
+});
+
+test("a poll with very many voters is deleted by repeating the call until the backend says it is done", async () => {
+  const replies = [false, false, true];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    asked.push({
+      method: init.method ?? "GET",
+      url,
+      body: init.body ? JSON.parse(String(init.body)) : undefined,
+    });
+    return Response.json({ ok: true, completed: replies.shift() ?? true });
+  }) as unknown as typeof fetch;
+  assert.deepEqual(await actions.pollDeleteAction(9, 5, {}, new FormData()), {
+    done: true,
+  });
+  assert.equal(asked.length, 3);
+  assert.equal(refreshed, 1);
+});
+
+test("a delete that never finishes stops after a bound and says to go on", async () => {
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    asked.push({ method: init.method ?? "GET", url, body: undefined });
+    return Response.json({ ok: true, completed: false });
+  }) as unknown as typeof fetch;
+  const done = await actions.pollDeleteAction(9, 5, {}, new FormData());
+  assert.deepEqual(done, { error: "deleteUnfinished" });
+  assert.equal(asked.length, 50);
+});
+
+test("the poll comes back to the client without picture addresses", async () => {
+  const picture = {
+    fileId: 70,
+    url: "/api/v1/files/70",
+    contentType: "image/png",
+    byteSize: 1,
+    width: 1,
+    height: 1,
+    thumbnailUrl: "/api/v1/files/71",
+  };
+  answer = {
+    status: 200,
+    body: {
+      ...poll,
+      questions: [
+        {
+          ...poll.questions[0],
+          image: picture,
+          answers: [
+            { ...poll.questions[0].answers[0], image: picture },
+            poll.questions[0].answers[1],
+          ],
+        },
+      ],
+    },
+  };
+  const done = await actions.pollVoteAction(9, 5, 1, [11]);
+  assert.ok("poll" in done);
+  const text = JSON.stringify(done);
+  assert.ok(text.includes('"fileId":70'));
+  assert.ok(!text.includes("/files/") && !text.includes("thumbnail"));
+});
+
+test("an editor started from an older definition is told so, and the version travels with the save", async () => {
+  answer = {
+    status: 409,
+    body: { error: { code: "conflict", message: "Changed." } },
+  };
+  const json = JSON.stringify({
+    questions: [{ text: "Q?", answers: [{ text: "A" }, { text: "B" }] }],
+  });
+  assert.deepEqual(
+    await actions.pollSaveAction(9, 5, json, "2026-01-01T00:00:00.000Z"),
+    { error: "Changed.", conflict: true },
+  );
+  assert.equal(
+    (asked[0].body as { loadedAt: string }).loadedAt,
+    "2026-01-01T00:00:00.000Z",
+  );
+  answer = REFUSAL;
+  assert.deepEqual(await actions.pollSaveAction(9, 5, json), {
+    error: "Not for you.",
+  });
 });
