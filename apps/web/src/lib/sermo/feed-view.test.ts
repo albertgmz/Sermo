@@ -24,9 +24,12 @@ mock.module("next-intl/server", () => ({
 const source = "./feed-view.ts?reader";
 const { getFeedView } = (await import(source)) as typeof import("./feed-view");
 
-function backend(user: { feedView: string } | null) {
+function backend(
+  user: { feedView: string } | null,
+  resolvedPermissions: Record<string, boolean> = {},
+) {
   globalThis.fetch = (async () => {
-    const body = viewerBody(user !== null);
+    const body = { ...viewerBody(user !== null), resolvedPermissions };
     return Response.json(
       user && body.user ? { ...body, user: { ...body.user, ...user } } : body,
     );
@@ -46,4 +49,11 @@ test("a guest is drawn the layout their cookie holds, cards without one or with 
   expect(await getFeedView()).toBe("compact");
   stored = "grid";
   expect(await getFeedView()).toBe("cards");
+});
+
+test("a member whose group may not edit their profile is drawn the layout their cookie holds", async () => {
+  backend({ feedView: "compact" }, { "profile.editOwn": false });
+  expect(await getFeedView()).toBe("cards");
+  stored = "compact";
+  expect(await getFeedView()).toBe("compact");
 });

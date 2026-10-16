@@ -36,6 +36,9 @@ export function FeedViewToggle({
     start(async () => {
       const answer = await setFeedView(next).catch(() => null);
       if (answer?.ok) window.location.reload();
+      // A session that ended: the sign-in page, which comes back here.
+      else if (answer && "signIn" in answer && answer.signIn)
+        window.location.assign(answer.signIn);
       else {
         setChosen(before);
         setFailed(true);

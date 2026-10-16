@@ -43,6 +43,7 @@ const PREFERENCES = {
 function backend(
   signedIn: boolean,
   answer: Response = Response.json(PREFERENCES),
+  resolved: Record<string, boolean> = {},
 ) {
   const asked: { method: string; path: string; body: unknown }[] = [];
   globalThis.fetch = (async (input: string, init: RequestInit) => {
@@ -53,7 +54,10 @@ function backend(
       body: init.body ? JSON.parse(String(init.body)) : undefined,
     });
     return path.endsWith("/me")
-      ? Response.json(viewerBody(signedIn))
+      ? Response.json({
+          ...viewerBody(signedIn),
+          resolvedPermissions: resolved,
+        })
       : answer.clone();
   }) as unknown as typeof fetch;
   return asked;
@@ -79,7 +83,14 @@ test("a guest's choice is a cookie the server reads, and no write is made", asyn
   expect(cookieSets[0]?.[2]).toMatchObject({ httpOnly: true, path: "/" });
 });
 
-test("a refusal comes back as the backend's message, and the account keeps what it had", async () => {
+test("a member whose group may not edit their profile keeps the choice in the cookie, without asking the backend", async () => {
+  const asked = backend(true, undefined, { "profile.editOwn": false });
+  expect(await setFeedView("compact")).toEqual({ ok: true });
+  expect(asked.some((call) => call.path.includes("preferences"))).toBe(false);
+  expect(cookieSets[0]?.slice(0, 2)).toEqual(["forum_feed_view", "compact"]);
+});
+
+test("a member the backend refuses with forbidden also keeps it in the cookie", async () => {
   backend(
     true,
     Response.json(
@@ -87,10 +98,40 @@ test("a refusal comes back as the backend's message, and the account keeps what 
       { status: 403 },
     ),
   );
+  expect(await setFeedView("compact")).toEqual({ ok: true });
+  expect(cookieSets).toHaveLength(1);
+  expect(cookieSets[0]?.slice(0, 2)).toEqual(["forum_feed_view", "compact"]);
+});
+
+test("a session that ended says where to sign in and sets no cookie", async () => {
+  backend(
+    true,
+    Response.json(
+      { error: { code: "unauthenticated", message: "Sign in." } },
+      { status: 401 },
+    ),
+  );
   expect(await setFeedView("compact")).toEqual({
     ok: false,
-    error: "Not allowed.",
+    error: "Sign in.",
+    signIn: "/login?next=%2F",
   });
+  expect(cookieSets).toEqual([]);
+});
+
+test("a refusal comes back as the backend's message, and the account keeps what it had", async () => {
+  backend(
+    true,
+    Response.json(
+      { error: { code: "conflict", message: "Try again." } },
+      { status: 409 },
+    ),
+  );
+  expect(await setFeedView("compact")).toEqual({
+    ok: false,
+    error: "Try again.",
+  });
+  expect(cookieSets).toEqual([]);
 });
 
 test("a layout that is not one is refused before anything is sent", async () => {
