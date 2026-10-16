@@ -116,3 +116,22 @@ test("a body of many unpaired quote tags is read in a short time", () => {
     out.startsWith('[QUOTE="ember, post: 5, member: 9"][PLAIN][QUOTE][/PLAIN]'),
   ).toBe(true);
 });
+
+test("tags written the way XenForo writes them are paired like the renderer pairs them", () => {
+  // A closing JUSTIFY with no opener in the body no longer pairs with one before the quote.
+  expect(quoted("a [/JUSTIFY] b")).toBe(
+    `[QUOTE="ember, post: 5, member: 9"]a [PLAIN][/JUSTIFY][/PLAIN] b[/QUOTE]`,
+  );
+  const kept = "[JUSTIFY]a[/JUSTIFY]";
+  expect(quoted(kept)).toBe(
+    `[QUOTE="ember, post: 5, member: 9"]${kept}[/QUOTE]`,
+  );
+  // A quote with an option in apostrophes is a quote: balanced ones stay, a lone closer is text.
+  const inner = `[QUOTE='O'Brien, post: 1']x[/QUOTE]`;
+  expect(quoted(inner)).toBe(
+    `[QUOTE="ember, post: 5, member: 9"]${inner}[/QUOTE]`,
+  );
+  expect(quoted(`[QUOTE='Say "hi"']open`)).toBe(
+    `[QUOTE="ember, post: 5, member: 9"][PLAIN][QUOTE='Say "hi"'][/PLAIN]open[/QUOTE]`,
+  );
+});

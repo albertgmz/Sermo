@@ -35,6 +35,7 @@ const PAIRED = new Set([
   "LEFT",
   "CENTER",
   "RIGHT",
+  "JUSTIFY",
   "INDENT",
   "LIST",
   "TABLE",

@@ -81,6 +81,9 @@ const SOURCES = [
   "[B][I]x[/B][/I] [B]never closed [/I]",
   `[URL="https://a.test/${"x".repeat(300)}"]long[/URL] [QUOTE="a]b"]x[/QUOTE]`,
   `[QUOTE="${"n".repeat(250)}"]long name[/QUOTE]`,
+  "[QUOTE='wren, post: 1, member: 2']b[/QUOTE] [URL='https://a.test/x']a[/URL]",
+  `[QUOTE='O'Brien']x[/QUOTE] [QUOTE='Say "hi"']y[/QUOTE] [FONT='Arial']z[/FONT]`,
+  "[JUSTIFY]x[/JUSTIFY] [HR][/HR] a [/HR] b",
 ];
 
 test("every tag the renderer pairs is a tag for the editor too", () => {
@@ -93,7 +96,7 @@ test("every tag the renderer pairs is a tag for the editor too", () => {
       expect(found, `${source}: ${tok.name} at ${tok.start}`).toBeDefined();
       expect(found?.[2].toUpperCase()).toBe(tok.name);
       expect(found?.[1] !== undefined).toBe(tok.kind === "close");
-      expect((found?.[3] ?? found?.[4])?.trim()).toBe(tok.option);
+      expect((found?.[3] ?? found?.[4] ?? found?.[5])?.trim()).toBe(tok.option);
     }
   }
 });
@@ -137,6 +140,7 @@ const OTHER_NAMES = [
   "CENTER",
   "RIGHT",
   "TABLE",
+  "JUSTIFY",
 ];
 
 test("the tags the editor shows as text are the ones the renderer pairs", () => {
@@ -196,6 +200,13 @@ test("a tag option is read as the renderer reads it", () => {
     '[QUOTE="a]b"]x[/QUOTE]',
     '[QUOTE="a"b"]x[/QUOTE]',
     "[SPOILER=a\nb]x[/SPOILER]",
+    "[QUOTE='a, post: 1']x[/QUOTE]",
+    "[QUOTE='a'b']x[/QUOTE]",
+    `[QUOTE='a"b']x[/QUOTE]`,
+    "[URL='https://a.test/x']a[/URL]",
+    "[QUOTE='a]b']x[/QUOTE]",
+    "[QUOTE='a\nb']x[/QUOTE]",
+    `[QUOTE='${long(201)}']a[/QUOTE]`,
   ]) {
     const toks = lex(source, new Deadline()).filter((t) => t.kind !== "atom");
     const mine = [...source.matchAll(new RegExp(TAG_SOURCE, "g"))]
@@ -207,4 +218,14 @@ test("a tag option is read as the renderer reads it", () => {
       expect(mine, source.slice(0, 40)).toContain(`${tok.start}:${tok.name}`);
     }
   }
+});
+
+test("an option in apostrophes that is never closed is not a tag for the editor, as for the renderer", () => {
+  const source = "[QUOTE='Alice]x[/QUOTE]";
+  const toks = lex(source, new Deadline()).filter((t) => t.kind !== "atom");
+  expect(toks.map((t) => t.kind)).toEqual(["close"]);
+  const mine = [...source.matchAll(new RegExp(TAG_SOURCE, "g"))].map(
+    (m) => m.index,
+  );
+  expect(mine).toEqual([source.indexOf("[/QUOTE]")]);
 });

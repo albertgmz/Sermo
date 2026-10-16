@@ -1,5 +1,5 @@
 import { Deadline } from "./deadline";
-import { lex, pair, STRAY_HR, type Tok } from "./scan";
+import { lex, pair, type Tok } from "./scan";
 
 const NO_LIMIT = Number.POSITIVE_INFINITY;
 const SPOILER_MARK = "\u0001";
@@ -19,7 +19,6 @@ function atomText(tok: Tok, source: string): string {
     case "MEDIA":
     case "ATTACH":
     case "HR":
-    case STRAY_HR:
       return "";
     default:
       return source.slice(tok.start, tok.end);

@@ -28,6 +28,8 @@ export interface Tok {
   text?: string;
   href?: string;
   html?: string;
+  /** A `[/HR]` with no `[HR]` before it: swallowed, as if it had not been typed. */
+  stray?: boolean;
   id?: string;
   size?: string;
   language?: string;
@@ -100,8 +102,6 @@ const BLOCK_NAMES = new Set([
 ]);
 
 const ATOM_NAMES = new Set(["PLAIN", "IMG", "MEDIA", "ATTACH", "USER", "HR"]);
-/** The name of the atom a `[/HR]` becomes; it draws nothing. */
-export const STRAY_HR = "/HR";
 
 const COLORS = new Set(
   (
@@ -346,7 +346,7 @@ export function lex(source: string, deadline: Deadline): Tok[] {
           next = head.end;
         } else if (head.name === "HR") {
           // XenForo writes a rule as [HR][/HR]: the closer is swallowed.
-          toks.push(token("atom", { ...head, name: STRAY_HR }, at, true));
+          toks.push({ ...token("atom", head, at, true), stray: true });
           next = head.end;
         }
       } else if (head.name === "HR") {

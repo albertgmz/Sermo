@@ -1,7 +1,7 @@
 import { ValidationError } from "../errors";
 import type { Deadline } from "./deadline";
 import { HASHTAG_SOURCE, normalizeTag } from "./hashtag";
-import { ADDRESS_CHAR, STRAY_HR, type Tok, URL_PATTERN } from "./scan";
+import { ADDRESS_CHAR, type Tok, URL_PATTERN } from "./scan";
 
 const MAX_QUOTE_DEPTH = 10;
 const MAX_SPOILER_DEPTH = 10;
@@ -128,9 +128,13 @@ function trimAddress(address: string): string {
   return address.slice(0, end);
 }
 
-/** The `key: N` pairs a quote option ends with, as XenForo writes them (`post: 5, member: 2`). */
+/**
+ * The `key: N` pairs a quote option ends with, as XenForo writes them (`post: 5, member: 2`). A
+ * name comes before them; an option that starts with a pair has no name only when its key is one
+ * XenForo writes itself, so `Agent: 47` is a name.
+ */
 const QUOTE_PAIRS =
-  /(?:^|,)\s*[A-Za-z_]\w{0,30}\s*:\s*\d{1,12}(?:\s*,\s*[A-Za-z_]\w{0,30}\s*:\s*\d{1,12})*\s*$/;
+  /(?:,|^(?=\s*(?:post|member|convMessage)\s*:))\s*[A-Za-z_]\w{0,30}\s*:\s*\d{1,12}(?:\s*,\s*[A-Za-z_]\w{0,30}\s*:\s*\d{1,12})*\s*$/i;
 
 /** The post named by a run of `key: N` pairs; every other key is ignored. */
 function quotedPost(pairs: string): number | null {
@@ -298,6 +302,8 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
     } else if (tok.kind === "close") {
       if (tok.name === "LIST" && top.el?.name === "*") closeFrame();
       closeFrame(tok);
+    } else if (tok.stray && !top.rich) {
+      // Swallowed: the text on both sides stays one run.
     } else {
       flush(top);
       if (tok.name === "USER" && !top.inLink && !top.rich) {
@@ -309,12 +315,7 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
         };
         mentions.push(mention);
         top.kids.push(mention);
-      } else if (tok.name === STRAY_HR && !top.rich) {
-        // Nothing to draw.
-      } else if (
-        tok.name === "USER" ||
-        (top.rich && (tok.name === "CODE" || tok.name === "HR" || tok.name === STRAY_HR))
-      ) {
+      } else if (tok.name === "USER" || (top.rich && (tok.name === "CODE" || tok.name === "HR"))) {
         top.kids.push({
           t: "text",
           text: tok.name === "USER" ? tok.text! : source.slice(tok.start, tok.end),

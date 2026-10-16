@@ -869,6 +869,10 @@ describe("BB code as XenForo writes it", () => {
     expect(md("[HR][/HR]")).toBe("<hr />");
     expect(md("a [/HR] b")).toBe("<p>a  b</p>");
     expect(md("[B]x[/HR]y[/B]")).toBe("<p><strong>xy</strong></p>");
+    // The text on both sides joins as if the tag were absent.
+    expect(md("a\n[/HR]\nb")).toBe(md("a\n\nb"));
+    expect(md("https://a.example/x[/HR]y")).toBe(md("https://a.example/xy"));
+    expect(md("#tag[/HR]more")).toBe(md("#tagmore"));
     // Literal tags keep it as typed.
     expect(md("[CODE][HR][/HR][/CODE]")).toContain("[HR][/HR]");
     expect(md("[CODE=rich][/HR][/CODE]")).toContain("[/HR]");
@@ -888,6 +892,11 @@ describe("BB code as XenForo writes it", () => {
     expect(cite('"Re: Bob, convMessage: 5"')).toContain(">Re: Bob<");
     expect(cite('"Bob, level: high"')).toContain(">Bob, level: high<");
     expect(cite('"Bob, post: 12, Alice"')).toContain(">Bob, post: 12, Alice<");
+    // A lone pair is a name unless its key is one XenForo writes.
+    expect(cite('"Agent: 47"')).toContain(">Agent: 47<");
+    expect(cite("Chapter: 3")).toContain(">Chapter: 3<");
+    expect(cite('"Agent: 47, convMessage: 5"')).toContain(">Agent: 47<");
+    expect(cite('"member: 4"')).toBe('<blockquote class="bb-quote">x</blockquote>');
     // No author left.
     expect(cite('"convMessage: 123"')).toBe('<blockquote class="bb-quote">x</blockquote>');
   });

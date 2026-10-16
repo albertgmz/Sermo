@@ -2,16 +2,18 @@
 // reading (packages/core/src/bbcode/scan.ts; `bb-scan.test.ts` holds the two together): a tag is
 // `[NAME]`, `[NAME=option]` or the closing `[/NAME]`. A bare option has no closing bracket,
 // quotation mark or line break; a quoted one has no quotation mark, closing bracket or line
-// break. Only a link's option may be longer than 200 characters, and it holds no `[`.
+// break; one in apostrophes has no closing bracket or line break and ends at an apostrophe that
+// is followed by the closing bracket. Only a link's option may be longer than 200 characters, and it holds no `[`.
 
-// Groups: 1 the slash of a closing tag, 2 the name, 3 a quoted option, 4 a bare option.
-export const TAG_SOURCE = String.raw`\[(\/)?([A-Za-z]{1,10}|\*)(?:=(?:"([^"\n\]]{0,2000})"|([^\]\n"]{0,2000})))?\]`;
+// Groups: 1 the slash of a closing tag, 2 the name, 3 a quoted option, 4 an option in apostrophes,
+// 5 a bare option (which does not start with an apostrophe).
+export const TAG_SOURCE = String.raw`\[(\/)?([A-Za-z]{1,10}|\*)(?:=(?:"([^"\n\]]{0,2000})"|'((?:[^'\n\]]|'(?!\])){0,2000})'|((?!')[^\]\n"]{0,2000})))?\]`;
 
 // The tag a match of `TAG_SOURCE` is, or null when the renderer does not read it as one (the
 // caller goes on from the character after its `[`, as the renderer does).
 export function tagOf(match: RegExpExecArray) {
   const name = match[2].toUpperCase();
-  const option = (match[3] ?? match[4])?.trim();
+  const option = (match[3] ?? match[4] ?? match[5])?.trim();
   const length = option?.length ?? 0;
   if (length > (name === "URL" ? 2000 : 200)) return null;
   if (name === "URL" && option?.includes("[")) return null;
@@ -127,6 +129,7 @@ export function isOtherTag(name: string, option: string | undefined) {
     case "LEFT":
     case "CENTER":
     case "RIGHT":
+    case "JUSTIFY":
     case "TABLE":
     case "TR":
     case "TH":

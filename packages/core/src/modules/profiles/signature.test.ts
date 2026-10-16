@@ -282,6 +282,7 @@ describe("allowed formatting", () => {
     ["image", "[IMG]https://i.test/a.png[/IMG]", "pictures"],
     ["list", "[LIST][*]x[*]y[/LIST]", "lists"],
     ["align", "[CENTER]x[/CENTER]", "alignment"],
+    ["align", "[JUSTIFY]x[/JUSTIFY]", "alignment"],
   ];
 
   test("each kind is refused unless listed, and accepted once it is", async () => {
