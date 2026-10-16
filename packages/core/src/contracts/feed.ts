@@ -18,10 +18,11 @@ export const PostInThread = z.object({ post: Post, thread: Thread }).meta({ id: 
 export const FEED_UNREAD_CAP = 99;
 
 /**
- * What a signed-in viewer has not read of a thread, for the card: how many posts they may see
- * after the last one they read (`count` is at most 99 and `more` says there are more than that),
- * and the first of them (`firstPostId`, at `firstPosition`, which gives its page), where "jump to
- * first unread" lands. Posts of members the viewer ignores count, as the thread shows them.
+ * What a signed-in viewer has not read of a thread, for the card: how many visible posts follow
+ * the last one they read (posts awaiting approval or deleted are not counted, for staff too;
+ * `count` is at most 99 and `more` says there are more than that), and the first of them
+ * (`firstPostId`, at `firstPosition`, which gives its page), where "jump to first unread" lands.
+ * Posts of members the viewer ignores count, as the thread shows them.
  */
 export const FeedUnread = z
   .object({

@@ -45,16 +45,25 @@ export function CompactFeedItem({
     return (
       <Row
         id={`feed-profile-post-${profilePost.id}`}
-        avatar={<UserAvatar user={author(profilePost.author.id).member} />}
+        href={href}
+        avatar={
+          <UserAvatar
+            user={author(profilePost.author.id).member}
+            className="relative z-10"
+          />
+        }
         title={
           <>
-            <UserLink user={author(profilePost.author.id).member} />{" "}
+            <UserLink
+              user={author(profilePost.author.id).member}
+              className="relative z-10"
+            />{" "}
             <span className="font-normal text-muted-foreground">
               {t.rich("profileContext", {
                 profile: (chunks) => (
                   <Link
                     href={`/members/${profilePost.profileUserId}`}
-                    className={contextLinkClass}
+                    className={cn(contextLinkClass, "relative z-10")}
                   >
                     {chunks}
                   </Link>
@@ -91,13 +100,24 @@ export function CompactFeedItem({
   return (
     <Row
       id={`feed-post-${post.id}`}
-      avatar={<UserAvatar user={author(post.author.id).member} />}
+      href={href}
+      avatar={
+        <UserAvatar
+          user={author(post.author.id).member}
+          className="relative z-10"
+        />
+      }
       highlighted={
         isThread &&
         thread.highlightedUntil !== null &&
         Date.parse(thread.highlightedUntil) > now
       }
-      title={<ThreadHoverCard thread={card} className="hover:underline" />}
+      title={
+        <ThreadHoverCard
+          thread={card}
+          className="relative z-10 hover:underline"
+        />
+      }
       meta={
         <>
           {item.featured && (
@@ -107,17 +127,24 @@ export function CompactFeedItem({
             />
           )}
           {thread.pollKind && (
-            <PollBadge kind={thread.pollKind} className="h-5 shrink-0" />
+            <PollBadge
+              kind={thread.pollKind}
+              className="h-5 shrink-0"
+              iconOnPhone
+            />
           )}
           <span className="min-w-0 truncate">
-            <UserLink user={author(post.author.id).member} />
+            <UserLink
+              user={author(post.author.id).member}
+              className="relative z-10"
+            />
             <span aria-hidden="true"> · </span>
             {t.rich(isThread ? "threadContext" : "replyContext", {
               title: thread.node.title,
               forum: (chunks) => (
                 <Link
                   href={`/forums/${thread.node.id}`}
-                  className={contextLinkClass}
+                  className={cn(contextLinkClass, "relative z-10")}
                 >
                   {chunks}
                 </Link>
@@ -159,8 +186,10 @@ export function CompactFeedItem({
 }
 
 // The row's frame: the avatar, two lines (what it is, who and where) and the actions at the end.
+// The whole row is a link, so the target to open it is as big as the row.
 function Row({
   id,
+  href,
   avatar,
   title,
   meta,
@@ -168,6 +197,8 @@ function Row({
   highlighted = false,
 }: {
   id: string;
+  // Where the whole row leads: a link stretched over it, under the row's own links and buttons.
+  href: string;
   avatar: React.ReactNode;
   title: React.ReactNode;
   meta: React.ReactNode;
@@ -184,6 +215,12 @@ function Row({
           "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary",
       )}
     >
+      <Link
+        href={href}
+        aria-hidden="true"
+        tabIndex={-1}
+        className="absolute inset-0"
+      />
       {avatar}
       <div className="min-w-0 flex-1">
         <h2 className="line-clamp-1 text-sm leading-snug font-semibold [overflow-wrap:anywhere]">
@@ -193,7 +230,9 @@ function Row({
           {meta}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1">{end}</div>
+      <div className="relative z-10 flex shrink-0 items-center gap-1">
+        {end}
+      </div>
     </article>
   );
 }

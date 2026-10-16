@@ -31,7 +31,9 @@ export function FirstUnreadLink({
       )}
     >
       <ArrowDownToLine aria-hidden="true" />
-      {t("count", { value })}
+      {/* The figure alone on a phone, where the link's name says the rest. */}
+      <span className="sm:hidden">{value}</span>
+      <span className="hidden sm:inline">{t("count", { value })}</span>
     </Link>
   );
 }

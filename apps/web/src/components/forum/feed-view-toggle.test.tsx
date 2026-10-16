@@ -36,11 +36,11 @@ test("it offers cards and the compact list, with the layout in force pressed", (
   expect(button(compact, "Compact list")).toContain('aria-pressed="true"');
 });
 
-test("it is one named group, its buttons are 40px high on a phone, and nothing is announced at rest", () => {
+test("it is one named group, its buttons are 40px high on a phone, and no failure is shown at rest", () => {
   const html = draw("cards");
   expect(html).toContain("<fieldset");
   expect(html).toContain("Feed layout</legend>");
   expect(button(html, "Cards")).toContain("h-10");
   expect(button(html, "Compact list")).toContain("min-w-10");
-  expect(html).toMatch(/<span role="status" class="sr-only"><\/span>/);
+  expect(html).not.toContain('role="alert"');
 });

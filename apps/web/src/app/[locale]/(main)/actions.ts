@@ -236,8 +236,8 @@ export async function setBookmark(
 
 // Replies to a thread from its card in the feed and goes back to the address the form was on: the
 // feed as the visitor has it, `?pages=N` included, so the list and the place in it stay. That
-// address can differ from the one in the browser by its hash alone (the comment count leads to
-// the composer), which is no navigation to the server, so the page is refreshed first.
+// address can differ from the one in the browser by its hash alone (a wall post's comment count
+// leads to its composer), which is no navigation to the server, so the page is refreshed first.
 export async function replyFromFeed(
   threadId: number,
   _previous: LineComposerState,

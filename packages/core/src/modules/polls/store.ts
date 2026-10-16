@@ -79,6 +79,7 @@ export const pollSql = {
   voters:
     "SELECT user_id, created_at FROM poll_votes WHERE answer_id = ?1 AND user_id > ?2 ORDER BY user_id LIMIT ?3",
   votesOfMember: "SELECT answer_id FROM poll_votes WHERE poll_id = ?1 AND user_id = ?2",
+  kindsOfThreads: `SELECT thread_id, kind FROM polls WHERE thread_id ${inList} AND max_choices > 0`,
 };
 
 type Params = SQLQueryBindings[];
@@ -530,7 +531,7 @@ export function pollKindsOf(ctx: Ctx, threadIds: number[]): Map<number, PollRow[
     statement<{ thread_id: number; kind: PollRow["kind"] }>(
       ctx,
       "kindsOfThreads",
-      "SELECT thread_id, kind FROM polls WHERE thread_id IN (SELECT value FROM json_each(?1)) AND max_choices > 0",
+      pollSql.kindsOfThreads,
     )
       .all(JSON.stringify(threadIds))
       .map((row) => [row.thread_id, row.kind] as const),

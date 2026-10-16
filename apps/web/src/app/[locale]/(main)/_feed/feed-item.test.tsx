@@ -380,6 +380,20 @@ test("the compact row is the thread in one line: title, where, answers and what 
   expect(html).toContain("data-shortcut-item");
 });
 
+// The stretched link of a row: the one anchor that covers it.
+const stretched = (html: string) =>
+  html.match(/<a[^>]*class="absolute inset-0"[^>]*>/)?.[0] ?? "";
+
+test("the whole compact row is a link, under its own links and buttons", async () => {
+  const thread = await render(threadItem("post", true), MEMBER, "compact");
+  expect(stretched(thread)).toContain('href="/threads/7#post-31"');
+  expect(stretched(thread)).toContain('tabindex="-1"');
+  const wall = await render(wallItem(), MEMBER, "compact");
+  expect(stretched(wall)).toContain('href="/members/5#profile-post-9"');
+  // The title's link, the forum's and the actions sit above it.
+  expect(thread).toContain("relative z-10");
+});
+
 test("a compact wall post names who wrote it and where, with its comments", async () => {
   const html = await render(wallItem(), MEMBER, "compact");
   expect(html).toContain("member4");

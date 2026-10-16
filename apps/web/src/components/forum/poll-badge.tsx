@@ -7,9 +7,12 @@ import { cn } from "@/lib/utils";
 export function PollBadge({
   kind,
   className,
+  iconOnPhone = false,
 }: {
   kind: "poll" | "quiz";
   className?: string;
+  // A crowded row keeps the mark's name for screen readers only below `sm`.
+  iconOnPhone?: boolean;
 }) {
   const t = useTranslations("forum.pollBadge");
   const Icon = kind === "quiz" ? ListChecks : ChartBar;
@@ -21,7 +24,9 @@ export function PollBadge({
       )}
     >
       <Icon aria-hidden="true" className="size-3" />
-      {t(kind)}
+      <span className={cn(iconOnPhone && "sr-only sm:not-sr-only")}>
+        {t(kind)}
+      </span>
     </span>
   );
 }

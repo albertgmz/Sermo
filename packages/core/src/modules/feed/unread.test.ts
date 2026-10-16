@@ -5,6 +5,7 @@ import { FEED_UNREAD_CAP } from "../../contracts/feed";
 import { writeTx } from "../../db/tx";
 import { currentActor } from "../../permissions";
 import { setEntry } from "../permissions/group-fixture";
+import { pollSql } from "../polls/store";
 import { countStatements, fillPosts, type World, world } from "./fixtures.test";
 import { unreadSql } from "./unread";
 
@@ -53,8 +54,8 @@ describe("feed.list unread", () => {
       firstPostId: postAt(w, id, 2).id,
       firstPosition: 2,
     });
-    // Someone else's read state does not show.
-    // (bob wrote the opening post, which counts as read to him.)
+    // Someone else's read state does not show: bob has his own opening post read, and the four
+    // replies not.
     expect((await unreadOf(w, w.bob, "Read me"))?.count).toBe(4);
     await w.call("threads.markRead", w.carol, { threadId: id, position: 4 });
     expect(await unreadOf(w, w.carol, "Read me")).toBeNull();
@@ -115,6 +116,29 @@ describe("feed.list unread", () => {
     expect(closed?.unread).toBeNull();
     // Staff read it.
     expect((await unreadOf(w, w.mod, "Closed"))?.count).toBe(3);
+  });
+
+  test("a read mark that no longer matches the thread gives no position rather than a wrong one", async () => {
+    const w = world();
+    const id = await busy(w, "Stale", 2);
+    // Marked read up to a post far past the thread's own, but the post id says it is behind.
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO thread_reads (user_id, thread_id, last_read_post_id, last_read_position, read_at) VALUES (?1, ?2, 1, 999, ?3)",
+      )
+      .run(w.carolUser.id, id, w.ctx.now());
+    const stale = (await items(w, w.carol)).find((item) => item.thread?.title === "Stale");
+    expect(stale?.thread.isUnread).toBe(true);
+    expect(stale?.unread).toBeNull();
+  });
+
+  test("a moderator is counted only the posts everyone sees", async () => {
+    const w = world();
+    const id = await busy(w, "Held", 2);
+    w.ctx.sqlite
+      .prepare("UPDATE posts SET state = 'moderated' WHERE id = ?1")
+      .run(postAt(w, id, 1).id);
+    expect((await unreadOf(w, w.mod, "Held"))?.count).toBe(2);
   });
 
   test("a wall post carries no unread", async () => {
@@ -200,6 +224,11 @@ describe("the poll badge", () => {
     });
     w.ctx.sqlite.prepare("UPDATE polls SET max_choices = 0 WHERE thread_id = ?1").run(thread.id);
     expect((await items(w, w.carol))[0]?.thread.pollKind).toBeNull();
+  });
+
+  test("the lookup reads its index", () => {
+    const w = world();
+    expectNoTableScan(w.ctx, pollSql.kindsOfThreads, ["[1,2]"]);
   });
 
   test("a page of threads with polls runs as many statements as a page without", async () => {
