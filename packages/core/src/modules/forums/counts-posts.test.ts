@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { insertUser, userActor } from "@sermo/core/testing";
 import { invalidate } from "../../context";
 import { type World, world } from "../feed/fixtures.test";
 import { enqueueJob, runDueJobs } from "../jobs";
@@ -15,6 +16,12 @@ function twoForums() {
   invalidate(w.ctx, "node_tree");
   return { w, loud: w.open.id, quiet: quiet.id };
 }
+const pendingJobs = (w: World) =>
+  w.ctx.sqlite
+    .prepare<{ n: number }, []>(
+      "SELECT count(*) AS n FROM jobs WHERE type = 'rebuild-node-authors' AND status != 'done'",
+    )
+    .get()!.n;
 const counts = (w: World) => {
   const get = (id: number) =>
     w.ctx.sqlite
@@ -226,7 +233,33 @@ describe("forums that do not count posts", () => {
     });
     expect(back.thread.nodeId).toBe(loud);
     expect(counts(w)).toEqual({ alice: 1, bob: 1 });
+  });
+
+  test("a split of posts by several authors moves each author's own number", async () => {
+    const { w, loud, quiet } = twoForums();
+    const t = await w.thread(w.alice, loud, "Split me");
+    const posts = [
+      await w.reply(w.bob, t.thread.id, "b1"),
+      await w.reply(w.bob, t.thread.id, "b2"),
+      await w.reply(w.bob, t.thread.id, "b3"),
+      await w.reply(w.carol, t.thread.id, "c1"),
+      await w.reply(w.alice, t.thread.id, "a1"),
+    ];
+    const carol = () =>
+      w.ctx.sqlite
+        .prepare<{ n: number }, [number]>("SELECT post_count AS n FROM users WHERE id = ?1")
+        .get(w.carolUser.id)!.n;
+    expect(counts(w)).toEqual({ alice: 2, bob: 3 });
+    expect(carol()).toBe(1);
+    // alice 1, bob 2, carol 1 of their posts go to the quiet forum.
+    await w.call("threads.split", w.admin, {
+      threadId: t.thread.id,
+      postIds: [posts[0]!.id, posts[1]!.id, posts[3]!.id, posts[4]!.id],
+      title: "Quiet part",
+      nodeId: quiet,
+    });
     expect(counts(w)).toEqual({ alice: 1, bob: 1 });
+    expect(carol()).toBe(0);
   });
 
   test("a bulk move of a big thread is one grouped update of the authors", async () => {
@@ -254,8 +287,9 @@ describe("forums that do not count posts", () => {
     expect(counts(w)).toEqual({ alice: 0, bob: 0 });
   });
 
-  test("switching the setting moves the counts of the posts already there", async () => {
+  test("switching the setting saves it and a background job updates the counts", async () => {
     const { w, loud } = twoForums();
+    registerJobHandlers(w.ctx);
     const t = await w.thread(w.alice, loud, "Here");
     await w.reply(w.bob, t.thread.id, "one");
     await w.call("threads.delete", w.mod, {
@@ -267,15 +301,19 @@ describe("forums that do not count posts", () => {
       settings: { countsPosts: false },
     });
     expect(off.settings.countsPosts).toBe(false);
+    // Nothing is recounted inside the request.
+    expect(counts(w)).toEqual({ alice: 1, bob: 1 });
+    await runDueJobs(w.ctx, { limit: 20 });
     expect(counts(w)).toEqual({ alice: 0, bob: 0 });
-    // Saving the same value again changes nothing.
+    // Saving the same value again queues nothing.
     await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: false } });
-    expect(counts(w)).toEqual({ alice: 0, bob: 0 });
+    expect(pendingJobs(w)).toBe(0);
     const on = await w.call("nodes.update", w.admin, {
       nodeId: loud,
       settings: { countsPosts: true },
     });
     expect(on.settings.countsPosts).toBe(true);
+    await runDueJobs(w.ctx, { limit: 20 });
     expect(counts(w)).toEqual({ alice: 1, bob: 1 });
     // A new forum is counting unless it is made otherwise.
     const created = await w.call("nodes.create", w.admin, {
@@ -291,6 +329,75 @@ describe("forums that do not count posts", () => {
       settings: { countsPosts: false },
     });
     expect(quiet.settings.countsPosts).toBe(false);
+  });
+
+  test("after the job, deleting or moving content after a switch stays exact", async () => {
+    const { w, loud, quiet } = twoForums();
+    registerJobHandlers(w.ctx);
+    const t = await w.thread(w.alice, loud, "Here");
+    const r = await w.reply(w.bob, t.thread.id, "one");
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: false } });
+    await runDueJobs(w.ctx, { limit: 20 });
+    expect(counts(w)).toEqual({ alice: 0, bob: 0 });
+    await w.call("posts.delete", w.mod, { postId: r.id });
+    await w.call("posts.restore", w.mod, { postId: r.id });
+    await w.call("threads.delete", w.mod, { threadId: t.thread.id });
+    await w.call("threads.restore", w.mod, { threadId: t.thread.id });
+    expect(counts(w)).toEqual({ alice: 0, bob: 0 });
+    // Into the forum that counts, and out again through the switch.
+    await w.call("nodes.update", w.admin, { nodeId: quiet, settings: { countsPosts: true } });
+    await runDueJobs(w.ctx, { limit: 20 });
+    await w.call("threads.move", w.admin, { threadId: t.thread.id, nodeId: quiet });
+    expect(counts(w)).toEqual({ alice: 1, bob: 1 });
+    await w.call("nodes.update", w.admin, { nodeId: quiet, settings: { countsPosts: false } });
+    await runDueJobs(w.ctx, { limit: 20 });
+    expect(counts(w)).toEqual({ alice: 0, bob: 0 });
+  });
+
+  test("the job reaches authors beyond the first window of user ids", async () => {
+    const { w, loud } = twoForums();
+    registerJobHandlers(w.ctx);
+    for (let i = 0; i < 1100; i++) insertUser(w.ctx, { username: `filler${i}` });
+    const late = insertUser(w.ctx, { username: "late" });
+    await w.thread(userActor(late), loud, "Late");
+    const lateCount = () =>
+      w.ctx.sqlite
+        .prepare<{ n: number }, [number]>("SELECT post_count AS n FROM users WHERE id = ?1")
+        .get(late.id)!.n;
+    expect(lateCount()).toBe(1);
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: false } });
+    await runDueJobs(w.ctx, { limit: 50 });
+    expect(lateCount()).toBe(0);
+  });
+
+  test("a count that is lower than the member's posts never goes below zero", async () => {
+    const { w, loud, quiet } = twoForums();
+    const t = await w.thread(w.alice, loud, "Drift");
+    const r = await w.reply(w.bob, t.thread.id, "one");
+    const reply2 = await w.reply(w.bob, t.thread.id, "two");
+    const drift = () => w.ctx.sqlite.prepare("UPDATE users SET post_count = 0").run();
+    drift();
+    await w.call("posts.delete", w.mod, { postId: r.id });
+    expect(counts(w)).toEqual({ alice: 0, bob: 0 });
+    await w.call("moderation.setState", w.mod, {
+      target: { type: "post", id: reply2.id },
+      state: "moderated",
+    });
+    await w.call("threads.move", w.admin, { threadId: t.thread.id, nodeId: quiet });
+    expect(counts(w)).toEqual({ alice: 0, bob: 0 });
+    await w.call("threads.move", w.admin, { threadId: t.thread.id, nodeId: loud });
+    drift();
+    await w.call("threads.delete", w.mod, { threadId: t.thread.id });
+    expect(counts(w)).toEqual({ alice: 0, bob: 0 });
+    // A merge and a split take from an empty count as well.
+    await w.call("threads.restore", w.mod, { threadId: t.thread.id });
+    const other = await w.thread(w.alice, quiet, "Other");
+    drift();
+    await w.call("threads.merge", w.admin, {
+      threadId: other.thread.id,
+      sourceThreadIds: [t.thread.id],
+    });
+    expect(counts(w)).toEqual({ alice: 0, bob: 0 });
   });
 
   test("the counter rebuild agrees with the counts the operations kept", async () => {

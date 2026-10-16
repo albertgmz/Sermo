@@ -1016,7 +1016,7 @@ function stateChange(
         exec(
           ctx,
           "userPostCount",
-          "UPDATE users SET post_count = post_count + ?1 WHERE id = ?2",
+          "UPDATE users SET post_count = max(0, post_count + ?1) WHERE id = ?2",
           delta,
           row.user_id,
         );

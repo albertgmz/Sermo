@@ -85,7 +85,10 @@ async function settingsOf(formData: FormData, fields: Fields) {
     requireThreadApproval: formData.get("requireThreadApproval") !== null,
     requireReplyApproval: formData.get("requireReplyApproval") !== null,
     isReadOnly: formData.get("isReadOnly") !== null,
-    countsPosts: formData.get("countsPosts") !== null,
+    // The switch is in the form only for a forum: left out, the setting stays as it is.
+    ...(formData.get("hasCountsPosts") !== null && {
+      countsPosts: formData.get("countsPosts") !== null,
+    }),
     ...(minAccountAgeDays != null && { minAccountAgeDays }),
     ...(minPostCount != null && { minPostCount }),
   };

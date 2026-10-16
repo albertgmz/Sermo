@@ -119,7 +119,7 @@
     "readOnly": "Solo lectura",
     "readOnlyHelp": "Nadie puede iniciar temas ni responder aquí.",
     "countsPosts": "Cuenta mensajes",
-    "countsPostsHelp": "Los mensajes de aquí suman al total de mensajes de sus autores. Al cambiarlo se actualizan los totales con los mensajes que ya hay.",
+    "countsPostsHelp": "Los mensajes de aquí suman al total de mensajes de sus autores. Al cambiarlo, los totales con los mensajes que ya hay se actualizan poco después.",
     "minAccountAgeDays": "Antigüedad mínima de la cuenta",
     "minAccountAgeDaysHelp": "Días que debe tener una cuenta antes de poder publicar aquí.",
     "minPostCount": "Mínimo de mensajes",

@@ -2,7 +2,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { reactionSummary } from "../../shared/reactions";
-import { type ClaimedJob, completeRunningJob, registerJobHandler } from "./queue";
+import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "./queue";
 
 export const REBUILD_CHUNK_SIZES = {
   threads: 50,
@@ -343,7 +343,58 @@ export function rebuildCountersChunk(
   });
 }
 
+/** How many user ids one chunk of the post counts of a forum's authors looks at. */
+const AUTHOR_WINDOW = 500;
+export interface NodeAuthorsProgress {
+  nodeId: number;
+  after: number;
+}
+/**
+ * Recomputes the post counts of the members who wrote in a forum, for the ids after `after`: the
+ * job a change of the forum's counting queues, in place of one update over every post in it. The
+ * continuation and the completion commit with the chunk, as in `rebuildCountersChunk`.
+ */
+export function rebuildNodeAuthorsChunk(
+  ctx: Ctx,
+  progress: NodeAuthorsProgress,
+  job?: ClaimedJob,
+): number {
+  if (
+    !Number.isSafeInteger(progress.nodeId) ||
+    !Number.isSafeInteger(progress.after) ||
+    progress.after < 0
+  )
+    throw new TypeError("Invalid node authors rebuild progress.");
+  return writeTx(ctx, () => {
+    if (job && !completeRunningJob(ctx, job)) return 0;
+    const rows = all<Row>(
+      ctx,
+      "nodeAuthors",
+      "SELECT id, post_count, reaction_score FROM users WHERE id > ?1 AND id <= ?1 + ?3 AND EXISTS (" +
+        "SELECT 1 FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.user_id = users.id AND t.node_id = ?2)",
+      progress.after,
+      progress.nodeId,
+      AUTHOR_WINDOW,
+    );
+    let changed = 0;
+    for (const row of rows)
+      if (updateChanged(ctx, "users", row, expected(ctx, "users", row))) changed++;
+    const end = progress.after + AUTHOR_WINDOW;
+    const last = one<{ id: number | null }>(ctx, "lastUser", "SELECT max(id) AS id FROM users")!;
+    if ((last.id ?? 0) > end)
+      enqueueJob(ctx, "rebuild-node-authors", { nodeId: progress.nodeId, after: end });
+    return changed;
+  });
+}
+/** Queues the recount of the post counts of a forum's authors (after its counting changed). */
+export function scheduleNodeAuthorsRebuild(ctx: Ctx, nodeId: number): void {
+  enqueueJob(ctx, "rebuild-node-authors", { nodeId, after: 0 } satisfies NodeAuthorsProgress);
+}
+
 export function registerJobHandlers(ctx: Ctx): void {
+  registerJobHandler(ctx, "rebuild-node-authors", (context, payload, job) => {
+    rebuildNodeAuthorsChunk(context, payload as NodeAuthorsProgress, job);
+  });
   registerJobHandler(ctx, "rebuild-counters", (context, payload, job) => {
     rebuildCountersChunk(context, payload as RebuildProgress, {}, job);
   });

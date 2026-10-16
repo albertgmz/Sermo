@@ -14,7 +14,12 @@ export {
   registerJobHandler,
   runDueJobs,
 } from "./queue";
-export { type RebuildProgress, rebuildCountersChunk, registerJobHandlers } from "./rebuild";
+export {
+  type RebuildProgress,
+  rebuildCountersChunk,
+  registerJobHandlers,
+  scheduleNodeAuthorsRebuild,
+} from "./rebuild";
 export { startScheduler } from "./scheduler";
 
 export function startJobWorker(

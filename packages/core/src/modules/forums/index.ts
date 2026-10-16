@@ -38,7 +38,12 @@ import { iso, isoOrNull } from "../../time";
 import { requireNotErased } from "../admin/erased";
 import { confirmActorPassword } from "../admin/shared";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
-import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
+import {
+  completeRunningJob,
+  enqueueJob,
+  registerJobHandler,
+  scheduleNodeAuthorsRebuild,
+} from "../jobs";
 import { requireSiteView } from "../members/site-access";
 import {
   appendModeratorLog,
@@ -226,7 +231,7 @@ export const forumSql = {
     "SELECT id, user_id, created_at FROM posts WHERE thread_id = ?1 AND state = 'visible' ORDER BY position DESC, id DESC LIMIT 1",
   /** Adds ?1 to the count of every visible post's author in thread ?2, if forum ?3 counts posts. */
   authorAdjustment:
-    "UPDATE users SET post_count = post_count + ?1 * authors.n FROM (SELECT user_id, count(*) AS n FROM posts WHERE thread_id = ?2 AND state = 'visible' GROUP BY user_id) AS authors WHERE users.id = authors.user_id AND (SELECT counts_posts FROM nodes WHERE id = ?3) = 1",
+    "UPDATE users SET post_count = max(0, post_count + ?1 * authors.n) FROM (SELECT user_id, count(*) AS n FROM posts WHERE thread_id = ?2 AND state = 'visible' GROUP BY user_id) AS authors WHERE users.id = authors.user_id AND (SELECT counts_posts FROM nodes WHERE id = ?3) = 1",
   readPost:
     "SELECT id, position FROM posts WHERE thread_id = ?1 AND position <= ?2 AND state = 'visible' ORDER BY position DESC LIMIT 1",
   readPosition: "SELECT last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id = ?2",
@@ -880,18 +885,6 @@ export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
     resolvedPermissions: resolvedPermissions(ctx, actor, { nodeId: input.nodeId }),
   };
 });
-/**
- * Switching a forum's counting on or off moves the counts of the posts already in it, so a later
- * move or deletion never takes a count the forum did not give (one grouped update).
- */
-function recountNodeAuthors(ctx: Ctx, nodeId: number, counts: boolean): void {
-  if (nodeCountsPosts(ctx, nodeId) === counts) return;
-  forumDb(ctx)
-    .prepare(
-      "UPDATE users SET post_count = post_count + ?1 * authors.n FROM (SELECT p.user_id, count(*) AS n FROM threads t JOIN posts p ON p.thread_id = t.id WHERE t.node_id = ?2 AND t.state = 'visible' AND p.state = 'visible' GROUP BY p.user_id) AS authors WHERE users.id = authors.user_id",
-    )
-    .run(counts ? 1 : -1, nodeId);
-}
 /** Applies the given node settings (inside the node write's transaction). */
 function writeNodeSettings(
   ctx: Ctx,
@@ -913,7 +906,9 @@ function writeNodeSettings(
   for (const [key, column] of columns) {
     const value = settings[key];
     if (value === undefined) continue;
-    if (key === "countsPosts") recountNodeAuthors(ctx, nodeId, value as boolean);
+    // The counts of the posts already there follow in a background job.
+    if (key === "countsPosts" && nodeCountsPosts(ctx, nodeId) !== value)
+      scheduleNodeAuthorsRebuild(ctx, nodeId);
     forumDb(ctx)
       .prepare(`UPDATE nodes SET ${column} = ?1 WHERE id = ?2`)
       .run(typeof value === "boolean" ? Number(value) : value, nodeId);
@@ -2308,7 +2303,7 @@ function changePostState(ctx: Ctx, id: number, state: State): boolean {
         .run(delta, thread.node_id);
       if (nodeCountsPosts(ctx, thread.node_id))
         forumDb(ctx)
-          .prepare("UPDATE users SET post_count = post_count + ?1 WHERE id = ?2")
+          .prepare("UPDATE users SET post_count = max(0, post_count + ?1) WHERE id = ?2")
           .run(delta, post.user_id);
       updateNodeLast(ctx, thread.node_id);
     }
@@ -2468,7 +2463,7 @@ export function mergeThreadChunk(
       Number(sourceVisible && nodeCountsPosts(ctx, source.node_id));
     if (userDelta) {
       const adjust = forumDb(ctx).prepare(
-        "UPDATE users SET post_count = post_count + ?1 WHERE id = ?2",
+        "UPDATE users SET post_count = max(0, post_count + ?1) WHERE id = ?2",
       );
       for (const [userId, count] of authors) adjust.run(count * userDelta, userId);
     }
@@ -2923,7 +2918,7 @@ function applySplitChunk(
     const authors = new Map<number, number>();
     for (const post of visible) authors.set(post.user_id, (authors.get(post.user_id) ?? 0) + 1);
     const adjust = forumDb(ctx).prepare(
-      "UPDATE users SET post_count = post_count + ?1 WHERE id = ?2",
+      "UPDATE users SET post_count = max(0, post_count + ?1) WHERE id = ?2",
     );
     for (const [userId, count] of authors) adjust.run(count * userDelta, userId);
   }

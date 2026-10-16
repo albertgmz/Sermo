@@ -47,7 +47,8 @@ function Switch({
 
 // Every field `nodes.update` takes, grouped. The type of a node is fixed when it is created and is
 // shown, not edited. The tab of the forum list belongs to a root node only, so the row is there
-// only for one (`hasTab` tells the action the field was shown).
+// only for one (`hasTab` tells the action the field was shown), and the counting switch to a
+// forum (`hasCountsPosts`).
 export async function NodeForm({
   node,
   nodes,
@@ -163,14 +164,17 @@ export async function NodeForm({
           checked={settings.isReadOnly}
         />
       </FieldRow>
-      <FieldRow name="countsPosts" label={t("countsPosts")}>
-        <Switch
-          id="node-counts-posts"
-          name="countsPosts"
-          label={t("countsPostsHelp")}
-          checked={settings.countsPosts}
-        />
-      </FieldRow>
+      {node.type === "forum" && (
+        <FieldRow name="countsPosts" label={t("countsPosts")}>
+          <input type="hidden" name="hasCountsPosts" value="1" />
+          <Switch
+            id="node-counts-posts"
+            name="countsPosts"
+            label={t("countsPostsHelp")}
+            checked={settings.countsPosts}
+          />
+        </FieldRow>
+      )}
       <FieldRow
         name="minAccountAgeDays"
         label={t("minAccountAgeDays")}

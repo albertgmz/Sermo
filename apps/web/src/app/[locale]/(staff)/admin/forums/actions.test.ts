@@ -154,6 +154,7 @@ test("the editor sends every field it showed, the tab only for a root node", asy
         tabId: "2",
         iconKey: "",
         isReadOnly: "on",
+        hasCountsPosts: "1",
         countsPosts: "on",
         minAccountAgeDays: "3",
         minPostCount: "10",
@@ -180,8 +181,15 @@ test("the editor sends every field it showed, the tab only for a root node", asy
     saveNode(null, form({ id: "9", title: "News", position: "4" })),
   );
   expect(backend.asked[1].body).not.toHaveProperty("tabId");
-  // A switch left off is sent as off: a forum that does not count posts is saved as such.
-  expect(backend.asked[1].body).toMatchObject({
+  // Without the switch in the form (a category) the setting is not sent.
+  expect(
+    (backend.asked[1].body as { settings: object }).settings,
+  ).not.toHaveProperty("countsPosts");
+  await redirectedTo(() =>
+    saveNode(null, form({ id: "9", title: "News", hasCountsPosts: "1" })),
+  );
+  // A switch left off in a forum is sent as off: it is saved as not counting.
+  expect(backend.asked[2].body).toMatchObject({
     settings: { countsPosts: false },
   });
   expect(backend.asked[1].body).not.toHaveProperty("iconKey");

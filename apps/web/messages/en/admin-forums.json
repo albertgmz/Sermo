@@ -119,7 +119,7 @@
     "readOnly": "Read only",
     "readOnlyHelp": "Nobody can start threads or reply here.",
     "countsPosts": "Counts posts",
-    "countsPostsHelp": "Posts here add to the post counts of their authors. Changing this updates the counts for the posts already here.",
+    "countsPostsHelp": "Posts here add to the post counts of their authors. Changing this updates the counts for the posts already here a little later.",
     "minAccountAgeDays": "Minimum account age",
     "minAccountAgeDaysHelp": "Days an account must have existed before posting here.",
     "minPostCount": "Minimum posts",
