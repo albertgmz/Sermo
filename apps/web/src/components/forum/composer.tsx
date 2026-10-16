@@ -66,16 +66,25 @@ function useVisualViewport(active: boolean) {
 }
 
 // Both looks fill a phone's screen to the height that is in view. The sheet becomes a centred box
-// from `md` up; the screen stays the whole screen, fades in without growing (nothing of the page
-// shows round it) and leaves the column to what it holds. It is part of the forum's layout, so the
-// narrower page a visitor chose narrows its column too (`--container-width`, globals.css).
+// from `md` up, over the dimmed page. The screen stays the whole screen and is opaque from its
+// first frame to its last: no overlay under it and no fade or zoom, so nothing of the page shows
+// while it opens or closes. From `md` its background sets off the column that what it holds
+// draws. It is part of the forum's layout, so the narrower page a visitor chose narrows that
+// column too (`--container-width`, globals.css).
 const FILL =
   "top-0 left-0 flex h-[var(--visible-height,100dvh)] max-h-dvh max-w-none translate-x-0 sm:max-w-none translate-y-0 flex-col gap-0 rounded-none bg-background p-0";
 
-export const SHEET_CLASS = {
-  sheet: `${FILL} md:top-1/2 md:left-1/2 md:h-auto md:max-h-[min(40rem,85dvh)] md:max-w-xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl`,
-  screen: `${FILL} ring-0 data-open:zoom-in-100 data-closed:zoom-out-100`,
-};
+export function sheetPopup(screen: boolean) {
+  return screen
+    ? {
+        overlay: false,
+        "data-forum-layout": "",
+        className: `${FILL} ring-0 md:bg-muted data-open:animate-none! data-closed:animate-none!`,
+      }
+    : {
+        className: `${FILL} md:top-1/2 md:left-1/2 md:h-auto md:max-h-[min(40rem,85dvh)] md:max-w-xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl`,
+      };
+}
 
 export function ComposerSheet({
   open,
@@ -106,8 +115,7 @@ export function ComposerSheet({
               "--visible-height": `${visibleHeight}px`,
             } as React.CSSProperties)
       }
-      data-forum-layout={screen ? "" : undefined}
-      className={screen ? SHEET_CLASS.screen : SHEET_CLASS.sheet}
+      {...sheetPopup(screen)}
     >
       {children}
     </DialogContent>
@@ -132,14 +140,25 @@ export type ComposerFrame =
   // On a page of its own, which has its own heading: close is a link back.
   | { kind: "page"; closeHref: string };
 
-// A press on the blank part of a grown text, below what is written: the caret goes to the end of
-// the text, as a press below the last line of a page puts it there. A press in the text itself, or
-// on anything of its own that takes one, is left to it.
+// A press on the blank part of a grown text, below what is written, puts the caret at the end of
+// the text, as a press below the last line of a page does. Not a press in the text itself or on
+// anything of its own that takes one (`target`), and not the release of a selection dragged out
+// of the text into the blank part (`selection`, the document's, or `field`'s own for a plain box):
+// moving the caret would undo what the member selected.
 const OWN_PRESS =
   '[contenteditable="true"], textarea, input, button, a, [role="listbox"]';
 
+export function blankPress(
+  target: Pick<Element, "closest">,
+  selection: Pick<Selection, "isCollapsed"> | null,
+  field?: { selectionStart: number | null; selectionEnd: number | null },
+) {
+  if (target.closest(OWN_PRESS)) return false;
+  if (selection && !selection.isCollapsed) return false;
+  return !field || field.selectionStart === field.selectionEnd;
+}
+
 function caretToEnd(event: React.MouseEvent<HTMLElement>) {
-  if ((event.target as Element).closest(OWN_PRESS)) return;
   // The editor, its source view or the plain box that stands in for it: whichever is shown.
   const field = [
     ...event.currentTarget.querySelectorAll<HTMLElement>(
@@ -147,9 +166,20 @@ function caretToEnd(event: React.MouseEvent<HTMLElement>) {
     ),
   ].find((element) => !element.closest("[hidden]"));
   if (!field) return;
-  if (field instanceof HTMLTextAreaElement) {
-    field.setSelectionRange(field.value.length, field.value.length);
+  const box = field instanceof HTMLTextAreaElement ? field : null;
+  if (
+    !blankPress(
+      event.target as Element,
+      window.getSelection(),
+      box && document.activeElement === box ? box : undefined,
+    )
+  ) {
+    return;
+  }
+  if (box) {
+    box.setSelectionRange(box.value.length, box.value.length);
   } else {
+    // The end of the editor's root: the editor puts it at the end of its last block.
     const end = document.createRange();
     end.selectNodeContents(field);
     end.collapse(false);
@@ -223,7 +253,14 @@ export function ComposerForm({
       onSubmit={onSubmit}
       className="flex min-h-0 flex-1 flex-col"
     >
-      {cover}
+      {cover && grow ? (
+        // On the whole screen the choice is as narrow as the Create flow's own choice of forum.
+        <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
+          {cover}
+        </div>
+      ) : (
+        cover
+      )}
       <div className={cn("flex min-h-0 flex-1 flex-col", cover && "hidden")}>
         <div className="flex items-center justify-between gap-2 border-b p-2">
           {frame.kind === "dialog" ? (

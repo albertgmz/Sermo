@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test";
 import {
+  box as boxOf,
   createButton,
+  editorReady,
   expect,
   expectFits,
   MEMBER_STATE,
@@ -171,4 +173,48 @@ test("a wall post is written from the dialog and lands on the member's wall", as
   await expect(page.getByText(text)).toBeVisible();
   await expect(dialog(page)).toBeHidden();
   await expectFits(page, "the wall");
+});
+
+test("in the Create dialog a press below the text puts the caret at its end, and a selection is not undone by the press that ends it", async ({
+  page,
+}) => {
+  await visit(page, "/");
+  await openCreate(page);
+  await dialog(page)
+    .getByRole("button", { name: /^Wall post/ })
+    .click();
+  const text = dialog(page).getByRole("textbox", {
+    name: "What's on your mind?",
+  });
+  await text.click();
+  await text.pressSequentially("First words");
+  await editorReady(dialog(page));
+  const blank = dialog(page).locator("[data-composer-grow]");
+  // The text takes the screen down to the bar of tools.
+  const frame = await boxOf(blank);
+  const written = await boxOf(text);
+  expect(frame.y + frame.height).toBeGreaterThan(
+    written.y + written.height + 100,
+  );
+
+  // The caret at the start, then a press well below the text: typing goes on at the end.
+  await page.keyboard.press("Home");
+  await page.mouse.click(
+    frame.x + frame.width / 2,
+    frame.y + frame.height - 20,
+  );
+  await page.keyboard.type(" and more");
+  await expect(text).toHaveText("First words and more");
+
+  // A selection that ends in the blank part (its click lands on the frame, with no press there
+  // first) stays as the member made it.
+  await page.keyboard.press("Shift+Home");
+  await expect
+    .poll(() => page.evaluate(() => window.getSelection()?.toString()))
+    .toBe("First words and more");
+  await blank.dispatchEvent("click");
+  expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(
+    "First words and more",
+  );
+  await expectFits(page, "grown wall composer");
 });

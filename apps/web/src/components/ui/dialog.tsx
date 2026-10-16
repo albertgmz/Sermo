@@ -45,16 +45,19 @@ function DialogContent({
   children,
   showCloseButton = true,
   keepMounted,
+  overlay = true,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
   keepMounted?: boolean;
+  // False for a popup that covers the whole screen itself: nothing is left to dim.
+  overlay?: boolean;
 }) {
   const t = useTranslations("ui.dialog");
 
   return (
     <DialogPortal keepMounted={keepMounted}>
-      <DialogOverlay />
+      {overlay && <DialogOverlay />}
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(

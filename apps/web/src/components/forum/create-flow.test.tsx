@@ -306,7 +306,7 @@ test("a poll the member did not ask for is not sent with a discussion, and one a
   expect(thread("poll")).toContain('name="poll"');
 });
 
-const { SHEET_CLASS } = await import("./composer");
+const { blankPress, sheetPopup } = await import("./composer");
 const { STEP_COLUMN } = await import("./create-flow");
 const { WallPostForm } = await import(
   "@/app/[locale]/(main)/members/post-composer"
@@ -315,8 +315,9 @@ const classes = (list: string) => list.split(/\s+/).filter(Boolean);
 const source = (file: string) =>
   readFileSync(join(import.meta.dir, file), "utf8");
 
-test("the Create dialog is the whole screen at every size; the wall page's sheet keeps its box from md", () => {
-  const screen = classes(SHEET_CLASS.screen);
+test("the Create dialog is the whole screen at every size, opaque from its first frame; the wall page's sheet keeps its box from md", () => {
+  const screen = sheetPopup(true);
+  const names = classes(screen.className);
   for (const name of [
     "top-0",
     "left-0",
@@ -327,13 +328,22 @@ test("the Create dialog is the whole screen at every size; the wall page's sheet
     "rounded-none",
     "bg-background",
   ])
-    expect(screen).toContain(name);
+    expect(names).toContain(name);
   // Nothing turns it back into a box on a wider screen (`sm:max-w-none` lifts the dialog's own
-  // `sm:max-w-sm`).
+  // `sm:max-w-sm`); from md only its background changes, to set off the column.
   expect(
-    screen.filter((name) => /^(?:sm|md|lg|xl|2xl|min-\[)/.test(name)),
-  ).toEqual(["sm:max-w-none"]);
-  expect(classes(SHEET_CLASS.sheet)).toContain("md:max-w-xl");
+    names.filter((name) => /^(?:sm|md|lg|xl|2xl|min-\[)/.test(name)),
+  ).toEqual(["sm:max-w-none", "md:bg-muted"]);
+  // No dimmed, blurred page under it, and no fade or zoom that would show the page through it:
+  // the dialog's own animations are switched off, not outweighed by a later class.
+  expect(screen.overlay).toBe(false);
+  expect(names).toContain("data-open:animate-none!");
+  expect(names).toContain("data-closed:animate-none!");
+
+  const sheet = sheetPopup(false);
+  expect(classes(sheet.className)).toContain("md:max-w-xl");
+  expect("overlay" in sheet).toBe(false);
+  expect("data-forum-layout" in sheet).toBe(false);
   // The Create button's dialog is the screen; the wall page's composer is the sheet it was.
   expect(source("../layout/create-popup.tsx")).toContain(
     "<ComposerSheet open={open} screen>",
@@ -341,6 +351,40 @@ test("the Create dialog is the whole screen at every size; the wall page's sheet
   expect(
     source("../../app/[locale]/(main)/members/post-composer.tsx"),
   ).toContain("<ComposerSheet open={open} formRef={form}>");
+});
+
+test("the narrower page a visitor chose narrows the Create dialog's writing column too", () => {
+  // The dialog is drawn outside the layout (a portal on <body>), so it carries the mark the
+  // narrow rule looks for itself, and the writing column reads the width that rule sets.
+  expect(sheetPopup(true)["data-forum-layout"]).toBe("");
+  const css = readFileSync(
+    join(import.meta.dir, "../../app/globals.css"),
+    "utf8",
+  );
+  expect(css).toMatch(
+    /:root\[data-width="narrow"\] \[data-forum-layout\] \{\s*--container-width: 1100px;/,
+  );
+  expect(classes(STEP_COLUMN.writing)).toContain("max-w-(--container-width)");
+});
+
+test("a press on the blank part of the text puts the caret at its end, unless it is in the text, on a control, or ends a selection", () => {
+  const at = (own: boolean) => ({
+    closest: () => (own ? ({} as Element) : null),
+  });
+  const collapsed = { isCollapsed: true };
+  expect(blankPress(at(false), collapsed)).toBe(true);
+  expect(blankPress(at(false), null)).toBe(true);
+  // In the text, on a mention, a link or a button: theirs.
+  expect(blankPress(at(true), collapsed)).toBe(false);
+  // A selection dragged from the text and released in the blank part stays as it is.
+  expect(blankPress(at(false), { isCollapsed: false })).toBe(false);
+  // The same in the plain box that stands in for the editor, whose selection is its own.
+  expect(
+    blankPress(at(false), collapsed, { selectionStart: 2, selectionEnd: 9 }),
+  ).toBe(false);
+  expect(
+    blankPress(at(false), collapsed, { selectionStart: 4, selectionEnd: 4 }),
+  ).toBe(true);
 });
 
 test("each step is a column in the middle of the screen: the choices narrow, the composers as wide as the forum", () => {
@@ -366,6 +410,11 @@ test("each step is a column in the middle of the screen: the choices narrow, the
     /data-create-option="wall"[^>]*class="[^"]*md:min-h-36/,
   );
   expect(draw({})).toMatch(/role="status"[^>]*class="[^"]*md:grid-cols-2/);
+  // From md the choice sits in the middle of the screen's height under its question, the list
+  // area scrolling if it is taller.
+  expect(chooser).toMatch(
+    /class="flex min-h-0 flex-1 flex-col overflow-y-auto[^"]*"><div data-chooser-body="" class="md:my-auto"><h2 class="[^"]*hidden[^"]*md:block[^"]*">What would you like to create\?<\/h2>/,
+  );
 
   // The steps the flow reaches later: the forum list in the narrow column, the composers and
   // their loading shape in the wide one.

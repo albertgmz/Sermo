@@ -475,6 +475,7 @@
   },
   "createFlow": {
     "title": "Create",
+    "prompt": "What would you like to create?",
     "loading": "Loading…",
     "failed": "Could not load what you can create.",
     "retry": "Try again",

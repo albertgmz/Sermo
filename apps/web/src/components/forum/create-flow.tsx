@@ -94,7 +94,7 @@ function ChooserHeader({ title, close }: { title: string; close: string }) {
 }
 
 // The first step: what the member may write, or the reason there is nothing to choose yet. A list
-// on a phone, tiles two by two from `md`.
+// on a phone; from `md` a question and tiles two by two, in the middle of the screen's height.
 export function CreateChooser({
   data,
   failed,
@@ -115,63 +115,70 @@ export function CreateChooser({
   return (
     <div className={cn(CHOICE, "flex")}>
       <ChooserHeader title={t("title")} close={t("aria.close")} />
-      <div className="min-h-0 flex-1 overflow-y-auto p-2 md:p-6">
-        {data ? (
-          options.length === 0 ? (
-            <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-              {t("nothing")}
-            </p>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-2 md:p-6">
+        {/* Auto margins centre it and, unlike centring the column, keep its top in reach when it
+            is taller than the screen. */}
+        <div data-chooser-body="" className="md:my-auto">
+          <h2 className="mb-5 hidden text-center text-xl font-semibold md:block">
+            {t("prompt")}
+          </h2>
+          {data ? (
+            options.length === 0 ? (
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                {t("nothing")}
+              </p>
+            ) : (
+              <ul className={TILES}>
+                {options.map((option) => {
+                  const Icon = ICONS[option];
+                  return (
+                    <li key={option}>
+                      <button
+                        type="button"
+                        data-create-option={option}
+                        onClick={() => onPick(option)}
+                        className="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:h-full md:min-h-36 md:flex-col md:items-start md:border md:p-4 md:hover:border-ring"
+                      >
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-full border bg-background">
+                          <Icon
+                            aria-hidden="true"
+                            className="size-5 text-primary-ink"
+                          />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold">
+                            {t(`kinds.${option}.title`)}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            {t(`kinds.${option}.description`)}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )
+          ) : failed ? (
+            <div className="space-y-3 px-2 py-6 text-center">
+              <p className="text-sm text-muted-foreground">{t("failed")}</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10"
+                onClick={onRetry}
+              >
+                {t("retry")}
+              </Button>
+            </div>
           ) : (
-            <ul className={TILES}>
-              {options.map((option) => {
-                const Icon = ICONS[option];
-                return (
-                  <li key={option}>
-                    <button
-                      type="button"
-                      data-create-option={option}
-                      onClick={() => onPick(option)}
-                      className="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:h-full md:min-h-36 md:flex-col md:items-start md:border md:p-4 md:hover:border-ring"
-                    >
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border bg-background">
-                        <Icon
-                          aria-hidden="true"
-                          className="size-5 text-primary-ink"
-                        />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold">
-                          {t(`kinds.${option}.title`)}
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          {t(`kinds.${option}.description`)}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )
-        ) : failed ? (
-          <div className="space-y-3 px-2 py-6 text-center">
-            <p className="text-sm text-muted-foreground">{t("failed")}</p>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10"
-              onClick={onRetry}
-            >
-              {t("retry")}
-            </Button>
-          </div>
-        ) : (
-          <div role="status" aria-label={t("loading")} className={TILES}>
-            {[1, 2, 3, 4].map((row) => (
-              <Skeleton key={row} className="h-14 w-full md:h-36" />
-            ))}
-          </div>
-        )}
+            <div role="status" aria-label={t("loading")} className={TILES}>
+              {[1, 2, 3, 4].map((row) => (
+                <Skeleton key={row} className="h-14 w-full md:h-36" />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
