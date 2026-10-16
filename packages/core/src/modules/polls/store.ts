@@ -3,7 +3,7 @@ import { type Ctx, prepared } from "../../context";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { MAX_POLL_ANSWERS, POLL_PURGE_BATCH } from "../../limits";
-import { iso } from "../../time";
+
 import { setAttachments } from "../attachments";
 import type { CleanAnswer, CleanPoll, CleanQuestion } from "./text";
 import { searchTextOf } from "./text";
@@ -96,7 +96,9 @@ export const pollById = (ctx: Ctx, id: number): PollRow | null =>
  */
 export const isRetiring = (poll: Pick<PollRow, "max_choices">): boolean => poll.max_choices === 0;
 export const retirePoll = (ctx: Ctx, id: number): void => {
-  statement(ctx, "retire", "UPDATE polls SET max_choices = 0 WHERE id = ?1").run(id);
+  statement(ctx, "retire", "UPDATE polls SET max_choices = 0, search_text = '' WHERE id = ?1").run(
+    id,
+  );
 };
 export const pollOfThread = (ctx: Ctx, threadId: number): PollRow | null =>
   statement<PollRow>(ctx, "byThread", pollSql.byThread).get(threadId);
@@ -219,11 +221,25 @@ export function replacePoll(
 ): void {
   // An editor that started from an older definition has not seen what changed since (an answer a
   // voter added would be deleted by a list that leaves it out).
-  if (loadedAt !== undefined && loadedAt !== iso(poll.updated_at))
+  if (loadedAt !== undefined && Date.parse(loadedAt) !== poll.updated_at)
     throw new ConflictError(
       "This poll changed since you opened it. Reload it, then make your change again.",
+      [{ path: ["loadedAt"], message: "stale" }],
     );
   const { questions, answers } = pollParts(ctx, [poll.id], null);
+  // Without the version the edit started from, an answer a voter added is not the edit's to
+  // remove: an edit built from an older read must not delete what it never saw.
+  if (loadedAt === undefined && poll.kind === "poll") {
+    const only = clean.questions[0];
+    for (const row of answers)
+      if (row.added_by !== null && !only?.answers.some((answer) => answer.id === row.id))
+        only?.answers.push({
+          id: row.id,
+          text: row.text,
+          imageFileId: row.image_file_id,
+          correct: false,
+        });
+  }
   const questionById = new Map(questions.map((row) => [row.id, row]));
   const answerById = new Map(answers.map((row) => [row.id, row]));
   const quiz = poll.kind === "quiz";
@@ -266,7 +282,7 @@ export function replacePoll(
         "Members have already taken this quiz: its questions, answers and right answers can no longer change.",
       );
   }
-  // One transaction removes one batch of voters: an answer chosen by more has to stay.
+  // One transaction removes about one batch of voters per answer: an answer chosen by more has to stay.
   if (removedAnswers.some((row) => row.vote_count > POLL_PURGE_BATCH))
     throw new ConflictError(
       "This answer has too many votes to remove in one step. Delete the poll, or keep the answer.",
@@ -373,13 +389,13 @@ export function setClosed(ctx: Ctx, pollId: number, closed: boolean): void {
     statement(
       ctx,
       "close",
-      "UPDATE polls SET closed_at = coalesce(closed_at, ?2), updated_at = max(updated_at + 1, ?2) WHERE id = ?1",
+      "UPDATE polls SET closed_at = ?2, updated_at = max(updated_at + 1, ?2) WHERE id = ?1 AND closed_at IS NULL",
     ).run(pollId, now);
   else
     statement(
       ctx,
       "reopen",
-      "UPDATE polls SET closed_at = NULL, closes_at = CASE WHEN closes_at <= ?2 THEN NULL ELSE closes_at END, updated_at = max(updated_at + 1, ?2) WHERE id = ?1",
+      "UPDATE polls SET closed_at = NULL, closes_at = CASE WHEN closes_at <= ?2 THEN NULL ELSE closes_at END, updated_at = max(updated_at + 1, ?2) WHERE id = ?1 AND (closed_at IS NOT NULL OR closes_at <= ?2)",
     ).run(pollId, now);
 }
 

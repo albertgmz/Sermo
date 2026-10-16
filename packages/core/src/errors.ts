@@ -54,8 +54,8 @@ export class NotFoundError extends SermoError {
 }
 
 export class ConflictError extends SermoError {
-  constructor(message: string) {
-    super("conflict", message);
+  constructor(message: string, issues?: ErrorIssue[]) {
+    super("conflict", message, issues);
   }
 }
 

@@ -46,7 +46,8 @@ const PollQuestionInput = z.object({
   explanation: z
     .string()
     .trim()
-    .max(POLL_EXPLANATION_LENGTH)
+    // The cap that counts is on the text once its BB code is read (the writer's).
+    .max(Math.max(POLL_EXPLANATION_LENGTH * 5, 500))
     .default("")
     .describe("Quiz only: shown with the right answer once the member has answered."),
   answers: z.array(PollAnswerInput).min(2).max(MAX_POLL_ANSWERS),

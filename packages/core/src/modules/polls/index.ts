@@ -32,7 +32,7 @@ import {
   retirePoll,
   setClosed,
 } from "./store";
-import { type CleanPoll, cleanAnswerText, cleanPoll } from "./text";
+import { type CleanPoll, cleanAnswerText, cleanPoll, postsAreHeld } from "./text";
 import { pollValues } from "./view";
 
 const voterCursor = z.tuple([z.number().int()]);
@@ -65,6 +65,14 @@ function needsUpload(ctx: Ctx, pollId: number | null, clean: CleanPoll): boolean
       : [...loadAttachments(ctx, "poll", [pollId]).values()].flat().map((file) => file.fileId),
   );
   return wanted.some((id) => !held.has(id));
+}
+
+/** Members whose posts are held for approval add nothing to a poll later: a poll has no queue. */
+function requireNotOnProbation(ctx: Ctx, actor: Actor): void {
+  if (postsAreHeld(ctx, actor))
+    throw new ForbiddenError(
+      "Your posts are held for approval at the moment, and a poll cannot wait for it: you cannot add a poll or an answer yet.",
+    );
 }
 
 /** A text a word filter holds for approval has no queue to wait in: it is refused here. */
@@ -104,6 +112,7 @@ const createOp = implement(contracts.pollsCreate, (ctx, actor, input) => {
     );
   }
   requireTermsAccepted(ctx, actor);
+  requireNotOnProbation(ctx, actor);
   // A poll is written content: the forum's own posting rules (read-only, account age, post count) hold.
   checkNodePostingRules(ctx, actor, row.node_id);
   const clean = cleanPoll(ctx, actor, input.poll);
@@ -117,6 +126,7 @@ const createOp = implement(contracts.pollsCreate, (ctx, actor, input) => {
       throw new ForbiddenError(CLOSED);
     if (!mayAddPoll(permissionsOf(ctx, current), current, thread)) throw new ForbiddenError();
     checkNodePostingRules(ctx, current, thread.node_id);
+    requireNotOnProbation(ctx, current);
     requireWriteRoom(ctx, current, "reply", clean.floodSeconds);
     if (needsUpload(ctx, null, clean))
       requirePermission(ctx, current, "forum.uploadAttachments", { nodeId: thread.node_id });
@@ -212,6 +222,7 @@ const addAnswerOp = implement(contracts.pollsAddAnswer, (ctx, actor, input) => {
   if (poll.kind !== "poll" || !poll.allow_custom)
     throw new ConflictError("This poll takes no custom answers.");
   requireTermsAccepted(ctx, actor);
+  requireNotOnProbation(ctx, actor);
   checkNodePostingRules(ctx, actor, thread.node_id);
   const answer = cleanAnswerText(ctx, actor, input.text);
   if (answer.moderated)
@@ -227,9 +238,11 @@ const addAnswerOp = implement(contracts.pollsAddAnswer, (ctx, actor, input) => {
       threadBanned: !!fresh.thread.thread_banned,
     });
     checkNodePostingRules(ctx, current, fresh.thread.node_id);
+    requireNotOnProbation(ctx, current);
     requireWriteRoom(ctx, current, "reply", answer.floodSeconds);
     if (!fresh.poll.allow_custom) throw new ConflictError("This poll takes no custom answers.");
-    if (cleanAnswerText(ctx, current, input.text).text !== answer.text)
+    const again = cleanAnswerText(ctx, current, input.text);
+    if (again.text !== answer.text || again.moderated !== answer.moderated)
       throw new ConflictError("Moderation rules changed; retry.");
     insertCustomAnswer(ctx, fresh.poll, user.userId, answer.text);
   });

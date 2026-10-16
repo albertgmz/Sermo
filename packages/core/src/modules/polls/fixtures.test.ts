@@ -1,3 +1,4 @@
+import { insertUser } from "@sermo/core/testing";
 import type * as z from "zod";
 import type { Poll, PollDefinition } from "../../contracts/polls";
 import type { World } from "../feed/fixtures.test";
@@ -63,3 +64,23 @@ export const pollVoteCount = (w: World, userId: number): number =>
   w.ctx.sqlite
     .prepare<{ n: number }, [number]>("SELECT poll_vote_count AS n FROM users WHERE id = ?1")
     .get(userId)!.n;
+
+/** Gives a poll `count` voters at once, as the triggers would see them (one answer each). */
+export function crowd(w: World, poll: PollValue, count: number): number[] {
+  const answers = answerIds(poll);
+  const question = poll.questions[0]?.id ?? 0;
+  const users = Array.from({ length: count }, () => insertUser(w.ctx).id);
+  w.ctx.sqlite.transaction(() => {
+    const ballot = w.ctx.sqlite.prepare(
+      "INSERT INTO poll_ballots (poll_id, user_id, answered, score, created_at, completed_at) VALUES (?1, ?2, 1, 0, 1, 1)",
+    );
+    const vote = w.ctx.sqlite.prepare(
+      "INSERT INTO poll_votes (poll_id, question_id, answer_id, user_id, created_at) VALUES (?1, ?2, ?3, ?4, 1)",
+    );
+    users.forEach((user, i) => {
+      ballot.run(poll.id, user);
+      vote.run(poll.id, question, answers[i % answers.length] ?? 0, user);
+    });
+  })();
+  return users;
+}

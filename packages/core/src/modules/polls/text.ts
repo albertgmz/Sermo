@@ -83,6 +83,15 @@ interface Held {
   floodSeconds: number;
 }
 
+/**
+ * Whether the member's own posts are held for approval at the moment (their first posts, or the
+ * site's approval rule): what `prepareModeratedContent` says of a text of a forum post whatever
+ * its words. A poll text cannot wait in a queue, so such a member adds none to a poll later.
+ */
+export function postsAreHeld(ctx: Ctx, actor: Actor): boolean {
+  return prepareModeratedContent(ctx, actor, "", true).moderated;
+}
+
 /** The text of one custom answer, as a creator's would be read. */
 export function cleanAnswerText(
   ctx: Ctx,

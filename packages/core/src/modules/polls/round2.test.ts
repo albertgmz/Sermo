@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { expectNoTableScan, insertUser } from "@sermo/core/testing";
+import { expectNoTableScan } from "@sermo/core/testing";
 import {
   ConflictError,
   ForbiddenError,
@@ -14,6 +14,7 @@ import { readSiteSettings } from "../settings";
 import {
   answerIds,
   colours,
+  crowd,
   type EditInput,
   type PollValue,
   pollVoteCount,
@@ -43,26 +44,6 @@ const edit = (poll: PollValue): EditInput => ({
 
 const rows = (w: World, sql: string, ...params: number[]) =>
   w.ctx.sqlite.prepare<{ n: number }, number[]>(sql).get(...params)?.n ?? 0;
-
-/** Gives a poll `count` voters at once, as the triggers would see them (one answer each). */
-function crowd(w: World, poll: PollValue, count: number): number[] {
-  const answers = answerIds(poll);
-  const question = poll.questions[0]?.id ?? 0;
-  const users = Array.from({ length: count }, () => insertUser(w.ctx).id);
-  w.ctx.sqlite.transaction(() => {
-    const ballot = w.ctx.sqlite.prepare(
-      "INSERT INTO poll_ballots (poll_id, user_id, answered, score, created_at, completed_at) VALUES (?1, ?2, 1, 0, 1, 1)",
-    );
-    const vote = w.ctx.sqlite.prepare(
-      "INSERT INTO poll_votes (poll_id, question_id, answer_id, user_id, created_at) VALUES (?1, ?2, ?3, ?4, 1)",
-    );
-    users.forEach((user, i) => {
-      ballot.run(poll.id, user);
-      vote.run(poll.id, question, answers[i % answers.length] ?? 0, user);
-    });
-  })();
-  return users;
-}
 
 describe("an editor that started from an older definition", () => {
   test("is refused when an answer was added meanwhile, and nothing is deleted", async () => {
