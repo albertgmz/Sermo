@@ -27,11 +27,16 @@ const VARIANTS = {
 
 // A tab's look, the same for a link of the bar and the menu button at its end.
 const TAB_CLASS =
-  "inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:text-foreground";
+  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:text-foreground [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
+
+// A narrow tab: tighter below `sm`, and the frame of the label it hides there (`sr-only` is
+// positioned).
+const NARROW_TAB = "relative max-sm:px-2.5";
 
 // Props
 //   tabs   The tabs of the bar.
 //   more   Tabs that do not fit the bar: a menu at its end, named `moreLabel`, holds them.
+//   narrow Below `sm` every tab but the open one, and the menu button, shows only its icon.
 export function TabLinks({
   tabs,
   active,
@@ -40,6 +45,7 @@ export function TabLinks({
   className,
   more,
   moreLabel,
+  narrow = false,
 }: {
   tabs: TabLink[];
   active: string;
@@ -48,7 +54,9 @@ export function TabLinks({
   className?: string;
   more?: TabLink[];
   moreLabel?: string;
+  narrow?: boolean;
 }) {
+  const tabClass = cn(TAB_CLASS, VARIANTS[variant].link, narrow && NARROW_TAB);
   return (
     <nav
       aria-label={label}
@@ -60,10 +68,14 @@ export function TabLinks({
           href={tab.href}
           scroll={false}
           aria-current={tab.value === active ? "page" : undefined}
-          className={cn(TAB_CLASS, VARIANTS[variant].link)}
+          className={tabClass}
         >
           {tab.icon}
-          {tab.label}
+          {narrow && tab.value !== active ? (
+            <span className="max-sm:sr-only">{tab.label}</span>
+          ) : (
+            tab.label
+          )}
           {tab.count !== undefined && (
             <span className="text-xs tabular-nums text-muted-foreground">
               {tab.count}
@@ -75,7 +87,8 @@ export function TabLinks({
         <TabMore
           tabs={more}
           label={moreLabel}
-          className={cn(TAB_CLASS, VARIANTS[variant].link)}
+          className={tabClass}
+          narrow={narrow}
         />
       )}
     </nav>

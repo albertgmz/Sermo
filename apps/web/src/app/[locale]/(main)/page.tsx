@@ -1,4 +1,13 @@
-import { Images, PenLine, Rss } from "lucide-react";
+import {
+  Clock,
+  Images,
+  type LucideIcon,
+  MessagesSquare,
+  PenLine,
+  Rss,
+  TrendingUp,
+  UserCheck,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -51,6 +60,7 @@ import {
   type HomeTab,
   homeHref,
   openTab,
+  phoneBarOf,
   tabParam,
 } from "@/lib/home-tabs";
 import { pagesParam } from "@/lib/list-pages";
@@ -150,7 +160,8 @@ async function AccountDeletedNotice({ searchParams }: PageProps<"/[locale]">) {
   );
 }
 
-// Posts on the wall of the member who is signed in.
+// Posts on the wall of the member who is signed in. Not on a phone, where the + of the bottom bar
+// does it.
 async function HomeComposer() {
   const [{ user, permissions }, t] = await Promise.all([
     getViewer(),
@@ -161,7 +172,7 @@ async function HomeComposer() {
   return (
     <section
       aria-label={t("aria.newPost")}
-      className="overflow-hidden rounded-lg border bg-card"
+      className="overflow-hidden rounded-lg border bg-card max-md:hidden"
     >
       <PostComposer
         action={postToWall.bind(null, user.id, "/")}
@@ -226,20 +237,45 @@ async function OnFeedTabs({
   return FEED_TABS.some((feed) => feed === tab) ? children : null;
 }
 
+const TAB_ICONS: Record<HomeTab, LucideIcon> = {
+  latest: Clock,
+  hot: TrendingUp,
+  following: UserCheck,
+  forums: MessagesSquare,
+  media: Images,
+};
+
+// Two bars, one per screen size: a phone has every tab but Media on its bar, with icons and only
+// the open tab's label on the narrowest screens; a wider screen pins three (`barOf`).
 async function HomeTabs({ searchParams }: PageProps<"/[locale]">) {
   const [{ params, signedIn, home, tab }, t] = await Promise.all([
     opening(searchParams),
     getTranslations("home.page"),
   ]);
   const { bar, more } = barOf({ active: tab, fallback: home, signedIn });
+  const phone = phoneBarOf({ active: tab, signedIn });
   const link = (value: HomeTab) => ({
     value,
     label: t(`tabs.${value}`),
     href: homeHref(value),
   });
+  const phoneLink = (value: HomeTab) => {
+    const Icon = TAB_ICONS[value];
+    return { ...link(value), icon: <Icon /> };
+  };
 
   return (
     <>
+      <TabLinks
+        tabs={phone.bar.map(phoneLink)}
+        more={phone.more.map(phoneLink)}
+        moreLabel={t("tabs.more")}
+        active={tab}
+        label={t("aria.feed")}
+        variant="segmented"
+        narrow
+        className="md:hidden"
+      />
       <TabLinks
         tabs={bar.map(link)}
         more={more.map(link)}
@@ -247,6 +283,7 @@ async function HomeTabs({ searchParams }: PageProps<"/[locale]">) {
         active={tab}
         label={t("aria.feed")}
         variant="segmented"
+        className="max-md:hidden"
       />
       {tab === "forums" ? (
         <ForumList

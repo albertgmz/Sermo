@@ -66,6 +66,23 @@ export function barOf({
   };
 }
 
+// The tabs a phone keeps in "More" while another one is open.
+const PHONE_MORE: readonly HomeTab[] = ["media"];
+
+// Which tabs the bar shows on a phone, where the default does not change it: every tab in the fixed
+// order but Media, which is in "More" unless it is open.
+export function phoneBarOf({
+  active,
+  signedIn,
+}: {
+  active: HomeTab;
+  signedIn: boolean;
+}): { bar: HomeTab[]; more: HomeTab[] } {
+  const all = tabsFor(signedIn);
+  const more = all.filter((tab) => PHONE_MORE.includes(tab) && tab !== active);
+  return { bar: all.filter((tab) => !more.includes(tab)), more };
+}
+
 // The address of a tab: always named, because what the bare address opens depends on the visitor.
 export function homeHref(tab: HomeTab, cursor?: string) {
   const params = new URLSearchParams({ tab });

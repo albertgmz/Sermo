@@ -55,11 +55,13 @@ function backend({
   siteTab = "latest",
   own = null,
   siteFails = false,
+  canPost = false,
 }: {
   member: boolean;
   siteTab?: string;
   own?: string | null;
   siteFails?: boolean;
+  canPost?: boolean;
 }) {
   asked.length = 0;
   globalThis.fetch = (async (url: string) => {
@@ -70,6 +72,7 @@ function backend({
       // The backend decides the member's default: their choice, else the site's answer.
       if (body.user)
         Object.assign(body.user, { homeTab: own, openHomeTab: own ?? siteTab });
+      body.permissions.canPostProfile = canPost;
       return Response.json(body);
     }
     if (pathname === "/api/v1/site/home-tab")
@@ -186,9 +189,23 @@ test("a guest who asks for following, or whose default is it, gets latest", asyn
   expect(html).not.toContain('href="/?tab=following"');
 });
 
+// The two bars of the page: the phone's, hidden from `md`, and the wider screens', hidden below it.
+function bars(html: string) {
+  const navs = [
+    ...html.matchAll(
+      /<nav aria-label="Home tabs" class="([^"]*)">([\s\S]*?)<\/nav>/g,
+    ),
+  ];
+  const of = (name: string) =>
+    navs.find(([, names]) => names.split(" ").includes(name))?.[2] ?? "";
+  return { phone: of("md:hidden"), wide: of("max-md:hidden") };
+}
+const linked = (bar: string) =>
+  [...bar.matchAll(/href="\/\?tab=(\w+)"/g)].map(([, tab]) => tab);
+
 test("the bar shows three tabs and the rest are in a More menu; the open tab is always shown", async () => {
   backend({ member: true });
-  const html = await render({ tab: "media" });
+  const html = bars(await render({ tab: "media" })).wide;
   const bar = (tab: string) => html.includes(`href="/?tab=${tab}"`);
   // Latest and Hot stay, Media takes the place of the last one; Following and Forums are behind
   // the menu, which is closed.
@@ -283,4 +300,80 @@ test("a first page with no row and a cursor to go on says so above the button, n
   expect(html).toContain("Press the button to keep looking");
   expect(html).not.toContain("No threads match these filters");
   expect(html).toContain("cursor=abc");
+});
+
+test("a member's phone bar holds Latest, Trending, Following and Forums, with Media in More", async () => {
+  backend({ member: true, siteTab: "forums" });
+  const { phone, wide } = bars(await render());
+  expect(linked(phone)).toEqual(["latest", "hot", "following", "forums"]);
+  expect(phone).toContain(">More<");
+  // The wider screens keep the pinning by the default.
+  expect(linked(wide)).toEqual(["latest", "hot", "forums"]);
+});
+
+test("a guest's phone bar has no Following", async () => {
+  backend({ member: false });
+  const { phone, wide } = bars(await render());
+  expect(linked(phone)).toEqual(["latest", "hot", "forums"]);
+  expect(linked(wide)).toEqual(["latest", "hot", "forums"]);
+});
+
+test("on a phone Media open is on the bar and there is no More", async () => {
+  backend({ member: true });
+  const { phone } = bars(await render({ tab: "media" }));
+  expect(linked(phone)).toEqual([
+    "latest",
+    "hot",
+    "following",
+    "forums",
+    "media",
+  ]);
+  expect(phone).not.toContain("<button");
+});
+
+test("every tab of the phone bar has an icon and its label as its name; only the open one shows it", async () => {
+  backend({ member: true });
+  const { phone, wide } = bars(await render({ tab: "hot" }));
+  const links = [...phone.matchAll(/<a [^>]*>(.*?)<\/a>/g)].map(
+    ([, inner]) => inner,
+  );
+  expect(links).toHaveLength(4);
+  for (const inner of links)
+    expect(inner).toMatch(/^<svg [^>]*aria-hidden="true"/);
+  const shown = links.map((inner) => inner.replace(/^<svg.*?<\/svg>/, ""));
+  expect(shown).toEqual([
+    '<span class="max-sm:sr-only">Latest</span>',
+    "Trending",
+    '<span class="max-sm:sr-only">Following</span>',
+    '<span class="max-sm:sr-only">Forums</span>',
+  ]);
+  // The wider screens' bar is drawn as before: labels, no icons.
+  expect(wide).not.toMatch(/<a [^>]*><svg/);
+  expect(wide).toContain(">Trending<");
+});
+
+test("the wall composer is not drawn below md, where the + of the bottom bar posts", async () => {
+  backend({ member: true, canPost: true });
+  const html = await render({ tab: "latest" });
+  const composer = html.match(/<section aria-label="New post" class="([^"]*)"/);
+  expect(composer?.[1].split(" ")).toContain("max-md:hidden");
+});
+
+test("the tab labels are short in English and Spanish", async () => {
+  const en = (await import("../../../../messages/en/home.json")).default;
+  const es = (await import("../../../../messages/es/home.json")).default;
+  const labels = (tabs: Record<string, string>) =>
+    ["latest", "hot", "following", "forums"].map((tab) => tabs[tab]);
+  expect(labels(en.page.tabs)).toEqual([
+    "Latest",
+    "Trending",
+    "Following",
+    "Forums",
+  ]);
+  expect(labels(es.page.tabs)).toEqual([
+    "Recientes",
+    "Tendencias",
+    "Siguiendo",
+    "Foros",
+  ]);
 });

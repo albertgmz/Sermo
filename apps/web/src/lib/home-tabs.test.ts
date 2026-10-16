@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { barOf, HOME_TABS, homeHref, openTab, tabParam } from "./home-tabs";
+import {
+  barOf,
+  HOME_TABS,
+  homeHref,
+  openTab,
+  phoneBarOf,
+  tabParam,
+} from "./home-tabs";
 
 test("the tabs are latest, hot, following, forums and media, in that order", () => {
   expect([...HOME_TABS]).toEqual([
@@ -91,4 +98,31 @@ test("a guest has no following tab, so the bar fills with the next ones", () => 
   expect(
     barOf({ active: "latest", fallback: "following", signedIn: false }).bar,
   ).toContain("latest");
+});
+
+test("on a phone the bar holds every tab but Media, which is in More, whatever the default", () => {
+  expect(phoneBarOf({ active: "latest", signedIn: true })).toEqual({
+    bar: ["latest", "hot", "following", "forums"],
+    more: ["media"],
+  });
+  expect(phoneBarOf({ active: "forums", signedIn: true })).toEqual({
+    bar: ["latest", "hot", "following", "forums"],
+    more: ["media"],
+  });
+  // A guest has no Following.
+  expect(phoneBarOf({ active: "hot", signedIn: false })).toEqual({
+    bar: ["latest", "hot", "forums"],
+    more: ["media"],
+  });
+});
+
+test("on a phone Media open is on the bar, and there is nothing left for More", () => {
+  expect(phoneBarOf({ active: "media", signedIn: true })).toEqual({
+    bar: ["latest", "hot", "following", "forums", "media"],
+    more: [],
+  });
+  expect(phoneBarOf({ active: "media", signedIn: false })).toEqual({
+    bar: ["latest", "hot", "forums", "media"],
+    more: [],
+  });
 });

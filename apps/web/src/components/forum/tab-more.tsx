@@ -1,12 +1,35 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Ellipsis } from "lucide-react";
 import type { TabLink } from "@/components/forum/tab-links";
 import type { TabMorePopupProps } from "@/components/forum/tab-more-popup";
 import { LazyPopup } from "@/components/ui/lazy-popup";
 import { cn } from "@/lib/utils";
 
 const loadPopup = () => import("@/components/forum/tab-more-popup");
+
+// What the menu button shows, before and after its menu is loaded. Narrow, below `sm` it is an icon
+// named by its label.
+export function TabMoreFace({
+  label,
+  narrow,
+}: {
+  label: string;
+  narrow: boolean;
+}) {
+  return (
+    <>
+      {narrow && <Ellipsis className="sm:hidden" />}
+      {narrow ? <span className="max-sm:sr-only">{label}</span> : label}
+      <ChevronDown
+        className={cn(
+          "size-3.5 transition-transform group-data-popup-open:rotate-180",
+          narrow && "max-sm:hidden",
+        )}
+      />
+    </>
+  );
+}
 
 // The tabs that do not fit the bar, in a menu at its end. `className` is what a tab link looks
 // like in the bar, so the button sits in it like one more tab. The menu's code (Base UI) is
@@ -15,12 +38,14 @@ export function TabMore({
   tabs,
   label,
   className,
+  narrow = false,
 }: {
   tabs: Pick<TabLink, "value" | "label" | "href" | "icon">[];
   label: string;
   className: string;
+  narrow?: boolean;
 }) {
-  const popup: TabMorePopupProps = { tabs, label, className };
+  const popup: TabMorePopupProps = { tabs, label, className, narrow };
   return (
     <LazyPopup
       load={loadPopup}
@@ -35,8 +60,7 @@ export function TabMore({
           className={cn("group", className)}
           {...lazy}
         >
-          {label}
-          <ChevronDown className="size-3.5" />
+          <TabMoreFace label={label} narrow={narrow} />
         </button>
       )}
     />

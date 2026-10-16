@@ -47,3 +47,41 @@ test("with nothing to put in the menu there is no menu button", () => {
   expect(draw({ more: [], moreLabel: "More" })).not.toContain("<button");
   expect(draw({ moreLabel: "More" })).not.toContain("<button");
 });
+
+test("a tab never breaks its label over two lines", () => {
+  const html = draw();
+  expect(html.match(/whitespace-nowrap/g)).toHaveLength(2);
+});
+
+test("narrow, only the open tab shows its label on a phone; the others keep it as their name", () => {
+  const html = draw({
+    tabs: [
+      { ...tab("latest"), icon: <svg aria-hidden="true" /> },
+      { ...tab("hot"), icon: <svg aria-hidden="true" /> },
+    ],
+    narrow: true,
+  });
+  // The open tab's label is plain text; the other one's is for assistive technology below `sm`.
+  expect(html).toContain('<span class="max-sm:sr-only">LATEST</span>');
+  expect(html).not.toContain('<span class="max-sm:sr-only">HOT</span>');
+  expect(html).toMatch(
+    /aria-current="page"[^>]*><svg aria-hidden="true"><\/svg>HOT<\/a>/,
+  );
+  // A label inside a link that hides it is placed against the link.
+  expect(html.match(/class="[^"]*\brelative\b/g)).toHaveLength(2);
+});
+
+test("narrow, the menu button is an icon named by its label on a phone", () => {
+  const html = draw({
+    more: [tab("media")],
+    moreLabel: "More",
+    narrow: true,
+  });
+  const button = html.slice(html.lastIndexOf("<button"));
+  expect(button).toContain('<span class="max-sm:sr-only">More</span>');
+  expect(button).toContain("lucide-ellipsis");
+  // Not narrow, the label is plain text and there is no icon.
+  const wide = draw({ more: [tab("media")], moreLabel: "More" });
+  expect(wide).toContain(">More<");
+  expect(wide).not.toContain("lucide-ellipsis");
+});

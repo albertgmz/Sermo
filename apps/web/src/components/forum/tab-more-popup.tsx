@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import type { TabLink } from "@/components/forum/tab-links";
+import { TabMoreFace } from "@/components/forum/tab-more";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +17,7 @@ export type TabMorePopupProps = {
   tabs: Pick<TabLink, "value" | "label" | "href" | "icon">[];
   label: string;
   className: string;
+  narrow: boolean;
 };
 
 // The button and the menu of the tabs that do not fit, which Base UI draws. It is loaded when the
@@ -25,6 +26,7 @@ export default function TabMorePopup({
   tabs,
   label,
   className,
+  narrow,
   openedBy,
   openKey,
 }: TabMorePopupProps & OpenedProps) {
@@ -32,8 +34,7 @@ export default function TabMorePopup({
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
       <DropdownMenuTrigger ref={trigger} className={cn("group", className)}>
-        {label}
-        <ChevronDown className="size-3.5 transition-transform group-data-popup-open:rotate-180" />
+        <TabMoreFace label={label} narrow={narrow} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         {tabs.map((tab) => (
