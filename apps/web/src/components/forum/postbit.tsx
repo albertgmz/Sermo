@@ -36,20 +36,26 @@ const COLUMN_COVER = {
 
 // `column`: avatar on top, then name, actions, title, level, awards and a list of facts (a card of
 // its own width).
-// `compact`: one small header, avatar then name and a line of title and counts, actions at the end.
+// `compact`: one small header, avatar then name and a line of title and counts, then the awards and
+// the actions on a line of their own.
 // `responsive`: the compact header below `md`, the column from `md` up.
 export type PostbitLayout = "column" | "compact" | "responsive";
 
-// avatar | name (as wide as it needs, no wider) | awards | room left | actions
+// avatar | awards | room left | actions; the name and the title span all but the avatar's track.
 const COMPACT_GRID =
-  "grid grid-cols-[auto_minmax(0,max-content)_auto_minmax(0,1fr)_auto] items-start gap-y-1";
+  "grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-start gap-y-1";
+// name (at least 12 characters, at most its own width) | badges; the header shows the first
+// badge (the highest group), the column all of them.
+const NAME_ROW =
+  "grid min-w-0 grid-cols-[minmax(min(12ch,100%),max-content)_auto] items-center gap-x-2";
+const BADGES = "flex items-center [&>*:nth-child(n+2)]:hidden";
 
 // The author of a post: who they are and a few facts about them. It knows nothing of posts, so the
 // post frame and the member's card both draw this one block, part for part. The member's cover is
 // drawn behind the `relative isolate` box that holds the block (the frame, the card);
 // `coverClassName` adds what only one holder needs. The name and avatar open the member's card,
 // unless a `MemberCardScope` above turns that off (inside the card itself). `actions` is drawn
-// under the name in the column, at the end of the compact header.
+// under the name in the column, at the end of the compact header's last line.
 export function Postbit({
   author,
   layout = "responsive",
@@ -85,9 +91,10 @@ export function Postbit({
   );
 
   // The parts are in the column's order, one flex column. The compact header places them on a
-  // grid instead: the avatar over two rows, then the name with the awards right after it and the
-  // actions at the end, the title and counts under the name. The tracks are spaced by margins, so a
-  // part that is not drawn leaves no gap.
+  // grid instead: the avatar over two rows beside the name and, under it, the title and counts;
+  // then a line with the awards at the start and the actions at the end. The name has the whole
+  // width beside the avatar, so it is not squeezed by the buttons on a small phone. The tracks are
+  // spaced by margins, so a part that is not drawn leaves no gap and no empty line.
   return (
     <div
       data-slot="postbit"
@@ -126,11 +133,13 @@ export function Postbit({
           className={responsive ? "hidden md:block" : undefined}
         />
       )}
+      {/* In the compact header the name keeps at least 12 characters with the first badge beside
+          it, on one line; in the column the name and every badge wrap, centred. */}
       <div
         className={pick(
-          "col-start-2 row-start-1 flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm",
+          `col-start-2 col-end-5 row-start-1 ${NAME_ROW} text-sm`,
           "flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm",
-          "col-start-2 row-start-1 flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm md:justify-center",
+          `col-start-2 col-end-5 row-start-1 ${NAME_ROW} text-sm md:flex md:max-w-full md:flex-wrap md:justify-center md:gap-y-1`,
         )}
       >
         <UserLink
@@ -142,7 +151,16 @@ export function Postbit({
           }
           className="max-w-full min-w-0 [overflow-wrap:anywhere]"
         />
-        <span className="contents [&>*]:max-w-full [&>*]:overflow-hidden">
+        <span
+          className={cn(
+            "[&>*]:max-w-full [&>*]:overflow-hidden",
+            pick(
+              BADGES,
+              "contents",
+              `${BADGES} md:contents md:[&>*:nth-child(n+2)]:inline-flex`,
+            ),
+          )}
+        >
           <UserBadges user={member} />
         </span>
       </div>
@@ -150,9 +168,9 @@ export function Postbit({
         <div
           data-slot="postbit-actions"
           className={pick(
-            "col-start-5 row-span-2 row-start-1 ml-3 flex shrink-0 items-center",
+            "col-start-4 row-start-3 mt-1 ml-3 flex shrink-0 items-center",
             "flex w-full flex-col gap-2",
-            "col-start-5 row-span-2 row-start-1 ml-3 flex shrink-0 items-center md:ml-0 md:w-full md:flex-col md:items-stretch md:gap-2",
+            "col-start-4 row-start-3 mt-1 ml-3 flex shrink-0 items-center md:mt-0 md:ml-0 md:w-full md:flex-col md:items-stretch md:gap-2",
           )}
         >
           {actions}
@@ -214,13 +232,13 @@ export function Postbit({
           <XpBar level={level} className="w-16" />
         </div>
       )}
-      {/* Right after the name in the compact header, a row of their own in the column. */}
+      {/* Opening the compact header's last line, a row of their own in the column. */}
       <AwardRow
         awards={author.awards}
         className={pick(
-          "col-start-3 row-start-1 ml-2 self-start",
+          "col-start-2 row-start-3 mt-1 self-center",
           "max-w-full flex-wrap justify-center",
-          "col-start-3 row-start-1 ml-2 self-start md:ml-0 md:max-w-full md:flex-wrap md:justify-center md:self-auto",
+          "col-start-2 row-start-3 mt-1 self-center md:mt-0 md:max-w-full md:flex-wrap md:justify-center md:self-auto",
         )}
       />
       {column && facts && (

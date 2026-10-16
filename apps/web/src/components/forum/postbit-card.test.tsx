@@ -1,4 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import { postBody } from "@/lib/test-bodies";
@@ -237,7 +239,8 @@ const placedByFrame = (block: string) => {
 
 // A post of the member as the thread draws it, and the member's card. The post's own postbit opens
 // a card and the card's does not, so the post is drawn in the scope that keeps names plain links,
-// as the card is.
+// as the card is: the comparison proves the parts, their order and their classes, not the card
+// trigger around the post's name and avatar (`postbit.test.tsx` covers that).
 async function both() {
   const card = await html(await loadMemberCard(7, "ember"));
   const [row] = await postRows([
@@ -344,4 +347,23 @@ test("the relations of a page of posts or messages are one read, and every row g
   ]);
   for (const row of messages)
     expect(await html(row.node)).toContain('data-slot="member-actions"');
+});
+
+// The first paint of a thread or a conversation is drawn by the page's own list (`ThreadPosts`,
+// `Messages`), which a test cannot render on its own: a page file exports only what Next allows.
+// Their wiring is held here by the source: one relations read beside the authors read, handed to
+// every row.
+test("the thread and conversation pages read the relations once and give each row its own", () => {
+  const pages = resolve(import.meta.dir, "../../app/[locale]/(main)");
+  for (const [file, row] of [
+    ["threads/[id]/page.tsx", "relation={relation(post.author.id)}"],
+    ["conversations/[id]/page.tsx", "relation={relation(message.author.id)}"],
+  ]) {
+    const source = readFileSync(resolve(pages, file), "utf8");
+    expect(source.split("relationsFor(").length - 1).toBe(1);
+    expect(source).toMatch(
+      /Promise\.all\(\[\s*authorsFor\([\s\S]*?\),\s*relationsFor\(/,
+    );
+    expect(source).toContain(row);
+  }
 });

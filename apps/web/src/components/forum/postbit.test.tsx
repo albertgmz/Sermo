@@ -262,18 +262,35 @@ test("in the column a long name wraps within the column beside its icon", async 
   expect(out).toContain("max-w-full min-w-0");
 });
 
-test("in the compact header a long name truncates in the room the avatar and the buttons leave", async () => {
-  const out = await html(<Postbit author={LONG} layout="compact" />);
+test("in the compact header a long name truncates beside its badge, never below 12 characters, with the buttons on another line", async () => {
+  const out = await html(
+    <Postbit
+      author={{
+        ...LONG,
+        member: {
+          ...LONG.member,
+          badges: [
+            { label: "Administrator", color: null, style: "solid" },
+            { label: "Supporter", color: null, style: "outline" },
+          ],
+        },
+      }}
+      layout="compact"
+      actions={<i data-mark="actions" />}
+    />,
+  );
   expect(out).toContain(
     '<span class="min-w-0 truncate">Bartholomew_Featherstonehaugh30</span>',
   );
   expect(out).toContain("shrink-0");
-  // the name's track of the header grid, and the row in it, can shrink to nothing
-  expect(out).toContain(
-    "grid-cols-[auto_minmax(0,max-content)_auto_minmax(0,1fr)_auto]",
-  );
-  expect(out).toContain("col-start-2 row-start-1 flex max-w-full min-w-0");
-  expect(out).toContain("max-w-full min-w-0");
+  // the name's row spans every track beside the avatar: the buttons do not share it
+  expect(out).toContain("col-start-2 col-end-5 row-start-1 grid min-w-0");
+  // the name keeps at least 12 characters, the badges get the rest of the line
+  expect(out).toContain("grid-cols-[minmax(min(12ch,100%),max-content)_auto]");
+  // only the first (highest) badge is shown there, so it stays on the name's line
+  expect(out).toContain("[&amp;&gt;*:nth-child(n+2)]:hidden");
+  // the buttons end the line under the title
+  expect(out).toContain("col-start-4 row-start-3");
 });
 
 test("the responsive layout truncates below md and wraps from md", async () => {
@@ -332,13 +349,13 @@ test("the cover is drawn behind the block when the member has one, and nothing w
   }
 });
 
-test("the awards: beside the name in the compact header, a row of their own in the column, none without", async () => {
+test("the awards: under the title in the compact header, a row of their own in the column, none without", async () => {
   const count = (out: string) => out.split('href="/awards"').length - 1;
   const withAwards = { ...author, awards: AWARDS };
   const compact = await html(<Postbit author={withAwards} layout="compact" />);
   expect(count(compact)).toBe(1);
-  // placed on the grid in the name's row, in the track right after the name
-  expect(compact).toContain("col-start-3 row-start-1");
+  // placed on the grid at the start of the line under the title
+  expect(compact).toContain("col-start-2 row-start-3");
   const column = await html(<Postbit author={withAwards} layout="column" />);
   expect(count(column)).toBe(1);
   expect(column.indexOf('href="/awards"')).toBeGreaterThan(
