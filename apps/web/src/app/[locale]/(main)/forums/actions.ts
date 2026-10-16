@@ -69,19 +69,21 @@ export async function createThreadAction(
   redirect(`/threads/${created.value.thread.id}`);
 }
 
-// Whether the member may attach files to a thread in this forum, for a composer whose forum was
-// changed after the page was drawn. A forum that cannot be read says no.
-export async function forumAttachAllowedAction(
+// What the member may add to a thread in this forum, for a composer whose forum was changed after
+// the page was drawn: files, and a poll or quiz. A forum that cannot be read allows neither.
+export async function forumComposeAccessAction(
   nodeId: number,
-): Promise<boolean> {
+): Promise<{ attach: boolean; poll: boolean }> {
   requireIds(nodeId);
   const read = await attempt(`/forums/${nodeId}/new`, () =>
     call(nodesGet, { nodeId }),
   );
-  return (
-    read.ok &&
-    read.value.resolvedPermissions["forum.uploadAttachments"] === true
-  );
+  if (!read.ok) return { attach: false, poll: false };
+  const allowed = read.value.resolvedPermissions;
+  return {
+    attach: allowed["forum.uploadAttachments"] === true,
+    poll: allowed["poll.create"] === true,
+  };
 }
 
 export async function watchForumAction(

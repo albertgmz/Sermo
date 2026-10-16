@@ -218,5 +218,11 @@
     "label": "Cuenta pendiente de aprobación",
     "title": "Tu cuenta está pendiente de aprobación",
     "body": "Tu cuenta espera a que el personal la apruebe. Hasta entonces puedes leer el foro como un invitado."
+  },
+  "createButton": {
+    "label": "Crear",
+    "aria": {
+      "create": "Crear"
+    }
   }
 }

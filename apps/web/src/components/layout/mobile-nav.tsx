@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { CreateButton } from "@/components/layout/create-button";
 import type { Counters } from "@/components/layout/header-data";
 import {
   iconFor,
@@ -12,11 +13,14 @@ import {
 } from "@/components/layout/nav";
 import { useCounter } from "@/lib/counters";
 
+// The round + that opens the Create dialog sits in the middle of the bar; a guest's leads to sign-in.
 export function MobileNav(props: {
   items: LinkItem[];
   unread: Pick<Counters, "conversations" | "notifications">;
+  member: boolean;
 }) {
-  const { items, unread } = props;
+  const { items, unread, member } = props;
+  const middle = Math.ceil(items.length / 2);
   const t = useTranslations("layout.mobileNav");
   const pathname = usePathname();
   const counts: Record<string, number> = {
@@ -24,16 +28,22 @@ export function MobileNav(props: {
     "mobile.alerts": useCounter("notifications", unread.notifications, props),
   };
 
+  const create = (
+    <li key="create" className="flex items-center justify-center">
+      <CreateButton variant="bar" member={member} />
+    </li>
+  );
+
   return (
     <nav
       aria-label={t("aria.primary")}
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
     >
       <ul className="mx-auto grid h-14 max-w-lg auto-cols-fr grid-flow-col">
-        {items.map((item) => {
+        {items.flatMap((item, index) => {
           const Icon = iconFor(item.builtin);
           const count = item.builtin ? counts[item.builtin] : 0;
-          return (
+          const entry = (
             <li key={item.id}>
               <Link
                 {...linkProps(item)}
@@ -69,7 +79,9 @@ export function MobileNav(props: {
               </Link>
             </li>
           );
+          return index === middle ? [create, entry] : [entry];
         })}
+        {middle >= items.length && create}
       </ul>
     </nav>
   );

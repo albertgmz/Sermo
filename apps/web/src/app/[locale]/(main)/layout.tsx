@@ -61,7 +61,7 @@ async function MobileNavigation() {
   return (
     <>
       {user && <CountersPoll drawn={unread} />}
-      <MobileNav items={items} unread={unread} />
+      <MobileNav items={items} unread={unread} member={!!user} />
     </>
   );
 }
@@ -107,17 +107,26 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
             <LoadingRegion label={t("loadingNavigation")}>
               <div
                 aria-hidden="true"
-                className="mx-auto grid h-14 max-w-lg grid-cols-5"
+                className="mx-auto grid h-14 max-w-lg grid-cols-6"
               >
-                {[1, 2, 3, 4, 5].map((item) => (
-                  <div
-                    key={item}
-                    className="flex flex-col items-center justify-center gap-1"
-                  >
-                    <Skeleton className="size-5" />
-                    <Skeleton className="h-2.5 w-8" />
-                  </div>
-                ))}
+                {[1, 2, 3, 4, 5, 6].map((item) =>
+                  item === 3 ? (
+                    <div
+                      key={item}
+                      className="flex items-center justify-center"
+                    >
+                      <Skeleton className="size-11 rounded-full" />
+                    </div>
+                  ) : (
+                    <div
+                      key={item}
+                      className="flex flex-col items-center justify-center gap-1"
+                    >
+                      <Skeleton className="size-5" />
+                      <Skeleton className="h-2.5 w-8" />
+                    </div>
+                  ),
+                )}
               </div>
             </LoadingRegion>
           </div>

@@ -272,7 +272,11 @@
     "titleLabel": "Título",
     "titlePlaceholder": "Título del tema",
     "prefixLabel": "Prefijo",
-    "bodyPlaceholder": "Escribe el primer mensaje…"
+    "bodyPlaceholder": "Escribe el primer mensaje…",
+    "heading": "Nuevo tema",
+    "questionTitlePlaceholder": "¿Cuál es tu pregunta?",
+    "questionBodyPlaceholder": "Describe tu pregunta…",
+    "noPollHere": "En este foro no se permiten encuestas ni cuestionarios. Elige otro foro para añadir uno."
   },
   "forumChoicePanel": {
     "heading": "Elige un foro",
@@ -447,5 +451,35 @@
     "changed": "Esta encuesta cambió desde que la abriste (por ejemplo, un votante añadió una respuesta). Carga lo que cambió: se conservan tus cambios y las respuestas nuevas se añaden a la lista; luego guarda de nuevo.",
     "reload": "Cargar lo que cambió",
     "customHelp": "Cada votante puede añadir una respuesta propia; se aplican las mismas reglas de texto que a las tuyas."
+  },
+  "createFlow": {
+    "title": "Crear",
+    "loading": "Cargando…",
+    "failed": "No se pudo cargar lo que puedes crear.",
+    "retry": "Reintentar",
+    "nothing": "No puedes publicar nada aquí.",
+    "wallName": "Tu muro",
+    "wallPlaceholder": "¿Qué estás pensando?",
+    "aria": {
+      "close": "Cerrar"
+    },
+    "kinds": {
+      "discussion": {
+        "title": "Debate",
+        "description": "Empieza una conversación en un foro"
+      },
+      "question": {
+        "title": "Pregunta",
+        "description": "Pregunta a la comunidad en un foro"
+      },
+      "poll": {
+        "title": "Encuesta o cuestionario",
+        "description": "Pide votos o pon a prueba lo que se sabe"
+      },
+      "wall": {
+        "title": "Publicación en el muro",
+        "description": "Comparte una novedad en tu propio muro"
+      }
+    }
   }
 }

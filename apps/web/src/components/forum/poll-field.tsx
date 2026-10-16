@@ -19,9 +19,19 @@ const PollForm = dynamic(
 // The poll or quiz of a new thread: a button that opens the form, and the draft as one JSON field
 // (`name="poll"`) that the thread's action reads. Closed, or with nothing asked, the field is
 // absent and the thread has no poll. Plugs into `ThreadComposer`, behind `canPoll`, like the tags.
-export function PollField({ attachIn }: { attachIn: number | null }) {
+// `startOpen`: the section is open with a blank poll when it is first drawn (the member asked for
+// a poll, not a discussion).
+export function PollField({
+  attachIn,
+  startOpen = false,
+}: {
+  attachIn: number | null;
+  startOpen?: boolean;
+}) {
   const t = useTranslations("forum.poll");
-  const [draft, setDraft] = useState<PollDraft | null>(null);
+  const [draft, setDraft] = useState<PollDraft | null>(() =>
+    startOpen ? blankDraft() : null,
+  );
   if (!draft) {
     return (
       <Button

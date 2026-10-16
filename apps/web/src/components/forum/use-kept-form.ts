@@ -1,4 +1,4 @@
-import { startTransition, useActionState } from "react";
+import { startTransition, useActionState, useEffect, useRef } from "react";
 
 // What the forms that use this hear back from their action.
 export type KeptState = {
@@ -12,14 +12,28 @@ export type KeptState = {
 // A form's action state, submitted by hand so that React does not reset the form once the action
 // has answered: a refused post keeps what the member wrote.
 // What empties the form is the redirect an action ends in once the post is taken: Next then draws
-// the page's forms anew, so text, files and anything open (a dialog) start over.
+// the page's forms anew, so text, files and anything open (a dialog) start over. A form that lives
+// in the layout is not drawn anew, and says so through `onSent`: it is called when a send ends
+// without the action having answered, which is what a redirect is.
 export function useKeptForm(
   action: (previous: KeptState, formData: FormData) => Promise<KeptState>,
+  onSent?: () => void,
 ) {
   const [state, dispatch, pending] = useActionState(action, {});
+  const submitted = useRef<KeptState | null>(null);
+  const sent = useRef(onSent);
+  sent.current = onSent;
+  useEffect(() => {
+    if (pending || submitted.current === null) return;
+    // An answer is a new state; the same one means the action ended in a redirect.
+    const redirected = submitted.current === state;
+    submitted.current = null;
+    if (redirected) sent.current?.();
+  }, [pending, state]);
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    submitted.current = state;
     startTransition(() => dispatch(data));
   };
   return { state, pending, onSubmit };

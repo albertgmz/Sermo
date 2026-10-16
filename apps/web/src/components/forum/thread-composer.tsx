@@ -6,9 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
 import {
   createThreadAction,
-  forumAttachAllowedAction,
+  forumComposeAccessAction,
 } from "@/app/[locale]/(main)/forums/actions";
 import { ComposerForm, ComposerPage } from "@/components/forum/composer";
+import type { ThreadKind } from "@/components/forum/create-kinds";
 import { ForumChoicePanel } from "@/components/forum/forum-choice-panel";
 import { type ForumChoice, forumTitle } from "@/components/forum/forum-choices";
 import { PollField } from "@/components/forum/poll-field";
@@ -59,6 +60,9 @@ export function ThreadComposer({
   canTag,
   canPoll,
   memberId,
+  frame = "page",
+  kind = "discussion",
+  onSent,
 }: {
   forumId: number;
   // The forums the member may start a thread in, under the categories that hold them.
@@ -71,10 +75,19 @@ export function ThreadComposer({
   canPoll: boolean;
   // Whose draft is kept in the tab; none is kept without one.
   memberId: number | null;
+  // `page`: the address `/forums/<id>/new`, which follows the forum. `dialog`: inside the Create
+  // button's dialog, on whatever page the member is on, which no address follows.
+  frame?: "page" | "dialog";
+  // What the member asked to write. A question is a discussion worded as one (the backend has no
+  // thread type for it); a poll opens the poll section.
+  kind?: ThreadKind;
+  // The thread was taken (the action redirected), for a composer that is not drawn anew by it.
+  onSent?: () => void;
 }) {
   const t = useTranslations("forum.threadComposer");
   const [forum, setForum] = useState(forumId);
   const [attach, setAttach] = useState(canAttach);
+  const [poll, setPoll] = useState(canPoll);
   const [picking, setPicking] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -93,9 +106,18 @@ export function ThreadComposer({
     state,
     pending,
     onSubmit: send,
-  } = useKeptForm((previous, data) =>
-    createThreadAction(target.current, previous, data),
+  } = useKeptForm(
+    (previous, data) => createThreadAction(target.current, previous, data),
+    onSent,
   );
+
+  // A poll asked for after the composer is drawn opens the section; one that was there stays.
+  const [seen, setSeen] = useState(kind);
+  const [pollKey, setPollKey] = useState(0);
+  if (seen !== kind) {
+    setSeen(kind);
+    if (kind === "poll") setPollKey((key) => key + 1);
+  }
 
   // What is kept in the tab, written from what the member changes and from nothing else: a
   // thread that was sent can never come back as a draft because the page was shown again. While
@@ -156,12 +178,16 @@ export function ThreadComposer({
     if (id === target.current) return;
     target.current = id;
     setForum(id);
-    window.history.replaceState(null, "", composeAddress(id));
-    // Whether files may be attached is a permission of the forum.
+    if (frame === "page") {
+      window.history.replaceState(null, "", composeAddress(id));
+    }
+    // Whether files and a poll may be added is a permission of the forum.
     const turn = ++asked.current;
-    forumAttachAllowedAction(id).then(
+    forumComposeAccessAction(id).then(
       (allowed) => {
-        if (turn === asked.current) setAttach(allowed);
+        if (turn !== asked.current) return;
+        setAttach(allowed.attach);
+        setPoll(allowed.poll);
       },
       () => {},
     );
@@ -200,7 +226,9 @@ export function ThreadComposer({
             ?.focus();
         }}
         aria-label={t("titleLabel")}
-        placeholder={t("titlePlaceholder")}
+        placeholder={t(
+          kind === "question" ? "questionTitlePlaceholder" : "titlePlaceholder",
+        )}
         autoComplete="off"
         className="block w-full min-w-0 bg-transparent py-1 text-xl font-semibold outline-none placeholder:text-muted-foreground md:text-2xl"
       />
@@ -234,38 +262,58 @@ export function ThreadComposer({
         </fieldset>
       )}
       {canTag && <ThreadTagsField />}
-      {canPoll && <PollField attachIn={attach ? forum : null} />}
+      {poll && (
+        <PollField
+          key={pollKey}
+          startOpen={kind === "poll"}
+          attachIn={attach ? forum : null}
+        />
+      )}
+      {kind === "poll" && !poll && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t("noPollHere")}
+        </p>
+      )}
     </div>
   );
 
-  return (
-    <ComposerPage>
-      <ComposerForm
-        formRef={form}
-        onSubmit={onSubmit}
-        frame={{ kind: "page", closeHref: `/forums/${forum}` }}
-        submitLabel={t("post")}
-        pending={pending}
-        canSubmit={threadReady(title, body)}
-        top={top}
-        placeholder={t("bodyPlaceholder")}
-        minHeight={200}
-        findMembers={findRecipients}
-        onBodyChange={changeBody}
-        error={state.error}
-        attach={attach}
-        attachNodeId={forum}
-        cover={
-          picking ? (
-            <ForumChoicePanel
-              forums={forums}
-              current={forum}
-              onChoose={choose}
-              onBack={() => setPicking(false)}
-            />
-          ) : undefined
-        }
-      />
-    </ComposerPage>
+  const composer = (
+    <ComposerForm
+      formRef={form}
+      onSubmit={onSubmit}
+      frame={
+        frame === "dialog"
+          ? { kind: "dialog", heading: t("heading") }
+          : { kind: "page", closeHref: `/forums/${forum}` }
+      }
+      submitLabel={t("post")}
+      pending={pending}
+      canSubmit={threadReady(title, body)}
+      top={top}
+      placeholder={t(
+        kind === "question" ? "questionBodyPlaceholder" : "bodyPlaceholder",
+      )}
+      minHeight={200}
+      findMembers={findRecipients}
+      onBodyChange={changeBody}
+      error={state.error}
+      attach={attach}
+      attachNodeId={forum}
+      cover={
+        picking ? (
+          <ForumChoicePanel
+            forums={forums}
+            current={forum}
+            onChoose={choose}
+            onBack={() => setPicking(false)}
+          />
+        ) : undefined
+      }
+    />
+  );
+  return frame === "dialog" ? (
+    composer
+  ) : (
+    <ComposerPage>{composer}</ComposerPage>
   );
 }

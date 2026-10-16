@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { Container } from "@/components/layout/container";
+import { CreateButton } from "@/components/layout/create-button";
 import { GuestMenu } from "@/components/layout/guest-menu";
 import { getViewerCard } from "@/components/layout/header-data";
 import { headerIconClass } from "@/components/layout/header-icon-class";
@@ -118,6 +119,7 @@ async function AccountTools() {
   const t = await getTranslations("layout.siteHeader");
   return (
     <>
+      <CreateButton variant="header" member={!!viewer.user && !!card} />
       {viewer.user && card ? (
         <AccountMenu />
       ) : (

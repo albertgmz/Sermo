@@ -95,7 +95,11 @@ test("the phone bar keeps the icon above the title whatever the position says", 
     entry("Home", "mobile.home", null),
   ]).map((item) => ({ ...item, href: item.href ?? "/" }));
   const html = render(
-    <MobileNav items={items} unread={{ conversations: 0, notifications: 0 }} />,
+    <MobileNav
+      items={items}
+      unread={{ conversations: 0, notifications: 0 }}
+      member
+    />,
   );
   expect(html).toMatch(
     /lucide-store[^>]*>.*<[/]svg><[/]span><[/]span><span[^>]*>Shop<[/]span>/,

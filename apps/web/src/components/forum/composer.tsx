@@ -67,10 +67,14 @@ function useVisualViewport(active: boolean) {
 export function ComposerSheet({
   open,
   formRef,
+  initialFocus,
   children,
 }: {
   open: boolean;
-  formRef: RefObject<HTMLFormElement | null>;
+  formRef?: RefObject<HTMLFormElement | null>;
+  // Where focus goes when the sheet opens, when it is not the text (a sheet that opens on a
+  // choice).
+  initialFocus?: () => HTMLElement | null;
   children: React.ReactNode;
 }) {
   const { height: visibleHeight } = useVisualViewport(open);
@@ -78,10 +82,12 @@ export function ComposerSheet({
     <DialogContent
       keepMounted
       showCloseButton={false}
-      initialFocus={() =>
-        formRef.current?.querySelector<HTMLElement>(
-          "textarea, [contenteditable]",
-        ) ?? null
+      initialFocus={
+        initialFocus ??
+        (() =>
+          formRef?.current?.querySelector<HTMLElement>(
+            "textarea, [contenteditable]",
+          ) ?? null)
       }
       style={
         visibleHeight === undefined

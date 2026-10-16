@@ -218,5 +218,11 @@
     "label": "Account waiting for approval",
     "title": "Your account is waiting for approval",
     "body": "Your account is waiting for staff to approve it. You can read the forum like a guest until then."
+  },
+  "createButton": {
+    "label": "Create",
+    "aria": {
+      "create": "Create"
+    }
   }
 }

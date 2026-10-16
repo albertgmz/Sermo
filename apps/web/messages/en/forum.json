@@ -272,7 +272,11 @@
     "titleLabel": "Title",
     "titlePlaceholder": "Thread title",
     "prefixLabel": "Prefix",
-    "bodyPlaceholder": "Write the first post…"
+    "bodyPlaceholder": "Write the first post…",
+    "heading": "New thread",
+    "questionTitlePlaceholder": "What is your question?",
+    "questionBodyPlaceholder": "Describe your question…",
+    "noPollHere": "Polls and quizzes are not allowed in this forum. Choose another forum to add one."
   },
   "forumChoicePanel": {
     "heading": "Choose a forum",
@@ -447,5 +451,35 @@
     "changed": "This poll changed since you opened it (for example a voter added an answer). Load what changed: your edits are kept and the new answers are added to the list, then save again.",
     "reload": "Load what changed",
     "customHelp": "Each voter may add one answer of their own; the same text rules as yours apply."
+  },
+  "createFlow": {
+    "title": "Create",
+    "loading": "Loading…",
+    "failed": "Could not load what you can create.",
+    "retry": "Try again",
+    "nothing": "There is nothing you can post here.",
+    "wallName": "Your wall",
+    "wallPlaceholder": "What's on your mind?",
+    "aria": {
+      "close": "Close"
+    },
+    "kinds": {
+      "discussion": {
+        "title": "Discussion",
+        "description": "Start a conversation in a forum"
+      },
+      "question": {
+        "title": "Question",
+        "description": "Ask the community in a forum"
+      },
+      "poll": {
+        "title": "Poll or quiz",
+        "description": "Ask for votes or test what people know"
+      },
+      "wall": {
+        "title": "Wall post",
+        "description": "Share an update on your own wall"
+      }
+    }
   }
 }

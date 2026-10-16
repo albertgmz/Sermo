@@ -2,7 +2,7 @@
 
 import { ImagePlus } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { type RefObject, useRef, useState } from "react";
 import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
 import type { WallState } from "@/app/[locale]/(main)/members/actions";
 import { ComposerForm, ComposerSheet } from "@/components/forum/composer";
@@ -10,6 +10,52 @@ import { messageActionClass } from "@/components/forum/message-action";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+
+export type WallAction = (
+  previous: WallState,
+  formData: FormData,
+) => Promise<WallState>;
+
+// The form of a wall post, inside a dialog: the shared composer with the member's name above the
+// text. The page's composer and the Create button's both draw it. `avatar` is drawn by the caller:
+// the avatar is a Server Component.
+export function WallPostForm({
+  action,
+  placeholder,
+  avatar,
+  name,
+  formRef,
+  onSent,
+}: {
+  action: WallAction;
+  placeholder: string;
+  avatar?: React.ReactNode;
+  name: string;
+  formRef?: RefObject<HTMLFormElement | null>;
+  // The post was taken (the action redirected), for a form that is not drawn anew by it.
+  onSent?: () => void;
+}) {
+  const t = useTranslations("members.postComposer");
+  const { state, pending, onSubmit } = useKeptForm(action, onSent);
+  return (
+    <ComposerForm
+      formRef={formRef}
+      onSubmit={onSubmit}
+      frame={{ kind: "dialog", heading: t("title") }}
+      submitLabel={t("post")}
+      pending={pending}
+      placeholder={placeholder}
+      findMembers={findRecipients}
+      error={state.error}
+      top={
+        <div className="flex items-center gap-3 px-3 pt-3">
+          {avatar}
+          <span className="truncate text-sm font-semibold">{name}</span>
+        </div>
+      }
+    />
+  );
+}
 
 // The composer of a wall post. On the page it is a line: the avatar, a pill that opens the
 // composer and a button that opens it on choosing a file; none of it loads the editor. Opened, it
@@ -24,7 +70,7 @@ export function PostComposer({
   name,
   className,
 }: {
-  action: (previous: WallState, formData: FormData) => Promise<WallState>;
+  action: WallAction;
   placeholder: string;
   // Drawn by the page: the avatar is a Server Component.
   avatar: React.ReactNode;
@@ -32,7 +78,6 @@ export function PostComposer({
   className?: string;
 }) {
   const t = useTranslations("members.postComposer");
-  const { state, pending, onSubmit } = useKeptForm(action);
   const [open, setOpen] = useState(false);
   const form = useRef<HTMLFormElement>(null);
 
@@ -67,21 +112,12 @@ export function PostComposer({
         </button>
       </div>
       <ComposerSheet open={open} formRef={form}>
-        <ComposerForm
+        <WallPostForm
           formRef={form}
-          onSubmit={onSubmit}
-          frame={{ kind: "dialog", heading: t("title") }}
-          submitLabel={t("post")}
-          pending={pending}
+          action={action}
           placeholder={placeholder}
-          findMembers={findRecipients}
-          error={state.error}
-          top={
-            <div className="flex items-center gap-3 px-3 pt-3">
-              {avatar}
-              <span className="truncate text-sm font-semibold">{name}</span>
-            </div>
-          }
+          avatar={avatar}
+          name={name}
         />
       </ComposerSheet>
     </Dialog>

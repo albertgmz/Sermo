@@ -137,7 +137,7 @@ test("the tags field is sent as a list of names, without the # and without repea
   assert.deepEqual(sent.tags, ["Rust", "tutorial", "rust", "café"]);
 });
 
-const forumAnswer = (uploads: boolean) => ({
+const forumAnswer = (uploads: boolean, poll = false) => ({
   node: {
     id: 4,
     parentId: null,
@@ -172,21 +172,38 @@ const forumAnswer = (uploads: boolean) => ({
     jsonLd: [],
   },
   breadcrumbs: [],
-  resolvedPermissions: { "forum.uploadAttachments": uploads },
+  resolvedPermissions: {
+    "forum.uploadAttachments": uploads,
+    "poll.create": poll,
+  },
 });
 
-test("a forum says whether files may be attached to a thread there", async () => {
-  answer = { status: 200, body: forumAnswer(true) };
-  assert.equal(await actions.forumAttachAllowedAction(4), true);
+test("a forum says whether files and a poll may be added to a thread there", async () => {
+  answer = { status: 200, body: forumAnswer(true, true) };
+  assert.deepEqual(await actions.forumComposeAccessAction(4), {
+    attach: true,
+    poll: true,
+  });
   assert.equal(asked[0].url, `${ROOT}/nodes/4`);
-  answer = { status: 200, body: forumAnswer(false) };
-  assert.equal(await actions.forumAttachAllowedAction(4), false);
+  answer = { status: 200, body: forumAnswer(false, true) };
+  assert.deepEqual(await actions.forumComposeAccessAction(4), {
+    attach: false,
+    poll: true,
+  });
+  answer = { status: 200, body: forumAnswer(true, false) };
+  assert.deepEqual(await actions.forumComposeAccessAction(4), {
+    attach: true,
+    poll: false,
+  });
   answer = {
     status: 403,
     body: { error: { code: "forbidden", message: "No." } },
   };
-  assert.equal(await actions.forumAttachAllowedAction(4), false);
-  await assert.rejects(() => actions.forumAttachAllowedAction(0));
+  assert.deepEqual(await actions.forumComposeAccessAction(4), {
+    attach: false,
+    poll: false,
+  });
+  await assert.rejects(() => actions.forumComposeAccessAction(0));
 });
 
 test("an id that is not a record id never becomes a path", async () => {
