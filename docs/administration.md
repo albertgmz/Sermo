@@ -1597,16 +1597,19 @@ data saver blocks it like any post picture.
   `loadedAt` (a plain API call) never removes an answer a voter added. Other refusals are other
   conflicts with their own message (a quiz that has been taken, an answer with more votes than one
   batch to remove, moderation rules that changed).
-- **Deleting a large poll.** Votes and ballots go in batches of 2,000 voters, each a transaction (each
-  vote and ballot fires a counter trigger). `polls.delete` of a poll with more voters than one batch
-  takes it out of sight at once (it is read as not found by everyone, the thread has no poll and takes
-  no new one meanwhile) and removes one batch per call, answering `completed: false` until the rest
-  fits in one batch and goes with the poll. Only staff finish it (a creator cannot delete a poll that
-  has votes). The web repeats the call up to 500 times a request (a million voters); past that, call
-  again. A hard delete of a thread whose poll (or a merged-away thread's poll) is larger removes its
-  voters first, one batch per call (`removedPosts` 0, `completed` false, the thread stays deleted),
-  then the rest as usual; an author's own one-step delete of such a thread is refused. An answer with
-  more votes than one batch cannot be removed by an edit (delete the poll, or keep the answer).
+- **Deleting a large poll.** Each vote and ballot fires a counter trigger, so one transaction removes
+  at most 2,000 voters. `polls.delete` of a poll with more voters answers at once (`completed:
+  false`): the poll is taken out of sight in that call (it reads as not found for everyone, its thread
+  has no poll and takes no new one meanwhile) and one background job (`polls.purge`, one per poll, run
+  by the job worker, which holds WAL checkpoints while it runs) removes the voters one batch per write
+  transaction, letting other work in between, and then the poll itself. Deleting it again, or deleting
+  its thread, adds no second job. Only staff finish such a poll's deletion (a creator cannot delete a
+  poll that has votes); one entry is written to the moderator log, with the poll's kind and how many
+  members voted, never who. A hard delete of a thread whose poll (or a merged-away thread's poll) is
+  that large hides the poll and queues the same job, answers `completed: false` with nothing removed,
+  and removes the thread on the first call made after the job has finished. An author's own one-step
+  delete of such a thread is refused. An answer with more votes than one batch cannot be removed by an
+  edit (delete the poll, or keep the answer).
 - **What happens to a poll.** Hiding a thread hides its poll; hard deleting a thread removes it
   with its votes and pictures. Merging threads moves the poll of the merged thread to the target when
   the target has none; otherwise it stays on the merged-away thread, out of sight, until that thread
