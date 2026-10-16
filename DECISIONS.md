@@ -3381,7 +3381,7 @@ addresses answer 404 for an ordinary browser, Googlebot's user agent and GPTBot'
 `meta-description` fails in Lighthouse on every page (the metadata is in the body when Lighthouse
 looks), so SEO stands at exactly 0.9 where nothing else fails. Googlebot is not on Next's list
 either (it runs scripts and reads the streamed metadata); non-JS crawlers see no description. A
-follow-up could serve blocking metadata only to named crawlers (GPTBot, ClaudeBot, PerplexityBot,
+follow-up could serve blocking metadata only to named crawlers (link-preview bots such as
 Telegram, WhatsApp) with an explicit `htmlLimitedBots` list.  **The runner fails today, by design.**
 Performance is asserted at 0.9 as an error and every address scores 79 to 82 on the small forum
 (sizes and audits in the item's Result, for the follow-up on first-load JavaScript), so `bun run
