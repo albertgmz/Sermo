@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { insertUser, userActor } from "@sermo/core/testing";
 import { invalidate } from "../../context";
-import { type World, world } from "../feed/fixtures.test";
+import { ConflictError } from "../../errors";
+import { fillPosts, type World, world } from "../feed/fixtures.test";
 import { enqueueJob, runDueJobs } from "../jobs";
-import { registerJobHandlers } from "../jobs/rebuild";
+import { rebuildNodeAuthorsChunk, registerJobHandlers } from "../jobs/rebuild";
+import { registerForumTransferJobs } from "./index";
 
 /** A world plus a second forum whose posts do not count. */
 function twoForums() {
@@ -329,6 +331,84 @@ describe("forums that do not count posts", () => {
       settings: { countsPosts: false },
     });
     expect(quiet.settings.countsPosts).toBe(false);
+    // Nothing was queued for a new forum, and none for a forum without threads or a category.
+    expect(pendingJobs(w)).toBe(0);
+    await w.call("nodes.update", w.admin, {
+      nodeId: created.id,
+      settings: { countsPosts: false },
+    });
+    await w.call("nodes.update", w.admin, {
+      nodeId: w.category.id,
+      settings: { countsPosts: false },
+    });
+    expect(pendingJobs(w)).toBe(0);
+  });
+
+  test("switching off and on again before the job runs leaves the counts exact", async () => {
+    const { w, loud } = twoForums();
+    registerJobHandlers(w.ctx);
+    const t = await w.thread(w.alice, loud, "Here");
+    await w.reply(w.bob, t.thread.id, "one");
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: false } });
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: true } });
+    expect(pendingJobs(w)).toBe(2);
+    await runDueJobs(w.ctx, { limit: 20 });
+    expect(counts(w)).toEqual({ alice: 1, bob: 1 });
+    // The other way round: on again, then off, before anything runs.
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: false } });
+    await runDueJobs(w.ctx, { limit: 20 });
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: true } });
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: false } });
+    await runDueJobs(w.ctx, { limit: 20 });
+    expect(counts(w)).toEqual({ alice: 0, bob: 0 });
+  });
+
+  test("a claim that is no longer owned does nothing and queues nothing", async () => {
+    const { w, loud } = twoForums();
+    await w.thread(w.alice, loud, "Here");
+    w.ctx.sqlite.prepare("UPDATE users SET post_count = 7").run();
+    const changed = rebuildNodeAuthorsChunk(
+      w.ctx,
+      { nodeId: loud, after: 0 },
+      { id: 987654, lockedUntil: 1 },
+    );
+    expect(changed).toBe(0);
+    expect(counts(w)).toEqual({ alice: 7, bob: 7 });
+    expect(pendingJobs(w)).toBe(0);
+  });
+
+  test("the setting is refused while a merge or split involving the forum is under way", async () => {
+    const { w, loud, quiet } = twoForums();
+    registerJobHandlers(w.ctx);
+    registerForumTransferJobs(w.ctx);
+    const target = await w.thread(w.alice, loud, "Target");
+    const source = await w.thread(w.bob, quiet, "Source");
+    fillPosts(w.ctx, source.thread.id, w.bobUser.id, 1200);
+    const merge = await w.call("threads.merge", w.admin, {
+      threadId: target.thread.id,
+      sourceThreadIds: [source.thread.id],
+    });
+    expect(merge.completed).toBe(false);
+    // Both the target's forum and the source's are held.
+    for (const nodeId of [loud, quiet])
+      await expect(
+        w.call("nodes.update", w.admin, { nodeId, settings: { countsPosts: nodeId !== loud } }),
+      ).rejects.toBeInstanceOf(ConflictError);
+    const flag = (id: number) =>
+      w.ctx.sqlite
+        .prepare<{ n: number }, [number]>("SELECT counts_posts AS n FROM nodes WHERE id = ?1")
+        .get(id)!.n;
+    expect([flag(loud), flag(quiet)]).toEqual([1, 0]);
+    // Other settings of the forum can still be saved.
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { isReadOnly: true } });
+    await runDueJobs(w.ctx, { limit: 100 });
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: false } });
+    await runDueJobs(w.ctx, { limit: 100 });
+    const total = (id: number) =>
+      w.ctx.sqlite
+        .prepare<{ n: number }, [number]>("SELECT post_count AS n FROM users WHERE id = ?1")
+        .get(id)!.n;
+    expect([total(w.aliceUser.id), total(w.bobUser.id)]).toEqual([0, 0]);
   });
 
   test("after the job, deleting or moving content after a switch stays exact", async () => {
@@ -357,7 +437,7 @@ describe("forums that do not count posts", () => {
   test("the job reaches authors beyond the first window of user ids", async () => {
     const { w, loud } = twoForums();
     registerJobHandlers(w.ctx);
-    for (let i = 0; i < 1100; i++) insertUser(w.ctx, { username: `filler${i}` });
+    for (let i = 0; i < 130; i++) insertUser(w.ctx, { username: `filler${i}` });
     const late = insertUser(w.ctx, { username: "late" });
     await w.thread(userActor(late), loud, "Late");
     const lateCount = () =>

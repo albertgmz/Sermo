@@ -885,10 +885,31 @@ export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
     resolvedPermissions: resolvedPermissions(ctx, actor, { nodeId: input.nodeId }),
   };
 });
+/**
+ * A forum starts or stops counting posts. The counts of the posts already in it follow in a
+ * background job; nothing is queued for a node without threads, which no count can depend on. The
+ * change is refused while a merge or split involving the forum is still moving posts, because the
+ * chunks still to run would read the new setting for posts counted under the old one.
+ */
+function changeNodeCounting(ctx: Ctx, nodeId: number): void {
+  if (!forumDb(ctx).prepare("SELECT 1 FROM threads WHERE node_id = ?1 LIMIT 1").get(nodeId)) return;
+  if (
+    forumDb(ctx)
+      .prepare(
+        "SELECT 1 FROM thread_transfers x JOIN threads t ON t.id = x.thread_id WHERE t.node_id = ?1 LIMIT 1",
+      )
+      .get(nodeId)
+  )
+    throw new ConflictError(
+      "A merge or split is still moving posts of this forum; try again when it has finished.",
+    );
+  scheduleNodeAuthorsRebuild(ctx, nodeId);
+}
 /** Applies the given node settings (inside the node write's transaction). */
 function writeNodeSettings(
   ctx: Ctx,
   nodeId: number,
+  isNew: boolean,
   settings:
     | z.infer<typeof contracts.NodeSettings>
     | Partial<z.infer<typeof contracts.NodeSettings>>
@@ -906,9 +927,8 @@ function writeNodeSettings(
   for (const [key, column] of columns) {
     const value = settings[key];
     if (value === undefined) continue;
-    // The counts of the posts already there follow in a background job.
-    if (key === "countsPosts" && nodeCountsPosts(ctx, nodeId) !== value)
-      scheduleNodeAuthorsRebuild(ctx, nodeId);
+    if (key === "countsPosts" && !isNew && nodeCountsPosts(ctx, nodeId) !== value)
+      changeNodeCounting(ctx, nodeId);
     forumDb(ctx)
       .prepare(`UPDATE nodes SET ${column} = ?1 WHERE id = ?2`)
       .run(typeof value === "boolean" ? Number(value) : value, nodeId);
@@ -950,7 +970,7 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
         input.tabId ?? null,
         input.iconKey ?? null,
       )!;
-    writeNodeSettings(ctx, row.id, input.settings);
+    writeNodeSettings(ctx, row.id, true, input.settings);
     invalidate(ctx, "node_tree");
     invalidate(ctx, "node_tabs");
     publishEvent(ctx, { type: "content.created", targetType: "node", targetId: row.id });
@@ -993,7 +1013,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
         tabId,
         input.iconKey === undefined ? stored.icon_key : input.iconKey,
       );
-    writeNodeSettings(ctx, input.nodeId, input.settings);
+    writeNodeSettings(ctx, input.nodeId, false, input.settings);
     invalidate(ctx, "node_tree");
     invalidate(ctx, "node_tabs");
     publishEvent(ctx, { type: "content.edited", targetType: "node", targetId: input.nodeId });

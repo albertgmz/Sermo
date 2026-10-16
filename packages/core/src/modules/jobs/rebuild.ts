@@ -87,6 +87,23 @@ function reactionCounts(ctx: Ctx, type: string, id: number): string {
   return JSON.stringify(Object.fromEntries(rows.map((row) => [row.reaction_type_id, row.n])));
 }
 
+/**
+ * The posts that count for a member. A merge tombstones sources before moving their posts. Unmoved
+ * posts retain their original contribution until the retry applies targetVisible - sourceVisible.
+ */
+function userPostCount(ctx: Ctx, id: number): number {
+  return one<{ n: number }>(
+    ctx,
+    "userPosts",
+    "SELECT COUNT(*) AS n FROM posts p JOIN threads t ON t.id = p.thread_id JOIN nodes f ON f.id = t.node_id " +
+      "WHERE f.counts_posts = 1 AND p.user_id = ?1 AND p.state = 'visible' AND (t.state = 'visible' OR EXISTS (" +
+      "SELECT 1 FROM thread_transfers x JOIN jobs j ON j.unique_key = x.job_key || '.' || x.thread_id " +
+      "WHERE x.thread_id = t.id AND x.role = 'merge_source' AND x.failed_at IS NOT NULL " +
+      "AND j.type = 'forums.merge' AND json_extract(j.payload, '$.sourceVisible') = 1))",
+    id,
+  )!.n;
+}
+
 function expected(ctx: Ctx, stage: Stage, row: Row): Record<string, Value> {
   const id = row.id;
   const pending = inTransfer(ctx, stage, id);
@@ -180,19 +197,7 @@ function expected(ctx: Ctx, stage: Stage, row: Row): Record<string, Value> {
       id,
     )!.n;
     if (pending) return { reaction_score: score };
-    // A merge tombstones sources before moving their posts. Unmoved posts retain their
-    // original contribution until the retry applies targetVisible - sourceVisible.
-    const posts = one<{ n: number }>(
-      ctx,
-      "userPosts",
-      "SELECT COUNT(*) AS n FROM posts p JOIN threads t ON t.id = p.thread_id JOIN nodes f ON f.id = t.node_id " +
-        "WHERE f.counts_posts = 1 AND p.user_id = ?1 AND p.state = 'visible' AND (t.state = 'visible' OR EXISTS (" +
-        "SELECT 1 FROM thread_transfers x JOIN jobs j ON j.unique_key = x.job_key || '.' || x.thread_id " +
-        "WHERE x.thread_id = t.id AND x.role = 'merge_source' AND x.failed_at IS NOT NULL " +
-        "AND j.type = 'forums.merge' AND json_extract(j.payload, '$.sourceVisible') = 1))",
-      id,
-    )!.n;
-    return { post_count: posts, reaction_score: score };
+    return { post_count: userPostCount(ctx, id), reaction_score: score };
   }
   if (stage === "profile_posts") {
     const comments = one<{ n: number; last_at: number | null }>(
@@ -343,14 +348,18 @@ export function rebuildCountersChunk(
   });
 }
 
-/** How many user ids one chunk of the post counts of a forum's authors looks at. */
-const AUTHOR_WINDOW = 500;
+/**
+ * How many user ids one chunk of the post counts of a forum's authors looks at: as few as the
+ * users stage's ten rows per chunk would be too many jobs, but the heaviest members of the seeded
+ * board hold tens of thousands of posts each, so a wide window is a long write (see DECISIONS).
+ */
+const AUTHOR_WINDOW = 50;
 export interface NodeAuthorsProgress {
   nodeId: number;
   after: number;
 }
 /**
- * Recomputes the post counts of the members who wrote in a forum, for the ids after `after`: the
+ * Recomputes the post counts (only those) of the members who wrote in a forum, for the ids after `after`: the
  * job a change of the forum's counting queues, in place of one update over every post in it. The
  * continuation and the completion commit with the chunk, as in `rebuildCountersChunk`.
  */
@@ -370,15 +379,18 @@ export function rebuildNodeAuthorsChunk(
     const rows = all<Row>(
       ctx,
       "nodeAuthors",
-      "SELECT id, post_count, reaction_score FROM users WHERE id > ?1 AND id <= ?1 + ?3 AND EXISTS (" +
+      "SELECT id, post_count FROM users WHERE id > ?1 AND id <= ?1 + ?3 AND EXISTS (" +
         "SELECT 1 FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.user_id = users.id AND t.node_id = ?2)",
       progress.after,
       progress.nodeId,
       AUTHOR_WINDOW,
     );
     let changed = 0;
-    for (const row of rows)
-      if (updateChanged(ctx, "users", row, expected(ctx, "users", row))) changed++;
+    for (const row of rows) {
+      // A member with posts in a merge or split under way keeps the count the transfer keeps.
+      if (inTransfer(ctx, "users", row.id)) continue;
+      if (updateChanged(ctx, "users", row, { post_count: userPostCount(ctx, row.id) })) changed++;
+    }
     const end = progress.after + AUTHOR_WINDOW;
     const last = one<{ id: number | null }>(ctx, "lastUser", "SELECT max(id) AS id FROM users")!;
     if ((last.id ?? 0) > end)
