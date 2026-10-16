@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-staging/
 
 # the service worker, bundled by scripts/build-sw.ts
 /public/sw.js

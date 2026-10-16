@@ -6,6 +6,8 @@ const withNextIntl = createNextIntlPlugin();
 const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
+  // The staging build (scripts/staging.ts) writes to its own folder, so `check:web` leaves it alone.
+  distDir: process.env.SERMO_DIST_DIR || ".next",
   // The page's script registers the service worker, except in the build that retires it.
   env: {
     SERMO_RETIRE_WORKER: process.env.SERMO_RETIRE_WORKER === "1" ? "1" : "",

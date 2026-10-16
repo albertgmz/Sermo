@@ -12,6 +12,7 @@
       "**",
       "!node_modules",
       "!.next",
+      "!.next-staging",
       "!data",
       "!dist",
       "!build",
