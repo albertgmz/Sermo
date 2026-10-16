@@ -4,7 +4,7 @@ import { invalidate } from "../../context";
 import { ConflictError } from "../../errors";
 import { fillPosts, type World, world } from "../feed/fixtures.test";
 import { enqueueJob, runDueJobs } from "../jobs";
-import { rebuildNodeAuthorsChunk, registerJobHandlers } from "../jobs/rebuild";
+import { recountPostCountsChunk, registerJobHandlers } from "../jobs/rebuild";
 import { registerForumTransferJobs } from "./index";
 
 /** A world plus a second forum whose posts do not count. */
@@ -21,7 +21,7 @@ function twoForums() {
 const pendingJobs = (w: World) =>
   w.ctx.sqlite
     .prepare<{ n: number }, []>(
-      "SELECT count(*) AS n FROM jobs WHERE type = 'rebuild-node-authors' AND status != 'done'",
+      "SELECT count(*) AS n FROM jobs WHERE type = 'recount-post-counts' AND status != 'done'",
     )
     .get()!.n;
 const counts = (w: World) => {
@@ -367,11 +367,7 @@ describe("forums that do not count posts", () => {
     const { w, loud } = twoForums();
     await w.thread(w.alice, loud, "Here");
     w.ctx.sqlite.prepare("UPDATE users SET post_count = 7").run();
-    const changed = rebuildNodeAuthorsChunk(
-      w.ctx,
-      { nodeId: loud, after: 0 },
-      { id: 987654, lockedUntil: 1 },
-    );
+    const changed = recountPostCountsChunk(w.ctx, { after: 0 }, { id: 987654, lockedUntil: 1 });
     expect(changed).toBe(0);
     expect(counts(w)).toEqual({ alice: 7, bob: 7 });
     expect(pendingJobs(w)).toBe(0);
@@ -409,6 +405,96 @@ describe("forums that do not count posts", () => {
         .prepare<{ n: number }, [number]>("SELECT post_count AS n FROM users WHERE id = ?1")
         .get(id)!.n;
     expect([total(w.aliceUser.id), total(w.bobUser.id)]).toEqual([0, 0]);
+  });
+
+  test("the setting is refused during a split, and after a failed one until it is run again", async () => {
+    const { w, loud, quiet } = twoForums();
+    registerJobHandlers(w.ctx);
+    registerForumTransferJobs(w.ctx);
+    const t = await w.thread(w.alice, loud, "Split me");
+    // The first moved post needs a body (it opens the new thread); the filler posts have none.
+    await w.reply(w.bob, t.thread.id, "first");
+    fillPosts(w.ctx, t.thread.id, w.bobUser.id, 1199);
+    w.ctx.sqlite.prepare("UPDATE users SET post_count = 1200 WHERE id = ?1").run(w.bobUser.id);
+    const input = { threadId: t.thread.id, fromPosition: 1, title: "Quiet part", nodeId: quiet };
+    const split = await w.call("threads.split", w.admin, input);
+    expect(split.completed).toBe(false);
+    for (const nodeId of [loud, quiet])
+      await expect(
+        w.call("nodes.update", w.admin, { nodeId, settings: { countsPosts: nodeId !== loud } }),
+      ).rejects.toBeInstanceOf(ConflictError);
+    // The split stops part way: a failed split holds both forums until it is run again.
+    await runDueJobs(w.ctx, { limit: 1 });
+    w.ctx.sqlite
+      .prepare(
+        "UPDATE jobs SET status = 'failed' WHERE type = 'forums.split' AND status = 'pending'",
+      )
+      .run();
+    w.ctx.sqlite.prepare("UPDATE thread_transfers SET failed_at = ?1").run(w.ctx.now());
+    await expect(
+      w.call("nodes.update", w.admin, { nodeId: quiet, settings: { countsPosts: true } }),
+    ).rejects.toThrow(/failed and must be run again/);
+    expect((await w.call("threads.split", w.admin, input)).completed).toBe(false);
+    await runDueJobs(w.ctx, { limit: 100 });
+    expect(counts(w)).toEqual({ alice: 1, bob: 0 });
+    await w.call("nodes.update", w.admin, { nodeId: quiet, settings: { countsPosts: true } });
+    await runDueJobs(w.ctx, { limit: 100 });
+    expect(counts(w)).toEqual({ alice: 1, bob: 1200 });
+  });
+
+  test("a merge that starts after a switch, before the job reaches its author, ends exact", async () => {
+    const { w, loud } = twoForums();
+    registerJobHandlers(w.ctx);
+    registerForumTransferJobs(w.ctx);
+    const other = w.ctx.sqlite
+      .prepare<{ id: number }, [number]>(
+        "INSERT INTO nodes (parent_id, type, title) VALUES (?1, 'forum', 'Other') RETURNING id",
+      )
+      .get(w.category.id)!.id;
+    invalidate(w.ctx, "node_tree");
+    const target = await w.thread(w.alice, other, "Target");
+    const source = await w.thread(w.bob, loud, "Source");
+    fillPosts(w.ctx, source.thread.id, w.bobUser.id, 1200);
+    w.ctx.sqlite.prepare("UPDATE users SET post_count = 1201 WHERE id = ?1").run(w.bobUser.id);
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: false } });
+    const merge = await w.call("threads.merge", w.admin, {
+      threadId: target.thread.id,
+      sourceThreadIds: [source.thread.id],
+    });
+    expect(merge.completed).toBe(false);
+    // The job meets bob while his posts are moving and leaves him waiting: until it comes back to
+    // him, his count holds the moved posts twice.
+    await runDueJobs(w.ctx, { limit: 100 });
+    expect(pendingJobs(w)).toBe(1);
+    expect(counts(w).bob).toBe(2402);
+    w.ctx.clock.advance(60_000);
+    await runDueJobs(w.ctx, { limit: 100 });
+    expect(pendingJobs(w)).toBe(0);
+    expect(counts(w)).toEqual({ alice: 1, bob: 1201 });
+  });
+
+  test("posts moved out of the forum before the job reaches their author are recounted", async () => {
+    const { w, loud } = twoForums();
+    registerJobHandlers(w.ctx);
+    const other = w.ctx.sqlite
+      .prepare<{ id: number }, [number]>(
+        "INSERT INTO nodes (parent_id, type, title) VALUES (?1, 'forum', 'Other') RETURNING id",
+      )
+      .get(w.category.id)!.id;
+    invalidate(w.ctx, "node_tree");
+    const moved = await w.thread(w.alice, loud, "Moved");
+    await w.reply(w.alice, moved.thread.id, "two");
+    const source = await w.thread(w.bob, loud, "Source");
+    const target = await w.thread(w.carol, other, "Target");
+    await w.call("nodes.update", w.admin, { nodeId: loud, settings: { countsPosts: false } });
+    // Before the job runs, every post of alice and bob leaves the forum for a counting one.
+    await w.call("threads.move", w.admin, { threadId: moved.thread.id, nodeId: other });
+    await w.call("threads.merge", w.admin, {
+      threadId: target.thread.id,
+      sourceThreadIds: [source.thread.id],
+    });
+    await runDueJobs(w.ctx, { limit: 20 });
+    expect(counts(w)).toEqual({ alice: 2, bob: 1 });
   });
 
   test("after the job, deleting or moving content after a switch stays exact", async () => {

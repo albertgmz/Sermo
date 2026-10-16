@@ -18,7 +18,7 @@ export {
   type RebuildProgress,
   rebuildCountersChunk,
   registerJobHandlers,
-  scheduleNodeAuthorsRebuild,
+  schedulePostCountRecount,
 } from "./rebuild";
 export { startScheduler } from "./scheduler";
 

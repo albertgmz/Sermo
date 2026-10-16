@@ -349,63 +349,89 @@ export function rebuildCountersChunk(
 }
 
 /**
- * How many user ids one chunk of the post counts of a forum's authors looks at: as few as the
- * users stage's ten rows per chunk would be too many jobs, but the heaviest members of the seeded
- * board hold tens of thousands of posts each, so a wide window is a long write (see DECISIONS).
+ * How many user ids one chunk of the post count recount covers. The heaviest members of the
+ * seeded board hold tens of thousands of posts each, so a wide window would hold the writer too
+ * long, while ten ids, the users stage's chunk, would make a chain of thousands of jobs (see
+ * DECISIONS).
  */
-const AUTHOR_WINDOW = 50;
-export interface NodeAuthorsProgress {
-  nodeId: number;
+const RECOUNT_WINDOW = 50;
+/** How long the chain waits before it recounts members whose posts a merge or split is moving. */
+const TRANSFER_WAIT_MS = 60_000;
+export interface PostCountRecount {
   after: number;
+  /** Members of this window left for later because a merge or split was moving their posts. */
+  waiting?: number[];
 }
 /**
- * Recomputes the post counts (only those) of the members who wrote in a forum, for the ids after `after`: the
- * job a change of the forum's counting queues, in place of one update over every post in it. The
- * continuation and the completion commit with the chunk, as in `rebuildCountersChunk`.
+ * Recomputes the post count (and nothing else) of every member whose id is in the window after
+ * `after`; with `waiting`, of those members only. A change of a forum's counting queues it
+ * instead of one update over every post in the forum. Every member is read, not only those with
+ * posts in the forum now: a move, merge or split between the change and this chunk can take a
+ * member's last posts out of the forum while their count still holds them under the old setting.
+ * The next chunk and the completion commit with the chunk, as in `rebuildCountersChunk`.
  */
-export function rebuildNodeAuthorsChunk(
+export function recountPostCountsChunk(
   ctx: Ctx,
-  progress: NodeAuthorsProgress,
+  progress: PostCountRecount,
   job?: ClaimedJob,
 ): number {
   if (
-    !Number.isSafeInteger(progress.nodeId) ||
     !Number.isSafeInteger(progress.after) ||
-    progress.after < 0
+    progress.after < 0 ||
+    (progress.waiting !== undefined &&
+      (!Array.isArray(progress.waiting) || !progress.waiting.every(Number.isSafeInteger)))
   )
-    throw new TypeError("Invalid node authors rebuild progress.");
+    throw new TypeError("Invalid post count recount progress.");
   return writeTx(ctx, () => {
     if (job && !completeRunningJob(ctx, job)) return 0;
-    const rows = all<Row>(
-      ctx,
-      "nodeAuthors",
-      "SELECT id, post_count FROM users WHERE id > ?1 AND id <= ?1 + ?3 AND EXISTS (" +
-        "SELECT 1 FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.user_id = users.id AND t.node_id = ?2)",
-      progress.after,
-      progress.nodeId,
-      AUTHOR_WINDOW,
-    );
+    const rows = progress.waiting
+      ? all<Row>(
+          ctx,
+          "recountWaiting",
+          "SELECT id, post_count FROM users WHERE id IN (SELECT value FROM json_each(?1))",
+          JSON.stringify(progress.waiting),
+        )
+      : all<Row>(
+          ctx,
+          "recountWindow",
+          "SELECT id, post_count FROM users WHERE id > ?1 AND id <= ?1 + ?2",
+          progress.after,
+          RECOUNT_WINDOW,
+        );
     let changed = 0;
+    const waiting: number[] = [];
     for (const row of rows) {
-      // A member with posts in a merge or split under way keeps the count the transfer keeps.
-      if (inTransfer(ctx, "users", row.id)) continue;
+      // A merge or split that started after the change applies the new setting to posts that
+      // this member's count still holds under the old one, so the count is right only once the
+      // transfer has ended (finished or failed). Until then the member waits.
+      if (inTransfer(ctx, "users", row.id)) {
+        waiting.push(row.id);
+        continue;
+      }
       if (updateChanged(ctx, "users", row, { post_count: userPostCount(ctx, row.id) })) changed++;
     }
-    const end = progress.after + AUTHOR_WINDOW;
+    const end = progress.after + RECOUNT_WINDOW;
     const last = one<{ id: number | null }>(ctx, "lastUser", "SELECT max(id) AS id FROM users")!;
-    if ((last.id ?? 0) > end)
-      enqueueJob(ctx, "rebuild-node-authors", { nodeId: progress.nodeId, after: end });
+    if (waiting.length > 0)
+      enqueueJob(
+        ctx,
+        "recount-post-counts",
+        { after: progress.after, waiting } satisfies PostCountRecount,
+        { runAt: ctx.now() + TRANSFER_WAIT_MS },
+      );
+    else if ((last.id ?? 0) > end)
+      enqueueJob(ctx, "recount-post-counts", { after: end } satisfies PostCountRecount);
     return changed;
   });
 }
-/** Queues the recount of the post counts of a forum's authors (after its counting changed). */
-export function scheduleNodeAuthorsRebuild(ctx: Ctx, nodeId: number): void {
-  enqueueJob(ctx, "rebuild-node-authors", { nodeId, after: 0 } satisfies NodeAuthorsProgress);
+/** Queues a recount of every member's post count (after a forum's counting changed). */
+export function schedulePostCountRecount(ctx: Ctx): void {
+  enqueueJob(ctx, "recount-post-counts", { after: 0 } satisfies PostCountRecount);
 }
 
 export function registerJobHandlers(ctx: Ctx): void {
-  registerJobHandler(ctx, "rebuild-node-authors", (context, payload, job) => {
-    rebuildNodeAuthorsChunk(context, payload as NodeAuthorsProgress, job);
+  registerJobHandler(ctx, "recount-post-counts", (context, payload, job) => {
+    recountPostCountsChunk(context, payload as PostCountRecount, job);
   });
   registerJobHandler(ctx, "rebuild-counters", (context, payload, job) => {
     rebuildCountersChunk(context, payload as RebuildProgress, {}, job);

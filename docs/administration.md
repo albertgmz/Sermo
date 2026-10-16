@@ -963,7 +963,7 @@ Each forum has posting rules, set in `settings` with `POST /nodes` (`nodes.creat
 
 Members with `forum.bypassNodeRules` on the node are exempt from all of them.
 
-A forum also has `countsPosts` (on by default). While it is off, visible posts in it add nothing to their authors' post counts; moving, merging or splitting content between a counting and a non-counting forum moves the counts with it, and switching the setting queues a background job that updates the counts for the posts already there (it is refused while a merge or split involving the forum is still moving posts).
+A forum also has `countsPosts` (on by default). While it is off, visible posts in it add nothing to their authors' post counts; moving, merging or splitting content between a counting and a non-counting forum moves the counts with it, and switching the setting queues a background job that recounts every member's post count (it is refused while a merge or split involving the forum has not finished, including one that failed and must be run again).
 
 ### Profile privacy
 

@@ -42,7 +42,7 @@ import {
   completeRunningJob,
   enqueueJob,
   registerJobHandler,
-  scheduleNodeAuthorsRebuild,
+  schedulePostCountRecount,
 } from "../jobs";
 import { requireSiteView } from "../members/site-access";
 import {
@@ -888,28 +888,30 @@ export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
 /**
  * A forum starts or stops counting posts. The counts of the posts already in it follow in a
  * background job; nothing is queued for a node without threads, which no count can depend on. The
- * change is refused while a merge or split involving the forum is still moving posts, because the
- * chunks still to run would read the new setting for posts counted under the old one.
+ * change is refused while a merge or split involving the forum has not finished (still moving
+ * posts, or failed and waiting to be run again), because the chunks still to run would read the
+ * new setting for posts counted under the old one. The transfers table is nearly always empty, so
+ * the check reads it first rather than every thread of the forum.
  */
 function changeNodeCounting(ctx: Ctx, nodeId: number): void {
   if (!forumDb(ctx).prepare("SELECT 1 FROM threads WHERE node_id = ?1 LIMIT 1").get(nodeId)) return;
   if (
     forumDb(ctx)
       .prepare(
-        "SELECT 1 FROM thread_transfers x JOIN threads t ON t.id = x.thread_id WHERE t.node_id = ?1 LIMIT 1",
+        "SELECT 1 FROM thread_transfers x WHERE EXISTS (" +
+          "SELECT 1 FROM threads t WHERE t.id = x.thread_id AND t.node_id = ?1) LIMIT 1",
       )
       .get(nodeId)
   )
     throw new ConflictError(
-      "A merge or split is still moving posts of this forum; try again when it has finished.",
+      "A merge or split of threads in this forum has not finished: it is still moving posts, or it failed and must be run again. Try again once it has finished.",
     );
-  scheduleNodeAuthorsRebuild(ctx, nodeId);
+  schedulePostCountRecount(ctx);
 }
 /** Applies the given node settings (inside the node write's transaction). */
 function writeNodeSettings(
   ctx: Ctx,
   nodeId: number,
-  isNew: boolean,
   settings:
     | z.infer<typeof contracts.NodeSettings>
     | Partial<z.infer<typeof contracts.NodeSettings>>
@@ -927,7 +929,7 @@ function writeNodeSettings(
   for (const [key, column] of columns) {
     const value = settings[key];
     if (value === undefined) continue;
-    if (key === "countsPosts" && !isNew && nodeCountsPosts(ctx, nodeId) !== value)
+    if (key === "countsPosts" && nodeCountsPosts(ctx, nodeId) !== value)
       changeNodeCounting(ctx, nodeId);
     forumDb(ctx)
       .prepare(`UPDATE nodes SET ${column} = ?1 WHERE id = ?2`)
@@ -970,7 +972,7 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
         input.tabId ?? null,
         input.iconKey ?? null,
       )!;
-    writeNodeSettings(ctx, row.id, true, input.settings);
+    writeNodeSettings(ctx, row.id, input.settings);
     invalidate(ctx, "node_tree");
     invalidate(ctx, "node_tabs");
     publishEvent(ctx, { type: "content.created", targetType: "node", targetId: row.id });
@@ -1013,7 +1015,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
         tabId,
         input.iconKey === undefined ? stored.icon_key : input.iconKey,
       );
-    writeNodeSettings(ctx, input.nodeId, false, input.settings);
+    writeNodeSettings(ctx, input.nodeId, input.settings);
     invalidate(ctx, "node_tree");
     invalidate(ctx, "node_tabs");
     publishEvent(ctx, { type: "content.edited", targetType: "node", targetId: input.nodeId });
