@@ -1,15 +1,19 @@
 // Lighthouse CI configuration, read by `lhci` (see scripts/lighthouse.ts, which runs it).
 //
-// The addresses, the Cookie header and the Chrome to use change from run to run, so the runner
-// writes them to a JSON file and names it in LIGHTHOUSE_RUN_FILE. Everything else is fixed here.
+// The addresses and the Chrome to use change from run to run, so the runner writes them to a JSON
+// file and names it in LIGHTHOUSE_RUN_FILE. Cookies (the consent choice, a signed-in session) are
+// not in that file: they come in LIGHTHOUSE_COOKIES, only when a run needs them. Everything else is
+// fixed here.
 const { readFileSync } = require("node:fs");
+const { join, relative } = require("node:path");
 
 const run = JSON.parse(readFileSync(process.env.LIGHTHOUSE_RUN_FILE, "utf8"));
 
 // A category passes at 90, measured on the median of the runs of each address. Accessibility is
 // not asserted.
 const category = (minScore) => ["error", { minScore, aggregationMethod: "median" }];
-// An agentic-browsing audit passes at 1 on every run, or does not apply.
+// An agentic-browsing audit passes at 1 on every run, or does not apply. (The audit ids are also
+// in scripts/lighthouse-lib.ts, AGENTIC_AUDITS, for the summary.)
 const agentic = ["error", { minScore: 1, aggregationMethod: "pessimistic" }];
 const shared = {
   "categories:performance": category(0.9),
@@ -24,8 +28,11 @@ const shared = {
 
 // Search results and conversations stay out of search engines on purpose (`noindex`). Lighthouse's
 // `is-crawlable` audit counts that as a failure worth 40 points of the SEO score, so the SEO score
-// of these two is held at 50: any other SEO failure still shows.
-const NOT_INDEXED = "/(conversations/|search)";
+// of these two is held at 50: any other SEO failure still shows. Matched against the final address.
+const NOT_INDEXED = "https?://[^/]+/(conversations/|search)";
+
+// lhci joins this path to its working folder, which is inside .lighthouseci.
+const cookieScript = relative(process.cwd(), join(__dirname, "scripts", "lighthouse-cookies.cjs"));
 
 module.exports = {
   ci: {
@@ -35,19 +42,21 @@ module.exports = {
       chromePath: run.chromePath,
       settings: {
         // Lighthouse's mobile emulation: a 412 x 823 phone screen at 1.75 pixel ratio, a phone
-        // user agent, simulated slow 4G and a 4x slower processor. A fresh profile for every run.
+        // user agent, simulated slow 4G and a 4x slower processor. A fresh profile for every run
+        // (when cookies are set, one browser serves the runs of a group, with only those cookies).
         formFactor: "mobile",
-        ...(run.cookie ? { extraHeaders: { Cookie: run.cookie } } : {}),
       },
+      // The cookies go into the browser's own jar, where the page's scripts (the banner) read them.
+      ...(process.env.LIGHTHOUSE_COOKIES ? { puppeteerScript: cookieScript } : {}),
     },
     assert: {
       assertMatrix: [
         {
-          matchingUrlPattern: `^(?!.*${NOT_INDEXED}).*$`,
+          matchingUrlPattern: `^(?!${NOT_INDEXED}).*$`,
           assertions: { ...shared, "categories:seo": category(0.9) },
         },
         {
-          matchingUrlPattern: `.*${NOT_INDEXED}.*`,
+          matchingUrlPattern: `^${NOT_INDEXED}.*$`,
           assertions: { ...shared, "categories:seo": category(0.5) },
         },
       ],

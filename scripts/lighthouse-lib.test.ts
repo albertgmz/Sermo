@@ -1,17 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   consentCookie,
-  cookieHeader,
   findChrome,
   folderName,
   formatSummary,
+  isLoopback,
   median,
+  outputFolder,
   ownPath,
   pageCount,
   parseLighthouseArgs,
+  parseSetCookies,
   pickForum,
   pickThread,
+  playwrightChromiums,
   type ReportFacts,
   searchWords,
   summarise,
@@ -39,7 +42,7 @@ describe("arguments", () => {
     expect(args.url).toBe("https://forum.example.com");
     expect(args.pages).toEqual(["home", "search"]);
     expect(args.name).toBe(folderName("https://forum.example.com", "after"));
-    expect(args.name).toBe("forum.example.com-after");
+    expect(args.name).toBe("forum-example-com-after");
     expect(parseLighthouseArgs(["--name", "large"]).name).toBe("large");
   });
 
@@ -48,6 +51,20 @@ describe("arguments", () => {
     expect(() => parseLighthouseArgs(["--pages", "home,cart"])).toThrow('"cart"');
     expect(() => parseLighthouseArgs(["--runs", "0"])).toThrow("--runs");
     expect(() => parseLighthouseArgs(["--url", "ftp://x"])).toThrow("--url");
+  });
+
+  test("a folder name is letters, digits and hyphens, and stays inside .lighthouseci", () => {
+    const root = resolve("/repo");
+    expect(outputFolder(root, "large-before")).toBe(join(root, ".lighthouseci", "large-before"));
+    for (const name of ["..", ".", "../apps", "a/b", "a\\b", "", "Big", "a b", "x..y"])
+      expect(() => outputFolder(root, name)).toThrow("--name");
+  });
+
+  test("a loopback address is the only one the staging login may go to", () => {
+    expect(isLoopback("http://localhost:4400")).toBe(true);
+    expect(isLoopback("http://127.0.0.1:4400")).toBe(true);
+    expect(isLoopback("https://forum.albertgmz.com")).toBe(false);
+    expect(isLoopback("http://localhost.example.com")).toBe(false);
   });
 });
 
@@ -92,23 +109,47 @@ describe("choosing pages", () => {
 });
 
 describe("cookies", () => {
-  test("the consent cookie reads back as a choice of the policy version in force", () => {
-    const [name, value] = consentCookie(3, new Date("2026-01-02T03:04:05Z")).split("=");
-    expect(name).toBe("forum_consent");
-    const record = JSON.parse(decodeURIComponent(value!));
+  const stamp = new Date("2026-01-02T03:04:05Z");
+  const read = (cookie: { value: string }) => JSON.parse(decodeURIComponent(cookie.value));
+
+  test("the consent cookie is the banner's Accept all: every optional category, the policy version", () => {
+    const cookie = consentCookie(3, { now: stamp });
+    expect(cookie.name).toBe("forum_consent");
+    expect(cookie.httpOnly).toBe(false);
+    const record = read(cookie);
     expect(record.revision).toBe(3);
     expect(record.categories).toEqual(["necessary", "analytics", "referrals", "embeds"]);
+    expect(Object.keys(record.services)).toEqual(record.categories);
+    expect(record.languageCode).toBe("en");
     expect(record.lastConsentTimestamp).toBe("2026-01-02T03:04:05.000Z");
+    expect(record.expirationTime).toBe(stamp.getTime() + 182 * 86_400_000);
   });
 
-  test("a Cookie header from Set-Cookie lines keeps the pairs and drops the attributes", () => {
+  test("the banner leaves analytics out when it does not offer it, and the page language goes in", () => {
+    const record = read(consentCookie(1, { omit: ["analytics"], language: "es", https: true }));
+    expect(record.categories).toEqual(["necessary", "referrals", "embeds"]);
+    expect(Object.keys(record.services)).toEqual(["necessary", "referrals", "embeds"]);
+    expect(record.languageCode).toBe("es");
+    expect(consentCookie(1, { https: true }).secure).toBe(true);
+  });
+
+  test("cookies of Set-Cookie lines keep their name, value and flags, and a cleared one goes", () => {
     expect(
-      cookieHeader([
-        "better-auth.session_token=abc.def; Path=/; HttpOnly; SameSite=Lax",
-        "better-auth.session_data=xyz; Max-Age=300",
+      parseSetCookies([
+        "sermo.session_token=abc.def; Path=/; HttpOnly; SameSite=Lax",
+        "sermo.session_data=xyz=; Max-Age=300; Secure",
         "gone=; Max-Age=0",
       ]),
-    ).toBe("better-auth.session_token=abc.def; better-auth.session_data=xyz");
+    ).toEqual([
+      {
+        name: "sermo.session_token",
+        value: "abc.def",
+        httpOnly: true,
+        secure: false,
+        sameSite: "Lax",
+      },
+      { name: "sermo.session_data", value: "xyz=", httpOnly: false, secure: true },
+    ]);
   });
 });
 
@@ -125,6 +166,20 @@ describe("Chrome", () => {
     expect(findChrome({ ...env, CHROME_PATH: "/gone" }, present(installed))).toBe(installed);
     expect(findChrome(env, present("/pw"), () => ["/pw"])).toBe("/pw");
     expect(findChrome({}, present(), () => ["/pw"])).toBeNull();
+  });
+});
+
+describe("Playwright's Chromium", () => {
+  test("the newest version first, compared as a number", () => {
+    const found = playwrightChromiums("/pw", [
+      "chromium-999",
+      "ffmpeg-1011",
+      "chromium-1248",
+      "chromium_headless_shell-1248",
+    ]);
+    expect(found[0]).toBe(join("/pw", "chromium-1248", "chrome-win64", "chrome.exe"));
+    expect(found.at(-1)).toBe(join("/pw", "chromium-999", "chrome-win", "chrome.exe"));
+    expect(found).toHaveLength(4);
   });
 });
 

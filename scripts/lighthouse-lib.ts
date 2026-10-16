@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 
 // The parts of the Lighthouse runner that need no process, browser or network: arguments, the
@@ -28,16 +28,32 @@ export interface LighthouseArgs {
   consent: ConsentMode;
   pages: PageName[];
   runs: number;
-  additive: boolean;
   dryRun: boolean;
   db: string | undefined;
   name: string;
 }
 
-/** `http://localhost:4400/` and `https://forum.example.com` become folder names. */
+/** `http://localhost:4400/` and `https://forum.example.com` become `localhost-4400-before` and so on. */
 export function folderName(url: string, consent: ConsentMode): string {
   const { host } = new URL(url);
-  return `${host.replace(/[^a-z0-9.-]/gi, "-")}-${consent}`;
+  return `${host.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${consent}`;
+}
+
+const NAME = /^[a-z0-9-]+$/;
+
+/** The folder of a run, inside `<root>/.lighthouseci` and nowhere else (it is emptied first). */
+export function outputFolder(root: string, name: string): string {
+  const base = resolve(root, ".lighthouseci");
+  const folder = resolve(base, name);
+  if (!NAME.test(name) || !folder.startsWith(base + sep))
+    throw new Error("--name takes letters a-z, digits and hyphens only.");
+  return folder;
+}
+
+/** Whether the address is on this machine, where the staging administrator's login may be used. */
+export function isLoopback(url: string): boolean {
+  const { hostname } = new URL(url);
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
 
 export function parseLighthouseArgs(argv: string[]): LighthouseArgs {
@@ -48,7 +64,6 @@ export function parseLighthouseArgs(argv: string[]): LighthouseArgs {
       consent: { type: "string" },
       pages: { type: "string" },
       runs: { type: "string" },
-      additive: { type: "boolean" },
       "dry-run": { type: "boolean" },
       db: { type: "string" },
       name: { type: "string" },
@@ -72,7 +87,6 @@ export function parseLighthouseArgs(argv: string[]): LighthouseArgs {
     consent: consent as ConsentMode,
     pages: pages as PageName[],
     runs,
-    additive: values.additive ?? false,
     dryRun: values["dry-run"] ?? false,
     db: values.db,
     name: values.name ?? folderName(base, consent as ConsentMode),
@@ -127,31 +141,94 @@ export function ownPath(canonical: string): string {
   return pathname.replace(/^\/nodes\//, "/forums/") + search;
 }
 
+/** A cookie as it goes into the browser's own cookie jar. */
+export interface BrowserCookie {
+  name: string;
+  value: string;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite?: "Strict" | "Lax" | "None";
+}
+
+/** How long the banner library keeps its cookie (lib/consent/account.ts: CONSENT_COOKIE_DAYS). */
+const CONSENT_DAYS = 182;
+
 /**
- * The cookie the banner writes on "Accept all" (the library's own shape, as lib/consent/account.ts
- * writes it for a choice made elsewhere), so a visit "after" is a returning visitor who accepted.
+ * The cookie the banner writes on "Accept all", field for field as the library writes it (see the
+ * cookie of a real click, and lib/consent/account.ts for the same shape written from an account):
+ * every optional category the banner offers, `revision` the policy version, `services` an empty list
+ * per category, the language of the page. The banner leaves out `analytics` when the site's only
+ * analytics is Matomo without cookies (`omit`). The value is URL-encoded JSON, as the library
+ * writes it; it is not HTTP-only (the library reads it in the page) and lasts as long as the
+ * library's own.
  */
-export function consentCookie(version: number, now: Date = new Date()): string {
+export function consentCookie(
+  version: number,
+  options: { omit?: readonly string[]; language?: string; https?: boolean; now?: Date } = {},
+): BrowserCookie {
+  const { omit = [], language = "en", https = false, now = new Date() } = options;
+  const optional = ["analytics", "referrals", "embeds"].filter((name) => !omit.includes(name));
+  const categories = ["necessary", ...optional];
   const stamp = now.toISOString();
   const value = JSON.stringify({
-    categories: ["necessary", "analytics", "referrals", "embeds"],
+    categories,
     revision: version,
     data: null,
     consentTimestamp: stamp,
-    consentId: "lighthouse",
-    services: { necessary: [], analytics: [], referrals: [], embeds: [] },
-    languageCode: "en",
+    consentId: crypto.randomUUID(),
+    services: Object.fromEntries(categories.map((name) => [name, []])),
+    languageCode: language,
     lastConsentTimestamp: stamp,
+    expirationTime: now.getTime() + CONSENT_DAYS * 86_400_000,
   });
-  return `forum_consent=${encodeURIComponent(value)}`;
+  return {
+    name: "forum_consent",
+    value: encodeURIComponent(value),
+    httpOnly: false,
+    secure: https,
+    sameSite: "Lax",
+  };
 }
 
-/** `name=value` pairs of the `Set-Cookie` headers of a response, as one `Cookie` header. */
-export function cookieHeader(setCookies: string[]): string {
-  return setCookies
-    .map((line) => line.split(";")[0]?.trim() ?? "")
-    .filter((pair) => pair.includes("=") && !pair.endsWith("="))
-    .join("; ");
+/** The cookies a response sets, from its `Set-Cookie` lines (a cleared cookie is left out). */
+export function parseSetCookies(setCookies: string[]): BrowserCookie[] {
+  return setCookies.flatMap((line) => {
+    const [pair = "", ...attributes] = line.split(";").map((part) => part.trim());
+    const at = pair.indexOf("=");
+    if (at < 1 || at === pair.length - 1) return [];
+    const flags = attributes.map((attribute) => attribute.toLowerCase());
+    const sameSite = flags.find((flag) => flag.startsWith("samesite="))?.slice("samesite=".length);
+    return [
+      {
+        name: pair.slice(0, at),
+        value: pair.slice(at + 1),
+        httpOnly: flags.includes("httponly"),
+        secure: flags.includes("secure"),
+        ...(sameSite === "strict" || sameSite === "lax" || sameSite === "none"
+          ? {
+              sameSite: (sameSite[0]!.toUpperCase() + sameSite.slice(1)) as
+                | "Strict"
+                | "Lax"
+                | "None",
+            }
+          : {}),
+      },
+    ];
+  });
+}
+
+/** Chromium folders of Playwright's browser cache, newest version first (numerically). */
+export function playwrightChromiums(base: string, folders: string[]): string[] {
+  return folders
+    .flatMap((folder) => {
+      const version = /^chromium-(\d+)$/.exec(folder)?.[1];
+      return version ? [{ folder, version: Number(version) }] : [];
+    })
+    .sort((a, b) => b.version - a.version)
+    .flatMap(({ folder }) => [
+      join(base, folder, "chrome-win64", "chrome.exe"),
+      join(base, folder, "chrome-win", "chrome.exe"),
+    ]);
 }
 
 /** Chrome for the runs: `CHROME_PATH`, the installed browser, then Playwright's Chromium. */
@@ -161,12 +238,9 @@ export function findChrome(
   listPlaywright: () => string[] = () => [],
 ): string | null {
   if (env.CHROME_PATH && exists(env.CHROME_PATH)) return env.CHROME_PATH;
-  const roots = [env.PROGRAMFILES, env["PROGRAMFILES(X86)"], env.LOCALAPPDATA].filter(
-    (root): root is string => Boolean(root),
-  );
-  const installed = roots
+  const installed = [env.PROGRAMFILES, env["PROGRAMFILES(X86)"], env.LOCALAPPDATA]
+    .filter((root): root is string => Boolean(root))
     .map((root) => join(root, "Google", "Chrome", "Application", "chrome.exe"))
-    .concat(["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"])
     .find((path) => exists(path));
   if (installed) return installed;
   return listPlaywright().find((path) => exists(path)) ?? null;
@@ -209,7 +283,13 @@ export interface ReportFacts {
   categories: Record<string, { score: number | null } | undefined>;
   audits: Record<
     string,
-    { score: number | null; scoreDisplayMode?: string; numericValue?: number } | undefined
+    | {
+        score: number | null;
+        scoreDisplayMode?: string;
+        numericValue?: number;
+        details?: { data?: string };
+      }
+    | undefined
   >;
 }
 
