@@ -40,7 +40,7 @@ test("every other public tab has its own named address", () => {
   });
 });
 
-test("a member who opens on another tab at the bare address points at that tab, indexed as a guest would see it", () => {
+test("a member who opens on another tab at the bare address gets that tab's named address", () => {
   expect(address("hot")).toEqual({ path: "/?tab=hot", index: true });
 });
 

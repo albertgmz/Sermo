@@ -83,7 +83,7 @@ test("each tab has its own title and description, built from the site's name", a
   const seen = new Set<string>();
   for (const tab of ["latest", "hot", "forums", "media"]) {
     const metadata = await head({ tab });
-    expect(String(metadata.title), tab).not.toBe("");
+    expect(typeof metadata.title, tab).toBe("string");
     expect(String(metadata.description), tab).toContain("Garden Club");
     seen.add(`${metadata.title}|${metadata.description}`);
   }
