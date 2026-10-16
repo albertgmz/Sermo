@@ -53,7 +53,7 @@ Four scenarios (`ramping-vus`), each a share of the peak VUs:
 
 `setup()` signs in a pool of members once (6, 40 or 60, each in a conversation they belong to)
 and every VU reuses one of their session cookies, since Better Auth's sign-in limit (3 per 10 s
-per address) cannot be raised. Sign-ins are paced at one every 3.5 s, so setup takes about 20 s (smoke), 2.5 min (hundreds) or 3.5 min (thousands) before the ramp starts.
+per address) cannot be raised. Sign-ins go three at a time with a 10.5 s pause after each three, so setup takes about 20 s (smoke), 2.5 min (hundreds) or 3.5 min (thousands) before the ramp starts.
 
 The thresholds are an initial report bar, not budgets: http errors under 1% (reads and writes
 separately), reads p95 under 200 ms, writes p95 under 500 ms. The end report lists every

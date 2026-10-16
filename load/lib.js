@@ -112,6 +112,7 @@ export function signIn(id, password) {
     const cookie = res.cookies["sermo.session_token"];
     if (res.status === 200 && cookie && cookie.length > 0) return cookie[0].value;
     if (res.status === 429) {
+      console.warn(`sign-in of member ${id}: rate limited, waiting`);
       sleep(11);
       continue;
     }

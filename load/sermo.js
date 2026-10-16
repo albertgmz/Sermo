@@ -91,9 +91,10 @@ export function setup() {
     seen.add(userId);
     const cookie = signIn(userId, password[0]);
     if (cookie) sessions.push({ userId, conversationId, cookie });
-    // Better Auth allows 3 sign-ins per 10 s per address, and reads the address from the socket
-    // (the staging backend trusts no proxy header), so the pool is signed in at that pace.
-    sleep(3.5);
+    // Better Auth allows 3 sign-ins per address, and counts again only after 10 s without one; it
+    // reads the address from the socket (the staging backend trusts no proxy header). So the pool
+    // is signed in three at a time, with a pause after each three.
+    if (seen.size % 3 === 0) sleep(10.5);
   }
   if (sessions.length === 0) throw new Error("no member could sign in");
   console.log(`signed in ${sessions.length} members`);
