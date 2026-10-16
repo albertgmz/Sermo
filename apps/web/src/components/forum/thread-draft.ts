@@ -26,15 +26,32 @@ export function isEmptyDraft(draft: ThreadDraft) {
 }
 
 // Whether two drafts are the same one; none and an empty draft are (an empty draft is not kept).
+// What is kept has no attachment tags and what a composer holds has, so both go without them.
 export function sameDraft(a: ThreadDraft | null, b: ThreadDraft | null) {
-  const left = a ?? { title: "", body: "", prefixId: "" };
-  const right = b ?? { title: "", body: "", prefixId: "" };
+  const plain = (draft: ThreadDraft | null) => ({
+    title: draft?.title ?? "",
+    body: withoutAttachTags(draft?.body ?? ""),
+    prefixId: draft?.prefixId ?? "",
+  });
+  const left = plain(a);
+  const right = plain(b);
   return (
     (isEmptyDraft(left) && isEmptyDraft(right)) ||
     (left.title === right.title &&
       left.body === right.body &&
       left.prefixId === right.prefixId)
   );
+}
+
+// Whether a composer left hidden must be drawn anew from the tab: the draft kept there is not the
+// one it holds (it was continued or sent on the page of its own). Never while its own send is on
+// its way: it owns the action, and what the tab holds is then, rightly, nothing.
+export function draftMovedOn(
+  kept: ThreadDraft | null,
+  held: ThreadDraft | null,
+  sending: boolean,
+) {
+  return !sending && !sameDraft(kept, held);
 }
 
 // The files of a draft are not kept (they come back as a list only while the page stays), so the

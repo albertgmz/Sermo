@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   clearThreadDraft,
+  draftMovedOn,
   readThreadDraft,
   sameDraft,
   threadDraftKey,
@@ -124,4 +125,30 @@ test("a composer left hidden can tell that the draft kept in the tab has moved o
   // Nothing kept and nothing held are the same.
   expect(sameDraft(readThreadDraft(1, store), null)).toBe(true);
   expect(sameDraft(null, { title: " ", body: "", prefixId: "" })).toBe(true);
+});
+
+test("a draft with an attached file is the same one the tab holds: the tags are not kept, so they do not count", () => {
+  const store = memory();
+  const held = { title: "A", body: "hello [ATTACH]12[/ATTACH]", prefixId: "" };
+  writeThreadDraft(1, held, store);
+  expect(sameDraft(readThreadDraft(1, store), held)).toBe(true);
+  // Only a tag held, nothing else: the same as nothing.
+  expect(
+    sameDraft(null, { title: "", body: "[ATTACH]12[/ATTACH]", prefixId: "" }),
+  ).toBe(true);
+  expect(
+    sameDraft(
+      { title: "A", body: "hello", prefixId: "" },
+      { title: "A", body: "hello[ATTACH=full]3[/ATTACH]", prefixId: "" },
+    ),
+  ).toBe(true);
+});
+
+test("a composer is never drawn anew while its own send is on its way", () => {
+  const typed = { title: "A", body: "text", prefixId: "" };
+  // The send cleared the tab, so the held draft differs from what it holds...
+  expect(draftMovedOn(null, typed, false)).toBe(true);
+  // ...and that is no reason to unmount the composer that owns the request.
+  expect(draftMovedOn(null, typed, true)).toBe(false);
+  expect(draftMovedOn(typed, typed, false)).toBe(false);
 });
