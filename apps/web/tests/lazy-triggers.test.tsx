@@ -1,4 +1,4 @@
-import { afterAll, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 import type { ComponentType, ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
@@ -252,4 +252,71 @@ test("the plain triggers are in the markup the server sends, with the attributes
     expect(attributes["aria-haspopup"], name).toMatch(/^(dialog|menu)$/);
     expect(attributes["aria-expanded"], name).toBe("false");
   }
+});
+
+// The share button asks for the device's share sheet inside the press itself, before the popup's
+// code is fetched: a browser allows the sheet only there.
+describe("the share button's press", () => {
+  const original = {
+    navigator: Object.getOwnPropertyDescriptor(globalThis, "navigator"),
+    location: Object.getOwnPropertyDescriptor(globalThis, "location"),
+  };
+  const stub = (name: "navigator" | "location", value: unknown) =>
+    Object.defineProperty(globalThis, name, { value, configurable: true });
+  afterEach(() => {
+    for (const name of ["navigator", "location"] as const) {
+      const descriptor = original[name];
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete (globalThis as Record<string, unknown>)[name];
+    }
+  });
+
+  // Draws the button and presses it; `opened` counts the times the popup was asked for.
+  function press(
+    share: ((data: { url: string }) => Promise<void>) | undefined,
+  ) {
+    stub("navigator", share ? { share } : {});
+    stub("location", { origin: "https://forum.test" });
+    captured = undefined;
+    render(<ShareButton href="/threads/3#post-1" />);
+    let opened = 0;
+    const button = (captured as Captured | undefined)?.trigger({
+      onClick: () => {
+        opened += 1;
+      },
+    });
+    if (!button) throw new Error("the page drew no lazy popup");
+    (button.props as { onClick: (event: unknown) => void }).onClick({});
+    return () => opened;
+  }
+  const settle = () => new Promise((done) => setTimeout(done, 0));
+
+  test("hands the link to the share sheet in the press and does not ask for the popup", async () => {
+    const urls: string[] = [];
+    const opened = press(async ({ url }) => {
+      urls.push(url);
+    });
+    expect(urls).toEqual(["https://forum.test/threads/3#post-1"]);
+    await settle();
+    expect(opened()).toBe(0);
+  });
+
+  test("closing the share sheet asks for nothing more", async () => {
+    const opened = press(() =>
+      Promise.reject(new DOMException("closed", "AbortError")),
+    );
+    await settle();
+    expect(opened()).toBe(0);
+  });
+
+  test("a share sheet that fails opens the popup once", async () => {
+    const opened = press(() => Promise.reject(new Error("refused")));
+    expect(opened()).toBe(0);
+    await settle();
+    expect(opened()).toBe(1);
+  });
+
+  test("a device without a share sheet opens the popup in the press", () => {
+    expect(press(undefined)()).toBe(1);
+  });
 });

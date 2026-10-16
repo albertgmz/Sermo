@@ -10,10 +10,13 @@ export default function StyleguideLayout({
       namespaces={[
         "account.navigation",
         "account.profile",
-        "adminForums.pictureField",
-        "adminGroups.matrix",
+        "admin.confirmPassword",
+        "admin.formRows",
         "admin.forumPicker",
         "admin.ruleBuilder",
+        "adminForums.pictureField",
+        "adminGroups.matrix",
+        "auth.passwordField",
         "forum.autosave",
         "forum.framing",
         "forum.memberActions",
@@ -21,9 +24,6 @@ export default function StyleguideLayout({
         "lite.liteMenuDemo",
         "lite.navigation",
         "ui.iconPicker",
-        "admin.confirmPassword",
-        "admin.formRows",
-        "auth.passwordField",
       ]}
     >
       {children}

@@ -40,6 +40,18 @@ const VARIABLE_NAMESPACES: Record<string, string[]> = {
   ],
 };
 
+// Imports that are not a render: the module imports a file for one helper and never draws the
+// client component that file holds. Keyed by the importing file, then the imported one.
+const NOT_RENDERED: Record<string, Record<string, string>> = {
+  "src/components/layout/panel-rows.tsx": {
+    "src/app/[locale]/(main)/account/bookmarks/bookmark-page.tsx":
+      "takes bookmarkHref only; the rows it draws are its own, and the avatar menu draws no BookmarkButton",
+  },
+};
+
+const relative = (file: string) =>
+  file.replaceAll("\\", "/").replace(/^.*[/]apps[/]web[/]/, "");
+
 const isClient = (source: string) => /^\s*["']use client["']/m.test(source);
 const isServerAction = (source: string) =>
   /^\s*["']use server["']/m.test(source);
@@ -114,12 +126,16 @@ export function namespacesReachedFrom(entry: string): Set<string> {
     if (seen.has(key)) return;
     seen.add(key);
     const source = sourceOf(file);
-    if (isServerAction(source)) return;
-    const client = inClient || isClient(source);
+    // What a server action imports is drawn on the server, whoever calls it: a client component
+    // it returns as UI is client code.
+    const client = isServerAction(source)
+      ? false
+      : inClient || isClient(source);
     if (client) for (const n of componentNamespaces(file, source)) found.add(n);
     for (const spec of specifiers(source)) {
       const next = target(spec, file);
-      if (next) visit(next, client);
+      if (next && !NOT_RENDERED[relative(file)]?.[relative(next)])
+        visit(next, client);
     }
   };
   visit(resolve(entry), false);
