@@ -40,8 +40,13 @@ test.describe("signed in", () => {
       ]);
       await visit(page, "/");
       await expect(page.locator("html")).toHaveAttribute("lang", language);
+      // Only what draws text is a label. The unread dot of an icon sticks out of the icon's box on
+      // purpose, and the screen-reader text is clipped to a pixel: a member with unread alerts (the
+      // large forum's) has both.
       const cut = await page.evaluate(() =>
         [...document.querySelectorAll('nav[aria-label="Primary"] *')]
+          .filter((element) => !element.closest(".sr-only"))
+          .filter((element) => element.textContent?.trim())
           .filter((element) => element.scrollWidth > element.clientWidth + 1)
           .map(
             (element) =>
@@ -88,6 +93,12 @@ test.describe("signed in", () => {
     const size = screen(page);
     expect(frame.x).toBeGreaterThanOrEqual(16 - 1);
     expect(frame.x + frame.width).toBeLessThanOrEqual(size.width - 16 + 1);
+    // The popover scales in over 100 ms: a button measured on the way is a hair under its size.
+    await picker.evaluate((element) =>
+      Promise.all(
+        element.getAnimations().map((animation) => animation.finished),
+      ),
+    );
     const reactions = picker.getByRole("button");
     for (let index = 0; index < (await reactions.count()); index += 1) {
       const target = await box(reactions.nth(index));
@@ -151,10 +162,15 @@ test.describe("signed in", () => {
     page,
   }) => {
     await visit(page, "/");
+    // The toggle saves the choice with a server action and then loads the page again. A reload of
+    // the test's own before that answer is in cancels the save (the large forum answers slowly).
+    const reloaded = page.waitForEvent("load");
     await page.getByRole("button", { name: "Compact list" }).click();
     await expect(
       page.getByRole("button", { name: "Compact list" }),
     ).toHaveAttribute("aria-pressed", "true");
+    await reloaded;
+    await ready(page);
     await page.reload();
     await ready(page);
     await expect(
@@ -177,11 +193,15 @@ test.describe("signed in", () => {
         `the title of row ${index} is not squeezed`,
       ).toBeGreaterThanOrEqual(120);
     }
+    const back = page.waitForEvent("load");
     await page.getByRole("button", { name: "Cards" }).click();
     await expect(page.getByRole("button", { name: "Cards" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
+    // The save of the choice has to finish before the test ends, or the next project starts from
+    // the wrong layout.
+    await back;
   });
 
   // Item 13: the filter sheet.

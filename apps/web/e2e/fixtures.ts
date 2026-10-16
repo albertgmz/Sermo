@@ -45,6 +45,13 @@ export const test = base.extend<Options & { monitor: undefined }>({
   monitor: [
     async ({ page, allowConsoleErrors, browserName }, use) => {
       const problems: string[] = [];
+      // The large seed's attachments are rows of a fake storage driver with no bytes behind them:
+      // the backend answers their address with 400 "Storage driver is unavailable" and the browser
+      // logs one line per picture, without the address. Each such answer is matched to one line;
+      // any other 400 still fails the test.
+      let fakeFileAnswers = 0;
+      const answerChecks: Promise<void>[] = [];
+      const loadFailures: string[] = [];
       await page.addInitScript(() => {
         const hide = () => {
           const style = document.createElement("style");
@@ -54,8 +61,31 @@ export const test = base.extend<Options & { monitor: undefined }>({
         if (document.documentElement) hide();
         else document.addEventListener("DOMContentLoaded", hide);
       });
+      page.on("response", (response) => {
+        if (
+          response.status() !== 400 ||
+          !/^\/api\/v1\/files\/\d+$/.test(new URL(response.url()).pathname)
+        )
+          return;
+        answerChecks.push(
+          response.text().then(
+            (body) => {
+              if (body.includes("Storage driver is unavailable"))
+                fakeFileAnswers += 1;
+            },
+            () => {},
+          ),
+        );
+      });
       page.on("console", (message) => {
         const text = message.text();
+        if (
+          message.type() === "error" &&
+          /^Failed to load resource: .* status of 400/.test(text)
+        ) {
+          loadFailures.push(`console: ${text.slice(0, 400)}`);
+          return;
+        }
         if (
           message.type() === "error" &&
           !IGNORED_CONSOLE.some((p) => p.test(text)) &&
@@ -71,6 +101,8 @@ export const test = base.extend<Options & { monitor: undefined }>({
           problems.push(`page error: ${error.message.slice(0, 400)}`);
       });
       await use(undefined);
+      await Promise.all(answerChecks);
+      problems.push(...loadFailures.slice(fakeFileAnswers));
       if (!allowConsoleErrors) expect(problems, "console errors").toEqual([]);
     },
     { auto: true },

@@ -10,6 +10,7 @@ import {
 } from "@/components/layout/header-panels";
 import { accountItems } from "@/components/layout/nav";
 import { toNavItems } from "@/components/layout/nav-server";
+import "@/components/layout/panel-parts";
 import { UserMenu } from "@/components/layout/user-menu";
 import { getLiteState } from "@/lib/lite-mode";
 import { getNavigation } from "@/lib/sermo/navigation";
