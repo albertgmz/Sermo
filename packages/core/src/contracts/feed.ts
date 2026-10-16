@@ -70,12 +70,16 @@ export const FEED_HIDDEN_LIMIT = 100;
 /**
  * The fields that narrow the feed. Each one that is set must hold for an entry, and a filter
  * never shows what the viewer may not open. `forumIds`: threads in these forums or the forums
- * under them. `prefixId`: threads carrying that prefix. `type`: see FEED_THREAD_TYPES. `tag`:
- * threads carrying the tag (by name, or an alias of it). `watched`: threads the viewer watches
- * (on the latest tab their 500 most recent watches; the other tabs check them all). `unread`: threads with posts the viewer has not read, within
- * the 30 days a thread can count as unread. `watched` and `unread` need an account. Wall posts
+ * under them (at most 20 are named). `prefixId`: threads carrying that prefix. `type`: see
+ * FEED_THREAD_TYPES (`featured` looks at the 200 newest features). `tag`: threads carrying the tag
+ * (by name, or an alias of it), ordered as the tag's page is ordered: by the later of the last
+ * post and the last bump, so a bumped thread rises above newer posts. `watched`: threads the
+ * viewer watches (on the latest tab their 500 most recent watches; the other tabs check them
+ * all). `unread`: threads with posts the viewer has not read, within the 30 days a thread can
+ * count as unread. `watched` and `unread` need an account. Wall posts
  * belong to no forum, so with any field on (`false` is off) the feed holds threads only.
- * "People I follow" is the `following` scope, which takes the same fields.
+ * "People I follow" is the `following` scope, which takes the same fields (it lists a thread once
+ * per answer by someone followed, so a later page may repeat a thread).
  */
 export const feedFilterFields = {
   forumIds: z.array(Id).max(FEED_FILTER_FORUMS).optional(),
@@ -239,6 +243,11 @@ export const threadsRanked = defineContract({
   input: z.object({
     by: z.enum(THREAD_RANKINGS),
     limit: z.number().int().min(1).max(20).default(10),
+    /**
+     * Rank what the home feed shows: the forums the site leaves out of the feed and the ones the
+     * viewer hides from theirs are left out too. The home page's side blocks ask for it.
+     */
+    feed: z.boolean().default(false),
   }),
   output: z.object({ items: z.array(Thread) }),
 });
@@ -259,7 +268,8 @@ export const threadsFeatured = defineContract({
   summary:
     "The threads featured right now (staff picks, and paid promotions until their 24 hours " +
     "end), newest feature first, limited to threads the viewer may open (same rules as the " +
-    "hot feed: forums the viewer can see, visible threads, authors the viewer does not ignore). " +
+    "hot feed: forums the viewer can see, visible threads, authors the viewer does not ignore), " +
+    "less the forums the site leaves out of the feed and the ones the viewer hides from theirs. " +
     "For the home page. Public.",
   kind: "read",
   input: z.object({ limit: z.number().int().min(1).max(20).default(3) }),

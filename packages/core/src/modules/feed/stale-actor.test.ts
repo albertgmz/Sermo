@@ -2,10 +2,11 @@ import { expect, test } from "bun:test";
 import { createTestContext, insertNode, insertUser, userActor } from "@sermo/core/testing";
 import type { Actor } from "../../actor";
 import { type Ctx, invalidate } from "../../context";
-import { ForbiddenError } from "../../errors";
+import { ForbiddenError, NotFoundError } from "../../errors";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
+import { setEntry } from "../permissions/group-fixture";
 
 const run = (ctx: Ctx, name: string, actor: Actor, input: object) =>
   execute(ctx, getOperation(name), actor, input);
@@ -20,6 +21,7 @@ async function scenario() {
   const founder = userActor(insertUser(fixture, { groupId: 4 }));
   const member = insertUser(fixture);
   const forum = insertNode(fixture, {});
+  const later = insertNode(fixture, {});
   invalidate(fixture, "node_tree");
   const database = sharedDatabase(fixture);
   const here = database.open();
@@ -39,7 +41,7 @@ async function scenario() {
     });
   const count = (table: string) =>
     elsewhere.sqlite.prepare<{ n: number }, []>(`SELECT count(*) AS n FROM ${table}`).get()!.n;
-  return { database, here, elsewhere, actor, forum, saved, close, count };
+  return { database, here, elsewhere, actor, forum, later, saved, close, count };
 }
 
 test("a member the site was closed to since the request began writes nothing", async () => {
@@ -56,6 +58,20 @@ test("a member the site was closed to since the request began writes nothing", a
       run(s.here, "feed.hideForum", s.actor, { nodeId: s.forum.id, hidden: false }),
     ).rejects.toThrow(ForbiddenError);
     expect(s.count("feed_filters")).toBe(1);
+    expect(s.count("feed_hidden_nodes")).toBe(1);
+  } finally {
+    s.database.close();
+  }
+});
+
+test("a forum closed to the member since the request began cannot be hidden", async () => {
+  const s = await scenario();
+  try {
+    // Elsewhere, the forum is closed to members after the request began.
+    setEntry(s.elsewhere, 2, "node.view", -1, s.later.id);
+    await expect(
+      run(s.here, "feed.hideForum", s.actor, { nodeId: s.later.id, hidden: true }),
+    ).rejects.toThrow(NotFoundError);
     expect(s.count("feed_hidden_nodes")).toBe(1);
   } finally {
     s.database.close();

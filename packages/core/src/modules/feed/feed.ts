@@ -394,6 +394,7 @@ function latestSources(
     rank: 0,
     before: [lastPostBefore, threadBefore],
     since: floor,
+    disabled: plan.noThreads,
     fetch: ([lastPostAt, threadId], count) =>
       plan.walk.fetch(lastPostAt, threadId, count).map((thread) => {
         threads.set(thread.id, thread);
@@ -454,6 +455,7 @@ function followingSources(
     rank: 0,
     before: postBefore,
     since,
+    disabled: plan.noThreads,
     fetch: (before, count) =>
       authors.length === 0 ? [] : newest(followedPosts.all(authorsJson, before, count), count),
     accept: acceptPosts(ctx, actor, plan.nodes, threads, "perAnswer", plan.accept),

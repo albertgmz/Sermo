@@ -10,11 +10,12 @@ import { activeFeatures, featureKinds, kindsOf } from "../forums/features";
 import { readSiteSettings } from "../settings";
 import { hubSql, VIS_VISIBLE } from "../tags/hub";
 import { tagIdOf } from "../tags/store";
+import { rankingSql } from "./rankings";
 
 export type FilterInput = z.infer<typeof FeedFilter>;
 
-/** Forums a walk visits one by one, at most; past it the walk reads every thread and filters. */
-export const FORUM_WALK_MAX = 12;
+/** Named forums a walk visits one by one, at most; past it the walk reads every thread and filters. */
+export const FORUM_WALK_MAX = 64;
 /** The watched threads a filter looks at: the viewer's most recent watches. */
 export const WATCHED_CAP = 500;
 /** The featured threads a filter looks at: the newest features. */
@@ -22,17 +23,13 @@ export const FEATURED_CAP = 200;
 /** A thread older than this counts as read (the rule of the unread flag everywhere else). */
 const UNREAD_WINDOW_MS = 30 * 86_400_000;
 
-const threadColumnsOf = (alias: string) =>
-  threadColumns
-    .split(", ")
-    .map((column) => `${alias}.${column}`)
-    .join(", ");
-
 export const filterSql = {
-  /** Every visible thread by activity: `threads_public_feed`. */
-  all: `SELECT ${threadColumns} FROM threads WHERE state = 'visible' AND (last_post_at, id) < (?1, ?2) ORDER BY last_post_at DESC, id DESC LIMIT ?3`,
-  /** The newest threads of each forum in `?1`, one `threads_node_feed` seek per forum. */
-  forums: `SELECT ${threadColumnsOf("t")} FROM json_each(?1) AS j CROSS JOIN threads t WHERE t.id IN (SELECT t2.id FROM threads t2 WHERE t2.node_id = j.value AND t2.state = 'visible' AND (t2.last_post_at, t2.id) < (?2, ?3) ORDER BY t2.last_post_at DESC, t2.id DESC LIMIT ?4)`,
+  /**
+   * The place of the newest threads of each forum in `?1` below the key, one `threads_node_feed`
+   * seek per forum; only the newest `?4` of all of them are read in full afterwards.
+   */
+  forums:
+    "SELECT t.id, t.last_post_at FROM json_each(?1) AS j CROSS JOIN threads t WHERE t.id IN (SELECT t2.id FROM threads t2 WHERE t2.node_id = j.value AND t2.state = 'visible' AND (t2.last_post_at, t2.id) < (?2, ?3) ORDER BY t2.last_post_at DESC, t2.id DESC LIMIT ?4)",
   prefix: `SELECT ${threadColumns} FROM threads INDEXED BY threads_prefix_feed WHERE prefix_id = ?1 AND state = 'visible' AND (last_post_at, id) < (?2, ?3) ORDER BY last_post_at DESC, id DESC LIMIT ?4`,
   sticky: `SELECT ${threadColumns} FROM threads INDEXED BY threads_sticky_feed WHERE is_sticky = 1 AND state = 'visible' AND (last_post_at, id) < (?1, ?2) ORDER BY last_post_at DESC, id DESC LIMIT ?3`,
   locked: `SELECT ${threadColumns} FROM threads INDEXED BY threads_locked_feed WHERE is_locked = 1 AND state = 'visible' AND (last_post_at, id) < (?1, ?2) ORDER BY last_post_at DESC, id DESC LIMIT ?3`,
@@ -105,13 +102,23 @@ function forumsWalk(ctx: Ctx, forums: number[]): ThreadWalk {
   return {
     // Each forum's newest `count` below the key; the newest `count` of all of them are the
     // newest `count` of their union.
-    fetch: (time, id, count) =>
-      prepared(ctx, "feed.forumsWalk", () =>
-        ctx.sqlite.prepare<ThreadRow, [string, number, number, number]>(filterSql.forums),
+    fetch: (time, id, count) => {
+      const newest = prepared(ctx, "feed.forumsWalk", () =>
+        ctx.sqlite.prepare<{ id: number; last_post_at: number }, [string, number, number, number]>(
+          filterSql.forums,
+        ),
       )
         .all(json, time, id, count)
         .sort((a, b) => b.last_post_at - a.last_post_at || b.id - a.id)
-        .slice(0, count),
+        .slice(0, count);
+      const rows = new Map(
+        threadRowsByIds(
+          ctx,
+          newest.map((row) => row.id),
+        ).map((t) => [t.id, t]),
+      );
+      return newest.flatMap((row) => rows.get(row.id) ?? []);
+    },
     time: byLastPost,
   };
 }
@@ -147,8 +154,10 @@ export interface FeedPlan {
   nodes: Set<number>;
   /** A field is on: the feed holds threads only, no wall posts. */
   threadsOnly: boolean;
-  /** Nothing can match: a tag nobody has, or every forum asked for is left out. */
+  /** Nothing can match: a tag nobody has, or a filter on threads with no forum left. */
   empty: boolean;
+  /** No forum is left: no thread is listed, the wall posts still can be. */
+  noThreads: boolean;
   walk: ThreadWalk;
   /** The threads of a batch that pass the fields the walk does not guarantee; none when no field needs it. */
   accept: ((threads: ThreadRow[]) => Set<number>) | undefined;
@@ -172,6 +181,19 @@ export function hiddenForumIds(ctx: Ctx, userId: number | null): number[] {
     .all(userId)
     .map((row) => row.node_id);
 }
+
+/**
+ * The forums the home feed's side blocks (featured, the rankings) show: what the viewer sees less
+ * the forums the site leaves out and the ones the member hides, each with what is under it.
+ */
+export const feedNodes = markPublic(
+  "Narrows what the caller already decided the viewer may see; it widens nothing.",
+  function feedNodes(ctx: Ctx, actor: Actor, visible: Set<number>): Set<number> {
+    const out = subtreeOf(ctx, readSiteSettings(ctx).feedExcludedForumIds);
+    for (const id of subtreeOf(ctx, hiddenForumIds(ctx, actorUserId(actor)))) out.add(id);
+    return new Set([...visible].filter((id) => !out.has(id)));
+  },
+);
 
 /**
  * Works out a request: `visible` is what the viewer may see. A forum the site excludes is never
@@ -205,9 +227,9 @@ export const planFeed = markPublic(
         filter.unread,
     );
 
-    // The forums a walk would visit: only when something narrows them.
-    const narrowed = named !== null || excluded.size > 0 || hidden.size > 0;
-    const forums = narrowed ? [...nodes].filter((id) => tree.get(id)?.type === "forum") : null;
+    // The forums a walk would visit one by one: only the ones the filter names.
+    const forums =
+      named === null ? null : [...nodes].filter((id) => tree.get(id)?.type === "forum");
     const now = ctx.now();
     const viewer = viewerId ?? 0;
 
@@ -229,6 +251,8 @@ export const planFeed = markPublic(
         openThreads(ctx, [...kindsOf(activeFeatures(ctx, now).slice(0, FEATURED_CAP)).keys()]),
       );
     else if (forums && forums.length <= FORUM_WALK_MAX) walk = forumsWalk(ctx, forums);
+    // A prefix, a pinned or a locked thread is rare: its own index bounds the walk, and `nodes`
+    // (what the site and the member leave out) is applied to what it finds.
     else if (filter.prefixId !== undefined)
       walk = sqlWalk(ctx, "feed.prefixWalk", filterSql.prefix, (time, id, count) => [
         filter.prefixId!,
@@ -242,14 +266,23 @@ export const planFeed = markPublic(
         id,
         count,
       ]);
-    else walk = sqlWalk(ctx, "feed.allWalk", filterSql.all, (time, id, count) => [time, id, count]);
+    else
+      walk = sqlWalk(ctx, "feed.latestPosts", rankingSql.latestPosts, (time, id, count) => [
+        time,
+        id,
+        count,
+      ]);
 
     const unreadAfter = filter.unread ? now - UNREAD_WINDOW_MS : undefined;
-    const empty = nodes.size === 0 || tagId === null;
+    // No thread can match: a tag nobody has, or a filter on threads with no forum left. Without a
+    // filter, no forum left still leaves the wall posts.
+    const noThreads = nodes.size === 0;
+    const empty = tagId === null || (threadsOnly && noThreads);
     return {
       nodes,
       threadsOnly,
       empty,
+      noThreads,
       walk,
       accept: threadPredicate(ctx, actor, filter, tagId ?? undefined, unreadAfter),
       unreadAfter,

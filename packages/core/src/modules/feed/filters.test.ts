@@ -7,7 +7,7 @@ import { ConflictError, NotFoundError, UnauthenticatedError, ValidationError } f
 import { customMember, setEntry } from "../permissions/group-fixture";
 import { filterSql } from "./filter";
 import { countStatements, fillThreads, type World, world } from "./fixtures.test";
-import { refreshRankings } from "./rankings";
+import { rankingSql, refreshRankings } from "./rankings";
 import { savedSql } from "./saved";
 
 // biome-ignore lint/suspicious/noExplicitAny: feed items are checked field by field below
@@ -661,6 +661,83 @@ describe("site-wide exclusion and members hiding forums", () => {
   });
 });
 
+describe("round 2: wall posts, the walk a filter needs, the side blocks", () => {
+  test("wall posts stay when the member hides every forum or the site leaves them all out, and go only when a field is on", async () => {
+    const { w } = await scene();
+    await thread(w, w.bob, w.open.id, "A thread");
+    await w.wall(w.bob, w.carolUser.id, "hello");
+    await w.call("feed.hideForum", w.carol, { nodeId: w.category.id, hidden: true });
+    expect(await feed(w, w.carol)).toEqual(["wall"]);
+    expect(await feed(w, w.carol, { scope: "following" })).toEqual([]);
+    expect(await feed(w, w.carol, { unread: true })).toEqual([]);
+    expect(await feed(w, w.alice)).toEqual(["wall", "A thread"]);
+    await w.call("settings.update", w.admin, { feedExcludedForumIds: [w.category.id] });
+    expect(await feed(w, w.alice)).toEqual(["wall"]);
+    const since = new Date(w.ctx.now() - 3_600_000).toISOString();
+    expect((await w.call("feed.newCount", w.alice, { since })).count).toBe(1);
+  });
+
+  test("a rare prefix is found by its own index when forums are left out, not by scanning the forums", async () => {
+    const { w, other, prefix } = await scene();
+    const third = insertNode(w.ctx, { parentId: w.category.id });
+    invalidate(w.ctx, "node_tree");
+    await thread(w, w.bob, other.id, "Prefixed", { prefixId: prefix.id });
+    // More newer threads than one request examines of the whole feed.
+    fillThreads(w.ctx, w.open.id, w.bobUser.id, 450, { at: () => w.ctx.now() + 1000 });
+    await w.call("settings.update", w.admin, { feedExcludedForumIds: [third.id] });
+    const page = await w.call("feed.list", w.carol, { prefixId: prefix.id, limit: 5 });
+    expect((page.items as Item[]).map(titleOf)).toEqual(["Prefixed"]);
+    // The same for a member who hid a forum.
+    await w.call("settings.update", w.admin, { feedExcludedForumIds: [] });
+    await w.call("feed.hideForum", w.carol, { nodeId: third.id, hidden: true });
+    const again = await w.call("feed.list", w.carol, { prefixId: prefix.id, limit: 5 });
+    expect((again.items as Item[]).map(titleOf)).toEqual(["Prefixed"]);
+  });
+
+  test("a category of many forums is read forum by forum, whatever is newer elsewhere", async () => {
+    const { w, other } = await scene();
+    const category = insertNode(w.ctx, { type: "category" });
+    const forums = Array.from({ length: 30 }, () => insertNode(w.ctx, { parentId: category.id }));
+    invalidate(w.ctx, "node_tree");
+    await thread(w, w.bob, forums[17]!.id, "Deep in the category");
+    fillThreads(w.ctx, other.id, w.bobUser.id, 450, { at: () => w.ctx.now() + 1000 });
+    const page = await w.call("feed.list", w.carol, { forumIds: [category.id], limit: 5 });
+    expect((page.items as Item[]).map(titleOf)).toEqual(["Deep in the category"]);
+  });
+
+  test("the featured block and the ranked side lists leave out the forums the feed leaves out", async () => {
+    const { w, other } = await scene();
+    const a = await thread(w, w.bob, w.open.id, "Picked in open");
+    const b = await thread(w, w.bob, other.id, "Picked in other");
+    for (const t of [a, b])
+      await w.call("threads.setFeatured", w.mod, {
+        threadId: t.thread.id,
+        isFeatured: true,
+        reason: "x",
+      });
+    const featured = async (who: Actor) =>
+      ((await w.call("threads.featured", who, {})).items as { thread: { title: string } }[]).map(
+        (item) => item.thread.title,
+      );
+    const latest = async (who: Actor, feedOnly: boolean) =>
+      (
+        (await w.call("threads.ranked", who, { by: "latestThreads", feed: feedOnly })).items as {
+          title: string;
+        }[]
+      ).map((item) => item.title);
+    expect(await featured(w.carol)).toEqual(["Picked in other", "Picked in open"]);
+    await w.call("settings.update", w.admin, { feedExcludedForumIds: [w.open.id] });
+    for (const who of [w.carol, GUEST]) expect(await featured(who)).toEqual(["Picked in other"]);
+    expect(await latest(w.carol, true)).toEqual(["Picked in other"]);
+    // The forum statistics still rank everything.
+    expect(await latest(w.carol, false)).toEqual(["Picked in other", "Picked in open"]);
+    await w.call("feed.hideForum", w.carol, { nodeId: other.id, hidden: true });
+    expect(await featured(w.carol)).toEqual([]);
+    expect(await latest(w.carol, true)).toEqual([]);
+    expect(await featured(w.bob)).toEqual(["Picked in other"]);
+  });
+});
+
 describe("saved filters", () => {
   const save = (w: World, actor: Actor, name: string, extra: object = {}) =>
     w.call("feed.saveFilter", actor, { name, scope: "latest", filter: {}, ...extra });
@@ -749,7 +826,7 @@ describe("saved filters", () => {
 describe("plans and statements", () => {
   const MAX = Number.MAX_SAFE_INTEGER;
   const plans: [string, string, unknown[]][] = [
-    ["all", filterSql.all, [MAX, MAX, 20]],
+    ["all", rankingSql.latestPosts, [MAX, MAX, 20]],
     ["forums", filterSql.forums, ["[1,2,3]", MAX, MAX, 20]],
     ["prefix", filterSql.prefix, [1, MAX, MAX, 20]],
     ["sticky", filterSql.sticky, [MAX, MAX, 20]],

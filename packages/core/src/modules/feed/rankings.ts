@@ -13,6 +13,7 @@ import {
 } from "../forums";
 import { purgeEndedFeatures } from "../forums/features";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
+import { feedNodes } from "./filter";
 import { ignoredAmong, visibleNodes } from "./viewer";
 
 const DAY = 86_400_000;
@@ -66,7 +67,7 @@ const HOUR = 3_600_000;
 /** Rows one slice of the recomputation reads before it yields to the event loop. */
 const SLICE = 2000;
 
-const threadColumnsOf = (alias: string) =>
+export const threadColumnsOf = (alias: string) =>
   threadColumns
     .split(", ")
     .map((c) => `${alias}.${c}`)
@@ -346,7 +347,9 @@ function newestThreads(
 export const threadsRankedOp = implement(threadsRanked, (ctx, actor, input) => {
   // Forums whose other members' threads are closed to the viewer take no part in a ranking.
   const gates = readGates(ctx, actor);
-  const nodes = new Set([...visibleNodes(ctx, actor)].filter((id) => gates.opensOthers(id)));
+  const visible = new Set([...visibleNodes(ctx, actor)].filter((id) => gates.opensOthers(id)));
+  // The home page's side blocks ask for what the feed shows: the site's and the member's hidden forums go.
+  const nodes = input.feed ? feedNodes(ctx, actor, visible) : visible;
   if (input.by === "latestPosts" || input.by === "latestThreads")
     return {
       items: threadValuesFor(ctx, actor, newestThreads(ctx, nodes, input.by, input.limit)),

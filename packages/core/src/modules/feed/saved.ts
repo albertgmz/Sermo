@@ -66,6 +66,16 @@ const savedValue = (row: FilterRow): Saved => ({
   createdAt: iso(row.created_at),
 });
 
+/** The saved filters of a list, leaving out a row the contract no longer reads rather than failing. */
+const savedValues = (rows: FilterRow[]): Saved[] =>
+  rows.flatMap((row) => {
+    try {
+      return [savedValue(row)];
+    } catch {
+      return [];
+    }
+  });
+
 export const feedOptionsOp = implement(feedOptions, (ctx, actor) => {
   requireSiteView(ctx, actor);
   const userId = actorUserId(actor);
@@ -77,11 +87,11 @@ export const feedOptionsOp = implement(feedOptions, (ctx, actor) => {
     filters:
       userId === null
         ? []
-        : prepared(ctx, "feed.savedList", () =>
-            ctx.sqlite.prepare<FilterRow, [number]>(savedSql.list),
-          )
-            .all(userId)
-            .map(savedValue),
+        : savedValues(
+            prepared(ctx, "feed.savedList", () =>
+              ctx.sqlite.prepare<FilterRow, [number]>(savedSql.list),
+            ).all(userId),
+          ),
     filterLimit: FEED_FILTER_LIMIT,
   };
 });

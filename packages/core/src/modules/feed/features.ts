@@ -5,6 +5,7 @@ import { iso, isoOrNull } from "../../time";
 import { readGates, threadRowsByIds, threadValuesFor } from "../forums";
 import { activeFeatures, type FeatureRow } from "../forums/features";
 import { feedSql } from "./feed";
+import { feedNodes } from "./filter";
 import { firstSurvivors } from "./rankings";
 import { ignoredAmong, visibleNodes } from "./viewer";
 
@@ -16,7 +17,8 @@ import { ignoredAmong, visibleNodes } from "./viewer";
  * thread with a staff pick and a paid promotion is listed once, as its staff pick.
  */
 export const threadsFeaturedOp = implement(threadsFeatured, (ctx, actor, input) => {
-  const nodes = visibleNodes(ctx, actor);
+  // The home page's block: the forums the site leaves out of the feed, and the viewer's hidden ones, too.
+  const nodes = feedNodes(ctx, actor, visibleNodes(ctx, actor));
   const gates = readGates(ctx, actor);
   const byThread = new Map<number, FeatureRow>();
   for (const feature of activeFeatures(ctx, ctx.now())) {
