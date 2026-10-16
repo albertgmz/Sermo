@@ -136,7 +136,9 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
       </Suspense>
       <div className="relative isolate flex flex-1 flex-col">
         <PageBackdrop />
-        <main className="flex-1">{children}</main>
+        {/* At least a screen below the header, so the footer starts below the fold and a page that
+            grows as it streams in does not push it out of view (a layout shift). */}
+        <main className="min-h-[calc(100svh-3.5rem)] flex-1">{children}</main>
         <SiteFooter />
       </div>
     </div>

@@ -153,3 +153,6 @@ AGENTS.md
 apps/web/playwright-report/
 apps/web/test-results/
 apps/web/blob-report/
+
+# Lighthouse CI reports
+.lighthouseci/

@@ -14,6 +14,7 @@
     "staging:start": "bun scripts/staging.ts start",
     "staging:stop": "bun scripts/staging.ts stop",
     "staging:status": "bun scripts/staging.ts status",
+    "lighthouse": "bun scripts/lighthouse.ts",
     "storage:migrate": "bun scripts/storage-migrate.ts",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "biome check --error-on-warnings .",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@lhci/cli": "0.15.1",
     "@sermo/api": "workspace:*",
     "@sermo/core": "workspace:*",
     "@types/bun": "1.4.2",
@@ -40,5 +42,8 @@
   },
   "dependencies": {
     "busboy": "1.6.0"
+  },
+  "overrides": {
+    "lighthouse": "13.5.0"
   }
 }
