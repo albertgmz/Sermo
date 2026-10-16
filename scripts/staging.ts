@@ -272,8 +272,10 @@ async function start(paths: StagingPaths): Promise<number> {
   const secret = writeEnvFile(paths);
   mkdirSync(paths.files, { recursive: true });
   migrate(paths);
+  const launched: number[] = [];
   for (const service of SERVICES) {
     const pid = launch(paths, service, secret);
+    launched.push(pid);
     console.log(`${service} started, pid ${pid}, log ${paths.logFile(service)}`);
     const ready = await waitUntil(
       async () => (await probe(service)) === 200 || !isAlive(pid),
@@ -283,12 +285,9 @@ async function start(paths: StagingPaths): Promise<number> {
       console.error(
         `The ${service} did not come up. Last log lines:\n${tail(paths.logFile(service))}`,
       );
-      // Both were started a moment ago by this command, so both are ours.
-      for (const started of SERVICES) {
-        const startedPid = readPid(paths, started);
-        if (startedPid !== null) killTree(startedPid);
-        removePid(paths, started);
-      }
+      // Only what this command launched: a PID file left by an earlier run may name a reused PID.
+      for (const startedPid of launched) killTree(startedPid);
+      for (const started of SERVICES) removePid(paths, started);
       return 1;
     }
   }

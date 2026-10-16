@@ -3122,3 +3122,76 @@ pins the bench `SIZES`, checks the `large` profile's ratios, and writes a 1/100 
 integrity, counts and a few backend reads (threads, posts, search), and that a second run replaces
 the first. The bench profile now also generates with the 512 MiB cache and full GCs between stages;
 its output is unchanged, only the generation time.
+
+### Staging site (item 24)  A second backend and web app on other ports, run locally and not through
+the tunnel, on the large seed. `bun run staging:build | staging:start | staging:stop |
+staging:status` (all in `scripts/staging.ts`, the pure parts in `scripts/staging-lib.ts`); each
+takes `--db <path>`, default `~/.cache/sermo-bench/large/sermo.db` (`SERMO_BENCH_DIR` moves the
+base, as for the seed).  **No copy of the database.** The disk holds one large file, so staging
+opens the seed file itself and writes to it; regenerate it with `bun run seed:large` when it is
+spoiled. That also means there is no backup before a migration.  **Migrations run first, with no
+time limit.** `start` opens the database in its own process and applies pending migrations with the
+core's `runMigrations` before any server starts, prints how many are pending (or "up to date") and
+the time taken, then closes it. The migrator runs them in one transaction, so a migration that is
+stopped halfway rolls back and starts over: nothing in the script times it out or kills it, and the
+call blocks, so the only progress is the line before and after. The readiness wait that follows (2
+minutes, for the servers to open their ports) can stay short. If a migration is stopped by hand,
+SQLite rolls it back and the next `start` begins it again.  **Ports and exposure.** Backend 4401,
+web 4400, both fixed. 4200 and 4201 are the live test site and the tunnel is never involved; `start`
+refuses when anything listens on either port (checked with `netstat -ano` and a request). Both
+services stay on this machine, because the database has an administrator with a known password. The
+backend's configuration has no host setting (`Bun.serve` listens on every interface unless given a
+`hostname`, and has no flag or variable for it), so staging starts it with `bun --preload
+scripts/staging-loopback.ts`, a three-line module that defaults `Bun.serve` to `127.0.0.1`; no
+backend file changes. The web app runs `next start -H localhost`, which binds the loopback of the
+machine (`[::1]` on this one), and is reached as `http://localhost:4400` only:
+`http://127.0.0.1:4400` is refused. `-H 127.0.0.1` was tried and breaks the app: Next then builds
+request addresses on `localhost` while the Host header differs, so the locale rewrite in `proxy.ts`
+is taken for an external address and the app proxies to itself. Verified: home, forum, thread,
+profile, search and a conversation answer 200 with no loop.  **State next to the database,** in
+`<database folder>/staging/`: `files/` (the upload directory), `backend.pid`, `web.pid`,
+`backend.log`, `web.log` and `staging.env`. The env file shows every variable staging sets,
+rewritten on each start from the code, except `BETTER_AUTH_SECRET`: a random 32-byte secret made on
+the first start and kept, so sessions survive a restart. Nothing secret enters the repository.
+Services run with the caller's environment minus every `SERMO_*`, `BETTER_AUTH_*`, `PORT` and
+`NODE_ENV` variable, so a shell that loaded the live site's `env.ps1` cannot leak its port or
+database into staging. (A `.env` file in the repository root or in `apps/web` would still be read by
+Bun and Next; there is none in the checkouts today.)  **Settings, env only.** `BETTER_AUTH_URL` and
+the web's `SERMO_PUBLIC_URL` are `http://localhost:4400` (the browser's origin), `SERMO_API_URL` is
+`http://127.0.0.1:4401`, the session cookie cache is on, and the four limits the backend reads
+(`SERMO_RATE_LIMIT_READ|WRITE|SEARCH|MCP`) are 1,000,000 and 100,000 for the others (the live site
+raises read to 3,000). Better Auth's own sign-in limit is not configurable by env, so a load test
+that signs in many members from one address meets it; sign in once and reuse the cookie.  **Its own
+build folder.** `next.config.ts` reads `distDir` from `SERMO_DIST_DIR` (default `.next`, unchanged
+for every other build); staging builds into `apps/web/.next-staging`, so `check:web` in the same
+checkout never touches the staging build and the reverse. `next build`, `next start` and `next
+typegen` all read it, so `start` passes it too. A run with another `distDir` adds `<distDir>/types`
+globs to `include` in `tsconfig.json`, which would dirty the tracked file (and reformat it), so the
+two `.next-staging` globs are already in `include`; and `.next-staging` is in `exclude`, so the
+typecheck never reads staging's generated types (they are made once, at staging build time, and go
+stale when a page changes). Shown: with a deliberately broken file in `.next-staging/types`, `cd
+apps/web && bun run typecheck` passes and `tsc --listFilesOnly` lists no file from the folder; a
+typegen with `SERMO_DIST_DIR=.next-staging` leaves `tsconfig.json` alone and points the untracked
+`next-env.d.ts` at `.next-staging`, and the next ordinary `next typegen` (the first step of
+`check:web`) points it back at `.next`. The folder is ignored by git, Biome and Docker
+(`.dockerignore`). `SERMO_API_URL` is baked into the routes when the web app is built
+(`next.config.ts` rewrites), so a staging build is tied to port 4401.  **Start and stop.** `start`
+writes the env file, migrates, starts the backend and then `next start` (on Node, as the container
+does) detached with output in the logs, writes each PID the moment it exists, and waits for `GET
+/health` on the backend and `GET /` on the web app to answer 200 (a redirect is not followed: a loop
+would exhaust the local ports). If one does not come up, both are stopped (this command started them
+a moment ago) and the last log lines print. `stop` kills a PID only when it is staging's, decided by
+`killDecision`: it is the process listening on the staging port, or nothing listens there yet and
+its command line shows it is staging's (the backend is started with `--staging-db <path>`, which the
+server ignores; the web app is known by its `next` program and `-p 4400`). It never kills by port
+alone, and never a process that listens on another port. A PID file left by a crash or a reboot may
+name an unrelated process by now; that is refused with the reason and the PID file path. A slow or
+saturated service no longer blocks stopping: `stop` makes no request. It kills with `taskkill /PID n
+/T /F` on Windows, which cannot be graceful: SQLite recovers from the write-ahead log at the next
+open; the view counts held in memory are lost. Off Windows the listener list is unknown, so only the
+command-line rule applies, and the signal reaches the leader only (the owner runs Windows). `status`
+prints PID, liveness and whether each answers. `start` and `status` print the sign-in: the
+administrator's username (read from the database) and `user<id>@example.test`, with the shared
+password from the meta JSON next to the database (`adminId`, `password`). Staging is opened as
+`http://localhost:4400` (the web binds `localhost`, which is `[::1]` on this machine); the phone
+tests, Lighthouse and the load test use that address, not `127.0.0.1`.
