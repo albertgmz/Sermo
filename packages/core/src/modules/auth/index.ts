@@ -16,7 +16,7 @@ import {
   authSchemaOptions,
   isReservedUsername,
   isValidUsername,
-  USERNAME_PATTERN,
+  usernameRefusal,
 } from "../../db/auth-options";
 import * as schema from "../../db/auth-schema";
 import { type FeedView, GROUP_IDS, type HomeTab } from "../../db/schema";
@@ -256,6 +256,13 @@ async function redirectFailedLink<T>(ctx: Ctx, hook: LinkHook, run: () => Promis
 function invalidToken(): APIError {
   return new APIError("UNAUTHORIZED", { message: "Invalid token", code: "INVALID_TOKEN" });
 }
+
+/** What a refused new username says (Better Auth's own messages for these codes). */
+const USERNAME_REFUSALS = {
+  USERNAME_TOO_SHORT: "Username is too short",
+  USERNAME_TOO_LONG: "Username is too long",
+  INVALID_USERNAME: "Username is invalid",
+} as const;
 
 /** The guest form each Better Auth endpoint serves, for the Turnstile check. */
 const TURNSTILE_PATHS: Record<string, TurnstileForm> = {
@@ -507,20 +514,19 @@ function buildAuth(ctx: Ctx) {
                 throw accountBanned();
             }
           }
-          // The plugin's sign-in validator retains the historical rule for existing accounts.
-          if (
+          // The plugin accepts any name, as sign-in must for an imported account; the rule for
+          // new names is applied here, to the endpoints that register or rename.
+          const rejected =
             (hook.path === "/sign-up/email" ||
               hook.path === "/update-user" ||
               hook.path === "/is-username-available") &&
-            typeof hook.body?.username === "string" &&
-            !isValidUsername(hook.body.username)
-          )
+            typeof hook.body?.username === "string"
+              ? usernameRefusal(hook.body.username)
+              : null;
+          if (rejected)
             throw new APIError(
               hook.path === "/is-username-available" ? "UNPROCESSABLE_ENTITY" : "BAD_REQUEST",
-              {
-                code: "INVALID_USERNAME",
-                message: "Username is invalid",
-              },
+              { code: rejected, message: USERNAME_REFUSALS[rejected] },
             );
           // A name kept for erased accounts is never available.
           if (
@@ -888,7 +894,7 @@ function buildAuth(ctx: Ctx) {
               });
             const display =
               typeof user.displayUsername === "string" ? user.displayUsername : username;
-            if (!USERNAME_PATTERN.test(display) || display.toLowerCase() !== username.toLowerCase())
+            if (!isValidUsername(display) || display.toLowerCase() !== username.toLowerCase())
               throw new APIError("BAD_REQUEST", {
                 message: "Display username must match username apart from letter case.",
                 code: "INVALID_DISPLAY_USERNAME",
@@ -1029,9 +1035,18 @@ function buildAuth(ctx: Ctx) {
                     .get(currentId)
                 : null;
             const normalized = requested ?? current?.username;
+            // Putting back the name an imported account arrived with (a rename undone): it may
+            // not meet today's rule. Every other name does.
+            const keepsImportedName =
+              change?.reserved === true &&
+              ctx.sqlite
+                .prepare<{ imported: number }, [number]>("SELECT imported FROM users WHERE id = ?1")
+                .get(currentId)?.imported === 1;
             if (
               !normalized ||
-              (display && (!USERNAME_PATTERN.test(display) || display.toLowerCase() !== normalized))
+              (display &&
+                ((!keepsImportedName && !isValidUsername(display)) ||
+                  display.toLowerCase() !== normalized))
             )
               throw new APIError("BAD_REQUEST", {
                 message: "Display username must match username apart from letter case.",

@@ -10,13 +10,29 @@ import { username } from "better-auth/plugins";
 /** Same rule as before the switch: letters, numbers, spaces, '.', '-', '_'; ends alphanumeric. */
 export const USERNAME_PATTERN = /^[\p{L}\p{N}_](?:[\p{L}\p{N}_.\- ]*[\p{L}\p{N}_])?$/u;
 export const API_KEY_PREFIX = "sermo_";
+export const USERNAME_MIN_LENGTH = 3;
+export const USERNAME_MAX_LENGTH = 32;
+/** Sign-in looks any name up, so only a limit that keeps absurd input out of the lookup. */
+const SIGN_IN_MAX_LENGTH = 100;
 
 /**
- * New usernames must also obey the rule after lowercasing ("\u0130" adds a combining dot).
- * Sign-in keeps the historical rule so names stored before this restriction still work.
+ * Why a new username (a registration or a rename) is refused, as the Better Auth error code, or
+ * null when it is fine. It must also obey the pattern after lowercasing ("İ" adds a
+ * combining dot). Only new names meet this rule: sign-in and display take any name an imported
+ * account brought (see `users.imported`).
  */
+export function usernameRefusal(
+  value: string,
+): "USERNAME_TOO_SHORT" | "USERNAME_TOO_LONG" | "INVALID_USERNAME" | null {
+  if (value.length < USERNAME_MIN_LENGTH) return "USERNAME_TOO_SHORT";
+  if (value.length > USERNAME_MAX_LENGTH) return "USERNAME_TOO_LONG";
+  return USERNAME_PATTERN.test(value) && USERNAME_PATTERN.test(value.toLowerCase())
+    ? null
+    : "INVALID_USERNAME";
+}
+
 export function isValidUsername(value: string): boolean {
-  return USERNAME_PATTERN.test(value) && USERNAME_PATTERN.test(value.toLowerCase());
+  return usernameRefusal(value) === null;
 }
 
 /**
@@ -31,12 +47,13 @@ export function isReservedUsername(value: string): boolean {
 export function authPlugins() {
   return [
     username({
-      minUsernameLength: 3,
-      maxUsernameLength: 32,
-      usernameValidator: (value) => USERNAME_PATTERN.test(value),
-      // The display form becomes the forum identity (users.username), so it obeys the same rule.
-      // The auth module also requires it to equal the username apart from letter case.
-      displayUsernameValidator: isValidUsername,
+      // The plugin applies these to sign-in too, where an imported account's name may be any
+      // name. The registration rule is enforced by the auth module's hooks (`usernameRefusal`).
+      minUsernameLength: 1,
+      maxUsernameLength: SIGN_IN_MAX_LENGTH,
+      usernameValidator: () => true,
+      // The display form becomes the forum identity (users.username). The auth module's database
+      // hooks hold it to the same rule, and to the username apart from letter case.
     }),
     apiKey({
       schema: { apikey: { modelName: "auth_apikey" } },

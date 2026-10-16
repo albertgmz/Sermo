@@ -103,9 +103,13 @@ test("a body of unclosed code tags is read in linear time", () => {
   expect(performance.now() - start).toBeLessThan(1000);
 });
 
-test("a mention is plain when the name can be, else quoted", () => {
-  expect(mentionOf("wren")).toBe("@wren");
-  expect(mentionOf("two words")).toBe('@"two words"');
+test("a mention is plain when the name can be, else quoted, else by id", () => {
+  expect(mentionOf("wren", 4)).toBe("@wren");
+  expect(mentionOf("two words", 4)).toBe('@"two words"');
+  // Names an imported account brought, which neither form can hold.
+  expect(mentionOf("#Bishop", 4)).toBe("[USER=4]#Bishop[/USER]");
+  expect(mentionOf("ab", 5)).toBe("[USER=5]ab[/USER]");
+  expect(mentionOf('"Yoandy_Isse"', 6)).toBe('[USER=6]"Yoandy_Isse"[/USER]');
 });
 
 test("a body of many unpaired quote tags is read in a short time", () => {

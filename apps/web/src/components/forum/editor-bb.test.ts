@@ -144,11 +144,14 @@ test("the spoiler and media buttons put their tags in the text", () => {
 
 test("a chosen member is a mention in the text", () => {
   const editor = editorWith("hello @wr", 9, 9);
-  run(editor, () => $insertMention(mentionOf("wren")));
+  run(editor, () => $insertMention(mentionOf("wren", 4)));
   expect(bbOf(editor)).toBe("hello @wren");
   const spaced = editorWith("hello @tw", 9, 9);
-  run(spaced, () => $insertMention(mentionOf("two words")));
+  run(spaced, () => $insertMention(mentionOf("two words", 5)));
   expect(bbOf(spaced)).toBe('hello @"two words"');
+  const imported = editorWith("hello @bi", 9, 9);
+  run(imported, () => $insertMention(mentionOf("#Bishop", 6)));
+  expect(bbOf(imported)).toBe("hello [USER=6]#Bishop[/USER]");
 });
 
 test("a quoted post is added below the text, with the caret on a paragraph below it", () => {

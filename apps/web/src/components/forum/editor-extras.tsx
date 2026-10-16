@@ -81,7 +81,7 @@ export function InsertPlugin({ event }: { event: string }) {
 
 // Replaces the "@" and what follows it, up to the caret, with the mention of the chosen member.
 function insertMention(editor: LexicalEditor, hit: MemberHit) {
-  editor.update(() => $insertMention(mentionOf(hit.username)));
+  editor.update(() => $insertMention(mentionOf(hit.username, hit.id)));
 }
 
 // Offers the members whose name starts with what is typed after an "@", and puts the chosen one in

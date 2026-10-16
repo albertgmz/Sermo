@@ -91,6 +91,10 @@ async function refuseKeeping(
   };
 }
 
+// An address has one "@" and a dot after it. Imported usernames may hold an "@" with no dot after
+// it, so the sign-in tells the two apart by shape.
+const EMAIL_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function login(
   _previous: AuthState,
   formData: FormData,
@@ -103,7 +107,7 @@ export async function login(
     return refuseKeeping(formData, "/login", "invalidCredentials", again);
   }
   const remember = formData.get("remember") !== null;
-  const result = username.includes("@")
+  const result = EMAIL_ADDRESS.test(username)
     ? await signInWithEmail(username, password, remember, tokenOf(formData))
     : await signInWithUsername(username, password, remember, tokenOf(formData));
   if (!result.ok)

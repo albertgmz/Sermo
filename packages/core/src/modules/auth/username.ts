@@ -2,7 +2,12 @@ import { APIError } from "better-auth";
 import { requireAuthenticated } from "../../actor";
 import type { Ctx } from "../../context";
 import { usersChangeUsername } from "../../contracts/members";
-import { isReservedUsername, isValidUsername } from "../../db/auth-options";
+import {
+  isReservedUsername,
+  isValidUsername,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+} from "../../db/auth-options";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
@@ -11,10 +16,6 @@ import { can, currentActor, requirePermission } from "../../permissions";
 import { getAuth } from "./index";
 import { renameStanding } from "./rename-limit";
 import { asUsernameChange } from "./rename-marker";
-
-/** Better Auth's username bounds (see authPlugins). */
-const MIN_LENGTH = 3;
-const MAX_LENGTH = 32;
 
 const TAKEN_SQL = "SELECT id FROM users WHERE username_key = ?1";
 const UNITS_SQL =
@@ -46,14 +47,16 @@ function refuseRename(standing: ReturnType<typeof renameStanding>): never {
 }
 
 /**
- * The registration rules for a username: Better Auth's length bounds, the pattern, and the same
- * pattern after lowercasing (the stored key). A name kept for erased accounts is refused as taken,
- * so the rule is not advertised. Returns the stored key.
+ * The registration rules for a username (`usernameRefusal`): the length bounds, the pattern, and
+ * the same pattern after lowercasing (the stored key). They hold for every new name, the rename
+ * of an imported account included; only the names such accounts arrived with are exempt. A name
+ * kept for erased accounts is refused as taken, so the rule is not advertised. Returns the stored
+ * key.
  */
 export function checkUsername(name: string): string {
-  if (name.length < MIN_LENGTH || name.length > MAX_LENGTH || !isValidUsername(name))
+  if (!isValidUsername(name))
     throw new ValidationError(
-      `A username is ${MIN_LENGTH} to ${MAX_LENGTH} letters, numbers, spaces, dots, dashes or underscores, and starts and ends with a letter or number.`,
+      `A username is ${USERNAME_MIN_LENGTH} to ${USERNAME_MAX_LENGTH} letters, numbers, spaces, dots, dashes or underscores, and starts and ends with a letter or number.`,
     );
   if (isReservedUsername(name)) throw new ConflictError("That username is taken.");
   return name.toLowerCase();

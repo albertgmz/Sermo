@@ -130,6 +130,23 @@ test("wrong credentials come back as the form's message with the username kept, 
   expect(written).toEqual([]);
 });
 
+test("an address signs in by email, a name with an @ and no dot after it by username", async () => {
+  for (const [typed, endpoint] of [
+    ["ann@example.test", "sign-in/email"],
+    ["$kyw@lker", "sign-in/username"],
+    ["#Eríos_@ls93", "sign-in/username"],
+  ]) {
+    const asked = backend(() =>
+      Response.json({ code: "INVALID_USERNAME_OR_PASSWORD" }, { status: 401 }),
+    );
+    await login(
+      { error: "", username: "" },
+      form({ username: typed, password: "wrong" }),
+    );
+    expect(asked).toEqual([`http://127.0.0.1:8787/api/auth/${endpoint}`]);
+  }
+});
+
 test("a missing field is refused without asking the backend", async () => {
   const asked = backend(() => Response.json({}));
   const state = await login(

@@ -8,10 +8,16 @@ import {
 
 // The BB code the web app writes itself, built in this one place: a mention and a quote of a post.
 
-// The name of a member as the renderer reads a mention: plain when it can be, else quoted.
+// The name of a member as the renderer reads a mention: plain when it can be, else quoted, else
+// (a name an imported account brought, which neither form can hold) by the member's id.
 const PLAIN_NAME = /^[\p{L}\p{N}_][\p{L}\p{N}._-]{1,30}[\p{L}\p{N}_]$/u;
-export const mentionOf = (username: string) =>
-  PLAIN_NAME.test(username) ? `@${username}` : `@"${username}"`;
+const QUOTED_NAME = /^[\p{L}\p{N}_][\p{L}\p{N} ._-]{1,30}[\p{L}\p{N}_]$/u;
+export const mentionOf = (username: string, id: number) =>
+  PLAIN_NAME.test(username)
+    ? `@${username}`
+    : QUOTED_NAME.test(username)
+      ? `@"${username}"`
+      : `[USER=${id}]${username}[/USER]`;
 
 // A tag is made plain text by putting it between PLAIN tags.
 const plain = (tag: string) => `[PLAIN]${tag}[/PLAIN]`;

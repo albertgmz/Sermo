@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `imported` integer DEFAULT false NOT NULL;

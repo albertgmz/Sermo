@@ -287,6 +287,11 @@ export const users = sqliteTable(
     /** When an administrator erased the account; null if never. An erased member never returns. */
     erasedAt: integer("erased_at"),
     /**
+     * Set only by the importer, for an account that came from another forum. Such an account may
+     * hold a username the registration rule refuses; a new account or a rename never may.
+     */
+    imported: bool("imported").notNull().default(false),
+    /**
      * When every session of the member was last cut off. A session issued at or before it is
      * refused, whatever its cookie cache still says.
      */
