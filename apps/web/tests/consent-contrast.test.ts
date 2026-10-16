@@ -123,6 +123,11 @@ const BUTTONS: [string, [string, string, number][], string, string][] = [
   ["show", SECONDARY, "--cc-btn-secondary-bg", "--popover"],
 ];
 
+test("the sheet's links are underlined without a hover, which a phone does not have", () => {
+  // The library draws the underline as a background that grows to full width on hover.
+  expect(css).toMatch(/^#cc-main a\s*\{[^}]*background-size:\s*100% 1px;/m);
+});
+
 test("accept is green, reject red, and choose an outline on the sheet's own surface", () => {
   for (const [name, , fill, token] of BUTTONS)
     expect(role(name).get(fill), name).toBe(`var(${token})`);

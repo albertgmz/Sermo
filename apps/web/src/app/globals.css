@@ -693,6 +693,10 @@ html.show--consent body {
 #cc-main .cm--cloud .cm__desc {
   max-height: 40dvh;
 }
+/* Links keep the library's underline drawn at all times, not only on hover (a phone has none). */
+#cc-main a {
+  background-size: 100% 1px;
+}
 /* Side by side, Accept and Reject split the row evenly (the library's margin narrows the second). */
 #cc-main .cm--inline .cm__btn-group {
   column-gap: 0.375rem;
