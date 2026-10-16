@@ -72,7 +72,7 @@ export const FEED_HIDDEN_LIMIT = 100;
  * never shows what the viewer may not open. `forumIds`: threads in these forums or the forums
  * under them. `prefixId`: threads carrying that prefix. `type`: see FEED_THREAD_TYPES. `tag`:
  * threads carrying the tag (by name, or an alias of it). `watched`: threads the viewer watches
- * (their 500 most recent watches). `unread`: threads with posts the viewer has not read, within
+ * (on the latest tab their 500 most recent watches; the other tabs check them all). `unread`: threads with posts the viewer has not read, within
  * the 30 days a thread can count as unread. `watched` and `unread` need an account. Wall posts
  * belong to no forum, so with any field on (`false` is off) the feed holds threads only.
  * "People I follow" is the `following` scope, which takes the same fields.

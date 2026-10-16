@@ -4,7 +4,7 @@ import { FEED_THREAD_TYPES } from "@sermo/core/contracts";
 import { Eye, EyeOff, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteFeedFilter,
   type FilterOptions,
@@ -84,8 +84,16 @@ export default function FeedFiltersPopup({
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
   const changedHidden = useRef(false);
 
-  useEffect(() => {
+  // The options are read each time the sheet opens: the popup stays mounted when it closes, and what
+  // was saved or hidden in the meantime is on the member's account, not in this copy.
+  const cancel = useRef<() => void>(() => {});
+  const read = useCallback(() => {
+    cancel.current();
     let live = true;
+    cancel.current = () => {
+      live = false;
+    };
+    setLoaded({ status: "loading" });
     feedFilterOptions().then(
       (answer) => {
         if (live)
@@ -99,13 +107,15 @@ export default function FeedFiltersPopup({
         if (live) setLoaded({ status: "failed" });
       },
     );
-    return () => {
-      live = false;
-    };
   }, []);
+  useEffect(() => {
+    read();
+    return () => cancel.current();
+  }, [read]);
 
   function close(next: boolean) {
     setOpen(next);
+    if (next) read();
     // Forums hidden or shown in the sheet change what the feed lists: draw it again.
     if (!next && changedHidden.current) {
       changedHidden.current = false;

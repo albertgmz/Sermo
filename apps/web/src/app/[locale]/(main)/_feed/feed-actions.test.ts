@@ -113,3 +113,33 @@ test("a page after the first is asked for with the filter the list was drawn wit
   expect(query.get("watched")).toBe("true");
   expect(query.getAll("forumIds")).toEqual(["9"]);
 });
+
+test("a filter that names more than its fields is not taken: the scope, the cursor and the size stay the caller's", async () => {
+  const asked = backend(Response.json({ count: 0, more: false }));
+  await newFeedCount(
+    "latest",
+    {
+      scope: "hot",
+      since: "2020-01-01T00:00:00.000Z",
+      limit: 99,
+      unread: true,
+    } as never,
+    SINCE,
+  );
+  const query = new URLSearchParams(asked[0].search);
+  expect(query.get("scope")).toBe("latest");
+  expect(query.get("since")).toBe(SINCE);
+  expect(query.has("limit")).toBe(false);
+  expect(query.get("unread")).toBe("true");
+  // A filter of the wrong shape asks for nothing.
+  expect(
+    await newFeedCount("latest", { forumIds: "x" } as never, SINCE),
+  ).toEqual({ stop: true });
+  expect(asked).toHaveLength(1);
+  const { moreFeed } = await import("./feed-actions");
+  expect(await moreFeed("latest", { type: "pinned" } as never, null)).toEqual({
+    rows: [],
+    nextCursor: null,
+  });
+  expect(asked).toHaveLength(1);
+});

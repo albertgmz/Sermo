@@ -435,6 +435,107 @@ describe("feed filters: combinations and scopes", () => {
   });
 });
 
+describe("feed filters: order, ties and the count", () => {
+  test("a bumped tagged thread sorts by its bump, and the count still clears for what the client holds", async () => {
+    const { w } = await scene();
+    const a = await thread(w, w.bob, w.open.id, "A", { tags: ["x"] });
+    await thread(w, w.bob, w.open.id, "B", { tags: ["x"] });
+    w.ctx.sqlite
+      .prepare("UPDATE threads SET bumped_at = ?1 WHERE id = ?2")
+      .run(w.ctx.now() + 1_000, a.thread.id);
+    const page = await w.call("feed.list", w.carol, { tag: "x" });
+    expect((page.items as Item[]).map(titleOf)).toEqual(["A", "B"]);
+    // The client holds the post time of the entry on top: nothing is newer than it.
+    const top = page.items[0].createdAt;
+    expect(await w.call("feed.newCount", w.carol, { since: top, tag: "x" })).toEqual({
+      count: 0,
+      more: false,
+    });
+    // A new post in B moves it above the bumped thread and is counted.
+    w.ctx.clock.advance(60_000);
+    await w.call("posts.create", w.bob, { threadId: 2, body: "more" });
+    expect(await w.call("feed.newCount", w.carol, { since: top, tag: "x" })).toEqual({
+      count: 1,
+      more: false,
+    });
+  });
+
+  test("threads with the same activity time page without a skip or a repeat, in every walk", async () => {
+    const { w, other, prefix } = await scene();
+    const ids: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      const created = await thread(w, w.bob, i % 2 ? other.id : w.open.id, `T${i}`, {
+        prefixId: prefix.id,
+        tags: ["tie"],
+      });
+      ids.push(created.thread.id);
+      await w.call("threads.watch", w.carol, { threadId: created.thread.id, email: false });
+      await w.call("threads.setSticky", w.mod, {
+        threadId: created.thread.id,
+        isSticky: true,
+        reason: "x",
+        notify: false,
+      });
+      await w.call("threads.setFeatured", w.mod, {
+        threadId: created.thread.id,
+        isFeatured: true,
+        reason: "x",
+      });
+    }
+    w.ctx.sqlite.prepare("UPDATE threads SET last_post_at = ?1").run(w.ctx.now());
+    const filters: object[] = [
+      {},
+      { forumIds: [w.open.id] },
+      { forumIds: [w.open.id, other.id] },
+      { prefixId: prefix.id },
+      { type: "sticky" },
+      { type: "featured" },
+      { tag: "tie" },
+      { watched: true },
+      { unread: true },
+    ];
+    for (const filter of filters) {
+      const whole = await feed(w, w.carol, filter);
+      expect(new Set(whole).size, JSON.stringify(filter)).toBe(whole.length);
+      expect(whole.length).toBeGreaterThanOrEqual(3);
+      expect(await paged(w, w.carol, filter, 2), JSON.stringify(filter)).toEqual(whole);
+    }
+  });
+
+  test("watched narrows the following and hot tabs too, over every watch", async () => {
+    const { w } = await scene();
+    await w.call("users.follow", w.carol, { userId: w.bobUser.id });
+    const a = await thread(w, w.bob, w.open.id, "A");
+    await thread(w, w.bob, w.open.id, "B");
+    await w.call("threads.watch", w.carol, { threadId: a.thread.id, email: false });
+    w.ctx.sqlite.prepare("UPDATE threads SET reply_count = 5").run();
+    refreshRankings(w.ctx);
+    expect(await feed(w, w.carol, { scope: "following", watched: true })).toEqual(["A"]);
+    expect(await feed(w, w.carol, { scope: "hot", watched: true })).toEqual(["A"]);
+  });
+
+  test("feed.newCount follows the tag, watched, featured and following fields", async () => {
+    const { w, other } = await scene();
+    await w.call("users.follow", w.carol, { userId: w.bobUser.id });
+    const since = new Date(w.ctx.now()).toISOString();
+    const a = await thread(w, w.bob, w.open.id, "A", { tags: ["x"] });
+    const b = await thread(w, w.bob, other.id, "B");
+    await w.call("threads.watch", w.carol, { threadId: b.thread.id, email: false });
+    await w.call("threads.setFeatured", w.mod, {
+      threadId: a.thread.id,
+      isFeatured: true,
+      reason: "x",
+    });
+    const count = async (input: object) =>
+      (await w.call("feed.newCount", w.carol, { since, ...input })).count;
+    expect(await count({ tag: "x" })).toBe(1);
+    expect(await count({ watched: true })).toBe(1);
+    expect(await count({ type: "featured" })).toBe(1);
+    expect(await count({ scope: "following", forumIds: [other.id] })).toBe(1);
+    expect(await count({ scope: "following", tag: "x", watched: true })).toBe(0);
+  });
+});
+
 describe("site-wide exclusion and members hiding forums", () => {
   const exclude = (w: World, ids: number[]) =>
     w.call("settings.update", w.admin, { feedExcludedForumIds: ids });
@@ -475,6 +576,13 @@ describe("site-wide exclusion and members hiding forums", () => {
     ).rejects.toThrow();
     expect((await exclude(w, [w.open.id, w.open.id])).feedExcludedForumIds).toEqual([w.open.id]);
     expect((await w.call("feed.options", GUEST, {})).excludedForumIds).toEqual([w.open.id]);
+    // The list names no forum the viewer cannot see.
+    await exclude(w, [w.open.id, w.secret.id]);
+    expect((await w.call("feed.options", w.alice, {})).excludedForumIds).toEqual([w.open.id]);
+    expect((await w.call("feed.options", w.admin, {})).excludedForumIds).toEqual([
+      w.open.id,
+      w.secret.id,
+    ]);
   });
 
   test("a member hides a forum from their own feed only, and naming it lists it", async () => {

@@ -1,6 +1,6 @@
 "use server";
 
-import { feedNewCount } from "@sermo/core/contracts";
+import { FeedFilter, feedNewCount } from "@sermo/core/contracts";
 import { feedPage, tabOf } from "@/app/[locale]/(main)/_feed/feed-page";
 import { mediaPage } from "@/app/[locale]/(main)/_feed/media-page";
 import type { FeedFilterValue } from "@/lib/feed-filters";
@@ -16,8 +16,12 @@ export async function moreFeed(
   filter: FeedFilterValue,
   cursor: string | null,
 ) {
+  // The filter comes from the browser: only its own fields are taken, so it cannot name the scope,
+  // the cursor or the size of the page.
+  const fields = FeedFilter.safeParse(filter);
+  if (!fields.success) return { rows: [], nextCursor: null };
   return endQuietly(() =>
-    feedPage(tabOf(tab), cursor ?? undefined, call, filter),
+    feedPage(tabOf(tab), cursor ?? undefined, call, fields.data),
   );
 }
 
@@ -30,9 +34,10 @@ export async function newFeedCount(
   since: string,
 ): Promise<{ count: number; more: boolean } | PollStop> {
   const scope = tab === "following" ? "following" : "latest";
-  if (tab !== scope) return { stop: true };
+  const fields = FeedFilter.safeParse(filter);
+  if (tab !== scope || !fields.success) return { stop: true };
   return pollQuietly(() =>
-    callForPoll(feedNewCount, { scope, since, ...filter }),
+    callForPoll(feedNewCount, { scope, since, ...fields.data }),
   );
 }
 

@@ -15,6 +15,7 @@ let tagId = 0;
 let watcherId = 0;
 let hiderId = 0;
 let followerId = 0;
+let readerId = 0;
 let originalActivity: { id: number; last_post_at: number }[] = [];
 let sinceIso = "";
 
@@ -97,6 +98,39 @@ const readScenario = (
 export const scenarios: Scenario[] = [
   readScenario("feed.list filter forum", (env) => ({ forumIds: big(env) })),
   readScenario("feed.list filter forums (three)", (env) => ({ forumIds: big(env, 3) })),
+  // The most forums one walk visits: each refill reads that many forums' newest threads.
+  readScenario("feed.list filter forums (twelve)", (env) => ({ forumIds: big(env, 12) })),
+  readScenario(
+    "feed.list filter forum and a rare prefix",
+    (env) => ({ forumIds: big(env), prefixId }),
+    { setup: (env) => addPrefix(env, 5000), teardown: dropPrefix },
+  ),
+  readScenario(
+    "feed.list filter forums (twelve) and unread, all read",
+    (env) => ({ forumIds: big(env, 12), unread: true }),
+    {
+      // The worst case for unread: the member has read everything recent, so every candidate
+      // is probed and none passes.
+      setup(env) {
+        wake(env);
+        readerId = env.meta.memberIds[1]!;
+        env.ctx.sqlite
+          .prepare(
+            "INSERT OR REPLACE INTO thread_reads (user_id, thread_id, last_read_post_id, last_read_position, read_at) SELECT ?1, id, last_post_id, 0, ?2 FROM threads WHERE node_id = ?3 AND state = 'visible' ORDER BY id DESC LIMIT 600",
+          )
+          .run(readerId, env.ctx.now(), big(env)[0]!);
+      },
+      teardown(env) {
+        env.ctx.sqlite
+          .prepare(
+            "DELETE FROM thread_reads WHERE user_id = ?1 AND thread_id IN (SELECT id FROM threads WHERE node_id = ?2)",
+          )
+          .run(readerId, big(env)[0]!);
+        calm(env);
+      },
+    },
+    (env) => env.actors.user(readerId),
+  ),
   readScenario("feed.list filter prefix", () => ({ prefixId }), {
     setup: (env) => addPrefix(env),
     teardown: dropPrefix,
@@ -140,15 +174,17 @@ export const scenarios: Scenario[] = [
       setup(env) {
         // A member who watches 500 threads: the most the filter looks at.
         watcherId = env.meta.memberIds[0]!;
-        env.ctx.sqlite.prepare("DELETE FROM thread_watches WHERE user_id = ?1").run(watcherId);
+        // Marked with a creation time of 1, so `teardown` takes out only these rows.
         env.ctx.sqlite
           .prepare(
-            "INSERT INTO thread_watches (user_id, thread_id, email, created_at) SELECT ?1, id, 0, ?2 FROM threads WHERE state = 'visible' AND first_post_id IS NOT NULL AND id % 7 = 0 ORDER BY id DESC LIMIT 500",
+            "INSERT OR IGNORE INTO thread_watches (user_id, thread_id, email, created_at) SELECT ?1, id, 0, 1 FROM threads WHERE state = 'visible' AND first_post_id IS NOT NULL AND id % 7 = 0 ORDER BY id DESC LIMIT 500",
           )
-          .run(watcherId, env.ctx.now());
+          .run(watcherId);
       },
       teardown: (env) =>
-        void env.ctx.sqlite.prepare("DELETE FROM thread_watches WHERE user_id = ?1").run(watcherId),
+        void env.ctx.sqlite
+          .prepare("DELETE FROM thread_watches WHERE user_id = ?1 AND created_at = 1")
+          .run(watcherId),
     },
     (env) => env.actors.user(watcherId),
   ),

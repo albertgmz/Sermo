@@ -69,8 +69,10 @@ const savedValue = (row: FilterRow): Saved => ({
 export const feedOptionsOp = implement(feedOptions, (ctx, actor) => {
   requireSiteView(ctx, actor);
   const userId = actorUserId(actor);
+  const visible = new Set(viewableNodeIds(ctx, actor));
   return {
-    excludedForumIds: readSiteSettings(ctx).feedExcludedForumIds,
+    // Only forums the viewer can see: the list names no forum they cannot.
+    excludedForumIds: readSiteSettings(ctx).feedExcludedForumIds.filter((id) => visible.has(id)),
     hiddenForumIds: hiddenForumIds(ctx, userId),
     filters:
       userId === null
@@ -144,6 +146,7 @@ export const feedHideForumOp = implement(feedHideForum, (ctx, actor, input) => {
   if (input.hidden && !sees(ctx, actor)) throw new NotFoundError();
   return writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
+    requireSiteView(ctx, current);
     const { userId } = requireAuthenticated(current);
     if (!input.hidden) {
       prepared(ctx, "feed.show", () =>

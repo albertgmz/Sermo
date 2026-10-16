@@ -380,8 +380,12 @@ function latestSources(
   since?: number,
 ) {
   const [lastPostBefore, threadBefore, wallBefore] = cursor;
-  // Threads older than the unread window are all read: the walk stops there.
-  const floor = plan.unreadAfter === undefined ? since : Math.max(since ?? 0, plan.unreadAfter);
+  // Threads older than the unread window are all read: the walk stops there. A walk that a bump
+  // can reorder (the tag's) is not monotonic in last post time, so it keeps no such floor.
+  const floor =
+    plan.unreadAfter === undefined || plan.walk.reordered
+      ? since
+      : Math.max(since ?? 0, plan.unreadAfter);
   const latestWall = prepared(ctx, "feed.wall", () =>
     ctx.sqlite.prepare<WallCandidate, [number, number]>(feedSql.wall),
   );
@@ -398,11 +402,12 @@ function latestSources(
           thread_id: thread.id,
           user_id: thread.last_poster_id,
           state: "visible",
-          created_at: plan.walk.time(thread),
+          // What a client holds as the time of an entry is the post's, whatever the walk's order.
+          created_at: thread.last_post_at,
         };
       }),
     accept: acceptPosts(ctx, actor, plan.nodes, threads, "newest", plan.accept),
-    keyOf: (row) => [row.created_at, row.thread_id],
+    keyOf: (row) => [plan.walk.time(threads.get(row.thread_id)!), row.thread_id],
     from: ([lastPostAt, threadId]) => [lastPostAt, threadId + 1],
     end: [0, 0],
   });

@@ -14,7 +14,7 @@ import { tagIdOf } from "../tags/store";
 export type FilterInput = z.infer<typeof FeedFilter>;
 
 /** Forums a walk visits one by one, at most; past it the walk reads every thread and filters. */
-export const FORUM_WALK_MAX = 24;
+export const FORUM_WALK_MAX = 12;
 /** The watched threads a filter looks at: the viewer's most recent watches. */
 export const WATCHED_CAP = 500;
 /** The featured threads a filter looks at: the newest features. */
@@ -58,6 +58,8 @@ export const filterSql = {
 export interface ThreadWalk {
   fetch(time: number, id: number, count: number): ThreadRow[];
   time(thread: ThreadRow): number;
+  /** The order is not by last post alone: a bump can put an older post above a newer one. */
+  reordered?: true;
 }
 
 const byLastPost = (thread: ThreadRow) => thread.last_post_at;
@@ -132,6 +134,7 @@ function tagWalk(ctx: Ctx, tagId: number): ThreadWalk {
       return candidates.flatMap((candidate) => rows.get(candidate.thread_id) ?? []);
     },
     time: (thread) => thread.sort_at,
+    reordered: true,
   };
 }
 
