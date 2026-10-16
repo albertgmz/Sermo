@@ -2927,3 +2927,21 @@ ranks, permissions, ban length and stale actors are the single action's; members
 touch, super admins and the actor are skipped and reported; an unfinished erasure is finished by
 erasing again. Known limits: credits for registering and referrals are paid before approval; the
 erasure lock is per process.
+
+**Media tab viewer (item 17).** The Media tab shows large 4:3 picture cards (one column on a phone,
+up to three on a desktop) from the 320 px thumbnail behind the Data saver gate, and a lazily loaded
+full-screen viewer (Base UI dialog, no library) whose state is the address
+(`?picture=post-<postId>-<fileId>` or `wall-<wallPostId>-<fileId>`): opening pushes one history
+entry, stepping replaces it, so Back or Esc closes and a link opens it. The list tells the viewer
+only which pictures it drew (no URLs when post pictures are blocked: the address of a picture is a
+`GatedUrl | null` made on the server); who posted it, where, the reaction control and the reply or
+comment box are asked for when a picture is shown, through `posts.get` / `profilePosts.get`,
+`threads.get` (no view counted) and the reaction types, so the grid makes no extra request and
+`media.list` is unchanged. Reacting, replying and commenting are the page's own actions and
+components (`ReactionsView`, split out of `Reactions`; `LineComposer`; `replyFromFeed`;
+`commentOnWallPost`). Known limits: a pasted `?picture=` link opens the picture with no arrows
+(stepping covers only the pictures the list has loaded and mounted, and stops at the last of them);
+a typed reply is lost on Esc, Back or a step to another picture; the viewer's history mark
+(`history.state.sermoPicture`) is lost if Next rewrites the entry (the list's `?pages=` update), and
+closing then replaces the address in place instead of going back; no confirmation shows after a
+reply other than the page redraw.
