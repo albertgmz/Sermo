@@ -81,6 +81,32 @@ const wake = (env: BenchEnv) => {
  * The newest 40 threads of every forum get activity in the last two days, so a walk that names
  * many forums finds recent threads in each; the original times are kept for `calm`. Returns their ids.
  */
+/**
+ * Sets a flag on every `every`-th visible thread for a scenario and clears it afterwards on exactly
+ * the threads that did not have it, so the seed's own sticky and locked threads stay as they were.
+ */
+function markThreads(
+  column: "is_sticky" | "is_locked",
+  every: number,
+): Pick<Scenario, "setup" | "teardown"> {
+  let marked: number[] = [];
+  return {
+    setup(env) {
+      marked = env.ctx.sqlite
+        .prepare<{ id: number }, [number]>(
+          `UPDATE threads SET ${column} = 1 WHERE state = 'visible' AND id % ?1 = 0 AND ${column} = 0 RETURNING id`,
+        )
+        .all(every)
+        .map((row) => row.id);
+    },
+    teardown(env) {
+      env.ctx.sqlite
+        .prepare(`UPDATE threads SET ${column} = 0 WHERE id IN (SELECT value FROM json_each(?1))`)
+        .run(JSON.stringify(marked));
+    },
+  };
+}
+
 const wakeEverywhere = (env: BenchEnv) => {
   const now = env.ctx.now();
   originalActivity = env.ctx.sqlite
@@ -156,7 +182,7 @@ export const scenarios: Scenario[] = [
       // in the seed, so nothing seeded is replaced; the rows added carry a read time of 1.
       setup(env) {
         nameCategories(env);
-        const ids = wakeEverywhere(env);
+        // The reader is looked up before anything changes: a setup that throws gets no teardown.
         const reader = env.ctx.sqlite
           .prepare<{ id: number }, []>(
             "SELECT u.id FROM users u WHERE u.group_id = 2 AND NOT EXISTS (SELECT 1 FROM thread_reads r WHERE r.user_id = u.id) ORDER BY u.id DESC LIMIT 1",
@@ -165,6 +191,7 @@ export const scenarios: Scenario[] = [
         if (!reader)
           throw new Error("Every seeded member has reads: no member to read everything.");
         readerId = reader.id;
+        const ids = wakeEverywhere(env);
         env.ctx.sqlite
           .prepare(
             "INSERT INTO thread_reads (user_id, thread_id, last_read_post_id, last_read_position, read_at) SELECT ?1, id, last_post_id, 0, 1 FROM threads WHERE id IN (SELECT value FROM json_each(?2))",
@@ -184,22 +211,12 @@ export const scenarios: Scenario[] = [
     setup: (env) => addPrefix(env),
     teardown: dropPrefix,
   }),
-  readScenario("feed.list filter sticky", () => ({ type: "sticky" }), {
-    setup: (env) =>
-      void env.ctx.sqlite.exec(
-        "UPDATE threads SET is_sticky = 1 WHERE state = 'visible' AND id % 500 = 0",
-      ),
-    teardown: (env) =>
-      void env.ctx.sqlite.exec("UPDATE threads SET is_sticky = 0 WHERE id % 500 = 0"),
-  }),
-  readScenario("feed.list filter locked", () => ({ type: "locked" }), {
-    setup: (env) =>
-      void env.ctx.sqlite.exec(
-        "UPDATE threads SET is_locked = 1 WHERE state = 'visible' AND id % 50 = 0",
-      ),
-    teardown: (env) =>
-      void env.ctx.sqlite.exec("UPDATE threads SET is_locked = 0 WHERE id % 50 = 0"),
-  }),
+  readScenario(
+    "feed.list filter sticky",
+    () => ({ type: "sticky" }),
+    markThreads("is_sticky", 500),
+  ),
+  readScenario("feed.list filter locked", () => ({ type: "locked" }), markThreads("is_locked", 50)),
   readScenario("feed.list filter featured", () => ({ type: "featured" }), {
     setup(env) {
       const now = env.ctx.now();
