@@ -14,7 +14,7 @@ import { GuestMenu } from "@/components/layout/guest-menu";
 import { getViewerCard } from "@/components/layout/header-data";
 import { headerIconClass } from "@/components/layout/header-icon-class";
 import { SearchPanel } from "@/components/layout/header-panels";
-import { Logo } from "@/components/layout/logo";
+import { Logo, LogoPlaceholder } from "@/components/layout/logo";
 import { NarrowToggle } from "@/components/layout/narrow-toggle";
 import { toNavItems } from "@/components/layout/nav-server";
 import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
@@ -26,6 +26,8 @@ import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 
 const PANEL = "hidden md:inline-flex";
+const PHONE_LOGO = "w-10 justify-center md:hidden";
+const WIDE_LOGO = "hidden md:inline-flex";
 
 function IconLink({
   href,
@@ -51,7 +53,7 @@ export function SiteHeader() {
   const t = useTranslations("layout.siteHeader");
   return (
     <header className="border-b bg-background">
-      <Container className="flex h-14 items-center gap-1 md:gap-2 lg:gap-4">
+      <Container className="flex h-14 items-center gap-1 md:gap-4">
         <Suspense
           fallback={
             <div className="-ml-2 md:hidden">
@@ -63,8 +65,16 @@ export function SiteHeader() {
         >
           <MenuNavigation />
         </Suspense>
-        <Logo markOnly className="w-10 justify-center lg:hidden" />
-        <Logo className="hidden lg:inline-flex" />
+        <Suspense
+          fallback={
+            <>
+              <LogoPlaceholder markOnly className={PHONE_LOGO} />
+              <LogoPlaceholder className={WIDE_LOGO} />
+            </>
+          }
+        >
+          <HeaderLogo />
+        </Suspense>
         <Suspense
           fallback={
             <div className="hidden md:block">
@@ -80,7 +90,7 @@ export function SiteHeader() {
         >
           <HeaderNavigation />
         </Suspense>
-        <div className="ml-auto flex items-center gap-1 lg:gap-2">
+        <div className="ml-auto flex items-center gap-1 md:gap-2">
           <IconLink href="/search" label={t("search")}>
             <Search />
           </IconLink>
@@ -101,6 +111,18 @@ export function SiteHeader() {
   );
 }
 
+// A member's header holds three more buttons (Create, Messages, Alerts), so between `md` and `lg`
+// their logo gives up its name, or a picture logo gets narrower; a guest's keeps it.
+export async function HeaderLogo() {
+  const { user } = await getViewer();
+  return (
+    <>
+      <Logo markOnly className={PHONE_LOGO} />
+      <Logo compact={!!user} className={WIDE_LOGO} />
+    </>
+  );
+}
+
 async function MenuNavigation() {
   const { header } = await getNavigation();
   return (
@@ -117,7 +139,7 @@ async function HeaderNavigation() {
   return (
     <HeaderNav
       links={toNavItems(header)}
-      className="hidden min-w-0 overflow-x-auto p-0.5 whitespace-nowrap md:flex"
+      className="hidden min-w-0 overflow-x-auto p-0.5 whitespace-nowrap [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden"
     />
   );
 }
@@ -125,14 +147,12 @@ async function HeaderNavigation() {
 async function AccountTools() {
   const [viewer, card] = await Promise.all([getViewer(), getViewerCard()]);
   const t = await getTranslations("layout.siteHeader");
-  return (
-    <>
-      {/* A guest's Create only leads to sign-in: on a tablet that room goes to the sign-in buttons. */}
-      <span className={viewer.user ? "contents" : "hidden lg:contents"}>
-        <CreateButton variant="header" member={!!viewer.user} />
-      </span>
-      {viewer.user && card ? (
-        // The viewer is known here: a member's corner waits in its own shape.
+  if (viewer.user && card) {
+    // A member's Create, Messages, Alerts and avatar sit closer together below `lg`, where the
+    // header needs the room. The viewer is known here: the corner waits in its own shape.
+    return (
+      <span className="flex items-center gap-1 lg:gap-2">
+        <CreateButton variant="header" member />
         <Suspense
           fallback={
             <LoadingRegion label={t("loadingAccount")}>
@@ -142,24 +162,29 @@ async function AccountTools() {
         >
           <AccountMenu inboxClassName={PANEL} />
         </Suspense>
-      ) : (
-        <>
-          <GuestMenu lite={await getLiteState()} />
-          <Link
-            href="/login"
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "h-10 w-10 px-0 lg:w-auto lg:px-3",
-            )}
-          >
-            <LogIn aria-hidden="true" className="lg:hidden" />
-            <span className="sr-only lg:not-sr-only">{t("login")}</span>
-          </Link>
-          <Link href="/register" className={cn(buttonVariants(), "h-10 px-3")}>
-            {t("register")}
-          </Link>
-        </>
-      )}
+      </span>
+    );
+  }
+  return (
+    <>
+      {/* A guest's Create only leads to sign-in: on a tablet that room goes to the sign-in buttons. */}
+      <span className="hidden lg:contents">
+        <CreateButton variant="header" member={false} />
+      </span>
+      <GuestMenu lite={await getLiteState()} />
+      <Link
+        href="/login"
+        className={cn(
+          buttonVariants({ variant: "outline" }),
+          "h-10 w-10 px-0 lg:w-auto lg:px-3",
+        )}
+      >
+        <LogIn aria-hidden="true" className="lg:hidden" />
+        <span className="sr-only lg:not-sr-only">{t("login")}</span>
+      </Link>
+      <Link href="/register" className={cn(buttonVariants(), "h-10 px-3")}>
+        {t("register")}
+      </Link>
     </>
   );
 }

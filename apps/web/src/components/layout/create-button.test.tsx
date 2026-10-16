@@ -103,20 +103,24 @@ test("the bottom bar holds the + in the middle of its entries: an even count spl
   expect(empty).toContain('href="/login?next=%2Fforums%2F3-help"');
 });
 
-// The header holds the navigation, Search, Create, Messages, Alerts and the avatar from 768 px up;
-// between `md` and `lg` it has no room for words it can spare (measured: with the label and the
-// site's name the member's corner ran 68 px past a 768 px screen).
-test("between md and lg the header spares room: Create is a square +, the logo is its mark, the navigation scrolls before the page does", () => {
+// A member's header holds the navigation, Search, Create, Messages, Alerts and the avatar from
+// 768 px up; between `md` and `lg` it has no room for words it can spare (measured: with the label
+// and the site's name the member's corner ran 68 px past a 768 px screen). A guest's Create is not
+// drawn below `lg` at all. The logo's part is in `site-header.test.tsx`.
+test("between md and lg Create is a square +, and the navigation scrolls, without a bar, before the page does", () => {
   const header = render(<CreateButton variant="header" member />);
   expect(header).toMatch(/class="[^"]*max-lg:w-10[^"]*max-lg:px-0/);
   expect(header).toContain('<span class="max-lg:sr-only">Create</span>');
   expect(header).toContain('aria-label="Create"');
   const site = source("site-header.tsx");
-  expect(site).toContain(
-    '<Logo markOnly className="w-10 justify-center lg:hidden" />',
-  );
-  expect(site).toContain('<Logo className="hidden lg:inline-flex" />');
   expect(site).toMatch(
-    /<HeaderNav[\s\S]*?className="[^"]*\bmin-w-0\b[^"]*\boverflow-x-auto\b[^"]*\bwhitespace-nowrap\b/,
+    /<HeaderNav[\s\S]*?className="[^"]*\bmin-w-0\b[^"]*\boverflow-x-auto\b[^"]*\bwhitespace-nowrap\b[^"]*\[scrollbar-width:none\][^"]*\[&::-webkit-scrollbar\]:hidden/,
+  );
+  // The gaps are the guest's as they were: only the member's own pieces change.
+  expect(site).toContain(
+    '<Container className="flex h-14 items-center gap-1 md:gap-4">',
+  );
+  expect(site).toContain(
+    '<div className="ml-auto flex items-center gap-1 md:gap-2">',
   );
 });

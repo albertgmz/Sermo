@@ -68,8 +68,16 @@ async function Mark({
 type LogoProps = {
   href?: string;
   markOnly?: boolean;
+  // Below `lg`, room for the header's other buttons: a drawn logo shows its mark only, a picture
+  // is capped narrower (its proportions kept).
+  compact?: boolean;
   className?: string;
 };
+
+// What `compact` changes below `lg`.
+const COMPACT_TEXT = "max-lg:w-10 max-lg:justify-center";
+const COMPACT_NAME = "max-lg:hidden";
+const COMPACT_PICTURE = "max-lg:max-w-18";
 
 export function Logo(props: LogoProps) {
   return (
@@ -80,11 +88,17 @@ export function Logo(props: LogoProps) {
 }
 
 // The name is not known yet, so its text is a bar; the box is the one the link settles into.
-export function LogoPlaceholder({ markOnly = false, className }: LogoProps) {
+export function LogoPlaceholder({
+  markOnly = false,
+  compact = false,
+  className,
+}: LogoProps) {
   return (
-    <span className={cn(LINK_BOX, className)}>
+    <span className={cn(LINK_BOX, compact && COMPACT_TEXT, className)}>
       <LogoMarkPlaceholder />
-      {!markOnly && <Skeleton className="h-4 w-16" />}
+      {!markOnly && (
+        <Skeleton className={cn("h-4 w-16", compact && COMPACT_NAME)} />
+      )}
     </span>
   );
 }
@@ -92,6 +106,7 @@ export function LogoPlaceholder({ markOnly = false, className }: LogoProps) {
 async function ResolvedLogo({
   href = "/",
   markOnly = false,
+  compact = false,
   className,
 }: LogoProps) {
   const site = await getSite();
@@ -100,18 +115,29 @@ async function ResolvedLogo({
     !markOnly &&
     !(await liteBlocks(liteCategoryOfPurpose("site_logo")));
   return (
-    <LogoLink href={href} name={site.name} className={className}>
+    <LogoLink
+      href={href}
+      name={site.name}
+      className={cn(compact && !picture && COMPACT_TEXT, className)}
+    >
       {site.logo && picture ? (
         // biome-ignore lint/performance/noImgElement: next/image optimisation is disabled
         <img
           src={site.logo.url}
           alt={site.name}
-          className="h-6 w-auto max-w-40 object-contain object-left"
+          className={cn(
+            "h-6 w-auto max-w-40 object-contain object-left",
+            compact && COMPACT_PICTURE,
+          )}
         />
       ) : (
         <>
           <Mark site={site} />
-          {!markOnly && <span>{site.name}</span>}
+          {!markOnly && (
+            <span className={compact ? COMPACT_NAME : undefined}>
+              {site.name}
+            </span>
+          )}
         </>
       )}
     </LogoLink>
