@@ -3942,3 +3942,26 @@ part of the name. A `[/HR]` is swallowed because XenForo writes a rule as `[HR][
 not been typed (the text on both sides joins); inside code it stays as typed. The editor's copy of
 the scanner (`bb-scan.ts`, `bb-text.ts`) reads the same forms, so quoting a post that uses them
 balances its tags the way the renderer pairs them.
+
+### Original file names and attachments on wall post comments (item 5)  Files keep the name they were
+uploaded with, and wall post comments take attachments like wall posts do. `files.filename`
+(nullable) is filled by the upload for the `attachment` purpose only, because avatars and covers are
+public and cached and would publish a member's local file name; the name is cleaned (no directory,
+no control or invisible characters, at most 255 characters) and used as the download name in
+`Content-Disposition` with an ASCII fallback beside the UTF-8 form, and the upload route reads
+multipart header parameters as UTF-8. Every attachment output carries it (`Attachment.filename`,
+null for older files, where the web falls back to the last part of the address); the upload answer
+itself keeps its documented shape. `profile_post_comment` is an attachment content type,
+`profile_post_comments.attachment_count` mirrors `profile_posts`, `profileComments.create` and
+`update` take `attachmentIds`, and who may read a comment's file is whoever may read the comment, so
+a soft-deleted comment hides its files and a restore shows them again; hard deleting the wall post
+removes them with the purge that already handled every content type. The comment composer on the
+wall, in the feed and in the picture viewer has the shared paperclip. Editing the files of an
+existing comment in the interface is deferred: the in-place edit form leaves files as they are,
+exactly as it does for wall posts; the backend already adds and removes files on edit
+(`attachmentIds`), and the interface follows when wall posts get it. `Content-Disposition` is built
+to be safe for any stored value, since the importer writes the column raw: a lone surrogate becomes
+U+FFFD, and the quoted fallback replaces the quote, backslash, percent, semicolon and anything
+outside printable ASCII. Cleaning an uploaded name keeps the zero-width joiner and non-joiner (emoji
+sequences, Persian and Indic names) while dropping the other invisible and bidirectional controls.
+The importer writes the same plain columns and rows.
