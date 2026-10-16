@@ -4,7 +4,10 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
-import { AccountMenu } from "@/components/layout/account-menu";
+import {
+  AccountMenu,
+  AccountMenuSkeleton,
+} from "@/components/layout/account-menu";
 import { Container } from "@/components/layout/container";
 import { CreateButton } from "@/components/layout/create-button";
 import { GuestMenu } from "@/components/layout/guest-menu";
@@ -48,7 +51,7 @@ export function SiteHeader() {
   const t = useTranslations("layout.siteHeader");
   return (
     <header className="border-b bg-background">
-      <Container className="flex h-14 items-center gap-1 md:gap-4">
+      <Container className="flex h-14 items-center gap-1 md:gap-2 lg:gap-4">
         <Suspense
           fallback={
             <div className="-ml-2 md:hidden">
@@ -60,8 +63,8 @@ export function SiteHeader() {
         >
           <MenuNavigation />
         </Suspense>
-        <Logo markOnly className="w-10 justify-center md:hidden" />
-        <Logo className="hidden md:inline-flex" />
+        <Logo markOnly className="w-10 justify-center lg:hidden" />
+        <Logo className="hidden lg:inline-flex" />
         <Suspense
           fallback={
             <div className="hidden md:block">
@@ -77,7 +80,7 @@ export function SiteHeader() {
         >
           <HeaderNavigation />
         </Suspense>
-        <div className="ml-auto flex items-center gap-1 md:gap-2">
+        <div className="ml-auto flex items-center gap-1 lg:gap-2">
           <IconLink href="/search" label={t("search")}>
             <Search />
           </IconLink>
@@ -111,7 +114,12 @@ async function MenuNavigation() {
 
 async function HeaderNavigation() {
   const { header } = await getNavigation();
-  return <HeaderNav links={toNavItems(header)} className="hidden md:flex" />;
+  return (
+    <HeaderNav
+      links={toNavItems(header)}
+      className="hidden min-w-0 overflow-x-auto p-0.5 whitespace-nowrap md:flex"
+    />
+  );
 }
 
 async function AccountTools() {
@@ -124,7 +132,16 @@ async function AccountTools() {
         <CreateButton variant="header" member={!!viewer.user} />
       </span>
       {viewer.user && card ? (
-        <AccountMenu inboxClassName={PANEL} />
+        // The viewer is known here: a member's corner waits in its own shape.
+        <Suspense
+          fallback={
+            <LoadingRegion label={t("loadingAccount")}>
+              <AccountMenuSkeleton inboxClassName={PANEL} />
+            </LoadingRegion>
+          }
+        >
+          <AccountMenu inboxClassName={PANEL} />
+        </Suspense>
       ) : (
         <>
           <GuestMenu lite={await getLiteState()} />

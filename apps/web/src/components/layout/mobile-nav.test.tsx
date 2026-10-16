@@ -74,3 +74,7 @@ test("nothing unread, no number; the other entries never carry one", () => {
   expect(entry(busy, "/")).not.toContain("count-badge");
   expect(entry(busy, "/members/1")).not.toContain("count-badge");
 });
+
+test("Messages wears the same envelope as the header's Messages button", () => {
+  expect(entry(bar(0, 0), "/conversations")).toContain("lucide-mail");
+});

@@ -3,10 +3,10 @@ import {
   Bookmark,
   Crown,
   House,
-  Inbox,
   Link as LinkIcon,
   LogIn,
   type LucideIcon,
+  Mail,
   Settings,
   UserRound,
 } from "lucide-react";
@@ -35,7 +35,7 @@ export type LinkItem = NavItem & { href: string };
 
 const ICONS: Record<string, LucideIcon> = {
   "mobile.home": House,
-  "mobile.messages": Inbox,
+  "mobile.messages": Mail,
   "mobile.alerts": Bell,
   "mobile.profile": UserRound,
   "mobile.login": LogIn,

@@ -1,7 +1,7 @@
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// The rows of a list in the avatar menu while they are being asked for.
+// The rows of a list in a header panel or the avatar menu while they are being asked for.
 export function PanelSkeleton({ label }: { label: string }) {
   return (
     <LoadingRegion label={label}>

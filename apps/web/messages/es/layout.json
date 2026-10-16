@@ -43,7 +43,7 @@
       "loading": "Cargando conversaciones…"
     },
     "alerts": {
-      "title": "Alertas",
+      "title": "Notificaciones",
       "empty": "No hay notificaciones nuevas",
       "viewAll": "Ver todas",
       "markAllRead": "Marcar todo como leído",

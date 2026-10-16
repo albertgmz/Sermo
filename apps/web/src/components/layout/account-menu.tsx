@@ -13,9 +13,11 @@ import { accountItems } from "@/components/layout/nav";
 import { toNavItems } from "@/components/layout/nav-server";
 import "@/components/layout/panel-parts";
 import { UserMenu } from "@/components/layout/user-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getLiteState } from "@/lib/lite-mode";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
+import { cn } from "@/lib/utils";
 
 // The signed-in member's own corner of the header, shared by the site header and the staff panel's
 // top bar: the Messages and Alerts buttons, each with its unread count and its panel, then the
@@ -73,6 +75,22 @@ export async function AccountMenu({
             : undefined
         }
       />
+    </>
+  );
+}
+
+// The member's corner while it streams in: the same three slots (Messages, Alerts, the avatar
+// button with its arrow), shown at the same widths, so nothing beside it moves when it arrives.
+export function AccountMenuSkeleton({
+  inboxClassName,
+}: {
+  inboxClassName?: string;
+}) {
+  return (
+    <>
+      <Skeleton className={cn("size-10", inboxClassName)} />
+      <Skeleton className={cn("size-10", inboxClassName)} />
+      <Skeleton className="h-10 w-16" />
     </>
   );
 }

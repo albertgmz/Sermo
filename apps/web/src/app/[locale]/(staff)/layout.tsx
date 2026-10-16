@@ -3,7 +3,10 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
-import { AccountMenu } from "@/components/layout/account-menu";
+import {
+  AccountMenu,
+  AccountMenuSkeleton,
+} from "@/components/layout/account-menu";
 import { ClientMessages } from "@/components/layout/client-messages";
 import { Container } from "@/components/layout/container";
 import { getAccent } from "@/components/layout/header-data";
@@ -16,6 +19,10 @@ import { StaffMenu } from "./mobile-menu";
 import { StaffNavigation } from "./navigation";
 import { getStaffNavigation } from "./navigation-data";
 import { SectionTitle } from "./section-title";
+
+// Messages and Alerts in the top bar: there is no phone bar here, but on the narrowest phones the
+// section's title needs the room; the site's own phone bar is a press on the logo away.
+const INBOX = "hidden sm:inline-flex";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.shell");
@@ -115,11 +122,11 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
             <Suspense
               fallback={
                 <LoadingRegion label={t("aria.loadingAccount")}>
-                  <Skeleton className="h-10 w-14" />
+                  <AccountMenuSkeleton inboxClassName={INBOX} />
                 </LoadingRegion>
               }
             >
-              <AccountMenu />
+              <AccountMenu inboxClassName={INBOX} />
             </Suspense>
           </Container>
         </header>

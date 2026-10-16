@@ -37,7 +37,8 @@ const NONE: Counters = {
   pendingSignups: { count: 0, more: false },
 };
 
-// How many rows the avatar menu lists: a short first page of the pages' own operations.
+// How many rows the Messages and Alerts panels and the Bookmarks tab list: a short first page of the
+// pages' own operations.
 const CONVERSATIONS_SHOWN = 5;
 const NOTIFICATIONS_SHOWN = 6;
 const BOOKMARKS_SHOWN = 5;
