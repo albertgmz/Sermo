@@ -34,8 +34,12 @@ type PostRow = PostCandidate & { position: number };
 const columns = "id, content_type, content_id, created_at";
 
 export const mediaSql = {
-  /** The newest attachments of one kind (`attachments_type_id`): one index seek. */
-  newest: `SELECT ${columns} FROM attachments WHERE content_type = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3`,
+  /**
+   * The newest attachments of one kind: one seek in `attachments_type_id`. Named, because left to
+   * itself the planner walks the primary key backwards and filters by kind, which reads every
+   * attachment when the kind has none (about 10 ms with 300,000 rows).
+   */
+  newest: `SELECT ${columns} FROM attachments INDEXED BY attachments_type_id WHERE content_type = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3`,
   files: `SELECT a.id, f.id AS file_id, f.content_type, f.byte_size, f.width, f.height, thumb.id AS thumbnail_id FROM attachments a JOIN files f ON f.id = a.file_id LEFT JOIN files thumb INDEXED BY files_variant ON thumb.parent_file_id = f.id AND thumb.variant = 'thumbnail' AND thumb.deleted_at IS NULL WHERE a.id IN (SELECT value FROM json_each(?1)) AND f.deleted_at IS NULL AND f.content_type IN (SELECT value FROM json_each(?2))`,
   posts:
     "SELECT id, thread_id, user_id, state, created_at, position FROM posts WHERE id IN (SELECT value FROM json_each(?1))",

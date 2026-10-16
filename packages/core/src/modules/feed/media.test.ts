@@ -307,6 +307,29 @@ describe("media.list", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
+  test("the newest read seeks its index even when the statistics say one kind holds every row", () => {
+    const w = world();
+    // The shape of a site whose attachments are all one kind: left to itself the planner then
+    // walks the primary key and filters by kind, reading every row when the other kind has none.
+    w.ctx.sqlite.run("ANALYZE");
+    w.ctx.sqlite.run(
+      "INSERT INTO sqlite_stat1 (tbl, idx, stat) VALUES ('attachments', 'attachments_type_id', '300000 300000 1')",
+    );
+    // Reads the statistics again, as a new connection does.
+    w.ctx.sqlite.run("ANALYZE sqlite_schema");
+    for (const type of ["post", "profile_post"])
+      expect(
+        w.ctx.sqlite
+          .prepare<{ detail: string }, [string, number, number]>(
+            `EXPLAIN QUERY PLAN ${mediaSql.newest}`,
+          )
+          .all(type, Number.MAX_SAFE_INTEGER, 40)
+          .map((step) => step.detail),
+      ).toEqual([
+        expect.stringContaining("USING INDEX attachments_type_id (content_type=? AND id<?)"),
+      ]);
+  });
+
   test("each read is one index seek", () => {
     const w = world();
     for (const type of ["post", "profile_post"])
