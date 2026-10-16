@@ -3031,3 +3031,21 @@ hreflang (no locale in addresses) and no sitemap change (the sitemap lists no ho
 limits: the Forums tab duplicates `/forums`; no social card. The head of the home page is now
 request-time: it reads the search params and the viewer, so it is streamed with the page instead of
 being part of the prerendered shell.
+
+**One Create button (item 16).** A "Create" button in the header (from `md`) and a round + in the
+middle of the phone bottom bar open one dialog that asks what to write: discussion, question, poll
+or quiz, or a wall post. Threads then pick a forum in the shared searchable list (only forums the
+member may post in) and are written in the shared composer in its dialog frame; a poll opens the
+poll section; a wall post skips the forum and posts to the member's own wall. A question is a
+discussion worded as one (the backend has no thread type for it). The button is a link to sign-in
+for guests and is shown to every signed-in member, because which forums they may post in is not
+known without a read per page; the dialog shows only what they can do. The dialog code, the forum
+list, the editor and the composer load on first use; the dialog stays mounted when closed (drafts
+kept, each opening starts at the choice) and closes on navigation. `/forums/<id>/new` stays a page.
+A poll the member already filled in stays open when they switch to Discussion or Question and is
+sent as a poll (visible in the composer with a Remove button); a blank poll section closes. On
+`/forums/<id>/new` the dialog offers only a wall post, so the page composer and the dialog never
+write the same thread draft. Known limits: the bar can hold six cells; no avatar on the wall post;
+no sign-in link when the session ends under an open dialog; "Poll or quiz" is offered whenever any
+forum is postable (the forum list carries no per-forum poll permission; the composer then says so);
+two browser tabs keep separate drafts.
