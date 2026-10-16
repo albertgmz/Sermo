@@ -253,12 +253,13 @@ function render(
   edit?: ContentEdit,
   maxLength = MAX_BODY_LENGTH,
   timing: RenderTiming = {},
+  importNodeId?: number,
 ): Rendered {
   try {
-    return renderOnce(source, ctx, actor, edit, maxLength, timing);
+    return renderOnce(source, ctx, actor, edit, maxLength, timing, importNodeId);
   } catch (error) {
     if (error instanceof ValidationError && error.message === TOO_COMPLEX)
-      return renderOnce(source, ctx, actor, edit, maxLength, timing);
+      return renderOnce(source, ctx, actor, edit, maxLength, timing, importNodeId);
     throw error;
   }
 }
@@ -322,6 +323,7 @@ function renderOnce(
   edit?: ContentEdit,
   maxLength = MAX_BODY_LENGTH,
   timing: RenderTiming = {},
+  importNodeId?: number,
 ): Rendered {
   source = source.replace(/\r\n?/g, "\n");
   const deadline = new Deadline(timing.limitMs ?? RENDER_LIMIT_MS, timing.clock);
@@ -391,11 +393,15 @@ function renderOnce(
     const permissionLimit = permissionValue(ctx, author, "mention.maxPerItem");
     const newMember =
       createdAt != null && createdAt > ctx.now() - (setting.newMemberDays ?? 7) * 86_400_000;
-    const limit = newMember
-      ? permissionLimit < 0
-        ? (setting.newMemberMentionLimit ?? 3)
-        : Math.min(permissionLimit, setting.newMemberMentionLimit ?? 3)
-      : permissionLimit;
+    // An import keeps every mention the author wrote: the actor is not the writer.
+    const limit =
+      importNodeId !== undefined
+        ? -1
+        : newMember
+          ? permissionLimit < 0
+            ? (setting.newMemberMentionLimit ?? 3)
+            : Math.min(permissionLimit, setting.newMemberMentionLimit ?? 3)
+          : permissionLimit;
     // Mentions the content already had stay whatever the current limit is; the limit only
     // decides how many newly added members fit beside them.
     const accepted = new Set<number>();
@@ -443,14 +449,31 @@ function renderOnce(
     // A thread other members started, and a post whose text is closed, may be closed to the
     // writer in its forum: quoting one would tell them it exists.
     const gates = readGates(ctx, actor);
+    // An import never refuses a quote. A quote links only to a post, in a thread, that shows to
+    // everyone, and when the quoting post is public its source forum must be public too: the
+    // actor of an import sees everything, so it is not the reader to ask.
+    const importing = importNodeId !== undefined;
+    const guest: Actor = { kind: "guest" };
+    const guestGates = importing ? readGates(ctx, guest) : gates;
+    const publicQuoting = importing && can(ctx, guest, "node.view", { nodeId: importNodeId });
+    const linkable = (row: (typeof rows)[number]) =>
+      row.post_state === "visible" &&
+      row.thread_state === "visible" &&
+      (!publicQuoting ||
+        (can(ctx, guest, "node.view", { nodeId: row.node_id }) &&
+          guestGates.opens(row.node_id, row.thread_user_id) &&
+          guestGates.reads(row.node_id, row.user_id)));
     // A post is checked once, however many times it is quoted.
     const checked = new Set<number>();
     for (const el of tree.quotes) {
       const quote = el.quote!;
       const row = byPost.get(quote.postId!);
-      if (!row) throw new ValidationError("The quoted post is not visible.");
+      if (importing) {
+        if (!row || !linkable(row)) continue;
+      } else if (!row) throw new ValidationError("The quoted post is not visible.");
       if (!checked.has(row.id)) {
         if (
+          !importing &&
           !previous.quotes.has(row.id) &&
           (!can(ctx, actor, "node.view", { nodeId: row.node_id }) ||
             !visible(row.thread_state, row.thread_user_id, row.node_id) ||
@@ -488,6 +511,33 @@ function renderOnce(
     spoilers: sink?.html ?? [],
     hashtags,
   };
+}
+
+/** Time a render for an import may take: a long body is not a hostile one, and the machine may be busy. */
+const IMPORT_RENDER_LIMIT_MS = 1_000;
+
+/**
+ * The render of the XenForo importer, never of a request: `renderContent` without the length cap
+ * and without refusing. `actor` sees everything and `nodeId` is the forum the body will live in.
+ * A quote of a post that is missing, deleted or hidden stays a plain quote with the author named
+ * in its tag and no link; so does a quote whose source forum a guest cannot open when a guest
+ * can open `nodeId` (the quote's own text is already in the body).
+ */
+export function renderForImport(
+  ctx: Ctx,
+  actor: Actor,
+  source: string,
+  options: { nodeId: number } & RenderTiming,
+): Rendered {
+  return render(
+    source,
+    ctx,
+    actor,
+    undefined,
+    Number.POSITIVE_INFINITY,
+    { limitMs: IMPORT_RENDER_LIMIT_MS, ...options },
+    options.nodeId,
+  );
 }
 
 export function renderContent(
