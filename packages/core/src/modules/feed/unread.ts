@@ -2,6 +2,7 @@ import type * as z from "zod";
 import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { FEED_UNREAD_CAP, type FeedUnread } from "../../contracts/feed";
+import { markPublic } from "../../operation";
 import { readGates } from "../forums";
 
 export const unreadSql = {
@@ -22,39 +23,42 @@ type UnreadValue = z.infer<typeof FeedUnread>;
  * whose posts the viewer may not read (titles only) has no entry, and neither has a thread whose
  * unread posts the statement does not find (a read mark that no longer matches the thread).
  */
-export function unreadIn(
-  ctx: Ctx,
-  actor: Actor,
-  threads: { id: number; nodeId: number; isUnread: boolean }[],
-): Map<number, UnreadValue> {
-  const userId = actorUserId(actor);
-  const result = new Map<number, UnreadValue>();
-  if (userId === null) return result;
-  const gates = readGates(ctx, actor);
-  const ids = threads
-    .filter((thread) => thread.isUnread && gates.readsOthers(thread.nodeId))
-    .map((thread) => thread.id);
-  if (ids.length === 0) return result;
-  const rows = prepared(ctx, "feed.firstUnread", () =>
-    ctx.sqlite.prepare<
-      { thread_id: number; id: number; position: number },
-      [string, number, number]
-    >(unreadSql.firstUnread),
-  ).all(JSON.stringify(ids), userId, FEED_UNREAD_CAP + 1);
-  const byThread = new Map<number, { id: number; position: number }[]>();
-  for (const row of rows) {
-    const list = byThread.get(row.thread_id) ?? [];
-    list.push(row);
-    byThread.set(row.thread_id, list);
-  }
-  for (const [threadId, posts] of byThread) {
-    const first = posts.reduce((a, b) => (b.position < a.position ? b : a));
-    result.set(threadId, {
-      count: Math.min(posts.length, FEED_UNREAD_CAP),
-      more: posts.length > FEED_UNREAD_CAP,
-      firstPostId: first.id,
-      firstPosition: first.position,
-    });
-  }
-  return result;
-}
+export const unreadIn = markPublic(
+  "Counts only threads whose posts the viewer may read (forum.viewContent through readGates).",
+  function unreadIn(
+    ctx: Ctx,
+    actor: Actor,
+    threads: { id: number; nodeId: number; isUnread: boolean }[],
+  ): Map<number, UnreadValue> {
+    const userId = actorUserId(actor);
+    const result = new Map<number, UnreadValue>();
+    if (userId === null) return result;
+    const gates = readGates(ctx, actor);
+    const ids = threads
+      .filter((thread) => thread.isUnread && gates.readsOthers(thread.nodeId))
+      .map((thread) => thread.id);
+    if (ids.length === 0) return result;
+    const rows = prepared(ctx, "feed.firstUnread", () =>
+      ctx.sqlite.prepare<
+        { thread_id: number; id: number; position: number },
+        [string, number, number]
+      >(unreadSql.firstUnread),
+    ).all(JSON.stringify(ids), userId, FEED_UNREAD_CAP + 1);
+    const byThread = new Map<number, { id: number; position: number }[]>();
+    for (const row of rows) {
+      const list = byThread.get(row.thread_id) ?? [];
+      list.push(row);
+      byThread.set(row.thread_id, list);
+    }
+    for (const [threadId, posts] of byThread) {
+      const first = posts.reduce((a, b) => (b.position < a.position ? b : a));
+      result.set(threadId, {
+        count: Math.min(posts.length, FEED_UNREAD_CAP),
+        more: posts.length > FEED_UNREAD_CAP,
+        firstPostId: first.id,
+        firstPosition: first.position,
+      });
+    }
+    return result;
+  },
+);
