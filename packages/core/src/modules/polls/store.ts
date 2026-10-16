@@ -2,7 +2,8 @@ import type { SQLQueryBindings } from "bun:sqlite";
 import { type Ctx, prepared } from "../../context";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
-import { MAX_POLL_ANSWERS } from "../../limits";
+import { MAX_POLL_ANSWERS, POLL_PURGE_BATCH } from "../../limits";
+import { iso } from "../../time";
 import { setAttachments } from "../attachments";
 import type { CleanAnswer, CleanPoll, CleanQuestion } from "./text";
 import { searchTextOf } from "./text";
@@ -88,6 +89,15 @@ function statement<Row>(ctx: Ctx, key: string, sql: string) {
 
 export const pollById = (ctx: Ctx, id: number): PollRow | null =>
   statement<PollRow>(ctx, "byId", pollSql.byId).get(id);
+/**
+ * A poll whose votes are being removed in batches (polls.delete of a very large poll) keeps its
+ * row until the last batch and carries `max_choices = 0`, which no poll has otherwise: nothing
+ * reads or writes it meanwhile.
+ */
+export const isRetiring = (poll: Pick<PollRow, "max_choices">): boolean => poll.max_choices === 0;
+export const retirePoll = (ctx: Ctx, id: number): void => {
+  statement(ctx, "retire", "UPDATE polls SET max_choices = 0 WHERE id = ?1").run(id);
+};
 export const pollOfThread = (ctx: Ctx, threadId: number): PollRow | null =>
   statement<PollRow>(ctx, "byThread", pollSql.byThread).get(threadId);
 
@@ -205,7 +215,14 @@ export function replacePoll(
   poll: PollRow,
   clean: CleanPoll,
   manage: boolean,
+  loadedAt?: string,
 ): void {
+  // An editor that started from an older definition has not seen what changed since (an answer a
+  // voter added would be deleted by a list that leaves it out).
+  if (loadedAt !== undefined && loadedAt !== iso(poll.updated_at))
+    throw new ConflictError(
+      "This poll changed since you opened it. Reload it, then make your change again.",
+    );
   const { questions, answers } = pollParts(ctx, [poll.id], null);
   const questionById = new Map(questions.map((row) => [row.id, row]));
   const answerById = new Map(answers.map((row) => [row.id, row]));
@@ -249,6 +266,11 @@ export function replacePoll(
         "Members have already taken this quiz: its questions, answers and right answers can no longer change.",
       );
   }
+  // One transaction removes one batch of voters: an answer chosen by more has to stay.
+  if (removedAnswers.some((row) => row.vote_count > POLL_PURGE_BATCH))
+    throw new ConflictError(
+      "This answer has too many votes to remove in one step. Delete the poll, or keep the answer.",
+    );
   if (!manage && removedAnswers.some((row) => row.vote_count > 0))
     throw new ForbiddenError("Only staff can remove an answer that has votes.");
   // The people who voted for an answer voted for its words: only staff reword it.
@@ -270,7 +292,7 @@ export function replacePoll(
   statement(
     ctx,
     "updateSettings",
-    "UPDATE polls SET max_choices = ?2, allow_custom = ?3, allow_change = ?4, results = ?5, closes_at = ?6, search_text = ?7, updated_at = ?8 WHERE id = ?1",
+    "UPDATE polls SET max_choices = ?2, allow_custom = ?3, allow_change = ?4, results = ?5, closes_at = ?6, search_text = ?7, updated_at = max(updated_at + 1, ?8) WHERE id = ?1",
   ).run(
     poll.id,
     clean.maxChoices,
@@ -316,6 +338,17 @@ export function replacePoll(
 function dropAnswers(ctx: Ctx, pollId: number, answerIds: number[]): void {
   if (answerIds.length === 0) return;
   const json = JSON.stringify(answerIds);
+  // The members who lose a vote here are the only ones who can be left without any: their ballots
+  // are the ones looked at (at most one batch of them, see replacePoll).
+  const voters = JSON.stringify(
+    statement<{ user_id: number }>(
+      ctx,
+      "votersOfAnswers",
+      "SELECT DISTINCT user_id FROM poll_votes WHERE answer_id IN (SELECT value FROM json_each(?1))",
+    )
+      .all(json)
+      .map((row) => row.user_id),
+  );
   statement(
     ctx,
     "deleteVotes",
@@ -329,8 +362,8 @@ function dropAnswers(ctx: Ctx, pollId: number, answerIds: number[]): void {
   statement(
     ctx,
     "deleteEmptyBallots",
-    "DELETE FROM poll_ballots WHERE poll_id = ?1 AND NOT EXISTS (SELECT 1 FROM poll_votes v WHERE v.poll_id = ?1 AND v.user_id = poll_ballots.user_id)",
-  ).run(pollId);
+    "DELETE FROM poll_ballots WHERE poll_id = ?1 AND user_id IN (SELECT value FROM json_each(?2)) AND NOT EXISTS (SELECT 1 FROM poll_votes v WHERE v.poll_id = ?1 AND v.user_id = poll_ballots.user_id)",
+  ).run(pollId, voters);
 }
 
 /** Closes a poll by hand, or reopens it (a close date already past is cleared). */
@@ -340,13 +373,13 @@ export function setClosed(ctx: Ctx, pollId: number, closed: boolean): void {
     statement(
       ctx,
       "close",
-      "UPDATE polls SET closed_at = coalesce(closed_at, ?2), updated_at = ?2 WHERE id = ?1",
+      "UPDATE polls SET closed_at = coalesce(closed_at, ?2), updated_at = max(updated_at + 1, ?2) WHERE id = ?1",
     ).run(pollId, now);
   else
     statement(
       ctx,
       "reopen",
-      "UPDATE polls SET closed_at = NULL, closes_at = CASE WHEN closes_at <= ?2 THEN NULL ELSE closes_at END, updated_at = ?2 WHERE id = ?1",
+      "UPDATE polls SET closed_at = NULL, closes_at = CASE WHEN closes_at <= ?2 THEN NULL ELSE closes_at END, updated_at = max(updated_at + 1, ?2) WHERE id = ?1",
     ).run(pollId, now);
 }
 
@@ -360,6 +393,12 @@ export function insertCustomAnswer(ctx: Ctx, poll: PollRow, userId: number, text
     throw new ConflictError("The poll already has that answer: pick it instead.");
   if (answers.length >= MAX_POLL_ANSWERS)
     throw new ConflictError(`A poll has at most ${MAX_POLL_ANSWERS} answers.`);
+  // The definition changed: an editor that began before this must not save over it.
+  statement(
+    ctx,
+    "touch",
+    "UPDATE polls SET updated_at = max(updated_at + 1, ?2) WHERE id = ?1",
+  ).run(poll.id, ctx.now());
   return insertAnswer(
     ctx,
     poll.id,

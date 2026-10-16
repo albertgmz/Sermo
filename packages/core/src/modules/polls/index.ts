@@ -4,6 +4,7 @@ import { type Ctx, prepared } from "../../context";
 import * as contracts from "../../contracts/polls";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { POLL_PURGE_BATCH } from "../../limits";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { currentActor, permissionsOf, requirePermission } from "../../permissions";
@@ -12,21 +13,23 @@ import { iso, isoOrNull } from "../../time";
 import { loadAttachments } from "../attachments";
 import { checkNodePostingRules, readGates, requireThread } from "../forums";
 import { requireSiteView } from "../members/site-access";
-import { appendModeratorLog } from "../moderation";
+import { appendModeratorLog, requireWriteRoom } from "../moderation";
 import { requireTermsAccepted } from "../pages/acceptance";
-import { purgePolls } from "../purge/purge";
+import { purgePollBatch, purgePolls } from "../purge/purge";
 import { isClosed, mayAddPoll, type PollThread, pollRights, resultsShown } from "./policy";
 import { CLOSED, requirePoll } from "./readable";
 import {
   castVote,
   insertCustomAnswer,
   insertPoll,
+  isRetiring,
   type PollRow,
   pollOfThread,
   pollParts,
   pollSql,
   publishVoted,
   replacePoll,
+  retirePoll,
   setClosed,
 } from "./store";
 import { type CleanPoll, cleanAnswerText, cleanPoll } from "./text";
@@ -68,7 +71,7 @@ function needsUpload(ctx: Ctx, pollId: number | null, clean: CleanPoll): boolean
 function requireNotHeld(clean: CleanPoll): void {
   if (clean.moderated)
     throw new ValidationError(
-      "The text uses a word the forum holds for approval, and a poll cannot wait for it. Reword it.",
+      "The text uses a word or a link the forum holds for approval, and a poll cannot wait for it. Reword it.",
     );
 }
 
@@ -79,6 +82,7 @@ const getOp = implement(contracts.pollsGet, (ctx, actor, input) => {
   if (!readGates(ctx, actor).reads(row.node_id, row.user_id))
     return { poll: null, canCreate: false };
   const poll = pollOfThread(ctx, row.id);
+  if (poll && isRetiring(poll)) return { poll: null, canCreate: false };
   if (!poll) return { poll: null, canCreate: mayAddPoll(permissionsOf(ctx, actor), actor, row) };
   return {
     poll: pollValues(ctx, actor, [poll], new Map([[row.id, row]])).get(poll.id)!,
@@ -93,7 +97,11 @@ const createOp = implement(contracts.pollsCreate, (ctx, actor, input) => {
   if (!readGates(ctx, actor).reads(row.node_id, row.user_id)) throw new ForbiddenError(CLOSED);
   if (!mayAddPoll(permissionsOf(ctx, actor), actor, row)) {
     requirePermission(ctx, actor, "poll.create", { nodeId: row.node_id });
-    throw new ForbiddenError("Only the thread's author or staff can add a poll to it.");
+    throw new ForbiddenError(
+      row.is_locked
+        ? "This thread is locked: only staff can add a poll to it."
+        : "Only the thread's author or staff can add a poll to it.",
+    );
   }
   requireTermsAccepted(ctx, actor);
   // A poll is written content: the forum's own posting rules (read-only, account age, post count) hold.
@@ -109,6 +117,7 @@ const createOp = implement(contracts.pollsCreate, (ctx, actor, input) => {
       throw new ForbiddenError(CLOSED);
     if (!mayAddPoll(permissionsOf(ctx, current), current, thread)) throw new ForbiddenError();
     checkNodePostingRules(ctx, current, thread.node_id);
+    requireWriteRoom(ctx, current, "reply", clean.floodSeconds);
     if (needsUpload(ctx, null, clean))
       requirePermission(ctx, current, "forum.uploadAttachments", { nodeId: thread.node_id });
     if (pollOfThread(ctx, thread.id)) throw new ConflictError("This thread already has a poll.");
@@ -160,7 +169,7 @@ const updateOp = implement(contracts.pollsUpdate, (ctx, actor, input) => {
       JSON.stringify(clean)
     )
       throw new ConflictError("Moderation rules changed; retry.");
-    replacePoll(ctx, user.userId, fresh.poll, clean, now.manage);
+    replacePoll(ctx, user.userId, fresh.poll, clean, now.manage, input.loadedAt);
     if (fresh.poll.user_id !== user.userId)
       appendModeratorLog(
         ctx,
@@ -207,7 +216,7 @@ const addAnswerOp = implement(contracts.pollsAddAnswer, (ctx, actor, input) => {
   const answer = cleanAnswerText(ctx, actor, input.text);
   if (answer.moderated)
     throw new ValidationError(
-      "The text uses a word the forum holds for approval, and a poll cannot wait for it. Reword it.",
+      "The text uses a word or a link the forum holds for approval, and a poll cannot wait for it. Reword it.",
     );
   writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
@@ -218,6 +227,7 @@ const addAnswerOp = implement(contracts.pollsAddAnswer, (ctx, actor, input) => {
       threadBanned: !!fresh.thread.thread_banned,
     });
     checkNodePostingRules(ctx, current, fresh.thread.node_id);
+    requireWriteRoom(ctx, current, "reply", answer.floodSeconds);
     if (!fresh.poll.allow_custom) throw new ConflictError("This poll takes no custom answers.");
     if (cleanAnswerText(ctx, current, input.text).text !== answer.text)
       throw new ConflictError("Moderation rules changed; retry.");
@@ -281,17 +291,24 @@ function requireNotClosedByStaff(ctx: Ctx, poll: PollRow): void {
 const deleteOp = implement(contracts.pollsDelete, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   requireSiteView(ctx, actor);
-  const { poll, thread } = requirePoll(ctx, actor, input.pollId);
+  const { poll, thread } = requirePoll(ctx, actor, input.pollId, { retiring: true });
   if (!pollRights(permissionsOf(ctx, actor), actor, poll, thread, ctx.now()).delete)
     throw new ForbiddenError();
-  writeTx(ctx, () => {
+  const completed = writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
-    const fresh = requirePoll(ctx, current, input.pollId);
+    const fresh = requirePoll(ctx, current, input.pollId, { retiring: true });
     if (
       !pollRights(permissionsOf(ctx, current), current, fresh.poll, fresh.thread, ctx.now()).delete
     )
       throw new ForbiddenError();
-    purgePolls(ctx, [fresh.poll.id]);
+    // The voters go in batches of one transaction's size: a poll with more is taken out of sight at
+    // once (it carries max_choices 0) and what is left goes with the calls that follow.
+    let done = true;
+    if (fresh.poll.ballot_count > POLL_PURGE_BATCH) {
+      retirePoll(ctx, fresh.poll.id);
+      purgePollBatch(ctx, fresh.poll.id);
+      done = false;
+    } else purgePolls(ctx, [fresh.poll.id]);
     // The log names the poll and how many took part, never who: an anonymous poll stays so.
     if (fresh.poll.user_id !== user.userId)
       appendModeratorLog(
@@ -304,8 +321,9 @@ const deleteOp = implement(contracts.pollsDelete, (ctx, actor, input) => {
         { pollId: fresh.poll.id, kind: fresh.poll.kind, ballots: fresh.poll.ballot_count },
         fresh.thread.node_id,
       );
+    return done;
   });
-  return { ok: true as const };
+  return { ok: true as const, completed };
 });
 
 const votersOp = implement(contracts.pollsVoters, (ctx, actor, input) => {
@@ -366,6 +384,8 @@ const definitionOp = implement(contracts.pollsDefinition, (ctx, actor, input) =>
     results: poll.results,
     closesAt: isoOrNull(poll.closes_at),
     ballotCount: poll.ballot_count,
+    updatedAt: iso(poll.updated_at),
+
     questions: parts.questions.map((question) => ({
       id: question.id,
       text: question.text,

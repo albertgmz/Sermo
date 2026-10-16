@@ -18,3 +18,9 @@ export const POLL_EXPLANATION_LENGTH = 500;
 export const MAX_POLL_ANSWERS = 20;
 export const MAX_QUIZ_ANSWERS = 8;
 export const MAX_QUIZ_QUESTIONS = 20;
+/**
+ * Members whose votes one transaction removes when a poll is deleted or an answer is dropped (a
+ * member holds up to 20 votes, and every vote and ballot fires a counter trigger): a poll with more
+ * voters is removed in batches of this many.
+ */
+export const POLL_PURGE_BATCH = 2_000;

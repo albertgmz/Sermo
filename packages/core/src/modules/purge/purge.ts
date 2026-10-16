@@ -1,6 +1,7 @@
 import type { SQLQueryBindings } from "bun:sqlite";
 import { type Ctx, prepared } from "../../context";
 import { ConflictError } from "../../errors";
+import { POLL_PURGE_BATCH } from "../../limits";
 import { moveCredits } from "../../shared/credits";
 import { enqueueJob } from "../jobs";
 import { purgeThreadTags } from "../tags/store";
@@ -146,6 +147,56 @@ export function purgePolls(ctx: Ctx, pollIds: number[]): void {
     "polls.rows",
     "DELETE FROM polls WHERE id IN (SELECT value FROM json_each(?1))",
   ).run(json);
+}
+
+/**
+ * Removes the votes and ballots of one batch of the poll's voters (`POLL_PURGE_BATCH` members, so
+ * the counter triggers of one transaction stay bounded) and says how many voters are left. The
+ * poll itself stays until `purgePolls` takes what is left.
+ */
+export function purgePollBatch(ctx: Ctx, pollId: number): number {
+  const members = JSON.stringify(
+    statement<{ user_id: number }>(
+      ctx,
+      "polls.batchMembers",
+      "SELECT user_id FROM poll_ballots WHERE poll_id = ?1 ORDER BY user_id LIMIT ?2",
+    )
+      .all(pollId, POLL_PURGE_BATCH)
+      .map((row) => row.user_id),
+  );
+  statement(
+    ctx,
+    "polls.batchVotes",
+    "DELETE FROM poll_votes WHERE poll_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
+  ).run(pollId, members);
+  statement(
+    ctx,
+    "polls.batchBallots",
+    "DELETE FROM poll_ballots WHERE poll_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
+  ).run(pollId, members);
+  return (
+    statement<{ ballot_count: number }>(
+      ctx,
+      "polls.remaining",
+      "SELECT ballot_count FROM polls WHERE id = ?1",
+    ).get(pollId)?.ballot_count ?? 0
+  );
+}
+
+/**
+ * The poll of the thread, or of a thread merged into it, that has more voters than one batch
+ * removes (the id of one of them), or null. A hard delete takes those out batch by batch before
+ * it removes anything else.
+ */
+export function pollNeedingBatches(ctx: Ctx, threadId: number): number | null {
+  const ids = JSON.stringify([threadId, ...tombstonesOf(ctx, threadId)]);
+  return (
+    statement<{ id: number }>(
+      ctx,
+      "polls.large",
+      "SELECT id FROM polls WHERE thread_id IN (SELECT value FROM json_each(?1)) AND ballot_count > ?2 LIMIT 1",
+    ).get(ids, POLL_PURGE_BATCH)?.id ?? null
+  );
 }
 
 /** Removes the reports about the content, whatever their state. */

@@ -11,8 +11,7 @@ import {
   POLL_EXPLANATION_LENGTH,
   POLL_QUESTION_LENGTH,
 } from "../../limits";
-import { can } from "../../permissions";
-import { applyWordFilters } from "../moderation";
+import { prepareModeratedContent } from "../moderation";
 
 /** The longest question text the search index takes from a poll or quiz. */
 const SEARCH_TEXT_LENGTH = 1000;
@@ -40,8 +39,10 @@ export interface CleanPoll {
   results: "always" | "after_vote" | "after_close";
   closesAt: number | null;
   questions: CleanQuestion[];
-  /** A word filter holds some of its text for approval. */
+  /** A word filter or the new-member links rule holds some of its text for approval. */
   moderated: boolean;
+  /** The site's flood interval, for requireWriteRoom. */
+  floodSeconds: number;
 }
 
 function invalid(message: string, path: (string | number)[]): never {
@@ -50,8 +51,10 @@ function invalid(message: string, path: (string | number)[]): never {
 
 /**
  * One text of a poll: its BB code read for the words only (tags, pictures, links and media leave
- * nothing), on one line, under the word filter (a replace filter rewrites it, a filter that holds
- * for approval is reported in `held`), within its length. Not read twice: the result is stored.
+ * nothing), on one line, under the rules a post's text is under (`prepareModeratedContent`: a
+ * replace filter rewrites it; a word filter that holds for approval, or a link from a new member
+ * where the site holds those, is reported in `held`), within its length. Not read twice: the
+ * result is stored.
  */
 function line(
   ctx: Ctx,
@@ -59,18 +62,25 @@ function line(
   raw: string,
   max: number,
   path: (string | number)[],
-  held: { value: boolean },
+  held: Held,
   options: { optional?: boolean } = {},
 ): string {
   let text = bbCodeText(raw).replace(/\s+/g, " ").trim();
-  if (text && !can(ctx, actor, "antispam.bypassWordFilter")) {
-    const filtered = applyWordFilters(ctx, text);
-    if (filtered.moderated) held.value = true;
-    text = filtered.source.replace(/\s+/g, " ").trim();
+  if (text) {
+    const prepared = prepareModeratedContent(ctx, actor, text, false);
+    if (prepared.moderated) held.value = true;
+    held.floodSeconds = prepared.floodSeconds;
+    text = prepared.source.replace(/\s+/g, " ").trim();
   }
   if (!text && !options.optional) invalid("This text is empty once its BB code is read.", path);
   if (text.length > max) invalid(`At most ${max} characters.`, path);
   return text;
+}
+
+/** What reading the texts found: one is held for approval (a poll cannot wait), the flood interval. */
+interface Held {
+  value: boolean;
+  floodSeconds: number;
 }
 
 /** The text of one custom answer, as a creator's would be read. */
@@ -78,10 +88,10 @@ export function cleanAnswerText(
   ctx: Ctx,
   actor: Actor,
   raw: string,
-): { text: string; moderated: boolean } {
-  const held = { value: false };
+): { text: string; moderated: boolean; floodSeconds: number } {
+  const held: Held = { value: false, floodSeconds: 0 };
   const text = line(ctx, actor, raw, POLL_ANSWER_LENGTH, ["text"], held);
-  return { text, moderated: held.value };
+  return { text, moderated: held.value, floodSeconds: held.floodSeconds };
 }
 
 /**
@@ -100,7 +110,7 @@ export function cleanPoll(
   if (!quiz && input.questions.length !== 1)
     invalid("A poll has exactly one question; use a quiz for a series.", ["questions"]);
   if (quiz && input.allowCustom) invalid("A quiz takes no custom answers.", ["allowCustom"]);
-  const held = { value: false };
+  const held: Held = { value: false, floodSeconds: 0 };
   const ids = {
     questions: new Set<number>(),
     answers: new Set<number>(),
@@ -170,7 +180,8 @@ export function cleanPoll(
   }
   return {
     kind: input.kind,
-    anonymous: input.anonymous,
+    // A quiz lists no voters, so there is nothing to hide.
+    anonymous: quiz ? false : input.anonymous,
     maxChoices,
     allowCustom: input.allowCustom,
     allowChange: quiz ? false : input.allowChange,
@@ -178,6 +189,7 @@ export function cleanPoll(
     closesAt,
     questions,
     moderated: held.value,
+    floodSeconds: held.floodSeconds,
   };
 }
 

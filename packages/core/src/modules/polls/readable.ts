@@ -3,7 +3,7 @@ import type { Ctx } from "../../context";
 import { ForbiddenError, NotFoundError } from "../../errors";
 import { markPublic } from "../../operation";
 import { readGates, requireThread, type ThreadRow } from "../forums";
-import { type PollRow, pollById } from "./store";
+import { isRetiring, type PollRow, pollById } from "./store";
 
 export const CLOSED = "The posts of this forum are not open to you.";
 
@@ -18,9 +18,11 @@ export const requirePoll = markPublic(
     ctx: Ctx,
     actor: Actor,
     pollId: number,
+    /** The call that finishes deleting a poll still sees it. */
+    options: { retiring?: boolean } = {},
   ): { poll: PollRow; thread: ThreadRow } {
     const poll = pollById(ctx, pollId);
-    if (!poll) throw new NotFoundError();
+    if (!poll || (isRetiring(poll) && !options.retiring)) throw new NotFoundError();
     const { row } = requireThread(ctx, actor, poll.thread_id);
     if (!readGates(ctx, actor).reads(row.node_id, row.user_id)) throw new ForbiddenError(CLOSED);
     return { poll, thread: row };

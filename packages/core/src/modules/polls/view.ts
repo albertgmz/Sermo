@@ -2,6 +2,7 @@ import type * as z from "zod";
 import { type Actor, actorUserId } from "../../actor";
 import type { Ctx } from "../../context";
 import type { Poll } from "../../contracts/polls";
+import { POLL_ANSWER_LENGTH } from "../../limits";
 import { markPublic } from "../../operation";
 import { permissionsOf } from "../../permissions";
 import { iso, isoOrNull } from "../../time";
@@ -78,6 +79,7 @@ export const pollValues = markPublic(
         results: poll.results,
         closesAt: isoOrNull(poll.closes_at),
         closed,
+        answerMaxLength: POLL_ANSWER_LENGTH,
         resultsShown: shown,
         voterCount: shown ? poll.ballot_count : null,
         questions: (questionsOf.get(poll.id) ?? []).map((question) => {

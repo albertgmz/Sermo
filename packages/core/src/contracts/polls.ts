@@ -9,7 +9,7 @@ import {
 } from "../limits";
 import { defineContract } from "../operation";
 import { Attachment } from "./attachments";
-import { Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
+import { Id, Page, pageInput, Timestamp, UserSummary } from "./common";
 
 export const PollKind = z.enum(POLL_KINDS);
 export const PollResultsMode = z.enum(POLL_RESULTS);
@@ -19,10 +19,12 @@ const pollText = (max: number) =>
     .string()
     .trim()
     .min(1)
-    .max(max)
+    // The cap that counts is on the text once its BB code is read (the writer's); a text whose words
+    // fit but whose tags do not is not refused here.
+    .max(Math.max(max * 5, 500))
     .describe(
-      `One line of text, at most ${max} characters. BB code is read for its text only: tags, ` +
-        "pictures and links leave nothing but their words. The word filter applies.",
+      `One line of text, at most ${max} characters once its BB code is read: tags, pictures and ` +
+        "links leave nothing but their words. The word filter and the new-member links rule apply.",
     );
 
 const PollAnswerInput = z.object({
@@ -122,6 +124,8 @@ export const Poll = z
     closesAt: Timestamp.nullable(),
     /** Closed by hand or past its close date. */
     closed: z.boolean(),
+    /** The longest answer a voter may add, in characters. */
+    answerMaxLength: z.number().int().positive(),
     /** The viewer sees the counts: `votes` and `voterCount` are null when this is false. */
     resultsShown: z.boolean(),
     /** Members who took part (the takers of a quiz); null while results are hidden. */
@@ -188,6 +192,11 @@ export const pollsUpdate = defineContract({
   input: z.object({
     pollId: Id,
     poll: PollEdit,
+    loadedAt: Timestamp.optional().describe(
+      "The `updatedAt` of the definition the edit started from (polls.definition). When given and " +
+        "the poll has changed since (an answer a voter added, a close), the update is refused as a " +
+        "conflict, so a stale editor cannot delete what it never saw.",
+    ),
     reason: z.string().trim().max(1000).default(""),
   }),
   output: Poll,
@@ -240,10 +249,12 @@ export const pollsDelete = defineContract({
   name: "polls.delete",
   summary:
     "Delete a poll or quiz with its votes. Staff who manage polls any time (logged); the creator " +
-    "only while nobody has voted and the thread is unlocked.",
+    "only while nobody has voted and the thread is unlocked. The votes go in bounded batches: a " +
+    "poll with more voters than one batch is taken out of sight at once and `completed` is false " +
+    "until the call has been repeated enough times to remove the rest.",
   kind: "write",
   input: z.object({ pollId: Id, reason: z.string().trim().max(1000).default("") }),
-  output: Ok,
+  output: z.object({ ok: z.literal(true), completed: z.boolean() }),
 });
 
 export const pollsVoters = defineContract({
@@ -282,6 +293,8 @@ export const PollDefinition = z
     closesAt: Timestamp.nullable(),
     /** Members who took part; a quiz that has any keeps its questions and answers. */
     ballotCount: z.number().int().nonnegative(),
+    /** When the poll's definition last changed: send it back as `loadedAt`. */
+    updatedAt: Timestamp,
     questions: z.array(
       z.object({
         id: Id,

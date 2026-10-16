@@ -51,9 +51,16 @@ import {
 } from "../moderation";
 import { requireTermsAccepted } from "../pages/acceptance";
 import { mayAddPoll } from "../polls/policy";
-import { insertPoll, movePoll, pollOfThread } from "../polls/store";
+import { insertPoll, isRetiring, movePoll, pollOfThread } from "../polls/store";
 import { cleanPoll } from "../polls/text";
-import { assertRemovalNotBegun, PURGE_CHUNK, purgeContent, purgeThread } from "../purge/purge";
+import {
+  assertRemovalNotBegun,
+  PURGE_CHUNK,
+  pollNeedingBatches,
+  purgeContent,
+  purgePollBatch,
+  purgeThread,
+} from "../purge/purge";
 import { isBotAgent } from "../security/device";
 import { logIp } from "../security/log";
 import { seoForNode, seoForThread } from "../seo";
@@ -1086,7 +1093,9 @@ function threadPollFacts(
 ): { exists: boolean; canAdd: boolean } {
   if (!readGates(ctx, actor).reads(row.node_id, row.user_id))
     return { exists: false, canAdd: false };
-  if (pollOfThread(ctx, row.id)) return { exists: true, canAdd: false };
+  const poll = pollOfThread(ctx, row.id);
+  // A poll whose votes are being removed is neither there nor open to a new one.
+  if (poll) return { exists: !isRetiring(poll), canAdd: false };
   return { exists: false, canAdd: mayAddPoll(permissionsOf(ctx, actor), actor, row) };
 }
 export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) => {
@@ -3498,6 +3507,32 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
         "Delete the thread first; only a deleted thread can be removed for good.",
       );
     if (path === "own") changeThreadState(ctx, current.id, "deleted");
+    // A poll with more voters than one transaction removes goes first, batch by batch: the thread
+    // stays, deleted, and nothing else is removed until the voters are down to one batch.
+    const largePoll = pollNeedingBatches(ctx, current.id);
+    if (largePoll !== null) {
+      if (path === "own")
+        throw new ConflictError(
+          "The poll of this thread has too many votes to delete in one step. Hide the thread, or ask staff to delete it.",
+        );
+      purgePollBatch(ctx, largePoll);
+      appendModeratorLog(
+        ctx,
+        actor,
+        "thread.hardDelete",
+        "thread",
+        current.id,
+        input.reason,
+        {
+          title: current.title,
+          authorId: current.user_id,
+          removedPosts: 0,
+          completed: false,
+        },
+        current.node_id,
+      );
+      return { completed: false, removedPosts: 0 };
+    }
     // Newest posts first, the opening post with the last of them.
     const found = forumDb(ctx)
       .prepare<{ id: number; state: State; user_id: number }, [number, number, number]>(
