@@ -1035,10 +1035,11 @@ function buildAuth(ctx: Ctx) {
                     .get(currentId)
                 : null;
             const normalized = requested ?? current?.username;
-            // Putting back the name an imported account arrived with (a rename undone): it may
-            // not meet today's rule. Every other name does.
+            // Putting back the name an imported account arrived with (a rename undone): that
+            // name may not meet today's rule. Every other name does.
             const keepsImportedName =
               change?.reserved === true &&
+              change.restores === display &&
               ctx.sqlite
                 .prepare<{ imported: number }, [number]>("SELECT imported FROM users WHERE id = ?1")
                 .get(currentId)?.imported === 1;

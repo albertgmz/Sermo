@@ -6,14 +6,21 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * reached it, outside this scope, so the auth module's update hook refuses any username change it
  * does not find marked. `reserved` lets the change take a name the forum keeps for erased
  * accounts (see `isReservedUsername`): only an erasure, or the undoing of a change, sets it.
+ * `restores` names the exact name an undoing puts back, which an imported account may hold
+ * although it fails the registration rule.
  */
-export const usernameChange = new AsyncLocalStorage<{ userId: number; reserved: boolean }>();
+export const usernameChange = new AsyncLocalStorage<{
+  userId: number;
+  reserved: boolean;
+  restores?: string;
+}>();
 
 /** Runs `change` as the member's username change; the update hook accepts only calls made so. */
 export function asUsernameChange<T>(
   userId: number,
   change: () => Promise<T>,
   reserved = false,
+  restores?: string,
 ): Promise<T> {
-  return usernameChange.run({ userId, reserved }, change);
+  return usernameChange.run({ userId, reserved, restores }, change);
 }

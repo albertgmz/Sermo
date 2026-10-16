@@ -34,8 +34,9 @@ export type MemberHit = { id: number; username: string };
 const NONE: MemberHit[] = [];
 const CLOSED = { prefix: "", hits: NONE };
 
-// The text typed after an "@" that starts a word, up to the caret.
-const TYPING = /(?:^|[\s(])@([\p{L}\p{N}._-]{1,32})$/u;
+// The text typed after an "@" that starts a word, up to the caret. It may start with a symbol:
+// imported accounts hold names such as "#Bishop" or "$kyw".
+export const TYPING = /(?:^|[\s(])@([^\s@]{1,32})$/u;
 
 // The BB code source field the editor shows in place of its rich text. `active` says whether it is
 // shown; the rest is for what the rest of the composer asks of the text (a quote, an attachment's

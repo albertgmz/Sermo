@@ -68,14 +68,14 @@ export function checkUsername(name: string): string {
  * in case alone: Better Auth then has no other holder of the name to tell apart from the member.
  * Better Auth's `name` follows the username, as it was given the username at registration.
  * `reserved` allows a name kept for erased accounts (an erasure, or putting back a name a member
- * already had). Refusals come back as the forum's own errors.
+ * already had). `restores` is the name an undoing puts back (an imported account's own name). Refusals come back as the forum's own errors.
  */
 export async function renameThroughAuth(
   ctx: Ctx,
   userId: number,
   name: string,
   currentKey: string,
-  options: { reserved?: boolean } = {},
+  options: { reserved?: boolean; restores?: string } = {},
 ): Promise<void> {
   const key = name.toLowerCase();
   const authContext = await getAuth(ctx).$context;
@@ -90,6 +90,7 @@ export async function renameThroughAuth(
             : { username: key, displayUsername: name, name },
         ),
       options.reserved === true,
+      options.restores,
     );
   } catch (error) {
     throw refusal(error);
@@ -119,6 +120,7 @@ async function restoreName(
   try {
     await renameThroughAuth(ctx, userId, own.username, provider.username ?? "", {
       reserved: true,
+      restores: own.username,
     });
     return true;
   } catch (error) {

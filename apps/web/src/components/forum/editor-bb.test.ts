@@ -35,6 +35,7 @@ import {
   $setBlock,
   $wrapSelection,
 } from "./editor-commands";
+import { TYPING } from "./editor-extras";
 
 // An editor holding one paragraph of `text`, with `from`..`to` selected, wired like the real one.
 function editorWith(text: string, from = 0, to = text.length) {
@@ -149,9 +150,26 @@ test("a chosen member is a mention in the text", () => {
   const spaced = editorWith("hello @tw", 9, 9);
   run(spaced, () => $insertMention(mentionOf("two words", 5)));
   expect(bbOf(spaced)).toBe('hello @"two words"');
-  const imported = editorWith("hello @bi", 9, 9);
+  const imported = editorWith("hello @#bi", 10, 10);
   run(imported, () => $insertMention(mentionOf("#Bishop", 6)));
   expect(bbOf(imported)).toBe("hello [USER=6]#Bishop[/USER]");
+  const quoted = editorWith('hello @"yo', 10, 10);
+  run(quoted, () => $insertMention(mentionOf('"Yoandy_Isse"', 7)));
+  expect(bbOf(quoted)).toBe('hello [USER=7]"Yoandy_Isse"[/USER]');
+});
+
+test("the mention menu opens after an @ that starts a word, also for a name that starts with a symbol", () => {
+  const typed = (before: string) => TYPING.exec(before)?.[1] ?? null;
+  expect(typed("hello @wr")).toBe("wr");
+  expect(typed("hello @#bi")).toBe("#bi");
+  expect(typed('see @"yo')).toBe('"yo');
+  expect(typed("(@$kyw")).toBe("$kyw");
+  expect(typed("@wren")).toBe("wren");
+  // An address, or an "@" inside a word, is not a mention.
+  expect(typed("write to ann@exa")).toBeNull();
+  expect(typed("a@b")).toBeNull();
+  expect(typed("hello @")).toBeNull();
+  expect(typed("hello @wren is")).toBeNull();
 });
 
 test("a quoted post is added below the text, with the caret on a paragraph below it", () => {

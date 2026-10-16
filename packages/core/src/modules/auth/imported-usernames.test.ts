@@ -180,13 +180,63 @@ describe("new names keep the registration rule", () => {
       await renameThroughAuth(w.ctx, user.id, `Other ${user.id}`, user.username.toLowerCase());
     await renameThroughAuth(w.ctx, imported.id, "#Bishop", `other ${imported.id}`, {
       reserved: true,
+      restores: "#Bishop",
     });
     expect(w.stored(imported.id)?.username).toBe("#Bishop");
     // The same undoing is refused for an account that never held an invalid name.
     await expect(
-      renameThroughAuth(w.ctx, native.id, "#Native", `other ${native.id}`, { reserved: true }),
+      renameThroughAuth(w.ctx, native.id, "#Native", `other ${native.id}`, {
+        reserved: true,
+        restores: "#Native",
+      }),
     ).rejects.toBeDefined();
     expect(w.stored(native.id)?.username).toBe(`Other ${native.id}`);
+  });
+
+  test("an imported account cannot take another invalid name through the undo of a rename", async () => {
+    const w = world();
+    const imported = await w.importAccount("#Bishop", 3);
+    await renameThroughAuth(w.ctx, imported.id, "Other Name", "#bishop");
+    // Only the name the undoing declares is put back; any other invalid name is refused.
+    for (const options of [{ reserved: true }, { reserved: true, restores: "#Bishop" }])
+      await expect(
+        renameThroughAuth(w.ctx, imported.id, "#Else", "other name", options),
+      ).rejects.toBeDefined();
+    expect(w.stored(imported.id)?.username).toBe("Other Name");
+  });
+
+  test("an imported account's own update-user cannot rename it to a name the rule refuses", async () => {
+    const w = world();
+    const imported = await w.importAccount("#Bishop");
+    const signedIn = await getAuth(w.ctx).api.signInUsername({
+      body: { username: "#Bishop", password: PASSWORD },
+      asResponse: true,
+    });
+    const headers = new Headers({
+      cookie: signedIn.headers
+        .getSetCookie()
+        .map((value) => value.split(";")[0])
+        .join("; "),
+    });
+    const identity = () =>
+      w.ctx.sqlite
+        .prepare("SELECT username, display_username FROM auth_user WHERE id = ?1")
+        .get(imported.id);
+    const before = identity();
+    for (const [username, code] of [
+      ["#Other", "INVALID_USERNAME"],
+      ["#Bishop", "INVALID_USERNAME"],
+      ["ab", "USERNAME_TOO_SHORT"],
+      ["x".repeat(33), "USERNAME_TOO_LONG"],
+    ] as const)
+      await expect(
+        getAuth(w.ctx).api.updateUser({ headers, body: { username } }),
+      ).rejects.toMatchObject({ statusCode: 400, body: { code } });
+    await expect(
+      getAuth(w.ctx).api.updateUser({ headers, body: { displayUsername: "Whatever" } }),
+    ).rejects.toMatchObject({ statusCode: 400, body: { code: "INVALID_DISPLAY_USERNAME" } });
+    expect(identity()).toEqual(before);
+    expect(w.stored(imported.id)?.username).toBe("#Bishop");
   });
 
   test("nothing in the forum's own operations sets the flag", async () => {
