@@ -3927,3 +3927,18 @@ navigation or a proxy fallback is answered by `posts/[id]/page.tsx` with the sam
 redirect is temporary (307) with `Cache-Control: private, no-store`, because a split or a move
 changes a post's thread and the target depends on who asks, so neither a browser nor a shared cache
 may keep it. A backend outage is left to the page's own error screen.
+
+### BBCode forms from XenForo (item 3)  The parser reads the forms XenForo writes that Sermo refused
+or mis-captioned: single-quoted options, JUSTIFY, quote options ending in key: N pairs, and a stray
+[/HR]. An option may be quoted with an apostrophe, which ends it only when the tag closes right
+after, so a name may hold apostrophes and double quotes. JUSTIFY is a block drawn as left-aligned
+text because Sermo has no justified style, which keeps the existing alignment class and the
+signature rule that counts alignment. A quote option may end in a run of `key: N` pairs: the text
+before the run is the author, `post` names the quoted post and every other key (convMessage, member)
+is ignored, so a message quote shows its author instead of the raw option; an option that is only
+one pair has no name before it, so it is metadata only when its key is post, member or convMessage
+and otherwise stays the name (`Agent: 47`), and a colon inside the name or a non-numeric value stays
+part of the name. A `[/HR]` is swallowed because XenForo writes a rule as `[HR][/HR]`, as if it had
+not been typed (the text on both sides joins); inside code it stays as typed. The editor's copy of
+the scanner (`bb-scan.ts`, `bb-text.ts`) reads the same forms, so quoting a post that uses them
+balances its tags the way the renderer pairs them.
