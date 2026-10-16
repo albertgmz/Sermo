@@ -3293,3 +3293,108 @@ marks use the position of the last post of page one only. `load/` is outside the
 the check scripts; biome checks it. Only the posting visitors send `threads.markRead`; in the app
 every signed-in member viewing a thread does, so read-mark writes are understated. `bun test ./load`
 runs with the root tests.
+
+### Lighthouse (item 25)  Lighthouse CI on the main pages, in mobile emulation, against a running
+site. `bun run lighthouse [--url <address>] [--consent before|after] [--pages ...] [--runs 3]
+[--dry-run] [--db <staging database>] [--name <folder>]` (`scripts/lighthouse.ts`, the pure parts in
+`scripts/lighthouse-lib.ts`, the Lighthouse CI configuration in `lighthouserc.cjs`). The default
+address is the staging site, `http://localhost:4400`.  **Two dev dependencies, and a pin.**
+`@lhci/cli` 0.15.1 (root dev dependency, exact) bundles Lighthouse 12.6.1, which has no
+agentic-browsing checks. Lighthouse 13.5.0 has a category for them, so the root `package.json` has
+`overrides: { lighthouse: "13.5.0" }`; `lhci` starts Lighthouse's own command line as a subprocess,
+which is why the pair works (checked: version, mobile form factor and the category in the reports).
+Remove the override when a Lighthouse CI release bundles 13. `puppeteer-core` 25.14.0 (exact, root
+dev dependency) is the version Lighthouse 13.5.0 already pulls into the lockfile, declared so that
+`lhci`'s puppeteer script can use it; nothing new is downloaded. The two pins move together: raising
+the Lighthouse override to a release that wants another `puppeteer-core` needs the root pin raised
+in the same change, or the lockfile holds two copies.  **Agentic browsing.** The category is
+`agentic-browsing`: `llms-txt`, `ard-schema` (`ai-catalog.json` against the Agentic Resource
+Discovery spec), `agent-accessibility-tree`, three WebMCP audits (`webmcp-registered-tools`,
+`webmcp-form-coverage`, `webmcp-schema-validity`) and layout shift. Each of the six audits is
+asserted at 1 on every run, and "not applicable" passes (no `ai-catalog.json`, no WebMCP tools, a
+404 for `llms.txt`). The backend's own `/llms.txt` meets the audit's rules (an H1, a link, not
+short); it is not reached on staging, where the web app answers 404 for `/llms.txt`, `/robots.txt`
+and `/sitemap.xml` (the ingress, Caddy, sends them to the backend, and staging has none), so on
+staging the `llms-txt` audit passes without being tested. **Mobile.** Lighthouse's default form
+factor, set explicitly: a 412 x 823 screen at 1.75 pixel ratio, a phone user agent, simulated slow
+4G and a 4x processor slowdown, and Lighthouse's own reset of caches and storage before each run. 3
+runs per address; the assertions use the median (`aggregationMethod: median`) of each category.
+Performance, best practices and SEO must reach 0.9, as errors; accessibility is not asserted. Search
+results and conversations are `noindex` on purpose, which costs `is-crawlable` about 40 SEO points,
+so those two addresses are held at 0.5 (`assertMatrix` in `lighthouserc.cjs`).  **Pages come from
+the site's own API.** The forum with the most threads; in it the thread with the most posts (first
+page, and `?page=<last>` from the position of its last post and the page size); a member with posts
+whose page the backend lets search engines index (an empty profile is `noindex`); a word of a thread
+title that `search.query` finds; the first conversation of the signed-in member. Addresses are taken
+from the backend's canonical addresses (`/seo/*`) so a run never pays a redirect. The conversation
+page signs in with `E2E_USER` and `E2E_PASSWORD` (an email or a username), else as the staging
+administrator from the seed meta next to `--db`, and puts the session into the browser's cookie jar
+(below).  **Before and after the banner: the cookie goes into the browser.** "Before" is a visitor
+who has chosen nothing and sees the banner. "After" accepts it: `lhci`'s `puppeteerScript`
+(`scripts/lighthouse-cookies.cjs`) puts the cookie the banner writes on "Accept all" into the cookie
+jar of the Chrome Lighthouse drives, before each page. The banner is script that reads
+`document.cookie`, so a `Cookie` request header (the first version) was seen by the server and never
+by the banner, and the "after" run still showed it. The cookie is the library's (`forum_consent`,
+URL-encoded JSON, not HTTP-only, same fields as the cookie of a real click and of
+`lib/consent/account.ts`), built from the site's own settings: the policy version, the language, and
+no `analytics` when the site's only analytics is Matomo without cookies (the banner leaves it out).
+`apps/web/tests/lighthouse-consent-cookie.test.ts` pins its shape to the app's parser and writer.
+Proof that "after" accepts the banner: the `final-screenshot` of every address is saved under
+`.lighthouseci/<name>/screenshots/`; "before" shows "Your cookie choices" with Accept all, Reject
+all and Choose, "after" does not (checked on home, thread and conversation in the first round and on
+home after the launcher change). **One launcher for both modes.** The puppeteer script is always set
+(with no cookies it does nothing), so every run starts Chrome the same way and "before" and "after"
+differ only in the cookie. An earlier version launched "before" with `lhci`'s own launcher and
+"after" with puppeteer's, which differ in flags and in how many runs share a browser; the "after"
+scores came out a few points lower for that reason, not because of the banner. **Runs share a
+browser, so profiles are not fully fresh.** The runs of one group (an address list under one cookie
+set) use one Chrome: Lighthouse resets caches and storage before each run (not cookies), but a
+cookie a page sets itself (language, referral) stays for the next run of the group. **The
+conversation page signs in with the cookie jar too.** The session cookies from the sign-in response
+go through the same script, in the environment of the `lhci` process (`LIGHTHOUSE_COOKIES`, which
+its children, Lighthouse and Chrome, inherit; same user only), never in a file, in `settings` or in
+a report: no `session_token`, `session_data`, email or password appears under `.lighthouseci/`
+(grepped), and no third-party origin receives them. The login is `E2E_USER` and `E2E_PASSWORD`
+(both, an email or a username); the staging administrator of the seed named by `--db` only when
+`--url` is on this machine (localhost or 127.0.0.1); otherwise the conversation page is left out
+with a printed note, and so is a failed sign-in: the other pages still run. Reports of the
+conversation page contain the conversation's own text (the signed-in member's names appear in it).
+**Chrome.** `CHROME_PATH`, else the installed Chrome, else Playwright's Chromium; nothing is
+downloaded. Reports go to `.lighthouseci/<host>-<consent>/` (in `.gitignore`), each with a
+`summary.json` of the medians. A run of seven pages and three runs is about five minutes, so
+`--pages` splits it (the staging command limit is three minutes), run under different `--name`s: a
+run empties its own folder first, so no report of an earlier run is mixed in (there is no
+`--additive`). `--name` takes `[a-z0-9-]+` only and the folder is resolved strictly inside
+`.lighthouseci/`.  **Fixes.** The feed's "Read more" link reads "Read the full post" ("Leer la
+publicación completa"): the audit `link-text` rejects "Read more". The main column of the shell is
+at least one screen high (`min-h-[calc(100svh-3.5rem)]`): the footer was in the first paint and was
+pushed about 13,000 pixels down when the feed streamed in, which was all of the home page's layout
+shift (0.086 to 0.003) and the forum's (0.089 to 0.004). **Tried and reverted: blocking metadata for
+everyone.** `htmlLimitedBots: /.*/` puts the title, description, canonical address and robots in
+`<head>` for every visitor (Next streams them into the body, after the page, for anyone not on its
+list of crawlers), which is what the audit `meta-description` reads, and what a crawler that does
+not run scripts (GPTBot and the like) or a link preview needs. It cost too much: the observed first
+paint of `/` went from 126 ms to 200 to 270 ms (the first flush waits for `generateMetadata`), the
+simulated LCP from 5.0 s to 7.8 to 8.5 s (performance 77 to 73), and every unknown address
+(`/nonexistent-page`) answered 200 with the not-found page, a soft 404. Without it, unknown
+addresses answer 404 for an ordinary browser, Googlebot's user agent and GPTBot's. Consequence:
+`meta-description` fails in Lighthouse on every page (the metadata is in the body when Lighthouse
+looks), so SEO stands at exactly 0.9 where nothing else fails. Googlebot is not on Next's list
+either (it runs scripts and reads the streamed metadata); non-JS crawlers see no description. A
+follow-up could serve blocking metadata only to named crawlers (GPTBot, ClaudeBot, PerplexityBot,
+Telegram, WhatsApp) with an explicit `htmlLimitedBots` list.  **The runner fails today, by design.**
+Performance is asserted at 0.9 as an error and every address scores 79 to 82 on the small forum
+(sizes and audits in the item's Result, for the follow-up on first-load JavaScript), so `bun run
+lighthouse` exits 1 until that work lands; best practices, SEO and the agentic audits pass. The
+category `agentic-browsing` itself is not asserted (one earlier run read 99 on the conversation page
+from a layout shift that did not reproduce); only its audits are. SEO stands at exactly 0.9 on the
+indexable pages (`meta-description`, see above). The 0.5 hold for `noindex` pages is anchored to the
+address path and ends at a slash, a query, a fragment or the end of the address
+(`^https?://host/(conversations|search)(?:[/?#]|$)`; `/searchable` is not held; a test covers it).
+**"Before" depends on the visitor.** A guest the backend places outside the EU does not see the
+banner when the site's setting "banner outside Europe" is off; the screenshots tell whether it was
+drawn.  **Known limits.** The runner measures what answers on the address; the live site runs the
+main checkout's build, not this branch. The consent cookie is a copy of the library's cookie shape
+(`lib/consent/account.ts` writes the same one), so a change there needs the runner's `consentCookie`
+kept in step. Scores move by a few points with other work on the machine (item 26 runs Playwright);
+no jump was seen between runs.
