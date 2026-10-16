@@ -81,6 +81,10 @@ test("the compact header has no list of facts and keeps the counts on one line",
 });
 
 const LAYOUTS = ["column", "compact", "responsive"] as const;
+const AWARDS = [
+  { id: 1, name: "First post", icon: "star", tier: "gold" },
+  { id: 2, name: "Helper", icon: "heart", tier: "silver" },
+] as AuthorView["awards"];
 const restricted = {
   ...author,
   member: { ...author.member, restricted: true },
@@ -106,7 +110,8 @@ test("the responsive layout draws both arrangements and hides each by class belo
   expect(out).toContain("<dl");
   expect(out).toContain("Messages");
   expect(out).toContain("md:hidden");
-  expect(out).toContain("hidden md:flex");
+  expect(out).toContain("hidden md:inline-flex");
+  expect(out).toContain("hidden md:grid");
 });
 
 test("the profile is linked from the avatar and the name, with no button", async () => {
@@ -189,12 +194,37 @@ test("a member without a title leaves no empty row in the column", async () => {
   expect(rows(bare)).toBe(rows(titled) - 1);
 });
 
-test("the actions slot sits after the facts, not pinned to the foot", async () => {
+test("the actions sit under the name and before the title, in every layout", async () => {
+  for (const layout of LAYOUTS) {
+    const out = await html(
+      <Postbit author={author} layout={layout} actions={<i />} />,
+    );
+    const actions = out.indexOf("postbit-actions");
+    expect(out.indexOf(">ember</")).toBeLessThan(actions);
+    expect(actions).toBeLessThan(out.indexOf(">Senior member</p>"));
+    expect(out).not.toContain("mt-auto");
+  }
+});
+
+test("the column draws its parts in one order: avatar, name, actions, title, level, awards, facts", async () => {
   const out = await html(
-    <Postbit author={author} layout="column" actions={<i />} />,
+    <Postbit
+      author={{ ...author, awards: AWARDS }}
+      layout="column"
+      actions={<i data-mark="actions" />}
+    />,
   );
-  expect(out.indexOf("</dl>")).toBeLessThan(out.indexOf("postbit-actions"));
-  expect(out).not.toContain("mt-auto");
+  const order = [
+    'data-slot="avatar"',
+    ">ember</",
+    'data-mark="actions"',
+    ">Senior member</p>",
+    'data-slot="postbit-level"',
+    'href="/awards"',
+    "<dl",
+  ].map((part) => out.indexOf(part));
+  expect(order).not.toContain(-1);
+  expect(order).toEqual([...order].sort((a, b) => a - b));
 });
 
 test("the avatar and the name open the member's card, and are plain links inside a card", async () => {
@@ -238,8 +268,9 @@ test("in the compact header a long name truncates in the room the avatar and the
     '<span class="min-w-0 truncate">Bartholomew_Featherstonehaugh30</span>',
   );
   expect(out).toContain("shrink-0");
-  // the chain from the name to the buttons' row can shrink
-  expect(out).toContain("flex min-w-0 flex-1 flex-col");
+  // the name's column of the header grid, and the row in it, can shrink
+  expect(out).toContain("grid-cols-[auto_minmax(0,1fr)]");
+  expect(out).toContain("col-start-2 flex max-w-full min-w-0");
   expect(out).toContain("max-w-full min-w-0");
 });
 
@@ -271,5 +302,46 @@ test("the avatars of a postbit stay lazy: the responsive layout holds two and on
   for (const picture of pictures) {
     expect(picture).toContain('loading="lazy"');
     expect(picture).not.toContain('loading="eager"');
+  }
+});
+
+test("the cover is drawn behind the block when the member has one, and nothing without", async () => {
+  for (const layout of LAYOUTS) {
+    const covered = await html(
+      <Postbit
+        author={{ ...author, cover: { url: "/cover.webp" } }}
+        layout={layout}
+        coverClassName="cover-shape"
+      />,
+    );
+    expect(covered).toContain("url(&quot;/cover.webp&quot;)");
+    expect(covered).toContain("-z-10");
+    expect(covered).toContain("cover-shape");
+    const bare = await html(<Postbit author={author} layout={layout} />);
+    expect(bare).not.toContain("background-image");
+    expect(bare).not.toContain("-z-10");
+  }
+});
+
+test("the awards: beside the name in the compact header, a row of their own in the column, none without", async () => {
+  const count = (out: string) => out.split('href="/awards"').length - 1;
+  const withAwards = { ...author, awards: AWARDS };
+  const compact = await html(<Postbit author={withAwards} layout="compact" />);
+  expect(count(compact)).toBe(1);
+  expect(compact.indexOf('href="/awards"')).toBeLessThan(
+    compact.indexOf(">Senior member</p>"),
+  );
+  const column = await html(<Postbit author={withAwards} layout="column" />);
+  expect(count(column)).toBe(1);
+  expect(column.indexOf('href="/awards"')).toBeGreaterThan(
+    column.indexOf('data-slot="postbit-level"'),
+  );
+  // the responsive layout holds both and hides each by class
+  const both = await html(<Postbit author={withAwards} />);
+  expect(count(both)).toBe(2);
+  for (const layout of LAYOUTS) {
+    expect(count(await html(<Postbit author={author} layout={layout} />))).toBe(
+      0,
+    );
   }
 });

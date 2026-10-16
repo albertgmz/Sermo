@@ -54,6 +54,7 @@ import { LevelBadge, XpBar } from "@/components/forum/level";
 import { LineComposer } from "@/components/forum/line-composer";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { MemberCard } from "@/components/forum/member-card";
+import { MemberCardProfileLink } from "@/components/forum/member-card-profile-link";
 import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { MemberRow } from "@/components/forum/member-row";
 import {
@@ -1237,18 +1238,17 @@ export default async function StyleguidePage() {
               <HtmlContent className="text-sm">{MENTION_HTML}</HtmlContent>
             </div>
           </MemberCardScope>
-          <div className="w-56 rounded-lg bg-popover p-3 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
+          <div className="relative isolate flex w-56 flex-col gap-3 rounded-lg bg-popover p-3 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
             <Postbit
               author={SAMPLE_AUTHOR}
-              layout="column"
               actions={
                 <MemberActionsDemo
                   member={SAMPLE_AUTHOR.member}
                   relation={RELATION.notFollowing}
-                  form="labelled"
                 />
               }
             />
+            <MemberCardProfileLink id={SAMPLE_AUTHOR.member.id} />
           </div>
         </Section>
 
@@ -1296,7 +1296,7 @@ export default async function StyleguidePage() {
                 <Postbit
                   author={SAMPLE_AUTHOR}
                   layout="column"
-                  className="p-3"
+                  className="relative isolate p-3"
                   actions={
                     <MemberActionsDemo
                       member={SAMPLE_AUTHOR.member}
@@ -1323,7 +1323,7 @@ export default async function StyleguidePage() {
               <SectionCard title="Responsive, with actions">
                 <Postbit
                   author={SAMPLE_AUTHOR}
-                  className="p-3"
+                  className="relative isolate p-3"
                   actions={
                     <MemberActionsDemo
                       member={SAMPLE_AUTHOR.member}
@@ -1365,7 +1365,7 @@ export default async function StyleguidePage() {
                 <Postbit
                   author={SAMPLE_AUTHOR}
                   layout="compact"
-                  className="p-3"
+                  className="relative isolate p-3"
                 />
                 <Postbit
                   author={PLAIN_AUTHOR}

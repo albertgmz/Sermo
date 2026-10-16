@@ -154,7 +154,7 @@ test("the postbit sits in the frame's grid with the column width set once", () =
   expect(tree.props.style["--postbit-width"]).toBe("10rem");
 });
 
-test("a highlighted post adds the whole-frame cover and keeps the one behind the column", () => {
+test("a highlighted post adds the whole-frame cover; the postbit draws its own behind the column", () => {
   const covered = { ...author, cover: { url: "x" } } as AuthorView;
   const variants = (highlighted: boolean) => {
     const found: string[] = [];
@@ -171,8 +171,19 @@ test("a highlighted post adds the whole-frame cover and keeps the one behind the
     walk(PostFrame({ ...base, author: covered, highlighted }));
     return found;
   };
-  expect(variants(false)).toEqual(["header"]);
-  expect(variants(true)).toEqual(["header", "full"]);
+  expect(variants(false)).toEqual([]);
+  expect(variants(true)).toEqual(["full"]);
+  const cover = (highlighted: boolean) =>
+    (
+      find(
+        PostFrame({ ...base, author: covered, highlighted }),
+        Postbit,
+      ) as ReactElement<{ coverClassName: string }>
+    ).props.coverClassName;
+  // behind the column from md up, and on a phone left to the whole-frame picture
+  expect(cover(false)).toContain("md:w-[calc(var(--postbit-width)+1rem)]");
+  expect(cover(false)).not.toContain("max-md:hidden");
+  expect(cover(true)).toContain("max-md:hidden");
 });
 
 test("the postbit's actions reach the postbit, and it has none without them", () => {

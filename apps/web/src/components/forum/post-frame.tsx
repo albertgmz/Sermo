@@ -79,17 +79,13 @@ export function PostFrame({
       )}
       style={{ "--postbit-width": POSTBIT_WIDTH } as React.CSSProperties}
     >
-      {/* The picture behind the column (the header strip on a phone). A highlighted post adds the
-          whole-frame picture on top; on a phone that one alone is drawn. */}
-      <CoverBackdrop
-        cover={author.cover}
-        variant="header"
-        className={cn(POSTBIT_FRAME.cover, highlighted && "max-md:hidden")}
-      />
+      {/* A highlighted post adds the whole-frame picture to the postbit's own cover (behind the
+          column, the header strip on a phone); on a phone that one alone is drawn. */}
       {highlighted && <CoverBackdrop cover={author.cover} variant="full" />}
       <Postbit
         author={author}
         actions={postbitActions}
+        coverClassName={cn(POSTBIT_FRAME.cover, highlighted && "max-md:hidden")}
         className="max-md:mb-2 md:border-r md:pr-4"
       />
 

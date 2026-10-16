@@ -99,7 +99,7 @@ export function MemberCardPopup({
   return (
     <PopoverContent
       aria-label={t("aria.label", { name })}
-      className="max-h-(--available-height) w-56 max-w-[calc(100vw-2rem)] overflow-y-auto p-3"
+      className="relative isolate max-h-(--available-height) w-56 max-w-[calc(100vw-2rem)] overflow-y-auto p-3"
       {...props}
     >
       <CardBody card={card} reload={reload} />
@@ -112,7 +112,8 @@ type CloseDetails = { reason: string; event: Event };
 
 // The card in its frame: a popover anchored to the `trigger` (or to `anchor`) on a wide screen, a
 // bottom sheet on a phone, with the same content. Focus moves into it on open and returns to
-// where it was on close.
+// where it was on close. Both are the positioned box the postbit's cover is drawn against (the
+// sheet is fixed).
 export function MemberCardSurface({
   open,
   onOpenChange,

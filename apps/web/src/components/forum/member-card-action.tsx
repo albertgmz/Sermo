@@ -1,6 +1,6 @@
 "use server";
 
-import { MemberActions } from "@/components/forum/member-actions";
+import { memberActionsOf } from "@/components/forum/member-actions";
 import { MemberCardMinimal } from "@/components/forum/member-card";
 import { MemberCardProfileLink } from "@/components/forum/member-card-profile-link";
 import { MemberCardScope } from "@/components/forum/member-card-scope";
@@ -15,9 +15,9 @@ const CLOSED = ["not_found", "forbidden", "unauthenticated"];
 
 // Renders the card of one member on the server, so the avatar and cover keep
 // reading the LITE cookie. Only called once a card is first opened (and again after a follow or
-// unfollow made from the card). The card is the postbit of the member with its actions and a link
-// to the profile, in a scope that keeps its names plain links. A member whose profile the visitor
-// cannot open gets a card with the name alone.
+// unfollow made from the card). The card is the postbit a post draws (the same layout, cover,
+// awards and actions) followed by a link to the profile, in a scope that keeps its names plain
+// links. A member whose profile the visitor cannot open gets a card with the name alone.
 export async function loadMemberCard(id: number, name: string) {
   if (!isRecordId(id) || typeof name !== "string") return null;
   try {
@@ -32,20 +32,13 @@ export async function loadMemberCard(id: number, name: string) {
       return <MemberCardMinimal name={name} className="p-1" />;
     return (
       <MemberCardScope disabled>
-        <Postbit
-          author={author(id)}
-          layout="column"
-          actions={
-            <>
-              <MemberActions
-                member={member}
-                relation={relation(id)}
-                form="labelled"
-              />
-              <MemberCardProfileLink id={id} />
-            </>
-          }
-        />
+        <div className="flex flex-col gap-3">
+          <Postbit
+            author={author(id)}
+            actions={memberActionsOf(member, relation(id))}
+          />
+          <MemberCardProfileLink id={id} />
+        </div>
       </MemberCardScope>
     );
   } catch (error) {

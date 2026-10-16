@@ -106,31 +106,39 @@ function element(node: unknown) {
   return node as ReactElement<Props>;
 }
 
-// The card of a member: the postbit inside a scope that keeps names and avatars plain links, and
-// its actions (the member's actions, then the link to the profile).
+// The card of a member: the postbit a post draws (with the member's actions, if any) and then the
+// link to the profile, inside a scope that keeps names and avatars plain links.
 function cardOf(node: unknown) {
   const scope = element(node);
   expect(scope.type).toBe(MemberCardScope);
   expect(scope.props.disabled).toBe(true);
-  const postbit = element(scope.props.children);
-  const parts = element(postbit.props.actions).props.children as ReactElement[];
-  return { postbit, actions: element(parts[0]), profile: element(parts[1]) };
+  const [postbit, profile] = element(scope.props.children).props
+    .children as ReactElement<Props>[];
+  return {
+    postbit,
+    actions: postbit.props.actions ? element(postbit.props.actions) : undefined,
+    profile,
+  };
 }
 
-test("a member: the postbit as a column with labelled actions, from two reads", async () => {
+test("a member: the thread's postbit with its actions, then the profile link, from two reads", async () => {
   const paths = backend({ signedIn: true });
   const { postbit, actions, profile } = cardOf(
     await loadMemberCard(7, "ember"),
   );
   expect(postbit.type).toBe(Postbit);
-  expect(postbit.props.layout).toBe("column");
-  expect(actions.type).toBe(MemberActions);
+  // the layout a post frame uses: the compact header in the phone sheet, the column in the popover
+  expect(postbit.props.layout).toBeUndefined();
+  expect(actions?.type).toBe(MemberActions);
   expect(profile.type).toBe(MemberCardProfileLink);
   expect((profile.props as unknown as { id: number }).id).toBe(7);
-  expect(
-    (actions.props as unknown as { form: string; relation: unknown }).form,
-  ).toBe("labelled");
-  expect((actions.props as unknown as { relation: unknown }).relation).toEqual({
+  const given = actions?.props as unknown as {
+    form?: string;
+    relation: unknown;
+  };
+  // the same form as everywhere else: the default, compact below md and labelled from md
+  expect(given.form).toBeUndefined();
+  expect(given.relation).toEqual({
     following: false,
     canFollow: true,
     canMessage: true,
@@ -138,12 +146,11 @@ test("a member: the postbit as a column with labelled actions, from two reads", 
   expect(reads(paths)).toHaveLength(2);
 });
 
-test("a guest: one read, no relation to act on", async () => {
+test("a guest: one read, no actions, still the profile link", async () => {
   const paths = backend({ signedIn: false });
-  const { actions } = cardOf(await loadMemberCard(7, "ember"));
-  expect(
-    (actions.props as unknown as { relation: unknown }).relation,
-  ).toBeNull();
+  const { actions, profile } = cardOf(await loadMemberCard(7, "ember"));
+  expect(actions).toBeUndefined();
+  expect(profile.type).toBe(MemberCardProfileLink);
   expect(reads(paths)).toHaveLength(1);
   expect(reads(paths)[0]).toContain("authors");
 });
@@ -153,13 +160,8 @@ test("yourself: the backend offers nothing, so no action is drawn", async () => 
     signedIn: true,
     relation: { following: false, canFollow: false, canMessage: false },
   });
-  const { hasMemberActions } = await import("./member-actions-view");
   const { actions } = cardOf(await loadMemberCard(7, "ember"));
-  const props = actions.props as unknown as {
-    member: { restricted: boolean };
-    relation: { following: boolean; canFollow: boolean; canMessage: boolean };
-  };
-  expect(hasMemberActions(props.member, props.relation)).toBe(false);
+  expect(actions).toBeUndefined();
 });
 
 test("a member the viewer may not open, or an unknown one: the name alone", async () => {
