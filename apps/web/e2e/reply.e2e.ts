@@ -105,6 +105,31 @@ test("the reply editor's toolbar fits a phone without scrolling and its menu ite
   await choose(page, toolbar, "More", "BB code source");
   await expect(replyBox(page)).toContainText("changed");
   await expectFits(page, "back to rich text");
+
+  // From the keyboard too, the source takes the focus into its field and the rich text takes it
+  // back, whether the toggle is a button or an item of the More menu; the focus stays there once
+  // the menu has gone.
+  const more = toolbar.getByRole("button", { name: "More", exact: true });
+  const toggleByKey = async () => {
+    if (await more.isVisible()) {
+      await more.focus();
+      await page.keyboard.press("Enter");
+      await expect(
+        page.getByRole("menuitemcheckbox", { name: "BB code source" }),
+      ).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("menu")).toBeHidden();
+    } else {
+      await toolbar
+        .getByRole("button", { name: "BB code source", exact: true })
+        .focus();
+      await page.keyboard.press("Enter");
+    }
+  };
+  await toggleByKey();
+  await expect(source).toBeFocused();
+  await toggleByKey();
+  await expect(replyBox(page)).toBeFocused();
 });
 
 test("a reply is posted from the phone and the quote and r key reach the editor", async ({

@@ -5,9 +5,11 @@ import { withIntl } from "@/lib/test-intl";
 import { Editor } from "./editor";
 import {
   type CommandId,
-  focusAfterMenu,
   layoutAt,
+  SHOWN,
+  type Shown,
   SIZE_FROM,
+  sizesOf,
   TOOLBAR_SIZES,
   type ToolbarSize,
 } from "./editor-toolbar-layout";
@@ -36,17 +38,19 @@ const LABELS: Record<CommandId, string> = {
 
 const EVERY_COMMAND = Object.keys(LABELS).sort();
 
+// The narrowest bar the toolbar is drawn in without wrapping: a 280 px screen's editor alone.
+const NARROWEST = 280;
+
 // A bar of each size, at its narrowest and at its widest.
-const WIDTHS: [ToolbarSize, number][] = [
-  ["xs", 280],
-  ["xs", 419],
-  ["sm", 420],
-  ["sm", 574],
-  ["md", 575],
-  ["md", 899],
-  ["lg", 900],
-  ["lg", 1400],
-];
+const WIDTHS: [ToolbarSize, number][] = TOOLBAR_SIZES.flatMap(
+  (size, index): [ToolbarSize, number][] => {
+    const next = TOOLBAR_SIZES[index + 1];
+    return [
+      [size, Math.max(SIZE_FROM[size], NARROWEST)],
+      [size, next ? SIZE_FROM[next] - 1 : 1400],
+    ];
+  },
+);
 
 // Whether an element with these classes is drawn in a bar this wide, read the way the container
 // queries apply: the base class, then each `@min-[Npx]:` class the width reaches, narrowest first.
@@ -122,6 +126,18 @@ test("each size has its agreed buttons and menus", () => {
       { id: "insert", items: ["spoiler", "codeBlock", "media"] },
     ],
   });
+  expect(layoutAt("xsWide")).toEqual({
+    direct: ["bold", "italic", "undo", "redo"],
+    menus: [
+      {
+        id: "text",
+        items: ["underline", "strikethrough", "code", "removeFormatting"],
+      },
+      { id: "paragraph", items: ["heading", "bullet", "number", "quote"] },
+      { id: "insert", items: ["link", "spoiler", "codeBlock", "media"] },
+      { id: "more", items: ["source"] },
+    ],
+  });
   expect(layoutAt("xs")).toEqual({
     direct: ["undo", "redo"],
     menus: [
@@ -174,15 +190,38 @@ test("the bar draws, at each width, the buttons and menu buttons of its size", (
   }
 });
 
+test("the classes switch each part of the bar at the widths the sizes start from", () => {
+  const breakpoints = new Set(
+    Object.values(SHOWN).flatMap((classes) =>
+      [...classes.matchAll(/@min-\[(\d+)px\]/g)].map((match) =>
+        Number(match[1]),
+      ),
+    ),
+  );
+  expect([...breakpoints].sort((a, b) => a - b)).toEqual(
+    TOOLBAR_SIZES.map((size) => SIZE_FROM[size]).filter((from) => from > 0),
+  );
+  for (const shown of Object.keys(SHOWN) as Shown[]) {
+    for (const [size, width] of WIDTHS) {
+      expect({
+        shown,
+        width,
+        on: shownAt(SHOWN[shown].split(" "), width),
+      }).toEqual({ shown, width, on: sizesOf(shown).includes(size) });
+    }
+  }
+});
+
 test("the bar fits its narrowest width with phone-sized buttons, and wraps rather than scrolls", () => {
-  // Every control is 40 px wide on a phone (a menu button too), 2 px apart; a divider takes 11 px;
-  // the bar's padding and the gap before its end take 20 px.
+  // Every control is 40 px wide on a phone (a menu button too), 2 px apart (the gap between the
+  // start and the end of the bar included); a divider takes 11 px; the bar's padding 12 px.
   for (const size of TOOLBAR_SIZES) {
     const { direct, menus } = layoutAt(size);
     const controls = direct.length + menus.length;
     const dividers = size === "md" || size === "lg" ? 2 : 0;
-    const width = controls * 42 + dividers * 11 + 20;
-    expect({ size, fits: width <= Math.max(SIZE_FROM[size], 280) }).toEqual({
+    const width = controls * 42 - 2 + dividers * 11 + 12;
+    const narrowest = Math.max(SIZE_FROM[size], NARROWEST);
+    expect({ size, fits: width <= narrowest }).toEqual({
       size,
       fits: true,
     });
@@ -193,15 +232,6 @@ test("the bar fits its narrowest width with phone-sized buttons, and wraps rathe
   const bar = html.match(/role="toolbar"[^>]*class="([^"]*)"/)?.[1] ?? "";
   expect(bar.split(" ")).toContain("flex-wrap");
   expect(bar).not.toContain("overflow-x");
-});
-
-test("a command chosen by pointer gives the focus back to the editor, Escape and keys to the menu button", () => {
-  expect(focusAfterMenu(true, "mouse")).toBe("editor");
-  expect(focusAfterMenu(true, "touch")).toBe("editor");
-  expect(focusAfterMenu(true, "pen")).toBe("editor");
-  expect(focusAfterMenu(true, "keyboard")).toBe("trigger");
-  expect(focusAfterMenu(false, "keyboard")).toBe("trigger");
-  expect(focusAfterMenu(false, "mouse")).toBe("trigger");
 });
 
 test("the bar has an underline button and the button that shows the BB code source", () => {

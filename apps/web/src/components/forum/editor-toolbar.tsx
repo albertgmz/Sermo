@@ -48,7 +48,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { linkAddressOf } from "@/components/forum/bb-scan";
 import {
   $applyLink,
@@ -62,7 +62,6 @@ import { SourceContext } from "@/components/forum/editor-extras";
 import {
   type CommandId,
   END,
-  focusAfterMenu,
   type MenuId,
   SHOWN,
   type Slot,
@@ -133,6 +132,9 @@ type Command = {
   disabled?: boolean;
   // Stays usable while the BB code source is shown (the command that switches to and from it).
   always?: boolean;
+  // Puts the focus where it belongs itself (the BB code source: in its field, or back in the
+  // editor).
+  focuses?: boolean;
   run: () => void;
 };
 
@@ -172,7 +174,10 @@ function ToolbarButton({
   );
 }
 
-// A group of commands behind one button, for a bar too narrow to show them all.
+// A group of commands behind one button, for a bar too narrow to show them all. A chosen command
+// leaves the focus where it puts it: in the editor, with its selection (Lexical moves the focus
+// there whenever a command changes the selection), or in the BB code field. Base UI respects that;
+// only Escape and a press elsewhere give the focus back to this button.
 function ToolbarMenu({
   id,
   label,
@@ -186,15 +191,14 @@ function ToolbarMenu({
 }) {
   const [editor] = useLexicalComposerContext();
   const unavailable = useUnavailable();
-  // The menu closes because a command was chosen in it.
-  const chosen = useRef(false);
   const Icon = MENU_ICONS[id];
+  // The focus goes to the editor inside the press, so that a phone raises its keyboard again.
+  const choose = (item: Command) => {
+    item.run();
+    if (!item.focuses) editor.focus();
+  };
   return (
-    <DropdownMenu
-      onOpenChange={(open, details) => {
-        chosen.current = !open && details.reason === "item-press";
-      }}
-    >
+    <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={label}
         title={label}
@@ -203,7 +207,7 @@ function ToolbarMenu({
         onMouseDown={(event) => event.preventDefault()}
         className={cn(
           buttonVariants({ variant: "ghost" }),
-          "group h-10 w-10 gap-0 px-0 text-muted-foreground data-active:bg-muted data-active:text-foreground md:h-8",
+          "group size-10 gap-0 px-0 text-muted-foreground data-active:bg-muted data-active:text-foreground md:size-8",
           className,
         )}
       >
@@ -212,26 +216,16 @@ function ToolbarMenu({
           <ChevronDown className="-mr-1 size-3 transition-transform group-data-popup-open:rotate-180" />
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="w-auto min-w-44"
-        finalFocus={(closeType) => {
-          if (focusAfterMenu(chosen.current, closeType) === "trigger") {
-            return true;
-          }
-          // The editor takes the focus back with the selection it had, unless the command hid it
-          // (the BB code source shows instead, and has taken the focus).
-          if (!editor.getRootElement()?.closest("[hidden]")) editor.focus();
-          return false;
-        }}
-      >
+      <DropdownMenuContent className="w-auto min-w-44">
         {items.map((item) => {
           const ItemIcon = item.icon;
           const shared = {
             disabled: unavailable(item),
+            onClick: () => choose(item),
             className: "min-h-10 gap-2 md:min-h-8",
           };
           return item.active === undefined ? (
-            <DropdownMenuItem key={item.label} onClick={item.run} {...shared}>
+            <DropdownMenuItem key={item.label} {...shared}>
               <ItemIcon />
               {item.label}
             </DropdownMenuItem>
@@ -239,7 +233,6 @@ function ToolbarMenu({
             <DropdownMenuCheckboxItem
               key={item.label}
               checked={item.active}
-              onCheckedChange={item.run}
               closeOnClick
               {...shared}
             >
@@ -407,6 +400,7 @@ export function Toolbar({ className }: { className?: string }) {
       icon: Brackets,
       active: source?.active ?? false,
       always: true,
+      focuses: true,
       run: () => source?.toggle(),
     },
     undo: {
@@ -461,7 +455,7 @@ export function Toolbar({ className }: { className?: string }) {
           )}
         >
           {START.map(draw)}
-          <span className="ml-auto flex items-center gap-0.5 pl-2">
+          <span className="ml-auto flex items-center gap-0.5">
             {END.map(draw)}
           </span>
         </div>
