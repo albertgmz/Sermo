@@ -3612,3 +3612,19 @@ other. The + rule (`ceil(n/2)`) already centres it for an even count (2 + 2) and
 place for an odd one; tests pin 2, 4 and 5 entries. Admin-edited bars are still capped at 5. With
 the Forums entry gone, no bar entry is current on `/forums` and thread pages (Home matches `/`
 only).
+
+### Cookie banner: green accept, red reject, forum width (item 3)  The banner says what cookies
+are for and that saying no is fine, in plain words (en and es; the wording is a draft the owner
+finalises). Accept all is solid green with a cookie icon and Reject all solid red, the same size
+(equal weight stays); Choose is a quiet outline. New tokens `--consent-accept` and
+`--consent-reject`, each with a hover and a foreground, in both themes, all at least 4.5:1;
+`--success` is untouched. The settings dialog's Accept all and Reject all take the same colours so
+the two screens look alike; its Save stays neutral. The colours go through the library's own
+`--cc-btn-*` variables per `data-role`; the icon is lucide's, rendered by React into a hidden span
+whose markup the library's HTML label copies. On desktop the banner is exactly the Container's
+content box (1388 px at 1440, 1068 px with the narrow setting, which the narrow rule now also
+applies to the banner), so it lines up with the forum's cards; on phones it is the full width less
+the 1rem gutter, above the bottom bar. The text may take up to 40dvh (the library cut the Spanish
+text and the policy link after about six lines at 320 px); a 1px border separates it from the page
+in dark; the policy link ("Read our cookie policy", also on /privacy) is always underlined, since a
+phone has no hover. `forum_consent`, the categories and the library version are unchanged.
