@@ -3912,3 +3912,18 @@ body inside a private forum links normally, since only administrators read it. A
 draws plain is stored as `[QUOTE="Name"]` without its post reference, so the stored text, the HTML
 and a later edit through `posts.update` agree that it points at no post. "Public" means a guest can
 open the forum.
+
+### Post addresses (item 4)  A post's address `/posts/<id>` redirects to the page of its thread that
+holds it, at its `#post-<id>` anchor, so the quote links Sermo already renders stop answering 404.
+The lookup is the existing `posts.get` read (it returns the thread id and the 0-based position and
+applies the normal visibility rules), so no backend or contract change was needed; the page number
+comes from the same `threadHref` the thread page and the edit page use. A post the visitor may not
+see answers 404 whether the backend says "not found" (deleted for a member, in a hidden forum, never
+used) or "forbidden" (a forum whose posts are closed to them), so no answer tells a guest which ids
+exist; a visitor who must sign in first is sent to the login page, as on every other record page.
+The status is set in the proxy, as for the other record pages, because a page streams a 200 shell
+before a redirect or `notFound` can run: a page load gets a real redirect or 404, and a soft
+navigation or a proxy fallback is answered by `posts/[id]/page.tsx` with the same result. The
+redirect is temporary (307) with `Cache-Control: private, no-store`, because a split or a move
+changes a post's thread and the target depends on who asks, so neither a browser nor a shared cache
+may keep it. A backend outage is left to the page's own error screen.
