@@ -65,7 +65,8 @@ setup("sign in, seed and warm up", async ({ page }) => {
     if (!reply.ok()) break;
     posts += 1;
   }
-  if (posts < 22)
+  // Tests open `?page=3`, which needs 41 posts at 20 a page.
+  if (posts < 41)
     throw new Error(`only ${posts} posts could be written to the long thread`);
   const seed: Seed = {
     threadId,

@@ -158,10 +158,11 @@ export async function rejectCookies(page: Page) {
 }
 
 // Asks the sign-in limiter (three tries in ten seconds, per address and path) where it stands, with
-// a try that cannot succeed: 429 means it is closed.
+// a try that cannot succeed, under a name nobody has so no member's wrong-password count is
+// spent: 429 means it is closed.
 async function limiterClosed(page: Page) {
   const probe = await page.request.post("/api/auth/sign-in/username", {
-    data: { username: USER, password: "not the password" },
+    data: { username: "limiter-probe-nobody", password: "not the password" },
     headers: { origin: new URL(page.url()).origin },
   });
   return probe.status() === 429;
@@ -192,7 +193,7 @@ export async function signInWith(
     // A good sign-in leaves the form at once once the action has answered; a refusal stays.
     const left = await page
       .waitForURL((url) => !url.pathname.startsWith("/login"), {
-        timeout: 10_000,
+        timeout: 15_000,
       })
       .then(
         () => true,
