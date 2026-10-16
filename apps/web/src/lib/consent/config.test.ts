@@ -147,3 +147,29 @@ test("a category can be left out of the banner and of the settings", () => {
   expect(sections).toContain("embeds");
   expect(sections).toContain("necessary");
 });
+
+test("both Accept all buttons carry the icon before their words, in every language", () => {
+  const icon = '<svg aria-hidden="true"></svg>';
+  const translations = consentConfig(
+    { en: en.banner, es: es.banner },
+    "en",
+    3,
+    "localhost",
+    { acceptIcon: icon },
+  ).language?.translations as unknown as Record<
+    string,
+    Record<"consentModal" | "preferencesModal", Record<string, string>>
+  >;
+  for (const [code, text] of [
+    ["en", en.banner],
+    ["es", es.banner],
+  ] as const)
+    for (const modal of ["consentModal", "preferencesModal"] as const) {
+      expect(translations[code]?.[modal].acceptAllBtn, `${code} ${modal}`).toBe(
+        `${icon}${text.acceptAll}`,
+      );
+      expect(translations[code]?.[modal].acceptNecessaryBtn).toBe(
+        text.rejectAll,
+      );
+    }
+});

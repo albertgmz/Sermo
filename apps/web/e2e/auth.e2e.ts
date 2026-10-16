@@ -15,7 +15,7 @@ import {
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const banner = (page: Page) =>
-  page.getByRole("dialog", { name: "Your cookie choices" });
+  page.getByRole("dialog", { name: "A quick word about cookies" });
 
 async function fillSignIn(page: Page, password: string) {
   await page

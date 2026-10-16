@@ -1,5 +1,6 @@
 "use client";
 
+import { Cookie } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import {
@@ -15,8 +16,9 @@ import { reserveBannerSpace } from "@/lib/consent/space";
 // Starts the cookie banner once and keeps it in step with the page (`effectOf` says how). Anything
 // marked `data-consent-settings` (the footer button, the cookie policy page) opens the settings.
 // Every choice is also sent to be saved on the member's account (nothing happens for a guest).
-// `quiet`: the banner is not shown to this visitor. Renders nothing: the library draws its own
-// dialogs.
+// `quiet`: the banner is not shown to this visitor. The library draws its own dialogs from markup,
+// so the only thing rendered is the cookie icon of "Accept all", hidden, for its markup to be
+// copied into the button.
 export function CookieConsentRoot({
   texts,
   locale,
@@ -34,6 +36,7 @@ export function CookieConsentRoot({
   const refresh = useRef(router.refresh);
   refresh.current = router.refresh;
   const first = useRef({ texts, locale, version, quiet, omit });
+  const icon = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const { texts, locale, version, quiet, omit } = first.current;
     // The room the page keeps for the banner, given back when the banner goes or the page does.
@@ -46,6 +49,7 @@ export function CookieConsentRoot({
       ...consentConfig(texts, locale, version, window.location.hostname, {
         quiet,
         omit,
+        acceptIcon: icon.current?.innerHTML,
       }),
       onModalShow: ({ modalName }) => {
         const banner = document.querySelector("#cc-main .cm");
@@ -90,5 +94,9 @@ export function CookieConsentRoot({
     if (mustReloadForQuiet(wasQuiet.current, quiet)) window.location.reload();
     wasQuiet.current = quiet;
   }, [quiet]);
-  return null;
+  return (
+    <span ref={icon} hidden>
+      <Cookie aria-hidden="true" />
+    </span>
+  );
 }

@@ -1,8 +1,8 @@
 {
   "banner": {
-    "title": "Tus opciones de cookies",
-    "description": "Usamos las cookies que el sitio necesita para funcionar. Con tu permiso también usamos cookies para estadísticas de visitas, para acreditar al miembro que te invitó y para cargar vídeos y música de otros sitios. No se usa nada opcional hasta que elijas.",
-    "policyLink": "Lee la política de cookies",
+    "title": "Unas palabras sobre las cookies",
+    "description": "Usamos unas pocas cookies para mantener tu sesión y que el foro funcione. Si te parece bien, usaremos otras para contar visitas, reconocer a quien te invitó y mostrar vídeos de otros sitios. Decir que no está perfectamente bien.",
+    "policyLink": "Cómo usamos las cookies",
     "acceptAll": "Aceptar todas",
     "rejectAll": "Rechazar todas",
     "choose": "Elegir",
@@ -10,7 +10,7 @@
     "preferencesIntro": "Elige las cookies opcionales que permites. Puedes cambiarlo en cualquier momento desde el pie de página.",
     "savePreferences": "Guardar mis opciones",
     "closeLabel": "Cerrar",
-    "revisionMessage": "La política de cookies ha cambiado desde tu última elección, por eso volvemos a preguntarte.",
+    "revisionMessage": "Nuestra política de cookies ha cambiado desde tu última elección, así que volvemos a preguntarte.",
     "categories": {
       "necessary": {
         "title": "Estrictamente necesarias",

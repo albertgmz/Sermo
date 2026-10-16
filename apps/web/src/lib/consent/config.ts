@@ -64,6 +64,8 @@ export type ConsentOptions = {
   quiet?: boolean;
   // Categories left out: analytics when the site's only analytics runs without cookies.
   omit?: readonly OptionalCategory[];
+  // Markup drawn before the words of both "Accept all" buttons (the cookie icon).
+  acceptIcon?: string;
 };
 
 // The library's configuration. Opt-in: nothing optional is on before a choice; the three buttons
@@ -74,7 +76,7 @@ export function consentConfig(
   locale: string,
   version: number,
   hostname: string,
-  { quiet = false, omit = [] }: ConsentOptions = {},
+  { quiet = false, omit = [], acceptIcon = "" }: ConsentOptions = {},
 ): CookieConsentConfig {
   const categories: NonNullable<CookieConsentConfig["categories"]> = {
     necessary: { enabled: true, readOnly: true },
@@ -117,26 +119,31 @@ export function consentConfig(
       translations: Object.fromEntries(
         Object.entries(texts).map(([code, text]) => [
           code,
-          translation(text, omit),
+          translation(text, omit, acceptIcon),
         ]),
       ),
     },
   };
 }
 
-function translation(text: ConsentTexts, omit: readonly OptionalCategory[]) {
+function translation(
+  text: ConsentTexts,
+  omit: readonly OptionalCategory[],
+  acceptIcon: string,
+) {
+  const acceptAll = `${acceptIcon}${text.acceptAll}`;
   return {
     consentModal: {
       title: text.title,
       description: `${text.description} {{revisionMessage}}<br><a href="/cookies">${text.policyLink}</a>`,
       revisionMessage: text.revisionMessage,
-      acceptAllBtn: text.acceptAll,
+      acceptAllBtn: acceptAll,
       acceptNecessaryBtn: text.rejectAll,
       showPreferencesBtn: text.choose,
     },
     preferencesModal: {
       title: text.preferencesTitle,
-      acceptAllBtn: text.acceptAll,
+      acceptAllBtn: acceptAll,
       acceptNecessaryBtn: text.rejectAll,
       savePreferencesBtn: text.savePreferences,
       closeIconLabel: text.closeLabel,

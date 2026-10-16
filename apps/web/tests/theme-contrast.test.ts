@@ -155,6 +155,16 @@ const PAIRS: [string[], string[], number][] = [
   [["primary-foreground"], ["primary"], 4.5],
   [["destructive", "success"], SURFACES, 4.5],
   [
+    ["consent-accept-foreground"],
+    ["consent-accept", "consent-accept-hover"],
+    4.5,
+  ],
+  [
+    ["consent-reject-foreground"],
+    ["consent-reject", "consent-reject-hover"],
+    4.5,
+  ],
+  [
     ["tier-bronze", "tier-silver", "tier-gold", "tier-legendary"],
     ["card"],
     4.5,
@@ -271,7 +281,7 @@ test("the light theme gives every colour token a value of its own", () => {
   );
   const missing = [...dark.keys()].filter(
     (name) =>
-      /^--(background|card|popover|secondary|muted|accent|overlay|skeleton|foreground|card-foreground|popover-foreground|secondary-foreground|muted-foreground|accent-foreground|border|input|destructive|success|chart-[1345]|tier-.+|code-.+)$/.test(
+      /^--(background|card|popover|secondary|muted|accent|overlay|skeleton|foreground|card-foreground|popover-foreground|secondary-foreground|muted-foreground|accent-foreground|border|input|destructive|success|consent-.+|chart-[1345]|tier-.+|code-.+)$/.test(
         name,
       ) && !lightOnly.has(name),
   );

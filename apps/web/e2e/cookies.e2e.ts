@@ -1,10 +1,18 @@
 import type { Page } from "@playwright/test";
-import { box, expect, expectFits, ready, screen, test } from "./fixtures";
+import {
+  box,
+  expect,
+  expectFits,
+  phoneWidth,
+  ready,
+  screen,
+  test,
+} from "./fixtures";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const banner = (page: Page) =>
-  page.getByRole("dialog", { name: "Your cookie choices" });
+  page.getByRole("dialog", { name: "A quick word about cookies" });
 
 const consent = async (page: Page) =>
   (await page.context().cookies()).find(
@@ -45,7 +53,62 @@ test("the cookie banner shows inside the screen with three buttons you can press
       `${name} is on the screen`,
     ).toBeLessThanOrEqual(size.height);
   }
+  // Accept and reject weigh the same; accept carries the cookie.
+  const accept = dialog.getByRole("button", { name: "Accept all" });
+  const reject = await box(dialog.getByRole("button", { name: "Reject all" }));
+  expect((await box(accept)).height).toBe(reject.height);
+  expect(Math.round((await box(accept)).width)).toBe(Math.round(reject.width));
+  await expect(accept.locator("svg")).toHaveCount(1);
+  // The usual gutter on each side, and above the bottom bar where there is one.
+  expect(frame.x).toBeGreaterThanOrEqual(15);
+  expect(size.width - frame.x - frame.width).toBeGreaterThanOrEqual(15);
+  if (phoneWidth(page)) {
+    const bar = await box(page.getByRole("navigation", { name: "Primary" }));
+    expect(frame.y + frame.height).toBeLessThanOrEqual(bar.y);
+  }
   await expectFits(page, "banner");
+});
+
+test.describe("on a desktop screen", () => {
+  test.use({
+    viewport: { width: 1440, height: 900 },
+    isMobile: false,
+    hasTouch: false,
+    deviceScaleFactor: 1,
+  });
+
+  // The content box of the forum's Container (the header's): its width less the gutters.
+  const forum = (page: Page) =>
+    page
+      .locator('header [data-slot="container"]')
+      .first()
+      .evaluate((element) => {
+        const frame = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const left = Number.parseFloat(style.paddingLeft);
+        const right = Number.parseFloat(style.paddingRight);
+        return { x: frame.x + left, width: frame.width - left - right };
+      });
+
+  test("the banner is exactly as wide as the forum and lines up with it, also when narrow", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const dialog = banner(page);
+    await expect(dialog).toBeVisible();
+    for (const narrow of [false, true]) {
+      if (narrow)
+        await page.evaluate(() =>
+          document.documentElement.setAttribute("data-width", "narrow"),
+        );
+      const content = await forum(page);
+      expect(content.width).toBe(narrow ? 1068 : 1388);
+      await expect
+        .poll(async () => Math.round((await box(dialog)).width))
+        .toBe(Math.round(content.width));
+      expect(Math.round((await box(dialog)).x)).toBe(Math.round(content.x));
+    }
+  });
 });
 
 test("accept all is remembered after a reload @all", async ({ page }) => {

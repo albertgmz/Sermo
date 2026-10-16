@@ -1,8 +1,8 @@
 {
   "banner": {
-    "title": "Your cookie choices",
-    "description": "We use cookies that the site needs to work. With your permission we also use cookies for visit statistics, for crediting the member who invited you, and to load videos and music from other sites. Nothing optional is used until you choose.",
-    "policyLink": "Read the cookie policy",
+    "title": "A quick word about cookies",
+    "description": "We use a few cookies to keep you signed in and the forum working. With your OK, we would also use some to count visits, credit whoever invited you and show videos from other sites. Saying no is totally fine.",
+    "policyLink": "How we use cookies",
     "acceptAll": "Accept all",
     "rejectAll": "Reject all",
     "choose": "Choose",
@@ -10,7 +10,7 @@
     "preferencesIntro": "Pick the optional cookies you allow. You can change this at any time from the footer.",
     "savePreferences": "Save my choices",
     "closeLabel": "Close",
-    "revisionMessage": "The cookie policy has changed since your last choice, so we are asking again.",
+    "revisionMessage": "Our cookie policy has changed since you last chose, so we are asking again.",
     "categories": {
       "necessary": {
         "title": "Strictly necessary",

@@ -25,14 +25,30 @@ const light = new Map([
 ]);
 const banner = declarations(/^#cc-main\s*\{([^}]*)\}/gm);
 
-function colour(tokens: Map<string, string>, name: string): string {
-  let value: string | undefined = banner.get(name) ?? tokens.get(name);
+// The buttons that set their own colours by role: Accept all green, Reject all red, Choose a
+// quiet outline. A button's own value comes before the sheet's.
+const role = (name: string) =>
+  declarations(
+    new RegExp(
+      String.raw`^#cc-main \[data-role="${name}"\]\s*\{([^}]*)\}`,
+      "gm",
+    ),
+  );
+
+function colour(
+  tokens: Map<string, string>,
+  name: string,
+  own: Map<string, string> = new Map(),
+): string {
+  const find = (key: string) =>
+    own.get(key) ?? banner.get(key) ?? tokens.get(key);
+  let value: string | undefined = find(name);
   const seen = new Set<string>();
   while (value?.startsWith("var(")) {
     const next = value.slice(4, -1).trim();
     if (seen.has(next)) break;
     seen.add(next);
-    value = banner.get(next) ?? tokens.get(next);
+    value = find(next);
   }
   if (!value || !/^#[0-9a-f]{6}$/i.test(value))
     throw new Error(`${name} is not a plain #rrggbb colour: ${value}`);
@@ -92,10 +108,44 @@ test("the banner's variables are all set on #cc-main", () => {
   }
 });
 
+const PRIMARY: [string, string, number][] = [
+  ["--cc-btn-primary-color", "--cc-btn-primary-bg", TEXT],
+  ["--cc-btn-primary-hover-color", "--cc-btn-primary-hover-bg", TEXT],
+];
+const SECONDARY: [string, string, number][] = [
+  ["--cc-btn-secondary-color", "--cc-btn-secondary-bg", TEXT],
+  ["--cc-btn-secondary-hover-color", "--cc-btn-secondary-hover-bg", TEXT],
+];
+// [role, the pairs its button draws, the variable of its fill, the token it fills with]
+const BUTTONS: [string, [string, string, number][], string, string][] = [
+  ["all", PRIMARY, "--cc-btn-primary-bg", "--consent-accept"],
+  ["necessary", PRIMARY, "--cc-btn-primary-bg", "--consent-reject"],
+  ["show", SECONDARY, "--cc-btn-secondary-bg", "--popover"],
+];
+
+test("accept is green, reject red, and choose an outline on the sheet's own surface", () => {
+  for (const [name, , fill, token] of BUTTONS)
+    expect(role(name).get(fill), name).toBe(`var(${token})`);
+  expect(banner.get("--cc-bg")).toBe("var(--popover)");
+});
+
 for (const [theme, tokens] of [
   ["dark", dark],
   ["light", light],
 ] as const) {
+  test(`the banner's buttons are legible in the ${theme} theme`, () => {
+    for (const [name, pairs] of BUTTONS) {
+      const own = role(name);
+      for (const [fg, bg, least] of pairs) {
+        const got = ratio(colour(tokens, fg, own), colour(tokens, bg, own));
+        expect(
+          got,
+          `${name}: ${fg} on ${bg}: ${got.toFixed(2)}`,
+        ).toBeGreaterThanOrEqual(least);
+      }
+    }
+  });
+
   test(`the banner's text and toggles are legible in the ${theme} theme`, () => {
     for (const [fg, bg, least] of PAIRS) {
       const got = ratio(colour(tokens, fg), colour(tokens, bg));

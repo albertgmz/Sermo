@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { forgetBanner } from "@/lib/sermo/banner";
 import { siteBody } from "@/lib/test-bodies";
 
@@ -28,7 +30,13 @@ mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async () => (key: string) => key,
 }));
+const nextNavigation = await import("next/navigation");
+mock.module("next/navigation", () => ({
+  ...nextNavigation,
+  useRouter: () => ({ refresh: () => {} }),
+}));
 const { CookieBanner } = await import("./cookie-banner");
+const { CookieConsentRoot } = await import("./cookie-consent-root");
 
 const realFetch = globalThis.fetch;
 let site: Record<string, unknown> = {};
@@ -116,4 +124,20 @@ test("cookieless Matomo takes the statistics choice out of the banner, other ana
     matomoCookieless: true,
   };
   expect((await propsOf()).omit).toEqual([]);
+});
+
+test("the root draws only the hidden cookie icon that Accept all copies", () => {
+  const html = renderToStaticMarkup(
+    createElement(CookieConsentRoot, {
+      texts: {},
+      locale: "en",
+      version: 1,
+      quiet: false,
+      omit: [],
+    }),
+  );
+  expect(html).toStartWith('<span hidden="">');
+  expect(html).toContain("<svg");
+  expect(html).toContain("lucide-cookie");
+  expect(html).toContain('aria-hidden="true"');
 });
