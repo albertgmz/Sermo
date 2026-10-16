@@ -36,9 +36,10 @@ export const scenarios: Scenario[] = [
     name: "media.list second page",
     kind: "read",
     async setup(env) {
-      const first = (await env.call("media.list", env.actors.guest, { limit: 24 })) as {
-        nextCursor: string | null;
-      };
+      // `env.call` answers the response text, as the API sends it.
+      const first = JSON.parse(
+        (await env.call("media.list", env.actors.guest, { limit: 24 })) as string,
+      ) as { nextCursor: string | null };
       if (!first.nextCursor) throw new Error("The seed has fewer than 24 pictures.");
       secondPage = first.nextCursor;
     },

@@ -83,19 +83,20 @@ async function prepareRuled(env: BenchEnv) {
   const forumIds = [...new Set(nodes.values())].slice(0, 100);
   ruledPosts = posts.filter((row) => forumIds.includes(nodes.get(row.id)!));
   if (ruledPosts.length < 120) throw new Error("Reaction benchmark fixtures are missing.");
+  // `env.call` answers the response text, as the API sends it.
+  const answer = async (operation: string, input: unknown) =>
+    JSON.parse((await env.call(operation, env.actors.admin, input)) as string);
   const existing = (
-    (await env.call("reactionTypes.list", env.actors.admin, {})) as {
-      items: { id: number; title: string }[];
-    }
+    (await answer("reactionTypes.list", {})) as { items: { id: number; title: string }[] }
   ).items.find((item) => item.title === "Bench rule");
   ruledType = (
     (existing &&
-      ((await env.call("reactionTypes.update", env.actors.admin, {
+      ((await answer("reactionTypes.update", {
         reactionTypeId: existing.id,
         isActive: true,
         forumIds,
       })) as { id: number })) ??
-    ((await env.call("reactionTypes.create", env.actors.admin, {
+    ((await answer("reactionTypes.create", {
       title: "Bench rule",
       emoji: "R",
       rule: {
