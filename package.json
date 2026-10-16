@@ -18,7 +18,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "biome check --error-on-warnings .",
     "format": "biome check --write .",
-    "test": "bun test ./packages ./scripts ./bench",
+    "test": "bun test ./packages ./scripts ./bench ./load",
     "seed": "bun bench/seed.ts",
     "seed:large": "bun bench/seed.ts --profile large",
     "bench": "bun bench/run.ts",

@@ -3238,3 +3238,58 @@ swaps in the editor in one synchronous commit: a key pressed while the editor ch
 lost. Only an end-to-end test guards that, and it reproduces on a development server, where the
 chunk compiles slowly; on a production build it passes with or without the fix. There is no draft
 for a reply; the drafts tested are the new thread's.
+
+### Load test (item 27)  k6 scripts in `load/` (not a dependency: the binary lives outside the
+repository, v2.3.0 under `C:\Users\albert\tools\k6\`, checked against the release checksum) that
+simulate visitors against the staging backend, and a log line for slow database writes.  **What it
+loads.** The backend REST API, with the calls the web app makes (`/api/v1/...`, the session cookie,
+JSON bodies), not HTML pages: the web app keeps no data, so page loads would measure Next, not the
+forum. Four `ramping-vus` scenarios share the peak: guests (55%: home, forum, thread, profile,
+search), feed scrollers (20%: `feed.list` with keyset cursors, up to nine pages), conversation
+pollers (18%: `listMessages` with `afterMessageId` every 3 s, `feed.newCount` every 30 s,
+`auth.counters` every 60 s, the intervals of `apps/web/src/lib/poll-intervals.ts`) and posters (7%:
+`posts.create`, `conversations.reply`). Reading also writes, so the scripts send the read marks the
+web app sends: `threads.markRead` (`PUT /threads/{id}/read`, `{position}` of the last post of the
+page) after a member reads a thread, and `conversations.markRead` (`PUT /conversations/{id}/read`)
+when a conversation opens and when a poll returns messages. Writes are then about 4 to 6% of all
+requests (5.6% in the smoke run, whose poster share is rounded up to 10%; the report prints the
+measured share, read marks included). Profiles are chosen by `PROFILE`: `smoke` (10 VUs, 30 s),
+`hundreds` (300 VUs, 5.5 min), `thousands` (1,000 VUs, 9 min, `PEAK_VUS` up to 2,000). Thresholds
+are a report bar, not budgets: errors under 1% (reads and writes apart), reads p95 under 200 ms,
+writes p95 under 500 ms; the report lists every operation with count, average, p95, p99 and maximum
+(an always-passing threshold per operation makes k6 keep those sub-metrics).  **Sign-in.** The limit
+of Better Auth is 3 sign-ins per address, counted again only after 10 s without one (a steady pace
+of one every 4 s still met a 429 on the fourth). The address is the one of the socket: the app puts
+the client address in its own header from the connection unless `SERMO_TRUSTED_PROXY_HEADER` is set,
+the staging env does not set it, and Better Auth reads only that header
+(`advanced.ipAddress.ipAddressHeaders`), so an `X-Forwarded-For` sent by the load test is ignored
+and was dropped. `setup()` signs a pool in three at a time with a 10.5 s pause after each three but
+the last (6, 40 or 60 members, each in a conversation they take part in, from the meta's
+`conversationMembers`) and VUs reuse the cookies (session in an explicit `Cookie` header, no cookie
+jar).  **Write waits.** Nothing exposed them: the backend logged failures only and `busy_timeout` is
+5 s, so a short wait or a stalled commit left no trace. `writeTx` (`packages/core/src/db/tx.ts`) now
+takes `performance.now()` at the start, when the callback begins (BEGIN IMMEDIATE has returned: the
+difference is `wait` for the write lock), when it returns (`hold` is the callback's time) and when
+the transaction returns (`commit`, where a checkpoint overlapping a stream of commits shows), and
+logs `[db.write-wait] at=<time> wait=<ms> hold=<ms> commit=<ms>` only when `wait` or `commit` is 100
+ms or more (a write that failed after waiting is logged too; a rollback is not timed). Fast writes
+cost clock reads and no allocation or string building. The backend is one thread, so `wait` grows
+only when another connection holds the lock (the checkpoint worker, a migration); `commit` is the
+number for stalls. A test starts a second process that holds the write lock for 400 ms and expects
+one log line with `wait >= 100` and none for a fast write (it fails on the old `tx.ts`).
+`load/write-waits.ts --db <path>` reads `<db folder>/staging/backend.log` from a byte offset
+(`--size` before the run, `--from` after) and reports the number of slow writes with p95 and maximum
+of wait, hold and commit (over the slow writes only), locked-database failures, failed requests
+logged and the size of the WAL. Bun prints a failed request's error over several lines
+(`SQLiteError: database is locked`, then `code: "SQLITE_BUSY"`), so one failure is counted by its
+first line only; a test parses a fixture log (`load/write-waits.test.ts`).  **Rejected:** a
+`/metrics` endpoint (a public surface with its own permissions) and a per-statement log (too heavy
+on the hot path).  **Not covered.** The scripts do not load the Next server: HTML responses, server
+actions and the caching of the web app are untested by them. All signed-in load comes from at most
+60 identities (the pool), and 1,000 VUs share them and their session cookies, so per-member rows
+(read state, counters, the post flood clock) are hotter than in real traffic and the numbers are
+read with that; per-user rate limits do not matter because staging raises them. The thread read
+marks use the position of the last post of page one only. `load/` is outside the root tsconfig and
+the check scripts; biome checks it. Only the posting visitors send `threads.markRead`; in the app
+every signed-in member viewing a thread does, so read-mark writes are understated. `bun test ./load`
+runs with the root tests.
