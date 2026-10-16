@@ -1,6 +1,27 @@
 {
+  "seo": {
+    "latest": {
+      "title": "Latest threads and posts",
+      "description": "The newest threads and replies on {site}."
+    },
+    "hot": {
+      "title": "Hot threads",
+      "description": "The threads people are replying to and reacting to right now on {site}."
+    },
+    "following": {
+      "title": "Following",
+      "description": "Posts from the members you follow on {site}."
+    },
+    "forums": {
+      "title": "Forums",
+      "description": "Every forum on {site}, with its latest activity."
+    },
+    "media": {
+      "title": "Latest pictures",
+      "description": "The newest pictures shared on {site}."
+    }
+  },
   "page": {
-    "metaTitle": "Home",
     "heading": "Home",
     "loadingSidebar": "Loading feed sidebar…",
     "loadingFeed": "Loading your feed…",

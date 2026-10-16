@@ -44,6 +44,7 @@ import {
   filterKey,
   isFiltered,
 } from "@/lib/feed-filters";
+import { homeAddress, homeMetadata } from "@/lib/home-seo";
 import {
   barOf,
   type HomeTab,
@@ -53,14 +54,34 @@ import {
 } from "@/lib/home-tabs";
 import { pagesParam } from "@/lib/list-pages";
 import { POLL_MS } from "@/lib/poll-intervals";
+import { publicUrl } from "@/lib/sermo/config";
 import { getGuestTab } from "@/lib/sermo/home-tab";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 import { cn } from "@/lib/utils";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("home.page");
-  return { title: t("metaTitle") };
+// The head of the tab the page opens on. The bare address and the guests' own tab are one page; the
+// site's own description, when the owner wrote one, speaks for that tab.
+export async function generateMetadata(
+  props: PageProps<"/[locale]">,
+): Promise<Metadata> {
+  const [{ params, tab }, guestTab, site, t] = await Promise.all([
+    opening(props.searchParams),
+    getGuestTab(),
+    getSite(),
+    getTranslations("home.seo"),
+  ]);
+  const address = homeAddress({ opened: tab, guestTab, params });
+  return homeMetadata({
+    address,
+    origin: publicUrl(),
+    siteName: site.name,
+    title: t(`${tab}.title`),
+    description:
+      (address.path === "/" && site.description) ||
+      t(`${tab}.description`, { site: site.name }),
+  });
 }
 
 export default function HomePage(props: PageProps<"/[locale]">) {

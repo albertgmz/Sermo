@@ -1,6 +1,27 @@
 {
+  "seo": {
+    "latest": {
+      "title": "Últimos temas y publicaciones",
+      "description": "Los temas y respuestas más recientes en {site}."
+    },
+    "hot": {
+      "title": "Temas en tendencia",
+      "description": "Los temas que la gente responde y valora ahora mismo en {site}."
+    },
+    "following": {
+      "title": "Siguiendo",
+      "description": "Publicaciones de los miembros a los que sigues en {site}."
+    },
+    "forums": {
+      "title": "Foros",
+      "description": "Todos los foros de {site}, con su actividad más reciente."
+    },
+    "media": {
+      "title": "Últimas imágenes",
+      "description": "Las imágenes más recientes compartidas en {site}."
+    }
+  },
   "page": {
-    "metaTitle": "Inicio",
     "heading": "Inicio",
     "loadingSidebar": "Cargando la barra lateral de actividad…",
     "loadingFeed": "Cargando tu actividad…",
