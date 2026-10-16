@@ -3049,6 +3049,9 @@ write the same thread draft. Known limits: the bar can hold six cells; no avatar
 no sign-in link when the session ends under an open dialog; "Poll or quiz" is offered whenever any
 forum is postable (the forum list carries no per-forum poll permission; the composer then says so);
 two browser tabs keep separate drafts.
+Since item 6 the dialog is the whole screen at every size, not a box (see "Create flow: the whole
+screen at every size"), and between `md` and `lg` a member's header shows Create as a square +
+(item 7).
 
 **Better feed cards (item 15).** A thread card shows its reply count, how many posts the member has
 not read (at most 99, "99+") as a link to the first of them (`/threads/ID?page=N#post-ID`), a Reply
@@ -3684,3 +3687,38 @@ the bar after a choice, as with the buttons. Known limits: below about 260 px th
 a second line; the menus are in the editor's chunk, which is already loaded on demand; the keyboard
 coming back on an iPhone after a menu choice, a choice inside the composer's dialog and the light
 theme have not been tried on a device.
+
+### Create flow: the whole screen at every size (item 6)  The Create button's dialog covers the
+viewport at every size: from the top-left corner, as high as the visible height (so it follows a
+phone's keyboard through `--visible-height`, 100dvh without it), with no box, ring or margin, on the
+page's background. Only the Create flow does this (`ComposerSheet` takes `screen`); the reply and
+edit sheets and the profile wall's own composer sheet keep their look and their dimmed overlay.
+Every step sits in a centred column: the chooser and the forum list are `max-w-2xl` (672 px) wide,
+and the writing steps (thread, question, poll, wall post, and their loading and failed states) take
+the forum's width, `--container-width` (1420 px, 1100 px with the narrow page setting; the portalled
+dialog carries `data-forum-layout` so the setting reaches it). From `md` the column is the card
+colour with a border on each side, over a muted screen, so it reads as a column and not as a
+stretched box. The screen is opaque from its first frame to its last. `DialogContent` has a new
+optional `overlay` prop (true by default, so no other dialog changes) and the Create dialog passes
+false, and its open and close animations are switched off with important utilities
+(`data-open:animate-none!`, `data-closed:animate-none!`), so the result does not depend on CSS
+order. Before that the page showed through, dimmed and blurred, during the 100 ms fade, and a
+full-viewport blur was drawn under the screen at rest; the cost is that it appears and goes at once.
+The chooser is a list on a phone (icon in a bordered circle) and, from `md`, a question ("What would
+you like to create?", "¿Qué quieres crear?", `forum.createFlow.prompt`) over 2 x 2 tiles in the
+middle of the column's height (`md:my-auto` inside the part that scrolls, so a taller chooser still
+scrolls from its top); without it the tiles sat in the top 40 % of a 672 px column with an empty
+strip below. The question shows in every state, so the "nothing to post" and failed messages have it
+above them. The forum list that the composer's "Posting in" chip opens has the same 672 px width as
+the forum step. In the thread and wall composers the editor's frame grows down to the bottom bar,
+but the editable area does not: its @-mention list is placed under the text block (`top-full`), and
+a stretched block would put the list below the screen. A press on the blank part below the text puts
+the caret at the end of the text (the editor, the BB code source, or the plain box before the editor
+loads). A press in the text, on a control or on the mention list, a press that ends a drag
+selection, and a press while a selection exists leave the caret alone. The editor has no embedded
+nodes (attachments are `[ATTACH]` text), so only text can be last. The writing column stays at the
+forum's width, as decided: at 1440 px the composer is 1420 px wide, Close and Post are 1400 px apart
+and the muted surround is a 10 px sliver; `WRITING` in `create-flow.tsx` takes `max-w-5xl` in one
+token if the owner wants it narrower. Known limits: the blank press acts on click, so a phone's open
+keyboard may drop and rise once; a desktop pinch-zoom shrinks the visual viewport and with it the
+screen; the look on a real phone with the keyboard open has not been seen.
