@@ -26,6 +26,7 @@ export function WallPostForm({
   name,
   formRef,
   onSent,
+  titled = true,
 }: {
   action: WallAction;
   placeholder: string;
@@ -34,6 +35,8 @@ export function WallPostForm({
   formRef?: RefObject<HTMLFormElement | null>;
   // The post was taken (the action redirected), for a form that is not drawn anew by it.
   onSent?: () => void;
+  // False inside a dialog that names itself.
+  titled?: boolean;
 }) {
   const t = useTranslations("members.postComposer");
   const { state, pending, onSubmit } = useKeptForm(action, onSent);
@@ -41,7 +44,7 @@ export function WallPostForm({
     <ComposerForm
       formRef={formRef}
       onSubmit={onSubmit}
-      frame={{ kind: "dialog", heading: t("title") }}
+      frame={{ kind: "dialog", heading: titled ? t("title") : undefined }}
       submitLabel={t("post")}
       pending={pending}
       placeholder={placeholder}

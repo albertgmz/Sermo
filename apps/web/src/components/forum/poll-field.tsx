@@ -21,17 +21,26 @@ const PollForm = dynamic(
 // absent and the thread has no poll. Plugs into `ThreadComposer`, behind `canPoll`, like the tags.
 // `startOpen`: the section is open with a blank poll when it is first drawn (the member asked for
 // a poll, not a discussion).
+// `asked` counts later requests for a poll: each opens the section if it is closed and leaves a
+// poll already written alone.
 export function PollField({
   attachIn,
   startOpen = false,
+  asked = 0,
 }: {
   attachIn: number | null;
   startOpen?: boolean;
+  asked?: number;
 }) {
   const t = useTranslations("forum.poll");
   const [draft, setDraft] = useState<PollDraft | null>(() =>
     startOpen ? blankDraft() : null,
   );
+  const [seen, setSeen] = useState(asked);
+  if (seen !== asked) {
+    setSeen(asked);
+    if (draft === null) setDraft(blankDraft());
+  }
   if (!draft) {
     return (
       <Button

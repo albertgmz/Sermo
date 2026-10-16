@@ -110,7 +110,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
                 className="mx-auto grid h-14 max-w-lg grid-cols-6"
               >
                 {[1, 2, 3, 4, 5, 6].map((item) =>
-                  item === 3 ? (
+                  item === 4 ? (
                     <div
                       key={item}
                       className="flex items-center justify-center"

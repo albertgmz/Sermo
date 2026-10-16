@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { ComposerSheet } from "@/components/forum/composer";
 import { CreateFlow } from "@/components/forum/create-flow";
 import {
@@ -15,15 +16,24 @@ export type CreatePopupProps = { variant: CreateVariant; label: string };
 
 // The button and the dialog it opens, loaded when the plain button of `CreateButton` is pressed and
 // mounted open. It stays mounted when it is closed, so what was written is there when it is opened
-// again, and closing returns focus to the button. A post that was taken navigates away, which does
-// not draw the layout anew: the flow is started over (new key) and the dialog closed.
+// again, and closing returns focus to the button. A post that was taken navigates away: the flow is
+// started over (new key) and the dialog closed, whether or not the navigation draws the layout anew.
 export default function CreatePopup(props: CreatePopupProps & OpenedProps) {
   const { variant, label } = props;
   const [open, setOpen] = useState(true);
   // Counts the times the dialog was opened: each one starts at the choice of what to write.
   const [visit, setVisit] = useState(1);
   const [generation, setGeneration] = useState(0);
-  const root = useRef<HTMLDivElement>(null);
+
+  // The dialog lives in the layout, so a navigation the member makes while it is open (Back, a
+  // link in the page behind) must close it.
+  const pathname = usePathname();
+  const shown = useRef(pathname);
+  useEffect(() => {
+    if (shown.current === pathname) return;
+    shown.current = pathname;
+    setOpen(false);
+  }, [pathname]);
 
   function change(next: boolean) {
     if (next) setVisit((count) => count + 1);
@@ -35,17 +45,10 @@ export default function CreatePopup(props: CreatePopupProps & OpenedProps) {
       <DialogTrigger aria-label={label} className={triggerClass(variant)}>
         <TriggerContent variant={variant} label={label} />
       </DialogTrigger>
-      <ComposerSheet
-        open={open}
-        initialFocus={() =>
-          root.current?.querySelector<HTMLElement>("[data-create-option]") ??
-          null
-        }
-      >
+      <ComposerSheet open={open}>
         <CreateFlow
           key={generation}
           visit={visit}
-          rootRef={root}
           onSent={() => {
             setOpen(false);
             setGeneration((count) => count + 1);

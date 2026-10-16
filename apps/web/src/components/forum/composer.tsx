@@ -67,14 +67,10 @@ function useVisualViewport(active: boolean) {
 export function ComposerSheet({
   open,
   formRef,
-  initialFocus,
   children,
 }: {
   open: boolean;
   formRef?: RefObject<HTMLFormElement | null>;
-  // Where focus goes when the sheet opens, when it is not the text (a sheet that opens on a
-  // choice).
-  initialFocus?: () => HTMLElement | null;
   children: React.ReactNode;
 }) {
   const { height: visibleHeight } = useVisualViewport(open);
@@ -82,12 +78,10 @@ export function ComposerSheet({
     <DialogContent
       keepMounted
       showCloseButton={false}
-      initialFocus={
-        initialFocus ??
-        (() =>
-          formRef?.current?.querySelector<HTMLElement>(
-            "textarea, [contenteditable]",
-          ) ?? null)
+      initialFocus={() =>
+        formRef?.current?.querySelector<HTMLElement>(
+          "textarea, [contenteditable]",
+        ) ?? null
       }
       style={
         visibleHeight === undefined
@@ -114,8 +108,9 @@ export function ComposerPage({
 }
 
 export type ComposerFrame =
-  // Inside a `Dialog`: close is the dialog's, and `heading` names it for assistive technology.
-  | { kind: "dialog"; heading: string }
+  // Inside a `Dialog`: close is the dialog's, and `heading` names it for assistive technology. A
+  // dialog that holds several composers names itself once and leaves `heading` out.
+  | { kind: "dialog"; heading?: string }
   // On a page of its own, which has its own heading: close is a link back.
   | { kind: "page"; closeHref: string };
 
@@ -189,7 +184,9 @@ export function ComposerForm({
               >
                 <X />
               </DialogClose>
-              <DialogTitle className="sr-only">{frame.heading}</DialogTitle>
+              {frame.heading && (
+                <DialogTitle className="sr-only">{frame.heading}</DialogTitle>
+              )}
             </>
           ) : (
             <Link

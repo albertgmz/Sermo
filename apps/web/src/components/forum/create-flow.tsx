@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChartBar, CircleHelp, MessagesSquare, PenLine, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { forumComposeAccessAction } from "@/app/[locale]/(main)/forums/actions";
 import { postToWall } from "@/app/[locale]/(main)/members/actions";
 import { WallPostForm } from "@/app/[locale]/(main)/members/post-composer";
@@ -48,9 +48,9 @@ const FIELDS = 'input[name="title"], textarea, [contenteditable]';
 function ChooserHeader({ title, close }: { title: string; close: string }) {
   return (
     <div className="flex items-center justify-between gap-2 border-b p-2">
-      <DialogTitle className="px-2 text-base font-semibold">
+      <span aria-hidden="true" className="px-2 text-base font-semibold">
         {title}
-      </DialogTitle>
+      </span>
       <DialogClose
         render={
           <Button
@@ -153,12 +153,10 @@ export function CreateChooser({
 // nothing. Each opening of the dialog starts at the choice.
 export function CreateFlow({
   visit,
-  rootRef,
   onSent,
 }: {
   // Counts the times the dialog was opened.
   visit: number;
-  rootRef: RefObject<HTMLDivElement | null>;
   // A post was taken and the page navigated.
   onSent: () => void;
 }) {
@@ -179,6 +177,7 @@ export function CreateFlow({
   const [access, setAccess] = useState<Access | null>(null);
   const [wallOpened, setWallOpened] = useState(false);
   const asked = useRef(0);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   // Each opening starts at the choice, and asks again what the member may do (a long visit to the
   // page can outlast a change of permissions or a new forum).
@@ -188,6 +187,17 @@ export function CreateFlow({
     setStep("kind");
     if (visit > 1) void refetch.current();
   }, [visit]);
+
+  // The first option takes focus once the choice is drawn: the options are not there when the
+  // dialog opens the first time, and on later openings the step changes after it has.
+  const choosing = step === "kind" && data !== undefined;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `visit` is what makes it run again.
+  useEffect(() => {
+    if (!choosing) return;
+    rootRef.current
+      ?.querySelector<HTMLElement>("[data-create-option]")
+      ?.focus();
+  }, [choosing, visit]);
 
   // The composer shown takes focus: the title of a thread, the text of a wall post.
   const threadOn = step === "compose" && isThreadKind(kind);
@@ -200,7 +210,7 @@ export function CreateFlow({
       ?.querySelector<HTMLElement>(`[data-create-mode="${mode}"]`)
       ?.querySelector<HTMLElement>(FIELDS)
       ?.focus();
-  }, [ready, wallOn, rootRef]);
+  }, [ready, wallOn]);
 
   function pick(next: CreateKind) {
     setKind(next);
@@ -235,6 +245,7 @@ export function CreateFlow({
 
   return (
     <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
+      <DialogTitle className="sr-only">{t("title")}</DialogTitle>
       {step === "kind" && (
         <CreateChooser
           data={data}
@@ -288,6 +299,7 @@ export function CreateFlow({
             action={wall}
             placeholder={t("wallPlaceholder")}
             name={t("wallName")}
+            titled={false}
             onSent={onSent}
           />
         </div>

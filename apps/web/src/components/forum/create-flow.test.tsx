@@ -42,7 +42,7 @@ function draw(state: { data?: CreateData }) {
     withIntl(
       <QueryClientProvider client={client}>
         <Dialog open>
-          <CreateFlow visit={1} rootRef={{ current: null }} onSent={() => {}} />
+          <CreateFlow visit={1} onSent={() => {}} />
         </Dialog>
       </QueryClientProvider>,
     ),
@@ -57,6 +57,8 @@ test("the flow opens on the choice of what to write, with the options of a membe
   expect(options(html)).toEqual(["discussion", "question", "poll", "wall"]);
   expect(html).toContain("Poll or quiz");
   expect(html).toContain("Wall post");
+  // The dialog is named once, however many composers it holds.
+  expect(html.match(/data-slot="dialog-title"/g)).toHaveLength(1);
   // Nothing of the composer is loaded before something is chosen.
   expect(html).not.toContain('name="body"');
   expect(html).not.toContain("Choose a forum");
@@ -179,4 +181,30 @@ test("a send that ends in a redirect, and only that, tells a form in the layout 
   expect(endedInRedirect(before, { error: "No." })).toBe(false);
   // Nothing was sent.
   expect(endedInRedirect(null, before)).toBe(false);
+});
+
+test("a composer in a dialog that names itself draws no title of its own, and a navigation closes the dialog", () => {
+  const popup = readFileSync(
+    join(import.meta.dir, "../layout/create-popup.tsx"),
+    "utf8",
+  );
+  expect(popup).toContain("usePathname()");
+  expect(popup).toContain("setOpen(false)");
+  const thread = renderToStaticMarkup(
+    withIntl(
+      <Dialog open>
+        <ThreadComposer
+          frame="dialog"
+          forumId={2}
+          forums={DATA.forums}
+          prefixes={[]}
+          canAttach={false}
+          canTag={false}
+          canPoll={false}
+          memberId={5}
+        />
+      </Dialog>,
+    ),
+  );
+  expect(thread).not.toContain('data-slot="dialog-title"');
 });

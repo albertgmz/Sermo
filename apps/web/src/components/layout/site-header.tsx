@@ -119,7 +119,7 @@ async function AccountTools() {
   const t = await getTranslations("layout.siteHeader");
   return (
     <>
-      <CreateButton variant="header" member={!!viewer.user && !!card} />
+      <CreateButton variant="header" member={!!viewer.user} />
       {viewer.user && card ? (
         <AccountMenu />
       ) : (

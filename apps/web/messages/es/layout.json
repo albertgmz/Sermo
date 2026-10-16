@@ -220,9 +220,6 @@
     "body": "Tu cuenta espera a que el personal la apruebe. Hasta entonces puedes leer el foro como un invitado."
   },
   "createButton": {
-    "label": "Crear",
-    "aria": {
-      "create": "Crear"
-    }
+    "label": "Crear"
   }
 }

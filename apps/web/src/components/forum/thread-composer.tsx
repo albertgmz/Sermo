@@ -111,12 +111,12 @@ export function ThreadComposer({
     onSent,
   );
 
-  // A poll asked for after the composer is drawn opens the section; one that was there stays.
+  // A poll asked for after the composer is drawn opens the section, unless it is open already.
   const [seen, setSeen] = useState(kind);
-  const [pollKey, setPollKey] = useState(0);
+  const [pollAsked, setPollAsked] = useState(0);
   if (seen !== kind) {
     setSeen(kind);
-    if (kind === "poll") setPollKey((key) => key + 1);
+    if (kind === "poll") setPollAsked((count) => count + 1);
   }
 
   // What is kept in the tab, written from what the member changes and from nothing else: a
@@ -264,8 +264,8 @@ export function ThreadComposer({
       {canTag && <ThreadTagsField />}
       {poll && (
         <PollField
-          key={pollKey}
           startOpen={kind === "poll"}
+          asked={pollAsked}
           attachIn={attach ? forum : null}
         />
       )}
@@ -283,7 +283,7 @@ export function ThreadComposer({
       onSubmit={onSubmit}
       frame={
         frame === "dialog"
-          ? { kind: "dialog", heading: t("heading") }
+          ? { kind: "dialog" }
           : { kind: "page", closeHref: `/forums/${forum}` }
       }
       submitLabel={t("post")}
