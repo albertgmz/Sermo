@@ -3,12 +3,14 @@ import {
   conversationsGet,
   PageSlug,
   pagesGet,
+  postsGet,
   seoNode,
   seoProfile,
   seoThread,
   tagsGet,
 } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
+import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import {
   isStaffPath,
   isStyleguidePath,
@@ -139,7 +141,29 @@ function seoPage(
   };
 }
 
+// A post's address goes to the page of its thread that holds it, at its anchor. The backend's
+// read of the post is the visibility check: a post the visitor may not see is "not found", the
+// same as an id that was never used.
+const postPage: Finder = async (raw, action, request) => {
+  const postId = parseId(raw);
+  if (postId === null) return false;
+  // Nothing is served under a post's address; the router answers those with its own 404.
+  if (action !== undefined) return true;
+  try {
+    const post = await callWith(forwardFromHeaders(request.headers), postsGet, {
+      postId,
+    });
+    return NextResponse.redirect(
+      new URL(threadHref(post.threadId, post.position, post.id), request.url),
+      308,
+    );
+  } catch (error) {
+    return !(error instanceof SermoError && error.code === "not_found");
+  }
+};
+
 const CONTENT: Record<string, Finder> = {
+  posts: postPage,
   members: seoPage((userId, requestedPath, _page, forward) =>
     callWith(forward, seoProfile, { userId, requestedPath }),
   ),
