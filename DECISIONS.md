@@ -3965,3 +3965,35 @@ U+FFFD, and the quoted fallback replaces the quote, backslash, percent, semicolo
 outside printable ASCII. Cleaning an uploaded name keeps the zero-width joiner and non-joiner (emoji
 sequences, Persian and Indic names) while dropping the other invisible and bidirectional controls.
 The importer writes the same plain columns and rows.
+
+### Forums that do not count posts (item 6)  A forum has a `countsPosts` flag (on by default,
+editable in its staff settings) and a visible post in a forum where it is off adds nothing to its
+author's `users.post_count`. Every write to that counter checks the flag of the forum the post sits
+in: creating a thread or reply, soft delete and restore of posts and threads (hard delete goes
+through them), approving and unapproving through the moderation tools, the counter rebuild, and the
+moves that change a post's forum. Moving a thread between a counting and a non-counting forum (one
+by one or in bulk) lowers or raises its authors with one grouped update whatever the thread's size;
+merging into a thread and splitting posts out use the same rule per moved post, and the split now
+groups by author instead of updating once per post. Every decrement floors at zero, because an
+imported count can be lower than the member's visible posts and the output contracts reject a
+negative count; the floor hides the drift in one direction and not in the other (a member at zero
+with five visible posts whose thread leaves a counting forum and comes back ends at five), which the
+next counter rebuild reconciles. Switching the flag on a forum that holds threads saves it and
+queues a background job (`recount-post-counts`) that recomputes only `post_count`, with the counter
+rebuild's own rule, for every member in windows of 50 user ids; the request itself does one update
+and one job insert, and nothing is queued for a new forum, a category or a forum without threads.
+The job reads every member rather than the forum's current authors because a move, merge or split
+between the switch and the job can take a member's last posts out of the forum while the count still
+holds them under the old setting, and that operation then applies the new setting on top. Like the
+daily rebuild, it also replaces imported counts that disagree with the visible posts. The window is
+small because the heaviest members of the seeded board hold tens of thousands of posts; on that
+board a window reads in 6 ms at p95 and 19 ms at worst, and the whole pass in 1.5 s. A member whose
+posts a merge or split is still moving when the job reaches them waits: the job queues their ids
+again a minute later and goes on to the next window only when none is waiting. Their count is off by
+the moved posts until shortly after that transfer ends, and exact after it; a transfer always ends,
+by finishing or by being marked failed. Two switches in a row queue two chains, which agree because
+every window writes absolute values. The switch itself is refused with a conflict while a merge or
+split involving the forum, as source or target, has not finished, failed ones included (a failed one
+must be run again first), so a transfer already under way never runs its remaining chunks under a
+setting that changed beneath it. The switch exists on forums only (the category form hides it and
+leaves the flag alone), and the importer writes the flag directly from XenForo's `count_messages`.
