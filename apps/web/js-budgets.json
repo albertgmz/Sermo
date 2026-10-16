@@ -3,7 +3,7 @@
     {
       "name": "home",
       "match": "^/\\[locale\\]/\\(main\\)$",
-      "maxBytes": 329000
+      "maxBytes": 317000
     },
     {
       "name": "thread",
@@ -23,7 +23,7 @@
     {
       "name": "profile",
       "match": "^/\\[locale\\]/\\(main\\)/members/\\[id\\]$",
-      "maxBytes": 325000
+      "maxBytes": 310000
     },
     {
       "name": "conversations",
@@ -63,7 +63,7 @@
     {
       "name": "other",
       "match": "^/\\[locale\\]/\\(main\\)/",
-      "maxBytes": 313000
+      "maxBytes": 296000
     }
   ]
 }
