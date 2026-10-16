@@ -489,16 +489,17 @@ describe("checkpointer", () => {
     try {
       const release = fixture.pin();
       fixture.grow(200);
-      const waited = fixture.timed(400);
-      // Part-way through the wait the first reader goes and a later one takes its place: the
-      // checkpoint copies the frames between them, which is progress, then is held back again.
+      const waited = fixture.timed(1000);
+      // Part-way through the wait a later reader takes the first one's place (pinned before the
+      // first goes, so no checkpoint can complete in between): the checkpoint copies the frames
+      // between them, which is progress, then is held back again.
       await Bun.sleep(250);
-      release();
       fixture.grow(100);
       fixture.pin();
+      release();
       fixture.grow(50);
-      // Without progress the wait would end 400 ms in; with it, 400 ms after the copy.
-      expect(await waited).toBeGreaterThanOrEqual(600);
+      // Without progress the wait would end 1000 ms in; with it, 1000 ms after the copy.
+      expect(await waited).toBeGreaterThanOrEqual(1200);
     } finally {
       await fixture.close();
     }
