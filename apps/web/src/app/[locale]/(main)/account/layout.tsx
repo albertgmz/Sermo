@@ -14,6 +14,7 @@ import {
 } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { userNameProps } from "@/components/forum/user-name";
+import { ClientMessages } from "@/components/layout/client-messages";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { authorsFor } from "@/lib/sermo/members";
@@ -30,41 +31,57 @@ export default function AccountLayout({
 }) {
   const t = useTranslations("account.layout");
   return (
-    <PageLayout
-      asideSide="start"
-      asideOnMobile="hidden"
-      mainClassName="space-y-4"
-      aside={
-        <>
-          <AccountNavigation />
-          <Link
-            href="/notifications"
-            className="flex min-h-10 items-center rounded-lg border bg-card px-4 text-sm text-muted-foreground hover:text-foreground"
-          >
-            {t("notifications")}
-          </Link>
-          <form action={logout}>
-            <Button type="submit" variant="outline" className="min-h-10 w-full">
-              {t("logout")}
-            </Button>
-          </form>
-        </>
-      }
+    <ClientMessages
+      namespaces={[
+        "account.navigation",
+        "account.pictures",
+        "account.profile",
+        "account.username",
+        "forum.autosave",
+        "forum.framing",
+        "lite.navigation",
+      ]}
     >
-      <div className="min-w-0 lg:hidden">
-        <AccountNavigation />
-      </div>
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <AccountHeaderSkeleton />
-          </LoadingRegion>
+      <PageLayout
+        asideSide="start"
+        asideOnMobile="hidden"
+        mainClassName="space-y-4"
+        aside={
+          <>
+            <AccountNavigation />
+            <Link
+              href="/notifications"
+              className="flex min-h-10 items-center rounded-lg border bg-card px-4 text-sm text-muted-foreground hover:text-foreground"
+            >
+              {t("notifications")}
+            </Link>
+            <form action={logout}>
+              <Button
+                type="submit"
+                variant="outline"
+                className="min-h-10 w-full"
+              >
+                {t("logout")}
+              </Button>
+            </form>
+          </>
         }
       >
-        <AccountHeader />
-      </Suspense>
-      {children}
-    </PageLayout>
+        <div className="min-w-0 lg:hidden">
+          <AccountNavigation />
+        </div>
+        <Suspense
+          fallback={
+            <LoadingRegion label={t("loading")}>
+              <AccountHeaderSkeleton />
+            </LoadingRegion>
+          }
+        >
+          <AccountHeader />
+        </Suspense>
+        {children}
+      </PageLayout>
+    </ClientMessages>
   );
 }
 

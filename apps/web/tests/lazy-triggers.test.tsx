@@ -55,6 +55,11 @@ const { HeaderNav, MobileMenu } = await import("@/components/layout/site-nav");
 const { MemberCardTrigger } = await import(
   "@/components/forum/member-card-trigger"
 );
+const { ShareButton } = await import("@/components/forum/share-button");
+const { TabMore } = await import("@/components/forum/tab-more");
+const { ProfileMore } = await import(
+  "@/app/[locale]/(main)/members/[id]/profile-more"
+);
 const { LazyTooltip } = await import("@/components/ui/lazy-tooltip");
 const { FeedFiltersButton } = await import(
   "@/components/forum/feed-filters-button"
@@ -189,6 +194,35 @@ const cases: [string, () => React.ReactNode, boolean][] = [
     "the feed filters button",
     () => (
       <FeedFiltersButton tab="latest" filter={{ unread: true }} count={1} />
+    ),
+    true,
+  ],
+  [
+    "the share button",
+    () => <ShareButton href="/threads/3#post-1" label="Share" className="x" />,
+    true,
+  ],
+  [
+    "the button of the tabs that do not fit",
+    () => (
+      <TabMore
+        tabs={[{ value: "a", label: "A", href: "/?tab=a" }]}
+        label="More"
+        className="x"
+      />
+    ),
+    true,
+  ],
+  [
+    "a profile's more button",
+    () => (
+      <ProfileMore
+        label="More"
+        className="x"
+        profileHref="/members/3"
+        findPosts="Find posts"
+        findThreads="Find threads"
+      />
     ),
     true,
   ],

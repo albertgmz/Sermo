@@ -2,16 +2,11 @@
 
 import { Check, Link as LinkIcon, Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
 import {
   actionLabelClass,
   messageActionClass,
 } from "@/components/forum/message-action";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { LazyPopup } from "@/components/ui/lazy-popup";
 import { shareAddress } from "@/lib/referral/link";
 import { currentViewer } from "@/lib/session-epoch";
 import { cn } from "@/lib/utils";
@@ -96,8 +91,17 @@ export function ShareMenuBody({
   );
 }
 
-// Where the device has a share sheet it opens; elsewhere a small menu offers to copy the link.
-// `label` draws a word beside the icon from `sm` up.
+// A signed-in member's copy of the link carries their id, so those who register through it are
+// credited to them.
+export const linkTo = (href: string) =>
+  shareAddress(href, location.origin, currentViewer());
+
+const loadPopup = () => import("@/components/forum/share-popup");
+
+// Where the device has a share sheet it opens; elsewhere a small menu offers to copy the link. The
+// menu's code (Base UI) is fetched when the button is first reached for; until then the button is
+// a plain one. The share sheet is asked for here, in the press itself: a browser allows it only
+// there. `label` draws a word beside the icon from `sm` up.
 export function ShareButton({
   href,
   label,
@@ -108,48 +112,31 @@ export function ShareButton({
   className?: string;
 }) {
   const t = useTranslations("forum.shareButton");
-  const [status, setStatus] = useState<"idle" | "copied" | "manual">("idle");
-  const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState("");
-
-  // A signed-in member's copy of the link carries their id, so those who register through it are
-  // credited to them.
-  const address = () => shareAddress(href, location.origin, currentViewer());
-
-  async function copy() {
-    const target = address();
-    setUrl(target);
-    if (await copyLink(target, navigator)) {
-      setStatus("copied");
-      setTimeout(() => {
-        setStatus("idle");
-        setOpen(false);
-      }, 2000);
-    } else {
-      setStatus("manual");
-    }
-  }
-
-  function change(next: boolean) {
-    if (next && shareNatively(address(), navigator, () => setOpen(true))) {
-      return;
-    }
-    setStatus("idle");
-    setOpen(next);
-  }
-
   return (
-    <Popover open={open} onOpenChange={change}>
-      <PopoverTrigger
-        aria-label={t("aria.share")}
-        className={cn(className, status === "copied" && "text-success")}
-      >
-        {status === "copied" ? <Check /> : <Share2 />}
-        {label && <span className={actionLabelClass}>{label}</span>}
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto gap-0 p-1">
-        <ShareMenuBody url={url} status={status} onCopy={copy} />
-      </PopoverContent>
-    </Popover>
+    <LazyPopup
+      load={loadPopup}
+      popup={{ href, label, className }}
+      trigger={(lazy) => (
+        <button
+          type="button"
+          data-slot="popover-trigger"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-label={t("aria.share")}
+          className={className}
+          {...lazy}
+          onClick={(event) => {
+            if (
+              shareNatively(linkTo(href), navigator, () => lazy.onClick(event))
+            )
+              return;
+            lazy.onClick(event);
+          }}
+        >
+          <Share2 />
+          {label && <span className={actionLabelClass}>{label}</span>}
+        </button>
+      )}
+    />
   );
 }

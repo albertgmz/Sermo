@@ -1,16 +1,9 @@
-import {
-  Cake,
-  Ellipsis,
-  Link2,
-  Mail,
-  MapPin,
-  MessagesSquare,
-  Pencil,
-} from "lucide-react";
+import { Cake, Link2, Mail, MapPin, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { CopyHandle } from "@/app/[locale]/(main)/members/[id]/copy-handle";
 import type { Profile } from "@/app/[locale]/(main)/members/[id]/profile";
+import { ProfileMore } from "@/app/[locale]/(main)/members/[id]/profile-more";
 import { FollowButton } from "@/app/[locale]/(main)/members/wall-buttons";
 import { Art } from "@/components/forum/art";
 import { NameWithIcon } from "@/components/forum/name-icon";
@@ -22,12 +15,6 @@ import { UserBadges } from "@/components/forum/user-badges";
 import { userNameProps } from "@/components/forum/user-name";
 import { Container } from "@/components/layout/container";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { formatDate, formatNumber } from "@/lib/format";
 
 import { cn } from "@/lib/utils";
@@ -170,30 +157,13 @@ export function ProfileHeader({
                     </Link>
                   );
                 })}
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    aria-label={t("aria.more")}
-                    className={iconButtonClass}
-                  >
-                    <Ellipsis className="size-5" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-48">
-                    <DropdownMenuItem
-                      className="min-h-10 md:min-h-8"
-                      render={<Link href={`${profileHref}?tab=posts`} />}
-                    >
-                      <MessagesSquare />
-                      {t("findPosts")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="min-h-10 md:min-h-8"
-                      render={<Link href={`${profileHref}?tab=threads`} />}
-                    >
-                      <MessagesSquare />
-                      {t("findThreads")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <ProfileMore
+                  label={t("aria.more")}
+                  className={iconButtonClass}
+                  profileHref={profileHref}
+                  findPosts={t("findPosts")}
+                  findThreads={t("findThreads")}
+                />
               </div>
             </div>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">

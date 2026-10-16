@@ -1,7 +1,10 @@
 // The interface text the browser is given: the namespaces (`zone.component`) that client components
 // read with `useTranslations`. Everything else is drawn on the server and never sent.
-// `tests/client-messages.test.ts` fails when a client component reads one that is not listed here,
-// and when one listed here is no longer read by any.
+// This is every namespace a client component reads, and the only ones a provider may name. The
+// root layout sends `ROOT_NAMESPACES`; a layout adds the rest its pages need with
+// `<ClientMessages namespaces={[...]}>`. `tests/client-messages.test.ts` fails when a page, layout or
+// error screen has a client component under it whose namespace no provider above it names, when a
+// layout names one that nothing under it reads, and when one listed here is read by no client.
 export const CLIENT_NAMESPACES = [
   "account.navigation",
   "account.pictures",
@@ -108,12 +111,20 @@ export const CLIENT_NAMESPACES = [
   "upgrade.rankForm",
 ] as const;
 
+export type ClientNamespace = (typeof CLIENT_NAMESPACES)[number];
+
+// What every page gets: the error screen the root segment draws.
+export const ROOT_NAMESPACES = ["layout.routeError"] as const;
+
 type Catalogue = Record<string, Record<string, unknown> | undefined>;
 
-// The catalogue cut down to the namespaces above, whole.
-export function pickClientMessages(messages: Catalogue) {
+// The catalogue cut down to the given namespaces, whole.
+export function pickClientMessages(
+  messages: Catalogue,
+  namespaces: readonly ClientNamespace[],
+) {
   const picked: Record<string, Record<string, unknown>> = {};
-  for (const namespace of CLIENT_NAMESPACES) {
+  for (const namespace of namespaces) {
     const [zone, component] = namespace.split(".");
     picked[zone] ??= {};
     picked[zone][component] = messages[zone]?.[component];

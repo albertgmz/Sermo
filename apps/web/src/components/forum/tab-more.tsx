@@ -1,18 +1,16 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import Link from "next/link";
 import type { TabLink } from "@/components/forum/tab-links";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import type { TabMorePopupProps } from "@/components/forum/tab-more-popup";
+import { LazyPopup } from "@/components/ui/lazy-popup";
 import { cn } from "@/lib/utils";
 
+const loadPopup = () => import("@/components/forum/tab-more-popup");
+
 // The tabs that do not fit the bar, in a menu at its end. `className` is what a tab link looks
-// like in the bar, so the button sits in it like one more tab.
+// like in the bar, so the button sits in it like one more tab. The menu's code (Base UI) is
+// fetched when the button is first reached for.
 export function TabMore({
   tabs,
   label,
@@ -22,24 +20,25 @@ export function TabMore({
   label: string;
   className: string;
 }) {
+  const popup: TabMorePopupProps = { tabs, label, className };
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className={cn("group", className)}>
-        {label}
-        <ChevronDown className="size-3.5 transition-transform group-data-popup-open:rotate-180" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        {tabs.map((tab) => (
-          <DropdownMenuItem
-            key={tab.value}
-            className="min-h-10 md:min-h-8"
-            render={<Link href={tab.href} scroll={false} />}
-          >
-            {tab.icon}
-            {tab.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <LazyPopup
+      load={loadPopup}
+      popup={popup}
+      opening="menu"
+      trigger={(lazy) => (
+        <button
+          type="button"
+          data-slot="dropdown-menu-trigger"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          className={cn("group", className)}
+          {...lazy}
+        >
+          {label}
+          <ChevronDown className="size-3.5" />
+        </button>
+      )}
+    />
   );
 }

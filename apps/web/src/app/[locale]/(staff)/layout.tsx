@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { AccountMenu } from "@/components/layout/account-menu";
+import { ClientMessages } from "@/components/layout/client-messages";
 import { Container } from "@/components/layout/container";
 import { getAccent } from "@/components/layout/header-data";
 import { LocaleSyncGate } from "@/components/layout/locale-sync-gate";
@@ -31,72 +32,119 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
   const t = useTranslations("admin.shell");
   return (
-    <div className="flex min-h-dvh flex-1 flex-col">
-      <Suspense>
-        <StaffAccent />
-      </Suspense>
-      <Suspense>
-        <SessionNotice />
-      </Suspense>
-      <Suspense>
-        <LocaleSyncGate />
-      </Suspense>
-      <header className="sticky top-0 z-30 border-b bg-background">
-        <Container className="flex h-14 items-center gap-1 sm:gap-3">
-          <Suspense
-            fallback={
-              <LoadingRegion label={t("aria.loadingNavigation")}>
-                <Skeleton className="-ml-2 size-10 lg:hidden" />
-              </LoadingRegion>
-            }
-          >
-            <DrawerNavigation />
-          </Suspense>
-          <Logo markOnly className="w-10 justify-center sm:hidden" />
-          <Logo className="hidden sm:inline-flex" />
-          <Suspense
-            fallback={
-              <LoadingRegion label={t("aria.loadingTitle")}>
-                <div className="flex min-w-0 flex-1 items-center border-l pl-3">
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              </LoadingRegion>
-            }
-          >
-            <CurrentTitle />
-          </Suspense>
-          <Suspense
-            fallback={
-              <LoadingRegion label={t("aria.loadingAccount")}>
-                <Skeleton className="h-10 w-14" />
-              </LoadingRegion>
-            }
-          >
-            <AccountMenu />
-          </Suspense>
-        </Container>
-      </header>
-      <Container className="grid flex-1 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6">
-        <aside className="hidden lg:block">
-          <div className="sticky top-14 max-h-[calc(100dvh-3.5rem)] overflow-y-auto py-4 pr-2">
+    <ClientMessages
+      namespaces={[
+        "admin.confirmPassword",
+        "admin.formRows",
+        "admin.forumPicker",
+        "admin.memberOutcomes",
+        "admin.ruleBuilder",
+        "admin.shell",
+        "adminAppearance.colourRows",
+        "adminAppearance.placement",
+        "adminContent.reactions",
+        "adminContent.tags",
+        "adminContent.wordFilters",
+        "adminEconomy.awards",
+        "adminEconomy.items",
+        "adminEconomy.rules",
+        "adminForums.pictureField",
+        "adminGroups.matrix",
+        "adminGroups.promotions",
+        "adminSetup.navigation",
+        "adminUsers.batch",
+        "adminUsers.promotions",
+        "auth.passwordField",
+        "forum.bbCode",
+        "forum.memberCard",
+        "forum.memberCardTrigger",
+        "layout.headerPanel",
+        "layout.headerPanels",
+        "layout.lazyPopup",
+        "layout.themeControl",
+        "layout.userMenu",
+        "lib.errors",
+        "lite.menuItem",
+        "lite.status",
+        "members.wallButtons",
+        "moderation.auditedRead",
+        "moderation.case",
+        "moderation.common",
+        "moderation.noticeFields",
+        "moderation.review",
+        "moderation.signups",
+        "skeletons.skeletons",
+        "ui.iconPicker",
+        "ui.sheet",
+      ]}
+    >
+      <div className="flex min-h-dvh flex-1 flex-col">
+        <Suspense>
+          <StaffAccent />
+        </Suspense>
+        <Suspense>
+          <SessionNotice />
+        </Suspense>
+        <Suspense>
+          <LocaleSyncGate />
+        </Suspense>
+        <header className="sticky top-0 z-30 border-b bg-background">
+          <Container className="flex h-14 items-center gap-1 sm:gap-3">
             <Suspense
               fallback={
                 <LoadingRegion label={t("aria.loadingNavigation")}>
-                  <div className="space-y-1">
-                    {[1, 2, 3, 4, 5, 6].map((row) => (
-                      <Skeleton key={row} className="h-10 w-full" />
-                    ))}
+                  <Skeleton className="-ml-2 size-10 lg:hidden" />
+                </LoadingRegion>
+              }
+            >
+              <DrawerNavigation />
+            </Suspense>
+            <Logo markOnly className="w-10 justify-center sm:hidden" />
+            <Logo className="hidden sm:inline-flex" />
+            <Suspense
+              fallback={
+                <LoadingRegion label={t("aria.loadingTitle")}>
+                  <div className="flex min-w-0 flex-1 items-center border-l pl-3">
+                    <Skeleton className="h-4 w-24" />
                   </div>
                 </LoadingRegion>
               }
             >
-              <SideNavigation />
+              <CurrentTitle />
             </Suspense>
-          </div>
-        </aside>
-        <main className="min-w-0 py-4 pb-8 lg:py-6">{children}</main>
-      </Container>
-    </div>
+            <Suspense
+              fallback={
+                <LoadingRegion label={t("aria.loadingAccount")}>
+                  <Skeleton className="h-10 w-14" />
+                </LoadingRegion>
+              }
+            >
+              <AccountMenu />
+            </Suspense>
+          </Container>
+        </header>
+        <Container className="grid flex-1 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6">
+          <aside className="hidden lg:block">
+            <div className="sticky top-14 max-h-[calc(100dvh-3.5rem)] overflow-y-auto py-4 pr-2">
+              <Suspense
+                fallback={
+                  <LoadingRegion label={t("aria.loadingNavigation")}>
+                    <div className="space-y-1">
+                      {[1, 2, 3, 4, 5, 6].map((row) => (
+                        <Skeleton key={row} className="h-10 w-full" />
+                      ))}
+                    </div>
+                  </LoadingRegion>
+                }
+              >
+                <SideNavigation />
+              </Suspense>
+            </div>
+          </aside>
+          <main className="min-w-0 py-4 pb-8 lg:py-6">{children}</main>
+        </Container>
+      </div>
+    </ClientMessages>
   );
 }
 

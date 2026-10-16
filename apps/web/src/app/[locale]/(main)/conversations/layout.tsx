@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { ClientMessages } from "@/components/layout/client-messages";
 import { NOINDEX } from "@/lib/sermo/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -15,5 +16,16 @@ export default function ConversationsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <ClientMessages
+      namespaces={[
+        "conversations.conversation",
+        "conversations.editForm",
+        "conversations.newConversationForm",
+        "conversations.recipientPicker",
+      ]}
+    >
+      {children}
+    </ClientMessages>
+  );
 }

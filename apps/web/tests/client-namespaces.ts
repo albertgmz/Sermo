@@ -32,6 +32,14 @@ function specifiers(source: string) {
   return found;
 }
 
+// Calls whose namespace is a variable: what the variable can be.
+const VARIABLE_NAMESPACES: Record<string, string[]> = {
+  "src/components/staff/run-now.tsx": [
+    "adminEconomy.awards",
+    "adminGroups.promotions",
+  ],
+};
+
 const isClient = (source: string) => /^\s*["']use client["']/m.test(source);
 const isServerAction = (source: string) =>
   /^\s*["']use server["']/m.test(source);
@@ -64,4 +72,56 @@ export function namespacesIn(source: string): (string | null)[] {
   return [
     ...source.matchAll(/\buseTranslations\(\s*(?:"([^"]+)"|`([^`$]*)|(\w+))?/g),
   ].map((match) => match[1] ?? match[2] ?? (match[3] ? null : ""));
+}
+
+// The component namespace (`zone.component`) of every `useTranslations` call in a module; a call
+// with a variable takes its namespaces from VARIABLE_NAMESPACES.
+export function componentNamespaces(file: string, source: string): string[] {
+  const name = file.replaceAll("\\", "/").replace(/^.*[/]apps[/]web[/]/, "");
+  const found = new Set<string>();
+  for (const namespace of namespacesIn(source)) {
+    const options =
+      namespace === null ? VARIABLE_NAMESPACES[name] : [namespace];
+    if (!options)
+      throw new Error(
+        `${name} calls useTranslations with a variable: list its namespaces in VARIABLE_NAMESPACES`,
+      );
+    for (const option of options) {
+      const [zone, component] = option.split(".");
+      found.add(component ? `${zone}.${component}` : zone);
+    }
+  }
+  return [...found];
+}
+
+// The namespaces read by the client modules reachable from one file: a page or layout, the server
+// components it imports, and the client components under them.
+const sources = new Map<string, string>();
+function sourceOf(file: string) {
+  let source = sources.get(file);
+  if (source === undefined) {
+    source = readFileSync(file, "utf8");
+    sources.set(file, source);
+  }
+  return source;
+}
+
+export function namespacesReachedFrom(entry: string): Set<string> {
+  const found = new Set<string>();
+  const seen = new Set<string>();
+  const visit = (file: string, inClient: boolean) => {
+    const key = `${file}|${inClient}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const source = sourceOf(file);
+    if (isServerAction(source)) return;
+    const client = inClient || isClient(source);
+    if (client) for (const n of componentNamespaces(file, source)) found.add(n);
+    for (const spec of specifiers(source)) {
+      const next = target(spec, file);
+      if (next) visit(next, client);
+    }
+  };
+  visit(resolve(entry), false);
+  return found;
 }

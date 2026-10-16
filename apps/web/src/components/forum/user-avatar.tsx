@@ -77,12 +77,17 @@ export async function UserAvatar({
           style={inner}
         />
       ) : (
+        // The initials are drawn from an attribute, not as text: a link around them would otherwise
+        // have a name like "GO" (a search engine audit rejects that as non-descriptive), where its
+        // label already says whose avatar it is.
         <AvatarFallback
-          className={cn("font-semibold uppercase", text)}
+          data-initials={user.username.slice(0, 2)}
+          className={cn(
+            "font-semibold uppercase after:content-[attr(data-initials)]",
+            text,
+          )}
           style={inner}
-        >
-          {user.username.slice(0, 2)}
-        </AvatarFallback>
+        />
       )}
       {frame && placement && (
         <AvatarImage

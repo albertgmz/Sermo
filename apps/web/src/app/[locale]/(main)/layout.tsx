@@ -5,6 +5,7 @@ import { AwaitingNotice } from "@/components/forum/awaiting-notice";
 import { NoticeBanner } from "@/components/forum/notice-banner";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { AnalyticsTag } from "@/components/layout/analytics-tag";
+import { ClientMessages } from "@/components/layout/client-messages";
 import { CountersPoll } from "@/components/layout/counters-poll";
 import { HashTarget } from "@/components/layout/hash-target";
 import { getAccent, getCounters } from "@/components/layout/header-data";
@@ -69,78 +70,132 @@ async function MobileNavigation() {
 export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
   const t = useTranslations("home.layout");
   return (
-    <div
-      data-forum-layout=""
-      className="flex min-h-dvh flex-1 flex-col pb-(--spacing-mobile-nav) md:pb-0"
+    <ClientMessages
+      namespaces={[
+        "credits.buyForm",
+        "credits.useForm",
+        "credits.wearForm",
+        "editor.editor",
+        "forum.attachmentField",
+        "forum.bbCode",
+        "forum.composer",
+        "forum.contentActions",
+        "forum.createFlow",
+        "forum.feedFilters",
+        "forum.feedViewToggle",
+        "forum.forumChoicePanel",
+        "forum.hideForumButton",
+        "forum.infiniteList",
+        "forum.memberCard",
+        "forum.memberCardTrigger",
+        "forum.mentionMenu",
+        "forum.poll",
+        "forum.reactionButton",
+        "forum.reactionSummary",
+        "forum.shareButton",
+        "forum.threadComposer",
+        "forum.threadFields",
+        "forum.threadTags",
+        "home.clampedBody",
+        "home.pictureViewer",
+        "layout.createButton",
+        "layout.guestMenu",
+        "layout.headerPanel",
+        "layout.headerPanels",
+        "layout.lazyPopup",
+        "layout.mobileNav",
+        "layout.narrowToggle",
+        "layout.noticeBanner",
+        "layout.shortcuts",
+        "layout.siteNav",
+        "layout.themeControl",
+        "layout.userMenu",
+        "lib.errors",
+        "lite.menuItem",
+        "lite.status",
+        "members.postComposer",
+        "members.wallButtons",
+        "skeletons.skeletons",
+        "threads.editForm",
+        "ui.bookmark",
+        "ui.dialog",
+        "ui.sheet",
+        "upgrade.rankForm",
+      ]}
     >
-      <Suspense>
-        <SessionNotice />
-      </Suspense>
-      <Suspense>
-        <Chrome />
-      </Suspense>
-      <Suspense>
-        <HashTarget />
-      </Suspense>
-      <Suspense>
-        <LocaleSyncGate />
-      </Suspense>
-      <Suspense>
-        <AnalyticsTag />
-      </Suspense>
-      <Suspense>
-        <ShortcutsGate />
-      </Suspense>
-      <SiteHeader />
-      <Suspense>
-        <NoticeBanner />
-      </Suspense>
-      <Suspense>
-        <AwaitingNotice />
-      </Suspense>
-      <Suspense>
-        <AcceptancePrompt />
-      </Suspense>
-      <Suspense
-        fallback={
-          <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden">
-            <LoadingRegion label={t("loadingNavigation")}>
-              <div
-                aria-hidden="true"
-                className="mx-auto grid h-14 max-w-lg grid-cols-6"
-              >
-                {[1, 2, 3, 4, 5, 6].map((item) =>
-                  item === 4 ? (
-                    <div
-                      key={item}
-                      className="flex items-center justify-center"
-                    >
-                      <Skeleton className="size-11 rounded-full" />
-                    </div>
-                  ) : (
-                    <div
-                      key={item}
-                      className="flex flex-col items-center justify-center gap-1"
-                    >
-                      <Skeleton className="size-5" />
-                      <Skeleton className="h-2.5 w-8" />
-                    </div>
-                  ),
-                )}
-              </div>
-            </LoadingRegion>
-          </div>
-        }
+      <div
+        data-forum-layout=""
+        className="flex min-h-dvh flex-1 flex-col pb-(--spacing-mobile-nav) md:pb-0"
       >
-        <MobileNavigation />
-      </Suspense>
-      <div className="relative isolate flex flex-1 flex-col">
-        <PageBackdrop />
-        {/* At least a screen below the header, so the footer starts below the fold and a page that
+        <Suspense>
+          <SessionNotice />
+        </Suspense>
+        <Suspense>
+          <Chrome />
+        </Suspense>
+        <Suspense>
+          <HashTarget />
+        </Suspense>
+        <Suspense>
+          <LocaleSyncGate />
+        </Suspense>
+        <Suspense>
+          <AnalyticsTag />
+        </Suspense>
+        <Suspense>
+          <ShortcutsGate />
+        </Suspense>
+        <SiteHeader />
+        <Suspense>
+          <NoticeBanner />
+        </Suspense>
+        <Suspense>
+          <AwaitingNotice />
+        </Suspense>
+        <Suspense>
+          <AcceptancePrompt />
+        </Suspense>
+        <Suspense
+          fallback={
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden">
+              <LoadingRegion label={t("loadingNavigation")}>
+                <div
+                  aria-hidden="true"
+                  className="mx-auto grid h-14 max-w-lg grid-cols-6"
+                >
+                  {[1, 2, 3, 4, 5, 6].map((item) =>
+                    item === 4 ? (
+                      <div
+                        key={item}
+                        className="flex items-center justify-center"
+                      >
+                        <Skeleton className="size-11 rounded-full" />
+                      </div>
+                    ) : (
+                      <div
+                        key={item}
+                        className="flex flex-col items-center justify-center gap-1"
+                      >
+                        <Skeleton className="size-5" />
+                        <Skeleton className="h-2.5 w-8" />
+                      </div>
+                    ),
+                  )}
+                </div>
+              </LoadingRegion>
+            </div>
+          }
+        >
+          <MobileNavigation />
+        </Suspense>
+        <div className="relative isolate flex flex-1 flex-col">
+          <PageBackdrop />
+          {/* At least a screen below the header, so the footer starts below the fold and a page that
             grows as it streams in does not push it out of view (a layout shift). */}
-        <main className="min-h-[calc(100svh-3.5rem)] flex-1">{children}</main>
-        <SiteFooter />
+          <main className="min-h-[calc(100svh-3.5rem)] flex-1">{children}</main>
+          <SiteFooter />
+        </div>
       </div>
-    </div>
+    </ClientMessages>
   );
 }

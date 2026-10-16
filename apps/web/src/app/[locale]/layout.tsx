@@ -12,7 +12,7 @@ import { QueryProvider } from "@/components/layout/query-provider";
 import { SiteIcon } from "@/components/layout/site-icon";
 import { themeScript } from "@/components/layout/theme";
 import { WorkerRegistration } from "@/components/layout/worker-registration";
-import { pickClientMessages } from "@/i18n/client-messages";
+import { pickClientMessages, ROOT_NAMESPACES } from "@/i18n/client-messages";
 import { isLocale, LOCALES } from "@/i18n/locales";
 import { getSite } from "@/lib/sermo/site";
 import "../globals.css";
@@ -77,10 +77,12 @@ export default async function RootLayout({
         </Suspense>
         <EmbedLoader />
         <WorkerRegistration />
-        {/* Only what client components read goes to the browser (see client-messages.ts). */}
+        {/* Only what client components read goes to the browser: the error screen here, the rest
+            from the layouts that need it (see client-messages.ts). */}
         <NextIntlClientProvider
           messages={pickClientMessages(
             messages as Parameters<typeof pickClientMessages>[0],
+            ROOT_NAMESPACES,
           )}
         >
           <UploadLimitProvider bytes={maxUploadBytes}>
