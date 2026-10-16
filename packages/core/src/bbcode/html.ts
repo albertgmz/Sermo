@@ -352,7 +352,9 @@ function element(el: El, env: Env, inLink: boolean, pre: boolean): string {
     case "LEFT":
     case "CENTER":
     case "RIGHT":
-      return `<div class="bb-${el.name.toLowerCase()}">${blocks(el.kids, env, inLink, "tight")}</div>`;
+    case "JUSTIFY":
+      // Justified text is drawn as left-aligned text, the default.
+      return `<div class="bb-${el.name === "JUSTIFY" ? "left" : el.name.toLowerCase()}">${blocks(el.kids, env, inLink, "tight")}</div>`;
     case "INDENT": {
       const level = Number(el.option ?? 1);
       return `<div class="bb-indent bb-indent-${level}">${blocks(el.kids, env, inLink, "tight")}</div>`;

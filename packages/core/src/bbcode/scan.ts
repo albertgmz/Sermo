@@ -52,6 +52,7 @@ const CONTAINERS = new Set([
   "LEFT",
   "CENTER",
   "RIGHT",
+  "JUSTIFY",
   "INDENT",
   "QUOTE",
   "SPOILER",
@@ -85,6 +86,7 @@ const BLOCK_NAMES = new Set([
   "LEFT",
   "CENTER",
   "RIGHT",
+  "JUSTIFY",
   "INDENT",
   "QUOTE",
   "SPOILER",
@@ -98,6 +100,8 @@ const BLOCK_NAMES = new Set([
 ]);
 
 const ATOM_NAMES = new Set(["PLAIN", "IMG", "MEDIA", "ATTACH", "USER", "HR"]);
+/** The name of the atom a `[/HR]` becomes; it draws nothing. */
+export const STRAY_HR = "/HR";
 
 const COLORS = new Set(
   (
@@ -201,7 +205,8 @@ function readHead(source: string, at: number): Head | null {
   if (next === 93) return { close, name, option: undefined, end: p + 1 };
   if (next !== 61 || close) return null;
   p++;
-  const quoted = source.charCodeAt(p) === 34;
+  const mark = source.charCodeAt(p);
+  const quoted = mark === 34 || mark === 39;
   const from = quoted ? p + 1 : p;
   const link = name === "URL";
   const limit = Math.min(source.length, from + (link ? MAX_URL_OPTION_LENGTH : MAX_OPTION_LENGTH));
@@ -209,10 +214,13 @@ function readHead(source: string, at: number): Head | null {
   for (; q < limit; q++) {
     const code = source.charCodeAt(q);
     // An address has no bracket, so a link option stops at the next one and the scan stays short.
-    if (code === 93 || code === 10 || code === 34 || (link && code === 91)) break;
+    if (code === 93 || code === 10 || (link && code === 91)) break;
+    // A double quote ends the option unless it is single-quoted; an apostrophe ends it only
+    // when the tag closes right after it.
+    if (mark === 39 ? code === 39 && source.charCodeAt(q + 1) === 93 : code === 34) break;
   }
   if (quoted) {
-    if (source.charCodeAt(q) !== 34 || source.charCodeAt(q + 1) !== 93) return null;
+    if (source.charCodeAt(q) !== mark || source.charCodeAt(q + 1) !== 93) return null;
     return { close, name, option: source.slice(from, q).trim(), end: q + 2 };
   }
   if (source.charCodeAt(q) !== 93) return null;
@@ -335,6 +343,10 @@ export function lex(source: string, deadline: Deadline): Tok[] {
       if (head.close) {
         if (CONTAINERS.has(head.name) && head.name !== "*") {
           toks.push(token("close", head, at, false));
+          next = head.end;
+        } else if (head.name === "HR") {
+          // XenForo writes a rule as [HR][/HR]: the closer is swallowed.
+          toks.push(token("atom", { ...head, name: STRAY_HR }, at, true));
           next = head.end;
         }
       } else if (head.name === "HR") {

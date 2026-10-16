@@ -830,3 +830,65 @@ describe("BB code review limits", () => {
     expect(md("[EMAIL=a@b.example?bcc=x@y.example]m[/EMAIL]")).toContain("[EMAIL=");
   });
 });
+
+describe("BB code as XenForo writes it", () => {
+  test("a single-quoted option reads like a double-quoted one", () => {
+    expect(md("[URL='https://a.example/x']link[/URL]")).toBe(
+      '<p><a href="https://a.example/x" rel="nofollow ugc noopener">link</a></p>',
+    );
+    expect(md("[FONT='Arial']x[/FONT]")).toBe('<p><span class="bb-font-arial">x</span></p>');
+    expect(md("[EMAIL='a@b.example']mail[/EMAIL]")).toBe(
+      '<p><a href="mailto:a@b.example" rel="nofollow ugc noopener">mail</a></p>',
+    );
+    expect(md("[SPOILER='Ending']secret[/SPOILER]")).toContain("Ending");
+    expect(md("[QUOTE='Alice']x[/QUOTE]")).toBe(
+      '<blockquote class="bb-quote"><cite class="bb-quote-author">Alice</cite>x</blockquote>',
+    );
+    // An apostrophe or a double quote inside the name does not end it; only ' followed by ].
+    expect(md("[QUOTE='O'Brien']x[/QUOTE]")).toContain("bb-quote-author\">O'Brien<");
+    expect(md(`[QUOTE='Say "hi"']x[/QUOTE]`)).toContain('Say "hi"</cite>');
+    // Not closed: still text.
+    expect(md("[QUOTE='Alice]x[/QUOTE]")).toBe("<p>[QUOTE='Alice]x[/QUOTE]</p>");
+    expect(md("[URL='https://a.example]x[/URL]")).toContain("[URL='");
+  });
+
+  test("JUSTIFY is a block drawn as left-aligned text", () => {
+    expect(md("[JUSTIFY]Some [B]long[/B] text[/JUSTIFY]")).toBe(
+      '<div class="bb-left">Some <strong>long</strong> text</div>',
+    );
+    expect(md("before [JUSTIFY]mid[/JUSTIFY] after")).toBe(
+      '<p>before</p><div class="bb-left">mid</div><p>after</p>',
+    );
+    expect(md("[justify]a[/justify]")).toBe('<div class="bb-left">a</div>');
+    expect(md("[JUSTIFY=2]x[/JUSTIFY]")).toBe("<p>[JUSTIFY=2]x[/JUSTIFY]</p>");
+    expect(md("[JUSTIFY]open")).toBe("<p>[JUSTIFY]open</p>");
+  });
+
+  test("a stray [/HR] is swallowed", () => {
+    expect(md("a\n[HR][/HR]\nb")).toBe("<p>a</p><hr /><p>b</p>");
+    expect(md("[HR][/HR]")).toBe("<hr />");
+    expect(md("a [/HR] b")).toBe("<p>a  b</p>");
+    expect(md("[B]x[/HR]y[/B]")).toBe("<p><strong>xy</strong></p>");
+    // Literal tags keep it as typed.
+    expect(md("[CODE][HR][/HR][/CODE]")).toContain("[HR][/HR]");
+    expect(md("[CODE=rich][/HR][/CODE]")).toContain("[/HR]");
+    expect(maskMarkupForExcerpt("a[HR][/HR]b")).toBe("ab");
+  });
+
+  test("a quote option may end in any key: N pairs", () => {
+    const cite = (option: string) => md(`[QUOTE=${option}]x[/QUOTE]`);
+    expect(cite('"Alice, convMessage: 123, member: 4"')).toBe(
+      '<blockquote class="bb-quote"><cite class="bb-quote-author">Alice</cite>x</blockquote>',
+    );
+    expect(cite('"Alice, convMessage: 123"')).toContain(">Alice<");
+    expect(cite("'Alice, convMessage: 123, member: 4'")).toContain(">Alice<");
+    expect(cite('"Alice, post: 12, member: 3"')).toContain(">Alice<");
+    expect(cite('"Alice, other: 1, post: 12, member: 3, more: 9"')).toContain(">Alice<");
+    // Only a trailing run of pairs is metadata; a colon in the name is still the name.
+    expect(cite('"Re: Bob, convMessage: 5"')).toContain(">Re: Bob<");
+    expect(cite('"Bob, level: high"')).toContain(">Bob, level: high<");
+    expect(cite('"Bob, post: 12, Alice"')).toContain(">Bob, post: 12, Alice<");
+    // No author left.
+    expect(cite('"convMessage: 123"')).toBe('<blockquote class="bb-quote">x</blockquote>');
+  });
+});

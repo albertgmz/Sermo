@@ -1,7 +1,7 @@
 import { ValidationError } from "../errors";
 import type { Deadline } from "./deadline";
 import { HASHTAG_SOURCE, normalizeTag } from "./hashtag";
-import { ADDRESS_CHAR, type Tok, URL_PATTERN } from "./scan";
+import { ADDRESS_CHAR, STRAY_HR, type Tok, URL_PATTERN } from "./scan";
 
 const MAX_QUOTE_DEPTH = 10;
 const MAX_SPOILER_DEPTH = 10;
@@ -74,6 +74,7 @@ const BLOCK_ELEMENTS = new Set([
   "LEFT",
   "CENTER",
   "RIGHT",
+  "JUSTIFY",
   "INDENT",
   "QUOTE",
   "SPOILER",
@@ -125,6 +126,19 @@ function trimAddress(address: string): string {
     } else break;
   }
   return address.slice(0, end);
+}
+
+/** The `key: N` pairs a quote option ends with, as XenForo writes them (`post: 5, member: 2`). */
+const QUOTE_PAIRS =
+  /(?:^|,)\s*[A-Za-z_]\w{0,30}\s*:\s*\d{1,12}(?:\s*,\s*[A-Za-z_]\w{0,30}\s*:\s*\d{1,12})*\s*$/;
+
+/** The post named by a run of `key: N` pairs; every other key is ignored. */
+function quotedPost(pairs: string): number | null {
+  for (const part of pairs.split(",")) {
+    const found = /^\s*post\s*:\s*(\d+)\s*$/i.exec(part);
+    if (found) return Number(found[1]) || null;
+  }
+  return null;
 }
 
 interface Frame {
@@ -250,8 +264,8 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
     };
     if (quote) {
       const option = tok.option ?? "";
-      const reference = /(?:^|,)\s*post:\s*(\d{1,12})(?:,\s*member:\s*\d{1,12})?\s*$/i.exec(option);
-      const postId = reference ? Number(reference[1]) : null;
+      const reference = QUOTE_PAIRS.exec(option);
+      const postId = reference ? quotedPost(reference[0]) : null;
       const author = (reference ? option.slice(0, reference.index) : option).trim();
       el.quote = { author: author || null, postId: postId && postId > 0 ? postId : null };
       if (el.quote.postId) quotes.push(el);
@@ -295,7 +309,12 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
         };
         mentions.push(mention);
         top.kids.push(mention);
-      } else if (tok.name === "USER" || (top.rich && (tok.name === "CODE" || tok.name === "HR"))) {
+      } else if (tok.name === STRAY_HR && !top.rich) {
+        // Nothing to draw.
+      } else if (
+        tok.name === "USER" ||
+        (top.rich && (tok.name === "CODE" || tok.name === "HR" || tok.name === STRAY_HR))
+      ) {
         top.kids.push({
           t: "text",
           text: tok.name === "USER" ? tok.text! : source.slice(tok.start, tok.end),

@@ -313,7 +313,13 @@ describe("BB code references", () => {
     expect(result.html).not.toContain("Fake");
     expect(result.source).toBe(`${canonical}[B]quoted[/B][/QUOTE]`);
     // XenForo's other spellings of a quote of a post.
-    for (const option of [`post: ${postId}`, `Fake, post: ${postId}`, `"Fake, post: ${postId}"`]) {
+    for (const option of [
+      `post: ${postId}`,
+      `Fake, post: ${postId}`,
+      `"Fake, post: ${postId}"`,
+      `'Fake, post: ${postId}, member: 9'`,
+      `"Fake, convMessage: 4, post: ${postId}, member: 9"`,
+    ]) {
       const spelled = renderContent(ctx, other, `[quote=${option}]text[/quote]`);
       expect(spelled.source).toBe(`${canonical}text[/quote]`);
       expect(spelled.html).toContain("Alice</a> wrote:");
