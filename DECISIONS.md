@@ -2982,3 +2982,39 @@ with it); hard delete removes it; erasure keeps votes, and a public voter list s
 Known limits: no feed badge; pictures carry an empty alt text; a text others reworded meanwhile is
 overwritten by a stale editor's own; editing the texts of a poll is not held for a member on
 probation.
+
+**Feed filters (item 13).** Migration 0056 (`feed_filters`): tables `feed_filters` (saved filters)
+and `feed_hidden_nodes` (forums a member hid), and partial indexes `threads_prefix_feed`,
+`threads_sticky_feed`, `threads_locked_feed`. `feed.list` and `feed.newCount` take `forumIds` (a
+forum and what is under it, at most 20 named), `prefixId`, `type` (featured, sticky, locked), `tag`,
+`watched` and `unread`, in every scope. The fields combine, nothing widens what the viewer may read
+(every walk's candidates pass the usual forum, read-gate, state and ignore checks, and a tag given
+by the opening post's hashtags is closed to a viewer who may not read that text), and with a field
+on only threads are listed (wall posts have no forum; with no field on, wall posts stay even when
+every forum is hidden or left out). The walk is chosen by what the filter needs: the tag page's
+`thread_tags_hub` for a tag (ordered like that page, so a bumped thread rises above newer posts; the
+new-posts count compares post times and can miss entries below a bumped thread until a newer post
+passes it), the member's 500 most recent watches for `watched` on Latest (the other tabs check every
+watch), the active features (newest 200) for `featured`, one `threads_node_feed` seek per forum when
+forums are named (up to 64 forums; the widest case measured is 54 forums, about 11 ms of SQL for ten
+batches), otherwise the new `threads_prefix_feed`, the partial `threads_sticky_feed` and
+`threads_locked_feed` for a prefix, pinned or locked filter, otherwise `threads_public_feed`; the
+forums the site and the member leave out are dropped from what a walk finds, never chosen as a walk.
+Unread is one `thread_reads` probe per batch inside the 30-day window, and every field no index
+orders is checked per batch by thread id. "People I follow" is the Following tab (one entry per
+answer by a followed member). Members save up to 10 named filters (`feed_filters`; the same name
+replaces) and hide up to 100 forums from their own feed (`feed_hidden_nodes`, a forum and what is
+under it; a filter that names a forum lists it again); admins leave forums out of the feed for
+everyone (`feedExcludedForumIds`, never listed, even when named, and also out of the home Featured
+block and the sidebar's ranked lists, which ask `threads.ranked` with `feed`). Migration `00xx`. The
+web has a lazy Filters sheet, chips, an eye toggle per forum and a hide button on every thread card,
+and the admin list on Settings > Home page; the infinite list follows at most two empty pages in a
+row by itself, then waits for the button, with a line saying nothing was found yet in what was
+looked at. Sorting labels were audited: the feed summary no longer says Hot is newest first, and the
+sidebar's "Latest threads" is the newest threads by creation (it showed last activity). Known
+limits: a request examines at most 400 candidates per side, so a named category of more than 64
+forums, a forum with a rare prefix, type or unread, or a quiet subtree can return short or empty
+pages that carry a cursor; `watched` on Latest is 500 watches; scrolled-to pages keep a hidden
+forum's cards until reload; hiding has no undo; tabs drop the filter; filtered addresses are
+indexable; account erasure keeps saved filter names; `thread type` has no poll value until item 10
+lands.
