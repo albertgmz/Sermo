@@ -380,7 +380,6 @@
     "seeScore": "See your score",
     "answer": "Answer",
     "invalid": "The poll could not be read. Check it and try again.",
-    "deleteUnfinished": "The poll has so many votes that its removal is not finished yet. Delete it again to go on.",
     "changed": "This poll changed since you opened it (for example a voter added an answer). Load what changed: your edits are kept and the new answers are added to the list, then save again.",
     "reload": "Load what changed",
     "customHelp": "Each voter may add one answer of their own; the same text rules as yours apply."

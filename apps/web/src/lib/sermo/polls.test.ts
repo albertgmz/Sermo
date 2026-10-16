@@ -346,3 +346,82 @@ test("what changed meanwhile is taken into the form without touching what was ty
   // Taken in once, it is not taken in again.
   expect(question(mergeFresh(merged, fresh)).answers).toHaveLength(3);
 });
+
+test("questions added meanwhile join a quiz, and rows removed meanwhile leave the draft", () => {
+  const base = {
+    id: 5,
+    threadId: 2,
+    kind: "quiz" as const,
+    anonymous: false,
+    maxChoices: 1,
+    allowCustom: false,
+    allowChange: false,
+    results: "always" as const,
+    closesAt: null,
+    ballotCount: 0,
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const answer = (id: number, text: string) => ({
+    id,
+    text,
+    image: null,
+    correct: id % 10 === 1,
+    custom: false,
+    votes: 0,
+  });
+  const q = (id: number, answers: ReturnType<typeof answer>[]) => ({
+    id,
+    text: `Q${id}`,
+    explanation: "",
+    image: null,
+    answers,
+  });
+  const loaded: PollDefinitionView = {
+    ...base,
+    questions: [
+      q(1, [answer(11, "A"), answer(12, "B"), answer(13, "C")]),
+      q(2, [answer(21, "D"), answer(22, "E")]),
+    ],
+  };
+  const draft = draftFromDefinition(loaded);
+  // The member types in the first question, adds a question of their own, and removes an answer.
+  question(draft).text = "Typed";
+  draft.questions.push({
+    text: "Mine",
+    explanation: "",
+    picture: null,
+    answers: [
+      { text: "x", correct: true, picture: null },
+      { text: "y", correct: false, picture: null },
+    ],
+  });
+  question(draft).answers = question(draft).answers.filter((a) => a.id !== 12);
+  // Meanwhile another editor removed question 2 and the answer 13, and added question 3 and answer 14.
+  const fresh: PollDefinitionView = {
+    ...base,
+    updatedAt: "2026-01-02T00:00:00.000Z",
+    questions: [
+      q(1, [answer(11, "A"), answer(12, "B"), answer(14, "F")]),
+      q(3, [answer(31, "G"), answer(32, "H")]),
+    ],
+  };
+  const merged = mergeFresh(draft, fresh);
+  expect(merged.questions.map((item) => item.text)).toEqual([
+    "Typed",
+    "Mine",
+    "Q3",
+  ]);
+  // Answer 12 stays removed (the member removed it), 13 is gone, 14 came in.
+  expect(merged.questions[0]?.answers.map((a) => a.id)).toEqual([11, 14]);
+  // What is sent now names only rows that exist, and the question another editor added is kept.
+  const sent = draftToInput(merged);
+  const ids = sent.questions.flatMap((item) => [
+    item.id,
+    ...item.answers.map((a) => a.id),
+  ]);
+  expect(
+    ids.filter((id) => id !== undefined).sort((x, y) => (x ?? 0) - (y ?? 0)),
+  ).toEqual([1, 3, 11, 14, 31, 32]);
+  // Taken in once, not again.
+  expect(mergeFresh(merged, fresh).questions).toHaveLength(3);
+});

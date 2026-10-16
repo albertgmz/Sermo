@@ -79,6 +79,7 @@ const thread = (canReply: boolean, state = "visible") => ({
   node: { id: 2, title: "Garden" },
   watching: null,
   tags: [],
+  poll: { exists: false, canAdd: false },
   featured: null,
   permissions: {
     canReply,

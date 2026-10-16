@@ -25,11 +25,6 @@ import {
 } from "@/lib/sermo/polls";
 
 // What the poll screens hear back: the poll as the viewer sees it now, or the backend's refusal.
-// A poll goes in batches of 2,000 voters a call: this many calls (a million voters, some ten
-// seconds) is far above any real poll. The request is bound, not the poll: past it the staff member
-// calls again (polls.delete) and the removal goes on where it stopped.
-const MAX_DELETE_CALLS = 500;
-
 export type PollAnswer =
   | { poll: PollView }
   | { error: string; conflict?: true };
@@ -89,20 +84,14 @@ export async function pollDeleteAction(
 ): Promise<{ error?: string; done?: boolean }> {
   requireIds(threadId, pollId);
   const reason = String(formData.get("reason") ?? "");
-  // A poll with very many voters goes in batches: the call is repeated until the backend says it is
-  // done, within a bound; past it the staff member is told to go on.
-  for (let step = 0; step < MAX_DELETE_CALLS; step++) {
-    const done = await attempt(back(threadId), () =>
-      call(pollsDelete, { pollId, reason }),
-    );
-    if (!done.ok) return { error: done.error };
-    if (done.value.completed) {
-      refresh();
-      return { done: true };
-    }
-  }
+  // A poll with very many voters is taken out of sight at once and a background job removes the
+  // voters: one call, whatever the size.
+  const done = await attempt(back(threadId), () =>
+    call(pollsDelete, { pollId, reason }),
+  );
+  if (!done.ok) return { error: done.error };
   refresh();
-  return { error: (await getTranslations("forum.poll"))("deleteUnfinished") };
+  return { done: true };
 }
 
 export async function pollVotersAction(

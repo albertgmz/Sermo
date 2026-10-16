@@ -209,31 +209,13 @@ test("deleting a poll sends the reason and redraws the page", async () => {
   assert.equal(refreshed, 1);
 });
 
-test("a poll with very many voters is deleted by repeating the call until the backend says it is done", async () => {
-  const replies = [false, false, true];
-  globalThis.fetch = (async (url: string, init: RequestInit) => {
-    asked.push({
-      method: init.method ?? "GET",
-      url,
-      body: init.body ? JSON.parse(String(init.body)) : undefined,
-    });
-    return Response.json({ ok: true, completed: replies.shift() ?? true });
-  }) as unknown as typeof fetch;
+test("a poll with very many voters is deleted with one call: the backend's job does the rest", async () => {
+  answer = { status: 200, body: { ok: true, completed: false } };
   assert.deepEqual(await actions.pollDeleteAction(9, 5, {}, new FormData()), {
     done: true,
   });
-  assert.equal(asked.length, 3);
+  assert.equal(asked.length, 1);
   assert.equal(refreshed, 1);
-});
-
-test("a delete that never finishes stops after a bound and says to go on", async () => {
-  globalThis.fetch = (async (url: string, init: RequestInit) => {
-    asked.push({ method: init.method ?? "GET", url, body: undefined });
-    return Response.json({ ok: true, completed: false });
-  }) as unknown as typeof fetch;
-  const done = await actions.pollDeleteAction(9, 5, {}, new FormData());
-  assert.deepEqual(done, { error: "deleteUnfinished" });
-  assert.equal(asked.length, 500);
 });
 
 test("the poll comes back to the client without picture addresses", async () => {

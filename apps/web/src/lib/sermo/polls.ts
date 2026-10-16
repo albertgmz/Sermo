@@ -111,6 +111,8 @@ export type PollDraft = {
   loadedAt?: string;
   // The ids of the answers the form has seen: an answer that is not among them was added since.
   knownIds?: number[];
+  // The same for questions (a quiz another editor added a question to).
+  knownQuestionIds?: number[];
   questions: DraftQuestion[];
 };
 
@@ -159,9 +161,31 @@ export function toLocalInput(iso: string | null): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+const pictureOf = (image: { fileId: number } | null): DraftPicture | null =>
+  image ? { fileId: image.fileId, name: `#${image.fileId}` } : null;
+
+const draftAnswerOf = (
+  answer: PollDefinitionView["questions"][number]["answers"][number],
+): DraftAnswer => ({
+  id: answer.id,
+  text: answer.text,
+  correct: answer.correct,
+  picture: pictureOf(answer.image),
+  custom: answer.custom,
+  votes: answer.votes,
+});
+
+const draftQuestionOf = (
+  question: PollDefinitionView["questions"][number],
+): DraftQuestion => ({
+  id: question.id,
+  text: question.text,
+  explanation: question.explanation,
+  picture: pictureOf(question.image),
+  answers: question.answers.map(draftAnswerOf),
+});
+
 export function draftFromDefinition(definition: PollDefinitionView): PollDraft {
-  const picture = (image: { fileId: number } | null): DraftPicture | null =>
-    image ? { fileId: image.fileId, name: `#${image.fileId}` } : null;
   return {
     kind: definition.kind,
     anonymous: definition.anonymous,
@@ -176,20 +200,8 @@ export function draftFromDefinition(definition: PollDefinitionView): PollDraft {
       question.answers.map((a) => a.id),
     ),
 
-    questions: definition.questions.map((question) => ({
-      id: question.id,
-      text: question.text,
-      explanation: question.explanation,
-      picture: picture(question.image),
-      answers: question.answers.map((answer) => ({
-        id: answer.id,
-        text: answer.text,
-        correct: answer.correct,
-        picture: picture(answer.image),
-        custom: answer.custom,
-        votes: answer.votes,
-      })),
-    })),
+    knownQuestionIds: definition.questions.map((question) => question.id),
+    questions: definition.questions.map(draftQuestionOf),
   };
 }
 
@@ -246,39 +258,44 @@ export function pollFromJson(text: string): PollInputValue | null {
 }
 
 // What changed in the poll since the form was loaded, taken into the form without touching what
-// the member typed: the answers added since (a voter's own) join their question, the version moves
-// to the new one, and answers the member removed stay removed. Anything else the others changed
-// (a reworded text) is not merged: the member's text is what is saved.
+// the member typed: the answers and questions added since join the list, the ones removed since
+// leave it (a save would be refused for a row that is gone, or would remove one it never saw), the
+// version moves to the new one, and what the member removed stays removed. Anything else the
+// others changed (a reworded text) is not merged: the member's text is what is saved.
 export function mergeFresh(
   draft: PollDraft,
   fresh: PollDefinitionView,
 ): PollDraft {
-  const known = new Set(draft.knownIds ?? []);
+  const knownAnswers = new Set(draft.knownIds ?? []);
+  const knownQuestions = new Set(draft.knownQuestionIds ?? []);
+  const answersNow = new Set(
+    fresh.questions.flatMap((question) => question.answers.map((a) => a.id)),
+  );
+  const kept = draft.questions
+    .filter(
+      (question) =>
+        question.id === undefined ||
+        fresh.questions.some((item) => item.id === question.id),
+    )
+    .map((question) => {
+      const found = fresh.questions.find((item) => item.id === question.id);
+      const answers = question.answers.filter(
+        (answer) => answer.id === undefined || answersNow.has(answer.id),
+      );
+      const added = (found?.answers ?? [])
+        .filter((answer) => !knownAnswers.has(answer.id))
+        .map(draftAnswerOf);
+      return { ...question, answers: [...answers, ...added] };
+    });
+  const addedQuestions = fresh.questions
+    .filter((question) => !knownQuestions.has(question.id))
+    .map(draftQuestionOf);
   return {
     ...draft,
     loadedAt: fresh.updatedAt,
-    knownIds: fresh.questions.flatMap((question) =>
-      question.answers.map((a) => a.id),
-    ),
-    questions: draft.questions.map((question) => {
-      const found = fresh.questions.find((item) => item.id === question.id);
-      if (!found) return question;
-      const added = found.answers
-        .filter((answer) => !known.has(answer.id))
-        .map(
-          (answer): DraftAnswer => ({
-            id: answer.id,
-            text: answer.text,
-            correct: answer.correct,
-            picture: answer.image
-              ? { fileId: answer.image.fileId, name: `#${answer.image.fileId}` }
-              : null,
-            custom: answer.custom,
-            votes: answer.votes,
-          }),
-        );
-      return { ...question, answers: [...question.answers, ...added] };
-    }),
+    knownIds: [...answersNow],
+    knownQuestionIds: fresh.questions.map((question) => question.id),
+    questions: [...kept, ...addedQuestions],
   };
 }
 
