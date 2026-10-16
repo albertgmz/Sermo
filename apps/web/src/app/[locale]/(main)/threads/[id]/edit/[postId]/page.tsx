@@ -75,7 +75,7 @@ export default async function EditPostPage({
             attachIn={threadMay(resolvedPermissions).attach ? node.id : null}
             attached={post.attachments.map((file) => ({
               id: file.fileId,
-              name: fileName(file.url, file.fileId),
+              name: fileName(file),
               size: file.byteSize,
               type: file.contentType,
             }))}

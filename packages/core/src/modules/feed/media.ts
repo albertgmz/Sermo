@@ -27,6 +27,7 @@ type FileRow = {
   byte_size: number;
   width: number | null;
   height: number | null;
+  filename: string | null;
   thumbnail_id: number | null;
 };
 type PostRow = PostCandidate & { position: number };
@@ -40,7 +41,7 @@ export const mediaSql = {
    * attachment when the kind has none (about 10 ms with 300,000 rows).
    */
   newest: `SELECT ${columns} FROM attachments INDEXED BY attachments_type_id WHERE content_type = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3`,
-  files: `SELECT a.id, f.id AS file_id, f.content_type, f.byte_size, f.width, f.height, thumb.id AS thumbnail_id FROM attachments a JOIN files f ON f.id = a.file_id LEFT JOIN files thumb INDEXED BY files_variant ON thumb.parent_file_id = f.id AND thumb.variant = 'thumbnail' AND thumb.deleted_at IS NULL WHERE a.id IN (SELECT value FROM json_each(?1)) AND f.deleted_at IS NULL AND f.content_type IN (SELECT value FROM json_each(?2))`,
+  files: `SELECT a.id, f.id AS file_id, f.content_type, f.byte_size, f.width, f.height, f.filename, thumb.id AS thumbnail_id FROM attachments a JOIN files f ON f.id = a.file_id LEFT JOIN files thumb INDEXED BY files_variant ON thumb.parent_file_id = f.id AND thumb.variant = 'thumbnail' AND thumb.deleted_at IS NULL WHERE a.id IN (SELECT value FROM json_each(?1)) AND f.deleted_at IS NULL AND f.content_type IN (SELECT value FROM json_each(?2))`,
   posts:
     "SELECT id, thread_id, user_id, state, created_at, position FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
   walls:
@@ -137,6 +138,7 @@ export const mediaListOp = implement(mediaList, (ctx, actor, input) => {
           byteSize: file.byte_size,
           width: file.width,
           height: file.height,
+          filename: file.filename,
           thumbnailUrl: file.thumbnail_id === null ? null : fileUrl(file.thumbnail_id),
         },
       };

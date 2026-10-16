@@ -54,9 +54,10 @@ export async function commentOnWallPost(
 ): Promise<WallState> {
   requireIds(profilePostId);
   const body = String(formData.get("body") ?? "");
+  const attachmentIds = formIds(formData, "attachmentIds");
   const page = returnTo === undefined ? await pageOfRequest() : returnTo;
   const created = await attempt(page, () =>
-    call(profileCommentsCreate, { profilePostId, body }),
+    call(profileCommentsCreate, { profilePostId, body, attachmentIds }),
   );
   if (!created.ok) return { error: created.error };
   refresh();
@@ -89,7 +90,7 @@ export async function wallItemSource(
   }
 }
 
-// Saves an edited wall post or comment and draws the page again; `done` closes the edit form. A post's files stay as they are.
+// Saves an edited wall post or comment and draws the page again; `done` closes the edit form. Its files stay as they are.
 export async function editWallItem(
   kind: WallItemKind,
   id: number,

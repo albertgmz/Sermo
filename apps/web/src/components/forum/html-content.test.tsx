@@ -65,6 +65,7 @@ const picture = {
   byteSize: 100,
   width: 800,
   height: 400,
+  filename: "cat.png",
 };
 
 async function render(body: string, attachments = [picture]) {

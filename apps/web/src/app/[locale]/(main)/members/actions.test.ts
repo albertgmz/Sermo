@@ -70,14 +70,26 @@ test("an attachment id that is not a record id never reaches the backend", async
   assert.equal(asked.length, 0);
 });
 
-test("a comment carries no files: the backend takes none for it", async () => {
+test("a comment carries the files that were attached to it", async () => {
   await commentOnWallPost(
     8,
     "/members/5",
     {},
-    form({ body: "hi", attachmentIds: ["4"] }),
+    form({ body: "hi", attachmentIds: ["4", "5"] }),
   );
-  assert.deepEqual(asked[0].body, { body: "hi" });
+  assert.deepEqual(asked[0].body, { body: "hi", attachmentIds: [4, 5] });
+});
+
+test("a comment's attachment id that is not a record id never reaches the backend", async () => {
+  await assert.rejects(() =>
+    commentOnWallPost(
+      8,
+      "/members/5",
+      {},
+      form({ body: "hi", attachmentIds: "x" }),
+    ),
+  );
+  assert.equal(asked.length, 0);
 });
 
 // The wall composer keeps what was written by not letting React reset its form, so what empties
@@ -143,6 +155,8 @@ test("a comment that was taken refreshes the page and returns to the wall or the
         createdAt: "2026-10-13T03:57:31.497Z",
         editedAt: null,
         bodyHtml: "<p>hi</p>",
+        attachmentCount: 0,
+        attachments: [],
         bodySource: "hi",
         reactions: { counts: {}, total: 0, mine: null },
         canEdit: true,
@@ -185,6 +199,8 @@ test("a comment written in the feed returns to the feed address the browser has"
       createdAt: "2026-10-13T03:57:31.497Z",
       editedAt: null,
       bodyHtml: "<p>hi</p>",
+      attachmentCount: 0,
+      attachments: [],
       bodySource: "hi",
       reactions: { counts: {}, total: 0, mine: null },
       canEdit: true,

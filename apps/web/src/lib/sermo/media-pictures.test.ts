@@ -37,6 +37,7 @@ const file = (id: number, over: Record<string, unknown> = {}) => ({
   byteSize: 1,
   width: 640,
   height: 480,
+  filename: null,
   thumbnailUrl: `/api/v1/files/${id + 1000}`,
   ...over,
 });

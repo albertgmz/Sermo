@@ -226,6 +226,7 @@ test("the poll comes back to the client without picture addresses", async () => 
     byteSize: 1,
     width: 1,
     height: 1,
+    filename: null,
     thumbnailUrl: "/api/v1/files/71",
   };
   answer = {

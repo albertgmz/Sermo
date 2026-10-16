@@ -3,6 +3,7 @@ import { Hourglass, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type * as z from "zod";
+import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { HtmlContent } from "@/components/forum/html-content";
 import {
@@ -14,6 +15,7 @@ import { PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { WallItemActions } from "@/components/forum/wall-item-actions";
+import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -122,9 +124,14 @@ export function WallComments({
           <HtmlContent
             className="text-(length:--text-compact)"
             content={{ type: "profile_post_comment", id: comment.id }}
+            attachments={comment.attachments}
           >
             {comment.bodyHtml}
           </HtmlContent>
+          <PostAttachments
+            attachments={comment.attachments}
+            inline={inlineAttachmentIds(comment.bodyHtml, comment.attachments)}
+          />
         </MessageRow>
       ))}
       {links.older && (
@@ -149,6 +156,7 @@ export function WallComments({
             action={action}
             placeholder={t("placeholder")}
             submitLabel={t("submit")}
+            attach
           />
         </div>
       )}

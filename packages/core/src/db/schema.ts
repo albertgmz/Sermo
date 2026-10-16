@@ -77,6 +77,7 @@ export const ATTACHMENT_CONTENT_TYPES = [
   "profile_post",
   "conversation_message",
   "poll",
+  "profile_post_comment",
 ] as const;
 export const REPORT_TARGET_TYPES = [
   "post",
@@ -1046,6 +1047,7 @@ export const profilePostComments = sqliteTable(
     bodySource: text("body_source").notNull(),
     bodyHtml: text("body_html").notNull(),
     reactionCounts: reactionCounts(),
+    attachmentCount: counter("attachment_count"),
   },
   (t) => [
     // comments of a profile post, by id
@@ -1260,6 +1262,8 @@ export const files = sqliteTable(
     sha256: text("sha256").notNull(),
     width: integer("width"),
     height: integer("height"),
+    /** The name the file had when it was uploaded; null for a file that came without one. */
+    filename: text("filename"),
     uploaderId: integer("uploader_id")
       .notNull()
       .references(() => users.id),

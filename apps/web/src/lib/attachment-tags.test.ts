@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  fileName,
   type InlineContext,
   inlineAttachmentIds,
   placeAttachments,
@@ -17,6 +18,7 @@ const file = (
   byteSize: 2048,
   width: 1000,
   height: 500,
+  filename: null,
   ...over,
 });
 
@@ -142,4 +144,22 @@ test("the ids placed inline are those of the item's own attachments, each once",
   expect(inlineAttachmentIds(html, [file(1), file(2), file(3)])).toEqual([
     1, 2,
   ]);
+});
+
+test("a file is called by the name it was uploaded with, or by its address when it has none", () => {
+  expect(fileName(file(1, { filename: "informe económico.pdf" }))).toBe(
+    "informe económico.pdf",
+  );
+  expect(fileName(file(2))).toBe("plan.png");
+  expect(fileName(file(3, { url: "/api/v1/files/3" }))).toBe("3");
+});
+
+test("a file placed inline shows its uploaded name", () => {
+  const pdf = file(1, {
+    contentType: "application/pdf",
+    filename: "informe económico.pdf",
+  });
+  const html = placeAttachments(slot(1), [pdf], context);
+  expect(html).toContain("informe económico.pdf");
+  expect(html).not.toContain(">plan.png<");
 });

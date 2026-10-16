@@ -54,6 +54,7 @@ const file = (fileId: number, over: Record<string, unknown> = {}) => ({
   byteSize: 2048,
   width: null,
   height: null,
+  filename: null,
   ...over,
 });
 
@@ -125,4 +126,17 @@ test("the attachments the text placed inline are not listed again", async () => 
   expect(out).not.toContain("/api/v1/files/3");
   expect(out).toContain("/api/v1/files/2");
   expect(out).toContain('aria-label="Attached picture 1 of 1"');
+});
+
+test("a file row shows the name the file was uploaded with", async () => {
+  cookie = undefined;
+  const out = await html([
+    file(4, {
+      contentType: "application/pdf",
+      filename: "informe económico.pdf",
+    }),
+    file(5, { contentType: "application/pdf" }),
+  ]);
+  expect(out).toContain('<span class="truncate">informe económico.pdf</span>');
+  expect(out).toContain('<span class="truncate">5</span>');
 });

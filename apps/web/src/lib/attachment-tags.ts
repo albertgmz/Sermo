@@ -8,10 +8,17 @@ export type TaggedAttachment = {
   byteSize: number;
   width: number | null;
   height: number | null;
+  filename: string | null;
 };
 
-// The attachments carry no name of their own: the last part of the address is the best there is.
-export function fileName(url: string, fileId: number) {
+// The name the file was uploaded with. Files that came without one (older uploads) have the last
+// part of the address, which is the best there is.
+export function fileName({
+  filename,
+  url,
+  fileId,
+}: Pick<TaggedAttachment, "filename" | "url" | "fileId">) {
+  if (filename) return filename;
   const last = url.split("?")[0].split("/").at(-1);
   try {
     return last ? decodeURIComponent(last) : `#${fileId}`;
@@ -88,7 +95,7 @@ function drawn(
   context: InlineContext,
   inLink: boolean,
 ) {
-  const name = escapeHtml(fileName(file.url, file.fileId));
+  const name = escapeHtml(fileName(file));
   if (!file.contentType.startsWith("image/")) {
     // A link inside a link is no link: inside one, the file is just its name.
     if (inLink) return name;

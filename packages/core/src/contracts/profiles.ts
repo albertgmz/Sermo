@@ -80,6 +80,8 @@ export const ProfileComment = z
     createdAt: Timestamp,
     editedAt: Timestamp.nullable(),
     bodyHtml: z.string(),
+    attachmentCount: z.number().int().nonnegative(),
+    attachments: z.array(Attachment),
     reactions: ReactionSummary,
     canEdit: z.boolean(),
     canDelete: z.boolean(),
@@ -318,7 +320,7 @@ export const profileCommentsCreate = defineContract({
   name: "profileComments.create",
   summary: "Comment on a profile post.",
   kind: "write",
-  input: z.object({ profilePostId: Id, body: Body }),
+  input: z.object({ profilePostId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: ProfileCommentDetail,
 });
 
@@ -326,7 +328,7 @@ export const profileCommentsUpdate = defineContract({
   name: "profileComments.update",
   summary: "Edit a comment. Author or moderator.",
   kind: "write",
-  input: z.object({ ...moderationNotice, commentId: Id, body: Body }),
+  input: z.object({ ...moderationNotice, commentId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: ProfileCommentDetail,
 });
 

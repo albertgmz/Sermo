@@ -17,6 +17,7 @@ import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, currentActor, permissionsOf, requirePermission } from "../../permissions";
 import { storeContentReferences, storeSpoilers } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
+import { setAttachments, validateEmbeddedAttachments } from "../attachments";
 import {
   appendModeratorLog,
   moderateEditedContent,
@@ -110,6 +111,9 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
       )!;
       storeContentReferences(ctx, "profile_post_comment", row.id, refs);
       storeSpoilers(ctx, "profile_post_comment", row.id, refs.spoilers);
+      setAttachments(ctx, user.userId, "profile_post_comment", row.id, input.attachmentIds ?? []);
+      validateEmbeddedAttachments(ctx, "profile_post_comment", row.id, html);
+      row.attachment_count = input.attachmentIds?.length ?? 0;
       if (!decision.moderated && !spam)
         prepared(ctx, "profiles.incrementCommentCount", () =>
           ctx.sqlite.prepare<unknown, [number, number]>(
@@ -148,6 +152,14 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
     const decision = prepareModeratedContent(ctx, actor, input.body, false);
     if (decision.source !== content.source)
       throw new ConflictError("Moderation rules changed; retry.");
+    setAttachments(
+      ctx,
+      actorUserId(actor)!,
+      "profile_post_comment",
+      comment.id,
+      input.attachmentIds,
+    );
+    validateEmbeddedAttachments(ctx, "profile_post_comment", comment.id, html);
     prepared(ctx, "profiles.updateComment", () =>
       ctx.sqlite.prepare<unknown, [string, string, number, number, number]>(
         "UPDATE profile_post_comments SET body_source = ?1, body_html = ?2, edited_at = CASE WHEN ?5 = 1 THEN edited_at ELSE ?3 END WHERE id = ?4",

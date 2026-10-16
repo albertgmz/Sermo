@@ -146,6 +146,8 @@ export function profileCommentBody(over: Record<string, unknown> = {}) {
     createdAt: "2026-01-01T00:00:00.000Z",
     editedAt: null,
     bodyHtml: "",
+    attachmentCount: 0,
+    attachments: [],
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: false,
     canDelete: false,

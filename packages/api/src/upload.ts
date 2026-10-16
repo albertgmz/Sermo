@@ -55,6 +55,8 @@ export async function uploadMultipart(
   try {
     parser = busboy({
       headers: { "content-type": contentType },
+      // Browsers send file names as raw UTF-8.
+      defParamCharset: "utf8",
       limits: {
         files: 2,
         fields: 1,
@@ -97,6 +99,7 @@ export async function uploadMultipart(
         Readable.toWeb(source) as ReadableStream<Uint8Array>,
         info.mimeType,
         purpose as Purpose,
+        info.filename,
       )
       .then(
         (value) => ({ ok: true as const, value }),

@@ -59,7 +59,7 @@ export default async function EditMessagePage({
           canAttach={resolvedPermissions["conversation.attach"] !== false}
           attached={message.attachments.map((file) => ({
             id: file.fileId,
-            name: fileName(file.url, file.fileId),
+            name: fileName(file),
             size: file.byteSize,
             type: file.contentType,
           }))}

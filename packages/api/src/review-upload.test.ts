@@ -344,3 +344,24 @@ test("an upload over the configured limit is rejected by the application with th
   expect(fileRows(state.ctx)).toBe(0);
   expect(await leftovers(state.dir)).toEqual([]);
 });
+
+test("the file name a browser sends as UTF-8 is stored and used as the download name", async () => {
+  const state = await setup();
+  const named = part(
+    'Content-Disposition: form-data; name="file"; filename="informe económico.txt"\r\nContent-Type: text/plain',
+    "hello world",
+  );
+  const response = await post(state, Buffer.from(named + end, "utf8"));
+  expect(response.status).toBe(201);
+  const { id } = (await response.json()) as { id: number };
+  expect(
+    state.ctx.sqlite
+      .prepare<{ filename: string | null }, [number]>("SELECT filename FROM files WHERE id = ?1")
+      .get(id)?.filename,
+  ).toBe("informe económico.txt");
+  const served = await state.request(`/api/v1/files/${id}`, { headers: { cookie: state.cookie } });
+  expect(served.status).toBe(200);
+  expect(served.headers.get("content-disposition")).toBe(
+    `attachment; filename="informe econ_mico.txt"; filename*=UTF-8''informe%20econ%C3%B3mico.txt`,
+  );
+});

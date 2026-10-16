@@ -88,9 +88,7 @@ export async function PostAttachments({
                   aria-hidden="true"
                   className="size-3.5 shrink-0 text-muted-foreground"
                 />
-                <span className="truncate">
-                  {fileName(file.url, file.fileId)}
-                </span>
+                <span className="truncate">{fileName(file)}</span>
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {formatBytes(file.byteSize, locale)}
                 </span>

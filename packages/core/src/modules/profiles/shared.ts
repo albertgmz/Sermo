@@ -207,6 +207,7 @@ export type CommentRow = {
   body_source: string;
   body_html: string;
   reaction_counts: string;
+  attachment_count: number;
 };
 
 export const WALL_SQL =
@@ -323,6 +324,12 @@ export function commentValues(
     "profile_post_comment",
     rows.map((row) => row.id),
   );
+  // Most comments carry no file: only those that do are looked up.
+  const attachments = loadAttachments(
+    ctx,
+    "profile_post_comment",
+    rows.filter((row) => row.attachment_count > 0).map((row) => row.id),
+  );
   return rows.map((row) => ({
     id: row.id,
     profilePostId: row.profile_post_id,
@@ -331,6 +338,8 @@ export function commentValues(
     createdAt: iso(row.created_at),
     editedAt: isoOrNull(row.edited_at),
     bodyHtml: row.body_html,
+    attachmentCount: row.attachment_count,
+    attachments: attachments.get(row.id) ?? [],
     reactions: reactionSummary(row.reaction_counts, reactions.get(row.id)),
     canEdit:
       permissions.can("profilePost.editAny") ||

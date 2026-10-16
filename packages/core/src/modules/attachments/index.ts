@@ -5,7 +5,12 @@ import { publishEvent } from "../../events";
 import { enqueueJob } from "../jobs";
 import { fileUrl } from "../storage/url";
 
-export type AttachmentTarget = "post" | "profile_post" | "conversation_message" | "poll";
+export type AttachmentTarget =
+  | "post"
+  | "profile_post"
+  | "profile_post_comment"
+  | "conversation_message"
+  | "poll";
 
 interface AttachmentRow {
   content_id: number;
@@ -14,11 +19,12 @@ interface AttachmentRow {
   byte_size: number;
   width: number | null;
   height: number | null;
+  filename: string | null;
   thumbnail_id: number | null;
 }
 
 export const attachmentsPageSql =
-  "SELECT a.content_id, f.id AS file_id, f.content_type, f.byte_size, f.width, f.height, thumb.id AS thumbnail_id FROM attachments a JOIN files f ON f.id = a.file_id LEFT JOIN files thumb INDEXED BY files_variant ON thumb.parent_file_id = f.id AND thumb.variant = 'thumbnail' AND thumb.deleted_at IS NULL WHERE a.content_type = ?1 AND a.content_id IN (SELECT value FROM json_each(?2)) ORDER BY a.content_id, a.position";
+  "SELECT a.content_id, f.id AS file_id, f.content_type, f.byte_size, f.width, f.height, f.filename, thumb.id AS thumbnail_id FROM attachments a JOIN files f ON f.id = a.file_id LEFT JOIN files thumb INDEXED BY files_variant ON thumb.parent_file_id = f.id AND thumb.variant = 'thumbnail' AND thumb.deleted_at IS NULL WHERE a.content_type = ?1 AND a.content_id IN (SELECT value FROM json_each(?2)) ORDER BY a.content_id, a.position";
 
 export function loadAttachments(ctx: Ctx, type: AttachmentTarget, ids: number[]) {
   const result = new Map<
@@ -30,6 +36,7 @@ export function loadAttachments(ctx: Ctx, type: AttachmentTarget, ids: number[])
       byteSize: number;
       width: number | null;
       height: number | null;
+      filename: string | null;
       thumbnailUrl: string | null;
     }[]
   >();
@@ -46,6 +53,7 @@ export function loadAttachments(ctx: Ctx, type: AttachmentTarget, ids: number[])
       byteSize: row.byte_size,
       width: row.width,
       height: row.height,
+      filename: row.filename,
       thumbnailUrl: row.thumbnail_id === null ? null : fileUrl(row.thumbnail_id),
     });
     result.set(row.content_id, group);
@@ -69,9 +77,11 @@ export function setAttachments(
       ? "posts"
       : type === "profile_post"
         ? "profile_posts"
-        : type === "poll"
-          ? null
-          : "conversation_messages";
+        : type === "profile_post_comment"
+          ? "profile_post_comments"
+          : type === "poll"
+            ? null
+            : "conversation_messages";
   const old = ctx.sqlite
     .prepare<{ file_id: number }, [AttachmentTarget, number]>(
       "SELECT file_id FROM attachments WHERE content_type = ?1 AND content_id = ?2 ORDER BY position",

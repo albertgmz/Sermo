@@ -10,5 +10,7 @@ export const Attachment = z.object({
   byteSize: z.number().int().nonnegative(),
   width: z.number().int().positive().nullable(),
   height: z.number().int().positive().nullable(),
+  /** The name the file was uploaded with; null for a file that has none. */
+  filename: z.string().nullable(),
   thumbnailUrl: z.string().nullable(),
 });

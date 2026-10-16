@@ -490,6 +490,8 @@ export const SAMPLE_WALL_COMMENTS: ApiWallComment[] = [
   createdAt: SAMPLE_DATE,
   editedAt: null,
   bodyHtml,
+  attachmentCount: 0,
+  attachments: [],
   reactions: { counts: {}, total: 0, mine: null },
   canEdit: false,
   canDelete: false,

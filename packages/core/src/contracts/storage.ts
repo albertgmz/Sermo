@@ -8,6 +8,8 @@ export const FileMetadata = z.object({
   url: z.string(),
   byteSize: z.number().int().nonnegative(),
   contentType: z.string(),
+  /** The name the file was uploaded with; null for a file that has none. */
+  filename: z.string().nullable(),
   width: z.number().int().positive().nullable(),
   height: z.number().int().positive().nullable(),
   purpose: z.enum(FILE_PURPOSES),

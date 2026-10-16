@@ -331,6 +331,7 @@ function Details({ details }: { details: PictureDetails }) {
           submitLabel={t(
             reply?.kind === "wall" ? "commentSubmit" : "replySubmit",
           )}
+          attach={reply?.kind === "wall"}
         />
       ) : viewerId === null ? (
         <Link

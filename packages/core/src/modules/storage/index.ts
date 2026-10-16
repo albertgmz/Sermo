@@ -29,7 +29,11 @@ import { measureFrameOpening } from "../images/frame-geometry";
 import { processImage } from "../images/process";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { pollPicturesReadable } from "../polls/readable";
-import { requirePost as requireProfilePost } from "../profiles/shared";
+import {
+  requireComment as requireProfileComment,
+  requirePost as requireProfilePost,
+} from "../profiles/shared";
+import { cleanFilename, contentDisposition } from "./filename";
 import { fileUrl, resolvedFileUrl } from "./url";
 
 export { fileUrl } from "./url";
@@ -101,6 +105,7 @@ export interface FileRecord {
   sha256: string;
   width: number | null;
   height: number | null;
+  filename: string | null;
   uploader_id: number;
   purpose: Purpose;
   visibility: Visibility;
@@ -288,6 +293,8 @@ function canRead(ctx: Ctx, actor: Actor, record: FileRecord): boolean {
         return false;
     } else if (link.content_type === "profile_post")
       requireProfilePost(ctx, actor, link.content_id);
+    else if (link.content_type === "profile_post_comment")
+      requireProfileComment(ctx, actor, link.content_id);
     else if (link.content_type === "conversation_message") {
       const message = reactableConversationMessage(ctx, actor, link.content_id);
       if (
@@ -326,6 +333,7 @@ export const operations = [
       ),
       byteSize: row.byte_size,
       contentType: row.content_type,
+      filename: row.filename,
       width: row.width,
       height: row.height,
       purpose: row.purpose,
@@ -366,7 +374,10 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       source: ReadableStream<Uint8Array>,
       declaredType: string,
       purpose: Purpose = "attachment",
+      /** The name the client gave the file; kept (cleaned) for attachments only and used to download them. */
+      originalName?: string | null,
     ) {
+      const filename = purpose === "attachment" ? cleanFilename(originalName) : null;
       const user = requireAuthenticated(actor);
       // The upload route does not go through `execute`: an account that waits for approval is refused here.
       if (user.principal?.awaitingApproval) throw approvalPending();
@@ -509,9 +520,10 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
                   Purpose,
                   number,
                   string | null,
+                  string | null,
                 ]
               >(
-                "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, width, height, uploader_id, purpose, visibility, created_at, meta) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'unattached', ?10, ?11) RETURNING id",
+                "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, width, height, uploader_id, purpose, visibility, created_at, meta, filename) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'unattached', ?10, ?11, ?12) RETURNING id",
               )
               .get(
                 driver.name,
@@ -525,6 +537,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
                 purpose,
                 ctx.now(),
                 meta,
+                filename,
               )!;
             for (const variant of artifacts.slice(1))
               ctx.sqlite
@@ -612,7 +625,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             : "application/octet-stream",
           "Content-Length": String(row.byte_size),
           "X-Content-Type-Options": "nosniff",
-          "Content-Disposition": `${disposition}; filename="file-${row.id}"`,
+          "Content-Disposition": contentDisposition(disposition, row.filename, `file-${row.id}`),
           "Cache-Control":
             row.visibility === "public" && row.purpose !== "attachment"
               ? // A replaced catalog picture gets a new file id, so what a URL serves never changes.

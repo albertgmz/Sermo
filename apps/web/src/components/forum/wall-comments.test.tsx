@@ -60,6 +60,8 @@ const comment = (id: number, state = "visible") =>
     createdAt: "2026-01-02T00:00:00.000Z",
     editedAt: null,
     bodyHtml: `<p>comment ${id}</p>`,
+    attachmentCount: 0,
+    attachments: [],
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: false,
     canDelete: false,
@@ -105,6 +107,31 @@ test("the composer is there only with an action, at the post's comment anchor", 
   expect(html).toContain("Write a comment…");
   expect(html).toContain('aria-label="Post comment"');
   expect(html).not.toContain("contenteditable");
+});
+
+test("the comment composer takes files, and the comments show theirs", async () => {
+  const html = await render({ action: async () => ({}) });
+  expect(html).toContain('name="attachments"');
+  expect(html).toContain("Attach");
+  const withFile = {
+    ...comment(1),
+    attachmentCount: 1,
+    attachments: [
+      {
+        fileId: 5,
+        url: "/api/v1/files/5",
+        contentType: "application/pdf",
+        byteSize: 2048,
+        width: null,
+        height: null,
+        filename: "informe económico.pdf",
+        thumbnailUrl: null,
+      },
+    ],
+  } as Comment;
+  const shown = await render({ comments: [withFile] });
+  expect(shown).toContain('href="/api/v1/files/5"');
+  expect(shown).toContain("informe económico.pdf");
 });
 
 test("the links to more, older and fewer comments are drawn only when given", async () => {
