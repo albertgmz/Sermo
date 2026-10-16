@@ -1550,8 +1550,13 @@ is a series of up to 20 questions of 2 to 8 answers, one of them right. Either i
 thread (`poll` of `threads.create`) or added later (`polls.create`, `/threads/<id>/poll`) by the
 thread's author while it is unlocked, or by staff who manage polls. Questions and answers are one
 line of text (200 and 100 characters): BB code is read for its words only (tags, pictures and links
-leave nothing), the word filter rewrites them, and a text it holds for approval is refused (with a
-new thread it holds the thread instead). Each question and answer may carry a picture, an
+leave nothing), and every text is under the rules a post's text is under: the word filter rewrites
+it, and a text a filter holds for approval, or that carries a link from a member who joined less than
+`newMemberDays` ago while the site holds those, is refused (with a new thread it holds the thread
+instead: a poll has no queue to wait in). The flood interval (`floodSeconds`) and the daily post limit
+apply to a poll added to a thread later and to a voter's own answer (checked in the write, against
+the member's other writes: an answer is not itself on the flood clock; one answer per member and poll
+bounds the rest). Each question and answer may carry a picture, an
 attachment of the poll that follows the thread's reading rules (and `forum.viewAttachments`); the
 data saver blocks it like any post picture.
 
@@ -1576,12 +1581,32 @@ data saver blocks it like any post picture.
   whose posts the viewer may read (`forum.viewContent`): a titles-only reader sees no poll. Every
   write re-checks the member inside its transaction. A new poll and a voter's own answer are written
   content: the forum's posting rules (read-only, minimum account age and post count; `forum.bypassNodeRules`
-  skips them) and the terms hold, and a member banned from the thread cannot add an answer; voting is
+  skips them) and the terms hold, a member banned from the thread cannot add an answer, and a member whose own posts
+  are held for approval (`firstPostsToModerate`, the approval rule) adds no poll to a thread and no
+  answer to a poll until they are free of it (refused with a message: a poll has no moderation queue);
+  voting is
   not posting and follows only `poll.vote` (a locked thread still takes votes). The creator may delete a poll nobody voted in
   and remove or reword an answer nobody voted for; staff may do either any time (the votes go with
   them). A poll a moderator closed is reopened by a moderator only (the log says who closed it).
-  Lowering `maxChoices` leaves earlier votes as they were. Deleting a poll with a very large
-  number of voters is one transaction (about 90 ms per 50,000 voters).
+  Lowering `maxChoices` leaves earlier votes as they were.
+- **Editing and the stale editor.** `polls.update` replaces the whole definition. `polls.definition`
+  returns `updatedAt` and an edit sends it back as `loadedAt`: when the poll changed since (a voter
+  added an answer, a close, another edit; a vote does not count) the update is refused as a conflict
+  whose issue is named `loadedAt`, and nothing is changed. The web then offers to load what changed:
+  the answers added meanwhile join the list and what the editor typed is kept. An edit that names no
+  `loadedAt` (a plain API call) never removes an answer a voter added. Other refusals are other
+  conflicts with their own message (a quiz that has been taken, an answer with more votes than one
+  batch to remove, moderation rules that changed).
+- **Deleting a large poll.** Votes and ballots go in batches of 2,000 voters, each a transaction (each
+  vote and ballot fires a counter trigger). `polls.delete` of a poll with more voters than one batch
+  takes it out of sight at once (it is read as not found by everyone, the thread has no poll and takes
+  no new one meanwhile) and removes one batch per call, answering `completed: false` until the rest
+  fits in one batch and goes with the poll. Only staff finish it (a creator cannot delete a poll that
+  has votes). The web repeats the call up to 500 times a request (a million voters); past that, call
+  again. A hard delete of a thread whose poll (or a merged-away thread's poll) is larger removes its
+  voters first, one batch per call (`removedPosts` 0, `completed` false, the thread stays deleted),
+  then the rest as usual; an author's own one-step delete of such a thread is refused. An answer with
+  more votes than one batch cannot be removed by an edit (delete the poll, or keep the answer).
 - **What happens to a poll.** Hiding a thread hides its poll; hard deleting a thread removes it
   with its votes and pictures. Merging threads moves the poll of the merged thread to the target when
   the target has none; otherwise it stays on the merged-away thread, out of sight, until that thread
