@@ -1,7 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Children } from "react";
 import { siteBody } from "@/lib/test-bodies";
 import { formattedTranslator } from "@/lib/test-intl";
 import { textOfTree } from "@/lib/test-tree";
@@ -24,21 +23,9 @@ mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => formattedTranslator(namespace),
 }));
-const actions = await import("@/app/[locale]/(main)/actions");
-mock.module("@/app/[locale]/(main)/actions", () => ({
-  acceptTerms: async () => ({}),
-  logout: async () => {},
-}));
-// The form needs the app router; it stands for the button and the versions it would send.
-const form = await import("@/components/forum/action-form");
-mock.module("@/components/forum/action-form", () => ({
-  ActionForm: (props: { submit: string; children: React.ReactNode }) =>
-    `[form ${props.submit}: ${Children.toArray(props.children)
-      .map((child) => (child as { props: { value: string } }).props.value)
-      .join(" ")}]`,
-}));
-
 const { AcceptanceGate, pendingOf } = await import("./acceptance-gate");
+const { acceptTerms, logout } = await import("@/app/[locale]/(main)/actions");
+const { LogoMark } = await import("@/components/layout/logo");
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -48,8 +35,6 @@ afterEach(() => {
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
   mock.module("next/cache", () => nextCache);
-  mock.module("@/app/[locale]/(main)/actions", () => actions);
-  mock.module("@/components/forum/action-form", () => form);
 });
 
 const page = (slug: string, title: string, bodyHtml: string) => ({
@@ -88,7 +73,57 @@ function backend(
 
 const requested = <p>The requested thread</p>;
 const gate = () => AcceptanceGate({ children: requested });
-const textOf = async (node: unknown) => textOfTree(node, ["HtmlContent"]);
+// The forms' client components are not called: they need the app router.
+const textOf = async (node: unknown) =>
+  textOfTree(node, ["HtmlContent", "ActionForm", "Button"]);
+
+type Drawn = { type?: unknown; props?: Record<string, unknown> };
+
+// The elements of a drawn tree that match, without calling any component (the forms are client
+// components and need the app router).
+function elementsOf(
+  node: unknown,
+  match: (element: Drawn) => boolean,
+): Drawn[] {
+  if (!node || typeof node !== "object") return [];
+  if (Array.isArray(node))
+    return node.flatMap((child) => elementsOf(child, match));
+  const element = node as Drawn;
+  return [
+    ...(match(element) ? [element] : []),
+    ...elementsOf(element.props?.children, match),
+  ];
+}
+
+// The screen the gate draws, one level down: its own elements, its components not called.
+async function screenOf() {
+  const gate = (await AcceptanceGate({ children: requested })) as Drawn;
+  const [screen] = elementsOf(
+    gate.props?.children,
+    (element) => typeof element.type === "function",
+  );
+  if (!screen) throw new Error("The gate drew no screen");
+  return (screen.type as (props: unknown) => Promise<unknown>)(screen.props);
+}
+
+// The accept form's action, label and the `kind:version` it sends; and the log out form's action.
+function forms(screen: unknown) {
+  const [accept] = elementsOf(
+    screen,
+    (element) => "submit" in (element.props ?? {}),
+  );
+  const sent = elementsOf(
+    accept?.props?.children,
+    (element) => element.props?.name === "accept",
+  );
+  const [out] = elementsOf(screen, (element) => element.type === "form");
+  return {
+    action: accept?.props?.action,
+    submit: accept?.props?.submit,
+    sent: sent.map((input) => input.props?.value),
+    logout: out?.props?.action,
+  };
+}
 
 test("a member with both pages pending gets the gate with their text, the button and log out, and nothing of the page", async () => {
   cookie = "sermo.session_token=abc";
@@ -105,7 +140,6 @@ test("a member with both pages pending gets the gate with their text, the button
   expect(text).toContain("[HtmlContent <p>Be kind.</p>]");
   expect(text).toContain("Forum rules");
   expect(text).toContain("[HtmlContent <p>No spam.</p>]");
-  expect(text).toContain("[form I accept: terms:3 rules:2]");
   expect(text).toContain("Log out");
   expect(text).not.toContain("The requested thread");
   // The header, notices, footer and bottom bar go too.
@@ -133,8 +167,23 @@ test("only the page that is pending is shown and accepted", async () => {
   expect(text).toContain("Please accept the rules");
   expect(text).toContain("Forum rules");
   expect(text).not.toContain("Terms of use");
-  expect(text).toContain("[form I accept: rules:2]");
   expect(asked).not.toContain("/api/v1/pages/terms");
+});
+
+test("the gate's one button accepts the versions it shows, and log out signs the member out", async () => {
+  cookie = "sermo.session_token=abc";
+  backend([
+    { kind: "terms", version: 3 },
+    { kind: "rules", version: 2 },
+  ]);
+  expect(forms(await screenOf())).toEqual({
+    action: acceptTerms,
+    submit: "I accept",
+    sent: ["terms:3", "rules:2"],
+    logout,
+  });
+  backend([{ kind: "rules", version: 2 }]);
+  expect(forms(await screenOf()).sent).toEqual(["rules:2"]);
 });
 
 test("a member with nothing pending gets the page, with no request beyond who they are", async () => {
@@ -158,37 +207,16 @@ test("a viewer from a backend without the field has nothing pending", () => {
   ).toHaveLength(1);
 });
 
-// The element of a drawn tree whose children hold an element of this component, without calling
-// any component.
-function parentOf(node: unknown, component: unknown): unknown {
-  if (!node || typeof node !== "object") return null;
-  if (Array.isArray(node)) {
-    for (const child of node) {
-      const found = parentOf(child, component);
-      if (found) return found;
-    }
-    return null;
-  }
-  const { children } = (node as { props?: { children?: unknown } }).props ?? {};
-  const kids = Array.isArray(children) ? children : [children];
-  if (kids.some((kid) => (kid as { type?: unknown })?.type === component))
-    return node;
-  return parentOf(children, component);
-}
-
 test("the site's mark is hidden from screen readers, since its name is written beside it", async () => {
   cookie = "sermo.session_token=abc";
   backend([{ kind: "terms", version: 3 }]);
-  const gate = (await AcceptanceGate({ children: requested })) as {
-    props: { children: { props: unknown; type: (p: unknown) => unknown }[] };
-  };
-  const screen = gate.props.children.find(
-    (child) => typeof child?.type === "function",
+  const drawn = await screenOf();
+  const [holder] = elementsOf(
+    drawn,
+    (element) =>
+      elementsOf(element.props?.children, (child) => child.type === LogoMark)
+        .length > 0 && element.type === "span",
   );
-  const drawn = await screen?.type(screen.props);
-  const { LogoMark } = await import("@/components/layout/logo");
-  expect(parentOf(drawn, LogoMark)).toMatchObject({
-    props: { "aria-hidden": "true" },
-  });
+  expect(holder?.props?.["aria-hidden"]).toBe("true");
   expect(await textOf(drawn)).toContain("Garden Club");
 });
