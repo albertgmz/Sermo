@@ -268,9 +268,11 @@ test("in the compact header a long name truncates in the room the avatar and the
     '<span class="min-w-0 truncate">Bartholomew_Featherstonehaugh30</span>',
   );
   expect(out).toContain("shrink-0");
-  // the name's column of the header grid, and the row in it, can shrink
-  expect(out).toContain("grid-cols-[auto_minmax(0,1fr)]");
-  expect(out).toContain("col-start-2 flex max-w-full min-w-0");
+  // the name's track of the header grid, and the row in it, can shrink to nothing
+  expect(out).toContain(
+    "grid-cols-[auto_minmax(0,max-content)_auto_minmax(0,1fr)_auto]",
+  );
+  expect(out).toContain("col-start-2 row-start-1 flex max-w-full min-w-0");
   expect(out).toContain("max-w-full min-w-0");
 });
 
@@ -317,6 +319,13 @@ test("the cover is drawn behind the block when the member has one, and nothing w
     expect(covered).toContain("url(&quot;/cover.webp&quot;)");
     expect(covered).toContain("-z-10");
     expect(covered).toContain("cover-shape");
+    // the column's shape (the whole height, fading down) wherever the column is drawn
+    const shape = "h-full w-[var(--postbit-cover-width,100%)]";
+    if (layout === "compact") expect(covered).not.toContain(shape);
+    else
+      expect(covered).toContain(
+        layout === "column" ? ` ${shape}` : "md:h-full",
+      );
     const bare = await html(<Postbit author={author} layout={layout} />);
     expect(bare).not.toContain("background-image");
     expect(bare).not.toContain("-z-10");
@@ -328,17 +337,16 @@ test("the awards: beside the name in the compact header, a row of their own in t
   const withAwards = { ...author, awards: AWARDS };
   const compact = await html(<Postbit author={withAwards} layout="compact" />);
   expect(count(compact)).toBe(1);
-  expect(compact.indexOf('href="/awards"')).toBeLessThan(
-    compact.indexOf(">Senior member</p>"),
-  );
+  // placed on the grid in the name's row, in the track right after the name
+  expect(compact).toContain("col-start-3 row-start-1");
   const column = await html(<Postbit author={withAwards} layout="column" />);
   expect(count(column)).toBe(1);
   expect(column.indexOf('href="/awards"')).toBeGreaterThan(
     column.indexOf('data-slot="postbit-level"'),
   );
-  // the responsive layout holds both and hides each by class
+  // the responsive layout draws them once, placed by the grid below md and in the column from md
   const both = await html(<Postbit author={withAwards} />);
-  expect(count(both)).toBe(2);
+  expect(count(both)).toBe(1);
   for (const layout of LAYOUTS) {
     expect(count(await html(<Postbit author={author} layout={layout} />))).toBe(
       0,

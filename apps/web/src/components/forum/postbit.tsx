@@ -11,14 +11,27 @@ import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 // How the column sits in a frame, in one place: the width of the column (from `md` up), which the
-// frame hands on as `--postbit-width`, and the cover drawn behind it. The cover starts at the
-// frame's edge and ends exactly at the column's border (the frame's padding plus the column), so
-// it leaves no edge short of the border. The postbit itself fills whatever width it is given.
+// frame hands on as `--postbit-width`, and how wide the cover behind it is
+// (`--postbit-cover-width`): from the frame's edge exactly to the column's border (the frame's
+// padding plus the column), so it leaves no edge short of the border. The postbit itself fills
+// whatever width it is given.
 export const POSTBIT_WIDTH = "10rem";
 export const POSTBIT_FRAME = {
   grid: "md:grid-cols-[var(--postbit-width)_minmax(0,1fr)]",
-  cover:
-    "md:inset-x-auto md:left-0 md:h-full md:w-[calc(var(--postbit-width)+1rem)] md:[mask-image:linear-gradient(to_bottom,black,transparent)]",
+  style: {
+    "--postbit-width": POSTBIT_WIDTH,
+    "--postbit-cover-width": "calc(var(--postbit-width) + 1rem)",
+  } as React.CSSProperties,
+};
+
+// The cover behind the column: the whole height of the box holding the postbit, fading downward,
+// as wide as `--postbit-cover-width` (the whole box when it is not set, as in the member's card).
+// Behind the compact header it is the strip `CoverBackdrop` draws by default.
+const COLUMN_COVER = {
+  column:
+    "inset-x-auto left-0 h-full w-[var(--postbit-cover-width,100%)] [mask-image:linear-gradient(to_bottom,black,transparent)]",
+  responsive:
+    "md:inset-x-auto md:left-0 md:h-full md:w-[var(--postbit-cover-width,100%)] md:[mask-image:linear-gradient(to_bottom,black,transparent)]",
 };
 
 // `column`: avatar on top, then name, actions, title, level, awards and a list of facts (a card of
@@ -27,12 +40,16 @@ export const POSTBIT_FRAME = {
 // `responsive`: the compact header below `md`, the column from `md` up.
 export type PostbitLayout = "column" | "compact" | "responsive";
 
+// avatar | name (as wide as it needs, no wider) | awards | room left | actions
+const COMPACT_GRID =
+  "grid grid-cols-[auto_minmax(0,max-content)_auto_minmax(0,1fr)_auto] items-start gap-y-1";
+
 // The author of a post: who they are and a few facts about them. It knows nothing of posts, so the
 // post frame and the member's card both draw this one block, part for part. The member's cover is
-// drawn behind the top of the `relative isolate` box that holds the block (the frame, the card),
-// shaped there by `coverClassName`. The name and avatar open the member's card, unless a
-// `MemberCardScope` above turns that off (inside the card itself). `actions` is drawn under the
-// name in the column, at the end of the compact header.
+// drawn behind the `relative isolate` box that holds the block (the frame, the card);
+// `coverClassName` adds what only one holder needs. The name and avatar open the member's card,
+// unless a `MemberCardScope` above turns that off (inside the card itself). `actions` is drawn
+// under the name in the column, at the end of the compact header.
 export function Postbit({
   author,
   layout = "responsive",
@@ -67,17 +84,19 @@ export function Postbit({
     author.nextLevelXp,
   );
 
-  // The compact header is a grid: the avatar over two rows, the name over the title, the actions in
-  // a column of their own at the end. The column is one flex column, the parts in their order.
+  // The parts are in the column's order, one flex column. The compact header places them on a
+  // grid instead: the avatar over two rows, then the name with the awards right after it and the
+  // actions at the end, the title and counts under the name. The tracks are spaced by margins, so a
+  // part that is not drawn leaves no gap.
   return (
     <div
       data-slot="postbit"
       data-layout={layout}
       className={cn(
         pick(
-          "grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1",
+          COMPACT_GRID,
           "flex flex-col items-center gap-2 text-center",
-          "grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1 md:flex md:flex-col md:items-center md:gap-2 md:text-center",
+          `${COMPACT_GRID} md:flex md:flex-col md:items-center md:gap-2 md:text-center`,
         ),
         className,
       )}
@@ -85,13 +104,19 @@ export function Postbit({
       <CoverBackdrop
         cover={author.cover}
         variant="header"
-        className={coverClassName}
+        className={cn(
+          pick("", COLUMN_COVER.column, COLUMN_COVER.responsive),
+          coverClassName,
+        )}
       />
       {compact && (
         <UserAvatar
           user={member}
           size="lg"
-          className={cn("row-span-2 self-start", responsive && "md:hidden")}
+          className={cn(
+            "col-start-1 row-span-2 row-start-1 mr-3 self-start",
+            responsive && "md:hidden",
+          )}
         />
       )}
       {column && (
@@ -103,9 +128,9 @@ export function Postbit({
       )}
       <div
         className={pick(
-          "col-start-2 flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm",
+          "col-start-2 row-start-1 flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm",
           "flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm",
-          "col-start-2 flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm md:justify-center",
+          "col-start-2 row-start-1 flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm md:justify-center",
         )}
       >
         <UserLink
@@ -120,21 +145,14 @@ export function Postbit({
         <span className="contents [&>*]:max-w-full [&>*]:overflow-hidden">
           <UserBadges user={member} />
         </span>
-        {/* Beside the name in the compact header; the column gives the awards a row of their own. */}
-        {compact && (
-          <AwardRow
-            awards={author.awards}
-            className={responsive ? "md:hidden" : undefined}
-          />
-        )}
       </div>
       {actions && (
         <div
           data-slot="postbit-actions"
           className={pick(
-            "col-start-3 row-span-2 row-start-1 flex shrink-0 items-center",
+            "col-start-5 row-span-2 row-start-1 ml-3 flex shrink-0 items-center",
             "flex w-full flex-col gap-2",
-            "col-start-3 row-span-2 row-start-1 flex shrink-0 items-center md:w-full md:flex-col md:items-stretch md:gap-2",
+            "col-start-5 row-span-2 row-start-1 ml-3 flex shrink-0 items-center md:ml-0 md:w-full md:flex-col md:items-stretch md:gap-2",
           )}
         >
           {actions}
@@ -144,9 +162,9 @@ export function Postbit({
         <div
           className={cn(
             pick(
-              "col-start-2 flex min-w-0 items-center gap-x-3",
+              "col-start-2 col-end-5 row-start-2 flex min-w-0 items-center gap-x-3",
               "flex w-full min-w-0 flex-col items-center gap-2",
-              "col-start-2 flex min-w-0 items-center gap-x-3 md:w-full md:flex-col md:gap-2",
+              "col-start-2 col-end-5 row-start-2 flex min-w-0 items-center gap-x-3 md:w-full md:flex-col md:gap-2",
             ),
             // Without a title the row holds only the phone counts.
             responsive && !hasTitle && "md:hidden",
@@ -196,15 +214,15 @@ export function Postbit({
           <XpBar level={level} className="w-16" />
         </div>
       )}
-      {column && (
-        <AwardRow
-          awards={author.awards}
-          className={cn(
-            "max-w-full flex-wrap justify-center",
-            responsive && "hidden md:inline-flex",
-          )}
-        />
-      )}
+      {/* Right after the name in the compact header, a row of their own in the column. */}
+      <AwardRow
+        awards={author.awards}
+        className={pick(
+          "col-start-3 row-start-1 ml-2 self-start",
+          "max-w-full flex-wrap justify-center",
+          "col-start-3 row-start-1 ml-2 self-start md:ml-0 md:max-w-full md:flex-wrap md:justify-center md:self-auto",
+        )}
+      />
       {column && facts && (
         <dl
           className={cn(

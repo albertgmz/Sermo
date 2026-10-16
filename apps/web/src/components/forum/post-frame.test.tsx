@@ -152,6 +152,10 @@ test("the postbit sits in the frame's grid with the column width set once", () =
   }>;
   expect(tree.props.className).toContain("md:grid-cols-[var(--postbit-width)_");
   expect(tree.props.style["--postbit-width"]).toBe("10rem");
+  // the cover behind the column ends at the column's border
+  expect(tree.props.style["--postbit-cover-width"]).toBe(
+    "calc(var(--postbit-width) + 1rem)",
+  );
 });
 
 test("a highlighted post adds the whole-frame cover; the postbit draws its own behind the column", () => {
@@ -180,10 +184,9 @@ test("a highlighted post adds the whole-frame cover; the postbit draws its own b
         Postbit,
       ) as ReactElement<{ coverClassName: string }>
     ).props.coverClassName;
-  // behind the column from md up, and on a phone left to the whole-frame picture
-  expect(cover(false)).toContain("md:w-[calc(var(--postbit-width)+1rem)]");
-  expect(cover(false)).not.toContain("max-md:hidden");
-  expect(cover(true)).toContain("max-md:hidden");
+  // on a phone the whole-frame picture alone is drawn; otherwise the postbit's cover is its own
+  expect(cover(false)).toBeUndefined();
+  expect(cover(true)).toBe("max-md:hidden");
 });
 
 test("the postbit's actions reach the postbit, and it has none without them", () => {

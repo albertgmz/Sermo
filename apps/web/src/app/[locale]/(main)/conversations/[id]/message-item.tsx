@@ -6,10 +6,15 @@ import { MessageActions } from "@/app/[locale]/(main)/conversations/[id]/message
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { HtmlContent } from "@/components/forum/html-content";
+import { memberActionsOf } from "@/components/forum/member-actions";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
-import { authorsFor } from "@/lib/sermo/members";
+import {
+  authorsFor,
+  type MemberRelation,
+  relationsFor,
+} from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
 import type { AuthorView } from "@/lib/sermo/views";
@@ -24,6 +29,7 @@ export type ApiMessage = z.output<
 export function MessageItem({
   message,
   author,
+  relation,
   signed,
   viewerId,
   picker,
@@ -32,6 +38,8 @@ export function MessageItem({
 }: {
   message: ApiMessage;
   author: AuthorView;
+  // What the viewer may do about the author (follow, message), read once for the page.
+  relation: MemberRelation | null;
   // Whether the author's signature closes the message: their first one on the page.
   signed: boolean;
   viewerId: number | null;
@@ -45,6 +53,7 @@ export function MessageItem({
       id={`message-${message.id}`}
       author={author}
       createdAt={message.createdAt}
+      postbitActions={memberActionsOf(author.member, relation)}
       edited={message.editedAt && <EditedMark date={message.editedAt} />}
       signed={signed}
       actions={
@@ -84,7 +93,14 @@ export async function messageRows(messages: ApiMessage[]): Promise<TailRow[]> {
   if (messages.length === 0) return [];
   const [{ user, permissions, resolvedPermissions }, reactionTypes] =
     await Promise.all([getViewer(), getReactionTypes()]);
-  const author = await authorsFor(messages.map((message) => message.author));
+  const authors = messages.map((message) => message.author);
+  const [author, relation] = await Promise.all([
+    authorsFor(authors),
+    relationsFor(
+      user?.id ?? null,
+      authors.map(({ id }) => id),
+    ),
+  ]);
   const picker =
     permissions.canReact && resolvedPermissions["conversation.react"] !== false
       ? pickerTypes(reactionTypes, null)
@@ -97,6 +113,7 @@ export async function messageRows(messages: ApiMessage[]): Promise<TailRow[]> {
       <MessageItem
         message={message}
         author={author(message.author.id)}
+        relation={relation(message.author.id)}
         signed={false}
         viewerId={user?.id ?? null}
         picker={picker}

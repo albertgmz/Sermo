@@ -1380,6 +1380,12 @@ export default async function StyleguidePage() {
                 author={SAMPLE_AUTHOR}
                 createdAt={SAMPLE_DATE}
                 signed
+                postbitActions={
+                  <MemberActionsDemo
+                    member={SAMPLE_AUTHOR.member}
+                    relation={RELATION.notFollowing}
+                  />
+                }
                 actions={<Button variant="ghost">Reply</Button>}
               >
                 <p className="mt-2 text-sm">

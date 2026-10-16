@@ -34,7 +34,7 @@ import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { pageHolding } from "@/lib/sermo/locate";
-import { authorsFor, membersFor } from "@/lib/sermo/members";
+import { authorsFor, membersFor, relationsFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getMember } from "@/lib/sermo/session";
 
@@ -222,9 +222,15 @@ async function Messages({
   // The backend lists from the newest end; the page reads from the oldest of its messages down.
   const messages = newestFirst.toReversed();
   // The viewer is among the authors: the row drawn for a message they are sending is theirs.
-  const author = await authorsFor([
-    ...messages.map((message) => message.author),
-    ...(user ? [user] : []),
+  const [author, relation] = await Promise.all([
+    authorsFor([
+      ...messages.map((message) => message.author),
+      ...(user ? [user] : []),
+    ]),
+    relationsFor(
+      user?.id ?? null,
+      messages.map((message) => message.author.id),
+    ),
   ]);
   // One signature per member on the page: under their first message.
   const seen = new Set<number>();
@@ -255,6 +261,7 @@ async function Messages({
             <MessageItem
               message={message}
               author={author(message.author.id)}
+              relation={relation(message.author.id)}
               signed={firstOfAuthor.has(message.id)}
               viewerId={user?.id ?? null}
               picker={picker}
