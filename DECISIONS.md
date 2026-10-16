@@ -3597,3 +3597,18 @@ nothing sent meanwhile) and a refusal that names no wait fails with its cause. T
 page's scripts with `serviceWorkers: "block"` as well: a service worker with the scripts cached
 answers past the route, the page hydrated, and the "native" form was a hydrated one (this is why the
 iphone-large run waited two minutes for a navigation that could not come).
+
+## UI round: editor toolbar, phone bar, cookies, rules gate, home tabs
+
+### Phone bar: Home and Forums merged (item 2)  Migration `0058_mobile_bar_merge_forums` deletes
+the seeded `mobile.forums` entry (and anything an admin placed under it), so the member bar is Home
+· Messages · + · Alerts · Profile and the guest bar Home · + · Log in. Home and Forums both answer
+"where is the content": the forums list is a view of the same discussion the home feed shows, so a
+five-slot bar spent two slots on one place and split 3 + 2 around the +. Home leads to the feed,
+which gets a Forums tab (item 5); `/forums` and the header and footer Forums entries stay. Messages
+and Alerts stay separate: conversations you answer and notifications you read are different tasks,
+each with its own unread count and destination, and merging them would hide one count behind the
+other. The + rule (`ceil(n/2)`) already centres it for an even count (2 + 2) and keeps today's
+place for an odd one; tests pin 2, 4 and 5 entries. Admin-edited bars are still capped at 5. With
+the Forums entry gone, no bar entry is current on `/forums` and thread pages (Home matches `/`
+only).
