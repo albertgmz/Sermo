@@ -3068,3 +3068,14 @@ ignored member's; after a thread merge the stored read position can stay behind 
 card can count posts already seen until a larger post id is read (bounded: the thread must also be
 unread by id). Known limits: wall posts keep their always-open comment box, the compact row shows no
 text, staff are not counted held or deleted posts.
+
+### media.list speed `media.list` took about 14 ms (p50) on the benchmark seed for every variant.
+Cause: the "newest attachments of one kind" read (`WHERE content_type = ? AND id < ? ORDER BY id
+DESC`) ran once for `post` and once for `profile_post`. The statistics (`sqlite_stat1`) say one
+`content_type` value holds every row, so the planner walks the primary key backwards and filters by
+kind instead of using `attachments_type_id`; for a kind with no rows (the seed has no attached wall
+posts) that reads all 300,000 attachments (9.8 ms for that one statement; the `post` read, the files
+join and the post lookups cost 0.01 to 0.03 ms each). Fix: the statement names the index (`INDEXED
+BY attachments_type_id`), as the thumbnail join already names `files_variant`. Same rows, same
+order, same cursor, no migration. Measured on the seed: p50 13.9 ms to 0.4 ms, p95 17.6 to 20.3 ms
+before and 0.5 to 1.3 ms after, max 24 to 30 ms before and 0.9 to 4.2 ms after.
