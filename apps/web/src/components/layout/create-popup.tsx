@@ -16,14 +16,13 @@ export type CreatePopupProps = { variant: CreateVariant; label: string };
 
 // The button and the dialog it opens, loaded when the plain button of `CreateButton` is pressed and
 // mounted open. It stays mounted when it is closed, so what was written is there when it is opened
-// again, and closing returns focus to the button. A post that was taken navigates away: the flow is
-// started over (new key) and the dialog closed, whether or not the navigation draws the layout anew.
+// again, and closing returns focus to the button. A post that was taken redirects, which draws the
+// layout anew and with it the dialog, empty and closed; a navigation of any other kind closes it.
 export default function CreatePopup(props: CreatePopupProps & OpenedProps) {
   const { variant, label } = props;
   const [open, setOpen] = useState(true);
   // Counts the times the dialog was opened: each one starts at the choice of what to write.
   const [visit, setVisit] = useState(1);
-  const [generation, setGeneration] = useState(0);
 
   // The dialog lives in the layout, so a navigation the member makes while it is open (Back, a
   // link in the page behind) must close it.
@@ -46,14 +45,7 @@ export default function CreatePopup(props: CreatePopupProps & OpenedProps) {
         <TriggerContent variant={variant} label={label} />
       </DialogTrigger>
       <ComposerSheet open={open}>
-        <CreateFlow
-          key={generation}
-          visit={visit}
-          onSent={() => {
-            setOpen(false);
-            setGeneration((count) => count + 1);
-          }}
-        />
+        <CreateFlow visit={visit} />
       </ComposerSheet>
     </Dialog>
   );

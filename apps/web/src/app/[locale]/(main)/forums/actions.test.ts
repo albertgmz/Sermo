@@ -199,10 +199,7 @@ test("a forum says whether files and a poll may be added to a thread there", asy
     status: 403,
     body: { error: { code: "forbidden", message: "No." } },
   };
-  assert.deepEqual(await actions.forumComposeAccessAction(4), {
-    attach: false,
-    poll: false,
-  });
+  assert.equal(await actions.forumComposeAccessAction(4), null);
   await assert.rejects(() => actions.forumComposeAccessAction(0));
 });
 

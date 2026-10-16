@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChartBar, CircleHelp, MessagesSquare, PenLine, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { forumComposeAccessAction } from "@/app/[locale]/(main)/forums/actions";
 import { postToWall } from "@/app/[locale]/(main)/members/actions";
 import { WallPostForm } from "@/app/[locale]/(main)/members/post-composer";
@@ -11,12 +11,21 @@ import { loadCreateAction } from "@/components/forum/create-actions";
 import {
   type CreateData,
   type CreateKind,
+  type CreateStep,
   createOptions,
+  focusComposer,
+  focusFirstOption,
   isThreadKind,
+  stepAfterPick,
   type ThreadKind,
 } from "@/components/forum/create-kinds";
 import { ForumChoicePanel } from "@/components/forum/forum-choice-panel";
 import { ThreadComposer } from "@/components/forum/thread-composer";
+import {
+  readThreadDraft,
+  sameDraft,
+  type ThreadDraft,
+} from "@/components/forum/thread-draft";
 import { Button } from "@/components/ui/button";
 import { DialogClose, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,9 +38,10 @@ const ICONS = {
   wall: PenLine,
 } as const;
 
-type Step = "kind" | "forum" | "compose";
-
 // What a thread's composer is first drawn with: what the member may add in the forum they chose.
+// How long what the flow read stays good: a reopening within it asks nothing.
+const REFRESH_MS = 60_000;
+
 type Access = { forumId: number; attach: boolean; poll: boolean };
 
 // The answer of the one read the flow makes. A refusal throws, so that a read that fails after an
@@ -42,8 +52,10 @@ async function loadCreate(): Promise<CreateData> {
   return loaded.data;
 }
 
-// The field of the composer that is shown, which takes focus when it comes up.
-const FIELDS = 'input[name="title"], textarea, [contenteditable]';
+// A wall post goes to the member's own wall, which the form never names: the id comes from the read.
+export function wallPostAction(memberId: number) {
+  return postToWall.bind(null, memberId, `/members/${memberId}`);
+}
 
 function ChooserHeader({ title, close }: { title: string; close: string }) {
   return (
@@ -153,39 +165,43 @@ export function CreateChooser({
 // nothing. Each opening of the dialog starts at the choice.
 export function CreateFlow({
   visit,
-  onSent,
 }: {
   // Counts the times the dialog was opened.
   visit: number;
-  // A post was taken and the page navigated.
-  onSent: () => void;
 }) {
   const t = useTranslations("forum.createFlow");
   const query = useQuery({
     queryKey: ["create"],
     queryFn: loadCreate,
-    staleTime: 0,
+    staleTime: REFRESH_MS,
     gcTime: 0,
     retry: false,
     refetchOnWindowFocus: false,
   });
   const data = query.data;
-  const [step, setStep] = useState<Step>("kind");
+  const [step, setStep] = useState<CreateStep>("kind");
   const [kind, setKind] = useState<CreateKind>("discussion");
   const [threadKind, setThreadKind] = useState<ThreadKind>("discussion");
   const [forumId, setForumId] = useState<number | null>(null);
   const [access, setAccess] = useState<Access | null>(null);
+  const [accessFailed, setAccessFailed] = useState(false);
   const [wallOpened, setWallOpened] = useState(false);
   const asked = useRef(0);
+  // The draft the thread composer holds, to tell when the one kept in the tab has moved on.
+  const seenDraft = useRef<ThreadDraft | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Each opening starts at the choice, and asks again what the member may do (a long visit to the
-  // page can outlast a change of permissions or a new forum).
+  // Each opening starts at the choice, and asks again what the member may do when what it knows is
+  // old (a long visit to the page can outlast a change of permissions or a new forum).
   const refetch = useRef(query.refetch);
   refetch.current = query.refetch;
+  const updatedAt = useRef(query.dataUpdatedAt);
+  updatedAt.current = query.dataUpdatedAt;
   useEffect(() => {
     setStep("kind");
-    if (visit > 1) void refetch.current();
+    if (visit > 1 && Date.now() - updatedAt.current > REFRESH_MS) {
+      void refetch.current();
+    }
   }, [visit]);
 
   // The first option takes focus once the choice is drawn: the options are not there when the
@@ -194,9 +210,7 @@ export function CreateFlow({
   // biome-ignore lint/correctness/useExhaustiveDependencies: `visit` is what makes it run again.
   useEffect(() => {
     if (!choosing) return;
-    rootRef.current
-      ?.querySelector<HTMLElement>("[data-create-option]")
-      ?.focus();
+    focusFirstOption(rootRef.current);
   }, [choosing, visit]);
 
   // The composer shown takes focus: the title of a thread, the text of a wall post.
@@ -205,43 +219,56 @@ export function CreateFlow({
   const ready = threadOn ? access !== null : wallOn && wallOpened;
   useEffect(() => {
     if (!ready) return;
-    const mode = wallOn ? "wall" : "thread";
-    rootRef.current
-      ?.querySelector<HTMLElement>(`[data-create-mode="${mode}"]`)
-      ?.querySelector<HTMLElement>(FIELDS)
-      ?.focus();
+    focusComposer(rootRef.current, wallOn ? "wall" : "thread");
   }, [ready, wallOn]);
 
-  function pick(next: CreateKind) {
-    setKind(next);
-    if (next === "wall") {
-      setWallOpened(true);
-      setStep("compose");
-      return;
-    }
-    setThreadKind(next);
-    setStep(forumId === null ? "forum" : "compose");
-  }
-
-  function chooseForum(id: number) {
+  // The thread composer is drawn anew for a forum: what the member may add there is asked first, and
+  // a read that fails is said so, with a retry, rather than taken for a refusal.
+  function startThread(id: number) {
     setForumId(id);
-    setStep("compose");
+    setAccess(null);
+    setAccessFailed(false);
+    seenDraft.current = null;
     const turn = ++asked.current;
     forumComposeAccessAction(id).then(
       (allowed) => {
-        if (turn === asked.current) setAccess({ forumId: id, ...allowed });
+        if (turn !== asked.current) return;
+        if (allowed) setAccess({ forumId: id, ...allowed });
+        else setAccessFailed(true);
       },
       () => {
-        if (turn === asked.current) {
-          setAccess({ forumId: id, attach: false, poll: false });
-        }
+        if (turn === asked.current) setAccessFailed(true);
       },
     );
   }
 
-  const wall = data
-    ? postToWall.bind(null, data.memberId, `/members/${data.memberId}`)
-    : null;
+  function pick(next: CreateKind) {
+    setKind(next);
+    if (next === "wall") setWallOpened(true);
+    else {
+      setThreadKind(next);
+      // The composer was left hidden while the draft kept in the tab may have been changed (or sent)
+      // on the page of its own; it must not write its older copy over it.
+      if (
+        forumId !== null &&
+        data &&
+        !sameDraft(readThreadDraft(data.memberId), seenDraft.current)
+      ) {
+        startThread(forumId);
+      }
+    }
+    setStep(stepAfterPick(next, forumId));
+  }
+
+  const chooseForum = (id: number) => {
+    setStep("compose");
+    startThread(id);
+  };
+  const keepDraft = useCallback((draft: ThreadDraft) => {
+    seenDraft.current = draft;
+  }, []);
+
+  const wall = data ? wallPostAction(data.memberId) : null;
 
   return (
     <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
@@ -257,7 +284,7 @@ export function CreateFlow({
       {step === "forum" && data && (
         <ForumChoicePanel
           forums={data.forums}
-          current={-1}
+          current={null}
           onChoose={chooseForum}
           onBack={() => setStep("kind")}
         />
@@ -280,16 +307,35 @@ export function CreateFlow({
             canPoll={access.poll}
             canTag={data.canTag}
             memberId={data.memberId}
-            onSent={onSent}
+            onDraft={keepDraft}
+            onForum={setForumId}
           />
         </div>
       )}
-      {threadOn && access === null && (
-        <div role="status" aria-label={t("loading")} className="space-y-3 p-3">
-          <Skeleton className="h-8 w-3/4" />
-          <Skeleton className="h-40 w-full" />
-        </div>
-      )}
+      {threadOn &&
+        access === null &&
+        (accessFailed ? (
+          <div className="space-y-3 px-2 py-6 text-center">
+            <p className="text-sm text-muted-foreground">{t("accessFailed")}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10"
+              onClick={() => forumId !== null && startThread(forumId)}
+            >
+              {t("retry")}
+            </Button>
+          </div>
+        ) : (
+          <div
+            role="status"
+            aria-label={t("loading")}
+            className="space-y-3 p-3"
+          >
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        ))}
       {data && wall && wallOpened && (
         <div
           data-create-mode="wall"
@@ -300,7 +346,6 @@ export function CreateFlow({
             placeholder={t("wallPlaceholder")}
             name={t("wallName")}
             titled={false}
-            onSent={onSent}
           />
         </div>
       )}

@@ -10,7 +10,7 @@ export type CreateVariant = "header" | "bar";
 // without a jump.
 export function triggerClass(variant: CreateVariant) {
   return variant === "header"
-    ? cn(buttonVariants(), "hidden px-3 md:inline-flex")
+    ? cn(buttonVariants(), "hidden h-10 px-3 md:inline-flex")
     : "flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors outline-none hover:bg-primary/80 focus-visible:ring-2 focus-visible:ring-ring md:hidden";
 }
 

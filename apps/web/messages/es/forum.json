@@ -264,7 +264,9 @@
     }
   },
   "composer": {
-    "aria": { "close": "Cerrar" }
+    "aria": {
+      "close": "Cerrar"
+    }
   },
   "threadComposer": {
     "post": "Publicar",
@@ -464,7 +466,7 @@
     },
     "kinds": {
       "discussion": {
-        "title": "Debate",
+        "title": "Tema",
         "description": "Empieza una conversación en un foro"
       },
       "question": {
@@ -479,6 +481,7 @@
         "title": "Publicación en el muro",
         "description": "Comparte una novedad en tu propio muro"
       }
-    }
+    },
+    "accessFailed": "No se pudo comprobar qué puedes añadir en ese foro."
   }
 }

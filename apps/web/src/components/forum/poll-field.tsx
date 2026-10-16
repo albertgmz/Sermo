@@ -6,7 +6,12 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { blankDraft, draftToJson, type PollDraft } from "@/lib/sermo/polls";
+import {
+  blankDraft,
+  draftToJson,
+  draftWhenWanted,
+  type PollDraft,
+} from "@/lib/sermo/polls";
 
 // The form is asked for only when the member opens the section, so it is no part of the first
 // load of the page that holds the composer.
@@ -19,27 +24,24 @@ const PollForm = dynamic(
 // The poll or quiz of a new thread: a button that opens the form, and the draft as one JSON field
 // (`name="poll"`) that the thread's action reads. Closed, or with nothing asked, the field is
 // absent and the thread has no poll. Plugs into `ThreadComposer`, behind `canPoll`, like the tags.
-// `startOpen`: the section is open with a blank poll when it is first drawn (the member asked for
-// a poll, not a discussion).
-// `asked` counts later requests for a poll: each opens the section if it is closed and leaves a
-// poll already written alone.
+// `wanted`: the member asked for a poll (and not a discussion). When it turns true the section
+// opens if it was closed; when it turns false a blank section closes, so a plain discussion never
+// sends a poll, and one the member wrote stays.
 export function PollField({
   attachIn,
-  startOpen = false,
-  asked = 0,
+  wanted = false,
 }: {
   attachIn: number | null;
-  startOpen?: boolean;
-  asked?: number;
+  wanted?: boolean;
 }) {
   const t = useTranslations("forum.poll");
   const [draft, setDraft] = useState<PollDraft | null>(() =>
-    startOpen ? blankDraft() : null,
+    draftWhenWanted(null, wanted),
   );
-  const [seen, setSeen] = useState(asked);
-  if (seen !== asked) {
-    setSeen(asked);
-    if (draft === null) setDraft(blankDraft());
+  const [seen, setSeen] = useState(wanted);
+  if (seen !== wanted) {
+    setSeen(wanted);
+    setDraft(draftWhenWanted(draft, wanted));
   }
   if (!draft) {
     return (

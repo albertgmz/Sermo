@@ -30,6 +30,40 @@ export function postableForums(forums: ForumChoice[]) {
   return forums.filter((forum) => forum.type === "forum" && forum.canPost);
 }
 
+export type CreateStep = "kind" | "forum" | "compose";
+
+// Where a choice leads: a wall post goes straight to the composer, a thread to the choice of forum
+// unless one was chosen already.
+export function stepAfterPick(
+  kind: CreateKind,
+  forumId: number | null,
+): CreateStep {
+  return kind === "wall" || forumId !== null ? "compose" : "forum";
+}
+
+type Root = Pick<ParentNode, "querySelector">;
+
+// The first option of the choice takes focus. False when there is none (not drawn yet).
+export function focusFirstOption(root: Root | null | undefined) {
+  const option = root?.querySelector<HTMLElement>("[data-create-option]");
+  option?.focus();
+  return !!option;
+}
+
+// The field of the composer that is shown takes focus: the title of a thread, the text of a wall
+// post.
+export function focusComposer(
+  root: Root | null | undefined,
+  mode: "thread" | "wall",
+) {
+  const shown = root?.querySelector(`[data-create-mode="${mode}"]`);
+  const field = shown?.querySelector<HTMLElement>(
+    'input[name="title"], textarea, [contenteditable]',
+  );
+  field?.focus();
+  return !!field;
+}
+
 // The options, in the order they are drawn. A member who may post in no forum gets the wall post
 // alone, and one who may post on no wall gets the threads alone; with neither there is nothing.
 export function createOptions(data: CreateData): CreateKind[] {

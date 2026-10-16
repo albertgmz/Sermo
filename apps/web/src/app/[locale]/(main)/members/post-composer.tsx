@@ -25,7 +25,6 @@ export function WallPostForm({
   avatar,
   name,
   formRef,
-  onSent,
   titled = true,
 }: {
   action: WallAction;
@@ -33,13 +32,11 @@ export function WallPostForm({
   avatar?: React.ReactNode;
   name: string;
   formRef?: RefObject<HTMLFormElement | null>;
-  // The post was taken (the action redirected), for a form that is not drawn anew by it.
-  onSent?: () => void;
   // False inside a dialog that names itself.
   titled?: boolean;
 }) {
   const t = useTranslations("members.postComposer");
-  const { state, pending, onSubmit } = useKeptForm(action, onSent);
+  const { state, pending, onSubmit } = useKeptForm(action);
   return (
     <ComposerForm
       formRef={formRef}

@@ -264,7 +264,9 @@
     }
   },
   "composer": {
-    "aria": { "close": "Close" }
+    "aria": {
+      "close": "Close"
+    }
   },
   "threadComposer": {
     "post": "Post",
@@ -479,6 +481,7 @@
         "title": "Wall post",
         "description": "Share an update on your own wall"
       }
-    }
+    },
+    "accessFailed": "Could not check what you can add in that forum."
   }
 }

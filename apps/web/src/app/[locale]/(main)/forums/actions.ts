@@ -70,15 +70,16 @@ export async function createThreadAction(
 }
 
 // What the member may add to a thread in this forum, for a composer whose forum was changed after
-// the page was drawn: files, and a poll or quiz. A forum that cannot be read allows neither.
+// the page was drawn: files, and a poll or quiz. Null when the forum could not be read, which is not
+// the same as a forum that allows neither.
 export async function forumComposeAccessAction(
   nodeId: number,
-): Promise<{ attach: boolean; poll: boolean }> {
+): Promise<{ attach: boolean; poll: boolean } | null> {
   requireIds(nodeId);
   const read = await attempt(`/forums/${nodeId}/new`, () =>
     call(nodesGet, { nodeId }),
   );
-  if (!read.ok) return { attach: false, poll: false };
+  if (!read.ok) return null;
   const allowed = read.value.resolvedPermissions;
   return {
     attach: allowed["forum.uploadAttachments"] === true,

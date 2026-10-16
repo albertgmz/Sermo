@@ -46,6 +46,15 @@ export function composeAddress(forumId: number) {
   return `/forums/${forumId}/new`;
 }
 
+// The address a change of forum moves to: on its page the address follows the forum; in a dialog
+// the page behind it is somewhere else and keeps its address.
+export function addressAfterForumChange(
+  frame: "page" | "dialog",
+  forumId: number,
+) {
+  return frame === "page" ? composeAddress(forumId) : null;
+}
+
 // Starting a thread, written like a post: close and Post at the top, the forum it goes to as a
 // chip that opens the forum choice, the title as a line of its own, the prefix as chips, then the
 // text in the shared composer. The forum, the title, the prefix and the text are all kept when the
@@ -62,7 +71,8 @@ export function ThreadComposer({
   memberId,
   frame = "page",
   kind = "discussion",
-  onSent,
+  onDraft,
+  onForum,
 }: {
   forumId: number;
   // The forums the member may start a thread in, under the categories that hold them.
@@ -81,8 +91,11 @@ export function ThreadComposer({
   // What the member asked to write. A question is a discussion worded as one (the backend has no
   // thread type for it); a poll opens the poll section.
   kind?: ThreadKind;
-  // The thread was taken (the action redirected), for a composer that is not drawn anew by it.
-  onSent?: () => void;
+  // The draft as the composer holds it, each time it changes and when one is restored, for a
+  // caller that must know whether what is kept in the tab has moved on since.
+  onDraft?: (draft: ThreadDraft) => void;
+  // The forum the member changed to, for a caller that draws the composer again.
+  onForum?: (id: number) => void;
 }) {
   const t = useTranslations("forum.threadComposer");
   const [forum, setForum] = useState(forumId);
@@ -106,18 +119,9 @@ export function ThreadComposer({
     state,
     pending,
     onSubmit: send,
-  } = useKeptForm(
-    (previous, data) => createThreadAction(target.current, previous, data),
-    onSent,
+  } = useKeptForm((previous, data) =>
+    createThreadAction(target.current, previous, data),
   );
-
-  // A poll asked for after the composer is drawn opens the section, unless it is open already.
-  const [seen, setSeen] = useState(kind);
-  const [pollAsked, setPollAsked] = useState(0);
-  if (seen !== kind) {
-    setSeen(kind);
-    if (kind === "poll") setPollAsked((count) => count + 1);
-  }
 
   // What is kept in the tab, written from what the member changes and from nothing else: a
   // thread that was sent can never come back as a draft because the page was shown again. While
@@ -129,8 +133,9 @@ export function ThreadComposer({
     (change: Partial<ThreadDraft>) => {
       draft.current = { ...draft.current, ...change };
       if (!sending.current) writeThreadDraft(memberId, draft.current);
+      onDraft?.(draft.current);
     },
-    [memberId],
+    [memberId, onDraft],
   );
   const changeBody = useCallback(
     (text: string) => {
@@ -143,6 +148,8 @@ export function ThreadComposer({
   // The draft kept by an earlier visit comes back once the page is on the screen: storage is not
   // read while drawing, which would differ from what the server drew. The text goes into the plain
   // field the composer starts with, which the editor takes it from when it is entered.
+  // Restored once per composer drawn, whatever the caller does with the draft afterwards.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `onDraft` is read once, here.
   useEffect(() => {
     const kept = readThreadDraft(memberId);
     if (kept) {
@@ -154,6 +161,7 @@ export function ThreadComposer({
         'textarea[name="body"]',
       );
       if (box) box.value = kept.body;
+      onDraft?.(kept);
     }
   }, [memberId]);
 
@@ -178,14 +186,15 @@ export function ThreadComposer({
     if (id === target.current) return;
     target.current = id;
     setForum(id);
-    if (frame === "page") {
-      window.history.replaceState(null, "", composeAddress(id));
-    }
+    onForum?.(id);
+    const address = addressAfterForumChange(frame, id);
+    if (address) window.history.replaceState(null, "", address);
     // Whether files and a poll may be added is a permission of the forum.
     const turn = ++asked.current;
     forumComposeAccessAction(id).then(
       (allowed) => {
-        if (turn !== asked.current) return;
+        // A forum that could not be read leaves what was known: that is no refusal.
+        if (turn !== asked.current || !allowed) return;
         setAttach(allowed.attach);
         setPoll(allowed.poll);
       },
@@ -263,11 +272,7 @@ export function ThreadComposer({
       )}
       {canTag && <ThreadTagsField />}
       {poll && (
-        <PollField
-          startOpen={kind === "poll"}
-          asked={pollAsked}
-          attachIn={attach ? forum : null}
-        />
+        <PollField wanted={kind === "poll"} attachIn={attach ? forum : null} />
       )}
       {kind === "poll" && !poll && (
         <p role="status" className="text-sm text-muted-foreground">

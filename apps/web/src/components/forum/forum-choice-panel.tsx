@@ -49,7 +49,8 @@ export function ForumChoicePanel({
   onBack,
 }: {
   forums: ForumChoice[];
-  current: number;
+  // The forum the composer has now; none when one is being chosen for the first time.
+  current: number | null;
   onChoose: (id: number) => void;
   onBack: () => void;
 }) {

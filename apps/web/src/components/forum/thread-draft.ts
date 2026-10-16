@@ -25,6 +25,18 @@ export function isEmptyDraft(draft: ThreadDraft) {
   return !draft.title.trim() && !draft.body.trim() && !draft.prefixId;
 }
 
+// Whether two drafts are the same one; none and an empty draft are (an empty draft is not kept).
+export function sameDraft(a: ThreadDraft | null, b: ThreadDraft | null) {
+  const left = a ?? { title: "", body: "", prefixId: "" };
+  const right = b ?? { title: "", body: "", prefixId: "" };
+  return (
+    (isEmptyDraft(left) && isEmptyDraft(right)) ||
+    (left.title === right.title &&
+      left.body === right.body &&
+      left.prefixId === right.prefixId)
+  );
+}
+
 // The files of a draft are not kept (they come back as a list only while the page stays), so the
 // tags that placed them go: a tag with no file behind it would be sent as a missing attachment.
 export function readThreadDraft(owner: number | null, store = session()) {
