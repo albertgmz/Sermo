@@ -3494,3 +3494,49 @@ should reduce; check on the next staging run: `load/write-waits.ts` and the WAL 
 file shrink to the limit, returns at once without a checkpointer, and gives up and backs off on a
 reader-held checkpoint) and `notifications/index.test.ts` (an 800-watcher fan-out reaches everyone
 and the file stays under twice the limit: 0.5 MB paced against 1.7 MB with the call removed).
+
+### Mobile performance (item 25b)  Lighthouse mobile on the small forum went from 77-84 to 80-84 on
+the six content pages (search 88 after the banner). The goal of 90 is not reached; what was done,
+what was measured and what decides the rest follows.  **The message catalogue was sent twice because
+the whole root layout is.** With `cacheComponents` the document carries the static shell's flight
+data once (the prelude) and the resumed render replays it (rows `24:o...`): on the home page two
+chunks of 149 KB, each holding the layout's 72 KB `messages` prop. That duplication is the
+framework's, so anything in a layout is paid twice. The root layout now sends only
+`layout.routeError` (`ROOT_NAMESPACES`); a layout adds what its pages need with `<ClientMessages
+namespaces={[...]}>` (a server component that picks the namespaces and hands them to `MoreMessages`,
+a client component that merges them into the parent provider's messages, since
+`NextIntlClientProvider` does not merge). `(main)` sends the shell (header, create flow, feed,
+member card: 14.7 KB), `(auth)` and `(staff)` their own union, and `account`, `account/security`,
+`conversations`, `forums/[id]`, `tags/[name]`, `threads/[id]` and `ui` add theirs.
+`tests/client-messages.test.ts` computes, for every page, layout, loading, error and not-found file,
+the namespaces its client modules read (the import graph, dynamic imports included) and fails when a
+provider above it does not send one, when a layout sends one that nothing under it reads, and when
+one is sent twice. Home: 72 KB to 16 KB per copy; document 987 KB to 864 KB (132 KB to 95 KB gzip);
+the shell chunk 149 KB to 93 KB.  **JavaScript.** The share button, the tab overflow menu and a
+profile's more menu load on first use through `LazyPopup` (the device share sheet is still asked for
+inside the press, where a browser allows it). Home 325 to 307 KB gzip, profile 318 to 301; thread,
+forum, search and conversation are unchanged (the one added client component, `MoreMessages`,
+offsets what the lazy buttons save). Every content page still has the reaction button's popover, the
+thread hover card, the composer dialog, a select or the widgets sheet in its first load, so Base
+UI's positioning code stays. `legacy-javascript` is Next's own polyfill module in the main chunk
+(feature-tested, always included): no browserslist change touches it; the default target is already
+Chrome 111 and Safari 16.4. Budgets lowered where the measured size plus 3% is under the old budget
+(home 329 to 317 KB, profile 325 to 310, other 313 to 296); the others keep theirs (the new size
+plus 3% was above it).  **Document size.** The 115 icons are 49 KB raw and 2.2 KB gzip together: a
+sprite saves nothing worth the change. The document is 70% flight payload.  **`link-text`.** The
+failing link on the large forum's profile was the avatar link of a member named "Go...": its text
+was the initials, "GO", which Lighthouse's English list rejects. The initials are now drawn with
+`after:content-[attr(data-initials)]`, so the link has no text node and keeps its `aria-label`.
+**Why the score stays near 80.** Lighthouse simulates LCP from the scripts that finished before the
+observed LCP. Observed LCP is 330-500 ms on every content page and all scripts are in by then, so
+the simulation counts all of them (4.4 to 5.3 s). The one page whose LCP paints within about 150 ms,
+search after the banner (335 KB document), is simulated at 3.5-3.8 s and scores 88-91. Observed LCP
+follows document size and hydration work (search 137 ms at 335 KB, forum 378 ms at 516 KB, home 468
+ms at 864 KB), not server time (the whole home document is out in 70-90 ms). So reaching 90 on the
+other pages means a much smaller first document: the feed's 21 cards and a thread page's 33 posts
+are the bulk, and their size is the backend's page-size default, which the web app deliberately does
+not copy. Before the banner is accepted the LCP element is the cookie banner, drawn by the library
+after hydration; a banner in the first flush would make LCP early on every page in that mode, but it
+touches consent handling and was not attempted. Not done, for these reasons: `inlineCss` (no
+measurement, risk as in 25), the remaining Base UI popups (about 0.1 s of simulated LCP per 17 KB:
+measured, +1 point for 17 KB).  **Phone suite** on this build: 39 passed (android-small).
