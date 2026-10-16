@@ -156,6 +156,7 @@ const CONVERSATION = {
   messageCount: 1,
   participantCount: 2,
   isUnread: false,
+  pollKind: null,
   participants: [
     { user: { id: 1, username: "ember" }, state: "active" },
     { user: { id: 2, username: "wren" }, state: "active" },

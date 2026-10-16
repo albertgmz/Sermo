@@ -3,6 +3,7 @@ import { FeedItem } from "@/app/[locale]/(main)/_feed/feed-item";
 import type { FeedFilterValue } from "@/lib/feed-filters";
 import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
+import { getFeedView } from "@/lib/sermo/feed-view";
 import { authorsFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
@@ -26,10 +27,11 @@ export async function feedPage(
   reader: typeof read = read,
   filter: FeedFilterValue = {},
 ): Promise<ListPage> {
-  const [feed, viewer, reactionTypes] = await Promise.all([
+  const [feed, viewer, reactionTypes, view] = await Promise.all([
     reader(feedList, { scope: tab, cursor, ...filter }),
     getViewer(),
     getReactionTypes(),
+    getFeedView(),
   ]);
   const author = await authorsFor(
     feed.items.flatMap((item) =>
@@ -81,6 +83,7 @@ export async function feedPage(
             }
             reactionTypes={reactionTypes}
             viewList={viewList}
+            view={view}
           />
         ),
       };

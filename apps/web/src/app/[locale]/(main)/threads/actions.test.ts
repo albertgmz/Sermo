@@ -46,6 +46,7 @@ const thread = {
   lastPost: { postId: 1, position: 0, postedAt: when, user: someone },
   readPosition: null,
   isUnread: false,
+  pollKind: null,
 };
 const post = postBody();
 const ROOT = "http://127.0.0.1:8787/api/v1";

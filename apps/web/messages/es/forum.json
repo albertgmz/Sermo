@@ -73,6 +73,22 @@
     "unread": "Sin leer",
     "clear": "Quitar filtros"
   },
+  "feedViewToggle": {
+    "aria": {
+      "label": "Vista de la portada"
+    },
+    "options": {
+      "cards": "Tarjetas",
+      "compact": "Lista compacta"
+    },
+    "failed": "No se pudo guardar la vista."
+  },
+  "firstUnreadLink": {
+    "count": "{value} sin leer",
+    "aria": {
+      "label": "{count, plural, one {Ir al mensaje sin leer} other {Ir al primero de {value} mensajes sin leer}}"
+    }
+  },
   "featureMark": {
     "featured": "Recomendado",
     "promoted": "Promocionado"
@@ -138,6 +154,10 @@
     "copy": "Copiar enlace",
     "copied": "Enlace copiado",
     "manual": "Copia este enlace"
+  },
+  "pollBadge": {
+    "poll": "Encuesta",
+    "quiz": "Cuestionario"
   },
   "unreadDot": {
     "aria": {

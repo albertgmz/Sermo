@@ -95,6 +95,7 @@ const conversation = {
   messageCount: 1,
   participantCount: 1,
   isUnread: false,
+  pollKind: null,
   participants: [{ user: member, state: "active" }],
   canReply: true,
   canInvite: false,

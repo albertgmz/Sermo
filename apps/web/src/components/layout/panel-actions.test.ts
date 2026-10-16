@@ -34,6 +34,7 @@ const member = {
     language: null,
     keyboardShortcuts: true,
     homeTab: null,
+    feedView: "cards",
     openHomeTab: "latest",
     pendingAcceptance: [],
     awaitingApproval: false,

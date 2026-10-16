@@ -342,6 +342,7 @@ const PREFERENCES = {
   profilePostPrivacy: "members",
   keyboardShortcuts: true,
   homeTab: null,
+  feedView: "cards",
 };
 const preferenceForm = (language: string) =>
   form({ watchOnCreate: "none", watchOnReply: "none", language });

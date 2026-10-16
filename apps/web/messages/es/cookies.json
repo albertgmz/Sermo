@@ -107,6 +107,11 @@
       "purpose": "Recuerda el idioma que elegiste.",
       "lifetime": "1 año."
     },
+    "feedView": {
+      "title": "Vista de la portada",
+      "purpose": "Recuerda si un visitante sin cuenta lee la portada como tarjetas o como lista compacta.",
+      "lifetime": "1 año."
+    },
     "dataSaver": {
       "title": "Ahorro de datos",
       "purpose": "Recuerda qué imágenes decidiste no cargar.",

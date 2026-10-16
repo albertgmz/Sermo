@@ -107,6 +107,11 @@
       "purpose": "Remembers the language you picked.",
       "lifetime": "1 year."
     },
+    "feedView": {
+      "title": "Feed layout",
+      "purpose": "Remembers whether a visitor without an account reads the feed as cards or as a compact list.",
+      "lifetime": "1 year."
+    },
     "dataSaver": {
       "title": "Data saver",
       "purpose": "Remembers which pictures you chose not to load.",

@@ -52,6 +52,7 @@ export const CLIENT_NAMESPACES = [
   "forum.contentActions",
   "forum.feedFilters",
   "forum.createFlow",
+  "forum.feedViewToggle",
   "forum.forumChoicePanel",
   "forum.hideForumButton",
   "forum.framing",

@@ -77,6 +77,7 @@ const featured = (id: number, kind: "staff" | "paid", title: string) => ({
     },
     readPosition: null,
     isUnread: false,
+    pollKind: null,
   },
 });
 

@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { FeedFiltersButton } from "@/components/forum/feed-filters-button";
+import { FeedViewToggle } from "@/components/forum/feed-view-toggle";
 import {
   type FeedFilterValue,
   feedHref,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/feed-filters";
 import type { HomeTab } from "@/lib/home-tabs";
 import { read } from "@/lib/sermo/client";
+import { getFeedView } from "@/lib/sermo/feed-view";
 
 const chipClass =
   "inline-flex h-10 max-w-full items-center gap-1.5 rounded-full border bg-card pr-2 pl-3 text-sm outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:h-8";
@@ -25,9 +27,10 @@ export async function FeedFilterBar({
   filter: FeedFilterValue;
 }) {
   const t = await getTranslations("forum.feedFilterBar");
-  const [nodes, prefixes] = await Promise.all([
+  const [nodes, prefixes, view] = await Promise.all([
     filter.forumIds ? read(nodesList, {}) : null,
     filter.prefixId !== undefined ? read(threadPrefixesList, {}) : null,
+    getFeedView(),
   ]);
   const chips: { key: string; label: string; href: string }[] = [];
   for (const id of filter.forumIds ?? []) {
@@ -97,6 +100,8 @@ export async function FeedFilterBar({
           {t("clear")}
         </Link>
       )}
+      {/* Keyed by the view the server drew, so a draw that says otherwise resets the button. */}
+      <FeedViewToggle key={view} view={view} className="ml-auto" />
     </section>
   );
 }

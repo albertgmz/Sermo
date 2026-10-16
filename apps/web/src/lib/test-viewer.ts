@@ -12,6 +12,7 @@ export function viewerBody(signedIn: boolean) {
           language: null,
           keyboardShortcuts: true,
           homeTab: null,
+          feedView: "cards",
           openHomeTab: "latest",
           pendingAcceptance: [],
           awaitingApproval: false,

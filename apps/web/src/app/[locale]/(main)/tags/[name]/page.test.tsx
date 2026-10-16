@@ -84,6 +84,7 @@ const thread = (id: number, title: string) => ({
   },
   readPosition: null,
   isUnread: false,
+  pollKind: null,
 });
 const seo = (robots = "index,follow") => ({
   title: "#café | Forum",

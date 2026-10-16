@@ -5,18 +5,22 @@ import { useFormatter, useLocale, useTranslations } from "next-intl";
 import type { ComponentProps } from "react";
 import type * as z from "zod";
 import { ClampedBody } from "@/app/[locale]/(main)/_feed/clamped-body";
+import { CompactFeedItem } from "@/app/[locale]/(main)/_feed/compact-item";
 import { replyFromFeed } from "@/app/[locale]/(main)/actions";
 import { wallHref } from "@/app/[locale]/(main)/members/[id]/wall";
 import { commentOnWallPost } from "@/app/[locale]/(main)/members/actions";
+import { threadHref as postLink } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { Art } from "@/components/forum/art";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { FeatureMark } from "@/components/forum/feature-mark";
+import { FirstUnreadLink } from "@/components/forum/first-unread-link";
 import { HideForumButton } from "@/components/forum/hide-forum-button";
 import { HtmlContent } from "@/components/forum/html-content";
+import { InlineReply } from "@/components/forum/inline-reply";
 import { LevelBadge } from "@/components/forum/level";
-import { LineComposer } from "@/components/forum/line-composer";
 import { messageActionClass } from "@/components/forum/message-row";
+import { PollBadge } from "@/components/forum/poll-badge";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -31,6 +35,7 @@ import {
   WallComments,
 } from "@/components/forum/wall-comments";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
+import type { FeedView } from "@/lib/feed-view";
 import { formatCompact } from "@/lib/format";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import { threadCard } from "@/lib/sermo/threads";
@@ -88,6 +93,7 @@ function Card({
   noun,
   views,
   hideForum,
+  actions,
   answers,
   children,
 }: {
@@ -109,6 +115,8 @@ function Card({
   views?: number;
   // The forum a member may keep out of their own feed from the card.
   hideForum?: { id: number; title: string };
+  // More actions after the count of answers: the unread count, the Reply button.
+  actions?: React.ReactNode;
   // What sits under the card's actions: the comments, the composer.
   answers?: React.ReactNode;
   children: React.ReactNode;
@@ -178,6 +186,7 @@ function Card({
           <MessageCircle />
           {formattedCount}
         </Link>
+        {actions}
         {views !== undefined && (
           <span className="inline-flex h-10 items-center gap-1.5 px-2 text-xs font-medium tabular-nums text-muted-foreground md:h-8">
             <Eye aria-hidden="true" className="size-4" />
@@ -210,6 +219,7 @@ export function FeedItem({
   picker,
   reactionTypes,
   viewList,
+  view = "cards",
 }: {
   item: ApiFeedItem;
   author: (id: number) => AuthorView;
@@ -220,8 +230,13 @@ export function FeedItem({
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
   viewList?: boolean;
+  // Full cards, or one compact row each.
+  view?: FeedView;
 }) {
   const t = useTranslations("home.feedItem");
+  if (view === "compact") {
+    return <CompactFeedItem item={item} author={author} now={now} />;
+  }
   if (item.type === "profilePost") {
     const { profilePost } = item;
     const href = `/members/${profilePost.profileUserId}#profile-post-${profilePost.id}`;
@@ -348,7 +363,7 @@ export function FeedItem({
         />
       }
       href={href}
-      answerHref={item.canReply ? `#${anchor}-comment` : href}
+      answerHref={href}
       count={thread.replyCount}
       noun="replies"
       views={isThread ? thread.viewCount : undefined}
@@ -357,16 +372,29 @@ export function FeedItem({
           ? undefined
           : { id: thread.node.id, title: thread.node.title }
       }
-      answers={
-        item.canReply && (
-          <div id={`${anchor}-comment`} className="scroll-mt-24">
-            <LineComposer
+      actions={
+        <>
+          {item.unread && (
+            <FirstUnreadLink
+              href={postLink(
+                thread.id,
+                item.unread.firstPosition,
+                item.unread.firstPostId,
+              )}
+              count={item.unread.count}
+              more={item.unread.more}
+            />
+          )}
+          {item.canReply && (
+            <InlineReply
               action={replyFromFeed.bind(null, thread.id)}
+              label={t("reply")}
               placeholder={t("replyPlaceholder")}
               submitLabel={t("replySubmit")}
+              anchor={`${anchor}-comment`}
             />
-          </div>
-        )
+          )}
+        </>
       }
     >
       <h2
@@ -380,6 +408,9 @@ export function FeedItem({
           className="underline-offset-4 hover:underline"
         />
       </h2>
+      {thread.pollKind && (
+        <PollBadge kind={thread.pollKind} className="mt-2 h-6" />
+      )}
       {!isThread && (
         <p className="mt-2 truncate border-l-2 pl-2.5 text-xs text-muted-foreground">
           <UserLink user={card.author.member} className="font-medium" />:{" "}

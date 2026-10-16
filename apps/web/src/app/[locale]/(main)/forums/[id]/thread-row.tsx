@@ -2,6 +2,7 @@ import { Eye, Lock, MessageCircle, Pin } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useLocale, useNow, useTranslations } from "next-intl";
 import { Art } from "@/components/forum/art";
+import { PollBadge } from "@/components/forum/poll-badge";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UnreadDot } from "@/components/forum/unread-dot";
@@ -93,22 +94,27 @@ export function ThreadRow({
             )}
           </span>
         </ThreadHoverCard>
-        <p className="truncate text-xs text-muted-foreground">
-          {t.rich(showForum ? "createdIn" : "created", {
-            forum: () => (
-              <Link
-                href={`/forums/${thread.node.id}`}
-                className="relative z-10 hover:underline"
-              >
-                {thread.node.title}
-              </Link>
-            ),
-            author: () => (
-              <UserLink user={card.author.member} className="relative z-10" />
-            ),
-            time: format.relativeTime(new Date(thread.createdAt), now),
-          })}
-        </p>
+        <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          {thread.pollKind && (
+            <PollBadge kind={thread.pollKind} className="h-5 shrink-0" />
+          )}
+          <p className="min-w-0 truncate">
+            {t.rich(showForum ? "createdIn" : "created", {
+              forum: () => (
+                <Link
+                  href={`/forums/${thread.node.id}`}
+                  className="relative z-10 hover:underline"
+                >
+                  {thread.node.title}
+                </Link>
+              ),
+              author: () => (
+                <UserLink user={card.author.member} className="relative z-10" />
+              ),
+              time: format.relativeTime(new Date(thread.createdAt), now),
+            })}
+          </p>
+        </div>
       </div>
       <dl className="flex shrink-0 flex-col items-end gap-1 text-xs text-muted-foreground tabular-nums sm:flex-row sm:gap-0">
         <div className="flex items-center gap-1 sm:w-16 sm:justify-end">

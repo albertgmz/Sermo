@@ -73,6 +73,22 @@
     "unread": "Unread",
     "clear": "Clear filters"
   },
+  "feedViewToggle": {
+    "aria": {
+      "label": "Feed layout"
+    },
+    "options": {
+      "cards": "Cards",
+      "compact": "Compact list"
+    },
+    "failed": "The layout could not be saved."
+  },
+  "firstUnreadLink": {
+    "count": "{value} new",
+    "aria": {
+      "label": "{count, plural, one {Jump to the unread post} other {Jump to the first of {value} unread posts}}"
+    }
+  },
   "featureMark": {
     "featured": "Featured",
     "promoted": "Promoted"
@@ -138,6 +154,10 @@
     "copy": "Copy link",
     "copied": "Link copied",
     "manual": "Copy this link"
+  },
+  "pollBadge": {
+    "poll": "Poll",
+    "quiz": "Quiz"
   },
   "unreadDot": {
     "aria": {

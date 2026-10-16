@@ -77,6 +77,7 @@ const me = {
     language: null,
     keyboardShortcuts: true,
     homeTab: null,
+    feedView: "cards",
     openHomeTab: "latest",
     pendingAcceptance: [],
     awaitingApproval: false,

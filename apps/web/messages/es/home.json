@@ -99,6 +99,7 @@
     "profileContext": "publicó en <profile>un perfil</profile>",
     "threadContext": "inició un tema en <forum>{title}</forum>",
     "replyContext": "respondió a un tema en <forum>{title}</forum>",
+    "reply": "Responder",
     "replyPlaceholder": "Escribe una respuesta…",
     "replySubmit": "Publicar respuesta"
   },

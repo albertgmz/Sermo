@@ -81,6 +81,7 @@ test("a number finds that thread, without counting a view", async () => {
           lastPost: { postId: 1, position: 0, postedAt: when, user: someone },
           readPosition: null,
           isUnread: false,
+          pollKind: null,
         },
         seo: {
           title: "t",

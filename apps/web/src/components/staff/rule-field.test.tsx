@@ -130,6 +130,7 @@ const THREAD_ANSWER = {
     lastPost: { postId: 1, position: 0, postedAt: when, user: someone },
     readPosition: null,
     isUnread: false,
+    pollKind: null,
   },
   seo: {
     title: "t",

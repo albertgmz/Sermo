@@ -50,6 +50,7 @@ const threadBody = {
     },
     readPosition: null,
     isUnread: false,
+    pollKind: null,
   },
   seo: {
     title: "t",

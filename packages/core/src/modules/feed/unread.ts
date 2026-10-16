@@ -1,8 +1,8 @@
-import { actorUserId, type Actor } from "../../actor";
+import type * as z from "zod";
+import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { FEED_UNREAD_CAP, type FeedUnread } from "../../contracts/feed";
 import { readGates } from "../forums";
-import type * as z from "zod";
 
 export const unreadSql = {
   /**

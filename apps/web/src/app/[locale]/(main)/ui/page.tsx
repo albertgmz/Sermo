@@ -40,6 +40,7 @@ import { ConversationPreview } from "@/components/forum/conversation-preview";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
+import { FirstUnreadLink } from "@/components/forum/first-unread-link";
 import { ForumCard } from "@/components/forum/forum-card";
 import { ForumIcon } from "@/components/forum/forum-icon";
 import { HtmlContent } from "@/components/forum/html-content";
@@ -66,6 +67,7 @@ import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PendingButton } from "@/components/forum/pending-button";
 import { PermissionIcon } from "@/components/forum/permission-icon";
 import { Podium } from "@/components/forum/podium";
+import { PollBadge } from "@/components/forum/poll-badge";
 import { PostFrame } from "@/components/forum/post-frame";
 import { Postbit } from "@/components/forum/postbit";
 import { PrefixTag } from "@/components/forum/prefix-tag";
@@ -1660,6 +1662,17 @@ export default async function StyleguidePage() {
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <UnreadDot />
             Unread dot
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <PollBadge kind="poll" className="h-6" />
+            <PollBadge kind="quiz" className="h-6" />
+            <FirstUnreadLink href="/ui" count={3} more={false} />
+            <FirstUnreadLink href="/ui" count={99} more />
+          </div>
+          <p className="max-w-prose text-sm text-muted-foreground">
+            The poll and quiz marks of a thread card or row, and the count of
+            unread posts that jumps to the first of them (the feed shows it on a
+            card when the viewer has unread posts in the thread).
           </p>
         </Section>
 

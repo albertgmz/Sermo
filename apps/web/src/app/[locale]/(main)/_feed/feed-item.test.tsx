@@ -45,6 +45,7 @@ afterAll(() => {
   mock.module("next-intl", () => intl);
 });
 const { FeedItem } = await import("./feed-item");
+const { threadHref } = await import("@/app/[locale]/(main)/threads/[id]/pages");
 
 type Item = Parameters<typeof FeedItem>[0]["item"];
 
@@ -119,6 +120,7 @@ const threadItem = (
   type: "thread" | "post",
   canReply: boolean,
   featured: "staff" | "paid" | null = null,
+  over: { unread?: unknown; thread?: Record<string, unknown> } = {},
 ) =>
   ({
     type,
@@ -126,6 +128,7 @@ const threadItem = (
     following: false,
     canReply,
     featured,
+    unread: over.unread ?? null,
     thread: {
       id: 7,
       nodeId: 2,
@@ -152,6 +155,8 @@ const threadItem = (
       },
       readPosition: null,
       isUnread: false,
+      pollKind: null,
+      ...over.thread,
     },
     post: postBody({
       id: type === "thread" ? 30 : 31,
@@ -166,7 +171,11 @@ async function html(node: ReactNode) {
   return new Response(stream).text();
 }
 
-async function render(item: Item, viewerId: number | null) {
+async function render(
+  item: Item,
+  viewerId: number | null,
+  view: "cards" | "compact" = "cards",
+) {
   return html(
     withIntl(
       <FeedItem
@@ -176,6 +185,7 @@ async function render(item: Item, viewerId: number | null) {
         viewerId={viewerId}
         picker={[]}
         reactionTypes={[]}
+        view={view}
       />,
     ),
   );
@@ -232,16 +242,20 @@ test("a wall post with no comments and no right to comment draws nothing under i
   expect(html).not.toContain("border-l pl-3");
 });
 
-test("a thread card has a reply box when the viewer may reply, for a new thread and for a reply", async () => {
+test("a thread card has a Reply button when the viewer may reply, and nothing of the box before it is pressed", async () => {
   for (const type of ["thread", "post"] as const) {
     const html = await render(threadItem(type, true), MEMBER);
     const postId = type === "thread" ? 30 : 31;
     expect(html).toContain("the post shown");
-    expect(html).toContain(`id="feed-post-${postId}-comment"`);
-    expect(html).toContain("Write a reply…");
-    expect(html).toContain('aria-label="Post reply"');
+    expect(html).toMatch(
+      /<button[^>]*aria-label="Reply"[^>]*aria-expanded="false"/,
+    );
+    // The box is not drawn, so its code is not loaded either.
+    expect(html).not.toContain("Write a reply…");
+    expect(html).not.toContain(`id="feed-post-${postId}-comment"`);
+    // The count of replies leads to the thread: the replies are read there.
     expect(countHref(html, "4 replies")).toContain(
-      `href="#feed-post-${postId}-comment"`,
+      type === "thread" ? 'href="/threads/7"' : 'href="/threads/7#post-31"',
     );
   }
 });
@@ -258,13 +272,13 @@ test("a featured thread is marked Featured, a promoted one Promoted, and others 
   expect(plain).not.toContain("Promoted");
 });
 
-test("a thread card without the right to reply has no reply box; the count leads to the thread, for a guest too", async () => {
+test("a thread card without the right to reply has no Reply button; the count leads to the thread, for a guest too", async () => {
   const member = await render(threadItem("post", false), MEMBER);
-  expect(member).not.toContain("Write a reply…");
+  expect(member).not.toContain('aria-label="Reply"');
   expect(member).not.toContain('-comment"');
   expect(countHref(member, "4 replies")).toContain('href="/threads/7#post-31"');
   const guest = await render(threadItem("thread", false), null);
-  expect(guest).not.toContain("Write a reply…");
+  expect(guest).not.toContain('aria-label="Reply"');
   expect(countHref(guest, "4 replies")).toContain('href="/threads/7"');
 });
 
@@ -285,4 +299,100 @@ test("a signed-in member can hide the forum of a thread card from their feed; a 
     expect(await render(threadItem(type, true), MEMBER)).toMatch(label);
   expect(await render(threadItem("thread", true), null)).not.toMatch(label);
   expect(await render(wallItem(), MEMBER)).not.toMatch(label);
+});
+
+const UNREAD = { count: 3, more: false, firstPostId: 99, firstPosition: 25 };
+
+test("a thread with unread posts shows how many and links to the first one, on its page", async () => {
+  const html = await render(
+    threadItem("post", true, null, { unread: UNREAD }),
+    MEMBER,
+  );
+  const link = html.match(
+    /<a[^>]*aria-label="Jump to the first of 3 unread posts"[^>]*>/,
+  )?.[0];
+  expect(link).toContain(`href="${threadHref(7, 25, 99)}"`);
+  expect(threadHref(7, 25, 99)).toContain("#post-99");
+  expect(html).toContain("3 new");
+});
+
+test("one unread post says so, and a count past the cap reads 99+", async () => {
+  const one = await render(
+    threadItem("thread", true, null, { unread: { ...UNREAD, count: 1 } }),
+    MEMBER,
+  );
+  expect(one).toContain('aria-label="Jump to the unread post"');
+  const many = await render(
+    threadItem("thread", true, null, {
+      unread: { ...UNREAD, count: 99, more: true },
+    }),
+    MEMBER,
+  );
+  expect(many).toContain("99+ new");
+  expect(many).toContain("Jump to the first of 99+ unread posts");
+});
+
+test("a thread with nothing unread, a guest and a wall post have no unread link", async () => {
+  expect(await render(threadItem("thread", true), MEMBER)).not.toContain(
+    "Jump to",
+  );
+  expect(await render(threadItem("thread", false), null)).not.toContain(
+    "Jump to",
+  );
+  expect(await render(wallItem(), MEMBER)).not.toContain("Jump to");
+});
+
+test("a thread with a poll or a quiz carries the badge; the others do not", async () => {
+  const poll = await render(
+    threadItem("thread", true, null, { thread: { pollKind: "poll" } }),
+    MEMBER,
+  );
+  expect(poll).toContain("Poll");
+  const quiz = await render(
+    threadItem("post", true, null, { thread: { pollKind: "quiz" } }),
+    MEMBER,
+  );
+  expect(quiz).toContain("Quiz");
+  const plain = await render(threadItem("thread", true), MEMBER);
+  expect(plain).not.toMatch(/>Poll<|>Quiz</);
+});
+
+test("the compact row is the thread in one line: title, where, answers and what is new; no text, no reactions, no box", async () => {
+  const html = await render(
+    threadItem("post", true, "staff", {
+      unread: UNREAD,
+      thread: { pollKind: "poll" },
+    }),
+    MEMBER,
+    "compact",
+  );
+  expect(html).toContain("A thread");
+  expect(html).toContain("replied to a thread in");
+  expect(html).toContain("Featured");
+  expect(html).toContain("Poll");
+  expect(html).toContain("3 new");
+  expect(countHref(html, "4 replies")).toContain('href="/threads/7#post-31"');
+  expect(html).not.toContain("the post shown");
+  expect(html).not.toContain("how it started");
+  expect(html).not.toContain('aria-label="Reply"');
+  expect(html).not.toContain("Hide ");
+  expect(html).toContain('id="feed-post-31"');
+  expect(html).toContain("data-shortcut-item");
+});
+
+test("a compact wall post names who wrote it and where, with its comments", async () => {
+  const html = await render(wallItem(), MEMBER, "compact");
+  expect(html).toContain("member4");
+  expect(html).toContain("posted on");
+  expect(html).not.toContain("the wall post");
+  expect(html).not.toContain("first comment");
+  expect(countHref(html, "2 comments")).toContain(
+    'href="/members/5#profile-post-9"',
+  );
+});
+
+test("a compact row for a new thread leads its count to the thread", async () => {
+  const html = await render(threadItem("thread", false), null, "compact");
+  expect(countHref(html, "4 replies")).toContain('href="/threads/7"');
+  expect(html).not.toContain("Jump to");
 });

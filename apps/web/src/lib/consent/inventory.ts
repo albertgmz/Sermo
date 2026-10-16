@@ -3,6 +3,7 @@
 // name the code writes and fails when one is missing here. The words (purpose, lifetime) are in
 // `messages/<locale>/cookies.json` under `items.<id>`.
 import { LOCALE_COOKIE } from "@/i18n/locale-cookie";
+import { FEED_VIEW_COOKIE } from "@/lib/feed-view";
 import { LITE_COOKIE } from "@/lib/lite-preferences";
 import { NOTICES_DISMISSED_COOKIE } from "@/lib/notice-dismissals";
 
@@ -78,6 +79,13 @@ export const INVENTORY: readonly InventoryItem[] = [
     category: "necessary",
     storage: "cookie",
     names: [LOCALE_COOKIE],
+    party: "first",
+  },
+  {
+    id: "feedView",
+    category: "necessary",
+    storage: "cookie",
+    names: [FEED_VIEW_COOKIE],
     party: "first",
   },
   {

@@ -10,6 +10,8 @@ import {
 import { defineContract } from "../operation";
 import { Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
 
+export { FEED_VIEWS };
+
 // Watching -------------------------------------------------------------------------------------
 
 export const ThreadWatch = z

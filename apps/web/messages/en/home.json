@@ -99,6 +99,7 @@
     "profileContext": "posted on <profile>a profile</profile>",
     "threadContext": "started a thread in <forum>{title}</forum>",
     "replyContext": "replied to a thread in <forum>{title}</forum>",
+    "reply": "Reply",
     "replyPlaceholder": "Write a reply…",
     "replySubmit": "Post reply"
   },
