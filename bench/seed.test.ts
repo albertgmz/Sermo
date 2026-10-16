@@ -124,4 +124,4 @@ test("a scaled profile is written to one complete file the backend opens", async
   } finally {
     closeContext(ctx);
   }
-});
+}, 60_000);

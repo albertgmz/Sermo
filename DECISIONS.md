@@ -3079,3 +3079,46 @@ join and the post lookups cost 0.01 to 0.03 ms each). Fix: the statement names t
 BY attachments_type_id`), as the thumbnail join already names `files_variant`. Same rows, same
 order, same cursor, no migration. Measured on the seed: p50 13.9 ms to 0.4 ms, p95 17.6 to 20.3 ms
 before and 0.5 to 1.3 ms after, max 24 to 30 ms before and 0.9 to 4.2 ms after.
+
+### Large test forum (item 23)  The seed generator has profiles: one table, `PROFILES` in
+`bench/seed.ts`, read by the same code paths. `bench` is `SIZES` exactly as before (same sizes, same
+`SEED_VERSION`, same file name, same output: a regenerated bench seed matches the previous one table
+by table except wall-clock stamps written by migrations and triggers, and its meta JSON is
+identical), so `bun run bench` and its budgets do not change. `large` is the second profile, for
+staging and load checks: about 1,000,000 members (100,000 active plus 900,000 lurkers), 500,000
+threads, 10,000,000 posts, 20,000,000 reactions (14M on posts, 2.5M on wall posts, 1.5M on comments,
+2M on messages), 1,000,000 wall posts, 3,000,000 comments, 200,000 conversations and 4,000,000
+messages: 10x the bench in content. The tables that serve single scenarios grow less: notifications,
+thread watches, awards granted, purchases, follows and ignores 2x; thread reads and attachments 2x;
+moderation queues 2x; credit rule applications 2.5x (they must exceed the visible threads, which
+each earn one). The catalog (forums, groups, awards, shop items, promotions) does not grow. `--scale
+<n>` divides every activity count of a profile by `n` (the catalog stays), which gives a quick test
+forum (`--profile bench --scale 100`, one second) and the 1/10 sample used to size `large`.  **The
+file is too big at the bench's body size, so old rows keep a shorter body.** With whole bodies the
+large profile measures about 30 GB (bodies, their HTML and the full-text index are 70% of the file),
+and the disk allows about 22 GB. `large` sets `shortBodyShare: 0.8`: the oldest 80% of posts, wall
+posts, comments and messages keep only the first paragraph of their body (same pool, same random
+draws, the HTML rendered again); the newest 20% keep whole bodies. The full-text index stays. The
+bench profile has no share, so its bodies are untouched. Measured: 1/4 of `large` is 4.65 GB, so
+`large` is about 19 GB.  **One file, no copy.** `bun run seed:large` (or `bun bench/seed.ts
+--profile large [--out <file>]`) writes `~/.cache/sermo-bench/large/sermo.db` and its meta next to
+it as `sermo.db.json` (the bench meta plus `profile` and `password`, the shared `SEED_PASSWORD`).
+The database is built under `<file>.partial` and renamed when finished, so a file at the path is
+always complete; a rerun deletes the old file, any partial one and the meta first. The staging item
+opens this file directly. A scaled profile or the bench profile needs `--out`, so a sample can never
+replace the large file.  **What had to change for 10x, none of it visible in the bench output.**
+Pair keys for watchers, follows and ignores multiplied the user id by 100,000 and collided past
+100,000 members: they use the member count now. The thread-read readers are capped at a fifth of the
+members (2,000 at the bench). The reply applications ask for a negative limit when threads outnumber
+the applications, which SQLite reads as no limit: clamped. The credit ledger spaces its rows over
+the five years by the number of applications, not by a fixed 225 s. The reaction totals and the
+search index are written 1,000,000 posts at a time, one transaction each, because one statement over
+10M posts would keep the whole result in the write-ahead log (the bench has exactly one chunk). The
+generator caches 512 MiB of pages (the output does not depend on it; 1/4 scale took 174 s instead of
+199 s) and collects garbage between stages, so memory stays at the live size: about 1.1 GB at 1/4,
+about 3 to 3.5 GB expected at `large`. Time grows faster than the size (1/10: 50 s, 1/4: 174 s), so
+`large` is expected to take 25 to 40 minutes.  A test (`bench/seed.test.ts`, part of `bun run test`)
+pins the bench `SIZES`, checks the `large` profile's ratios, and writes a 1/100 forum, checks
+integrity, counts and a few backend reads (threads, posts, search), and that a second run replaces
+the first. The bench profile now also generates with the 512 MiB cache and full GCs between stages;
+its output is unchanged, only the generation time.
