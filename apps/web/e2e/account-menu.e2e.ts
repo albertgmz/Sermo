@@ -64,7 +64,8 @@ test.describe("signed in", () => {
         "aria-selected",
         "true",
       );
-      await expect(menu.getByRole("tabpanel")).toBeVisible();
+      // The panel of the tab just chosen: the one that is leaving is still there while it animates.
+      await expect(menu.getByRole("tabpanel", { name })).toBeVisible();
       await expectFits(page, `tab ${name}`);
     }
     await expect(menu.getByRole("link", { name: /^Data saver/ })).toBeVisible();

@@ -185,6 +185,18 @@ test.describe("signed in", () => {
       page.evaluate(() => {
         document.documentElement.dataset.beforeReload = "1";
       });
+    // The choice is kept on the member's account, so a run that stopped half way leaves it on
+    // compact, and pressing the button that is already pressed saves nothing and never reloads.
+    // Start from cards whatever the last run left.
+    if (
+      (await page
+        .getByRole("button", { name: "Compact list" })
+        .getAttribute("aria-pressed")) === "true"
+    ) {
+      await markDocument();
+      await page.getByRole("button", { name: "Cards" }).click();
+      await reloadedByPage();
+    }
     await markDocument();
     await page.getByRole("button", { name: "Compact list" }).click();
     await expect(
