@@ -168,7 +168,7 @@ function Card({
         )}
       </header>
       <div className="px-4 pt-3">{children}</div>
-      <footer className="flex items-center gap-1 px-2 pt-1 pb-2">
+      <footer className="flex flex-wrap items-center gap-1 px-2 pt-1 pb-2">
         {reaction}
         <Link
           href={answerHref}

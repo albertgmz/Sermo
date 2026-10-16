@@ -104,6 +104,7 @@ async function Trending() {
   const { items } = await read(threadsRanked, {
     by: "mostReacted",
     limit: LIST_SIZE,
+    feed: true,
   });
   const member = await membersFor(items.flatMap(threadMembers));
   const t = await getTranslations("home.feedSidebar");
@@ -144,6 +145,7 @@ async function LatestThreads() {
   const { items } = await read(threadsRanked, {
     by: "latestThreads",
     limit: LIST_SIZE,
+    feed: true,
   });
   const member = await membersFor(items.flatMap(threadMembers));
   const t = await getTranslations("home.feedSidebar");

@@ -120,3 +120,19 @@ test("the suggested members are there when the backend lists them", async () => 
   expect(html).toContain(messages.home.feedSidebar.membersTitle);
   expect(html).toContain("nova");
 });
+
+test("the ranked blocks ask for what the feed shows, so the forums left out of it stay out of them", async () => {
+  const asked: URLSearchParams[] = [];
+  globalThis.fetch = (async (url: string) => {
+    const { pathname, searchParams } = new URL(url);
+    if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
+    if (pathname === "/api/v1/thread-rankings") asked.push(searchParams);
+    return Response.json({ items: [], nextCursor: null });
+  }) as unknown as typeof fetch;
+  await sidebar();
+  expect(asked.map((query) => query.get("by")).sort()).toEqual([
+    "latestThreads",
+    "mostReacted",
+  ]);
+  expect(asked.every((query) => query.get("feed") === "true")).toBe(true);
+});

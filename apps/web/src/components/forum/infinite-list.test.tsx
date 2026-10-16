@@ -6,6 +6,8 @@ import { recorded } from "@/lib/test-calls";
 import { withIntl } from "@/lib/test-intl";
 import { withQuery } from "@/lib/test-query";
 import {
+  AUTO_EMPTY_PAGES,
+  emptyRun,
   flattenRows,
   holdsState,
   InfiniteList,
@@ -462,4 +464,14 @@ test("the bar of new entries is not in the server's markup, which knows of none"
     ),
   );
   expect(html).not.toContain("new post");
+});
+
+test("the list follows cursors by itself past at most two empty pages in a row, then waits for the button", () => {
+  const empty = page([], "next");
+  expect(emptyRun([page(["a"], "c1")])).toBe(0);
+  expect(emptyRun([page(["a"], "c1"), empty])).toBe(1);
+  expect(emptyRun([empty, empty])).toBe(2);
+  expect(emptyRun([empty, page(["a"], "c1"), empty])).toBe(1);
+  expect(emptyRun([])).toBe(0);
+  expect(AUTO_EMPTY_PAGES).toBe(2);
 });

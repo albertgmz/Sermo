@@ -96,7 +96,7 @@ export default function HomePage(props: PageProps<"/[locale]">) {
       </Suspense>
       {/* No fallback: the block is drawn only when something is featured. */}
       <Suspense fallback={null}>
-        <OnFeedTabs {...props}>
+        <OnFeedTabs {...props} unfiltered>
           <FeaturedThreads />
         </OnFeedTabs>
       </Suspense>
@@ -189,12 +189,18 @@ const opening = cache(
   },
 );
 
-// What belongs to the feed (the wall composer, the featured threads) is drawn on its tabs only.
+// What belongs to the feed (the wall composer, the featured threads) is drawn on its tabs only; the
+// featured threads not above a list narrowed by a filter, which may leave them out.
 async function OnFeedTabs({
   searchParams,
+  unfiltered = false,
   children,
-}: PageProps<"/[locale]"> & { children: React.ReactNode }) {
-  const { tab } = await opening(searchParams);
+}: PageProps<"/[locale]"> & {
+  unfiltered?: boolean;
+  children: React.ReactNode;
+}) {
+  const { tab, params } = await opening(searchParams);
+  if (unfiltered && isFiltered(filterFromParams(params))) return null;
   return FEED_TABS.some((feed) => feed === tab) ? children : null;
 }
 
@@ -257,25 +263,36 @@ async function HomeFeed({ tab, params }: { tab: Tab; params: Params }) {
       className="rounded-lg border bg-card"
     />
   ) : (
-    <PagedList
-      first={first}
-      more={moreFeed.bind(null, tab, filter)}
-      pages={pagesParam(params.pages)}
-      start={cursor}
-      listKey={["feed", tab, filterKey(filter)]}
-      hrefBase={feedHref(tab, filter)}
-      moreLabel={t("loadMore")}
-      estimateSize={320}
-      spacing="spaced"
-      fresh={
-        tab === "hot"
-          ? undefined
-          : {
-              check: newFeedCount.bind(null, tab, filter),
-              intervalMs: POLL_MS.feed,
-            }
-      }
-    />
+    <>
+      {first.rows.length === 0 && (
+        // The walk looked at part of the feed and found nothing yet: say so above the button.
+        <p
+          role="status"
+          className="rounded-lg border bg-card p-4 text-sm text-muted-foreground"
+        >
+          {t("emptyMore")}
+        </p>
+      )}
+      <PagedList
+        first={first}
+        more={moreFeed.bind(null, tab, filter)}
+        pages={pagesParam(params.pages)}
+        start={cursor}
+        listKey={["feed", tab, filterKey(filter)]}
+        hrefBase={feedHref(tab, filter)}
+        moreLabel={t("loadMore")}
+        estimateSize={320}
+        spacing="spaced"
+        fresh={
+          tab === "hot"
+            ? undefined
+            : {
+                check: newFeedCount.bind(null, tab, filter),
+                intervalMs: POLL_MS.feed,
+              }
+        }
+      />
+    </>
   );
 }
 

@@ -28,6 +28,7 @@
     },
     "emptyTitle": "Nothing here yet",
     "emptyFiltered": "No threads match these filters. Take one off, or clear them all.",
+    "emptyMore": "Nothing yet in the part of the feed that was looked at. Press the button to keep looking.",
     "loadMore": "Load more"
   },
   "media": {

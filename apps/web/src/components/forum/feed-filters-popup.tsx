@@ -352,7 +352,11 @@ export function FiltersForm({
             spellCheck={false}
             placeholder={t("tagPlaceholder")}
             defaultValue={filter.tag ?? ""}
+            aria-describedby="feed-filter-tag-help"
           />
+          <p id="feed-filter-tag-help" className={help}>
+            {t("tagHelp")}
+          </p>
         </div>
         {options.signedIn ? (
           <div className="space-y-1">

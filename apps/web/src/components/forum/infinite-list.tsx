@@ -55,6 +55,17 @@ type ListQuery = {
   loadPage: (cursor: string | null) => Promise<ListPage>;
 };
 
+// Pages in a row, at the end of what is loaded, that held no row. A walk the server filters can
+// answer a page with nothing in it and a cursor to go on from; the list follows such cursors by
+// itself only so far, then waits for the visitor's press on the button.
+export const AUTO_EMPTY_PAGES = 2;
+export function emptyRun(pages: ListPage[]) {
+  let run = 0;
+  for (let at = pages.length - 1; at >= 0 && pages[at]?.rows.length === 0; at--)
+    run++;
+  return run;
+}
+
 // The page parameter of each page: where the list began, then the cursor each page named.
 function pageParamsOf(start: string | null, pages: ListPage[]) {
   return [start, ...pages.slice(0, -1).map((page) => page.nextCursor)];
@@ -377,14 +388,15 @@ export function InfiniteList({
   const sentinel = useRef<HTMLAnchorElement>(null);
   const { fetchNextPage, isFetching } = query;
   const canLoad = query.hasNextPage && !isFetching && !query.isError;
+  const follows = canLoad && emptyRun(loaded) < AUTO_EMPTY_PAGES;
   // A new observer reports where the sentinel is at once, so a page too short to push it out of
   // view is followed by the next one.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `count` renews the observer after each page
   useEffect(() => {
     const node = sentinel.current;
-    if (!canLoad || !node) return;
+    if (!follows || !node) return;
     return watchSentinel(node, () => void fetchNextPage());
-  }, [canLoad, count, fetchNextPage]);
+  }, [follows, count, fetchNextPage]);
 
   const List = as;
   const Row = as === "ul" ? "li" : "div";

@@ -9,6 +9,7 @@ import {
 } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
 import { translator, withIntl } from "@/lib/test-intl";
+import { withQuery } from "@/lib/test-query";
 import { viewerBody } from "@/lib/test-viewer";
 
 const realFetch = globalThis.fetch;
@@ -81,11 +82,13 @@ function backend({
 
 async function render(searchParams: Record<string, string> = {}) {
   const stream = await renderToReadableStream(
-    withIntl(
-      <HomePage
-        params={Promise.resolve({ locale: "en" })}
-        searchParams={Promise.resolve(searchParams)}
-      />,
+    withQuery(
+      withIntl(
+        <HomePage
+          params={Promise.resolve({ locale: "en" })}
+          searchParams={Promise.resolve(searchParams)}
+        />,
+      ),
     ),
     { onError: () => {} },
   );
@@ -256,4 +259,28 @@ test("a filter that is malformed is dropped, and the other tabs have no filter b
     backend({ member: true });
     expect(await render({ tab, unread: "1" })).not.toContain("Feed filters");
   }
+});
+
+test("the featured block is not drawn above a list a filter narrowed", async () => {
+  const FEATURED = "/api/v1/featured-threads";
+  backend({ member: true });
+  await render({ tab: "latest" });
+  expect(paths()).toContain(FEATURED);
+  backend({ member: true });
+  await render({ tab: "latest", type: "locked" });
+  expect(paths()).not.toContain(FEATURED);
+});
+
+test("a first page with no row and a cursor to go on says so above the button, not a blank list", async () => {
+  backend({ member: true });
+  const answer = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    if (new URL(url).pathname === FEED)
+      return Response.json({ items: [], nextCursor: "abc" });
+    return answer(url, init);
+  }) as unknown as typeof fetch;
+  const html = await render({ tab: "latest", unread: "1" });
+  expect(html).toContain("Press the button to keep looking");
+  expect(html).not.toContain("No threads match these filters");
+  expect(html).toContain("cursor=abc");
 });
