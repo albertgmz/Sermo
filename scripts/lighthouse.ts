@@ -220,8 +220,6 @@ function lhci(
   const env: Record<string, string | undefined> = {
     ...process.env,
     LIGHTHOUSE_RUN_FILE: runFile,
-    // `lhci` looks for puppeteer-core from its own folder, which does not see the root one.
-    NODE_PATH: join(root, "node_modules"),
     LIGHTHOUSE_COOKIES: cookies?.length ? JSON.stringify({ host, https, cookies }) : undefined,
   };
   const result = spawnSync(node, [cli, command, `--config=${configFile}`, ...extra], {

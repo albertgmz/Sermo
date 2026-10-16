@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   consentCookie,
@@ -221,5 +224,40 @@ describe("summary", () => {
     expect(lines[0]).toStartWith("page");
     expect(lines[1]).toContain("/threads/1");
     expect(lines[1]).toContain("93");
+  });
+});
+
+describe("the SEO hold for pages that stay out of search engines", () => {
+  // lighthouserc.cjs reads the run file named in the environment when it is loaded.
+  const folder = mkdtempSync(join(tmpdir(), "sermo-lhrc-"));
+  writeFileSync(join(folder, "run.json"), JSON.stringify({ urls: [], runs: 1, outputDir: folder }));
+  process.env.LIGHTHOUSE_RUN_FILE = join(folder, "run.json");
+  const config = createRequire(import.meta.url)("../lighthouserc.cjs");
+  rmSync(folder, { recursive: true, force: true });
+  const [indexable, held] = config.ci.assert.assertMatrix.map(
+    (entry: { matchingUrlPattern: string }) => new RegExp(entry.matchingUrlPattern),
+  );
+
+  test("matches search and conversations, with a query or an id, and nothing that only starts like them", () => {
+    for (const url of [
+      "http://localhost:4400/search?q=word",
+      "https://forum.example.com/search",
+      "http://localhost:4400/conversations/43",
+      "http://localhost:4400/conversations",
+    ]) {
+      expect(held.test(url)).toBe(true);
+      expect(indexable.test(url)).toBe(false);
+    }
+    for (const url of [
+      "http://localhost:4400/",
+      "http://localhost:4400/searchable",
+      "http://localhost:4400/search-tips",
+      "http://localhost:4400/conversations-archive",
+      "http://search.example.com/",
+      "http://localhost:4400/threads/1-a?x=/search",
+    ]) {
+      expect(held.test(url)).toBe(false);
+      expect(indexable.test(url)).toBe(true);
+    }
   });
 });

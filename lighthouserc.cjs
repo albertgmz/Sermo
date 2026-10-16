@@ -29,7 +29,7 @@ const shared = {
 // Search results and conversations stay out of search engines on purpose (`noindex`). Lighthouse's
 // `is-crawlable` audit counts that as a failure worth 40 points of the SEO score, so the SEO score
 // of these two is held at 50: any other SEO failure still shows. Matched against the final address.
-const NOT_INDEXED = "https?://[^/]+/(conversations/|search)";
+const NOT_INDEXED = "https?://[^/]+/(conversations|search)(?:[/?#]|$)";
 
 // lhci joins this path to its working folder, which is inside .lighthouseci.
 const cookieScript = relative(process.cwd(), join(__dirname, "scripts", "lighthouse-cookies.cjs"));
@@ -42,12 +42,14 @@ module.exports = {
       chromePath: run.chromePath,
       settings: {
         // Lighthouse's mobile emulation: a 412 x 823 phone screen at 1.75 pixel ratio, a phone
-        // user agent, simulated slow 4G and a 4x slower processor. A fresh profile for every run
-        // (when cookies are set, one browser serves the runs of a group, with only those cookies).
+        // user agent, simulated slow 4G and a 4x slower processor. One Chrome, started by the
+        // puppeteer script below, serves the runs of a group: no stored data is kept between them
+        // except the cookies the pages set themselves.
         formFactor: "mobile",
       },
-      // The cookies go into the browser's own jar, where the page's scripts (the banner) read them.
-      ...(process.env.LIGHTHOUSE_COOKIES ? { puppeteerScript: cookieScript } : {}),
+      // Always the same launcher, so "before" and "after" differ only in the cookies. The script puts
+      // them (if any) into the browser's own jar, where the page's scripts (the banner) read them.
+      puppeteerScript: cookieScript,
     },
     assert: {
       assertMatrix: [
