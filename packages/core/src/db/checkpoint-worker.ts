@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 /** Worker thread for startCheckpointer: periodic PASSIVE checkpoints on its own connection. */
 import { Database } from "bun:sqlite";
-import { CAUGHT_UP, HOLDS, PACE_WAITING } from "./checkpoint-state";
+import { CAUGHT_UP, COPIED, HOLDS, PACE_WAITING, RUNNING } from "./checkpoint-state";
 
 declare const self: Worker;
 
@@ -25,31 +25,35 @@ self.onmessage = (event: MessageEvent<Message>) => {
     const { state, maxHoldMs } = message;
     let lastCheckpoint = performance.now();
     let lastLog = Number.POSITIVE_INFINITY;
+    let started = 0;
     const checkpoint = () => {
-      const result = db?.query("PRAGMA wal_checkpoint(PASSIVE)").get() as
-        | { busy: number; log: number; checkpointed: number }
-        | undefined;
+      Atomics.store(state, RUNNING, ++started);
+      let result: { busy: number; log: number; checkpointed: number } | undefined;
+      try {
+        result = db?.query("PRAGMA wal_checkpoint(PASSIVE)").get() as typeof result;
+      } finally {
+        Atomics.store(state, RUNNING, 0);
+      }
       // A busy checkpoint (another checkpoint or a lock held) did nothing: try again next tick.
       if (!result || result.busy || result.log < 0) return;
+      Atomics.store(state, COPIED, result.checkpointed);
       // Every frame copied: the next write restarts the WAL. Jobs waiting in `paceWal` count these.
       if (result.checkpointed >= result.log) Atomics.add(state, CAUGHT_UP, 1);
-      return result;
+      // The WAL restarts (stops growing) only when a write finds every frame checkpointed. Until a
+      // complete checkpoint sees the WAL no longer than the previous one did, writes are
+      // overtaking checkpoints: keep checkpointing every tick instead of waiting for the next hold.
+      if (result.checkpointed >= result.log && result.log <= lastLog)
+        lastCheckpoint = performance.now();
+      lastLog = result.log;
     };
     timer = setInterval(() => {
       // Holds delay checkpoints, but never past maxHoldMs since the last complete one: back-to-back
       // jobs can keep a hold active indefinitely.
       if (Atomics.load(state, HOLDS) > 0 && performance.now() - lastCheckpoint < maxHoldMs) return;
-      const result = checkpoint();
-      // The WAL restarts (stops growing) only when a write finds every frame checkpointed. Until a
-      // complete checkpoint sees the WAL no longer than the previous one did, writes are
-      // overtaking checkpoints: keep checkpointing every tick instead of waiting for the next hold.
-      if (!result) return;
-      if (result.checkpointed >= result.log && result.log <= lastLog)
-        lastCheckpoint = performance.now();
-      lastLog = result.log;
+      checkpoint();
     }, message.intervalMs);
-    // A job that stopped writing so the WAL can restart wants a checkpoint now, holds or not: it
-    // is the one writer, so nothing commits beside the checkpoint.
+    // A job that stopped writing so the WAL can restart wants a checkpoint now, holds or not. The
+    // job commits nothing meanwhile (requests still can, as they can beside any checkpoint).
     paceTimer = setInterval(() => {
       if (Atomics.load(state, PACE_WAITING) > 0) checkpoint();
     }, PACE_POLL_MS);

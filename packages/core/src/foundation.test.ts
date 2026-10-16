@@ -404,34 +404,118 @@ describe("checkpointer", () => {
     closeContext(ctx);
   });
 
-  test("paceWal gives up on a checkpoint a reader holds back, and waits again only once the WAL doubles", async () => {
+  /** A file database with a checkpointer, a small WAL limit and helpers to grow the WAL. */
+  function pacedFixture() {
     const path = tempDbPath();
     const ctx = createContext({ path, migrate: true });
     ctx.sqlite.run("CREATE TABLE junk (id INTEGER PRIMARY KEY, v BLOB)");
     ctx.sqlite.run("PRAGMA journal_size_limit = 65536");
-    const stop = startCheckpointer(ctx, { intervalMs: 20 });
+    const stopCheckpointer = startCheckpointer(ctx, { intervalMs: 20 });
+    let stopping: Promise<void> | undefined;
+    const stop = () => {
+      stopping ??= stopCheckpointer();
+      return stopping;
+    };
     const insert = ctx.sqlite.prepare("INSERT INTO junk (v) VALUES (randomblob(2000))");
-    const grow = (rows: number) => {
-      for (let i = 0; i < rows; i++) insert.run();
+    const readers: Database[] = [];
+    return {
+      ctx,
+      stop,
+      walSize: () => Bun.file(`${path}-wal`).size,
+      grow: (rows: number) => {
+        for (let i = 0; i < rows; i++) insert.run();
+      },
+      /** A reader at the current snapshot: no checkpoint can copy the frames written after it. */
+      pin: () => {
+        const reader = new Database(path);
+        readers.push(reader);
+        reader.run("BEGIN");
+        reader.query("SELECT COUNT(*) FROM junk").get();
+        return () => reader.run("COMMIT");
+      },
+      timed: async (maxWaitMs: number) => {
+        const started = performance.now();
+        await paceWal(ctx, maxWaitMs);
+        return performance.now() - started;
+      },
+      close: async () => {
+        for (const reader of readers) reader.close();
+        await stop();
+        closeContext(ctx);
+      },
     };
-    const timed = async () => {
-      const started = performance.now();
-      await paceWal(ctx, 300);
-      return performance.now() - started;
-    };
-    // A reader at an old snapshot: the checkpoint can never copy every frame.
-    const reader = new Database(path);
-    reader.run("BEGIN");
-    reader.query("SELECT COUNT(*) FROM junk").get();
-    grow(200);
-    expect(await timed()).toBeGreaterThanOrEqual(300);
-    expect(await timed()).toBeLessThan(100);
-    grow(400);
-    expect(await timed()).toBeGreaterThanOrEqual(300);
-    reader.run("COMMIT");
-    reader.close();
-    await stop();
-    closeContext(ctx);
+  }
+
+  test("paceWal gives up on a checkpoint a reader holds back, and waits again only once the WAL doubles", async () => {
+    const fixture = pacedFixture();
+    try {
+      fixture.pin();
+      fixture.grow(200);
+      expect(await fixture.timed(300)).toBeGreaterThanOrEqual(300);
+      expect(await fixture.timed(300)).toBeLessThan(100);
+      fixture.grow(400);
+      expect(await fixture.timed(300)).toBeGreaterThanOrEqual(300);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  test("paceWal forgets a give-up once the WAL is back under its limit", async () => {
+    const fixture = pacedFixture();
+    try {
+      const release = fixture.pin();
+      fixture.grow(200);
+      expect(await fixture.timed(300)).toBeGreaterThanOrEqual(300);
+      release();
+      // The periodic checkpoint catches up, a write restarts the WAL and the file is cut back.
+      for (let i = 0; fixture.walSize() > 65536 && i < 100; i++) {
+        await Bun.sleep(30);
+        fixture.grow(1);
+      }
+      expect(fixture.walSize()).toBeLessThanOrEqual(65536);
+      await fixture.timed(300); // under the limit: clears the memory of the give-up
+      // Below twice the earlier give-up size, so only a cleared memory waits again.
+      fixture.pin();
+      fixture.grow(60);
+      expect(fixture.walSize()).toBeGreaterThan(65536);
+      expect(await fixture.timed(300)).toBeGreaterThanOrEqual(300);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  test("paceWal keeps waiting while the checkpoint still copies frames", async () => {
+    const fixture = pacedFixture();
+    try {
+      const release = fixture.pin();
+      fixture.grow(200);
+      const waited = fixture.timed(400);
+      // Part-way through the wait the first reader goes and a later one takes its place: the
+      // checkpoint copies the frames between them, which is progress, then is held back again.
+      await Bun.sleep(250);
+      release();
+      fixture.grow(100);
+      fixture.pin();
+      fixture.grow(50);
+      // Without progress the wait would end 400 ms in; with it, 400 ms after the copy.
+      expect(await waited).toBeGreaterThanOrEqual(600);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  test("stopping the checkpointer ends a wait", async () => {
+    const fixture = pacedFixture();
+    try {
+      fixture.pin();
+      fixture.grow(200);
+      const waited = fixture.timed(5000);
+      await Bun.sleep(100);
+      await fixture.stop();
+      expect(await waited).toBeLessThan(1000);
+    } finally {
+      await fixture.close();
+    }
   });
 
   test("paceWal returns at once when no checkpointer runs", async () => {

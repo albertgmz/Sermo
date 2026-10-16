@@ -1,11 +1,11 @@
 import { statSync } from "node:fs";
 import type { Ctx } from "../context";
-import { CAUGHT_UP, HOLDS, PACE_WAITING, STATE_SLOTS } from "./checkpoint-state";
+import { CAUGHT_UP, COPIED, HOLDS, PACE_WAITING, RUNNING, STATE_SLOTS } from "./checkpoint-state";
 
 /** Shared with the worker: holds, waiting jobs and complete checkpoints (`checkpoint-state.ts`). */
 const holds = new WeakMap<Ctx, Int32Array>();
 
-/** The longest `paceWal` waits for a complete checkpoint before the job carries on. */
+/** How long `paceWal` waits, without the checkpoint making progress, before the job carries on. */
 const PACE_MAX_WAIT_MS = 10_000;
 
 /** The WAL size at which `paceWal` last gave up: it waits again only after the WAL doubles. */
@@ -37,10 +37,13 @@ export function holdCheckpoints(ctx: Ctx): () => void {
  * measurements). Await this between a job's transactions: once the WAL file is past
  * `journal_size_limit` (which cuts it back when it restarts, so a larger file is live frames),
  * the job stops writing until the worker has completed a checkpoint that began after it stopped,
- * and its next write restarts the WAL. Costs one `stat` while the WAL is small. Does nothing
- * without a checkpointer (SQLite then checkpoints inside commits). A checkpoint that cannot finish
- * (a reader keeps an old snapshot) ends the wait after ten seconds, and the next wait comes only
- * once the WAL has doubled, so one stuck reader cannot stall the job batch by batch.
+ * and its next write restarts the WAL. Costs a pragma read and a `stat` per call while the WAL is
+ * small. Does nothing without a checkpointer (SQLite then checkpoints inside commits).
+ *
+ * The wait goes on while a checkpoint is running or the frames it copied keep changing, so a slow
+ * disk is waited for. It ends after `maxWaitMs` (ten seconds) without progress, as when a reader
+ * keeps an old snapshot; the next wait then comes only once the WAL has doubled, so one stuck
+ * reader cannot stall the job batch by batch. Stopping the checkpointer ends the wait too.
  */
 export async function paceWal(ctx: Ctx, maxWaitMs = PACE_MAX_WAIT_MS): Promise<void> {
   const state = holds.get(ctx);
@@ -49,14 +52,28 @@ export async function paceWal(ctx: Ctx, maxWaitMs = PACE_MAX_WAIT_MS): Promise<v
     ctx.sqlite.query("PRAGMA journal_size_limit").get() as { journal_size_limit: number }
   ).journal_size_limit;
   const size = walBytes(ctx);
-  if (limit <= 0 || size <= limit || size <= 2 * (gaveUpAt.get(ctx) ?? 0)) return;
+  if (limit <= 0 || size <= limit) {
+    gaveUpAt.delete(ctx);
+    return;
+  }
+  if (size <= 2 * (gaveUpAt.get(ctx) ?? 0)) return;
   // The checkpoint in progress may have started before this job stopped writing: wait for the
   // second one.
   const target = Atomics.load(state, CAUGHT_UP) + 2;
-  const deadline = performance.now() + maxWaitMs;
+  let copied = Atomics.load(state, COPIED);
+  let running = 0;
+  let deadline = performance.now() + maxWaitMs;
   Atomics.add(state, PACE_WAITING, 1);
   try {
     while (Atomics.load(state, CAUGHT_UP) - target < 0) {
+      if (holds.get(ctx) !== state) return;
+      // The same checkpoint seen running twice is a long one; short ones are mostly missed.
+      const inFlight = Atomics.load(state, RUNNING);
+      const copiedNow = Atomics.load(state, COPIED);
+      if ((inFlight !== 0 && inFlight === running) || copiedNow !== copied)
+        deadline = performance.now() + maxWaitMs;
+      running = inFlight;
+      copied = copiedNow;
       if (performance.now() >= deadline) {
         gaveUpAt.set(ctx, size);
         return;
