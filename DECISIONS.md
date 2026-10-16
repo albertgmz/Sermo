@@ -2945,3 +2945,40 @@ a typed reply is lost on Esc, Back or a step to another picture; the viewer's hi
 (`history.state.sermoPicture`) is lost if Next rewrites the entry (the list's `?pages=` update), and
 closing then replaces the address in place instead of going back; no confirmation shows after a
 reply other than the page redraw.
+
+**Polls and quizzes (item 10).** A thread carries at most one poll (one question) or quiz (a
+series), written with the thread (`poll` of `threads.create`) or added by its author while it is
+unlocked or by staff with `poll.manage`. Texts are one line of BB code read for its words, under the
+rules a post is under (the word filter; a text a filter holds for approval, or a link from a new
+member where the site holds those, is refused: with a new thread it holds the thread), the forum's
+posting rules, the terms, the flood interval and the daily limit; a member whose own posts are held
+for approval, or who is banned from the thread, adds no poll or answer. Voters may add one answer
+each (`poll.addAnswer`). Questions and answers may carry a picture, an attachment of content type
+`poll` read under the thread's rules and drawn through the data saver's gate; the browser is given
+file ids only, never an address. A poll is single or multiple choice, may close by date or by hand
+(a poll a moderator closed is reopened by a moderator), allow or refuse a change of vote, and show
+results always, after the viewer's vote or after it closes (a closed poll shows them to all; creator
+and staff always see them); voters are public or anonymous, fixed at creation, and an anonymous poll
+never lists voters to anyone, nor does the moderator log or the event log (`poll.voted` names a
+member and no poll). A quiz is taken one question at a time, an answer is final and brings the right
+answer and explanation of that question only (`polls.get` never carries them before; editors read
+`polls.definition`), the score is kept per member, and its structure freezes once someone has taken
+it. Permissions `poll.create`, `vote`, `addAnswer`, `closeOwn`, `closeAny`, `viewVoters`, `manage`
+(per forum); voting needs a visible thread whose posts the viewer may read (a locked thread still
+takes votes). Votes are replaced inside `writeTx` with the actor re-read; `poll_answers.vote_count`,
+`polls.ballot_count` and `users.poll_vote_count` (the criterion `polls_voted_at_least`, not revoked
+at once when a poll is deleted) are kept by triggers (migration 0055, which also appends the
+question text to the opening post's search entry). Editing replaces the whole definition and carries
+the version it started from (`loadedAt`): a stale editor is refused with a conflict that names it,
+an edit with no version never removes an answer a voter added, and the web keeps what was typed (and
+merges the answers and questions added meanwhile, drops what was removed) when it loads what
+changed. Votes and ballots are never removed in one big transaction: one transaction removes at most
+2,000 voters, so deleting a poll with more hides it at once (`max_choices = 0`) and queues one
+background job per poll (`polls.purge`, unique key, one batch per write transaction) that removes
+the voters and then the poll; a hard delete of its thread queues the same job and waits for it.
+Merging moves the poll to a target without one (else it stays on the merged-away thread and goes
+with it); hard delete removes it; erasure keeps votes, and a public voter list shows them as
+`Deleted member <id>`. The poll block is drawn above the opening post on page 1 (a product call).
+Known limits: no feed badge; pictures carry an empty alt text; a text others reworded meanwhile is
+overwritten by a stale editor's own; editing the texts of a poll is not held for a member on
+probation.
