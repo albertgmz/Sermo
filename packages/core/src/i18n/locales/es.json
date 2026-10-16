@@ -410,7 +410,7 @@
   "criterion.tags_added_at_least": "Etiquetas puestas en hilos",
   "criterion.tags_added_at_least.description": "El miembro debe haber puesto al menos el número indicado de etiquetas en hilos visibles que todavía las llevan (propios o ajenos, con el campo de etiquetas o con los hashtags de un mensaje inicial). El número sube y baja al añadir y quitar etiquetas, y al ocultar un hilo, retenerlo para aprobación o recuperarlo.",
   "criterion.polls_voted_at_least": "Encuestas y cuestionarios en los que participó",
-  "criterion.polls_voted_at_least.description": "El miembro debe haber votado en al menos el número indicado de encuestas, o respondido al menos una pregunta de esa cantidad de cuestionarios. Una encuesta o cuestionario borrado para siempre deja de contar. Es un contador guardado en el miembro, así que es barato de comprobar.",
+  "criterion.polls_voted_at_least.description": "El miembro debe haber votado en al menos el número indicado de encuestas, o respondido al menos una pregunta de esa cantidad de cuestionarios. Una encuesta o cuestionario borrado para siempre baja la cuenta, pero la regla solo se vuelve a mirar cuando el miembro participa de nuevo (o en un barrido), así que nada se quita de inmediato. Es un contador guardado en el miembro, así que es barato de comprobar.",
   "criterion.award_xp_at_most": "XP de premios como máximo",
   "criterion.award_xp_at_most.description": "Los puntos de experiencia de los premios del miembro deben ser como máximo el número indicado. Un premio automático se decide una vez, al darlo: no se retira si luego suben los puntos.",
   "criterion.holds_awards": "Tiene premios",
