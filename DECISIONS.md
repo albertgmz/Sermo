@@ -1195,12 +1195,13 @@ its own page. For a while the icon showed the picture when the award had one, wh
 middle of a 16:9 banner into a circle and pushed the emblem of every starter award to its right
 edge. One picture cannot serve both shapes; a square picture for the icon would be a second file.
 
-**Messages and alerts open as panels on phones too.** The inbox and bell icons of the header open
-the same drop-down panel at every width (the latest items, a link to the full page, and the
-panel's action), as forum software commonly does. Below `md` they used to be plain links to
-`/conversations` and `/notifications`; the bottom bar still links to those pages, so both ways
-remain. The panel is capped at the width of the screen less a small margin. Search stays a link
-on phones: its panel is a form, which the search page already is.
+**Messages and alerts open as panels from `md` up; the phone bar holds them below it (item 7).**
+The envelope and bell buttons of the header open a drop-down panel (the latest items, a link to
+the full page, and the panel's action), as forum software commonly does; the panel is capped at
+the width of the screen less a small margin. Below `md` the header has no room for them, and the
+phone bar's Messages and Alerts entries link to `/conversations` and `/notifications`, each with
+its unread number. Search stays a link on phones: its panel is a form, which the search page
+already is.
 
 **The footer carries no LITE link, and its lists pair up on a phone.** The link to the LITE
 settings is taken out of the footer for now, at the owner's request. Members still reach the
@@ -2361,20 +2362,30 @@ end a paid promotion; an unused unit with a duration can lapse; per-user node mo
 before this change do not get `forum.feature`; a staff pick on a deleted thread stays until
 unfeatured.
 
-**One account menu.** The avatar opens one menu: avatar with "Edit", name, title and Log out on
-top; tabs Alerts, Conversations, Account and Bookmarks; "Update your status" at the bottom (a post
-to the member's own wall, shown to members who may post on profiles). It is a popover on wide
-screens and a bottom sheet below `md`. The avatar carries one badge (unread alerts plus
-conversations, from the existing counter poll), and the menu opens on Alerts if any are unread,
-else Conversations, else Account. A tab loads its list only when opened (TanStack Query). The
-Account tab draws the site's account navigation entries and then the account page's own links
-from one shared list (`account/links.ts`), plus Data saver and the theme. The separate Messages and
-Alerts header buttons are gone at every width; the phone bottom bar keeps its two, and Search stays
-a field. Conversations has no "mark all read", because the backend marks one conversation at a
-time and marking the five listed would not be "all". Bookmarks shows no count, because bookmarks
-have no unread state. The staff panel's top bar uses the same menu; its badge is drawn at page load
-and does not poll. Known limits: a status draft is lost on Esc; neighbouring rows in the Account
-tab's two columns can start at different offsets, because only some links have icons.
+**One account menu; Messages and Alerts are header buttons (item 7).** The avatar is for the
+account only: it carries no count and opens one menu with the avatar and "Edit", name, title and
+Log out on top; two tabs, Account and Bookmarks (XenForo's own pair, labelled with words); and
+"Update your status" at the bottom (a post to the member's own wall, shown to members who may post
+on profiles). It is a popover on wide screens and a bottom sheet below `md`, and always opens on
+Account. A tab loads its list only when opened (TanStack Query). The Account tab draws the site's
+account navigation entries and then the account page's own links from one shared list
+(`account/links.ts`), plus Data saver and the theme. Messages (envelope) and Alerts (bell) are
+separate header buttons beside the avatar. Each shows its unread count as a number (1-99, then
+"99+", nothing at 0; one shared `CountBadge`, hidden from screen readers because the button's name
+says "N unread") and has its own panel: the latest rows, loaded when the panel opens (TanStack
+Query; the list's code comes with the panel), then the footer (View all and New conversation; View
+all and Mark all as read). Counts follow the counters poll and the server's redraw after a read.
+In the site header the two buttons show from `md` up; below it the phone bar holds Messages and
+Alerts with the same numbers and the same envelope. In the staff panel's top bar they show from
+`sm` up (below it the section title needs the room, and the logo leads to the site); there the
+counts are drawn at page load and do not poll. How the header makes room for them between `md` and
+`lg` is in "Unread counts as numbers; Messages and Alerts as header buttons". Conversations has no
+"mark all read", because the backend marks one conversation at a time and marking the five listed
+would not be "all". Bookmarks shows no count, because bookmarks have no unread state. Known
+limits: a status draft is lost on Esc; neighbouring rows in the Account tab's two columns can
+start at different offsets, because only some links have icons; a site whose admin removes the
+phone bar's Messages and Alerts entries leaves phone members no menu path to those pages (the
+pages themselves, alert links and the desktop buttons remain).
 
 **Keyboard shortcuts.** Built on `@tanstack/react-hotkeys`, pinned at exactly 0.12.1 (MIT; it is
 pre-1.0, so expect API changes on upgrade). It handles sequences and ignores fields itself, and
@@ -3826,3 +3837,44 @@ entry use them; the header's Home is unchanged). `/forums` itself never shows th
 since the tab lives at `/?tab=forums`. The guest browse test on phones now clicks the Forums tab and
 then visits `/forums`. Known limits: the 320 px fit is checked by a phone end-to-end flow
 (`home-tabs.e2e.ts`) and has not been seen on a real phone.
+
+### Unread counts as numbers; Messages and Alerts as header buttons (item 7)  One `CountBadge` (in
+`components/ui`) draws every unread count: 1 to 99, then 99+, nothing at 0, as a small rounded
+rectangle in the accent colour, 11 px bold, with a 2 px ring of the page background, over the
+top-right of its icon. It is hidden from screen readers because the control it sits on already says
+"N unread" (`Alerts, 3 unread`; the phone bar's link has a screen-reader-only ", 3 unread"), so the
+count is heard once. On the phone bar the number replaces the dot on Messages and Alerts and appears
+on no other entry; 99+ fits a 64 px cell, 2 px inside its edge at 320 px. The phone bar's Messages
+entry now uses the envelope too, so the same control is not a tray at 767 px and an envelope at 768.
+Members get two header buttons from `md` up, before the avatar: Messages (envelope) and Alerts
+(bell), each with its number and its own panel holding the latest rows (loaded when the panel opens;
+the list code is a lazy import, so only the buttons are in every member page's first load) and the
+existing footer actions (View all and New conversation; View all and Mark all as read). Counts
+follow the counters poll and the server's redraw after a read (opening a conversation, mark all
+read, following an alert). A guest's header gets none of this. The avatar is for the account only:
+it carries no badge, loses its Alerts and Conversations tabs, which would be exact duplicates of the
+buttons, and keeps Account and Bookmarks (XenForo's own pair, labelled with words), always opening
+on Account. The staff panel's top bar shares the account menu and has no phone bar, so it shows the
+two buttons from `sm` up; below that the section title needs the room (130 px at 320 px) and the
+logo leads to the site, whose phone bar has both; its counts are drawn at page load and do not poll.
+With the two buttons a member's corner ended 68 px past the content edge of a 768 px screen and the
+avatar went off it, so between `md` and `lg` a member's header compacts: Create is a 40 px square +
+(its label returns at `lg`), Create, Messages, Alerts and the avatar sit 4 px apart (`gap-1`, then
+`lg:gap-2`), a drawn logo shows its mark only, and a picture logo is capped at 72 px wide with its
+proportions kept. The server decides this from the viewer (`HeaderLogo` waits for the request's
+viewer, with the guest-shaped placeholder meanwhile), not CSS after the corner arrives, so a guest's
+logo, gaps and corner are as before; the cost is that the logo streams with the request. The header
+navigation, for every viewer, scrolls inside itself with no visible bar when an admin's entries or a
+long site name do not fit, so the page never scrolls sideways; with the five seeded entries it does
+not scroll from 768 px up, and a guest whose header already overflowed now scrolls only the
+navigation. The member's corner loads in its own shape (two 40 px slots with the real buttons'
+visibility classes and a 64 px avatar slot); the outer fallback shown until the viewer is known is
+still the old box, so one step of about 70 px remains at `md`. Spanish: the button and its panel say
+"Notificaciones", like the page and the old tab, while the phone bar keeps "Alertas", whose text
+comes from editable navigation entries and which "Notificaciones" would cut at 64 px
+("Notificac..."). Known limits: a 160 x 24 wordmark capped at 72 px is about 11 px high; a site
+whose admin removes the phone bar's Messages and Alerts entries leaves phone members no menu path to
+those pages (the pages, alert links and the desktop buttons remain); the last entries of a scrolling
+navigation need Tab or Shift+wheel to reach; a staff bar between 640 and 767 px with a long site
+name has a title of about 110 px; the look in a browser, the change in first-load size and a real
+phone have not been checked.
