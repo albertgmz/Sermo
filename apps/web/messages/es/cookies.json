@@ -109,7 +109,7 @@
     },
     "feedView": {
       "title": "Vista de la portada",
-      "purpose": "Recuerda si un visitante sin cuenta lee la portada como tarjetas o como lista compacta.",
+      "purpose": "Recuerda si la portada se lee como tarjetas o como lista compacta, para visitantes sin cuenta y miembros cuya vista no puede guardarse en su cuenta.",
       "lifetime": "1 año."
     },
     "dataSaver": {

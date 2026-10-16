@@ -109,7 +109,7 @@
     },
     "feedView": {
       "title": "Feed layout",
-      "purpose": "Remembers whether a visitor without an account reads the feed as cards or as a compact list.",
+      "purpose": "Remembers whether the feed is read as cards or as a compact list, for visitors without an account and members whose layout cannot be saved on their account.",
       "lifetime": "1 year."
     },
     "dataSaver": {
