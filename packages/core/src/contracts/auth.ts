@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { HOME_TABS } from "../db/schema";
+import { FEED_VIEWS, HOME_TABS } from "../db/schema";
 import { defineContract } from "../operation";
 import { DisplayGroup, Empty, Id, ResolvedPermissions, Timestamp } from "./common";
 import { PendingAcceptance } from "./terms";
@@ -36,6 +36,8 @@ export const SelfUser = z
     keyboardShortcuts: z.boolean(),
     /** The home page tab the member chose; null when they made no choice (the site default applies). */
     homeTab: z.enum(HOME_TABS).nullable(),
+    /** How the member wants the feed drawn: full cards or compact rows. */
+    feedView: z.enum(FEED_VIEWS),
     /**
      * The tab the home page opens on for this member when the address names none: their choice
      * (`homeTab`), else the site's home tab rules decided for them, else the site's fallback.

@@ -14,6 +14,24 @@ import { ProfilePost } from "./profiles";
 /** A post with the thread it belongs to, for listings outside the thread. */
 export const PostInThread = z.object({ post: Post, thread: Thread }).meta({ id: "PostInThread" });
 
+/** The most unread posts a card counts. */
+export const FEED_UNREAD_CAP = 99;
+
+/**
+ * What a signed-in viewer has not read of a thread, for the card: how many posts they may see
+ * after the last one they read (`count` is at most 99 and `more` says there are more than that),
+ * and the first of them (`firstPostId`, at `firstPosition`, which gives its page), where "jump to
+ * first unread" lands. Posts of members the viewer ignores count, as the thread shows them.
+ */
+export const FeedUnread = z
+  .object({
+    count: z.number().int().min(1).max(FEED_UNREAD_CAP),
+    more: z.boolean(),
+    firstPostId: Id,
+    firstPosition: z.number().int().nonnegative(),
+  })
+  .meta({ id: "FeedUnread" });
+
 /**
  * One entry of the feed: a conversation. `thread` and `post` are a thread, shown with one of its
  * posts: `thread` when that post is the opening post, `post` when it is a reply (in `latest`,
@@ -25,7 +43,9 @@ export const PostInThread = z.object({ post: Post, thread: Thread }).meta({ id: 
  * itself: the reply permission, a thread ban, a locked thread and the forum's posting rules
  * (read-only, minimum account age and post count), as `threads.get` answers it. A wall post says
  * the same in `profilePost.canComment`. `featured` is why the thread is featured right now
- * (`staff`, `paid`) or null, for the card's mark.
+ * (`staff`, `paid`) or null, for the card's mark. `unread` is null for guests, for a thread the
+ * viewer has read (or that is older than the 30 days a thread can count as unread) and where
+ * the posts are closed to the viewer (a titles-only forum): no count and no position there.
  */
 export const FeedItem = z
   .discriminatedUnion("type", [
@@ -35,6 +55,7 @@ export const FeedItem = z
       following: z.boolean(),
       canReply: z.boolean(),
       featured: FeatureKind.nullable(),
+      unread: FeedUnread.nullable(),
       thread: Thread,
       post: Post,
     }),
@@ -44,6 +65,7 @@ export const FeedItem = z
       following: z.boolean(),
       canReply: z.boolean(),
       featured: FeatureKind.nullable(),
+      unread: FeedUnread.nullable(),
       thread: Thread,
       post: Post,
     }),
@@ -122,8 +144,10 @@ export const feedList = defineContract({
     "`threads.featured`) come first, newest feature first, whatever their activity, then the " +
     "ranked threads without them, all within the same 50; they follow the same visibility rules. " +
     "A featured thread beyond the 10 is listed only where it ranks. Threads of ignored " +
-    "members are left out. A thread entry says whether the viewer may reply to it (`canReply`) and why " +
-    "it is featured, if it is (`featured`; `latest` and `following` mark features too).",
+    "members are left out. A thread entry says whether the viewer may reply to it (`canReply`), why " +
+    "it is featured, if it is (`featured`; `latest` and `following` mark features too), and, for a " +
+    "signed-in viewer who has unread posts in it, how many and where the first is (`unread`, read " +
+    "from the viewer's read state for the whole page at once; none for a forum open for titles only).",
   kind: "read",
   input: z.object({
     scope: z.enum(FEED_SCOPES).default("latest"),

@@ -20,6 +20,7 @@ import { loadThreads, postsInThreads } from "./authors";
 import { type FeedPlan, planFeed } from "./filter";
 import { FEED_HOT_PINNED, FEED_HOT_SIZE, firstSurvivors, storedRanking } from "./rankings";
 import { SCAN_CAP } from "./scan";
+import { unreadIn } from "./unread";
 import { followedAmong, followedAuthors, ignoredAmong, visibleNodes } from "./viewer";
 
 /** Posts examined per source per request, at most. */
@@ -332,6 +333,10 @@ function build(
     actor,
     [...new Set(postRows.map((row) => row.thread_id))].flatMap((id) => threads.get(id) ?? []),
   );
+  // What each unread thread of the page holds the viewer has not read: one statement.
+  const unread = unreadIn(ctx, actor, [
+    ...new Set([...postItems.values()].map((entry) => entry.thread)),
+  ]);
   const wallItems = new Map<number, ReturnType<typeof profilePostValues>[number]>();
   if (wallRows.length > 0) {
     const rows = prepared(ctx, "feed.wallRows", () =>
@@ -360,6 +365,7 @@ function build(
         following,
         canReply: repliable.has(entry.thread.id),
         featured: kinds.get(entry.thread.id) ?? null,
+        unread: unread.get(entry.thread.id) ?? null,
         thread: entry.thread,
         post: entry.post,
       },

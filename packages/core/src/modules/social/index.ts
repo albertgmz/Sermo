@@ -3,7 +3,7 @@ import { actorUserId, type PermissionVersions, requireAuthenticated } from "../.
 import { type Ctx, prepared } from "../../context";
 import { SUPPORTED_LANGUAGES } from "../../contracts/settings";
 import * as contracts from "../../contracts/social";
-import type { HomeTab } from "../../db/schema";
+import type { FeedView, HomeTab } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { type DomainEvent, publishEvent, registerEventSubscriber } from "../../events";
@@ -11,6 +11,7 @@ import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
   can,
+  currentActor,
   currentVersions,
   getNodeTree,
   memberActor,
@@ -56,6 +57,7 @@ type Preferences = {
   profile_post_privacy: "members" | "followed" | "self";
   keyboard_shortcuts: number;
   home_tab: HomeTab | null;
+  feed_view: FeedView;
 };
 const cursorSchema = z.tuple([z.number().int().positive()]);
 const cursorId = (cursor?: string) =>
@@ -507,7 +509,7 @@ function readPreferences(ctx: Ctx, userId: number) {
   const row = query<Preferences, [number]>(
     ctx,
     "preferences",
-    "SELECT watch_on_create, watch_on_reply, language, profile_view_privacy, profile_post_privacy, keyboard_shortcuts, home_tab FROM users WHERE id = ?1",
+    "SELECT watch_on_create, watch_on_reply, language, profile_view_privacy, profile_post_privacy, keyboard_shortcuts, home_tab, feed_view FROM users WHERE id = ?1",
   ).get(userId)!;
   return {
     watchOnCreate: row.watch_on_create,
@@ -517,6 +519,7 @@ function readPreferences(ctx: Ctx, userId: number) {
     profilePostPrivacy: row.profile_post_privacy,
     keyboardShortcuts: row.keyboard_shortcuts === 1,
     homeTab: row.home_tab,
+    feedView: row.feed_view,
   };
 }
 export const preferencesGetOp = implement(contracts.preferencesGet, (ctx, actor) => {
@@ -533,11 +536,13 @@ export const preferencesUpdateOp = implement(contracts.preferencesUpdate, (ctx, 
   )
     throw new ValidationError("Unsupported language.");
   writeTx(ctx, () => {
+    // The request's actor was resolved before the lock: ask again whether it may still do this.
+    requirePermission(ctx, currentActor(ctx, actor), "profile.editOwn");
     const current = readPreferences(ctx, user.userId);
     query(
       ctx,
       "updatePreferences",
-      "UPDATE users SET watch_on_create = ?1, watch_on_reply = ?2, language = ?3, profile_view_privacy = ?4, profile_post_privacy = ?5, keyboard_shortcuts = ?6, home_tab = ?7 WHERE id = ?8",
+      "UPDATE users SET watch_on_create = ?1, watch_on_reply = ?2, language = ?3, profile_view_privacy = ?4, profile_post_privacy = ?5, keyboard_shortcuts = ?6, home_tab = ?7, feed_view = ?8 WHERE id = ?9",
     ).run(
       input.watchOnCreate ?? current.watchOnCreate,
       input.watchOnReply ?? current.watchOnReply,
@@ -546,6 +551,7 @@ export const preferencesUpdateOp = implement(contracts.preferencesUpdate, (ctx, 
       input.profilePostPrivacy ?? current.profilePostPrivacy,
       (input.keyboardShortcuts ?? current.keyboardShortcuts) ? 1 : 0,
       input.homeTab === undefined ? current.homeTab : input.homeTab,
+      input.feedView ?? current.feedView,
       user.userId,
     );
   });

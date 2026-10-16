@@ -667,6 +667,15 @@ test("auth.me carries the home tab the member chose: null until they choose", as
   expect((await execute(ctx, authMeOp, actor, {})).user?.homeTab).toBe("forums");
 });
 
+test("auth.me carries how the member wants the feed drawn: cards until they choose", async () => {
+  const ctx = createTestContext();
+  const user = insertUser(ctx, {});
+  const actor = userActor(user);
+  expect((await execute(ctx, authMeOp, actor, {})).user?.feedView).toBe("cards");
+  ctx.sqlite.prepare("UPDATE users SET feed_view = 'compact' WHERE id = ?1").run(user.id);
+  expect((await execute(ctx, authMeOp, actor, {})).user?.feedView).toBe("compact");
+});
+
 test("auth.me summary follows specific permission entries", async () => {
   const ctx = createTestContext();
   const adminPermission = ctx.sqlite

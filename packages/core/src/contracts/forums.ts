@@ -22,7 +22,7 @@ import {
   UserSummary,
 } from "./common";
 import { ImageReference } from "./images";
-import { PollInput } from "./polls";
+import { PollInput, PollKind } from "./polls";
 import { SeoMetadata } from "./seo";
 
 export const NodeType = z.enum(NODE_TYPES);
@@ -156,6 +156,11 @@ export const Thread = z
      * has read, and the last post is less than 30 days old (older activity counts as read).
      */
     isUnread: z.boolean(),
+    /**
+     * The poll or quiz the thread carries, for a badge on its card; null when it has none, and
+     * where the posts are closed to the viewer (a titles-only reader is not told it is there).
+     */
+    pollKind: PollKind.nullable(),
   })
   .meta({ id: "Thread" });
 

@@ -52,7 +52,14 @@ import {
 import { requireTermsAccepted } from "../pages/acceptance";
 import { enqueuePollPurge } from "../polls/jobs";
 import { mayAddPoll } from "../polls/policy";
-import { insertPoll, isRetiring, movePoll, pollOfThread, retirePoll } from "../polls/store";
+import {
+  insertPoll,
+  isRetiring,
+  movePoll,
+  pollKindsOf,
+  pollOfThread,
+  retirePoll,
+} from "../polls/store";
 import { cleanPoll } from "../polls/text";
 import {
   assertRemovalNotBegun,
@@ -619,6 +626,11 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
   const cutoff = ctx.now() - 30 * 86400000;
   const present = threadPresenter(ctx);
   const gates = readGates(ctx, actor);
+  // One statement for the page; a poll is shown only where the thread's posts are open.
+  const polls = pollKindsOf(
+    ctx,
+    rows.filter((row) => gates.reads(row.node_id, row.user_id)).map((row) => row.id),
+  );
   return rows.map((row) => {
     const read = reads.get(row.id);
     return {
@@ -651,6 +663,7 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
         actorUserId(actor) != null &&
         row.last_post_at > cutoff &&
         row.last_post_id > (read?.last_read_post_id ?? 0),
+      pollKind: polls.get(row.id) ?? null,
     };
   });
 }

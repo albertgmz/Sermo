@@ -1,6 +1,7 @@
 import * as z from "zod";
 import {
   AUTO_WATCH_MODES,
+  FEED_VIEWS,
   HOME_TABS,
   NODE_WATCH_MODES,
   PROFILE_POST_PRIVACY,
@@ -207,6 +208,8 @@ export const MemberPreferences = z
     keyboardShortcuts: z.boolean(),
     /** The tab of the home page you open on; null follows the site default. */
     homeTab: z.enum(HOME_TABS).nullable(),
+    /** How the feed is drawn for you: full cards or compact rows. */
+    feedView: z.enum(FEED_VIEWS),
   })
   .meta({ id: "MemberPreferences" });
 

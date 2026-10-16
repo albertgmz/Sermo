@@ -237,6 +237,27 @@ describe("social", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
+  test("the feed view preference is cards by default, changes alone and refuses anything else", async () => {
+    const f = fixture();
+    const actor = userActor(f.owner);
+    const before = await call(f.ctx, preferencesGetOp, actor, {});
+    expect(before.feedView).toBe("cards");
+    const compact = await call(f.ctx, preferencesUpdateOp, actor, { feedView: "compact" });
+    expect(compact).toEqual({ ...before, feedView: "compact" });
+    expect((await call(f.ctx, preferencesUpdateOp, actor, { language: "es" })).feedView).toBe(
+      "compact",
+    );
+    expect((await call(f.ctx, preferencesUpdateOp, actor, { feedView: "cards" })).feedView).toBe(
+      "cards",
+    );
+    await expect(
+      call(f.ctx, preferencesUpdateOp, actor, { feedView: "grid" } as never),
+    ).rejects.toBeInstanceOf(ValidationError);
+    // Another member's choice is theirs.
+    const other = userActor(f.other);
+    expect((await call(f.ctx, preferencesGetOp, other, {})).feedView).toBe("cards");
+  });
+
   test("a hidden watch leaves a short page with a cursor to the next visible watch", async () => {
     const f = fixture();
     const actor = userActor(f.owner);

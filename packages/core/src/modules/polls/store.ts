@@ -519,3 +519,20 @@ export function movePoll(ctx: Ctx, sourceThreadId: number, targetThreadId: numbe
     "UPDATE polls SET thread_id = ?2 WHERE thread_id = ?1 AND NOT EXISTS (SELECT 1 FROM polls WHERE thread_id = ?2)",
   ).run(sourceThreadId, targetThreadId);
 }
+
+/**
+ * The kind of the poll each of these threads carries (one seek of `polls_thread` per thread, one
+ * statement for the page). A poll being removed in batches is not listed.
+ */
+export function pollKindsOf(ctx: Ctx, threadIds: number[]): Map<number, PollRow["kind"]> {
+  if (threadIds.length === 0) return new Map();
+  return new Map(
+    statement<{ thread_id: number; kind: PollRow["kind"] }>(
+      ctx,
+      "kindsOfThreads",
+      "SELECT thread_id, kind FROM polls WHERE thread_id IN (SELECT value FROM json_each(?1)) AND max_choices > 0",
+    )
+      .all(JSON.stringify(threadIds))
+      .map((row) => [row.thread_id, row.kind] as const),
+  );
+}

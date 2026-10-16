@@ -106,6 +106,9 @@ export const PROMOTION_LOG_ACTIONS = ["promote", "demote", "exempt", "reset"] as
 /** The tabs of the home page, in the fixed order they fill the bar after the default tab. */
 export const HOME_TABS = ["latest", "hot", "following", "forums", "media"] as const;
 export type HomeTab = (typeof HOME_TABS)[number];
+/** How the feed draws its entries: full cards or one compact row each. */
+export const FEED_VIEWS = ["cards", "compact"] as const;
+export type FeedView = (typeof FEED_VIEWS)[number];
 export const AUTO_WATCH_MODES = ["none", "watch", "watch_email"] as const;
 export const PROFILE_VIEW_PRIVACY = ["everyone", "members", "followed", "self"] as const;
 export const PROFILE_POST_PRIVACY = ["members", "followed", "self"] as const;
@@ -255,6 +258,8 @@ export const users = sqliteTable(
     keyboardShortcuts: bool("keyboard_shortcuts").notNull().default(true),
     /** The tab of the home page the member opens on; null follows the site default. */
     homeTab: text("home_tab", { enum: HOME_TABS }),
+    /** How the member wants the feed drawn: full cards or compact rows. */
+    feedView: text("feed_view", { enum: FEED_VIEWS }).notNull().default("cards"),
     /** Active restriction expiry per kind; null = none, RESTRICTION_PERMANENT = no expiry. */
     restrictedPostingUntil: integer("restricted_posting_until"),
     restrictedConversationsUntil: integer("restricted_conversations_until"),

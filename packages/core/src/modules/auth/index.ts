@@ -19,7 +19,7 @@ import {
   USERNAME_PATTERN,
 } from "../../db/auth-options";
 import * as schema from "../../db/auth-schema";
-import { GROUP_IDS, type HomeTab } from "../../db/schema";
+import { type FeedView, GROUP_IDS, type HomeTab } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import {
   ConflictError,
@@ -1449,11 +1449,12 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
         language: string | null;
         keyboard_shortcuts: number;
         home_tab: HomeTab | null;
+        feed_view: FeedView;
         awaiting: number;
       },
       [number]
     >(
-      `SELECT u.id, u.username, a.email, u.group_id, u.created_at, u.language, u.keyboard_shortcuts, u.home_tab, (${AWAITING_SQL}) AS awaiting FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1`,
+      `SELECT u.id, u.username, a.email, u.group_id, u.created_at, u.language, u.keyboard_shortcuts, u.home_tab, u.feed_view, (${AWAITING_SQL}) AS awaiting FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1`,
     ),
   ).get(actor.userId);
   if (!row) throw new UnauthenticatedError();
@@ -1469,6 +1470,7 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
       language: row.language,
       keyboardShortcuts: row.keyboard_shortcuts === 1,
       homeTab: row.home_tab,
+      feedView: row.feed_view,
       openHomeTab: resolveHomeTab(ctx, actor, readSiteSettings(ctx).homeTab),
       pendingAcceptance: pendingAcceptances(ctx, actor),
       awaitingApproval: row.awaiting === 1,
