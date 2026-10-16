@@ -1,11 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
+import { BASE_URL, requireCredentials } from "./e2e/target";
 
 // Phone and tablet checks of a running site. The address comes from E2E_BASE_URL (a local stack or
-// staging); the suite starts no server. The member is E2E_USER with E2E_PASSWORD.
+// staging); the suite starts no server. The members are E2E_USER and E2E_PEER with E2E_PASSWORD (required for any address but the default).
 //
 // Every project runs the flows tagged "@all"; the 360 px phone (`android-small`) runs all of them.
 // The iPhone and iPad projects use WebKit, the rest Chromium.
-const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+requireCredentials();
+const baseURL = BASE_URL;
 
 const everyFlow = /@all/;
 
@@ -19,7 +21,7 @@ export default defineConfig({
   timeout: 120_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,
-  workers: Number(process.env.E2E_WORKERS ?? 1),
+  workers: 1,
   retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {

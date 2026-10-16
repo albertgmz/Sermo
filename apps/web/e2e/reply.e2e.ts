@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import type { Page } from "@playwright/test";
 import {
   box,
   editorReady,
@@ -7,9 +7,8 @@ import {
   MEMBER_STATE,
   phoneWidth,
   ready,
-  SEED_FILE,
-  type Seed,
   screen,
+  seed,
   test,
   unique,
   visit,
@@ -17,16 +16,13 @@ import {
 
 test.use({ storageState: MEMBER_STATE });
 
-const seed = (): Seed => JSON.parse(readFileSync(SEED_FILE, "utf8"));
-
-const replyBox = (page: import("@playwright/test").Page) =>
+const replyBox = (page: Page) =>
   page.getByRole("textbox", { name: "Type your message here." });
 
 test("the reply editor's toolbar fits a phone, scrolls, and its buttons can be pressed @all", async ({
   page,
 }) => {
   const { threadId } = seed();
-  test.skip(threadId === null, "the setup could not make a thread");
   await visit(page, `/threads/${threadId}`);
   await replyBox(page).click();
   const reply = page.getByRole("region", { name: "Reply" });
@@ -73,7 +69,6 @@ test("a reply is posted from the phone and the quote and r key reach the editor"
   page,
 }) => {
   const { threadId } = seed();
-  test.skip(threadId === null, "the setup could not make a thread");
   await visit(page, `/threads/${threadId}?page=3`);
 
   // The r key focuses the reply box.

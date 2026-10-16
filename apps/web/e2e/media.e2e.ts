@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import {
   createButton,
   expect,
@@ -11,8 +12,6 @@ import {
 } from "./fixtures";
 
 test.use({ storageState: MEMBER_STATE });
-
-type Page = import("@playwright/test").Page;
 
 // A 400 x 300 red picture.
 const PICTURE = Buffer.from(

@@ -1,15 +1,13 @@
+import { readFileSync } from "node:fs";
 import {
   test as base,
   expect,
   type Locator,
   type Page,
 } from "@playwright/test";
+import { PASSWORD, USER } from "./target";
 
-export const USER = process.env.E2E_USER ?? "ember";
-export const PASSWORD = process.env.E2E_PASSWORD ?? "sermo-dev-password";
-// Another member for the conversation flow.
-export const PEER = process.env.E2E_PEER ?? "wren";
-export const PEER_PASSWORD = process.env.E2E_PEER_PASSWORD ?? PASSWORD;
+export { PASSWORD, PEER, USER } from "./target";
 
 export const MEMBER_STATE = "test-results/.state/member.json";
 export const SEED_FILE = "test-results/.state/seed.json";
@@ -17,10 +15,12 @@ export const SEED_FILE = "test-results/.state/seed.json";
 // What the setup made: a long thread by the member, a thread by another member (reactions and the
 // member card need content that is not the member's own), and a forum the member may post in.
 export type Seed = {
-  threadId: number | null;
-  peerThreadId: number | null;
-  forumId: number | null;
+  threadId: number;
+  peerThreadId: number;
+  forumId: number;
 };
+
+export const seed = (): Seed => JSON.parse(readFileSync(SEED_FILE, "utf8"));
 
 // Console noise that is not the site's, each with its reason. Never a blanket pattern.
 const IGNORED_CONSOLE: RegExp[] = [
@@ -89,13 +89,26 @@ export function screen(page: Page) {
 export const phoneWidth = (page: Page) =>
   (page.viewportSize()?.width ?? 0) < 768;
 
-// The page has been hydrated: the network is quiet. A press before this reaches a button that has
-// no handler yet (or races the hydration of a popup that opens on the first press).
+// The page has been hydrated: every control of the page (outside what a library or the stored
+// post text draws) has been taken over by React. A press before this reaches a button that has no
+// handler yet, or races the hydration of a popup that opens on the first press. A page that does
+// not get there fails the test.
 export async function ready(page: Page) {
-  await page
-    .waitForLoadState("networkidle", { timeout: 20_000 })
-    .catch(() => {});
-  await page.waitForTimeout(800);
+  await page.waitForFunction(
+    () => {
+      const hydrated = (element: Element) =>
+        Object.keys(element).some((key) => key.startsWith("__reactFiber$"));
+      const foreign = "#cc-main, nextjs-portal, .bb-content, [data-embed-src]";
+      const controls = [
+        ...document.querySelectorAll(
+          "button, a[href], input:not([type=hidden]), textarea, select",
+        ),
+      ].filter((element) => !element.closest(foreign));
+      return controls.length > 0 && controls.every(hydrated);
+    },
+    undefined,
+    { timeout: 30_000 },
+  );
 }
 
 // The width the pages are designed for. A narrower phone (an iPhone SE is 320) is tested too.
@@ -144,33 +157,58 @@ export async function rejectCookies(page: Page) {
   await expect(reject).toBeHidden();
 }
 
-// Fills the sign-in form and sends it until the page leaves it. The server allows three sign-ins
-// in ten seconds, so a refusal for that is waited out and the form sent again (a form that has
-// been sent is emptied, so it is filled again).
+// Asks the sign-in limiter (three tries in ten seconds, per address and path) where it stands, with
+// a try that cannot succeed: 429 means it is closed.
+async function limiterClosed(page: Page) {
+  const probe = await page.request.post("/api/auth/sign-in/username", {
+    data: { username: USER, password: "not the password" },
+    headers: { origin: new URL(page.url()).origin },
+  });
+  return probe.status() === 429;
+}
+
+// Fills the sign-in form and sends it. The page either leaves the form or shows the form's own
+// message. When the limiter refuses, its state is polled until it opens (the answer names its own
+// wait in x-retry-after) and the form is sent again; a form that has been sent is emptied, so it
+// is filled again. After three tries the test ends with the form's message.
 export async function signInWith(
   page: Page,
   how: "button" | "enter" = "button",
 ) {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  let message = "";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     await page
       .getByRole("textbox", { name: "Your name or email address:" })
       .fill(USER);
     const password = page.getByRole("textbox", { name: "Password:" });
     await password.fill(PASSWORD);
+    // The form is a server action: its answer says the try is over.
+    const answered = page.waitForResponse(
+      (response) => response.request().headers()["next-action"] !== undefined,
+    );
     if (how === "enter") await password.press("Enter");
     else await page.getByRole("button", { name: "Log in" }).click();
+    await answered;
+    // A good sign-in leaves the form at once once the action has answered; a refusal stays.
     const left = await page
       .waitForURL((url) => !url.pathname.startsWith("/login"), {
-        timeout: 15_000,
+        timeout: 10_000,
       })
       .then(
         () => true,
         () => false,
       );
     if (left) return;
-    await page.waitForTimeout(11_000);
+    message = (await page.getByRole("alert").allInnerTexts()).join(" ").trim();
+    if (await limiterClosed(page))
+      await expect
+        .poll(() => limiterClosed(page), {
+          intervals: [1_000, 2_000],
+          timeout: 30_000,
+        })
+        .toBe(false);
   }
-  throw new Error("the sign-in form did not let the member in");
+  throw new Error(`the sign-in form did not let the member in: ${message}`);
 }
 
 // The button that opens the Create dialog: the bottom bar's on a phone, the header's on a tablet.

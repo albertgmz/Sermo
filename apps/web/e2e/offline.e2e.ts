@@ -53,19 +53,29 @@ test.describe("service worker", () => {
     context,
     request,
   }) => {
-    // Only a production build writes the worker: a development server has none.
-    const script = await request.get("/sw.js");
+    // Only a production build registers the worker; a development server's pages load the hot
+    // reload client.
+    const home = await request.get("/");
     test.skip(
-      !script.ok() ||
-        !(script.headers()["content-type"] ?? "").includes("javascript"),
-      "this server has no service worker (a development build)",
+      (await home.text()).includes("browser_dev_hmr-client"),
+      "a development server registers no service worker",
     );
+    const script = await request.get("/sw.js");
+    expect(script.ok(), "a production build serves /sw.js").toBe(true);
     await page.goto("/");
     await ready(page);
-    const scope = await page.evaluate(
-      async () => (await navigator.serviceWorker.ready).scope,
-    );
-    expect(scope).toBe(`${new URL(page.url()).origin}/`);
+    // Registered with the whole site as its scope, and active.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const registration =
+              await navigator.serviceWorker.getRegistration();
+            return registration?.active ? registration.scope : null;
+          }),
+        { timeout: 30_000 },
+      )
+      .toBe(`${new URL(page.url()).origin}/`);
 
     await context.setOffline(true);
     await page.goto("/forums").catch(() => {});
@@ -75,8 +85,10 @@ test.describe("service worker", () => {
     await expectFits(page, "offline page from the worker");
     await context.setOffline(false);
     await page.getByRole("button", { name: "Try again" }).click();
+    await expect(page).toHaveURL(/\/forums$/);
     await expect(
-      page.getByRole("heading", { name: "Forums", level: 1 }),
-    ).toBeVisible();
+      page.getByRole("heading", { name: "You are offline" }),
+    ).toBeHidden();
+    await expect(page.getByRole("heading", { level: 2 }).first()).toBeVisible();
   });
 });

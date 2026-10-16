@@ -1,16 +1,12 @@
-import { readFileSync } from "node:fs";
 import {
   expect,
   expectFits,
   phoneWidth,
   rejectCookies,
-  SEED_FILE,
-  type Seed,
+  seed,
   test,
   visit,
 } from "./fixtures";
-
-const seed = (): Seed => JSON.parse(readFileSync(SEED_FILE, "utf8"));
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -81,7 +77,6 @@ test("a thread of three pages: the first page, the last page and back @all", asy
   page,
 }) => {
   const { threadId } = seed();
-  test.skip(threadId === null, "the setup could not make a long thread");
   await visit(page, `/threads/${threadId}`);
   await rejectCookies(page);
   const pages = page.getByRole("navigation", { name: "Pages" });

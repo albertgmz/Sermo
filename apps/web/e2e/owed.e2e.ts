@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import {
   box,
   editorReady,
@@ -8,17 +7,14 @@ import {
   phoneWidth,
   ready,
   rejectCookies,
-  SEED_FILE,
-  type Seed,
   screen,
+  seed,
   test,
   visit,
 } from "./fixtures";
 
 // Browser checks that earlier items could not run: gestures, popups, focus, touch targets and the
 // pages' own metadata. Each one names the item it closes.
-
-const seed = (): Seed => JSON.parse(readFileSync(SEED_FILE, "utf8"));
 
 // The reaction button of a post: the member's own reaction or "Like", with its count.
 const REACTION_BUTTON = /^[A-Za-z]+, \d+ reactions?$/;
@@ -70,10 +66,6 @@ test.describe("signed in", () => {
       "touch events are sent through the Chrome protocol",
     );
     const { peerThreadId } = seed();
-    test.skip(
-      peerThreadId === null,
-      "the setup could not make a thread by another member",
-    );
     await visit(page, `/threads/${peerThreadId}`);
     const like = page.getByRole("button", { name: REACTION_BUTTON }).first();
     const chosen = ((await like.getAttribute("aria-label")) ?? "").includes(
@@ -126,11 +118,8 @@ test.describe("signed in", () => {
       browserName !== "chromium",
       "touch events are sent through the Chrome protocol",
     );
+    await page.clock.install();
     const { peerThreadId } = seed();
-    test.skip(
-      peerThreadId === null,
-      "the setup could not make a thread by another member",
-    );
     await visit(page, `/threads/${peerThreadId}`);
     const like = page.getByRole("button", { name: REACTION_BUTTON }).first();
     await like.scrollIntoViewIfNeeded();
@@ -152,7 +141,8 @@ test.describe("signed in", () => {
       type: "touchEnd",
       touchPoints: [],
     });
-    await page.waitForTimeout(700);
+    // The picker opens when a hold timer runs out: run the page's clock past it.
+    await page.clock.runFor(1_000);
     await expect(page.locator('[data-slot="popover-content"]')).toHaveCount(0);
   });
 
@@ -231,7 +221,6 @@ test.describe("signed in", () => {
     page,
   }) => {
     const { threadId } = seed();
-    test.skip(threadId === null, "the setup could not make a thread");
     await visit(page, `/threads/${threadId}?page=3`);
     const reply = page.getByRole("region", { name: "Reply" });
     const field = reply.getByRole("textbox", {

@@ -1,16 +1,17 @@
+import type { Page } from "@playwright/test";
 import { box, expect, expectFits, ready, screen, test } from "./fixtures";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const banner = (page: import("@playwright/test").Page) =>
+const banner = (page: Page) =>
   page.getByRole("dialog", { name: "Your cookie choices" });
 
-const consent = async (page: import("@playwright/test").Page) =>
+const consent = async (page: Page) =>
   (await page.context().cookies()).find(
     (cookie) => cookie.name === "forum_consent",
   );
 
-async function chosen(page: import("@playwright/test").Page) {
+async function chosen(page: Page) {
   const cookie = await consent(page);
   return cookie
     ? (JSON.parse(decodeURIComponent(cookie.value)).categories as string[])

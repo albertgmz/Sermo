@@ -36,7 +36,12 @@ export function CookieConsentRoot({
   const first = useRef({ texts, locale, version, quiet, omit });
   useEffect(() => {
     const { texts, locale, version, quiet, omit } = first.current;
+    // The room the page keeps for the banner, given back when the banner goes or the page does.
     let release: (() => void) | undefined;
+    const giveBack = () => {
+      release?.();
+      release = undefined;
+    };
     startConsent({
       ...consentConfig(texts, locale, version, window.location.hostname, {
         quiet,
@@ -44,11 +49,12 @@ export function CookieConsentRoot({
       }),
       onModalShow: ({ modalName }) => {
         const banner = document.querySelector("#cc-main .cm");
-        if (modalName === "consentModal" && banner)
-          release = reserveBannerSpace(document.documentElement, banner);
+        if (modalName !== "consentModal" || !banner) return;
+        giveBack();
+        release = reserveBannerSpace(document.documentElement, banner);
       },
       onModalHide: ({ modalName }) => {
-        if (modalName === "consentModal") release?.();
+        if (modalName === "consentModal") giveBack();
       },
       ...consentCallbacks({
         quiet,
@@ -68,7 +74,10 @@ export function CookieConsentRoot({
       consentLibrary()?.then((library) => library?.showPreferences());
     };
     document.addEventListener("click", open);
-    return () => document.removeEventListener("click", open);
+    return () => {
+      document.removeEventListener("click", open);
+      giveBack();
+    };
   }, []);
   useEffect(() => {
     consentLibrary()?.then((library) => library?.setLanguage(locale));

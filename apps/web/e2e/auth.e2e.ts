@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import type { Page } from "@playwright/test";
 import {
   expect,
   expectFits,
+  MEMBER_STATE,
   PASSWORD,
   ready,
   rejectCookies,
@@ -11,13 +14,10 @@ import {
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const banner = (page: import("@playwright/test").Page) =>
+const banner = (page: Page) =>
   page.getByRole("dialog", { name: "Your cookie choices" });
 
-async function fillSignIn(
-  page: import("@playwright/test").Page,
-  password: string,
-) {
+async function fillSignIn(page: Page, password: string) {
   await page
     .getByRole("textbox", { name: "Your name or email address:" })
     .fill(USER);
@@ -73,20 +73,19 @@ test("a member's cookie choice follows the account to a browser that has made no
   // Signed in with the saved session: accept everything from the footer; it is saved on the
   // account.
   await context.addCookies(
-    JSON.parse(
-      (await import("node:fs")).readFileSync(
-        "test-results/.state/member.json",
-        "utf8",
-      ),
-    ).cookies,
+    JSON.parse(readFileSync(MEMBER_STATE, "utf8")).cookies,
   );
   await page.goto("/");
   await ready(page);
   await page.getByRole("button", { name: "Cookie settings" }).click();
   const settings = page.getByRole("dialog", { name: "Cookie settings" });
+  // The choice is sent to the account by a server action: its answer says it is saved.
+  const saved = page.waitForResponse(
+    (response) => response.request().headers()["next-action"] !== undefined,
+  );
   await settings.getByRole("button", { name: "Accept all" }).click();
   await expect(settings).toBeHidden();
-  await page.waitForTimeout(1500);
+  await saved;
 
   // A browser with no cookies: the banner shows, and signing in adopts the account's choice.
   await context.clearCookies();

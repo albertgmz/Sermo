@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import {
   box,
   expect,
@@ -10,8 +11,6 @@ import {
   test,
   visit,
 } from "./fixtures";
-
-type Page = import("@playwright/test").Page;
 
 const html = (page: Page) => page.locator("html");
 

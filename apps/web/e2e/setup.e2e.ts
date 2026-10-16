@@ -4,14 +4,15 @@ import { request } from "@playwright/test";
 import {
   expect,
   MEMBER_STATE,
+  PASSWORD,
   PEER,
-  PEER_PASSWORD,
   ready,
   rejectCookies,
   SEED_FILE,
   type Seed,
   test as setup,
   signInWith,
+  USER,
   unique,
 } from "./fixtures";
 
@@ -42,33 +43,35 @@ setup("sign in, seed and warm up", async ({ page }) => {
   const forum = nodes.items.find(
     (node) => node.type === "forum" && node.permissions.canPost,
   );
-  const seed: Seed = {
-    threadId: null,
-    peerThreadId: null,
-    forumId: forum?.id ?? null,
-  };
-  if (forum) {
-    const made = await api(`/nodes/${forum.id}/threads`, {
+  if (!forum) throw new Error(`${USER} may post in no forum of this site`);
+  const made = await api(`/nodes/${forum.id}/threads`, {
+    method: "POST",
+    data: {
+      title: unique("Phone check thread"),
+      body: "A thread with three pages.",
+    },
+  });
+  if (!made.ok())
+    throw new Error(`the long thread was refused (${made.status()})`);
+  const threadId = ((await made.json()) as { thread: { id: number } }).thread
+    .id;
+  // A page holds 20 posts: two pages need 21, and a forum's flood control may stop the loop early.
+  let posts = 1;
+  for (let index = 0; index < 45; index += 1) {
+    const reply = await api(`/threads/${threadId}/posts`, {
       method: "POST",
-      data: {
-        title: unique("Phone check thread"),
-        body: "A thread with three pages.",
-      },
+      data: { body: `Reply number ${index + 1} of the phone check.` },
     });
-    if (made.ok()) {
-      seed.threadId = (
-        (await made.json()) as { thread: { id: number } }
-      ).thread.id;
-      for (let index = 0; index < 45; index += 1) {
-        const reply = await api(`/threads/${seed.threadId}/posts`, {
-          method: "POST",
-          data: { body: `Reply number ${index + 1} of the phone check.` },
-        });
-        if (!reply.ok()) break;
-      }
-    }
+    if (!reply.ok()) break;
+    posts += 1;
   }
-  if (forum) seed.peerThreadId = await peerThread(origin, forum.id);
+  if (posts < 22)
+    throw new Error(`only ${posts} posts could be written to the long thread`);
+  const seed: Seed = {
+    threadId,
+    peerThreadId: await peerThread(origin, forum.id),
+    forumId: forum.id,
+  };
   mkdirSync(dirname(SEED_FILE), { recursive: true });
   writeFileSync(SEED_FILE, JSON.stringify(seed));
 
@@ -77,8 +80,8 @@ setup("sign in, seed and warm up", async ({ page }) => {
     "/?tab=hot",
     "/?tab=media",
     "/forums",
-    forum ? `/forums/${forum.id}` : "/forums",
-    seed.threadId ? `/threads/${seed.threadId}` : "/forums",
+    `/forums/${forum.id}`,
+    `/threads/${threadId}`,
     "/search?q=phone",
     "/conversations",
     "/conversations/new",
@@ -88,7 +91,6 @@ setup("sign in, seed and warm up", async ({ page }) => {
     "/register",
     "/cookies",
     "/lite",
-    "/offline.html",
   ]) {
     await page.goto(path);
     await ready(page);
@@ -104,16 +106,18 @@ async function peerThread(origin: string, forumId: number) {
   });
   try {
     const signIn = await peer.post("/api/auth/sign-in/username", {
-      data: { username: PEER, password: PEER_PASSWORD },
+      data: { username: PEER, password: PASSWORD },
     });
-    if (!signIn.ok()) return null;
+    if (!signIn.ok())
+      throw new Error(`${PEER} could not sign in (${signIn.status()})`);
     const made = await peer.post(`/api/v1/nodes/${forumId}/threads`, {
       data: {
         title: unique("Thread by another member"),
         body: "A post by someone else.",
       },
     });
-    if (!made.ok()) return null;
+    if (!made.ok())
+      throw new Error(`the thread by ${PEER} was refused (${made.status()})`);
     return ((await made.json()) as { thread: { id: number } }).thread.id;
   } finally {
     await peer.dispose();

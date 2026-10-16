@@ -1,22 +1,17 @@
-import { readFileSync } from "node:fs";
+import type { Page } from "@playwright/test";
 import {
   createButton,
   expect,
   expectFits,
   MEMBER_STATE,
   ready,
-  SEED_FILE,
-  type Seed,
+  seed,
   test,
   unique,
   visit,
 } from "./fixtures";
 
 test.use({ storageState: MEMBER_STATE });
-
-const seed = (): Seed => JSON.parse(readFileSync(SEED_FILE, "utf8"));
-
-type Page = import("@playwright/test").Page;
 
 const dialog = (page: Page) => page.getByRole("dialog", { name: "Create" });
 
@@ -101,14 +96,22 @@ test("the thread page of a forum keeps its draft over a reload", async ({
   page,
 }) => {
   const { forumId } = seed();
-  test.skip(forumId === null, "the setup found no forum to post in");
   await visit(page, `/forums/${forumId}/new`);
   const title = unique("Draft title");
   await page.getByRole("textbox", { name: "Title" }).fill(title);
   const body = page.getByRole("textbox", { name: /^Write the first post/ });
   await body.click();
   await body.pressSequentially("A draft that survives a reload.");
-  await page.waitForTimeout(1000);
+  // The draft is written to the tab's storage a moment after the typing.
+  await page.waitForFunction(
+    (text) =>
+      Object.keys(sessionStorage).some(
+        (key) =>
+          key.startsWith("sermo:thread-draft:") &&
+          sessionStorage.getItem(key)?.includes(text),
+      ),
+    title,
+  );
   await page.reload();
   await ready(page);
   await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(title);
