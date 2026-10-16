@@ -69,6 +69,7 @@ test("before the code is there the page holds the caller's plain trigger and not
 // positioning library with it, back in the first load of every page.
 const LAYOUT = join(import.meta.dir, "../layout");
 const LIGHT = [
+  "create-button.tsx",
   "guest-menu.tsx",
   "header-panel.tsx",
   "site-nav.tsx",

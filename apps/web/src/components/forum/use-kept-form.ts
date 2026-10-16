@@ -9,6 +9,12 @@ export type KeptState = {
   summary?: string;
 };
 
+// A send that ended without the action answering was a redirect: an answer is a new state, and the
+// state the send began with is still the state.
+export function endedInRedirect(submitted: KeptState | null, state: KeptState) {
+  return submitted !== null && submitted === state;
+}
+
 // A form's action state, submitted by hand so that React does not reset the form once the action
 // has answered: a refused post keeps what the member wrote.
 // What empties the form is the redirect an action ends in once the post is taken: Next then draws
@@ -25,8 +31,7 @@ export function useKeptForm(
   sent.current = onSent;
   useEffect(() => {
     if (pending || submitted.current === null) return;
-    // An answer is a new state; the same one means the action ended in a redirect.
-    const redirected = submitted.current === state;
+    const redirected = endedInRedirect(submitted.current, state);
     submitted.current = null;
     if (redirected) sent.current?.();
   }, [pending, state]);

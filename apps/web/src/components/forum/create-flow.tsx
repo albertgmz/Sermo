@@ -68,6 +68,84 @@ function ChooserHeader({ title, close }: { title: string; close: string }) {
   );
 }
 
+// The first step: what the member may write, or the reason there is nothing to choose yet.
+export function CreateChooser({
+  data,
+  failed,
+  onPick,
+  onRetry,
+}: {
+  // What the one read answered; none while it is on its way or when it was refused.
+  data: CreateData | undefined;
+  failed: boolean;
+  onPick: (kind: CreateKind) => void;
+  onRetry: () => void;
+}) {
+  const t = useTranslations("forum.createFlow");
+  const options = data ? createOptions(data) : [];
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ChooserHeader title={t("title")} close={t("aria.close")} />
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        {data ? (
+          options.length === 0 ? (
+            <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+              {t("nothing")}
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {options.map((option) => {
+                const Icon = ICONS[option];
+                return (
+                  <li key={option}>
+                    <button
+                      type="button"
+                      data-create-option={option}
+                      onClick={() => onPick(option)}
+                      className="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Icon
+                        aria-hidden="true"
+                        className="size-5 shrink-0 text-primary-ink"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">
+                          {t(`kinds.${option}.title`)}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {t(`kinds.${option}.description`)}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : failed ? (
+          <div className="space-y-3 px-2 py-6 text-center">
+            <p className="text-sm text-muted-foreground">{t("failed")}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10"
+              onClick={onRetry}
+            >
+              {t("retry")}
+            </Button>
+          </div>
+        ) : (
+          <div role="status" aria-label={t("loading")} className="space-y-1">
+            {[1, 2, 3, 4].map((row) => (
+              <Skeleton key={row} className="h-14 w-full" />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // What the Create button's dialog holds, in three steps that all draw in the dialog itself: what to
 // write (the options this member has), the forum for a thread (the shared list, with its search
 // and folding categories), and the composer. A wall post and a thread are two modes of the shared
@@ -151,7 +229,6 @@ export function CreateFlow({
     );
   }
 
-  const options = data ? createOptions(data) : [];
   const wall = data
     ? postToWall.bind(null, data.memberId, `/members/${data.memberId}`)
     : null;
@@ -159,69 +236,12 @@ export function CreateFlow({
   return (
     <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
       {step === "kind" && (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <ChooserHeader title={t("title")} close={t("aria.close")} />
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {data ? (
-              options.length === 0 ? (
-                <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-                  {t("nothing")}
-                </p>
-              ) : (
-                <ul className="space-y-1">
-                  {options.map((option) => {
-                    const Icon = ICONS[option];
-                    return (
-                      <li key={option}>
-                        <button
-                          type="button"
-                          data-create-option={option}
-                          onClick={() => pick(option)}
-                          className="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <Icon
-                            aria-hidden="true"
-                            className="size-5 shrink-0 text-primary-ink"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold">
-                              {t(`kinds.${option}.title`)}
-                            </span>
-                            <span className="block text-xs text-muted-foreground">
-                              {t(`kinds.${option}.description`)}
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )
-            ) : query.isError ? (
-              <div className="space-y-3 px-2 py-6 text-center">
-                <p className="text-sm text-muted-foreground">{t("failed")}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10"
-                  onClick={() => void query.refetch()}
-                >
-                  {t("retry")}
-                </Button>
-              </div>
-            ) : (
-              <div
-                role="status"
-                aria-label={t("loading")}
-                className="space-y-1"
-              >
-                {[1, 2, 3, 4].map((row) => (
-                  <Skeleton key={row} className="h-14 w-full" />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <CreateChooser
+          data={data}
+          failed={query.isError}
+          onPick={pick}
+          onRetry={() => void query.refetch()}
+        />
       )}
       {step === "forum" && data && (
         <ForumChoicePanel
