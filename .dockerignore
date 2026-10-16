@@ -10,6 +10,7 @@ CLAUDE.md
 !.env.example
 **/node_modules
 **/.next
+**/.next-staging
 .tmp-run
 bench
 data

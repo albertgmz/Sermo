@@ -97,7 +97,6 @@ export function backendEnv(paths: StagingPaths, secret: string): Record<string, 
     SERMO_FILES_DIR: paths.files,
     BETTER_AUTH_URL: WEB_ORIGIN,
     BETTER_AUTH_SECRET: secret,
-    SERMO_TRUSTED_ORIGINS: `http://127.0.0.1:${WEB_PORT}`,
     SERMO_SESSION_COOKIE_CACHE: "true",
     SERMO_RATE_LIMIT_READ: "1000000",
     SERMO_RATE_LIMIT_WRITE: "100000",
@@ -206,4 +205,74 @@ export function formatStatus(states: ServiceState[]): string {
         }  ${s.answers ? "answers 200" : "does not answer"}`,
     )
     .join("\n");
+}
+
+export interface Listener {
+  port: number;
+  pid: number;
+}
+
+/** The listening sockets in the output of `netstat -ano` (IPv4 and IPv6 lines). */
+export function parseNetstat(text: string): Listener[] {
+  const listeners: Listener[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const match = /^\s*TCP\s+\S*:(\d+)\s+\S+\s+LISTENING\s+(\d+)\s*$/.exec(line);
+    if (match) listeners.push({ port: Number(match[1]), pid: Number(match[2]) });
+  }
+  return listeners;
+}
+
+/** Strings that all appear in the command line of a process staging started. */
+export function ownMarkers(
+  service: Service,
+  paths: StagingPaths,
+  files: { server: string; next: string },
+): string[] {
+  return service === "backend"
+    ? [files.server, paths.db]
+    : [files.next, "start", "-p", String(WEB_PORT)];
+}
+
+export interface KillFacts {
+  pid: number;
+  alive: boolean;
+  port: number;
+  listeners: Listener[];
+  /** Null when it could not be read. */
+  commandLine: string | null;
+  markers: string[];
+}
+
+/**
+ * May `stop` kill this PID? Only when it is staging's: it listens on the staging port, or nothing
+ * does yet (a start that has not opened its port, or one cut short) and its command line shows it
+ * is staging's. Never by port alone, and never a process that listens elsewhere.
+ */
+export function killDecision(facts: KillFacts): { kill: boolean; reason: string } {
+  const { pid, port, listeners } = facts;
+  if (!facts.alive) return { kill: false, reason: "not running" };
+  const owners = listeners.filter((listener) => listener.port === port);
+  if (owners.some((listener) => listener.pid === pid))
+    return { kill: true, reason: `listens on port ${port}` };
+  if (owners.length > 0)
+    return {
+      kill: false,
+      reason: `port ${port} belongs to pid ${owners[0]!.pid}, not to this one`,
+    };
+  if (listeners.some((listener) => listener.pid === pid))
+    return { kill: false, reason: "listens on another port" };
+  const line = facts.commandLine?.toLowerCase();
+  if (line && facts.markers.every((marker) => line.includes(marker.toLowerCase())))
+    return { kill: true, reason: "not listening yet and its command line is staging's" };
+  return { kill: false, reason: "its command line is not staging's" };
+}
+
+/** Migrations of the journal newer than the newest one the database has applied. */
+export function pendingMigrations(
+  entries: { when: number; tag: string }[],
+  lastApplied: number | null,
+): string[] {
+  return entries
+    .filter((entry) => lastApplied === null || entry.when > lastApplied)
+    .map((entry) => entry.tag);
 }

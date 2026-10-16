@@ -8,9 +8,13 @@ import {
   defaultDatabase,
   formatEnvFile,
   formatStatus,
+  killDecision,
+  ownMarkers,
   parseEnvFile,
+  parseNetstat,
   parsePid,
   parseStagingArgs,
+  pendingMigrations,
   readPid,
   readSignIn,
   removePid,
@@ -176,5 +180,115 @@ describe("sign-in and status", () => {
     ]);
     expect(text).toContain("backend  port 4401  pid 10  running  answers 200");
     expect(text).toContain("web      port 4400  pid -  not started  does not answer");
+  });
+});
+
+describe("stop guard", () => {
+  const NETSTAT = [
+    "Active Connections",
+    "",
+    "  Proto  Local Address          Foreign Address        State           PID",
+    "  TCP    0.0.0.0:4200           0.0.0.0:0              LISTENING       1200",
+    "  TCP    127.0.0.1:4401         0.0.0.0:0              LISTENING       80040",
+    "  TCP    [::]:4400              [::]:0                 LISTENING       73292",
+    "  TCP    127.0.0.1:4400         127.0.0.1:55486        ESTABLISHED     73292",
+    "  TCP    127.0.0.1:49152        127.0.0.1:4400         TIME_WAIT       0",
+  ].join("\r\n");
+
+  test("netstat output gives the listening sockets only", () => {
+    expect(parseNetstat(NETSTAT)).toEqual([
+      { port: 4200, pid: 1200 },
+      { port: 4401, pid: 80040 },
+      { port: 4400, pid: 73292 },
+    ]);
+    expect(parseNetstat("")).toEqual([]);
+  });
+
+  const p = stagingPaths(join("/d", "sermo.db"));
+  const files = {
+    server: "/r/packages/api/src/server.ts",
+    next: "/r/node_modules/next/dist/bin/next",
+  };
+  const base = {
+    pid: 80040,
+    alive: true,
+    port: 4401,
+    listeners: parseNetstat(NETSTAT),
+    commandLine: null as string | null,
+    markers: ownMarkers("backend", p, files),
+  };
+
+  test("the process that listens on the staging port is killed, whatever its command line", () => {
+    expect(killDecision(base).kill).toBe(true);
+  });
+
+  test("a PID that is not running is left alone", () => {
+    expect(killDecision({ ...base, alive: false }).kill).toBe(false);
+  });
+
+  test("a PID is never killed because of the port alone: another process owns it", () => {
+    const decision = killDecision({
+      ...base,
+      pid: 555,
+      commandLine: `bun ${files.server} ${p.db}`,
+    });
+    expect(decision.kill).toBe(false);
+    expect(decision.reason).toContain("80040");
+  });
+
+  test("a PID that listens on another port is never killed", () => {
+    // 1200 listens on 4200, the live test site; nothing listens on 4401.
+    const listeners = parseNetstat(NETSTAT).filter((l) => l.port !== 4401);
+    const decision = killDecision({
+      ...base,
+      pid: 1200,
+      listeners,
+      commandLine: `bun ${files.server} --staging-db ${p.db}`,
+    });
+    expect(decision).toEqual({ kill: false, reason: "listens on another port" });
+  });
+
+  test("with nothing listening, only a command line that shows staging's database counts", () => {
+    const listeners = parseNetstat(NETSTAT).filter((l) => l.port !== 4401);
+    const ours = `bun --preload x ${files.server} --staging-db ${p.db}`;
+    expect(killDecision({ ...base, pid: 777, listeners, commandLine: ours }).kill).toBe(true);
+    expect(
+      killDecision({ ...base, pid: 777, listeners, commandLine: ours.toUpperCase() }).kill,
+    ).toBe(true);
+    // The live backend runs the same script on its own database.
+    const live = `bun ${files.server}`;
+    expect(killDecision({ ...base, pid: 777, listeners, commandLine: live }).kill).toBe(false);
+    expect(killDecision({ ...base, pid: 777, listeners, commandLine: null }).kill).toBe(false);
+  });
+
+  test("the web app is told apart by its program and its staging port", () => {
+    const web = {
+      ...base,
+      pid: 31,
+      port: 4400,
+      listeners: [],
+      markers: ownMarkers("web", p, files),
+    };
+    expect(
+      killDecision({ ...web, commandLine: `node ${files.next} start -p 4400 -H localhost` }).kill,
+    ).toBe(true);
+    expect(killDecision({ ...web, commandLine: `node ${files.next} start -p 4200` }).kill).toBe(
+      false,
+    );
+    expect(killDecision({ ...web, commandLine: "node other.js start -p 4400" }).kill).toBe(false);
+  });
+});
+
+describe("pending migrations", () => {
+  const entries = [
+    { when: 10, tag: "0000_a" },
+    { when: 20, tag: "0001_b" },
+    { when: 30, tag: "0002_c" },
+  ];
+
+  test("those newer than the last one applied", () => {
+    expect(pendingMigrations(entries, 20)).toEqual(["0002_c"]);
+    expect(pendingMigrations(entries, 30)).toEqual([]);
+    expect(pendingMigrations(entries, null)).toEqual(["0000_a", "0001_b", "0002_c"]);
   });
 });
