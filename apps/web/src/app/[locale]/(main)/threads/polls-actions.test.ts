@@ -233,7 +233,7 @@ test("a delete that never finishes stops after a bound and says to go on", async
   }) as unknown as typeof fetch;
   const done = await actions.pollDeleteAction(9, 5, {}, new FormData());
   assert.deepEqual(done, { error: "deleteUnfinished" });
-  assert.equal(asked.length, 50);
+  assert.equal(asked.length, 500);
 });
 
 test("the poll comes back to the client without picture addresses", async () => {
@@ -272,7 +272,13 @@ test("the poll comes back to the client without picture addresses", async () => 
 test("an editor started from an older definition is told so, and the version travels with the save", async () => {
   answer = {
     status: 409,
-    body: { error: { code: "conflict", message: "Changed." } },
+    body: {
+      error: {
+        code: "conflict",
+        message: "Changed.",
+        issues: [{ path: ["loadedAt"], message: "stale" }],
+      },
+    },
   };
   const json = JSON.stringify({
     questions: [{ text: "Q?", answers: [{ text: "A" }, { text: "B" }] }],
@@ -289,4 +295,25 @@ test("an editor started from an older definition is told so, and the version tra
   assert.deepEqual(await actions.pollSaveAction(9, 5, json), {
     error: "Not for you.",
   });
+});
+
+test("any other conflict is shown as it is, not as a stale editor", async () => {
+  answer = {
+    status: 409,
+    body: {
+      error: {
+        code: "conflict",
+        message: "This answer has too many votes to remove in one step.",
+      },
+    },
+  };
+  const json = JSON.stringify({
+    questions: [{ text: "Q?", answers: [{ text: "A" }, { text: "B" }] }],
+  });
+  assert.deepEqual(
+    await actions.pollSaveAction(9, 5, json, "2026-01-01T00:00:00.000Z"),
+    {
+      error: "This answer has too many votes to remove in one step.",
+    },
+  );
 });

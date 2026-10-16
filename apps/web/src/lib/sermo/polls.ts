@@ -109,6 +109,8 @@ export type PollDraft = {
   // When the definition the form started from was last changed: sent back, so a save over a newer
   // one (an answer a voter added) is refused instead of deleting it.
   loadedAt?: string;
+  // The ids of the answers the form has seen: an answer that is not among them was added since.
+  knownIds?: number[];
   questions: DraftQuestion[];
 };
 
@@ -170,6 +172,9 @@ export function draftFromDefinition(definition: PollDefinitionView): PollDraft {
     closesAt: toLocalInput(definition.closesAt),
     ...(definition.closesAt && { closesAtWas: definition.closesAt }),
     loadedAt: definition.updatedAt,
+    knownIds: definition.questions.flatMap((question) =>
+      question.answers.map((a) => a.id),
+    ),
 
     questions: definition.questions.map((question) => ({
       id: question.id,
@@ -238,6 +243,43 @@ export function pollFromJson(text: string): PollInputValue | null {
   } catch {
     return null;
   }
+}
+
+// What changed in the poll since the form was loaded, taken into the form without touching what
+// the member typed: the answers added since (a voter's own) join their question, the version moves
+// to the new one, and answers the member removed stay removed. Anything else the others changed
+// (a reworded text) is not merged: the member's text is what is saved.
+export function mergeFresh(
+  draft: PollDraft,
+  fresh: PollDefinitionView,
+): PollDraft {
+  const known = new Set(draft.knownIds ?? []);
+  return {
+    ...draft,
+    loadedAt: fresh.updatedAt,
+    knownIds: fresh.questions.flatMap((question) =>
+      question.answers.map((a) => a.id),
+    ),
+    questions: draft.questions.map((question) => {
+      const found = fresh.questions.find((item) => item.id === question.id);
+      if (!found) return question;
+      const added = found.answers
+        .filter((answer) => !known.has(answer.id))
+        .map(
+          (answer): DraftAnswer => ({
+            id: answer.id,
+            text: answer.text,
+            correct: answer.correct,
+            picture: answer.image
+              ? { fileId: answer.image.fileId, name: `#${answer.image.fileId}` }
+              : null,
+            custom: answer.custom,
+            votes: answer.votes,
+          }),
+        );
+      return { ...question, answers: [...question.answers, ...added] };
+    }),
+  };
 }
 
 // A share of the whole as a whole percent, 0 when nobody voted.

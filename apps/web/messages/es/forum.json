@@ -381,8 +381,8 @@
     "answer": "Responder",
     "invalid": "No se pudo leer la encuesta. Revísala e inténtalo de nuevo.",
     "deleteUnfinished": "La encuesta tiene tantos votos que aún no se terminó de eliminar. Vuelve a eliminarla para continuar.",
-    "changed": "Esta encuesta cambió desde que la abriste (por ejemplo, un votante añadió una respuesta). Recárgala y vuelve a hacer tu cambio.",
-    "reload": "Recargar la encuesta",
+    "changed": "Esta encuesta cambió desde que la abriste (por ejemplo, un votante añadió una respuesta). Carga lo que cambió: se conservan tus cambios y las respuestas nuevas se añaden a la lista; luego guarda de nuevo.",
+    "reload": "Cargar lo que cambió",
     "customHelp": "Cada votante puede añadir una respuesta propia; se aplican las mismas reglas de texto que a las tuyas."
   }
 }

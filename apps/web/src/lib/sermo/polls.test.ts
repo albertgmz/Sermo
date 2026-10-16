@@ -6,6 +6,7 @@ import {
   draftFromDefinition,
   draftToInput,
   draftToJson,
+  mergeFresh,
   type PollDefinitionView,
   type PollDraft,
   percentOf,
@@ -25,6 +26,11 @@ function answer(draft: PollDraft, at: number): DraftAnswer {
   if (!found) throw new Error("no answer");
   return found;
 }
+const answer_ = (q: DraftQuestion, at: number): DraftAnswer => {
+  const found = q.answers[at];
+  if (!found) throw new Error("no answer");
+  return found;
+};
 const sentAnswers = (draft: PollDraft) =>
   draftToInput(draft).questions[0]?.answers ?? [];
 
@@ -268,4 +274,75 @@ test("a poll reaches the client with the file ids of its pictures and no address
   expect(poll.questions[0]?.answers[0]?.image).toEqual({ fileId: 70 });
   expect(poll.questions[0]?.answers[1]?.image).toBeNull();
   expect(JSON.stringify(poll)).not.toMatch(/files|thumbnail|url/);
+});
+
+test("what changed meanwhile is taken into the form without touching what was typed", () => {
+  const base = {
+    id: 5,
+    threadId: 2,
+    kind: "poll" as const,
+    anonymous: false,
+    maxChoices: 1,
+    allowCustom: true,
+    allowChange: true,
+    results: "always" as const,
+    closesAt: null,
+    ballotCount: 0,
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const answer = (id: number, text: string, custom = false) => ({
+    id,
+    text,
+    image: null,
+    correct: false,
+    custom,
+    votes: 0,
+  });
+  const loaded: PollDefinitionView = {
+    ...base,
+    questions: [
+      {
+        id: 1,
+        text: "Q",
+        explanation: "",
+        image: null,
+        answers: [answer(11, "Red"), answer(12, "Blue"), answer(13, "Green")],
+      },
+    ],
+  };
+  const draft = draftFromDefinition(loaded);
+  // The member rewords one answer and removes another.
+  const typed = question(draft);
+  typed.text = "My question";
+  typed.answers = typed.answers.filter((a) => a.id !== 12);
+  answer_(typed, 0).text = "Crimson";
+  const fresh: PollDefinitionView = {
+    ...base,
+    updatedAt: "2026-01-02T00:00:00.000Z",
+    questions: [
+      {
+        id: 1,
+        text: "Q",
+        explanation: "",
+        image: null,
+        answers: [
+          answer(11, "Red"),
+          answer(12, "Blue"),
+          answer(13, "Green"),
+          answer(14, "Pink", true),
+        ],
+      },
+    ],
+  };
+  const merged = mergeFresh(draft, fresh);
+  expect(question(merged).text).toBe("My question");
+  expect(question(merged).answers.map((a) => a.text)).toEqual([
+    "Crimson",
+    "Green",
+    "Pink",
+  ]);
+  expect(question(merged).answers[2]).toMatchObject({ id: 14, custom: true });
+  expect(merged.loadedAt).toBe("2026-01-02T00:00:00.000Z");
+  // Taken in once, it is not taken in again.
+  expect(question(mergeFresh(merged, fresh)).answers).toHaveLength(3);
 });

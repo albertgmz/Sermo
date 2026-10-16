@@ -13,6 +13,7 @@ import {
   blankDraft,
   draftFromDefinition,
   draftToJson,
+  mergeFresh,
   type PollDraft,
 } from "@/lib/sermo/polls";
 
@@ -39,10 +40,6 @@ export function PollEditor({
   // The poll changed since the form was loaded: what is typed is not saved over it.
   const [stale, setStale] = useState(false);
   const [pending, start] = useTransition();
-  // Bumped to read the definition again.
-  const [load, setLoad] = useState(0);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `load` asks for another read
   useEffect(() => {
     if (pollId === null) return;
     let current = true;
@@ -61,7 +58,22 @@ export function PollEditor({
     return () => {
       current = false;
     };
-  }, [threadId, pollId, t, load]);
+  }, [threadId, pollId, t]);
+
+  // Takes in what changed since the form was loaded and keeps what was typed.
+  function reload() {
+    if (pollId === null) return;
+    start(async () => {
+      const answer = await pollDefinitionAction(threadId, pollId);
+      if ("definition" in answer) {
+        setDraft((current) =>
+          current ? mergeFresh(current, answer.definition) : current,
+        );
+        setStale(false);
+        setError(undefined);
+      } else setError(answer.error || t("failed"));
+    });
+  }
 
   function save() {
     if (!draft) return;
@@ -103,10 +115,8 @@ export function PollEditor({
             type="button"
             variant="outline"
             className="h-10 px-3"
-            onClick={() => {
-              setDraft(null);
-              setLoad((n) => n + 1);
-            }}
+            disabled={pending}
+            onClick={reload}
           >
             {t("reload")}
           </Button>
