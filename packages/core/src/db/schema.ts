@@ -770,6 +770,8 @@ export const nodes = sqliteTable(
     requireThreadApproval: bool("require_thread_approval").notNull().default(false),
     requireReplyApproval: bool("require_reply_approval").notNull().default(false),
     isReadOnly: bool("is_read_only").notNull().default(false),
+    /** Visible posts here add to their authors' `users.post_count`. */
+    countsPosts: bool("counts_posts").notNull().default(true),
     minAccountAgeDays: counter("min_account_age_days"),
     minPostCount: counter("min_post_count"),
     /** Root categories only: the tab of the forum list the category is shown under. */

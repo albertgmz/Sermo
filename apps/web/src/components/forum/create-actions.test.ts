@@ -35,6 +35,7 @@ const node = (id: number, parentId: number | null, canPost: boolean) => ({
     requireThreadApproval: false,
     requireReplyApproval: false,
     isReadOnly: false,
+    countsPosts: true,
     minAccountAgeDays: 0,
     minPostCount: 0,
   },

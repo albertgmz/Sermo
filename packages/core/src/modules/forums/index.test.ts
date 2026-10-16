@@ -208,7 +208,7 @@ describe("forums", () => {
     expectNoTableScan(ctx, forumSql.readBatch, [1, "[1]"]);
     expectNoTableScan(ctx, forumSql.nodeLast, [1, 0]);
     expectNoTableScan(ctx, forumSql.threadLast, [1]);
-    expectNoTableScan(ctx, forumSql.authorAdjustment, [1, 1], {
+    expectNoTableScan(ctx, forumSql.authorAdjustment, [1, 1, 1], {
       allow: ["authors"],
       allowTempBTree: true,
     });

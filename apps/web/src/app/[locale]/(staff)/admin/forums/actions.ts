@@ -77,7 +77,7 @@ async function optionalId(
   return id;
 }
 
-// The rules of posting as the editor shows them: three switches and two counts.
+// The rules of posting as the editor shows them: four switches and two counts.
 async function settingsOf(formData: FormData, fields: Fields) {
   const minAccountAgeDays = await number(formData, "minAccountAgeDays", fields);
   const minPostCount = await number(formData, "minPostCount", fields);
@@ -85,6 +85,7 @@ async function settingsOf(formData: FormData, fields: Fields) {
     requireThreadApproval: formData.get("requireThreadApproval") !== null,
     requireReplyApproval: formData.get("requireReplyApproval") !== null,
     isReadOnly: formData.get("isReadOnly") !== null,
+    countsPosts: formData.get("countsPosts") !== null,
     ...(minAccountAgeDays != null && { minAccountAgeDays }),
     ...(minPostCount != null && { minPostCount }),
   };

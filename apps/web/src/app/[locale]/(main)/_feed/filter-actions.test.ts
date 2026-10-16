@@ -85,6 +85,7 @@ test("the sheet's options are three reads, shaped for the sheet", async () => {
               requireThreadApproval: false,
               requireReplyApproval: false,
               isReadOnly: false,
+              countsPosts: true,
               minAccountAgeDays: 0,
               minPostCount: 0,
             },

@@ -63,6 +63,7 @@ const NODE = {
     requireThreadApproval: false,
     requireReplyApproval: false,
     isReadOnly: false,
+    countsPosts: true,
     minAccountAgeDays: 0,
     minPostCount: 0,
   },
@@ -153,6 +154,7 @@ test("the editor sends every field it showed, the tab only for a root node", asy
         tabId: "2",
         iconKey: "",
         isReadOnly: "on",
+        countsPosts: "on",
         minAccountAgeDays: "3",
         minPostCount: "10",
       }),
@@ -169,6 +171,7 @@ test("the editor sends every field it showed, the tab only for a root node", asy
       requireThreadApproval: false,
       requireReplyApproval: false,
       isReadOnly: true,
+      countsPosts: true,
       minAccountAgeDays: 3,
       minPostCount: 10,
     },
@@ -177,6 +180,10 @@ test("the editor sends every field it showed, the tab only for a root node", asy
     saveNode(null, form({ id: "9", title: "News", position: "4" })),
   );
   expect(backend.asked[1].body).not.toHaveProperty("tabId");
+  // A switch left off is sent as off: a forum that does not count posts is saved as such.
+  expect(backend.asked[1].body).toMatchObject({
+    settings: { countsPosts: false },
+  });
   expect(backend.asked[1].body).not.toHaveProperty("iconKey");
 });
 

@@ -1,0 +1,1 @@
+ALTER TABLE `nodes` ADD `counts_posts` integer DEFAULT true NOT NULL;

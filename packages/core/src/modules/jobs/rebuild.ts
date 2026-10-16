@@ -185,8 +185,8 @@ function expected(ctx: Ctx, stage: Stage, row: Row): Record<string, Value> {
     const posts = one<{ n: number }>(
       ctx,
       "userPosts",
-      "SELECT COUNT(*) AS n FROM posts p JOIN threads t ON t.id = p.thread_id " +
-        "WHERE p.user_id = ?1 AND p.state = 'visible' AND (t.state = 'visible' OR EXISTS (" +
+      "SELECT COUNT(*) AS n FROM posts p JOIN threads t ON t.id = p.thread_id JOIN nodes f ON f.id = t.node_id " +
+        "WHERE f.counts_posts = 1 AND p.user_id = ?1 AND p.state = 'visible' AND (t.state = 'visible' OR EXISTS (" +
         "SELECT 1 FROM thread_transfers x JOIN jobs j ON j.unique_key = x.job_key || '.' || x.thread_id " +
         "WHERE x.thread_id = t.id AND x.role = 'merge_source' AND x.failed_at IS NOT NULL " +
         "AND j.type = 'forums.merge' AND json_extract(j.payload, '$.sourceVisible') = 1))",

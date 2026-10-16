@@ -163,6 +163,14 @@ export async function NodeForm({
           checked={settings.isReadOnly}
         />
       </FieldRow>
+      <FieldRow name="countsPosts" label={t("countsPosts")}>
+        <Switch
+          id="node-counts-posts"
+          name="countsPosts"
+          label={t("countsPostsHelp")}
+          checked={settings.countsPosts}
+        />
+      </FieldRow>
       <FieldRow
         name="minAccountAgeDays"
         label={t("minAccountAgeDays")}

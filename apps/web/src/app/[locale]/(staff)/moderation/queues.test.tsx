@@ -207,6 +207,7 @@ const forum = (id: number, title: string) => ({
     requireThreadApproval: false,
     requireReplyApproval: false,
     isReadOnly: false,
+    countsPosts: true,
     minAccountAgeDays: 0,
     minPostCount: 0,
   },

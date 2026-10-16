@@ -158,6 +158,7 @@ const forumAnswer = (uploads: boolean, poll = false) => ({
       requireThreadApproval: false,
       requireReplyApproval: false,
       isReadOnly: false,
+      countsPosts: true,
       minAccountAgeDays: 0,
       minPostCount: 0,
     },

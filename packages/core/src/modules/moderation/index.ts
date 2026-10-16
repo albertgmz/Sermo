@@ -39,8 +39,10 @@ import { revokeUserCredentials } from "../auth";
 import { moderationOf } from "../auth/staff";
 import { scanKeyset } from "../feed/scan";
 import {
+  adjustAuthorsForMove,
   assertThreadTransferIdle,
   forumSql,
+  nodeCountsPosts,
   readGates,
   registerForumTransferJobs,
   requirePost,
@@ -1010,13 +1012,14 @@ function stateChange(
         delta,
         row.node_id,
       );
-      exec(
-        ctx,
-        "userPostCount",
-        "UPDATE users SET post_count = post_count + ?1 WHERE id = ?2",
-        delta,
-        row.user_id,
-      );
+      if (nodeCountsPosts(ctx, row.node_id!))
+        exec(
+          ctx,
+          "userPostCount",
+          "UPDATE users SET post_count = post_count + ?1 WHERE id = ?2",
+          delta,
+          row.user_id,
+        );
       refreshNodeLast(ctx, row.node_id!);
     }
   } else if (target.type === "thread" && delta !== 0) {
@@ -1028,7 +1031,7 @@ function stateChange(
       delta * (row.reply_count! + 1),
       row.node_id,
     );
-    exec(ctx, "threadAuthorCounts", forumSql.authorAdjustment, delta, row.id);
+    exec(ctx, "threadAuthorCounts", forumSql.authorAdjustment, delta, row.id, row.node_id);
     refreshNodeLast(ctx, row.node_id!);
   } else if (target.type === "profile_post_comment" && delta !== 0) {
     exec(
@@ -1230,6 +1233,7 @@ export function bulkModerate(
             n,
             nodeId,
           );
+          adjustAuthorsForMove(ctx, row.id, row.node_id!, nodeId!);
           refreshNodeLast(ctx, row.node_id!);
           refreshNodeLast(ctx, nodeId!);
         }

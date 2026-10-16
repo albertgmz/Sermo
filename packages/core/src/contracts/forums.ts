@@ -69,6 +69,8 @@ export const NodeSettings = z
     requireReplyApproval: z.boolean(),
     /** Nobody can start threads or reply. */
     isReadOnly: z.boolean(),
+    /** Visible posts here add to their authors' post counts. */
+    countsPosts: z.boolean(),
     /** Minimum account age in days to post here. */
     minAccountAgeDays: z.number().int().min(0).max(3650),
     /** Minimum post count to post here. */

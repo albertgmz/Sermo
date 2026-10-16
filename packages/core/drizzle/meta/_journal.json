@@ -421,6 +421,13 @@
       "when": 1792191163410,
       "tag": "0059_mixed_marvel_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1792192452134,
+      "tag": "0060_equal_secret_warriors",
+      "breakpoints": true
     }
   ]
 }
