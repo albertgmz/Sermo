@@ -189,12 +189,17 @@ export async function rejectCookies(page: Page) {
   await expect(reject).toBeHidden();
 }
 
+// A name nobody has, valid as a username and new at every call: the wrong passwords are counted per
+// name and address (ten in fifteen minutes, whether or not the account exists), so a name that
+// every test and probe used again would be refused for them.
+export const nobody = () => `nf${Math.random().toString(36).slice(2, 10)}`;
+
 // Asks the sign-in limiter (a few tries in ten seconds, per address and path) where it stands, with
-// a try that cannot succeed, under a name nobody has so no member's wrong-password count is
+// a try that cannot succeed, under a fresh name nobody has so no wrong-password count is shared or
 // spent. Returns the seconds the answer says to wait (429 and x-retry-after), or 0 when it is open.
 export async function limiterWait(page: Page) {
   const probe = await page.request.post("/api/auth/sign-in/username", {
-    data: { username: "limiter-probe-nobody", password: "not the password" },
+    data: { username: nobody(), password: "not the password" },
     headers: { origin: new URL(page.url()).origin },
   });
   if (probe.status() !== 429) return 0;

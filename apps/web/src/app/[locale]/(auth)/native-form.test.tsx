@@ -64,6 +64,13 @@ for (const [name, form] of Object.entries(FORMS)) {
     );
   });
 
+  test(`the ${name} form's hydration field is not restored by the browser`, () => {
+    const field = draw(form()).match(
+      new RegExp(`<input[^>]*name="${HYDRATED_FIELD}"[^>]*>`),
+    );
+    expect(field?.[0]).toContain('autoComplete="off"');
+  });
+
   test(`the ${name} form shows the refusal an address named, before any script runs`, () => {
     const page = draw(form("Wrong username or password."));
     expect(page).toContain("Wrong username or password.");

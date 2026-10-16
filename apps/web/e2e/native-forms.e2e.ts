@@ -4,6 +4,7 @@ import {
   expect,
   limiterWait,
   MEMBER_STATE,
+  nobody,
   PASSWORD,
   ready,
   test,
@@ -22,9 +23,6 @@ test.use({ serviceWorkers: "block" });
 
 const RATE_LIMITED = /Too many attempts/;
 const NAME = "Your name or email address:";
-// A name nobody has, new for every test: the wrong passwords are counted per name and address, so
-// a name used again by every project of a run would be refused for them (ten in fifteen minutes).
-const nobody = () => `nf${Math.random().toString(36).slice(2, 10)}`;
 
 async function withoutScripts(page: Page) {
   await page
@@ -39,6 +37,13 @@ async function sendOnce(page: Page, name: string, password: string) {
   await page.getByRole("textbox", { name: NAME }).fill(name);
   const field = page.getByRole("textbox", { name: "Password:" });
   await field.fill(password);
+  // The page is not hydrated: React would send the form itself, and the test would pass without
+  // the path it is for.
+  expect(
+    await field.evaluate((element) =>
+      Object.keys(element).some((key) => key.startsWith("__reactFiber$")),
+    ),
+  ).toBe(false);
   await Promise.all([
     page.waitForNavigation({ timeout: 15_000 }),
     field.press("Enter"),
