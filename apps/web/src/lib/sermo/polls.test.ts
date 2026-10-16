@@ -6,6 +6,7 @@ import {
   draftFromDefinition,
   draftToInput,
   draftToJson,
+  draftWhenWanted,
   mergeFresh,
   type PollDefinitionView,
   type PollDraft,
@@ -424,4 +425,19 @@ test("questions added meanwhile join a quiz, and rows removed meanwhile leave th
   ).toEqual([1, 3, 11, 14, 31, 32]);
   // Taken in once, not again.
   expect(mergeFresh(merged, fresh).questions).toHaveLength(3);
+});
+
+test("asking for a poll opens the section; no longer asking closes a blank one and keeps one that was written", () => {
+  const blank = blankDraft();
+  expect(draftWhenWanted(null, true)).toEqual(blank);
+  expect(draftWhenWanted(null, false)).toBeNull();
+  // Asked for again with a poll already there: it is not replaced.
+  const written = { ...blankDraft(), maxChoices: 3 };
+  expect(draftWhenWanted(written, true)).toBe(written);
+  // A plain discussion after a poll that is still blank sends no poll.
+  expect(draftWhenWanted(blank, false)).toBeNull();
+  expect(draftWhenWanted(written, false)).toBe(written);
+  const typed = blankDraft();
+  typed.questions[0].text = "Which?";
+  expect(draftWhenWanted(typed, false)).toBe(typed);
 });

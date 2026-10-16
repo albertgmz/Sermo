@@ -140,6 +140,19 @@ export const blankDraft = (): PollDraft => ({
   questions: [blankQuestion()],
 });
 
+export const isBlankDraft = (draft: PollDraft) =>
+  JSON.stringify(draft) === JSON.stringify(blankDraft());
+
+// What the poll section holds when a poll is asked for (it opens, blank if it was closed) or no
+// longer asked for (a blank one closes; one the member wrote stays).
+export function draftWhenWanted(
+  draft: PollDraft | null,
+  wanted: boolean,
+): PollDraft | null {
+  if (wanted) return draft ?? blankDraft();
+  return draft && !isBlankDraft(draft) ? draft : null;
+}
+
 // How many answers the first question will have once blank new rows are left out.
 export const listedAnswers = (draft: PollDraft) =>
   (draft.questions[0]?.answers ?? []).filter(

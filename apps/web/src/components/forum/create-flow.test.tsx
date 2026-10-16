@@ -1,18 +1,33 @@
-import { expect, mock, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
+import { profilePostBody } from "@/lib/test-bodies";
 import { withIntl } from "@/lib/test-intl";
-import type { CreateData } from "./create-kinds";
+import {
+  type CreateData,
+  focusComposer,
+  focusFirstOption,
+  stepAfterPick,
+} from "./create-kinds";
 
 // The flow hands on server actions.
 mock.module("server-only", () => ({}));
 
-const { CreateChooser, CreateFlow } = await import("./create-flow");
+mock.module("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({ set: () => {}, get: () => undefined }),
+}));
+mock.module("next/cache", () => ({
+  refresh: () => {},
+  revalidatePath: () => {},
+}));
+
+const { CreateChooser, CreateFlow, wallPostAction } = await import(
+  "./create-flow"
+);
+const { addressAfterForumChange } = await import("./thread-composer");
 const { Dialog } = await import("@/components/ui/dialog");
 const { ThreadComposer } = await import("./thread-composer");
-const { endedInRedirect } = await import("./use-kept-form");
 
 const DATA: CreateData = {
   memberId: 5,
@@ -31,9 +46,6 @@ const DATA: CreateData = {
   canWall: true,
 };
 
-const source = (path: string) =>
-  readFileSync(join(import.meta.dir, "../..", path), "utf8");
-
 // The flow as it is drawn once its one read has answered (`data`) or before it has.
 function draw(state: { data?: CreateData }) {
   const client = new QueryClient();
@@ -42,7 +54,7 @@ function draw(state: { data?: CreateData }) {
     withIntl(
       <QueryClientProvider client={client}>
         <Dialog open>
-          <CreateFlow visit={1} onSent={() => {}} />
+          <CreateFlow visit={1} />
         </Dialog>
       </QueryClientProvider>,
     ),
@@ -101,26 +113,6 @@ test("before the answer the flow shows a loading state, and a refused read says 
   expect(options(refused)).toEqual([]);
 });
 
-test("each choice leads to the right mode of the shared composer, and a wall post posts to the member's own wall", () => {
-  const src = source("components/forum/create-flow.tsx");
-  // A thread kind goes to the forum choice, then to the thread composer in a dialog with the kind.
-  expect(src).toContain('setStep(forumId === null ? "forum" : "compose")');
-  expect(src).toContain('frame="dialog"');
-  expect(src).toContain("kind={threadKind}");
-  // The wall post skips the forum choice and goes straight to the composer.
-  expect(src).toMatch(
-    /if \(next === "wall"\) \{\s*setWallOpened\(true\);\s*setStep\("compose"\)/,
-  );
-  // It is posted to the member's own wall, which the form never names: the id comes from the read.
-  expect(src).toMatch(
-    /postToWall\.bind\(\s*null,\s*data\.memberId,\s*`\/members\/\$\{data\.memberId\}`,?\s*\)/,
-  );
-  // The forum list is the shared one, not a copy.
-  expect(src).toContain('from "@/components/forum/forum-choice-panel"');
-  // A post that was taken starts the flow over through the one callback.
-  expect(src.match(/onSent=\{onSent\}/g)).toHaveLength(2);
-});
-
 test("the choice of forum lists only the forums the member may post in", async () => {
   const { choiceRows } = await import("./forum-choices");
   const rows = choiceRows(DATA.forums);
@@ -167,29 +159,7 @@ test("a question is a discussion worded as one, and a poll opens the poll sectio
   expect(poll).not.toContain('href="/forums/2"');
 });
 
-test("a thread composer in a dialog never changes the address of the page it is on", () => {
-  const src = source("components/forum/thread-composer.tsx");
-  expect(src).toMatch(
-    /if \(frame === "page"\) \{\s*window\.history\.replaceState/,
-  );
-});
-
-test("a send that ends in a redirect, and only that, tells a form in the layout that the post was taken", () => {
-  const before = {};
-  expect(endedInRedirect(before, before)).toBe(true);
-  // A refusal answers with a new state.
-  expect(endedInRedirect(before, { error: "No." })).toBe(false);
-  // Nothing was sent.
-  expect(endedInRedirect(null, before)).toBe(false);
-});
-
-test("a composer in a dialog that names itself draws no title of its own, and a navigation closes the dialog", () => {
-  const popup = readFileSync(
-    join(import.meta.dir, "../layout/create-popup.tsx"),
-    "utf8",
-  );
-  expect(popup).toContain("usePathname()");
-  expect(popup).toContain("setOpen(false)");
+test("a composer in a dialog that names itself draws no title of its own", () => {
   const thread = renderToStaticMarkup(
     withIntl(
       <Dialog open>
@@ -207,4 +177,129 @@ test("a composer in a dialog that names itself draws no title of its own, and a 
     ),
   );
   expect(thread).not.toContain('data-slot="dialog-title"');
+});
+
+const realFetch = globalThis.fetch;
+const sent: string[] = [];
+beforeEach(() => {
+  sent.length = 0;
+  globalThis.fetch = (async (url: string) => {
+    sent.push(String(url));
+    return Response.json(
+      { error: { code: "forbidden", message: "No." } },
+      { status: 403 },
+    );
+  }) as unknown as typeof fetch;
+});
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
+
+const body = (text: string) => {
+  const data = new FormData();
+  data.set("body", text);
+  return data;
+};
+
+test("a wall post is posted to the wall of the member the read named, never to a wall the form names", async () => {
+  const state = await wallPostAction(5)({}, body("hello"));
+  expect(sent).toEqual(["http://127.0.0.1:8787/api/v1/users/5/profile-posts"]);
+  // A refusal comes back as the form's message.
+  expect(state.error).toBeTruthy();
+  const other = body("hi");
+  other.set("userId", "9");
+  await wallPostAction(6)({}, other);
+  expect(sent[1]).toContain("/users/6/");
+});
+
+test("a wall post that was taken goes on to the member's own wall", async () => {
+  globalThis.fetch = (async () =>
+    Response.json(
+      profilePostBody({ profileUserId: 5 }),
+    )) as unknown as typeof fetch;
+  let digest = "";
+  try {
+    await wallPostAction(5)({}, body("hi"));
+  } catch (error) {
+    digest = String((error as { digest?: unknown }).digest);
+  }
+  expect(digest).toContain("/members/5");
+});
+
+test("a wall post skips the choice of forum, a thread goes through it once", () => {
+  expect(stepAfterPick("wall", null)).toBe("compose");
+  expect(stepAfterPick("wall", 2)).toBe("compose");
+  for (const kind of ["discussion", "question", "poll"] as const) {
+    expect(stepAfterPick(kind, null)).toBe("forum");
+    expect(stepAfterPick(kind, 2)).toBe("compose");
+  }
+});
+
+// A root that has only what the focus helpers ask of it.
+function fake(fields: Record<string, { focus: () => void } | null>) {
+  const root = {
+    querySelector: (selector: string) => {
+      for (const [key, value] of Object.entries(fields)) {
+        if (selector.includes(key)) {
+          return key.startsWith("data-create-mode")
+            ? { querySelector: () => value }
+            : value;
+        }
+      }
+      return null;
+    },
+  };
+  return root as unknown as ParentNode;
+}
+
+test("the first option takes focus when the choice is drawn, and nothing breaks before it is", () => {
+  let focused = 0;
+  expect(
+    focusFirstOption(
+      fake({ "data-create-option": { focus: () => focused++ } }),
+    ),
+  ).toBe(true);
+  expect(focused).toBe(1);
+  expect(focusFirstOption(fake({}))).toBe(false);
+  expect(focusFirstOption(null)).toBe(false);
+});
+
+test("the composer that is shown takes focus, in the mode that is shown", () => {
+  const log: string[] = [];
+  const root = fake({
+    'data-create-mode="thread"': { focus: () => log.push("thread") },
+    'data-create-mode="wall"': { focus: () => log.push("wall") },
+  });
+  expect(focusComposer(root, "wall")).toBe(true);
+  expect(focusComposer(root, "thread")).toBe(true);
+  expect(log).toEqual(["wall", "thread"]);
+  expect(focusComposer(fake({}), "thread")).toBe(false);
+});
+
+test("a change of forum moves the address on its page and never in a dialog", () => {
+  expect(addressAfterForumChange("page", 3)).toBe("/forums/3/new");
+  expect(addressAfterForumChange("dialog", 3)).toBeNull();
+});
+
+test("a poll the member did not ask for is not sent with a discussion, and one asked for is in the form", () => {
+  const thread = (kind: "discussion" | "poll") =>
+    renderToStaticMarkup(
+      withIntl(
+        <Dialog open>
+          <ThreadComposer
+            frame="dialog"
+            kind={kind}
+            forumId={2}
+            forums={DATA.forums}
+            prefixes={[]}
+            canAttach={false}
+            canTag={false}
+            canPoll
+            memberId={5}
+          />
+        </Dialog>,
+      ),
+    );
+  expect(thread("discussion")).not.toContain('name="poll"');
+  expect(thread("poll")).toContain('name="poll"');
 });

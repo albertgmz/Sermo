@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   clearThreadDraft,
   readThreadDraft,
+  sameDraft,
   threadDraftKey,
   writeThreadDraft,
 } from "./thread-draft";
@@ -107,4 +108,20 @@ test("storage that is missing or throws, and a visitor with no id, never break t
   expect(store.items.size).toBe(0);
   expect(readThreadDraft(null, store)).toBeNull();
   expect(() => clearThreadDraft(null, store)).not.toThrow();
+});
+
+test("a composer left hidden can tell that the draft kept in the tab has moved on, or was sent, since", () => {
+  const store = memory();
+  const held = { title: "A", body: "", prefixId: "" };
+  writeThreadDraft(1, held, store);
+  expect(sameDraft(readThreadDraft(1, store), held)).toBe(true);
+  // Continued on the page of its own.
+  writeThreadDraft(1, { title: "A", body: "and more", prefixId: "" }, store);
+  expect(sameDraft(readThreadDraft(1, store), held)).toBe(false);
+  // Sent there: nothing is kept, and what the hidden composer holds is stale.
+  clearThreadDraft(1, store);
+  expect(sameDraft(readThreadDraft(1, store), held)).toBe(false);
+  // Nothing kept and nothing held are the same.
+  expect(sameDraft(readThreadDraft(1, store), null)).toBe(true);
+  expect(sameDraft(null, { title: " ", body: "", prefixId: "" })).toBe(true);
 });
