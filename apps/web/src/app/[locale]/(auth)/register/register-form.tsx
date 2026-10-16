@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { register } from "@/app/[locale]/(auth)/actions";
+import { HydrationMark } from "@/app/[locale]/(auth)/hydration-mark";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
 import { PasswordStrength } from "@/app/[locale]/(auth)/password-strength";
 import { TurnstileField } from "@/app/[locale]/(auth)/turnstile-field";
@@ -22,15 +23,18 @@ export function RegisterForm({
   referrer,
   turnstileKey,
   pages,
+  refusal = "",
 }: {
   referrer?: string;
   turnstileKey: string | null;
   // Which of the terms and the rules the site publishes: the checkbox names only those.
   pages: "both" | "terms" | "rules" | "none";
+  // What a form sent without the page's script was refused for (see `native-form.ts`).
+  refusal?: string;
 }) {
   const t = useTranslations("auth.registerForm");
   const [state, action, pending] = useActionState(register, {
-    error: "",
+    error: refusal,
     username: "",
   });
   const [password, setPassword] = useState("");
@@ -38,6 +42,7 @@ export function RegisterForm({
 
   return (
     <form action={action} className="space-y-4">
+      <HydrationMark />
       {referrer && <input type="hidden" name="ref" value={referrer} />}
       <div className="space-y-2">
         <Label htmlFor="register-username">

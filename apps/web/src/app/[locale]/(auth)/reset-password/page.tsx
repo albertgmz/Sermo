@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AuthShell } from "@/app/[locale]/(auth)/auth-shell";
+import { refusalText } from "@/app/[locale]/(auth)/refusal-text";
 import { ResetForm } from "@/app/[locale]/(auth)/reset-password/reset-form";
 
 // The address carries the reset token: it must not travel on in a Referer header.
@@ -13,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ResetPasswordPage({
   searchParams,
 }: PageProps<"/[locale]/reset-password">) {
-  const [t, { token, error }] = await Promise.all([
+  const [t, { token, error, refused }] = await Promise.all([
     getTranslations("auth.resetPassword"),
     searchParams,
   ]);
@@ -41,7 +42,7 @@ export default async function ResetPasswordPage({
       <p className="mb-4 text-center text-sm text-muted-foreground">
         {t("description")}
       </p>
-      <ResetForm token={value} />
+      <ResetForm token={value} refusal={await refusalText(refused)} />
     </AuthShell>
   );
 }

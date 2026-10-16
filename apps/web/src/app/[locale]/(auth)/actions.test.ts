@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { HYDRATED_FIELD } from "@/app/[locale]/(auth)/native-form";
 import { messages } from "@/i18n/messages";
 import { consentCookieValue } from "@/lib/consent/account";
 import { parseChoice } from "@/lib/consent/state";
@@ -98,9 +99,18 @@ function backend(response: () => Response) {
   return asked;
 }
 
+// The form as the hydrated page sends it: its hidden field says so (see `native-form.ts`).
 function form(fields: Record<string, string>) {
   const data = new FormData();
+  data.set(HYDRATED_FIELD, "1");
   for (const [name, value] of Object.entries(fields)) data.set(name, value);
+  return data;
+}
+
+// The form as the browser sends it when the page's script has not taken over: the field is empty.
+function nativeForm(fields: Record<string, string>) {
+  const data = form(fields);
+  data.set(HYDRATED_FIELD, "");
   return data;
 }
 
@@ -578,4 +588,109 @@ test("a cookie the banner wrote in this browser is still the visitor's own choic
   await signIn();
   expect(consentCalls.map((call) => call.method)).toEqual(["GET", "PUT"]);
   expect(removed).toEqual([]);
+});
+
+// A form the browser sent by itself (no script yet) cannot be answered with a state: nothing draws
+// it. Every answer is a redirect to a page, and the refusals name themselves in the address.
+async function redirectOf(run: () => Promise<unknown>) {
+  try {
+    await run();
+  } catch (error) {
+    return String((error as { digest?: unknown }).digest);
+  }
+  return "no redirect";
+}
+const state = { error: "", username: "" };
+
+test("a sign-in sent before the page's script ran goes to the page asked for, also when a choice is adopted", async () => {
+  record = accountChoice(1, "2026-10-02T10:00:00.000Z", "analytics");
+  backend(SIGNED_UP);
+  const sent = { username: "ann", password: "right", next: "/threads/3" };
+  expect(await redirectOf(() => login(state, nativeForm(sent)))).toMatch(
+    /^NEXT_REDIRECT;[a-z]+;\/threads\/3;/,
+  );
+  // The hydrated form is told to load the page itself: the banner running in it reads the choice.
+  expect(await login(state, form(sent))).toEqual({
+    error: "",
+    username: "ann",
+    assign: "/threads/3",
+  });
+});
+
+test("a sign-up sent before the page's script ran goes to the home page, also when a choice is adopted", async () => {
+  record = accountChoice(1, "2026-10-02T10:00:00.000Z", "embeds");
+  backend(SIGNED_UP);
+  const sent = {
+    username: "ann",
+    email: "ann@example.test",
+    password: "right-password",
+    terms: "on",
+  };
+  expect(await redirectOf(() => register(state, nativeForm(sent)))).toMatch(
+    /^NEXT_REDIRECT;[a-z]+;\/;/,
+  );
+});
+
+test("a refused sign-in sent before the page's script ran goes back to the form with the refusal named", async () => {
+  backend(() =>
+    Response.json({ code: "INVALID_USERNAME_OR_PASSWORD" }, { status: 401 }),
+  );
+  expect(
+    await redirectOf(() =>
+      login(state, nativeForm({ username: "ann", password: "wrong" })),
+    ),
+  ).toContain(";/login?refused=invalidCredentials;");
+  // The page asked for is kept.
+  expect(
+    await redirectOf(() =>
+      login(
+        state,
+        nativeForm({ username: "ann", password: "wrong", next: "/threads/3" }),
+      ),
+    ),
+  ).toContain(";/login?next=%2Fthreads%2F3&refused=invalidCredentials;");
+  // Nothing typed at all.
+  expect(
+    await redirectOf(() => login(state, nativeForm({ username: "" }))),
+  ).toContain(";/login?refused=invalidCredentials;");
+});
+
+test("the limiter's refusal of a sign-in sent before the page's script ran is named too", async () => {
+  backend(() => Response.json({ code: "RATE_LIMITED" }, { status: 429 }));
+  expect(
+    await redirectOf(() =>
+      login(state, nativeForm({ username: "ann", password: "right" })),
+    ),
+  ).toContain(";/login?refused=rateLimited;");
+  // The hydrated form is told in words.
+  expect(
+    await login(state, form({ username: "ann", password: "right" })),
+  ).toEqual({
+    error: messages.auth.actions.errors.rateLimited,
+    username: "ann",
+  });
+});
+
+test("a refused sign-up sent before the page's script ran goes back to the form and keeps the referrer", async () => {
+  backend(() =>
+    Response.json({ code: "USERNAME_IS_ALREADY_TAKEN" }, { status: 422 }),
+  );
+  const sent = {
+    username: "ann",
+    email: "ann@example.test",
+    password: "right-password",
+    terms: "on",
+    ref: "42",
+  };
+  expect(await redirectOf(() => register(state, nativeForm(sent)))).toContain(
+    ";/register?ref=42&refused=usernameTaken;",
+  );
+  expect(
+    await redirectOf(() =>
+      register(state, nativeForm({ ...sent, terms: "", ref: "" })),
+    ),
+  ).toContain(";/register?refused=termsRequired;");
+  expect(
+    await redirectOf(() => register(state, nativeForm({ username: "ann" }))),
+  ).toContain(";/register?refused=passwordRequired;");
 });

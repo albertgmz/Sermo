@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { HYDRATED_FIELD } from "@/app/[locale]/(auth)/native-form";
 import { messages } from "@/i18n/messages";
 import { siteAnswer } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
@@ -30,9 +31,8 @@ mock.module("next/headers", () => ({
   }),
 }));
 
-const { login, register, forgotPassword, resendVerification } = await import(
-  "./actions"
-);
+const { choosePassword, forgotPassword, login, register, resendVerification } =
+  await import("./actions");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -65,9 +65,18 @@ const refused =
   () =>
     Response.json({ code }, { status });
 
+// The form as the hydrated page sends it: its hidden field says so (see `native-form.ts`).
 function form(fields: Record<string, string>) {
   const data = new FormData();
+  data.set(HYDRATED_FIELD, "1");
   for (const [name, value] of Object.entries(fields)) data.set(name, value);
+  return data;
+}
+
+// The form as the browser sends it when the page's script has not taken over: the field is empty.
+function nativeForm(fields: Record<string, string>) {
+  const data = form(fields);
+  data.set(HYDRATED_FIELD, "");
   return data;
 }
 
@@ -167,4 +176,70 @@ test("the backend's three refusals are said in the form's own words", async () =
       await resendVerification(null, form({ email: "ann@example.test" })),
     ).toEqual({ error: text });
   }
+});
+
+test("the other guest forms, sent before the page's script ran, go back to their page with the refusal named", async () => {
+  backend(refused("RATE_LIMITED", 429));
+  expect(
+    await run(() =>
+      forgotPassword(null, nativeForm({ email: "ann@example.test" })),
+    ),
+  ).toContain(";/forgot-password?refused=rateLimited;");
+  expect(
+    await run(() => forgotPassword(null, nativeForm({ email: "" }))),
+  ).toContain(";/forgot-password?refused=invalidEmail;");
+  expect(
+    await run(() =>
+      resendVerification(null, nativeForm({ email: "ann@example.test" })),
+    ),
+  ).toContain(";/login?registered=1&form=resend&refused=rateLimited;");
+  expect(
+    await run(() =>
+      resendVerification(
+        null,
+        nativeForm({ email: "ann@example.test", from: "verify" }),
+      ),
+    ),
+  ).toContain(";/verify-email?refused=rateLimited;");
+  expect(
+    await run(() =>
+      choosePassword(
+        null,
+        nativeForm({
+          token: "tok",
+          password: "a-long-password",
+          confirm: "other",
+        }),
+      ),
+    ),
+  ).toContain(";/reset-password?token=tok&refused=passwordMismatch;");
+  expect(
+    await run(() =>
+      choosePassword(
+        null,
+        nativeForm({
+          token: "tok",
+          password: "a-long-password",
+          confirm: "a-long-password",
+        }),
+      ),
+    ),
+  ).toContain(";/reset-password?token=tok&refused=rateLimited;");
+});
+
+test("the hydrated forms get their refusal as a state, not a redirect", async () => {
+  backend(refused("RATE_LIMITED", 429));
+  const { rateLimited } = messages.auth.actions.errors;
+  expect(
+    await forgotPassword(null, form({ email: "ann@example.test" })),
+  ).toEqual({ error: rateLimited });
+  expect(
+    await resendVerification(null, form({ email: "ann@example.test" })),
+  ).toEqual({ error: rateLimited });
+  expect(
+    await choosePassword(
+      null,
+      form({ token: "tok", password: "x-long-password", confirm: "nope" }),
+    ),
+  ).toEqual({ error: messages.auth.actions.errors.passwordMismatch });
 });

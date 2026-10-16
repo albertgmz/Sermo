@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AuthShell } from "@/app/[locale]/(auth)/auth-shell";
 import { LoginForm } from "@/app/[locale]/(auth)/login/login-form";
+import { refusalText } from "@/app/[locale]/(auth)/refusal-text";
 import { ResendForm } from "@/app/[locale]/(auth)/resend-form";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 import { turnstileKeyFor } from "@/lib/sermo/turnstile";
@@ -19,11 +20,15 @@ export default async function LoginPage({
 }: PageProps<"/[locale]/login">) {
   const t = await getTranslations("auth.login");
   const resend = await getTranslations("auth.resendForm");
-  const { next, registered, reset, resent, notMe } = await searchParams;
-  const [loginKey, resendKey] = await Promise.all([
+  const { next, registered, reset, resent, notMe, refused, form } =
+    await searchParams;
+  const [loginKey, resendKey, refusal] = await Promise.all([
     turnstileKeyFor("login"),
     registered ? turnstileKeyFor("resendConfirmation") : null,
+    refusalText(refused),
   ]);
+  // The refusal is the resend form's when that form was the one sent.
+  const resendRefused = form === "resend";
   return (
     <AuthShell heading={t("heading")}>
       {(registered || reset || resent || notMe) && (
@@ -40,7 +45,11 @@ export default async function LoginPage({
                 : t("registeredNotice")}
         </p>
       )}
-      <LoginForm next={safeReturnPath(next)} turnstileKey={loginKey} />
+      <LoginForm
+        next={safeReturnPath(next)}
+        turnstileKey={loginKey}
+        {...(resendRefused ? {} : { refusal })}
+      />
       <p className="mt-4 text-center text-sm text-muted-foreground">
         {t.rich("createAccount", {
           link: (chunks) => (
@@ -58,7 +67,11 @@ export default async function LoginPage({
           <h2 className="text-center text-sm font-semibold">
             {resend("heading")}
           </h2>
-          <ResendForm from="login" turnstileKey={resendKey} />
+          <ResendForm
+            from="login"
+            turnstileKey={resendKey}
+            refusal={resendRefused ? refusal : undefined}
+          />
         </div>
       )}
     </AuthShell>

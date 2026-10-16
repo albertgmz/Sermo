@@ -3,20 +3,29 @@
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { type FormState, forgotPassword } from "@/app/[locale]/(auth)/actions";
+import { HydrationMark } from "@/app/[locale]/(auth)/hydration-mark";
 import { TurnstileField } from "@/app/[locale]/(auth)/turnstile-field";
 import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function ForgotForm({ turnstileKey }: { turnstileKey: string | null }) {
+export function ForgotForm({
+  turnstileKey,
+  refusal,
+}: {
+  turnstileKey: string | null;
+  // What a form sent without the page's script was refused for (see `native-form.ts`).
+  refusal?: string;
+}) {
   const t = useTranslations("auth.forgotPassword");
   const [state, action, pending] = useActionState<FormState, FormData>(
     forgotPassword,
-    null,
+    refusal ? { error: refusal } : null,
   );
   return (
     <form action={action} className="space-y-4">
+      <HydrationMark />
       <div className="space-y-2">
         <Label htmlFor="forgot-email">{t("emailLabel")}</Label>
         <Input

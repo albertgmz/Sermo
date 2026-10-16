@@ -6,6 +6,7 @@ import {
   type FormState,
   resendVerification,
 } from "@/app/[locale]/(auth)/actions";
+import { HydrationMark } from "@/app/[locale]/(auth)/hydration-mark";
 import { TurnstileField } from "@/app/[locale]/(auth)/turnstile-field";
 import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
@@ -16,18 +17,22 @@ export function ResendForm({
   from,
   email,
   turnstileKey,
+  refusal,
 }: {
   from: "login" | "verify";
   email?: string;
   turnstileKey: string | null;
+  // What a form sent without the page's script was refused for (see `native-form.ts`).
+  refusal?: string;
 }) {
   const t = useTranslations("auth.resendForm");
   const [state, action, pending] = useActionState<FormState, FormData>(
     resendVerification,
-    null,
+    refusal ? { error: refusal } : null,
   );
   return (
     <form action={action} className="space-y-4">
+      <HydrationMark />
       <input type="hidden" name="from" value={from} />
       <div className="space-y-2">
         <Label htmlFor={`resend-email-${from}`}>{t("emailLabel")}</Label>

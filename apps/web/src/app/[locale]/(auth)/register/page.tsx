@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { refusalText } from "@/app/[locale]/(auth)/refusal-text";
 import { RegisterForm } from "@/app/[locale]/(auth)/register/register-form";
 import { Logo } from "@/components/layout/logo";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
@@ -18,13 +19,15 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RegisterPage({
   searchParams,
 }: PageProps<"/[locale]/register">) {
-  const [t, { ref }, turnstileKey, hasTerms, hasRules] = await Promise.all([
-    getTranslations("auth.register"),
-    searchParams,
-    turnstileKeyFor("register"),
-    isPublished("terms"),
-    isPublished("rules"),
-  ]);
+  const [t, { ref, refused }, turnstileKey, hasTerms, hasRules] =
+    await Promise.all([
+      getTranslations("auth.register"),
+      searchParams,
+      turnstileKeyFor("register"),
+      isPublished("terms"),
+      isPublished("rules"),
+    ]);
+  const refusal = await refusalText(refused);
   // What the checkbox names: only the pages the site publishes.
   const pages =
     hasTerms && hasRules
@@ -62,6 +65,7 @@ export default async function RegisterPage({
               referrer={referrerOf(ref)?.toString()}
               turnstileKey={turnstileKey}
               pages={pages}
+              {...(refusal ? { refusal } : {})}
             />
           </div>
         </div>

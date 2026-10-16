@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AuthShell } from "@/app/[locale]/(auth)/auth-shell";
+import { refusalText } from "@/app/[locale]/(auth)/refusal-text";
 import { ResendForm } from "@/app/[locale]/(auth)/resend-form";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentAccount } from "@/lib/sermo/auth";
@@ -81,6 +82,7 @@ export default async function VerifyEmailPage({
           from="verify"
           email={viewer.user?.email}
           turnstileKey={resendKey}
+          refusal={await refusalText(params.refused)}
         />
       </div>
     </AuthShell>

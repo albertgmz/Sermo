@@ -3,21 +3,30 @@
 import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { choosePassword, type FormState } from "@/app/[locale]/(auth)/actions";
+import { HydrationMark } from "@/app/[locale]/(auth)/hydration-mark";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
 import { PasswordStrength } from "@/app/[locale]/(auth)/password-strength";
 import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
-export function ResetForm({ token }: { token: string }) {
+export function ResetForm({
+  token,
+  refusal,
+}: {
+  token: string;
+  // What a form sent without the page's script was refused for (see `native-form.ts`).
+  refusal?: string;
+}) {
   const t = useTranslations("auth.resetPassword");
   const [state, action, pending] = useActionState<FormState, FormData>(
     choosePassword,
-    null,
+    refusal ? { error: refusal } : null,
   );
   const [password, setPassword] = useState("");
   return (
     <form action={action} className="space-y-4">
+      <HydrationMark />
       <input type="hidden" name="token" value={token} />
       <div className="space-y-2">
         <Label htmlFor="reset-password">{t("passwordLabel")}</Label>

@@ -82,3 +82,16 @@ test("no token asks nothing of the backend", async () => {
   expect(to).toContain("/not-me");
   expect(asked.some((call) => call.url.endsWith("/api/v1/not-me"))).toBe(false);
 });
+
+test("a form sent before the page's script ran, that the backend could not serve, goes back to the page with the refusal named", async () => {
+  backend(() =>
+    Response.json({ error: { code: "internal" } }, { status: 500 }),
+  );
+  const data = form({ token: TOKEN });
+  expect(await redirectedTo(() => confirmNotMe(null, data))).toContain(
+    ";/not-me?token=payload.signature-0123456789&refused=generic;",
+  );
+  data.set("hydrated", "1");
+  const state = await confirmNotMe(null, data);
+  expect(state?.error).toBeTruthy();
+});

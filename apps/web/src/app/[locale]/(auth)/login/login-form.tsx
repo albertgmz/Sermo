@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { login } from "@/app/[locale]/(auth)/actions";
+import { HydrationMark } from "@/app/[locale]/(auth)/hydration-mark";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
 import { TurnstileField } from "@/app/[locale]/(auth)/turnstile-field";
 import { useHardNavigation } from "@/app/[locale]/(auth)/use-hard-navigation";
@@ -16,13 +17,16 @@ import { Label } from "@/components/ui/label";
 export function LoginForm({
   next,
   turnstileKey,
+  refusal = "",
 }: {
   next: string;
   turnstileKey: string | null;
+  // What a form sent without the page's script was refused for (see `native-form.ts`).
+  refusal?: string;
 }) {
   const t = useTranslations("auth.loginForm");
   const [state, action, pending] = useActionState(login, {
-    error: "",
+    error: refusal,
     username: "",
   });
 
@@ -30,6 +34,7 @@ export function LoginForm({
 
   return (
     <form action={action} className="space-y-4">
+      <HydrationMark />
       <input type="hidden" name="next" value={next} />
       <div className="space-y-2">
         <Label htmlFor="login-username">{t("usernameLabel")}</Label>

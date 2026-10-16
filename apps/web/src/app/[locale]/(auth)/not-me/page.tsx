@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AuthShell } from "@/app/[locale]/(auth)/auth-shell";
 import { NotMeForm } from "@/app/[locale]/(auth)/not-me/not-me-form";
+import { refusalText } from "@/app/[locale]/(auth)/refusal-text";
 
 // The address carries the token: it must not travel on in a Referer header.
 export async function generateMetadata(): Promise<Metadata> {
@@ -13,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function NotMePage({
   searchParams,
 }: PageProps<"/[locale]/not-me">) {
-  const [t, { token, error }] = await Promise.all([
+  const [t, { token, error, refused }] = await Promise.all([
     getTranslations("auth.notMe"),
     searchParams,
   ]);
@@ -40,7 +41,7 @@ export default async function NotMePage({
       <p className="mb-4 text-center text-sm text-muted-foreground">
         {t("description")}
       </p>
-      <NotMeForm token={value} />
+      <NotMeForm token={value} refusal={await refusalText(refused)} />
     </AuthShell>
   );
 }
