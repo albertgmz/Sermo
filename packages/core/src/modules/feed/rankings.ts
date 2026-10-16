@@ -67,7 +67,7 @@ const HOUR = 3_600_000;
 /** Rows one slice of the recomputation reads before it yields to the event loop. */
 const SLICE = 2000;
 
-export const threadColumnsOf = (alias: string) =>
+const threadColumnsOf = (alias: string) =>
   threadColumns
     .split(", ")
     .map((c) => `${alias}.${c}`)
