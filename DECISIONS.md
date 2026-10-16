@@ -2318,7 +2318,10 @@ needing 3 replies or 3 reactions on the opening post to be listed. Same rankings
 `0037` deletes the old `feedTop` rows. Gravity 1.2 is gentler than a news feed because a forum moves
 slower. Views are the raw counter, uncapped, until bots can be excluded. `top` is accepted as an
 alias of `hot` in `feed.list` and in the web `?tab=` for one release. The Hot tab does not poll for
-new entries. Spanish label "En tendencia".
+new entries. Spanish label "En tendencia". Since item 5 the tab reads "Trending" (Spanish
+"Tendencias") everywhere in the interface; the ranking, the `hot` kind and `?tab=hot` keep their
+names, and the older entries here (the feature entry at lines 2334-2338, "Home tab per member", the
+sorting audit at line 3013) still say Hot for the tab.
 
 **Reactions you unlock.** Each reaction type has a rule (`reaction_types.rule`, the criteria
 engine's `{match, conditions}`, cheap criteria only; empty = everyone with `reaction.react`), a
@@ -2504,8 +2507,9 @@ Known limits: no alert for a member whose sign-ins were all purged; two simultan
 sign-ins from a new browser can each send a mail; staff IP views do not show the place; the
 MaxMind adapter has not been tried with a real database file.
 
-**Home tab per member (item 14).** Five tabs in a fixed order: Latest, Hot, Following (members
-only), Forums (the forum list, the same component as `/forums`, which is unchanged) and Media.
+**Home tab per member (item 14).** Five tabs in a fixed order: Latest, Hot (Trending since item 5),
+Following (members only), Forums (the forum list, the same component as `/forums`, which is
+unchanged) and Media.
 Every tab has a stable `/?tab=` address. With no tab in the address the member's own choice
 (`users.home_tab`) applies, else the site setting `homeTab` (ordered `{ rule, tab }` entries of
 the shared criteria engine, cheap criteria only, plus a fallback; first match wins; Settings, Home
@@ -2523,6 +2527,10 @@ examined per request (a page can be short and still carry a cursor), with the fe
 checks plus `forum.viewAttachments`; conversation attachments are never listed. Thumbnails load
 lazily behind the LITE gate (`LazyArt`); a file with no thumbnail shows an icon. Migration `0045`:
 `users.home_tab` and the index. Known gaps: the static LITE category scan does not know `LazyArt`.
+Item 5 changed the phone side: below `md` the bar shows every tab of the viewer (Latest, Trending,
+Following for members, Forums) with Media in More unless open, whatever the default tab, with
+icons and, below 640 px, a label only on the open tab; the wall composer is not drawn below `md`.
+From `md` the pinned three-tab bar described above is unchanged.
 
 **Referral links replace "name your referrer" (item 2).** `users.setReferrer` and any way to name a
 referrer after registering are gone. A signed-in member's Share/Copy link carries `?ref=<id>` (one
@@ -3627,8 +3635,8 @@ and Alerts stay separate: conversations you answer and notifications you read ar
 each with its own unread count and destination, and merging them would hide one count behind the
 other. The + rule (`ceil(n/2)`) already centres it for an even count (2 + 2) and keeps today's
 place for an odd one; tests pin 2, 4 and 5 entries. Admin-edited bars are still capped at 5. With
-the Forums entry gone, no bar entry is current on `/forums` and thread pages (Home matches `/`
-only).
+the Forums entry gone, Home is current on `/forums` and thread pages too, since the home page's
+Forums tab holds the forum list now (item 5).
 
 ### Cookie banner: green accept, red reject, forum width (item 3)  The banner says what cookies
 are for and that saying no is fine, in plain words (en and es; the wording is a draft the owner
@@ -3784,3 +3792,37 @@ a post. Known limits: the card's cover is as tall as the popover's scrolling box
 scrolls would cover only its first screen; the styleguide's card demo rebuilds the card body by
 hand; the look on a real phone, with a bright cover in light and dark, on a highlighted post, and
 the follow error inside the 144 px column have not been seen.
+
+### Home tabs on phones: icons, Trending, no wall composer (item 5)  Below `md` the home page draws
+its own tab bar (`phoneBarOf`) in place of the pinned three-tab bar, for every viewer whatever their
+default tab: Latest, Trending, Following (members only) and Forums in the fixed order, with Media in
+the More menu unless it is the open tab, in which case it takes a place on the bar and More goes, so
+the open tab is always visible. From `md` the wide bar (`barOf`, its pinning and its More menu) is
+unchanged. The server cannot know the screen, so both bars are in the page and CSS shows one; the
+hidden one is out of reach of assistive technology. Each phone tab has an icon (clock, trending-up,
+user-check, messages-square, images, and an ellipsis for More), all `aria-hidden`. Below 640 px
+(`sm`) only the open tab shows its label and the others show their icon alone, with the label kept
+as the accessible name and as a `title` (the More button has one too); from 640 to 767 px every
+phone tab shows icon and label. The threshold is `sm` and not about 400 px as planned: at 400 px the
+bar is about 360 px wide inside, and five Spanish cells with icon and label need about 476 px
+(English about 441), so labels would wrap or be cut at every width from 400 to about 540 px. Tabs
+never wrap (`whitespace-nowrap`, for every user of the tab bar), and the segmented variant, which
+carries the forum list's section tabs (named by an admin, also shown in the home Forums tab),
+scrolls sideways inside itself with its scrollbar hidden, as the underline variant does, so long
+titles do not push a 320 px page wider; the focus ring is clipped by about 1 px there. The tab
+called Hot is now Trending wherever a member or an admin reads it: the tab itself (English Trending;
+Spanish Tendencias, replacing En tendencia; the wide bar shares the labels), the member's "Home page
+opens on" choice, the admin's default-tab choice, the help text of the economy and credits pages,
+and the page title ("Trending threads"; the Spanish title already said trending). Only labels moved:
+the ranking, the `hot` kind and `?tab=hot` are unchanged. The desktop sidebar card lists threads by
+reactions on the opening post over 30 days (`threadsRanked`, `mostReacted`, not the hot score), was
+also titled Trending, and is now Most reacted (Spanish Con más reacciones, like the forum statistics
+tab); its rows show replies and views, not the reaction count, as the statistics panel does, and its
+message keys keep their old names. The wall composer is hidden below `md` with CSS (it is still read
+on a phone, because the server cannot know the width); a phone writes through the + button. The
+phone bar's Home is current on `/forums` and on thread pages, which the removed Forums entry used to
+cover (`mobile.home` has the match paths `/forums` and `/threads`, and `isActivePath` lets the root
+entry use them; the header's Home is unchanged). `/forums` itself never shows the Forums tab open,
+since the tab lives at `/?tab=forums`. The guest browse test on phones now clicks the Forums tab and
+then visits `/forums`. Known limits: the 320 px fit is checked by a phone end-to-end flow
+(`home-tabs.e2e.ts`) and has not been seen on a real phone.
