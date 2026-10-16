@@ -16,6 +16,7 @@ let watcherId = 0;
 let hiderId = 0;
 let followerId = 0;
 let readerId = 0;
+let categoryIds: number[] = [];
 let originalActivity: { id: number; last_post_at: number }[] = [];
 let sinceIso = "";
 
@@ -76,6 +77,31 @@ const wake = (env: BenchEnv) => {
   for (const [n, row] of originalActivity.entries()) update.run(now - n * 60_000, row.id);
   sinceIso = new Date(now - 3 * 3_600_000).toISOString();
 };
+/**
+ * The newest 40 threads of every forum get activity in the last two days, so a walk that names
+ * many forums finds recent threads in each; the original times are kept for `calm`. Returns their ids.
+ */
+const wakeEverywhere = (env: BenchEnv) => {
+  const now = env.ctx.now();
+  originalActivity = env.ctx.sqlite
+    .prepare<{ id: number; last_post_at: number }, []>(
+      "SELECT id, last_post_at FROM (SELECT id, last_post_at, row_number() OVER (PARTITION BY node_id ORDER BY id DESC) AS n FROM threads WHERE state = 'visible') WHERE n <= 40",
+    )
+    .all();
+  const update = env.ctx.sqlite.prepare("UPDATE threads SET last_post_at = ?1 WHERE id = ?2");
+  for (const [n, row] of originalActivity.entries()) update.run(now - n * 1000, row.id);
+  sinceIso = new Date(now - 3 * 3_600_000).toISOString();
+  return originalActivity.map((row) => row.id);
+};
+
+/** The categories of the seed: naming them names every forum under them (a filter names 20 ids at most). */
+const nameCategories = (env: BenchEnv) => {
+  categoryIds = env.ctx.sqlite
+    .prepare<{ id: number }, []>("SELECT id FROM nodes WHERE type = 'category' ORDER BY id")
+    .all()
+    .map((row) => row.id);
+};
+
 const calm = (env: BenchEnv) => {
   const update = env.ctx.sqlite.prepare("UPDATE threads SET last_post_at = ?1 WHERE id = ?2");
   for (const row of originalActivity) update.run(row.last_post_at, row.id);
@@ -98,8 +124,14 @@ const readScenario = (
 export const scenarios: Scenario[] = [
   readScenario("feed.list filter forum", (env) => ({ forumIds: big(env) })),
   readScenario("feed.list filter forums (three)", (env) => ({ forumIds: big(env, 3) })),
-  // The most forums one walk visits one by one: each refill reads that many forums' newest threads.
-  readScenario("feed.list filter forums (up to 64)", (env) => ({ forumIds: big(env, 64) })),
+  // The widest per-forum walk: the seed's categories name every one of its forums (the limit is 64).
+  readScenario(
+    "feed.list filter categories (every seeded forum)",
+    () => ({ forumIds: categoryIds }),
+    {
+      setup: nameCategories,
+    },
+  ),
   readScenario("feed.list filter rare prefix with forums left out", () => ({ prefixId }), {
     async setup(env) {
       addPrefix(env, 5000);
@@ -116,22 +148,30 @@ export const scenarios: Scenario[] = [
     { setup: (env) => addPrefix(env, 5000), teardown: dropPrefix },
   ),
   readScenario(
-    "feed.list filter forums (up to 64) and unread, all read",
-    (env) => ({ forumIds: big(env, 64), unread: true }),
+    "feed.list filter categories and unread, all read",
+    () => ({ forumIds: categoryIds, unread: true }),
     {
-      // The worst case for unread: the member has read everything recent, so every candidate
-      // is probed and none passes.
+      // The worst case for unread: every forum has recent threads and the member has read them
+      // all, so every candidate is probed and none passes. The member is one with no reads at all
+      // in the seed, so nothing seeded is replaced; the rows added carry a read time of 1.
       setup(env) {
-        wake(env);
-        readerId = env.meta.memberIds[1]!;
+        nameCategories(env);
+        const ids = wakeEverywhere(env);
+        const reader = env.ctx.sqlite
+          .prepare<{ id: number }, []>(
+            "SELECT u.id FROM users u WHERE u.group_id = 2 AND NOT EXISTS (SELECT 1 FROM thread_reads r WHERE r.user_id = u.id) ORDER BY u.id DESC LIMIT 1",
+          )
+          .get();
+        if (!reader)
+          throw new Error("Every seeded member has reads: no member to read everything.");
+        readerId = reader.id;
         env.ctx.sqlite
           .prepare(
-            "INSERT OR IGNORE INTO thread_reads (user_id, thread_id, last_read_post_id, last_read_position, read_at) SELECT ?1, id, last_post_id, 0, 1 FROM threads WHERE node_id = ?2 AND state = 'visible' ORDER BY id DESC LIMIT 600",
+            "INSERT INTO thread_reads (user_id, thread_id, last_read_post_id, last_read_position, read_at) SELECT ?1, id, last_post_id, 0, 1 FROM threads WHERE id IN (SELECT value FROM json_each(?2))",
           )
-          .run(readerId, big(env)[0]!);
+          .run(readerId, JSON.stringify(ids));
       },
       teardown(env) {
-        // Only the rows marked with a read time of 1: the seeded reads stay.
         env.ctx.sqlite
           .prepare("DELETE FROM thread_reads WHERE user_id = ?1 AND read_at = 1")
           .run(readerId);
