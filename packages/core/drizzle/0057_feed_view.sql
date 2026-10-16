@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `feed_view` text DEFAULT 'cards' NOT NULL;

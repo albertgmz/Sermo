@@ -400,6 +400,13 @@
       "when": 1792113084164,
       "tag": "0056_feed_filters",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1792117415618,
+      "tag": "0057_feed_view",
+      "breakpoints": true
     }
   ]
 }

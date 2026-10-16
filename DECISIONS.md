@@ -3049,3 +3049,22 @@ write the same thread draft. Known limits: the bar can hold six cells; no avatar
 no sign-in link when the session ends under an open dialog; "Poll or quiz" is offered whenever any
 forum is postable (the forum list carries no per-forum poll permission; the composer then says so);
 two browser tabs keep separate drafts.
+
+**Better feed cards (item 15).** A thread card shows its reply count, how many posts the member has
+not read (at most 99, "99+") as a link to the first of them (`/threads/ID?page=N#post-ID`), a Reply
+button that opens the one-line composer only when pressed (the composer's code loads then;
+`replyFromFeed` and `canReply` as before), and a Poll or Quiz badge. `feed.list` carries `unread` on
+thread entries, computed for the page with one statement from `thread_reads.last_read_position` (an
+index seek per thread, 100 rows at most each, never a COUNT) for threads `isUnread` already marks,
+and only where the viewer may read other members' posts; `Thread.pollKind` comes from one
+`polls_thread` seek per page in `threadValues`, so every list of threads can show it. A
+Cards/Compact toggle in the filter bar keeps the layout on the account (`users.feed_view`, migration
+0057, set through `preferences.update`, which now re-checks `profile.editOwn` in its transaction, so
+a member whose group is denied it keeps the layout in the cookie instead) and in the
+`forum_feed_view` cookie for guests (necessary; the server draws the feed). A compact row is two
+lines, no body, one link over the whole row; a change of layout reloads the page so every scrolled
+page is redrawn. Counts are visible posts only, by position, and the first unread post can be an
+ignored member's; after a thread merge the stored read position can stay behind what was read, so a
+card can count posts already seen until a larger post id is read (bounded: the thread must also be
+unread by id). Known limits: wall posts keep their always-open comment box, the compact row shows no
+text, staff are not counted held or deleted posts.
