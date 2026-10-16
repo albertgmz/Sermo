@@ -1793,21 +1793,31 @@ The migration changes the benchmark seed's hash.
 
 ## The postbit: the author in a column beside the post
 
-**The author's information is one shared piece, `Postbit`, placed by `PostFrame`.** From `md` up
-it is a column of 10rem at the left of the post (avatar, name, title, badges, level, awards and a
-short list of facts: joined, posts, reactions) with the body at its right; below `md` it is a
-compact header above the body. Thread posts and conversation messages both get it from the one
-`PostFrame`, and neither page changed. `Postbit` knows nothing about posts and takes its
-arrangement as a prop, so the same piece can be a floating member card; it has one optional slot
-for actions, drawn directly under the facts so they stay next to the avatar on a long post. The
-avatar and the name are the links to the profile: there is no profile button.
+**The author's information is one shared piece, `Postbit`, drawn by `PostFrame` and by the member
+card alike (item 8).** From `md` up it is a column of 10rem at the left of the post: avatar, name
+and group badges, the viewer's actions on the member (follow, message), title, level and XP bar,
+the member's shown awards, then joined, posts and reactions. Below `md` it is a compact header
+above the body: the avatar beside the name with the highest group badge (the name keeps at least
+12 characters and the line never wraps; further badges show only in the column), the title and
+counts under it, and, when there are any, a last line with the awards at the start and Follow and
+Message as two 40px icon buttons at the end. The parts are one set of elements in the column's
+order, and the compact header places them on a grid, so only the avatar is drawn twice. Known
+trade: in the compact header the reading and Tab order (name, actions, title, awards) differs from
+what is seen (name, title, awards, actions); the column, where a keyboard is likelier, matches;
+fixing the phone order would mean drawing the awards twice or breaking the column's order. Thread
+posts and conversation messages both get the block from the one `PostFrame`. `Postbit` knows
+nothing about posts and takes its arrangement as a prop, which is how the member card uses it. The
+avatar and the name are the links to the profile; there is no profile button.
 
 **A member whose profile the viewer may not open, or one the backend does not return, shows no
 facts.** The backend's minimal author carries an epoch date and zero counts; printing them would
 state things that are not true. `MemberView` carries `restricted` for this.
 
-The column's width is one variable (`--postbit-width`) used by the grid and by the cover, which
-sits behind the column and ends at its border; on phones the cover stays behind the header.
+The column's width is one variable (`--postbit-width`) used by the grid. The member's cover is
+part of the block: behind the column (the whole height of the post, fading down) from `md`, behind
+the header strip on a phone. It is drawn against the box that holds the block; the frame says how
+wide it is (`--postbit-cover-width`: its padding plus the column, so it ends at the column's
+border), and the card leaves it the card's width.
 
 ## The conversation page: widgets, adding people, renaming
 
@@ -1871,9 +1881,9 @@ The migration changes the benchmark seed's hash.
 **One batched read answers for the viewer.** `users.relations` takes up to 50 member ids and says,
 for each, whether the viewer follows them, may start following them and may start a conversation
 with them. It is kept apart from `users.cards` and `users.authors`, which stay the same for every
-viewer. A thread or conversation page asks it once for the authors on the page, in parallel with
-the authors read, and only for a signed-in viewer; a failed read removes the buttons and nothing
-else.
+viewer. A thread or conversation page (and the rows added while it is open) asks it once for the
+authors on the page, in parallel with the authors read, and only for a signed-in viewer; a failed
+read removes the buttons and nothing else.
 
 **"May message" follows conversation creation.** It is false without `conversation.start`, for
 yourself, when the viewer's recipient limit is 0, and when the member ignores a viewer who can be
@@ -1889,20 +1899,23 @@ lost `member.follow`.
 redirect would lose the reader's place and replay the scroll to a `#post-N` address. The profile
 header keeps its redirecting button.
 
-**One shared piece.** `MemberActions` draws both actions, as two 40px icon buttons in the phone
-header and labelled in the column, and nothing for a guest, yourself, or a restricted or unknown
-member. There is no profile button: the avatar and the name are the links. A refusal is shown
-under the buttons without widening the row. The styleguide draws the same view with an action
-that stores nothing.
+**One shared piece.** `MemberActions` draws both actions, as two 40px icon buttons on the last line
+of the phone header (and in the card's sheet) and labelled in the column, and nothing for a guest,
+yourself, or a restricted or unknown member. There is no profile button: the avatar and the name are
+the links. A refusal is shown under the buttons without widening the row. The styleguide draws the
+same view with an action that stores nothing. Posts and messages show them again from item 8; "One
+action bar for every item" no longer says otherwise.
 
 ## The member card on hover: the postbit, floating
 
-**The card is the postbit.** Hovering a member's name, avatar or `@mention` shows the postbit
-column with its actions (follow or unfollow, start a conversation). It is rendered on the server
-when the card opens, so its pictures obey the LITE cookie; nothing is read before that. A member
-who is unknown, restricted or closed to the viewer gives the name alone. The card is read again on
-every open and after a follow made inside it, because content fetched for a card does not follow
-the page's refresh.
+**The card is the postbit (item 8).** Clicking a member's name, avatar or `@mention` shows the
+very block a post draws for that member (same parts, order, cover, awards and actions; the compact
+header in the phone sheet and the column in the popover, which switch at the same 48rem as `md`),
+with only "View profile" under it. It is rendered on the server when the card opens, so its
+pictures obey the Data saver cookie; nothing is read before that. A member who is unknown,
+restricted or closed to the viewer gives the name alone. The card is read again on every open and
+after a follow made inside it, because content fetched for a card does not follow the page's
+refresh. A test renders a thread post and the card for one member and compares the blocks.
 
 **Cards never nest.** A scope set inside `Postbit`, the thread preview, the reaction users list and
 the members directory's own card turns every trigger below it into a plain link. So a post's own
@@ -2044,11 +2057,12 @@ inside a spoiler stays a label after the spoiler opens.
 
 **One action bar for every item.** Thread posts, conversation messages, wall posts and comments use
 `ContentActions`: who reacted above it; React, Quote, Reply on one side; Bookmark, Share, Edit,
-Delete, Report and moderator tools on the other. Follow and Message left the posts for the member
-card. Share uses the system share sheet where there is one, otherwise a "Copy link" menu, and shows
-the link to copy by hand when the clipboard is unavailable; it is the same button everywhere. Report
-shows to signed-in members on others' items because these outputs have no `canReport` yet; a group
-without `report.create` is refused on sending. Only a thread post's Delete asks for a reason.
+Delete, Report and moderator tools on the other. Follow and Message are not in the action bar: they
+belong to the author, so they sit in the postbit of every post and message, as in the member card
+(item 8). Share uses the system share sheet where there is one, otherwise a "Copy link" menu, and
+shows the link to copy by hand when the clipboard is unavailable; it is the same button everywhere.
+Report shows to signed-in members on others' items because these outputs have no `canReport` yet; a
+group without `report.create` is refused on sending. Only a thread post's Delete asks for a reason.
 
 **The member card opens on click.** A plain click, tap, Enter or Space on an avatar, name or
 mention opens it (popover from 48rem, bottom sheet below); modified clicks navigate. Hover no longer
@@ -3722,3 +3736,51 @@ and the muted surround is a 10 px sliver; `WRITING` in `create-flow.tsx` takes `
 token if the owner wants it narrower. Known limits: the blank press acts on click, so a phone's open
 keyboard may drop and rise once; a desktop pinch-zoom shrinks the visual viewport and with it the
 screen; the look on a real phone with the keyboard open has not been seen.
+
+### One postbit for posts, messages and the member card (item 8)  `Postbit` is the one block that a
+thread post, a conversation message and the member card all draw, with the same parts in the same
+order: avatar with frame, name and group badges, the viewer's actions on the member (Follow,
+Message), title, level and XP bar, the member's awards, then joined, posts and reactions. From `md`
+it is the 10rem column (in the card, the popover from 48rem); below `md` it is the compact header
+(in the card, the sheet). The card adds only "View profile" under the block. A test renders the real
+thread rows and `loadMemberCard` for one member with a cover and awards and compares the markup; the
+post is drawn inside a scope that turns the name and avatar triggers into plain links, so the
+comparison covers layout, parts, order and classes, not the trigger wrappers. The cover belongs to
+the block: from `md` it covers the whole height of the box that holds the block and fades downward,
+and below `md` it is the strip behind the header (a highlighted post hides the column cover on a
+phone, where its own whole-frame cover shows). The holder says how wide it is through
+`--postbit-cover-width`: the frame sets the column plus its padding so the cover ends at the
+column's border, and the card sets nothing, so the cover fills the card. The first build gave the
+card the phone strip, with a horizontal fade made for a wide header, so one member had two different
+covers. The existing cover strength is kept, since it does not lower the contrast of the name and
+badges. Awards are one row of `sm` icons, three on a phone and five from `md`, then +N; the backend
+already cuts them to the site's slots, so nothing changed there. Posts and messages now show Follow
+and Message in the same place as the card. This overrides the line in "One action bar for every
+item" that kept them on the card only: the plan asks for 1:1, with the card adding only "View
+profile", and a build that followed the older line gave the card buttons that the post lacked. A
+thread page and a conversation page, and the rows they add while open, read `users.relations` once
+for the authors on the page, in parallel with the authors read: one call per 50 authors and a page
+is 20. A guest asks nothing and gets nothing, a refused read drops the buttons only, and yourself, a
+restricted member and a member with nothing allowed draw nothing; the viewer's own rows still being
+sent have none. Costs: a signed-in viewer's post column grows by about 70 px (two stacked buttons),
+and the absent Message button now shows, for a whole page and without a click, which authors have
+ignored the viewer or take no conversations (the contract already allows this one member at a time
+through `conversations.create`; flagged for the owner). The compact header has three lines: the name
+with the highest group badge (the name keeps at least 12 characters,
+`minmax(min(12ch,100%),max-content)`, and the line never wraps; the other badges show from `md`),
+then the title and counts beside the avatar, which spans the first two lines, then, only when there
+are awards or actions, a last line with the awards at the start and Follow and Message as two 40 px
+icon buttons at the end. In the first version the awards and buttons shared the name's line, and at
+320 px the name had 32 px (four characters) with its badge on a second line; now it has 113 px (15
+characters) in a post and 139 px in the sheet, and 153 and 169 px at 360 px, measured in a browser
+with the app's font. The price is a header 88 px high instead of 60 when there are awards or
+buttons; if that is too tall, drop the awards from the phone line and keep the buttons at 40 px. In
+the sheet the buttons are icon-only, as in a thread on a phone. Trade-off: in the compact header the
+reading and Tab order (name, actions, title, awards) is not the visual order (name, title, awards,
+actions). The column, where a keyboard is likelier, matches its order, and fixing the phone's would
+mean drawing the awards twice or breaking the column's order. A restricted member keeps the minimal
+card, and the backend nulls the cover and awards of a restricted author, so nothing private reaches
+a post. Known limits: the card's cover is as tall as the popover's scrolling box, so a card that
+scrolls would cover only its first screen; the styleguide's card demo rebuilds the card body by
+hand; the look on a real phone, with a bright cover in light and dark, on a highlighted post, and
+the follow error inside the 144 px column have not been seen.
