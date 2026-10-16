@@ -3,6 +3,7 @@ import {
   type CreateData,
   createOptions,
   isThreadKind,
+  onNewThreadPage,
   postableForums,
 } from "./create-kinds";
 import type { ForumChoice } from "./forum-choices";
@@ -77,4 +78,15 @@ test("three kinds are threads and the wall post is not", () => {
   expect(isThreadKind("question")).toBe(true);
   expect(isThreadKind("poll")).toBe(true);
   expect(isThreadKind("wall")).toBe(false);
+});
+
+test("on the page that is a thread composer the dialog offers no thread, so the two never share a draft", () => {
+  expect(onNewThreadPage("/forums/5/new")).toBe(true);
+  expect(onNewThreadPage("/forums/5-help/new/")).toBe(true);
+  expect(onNewThreadPage("/forums/5")).toBe(false);
+  expect(onNewThreadPage("/threads/5/new")).toBe(false);
+  expect(onNewThreadPage("/")).toBe(false);
+  expect(createOptions(data({}), false)).toEqual(["wall"]);
+  expect(createOptions(data({ canWall: false }), false)).toEqual([]);
+  expect(createOptions(data({}), true)).toEqual(createOptions(data({})));
 });

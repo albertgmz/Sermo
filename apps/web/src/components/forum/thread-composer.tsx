@@ -72,7 +72,9 @@ export function ThreadComposer({
   frame = "page",
   kind = "discussion",
   onDraft,
+  onPending,
   onForum,
+  pollAsk = 0,
 }: {
   forumId: number;
   // The forums the member may start a thread in, under the categories that hold them.
@@ -94,8 +96,12 @@ export function ThreadComposer({
   // The draft as the composer holds it, each time it changes and when one is restored, for a
   // caller that must know whether what is kept in the tab has moved on since.
   onDraft?: (draft: ThreadDraft) => void;
+  // Whether a send is on its way, for a caller that must not draw the composer anew meanwhile.
+  onPending?: (pending: boolean) => void;
   // The forum the member changed to, for a caller that draws the composer again.
   onForum?: (id: number) => void;
+  // Counts the times a poll was asked for; each opens the poll section if it was closed.
+  pollAsk?: number;
 }) {
   const t = useTranslations("forum.threadComposer");
   const [forum, setForum] = useState(forumId);
@@ -133,7 +139,7 @@ export function ThreadComposer({
     (change: Partial<ThreadDraft>) => {
       draft.current = { ...draft.current, ...change };
       if (!sending.current) writeThreadDraft(memberId, draft.current);
-      onDraft?.(draft.current);
+      if (!sending.current) onDraft?.(draft.current);
     },
     [memberId, onDraft],
   );
@@ -165,9 +171,12 @@ export function ThreadComposer({
     }
   }, [memberId]);
 
+  // An answer ends the send: a refusal writes the draft back, and tells the caller what the tab holds.
   useEffect(() => {
+    onPending?.(false);
     if (state.error) writeThreadDraft(memberId, draft.current);
-  }, [state, memberId]);
+    if (state.error) onDraft?.(draft.current);
+  }, [state, memberId, onDraft, onPending]);
 
   // The choice of forum takes the screen; the chip that opened it gets the focus back.
   useEffect(() => {
@@ -177,6 +186,7 @@ export function ThreadComposer({
 
   const onSubmit: React.FormEventHandler<HTMLFormElement> = (event) =>
     sendUnlessPicking(picking, event, () => {
+      onPending?.(true);
       clearThreadDraft(memberId);
       send(event);
     });
@@ -272,7 +282,11 @@ export function ThreadComposer({
       )}
       {canTag && <ThreadTagsField />}
       {poll && (
-        <PollField wanted={kind === "poll"} attachIn={attach ? forum : null} />
+        <PollField
+          wanted={kind === "poll"}
+          asked={pollAsk}
+          attachIn={attach ? forum : null}
+        />
       )}
       {kind === "poll" && !poll && (
         <p role="status" className="text-sm text-muted-foreground">

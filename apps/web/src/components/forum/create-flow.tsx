@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ChartBar, CircleHelp, MessagesSquare, PenLine, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { forumComposeAccessAction } from "@/app/[locale]/(main)/forums/actions";
@@ -16,14 +17,15 @@ import {
   focusComposer,
   focusFirstOption,
   isThreadKind,
+  onNewThreadPage,
   stepAfterPick,
   type ThreadKind,
 } from "@/components/forum/create-kinds";
 import { ForumChoicePanel } from "@/components/forum/forum-choice-panel";
 import { ThreadComposer } from "@/components/forum/thread-composer";
 import {
+  draftMovedOn,
   readThreadDraft,
-  sameDraft,
   type ThreadDraft,
 } from "@/components/forum/thread-draft";
 import { Button } from "@/components/ui/button";
@@ -84,17 +86,20 @@ function ChooserHeader({ title, close }: { title: string; close: string }) {
 export function CreateChooser({
   data,
   failed,
+  threads = true,
   onPick,
   onRetry,
 }: {
   // What the one read answered; none while it is on its way or when it was refused.
   data: CreateData | undefined;
   failed: boolean;
+  // False on the page that is a thread composer itself.
+  threads?: boolean;
   onPick: (kind: CreateKind) => void;
   onRetry: () => void;
 }) {
   const t = useTranslations("forum.createFlow");
-  const options = data ? createOptions(data) : [];
+  const options = data ? createOptions(data, threads) : [];
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ChooserHeader title={t("title")} close={t("aria.close")} />
@@ -170,6 +175,7 @@ export function CreateFlow({
   visit: number;
 }) {
   const t = useTranslations("forum.createFlow");
+  const pathname = usePathname();
   const query = useQuery({
     queryKey: ["create"],
     queryFn: loadCreate,
@@ -186,6 +192,8 @@ export function CreateFlow({
   const [access, setAccess] = useState<Access | null>(null);
   const [accessFailed, setAccessFailed] = useState(false);
   const [wallOpened, setWallOpened] = useState(false);
+  // Counts the times a poll was chosen, so that choosing it again opens a section that was removed.
+  const [pollAsk, setPollAsk] = useState(0);
   const asked = useRef(0);
   // The draft the thread composer holds, to tell when the one kept in the tab has moved on.
   const seenDraft = useRef<ThreadDraft | null>(null);
@@ -247,12 +255,18 @@ export function CreateFlow({
     if (next === "wall") setWallOpened(true);
     else {
       setThreadKind(next);
+      if (next === "poll") setPollAsk((count) => count + 1);
       // The composer was left hidden while the draft kept in the tab may have been changed (or sent)
       // on the page of its own; it must not write its older copy over it.
       if (
         forumId !== null &&
+        access !== null &&
         data &&
-        !sameDraft(readThreadDraft(data.memberId), seenDraft.current)
+        draftMovedOn(
+          readThreadDraft(data.memberId),
+          seenDraft.current,
+          sending.current,
+        )
       ) {
         startThread(forumId);
       }
@@ -267,6 +281,10 @@ export function CreateFlow({
   const keepDraft = useCallback((draft: ThreadDraft) => {
     seenDraft.current = draft;
   }, []);
+  const sending = useRef(false);
+  const keepPending = useCallback((pending: boolean) => {
+    sending.current = pending;
+  }, []);
 
   const wall = data ? wallPostAction(data.memberId) : null;
 
@@ -277,6 +295,7 @@ export function CreateFlow({
         <CreateChooser
           data={data}
           failed={query.isError}
+          threads={!onNewThreadPage(pathname)}
           onPick={pick}
           onRetry={() => void query.refetch()}
         />
@@ -308,6 +327,8 @@ export function CreateFlow({
             canTag={data.canTag}
             memberId={data.memberId}
             onDraft={keepDraft}
+            onPending={keepPending}
+            pollAsk={pollAsk}
             onForum={setForumId}
           />
         </div>

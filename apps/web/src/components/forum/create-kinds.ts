@@ -64,11 +64,19 @@ export function focusComposer(
   return !!field;
 }
 
+// `/forums/<id>/new` is a thread composer of its own, sharing the draft kept in the tab: the
+// dialog does not offer threads there, so the two never write over each other.
+export const onNewThreadPage = (pathname: string) =>
+  /^\/forums\/[^/]+\/new\/?$/.test(pathname);
+
 // The options, in the order they are drawn. A member who may post in no forum gets the wall post
 // alone, and one who may post on no wall gets the threads alone; with neither there is nothing.
-export function createOptions(data: CreateData): CreateKind[] {
+export function createOptions(
+  data: CreateData,
+  threadsHere = true,
+): CreateKind[] {
   const kinds: CreateKind[] = [];
-  if (postableForums(data.forums).length > 0) {
+  if (threadsHere && postableForums(data.forums).length > 0) {
     kinds.push("discussion", "question", "poll");
   }
   if (data.canWall) kinds.push("wall");
