@@ -8,7 +8,7 @@ import {
 import {
   MENU_TRIGGER_CLASS,
   type MenuTab,
-  openingTab,
+  OPENING_TAB,
 } from "@/components/layout/user-menu-tabs";
 import type { OpenedProps } from "@/components/ui/lazy-popup";
 import { usePopupFocus } from "@/components/ui/lazy-popup-focus";
@@ -48,22 +48,22 @@ export type UserMenuPopupProps = Omit<
 > & {
   label: string;
   title: string;
-  // What the button holds: the small avatar, the arrow and the badge.
+  // What the button holds: the small avatar and the arrow.
   trigger: React.ReactNode;
 };
 
 // The avatar button and the menu it opens, which Base UI draws: a popover on a wide screen and a
 // sheet on a phone, with the same tabs in both. It is loaded when the plain button of `UserMenu`
-// is pressed, and mounts open on the tab that has something unread.
+// is pressed, and mounts open on the Account tab.
 export default function UserMenuPopup(props: UserMenuPopupProps & OpenedProps) {
   const { label, title, trigger, openedBy, ...body } = props;
   const focus = usePopupFocus(openedBy);
   const wide = useWide();
   const [open, setOpen] = useState(true);
-  const [tab, setTab] = useState<MenuTab>(() => openingTab(body.unread));
+  const [tab, setTab] = useState<MenuTab>(OPENING_TAB);
 
   function change(next: boolean) {
-    if (next) setTab(openingTab(body.unread));
+    if (next) setTab(OPENING_TAB);
     setOpen(next);
   }
   // Following a link inside the menu closes it.

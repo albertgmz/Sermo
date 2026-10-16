@@ -1,33 +1,6 @@
 import { expect, test } from "bun:test";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { listKey, listQuery } from "./user-menu-list-query";
-import { badgeText, combinedUnread, openingTab } from "./user-menu-tabs";
-
-test("the menu opens on the alerts when any are unread, even with unread conversations", () => {
-  expect(openingTab({ notifications: 3, conversations: 0 })).toBe("alerts");
-  expect(openingTab({ notifications: 1, conversations: 4 })).toBe("alerts");
-});
-
-test("the menu opens on the conversations when only they have something unread", () => {
-  expect(openingTab({ notifications: 0, conversations: 2 })).toBe(
-    "conversations",
-  );
-});
-
-test("the menu opens on the account tab when nothing is unread", () => {
-  expect(openingTab({ notifications: 0, conversations: 0 })).toBe("account");
-});
-
-test("the avatar badge counts alerts and conversations together", () => {
-  expect(combinedUnread({ notifications: 3, conversations: 2 })).toBe(5);
-  expect(combinedUnread({ notifications: 0, conversations: 0 })).toBe(0);
-});
-
-test("a large count is drawn short", () => {
-  expect(badgeText(7)).toBe("7");
-  expect(badgeText(99)).toBe("99");
-  expect(badgeText(100)).toBe("99+");
-});
 
 test("a list is held under its kind and its unread count", () => {
   expect(listKey("alerts", 2)).not.toEqual(listKey("alerts", 3));

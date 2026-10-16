@@ -8,6 +8,7 @@ import {
   BookmarksFooter,
   ConversationsFooter,
 } from "@/components/layout/header-panels";
+import { InboxPanel } from "@/components/layout/inbox-panel";
 import { accountItems } from "@/components/layout/nav";
 import { toNavItems } from "@/components/layout/nav-server";
 import "@/components/layout/panel-parts";
@@ -16,9 +17,15 @@ import { getLiteState } from "@/lib/lite-mode";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
 
-// The signed-in member's own menu, shared by the site header and the staff panel's top bar:
-// alerts, conversations, account links and bookmarks behind the avatar. Nothing for a guest.
-export async function AccountMenu() {
+// The signed-in member's own corner of the header, shared by the site header and the staff panel's
+// top bar: the Messages and Alerts buttons, each with its unread count and its panel, then the
+// avatar, which opens the account menu (account links and bookmarks). Nothing for a guest.
+// `inboxClassName` hides the two buttons where something else holds them (the phone bar).
+export async function AccountMenu({
+  inboxClassName,
+}: {
+  inboxClassName?: string;
+}) {
   const [viewer, card, unread, navigation, account, lite] = await Promise.all([
     getViewer(),
     getViewerCard(),
@@ -39,27 +46,33 @@ export async function AccountMenu() {
     }),
   );
   return (
-    <UserMenu
-      lite={await getLiteState()}
-      triggerAvatar={<UserAvatar user={card} size="md" link={false} eager />}
-      avatar={<UserAvatar user={card} size="lg" link={false} />}
-      links={links}
-      screenLinks={screenLinks}
-      user={{ username: card.username, title: card.title }}
-      unread={{
-        notifications: unread.notifications,
-        conversations: unread.conversations,
-      }}
-      footers={{
-        alerts: <AlertsFooter unread={unread.notifications} />,
-        conversations: <ConversationsFooter />,
-        bookmarks: <BookmarksFooter />,
-      }}
-      status={
-        viewer.permissions.canPostProfile
-          ? { wallHref: `/members/${viewer.user.id}` }
-          : undefined
-      }
-    />
+    <>
+      <InboxPanel
+        kind="conversations"
+        unread={unread.conversations}
+        footer={<ConversationsFooter />}
+        className={inboxClassName}
+      />
+      <InboxPanel
+        kind="alerts"
+        unread={unread.notifications}
+        footer={<AlertsFooter unread={unread.notifications} />}
+        className={inboxClassName}
+      />
+      <UserMenu
+        lite={await getLiteState()}
+        triggerAvatar={<UserAvatar user={card} size="md" link={false} eager />}
+        avatar={<UserAvatar user={card} size="lg" link={false} />}
+        links={links}
+        screenLinks={screenLinks}
+        user={{ username: card.username, title: card.title }}
+        footers={{ bookmarks: <BookmarksFooter /> }}
+        status={
+          viewer.permissions.canPostProfile
+            ? { wallHref: `/members/${viewer.user.id}` }
+            : undefined
+        }
+      />
+    </>
   );
 }

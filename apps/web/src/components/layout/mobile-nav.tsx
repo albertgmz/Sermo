@@ -11,6 +11,7 @@ import {
   type LinkItem,
   linkProps,
 } from "@/components/layout/nav";
+import { CountBadge } from "@/components/ui/count-badge";
 import { useCounter } from "@/lib/counters";
 
 // The round + that opens the Create dialog sits in the middle of the bar; a guest's leads to sign-in.
@@ -42,7 +43,8 @@ export function MobileNav(props: {
       <ul className="mx-auto grid h-14 max-w-lg auto-cols-fr grid-flow-col">
         {items.flatMap((item, index) => {
           const Icon = iconFor(item.builtin);
-          const count = item.builtin ? counts[item.builtin] : 0;
+          // Only Messages and Alerts have a count.
+          const count = (item.builtin && counts[item.builtin]) || 0;
           const entry = (
             <li key={item.id}>
               <Link
@@ -61,9 +63,7 @@ export function MobileNav(props: {
                   ) : (
                     <Icon className="size-5" />
                   )}
-                  {!!count && (
-                    <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-primary ring-2 ring-background" />
-                  )}
+                  <CountBadge count={count} className="-top-1.5 left-2.5" />
                 </span>
                 <span className="max-w-full truncate px-0.5">
                   {count

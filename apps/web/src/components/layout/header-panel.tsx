@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import type { HeaderPanelPopupProps } from "@/components/layout/header-panel-popup";
+import { CountBadge } from "@/components/ui/count-badge";
 import { LazyPopup } from "@/components/ui/lazy-popup";
 import { cn } from "@/lib/utils";
 
@@ -11,8 +12,9 @@ const TRIGGER =
 const loadPopup = () => import("@/components/layout/header-panel-popup");
 
 // A header icon that opens a panel under it, at every width: on a phone the panel is never wider
-// than the screen. Following a link inside the panel closes it. The panel's code (Base UI) is fetched when the icon is
-// first reached for; until then the icon is a plain button.
+// than the screen. An unread count is drawn on the icon as a number. Following a link inside the
+// panel closes it. The panel's code (Base UI) is fetched when the icon is first reached for; until
+// then the icon is a plain button.
 export function HeaderPanel({
   label,
   title,
@@ -37,9 +39,7 @@ export function HeaderPanel({
   const trigger = (
     <>
       {icon}
-      {unread > 0 && (
-        <span className="absolute top-2 right-2 size-2 rounded-full bg-primary ring-2 ring-background" />
-      )}
+      <CountBadge count={unread} className="top-1 left-5" />
     </>
   );
   const popup: HeaderPanelPopupProps = {

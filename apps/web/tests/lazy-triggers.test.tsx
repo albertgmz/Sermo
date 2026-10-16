@@ -50,6 +50,7 @@ afterAll(() => {
 const { toNavItems } = await import("@/components/layout/nav-server");
 const { UserMenu } = await import("@/components/layout/user-menu");
 const { HeaderPanel } = await import("@/components/layout/header-panel");
+const { InboxPanel } = await import("@/components/layout/inbox-panel");
 const { GuestMenu } = await import("@/components/layout/guest-menu");
 const { HeaderNav, MobileMenu } = await import("@/components/layout/site-nav");
 const { MemberCardTrigger } = await import(
@@ -133,12 +134,7 @@ const links = toNavItems([
 ]);
 
 const lite = { master: true, blocked: [] };
-const unread = { notifications: 2, conversations: 1 };
-const footers = {
-  alerts: <p>a</p>,
-  conversations: <p>c</p>,
-  bookmarks: <p>b</p>,
-};
+const footers = { bookmarks: <p>b</p> };
 
 const cases: [string, () => React.ReactNode, boolean][] = [
   [
@@ -146,7 +142,6 @@ const cases: [string, () => React.ReactNode, boolean][] = [
     () => (
       <UserMenu
         triggerAvatar={<span>avatar</span>}
-        unread={unread}
         user={{ username: "ember", title: "Member" }}
         avatar={<span>avatar</span>}
         links={[]}
@@ -172,6 +167,11 @@ const cases: [string, () => React.ReactNode, boolean][] = [
         <p>panel</p>
       </HeaderPanel>
     ),
+    true,
+  ],
+  [
+    "a member's alerts button",
+    () => <InboxPanel kind="alerts" unread={3} footer={<p>f</p>} />,
     true,
   ],
   ["the guest options button", () => <GuestMenu lite={lite} />, true],

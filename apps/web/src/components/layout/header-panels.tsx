@@ -15,8 +15,8 @@ const footerClass = "flex items-center justify-between gap-2 border-t p-2";
 const footerLinkClass =
   "inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground";
 
-// The foot of each list in the avatar menu. Drawn on the server and handed to the menu as elements,
-// so the unread count a button reads is the one the page drew.
+// The foot of each list in the header panels and the avatar menu. Drawn on the server and handed to
+// them as elements, so the unread count a button reads is the one the page drew.
 export function ConversationsFooter() {
   const t = useTranslations("layout.headerPanels.messages");
   return (

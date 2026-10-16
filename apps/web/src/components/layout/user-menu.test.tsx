@@ -60,11 +60,7 @@ const links = toNavItems(
   "/members/1",
 ).map((item) => ({ ...item, href: item.href ?? "/" }));
 
-const footers = {
-  alerts: <p>alerts footer</p>,
-  conversations: <p>conversations footer</p>,
-  bookmarks: <p>bookmarks footer</p>,
-};
+const footers = { bookmarks: <p>bookmarks footer</p> };
 
 const screenLinks = [
   { href: "/account/privacy", label: "Privacy" },
@@ -89,58 +85,44 @@ const render = (node: React.ReactNode) =>
     ),
   );
 
-const body = (
-  tab: "alerts" | "conversations" | "account" | "bookmarks",
-  extra: object = {},
-) =>
+const body = (tab: "account" | "bookmarks", extra: object = {}) =>
   render(
-    <UserMenuBody
-      {...base}
-      unread={{ notifications: 3, conversations: 2 }}
-      tab={tab}
-      onTabChange={() => {}}
-      {...extra}
-    />,
+    <UserMenuBody {...base} tab={tab} onTabChange={() => {}} {...extra} />,
   );
 
-test("until it is reached for the avatar is a plain button with the one badge, and holds no Base UI part", () => {
+test("until it is reached for the avatar is a plain button, and holds no Base UI part", () => {
   const html = render(
-    <UserMenu
-      {...base}
-      triggerAvatar={<span>small avatar</span>}
-      unread={{ notifications: 3, conversations: 2 }}
-    />,
+    <UserMenu {...base} triggerAvatar={<span>small avatar</span>} />,
   );
   expect(html).toMatch(
     /^<button type="button" aria-haspopup="dialog" aria-expanded="false"/,
   );
   expect(html).not.toContain("data-slot");
   expect(html).not.toContain("data-base-ui");
-  expect(html).toContain('aria-label="Account menu, 5 unread"');
-  expect(html).toMatch(/aria-hidden="true"[^>]*>5<\/span>/);
-});
-
-test("with nothing unread the avatar carries no badge", () => {
-  const html = render(
-    <UserMenu
-      {...base}
-      triggerAvatar={<span>small avatar</span>}
-      unread={{ notifications: 0, conversations: 0 }}
-    />,
-  );
   expect(html).toContain('aria-label="Account menu"');
-  expect(html).not.toMatch(/rounded-full bg-primary/);
 });
 
-test("the menu holds the four tabs, each with its own count, under the member's name and a log out button", () => {
+test("the avatar is for the account only: it carries no unread count", () => {
+  const html = render(
+    <UserMenu {...base} triggerAvatar={<span>small avatar</span>} />,
+  );
+  expect(html).not.toContain("unread");
+  expect(html).not.toContain('data-slot="count-badge"');
+});
+
+test("the menu holds the Account and Bookmarks tabs, named by their words, under the member's name and a log out button", () => {
   const html = body("account");
   expect(html).toContain("ember");
   expect(html).toContain("Member");
   expect(html).toContain("Log out");
-  expect(html).toContain('aria-label="Alerts, 3 unread"');
-  expect(html).toContain('aria-label="Conversations, 2 unread"');
-  expect(html).toContain('aria-label="Account"');
-  expect(html).toContain('aria-label="Bookmarks"');
+  const tabs = [
+    ...html.matchAll(/data-slot="tabs-trigger"[^>]*>(.*?)<\/button>/g),
+  ];
+  expect(
+    tabs.map(([, inside]) => inside.replace(/<svg.*?<\/svg>/, "")),
+  ).toEqual(["Account", "Bookmarks"]);
+  expect(html).not.toContain("Alerts");
+  expect(html).not.toContain("Conversations");
 });
 
 test("the account tab lists the links in two columns, with the Data saver state and the theme", () => {
@@ -152,21 +134,14 @@ test("the account tab lists the links in two columns, with the Data saver state 
   expect(html).toContain("Theme");
 });
 
-test("a list is not mounted, so not asked for, until its tab is the one open", () => {
+test("the bookmarks list is not mounted, so not asked for, until its tab is the one open", () => {
   const account = body("account");
-  expect(account).not.toContain("Loading alerts");
-  expect(account).not.toContain("Loading conversations");
   expect(account).not.toContain("Loading bookmarks");
-  expect(account).not.toContain("alerts footer");
+  expect(account).not.toContain("bookmarks footer");
 
-  const alerts = body("alerts");
-  expect(alerts).toContain("Loading alerts");
-  expect(alerts).toContain("alerts footer");
-  expect(alerts).not.toContain("Loading conversations");
-  expect(alerts).not.toContain("Loading bookmarks");
-
-  expect(body("conversations")).toContain("Loading conversations");
-  expect(body("bookmarks")).toContain("Loading bookmarks");
+  const bookmarks = body("bookmarks");
+  expect(bookmarks).toContain("Loading bookmarks");
+  expect(bookmarks).toContain("bookmarks footer");
   expect(asked).toBe(0);
 });
 
@@ -181,12 +156,11 @@ test("the loaded menu is the real trigger on a phone: a sheet, with the same lab
     <UserMenuPopup
       {...base}
       openedBy="pointer"
-      label="Account menu, 5 unread"
+      label="Account menu"
       title="Account menu"
       trigger={<span>small avatar</span>}
-      unread={{ notifications: 3, conversations: 2 }}
     />,
   );
   expect(html).toContain('data-slot="sheet-trigger"');
-  expect(html).toContain('aria-label="Account menu, 5 unread"');
+  expect(html).toContain('aria-label="Account menu"');
 });

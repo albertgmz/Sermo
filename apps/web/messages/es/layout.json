@@ -36,12 +36,14 @@
   },
   "headerPanels": {
     "messages": {
+      "title": "Mensajes",
       "empty": "Aún no hay conversaciones",
       "viewAll": "Ver todas",
       "new": "Nueva conversación",
       "loading": "Cargando conversaciones…"
     },
     "alerts": {
+      "title": "Alertas",
       "empty": "No hay notificaciones nuevas",
       "viewAll": "Ver todas",
       "markAllRead": "Marcar todo como leído",
@@ -73,10 +75,7 @@
     "edit": "Editar",
     "editPicture": "Editar tu imagen y tu perfil",
     "theme": "Tema",
-    "tabUnread": "{label}, {count} sin leer",
     "tabs": {
-      "alerts": "Notificaciones",
-      "conversations": "Conversaciones",
       "account": "Cuenta",
       "bookmarks": "Marcadores"
     },
@@ -94,7 +93,6 @@
     },
     "aria": {
       "account": "Menú de la cuenta",
-      "accountUnread": "Menú de la cuenta, {count} sin leer",
       "tabs": "Secciones del menú de la cuenta"
     }
   },

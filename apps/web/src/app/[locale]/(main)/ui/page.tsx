@@ -117,6 +117,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CountBadge } from "@/components/ui/count-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -557,6 +558,14 @@ export default async function StyleguidePage() {
               >
                 <UserLink user={member} className="text-sm" />
                 <UserBadges user={member} />
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {[1, 12, 99, 100].map((count) => (
+              <span key={count} className={headerIconClass}>
+                <Bell />
+                <CountBadge count={count} className="top-1 left-5" />
               </span>
             ))}
           </div>

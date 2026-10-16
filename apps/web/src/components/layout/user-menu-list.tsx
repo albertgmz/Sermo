@@ -8,10 +8,10 @@ import {
   listQuery,
 } from "@/components/layout/user-menu-list-query";
 
-// The rows of one tab of the avatar menu. `load` is a server action that returns the rows drawn, so
-// the avatars keep reading the LITE cookie. The component is mounted when its tab opens and not
-// before, which is when the list is first asked for; nothing is kept once the tab closes (the rows
-// belong to the member who opened it).
+// The rows of a header panel or of a tab of the avatar menu. `load` is a server action that returns
+// the rows drawn, so the avatars keep reading the LITE cookie. The component is mounted when its
+// panel or tab opens and not before, which is when the list is first asked for; nothing is kept
+// once it closes (the rows belong to the member who opened it).
 export function MenuList({
   kind,
   count,

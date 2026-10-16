@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Bookmark, Inbox, LogOut, UserCog } from "lucide-react";
+import { Bookmark, LogOut, UserCog } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { DATA_SAVER_HREF } from "@/app/[locale]/(main)/account/links";
@@ -8,20 +8,12 @@ import { logout } from "@/app/[locale]/(main)/actions";
 import { DataSaverLink } from "@/components/layout/data-saver-menu-item";
 import { type LinkItem, linkProps } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";
-import {
-  loadAlerts,
-  loadBookmarks,
-  loadConversations,
-} from "@/components/layout/panel-actions";
+import { loadBookmarks } from "@/components/layout/panel-actions";
 import { postStatus } from "@/components/layout/status-action";
 import { StatusForm } from "@/components/layout/status-form";
 import { ThemeControl } from "@/components/layout/theme-control";
 import { MenuList } from "@/components/layout/user-menu-list";
-import {
-  badgeText,
-  type MenuTab,
-  type MenuUnread,
-} from "@/components/layout/user-menu-tabs";
+import type { MenuTab } from "@/components/layout/user-menu-tabs";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LiteState } from "@/lib/lite-preferences";
@@ -30,8 +22,6 @@ const ROW =
   "flex min-h-10 items-center gap-2 rounded-md px-3 text-sm transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring md:min-h-8";
 
 const TAB_ICONS = {
-  alerts: Bell,
-  conversations: Inbox,
   account: UserCog,
   bookmarks: Bookmark,
 } as const;
@@ -45,50 +35,17 @@ export type UserMenuBodyProps = {
   links: LinkItem[];
   screenLinks: { href: string; label: string }[];
   lite: LiteState;
-  unread: MenuUnread;
   tab: MenuTab;
   onTabChange: (tab: MenuTab) => void;
-  footers: {
-    alerts: React.ReactNode;
-    conversations: React.ReactNode;
-    bookmarks: React.ReactNode;
-  };
+  footers: { bookmarks: React.ReactNode };
   // The wall the status goes to; absent when the member may not post there.
   status?: { wallHref: string };
 };
 
-function TabBadge({ count }: { count: number }) {
-  if (count <= 0) return null;
-  return (
-    <span
-      aria-hidden="true"
-      className="absolute top-1 left-1/2 ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.625rem] leading-none font-semibold text-primary-foreground"
-    >
-      {badgeText(count)}
-    </span>
-  );
-}
-
 export function UserMenuBody(props: UserMenuBodyProps) {
-  const {
-    user,
-    avatar,
-    links,
-    screenLinks,
-    lite,
-    unread,
-    tab,
-    footers,
-    status,
-  } = props;
+  const { user, avatar, links, screenLinks, lite, tab, footers, status } =
+    props;
   const t = useTranslations("layout.userMenu");
-  const lists = useTranslations("layout.headerPanels");
-  const counts: Record<MenuTab, number> = {
-    alerts: unread.notifications,
-    conversations: unread.conversations,
-    account: 0,
-    bookmarks: 0,
-  };
   return (
     <>
       <div className="flex items-center gap-3 p-4">
@@ -125,47 +82,22 @@ export function UserMenuBody(props: UserMenuBodyProps) {
         <TabsList
           variant="line"
           aria-label={t("aria.tabs")}
-          className="grid w-full grid-cols-4 gap-0 rounded-none border-b p-0 group-data-horizontal/tabs:h-12"
+          className="grid w-full grid-cols-2 gap-0 rounded-none border-b p-0 group-data-horizontal/tabs:h-12"
         >
           {(Object.keys(TAB_ICONS) as MenuTab[]).map((name) => {
             const Icon = TAB_ICONS[name];
-            const count = counts[name];
             return (
               <TabsTrigger
                 key={name}
                 value={name}
-                aria-label={
-                  count > 0
-                    ? t("tabUnread", { label: t(`tabs.${name}`), count })
-                    : t(`tabs.${name}`)
-                }
-                title={t(`tabs.${name}`)}
                 className="h-full min-h-10 rounded-none group-data-horizontal/tabs:after:bottom-0"
               >
-                <Icon aria-hidden="true" className="size-5" />
-                <TabBadge count={count} />
+                <Icon aria-hidden="true" />
+                {t(`tabs.${name}`)}
               </TabsTrigger>
             );
           })}
         </TabsList>
-        <TabsContent value="alerts">
-          <MenuList
-            kind="alerts"
-            count={unread.notifications}
-            load={loadAlerts}
-            loadingLabel={lists("alerts.loading")}
-          />
-          {footers.alerts}
-        </TabsContent>
-        <TabsContent value="conversations">
-          <MenuList
-            kind="conversations"
-            count={unread.conversations}
-            load={loadConversations}
-            loadingLabel={lists("messages.loading")}
-          />
-          {footers.conversations}
-        </TabsContent>
         <TabsContent value="account">
           <ul className="grid grid-cols-2 gap-x-1 p-2">
             {links.map((link) => (

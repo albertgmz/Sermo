@@ -124,7 +124,7 @@ async function AccountTools() {
         <CreateButton variant="header" member={!!viewer.user} />
       </span>
       {viewer.user && card ? (
-        <AccountMenu />
+        <AccountMenu inboxClassName={PANEL} />
       ) : (
         <>
           <GuestMenu lite={await getLiteState()} />

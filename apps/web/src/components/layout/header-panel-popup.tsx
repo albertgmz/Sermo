@@ -13,7 +13,7 @@ import {
 export type HeaderPanelPopupProps = {
   label: string;
   title: string;
-  // What the button holds: the icon and the unread dot.
+  // What the button holds: the icon and its unread count.
   trigger: React.ReactNode;
   className: string;
   shortcut?: string;
