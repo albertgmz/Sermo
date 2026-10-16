@@ -88,7 +88,8 @@ export function ThreadComposer({
   // Whose draft is kept in the tab; none is kept without one.
   memberId: number | null;
   // `page`: the address `/forums/<id>/new`, which follows the forum. `dialog`: inside the Create
-  // button's dialog, on whatever page the member is on, which no address follows.
+  // button's dialog, on whatever page the member is on, which no address follows; it is the whole
+  // screen, and the text takes what the rest of the composer leaves of it.
   frame?: "page" | "dialog";
   // What the member asked to write. A question is a discussion worded as one (the backend has no
   // thread type for it); a poll opens the poll section.
@@ -302,7 +303,7 @@ export function ThreadComposer({
       onSubmit={onSubmit}
       frame={
         frame === "dialog"
-          ? { kind: "dialog" }
+          ? { kind: "dialog", grow: true }
           : { kind: "page", closeHref: `/forums/${forum}` }
       }
       submitLabel={t("post")}

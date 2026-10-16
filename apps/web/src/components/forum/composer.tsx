@@ -23,7 +23,8 @@ import { cn } from "@/lib/utils";
 // (`top`); a poll or tags would join the bottom bar here.
 //
 // Two frames hold it. `ComposerSheet` is a dialog: the whole screen of a phone and a centred box
-// from `md` up. `ComposerPage` is the same composer as a page, for an address that is visited.
+// from `md` up, or the whole screen at every size (`screen`, the Create button's). `ComposerPage`
+// is the same composer as a page, for an address that is visited.
 // The form stays in the page while a dialog is closed, so closing loses nothing, and a refused
 // post keeps what was written because the caller submits with `useKeptForm`.
 
@@ -64,13 +65,28 @@ function useVisualViewport(active: boolean) {
   return view;
 }
 
+// Both looks fill a phone's screen to the height that is in view. The sheet becomes a centred box
+// from `md` up; the screen stays the whole screen, fades in without growing (nothing of the page
+// shows round it) and leaves the column to what it holds. It is part of the forum's layout, so the
+// narrower page a visitor chose narrows its column too (`--container-width`, globals.css).
+const FILL =
+  "top-0 left-0 flex h-[var(--visible-height,100dvh)] max-h-dvh max-w-none translate-x-0 sm:max-w-none translate-y-0 flex-col gap-0 rounded-none bg-background p-0";
+
+export const SHEET_CLASS = {
+  sheet: `${FILL} md:top-1/2 md:left-1/2 md:h-auto md:max-h-[min(40rem,85dvh)] md:max-w-xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl`,
+  screen: `${FILL} ring-0 data-open:zoom-in-100 data-closed:zoom-out-100`,
+};
+
 export function ComposerSheet({
   open,
   formRef,
+  screen = false,
   children,
 }: {
   open: boolean;
   formRef?: RefObject<HTMLFormElement | null>;
+  // The whole screen at every size.
+  screen?: boolean;
   children: React.ReactNode;
 }) {
   const { height: visibleHeight } = useVisualViewport(open);
@@ -90,7 +106,8 @@ export function ComposerSheet({
               "--visible-height": `${visibleHeight}px`,
             } as React.CSSProperties)
       }
-      className="top-0 left-0 flex h-[var(--visible-height,100dvh)] max-h-dvh max-w-none translate-x-0 sm:max-w-none translate-y-0 flex-col gap-0 rounded-none bg-background p-0 md:top-1/2 md:left-1/2 md:h-auto md:max-h-[min(40rem,85dvh)] md:max-w-xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl"
+      data-forum-layout={screen ? "" : undefined}
+      className={screen ? SHEET_CLASS.screen : SHEET_CLASS.sheet}
     >
       {children}
     </DialogContent>
@@ -109,10 +126,38 @@ export function ComposerPage({
 
 export type ComposerFrame =
   // Inside a `Dialog`: close is the dialog's, and `heading` names it for assistive technology. A
-  // dialog that holds several composers names itself once and leaves `heading` out.
-  | { kind: "dialog"; heading?: string }
+  // dialog that holds several composers names itself once and leaves `heading` out. `grow`: the
+  // dialog is the whole screen, and the text takes all of it down to the bar of tools.
+  | { kind: "dialog"; heading?: string; grow?: boolean }
   // On a page of its own, which has its own heading: close is a link back.
   | { kind: "page"; closeHref: string };
+
+// A press on the blank part of a grown text, below what is written: the caret goes to the end of
+// the text, as a press below the last line of a page puts it there. A press in the text itself, or
+// on anything of its own that takes one, is left to it.
+const OWN_PRESS =
+  '[contenteditable="true"], textarea, input, button, a, [role="listbox"]';
+
+function caretToEnd(event: React.MouseEvent<HTMLElement>) {
+  if ((event.target as Element).closest(OWN_PRESS)) return;
+  // The editor, its source view or the plain box that stands in for it: whichever is shown.
+  const field = [
+    ...event.currentTarget.querySelectorAll<HTMLElement>(
+      'textarea, [contenteditable="true"]',
+    ),
+  ].find((element) => !element.closest("[hidden]"));
+  if (!field) return;
+  if (field instanceof HTMLTextAreaElement) {
+    field.setSelectionRange(field.value.length, field.value.length);
+  } else {
+    const end = document.createRange();
+    end.selectNodeContents(field);
+    end.collapse(false);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(end);
+  }
+  field.focus();
+}
 
 export function ComposerForm({
   formRef,
@@ -160,6 +205,18 @@ export function ComposerForm({
   const [bar, setBar] = useState<HTMLDivElement | null>(null);
   // On a page the bar follows the keyboard up; the sheet is as tall as what is in view already.
   const { inset } = useVisualViewport(frame.kind === "page");
+  const grow = frame.kind === "dialog" && frame.grow === true;
+  const editor = (
+    <LazyEditor
+      name="body"
+      placeholder={placeholder}
+      minHeight={minHeight}
+      toolbarContainer={bar}
+      findMembers={findMembers}
+      onChange={onBodyChange}
+      className={cn("rounded-none border-0 bg-transparent", grow && "flex-1")}
+    />
+  );
   return (
     <form
       ref={formRef}
@@ -208,17 +265,26 @@ export function ComposerForm({
             {submitLabel}
           </Button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto",
+            grow && "flex flex-col",
+          )}
+        >
           {top}
-          <LazyEditor
-            name="body"
-            placeholder={placeholder}
-            minHeight={minHeight}
-            toolbarContainer={bar}
-            findMembers={findMembers}
-            onChange={onBodyChange}
-            className="rounded-none border-0 bg-transparent"
-          />
+          {grow ? (
+            // biome-ignore lint/a11y/noStaticElementInteractions: only a wider way in for a pointer; keys reach the text by Tab.
+            // biome-ignore lint/a11y/useKeyWithClickEvents: as above.
+            <div
+              data-composer-grow=""
+              onClick={caretToEnd}
+              className="flex flex-1 cursor-text flex-col"
+            >
+              {editor}
+            </div>
+          ) : (
+            editor
+          )}
           {error && <FormError className="px-3 pb-3">{error}</FormError>}
         </div>
         <div

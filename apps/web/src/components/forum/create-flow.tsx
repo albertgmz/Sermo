@@ -46,6 +46,14 @@ const REFRESH_MS = 60_000;
 
 type Access = { forumId: number; attach: boolean; poll: boolean };
 
+// The dialog is the whole screen; each step is a column in its middle: as wide as the forum's own
+// for writing, narrower for a choice. On a phone the column is the screen; from `md` it is a
+// surface of its own, edged on both sides, over the screen's background.
+const COLUMN = "mx-auto min-h-0 w-full flex-1 flex-col md:border-x md:bg-card";
+const CHOICE = cn(COLUMN, "max-w-2xl");
+const WRITING = cn(COLUMN, "max-w-(--container-width)");
+export const STEP_COLUMN = { choice: CHOICE, writing: WRITING };
+
 // The answer of the one read the flow makes. A refusal throws, so that a read that fails after an
 // earlier one worked leaves what was loaded in place.
 async function loadCreate(): Promise<CreateData> {
@@ -58,6 +66,9 @@ async function loadCreate(): Promise<CreateData> {
 export function wallPostAction(memberId: number) {
   return postToWall.bind(null, memberId, `/members/${memberId}`);
 }
+
+// The options and their loading shape: one list, the same grid.
+const TILES = "space-y-1 md:grid md:grid-cols-2 md:gap-3 md:space-y-0";
 
 function ChooserHeader({ title, close }: { title: string; close: string }) {
   return (
@@ -82,7 +93,8 @@ function ChooserHeader({ title, close }: { title: string; close: string }) {
   );
 }
 
-// The first step: what the member may write, or the reason there is nothing to choose yet.
+// The first step: what the member may write, or the reason there is nothing to choose yet. A list
+// on a phone, tiles two by two from `md`.
 export function CreateChooser({
   data,
   failed,
@@ -101,16 +113,16 @@ export function CreateChooser({
   const t = useTranslations("forum.createFlow");
   const options = data ? createOptions(data, threads) : [];
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={cn(CHOICE, "flex")}>
       <ChooserHeader title={t("title")} close={t("aria.close")} />
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 overflow-y-auto p-2 md:p-6">
         {data ? (
           options.length === 0 ? (
             <p className="px-2 py-6 text-center text-sm text-muted-foreground">
               {t("nothing")}
             </p>
           ) : (
-            <ul className="space-y-1">
+            <ul className={TILES}>
               {options.map((option) => {
                 const Icon = ICONS[option];
                 return (
@@ -119,12 +131,14 @@ export function CreateChooser({
                       type="button"
                       data-create-option={option}
                       onClick={() => onPick(option)}
-                      className="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:h-full md:min-h-36 md:flex-col md:items-start md:border md:p-4 md:hover:border-ring"
                     >
-                      <Icon
-                        aria-hidden="true"
-                        className="size-5 shrink-0 text-primary-ink"
-                      />
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border bg-background">
+                        <Icon
+                          aria-hidden="true"
+                          className="size-5 text-primary-ink"
+                        />
+                      </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-semibold">
                           {t(`kinds.${option}.title`)}
@@ -152,9 +166,9 @@ export function CreateChooser({
             </Button>
           </div>
         ) : (
-          <div role="status" aria-label={t("loading")} className="space-y-1">
+          <div role="status" aria-label={t("loading")} className={TILES}>
             {[1, 2, 3, 4].map((row) => (
-              <Skeleton key={row} className="h-14 w-full" />
+              <Skeleton key={row} className="h-14 w-full md:h-36" />
             ))}
           </div>
         )}
@@ -301,20 +315,19 @@ export function CreateFlow({
         />
       )}
       {step === "forum" && data && (
-        <ForumChoicePanel
-          forums={data.forums}
-          current={null}
-          onChoose={chooseForum}
-          onBack={() => setStep("kind")}
-        />
+        <div className={cn(CHOICE, "flex")}>
+          <ForumChoicePanel
+            forums={data.forums}
+            current={null}
+            onChoose={chooseForum}
+            onBack={() => setStep("kind")}
+          />
+        </div>
       )}
       {data && forumId !== null && access && (
         <div
           data-create-mode="thread"
-          className={cn(
-            "min-h-0 flex-1 flex-col",
-            threadOn ? "flex" : "hidden",
-          )}
+          className={cn(WRITING, threadOn ? "flex" : "hidden")}
         >
           <ThreadComposer
             frame="dialog"
@@ -333,40 +346,45 @@ export function CreateFlow({
           />
         </div>
       )}
-      {threadOn &&
-        access === null &&
-        (accessFailed ? (
-          <div className="space-y-3 px-2 py-6 text-center">
-            <p className="text-sm text-muted-foreground">{t("accessFailed")}</p>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10"
-              onClick={() => forumId !== null && startThread(forumId)}
+      {threadOn && access === null && (
+        <div className={cn(WRITING, "flex")}>
+          {accessFailed ? (
+            <div className="space-y-3 px-2 py-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                {t("accessFailed")}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10"
+                onClick={() => forumId !== null && startThread(forumId)}
+              >
+                {t("retry")}
+              </Button>
+            </div>
+          ) : (
+            <div
+              role="status"
+              aria-label={t("loading")}
+              className="space-y-3 p-3"
             >
-              {t("retry")}
-            </Button>
-          </div>
-        ) : (
-          <div
-            role="status"
-            aria-label={t("loading")}
-            className="space-y-3 p-3"
-          >
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-40 w-full" />
-          </div>
-        ))}
+              <Skeleton className="h-8 w-3/4" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+          )}
+        </div>
+      )}
       {data && wall && wallOpened && (
         <div
           data-create-mode="wall"
-          className={cn("min-h-0 flex-1 flex-col", wallOn ? "flex" : "hidden")}
+          className={cn(WRITING, wallOn ? "flex" : "hidden")}
         >
           <WallPostForm
             action={wall}
             placeholder={t("wallPlaceholder")}
             name={t("wallName")}
             titled={false}
+            grow
           />
         </div>
       )}

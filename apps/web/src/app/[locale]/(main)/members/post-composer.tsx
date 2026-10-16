@@ -26,6 +26,7 @@ export function WallPostForm({
   name,
   formRef,
   titled = true,
+  grow = false,
 }: {
   action: WallAction;
   placeholder: string;
@@ -34,6 +35,8 @@ export function WallPostForm({
   formRef?: RefObject<HTMLFormElement | null>;
   // False inside a dialog that names itself.
   titled?: boolean;
+  // Inside a dialog that is the whole screen: the text takes what is left of it.
+  grow?: boolean;
 }) {
   const t = useTranslations("members.postComposer");
   const { state, pending, onSubmit } = useKeptForm(action);
@@ -41,7 +44,11 @@ export function WallPostForm({
     <ComposerForm
       formRef={formRef}
       onSubmit={onSubmit}
-      frame={{ kind: "dialog", heading: titled ? t("title") : undefined }}
+      frame={{
+        kind: "dialog",
+        heading: titled ? t("title") : undefined,
+        grow,
+      }}
       submitLabel={t("post")}
       pending={pending}
       placeholder={placeholder}

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { profilePostBody } from "@/lib/test-bodies";
@@ -302,4 +304,126 @@ test("a poll the member did not ask for is not sent with a discussion, and one a
     );
   expect(thread("discussion")).not.toContain('name="poll"');
   expect(thread("poll")).toContain('name="poll"');
+});
+
+const { SHEET_CLASS } = await import("./composer");
+const { STEP_COLUMN } = await import("./create-flow");
+const { WallPostForm } = await import(
+  "@/app/[locale]/(main)/members/post-composer"
+);
+const classes = (list: string) => list.split(/\s+/).filter(Boolean);
+const source = (file: string) =>
+  readFileSync(join(import.meta.dir, file), "utf8");
+
+test("the Create dialog is the whole screen at every size; the wall page's sheet keeps its box from md", () => {
+  const screen = classes(SHEET_CLASS.screen);
+  for (const name of [
+    "top-0",
+    "left-0",
+    "translate-x-0",
+    "translate-y-0",
+    "h-[var(--visible-height,100dvh)]",
+    "max-w-none",
+    "rounded-none",
+    "bg-background",
+  ])
+    expect(screen).toContain(name);
+  // Nothing turns it back into a box on a wider screen (`sm:max-w-none` lifts the dialog's own
+  // `sm:max-w-sm`).
+  expect(
+    screen.filter((name) => /^(?:sm|md|lg|xl|2xl|min-\[)/.test(name)),
+  ).toEqual(["sm:max-w-none"]);
+  expect(classes(SHEET_CLASS.sheet)).toContain("md:max-w-xl");
+  // The Create button's dialog is the screen; the wall page's composer is the sheet it was.
+  expect(source("../layout/create-popup.tsx")).toContain(
+    "<ComposerSheet open={open} screen>",
+  );
+  expect(
+    source("../../app/[locale]/(main)/members/post-composer.tsx"),
+  ).toContain("<ComposerSheet open={open} formRef={form}>");
+});
+
+test("each step is a column in the middle of the screen: the choices narrow, the composers as wide as the forum", () => {
+  for (const column of [STEP_COLUMN.choice, STEP_COLUMN.writing]) {
+    // The whole width on a phone, a surface edged on both sides from md.
+    for (const name of [
+      "mx-auto",
+      "w-full",
+      "flex-1",
+      "md:border-x",
+      "md:bg-card",
+    ])
+      expect(classes(column)).toContain(name);
+  }
+  expect(classes(STEP_COLUMN.choice)).toContain("max-w-2xl");
+  expect(classes(STEP_COLUMN.writing)).toContain("max-w-(--container-width)");
+
+  // The choice: a list on a phone, tiles two by two from md, and its loading shape the same.
+  const chooser = draw({ data: DATA });
+  expect(chooser).toContain(`class="${STEP_COLUMN.choice} flex"`);
+  expect(chooser).toContain("md:grid-cols-2");
+  expect(chooser).toMatch(
+    /data-create-option="wall"[^>]*class="[^"]*md:min-h-36/,
+  );
+  expect(draw({})).toMatch(/role="status"[^>]*class="[^"]*md:grid-cols-2/);
+
+  // The steps the flow reaches later: the forum list in the narrow column, the composers and
+  // their loading shape in the wide one.
+  const flow = source("create-flow.tsx");
+  expect(flow).toMatch(
+    /<div className=\{cn\(CHOICE, "flex"\)\}>\s*<ForumChoicePanel/,
+  );
+  expect(flow).toMatch(
+    /data-create-mode="thread"\s*className=\{cn\(WRITING, threadOn \? "flex" : "hidden"\)\}/,
+  );
+  expect(flow).toMatch(
+    /data-create-mode="wall"\s*className=\{cn\(WRITING, wallOn \? "flex" : "hidden"\)\}/,
+  );
+  expect(flow).toMatch(
+    /access === null && \(\s*<div className=\{cn\(WRITING, "flex"\)\}>/,
+  );
+});
+
+test("in the Create dialog the text of a thread or a wall post takes the rest of the screen; the wall page's sheet keeps its own", () => {
+  const thread = renderToStaticMarkup(
+    withIntl(
+      <Dialog open>
+        <ThreadComposer
+          frame="dialog"
+          forumId={2}
+          forums={DATA.forums}
+          prefixes={[]}
+          canAttach={false}
+          canTag={false}
+          canPoll={false}
+          memberId={5}
+        />
+      </Dialog>,
+    ),
+  );
+  const wall = (grow: boolean) =>
+    renderToStaticMarkup(
+      withIntl(
+        <Dialog open>
+          <WallPostForm
+            action={async () => ({})}
+            placeholder="What's on your mind?"
+            name="Your wall"
+            grow={grow}
+          />
+        </Dialog>,
+      ),
+    );
+  for (const html of [thread, wall(true)]) {
+    // The scrolling part is a column, and the text's frame stretches down to the bar of tools.
+    expect(html).toMatch(
+      /class="min-h-0 flex-1 overflow-y-auto flex flex-col"/,
+    );
+    expect(html).toMatch(
+      /data-composer-grow=""[^>]*class="flex flex-1 cursor-text flex-col"><div class="[^"]*\bflex-1\b[^"]*"><textarea name="body"/,
+    );
+  }
+  const sheet = wall(false);
+  expect(sheet).not.toContain("data-composer-grow");
+  expect(sheet).toContain('class="min-h-0 flex-1 overflow-y-auto"');
 });

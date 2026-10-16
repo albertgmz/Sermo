@@ -14,7 +14,7 @@ import type { OpenedProps } from "@/components/ui/lazy-popup";
 
 export type CreatePopupProps = { variant: CreateVariant; label: string };
 
-// The button and the dialog it opens, loaded when the plain button of `CreateButton` is pressed and
+// The button and the dialog it opens (the whole screen, at every size), loaded when the plain button of `CreateButton` is pressed and
 // mounted open. It stays mounted when it is closed, so what was written is there when it is opened
 // again, and closing returns focus to the button. A post that was taken redirects, which draws the
 // layout anew and with it the dialog, empty and closed; a navigation of any other kind closes it.
@@ -44,7 +44,7 @@ export default function CreatePopup(props: CreatePopupProps & OpenedProps) {
       <DialogTrigger aria-label={label} className={triggerClass(variant)}>
         <TriggerContent variant={variant} label={label} />
       </DialogTrigger>
-      <ComposerSheet open={open}>
+      <ComposerSheet open={open} screen>
         <CreateFlow visit={visit} />
       </ComposerSheet>
     </Dialog>
