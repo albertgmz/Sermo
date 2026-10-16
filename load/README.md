@@ -46,14 +46,18 @@ Four scenarios (`ramping-vus`), each a share of the peak VUs:
 - `scrollers` (20%): a signed-in member scrolling `feed.list` with keyset cursors, up to nine pages.
 - `pollers` (18%): a member with a conversation open: `conversations.listMessages` with
   `afterMessageId` every 3 s, `feed.newCount` every 30 s and `auth.counters` every 60 s (the
-  intervals in `apps/web/src/lib/poll-intervals.ts`).
+  intervals in `apps/web/src/lib/poll-intervals.ts`). Opening the conversation and every poll that
+  returns messages also send `conversations.markRead`, as the web app does.
 - `posters` (7%): a member replying to a thread (`posts.create`) or sending a conversation
-  message (`conversations.reply`), after reading the thread. The report prints the measured share
-  of writes among all requests.
+  message (`conversations.reply`), after reading the thread, which sends `threads.markRead` with
+  the position of the last post on the page. The report prints the measured share of writes among
+  all requests (the read marks count as writes).
 
 `setup()` signs in a pool of members once (6, 40 or 60, each in a conversation they belong to)
 and every VU reuses one of their session cookies, since Better Auth's sign-in limit (3 per 10 s
-per address) cannot be raised. Sign-ins go three at a time with a 10.5 s pause after each three, so setup takes about 20 s (smoke), 2.5 min (hundreds) or 3.5 min (thousands) before the ramp starts.
+per address) cannot be raised. Sign-ins go three at a time with a 10.5 s pause after each three,
+so setup takes about 10 s (smoke), 2.5 min (hundreds) or 3.5 min (thousands) before the ramp
+starts.
 
 The thresholds are an initial report bar, not budgets: http errors under 1% (reads and writes
 separately), reads p95 under 200 ms, writes p95 under 500 ms. The end report lists every

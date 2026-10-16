@@ -25,6 +25,8 @@ export const OPS = [
   "auth.counters",
   "posts.create",
   "conversations.reply",
+  "threads.markRead",
+  "conversations.markRead",
 ];
 
 // Kept apart from the default per-VU cookie jar: the session goes in an explicit header.
@@ -76,8 +78,8 @@ export function read(op, path, params, session) {
   return finish(op, res);
 }
 
-export function write(op, path, body, session) {
-  const res = http.post(`${API}/api/v1${path}`, JSON.stringify(body), {
+export function write(op, path, body, session, method = "POST") {
+  const res = http.request(method, `${API}/api/v1${path}`, JSON.stringify(body), {
     headers: headers(session, true),
     jar: noJar,
     tags: { name: op, kind: "write" },

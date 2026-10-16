@@ -13,10 +13,10 @@ const SLOW_WRITE_MS = 100;
  * Prepared statements built on `ctx.db` / `ctx.sqlite` run inside the transaction as well.
  * Throwing rolls back.
  *
- * A write that waited for the lock (`wait`, held by another connection), ran (`hold`) or
- * committed (`commit`, where a checkpoint overlapping a stream of commits shows) for 100 ms or
- * more logs `[db.write-wait] at=<time> wait=<ms> hold=<ms> commit=<ms>`. Faster writes only read
- * the clock.
+ * A write that waited for the lock (`wait`, held by another connection) or took to commit
+ * (`commit`, where a checkpoint overlapping a stream of commits shows) for 100 ms or more logs
+ * `[db.write-wait] at=<time> wait=<ms> hold=<ms> commit=<ms>` (`hold` is the callback's own time,
+ * only reported). Faster writes only read the clock.
  */
 export function writeTx<T>(ctx: Ctx, fn: (tx: Tx) => T): T {
   const start = performance.now();

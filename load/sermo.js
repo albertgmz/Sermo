@@ -6,7 +6,7 @@ import { handleSummary as summarize } from "./summary.js";
 // Profile (env PROFILE): smoke, hundreds or thousands. PEAK_VUS overrides the peak of the last
 // two. The visitors split into four kinds, each its own scenario.
 const PROFILES = {
-  smoke: { peak: 10, up: "5s", hold: "20s", down: "5s", pool: 6, pollSeconds: 18 },
+  smoke: { peak: 10, up: "5s", hold: "20s", down: "5s", pool: 6, pollSeconds: 33 },
   hundreds: { peak: 300, up: "1m", hold: "4m", down: "30s", pool: 40, pollSeconds: 60 },
   thousands: { peak: 1000, up: "3m", hold: "5m", down: "1m", pool: 60, pollSeconds: 60 },
 };
@@ -94,7 +94,7 @@ export function setup() {
     // Better Auth allows 3 sign-ins per address, and counts again only after 10 s without one; it
     // reads the address from the socket (the staging backend trusts no proxy header). So the pool
     // is signed in three at a time, with a pause after each three.
-    if (seen.size % 3 === 0) sleep(10.5);
+    if (seen.size % 3 === 0 && sessions.length < profile.pool) sleep(10.5);
   }
   if (sessions.length === 0) throw new Error("no member could sign in");
   console.log(`signed in ${sessions.length} members`);
@@ -107,6 +107,18 @@ function sessionOf(data) {
 
 function threadOf() {
   return Math.random() < 0.8 ? pick(threadIds) : pick(bigThreadIds);
+}
+
+// What the page does once it is on screen: record that the member has read the conversation, or
+// the thread up to the last post it shows (the same bodies the web app sends).
+function markConversation(id, session) {
+  write("conversations.markRead", `/conversations/${id}/read`, {}, session, "PUT");
+}
+
+function markThread(threadId, page, session) {
+  const position = page?.items?.at(-1)?.position;
+  if (position === undefined) return;
+  write("threads.markRead", `/threads/${threadId}/read`, { position }, session, "PUT");
 }
 
 export function guests() {
@@ -175,6 +187,7 @@ export function pollers(data) {
       ),
     );
     last = page?.items?.[0]?.id;
+    markConversation(id, session);
   });
   // The web app's real intervals: messages every 3 s, the feed's new-post count every 30 s, the
   // header counters every 60 s.
@@ -194,7 +207,10 @@ export function pollers(data) {
         ),
       );
       const items = page?.items || [];
-      if (items.length) last = items[items.length - 1].id;
+      if (items.length) {
+        last = items[items.length - 1].id;
+        markConversation(id, session);
+      }
       if (round % 10 === 0)
         read(
           "feed.newCount",
@@ -230,7 +246,10 @@ export function posters(data) {
     }
     const threadId = threadOf();
     const thread = json(read("threads.get", `/threads/${threadId}`, null, session));
-    read("posts.list", `/threads/${threadId}/posts`, { page: 1, limit: 20 }, session);
+    const posts = json(
+      read("posts.list", `/threads/${threadId}/posts`, { page: 1, limit: 20 }, session),
+    );
+    markThread(threadId, posts, session);
     // The page hides the reply box when the member cannot reply.
     if (thread?.permissions?.canReply === false) return;
     think(2, 4);

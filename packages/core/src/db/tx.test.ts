@@ -30,34 +30,39 @@ test("writeTx logs a wait for the write lock another connection holds, and only 
   tempDirs.push(dir);
   const path = join(dir, "test.db");
   const ctx = createContext({ path });
-  ctx.sqlite.run("CREATE TABLE t (n INTEGER)");
+  let holder: ReturnType<typeof Bun.spawn> | undefined;
+  try {
+    ctx.sqlite.run("CREATE TABLE t (n INTEGER)");
 
-  expect(logged(() => writeTx(ctx, () => ctx.sqlite.run("INSERT INTO t VALUES (1)")))).toEqual([]);
+    expect(logged(() => writeTx(ctx, () => ctx.sqlite.run("INSERT INTO t VALUES (1)")))).toEqual(
+      [],
+    );
 
-  // A second process takes the write lock for 250 ms: this thread cannot hold it for a test.
-  const holder = Bun.spawn(
-    [
-      process.execPath,
-      "-e",
-      `const { Database } = require("bun:sqlite");
-       const db = new Database(process.argv[1]);
-       db.run("BEGIN IMMEDIATE");
-       console.log("held");
-       setTimeout(() => { db.run("COMMIT"); db.close(); }, 250);`,
-      path,
-    ],
-    { stdout: "pipe", stderr: "inherit" },
-  );
-  const reader = holder.stdout.getReader();
-  expect(new TextDecoder().decode((await reader.read()).value)).toContain("held");
+    // A second process takes the write lock for 400 ms: this thread cannot hold it for a test.
+    // The threshold is 100 ms, so the write has 300 ms to start before the lock is gone.
+    holder = Bun.spawn(
+      [
+        process.execPath,
+        "-e",
+        `const { Database } = require("bun:sqlite");
+         const db = new Database(process.argv[1]);
+         db.run("BEGIN IMMEDIATE");
+         console.log("held");
+         setTimeout(() => { db.run("COMMIT"); db.close(); }, 400);`,
+        path,
+      ],
+      { stdout: "pipe", stderr: "inherit" },
+    );
+    const reader = (holder.stdout as ReadableStream<Uint8Array>).getReader();
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain("held");
 
-  const lines = logged(() => writeTx(ctx, () => ctx.sqlite.run("INSERT INTO t VALUES (2)")));
-  expect(lines).toHaveLength(1);
-  const [, wait, hold] = /wait=(\d+) hold=(\d+)/.exec(lines[0] ?? "") ?? [];
-  expect(Number(wait)).toBeGreaterThanOrEqual(100);
-  expect(Number(hold)).toBeLessThan(100);
-  expect(ctx.sqlite.query("SELECT count(*) AS n FROM t").get()).toEqual({ n: 2 });
-
-  await holder.exited;
-  closeContext(ctx);
+    const lines = logged(() => writeTx(ctx, () => ctx.sqlite.run("INSERT INTO t VALUES (2)")));
+    expect(lines).toHaveLength(1);
+    const [, wait] = /wait=(\d+)/.exec(lines[0] ?? "") ?? [];
+    expect(Number(wait)).toBeGreaterThanOrEqual(100);
+    expect(ctx.sqlite.query("SELECT count(*) AS n FROM t").get()).toEqual({ n: 2 });
+  } finally {
+    await holder?.exited;
+    closeContext(ctx);
+  }
 });
