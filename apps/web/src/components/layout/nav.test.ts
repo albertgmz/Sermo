@@ -53,15 +53,14 @@ test("a path is current for itself and its sub-paths; the root only for itself",
   expect(isActivePath("/threads/1", "/forums", ["/threads"])).toBe(true);
 });
 
-test("the forums entries also match threads and the mobile profile matches the account", () => {
+test("the header forums entry also matches threads and the mobile profile matches the account", () => {
   expect(isCurrent("/threads/1", forums)).toBe(true);
   expect(isCurrent("/forums", forums)).toBe(true);
   expect(isCurrent("/threads/1", custom)).toBe(false);
-  const [mobileForums, profile] = toNavItems(
-    [entry("mobile.forums", "/forums"), entry("mobile.profile", "/members")],
+  const [profile] = toNavItems(
+    [entry("mobile.profile", "/members")],
     "/members/7",
   );
-  expect(isCurrent("/threads/1", mobileForums)).toBe(true);
   expect(isCurrent("/account/data-saver", profile)).toBe(true);
   expect(isCurrent("/members/7", profile)).toBe(true);
 });

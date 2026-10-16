@@ -45,7 +45,7 @@ describe("navigation.get", () => {
     const { ctx, titles } = setup();
     const view = await run(ctx, "navigation.get", GUEST);
     expect(titles(view.header)).toEqual(["Home", "Forums", "Members", "Awards", "Credits"]);
-    expect(titles(view.mobile)).toEqual(["Home", "Forums", "Log in"]);
+    expect(titles(view.mobile)).toEqual(["Home", "Log in"]);
     expect(view.account).toEqual([]);
     expect(titles(view.footer)).toEqual(["Community", "Useful", "Legal"]);
     expect(titles(view.footer[2].children)).toEqual([
@@ -77,7 +77,7 @@ describe("navigation.get", () => {
     const { ctx, member, token, titles } = setup();
     for (const actor of [member, token]) {
       const view = await run(ctx, "navigation.get", actor);
-      expect(titles(view.mobile)).toEqual(["Home", "Forums", "Messages", "Alerts", "Profile"]);
+      expect(titles(view.mobile)).toEqual(["Home", "Messages", "Alerts", "Profile"]);
       expect(titles(view.account)).toEqual(["Profile", "Account", "Upgrade"]);
     }
   });

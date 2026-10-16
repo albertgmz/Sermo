@@ -7,7 +7,6 @@ import {
   Link as LinkIcon,
   LogIn,
   type LucideIcon,
-  MessagesSquare,
   Settings,
   UserRound,
 } from "lucide-react";
@@ -36,7 +35,6 @@ export type LinkItem = NavItem & { href: string };
 
 const ICONS: Record<string, LucideIcon> = {
   "mobile.home": House,
-  "mobile.forums": MessagesSquare,
   "mobile.messages": Inbox,
   "mobile.alerts": Bell,
   "mobile.profile": UserRound,
@@ -50,7 +48,6 @@ const ICONS: Record<string, LucideIcon> = {
 // Paths that also mark an entry as current.
 const MATCH: Record<string, string[]> = {
   "header.forums": ["/threads"],
-  "mobile.forums": ["/threads"],
   "mobile.profile": ["/account"],
 };
 

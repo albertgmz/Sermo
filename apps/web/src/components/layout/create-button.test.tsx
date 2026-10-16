@@ -55,7 +55,7 @@ test("on a wide screen the button is in the header with its label, on a phone it
   expect(bar).not.toContain(">Create<");
 });
 
-test("the bottom bar holds the + in the middle of its entries", () => {
+test("the bottom bar holds the + in the middle of its entries: an even count splits evenly, an odd one puts the extra entry after it", () => {
   const item = (id: number, title: string) => ({
     id,
     title,
@@ -68,18 +68,30 @@ test("the bottom bar holds the + in the middle of its entries", () => {
     match: [],
     children: [],
   });
-  const items = ["a", "b", "c", "d"].map((title, id) => item(id, title));
-  const html = render(
-    <MobileNav
-      items={items}
-      unread={{ conversations: 0, notifications: 0 }}
-      member
-    />,
-  );
-  const order = [...html.matchAll(/href="\/([a-d])"|aria-label="Create"/g)].map(
-    (match) => match[1] ?? "+",
-  );
-  expect(order).toEqual(["a", "b", "+", "c", "d"]);
+  const order = (titles: string[], member: boolean) => {
+    const html = render(
+      <MobileNav
+        items={titles.map((title, id) => item(id, title))}
+        unread={{ conversations: 0, notifications: 0 }}
+        member={member}
+      />,
+    );
+    return [...html.matchAll(/href="\/([a-e])"|aria-label="Create"/g)].map(
+      (match) => match[1] ?? "+",
+    );
+  };
+  // A member's bar (Home, Messages, Alerts, Profile) and a guest's (Home, Log in).
+  expect(order(["a", "b", "c", "d"], true)).toEqual(["a", "b", "+", "c", "d"]);
+  expect(order(["a", "b"], false)).toEqual(["a", "+", "b"]);
+  // An administrator may still fill the bar with five.
+  expect(order(["a", "b", "c", "d", "e"], true)).toEqual([
+    "a",
+    "b",
+    "c",
+    "+",
+    "d",
+    "e",
+  ]);
   // With no entries the button is still there.
   const empty = render(
     <MobileNav

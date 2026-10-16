@@ -96,7 +96,6 @@ describe("site chrome schema matches the migration", () => {
       ["header.awards", "header", null, "Awards", "/awards", 4, "everyone"],
       ["header.credits", "header", null, "Credits", "/credits", 5, "everyone"],
       ["mobile.home", "mobile", null, "Home", "/", 0, "everyone"],
-      ["mobile.forums", "mobile", null, "Forums", "/forums", 1, "everyone"],
       ["mobile.messages", "mobile", null, "Messages", "/conversations", 2, "members"],
       ["mobile.alerts", "mobile", null, "Alerts", "/notifications", 3, "members"],
       ["mobile.profile", "mobile", null, "Profile", "/account", 4, "members"],

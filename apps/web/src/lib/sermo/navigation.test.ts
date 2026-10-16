@@ -233,6 +233,8 @@ test("the English titles are the ones the migrations seed", () => {
   seeded.set("account.upgrade", seeded.get("header.upgrade") as string);
   seeded.delete("header.upgrade");
   seeded.delete("footer.useful.upgrade");
+  // Migration 0058 drops the mobile bar's Forums entry: Home leads to the forums list there.
+  seeded.delete("mobile.forums");
   const camel = (key: string) =>
     key
       .split(".")
