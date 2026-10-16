@@ -44,7 +44,7 @@
       "fallbackHelp": "Following needs an account, so a rule that guests can meet cannot open on it, and neither can the fallback.",
       "tabs": {
         "latest": "Latest",
-        "hot": "Hot",
+        "hot": "Trending",
         "following": "Following",
         "forums": "Forums",
         "media": "Media"

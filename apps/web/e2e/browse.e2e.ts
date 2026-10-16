@@ -25,8 +25,22 @@ test("a guest goes from the home feed to a forum, a thread, a profile and search
     ).toBeVisible();
   await expectFits(page, "home");
 
-  await page.getByRole("link", { name: "Forums", exact: true }).first().click();
-  await expect(page).toHaveURL(/\/forums$/);
+  // A phone has no Forums link in its bars: the forums are a tab of the home page.
+  if (phoneWidth(page)) {
+    await page
+      .getByRole("navigation", { name: "Home tabs" })
+      .getByRole("link", { name: "Forums", exact: true })
+      .click();
+    await expect(page).toHaveURL(/[?&]tab=forums/);
+    await expectFits(page, "forums tab");
+    await visit(page, "/forums");
+  } else {
+    await page
+      .getByRole("link", { name: "Forums", exact: true })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/forums$/);
+  }
   await expectFits(page, "forums");
 
   const forum = page

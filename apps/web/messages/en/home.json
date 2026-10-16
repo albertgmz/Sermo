@@ -5,7 +5,7 @@
       "description": "The newest threads and replies on {site}."
     },
     "hot": {
-      "title": "Hot threads",
+      "title": "Trending threads",
       "description": "The threads people are replying to and reacting to right now on {site}."
     },
     "following": {
@@ -107,11 +107,11 @@
     "title": "Featured"
   },
   "feedSidebar": {
-    "loadingTrending": "Loading trending…",
+    "loadingTrending": "Loading the most reacted threads…",
     "loadingLatest": "Loading latest threads…",
     "loadingMembers": "Loading suggested members…",
     "loadingForums": "Loading forums…",
-    "trendingTitle": "Trending",
+    "trendingTitle": "Most reacted",
     "replies": "{count, plural, one {{value} reply} other {{value} replies}}",
     "latestTitle": "Latest threads",
     "membersTitle": "Members to follow",

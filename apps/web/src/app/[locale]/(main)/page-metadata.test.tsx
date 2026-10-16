@@ -111,7 +111,7 @@ test("the bare address is the canonical of the guests' tab; the others are named
   expect((await head({ tab: "latest" })).alternates?.canonical).toBe(
     "http://localhost:3000/?tab=latest",
   );
-  expect((await head()).title).toBe("Hot threads");
+  expect((await head()).title).toBe("Trending threads");
 });
 
 test("a paged, filtered or picture address is noindex and points at the tab", async () => {
@@ -162,7 +162,7 @@ test("the owner's own description speaks for the home address only", async () =>
 test("a member whose own tab differs gets the head of the tab shown; a guest does not depend on it", async () => {
   backend({ member: true, siteTab: "latest", own: "hot" });
   const member = await head();
-  expect(member.title).toBe("Hot threads");
+  expect(member.title).toBe("Trending threads");
   expect(member.alternates?.canonical).toBe("http://localhost:3000/?tab=hot");
   backend({ siteTab: "latest" });
   const guest = await head();

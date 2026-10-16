@@ -33,7 +33,11 @@ export default function TabMorePopup({
   const { defaultOpen, trigger } = useMenuOpening(openedBy, openKey);
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
-      <DropdownMenuTrigger ref={trigger} className={cn("group", className)}>
+      <DropdownMenuTrigger
+        ref={trigger}
+        title={narrow ? label : undefined}
+        className={cn("group", className)}
+      >
         <TabMoreFace label={label} narrow={narrow} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">

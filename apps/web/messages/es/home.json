@@ -107,11 +107,11 @@
     "title": "Recomendados"
   },
   "feedSidebar": {
-    "loadingTrending": "Cargando tendencias…",
+    "loadingTrending": "Cargando los temas con más reacciones…",
     "loadingLatest": "Cargando últimos temas…",
     "loadingMembers": "Cargando miembros sugeridos…",
     "loadingForums": "Cargando foros…",
-    "trendingTitle": "Tendencias",
+    "trendingTitle": "Con más reacciones",
     "replies": "{count, plural, one {{value} respuesta} other {{value} respuestas}}",
     "latestTitle": "Últimos temas",
     "membersTitle": "Miembros a quienes seguir",

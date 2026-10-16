@@ -53,6 +53,13 @@ test("a tab never breaks its label over two lines", () => {
   expect(html.match(/whitespace-nowrap/g)).toHaveLength(2);
 });
 
+test("a segmented bar wider than the screen scrolls sideways instead of pushing the page", () => {
+  const nav = draw({ variant: "segmented" }).match(/<nav [^>]*class="([^"]*)"/);
+  const classes = nav?.[1].split(" ") ?? [];
+  expect(classes).toContain("overflow-x-auto");
+  expect(classes).toContain("max-w-full");
+});
+
 test("narrow, only the open tab shows its label on a phone; the others keep it as their name", () => {
   const html = draw({
     tabs: [
@@ -69,6 +76,10 @@ test("narrow, only the open tab shows its label on a phone; the others keep it a
   );
   // A label inside a link that hides it is placed against the link.
   expect(html.match(/class="[^"]*\brelative\b/g)).toHaveLength(2);
+  // A tab drawn as its icon names itself on hover; the open one shows its label already.
+  expect(html).toContain('title="LATEST"');
+  expect(html).not.toContain('title="HOT"');
+  expect(draw()).not.toContain("title=");
 });
 
 test("narrow, the menu button is an icon named by its label on a phone", () => {
@@ -80,8 +91,10 @@ test("narrow, the menu button is an icon named by its label on a phone", () => {
   const button = html.slice(html.lastIndexOf("<button"));
   expect(button).toContain('<span class="max-sm:sr-only">More</span>');
   expect(button).toContain("lucide-ellipsis");
+  expect(button).toContain('title="More"');
   // Not narrow, the label is plain text and there is no icon.
   const wide = draw({ more: [tab("media")], moreLabel: "More" });
   expect(wide).toContain(">More<");
   expect(wide).not.toContain("lucide-ellipsis");
+  expect(wide).not.toContain("title=");
 });

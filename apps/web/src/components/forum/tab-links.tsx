@@ -16,7 +16,8 @@ const VARIANTS = {
     link: "h-11 border-b-2 border-transparent px-3 aria-[current=page]:border-primary",
   },
   segmented: {
-    nav: "w-full gap-0.5 rounded-lg border bg-card p-[3px] sm:w-fit",
+    // Labels stay on one line: tabs that do not fit the screen scroll sideways.
+    nav: "w-full max-w-full gap-0.5 overflow-x-auto rounded-lg border bg-card p-[3px] [scrollbar-width:none] sm:w-fit",
     link: "h-10 flex-1 justify-center rounded-md px-3 aria-[current=page]:bg-muted sm:flex-none md:h-7 md:px-2.5 md:text-(length:--text-control-sm)",
   },
   plain: {
@@ -62,27 +63,31 @@ export function TabLinks({
       aria-label={label}
       className={cn("flex", VARIANTS[variant].nav, className)}
     >
-      {tabs.map((tab) => (
-        <Link
-          key={tab.value}
-          href={tab.href}
-          scroll={false}
-          aria-current={tab.value === active ? "page" : undefined}
-          className={tabClass}
-        >
-          {tab.icon}
-          {narrow && tab.value !== active ? (
-            <span className="max-sm:sr-only">{tab.label}</span>
-          ) : (
-            tab.label
-          )}
-          {tab.count !== undefined && (
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {tab.count}
-            </span>
-          )}
-        </Link>
-      ))}
+      {tabs.map((tab) => {
+        const iconOnly = narrow && tab.value !== active;
+        return (
+          <Link
+            key={tab.value}
+            href={tab.href}
+            scroll={false}
+            aria-current={tab.value === active ? "page" : undefined}
+            title={iconOnly ? tab.label : undefined}
+            className={tabClass}
+          >
+            {tab.icon}
+            {iconOnly ? (
+              <span className="max-sm:sr-only">{tab.label}</span>
+            ) : (
+              tab.label
+            )}
+            {tab.count !== undefined && (
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {tab.count}
+              </span>
+            )}
+          </Link>
+        );
+      })}
       {more && more.length > 0 && moreLabel && (
         <TabMore
           tabs={more}

@@ -71,8 +71,13 @@ test.describe("member", () => {
     page,
   }) => {
     test.skip(!phoneWidth(page), "the phone bar is drawn below md only");
-    await visit(page, "/");
-    await expect(page.getByRole("region", { name: "New post" })).toBeHidden();
+    await visit(page, "/?tab=latest");
+    // The member may post on their wall, so the composer is in the page; a phone does not show it.
+    const composer = page.locator(
+      'section[aria-label="New post"], section[aria-label="Nueva publicación"]',
+    );
+    await expect(composer).toHaveCount(1);
+    await expect(composer).toBeHidden();
     const tabs = ["latest", "hot", "following", "forums", "media"];
     await everyTab(page, tabs, "en");
     await inSpanish(page);

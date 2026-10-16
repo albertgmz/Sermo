@@ -73,7 +73,7 @@
     "threadCoverUnnamed": "A cover for one of your threads",
     "highlight": "Highlights one of your threads for {days, plural, one {# day} other {# days}}",
     "bump": "Brings one of your threads back to the top of its forum",
-    "promote": "Features one of your threads for 24 hours: marked as promoted, shown on the home page and listed first in Hot while it is among the 10 newest features",
+    "promote": "Features one of your threads for 24 hours: marked as promoted, shown on the home page and listed first in Trending while it is among the 10 newest features",
     "usernameChange": "One change of your username",
     "permission": "Unlocks: {name}",
     "permissionValue": "{name}: {unlimited, select, true {unlimited} other {{value}}}",

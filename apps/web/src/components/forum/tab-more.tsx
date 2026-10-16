@@ -57,6 +57,7 @@ export function TabMore({
           data-slot="dropdown-menu-trigger"
           aria-haspopup="menu"
           aria-expanded="false"
+          title={narrow ? label : undefined}
           className={cn("group", className)}
           {...lazy}
         >
