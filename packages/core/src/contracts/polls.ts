@@ -250,9 +250,10 @@ export const pollsDelete = defineContract({
   name: "polls.delete",
   summary:
     "Delete a poll or quiz with its votes. Staff who manage polls any time (logged); the creator " +
-    "only while nobody has voted and the thread is unlocked. The votes go in bounded batches: a " +
-    "poll with more voters than one batch is taken out of sight at once and `completed` is false " +
-    "until the call has been repeated enough times to remove the rest.",
+    "only while nobody has voted and the thread is unlocked. A poll with more voters than one " +
+    "transaction should remove (2,000) is taken out of sight at once and a background job removes " +
+    "its voters batch by batch: `completed` is false for it, true when the poll went with this " +
+    "call. Deleting it again changes nothing.",
   kind: "write",
   input: z.object({ pollId: Id, reason: z.string().trim().max(1000).default("") }),
   output: z.object({ ok: z.literal(true), completed: z.boolean() }),

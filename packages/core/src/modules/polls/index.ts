@@ -15,7 +15,8 @@ import { checkNodePostingRules, readGates, requireThread } from "../forums";
 import { requireSiteView } from "../members/site-access";
 import { appendModeratorLog, requireWriteRoom } from "../moderation";
 import { requireTermsAccepted } from "../pages/acceptance";
-import { purgePollBatch, purgePolls } from "../purge/purge";
+import { purgePolls } from "../purge/purge";
+import { enqueuePollPurge } from "./jobs";
 import { isClosed, mayAddPoll, type PollThread, pollRights, resultsShown } from "./policy";
 import { CLOSED, requirePoll } from "./readable";
 import {
@@ -314,16 +315,18 @@ const deleteOp = implement(contracts.pollsDelete, (ctx, actor, input) => {
       !pollRights(permissionsOf(ctx, current), current, fresh.poll, fresh.thread, ctx.now()).delete
     )
       throw new ForbiddenError();
-    // The voters go in batches of one transaction's size: a poll with more is taken out of sight at
-    // once (it carries max_choices 0) and what is left goes with the calls that follow.
+    // A poll with more voters than one transaction should remove is taken out of sight at once (it
+    // carries max_choices 0) and a job removes the voters batch by batch (modules/polls/jobs.ts); a
+    // second delete of it only finds the job already there.
     let done = true;
     if (fresh.poll.ballot_count > POLL_PURGE_BATCH) {
       retirePoll(ctx, fresh.poll.id);
-      purgePollBatch(ctx, fresh.poll.id);
+      enqueuePollPurge(ctx, fresh.poll.id);
       done = false;
     } else purgePolls(ctx, [fresh.poll.id]);
-    // The log names the poll and how many took part, never who: an anonymous poll stays so.
-    if (fresh.poll.user_id !== user.userId)
+    // One entry for the delete, not for the batches or a repeat. It names the poll and how many took
+    // part, never who: an anonymous poll stays so.
+    if (fresh.poll.user_id !== user.userId && !isRetiring(fresh.poll))
       appendModeratorLog(
         ctx,
         actor,

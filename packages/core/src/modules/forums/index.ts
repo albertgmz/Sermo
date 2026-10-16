@@ -50,15 +50,15 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { requireTermsAccepted } from "../pages/acceptance";
+import { enqueuePollPurge } from "../polls/jobs";
 import { mayAddPoll } from "../polls/policy";
-import { insertPoll, isRetiring, movePoll, pollOfThread } from "../polls/store";
+import { insertPoll, isRetiring, movePoll, pollOfThread, retirePoll } from "../polls/store";
 import { cleanPoll } from "../polls/text";
 import {
   assertRemovalNotBegun,
   PURGE_CHUNK,
   pollNeedingBatches,
   purgeContent,
-  purgePollBatch,
   purgeThread,
 } from "../purge/purge";
 import { isBotAgent } from "../security/device";
@@ -3507,15 +3507,18 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
         "Delete the thread first; only a deleted thread can be removed for good.",
       );
     if (path === "own") changeThreadState(ctx, current.id, "deleted");
-    // A poll with more voters than one transaction removes goes first, batch by batch: the thread
-    // stays, deleted, and nothing else is removed until the voters are down to one batch.
+    // A poll with more voters than one transaction should remove is taken out by a job (it is hidden
+    // now and removed batch by batch): the thread stays, deleted, and nothing else is removed until
+    // the poll is gone; a call meanwhile only finds the job there.
     const largePoll = pollNeedingBatches(ctx, current.id);
     if (largePoll !== null) {
       if (path === "own")
         throw new ConflictError(
           "The poll of this thread has too many votes to delete in one step. Hide the thread, or ask staff to delete it.",
         );
-      purgePollBatch(ctx, largePoll);
+      retirePoll(ctx, largePoll);
+      enqueuePollPurge(ctx, largePoll);
+
       appendModeratorLog(
         ctx,
         actor,

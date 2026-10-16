@@ -9,7 +9,9 @@ import {
 } from "../../errors";
 import { POLL_PURGE_BATCH } from "../../limits";
 import { type World, world } from "../feed/fixtures.test";
+import { runDueJobs } from "../jobs";
 import { customMember } from "../permissions/group-fixture";
+import { purgePollBatch } from "../purge/purge";
 import { readSiteSettings } from "../settings";
 import {
   answerIds,
@@ -20,6 +22,8 @@ import {
   pollVoteCount,
   withPoll,
 } from "./fixtures.test";
+import { enqueuePollPurge, registerPollJobs } from "./jobs";
+import { retirePoll } from "./store";
 
 function configure(w: World, changes: Record<string, unknown>) {
   w.ctx.sqlite
@@ -146,14 +150,18 @@ describe("a poll's text is under the rules a post's text is under", () => {
 });
 
 describe("a poll with a very large number of voters is removed in bounded batches", () => {
-  test("polls.delete takes it out of sight at once and finishes over several calls", async () => {
+  test("polls.delete takes a big poll out of sight at once and a job removes the voters", async () => {
     const w = world();
+    registerPollJobs(w.ctx);
     const { poll, threadId } = await withPoll(w, w.alice);
     const members = crowd(w, poll, POLL_PURGE_BATCH * 2 + 500);
     const first = await w.call("polls.delete", w.mod, { pollId: poll.id, reason: "Big" });
     expect(first).toEqual({ ok: true, completed: false });
-    // One batch of voters went; the rest wait, and the poll is gone for everyone else.
-    expect(rows(w, "SELECT count(*) AS n FROM poll_ballots")).toBe(POLL_PURGE_BATCH + 500);
+    // It answered at once, with nothing removed yet: one job holds the rest of the work.
+    expect(rows(w, "SELECT count(*) AS n FROM poll_ballots")).toBe(POLL_PURGE_BATCH * 2 + 500);
+    expect(
+      rows(w, "SELECT count(*) AS n FROM jobs WHERE type = 'polls.purge' AND status = 'pending'"),
+    ).toBe(1);
     expect(await w.call("polls.get", w.bob, { threadId })).toEqual({
       poll: null,
       canCreate: false,
@@ -172,20 +180,44 @@ describe("a poll with a very large number of voters is removed in bounded batche
     await expect(w.call("polls.create", w.alice, { threadId, poll: colours() })).rejects.toThrow(
       ConflictError,
     );
-    // The creator cannot finish it (only staff delete a poll that has votes); staff do.
+    // The creator cannot do it (only staff delete a poll that has votes). A second delete is
+    // harmless: no second job, no second log entry.
     await expect(w.call("polls.delete", w.alice, { pollId: poll.id })).rejects.toThrow(
       ForbiddenError,
     );
-    const second = await w.call("polls.delete", w.mod, { pollId: poll.id, reason: "Big" });
-    expect(second.completed).toBe(false);
-    const third = await w.call("polls.delete", w.mod, { pollId: poll.id, reason: "Big" });
-    expect(third).toEqual({ ok: true, completed: true });
+    const again = await w.call("polls.delete", w.admin, { pollId: poll.id, reason: "Again" });
+    expect(again.completed).toBe(false);
+    expect(rows(w, "SELECT count(*) AS n FROM jobs WHERE type = 'polls.purge'")).toBe(1);
+    expect(rows(w, "SELECT count(*) AS n FROM moderator_log WHERE action = 'poll.delete'")).toBe(1);
+    // The job removes the voters, a batch a transaction, and then the poll.
+    await runDueJobs(w.ctx);
     for (const table of ["polls", "poll_questions", "poll_answers", "poll_votes", "poll_ballots"])
       expect(rows(w, `SELECT count(*) AS n FROM ${table}`)).toBe(0);
-    // Every member's counter went down with their ballot, batch by batch.
     expect(members.every((id) => pollVoteCount(w, id) === 0)).toBe(true);
+    expect(
+      rows(w, "SELECT count(*) AS n FROM jobs WHERE type = 'polls.purge' AND status = 'done'"),
+    ).toBe(1);
     // The thread can take a new poll.
     await w.call("polls.create", w.alice, { threadId, poll: colours() });
+    // A job that comes again for a poll that is gone finds nothing to do.
+    enqueuePollPurge(w.ctx, poll.id);
+    expect(await runDueJobs(w.ctx)).toBe(1);
+    expect(rows(w, "SELECT count(*) AS n FROM polls")).toBe(1);
+  }, 60_000);
+
+  test("a batch removes exactly one batch of voters, with their votes, and keeps the counters", async () => {
+    const w = world();
+    const { poll } = await withPoll(w, w.alice);
+    const members = crowd(w, poll, POLL_PURGE_BATCH * 3 + 10);
+    retirePoll(w.ctx, poll.id);
+    const left = w.ctx.sqlite.transaction(() => purgePollBatch(w.ctx, poll.id))();
+    expect(left).toBe(POLL_PURGE_BATCH * 2 + 10);
+    expect(rows(w, "SELECT count(*) AS n FROM poll_ballots")).toBe(POLL_PURGE_BATCH * 2 + 10);
+    expect(rows(w, "SELECT count(*) AS n FROM poll_votes")).toBe(POLL_PURGE_BATCH * 2 + 10);
+    expect(members.filter((id) => pollVoteCount(w, id) === 0)).toHaveLength(POLL_PURGE_BATCH);
+    expect(
+      rows(w, "SELECT sum(vote_count) AS n FROM poll_answers WHERE poll_id = ?1", poll.id),
+    ).toBe(POLL_PURGE_BATCH * 2 + 10);
   }, 60_000);
 
   test("a poll of one batch or less is deleted in one call", async () => {
@@ -199,17 +231,22 @@ describe("a poll with a very large number of voters is removed in bounded batche
     expect(rows(w, "SELECT count(*) AS n FROM poll_votes")).toBe(0);
   }, 60_000);
 
-  test("a hard delete removes the voters first, batch by batch, and the thread stays until they are down", async () => {
+  test("a hard delete waits for the job that removes a big poll's voters", async () => {
     const w = world();
+    registerPollJobs(w.ctx);
     const { poll, threadId } = await withPoll(w, w.alice);
     crowd(w, poll, POLL_PURGE_BATCH + 300);
     await w.call("threads.delete", w.mod, { threadId });
     const first = await w.call("threads.hardDelete", w.admin, { threadId, reason: "gone" });
     expect(first).toEqual({ completed: false, removedPosts: 0 });
     expect(rows(w, "SELECT count(*) AS n FROM posts WHERE thread_id = ?1", threadId)).toBe(1);
-    expect(rows(w, "SELECT count(*) AS n FROM poll_ballots")).toBe(300);
+    // Called again before the job ran: nothing more, no second job.
     const second = await w.call("threads.hardDelete", w.admin, { threadId, reason: "gone" });
-    expect(second.completed).toBe(true);
+    expect(second.completed).toBe(false);
+    expect(rows(w, "SELECT count(*) AS n FROM jobs WHERE type = 'polls.purge'")).toBe(1);
+    await runDueJobs(w.ctx);
+    const third = await w.call("threads.hardDelete", w.admin, { threadId, reason: "gone" });
+    expect(third.completed).toBe(true);
     for (const table of ["polls", "poll_votes", "poll_ballots"])
       expect(rows(w, `SELECT count(*) AS n FROM ${table}`)).toBe(0);
     expect(rows(w, "SELECT count(*) AS n FROM threads WHERE id = ?1", threadId)).toBe(0);

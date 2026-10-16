@@ -55,6 +55,7 @@ import {
   isInQueue,
 } from "../members/signup-review";
 import { assertAdministrator } from "../permissions";
+import { registerPollJobs } from "../polls/jobs";
 import { mayViewProfile } from "../profiles/shared";
 import { assertRemovalNotBegun } from "../purge/purge";
 import { logIp } from "../security/log";
@@ -2516,6 +2517,8 @@ export const operations = [
 
 export function registerModerationJobs(ctx: Ctx): void {
   registerForumTransferJobs(ctx);
+  // The removal of a poll with very many voters (a hard delete of its thread waits for it).
+  registerPollJobs(ctx);
   registerWarningJobs(ctx);
   // A ban that held a waiting account out of the queue has ended: the account is back, and staff hear of it.
   registerJobHandler(ctx, "signups.reannounce", (_ctx, payload) => {
