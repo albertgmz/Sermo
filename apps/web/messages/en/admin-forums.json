@@ -62,12 +62,13 @@
   "sort": {
     "metaTitle": "Sort forums",
     "pageHeading": "Sort forums",
-    "subtitle": "Move categories and forums up or down among those under the same parent. Each group is saved on its own.",
+    "subtitle": "Move categories and forums up or down among those under the same parent, then save once.",
     "loading": "Loading the order…",
     "topLevel": "Top level",
     "under": "Under {title}",
     "empty": "There is nothing to sort.",
-    "emptyDescription": "Order only changes among nodes that share a parent, and none does yet."
+    "emptyDescription": "Order only changes among nodes that share a parent, and none does yet.",
+    "heading": "Display order"
   },
   "create": {
     "createCategory": "Create category",
@@ -118,7 +119,8 @@
   },
   "edit": {
     "metaTitle": "Edit forum",
-    "subtitle": "{type}: its settings, pictures and moderators.",
+    "subtitle": "{type}: its settings and pictures.",
+    "subtitleModerators": "{type}: its settings, pictures and moderators.",
     "loading": "Loading the forum…",
     "category": "Category",
     "forum": "Forum",

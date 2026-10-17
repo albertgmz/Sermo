@@ -11,9 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
-export default function ForumsSortPage({
-  searchParams,
-}: PageProps<"/[locale]/admin/forums/sort">) {
+export default function ForumsSortPage() {
   const t = useTranslations("adminForums.sort");
   return (
     <ScreenFrame
@@ -27,7 +25,7 @@ export default function ForumsSortPage({
         </div>
       }
     >
-      <SortGroups searchParams={searchParams} />
+      <SortGroups />
     </ScreenFrame>
   );
 }

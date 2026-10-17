@@ -222,7 +222,7 @@ test("saving the order sends only the nodes whose number changed", async () => {
       }),
     ),
   );
-  expect(digest).toMatch(/;\/admin\/forums\/sort\?notice=ordered;/);
+  expect(digest).toMatch(/;\/admin\/forums\?notice=ordered;/);
   expect(backend.asked.map((call) => call.body)).toEqual([
     { position: 5 },
     { position: 1 },

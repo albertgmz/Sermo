@@ -62,12 +62,13 @@
   "sort": {
     "metaTitle": "Ordenar foros",
     "pageHeading": "Ordenar foros",
-    "subtitle": "Sube o baja categorías y foros entre los que tienen el mismo superior. Cada grupo se guarda por separado.",
+    "subtitle": "Sube o baja categorías y foros entre los que tienen el mismo superior y guarda una sola vez.",
     "loading": "Cargando el orden…",
     "topLevel": "Nivel superior",
     "under": "Bajo {title}",
     "empty": "No hay nada que ordenar.",
-    "emptyDescription": "El orden solo cambia entre elementos con el mismo superior, y todavía no hay ninguno."
+    "emptyDescription": "El orden solo cambia entre elementos con el mismo superior, y todavía no hay ninguno.",
+    "heading": "Orden de aparición"
   },
   "create": {
     "createCategory": "Crear categoría",
@@ -118,7 +119,8 @@
   },
   "edit": {
     "metaTitle": "Editar foro",
-    "subtitle": "{type}: sus ajustes, imágenes y moderadores.",
+    "subtitle": "{type}: sus ajustes e imágenes.",
+    "subtitleModerators": "{type}: sus ajustes, imágenes y moderadores.",
     "loading": "Cargando el foro…",
     "category": "Categoría",
     "forum": "Foro",

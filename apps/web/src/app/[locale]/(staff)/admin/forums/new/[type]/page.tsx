@@ -31,9 +31,8 @@ export async function generateMetadata({
   };
 }
 
-async function NewNode({ params }: { params: Params }) {
-  const [type, { items: nodes }, { items: tabs }] = await Promise.all([
-    kindOf(params),
+async function NewNode({ type }: { type: "category" | "forum" }) {
+  const [{ items: nodes }, { items: tabs }] = await Promise.all([
     read(nodesList, {}),
     read(forumTabsList, {}),
   ]);
@@ -54,7 +53,7 @@ async function NewNodeScreen({ params }: { params: Params }) {
       label={t("loading")}
       fallback={<FormSkeleton rows={5} />}
     >
-      <NewNode params={params} />
+      <NewNode type={type} />
     </ScreenFrame>
   );
 }

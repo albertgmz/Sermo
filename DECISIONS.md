@@ -4029,8 +4029,9 @@ a tab `/admin/forums/tabs/new` and `/admin/forums/tabs/[id]`; a prefix `/admin/f
 editor keeps its address: identity and posting limits in two groups, read only and the two approval
 switches in the closed advanced card, then the pictures form and the moderators as sections of their own
 (the minimum age and post count stay outside the card because their fields are required). The sort page
-`/admin/forums/sort` has one list and one Save per parent, because a node's number only counts among its
-siblings; it goes through `saveOrder`, which now returns to the sort page after saving. Prefixes keep
+`/admin/forums/sort` is one form with one Save and one list per parent, because a node's number only counts
+among its siblings; each list moves on its own and the form posts the unchanged `saveOrder` fields, which
+returns to the tree. Prefixes keep
 their order as a number in their form: the backend has no order action for them, so they have no sort
 page. The prefix pages hang from the section, not from the tree whose address they share
 (`prefixTrail`). Tabs have no screen of their own, as recorded in item 1.

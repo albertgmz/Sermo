@@ -187,7 +187,7 @@ export async function saveOrder(
   // What was saved before a refusal is on the public pages too.
   if (saved > 0) renewPublic();
   if (state) return state;
-  redirect("/admin/forums/sort?notice=ordered");
+  redirect("/admin/forums?notice=ordered");
 }
 
 // Icon and cover of one node: a new file is attached, a removal sends null, nothing chosen sends

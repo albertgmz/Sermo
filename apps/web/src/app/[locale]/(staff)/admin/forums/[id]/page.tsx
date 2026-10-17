@@ -47,7 +47,12 @@ async function Node({ params, searchParams }: Props) {
     <ScreenFrame
       trail={staffTrail(`/admin/forums/${node.id}`)}
       heading={node.title}
-      subtitle={t("subtitle", { type: t(node.type) })}
+      subtitle={t(
+        viewer.resolvedPermissions["admin.permissions"] === true
+          ? "subtitleModerators"
+          : "subtitle",
+        { type: t(node.type) },
+      )}
       actions={
         <>
           {permissions && (
