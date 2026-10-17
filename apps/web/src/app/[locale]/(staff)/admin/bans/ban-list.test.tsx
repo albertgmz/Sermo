@@ -10,20 +10,12 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ get: () => undefined, set: () => {} }),
 }));
 const restoreIntl = await installIntl();
-// The member names come from the real module: another suite may have replaced it for good, and
-// the query on the specifier loads the file again, untouched by that replacement.
-const members = await import("@/lib/sermo/members");
-const realMembers = await import("@/lib/sermo/members?real" as string);
-mock.module("@/lib/sermo/members", () => ({ ...realMembers }));
 
 const { BanList } = await import("./ban-list");
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
-afterAll(() => {
-  restoreIntl();
-  mock.module("@/lib/sermo/members", () => ({ ...members }));
-});
+afterAll(restoreIntl);
 
 const ban = (id: number, state: string, reason: string) => ({
   id,

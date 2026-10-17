@@ -1,4 +1,4 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { NextRequest, type NextResponse } from "next/server";
 import { createElement, type ReactNode } from "react";
 import { renderToReadableStream, renderToStaticMarkup } from "react-dom/server";
@@ -37,7 +37,15 @@ function translator(namespace: string) {
 }
 // A stand-in for one hook keeps the other exports of the library, so a module that imports
 // another of them still links after this suite has run.
+// Copies of what the stand-ins replace, put back once the suite is done (a module namespace takes a
+// stand-in's exports once it is replaced, so it cannot be put back itself).
 const realIntl = { ...(await import("next-intl")) };
+const realServer = { ...(await import("next-intl/server")) };
+const realViewer = { ...(await import("@/lib/sermo/viewer")) };
+const realAccountData = {
+  ...(await import("@/app/[locale]/(main)/account/data")),
+};
+const realFetch = globalThis.fetch;
 mock.module("next-intl", () => ({
   ...realIntl,
   useLocale: () => "en",
@@ -74,7 +82,7 @@ let site: {
   icon: { fileId: number; url: string } | null;
   backdrop: { fileId: number; url: string } | null;
 } = { name: "Sermo", logo: null, icon: null, backdrop: null };
-const nextCache = await import("next/cache");
+const nextCache = { ...(await import("next/cache")) };
 mock.module("next/cache", () => ({
   ...nextCache,
   cacheLife: () => {},
@@ -149,6 +157,14 @@ mock.module("@/app/[locale]/(main)/account/data", () => ({
   getRenameUnits: async () => 0,
   shopHref: "/credits",
 }));
+afterAll(() => {
+  mock.module("next-intl", () => realIntl);
+  mock.module("next-intl/server", () => realServer);
+  mock.module("@/lib/sermo/viewer", () => realViewer);
+  mock.module("next/cache", () => nextCache);
+  mock.module("@/app/[locale]/(main)/account/data", () => realAccountData);
+  globalThis.fetch = realFetch;
+});
 // Dynamic imports ensure mocks are installed before the server modules load.
 const { proxy, config } = await import("../src/proxy");
 const { Art } = await import("../src/components/forum/art");
