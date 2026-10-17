@@ -3962,3 +3962,24 @@ item that first uses one of them adds it to the staff layout's `ClientMessages`.
 layout now sends `admin.shell`, which the navigation reads for its arrows' names. Known limits:
 the styleguide shows none of the new patterns yet; the look in a browser, on a phone and the
 first-load size have not been checked; the filter box only narrows the rows already on the page.
+
+### Reaction types on the shared patterns (item 2)  `/admin/reactions` is now a list of clean rows:
+the picture or emoji (through the LITE gate), the label linking to the type's edit page, the score
+as a signed badge (+1, 0, -1; green, grey, red), a "Not offered" badge, a line saying what limits
+the type (a picture or an animation and its frames, the number of forums, a rule), the offer switch
+(`RowToggle` with a confirm step, the same `setReactionTypeActive` and fields) and an Edit link.
+"Sort" and "Add reaction" are the header's actions. Three detail screens join the registry with the
+list's own gate: `/admin/reactions/new`, `/admin/reactions/sort` and `/admin/reactions/[id]`. The
+new and the edit page share one set of fields (`reaction-fields.tsx`): a "Reaction" card (emoji,
+label, picture, score; on the new page also position and "offered"), then two closed cards,
+"Animation" (frame width, height and count, each with its help) and "Access" (rule, forums, what
+excluded members see); every field goes to the same action as before. The edit page fills the
+frames from the type as the backend holds it, not from the LITE-filtered copy, since its action
+always sends them: an administrator who blocks reaction pictures would otherwise clear the cut on
+save. The sort page is `SortForm` over `saveReactionOrder`. The type's position, typed by hand in
+the old order form, is now set by the arrows; the new page keeps its position field. The old
+per-row forms are gone (`row-form.tsx`), so `adminContent.reactions` is no longer sent to the
+browser. Known limits: the Access card's rows are `FieldRow`s (the shared `RuleField` draws
+its own), with a narrower label column than the `Field` rows of the other cards; a rule
+condition's number is `required`, so one left empty in the Access card, closed again, may stop
+the save out of sight.

@@ -18,28 +18,51 @@
       "activated": "Reaction is offered again.",
       "deactivated": "Reaction is no longer offered."
     },
+    "header": {
+      "add": "Add reaction",
+      "sort": "Sort"
+    },
     "list": {
       "heading": "Reaction types",
-      "description": "A new score applies to new reactions only; reactions already given keep theirs.",
-      "active": "Offered",
+      "description": "Offered in this order. A type cannot be deleted, only stopped from being offered.",
+      "emptyTitle": "No reaction types yet",
+      "emptyDescription": "Members have nothing to react with until a type is added.",
       "inactive": "Not offered",
+      "score": "Score",
+      "animated": "Animated, {count, plural, one {# frame} other {# frames}}",
+      "picture": "Picture",
+      "forums": "In {count, plural, one {# forum} other {# forums}}",
+      "rule": "Limited by a rule",
+      "toggle": "Offer {title}",
+      "edit": "Edit {title}",
       "deactivate": "Stop offering",
       "activate": "Offer again",
       "deactivateWarning": "Members will no longer be offered this reaction. Reactions already given stay on the posts.",
       "activateWarning": "Members will be offered this reaction again."
     },
-    "row": {
+    "form": {
+      "basics": "Reaction",
+      "basicsHelp": "What members see on the reaction button.",
       "emoji": "Emoji",
+      "emojiHelp": "The character shown on the button, and wherever a picture cannot be shown.",
       "title": "Label",
-      "score": "Score",
       "picture": "Picture",
-      "pictureHelp": "Shown instead of the emoji. The emoji stays for places that cannot show a picture.",
+      "pictureHelp": "Optional. A PNG or WebP image shown instead of the emoji. For an animation, upload a sprite sheet and cut it into frames under Animation.",
+      "score": "Score",
+      "scoreHelp": "Positive, zero or negative, such as +1, 0 or -1.",
+      "scoreDefaultHelp": "Positive, zero or negative, such as +1, 0 or -1. Leave empty to use the forum's default score.",
+      "position": "Position",
+      "positionHelp": "Where it is offered, lowest first. The order can be changed later with Sort.",
+      "active": "Offered",
+      "activeSwitch": "Offer this reaction to members",
+      "animation": "Animation",
       "frameWidth": "Frame width",
+      "frameWidthHelp": "For a sprite sheet: the width of one frame, in pixels. Leave both sizes empty to show the whole picture.",
       "frameHeight": "Frame height",
+      "frameHeightHelp": "The height of one frame, in pixels.",
       "frameCount": "Frames",
-      "framesHelp": "For a sprite sheet: the size of one frame and how many frames to use, read left to right, then top to bottom. Leave the sizes empty to show the whole picture.",
-      "save": "Save",
-      "saving": "Saving…"
+      "frameCountHelp": "How many frames to play, read left to right, then top to bottom. Leave empty for one.",
+      "access": "Access"
     },
     "access": {
       "forums": "Where",
@@ -49,31 +72,24 @@
       "lockedHide": "Do not see it",
       "lockedHelp": "Applies to the rule above. A reaction already given stays on the post whichever you choose."
     },
-    "order": {
-      "heading": "Order",
-      "description": "Types are offered by position, lowest first.",
-      "submit": "Save order"
-    },
     "create": {
+      "metaTitle": "New reaction type",
       "heading": "New reaction type",
       "description": "A reaction type cannot be deleted, only stopped from being offered.",
-      "submit": "Add reaction",
-      "emoji": "Emoji",
-      "emojiHelp": "The character shown on the button, and wherever a picture cannot be shown.",
-      "picture": "Picture",
-      "pictureHelp": "Optional. A PNG or WebP image shown instead of the emoji. It is not animated; for an animation, upload a sprite sheet and give the frame size below.",
-      "frameWidth": "Frame width",
-      "framesHelp": "Sprite sheets only: the width and height of one frame, in pixels. Leave empty to show the whole picture.",
-      "frameHeight": "Frame height",
-      "frameCount": "Frames",
-      "frameCountHelp": "How many frames to use, read left to right, then top to bottom.",
-      "title": "Label",
-      "score": "Score",
-      "scoreHelp": "Leave empty to use the forum's default score.",
-      "position": "Position",
-      "positionHelp": "Where it is offered; lowest first.",
-      "active": "Offered",
-      "activeSwitch": "Offer this reaction to members"
+      "submit": "Add reaction"
+    },
+    "edit": {
+      "metaTitle": "Edit reaction type",
+      "heading": "Edit reaction type",
+      "description": "A new score applies to new reactions only; reactions already given keep theirs."
+    },
+    "sort": {
+      "metaTitle": "Sort reaction types",
+      "heading": "Sort reaction types",
+      "description": "Members are offered the types in this order, first to last.",
+      "list": "Reaction types",
+      "emptyTitle": "Nothing to sort yet",
+      "emptyDescription": "Add a reaction type first."
     }
   },
   "wordFilters": {

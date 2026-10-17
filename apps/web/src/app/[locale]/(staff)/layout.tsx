@@ -42,14 +42,16 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
     <ClientMessages
       namespaces={[
         "admin.confirmPassword",
+        "admin.editForm",
         "admin.formRows",
         "admin.forumPicker",
+        "admin.itemList",
         "admin.memberOutcomes",
         "admin.ruleBuilder",
         "admin.shell",
+        "admin.sortForm",
         "adminAppearance.colourRows",
         "adminAppearance.placement",
-        "adminContent.reactions",
         "adminContent.tags",
         "adminContent.wordFilters",
         "adminEconomy.awards",

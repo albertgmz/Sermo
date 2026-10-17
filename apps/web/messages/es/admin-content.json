@@ -18,28 +18,51 @@
       "activated": "La reacción se vuelve a ofrecer.",
       "deactivated": "La reacción ya no se ofrece."
     },
+    "header": {
+      "add": "Añadir reacción",
+      "sort": "Ordenar"
+    },
     "list": {
       "heading": "Tipos de reacción",
-      "description": "Una puntuación nueva se aplica solo a las reacciones nuevas; las ya dadas conservan la suya.",
-      "active": "Ofrecida",
+      "description": "Se ofrecen en este orden. Un tipo no se puede eliminar, solo dejar de ofrecerlo.",
+      "emptyTitle": "Aún no hay tipos de reacción",
+      "emptyDescription": "Los miembros no tienen con qué reaccionar hasta que se añada un tipo.",
       "inactive": "No ofrecida",
+      "score": "Puntuación",
+      "animated": "Animada, {count, plural, one {# fotograma} other {# fotogramas}}",
+      "picture": "Imagen",
+      "forums": "En {count, plural, one {# foro} other {# foros}}",
+      "rule": "Limitada por una regla",
+      "toggle": "Ofrecer {title}",
+      "edit": "Editar {title}",
       "deactivate": "Dejar de ofrecer",
       "activate": "Ofrecer de nuevo",
       "deactivateWarning": "Ya no se ofrecerá esta reacción a los miembros. Las reacciones ya dadas se quedan en los mensajes.",
       "activateWarning": "Se volverá a ofrecer esta reacción a los miembros."
     },
-    "row": {
+    "form": {
+      "basics": "Reacción",
+      "basicsHelp": "Lo que los miembros ven en el botón de reacción.",
       "emoji": "Emoji",
+      "emojiHelp": "El carácter que se muestra en el botón y en cualquier lugar donde no se pueda mostrar una imagen.",
       "title": "Etiqueta",
-      "score": "Puntuación",
       "picture": "Imagen",
-      "pictureHelp": "Se muestra en lugar del emoji. El emoji se mantiene en los lugares que no pueden mostrar una imagen.",
+      "pictureHelp": "Opcional. Una imagen PNG o WebP que se muestra en lugar del emoji. Para una animación, sube una hoja de sprites y córtala en fotogramas en Animación.",
+      "score": "Puntuación",
+      "scoreHelp": "Positiva, cero o negativa, como +1, 0 o -1.",
+      "scoreDefaultHelp": "Positiva, cero o negativa, como +1, 0 o -1. Déjala vacía para usar la puntuación predeterminada del foro.",
+      "position": "Posición",
+      "positionHelp": "Dónde se ofrece, de menor a mayor. El orden se puede cambiar después con Ordenar.",
+      "active": "Ofrecida",
+      "activeSwitch": "Ofrecer esta reacción a los miembros",
+      "animation": "Animación",
       "frameWidth": "Ancho del fotograma",
+      "frameWidthHelp": "Para una hoja de sprites: el ancho de un fotograma, en píxeles. Deja los dos tamaños vacíos para mostrar la imagen completa.",
       "frameHeight": "Alto del fotograma",
+      "frameHeightHelp": "El alto de un fotograma, en píxeles.",
       "frameCount": "Fotogramas",
-      "framesHelp": "Para una hoja de sprites: el tamaño de un fotograma y cuántos fotogramas usar, leídos de izquierda a derecha y de arriba abajo. Deja los tamaños vacíos para mostrar la imagen completa.",
-      "save": "Guardar",
-      "saving": "Guardando…"
+      "frameCountHelp": "Cuántos fotogramas reproducir, leídos de izquierda a derecha y de arriba abajo. Déjalo vacío para uno.",
+      "access": "Acceso"
     },
     "access": {
       "forums": "Dónde",
@@ -49,31 +72,24 @@
       "lockedHide": "No la ven",
       "lockedHelp": "Se aplica a la regla de arriba. Una reacción ya dada se queda en el mensaje elijas lo que elijas."
     },
-    "order": {
-      "heading": "Orden",
-      "description": "Los tipos se ofrecen por posición, de menor a mayor.",
-      "submit": "Guardar orden"
-    },
     "create": {
+      "metaTitle": "Nuevo tipo de reacción",
       "heading": "Nuevo tipo de reacción",
       "description": "Un tipo de reacción no se puede eliminar, solo dejar de ofrecerlo.",
-      "submit": "Añadir reacción",
-      "emoji": "Emoji",
-      "emojiHelp": "El carácter que se muestra en el botón y en cualquier lugar donde no se pueda mostrar una imagen.",
-      "picture": "Imagen",
-      "pictureHelp": "Opcional. Una imagen PNG o WebP que se muestra en lugar del emoji. No está animada; para una animación, sube una hoja de sprites e indica abajo el tamaño del fotograma.",
-      "frameWidth": "Ancho del fotograma",
-      "framesHelp": "Solo para hojas de sprites: el ancho y el alto de un fotograma, en píxeles. Déjalo vacío para mostrar la imagen completa.",
-      "frameHeight": "Alto del fotograma",
-      "frameCount": "Fotogramas",
-      "frameCountHelp": "Cuántos fotogramas usar, leídos de izquierda a derecha y de arriba abajo.",
-      "title": "Etiqueta",
-      "score": "Puntuación",
-      "scoreHelp": "Déjalo vacío para usar la puntuación predeterminada del foro.",
-      "position": "Posición",
-      "positionHelp": "Dónde se ofrece; de menor a mayor.",
-      "active": "Ofrecida",
-      "activeSwitch": "Ofrecer esta reacción a los miembros"
+      "submit": "Añadir reacción"
+    },
+    "edit": {
+      "metaTitle": "Editar tipo de reacción",
+      "heading": "Editar tipo de reacción",
+      "description": "Una puntuación nueva se aplica solo a las reacciones nuevas; las ya dadas conservan la suya."
+    },
+    "sort": {
+      "metaTitle": "Ordenar tipos de reacción",
+      "heading": "Ordenar tipos de reacción",
+      "description": "Los tipos se ofrecen a los miembros en este orden, del primero al último.",
+      "list": "Tipos de reacción",
+      "emptyTitle": "Aún no hay nada que ordenar",
+      "emptyDescription": "Añade primero un tipo de reacción."
     }
   },
   "wordFilters": {

@@ -1,16 +1,29 @@
+import { nodesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type { Rule } from "@/components/staff/criteria-rule";
 import { FieldRow } from "@/components/staff/form-rows";
 import { ForumPicker } from "@/components/staff/forum-picker";
 import { selectClass } from "@/components/staff/rows";
 import { RuleField } from "@/components/staff/rule-field";
+import { read } from "@/lib/sermo/client";
 
 // The forums a reaction type can be limited to: every forum, named with its depth.
 export type ForumChoice = { id: number; label: string };
 
+// Only forums hold posts, so only forums can be chosen.
+export async function forumChoices(): Promise<ForumChoice[]> {
+  const { items } = await read(nodesList, {});
+  return items
+    .filter((node) => node.type === "forum")
+    .map((node) => ({
+      id: node.id,
+      label: `${"— ".repeat(node.depth)}${node.title}`,
+    }));
+}
+
 // Who may give a reaction type and where: the rule (the shared rule builder, cheap conditions
 // only as it is decided on every reaction), the forums it is limited to (empty = everywhere) and
-// what a member the rule excludes sees. Used by the form for a new type and by each type's form.
+// what a member the rule excludes sees. Used by the new and the edit page, in their Access card.
 //
 // Props
 //   idPrefix  Makes the ids of the controls unique on the page.

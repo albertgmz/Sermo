@@ -217,6 +217,27 @@ export const SECTIONS = [
         built: true,
       },
       {
+        key: "contentReactionNew",
+        path: "/admin/reactions/new",
+        access: ["admin.reactionTypes"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "contentReactionSort",
+        path: "/admin/reactions/sort",
+        access: ["admin.reactionTypes"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "contentReactionEdit",
+        path: "/admin/reactions/[id]",
+        access: ["admin.reactionTypes"],
+        built: true,
+        listed: false,
+      },
+      {
         key: "contentWordFilters",
         path: "/admin/word-filters",
         access: ["wordFilter.view", "wordFilter.manage"],

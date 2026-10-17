@@ -93,6 +93,9 @@ const GATES_BEFORE: Record<string, [string, string | string[]]> = {
   forumsEdit: ["/admin/forums/[id]", ["admin.nodes"]],
   forumsPermissions: ["/admin/forums/[id]/permissions", ["admin.permissions"]],
   contentReactions: ["/admin/reactions", ["admin.reactionTypes"]],
+  contentReactionNew: ["/admin/reactions/new", ["admin.reactionTypes"]],
+  contentReactionSort: ["/admin/reactions/sort", ["admin.reactionTypes"]],
+  contentReactionEdit: ["/admin/reactions/[id]", ["admin.reactionTypes"]],
   contentWordFilters: [
     "/admin/word-filters",
     ["wordFilter.view", "wordFilter.manage"],
@@ -206,6 +209,9 @@ const SECTION_MAP: Record<string, string[]> = {
   ],
   content: [
     "contentReactions",
+    "contentReactionNew",
+    "contentReactionSort",
+    "contentReactionEdit",
     "contentWordFilters",
     "contentTags",
     "contentPages",
