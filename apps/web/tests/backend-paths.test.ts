@@ -1,6 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import { tryToParsePath } from "next/dist/lib/try-to-parse-path";
 import { getPathMatch } from "next/dist/shared/lib/router/utils/path-match";
+import { OPENSEARCH_URL } from "@/lib/opensearch";
 
 // The rewrites of next.config.ts and the proxy's matcher are read as they are and matched the way
 // Next matches them: a rewrite's source by `getPathMatch` with the options of the server's
@@ -101,6 +102,11 @@ test("the API is still rewritten to the backend", () => {
 test("the proxy does not run for a backend path, so no page of a language takes its place", () => {
   for (const path of BACKEND)
     expect({ path, runs: proxyRuns(path) }).toEqual({ path, runs: false });
+});
+
+test("the proxy does not run for the OpenSearch description, a file of the web app", () => {
+  expect(proxyRuns(OPENSEARCH_URL)).toBe(false);
+  expect(rewriteOf(OPENSEARCH_URL)).toBeUndefined();
 });
 
 // A path added to the rewrites and not to the matcher would be rewritten into `[locale]` by the

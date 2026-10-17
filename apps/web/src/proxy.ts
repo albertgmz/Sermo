@@ -586,9 +586,10 @@ async function handleRequest(request: NextRequest) {
 // are left out: the proxy would copy their body, and each checks the session before reading any.
 // So are the backend's own paths (`BACKEND_PATHS` in next.config.ts; `[^/]+\.txt` covers
 // robots.txt, llms.txt and the IndexNow key file): they are rewritten to it as they are, and a
-// page of a language must not take their place.
+// page of a language must not take their place. So is the OpenSearch description, a file of the
+// web app outside the language segment (app/opensearch.xml).
 export const config = {
   matcher: [
-    "/((?!account/picture$|threads/[0-9]+/uploads$|attachments$|admin/uploads$|[^/]+\\.txt$|sitemap\\.xml$|sitemaps/[^/]+$|feed\\.atom$|(?:forums|nodes)/[^/]+/feed\\.atom$|mcp$|health$).*)",
+    "/((?!account/picture$|threads/[0-9]+/uploads$|attachments$|admin/uploads$|[^/]+\\.txt$|sitemap\\.xml$|sitemaps/[^/]+$|feed\\.atom$|(?:forums|nodes)/[^/]+/feed\\.atom$|mcp$|health$|opensearch\\.xml$).*)",
   ],
 };
