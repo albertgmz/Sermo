@@ -8,15 +8,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { ConfirmStep } from "@/components/staff/confirm-step";
-import { FormRows } from "@/components/staff/form-rows";
+import { EditForm, FieldGroup } from "@/components/staff/edit-form";
 import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
+import { ScreenFrame } from "@/components/staff/screen-frame";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
-import { FormSkeleton, PageHead } from "../../groups/skeletons";
+import { staffTrail } from "../../../trail";
+import { FormSkeleton } from "../../groups/skeletons";
 import { deletePage, savePage } from "../actions";
 import { PageFields } from "../page-fields";
 import { wellKnown } from "../well-known";
@@ -105,26 +105,23 @@ async function Editor({
           </p>
         </dl>
       </Section>
-      <FormRows
-        key={page.updatedAt}
-        action={savePage}
-        heading={t("form.heading")}
-        description={t("form.description")}
-      >
+      <EditForm key={page.updatedAt} action={savePage}>
         <input type="hidden" name="slug" value={slug} />
-        <PageFields page={page} versioned={versioned} />
-      </FormRows>
-      <Section heading={t("delete.heading")} className="border-destructive/30">
-        <div className="px-4">
-          <ConfirmStep
-            action={deletePage}
-            fields={{ id: slug }}
-            summary={t("delete.summary")}
-            warning={t("delete.warning")}
-            submit={t("delete.submit")}
-          />
-        </div>
-      </Section>
+        <FieldGroup
+          legend={t("form.heading")}
+          description={t("form.description")}
+        >
+          <PageFields page={page} versioned={versioned} />
+        </FieldGroup>
+      </EditForm>
+      <ConfirmStep
+        heading={t("delete.heading")}
+        action={deletePage}
+        fields={{ id: slug }}
+        summary={t("delete.summary")}
+        warning={t("delete.warning")}
+        submit={t("delete.submit")}
+      />
     </>
   );
 }
@@ -135,19 +132,14 @@ export default function PageEditPage({
 }: PageProps<"/[locale]/admin/pages/[slug]">) {
   const t = useTranslations("adminContent.pageEdit");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("heading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <FormSkeleton rows={3} />
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <Editor params={params} searchParams={searchParams} />
-        </div>
-      </Suspense>
-    </div>
+    <ScreenFrame
+      heading={t("heading")}
+      subtitle={t("subtitle")}
+      trail={params.then(({ slug }) => staffTrail(`/admin/pages/${slug}`))}
+      label={t("loading")}
+      fallback={<FormSkeleton rows={3} />}
+    >
+      <Editor params={params} searchParams={searchParams} />
+    </ScreenFrame>
   );
 }

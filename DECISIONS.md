@@ -4059,3 +4059,22 @@ only gain the page header and breadcrumb. Known limits: the effect fields of an 
 builder are `FieldRow`s inside `Field` cards (a narrower label column); a rule condition's number
 is `required`, so one left empty in a closed Advanced card may stop the save out of sight; the
 look in a browser and on a phone has not been checked.
+
+### Content and communication on the shared patterns (item 10)  Pages, tags, word filters, alerts,
+notices, notification defaults and email policy all sit under a `PageHeader` with its trail. Pages,
+tags, word filters, alerts sent and notices are `ItemList`s; Add and Edit are pages of their own,
+`EditForm`s, each a detail screen in the registry with its list's gate: `/admin/pages/new`,
+`/admin/word-filters/new` and `/[id]`, `/admin/notices/new`, `/admin/tags/[id]`; the alert form and the
+notice and page editors keep their addresses. The old `/admin/pages?slug=<slug>#new` (the link of a
+suggested page) redirects to `/admin/pages/new?slug=<slug>`. Notification defaults and the email
+policy stay one form each. Nothing was removed and no action changed: every row keeps its edit link
+and its delete step, rename and merge of a tag are two forms on the tag's page, a notice's dates sit
+in the closed `Advanced` card, and the word filter's word is shown but fixed on its edit page (the
+backend keys filters by word). None of these screens has an order action or an action that only flips
+the active flag, so there is no Sort page and no row switch: active or inactive is a badge on the
+row and a checkbox in the form. Two limits: the backend lists tags only by name, so the tag's edit
+link is `/admin/tags/<id>?name=<name>` and the page checks the id against the tag found by that name
+(the registry's `[name]` pattern admits plain ASCII only, which a tag name need not be); a static
+page whose slug is `new` can no longer be opened from the panel, as `/admin/pages/new` is the new
+page's address. The notice form's rule row is still `RuleField`, so its label column is narrower
+than its neighbours'.

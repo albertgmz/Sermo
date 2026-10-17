@@ -1,9 +1,12 @@
-import { FormSkeleton, LoadingPage } from "../../groups/skeletons";
+import { useTranslations } from "next-intl";
+import { TrailLoading } from "../../content-kit/trail-loading";
+import { FormSkeleton } from "../../groups/skeletons";
 
 export default function Loading() {
+  const t = useTranslations("adminCommunication.noticeEdit");
   return (
-    <LoadingPage>
+    <TrailLoading label={t("loading")}>
       <FormSkeleton rows={4} />
-    </LoadingPage>
+    </TrailLoading>
   );
 }

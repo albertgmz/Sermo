@@ -1,9 +1,12 @@
-import { ListSkeleton, LoadingPage } from "../groups/skeletons";
+import { useTranslations } from "next-intl";
+import { TrailLoading } from "../content-kit/trail-loading";
+import { ListSkeleton } from "../groups/skeletons";
 
 export default function Loading() {
+  const t = useTranslations("adminCommunication.announcements");
   return (
-    <LoadingPage>
+    <TrailLoading label={t("loading")}>
       <ListSkeleton rows={5} />
-    </LoadingPage>
+    </TrailLoading>
   );
 }

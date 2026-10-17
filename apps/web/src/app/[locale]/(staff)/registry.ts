@@ -244,16 +244,44 @@ export const SECTIONS = [
         built: true,
       },
       {
+        key: "contentWordFilterNew",
+        path: "/admin/word-filters/new",
+        access: ["wordFilter.view", "wordFilter.manage"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "contentWordFilterEdit",
+        path: "/admin/word-filters/[id]",
+        access: ["wordFilter.view", "wordFilter.manage"],
+        built: true,
+        listed: false,
+      },
+      {
         key: "contentTags",
         path: "/admin/tags",
         access: ["tag.manage"],
         built: true,
       },
       {
+        key: "contentTagEdit",
+        path: "/admin/tags/[id]",
+        access: ["tag.manage"],
+        built: true,
+        listed: false,
+      },
+      {
         key: "contentPages",
         path: "/admin/pages",
         access: ["admin.pages"],
         built: true,
+      },
+      {
+        key: "contentPageNew",
+        path: "/admin/pages/new",
+        access: ["admin.pages"],
+        built: true,
+        listed: false,
       },
       {
         key: "contentPageEdit",
@@ -372,6 +400,13 @@ export const SECTIONS = [
         path: "/admin/notices",
         access: ["admin.announcements"],
         built: true,
+      },
+      {
+        key: "communicationNoticeNew",
+        path: "/admin/notices/new",
+        access: ["admin.announcements"],
+        built: true,
+        listed: false,
       },
       {
         key: "communicationNoticeEdit",

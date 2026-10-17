@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { PageHead } from "../../groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { staffTrail } from "../../../trail";
+import { FormSkeleton } from "../../groups/skeletons";
 import { AnnouncementForm } from "./announcement-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,9 +14,14 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function NewAnnouncementPage() {
   const t = useTranslations("adminCommunication.announcements");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("newHeading")} subtitle={t("newSubtitle")} />
+    <ScreenFrame
+      heading={t("newHeading")}
+      subtitle={t("newSubtitle")}
+      trail={staffTrail("/admin/announcements/new")}
+      label={t("loading")}
+      fallback={<FormSkeleton rows={4} />}
+    >
       <AnnouncementForm />
-    </div>
+    </ScreenFrame>
   );
 }

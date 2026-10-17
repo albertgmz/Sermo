@@ -1,6 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
-import { Row } from "@/components/staff/rows";
+import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { mailAvailable } from "@/lib/sermo/auth";
@@ -23,7 +22,7 @@ function NumberField({
 }) {
   const id = `field-${name}`;
   return (
-    <FieldRow name={name} label={label} htmlFor={id} help={help}>
+    <Field name={name} label={label} htmlFor={id} help={help}>
       <div className="flex items-center gap-2">
         <Shown name={name} />
         <Input
@@ -37,7 +36,7 @@ function NumberField({
         />
         <span className="shrink-0 text-sm text-muted-foreground">{unit}</span>
       </div>
-    </FieldRow>
+    </Field>
   );
 }
 
@@ -49,54 +48,52 @@ export async function EmailForm() {
   ]);
   const mail = await mailAvailable();
   return (
-    <FormRows
-      action={saveEmail}
-      heading={t("heading")}
-      description={t("description")}
-    >
-      <Row label={t("mail.label")}>
-        <p className="flex min-h-10 flex-wrap items-center gap-2 text-sm">
-          <Badge variant={mail ? "success" : "secondary"}>
-            {mail ? t("mail.on") : t("mail.off")}
-          </Badge>
-          <span className="text-muted-foreground">
-            {mail ? t("mail.onHelp") : t("mail.offHelp")}
-          </span>
-        </p>
-      </Row>
-      <NumberField
-        name="emailHourlyCap"
-        value={settings.emailHourlyCap}
-        label={t("emailHourlyCap.label")}
-        help={t("emailHourlyCap.help")}
-        unit={t("emailHourlyCap.unit")}
-      />
-      <FieldRow
-        name="conversationEmailIncludesBody"
-        label={t("conversationEmailIncludesBody.label")}
-        htmlFor="field-conversationEmailIncludesBody"
-        help={t("conversationEmailIncludesBody.help")}
-      >
-        <label className="flex min-h-10 items-center gap-3 text-sm">
-          <Shown name="conversationEmailIncludesBody" />
-          <input
-            id="field-conversationEmailIncludesBody"
-            type="checkbox"
-            name="conversationEmailIncludesBody"
-            defaultChecked={settings.conversationEmailIncludesBody}
-            aria-describedby="field-conversationEmailIncludesBody-help"
-            className="size-5"
-          />
-          {t("conversationEmailIncludesBody.switch")}
-        </label>
-      </FieldRow>
-      <NumberField
-        name="digestInactiveDays"
-        value={settings.digestInactiveDays}
-        label={t("digestInactiveDays.label")}
-        help={t("digestInactiveDays.help")}
-        unit={t("digestInactiveDays.unit")}
-      />
-    </FormRows>
+    <EditForm action={saveEmail}>
+      <FieldGroup legend={t("heading")} description={t("description")}>
+        <Field name="mail" label={t("mail.label")}>
+          <p className="flex min-h-10 flex-wrap items-center gap-2 text-sm">
+            <Badge variant={mail ? "success" : "secondary"}>
+              {mail ? t("mail.on") : t("mail.off")}
+            </Badge>
+            <span className="text-muted-foreground">
+              {mail ? t("mail.onHelp") : t("mail.offHelp")}
+            </span>
+          </p>
+        </Field>
+        <NumberField
+          name="emailHourlyCap"
+          value={settings.emailHourlyCap}
+          label={t("emailHourlyCap.label")}
+          help={t("emailHourlyCap.help")}
+          unit={t("emailHourlyCap.unit")}
+        />
+        <Field
+          name="conversationEmailIncludesBody"
+          label={t("conversationEmailIncludesBody.label")}
+          htmlFor="field-conversationEmailIncludesBody"
+          help={t("conversationEmailIncludesBody.help")}
+        >
+          <label className="flex min-h-10 items-center gap-3 text-sm">
+            <Shown name="conversationEmailIncludesBody" />
+            <input
+              id="field-conversationEmailIncludesBody"
+              type="checkbox"
+              name="conversationEmailIncludesBody"
+              defaultChecked={settings.conversationEmailIncludesBody}
+              aria-describedby="field-conversationEmailIncludesBody-help"
+              className="size-5"
+            />
+            {t("conversationEmailIncludesBody.switch")}
+          </label>
+        </Field>
+        <NumberField
+          name="digestInactiveDays"
+          value={settings.digestInactiveDays}
+          label={t("digestInactiveDays.label")}
+          help={t("digestInactiveDays.help")}
+          unit={t("digestInactiveDays.unit")}
+        />
+      </FieldGroup>
+    </EditForm>
   );
 }

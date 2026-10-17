@@ -1,9 +1,13 @@
+import { Plus } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
-import { ListSkeleton, PageHead } from "../groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { staffTrail } from "../../trail";
+import { ListSkeleton } from "../groups/skeletons";
 import { AnnouncementList } from "./announcement-list";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -15,20 +19,25 @@ export default function AnnouncementsPage({
   searchParams,
 }: PageProps<"/[locale]/admin/announcements">) {
   const t = useTranslations("adminCommunication.announcements");
+  const add = (
+    <Link
+      href="/admin/announcements/new"
+      className={cn(buttonVariants(), "h-10 px-4 md:h-8 md:px-3")}
+    >
+      <Plus aria-hidden="true" />
+      {t("new")}
+    </Link>
+  );
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("pageHeading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <ListSkeleton rows={5} />
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <AnnouncementList searchParams={searchParams} />
-        </div>
-      </Suspense>
-    </div>
+    <ScreenFrame
+      heading={t("pageHeading")}
+      subtitle={t("subtitle")}
+      trail={staffTrail("/admin/announcements")}
+      actions={add}
+      label={t("loading")}
+      fallback={<ListSkeleton rows={5} />}
+    >
+      <AnnouncementList searchParams={searchParams} addAction={add} />
+    </ScreenFrame>
   );
 }

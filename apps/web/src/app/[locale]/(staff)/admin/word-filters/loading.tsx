@@ -1,10 +1,12 @@
-import { FormSkeleton, ListSkeleton, LoadingPage } from "../groups/skeletons";
+import { useTranslations } from "next-intl";
+import { TrailLoading } from "../content-kit/trail-loading";
+import { ListSkeleton } from "../groups/skeletons";
 
 export default function Loading() {
+  const t = useTranslations("adminContent.wordFilters");
   return (
-    <LoadingPage>
-      <ListSkeleton />
-      <FormSkeleton />
-    </LoadingPage>
+    <TrailLoading label={t("loading")}>
+      <ListSkeleton rows={6} />
+    </TrailLoading>
   );
 }

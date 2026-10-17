@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { ListFormSkeleton } from "../groups/skeletons";
+import { staffTrail } from "../../trail";
+import { ListSkeleton } from "../groups/skeletons";
 import { TagList } from "./tag-list";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -18,8 +19,9 @@ export default function TagsPage({
     <ScreenFrame
       heading={t("heading")}
       subtitle={t("subtitle")}
+      trail={staffTrail("/admin/tags")}
       label={t("loading")}
-      fallback={<ListFormSkeleton />}
+      fallback={<ListSkeleton rows={6} />}
     >
       <TagList searchParams={searchParams} />
     </ScreenFrame>

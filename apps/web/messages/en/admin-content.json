@@ -97,6 +97,9 @@
     "heading": "Word filters",
     "subtitle": "Words that are replaced or sent for moderation when a member posts them.",
     "loading": "Loading the word filters…",
+    "header": {
+      "add": "New filter"
+    },
     "notices": {
       "created": "Filter added.",
       "saved": "Filter saved.",
@@ -110,16 +113,17 @@
       "active": "Active",
       "inactive": "Off",
       "remove": "Remove filter",
-      "removeWarning": "The word will no longer be replaced or held back. Posts already made are not changed."
+      "removeWarning": "The word will no longer be replaced or held back. Posts already made are not changed.",
+      "edit": "Edit {term}",
+      "replacedBy": "Replaced with {replacement}"
     },
     "row": {
       "action": "Action",
       "replace": "Replace the word",
-      "moderate": "Hold the post for moderation",
-      "replacement": "Replacement",
-      "active": "Active",
-      "save": "Save",
-      "saving": "Saving…"
+      "moderate": "Hold the post for moderation"
+    },
+    "fields": {
+      "group": "Filter"
     },
     "create": {
       "heading": "New filter",
@@ -132,7 +136,15 @@
       "replacement": "Replacement",
       "replacementHelp": "Used when the action is to replace the word.",
       "active": "Active",
-      "activeSwitch": "Apply this filter"
+      "activeSwitch": "Apply this filter",
+      "metaTitle": "New word filter"
+    },
+    "edit": {
+      "metaTitle": "Edit word filter",
+      "heading": "Edit word filter",
+      "description": "Change what happens to a post that holds the word.",
+      "termHelp": "The word cannot be renamed. Remove the filter and add a new one to change it.",
+      "deleteHeading": "Remove the filter"
     }
   },
   "tags": {
@@ -157,14 +169,24 @@
       "aliases": "Also answers to {names}",
       "delete": "Delete tag",
       "deleteWarning": "{count, plural, one {The tag is taken off its thread.} other {The tag is taken off its # threads.}} Hashtags already written stay as links to a page that no longer exists.",
-      "next": "Next tags"
+      "view": "View the page of {name}",
+      "edit": "Edit {name}"
     },
-    "row": {
-      "rename": "Rename",
+    "edit": {
+      "metaTitle": "Edit tag",
+      "heading": "Edit tag",
+      "description": "Rename the tag, merge it into another or delete it.",
+      "infoHeading": "The tag",
+      "name": "Name",
+      "renameHeading": "Rename",
+      "renameDescription": "The old name stays as an alias, so links and hashtags already written keep working.",
       "renameSubmit": "Rename",
-      "merge": "Merge into another tag",
+      "mergeHeading": "Merge into another tag",
+      "mergeDescription": "The threads of this tag move to the other one, and this tag's name and aliases become aliases of it. The tag is then removed.",
+      "into": "Tag to keep",
+      "intoHelp": "The name of the other tag, with or without the #.",
       "mergeSubmit": "Merge",
-      "saving": "Saving…"
+      "deleteHeading": "Delete the tag"
     }
   },
   "pages": {
@@ -172,6 +194,9 @@
     "heading": "Pages",
     "subtitle": "The text pages the site publishes about itself: terms, privacy, contact.",
     "loading": "Loading the pages…",
+    "header": {
+      "add": "New page"
+    },
     "notices": {
       "deleted": "Page deleted."
     },
@@ -179,13 +204,11 @@
       "heading": "Pages",
       "description": "Every page, published or not.",
       "emptyTitle": "No pages yet",
-      "emptyDescription": "Create the first page below.",
+      "emptyDescription": "Create the first page.",
       "published": "Published",
       "draft": "Not published",
-      "slug": "Slug",
-      "address": "Address",
-      "updated": "Saved",
-      "edit": "Edit"
+      "summary": "Slug {slug} · Address {address} · Saved {date}",
+      "edit": "Edit {title}"
     },
     "wellKnown": {
       "terms": "The registration form links to this page as its terms. Members accept it when its version changes.",
@@ -199,14 +222,15 @@
     "suggestions": {
       "heading": "Pages the site expects",
       "description": "The site links to or reads these pages. They do not exist yet.",
-      "create": "Create"
+      "create": "Create the page {slug}"
     },
     "create": {
       "heading": "New page",
       "description": "The slug is part of the page's address and cannot be changed afterwards.",
       "submit": "Create page",
       "slug": "Slug",
-      "slugHelp": "Lower-case letters, digits and hyphens. The page is served at /pages/ followed by the slug."
+      "slugHelp": "Lower-case letters, digits and hyphens. The page is served at /pages/ followed by the slug.",
+      "metaTitle": "New page"
     },
     "fields": {
       "title": "Title",
@@ -217,7 +241,8 @@
       "publishedSwitch": "Show this page to everyone",
       "newVersion": "New version",
       "newVersionHelp": "Leave this off for a corrected typo. Switch it on when the text changes in a way members must accept again.",
-      "newVersionSwitch": "Publish as a new version: everyone must accept it again before they can post, react or message"
+      "newVersionSwitch": "Publish as a new version: everyone must accept it again before they can post, react or message",
+      "group": "Page"
     }
   },
   "pageEdit": {

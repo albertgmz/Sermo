@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { Notice } from "@/components/staff/notice";
-import { FormSkeleton, PageHead } from "../groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { staffTrail } from "../../trail";
+import { FormSkeleton } from "../groups/skeletons";
 import { EmailForm } from "./email-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,20 +26,15 @@ export default function EmailPage({
 }: PageProps<"/[locale]/admin/email">) {
   const t = useTranslations("adminCommunication.email");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("pageHeading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <FormSkeleton rows={4} />
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <Saved searchParams={searchParams} />
-          <EmailForm />
-        </div>
-      </Suspense>
-    </div>
+    <ScreenFrame
+      heading={t("pageHeading")}
+      subtitle={t("subtitle")}
+      trail={staffTrail("/admin/email")}
+      label={t("loading")}
+      fallback={<FormSkeleton rows={4} />}
+    >
+      <Saved searchParams={searchParams} />
+      <EmailForm />
+    </ScreenFrame>
   );
 }

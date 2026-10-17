@@ -1,25 +1,29 @@
 import { announcementsList } from "@sermo/core/contracts";
-import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { HtmlContent } from "@/components/forum/html-content";
-import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
+import { cursorFrom } from "@/components/staff/cursor-list";
+import { ItemList } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
-import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
-import { cn } from "@/lib/utils";
+import { PagingNav } from "../content-kit/paging-nav";
 import { groupsIfAllowed } from "../groups/data";
 
-// The announcements sent so far, newest first, with the link to write a new one.
+// The announcements sent so far, newest first. A sent alert cannot be changed, so a row has no
+// edit link: it shows who sent it, to whom, and the text behind a disclosure.
 export async function AnnouncementList({
   searchParams,
+  addAction,
 }: {
   searchParams: PageProps<"/[locale]/admin/announcements">["searchParams"];
+  // The "New alert" link, offered again when the list is empty.
+  addAction: React.ReactNode;
 }) {
   const params = await searchParams;
+  const cursor = cursorFrom(params);
   const [t, format, page, groups] = await Promise.all([
     getTranslations("adminCommunication.announcements"),
     getFormatter(),
-    read(announcementsList, { cursor: cursorFrom(params) }),
+    read(announcementsList, { cursor }),
     groupsIfAllowed(),
   ]);
   const audienceOf = (audience: (typeof page.items)[number]["audience"]) =>
@@ -38,40 +42,35 @@ export async function AnnouncementList({
         searchParams={searchParams}
         notices={{ sent: t("notices.sent") }}
       />
-      <div>
-        <Link
-          href="/admin/announcements/new"
-          className={cn(buttonVariants(), "min-h-10 px-4")}
-        >
-          {t("new")}
-        </Link>
-      </div>
-      <CursorList
-        items={page.items}
-        nextCursor={page.nextCursor}
-        path="/admin/announcements"
-        params={params}
-        itemKey={(item) => item.id}
+      <ItemList
         label={t("heading")}
-        empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
-        render={(item) => (
-          <div className="space-y-2 p-4">
-            <p className="text-sm font-semibold [overflow-wrap:anywhere]">
-              {item.title}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t("byline", {
-                author: item.author.username,
-                date: format.dateTime(new Date(item.createdAt), {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                }),
-              })}
-            </p>
-            <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-              {audienceOf(item.audience)}
-              {item.url && ` · ${t("link", { url: item.url })}`}
-            </p>
+        heading={t("heading")}
+        empty={{
+          title: t("emptyTitle"),
+          description: t("emptyDescription"),
+          action: addAction,
+        }}
+        items={page.items.map((item) => ({
+          id: item.id,
+          title: item.title,
+          description: (
+            <>
+              <span className="block">
+                {t("byline", {
+                  author: item.author.username,
+                  date: format.dateTime(new Date(item.createdAt), {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }),
+                })}
+              </span>
+              <span className="block">
+                {audienceOf(item.audience)}
+                {item.url && ` · ${t("link", { url: item.url })}`}
+              </span>
+            </>
+          ),
+          panel: (
             <details>
               <summary className="flex min-h-10 cursor-pointer items-center text-sm font-medium text-primary-ink">
                 {t("showText")}
@@ -80,8 +79,14 @@ export async function AnnouncementList({
                 {item.bodyHtml}
               </HtmlContent>
             </details>
-          </div>
-        )}
+          ),
+        }))}
+      />
+      <PagingNav
+        path="/admin/announcements"
+        params={params}
+        cursor={cursor}
+        nextCursor={page.nextCursor}
       />
     </>
   );
