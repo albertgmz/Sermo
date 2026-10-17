@@ -23,6 +23,8 @@
 //            controls, such as a checkbox with its own text).
 //   help     Optional help, with the id `<htmlFor>-help`; the error line has `<htmlFor>-error`.
 //            The control names them in its aria-describedby.
+//   error    Optional error line, for a field outside an `EditForm` or `FormRows` (whose field
+//            errors it shows by `name` otherwise).
 //   children The control.
 //
 // Advanced: a closed card of options most edits never touch (`label` defaults to "Advanced
@@ -120,15 +122,18 @@ export function Field({
   label,
   htmlFor,
   help,
+  error,
   children,
 }: {
   name: string;
   label: React.ReactNode;
   htmlFor?: string;
   help?: React.ReactNode;
+  error?: string;
   children: React.ReactNode;
 }) {
-  const error = useFieldError(name);
+  const fromForm = useFieldError(name);
+  const shown = error ?? fromForm;
   return (
     <div className="grid gap-2 p-4 md:grid-cols-[16rem_minmax(0,1fr)] md:gap-6">
       <div className="min-w-0 space-y-1">
@@ -147,12 +152,12 @@ export function Field({
       </div>
       <div className="min-w-0 space-y-2">
         {children}
-        {error && (
+        {shown && (
           <p
             id={htmlFor && `${htmlFor}-error`}
             className="text-xs font-medium text-destructive [overflow-wrap:anywhere]"
           >
-            {error}
+            {shown}
           </p>
         )}
       </div>

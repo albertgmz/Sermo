@@ -1,9 +1,9 @@
 import { getTranslations } from "next-intl/server";
+import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import type { GroupItem } from "../../../groups/data";
-import { AdminPassword } from "../../admin-password";
 import { saveGroups } from "./actions";
 
 type Held = {
@@ -37,7 +37,7 @@ export async function GroupsForm({
     >
       <input type="hidden" name="id" value={userId} />
       <FieldGroup legend={t("heading")} description={t("description")}>
-        <AdminPassword />
+        <ConfirmPassword />
         <Field
           name="primaryGroupId"
           label={t("primary")}

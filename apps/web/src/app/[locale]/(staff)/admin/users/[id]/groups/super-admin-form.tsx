@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
+import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
-import { AdminPassword } from "../../admin-password";
 import { saveSuperAdmin } from "./actions";
 
 // The super admin status of a member, for a viewer who may change it. Saved with the
@@ -20,7 +20,7 @@ export async function SuperAdminForm({
         legend={t("superAdminHeading")}
         description={t("superAdminDescription")}
       >
-        <AdminPassword id="confirm-password-super-admin" />
+        <ConfirmPassword id="confirm-password-super-admin" />
         <Field
           name="superAdmin"
           label={t("superAdminLabel")}

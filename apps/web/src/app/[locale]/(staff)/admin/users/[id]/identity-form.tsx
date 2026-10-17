@@ -1,8 +1,8 @@
 import { getFormatter, getTranslations } from "next-intl/server";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
+import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { Input } from "@/components/ui/input";
-import { AdminPassword } from "../admin-password";
 import type { AdminMember } from "../data";
 import { saveIdentity } from "./actions";
 
@@ -43,7 +43,7 @@ export async function IdentityForm({
         value={member.emailVerified ? "1" : "0"}
       />
       <FieldGroup legend={t("heading")} description={t("description")}>
-        <AdminPassword />
+        <ConfirmPassword />
         <Field
           name="username"
           label={t("username")}
