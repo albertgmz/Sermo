@@ -22,3 +22,26 @@ export function positionsFor(entries: readonly { position: number }[]) {
   );
   return distinct ? held : entries.map((_, i) => (i + 1) * 10);
 }
+
+// Keeps the keyboard on the arrow that moved an entry. React reorders a list by taking nodes out
+// and putting them back, and a focused node taken out loses the focus (moving an entry down moves
+// its own node). The arrow asks for the focus with `want`; `restore`, run once the list is drawn
+// again, gives it to whatever node now holds that key.
+export function focusKeeper<Node extends { focus(): void }>() {
+  const nodes = new Map<string, Node>();
+  let wanted: string | undefined;
+  return {
+    ref: (key: string) => (node: Node | null) => {
+      if (node) nodes.set(key, node);
+      else nodes.delete(key);
+    },
+    want(key: string) {
+      wanted = key;
+    },
+    restore() {
+      if (wanted === undefined) return;
+      nodes.get(wanted)?.focus();
+      wanted = undefined;
+    },
+  };
+}

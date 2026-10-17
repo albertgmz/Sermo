@@ -119,11 +119,13 @@ export function StaffNavigation({
                   type="button"
                   aria-expanded={open}
                   aria-controls={panel}
+                  // The current section stays open: its arrow is not a working toggle.
+                  aria-disabled={isCurrent || undefined}
                   aria-label={t("aria.toggleSection", {
                     section: section.label,
                   })}
                   onClick={toggle}
-                  className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors not-aria-disabled:hover:bg-muted not-aria-disabled:hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
                 >
                   {chevron}
                 </button>
@@ -133,6 +135,7 @@ export function StaffNavigation({
                 type="button"
                 aria-expanded={open}
                 aria-controls={panel}
+                aria-disabled={isCurrent || undefined}
                 onClick={toggle}
                 className={cn(
                   HEADING,

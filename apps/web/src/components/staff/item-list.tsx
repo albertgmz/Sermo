@@ -3,7 +3,8 @@
 // The list pattern of the panel: a card of clean rows, each leading to its own edit page.
 //
 // ItemList props
-//   label        The list's accessible name (and the filter box's).
+//   label        The list's accessible name. Pass the same text as `heading` when there is one;
+//                without a heading it is the only name the list has.
 //   heading      Optional heading of the card; `description` an optional line under it.
 //   items        The rows, as `ItemRow` props plus `id` (the row's key) and `search`.
 //   filter       true shows a filter box above the rows: it narrows the rows already on the page
@@ -19,14 +20,25 @@
 //   title        The row's name; with `href`, the link to its edit page.
 //   description  Optional short description or key, under the title.
 //   badges       Optional badges after the title.
-//   toggle       Optional switch, usually a `RowToggle`.
-//   actions      Optional controls at the end of the row: `RowLink`s, a delete step.
+//   toggle       Optional switch, a `RowToggle`.
+//   actions      Optional short controls at the end of the row: `RowLink`s and closed
+//                `ConfirmStep`s (a delete). A step that opens, and a toggle asking to confirm,
+//                take the row's whole width on a line of their own, under the title.
+//   panel        Optional content that is always a line of its own under the row (a note, a
+//                small form).
+// On a phone the controls wrap under the title when they do not fit beside it.
 //
-// RowToggle: an on/off switch that submits an existing action at once.
+// RowToggle: an on/off switch for an existing action that reads the new state as "1" (on) or "0"
+// (off).
 //   action   (previous, formData) => Promise<StaffFormState>, the action the screen already has.
-//   fields   The hidden fields the action reads (the record's id, the state to set).
+//   fields   The other hidden fields the action reads (the record's id).
+//   field    The name of the state field. Default: "active". The switch sends the flipped state.
 //   checked  The state shown now.
 //   label    What the switch turns on or off, read out with its state.
+//   confirm  Optional `{ warning?, submit, danger? }`: the switch first opens a step under the row
+//            with the warning, a confirm button (`submit`; destructive with `danger`) and Cancel,
+//            as the panel's activate and deactivate steps do. Without it the switch submits at once.
+// The action's refusal or notice shows under the row.
 //
 // RowLink: an icon button that is a link: the row's "Edit" (`icon`, an element such as
 // `<Eye />`, defaults to a pencil).
@@ -34,12 +46,13 @@
 import { Pencil, Search } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useActionState, useId, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { EmptyState } from "@/components/forum/empty-state";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { StaffFormState } from "./form-rows";
+import { SubmitButton } from "./submit-button";
 
 export type ItemRowProps = {
   icon?: React.ReactNode;
@@ -49,6 +62,7 @@ export type ItemRowProps = {
   badges?: React.ReactNode;
   toggle?: React.ReactNode;
   actions?: React.ReactNode;
+  panel?: React.ReactNode;
 };
 
 export type Item = ItemRowProps & { id: string | number; search?: string };
@@ -122,7 +136,9 @@ export function ItemList({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("filterPlaceholder")}
-                aria-controls={`${filterId}-list`}
+                aria-controls={
+                  shown.length > 0 ? `${filterId}-list` : undefined
+                }
                 className="pl-8"
               />
             </div>
@@ -160,9 +176,10 @@ export function ItemRow({
   badges,
   toggle,
   actions,
+  panel,
 }: ItemRowProps) {
   return (
-    <li className="flex min-h-14 items-center gap-3 px-4 py-2">
+    <li className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
       {icon && (
         <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden">
           {icon}
@@ -191,11 +208,13 @@ export function ItemRow({
         )}
       </div>
       {(toggle || actions) && (
-        <div className="flex shrink-0 items-center gap-1">
+        // An open step (a `ConfirmStep`, a toggle asking) takes the row's width.
+        <div className="ms-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 has-[[data-open]]:basis-full has-[details[open]]:basis-full">
           {toggle}
           {actions}
         </div>
       )}
+      {panel && <div className="min-w-0 basis-full">{panel}</div>}
     </li>
   );
 }
@@ -203,43 +222,89 @@ export function ItemRow({
 export function RowToggle({
   action,
   fields,
+  field = "active",
   checked,
   label,
+  confirm,
 }: {
   action: (
     previous: StaffFormState,
     formData: FormData,
   ) => Promise<StaffFormState>;
   fields: Record<string, string>;
+  field?: string;
   checked: boolean;
   label: string;
+  confirm?: { warning?: string; submit: string; danger?: boolean };
 }) {
+  const t = useTranslations("admin.itemList");
   const [state, formAction, pending] = useActionState(action, null);
+  const [asking, setAsking] = useState(false);
+  const toggle = useRef<HTMLButtonElement>(null);
+  const step = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (asking) step.current?.querySelector("button")?.focus();
+  }, [asking]);
+  const message = state?.error ?? state?.notice;
   return (
-    <form action={formAction} className="flex flex-col items-end">
+    <form
+      action={formAction}
+      data-open={asking || message ? "" : undefined}
+      className="flex flex-wrap items-center justify-end gap-2 data-open:basis-full"
+    >
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
+      <input type="hidden" name={field} value={checked ? "0" : "1"} />
       <button
-        type="submit"
+        ref={toggle}
+        type={confirm ? "button" : "submit"}
         role="switch"
         aria-checked={checked}
         aria-label={label}
         disabled={pending}
+        onClick={confirm ? () => setAsking((open) => !open) : undefined}
         className="group inline-flex size-10 items-center justify-center rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
       >
         <span className="flex h-5 w-9 items-center rounded-full border border-input bg-muted p-0.5 transition-colors group-aria-checked:border-primary group-aria-checked:bg-primary">
           <span className="size-3.5 rounded-full bg-muted-foreground transition-transform group-aria-checked:translate-x-4 group-aria-checked:bg-primary-foreground" />
         </span>
       </button>
-      {state?.error && (
-        <p
-          role="alert"
-          className="max-w-48 text-right text-xs text-destructive [overflow-wrap:anywhere]"
+      {confirm && asking && (
+        <div
+          ref={step}
+          className="basis-full space-y-3 rounded-md border p-3 text-left"
         >
-          {state.error}
-        </p>
+          {confirm.warning && (
+            <p className="text-sm text-pretty">{confirm.warning}</p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <SubmitButton
+              label={confirm.submit}
+              variant={confirm.danger ? "destructive" : "default"}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-10 px-4"
+              onClick={() => {
+                setAsking(false);
+                toggle.current?.focus();
+              }}
+            >
+              {t("cancel")}
+            </Button>
+          </div>
+        </div>
       )}
+      <output
+        className={cn(
+          "block basis-full text-right text-xs font-medium [overflow-wrap:anywhere] empty:hidden",
+          state?.error ? "text-destructive" : "text-success",
+        )}
+      >
+        {message}
+      </output>
     </form>
   );
 }

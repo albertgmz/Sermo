@@ -7,9 +7,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 // The skeletons of the panel's pages; each mirrors the block it stands for once settled.
 
-export function HeadingSkeleton() {
+// `trail`: the page draws a `PageHeader` with a trail, whose row comes first.
+export function HeadingSkeleton({ trail }: { trail?: boolean }) {
   return (
     <div aria-hidden="true" className="space-y-2">
+      {trail && <Skeleton className="h-10 w-40 md:h-8" />}
       <Skeleton className="h-8 w-48" />
       <Skeleton className="h-4 w-72 max-w-full" />
     </div>

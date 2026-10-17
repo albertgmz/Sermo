@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
+import { ConfirmStep } from "./confirm-step";
 import {
   type Item,
   ItemList,
@@ -21,12 +22,7 @@ const ITEMS: Item[] = [
     description: "Score 1",
     badges: <span data-badge="">Active</span>,
     toggle: (
-      <RowToggle
-        action={action}
-        fields={{ id: "1", active: "0" }}
-        checked
-        label="Active"
-      />
+      <RowToggle action={action} fields={{ id: "1" }} checked label="Active" />
     ),
     actions: <RowLink href="/admin/reactions/1" label="Edit Like" />,
   },
@@ -115,7 +111,7 @@ test("the switch shows the state it has and the row link its own icon", () => {
   const off = render(
     <RowToggle
       action={action}
-      fields={{ id: "2", active: "1" }}
+      fields={{ id: "2" }}
       checked={false}
       label="Active"
     />,
@@ -128,4 +124,75 @@ test("the switch shows the state it has and the row link its own icon", () => {
   );
   expect(link).toContain('data-icon="eye"');
   expect(link).toContain('title="Open"');
+});
+
+test("the switch sends the flipped state itself, under the field the action reads", () => {
+  const on = render(
+    <RowToggle action={action} fields={{ id: "2" }} checked label="Shown" />,
+  );
+  expect(on).toContain('<input type="hidden" name="active" value="0"/>');
+  const off = render(
+    <RowToggle
+      action={action}
+      fields={{ id: "2" }}
+      field="visible"
+      checked={false}
+      label="Shown"
+    />,
+  );
+  expect(off).toContain('<input type="hidden" name="visible" value="1"/>');
+  expect(off).not.toContain('name="active"');
+  // Without a confirmation the switch submits at once.
+  expect(/<button[^>]*role="switch"[^>]*>/.exec(off)?.[0]).toContain(
+    'type="submit"',
+  );
+});
+
+test("a switch with a confirmation only opens its step: nothing is sent from the switch", () => {
+  const html = render(
+    <RowToggle
+      action={action}
+      fields={{ id: "2" }}
+      checked
+      label="Active"
+      confirm={{
+        warning: "Members stop seeing it.",
+        submit: "Deactivate",
+        danger: true,
+      }}
+    />,
+  );
+  expect(/<button[^>]*role="switch"[^>]*>/.exec(html)?.[0]).toContain(
+    'type="button"',
+  );
+  // Closed until the switch is pressed.
+  expect(html).not.toContain("Members stop seeing it.");
+  expect(html).not.toContain('type="submit"');
+});
+
+test("a row can hold a delete step and a line of its own, wrapping under the title on a phone", () => {
+  const html = render(
+    <ul>
+      <ItemRow
+        title="Spam"
+        actions={
+          <ConfirmStep
+            action={action}
+            fields={{ id: 3 }}
+            summary="Delete"
+            warning="The filter is removed."
+          />
+        }
+        panel={<p>Matched 12 times.</p>}
+      />
+    </ul>,
+  );
+  const row = /<li class="([^"]*)"/.exec(html)?.[1] ?? "";
+  expect(row.split(" ")).toContain("flex-wrap");
+  // The controls take the row's width once the step opens.
+  expect(html).toContain("has-[details[open]]:basis-full");
+  expect(html).toContain("<details");
+  expect(html).toContain(
+    '<div class="min-w-0 basis-full"><p>Matched 12 times.</p>',
+  );
 });

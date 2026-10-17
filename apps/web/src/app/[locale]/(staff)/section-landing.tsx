@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
 import { EmptyState } from "@/components/forum/empty-state";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { LinkCard, LinkCards } from "@/components/staff/link-cards";
-import { PageHeader } from "@/components/staff/page-header";
+import { ScreenFrame } from "@/components/staff/screen-frame";
 import { getViewer } from "@/lib/sermo/session";
 import type admin from "../../../../messages/en/admin.json";
 import { SCREEN_ICONS } from "./icons";
@@ -34,22 +32,15 @@ export async function landingMetadata(
 export function SectionLanding({ section }: { section: LandingSection }) {
   const t = useTranslations("admin");
   return (
-    <div className="space-y-6">
-      <PageHeader
-        trail={staffTrail(`/admin/sections/${section}`)}
-        title={t(`registry.sections.${section}`)}
-        description={t(`registry.sectionDescriptions.${section}`)}
-      />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("shell.aria.loadingPage")}>
-            <LinkCardsSkeleton />
-          </LoadingRegion>
-        }
-      >
-        <SectionScreens section={section} />
-      </Suspense>
-    </div>
+    <ScreenFrame
+      trail={staffTrail(`/admin/sections/${section}`)}
+      heading={t(`registry.sections.${section}`)}
+      subtitle={t(`registry.sectionDescriptions.${section}`)}
+      label={t("shell.aria.loadingPage")}
+      fallback={<LinkCardsSkeleton />}
+    >
+      <SectionScreens section={section} />
+    </ScreenFrame>
   );
 }
 

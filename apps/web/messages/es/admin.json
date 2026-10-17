@@ -490,7 +490,8 @@
     "filterPlaceholder": "Filtra la lista",
     "noMatch": "Nada coincide con «{query}».",
     "shown": "{count, plural, one {Se muestra # entrada} other {Se muestran # entradas}}",
-    "shownOf": "Se muestran {shown} de {total}"
+    "shownOf": "Se muestran {shown} de {total}",
+    "cancel": "Cancelar"
   },
   "editForm": {
     "advanced": "Opciones avanzadas"

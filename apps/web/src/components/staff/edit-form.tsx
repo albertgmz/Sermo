@@ -26,12 +26,12 @@
 //   children The control.
 //
 // Advanced: a closed card of options most edits never touch (`label` defaults to "Advanced
-// options"). It opens by itself when one of `fields` (the names of the controls inside) has an
-// error. Its fields are sent whether it is open or not; keep `required` controls out of it.
+// options"). It opens by itself whenever a save comes back with an error on one of `fields` (the
+// names of the controls inside). Its fields are sent whether it is open or not; keep `required` controls out of it.
 
 import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useActionState, useContext } from "react";
+import { useActionState, useContext, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   FieldErrors,
@@ -172,8 +172,16 @@ export function Advanced({
   const t = useTranslations("admin.editForm");
   const errors = useContext(FieldErrors);
   const failed = fields.some((name) => name in errors);
+  const card = useRef<HTMLDetailsElement>(null);
+  // Each refused save brings its own errors: open the card again even if it was closed after the
+  // last one.
+  const failure = failed ? errors : undefined;
+  useEffect(() => {
+    if (failure && card.current) card.current.open = true;
+  }, [failure]);
   return (
     <details
+      ref={card}
       open={failed || undefined}
       className="group min-w-0 rounded-lg border bg-card"
     >

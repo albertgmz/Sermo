@@ -15,14 +15,15 @@
 //   heading      The panel's heading; `description` an optional line under it.
 //   submit       Label of the save button. Default: "Save order".
 // Only entries that moved get a new number when the backend's numbers allow it
-// (`positionsFor`), so the action saves only those.
+// (`positionsFor`), so the action saves only those. After a move the keyboard stays on the arrow
+// that was pressed, on the entry in its new place (`focusKeeper`), and the move is read out.
 
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormRows, type StaffFormState } from "./form-rows";
-import { moved, positionsFor } from "./sort-order";
+import { focusKeeper, moved, positionsFor } from "./sort-order";
 
 export type SortItem = {
   id: number | string;
@@ -73,10 +74,14 @@ function SortRows({ name, items }: { name: string; items: SortItem[] }) {
   const t = useTranslations("admin.sortForm");
   const [order, setOrder] = useState(items);
   const [said, setSaid] = useState("");
+  const [keeper] = useState(focusKeeper<HTMLButtonElement>);
+  // After every draw: a move asked for its arrow back.
+  useLayoutEffect(() => keeper.restore());
   const positions = positionsFor(order);
   const move = (index: number, by: -1 | 1) => {
     const target = index + by;
     if (target < 0 || target >= order.length) return;
+    keeper.want(`${order[index].id}:${by}`);
     setOrder(moved(order, index, by));
     setSaid(t("moved", { title: order[index].title, position: target + 1 }));
   };
@@ -116,6 +121,7 @@ function SortRows({ name, items }: { name: string; items: SortItem[] }) {
             </div>
             <div className="flex shrink-0 gap-1">
               <Arrow
+                ref={keeper.ref(`${item.id}:-1`)}
                 label={t("up", { title: item.title })}
                 end={index === 0}
                 onMove={() => move(index, -1)}
@@ -123,6 +129,7 @@ function SortRows({ name, items }: { name: string; items: SortItem[] }) {
                 <ChevronUp />
               </Arrow>
               <Arrow
+                ref={keeper.ref(`${item.id}:1`)}
                 label={t("down", { title: item.title })}
                 end={index === order.length - 1}
                 onMove={() => move(index, 1)}
@@ -140,14 +147,16 @@ function SortRows({ name, items }: { name: string; items: SortItem[] }) {
   );
 }
 
-// At the end of the list the arrow stays focusable (marked disabled), so the focus that followed
-// the entry there is not lost.
+// At the end of the list the arrow stays focusable (marked disabled), so the focus given back to
+// it after a move to the end is not lost.
 function Arrow({
+  ref,
   label,
   end,
   onMove,
   children,
 }: {
+  ref: (node: HTMLButtonElement | null) => void;
   label: string;
   end: boolean;
   onMove: () => void;
@@ -155,6 +164,7 @@ function Arrow({
 }) {
   return (
     <Button
+      ref={ref}
       type="button"
       variant="ghost"
       size="icon"

@@ -3906,7 +3906,8 @@ viewer may open. In the registry it is a screen with `landing: true`, at `/admin
 screens. Moderation's landing is its existing overview at `/moderation`, keeping its own rule, so a
 member who may open only the IP screen sees the section without a landing. `visibleSections` gives
 the landing apart from the screens. The sidebar and the phone drawer (the same component) are an
-accordion: the section of the current page is open and cannot be closed; a section's name links to
+accordion: the section of the current page is open and cannot be closed (its arrow is marked
+`aria-disabled`); a section's name links to
 its landing and the arrow next to it opens or closes it; a section with no landing for the viewer
 opens from its whole heading; the home, and a section whose landing is all the viewer may open, are
 plain links. Every section carries an icon (`(staff)/section-icons.ts`, apart from the registry the proxy
@@ -3921,25 +3922,36 @@ then each screen of the same section the address lies under, only those the view
 that names a record appends or relabels steps. From 768 px it is a breadcrumb, on a phone one
 "< parent" link; passed as a promise it streams in without holding the title. Actions sit at the
 top right from 640 px and under the title on a phone.
+`ScreenFrame({ heading, subtitle?, trail?, actions?, label, fallback })` wraps every page: with a
+trail or actions its heading is that `PageHeader`, the content streaming in below; without, the
+plain heading of the screens not moved yet. The landings use it; a page with a trail has
+`HeadingSkeleton trail` in its `loading.tsx`.
 `ItemList({ label, heading?, description?, items, filter?, empty })` is the list screen: clean rows
 (`ItemRow`: icon, title linking to the edit page, description or key, badges, toggle, actions),
 an empty state with an optional "Add" action, and a "Showing N" footer. `filter` adds a box that
 narrows the rows on the page (case and accents ignored, by `search` or a text title); lists the
-backend pages through keep their own search. `RowToggle` is the active switch: a form that submits
-the screen's existing action with its hidden fields. `RowLink` is the row's icon link ("Edit").
+backend pages through keep their own search. A row's `actions` hold short controls and closed
+`ConfirmStep`s (an open step takes the row's whole width); `panel` holds a full line under the
+row. Rows wrap, so at 360 px the controls go under the title. `RowToggle` is the active switch: a
+form that submits the screen's existing action with its hidden fields and the flipped value under
+`field` (default `active`, "1" or "0"); with `confirm` the switch first opens a warning with a
+confirm button (destructive with `danger`) and Cancel. Errors show under the row. `RowLink` is the
+row's icon link ("Edit").
 `EntryList`, `EditDisclosure` and `Row` stay for the screens that use them until their item moves
 them.
 `EditForm({ action, submit?, disabled? })` is the separate Add / Edit page: `FieldGroup` cards
 (fieldsets with a legend), `Field` rows (label and help on the left, control and error on the
 right from 768 px, stacked on a phone), one `Advanced` closed card for the rare options (it opens
-when one of its `fields` has an error; no `required` control inside it), and the save bar at the
+again on every save refused with an error on one of its `fields`; no `required` control inside
+it), and the save bar at the
 bottom (`SaveBar` from `form-rows.tsx`, now exported). It takes the same `StaffFormState` actions
 as `FormRows`.
 `SortForm({ action, name, items, heading })` is the sort page: up and down arrows, one Save, sent
 to the screen's existing order action under its own field name (`name` such as "position.{id}",
 plus any hidden `fields` the action compares, like `before:<id>`). It hands the entries' own numbers
 out again in the new order, so only the moved entries change; numbers shared by two entries are
-renumbered ten apart (`positionsFor`). No drag and drop.
+renumbered ten apart (`positionsFor`). After a move the keyboard stays on the pressed arrow of the
+moved entry (`focusKeeper`). No drag and drop.
 `LinkCards` / `LinkCard` are the cards of the landings and the home.
 The client components' text is in `admin.itemList`, `admin.editForm` and `admin.sortForm`; a
 layout may name only namespaces something under it reads (`tests/client-messages.test.ts`), so the

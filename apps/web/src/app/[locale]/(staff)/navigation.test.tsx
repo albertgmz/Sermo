@@ -75,15 +75,19 @@ test("the section of the page is open, its heading leads to its landing, its arr
   )?.[0];
   expect(arrow).toContain('aria-expanded="true"');
   expect(arrow).toContain('aria-controls="staff-nav-users"');
+  // The current section cannot be closed: its arrow says so.
+  expect(arrow).toContain('aria-disabled="true"');
   expect(html).toMatch(/<div id="staff-nav-users" class="[^"]*">/);
   expect(html).toMatch(
     /<a[^>]*aria-current="page"[^>]*href="\/admin\/users"|<a[^>]*href="\/admin\/users"[^>]*aria-current="page"/,
   );
   // Another section is closed.
   expect(html).toMatch(/<div id="staff-nav-setup" hidden=""/);
-  expect(
-    /<button[^>]*aria-label="Screens of Setup"[^>]*>/.exec(html)?.[0],
-  ).toContain('aria-expanded="false"');
+  const other = /<button[^>]*aria-label="Screens of Setup"[^>]*>/.exec(
+    html,
+  )?.[0];
+  expect(other).toContain('aria-expanded="false"');
+  expect(other).not.toContain("aria-disabled=");
 });
 
 test("on a landing its heading is the current page; a landing alone and the home are plain links", () => {

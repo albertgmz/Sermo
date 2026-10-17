@@ -7,7 +7,7 @@ export default function Loading() {
   return (
     <LoadingRegion label={t("aria.loadingPage")}>
       <div className="space-y-6">
-        <HeadingSkeleton />
+        <HeadingSkeleton trail />
         <LinkCardsSkeleton />
       </div>
     </LoadingRegion>
