@@ -89,6 +89,7 @@ const ANSWERS: Record<string, () => Response> = {
   "/api/v1/seo/users/6": () => Response.json(seo("noindex,follow", [])),
 };
 const asked: string[] = [];
+const sent: Headers[] = [];
 
 beforeEach(() => {
   site = siteBody({ description: "A club for gardeners." });
@@ -97,9 +98,11 @@ beforeEach(() => {
       headers: { "content-type": "image/png" },
     });
   asked.length = 0;
-  globalThis.fetch = (async (input: string | URL) => {
+  sent.length = 0;
+  globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     asked.push(url.pathname);
+    sent.push(new Headers(init?.headers));
     if (url.pathname === "/api/v1/site") return Response.json(site);
     if (url.pathname === "/api/v1/files/6") return icon();
     return (ANSWERS[url.pathname] ?? notFound)();
@@ -109,8 +112,8 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-const get = (path: string) => {
-  const request = new NextRequest(`http://localhost:3000${path}`);
+const get = (path: string, headers?: HeadersInit) => {
+  const request = new NextRequest(`http://localhost:3000${path}`, { headers });
   const [, , kind, id] = new URL(request.url).pathname.split("/");
   return kind === "site"
     ? siteRoute(request)
@@ -187,14 +190,64 @@ test("the site's uploaded icon is drawn, and a card that could not read it is no
     null,
     brand,
   );
-  const drawn = await get(path);
-  await expectCard(drawn);
-  expect(asked).toContain("/api/v1/files/6");
-  expect(drawn.headers.get("cache-control")).toBe(KEPT);
   icon = () => new Response("gone", { status: 500 });
   const without = await get(path);
   await expectCard(without);
   expect(without.headers.get("cache-control")).toBe(FRESH);
+  // Once the icon reads, the card is drawn whole and kept.
+  icon = () =>
+    new Response(Buffer.from(DEFAULT_ICON_PNG[180], "base64"), {
+      headers: { "content-type": "image/png" },
+    });
+  asked.length = 0;
+  const drawn = await get(path);
+  await expectCard(drawn);
+  expect(asked).toContain("/api/v1/files/6");
+  expect(drawn.headers.get("cache-control")).toBe(KEPT);
+  // A card drawn whole is not drawn again: the icon is not read a second time.
+  icon = () => new Response("gone", { status: 500 });
+  asked.length = 0;
+  const again = await get(path);
+  await expectCard(again);
+  expect(asked).not.toContain("/api/v1/files/6");
+  expect(again.headers.get("cache-control")).toBe(KEPT);
+});
+
+test("an icon too big to draw gives the drawn mark, kept like any card", async () => {
+  site = siteBody({
+    description: "Big icon.",
+    icon: { fileId: 6, url: "/api/v1/files/6" },
+  });
+  icon = () =>
+    new Response(new Uint8Array(600 * 1024), {
+      headers: { "content-type": "image/png" },
+    });
+  const brand = brandOf({
+    name: "Garden Club",
+    icon: { fileId: 6, url: "/api/v1/files/6" },
+    accents: [],
+  });
+  const path = cardPath(
+    siteContent({ name: "Garden Club", description: "Big icon." }),
+    null,
+    brand,
+  );
+  const drawn = await get(path);
+  await expectCard(drawn);
+  expect(drawn.headers.get("cache-control")).toBe(KEPT);
+});
+
+test("a card is read as a guest: the visitor's cookie and address never reach the backend", async () => {
+  const response = await get("/og/threads/12", {
+    cookie: "sermo.session_token=secret",
+    "x-forwarded-for": "203.0.113.9",
+  });
+  await expectCard(response);
+  expect(asked).toContain("/api/v1/seo/threads/12");
+  for (const headers of sent) {
+    expect(headers.get("cookie")).toBeNull();
+    expect(headers.get("x-forwarded-for")).toBeNull();
+  }
 });
 
 test("missing, private, hidden or moderated content, and a page kept out of the index, have no card", async () => {

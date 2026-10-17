@@ -6,19 +6,20 @@ import { ImageResponse } from "next/og";
 import type { ReactNode } from "react";
 import { DEFAULT_ICON_URL } from "@/lib/default-icon";
 import {
+  CARD_COLOURS,
   CARD_SIZE,
   type CardBrand,
   type CardContent,
-  clampText,
-  DESCRIPTION_MAX,
-  drawable,
+  type CardPerson,
+  type CardPlan,
+  planCard,
   titleLayout,
 } from "./card";
 import { codePointsOf } from "./font-coverage";
 
 // The fonts are files of the app (assets/og, Inter under the SIL Open Font License), read once:
 // nothing is fetched while a card is drawn. Each path is written out, so the build's file tracing
-// finds it.
+// finds it (the route's .nft.json lists the three files, and the standalone output copies them).
 const [display, semiBold, regular] = await Promise.all([
   readFile(join(process.cwd(), "assets/og/InterDisplay-Bold.ttf")),
   readFile(join(process.cwd(), "assets/og/Inter-SemiBold.ttf")),
@@ -32,19 +33,16 @@ const FONTS = [
 const COVERED = new Set(
   [display, semiBold, regular].flatMap((font) => [...codePointsOf(font)]),
 );
-const covers = (codePoint: number) => COVERED.has(codePoint);
-const text = (value: string) => drawable(value, covers);
+export const covers = (codePoint: number) => COVERED.has(codePoint);
 
 // The card is the dark theme's surface with a light hairline at its edge and the accent across
 // its top: it keeps its shape on a white page and on a black one. Text stays light on dark; the
-// accent is never the colour of text, whatever the administrator chose.
-const SURFACE = "#111114";
-const RAISED = "#1c1c21";
-const EDGE = "#2e2e35";
-const INK = "#fafafa";
-const MUTED = "#a1a1aa";
+// accent is never the colour of text, whatever the administrator chose. The secondary text is set
+// large enough to read when an app shows the card about 500 pixels wide.
+const { surface, raised, edge, ink, muted } = CARD_COLOURS;
 // Kept clear of the edges, which apps crop differently.
 const PAD = 72;
+const SMALL = 32;
 
 // The site's mark: its uploaded icon when it could be read, else the drawn mark in the accent.
 function Mark({
@@ -67,9 +65,10 @@ function Mark({
         justifyContent: "center",
         width: size,
         height: size,
+        flexShrink: 0,
         borderRadius: size * 0.24,
-        background: RAISED,
-        border: `2px solid ${EDGE}`,
+        background: raised,
+        border: `2px solid ${edge}`,
         overflow: "hidden",
       }}
     >
@@ -84,17 +83,24 @@ function Mark({
   );
 }
 
-// The first letter of a member's name on the accent, in place of a picture.
-function Monogram({
-  name,
+// A member in a circle of the accent: their initial, or the generic member mark (a head and
+// shoulders, SVG text percent-encoded like the default icon, stroked white) when the name has no
+// letter the card can draw.
+const MEMBER_MARK =
+  "%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%228%22%20r%3D%224.5%22%2F%3E%3Cpath%20d%3D%22M4%2021a8%208%200%200%201%2016%200%22%2F%3E%3C%2Fsvg%3E";
+
+const memberMark = (colour: string) =>
+  `data:image/svg+xml,${MEMBER_MARK.replace("%23ffffff", encodeURIComponent(colour))}`;
+
+function Avatar({
+  initial,
   brand,
   size,
 }: {
-  name: string;
+  initial: string;
   brand: CardBrand;
   size: number;
 }) {
-  const letter = Array.from(text(name))[0]?.toLocaleUpperCase() ?? "";
   return (
     <div
       style={{
@@ -112,33 +118,50 @@ function Monogram({
         fontSize: size * 0.48,
       }}
     >
-      {letter}
+      {initial || (
+        // biome-ignore lint/performance/noImgElement: drawn into a PNG, never into a page
+        <img
+          src={memberMark(brand.onAccent)}
+          alt=""
+          width={size * 0.56}
+          height={size * 0.56}
+        />
+      )}
     </div>
   );
 }
 
-function SiteLine({ brand, icon }: { brand: CardBrand; icon: string | null }) {
+function SiteLine({
+  site,
+  brand,
+  icon,
+}: {
+  site: string;
+  brand: CardBrand;
+  icon: string | null;
+}) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-      <Mark brand={brand} icon={icon} size={60} />
-      <div
-        style={{
-          display: "flex",
-          fontFamily: "Inter",
-          fontWeight: 600,
-          fontSize: 30,
-          color: INK,
-        }}
-      >
-        {clampText(text(brand.name), 40)}
-      </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
+      <Mark brand={brand} icon={icon} size={64} />
+      {site !== "" && (
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Inter",
+            fontWeight: 600,
+            fontSize: 34,
+            color: ink,
+          }}
+        >
+          {site}
+        </div>
+      )}
     </div>
   );
 }
 
-// The headline in what the fonts draw; the site's name when nothing of it is left.
-function Title({ value, brand }: { value: string; brand: CardBrand }) {
-  const layout = titleLayout(text(value) || text(brand.name));
+function Title({ value }: { value: string }) {
+  const layout = titleLayout(value);
   return (
     <div
       style={{
@@ -148,7 +171,7 @@ function Title({ value, brand }: { value: string; brand: CardBrand }) {
         fontSize: layout.fontSize,
         lineHeight: 1.12,
         letterSpacing: "-0.02em",
-        color: INK,
+        color: ink,
         lineClamp: layout.lines,
       }}
     >
@@ -158,22 +181,21 @@ function Title({ value, brand }: { value: string; brand: CardBrand }) {
 }
 
 function Description({ value }: { value: string }) {
-  const shown = clampText(text(value), DESCRIPTION_MAX);
-  if (!shown) return null;
+  if (!value) return null;
   return (
     <div
       style={{
         display: "block",
-        marginTop: 24,
+        marginTop: 26,
         fontFamily: "Inter",
         fontWeight: 400,
-        fontSize: 32,
+        fontSize: 34,
         lineHeight: 1.35,
-        color: MUTED,
+        color: muted,
         lineClamp: 2,
       }}
     >
-      {shown}
+      {value}
     </div>
   );
 }
@@ -186,25 +208,44 @@ function Chip({ label, brand }: { label: string; brand: CardBrand }) {
         display: "flex",
         alignItems: "center",
         gap: 14,
-        padding: "12px 22px",
+        padding: "12px 24px",
         borderRadius: 999,
-        background: RAISED,
-        border: `2px solid ${EDGE}`,
+        background: raised,
+        border: `2px solid ${edge}`,
         fontFamily: "Inter",
         fontWeight: 600,
-        fontSize: 28,
-        color: INK,
+        fontSize: SMALL,
+        color: ink,
       }}
     >
       <div
         style={{
-          width: 14,
-          height: 14,
-          borderRadius: 7,
+          width: 16,
+          height: 16,
+          borderRadius: 8,
           background: brand.accent,
         }}
       />
       {label}
+    </div>
+  );
+}
+
+function Person({ person, brand }: { person: CardPerson; brand: CardBrand }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        fontFamily: "Inter",
+        fontWeight: 600,
+        fontSize: SMALL,
+        color: ink,
+      }}
+    >
+      <Avatar initial={person.initial} brand={brand} size={56} />
+      <div style={{ display: "flex" }}>{person.name}</div>
     </div>
   );
 }
@@ -217,8 +258,8 @@ function Frame({ brand, children }: { brand: CardBrand; children: ReactNode }) {
         flexDirection: "column",
         width: "100%",
         height: "100%",
-        background: SURFACE,
-        border: `2px solid ${EDGE}`,
+        background: surface,
+        border: `2px solid ${edge}`,
       }}
     >
       <div style={{ display: "flex", height: 12, background: brand.accent }} />
@@ -236,7 +277,9 @@ function Frame({ brand, children }: { brand: CardBrand; children: ReactNode }) {
   );
 }
 
-function Body({ children }: { children: ReactNode }) {
+// The middle of the card, between the site's line and the foot (or the bottom edge). `lower`
+// moves it down a little where no foot balances the site's line.
+function Body({ children, lower }: { children: ReactNode; lower?: boolean }) {
   return (
     <div
       style={{
@@ -244,7 +287,7 @@ function Body({ children }: { children: ReactNode }) {
         flexDirection: "column",
         justifyContent: "center",
         flexGrow: 1,
-        paddingTop: 8,
+        paddingTop: lower ? 56 : 8,
         paddingBottom: 8,
       }}
     >
@@ -253,160 +296,78 @@ function Body({ children }: { children: ReactNode }) {
   );
 }
 
-function Footer({ children }: { children: ReactNode }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 32,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function Person({ name, brand }: { name: string; brand: CardBrand }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        fontFamily: "Inter",
-        fontWeight: 600,
-        fontSize: 28,
-        color: MUTED,
-      }}
-    >
-      <Monogram name={name} brand={brand} size={48} />
-      {clampText(text(name), 28)}
-    </div>
-  );
-}
-
-function ThreadCard({
-  content,
+function Card({
+  plan,
   brand,
   icon,
 }: {
-  content: Extract<CardContent, { kind: "threads" }>;
+  plan: CardPlan;
   brand: CardBrand;
   icon: string | null;
 }) {
-  const forum = clampText(text(content.forum), 36);
-  return (
-    <Frame brand={brand}>
-      <SiteLine brand={brand} icon={icon} />
-      <Body>
-        <Title value={content.title} brand={brand} />
-      </Body>
-      <Footer>
-        {forum ? <Chip label={forum} brand={brand} /> : <div />}
-        <Person name={content.author} brand={brand} />
-      </Footer>
-    </Frame>
-  );
-}
-
-function ForumCard({
-  content,
-  brand,
-  icon,
-}: {
-  content: Extract<CardContent, { kind: "forums" }>;
-  brand: CardBrand;
-  icon: string | null;
-}) {
-  const parents = clampText(
-    content.parents.map(text).filter(Boolean).join(" / "),
-    48,
-  );
-  return (
-    <Frame brand={brand}>
-      <SiteLine brand={brand} icon={icon} />
-      <Body>
-        <Title value={content.title} brand={brand} />
-        <Description value={content.description} />
-      </Body>
-      <Footer>
-        {parents ? <Chip label={parents} brand={brand} /> : <div />}
-      </Footer>
-    </Frame>
-  );
-}
-
-function MemberCard({
-  content,
-  brand,
-  icon,
-}: {
-  content: Extract<CardContent, { kind: "members" }>;
-  brand: CardBrand;
-  icon: string | null;
-}) {
-  return (
-    <Frame brand={brand}>
-      <SiteLine brand={brand} icon={icon} />
-      <Body>
-        <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
-          <Monogram name={content.title} brand={brand} size={152} />
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              flexShrink: 1,
-              minWidth: 0,
-            }}
-          >
-            <Title value={content.title} brand={brand} />
-            <Description value={content.description} />
-          </div>
-        </div>
-      </Body>
-    </Frame>
-  );
-}
-
-function SiteCard({
-  content,
-  brand,
-  icon,
-}: {
-  content: Extract<CardContent, { kind: "site" }>;
-  brand: CardBrand;
-  icon: string | null;
-}) {
-  return (
-    <Frame brand={brand}>
-      <Body>
-        <Mark brand={brand} icon={icon} size={128} />
-        <div style={{ display: "flex", height: 44 }} />
-        <Title value={content.title} brand={brand} />
-        <Description value={content.description} />
-      </Body>
-    </Frame>
-  );
-}
-
-function Card(props: {
-  content: CardContent;
-  brand: CardBrand;
-  icon: string | null;
-}) {
-  const { content, brand, icon } = props;
-  switch (content.kind) {
-    case "threads":
-      return <ThreadCard content={content} brand={brand} icon={icon} />;
-    case "forums":
-      return <ForumCard content={content} brand={brand} icon={icon} />;
-    case "members":
-      return <MemberCard content={content} brand={brand} icon={icon} />;
-    case "site":
-      return <SiteCard content={content} brand={brand} icon={icon} />;
+  if (plan.layout === "site") {
+    return (
+      <Frame brand={brand}>
+        <Body>
+          <Mark brand={brand} icon={icon} size={136} />
+          {plan.site !== "" && (
+            <div style={{ display: "flex", marginTop: 44 }}>
+              <Title value={plan.site} />
+            </div>
+          )}
+          <Description value={plan.description} />
+        </Body>
+      </Frame>
+    );
   }
+  if (plan.layout === "member") {
+    const { member } = plan;
+    return (
+      <Frame brand={brand}>
+        <SiteLine site={plan.site} brand={brand} icon={icon} />
+        <Body lower>
+          <div style={{ display: "flex", alignItems: "center", gap: 48 }}>
+            <Avatar initial={member.initial} brand={brand} size={184} />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                flexShrink: 1,
+                minWidth: 0,
+              }}
+            >
+              {member.name !== "" && <Title value={member.name} />}
+              <Description value={plan.description} />
+            </div>
+          </div>
+        </Body>
+      </Frame>
+    );
+  }
+  return (
+    <Frame brand={brand}>
+      <SiteLine site={plan.site} brand={brand} icon={icon} />
+      <Body>
+        <Title value={plan.headline} />
+        <Description value={plan.description} />
+      </Body>
+      {(plan.chip !== "" || plan.author !== null) && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 32,
+          }}
+        >
+          {plan.chip ? <Chip label={plan.chip} brand={brand} /> : <div />}
+          {plan.author !== null && (
+            <Person person={plan.author} brand={brand} />
+          )}
+        </div>
+      )}
+    </Frame>
+  );
 }
 
 // The card as a PNG. `icon` is the site's icon as a data URL, or null for the drawn mark.
@@ -416,7 +377,7 @@ export async function drawCard(
   icon: string | null,
 ): Promise<ArrayBuffer> {
   const response = new ImageResponse(
-    <Card content={content} brand={brand} icon={icon} />,
+    <Card plan={planCard(content, brand, covers)} brand={brand} icon={icon} />,
     { ...CARD_SIZE, fonts: FONTS },
   );
   return response.arrayBuffer();
