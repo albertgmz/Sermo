@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { use } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 import { ScreenFrame } from "./screen-frame";
@@ -48,4 +49,21 @@ test("without a trail it is the same page header, with no way up", () => {
   expect(html).not.toContain("<nav");
   expect(html).not.toContain("Back to");
   expect(html).toContain("The list");
+});
+
+test("the row of links between sibling pages shows while the content still loads", () => {
+  const Waiting = () => use(new Promise<never>(() => {}));
+  const html = render(
+    <ScreenFrame
+      heading="Anti-spam"
+      nav={<nav aria-label="Settings groups">The groups</nav>}
+      label="Loading"
+      fallback={<p>Waiting</p>}
+    >
+      <Waiting />
+    </ScreenFrame>,
+  );
+  expect(html).toContain('<nav aria-label="Settings groups">The groups</nav>');
+  expect(html).toContain("Waiting");
+  expect(html.indexOf("The groups")).toBeLessThan(html.indexOf("Waiting"));
 });

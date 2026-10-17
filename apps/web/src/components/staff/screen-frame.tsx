@@ -28,19 +28,22 @@ export function StreamedPanel({
 
 // ScreenFrame: the frame of every page of the panel: the `PageHeader` at once, the content
 // streaming in below it. Takes the props of `StreamedPanel` and the header's: `heading` (the
-// title), optional `subtitle`, `trail` (`staffTrail(path)`) and `actions`. A page's `loading.tsx`
+// title), optional `subtitle`, `trail` (`staffTrail(path)`) and `actions`; `nav` is an optional
+// row drawn at once above the content (the links between sibling pages). A page's `loading.tsx`
 // uses `LoadingPage` (`(staff)/skeletons.tsx`), which holds the trail's row.
 export function ScreenFrame({
   heading,
   subtitle,
   trail,
   actions,
+  nav,
   ...panel
 }: {
   heading: string;
   subtitle?: string;
   trail?: Crumb[] | Promise<Crumb[]>;
   actions?: React.ReactNode;
+  nav?: React.ReactNode;
   label: string;
   fallback: React.ReactNode;
   children: React.ReactNode;
@@ -53,7 +56,14 @@ export function ScreenFrame({
         description={subtitle}
         actions={actions}
       />
-      <StreamedPanel {...panel} />
+      {nav ? (
+        <div className="space-y-4">
+          {nav}
+          <StreamedPanel {...panel} />
+        </div>
+      ) : (
+        <StreamedPanel {...panel} />
+      )}
     </div>
   );
 }

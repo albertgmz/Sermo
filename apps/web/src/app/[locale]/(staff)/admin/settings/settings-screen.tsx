@@ -79,7 +79,8 @@ export function SettingsGroups({ current }: { current: Screen | "identity" }) {
   );
 }
 
-// The frame of a settings screen: the header at once, then the form once the settings are read.
+// The frame of a settings screen: the header and the switcher at once, then the form once the
+// settings are read.
 export function SettingsScreen({
   screen,
   searchParams,
@@ -99,10 +100,10 @@ export function SettingsScreen({
       heading={t("heading")}
       subtitle={t("subtitle")}
       actions={actions}
+      nav={screen !== "warnings" && <SettingsGroups current={screen} />}
       label={loading("label")}
       fallback={<FormSkeleton />}
     >
-      {screen !== "warnings" && <SettingsGroups current={screen} />}
       <SettingsNotice searchParams={searchParams} />
       {children}
     </ScreenFrame>

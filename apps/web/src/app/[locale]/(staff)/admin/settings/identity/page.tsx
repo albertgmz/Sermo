@@ -21,10 +21,10 @@ export default function IdentityPage({
       trail={staffTrail("/admin/settings/identity")}
       heading={t("heading")}
       subtitle={t("subtitle")}
+      nav={<SettingsGroups current="identity" />}
       label={t("loading")}
       fallback={<FormSkeleton rows={3} />}
     >
-      <SettingsGroups current="identity" />
       <SettingsNotice searchParams={searchParams} />
       <IdentityForm />
     </ScreenFrame>
