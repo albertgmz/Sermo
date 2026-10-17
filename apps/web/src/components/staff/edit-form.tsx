@@ -29,7 +29,9 @@
 //
 // Advanced: a closed card of options most edits never touch (`label` defaults to "Advanced
 // options"). It opens by itself whenever a save comes back with an error on one of `fields` (the
-// names of the controls inside). Its fields are sent whether it is open or not; keep `required` controls out of it.
+// names of the controls inside), and when the browser stops a save on a control inside it (a
+// `required` one left empty), so the browser can point at it. Its fields are sent whether it is
+// open or not.
 
 import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -188,6 +190,9 @@ export function Advanced({
     <details
       ref={card}
       open={failed || undefined}
+      onInvalidCapture={(event) => {
+        event.currentTarget.open = true;
+      }}
       className="group min-w-0 rounded-lg border bg-card"
     >
       <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-lg px-4 text-sm font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
