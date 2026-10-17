@@ -60,7 +60,12 @@ async function page(promotions: unknown[], mayOpenLog: boolean) {
       Response.json({ items: [groupBody({ id: 7, title: "Writers" })] }),
   });
   const stream = await renderToReadableStream(
-    withIntl(await PromotionList({ searchParams: Promise.resolve({}) })),
+    withIntl(
+      await PromotionList({
+        searchParams: Promise.resolve({}),
+        addAction: <a href="/admin/promotions/new">Add the page's action</a>,
+      }),
+    ),
   );
   await stream.allReady;
   return new Response(stream).text();
@@ -77,9 +82,11 @@ test("a promotion's row shows its rule and the groups it adds, and leads to its 
   expect(html).toContain("Open the promotion history");
 });
 
-test("with no promotions the list offers the first one", async () => {
+test("with no promotions the list offers the page's own add button", async () => {
   const html = await page([], false);
   expect(html).toContain("There are no promotions yet.");
-  expect(html).toContain('href="/admin/promotions/new"');
+  expect(html).toContain(
+    '<a href="/admin/promotions/new">Add the page&#x27;s action</a>',
+  );
   expect(html).not.toContain("Open the promotion history");
 });

@@ -16,16 +16,17 @@ export default function PromotionsPage({
   searchParams,
 }: PageProps<"/[locale]/admin/promotions">) {
   const t = useTranslations("adminGroups.promotions");
+  const add = <AddLink href="/admin/promotions/new">{t("new")}</AddLink>;
   return (
     <ScreenFrame
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
       trail={staffTrail("/admin/promotions")}
-      actions={<AddLink href="/admin/promotions/new">{t("new")}</AddLink>}
+      actions={add}
       label={t("loading")}
       fallback={<ListSkeleton />}
     >
-      <PromotionList searchParams={searchParams} />
+      <PromotionList searchParams={searchParams} addAction={add} />
     </ScreenFrame>
   );
 }

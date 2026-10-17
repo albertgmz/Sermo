@@ -14,8 +14,10 @@ import { runPromotions } from "./actions";
 // Every promotion rule, each leading to its edit page, and the control to run them now.
 export async function PromotionList({
   searchParams,
+  addAction,
 }: {
   searchParams: Promise<{ notice?: string | string[] }>;
+  addAction: React.ReactNode;
 }) {
   const [t, viewer, { items }, { items: criteria }, groups] = await Promise.all(
     [
@@ -39,14 +41,7 @@ export async function PromotionList({
         label={t("heading")}
         empty={{
           title: t("empty"),
-          action: (
-            <Link
-              href="/admin/promotions/new"
-              className="inline-flex min-h-10 items-center text-sm text-primary-ink underline-offset-4 hover:underline"
-            >
-              {t("new")}
-            </Link>
-          ),
+          action: addAction,
         }}
         items={items.map((promotion) => ({
           id: promotion.id,
