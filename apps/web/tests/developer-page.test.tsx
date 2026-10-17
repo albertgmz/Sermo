@@ -3,21 +3,21 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { IntlProvider } from "use-intl";
-import { DeveloperIntro } from "../src/app/[locale]/(main)/developer/intro";
+import { DeveloperIntro } from "../src/app/[locale]/(developer)/developer/intro";
 import {
   forBrowser,
   withJsonType,
-} from "../src/app/[locale]/(main)/developer/prepare-spec";
+} from "../src/app/[locale]/(developer)/developer/prepare-spec";
 import {
   followSiteTheme,
   releaseSiteTheme,
-} from "../src/app/[locale]/(main)/developer/site-theme";
+} from "../src/app/[locale]/(developer)/developer/site-theme";
 import type { Locale } from "../src/i18n/locales";
 import { messagesFor } from "../src/i18n/messages";
 import { LOCALE_DIRS } from "./locales";
 
 const ROOT = join(import.meta.dir, "..");
-const PAGE_DIR = join(ROOT, "src/app/[locale]/(main)/developer");
+const PAGE_DIR = join(ROOT, "src/app/[locale]/(developer)/developer");
 const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 
 function files(dir: string): string[] {
@@ -67,7 +67,7 @@ test("the two languages do not share the intro's words", async () => {
 });
 
 test("the page is public and open to search engines, with its own title and description", () => {
-  const page = read("src/app/[locale]/(main)/developer/page.tsx");
+  const page = read("src/app/[locale]/(developer)/developer/page.tsx");
   expect(page).not.toContain("NOINDEX");
   expect(page).not.toContain("robots");
   expect(page).toContain("metaTitle");
@@ -96,12 +96,12 @@ test("the reference library is asked for with a dynamic import and nowhere else"
     expect(rest, file).not.toContain("swagger-ui-dist");
   }
   expect(holders).toEqual([
-    "src/app/[locale]/(main)/developer/api-reference.tsx",
+    "src/app/[locale]/(developer)/developer/api-reference.tsx",
   ]);
   // Its stylesheet is a side-effect import of the same file, so it is the page's own.
-  expect(read("src/app/[locale]/(main)/developer/api-reference.tsx")).toContain(
-    'import "swagger-ui-dist/swagger-ui.css"',
-  );
+  expect(
+    read("src/app/[locale]/(developer)/developer/api-reference.tsx"),
+  ).toContain('import "swagger-ui-dist/swagger-ui.css"');
 });
 
 test("the page names no other address in its scripts, styles or configuration", () => {
@@ -118,7 +118,9 @@ test("the page names no other address in its scripts, styles or configuration", 
     expect(code, name).not.toMatch(/@import\s+url\(/);
     expect(code, name).not.toMatch(/<(?:script|link)\b/);
   }
-  const reference = read("src/app/[locale]/(main)/developer/api-reference.tsx");
+  const reference = read(
+    "src/app/[locale]/(developer)/developer/api-reference.tsx",
+  );
   // The library's own default asks swagger.io to validate the document.
   expect(reference).toContain("validatorUrl: null");
   // The specification is the site's own, and nothing is kept by the page.
@@ -139,13 +141,13 @@ test("the page has a budget group of its own, ahead of the general one", () => {
   const { budgets } = JSON.parse(read("js-budgets.json")) as {
     budgets: { name: string; match: string }[];
   };
-  const route = "/[locale]/(main)/developer";
+  const route = "/[locale]/(developer)/developer";
   const first = budgets.find((budget) => new RegExp(budget.match).test(route));
   expect(first?.name).toBe("developer");
   // The group does not catch anything else.
   for (const other of [
-    "/[locale]/(main)/developers",
-    "/[locale]/(main)/developer/x",
+    "/[locale]/(developer)/developers",
+    "/[locale]/(developer)/developer/x",
     "/[locale]/(main)/search",
   ]) {
     expect(new RegExp(first?.match ?? "").test(other), other).toBe(false);
@@ -426,7 +428,9 @@ test("the library's dark look follows the site's theme and is gone when the page
 });
 
 test("the component follows the theme through the pure helpers", () => {
-  const reference = read("src/app/[locale]/(main)/developer/api-reference.tsx");
+  const reference = read(
+    "src/app/[locale]/(developer)/developer/api-reference.tsx",
+  );
   expect(reference).toContain("followSiteTheme(root)");
   expect(reference).toContain("releaseSiteTheme(root)");
 });

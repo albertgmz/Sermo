@@ -4408,10 +4408,12 @@ restore from the namespace itself, and `account/profile-permissions`, `account/p
 `account/security/delete-account` tests leave mocks that break staff suites run after them.
 
 ### Full-width staff panel and developer page  The staff panel and `/developer` drop the site's
-content width: the panel's frame and the developer page's layout set `--container-width: none`, so
-the `Container` inside them fills the window (with its usual side padding) at any size, and the
-narrow-page setting no longer applies to them. The forum keeps 1420px (1100px when narrowed): long
-lines of posts read better capped, while tables, forms with a side navigation and the API reference
-use the room. On `/developer` the whole forum layout widens with the page, header, banners and
-footer included, so they line up with its text (a `page-full-width` mark on the page's layout and
-one rule in `globals.css`); the staff frame sets the variable itself.
+content width: their frames set `--container-width: none`, so the `Container` inside them fills
+the window (with its usual side padding) at any size, and the narrow-page setting does not apply to
+them. The forum keeps 1420px (1100px when narrowed): long lines of posts read better capped, while
+tables, forms with a side navigation and the API reference use the room. `/developer` is a section
+apart, like the panel, in its own `(developer)` route group: a slim top bar (logo back to the site,
+"Developers", the member's menu or a guest's Log in back to the page) and no forum navigation, phone
+bar or footer (it keeps the analytics tag, being a public page, but not the terms gate: reading
+the reference needs no acceptance). Its introduction puts its three sections side by side from `xl`, so the text spreads
+across the window like the reference.

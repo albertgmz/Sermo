@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { PageLayout } from "@/components/layout/page-layout";
 import { ApiReference } from "./api-reference";
 import { DeveloperIntro } from "./intro";
 
@@ -10,15 +9,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle"), description: t("metaDescription") };
 }
 
-// The page fills the window, header and footer included, to give the reference room
-// (`page-full-width`, globals.css).
+// The page fills the window in its own frame (../layout.tsx), to give the reference room.
 export default async function DeveloperPage() {
   const [t, reference] = await Promise.all([
     getTranslations("developer.page"),
     getTranslations("developer.apiReference"),
   ]);
   return (
-    <PageLayout className="page-full-width md:pt-8">
+    <>
       <h1 className="mb-4 text-3xl font-bold tracking-tight text-balance">
         {t("title")}
       </h1>
@@ -31,6 +29,6 @@ export default async function DeveloperPage() {
           retry: reference("retry"),
         }}
       />
-    </PageLayout>
+    </>
   );
 }

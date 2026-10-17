@@ -1,4 +1,7 @@
 {
+  "frame": {
+    "label": "Desarrolladores"
+  },
   "page": {
     "metaTitle": "Referencia de la API",
     "metaDescription": "Consulta todas las operaciones de la API REST del foro, lo que piden y lo que responden, y pruébalas desde la página.",

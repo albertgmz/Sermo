@@ -1,4 +1,7 @@
 {
+  "frame": {
+    "label": "Developers"
+  },
   "page": {
     "metaTitle": "API reference",
     "metaDescription": "Browse every operation of the forum's REST API, see what it takes and what it answers, and try it from the page.",
