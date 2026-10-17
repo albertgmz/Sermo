@@ -33,7 +33,7 @@ afterAll(() => {
   mock.module("next-intl/server", () => intl);
 });
 
-function backend(memberCount: number | null) {
+function backend(memberCount: number | null, mayOpenPermissions = false) {
   const asked: string[] = [];
   globalThis.fetch = (async (input: string) => {
     asked.push(input);
@@ -42,7 +42,10 @@ function backend(memberCount: number | null) {
       return Response.json({ items: [groupBody({ memberCount })] });
     if (url.pathname === "/api/v1/appearance/colors")
       return Response.json({ items: [] });
-    return Response.json(viewerBody(false));
+    return Response.json({
+      ...viewerBody(false),
+      resolvedPermissions: { "admin.permissions": mayOpenPermissions },
+    });
   }) as unknown as typeof fetch;
   return asked;
 }
@@ -78,4 +81,13 @@ test("the pickers and filters list the groups without counting their members", a
   const groupRequests = asked.filter((url) => url.includes("/api/v1/groups"));
   expect(groupRequests.length).toBeGreaterThan(0);
   for (const url of groupRequests) expect(url).not.toContain("counts");
+});
+
+test("each group's row leads to its edit page, and to its permissions when the viewer may open them", async () => {
+  backend(4, true);
+  const html = await page();
+  expect(html).toContain('href="/admin/groups/7"');
+  expect(html).toContain('href="/admin/permissions/groups/7"');
+  backend(4, false);
+  expect(await page()).not.toContain("/admin/permissions/groups/7");
 });

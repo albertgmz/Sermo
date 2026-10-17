@@ -4004,3 +4004,19 @@ the active state a checkbox in its form (the badge only shows it). Owner gap: an
 a set-active action for the appearance screens would allow the Sort page and the row switch the
 other lists have. Known limits: the screens have not been looked at in a browser or on a phone; a
 frame drawn in a row is cropped to the 40 px picture box when its placement overhangs it.
+
+### Groups, promotions and staff on the shared patterns (item 4)  The groups list, the promotions list
+and the two staff lists (moderators, administrators) are `ItemList`s under a `PageHeader` with its
+trail; the group and promotion forms are `EditForm`s (cards: general, appearance or rule, and a last
+one for the administrator's password). Nothing was removed: each row keeps its links (edit, the
+group's permissions when the viewer may open them, the member's permissions and, for moderators, one
+link per forum), the promotions screen keeps "Run now" and the link to the history, and the group
+and promotion pages keep the delete step with the password. The edit pages stay at `/admin/groups/<id>`
+and `/admin/promotions/<id>`. "New group" and "New promotion" open the list's own address with `?new=1`
+(a page of their own with a header and a trail ending in the list): the registry holds no screen for
+a `/new` address and the registry test refuses a page without one, so the address is the list's;
+it moves to `/new` when a screen is added to the registry. Neither list has a Sort page (no order
+action exists for them) nor an active switch for promotions (the flag is saved only with the whole
+rule, so it stays a badge on the row and a checkbox in the form). The password row is a local
+`ConfirmField` (the form-field layout of `EditForm`, which `ConfirmPassword` does not have yet); the
+rule row of a promotion is still `RuleField`, so its label column is narrower than its neighbours'.

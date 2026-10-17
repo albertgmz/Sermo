@@ -1,20 +1,16 @@
 import { groupsList, paletteColorsList } from "@sermo/core/contracts";
-import Link from "next/link";
+import { ShieldCheck } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { isHexColor } from "@/lib/css-color";
 import { paletteName } from "@/lib/palette-name";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
-import { cn } from "@/lib/utils";
 import { hrefFor } from "../../registry";
-import { GroupForm } from "./group-form";
 
-const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
-
-// Every group in the order the backend returns them, then the form for a new one.
+// Every group in the order the backend returns them, each leading to its edit page.
 export async function GroupList({
   searchParams,
 }: {
@@ -36,112 +32,106 @@ export async function GroupList({
         searchParams={searchParams}
         shown={["deleted"]}
       />
-      <section className="overflow-hidden rounded-lg border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
-          <h2 className="text-sm font-semibold">{t("heading")}</h2>
-          <a href="#new" className={link}>
-            {t("new")}
-          </a>
-        </div>
-        <ul aria-label={t("heading")} className="divide-y">
-          {items.map((group) => {
-            const colour = group.nameColorId
-              ? colourOf.get(group.nameColorId)
-              : undefined;
-            return (
-              <li
-                key={group.id}
-                className="flex flex-col gap-3 p-4 md:flex-row md:items-center"
+      <ItemList
+        label={t("heading")}
+        empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
+        items={items.map((group) => {
+          const colour = group.nameColorId
+            ? colourOf.get(group.nameColorId)
+            : undefined;
+          return {
+            id: group.id,
+            title: (
+              <span
+                style={
+                  colour && isHexColor(colour.color)
+                    ? { color: colour.color }
+                    : undefined
+                }
               >
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <p className="flex flex-wrap items-center gap-2">
-                    <span
-                      className="text-sm font-semibold [overflow-wrap:anywhere]"
-                      style={
-                        colour && isHexColor(colour.color)
-                          ? { color: colour.color }
-                          : undefined
-                      }
-                    >
-                      {group.title}
-                    </span>
-                    {group.builtin && (
-                      <Badge variant="secondary">{t("builtin")}</Badge>
-                    )}
-                    {group.isStaff && (
-                      <Badge variant="success">{t("staff")}</Badge>
-                    )}
-                  </p>
-                  <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <div className="flex gap-1">
-                      <dt>{t("rank")}</dt>
-                      <dd className="font-medium text-foreground">
-                        {group.rank}
-                      </dd>
-                    </div>
-                    {group.memberCount !== null && (
-                      <div className="flex gap-1">
-                        <dt>{t("members")}</dt>
-                        <dd className="font-medium text-foreground">
-                          {group.memberCount}
-                        </dd>
-                      </div>
-                    )}
-                    <div className="flex gap-1">
-                      <dt>{t("nameColour")}</dt>
-                      <dd className="flex items-center gap-1 font-medium text-foreground">
-                        {colour ? (
-                          <>
-                            <span
-                              aria-hidden="true"
-                              className="size-3 rounded-full border"
-                              style={
-                                isHexColor(colour.color)
-                                  ? { backgroundColor: colour.color }
-                                  : undefined
-                              }
-                            />
-                            {paletteName(names, "nameColors", colour.name)}
-                          </>
-                        ) : group.nameColorId ? (
-                          t("colourHidden")
-                        ) : (
-                          t("none")
-                        )}
-                      </dd>
-                    </div>
-                    <div className="flex gap-1">
-                      <dt>{t("badge")}</dt>
-                      <dd className="font-medium text-foreground">
-                        {group.badge || t("none")}
-                      </dd>
-                    </div>
-                    {group.userTitle && (
-                      <div className="flex gap-1">
-                        <dt>{t("userTitle")}</dt>
-                        <dd className="font-medium text-foreground">
-                          {group.userTitle}
-                        </dd>
-                      </div>
-                    )}
-                  </dl>
+                {group.title}
+              </span>
+            ),
+            href: `/admin/groups/${group.id}`,
+            badges: (
+              <>
+                {group.builtin && (
+                  <Badge variant="secondary">{t("builtin")}</Badge>
+                )}
+                {group.isStaff && <Badge variant="success">{t("staff")}</Badge>}
+              </>
+            ),
+            description: (
+              <dl className="flex flex-wrap gap-x-4 gap-y-1">
+                <div className="flex gap-1">
+                  <dt>{t("rank")}</dt>
+                  <dd className="font-medium text-foreground">{group.rank}</dd>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link href={`/admin/groups/${group.id}`} className={link}>
-                    {t("edit")}
-                  </Link>
-                  {permissions && (
-                    <Link href={`${permissions}/${group.id}`} className={link}>
-                      {t("permissions")}
-                    </Link>
-                  )}
+                {group.memberCount !== null && (
+                  <div className="flex gap-1">
+                    <dt>{t("members")}</dt>
+                    <dd className="font-medium text-foreground">
+                      {group.memberCount}
+                    </dd>
+                  </div>
+                )}
+                <div className="flex gap-1">
+                  <dt>{t("nameColour")}</dt>
+                  <dd className="flex items-center gap-1 font-medium text-foreground">
+                    {colour ? (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          className="size-3 rounded-full border"
+                          style={
+                            isHexColor(colour.color)
+                              ? { backgroundColor: colour.color }
+                              : undefined
+                          }
+                        />
+                        {paletteName(names, "nameColors", colour.name)}
+                      </>
+                    ) : group.nameColorId ? (
+                      t("colourHidden")
+                    ) : (
+                      t("none")
+                    )}
+                  </dd>
                 </div>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-      <GroupForm />
+                <div className="flex gap-1">
+                  <dt>{t("badge")}</dt>
+                  <dd className="font-medium text-foreground">
+                    {group.badge || t("none")}
+                  </dd>
+                </div>
+                {group.userTitle && (
+                  <div className="flex gap-1">
+                    <dt>{t("userTitle")}</dt>
+                    <dd className="font-medium text-foreground">
+                      {group.userTitle}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            ),
+            actions: (
+              <>
+                <RowLink
+                  href={`/admin/groups/${group.id}`}
+                  label={t("edit", { title: group.title })}
+                />
+                {permissions && (
+                  <RowLink
+                    href={`${permissions}/${group.id}`}
+                    label={t("permissions", { title: group.title })}
+                    icon={<ShieldCheck />}
+                  />
+                )}
+              </>
+            ),
+          };
+        })}
+      />
     </>
   );
 }

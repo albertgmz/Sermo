@@ -1,9 +1,11 @@
 import { groupsGet } from "@sermo/core/contracts";
+import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { Notice } from "@/components/staff/notice";
 import { ScreenFrame } from "@/components/staff/screen-frame";
@@ -12,8 +14,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
-import { cn } from "@/lib/utils";
 import { hrefFor } from "../../../registry";
+import { staffTrail } from "../../../trail";
 import { deleteGroup } from "../actions";
 import { GroupForm } from "../group-form";
 import { FormSkeleton } from "../skeletons";
@@ -23,21 +25,44 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
+type Params = PageProps<"/[locale]/admin/groups/[id]">["params"];
+
+// The header's action: the permissions of this group, for a viewer who may open them.
+async function PermissionsAction({ params }: { params: Params }) {
+  const groupId = parseId((await params).id);
+  const [t, viewer] = await Promise.all([
+    getTranslations("adminGroups.edit"),
+    getViewer(),
+  ]);
+  const permissions = hrefFor(viewer, "permissionsGroups");
+  if (groupId === null || !permissions) return null;
+  return (
+    <Link
+      href={`${permissions}/${groupId}`}
+      className={buttonVariants({
+        variant: "outline",
+        className: "min-h-10 px-4",
+      })}
+    >
+      <ShieldCheck aria-hidden="true" />
+      {t("permissions")}
+    </Link>
+  );
+}
+
 async function Group({
   params,
   searchParams,
 }: {
-  params: PageProps<"/[locale]/admin/groups/[id]">["params"];
+  params: Params;
   searchParams: PageProps<"/[locale]/admin/groups/[id]">["searchParams"];
 }) {
   const groupId = parseId((await params).id);
   if (groupId === null) notFound();
-  const [t, viewer, group] = await Promise.all([
+  const [t, group] = await Promise.all([
     getTranslations("adminGroups.edit"),
-    getViewer(),
     read(groupsGet, { groupId }),
   ]);
-  const permissions = hrefFor(viewer, "permissionsGroups");
   return (
     <>
       <Notice
@@ -50,17 +75,6 @@ async function Group({
           {group.title}
         </h2>
         {group.builtin && <Badge variant="secondary">{t("builtin")}</Badge>}
-        {permissions && (
-          <Link
-            href={`${permissions}/${group.id}`}
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "min-h-10 px-4",
-            )}
-          >
-            {t("permissions")}
-          </Link>
-        )}
       </div>
       <GroupForm group={group} />
       <ConfirmStep
@@ -84,6 +98,12 @@ export default function GroupPage({
     <ScreenFrame
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
+      trail={params.then(({ id }) => staffTrail(`/admin/groups/${id}`))}
+      actions={
+        <Suspense fallback={null}>
+          <PermissionsAction params={params} />
+        </Suspense>
+      }
       label={t("loading")}
       fallback={<FormSkeleton />}
     >

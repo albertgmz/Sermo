@@ -22,9 +22,6 @@
     "kept": "Color actual (#{id})"
   },
   "form": {
-    "headingEdit": "Grupo",
-    "headingNew": "Nuevo grupo",
-    "descriptionNew": "Un grupo nuevo empieza sin entradas de permisos; defínelas después.",
     "create": "Crear grupo",
     "title": "Título",
     "description": "Descripción",
@@ -37,7 +34,10 @@
     "nameColour": "Color del nombre",
     "nameColourHelp": "Los miembros muestran su nombre con él, salvo que hayan elegido un color propio.",
     "isStaff": "Grupo del equipo",
-    "isStaffHelp": "Mostrar a los miembros de este grupo como equipo."
+    "isStaffHelp": "Mostrar a los miembros de este grupo como equipo.",
+    "sectionGeneral": "General",
+    "sectionAppearance": "Aspecto",
+    "sectionConfirm": "Confirmar con tu contraseña"
   },
   "list": {
     "metaTitle": "Grupos de usuarios",
@@ -55,8 +55,10 @@
     "none": "Ninguno",
     "badge": "Insignia",
     "userTitle": "Título",
-    "edit": "Editar",
-    "permissions": "Permisos"
+    "edit": "Editar {title}",
+    "permissions": "Permisos de {title}",
+    "emptyTitle": "No hay grupos",
+    "emptyDescription": "Añade un grupo para empezar."
   },
   "edit": {
     "metaTitle": "Grupo de usuarios",
@@ -80,7 +82,7 @@
     "inactive": "Inactiva",
     "grants": "Añade a",
     "groupNumber": "Grupo {id}",
-    "edit": "Editar",
+    "edit": "Editar {title}",
     "empty": "Todavía no hay promociones.",
     "runHeading": "Ejecutar las promociones ahora",
     "runDescription": "Evalúa a todos los miembros con todas las promociones activas. También se ejecuta una vez al día.",
@@ -91,15 +93,14 @@
     "log": "Abrir el registro de promociones"
   },
   "promotionForm": {
-    "headingEdit": "Promoción",
-    "headingNew": "Nueva promoción",
-    "descriptionNew": "Los miembros se evalúan en el siguiente barrido, o justo después de su próxima actividad relevante.",
     "create": "Crear promoción",
     "title": "Título",
     "isActive": "Activa",
     "isActiveHelp": "Evaluar a los miembros con esta promoción.",
     "groups": "Grupos añadidos",
-    "groupsHelp": "Los grupos secundarios que la promoción añade mientras se cumplen sus criterios."
+    "groupsHelp": "Los grupos secundarios que la promoción añade mientras se cumplen sus criterios.",
+    "sectionGeneral": "General",
+    "sectionRule": "Regla"
   },
   "promotionEdit": {
     "metaTitle": "Promoción de grupo",
@@ -263,7 +264,7 @@
     "heading": "Moderadores",
     "emptyTitle": "Nadie modera",
     "emptyDescription": "Ningún miembro tiene un permiso de moderación.",
-    "permissions": "Permisos",
+    "permissions": "Permisos de {name}",
     "everywhere": "En todas partes"
   },
   "administrators": {
@@ -274,7 +275,19 @@
     "heading": "Administradores",
     "emptyTitle": "No hay administradores",
     "emptyDescription": "Ningún miembro tiene un permiso de administración.",
-    "permissions": "Permisos",
+    "permissions": "Permisos de {name}",
     "holds": "Permisos de administración que tiene"
+  },
+  "new": {
+    "metaTitle": "Nuevo grupo",
+    "pageHeading": "Nuevo grupo",
+    "subtitle": "Un grupo nuevo empieza sin entradas de permisos; defínelas después.",
+    "loading": "Cargando el formulario…"
+  },
+  "promotionNew": {
+    "metaTitle": "Nueva promoción",
+    "pageHeading": "Nueva promoción",
+    "subtitle": "Los miembros se evalúan en el siguiente barrido, o justo después de su próxima actividad relevante.",
+    "loading": "Cargando el formulario…"
   }
 }

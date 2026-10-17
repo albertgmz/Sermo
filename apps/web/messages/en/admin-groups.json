@@ -22,9 +22,6 @@
     "kept": "Current colour (#{id})"
   },
   "form": {
-    "headingEdit": "Group",
-    "headingNew": "New group",
-    "descriptionNew": "A new group starts with no permission entries; set them afterwards.",
     "create": "Create group",
     "title": "Title",
     "description": "Description",
@@ -37,7 +34,10 @@
     "nameColour": "Name colour",
     "nameColourHelp": "Members show their name in it unless they chose a colour of their own.",
     "isStaff": "Staff group",
-    "isStaffHelp": "List the members of this group as staff."
+    "isStaffHelp": "List the members of this group as staff.",
+    "sectionGeneral": "General",
+    "sectionAppearance": "Appearance",
+    "sectionConfirm": "Confirm with your password"
   },
   "list": {
     "metaTitle": "User groups",
@@ -55,8 +55,10 @@
     "none": "None",
     "badge": "Badge",
     "userTitle": "Title",
-    "edit": "Edit",
-    "permissions": "Permissions"
+    "edit": "Edit {title}",
+    "permissions": "Permissions of {title}",
+    "emptyTitle": "No groups",
+    "emptyDescription": "Add a group to get started."
   },
   "edit": {
     "metaTitle": "User group",
@@ -80,7 +82,7 @@
     "inactive": "Inactive",
     "grants": "Adds to",
     "groupNumber": "Group {id}",
-    "edit": "Edit",
+    "edit": "Edit {title}",
     "empty": "There are no promotions yet.",
     "runHeading": "Run the promotions now",
     "runDescription": "Evaluates every member against every active promotion. It also runs once a day.",
@@ -91,15 +93,14 @@
     "log": "Open the promotion history"
   },
   "promotionForm": {
-    "headingEdit": "Promotion",
-    "headingNew": "New promotion",
-    "descriptionNew": "Members are evaluated by the next sweep, or right after their next relevant activity.",
     "create": "Create promotion",
     "title": "Title",
     "isActive": "Active",
     "isActiveHelp": "Evaluate members against this promotion.",
     "groups": "Groups added",
-    "groupsHelp": "The secondary groups the promotion adds while its criteria hold."
+    "groupsHelp": "The secondary groups the promotion adds while its criteria hold.",
+    "sectionGeneral": "General",
+    "sectionRule": "Rule"
   },
   "promotionEdit": {
     "metaTitle": "Group promotion",
@@ -263,7 +264,7 @@
     "heading": "Moderators",
     "emptyTitle": "Nobody moderates",
     "emptyDescription": "No member holds a moderation permission.",
-    "permissions": "Permissions",
+    "permissions": "Permissions of {name}",
     "everywhere": "Everywhere"
   },
   "administrators": {
@@ -274,7 +275,19 @@
     "heading": "Administrators",
     "emptyTitle": "No administrators",
     "emptyDescription": "No member holds an administration permission.",
-    "permissions": "Permissions",
+    "permissions": "Permissions of {name}",
     "holds": "Administration permissions held"
+  },
+  "new": {
+    "metaTitle": "New group",
+    "pageHeading": "New group",
+    "subtitle": "A new group starts with no permission entries; set them afterwards.",
+    "loading": "Loading the form…"
+  },
+  "promotionNew": {
+    "metaTitle": "New promotion",
+    "pageHeading": "New promotion",
+    "subtitle": "Members are evaluated by the next sweep, or right after their next relevant activity.",
+    "loading": "Loading the form…"
   }
 }
