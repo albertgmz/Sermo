@@ -3,23 +3,16 @@ import { isValidElement, type ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import { EditForm } from "@/components/staff/edit-form";
 import { groupBody } from "@/lib/test-bodies";
-import { translator, withIntl } from "@/lib/test-intl";
+import { withIntl } from "@/lib/test-intl";
 import { fakeBackend } from "../../groups/test-backend";
+import { installIntl } from "../intl-stand-ins";
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, set: () => {} }),
 }));
-const intl = await import("next-intl/server");
-mock.module("next-intl/server", () => ({
-  getLocale: async () => "en",
-  getTranslations: async (namespace: string) => translator(namespace, true),
-  getFormatter: async () => ({
-    dateTime: (date: Date) => date.toISOString().slice(0, 10),
-    number: (value: number) => String(value),
-  }),
-}));
+const restoreIntl = await installIntl();
 
 const { AppearanceForm } = await import("./appearance/appearance-form");
 const appearanceActions = await import("./appearance/actions");
@@ -37,9 +30,7 @@ const sanctionActions = await import("./sanctions/actions");
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
-afterAll(() => {
-  mock.module("next-intl/server", () => intl);
-});
+afterAll(restoreIntl);
 
 // The server action of every `EditForm` in an element tree (async server components are not
 // opened: the forms of these screens sit in the tree the component returns).

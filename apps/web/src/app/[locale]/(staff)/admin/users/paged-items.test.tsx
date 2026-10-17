@@ -1,14 +1,10 @@
-import { afterAll, expect, mock, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { translator, withIntl } from "@/lib/test-intl";
+import { withIntl } from "@/lib/test-intl";
+import { installIntl } from "./intl-stand-ins";
 
-const intl = await import("next-intl/server");
-mock.module("next-intl/server", () => ({
-  getTranslations: async (namespace: string) => translator(namespace),
-}));
-afterAll(() => {
-  mock.module("next-intl/server", () => intl);
-});
+const restoreIntl = await installIntl();
+afterAll(restoreIntl);
 
 const { PagedItems } = await import("./paged-items");
 

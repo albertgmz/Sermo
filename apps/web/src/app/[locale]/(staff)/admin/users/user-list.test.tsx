@@ -1,31 +1,22 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
 import { groupBody } from "@/lib/test-bodies";
-import { translator, withIntl } from "@/lib/test-intl";
+import { withIntl } from "@/lib/test-intl";
 import { fakeBackend } from "../groups/test-backend";
+import { installIntl } from "./intl-stand-ins";
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, set: () => {} }),
 }));
-const intl = await import("next-intl/server");
-mock.module("next-intl/server", () => ({
-  getLocale: async () => "en",
-  getTranslations: async (namespace: string) => translator(namespace, true),
-  getFormatter: async () => ({
-    dateTime: (date: Date) => date.toISOString().slice(0, 10),
-    number: (value: number) => String(value),
-  }),
-}));
+const restoreIntl = await installIntl();
 
 const { UserList } = await import("./user-list");
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
-afterAll(() => {
-  mock.module("next-intl/server", () => intl);
-});
+afterAll(restoreIntl);
 
 const member = (id: number, username: string, over = {}) => ({
   card: {

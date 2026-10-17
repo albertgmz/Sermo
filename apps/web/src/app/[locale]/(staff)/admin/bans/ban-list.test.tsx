@@ -1,29 +1,21 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
-import { translator, withIntl } from "@/lib/test-intl";
+import { withIntl } from "@/lib/test-intl";
 import { fakeBackend } from "../groups/test-backend";
+import { installIntl } from "../users/intl-stand-ins";
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, set: () => {} }),
 }));
-const intl = await import("next-intl/server");
-mock.module("next-intl/server", () => ({
-  getLocale: async () => "en",
-  getTranslations: async (namespace: string) => translator(namespace, true),
-  getFormatter: async () => ({
-    dateTime: (date: Date) => date.toISOString().slice(0, 10),
-  }),
-}));
+const restoreIntl = await installIntl();
 
 const { BanList } = await import("./ban-list");
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
-afterAll(() => {
-  mock.module("next-intl/server", () => intl);
-});
+afterAll(restoreIntl);
 
 const ban = (id: number, state: string, reason: string) => ({
   id,
