@@ -426,14 +426,14 @@ describe("storage quota", () => {
 });
 
 describe("serving", () => {
-  test("an attached catalog file is immutable; an avatar keeps its one hour", async () => {
+  test("attached catalog files and avatars are immutable; an unattached upload is the uploader's", async () => {
     const { ctx, storage, admin, member } = await setup();
     const bytes = await picture(80, 80);
     const frame = await storage.upload(admin, stream(bytes), "image/png", "frame");
     const avatar = await storage.upload(member, stream(bytes), "image/png", "avatar");
-    // Not attached yet: only the uploader sees it, and it is not cached.
+    // Not attached yet: only the uploader sees it, and only their browser keeps it, asking each time.
     expect(() => storage.serve(GUEST, frame.id)).toThrow(NotFoundError);
-    expect(storage.serve(admin, frame.id).headers.get("cache-control")).toBe("private, no-store");
+    expect(storage.serve(admin, frame.id).headers.get("cache-control")).toBe("private, no-cache");
     ctx.sqlite
       .prepare("UPDATE files SET visibility = 'public', attached_at = ?1 WHERE id IN (?2, ?3)")
       .run(ctx.now(), frame.id, avatar.id);
@@ -452,7 +452,7 @@ describe("serving", () => {
       "public, max-age=31536000, immutable",
     );
     expect(storage.serve(GUEST, avatar.id).headers.get("cache-control")).toBe(
-      "public, max-age=3600",
+      "public, max-age=31536000, immutable",
     );
   });
 });

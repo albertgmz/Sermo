@@ -174,7 +174,7 @@ describe("byte ranges", () => {
       const size = data.byteLength;
       const { id } = await storage.upload(owner, stream(data), "video/mp4");
       const part = async (range: string | null) => {
-        const response = storage.serve(owner, id, range);
+        const response = storage.serve(owner, id, new Headers(range === null ? {} : { range }));
         return {
           status: response.status,
           range: response.headers.get("content-range"),

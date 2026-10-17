@@ -210,6 +210,39 @@ function byteRange(
   return start > last ? "unsatisfiable" : { start, end: Math.min(end, last) };
 }
 
+/**
+ * Whether anyone may read the file, whoever asks: avatars, covers and catalog pictures with their
+ * variants. Attachments are not, even public ones: who may see a post decides who sees its files.
+ */
+function isPublicFile(row: FileRecord): boolean {
+  return row.visibility === "public" && row.purpose !== "attachment";
+}
+
+/**
+ * A public file is the same for everyone and never changes at its address: any cache keeps it a
+ * year. Any other file is the viewer's: only the browser keeps it, and asks before each use, so a
+ * deleted file or a lost permission hides it at once (the check answers 404, not 304).
+ */
+function fileCacheControl(row: FileRecord): string {
+  return isPublicFile(row) ? "public, max-age=31536000, immutable" : "private, no-cache";
+}
+
+/**
+ * Whether the client's copy is current (RFC 9110 section 13.2.2): `If-None-Match` decides when it
+ * is sent (weak comparison, `*` for any copy), else `If-Modified-Since` against `modifiedAt`
+ * (epoch ms; HTTP dates hold whole seconds).
+ */
+function notModified(request: Headers, etag: string, modifiedAt: number): boolean {
+  const ifNoneMatch = request.get("if-none-match");
+  if (ifNoneMatch !== null)
+    return ifNoneMatch
+      .split(",")
+      .map((tag) => tag.trim().replace(/^W\//, ""))
+      .some((tag) => tag === "*" || tag === etag);
+  const since = Date.parse(request.get("if-modified-since") ?? "");
+  return !Number.isNaN(since) && Math.floor(modifiedAt / 1000) * 1000 <= since;
+}
+
 async function fileHash(path: string): Promise<string> {
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(path)) hash.update(chunk);
@@ -375,11 +408,7 @@ export const operations = [
     ).all(row.id);
     return {
       id: row.id,
-      url: resolvedFileUrl(
-        ctx,
-        row.id,
-        row.visibility === "public" && row.purpose !== "attachment",
-      ),
+      url: resolvedFileUrl(ctx, row.id, isPublicFile(row)),
       byteSize: row.byte_size,
       contentType: row.content_type,
       filename: row.filename,
@@ -391,11 +420,7 @@ export const operations = [
       variants: variants.map((variant) => ({
         variant: variant.variant,
         fileId: variant.id,
-        url: resolvedFileUrl(
-          ctx,
-          variant.id,
-          row.visibility === "public" && row.purpose !== "attachment",
-        ),
+        url: resolvedFileUrl(ctx, variant.id, isPublicFile(row)),
         width: variant.width,
         height: variant.height,
       })),
@@ -663,21 +688,39 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
         return { id: fileId, url: fileUrl(fileId), visibility };
       });
     },
-    /** `range` is the request's `Range` header: players ask for parts of a file to seek. */
-    serve(actor: Actor, id: number, range?: string | null) {
+    /**
+     * `request` holds the request's headers: `Range` (players ask for parts of a file to seek),
+     * `If-None-Match` and `If-Modified-Since` (a cached copy is checked, answered 304).
+     */
+    serve(actor: Actor, id: number, request: Headers = new Headers()) {
       const row = getFileRecord(ctx, actor, id);
       if (row.driver !== driver.name) throw new ValidationError("Storage driver is unavailable.");
+      const range = request.get("range");
+      // Players and their metadata probes always send a range: only a whole-file read (a link
+      // opened or saved, a picture shown, also from the browser's cache) is a download.
+      if (row.purpose === "attachment" && row.parent_file_id === null && !range)
+        ctx.downloads.set(id, (ctx.downloads.get(id) ?? 0) + 1);
+      // The bytes of a file id never change (a replaced picture is a new upload, a new id), so its
+      // hash is a strong validator and its upload time the last modification.
+      const validators = {
+        ETag: `"${row.sha256}"`,
+        "Last-Modified": new Date(row.created_at).toUTCString(),
+        "Cache-Control": fileCacheControl(row),
+      };
+      if (notModified(request, validators.ETag, row.created_at))
+        return new Response(null, { status: 304, headers: validators });
       const part = byteRange(range, row.byte_size);
       if (part === "unsatisfiable")
         return new Response(null, {
           status: 416,
-          headers: { "Content-Range": `bytes */${row.byte_size}`, "Accept-Ranges": "bytes" },
+          headers: {
+            "Content-Range": `bytes */${row.byte_size}`,
+            "Accept-Ranges": "bytes",
+            // Never kept: a cache that stored it would answer the whole file with it.
+            "Cache-Control": "private, no-store",
+          },
         });
       const blob = driver.read(row.storage_key);
-      // Players and their metadata probes always send a range: only a whole-file read (a link
-      // opened or saved, a picture shown) is a download.
-      if (row.purpose === "attachment" && row.parent_file_id === null && !range)
-        ctx.downloads.set(id, (ctx.downloads.get(id) ?? 0) + 1);
       const inline = safeInline.has(row.content_type) || playable.has(row.content_type);
       return new Response(part ? blob.slice(part.start, part.end + 1) : blob, {
         status: part ? 206 : 200,
@@ -692,13 +735,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             row.filename,
             `file-${row.id}`,
           ),
-          "Cache-Control":
-            row.visibility === "public" && row.purpose !== "attachment"
-              ? // A replaced catalog picture gets a new file id, so what a URL serves never changes.
-                isCatalogPurpose(row.purpose)
-                ? "public, max-age=31536000, immutable"
-                : "public, max-age=3600"
-              : "private, no-store",
+          ...validators,
         },
       });
     },

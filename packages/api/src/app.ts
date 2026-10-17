@@ -382,7 +382,18 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     const fileId = Number(c.req.param("fileId"));
     if (!Number.isSafeInteger(fileId) || fileId < 1)
       return c.json(errorBody("validation", "Invalid file ID."), 400);
-    return createStorage(ctx, options.storage).serve(c.get("actor"), fileId, c.req.header("range"));
+    const response = createStorage(ctx, options.storage).serve(
+      c.get("actor"),
+      fileId,
+      c.req.raw.headers,
+    );
+    // A refreshed session cookie goes out with this answer: no shared cache may keep it.
+    if (c.get("setCookies").length)
+      response.headers.set(
+        "Cache-Control",
+        (response.headers.get("Cache-Control") ?? "").replace(/^public\b/, "private"),
+      );
+    return response;
   });
 
   for (const { route, op } of routeOperations) {
