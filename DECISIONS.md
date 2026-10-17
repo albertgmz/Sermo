@@ -4212,8 +4212,10 @@ page" while more pages follow) and `action` (a button at the end of its heading)
 filters card above an `ItemList`, for the lists the backend pages (bans, members, the member's
 economy and sanctions, reports, approvals, sign-ups, IP lookups). Paging links drop a save's
 `notice`. Header buttons: `HeaderLink`, `AddLink` (primary, plus icon) and `SortLink` (outlined,
-arrows) in `page-header.tsx`, at `min-h-10` on every page; add buttons read "Add X" and the pages
-they open "New X", in both languages; an empty list offers the page's own add button. Form rows:
+arrows) in `page-header.tsx`, at `min-h-10` on every page; a header has one primary action, so a
+second add is `AddLink secondary` (outlined, forums and warnings); add buttons read "Add X", the
+pages they open "New X" and their forms submit with "Create X", in both languages; an empty list
+offers the page's own add button. Form rows:
 `Field` (now `components/staff/field.tsx`, re-exported by the edit form, with an optional `error`)
 is the only row; `FieldRow`, `entity-list` and `entity-rows` are gone. `ConfirmPassword` draws a
 `Field`, so the account's delete confirmation shares that layout. `SortRow` (from `sort-form.tsx`)
