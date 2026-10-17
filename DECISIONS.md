@@ -4040,3 +4040,16 @@ uploaded. Thumbnails and small avatars stay the first frame, and a picture store
 takes that format's extension in its name. The account framing dialog can only make a still, so it
 now offers to send an animated picture unframed. sharp's file cache is off because libvips held GIF
 inputs open, and on Windows the upload's temp file could not be deleted.
+
+### Quote names with brackets (follow-up to items 3 and 7) A quote tag's name may now hold `[`, `]`
+and `"`. The scanner ends a double-quoted QUOTE option at a `"` that is followed by `]` (the rule
+the apostrophe form already had) instead of at the first `]` or `"`, so `[QUOTE="Aoki [x], post: 1,
+member: 2"]` reads back as a quote of post 1; before, any re-render of the stored source (an edit, a
+merge or a split) of a quote of one of the 23 imported members with a bracket in the name, 376
+posts, turned the quote into literal text. Other tags and the single-quoted and bare forms are read
+as before, because a stray `"` ... `"]` later on the line would otherwise swallow the tags in
+between. The editor's tag pattern (`TAG_SOURCE`, group 6) is kept equal to the scanner. The
+canonical-source writer builds the tag with `quoteTag`, which changes only `"]` and line breaks in a
+name (a name cannot hold them otherwise), and the post of a quote option is the last `post:` pair,
+so a name such as `Ann, post: 7` cannot name the wrong post. Reason: what Sermo writes must parse
+back to the same quote, whatever the member's name.
