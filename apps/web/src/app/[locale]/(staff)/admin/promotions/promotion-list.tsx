@@ -41,7 +41,7 @@ export async function PromotionList({
           title: t("empty"),
           action: (
             <Link
-              href="/admin/promotions?new=1"
+              href="/admin/promotions/new"
               className="inline-flex min-h-10 items-center text-sm text-primary-ink underline-offset-4 hover:underline"
             >
               {t("new")}

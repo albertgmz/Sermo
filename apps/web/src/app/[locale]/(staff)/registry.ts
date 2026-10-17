@@ -470,6 +470,13 @@ export const SECTIONS = [
         group: "groups",
       },
       {
+        key: "groupsNew",
+        path: "/admin/groups/new",
+        access: ["admin.groups"],
+        built: true,
+        listed: false,
+      },
+      {
         key: "groupsEdit",
         path: "/admin/groups/[id]",
         access: ["admin.groups"],
@@ -482,6 +489,13 @@ export const SECTIONS = [
         access: ["admin.promotions"],
         built: true,
         group: "groups",
+      },
+      {
+        key: "groupsPromotionNew",
+        path: "/admin/promotions/new",
+        access: ["admin.promotions"],
+        built: true,
+        listed: false,
       },
       {
         key: "groupsPromotionEdit",

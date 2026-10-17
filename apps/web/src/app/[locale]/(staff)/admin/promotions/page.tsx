@@ -1,29 +1,23 @@
 import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { buttonVariants } from "@/components/ui/button";
 import { staffTrail } from "../../trail";
 import { ListSkeleton } from "../groups/skeletons";
-import { NewPromotion } from "./new-promotion";
 import { PromotionList } from "./promotion-list";
 
-export async function generateMetadata({
-  searchParams,
-}: PageProps<"/[locale]/admin/promotions">): Promise<Metadata> {
-  const creating = (await searchParams).new !== undefined;
-  const t = await getTranslations(
-    creating ? "adminGroups.promotionNew" : "adminGroups.promotions",
-  );
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("adminGroups.promotions");
   return { title: t("metaTitle") };
 }
 
-export default async function PromotionsPage({
+export default function PromotionsPage({
   searchParams,
 }: PageProps<"/[locale]/admin/promotions">) {
-  if ((await searchParams).new !== undefined) return <NewPromotion />;
-  const t = await getTranslations("adminGroups.promotions");
+  const t = useTranslations("adminGroups.promotions");
   return (
     <ScreenFrame
       heading={t("pageHeading")}
@@ -31,7 +25,7 @@ export default async function PromotionsPage({
       trail={staffTrail("/admin/promotions")}
       actions={
         <Link
-          href="/admin/promotions?new=1"
+          href="/admin/promotions/new"
           className={buttonVariants({ className: "min-h-10 px-4" })}
         >
           <Plus aria-hidden="true" />

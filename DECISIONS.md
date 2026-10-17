@@ -4012,10 +4012,9 @@ one for the administrator's password). Nothing was removed: each row keeps its l
 group's permissions when the viewer may open them, the member's permissions and, for moderators, one
 link per forum), the promotions screen keeps "Run now" and the link to the history, and the group
 and promotion pages keep the delete step with the password. The edit pages stay at `/admin/groups/<id>`
-and `/admin/promotions/<id>`. "New group" and "New promotion" open the list's own address with `?new=1`
-(a page of their own with a header and a trail ending in the list): the registry holds no screen for
-a `/new` address and the registry test refuses a page without one, so the address is the list's;
-it moves to `/new` when a screen is added to the registry. Neither list has a Sort page (no order
+and `/admin/promotions/<id>`. "New group" and "New promotion" open pages of their own, `/admin/groups/new` and
+`/admin/promotions/new`, each a detail screen of the registry (`groupsNew`, `groupsPromotionNew`, unlisted, with
+the access of its list; a header and a trail ending in the list). Neither list has a Sort page (no order
 action exists for them) nor an active switch for promotions (the flag is saved only with the whole
 rule, so it stays a badge on the row and a checkbox in the form). The password row is a local
 `ConfirmField` (the form-field layout of `EditForm`, which `ConfirmPassword` does not have yet); the

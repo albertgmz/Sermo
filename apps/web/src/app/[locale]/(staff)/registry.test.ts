@@ -128,8 +128,10 @@ const GATES_BEFORE: Record<string, [string, string | string[]]> = {
   usersSessions: ["/admin/users/[id]/sessions", ["admin.members"]],
   usersHistory: ["/admin/users/[id]/history", ["admin.members"]],
   groupsList: ["/admin/groups", ["admin.groups"]],
+  groupsNew: ["/admin/groups/new", ["admin.groups"]],
   groupsEdit: ["/admin/groups/[id]", ["admin.groups"]],
   groupsPromotions: ["/admin/promotions", ["admin.promotions"]],
+  groupsPromotionNew: ["/admin/promotions/new", ["admin.promotions"]],
   groupsPromotionEdit: ["/admin/promotions/[id]", ["admin.promotions"]],
   permissionsGroups: ["/admin/permissions/groups", ["admin.permissions"]],
   permissionsGroupEdit: [
@@ -276,8 +278,10 @@ const SECTION_MAP: Record<string, string[]> = {
   ],
   groups: [
     "groupsList",
+    "groupsNew",
     "groupsEdit",
     "groupsPromotions",
+    "groupsPromotionNew",
     "groupsPromotionEdit",
     "permissionsGroups",
     "permissionsGroupEdit",

@@ -70,6 +70,6 @@ test("a promotion's row shows its rule and the groups it adds, and leads to its 
 test("with no promotions the list offers the first one", async () => {
   const html = await page([], false);
   expect(html).toContain("There are no promotions yet.");
-  expect(html).toContain('href="/admin/promotions?new=1"');
+  expect(html).toContain('href="/admin/promotions/new"');
   expect(html).not.toContain("Open the promotion history");
 });
