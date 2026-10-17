@@ -153,7 +153,7 @@ export function SortRow({
         {place + 1}
       </span>
       {icon && (
-        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden">
+        <span className="flex size-10 shrink-0 items-center justify-center">
           {icon}
         </span>
       )}

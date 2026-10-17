@@ -58,8 +58,9 @@ export async function UserList({
       badges: (
         <>
           <MemberState state={member.state} />
-          {card.badges.map((badge) => (
-            <Badge key={badge.label} variant="outline">
+          {card.badges.map((badge, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list, where two groups may show the same label.
+            <Badge key={index} variant="outline">
               {badge.label}
             </Badge>
           ))}

@@ -52,6 +52,10 @@ test("the rows show their icon, linked title, line, badges, switch and actions, 
   expect(html).toContain('aria-checked="true"');
   expect(html).toContain('<input type="hidden" name="active" value="0"/>');
   expect(html).toContain('aria-label="Edit Like"');
+  // The icon's box does not clip it: a frame may overhang, a tick keeps its focus ring.
+  const box = /<span class="([^"]*size-10[^"]*)"><span>👍/.exec(html)?.[1];
+  expect(box).toBeDefined();
+  expect(box).not.toContain("overflow-hidden");
   expect(html).toContain("Showing 3 entries");
   // No filter box unless asked.
   expect(html).not.toContain('type="search"');

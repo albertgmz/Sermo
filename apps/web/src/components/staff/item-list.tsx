@@ -19,7 +19,8 @@
 // with more than one page).
 //
 // ItemRow props (also usable on its own, inside any `ul`)
-//   icon         Optional picture or icon, in a 40 px box.
+//   icon         Optional picture or icon, in a 40 px box that does not clip it (a frame may
+//                overhang an avatar; a tick keeps its focus ring).
 //   title        The row's name; with `href`, the link to its edit page.
 //   description  Optional short description or key, under the title.
 //   badges       Optional badges after the title.
@@ -196,7 +197,7 @@ export function ItemRow({
   return (
     <li className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
       {icon && (
-        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden">
+        <span className="flex size-10 shrink-0 items-center justify-center">
           {icon}
         </span>
       )}
@@ -269,8 +270,10 @@ export function RowToggle({
   const [asking, setAsking] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
   const step = useRef<HTMLDivElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null);
+  // The step opens on Cancel, the safe choice, not on the button that saves.
   useEffect(() => {
-    if (asking) step.current?.querySelector("button")?.focus();
+    if (asking) cancel.current?.focus();
   }, [asking]);
   const settled = useRef<Settled>({ state, checked });
   // Each time a save settles: close the step (when it is open) unless the save was refused.
@@ -321,6 +324,7 @@ export function RowToggle({
               variant={confirm.danger ? "destructive" : "default"}
             />
             <Button
+              ref={cancel}
               type="button"
               variant="ghost"
               className="min-h-10 px-4"
