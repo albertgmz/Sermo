@@ -40,3 +40,21 @@ export function contentDisposition(
   );
   return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
+
+const extensions: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+/**
+ * The name of a file stored in another format than it came in (a GIF kept as PNG or animated
+ * WebP): the same name with the extension of what is stored, so a saved copy opens as what it is.
+ */
+export function renamedFor(name: string, contentType: string): string {
+  const extension = extensions[contentType];
+  if (!extension) return name;
+  const dot = name.lastIndexOf(".");
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  return `${[...stem].slice(0, MAX_FILENAME - extension.length - 1).join("")}.${extension}`;
+}

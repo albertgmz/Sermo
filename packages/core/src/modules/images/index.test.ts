@@ -146,7 +146,9 @@ describe("image processing", () => {
           // The size recorded is one frame's.
           expect([item.width, item.height]).toEqual([meta.width, meta.pageHeight ?? meta.height]);
         }
-        expect([avatar[0]!.width, avatar[0]!.height]).toEqual([512, 512]);
+        // Square like any avatar, but cut from the frames as they are: an animation is never enlarged.
+        expect([avatar[0]!.width, avatar[0]!.height]).toEqual([200, 200]);
+        expect([avatar[1]!.width, avatar[1]!.height]).toEqual([256, 256]);
         const cover = await processImage(input, `image/${format}`, "cover", dir);
         expect(cover.map((item) => item.variant)).toEqual([null, "cover_small"]);
         expect((await sharp(cover[0]!.path).metadata()).pages).toBe(4);
@@ -163,7 +165,7 @@ describe("image processing", () => {
     }
   });
 
-  test("an animation with too many pixels across its frames is refused", async () => {
+  test("an animation with too many pixels or frames is refused", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sermo-images-"));
     try {
       // 1000x1000 x 101 frames: each frame is small enough, all of them are not.
@@ -172,8 +174,19 @@ describe("image processing", () => {
       await expect(processImage(input, "image/gif", "attachment", dir)).rejects.toThrow(
         "The animation has too many frames.",
       );
+      // 1001 frames of 2x2: few pixels, but too many frames to encode.
+      const tiny = join(dir, "tiny.gif");
+      await writeFile(tiny, await animation("gif", 2, 2, 1001));
+      await expect(processImage(tiny, "image/gif", "avatar", dir)).rejects.toThrow(
+        "The animation has too many frames.",
+      );
+      // 1000 frames are taken, and a tiny animated avatar stays tiny instead of 512x512.
+      await writeFile(tiny, await animation("gif", 2, 2, 1000));
+      const [main] = await processImage(tiny, "image/gif", "avatar", dir);
+      expect([main!.width, main!.height]).toEqual([2, 2]);
+      expect((await sharp(main!.path).metadata()).pages).toBe(1000);
     } finally {
       await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     }
-  });
+  }, 20_000);
 });

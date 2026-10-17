@@ -30,26 +30,30 @@ async function setup() {
     requestIP: () => ({ address: `10.2.0.${nextIp++}`, family: "IPv4" as const, port: 1 }),
   };
   const request = (path: string, init: RequestInit = {}) => app.request(path, init, env);
-  const signUp = await request("/api/auth/sign-up/email", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      origin: "http://localhost:3000",
-      "x-forwarded-for": `198.51.100.${nextIp++}`,
-    },
-    body: JSON.stringify({
-      name: "player",
-      username: "player",
-      email: "player@example.test",
-      password: "Password123!",
-    }),
-  });
-  expect(signUp.status).toBe(200);
-  const cookie = signUp.headers
-    .getSetCookie()
-    .map((value) => value.split(";")[0])
-    .join("; ");
-  const { user } = (await signUp.json()) as { user: { id: string } };
+  const signUp = async (username: string) => {
+    const response = await request("/api/auth/sign-up/email", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://localhost:3000",
+        "x-forwarded-for": `198.51.100.${nextIp++}`,
+      },
+      body: JSON.stringify({
+        name: username,
+        username,
+        email: `${username}@example.test`,
+        password: "Password123!",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const cookie = response.headers
+      .getSetCookie()
+      .map((value) => value.split(";")[0])
+      .join("; ");
+    const { user } = (await response.json()) as { user: { id: string } };
+    return { cookie, userId: Number(user.id) };
+  };
+  const { cookie, userId } = await signUp("player");
   const upload = async (purpose: string, blob: Blob, name: string) => {
     const form = new FormData();
     form.append("file", blob, name);
@@ -59,18 +63,19 @@ async function setup() {
       body: form,
     });
   };
-  return { request, cookie, upload, userId: Number(user.id) };
+  return { ctx, request, cookie, upload, userId, signUp };
 }
+
+const video = new Uint8Array(
+  Buffer.concat([
+    Buffer.from([0, 0, 0, 0x18]),
+    Buffer.from("ftypisom\0\0\0\0isommp41", "latin1"),
+    Buffer.alloc(2048, 7),
+  ]),
+);
 
 test("a video goes up by the site's default types and plays with seeking", async () => {
   const { request, cookie, upload } = await setup();
-  const video = new Uint8Array(
-    Buffer.concat([
-      Buffer.from([0, 0, 0, 0x18]),
-      Buffer.from("ftypisom\0\0\0\0isommp41", "latin1"),
-      Buffer.alloc(2048, 7),
-    ]),
-  );
   const uploaded = await upload("attachment", new Blob([video], { type: "video/mp4" }), "clip.mp4");
   expect(uploaded.status).toBe(201);
   const file = (await uploaded.json()) as { id: number; url: string; contentType: string };
@@ -93,6 +98,54 @@ test("a video goes up by the site's default types and plays with seeking", async
   });
   expect(past.status).toBe(416);
   expect(past.headers.get("content-range")).toBe(`bytes */${video.byteLength}`);
+});
+
+test("a Range from someone who may not read the file gets the answer it gets without one", async () => {
+  const { ctx, request, cookie, upload, signUp } = await setup();
+  const recipient = await signUp("listener");
+  const stranger = await signUp("stranger");
+  const uploaded = await upload("attachment", new Blob([video], { type: "video/mp4" }), "clip.mp4");
+  const file = (await uploaded.json()) as { id: number; url: string };
+  const created = await request("/api/v1/conversations", {
+    method: "POST",
+    headers: { cookie, origin: "http://localhost:3000", "content-type": "application/json" },
+    body: JSON.stringify({
+      title: "Clip",
+      recipientIds: [recipient.userId],
+      body: "Here",
+      attachmentIds: [file.id],
+    }),
+  });
+  expect(created.status).toBe(201);
+  // The recipient may: the ranges work for them.
+  const allowed = await request(file.url, {
+    headers: { cookie: recipient.cookie, range: "bytes=0-9" },
+  });
+  expect(allowed.status).toBe(206);
+  await allowed.arrayBuffer();
+  ctx.downloads.clear();
+  // A guest and a member outside the conversation get one answer, with or without a range, so a
+  // range tells them nothing about the file (not even its size), and nothing counts as a download.
+  for (const headers of <Record<string, string>[]>[{}, { cookie: stranger.cookie }]) {
+    const answers = await Promise.all(
+      [null, "bytes=0-9", "bytes=-1", `bytes=${video.byteLength}-`, "bytes=999999999-"].map(
+        async (range) => {
+          const response = await request(file.url, {
+            headers: range ? { ...headers, range } : headers,
+          });
+          return {
+            status: response.status,
+            range: response.headers.get("content-range"),
+            accept: response.headers.get("accept-ranges"),
+            body: await response.text(),
+          };
+        },
+      ),
+    );
+    expect(answers[0]!.status).toBe(404);
+    for (const answer of answers) expect(answer).toEqual(answers[0]!);
+  }
+  expect(ctx.downloads.size).toBe(0);
 });
 
 test("an animated GIF avatar moves where it is shown full size and is still as a thumbnail", async () => {

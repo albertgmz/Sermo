@@ -110,7 +110,7 @@
     "saving": "Guardando…",
     "cancel": "Cancelar",
     "useOriginal": "Usar sin encuadrar",
-    "animatedStill": "Esta imagen se mueve y al encuadrarla se crea una imagen fija. Para que siga moviéndose, úsala sin encuadrar: el sitio la centra y la recorta por ti."
+    "animatedStill": "Esta imagen es animada. Al encuadrarla quedaría fija: úsala sin encuadrar para que siga moviéndose."
   },
   "forumCard": {
     "newBadge": "Nuevo",

@@ -4,6 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
+import sharp from "sharp";
 import type { Ctx } from "../../context";
 import { createStorage, localDriver } from "./index";
 
@@ -167,7 +168,7 @@ describe("video and audio attachments", () => {
 });
 
 describe("byte ranges", () => {
-  test("a player gets the part it asks for, and only a read from the start counts as a download", () =>
+  test("a player gets the part it asks for, and only a whole-file read counts as a download", () =>
     withStorage(async (storage, owner, ctx) => {
       const data = fixtures.mp4;
       const size = data.byteLength;
@@ -186,7 +187,7 @@ describe("byte ranges", () => {
       const first = await part("bytes=0-9");
       expect(first).toMatchObject({ status: 206, range: `bytes 0-9/${size}`, length: "10" });
       expect(first.body).toEqual(data.subarray(0, 10));
-      expect(ctx.downloads.get(id)).toBe(1);
+      expect(ctx.downloads.get(id)).toBeUndefined();
 
       const middle = await part("bytes=100-199");
       expect(middle).toMatchObject({ status: 206, range: `bytes 100-199/${size}`, length: "100" });
@@ -202,8 +203,8 @@ describe("byte ranges", () => {
         status: 206,
         range: `bytes 10-${size - 1}/${size}`,
       });
-      // Seeking does not count again.
-      expect(ctx.downloads.get(id)).toBe(1);
+      // No read with a range counts, from the first byte or not: players always send one.
+      expect(ctx.downloads.get(id)).toBeUndefined();
 
       expect(await part(`bytes=${size}-`)).toMatchObject({ status: 416, range: `bytes */${size}` });
       expect(await part("bytes=-0")).toMatchObject({ status: 416, range: `bytes */${size}` });
@@ -217,6 +218,37 @@ describe("byte ranges", () => {
         });
         expect(whole.body).toEqual(data);
       }
-      expect(ctx.downloads.get(id)).toBe(6);
+      expect(ctx.downloads.get(id)).toBe(1);
+    }));
+});
+
+describe("pictures stored in another format", () => {
+  test("keep their name with the extension of what is stored", () =>
+    withStorage(async (storage, owner) => {
+      const frame = (red: number) =>
+        sharp({ create: { width: 4, height: 4, channels: 3, background: { r: red, g: 0, b: 0 } } })
+          .raw()
+          .toBuffer();
+      const still = await sharp(await frame(255), { raw: { width: 4, height: 4, channels: 3 } })
+        .gif()
+        .toBuffer();
+      const moving = await sharp(Buffer.concat([await frame(255), await frame(0)]), {
+        raw: { width: 4, height: 8, channels: 3, pageHeight: 4 },
+      })
+        .gif({ delay: [100, 100] })
+        .toBuffer();
+      const name = async (bytes: Buffer, original: string) => {
+        const { id, contentType } = await storage.upload(
+          owner,
+          stream(new Uint8Array(bytes)),
+          "image/gif",
+          "attachment",
+          original,
+        );
+        return [contentType, storage.get(owner, id).filename];
+      };
+      expect(await name(still, "holiday.gif")).toEqual(["image/png", "holiday.png"]);
+      expect(await name(moving, "holiday.GIF")).toEqual(["image/webp", "holiday.webp"]);
+      expect(await name(moving, "no extension")).toEqual(["image/webp", "no extension.webp"]);
     }));
 });

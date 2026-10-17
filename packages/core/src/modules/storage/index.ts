@@ -33,7 +33,7 @@ import {
   requireComment as requireProfileComment,
   requirePost as requireProfilePost,
 } from "../profiles/shared";
-import { cleanFilename, contentDisposition } from "./filename";
+import { cleanFilename, contentDisposition, renamedFor } from "./filename";
 import { fileUrl, resolvedFileUrl } from "./url";
 
 export { fileUrl } from "./url";
@@ -587,7 +587,9 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
                 purpose,
                 ctx.now(),
                 meta,
-                filename,
+                filename && main.contentType !== declaredType
+                  ? renamedFor(filename, main.contentType)
+                  : filename,
               )!;
             for (const variant of artifacts.slice(1))
               ctx.sqlite
@@ -672,8 +674,9 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
           headers: { "Content-Range": `bytes */${row.byte_size}`, "Accept-Ranges": "bytes" },
         });
       const blob = driver.read(row.storage_key);
-      // A player asks again for every seek: only a request from the first byte is a download.
-      if (row.purpose === "attachment" && row.parent_file_id === null && (part?.start ?? 0) === 0)
+      // Players and their metadata probes always send a range: only a whole-file read (a link
+      // opened or saved, a picture shown) is a download.
+      if (row.purpose === "attachment" && row.parent_file_id === null && !range)
         ctx.downloads.set(id, (ctx.downloads.get(id) ?? 0) + 1);
       const inline = safeInline.has(row.content_type) || playable.has(row.content_type);
       return new Response(part ? blob.slice(part.start, part.end + 1) : blob, {

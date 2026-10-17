@@ -182,7 +182,7 @@ test("video and audio placed inline play in the browser's player, with a row to 
   const html = placeAttachments(
     `<p>${slot(3)} and ${slot(4, "full")}</p>`,
     [video, audio],
-    { ...context, liteImages: true },
+    context,
   );
   expect(html).toContain(
     '<video controls preload="metadata" playsinline src="/api/v1/files/3" aria-label="clip.webm"',
@@ -199,4 +199,20 @@ test("video and audio placed inline play in the browser's player, with a row to 
   expect(
     placeAttachments(`<a href="/x">${slot(3)}</a>`, [video], context),
   ).toBe('<a href="/x">clip.webm</a>');
+});
+
+test("with post pictures blocked video and audio placed inline are plain rows", () => {
+  const video = file(3, {
+    contentType: "video/mp4",
+    url: "/api/v1/files/3",
+    filename: "clip.mp4",
+  });
+  const html = placeAttachments(`<p>${slot(3)}</p>`, [video], {
+    ...context,
+    liteImages: true,
+  });
+  expect(html).not.toMatch(/<(?:video|audio|source)\b/);
+  expect(html).not.toContain("preload");
+  expect(html).toContain('<a href="/api/v1/files/3" download="clip.mp4"');
+  expect(html).toContain("clip.mp4");
 });

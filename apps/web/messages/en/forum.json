@@ -110,7 +110,7 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "useOriginal": "Use without framing",
-    "animatedStill": "This picture moves, and framing makes a still picture. To keep it moving, use it without framing: the site centres and crops it for you."
+    "animatedStill": "This picture is animated. Framing would make it still: use it without framing to keep it moving."
   },
   "forumCard": {
     "newBadge": "New",

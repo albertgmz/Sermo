@@ -10,6 +10,10 @@ test("the emission scanner recognizes every forbidden syntax, including multilin
     "<picture />",
     "<source src={url} />",
     "<video poster={url} />",
+    "<video src={url} />",
+    "<audio controls src={url} />",
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: Source code is the scanner input.
+    'const player = `<video controls src="${url}"></video>`',
     "const props = { srcSet: value }",
     "style={{ backgroundImage: value }}",
     ".art { background-image: var(--picture) }",

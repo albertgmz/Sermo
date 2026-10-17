@@ -40,6 +40,8 @@ export type Hit = { line: number; kind: string };
 
 const EMISSIONS: [string, RegExp][] = [
   ["image element", /<(?:img|Image|picture|source)\b/g],
+  // A player fetches its file (at least its length) as soon as it is drawn.
+  ["media element", /<(?:video|audio)\b/g],
   ["next/image", /["']next\/image["']/g],
   ["AvatarImage", /\bAvatarImage\b/g],
   ["image attribute", /\b(?:srcSet|srcset)\b|\bposter\s*=/g],

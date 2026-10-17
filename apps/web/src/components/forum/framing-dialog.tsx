@@ -126,6 +126,8 @@ function Framer({
   const [unreadable, setUnreadable] = useState(false);
   // A moving GIF or WebP, which framing would make still: it can be sent as it is instead.
   const [animated, setAnimated] = useState(false);
+  // Which button sent the picture, so that one says it is saving.
+  const [asIs, setAsIs] = useState(false);
   const [framing, setFraming] = useState<Framing>({ zoom: 1, cx: 0, cy: 0 });
   const [error, setError] = useState("");
 
@@ -258,6 +260,7 @@ function Framer({
 
   async function save() {
     if (!image) return;
+    setAsIs(false);
     setBusy(true);
     setError("");
     const rect = cropRect(image, aspect, framing);
@@ -401,10 +404,11 @@ function Framer({
             onClick={() => {
               setBusy(true);
               setError("");
+              setAsIs(true);
               void send(file, file.name);
             }}
           >
-            {busy && unreadable ? t("saving") : t("useOriginal")}
+            {busy && asIs ? t("saving") : t("useOriginal")}
           </Button>
         )}
         {!unreadable && (
@@ -414,7 +418,7 @@ function Framer({
             disabled={busy || !image}
             onClick={save}
           >
-            {busy ? t("saving") : t("save")}
+            {busy && !asIs ? t("saving") : t("save")}
           </Button>
         )}
       </DialogFooter>

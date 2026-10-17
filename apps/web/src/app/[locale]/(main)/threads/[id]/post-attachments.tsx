@@ -1,10 +1,11 @@
 import type { postsList } from "@sermo/core/contracts";
-import { Download, Paperclip } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
+import { AttachmentPlayer } from "@/components/forum/attachment-player";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
-import { fileName, MEDIA_CLASS, mediaKind } from "@/lib/attachment-tags";
+import { fileName, mediaKind } from "@/lib/attachment-tags";
 import { formatBytes } from "@/lib/format";
 import { liteBlocks } from "@/lib/lite-mode";
 
@@ -16,7 +17,8 @@ type Attachment = z.output<
 
 // What a post has attached, as the backend returns it: pictures drawn (through the LITE gate for
 // post pictures, so a blocked one never puts its address in the page), video and audio in the
-// browser's player with their row to download, and every other file as a row to download. The ones the text placed inline (`inline`, their ids) are not listed again.
+// browser's player (the same switch: with it off they are plain rows), and every other file as a
+// row to download. The ones the text placed inline (`inline`, their ids) are not listed again.
 export async function PostAttachments({
   attachments: all,
   inline = [],
@@ -34,7 +36,9 @@ export async function PostAttachments({
     (file) =>
       file.contentType.startsWith("image/") && file.width && file.height,
   );
-  const media = attachments.filter((file) => mediaKind(file.contentType));
+  const media = liteImages
+    ? []
+    : attachments.filter((file) => mediaKind(file.contentType));
   const files = attachments.filter(
     (file) => !pictures.includes(file) && !media.includes(file),
   );
@@ -81,45 +85,11 @@ export async function PostAttachments({
       )}
       {media.length > 0 && (
         <ul aria-label={t("aria.media")} className="mt-3 flex flex-col gap-2">
-          {media.map((file) => {
-            const name = fileName(file);
-            const player =
-              mediaKind(file.contentType) === "video" ? (
-                // biome-ignore lint/a11y/useMediaCaption: a member's uploaded file comes with no captions
-                <video
-                  controls
-                  preload="metadata"
-                  playsInline
-                  src={file.url}
-                  aria-label={name}
-                  className={MEDIA_CLASS.video}
-                />
-              ) : (
-                // biome-ignore lint/a11y/useMediaCaption: a member's uploaded file comes with no captions
-                <audio
-                  controls
-                  preload="metadata"
-                  src={file.url}
-                  aria-label={name}
-                  className={MEDIA_CLASS.audio}
-                />
-              );
-            return (
-              <li key={file.fileId} className={MEDIA_CLASS.box}>
-                {player}
-                <a href={file.url} download={name} className={MEDIA_CLASS.row}>
-                  <Download
-                    aria-hidden="true"
-                    className="size-3.5 shrink-0 text-muted-foreground"
-                  />
-                  <span className="truncate">{name}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {formatBytes(file.byteSize, locale)}
-                  </span>
-                </a>
-              </li>
-            );
-          })}
+          {media.map((file) => (
+            <li key={file.fileId}>
+              <AttachmentPlayer file={file} />
+            </li>
+          ))}
         </ul>
       )}
       {files.length > 0 && (
@@ -152,6 +122,10 @@ export async function PostAttachments({
                 ) : (
                   <a
                     href={file.url}
+                    // Video and audio are served to play in the page; the row saves them.
+                    download={
+                      mediaKind(file.contentType) ? fileName(file) : undefined
+                    }
                     className="flex min-h-10 items-center gap-2 rounded-md border bg-muted/40 px-3 text-sm hover:bg-muted md:min-h-8"
                   >
                     {row}

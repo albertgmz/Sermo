@@ -117,19 +117,25 @@ function drawn(
   if (!file.contentType.startsWith("image/")) {
     // A link inside a link is no link: inside one, the file is just its name.
     if (inLink) return name;
-    // Spans, not blocks: the place can be inside a paragraph.
-    if (media) {
-      const url = escapeHtml(file.url);
+    const url = escapeHtml(file.url);
+    // Video and audio are served to play in the page; their row saves them.
+    const download = media ? ` download="${name}"` : "";
+    // With post pictures blocked no player names its address for the browser to fetch: the file
+    // is a plain row. Spans, not blocks: the place can be inside a paragraph.
+    if (media && !context.liteImages) {
+      const player =
+        media === "video"
+          ? `<video controls preload="metadata" playsinline src="${url}" aria-label="${name}" class="${MEDIA_CLASS.video}"></video>`
+          : `<audio controls preload="metadata" src="${url}" aria-label="${name}" class="${MEDIA_CLASS.audio}"></audio>`;
       return (
-        `<span class="my-1 ${MEDIA_CLASS.box}">` +
-        `<${media} controls preload="metadata"${media === "video" ? " playsinline" : ""} src="${url}" aria-label="${name}" class="${MEDIA_CLASS[media]}"></${media}>` +
-        `<a href="${url}" download="${name}" class="${MEDIA_CLASS.row}">` +
+        `<span class="my-1 ${MEDIA_CLASS.box}">${player}` +
+        `<a href="${url}"${download} class="${MEDIA_CLASS.row}">` +
         `<span class="truncate">${name}</span>` +
         `<span class="shrink-0 text-xs text-muted-foreground tabular-nums">${escapeHtml(formatBytes(file.byteSize, context.locale))}</span></a></span>`
       );
     }
     return (
-      `<a href="${escapeHtml(file.url)}" class="inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border bg-muted/40 px-3 align-middle text-sm font-normal! text-foreground! no-underline! hover:bg-muted md:min-h-8">` +
+      `<a href="${url}"${download} class="inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border bg-muted/40 px-3 align-middle text-sm font-normal! text-foreground! no-underline! hover:bg-muted md:min-h-8">` +
       `<span class="truncate">${name}</span>` +
       `<span class="shrink-0 text-xs text-muted-foreground tabular-nums">${escapeHtml(formatBytes(file.byteSize, context.locale))}</span></a>`
     );

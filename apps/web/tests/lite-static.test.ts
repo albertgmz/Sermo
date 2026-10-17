@@ -20,7 +20,9 @@ const EMISSION_GATES: Record<string, string> = {
   "src/components/forum/user-avatar.tsx":
     "Checks avatars and frames independently before passing src to AvatarImage.",
   "src/lib/attachment-tags.ts":
-    "Draws the attachments a text places inline only when HtmlContent found postImages allowed (liteImages); a blocked picture becomes the placeholder and its address is never written.",
+    "Draws the attachments a text places inline only when HtmlContent found postImages allowed (liteImages); a blocked picture becomes the placeholder and its address is never written, and blocked video or audio is a plain row with no player.",
+  "src/components/forum/attachment-player.tsx":
+    "Checks postImages before drawing a video or audio player; when blocked it draws nothing and the caller lists the file as a plain row.",
   "src/components/layout/site-icon.tsx":
     "Checks brand before emitting the favicon link.",
   "src/lib/pwa.ts":

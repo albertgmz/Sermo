@@ -21,8 +21,13 @@ export interface ProcessedImage {
 sharp.cache({ files: 0 });
 
 const MAX_PIXELS = 16_000_000;
-/** All frames of an animated picture together; each frame alone stays within `MAX_PIXELS`. */
+/**
+ * All frames of an animated picture together; each frame alone stays within `MAX_PIXELS`. An
+ * animation is never enlarged, so what is written is at most what was read.
+ */
 const MAX_ANIMATED_PIXELS = 100_000_000;
+/** Every frame costs its own encoding, however small: tiny frames by the thousand are refused. */
+const MAX_FRAMES = 1000;
 /**
  * Purposes whose main rendition keeps the animation of an animated GIF or WebP (as animated
  * WebP). Their smaller renditions (thumbnails, small avatars) are the first frame.
@@ -127,8 +132,9 @@ export async function processImage(
   const pages = metadata.pages ?? 1;
   if (pages > 1 && !ANIMATED_PURPOSES.has(purpose))
     throw new ValidationError("Animated images are not supported.");
-  if (metadata.width * metadata.height * pages > MAX_ANIMATED_PIXELS)
+  if (pages > MAX_FRAMES || metadata.width * metadata.height * pages > MAX_ANIMATED_PIXELS)
     throw new ValidationError("The animation has too many frames.");
+  const { width: frameWidth, height: frameHeight } = metadata;
 
   const output: ProcessedImage[] = [];
   const paths: string[] = [];
@@ -139,16 +145,23 @@ export async function processImage(
       const path = join(tempDir, `sermo-image-${randomUUID()}`);
       paths.push(path);
       const animated = pages > 1 && size.variant === null;
+      // A cover crop enlarges a small picture to fill the box; an animation is cropped at the
+      // largest box of that shape it holds instead, so it keeps its shape and is never enlarged.
+      const scale =
+        animated && size.fit === "cover"
+          ? Math.min(1, frameWidth / size.width, frameHeight / size.height)
+          : 1;
       const pipeline = sharp(inputPath, {
         limitInputPixels: animated ? MAX_ANIMATED_PIXELS : MAX_PIXELS,
         failOn: "error",
         animated,
       })
         .autoOrient()
-        .resize(size.width, size.height, {
-          fit: size.fit,
-          withoutEnlargement: size.fit === "inside",
-        });
+        .resize(
+          Math.max(1, Math.round(size.width * scale)),
+          Math.max(1, Math.round(size.height * scale)),
+          { fit: size.fit, withoutEnlargement: size.fit === "inside" || animated },
+        );
       // Only WebP of the formats stored keeps the frames (a still GIF attachment stays PNG).
       const mime = animated ? "image/webp" : size.mime;
       if (mime === "image/jpeg") pipeline.jpeg({ quality: 85 });
