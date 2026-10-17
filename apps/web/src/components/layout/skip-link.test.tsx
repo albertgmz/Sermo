@@ -16,6 +16,7 @@ mock.module("next-intl", () => ({
 }));
 
 const { MAIN_ID, SkipLink } = await import("./skip-link");
+const { SkipLinkAnchor } = await import("./skip-link-anchor");
 
 // Every frame with a header and a `<main>`: the forum, the staff panel and the developer page.
 const FRAMES = ["(main)", "(staff)", "(developer)"].map((group) =>
@@ -40,6 +41,25 @@ test("the skip link is out of sight until it holds the focus, and never display:
   expect(classes).toContain("focus:translate-y-0");
   expect(classes).not.toContain("hidden");
   expect(classes).not.toContain("sr-only");
+});
+
+test("pressing the skip link moves the focus to the main element itself, whatever another script does with the click", () => {
+  const focused: string[] = [];
+  const globals = globalThis as Record<string, unknown>;
+  const held = globals.document;
+  globals.document = {
+    getElementById: (id: string) =>
+      id === MAIN_ID ? { focus: () => focused.push(id) } : null,
+  };
+  try {
+    const link = SkipLinkAnchor({ target: MAIN_ID, children: "Skip" });
+    expect(link.props.href).toBe(`#${MAIN_ID}`);
+    // The handler neither cancels the browser's own jump nor needs it.
+    link.props.onClick();
+    expect(focused).toEqual([MAIN_ID]);
+  } finally {
+    globals.document = held;
+  }
 });
 
 test("each frame draws the skip link before anything else and one main element it leads to", () => {

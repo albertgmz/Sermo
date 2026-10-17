@@ -67,6 +67,25 @@ test("forced colours keep the focus ring and the edges of cards, panels, buttons
   expect(block).toContain('[aria-current="page"]');
 });
 
+test("forced colours mark what is pressed, checked or selected with more than a fill, and give toggles an edge", () => {
+  const block = mediaBlock("forced-colors: active");
+  expect(block).toMatch(
+    /\[aria-pressed\] \{\s*border: 1px solid ButtonText;\s*\}/,
+  );
+  expect(block).toMatch(
+    /\[aria-pressed="true"\],\s*\[aria-checked="true"\],\s*\[aria-selected="true"\] \{\s*forced-color-adjust: none;\s*border-color: Highlight;\s*background-color: Highlight;\s*color: HighlightText;\s*\}/,
+  );
+  // The composer's toggles carry the state the rule reads: the toolbar, the poll kind, the prefix.
+  for (const file of [
+    "components/forum/editor-toolbar.tsx",
+    "components/forum/poll-form.tsx",
+    "components/forum/thread-composer.tsx",
+  ])
+    expect(
+      readFileSync(join(import.meta.dir, "../src", file), "utf8"),
+    ).toContain("aria-pressed={");
+});
+
 test("Tab never leaves the focus under the top bars, the phone bar or the cookie banner", () => {
   expect(css).toMatch(
     /html:has\(\[data-forum-layout\], \[data-frame\]\) \{\s*scroll-padding-top: var\(--spacing-site-header\);/,

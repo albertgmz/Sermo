@@ -344,6 +344,10 @@ html.show--consent {
  * ours and drops every box-shadow. What a shadow or a fill alone drew is drawn again in their
  * colours: the focus ring (most controls draw it as a shadow), the edge of cards and floating
  * panels, buttons and badges, and the current page of a navigation (a fill and an accent edge).
+ * A toggle (the editor's toolbar, the poll kind, the prefix chooser) keeps an edge pressed or not,
+ * and what is pressed, checked or selected takes the visitor's highlight colours, the way their
+ * system marks a chosen item; it keeps its own colours (`forced-color-adjust`) so the browser does
+ * not put the canvas back over that fill.
  * Unlayered, so it wins over the utility classes that turn the outline off.
  */
 @media (forced-colors: active) {
@@ -372,6 +376,17 @@ html.show--consent {
     text-decoration-line: underline;
     text-decoration-thickness: 2px;
     text-underline-offset: 0.25em;
+  }
+  [aria-pressed] {
+    border: 1px solid ButtonText;
+  }
+  [aria-pressed="true"],
+  [aria-checked="true"],
+  [aria-selected="true"] {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background-color: Highlight;
+    color: HighlightText;
   }
 }
 
