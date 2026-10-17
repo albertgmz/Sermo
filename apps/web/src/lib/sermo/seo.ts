@@ -95,9 +95,10 @@ export type ShareKind =
     }
   | { type: "profile"; username: string };
 
-// The picture of a share card: an absolute address of a PNG, with its size and a text for it.
+// The picture of a share card: an absolute address, its type and size, and a text for it.
 export type ShareImage = {
   url: string;
+  type: string;
   width: number;
   height: number;
   alt: string;

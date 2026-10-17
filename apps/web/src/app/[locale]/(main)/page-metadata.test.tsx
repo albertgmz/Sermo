@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { createTranslator } from "use-intl";
 import { messagesFor } from "@/i18n/messages";
+import { brandOf, cardPath, siteContent } from "@/lib/og/card";
 import { siteBody } from "@/lib/test-bodies";
 import { viewerBody } from "@/lib/test-viewer";
 
@@ -93,6 +94,22 @@ test("each tab has its own title and description, built from the site's name", a
 test("the home page is shared as the site, a tab under its own title, with the site's feed", async () => {
   backend({ siteTab: "hot", description: "A club for gardeners." });
   const home = await head();
+  // The site's own share card.
+  const card = {
+    url: `http://localhost:3000${cardPath(
+      siteContent({
+        name: "Garden Club",
+        description: "A club for gardeners.",
+      }),
+      null,
+      brandOf({ name: "Garden Club", icon: null, accents: [] }),
+    )}`,
+    type: "image/png",
+    width: 1200,
+    height: 630,
+    alt: "Garden Club",
+  };
+  expect(card.url).toStartWith("http://localhost:3000/og/site?v=");
   expect(home.openGraph).toEqual({
     type: "website",
     title: "Garden Club",
@@ -100,13 +117,13 @@ test("the home page is shared as the site, a tab under its own title, with the s
     url: "http://localhost:3000/",
     siteName: "Garden Club",
     locale: "en_US",
-    images: undefined,
+    images: [card],
   });
   expect(home.twitter).toEqual({
-    card: "summary",
+    card: "summary_large_image",
     title: "Garden Club",
     description: "A club for gardeners.",
-    images: undefined,
+    images: [card],
   });
   expect(home.alternates?.types).toEqual({
     "application/atom+xml": [

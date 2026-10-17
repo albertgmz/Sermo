@@ -109,6 +109,23 @@ test("the proxy does not run for the OpenSearch description, a file of the web a
   expect(rewriteOf(OPENSEARCH_URL)).toBeUndefined();
 });
 
+test("the proxy does not run for the share cards, files of the web app", () => {
+  for (const path of [
+    "/og/site",
+    "/og/threads/12",
+    "/og/forums/3",
+    "/og/members/4",
+  ]) {
+    expect({ path, runs: proxyRuns(path) }).toEqual({ path, runs: false });
+    expect({ path, source: rewriteOf(path) }).toEqual({
+      path,
+      source: undefined,
+    });
+  }
+  // A page whose address only starts the same way is still a page.
+  expect(proxyRuns("/ogham")).toBe(true);
+});
+
 // A path added to the rewrites and not to the matcher would be rewritten into `[locale]` by the
 // proxy first and served as a page.
 test("the proxy's matcher leaves out every backend rewrite", () => {

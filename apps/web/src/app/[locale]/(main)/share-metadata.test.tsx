@@ -1,6 +1,12 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { createTranslator } from "use-intl";
 import { messagesFor } from "@/i18n/messages";
+import {
+  brandOf,
+  type CardContent,
+  cardPath,
+  siteContent,
+} from "@/lib/og/card";
 import { siteBody } from "@/lib/test-bodies";
 
 // The share preview tags of the pages that describe one thing (a thread, a forum, a member), and
@@ -26,9 +32,17 @@ mock.module("next/cache", () => ({
   cacheLife: () => {},
   cacheTag: () => {},
 }));
+// The visitor's LITE cookie, when a test sets one.
+let lite: string | undefined;
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
-  cookies: async () => ({ get: () => undefined, toString: () => "" }),
+  cookies: async () => ({
+    get: (name: string) =>
+      name === "forum_lite" && lite !== undefined
+        ? { name, value: lite }
+        : undefined,
+    toString: () => (lite === undefined ? "" : `forum_lite=${lite}`),
+  }),
 }));
 
 // What `read` answers, by operation; a page asking for anything else fails the test.
@@ -49,6 +63,7 @@ const thread = await import("./threads/[id]/page");
 const forum = await import("./forums/[id]/page");
 const member = await import("./members/[id]/page");
 const account = await import("./account/page");
+const forumList = await import("./forums/page");
 const accountLayout = await import("./account/layout");
 
 afterAll(() => {
@@ -58,6 +73,7 @@ afterAll(() => {
 });
 beforeEach(() => {
   locale = "en";
+  lite = undefined;
   answers = {};
   globalThis.fetch = (async (url: string) => {
     if (new URL(url).pathname === "/api/v1/site")
@@ -70,13 +86,65 @@ afterEach(() => {
 });
 
 type Robots = "index,follow" | "noindex,follow";
-const seo = (canonical: string, robots: Robots, description = "") => ({
+const seo = (
+  canonical: string,
+  robots: Robots,
+  description = "",
+  jsonLd: unknown[] = [],
+) => ({
   title: "Built by the backend | Garden Club",
   description,
   canonical,
   robots,
   redirect: false,
-  jsonLd: [],
+  jsonLd,
+});
+
+// The structured data the backend gives with a page open to guests, which its share card reads.
+const ROSES_TRAIL = {
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Garden" },
+    { "@type": "ListItem", position: 2, name: "Roses" },
+  ],
+};
+const PRUNING_POST = {
+  "@type": "DiscussionForumPosting",
+  headline: "Pruning roses",
+  author: {
+    "@type": "Person",
+    name: "wren",
+    url: "http://localhost:3000/members/4-wren",
+  },
+};
+const WREN_PAGE = {
+  "@type": "ProfilePage",
+  mainEntity: {
+    "@type": "Person",
+    name: "wren",
+    description: "Grows roses and beans.",
+  },
+};
+
+// The share card's picture as a page names it: on the page's origin, keyed by what it shows (the
+// same key the card's route keeps it under).
+const BRAND = brandOf({ name: "Garden Club", icon: null, accents: [] });
+const THREAD_CARD: CardContent = {
+  kind: "threads",
+  title: "Pruning roses",
+  forum: "Roses",
+  author: "wren",
+};
+const SITE_CARD = siteContent({
+  name: "Garden Club",
+  description: "A club for gardeners.",
+});
+const card = (content: CardContent, id: number | null, alt: string) => ({
+  url: `http://localhost:3000${cardPath(content, id, BRAND)}`,
+  type: "image/png",
+  width: 1200,
+  height: 630,
+  alt,
 });
 
 const props = (id: string, query: Record<string, string> = {}) =>
@@ -105,6 +173,7 @@ function threadAnswers(robots: Robots) {
       "http://localhost:3000/threads/12-pruning-roses",
       robots,
       "Cut above an outward bud.",
+      robots === "index,follow" ? [PRUNING_POST, ROSES_TRAIL] : [],
     ),
   });
   answers["seo.thread"] = ({ page }) =>
@@ -118,6 +187,12 @@ function threadAnswers(robots: Robots) {
 test("a thread is shared as an article by its author, in its forum, with its tags", async () => {
   threadAnswers("index,follow");
   const head = await thread.generateMetadata(props("12-pruning-roses"));
+  const image = card(
+    THREAD_CARD,
+    12,
+    "“Pruning roses” in Roses, on Garden Club",
+  );
+  expect(image.url).toStartWith("http://localhost:3000/og/threads/12?v=");
   expect(head.openGraph).toEqual({
     type: "article",
     title: "Pruning roses",
@@ -125,18 +200,18 @@ test("a thread is shared as an article by its author, in its forum, with its tag
     url: "http://localhost:3000/threads/12-pruning-roses",
     siteName: "Garden Club",
     locale: "en_US",
-    images: undefined,
+    images: [image],
     publishedTime: "2026-03-01T10:00:00.000Z",
     modifiedTime: "2026-03-02T08:30:00.000Z",
-    authors: ["http://localhost:3000/members/4"],
+    authors: ["http://localhost:3000/members/4-wren"],
     section: "Roses",
     tags: ["pruning", "spring"],
   });
   expect(head.twitter).toEqual({
-    card: "summary",
+    card: "summary_large_image",
     title: "Pruning roses",
     description: "Cut above an outward bud.",
-    images: undefined,
+    images: [image],
   });
   expect(head.alternates).toEqual({
     canonical: "http://localhost:3000/threads/12-pruning-roses",
@@ -224,7 +299,7 @@ test("a thread guests may not open is not shared", async () => {
 function forumAnswers(robots: Robots, type = "forum") {
   answers["nodes.get"] = () => ({
     node: { id: 3, title: "Roses", type },
-    seo: seo("http://localhost:3000/forums/3-roses", robots),
+    seo: seo("http://localhost:3000/forums/3-roses", robots, "", [ROSES_TRAIL]),
   });
 }
 
@@ -240,7 +315,18 @@ test("a forum is shared as a page of the site, announcing its own feed after the
     url: "http://localhost:3000/forums/3-roses",
     siteName: "Garden Club",
     locale: "es_ES",
-    images: undefined,
+    images: [
+      card(
+        {
+          kind: "forums",
+          title: "Roses",
+          parents: ["Garden"],
+          description: "",
+        },
+        3,
+        "Roses, un foro de Garden Club",
+      ),
+    ],
   });
   expect(head.alternates?.types).toEqual({
     "application/atom+xml": [
@@ -277,6 +363,7 @@ function memberAnswers(robots: Robots) {
       "http://localhost:3000/members/4-wren",
       robots,
       "Grows roses and beans.",
+      robots === "index,follow" ? [WREN_PAGE] : [],
     ),
   });
 }
@@ -292,7 +379,17 @@ test("a member's page is shared as their profile, on every tab under the one add
     url: "http://localhost:3000/members/4-wren",
     siteName: "Garden Club",
     locale: "en_US",
-    images: undefined,
+    images: [
+      card(
+        {
+          kind: "members",
+          title: "wren",
+          description: "Grows roses and beans.",
+        },
+        4,
+        "wren, a member of Garden Club",
+      ),
+    ],
   });
   const tab = await member.generateMetadata(props("4-wren", { tab: "posts" }));
   expect(tab.robots).toEqual({ index: false, follow: true });
@@ -312,4 +409,70 @@ test("a member's own pages carry no share tags", async () => {
   expect(page.twitter).toBeUndefined();
   expect(accountLayout.metadata.openGraph).toBeUndefined();
   expect(accountLayout.metadata.twitter).toBeUndefined();
+});
+
+test("a later page of a thread shares the thread's card; a read that carries none shares the site's", async () => {
+  threadAnswers("index,follow");
+  const later = await thread.generateMetadata(
+    props("12-pruning-roses", { page: "2" }),
+  );
+  expect(later.openGraph?.images).toEqual([
+    card(THREAD_CARD, 12, "“Pruning roses” in Roses, on Garden Club"),
+  ]);
+  const found = answers["threads.get"]({}) as {
+    seo: ReturnType<typeof seo>;
+  };
+  answers["threads.get"] = () => ({
+    ...found,
+    seo: { ...found.seo, jsonLd: [] },
+  });
+  const bare = await thread.generateMetadata(props("12-pruning-roses"));
+  expect(bare.openGraph?.images).toEqual([
+    card(SITE_CARD, null, "Garden Club"),
+  ]);
+});
+
+test("a visitor whose LITE mode blocks any picture gets no card's address", async () => {
+  threadAnswers("index,follow");
+  for (const value of ["avatars", "all"]) {
+    lite = value;
+    const head = await thread.generateMetadata(props("12-pruning-roses"));
+    expect(head.openGraph?.images).toBeUndefined();
+    expect(head.twitter).toMatchObject({ card: "summary", images: undefined });
+  }
+});
+
+test("a renamed thread names a new card", async () => {
+  threadAnswers("index,follow");
+  const imageUrl = (
+    head: Awaited<ReturnType<typeof thread.generateMetadata>>,
+  ) => (head.openGraph?.images as { url: string }[] | undefined)?.[0]?.url;
+  const before = imageUrl(
+    await thread.generateMetadata(props("12-pruning-roses")),
+  );
+  const found = answers["threads.get"]({}) as {
+    seo: ReturnType<typeof seo>;
+  };
+  answers["threads.get"] = () => ({
+    ...found,
+    seo: {
+      ...found.seo,
+      jsonLd: [{ ...PRUNING_POST, headline: "Pruning old roses" }, ROSES_TRAIL],
+    },
+  });
+  const after = imageUrl(
+    await thread.generateMetadata(props("12-pruning-roses")),
+  );
+  expect(before).toStartWith("http://localhost:3000/og/threads/12?v=");
+  expect(after).toStartWith("http://localhost:3000/og/threads/12?v=");
+  expect(after).not.toBe(before);
+});
+
+test("a list page shares the site's card and names its own address as canonical", async () => {
+  const head = await forumList.generateMetadata();
+  expect(head.alternates?.canonical).toBe("http://localhost:3000/forums");
+  expect(head.openGraph?.url).toBe("http://localhost:3000/forums");
+  expect(head.openGraph?.images).toEqual([
+    card(SITE_CARD, null, "Garden Club"),
+  ]);
 });

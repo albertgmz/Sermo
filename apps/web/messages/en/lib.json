@@ -94,6 +94,12 @@
   },
   "share": {
     "siteFeed": "Latest threads on {site}",
-    "forumFeed": "Latest threads in {forum}"
+    "forumFeed": "Latest threads in {forum}",
+    "card": {
+      "thread": "“{title}” in {forum}, on {site}",
+      "forum": "{forum}, a forum on {site}",
+      "member": "{member}, a member of {site}",
+      "site": "{site}"
+    }
   }
 }

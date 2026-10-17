@@ -88,6 +88,7 @@ export async function generateMetadata({
   if (profile.seo.robots !== "index,follow") return head;
   return publicHead(head, {
     title: profile.username,
+    card: { kind: "members", id: profile.id, seo: profile.seo },
     kind: { type: "profile", username: profile.username },
   });
 }

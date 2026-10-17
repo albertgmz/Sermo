@@ -147,6 +147,7 @@ test("a member's page is a profile under their name", () => {
 test("a picture makes the card the large one, with its size and text; an empty description is left out", () => {
   const image = {
     url: "http://site.example/card.png",
+    type: "image/png",
     width: 1200,
     height: 630,
     alt: "General",

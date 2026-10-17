@@ -38,7 +38,9 @@ const EMISSION_GATES: Record<string, string> = {
   "src/components/ui/avatar.tsx":
     "Low-level image primitive, used only by the reviewed UserAvatar gate.",
   "src/lib/sermo/seo.ts":
-    "Writes the Open Graph and Twitter card tags; a picture appears in them only when a caller passes `image`, and no caller passes one yet.",
+    "Writes the Open Graph and Twitter card tags; a picture appears in them only when a caller passes `image`, which src/lib/sermo/share.ts leaves out when LITE blocks any category.",
+  "src/lib/og/card-image.tsx":
+    "Draws the share card into a PNG on the server, never into a page: the site's icon or drawn mark goes into the picture, and a page names the picture's address only through src/lib/sermo/share.ts, which leaves it out when LITE blocks any category.",
 };
 
 // These modules may name paths; they may NOT acquire an image-emitting construct.

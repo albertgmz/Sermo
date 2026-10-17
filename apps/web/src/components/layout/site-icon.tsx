@@ -29,7 +29,7 @@ export async function SiteIcon() {
               rel="icon"
               href={DEFAULT_ICON_URL}
               type="image/svg+xml"
-              sizes="24x24"
+              sizes="any"
             />
             <link
               rel="apple-touch-icon"

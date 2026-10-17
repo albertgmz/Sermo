@@ -3,6 +3,7 @@ import { NextRequest, type NextResponse } from "next/server";
 import { createElement, type ReactNode } from "react";
 import { renderToReadableStream, renderToStaticMarkup } from "react-dom/server";
 import { messages } from "../src/i18n/messages";
+import { DEFAULT_ICON_URL } from "../src/lib/default-icon";
 import { LITE_CATEGORIES, LITE_COOKIE } from "../src/lib/lite-preferences";
 import { siteBody } from "../src/lib/test-bodies";
 import { IMAGE_EXTENSIONS, read } from "./lite-scan";
@@ -593,6 +594,40 @@ test("site icon URL is absent when brand is blocked", async () => {
     const html = renderToStaticMarkup(await SiteIcon());
     if (mode === "brand" || mode === "all") noArtwork(html);
     else expect(html).toContain('rel="icon" href="data:image/svg+xml,');
+  }
+});
+
+// The links of an icon, each as its attributes.
+const iconLinks = (html: string) =>
+  [...html.matchAll(/<link ([^>]*?)\/?>/g)].map(([, attributes]) =>
+    Object.fromEntries(
+      [...attributes.matchAll(/([\w-]+)="([^"]*)"/g)].map(([, name, value]) => [
+        name,
+        value,
+      ]),
+    ),
+  );
+
+test("the site icon links: the ICO, the drawn mark at any size and the iOS icon, or the uploaded icon for both", async () => {
+  cookie = undefined;
+  expect(iconLinks(renderToStaticMarkup(await SiteIcon()))).toEqual([
+    { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
+    {
+      rel: "icon",
+      href: DEFAULT_ICON_URL,
+      type: "image/svg+xml",
+      sizes: "any",
+    },
+    { rel: "apple-touch-icon", href: "/pwa-icon/180", sizes: "180x180" },
+  ]);
+  site = { ...site, icon: { fileId: 6, url: "/api/v1/files/6" } };
+  try {
+    expect(iconLinks(renderToStaticMarkup(await SiteIcon()))).toEqual([
+      { rel: "icon", href: "/api/v1/files/6", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/api/v1/files/6" },
+    ]);
+  } finally {
+    site = { name: "Sermo", logo: null, icon: null, backdrop: null };
   }
 });
 
