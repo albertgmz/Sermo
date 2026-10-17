@@ -36,20 +36,28 @@ async function setup() {
     trustedProxyHeader: null,
     storage: { driver: localDriver(join(dir, "files")), tempDir: join(dir, "temp") },
   });
-  const ip = `10.1.0.${nextIp++}`;
-  const env = { requestIP: () => ({ address: ip, family: "IPv4" as const, port: 1 }) };
+  // Addresses no other test file uses: the sign-up limit counts per address across the run.
+  const from = (address: string) => ({
+    requestIP: () => ({ address, family: "IPv4" as const, port: 1 }),
+  });
+  const env = from(`10.4.0.${nextIp++}`);
   const request = (path: string, init: RequestInit = {}) => app.request(path, init, env);
   const signUp = async (username: string) => {
-    const response = await request("/api/auth/sign-up/email", {
-      method: "POST",
-      headers: { "content-type": "application/json", origin },
-      body: JSON.stringify({
-        name: username,
-        username,
-        email: `${username}@example.test`,
-        password: "Password123!",
-      }),
-    });
+    // Each member signs up from an address of their own.
+    const response = await app.request(
+      "/api/auth/sign-up/email",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", origin },
+        body: JSON.stringify({
+          name: username,
+          username,
+          email: `${username}@example.test`,
+          password: "Password123!",
+        }),
+      },
+      from(`10.5.0.${nextIp++}`),
+    );
     expect(response.status).toBe(200);
     const cookies = response.headers.getSetCookie().map((cookie) => cookie.split(";")[0]!);
     return {
