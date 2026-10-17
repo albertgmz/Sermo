@@ -67,23 +67,75 @@ test("forced colours keep the focus ring and the edges of cards, panels, buttons
   expect(block).toContain('[aria-current="page"]');
 });
 
-test("forced colours mark what is pressed, checked or selected with more than a fill, and give toggles an edge", () => {
-  const block = mediaBlock("forced-colors: active");
-  expect(block).toMatch(
-    /\[aria-pressed\] \{\s*border: 1px solid ButtonText;\s*\}/,
+// The forced-colours block with its whitespace folded, so a reformat does not matter: one space
+// at most, none just inside brackets or after a comma.
+function forcedRules() {
+  return mediaBlock("forced-colors: active")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\( /g, "(")
+    .replace(/ \)/g, ")")
+    .replace(/, /g, ",");
+}
+
+const source = (file: string) =>
+  readFileSync(join(import.meta.dir, "../src", file), "utf8");
+
+// What is pressed, checked or selected; never a switch (its own rule), never a disabled control.
+const CHOSEN =
+  ':is([aria-pressed="true"],[aria-checked="true"]:not([role="switch"]),[aria-selected="true"]):not(:disabled,[aria-disabled="true"])';
+
+test("forced colours fill what is pressed, checked or selected with the highlight, but not a switch or a disabled control", () => {
+  const rules = forcedRules();
+  expect(rules).toContain(
+    `${CHOSEN} { forced-color-adjust: none; border-color: Highlight; background-color: Highlight; color: HighlightText; }`,
   );
-  expect(block).toMatch(
-    /\[aria-pressed="true"\],\s*\[aria-checked="true"\],\s*\[aria-selected="true"\] \{\s*forced-color-adjust: none;\s*border-color: Highlight;\s*background-color: Highlight;\s*color: HighlightText;\s*\}/,
+  // `forced-color-adjust` inherits: what is inside is drawn in the highlight's text colour too.
+  expect(rules).toContain(
+    `${CHOSEN} * { border-color: HighlightText; background-color: transparent; color: HighlightText; }`,
   );
+  // No other rule fills a checked control or sets the adjust: only the chosen ones and the switch.
+  expect(rules.match(/forced-color-adjust: none/g)).toHaveLength(3);
+  // No rule draws a border on every toggle: that undid deliberate `border-0` / `border-l-0`.
+  expect(rules).not.toMatch(/\[aria-pressed\] \{/);
   // The composer's toggles carry the state the rule reads: the toolbar, the poll kind, the prefix.
   for (const file of [
     "components/forum/editor-toolbar.tsx",
     "components/forum/poll-form.tsx",
     "components/forum/thread-composer.tsx",
   ])
-    expect(
-      readFileSync(join(import.meta.dir, "../src", file), "utf8"),
-    ).toContain("aria-pressed={");
+    expect(source(file)).toContain("aria-pressed={");
+});
+
+test("chips whose edge is a ring draw a border in forced colours", () => {
+  for (const file of [
+    "components/forum/poll-form.tsx",
+    "components/forum/thread-composer.tsx",
+  ])
+    expect(source(file)).toMatch(
+      /aria-pressed=\{[\s\S]*?"inline-flex min-h-10 items-center rounded-full[^"]*forced-colors:border[^"]*"/,
+    );
+});
+
+test("forced colours draw the staff switch on and off apart in system colours", () => {
+  const rules = forcedRules();
+  for (const rule of [
+    '[role="switch"]:not([aria-checked="true"]) > span { forced-color-adjust: none; border-color: ButtonText; background-color: Canvas; }',
+    '[role="switch"][aria-checked="true"] > span { forced-color-adjust: none; border-color: Highlight; background-color: Highlight; }',
+    '[role="switch"]:disabled > span { border-color: GrayText; background-color: Canvas; }',
+    '[role="switch"]:not([aria-checked="true"]) > span > span { background-color: ButtonText; }',
+    '[role="switch"][aria-checked="true"] > span > span { background-color: HighlightText; }',
+    '[role="switch"]:disabled > span > span { background-color: GrayText; }',
+  ])
+    expect(rules).toContain(rule);
+  // Disabled comes after on and off at the same specificity, so it wins while the switch saves.
+  expect(rules.indexOf('[role="switch"]:disabled > span {')).toBeGreaterThan(
+    rules.indexOf('[role="switch"][aria-checked="true"] > span {'),
+  );
+  // The shape the rule reads: the switch is a button holding a track that holds the thumb.
+  expect(source("components/staff/item-list.tsx")).toMatch(
+    /role="switch"[\s\S]*?className="[^"]*"\s*>\s*<span className="[^"]*">\s*<span className="[^"]*" \/>\s*<\/span>\s*<\/button>/,
+  );
 });
 
 test("Tab never leaves the focus under the top bars, the phone bar or the cookie banner", () => {

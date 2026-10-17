@@ -344,10 +344,7 @@ html.show--consent {
  * ours and drops every box-shadow. What a shadow or a fill alone drew is drawn again in their
  * colours: the focus ring (most controls draw it as a shadow), the edge of cards and floating
  * panels, buttons and badges, and the current page of a navigation (a fill and an accent edge).
- * A toggle (the editor's toolbar, the poll kind, the prefix chooser) keeps an edge pressed or not,
- * and what is pressed, checked or selected takes the visitor's highlight colours, the way their
- * system marks a chosen item; it keeps its own colours (`forced-color-adjust`) so the browser does
- * not put the canvas back over that fill.
+ * Chips whose edge was a ring draw a border in this mode themselves (`forced-colors:border`).
  * Unlayered, so it wins over the utility classes that turn the outline off.
  */
 @media (forced-colors: active) {
@@ -377,16 +374,64 @@ html.show--consent {
     text-decoration-thickness: 2px;
     text-underline-offset: 0.25em;
   }
-  [aria-pressed] {
-    border: 1px solid ButtonText;
-  }
-  [aria-pressed="true"],
-  [aria-checked="true"],
-  [aria-selected="true"] {
+
+  /*
+   * What is pressed, checked or selected takes the visitor's highlight colours, the way their
+   * system marks a chosen item. It keeps its own colours (`forced-color-adjust`, which inherits),
+   * so the browser does not put the canvas back over the fill, and everything inside it is drawn
+   * in the highlight's text colour on that fill (a prefix's or an accent's own colours would not
+   * read there). A disabled one is left to the system's grey. The switch has its own rule below.
+   */
+  :is(
+    [aria-pressed="true"],
+    [aria-checked="true"]:not([role="switch"]),
+    [aria-selected="true"]
+  ):not(:disabled, [aria-disabled="true"]) {
     forced-color-adjust: none;
     border-color: Highlight;
     background-color: Highlight;
     color: HighlightText;
+  }
+  :is(
+      [aria-pressed="true"],
+      [aria-checked="true"]:not([role="switch"]),
+      [aria-selected="true"]
+    ):not(:disabled, [aria-disabled="true"])
+    * {
+    border-color: HighlightText;
+    background-color: transparent;
+    color: HighlightText;
+  }
+
+  /*
+   * The on/off switch of the staff lists (components/staff/item-list.tsx: a button holding a track
+   * and its thumb). Off: an edged track with the thumb in the button colour. On: the track filled
+   * with the highlight and the thumb in its text colour. Disabled (while it saves): grey. The
+   * track keeps its own colours (the thumb inherits that); the rules share one specificity, so the
+   * later one wins where two apply (disabled over on and off).
+   */
+  [role="switch"]:not([aria-checked="true"]) > span {
+    forced-color-adjust: none;
+    border-color: ButtonText;
+    background-color: Canvas;
+  }
+  [role="switch"][aria-checked="true"] > span {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background-color: Highlight;
+  }
+  [role="switch"]:disabled > span {
+    border-color: GrayText;
+    background-color: Canvas;
+  }
+  [role="switch"]:not([aria-checked="true"]) > span > span {
+    background-color: ButtonText;
+  }
+  [role="switch"][aria-checked="true"] > span > span {
+    background-color: HighlightText;
+  }
+  [role="switch"]:disabled > span > span {
+    background-color: GrayText;
   }
 }
 

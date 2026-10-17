@@ -364,7 +364,7 @@ export function PollForm({
         })
       }
       className={cn(
-        "inline-flex min-h-10 items-center rounded-full px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-8",
+        "inline-flex min-h-10 items-center rounded-full px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring forced-colors:border md:min-h-8",
         draft.kind === kind
           ? "bg-primary text-primary-foreground"
           : "ring-1 ring-border hover:ring-ring",

@@ -269,7 +269,7 @@ export function ThreadComposer({
                   keep({ prefixId: next });
                 }}
                 className={cn(
-                  "inline-flex min-h-10 items-center rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-8",
+                  "inline-flex min-h-10 items-center rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring forced-colors:border md:min-h-8",
                   chosen
                     ? "ring-2 ring-ring"
                     : "ring-1 ring-border hover:ring-ring",
