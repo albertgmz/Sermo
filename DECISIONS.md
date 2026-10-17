@@ -4417,3 +4417,22 @@ apart, like the panel, in its own `(developer)` route group: a slim top bar (log
 bar or footer (it keeps the analytics tag, being a public page, but not the terms gate: reading
 the reference needs no acceptance). Its introduction puts its three sections side by side from `xl`, so the text spreads
 across the window like the reference.
+
+## Web practices round
+
+### One URL per page, no localised URLs  A forum page is mostly member-written posts in one
+language; only the chrome is translated, so `/es/...` addresses would be near-duplicates of the
+same page. Every page keeps one URL, with no `hreflang`, as XenForo, Discourse and phpBB do. The
+language still comes from the `forum_locale` cookie, then `Accept-Language`, then the site default,
+and is never changed by a redirect at the same URL.
+
+### The web app serves the backend's own paths  `robots.txt`, `llms.txt`, `sitemap.xml`,
+`/sitemaps/:name`, the site, forum and node Atom feeds, `/mcp`, `/health` and top-level `*.txt`
+(the IndexNow key file) are rewritten by `next.config.ts` to `SERMO_API_URL`, as `/api` already
+was, so the site is correct when reached straight at `next start` and not only behind the
+Caddyfile. One `BACKEND_PATHS` list holds them; it stays inside `next.config.ts` because Node loads
+that file with its own TypeScript loader, where an extensionless import fails. The proxy's matcher
+leaves the same paths out (no language rewrite, no cookie work, no copy of an MCP request body,
+which Next cuts at 1 MB), and a test keeps the matcher and the list in step, matching both with the
+same path functions `next start` uses. Any other top-level `.txt` now gets the backend's 404, as
+behind Caddy's `/*.txt`.
