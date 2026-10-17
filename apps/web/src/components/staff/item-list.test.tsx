@@ -227,3 +227,22 @@ test("a row can hold a delete step and a line of its own, wrapping under the tit
     '<div class="min-w-0 basis-full"><p>Matched 12 times.</p>',
   );
 });
+
+test("a heading's action sits at the end of the card's heading, before the rows", () => {
+  const html = render(
+    <ItemList
+      label="Tabs"
+      heading="Tabs"
+      description="Above the forum list."
+      action={<a href="/admin/forums/tabs/new">Add tab</a>}
+      items={ITEMS}
+      empty={{ title: "None" }}
+    />,
+  );
+  const head = html.slice(0, html.indexOf("<ul"));
+  expect(head).toContain("Tabs</h2>");
+  expect(head).toContain('<a href="/admin/forums/tabs/new">Add tab</a>');
+  expect(head.indexOf("Above the forum list.")).toBeLessThan(
+    head.indexOf("Add tab"),
+  );
+});

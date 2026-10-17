@@ -5,7 +5,8 @@
 // ItemList props
 //   label        The list's accessible name. Pass the same text as `heading` when there is one;
 //                without a heading it is the only name the list has.
-//   heading      Optional heading of the card; `description` an optional line under it.
+//   heading      Optional heading of the card; `description` an optional line under it, `action`
+//                an optional control at its end (the "Add" of a list that is not the page's own).
 //   items        The rows, as `ItemRow` props plus `id` (the row's key) and `search`.
 //   filter       true shows a filter box above the rows: it narrows the rows already on the page
 //                to those whose `search` text (default: the title, when it is text) holds what was
@@ -95,6 +96,7 @@ export function ItemList({
   label,
   heading,
   description,
+  action,
   items,
   filter,
   empty,
@@ -103,6 +105,7 @@ export function ItemList({
   label: string;
   heading?: React.ReactNode;
   description?: React.ReactNode;
+  action?: React.ReactNode;
   items: Item[];
   filter?: boolean;
   empty: {
@@ -119,11 +122,14 @@ export function ItemList({
   return (
     <section className="min-w-0 overflow-hidden rounded-lg border bg-card">
       {heading && (
-        <div className="border-b p-4">
-          <h2 className="text-sm font-semibold">{heading}</h2>
-          {description && (
-            <p className="text-xs text-muted-foreground">{description}</p>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b p-4">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold">{heading}</h2>
+            {description && (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
+          </div>
+          {action}
         </div>
       )}
       {items.length === 0 ? (

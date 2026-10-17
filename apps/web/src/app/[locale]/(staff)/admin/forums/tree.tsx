@@ -3,19 +3,18 @@ import {
   ExternalLink,
   Folder,
   MessagesSquare,
+  Plus,
   ShieldCheck,
 } from "lucide-react";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { iconComponent } from "@/components/icons/icon-set";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
+import { HeaderLink } from "@/components/staff/page-header";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
-import { cn } from "@/lib/utils";
 import { hrefFor } from "../../registry";
 import { deleteTab } from "./actions";
 
@@ -106,24 +105,19 @@ export async function ForumTree({
           };
         })}
       />
-      <section id="tabs" className="scroll-mt-4 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold">{tt("heading")}</h2>
-            <p className="text-xs text-muted-foreground">{tt("description")}</p>
-          </div>
-          <Link
-            href="/admin/forums/tabs/new"
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "min-h-10 px-4",
-            )}
-          >
-            {tt("add")}
-          </Link>
-        </div>
+      <div id="tabs" className="scroll-mt-4">
         <ItemList
           label={tt("heading")}
+          heading={tt("heading")}
+          description={tt("description")}
+          action={
+            <HeaderLink
+              href="/admin/forums/tabs/new"
+              icon={<Plus aria-hidden="true" />}
+            >
+              {tt("add")}
+            </HeaderLink>
+          }
           empty={{ title: tt("none") }}
           items={tabs.map((tab) => ({
             id: tab.id,
@@ -147,7 +141,7 @@ export async function ForumTree({
             ),
           }))}
         />
-      </section>
+      </div>
     </>
   );
 }
