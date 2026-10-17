@@ -16,12 +16,8 @@ mock.module("next-intl/server", () => ({
   getTranslations: async (namespace: string) => translator(namespace, true),
 }));
 
-const { PaletteEdit, PaletteList, PaletteSort } = await import(
-  "./palette-screen"
-);
-const { CatalogEdit, CatalogList, CatalogSort } = await import(
-  "./catalog-screen"
-);
+const { PaletteEdit, PaletteList } = await import("./palette-screen");
+const { CatalogEdit, CatalogList } = await import("./catalog-screen");
 
 afterEach(() => {
   globalThis.fetch = realFetch;
@@ -75,20 +71,21 @@ async function draw(element: Promise<React.ReactNode> | React.ReactNode) {
   return new Response(stream).text();
 }
 
-test("a colour row links to its page and keeps its switch and its delete", async () => {
+test("a colour row links to its page, says whether it is active and keeps its delete", async () => {
   backend();
   const html = await draw(
     PaletteList({ kind: "accent", searchParams: Promise.resolve({}) }),
   );
   expect(html).toContain('href="/admin/appearance/accents/5"');
   expect(html).toContain('href="/admin/appearance/accents/6"');
-  expect(html).toContain('role="switch"');
-  expect(html).toContain('aria-label="Teal is active"');
+  expect(html).not.toContain('role="switch"');
+  expect(html).toContain(messages.adminAppearance.palette.active);
+  expect(html).toContain(messages.adminAppearance.palette.inactive);
   expect(html).toContain(`${messages.adminAppearance.palette.delete}…`);
   expect(html).toContain('name="kind" value="accent"');
 });
 
-test("the page of a colour has every field of the old editor, the order among the advanced ones", async () => {
+test("the page of a colour has every field of the old editor and the colour in use", async () => {
   backend();
   const html = await draw(
     PaletteEdit({ kind: "accent", params: Promise.resolve({ id: "5" }) }),
@@ -105,11 +102,9 @@ test("the page of a colour has every field of the old editor, the order among th
     expect(html).toContain(`name="${name}"`);
   }
   expect(html).toContain('value="#112233"');
-  const advanced = html.slice(html.indexOf("<details"));
-  expect(advanced).toContain('name="position"');
-  expect(html.slice(0, html.indexOf("<details"))).not.toContain(
-    'name="position"',
-  );
+  expect(html).toContain('value="50"');
+  expect(html).toContain(messages.adminAppearance.palette.looks);
+  expect(html).toContain(messages.adminAppearance.palette.sampleButton);
 });
 
 test("a new colour starts active and has no id", async () => {
@@ -125,15 +120,6 @@ test("a colour the address names but the palette lacks is not found", async () =
   await expect(
     PaletteEdit({ kind: "accent", params: Promise.resolve({ id: "99" }) }),
   ).rejects.toThrow();
-});
-
-test("the sort page of a palette hands out the numbers it was shown", async () => {
-  backend();
-  const html = await draw(PaletteSort({ kind: "accent" }));
-  expect(html).toContain('name="position.5" value="50"');
-  expect(html).toContain('name="position.6" value="60"');
-  expect(html).toContain('name="before.5" value="50"');
-  expect(html).toContain('name="kind" value="accent"');
 });
 
 test("a picture row shows that it waits for a picture, and the old editor address leads to the page", async () => {
@@ -166,12 +152,4 @@ test("the page of a picture keeps the picture upload, and a frame its placement"
   expect(fresh).toContain('name="width"');
   expect(fresh).toContain('name="scale"');
   expect(fresh).not.toContain("Reset to measured");
-});
-
-test("the sort page of a catalog lists its entries with their numbers", async () => {
-  backend();
-  const html = await draw(CatalogSort({ kind: "profile_cover" }));
-  expect(html).toContain('name="position.3" value="30"');
-  expect(html).toContain('name="position.4" value="40"');
-  expect(html).toContain('name="kind" value="profile_cover"');
 });

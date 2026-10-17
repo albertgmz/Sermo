@@ -15,13 +15,7 @@ import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
-import {
-  formFailure,
-  type OrderChange,
-  saveInOrder,
-  text,
-  whole,
-} from "../groups/form-errors";
+import { formFailure, text, whole } from "../groups/form-errors";
 import { IMAGE_KINDS, imageKind, PALETTE_KINDS, paletteKind } from "./kinds";
 
 const IMAGE_FIELDS = ["name", "fileId", "placement", "position", "isActive"];
@@ -135,74 +129,6 @@ export async function saveImage(
   );
 }
 
-// The active switch of a row: the entry's state alone. The page is drawn again with the new state;
-// a refusal (an entry with no picture cannot be active) shows under the row.
-export async function setImageActive(
-  _previous: StaffFormState,
-  formData: FormData,
-): Promise<StaffFormState> {
-  const t = await getTranslations("adminAppearance.errors");
-  const imageId = parseId(text(formData, "id"));
-  if (imageId === null || imageKind(text(formData, "kind")) === null)
-    return { error: t("id") };
-  try {
-    await call(catalogImagesUpdate, {
-      imageId,
-      isActive: text(formData, "active") === "1",
-    });
-  } catch (error) {
-    return formFailure(error, []);
-  }
-  renew();
-  return null;
-}
-
-// "Save order" of a picture catalog: the entries whose number was changed from what the page showed
-// (`before.<id>`), each saved on its own.
-export async function saveImageOrder(
-  _previous: StaffFormState,
-  formData: FormData,
-): Promise<StaffFormState> {
-  const t = await getTranslations("adminAppearance.errors");
-  const kind = imageKind(text(formData, "kind"));
-  if (kind === null) return { error: t("kind") };
-  const changes = await changesOf(formData, (imageId, position) =>
-    call(catalogImagesUpdate, { imageId, position }),
-  );
-  if ("state" in changes) return changes.state;
-  const { saved, state } = await saveInOrder(changes);
-  if (saved > 0) renew();
-  if (state) return state;
-  redirect(`${IMAGE_KINDS[kind].path}?notice=ordered`);
-}
-
-// The changes of an order form: one per `position.<id>` field whose number differs from
-// `before.<id>`, named by `title.<id>` in a refusal. Or the state to answer with when a field is
-// not a record or a whole number.
-async function changesOf(
-  formData: FormData,
-  save: (id: number, position: number) => Promise<unknown>,
-): Promise<OrderChange[] | { state: StaffFormState }> {
-  const t = await getTranslations("adminAppearance.errors");
-  const changes: OrderChange[] = [];
-  const fields: Fields = {};
-  for (const [name, value] of formData.entries()) {
-    if (!name.startsWith("position.") || typeof value !== "string") continue;
-    const id = parseId(name.slice("position.".length));
-    if (id === null) return { state: { error: t("id") } };
-    if (value.trim() === text(formData, `before.${id}`).trim()) continue;
-    const position = whole(value);
-    if (position === null) fields[name] = t("whole");
-    else {
-      changes.push({
-        title: text(formData, `title.${id}`) || `#${id}`,
-        save: () => save(id, position),
-      });
-    }
-  }
-  return Object.keys(fields).length > 0 ? { state: { fields } } : changes;
-}
-
 // Delete a picture; one still in use is deactivated by the backend and keeps its file.
 export async function deleteImage(
   _previous: StaffFormState,
@@ -258,45 +184,6 @@ export async function saveColour(
   redirect(
     `${PALETTE_KINDS[kind].path}?notice=${colorId === null ? "created" : "saved"}`,
   );
-}
-
-// The active switch of a colour row.
-export async function setColourActive(
-  _previous: StaffFormState,
-  formData: FormData,
-): Promise<StaffFormState> {
-  const t = await getTranslations("adminAppearance.errors");
-  const colorId = parseId(text(formData, "id"));
-  if (colorId === null || paletteKind(text(formData, "kind")) === null)
-    return { error: t("id") };
-  try {
-    await call(paletteColorsUpdate, {
-      colorId,
-      isActive: text(formData, "active") === "1",
-    });
-  } catch (error) {
-    return formFailure(error, []);
-  }
-  renew();
-  return null;
-}
-
-// "Save order" of a colour palette, as `saveImageOrder` is for the pictures.
-export async function saveColourOrder(
-  _previous: StaffFormState,
-  formData: FormData,
-): Promise<StaffFormState> {
-  const t = await getTranslations("adminAppearance.errors");
-  const kind = paletteKind(text(formData, "kind"));
-  if (kind === null) return { error: t("kind") };
-  const changes = await changesOf(formData, (colorId, position) =>
-    call(paletteColorsUpdate, { colorId, position }),
-  );
-  if ("state" in changes) return changes.state;
-  const { saved, state } = await saveInOrder(changes);
-  if (saved > 0) renew();
-  if (state) return state;
-  redirect(`${PALETTE_KINDS[kind].path}?notice=ordered`);
 }
 
 // Delete a colour; one still in use is deactivated by the backend.

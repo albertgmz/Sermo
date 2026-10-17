@@ -3987,21 +3987,20 @@ the save out of sight.
 ### Appearance screens on the shared patterns (item 8)
 
 The six appearance screens (frames, covers, thread covers, accents, name colours, prefix colours)
-are a list, an add page, a page per entry and a sort page each; the last three extend the list's
-address (`/new`, `/<id>`, `/sort`), are `listed: false` in the registry and carry the list's
-`access`. No list address moved. The editor that used to open under a catalog row as `?edit=<id>`
-is a page now, and that address redirects to it (the redirect is made while the page streams, so
-it is a client-side one, not a 307). A list row is the picture or colour dot, the name linking to
-its page, the order (and a frame's placement numbers), a "waiting for a picture" badge, the active
-switch, an edit link and the delete step; the filter box is on. The entry page is an `EditForm`:
-name, picture (replace), active; the advanced card holds a frame's placement editor (it opens by
-itself when the backend could not measure the picture) and the display order, so the order is
-still reachable by number and by the sort page. The colour pages have name, colour (and an
-accent's text colour) with the live preview on both surfaces, active, and the order. Three
-actions are new, none a new capability: the row switch (`setImageActive`, `setColourActive`:
-`isActive` alone through the existing update) and the order saves (`saveImageOrder`,
-`saveColourOrder`: the existing update with `position` alone, only for the entries whose number
-changed, each on its own; the first refusal stops and names the entry). The line "in use" that a
-colour row showed under its editor is gone: the form's preview draws the same pieces from the same
-values. Known limits: the screens have not been looked at in a browser or on a phone; a frame
-drawn in a row is cropped to the 40 px picture box when its placement overhangs it.
+are a list, an add page and a page per entry each; the last two extend the list's address (`/new`,
+`/<id>`), are `listed: false` in the registry and carry the list's `access`. No list address moved.
+The editor that used to open under a catalog row as `?edit=<id>` is a page now, and that address
+redirects to it (the redirect is made while the page streams, so it is a client-side one, not a
+307). A list row is the picture or colour dot, the name linking to its page, the order (and a
+frame's placement numbers), an active or inactive badge, a "waiting for a picture" badge, an edit
+link and the delete step; the filter box is on. The entry page is an `EditForm`: name, picture
+(replace), display order and active in the first card; a frame's placement editor is the collapsed
+advanced card (it opens by itself when the backend could not measure the picture). The colour pages
+have name, colour (and an accent's text colour) with the live preview on both surfaces, display
+order and active, and above the form the "in use" line with the colour drawn by the public site's
+own pieces. The server actions are untouched: this screen had no order action and no set-active
+action, so there is no Sort page and no row switch. The order stays a number on the entry page and
+the active state a checkbox in its form (the badge only shows it). Owner gap: an order action and
+a set-active action for the appearance screens would allow the Sort page and the row switch the
+other lists have. Known limits: the screens have not been looked at in a browser or on a phone; a
+frame drawn in a row is cropped to the 40 px picture box when its placement overhangs it.

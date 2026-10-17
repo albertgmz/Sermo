@@ -12,12 +12,8 @@
     "created": "Added to the catalog.",
     "saved": "Saved.",
     "reset": "The placement is back to the measured one.",
-    "ordered": "Order saved.",
     "deleted": "Deleted.",
     "deactivated": "It is still in use, so it is deactivated instead: whoever has it keeps it and nobody new can pick it."
-  },
-  "page": {
-    "sort": "Sort"
   },
   "placement": {
     "width": "Width (%)",
@@ -49,20 +45,16 @@
     "sample": "AB",
     "order": "Order {position}",
     "measured": "Width {width}, left {left}, top {top}, scale {scale}",
-    "activeLabel": "{name} is active",
-    "editLabel": "Edit {name}",
     "deleteWarning": "Deleting an entry that members, threads or shop items use deactivates it instead and keeps its picture.",
     "delete": "Delete",
     "none": "The catalog is empty.",
-    "sortHelp": "Move the entries up or down, then save the order.",
     "frames": {
       "metaTitle": "Avatar frames",
       "pageHeading": "Avatar frames",
       "subtitle": "Pictures drawn around a member avatar, shown around a sample avatar the way members get them. Members hold them through shop items.",
       "add": "Add a frame",
       "newHeading": "Add a frame",
-      "editHeading": "Edit avatar frame",
-      "sortHeading": "Sort avatar frames"
+      "editHeading": "Edit avatar frame"
     },
     "covers": {
       "metaTitle": "Profile covers",
@@ -70,8 +62,7 @@
       "subtitle": "The gallery members who may use it choose their profile cover from. Inactive covers leave the choices of members.",
       "add": "Add a cover",
       "newHeading": "Add a cover",
-      "editHeading": "Edit profile cover",
-      "sortHeading": "Sort profile covers"
+      "editHeading": "Edit profile cover"
     },
     "threadCovers": {
       "metaTitle": "Thread covers",
@@ -79,9 +70,11 @@
       "subtitle": "Pictures a thread can wear. Members get them through shop items. Inactive covers can no longer be picked.",
       "add": "Add a thread cover",
       "newHeading": "Add a thread cover",
-      "editHeading": "Edit thread cover",
-      "sortHeading": "Sort thread covers"
-    }
+      "editHeading": "Edit thread cover"
+    },
+    "editLabel": "Edit {name}",
+    "active": "Active",
+    "inactive": "Inactive"
   },
   "entryForm": {
     "group": "Details",
@@ -103,26 +96,22 @@
   "entryFields": {
     "name": "Name",
     "position": "Display order",
-    "positionHelp": "Entries show in this order, lowest first. Use Sort to change the order with arrows.",
+    "positionHelp": "Entries show in this order, lowest first.",
     "active": "Active"
   },
   "palette": {
     "loading": "Loading the colours…",
     "order": "Order {position}",
-    "activeLabel": "{name} is active",
-    "editLabel": "Edit {name}",
     "deleteWarning": "Deleting a colour that members, shop items or thread prefixes use deactivates it instead.",
     "delete": "Delete",
     "none": "The palette is empty.",
-    "sortHelp": "Move the entries up or down, then save the order.",
     "accents": {
       "metaTitle": "Accent colours",
       "pageHeading": "Accent colours",
       "subtitle": "The colours members can give the site. The first active accent is the site's own. Each accent has the colour of the text drawn on it.",
       "add": "Add an accent",
       "newHeading": "Add an accent",
-      "editHeading": "Edit accent",
-      "sortHeading": "Sort accents"
+      "editHeading": "Edit accent"
     },
     "nameColors": {
       "metaTitle": "Name colours",
@@ -130,8 +119,7 @@
       "subtitle": "The colours a member name can take. Members hold them through shop items. Also used for the colour of a group.",
       "add": "Add a name colour",
       "newHeading": "Add a name colour",
-      "editHeading": "Edit name colour",
-      "sortHeading": "Sort name colours"
+      "editHeading": "Edit name colour"
     },
     "prefixColors": {
       "metaTitle": "Prefix colours",
@@ -139,9 +127,15 @@
       "subtitle": "The colours a thread prefix can take. Changing one changes every prefix that uses it.",
       "add": "Add a prefix colour",
       "newHeading": "Add a prefix colour",
-      "editHeading": "Edit prefix colour",
-      "sortHeading": "Sort prefix colours"
-    }
+      "editHeading": "Edit prefix colour"
+    },
+    "editLabel": "Edit {name}",
+    "active": "Active",
+    "inactive": "Inactive",
+    "looks": "In use:",
+    "sampleName": "Member name",
+    "samplePrefix": "Prefix",
+    "sampleButton": "Button"
   },
   "colourForm": {
     "group": "Details",

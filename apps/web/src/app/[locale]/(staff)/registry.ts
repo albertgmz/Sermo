@@ -579,13 +579,6 @@ export const SECTIONS = [
         listed: false,
       },
       {
-        key: "appearanceFramesSort",
-        path: "/admin/appearance/frames/sort",
-        access: ["admin.appearance"],
-        built: true,
-        listed: false,
-      },
-      {
         key: "appearanceCovers",
         path: "/admin/appearance/covers",
         access: ["admin.appearance"],
@@ -601,13 +594,6 @@ export const SECTIONS = [
       {
         key: "appearanceCoversEdit",
         path: "/admin/appearance/covers/[id]",
-        access: ["admin.appearance"],
-        built: true,
-        listed: false,
-      },
-      {
-        key: "appearanceCoversSort",
-        path: "/admin/appearance/covers/sort",
         access: ["admin.appearance"],
         built: true,
         listed: false,
@@ -633,13 +619,6 @@ export const SECTIONS = [
         listed: false,
       },
       {
-        key: "appearanceThreadCoversSort",
-        path: "/admin/appearance/thread-covers/sort",
-        access: ["admin.appearance"],
-        built: true,
-        listed: false,
-      },
-      {
         key: "appearanceAccents",
         path: "/admin/appearance/accents",
         access: ["admin.appearance"],
@@ -655,13 +634,6 @@ export const SECTIONS = [
       {
         key: "appearanceAccentsEdit",
         path: "/admin/appearance/accents/[id]",
-        access: ["admin.appearance"],
-        built: true,
-        listed: false,
-      },
-      {
-        key: "appearanceAccentsSort",
-        path: "/admin/appearance/accents/sort",
         access: ["admin.appearance"],
         built: true,
         listed: false,
@@ -687,13 +659,6 @@ export const SECTIONS = [
         listed: false,
       },
       {
-        key: "appearanceNameColorsSort",
-        path: "/admin/appearance/name-colors/sort",
-        access: ["admin.appearance"],
-        built: true,
-        listed: false,
-      },
-      {
         key: "appearancePrefixColors",
         path: "/admin/appearance/prefix-colors",
         access: ["admin.appearance"],
@@ -709,13 +674,6 @@ export const SECTIONS = [
       {
         key: "appearancePrefixColorsEdit",
         path: "/admin/appearance/prefix-colors/[id]",
-        access: ["admin.appearance"],
-        built: true,
-        listed: false,
-      },
-      {
-        key: "appearancePrefixColorsSort",
-        path: "/admin/appearance/prefix-colors/sort",
         access: ["admin.appearance"],
         built: true,
         listed: false,

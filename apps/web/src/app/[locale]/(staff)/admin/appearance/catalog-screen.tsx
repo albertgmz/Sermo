@@ -4,7 +4,6 @@ import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
-import { EmptyState } from "@/components/forum/empty-state";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import {
@@ -13,20 +12,14 @@ import {
   Field,
   FieldGroup,
 } from "@/components/staff/edit-form";
-import { ItemList, RowLink, RowToggle } from "@/components/staff/item-list";
+import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { PictureField } from "@/components/staff/picture-field";
-import { SortForm } from "@/components/staff/sort-form";
 import { Badge } from "@/components/ui/badge";
 import { call, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
-import {
-  deleteImage,
-  saveImage,
-  saveImageOrder,
-  setImageActive,
-} from "./actions";
+import { deleteImage, saveImage } from "./actions";
 import { ActiveField, NameField, PositionField } from "./entry-fields";
 import { IMAGE_KINDS, type ImageKind } from "./kinds";
 import { PlacementEditor } from "./placement-editor";
@@ -138,13 +131,14 @@ async function EntryForm({ kind, entry }: { kind: ImageKind; entry?: Entry }) {
             }
           />
         </Field>
+        <PositionField idPrefix={key} defaultValue={entry?.position} />
         <ActiveField
           help={t("activeHelp")}
           defaultChecked={entry ? entry.isActive : true}
         />
       </FieldGroup>
-      <Advanced fields={["placement", "placementNeeded", "position"]}>
-        {kind === "frame" && (
+      {kind === "frame" && (
+        <Advanced fields={["placement", "placementNeeded"]}>
           <Field
             name="placement"
             label={t("placement")}
@@ -158,9 +152,8 @@ async function EntryForm({ kind, entry }: { kind: ImageKind; entry?: Entry }) {
               canReset={Boolean(entry)}
             />
           </Field>
-        )}
-        <PositionField idPrefix={key} defaultValue={entry?.position} />
-      </Advanced>
+        </Advanced>
+      )}
     </EditForm>
   );
 }
@@ -196,14 +189,7 @@ export async function CatalogList({
       <Notice
         namespace="adminAppearance.notices"
         searchParams={searchParams}
-        shown={[
-          "created",
-          "saved",
-          "reset",
-          "ordered",
-          "deleted",
-          "deactivated",
-        ]}
+        shown={["created", "saved", "reset", "deleted", "deactivated"]}
       />
       <ItemList
         label={t(`${key}.pageHeading`)}
@@ -226,16 +212,17 @@ export async function CatalogList({
                 })}`}
             </>
           ),
-          badges: !entry.image && (
-            <Badge variant="outline">{t("noPicture")}</Badge>
-          ),
-          toggle: (
-            <RowToggle
-              action={setImageActive}
-              fields={{ kind, id: String(entry.id) }}
-              checked={entry.isActive}
-              label={t("activeLabel", { name: entry.name })}
-            />
+          badges: (
+            <>
+              {entry.isActive ? (
+                <Badge variant="success">{t("active")}</Badge>
+              ) : (
+                <Badge variant="outline">{t("inactive")}</Badge>
+              )}
+              {!entry.image && (
+                <Badge variant="outline">{t("noPicture")}</Badge>
+              )}
+            </>
           ),
           actions: (
             <>
@@ -271,36 +258,4 @@ export async function CatalogEdit({
   const entry = items.find((item) => item.id === parseId(id));
   if (!entry) notFound();
   return <EntryForm kind={kind} entry={entry} />;
-}
-
-// The sort page: the entries with up and down arrows and one Save, through the order action.
-export async function CatalogSort({ kind }: { kind: ImageKind }) {
-  const [t, { items }] = await Promise.all([
-    getTranslations("adminAppearance.catalog"),
-    readCatalog(kind),
-  ]);
-  if (items.length === 0) {
-    return (
-      <EmptyState title={t("none")} className="rounded-lg border bg-card" />
-    );
-  }
-  return (
-    <SortForm
-      action={saveImageOrder}
-      name="position.{id}"
-      heading={t(`${IMAGE_KINDS[kind].key}.pageHeading`)}
-      description={t("sortHelp")}
-      items={items.map((entry) => ({
-        id: entry.id,
-        title: entry.name,
-        position: entry.position,
-        icon: <Picture kind={kind} entry={entry} compact />,
-        fields: {
-          kind,
-          [`before.${entry.id}`]: entry.position,
-          [`title.${entry.id}`]: entry.name,
-        },
-      }))}
-    />
-  );
 }

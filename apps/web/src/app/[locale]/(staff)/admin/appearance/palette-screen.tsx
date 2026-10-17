@@ -2,21 +2,19 @@ import { paletteColorsList } from "@sermo/core/contracts";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
-import { EmptyState } from "@/components/forum/empty-state";
+import { PrefixTag } from "@/components/forum/prefix-tag";
+import { userNameProps } from "@/components/forum/user-name";
 import { ConfirmStep } from "@/components/staff/confirm-step";
-import { Advanced, EditForm, FieldGroup } from "@/components/staff/edit-form";
-import { ItemList, RowLink, RowToggle } from "@/components/staff/item-list";
+import { EditForm, FieldGroup } from "@/components/staff/edit-form";
+import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
-import { SortForm } from "@/components/staff/sort-form";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { isHexColor } from "@/lib/css-color";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import {
-  deleteColour,
-  saveColour,
-  saveColourOrder,
-  setColourActive,
-} from "./actions";
+import { cn } from "@/lib/utils";
+import { deleteColour, saveColour } from "./actions";
 import { ColourRows } from "./colour-rows";
 import { ActiveField, NameField, PositionField } from "./entry-fields";
 import { PALETTE_KINDS, type PaletteKindName } from "./kinds";
@@ -38,6 +36,54 @@ function Swatch({ colour }: { colour: Colour }) {
         isHexColor(colour.color) ? { backgroundColor: colour.color } : undefined
       }
     />
+  );
+}
+
+// What the colour looks like in use, drawn with the public site's own pieces.
+async function Sample({
+  kind,
+  colour,
+}: {
+  kind: PaletteKindName;
+  colour: Colour;
+}) {
+  const t = await getTranslations("adminAppearance.palette");
+  if (!isHexColor(colour.color)) return null;
+  if (kind === "prefix") {
+    return (
+      <PrefixTag
+        prefix={{ label: t("samplePrefix"), color: colour.color, icon: "" }}
+      />
+    );
+  }
+  if (kind === "name") {
+    const name = userNameProps({ nameColor: colour.color });
+    return (
+      <span
+        className={cn("text-sm font-semibold", name.className)}
+        style={name.style}
+      >
+        {t("sampleName")}
+      </span>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      tabIndex={-1}
+      size="sm"
+      className="accent-scope"
+      style={
+        {
+          "--primary": colour.color,
+          "--primary-foreground": isHexColor(colour.foreground)
+            ? colour.foreground
+            : undefined,
+        } as React.CSSProperties
+      }
+    >
+      {t("sampleButton")}
+    </Button>
   );
 }
 
@@ -64,14 +110,12 @@ async function ColourForm({
           color={colour?.color ?? ""}
           foreground={colour?.foreground ?? ""}
         />
+        <PositionField idPrefix={key} defaultValue={colour?.position} />
         <ActiveField
           help={t("activeHelp")}
           defaultChecked={colour ? colour.isActive : true}
         />
       </FieldGroup>
-      <Advanced fields={["position"]}>
-        <PositionField idPrefix={key} defaultValue={colour?.position} />
-      </Advanced>
     </EditForm>
   );
 }
@@ -94,7 +138,7 @@ export async function PaletteList({
       <Notice
         namespace="adminAppearance.notices"
         searchParams={searchParams}
-        shown={["created", "saved", "ordered", "deleted", "deactivated"]}
+        shown={["created", "saved", "deleted", "deactivated"]}
       />
       <ItemList
         label={t(`${key}.pageHeading`)}
@@ -112,13 +156,10 @@ export async function PaletteList({
               {` · ${t("order", { position: colour.position })}`}
             </>
           ),
-          toggle: (
-            <RowToggle
-              action={setColourActive}
-              fields={{ kind, id: String(colour.id) }}
-              checked={colour.isActive}
-              label={t("activeLabel", { name: colour.name })}
-            />
+          badges: colour.isActive ? (
+            <Badge variant="success">{t("active")}</Badge>
+          ) : (
+            <Badge variant="outline">{t("inactive")}</Badge>
           ),
           actions: (
             <>
@@ -153,38 +194,14 @@ export async function PaletteEdit({
   const [{ id }, { items }] = await Promise.all([params, readPalette(kind)]);
   const colour = items.find((item) => item.id === parseId(id));
   if (!colour) notFound();
-  return <ColourForm kind={kind} colour={colour} />;
-}
-
-// The sort page: the colours with up and down arrows and one Save, through the order action.
-export async function PaletteSort({ kind }: { kind: PaletteKindName }) {
-  const [t, { items }] = await Promise.all([
-    getTranslations("adminAppearance.palette"),
-    readPalette(kind),
-  ]);
-  if (items.length === 0) {
-    return (
-      <EmptyState title={t("none")} className="rounded-lg border bg-card" />
-    );
-  }
+  const t = await getTranslations("adminAppearance.palette");
   return (
-    <SortForm
-      action={saveColourOrder}
-      name="position.{id}"
-      heading={t(`${PALETTE_KINDS[kind].key}.pageHeading`)}
-      description={t("sortHelp")}
-      items={items.map((colour) => ({
-        id: colour.id,
-        title: colour.name,
-        position: colour.position,
-        icon: <Swatch colour={colour} />,
-        description: <code>{colour.color}</code>,
-        fields: {
-          kind,
-          [`before.${colour.id}`]: colour.position,
-          [`title.${colour.id}`]: colour.name,
-        },
-      }))}
-    />
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3">
+        <span className="text-xs text-muted-foreground">{t("looks")}</span>
+        <Sample kind={kind} colour={colour} />
+      </div>
+      <ColourForm kind={kind} colour={colour} />
+    </div>
   );
 }
