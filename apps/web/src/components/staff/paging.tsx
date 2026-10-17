@@ -79,7 +79,10 @@ export function PagingLinks({
   const { notice: _notice, ...kept } = params;
   const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
   return (
-    <nav aria-label={t("nav")} className={cn("flex flex-wrap gap-2", className)}>
+    <nav
+      aria-label={t("nav")}
+      className={cn("flex flex-wrap gap-2", className)}
+    >
       {cursor && (
         <Link href={listHref(path, kept, cursorParam)} className={link}>
           {t("first")}
