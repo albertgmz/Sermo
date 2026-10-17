@@ -4079,3 +4079,19 @@ whose tag name no longer matches goes back to the list. The new page's address s
 hyphen, which no slug can, so a static page called `new` still has its editor at
 `/admin/pages/new`. The notice form's rule row is still `RuleField`, so its label column is narrower
 than its neighbours'.
+
+### Tools, logs and moderation on the shared patterns (item 11)  Every screen of Tools, Logs and
+Moderation now opens with `PageHeader` and its breadcrumb (`ScreenFrame` with `staffTrail`; the
+three case pages of Moderation use `PageHeader` directly, and their "back" links are the
+breadcrumb's last step). No address and no gate moved, and no screen got an edit or sort page:
+none of them has records to add, edit or order, and their server actions are untouched.
+Maintenance is an `ItemList` of operations, each row holding its confirm step (the spam cleanup
+row holds the chosen member and its step in `panel`; the member search stays a card under the
+list). The reports, approvals, sign-ups and IP lookups keep the backend's own filters and cursor
+paging, so they use `ItemList` rows inside `QueueList` (`moderation/queue-list.tsx`): the filter
+form in a card above, the rows, then the first-page and next links; `CursorList` stays for the
+other screens. A report or approval row's title links to its case, with an eye icon as the
+second link; a sign-up row keeps its tick and its decide controls, its facts sit in the row's
+`panel`. The logs keep `LogTable` (their `LogShell` now carries the breadcrumb) and the tasks
+screen keeps its counts and failure list. `admin.itemList` joins the staff layout's client
+namespaces. The loading files draw the breadcrumb's placeholder (`LoadingPage trail`).

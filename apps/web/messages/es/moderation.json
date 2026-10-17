@@ -92,7 +92,6 @@
   "case": {
     "metaTitle": "Denuncia {id}",
     "heading": "Caso de denuncia {id}",
-    "back": "Todas las denuncias",
     "summaryHeading": "Caso",
     "target": "Denunciado",
     "state": "Estado",
@@ -129,7 +128,6 @@
   "message": {
     "metaTitle": "Mensaje privado denunciado",
     "heading": "Mensaje privado denunciado",
-    "back": "Volver al caso",
     "loading": "Cargando…"
   },
   "auditedRead": {
@@ -157,7 +155,6 @@
   "review": {
     "metaTitle": "Revisar {type} {id}",
     "heading": "Revisión: {type} {id}",
-    "back": "Todas las aprobaciones",
     "contentHeading": "Contenido",
     "contentDescription": "Tal como se envió, con las imágenes que permiten tus ajustes del ahorro de datos.",
     "state": "Estado",

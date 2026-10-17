@@ -1,15 +1,15 @@
 import { approvalsList } from "@sermo/core/contracts";
-import Link from "next/link";
+import { Eye } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { RelativeTime } from "@/components/forum/relative-time";
-import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
+import { cursorFrom } from "@/components/staff/cursor-list";
+import { RowLink } from "@/components/staff/item-list";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { cn } from "@/lib/utils";
 import { MemberLink, memberNames } from "../../admin/logs/links";
 import { FilterBar, first, forumOptions } from "../filter-bar";
+import { QueueList } from "../queue-list";
 import { QueuePlace } from "../where";
 
 type Params = PageProps<"/[locale]/moderation/approvals">["searchParams"];
@@ -27,12 +27,36 @@ export async function ApprovalList({ searchParams }: { searchParams: Params }) {
   ]);
   const name = await memberNames(page.items.map((item) => item.authorId));
   return (
-    <CursorList
-      items={page.items}
+    <QueueList
+      items={page.items.map((item) => ({
+        id: `${item.type}-${item.id}`,
+        title: (
+          <span className="line-clamp-2">
+            {item.excerpt || `${type(item.type)} #${item.id}`}
+          </span>
+        ),
+        href: `/moderation/approvals/${item.type}/${item.id}`,
+        badges: <Badge variant="secondary">{type(item.type)}</Badge>,
+        description: (
+          <p className="flex flex-wrap items-center gap-x-3">
+            <QueuePlace where={item.where} />
+            <MemberLink id={item.authorId} name={name(item.authorId)} />
+            <span>
+              {t("added")} <RelativeTime date={item.createdAt} />
+            </span>
+          </p>
+        ),
+        actions: (
+          <RowLink
+            href={`/moderation/approvals/${item.type}/${item.id}`}
+            label={t("review")}
+            icon={<Eye />}
+          />
+        ),
+      }))}
       nextCursor={page.nextCursor}
       path="/moderation/approvals"
       params={params}
-      itemKey={(item) => `${item.type}-${item.id}`}
       label={t("list")}
       empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
       filters={
@@ -42,36 +66,6 @@ export async function ApprovalList({ searchParams }: { searchParams: Params }) {
           forums={forums}
         />
       }
-      render={(item) => (
-        <article className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <p className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{type(item.type)}</Badge>
-            </p>
-            {item.excerpt && (
-              <p className="line-clamp-2 text-sm [overflow-wrap:anywhere]">
-                {item.excerpt}
-              </p>
-            )}
-            <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
-              <QueuePlace where={item.where} />
-              <MemberLink id={item.authorId} name={name(item.authorId)} />
-              <span>
-                {t("added")} <RelativeTime date={item.createdAt} />
-              </span>
-            </p>
-          </div>
-          <Link
-            href={`/moderation/approvals/${item.type}/${item.id}`}
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "min-h-10 px-4",
-            )}
-          >
-            {t("review")}
-          </Link>
-        </article>
-      )}
     />
   );
 }

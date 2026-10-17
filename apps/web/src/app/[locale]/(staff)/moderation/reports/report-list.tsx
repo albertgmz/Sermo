@@ -1,16 +1,16 @@
 import { reportsGet, reportsList } from "@sermo/core/contracts";
-import Link from "next/link";
+import { Eye } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { RelativeTime } from "@/components/forum/relative-time";
-import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
+import { cursorFrom } from "@/components/staff/cursor-list";
+import { RowLink } from "@/components/staff/item-list";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { call, read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { cn } from "@/lib/utils";
 import { memberNames } from "../../admin/logs/links";
 import { orGone } from "../content";
 import { FilterBar, first, forumOptions } from "../filter-bar";
+import { QueueList } from "../queue-list";
 import { QueuePlace } from "../where";
 
 type Params = PageProps<"/[locale]/moderation/reports">["searchParams"];
@@ -62,44 +62,32 @@ export async function ReportList({ searchParams }: { searchParams: Params }) {
   ]);
   const name = await memberNames(ids);
   return (
-    <CursorList
-      items={rows}
-      nextCursor={page.nextCursor}
-      path="/moderation/reports"
-      params={params}
-      itemKey={({ group }) => group.id}
-      label={t("list")}
-      empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
-      filters={
-        <FilterBar
-          path="/moderation/reports"
-          params={params}
-          states={STATES}
-          stateDefault="open"
-          forums={forums}
-        />
-      }
-      render={({ group, reporterId }) => (
-        <article className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <p className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{type(group.targetType)}</Badge>
-              <Badge variant={STATE_BADGE[group.state]}>
-                {stateText(group.state)}
-              </Badge>
-              <Badge variant="outline">
-                {t("reportCount", { count: group.reportCount })}
-              </Badge>
-            </p>
-            {group.excerpt && (
-              <p className="line-clamp-2 text-sm [overflow-wrap:anywhere]">
-                {group.excerpt}
-              </p>
-            )}
-            <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+    <QueueList
+      items={rows.map(({ group, reporterId }) => ({
+        id: group.id,
+        title: (
+          <span className="line-clamp-2">
+            {group.excerpt || `${type(group.targetType)} #${group.targetId}`}
+          </span>
+        ),
+        href: `/moderation/reports/${group.id}`,
+        badges: (
+          <>
+            <Badge variant="secondary">{type(group.targetType)}</Badge>
+            <Badge variant={STATE_BADGE[group.state]}>
+              {stateText(group.state)}
+            </Badge>
+            <Badge variant="outline">
+              {t("reportCount", { count: group.reportCount })}
+            </Badge>
+          </>
+        ),
+        description: (
+          <>
+            <p className="flex flex-wrap items-center gap-x-3">
               <QueuePlace where={group.where} />
             </p>
-            <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-x-3">
               {reporterId && (
                 <span>
                   {t("reportedBy", { name: name(reporterId) })}
@@ -116,18 +104,30 @@ export async function ReportList({ searchParams }: { searchParams: Params }) {
                 </span>
               )}
             </p>
-          </div>
-          <Link
+          </>
+        ),
+        actions: (
+          <RowLink
             href={`/moderation/reports/${group.id}`}
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "min-h-10 px-4",
-            )}
-          >
-            {t("open")}
-          </Link>
-        </article>
-      )}
+            label={t("open")}
+            icon={<Eye />}
+          />
+        ),
+      }))}
+      nextCursor={page.nextCursor}
+      path="/moderation/reports"
+      params={params}
+      label={t("list")}
+      empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
+      filters={
+        <FilterBar
+          path="/moderation/reports"
+          params={params}
+          states={STATES}
+          stateDefault="open"
+          forums={forums}
+        />
+      }
     />
   );
 }

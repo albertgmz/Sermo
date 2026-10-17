@@ -92,7 +92,6 @@
   "case": {
     "metaTitle": "Report {id}",
     "heading": "Report case {id}",
-    "back": "All reports",
     "summaryHeading": "Case",
     "target": "Reported",
     "state": "State",
@@ -129,7 +128,6 @@
   "message": {
     "metaTitle": "Reported private message",
     "heading": "Reported private message",
-    "back": "Back to the case",
     "loading": "Loading…"
   },
   "auditedRead": {
@@ -157,7 +155,6 @@
   "review": {
     "metaTitle": "Review {type} {id}",
     "heading": "Review: {type} {id}",
-    "back": "All approvals",
     "contentHeading": "Content",
     "contentDescription": "As submitted, with the pictures your Data saver settings allow.",
     "state": "State",

@@ -15,6 +15,7 @@ export default function CreditLedgerPage({
   const t = useTranslations("adminTools.creditLedger");
   return (
     <LogShell
+      path="/admin/logs/credits"
       heading={t("heading")}
       subtitle={t("subtitle")}
       loading={t("loading")}

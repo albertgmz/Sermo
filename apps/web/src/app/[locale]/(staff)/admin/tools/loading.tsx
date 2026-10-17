@@ -2,7 +2,7 @@ import { ContentSkeleton, LoadingPage } from "../../moderation/skeletons";
 
 export default function Loading() {
   return (
-    <LoadingPage>
+    <LoadingPage trail>
       <ContentSkeleton />
       <ContentSkeleton />
     </LoadingPage>

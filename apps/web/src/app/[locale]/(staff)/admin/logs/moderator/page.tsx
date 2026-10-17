@@ -15,6 +15,7 @@ export default function ModeratorLogPage({
   const t = useTranslations("adminTools.moderatorLog");
   return (
     <LogShell
+      path="/admin/logs/moderator"
       heading={t("heading")}
       subtitle={t("subtitle")}
       loading={t("loading")}

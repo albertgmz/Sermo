@@ -10,15 +10,17 @@ export { FormSkeleton, ListSkeleton } from "../admin/groups/skeletons";
 export function LoadingPage({
   children,
   label,
+  trail,
 }: {
   children: React.ReactNode;
   label?: string;
+  trail?: boolean;
 }) {
   const t = useTranslations("moderation.common");
   return (
     <LoadingRegion label={label ?? t("loading")}>
       <div className="space-y-6">
-        <HeadingSkeleton />
+        <HeadingSkeleton trail={trail} />
         <div className="space-y-4">{children}</div>
       </div>
     </LoadingRegion>

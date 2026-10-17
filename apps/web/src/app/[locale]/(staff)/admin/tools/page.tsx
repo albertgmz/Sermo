@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
 import { ContentSkeleton } from "../../moderation/skeletons";
-import { PageHead } from "../groups/skeletons";
+import { staffTrail } from "../../trail";
 import { Maintenance } from "./maintenance";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,20 +16,19 @@ export default function ToolsPage({
 }: PageProps<"/[locale]/admin/tools">) {
   const t = useTranslations("adminTools.maintenance");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("heading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <div className="space-y-4">
-              <ContentSkeleton />
-              <ContentSkeleton />
-            </div>
-          </LoadingRegion>
-        }
-      >
-        <Maintenance searchParams={searchParams} />
-      </Suspense>
-    </div>
+    <ScreenFrame
+      trail={staffTrail("/admin/tools")}
+      heading={t("heading")}
+      subtitle={t("subtitle")}
+      label={t("loading")}
+      fallback={
+        <>
+          <ContentSkeleton />
+          <ContentSkeleton />
+        </>
+      }
+    >
+      <Maintenance searchParams={searchParams} />
+    </ScreenFrame>
   );
 }

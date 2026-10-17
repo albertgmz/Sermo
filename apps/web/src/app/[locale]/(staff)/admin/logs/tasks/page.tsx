@@ -8,6 +8,7 @@ import { Section } from "@/components/staff/rows";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { ContentSkeleton } from "../../../moderation/skeletons";
+import { staffTrail } from "../../../trail";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminTools.tasks");
@@ -18,6 +19,7 @@ export default function TasksPage() {
   const t = useTranslations("adminTools.tasks");
   return (
     <ScreenFrame
+      trail={staffTrail("/admin/logs/tasks")}
       heading={t("heading")}
       subtitle={t("subtitle")}
       label={t("loading")}

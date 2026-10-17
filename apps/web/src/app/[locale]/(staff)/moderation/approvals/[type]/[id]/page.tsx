@@ -7,17 +7,18 @@ import { Suspense } from "react";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { ContentIp } from "@/components/staff/content-ip";
+import { PageHeader } from "@/components/staff/page-header";
 import { linkClass, Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { spoilerContentFor } from "@/lib/spoiler-buttons";
-import { PageHead } from "../../../../admin/groups/skeletons";
 import {
   MemberLink,
   memberNames,
   panelHref,
 } from "../../../../admin/logs/links";
+import { staffTrail } from "../../../../trail";
 import { AuditedRead } from "../../../audited-read";
 import { APPROVAL_TYPES, describe } from "../../../content";
 import { ContentSkeleton, FormSkeleton } from "../../../skeletons";
@@ -81,10 +82,10 @@ async function Review({ params }: { params: Props["params"] }) {
   ]);
   return (
     <>
-      <PageHead heading={t("heading", { type: label(type), id })} />
-      <Link href="/moderation/approvals" className={linkClass}>
-        {t("back")}
-      </Link>
+      <PageHeader
+        trail={staffTrail(`/moderation/approvals/${type}/${id}`)}
+        title={t("heading", { type: label(type), id })}
+      />
       {type === "conversation_message" ? (
         <AuditedRead action={viewApprovalMessage} fields={{ id: String(id) }} />
       ) : (

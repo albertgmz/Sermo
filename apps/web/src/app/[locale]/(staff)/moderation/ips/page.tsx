@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
-import { PageHead } from "../../admin/groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { staffTrail } from "../../trail";
 import { ListSkeleton } from "../skeletons";
 import { IpLookup } from "./ip-lookup";
 
@@ -17,17 +16,14 @@ export default function IpsPage({
 }: PageProps<"/[locale]/moderation/ips">) {
   const t = useTranslations("moderation.ips");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("heading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <ListSkeleton rows={4} />
-          </LoadingRegion>
-        }
-      >
-        <IpLookup searchParams={searchParams} />
-      </Suspense>
-    </div>
+    <ScreenFrame
+      trail={staffTrail("/moderation/ips")}
+      heading={t("heading")}
+      subtitle={t("subtitle")}
+      label={t("loading")}
+      fallback={<ListSkeleton rows={4} />}
+    >
+      <IpLookup searchParams={searchParams} />
+    </ScreenFrame>
   );
 }
