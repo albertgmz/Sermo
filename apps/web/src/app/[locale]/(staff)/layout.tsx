@@ -14,6 +14,7 @@ import { LocaleSyncGate } from "@/components/layout/locale-sync-gate";
 import { Logo } from "@/components/layout/logo";
 import { SessionNotice } from "@/components/layout/session-notice";
 import { ViewerAccent } from "@/components/layout/site-accent";
+import { MAIN_ID, SkipLink } from "@/components/layout/skip-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StaffMenu } from "./mobile-menu";
 import { StaffNavigation } from "./navigation";
@@ -86,7 +87,11 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
         "ui.sheet",
       ]}
     >
-      <div className="flex min-h-dvh flex-1 flex-col [--container-width:none]">
+      <div
+        data-frame="staff"
+        className="flex min-h-dvh flex-1 flex-col [--container-width:none]"
+      >
+        <SkipLink />
         <Suspense>
           <StaffAccent />
         </Suspense>
@@ -149,7 +154,13 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
               </Suspense>
             </div>
           </aside>
-          <main className="min-w-0 py-4 pb-8 lg:py-6">{children}</main>
+          <main
+            id={MAIN_ID}
+            tabIndex={-1}
+            className="min-w-0 py-4 pb-8 outline-none lg:py-6"
+          >
+            {children}
+          </main>
         </Container>
       </div>
     </ClientMessages>

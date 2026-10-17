@@ -19,6 +19,7 @@ import { ShortcutsGate } from "@/components/layout/shortcuts-gate";
 import { ViewerAccent } from "@/components/layout/site-accent";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { MAIN_ID, SkipLink } from "@/components/layout/skip-link";
 import {
   pendingBadge,
   StaffBar,
@@ -127,6 +128,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         data-forum-layout=""
         className="flex min-h-dvh flex-1 flex-col pb-(--spacing-mobile-nav) md:pb-0"
       >
+        <SkipLink />
         <Suspense>
           <SessionNotice />
         </Suspense>
@@ -192,7 +194,11 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
           <PageBackdrop />
           {/* At least a screen below the header, so the footer starts below the fold and a page that
             grows as it streams in does not push it out of view (a layout shift). */}
-          <main className="min-h-[calc(100svh-3.5rem)] flex-1">
+          <main
+            id={MAIN_ID}
+            tabIndex={-1}
+            className="min-h-[calc(100svh-3.5rem)] flex-1 outline-none"
+          >
             {/* A member who has terms or rules to accept gets the gate instead of the page. */}
             <Suspense>
               <AcceptanceGate>{children}</AcceptanceGate>

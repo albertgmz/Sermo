@@ -26,6 +26,9 @@
   "narrowToggle": {
     "label": "Usar una página más estrecha"
   },
+  "skipLink": {
+    "label": "Ir al contenido principal"
+  },
   "siteHeader": {
     "loadingMenu": "Cargando menú…",
     "loadingNavigation": "Cargando navegación…",

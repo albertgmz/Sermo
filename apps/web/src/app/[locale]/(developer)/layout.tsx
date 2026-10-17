@@ -16,6 +16,7 @@ import { LocaleSyncGate } from "@/components/layout/locale-sync-gate";
 import { Logo } from "@/components/layout/logo";
 import { SessionNotice } from "@/components/layout/session-notice";
 import { ViewerAccent } from "@/components/layout/site-accent";
+import { MAIN_ID, SkipLink } from "@/components/layout/skip-link";
 import { buttonVariants } from "@/components/ui/button";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -50,7 +51,11 @@ export default function DeveloperLayout({
         "ui.sheet",
       ]}
     >
-      <div className="flex min-h-dvh flex-1 flex-col [--container-width:none]">
+      <div
+        data-frame="developer"
+        className="flex min-h-dvh flex-1 flex-col [--container-width:none]"
+      >
+        <SkipLink />
         <Suspense>
           <DeveloperAccent />
         </Suspense>
@@ -81,7 +86,7 @@ export default function DeveloperLayout({
             </Suspense>
           </Container>
         </header>
-        <main className="flex-1">
+        <main id={MAIN_ID} tabIndex={-1} className="flex-1 outline-none">
           <Container className="py-4 pb-8 md:py-8">{children}</Container>
         </main>
       </div>

@@ -56,7 +56,7 @@ export function ForumCard({
           <Art
             category="forumArt"
             src={forum.image}
-            className="absolute inset-0 -z-20 transition-transform duration-300 group-focus-within:scale-[1.03] group-hover:scale-[1.03] motion-reduce:transition-none"
+            className="absolute inset-0 -z-20 transition-transform duration-300 motion-safe:group-focus-within:scale-[1.03] motion-safe:group-hover:scale-[1.03]"
           />
         )}
         <div

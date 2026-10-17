@@ -1,7 +1,13 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useId, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { cn } from "@/lib/utils";
 
 const listeners = new Set<() => void>();
@@ -18,6 +24,17 @@ function writeOpen(storageKey: string, open: boolean) {
   for (const listener of listeners) listener();
 }
 
+// A closed panel's body stays in the page for the browser's find (Ctrl+F) and for links to text
+// in it: hidden until found, when the browser shows it and fires `beforematch`. React writes
+// `hidden` only as a boolean, so the attribute is set here.
+export function foldPanel(
+  body: Pick<Element, "setAttribute" | "removeAttribute">,
+  closed: boolean,
+) {
+  if (closed) body.setAttribute("hidden", "until-found");
+  else body.removeAttribute("hidden");
+}
+
 // Until the member chooses, a panel is open everywhere ("always") or open
 // from `md` and closed on phones ("md"). The choice is kept per storage key.
 export function CollapsiblePanel({
@@ -32,6 +49,7 @@ export function CollapsiblePanel({
   children: React.ReactNode;
 }) {
   const id = useId();
+  const body = useRef<HTMLDivElement>(null);
   // Null on the server, where the same default is applied with CSS alone.
   const open = useSyncExternalStore<boolean | null>(
     subscribe,
@@ -46,6 +64,18 @@ export function CollapsiblePanel({
   );
   const responsive = open === null && defaultOpen === "md";
   const shown = open ?? true;
+  const closed = open === false;
+  useLayoutEffect(() => {
+    if (body.current) foldPanel(body.current, closed);
+  }, [closed]);
+  // Text found in a closed panel opens it, as a press would.
+  useEffect(() => {
+    const panel = body.current;
+    if (!panel) return;
+    const found = () => writeOpen(storageKey, true);
+    panel.addEventListener("beforematch", found);
+    return () => panel.removeEventListener("beforematch", found);
+  }, [storageKey]);
   return (
     <section className="overflow-hidden rounded-lg border bg-card">
       <h2>
@@ -67,11 +97,9 @@ export function CollapsiblePanel({
         </button>
       </h2>
       <div
+        ref={body}
         id={id}
-        className={cn(
-          "border-t",
-          responsive ? "hidden md:block" : !shown && "hidden",
-        )}
+        className={cn(!closed && "border-t", responsive && "hidden md:block")}
       >
         {children}
       </div>

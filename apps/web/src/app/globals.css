@@ -279,12 +279,36 @@
 }
 
 /*
- * The forum's header stays at the top of the window (site-header.tsx), so a jump to an address's
- * target, or to a post with `j` and `k`, stops below it: the target's scroll margin (`scroll-mt-*`)
- * is added to this padding.
+ * The forum's header stays at the top of the window (site-header.tsx), and so does the top bar of
+ * the staff panel and the developer page (their frames, marked data-frame), so a jump to an
+ * address's target, a post reached with `j` and `k`, or a control reached with Tab stops below it:
+ * the target's scroll margin (`scroll-mt-*`) is added to this padding.
  */
-html:has([data-forum-layout]) {
+html:has([data-forum-layout], [data-frame]) {
   scroll-padding-top: var(--spacing-site-header);
+}
+
+/*
+ * What covers the bottom of the window is kept clear the same way, so a control reached with Tab
+ * never sits under it: the forum's phone bar, and the cookie banner while it is up (its height,
+ * `--consent-space`, plus its margin; on a forum phone page it sits above the bar).
+ */
+@media (width < 48rem) {
+  html:has([data-forum-layout]) {
+    scroll-padding-bottom: var(--spacing-mobile-nav);
+  }
+}
+html.show--consent {
+  scroll-padding-bottom: calc(var(--consent-space, 0px) + 2rem);
+}
+@media (width < 48rem) {
+  html.show--consent:has([data-forum-layout]) {
+    scroll-padding-bottom: calc(
+      var(--spacing-mobile-nav) +
+      var(--consent-space, 0px) +
+      2rem
+    );
+  }
 }
 
 /*
@@ -294,6 +318,61 @@ html:has([data-forum-layout]) {
  */
 [data-shortcut-item]:focus-visible {
   outline-offset: -2px;
+}
+
+/*
+ * A visitor who asked their device for less motion gets none: animations and transitions end at
+ * once (dialogs, sheets and menus appear without fading, zooming or sliding; spinners stand still)
+ * and nothing scrolls smoothly. Not zero, so the end events the dialog library waits for still
+ * fire. Script-driven motion checks the same preference itself (the spotlight of hash-target.tsx).
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore-start lint/complexity/noImportantStyles: the visitor's preference wins over the cookie banner's own sheet and inline styles too */
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    /* biome-ignore-end lint/complexity/noImportantStyles: see above */
+  }
+}
+
+/*
+ * Forced colours (Windows contrast themes): the browser puts the visitor's few colours in place of
+ * ours and drops every box-shadow. What a shadow or a fill alone drew is drawn again in their
+ * colours: the focus ring (most controls draw it as a shadow), the edge of cards and floating
+ * panels, buttons and badges, and the current page of a navigation (a fill and an accent edge).
+ * Unlayered, so it wins over the utility classes that turn the outline off.
+ */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  [data-slot="card"],
+  [data-slot="dialog-content"],
+  [data-slot="popover-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"],
+  [data-slot="select-content"],
+  [data-slot="hover-card-content"],
+  [data-slot="tooltip-content"],
+  [data-slot="count-badge"] {
+    border: 1px solid CanvasText;
+  }
+  [data-slot="button"] {
+    border-color: ButtonText;
+  }
+  [data-slot="badge"] {
+    border-color: CanvasText;
+  }
+  [aria-current="page"] {
+    text-decoration-line: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.25em;
+  }
 }
 
 /*
