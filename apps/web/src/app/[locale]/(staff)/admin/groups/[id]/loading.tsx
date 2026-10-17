@@ -1,10 +1,10 @@
+import { LoadingPage } from "../../../skeletons";
 import { FormSkeleton } from "../skeletons";
-import { TrailLoading } from "../trail-loading";
 
 export default function Loading() {
   return (
-    <TrailLoading>
+    <LoadingPage>
       <FormSkeleton />
-    </TrailLoading>
+    </LoadingPage>
   );
 }

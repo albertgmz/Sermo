@@ -3,8 +3,8 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { EditForm } from "@/components/staff/edit-form";
 import { ScreenFrame } from "@/components/staff/screen-frame";
+import { EditFormSkeleton } from "../../../../skeletons";
 import { staffTrail } from "../../../../trail";
-import { EditFormSkeleton } from "../../../credits/skeletons";
 import { saveCategory } from "../actions";
 import { CategoryFormFields } from "../category-form";
 
@@ -21,7 +21,7 @@ export default function NewCategoryPage() {
       subtitle={t("new.description")}
       trail={staffTrail("/admin/shop/categories/new")}
       label={t("loading")}
-      fallback={<EditFormSkeleton rows={4} advanced />}
+      fallback={<EditFormSkeleton rows={4} advanced={1} />}
     >
       <EditForm action={saveCategory} submit={t("new.submit")}>
         <CategoryFormFields />

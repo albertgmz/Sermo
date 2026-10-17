@@ -1,8 +1,9 @@
-import { ListSkeleton, LoadingPage } from "../skeletons";
+import { LoadingPage } from "../../skeletons";
+import { ListSkeleton } from "../skeletons";
 
 export default function Loading() {
   return (
-    <LoadingPage trail>
+    <LoadingPage>
       <ListSkeleton rows={4} />
     </LoadingPage>
   );

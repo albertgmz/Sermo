@@ -1,7 +1,11 @@
 import { useTranslations } from "next-intl";
-import { EditFormLoading } from "../../../credits/skeletons";
+import { EditFormSkeleton, LoadingPage } from "../../../../skeletons";
 
 export default function Loading() {
   const t = useTranslations("adminEconomy.categories");
-  return <EditFormLoading label={t("loading")} rows={3} advanced />;
+  return (
+    <LoadingPage label={t("loading")}>
+      <EditFormSkeleton rows={3} advanced={1} />
+    </LoadingPage>
+  );
 }

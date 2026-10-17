@@ -11,8 +11,8 @@ import { PageHeader } from "@/components/staff/page-header";
 import { StreamedPanel } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
+import { EditFormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
-import { EditFormSkeleton } from "../../credits/skeletons";
 import { deleteAward, saveAward } from "../actions";
 import { AwardFormFields } from "../award-form";
 
@@ -122,7 +122,7 @@ export default async function AwardPage({
   return (
     <StreamedPanel
       label={t("loading")}
-      fallback={<EditFormSkeleton heading rows={7} advanced />}
+      fallback={<EditFormSkeleton heading rows={7} advanced={1} />}
     >
       <EditAward params={params} searchParams={searchParams} />
     </StreamedPanel>

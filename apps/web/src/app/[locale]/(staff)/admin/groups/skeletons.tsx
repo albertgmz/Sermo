@@ -1,7 +1,4 @@
-import { useTranslations } from "next-intl";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HeadingSkeleton } from "../../skeletons";
 
 const ROWS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -81,18 +78,5 @@ export function PageHead({
       <h1 className="text-2xl font-bold tracking-tight">{heading}</h1>
       {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
     </header>
-  );
-}
-
-// The loading file of a route: a heading placeholder, then the given skeletons.
-export function LoadingPage({ children }: { children: React.ReactNode }) {
-  const t = useTranslations("adminGroups.loading");
-  return (
-    <LoadingRegion label={t("label")}>
-      <div className="space-y-6">
-        <HeadingSkeleton />
-        <div className="space-y-4">{children}</div>
-      </div>
-    </LoadingRegion>
   );
 }

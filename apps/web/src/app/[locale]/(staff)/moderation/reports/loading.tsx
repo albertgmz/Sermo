@@ -1,8 +1,9 @@
-import { LoadingPage, QueueSkeleton } from "../skeletons";
+import { LoadingPage } from "../../skeletons";
+import { QueueSkeleton } from "../skeletons";
 
 export default function Loading() {
   return (
-    <LoadingPage trail>
+    <LoadingPage>
       <QueueSkeleton />
     </LoadingPage>
   );

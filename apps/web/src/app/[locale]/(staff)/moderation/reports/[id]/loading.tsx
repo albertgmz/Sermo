@@ -1,8 +1,9 @@
-import { ContentSkeleton, FormSkeleton, LoadingPage } from "../../skeletons";
+import { LoadingPage } from "../../../skeletons";
+import { ContentSkeleton, FormSkeleton } from "../../skeletons";
 
 export default function Loading() {
   return (
-    <LoadingPage trail>
+    <LoadingPage>
       <ContentSkeleton />
       <ContentSkeleton />
       <FormSkeleton rows={3} />

@@ -4,9 +4,9 @@ import { getTranslations } from "next-intl/server";
 import { EditForm } from "@/components/staff/edit-form";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { parseId } from "@/lib/sermo/ids";
+import { EditFormSkeleton } from "../../../../skeletons";
 import { staffTrail } from "../../../../trail";
 import { one } from "../../../credits/shared";
-import { EditFormSkeleton } from "../../../credits/skeletons";
 import { saveItem } from "../actions";
 import { ItemFormFields } from "../item-form";
 import { getLookups } from "../lookups";
@@ -47,7 +47,7 @@ export default function NewItemPage({
       subtitle={t("new.description")}
       trail={staffTrail("/admin/shop/items/new")}
       label={t("loading")}
-      fallback={<EditFormSkeleton rows={7} advanced />}
+      fallback={<EditFormSkeleton rows={7} advanced={1} />}
     >
       <NewItem searchParams={searchParams} />
     </ScreenFrame>

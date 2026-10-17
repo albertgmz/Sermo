@@ -1,8 +1,9 @@
-import { ContentSkeleton, LoadingPage } from "../../moderation/skeletons";
+import { ContentSkeleton } from "../../moderation/skeletons";
+import { LoadingPage } from "../../skeletons";
 
 export default function Loading() {
   return (
-    <LoadingPage trail>
+    <LoadingPage>
       <ContentSkeleton />
       <ContentSkeleton />
     </LoadingPage>

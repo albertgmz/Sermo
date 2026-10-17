@@ -1,31 +1,6 @@
-import { useTranslations } from "next-intl";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HeadingSkeleton } from "../skeletons";
 
 export { FormSkeleton, ListSkeleton } from "../admin/groups/skeletons";
-
-// The loading file of a route of Moderation and of Tools and logs: a heading placeholder, then
-// the given skeletons, each mirroring the block it stands for once settled.
-export function LoadingPage({
-  children,
-  label,
-  trail,
-}: {
-  children: React.ReactNode;
-  label?: string;
-  trail?: boolean;
-}) {
-  const t = useTranslations("moderation.common");
-  return (
-    <LoadingRegion label={label ?? t("loading")}>
-      <div className="space-y-6">
-        <HeadingSkeleton trail={trail} />
-        <div className="space-y-4">{children}</div>
-      </div>
-    </LoadingRegion>
-  );
-}
 
 // A panel holding a filter bar and rows with a badge line, an excerpt and a meta line.
 export function QueueSkeleton({ rows = 5 }: { rows?: number }) {

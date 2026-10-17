@@ -5,11 +5,11 @@ import { getTranslations } from "next-intl/server";
 import { EditForm } from "@/components/staff/edit-form";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
+import { EditFormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
 import { forumChoices } from "../access-fields";
 import { createReactionType } from "../actions";
 import { ReactionFields } from "../reaction-fields";
-import { ReactionFormSkeleton } from "../skeletons";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminContent.reactions.create");
@@ -39,7 +39,7 @@ export default function NewReactionPage() {
       subtitle={t("create.description")}
       trail={staffTrail("/admin/reactions/new")}
       label={t("loading")}
-      fallback={<ReactionFormSkeleton />}
+      fallback={<EditFormSkeleton advanced={2} />}
     >
       <NewReaction />
     </ScreenFrame>

@@ -9,11 +9,11 @@ import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { asType, withoutBlockedPictures } from "@/lib/sermo/reactions";
+import { EditFormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
 import { forumChoices } from "../access-fields";
 import { updateReactionType } from "../actions";
 import { ReactionFields } from "../reaction-fields";
-import { ReactionFormSkeleton } from "../skeletons";
 
 type Params = PageProps<"/[locale]/admin/reactions/[id]">["params"];
 
@@ -65,7 +65,7 @@ export default function EditReactionPage({
       subtitle={t("edit.description")}
       trail={params.then(({ id }) => staffTrail(`/admin/reactions/${id}`))}
       label={t("loading")}
-      fallback={<ReactionFormSkeleton />}
+      fallback={<EditFormSkeleton advanced={2} />}
     >
       <EditReaction params={params} />
     </ScreenFrame>

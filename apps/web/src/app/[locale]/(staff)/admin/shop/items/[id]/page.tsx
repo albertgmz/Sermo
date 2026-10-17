@@ -13,8 +13,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { cn } from "@/lib/utils";
+import { EditFormSkeleton } from "../../../../skeletons";
 import { staffTrail } from "../../../../trail";
-import { EditFormSkeleton } from "../../../credits/skeletons";
 import { deleteItem, saveItem } from "../actions";
 import { ItemFormFields } from "../item-form";
 import { getLookups } from "../lookups";
@@ -87,7 +87,7 @@ export default function ShopItemPage({
   return (
     <StreamedPanel
       label={t("loading")}
-      fallback={<EditFormSkeleton heading rows={7} advanced />}
+      fallback={<EditFormSkeleton heading rows={7} advanced={1} />}
     >
       <EditItem params={params} searchParams={searchParams} />
     </StreamedPanel>

@@ -1,7 +1,12 @@
 import { useTranslations } from "next-intl";
-import { ListLoading } from "../../../credits/skeletons";
+import { LoadingPage } from "../../../../skeletons";
+import { ListSkeleton } from "../../../groups/skeletons";
 
 export default function Loading() {
   const t = useTranslations("adminEconomy.categories");
-  return <ListLoading label={t("loading")} />;
+  return (
+    <LoadingPage label={t("loading")}>
+      <ListSkeleton rows={6} />
+    </LoadingPage>
+  );
 }

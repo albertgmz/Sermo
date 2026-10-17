@@ -9,8 +9,8 @@ import { PageHeader } from "@/components/staff/page-header";
 import { StreamedPanel } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
+import { EditFormSkeleton } from "../../../../skeletons";
 import { staffTrail } from "../../../../trail";
-import { EditFormSkeleton } from "../../../credits/skeletons";
 import { deleteCategory, saveCategory } from "../actions";
 import { CategoryFormFields } from "../category-form";
 
@@ -62,7 +62,7 @@ export default function EditCategoryPage({
   return (
     <StreamedPanel
       label={t("loading")}
-      fallback={<EditFormSkeleton heading rows={3} advanced />}
+      fallback={<EditFormSkeleton heading rows={3} advanced={1} />}
     >
       <EditCategory params={params} />
     </StreamedPanel>

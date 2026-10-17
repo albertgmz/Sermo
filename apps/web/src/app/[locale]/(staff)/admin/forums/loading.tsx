@@ -1,11 +1,11 @@
+import { LoadingPage } from "../../skeletons";
 import { ListSkeleton } from "../groups/skeletons";
-import { ForumsLoading } from "./loading-page";
 
 export default function Loading() {
   return (
-    <ForumsLoading>
+    <LoadingPage>
       <ListSkeleton rows={6} />
       <ListSkeleton rows={2} />
-    </ForumsLoading>
+    </LoadingPage>
   );
 }
