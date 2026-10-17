@@ -1,9 +1,9 @@
 import { ACCOUNT_STATES, usersAdminList } from "@sermo/core/contracts";
-import { User } from "lucide-react";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
+import { UserLink } from "@/components/forum/user-link";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { RowLink } from "@/components/staff/item-list";
 import { selectClass } from "@/components/staff/rows";
@@ -53,8 +53,8 @@ export async function UserList({
     return {
       id: card.id,
       icon: <UserAvatar user={card} size="lg" link={false} />,
-      title: card.username,
-      href: `/admin/users/${card.id}`,
+      // The member's name as everywhere on the site: colour, icon and member card.
+      title: <UserLink user={card} />,
       badges: (
         <>
           <MemberState state={member.state} />
@@ -95,14 +95,10 @@ export async function UserList({
         </>
       ),
       actions: (
-        <>
-          <RowLink href={`/admin/users/${card.id}`} label={t("open")} />
-          <RowLink
-            href={`/members/${card.id}`}
-            label={t("profile")}
-            icon={<User />}
-          />
-        </>
+        <RowLink
+          href={`/admin/users/${card.id}`}
+          label={t("open", { name: card.username })}
+        />
       ),
     };
   });

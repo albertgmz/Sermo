@@ -77,8 +77,9 @@ test("every member is a row with their details, both ways in, and the filters st
   expect(
     backend.asked.find((a) => a.operation === "users.adminList"),
   ).toBeDefined();
-  expect(html).toContain('href="/admin/users/5">ada</a>');
   expect(html).toContain('href="/members/5"');
+  expect(html).toContain('aria-label="Open ada"');
+  expect(html).toContain('href="/admin/users/5"');
   expect(html).toContain("ada@example.test");
   expect(html).toContain("Writers");
   expect(html).toContain("12");

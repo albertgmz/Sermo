@@ -4138,4 +4138,12 @@ password in the edit form's field layout, as `ConfirmPassword` still draws the o
 inside the tabs (pictures, sessions, restrictions) are `ItemList`s. Left as they were: the batch
 update's two-step form (only its header moved), the erase block (a closed danger card with its own
 form), the thread-ban lookup, the read-only consent and acceptances cards, the history log table,
-and the permissions tab (item 3). None of the forms has an option rare enough for `Advanced`.
+and the permissions tab (item 3). The Add forms of the member tabs (warn, restrict, ban, grant
+award, adjust credits) stay inline under their lists on the tab, not on pages of their own: each is
+an action on the member whose page is open, the member is fixed by the page, and a route per action
+would pull the form away from the list it changes and be a new screen, not a move. The members list
+keeps the name as the site draws it (colour, icon, member card) as the row title, with "Open"
+leading to the member's page; the ban register's title leads to the member's page and a "View
+profile" link leads to the public one. The "tell the member" box and message of the warn, restrict
+and ban forms stay in the main group: the box is a choice made on every save. No other option is
+rare enough for `Advanced`.

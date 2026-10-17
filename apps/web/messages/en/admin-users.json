@@ -80,7 +80,7 @@
     "lastSeen": "Last seen",
     "posts": "Posts",
     "credits": "Credits",
-    "open": "Open",
+    "open": "Open {name}",
     "never": "Never",
     "prefix": "Starts with",
     "prefixHelp": "A username or an email. With a prefix the list is ordered by username, then by email, not newest first.",
@@ -89,8 +89,7 @@
     "reset": "Reset",
     "emptyTitle": "No members here",
     "emptyDescription": "No member on this page matches. If a next page is offered, continue: a page can be empty while more rows follow.",
-    "batchLink": "Batch update members",
-    "profile": "View profile"
+    "batchLink": "Batch update members"
   },
   "identity": {
     "metaTitle": "Member details",
@@ -386,14 +385,14 @@
     "apply": "Apply",
     "reset": "Reset",
     "by": "Banned by",
-    "reason": "Reason",
     "when": "When",
     "until": "Until",
     "emptyTitle": "No bans",
     "emptyDescription": "No ban matches. If a next page is offered, continue.",
     "noReason": "No reason given",
     "permanent": "Permanent",
-    "lift": "Lift the ban"
+    "lift": "Lift the ban",
+    "profile": "View profile of {name}"
   },
   "acceptances": {
     "heading": "Terms and rules accepted",

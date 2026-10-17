@@ -1,10 +1,12 @@
 import { BAN_STATES, bansList } from "@sermo/core/contracts";
+import { User } from "lucide-react";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { cursorFrom } from "@/components/staff/cursor-list";
+import { RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
@@ -54,11 +56,7 @@ export async function BanList({
         <span className="block">{ban.reason || t("noReason")}</span>
         <span className="flex flex-wrap items-center gap-x-3">
           <span>
-            {t("by")}:{" "}
-            <UserLink
-              user={who(ban.moderator.id)}
-              className="inline-flex min-h-10 items-center"
-            />
+            {t("by")}: <UserLink user={who(ban.moderator.id)} />
           </span>
           <span>
             {t("when")}:{" "}
@@ -75,16 +73,24 @@ export async function BanList({
         </span>
       </>
     ),
-    actions:
-      ban.state === "active" ? (
-        <ConfirmStep
-          action={liftBan}
-          fields={{ banId: ban.id }}
-          summary={t("lift")}
-          reason={s("liftReason")}
-          danger={false}
+    actions: (
+      <>
+        <RowLink
+          href={`/members/${ban.user.id}`}
+          label={t("profile", { name: who(ban.user.id).username })}
+          icon={<User />}
         />
-      ) : undefined,
+        {ban.state === "active" && (
+          <ConfirmStep
+            action={liftBan}
+            fields={{ banId: ban.id }}
+            summary={t("lift")}
+            reason={s("liftReason")}
+            danger={false}
+          />
+        )}
+      </>
+    ),
   }));
   return (
     <>

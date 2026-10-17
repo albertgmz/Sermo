@@ -80,7 +80,7 @@
     "lastSeen": "Última vez visto",
     "posts": "Mensajes",
     "credits": "Créditos",
-    "open": "Abrir",
+    "open": "Abrir {name}",
     "never": "Nunca",
     "prefix": "Empieza por",
     "prefixHelp": "Un nombre de usuario o un correo. Con un prefijo, la lista se ordena por nombre de usuario y luego por correo, no por los más recientes primero.",
@@ -89,8 +89,7 @@
     "reset": "Restablecer",
     "emptyTitle": "No hay miembros aquí",
     "emptyDescription": "Ningún miembro de esta página coincide. Si se ofrece una página siguiente, continúa: una página puede estar vacía mientras siguen más filas.",
-    "batchLink": "Cambio masivo de miembros",
-    "profile": "Ver perfil"
+    "batchLink": "Cambio masivo de miembros"
   },
   "identity": {
     "metaTitle": "Datos del miembro",
@@ -386,14 +385,14 @@
     "apply": "Aplicar",
     "reset": "Restablecer",
     "by": "Expulsado por",
-    "reason": "Motivo",
     "when": "Cuándo",
     "until": "Hasta",
     "emptyTitle": "No hay expulsiones",
     "emptyDescription": "Ninguna expulsión coincide. Si se ofrece una página siguiente, continúa.",
     "noReason": "Sin motivo indicado",
     "permanent": "Permanente",
-    "lift": "Levantar la expulsión"
+    "lift": "Levantar la expulsión",
+    "profile": "Ver el perfil de {name}"
   },
   "acceptances": {
     "heading": "Términos y reglas aceptados",

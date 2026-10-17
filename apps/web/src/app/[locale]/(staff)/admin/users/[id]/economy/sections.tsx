@@ -87,7 +87,14 @@ export async function Ledger({
       cursorParam="ledger"
       label={t("ledger")}
       heading={t("ledger")}
-      description={`${t("balance")} ${format.number(page.balance ?? balance)}`}
+      description={
+        <>
+          {t("balance")}{" "}
+          <strong className="tabular-nums text-foreground">
+            {format.number(page.balance ?? balance)}
+          </strong>
+        </>
+      }
       empty={{ title: t("noLedger") }}
     />
   );
@@ -102,41 +109,47 @@ export async function Adjust({
 }) {
   const t = await getTranslations("adminUsers.economy");
   return (
-    <details className="rounded-lg border bg-card">
-      <summary className="flex min-h-10 cursor-pointer items-center px-4 py-3 text-sm font-semibold">
+    <details className="group min-w-0">
+      <summary className="flex min-h-12 cursor-pointer items-center rounded-lg border bg-card px-4 text-sm font-semibold">
         {t("adjustHeading")}
       </summary>
-      <EditForm action={adjustCredits} submit={t("adjust")} disabled={readOnly}>
-        <input type="hidden" name="id" value={userId} />
-        <FieldGroup
-          legend={t("adjustFormHeading")}
-          description={t("adjustHelp")}
+      <div className="mt-4">
+        <EditForm
+          action={adjustCredits}
+          submit={t("adjust")}
+          disabled={readOnly}
         >
-          <Field name="amount" label={t("amount")} htmlFor="adjust-amount">
-            <Input
-              id="adjust-amount"
-              name="amount"
-              type="number"
-              inputMode="numeric"
-              required
-            />
-          </Field>
-          <Field name="reason" label={t("reason")} htmlFor="adjust-reason">
-            <Input id="adjust-reason" name="reason" required />
-          </Field>
-          <Field name="confirm" label={t("confirmLabel")}>
-            <label className="flex min-h-10 items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                name="confirm"
+          <input type="hidden" name="id" value={userId} />
+          <FieldGroup
+            legend={t("adjustFormHeading")}
+            description={t("adjustHelp")}
+          >
+            <Field name="amount" label={t("amount")} htmlFor="adjust-amount">
+              <Input
+                id="adjust-amount"
+                name="amount"
+                type="number"
+                inputMode="numeric"
                 required
-                className="size-5"
               />
-              {t("confirm")}
-            </label>
-          </Field>
-        </FieldGroup>
-      </EditForm>
+            </Field>
+            <Field name="reason" label={t("reason")} htmlFor="adjust-reason">
+              <Input id="adjust-reason" name="reason" required />
+            </Field>
+            <Field name="confirm" label={t("confirmLabel")}>
+              <label className="flex min-h-10 items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  name="confirm"
+                  required
+                  className="size-5"
+                />
+                {t("confirm")}
+              </label>
+            </Field>
+          </FieldGroup>
+        </EditForm>
+      </div>
     </details>
   );
 }
@@ -256,11 +269,7 @@ export async function Awards({
                 <Time at={grant.grantedAt} /> ·{" "}
                 {grant.grantedBy ? (
                   <>
-                    {t("by")}{" "}
-                    <UserLink
-                      user={who(grant.grantedBy.id)}
-                      className="inline-flex min-h-10 items-center"
-                    />
+                    {t("by")} <UserLink user={who(grant.grantedBy.id)} />
                   </>
                 ) : (
                   t("automatic")

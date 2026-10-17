@@ -58,6 +58,8 @@ test("each ban is a row leading to its member; only a ban in force can be lifted
   expect(backend.asked[0]?.operation).toBe("bans.list");
   expect(html).toContain('href="/admin/users/11"');
   expect(html).toContain('href="/admin/users/12"');
+  expect(html).toContain('href="/members/11"');
+  expect(html).toContain('aria-label="View profile of member1"');
   expect(html).toContain("Spam");
   expect(html).toContain("No reason given");
   // One lift step, for the ban in force, wired to the hidden ban id.
