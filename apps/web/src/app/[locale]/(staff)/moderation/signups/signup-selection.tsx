@@ -14,13 +14,7 @@ import { DecideControls } from "./signup-controls";
 // The tick beside a sign-up of the list. Outside a `SignupSelection` it draws nothing.
 export function SignupTick({ id, name }: { id: number; name: string }) {
   const t = useTranslations("moderation.signups");
-  return (
-    <RowTick
-      id={id}
-      label={t("select", { name })}
-      className="items-start pt-1"
-    />
-  );
+  return <RowTick id={id} label={t("select", { name })} />;
 }
 
 // The list's rows can be ticked; the bar under it approves or rejects the ticked ones. The

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { ListFormSkeleton } from "../../groups/skeletons";
+import { ListSkeleton } from "../../../skeletons";
+import { staffTrail } from "../../../trail";
 import { PrefixList } from "./prefix-list";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,10 +18,12 @@ export default function PrefixesPage({
   const t = useTranslations("adminForums.prefixes");
   return (
     <ScreenFrame
+      trail={staffTrail("/admin/forums/prefixes")}
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
+      actions={<AddLink href="/admin/forums/prefixes/new">{t("add")}</AddLink>}
       label={t("loading")}
-      fallback={<ListFormSkeleton />}
+      fallback={<ListSkeleton />}
     >
       <PrefixList searchParams={searchParams} />
     </ScreenFrame>

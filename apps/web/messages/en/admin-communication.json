@@ -13,7 +13,7 @@
     "subtitle": "Alerts sent to every member, to a group or to named members.",
     "loading": "Loading the alerts…",
     "heading": "Alerts sent",
-    "new": "New alert",
+    "new": "Add alert",
     "emptyTitle": "No alerts yet",
     "emptyDescription": "Nothing has been sent to the members.",
     "byline": "Sent by {author} on {date}",
@@ -36,6 +36,8 @@
       "title": "Title",
       "body": "Text",
       "bodyHelp": "BB code: [B]bold[/B], [I]italic[/I], [U]underline[/U], [URL=https://example.com]link[/URL], [QUOTE]quote[/QUOTE], [LIST][*]item[/LIST], [CODE]code[/CODE].",
+      "audienceHeading": "Audience",
+      "sendHeading": "Before sending",
       "url": "Link",
       "urlHelp": "Optional. A path on this site (starting with /) or an http(s) address that the alert opens. Without one it opens the notifications list.",
       "audience": "Send to",
@@ -66,6 +68,7 @@
     "followsWatch": "Email respects each member's follow setting.",
     "retention": {
       "label": "Keep read notifications",
+      "heading": "Read notifications",
       "help": "Read notifications older than this are deleted.",
       "unit": "days"
     }
@@ -106,6 +109,9 @@
     "pageHeading": "Notices",
     "subtitle": "Banners shown under the header of every page.",
     "loading": "Loading the notices…",
+    "header": {
+      "add": "Add notice"
+    },
     "notices": {
       "created": "Notice created.",
       "removed": "Notice deleted."
@@ -114,21 +120,23 @@
       "heading": "Notices",
       "description": "Newest first. Dates are in UTC.",
       "emptyTitle": "No notices yet",
-      "emptyDescription": "Create one below.",
+      "emptyDescription": "Create the first one.",
       "active": "Active",
       "inactive": "Inactive",
       "group": "Group {group}",
       "from": "from {date}",
       "until": "until {date}",
-      "edit": "Edit"
+      "edit": "Edit {title}"
     },
     "create": {
       "heading": "New notice",
       "description": "It is shown at once if it is active and inside its dates.",
-      "submit": "Create notice"
+      "submit": "Create notice",
+      "metaTitle": "New notice"
     },
     "fields": {
       "title": "Title",
+      "group": "Notice",
       "body": "Text",
       "bodyHelp": "BB code: [B]bold[/B], [I]italic[/I], [U]underline[/U], [URL=https://example.com]link[/URL], [QUOTE]quote[/QUOTE], [LIST][*]item[/LIST], [CODE]code[/CODE].",
       "everyone": "Everyone",
@@ -139,6 +147,7 @@
       "dismissibleSwitch": "Visitors can dismiss it",
       "active": "Active",
       "activeSwitch": "Show the notice",
+      "schedule": "Schedule (optional)",
       "startsAt": "Starts",
       "dateHelp": "Optional. Date and time in UTC; without a start it is shown at once.",
       "endsAt": "Ends"
@@ -151,10 +160,6 @@
     "loading": "Loading the notice…",
     "notices": {
       "saved": "Notice saved. Members who dismissed it do not see it again."
-    },
-    "form": {
-      "heading": "Notice",
-      "description": "Every field is replaced when you save."
     },
     "delete": {
       "heading": "Delete the notice",

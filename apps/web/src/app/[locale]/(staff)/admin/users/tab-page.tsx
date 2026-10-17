@@ -1,5 +1,5 @@
 import { StreamedPanel } from "@/components/staff/screen-frame";
-import { FormSkeleton } from "../groups/skeletons";
+import { FormSkeleton } from "../../skeletons";
 
 // The frame of a tab's content: it streams in below the member's header with a form-shaped
 // skeleton, and its panels are spaced as on every screen of the panel.

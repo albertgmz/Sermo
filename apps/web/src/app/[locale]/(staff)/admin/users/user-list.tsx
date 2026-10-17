@@ -4,85 +4,22 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
-import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
+import { cursorFrom } from "@/components/staff/cursor-list";
+import { RowLink } from "@/components/staff/item-list";
+import { PagedList } from "@/components/staff/paged-list";
 import { selectClass } from "@/components/staff/rows";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getGroups } from "../groups/data";
-import type { AdminMember } from "./data";
 import { MemberState } from "./member-state";
 
 type Params = Record<string, string | string[] | undefined>;
 
 const one = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) ?? "";
-
-const COLUMNS =
-  "md:grid-cols-[minmax(0,1.3fr)_minmax(0,1.8fr)_5.5rem_7.5rem_7rem_6rem_3.5rem_4.5rem]";
-
-async function Row({ member }: { member: AdminMember }) {
-  const [t, format] = await Promise.all([
-    getTranslations("adminUsers.list"),
-    getFormatter(),
-  ]);
-  const { card } = member;
-  const cell = "min-w-0 text-sm [overflow-wrap:anywhere]";
-  const label = "text-xs text-muted-foreground md:hidden";
-  return (
-    <div className={`grid gap-x-4 gap-y-2 p-4 md:items-center ${COLUMNS}`}>
-      <div className="flex min-w-0 items-center gap-3">
-        <UserAvatar user={card} size="lg" link={false} />
-        <div className="min-w-0">
-          <UserLink
-            user={card}
-            className="inline-flex min-h-10 items-center text-sm font-semibold"
-          />
-          <Link
-            href={`/admin/users/${card.id}`}
-            className="flex min-h-10 items-center text-xs text-primary-ink underline-offset-4 hover:underline md:min-h-0"
-          >
-            {t("open")}
-          </Link>
-        </div>
-      </div>
-      <p className={cell}>
-        <span className={label}>{t("email")}: </span>
-        {member.email}
-      </p>
-      <p>
-        <MemberState state={member.state} />
-      </p>
-      <p className={cell}>
-        <span className={label}>{t("group")}: </span>
-        {card.badges.map((badge) => badge.label).join(", ") || t("none")}
-      </p>
-      <p className={cell}>
-        <span className={label}>{t("registered")}: </span>
-        <time dateTime={member.createdAt}>
-          {format.dateTime(new Date(member.createdAt), { dateStyle: "medium" })}
-        </time>
-      </p>
-      <p className={cell}>
-        <span className={label}>{t("lastSeen")}: </span>
-        {member.lastActivityAt ? (
-          <RelativeTime date={member.lastActivityAt} />
-        ) : (
-          t("never")
-        )}
-      </p>
-      <p className={`${cell} tabular-nums`}>
-        <span className={label}>{t("posts")}: </span>
-        {format.number(member.postCount)}
-      </p>
-      <p className={`${cell} tabular-nums`}>
-        <span className={label}>{t("credits")}: </span>
-        {format.number(member.credits)}
-      </p>
-    </div>
-  );
-}
 
 // Every member through `users.adminList`, with the filters in the address. A page may be short
 // or empty while there is a next cursor: "Next" is offered whenever the backend gives one.
@@ -98,10 +35,11 @@ export async function UserList({
     : undefined;
   const groupId = parseId(one(params.group)) ?? undefined;
   const prefix = one(params.q).trim().slice(0, 64) || undefined;
-  const [t, states, groups, page] = await Promise.all([
+  const [t, states, groups, format, page] = await Promise.all([
     getTranslations("adminUsers.list"),
     getTranslations("adminUsers.states"),
     getGroups(),
+    getFormatter(),
     read(usersAdminList, {
       state: stateFilter,
       groupId,
@@ -110,29 +48,66 @@ export async function UserList({
     }),
   ]);
   const field = "grid min-w-0 gap-1.5 text-xs font-medium";
+  const items = page.items.map((member) => {
+    const { card } = member;
+    return {
+      id: card.id,
+      icon: <UserAvatar user={card} size="lg" link={false} />,
+      // The member's name as everywhere on the site: colour, icon and member card.
+      title: <UserLink user={card} />,
+      badges: (
+        <>
+          <MemberState state={member.state} />
+          {card.badges.map((badge, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list, where two groups may show the same label
+            <Badge key={index} variant="outline">
+              {badge.label}
+            </Badge>
+          ))}
+        </>
+      ),
+      description: (
+        <>
+          <span className="block">{member.email}</span>
+          <span className="flex flex-wrap gap-x-3">
+            <span>
+              {t("registered")}:{" "}
+              <time dateTime={member.createdAt}>
+                {format.dateTime(new Date(member.createdAt), {
+                  dateStyle: "medium",
+                })}
+              </time>
+            </span>
+            <span>
+              {t("lastSeen")}:{" "}
+              {member.lastActivityAt ? (
+                <RelativeTime date={member.lastActivityAt} />
+              ) : (
+                t("never")
+              )}
+            </span>
+            <span className="tabular-nums">
+              {t("posts")}: {format.number(member.postCount)}
+            </span>
+            <span className="tabular-nums">
+              {t("credits")}: {format.number(member.credits)}
+            </span>
+          </span>
+        </>
+      ),
+      actions: (
+        <RowLink
+          href={`/admin/users/${card.id}`}
+          label={t("open", { name: card.username })}
+        />
+      ),
+    };
+  });
   return (
-    <CursorList
-      items={page.items}
-      nextCursor={page.nextCursor}
-      path="/admin/users"
-      params={params}
-      itemKey={(member) => member.card.id}
-      render={(member) => <Row member={member} />}
+    <PagedList
+      items={items}
+      paging={{ path: "/admin/users", params, nextCursor: page.nextCursor }}
       label={t("heading")}
-      head={
-        <div
-          className={`hidden gap-x-4 border-b px-4 py-2 text-xs font-semibold text-muted-foreground md:grid ${COLUMNS}`}
-        >
-          <span>{t("member")}</span>
-          <span>{t("email")}</span>
-          <span>{t("state")}</span>
-          <span>{t("group")}</span>
-          <span>{t("registered")}</span>
-          <span>{t("lastSeen")}</span>
-          <span>{t("posts")}</span>
-          <span>{t("credits")}</span>
-        </div>
-      }
       empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
       filters={
         <form method="get" action="/admin/users" aria-label={t("filters")}>

@@ -60,7 +60,6 @@
       "metaTitle": "Antispam",
       "heading": "Antispam",
       "subtitle": "Con qué rapidez puede escribir un miembro, quién puede publicar enlaces o publicar sin revisión, qué puede contener una firma y la comprobación de Cloudflare Turnstile en los formularios para invitados. Los límites diarios, la restricción que muestra como enlaces las imágenes y los medios externos (un grupo con Nunca queda exento) y las excepciones al intervalo anti-flood, al filtro de palabras y a la comprobación de spam son permisos: se ajustan en la pantalla de permisos.",
-      "formHeading": "Límites de publicación",
       "posting": "Publicación",
       "signatures": "Firmas",
       "signaturesNote": "Se comprueban cuando un miembro guarda su firma y se miden sobre lo que muestra, así que el código BB distinto que dibuja lo mismo cuenta igual. En los recuentos y en el tamaño del texto, 0 y -1 significan sin límite; para prohibir enlaces o imágenes, déjalos fuera del formato permitido. Nunca se permiten citas, tablas, bloques de código, spoilers, medios ni más de un párrafo. Las firmas ya guardadas no se vuelven a comprobar hasta que su dueño las guarde.",
@@ -94,7 +93,6 @@
       "typesDescription": "Un tipo de contenido por línea, como image/png. Las imágenes del catálogo y del sitio siempre admiten JPEG, PNG y WebP.",
       "groupsHeading": "Almacenamiento por grupo",
       "groupsDescription": "Cuánto puede conservar subido un miembro del grupo, en bytes. Deja un campo vacío para ilimitado; 0 no permite almacenamiento. Al guardar se envía el valor de todos los grupos, así que los grupos que no toques conservan el suyo.",
-      "formHeading": "Ajustes de subidas",
       "unlimited": "Ilimitado",
       "unit": "bytes",
       "groupFallback": "Grupo {id}"
@@ -109,7 +107,6 @@
       "metaTitle": "Niveles y límites",
       "heading": "Niveles",
       "subtitle": "La curva de niveles, los límites del texto del perfil y los pesos del miembro del mes.",
-      "formHeading": "Niveles y límites",
       "curve": "La curva y los títulos",
       "titleRow": "Título {n}",
       "levelLabel": "Desde el nivel",
@@ -368,10 +365,6 @@
     "node_icon": "Iconos de foros",
     "node_cover": "Portadas de foros"
   },
-  "languages": {
-    "en": "Inglés",
-    "es": "Español"
-  },
   "navigation": {
     "locations": {
       "header": "Cabecera",
@@ -389,15 +382,8 @@
       "before": "Antes del título",
       "after": "Después del título"
     },
-    "filter": {
-      "label": "Filtrar entradas",
-      "placeholder": "Filtrar por título",
-      "none": "Ninguna entrada coincide."
-    },
     "add": {
-      "heading": "Añadir navegación",
-      "description": "Un enlace a una página del sitio o a otro sitio, o un encabezado que solo agrupa enlaces.",
-      "submit": "Añadir entrada",
+      "submit": "Crear entrada",
       "location": "Lugar",
       "locationHelp": "Dónde se muestra la entrada.",
       "title": "Título",
@@ -414,24 +400,9 @@
       "audience": "Quién la ve",
       "permission": "Permiso",
       "permissionHelp": "Solo se usa con el público de quienes tengan un permiso.",
-      "noPermission": "Elige un permiso",
-      "enabled": "Mostrar ahora"
-    },
-    "order": {
-      "heading": "Entradas",
-      "description": "Cambia los números y guarda el orden, o edita una entrada en su propia fila.",
-      "submit": "Guardar orden",
-      "saving": "Guardando…"
+      "noPermission": "Elige un permiso"
     },
     "row": {
-      "title": "Título",
-      "audience": "Quién la ve",
-      "permission": "Permiso",
-      "enabled": "Sí",
-      "enabledLabel": "Mostrar {title}",
-      "order": "Orden",
-      "icon": "Icono",
-      "iconPosition": "Posición del icono",
       "save": "Guardar entrada",
       "builtin": "Integrada",
       "heading": "Encabezado",
@@ -441,8 +412,40 @@
       "delete": "Eliminar",
       "deleteWarning": "Elimina {title} y todas las entradas que hay bajo ella. Esto no se puede deshacer.",
       "deleteConfirm": "Eliminar la entrada",
-      "empty": "Aún no hay ninguna entrada de navegación.",
-      "saving": "Guardando…"
+      "empty": "Aún no hay ninguna entrada de navegación."
+    },
+    "list": {
+      "label": "Entradas de navegación",
+      "placeLabel": "Entradas de {place}",
+      "add": "Añadir entrada",
+      "sort": "Ordenar",
+      "edit": "Editar {title}",
+      "inside": "Dentro de {parent}"
+    },
+    "form": {
+      "entry": "Entrada",
+      "look": "Aspecto",
+      "visibility": "Quién la ve",
+      "enabledLabel": "Visible",
+      "enabled": "Mostrar esta entrada"
+    },
+    "new": {
+      "metaTitle": "Nueva entrada de navegación",
+      "heading": "Nueva entrada",
+      "subtitle": "Un enlace a una página del sitio o a otro sitio, o un encabezado que solo agrupa enlaces."
+    },
+    "edit": {
+      "metaTitle": "Editar entrada de navegación",
+      "heading": "Editar entrada",
+      "subtitle": "Cambia el nombre de la entrada, quién la ve o desactívala. Su lugar, su destino y su entrada superior no cambian.",
+      "about": "{title}, en {place}."
+    },
+    "sort": {
+      "metaTitle": "Ordenar navegación",
+      "heading": "Ordenar entradas",
+      "subtitle": "Sube o baja las entradas dentro de su lugar, o bajo su encabezado, y guarda cada lista.",
+      "under": "Bajo {parent} ({place})",
+      "none": "Ningún lugar ni encabezado tiene dos o más entradas que ordenar."
     }
   },
   "identity": {
@@ -473,7 +476,8 @@
     "heading": "Tipos de advertencia",
     "description": "Lo que elige un moderador al advertir a un miembro. Un tipo fija los puntos, la caducidad y un motivo de partida.",
     "none": "No hay tipos de advertencia. Los moderadores ponen advertencias personalizadas.",
-    "edit": "Editar",
+    "add": "Añadir tipo de advertencia",
+    "editLabel": "Editar {name}",
     "points": "{count, plural, one {# punto} other {# puntos}}",
     "neverExpires": "No caduca",
     "expiresAfter": "Caduca a los {days, plural, one {# día} other {# días}}",
@@ -484,7 +488,8 @@
       "headingNew": "Nuevo tipo de advertencia",
       "headingEdit": "Editar tipo de advertencia",
       "descriptionNew": "Con nombre en los dos idiomas; cada miembro lee el que usa.",
-      "create": "Añadir tipo de advertencia",
+      "legend": "Tipo de advertencia",
+      "create": "Crear tipo de advertencia",
       "nameEn": "Nombre (inglés)",
       "nameEs": "Nombre (español)",
       "points": "Puntos",
@@ -501,7 +506,8 @@
     "heading": "Acciones automáticas",
     "description": "Se aplican una vez cuando los puntos de advertencia activos de un miembro llegan al umbral, y de nuevo solo después de que los puntos bajen del umbral y vuelvan a alcanzarlo. Los cambios cuentan desde la siguiente advertencia. Un grupo añadido por un tiempo se retira cuando los puntos bajan del umbral o se acaba el tiempo. Las expulsiones y las restricciones terminan en su propia fecha y nunca se levantan antes; los grupos permanentes se quedan.",
     "none": "No hay acciones automáticas.",
-    "edit": "Editar",
+    "add": "Añadir acción",
+    "editLabel": "Editar: {summary}",
     "threshold": "{count, plural, one {Con # punto} other {Con # puntos}}",
     "permanently": "de forma permanente",
     "forDays": "durante {days, plural, one {# día} other {# días}}",
@@ -514,7 +520,8 @@
       "headingNew": "Nueva acción automática",
       "headingEdit": "Editar acción automática",
       "descriptionNew": "Se omite a los miembros que tienen el permiso que los exime de las acciones automáticas, y no se puede expulsar al último administrador. Una acción que añade un grupo necesita el permiso para gestionar miembros y tu propia contraseña.",
-      "create": "Añadir acción",
+      "legend": "Acción automática",
+      "create": "Crear acción",
       "threshold": "Puntos activos",
       "thresholdHelp": "La acción se aplica cuando los puntos sin caducar de un miembro llegan a este número.",
       "kind": "Acción",
@@ -543,5 +550,8 @@
       "password": "Tu contraseña",
       "passwordHelp": "Hace falta para añadir, cambiar o eliminar una acción que añade un grupo; déjala vacía para las demás."
     }
+  },
+  "nav": {
+    "label": "Grupos de ajustes"
   }
 }

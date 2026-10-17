@@ -1,10 +1,11 @@
-import { FormSkeleton, ListSkeleton, LoadingPage } from "../groups/skeletons";
+import { useTranslations } from "next-intl";
+import { ListSkeleton, LoadingPage } from "../../skeletons";
 
 export default function Loading() {
+  const t = useTranslations("adminContent.pages");
   return (
-    <LoadingPage>
-      <ListSkeleton />
-      <FormSkeleton />
+    <LoadingPage label={t("loading")}>
+      <ListSkeleton rows={6} />
     </LoadingPage>
   );
 }

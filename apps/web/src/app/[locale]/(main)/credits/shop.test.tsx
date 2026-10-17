@@ -6,15 +6,18 @@ import { translator, withIntl } from "@/lib/test-intl";
 const realFetch = globalThis.fetch;
 
 mock.module("server-only", () => ({}));
-const intl = await import("next-intl/server");
+// Copies: a module namespace takes the stand-in's exports once it is replaced.
+const intl = { ...(await import("next-intl/server")) };
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
+const nextHeaders = { ...(await import("next/headers")) };
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
+const members = { ...(await import("@/lib/sermo/members")) };
 mock.module("@/lib/sermo/members", () => ({
   membersFor: async () => () => ({
     username: "ember",
@@ -28,6 +31,8 @@ const { Shop } = await import("./shop");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
+  mock.module("@/lib/sermo/members", () => members);
+  mock.module("next/headers", () => nextHeaders);
 });
 afterEach(() => {
   globalThis.fetch = realFetch;

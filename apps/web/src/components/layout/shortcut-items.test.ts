@@ -29,9 +29,9 @@ test("the item the reader is at is the last one at or above the top of the windo
   expect(itemAtWindowTop([1, 300])).toBe(0);
 });
 
-test("an item left under the scroll margin of j and k still counts as the top one", () => {
-  expect(itemAtWindowTop([-300, 16, 400])).toBe(1);
-  expect(itemAtWindowTop([-300, 40, 400])).toBe(0);
+test("an item left under the header by the scroll margin of j and k still counts as the top one", () => {
+  expect(itemAtWindowTop([-300, 73, 400])).toBe(1);
+  expect(itemAtWindowTop([-300, 100, 400])).toBe(0);
 });
 
 test("with every item still below the window, the reader is at none", () => {

@@ -19,7 +19,7 @@ const FORMS = {
   award: ["awards/award-form.tsx", "awards/actions.ts"],
   notice: ["notices/notice-fields.tsx", "notices/actions.ts"],
   shopCategory: [
-    "shop/categories/category-screen.tsx",
+    "shop/categories/category-form.tsx",
     "shop/categories/actions.ts",
   ],
   shopItem: ["shop/items/item-form.tsx", "shop/items/actions.ts"],

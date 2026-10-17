@@ -1,8 +1,4 @@
-import {
-  FormSkeleton,
-  ListSkeleton,
-  LoadingPage,
-} from "../../groups/skeletons";
+import { FormSkeleton, ListSkeleton, LoadingPage } from "../../../skeletons";
 
 export default function Loading() {
   return (

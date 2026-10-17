@@ -19,42 +19,14 @@
 //   cursorParam Name of the cursor parameter. Default: "cursor"; give another when two lists
 //               share a page.
 //   label       Accessible name of the list. Optional.
-//
-// `listHref` builds the address of a page of a list; the filter forms use it to reset the cursor.
+// The paging links are `PagingLinks` (paging.tsx), where `listHref` and `cursorFrom` live too.
 
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/forum/empty-state";
-import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { type ListParams, PagingLinks } from "./paging";
 
-export type ListParams = Record<string, string | string[] | undefined>;
-
-// The address of a page of a list: the path and the current parameters, with the cursor set (or
-// dropped for the first page).
-export function listHref(
-  path: string,
-  params: ListParams,
-  cursorParam: string,
-  cursor?: string,
-) {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (key === cursorParam || value === undefined) continue;
-    for (const item of Array.isArray(value) ? value : [value]) {
-      query.append(key, item);
-    }
-  }
-  if (cursor) query.set(cursorParam, cursor);
-  const text = query.toString();
-  return text ? `${path}?${text}` : path;
-}
-
-// The cursor in the address, if there is one.
-export function cursorFrom(params: ListParams, cursorParam = "cursor") {
-  const value = params[cursorParam];
-  return (Array.isArray(value) ? value[0] : value) || undefined;
-}
+export { cursorFrom, type ListParams, listHref } from "./paging";
 
 export async function CursorList<T>({
   items,
@@ -86,8 +58,6 @@ export async function CursorList<T>({
   className?: string;
 }) {
   const t = await getTranslations("admin.cursorList");
-  const cursor = cursorFrom(params, cursorParam);
-  const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
   return (
     <section
       className={cn("overflow-hidden rounded-lg border bg-card", className)}
@@ -106,27 +76,14 @@ export async function CursorList<T>({
           description={empty?.description ?? t("emptyDescription")}
         />
       )}
-      {(cursor || nextCursor) && (
-        <nav
-          aria-label={t("nav")}
-          className="flex flex-wrap gap-2 border-t p-4"
-        >
-          {cursor && (
-            <Link href={listHref(path, params, cursorParam)} className={link}>
-              {t("first")}
-            </Link>
-          )}
-          {nextCursor && (
-            <Link
-              href={listHref(path, params, cursorParam, nextCursor)}
-              rel="next"
-              className={link}
-            >
-              {more ? t("loadMore") : t("next")}
-            </Link>
-          )}
-        </nav>
-      )}
+      <PagingLinks
+        path={path}
+        params={params}
+        nextCursor={nextCursor}
+        cursorParam={cursorParam}
+        more={more}
+        className="border-t p-4"
+      />
     </section>
   );
 }

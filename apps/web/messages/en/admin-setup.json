@@ -60,7 +60,6 @@
       "metaTitle": "Anti-spam",
       "heading": "Anti-spam",
       "subtitle": "How fast a member may write, who may post links or go live without review, what a signature may hold, and the Cloudflare Turnstile check on the guest forms. Daily limits, the restriction that shows outside pictures and media as links (a group given Never on it is exempt), and the bypasses for the flood interval, the word filter and the spam check are permissions: set them on the permissions screen.",
-      "formHeading": "Posting limits",
       "posting": "Posting",
       "signatures": "Signatures",
       "signaturesNote": "Checked when a member saves a signature and measured on what it shows, so different BB code that draws the same thing counts the same. For the counts and the text size, 0 and -1 both mean no limit; to forbid links or pictures, leave them out of the allowed formatting. Quotes, tables, code blocks, spoilers, media and more than one paragraph are never allowed. Signatures already saved are not checked again until their owner saves them.",
@@ -94,7 +93,6 @@
       "typesDescription": "One content type per line, such as image/png. Catalog and site pictures always take JPEG, PNG and WebP.",
       "groupsHeading": "Storage per group",
       "groupsDescription": "How much a member of the group may keep uploaded, in bytes. Leave a field empty for unlimited; 0 allows no storage. The save sends every group's value, so the groups you leave alone keep theirs.",
-      "formHeading": "Upload settings",
       "unlimited": "Unlimited",
       "unit": "bytes",
       "groupFallback": "Group {id}"
@@ -109,7 +107,6 @@
       "metaTitle": "Levels and limits",
       "heading": "Levels",
       "subtitle": "The level curve, the limits of profile text and the weights of the member of the month.",
-      "formHeading": "Levels and limits",
       "curve": "The curve and the titles",
       "titleRow": "Title {n}",
       "levelLabel": "From level",
@@ -368,10 +365,6 @@
     "node_icon": "Forum icons",
     "node_cover": "Forum covers"
   },
-  "languages": {
-    "en": "English",
-    "es": "Spanish"
-  },
   "navigation": {
     "locations": {
       "header": "Header",
@@ -389,15 +382,8 @@
       "before": "Before the title",
       "after": "After the title"
     },
-    "filter": {
-      "label": "Filter entries",
-      "placeholder": "Filter by title",
-      "none": "No entry matches."
-    },
     "add": {
-      "heading": "Add navigation",
-      "description": "A link to a page of the site or to another site, or a heading that only groups links.",
-      "submit": "Add entry",
+      "submit": "Create entry",
       "location": "Place",
       "locationHelp": "Where the entry shows.",
       "title": "Title",
@@ -414,24 +400,9 @@
       "audience": "Who sees it",
       "permission": "Permission",
       "permissionHelp": "Used only with the audience holders of a permission.",
-      "noPermission": "Choose a permission",
-      "enabled": "Show it now"
-    },
-    "order": {
-      "heading": "Entries",
-      "description": "Change the numbers and save the order, or edit an entry on its own row.",
-      "submit": "Save order",
-      "saving": "Saving…"
+      "noPermission": "Choose a permission"
     },
     "row": {
-      "title": "Title",
-      "audience": "Who sees it",
-      "permission": "Permission",
-      "enabled": "On",
-      "enabledLabel": "Show {title}",
-      "order": "Order",
-      "icon": "Icon",
-      "iconPosition": "Icon position",
       "save": "Save entry",
       "builtin": "Built-in",
       "heading": "Heading",
@@ -441,8 +412,40 @@
       "delete": "Delete",
       "deleteWarning": "Deletes {title} and every entry under it. This cannot be undone.",
       "deleteConfirm": "Delete the entry",
-      "empty": "There is no navigation entry yet.",
-      "saving": "Saving…"
+      "empty": "There is no navigation entry yet."
+    },
+    "list": {
+      "label": "Navigation entries",
+      "placeLabel": "Entries of {place}",
+      "add": "Add entry",
+      "sort": "Sort",
+      "edit": "Edit {title}",
+      "inside": "Inside {parent}"
+    },
+    "form": {
+      "entry": "Entry",
+      "look": "Appearance",
+      "visibility": "Who sees it",
+      "enabledLabel": "Shown",
+      "enabled": "Show this entry"
+    },
+    "new": {
+      "metaTitle": "New navigation entry",
+      "heading": "New entry",
+      "subtitle": "A link to a page of the site or to another site, or a heading that only groups links."
+    },
+    "edit": {
+      "metaTitle": "Edit navigation entry",
+      "heading": "Edit entry",
+      "subtitle": "Rename the entry, change who sees it or switch it off. Its place, target and parent stay as they are.",
+      "about": "{title}, in {place}."
+    },
+    "sort": {
+      "metaTitle": "Sort navigation",
+      "heading": "Sort entries",
+      "subtitle": "Move entries up or down inside their place, or under their heading, and save each list.",
+      "under": "Under {parent} ({place})",
+      "none": "No place or heading holds two or more entries to put in order."
     }
   },
   "identity": {
@@ -473,7 +476,8 @@
     "heading": "Warning types",
     "description": "What a moderator picks when warning a member. A type sets the points, the expiry and a reason to start from.",
     "none": "There are no warning types. Moderators give custom warnings.",
-    "edit": "Edit",
+    "add": "Add warning type",
+    "editLabel": "Edit {name}",
     "points": "{count, plural, one {# point} other {# points}}",
     "neverExpires": "Never expires",
     "expiresAfter": "Expires after {days, plural, one {# day} other {# days}}",
@@ -484,7 +488,8 @@
       "headingNew": "New warning type",
       "headingEdit": "Edit warning type",
       "descriptionNew": "Named in both languages; members read the one they use.",
-      "create": "Add warning type",
+      "legend": "Warning type",
+      "create": "Create warning type",
       "nameEn": "Name (English)",
       "nameEs": "Name (Spanish)",
       "points": "Points",
@@ -501,7 +506,8 @@
     "heading": "Automatic actions",
     "description": "Applied once when a member's active warning points reach the threshold, and again only after the points have fallen below it and reached it anew. Changes count from the next warning. A group added for a limited time is taken back when the points fall below the threshold or the time ends. Bans and restrictions end on their own date and are never lifted early; permanent group memberships stay.",
     "none": "There are no automatic actions.",
-    "edit": "Edit",
+    "add": "Add action",
+    "editLabel": "Edit: {summary}",
     "threshold": "{count, plural, one {At # point} other {At # points}}",
     "permanently": "permanently",
     "forDays": "for {days, plural, one {# day} other {# days}}",
@@ -514,7 +520,8 @@
       "headingNew": "New automatic action",
       "headingEdit": "Edit automatic action",
       "descriptionNew": "A member who holds the permission that exempts them from automatic actions is skipped, and the last administrator cannot be banned. An action that adds a group needs the permission to manage members and your own password.",
-      "create": "Add action",
+      "legend": "Automatic action",
+      "create": "Create action",
       "threshold": "Active points",
       "thresholdHelp": "The action applies when a member's unexpired points reach this number.",
       "kind": "Action",
@@ -543,5 +550,8 @@
       "password": "Your password",
       "passwordHelp": "Needed to add, change or delete an action that adds a group; leave it empty for the others."
     }
+  },
+  "nav": {
+    "label": "Settings groups"
   }
 }

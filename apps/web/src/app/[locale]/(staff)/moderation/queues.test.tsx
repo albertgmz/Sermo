@@ -234,3 +234,24 @@ test("a moderator of every forum, or one whose list was cut short, is offered al
     expect(page).toContain("Growing");
   }
 });
+
+test("each report row links to its case, by its title and by the Open icon", async () => {
+  backend();
+  const page = await html(ReportList({ searchParams: Promise.resolve({}) }));
+  expect(page).toContain('href="/moderation/reports/1"');
+  expect(page).toContain('href="/moderation/reports/20"');
+  expect(page).toContain(`aria-label="${messages.moderation.reports.open}"`);
+  // The filters stay above the rows and the footer counts the page.
+  expect(page).toContain(messages.moderation.common.stateFilter);
+  expect(page).toContain("Showing 20 entries");
+});
+
+test("each approval row links to its review, and a row with no excerpt is named by its kind", async () => {
+  backend();
+  const page = await html(ApprovalList({ searchParams: Promise.resolve({}) }));
+  expect(page).toContain('href="/moderation/approvals/thread/100"');
+  expect(page).toContain(
+    `aria-label="${messages.moderation.approvals.review}"`,
+  );
+  expect(page).toContain("#103");
+});

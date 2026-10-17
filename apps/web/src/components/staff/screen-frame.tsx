@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { PageHead } from "@/app/[locale]/(staff)/admin/groups/skeletons";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { type Crumb, PageHeader } from "./page-header";
 
 // StreamedPanel: the content of a screen streaming in behind a skeleton, its panels spaced as on
 // every screen of the panel.
@@ -26,23 +26,44 @@ export function StreamedPanel({
   );
 }
 
-// ScreenFrame: the frame of a screen of the panel: the heading at once, the content streaming in
-// below it. Takes the props of `StreamedPanel` and the two lines of the heading.
+// ScreenFrame: the frame of every page of the panel: the `PageHeader` at once, the content
+// streaming in below it. Takes the props of `StreamedPanel` and the header's: `heading` (the
+// title), optional `subtitle`, `trail` (`staffTrail(path)`) and `actions`; `nav` is an optional
+// row drawn at once above the content (the links between sibling pages). A page's `loading.tsx`
+// uses `LoadingPage` (`(staff)/skeletons.tsx`), which holds the trail's row.
 export function ScreenFrame({
   heading,
   subtitle,
+  trail,
+  actions,
+  nav,
   ...panel
 }: {
   heading: string;
-  subtitle: string;
+  subtitle?: string;
+  trail?: Crumb[] | Promise<Crumb[]>;
+  actions?: React.ReactNode;
+  nav?: React.ReactNode;
   label: string;
   fallback: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-6">
-      <PageHead heading={heading} subtitle={subtitle} />
-      <StreamedPanel {...panel} />
+      <PageHeader
+        trail={trail}
+        title={heading}
+        description={subtitle}
+        actions={actions}
+      />
+      {nav ? (
+        <div className="space-y-4">
+          {nav}
+          <StreamedPanel {...panel} />
+        </div>
+      ) : (
+        <StreamedPanel {...panel} />
+      )}
     </div>
   );
 }

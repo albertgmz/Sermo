@@ -8,9 +8,8 @@
     "fromNow": "A rule applies to what happens from now on, never to past events.",
     "active": "Active",
     "inactive": "Inactive",
-    "edit": "Edit",
-    "close": "Close",
-    "none": "No credit rules yet.",
+    "edit": "Edit {title}",
+    "none": "No credit rules yet",
     "noLimit": "no limit",
     "limitValue": "at most {count} per {hours} h",
     "forumsValue": "only in {names}",
@@ -38,10 +37,6 @@
       "award_received": "A member is granted an award"
     },
     "form": {
-      "headingNew": "New rule",
-      "headingEdit": "Edit rule",
-      "descriptionNew": "A rule pays (or charges) the member once per event, whenever it is active.",
-      "create": "Create rule",
       "title": "Title",
       "trigger": "When",
       "triggerHelp": "The event the rule reacts to. Several rules may share an event; each applies on its own.",
@@ -57,7 +52,9 @@
       "limitHours": "Window in hours",
       "limitHoursUnit": "hours",
       "active": "Active",
-      "activeHelp": "An inactive rule pays nothing."
+      "activeHelp": "An inactive rule pays nothing.",
+      "basics": "Rule",
+      "basicsHelp": "When it applies, how many credits it pays or charges, and how often."
     },
     "errors": {
       "id": "That is not a valid rule.",
@@ -65,6 +62,19 @@
       "amount": "Enter a whole number.",
       "limit": "Enter both numbers of the limit as whole numbers, or leave both empty.",
       "node": "Choose forums from the list."
+    },
+    "add": "Add rule",
+    "deleteShort": "Delete",
+    "emptyDescription": "Add a rule to pay or charge credits for what members do.",
+    "new": {
+      "metaTitle": "New credit rule",
+      "heading": "New credit rule",
+      "description": "A rule pays (or charges) the member once per event, whenever it is active.",
+      "submit": "Create rule"
+    },
+    "editPage": {
+      "metaTitle": "Credit rule",
+      "description": "A change applies to what happens from now on, never to past events."
     }
   },
   "adjust": {
@@ -115,9 +125,8 @@
     "inactive": "Inactive",
     "automatic": "Automatic",
     "facts": "{xp} XP · {credits} credits · held {holders} times",
-    "edit": "Edit",
-    "none": "No awards yet.",
-    "back": "Back to the awards",
+    "edit": "Edit {name}",
+    "none": "No awards yet",
     "tiers": {
       "bronze": "Bronze",
       "silver": "Silver",
@@ -148,10 +157,6 @@
       "automatic": "granted automatically"
     },
     "form": {
-      "headingNew": "New award",
-      "headingEdit": "Edit award",
-      "descriptionNew": "Create the award, then grant it by hand or let its criteria grant it.",
-      "create": "Create award",
       "name": "Name",
       "description": "Description",
       "tier": "Tier",
@@ -172,13 +177,26 @@
       "stackable": "Stackable",
       "stackableHelp": "The same member may be granted it any number of times. Otherwise once.",
       "active": "Active",
-      "activeHelp": "An inactive award cannot be granted and is hidden from members."
+      "activeHelp": "An inactive award cannot be granted and is hidden from members.",
+      "basics": "Award",
+      "basicsHelp": "What the award is called, its tier and what each grant is worth.",
+      "automatic": "Automatic award",
+      "automaticHelp": "Criteria that grant the award by themselves. With none, it is only given by hand."
     },
     "errors": {
       "id": "That is not a valid award.",
       "tier": "Choose one of the tiers offered.",
       "number": "Enter a whole number.",
       "file": "That is not a valid uploaded file."
+    },
+    "add": "Add award",
+    "deleteShort": "Delete",
+    "emptyDescription": "Add an award to start giving members something to earn.",
+    "new": {
+      "metaTitle": "New award",
+      "heading": "New award",
+      "description": "Create the award, then grant it by hand or let its criteria grant it.",
+      "submit": "Create award"
     }
   },
   "grants": {
@@ -224,14 +242,11 @@
     "subtitle": "How the shop is grouped. The order of the categories is the order members see.",
     "loading": "Loading the categories…",
     "heading": "Categories",
-    "orderHelp": "Change the numbers to reorder, then save the order. Lower numbers come first.",
-    "saveOrder": "Save order",
     "active": "Active",
     "inactive": "Inactive",
-    "edit": "Edit",
-    "close": "Close",
-    "items": "Items",
-    "none": "No categories yet.",
+    "edit": "Edit {name}",
+    "items": "Items of {name}",
+    "none": "No categories yet",
     "ladder": "The paid ranks on the upgrade page come from the category “{name}” ({count, plural, one {# rank} other {# ranks}}).",
     "noLadder": "No category sells ranks now, so the upgrade page offers none.",
     "ladderRule": "The ranks are the group items of the first active category, in this order, that sells any.",
@@ -245,20 +260,42 @@
       "deleted": "Category deleted."
     },
     "form": {
-      "headingNew": "New category",
-      "headingEdit": "Edit category",
-      "descriptionNew": "A category holds the shop items that belong together.",
-      "create": "Create category",
       "name": "Name",
       "description": "Description",
       "position": "Order",
       "positionHelp": "Where it comes in the list. Empty puts it first.",
       "active": "Active",
-      "activeHelp": "The items of an inactive category cannot be bought."
+      "activeHelp": "The items of an inactive category cannot be bought.",
+      "basics": "Category",
+      "basicsHelp": "What the category is called and whether its items can be bought.",
+      "access": "Access"
     },
     "errors": {
       "id": "That is not a valid category.",
       "whole": "Enter a whole number."
+    },
+    "add": "Add category",
+    "sortLink": "Sort",
+    "sort": {
+      "metaTitle": "Sort shop categories",
+      "heading": "Sort shop categories",
+      "description": "The order here is the order members see in the shop.",
+      "list": "Categories",
+      "emptyTitle": "No categories to sort",
+      "emptyDescription": "Add a category first."
+    },
+    "deleteShort": "Delete",
+    "listHelp": "In the order members see them.",
+    "emptyDescription": "Add a category to start grouping the shop.",
+    "new": {
+      "metaTitle": "New shop category",
+      "heading": "New shop category",
+      "description": "A category holds the shop items that belong together.",
+      "submit": "Create category"
+    },
+    "editPage": {
+      "metaTitle": "Shop category",
+      "description": "The items of an inactive category cannot be bought."
     }
   },
   "items": {
@@ -269,14 +306,14 @@
     "heading": "Items",
     "category": "Category",
     "show": "Show",
-    "none": "No items in this category.",
+    "none": "No items in this category",
     "noCategories": "There are no categories yet. Create one before adding items.",
     "toCategories": "Shop categories",
     "active": "Active",
     "inactive": "Inactive",
     "facts": "{price} credits · stock {stock}",
     "unlimited": "unlimited",
-    "edit": "Edit",
+    "edit": "Edit {name}",
     "back": "Back to the items",
     "notices": {
       "created": "Item created.",
@@ -319,10 +356,6 @@
       }
     },
     "form": {
-      "headingNew": "New item",
-      "headingEdit": "Edit item",
-      "descriptionNew": "Choose what the item does first: the fields below it follow from that.",
-      "create": "Create item",
       "inactive": "inactive",
       "category": "Category",
       "name": "Name",
@@ -391,7 +424,12 @@
       "position": "Order",
       "positionHelp": "Where it comes in its category. Lower numbers come first.",
       "active": "Active",
-      "activeHelp": "An inactive item cannot be bought and is hidden from members."
+      "activeHelp": "An inactive item cannot be bought and is hidden from members.",
+      "basics": "Item",
+      "basicsHelp": "What members see in the shop and what it costs.",
+      "effectGroup": "Effect",
+      "effectGroupHelp": "What the item does once it is bought, and whether it is used up or held.",
+      "orderAccess": "Order and access"
     },
     "errors": {
       "id": "That is not a valid item.",
@@ -399,6 +437,15 @@
       "number": "Enter a whole number.",
       "effect": "Complete the effect: choose what it needs.",
       "file": "That is not a valid uploaded file."
+    },
+    "add": "Add item",
+    "deleteShort": "Delete",
+    "emptyDescription": "Add an item to sell something in this category.",
+    "new": {
+      "metaTitle": "New shop item",
+      "heading": "New shop item",
+      "description": "Choose what the item does first: the fields below it follow from that.",
+      "submit": "Create item"
     }
   },
   "member": {

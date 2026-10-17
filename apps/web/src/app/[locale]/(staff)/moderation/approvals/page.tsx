@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { Notice } from "@/components/staff/notice";
-import { PageHead } from "../../admin/groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { staffTrail } from "../../trail";
 import { QueueSkeleton } from "../skeletons";
 import { ApprovalList } from "./approval-list";
 
@@ -18,24 +17,19 @@ export default function ApprovalsPage({
 }: PageProps<"/[locale]/moderation/approvals">) {
   const t = useTranslations("moderation.approvals");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("heading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <QueueSkeleton />
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <Notice
-            namespace="moderation.notices"
-            searchParams={searchParams}
-            shown={["stateSaved", "approved", "rejected"]}
-          />
-          <ApprovalList searchParams={searchParams} />
-        </div>
-      </Suspense>
-    </div>
+    <ScreenFrame
+      trail={staffTrail("/moderation/approvals")}
+      heading={t("heading")}
+      subtitle={t("subtitle")}
+      label={t("loading")}
+      fallback={<QueueSkeleton />}
+    >
+      <Notice
+        namespace="moderation.notices"
+        searchParams={searchParams}
+        shown={["stateSaved", "approved", "rejected"]}
+      />
+      <ApprovalList searchParams={searchParams} />
+    </ScreenFrame>
   );
 }

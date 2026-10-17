@@ -15,6 +15,8 @@ export type NavScreen = {
 export type NavSection = {
   id: SectionId;
   label: string;
+  // The section's landing, when the viewer may open it: the heading links there.
+  href?: string;
   screens: NavScreen[];
 };
 
@@ -28,6 +30,7 @@ export const getStaffNavigation = cache(async (): Promise<NavSection[]> => {
   return visibleSections(viewer).map((section) => ({
     id: section.id,
     label: t(`sections.${section.id}`),
+    href: section.landing?.path,
     screens: section.screens.map((screen) => ({
       href: screen.path,
       label: t(`screens.${screen.key}`),

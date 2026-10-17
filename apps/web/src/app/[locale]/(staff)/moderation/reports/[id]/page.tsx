@@ -9,17 +9,19 @@ import { HtmlContent } from "@/components/forum/html-content";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { ContentIp } from "@/components/staff/content-ip";
 import { Notice } from "@/components/staff/notice";
+import { PageHeader } from "@/components/staff/page-header";
 import { Help, linkClass, Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { spoilerContentFor } from "@/lib/spoiler-buttons";
-import { PageHead } from "../../../admin/groups/skeletons";
 import { MemberLink, memberNames, panelHref } from "../../../admin/logs/links";
 import { hrefFor } from "../../../registry";
+import { FormSkeleton } from "../../../skeletons";
+import { staffTrail } from "../../../trail";
 import { describe } from "../../content";
-import { ContentSkeleton, FormSkeleton } from "../../skeletons";
+import { ContentSkeleton } from "../../skeletons";
 import { Where } from "../../where";
 import { STATE_BADGE } from "../report-list";
 import { StateForm } from "./state-form";
@@ -102,13 +104,11 @@ async function Case({
       : panelHref(viewer, "usersEdit", authorId);
   return (
     <>
-      <PageHead
-        heading={t("heading", { id: group.id })}
-        subtitle={type(group.targetType)}
+      <PageHeader
+        trail={staffTrail(`/moderation/reports/${group.id}`)}
+        title={t("heading", { id: group.id })}
+        description={type(group.targetType)}
       />
-      <Link href="/moderation/reports" className={linkClass}>
-        {t("back")}
-      </Link>
       <Notice
         namespace="moderation.notices"
         searchParams={searchParams}

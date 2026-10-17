@@ -4,7 +4,7 @@
     "heading": "Moderación",
     "subtitle": "Denuncias, contenido y altas pendientes que esperan una decisión.",
     "screensHeading": "Pantallas",
-    "screensEmpty": "Todavía no tienes disponible ninguna pantalla de moderación.",
+    "screensEmpty": "Todavía no tienes disponible ninguna pantalla de moderación",
     "screensEmptyDescription": "Las pantallas aparecen aquí a medida que se añaden.",
     "aria": {
       "loadingPending": "Cargando el trabajo pendiente…"
@@ -35,19 +35,15 @@
       "threadTitled": "En el tema {title}",
       "wall": "En el muro de {name}",
       "forum": "En {title}",
-      "conversation": "En una conversación privada",
-      "hidden": "Lugar no mostrado",
-      "member": "Un miembro"
+      "hidden": "Lugar no mostrado"
     },
     "gone": "No se puede leer este contenido: se eliminó o no tienes permiso para verlo.",
-    "authorUnknown": "Autor desconocido",
     "forumFilter": "Foro",
     "stateFilter": "Estado",
     "all": "Todos",
     "apply": "Aplicar",
     "reset": "Restablecer",
-    "filters": "Filtros",
-    "loading": "Cargando…"
+    "filters": "Filtros"
   },
   "notices": {
     "stateSaved": "La denuncia se actualizó.",
@@ -92,7 +88,6 @@
   "case": {
     "metaTitle": "Denuncia {id}",
     "heading": "Caso de denuncia {id}",
-    "back": "Todas las denuncias",
     "summaryHeading": "Caso",
     "target": "Denunciado",
     "state": "Estado",
@@ -123,13 +118,11 @@
     "stateLabel": "Nuevo estado",
     "stateHelp": "Asignar te da el caso. Resuelta y rechazada lo cierran.",
     "submit": "Guardar el estado",
-    "loading": "Cargando el caso…",
-    "system": "Desconocido"
+    "loading": "Cargando el caso…"
   },
   "message": {
     "metaTitle": "Mensaje privado denunciado",
     "heading": "Mensaje privado denunciado",
-    "back": "Volver al caso",
     "loading": "Cargando…"
   },
   "auditedRead": {
@@ -137,10 +130,8 @@
     "warning": "Las conversaciones privadas no están abiertas a los moderadores. Abrir este mensaje lo muestra junto con los mensajes de alrededor, y el registro de moderación anota que lo hiciste, con tu nombre y la hora. Ábrelo solo para decidir este caso.",
     "confirm": "Abrir y registrar la vista",
     "opening": "Abriendo…",
-    "viewHeading": "{title}",
     "viewDescription": "El mensaje en revisión aparece marcado. La vista quedó registrada.",
     "target": "Mensaje denunciado",
-    "context": "Contexto",
     "empty": "La conversación no tiene mensajes que mostrar."
   },
   "approvals": {
@@ -157,16 +148,10 @@
   "review": {
     "metaTitle": "Revisar {type} {id}",
     "heading": "Revisión: {type} {id}",
-    "back": "Todas las aprobaciones",
     "contentHeading": "Contenido",
     "contentDescription": "Tal como se envió, con las imágenes que permiten tus ajustes del ahorro de datos.",
-    "state": "Estado",
-    "author": "Autor",
-    "submitted": "Enviado",
     "notWaiting": "Este contenido ya no está a la espera de aprobación; el servidor decide si todavía se puede cambiar.",
     "viewPublic": "Verlo en el sitio",
-    "viewAuthorPanel": "Autor en el panel",
-    "messageHeading": "Mensaje privado",
     "approveHeading": "Aprobar",
     "approveDescription": "Hace visible el contenido para todos los que pueden ver su lugar.",
     "approveSubmit": "Aprobar",

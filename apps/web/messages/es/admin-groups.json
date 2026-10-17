@@ -1,5 +1,4 @@
 {
-  "loading": { "label": "Cargando la página…" },
   "notices": {
     "saved": "Guardado.",
     "created": "Creado.",
@@ -22,9 +21,6 @@
     "kept": "Color actual (#{id})"
   },
   "form": {
-    "headingEdit": "Grupo",
-    "headingNew": "Nuevo grupo",
-    "descriptionNew": "Un grupo nuevo empieza sin entradas de permisos; defínelas después.",
     "create": "Crear grupo",
     "title": "Título",
     "description": "Descripción",
@@ -37,7 +33,10 @@
     "nameColour": "Color del nombre",
     "nameColourHelp": "Los miembros muestran su nombre con él, salvo que hayan elegido un color propio.",
     "isStaff": "Grupo del equipo",
-    "isStaffHelp": "Mostrar a los miembros de este grupo como equipo."
+    "isStaffHelp": "Mostrar a los miembros de este grupo como equipo.",
+    "sectionGeneral": "General",
+    "sectionAppearance": "Aspecto",
+    "sectionConfirm": "Confirmar con tu contraseña"
   },
   "list": {
     "metaTitle": "Grupos de usuarios",
@@ -45,7 +44,7 @@
     "subtitle": "Todos los grupos, del rango más alto al más bajo.",
     "loading": "Cargando los grupos…",
     "heading": "Grupos",
-    "new": "Nuevo grupo",
+    "new": "Añadir grupo",
     "builtin": "Integrado",
     "staff": "Equipo",
     "rank": "Rango",
@@ -55,8 +54,10 @@
     "none": "Ninguno",
     "badge": "Insignia",
     "userTitle": "Título",
-    "edit": "Editar",
-    "permissions": "Permisos"
+    "edit": "Editar {title}",
+    "permissions": "Permisos de {title}",
+    "emptyTitle": "No hay grupos",
+    "emptyDescription": "Añade un grupo para empezar."
   },
   "edit": {
     "metaTitle": "Grupo de usuarios",
@@ -75,12 +76,12 @@
     "subtitle": "Reglas que añaden miembros a grupos mientras se cumplen sus criterios.",
     "loading": "Cargando las promociones…",
     "heading": "Promociones",
-    "new": "Nueva promoción",
+    "new": "Añadir promoción",
     "active": "Activa",
     "inactive": "Inactiva",
     "grants": "Añade a",
     "groupNumber": "Grupo {id}",
-    "edit": "Editar",
+    "edit": "Editar {title}",
     "empty": "Todavía no hay promociones.",
     "runHeading": "Ejecutar las promociones ahora",
     "runDescription": "Evalúa a todos los miembros con todas las promociones activas. También se ejecuta una vez al día.",
@@ -91,15 +92,14 @@
     "log": "Abrir el registro de promociones"
   },
   "promotionForm": {
-    "headingEdit": "Promoción",
-    "headingNew": "Nueva promoción",
-    "descriptionNew": "Los miembros se evalúan en el siguiente barrido, o justo después de su próxima actividad relevante.",
     "create": "Crear promoción",
     "title": "Título",
     "isActive": "Activa",
     "isActiveHelp": "Evaluar a los miembros con esta promoción.",
     "groups": "Grupos añadidos",
-    "groupsHelp": "Los grupos secundarios que la promoción añade mientras se cumplen sus criterios."
+    "groupsHelp": "Los grupos secundarios que la promoción añade mientras se cumplen sus criterios.",
+    "sectionGeneral": "General",
+    "sectionRule": "Regla"
   },
   "promotionEdit": {
     "metaTitle": "Promoción de grupo",
@@ -131,7 +131,25 @@
     "forumScope": "permiso de foro",
     "initial": "Valor inicial: {value}",
     "save": "Guardar permisos",
-    "unchanged": "No hay nada que cambiar."
+    "unchanged": "No hay nada que cambiar.",
+    "tabsLabel": "Tipos de permiso",
+    "tabs": {
+      "general": "Permisos generales",
+      "moderation": "Moderación"
+    },
+    "bulkLabel": "Todos los permisos de tipo sí/no en {scope}",
+    "allowAll": "Permitir todo",
+    "neverAll": "Nunca para todos",
+    "clearAll": "Quitar todo (heredar)",
+    "allowShort": "Permitir",
+    "neverShort": "Nunca",
+    "clearShort": "Quitar",
+    "bulkHelp": "Estos botones fijan todos los permisos de tipo sí/no de esta pestaña, y los que hay junto a una categoría, los de esa categoría. Los límites y demás números no cambian. No se guarda nada hasta que guardes.",
+    "bulkHelpFiltered": "El filtro está activo: estos botones también fijan los permisos que oculta. Los límites y demás números no cambian.",
+    "noMatch": "Ningún permiso de esta pestaña coincide con «{query}».",
+    "noMatchElsewhere": "Ningún permiso de esta pestaña coincide con «{query}»; {tab} tiene {count, plural, one {# coincidencia} other {# coincidencias}}.",
+    "changedCount": "{count, plural, =0 {Sin cambios} one {# cambio sin guardar} other {# cambios sin guardar}}",
+    "changed": "Cambiado, antes {was}"
   },
   "permissionGroups": {
     "metaTitle": "Permisos de grupos",
@@ -141,7 +159,8 @@
     "heading": "Grupos",
     "description": "Del rango más alto al más bajo.",
     "rank": "Rango {rank}",
-    "edit": "Permisos"
+    "empty": "No hay grupos.",
+    "editLabel": "Permisos de {group}"
   },
   "permissionGroup": {
     "metaTitle": "Permisos de un grupo",
@@ -192,8 +211,9 @@
     "setDescription": "Entradas definidas directamente en el foro; las heredadas no aparecen.",
     "group": "Grupo",
     "member": "Miembro",
-    "edit": "Editar",
-    "analyse": "Analizar",
+    "editLabel": "Editar las entradas de {target}",
+    "analyseLabel": "Analizar a {target} en este foro",
+    "entriesOf": "Entradas de {target}",
     "none": "No hay nada definido directamente en este foro.",
     "addGroup": "Añadir un grupo",
     "add": "Añadir",
@@ -205,7 +225,7 @@
     "subtitle": "Por qué un miembro tiene o no un permiso, y qué entradas lo decidieron.",
     "loading": "Cargando…",
     "questionHeading": "Consulta",
-    "member": "Miembro:",
+    "member": "Miembro",
     "noMember": "ninguno elegido",
     "memberPermissions": "Sus permisos",
     "permission": "Permiso",
@@ -263,7 +283,7 @@
     "heading": "Moderadores",
     "emptyTitle": "Nadie modera",
     "emptyDescription": "Ningún miembro tiene un permiso de moderación.",
-    "permissions": "Permisos",
+    "permissions": "Permisos de {name}",
     "everywhere": "En todas partes"
   },
   "administrators": {
@@ -274,7 +294,19 @@
     "heading": "Administradores",
     "emptyTitle": "No hay administradores",
     "emptyDescription": "Ningún miembro tiene un permiso de administración.",
-    "permissions": "Permisos",
+    "permissions": "Permisos de {name}",
     "holds": "Permisos de administración que tiene"
+  },
+  "new": {
+    "metaTitle": "Nuevo grupo",
+    "pageHeading": "Nuevo grupo",
+    "subtitle": "Un grupo nuevo empieza sin entradas de permisos; defínelas después.",
+    "loading": "Cargando el formulario…"
+  },
+  "promotionNew": {
+    "metaTitle": "Nueva promoción",
+    "pageHeading": "Nueva promoción",
+    "subtitle": "Los miembros se evalúan en el siguiente barrido, o justo después de su próxima actividad relevante.",
+    "loading": "Cargando el formulario…"
   }
 }

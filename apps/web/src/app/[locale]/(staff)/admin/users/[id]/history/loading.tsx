@@ -1,4 +1,4 @@
-import { ListSkeleton } from "../../../groups/skeletons";
+import { ListSkeleton } from "../../../../skeletons";
 
 // The member's log is a list of entries, not a form.
 export default function Loading() {

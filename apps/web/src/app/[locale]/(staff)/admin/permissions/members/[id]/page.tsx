@@ -6,9 +6,10 @@ import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { FormSkeleton } from "../../../groups/skeletons";
+import { FormSkeleton } from "../../../../skeletons";
+import { staffTrail } from "../../../../trail";
 import { entriesOf, getDefinitions, matrixPermissions } from "../../data";
-import { MatrixHead } from "../../matrix-head";
+import { MatrixAction, MatrixHead } from "../../matrix-head";
 import { PermissionForm } from "../../permission-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -35,14 +36,7 @@ async function Matrix({
   if (!member) notFound();
   return (
     <>
-      <MatrixHead
-        searchParams={searchParams}
-        title={member.username}
-        link={{
-          href: `/admin/permissions/explain?user=${userId}`,
-          label: t("analyse"),
-        }}
-      />
+      <MatrixHead searchParams={searchParams} title={member.username} />
       <PermissionForm
         target={{ user: userId }}
         heading={t("heading")}
@@ -60,6 +54,20 @@ export default function PermissionMemberPage({
   const t = useTranslations("adminGroups.permissionMember");
   return (
     <ScreenFrame
+      trail={params.then(({ id }) =>
+        staffTrail(`/admin/permissions/members/${id}`),
+      )}
+      actions={
+        <MatrixAction
+          href={params.then(({ id }) => {
+            const userId = parseId(id);
+            return userId === null
+              ? null
+              : `/admin/permissions/explain?user=${userId}`;
+          })}
+          label={t("analyse")}
+        />
+      }
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
       label={t("loading")}

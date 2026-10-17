@@ -315,8 +315,13 @@ export function InfiniteList({
         );
       }
       setWaiting(null);
-      // The new entries are at the top of the list.
-      window.scrollTo({ top: Math.max(0, scrollMargin - 16) });
+      // The new entries are at the top of the list, below the header when the page has one.
+      const header = Number.parseFloat(
+        getComputedStyle(document.documentElement).scrollPaddingTop,
+      );
+      window.scrollTo({
+        top: Math.max(0, scrollMargin - 16 - (header || 0)),
+      });
     } catch {
       // The bar stays: pressing it again asks again.
     } finally {
@@ -408,7 +413,7 @@ export function InfiniteList({
     <>
       {waiting && (
         // Zero high, so that it appearing moves nothing; it floats over the top of the list.
-        <div className="sticky top-2 z-20 h-0">
+        <div className="sticky top-[calc(var(--spacing-site-header)+0.5rem)] z-20 h-0">
           <div className="flex justify-center">
             <Button
               type="button"

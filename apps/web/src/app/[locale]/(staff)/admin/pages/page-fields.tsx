@@ -1,10 +1,10 @@
 import { getTranslations } from "next-intl/server";
-import { FieldRow } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-// The rows a page is written with. `page` is what the backend returned for an existing page;
-// without it the rows are empty (published by default). `versioned`: members accept this page
+// The fields a page is written with. `page` is what the backend returned for an existing page;
+// without it the fields are empty (published by default). `versioned`: members accept this page
 // (the terms and the rules), so saving can publish it as a new version.
 export async function PageFields({
   page,
@@ -16,15 +16,15 @@ export async function PageFields({
   const t = await getTranslations("adminContent.pages.fields");
   return (
     <>
-      <FieldRow name="title" label={t("title")} htmlFor="page-title">
+      <Field name="title" label={t("title")} htmlFor="page-title">
         <Input
           id="page-title"
           name="title"
           required
           defaultValue={page?.title}
         />
-      </FieldRow>
-      <FieldRow
+      </Field>
+      <Field
         name="body"
         label={t("body")}
         htmlFor="page-body"
@@ -40,8 +40,8 @@ export async function PageFields({
           aria-describedby="page-body-help"
           className="font-mono"
         />
-      </FieldRow>
-      <FieldRow
+      </Field>
+      <Field
         name="isPublished"
         label={t("published")}
         htmlFor="page-published"
@@ -57,9 +57,9 @@ export async function PageFields({
           />
           {t("publishedSwitch")}
         </label>
-      </FieldRow>
+      </Field>
       {versioned && page && (
-        <FieldRow
+        <Field
           name="newVersion"
           label={t("newVersion")}
           htmlFor="page-new-version"
@@ -74,7 +74,7 @@ export async function PageFields({
             />
             {t("newVersionSwitch")}
           </label>
-        </FieldRow>
+        </Field>
       )}
     </>
   );

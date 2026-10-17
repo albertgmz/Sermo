@@ -1,28 +1,32 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { PageHeader } from "@/components/staff/page-header";
 import { getViewer } from "@/lib/sermo/session";
 import { PendingWork } from "../pending-work";
 import { visibleSections } from "../registry";
+import { ScreenCards } from "../section-landing";
 import { PendingSkeleton } from "../skeletons";
+import { staffTrail } from "../trail";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("moderation.landing");
   return { title: t("metaTitle") };
 }
 
-// The moderation landing: the pending counts and the moderation screens the viewer may open.
+// The moderation landing: the pending counts and the moderation screens the viewer may open, as the
+// other sections' landings show theirs.
 export default async function ModerationLanding() {
   const t = await getTranslations("moderation.landing");
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">{t("heading")}</h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </header>
+      <PageHeader
+        trail={staffTrail("/moderation")}
+        title={t("heading")}
+        description={t("subtitle")}
+      />
       <Suspense
         fallback={
           <LoadingRegion label={t("aria.loadingPending")}>
@@ -40,15 +44,13 @@ export default async function ModerationLanding() {
 }
 
 async function Screens() {
-  const [viewer, t, registry] = await Promise.all([
+  const [viewer, t] = await Promise.all([
     getViewer(),
     getTranslations("moderation.landing"),
-    getTranslations("admin.registry"),
   ]);
-  const screens = (
+  const screens =
     visibleSections(viewer).find((section) => section.id === "moderation")
-      ?.screens ?? []
-  ).filter((screen) => screen.key !== "moderationHome");
+      ?.screens ?? [];
   if (screens.length === 0) {
     return (
       <EmptyState
@@ -61,18 +63,7 @@ async function Screens() {
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold">{t("screensHeading")}</h2>
-      <ul className="grid gap-3 sm:grid-cols-2">
-        {screens.map((screen) => (
-          <li key={screen.key}>
-            <Link
-              href={screen.path}
-              className="flex min-h-10 items-center rounded-lg border bg-card px-4 text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              {registry(`screens.${screen.key}`)}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <ScreenCards label={t("screensHeading")} screens={screens} />
     </section>
   );
 }

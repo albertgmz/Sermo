@@ -8,10 +8,11 @@ import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { hrefFor } from "../../../../registry";
+import { FormSkeleton } from "../../../../skeletons";
+import { staffTrail } from "../../../../trail";
 import { getGroups } from "../../../groups/data";
-import { FormSkeleton } from "../../../groups/skeletons";
 import { entriesOf, getDefinitions, matrixPermissions } from "../../data";
-import { MatrixHead } from "../../matrix-head";
+import { MatrixAction, MatrixHead } from "../../matrix-head";
 import { PermissionForm } from "../../permission-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,27 +29,17 @@ async function Matrix({
 }) {
   const groupId = parseId((await params).id);
   if (groupId === null) notFound();
-  const [t, viewer, groups, definitions, set] = await Promise.all([
+  const [t, groups, definitions, set] = await Promise.all([
     getTranslations("adminGroups.permissionGroup"),
-    getViewer(),
     getGroups(),
     getDefinitions(),
     read(permissionsList, { groupId }),
   ]);
   const group = groups.find((entry) => entry.id === groupId);
   if (!group) notFound();
-  const edit = hrefFor(viewer, "groupsEdit");
   return (
     <>
-      <MatrixHead
-        searchParams={searchParams}
-        title={group.title}
-        link={
-          edit
-            ? { href: `/admin/groups/${group.id}`, label: t("editGroup") }
-            : undefined
-        }
-      />
+      <MatrixHead searchParams={searchParams} title={group.title} />
       <PermissionForm
         target={{ group: groupId }}
         heading={t("heading")}
@@ -70,6 +61,20 @@ export default function PermissionGroupPage({
   const t = useTranslations("adminGroups.permissionGroup");
   return (
     <ScreenFrame
+      trail={params.then(({ id }) =>
+        staffTrail(`/admin/permissions/groups/${id}`),
+      )}
+      actions={
+        <MatrixAction
+          href={Promise.all([params, getViewer()]).then(([{ id }, viewer]) => {
+            const groupId = parseId(id);
+            return groupId !== null && hrefFor(viewer, "groupsEdit")
+              ? `/admin/groups/${groupId}`
+              : null;
+          })}
+          label={t("editGroup")}
+        />
+      }
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
       label={t("loading")}

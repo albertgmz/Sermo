@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { FormRows } from "@/components/staff/form-rows";
+import { EditForm, FieldGroup } from "@/components/staff/edit-form";
 import { saveSeo } from "../actions";
 import { getSettings } from "../data";
 import { TextRow } from "../fields";
@@ -10,21 +10,23 @@ export async function SeoForm() {
     getSettings(),
   ]);
   return (
-    <FormRows action={saveSeo} heading={t("formHeading")}>
-      <TextRow
-        name="threadTitleTemplate"
-        value={settings.threadTitleTemplate}
-      />
-      <TextRow name="nodeTitleTemplate" value={settings.nodeTitleTemplate} />
-      <TextRow
-        name="profileTitleTemplate"
-        value={settings.profileTitleTemplate}
-      />
-      <TextRow
-        name="indexNowKey"
-        value={settings.indexNowKey}
-        autoCapitalize="none"
-      />
-    </FormRows>
+    <EditForm action={saveSeo}>
+      <FieldGroup legend={t("formHeading")}>
+        <TextRow
+          name="threadTitleTemplate"
+          value={settings.threadTitleTemplate}
+        />
+        <TextRow name="nodeTitleTemplate" value={settings.nodeTitleTemplate} />
+        <TextRow
+          name="profileTitleTemplate"
+          value={settings.profileTitleTemplate}
+        />
+        <TextRow
+          name="indexNowKey"
+          value={settings.indexNowKey}
+          autoCapitalize="none"
+        />
+      </FieldGroup>
+    </EditForm>
   );
 }

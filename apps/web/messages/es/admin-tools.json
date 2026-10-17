@@ -1,7 +1,4 @@
 {
-  "shell": {
-    "loading": "Cargando…"
-  },
   "links": {
     "panel": "Panel"
   },
@@ -111,8 +108,7 @@
     "emptyDescription": "Ningún movimiento de créditos coincide.",
     "balanceAfter": "Saldo posterior",
     "source": "Origen",
-    "sourceValue": "{type} {id}",
-    "system": "Sistema"
+    "sourceValue": "{type} {id}"
   },
   "purchases": {
     "metaTitle": "Compras de la tienda",

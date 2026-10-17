@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { ConfirmStep } from "@/components/staff/confirm-step";
-import { FormRows } from "@/components/staff/form-rows";
+import { EditForm, FieldGroup } from "@/components/staff/edit-form";
 import { Section } from "@/components/staff/rows";
 import { getSettings } from "../data";
 import { SwitchRow } from "../fields";
@@ -13,13 +13,18 @@ export async function CookiesForm() {
   ]);
   return (
     <>
-      <FormRows action={saveCookies} heading={t("formHeading")}>
-        <SwitchRow
-          name="cookieBannerOutsideEu"
-          value={settings.cookieBannerOutsideEu}
-        />
-        <SwitchRow name="matomoCookieless" value={settings.matomoCookieless} />
-      </FormRows>
+      <EditForm action={saveCookies}>
+        <FieldGroup legend={t("formHeading")}>
+          <SwitchRow
+            name="cookieBannerOutsideEu"
+            value={settings.cookieBannerOutsideEu}
+          />
+          <SwitchRow
+            name="matomoCookieless"
+            value={settings.matomoCookieless}
+          />
+        </FieldGroup>
+      </EditForm>
       <Section heading={t("versionHeading")}>
         <div className="grid gap-3 p-4">
           <p className="text-sm font-medium">

@@ -15,6 +15,7 @@ export default function PromotionLogPage({
   const t = useTranslations("adminTools.promotionLog");
   return (
     <LogShell
+      path="/admin/logs/promotions"
       heading={t("heading")}
       subtitle={t("subtitle")}
       loading={t("loading")}

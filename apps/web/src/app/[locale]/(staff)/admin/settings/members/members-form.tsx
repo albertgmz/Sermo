@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { FormRows } from "@/components/staff/form-rows";
+import { EditForm, FieldGroup } from "@/components/staff/edit-form";
 import { saveMembers } from "../actions";
 import { getSettings } from "../data";
 import { NumberRow, SwitchRow } from "../fields";
@@ -10,21 +10,23 @@ export async function MembersForm() {
     getSettings(),
   ]);
   return (
-    <FormRows action={saveMembers} heading={t("formHeading")}>
-      <NumberRow name="newMemberDays" value={settings.newMemberDays} />
-      <NumberRow
-        name="firstPostsToModerate"
-        value={settings.firstPostsToModerate}
-      />
-      <SwitchRow
-        name="moderateLinksFromNewMembers"
-        value={settings.moderateLinksFromNewMembers}
-      />
-      <SwitchRow name="approveSignups" value={settings.approveSignups} />
-      <NumberRow
-        name="newMemberMentionLimit"
-        value={settings.newMemberMentionLimit}
-      />
-    </FormRows>
+    <EditForm action={saveMembers}>
+      <FieldGroup legend={t("formHeading")}>
+        <NumberRow name="newMemberDays" value={settings.newMemberDays} />
+        <NumberRow
+          name="firstPostsToModerate"
+          value={settings.firstPostsToModerate}
+        />
+        <SwitchRow
+          name="moderateLinksFromNewMembers"
+          value={settings.moderateLinksFromNewMembers}
+        />
+        <SwitchRow name="approveSignups" value={settings.approveSignups} />
+        <NumberRow
+          name="newMemberMentionLimit"
+          value={settings.newMemberMentionLimit}
+        />
+      </FieldGroup>
+    </EditForm>
   );
 }

@@ -4,23 +4,22 @@ import {
   permissionsListNode,
   usersCards,
 } from "@sermo/core/contracts";
-import Link from "next/link";
+import { SearchCheck } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { Field, FieldGroup } from "@/components/staff/edit-form";
+import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { cn } from "@/lib/utils";
 import { getGroups, groupLabel } from "../../groups/data";
 import { entriesOf, getDefinitions, matrixPermissions } from "../data";
 import { MemberPicker } from "../member-picker";
 import { PermissionForm } from "../permission-form";
-
-const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
+import { SubmitRow } from "../submit-row";
 
 const first = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) || undefined;
@@ -48,38 +47,30 @@ export async function ForumPermissions({
   if (nodeId !== null && !node) notFound();
 
   const picker = (
-    <section className="overflow-hidden rounded-lg border bg-card">
-      <form className="space-y-3 p-4">
-        <h2 className="text-sm font-semibold">{t("pickHeading")}</h2>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-0 flex-1 space-y-1 sm:max-w-md">
-            <label htmlFor="forum-node" className="text-sm font-medium">
-              {t("forum")}
-            </label>
-            <select
-              id="forum-node"
-              name="node"
-              required
-              defaultValue={nodeId ?? ""}
-              className={selectClass}
-            >
-              <option value="" disabled>
-                {t("choose")}
+    <form className="min-w-0">
+      <FieldGroup legend={t("pickHeading")}>
+        <Field name="node" label={t("forum")} htmlFor="forum-node">
+          <select
+            id="forum-node"
+            name="node"
+            required
+            defaultValue={nodeId ?? ""}
+            className={selectClass}
+          >
+            <option value="" disabled>
+              {t("choose")}
+            </option>
+            {nodes.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {"— ".repeat(entry.depth)}
+                {entry.title}
               </option>
-              {nodes.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {"— ".repeat(entry.depth)}
-                  {entry.title}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button type="submit" className="min-h-10 px-4">
-            {t("show")}
-          </Button>
-        </div>
-      </form>
-    </section>
+            ))}
+          </select>
+        </Field>
+        <SubmitRow label={t("show")} />
+      </FieldGroup>
+    </form>
   );
   if (!node || nodeId === null) return picker;
 
@@ -167,113 +158,88 @@ export async function ForumPermissions({
         {node.title}
       </h2>
       {editor}
-      <section className="overflow-hidden rounded-lg border bg-card">
-        <div className="border-b p-4">
-          <h2 className="text-sm font-semibold">{t("setHeading")}</h2>
-          <p className="text-xs text-muted-foreground">{t("setDescription")}</p>
-        </div>
-        {listing.items.length > 0 ? (
-          <ul aria-label={t("setHeading")} className="divide-y">
-            {listing.items.map((set) => {
-              const isGroup = set.groupId !== null;
-              const id = (isGroup ? set.groupId : set.userId) as number;
-              return (
-                <li
-                  key={`${isGroup ? "g" : "u"}${id}`}
-                  className="flex flex-col gap-3 p-4 md:flex-row md:items-start"
-                >
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                      <span className="[overflow-wrap:anywhere]">
-                        {isGroup
-                          ? groupLabel(viewerGroups, id, (n) =>
-                              t("groupNumber", { id: n }),
-                            )
-                          : nameOf(id)}
-                      </span>
-                      <Badge variant="secondary">
-                        {isGroup ? t("group") : t("member")}
-                      </Badge>
-                    </p>
-                    <ul className="flex flex-wrap gap-1.5">
-                      {set.entries.map((entry) => (
-                        <li
-                          key={entry.permission}
-                          className="rounded-sm border px-1.5 py-0.5 text-xs [overflow-wrap:anywhere]"
-                        >
-                          {titles.get(entry.permission) ?? entry.permission}:{" "}
-                          <span className="font-medium">
-                            {valueText(entry.value)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Link
-                      href={`${here}&${isGroup ? "group" : "user"}=${id}`}
-                      className={link}
-                    >
-                      {t("edit")}
-                    </Link>
-                    {!isGroup && (
-                      <Link
-                        href={`/admin/permissions/explain?user=${id}&node=${nodeId}`}
-                        className={link}
-                      >
-                        {t("analyse")}
-                      </Link>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="p-4 text-sm text-muted-foreground">{t("none")}</p>
-        )}
-      </section>
-      <section className="overflow-hidden rounded-lg border bg-card">
-        <form className="space-y-3 p-4">
-          <h2 className="text-sm font-semibold">{t("addGroup")}</h2>
-          <input type="hidden" name="node" value={nodeId} />
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-0 flex-1 space-y-1 sm:max-w-xs">
-              <label htmlFor="add-group" className="text-sm font-medium">
-                {t("group")}
-              </label>
-              {viewerGroups ? (
-                <select
-                  id="add-group"
-                  name="group"
-                  required
-                  defaultValue=""
-                  className={selectClass}
-                >
-                  <option value="" disabled>
-                    {t("choose")}
+      <ItemList
+        label={t("setHeading")}
+        heading={t("setHeading")}
+        description={t("setDescription")}
+        empty={{ title: t("none") }}
+        items={listing.items.map((set) => {
+          const isGroup = set.groupId !== null;
+          const id = (isGroup ? set.groupId : set.userId) as number;
+          const name = isGroup
+            ? groupLabel(viewerGroups, id, (n) => t("groupNumber", { id: n }))
+            : nameOf(id);
+          const edit = `${here}&${isGroup ? "group" : "user"}=${id}`;
+          return {
+            id: `${isGroup ? "g" : "u"}${id}`,
+            title: name,
+            href: edit,
+            badges: (
+              <Badge variant="secondary">
+                {isGroup ? t("group") : t("member")}
+              </Badge>
+            ),
+            actions: (
+              <>
+                <RowLink href={edit} label={t("editLabel", { target: name })} />
+                {!isGroup && (
+                  <RowLink
+                    href={`/admin/permissions/explain?user=${id}&node=${nodeId}`}
+                    label={t("analyseLabel", { target: name })}
+                    icon={<SearchCheck />}
+                  />
+                )}
+              </>
+            ),
+            panel: (
+              <ul
+                aria-label={t("entriesOf", { target: name })}
+                className="flex flex-wrap gap-1.5 pb-1"
+              >
+                {set.entries.map((entry) => (
+                  <li
+                    key={entry.permission}
+                    className="rounded-sm border px-1.5 py-0.5 text-xs [overflow-wrap:anywhere]"
+                  >
+                    {titles.get(entry.permission) ?? entry.permission}:{" "}
+                    <span className="font-medium">
+                      {valueText(entry.value)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ),
+          };
+        })}
+      />
+      <form className="min-w-0">
+        <input type="hidden" name="node" value={nodeId} />
+        <FieldGroup legend={t("addGroup")}>
+          <Field name="group" label={t("group")} htmlFor="add-group">
+            {viewerGroups ? (
+              <select
+                id="add-group"
+                name="group"
+                required
+                defaultValue=""
+                className={selectClass}
+              >
+                <option value="" disabled>
+                  {t("choose")}
+                </option>
+                {viewerGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.title}
                   </option>
-                  {viewerGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.title}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  id="add-group"
-                  name="group"
-                  inputMode="numeric"
-                  required
-                />
-              )}
-            </div>
-            <Button type="submit" className="min-h-10 px-4">
-              {t("add")}
-            </Button>
-          </div>
-        </form>
-      </section>
+                ))}
+              </select>
+            ) : (
+              <Input id="add-group" name="group" inputMode="numeric" required />
+            )}
+          </Field>
+          <SubmitRow label={t("add")} />
+        </FieldGroup>
+      </form>
       <MemberPicker
         query={first(params.q)}
         keep={{ node: String(nodeId) }}

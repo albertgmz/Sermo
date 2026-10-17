@@ -1,9 +1,5 @@
-import { FormSkeleton, LoadingPage } from "../../groups/skeletons";
+import { SettingsLoading } from "../settings-loading";
 
 export default function Loading() {
-  return (
-    <LoadingPage>
-      <FormSkeleton rows={3} />
-    </LoadingPage>
-  );
+  return <SettingsLoading rows={3} />;
 }

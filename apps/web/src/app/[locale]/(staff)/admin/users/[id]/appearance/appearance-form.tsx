@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
 import { saveAppearance } from "./actions";
@@ -57,33 +57,30 @@ export async function AppearanceForm({
     ["coverPresetId", "cover", catalogs.covers],
   ] as const;
   return (
-    <FormRows
-      action={saveAppearance}
-      heading={t("heading")}
-      description={t("description")}
-      disabled={readOnly}
-    >
+    <EditForm action={saveAppearance} disabled={readOnly}>
       <input type="hidden" name="id" value={userId} />
-      {rows.map(([name, key, items]) => (
-        <FieldRow
-          key={name}
-          name={name}
-          label={t(key)}
-          htmlFor={`appearance-${name}`}
-          help={t(`${key}Help`)}
-        >
-          <Choices
-            id={`appearance-${name}`}
+      <FieldGroup legend={t("heading")} description={t("description")}>
+        {rows.map(([name, key, items]) => (
+          <Field
+            key={name}
             name={name}
-            items={items}
-            keep={t("keep")}
-            off={t("takeOff")}
-          />
-        </FieldRow>
-      ))}
-      <FieldRow name="reason" label={t("reason")} htmlFor="appearance-reason">
-        <Input id="appearance-reason" name="reason" />
-      </FieldRow>
-    </FormRows>
+            label={t(key)}
+            htmlFor={`appearance-${name}`}
+            help={t(`${key}Help`)}
+          >
+            <Choices
+              id={`appearance-${name}`}
+              name={name}
+              items={items}
+              keep={t("keep")}
+              off={t("takeOff")}
+            />
+          </Field>
+        ))}
+        <Field name="reason" label={t("reason")} htmlFor="appearance-reason">
+          <Input id="appearance-reason" name="reason" />
+        </Field>
+      </FieldGroup>
+    </EditForm>
   );
 }

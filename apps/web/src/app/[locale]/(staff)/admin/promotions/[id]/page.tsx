@@ -8,7 +8,8 @@ import { Notice } from "@/components/staff/notice";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { FormSkeleton } from "../../groups/skeletons";
+import { FormSkeleton } from "../../../skeletons";
+import { staffTrail } from "../../../trail";
 import { deletePromotion } from "../actions";
 import { PromotionForm } from "../promotion-form";
 
@@ -62,6 +63,7 @@ export default function PromotionPage({
     <ScreenFrame
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
+      trail={params.then(({ id }) => staffTrail(`/admin/promotions/${id}`))}
       label={t("loading")}
       fallback={<FormSkeleton rows={4} />}
     >

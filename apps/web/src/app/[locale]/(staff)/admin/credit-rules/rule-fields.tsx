@@ -8,7 +8,7 @@ import type { creditRulesList } from "@sermo/core/contracts";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type * as z from "zod";
-import { FieldRow } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
 import { selectClass } from "@/components/staff/rows";
 
 // The triggers a rule can have, as the backend lists them, and whether a rule on each may be
@@ -39,7 +39,7 @@ export function RuleFields({
   const selected = new Set(chosen);
   return (
     <>
-      <FieldRow
+      <Field
         name="trigger"
         label={t("trigger")}
         htmlFor={`${idPrefix}-trigger`}
@@ -63,6 +63,7 @@ export function RuleFields({
             onChange={(event) =>
               setTrigger(event.target.value as TriggerChoice["id"])
             }
+            aria-describedby={`${idPrefix}-trigger-help ${idPrefix}-trigger-error`}
             className={selectClass}
           >
             {triggerChoices.map(({ id }) => (
@@ -72,9 +73,9 @@ export function RuleFields({
             ))}
           </select>
         )}
-      </FieldRow>
+      </Field>
       {takesForums && (
-        <FieldRow name="nodeIds" label={t("forums")} help={t("forumsHelp")}>
+        <Field name="nodeIds" label={t("forums")} help={t("forumsHelp")}>
           <fieldset className="grid max-h-64 gap-1 overflow-y-auto sm:grid-cols-2">
             <legend className="sr-only">{t("forums")}</legend>
             {nodes.map((node) => (
@@ -96,7 +97,7 @@ export function RuleFields({
               </label>
             ))}
           </fieldset>
-        </FieldRow>
+        </Field>
       )}
     </>
   );

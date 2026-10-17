@@ -1,10 +1,9 @@
-import { FormSkeleton, ListSkeleton, LoadingPage } from "../groups/skeletons";
+import { ListSkeleton, LoadingPage } from "../../skeletons";
 
 export default function Loading() {
   return (
     <LoadingPage>
       <ListSkeleton />
-      <FormSkeleton rows={4} />
     </LoadingPage>
   );
 }

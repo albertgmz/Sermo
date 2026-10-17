@@ -74,16 +74,13 @@
     "loading": "Loading the members…",
     "heading": "Members",
     "filters": "Filter the members",
-    "member": "Member",
-    "email": "Email",
     "state": "State",
     "group": "Group",
     "registered": "Registered",
     "lastSeen": "Last seen",
     "posts": "Posts",
     "credits": "Credits",
-    "open": "Open",
-    "none": "None",
+    "open": "Open {name}",
     "never": "Never",
     "prefix": "Starts with",
     "prefixHelp": "A username or an email. With a prefix the list is ordered by username, then by email, not newest first.",
@@ -162,12 +159,9 @@
     "origin": {
       "manual": "By hand",
       "promotion": "Promotion",
-      "purchased": "Purchased",
-      "primary": "Primary",
-      "secondary": "By hand"
+      "purchased": "Purchased"
     },
     "groupId": "Group #{id}",
-    "none": "None",
     "refusedTitle": "You cannot see this member's groups",
     "refusedDescription": "This member ranks at or above you, or is a super admin, so their groups are not shown and cannot be changed.",
     "superAdminHeading": "Super admin",
@@ -301,7 +295,8 @@
     "look": "Look",
     "liftThreadBan": "Lift the thread ban",
     "notBannedInThread": "This member is not banned in that thread.",
-    "threadUnavailable": "That thread's bans cannot be shown to you:"
+    "threadUnavailable": "That thread's bans cannot be shown to you:",
+    "noReason": "No reason given"
   },
   "economy": {
     "metaTitle": "Member economy",
@@ -350,7 +345,6 @@
     "created": "Started",
     "expires": "Expires",
     "address": "Address",
-    "userAgent": "Browser",
     "unknown": "Unknown",
     "revokeOne": "Revoke this session",
     "revokeOneWarning": "Ends this session.",
@@ -386,16 +380,15 @@
     "all": "All",
     "apply": "Apply",
     "reset": "Reset",
-    "member": "Member",
     "by": "Banned by",
-    "reason": "Reason",
     "when": "When",
     "until": "Until",
     "emptyTitle": "No bans",
     "emptyDescription": "No ban matches. If a next page is offered, continue.",
     "noReason": "No reason given",
     "permanent": "Permanent",
-    "lift": "Lift the ban"
+    "lift": "Lift the ban",
+    "profile": "View profile of {name}"
   },
   "acceptances": {
     "heading": "Terms and rules accepted",

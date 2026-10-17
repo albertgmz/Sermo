@@ -4055,3 +4055,354 @@ canonical-source writer builds the tag with `quoteTag`, which changes only `"]` 
 name (a name cannot hold them otherwise), and the post of a quote option is the last `post:` pair,
 so a name such as `Ann, post: 7` cannot name the wrong post. Reason: what Sermo writes must parse
 back to the same quote, whatever the member's name.
+
+## Admin panel redesign
+
+### Panel sections, landing pages and the shared page patterns (item 1)  The panel's navigation is
+regrouped into eleven sections after its home, in this order, each screen in exactly one (detail
+screens, `listed: false`, in brackets; no address moved, no gate changed, `registry.test.ts` holds
+the old address and rule of every screen and fails on any change):
+Setup: general, home page, new members, anti-spam, uploads, search engines, site identity, levels,
+cookies, public navigation. Content: reaction types, word filters, tags, static pages [static page].
+Forums: categories and forums, thread prefixes [forum, forum permissions]. Communication: send alert,
+notices, notification defaults, email policy [new alert, notice]. Users: members, ban register,
+warnings (`/admin/settings/warnings`, which moves here from Setup and keeps its address) [batch
+update, the member and its eight tabs]. Groups and permissions: user groups, group promotions, group /
+member / forum permissions, analyse permissions, moderators, administrators [group, promotion,
+permissions of a group, of a member]. Appearance: frames, covers, thread covers, accents, name
+colours, prefix colours. Economy: credit rules, credit adjustment, award definitions, award grants,
+shop categories, shop items [award, shop item]. Tools: maintenance. Logs (new, split from "Tools and
+logs"): moderator log, promotion history, credit ledger, shop purchases, background tasks; their
+keys keep the `tools` prefix, as keys are ids. Moderation: overview, reports, approval queue,
+sign-ups, IP addresses [report case, reported message, item review]. There is no screen for forum
+tabs, so Forums has none.
+Each section has a landing page: link cards (icon, name, one line) to its listed screens that the
+viewer may open. In the registry it is a screen with `landing: true`, at `/admin/sections/<id>`
+(one static route per section, a prefix no screen uses, so no slug can meet a screen's address;
+`/admin/forums` or `/admin/users` would have), opening for anyone who may open one of the section's
+screens. Moderation's landing is its existing overview at `/moderation`, keeping its own rule, so a
+member who may open only the IP screen sees the section without a landing. `visibleSections` gives
+the landing apart from the screens. The sidebar and the phone drawer (the same component) are an
+accordion: the section of the current page is open and cannot be closed (its arrow is marked
+`aria-disabled`); a section's name links to
+its landing and the arrow next to it opens or closes it; a section with no landing for the viewer
+opens from its whole heading; the home, and a section whose landing is all the viewer may open, are
+plain links. Every section carries an icon (`(staff)/section-icons.ts`, apart from the registry the proxy
+reads). The home keeps its five blocks; its section grid is now the same cards, each leading to the
+section's landing with the section's screens as links under its line. The moderation overview shows
+its screens as the same cards.
+The patterns, all in `src/components/staff` with tests next to them; every screen moves onto them in
+its own item:
+`PageHeader({ trail, title, description?, actions? })` tops every page. `trail` comes from
+`staffTrail(path)` (`(staff)/trail.ts`, from `trailOf` in the registry): home, the section's landing,
+then each screen of the same section the address lies under, only those the viewer may open; a page
+that names a record appends or relabels steps. From 768 px it is a breadcrumb, on a phone one
+"< parent" link; passed as a promise it streams in without holding the title. Actions sit at the
+top right from 640 px and under the title on a phone.
+`ScreenFrame({ heading, subtitle?, trail?, actions?, label, fallback })` wraps every page: with a
+trail or actions its heading is that `PageHeader`, the content streaming in below; without, the
+plain heading of the screens not moved yet. The landings use it; a page with a trail has
+`HeadingSkeleton trail` in its `loading.tsx`.
+`ItemList({ label, heading?, description?, items, filter?, empty })` is the list screen: clean rows
+(`ItemRow`: icon, title linking to the edit page, description or key, badges, toggle, actions),
+an empty state with an optional "Add" action, and a "Showing N" footer. `filter` adds a box that
+narrows the rows on the page (case and accents ignored, by `search` or a text title); lists the
+backend pages through keep their own search. A row's `actions` hold short controls and closed
+`ConfirmStep`s (an open step takes the row's whole width); `panel` holds a full line under the
+row. The title keeps at least 10rem: when the controls would leave it less (a phone), they go to
+a line of their own under it. `RowToggle` is the active switch: a
+form that submits the screen's existing action with its hidden fields and the flipped value under
+`field` (default `active`, "1" or "0"); with `confirm` the switch first opens a warning with a
+confirm button (destructive with `danger`) and Cancel; a refused save keeps the step open, one
+that goes through closes it and gives the focus back to the switch (`keepsAsking`). Errors show
+under the row. `RowLink` is the
+row's icon link ("Edit").
+`EntryList`, `EditDisclosure` and `Row` stay for the screens that use them until their item moves
+them.
+`EditForm({ action, submit?, disabled? })` is the separate Add / Edit page: `FieldGroup` cards
+(fieldsets with a legend), `Field` rows (label and help on the left, control and error on the
+right from 768 px, stacked on a phone), one `Advanced` closed card for the rare options (it opens
+again on every save refused with an error on one of its `fields`; no `required` control inside
+it), and the save bar at the
+bottom (`SaveBar` from `form-rows.tsx`, now exported). It takes the same `StaffFormState` actions
+as `FormRows`.
+`SortForm({ action, name, items, heading })` is the sort page: up and down arrows, one Save, sent
+to the screen's existing order action under its own field name (`name` such as "position.{id}",
+plus any hidden `fields` the action compares, like `before:<id>`). It hands the entries' own numbers
+out again in the new order, so only the moved entries change; numbers shared by two entries are
+renumbered ten apart (`positionsFor`). After a move the keyboard stays on the pressed arrow of the
+moved entry (`focusKeeper`). No drag and drop.
+`LinkCards` / `LinkCard` are the cards of the landings and the home.
+The client components' text is in `admin.itemList`, `admin.editForm` and `admin.sortForm`; a
+layout may name only namespaces something under it reads (`tests/client-messages.test.ts`), so the
+item that first uses one of them adds it to the staff layout's `ClientMessages`. The styleguide's
+layout now sends `admin.shell`, which the navigation reads for its arrows' names. Known limits:
+the styleguide shows none of the new patterns yet; the look in a browser, on a phone and the
+first-load size have not been checked; the filter box only narrows the rows already on the page.
+
+### Reaction types on the shared patterns (item 2)  `/admin/reactions` is now a list of clean rows:
+the picture or emoji (through the LITE gate), the label linking to the type's edit page, the score
+as a signed badge (+1, 0, -1; green, grey, red), a "Not offered" badge, a line saying what limits
+the type (a picture or an animation and its frames, the number of forums, a rule), the offer switch
+(`RowToggle` with a confirm step, the same `setReactionTypeActive` and fields) and an Edit link.
+"Sort" and "Add reaction" are the header's actions. Three detail screens join the registry with the
+list's own gate: `/admin/reactions/new`, `/admin/reactions/sort` and `/admin/reactions/[id]`. The
+new and the edit page share one set of fields (`reaction-fields.tsx`): a "Reaction" card (emoji,
+label, picture, score; on the new page also position and "offered"), then two closed cards,
+"Animation" (frame width, height and count, each with its help) and "Access" (rule, forums, what
+excluded members see); every field goes to the same action as before. The edit page fills the
+frames from the type as the backend holds it, not from the LITE-filtered copy, since its action
+always sends them: an administrator who blocks reaction pictures would otherwise clear the cut on
+save. The sort page is `SortForm` over `saveReactionOrder`. The type's position, typed by hand in
+the old order form, is now set by the arrows; the new page keeps its position field. The old
+per-row forms are gone (`row-form.tsx`), so `adminContent.reactions` is no longer sent to the
+browser. Known limits: the Access card's rows are `FieldRow`s (the shared `RuleField` draws
+its own), with a narrower label column than the `Field` rows of the other cards; a rule
+condition's number is `required`, so one left empty in the Access card, closed again, may stop
+the save out of sight.
+
+### Appearance screens on the shared patterns (item 8)
+
+The six appearance screens (frames, covers, thread covers, accents, name colours, prefix colours)
+are a list, an add page and a page per entry each; the last two extend the list's address (`/new`,
+`/<id>`), are `listed: false` in the registry and carry the list's `access`. No list address moved.
+The editor that used to open under a catalog row as `?edit=<id>` is a page now, and that address
+redirects to it (the redirect is made while the page streams, so it is a client-side one, not a
+307). A list row is the picture or colour dot, the name linking to its page, the order (and a
+frame's placement numbers), an active or inactive badge, a "waiting for a picture" badge, an edit
+link and the delete step; the filter box is on. The entry page is an `EditForm`: name, picture
+(replace), display order and active in the first card; a frame's placement editor is the collapsed
+advanced card (it opens by itself when the backend could not measure the picture). The colour pages
+have name, colour (and an accent's text colour) with the live preview on both surfaces, display
+order and active, and above the form the "in use" line with the colour drawn by the public site's
+own pieces. The server actions are untouched: this screen had no order action and no set-active
+action, so there is no Sort page and no row switch. The order stays a number on the entry page and
+the active state a checkbox in its form (the badge only shows it). Owner gap: an order action and
+a set-active action for the appearance screens would allow the Sort page and the row switch the
+other lists have. Known limits: the screens have not been looked at in a browser or on a phone; a
+frame drawn in a row is cropped to the 40 px picture box when its placement overhangs it.
+
+### Groups, promotions and staff on the shared patterns (item 4)  The groups list, the promotions list
+and the two staff lists (moderators, administrators) are `ItemList`s under a `PageHeader` with its
+trail; the group and promotion forms are `EditForm`s (cards: general, appearance or rule, and a last
+one for the administrator's password). Nothing was removed: each row keeps its links (edit, the
+group's permissions when the viewer may open them, the member's permissions and, for moderators, one
+link per forum), the promotions screen keeps "Run now" and the link to the history, and the group
+and promotion pages keep the delete step with the password. The edit pages stay at `/admin/groups/<id>`
+and `/admin/promotions/<id>`. "New group" and "New promotion" open pages of their own, `/admin/groups/new` and
+`/admin/promotions/new`, each a detail screen of the registry (`groupsNew`, `groupsPromotionNew`, unlisted, with
+the access of its list; a header and a trail ending in the list). Neither list has a Sort page (no order
+action exists for them) nor an active switch for promotions (the flag is saved only with the whole
+rule, so it stays a badge on the row and a checkbox in the form). The password row is a local
+`ConfirmField` (the form-field layout of `EditForm`, which `ConfirmPassword` does not have yet); the
+rule row of a promotion is still `RuleField`, so its label column is narrower than its neighbours'.
+
+### Forums on the shared patterns (item 6)  `/admin/forums` is a filterable list of the tree (the
+depth as dashes before the title; edit, permissions and public-page links per row), with Sort, Add
+category and Add forum in the header, and the forum list tabs as a second list below it (edit link,
+delete behind its confirmation, "Add tab"). A new category or forum is `/admin/forums/new/<category|forum>`;
+a tab `/admin/forums/tabs/new` and `/admin/forums/tabs/[id]`; a prefix `/admin/forums/prefixes/new` and
+`/admin/forums/prefixes/[id]`; all `listed: false` with the gate of the list they belong to. The node
+editor keeps its address: identity and posting limits (and, for a forum, the counts-posts switch) in
+two groups, read only and the two approval switches in the closed advanced card, then the pictures form
+and the moderators as sections of their own
+(the minimum age and post count stay outside the card because their fields are required). The sort page
+`/admin/forums/sort` is one form with one Save and one list per parent, because a node's number only counts
+among its siblings; each list moves on its own and the form posts the unchanged `saveOrder` fields, which
+returns to the tree. Prefixes keep
+their order as a number in their form: the backend has no order action for them, so they have no sort
+page. The prefix pages hang from the section, not from the tree whose address they share
+(`prefixTrail`). Tabs have no screen of their own, as recorded in item 1.
+
+### Economy on the shared patterns (item 9)  Credit rules, award definitions, shop categories and shop
+items are lists of clean rows (`ItemList`): the name leads to the record's own page, badges show
+the state (active or not; a rule's signed credits; an award's tier and "automatic"), a line says
+what it does (the event, the limit and the forums of a rule; the XP, credits and holders of an
+award; the effect, price and stock of an item), and every row keeps an Edit link and a delete
+confirm step on the same action as before. Adding and editing are separate pages with the list's
+gate, registered as detail screens: `/admin/credit-rules/new` and `/[id]`, `/admin/awards/new`
+(the edit page already existed), `/admin/shop/categories/new`, `/sort` and `/[id]`,
+`/admin/shop/items/new` (likewise). Their forms are `EditForm` cards; the page title of an edit
+page is the record's name. Rare options sit in a closed `Advanced` card: an award's icon key and
+"stackable", a category's access rule, an item's position and access rule (an award's automatic
+rule has a card of its own, as it is what makes the award automatic). The shop categories are the
+only list with an order action, so only they get a Sort page (`saveCategoryOrder`, with the
+`before:` and `title:` fields it compares); rules, awards and items have no order action, so an
+item's position stays a number in its form. None of the four has a set-active action, so there is
+no row switch: the active badge stays and the checkbox stays in the form. The old inline editors
+(`?edit=<id>` on the rules and categories lists) redirect to the record's page. The "Add item"
+link carries the category being shown, and an item's page keeps a "back to the items" button for
+that category. Credit adjustment and award grants keep their member picker and review steps and
+only gain the page header and breadcrumb. Known limits: the effect fields of an item and the rule
+builder are `FieldRow`s inside `Field` cards (a narrower label column); a rule condition's number
+is `required`, so one left empty in a closed Advanced card may stop the save out of sight; the
+look in a browser and on a phone has not been checked.
+
+### Content and communication on the shared patterns (item 10)  Pages, tags, word filters, alerts,
+notices, notification defaults and email policy all sit under a `PageHeader` with its trail. Pages,
+tags, word filters, alerts sent and notices are `ItemList`s; Add and Edit are pages of their own,
+`EditForm`s, each a detail screen in the registry with its list's gate: `/admin/pages/-new`,
+`/admin/word-filters/new` and `/[id]`, `/admin/notices/new`, `/admin/tags/[id]`; the alert form and the
+notice and page editors keep their addresses. The old `/admin/pages?slug=<slug>#new` (the link of a
+suggested page) redirects to `/admin/pages/-new?slug=<slug>`. Notification defaults and the email
+policy stay one form each. Nothing was removed and no action changed: every row keeps its edit link
+and its delete step, rename and merge of a tag are two forms on the tag's page, a notice's dates sit
+in the closed `Advanced` card, and the word filter's word is shown but fixed on its edit page (the
+backend keys filters by word). None of these screens has an order action or an action that only flips
+the active flag, so there is no Sort page and no row switch: active or inactive is a badge on the
+row and a checkbox in the form. Limits: the backend lists tags only by name, so the tag's edit
+link is `/admin/tags/<id>?name=<name>` and the page checks the id against the tag found by that name
+(the registry's `[name]` pattern admits plain ASCII only, which a tag name need not be); a page
+whose tag name no longer matches goes back to the list. The new page's address starts with a
+hyphen, which no slug can, so a static page called `new` still has its editor at
+`/admin/pages/new`. The notice form's rule row is still `RuleField`, so its label column is narrower
+than its neighbours'.
+
+### Tools, logs and moderation on the shared patterns (item 11)  Every screen of Tools, Logs and
+Moderation now opens with `PageHeader` and its breadcrumb (`ScreenFrame` with `staffTrail`; the
+three case pages of Moderation use `PageHeader` directly, and their "back" links are the
+breadcrumb's last step). No address and no gate moved, and no screen got an edit or sort page:
+none of them has records to add, edit or order, and their server actions are untouched.
+Maintenance is an `ItemList` of operations, each row holding its confirm step (the spam cleanup
+row holds the chosen member and its step in `panel`; the member search stays a card under the
+list). The reports, approvals, sign-ups and IP lookups keep the backend's own filters and cursor
+paging, so they use `ItemList` rows inside `QueueList` (`moderation/queue-list.tsx`): the filter
+form in a card above, the rows, then the first-page and next links; `CursorList` stays for the
+other screens. A report or approval row's title links to its case, with an eye icon as the
+second link; a sign-up row keeps its tick and its decide controls, its facts sit in the row's
+`panel`. The logs keep `LogTable` (their `LogShell` now carries the breadcrumb) and the tasks
+screen keeps its counts and failure list. `admin.itemList` joins the staff layout's client
+namespaces. The loading files draw the breadcrumb's placeholder (`LoadingPage trail`).
+
+### Permission screens: tabs, bulk buttons and the changed counter (item 3)  The permission
+matrix (groups, members, a group or member on one forum) splits its rows into two tabs, "General
+permissions" (every backend category but `moderation`) and "Moderation" (Base UI tabs: arrow keys
+move, Enter or Space opens, visible focus). Both panels stay mounted while hidden, so every row is
+still posted and `matrixChanges` still sends only the cells that differ from their `was` field. A
+tab with no rows is left out and one tab alone has no tab list: on a forum only node-scope
+permissions show and none of them is a moderation one, so a forum shows the general rows alone.
+Each tab and each category holding a yes/no permission has "Allow all", "Never for all" and "Clear
+all (inherit)": they set every yes/no row of their tab or category, rows the filter hides included
+(a line says so while it is on), and never an integer row; "No" stays a per-row choice on a forum.
+The matrix keeps its cells in state (`matrix-state.ts`); `cellValue` / `cellChanged` in
+`permission-entries.ts` are the one reading of a cell, used by the action and by the counter, so a
+row counts as changed exactly when saving would send it (an integer with no valid number counts
+too: saving it is refused). A bar under the panel's header holds the tabs and "N changes not
+saved"; a changed row is tinted and says what it was. The filter box, the "Set here" mark, the
+password and the save are as before. The group list is an `ItemList` (title and rank, as before);
+the entries set on a forum are `ItemList` rows (chips in the row's panel, edit and analyse links);
+every permission page has the page header with its breadcrumb, and a group's or member's page has
+"Edit the group" or "Analyse" as its header action; the forum picker, "Add a group" and the analyse
+question are `FieldGroup`s of `Field`s. Known limits: the member search (`MemberPicker`) still draws
+`MemberRow`s, as four other screens share it; the forum editor stays on the forum page's address
+(`?node=&group=`), where the save action sends it back; the look in a browser and on a phone has not
+been checked.
+
+### Members and bans on the shared patterns (item 5)  No address moved and no gate changed, so no
+redirect is needed. The members list (`/admin/users`) and the ban register (`/admin/bans`) are
+`ScreenFrame`s with a trail; the list's "Batch update members" link is its header action. Their
+rows are `ItemRow`s (avatar, name linking to the member's page, state and group badges, a line of
+details, "Open" and "View profile" links, the ban's lift step as a row action). Both lists page
+the backend by cursor and filter in it, so the client-side filter box of `ItemList` stays off:
+`users/paged-items.tsx` (`PagedItems`) puts the existing GET filter form in a card above an
+`ItemList` and the "Back to the first page" / "Next" links below it, keeping the other
+parameters and a named `cursorParam` when two lists share a page (the sanctions and economy
+tabs); it also serves their warnings, bans, ledger, inventory and awards lists. A member's header
+is a `PageHeader` (trail: home, Users, Members; the avatar and name as title; state, roles and id
+under it) above the tab strip, which already scrolls sideways on a phone. The tab forms (details,
+groups, super admin, profile, appearance, warn, restrict, ban, adjust credits, grant award) are
+`EditForm`s with one `FieldGroup` each; `users/admin-password.tsx` is the administrator's
+password in the edit form's field layout, as `ConfirmPassword` still draws the older row. Lists
+inside the tabs (pictures, sessions, restrictions) are `ItemList`s. Left as they were: the batch
+update's two-step form (only its header moved), the erase block (a closed danger card with its own
+form), the thread-ban lookup, the read-only consent and acceptances cards, the history log table,
+and the permissions tab (item 3). The Add forms of the member tabs (warn, restrict, ban, grant
+award, adjust credits) stay inline under their lists on the tab, not on pages of their own: each is
+an action on the member whose page is open, the member is fixed by the page, and a route per action
+would pull the form away from the list it changes and be a new screen, not a move. The members list
+keeps the name as the site draws it (colour, icon, member card) as the row title, with "Open"
+leading to the member's page; the ban register's title leads to the member's page and a "View
+profile" link leads to the public one. The "tell the member" box and message of the warn, restrict
+and ban forms stay in the main group: the box is a choice made on every save. No other option is
+rare enough for `Advanced`.
+
+### Settings and navigation on the shared patterns (item 7)  Every option group of the settings is
+its own page (general, home page, new members, anti-spam, uploads, search engines, site identity,
+levels, cookies), at the address it always had, with the shared header (trail, title, line) and
+`EditForm`: `FieldGroup` cards with the help on the left of each field from 768 px, one save bar,
+and the confirmation a save redirects with above the form. The switcher between the groups is a row
+of links (`TabLinks`, the underline variant) under the header that scrolls sideways on a phone and
+marks the open group with `aria-current`; a row of links was chosen over a select because every
+group is one tap away and the open one is always visible. Its labels are the registry's.
+Warnings (`/admin/settings/warnings`) are one of the settings pages and move onto the same header
+and `EditForm`. The types and the automatic actions are lists of rows (`ItemList`) with the delete step
+on the row; "Add type" and "Add action" are in the header, and each record has its own page
+(`/admin/settings/warnings/types/new` and `/<id>`, `/admin/settings/warnings/actions/new` and
+`/<id>`), screens of the Users section with the list's gate (`admin.settings`). They show no
+switcher: the sidebar keeps them under Users
+and their breadcrumb says Users, so a row of Setup groups above them would contradict where the
+administrator is. The switcher lists the nine Setup groups; it scrolls the open group into view on a phone.
+The section titles that used to be sub-headings inside one long panel are now the legends of the
+`FieldGroup`s; no setting is in `Advanced`, because every setting here is one an administrator
+reaches for (several are required numbers, which `Advanced` may not hold). `RuleField` is shared
+with other screens and still draws its row as before, so on the home page and anti-spam forms the
+rule rows have a narrower label column than their neighbours.
+Public navigation: the list shows one card of rows for each place, a top-level entry and then the
+entries under it (the row says "Inside <entry>"), each row a link to the entry's own page with its
+badges (built-in, off) and, for an entry that is not built in, the delete step on the row. "Add
+entry" (`/admin/settings/navigation/new`) and "Sort" (`/admin/settings/navigation/sort`) are in the
+header; an entry is edited at `/admin/settings/navigation/<id>`. All three have a detail screen in
+the registry with the list's own gate (`admin.navigation`). The add page asks for the place, title,
+target, icon, parent, who sees it and whether it shows, with the display order in `Advanced` (the
+sort page makes it rare); the edit page asks for the fields the entry's own save always sent (title,
+audience, permission, icon, icon side, shown), the place, target and parent being fixed at creation
+as before. The sort page has one `SortForm` for each group that is ordered against itself (the
+top-level entries of a place, and the entries under one heading), all through the existing order
+action, which sends only the numbers that changed; a group of one has nothing to order and is left
+out. The per-row "on" switch of the old list moved to the edit page: a switch on the list would need
+an action of its own, as the entry's save reads a ticked box and requires the audience. The
+breadcrumb of the three pages is drawn without "General" (`navigationTrail`): the registry puts it
+there because the addresses share `/admin/settings`.
+Known limits: the look in a browser and on a phone, and the first-load size, have not been checked;
+the list's filter narrows each place's card on its own.
+
+### Sticky site header (item 13)  The public site's header now sticks to the top of the window
+(`sticky top-0 z-30 border-b bg-background`, the staff bar's own classes), at every width. Menus,
+panels and popovers are portaled at `z-50` and dialogs and sheets are `z-50` too, so they open above
+it and cover it; the bottom navigation (`z-40`) and the cookie banner (`z-45`) are at the other edge.
+`--spacing-site-header` (56px and its border) is the one place that knows its height: on a page of
+the forum, `scroll-padding-top` on the root keeps every jump (an address's anchor, `scrollIntoView`,
+`j` and `k`) below it, added to each target's own `scroll-mt-*`. Two things that assumed the top of
+the window follow it: the "new entries" button of an infinite list floats under the header, and
+its scroll to the top of the list, and `itemAtWindowTop` (the item the reader is at), allow for it.
+The staff panel is untouched.
+
+### Coherence pass (item 12)  One pattern for each thing every staff screen does, and the local
+copies gone. No address, gate, server action or screen's behaviour changed. Loading: one
+`LoadingPage({ label?, children })` and the list, form and edit-form skeletons
+(`EditFormSkeleton({ rows, advanced, heading })`) live in `(staff)/skeletons.tsx`; the five local
+loading wrappers and the per-area skeleton files are gone. `ScreenFrame` always draws `PageHeader`
+(the old plain heading is gone) and takes `nav`, a row drawn at once above the streamed content:
+the settings switcher uses it, so it no longer waits for the settings to load. Paging:
+`components/staff/paging.tsx` (`PagingLinks`, `listHref`, `cursorFrom`) is the one set of
+first/next links; `ItemList` takes `paging` (links in its footer, the count read as "N on this
+page" while more pages follow) and `action` (a button at the end of its heading); `PagedList` is a
+filters card above an `ItemList`, for the lists the backend pages (bans, members, the member's
+economy and sanctions, reports, approvals, sign-ups, IP lookups). Paging links drop a save's
+`notice`. Header buttons: `HeaderLink`, `AddLink` (primary, plus icon) and `SortLink` (outlined,
+arrows) in `page-header.tsx`, at `min-h-10` on every page; a header has one primary action, so a
+second add is `AddLink secondary` (outlined, forums and warnings); add buttons read "Add X", the
+pages they open "New X" and their forms submit with "Create X", in both languages; an empty list
+offers the page's own add button. Form rows:
+`Field` (now `components/staff/field.tsx`, re-exported by the edit form, with an optional `error`)
+is the only row; `FieldRow`, `entity-list` and `entity-rows` are gone. `ConfirmPassword` draws a
+`Field`, so the account's delete confirmation shares that layout. `SortRow` (from `sort-form.tsx`)
+draws the forums sort page too. `Advanced` opens when the browser stops a save on a field inside it;
+a switch's confirm step opens on Cancel; row icons are not clipped. Empty-state titles that carry a
+description read as headings, without a closing period. Message keys nothing read are removed.
+Two suites (`credits/shop.test.tsx`, `tests/lite-runtime.test.tsx`) put back what they replace:
+with Bun, a module namespace taken before `mock.module` follows the mock, so it is restored from a
+spread copy taken before mocking.
+Known limits: the look in a browser and on a phone has not been checked; many other suites still
+restore from the namespace itself, and `account/profile-permissions`, `account/profile-forms` and
+`account/security/delete-account` tests leave mocks that break staff suites run after them.

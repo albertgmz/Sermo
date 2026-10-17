@@ -1,5 +1,4 @@
 {
-  "loading": { "label": "Loading the page…" },
   "notices": {
     "saved": "Saved.",
     "created": "Created.",
@@ -22,9 +21,6 @@
     "kept": "Current colour (#{id})"
   },
   "form": {
-    "headingEdit": "Group",
-    "headingNew": "New group",
-    "descriptionNew": "A new group starts with no permission entries; set them afterwards.",
     "create": "Create group",
     "title": "Title",
     "description": "Description",
@@ -37,7 +33,10 @@
     "nameColour": "Name colour",
     "nameColourHelp": "Members show their name in it unless they chose a colour of their own.",
     "isStaff": "Staff group",
-    "isStaffHelp": "List the members of this group as staff."
+    "isStaffHelp": "List the members of this group as staff.",
+    "sectionGeneral": "General",
+    "sectionAppearance": "Appearance",
+    "sectionConfirm": "Confirm with your password"
   },
   "list": {
     "metaTitle": "User groups",
@@ -45,7 +44,7 @@
     "subtitle": "Every group, highest rank first.",
     "loading": "Loading the groups…",
     "heading": "Groups",
-    "new": "New group",
+    "new": "Add group",
     "builtin": "Built in",
     "staff": "Staff",
     "rank": "Rank",
@@ -55,8 +54,10 @@
     "none": "None",
     "badge": "Badge",
     "userTitle": "Title",
-    "edit": "Edit",
-    "permissions": "Permissions"
+    "edit": "Edit {title}",
+    "permissions": "Permissions of {title}",
+    "emptyTitle": "No groups",
+    "emptyDescription": "Add a group to get started."
   },
   "edit": {
     "metaTitle": "User group",
@@ -75,12 +76,12 @@
     "subtitle": "Rules that add members to groups while their criteria hold.",
     "loading": "Loading the promotions…",
     "heading": "Promotions",
-    "new": "New promotion",
+    "new": "Add promotion",
     "active": "Active",
     "inactive": "Inactive",
     "grants": "Adds to",
     "groupNumber": "Group {id}",
-    "edit": "Edit",
+    "edit": "Edit {title}",
     "empty": "There are no promotions yet.",
     "runHeading": "Run the promotions now",
     "runDescription": "Evaluates every member against every active promotion. It also runs once a day.",
@@ -91,15 +92,14 @@
     "log": "Open the promotion history"
   },
   "promotionForm": {
-    "headingEdit": "Promotion",
-    "headingNew": "New promotion",
-    "descriptionNew": "Members are evaluated by the next sweep, or right after their next relevant activity.",
     "create": "Create promotion",
     "title": "Title",
     "isActive": "Active",
     "isActiveHelp": "Evaluate members against this promotion.",
     "groups": "Groups added",
-    "groupsHelp": "The secondary groups the promotion adds while its criteria hold."
+    "groupsHelp": "The secondary groups the promotion adds while its criteria hold.",
+    "sectionGeneral": "General",
+    "sectionRule": "Rule"
   },
   "promotionEdit": {
     "metaTitle": "Group promotion",
@@ -131,7 +131,25 @@
     "forumScope": "forum permission",
     "initial": "Started as: {value}",
     "save": "Save permissions",
-    "unchanged": "Nothing to change."
+    "unchanged": "Nothing to change.",
+    "tabsLabel": "Kinds of permission",
+    "tabs": {
+      "general": "General permissions",
+      "moderation": "Moderation"
+    },
+    "bulkLabel": "Every yes/no permission in {scope}",
+    "allowAll": "Allow all",
+    "neverAll": "Never for all",
+    "clearAll": "Clear all (inherit)",
+    "allowShort": "Allow",
+    "neverShort": "Never",
+    "clearShort": "Clear",
+    "bulkHelp": "These set every yes/no permission on this tab, and the buttons beside a category set those of the category. Limits and other numbers are left as they are. Nothing is saved until you save.",
+    "bulkHelpFiltered": "The filter is on: these also set the permissions it hides. Limits and other numbers are left as they are.",
+    "noMatch": "No permission on this tab matches “{query}”.",
+    "noMatchElsewhere": "No permission on this tab matches “{query}”; {tab} has {count, plural, one {# match} other {# matches}}.",
+    "changedCount": "{count, plural, =0 {No changes} one {# change not saved} other {# changes not saved}}",
+    "changed": "Changed, was {was}"
   },
   "permissionGroups": {
     "metaTitle": "Group permissions",
@@ -141,7 +159,8 @@
     "heading": "Groups",
     "description": "Highest rank first.",
     "rank": "Rank {rank}",
-    "edit": "Permissions"
+    "empty": "There are no groups.",
+    "editLabel": "Permissions of {group}"
   },
   "permissionGroup": {
     "metaTitle": "Permissions of a group",
@@ -192,8 +211,9 @@
     "setDescription": "Entries set directly on the forum; inherited ones are not listed.",
     "group": "Group",
     "member": "Member",
-    "edit": "Edit",
-    "analyse": "Analyse",
+    "editLabel": "Edit the entries of {target}",
+    "analyseLabel": "Analyse {target} on this forum",
+    "entriesOf": "Entries of {target}",
     "none": "Nothing is set directly on this forum.",
     "addGroup": "Add a group",
     "add": "Add",
@@ -205,7 +225,7 @@
     "subtitle": "Why a member has or lacks a permission, and which entries decided it.",
     "loading": "Loading…",
     "questionHeading": "Question",
-    "member": "Member:",
+    "member": "Member",
     "noMember": "none chosen",
     "memberPermissions": "Their permissions",
     "permission": "Permission",
@@ -263,7 +283,7 @@
     "heading": "Moderators",
     "emptyTitle": "Nobody moderates",
     "emptyDescription": "No member holds a moderation permission.",
-    "permissions": "Permissions",
+    "permissions": "Permissions of {name}",
     "everywhere": "Everywhere"
   },
   "administrators": {
@@ -274,7 +294,19 @@
     "heading": "Administrators",
     "emptyTitle": "No administrators",
     "emptyDescription": "No member holds an administration permission.",
-    "permissions": "Permissions",
+    "permissions": "Permissions of {name}",
     "holds": "Administration permissions held"
+  },
+  "new": {
+    "metaTitle": "New group",
+    "pageHeading": "New group",
+    "subtitle": "A new group starts with no permission entries; set them afterwards.",
+    "loading": "Loading the form…"
+  },
+  "promotionNew": {
+    "metaTitle": "New promotion",
+    "pageHeading": "New promotion",
+    "subtitle": "Members are evaluated by the next sweep, or right after their next relevant activity.",
+    "loading": "Loading the form…"
   }
 }

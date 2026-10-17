@@ -6,7 +6,7 @@ import {
 import { getTranslations } from "next-intl/server";
 import { Fragment } from "react";
 import { ForumChecks } from "@/components/forum/forum-checks";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { selectClass } from "@/components/staff/rows";
 import { RuleField } from "@/components/staff/rule-field";
 import { Input } from "@/components/ui/input";
@@ -35,77 +35,79 @@ export async function HomeForm() {
     </>
   );
   return (
-    <FormRows action={saveHomeTab} heading={t("formHeading")}>
-      {/* The rules and the fallback are one setting, replaced as a whole. */}
-      <Shown name="homeTab" />
-      {rows.map((entry, index) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
-        <Fragment key={index}>
-          <RuleField
-            place="homeTab"
-            name={`homeTab.rules.${index}.rule`}
-            rule={entry?.rule}
-            label={t("ruleRow", { n: index + 1 })}
-            help={index === 0 ? undefined : null}
-          />
-          <FieldRow
-            name={`homeTab.rules.${index}.tab`}
-            label={t("tabLabel")}
-            htmlFor={`field-homeTab-${index}`}
-          >
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem]">
-              <select
-                id={`field-homeTab-${index}`}
-                name={`homeTab.rules.${index}.tab`}
-                defaultValue={entry?.tab ?? ""}
-                className={selectClass}
-              >
-                <option value="">{t("noRule")}</option>
-                {tabs}
-              </select>
-              <Input
-                name={`homeTab.rules.${index}.position`}
-                type="number"
-                inputMode="numeric"
-                aria-label={t("positionLabel")}
-                placeholder={t("positionLabel")}
-                defaultValue={index + 1}
-                title={t("positionHelp")}
-              />
-            </div>
-          </FieldRow>
-        </Fragment>
-      ))}
-      <FieldRow
-        name="homeTab.fallback"
-        label={t("fallbackLabel")}
-        htmlFor="field-homeTab-fallback"
-        help={t("fallbackHelp")}
-      >
-        <select
-          id="field-homeTab-fallback"
+    <EditForm action={saveHomeTab}>
+      <FieldGroup legend={t("formHeading")}>
+        {/* The rules and the fallback are one setting, replaced as a whole. */}
+        <Shown name="homeTab" />
+        {rows.map((entry, index) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
+          <Fragment key={index}>
+            <RuleField
+              place="homeTab"
+              name={`homeTab.rules.${index}.rule`}
+              rule={entry?.rule}
+              label={t("ruleRow", { n: index + 1 })}
+              help={index === 0 ? undefined : null}
+            />
+            <Field
+              name={`homeTab.rules.${index}.tab`}
+              label={t("tabLabel")}
+              htmlFor={`field-homeTab-${index}`}
+            >
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem]">
+                <select
+                  id={`field-homeTab-${index}`}
+                  name={`homeTab.rules.${index}.tab`}
+                  defaultValue={entry?.tab ?? ""}
+                  className={selectClass}
+                >
+                  <option value="">{t("noRule")}</option>
+                  {tabs}
+                </select>
+                <Input
+                  name={`homeTab.rules.${index}.position`}
+                  type="number"
+                  inputMode="numeric"
+                  aria-label={t("positionLabel")}
+                  placeholder={t("positionLabel")}
+                  defaultValue={index + 1}
+                  title={t("positionHelp")}
+                />
+              </div>
+            </Field>
+          </Fragment>
+        ))}
+        <Field
           name="homeTab.fallback"
-          defaultValue={fallback}
-          aria-describedby="field-homeTab-fallback-help"
-          className={selectClass}
+          label={t("fallbackLabel")}
+          htmlFor="field-homeTab-fallback"
+          help={t("fallbackHelp")}
         >
-          {tabs}
-        </select>
-      </FieldRow>
-      {/* The forums left out of the feed are one setting, replaced as a whole. */}
-      <Shown name="feedExcludedForumIds" />
-      <FieldRow
-        name="feedExcludedForumIds"
-        label={t("excludedLabel")}
-        help={t("excludedHelp")}
-      >
-        <ForumChecks
+          <select
+            id="field-homeTab-fallback"
+            name="homeTab.fallback"
+            defaultValue={fallback}
+            aria-describedby="field-homeTab-fallback-help"
+            className={selectClass}
+          >
+            {tabs}
+          </select>
+        </Field>
+        {/* The forums left out of the feed are one setting, replaced as a whole. */}
+        <Shown name="feedExcludedForumIds" />
+        <Field
           name="feedExcludedForumIds"
           label={t("excludedLabel")}
-          forums={nodes.items}
-          checked={new Set(settings.feedExcludedForumIds)}
-        />
-      </FieldRow>
-    </FormRows>
+          help={t("excludedHelp")}
+        >
+          <ForumChecks
+            name="feedExcludedForumIds"
+            label={t("excludedLabel")}
+            forums={nodes.items}
+            checked={new Set(settings.feedExcludedForumIds)}
+          />
+        </Field>
+      </FieldGroup>
+    </EditForm>
   );
 }

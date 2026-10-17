@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 const DIR = "src/app/[locale]/(staff)/admin/forums/[id]";
 
 // The ids a source file writes out in full (not built from a template), with the label id every
-// `FieldRow` derives from its `htmlFor`.
+// `Field` derives from its `htmlFor`.
 function fixedIds(file: string): string[] {
   const source = readFileSync(`${DIR}/${file}`, "utf8");
   const ids = [...source.matchAll(/\bid="([^"{]+)"/g)].map((m) => m[1]);

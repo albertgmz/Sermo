@@ -30,7 +30,7 @@ mock.module("next/cache", () => ({
 }));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
-const { HeaderLogo } = await import("./site-header");
+const { HeaderLogo, SiteHeader } = await import("./site-header");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intlServer);
@@ -85,4 +85,20 @@ test("a member's picture logo is capped, not squeezed to a mark, between md and 
   expect(guest).toMatch(
     /<img[^>]*class="h-6 w-auto max-w-40 object-contain object-left"/,
   );
+});
+
+test("the header sticks to the top of the window, opaque and above the page", async () => {
+  backend = fakeBackend({
+    "auth.me": () => Response.json(viewerBody(false)),
+    "site.get": () => Response.json(siteBody({ name: "Garden Club" })),
+    "navigation.get": () =>
+      Response.json({ header: [], mobile: [], account: [], footer: [] }),
+  });
+  const stream = await renderToReadableStream(withIntl(<SiteHeader />));
+  const html = await new Response(stream).text();
+  const tag = /<header[^>]*>/.exec(html)?.[0] ?? "";
+  const classes = /class="([^"]*)"/.exec(tag)?.[1].split(" ") ?? [];
+  for (const name of ["sticky", "top-0", "z-30", "bg-background"]) {
+    expect(classes).toContain(name);
+  }
 });

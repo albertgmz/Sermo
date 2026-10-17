@@ -1,31 +1,33 @@
 import { forumTabsList, nodesList } from "@sermo/core/contracts";
-import Link from "next/link";
+import {
+  ExternalLink,
+  Folder,
+  MessagesSquare,
+  Plus,
+  ShieldCheck,
+} from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { FormRows } from "@/components/staff/form-rows";
+import { iconComponent } from "@/components/icons/icon-set";
+import { ConfirmStep } from "@/components/staff/confirm-step";
+import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
+import { HeaderLink } from "@/components/staff/page-header";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
-import { cn } from "@/lib/utils";
 import { hrefFor } from "../../registry";
-import { saveOrder } from "./actions";
-import { NodeCreateForm } from "./node-create-form";
-import { TabsPanel } from "./tabs-panel";
+import { deleteTab } from "./actions";
 
-const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
-
-// The categories and forums as nested rows in the tree's own order, with one box per row for the
-// display order (saved together), then the forms for a new category and a new forum and the
-// forum list tabs.
+// The categories and forums as rows in the tree's own order (the depth shown as dashes before the
+// title), each with its edit link, then the forum list tabs the same way.
 export async function ForumTree({
   searchParams,
 }: {
   searchParams: Promise<{ notice?: string | string[] }>;
 }) {
-  const [t, viewer, { items: nodes }, { items: tabs }] = await Promise.all([
+  const [t, tt, viewer, { items: nodes }, { items: tabs }] = await Promise.all([
     getTranslations("adminForums.tree"),
+    getTranslations("adminForums.tabs"),
     getViewer(),
     read(nodesList, {}),
     read(forumTabsList, {}),
@@ -38,102 +40,108 @@ export async function ForumTree({
         searchParams={searchParams}
         shown={["ordered", "tabAdded", "tabSaved", "tabDeleted"]}
       />
-      {nodes.length > 0 ? (
-        <FormRows
-          action={saveOrder}
-          heading={t("heading")}
-          description={t("description")}
-          submit={t("saveOrder")}
-        >
-          {nodes.map((node) => (
-            <div
-              key={node.id}
-              className="flex flex-col gap-3 py-3 pe-4 md:flex-row md:items-center"
-              style={{ paddingInlineStart: `${1 + node.depth * 1.5}rem` }}
-            >
-              <div className="min-w-0 flex-1 space-y-1">
-                <p className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href={`/admin/forums/${node.id}`}
-                    className="inline-flex min-h-10 items-center text-sm font-semibold [overflow-wrap:anywhere] hover:underline"
-                  >
-                    {node.title}
-                  </Link>
-                  <Badge
-                    variant={node.type === "category" ? "secondary" : "outline"}
-                  >
-                    {t(node.type)}
-                  </Badge>
-                  {node.settings.isReadOnly && (
-                    <Badge variant="outline">{t("readOnly")}</Badge>
-                  )}
-                </p>
-                {node.type === "forum" && (
-                  <p className="text-xs text-muted-foreground">
-                    {t("counts", {
-                      threads: node.threadCount,
-                      posts: node.postCount,
-                    })}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor={`position-${node.id}`}
-                  className="text-xs text-muted-foreground"
+      <ItemList
+        label={t("listLabel")}
+        filter
+        empty={{ title: t("empty"), description: t("emptyDescription") }}
+        items={nodes.map((node) => {
+          const Icon =
+            iconComponent(node.iconKey) ??
+            (node.type === "category" ? Folder : MessagesSquare);
+          return {
+            id: node.id,
+            search: node.title,
+            icon: <Icon aria-hidden="true" className="size-5" />,
+            title: (
+              <>
+                <span aria-hidden="true" className="text-muted-foreground">
+                  {"— ".repeat(node.depth)}
+                </span>
+                {node.title}
+              </>
+            ),
+            href: `/admin/forums/${node.id}`,
+            description:
+              node.type === "forum"
+                ? t("counts", {
+                    threads: node.threadCount,
+                    posts: node.postCount,
+                  })
+                : undefined,
+            badges: (
+              <>
+                <Badge
+                  variant={node.type === "category" ? "secondary" : "outline"}
                 >
-                  {t("order")}
-                  <span className="sr-only"> — {node.title}</span>
-                </label>
-                <input
-                  type="hidden"
-                  name={`before:${node.id}`}
-                  value={node.position}
+                  {t(node.type)}
+                </Badge>
+                {node.settings.isReadOnly && (
+                  <Badge variant="outline">{t("readOnly")}</Badge>
+                )}
+              </>
+            ),
+            actions: (
+              <>
+                <RowLink
+                  href={`/admin/forums/${node.id}`}
+                  label={t("edit", { title: node.title })}
                 />
-                <input
-                  type="hidden"
-                  name={`title:${node.id}`}
-                  value={node.title}
-                />
-                <Input
-                  id={`position-${node.id}`}
-                  name={`position:${node.id}`}
-                  type="number"
-                  inputMode="numeric"
-                  required
-                  defaultValue={node.position}
-                  className="w-24"
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Link href={`/admin/forums/${node.id}`} className={link}>
-                  {t("edit")}
-                </Link>
                 {permissions && (
-                  <Link
+                  <RowLink
                     href={`/admin/forums/${node.id}/permissions`}
-                    className={link}
-                  >
-                    {t("permissions")}
-                  </Link>
+                    label={t("permissions", { title: node.title })}
+                    icon={<ShieldCheck />}
+                  />
                 )}
                 {node.type === "forum" && (
-                  <Link href={`/forums/${node.id}`} className={link}>
-                    {t("publicPage")}
-                  </Link>
+                  <RowLink
+                    href={`/forums/${node.id}`}
+                    label={t("publicPage", { title: node.title })}
+                    icon={<ExternalLink />}
+                  />
                 )}
-              </div>
-            </div>
-          ))}
-        </FormRows>
-      ) : (
-        <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
-          {t("empty")}
-        </p>
-      )}
-      <NodeCreateForm type="category" nodes={nodes} tabs={tabs} />
-      <NodeCreateForm type="forum" nodes={nodes} tabs={tabs} />
-      <TabsPanel tabs={tabs} />
+              </>
+            ),
+          };
+        })}
+      />
+      <div id="tabs" className="scroll-mt-4">
+        <ItemList
+          label={tt("heading")}
+          heading={tt("heading")}
+          description={tt("description")}
+          action={
+            <HeaderLink
+              href="/admin/forums/tabs/new"
+              icon={<Plus aria-hidden="true" />}
+            >
+              {tt("add")}
+            </HeaderLink>
+          }
+          empty={{ title: tt("none") }}
+          items={tabs.map((tab) => ({
+            id: tab.id,
+            title: tab.title,
+            href: `/admin/forums/tabs/${tab.id}`,
+            description: tt("order", { position: tab.position }),
+            actions: (
+              <>
+                <RowLink
+                  href={`/admin/forums/tabs/${tab.id}`}
+                  label={tt("edit", { title: tab.title })}
+                />
+                <ConfirmStep
+                  action={deleteTab}
+                  fields={{ id: tab.id }}
+                  summary={`${tt("delete")}…`}
+                  warning={tt("deleteWarning", { title: tab.title })}
+                  submit={tt("delete")}
+                />
+              </>
+            ),
+          }))}
+        />
+      </div>
     </>
   );
 }

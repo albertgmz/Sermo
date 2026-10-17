@@ -74,16 +74,13 @@
     "loading": "Cargando los miembros…",
     "heading": "Miembros",
     "filters": "Filtrar los miembros",
-    "member": "Miembro",
-    "email": "Correo",
     "state": "Estado",
     "group": "Grupo",
     "registered": "Registro",
     "lastSeen": "Última vez visto",
     "posts": "Mensajes",
     "credits": "Créditos",
-    "open": "Abrir",
-    "none": "Ninguno",
+    "open": "Abrir {name}",
     "never": "Nunca",
     "prefix": "Empieza por",
     "prefixHelp": "Un nombre de usuario o un correo. Con un prefijo, la lista se ordena por nombre de usuario y luego por correo, no por los más recientes primero.",
@@ -162,12 +159,9 @@
     "origin": {
       "manual": "A mano",
       "promotion": "Promoción",
-      "purchased": "Comprado",
-      "primary": "Principal",
-      "secondary": "A mano"
+      "purchased": "Comprado"
     },
     "groupId": "Grupo n.º {id}",
-    "none": "Ninguno",
     "refusedTitle": "No puedes ver los grupos de este miembro",
     "refusedDescription": "Este miembro tiene un rango igual o superior al tuyo, o es superadministrador, así que sus grupos no se muestran y no se pueden cambiar.",
     "superAdminHeading": "Superadministrador",
@@ -301,7 +295,8 @@
     "look": "Consultar",
     "liftThreadBan": "Levantar la expulsión del tema",
     "notBannedInThread": "Este miembro no está expulsado de ese tema.",
-    "threadUnavailable": "No se te pueden mostrar las expulsiones de ese tema:"
+    "threadUnavailable": "No se te pueden mostrar las expulsiones de ese tema:",
+    "noReason": "Sin motivo indicado"
   },
   "economy": {
     "metaTitle": "Economía del miembro",
@@ -350,7 +345,6 @@
     "created": "Inicio",
     "expires": "Caduca",
     "address": "Dirección",
-    "userAgent": "Navegador",
     "unknown": "Desconocido",
     "revokeOne": "Revocar esta sesión",
     "revokeOneWarning": "Cierra esta sesión.",
@@ -386,16 +380,15 @@
     "all": "Todas",
     "apply": "Aplicar",
     "reset": "Restablecer",
-    "member": "Miembro",
     "by": "Expulsado por",
-    "reason": "Motivo",
     "when": "Cuándo",
     "until": "Hasta",
     "emptyTitle": "No hay expulsiones",
     "emptyDescription": "Ninguna expulsión coincide. Si se ofrece una página siguiente, continúa.",
     "noReason": "Sin motivo indicado",
     "permanent": "Permanente",
-    "lift": "Levantar la expulsión"
+    "lift": "Levantar la expulsión",
+    "profile": "Ver el perfil de {name}"
   },
   "acceptances": {
     "heading": "Términos y reglas aceptados",

@@ -1,4 +1,5 @@
-import { LoadingPage, SignupsSkeleton } from "../skeletons";
+import { LoadingPage } from "../../skeletons";
+import { SignupsSkeleton } from "../skeletons";
 
 export default function Loading() {
   return (

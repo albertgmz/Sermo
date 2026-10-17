@@ -10,6 +10,7 @@ import {
   SECTIONS,
   type Standing,
   screenAt,
+  trailOf,
   visibleSections,
 } from "./registry";
 
@@ -71,19 +72,369 @@ test("keys and paths are unique, and a path belongs to its section's zone", () =
   }
 });
 
-test("the eleven sections are there, and every detail screen extends a listed one", () => {
+// Every screen of the panel as it was before the sections were regrouped: its address and its rule
+// (the permission ids, or the name of the rule function). Regrouping moves screens between
+// sections; it never changes where a screen is or who may open it.
+const GATES_BEFORE: Record<string, [string, string | string[]]> = {
+  home: ["/admin", "access"],
+  setupGeneral: ["/admin/settings", ["admin.settings"]],
+  setupHome: ["/admin/settings/home", ["admin.settings"]],
+  setupMembers: ["/admin/settings/members", ["admin.settings"]],
+  setupAntispam: ["/admin/settings/antispam", ["admin.settings"]],
+  setupWarnings: ["/admin/settings/warnings", ["admin.settings"]],
+  setupWarningTypeNew: [
+    "/admin/settings/warnings/types/new",
+    ["admin.settings"],
+  ],
+  setupWarningTypeEdit: [
+    "/admin/settings/warnings/types/[id]",
+    ["admin.settings"],
+  ],
+  setupWarningActionNew: [
+    "/admin/settings/warnings/actions/new",
+    ["admin.settings"],
+  ],
+  setupWarningActionEdit: [
+    "/admin/settings/warnings/actions/[id]",
+    ["admin.settings"],
+  ],
+  setupUploads: ["/admin/settings/uploads", ["admin.settings"]],
+  setupSeo: ["/admin/settings/seo", ["admin.settings"]],
+  setupIdentity: ["/admin/settings/identity", ["admin.settings"]],
+  setupLevels: ["/admin/settings/levels", ["admin.settings"]],
+  setupCookies: ["/admin/settings/cookies", ["admin.settings"]],
+  setupNavigation: ["/admin/settings/navigation", ["admin.navigation"]],
+  setupNavigationNew: ["/admin/settings/navigation/new", ["admin.navigation"]],
+  setupNavigationSort: [
+    "/admin/settings/navigation/sort",
+    ["admin.navigation"],
+  ],
+  setupNavigationEdit: [
+    "/admin/settings/navigation/[id]",
+    ["admin.navigation"],
+  ],
+  forumsTree: ["/admin/forums", ["admin.nodes"]],
+  forumsPrefixes: ["/admin/forums/prefixes", ["admin.prefixes"]],
+  forumsEdit: ["/admin/forums/[id]", ["admin.nodes"]],
+  forumsPermissions: ["/admin/forums/[id]/permissions", ["admin.permissions"]],
+  forumsNew: ["/admin/forums/new/[type]", ["admin.nodes"]],
+  forumsSort: ["/admin/forums/sort", ["admin.nodes"]],
+  forumsTabNew: ["/admin/forums/tabs/new", ["admin.nodes"]],
+  forumsTabEdit: ["/admin/forums/tabs/[id]", ["admin.nodes"]],
+  forumsPrefixNew: ["/admin/forums/prefixes/new", ["admin.prefixes"]],
+  forumsPrefixEdit: ["/admin/forums/prefixes/[id]", ["admin.prefixes"]],
+  contentReactions: ["/admin/reactions", ["admin.reactionTypes"]],
+  contentReactionNew: ["/admin/reactions/new", ["admin.reactionTypes"]],
+  contentReactionSort: ["/admin/reactions/sort", ["admin.reactionTypes"]],
+  contentReactionEdit: ["/admin/reactions/[id]", ["admin.reactionTypes"]],
+  contentWordFilters: [
+    "/admin/word-filters",
+    ["wordFilter.view", "wordFilter.manage"],
+  ],
+  contentWordFilterNew: [
+    "/admin/word-filters/new",
+    ["wordFilter.view", "wordFilter.manage"],
+  ],
+  contentWordFilterEdit: [
+    "/admin/word-filters/[id]",
+    ["wordFilter.view", "wordFilter.manage"],
+  ],
+  contentTags: ["/admin/tags", ["tag.manage"]],
+  contentTagEdit: ["/admin/tags/[id]", ["tag.manage"]],
+  contentPages: ["/admin/pages", ["admin.pages"]],
+  contentPageNew: ["/admin/pages/-new", ["admin.pages"]],
+  contentPageEdit: ["/admin/pages/[slug]", ["admin.pages"]],
+  communicationAnnouncements: ["/admin/announcements", ["admin.announcements"]],
+  communicationAnnouncementNew: [
+    "/admin/announcements/new",
+    ["admin.announcements"],
+  ],
+  communicationNotices: ["/admin/notices", ["admin.announcements"]],
+  communicationNoticeNew: ["/admin/notices/new", ["admin.announcements"]],
+  communicationNoticeEdit: ["/admin/notices/[id]", ["admin.announcements"]],
+  communicationNotifications: ["/admin/notifications", ["admin.settings"]],
+  communicationEmail: ["/admin/email", ["admin.settings"]],
+  usersList: ["/admin/users", ["admin.members"]],
+  usersBatch: ["/admin/users/batch", ["admin.members"]],
+  usersBans: ["/admin/bans", ["member.ban"]],
+  usersEdit: ["/admin/users/[id]", ["admin.members"]],
+  usersGroups: ["/admin/users/[id]/groups", ["admin.members"]],
+  usersProfile: ["/admin/users/[id]/profile", ["admin.members"]],
+  usersAppearance: ["/admin/users/[id]/appearance", ["admin.members"]],
+  usersPermissions: ["/admin/users/[id]/permissions", ["admin.permissions"]],
+  usersSanctions: ["/admin/users/[id]/sanctions", ["admin.members"]],
+  usersEconomy: [
+    "/admin/users/[id]/economy",
+    ["credits.viewAny", "credits.adjust", "admin.shop"],
+  ],
+  usersSessions: ["/admin/users/[id]/sessions", ["admin.members"]],
+  usersHistory: ["/admin/users/[id]/history", ["admin.members"]],
+  groupsList: ["/admin/groups", ["admin.groups"]],
+  groupsNew: ["/admin/groups/new", ["admin.groups"]],
+  groupsEdit: ["/admin/groups/[id]", ["admin.groups"]],
+  groupsPromotions: ["/admin/promotions", ["admin.promotions"]],
+  groupsPromotionNew: ["/admin/promotions/new", ["admin.promotions"]],
+  groupsPromotionEdit: ["/admin/promotions/[id]", ["admin.promotions"]],
+  permissionsGroups: ["/admin/permissions/groups", ["admin.permissions"]],
+  permissionsGroupEdit: [
+    "/admin/permissions/groups/[id]",
+    ["admin.permissions"],
+  ],
+  permissionsMembers: ["/admin/permissions/members", ["admin.permissions"]],
+  permissionsMemberEdit: [
+    "/admin/permissions/members/[id]",
+    ["admin.permissions"],
+  ],
+  permissionsForums: ["/admin/permissions/forums", ["admin.permissions"]],
+  permissionsExplain: ["/admin/permissions/explain", ["admin.permissions"]],
+  staffModerators: ["/admin/staff/moderators", ["admin.permissions"]],
+  staffAdministrators: ["/admin/staff/administrators", ["admin.permissions"]],
+  appearanceFrames: ["/admin/appearance/frames", ["admin.appearance"]],
+  appearanceFramesNew: ["/admin/appearance/frames/new", ["admin.appearance"]],
+  appearanceFramesEdit: ["/admin/appearance/frames/[id]", ["admin.appearance"]],
+  appearanceCovers: ["/admin/appearance/covers", ["admin.appearance"]],
+  appearanceCoversNew: ["/admin/appearance/covers/new", ["admin.appearance"]],
+  appearanceCoversEdit: ["/admin/appearance/covers/[id]", ["admin.appearance"]],
+  appearanceThreadCovers: [
+    "/admin/appearance/thread-covers",
+    ["admin.appearance"],
+  ],
+  appearanceThreadCoversNew: [
+    "/admin/appearance/thread-covers/new",
+    ["admin.appearance"],
+  ],
+  appearanceThreadCoversEdit: [
+    "/admin/appearance/thread-covers/[id]",
+    ["admin.appearance"],
+  ],
+  appearanceAccents: ["/admin/appearance/accents", ["admin.appearance"]],
+  appearanceAccentsNew: ["/admin/appearance/accents/new", ["admin.appearance"]],
+  appearanceAccentsEdit: [
+    "/admin/appearance/accents/[id]",
+    ["admin.appearance"],
+  ],
+  appearanceNameColors: ["/admin/appearance/name-colors", ["admin.appearance"]],
+  appearanceNameColorsNew: [
+    "/admin/appearance/name-colors/new",
+    ["admin.appearance"],
+  ],
+  appearanceNameColorsEdit: [
+    "/admin/appearance/name-colors/[id]",
+    ["admin.appearance"],
+  ],
+  appearancePrefixColors: [
+    "/admin/appearance/prefix-colors",
+    ["admin.appearance"],
+  ],
+  appearancePrefixColorsNew: [
+    "/admin/appearance/prefix-colors/new",
+    ["admin.appearance"],
+  ],
+  appearancePrefixColorsEdit: [
+    "/admin/appearance/prefix-colors/[id]",
+    ["admin.appearance"],
+  ],
+  economyCreditRules: ["/admin/credit-rules", ["admin.creditRules"]],
+  economyCreditRuleNew: ["/admin/credit-rules/new", ["admin.creditRules"]],
+  economyCreditRuleEdit: ["/admin/credit-rules/[id]", ["admin.creditRules"]],
+  economyCredits: ["/admin/credits", ["credits.adjust"]],
+  economyAwards: ["/admin/awards", ["admin.awards"]],
+  economyAwardNew: ["/admin/awards/new", ["admin.awards"]],
+  economyAwardEdit: ["/admin/awards/[id]", ["admin.awards"]],
+  economyAwardGrants: ["/admin/award-grants", ["award.grant"]],
+  economyShopCategories: ["/admin/shop/categories", ["admin.shop"]],
+  economyShopCategoryNew: ["/admin/shop/categories/new", ["admin.shop"]],
+  economyShopCategorySort: ["/admin/shop/categories/sort", ["admin.shop"]],
+  economyShopCategoryEdit: ["/admin/shop/categories/[id]", ["admin.shop"]],
+  economyShopItems: ["/admin/shop/items", ["admin.shop"]],
+  economyShopItemNew: ["/admin/shop/items/new", ["admin.shop"]],
+  economyShopItemEdit: ["/admin/shop/items/[id]", ["admin.shop"]],
+  moderationHome: ["/moderation", "canModerate"],
+  moderationReports: ["/moderation/reports", "canHandleReports"],
+  moderationReportCase: ["/moderation/reports/[id]", "canHandleReports"],
+  moderationReportMessage: [
+    "/moderation/reports/[id]/message",
+    ["conversation.moderate"],
+  ],
+  moderationApprovals: ["/moderation/approvals", "canApprove"],
+  moderationApprovalReview: ["/moderation/approvals/[type]/[id]", "canApprove"],
+  moderationSignups: ["/moderation/signups", ["member.approveRegistrations"]],
+  moderationIps: ["/moderation/ips", ["member.viewIps"]],
+  toolsMaintenance: [
+    "/admin/tools",
+    [
+      "credits.adjust",
+      "admin.promotions",
+      "admin.awards",
+      "member.spamCleanup",
+    ],
+  ],
+  toolsModeratorLog: ["/admin/logs/moderator", "canReadModeratorLog"],
+  toolsPromotionLog: ["/admin/logs/promotions", ["admin.promotions"]],
+  toolsCreditLedger: ["/admin/logs/credits", ["credits.viewAny"]],
+  toolsShopPurchases: ["/admin/logs/purchases", ["admin.shop"]],
+  toolsTasks: ["/admin/logs/tasks", ["admin.settings"]],
+};
+
+// Where each screen sits: every screen of the panel but the landings, each exactly once.
+const SECTION_MAP: Record<string, string[]> = {
+  home: ["home"],
+  setup: [
+    "setupGeneral",
+    "setupHome",
+    "setupMembers",
+    "setupAntispam",
+    "setupUploads",
+    "setupSeo",
+    "setupIdentity",
+    "setupLevels",
+    "setupCookies",
+    "setupNavigation",
+    "setupNavigationNew",
+    "setupNavigationSort",
+    "setupNavigationEdit",
+  ],
+  content: [
+    "contentReactions",
+    "contentReactionNew",
+    "contentReactionSort",
+    "contentReactionEdit",
+    "contentWordFilters",
+    "contentWordFilterNew",
+    "contentWordFilterEdit",
+    "contentTags",
+    "contentTagEdit",
+    "contentPages",
+    "contentPageNew",
+    "contentPageEdit",
+  ],
+  forums: [
+    "forumsTree",
+    "forumsPrefixes",
+    "forumsEdit",
+    "forumsPermissions",
+    "forumsNew",
+    "forumsSort",
+    "forumsTabNew",
+    "forumsTabEdit",
+    "forumsPrefixNew",
+    "forumsPrefixEdit",
+  ],
+  communication: [
+    "communicationAnnouncements",
+    "communicationAnnouncementNew",
+    "communicationNotices",
+    "communicationNoticeNew",
+    "communicationNoticeEdit",
+    "communicationNotifications",
+    "communicationEmail",
+  ],
+  users: [
+    "usersList",
+    "usersBatch",
+    "usersBans",
+    "setupWarnings",
+    "setupWarningTypeNew",
+    "setupWarningTypeEdit",
+    "setupWarningActionNew",
+    "setupWarningActionEdit",
+    "usersEdit",
+    "usersGroups",
+    "usersProfile",
+    "usersAppearance",
+    "usersPermissions",
+    "usersSanctions",
+    "usersEconomy",
+    "usersSessions",
+    "usersHistory",
+  ],
+  groups: [
+    "groupsList",
+    "groupsNew",
+    "groupsEdit",
+    "groupsPromotions",
+    "groupsPromotionNew",
+    "groupsPromotionEdit",
+    "permissionsGroups",
+    "permissionsGroupEdit",
+    "permissionsMembers",
+    "permissionsMemberEdit",
+    "permissionsForums",
+    "permissionsExplain",
+    "staffModerators",
+    "staffAdministrators",
+  ],
+  appearance: [
+    "appearanceFrames",
+    "appearanceFramesNew",
+    "appearanceFramesEdit",
+    "appearanceCovers",
+    "appearanceCoversNew",
+    "appearanceCoversEdit",
+    "appearanceThreadCovers",
+    "appearanceThreadCoversNew",
+    "appearanceThreadCoversEdit",
+    "appearanceAccents",
+    "appearanceAccentsNew",
+    "appearanceAccentsEdit",
+    "appearanceNameColors",
+    "appearanceNameColorsNew",
+    "appearanceNameColorsEdit",
+    "appearancePrefixColors",
+    "appearancePrefixColorsNew",
+    "appearancePrefixColorsEdit",
+  ],
+  economy: [
+    "economyCreditRules",
+    "economyCreditRuleNew",
+    "economyCreditRuleEdit",
+    "economyCredits",
+    "economyAwards",
+    "economyAwardNew",
+    "economyAwardEdit",
+    "economyAwardGrants",
+    "economyShopCategories",
+    "economyShopCategoryNew",
+    "economyShopCategorySort",
+    "economyShopCategoryEdit",
+    "economyShopItems",
+    "economyShopItemNew",
+    "economyShopItemEdit",
+  ],
+  tools: ["toolsMaintenance"],
+  logs: [
+    "toolsModeratorLog",
+    "toolsPromotionLog",
+    "toolsCreditLedger",
+    "toolsShopPurchases",
+    "toolsTasks",
+  ],
+  moderation: [
+    "moderationHome",
+    "moderationReports",
+    "moderationReportCase",
+    "moderationReportMessage",
+    "moderationApprovals",
+    "moderationApprovalReview",
+    "moderationSignups",
+    "moderationIps",
+  ],
+};
+
+test("the twelve sections are there, and every detail screen extends a listed one", () => {
   expect(SECTIONS.map((s) => s.id)).toEqual([
     "home",
     "setup",
-    "forums",
     "content",
+    "forums",
     "communication",
     "users",
     "groups",
     "appearance",
     "economy",
-    "moderation",
     "tools",
+    "logs",
+    "moderation",
   ]);
   for (const screen of SCREENS.filter((s) => s.listed === false)) {
     const parents = SCREENS.filter(
@@ -96,14 +447,99 @@ test("the eleven sections are there, and every detail screen extends a listed on
   }
 });
 
+test("every screen sits in exactly one section, at its old address and with its old rule", () => {
+  // Moderation's landing is a screen it had before: the overview.
+  const placed = Object.fromEntries(
+    SECTIONS.map((section) => [
+      section.id,
+      SCREENS.filter(
+        (s) =>
+          s.section === section.id &&
+          (!s.landing || s.key === "moderationHome"),
+      ).map((s) => s.key),
+    ]),
+  );
+  expect(placed).toEqual(SECTION_MAP);
+  const keys = Object.values(SECTION_MAP).flat();
+  expect(new Set(keys).size).toBe(keys.length);
+  expect([...keys].sort()).toEqual(Object.keys(GATES_BEFORE).sort());
+  for (const key of keys) {
+    const screen = SCREENS.find((s) => s.key === key);
+    const rule =
+      typeof screen?.access === "function"
+        ? screen.access.name
+        : [...(screen?.access ?? [])];
+    expect([screen?.path, rule], key).toEqual(GATES_BEFORE[key]);
+    expect(screen?.built, key).toBe(true);
+  }
+});
+
+test("each section but the home has one landing, at an address of its own that opens for whoever opens one of its screens", () => {
+  const people = [
+    member,
+    singleForumModerator,
+    announcer,
+    settingsAdmin,
+    grantor,
+    moderator,
+    administrator,
+    standing(["member.viewIps"]),
+    standing(["moderatorLog.view"]),
+  ];
+  for (const section of SECTIONS) {
+    const landings = SCREENS.filter(
+      (s) => s.section === section.id && s.landing,
+    );
+    if (section.id === "home") {
+      expect(landings).toEqual([]);
+      continue;
+    }
+    expect(landings.length, section.id).toBe(1);
+    const [landing] = landings;
+    if (section.id === "moderation") {
+      expect(landing.key).toBe("moderationHome");
+      continue;
+    }
+    expect(landing.path).toBe(`/admin/sections/${section.id}`);
+    expect(screenAt(landing.path)?.key).toBe(landing.key);
+    for (const me of people) {
+      const opensOne = SCREENS.some(
+        (s) =>
+          s.section === section.id &&
+          !s.landing &&
+          s.listed !== false &&
+          may(me, sampleOf(s.path)),
+      );
+      expect(may(me, landing.path), `${section.id}`).toBe(opensOne);
+    }
+  }
+  expect(may(settingsAdmin, "/admin/sections/setup")).toBe(true);
+  // The warning settings sit with the members.
+  expect(may(settingsAdmin, "/admin/sections/users")).toBe(true);
+  expect(may(settingsAdmin, "/admin/sections/economy")).toBe(false);
+  expect(may(announcer, "/admin/sections/communication")).toBe(true);
+  expect(screenAt("/admin/sections")).toBeUndefined();
+  expect(screenAt("/admin/sections/home")).toBeUndefined();
+  expect(screenAt("/admin/sections/other")).toBeUndefined();
+});
+
 test("an address finds its screen, a static path before a dynamic one", () => {
   expect(screenAt("/admin")?.key).toBe("home");
   expect(screenAt("/admin/")?.key).toBe("home");
   expect(screenAt("/admin/forums/prefixes")?.key).toBe("forumsPrefixes");
+  // A page called "new" is edited at its own address; the new page's address starts with a hyphen.
+  expect(screenAt("/admin/pages/new")?.key).toBe("contentPageEdit");
+  expect(screenAt("/admin/pages/-new")?.key).toBe("contentPageNew");
   expect(screenAt("/admin/forums/12")?.key).toBe("forumsEdit");
   expect(screenAt("/admin/forums/12/permissions")?.key).toBe(
     "forumsPermissions",
   );
+  expect(screenAt("/admin/forums/new/forum")?.key).toBe("forumsNew");
+  expect(screenAt("/admin/forums/sort")?.key).toBe("forumsSort");
+  expect(screenAt("/admin/forums/tabs/new")?.key).toBe("forumsTabNew");
+  expect(screenAt("/admin/forums/tabs/3")?.key).toBe("forumsTabEdit");
+  expect(screenAt("/admin/forums/prefixes/new")?.key).toBe("forumsPrefixNew");
+  expect(screenAt("/admin/forums/prefixes/3")?.key).toBe("forumsPrefixEdit");
   expect(screenAt("/moderation/approvals/post/9")?.key).toBe(
     "moderationApprovalReview",
   );
@@ -172,6 +608,7 @@ test("a member whose only staff permission is outside the panel's categories sti
     ["home", ["home"]],
     ["economy", ["economyAwardGrants"]],
   ]);
+  expect(visibleSections(grantor)[1].landing?.key).toBe("economyLanding");
 });
 
 test("the home stays closed to a member with no panel and no screen to open", () => {
@@ -207,12 +644,28 @@ test("the navigation of a member lists only the built screens they may open", ()
     ]),
   ).toEqual([
     ["home", ["home"]],
-    [
-      "moderation",
-      ["moderationHome", "moderationReports", "moderationApprovals"],
-    ],
-    ["tools", ["toolsModeratorLog"]],
+    ["logs", ["toolsModeratorLog"]],
+    ["moderation", ["moderationReports", "moderationApprovals"]],
   ]);
+  // The landing of a section is its heading's link, not one of its screens.
+  expect(
+    visibleSections(singleForumModerator).map((s) => s.landing?.key),
+  ).toEqual([undefined, "logsLanding", "moderationHome"]);
+});
+
+test("a section whose landing alone opens is still shown, and one whose landing is closed shows its screens", () => {
+  // The moderator log opens the moderation overview, and no queue.
+  const logReader = standing(["moderatorLog.view"]);
+  const moderation = visibleSections(logReader).find(
+    (s) => s.id === "moderation",
+  );
+  expect(moderation?.landing?.key).toBe("moderationHome");
+  expect(moderation?.screens).toEqual([]);
+  // The IP screen opens without the overview.
+  const ipReader = standing(["member.viewIps"]);
+  const ips = visibleSections(ipReader).find((s) => s.id === "moderation");
+  expect(ips?.landing).toBeUndefined();
+  expect(ips?.screens.map((s) => s.key)).toEqual(["moderationIps"]);
 });
 
 test("a moderator everywhere and a full administrator open the moderation screens", () => {
@@ -235,7 +688,10 @@ test("the sign-up queue opens for the permission alone, and the batch screen for
   expect(may(singleForumModerator, "/moderation/signups")).toBe(false);
   expect(
     visibleSections(reviewer).map((s) => [s.id, s.screens.map((x) => x.key)]),
-  ).toContainEqual(["moderation", ["moderationHome", "moderationSignups"]]);
+  ).toContainEqual(["moderation", ["moderationSignups"]]);
+  expect(
+    visibleSections(reviewer).find((s) => s.id === "moderation")?.landing?.key,
+  ).toBe("moderationHome");
   expect(screenAt("/admin/users/batch")?.key).toBe("usersBatch");
   expect(screenAt("/admin/users/7")?.key).toBe("usersEdit");
   const members = standing(["admin.members"]);
@@ -247,6 +703,91 @@ test("the sign-up queue opens for the permission alone, and the batch screen for
       .flatMap((section) => section.screens.map((x) => x.key))
       .includes("usersBatch" as never),
   ).toBe(false);
+});
+
+const trail = (me: Standing, path: string) =>
+  trailOf(me, path).map(({ screen, href }) => [screen.key, href]);
+
+test("the trail of an address leads up through the home, the section's landing and the screens above it", () => {
+  expect(trail(administrator, "/admin")).toEqual([]);
+  expect(trail(administrator, "/admin/sections/users")).toEqual([
+    ["home", "/admin"],
+  ]);
+  expect(trail(administrator, "/admin/users")).toEqual([
+    ["home", "/admin"],
+    ["usersLanding", "/admin/sections/users"],
+  ]);
+  expect(trail(administrator, "/admin/users/7/groups")).toEqual([
+    ["home", "/admin"],
+    ["usersLanding", "/admin/sections/users"],
+    ["usersList", "/admin/users"],
+    ["usersEdit", "/admin/users/7"],
+  ]);
+  // A screen above the address in another section is not on the way up.
+  expect(trail(administrator, "/admin/settings/warnings")).toEqual([
+    ["home", "/admin"],
+    ["usersLanding", "/admin/sections/users"],
+  ]);
+  // A listed screen under another's address is its sibling.
+  for (const path of ["/admin/settings/seo", "/admin/forums/prefixes"]) {
+    expect(
+      trail(administrator, path).map(([key]) => key),
+      path,
+    ).toEqual([
+      "home",
+      path.includes("settings") ? "setupLanding" : "forumsLanding",
+    ]);
+  }
+  expect(trail(administrator, "/admin/forums/7/permissions")).toEqual([
+    ["home", "/admin"],
+    ["forumsLanding", "/admin/sections/forums"],
+    ["forumsTree", "/admin/forums"],
+    ["forumsEdit", "/admin/forums/7"],
+  ]);
+  // The pages that add or change a node, a sort of the tree and a forum list tab hang from the tree.
+  for (const path of [
+    "/admin/forums/new/forum",
+    "/admin/forums/sort",
+    "/admin/forums/tabs/new",
+    "/admin/forums/tabs/3",
+  ]) {
+    expect(trail(administrator, path), path).toEqual([
+      ["home", "/admin"],
+      ["forumsLanding", "/admin/sections/forums"],
+      ["forumsTree", "/admin/forums"],
+    ]);
+  }
+  expect(trail(administrator, "/admin/logs/moderator")).toEqual([
+    ["home", "/admin"],
+    ["logsLanding", "/admin/sections/logs"],
+  ]);
+  expect(trail(moderator, "/moderation/reports/4")).toEqual([
+    ["home", "/admin"],
+    ["moderationHome", "/moderation"],
+    ["moderationReports", "/moderation/reports"],
+  ]);
+  expect(trail(administrator, "/admin/nothing-here")).toEqual([]);
+});
+
+test("the warning pages hang from the warnings list, in the users section", () => {
+  for (const path of [
+    "/admin/settings/warnings/types/new",
+    "/admin/settings/warnings/types/3",
+    "/admin/settings/warnings/actions/new",
+    "/admin/settings/warnings/actions/3",
+  ]) {
+    expect(trail(administrator, path), path).toEqual([
+      ["home", "/admin"],
+      ["usersLanding", "/admin/sections/users"],
+      ["setupWarnings", "/admin/settings/warnings"],
+    ]);
+  }
+});
+
+test("the trail leaves out what the member may not open", () => {
+  // Credits open a member's economy tab, not the member list or the member.
+  const ledger = standing(["credits.viewAny"]);
+  expect(trail(ledger, "/admin/users/7/economy")).toEqual([["home", "/admin"]]);
 });
 
 function routeFiles(directory: string): string[] {

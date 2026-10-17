@@ -7,8 +7,9 @@ import {
 import { getFormatter, getTranslations } from "next-intl/server";
 import { UserLink } from "@/components/forum/user-link";
 import { ConfirmStep } from "@/components/staff/confirm-step";
-import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { cursorFrom } from "@/components/staff/cursor-list";
+import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
+import { PagedList } from "@/components/staff/paged-list";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,53 +53,51 @@ export async function Ledger({
     call(creditsLedger, { userId, cursor: cursorFrom(params, "ledger") }),
   ]);
   return (
-    <CursorList
-      items={page.items}
-      nextCursor={page.nextCursor}
-      path={`/admin/users/${userId}/economy`}
-      params={params}
-      cursorParam="ledger"
-      itemKey={(row) => row.id}
+    <PagedList
+      items={page.items.map((row) => ({
+        id: row.id,
+        title: (
+          <>
+            <span
+              className={`tabular-nums ${row.amount < 0 ? "text-destructive" : "text-success"}`}
+            >
+              {row.amount > 0 ? "+" : ""}
+              {format.number(row.amount)}
+            </span>{" "}
+            {row.reason}
+          </>
+        ),
+        badges: <Badge variant="secondary">{row.type}</Badge>,
+        description: (
+          <>
+            {row.actor ? (
+              <>
+                {t("by")} <span>{row.actor.username}</span> ·{" "}
+              </>
+            ) : null}
+            {row.source ? `${row.source.type} #${row.source.id} · ` : ""}
+            {t("after", { balance: format.number(row.balanceAfter) })} ·{" "}
+            <Time at={row.createdAt} />
+          </>
+        ),
+      }))}
+      paging={{
+        path: `/admin/users/${userId}/economy`,
+        params,
+        nextCursor: page.nextCursor,
+        cursorParam: "ledger",
+      }}
       label={t("ledger")}
-      head={
-        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b p-4">
-          <h2 className="text-sm font-semibold">{t("ledger")}</h2>
-          <p className="text-sm">
-            {t("balance")}{" "}
-            <strong className="tabular-nums">
-              {format.number(page.balance ?? balance)}
-            </strong>
-          </p>
-        </div>
+      heading={t("ledger")}
+      description={
+        <>
+          {t("balance")}{" "}
+          <strong className="tabular-nums text-foreground">
+            {format.number(page.balance ?? balance)}
+          </strong>
+        </>
       }
       empty={{ title: t("noLedger") }}
-      render={(row) => (
-        <div className="grid gap-1 p-4 text-sm sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-start sm:gap-4">
-          <p
-            className={`font-semibold tabular-nums ${row.amount < 0 ? "text-destructive" : "text-success"}`}
-          >
-            {row.amount > 0 ? "+" : ""}
-            {format.number(row.amount)}
-          </p>
-          <div className="min-w-0 space-y-0.5 [overflow-wrap:anywhere]">
-            <p>
-              <Badge variant="secondary">{row.type}</Badge> {row.reason}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {row.actor ? (
-                <>
-                  {t("by")} <span>{row.actor.username}</span> ·{" "}
-                </>
-              ) : null}
-              {row.source ? `${row.source.type} #${row.source.id} · ` : ""}
-              {t("after", { balance: format.number(row.balanceAfter) })}
-            </p>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            <Time at={row.createdAt} />
-          </p>
-        </div>
-      )}
     />
   );
 }
@@ -112,37 +111,47 @@ export async function Adjust({
 }) {
   const t = await getTranslations("adminUsers.economy");
   return (
-    <details className="rounded-lg border bg-card">
-      <summary className="flex min-h-10 cursor-pointer items-center px-4 py-3 text-sm font-semibold">
+    <details className="group min-w-0">
+      <summary className="flex min-h-12 cursor-pointer items-center rounded-lg border bg-card px-4 text-sm font-semibold">
         {t("adjustHeading")}
       </summary>
-      <FormRows
-        action={adjustCredits}
-        heading={t("adjustFormHeading")}
-        description={t("adjustHelp")}
-        submit={t("adjust")}
-        disabled={readOnly}
-      >
-        <input type="hidden" name="id" value={userId} />
-        <FieldRow name="amount" label={t("amount")} htmlFor="adjust-amount">
-          <Input
-            id="adjust-amount"
-            name="amount"
-            type="number"
-            inputMode="numeric"
-            required
-          />
-        </FieldRow>
-        <FieldRow name="reason" label={t("reason")} htmlFor="adjust-reason">
-          <Input id="adjust-reason" name="reason" required />
-        </FieldRow>
-        <FieldRow name="confirm" label={t("confirmLabel")}>
-          <label className="flex min-h-10 items-center gap-3 text-sm">
-            <input type="checkbox" name="confirm" required className="size-5" />
-            {t("confirm")}
-          </label>
-        </FieldRow>
-      </FormRows>
+      <div className="mt-4">
+        <EditForm
+          action={adjustCredits}
+          submit={t("adjust")}
+          disabled={readOnly}
+        >
+          <input type="hidden" name="id" value={userId} />
+          <FieldGroup
+            legend={t("adjustFormHeading")}
+            description={t("adjustHelp")}
+          >
+            <Field name="amount" label={t("amount")} htmlFor="adjust-amount">
+              <Input
+                id="adjust-amount"
+                name="amount"
+                type="number"
+                inputMode="numeric"
+                required
+              />
+            </Field>
+            <Field name="reason" label={t("reason")} htmlFor="adjust-reason">
+              <Input id="adjust-reason" name="reason" required />
+            </Field>
+            <Field name="confirm" label={t("confirmLabel")}>
+              <label className="flex min-h-10 items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  name="confirm"
+                  required
+                  className="size-5"
+                />
+                {t("confirm")}
+              </label>
+            </Field>
+          </FieldGroup>
+        </EditForm>
+      </div>
     </details>
   );
 }
@@ -168,17 +177,37 @@ export async function Inventory({
     }),
   ]);
   return (
-    <CursorList
-      items={page.items}
-      nextCursor={page.nextCursor}
-      path={`/admin/users/${userId}/economy`}
-      params={params}
-      cursorParam="inventory"
-      itemKey={(entry) => entry.id}
+    <PagedList
+      items={page.items.map((entry) => ({
+        id: entry.id,
+        title: (
+          <>
+            {entry.item.name}
+            {entry.quantity > 1 && ` × ${format.number(entry.quantity)}`}
+          </>
+        ),
+        description: (
+          <>
+            {t("acquired")} <Time at={entry.acquiredAt} />
+            {entry.expiresAt && (
+              <>
+                {" "}
+                · {t("expires")} <Time at={entry.expiresAt} />
+              </>
+            )}
+          </>
+        ),
+      }))}
+      paging={{
+        path: `/admin/users/${userId}/economy`,
+        params,
+        nextCursor: page.nextCursor,
+        cursorParam: "inventory",
+      }}
       label={t("inventory")}
+      heading={t("inventory")}
       filters={
         <form method="get" className="flex flex-wrap items-end gap-3">
-          <h2 className="mr-auto text-sm font-semibold">{t("inventory")}</h2>
           <label className="grid gap-1.5 text-xs font-medium">
             {t("inventoryState")}
             <select
@@ -199,23 +228,6 @@ export async function Inventory({
         </form>
       }
       empty={{ title: t("noInventory") }}
-      render={(entry) => (
-        <div className="space-y-0.5 p-4 text-sm">
-          <p className="font-medium [overflow-wrap:anywhere]">
-            {entry.item.name}
-            {entry.quantity > 1 && ` × ${format.number(entry.quantity)}`}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {t("acquired")} <Time at={entry.acquiredAt} />
-            {entry.expiresAt && (
-              <>
-                {" "}
-                · {t("expires")} <Time at={entry.expiresAt} />
-              </>
-            )}
-          </p>
-        </div>
-      )}
     />
   );
 }
@@ -251,42 +263,26 @@ export async function Awards({
   return (
     <>
       {grants && who && (
-        <CursorList
-          items={grants.items}
-          nextCursor={grants.nextCursor}
-          path={`/admin/users/${userId}/economy`}
-          params={params}
-          cursorParam="awards"
-          itemKey={(grant) => grant.id}
-          label={t("awards")}
-          head={
-            <div className="border-b p-4">
-              <h2 className="text-sm font-semibold">{t("awards")}</h2>
-            </div>
-          }
-          empty={{ title: t("noAwards") }}
-          render={(grant) => (
-            <div className="space-y-1 p-4 text-sm">
-              <p className="flex flex-wrap items-center gap-2 font-medium">
-                {grant.award.name}
-                <Badge variant="secondary">{grant.award.tier}</Badge>
-              </p>
-              <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
+        <PagedList
+          items={grants.items.map((grant) => ({
+            id: grant.id,
+            title: grant.award.name,
+            badges: <Badge variant="secondary">{grant.award.tier}</Badge>,
+            description: (
+              <>
                 <Time at={grant.grantedAt} /> ·{" "}
                 {grant.grantedBy ? (
                   <>
-                    {t("by")}{" "}
-                    <UserLink
-                      user={who(grant.grantedBy.id)}
-                      className="inline-flex min-h-10 items-center"
-                    />
+                    {t("by")} <UserLink user={who(grant.grantedBy.id)} />
                   </>
                 ) : (
                   t("automatic")
                 )}
                 {grant.reason && ` · ${grant.reason}`}
-              </p>
-              {mayGrant && !readOnly && (
+              </>
+            ),
+            actions:
+              mayGrant && !readOnly ? (
                 <ConfirmStep
                   action={revokeAward}
                   fields={{ id: userId, memberAwardId: grant.id }}
@@ -294,39 +290,44 @@ export async function Awards({
                   reason={t("revokeReason")}
                   warning={t("revokeWarning")}
                 />
-              )}
-            </div>
-          )}
+              ) : undefined,
+          }))}
+          paging={{
+            path: `/admin/users/${userId}/economy`,
+            params,
+            nextCursor: grants.nextCursor,
+            cursorParam: "awards",
+          }}
+          label={t("awards")}
+          heading={t("awards")}
+          empty={{ title: t("noAwards") }}
         />
       )}
       {mayGrant && awards && (
-        <FormRows
-          action={grantAward}
-          heading={t("grantHeading")}
-          submit={t("grant")}
-          disabled={readOnly}
-        >
+        <EditForm action={grantAward} submit={t("grant")} disabled={readOnly}>
           <input type="hidden" name="id" value={userId} />
-          <FieldRow name="awardId" label={t("award")} htmlFor="grant-award">
-            <select
-              id="grant-award"
-              name="awardId"
-              required
-              className={selectClass}
-            >
-              {awards.items
-                .filter((award) => award.isActive)
-                .map((award) => (
-                  <option key={award.id} value={award.id}>
-                    {award.name}
-                  </option>
-                ))}
-            </select>
-          </FieldRow>
-          <FieldRow name="reason" label={t("reason")} htmlFor="grant-reason">
-            <Input id="grant-reason" name="reason" />
-          </FieldRow>
-        </FormRows>
+          <FieldGroup legend={t("grantHeading")}>
+            <Field name="awardId" label={t("award")} htmlFor="grant-award">
+              <select
+                id="grant-award"
+                name="awardId"
+                required
+                className={selectClass}
+              >
+                {awards.items
+                  .filter((award) => award.isActive)
+                  .map((award) => (
+                    <option key={award.id} value={award.id}>
+                      {award.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Field name="reason" label={t("reason")} htmlFor="grant-reason">
+              <Input id="grant-reason" name="reason" />
+            </Field>
+          </FieldGroup>
+        </EditForm>
       )}
     </>
   );

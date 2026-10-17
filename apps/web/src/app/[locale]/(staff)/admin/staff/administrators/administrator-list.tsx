@@ -18,13 +18,10 @@ export async function AdministratorList() {
     <StaffList
       items={items}
       heading={t("heading")}
-      permissions={t("permissions")}
+      permissions={(name) => t("permissions", { name })}
       empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
       detail={(item) => (
-        <ul
-          aria-label={t("holds")}
-          className="flex flex-wrap gap-1.5 px-4 pb-3"
-        >
+        <ul aria-label={t("holds")} className="flex flex-wrap gap-1.5 pb-2">
           {item.permissions.map((id) => (
             <li
               key={id}

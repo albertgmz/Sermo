@@ -14,6 +14,7 @@ export default function StyleguideLayout({
         "admin.formRows",
         "admin.forumPicker",
         "admin.ruleBuilder",
+        "admin.shell",
         "adminForums.pictureField",
         "adminGroups.matrix",
         "auth.passwordField",

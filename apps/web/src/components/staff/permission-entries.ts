@@ -31,6 +31,36 @@ export const wasField = (id: string) => `was:${id}`;
 export const cellText = (value: MatrixValue | undefined): string =>
   value === undefined ? "" : String(value);
 
+// What one cell asks for, from its select (`mode`) and, for an integer with "value", the number
+// typed: an entry value, "unset" for an empty select, or null when the cell holds no valid state
+// (a state outside the permission's, an integer that is not a whole number).
+export function cellValue(
+  type: MatrixDefinition["type"],
+  mode: string,
+  typed: string | null,
+  allowNo: boolean,
+): MatrixValue | "unset" | null {
+  if (mode === "") return "unset";
+  if (type === "flag") {
+    return mode === "allow" || mode === "never" || (allowNo && mode === "no")
+      ? mode
+      : null;
+  }
+  if (mode === "unlimited") return -1;
+  if (mode !== "value" || typed === null || !/^\d{1,15}$/.test(typed.trim())) {
+    return null;
+  }
+  return Number(typed.trim());
+}
+
+// Whether a cell asking for `wanted` differs from what it showed (`was`, as `cellText` writes it).
+// A cell with no valid state counts as changed: saving it is refused.
+export const cellChanged = (
+  wanted: MatrixValue | "unset" | null,
+  was: string,
+): boolean =>
+  wanted === null || cellText(wanted === "unset" ? undefined : wanted) !== was;
+
 // Reads the matrix back from a submitted form and returns only the entries the administrator
 // changed, as the entries `permissions.set` takes. A cell is changed when its posted value differs
 // from what it showed when the page was built, which the form carries in a hidden `was` field
@@ -53,27 +83,15 @@ export function matrixChanges(
     const mode = formData.get(modeField(definition.id));
     const was = formData.get(wasField(definition.id));
     if (typeof mode !== "string" || typeof was !== "string") continue;
-    let wanted: MatrixValue | "unset";
-    if (mode === "") {
-      wanted = "unset";
-    } else if (definition.type === "flag") {
-      if (mode === "allow" || mode === "never" || (allowNo && mode === "no")) {
-        wanted = mode;
-      } else {
-        return { invalid: definition.id };
-      }
-    } else if (mode === "unlimited") {
-      wanted = -1;
-    } else if (mode === "value") {
-      const typed = formData.get(numberField(definition.id));
-      if (typeof typed !== "string" || !/^\d{1,15}$/.test(typed.trim())) {
-        return { invalid: definition.id };
-      }
-      wanted = Number(typed.trim());
-    } else {
-      return { invalid: definition.id };
-    }
-    if (cellText(wanted === "unset" ? undefined : wanted) !== was) {
+    const typed = formData.get(numberField(definition.id));
+    const wanted = cellValue(
+      definition.type,
+      mode,
+      typeof typed === "string" ? typed : null,
+      allowNo,
+    );
+    if (wanted === null) return { invalid: definition.id };
+    if (cellChanged(wanted, was)) {
       changes.push({ permission: definition.id, value: wanted });
     }
   }

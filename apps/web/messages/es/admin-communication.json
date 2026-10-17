@@ -13,7 +13,7 @@
     "subtitle": "Alertas enviadas a todos los miembros, a un grupo o a miembros concretos.",
     "loading": "Cargando las alertas…",
     "heading": "Alertas enviadas",
-    "new": "Nueva alerta",
+    "new": "Añadir alerta",
     "emptyTitle": "Aún no hay alertas",
     "emptyDescription": "No se ha enviado nada a los miembros.",
     "byline": "Enviada por {author} el {date}",
@@ -36,6 +36,8 @@
       "title": "Título",
       "body": "Texto",
       "bodyHelp": "Código BB: [B]negrita[/B], [I]cursiva[/I], [U]subrayado[/U], [URL=https://ejemplo.com]enlace[/URL], [QUOTE]cita[/QUOTE], [LIST][*]elemento[/LIST], [CODE]código[/CODE].",
+      "audienceHeading": "Público",
+      "sendHeading": "Antes de enviar",
       "url": "Enlace",
       "urlHelp": "Opcional. Una ruta de este sitio (que empiece por /) o una dirección http(s) que abre la alerta. Sin enlace abre la lista de notificaciones.",
       "audience": "Enviar a",
@@ -66,6 +68,7 @@
     "followsWatch": "El correo respeta el ajuste de seguimiento de cada miembro.",
     "retention": {
       "label": "Conservar notificaciones leídas",
+      "heading": "Notificaciones leídas",
       "help": "Las notificaciones leídas más antiguas que esto se eliminan.",
       "unit": "días"
     }
@@ -106,6 +109,9 @@
     "pageHeading": "Avisos",
     "subtitle": "Banners que se muestran bajo la cabecera de todas las páginas.",
     "loading": "Cargando los avisos…",
+    "header": {
+      "add": "Añadir aviso"
+    },
     "notices": {
       "created": "Aviso creado.",
       "removed": "Aviso eliminado."
@@ -114,21 +120,23 @@
       "heading": "Avisos",
       "description": "Los más recientes primero. Las fechas están en UTC.",
       "emptyTitle": "Aún no hay avisos",
-      "emptyDescription": "Crea uno abajo.",
+      "emptyDescription": "Crea el primero.",
       "active": "Activo",
       "inactive": "Inactivo",
       "group": "Grupo {group}",
       "from": "desde {date}",
       "until": "hasta {date}",
-      "edit": "Editar"
+      "edit": "Editar {title}"
     },
     "create": {
       "heading": "Nuevo aviso",
       "description": "Se muestra de inmediato si está activo y dentro de sus fechas.",
-      "submit": "Crear aviso"
+      "submit": "Crear aviso",
+      "metaTitle": "Nuevo aviso"
     },
     "fields": {
       "title": "Título",
+      "group": "Aviso",
       "body": "Texto",
       "bodyHelp": "Código BB: [B]negrita[/B], [I]cursiva[/I], [U]subrayado[/U], [URL=https://ejemplo.com]enlace[/URL], [QUOTE]cita[/QUOTE], [LIST][*]elemento[/LIST], [CODE]código[/CODE].",
       "everyone": "Todos",
@@ -139,6 +147,7 @@
       "dismissibleSwitch": "Los visitantes pueden descartarlo",
       "active": "Activo",
       "activeSwitch": "Mostrar el aviso",
+      "schedule": "Programación (opcional)",
       "startsAt": "Empieza",
       "dateHelp": "Opcional. Fecha y hora en UTC; sin inicio se muestra de inmediato.",
       "endsAt": "Termina"
@@ -151,10 +160,6 @@
     "loading": "Cargando el aviso…",
     "notices": {
       "saved": "Aviso guardado. Los miembros que lo descartaron no lo vuelven a ver."
-    },
-    "form": {
-      "heading": "Aviso",
-      "description": "Al guardar se sustituyen todos los campos."
     },
     "delete": {
       "heading": "Eliminar el aviso",

@@ -1,19 +1,19 @@
 "use client";
 
-// ConfirmPassword: the row for the acting administrator's own password, for the forms whose
-// action checks it before changing anything (the backend's `actorPassword`). Autocomplete is off
-// so a browser does not offer a saved password for a field that is not a sign-in.
+// ConfirmPassword: the field for the acting administrator's own password, for the forms whose
+// action checks it before changing anything (the backend's `actorPassword`), in the layout of the
+// edit form's fields (`Field`). Autocomplete is off so a browser does not offer a saved password
+// for a field that is not a sign-in.
 //
 // Props
 //   name   Name of the field the action reads. Default: "actorPassword".
 //   id     Id of the control. Default: "confirm-password"; give another when two are on a page.
-//   error  Optional error line. Without it, the row shows the error that the enclosing
-//          `FormRows` holds for `name` (a state's `fields`).
+//   error  Optional error line. Without it, the field shows the error that the enclosing
+//          `EditForm` or `FormRows` holds for `name` (a state's `fields`).
 
 import { useTranslations } from "next-intl";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
-import { useFieldError } from "./form-rows";
-import { Help, Row } from "./rows";
+import { Field } from "./field";
 
 export function ConfirmPassword({
   name = "actorPassword",
@@ -25,20 +25,15 @@ export function ConfirmPassword({
   error?: string;
 }) {
   const t = useTranslations("admin.confirmPassword");
-  const fromForm = useFieldError(name);
-  const shown = error ?? fromForm;
   return (
-    <Row label={t("label")} htmlFor={id}>
+    <Field
+      name={name}
+      label={t("label")}
+      htmlFor={id}
+      help={t("help")}
+      error={error}
+    >
       <PasswordField id={id} name={name} autoComplete="off" required />
-      <Help id={`${id}-help`}>{t("help")}</Help>
-      {shown && (
-        <p
-          id={`${id}-error`}
-          className="text-xs font-medium text-destructive [overflow-wrap:anywhere]"
-        >
-          {shown}
-        </p>
-      )}
-    </Row>
+    </Field>
   );
 }

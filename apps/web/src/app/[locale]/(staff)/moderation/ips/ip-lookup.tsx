@@ -1,8 +1,8 @@
 import { ipsMembers, usersIps } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
-import { linkClass } from "@/components/staff/rows";
+import { cursorFrom } from "@/components/staff/cursor-list";
+import { PagedList } from "@/components/staff/paged-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDateTime } from "@/lib/format";
@@ -16,9 +16,6 @@ type Params = Record<string, string | string[] | undefined>;
 
 const one = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) ?? "";
-
-const ROW =
-  "grid gap-x-4 gap-y-1 p-4 text-sm sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]";
 
 // The two questions staff ask of the IP log. `?ip=` lists the members who used an address (an
 // IPv6 address stands for its /64); `?member=` lists the addresses one member used, each linking
@@ -116,36 +113,33 @@ export async function IpLookup({
     }
     const heading = t("memberHeading", { name: name(memberId) });
     return (
-      <CursorList
-        items={page.items}
-        nextCursor={page.nextCursor}
-        path="/moderation/ips"
-        params={params}
-        itemKey={(item) => item.ip}
+      <PagedList
+        items={page.items.map((item) => ({
+          id: item.ip,
+          title: item.ip,
+          href: `/moderation/ips?ip=${encodeURIComponent(item.ip)}`,
+          description: (
+            <>
+              <p>
+                {t("times", { count: item.count })}
+                {item.network !== item.ip &&
+                  ` · ${t("network", { network: item.network })}`}
+              </p>
+              {seen(item.firstSeenAt, item.lastSeenAt)}
+            </>
+          ),
+        }))}
+        paging={{
+          path: "/moderation/ips",
+          params,
+          nextCursor: page.nextCursor,
+        }}
         label={heading}
         filters={withHeading(heading)}
         empty={{
           title: t("memberEmptyTitle"),
           description: t("memberEmptyDescription"),
         }}
-        render={(item) => (
-          <div className={ROW}>
-            <p className="min-w-0 [overflow-wrap:anywhere]">
-              <Link
-                href={`/moderation/ips?ip=${encodeURIComponent(item.ip)}`}
-                className={linkClass}
-              >
-                {item.ip}
-              </Link>
-              <span className="block text-xs text-muted-foreground">
-                {t("times", { count: item.count })}
-                {item.network !== item.ip &&
-                  ` · ${t("network", { network: item.network })}`}
-              </span>
-            </p>
-            {seen(item.firstSeenAt, item.lastSeenAt)}
-          </div>
-        )}
       />
     );
   }
@@ -173,27 +167,19 @@ export async function IpLookup({
   }
   const heading = t("membersHeading", { network: page.network });
   return (
-    <CursorList
-      items={page.items}
-      nextCursor={page.nextCursor}
-      path="/moderation/ips"
-      params={params}
-      itemKey={(item) => item.user.id}
-      label={heading}
-      filters={withHeading(heading)}
-      empty={{
-        title: t("membersEmptyTitle"),
-        description: t("membersEmptyDescription"),
-      }}
-      render={(item) => (
-        <div className={ROW}>
-          <p className="min-w-0">
-            <MemberLink
-              id={item.user.id}
-              name={item.user.username}
-              panel={panelHref(viewer, "usersEdit", item.user.id)}
-            />
-            <span className="block text-xs text-muted-foreground">
+    <PagedList
+      items={page.items.map((item) => ({
+        id: item.user.id,
+        title: (
+          <MemberLink
+            id={item.user.id}
+            name={item.user.username}
+            panel={panelHref(viewer, "usersEdit", item.user.id)}
+          />
+        ),
+        description: (
+          <>
+            <p>
               {t("times", { count: item.count })}
               {" · "}
               <Link
@@ -202,11 +188,18 @@ export async function IpLookup({
               >
                 {t("allAddresses")}
               </Link>
-            </span>
-          </p>
-          {seen(item.firstSeenAt, item.lastSeenAt)}
-        </div>
-      )}
+            </p>
+            {seen(item.firstSeenAt, item.lastSeenAt)}
+          </>
+        ),
+      }))}
+      paging={{ path: "/moderation/ips", params, nextCursor: page.nextCursor }}
+      label={heading}
+      filters={withHeading(heading)}
+      empty={{
+        title: t("membersEmptyTitle"),
+        description: t("membersEmptyDescription"),
+      }}
     />
   );
 }

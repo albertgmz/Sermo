@@ -8,9 +8,8 @@
     "fromNow": "Una regla se aplica a lo que ocurra a partir de ahora, nunca a hechos pasados.",
     "active": "Activa",
     "inactive": "Inactiva",
-    "edit": "Editar",
-    "close": "Cerrar",
-    "none": "Aún no hay reglas de créditos.",
+    "edit": "Editar {title}",
+    "none": "Aún no hay reglas de créditos",
     "noLimit": "sin límite",
     "limitValue": "como máximo {count} cada {hours} h",
     "forumsValue": "solo en {names}",
@@ -38,10 +37,6 @@
       "award_received": "Un miembro recibe un trofeo"
     },
     "form": {
-      "headingNew": "Nueva regla",
-      "headingEdit": "Editar regla",
-      "descriptionNew": "Una regla paga (o cobra) al miembro una vez por cada suceso, mientras esté activa.",
-      "create": "Crear regla",
       "title": "Título",
       "trigger": "Cuándo",
       "triggerHelp": "El suceso al que reacciona la regla. Varias reglas pueden compartir un suceso; cada una se aplica por separado.",
@@ -57,7 +52,9 @@
       "limitHours": "Periodo en horas",
       "limitHoursUnit": "horas",
       "active": "Activa",
-      "activeHelp": "Una regla inactiva no paga nada."
+      "activeHelp": "Una regla inactiva no paga nada.",
+      "basics": "Regla",
+      "basicsHelp": "Cuándo se aplica, cuántos créditos paga o cobra y con qué frecuencia."
     },
     "errors": {
       "id": "Esa regla no es válida.",
@@ -65,6 +62,19 @@
       "amount": "Escribe un número entero.",
       "limit": "Escribe los dos números del límite como números enteros, o deja ambos vacíos.",
       "node": "Elige foros de la lista."
+    },
+    "add": "Añadir regla",
+    "deleteShort": "Eliminar",
+    "emptyDescription": "Añade una regla para pagar o cobrar créditos por lo que hacen los miembros.",
+    "new": {
+      "metaTitle": "Nueva regla de créditos",
+      "heading": "Nueva regla de créditos",
+      "description": "Una regla paga (o cobra) al miembro una vez por cada suceso, mientras esté activa.",
+      "submit": "Crear regla"
+    },
+    "editPage": {
+      "metaTitle": "Regla de créditos",
+      "description": "Un cambio se aplica a lo que ocurra a partir de ahora, nunca a hechos pasados."
     }
   },
   "adjust": {
@@ -115,9 +125,8 @@
     "inactive": "Inactivo",
     "automatic": "Automático",
     "facts": "{xp} XP · {credits} créditos · concedido {holders} veces",
-    "edit": "Editar",
-    "none": "Aún no hay trofeos.",
-    "back": "Volver a los trofeos",
+    "edit": "Editar {name}",
+    "none": "Aún no hay trofeos",
     "tiers": {
       "bronze": "Bronce",
       "silver": "Plata",
@@ -148,10 +157,6 @@
       "automatic": "concedido automáticamente"
     },
     "form": {
-      "headingNew": "Nuevo trofeo",
-      "headingEdit": "Editar trofeo",
-      "descriptionNew": "Crea el trofeo y luego concédelo a mano o deja que lo conceda su criterio.",
-      "create": "Crear trofeo",
       "name": "Nombre",
       "description": "Descripción",
       "tier": "Nivel",
@@ -172,13 +177,26 @@
       "stackable": "Acumulable",
       "stackableHelp": "El mismo miembro puede recibirlo cualquier número de veces. Si no, solo una.",
       "active": "Activo",
-      "activeHelp": "Un trofeo inactivo no se puede conceder y se oculta a los miembros."
+      "activeHelp": "Un trofeo inactivo no se puede conceder y se oculta a los miembros.",
+      "basics": "Trofeo",
+      "basicsHelp": "Cómo se llama el trofeo, su nivel y lo que vale cada concesión.",
+      "automatic": "Trofeo automático",
+      "automaticHelp": "Criterios que conceden el trofeo por sí solos. Sin ninguno, solo se concede a mano."
     },
     "errors": {
       "id": "Ese trofeo no es válido.",
       "tier": "Elige uno de los niveles ofrecidos.",
       "number": "Escribe un número entero.",
       "file": "Ese archivo subido no es válido."
+    },
+    "add": "Añadir trofeo",
+    "deleteShort": "Eliminar",
+    "emptyDescription": "Añade un trofeo para dar a los miembros algo que conseguir.",
+    "new": {
+      "metaTitle": "Nuevo trofeo",
+      "heading": "Nuevo trofeo",
+      "description": "Crea el trofeo y luego concédelo a mano o deja que lo conceda su criterio.",
+      "submit": "Crear trofeo"
     }
   },
   "grants": {
@@ -224,14 +242,11 @@
     "subtitle": "Cómo se agrupa la tienda. El orden de las categorías es el que ven los miembros.",
     "loading": "Cargando las categorías…",
     "heading": "Categorías",
-    "orderHelp": "Cambia los números para reordenar y luego guarda el orden. Los números más bajos van primero.",
-    "saveOrder": "Guardar orden",
     "active": "Activa",
     "inactive": "Inactiva",
-    "edit": "Editar",
-    "close": "Cerrar",
-    "items": "Artículos",
-    "none": "Aún no hay categorías.",
+    "edit": "Editar {name}",
+    "items": "Artículos de {name}",
+    "none": "Aún no hay categorías",
     "ladder": "Los rangos de pago de la página de mejora salen de la categoría «{name}» ({count, plural, one {# rango} other {# rangos}}).",
     "noLadder": "Ninguna categoría vende rangos ahora, así que la página de mejora no ofrece ninguno.",
     "ladderRule": "Los rangos son los artículos de grupo de la primera categoría activa, en este orden, que venda alguno.",
@@ -245,20 +260,42 @@
       "deleted": "Categoría eliminada."
     },
     "form": {
-      "headingNew": "Nueva categoría",
-      "headingEdit": "Editar categoría",
-      "descriptionNew": "Una categoría reúne los artículos de la tienda que van juntos.",
-      "create": "Crear categoría",
       "name": "Nombre",
       "description": "Descripción",
       "position": "Orden",
       "positionHelp": "El lugar que ocupa en la lista. Si está vacío, va la primera.",
       "active": "Activa",
-      "activeHelp": "Los artículos de una categoría inactiva no se pueden comprar."
+      "activeHelp": "Los artículos de una categoría inactiva no se pueden comprar.",
+      "basics": "Categoría",
+      "basicsHelp": "Cómo se llama la categoría y si sus artículos se pueden comprar.",
+      "access": "Acceso"
     },
     "errors": {
       "id": "Esa categoría no es válida.",
       "whole": "Escribe un número entero."
+    },
+    "add": "Añadir categoría",
+    "sortLink": "Ordenar",
+    "sort": {
+      "metaTitle": "Ordenar las categorías de la tienda",
+      "heading": "Ordenar las categorías de la tienda",
+      "description": "El orden de aquí es el que ven los miembros en la tienda.",
+      "list": "Categorías",
+      "emptyTitle": "No hay categorías que ordenar",
+      "emptyDescription": "Añade antes una categoría."
+    },
+    "deleteShort": "Eliminar",
+    "listHelp": "En el orden en que las ven los miembros.",
+    "emptyDescription": "Añade una categoría para empezar a agrupar la tienda.",
+    "new": {
+      "metaTitle": "Nueva categoría de la tienda",
+      "heading": "Nueva categoría de la tienda",
+      "description": "Una categoría reúne los artículos de la tienda que van juntos.",
+      "submit": "Crear categoría"
+    },
+    "editPage": {
+      "metaTitle": "Categoría de la tienda",
+      "description": "Los artículos de una categoría inactiva no se pueden comprar."
     }
   },
   "items": {
@@ -269,14 +306,14 @@
     "heading": "Artículos",
     "category": "Categoría",
     "show": "Mostrar",
-    "none": "No hay artículos en esta categoría.",
+    "none": "No hay artículos en esta categoría",
     "noCategories": "Aún no hay categorías. Crea una antes de añadir artículos.",
     "toCategories": "Categorías de la tienda",
     "active": "Activo",
     "inactive": "Inactivo",
     "facts": "{price} créditos · existencias {stock}",
     "unlimited": "ilimitadas",
-    "edit": "Editar",
+    "edit": "Editar {name}",
     "back": "Volver a los artículos",
     "notices": {
       "created": "Artículo creado.",
@@ -319,10 +356,6 @@
       }
     },
     "form": {
-      "headingNew": "Nuevo artículo",
-      "headingEdit": "Editar artículo",
-      "descriptionNew": "Elige primero qué hace el artículo: los campos de debajo dependen de eso.",
-      "create": "Crear artículo",
       "inactive": "inactivo",
       "category": "Categoría",
       "name": "Nombre",
@@ -391,7 +424,12 @@
       "position": "Orden",
       "positionHelp": "El lugar que ocupa en su categoría. Los números más bajos van primero.",
       "active": "Activo",
-      "activeHelp": "Un artículo inactivo no se puede comprar y se oculta a los miembros."
+      "activeHelp": "Un artículo inactivo no se puede comprar y se oculta a los miembros.",
+      "basics": "Artículo",
+      "basicsHelp": "Lo que ven los miembros en la tienda y lo que cuesta.",
+      "effectGroup": "Efecto",
+      "effectGroupHelp": "Qué hace el artículo al comprarlo y si se gasta o se conserva.",
+      "orderAccess": "Orden y acceso"
     },
     "errors": {
       "id": "Ese artículo no es válido.",
@@ -399,6 +437,15 @@
       "number": "Escribe un número entero.",
       "effect": "Completa el efecto: elige lo que necesita.",
       "file": "Ese archivo subido no es válido."
+    },
+    "add": "Añadir artículo",
+    "deleteShort": "Eliminar",
+    "emptyDescription": "Añade un artículo para vender algo en esta categoría.",
+    "new": {
+      "metaTitle": "Nuevo artículo de la tienda",
+      "heading": "Nuevo artículo de la tienda",
+      "description": "Elige primero qué hace el artículo: los campos de debajo dependen de eso.",
+      "submit": "Crear artículo"
     }
   },
   "member": {

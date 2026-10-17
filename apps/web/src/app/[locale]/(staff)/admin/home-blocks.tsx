@@ -10,24 +10,37 @@ import { EmptyState } from "@/components/forum/empty-state";
 import { MemberRow } from "@/components/forum/member-row";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
+import { LinkCard, LinkCards } from "@/components/staff/link-cards";
 import { call } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { orNothing } from "../or-nothing";
-import { canOpen, hrefFor, type ScreenKey, visibleSections } from "../registry";
+import {
+  canOpen,
+  hrefFor,
+  type ScreenKey,
+  type SectionId,
+  type VisibleSection,
+  visibleSections,
+} from "../registry";
+import { SECTION_ICONS } from "../section-icons";
 
 const LINK =
   "inline-flex min-h-10 items-center text-sm text-primary-ink underline-offset-4 hover:underline";
 
-// The sections the viewer may open, each with the screens it holds. The home section is the
-// page itself.
+// The sections the viewer may open: each card leads to the section's landing and lists the
+// screens it holds. The home section is the page itself.
 export async function SectionGrid() {
   const [viewer, t] = await Promise.all([
     getViewer(),
     getTranslations("admin.registry"),
   ]);
   const sections = visibleSections(viewer).filter(
-    (section) => section.id !== "home",
+    (
+      section,
+    ): section is VisibleSection & {
+      id: Exclude<SectionId, "home">;
+    } => section.id !== "home",
   );
   const home = await getTranslations("admin.home");
   if (sections.length === 0) {
@@ -42,27 +55,29 @@ export async function SectionGrid() {
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold">{home("sectionsHeading")}</h2>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <LinkCards label={home("sectionsHeading")}>
         {sections.map((section) => (
-          <section
+          <LinkCard
             key={section.id}
-            className="min-w-0 rounded-lg border bg-card p-4"
+            href={section.landing?.path}
+            icon={SECTION_ICONS[section.id]}
+            title={t(`sections.${section.id}`)}
+            description={t(`sectionDescriptions.${section.id}`)}
           >
-            <h3 className="text-sm font-semibold">
-              {t(`sections.${section.id}`)}
-            </h3>
-            <ul className="mt-2">
-              {section.screens.map((screen) => (
-                <li key={screen.key}>
-                  <Link href={screen.path} className={LINK}>
-                    {t(`screens.${screen.key}`)}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
+            {section.screens.length > 0 && (
+              <ul className="flex flex-wrap gap-x-3">
+                {section.screens.map((screen) => (
+                  <li key={screen.key}>
+                    <Link href={screen.path} className={LINK}>
+                      {t(`screens.${screen.key}`)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </LinkCard>
         ))}
-      </div>
+      </LinkCards>
     </section>
   );
 }

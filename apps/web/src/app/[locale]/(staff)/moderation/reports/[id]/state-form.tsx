@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
+import { FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { NoticeFields } from "../../notice-fields";
 import { setReportState } from "./actions";
@@ -27,7 +28,7 @@ export function StateForm({
       id="decide"
     >
       <input type="hidden" name="groupId" value={groupId} />
-      <FieldRow
+      <Field
         name="state"
         label={t("stateLabel")}
         htmlFor="case-state"
@@ -45,7 +46,7 @@ export function StateForm({
             </option>
           ))}
         </select>
-      </FieldRow>
+      </Field>
       <NoticeFields idPrefix="case" />
     </FormRows>
   );

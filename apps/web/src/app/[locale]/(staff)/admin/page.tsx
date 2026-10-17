@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { PageHeader } from "@/components/staff/page-header";
 import { PendingWork } from "../pending-work";
 import {
   ActivitySkeleton,
@@ -23,10 +24,7 @@ export default async function AdminHome() {
   const t = await getTranslations("admin.home");
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">{t("heading")}</h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </header>
+      <PageHeader title={t("heading")} description={t("subtitle")} />
       <Suspense
         fallback={
           <LoadingRegion label={t("aria.loadingPending")}>

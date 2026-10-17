@@ -1,27 +1,43 @@
 import { paletteColorsList } from "@sermo/core/contracts";
+import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { userNameProps } from "@/components/forum/user-name";
 import { ConfirmStep } from "@/components/staff/confirm-step";
-import {
-  DeleteBox,
-  EditDisclosure,
-  EntryList,
-} from "@/components/staff/entity-list";
-import { InputRow, PositionActiveRows } from "@/components/staff/entity-rows";
-import { FormRows } from "@/components/staff/form-rows";
+import { EditForm, FieldGroup } from "@/components/staff/edit-form";
+import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { isHexColor } from "@/lib/css-color";
 import { read } from "@/lib/sermo/client";
+import { parseId } from "@/lib/sermo/ids";
 import { cn } from "@/lib/utils";
 import { deleteColour, saveColour } from "./actions";
 import { ColourRows } from "./colour-rows";
+import { ActiveField, NameField, PositionField } from "./entry-fields";
 import { PALETTE_KINDS, type PaletteKindName } from "./kinds";
 
 type Colour = z.output<typeof paletteColorsList.output>["items"][number];
+
+// A catalog holds at most 500 colours and the backend does not page it: its entries in display
+// order, inactive ones too.
+const readPalette = (kind: PaletteKindName) =>
+  read(paletteColorsList, { kind });
+
+// The colour as a dot, for a row.
+function Swatch({ colour }: { colour: Colour }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="size-6 shrink-0 rounded-full border"
+      style={
+        isHexColor(colour.color) ? { backgroundColor: colour.color } : undefined
+      }
+    />
+  );
+}
 
 // What the colour looks like in use, drawn with the public site's own pieces.
 async function Sample({
@@ -71,7 +87,8 @@ async function Sample({
   );
 }
 
-// The form of a colour, for a new one (no `colour`) or a change.
+// The form of a colour, for a new one (no `colour`) or a change. What the colour looks like in use
+// is the preview of its rows; the display order is the advanced option.
 async function ColourForm({
   kind,
   colour,
@@ -82,43 +99,32 @@ async function ColourForm({
   const t = await getTranslations("adminAppearance.colourForm");
   const key = `colour-${colour?.id ?? "new"}`;
   return (
-    <FormRows
+    <EditForm
       action={saveColour}
-      id={colour ? undefined : "new"}
-      heading={colour ? t("headingEdit") : t("headingNew")}
-      description={colour ? undefined : t(`descriptionNew.${kind}`)}
-      submit={colour ? undefined : t("create")}
+      submit={colour ? undefined : t(`create.${kind}`)}
     >
       <input type="hidden" name="kind" value={kind} />
       {colour && <input type="hidden" name="id" value={colour.id} />}
-      <InputRow
-        name="name"
-        label={t("name")}
-        idPrefix={key}
-        required
-        defaultValue={colour?.name}
-      />
-      <ColourRows
-        kind={kind}
-        idPrefix={key}
-        color={colour?.color ?? ""}
-        foreground={colour?.foreground ?? ""}
-      />
-      <PositionActiveRows
-        idPrefix={key}
-        position={t("position")}
-        active={t("active")}
-        activeHelp={t("activeHelp")}
-        entry={colour}
-      />
-    </FormRows>
+      <FieldGroup legend={t("group")}>
+        <NameField idPrefix={key} defaultValue={colour?.name} />
+        <ColourRows
+          kind={kind}
+          idPrefix={key}
+          color={colour?.color ?? ""}
+          foreground={colour?.foreground ?? ""}
+        />
+        <PositionField idPrefix={key} defaultValue={colour?.position} />
+        <ActiveField
+          help={t("activeHelp")}
+          defaultChecked={colour ? colour.isActive : true}
+        />
+      </FieldGroup>
+    </EditForm>
   );
 }
 
-// One colour catalog: its entries in display order (inactive ones too), each with its editor and
-// its delete behind a disclosure, then the form for a new colour. A catalog holds at most 500
-// entries and the backend does not page it.
-export async function PaletteScreen({
+// One colour palette: its entries as rows with the active switch, the edit link and the delete.
+export async function PaletteList({
   kind,
   searchParams,
 }: {
@@ -127,9 +133,9 @@ export async function PaletteScreen({
 }) {
   const [t, { items }] = await Promise.all([
     getTranslations("adminAppearance.palette"),
-    read(paletteColorsList, { kind }),
+    readPalette(kind),
   ]);
-  const key = PALETTE_KINDS[kind].key;
+  const { key, path } = PALETTE_KINDS[kind];
   return (
     <>
       <Notice
@@ -137,62 +143,68 @@ export async function PaletteScreen({
         searchParams={searchParams}
         shown={["created", "saved", "deleted", "deactivated"]}
       />
-      <EntryList
-        heading={t(`${key}.heading`)}
-        description={t(`${key}.description`)}
-        none={t("none")}
-        items={items.map((colour) => (
-          <li key={colour.id}>
-            <EditDisclosure
-              summaryClass="min-h-14"
-              edit={t("edit")}
-              summary={
-                <>
-                  <span
-                    aria-hidden="true"
-                    className="size-6 shrink-0 rounded-full border"
-                    style={
-                      isHexColor(colour.color)
-                        ? { backgroundColor: colour.color }
-                        : undefined
-                    }
-                  />
-                  <span className="min-w-0 text-sm font-medium [overflow-wrap:anywhere]">
-                    {colour.name}
-                  </span>
-                  <code className="text-xs text-muted-foreground">
-                    {colour.color}
-                  </code>
-                  <span className="text-xs text-muted-foreground">
-                    {t("order", { position: colour.position })}
-                  </span>
-                  {!colour.isActive && (
-                    <Badge variant="outline">{t("inactive")}</Badge>
-                  )}
-                </>
-              }
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground">
-                  {t("looks")}
-                </span>
-                <Sample kind={kind} colour={colour} />
-              </div>
-              <ColourForm kind={kind} colour={colour} />
-              <DeleteBox>
-                <ConfirmStep
-                  action={deleteColour}
-                  fields={{ kind, id: colour.id }}
-                  summary={`${t("delete")}…`}
-                  warning={t("deleteWarning")}
-                  submit={t("delete")}
-                />
-              </DeleteBox>
-            </EditDisclosure>
-          </li>
-        ))}
+      <ItemList
+        label={t(`${key}.pageHeading`)}
+        filter
+        empty={{ title: t("none") }}
+        items={items.map((colour) => ({
+          id: colour.id,
+          icon: <Swatch colour={colour} />,
+          title: colour.name,
+          href: `${path}/${colour.id}`,
+          search: `${colour.name} ${colour.color}`,
+          description: (
+            <>
+              <code>{colour.color}</code>
+              {` · ${t("order", { position: colour.position })}`}
+            </>
+          ),
+          badges: colour.isActive ? (
+            <Badge variant="success">{t("active")}</Badge>
+          ) : (
+            <Badge variant="outline">{t("inactive")}</Badge>
+          ),
+          actions: (
+            <>
+              <RowLink
+                href={`${path}/${colour.id}`}
+                label={t("editLabel", { name: colour.name })}
+              />
+              <ConfirmStep
+                action={deleteColour}
+                fields={{ kind, id: colour.id }}
+                summary={`${t("delete")}…`}
+                warning={t("deleteWarning")}
+                submit={t("delete")}
+              />
+            </>
+          ),
+        }))}
       />
-      <ColourForm kind={kind} />
     </>
+  );
+}
+
+// The page of a new colour (no `params`) or of the colour the address names.
+export async function PaletteEdit({
+  kind,
+  params,
+}: {
+  kind: PaletteKindName;
+  params?: Promise<{ id: string }>;
+}) {
+  if (!params) return <ColourForm kind={kind} />;
+  const [{ id }, { items }] = await Promise.all([params, readPalette(kind)]);
+  const colour = items.find((item) => item.id === parseId(id));
+  if (!colour) notFound();
+  const t = await getTranslations("adminAppearance.palette");
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3">
+        <span className="text-xs text-muted-foreground">{t("looks")}</span>
+        <Sample kind={kind} colour={colour} />
+      </div>
+      <ColourForm kind={kind} colour={colour} />
+    </div>
   );
 }

@@ -18,28 +18,51 @@
       "activated": "Reaction is offered again.",
       "deactivated": "Reaction is no longer offered."
     },
+    "header": {
+      "add": "Add reaction",
+      "sort": "Sort"
+    },
     "list": {
       "heading": "Reaction types",
-      "description": "A new score applies to new reactions only; reactions already given keep theirs.",
-      "active": "Offered",
+      "description": "Offered in this order. A type cannot be deleted, only stopped from being offered.",
+      "emptyTitle": "No reaction types yet",
+      "emptyDescription": "Members have nothing to react with until a type is added.",
       "inactive": "Not offered",
+      "score": "Score",
+      "animated": "Animated, {count, plural, one {# frame} other {# frames}}",
+      "picture": "Picture",
+      "forums": "In {count, plural, one {# forum} other {# forums}}",
+      "rule": "Limited by a rule",
+      "toggle": "Offer {title}",
+      "edit": "Edit {title}",
       "deactivate": "Stop offering",
       "activate": "Offer again",
       "deactivateWarning": "Members will no longer be offered this reaction. Reactions already given stay on the posts.",
       "activateWarning": "Members will be offered this reaction again."
     },
-    "row": {
+    "form": {
+      "basics": "Reaction",
+      "basicsHelp": "What members see on the reaction button.",
       "emoji": "Emoji",
+      "emojiHelp": "The character shown on the button, and wherever a picture cannot be shown.",
       "title": "Label",
-      "score": "Score",
       "picture": "Picture",
-      "pictureHelp": "Shown instead of the emoji. The emoji stays for places that cannot show a picture.",
+      "pictureHelp": "Optional. A PNG or WebP image shown instead of the emoji. For an animation, upload a sprite sheet and cut it into frames under Animation.",
+      "score": "Score",
+      "scoreHelp": "Positive, zero or negative, such as +1, 0 or -1.",
+      "scoreDefaultHelp": "Positive, zero or negative, such as +1, 0 or -1. Leave empty to use the forum's default score.",
+      "position": "Position",
+      "positionHelp": "Where it is offered, lowest first. The order can be changed later with Sort.",
+      "active": "Offered",
+      "activeSwitch": "Offer this reaction to members",
+      "animation": "Animation",
       "frameWidth": "Frame width",
+      "frameWidthHelp": "For a sprite sheet: the width of one frame, in pixels. Leave both sizes empty to show the whole picture.",
       "frameHeight": "Frame height",
+      "frameHeightHelp": "The height of one frame, in pixels.",
       "frameCount": "Frames",
-      "framesHelp": "For a sprite sheet: the size of one frame and how many frames to use, read left to right, then top to bottom. Leave the sizes empty to show the whole picture.",
-      "save": "Save",
-      "saving": "Saving…"
+      "frameCountHelp": "How many frames to play, read left to right, then top to bottom. Leave empty for one.",
+      "access": "Access"
     },
     "access": {
       "forums": "Where",
@@ -49,31 +72,24 @@
       "lockedHide": "Do not see it",
       "lockedHelp": "Applies to the rule above. A reaction already given stays on the post whichever you choose."
     },
-    "order": {
-      "heading": "Order",
-      "description": "Types are offered by position, lowest first.",
-      "submit": "Save order"
-    },
     "create": {
+      "metaTitle": "New reaction type",
       "heading": "New reaction type",
       "description": "A reaction type cannot be deleted, only stopped from being offered.",
-      "submit": "Add reaction",
-      "emoji": "Emoji",
-      "emojiHelp": "The character shown on the button, and wherever a picture cannot be shown.",
-      "picture": "Picture",
-      "pictureHelp": "Optional. A PNG or WebP image shown instead of the emoji. It is not animated; for an animation, upload a sprite sheet and give the frame size below.",
-      "frameWidth": "Frame width",
-      "framesHelp": "Sprite sheets only: the width and height of one frame, in pixels. Leave empty to show the whole picture.",
-      "frameHeight": "Frame height",
-      "frameCount": "Frames",
-      "frameCountHelp": "How many frames to use, read left to right, then top to bottom.",
-      "title": "Label",
-      "score": "Score",
-      "scoreHelp": "Leave empty to use the forum's default score.",
-      "position": "Position",
-      "positionHelp": "Where it is offered; lowest first.",
-      "active": "Offered",
-      "activeSwitch": "Offer this reaction to members"
+      "submit": "Create reaction"
+    },
+    "edit": {
+      "metaTitle": "Edit reaction type",
+      "heading": "Edit reaction type",
+      "description": "A new score applies to new reactions only; reactions already given keep theirs."
+    },
+    "sort": {
+      "metaTitle": "Sort reaction types",
+      "heading": "Sort reaction types",
+      "description": "Members are offered the types in this order, first to last.",
+      "list": "Reaction types",
+      "emptyTitle": "Nothing to sort yet",
+      "emptyDescription": "Add a reaction type first."
     }
   },
   "wordFilters": {
@@ -81,6 +97,9 @@
     "heading": "Word filters",
     "subtitle": "Words that are replaced or sent for moderation when a member posts them.",
     "loading": "Loading the word filters…",
+    "header": {
+      "add": "Add filter"
+    },
     "notices": {
       "created": "Filter added.",
       "saved": "Filter saved.",
@@ -94,21 +113,21 @@
       "active": "Active",
       "inactive": "Off",
       "remove": "Remove filter",
-      "removeWarning": "The word will no longer be replaced or held back. Posts already made are not changed."
+      "removeWarning": "The word will no longer be replaced or held back. Posts already made are not changed.",
+      "edit": "Edit {term}",
+      "replacedBy": "Replaced with {replacement}"
     },
     "row": {
-      "action": "Action",
       "replace": "Replace the word",
-      "moderate": "Hold the post for moderation",
-      "replacement": "Replacement",
-      "active": "Active",
-      "save": "Save",
-      "saving": "Saving…"
+      "moderate": "Hold the post for moderation"
+    },
+    "fields": {
+      "group": "Filter"
     },
     "create": {
       "heading": "New filter",
       "description": "Adding a term that already has a filter changes that filter.",
-      "submit": "Add filter",
+      "submit": "Create filter",
       "term": "Word",
       "termHelp": "The word or phrase to look for. It cannot be renamed later.",
       "action": "Action",
@@ -116,7 +135,15 @@
       "replacement": "Replacement",
       "replacementHelp": "Used when the action is to replace the word.",
       "active": "Active",
-      "activeSwitch": "Apply this filter"
+      "activeSwitch": "Apply this filter",
+      "metaTitle": "New word filter"
+    },
+    "edit": {
+      "metaTitle": "Edit word filter",
+      "heading": "Edit word filter",
+      "description": "Change what happens to a post that holds the word.",
+      "termHelp": "The word cannot be renamed. Remove the filter and add a new one to change it.",
+      "deleteHeading": "Remove the filter"
     }
   },
   "tags": {
@@ -141,14 +168,24 @@
       "aliases": "Also answers to {names}",
       "delete": "Delete tag",
       "deleteWarning": "{count, plural, one {The tag is taken off its thread.} other {The tag is taken off its # threads.}} Hashtags already written stay as links to a page that no longer exists.",
-      "next": "Next tags"
+      "view": "View the page of {name}",
+      "edit": "Edit {name}"
     },
-    "row": {
-      "rename": "Rename",
+    "edit": {
+      "metaTitle": "Edit tag",
+      "heading": "Edit tag",
+      "description": "Rename the tag, merge it into another or delete it.",
+      "infoHeading": "The tag",
+      "name": "Name",
+      "renameHeading": "Rename",
+      "renameDescription": "The old name stays as an alias, so links and hashtags already written keep working.",
       "renameSubmit": "Rename",
-      "merge": "Merge into another tag",
+      "mergeHeading": "Merge into another tag",
+      "mergeDescription": "The threads of this tag move to the other one, and this tag's name and aliases become aliases of it. The tag is then removed.",
+      "into": "Tag to keep",
+      "intoHelp": "The name of the other tag, with or without the #.",
       "mergeSubmit": "Merge",
-      "saving": "Saving…"
+      "deleteHeading": "Delete the tag"
     }
   },
   "pages": {
@@ -156,6 +193,9 @@
     "heading": "Pages",
     "subtitle": "The text pages the site publishes about itself: terms, privacy, contact.",
     "loading": "Loading the pages…",
+    "header": {
+      "add": "Add page"
+    },
     "notices": {
       "deleted": "Page deleted."
     },
@@ -163,13 +203,11 @@
       "heading": "Pages",
       "description": "Every page, published or not.",
       "emptyTitle": "No pages yet",
-      "emptyDescription": "Create the first page below.",
+      "emptyDescription": "Create the first page.",
       "published": "Published",
       "draft": "Not published",
-      "slug": "Slug",
-      "address": "Address",
-      "updated": "Saved",
-      "edit": "Edit"
+      "summary": "Slug {slug} · Address {address} · Saved {date}",
+      "edit": "Edit {title}"
     },
     "wellKnown": {
       "terms": "The registration form links to this page as its terms. Members accept it when its version changes.",
@@ -183,14 +221,15 @@
     "suggestions": {
       "heading": "Pages the site expects",
       "description": "The site links to or reads these pages. They do not exist yet.",
-      "create": "Create"
+      "create": "Create the page {slug}"
     },
     "create": {
       "heading": "New page",
       "description": "The slug is part of the page's address and cannot be changed afterwards.",
       "submit": "Create page",
       "slug": "Slug",
-      "slugHelp": "Lower-case letters, digits and hyphens. The page is served at /pages/ followed by the slug."
+      "slugHelp": "Lower-case letters, digits and hyphens. The page is served at /pages/ followed by the slug.",
+      "metaTitle": "New page"
     },
     "fields": {
       "title": "Title",
@@ -201,7 +240,8 @@
       "publishedSwitch": "Show this page to everyone",
       "newVersion": "New version",
       "newVersionHelp": "Leave this off for a corrected typo. Switch it on when the text changes in a way members must accept again.",
-      "newVersionSwitch": "Publish as a new version: everyone must accept it again before they can post, react or message"
+      "newVersionSwitch": "Publish as a new version: everyone must accept it again before they can post, react or message",
+      "group": "Page"
     }
   },
   "pageEdit": {

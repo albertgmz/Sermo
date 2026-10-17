@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
-import { ListSkeleton, PageHead } from "../../groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { ListSkeleton } from "../../../skeletons";
+import { staffTrail } from "../../../trail";
 import { ModeratorList } from "./moderator-list";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,17 +14,14 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function ModeratorsPage() {
   const t = useTranslations("adminGroups.moderators");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("pageHeading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <ListSkeleton />
-          </LoadingRegion>
-        }
-      >
-        <ModeratorList />
-      </Suspense>
-    </div>
+    <ScreenFrame
+      heading={t("pageHeading")}
+      subtitle={t("subtitle")}
+      trail={staffTrail("/admin/staff/moderators")}
+      label={t("loading")}
+      fallback={<ListSkeleton />}
+    >
+      <ModeratorList />
+    </ScreenFrame>
   );
 }

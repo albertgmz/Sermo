@@ -16,10 +16,10 @@ export async function ModeratorList() {
     <StaffList
       items={items}
       heading={t("heading")}
-      permissions={t("permissions")}
+      permissions={(name) => t("permissions", { name })}
       empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
       detail={(item) => (
-        <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
+        <div className="flex flex-wrap items-center gap-2 pb-2">
           {item.everywhere && (
             <Badge variant="success">{t("everywhere")}</Badge>
           )}

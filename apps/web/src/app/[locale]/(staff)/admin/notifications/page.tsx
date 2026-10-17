@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { Notice } from "@/components/staff/notice";
-import { FormSkeleton, PageHead } from "../groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { FormSkeleton } from "../../skeletons";
+import { staffTrail } from "../../trail";
 import { DefaultsForm } from "./defaults-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,20 +26,15 @@ export default function NotificationsPage({
 }: PageProps<"/[locale]/admin/notifications">) {
   const t = useTranslations("adminCommunication.notifications");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("pageHeading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <FormSkeleton rows={8} />
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <Saved searchParams={searchParams} />
-          <DefaultsForm />
-        </div>
-      </Suspense>
-    </div>
+    <ScreenFrame
+      heading={t("pageHeading")}
+      subtitle={t("subtitle")}
+      trail={staffTrail("/admin/notifications")}
+      label={t("loading")}
+      fallback={<FormSkeleton rows={8} />}
+    >
+      <Saved searchParams={searchParams} />
+      <DefaultsForm />
+    </ScreenFrame>
   );
 }

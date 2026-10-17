@@ -15,6 +15,7 @@ export default function PurchasesPage({
   const t = useTranslations("adminTools.purchases");
   return (
     <LogShell
+      path="/admin/logs/purchases"
       heading={t("heading")}
       subtitle={t("subtitle")}
       loading={t("loading")}

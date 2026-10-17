@@ -11,7 +11,7 @@
 //             `site_backdrop`, `reaction_image`. The backend checks the permission, the type and the size.
 //   name      Name of the hidden field that carries the new file id. Default "fileId". It is empty
 //             until a file was uploaded; the action attaches the picture only when it is not.
-//   id        Id of the file input, for the row's label (`FieldRow htmlFor`).
+//   id        Id of the file input, for the row's label (`Field htmlFor`).
 //   current   The picture now, drawn by the caller on the server (an `Art` with its LITE
 //             category, or any slot), so the picture goes through the same gate as on the public
 //             site. Omit it when there is none.

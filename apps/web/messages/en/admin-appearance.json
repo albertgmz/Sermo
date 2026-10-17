@@ -44,46 +44,50 @@
     "noPicture": "Waiting for a picture",
     "sample": "AB",
     "order": "Order {position}",
-    "active": "Active",
-    "inactive": "Inactive",
     "measured": "Width {width}, left {left}, top {top}, scale {scale}",
-    "edit": "Edit",
-    "close": "Close",
     "deleteWarning": "Deleting an entry that members, threads or shop items use deactivates it instead and keeps its picture.",
     "delete": "Delete",
     "none": "The catalog is empty.",
     "frames": {
       "metaTitle": "Avatar frames",
       "pageHeading": "Avatar frames",
-      "subtitle": "Pictures drawn around a member avatar. Members hold them through shop items.",
-      "heading": "Frames",
-      "description": "Each is shown around a sample avatar the way members get it."
+      "subtitle": "Pictures drawn around a member avatar, shown around a sample avatar the way members get them. Members hold them through shop items.",
+      "add": "Add frame",
+      "newHeading": "New frame",
+      "editHeading": "Edit avatar frame"
     },
     "covers": {
       "metaTitle": "Profile covers",
       "pageHeading": "Profile covers",
-      "subtitle": "The gallery members who may use it choose their profile cover from.",
-      "heading": "Covers",
-      "description": "Inactive covers leave the choices of members."
+      "subtitle": "The gallery members who may use it choose their profile cover from. Inactive covers leave the choices of members.",
+      "add": "Add cover",
+      "newHeading": "New cover",
+      "editHeading": "Edit profile cover"
     },
     "threadCovers": {
       "metaTitle": "Thread covers",
       "pageHeading": "Thread covers",
-      "subtitle": "Pictures a thread can wear. Members get them through shop items.",
-      "heading": "Thread covers",
-      "description": "Inactive covers can no longer be picked."
-    }
+      "subtitle": "Pictures a thread can wear. Members get them through shop items. Inactive covers can no longer be picked.",
+      "add": "Add thread cover",
+      "newHeading": "New thread cover",
+      "editHeading": "Edit thread cover"
+    },
+    "editLabel": "Edit {name}",
+    "active": "Active",
+    "inactive": "Inactive"
   },
   "entryForm": {
-    "headingEdit": "Edit entry",
-    "headingNew": "New entry",
+    "group": "Details",
     "descriptionNew": {
       "frames": "Upload the picture of the frame and name it. Its placement is measured from the picture.",
       "covers": "Upload the picture of the cover and name it.",
       "threadCovers": "Upload the picture of the cover and name it."
     },
-    "create": "Add to the catalog",
-    "name": "Name",
+    "create": {
+      "frames": "Create frame",
+      "covers": "Create cover",
+      "threadCovers": "Create thread cover"
+    },
     "picture": "Picture",
     "pictureHelp": "Uploaded as soon as you choose it. An entry needs a picture to be active.",
     "replace": "Replace the picture",
@@ -91,56 +95,64 @@
     "placement": "Placement",
     "placementHelp": "The numbers filled in are the placement of the frame now.",
     "placementHelpNew": "Optional: fill all four fields to override the measured placement.",
-    "position": "Display order",
-    "active": "Active",
     "activeHelp": "Members can pick this entry."
+  },
+  "entryFields": {
+    "name": "Name",
+    "position": "Display order",
+    "positionHelp": "Entries show in this order, lowest first.",
+    "active": "Active"
   },
   "palette": {
     "loading": "Loading the colours…",
-    "samplePrefix": "Prefix",
-    "sampleName": "Member name",
-    "sampleButton": "Button",
-    "looks": "In use:",
     "order": "Order {position}",
-    "inactive": "Inactive",
-    "edit": "Edit",
     "deleteWarning": "Deleting a colour that members, shop items or thread prefixes use deactivates it instead.",
     "delete": "Delete",
     "none": "The palette is empty.",
     "accents": {
       "metaTitle": "Accent colours",
       "pageHeading": "Accent colours",
-      "subtitle": "The colours members can give the site. The first active accent is the site's own.",
-      "heading": "Accents",
-      "description": "Each accent has the colour of the text drawn on it."
+      "subtitle": "The colours members can give the site. The first active accent is the site's own. Each accent has the colour of the text drawn on it.",
+      "add": "Add accent",
+      "newHeading": "New accent",
+      "editHeading": "Edit accent"
     },
     "nameColors": {
       "metaTitle": "Name colours",
       "pageHeading": "Name colours",
-      "subtitle": "The colours a member name can take. Members hold them through shop items.",
-      "heading": "Name colours",
-      "description": "Also used for the colour of a group."
+      "subtitle": "The colours a member name can take. Members hold them through shop items. Also used for the colour of a group.",
+      "add": "Add name colour",
+      "newHeading": "New name colour",
+      "editHeading": "Edit name colour"
     },
     "prefixColors": {
       "metaTitle": "Prefix colours",
       "pageHeading": "Prefix colours",
-      "subtitle": "The colours a thread prefix can take.",
-      "heading": "Prefix colours",
-      "description": "Changing one changes every prefix that uses it."
-    }
+      "subtitle": "The colours a thread prefix can take. Changing one changes every prefix that uses it.",
+      "add": "Add prefix colour",
+      "newHeading": "New prefix colour",
+      "editHeading": "Edit prefix colour"
+    },
+    "editLabel": "Edit {name}",
+    "active": "Active",
+    "inactive": "Inactive",
+    "looks": "In use:",
+    "sampleName": "Member name",
+    "samplePrefix": "Prefix",
+    "sampleButton": "Button"
   },
   "colourForm": {
-    "headingEdit": "Edit colour",
-    "headingNew": "New colour",
+    "group": "Details",
     "descriptionNew": {
       "accent": "An accent needs a colour and the colour of the text drawn on it.",
       "name": "A colour for member names.",
       "prefix": "A colour for thread prefixes."
     },
-    "create": "Add to the palette",
-    "name": "Name",
-    "position": "Display order",
-    "active": "Active",
+    "create": {
+      "accent": "Create accent",
+      "name": "Create name colour",
+      "prefix": "Create prefix colour"
+    },
     "activeHelp": "Members and prefixes can pick this colour."
   }
 }
