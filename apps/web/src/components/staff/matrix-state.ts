@@ -23,6 +23,25 @@ export const TABS: readonly MatrixTab[] = ["general", "moderation"];
 export const tabOf = (category: string): MatrixTab =>
   category === "moderation" ? "moderation" : "general";
 
+// The rows as the matrix lays them out, and as its bulk buttons take them: the tabs that have
+// rows, in order, each with its rows and its categories (in order of first appearance) with
+// theirs.
+export function matrixTabs<Row extends Shown>(permissions: readonly Row[]) {
+  return TABS.map((tab) => {
+    const rows = permissions.filter((entry) => tabOf(entry.category) === tab);
+    return {
+      tab,
+      rows,
+      categories: [...new Set(rows.map((entry) => entry.category))].map(
+        (category) => ({
+          category,
+          rows: rows.filter((entry) => entry.category === category),
+        }),
+      ),
+    };
+  }).filter(({ rows }) => rows.length > 0);
+}
+
 // What a bulk button sets every yes/no row of its tab or category to: allow, never, or "" (not
 // set, so the row inherits again). "No" has no bulk button: on a forum it stays a per-row choice.
 export type BulkMode = "allow" | "never" | "";

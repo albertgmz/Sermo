@@ -9,7 +9,7 @@ import { parseId } from "@/lib/sermo/ids";
 import { staffTrail } from "../../../../trail";
 import { FormSkeleton } from "../../../groups/skeletons";
 import { entriesOf, getDefinitions, matrixPermissions } from "../../data";
-import { MatrixHead } from "../../matrix-head";
+import { MatrixAction, MatrixHead } from "../../matrix-head";
 import { PermissionForm } from "../../permission-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -36,14 +36,7 @@ async function Matrix({
   if (!member) notFound();
   return (
     <>
-      <MatrixHead
-        searchParams={searchParams}
-        title={member.username}
-        link={{
-          href: `/admin/permissions/explain?user=${userId}`,
-          label: t("analyse"),
-        }}
-      />
+      <MatrixHead searchParams={searchParams} title={member.username} />
       <PermissionForm
         target={{ user: userId }}
         heading={t("heading")}
@@ -64,6 +57,17 @@ export default function PermissionMemberPage({
       trail={params.then(({ id }) =>
         staffTrail(`/admin/permissions/members/${id}`),
       )}
+      actions={
+        <MatrixAction
+          href={params.then(({ id }) => {
+            const userId = parseId(id);
+            return userId === null
+              ? null
+              : `/admin/permissions/explain?user=${userId}`;
+          })}
+          label={t("analyse")}
+        />
+      }
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
       label={t("loading")}

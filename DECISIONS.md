@@ -4111,10 +4111,11 @@ The matrix keeps its cells in state (`matrix-state.ts`); `cellValue` / `cellChan
 row counts as changed exactly when saving would send it (an integer with no valid number counts
 too: saving it is refused). A bar under the panel's header holds the tabs and "N changes not
 saved"; a changed row is tinted and says what it was. The filter box, the "Set here" mark, the
-password and the save are as before. The group list is an `ItemList` (rank, built-in and staff
-badges, filter); the entries set on a forum are `ItemList` rows (chips in the row's panel, edit and
-analyse links); every permission page has the page header with its breadcrumb; the analyse
-question is a `FieldGroup` of `Field`s. Known limits: the member search (`MemberPicker`) still draws
+password and the save are as before. The group list is an `ItemList` (title and rank, as before);
+the entries set on a forum are `ItemList` rows (chips in the row's panel, edit and analyse links);
+every permission page has the page header with its breadcrumb, and a group's or member's page has
+"Edit the group" or "Analyse" as its header action; the forum picker, "Add a group" and the analyse
+question are `FieldGroup`s of `Field`s. Known limits: the member search (`MemberPicker`) still draws
 `MemberRow`s, as four other screens share it; the forum editor stays on the forum page's address
 (`?node=&group=`), where the save action sends it back; the look in a browser and on a phone has not
 been checked.

@@ -7,11 +7,11 @@ import {
 import { SearchCheck } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { Field, FieldGroup } from "@/components/staff/edit-form";
 import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
@@ -19,6 +19,7 @@ import { getGroups, groupLabel } from "../../groups/data";
 import { entriesOf, getDefinitions, matrixPermissions } from "../data";
 import { MemberPicker } from "../member-picker";
 import { PermissionForm } from "../permission-form";
+import { SubmitRow } from "../submit-row";
 
 const first = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) || undefined;
@@ -46,38 +47,30 @@ export async function ForumPermissions({
   if (nodeId !== null && !node) notFound();
 
   const picker = (
-    <section className="overflow-hidden rounded-lg border bg-card">
-      <form className="space-y-3 p-4">
-        <h2 className="text-sm font-semibold">{t("pickHeading")}</h2>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-0 flex-1 space-y-1 sm:max-w-md">
-            <label htmlFor="forum-node" className="text-sm font-medium">
-              {t("forum")}
-            </label>
-            <select
-              id="forum-node"
-              name="node"
-              required
-              defaultValue={nodeId ?? ""}
-              className={selectClass}
-            >
-              <option value="" disabled>
-                {t("choose")}
+    <form className="min-w-0">
+      <FieldGroup legend={t("pickHeading")}>
+        <Field name="node" label={t("forum")} htmlFor="forum-node">
+          <select
+            id="forum-node"
+            name="node"
+            required
+            defaultValue={nodeId ?? ""}
+            className={selectClass}
+          >
+            <option value="" disabled>
+              {t("choose")}
+            </option>
+            {nodes.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {"— ".repeat(entry.depth)}
+                {entry.title}
               </option>
-              {nodes.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {"— ".repeat(entry.depth)}
-                  {entry.title}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button type="submit" className="min-h-10 px-4">
-            {t("show")}
-          </Button>
-        </div>
-      </form>
-    </section>
+            ))}
+          </select>
+        </Field>
+        <SubmitRow label={t("show")} />
+      </FieldGroup>
+    </form>
   );
   if (!node || nodeId === null) return picker;
 
@@ -219,47 +212,34 @@ export async function ForumPermissions({
           };
         })}
       />
-      <section className="overflow-hidden rounded-lg border bg-card">
-        <form className="space-y-3 p-4">
-          <h2 className="text-sm font-semibold">{t("addGroup")}</h2>
-          <input type="hidden" name="node" value={nodeId} />
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-0 flex-1 space-y-1 sm:max-w-xs">
-              <label htmlFor="add-group" className="text-sm font-medium">
-                {t("group")}
-              </label>
-              {viewerGroups ? (
-                <select
-                  id="add-group"
-                  name="group"
-                  required
-                  defaultValue=""
-                  className={selectClass}
-                >
-                  <option value="" disabled>
-                    {t("choose")}
+      <form className="min-w-0">
+        <input type="hidden" name="node" value={nodeId} />
+        <FieldGroup legend={t("addGroup")}>
+          <Field name="group" label={t("group")} htmlFor="add-group">
+            {viewerGroups ? (
+              <select
+                id="add-group"
+                name="group"
+                required
+                defaultValue=""
+                className={selectClass}
+              >
+                <option value="" disabled>
+                  {t("choose")}
+                </option>
+                {viewerGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.title}
                   </option>
-                  {viewerGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.title}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  id="add-group"
-                  name="group"
-                  inputMode="numeric"
-                  required
-                />
-              )}
-            </div>
-            <Button type="submit" className="min-h-10 px-4">
-              {t("add")}
-            </Button>
-          </div>
-        </form>
-      </section>
+                ))}
+              </select>
+            ) : (
+              <Input id="add-group" name="group" inputMode="numeric" required />
+            )}
+          </Field>
+          <SubmitRow label={t("add")} />
+        </FieldGroup>
+      </form>
       <MemberPicker
         query={first(params.q)}
         keep={{ node: String(nodeId) }}

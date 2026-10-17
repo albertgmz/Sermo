@@ -5,6 +5,7 @@ import {
   changedIds,
   initialCell,
   initialCells,
+  matrixTabs,
   tabOf,
 } from "./matrix-state";
 import {
@@ -155,4 +156,55 @@ test("an integer row counts as changed by its number, and one with no valid numb
   expect(matrixChanges(posted(empty), PERMISSIONS, false)).toEqual({
     invalid: "forum.editLimit",
   });
+});
+
+test("the tabs and categories the buttons act on are laid out as the matrix shows them", () => {
+  const tabs = matrixTabs(PERMISSIONS);
+  expect(tabs.map(({ tab }) => tab)).toEqual(["general", "moderation"]);
+  const [general, moderation] = tabs;
+  expect(general.rows.map(({ id }) => id)).toEqual([
+    "forum.view",
+    "forum.reply",
+    "forum.editLimit",
+    "profile.post",
+  ]);
+  expect(
+    general.categories.map(({ category, rows }) => [
+      category,
+      rows.map(({ id }) => id),
+    ]),
+  ).toEqual([
+    ["forum", ["forum.view", "forum.reply", "forum.editLimit"]],
+    ["profile", ["profile.post"]],
+  ]);
+  expect(moderation.categories.map(({ category }) => category)).toEqual([
+    "moderation",
+  ]);
+  // A tab with no rows is left out (a forum has no moderation permission).
+  expect(
+    matrixTabs(PERMISSIONS.filter(({ scope }) => scope === "node")).map(
+      ({ tab }) => tab,
+    ),
+  ).toEqual(["general"]);
+});
+
+test("each bulk button, given its tab's or category's rows, sends only its yes/no rows", () => {
+  const [general, moderation] = matrixTabs(PERMISSIONS);
+  const start = initialCells(PERMISSIONS, ENTRIES);
+  const sent = (cells: Record<string, Cell>) => {
+    const result = matrixChanges(posted(cells), PERMISSIONS, false);
+    return "changes" in result
+      ? result.changes.map(({ permission, value }) => `${permission}=${value}`)
+      : result;
+  };
+  expect(sent(bulkSet(start, moderation.rows, "never"))).toEqual([
+    "tag.manage=never",
+  ]);
+  expect(sent(bulkSet(start, general.categories[1].rows, "allow"))).toEqual([
+    "profile.post=allow",
+  ]);
+  expect(sent(bulkSet(start, general.categories[0].rows, ""))).toEqual([
+    "forum.view=unset",
+    "forum.reply=unset",
+  ]);
 });

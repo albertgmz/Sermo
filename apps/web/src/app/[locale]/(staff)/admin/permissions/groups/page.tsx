@@ -4,7 +4,6 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ItemList, RowLink } from "@/components/staff/item-list";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { Badge } from "@/components/ui/badge";
 import { staffTrail } from "../../../trail";
 import { getGroups } from "../../groups/data";
 import { ListSkeleton } from "../../groups/skeletons";
@@ -24,7 +23,6 @@ async function Groups() {
       label={t("heading")}
       heading={t("heading")}
       description={t("description")}
-      filter
       empty={{ title: t("empty") }}
       items={groups.map((group) => {
         const href = `/admin/permissions/groups/${group.id}`;
@@ -33,14 +31,6 @@ async function Groups() {
           title: group.title,
           href,
           description: t("rank", { rank: group.rank }),
-          badges: (
-            <>
-              {group.builtin && (
-                <Badge variant="secondary">{t("builtin")}</Badge>
-              )}
-              {group.isStaff && <Badge variant="outline">{t("staff")}</Badge>}
-            </>
-          ),
           actions: (
             <RowLink
               href={href}

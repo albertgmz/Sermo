@@ -1,7 +1,21 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
-import { type MatrixPermission, PermissionMatrix } from "./permission-matrix";
+import type { MatrixPermission } from "./permission-matrix";
+
+// The matrix reads its words through the library's hook and the provider of `withIntl`, whatever
+// stand-in another suite left in place for it; the module is given back afterwards.
+const nextIntl = { ...(await import("next-intl")) };
+const useIntl = await import("use-intl");
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useTranslations: useIntl.useTranslations,
+}));
+afterAll(() => {
+  mock.module("next-intl", () => nextIntl);
+});
+
+const { PermissionMatrix } = await import("./permission-matrix");
 
 const row = (
   id: string,
@@ -89,6 +103,13 @@ test("bulk buttons for each tab and each category holding a yes/no permission", 
   expect(html.match(/>Allow all</g)?.length).toBe(4);
   expect(html.match(/>Never for all</g)?.length).toBe(4);
   expect(html.match(/>Clear all \(inherit\)</g)?.length).toBe(4);
+  // On a phone a category's buttons keep a one-word label beside the icon.
+  for (const word of ["Allow", "Never", "Clear"]) {
+    expect(
+      html.match(new RegExp(`<span class="sm:hidden">${word}</span>`, "g"))
+        ?.length,
+    ).toBe(2);
+  }
   // They only change the form: none of them submits it.
   const groups = html.split("<fieldset").slice(1);
   expect(groups).toHaveLength(4);

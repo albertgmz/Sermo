@@ -138,13 +138,17 @@
       "general": "Permisos generales",
       "moderation": "Moderación"
     },
-    "bulkLabel": "Todos los permisos de sí o no de {scope}",
+    "bulkLabel": "Todos los permisos de tipo sí/no en {scope}",
     "allowAll": "Permitir todo",
-    "neverAll": "Nunca para todo",
+    "neverAll": "Nunca para todos",
     "clearAll": "Quitar todo (heredar)",
-    "bulkHelp": "Estos botones fijan todos los permisos de sí o no de esta pestaña, y los que hay junto a una categoría, los de esa categoría. Los límites y demás números no cambian. No se guarda nada hasta que guardes.",
+    "allowShort": "Permitir",
+    "neverShort": "Nunca",
+    "clearShort": "Quitar",
+    "bulkHelp": "Estos botones fijan todos los permisos de tipo sí/no de esta pestaña, y los que hay junto a una categoría, los de esa categoría. Los límites y demás números no cambian. No se guarda nada hasta que guardes.",
     "bulkHelpFiltered": "El filtro está activo: estos botones también fijan los permisos que oculta. Los límites y demás números no cambian.",
     "noMatch": "Ningún permiso de esta pestaña coincide con «{query}».",
+    "noMatchElsewhere": "Ningún permiso de esta pestaña coincide con «{query}»; {tab} tiene {count, plural, one {# coincidencia} other {# coincidencias}}.",
     "changedCount": "{count, plural, =0 {Sin cambios} one {# cambio sin guardar} other {# cambios sin guardar}}",
     "changed": "Cambiado, antes {was}"
   },
@@ -157,8 +161,6 @@
     "description": "Del rango más alto al más bajo.",
     "rank": "Rango {rank}",
     "empty": "No hay grupos.",
-    "builtin": "Integrado",
-    "staff": "Equipo",
     "editLabel": "Permisos de {group}"
   },
   "permissionGroup": {

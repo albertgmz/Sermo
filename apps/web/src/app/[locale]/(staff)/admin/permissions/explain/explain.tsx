@@ -9,12 +9,12 @@ import { getTranslations } from "next-intl/server";
 import { Field, FieldGroup } from "@/components/staff/edit-form";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { call, errorMessage, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
 import { getDefinitions } from "../data";
 import { MemberPicker } from "../member-picker";
+import { SubmitRow } from "../submit-row";
 
 const first = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) || undefined;
@@ -248,14 +248,11 @@ export async function Explain({
               ))}
             </select>
           </Field>
-          <div className="flex flex-wrap items-center gap-3 p-4">
-            <Button type="submit" disabled={!member} className="min-h-10 px-4">
-              {t("explain")}
-            </Button>
+          <SubmitRow label={t("explain")} disabled={!member}>
             {!member && (
               <p className="text-xs text-muted-foreground">{t("pickFirst")}</p>
             )}
-          </div>
+          </SubmitRow>
         </FieldGroup>
       </form>
       {answer}

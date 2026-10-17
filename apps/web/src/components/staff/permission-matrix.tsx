@@ -49,9 +49,7 @@ import {
   type Cell,
   changedIds,
   initialCells,
-  type MatrixTab,
-  TABS,
-  tabOf,
+  matrixTabs,
 } from "./matrix-state";
 import {
   cellText,
@@ -152,15 +150,19 @@ function FlagControl({
   );
 }
 
-const BULK: { mode: BulkMode; key: "allowAll" | "neverAll" | "clearAll" }[] = [
-  { mode: "allow", key: "allowAll" },
-  { mode: "never", key: "neverAll" },
-  { mode: "", key: "clearAll" },
+const BULK: {
+  mode: BulkMode;
+  key: "allowAll" | "neverAll" | "clearAll";
+  short: "allowShort" | "neverShort" | "clearShort";
+}[] = [
+  { mode: "allow", key: "allowAll", short: "allowShort" },
+  { mode: "never", key: "neverAll", short: "neverShort" },
+  { mode: "", key: "clearAll", short: "clearShort" },
 ];
 const BULK_ICONS = { allow: Check, never: Ban, "": Eraser };
 
 // The three bulk buttons of a tab or a category (`scope` names it). `compact` (a category's)
-// shows the icons alone on a phone.
+// shows a one-word label on a phone, so the three fit beside each other.
 function BulkButtons({
   scope,
   compact = false,
@@ -176,7 +178,7 @@ function BulkButtons({
       aria-label={t("bulkLabel", { scope })}
       className="flex min-w-0 flex-wrap gap-1"
     >
-      {BULK.map(({ mode, key }) => {
+      {BULK.map(({ mode, key, short }) => {
         const Icon = BULK_ICONS[mode];
         return (
           <Button
@@ -184,14 +186,18 @@ function BulkButtons({
             type="button"
             variant={compact ? "ghost" : "outline"}
             size="sm"
-            title={compact ? t(key) : undefined}
             onClick={() => onPick(mode)}
             className="h-10 min-w-10 md:h-8 md:min-w-8"
           >
             <Icon aria-hidden="true" />
-            <span className={compact ? "sr-only sm:not-sr-only" : undefined}>
-              {t(key)}
-            </span>
+            {compact ? (
+              <>
+                <span className="sm:hidden">{t(short)}</span>
+                <span className="hidden sm:inline">{t(key)}</span>
+              </>
+            ) : (
+              t(key)
+            )}
           </Button>
         );
       })}
@@ -229,10 +235,7 @@ export function PermissionMatrix({
     permission.id.toLowerCase().includes(needle);
   const shown = permissions.filter(shows).length;
   const changed = new Set(changedIds(permissions, cells, entries, allowNo));
-  const tabs = TABS.map((tab) => ({
-    tab,
-    rows: permissions.filter((entry) => tabOf(entry.category) === tab),
-  })).filter(({ rows }) => rows.length > 0);
+  const tabs = matrixTabs(permissions);
   const setCell = (id: string) => (cell: Cell) =>
     setCells((current) => ({ ...current, [id]: cell }));
   const bulk =
@@ -240,8 +243,11 @@ export function PermissionMatrix({
     (mode: BulkMode): void =>
       setCells((current) => bulkSet(current, rows, mode));
 
-  const panel = (tab: MatrixTab, rows: readonly MatrixPermission[]) => {
-    const categories = [...new Set(rows.map((entry) => entry.category))];
+  const panel = ({ tab, rows, categories }: (typeof tabs)[number]) => {
+    // A filter that finds nothing here but something on the other tab says where.
+    const elsewhere = tabs.find(
+      (other) => other.tab !== tab && other.rows.some(shows),
+    );
     return (
       <>
         {rows.some((entry) => entry.type === "flag") && (
@@ -254,11 +260,16 @@ export function PermissionMatrix({
         )}
         {!rows.some(shows) && (
           <p className="p-4 text-sm text-muted-foreground [overflow-wrap:anywhere]">
-            {t("noMatch", { query: filter.trim() })}
+            {elsewhere
+              ? t("noMatchElsewhere", {
+                  query: filter.trim(),
+                  tab: t(`tabs.${elsewhere.tab}`),
+                  count: elsewhere.rows.filter(shows).length,
+                })
+              : t("noMatch", { query: filter.trim() })}
           </p>
         )}
-        {categories.map((category) => {
-          const group = rows.filter((entry) => entry.category === category);
+        {categories.map(({ category, rows: group }) => {
           return (
             <section
               key={category}
@@ -365,20 +376,18 @@ export function PermissionMatrix({
           </p>
         </div>
         {tabs.length > 1
-          ? tabs.map(({ tab, rows }) => (
+          ? tabs.map((entry) => (
               <TabsContent
-                key={tab}
-                value={tab}
+                key={entry.tab}
+                value={entry.tab}
                 // Kept in the form while hidden: every row is submitted.
                 keepMounted
                 className="focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
               >
-                {panel(tab, rows)}
+                {panel(entry)}
               </TabsContent>
             ))
-          : tabs.map(({ tab, rows }) => (
-              <div key={tab}>{panel(tab, rows)}</div>
-            ))}
+          : tabs.map((entry) => <div key={entry.tab}>{panel(entry)}</div>)}
       </Tabs>
     </div>
   );
