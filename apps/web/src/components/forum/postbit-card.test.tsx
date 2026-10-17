@@ -368,11 +368,12 @@ test("posts and messages draw no actions and ask for no relations", async () => 
 
 // The first paint of a thread or a conversation is drawn by the page's own list (`ThreadPosts`,
 // `Messages`), which a test cannot render on its own: a page file exports only what Next allows.
-// That they read no relations is held here by the source.
-test("the thread and conversation pages read no relations", () => {
+// That they read no relations and give no actions is held here by the source.
+test("the thread and conversation pages read no relations and give no actions", () => {
   const pages = resolve(import.meta.dir, "../../app/[locale]/(main)");
-  for (const file of ["threads/[id]/page.tsx", "conversations/[id]/page.tsx"])
-    expect(readFileSync(resolve(pages, file), "utf8")).not.toContain(
-      "relationsFor",
-    );
+  for (const file of ["threads/[id]/page.tsx", "conversations/[id]/page.tsx"]) {
+    const source = readFileSync(resolve(pages, file), "utf8");
+    for (const name of ["relationsFor", "memberActionsOf", "postbitActions"])
+      expect(source).not.toContain(name);
+  }
 });
