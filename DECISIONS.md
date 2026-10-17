@@ -3878,3 +3878,72 @@ those pages (the pages, alert links and the desktop buttons remain); the last en
 navigation need Tab or Shift+wheel to reach; a staff bar between 640 and 767 px with a long site
 name has a title of about 110 px; the look in a browser, the change in first-load size and a real
 phone have not been checked.
+
+## Admin panel redesign
+
+### Panel sections, landing pages and the shared page patterns (item 1)  The panel's navigation is
+regrouped into eleven sections after its home, in this order, each screen in exactly one (detail
+screens, `listed: false`, in brackets; no address moved, no gate changed, `registry.test.ts` holds
+the old address and rule of every screen and fails on any change):
+Setup: general, home page, new members, anti-spam, uploads, search engines, site identity, levels,
+cookies, public navigation. Content: reaction types, word filters, tags, static pages [static page].
+Forums: categories and forums, thread prefixes [forum, forum permissions]. Communication: send alert,
+notices, notification defaults, email policy [new alert, notice]. Users: members, ban register,
+warnings (`/admin/settings/warnings`, which moves here from Setup and keeps its address) [batch
+update, the member and its eight tabs]. Groups and permissions: user groups, group promotions, group /
+member / forum permissions, analyse permissions, moderators, administrators [group, promotion,
+permissions of a group, of a member]. Appearance: frames, covers, thread covers, accents, name
+colours, prefix colours. Economy: credit rules, credit adjustment, award definitions, award grants,
+shop categories, shop items [award, shop item]. Tools: maintenance. Logs (new, split from "Tools and
+logs"): moderator log, promotion history, credit ledger, shop purchases, background tasks; their
+keys keep the `tools` prefix, as keys are ids. Moderation: overview, reports, approval queue,
+sign-ups, IP addresses [report case, reported message, item review]. There is no screen for forum
+tabs, so Forums has none.
+Each section has a landing page: link cards (icon, name, one line) to its listed screens that the
+viewer may open. In the registry it is a screen with `landing: true`, at `/admin/sections/<id>`
+(one static route per section, a prefix no screen uses, so no slug can meet a screen's address;
+`/admin/forums` or `/admin/users` would have), opening for anyone who may open one of the section's
+screens. Moderation's landing is its existing overview at `/moderation`, keeping its own rule, so a
+member who may open only the IP screen sees the section without a landing. `visibleSections` gives
+the landing apart from the screens. The sidebar and the phone drawer (the same component) are an
+accordion: the section of the current page is open and cannot be closed; a section's name links to
+its landing and the arrow next to it opens or closes it; a section with no landing for the viewer
+opens from its whole heading; the home, and a section whose landing is all the viewer may open, are
+plain links. Every section carries an icon (`(staff)/section-icons.ts`, apart from the registry the proxy
+reads). The home keeps its five blocks; its section grid is now the same cards, each leading to the
+section's landing with the section's screens as links under its line. The moderation overview shows
+its screens as the same cards.
+The patterns, all in `src/components/staff` with tests next to them; every screen moves onto them in
+its own item:
+`PageHeader({ trail, title, description?, actions? })` tops every page. `trail` comes from
+`staffTrail(path)` (`(staff)/trail.ts`, from `trailOf` in the registry): home, the section's landing,
+then each screen of the same section the address lies under, only those the viewer may open; a page
+that names a record appends or relabels steps. From 768 px it is a breadcrumb, on a phone one
+"< parent" link; passed as a promise it streams in without holding the title. Actions sit at the
+top right from 640 px and under the title on a phone.
+`ItemList({ label, heading?, description?, items, filter?, empty })` is the list screen: clean rows
+(`ItemRow`: icon, title linking to the edit page, description or key, badges, toggle, actions),
+an empty state with an optional "Add" action, and a "Showing N" footer. `filter` adds a box that
+narrows the rows on the page (case and accents ignored, by `search` or a text title); lists the
+backend pages through keep their own search. `RowToggle` is the active switch: a form that submits
+the screen's existing action with its hidden fields. `RowLink` is the row's icon link ("Edit").
+`EntryList`, `EditDisclosure` and `Row` stay for the screens that use them until their item moves
+them.
+`EditForm({ action, submit?, disabled? })` is the separate Add / Edit page: `FieldGroup` cards
+(fieldsets with a legend), `Field` rows (label and help on the left, control and error on the
+right from 768 px, stacked on a phone), one `Advanced` closed card for the rare options (it opens
+when one of its `fields` has an error; no `required` control inside it), and the save bar at the
+bottom (`SaveBar` from `form-rows.tsx`, now exported). It takes the same `StaffFormState` actions
+as `FormRows`.
+`SortForm({ action, name, items, heading })` is the sort page: up and down arrows, one Save, sent
+to the screen's existing order action under its own field name (`name` such as "position.{id}",
+plus any hidden `fields` the action compares, like `before:<id>`). It hands the entries' own numbers
+out again in the new order, so only the moved entries change; numbers shared by two entries are
+renumbered ten apart (`positionsFor`). No drag and drop.
+`LinkCards` / `LinkCard` are the cards of the landings and the home.
+The client components' text is in `admin.itemList`, `admin.editForm` and `admin.sortForm`; a
+layout may name only namespaces something under it reads (`tests/client-messages.test.ts`), so the
+item that first uses one of them adds it to the staff layout's `ClientMessages`. The styleguide's
+layout now sends `admin.shell`, which the navigation reads for its arrows' names. Known limits:
+the styleguide shows none of the new patterns yet; the look in a browser, on a phone and the
+first-load size have not been checked; the filter box only narrows the rows already on the page.

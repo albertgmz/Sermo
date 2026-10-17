@@ -9,7 +9,8 @@
       "loadingNavigation": "Loading the administration navigation…",
       "loadingAccount": "Loading your account…",
       "loadingTitle": "Loading the section…",
-      "loadingPage": "Loading the page…"
+      "loadingPage": "Loading the page…",
+      "toggleSection": "Screens of {section}"
     }
   },
   "registry": {
@@ -24,7 +25,8 @@
       "appearance": "Appearance",
       "economy": "Economy",
       "moderation": "Moderation",
-      "tools": "Tools and logs"
+      "tools": "Tools",
+      "logs": "Logs"
     },
     "groups": {
       "groups": "Groups",
@@ -111,6 +113,74 @@
       "toolsTasks": "Background tasks",
       "usersBatch": "Batch update members",
       "moderationSignups": "Sign-ups"
+    },
+    "sectionDescriptions": {
+      "setup": "The site's settings: its name and pictures, new members, spam, uploads, search engines and links.",
+      "content": "What members post with: reactions, word filters, tags and the site's own pages.",
+      "forums": "The categories and forums, and the prefixes a thread can carry.",
+      "communication": "Alerts, banners, notification defaults and the mail the forum sends.",
+      "users": "Member accounts, bans and warnings.",
+      "groups": "User groups, promotions, permissions and who is on the staff.",
+      "appearance": "Frames, covers, accents and the colours of names and prefixes.",
+      "economy": "Credits, awards and the shop.",
+      "tools": "Operations that change many records at once.",
+      "logs": "What staff, promotions, credits, the shop and background work have done.",
+      "moderation": "Reports, the approval queue, sign-ups and IP addresses."
+    },
+    "descriptions": {
+      "setupGeneral": "Site name, default language, profile posts and social links.",
+      "setupHome": "Which tab the home page opens on for each visitor.",
+      "setupMembers": "How long a member counts as new and what waits until then.",
+      "setupAntispam": "Posting speed, links, signatures and the guest form check.",
+      "setupUploads": "Upload sizes, file types and storage per group.",
+      "setupSeo": "Titles in search results and how search engines hear of changes.",
+      "setupIdentity": "Logo, browser icon and the backdrop behind the pages.",
+      "setupLevels": "Level curve, profile text limits and the member of the month.",
+      "setupCookies": "The cookie banner, statistics and asking everyone again.",
+      "setupNavigation": "Links of the header, phone bar, account menu and footer.",
+      "contentReactions": "The reactions members leave under posts.",
+      "contentWordFilters": "Words replaced or sent for moderation when posted.",
+      "contentTags": "Rename, merge or delete the tags on threads.",
+      "contentPages": "Terms, privacy, contact and the other text pages.",
+      "forumsTree": "Create, arrange and edit categories and forums.",
+      "forumsPrefixes": "Labels a thread can carry in front of its title.",
+      "communicationAnnouncements": "Send an alert to everyone, a group or named members.",
+      "communicationNotices": "Banners shown under the header of every page.",
+      "communicationNotifications": "What members get until they choose for themselves.",
+      "communicationEmail": "How much mail the forum sends and what it holds.",
+      "usersList": "Find a member and change their account.",
+      "usersBans": "Every ban, and lifting one in force.",
+      "setupWarnings": "Warning types and what reaching a number of points does.",
+      "groupsList": "Every group, highest rank first.",
+      "groupsPromotions": "Rules that add members to groups while they hold.",
+      "permissionsGroups": "The permission entries of each group.",
+      "permissionsMembers": "Entries set on one member, on top of their groups.",
+      "permissionsForums": "Entries set on one forum, per group and per member.",
+      "permissionsExplain": "Why a member has or lacks a permission.",
+      "staffModerators": "Who moderates what.",
+      "staffAdministrators": "Members holding an administration permission.",
+      "appearanceFrames": "Pictures drawn around avatars.",
+      "appearanceCovers": "The gallery of profile covers.",
+      "appearanceThreadCovers": "Pictures a thread can wear.",
+      "appearanceAccents": "The colours members can give the site.",
+      "appearanceNameColors": "The colours a member name can take.",
+      "appearancePrefixColors": "The colours a thread prefix can take.",
+      "economyCreditRules": "What earns or costs credits, and how often.",
+      "economyCredits": "Give or take credits by hand, with a reason.",
+      "economyAwards": "The awards members can hold and when they are given.",
+      "economyAwardGrants": "Give an award by hand, or take one back.",
+      "economyShopCategories": "How the shop is grouped, in the order members see.",
+      "economyShopItems": "What members can buy, its price and what it does.",
+      "toolsMaintenance": "Recounts, rebuilds and clean-ups, each confirmed first.",
+      "toolsModeratorLog": "What moderators and administrators did.",
+      "toolsPromotionLog": "Automatic and manual promotion changes.",
+      "toolsCreditLedger": "Every credit movement, or those of one member.",
+      "toolsShopPurchases": "What was bought, and by whom.",
+      "toolsTasks": "The state of queued work: sweeps, recounts and clean-ups.",
+      "moderationReports": "Reported content and members, case by case.",
+      "moderationApprovals": "Content waiting for a moderator before it shows.",
+      "moderationSignups": "New accounts waiting to be let in.",
+      "moderationIps": "Which accounts used an address, and which addresses an account used."
     }
   },
   "home": {
@@ -407,5 +477,28 @@
       "skipped": "Skipped",
       "failed": "Failed"
     }
+  },
+  "pageHeader": {
+    "back": "Back to {label}"
+  },
+  "landing": {
+    "empty": "No screen of this section is open to you.",
+    "emptyDescription": "Screens appear here when you are given a permission that opens them."
+  },
+  "itemList": {
+    "filter": "Filter",
+    "filterPlaceholder": "Filter the list",
+    "noMatch": "Nothing matches “{query}”.",
+    "shown": "{count, plural, one {Showing # entry} other {Showing # entries}}",
+    "shownOf": "Showing {shown} of {total}"
+  },
+  "editForm": {
+    "advanced": "Advanced options"
+  },
+  "sortForm": {
+    "save": "Save order",
+    "up": "Move {title} up",
+    "down": "Move {title} down",
+    "moved": "{title} moved to position {position}."
   }
 }

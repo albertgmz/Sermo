@@ -18,6 +18,10 @@
 //          path must extend the path of a listed screen of the same section, which is how the
 //          navigation marks the section it belongs to.
 //   group  Only in "Groups and permissions": the labelled sub-group of the navigation.
+//   landing true for the section's own page (link cards to its screens): the section's heading
+//          in the navigation and the breadcrumbs link to it, so it is not listed among the
+//          section's screens. Sections of /admin have theirs at `/admin/sections/<id>`, a path no
+//          screen uses; moderation's is /moderation. Its label is the section's.
 //
 // A path that matches no screen here is a 404 for everyone. The first match wins and a static
 // path beats a dynamic one (`/admin/forums/prefixes` against `/admin/forums/[id]`).
@@ -43,6 +47,7 @@ export type Screen = {
   built: boolean;
   listed?: false;
   group?: "groups" | "permissions" | "staff";
+  landing?: true;
 };
 
 export type Section = {
@@ -83,6 +88,20 @@ const canModerate = (me: Standing) =>
   canReadModeratorLog(me) ||
   canReviewSignups(me);
 
+// A section's landing shows the section's screens and nothing else, so it opens for anyone who may
+// open one of them.
+const opensSection =
+  (id: string) =>
+  (me: Standing): boolean =>
+    SCREENS.some(
+      (screen) =>
+        screen.section === id &&
+        !screen.landing &&
+        screen.listed !== false &&
+        screen.built &&
+        canOpen(me, screen),
+    );
+
 // The panel's home opens for anyone the backend says has a panel, and for anyone who may open at
 // least one other listed screen: a permission outside the moderation and administration categories
 // (`award.grant`) opens a screen without making `staff.panel` true, and the member would
@@ -113,6 +132,13 @@ export const SECTIONS = [
     id: "setup",
     screens: [
       {
+        key: "setupLanding",
+        path: "/admin/sections/setup",
+        access: opensSection("setup"),
+        built: true,
+        landing: true,
+      },
+      {
         key: "setupGeneral",
         path: "/admin/settings",
         access: ["admin.settings"],
@@ -133,12 +159,6 @@ export const SECTIONS = [
       {
         key: "setupAntispam",
         path: "/admin/settings/antispam",
-        access: ["admin.settings"],
-        built: true,
-      },
-      {
-        key: "setupWarnings",
-        path: "/admin/settings/warnings",
         access: ["admin.settings"],
         built: true,
       },
@@ -181,39 +201,15 @@ export const SECTIONS = [
     ],
   },
   {
-    id: "forums",
-    screens: [
-      {
-        key: "forumsTree",
-        path: "/admin/forums",
-        access: ["admin.nodes"],
-        built: true,
-      },
-      {
-        key: "forumsPrefixes",
-        path: "/admin/forums/prefixes",
-        access: ["admin.prefixes"],
-        built: true,
-      },
-      {
-        key: "forumsEdit",
-        path: "/admin/forums/[id]",
-        access: ["admin.nodes"],
-        built: true,
-        listed: false,
-      },
-      {
-        key: "forumsPermissions",
-        path: "/admin/forums/[id]/permissions",
-        access: ["admin.permissions"],
-        built: true,
-        listed: false,
-      },
-    ],
-  },
-  {
     id: "content",
     screens: [
+      {
+        key: "contentLanding",
+        path: "/admin/sections/content",
+        access: opensSection("content"),
+        built: true,
+        landing: true,
+      },
       {
         key: "contentReactions",
         path: "/admin/reactions",
@@ -248,8 +244,53 @@ export const SECTIONS = [
     ],
   },
   {
+    id: "forums",
+    screens: [
+      {
+        key: "forumsLanding",
+        path: "/admin/sections/forums",
+        access: opensSection("forums"),
+        built: true,
+        landing: true,
+      },
+      {
+        key: "forumsTree",
+        path: "/admin/forums",
+        access: ["admin.nodes"],
+        built: true,
+      },
+      {
+        key: "forumsPrefixes",
+        path: "/admin/forums/prefixes",
+        access: ["admin.prefixes"],
+        built: true,
+      },
+      {
+        key: "forumsEdit",
+        path: "/admin/forums/[id]",
+        access: ["admin.nodes"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "forumsPermissions",
+        path: "/admin/forums/[id]/permissions",
+        access: ["admin.permissions"],
+        built: true,
+        listed: false,
+      },
+    ],
+  },
+  {
     id: "communication",
     screens: [
+      {
+        key: "communicationLanding",
+        path: "/admin/sections/communication",
+        access: opensSection("communication"),
+        built: true,
+        landing: true,
+      },
       {
         key: "communicationAnnouncements",
         path: "/admin/announcements",
@@ -294,6 +335,13 @@ export const SECTIONS = [
     id: "users",
     screens: [
       {
+        key: "usersLanding",
+        path: "/admin/sections/users",
+        access: opensSection("users"),
+        built: true,
+        landing: true,
+      },
+      {
         key: "usersList",
         path: "/admin/users",
         access: ["admin.members"],
@@ -310,6 +358,12 @@ export const SECTIONS = [
         key: "usersBans",
         path: "/admin/bans",
         access: ["member.ban"],
+        built: true,
+      },
+      {
+        key: "setupWarnings",
+        path: "/admin/settings/warnings",
+        access: ["admin.settings"],
         built: true,
       },
       {
@@ -380,6 +434,13 @@ export const SECTIONS = [
   {
     id: "groups",
     screens: [
+      {
+        key: "groupsLanding",
+        path: "/admin/sections/groups",
+        access: opensSection("groups"),
+        built: true,
+        landing: true,
+      },
       {
         key: "groupsList",
         path: "/admin/groups",
@@ -470,6 +531,13 @@ export const SECTIONS = [
     id: "appearance",
     screens: [
       {
+        key: "appearanceLanding",
+        path: "/admin/sections/appearance",
+        access: opensSection("appearance"),
+        built: true,
+        landing: true,
+      },
+      {
         key: "appearanceFrames",
         path: "/admin/appearance/frames",
         access: ["admin.appearance"],
@@ -510,6 +578,13 @@ export const SECTIONS = [
   {
     id: "economy",
     screens: [
+      {
+        key: "economyLanding",
+        path: "/admin/sections/economy",
+        access: opensSection("economy"),
+        built: true,
+        landing: true,
+      },
       {
         key: "economyCreditRules",
         path: "/admin/credit-rules",
@@ -563,6 +638,71 @@ export const SECTIONS = [
     ],
   },
   {
+    id: "tools",
+    screens: [
+      {
+        key: "toolsLanding",
+        path: "/admin/sections/tools",
+        access: opensSection("tools"),
+        built: true,
+        landing: true,
+      },
+      {
+        key: "toolsMaintenance",
+        path: "/admin/tools",
+        access: [
+          "credits.adjust",
+          "admin.promotions",
+          "admin.awards",
+          "member.spamCleanup",
+        ],
+        built: true,
+      },
+    ],
+  },
+  {
+    id: "logs",
+    screens: [
+      {
+        key: "logsLanding",
+        path: "/admin/sections/logs",
+        access: opensSection("logs"),
+        built: true,
+        landing: true,
+      },
+      {
+        key: "toolsModeratorLog",
+        path: "/admin/logs/moderator",
+        access: canReadModeratorLog,
+        built: true,
+      },
+      {
+        key: "toolsPromotionLog",
+        path: "/admin/logs/promotions",
+        access: ["admin.promotions"],
+        built: true,
+      },
+      {
+        key: "toolsCreditLedger",
+        path: "/admin/logs/credits",
+        access: ["credits.viewAny"],
+        built: true,
+      },
+      {
+        key: "toolsShopPurchases",
+        path: "/admin/logs/purchases",
+        access: ["admin.shop"],
+        built: true,
+      },
+      {
+        key: "toolsTasks",
+        path: "/admin/logs/tasks",
+        access: ["admin.settings"],
+        built: true,
+      },
+    ],
+  },
+  {
     id: "moderation",
     screens: [
       {
@@ -570,6 +710,7 @@ export const SECTIONS = [
         path: "/moderation",
         access: canModerate,
         built: true,
+        landing: true,
       },
       {
         key: "moderationReports",
@@ -618,58 +759,22 @@ export const SECTIONS = [
       },
     ],
   },
-  {
-    id: "tools",
-    screens: [
-      {
-        key: "toolsMaintenance",
-        path: "/admin/tools",
-        access: [
-          "credits.adjust",
-          "admin.promotions",
-          "admin.awards",
-          "member.spamCleanup",
-        ],
-        built: true,
-      },
-      {
-        key: "toolsModeratorLog",
-        path: "/admin/logs/moderator",
-        access: canReadModeratorLog,
-        built: true,
-      },
-      {
-        key: "toolsPromotionLog",
-        path: "/admin/logs/promotions",
-        access: ["admin.promotions"],
-        built: true,
-      },
-      {
-        key: "toolsCreditLedger",
-        path: "/admin/logs/credits",
-        access: ["credits.viewAny"],
-        built: true,
-      },
-      {
-        key: "toolsShopPurchases",
-        path: "/admin/logs/purchases",
-        access: ["admin.shop"],
-        built: true,
-      },
-      {
-        key: "toolsTasks",
-        path: "/admin/logs/tasks",
-        access: ["admin.settings"],
-        built: true,
-      },
-    ],
-  },
 ] as const satisfies readonly Section[];
 
 export type SectionId = (typeof SECTIONS)[number]["id"];
 export type ScreenKey = (typeof SECTIONS)[number]["screens"][number]["key"];
 
-type ListedScreen = Screen & { key: ScreenKey; section: SectionId };
+// The screens that are not a landing: those with a label of their own (a landing takes its
+// section's).
+export type PageKey = Exclude<
+  ScreenKey,
+  Extract<
+    (typeof SECTIONS)[number]["screens"][number],
+    { landing: true }
+  >["key"]
+>;
+
+export type ListedScreen = Screen & { key: ScreenKey; section: SectionId };
 
 export const SCREENS: readonly ListedScreen[] = SECTIONS.flatMap((section) =>
   section.screens.map((screen) => ({ ...screen, section: section.id })),
@@ -732,22 +837,66 @@ export function mayOpenPath(
 
 export type VisibleSection = {
   id: SectionId;
-  screens: readonly ListedScreen[];
+  landing?: ListedScreen;
+  screens: readonly (ListedScreen & { key: PageKey })[];
 };
 
-// What the navigation and the home grid show the member: the listed, built screens they may
-// open, and only the sections that keep at least one.
+// What the navigation and the home grid show the member: the section's landing and its listed,
+// built screens, those they may open, and only the sections that keep at least one of them.
 export function visibleSections(me: Standing): VisibleSection[] {
-  return SECTIONS.map((section) => ({
-    id: section.id,
-    screens: SCREENS.filter(
+  return SECTIONS.map((section) => {
+    const open = SCREENS.filter(
       (screen) =>
         screen.section === section.id &&
         screen.listed !== false &&
         screen.built &&
         canOpen(me, screen),
-    ),
-  })).filter((section) => section.screens.length > 0);
+    );
+    return {
+      id: section.id,
+      landing: open.find((screen) => screen.landing),
+      screens: open.filter(
+        (screen): screen is ListedScreen & { key: PageKey } => !screen.landing,
+      ),
+    };
+  }).filter((section) => section.landing || section.screens.length > 0);
+}
+
+export type TrailStep = { screen: ListedScreen; href: string };
+
+// The way up from an address of the panel, for its breadcrumb: the panel's home, the section's
+// landing, then, for a detail screen, each screen of the same section the address lies under (a
+// record's own screen included, at its own address), keeping only those the member may open. The
+// address's own screen is not part of it.
+export function trailOf(me: Standing, pathname: string): TrailStep[] {
+  const found = screenAt(pathname);
+  const own = found && SCREENS.find((screen) => screen.key === found.key);
+  if (!own || own.key === "home") return [];
+  const steps: TrailStep[] = [{ screen: screenByKey("home"), href: "/admin" }];
+  const landing = SCREENS.find(
+    (screen) => screen.section === own.section && screen.landing,
+  );
+  if (landing && landing !== own) {
+    steps.push({ screen: landing, href: landing.path });
+  }
+  // A listed screen hangs from its landing alone: one whose address extends another's (the
+  // settings pages under the general settings) is its sibling, not its child.
+  const parts =
+    own.listed === false ? pathname.replace(/\/+$/, "").split("/") : [];
+  for (let end = 2; end < parts.length; end++) {
+    const href = parts.slice(0, end).join("/");
+    const above = screenAt(href);
+    const screen =
+      above && SCREENS.find((candidate) => candidate.key === above.key);
+    if (
+      screen &&
+      screen.section === own.section &&
+      !steps.some((step) => step.screen === screen)
+    ) {
+      steps.push({ screen, href });
+    }
+  }
+  return steps.filter(({ screen }) => screen.built && canOpen(me, screen));
 }
 
 export const screenByKey = (key: ScreenKey) =>

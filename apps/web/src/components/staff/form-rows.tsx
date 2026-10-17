@@ -83,11 +83,25 @@ export function FieldRow({
   );
 }
 
-function SaveBar({ submit, disabled }: { submit: string; disabled?: boolean }) {
+// The save bar of a form: also the one of `EditForm` (edit-form.tsx), which frames it itself.
+export function SaveBar({
+  submit,
+  disabled,
+  className,
+}: {
+  submit: string;
+  disabled?: boolean;
+  className?: string;
+}) {
   const t = useTranslations("admin.formRows");
   const { pending } = useFormStatus();
   return (
-    <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t bg-card/95 p-4 backdrop-blur-sm">
+    <div
+      className={cn(
+        "sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t bg-card/95 p-4 backdrop-blur-sm",
+        className,
+      )}
+    >
       <Button
         type="submit"
         disabled={pending || disabled}

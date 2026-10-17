@@ -9,7 +9,8 @@
       "loadingNavigation": "Cargando la navegación de administración…",
       "loadingAccount": "Cargando tu cuenta…",
       "loadingTitle": "Cargando la sección…",
-      "loadingPage": "Cargando la página…"
+      "loadingPage": "Cargando la página…",
+      "toggleSection": "Pantallas de {section}"
     }
   },
   "registry": {
@@ -24,7 +25,8 @@
       "appearance": "Apariencia",
       "economy": "Economía",
       "moderation": "Moderación",
-      "tools": "Herramientas y registros"
+      "tools": "Herramientas",
+      "logs": "Registros"
     },
     "groups": {
       "groups": "Grupos",
@@ -111,6 +113,74 @@
       "toolsTasks": "Tareas en segundo plano",
       "usersBatch": "Cambio masivo de miembros",
       "moderationSignups": "Altas pendientes"
+    },
+    "sectionDescriptions": {
+      "setup": "Los ajustes del sitio: nombre e imágenes, nuevos miembros, spam, subidas, buscadores y enlaces.",
+      "content": "Con qué publican los miembros: reacciones, filtros de palabras, etiquetas y las páginas del sitio.",
+      "forums": "Las categorías y los foros, y los prefijos que puede llevar un tema.",
+      "communication": "Alertas, avisos, notificaciones predeterminadas y el correo que envía el foro.",
+      "users": "Cuentas de miembros, expulsiones y advertencias.",
+      "groups": "Grupos de usuarios, promociones, permisos y quién forma el equipo.",
+      "appearance": "Marcos, portadas, acentos y los colores de nombres y prefijos.",
+      "economy": "Créditos, trofeos y la tienda.",
+      "tools": "Operaciones que cambian muchos registros a la vez.",
+      "logs": "Lo que han hecho el equipo, las promociones, los créditos, la tienda y las tareas en segundo plano.",
+      "moderation": "Denuncias, la cola de aprobación, las altas y las direcciones IP."
+    },
+    "descriptions": {
+      "setupGeneral": "Nombre del sitio, idioma predeterminado, mensajes de perfil y enlaces sociales.",
+      "setupHome": "Qué pestaña abre la página de inicio para cada visitante.",
+      "setupMembers": "Cuánto tiempo cuenta un miembro como nuevo y qué espera hasta entonces.",
+      "setupAntispam": "Ritmo de publicación, enlaces, firmas y la comprobación de los formularios de invitados.",
+      "setupUploads": "Tamaño de las subidas, tipos de archivo y espacio por grupo.",
+      "setupSeo": "Títulos en los resultados de búsqueda y cómo se enteran los buscadores de los cambios.",
+      "setupIdentity": "Logotipo, icono del navegador y el fondo de las páginas.",
+      "setupLevels": "Curva de niveles, límites del texto de perfil y el miembro del mes.",
+      "setupCookies": "El aviso de cookies, las estadísticas y volver a preguntar a todos.",
+      "setupNavigation": "Enlaces de la cabecera, la barra del móvil, el menú de cuenta y el pie.",
+      "contentReactions": "Las reacciones que dejan los miembros bajo los mensajes.",
+      "contentWordFilters": "Palabras que se sustituyen o se envían a moderación al publicarlas.",
+      "contentTags": "Renombra, fusiona o borra las etiquetas de los temas.",
+      "contentPages": "Condiciones, privacidad, contacto y las demás páginas de texto.",
+      "forumsTree": "Crea, ordena y edita categorías y foros.",
+      "forumsPrefixes": "Etiquetas que un tema puede llevar delante del título.",
+      "communicationAnnouncements": "Envía una alerta a todos, a un grupo o a miembros concretos.",
+      "communicationNotices": "Avisos que se muestran bajo la cabecera de cada página.",
+      "communicationNotifications": "Lo que reciben los miembros hasta que elijan por sí mismos.",
+      "communicationEmail": "Cuánto correo envía el foro y qué contiene.",
+      "usersList": "Busca un miembro y cambia su cuenta.",
+      "usersBans": "Todas las expulsiones, y levantar una vigente.",
+      "setupWarnings": "Tipos de advertencia y qué ocurre al llegar a cierto número de puntos.",
+      "groupsList": "Todos los grupos, del rango más alto al más bajo.",
+      "groupsPromotions": "Reglas que añaden miembros a grupos mientras se cumplen.",
+      "permissionsGroups": "Las entradas de permisos de cada grupo.",
+      "permissionsMembers": "Entradas puestas a un miembro, además de las de sus grupos.",
+      "permissionsForums": "Entradas puestas en un foro, por grupo y por miembro.",
+      "permissionsExplain": "Por qué un miembro tiene o no tiene un permiso.",
+      "staffModerators": "Quién modera qué.",
+      "staffAdministrators": "Miembros con algún permiso de administración.",
+      "appearanceFrames": "Imágenes que rodean los avatares.",
+      "appearanceCovers": "La galería de portadas de perfil.",
+      "appearanceThreadCovers": "Imágenes que puede llevar un tema.",
+      "appearanceAccents": "Los colores que los miembros pueden dar al sitio.",
+      "appearanceNameColors": "Los colores que puede tomar el nombre de un miembro.",
+      "appearancePrefixColors": "Los colores que puede tomar un prefijo de tema.",
+      "economyCreditRules": "Qué da o cuesta créditos, y con qué frecuencia.",
+      "economyCredits": "Da o quita créditos a mano, con un motivo.",
+      "economyAwards": "Los trofeos que pueden tener los miembros y cuándo se conceden.",
+      "economyAwardGrants": "Concede un trofeo a mano, o retíralo.",
+      "economyShopCategories": "Cómo se agrupa la tienda, en el orden que ven los miembros.",
+      "economyShopItems": "Lo que pueden comprar los miembros, su precio y qué hace.",
+      "toolsMaintenance": "Recuentos, reconstrucciones y limpiezas, cada una con confirmación.",
+      "toolsModeratorLog": "Lo que hicieron moderadores y administradores.",
+      "toolsPromotionLog": "Cambios de promoción automáticos y manuales.",
+      "toolsCreditLedger": "Todos los movimientos de créditos, o los de un miembro.",
+      "toolsShopPurchases": "Lo que se compró, y quién.",
+      "toolsTasks": "El estado del trabajo en cola: barridos, recuentos y limpiezas.",
+      "moderationReports": "Contenido y miembros denunciados, caso por caso.",
+      "moderationApprovals": "Contenido que espera a un moderador antes de mostrarse.",
+      "moderationSignups": "Cuentas nuevas que esperan ser admitidas.",
+      "moderationIps": "Qué cuentas usaron una dirección, y qué direcciones usó una cuenta."
     }
   },
   "home": {
@@ -407,5 +477,28 @@
       "skipped": "Omitido",
       "failed": "Fallido"
     }
+  },
+  "pageHeader": {
+    "back": "Volver a {label}"
+  },
+  "landing": {
+    "empty": "No tienes abierta ninguna pantalla de esta sección.",
+    "emptyDescription": "Las pantallas aparecen aquí cuando recibes un permiso que las abre."
+  },
+  "itemList": {
+    "filter": "Filtrar",
+    "filterPlaceholder": "Filtra la lista",
+    "noMatch": "Nada coincide con «{query}».",
+    "shown": "{count, plural, one {Se muestra # entrada} other {Se muestran # entradas}}",
+    "shownOf": "Se muestran {shown} de {total}"
+  },
+  "editForm": {
+    "advanced": "Opciones avanzadas"
+  },
+  "sortForm": {
+    "save": "Guardar el orden",
+    "up": "Subir {title}",
+    "down": "Bajar {title}",
+    "moved": "{title} pasa a la posición {position}."
   }
 }

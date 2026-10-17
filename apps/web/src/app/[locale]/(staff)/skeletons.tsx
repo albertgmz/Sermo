@@ -28,19 +28,45 @@ export function PendingSkeleton() {
   );
 }
 
+// A card of `LinkCard`: the icon box, the title and the line, and on the home the screens' links.
+function LinkCardSkeleton({ links }: { links?: boolean }) {
+  return (
+    <div className="flex gap-3 rounded-lg border bg-card p-4">
+      <Skeleton className="size-10 shrink-0 rounded-md" />
+      <div className="min-w-0 flex-1 space-y-2">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-3 w-3/4" />
+        {links && (
+          <div className="space-y-2 pt-2">
+            <Skeleton className="h-5 w-2/3" />
+            <Skeleton className="h-5 w-1/2" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function LinkCardsSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+    >
+      {[1, 2, 3, 4].map((card) => (
+        <LinkCardSkeleton key={card} />
+      ))}
+    </div>
+  );
+}
+
 export function SectionGridSkeleton() {
   return (
     <div aria-hidden="true" className="space-y-3">
       <Skeleton className="h-4 w-20" />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {[1, 2, 3, 4, 5, 6].map((card) => (
-          <div key={card} className="rounded-lg border bg-card p-4">
-            <Skeleton className="h-4 w-28" />
-            <div className="mt-3 space-y-2">
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-5 w-1/2" />
-            </div>
-          </div>
+          <LinkCardSkeleton key={card} links />
         ))}
       </div>
     </div>
