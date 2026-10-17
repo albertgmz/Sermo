@@ -32,6 +32,7 @@ const nextConfig: NextConfig = {
   },
   images: { unoptimized: true },
   partialPrefetching: true,
+  poweredByHeader: false,
   transpilePackages: ["@sermo/core", "@sermo/api"],
   // One origin for the browser: the API and the backend's other paths are reached through the web
   // app's own address, ahead of any page. The address is read when the config is evaluated (at
@@ -46,9 +47,15 @@ const nextConfig: NextConfig = {
     };
   },
   // The service worker script is checked for a new version on every visit, whatever a cache in
-  // front of the app was told.
+  // front of the app was told. Every answer, the files the proxy skips included, is read as the type
+  // it says it is; pages get the rest of their security headers from the proxy
+  // (src/lib/security-headers.ts).
   async headers() {
     return [
+      {
+        source: "/:path*",
+        headers: [{ key: "X-Content-Type-Options", value: "nosniff" }],
+      },
       {
         source: "/sw.js",
         headers: [{ key: "Cache-Control", value: "no-cache" }],

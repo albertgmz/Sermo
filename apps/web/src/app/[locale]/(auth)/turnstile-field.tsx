@@ -26,11 +26,15 @@ const SCRIPT =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 let loading: Promise<Api> | undefined;
 
-function load(): Promise<Api> {
+export function loadTurnstile(): Promise<Api> {
   loading ??= new Promise<Api>((resolve, reject) => {
     const script = document.createElement("script");
     script.src = SCRIPT;
     script.async = true;
+    // Cloudflare's script hands the page's nonce on to what it loads itself. The browser hides the
+    // attribute's value once the page has loaded; the property keeps it.
+    script.nonce =
+      document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce ?? "";
     script.onload = () => {
       const api = window.turnstile;
       if (api) api.ready(() => resolve(api));
@@ -70,7 +74,7 @@ export function TurnstileField({
 
   useEffect(() => {
     let gone = false;
-    load()
+    loadTurnstile()
       .then((api) => {
         if (gone || !box.current) return;
         widget.current = api.render(box.current, {

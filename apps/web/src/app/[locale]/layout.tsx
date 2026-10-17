@@ -16,6 +16,7 @@ import { pickClientMessages, ROOT_NAMESPACES } from "@/i18n/client-messages";
 import { isLocale, LOCALES } from "@/i18n/locales";
 import { OPENSEARCH_URL } from "@/lib/opensearch";
 import { THEME_COLORS } from "@/lib/pwa";
+import { scriptNonce } from "@/lib/script-nonce";
 import { getSite } from "@/lib/sermo/site";
 import "../globals.css";
 
@@ -48,6 +49,12 @@ export const viewport: Viewport = {
   ],
 };
 
+// Every page is rendered for its request: the scripts of a page carry that response's nonce (see
+// lib/security-headers.ts), and a shell prerendered at build time would carry none, so the browser
+// would refuse them. Next's guide to a Content-Security-Policy says the same of partial
+// prerendering; this lets the root layout read the nonce and block on it.
+export const instant = false;
+
 // One prerendered shell per language. The segment is hidden: the proxy picks the language of each
 // visitor and rewrites to it, and an address that carries it is redirected to the one without.
 export function generateStaticParams() {
@@ -60,9 +67,10 @@ export default async function RootLayout({
 }: LayoutProps<"/[locale]">) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const [{ maxUploadBytes, name }, messages] = await Promise.all([
+  const [{ maxUploadBytes, name }, messages, nonce] = await Promise.all([
     getSite(),
     getMessages(),
+    scriptNonce(),
   ]);
   return (
     <html
@@ -71,10 +79,16 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input */}
-        <script dangerouslySetInnerHTML={{ __html: widthScript }} />
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input */}
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script
+          nonce={nonce}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input
+          dangerouslySetInnerHTML={{ __html: widthScript }}
+        />
+        <script
+          nonce={nonce}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
         <link
           rel="search"
           type="application/opensearchdescription+xml"

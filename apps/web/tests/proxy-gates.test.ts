@@ -54,6 +54,8 @@ const state = {
   // The site's default language, and how often the proxy asked for it.
   siteDefault: "en",
   defaultAsked: 0,
+  // The site's analytics provider, which the page's policy names.
+  analytics: { provider: "none" } as Record<string, unknown>,
 };
 mock.module("@/lib/sermo/default-language", () => ({
   siteDefaultLanguage: async () => {
@@ -64,6 +66,7 @@ mock.module("@/lib/sermo/default-language", () => ({
     cookiePolicyVersion: 1,
     bannerOutsideEu: true,
   }),
+  siteAnalytics: async () => state.analytics,
   forgetDefaultLanguage: () => {},
 }));
 mock.module("server-only", () => ({}));
@@ -195,6 +198,7 @@ function reset(overrides: Partial<typeof state> = {}) {
     fail: null,
     siteDefault: "en",
     defaultAsked: 0,
+    analytics: { provider: "none" },
     ...overrides,
   });
 }
@@ -476,13 +480,98 @@ test("the API, pictures and the 404 rewrites carry no x-sermo-path", async () =>
   assert.equal(await ask("/api/v1/me", { headers: forged }), undefined);
 
   const picture = await ask("/pictures/tobi.jpg", { headers: forged });
-  assert.ok(picture);
-  assert.equal(picture.headers.get("x-middleware-override-headers"), null);
-  assert.equal(picture.headers.get("x-middleware-request-x-sermo-path"), null);
+  assert.equal(forwarded(picture, "x-sermo-path"), null);
 
   const missing = await ask("/forums/abc", { headers: forged });
   isNotFound(missing);
-  assert.equal(missing?.headers.get("x-middleware-override-headers"), null);
+  assert.equal(forwarded(missing, "x-sermo-path"), null);
+});
+
+// The nonce a page is rendered with: the one in the policy Next reads, and the one the layouts
+// read, which must be the one the browser is told.
+function renderedNonce(response: Response | undefined) {
+  const policy = forwarded(response, "content-security-policy");
+  const nonce = forwarded(response, "x-nonce");
+  assert.ok(policy && nonce);
+  assert.ok(policy.includes(`'nonce-${nonce}'`));
+  assert.equal(response?.headers.get("content-security-policy"), policy);
+  return nonce;
+}
+
+test("a page, a 404 and a picture's 404 are rendered with the nonce the browser is told", async () => {
+  reset();
+  const forged = {
+    "x-nonce": "forged",
+    "content-security-policy": "script-src 'nonce-forged'",
+  };
+  const page = await ask("/forums", { headers: forged });
+  passes(page);
+  const missing = await ask("/forums/abc", { headers: forged });
+  isNotFound(missing);
+  const picture = await ask("/pictures/tobi.jpg", { headers: forged });
+  const nonces = [page, missing, picture].map(renderedNonce);
+  // A new one for every response, never the client's.
+  assert.equal(new Set(nonces).size, 3);
+  assert.ok(!nonces.includes("forged"));
+  // An action's POST is rendered with one too: it can answer with a page.
+  renderedNonce(await ask("/forums", { method: "POST" }));
+});
+
+test("every answer of the proxy carries the security headers; the API and Next's files are left alone", async () => {
+  reset();
+  const answers = [
+    await ask("/"),
+    await ask("/forums/abc"),
+    await ask("/lite"),
+    await ask("/account"),
+    await ask("/pictures/tobi.jpg", { cookie: "forum_lite=all" }),
+  ];
+  for (const response of answers) {
+    assert.ok(response);
+    assert.ok(response.headers.get("content-security-policy"));
+    assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(
+      response.headers.get("referrer-policy"),
+      "strict-origin-when-cross-origin",
+    );
+    assert.equal(
+      response.headers.get("cross-origin-opener-policy"),
+      "same-origin",
+    );
+    assert.ok(response.headers.get("permissions-policy"));
+  }
+  assert.equal(await ask("/api/v1/me"), undefined);
+  assert.equal(await ask("/_next/static/chunks/app.js"), undefined);
+  assert.equal(await ask("/sw.js"), undefined);
+});
+
+test("HSTS goes with an https request, as the proxy in front reports it", async () => {
+  reset();
+  const plain = await ask("/");
+  assert.equal(plain?.headers.get("strict-transport-security"), null);
+  const forwardedHttps = await ask("/", {
+    headers: { "x-forwarded-proto": "https" },
+  });
+  assert.equal(
+    forwardedHttps?.headers.get("strict-transport-security"),
+    "max-age=63072000; includeSubDomains",
+  );
+});
+
+test("the policy lets the site's analytics provider be sent to", async () => {
+  reset({
+    analytics: {
+      provider: "matomo",
+      url: "https://stats.example.com/",
+      siteId: 1,
+    },
+  });
+  const response = await ask("/");
+  assert.ok(
+    response?.headers
+      .get("content-security-policy")
+      ?.includes("connect-src 'self' https://stats.example.com;"),
+  );
 });
 
 test("the old LITE mode addresses go to the Data saver ones with a 308, keeping the query", async () => {

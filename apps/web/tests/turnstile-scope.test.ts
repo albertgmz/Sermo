@@ -2,7 +2,8 @@ import { expect, test } from "bun:test";
 import { read, walk } from "./lite-scan";
 
 // Cloudflare's script is third-party, so it may load only where a visitor meets a guarded form:
-// one file knows its address, and only the guest forms use that file.
+// one file knows its address, and only the guest forms use that file. The page's security policy
+// names the address too, to let the widget's frame in; it loads nothing.
 const sources = walk("src").filter(
   (path) => /\.tsx?$/.test(path) && !/\.test\./.test(path),
 );
@@ -12,7 +13,7 @@ test("the Cloudflare address is in one file", () => {
   const holders = sources.filter((path) =>
     read(path).includes("challenges.cloudflare.com"),
   );
-  expect(holders).toEqual([FIELD]);
+  expect(holders).toEqual([FIELD, "src/lib/security-headers.ts"]);
 });
 
 test("only the guest forms draw the widget, and the layouts never do", () => {
@@ -59,7 +60,7 @@ test("each guest form names its own action, the one the backend requires back", 
   ];
   for (const [path, action] of forms)
     expect(read(path), path).toMatch(
-      new RegExp(String.raw`<TurnstileField[^>]*action="${action}"`),
+      new RegExp(`<TurnstileField[^>]*action="${action}"`),
     );
   expect(read(FIELD)).toMatch(/sitekey: siteKey,\s*action,/);
 });

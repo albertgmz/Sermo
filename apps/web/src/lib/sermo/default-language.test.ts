@@ -3,8 +3,12 @@ import { siteBody } from "@/lib/test-bodies";
 
 // A private copy of the module: another suite may replace the real one for the proxy.
 const source = "./default-language.ts?real";
-const { siteConsentFacts, siteDefaultLanguage, forgetDefaultLanguage } =
-  (await import(source)) as typeof import("./default-language");
+const {
+  siteAnalytics,
+  siteConsentFacts,
+  siteDefaultLanguage,
+  forgetDefaultLanguage,
+} = (await import(source)) as typeof import("./default-language");
 
 const realFetch = globalThis.fetch;
 let asked = 0;
@@ -102,4 +106,19 @@ test("before the site has been read there is no version, and a failed read keeps
   await siteConsentFacts(90_000);
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect((await siteConsentFacts(90_001)).cookiePolicyVersion).toBe(3);
+});
+
+test("the analytics provider comes from the same read, and is none before any", async () => {
+  answer = async () => {
+    throw new TypeError("connection refused");
+  };
+  expect(await siteAnalytics(1_000)).toEqual({ provider: "none" });
+  const matomo = {
+    provider: "matomo",
+    url: "https://stats.example.com/",
+    siteId: 2,
+  };
+  answer = async () => Response.json(siteBody({ analytics: matomo }));
+  expect(await siteAnalytics(20_000)).toEqual(matomo);
+  expect(asked).toBe(2);
 });

@@ -1,14 +1,16 @@
-import { siteGet } from "@sermo/core/contracts";
+import { type Analytics, siteGet } from "@sermo/core/contracts";
+import type * as z from "zod";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import { callWith } from "./transport";
 
 // The few facts about the site the proxy needs on a request: the site's default language, for the
-// visitor whose cookie and browser name no supported one, and the cookie policy version and banner
-// setting, for a request that carries a referral. The proxy must never wait on the backend for
+// visitor whose cookie and browser name no supported one, the cookie policy version and banner
+// setting, for a request that carries a referral, and the analytics provider, whose address the
+// page's security policy names. The proxy must never wait on the backend for
 // long, so the values live in this module: fresh for a minute, then read again in the background
 // while the last known values answer. Only the very first read is waited for, and only briefly. A
-// failed read keeps the last known values (English, no version and the banner for everyone before
-// any) and is tried again after ten seconds. It cannot be a "use cache" function: the proxy is not
+// failed read keeps the last known values (English, no version, the banner for everyone and no
+// analytics before any) and is tried again after ten seconds. It cannot be a "use cache" function: the proxy is not
 // a render.
 const FRESH_MS = 60_000;
 const RETRY_MS = 10_000;
@@ -21,12 +23,14 @@ export type SiteFacts = {
   cookiePolicyVersion: number | null;
   // Whether the cookie banner is shown to visitors outside Europe too.
   bannerOutsideEu: boolean;
+  analytics: z.output<typeof Analytics>;
 };
 
 const UNKNOWN: SiteFacts = {
   language: DEFAULT_LOCALE,
   cookiePolicyVersion: null,
   bannerOutsideEu: true,
+  analytics: { provider: "none" },
 };
 
 let known: SiteFacts = UNKNOWN;
@@ -52,6 +56,7 @@ function refresh(now: number) {
           : known.language,
         cookiePolicyVersion: site.cookiePolicyVersion,
         bannerOutsideEu: site.cookieBannerOutsideEu,
+        analytics: site.analytics,
       };
       everRead = true;
       validUntil = now + FRESH_MS;
@@ -84,6 +89,11 @@ export async function siteConsentFacts(
 ): Promise<Pick<SiteFacts, "cookiePolicyVersion" | "bannerOutsideEu">> {
   const { cookiePolicyVersion, bannerOutsideEu } = await facts(now);
   return { cookiePolicyVersion, bannerOutsideEu };
+}
+
+// The analytics provider as the proxy knows it: a change reaches the page's policy within a minute.
+export async function siteAnalytics(now = Date.now()) {
+  return (await facts(now)).analytics;
 }
 
 // For tests: forget what was read.

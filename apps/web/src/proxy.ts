@@ -42,6 +42,13 @@ import { isPwaPath } from "@/lib/pwa";
 import { REFERRAL_MAX_AGE, referralStep } from "@/lib/referral/cookie";
 import { REFERRAL_PARAM } from "@/lib/referral/link";
 import {
+  contentSecurityPolicy,
+  NONCE_HEADER,
+  newNonce,
+  type PageSecurity,
+  securityHeaders,
+} from "@/lib/security-headers";
+import {
   canonicalPathOf,
   FORUM_PREFIX,
   LEGACY_FORUM_PREFIX,
@@ -50,6 +57,7 @@ import {
 import { bannerAppliesOrUnknown } from "@/lib/sermo/banner";
 import { publicUrl } from "@/lib/sermo/config";
 import {
+  siteAnalytics,
   siteConsentFacts,
   siteDefaultLanguage,
 } from "@/lib/sermo/default-language";
@@ -275,16 +283,47 @@ function inLocale(request: NextRequest, locale: Locale, pathname?: string) {
   return target;
 }
 
-// Lets the request go on to a page, in the visitor's language. Only a read of the page (GET,
-// HEAD) carries the path; an action's POST does not. Whatever the client sent under that name
-// never survives.
-function toPage(request: NextRequest, locale: Locale) {
+// Whether the request reached the app over https: the scheme the proxy in front of it reports, else
+// its own.
+function isHttps(request: NextRequest) {
+  const forwarded = request.headers
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim()
+    .toLowerCase();
+  return forwarded
+    ? forwarded === "https"
+    : request.nextUrl.protocol === "https:";
+}
+
+// What the answer to a request is secured with: a nonce of its own and what the policy names.
+async function pageSecurity(request: NextRequest): Promise<PageSecurity> {
+  return {
+    nonce: newNonce(),
+    https: isHttps(request),
+    publicUrl: publicUrl(),
+    analytics: await siteAnalytics(),
+    development: process.env.NODE_ENV === "development",
+  };
+}
+
+// The request headers a page is rendered with: Next takes the nonce of its own scripts from the
+// policy, and the layouts take it from NONCE_HEADER for theirs. Whatever the client sent under
+// those names, or under the path's, never survives.
+function pageHeaders(request: NextRequest, security: PageSecurity) {
   const headers = new Headers(request.headers);
-  if (request.method === "GET" || request.method === "HEAD") {
+  headers.delete(PATH_HEADER);
+  headers.set("content-security-policy", contentSecurityPolicy(security));
+  headers.set(NONCE_HEADER, security.nonce);
+  return headers;
+}
+
+// Lets the request go on to a page, in the visitor's language. Only a read of the page (GET,
+// HEAD) carries the path; an action's POST does not.
+function toPage(request: NextRequest, locale: Locale, security: PageSecurity) {
+  const headers = pageHeaders(request, security);
+  if (request.method === "GET" || request.method === "HEAD")
     headers.set(PATH_HEADER, request.nextUrl.pathname + request.nextUrl.search);
-  } else {
-    headers.delete(PATH_HEADER);
-  }
   const response = NextResponse.rewrite(inLocale(request, locale), {
     request: { headers },
   });
@@ -403,10 +442,17 @@ const PLACEHOLDER_LABEL: Record<Locale, string> = {
   es: "AHORRO DE DATOS",
 };
 
-function notFound(request: NextRequest, locale: Locale) {
+function notFound(
+  request: NextRequest,
+  locale: Locale,
+  security: PageSecurity,
+) {
   const response = NextResponse.rewrite(
     new URL(`/${locale}/not-found`, request.url),
-    { status: 404 },
+    {
+      status: 404,
+      request: { headers: pageHeaders(request, security) },
+    },
   );
   return response;
 }
@@ -461,6 +507,15 @@ async function handleRequest(request: NextRequest) {
   // The manifest, the service worker and the offline page are files of the installed app, not
   // pages of a language: they are served as they are.
   if (isPwaPath(request.nextUrl.pathname)) return;
+  // Every answer from here on carries the security headers; a page is also rendered with its nonce.
+  const security = await pageSecurity(request);
+  const response = await pageResponse(request, security);
+  for (const [name, value] of securityHeaders(security))
+    response?.headers.set(name, value);
+  return response;
+}
+
+async function pageResponse(request: NextRequest, security: PageSecurity) {
   const renamed = dataSaverRedirect(request);
   if (renamed) return renamed;
   const prefixed = localePrefixRedirect(request);
@@ -498,22 +553,24 @@ async function handleRequest(request: NextRequest) {
       response.headers.set("Vary", "Cookie");
       return response;
     }
-    const response = NextResponse.rewrite(inLocale(request, locale));
+    const response = NextResponse.rewrite(inLocale(request, locale), {
+      request: { headers: pageHeaders(request, security) },
+    });
     return response;
   }
   if (request.nextUrl.pathname.startsWith("/_next/")) return;
   const legacy = legacyForumRedirect(request);
   if (legacy) return legacy;
   if (isUnknownUnsafePath(request.nextUrl.pathname))
-    return notFound(request, locale);
+    return notFound(request, locale, security);
   let pathname: string;
   try {
     pathname = decodeURIComponent(request.nextUrl.pathname);
   } catch {
     // An address that cannot be decoded names no page of the panel or the styleguide either.
     if (staffRequest || isStyleguidePath(request.nextUrl.pathname))
-      return notFound(request, locale);
-    return toPage(request, locale);
+      return notFound(request, locale, security);
+    return toPage(request, locale, security);
   }
   const [, section, id, action] = pathname.split("/");
   const hasSession = SESSION_COOKIES.some((name) => request.cookies.has(name));
@@ -524,13 +581,14 @@ async function handleRequest(request: NextRequest) {
   if (staffRequest || isStaffPath(pathname)) {
     const viewer = await visitorOf(request, hasSession);
     if (viewer !== undefined && (!viewer || !mayOpenPath(viewer, pathname)))
-      return notFound(request, locale);
+      return notFound(request, locale, security);
   }
   // The styleguide is for the panel's people: the same one read decides, and without it the
   // answer is no.
   if (isStyleguidePath(pathname)) {
     const viewer = await visitorOf(request, hasSession);
-    if (!viewer || !mayOpenStyleguide(viewer)) return notFound(request, locale);
+    if (!viewer || !mayOpenStyleguide(viewer))
+      return notFound(request, locale, security);
   }
   const membersOnly = MEMBERS_ONLY.includes(section) || action === "new";
   if (membersOnly && !hasSession) {
@@ -549,13 +607,13 @@ async function handleRequest(request: NextRequest) {
     !(section === "conversations" && id === "new") &&
     !(PUBLIC_PAGES.includes(section) ? parsePageId(id) !== null : isId(id))
   ) {
-    return notFound(request, locale);
+    return notFound(request, locale, security);
   }
   const isPage = isDocumentRequest(request);
   if (isPage && section === "tags" && id && action === undefined) {
     const found = await tagPage(id, request);
     if (found instanceof NextResponse) return found;
-    if (!found) return notFound(request, locale);
+    if (!found) return notFound(request, locale, security);
   }
   const slug = isPage ? staticSlug(section, id, action) : undefined;
   if (slug !== undefined) {
@@ -566,7 +624,7 @@ async function handleRequest(request: NextRequest) {
         callWith(forward, pagesGet, { slug: parsed.data }),
       ))
     ) {
-      return notFound(request, locale);
+      return notFound(request, locale, security);
     }
   }
   const find =
@@ -576,9 +634,9 @@ async function handleRequest(request: NextRequest) {
   if (find) {
     const found = await find(id, action, request);
     if (found instanceof NextResponse) return found;
-    if (!found) return notFound(request, locale);
+    if (!found) return notFound(request, locale, security);
   }
-  return toPage(request, locale);
+  return toPage(request, locale, security);
 }
 
 // Match before decoding, including image optimizer requests and file aliases.

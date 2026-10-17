@@ -1,6 +1,7 @@
 import Script from "next/script";
 import { getConsent } from "@/lib/consent/server";
 import { analyticsFor } from "@/lib/consent/state";
+import { scriptNonce } from "@/lib/script-nonce";
 import { getSite } from "@/lib/sermo/site";
 import { MatomoPageViews } from "./matomo-page-views";
 
@@ -10,9 +11,10 @@ import { MatomoPageViews } from "./matomo-page-views";
 // has loaded and the browser is idle; the short inline settings stay where they were, so the
 // commands they queue (cookies off, then the first page view) reach the provider in that order.
 export async function AnalyticsTag() {
-  const [{ analytics, matomoCookieless }, consent] = await Promise.all([
+  const [{ analytics, matomoCookieless }, consent, nonce] = await Promise.all([
     getSite(),
     getConsent(),
+    scriptNonce(),
   ]);
   const snippets = analyticsFor(consent, analytics, matomoCookieless);
   if (snippets.length === 0) return null;
@@ -20,9 +22,15 @@ export async function AnalyticsTag() {
     <>
       {snippets.map(({ id, src, code }) =>
         src ? (
-          <Script key={id} id={id} src={src} strategy="lazyOnload" />
+          <Script
+            key={id}
+            id={id}
+            src={src}
+            nonce={nonce}
+            strategy="lazyOnload"
+          />
         ) : (
-          <Script key={id} id={id} strategy="afterInteractive">
+          <Script key={id} id={id} nonce={nonce} strategy="afterInteractive">
             {code}
           </Script>
         ),

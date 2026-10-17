@@ -13,6 +13,7 @@ const site = {
 mock.module("@/lib/sermo/default-language", () => ({
   siteDefaultLanguage: async () => "en",
   siteConsentFacts: async () => site,
+  siteAnalytics: async () => ({ provider: "none" }),
   forgetDefaultLanguage: () => {},
 }));
 mock.module("server-only", () => ({}));

@@ -17,6 +17,7 @@ const { LoginForm } = await import("./login/login-form");
 const { RegisterForm } = await import("./register/register-form");
 const { ForgotForm } = await import("./forgot-password/forgot-form");
 const { ResendForm } = await import("./resend-form");
+const { loadTurnstile } = await import("./turnstile-field");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -46,4 +47,22 @@ test("Cloudflare's script is not in the page: the browser fetches it once the wi
   const page = draw(FORMS.login("0x4AAA-site"));
   expect(page).not.toContain("challenges.cloudflare.com");
   expect(page).not.toContain("turnstile/v0/api.js");
+});
+
+test("Cloudflare's script is loaded with the page's nonce", () => {
+  const appended: { nonce?: string }[] = [];
+  const real = globalThis.document;
+  globalThis.document = {
+    querySelector: (selector: string) =>
+      selector === "script[nonce]" ? { nonce: "n0nce" } : null,
+    createElement: () => ({}),
+    head: { append: (element: { nonce?: string }) => appended.push(element) },
+  } as unknown as Document;
+  try {
+    void loadTurnstile();
+  } finally {
+    globalThis.document = real;
+  }
+  expect(appended).toHaveLength(1);
+  expect(appended[0].nonce).toBe("n0nce");
 });
