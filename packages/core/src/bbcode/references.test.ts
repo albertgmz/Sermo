@@ -374,6 +374,67 @@ describe("BB code references", () => {
     );
   });
 
+  test("a quote of a member whose name holds brackets, quotes, commas or colons reads back as written", async () => {
+    const ctx = createTestContext();
+    const admin = userActor(insertUser(ctx, { groupId: 4 }));
+    const writer = insertUser(ctx);
+    const other = userActor(writer);
+    const forum = await execute(ctx, nodesCreateOp, admin, {
+      parentId: null,
+      type: "forum",
+      title: "Forum",
+    });
+    const names = [
+      "Crow[de(a)d]",
+      "Aoki [x]",
+      "]odd[",
+      'Say "hi"',
+      '"Yoandy_Isse"',
+      "Ann, post: 7",
+      "Re: Bob, convMessage: 5",
+      "post: 3",
+      "member: 4",
+      "Agent: 47",
+      'a"]b',
+    ];
+    for (const name of names) {
+      const member = insertUser(ctx, { username: name });
+      const thread = await execute(ctx, threadsCreateOp, userActor(member), {
+        nodeId: forum.id,
+        title: "Topic",
+        body: "Original",
+      });
+      const postId = thread.post.id;
+      // Write -> parse -> render: the quote links to its post under the member's real name.
+      const reply = await execute(ctx, postsCreateOp, other, {
+        threadId: thread.thread.id,
+        body: `[QUOTE="Fake, post: ${postId}, member: 999"]quoted[/QUOTE]`,
+      });
+      const stored = () =>
+        ctx.sqlite
+          .prepare<{ body_source: string; body_html: string }, [number]>(
+            "SELECT body_source, body_html FROM post_bodies WHERE post_id = ?1",
+          )
+          .get(reply.id)!;
+      const { body_source: source, body_html: html } = stored();
+      expect(source, name).toStartWith('[QUOTE="');
+      expect(source, name).toContain(`post: ${postId}, member: ${member.id}"]quoted[/QUOTE]`);
+      expect(html, name).toContain(`data-post-id="${postId}"`);
+      expect(html, name).not.toContain("[QUOTE");
+      // The canonical source renders to itself, as any later render of the stored text does.
+      const again = renderContent(ctx, other, source);
+      expect(again.source, name).toBe(source);
+      expect(again.quotes, name).toEqual([{ postId, userId: member.id }]);
+      expect(again.html, name).toBe(html);
+      // A moderator's re-render of the stored text (an edit, a merge or a split).
+      const moderated = renderContent(ctx, admin, source, {
+        edit: { contentType: "post", contentId: reply.id, authorId: writer.id },
+      });
+      expect(moderated.source, name).toBe(source);
+      expect(moderated.html, name).toBe(html);
+    }
+  });
+
   test("spoilers and plain text hide concealed content", () => {
     const html = renderBbCode(
       '[SPOILER="Ending"]Secret [B]ending[/B][/SPOILER]\n\n[ISPOILER]inline secret[/ISPOILER]',

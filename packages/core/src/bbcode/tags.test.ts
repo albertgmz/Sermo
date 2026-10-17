@@ -900,4 +900,21 @@ describe("BB code as XenForo writes it", () => {
     // No author left.
     expect(cite('"convMessage: 123"')).toBe('<blockquote class="bb-quote">x</blockquote>');
   });
+
+  test("a quoted name may hold brackets and double quotes, ending at a quote that closes the tag", () => {
+    const cite = (option: string) => md(`[QUOTE=${option}]x[/QUOTE]`);
+    const author = (html: string) => /<cite class="bb-quote-author">(.*?)<\/cite>/.exec(html)?.[1];
+    expect(author(cite('"Aoki [x], post: 1, member: 2"'))).toBe("Aoki [x]");
+    expect(author(cite('"Crow[de(a)d]"'))).toBe("Crow[de(a)d]");
+    expect(author(cite('"a]b"'))).toBe("a]b");
+    expect(author(cite('"Say "hi""'))).toBe('Say "hi"');
+    expect(author(cite('"a"b, post: 3"'))).toBe('a"b');
+    // The tag is still one tag, and what follows it is read as before.
+    expect(md('[QUOTE="Aoki [x]"][B]b[/B][/QUOTE] [I]c[/I]')).toContain("<strong>b</strong>");
+    // Only a QUOTE reads that far; other tags and other forms of the option are as they were.
+    expect(md('[COLOR="red] [B]b[/B] "x"]y[/COLOR]')).toContain("<strong>b</strong>");
+    // Never closed, or closed on another line: text.
+    expect(md('[QUOTE="Aoki [x]]x[/QUOTE]')).toBe('<p>[QUOTE="Aoki [x]]x[/QUOTE]</p>');
+    expect(md('[QUOTE="Aoki\n[x]"]x[/QUOTE]')).toStartWith('<p>[QUOTE="Aoki');
+  });
 });

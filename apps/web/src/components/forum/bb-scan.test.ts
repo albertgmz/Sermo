@@ -83,6 +83,7 @@ const SOURCES = [
   `[QUOTE="${"n".repeat(250)}"]long name[/QUOTE]`,
   "[QUOTE='wren, post: 1, member: 2']b[/QUOTE] [URL='https://a.test/x']a[/URL]",
   `[QUOTE='O'Brien']x[/QUOTE] [QUOTE='Say "hi"']y[/QUOTE] [FONT='Arial']z[/FONT]`,
+  '[QUOTE="Aoki [x], post: 1, member: 2"]a[/QUOTE] [QUOTE="Say "hi", post: 3"]b[/QUOTE] [QUOTE="a]b"]c[/QUOTE]',
   "[JUSTIFY]x[/JUSTIFY] [HR][/HR] a [/HR] b",
 ];
 
@@ -96,7 +97,9 @@ test("every tag the renderer pairs is a tag for the editor too", () => {
       expect(found, `${source}: ${tok.name} at ${tok.start}`).toBeDefined();
       expect(found?.[2].toUpperCase()).toBe(tok.name);
       expect(found?.[1] !== undefined).toBe(tok.kind === "close");
-      expect((found?.[3] ?? found?.[4] ?? found?.[5])?.trim()).toBe(tok.option);
+      expect(
+        (found?.[3] ?? found?.[4] ?? found?.[5] ?? found?.[6])?.trim(),
+      ).toBe(tok.option);
     }
   }
 });
@@ -199,6 +202,12 @@ test("a tag option is read as the renderer reads it", () => {
     "[QUOTE=a[b]x[/QUOTE]",
     '[QUOTE="a]b"]x[/QUOTE]',
     '[QUOTE="a"b"]x[/QUOTE]',
+    '[QUOTE="a [x], post: 1"]x[/QUOTE]',
+    '[QUOTE="a"]b"]x[/QUOTE]',
+    '[QUOTE="a]b\nc"]x[/QUOTE]',
+    '[QUOTE="a]b]x[/QUOTE]',
+    `[QUOTE="${long(190)}]b"]a[/QUOTE]`,
+    `[QUOTE="${long(201)}]"]a[/QUOTE]`,
     "[SPOILER=a\nb]x[/SPOILER]",
     "[QUOTE='a, post: 1']x[/QUOTE]",
     "[QUOTE='a'b']x[/QUOTE]",
@@ -228,4 +237,31 @@ test("an option in apostrophes that is never closed is not a tag for the editor,
     (m) => m.index,
   );
   expect(mine).toEqual([source.indexOf("[/QUOTE]")]);
+});
+
+test("a quote's name with brackets or quotation marks is the same tag for the editor and the renderer", () => {
+  const long = (n: number) => "x".repeat(n);
+  for (const source of [
+    '[QUOTE="Aoki [x], post: 1, member: 2"]a[/QUOTE]',
+    '[QUOTE="Say "hi", post: 3"]b[/QUOTE]',
+    '[QUOTE="a"]b"]c[/QUOTE]',
+    '[QUOTE="a]b\nc"]d[/QUOTE]',
+    '[QUOTE="a]b]c[/QUOTE]',
+    '[COLOR="red] [B]b[/B] "x"]y[/COLOR]',
+    `[QUOTE="${long(190)}]b"]a[/QUOTE]`,
+    `[QUOTE="${long(201)}]"]a[/QUOTE]`,
+  ]) {
+    const theirs = lex(source, new Deadline())
+      .filter((t) => t.kind !== "atom")
+      .map((t) => `${t.start}:${t.name}:${t.option}`);
+    // Read as the editor does: after something that is not a tag, from the next character.
+    const mine: string[] = [];
+    const re = new RegExp(TAG_SOURCE, "g");
+    for (let m = re.exec(source); m; m = re.exec(source)) {
+      const tag = tagOf(m);
+      if (tag) mine.push(`${m.index}:${tag.name}:${tag.option}`);
+      else re.lastIndex = m.index + 1;
+    }
+    expect(mine, source.slice(0, 40)).toEqual(theirs);
+  }
 });

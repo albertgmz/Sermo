@@ -36,6 +36,14 @@ test("quotes inside the body that are closed stay quotes", () => {
   );
 });
 
+test("a quote of a member whose name holds brackets or quotation marks stays a quote", () => {
+  const inner =
+    '[QUOTE="Aoki [x], post: 2, member: 1"]older[/QUOTE]\n[QUOTE="Say "hi", post: 3, member: 4"]newer[/QUOTE]';
+  expect(quoted(inner)).toBe(
+    `[QUOTE="ember, post: 5, member: 9"]${inner}[/QUOTE]`,
+  );
+});
+
 test("quote tags inside code are not tags and are left as written", () => {
   const code = "[CODE]\n[/QUOTE]\n[QUOTE]\n[/CODE] and [ICODE][/QUOTE][/ICODE]";
   expect(quoted(code)).toBe(

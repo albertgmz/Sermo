@@ -136,13 +136,27 @@ function trimAddress(address: string): string {
 const QUOTE_PAIRS =
   /(?:,|^(?=\s*(?:post|member|convMessage)\s*:))\s*[A-Za-z_]\w{0,30}\s*:\s*\d{1,12}(?:\s*,\s*[A-Za-z_]\w{0,30}\s*:\s*\d{1,12})*\s*$/i;
 
-/** The post named by a run of `key: N` pairs; every other key is ignored. */
+/**
+ * The post named by a run of `key: N` pairs; every other key is ignored. The last one counts: a
+ * name such as `Ann, post: 7` puts a pair of its own before the ones written after it.
+ */
 function quotedPost(pairs: string): number | null {
+  let post: number | null = null;
   for (const part of pairs.split(",")) {
     const found = /^\s*post\s*:\s*(\d+)\s*$/i.exec(part);
-    if (found) return Number(found[1]) || null;
+    if (found) post = Number(found[1]) || null;
   }
-  return null;
+  return post;
+}
+
+/**
+ * A quote's opening tag as `build` reads it back: the name in double quotes, then the pairs
+ * (`post: 5, member: 2`). Brackets, commas, colons and double quotes in a name are read as typed;
+ * only `"]`, which would close the tag, and a line break are replaced by a space.
+ */
+export function quoteTag(author: string, pairs?: string): string {
+  const name = author.replace(/"\]/g, '" ]').replace(/[\r\n]+/g, " ");
+  return `[QUOTE="${name}${pairs ? `, ${pairs}` : ""}"]`;
 }
 
 interface Frame {

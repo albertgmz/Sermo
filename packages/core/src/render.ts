@@ -6,7 +6,7 @@ import { Deadline, RENDER_LIMIT_MS, TOO_COMPLEX } from "./bbcode/deadline";
 import { blockCount, renderTree, type SpoilerSink } from "./bbcode/html";
 import { MEDIA_ALLOW, MEDIA_IFRAME_HOSTS, MEDIA_SANDBOX } from "./bbcode/media";
 import { COLOR_STYLE, lex, pair } from "./bbcode/scan";
-import { build, type El, type HashtagNode } from "./bbcode/tree";
+import { build, type El, type HashtagNode, quoteTag } from "./bbcode/tree";
 import { type Ctx, prepared } from "./context";
 import { ValidationError } from "./errors";
 import { MAX_BODY_LENGTH } from "./limits";
@@ -173,9 +173,9 @@ function canonicalSource(source: string, quotes: El[]): string {
     // A quote an import could not link keeps only its author's name, so the stored text, the
     // HTML and a later edit agree that it is not a reference to a post.
     const tag = quote.resolvedAuthor
-      ? `[QUOTE="${quote.resolvedAuthor}, post: ${quote.postId}, member: ${quote.userId}"]`
+      ? quoteTag(quote.resolvedAuthor, `post: ${quote.postId}, member: ${quote.userId}`)
       : quote.author
-        ? `[QUOTE="${quote.author}"]`
+        ? quoteTag(quote.author)
         : "[QUOTE]";
     result += `${source.slice(position, el.start)}${tag}`;
     position = el.end;

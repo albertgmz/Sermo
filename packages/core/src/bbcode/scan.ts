@@ -209,15 +209,19 @@ function readHead(source: string, at: number): Head | null {
   const quoted = mark === 34 || mark === 39;
   const from = quoted ? p + 1 : p;
   const link = name === "URL";
+  // A quote's author is a member's name, which may hold brackets and a double quote: in double
+  // quotes it ends only at a double quote that closes the tag, as an apostrophe does below.
+  const named = mark === 34 && name === "QUOTE";
   const limit = Math.min(source.length, from + (link ? MAX_URL_OPTION_LENGTH : MAX_OPTION_LENGTH));
   let q = from;
   for (; q < limit; q++) {
     const code = source.charCodeAt(q);
     // An address has no bracket, so a link option stops at the next one and the scan stays short.
-    if (code === 93 || code === 10 || (link && code === 91)) break;
+    if ((code === 93 && !named) || code === 10 || (link && code === 91)) break;
     // A double quote ends the option unless it is single-quoted; an apostrophe ends it only
     // when the tag closes right after it.
-    if (mark === 39 ? code === 39 && source.charCodeAt(q + 1) === 93 : code === 34) break;
+    if (mark === 39 || named ? code === mark && source.charCodeAt(q + 1) === 93 : code === 34)
+      break;
   }
   if (quoted) {
     if (source.charCodeAt(q) !== mark || source.charCodeAt(q + 1) !== 93) return null;
