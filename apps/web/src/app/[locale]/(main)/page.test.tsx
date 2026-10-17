@@ -113,6 +113,13 @@ test("with no tab in the address the site's default opens", async () => {
   expect(paths()).not.toContain(FEED);
 });
 
+test("the site's structured data is on the bare home address only", async () => {
+  backend({ member: false, siteTab: "latest" });
+  expect(await render()).toContain('"@type":"WebSite"');
+  expect(await render({ tab: "hot" })).not.toContain('"@type":"WebSite"');
+  expect(await render({ cursor: "abc" })).not.toContain('"@type":"WebSite"');
+});
+
 test("a member's own choice opens without asking the site, and beats its default", async () => {
   backend({ member: true, siteTab: "forums", own: "media" });
   await render();

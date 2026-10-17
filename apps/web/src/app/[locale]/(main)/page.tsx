@@ -123,7 +123,9 @@ export default function HomePage(props: PageProps<"/[locale]">) {
       <h1 className="sr-only">{t("heading")}</h1>
       {/* No fallback: structured data draws nothing. */}
       <Suspense fallback={null}>
-        <WebSiteJsonLd />
+        <OnHomeAddress {...props}>
+          <WebSiteJsonLd />
+        </OnHomeAddress>
       </Suspense>
       {/* No fallback: only the page a deleted account lands on has a notice. */}
       <Suspense fallback={null}>
@@ -232,6 +234,18 @@ const opening = cache(
     return { params, signedIn, home, tab };
   },
 );
+
+// The site's structured data belongs to its home address: the bare address as guests (and so
+// crawlers) open it, not a tab, a continued list or a copy. A guest's home is the site's tab.
+async function OnHomeAddress({
+  searchParams,
+  children,
+}: PageProps<"/[locale]"> & { children: React.ReactNode }) {
+  const { params, tab, signedIn, home } = await opening(searchParams);
+  if (signedIn) return null;
+  const address = homeAddress({ opened: tab, guestTab: home, params });
+  return address.path === "/" && address.index ? children : null;
+}
 
 // What belongs to the feed (the wall composer, the featured threads) is drawn on its tabs only; the
 // featured threads not above a list narrowed by a filter, which may leave them out.

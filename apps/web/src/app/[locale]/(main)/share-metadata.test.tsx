@@ -148,6 +148,60 @@ test("a thread is shared as an article by its author, in its forum, with its tag
   });
 });
 
+test("every address of a shared page is on its canonical's origin, even when this app's public address differs", async () => {
+  const origin = "https://garden.example";
+  threadAnswers("index,follow");
+  const found = answers["threads.get"]({}) as {
+    seo: ReturnType<typeof seo>;
+  };
+  // The structured data names the author by their slugged address.
+  answers["threads.get"] = () => ({
+    ...found,
+    seo: {
+      ...seo(`${origin}/threads/12-pruning-roses`, "index,follow"),
+      jsonLd: [
+        {
+          "@type": "DiscussionForumPosting",
+          author: { "@type": "Person", url: `${origin}/members/4-wren` },
+        },
+      ],
+    },
+  });
+  const head = await thread.generateMetadata(props("12-pruning-roses"));
+  expect(head.openGraph?.url).toBe(`${origin}/threads/12-pruning-roses`);
+  expect(
+    head.openGraph && "authors" in head.openGraph && head.openGraph.authors,
+  ).toEqual([`${origin}/members/4-wren`]);
+  expect(head.alternates?.types).toEqual({
+    "application/atom+xml": [{ ...SITE_FEED, url: `${origin}/feed.atom` }],
+  });
+  // With the text closed to the viewer there is no structured data: the plain address, same origin.
+  answers["threads.get"] = () => ({
+    ...found,
+    seo: seo(`${origin}/threads/12-pruning-roses`, "index,follow"),
+  });
+  const closed = await thread.generateMetadata(props("12-pruning-roses"));
+  expect(
+    closed.openGraph &&
+      "authors" in closed.openGraph &&
+      closed.openGraph.authors,
+  ).toEqual([`${origin}/members/4`]);
+  answers["nodes.get"] = () => ({
+    node: { id: 3, title: "Roses", type: "forum" },
+    seo: seo(`${origin}/forums/3-roses`, "index,follow"),
+  });
+  const forumHead = await forum.generateMetadata(props("3-roses"));
+  expect(forumHead.alternates?.types).toEqual({
+    "application/atom+xml": [
+      { ...SITE_FEED, url: `${origin}/feed.atom` },
+      {
+        title: "Latest threads in Roses",
+        url: `${origin}/forums/3-roses/feed.atom`,
+      },
+    ],
+  });
+});
+
 test("a later page of a thread is shared under its own address", async () => {
   threadAnswers("index,follow");
   const head = await thread.generateMetadata(

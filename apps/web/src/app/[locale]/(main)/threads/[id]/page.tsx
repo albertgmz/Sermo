@@ -32,10 +32,9 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { POLL_MS } from "@/lib/poll-intervals";
-import { canonicalPathOf } from "@/lib/sermo/addresses";
+import { canonicalPathOf, canonicalUrlOf } from "@/lib/sermo/addresses";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
-import { publicUrl } from "@/lib/sermo/config";
 import { parsePageId } from "@/lib/sermo/ids";
 import { authorsFor } from "@/lib/sermo/members";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
@@ -78,6 +77,16 @@ function threadIdOf(raw: string) {
   return id;
 }
 
+// The thread starter's page on the canonical's origin: the slugged address the structured data
+// names, or their plain one (which leads there) when the text is closed to the viewer.
+function authorUrl(seo: { canonical: string; jsonLd: unknown[] }, id: number) {
+  for (const item of seo.jsonLd) {
+    const url = (item as { author?: { url?: unknown } }).author?.url;
+    if (typeof url === "string") return canonicalUrlOf(url);
+  }
+  return new URL(`/members/${id}`, new URL(seo.canonical).origin).href;
+}
+
 export async function generateMetadata({
   params,
   searchParams,
@@ -96,7 +105,7 @@ export async function generateMetadata({
       type: "article",
       publishedTime: thread.createdAt,
       modifiedTime: thread.lastPost.postedAt,
-      author: new URL(`/members/${thread.author.id}`, publicUrl()).href,
+      author: authorUrl(seo, thread.author.id),
       section: node.title,
       tags,
     },

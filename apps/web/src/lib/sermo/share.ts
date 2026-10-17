@@ -30,12 +30,14 @@ export async function publicHead(
     getLocale(),
     getTranslations("lib.share"),
   ]);
-  const origin = publicUrl();
+  // Every address of the page shares one origin: the canonical's (the backend's site address on
+  // its pages), else this app's public address.
   const canonical = head.alternates?.canonical;
   const url =
     typeof canonical === "string"
       ? canonical
-      : new URL(page.path ?? "/", origin).href;
+      : new URL(page.path ?? "/", publicUrl()).href;
+  const { origin } = new URL(url);
   const feeds = [
     {
       title: t("siteFeed", { site: site.name }),

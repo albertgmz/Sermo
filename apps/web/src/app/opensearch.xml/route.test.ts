@@ -36,6 +36,7 @@ test("the OpenSearch description is served as one, named as the site is", async 
   expect(response.headers.get("content-type")).toBe(
     "application/opensearchdescription+xml; charset=utf-8",
   );
+  expect(response.headers.get("cache-control")).toBe("public, max-age=300");
   const body = await response.text();
   expect(body).toContain("<ShortName>Garden Club</ShortName>");
   expect(body).toContain("/search?q={searchTerms}");

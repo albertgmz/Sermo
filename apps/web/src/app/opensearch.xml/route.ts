@@ -7,6 +7,7 @@ export async function GET() {
   return new Response(openSearchDescription(await getSite(), publicUrl()), {
     headers: {
       "content-type": "application/opensearchdescription+xml; charset=utf-8",
+      "cache-control": "public, max-age=300",
     },
   });
 }
