@@ -269,14 +269,23 @@
  * The visitor chose a narrower page (the header button; layout/narrow-width.ts). Only the forum
  * (the (main) layout, marked data-forum-layout) narrows, and the cookie banner on its pages with
  * it (set on the root of a forum page, the banner being outside the layout). The staff panel and
- * the /developer page fill the window whatever the choice (`--container-width: none` on their
- * frame).
+ * the /developer page fill the window whatever the choice (the rule below and the staff frame).
  * 1100px is also the breakpoint class in layout/narrow-toggle.tsx (min-[1100px]) and named in
  * the /ui text: change them together.
  */
 :root[data-width="narrow"] [data-forum-layout],
 :root[data-width="narrow"]:has([data-forum-layout]) {
   --container-width: 1100px;
+}
+
+/*
+ * A forum page that fills the window (the API reference: developer/page.tsx and its loading.tsx
+ * mark their layout `page-full-width`) lifts the width for the whole forum layout, so the header,
+ * the banners and the footer line up with it. As specific as the narrow rule and after it, so it
+ * wins over it.
+ */
+:root [data-forum-layout]:has(.page-full-width) {
+  --container-width: none;
 }
 
 /*

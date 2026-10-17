@@ -4412,5 +4412,6 @@ content width: the panel's frame and the developer page's layout set `--containe
 the `Container` inside them fills the window (with its usual side padding) at any size, and the
 narrow-page setting no longer applies to them. The forum keeps 1420px (1100px when narrowed): long
 lines of posts read better capped, while tables, forms with a side navigation and the API reference
-use the room. On `/developer` only the page's own body widens; the site header above it keeps the
-forum's width.
+use the room. On `/developer` the whole forum layout widens with the page, header, banners and
+footer included, so they line up with its text (a `page-full-width` mark on the page's layout and
+one rule in `globals.css`); the staff frame sets the variable itself.

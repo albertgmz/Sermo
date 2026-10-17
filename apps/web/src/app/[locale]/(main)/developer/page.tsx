@@ -4,20 +4,21 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { ApiReference } from "./api-reference";
 import { DeveloperIntro } from "./intro";
 
-// A public page, open to search engines: the interface text is the same for every visitor. It
-// fills the window (no site content width, narrow setting included) to give the reference room.
+// A public page, open to search engines: the interface text is the same for every visitor.
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("developer.page");
   return { title: t("metaTitle"), description: t("metaDescription") };
 }
 
+// The page fills the window, header and footer included, to give the reference room
+// (`page-full-width`, globals.css).
 export default async function DeveloperPage() {
   const [t, reference] = await Promise.all([
     getTranslations("developer.page"),
     getTranslations("developer.apiReference"),
   ]);
   return (
-    <PageLayout className="[--container-width:none] md:pt-8">
+    <PageLayout className="page-full-width md:pt-8">
       <h1 className="mb-4 text-3xl font-bold tracking-tight text-balance">
         {t("title")}
       </h1>

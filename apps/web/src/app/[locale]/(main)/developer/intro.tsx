@@ -38,7 +38,7 @@ export function DeveloperIntro() {
       <Heading>{t("keysHeading")}</Heading>
       <p className="mt-2">{t("keysAccess")}</p>
       <ul className="mt-2 list-disc space-y-1 pl-5">
-        <li>{t("keysManage")}</li>
+        <li>{t.rich("keysManage", { code })}</li>
         <li>{t("keysPassword")}</li>
       </ul>
       <p className="mt-2">{t("keysEnd")}</p>
