@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
+import { PageHeader } from "@/components/staff/page-header";
 import { linkClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { hrefFor, type ScreenKey } from "../../../registry";
+import { staffTrail } from "../../../trail";
 import { getMember, staffRolesOf } from "../data";
 import { MemberState } from "../member-state";
 import { MemberTabs } from "./member-tabs";
@@ -63,17 +65,20 @@ export async function MemberHeader({
     );
   return (
     <>
-      <header className="space-y-3">
-        <div className="flex items-center gap-4">
-          <UserAvatar user={member.card} size="xl" link={false} />
-          <div className="min-w-0 space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight [overflow-wrap:anywhere]">
+      <div className="space-y-3">
+        <PageHeader
+          trail={staffTrail(`/admin/users/${userId}`)}
+          title={
+            <span className="flex items-center gap-3">
+              <UserAvatar user={member.card} size="lg" link={false} />
               <UserLink
                 user={member.card}
                 className="inline-flex min-h-10 items-center"
               />
-            </h1>
-            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            </span>
+          }
+          description={
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <MemberState state={member.state} />
               {member.isSuperAdmin && <Badge>{t("superAdmin")}</Badge>}
               {roles.administrator &&
@@ -82,9 +87,9 @@ export async function MemberHeader({
               <span className="[overflow-wrap:anywhere]">
                 {t("id", { id: member.card.id })}
               </span>
-            </p>
-          </div>
-        </div>
+            </span>
+          }
+        />
         {member.state === "erased" ? (
           <p
             role="note"
@@ -102,7 +107,7 @@ export async function MemberHeader({
             </p>
           )
         )}
-      </header>
+      </div>
       <MemberTabs tabs={tabs} label={t("tabs")} />
     </>
   );

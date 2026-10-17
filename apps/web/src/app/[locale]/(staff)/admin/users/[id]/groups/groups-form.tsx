@@ -1,9 +1,9 @@
 import { getTranslations } from "next-intl/server";
-import { ConfirmPassword } from "@/components/staff/confirm-password";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import type { GroupItem } from "../../../groups/data";
+import { AdminPassword } from "../../admin-password";
 import { saveGroups } from "./actions";
 
 type Held = {
@@ -30,73 +30,73 @@ export async function GroupsForm({
   // The guest group cannot be assigned.
   const assignable = groups.filter((group) => group.builtin !== "guest");
   return (
-    <FormRows
+    <EditForm
       key={JSON.stringify(held)}
       action={saveGroups}
-      heading={t("heading")}
-      description={t("description")}
       disabled={readOnly}
     >
       <input type="hidden" name="id" value={userId} />
-      <ConfirmPassword />
-      <FieldRow
-        name="primaryGroupId"
-        label={t("primary")}
-        htmlFor="member-primary-group"
-      >
-        <select
-          id="member-primary-group"
+      <FieldGroup legend={t("heading")} description={t("description")}>
+        <AdminPassword />
+        <Field
           name="primaryGroupId"
-          defaultValue={held.primaryGroupId}
-          className={selectClass}
+          label={t("primary")}
+          htmlFor="member-primary-group"
         >
-          {assignable.map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.title}
-            </option>
-          ))}
-        </select>
-      </FieldRow>
-      <FieldRow
-        name="secondary"
-        label={t("secondary")}
-        help={t("secondaryHelp")}
-      >
-        <ul className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
-          {assignable.map((group) => {
-            const manual = held.secondaryGroupIds.includes(group.id);
-            const promoted = held.promotionGroupIds.includes(group.id);
-            const bought = held.purchasedGroupIds.includes(group.id);
-            const fixed = !manual && (promoted || bought);
-            return (
-              <li key={group.id}>
-                <label className="flex min-h-10 items-center gap-3 text-sm">
-                  <input
-                    type="checkbox"
-                    name="secondary"
-                    value={group.id}
-                    defaultChecked={manual || fixed}
-                    disabled={fixed}
-                    className="size-5"
-                  />
-                  <span className="[overflow-wrap:anywhere]">
-                    {group.title}
-                  </span>
-                  {manual && (
-                    <Badge variant="secondary">{t("origin.manual")}</Badge>
-                  )}
-                  {promoted && (
-                    <Badge variant="outline">{t("origin.promotion")}</Badge>
-                  )}
-                  {bought && (
-                    <Badge variant="outline">{t("origin.purchased")}</Badge>
-                  )}
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-      </FieldRow>
-    </FormRows>
+          <select
+            id="member-primary-group"
+            name="primaryGroupId"
+            defaultValue={held.primaryGroupId}
+            className={selectClass}
+          >
+            {assignable.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.title}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field
+          name="secondary"
+          label={t("secondary")}
+          help={t("secondaryHelp")}
+        >
+          <ul className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+            {assignable.map((group) => {
+              const manual = held.secondaryGroupIds.includes(group.id);
+              const promoted = held.promotionGroupIds.includes(group.id);
+              const bought = held.purchasedGroupIds.includes(group.id);
+              const fixed = !manual && (promoted || bought);
+              return (
+                <li key={group.id}>
+                  <label className="flex min-h-10 items-center gap-3 text-sm">
+                    <input
+                      type="checkbox"
+                      name="secondary"
+                      value={group.id}
+                      defaultChecked={manual || fixed}
+                      disabled={fixed}
+                      className="size-5"
+                    />
+                    <span className="[overflow-wrap:anywhere]">
+                      {group.title}
+                    </span>
+                    {manual && (
+                      <Badge variant="secondary">{t("origin.manual")}</Badge>
+                    )}
+                    {promoted && (
+                      <Badge variant="outline">{t("origin.promotion")}</Badge>
+                    )}
+                    {bought && (
+                      <Badge variant="outline">{t("origin.purchased")}</Badge>
+                    )}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </Field>
+      </FieldGroup>
+    </EditForm>
   );
 }

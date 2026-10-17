@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ConfirmStep } from "@/components/staff/confirm-step";
+import { ItemList } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { buttonVariants } from "@/components/ui/button";
@@ -63,36 +64,31 @@ async function Details({
         ]}
       />
       <IdentityForm member={member} readOnly={readOnly} />
-      <Section heading={t("picturesHeading")}>
-        <ul className="divide-y">
-          {pictures.map(({ which, set }) => (
-            <li
-              key={which}
-              className="flex flex-wrap items-center justify-between gap-3 p-4"
-            >
-              <p className="text-sm">
-                <span className="font-medium">{t(`picture.${which}`)}</span>{" "}
-                <span className="text-muted-foreground">
-                  {set === null
-                    ? t("pictureUnknown")
-                    : set
-                      ? t("pictureSet")
-                      : t("pictureNone")}
-                </span>
-              </p>
-              {set !== false && !readOnly && (
-                <ConfirmStep
-                  action={removePicture}
-                  fields={{ id: userId, which }}
-                  summary={t("remove")}
-                  reason={t("removeReason")}
-                  warning={t(`removeWarning.${which}`)}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
-      </Section>
+      <ItemList
+        label={t("picturesHeading")}
+        heading={t("picturesHeading")}
+        empty={{ title: t("picturesHeading") }}
+        items={pictures.map(({ which, set }) => ({
+          id: which,
+          title: t(`picture.${which}`),
+          description:
+            set === null
+              ? t("pictureUnknown")
+              : set
+                ? t("pictureSet")
+                : t("pictureNone"),
+          actions:
+            set !== false && !readOnly ? (
+              <ConfirmStep
+                action={removePicture}
+                fields={{ id: userId, which }}
+                summary={t("remove")}
+                reason={t("removeReason")}
+                warning={t(`removeWarning.${which}`)}
+              />
+            ) : undefined,
+        }))}
+      />
       <Section heading={t("accountHeading")}>
         <div className="flex flex-wrap items-center gap-3 p-4">
           <MemberState state={member.state} />

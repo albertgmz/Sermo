@@ -1,9 +1,10 @@
 import { BAN_STATES, bansList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
+import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { ConfirmStep } from "@/components/staff/confirm-step";
-import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
+import { cursorFrom } from "@/components/staff/cursor-list";
 import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
@@ -11,11 +12,9 @@ import { Button } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { liftBan } from "../users/[id]/sanctions/actions";
+import { PagedItems } from "../users/paged-items";
 
 type Params = Record<string, string | string[] | undefined>;
-
-const COLUMNS =
-  "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.6fr)_8rem_8rem_6rem]";
 
 // The ban register, newest first, with the state filter in the address.
 export async function BanList({
@@ -40,7 +39,53 @@ export async function BanList({
   );
   const date = (at: string) =>
     format.dateTime(new Date(at), { dateStyle: "medium" });
-  const label = "text-xs text-muted-foreground md:hidden";
+  const items = page.items.map((ban) => ({
+    id: ban.id,
+    icon: <UserAvatar user={who(ban.user.id)} size="lg" link={false} />,
+    title: who(ban.user.id).username,
+    href: `/admin/users/${ban.user.id}`,
+    badges: (
+      <Badge variant={ban.state === "active" ? "destructive" : "outline"}>
+        {s(`banStates.${ban.state}`)}
+      </Badge>
+    ),
+    description: (
+      <>
+        <span className="block">{ban.reason || t("noReason")}</span>
+        <span className="flex flex-wrap items-center gap-x-3">
+          <span>
+            {t("by")}:{" "}
+            <UserLink
+              user={who(ban.moderator.id)}
+              className="inline-flex min-h-10 items-center"
+            />
+          </span>
+          <span>
+            {t("when")}:{" "}
+            <time dateTime={ban.createdAt}>{date(ban.createdAt)}</time>
+          </span>
+          <span>
+            {t("until")}:{" "}
+            {ban.expiresAt ? (
+              <time dateTime={ban.expiresAt}>{date(ban.expiresAt)}</time>
+            ) : (
+              t("permanent")
+            )}
+          </span>
+        </span>
+      </>
+    ),
+    actions:
+      ban.state === "active" ? (
+        <ConfirmStep
+          action={liftBan}
+          fields={{ banId: ban.id }}
+          summary={t("lift")}
+          reason={s("liftReason")}
+          danger={false}
+        />
+      ) : undefined,
+  }));
   return (
     <>
       <Notice
@@ -48,13 +93,13 @@ export async function BanList({
         searchParams={searchParams}
         shown={["lifted"]}
       />
-      <CursorList
-        items={page.items}
+      <PagedItems
+        items={items}
         nextCursor={page.nextCursor}
         path="/admin/bans"
         params={params}
-        itemKey={(ban) => ban.id}
         label={t("heading")}
+        empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
         filters={
           <form method="get" action="/admin/bans" aria-label={t("filters")}>
             <div className="flex flex-wrap items-end gap-3">
@@ -85,72 +130,6 @@ export async function BanList({
             </div>
           </form>
         }
-        head={
-          <div
-            className={`hidden gap-x-4 border-b px-4 py-2 text-xs font-semibold text-muted-foreground md:grid ${COLUMNS}`}
-          >
-            <span>{t("member")}</span>
-            <span>{t("by")}</span>
-            <span>{t("reason")}</span>
-            <span>{t("when")}</span>
-            <span>{t("until")}</span>
-            <span>{t("state")}</span>
-          </div>
-        }
-        empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
-        render={(ban) => (
-          <div className="space-y-2 p-4">
-            <div
-              className={`grid gap-x-4 gap-y-1.5 text-sm md:items-start ${COLUMNS}`}
-            >
-              <p className="min-w-0 font-medium [overflow-wrap:anywhere]">
-                <UserLink
-                  user={who(ban.user.id)}
-                  className="inline-flex min-h-10 items-center"
-                />
-              </p>
-              <p className="min-w-0 [overflow-wrap:anywhere]">
-                <span className={label}>{t("by")}: </span>
-                <UserLink
-                  user={who(ban.moderator.id)}
-                  className="inline-flex min-h-10 items-center"
-                />
-              </p>
-              <p className="min-w-0 [overflow-wrap:anywhere]">
-                <span className={label}>{t("reason")}: </span>
-                {ban.reason || t("noReason")}
-              </p>
-              <p>
-                <span className={label}>{t("when")}: </span>
-                <time dateTime={ban.createdAt}>{date(ban.createdAt)}</time>
-              </p>
-              <p>
-                <span className={label}>{t("until")}: </span>
-                {ban.expiresAt ? (
-                  <time dateTime={ban.expiresAt}>{date(ban.expiresAt)}</time>
-                ) : (
-                  t("permanent")
-                )}
-              </p>
-              <p>
-                <Badge
-                  variant={ban.state === "active" ? "destructive" : "outline"}
-                >
-                  {s(`banStates.${ban.state}`)}
-                </Badge>
-              </p>
-            </div>
-            {ban.state === "active" && (
-              <ConfirmStep
-                action={liftBan}
-                fields={{ banId: ban.id }}
-                summary={t("lift")}
-                reason={s("liftReason")}
-                danger={false}
-              />
-            )}
-          </div>
-        )}
       />
     </>
   );

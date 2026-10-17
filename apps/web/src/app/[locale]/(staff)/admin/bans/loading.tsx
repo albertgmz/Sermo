@@ -1,9 +1,10 @@
-import { ListSkeleton, LoadingPage } from "../groups/skeletons";
+import { ListSkeleton } from "../groups/skeletons";
+import { TrailLoading } from "../users/trail-loading";
 
 export default function Loading() {
   return (
-    <LoadingPage>
+    <TrailLoading>
       <ListSkeleton rows={6} />
-    </LoadingPage>
+    </TrailLoading>
   );
 }

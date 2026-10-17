@@ -5,6 +5,7 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { ClientIcons } from "@/components/forum/client-icons";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ConfirmStep } from "@/components/staff/confirm-step";
+import { ItemList } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { Help, Section } from "@/components/staff/rows";
 import { read } from "@/lib/sermo/client";
@@ -52,65 +53,62 @@ async function Sessions({
         searchParams={searchParams}
         shown={["revoked", "allRevoked"]}
       />
-      <Section heading={t("heading")}>
-        {items.length === 0 ? (
-          <EmptyState
-            title={t("emptyTitle")}
-            description={t("emptyDescription")}
-          />
-        ) : (
-          <ul aria-label={t("heading")} className="divide-y">
-            {items.map((session) => (
-              <li key={session.id} className="space-y-2 p-4 text-sm">
-                <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-[8rem_minmax(0,1fr)]">
-                  <dt className="text-muted-foreground">{t("created")}</dt>
-                  <dd>
-                    <time dateTime={session.createdAt}>
-                      {when(session.createdAt)}
-                    </time>
-                  </dd>
-                  <dt className="text-muted-foreground">{t("expires")}</dt>
-                  <dd>
-                    <time dateTime={session.expiresAt}>
-                      {when(session.expiresAt)}
-                    </time>
-                  </dd>
-                  <dt className="text-muted-foreground">{t("address")}</dt>
-                  <dd className="[overflow-wrap:anywhere]">
-                    {session.ipAddress ?? t("unknown")}
-                  </dd>
-                  <dt className="text-muted-foreground">{t("userAgent")}</dt>
-                  <dd className="flex flex-wrap items-center gap-x-2 [overflow-wrap:anywhere]">
-                    <ClientIcons client={session.device} />
-                    {session.userAgent ?? t("unknown")}
-                  </dd>
-                </dl>
-                {!readOnly && (
-                  <ConfirmStep
-                    action={revokeSessions}
-                    fields={{ id: userId, sessionId: session.id }}
-                    summary={t("revokeOne")}
-                    reason={t("reason")}
-                    warning={t("revokeOneWarning")}
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="space-y-2 border-t p-4">
-          <Help>{t("revokeOneHelp")}</Help>
-          {!readOnly && items.length > 0 && (
+      <ItemList
+        label={t("heading")}
+        heading={t("heading")}
+        empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
+        items={items.map((session) => ({
+          id: session.id,
+          title: (
+            <span className="inline-flex flex-wrap items-center gap-x-2">
+              <ClientIcons client={session.device} />
+              {session.userAgent ?? t("unknown")}
+            </span>
+          ),
+          description: (
+            <>
+              <span className="block">
+                {t("address")}: {session.ipAddress ?? t("unknown")}
+              </span>
+              <span className="flex flex-wrap gap-x-3">
+                <span>
+                  {t("created")}:{" "}
+                  <time dateTime={session.createdAt}>
+                    {when(session.createdAt)}
+                  </time>
+                </span>
+                <span>
+                  {t("expires")}:{" "}
+                  <time dateTime={session.expiresAt}>
+                    {when(session.expiresAt)}
+                  </time>
+                </span>
+              </span>
+            </>
+          ),
+          actions: readOnly ? undefined : (
             <ConfirmStep
               action={revokeSessions}
-              fields={{ id: userId }}
-              summary={t("revokeAll")}
+              fields={{ id: userId, sessionId: session.id }}
+              summary={t("revokeOne")}
               reason={t("reason")}
-              warning={t("revokeAllWarning")}
+              warning={t("revokeOneWarning")}
             />
-          )}
-        </div>
-      </Section>
+          ),
+        }))}
+      />
+      <div className="space-y-2 rounded-lg border bg-card p-4">
+        <Help>{t("revokeOneHelp")}</Help>
+        {!readOnly && items.length > 0 && (
+          <ConfirmStep
+            action={revokeSessions}
+            fields={{ id: userId }}
+            summary={t("revokeAll")}
+            reason={t("reason")}
+            warning={t("revokeAllWarning")}
+          />
+        )}
+      </div>
     </>
   );
 }

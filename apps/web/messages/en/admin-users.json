@@ -74,8 +74,6 @@
     "loading": "Loading the members…",
     "heading": "Members",
     "filters": "Filter the members",
-    "member": "Member",
-    "email": "Email",
     "state": "State",
     "group": "Group",
     "registered": "Registered",
@@ -83,7 +81,6 @@
     "posts": "Posts",
     "credits": "Credits",
     "open": "Open",
-    "none": "None",
     "never": "Never",
     "prefix": "Starts with",
     "prefixHelp": "A username or an email. With a prefix the list is ordered by username, then by email, not newest first.",
@@ -92,7 +89,8 @@
     "reset": "Reset",
     "emptyTitle": "No members here",
     "emptyDescription": "No member on this page matches. If a next page is offered, continue: a page can be empty while more rows follow.",
-    "batchLink": "Batch update members"
+    "batchLink": "Batch update members",
+    "profile": "View profile"
   },
   "identity": {
     "metaTitle": "Member details",
@@ -301,7 +299,8 @@
     "look": "Look",
     "liftThreadBan": "Lift the thread ban",
     "notBannedInThread": "This member is not banned in that thread.",
-    "threadUnavailable": "That thread's bans cannot be shown to you:"
+    "threadUnavailable": "That thread's bans cannot be shown to you:",
+    "noReason": "No reason given"
   },
   "economy": {
     "metaTitle": "Member economy",
@@ -386,7 +385,6 @@
     "all": "All",
     "apply": "Apply",
     "reset": "Reset",
-    "member": "Member",
     "by": "Banned by",
     "reason": "Reason",
     "when": "When",

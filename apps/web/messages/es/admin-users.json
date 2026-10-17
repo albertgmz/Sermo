@@ -74,8 +74,6 @@
     "loading": "Cargando los miembros…",
     "heading": "Miembros",
     "filters": "Filtrar los miembros",
-    "member": "Miembro",
-    "email": "Correo",
     "state": "Estado",
     "group": "Grupo",
     "registered": "Registro",
@@ -83,7 +81,6 @@
     "posts": "Mensajes",
     "credits": "Créditos",
     "open": "Abrir",
-    "none": "Ninguno",
     "never": "Nunca",
     "prefix": "Empieza por",
     "prefixHelp": "Un nombre de usuario o un correo. Con un prefijo, la lista se ordena por nombre de usuario y luego por correo, no por los más recientes primero.",
@@ -92,7 +89,8 @@
     "reset": "Restablecer",
     "emptyTitle": "No hay miembros aquí",
     "emptyDescription": "Ningún miembro de esta página coincide. Si se ofrece una página siguiente, continúa: una página puede estar vacía mientras siguen más filas.",
-    "batchLink": "Cambio masivo de miembros"
+    "batchLink": "Cambio masivo de miembros",
+    "profile": "Ver perfil"
   },
   "identity": {
     "metaTitle": "Datos del miembro",
@@ -301,7 +299,8 @@
     "look": "Consultar",
     "liftThreadBan": "Levantar la expulsión del tema",
     "notBannedInThread": "Este miembro no está expulsado de ese tema.",
-    "threadUnavailable": "No se te pueden mostrar las expulsiones de ese tema:"
+    "threadUnavailable": "No se te pueden mostrar las expulsiones de ese tema:",
+    "noReason": "Sin motivo indicado"
   },
   "economy": {
     "metaTitle": "Economía del miembro",
@@ -386,7 +385,6 @@
     "all": "Todas",
     "apply": "Aplicar",
     "reset": "Restablecer",
-    "member": "Miembro",
     "by": "Expulsado por",
     "reason": "Motivo",
     "when": "Cuándo",

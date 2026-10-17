@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/forum/empty-state";
+import { ItemList } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { call, read } from "@/lib/sermo/client";
@@ -79,43 +80,33 @@ async function Groups({
         <SuperAdminForm userId={userId} superAdmin={member.isSuperAdmin} />
       )}
       {status && (
-        <Section heading={p("heading")} description={p("description")}>
-          {status.items.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">{p("empty")}</p>
-          ) : (
-            <ul className="divide-y">
-              {status.items.map((item) => (
-                <li
-                  key={item.promotionId}
-                  className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-semibold [overflow-wrap:anywhere]">
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {p("state", {
-                        state: item.state ?? "none",
-                      })}
-                      {" · "}
-                      {item.eligible ? p("eligible") : p("notEligible")}
-                      {item.grantedGroupIds.length > 0 &&
-                        ` · ${p("grants", { groups: item.grantedGroupIds.map(title).join(", ") })}`}
-                    </p>
-                  </div>
-                  {!readOnly && (
-                    <PromotionApply
-                      action={applyPromotion}
-                      actions={promotionsApply.input.shape.action.options}
-                      userId={userId}
-                      promotionId={item.promotionId}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
+        <ItemList
+          label={p("heading")}
+          heading={p("heading")}
+          description={p("description")}
+          empty={{ title: p("empty") }}
+          items={status.items.map((item) => ({
+            id: item.promotionId,
+            title: item.title,
+            description: (
+              <>
+                {p("state", { state: item.state ?? "none" })}
+                {" · "}
+                {item.eligible ? p("eligible") : p("notEligible")}
+                {item.grantedGroupIds.length > 0 &&
+                  ` · ${p("grants", { groups: item.grantedGroupIds.map(title).join(", ") })}`}
+              </>
+            ),
+            panel: readOnly ? undefined : (
+              <PromotionApply
+                action={applyPromotion}
+                actions={promotionsApply.input.shape.action.options}
+                userId={userId}
+                promotionId={item.promotionId}
+              />
+            ),
+          }))}
+        />
       )}
     </>
   );

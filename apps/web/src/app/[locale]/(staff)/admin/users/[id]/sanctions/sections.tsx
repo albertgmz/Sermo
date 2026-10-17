@@ -8,8 +8,9 @@ import {
 import { getFormatter, getTranslations } from "next-intl/server";
 import { UserLink } from "@/components/forum/user-link";
 import { ConfirmStep } from "@/components/staff/confirm-step";
-import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { cursorFrom } from "@/components/staff/cursor-list";
+import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
+import { ItemList } from "@/components/staff/item-list";
 import { Section, selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { call } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { ifAllowed } from "../../data";
+import { PagedItems } from "../../paged-items";
 import {
   addRestriction,
   banMember,
@@ -58,7 +60,7 @@ async function NoticeRows() {
   const t = await getTranslations("adminUsers.sanctions");
   return (
     <>
-      <FieldRow name="notify" label={t("notify")}>
+      <Field name="notify" label={t("notify")}>
         <label className="flex min-h-10 items-center gap-3 text-sm">
           <input
             type="checkbox"
@@ -68,10 +70,10 @@ async function NoticeRows() {
           />
           {t("notifyHelp")}
         </label>
-      </FieldRow>
-      <FieldRow name="message" label={t("message")} htmlFor="sanction-message">
+      </Field>
+      <Field name="message" label={t("message")} htmlFor="sanction-message">
         <Textarea id="sanction-message" name="message" rows={2} />
-      </FieldRow>
+      </Field>
     </>
   );
 }
@@ -108,34 +110,22 @@ export async function Warnings({
   return (
     <>
       {page && who && (
-        <CursorList
-          items={page.items}
-          nextCursor={page.nextCursor}
-          path={`/admin/users/${userId}/sanctions`}
-          params={params}
-          cursorParam="warnings"
-          itemKey={(warning) => warning.id}
-          label={t("warnings")}
-          head={
-            <div className="border-b p-4">
-              <h2 className="text-sm font-semibold">{t("warnings")}</h2>
-            </div>
-          }
-          empty={{ title: t("noWarnings") }}
-          render={(warning) => (
-            <div className="space-y-1 p-4 text-sm">
-              <p className="flex flex-wrap items-center gap-2">
+        <PagedItems
+          items={page.items.map((warning) => ({
+            id: warning.id,
+            title: warning.reason,
+            badges: (
+              <>
                 <Badge variant="secondary">
                   {t("points", { count: warning.points })}
                 </Badge>
                 {warning.typeName !== null && (
                   <Badge variant="outline">{warning.typeName}</Badge>
                 )}
-                <span className="[overflow-wrap:anywhere]">
-                  {warning.reason}
-                </span>
-              </p>
-              <p className="text-xs text-muted-foreground">
+              </>
+            ),
+            description: (
+              <>
                 <When at={warning.createdAt} none="" /> · {t("by")}{" "}
                 <UserLink
                   user={who(warning.moderatorId)}
@@ -143,9 +133,11 @@ export async function Warnings({
                 />{" "}
                 · {t("expires")}{" "}
                 <When at={warning.expiresAt} none={t("never")} />
-              </p>
-              {mayDelete && !readOnly && (
-                <div className="flex flex-wrap gap-2">
+              </>
+            ),
+            actions:
+              mayDelete && !readOnly ? (
+                <>
                   {(warning.expiresAt === null ||
                     Date.parse(warning.expiresAt) > now) && (
                     <ConfirmStep
@@ -164,94 +156,97 @@ export async function Warnings({
                     warning={t("deleteWarningHelp")}
                     reason={t("liftReason")}
                   />
-                </div>
-              )}
-            </div>
-          )}
+                </>
+              ) : undefined,
+          }))}
+          nextCursor={page.nextCursor}
+          path={`/admin/users/${userId}/sanctions`}
+          params={params}
+          cursorParam="warnings"
+          label={t("warnings")}
+          heading={t("warnings")}
+          empty={{ title: t("noWarnings") }}
         />
       )}
       {mayIssue && (
-        <FormRows
-          action={issueWarning}
-          heading={t("warnHeading")}
-          submit={t("warn")}
-          disabled={readOnly}
-        >
+        <EditForm action={issueWarning} submit={t("warn")} disabled={readOnly}>
           <input type="hidden" name="id" value={userId} />
-          {types.length > 0 && (
-            <FieldRow
-              name="typeId"
-              label={t("warnType")}
-              htmlFor="warn-type"
-              help={t("warnTypeHelp")}
-            >
-              <select
-                id="warn-type"
+          <FieldGroup legend={t("warnHeading")}>
+            {types.length > 0 && (
+              <Field
                 name="typeId"
-                defaultValue=""
-                className={selectClass}
+                label={t("warnType")}
+                htmlFor="warn-type"
+                help={t("warnTypeHelp")}
               >
-                <option value="">{t("warnCustom")}</option>
-                {types.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {t("typeOption", {
-                      name: type.name,
-                      points: t("points", { count: type.points }),
-                      expiry:
-                        type.expiryDays === null
-                          ? t("never")
-                          : t("days", { count: type.expiryDays }),
-                      fixed: type.locked ? "yes" : "no",
-                    })}
-                  </option>
-                ))}
-              </select>
-            </FieldRow>
-          )}
-          <FieldRow
-            name="points"
-            label={t("pointsLabel")}
-            htmlFor="warn-points"
-            help={t("pointsHelp")}
-          >
-            <Input
-              id="warn-points"
+                <select
+                  id="warn-type"
+                  name="typeId"
+                  defaultValue=""
+                  className={selectClass}
+                >
+                  <option value="">{t("warnCustom")}</option>
+                  {types.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {t("typeOption", {
+                        name: type.name,
+                        points: t("points", { count: type.points }),
+                        expiry:
+                          type.expiryDays === null
+                            ? t("never")
+                            : t("days", { count: type.expiryDays }),
+                        fixed: type.locked ? "yes" : "no",
+                      })}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            <Field
               name="points"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              required={types.length === 0}
-            />
-          </FieldRow>
-          <FieldRow
-            name="reason"
-            label={t("reason")}
-            htmlFor="warn-reason"
-            help={types.length > 0 ? t("reasonHelp") : undefined}
-          >
-            <Textarea
-              id="warn-reason"
+              label={t("pointsLabel")}
+              htmlFor="warn-points"
+              help={t("pointsHelp")}
+            >
+              <Input
+                id="warn-points"
+                name="points"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                required={types.length === 0}
+              />
+            </Field>
+            <Field
               name="reason"
-              rows={2}
-              required={types.length === 0}
-            />
-          </FieldRow>
-          <FieldRow
-            name="days"
-            label={t("expiresAfter")}
-            htmlFor="warn-days"
-            help={t("expiresAfterHelp")}
-          >
-            <Input
-              id="warn-days"
+              label={t("reason")}
+              htmlFor="warn-reason"
+              help={types.length > 0 ? t("reasonHelp") : undefined}
+            >
+              <Textarea
+                id="warn-reason"
+                name="reason"
+                rows={2}
+                required={types.length === 0}
+              />
+            </Field>
+            <Field
               name="days"
-              type="number"
-              inputMode="numeric"
-              min={0}
-            />
-          </FieldRow>
-          <NoticeRows />
-        </FormRows>
+              label={t("expiresAfter")}
+              htmlFor="warn-days"
+              help={t("expiresAfterHelp")}
+            >
+              <Input
+                id="warn-days"
+                name="days"
+                type="number"
+                inputMode="numeric"
+                min={0}
+              />
+            </Field>
+            <NoticeRows />
+          </FieldGroup>
+        </EditForm>
       )}
     </>
   );
@@ -275,85 +270,83 @@ export async function Restrictions({
   return (
     <>
       {list && (
-        <Section heading={t("restrictions")}>
-          {list.items.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">
-              {t("noRestrictions")}
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {list.items.map((item) => (
-                <li key={item.id} className="space-y-1 p-4 text-sm">
-                  <p className="flex flex-wrap items-center gap-2">
-                    <Badge variant={item.active ? "destructive" : "outline"}>
-                      {t(`kinds.${item.kind}`)}
-                    </Badge>
-                    <Badge variant="secondary">
-                      {item.liftedAt
-                        ? t("lifted")
-                        : item.active
-                          ? t("active")
-                          : t("expired")}
-                    </Badge>
-                    <span className="[overflow-wrap:anywhere]">
-                      {item.reason}
-                    </span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    <When at={item.createdAt} none="" /> · {t("until")}{" "}
-                    <When at={item.expiresAt} none={t("never")} />
-                  </p>
-                  {item.active && mayChange && !readOnly && (
-                    <ConfirmStep
-                      action={liftRestriction}
-                      fields={{ id: userId, restrictionId: item.id }}
-                      summary={t("liftRestriction")}
-                      reason={t("liftReason")}
-                      danger={false}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
+        <ItemList
+          label={t("restrictions")}
+          heading={t("restrictions")}
+          empty={{ title: t("noRestrictions") }}
+          items={list.items.map((item) => ({
+            id: item.id,
+            title: item.reason,
+            badges: (
+              <>
+                <Badge variant={item.active ? "destructive" : "outline"}>
+                  {t(`kinds.${item.kind}`)}
+                </Badge>
+                <Badge variant="secondary">
+                  {item.liftedAt
+                    ? t("lifted")
+                    : item.active
+                      ? t("active")
+                      : t("expired")}
+                </Badge>
+              </>
+            ),
+            description: (
+              <>
+                <When at={item.createdAt} none="" /> · {t("until")}{" "}
+                <When at={item.expiresAt} none={t("never")} />
+              </>
+            ),
+            actions:
+              item.active && mayChange && !readOnly ? (
+                <ConfirmStep
+                  action={liftRestriction}
+                  fields={{ id: userId, restrictionId: item.id }}
+                  summary={t("liftRestriction")}
+                  reason={t("liftReason")}
+                  danger={false}
+                />
+              ) : undefined,
+          }))}
+        />
       )}
       {mayChange && (
-        <FormRows
+        <EditForm
           action={addRestriction}
-          heading={t("restrictHeading")}
           submit={t("restrict")}
           disabled={readOnly}
         >
           <input type="hidden" name="id" value={userId} />
-          <FieldRow name="kind" label={t("kind")} htmlFor="restrict-kind">
-            <select id="restrict-kind" name="kind" className={selectClass}>
-              {KINDS.map((kind) => (
-                <option key={kind} value={kind}>
-                  {t(`kinds.${kind}`)}
-                </option>
-              ))}
-            </select>
-          </FieldRow>
-          <FieldRow name="reason" label={t("reason")} htmlFor="restrict-reason">
-            <Textarea id="restrict-reason" name="reason" rows={2} required />
-          </FieldRow>
-          <FieldRow
-            name="days"
-            label={t("expiresAfter")}
-            htmlFor="restrict-days"
-            help={t("restrictDaysHelp")}
-          >
-            <Input
-              id="restrict-days"
+          <FieldGroup legend={t("restrictHeading")}>
+            <Field name="kind" label={t("kind")} htmlFor="restrict-kind">
+              <select id="restrict-kind" name="kind" className={selectClass}>
+                {KINDS.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {t(`kinds.${kind}`)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field name="reason" label={t("reason")} htmlFor="restrict-reason">
+              <Textarea id="restrict-reason" name="reason" rows={2} required />
+            </Field>
+            <Field
               name="days"
-              type="number"
-              inputMode="numeric"
-              min={1}
-            />
-          </FieldRow>
-          <NoticeRows />
-        </FormRows>
+              label={t("expiresAfter")}
+              htmlFor="restrict-days"
+              help={t("restrictDaysHelp")}
+            >
+              <Input
+                id="restrict-days"
+                name="days"
+                type="number"
+                inputMode="numeric"
+                min={1}
+              />
+            </Field>
+            <NoticeRows />
+          </FieldGroup>
+        </EditForm>
       )}
     </>
   );
@@ -378,31 +371,19 @@ export async function Bans({
   return (
     <>
       {page && who && (
-        <CursorList
-          items={page.items}
-          nextCursor={page.nextCursor}
-          path={`/admin/users/${userId}/sanctions`}
-          params={params}
-          cursorParam="bans"
-          itemKey={(ban) => ban.id}
-          label={t("bans")}
-          head={
-            <div className="border-b p-4">
-              <h2 className="text-sm font-semibold">{t("bans")}</h2>
-            </div>
-          }
-          empty={{ title: t("noBans") }}
-          render={(ban) => (
-            <div className="space-y-1 p-4 text-sm">
-              <p className="flex flex-wrap items-center gap-2">
-                <Badge
-                  variant={ban.state === "active" ? "destructive" : "outline"}
-                >
-                  {t(`banStates.${ban.state}`)}
-                </Badge>
-                <span className="[overflow-wrap:anywhere]">{ban.reason}</span>
-              </p>
-              <p className="text-xs text-muted-foreground">
+        <PagedItems
+          items={page.items.map((ban) => ({
+            id: ban.id,
+            title: ban.reason || t("noReason"),
+            badges: (
+              <Badge
+                variant={ban.state === "active" ? "destructive" : "outline"}
+              >
+                {t(`banStates.${ban.state}`)}
+              </Badge>
+            ),
+            description: (
+              <>
                 <When at={ban.createdAt} none="" /> · {t("by")}{" "}
                 <UserLink
                   user={who(ban.moderator.id)}
@@ -415,8 +396,10 @@ export async function Bans({
                     · {t("lifted")} <When at={ban.liftedAt} none="" />
                   </>
                 )}
-              </p>
-              {ban.state === "active" && !readOnly && (
+              </>
+            ),
+            actions:
+              ban.state === "active" && !readOnly ? (
                 <ConfirmStep
                   action={liftBan}
                   fields={{ id: userId, banId: ban.id }}
@@ -424,42 +407,44 @@ export async function Bans({
                   reason={t("liftReason")}
                   danger={false}
                 />
-              )}
-            </div>
-          )}
+              ) : undefined,
+          }))}
+          nextCursor={page.nextCursor}
+          path={`/admin/users/${userId}/sanctions`}
+          params={params}
+          cursorParam="bans"
+          label={t("bans")}
+          heading={t("bans")}
+          empty={{ title: t("noBans") }}
         />
       )}
-      <FormRows
-        action={banMember}
-        heading={t("banHeading")}
-        description={t("banDescription")}
-        submit={t("ban")}
-        disabled={readOnly}
-      >
+      <EditForm action={banMember} submit={t("ban")} disabled={readOnly}>
         <input type="hidden" name="id" value={userId} />
-        <FieldRow name="reason" label={t("reason")} htmlFor="ban-reason">
-          <Textarea id="ban-reason" name="reason" rows={2} required />
-        </FieldRow>
-        <FieldRow
-          name="days"
-          label={t("banDays")}
-          htmlFor="ban-days"
-          help={t("banDaysHelp")}
-        >
-          <Input
-            id="ban-days"
+        <FieldGroup legend={t("banHeading")} description={t("banDescription")}>
+          <Field name="reason" label={t("reason")} htmlFor="ban-reason">
+            <Textarea id="ban-reason" name="reason" rows={2} required />
+          </Field>
+          <Field
             name="days"
-            type="number"
-            inputMode="numeric"
-            min={1}
-          />
-          <label className="flex min-h-10 items-center gap-3 text-sm">
-            <input type="checkbox" name="permanent" className="size-5" />
-            {t("permanent")}
-          </label>
-        </FieldRow>
-        <NoticeRows />
-      </FormRows>
+            label={t("banDays")}
+            htmlFor="ban-days"
+            help={t("banDaysHelp")}
+          >
+            <Input
+              id="ban-days"
+              name="days"
+              type="number"
+              inputMode="numeric"
+              min={1}
+            />
+            <label className="flex min-h-10 items-center gap-3 text-sm">
+              <input type="checkbox" name="permanent" className="size-5" />
+              {t("permanent")}
+            </label>
+          </Field>
+          <NoticeRows />
+        </FieldGroup>
+      </EditForm>
     </>
   );
 }

@@ -4119,3 +4119,23 @@ question are `FieldGroup`s of `Field`s. Known limits: the member search (`Member
 `MemberRow`s, as four other screens share it; the forum editor stays on the forum page's address
 (`?node=&group=`), where the save action sends it back; the look in a browser and on a phone has not
 been checked.
+
+### Members and bans on the shared patterns (item 5)  No address moved and no gate changed, so no
+redirect is needed. The members list (`/admin/users`) and the ban register (`/admin/bans`) are
+`ScreenFrame`s with a trail; the list's "Batch update members" link is its header action. Their
+rows are `ItemRow`s (avatar, name linking to the member's page, state and group badges, a line of
+details, "Open" and "View profile" links, the ban's lift step as a row action). Both lists page
+the backend by cursor and filter in it, so the client-side filter box of `ItemList` stays off:
+`users/paged-items.tsx` (`PagedItems`) puts the existing GET filter form in a card above an
+`ItemList` and the "Back to the first page" / "Next" links below it, keeping the other
+parameters and a named `cursorParam` when two lists share a page (the sanctions and economy
+tabs); it also serves their warnings, bans, ledger, inventory and awards lists. A member's header
+is a `PageHeader` (trail: home, Users, Members; the avatar and name as title; state, roles and id
+under it) above the tab strip, which already scrolls sideways on a phone. The tab forms (details,
+groups, super admin, profile, appearance, warn, restrict, ban, adjust credits, grant award) are
+`EditForm`s with one `FieldGroup` each; `users/admin-password.tsx` is the administrator's
+password in the edit form's field layout, as `ConfirmPassword` still draws the older row. Lists
+inside the tabs (pictures, sessions, restrictions) are `ItemList`s. Left as they were: the batch
+update's two-step form (only its header moved), the erase block (a closed danger card with its own
+form), the thread-ban lookup, the read-only consent and acceptances cards, the history log table,
+and the permissions tab (item 3). None of the forms has an option rare enough for `Advanced`.

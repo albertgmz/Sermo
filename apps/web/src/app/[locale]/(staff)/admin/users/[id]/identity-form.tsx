@@ -1,8 +1,8 @@
 import { getFormatter, getTranslations } from "next-intl/server";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
-import { ConfirmPassword } from "@/components/staff/confirm-password";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { Input } from "@/components/ui/input";
+import { AdminPassword } from "../admin-password";
 import type { AdminMember } from "../data";
 import { saveIdentity } from "./actions";
 
@@ -29,11 +29,9 @@ export async function IdentityForm({
       })
     : t("neverChanged");
   return (
-    <FormRows
+    <EditForm
       key={`${member.card.username}:${member.email}:${member.emailVerified}`}
       action={saveIdentity}
-      heading={t("heading")}
-      description={t("description")}
       disabled={readOnly}
     >
       <input type="hidden" name="id" value={member.card.id} />
@@ -44,70 +42,72 @@ export async function IdentityForm({
         name="verifiedWas"
         value={member.emailVerified ? "1" : "0"}
       />
-      <ConfirmPassword />
-      <FieldRow
-        name="username"
-        label={t("username")}
-        htmlFor="member-username"
-        help={changed}
-      >
-        <Input
-          id="member-username"
+      <FieldGroup legend={t("heading")} description={t("description")}>
+        <AdminPassword />
+        <Field
           name="username"
-          required
-          defaultValue={member.card.username}
-        />
-      </FieldRow>
-      <FieldRow name="email" label={t("email")} htmlFor="member-email">
-        <Input
-          id="member-email"
-          name="email"
-          type="email"
-          required
-          defaultValue={member.email ?? ""}
-        />
-        <label className="flex min-h-10 items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            name="emailVerified"
-            defaultChecked={member.emailVerified}
-            className="size-5"
+          label={t("username")}
+          htmlFor="member-username"
+          help={changed}
+        >
+          <Input
+            id="member-username"
+            name="username"
+            required
+            defaultValue={member.card.username}
           />
-          {t("verified")}
-        </label>
-      </FieldRow>
-      <FieldRow name="passwordMode" label={t("password")}>
-        <fieldset className="space-y-1">
-          <legend className="sr-only">{t("password")}</legend>
-          {MODES.map((mode) => (
-            <label
-              key={mode}
-              className="flex min-h-10 items-center gap-3 text-sm"
-            >
-              <input
-                type="radio"
-                name="passwordMode"
-                value={mode}
-                defaultChecked={mode === "keep"}
-                className="size-5"
-              />
-              {t(`mode.${mode}`)}
-            </label>
-          ))}
-        </fieldset>
-      </FieldRow>
-      <FieldRow
-        name="password"
-        label={t("newPassword")}
-        htmlFor="member-new-password"
-        help={t("newPasswordHelp")}
-      >
-        <PasswordField
-          id="member-new-password"
+        </Field>
+        <Field name="email" label={t("email")} htmlFor="member-email">
+          <Input
+            id="member-email"
+            name="email"
+            type="email"
+            required
+            defaultValue={member.email ?? ""}
+          />
+          <label className="flex min-h-10 items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              name="emailVerified"
+              defaultChecked={member.emailVerified}
+              className="size-5"
+            />
+            {t("verified")}
+          </label>
+        </Field>
+        <Field name="passwordMode" label={t("password")}>
+          <fieldset className="space-y-1">
+            <legend className="sr-only">{t("password")}</legend>
+            {MODES.map((mode) => (
+              <label
+                key={mode}
+                className="flex min-h-10 items-center gap-3 text-sm"
+              >
+                <input
+                  type="radio"
+                  name="passwordMode"
+                  value={mode}
+                  defaultChecked={mode === "keep"}
+                  className="size-5"
+                />
+                {t(`mode.${mode}`)}
+              </label>
+            ))}
+          </fieldset>
+        </Field>
+        <Field
           name="password"
-          autoComplete="new-password"
-        />
-      </FieldRow>
-    </FormRows>
+          label={t("newPassword")}
+          htmlFor="member-new-password"
+          help={t("newPasswordHelp")}
+        >
+          <PasswordField
+            id="member-new-password"
+            name="password"
+            autoComplete="new-password"
+          />
+        </Field>
+      </FieldGroup>
+    </EditForm>
   );
 }

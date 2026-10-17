@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
-import { ListSkeleton, PageHead } from "../groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { staffTrail } from "../../trail";
+import { ListSkeleton } from "../groups/skeletons";
 import { BanList } from "./ban-list";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,19 +16,14 @@ export default function BansPage({
 }: PageProps<"/[locale]/admin/bans">) {
   const t = useTranslations("adminUsers.bans");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("pageHeading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <ListSkeleton rows={6} />
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <BanList searchParams={searchParams} />
-        </div>
-      </Suspense>
-    </div>
+    <ScreenFrame
+      trail={staffTrail("/admin/bans")}
+      heading={t("pageHeading")}
+      subtitle={t("subtitle")}
+      label={t("loading")}
+      fallback={<ListSkeleton rows={6} />}
+    >
+      <BanList searchParams={searchParams} />
+    </ScreenFrame>
   );
 }
