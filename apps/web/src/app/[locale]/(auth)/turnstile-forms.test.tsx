@@ -18,6 +18,7 @@ const { RegisterForm } = await import("./register/register-form");
 const { ForgotForm } = await import("./forgot-password/forgot-form");
 const { ResendForm } = await import("./resend-form");
 const { loadTurnstile } = await import("./turnstile-field");
+const { forgetDocumentNonce } = await import("@/lib/document-nonce");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -62,6 +63,7 @@ test("Cloudflare's script is loaded with the page's nonce", () => {
     void loadTurnstile();
   } finally {
     globalThis.document = real;
+    forgetDocumentNonce();
   }
   expect(appended).toHaveLength(1);
   expect(appended[0].nonce).toBe("n0nce");

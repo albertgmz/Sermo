@@ -6,6 +6,7 @@ import { getMessages } from "next-intl/server";
 import { Suspense } from "react";
 import { UploadLimitProvider } from "@/components/forum/upload-limit";
 import { CookieBanner } from "@/components/layout/cookie-banner";
+import { DocumentNonceKeeper } from "@/components/layout/document-nonce-keeper";
 import { EmbedLoader } from "@/components/layout/embed-loader";
 import { widthScript } from "@/components/layout/narrow-width";
 import { QueryProvider } from "@/components/layout/query-provider";
@@ -103,6 +104,7 @@ export default async function RootLayout({
         <Suspense>
           <CookieBanner locale={locale} />
         </Suspense>
+        <DocumentNonceKeeper />
         <EmbedLoader />
         <WorkerRegistration />
         {/* Only what client components read goes to the browser: the error screen here, the rest

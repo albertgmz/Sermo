@@ -1,10 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ReactElement } from "react";
+import { forgetDocumentNonce } from "@/lib/document-nonce";
 import { AnalyticsScript } from "./analytics-script";
 
 const real = globalThis.document;
 afterEach(() => {
   globalThis.document = real;
+  forgetDocumentNonce();
 });
 
 const nonceOf = (element: unknown) =>
