@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { Art } from "@/components/forum/art";
 import { Logo } from "@/components/layout/logo";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { PictureField } from "@/components/staff/picture-field";
 import { getSite } from "@/lib/sermo/site";
 import { saveIdentity } from "./actions";
@@ -37,28 +37,26 @@ export async function IdentityForm() {
     ),
   };
   return (
-    <FormRows
-      action={saveIdentity}
-      heading={t("formHeading")}
-      description={t("formDescription")}
-    >
-      {PICTURES.map(({ key, purpose }) => (
-        <FieldRow
-          key={key}
-          name={key}
-          label={t(`${key}.label`)}
-          htmlFor={`identity-${key}`}
-          help={t(`${key}.help`)}
-        >
-          <PictureField
-            purpose={purpose}
+    <EditForm action={saveIdentity}>
+      <FieldGroup legend={t("formHeading")} description={t("formDescription")}>
+        {PICTURES.map(({ key, purpose }) => (
+          <Field
+            key={key}
             name={key}
-            id={`identity-${key}`}
-            removable
-            current={current[key] || undefined}
-          />
-        </FieldRow>
-      ))}
-    </FormRows>
+            label={t(`${key}.label`)}
+            htmlFor={`identity-${key}`}
+            help={t(`${key}.help`)}
+          >
+            <PictureField
+              purpose={purpose}
+              name={key}
+              id={`identity-${key}`}
+              removable
+              current={current[key] || undefined}
+            />
+          </Field>
+        ))}
+      </FieldGroup>
+    </EditForm>
   );
 }

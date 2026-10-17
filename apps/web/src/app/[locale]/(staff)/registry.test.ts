@@ -88,6 +88,15 @@ const GATES_BEFORE: Record<string, [string, string | string[]]> = {
   setupLevels: ["/admin/settings/levels", ["admin.settings"]],
   setupCookies: ["/admin/settings/cookies", ["admin.settings"]],
   setupNavigation: ["/admin/settings/navigation", ["admin.navigation"]],
+  setupNavigationNew: ["/admin/settings/navigation/new", ["admin.navigation"]],
+  setupNavigationSort: [
+    "/admin/settings/navigation/sort",
+    ["admin.navigation"],
+  ],
+  setupNavigationEdit: [
+    "/admin/settings/navigation/[id]",
+    ["admin.navigation"],
+  ],
   forumsTree: ["/admin/forums", ["admin.nodes"]],
   forumsPrefixes: ["/admin/forums/prefixes", ["admin.prefixes"]],
   forumsEdit: ["/admin/forums/[id]", ["admin.nodes"]],
@@ -265,6 +274,9 @@ const SECTION_MAP: Record<string, string[]> = {
     "setupLevels",
     "setupCookies",
     "setupNavigation",
+    "setupNavigationNew",
+    "setupNavigationSort",
+    "setupNavigationEdit",
   ],
   content: [
     "contentReactions",

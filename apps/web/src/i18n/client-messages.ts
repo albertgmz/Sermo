@@ -28,7 +28,6 @@ export const CLIENT_NAMESPACES = [
   "adminForums.pictureField",
   "adminGroups.matrix",
   "adminGroups.promotions",
-  "adminSetup.navigation",
   "adminUsers.batch",
   "adminUsers.promotions",
   "auth.forgotPassword",

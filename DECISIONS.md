@@ -4147,3 +4147,34 @@ leading to the member's page; the ban register's title leads to the member's pag
 profile" link leads to the public one. The "tell the member" box and message of the warn, restrict
 and ban forms stay in the main group: the box is a choice made on every save. No other option is
 rare enough for `Advanced`.
+
+### Settings and navigation on the shared patterns (item 7)  Every option group of the settings is
+its own page (general, home page, new members, anti-spam, uploads, search engines, site identity,
+levels, cookies), at the address it always had, with the shared header (trail, title, line) and
+`EditForm`: `FieldGroup` cards with the help on the left of each field from 768 px, one save bar,
+and the confirmation a save redirects with above the form. The switcher between the groups is a row
+of links (`TabLinks`, the underline variant) under the header that scrolls sideways on a phone and
+marks the open group with `aria-current`; a row of links was chosen over a select because every
+group is one tap away and the open one is always visible. Its labels are the registry's. Warnings
+(`/admin/settings/warnings`) sit under Users, not Setup, so they have no switcher and still draw
+their own forms until the users item moves them; they get the new header from `SettingsScreen`.
+The section titles that used to be sub-headings inside one long panel are now the legends of the
+`FieldGroup`s; no setting is in `Advanced`, because every setting here is one an administrator
+reaches for (several are required numbers, which `Advanced` may not hold). `RuleField` draws its row
+with `Field`, so the rule builders line up with the other rows.
+Public navigation: the list shows one card of rows for each place, a top-level entry and then the
+entries under it (the row says "Inside <entry>"), each row a link to the entry's own page with its
+badges (built-in, off) and, for an entry that is not built in, the delete step on the row. "Add
+entry" (`/admin/settings/navigation/new`) and "Sort" (`/admin/settings/navigation/sort`) are in the
+header; an entry is edited at `/admin/settings/navigation/<id>`. All three have a detail screen in
+the registry with the list's own gate (`admin.navigation`). The add page asks for the place, title,
+target, icon, parent, who sees it and whether it shows, with the display order in `Advanced` (the
+sort page makes it rare); the edit page asks for the fields the entry's own save always sent (title,
+audience, permission, icon, icon side, shown), the place, target and parent being fixed at creation
+as before. The sort page has one `SortForm` for each group that is ordered against itself (the
+top-level entries of a place, and the entries under one heading), all through the existing order
+action, which sends only the numbers that changed; a group of one has nothing to order and is left
+out. The per-row "on" switch of the old list moved to the edit page: a switch on the list would need
+an action of its own, as the entry's save reads a ticked box and requires the audience.
+Known limits: the look in a browser and on a phone, and the first-load size, have not been checked;
+the list's filter narrows each place's card on its own.

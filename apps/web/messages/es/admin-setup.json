@@ -389,14 +389,7 @@
       "before": "Antes del título",
       "after": "Después del título"
     },
-    "filter": {
-      "label": "Filtrar entradas",
-      "placeholder": "Filtrar por título",
-      "none": "Ninguna entrada coincide."
-    },
     "add": {
-      "heading": "Añadir navegación",
-      "description": "Un enlace a una página del sitio o a otro sitio, o un encabezado que solo agrupa enlaces.",
       "submit": "Añadir entrada",
       "location": "Lugar",
       "locationHelp": "Dónde se muestra la entrada.",
@@ -414,24 +407,9 @@
       "audience": "Quién la ve",
       "permission": "Permiso",
       "permissionHelp": "Solo se usa con el público de quienes tengan un permiso.",
-      "noPermission": "Elige un permiso",
-      "enabled": "Mostrar ahora"
-    },
-    "order": {
-      "heading": "Entradas",
-      "description": "Cambia los números y guarda el orden, o edita una entrada en su propia fila.",
-      "submit": "Guardar orden",
-      "saving": "Guardando…"
+      "noPermission": "Elige un permiso"
     },
     "row": {
-      "title": "Título",
-      "audience": "Quién la ve",
-      "permission": "Permiso",
-      "enabled": "Sí",
-      "enabledLabel": "Mostrar {title}",
-      "order": "Orden",
-      "icon": "Icono",
-      "iconPosition": "Posición del icono",
       "save": "Guardar entrada",
       "builtin": "Integrada",
       "heading": "Encabezado",
@@ -441,8 +419,40 @@
       "delete": "Eliminar",
       "deleteWarning": "Elimina {title} y todas las entradas que hay bajo ella. Esto no se puede deshacer.",
       "deleteConfirm": "Eliminar la entrada",
-      "empty": "Aún no hay ninguna entrada de navegación.",
-      "saving": "Guardando…"
+      "empty": "Aún no hay ninguna entrada de navegación."
+    },
+    "list": {
+      "label": "Entradas de navegación",
+      "placeLabel": "Entradas de {place}",
+      "add": "Añadir entrada",
+      "sort": "Ordenar",
+      "edit": "Editar {title}",
+      "inside": "Dentro de {parent}"
+    },
+    "form": {
+      "entry": "Entrada",
+      "look": "Aspecto",
+      "visibility": "Quién la ve",
+      "enabledLabel": "Visible",
+      "enabled": "Mostrar esta entrada"
+    },
+    "new": {
+      "metaTitle": "Añadir entrada de navegación",
+      "heading": "Añadir entrada",
+      "subtitle": "Un enlace a una página del sitio o a otro sitio, o un encabezado que solo agrupa enlaces."
+    },
+    "edit": {
+      "metaTitle": "Editar entrada de navegación",
+      "heading": "Editar entrada",
+      "subtitle": "Cambia el nombre de la entrada, quién la ve o desactívala. Su lugar, su destino y su entrada superior no cambian.",
+      "about": "{title}, en {place}."
+    },
+    "sort": {
+      "metaTitle": "Ordenar navegación",
+      "heading": "Ordenar entradas",
+      "subtitle": "Sube o baja las entradas dentro de su lugar, o bajo su encabezado, y guarda cada lista.",
+      "under": "Bajo {parent} ({place})",
+      "none": "Ningún lugar ni encabezado tiene dos o más entradas que ordenar."
     }
   },
   "identity": {
@@ -543,5 +553,8 @@
       "password": "Tu contraseña",
       "passwordHelp": "Hace falta para añadir, cambiar o eliminar una acción que añade un grupo; déjala vacía para las demás."
     }
+  },
+  "nav": {
+    "label": "Grupos de ajustes"
   }
 }

@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { FieldRow } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
 import { Input } from "@/components/ui/input";
 import type { messages } from "@/i18n/messages";
 import { Shown } from "./shown";
@@ -26,14 +26,14 @@ async function SettingRow({
   const t = await getTranslations("adminSetup.fields");
   const id = `field-${name}`;
   return (
-    <FieldRow
+    <Field
       name={name}
       label={t(`${name}.label`)}
       htmlFor={id}
       help={t(`${name}.help`)}
     >
       {children(id, t)}
-    </FieldRow>
+    </Field>
   );
 }
 
@@ -97,7 +97,7 @@ export async function ChecklistRow({
 }) {
   const t = await getTranslations("adminSetup.fields");
   return (
-    <FieldRow name={name} label={t(`${name}.label`)} help={t(`${name}.help`)}>
+    <Field name={name} label={t(`${name}.label`)} help={t(`${name}.help`)}>
       <Shown name={name} />
       <fieldset className="grid min-w-0 gap-x-4 sm:grid-cols-2">
         <legend className="sr-only">{t(`${name}.label`)}</legend>
@@ -125,7 +125,7 @@ export async function ChecklistRow({
           </div>
         ))}
       </fieldset>
-    </FieldRow>
+    </Field>
   );
 }
 
@@ -141,7 +141,7 @@ export async function SecretRow({
   const t = await getTranslations("adminSetup.fields");
   const id = `field-${name}`;
   return (
-    <FieldRow
+    <Field
       name={name}
       label={t(`${name}.label`)}
       htmlFor={id}
@@ -167,7 +167,7 @@ export async function SecretRow({
           {t(`${name}.remove`)}
         </label>
       )}
-    </FieldRow>
+    </Field>
   );
 }
 

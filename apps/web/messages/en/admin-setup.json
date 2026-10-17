@@ -389,14 +389,7 @@
       "before": "Before the title",
       "after": "After the title"
     },
-    "filter": {
-      "label": "Filter entries",
-      "placeholder": "Filter by title",
-      "none": "No entry matches."
-    },
     "add": {
-      "heading": "Add navigation",
-      "description": "A link to a page of the site or to another site, or a heading that only groups links.",
       "submit": "Add entry",
       "location": "Place",
       "locationHelp": "Where the entry shows.",
@@ -414,24 +407,9 @@
       "audience": "Who sees it",
       "permission": "Permission",
       "permissionHelp": "Used only with the audience holders of a permission.",
-      "noPermission": "Choose a permission",
-      "enabled": "Show it now"
-    },
-    "order": {
-      "heading": "Entries",
-      "description": "Change the numbers and save the order, or edit an entry on its own row.",
-      "submit": "Save order",
-      "saving": "Saving…"
+      "noPermission": "Choose a permission"
     },
     "row": {
-      "title": "Title",
-      "audience": "Who sees it",
-      "permission": "Permission",
-      "enabled": "On",
-      "enabledLabel": "Show {title}",
-      "order": "Order",
-      "icon": "Icon",
-      "iconPosition": "Icon position",
       "save": "Save entry",
       "builtin": "Built-in",
       "heading": "Heading",
@@ -441,8 +419,40 @@
       "delete": "Delete",
       "deleteWarning": "Deletes {title} and every entry under it. This cannot be undone.",
       "deleteConfirm": "Delete the entry",
-      "empty": "There is no navigation entry yet.",
-      "saving": "Saving…"
+      "empty": "There is no navigation entry yet."
+    },
+    "list": {
+      "label": "Navigation entries",
+      "placeLabel": "Entries of {place}",
+      "add": "Add entry",
+      "sort": "Sort",
+      "edit": "Edit {title}",
+      "inside": "Inside {parent}"
+    },
+    "form": {
+      "entry": "Entry",
+      "look": "Appearance",
+      "visibility": "Who sees it",
+      "enabledLabel": "Shown",
+      "enabled": "Show this entry"
+    },
+    "new": {
+      "metaTitle": "Add navigation entry",
+      "heading": "Add entry",
+      "subtitle": "A link to a page of the site or to another site, or a heading that only groups links."
+    },
+    "edit": {
+      "metaTitle": "Edit navigation entry",
+      "heading": "Edit entry",
+      "subtitle": "Rename the entry, change who sees it or switch it off. Its place, target and parent stay as they are.",
+      "about": "{title}, in {place}."
+    },
+    "sort": {
+      "metaTitle": "Sort navigation",
+      "heading": "Sort entries",
+      "subtitle": "Move entries up or down inside their place, or under their heading, and save each list.",
+      "under": "Under {parent} ({place})",
+      "none": "No place or heading holds two or more entries to put in order."
     }
   },
   "identity": {
@@ -543,5 +553,8 @@
       "password": "Your password",
       "passwordHelp": "Needed to add, change or delete an action that adds a group; leave it empty for the others."
     }
+  },
+  "nav": {
+    "label": "Settings groups"
   }
 }

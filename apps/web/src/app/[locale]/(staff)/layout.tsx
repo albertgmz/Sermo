@@ -58,7 +58,6 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
         "adminForums.pictureField",
         "adminGroups.matrix",
         "adminGroups.promotions",
-        "adminSetup.navigation",
         "adminUsers.batch",
         "adminUsers.promotions",
         "auth.passwordField",

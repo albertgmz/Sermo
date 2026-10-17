@@ -3,6 +3,7 @@ import { messages } from "@/i18n/messages";
 import { translator } from "@/lib/test-intl";
 import { fakeBackend, refusal } from "../groups/test-backend";
 import { settingsForm } from "./test-form";
+import { SETTINGS } from "./test-settings";
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
@@ -43,56 +44,6 @@ afterAll(() => {
   mock.module("next/cache", () => cacheModule);
 });
 
-const SETTINGS = {
-  maxUploadBytes: 1000,
-  allowedUploadTypes: {
-    attachment: ["image/png"],
-    avatar: ["image/png"],
-    cover: ["image/png"],
-    node_icon: ["image/png"],
-    node_cover: ["image/png"],
-  },
-  groupUploadLimitBytes: { "1": 0, "2": 100, "3": 200, "4": 300 },
-  firstPostsToModerate: 0,
-  moderateLinksFromNewMembers: false,
-  newMemberDays: 7,
-  threadTitleTemplate: "{title} | {site}",
-  nodeTitleTemplate: "{title} | {site}",
-  profileTitleTemplate: "{username} | {site}",
-  indexNowKey: null,
-  siteName: "Sermo",
-  siteDescription: "",
-  defaultLanguage: "en",
-  newMemberMentionLimit: 3,
-  profilePostsEnabled: true,
-  notificationRetentionDays: 90,
-  notificationDefaults: {},
-  emailHourlyCap: 20,
-  conversationEmailIncludesBody: false,
-  digestInactiveDays: 3,
-  levelStep: 100,
-  levelTitles: [{ level: 1, title: "New member" }],
-  signatureMaxLength: 300,
-  signatureMaxLines: 4,
-  signatureMaxLinks: 3,
-  signatureMaxImages: 1,
-  signatureMaxSmilies: 5,
-  signatureMaxTextSize: 4,
-  signatureFormats: ["bold", "link"],
-  signatureRule: { match: "all", conditions: [] },
-  customTitleMaxLength: 40,
-  standingPostPoints: 1,
-  standingReactionsPerPoint: 10,
-  standingReferralPoints: 20,
-  socialLinks: { discord: "https://d.example", telegram: null, x: null },
-  logoFileId: null,
-  iconFileId: null,
-  backdropFileId: null,
-  turnstileEnabled: false,
-  turnstileSiteKey: "",
-  turnstileForms: ["register", "login"],
-  turnstileSecretSet: false,
-};
 const read = () => Response.json(SETTINGS);
 
 const form = settingsForm;

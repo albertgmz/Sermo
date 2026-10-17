@@ -198,6 +198,27 @@ export const SECTIONS = [
         access: ["admin.navigation"],
         built: true,
       },
+      {
+        key: "setupNavigationNew",
+        path: "/admin/settings/navigation/new",
+        access: ["admin.navigation"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "setupNavigationSort",
+        path: "/admin/settings/navigation/sort",
+        access: ["admin.navigation"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "setupNavigationEdit",
+        path: "/admin/settings/navigation/[id]",
+        access: ["admin.navigation"],
+        built: true,
+        listed: false,
+      },
     ],
   },
   {

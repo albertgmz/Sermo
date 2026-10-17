@@ -1,95 +1,57 @@
+import { ArrowUpDown, Plus } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
-import { FormSkeleton, ListSkeleton, PageHead } from "../../groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { staffTrail } from "../../../trail";
+import { ListSkeleton } from "../../groups/skeletons";
 import { SettingsNotice } from "../settings-screen";
-import { AddForm } from "./add-form";
-import { getEntries, globalPermissions } from "./data";
-import { Entries, type Item, type Place } from "./entries";
+import { EntryList } from "./entry-list";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminSetup.pages.navigation");
   return { title: t("metaTitle") };
 }
 
-async function Editor({
-  searchParams,
-}: {
-  searchParams: PageProps<"/[locale]/admin/settings/navigation">["searchParams"];
-}) {
-  const { entry: added } = await searchParams;
-  const [t, entries, permissions] = await Promise.all([
-    getTranslations("adminSetup.navigation"),
-    getEntries(),
-    globalPermissions(),
-  ]);
-  const item = (
-    entry: (typeof entries)[number],
-    children: (typeof entries)[number][],
-  ): Item => ({
-    id: entry.id,
-    title: entry.title,
-    target: entry.target,
-    builtin: entry.builtin !== null,
-    isEnabled: entry.isEnabled,
-    audience: entry.audience,
-    permission: entry.permission,
-    icon: entry.icon,
-    iconPosition: entry.iconPosition,
-    position: entry.position,
-    children: children.length,
-    enabledChildren: children.filter((child) => child.isEnabled).length,
-  });
-  // The list comes ordered by place, parents before their children, position and id: each place
-  // keeps the order it arrives in.
-  const locations = [...new Set(entries.map((entry) => entry.location))];
-  const places: Place[] = locations.map((location) => ({
-    location,
-    label: t(`locations.${location}`),
-    tree: entries
-      .filter((entry) => entry.location === location && entry.parentId === null)
-      .map((entry) => {
-        const children = entries.filter((child) => child.parentId === entry.id);
-        return {
-          entry: item(entry, children),
-          children: children.map((child) => item(child, [])),
-        };
-      }),
-  }));
-  return (
-    <div className="space-y-4">
-      <SettingsNotice searchParams={searchParams} />
-      <AddForm
-        key={typeof added === "string" ? added : "new"}
-        entries={entries}
-        permissions={permissions}
-      />
-      <Entries places={places} permissions={permissions} />
-    </div>
-  );
-}
-
 export default function NavigationPage({
   searchParams,
 }: PageProps<"/[locale]/admin/settings/navigation">) {
   const t = useTranslations("adminSetup.pages.navigation");
+  const list = useTranslations("adminSetup.navigation.list");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("heading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <div className="space-y-4">
-              <FormSkeleton />
-              <ListSkeleton rows={8} />
-            </div>
-          </LoadingRegion>
-        }
-      >
-        <Editor searchParams={searchParams} />
-      </Suspense>
-    </div>
+    <ScreenFrame
+      trail={staffTrail("/admin/settings/navigation")}
+      heading={t("heading")}
+      subtitle={t("subtitle")}
+      actions={
+        <>
+          <Link
+            href="/admin/settings/navigation/sort"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "min-h-10 px-4",
+            )}
+          >
+            <ArrowUpDown aria-hidden="true" />
+            {list("sort")}
+          </Link>
+          <Link
+            href="/admin/settings/navigation/new"
+            className={cn(buttonVariants(), "min-h-10 px-4")}
+          >
+            <Plus aria-hidden="true" />
+            {list("add")}
+          </Link>
+        </>
+      }
+      label={t("loading")}
+      fallback={<ListSkeleton rows={8} />}
+    >
+      <SettingsNotice searchParams={searchParams} />
+      <EntryList />
+    </ScreenFrame>
   );
 }

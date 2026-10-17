@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
+import { staffTrail } from "../../../trail";
 import { FormSkeleton } from "../../groups/skeletons";
-import { SettingsNotice } from "../settings-screen";
+import { SettingsGroups, SettingsNotice } from "../settings-screen";
 import { IdentityForm } from "./identity-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,11 +18,13 @@ export default function IdentityPage({
   const t = useTranslations("adminSetup.identity");
   return (
     <ScreenFrame
+      trail={staffTrail("/admin/settings/identity")}
       heading={t("heading")}
       subtitle={t("subtitle")}
       label={t("loading")}
       fallback={<FormSkeleton rows={3} />}
     >
+      <SettingsGroups current="identity" />
       <SettingsNotice searchParams={searchParams} />
       <IdentityForm />
     </ScreenFrame>

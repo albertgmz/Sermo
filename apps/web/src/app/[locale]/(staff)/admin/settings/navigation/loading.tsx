@@ -1,14 +1,5 @@
-import {
-  FormSkeleton,
-  ListSkeleton,
-  LoadingPage,
-} from "../../groups/skeletons";
+import { NavigationLoading } from "./navigation-loading";
 
 export default function Loading() {
-  return (
-    <LoadingPage>
-      <FormSkeleton />
-      <ListSkeleton rows={8} />
-    </LoadingPage>
-  );
+  return <NavigationLoading list />;
 }
