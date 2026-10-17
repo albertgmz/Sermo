@@ -16,12 +16,22 @@ mock.module("next-intl/server", () => ({
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 
+// Another suite may leave a stand-in for `useTranslations` in place: the client components here
+// read the real messages.
+const nextIntl = { ...(await import("next-intl")) };
+const useIntl = await import("use-intl");
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useLocale: () => "en",
+  useTranslations: useIntl.useTranslations,
+}));
 const { GroupForm } = await import("./group-form");
 
 afterEach(() => {
   globalThis.fetch = realFetch;
 });
 afterAll(() => {
+  mock.module("next-intl", () => nextIntl);
   mock.module("next-intl/server", () => intl);
 });
 

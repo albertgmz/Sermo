@@ -16,11 +16,21 @@ mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
+// Another suite may leave a stand-in for `useTranslations` in place: the client components here
+// read the real messages.
+const nextIntl = { ...(await import("next-intl")) };
+const useIntl = await import("use-intl");
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useLocale: () => "en",
+  useTranslations: useIntl.useTranslations,
+}));
 const { PromotionForm } = await import("./promotion-form");
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
 afterAll(() => {
+  mock.module("next-intl", () => nextIntl);
   mock.module("next-intl/server", () => intl);
 });
 
