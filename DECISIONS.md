@@ -3932,10 +3932,13 @@ an empty state with an optional "Add" action, and a "Showing N" footer. `filter`
 narrows the rows on the page (case and accents ignored, by `search` or a text title); lists the
 backend pages through keep their own search. A row's `actions` hold short controls and closed
 `ConfirmStep`s (an open step takes the row's whole width); `panel` holds a full line under the
-row. Rows wrap, so at 360 px the controls go under the title. `RowToggle` is the active switch: a
+row. The title keeps at least 10rem: when the controls would leave it less (a phone), they go to
+a line of their own under it. `RowToggle` is the active switch: a
 form that submits the screen's existing action with its hidden fields and the flipped value under
 `field` (default `active`, "1" or "0"); with `confirm` the switch first opens a warning with a
-confirm button (destructive with `danger`) and Cancel. Errors show under the row. `RowLink` is the
+confirm button (destructive with `danger`) and Cancel; a refused save keeps the step open, one
+that goes through closes it and gives the focus back to the switch (`keepsAsking`). Errors show
+under the row. `RowLink` is the
 row's icon link ("Edit").
 `EntryList`, `EditDisclosure` and `Row` stay for the screens that use them until their item moves
 them.

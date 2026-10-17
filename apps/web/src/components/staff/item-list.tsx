@@ -26,7 +26,8 @@
 //                take the row's whole width on a line of their own, under the title.
 //   panel        Optional content that is always a line of its own under the row (a note, a
 //                small form).
-// On a phone the controls wrap under the title when they do not fit beside it.
+// When the title would get narrower than 10rem beside the controls (a phone), the controls go to a
+// line of their own under it.
 //
 // RowToggle: an on/off switch for an existing action that reads the new state as "1" (on) or "0"
 // (off).
@@ -38,6 +39,9 @@
 //   confirm  Optional `{ warning?, submit, danger? }`: the switch first opens a step under the row
 //            with the warning, a confirm button (`submit`; destructive with `danger`) and Cancel,
 //            as the panel's activate and deactivate steps do. Without it the switch submits at once.
+//            A refused save keeps the step open; a save that goes through (a notice, or the page
+//            drawn again with the flipped state) closes it and gives the focus back to the switch
+//            (`keepsAsking`).
 // The action's refusal or notice shows under the row.
 //
 // RowLink: an icon button that is a link: the row's "Edit" (`icon`, an element such as
@@ -185,7 +189,7 @@ export function ItemRow({
           {icon}
         </span>
       )}
-      <div className="min-w-0 flex-1 py-1">
+      <div className="min-w-0 flex-[1_1_10rem] py-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {href ? (
             <Link
@@ -209,7 +213,7 @@ export function ItemRow({
       </div>
       {(toggle || actions) && (
         // An open step (a `ConfirmStep`, a toggle asking) takes the row's width.
-        <div className="ms-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 has-[[data-open]]:basis-full has-[details[open]]:basis-full">
+        <div className="ms-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 has-[[data-asking]]:basis-full has-[details[open]]:basis-full">
           {toggle}
           {actions}
         </div>
@@ -217,6 +221,18 @@ export function ItemRow({
       {panel && <div className="min-w-0 basis-full">{panel}</div>}
     </li>
   );
+}
+
+// What a RowToggle's confirm step saw last: the action's state and the switch's.
+type Settled = { state: StaffFormState; checked: boolean };
+
+// Whether an open confirm step stays open from `before` to `now`: while nothing has settled, and
+// after a refused save. A save that went through closes it, whether the action came back without an
+// error or the page was drawn again with the switch flipped.
+export function keepsAsking(before: Settled, now: Settled): boolean {
+  if (now.checked !== before.checked) return false;
+  if (now.state === before.state) return true;
+  return Boolean(now.state?.error);
 }
 
 export function RowToggle({
@@ -245,12 +261,22 @@ export function RowToggle({
   useEffect(() => {
     if (asking) step.current?.querySelector("button")?.focus();
   }, [asking]);
+  const settled = useRef<Settled>({ state, checked });
+  // Each time a save settles: close the step (when it is open) unless the save was refused.
+  useEffect(() => {
+    const before = settled.current;
+    settled.current = { state, checked };
+    if (!step.current || keepsAsking(before, { state, checked })) return;
+    setAsking(false);
+    toggle.current?.focus();
+  }, [state, checked]);
   const message = state?.error ?? state?.notice;
   return (
     <form
       action={formAction}
-      data-open={asking || message ? "" : undefined}
-      className="flex flex-wrap items-center justify-end gap-2 data-open:basis-full"
+      // Private to the row: Base UI marks its own popups `data-open`.
+      data-asking={asking || message ? "" : undefined}
+      className="flex flex-wrap items-center justify-end gap-2 data-asking:basis-full"
     >
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />

@@ -6,6 +6,7 @@ import {
   type Item,
   ItemList,
   ItemRow,
+  keepsAsking,
   matches,
   RowLink,
   RowToggle,
@@ -170,6 +171,27 @@ test("a switch with a confirmation only opens its step: nothing is sent from the
   expect(html).not.toContain('type="submit"');
 });
 
+test("the confirm step closes once a save goes through, and stays open on a refusal", () => {
+  const open = { state: null, checked: true };
+  // Nothing settled yet.
+  expect(keepsAsking(open, { state: null, checked: true })).toBe(true);
+  // The page is drawn again with the flipped state (a redirect to the same page).
+  expect(keepsAsking(open, { state: null, checked: false })).toBe(false);
+  // The action answers with a notice.
+  expect(
+    keepsAsking(open, { state: { notice: "Saved." }, checked: true }),
+  ).toBe(false);
+  // The action refuses: the error shows and the step can be confirmed again.
+  const refused = { state: { error: "Not allowed." }, checked: true };
+  expect(keepsAsking(open, refused)).toBe(true);
+  // The same refusal drawn again is not a new save.
+  expect(keepsAsking(refused, refused)).toBe(true);
+  // A second refusal is a new state object: still open.
+  expect(
+    keepsAsking(refused, { state: { error: "Not allowed." }, checked: true }),
+  ).toBe(true);
+});
+
 test("a row can hold a delete step and a line of its own, wrapping under the title on a phone", () => {
   const html = render(
     <ul>
@@ -189,8 +211,13 @@ test("a row can hold a delete step and a line of its own, wrapping under the tit
   );
   const row = /<li class="([^"]*)"/.exec(html)?.[1] ?? "";
   expect(row.split(" ")).toContain("flex-wrap");
-  // The controls take the row's width once the step opens.
+  // The title keeps 10rem: below that the controls go under it.
+  expect(html).toContain('<div class="min-w-0 flex-[1_1_10rem] py-1">');
+  // The controls take the row's width once the step opens, or a toggle asks; a popup inside a
+  // control (Base UI's `data-open`) does not count.
   expect(html).toContain("has-[details[open]]:basis-full");
+  expect(html).toContain("has-[[data-asking]]:basis-full");
+  expect(html).not.toContain("has-[[data-open]]");
   expect(html).toContain("<details");
   expect(html).toContain(
     '<div class="min-w-0 basis-full"><p>Matched 12 times.</p>',
