@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { ConfirmPassword } from "@/components/staff/confirm-password";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
+import { FormRows } from "@/components/staff/form-rows";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { AdminMember } from "../data";
@@ -26,16 +27,16 @@ export async function EraseForm({ member }: { member: AdminMember }) {
         submit={t("submit")}
       >
         <input type="hidden" name="id" value={member.card.id} />
-        <FieldRow
+        <Field
           name="reason"
           label={t("reason")}
           htmlFor="erase-reason"
           help={t("reasonHelp")}
         >
           <Textarea id="erase-reason" name="reason" rows={3} required />
-        </FieldRow>
+        </Field>
         <ConfirmPassword id="erase-password" />
-        <FieldRow
+        <Field
           name="confirmUsername"
           label={t("confirm")}
           htmlFor="erase-username"
@@ -48,7 +49,7 @@ export async function EraseForm({ member }: { member: AdminMember }) {
             autoComplete="off"
             autoCapitalize="none"
           />
-        </FieldRow>
+        </Field>
       </FormRows>
     </details>
   );

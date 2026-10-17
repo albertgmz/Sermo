@@ -312,6 +312,11 @@ export function ItemEffect({
                 ))}
               </select>
             )}
+            {selected?.type === "flag" && (
+              <p className="text-xs text-pretty text-muted-foreground">
+                {t("permissionFlag")}
+              </p>
+            )}
           </Field>
           {(typedPermission || selected?.type === "integer") && (
             <Field
@@ -334,11 +339,6 @@ export function ItemEffect({
                 defaultValue={initial?.value}
               />
             </Field>
-          )}
-          {selected?.type === "flag" && (
-            <p className="px-4 pb-2 text-xs text-muted-foreground sm:ps-[11.5rem]">
-              {t("permissionFlag")}
-            </p>
           )}
         </>
       )}

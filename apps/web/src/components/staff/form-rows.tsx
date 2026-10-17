@@ -1,7 +1,8 @@
 "use client";
 
-// FormRows: a form in label / control / help rows for a server action that returns a form state.
-// Used for every editing screen of the administration panel.
+// FormRows: a form in a panel with a heading, for a server action that returns a form state: the
+// in-page forms of the panel (a grant, a decision, an erasure). A separate "Add" or "Edit" page uses
+// `EditForm` (edit-form.tsx) instead; both hold the same `Field`s.
 //
 // FormRows props
 //   action       (previous, formData) => Promise<StaffFormState>. An action either ends in a
@@ -12,21 +13,14 @@
 //   id           Optional anchor of the panel.
 //   disabled     true disables every control and the save button (a form the viewer may read but
 //                not change). The backend still decides.
-//   children     The rows: `FieldRow`s, or any `Row` from ./rows.
+//   children     The rows: `Field`s (edit-form.tsx), or any row of the same padding.
 //
 // useFieldError(name) gives the error line of the control with that name in the enclosing form.
 //
 // StaffFormState
 //   error        A form-level failure, shown above the rows (and read out).
 //   notice       A form-level confirmation, shown the same way.
-//   fields       Error lines by control name, shown under the row whose `name` matches.
-//
-// FieldRow props
-//   name     The control's name; the key of its error line in `fields`.
-//   label    The row's label; htmlFor ties it to the control's id.
-//   htmlFor  Id of the control.
-//   help     Optional help text under the control.
-//   children The control.
+//   fields       Error lines by control name, shown under the field whose `name` matches.
 //
 // The save bar sticks to the bottom of the viewport while the form is on screen and is disabled,
 // with its label changed, while the action runs. The fields keep what was typed when the action
@@ -37,7 +31,7 @@ import { createContext, useActionState, useContext } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Help, Row, Section } from "./rows";
+import { Section } from "./rows";
 
 export type StaffFormState = {
   error?: string;
@@ -47,40 +41,9 @@ export type StaffFormState = {
 
 export const FieldErrors = createContext<Record<string, string>>({});
 
-// The error line of a control of the form it is in, by the control's name: for a row that is not
-// a `FieldRow` (like `ConfirmPassword`) and needs to show it itself.
+// The error line of a control of the form it is in, by the control's name (what `Field` shows).
 export function useFieldError(name: string): string | undefined {
   return useContext(FieldErrors)[name];
-}
-
-export function FieldRow({
-  name,
-  label,
-  htmlFor,
-  help,
-  children,
-}: {
-  name: string;
-  label: React.ReactNode;
-  htmlFor?: string;
-  help?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  const error = useFieldError(name);
-  return (
-    <Row label={label} htmlFor={htmlFor}>
-      {children}
-      {help && <Help id={htmlFor && `${htmlFor}-help`}>{help}</Help>}
-      {error && (
-        <p
-          id={htmlFor && `${htmlFor}-error`}
-          className="text-xs font-medium text-destructive [overflow-wrap:anywhere]"
-        >
-          {error}
-        </p>
-      )}
-    </Row>
-  );
 }
 
 // The save bar of a form: also the one of `EditForm` (edit-form.tsx), which frames it itself.

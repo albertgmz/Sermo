@@ -11,8 +11,9 @@ import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import type { Criterion } from "@/components/staff/criteria-rule";
 import { CursorList } from "@/components/staff/cursor-list";
+import { Field } from "@/components/staff/edit-form";
 import { findThreads } from "@/components/staff/find-threads";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { FormRows } from "@/components/staff/form-rows";
 import { ForumPicker } from "@/components/staff/forum-picker";
 import { LogTable } from "@/components/staff/log-table";
 import { MemberOutcomeList } from "@/components/staff/member-outcomes";
@@ -294,7 +295,7 @@ export function StaffDemos() {
           heading="Credit rule"
           description="When a member earns credits and how many."
         >
-          <FieldRow
+          <Field
             name="title"
             label="Title"
             htmlFor="sample-title"
@@ -305,8 +306,8 @@ export function StaffDemos() {
               name="title"
               defaultValue="Reply in a forum"
             />
-          </FieldRow>
-          <FieldRow
+          </Field>
+          <Field
             name="amount"
             label="Credits"
             htmlFor="sample-amount"
@@ -318,7 +319,7 @@ export function StaffDemos() {
               type="number"
               defaultValue={2}
             />
-          </FieldRow>
+          </Field>
           <ConfirmPassword id="sample-password" />
         </FormRows>
         <p className="max-w-prose text-sm text-muted-foreground">
@@ -330,13 +331,13 @@ export function StaffDemos() {
           heading="Credit rule (read-only)"
           disabled
         >
-          <FieldRow name="title" label="Title" htmlFor="sample-title-off">
+          <Field name="title" label="Title" htmlFor="sample-title-off">
             <Input
               id="sample-title-off"
               name="title"
               defaultValue="Reply in a forum"
             />
-          </FieldRow>
+          </Field>
         </FormRows>
       </div>
 

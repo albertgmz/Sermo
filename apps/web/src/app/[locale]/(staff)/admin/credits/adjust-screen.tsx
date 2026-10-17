@@ -1,9 +1,10 @@
 import { creditsLedger } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
+import { FormRows } from "@/components/staff/form-rows";
 import { Notice } from "@/components/staff/notice";
-import { Row, Section } from "@/components/staff/rows";
+import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,7 +110,12 @@ export async function AdjustScreen({
       >
         <form method="get" className="divide-y">
           <input type="hidden" name="userId" value={userId} />
-          <Row label={t("amount")} htmlFor="adjust-amount">
+          <Field
+            name="amount"
+            label={t("amount")}
+            htmlFor="adjust-amount"
+            help={t("amountHelp")}
+          >
             <Input
               id="adjust-amount"
               name="amount"
@@ -118,17 +124,20 @@ export async function AdjustScreen({
               required
               defaultValue={typedAmount}
             />
-            <p className="text-xs text-muted-foreground">{t("amountHelp")}</p>
-          </Row>
-          <Row label={t("reason")} htmlFor="adjust-reason">
+          </Field>
+          <Field
+            name="reason"
+            label={t("reason")}
+            htmlFor="adjust-reason"
+            help={t("reasonHelp")}
+          >
             <Input
               id="adjust-reason"
               name="reason"
               required
               defaultValue={reason}
             />
-            <p className="text-xs text-muted-foreground">{t("reasonHelp")}</p>
-          </Row>
+          </Field>
           {problem && (
             <p
               role="alert"
@@ -154,7 +163,7 @@ export async function AdjustScreen({
           <input type="hidden" name="userId" value={userId} />
           <input type="hidden" name="amount" value={amount} />
           <input type="hidden" name="reason" value={reason} />
-          <FieldRow name="amount" label={t("summary")}>
+          <Field name="amount" label={t("summary")}>
             <p className="text-sm [overflow-wrap:anywhere]">
               {t("summaryLine", {
                 name: name(userId),
@@ -180,7 +189,7 @@ export async function AdjustScreen({
             >
               {t("change")}
             </Link>
-          </FieldRow>
+          </Field>
         </FormRows>
       )}
       {ledger && (

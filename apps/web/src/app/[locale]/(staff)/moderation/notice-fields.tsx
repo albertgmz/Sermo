@@ -3,22 +3,22 @@
 // `FormRows`; `idPrefix` keeps the ids apart when two forms are on a page.
 
 import { useTranslations } from "next-intl";
-import { FieldRow } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
 import { Textarea } from "@/components/ui/textarea";
 
 export function NoticeFields({ idPrefix }: { idPrefix: string }) {
   const t = useTranslations("moderation.noticeFields");
   return (
     <>
-      <FieldRow
+      <Field
         name="reason"
         label={t("reason")}
         htmlFor={`${idPrefix}-reason`}
         help={t("reasonHelp")}
       >
         <Textarea id={`${idPrefix}-reason`} name="reason" rows={3} />
-      </FieldRow>
-      <FieldRow
+      </Field>
+      <Field
         name="notify"
         label={t("notify")}
         htmlFor={`${idPrefix}-notify`}
@@ -34,15 +34,15 @@ export function NoticeFields({ idPrefix }: { idPrefix: string }) {
           />
           {t("notifyYes")}
         </label>
-      </FieldRow>
-      <FieldRow
+      </Field>
+      <Field
         name="message"
         label={t("message")}
         htmlFor={`${idPrefix}-message`}
         help={t("messageHelp")}
       >
         <Textarea id={`${idPrefix}-message`} name="message" rows={2} />
-      </FieldRow>
+      </Field>
     </>
   );
 }

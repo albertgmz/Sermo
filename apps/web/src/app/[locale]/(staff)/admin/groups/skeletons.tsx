@@ -51,7 +51,7 @@ export function FormSkeleton({ rows = 5 }: { rows?: number }) {
         {ROWS.slice(0, rows).map((row) => (
           <div
             key={row}
-            className="grid gap-3 p-4 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6"
+            className="grid gap-2 p-4 md:grid-cols-[16rem_minmax(0,1fr)] md:gap-6"
           >
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-10 w-full md:h-8" />

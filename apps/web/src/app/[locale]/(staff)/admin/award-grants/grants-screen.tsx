@@ -3,7 +3,8 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
-import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
+import { FormRows } from "@/components/staff/form-rows";
 import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
@@ -73,7 +74,7 @@ export async function GrantsScreen({
         submit={t("grant")}
       >
         <input type="hidden" name="userId" value={userId} />
-        <FieldRow name="awardId" label={t("award")} htmlFor="grant-award">
+        <Field name="awardId" label={t("award")} htmlFor="grant-award">
           <select
             id="grant-award"
             name="awardId"
@@ -87,15 +88,15 @@ export async function GrantsScreen({
               </option>
             ))}
           </select>
-        </FieldRow>
-        <FieldRow
+        </Field>
+        <Field
           name="reason"
           label={t("note")}
           htmlFor="grant-reason"
           help={t("noteHelp")}
         >
           <Input id="grant-reason" name="reason" />
-        </FieldRow>
+        </Field>
       </FormRows>
       <CursorList
         items={grants.items}

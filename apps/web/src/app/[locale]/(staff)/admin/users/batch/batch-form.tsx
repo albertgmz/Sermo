@@ -11,7 +11,8 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { FormError } from "@/components/forum/form-error";
 import { ConfirmPassword } from "@/components/staff/confirm-password";
-import { FieldErrors, FieldRow } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
+import { FieldErrors } from "@/components/staff/form-rows";
 import {
   MemberOutcomeList,
   outcomeTone,
@@ -255,7 +256,7 @@ export function BatchView({
               if (editsChoice(event.target as Element, event.key)) onEdit();
             }}
           >
-            <FieldRow name="selection" label={t("who.kind")}>
+            <Field name="selection" label={t("who.kind")}>
               <fieldset className="flex flex-wrap gap-x-5">
                 <legend className="sr-only">{t("who.kind")}</legend>
                 {(["criteria", "list"] as const).map((value) => (
@@ -275,10 +276,10 @@ export function BatchView({
                   </label>
                 ))}
               </fieldset>
-            </FieldRow>
+            </Field>
             <div hidden={kind !== "criteria"}>{criteria}</div>
             <div hidden={kind !== "list"}>
-              <FieldRow
+              <Field
                 name="members"
                 label={t("who.members")}
                 htmlFor="batch-members"
@@ -292,7 +293,7 @@ export function BatchView({
                   autoCapitalize="none"
                   spellCheck={false}
                 />
-              </FieldRow>
+              </Field>
             </div>
           </div>
           <div className="space-y-3 border-t p-4">
@@ -318,7 +319,7 @@ export function BatchView({
                 name="userIds"
                 value={preview?.ids.join(",") ?? ""}
               />
-              <FieldRow
+              <Field
                 name="action"
                 label={t("what.action")}
                 htmlFor="batch-action"
@@ -340,9 +341,9 @@ export function BatchView({
                     </option>
                   ))}
                 </select>
-              </FieldRow>
+              </Field>
               {isOneOf(GROUP_ACTIONS, chosen) && (
-                <FieldRow
+                <Field
                   name="groupId"
                   label={t("what.group")}
                   htmlFor="batch-group"
@@ -364,10 +365,10 @@ export function BatchView({
                       </option>
                     ))}
                   </select>
-                </FieldRow>
+                </Field>
               )}
               {chosen === "setTitle" && (
-                <FieldRow
+                <Field
                   name="title"
                   label={t("what.title")}
                   htmlFor="batch-title"
@@ -379,10 +380,10 @@ export function BatchView({
                     autoComplete="off"
                     maxLength={100}
                   />
-                </FieldRow>
+                </Field>
               )}
               {chosen === "ban" && (
-                <FieldRow
+                <Field
                   name="days"
                   label={t("what.duration")}
                   htmlFor="batch-days"
@@ -424,10 +425,10 @@ export function BatchView({
                       {t("what.forever")}
                     </label>
                   </div>
-                </FieldRow>
+                </Field>
               )}
               {(chosen === "ban" || chosen === "liftBans") && (
-                <FieldRow name="notify" label={t("what.notify")}>
+                <Field name="notify" label={t("what.notify")}>
                   <label className="flex min-h-10 items-center gap-3 text-sm">
                     <input
                       type="checkbox"
@@ -437,10 +438,10 @@ export function BatchView({
                     />
                     {t("what.notifyLabel")}
                   </label>
-                </FieldRow>
+                </Field>
               )}
               {chosen !== "" && (
-                <FieldRow
+                <Field
                   name="reason"
                   label={t("what.reason")}
                   htmlFor="batch-reason"
@@ -457,13 +458,13 @@ export function BatchView({
                     required={isOneOf(DESTRUCTIVE, chosen)}
                     maxLength={1000}
                   />
-                </FieldRow>
+                </Field>
               )}
               {isOneOf(NEEDS_PASSWORD, chosen) && (
                 <ConfirmPassword key={round} id="batch-password" />
               )}
               {isOneOf(DESTRUCTIVE, chosen) && (
-                <FieldRow key={round} name="confirm" label={t("what.confirm")}>
+                <Field key={round} name="confirm" label={t("what.confirm")}>
                   <label className="flex min-h-10 items-start gap-3 text-sm">
                     <input
                       type="checkbox"
@@ -475,7 +476,7 @@ export function BatchView({
                       {t(`what.confirmText.${chosen}`)}
                     </span>
                   </label>
-                </FieldRow>
+                </Field>
               )}
             </div>
             <div className="space-y-3 border-t p-4">
