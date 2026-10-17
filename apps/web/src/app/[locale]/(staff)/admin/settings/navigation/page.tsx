@@ -1,11 +1,8 @@
-import { ArrowUpDown, Plus } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { AddLink, SortLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { staffTrail } from "../../../trail";
 import { ListSkeleton } from "../../groups/skeletons";
 import { SettingsNotice } from "../settings-screen";
@@ -28,23 +25,10 @@ export default function NavigationPage({
       subtitle={t("subtitle")}
       actions={
         <>
-          <Link
-            href="/admin/settings/navigation/sort"
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "min-h-10 px-4",
-            )}
-          >
-            <ArrowUpDown aria-hidden="true" />
+          <SortLink href="/admin/settings/navigation/sort">
             {list("sort")}
-          </Link>
-          <Link
-            href="/admin/settings/navigation/new"
-            className={cn(buttonVariants(), "min-h-10 px-4")}
-          >
-            <Plus aria-hidden="true" />
-            {list("add")}
-          </Link>
+          </SortLink>
+          <AddLink href="/admin/settings/navigation/new">{list("add")}</AddLink>
         </>
       }
       label={t("loading")}

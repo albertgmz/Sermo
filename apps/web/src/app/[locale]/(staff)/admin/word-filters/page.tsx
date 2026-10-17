@@ -1,13 +1,10 @@
-import { Plus } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { buttonVariants } from "@/components/ui/button";
 import { getViewer } from "@/lib/sermo/session";
-import { cn } from "@/lib/utils";
 import { staffTrail } from "../../trail";
 import { ListSkeleton } from "../groups/skeletons";
 import { FilterList } from "./filter-list";
@@ -24,15 +21,7 @@ async function NewFilterLink() {
     getViewer(),
   ]);
   if (viewer.resolvedPermissions["wordFilter.manage"] !== true) return null;
-  return (
-    <Link
-      href="/admin/word-filters/new"
-      className={cn(buttonVariants(), "h-10 px-4 md:h-8 md:px-3")}
-    >
-      <Plus aria-hidden="true" />
-      {t("header.add")}
-    </Link>
-  );
+  return <AddLink href="/admin/word-filters/new">{t("header.add")}</AddLink>;
 }
 
 export default function WordFiltersPage({

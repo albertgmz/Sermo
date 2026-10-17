@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { renderToReadableStream, renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
-import { PageHeader } from "./page-header";
+import { AddLink, HeaderLink, PageHeader, SortLink } from "./page-header";
 
 const TRAIL = [
   { href: "/admin", label: "Home" },
@@ -70,4 +70,24 @@ test("an empty trail draws nothing, and a trail still on its way does not hold t
   )
     rest += decoder.decode(chunk.value);
   expect(rest).toContain('aria-label="Back to Members"');
+});
+
+test("the header's links: Add is the primary one with a plus, Sort and the others are outlined", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <>
+        <AddLink href="/admin/reactions/new">Add reaction</AddLink>
+        <SortLink href="/admin/reactions/sort">Sort</SortLink>
+        <HeaderLink href="/admin/users/batch">Batch update</HeaderLink>
+      </>,
+    ),
+  );
+  const [add, sort, other] = html.split("</a>");
+  expect(add).toContain('href="/admin/reactions/new"');
+  expect(add).toContain("lucide-plus");
+  expect(add).not.toContain("border-border");
+  expect(sort).toContain("lucide-arrow-up-down");
+  for (const link of [sort, other]) expect(link).toContain("border-border");
+  // Touch-sized on every width.
+  for (const link of [add, sort, other]) expect(link).toContain("min-h-10");
 });

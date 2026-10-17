@@ -1,9 +1,6 @@
-import { Plus } from "lucide-react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { staffTrail } from "../../trail";
 import { FormSkeleton, ListSkeleton } from "../groups/skeletons";
 import { CatalogEdit, CatalogList } from "./catalog-screen";
@@ -17,19 +14,6 @@ type Params = Promise<{ id: string }>;
 // The pages of the appearance screens. Each screen (a picture catalog or a colour palette) has the
 // list, a page to add an entry and a page for each entry; the address of the last two extends
 // the list's. The heading and the trail show at once, the content streams in below.
-
-// The list's primary action: add an entry.
-function AddLink({ path, add }: { path: string; add: string }) {
-  return (
-    <Link
-      href={`${path}/new`}
-      className={cn(buttonVariants(), "min-h-10 px-4")}
-    >
-      <Plus aria-hidden="true" />
-      {add}
-    </Link>
-  );
-}
 
 // The trail of an entry's page: the address names the entry.
 async function entryTrail(path: string, params: Params) {
@@ -51,7 +35,7 @@ export function CatalogPage({
       trail={staffTrail(path)}
       heading={t(`${key}.pageHeading`)}
       subtitle={t(`${key}.subtitle`)}
-      actions={<AddLink path={path} add={t(`${key}.add`)} />}
+      actions={<AddLink href={`${path}/new`}>{t(`${key}.add`)}</AddLink>}
       label={t("loading")}
       fallback={<ListSkeleton />}
     >
@@ -98,7 +82,7 @@ export function PalettePage({
       trail={staffTrail(path)}
       heading={t(`${key}.pageHeading`)}
       subtitle={t(`${key}.subtitle`)}
-      actions={<AddLink path={path} add={t(`${key}.add`)} />}
+      actions={<AddLink href={`${path}/new`}>{t(`${key}.add`)}</AddLink>}
       label={t("loading")}
       fallback={<ListSkeleton />}
     >

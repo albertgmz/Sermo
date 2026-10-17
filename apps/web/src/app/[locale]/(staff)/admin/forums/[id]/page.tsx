@@ -1,16 +1,14 @@
 import { forumTabsList, nodesGet, nodesList } from "@sermo/core/contracts";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { Notice } from "@/components/staff/notice";
+import { HeaderLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
-import { cn } from "@/lib/utils";
 import { hrefFor } from "../../../registry";
 import { staffTrail } from "../../../trail";
 import { FormSkeleton } from "../../groups/skeletons";
@@ -23,8 +21,6 @@ export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminForums.edit");
   return { title: t("metaTitle") };
 }
-
-const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
 
 type Props = PageProps<"/[locale]/admin/forums/[id]">;
 
@@ -56,17 +52,14 @@ async function Node({ params, searchParams }: Props) {
       actions={
         <>
           {permissions && (
-            <Link
-              href={`/admin/forums/${node.id}/permissions`}
-              className={link}
-            >
+            <HeaderLink href={`/admin/forums/${node.id}/permissions`}>
               {t("permissions")}
-            </Link>
+            </HeaderLink>
           )}
           {node.type === "forum" && (
-            <Link href={`/forums/${node.id}`} className={link}>
+            <HeaderLink href={`/forums/${node.id}`}>
               {t("publicPage")}
-            </Link>
+            </HeaderLink>
           )}
         </>
       }

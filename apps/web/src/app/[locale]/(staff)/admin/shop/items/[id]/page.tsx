@@ -1,18 +1,15 @@
 import { shopItemsGet } from "@sermo/core/contracts";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { EditForm } from "@/components/staff/edit-form";
 import { Notice } from "@/components/staff/notice";
-import { PageHeader } from "@/components/staff/page-header";
+import { HeaderLink, PageHeader } from "@/components/staff/page-header";
 import { StreamedPanel } from "@/components/staff/screen-frame";
-import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { cn } from "@/lib/utils";
 import { EditFormSkeleton } from "../../../../skeletons";
 import { staffTrail } from "../../../../trail";
 import { deleteItem, saveItem } from "../actions";
@@ -45,15 +42,9 @@ async function EditItem({
         title={item.name}
         description={t("editPage.subtitle")}
         actions={
-          <Link
-            href={`/admin/shop/items?category=${item.categoryId}`}
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "h-10 px-4 md:h-8 md:px-3",
-            )}
-          >
+          <HeaderLink href={`/admin/shop/items?category=${item.categoryId}`}>
             {t("back")}
-          </Link>
+          </HeaderLink>
         }
       />
       <div className="space-y-4">

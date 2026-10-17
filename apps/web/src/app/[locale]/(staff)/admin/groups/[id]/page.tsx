@@ -1,16 +1,15 @@
 import { groupsGet } from "@sermo/core/contracts";
 import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { Notice } from "@/components/staff/notice";
+import { HeaderLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
@@ -37,16 +36,12 @@ async function PermissionsAction({ params }: { params: Params }) {
   const permissions = hrefFor(viewer, "permissionsGroups");
   if (groupId === null || !permissions) return null;
   return (
-    <Link
+    <HeaderLink
       href={`${permissions}/${groupId}`}
-      className={buttonVariants({
-        variant: "outline",
-        className: "min-h-10 px-4",
-      })}
+      icon={<ShieldCheck aria-hidden="true" />}
     >
-      <ShieldCheck aria-hidden="true" />
       {t("permissions")}
-    </Link>
+    </HeaderLink>
   );
 }
 

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { staffTrail } from "../../trail";
-import { AddLink } from "../credits/header-links";
 import { ListSkeleton } from "../groups/skeletons";
 import { AwardList } from "./award-list";
 

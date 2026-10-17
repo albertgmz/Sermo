@@ -1,10 +1,8 @@
-import { Plus } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { buttonVariants } from "@/components/ui/button";
 import { staffTrail } from "../../trail";
 import { GroupList } from "./group-list";
 import { ListSkeleton } from "./skeletons";
@@ -23,15 +21,7 @@ export default function GroupsPage({
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
       trail={staffTrail("/admin/groups")}
-      actions={
-        <Link
-          href="/admin/groups/new"
-          className={buttonVariants({ className: "min-h-10 px-4" })}
-        >
-          <Plus aria-hidden="true" />
-          {t("new")}
-        </Link>
-      }
+      actions={<AddLink href="/admin/groups/new">{t("new")}</AddLink>}
       label={t("loading")}
       fallback={<ListSkeleton />}
     >

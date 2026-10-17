@@ -1,9 +1,7 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { Notice } from "@/components/staff/notice";
-import { buttonVariants } from "@/components/ui/button";
+import { HeaderLink } from "@/components/staff/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 
 // What a permission matrix page shows above its form: the confirmation of a save, then the name
 // of whose permissions these are.
@@ -53,12 +51,5 @@ async function AwaitedAction({
 }) {
   const target = await href;
   if (!target) return null;
-  return (
-    <Link
-      href={target}
-      className={cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4")}
-    >
-      {label}
-    </Link>
-  );
+  return <HeaderLink href={target}>{label}</HeaderLink>;
 }

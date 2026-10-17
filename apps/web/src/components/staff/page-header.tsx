@@ -1,9 +1,11 @@
-import { ChevronLeft } from "lucide-react";
+import { ArrowUpDown, ChevronLeft, Plus } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
+import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 // PageHeader: the top of every page of the panel. Server-safe.
 //
@@ -16,6 +18,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 //   description  Optional line under the title.
 //   actions      Optional primary actions (buttons, links): at the top right from 640 px, below
 //                the title on a phone.
+//
+// HeaderLink: an action of the header that opens another page, drawn as a button: `primary` for
+// the page's main action, outline otherwise; `icon` an optional icon before the text. AddLink
+// ("Add …": a plus, primary) and SortLink (the up and down arrows, outline) are the actions of the
+// list pages.
 
 export type Crumb = { href: string; label: string };
 
@@ -82,5 +89,58 @@ function Trail({ crumbs }: { crumbs: Crumb[] }) {
       </Link>
       <PageBreadcrumb items={crumbs} className="hidden md:block" />
     </>
+  );
+}
+
+export function HeaderLink({
+  href,
+  primary = false,
+  icon,
+  children,
+}: {
+  href: string;
+  primary?: boolean;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        buttonVariants({ variant: primary ? "default" : "outline" }),
+        "min-h-10 px-4",
+      )}
+    >
+      {icon}
+      {children}
+    </Link>
+  );
+}
+
+export function AddLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <HeaderLink href={href} primary icon={<Plus aria-hidden="true" />}>
+      {children}
+    </HeaderLink>
+  );
+}
+
+export function SortLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <HeaderLink href={href} icon={<ArrowUpDown aria-hidden="true" />}>
+      {children}
+    </HeaderLink>
   );
 }

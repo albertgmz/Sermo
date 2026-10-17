@@ -1,11 +1,8 @@
-import { Plus } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { staffTrail } from "../../trail";
 import { ListSkeleton } from "../groups/skeletons";
 import { PageList } from "./page-list";
@@ -19,15 +16,7 @@ export default function PagesPage({
   searchParams,
 }: PageProps<"/[locale]/admin/pages">) {
   const t = useTranslations("adminContent.pages");
-  const add = (
-    <Link
-      href="/admin/pages/-new"
-      className={cn(buttonVariants(), "h-10 px-4 md:h-8 md:px-3")}
-    >
-      <Plus aria-hidden="true" />
-      {t("header.add")}
-    </Link>
-  );
+  const add = <AddLink href="/admin/pages/-new">{t("header.add")}</AddLink>;
   return (
     <ScreenFrame
       heading={t("heading")}
