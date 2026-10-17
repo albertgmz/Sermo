@@ -162,7 +162,6 @@
       "purchased": "Comprado"
     },
     "groupId": "Grupo n.º {id}",
-    "none": "Ninguno",
     "refusedTitle": "No puedes ver los grupos de este miembro",
     "refusedDescription": "Este miembro tiene un rango igual o superior al tuyo, o es superadministrador, así que sus grupos no se muestran y no se pueden cambiar.",
     "superAdminHeading": "Superadministrador",

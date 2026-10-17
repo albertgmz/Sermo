@@ -35,19 +35,15 @@
       "threadTitled": "In thread {title}",
       "wall": "On the wall of {name}",
       "forum": "In {title}",
-      "conversation": "In a private conversation",
-      "hidden": "Place not shown",
-      "member": "A member"
+      "hidden": "Place not shown"
     },
     "gone": "This content cannot be read: it was removed or you may not see it.",
-    "authorUnknown": "Author unknown",
     "forumFilter": "Forum",
     "stateFilter": "State",
     "all": "All",
     "apply": "Apply",
     "reset": "Reset",
-    "filters": "Filters",
-    "loading": "Loading…"
+    "filters": "Filters"
   },
   "notices": {
     "stateSaved": "The report was updated.",
@@ -122,8 +118,7 @@
     "stateLabel": "New state",
     "stateHelp": "Assigning gives you the case. Resolved and rejected close it.",
     "submit": "Save the state",
-    "loading": "Loading the case…",
-    "system": "Unknown"
+    "loading": "Loading the case…"
   },
   "message": {
     "metaTitle": "Reported private message",
@@ -135,10 +130,8 @@
     "warning": "Private conversations are not open to moderators. Opening this message shows it with the messages around it, and the moderator log records that you did, with your name and the time. Open it only to decide this case.",
     "confirm": "Open and log the view",
     "opening": "Opening…",
-    "viewHeading": "{title}",
     "viewDescription": "The message under review is marked. The view was logged.",
     "target": "Reported message",
-    "context": "Context",
     "empty": "The conversation has no messages to show."
   },
   "approvals": {
@@ -157,13 +150,8 @@
     "heading": "Review: {type} {id}",
     "contentHeading": "Content",
     "contentDescription": "As submitted, with the pictures your Data saver settings allow.",
-    "state": "State",
-    "author": "Author",
-    "submitted": "Submitted",
     "notWaiting": "This content is no longer waiting for approval; the backend decides whether it may still be changed.",
     "viewPublic": "View it on the site",
-    "viewAuthorPanel": "Author in the panel",
-    "messageHeading": "Private message",
     "approveHeading": "Approve",
     "approveDescription": "Makes the content visible to everyone who can see its place.",
     "approveSubmit": "Approve",

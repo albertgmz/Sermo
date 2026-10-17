@@ -162,7 +162,6 @@
       "purchased": "Purchased"
     },
     "groupId": "Group #{id}",
-    "none": "None",
     "refusedTitle": "You cannot see this member's groups",
     "refusedDescription": "This member ranks at or above you, or is a super admin, so their groups are not shown and cannot be changed.",
     "superAdminHeading": "Super admin",
