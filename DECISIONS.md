@@ -4198,3 +4198,31 @@ the forum, `scroll-padding-top` on the root keeps every jump (an address's ancho
 the window follow it: the "new entries" button of an infinite list floats under the header, and
 its scroll to the top of the list, and `itemAtWindowTop` (the item the reader is at), allow for it.
 The staff panel is untouched.
+
+### Coherence pass (item 12)  One pattern for each thing every staff screen does, and the local
+copies gone. No address, gate, server action or screen's behaviour changed. Loading: one
+`LoadingPage({ label?, children })` and the list, form and edit-form skeletons
+(`EditFormSkeleton({ rows, advanced, heading })`) live in `(staff)/skeletons.tsx`; the five local
+loading wrappers and the per-area skeleton files are gone. `ScreenFrame` always draws `PageHeader`
+(the old plain heading is gone) and takes `nav`, a row drawn at once above the streamed content:
+the settings switcher uses it, so it no longer waits for the settings to load. Paging:
+`components/staff/paging.tsx` (`PagingLinks`, `listHref`, `cursorFrom`) is the one set of
+first/next links; `ItemList` takes `paging` (links in its footer, the count read as "N on this
+page" while more pages follow) and `action` (a button at the end of its heading); `PagedList` is a
+filters card above an `ItemList`, for the lists the backend pages (bans, members, the member's
+economy and sanctions, reports, approvals, sign-ups, IP lookups). Paging links drop a save's
+`notice`. Header buttons: `HeaderLink`, `AddLink` (primary, plus icon) and `SortLink` (outlined,
+arrows) in `page-header.tsx`, at `min-h-10` on every page; add buttons read "Add X" and the pages
+they open "New X", in both languages; an empty list offers the page's own add button. Form rows:
+`Field` (now `components/staff/field.tsx`, re-exported by the edit form, with an optional `error`)
+is the only row; `FieldRow`, `entity-list` and `entity-rows` are gone. `ConfirmPassword` draws a
+`Field`, so the account's delete confirmation shares that layout. `SortRow` (from `sort-form.tsx`)
+draws the forums sort page too. `Advanced` opens when the browser stops a save on a field inside it;
+a switch's confirm step opens on Cancel; row icons are not clipped. Empty-state titles that carry a
+description read as headings, without a closing period. Message keys nothing read are removed.
+Two suites (`credits/shop.test.tsx`, `tests/lite-runtime.test.tsx`) put back what they replace:
+with Bun, a module namespace taken before `mock.module` follows the mock, so it is restored from a
+spread copy taken before mocking.
+Known limits: the look in a browser and on a phone has not been checked; many other suites still
+restore from the namespace itself, and `account/profile-permissions`, `account/profile-forms` and
+`account/security/delete-account` tests leave mocks that break staff suites run after them.
