@@ -58,6 +58,7 @@
   /* Spacing and sizes. */
   --spacing-inline-icon: 1.125rem;
   --spacing-mobile-nav: calc(3.5rem + env(safe-area-inset-bottom));
+  --spacing-site-header: calc(3.5rem + 1px);
   --aspect-cover: 5 / 2;
 
   /* Fonts. */
@@ -278,9 +279,18 @@
 }
 
 /*
+ * The forum's header stays at the top of the window (site-header.tsx), so a jump to an address's
+ * target, or to a post with `j` and `k`, stops below it: the target's scroll margin (`scroll-mt-*`)
+ * is added to this padding.
+ */
+html:has([data-forum-layout]) {
+  scroll-padding-top: var(--spacing-site-header);
+}
+
+/*
  * The post or card that `j` and `k` have moved to holds the focus, and the focus ring is the
  * mark. Inside the item, so a neighbour does not cover it. Each item keeps a scroll margin of
- * 1rem (`scroll-mt-4`), which `itemAtWindowTop` allows for.
+ * 1rem (`scroll-mt-4`), which `itemAtWindowTop` allows for, under the header.
  */
 [data-shortcut-item]:focus-visible {
   outline-offset: -2px;

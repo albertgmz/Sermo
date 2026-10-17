@@ -4187,3 +4187,14 @@ breadcrumb of the three pages is drawn without "General" (`navigationTrail`): th
 there because the addresses share `/admin/settings`.
 Known limits: the look in a browser and on a phone, and the first-load size, have not been checked;
 the list's filter narrows each place's card on its own.
+
+### Sticky site header (item 13)  The public site's header now sticks to the top of the window
+(`sticky top-0 z-30 border-b bg-background`, the staff bar's own classes), at every width. Menus,
+panels and popovers are portaled at `z-50` and dialogs and sheets are `z-50` too, so they open above
+it and cover it; the bottom navigation (`z-40`) and the cookie banner (`z-45`) are at the other edge.
+`--spacing-site-header` (56px and its border) is the one place that knows its height: on a page of
+the forum, `scroll-padding-top` on the root keeps every jump (an address's anchor, `scrollIntoView`,
+`j` and `k`) below it, added to each target's own `scroll-mt-*`. Two things that assumed the top of
+the window follow it: the "new entries" button of an infinite list floats under the header, and
+its scroll to the top of the list, and `itemAtWindowTop` (the item the reader is at), allow for it.
+The staff panel is untouched.

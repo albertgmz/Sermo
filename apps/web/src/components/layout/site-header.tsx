@@ -52,7 +52,7 @@ function IconLink({
 export function SiteHeader() {
   const t = useTranslations("layout.siteHeader");
   return (
-    <header className="border-b bg-background">
+    <header className="sticky top-0 z-30 border-b bg-background">
       <Container className="flex h-14 items-center gap-1 md:gap-4">
         <Suspense
           fallback={

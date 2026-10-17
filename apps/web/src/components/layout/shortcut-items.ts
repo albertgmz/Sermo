@@ -11,9 +11,9 @@ export function stepIndex(count: number, current: number, delta: 1 | -1) {
   return Math.min(count - 1, Math.max(0, current + delta));
 }
 
-// An item scrolled to by `j` or `k` sits 1rem (16px) under the top of the window, the scroll
-// margin; one more pixel is allowed for rounding.
-const AT_TOP = 17;
+// An item scrolled to by `j` or `k` sits 1rem (16px, the scroll margin) under the header (57px,
+// the scroll padding in globals.css); one more pixel is allowed for rounding.
+const AT_TOP = 74;
 
 // With no item holding the focus, the one the reader is at: the last whose top is at or above the
 // top of the window (-1 when every item is still below it). `tops` are in document order.
