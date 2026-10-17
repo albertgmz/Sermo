@@ -161,10 +161,6 @@
     "notices": {
       "saved": "Aviso guardado. Los miembros que lo descartaron no lo vuelven a ver."
     },
-    "form": {
-      "heading": "Aviso",
-      "description": "Al guardar se sustituyen todos los campos."
-    },
     "delete": {
       "heading": "Eliminar el aviso",
       "summary": "Eliminar este aviso",

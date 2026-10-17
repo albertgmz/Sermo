@@ -159,9 +159,7 @@
     "origin": {
       "manual": "A mano",
       "promotion": "Promoción",
-      "purchased": "Comprado",
-      "primary": "Principal",
-      "secondary": "A mano"
+      "purchased": "Comprado"
     },
     "groupId": "Grupo n.º {id}",
     "none": "Ninguno",
@@ -348,7 +346,6 @@
     "created": "Inicio",
     "expires": "Caduca",
     "address": "Dirección",
-    "userAgent": "Navegador",
     "unknown": "Desconocido",
     "revokeOne": "Revocar esta sesión",
     "revokeOneWarning": "Cierra esta sesión.",

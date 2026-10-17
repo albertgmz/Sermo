@@ -365,10 +365,6 @@
     "node_icon": "Forum icons",
     "node_cover": "Forum covers"
   },
-  "languages": {
-    "en": "English",
-    "es": "Spanish"
-  },
   "navigation": {
     "locations": {
       "header": "Header",

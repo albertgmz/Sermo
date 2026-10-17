@@ -1,7 +1,4 @@
 {
-  "shell": {
-    "loading": "Loading…"
-  },
   "links": {
     "panel": "Panel"
   },
@@ -111,8 +108,7 @@
     "emptyDescription": "No credit movement matches.",
     "balanceAfter": "Balance after",
     "source": "Source",
-    "sourceValue": "{type} {id}",
-    "system": "System"
+    "sourceValue": "{type} {id}"
   },
   "purchases": {
     "metaTitle": "Shop purchases",

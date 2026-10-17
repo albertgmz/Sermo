@@ -161,10 +161,6 @@
     "notices": {
       "saved": "Notice saved. Members who dismissed it do not see it again."
     },
-    "form": {
-      "heading": "Notice",
-      "description": "Every field is replaced when you save."
-    },
     "delete": {
       "heading": "Delete the notice",
       "summary": "Delete this notice",

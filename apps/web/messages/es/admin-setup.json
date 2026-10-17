@@ -365,10 +365,6 @@
     "node_icon": "Iconos de foros",
     "node_cover": "Portadas de foros"
   },
-  "languages": {
-    "en": "Inglés",
-    "es": "Español"
-  },
   "navigation": {
     "locations": {
       "header": "Cabecera",
