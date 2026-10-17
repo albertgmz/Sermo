@@ -25,7 +25,7 @@ export default function WarningsPage({
           <AddLink href="/admin/settings/warnings/types/new">
             {types("add")}
           </AddLink>
-          <AddLink href="/admin/settings/warnings/actions/new">
+          <AddLink href="/admin/settings/warnings/actions/new" secondary>
             {actions("add")}
           </AddLink>
         </>

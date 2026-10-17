@@ -1,8 +1,7 @@
-import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { AddLink, HeaderLink, SortLink } from "@/components/staff/page-header";
+import { AddLink, SortLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { ListSkeleton } from "../../skeletons";
 import { staffTrail } from "../../trail";
@@ -25,12 +24,9 @@ export default function ForumsPage({
       actions={
         <>
           <SortLink href="/admin/forums/sort">{t("sort")}</SortLink>
-          <HeaderLink
-            href="/admin/forums/new/category"
-            icon={<Plus aria-hidden="true" />}
-          >
+          <AddLink href="/admin/forums/new/category" secondary>
             {t("addCategory")}
-          </HeaderLink>
+          </AddLink>
           <AddLink href="/admin/forums/new/forum">{t("addForum")}</AddLink>
         </>
       }

@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 // HeaderLink: an action of the header that opens another page, drawn as a button: `primary` for
 // the page's main action, outline otherwise; `icon` an optional icon before the text. AddLink
 // ("Add …": a plus, primary) and SortLink (the up and down arrows, outline) are the actions of the
-// list pages.
+// list pages. A header has one primary action: a second add is `secondary` (outline).
 
 export type Crumb = { href: string; label: string };
 
@@ -119,13 +119,19 @@ export function HeaderLink({
 
 export function AddLink({
   href,
+  secondary = false,
   children,
 }: {
   href: string;
+  secondary?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <HeaderLink href={href} primary icon={<Plus aria-hidden="true" />}>
+    <HeaderLink
+      href={href}
+      primary={!secondary}
+      icon={<Plus aria-hidden="true" />}
+    >
       {children}
     </HeaderLink>
   );

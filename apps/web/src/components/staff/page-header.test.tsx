@@ -79,15 +79,21 @@ test("the header's links: Add is the primary one with a plus, Sort and the other
         <AddLink href="/admin/reactions/new">Add reaction</AddLink>
         <SortLink href="/admin/reactions/sort">Sort</SortLink>
         <HeaderLink href="/admin/users/batch">Batch update</HeaderLink>
+        <AddLink href="/admin/forums/new/category" secondary>
+          Add category
+        </AddLink>
       </>,
     ),
   );
-  const [add, sort, other] = html.split("</a>");
+  const [add, sort, other, second] = html.split("</a>");
   expect(add).toContain('href="/admin/reactions/new"');
   expect(add).toContain("lucide-plus");
   expect(add).not.toContain("border-border");
   expect(sort).toContain("lucide-arrow-up-down");
-  for (const link of [sort, other]) expect(link).toContain("border-border");
+  // A second add keeps its plus but is outlined: one primary action per header.
+  expect(second).toContain("lucide-plus");
+  for (const link of [sort, other, second])
+    expect(link).toContain("border-border");
   // Touch-sized on every width.
   for (const link of [add, sort, other]) expect(link).toContain("min-h-10");
 });
