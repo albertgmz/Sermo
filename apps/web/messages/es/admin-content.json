@@ -76,7 +76,7 @@
       "metaTitle": "Nuevo tipo de reacción",
       "heading": "Nuevo tipo de reacción",
       "description": "Un tipo de reacción no se puede eliminar, solo dejar de ofrecerlo.",
-      "submit": "Añadir reacción"
+      "submit": "Crear reacción"
     },
     "edit": {
       "metaTitle": "Editar tipo de reacción",
@@ -127,7 +127,7 @@
     "create": {
       "heading": "Nuevo filtro",
       "description": "Añadir un término que ya tiene un filtro cambia ese filtro.",
-      "submit": "Añadir filtro",
+      "submit": "Crear filtro",
       "term": "Palabra",
       "termHelp": "La palabra o frase que se busca. No se puede renombrar después.",
       "action": "Acción",

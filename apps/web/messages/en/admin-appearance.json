@@ -83,7 +83,11 @@
       "covers": "Upload the picture of the cover and name it.",
       "threadCovers": "Upload the picture of the cover and name it."
     },
-    "create": "Add to the catalog",
+    "create": {
+      "frames": "Create frame",
+      "covers": "Create cover",
+      "threadCovers": "Create thread cover"
+    },
     "picture": "Picture",
     "pictureHelp": "Uploaded as soon as you choose it. An entry needs a picture to be active.",
     "replace": "Replace the picture",
@@ -144,7 +148,11 @@
       "name": "A colour for member names.",
       "prefix": "A colour for thread prefixes."
     },
-    "create": "Add to the palette",
+    "create": {
+      "accent": "Create accent",
+      "name": "Create name colour",
+      "prefix": "Create prefix colour"
+    },
     "activeHelp": "Members and prefixes can pick this colour."
   }
 }

@@ -99,7 +99,10 @@ async function ColourForm({
   const t = await getTranslations("adminAppearance.colourForm");
   const key = `colour-${colour?.id ?? "new"}`;
   return (
-    <EditForm action={saveColour} submit={colour ? undefined : t("create")}>
+    <EditForm
+      action={saveColour}
+      submit={colour ? undefined : t(`create.${kind}`)}
+    >
       <input type="hidden" name="kind" value={kind} />
       {colour && <input type="hidden" name="id" value={colour.id} />}
       <FieldGroup legend={t("group")}>

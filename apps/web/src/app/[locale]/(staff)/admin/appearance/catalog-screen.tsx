@@ -111,7 +111,10 @@ async function EntryForm({ kind, entry }: { kind: ImageKind; entry?: Entry }) {
   const key = `${kind}-${entry?.id ?? "new"}`;
   const frame = entry?.image ? await framePicture(entry.image) : null;
   return (
-    <EditForm action={saveImage} submit={entry ? undefined : t("create")}>
+    <EditForm
+      action={saveImage}
+      submit={entry ? undefined : t(`create.${IMAGE_KINDS[kind].key}`)}
+    >
       <input type="hidden" name="kind" value={kind} />
       {entry && <input type="hidden" name="id" value={entry.id} />}
       <FieldGroup legend={t("group")}>

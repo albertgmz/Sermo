@@ -383,7 +383,7 @@
       "after": "After the title"
     },
     "add": {
-      "submit": "Add entry",
+      "submit": "Create entry",
       "location": "Place",
       "locationHelp": "Where the entry shows.",
       "title": "Title",
@@ -489,7 +489,7 @@
       "headingEdit": "Edit warning type",
       "descriptionNew": "Named in both languages; members read the one they use.",
       "legend": "Warning type",
-      "create": "Add warning type",
+      "create": "Create warning type",
       "nameEn": "Name (English)",
       "nameEs": "Name (Spanish)",
       "points": "Points",
@@ -521,7 +521,7 @@
       "headingEdit": "Edit automatic action",
       "descriptionNew": "A member who holds the permission that exempts them from automatic actions is skipped, and the last administrator cannot be banned. An action that adds a group needs the permission to manage members and your own password.",
       "legend": "Automatic action",
-      "create": "Add action",
+      "create": "Create action",
       "threshold": "Active points",
       "thresholdHelp": "The action applies when a member's unexpired points reach this number.",
       "kind": "Action",

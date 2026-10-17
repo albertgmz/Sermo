@@ -383,7 +383,7 @@
       "after": "Después del título"
     },
     "add": {
-      "submit": "Añadir entrada",
+      "submit": "Crear entrada",
       "location": "Lugar",
       "locationHelp": "Dónde se muestra la entrada.",
       "title": "Título",
@@ -489,7 +489,7 @@
       "headingEdit": "Editar tipo de advertencia",
       "descriptionNew": "Con nombre en los dos idiomas; cada miembro lee el que usa.",
       "legend": "Tipo de advertencia",
-      "create": "Añadir tipo de advertencia",
+      "create": "Crear tipo de advertencia",
       "nameEn": "Nombre (inglés)",
       "nameEs": "Nombre (español)",
       "points": "Puntos",
@@ -521,7 +521,7 @@
       "headingEdit": "Editar acción automática",
       "descriptionNew": "Se omite a los miembros que tienen el permiso que los exime de las acciones automáticas, y no se puede expulsar al último administrador. Una acción que añade un grupo necesita el permiso para gestionar miembros y tu propia contraseña.",
       "legend": "Acción automática",
-      "create": "Añadir acción",
+      "create": "Crear acción",
       "threshold": "Puntos activos",
       "thresholdHelp": "La acción se aplica cuando los puntos sin caducar de un miembro llegan a este número.",
       "kind": "Acción",

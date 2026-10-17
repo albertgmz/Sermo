@@ -76,7 +76,7 @@
       "metaTitle": "New reaction type",
       "heading": "New reaction type",
       "description": "A reaction type cannot be deleted, only stopped from being offered.",
-      "submit": "Add reaction"
+      "submit": "Create reaction"
     },
     "edit": {
       "metaTitle": "Edit reaction type",
@@ -127,7 +127,7 @@
     "create": {
       "heading": "New filter",
       "description": "Adding a term that already has a filter changes that filter.",
-      "submit": "Add filter",
+      "submit": "Create filter",
       "term": "Word",
       "termHelp": "The word or phrase to look for. It cannot be renamed later.",
       "action": "Action",

@@ -115,7 +115,7 @@
     "title": "Título",
     "position": "Orden",
     "positionHelp": "Los números más bajos van primero. Déjalo vacío para el valor predeterminado.",
-    "create": "Añadir pestaña"
+    "create": "Crear pestaña"
   },
   "edit": {
     "metaTitle": "Editar foro",

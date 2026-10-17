@@ -113,6 +113,7 @@ test("a new colour starts active and has no id", async () => {
   expect(html).not.toContain('name="id"');
   expect(html).not.toContain('name="foreground"');
   expect(html).toMatch(/name="isActive"[^>]*checked/);
+  expect(html).toContain("Create name colour");
 });
 
 test("a colour the address names but the palette lacks is not found", async () => {
@@ -152,4 +153,5 @@ test("the page of a picture keeps the picture upload, and a frame its placement"
   expect(fresh).toContain('name="width"');
   expect(fresh).toContain('name="scale"');
   expect(fresh).not.toContain("Reset to measured");
+  expect(fresh).toContain("Create frame");
 });

@@ -83,7 +83,11 @@
       "covers": "Sube la imagen de la portada y ponle nombre.",
       "threadCovers": "Sube la imagen de la portada y ponle nombre."
     },
-    "create": "Añadir al catálogo",
+    "create": {
+      "frames": "Crear marco",
+      "covers": "Crear portada",
+      "threadCovers": "Crear portada de tema"
+    },
     "picture": "Imagen",
     "pictureHelp": "Se sube en cuanto la eliges. Una entrada necesita una imagen para estar activa.",
     "replace": "Reemplazar la imagen",
@@ -144,7 +148,11 @@
       "name": "Un color para nombres de miembros.",
       "prefix": "Un color para prefijos de tema."
     },
-    "create": "Añadir a la paleta",
+    "create": {
+      "accent": "Crear acento",
+      "name": "Crear color del nombre",
+      "prefix": "Crear color de prefijo"
+    },
     "activeHelp": "Los miembros y los prefijos pueden elegir este color."
   }
 }

@@ -270,7 +270,7 @@ test("the warning type and action forms keep their fields, a change naming its r
   }
   expect(fresh.names.has("id")).toBe(false);
   expect(change.html).toContain('name="id" value="1"');
-  expect(fresh.html).toContain("Add warning type");
+  expect(fresh.html).toContain("Create warning type");
   const newAction = await controls(() => ActionForm({ groups: null }));
   const changeAction = await controls(() =>
     ActionForm({ action: ACTION, groups: null }),

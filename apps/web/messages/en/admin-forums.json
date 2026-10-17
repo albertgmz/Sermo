@@ -115,7 +115,7 @@
     "title": "Title",
     "position": "Order",
     "positionHelp": "Lower numbers come first. Leave empty for the default.",
-    "create": "Add tab"
+    "create": "Create tab"
   },
   "edit": {
     "metaTitle": "Edit forum",

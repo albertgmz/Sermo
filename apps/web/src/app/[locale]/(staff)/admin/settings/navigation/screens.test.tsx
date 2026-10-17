@@ -134,7 +134,7 @@ test("the add page asks for the place, target, parent and order and posts no id"
   expect(html).not.toContain(`name="id"`);
   // The built-in targets are offered.
   expect(html).toContain(`<option value="/forums">`);
-  expect(html).toContain("Add entry");
+  expect(html).toContain("Create entry");
 });
 
 test("the edit page posts the entry id and its own fields, filled in, and not its place, target, parent or order", async () => {
