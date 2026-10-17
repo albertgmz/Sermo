@@ -2,7 +2,8 @@
 // reading (packages/core/src/bbcode/scan.ts; `bb-scan.test.ts` holds the two together): a tag is
 // `[NAME]`, `[NAME=option]` or the closing `[/NAME]`. A bare option has no closing bracket,
 // quotation mark or line break; a quoted one has no quotation mark, closing bracket or line
-// break; one in apostrophes has no closing bracket or line break and ends at an apostrophe that
+// break, except a QUOTE tag's, which ends at a quotation mark followed by the closing bracket;
+// one in apostrophes has no closing bracket or line break and ends at an apostrophe that
 // is followed by the closing bracket. Only a link's option may be longer than 200 characters, and it holds no `[`.
 
 // Groups: 1 the slash of a closing tag, 2 the name, 3 a quoted option, 4 an option in apostrophes,
