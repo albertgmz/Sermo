@@ -36,7 +36,7 @@ import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
-import { authorsFor, relationsFor } from "@/lib/sermo/members";
+import { authorsFor } from "@/lib/sermo/members";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
@@ -369,12 +369,9 @@ async function ThreadPosts({
   // An empty page past the first is a page that does not exist.
   if (posts.length === 0 && page > 1) notFound();
   // The viewer is among the authors: the row drawn for a reply they are sending is theirs.
-  const [author, relation] = await Promise.all([
-    authorsFor([...posts.map((post) => post.author), ...(user ? [user] : [])]),
-    relationsFor(
-      user?.id ?? null,
-      posts.map((post) => post.author.id),
-    ),
+  const author = await authorsFor([
+    ...posts.map((post) => post.author),
+    ...(user ? [user] : []),
   ]);
   const picker =
     permissions.canReact && canReactHere
@@ -411,7 +408,6 @@ async function ThreadPosts({
             key={post.id}
             post={post}
             author={author(post.author.id)}
-            relation={relation(post.author.id)}
             byThreadAuthor={post.author.id === thread.author.id}
             noteState={
               post.state !== "visible" &&

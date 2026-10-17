@@ -11,18 +11,13 @@ import { PostActions } from "@/app/[locale]/(main)/threads/[id]/post-actions";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { HtmlContent } from "@/components/forum/html-content";
-import { memberActionsOf } from "@/components/forum/member-actions";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { HashLink } from "@/components/layout/hash-link";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { call } from "@/lib/sermo/client";
-import {
-  authorsFor,
-  type MemberRelation,
-  relationsFor,
-} from "@/lib/sermo/members";
+import { authorsFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
 import type { ApiPost } from "@/lib/sermo/threads";
@@ -36,7 +31,6 @@ const LABEL = "sr-only sm:not-sr-only";
 export function PostItem({
   post,
   author,
-  relation,
   byThreadAuthor,
   noteState,
   highlighted,
@@ -53,8 +47,6 @@ export function PostItem({
 }: {
   post: ApiPost;
   author: AuthorView;
-  // What the viewer may do about the author (follow, message), read once for the page.
-  relation: MemberRelation | null;
   byThreadAuthor: boolean;
   // Whether the post says it is waiting or deleted; the thread says so already for its own state.
   noteState: boolean;
@@ -83,7 +75,6 @@ export function PostItem({
       author={author}
       createdAt={post.createdAt}
       highlighted={highlighted}
-      postbitActions={memberActionsOf(author.member, relation)}
       edited={post.editedAt && <EditedMark date={post.editedAt} />}
       trailing={
         <>
@@ -200,12 +191,8 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
     may: threadMay(found.resolvedPermissions, found.permissions),
     canQuote: found.permissions.canReply,
   };
-  const [author, relation, bookmarks] = await Promise.all([
+  const [author, bookmarks] = await Promise.all([
     authorsFor(posts.map((post) => post.author)),
-    relationsFor(
-      user?.id ?? null,
-      posts.map((post) => post.author.id),
-    ),
     user
       ? bookmarkedAmong(
           "post",
@@ -225,7 +212,6 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
       <PostItem
         post={post}
         author={author(post.author.id)}
-        relation={relation(post.author.id)}
         byThreadAuthor={post.author.id === context.threadAuthorId}
         noteState={post.state !== "visible"}
         highlighted={false}

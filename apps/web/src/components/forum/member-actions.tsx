@@ -30,8 +30,8 @@ export function MemberActions({
   );
 }
 
-// The postbit's actions for a page of posts: nothing at all (not an empty box) when there is
-// nothing to offer, so the column keeps its spacing.
+// The member card's actions: nothing at all (not an empty box) when there is nothing to offer,
+// so the column keeps its spacing.
 export function memberActionsOf(
   member: Pick<MemberView, "id" | "username" | "restricted">,
   relation: MemberRelation | null,

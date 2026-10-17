@@ -189,15 +189,7 @@ test("a highlighted post adds the whole-frame cover; the postbit draws its own b
   expect(cover(true)).toBe("max-md:hidden");
 });
 
-test("the postbit's actions reach the postbit, and it has none without them", () => {
-  const mark = <i data-mark="member-actions" />;
-  const given = find(
-    PostFrame({ ...base, postbitActions: mark }),
-    Postbit,
-  ) as ReactElement<{
-    actions?: ReactNode;
-  }>;
-  expect(given.props.actions).toBe(mark);
+test("the postbit has no actions: Follow and Message are in the member card only", () => {
   const bare = find(PostFrame(base), Postbit) as ReactElement<{
     actions?: ReactNode;
   }>;

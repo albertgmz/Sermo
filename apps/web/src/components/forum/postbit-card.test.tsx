@@ -213,10 +213,8 @@ async function html(node: ReactNode) {
   return new Response(stream).text();
 }
 
-// The markup of the first `data-slot="postbit"` element, up to its own closing tag.
-function postbitOf(out: string) {
-  const start = out.indexOf('<div data-slot="postbit"');
-  expect(start).toBeGreaterThanOrEqual(0);
+// The markup of the `div` that starts at `start`, up to its own closing tag.
+function divFrom(out: string, start: number) {
   const tags = /<div[\s>]|<\/div>/g;
   tags.lastIndex = start;
   let depth = 0;
@@ -224,11 +222,26 @@ function postbitOf(out: string) {
     depth += match[0] === "</div>" ? -1 : 1;
     if (depth === 0) return out.slice(start, tags.lastIndex);
   }
-  throw new Error("The postbit is not closed.");
+  throw new Error("The element is not closed.");
+}
+
+// The markup of the first `data-slot="postbit"` element, up to its own closing tag.
+function postbitOf(out: string) {
+  const start = out.indexOf('<div data-slot="postbit"');
+  expect(start).toBeGreaterThanOrEqual(0);
+  return divFrom(out, start);
+}
+
+// The same markup without the viewer's actions: only the card carries them.
+function withoutActions(block: string) {
+  const start = block.indexOf('<div data-slot="postbit-actions"');
+  expect(start).toBeGreaterThanOrEqual(0);
+  return block.replace(divFrom(block, start), "");
 }
 
 // The frame places the block in its grid (a border and a margin on the block itself): only those
 // classes, on the block's own element, may differ. The cover, the parts and their classes may not.
+// The card's block has the viewer's actions as well, and the post's block never does.
 const FRAME_PLACEMENT = " max-md:mb-2 md:border-r md:pr-4";
 const placedByFrame = (block: string) => {
   const end = block.indexOf(">");
@@ -254,12 +267,14 @@ async function both() {
   return { card, post };
 }
 
-test("a member with a cover and awards: the card's block is the post's block, part for part", async () => {
+test("a member with a cover and awards: the card's block is the post's block, part for part, and only the card has the actions", async () => {
   backend();
   const { card, post } = await both();
   const block = postbitOf(card);
-  expect(placedByFrame(postbitOf(post))).toBe(block);
-  // and it holds every part, in order: cover, avatar, name, badge, actions, title, level, awards, facts
+  expect(post).not.toContain("member-actions");
+  expect(post).not.toContain("postbit-actions");
+  expect(placedByFrame(postbitOf(post))).toBe(withoutActions(block));
+  // and the card holds every part, in order: cover, avatar, name, badge, actions, title, level, awards, facts
   const order = [
     COVER.url,
     'data-slot="avatar"',
@@ -290,7 +305,7 @@ test("a member without a cover: no cover in either, and still the same block", a
   const { card, post } = await both();
   expect(card).not.toContain("background-image");
   expect(postbitOf(post)).not.toContain("background-image");
-  expect(placedByFrame(postbitOf(post))).toBe(postbitOf(card));
+  expect(placedByFrame(postbitOf(post))).toBe(withoutActions(postbitOf(card)));
 });
 
 test("a member without awards: no awards row in either, and still the same block", async () => {
@@ -298,7 +313,7 @@ test("a member without awards: no awards row in either, and still the same block
   const { card, post } = await both();
   expect(card).not.toContain('href="/awards"');
   expect(postbitOf(post)).not.toContain('href="/awards"');
-  expect(placedByFrame(postbitOf(post))).toBe(postbitOf(card));
+  expect(placedByFrame(postbitOf(post))).toBe(withoutActions(postbitOf(card)));
 });
 
 test("yourself, or a member nothing is allowed for: neither the post nor the card has actions", async () => {
@@ -320,7 +335,7 @@ test("a guest: no actions on the post, and no relations asked", async () => {
   expect(asked).not.toContain("/api/v1/member-relations");
 });
 
-test("the relations of a page of posts or messages are one read, and every row gets its actions", async () => {
+test("posts and messages draw no actions and ask for no relations", async () => {
   let asked = backend();
   const rows = await postRows(
     [32, 33, 34].map(
@@ -330,11 +345,12 @@ test("the relations of a page of posts or messages are one read, and every row g
         >[0][number],
     ),
   );
-  expect(asked.filter((path) => path === "/api/v1/member-relations")).toEqual([
-    "/api/v1/member-relations",
-  ]);
-  for (const row of rows)
-    expect(await html(row.node)).toContain('data-slot="member-actions"');
+  expect(asked).not.toContain("/api/v1/member-relations");
+  for (const row of rows) {
+    const out = await html(row.node);
+    expect(out).not.toContain("member-actions");
+    expect(out).not.toContain("postbit-actions");
+  }
 
   asked = backend();
   const messages = await messageRows(
@@ -342,28 +358,21 @@ test("the relations of a page of posts or messages are one read, and every row g
       (id) => message(id) as Parameters<typeof messageRows>[0][number],
     ),
   );
-  expect(asked.filter((path) => path === "/api/v1/member-relations")).toEqual([
-    "/api/v1/member-relations",
-  ]);
-  for (const row of messages)
-    expect(await html(row.node)).toContain('data-slot="member-actions"');
+  expect(asked).not.toContain("/api/v1/member-relations");
+  for (const row of messages) {
+    const out = await html(row.node);
+    expect(out).not.toContain("member-actions");
+    expect(out).not.toContain("postbit-actions");
+  }
 });
 
 // The first paint of a thread or a conversation is drawn by the page's own list (`ThreadPosts`,
 // `Messages`), which a test cannot render on its own: a page file exports only what Next allows.
-// Their wiring is held here by the source: one relations read beside the authors read, handed to
-// every row.
-test("the thread and conversation pages read the relations once and give each row its own", () => {
+// That they read no relations is held here by the source.
+test("the thread and conversation pages read no relations", () => {
   const pages = resolve(import.meta.dir, "../../app/[locale]/(main)");
-  for (const [file, row] of [
-    ["threads/[id]/page.tsx", "relation={relation(post.author.id)}"],
-    ["conversations/[id]/page.tsx", "relation={relation(message.author.id)}"],
-  ]) {
-    const source = readFileSync(resolve(pages, file), "utf8");
-    expect(source.split("relationsFor(").length - 1).toBe(1);
-    expect(source).toMatch(
-      /Promise\.all\(\[\s*authorsFor\([\s\S]*?\),\s*relationsFor\(/,
+  for (const file of ["threads/[id]/page.tsx", "conversations/[id]/page.tsx"])
+    expect(readFileSync(resolve(pages, file), "utf8")).not.toContain(
+      "relationsFor",
     );
-    expect(source).toContain(row);
-  }
 });
