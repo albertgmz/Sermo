@@ -4,7 +4,7 @@
     "heading": "Moderation",
     "subtitle": "Reports, content and sign-ups waiting for a decision.",
     "screensHeading": "Screens",
-    "screensEmpty": "No moderation screen is available to you yet.",
+    "screensEmpty": "No moderation screen is available to you yet",
     "screensEmptyDescription": "Screens appear here as they are added.",
     "aria": {
       "loadingPending": "Loading pending work…"

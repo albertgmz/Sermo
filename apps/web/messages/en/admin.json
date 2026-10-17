@@ -230,7 +230,7 @@
     "heading": "Administration",
     "subtitle": "What needs attention and where to work.",
     "sectionsHeading": "Sections",
-    "sectionsEmpty": "No screen of the panel is available to you yet.",
+    "sectionsEmpty": "No screen of the panel is available to you yet",
     "sectionsEmptyDescription": "Screens appear here as they are added to the sections you may open.",
     "aria": {
       "loadingPending": "Loading pending work…",
@@ -524,7 +524,7 @@
     "back": "Back to {label}"
   },
   "landing": {
-    "empty": "No screen of this section is open to you.",
+    "empty": "No screen of this section is open to you",
     "emptyDescription": "Screens appear here when you are given a permission that opens them."
   },
   "itemList": {

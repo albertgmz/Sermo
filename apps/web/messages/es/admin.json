@@ -230,7 +230,7 @@
     "heading": "Administración",
     "subtitle": "Qué requiere atención y dónde trabajar.",
     "sectionsHeading": "Secciones",
-    "sectionsEmpty": "Todavía no tienes disponible ninguna pantalla del panel.",
+    "sectionsEmpty": "Todavía no tienes disponible ninguna pantalla del panel",
     "sectionsEmptyDescription": "Las pantallas aparecen aquí a medida que se añaden a las secciones que puedes abrir.",
     "aria": {
       "loadingPending": "Cargando el trabajo pendiente…",
@@ -524,7 +524,7 @@
     "back": "Volver a {label}"
   },
   "landing": {
-    "empty": "No tienes abierta ninguna pantalla de esta sección.",
+    "empty": "No tienes abierta ninguna pantalla de esta sección",
     "emptyDescription": "Las pantallas aparecen aquí cuando recibes un permiso que las abre."
   },
   "itemList": {

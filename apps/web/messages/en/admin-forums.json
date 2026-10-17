@@ -52,7 +52,7 @@
     "edit": "Edit {title}",
     "permissions": "Permissions of {title}",
     "publicPage": "Public page of {title}",
-    "empty": "There is no category or forum yet.",
+    "empty": "No categories or forums yet",
     "addCategory": "Add category",
     "addForum": "Add forum",
     "sort": "Sort",
@@ -66,7 +66,7 @@
     "loading": "Loading the order…",
     "topLevel": "Top level",
     "under": "Under {title}",
-    "empty": "There is nothing to sort.",
+    "empty": "Nothing to sort",
     "emptyDescription": "Order only changes among nodes that share a parent, and none does yet.",
     "heading": "Display order"
   },
@@ -184,7 +184,7 @@
     "edit": "Edit {label}",
     "deleteWarning": "Deleting a prefix that threads still carry deactivates it instead: they keep it and no thread can newly take it.",
     "delete": "Delete prefix",
-    "none": "There is no prefix yet.",
+    "none": "No prefixes yet",
     "add": "Add prefix",
     "listLabel": "Prefixes",
     "noneDescription": "Add the first one with the button above."

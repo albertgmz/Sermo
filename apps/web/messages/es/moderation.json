@@ -4,7 +4,7 @@
     "heading": "Moderación",
     "subtitle": "Denuncias, contenido y altas pendientes que esperan una decisión.",
     "screensHeading": "Pantallas",
-    "screensEmpty": "Todavía no tienes disponible ninguna pantalla de moderación.",
+    "screensEmpty": "Todavía no tienes disponible ninguna pantalla de moderación",
     "screensEmptyDescription": "Las pantallas aparecen aquí a medida que se añaden.",
     "aria": {
       "loadingPending": "Cargando el trabajo pendiente…"

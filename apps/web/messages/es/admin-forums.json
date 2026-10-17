@@ -52,7 +52,7 @@
     "edit": "Editar {title}",
     "permissions": "Permisos de {title}",
     "publicPage": "Página pública de {title}",
-    "empty": "Todavía no hay ninguna categoría ni foro.",
+    "empty": "Todavía no hay categorías ni foros",
     "addCategory": "Añadir categoría",
     "addForum": "Añadir foro",
     "sort": "Ordenar",
@@ -66,7 +66,7 @@
     "loading": "Cargando el orden…",
     "topLevel": "Nivel superior",
     "under": "Bajo {title}",
-    "empty": "No hay nada que ordenar.",
+    "empty": "No hay nada que ordenar",
     "emptyDescription": "El orden solo cambia entre elementos con el mismo superior, y todavía no hay ninguno.",
     "heading": "Orden de aparición"
   },
@@ -184,7 +184,7 @@
     "edit": "Editar {label}",
     "deleteWarning": "Eliminar un prefijo que aún llevan temas lo desactiva en su lugar: los temas lo conservan y ningún tema nuevo puede usarlo.",
     "delete": "Eliminar prefijo",
-    "none": "Todavía no hay ningún prefijo.",
+    "none": "Todavía no hay prefijos",
     "add": "Añadir prefijo",
     "listLabel": "Prefijos",
     "noneDescription": "Añade el primero con el botón de arriba."
