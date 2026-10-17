@@ -4436,3 +4436,26 @@ leaves the same paths out (no language rewrite, no cookie work, no copy of an MC
 which Next cuts at 1 MB), and a test keeps the matcher and the list in step, matching both with the
 same path functions `next start` uses. Any other top-level `.txt` now gets the backend's 404, as
 behind Caddy's `/*.txt`.
+
+### Share previews and head links  Open Graph and Twitter card tags come from one builder
+(`shareMetadata`) through one server helper (`publicHead`). A page gets them only when the backend
+would index its base address, so a forum, thread or profile closed to guests, and thin pages (a
+profile with no wall post and no "about", a tag with few public threads), carry none: the web
+app's only signal for "open to guests" is the backend's index decision, and leaving a preview out
+is the safe side. og:title is the thing's own name (the bare home is the site name); og:locale is
+the render language only, with no alternates, since one URL serves every language. Threads are
+`article` (published = thread created, modified = newest visible post, author = the member's
+slugged address, section = forum, tags), members `profile`, the rest `website`. The Twitter card
+is `summary` until a picture is passed; the picture is the builder's only input that makes it
+`summary_large_image`. Every absolute address a page names (og:url, the Atom alternates,
+`article:author`) comes from the page's canonical, which on forum, thread, member and tag pages is
+the backend's (`SERMO_SITE_URL`, else `BETTER_AUTH_URL`); pages without one, the `WebSite` JSON-LD
+and the OpenSearch description use `SERMO_PUBLIC_URL`, so **those variables must hold the same
+origin**. theme-color follows each theme's page background (#fafafa / #09090b), with a
+script-set tag winning when the visitor's choice differs from the device; the manifest keeps the
+accent. `/favicon.ico` is a real ICO (16/32/48) for the default mark and a redirect to an uploaded
+icon; the iOS icon is a 180 px PNG at `/pwa-icon/180` (or the uploaded icon, which on iOS shows a
+transparent upload on a black tile). The site feed is linked from every public page and a forum's
+own feed from its page. `WebSite` + `SearchAction` JSON-LD is on the bare home address as guests
+open it; `/opensearch.xml` (no image, outside the LITE gates; cached five minutes) is left alone by
+the proxy.
