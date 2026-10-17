@@ -22,8 +22,8 @@ import {
   type Rule,
   type RuleLimits,
 } from "./criteria-rule";
-import { Field } from "./edit-form";
 import { findThreads } from "./find-threads";
+import { FieldRow } from "./form-rows";
 import { RuleBuilder, type RuleChoices } from "./rule-builder";
 
 // What a rule editor needs, once per request: the criteria, and the groups, awards and credit rules
@@ -143,7 +143,7 @@ export async function RuleField({
     reactionTypes: reactionTypes.map(titled),
   };
   return (
-    <Field
+    <FieldRow
       name={name}
       label={label ?? t(`label.${place}`)}
       help={help === undefined ? t(`help.${place}`) : help}
@@ -183,6 +183,6 @@ export async function RuleField({
         findMembers={findRecipients}
         findThreads={findThreads}
       />
-    </Field>
+    </FieldRow>
   );
 }

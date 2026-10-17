@@ -4155,13 +4155,17 @@ levels, cookies), at the address it always had, with the shared header (trail, t
 and the confirmation a save redirects with above the form. The switcher between the groups is a row
 of links (`TabLinks`, the underline variant) under the header that scrolls sideways on a phone and
 marks the open group with `aria-current`; a row of links was chosen over a select because every
-group is one tap away and the open one is always visible. Its labels are the registry's. Warnings
-(`/admin/settings/warnings`) sit under Users, not Setup, so they have no switcher and still draw
-their own forms until the users item moves them; they get the new header from `SettingsScreen`.
+group is one tap away and the open one is always visible. Its labels are the registry's.
+Warnings (`/admin/settings/warnings`) are one of the settings pages and move onto the same header
+and `EditForm` (the type and action forms are grouped fields; the lists keep their rows with the
+edit form inside the row for now), but they show no switcher: the sidebar keeps them under Users
+and their breadcrumb says Users, so a row of Setup groups above them would contradict where the
+administrator is. The switcher lists the nine Setup groups.
 The section titles that used to be sub-headings inside one long panel are now the legends of the
 `FieldGroup`s; no setting is in `Advanced`, because every setting here is one an administrator
-reaches for (several are required numbers, which `Advanced` may not hold). `RuleField` draws its row
-with `Field`, so the rule builders line up with the other rows.
+reaches for (several are required numbers, which `Advanced` may not hold). `RuleField` is shared
+with other screens and still draws its row as before, so on the home page and anti-spam forms the
+rule rows have a narrower label column than their neighbours.
 Public navigation: the list shows one card of rows for each place, a top-level entry and then the
 entries under it (the row says "Inside <entry>"), each row a link to the entry's own page with its
 badges (built-in, off) and, for an entry that is not built in, the delete step on the row. "Add

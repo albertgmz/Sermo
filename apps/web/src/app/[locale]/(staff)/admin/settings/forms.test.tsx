@@ -30,6 +30,8 @@ const { SeoForm } = await import("./seo/seo-form");
 const { LevelsForm } = await import("./levels/levels-form");
 const { CookiesForm } = await import("./cookies/cookies-form");
 const { HomeForm } = await import("./home/home-form");
+const { WarningTypes } = await import("./warnings/warning-types");
+const { WarningActions } = await import("./warnings/warning-actions");
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
@@ -43,6 +45,35 @@ const answers = {
   "auth.me": () => Response.json(viewerBody(true)),
   // Without the permission to list groups, the form names the ones the settings hold.
   "groups.list": () => refusal(403, "forbidden"),
+  "warningTypes.list": () =>
+    Response.json({
+      items: [
+        {
+          id: 1,
+          name: "Spam",
+          nameEn: "Spam",
+          nameEs: "Correo basura",
+          points: 2,
+          expiryDays: 30,
+          defaultReason: "",
+          locked: false,
+        },
+      ],
+    }),
+  "warningActions.list": () =>
+    Response.json({
+      items: [
+        {
+          id: 1,
+          threshold: 5,
+          kind: "ban",
+          days: null,
+          groupId: null,
+          groupTitle: null,
+          restrictionKind: null,
+        },
+      ],
+    }),
   "nodes.list": () => Response.json({ items: [] }),
   "criteria.list": () =>
     Response.json({
@@ -189,4 +220,34 @@ test("the home page form keeps the rules, the fallback and the forums left out",
     expect(names.has(name), name).toBe(true);
   for (const key of ["homeTab", "feedExcludedForumIds"])
     expect(shown, key).toContain(key);
+});
+
+test("the warning forms keep the type and action fields, the edit forms naming their record", async () => {
+  const types = await controls(WarningTypes);
+  for (const name of [
+    "nameEn",
+    "nameEs",
+    "points",
+    "expiryDays",
+    "defaultReason",
+    "locked",
+  ])
+    expect(types.names.has(name), name).toBe(true);
+  // The edit form and the delete step name the record; a second form adds a new one.
+  expect(types.html.match(/name="id" value="1"/g)).toHaveLength(2);
+  expect(types.html.match(/name="nameEn"/g)).toHaveLength(2);
+  expect(types.html).toContain("Add warning type");
+  const actions = await controls(WarningActions);
+  for (const name of [
+    "threshold",
+    "kind",
+    "days",
+    "permanent",
+    "groupId",
+    "restrictionKind",
+    "actorPassword",
+  ])
+    expect(actions.names.has(name), name).toBe(true);
+  expect(actions.html.match(/name="id" value="1"/g)).toHaveLength(2);
+  expect(actions.html.match(/name="threshold"/g)).toHaveLength(2);
 });
