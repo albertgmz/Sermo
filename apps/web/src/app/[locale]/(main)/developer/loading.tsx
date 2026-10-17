@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function Loading() {
   const t = useTranslations("developer.page");
   return (
-    <PageLayout className="md:pt-8">
+    <PageLayout className="[--container-width:none] md:pt-8">
       <LoadingRegion label={t("aria.loading")}>
         <div className="flex h-9 items-center">
           <Skeleton className="h-7 w-56" />

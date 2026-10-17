@@ -268,8 +268,9 @@
 /*
  * The visitor chose a narrower page (the header button; layout/narrow-width.ts). Only the forum
  * (the (main) layout, marked data-forum-layout) narrows, and the cookie banner on its pages with
- * it (set on the root of a forum page, the banner being outside the layout); the staff panel stays
- * wide.
+ * it (set on the root of a forum page, the banner being outside the layout). The staff panel and
+ * the /developer page fill the window whatever the choice (`--container-width: none` on their
+ * frame).
  * 1100px is also the breakpoint class in layout/narrow-toggle.tsx (min-[1100px]) and named in
  * the /ui text: change them together.
  */

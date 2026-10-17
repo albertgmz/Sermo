@@ -4406,3 +4406,11 @@ spread copy taken before mocking.
 Known limits: the look in a browser and on a phone has not been checked; many other suites still
 restore from the namespace itself, and `account/profile-permissions`, `account/profile-forms` and
 `account/security/delete-account` tests leave mocks that break staff suites run after them.
+
+### Full-width staff panel and developer page  The staff panel and `/developer` drop the site's
+content width: the panel's frame and the developer page's layout set `--container-width: none`, so
+the `Container` inside them fills the window (with its usual side padding) at any size, and the
+narrow-page setting no longer applies to them. The forum keeps 1420px (1100px when narrowed): long
+lines of posts read better capped, while tables, forms with a side navigation and the API reference
+use the room. On `/developer` only the page's own body widens; the site header above it keeps the
+forum's width.

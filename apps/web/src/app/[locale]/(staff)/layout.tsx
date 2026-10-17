@@ -35,7 +35,8 @@ export async function generateMetadata(): Promise<Metadata> {
 // The panel's frame, shared by /admin and /moderation: a slim top bar (the way back to the site,
 // the section's title, the member's own menu) and the navigation, fixed at the side on a desktop
 // and a drawer below it. The accent, the language and the LITE switches come from the root
-// layout and `ViewerAccent`, as on the site.
+// layout and `ViewerAccent`, as on the site. The panel fills the window: it lifts the site's
+// content width (`--container-width`) for its whole frame.
 export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
   const t = useTranslations("admin.shell");
   return (
@@ -85,7 +86,7 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
         "ui.sheet",
       ]}
     >
-      <div className="flex min-h-dvh flex-1 flex-col">
+      <div className="flex min-h-dvh flex-1 flex-col [--container-width:none]">
         <Suspense>
           <StaffAccent />
         </Suspense>
