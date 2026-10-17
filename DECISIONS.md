@@ -4016,3 +4016,27 @@ the `@` menu opens for any prefix without spaces or `@` (so a name such as `#Bis
 offered), and the editor inserts `[USER=id]name[/USER]` for a chosen member whose name neither
 `@name` nor `@"name"` can hold; the mention syntax itself is unchanged. Names that look like an
 address (about 8 in the dump) sign in with their email.
+
+### Video, audio and animated pictures (item 8)  Video (mp4, webm, mov) and audio (mp3, m4a, ogg,
+wav) attachments are accepted by their bytes, stored as uploaded, served with byte ranges and played
+in the browser's own player, and animated GIF and WebP pictures keep moving at full size. The
+upload's declared type and the type sniffed from the bytes must agree once both are mapped to one
+stored name per type (`audio/x-m4a` is stored as `audio/mp4`, `audio/x-wav` as `audio/wav`), and the
+site's default attachment types now include the seven. There is still one size limit for every type
+(`maxUploadBytes`, 25 MB by default, and the group's `attachment.maxFileSize`), so members would
+need a higher limit to upload videos like the old forum's 40 MB ones again. The file route answers a
+single `Range` with 206 or 416 for both storage drivers, only after the reader is known to be
+allowed (an unreadable file gets the same 404 with or without a range), and counts a download only
+for a read without a range, since players always send one. Posts, messages, wall posts and comments
+show video and audio with `controls` and `preload="metadata"`, never autoplay, as wide as the column
+up to the 35rem of embedded players, with the file's row to download it, both in the list and in
+place of an `[ATTACH]` tag. Players go by the data saver's post-pictures switch: with it on they are
+plain download rows, so nothing is fetched, and the LITE scan treats `<video>` and `<audio>` as
+emissions that need a gate. This relaxes the earlier refusal of animated pictures, for attachments,
+avatars and covers only. Their main rendition is an animated WebP of all frames, refused above 1000
+frames or 100 million pixels across frames, and never enlarged (an animated avatar is cut at the
+largest square it holds), so the work and the stored file stay at most the size of what was
+uploaded. Thumbnails and small avatars stay the first frame, and a picture stored in another format
+takes that format's extension in its name. The account framing dialog can only make a still, so it
+now offers to send an animated picture unframed. sharp's file cache is off because libvips held GIF
+inputs open, and on Windows the upload's temp file could not be deleted.
