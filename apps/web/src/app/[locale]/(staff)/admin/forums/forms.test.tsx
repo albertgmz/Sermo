@@ -8,11 +8,20 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 const intl = await import("next-intl/server");
+// The client fields read their words through the library's hook and the provider of `withIntl`,
+// whatever stand-in another suite left in place for it.
+const nextIntl = await import("next-intl");
+const useIntl = await import("use-intl");
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useTranslations: useIntl.useTranslations,
+}));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 afterAll(() => {
+  mock.module("next-intl", () => nextIntl);
   mock.module("next-intl/server", () => intl);
 });
 

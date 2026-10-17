@@ -1,7 +1,20 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
-import { SortLists } from "./sort-lists";
+
+// The lists read their words through the library's hook and the provider of `withIntl`, whatever
+// stand-in another suite left in place for it.
+const nextIntl = await import("next-intl");
+const useIntl = await import("use-intl");
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useTranslations: useIntl.useTranslations,
+}));
+afterAll(() => {
+  mock.module("next-intl", () => nextIntl);
+});
+
+const { SortLists } = await import("./sort-lists");
 
 const item = (id: number, position: number, title: string) => ({
   id,
