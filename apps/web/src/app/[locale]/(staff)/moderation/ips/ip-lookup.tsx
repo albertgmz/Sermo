@@ -2,6 +2,7 @@ import { ipsMembers, usersIps } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { cursorFrom } from "@/components/staff/cursor-list";
+import { PagedList } from "@/components/staff/paged-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDateTime } from "@/lib/format";
@@ -10,7 +11,6 @@ import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { MemberLink, memberNames, panelHref } from "../../admin/logs/links";
-import { QueueList } from "../queue-list";
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -113,7 +113,7 @@ export async function IpLookup({
     }
     const heading = t("memberHeading", { name: name(memberId) });
     return (
-      <QueueList
+      <PagedList
         items={page.items.map((item) => ({
           id: item.ip,
           title: item.ip,
@@ -129,9 +129,11 @@ export async function IpLookup({
             </>
           ),
         }))}
-        nextCursor={page.nextCursor}
-        path="/moderation/ips"
-        params={params}
+        paging={{
+          path: "/moderation/ips",
+          params,
+          nextCursor: page.nextCursor,
+        }}
         label={heading}
         filters={withHeading(heading)}
         empty={{
@@ -165,7 +167,7 @@ export async function IpLookup({
   }
   const heading = t("membersHeading", { network: page.network });
   return (
-    <QueueList
+    <PagedList
       items={page.items.map((item) => ({
         id: item.user.id,
         title: (
@@ -191,9 +193,7 @@ export async function IpLookup({
           </>
         ),
       }))}
-      nextCursor={page.nextCursor}
-      path="/moderation/ips"
-      params={params}
+      paging={{ path: "/moderation/ips", params, nextCursor: page.nextCursor }}
       label={heading}
       filters={withHeading(heading)}
       empty={{

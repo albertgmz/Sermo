@@ -13,7 +13,10 @@
 //                search form instead.
 //   empty        What shows when there are no rows: `title`, optional `description` and `action`
 //                (e.g. an "Add" link).
-// A footer says how many rows show ("Showing 4 of 12" while filtered).
+//   paging       Optional `Paging` (paging.tsx) of a list the backend pages by cursor: its links
+//                ("Back to the first page", "Next") go in the footer.
+// A footer says how many rows show ("Showing 4 of 12" while filtered, "12 on this page" on a list
+// with more than one page).
 //
 // ItemRow props (also usable on its own, inside any `ul`)
 //   icon         Optional picture or icon, in a 40 px box.
@@ -56,6 +59,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { StaffFormState } from "./form-rows";
+import { hasPages, type Paging, PagingLinks } from "./paging";
 import { SubmitButton } from "./submit-button";
 
 export type ItemRowProps = {
@@ -93,6 +97,7 @@ export function ItemList({
   items,
   filter,
   empty,
+  paging,
 }: {
   label: string;
   heading?: React.ReactNode;
@@ -104,6 +109,7 @@ export function ItemList({
     description?: string;
     action?: React.ReactNode;
   };
+  paging?: Paging;
 }) {
   const t = useTranslations("admin.itemList");
   const [query, setQuery] = useState("");
@@ -120,9 +126,12 @@ export function ItemList({
         </div>
       )}
       {items.length === 0 ? (
-        <EmptyState title={empty.title} description={empty.description}>
-          {empty.action}
-        </EmptyState>
+        <>
+          <EmptyState title={empty.title} description={empty.description}>
+            {empty.action}
+          </EmptyState>
+          {paging && <PagingLinks {...paging} className="border-t p-4" />}
+        </>
       ) : (
         <>
           {filter && (
@@ -158,14 +167,16 @@ export function ItemList({
               ))}
             </ul>
           )}
-          <p
-            aria-live="polite"
-            className="border-t px-4 py-2.5 text-xs text-muted-foreground"
-          >
-            {shown.length === items.length
-              ? t("shown", { count: items.length })
-              : t("shownOf", { shown: shown.length, total: items.length })}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t px-4 py-2.5">
+            <p aria-live="polite" className="text-xs text-muted-foreground">
+              {shown.length !== items.length
+                ? t("shownOf", { shown: shown.length, total: items.length })
+                : paging && hasPages(paging)
+                  ? t("shownOnPage", { count: items.length })
+                  : t("shown", { count: items.length })}
+            </p>
+            {paging && <PagingLinks {...paging} />}
+          </div>
         </>
       )}
     </section>

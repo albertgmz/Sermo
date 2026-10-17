@@ -42,6 +42,7 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
     <ClientMessages
       namespaces={[
         "admin.confirmPassword",
+        "admin.cursorList",
         "admin.editForm",
         "admin.formRows",
         "admin.forumPicker",

@@ -533,6 +533,7 @@
     "noMatch": "Nada coincide con «{query}».",
     "shown": "{count, plural, one {Se muestra # entrada} other {Se muestran # entradas}}",
     "shownOf": "Se muestran {shown} de {total}",
+    "shownOnPage": "{count, plural, one {# entrada en esta página} other {# entradas en esta página}}",
     "cancel": "Cancelar"
   },
   "editForm": {

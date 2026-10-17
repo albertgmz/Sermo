@@ -5,12 +5,12 @@ import { getLocale, getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { cursorFrom } from "@/components/staff/cursor-list";
+import { PagedList } from "@/components/staff/paged-list";
 import { linkClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { hrefFor, type Standing } from "../../registry";
-import { QueueList } from "../queue-list";
 import { rejectOptions } from "./reject-options";
 import { RESULT_KEYS } from "./result";
 import { DecideControls } from "./signup-controls";
@@ -175,7 +175,7 @@ export async function SignupList({ searchParams }: { searchParams: Params }) {
         .map((entry) => entry.user.id)}
       options={rejectOptions(viewer)}
     >
-      <QueueList
+      <PagedList
         items={page.items.map((entry) => ({
           id: entry.user.id,
           icon: <SignupTick id={entry.user.id} name={entry.user.username} />,
@@ -198,9 +198,11 @@ export async function SignupList({ searchParams }: { searchParams: Params }) {
           ),
           panel: <Details entry={entry} viewer={viewer} locale={locale} />,
         }))}
-        nextCursor={page.nextCursor}
-        path="/moderation/signups"
-        params={paging}
+        paging={{
+          path: "/moderation/signups",
+          params: paging,
+          nextCursor: page.nextCursor,
+        }}
         label={t("list")}
         empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
       />

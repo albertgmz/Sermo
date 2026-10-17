@@ -6,6 +6,7 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { RowLink } from "@/components/staff/item-list";
+import { PagedList } from "@/components/staff/paged-list";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,6 @@ import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getGroups } from "../groups/data";
 import { MemberState } from "./member-state";
-import { PagedItems } from "./paged-items";
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -103,11 +103,9 @@ export async function UserList({
     };
   });
   return (
-    <PagedItems
+    <PagedList
       items={items}
-      nextCursor={page.nextCursor}
-      path="/admin/users"
-      params={params}
+      paging={{ path: "/admin/users", params, nextCursor: page.nextCursor }}
       label={t("heading")}
       empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
       filters={

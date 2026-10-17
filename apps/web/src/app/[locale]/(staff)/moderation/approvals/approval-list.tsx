@@ -4,12 +4,12 @@ import { getTranslations } from "next-intl/server";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { RowLink } from "@/components/staff/item-list";
+import { PagedList } from "@/components/staff/paged-list";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { MemberLink, memberNames } from "../../admin/logs/links";
 import { FilterBar, first, forumOptions } from "../filter-bar";
-import { QueueList } from "../queue-list";
 import { QueuePlace } from "../where";
 
 type Params = PageProps<"/[locale]/moderation/approvals">["searchParams"];
@@ -27,7 +27,7 @@ export async function ApprovalList({ searchParams }: { searchParams: Params }) {
   ]);
   const name = await memberNames(page.items.map((item) => item.authorId));
   return (
-    <QueueList
+    <PagedList
       items={page.items.map((item) => ({
         id: `${item.type}-${item.id}`,
         title: (
@@ -54,9 +54,11 @@ export async function ApprovalList({ searchParams }: { searchParams: Params }) {
           />
         ),
       }))}
-      nextCursor={page.nextCursor}
-      path="/moderation/approvals"
-      params={params}
+      paging={{
+        path: "/moderation/approvals",
+        params,
+        nextCursor: page.nextCursor,
+      }}
       label={t("list")}
       empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
       filters={

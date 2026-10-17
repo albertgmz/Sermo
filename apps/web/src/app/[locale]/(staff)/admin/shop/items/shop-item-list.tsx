@@ -4,15 +4,14 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { Art } from "@/components/forum/art";
 import { ShopIcon } from "@/components/forum/shop-icon";
 import { ConfirmStep } from "@/components/staff/confirm-step";
-import { cursorFrom, listHref } from "@/components/staff/cursor-list";
+import { cursorFrom } from "@/components/staff/cursor-list";
 import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { cn } from "@/lib/utils";
 import { AddLink } from "../../credits/header-links";
 import { one } from "../../credits/shared";
 import { deleteItem } from "./actions";
@@ -28,10 +27,9 @@ export async function ShopItemList({
 }: {
   searchParams: PageProps<"/[locale]/admin/shop/items">["searchParams"];
 }) {
-  const [t, effects, paging, format, lookups, params] = await Promise.all([
+  const [t, effects, format, lookups, params] = await Promise.all([
     getTranslations("adminEconomy.items"),
     getTranslations("adminEconomy.items.effects"),
-    getTranslations("admin.cursorList"),
     getFormatter(),
     getLookups(),
     searchParams,
@@ -66,8 +64,6 @@ export async function ShopItemList({
     limit: 25,
   });
   const here = { ...params, category: String(category.id) };
-  const cursor = cursorFrom(params);
-  const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
   return (
     <>
       <Notice searchParams={searchParams} notices={notices} />
@@ -94,6 +90,7 @@ export async function ShopItemList({
         </Button>
       </form>
       <ItemList
+        paging={{ path: PATH, params: here, nextCursor: page.nextCursor }}
         label={t("heading")}
         heading={t("heading")}
         empty={{
@@ -158,24 +155,6 @@ export async function ShopItemList({
           ),
         }))}
       />
-      {(cursor || page.nextCursor) && (
-        <nav aria-label={paging("nav")} className="flex flex-wrap gap-2">
-          {cursor && (
-            <Link href={listHref(PATH, here, "cursor")} className={link}>
-              {paging("first")}
-            </Link>
-          )}
-          {page.nextCursor && (
-            <Link
-              href={listHref(PATH, here, "cursor", page.nextCursor)}
-              rel="next"
-              className={link}
-            >
-              {paging("next")}
-            </Link>
-          )}
-        </nav>
-      )}
     </>
   );
 }

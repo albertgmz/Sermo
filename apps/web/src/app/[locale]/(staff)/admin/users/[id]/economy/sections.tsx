@@ -9,6 +9,7 @@ import { UserLink } from "@/components/forum/user-link";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
+import { PagedList } from "@/components/staff/paged-list";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { call } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { ifAllowed } from "../../data";
-import { PagedItems } from "../../paged-items";
 import { adjustCredits, grantAward, revokeAward } from "./actions";
 
 const SHOP_INVENTORY_STATES = shopInventory.input.shape.state.options;
@@ -53,7 +53,7 @@ export async function Ledger({
     call(creditsLedger, { userId, cursor: cursorFrom(params, "ledger") }),
   ]);
   return (
-    <PagedItems
+    <PagedList
       items={page.items.map((row) => ({
         id: row.id,
         title: (
@@ -81,10 +81,12 @@ export async function Ledger({
           </>
         ),
       }))}
-      nextCursor={page.nextCursor}
-      path={`/admin/users/${userId}/economy`}
-      params={params}
-      cursorParam="ledger"
+      paging={{
+        path: `/admin/users/${userId}/economy`,
+        params,
+        nextCursor: page.nextCursor,
+        cursorParam: "ledger",
+      }}
       label={t("ledger")}
       heading={t("ledger")}
       description={
@@ -175,7 +177,7 @@ export async function Inventory({
     }),
   ]);
   return (
-    <PagedItems
+    <PagedList
       items={page.items.map((entry) => ({
         id: entry.id,
         title: (
@@ -196,10 +198,12 @@ export async function Inventory({
           </>
         ),
       }))}
-      nextCursor={page.nextCursor}
-      path={`/admin/users/${userId}/economy`}
-      params={params}
-      cursorParam="inventory"
+      paging={{
+        path: `/admin/users/${userId}/economy`,
+        params,
+        nextCursor: page.nextCursor,
+        cursorParam: "inventory",
+      }}
       label={t("inventory")}
       heading={t("inventory")}
       filters={
@@ -259,7 +263,7 @@ export async function Awards({
   return (
     <>
       {grants && who && (
-        <PagedItems
+        <PagedList
           items={grants.items.map((grant) => ({
             id: grant.id,
             title: grant.award.name,
@@ -288,10 +292,12 @@ export async function Awards({
                 />
               ) : undefined,
           }))}
-          nextCursor={grants.nextCursor}
-          path={`/admin/users/${userId}/economy`}
-          params={params}
-          cursorParam="awards"
+          paging={{
+            path: `/admin/users/${userId}/economy`,
+            params,
+            nextCursor: grants.nextCursor,
+            cursorParam: "awards",
+          }}
           label={t("awards")}
           heading={t("awards")}
           empty={{ title: t("noAwards") }}

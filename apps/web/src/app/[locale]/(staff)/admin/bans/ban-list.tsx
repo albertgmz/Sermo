@@ -8,13 +8,13 @@ import { ConfirmStep } from "@/components/staff/confirm-step";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
+import { PagedList } from "@/components/staff/paged-list";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { liftBan } from "../users/[id]/sanctions/actions";
-import { PagedItems } from "../users/paged-items";
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -99,11 +99,9 @@ export async function BanList({
         searchParams={searchParams}
         shown={["lifted"]}
       />
-      <PagedItems
+      <PagedList
         items={items}
-        nextCursor={page.nextCursor}
-        path="/admin/bans"
-        params={params}
+        paging={{ path: "/admin/bans", params, nextCursor: page.nextCursor }}
         label={t("heading")}
         empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
         filters={

@@ -12,6 +12,7 @@ export const CLIENT_NAMESPACES = [
   "account.security",
   "account.username",
   "admin.confirmPassword",
+  "admin.cursorList",
   "admin.editForm",
   "admin.formRows",
   "admin.forumPicker",

@@ -533,6 +533,7 @@
     "noMatch": "Nothing matches “{query}”.",
     "shown": "{count, plural, one {Showing # entry} other {Showing # entries}}",
     "shownOf": "Showing {shown} of {total}",
+    "shownOnPage": "{count, plural, one {# entry on this page} other {# entries on this page}}",
     "cancel": "Cancel"
   },
   "editForm": {

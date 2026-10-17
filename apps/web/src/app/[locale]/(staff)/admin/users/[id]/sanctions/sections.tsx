@@ -11,6 +11,7 @@ import { ConfirmStep } from "@/components/staff/confirm-step";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { ItemList } from "@/components/staff/item-list";
+import { PagedList } from "@/components/staff/paged-list";
 import { Section, selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { call } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { ifAllowed } from "../../data";
-import { PagedItems } from "../../paged-items";
 import {
   addRestriction,
   banMember,
@@ -110,7 +110,7 @@ export async function Warnings({
   return (
     <>
       {page && who && (
-        <PagedItems
+        <PagedList
           items={page.items.map((warning) => ({
             id: warning.id,
             title: warning.reason,
@@ -155,10 +155,12 @@ export async function Warnings({
                 </>
               ) : undefined,
           }))}
-          nextCursor={page.nextCursor}
-          path={`/admin/users/${userId}/sanctions`}
-          params={params}
-          cursorParam="warnings"
+          paging={{
+            path: `/admin/users/${userId}/sanctions`,
+            params,
+            nextCursor: page.nextCursor,
+            cursorParam: "warnings",
+          }}
           label={t("warnings")}
           heading={t("warnings")}
           empty={{ title: t("noWarnings") }}
@@ -367,7 +369,7 @@ export async function Bans({
   return (
     <>
       {page && who && (
-        <PagedItems
+        <PagedList
           items={page.items.map((ban) => ({
             id: ban.id,
             title: ban.reason || t("noReason"),
@@ -402,10 +404,12 @@ export async function Bans({
                 />
               ) : undefined,
           }))}
-          nextCursor={page.nextCursor}
-          path={`/admin/users/${userId}/sanctions`}
-          params={params}
-          cursorParam="bans"
+          paging={{
+            path: `/admin/users/${userId}/sanctions`,
+            params,
+            nextCursor: page.nextCursor,
+            cursorParam: "bans",
+          }}
           label={t("bans")}
           heading={t("bans")}
           empty={{ title: t("noBans") }}

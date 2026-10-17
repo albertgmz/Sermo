@@ -5,7 +5,6 @@ import { cursorFrom } from "@/components/staff/cursor-list";
 import { ItemList } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { read } from "@/lib/sermo/client";
-import { PagingNav } from "../content-kit/paging-nav";
 import { groupsIfAllowed } from "../groups/data";
 
 // The announcements sent so far, newest first. A sent alert cannot be changed, so a row has no
@@ -43,6 +42,11 @@ export async function AnnouncementList({
         notices={{ sent: t("notices.sent") }}
       />
       <ItemList
+        paging={{
+          path: "/admin/announcements",
+          params,
+          nextCursor: page.nextCursor,
+        }}
         label={t("heading")}
         heading={t("heading")}
         empty={{
@@ -81,12 +85,6 @@ export async function AnnouncementList({
             </details>
           ),
         }))}
-      />
-      <PagingNav
-        path="/admin/announcements"
-        params={params}
-        cursor={cursor}
-        nextCursor={page.nextCursor}
       />
     </>
   );

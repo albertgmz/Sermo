@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { tagHref } from "@/lib/sermo/tags";
 import { cn } from "@/lib/utils";
-import { PagingNav } from "../content-kit/paging-nav";
 import { deleteTag } from "./actions";
 
 function first(value: string | string[] | undefined) {
@@ -63,6 +62,7 @@ export async function TagList({
         </button>
       </form>
       <ItemList
+        paging={{ path: "/admin/tags", params, nextCursor }}
         label={t("list.heading")}
         heading={t("list.heading")}
         description={t("list.description")}
@@ -106,12 +106,6 @@ export async function TagList({
             </>
           ),
         }))}
-      />
-      <PagingNav
-        path="/admin/tags"
-        params={params}
-        cursor={cursor}
-        nextCursor={nextCursor}
       />
     </>
   );

@@ -4,13 +4,13 @@ import { getTranslations } from "next-intl/server";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { RowLink } from "@/components/staff/item-list";
+import { PagedList } from "@/components/staff/paged-list";
 import { Badge } from "@/components/ui/badge";
 import { call, read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { memberNames } from "../../admin/logs/links";
 import { orGone } from "../content";
 import { FilterBar, first, forumOptions } from "../filter-bar";
-import { QueueList } from "../queue-list";
 import { QueuePlace } from "../where";
 
 type Params = PageProps<"/[locale]/moderation/reports">["searchParams"];
@@ -62,7 +62,7 @@ export async function ReportList({ searchParams }: { searchParams: Params }) {
   ]);
   const name = await memberNames(ids);
   return (
-    <QueueList
+    <PagedList
       items={rows.map(({ group, reporterId }) => ({
         id: group.id,
         title: (
@@ -114,9 +114,11 @@ export async function ReportList({ searchParams }: { searchParams: Params }) {
           />
         ),
       }))}
-      nextCursor={page.nextCursor}
-      path="/moderation/reports"
-      params={params}
+      paging={{
+        path: "/moderation/reports",
+        params,
+        nextCursor: page.nextCursor,
+      }}
       label={t("list")}
       empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}
       filters={
