@@ -13,6 +13,7 @@ let cookie: string | undefined;
 const storedSignature =
   "Shop: [IMG]https://pictures.test/l.png[/IMG] <video> demo below\nline two";
 mock.module("server-only", () => ({}));
+const nextHeaders = { ...(await import("next/headers")) };
 mock.module("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) =>
@@ -162,6 +163,7 @@ afterAll(() => {
   mock.module("next-intl/server", () => realServer);
   mock.module("@/lib/sermo/viewer", () => realViewer);
   mock.module("next/cache", () => nextCache);
+  mock.module("next/headers", () => nextHeaders);
   mock.module("@/app/[locale]/(main)/account/data", () => realAccountData);
   globalThis.fetch = realFetch;
 });
