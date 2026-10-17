@@ -30,6 +30,7 @@ mock.module("next-intl/server", () => ({
     (layout.site as Record<string, string>)[key],
 }));
 const { AnalyticsTag } = await import("./analytics-tag");
+const { AnalyticsScript } = await import("./analytics-script");
 
 const realFetch = globalThis.fetch;
 const matomo = {
@@ -53,7 +54,7 @@ const tag = async () => JSON.stringify(await AnalyticsTag());
 test("the provider's script is fetched once the page is idle, and its settings are queued at once, in order", async () => {
   consent = choice(1, "necessary", "analytics");
   // The tag is a fragment: the scripts in order, then the page-view reporter.
-  type Script = { props: { id: string; strategy: string } };
+  type Script = { type: unknown; props: { id: string; strategy: string } };
   const tree = (await AnalyticsTag()) as unknown as {
     props: { children: [Script[], unknown] };
   };
@@ -62,6 +63,10 @@ test("the provider's script is fetched once the page is idle, and its settings a
   expect(config.props.strategy).toBe("afterInteractive");
   expect(loader.props.id).toBe("analytics-matomo-js");
   expect(loader.props.strategy).toBe("lazyOnload");
+  // Both take the document's nonce in the browser: the tag's layout may first mount on a soft
+  // navigation, whose answer carries another.
+  expect(config.type).toBe(AnalyticsScript);
+  expect(loader.type).toBe(AnalyticsScript);
 });
 
 test("no tag before a choice, after a refusal, for another category or another policy version", async () => {

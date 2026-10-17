@@ -1,8 +1,8 @@
-import Script from "next/script";
 import { getConsent } from "@/lib/consent/server";
 import { analyticsFor } from "@/lib/consent/state";
 import { scriptNonce } from "@/lib/script-nonce";
 import { getSite } from "@/lib/sermo/site";
+import { AnalyticsScript } from "./analytics-script";
 import { MatomoPageViews } from "./matomo-page-views";
 
 // The site's analytics tag for the public pages, only for a visitor who accepted analytics (Matomo
@@ -22,7 +22,7 @@ export async function AnalyticsTag() {
     <>
       {snippets.map(({ id, src, code }) =>
         src ? (
-          <Script
+          <AnalyticsScript
             key={id}
             id={id}
             src={src}
@@ -30,9 +30,14 @@ export async function AnalyticsTag() {
             strategy="lazyOnload"
           />
         ) : (
-          <Script key={id} id={id} nonce={nonce} strategy="afterInteractive">
+          <AnalyticsScript
+            key={id}
+            id={id}
+            nonce={nonce}
+            strategy="afterInteractive"
+          >
             {code}
-          </Script>
+          </AnalyticsScript>
         ),
       )}
       {analytics.provider === "matomo" && <MatomoPageViews />}

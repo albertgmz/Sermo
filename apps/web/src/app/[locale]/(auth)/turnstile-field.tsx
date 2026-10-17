@@ -4,6 +4,7 @@ import type { TurnstileForm } from "@sermo/core/contracts";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { FormError } from "@/components/forum/form-error";
+import { documentNonce } from "@/lib/document-nonce";
 import { TURNSTILE_FIELD } from "@/lib/turnstile/field";
 
 // Cloudflare's widget for the guest forms. It is rendered only on a form the site guards, and its
@@ -31,10 +32,8 @@ export function loadTurnstile(): Promise<Api> {
     const script = document.createElement("script");
     script.src = SCRIPT;
     script.async = true;
-    // Cloudflare's script hands the page's nonce on to what it loads itself. The browser hides the
-    // attribute's value once the page has loaded; the property keeps it.
-    script.nonce =
-      document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce ?? "";
+    // Cloudflare's script hands the page's nonce on to what it loads itself.
+    script.nonce = documentNonce() ?? "";
     script.onload = () => {
       const api = window.turnstile;
       if (api) api.ready(() => resolve(api));

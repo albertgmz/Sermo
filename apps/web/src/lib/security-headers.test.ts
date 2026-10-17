@@ -70,11 +70,13 @@ test("frames are the embedded players and the Turnstile challenge, nothing else"
   );
 });
 
-test("pictures may come from any https address or be data, fonts and the rest from the site", () => {
+test("pictures may come from any https address or be data; fonts, the worker, the manifest and the rest from the site", () => {
   const policy = directives(SITE);
   expect(policy.get("img-src")).toEqual(["'self'", "data:", "https:"]);
   expect(policy.get("media-src")).toEqual(["'self'", "https:"]);
   expect(policy.get("font-src")).toEqual(["'self'"]);
+  expect(policy.get("worker-src")).toEqual(["'self'"]);
+  expect(policy.get("manifest-src")).toEqual(["'self'"]);
   expect(policy.get("connect-src")).toEqual(["'self'"]);
 });
 

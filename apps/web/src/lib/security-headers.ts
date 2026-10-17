@@ -90,6 +90,11 @@ export function contentSecurityPolicy(security: PageSecurity) {
     ["img-src", "'self'", "data:", "https:", ...(upgrade ? [] : ["http:"])],
     ["media-src", "'self'", "https:"],
     ["font-src", "'self'"],
+    // The service worker and the manifest are the site's own. Named here because worker-src would
+    // otherwise fall back to script-src, where browsers differ on whether 'self' still counts beside
+    // 'strict-dynamic'.
+    ["worker-src", "'self'"],
+    ["manifest-src", "'self'"],
     ["connect-src", "'self'", ...analyticsOrigins(security.analytics)],
     ["frame-src", ...EMBED_HOSTS.map((host) => `https://${host}`), TURNSTILE],
     ["object-src", "'none'"],
