@@ -4,8 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { Input } from "@/components/ui/input";
+import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
-import { FormSkeleton } from "../../groups/skeletons";
 import { createPage } from "../actions";
 import { PageFields } from "../page-fields";
 

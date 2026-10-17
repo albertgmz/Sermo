@@ -1,8 +1,8 @@
 import { useTranslations } from "next-intl";
 import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
+import { FormSkeleton, ListSkeleton } from "../../skeletons";
 import { staffTrail } from "../../trail";
-import { FormSkeleton, ListSkeleton } from "../groups/skeletons";
 import { CatalogEdit, CatalogList } from "./catalog-screen";
 import type { ImageKind, PaletteKindName } from "./kinds";
 import { IMAGE_KINDS, PALETTE_KINDS } from "./kinds";

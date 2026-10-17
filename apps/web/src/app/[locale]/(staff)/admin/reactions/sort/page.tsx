@@ -8,8 +8,8 @@ import { ScreenFrame } from "@/components/staff/screen-frame";
 import { SortForm } from "@/components/staff/sort-form";
 import { read } from "@/lib/sermo/client";
 import { asType, withoutBlockedPictures } from "@/lib/sermo/reactions";
+import { ListSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
-import { ListSkeleton } from "../../groups/skeletons";
 import { saveReactionOrder } from "../actions";
 
 export async function generateMetadata(): Promise<Metadata> {

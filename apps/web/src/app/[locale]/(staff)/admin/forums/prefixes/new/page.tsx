@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
-import { FormSkeleton } from "../../../groups/skeletons";
+import { FormSkeleton } from "../../../../skeletons";
 import { PrefixForm } from "../prefix-form";
 import { prefixTrail } from "../prefix-trail";
 

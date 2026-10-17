@@ -9,8 +9,8 @@ import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
+import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
-import { FormSkeleton } from "../../groups/skeletons";
 import { removeWordFilter, saveWordFilter } from "../actions";
 import { FilterFields } from "../filter-fields";
 

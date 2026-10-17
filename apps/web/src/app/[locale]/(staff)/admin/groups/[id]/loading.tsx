@@ -1,5 +1,4 @@
-import { LoadingPage } from "../../../skeletons";
-import { FormSkeleton } from "../skeletons";
+import { FormSkeleton, LoadingPage } from "../../../skeletons";
 
 export default function Loading() {
   return (

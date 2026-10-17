@@ -5,8 +5,8 @@ import { getTranslations } from "next-intl/server";
 import { EditForm, FieldGroup } from "@/components/staff/edit-form";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { getViewer } from "@/lib/sermo/session";
+import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
-import { FormSkeleton } from "../../groups/skeletons";
 import { saveWordFilter } from "../actions";
 import { FilterFields } from "../filter-fields";
 

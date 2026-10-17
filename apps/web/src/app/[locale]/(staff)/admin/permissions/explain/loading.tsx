@@ -1,5 +1,4 @@
-import { LoadingPage } from "../../../skeletons";
-import { ListSkeleton } from "../../groups/skeletons";
+import { ListSkeleton, LoadingPage } from "../../../skeletons";
 
 export default function Loading() {
   return (

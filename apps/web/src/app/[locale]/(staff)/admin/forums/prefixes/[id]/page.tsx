@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { FormSkeleton } from "../../../groups/skeletons";
+import { FormSkeleton } from "../../../../skeletons";
 import { PrefixForm } from "../prefix-form";
 import { prefixTrail } from "../prefix-trail";
 import Loading from "./loading";

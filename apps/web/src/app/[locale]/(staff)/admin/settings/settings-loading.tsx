@@ -1,6 +1,5 @@
 import { useTranslations } from "next-intl";
-import { LoadingPage } from "../../skeletons";
-import { FormSkeleton } from "../groups/skeletons";
+import { FormSkeleton, LoadingPage } from "../../skeletons";
 
 // The loading screen of a settings page: the header with its trail, the switcher's row, a form.
 export function SettingsLoading({ rows }: { rows?: number }) {

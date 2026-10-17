@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { FormSkeleton } from "../../../groups/skeletons";
+import { FormSkeleton } from "../../../../skeletons";
 import { getEntries, globalPermissions } from "../data";
 import { EntryForm } from "../entry-form";
 import { navigationTrail } from "../navigation-trail";

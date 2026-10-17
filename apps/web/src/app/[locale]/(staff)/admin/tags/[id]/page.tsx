@@ -14,8 +14,8 @@ import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { tagHref } from "@/lib/sermo/tags";
+import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
-import { FormSkeleton } from "../../groups/skeletons";
 import { deleteTag, mergeTag, renameTag } from "../actions";
 
 type Props = PageProps<"/[locale]/admin/tags/[id]">;

@@ -1,4 +1,4 @@
-import { ListSkeleton } from "../../../groups/skeletons";
+import { ListSkeleton } from "../../../../skeletons";
 
 // The member's sessions are a list of blocks, not a form.
 export default function Loading() {

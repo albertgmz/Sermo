@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
+import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
-import { FormSkeleton } from "../../groups/skeletons";
 import { SettingsGroups, SettingsNotice } from "../settings-screen";
 import { IdentityForm } from "./identity-form";
 

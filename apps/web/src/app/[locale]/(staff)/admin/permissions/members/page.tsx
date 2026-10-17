@@ -5,8 +5,8 @@ import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ListSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
-import { ListSkeleton } from "../../groups/skeletons";
 import { MemberPicker } from "../member-picker";
 
 export async function generateMetadata(): Promise<Metadata> {

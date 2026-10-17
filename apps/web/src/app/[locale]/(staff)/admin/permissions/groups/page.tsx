@@ -4,9 +4,9 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ItemList, RowLink } from "@/components/staff/item-list";
 import { ScreenFrame } from "@/components/staff/screen-frame";
+import { ListSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
 import { getGroups } from "../../groups/data";
-import { ListSkeleton } from "../../groups/skeletons";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminGroups.permissionGroups");

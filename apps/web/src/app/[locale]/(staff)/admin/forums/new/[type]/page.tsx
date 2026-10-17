@@ -5,8 +5,8 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
+import { FormSkeleton } from "../../../../skeletons";
 import { staffTrail } from "../../../../trail";
-import { FormSkeleton } from "../../../groups/skeletons";
 import { NodeCreateForm } from "../../node-create-form";
 import Loading from "./loading";
 

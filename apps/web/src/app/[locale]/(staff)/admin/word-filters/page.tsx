@@ -5,8 +5,8 @@ import { Suspense } from "react";
 import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { getViewer } from "@/lib/sermo/session";
+import { ListSkeleton } from "../../skeletons";
 import { staffTrail } from "../../trail";
-import { ListSkeleton } from "../groups/skeletons";
 import { FilterList } from "./filter-list";
 
 export async function generateMetadata(): Promise<Metadata> {

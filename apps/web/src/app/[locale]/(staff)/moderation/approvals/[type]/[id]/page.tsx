@@ -18,10 +18,11 @@ import {
   memberNames,
   panelHref,
 } from "../../../../admin/logs/links";
+import { FormSkeleton } from "../../../../skeletons";
 import { staffTrail } from "../../../../trail";
 import { AuditedRead } from "../../../audited-read";
 import { APPROVAL_TYPES, describe } from "../../../content";
-import { ContentSkeleton, FormSkeleton } from "../../../skeletons";
+import { ContentSkeleton } from "../../../skeletons";
 import { Where } from "../../../where";
 import { viewApprovalMessage } from "./actions";
 import { DecisionForms } from "./decision-form";

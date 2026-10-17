@@ -1,5 +1,4 @@
-import { LoadingPage } from "../../skeletons";
-import { FormSkeleton, ListSkeleton } from "../groups/skeletons";
+import { FormSkeleton, ListSkeleton, LoadingPage } from "../../skeletons";
 
 // The loading files of the appearance routes: the heading with its trail, then the skeleton of
 // what settles (the rows of a list, or the form of an add or edit page).

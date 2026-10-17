@@ -1,7 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export { FormSkeleton, ListSkeleton } from "../admin/groups/skeletons";
-
 // A panel holding a filter bar and rows with a badge line, an excerpt and a meta line.
 export function QueueSkeleton({ rows = 5 }: { rows?: number }) {
   return (

@@ -5,9 +5,9 @@ import { Suspense } from "react";
 import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { parseId } from "@/lib/sermo/ids";
+import { ListSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
 import { one } from "../../credits/shared";
-import { ListSkeleton } from "../../groups/skeletons";
 import { ShopItemList } from "./shop-item-list";
 
 export async function generateMetadata(): Promise<Metadata> {

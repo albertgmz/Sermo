@@ -9,8 +9,8 @@ import { Notice } from "@/components/staff/notice";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
+import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
-import { FormSkeleton } from "../../groups/skeletons";
 import { removeNotice, saveNotice } from "../actions";
 import { NoticeFields } from "../notice-fields";
 

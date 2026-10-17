@@ -3,9 +3,9 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { AddLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
+import { ListSkeleton } from "../../skeletons";
 import { staffTrail } from "../../trail";
 import { GroupList } from "./group-list";
-import { ListSkeleton } from "./skeletons";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminGroups.list");

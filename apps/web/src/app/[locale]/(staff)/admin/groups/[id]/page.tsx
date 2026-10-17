@@ -14,10 +14,10 @@ import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { hrefFor } from "../../../registry";
+import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
 import { deleteGroup } from "../actions";
 import { GroupForm } from "../group-form";
-import { FormSkeleton } from "../skeletons";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminGroups.edit");

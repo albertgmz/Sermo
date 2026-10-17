@@ -3,8 +3,8 @@ import { TabLinks } from "@/components/forum/tab-links";
 import { Notice } from "@/components/staff/notice";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { type ScreenKey, screenByKey } from "../../registry";
+import { FormSkeleton } from "../../skeletons";
 import { staffTrail } from "../../trail";
-import { FormSkeleton } from "../groups/skeletons";
 import { ScrollToCurrent } from "./scroll-to-current";
 
 export type Screen =
