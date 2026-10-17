@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
+import { staffTrail } from "../../trail";
 import { ListFormSkeleton } from "../groups/skeletons";
 import { GrantsScreen } from "./grants-screen";
 
@@ -18,6 +19,7 @@ export default function AwardGrantsPage({
     <ScreenFrame
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
+      trail={staffTrail("/admin/award-grants")}
       label={t("loading")}
       fallback={<ListFormSkeleton />}
     >

@@ -12,7 +12,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { IconPicker } from "@/components/icons/icon-picker";
-import { FieldRow } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
 import { isHexColor } from "@/lib/css-color";
@@ -131,7 +131,7 @@ export function ItemEffect({
 
   return (
     <>
-      <FieldRow
+      <Field
         name="effect"
         label={t("effect")}
         htmlFor={`${idPrefix}-effect`}
@@ -150,30 +150,30 @@ export function ItemEffect({
             </option>
           ))}
         </select>
-      </FieldRow>
+      </Field>
 
       {type === "frame" && (
-        <FieldRow name="frameId" label={t("frame")}>
+        <Field name="frameId" label={t("frame")}>
           <PictureChoices
             name="frameId"
             entries={choices.frames}
             chosen={initial?.frameId}
             empty={t("noFrames")}
           />
-        </FieldRow>
+        </Field>
       )}
       {type === "threadCover" && (
-        <FieldRow name="coverId" label={t("cover")}>
+        <Field name="coverId" label={t("cover")}>
           <PictureChoices
             name="coverId"
             entries={choices.covers}
             chosen={initial?.coverId}
             empty={t("noCovers")}
           />
-        </FieldRow>
+        </Field>
       )}
       {type === "nameColor" && (
-        <FieldRow name="colorId" label={t("colour")}>
+        <Field name="colorId" label={t("colour")}>
           {choices.colours.length > 0 ? (
             <fieldset className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {choices.colours.map((entry) => (
@@ -205,11 +205,11 @@ export function ItemEffect({
           ) : (
             <p className="text-sm text-muted-foreground">{t("noColours")}</p>
           )}
-        </FieldRow>
+        </Field>
       )}
       {type === "nameIcon" && (
         <>
-          <FieldRow
+          <Field
             name="icon"
             label={t("icon")}
             htmlFor={`${idPrefix}-icon`}
@@ -221,8 +221,8 @@ export function ItemEffect({
               labelId={`${idPrefix}-icon-label`}
               defaultValue={initial?.icon}
             />
-          </FieldRow>
-          <FieldRow
+          </Field>
+          <Field
             name="iconPosition"
             label={t("iconPosition")}
             htmlFor={`${idPrefix}-icon-position`}
@@ -236,11 +236,11 @@ export function ItemEffect({
               <option value="before">{t("positionBefore")}</option>
               <option value="after">{t("positionAfter")}</option>
             </select>
-          </FieldRow>
+          </Field>
         </>
       )}
       {type === "group" && (
-        <FieldRow
+        <Field
           name="groupId"
           label={t("group")}
           htmlFor={`${idPrefix}-group`}
@@ -274,11 +274,11 @@ export function ItemEffect({
               defaultValue={initial?.groupId}
             />
           )}
-        </FieldRow>
+        </Field>
       )}
       {type === "permission" && (
         <>
-          <FieldRow
+          <Field
             name="permission"
             label={t("permission")}
             htmlFor={`${idPrefix}-permission`}
@@ -312,9 +312,9 @@ export function ItemEffect({
                 ))}
               </select>
             )}
-          </FieldRow>
+          </Field>
           {(typedPermission || selected?.type === "integer") && (
-            <FieldRow
+            <Field
               name="permissionValue"
               label={t("permissionValue")}
               htmlFor={`${idPrefix}-permission-value`}
@@ -333,7 +333,7 @@ export function ItemEffect({
                 required={!typedPermission}
                 defaultValue={initial?.value}
               />
-            </FieldRow>
+            </Field>
           )}
           {selected?.type === "flag" && (
             <p className="px-4 pb-2 text-xs text-muted-foreground sm:ps-[11.5rem]">
@@ -343,7 +343,7 @@ export function ItemEffect({
         </>
       )}
       {type === "highlight" && (
-        <FieldRow
+        <Field
           name="days"
           label={t("days")}
           htmlFor={`${idPrefix}-days`}
@@ -358,10 +358,10 @@ export function ItemEffect({
             required
             defaultValue={initial?.days}
           />
-        </FieldRow>
+        </Field>
       )}
 
-      <FieldRow
+      <Field
         name="isConsumable"
         label={t("consumable")}
         help={
@@ -384,8 +384,8 @@ export function ItemEffect({
           />
           {t("consumableLabel")}
         </label>
-      </FieldRow>
-      <FieldRow
+      </Field>
+      <Field
         name="durationSeconds"
         label={t("duration")}
         htmlFor={`${idPrefix}-duration`}
@@ -423,7 +423,7 @@ export function ItemEffect({
             ))}
           </select>
         </div>
-      </FieldRow>
+      </Field>
     </>
   );
 }

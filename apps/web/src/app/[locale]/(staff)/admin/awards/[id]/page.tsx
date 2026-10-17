@@ -5,13 +5,16 @@ import { notFound } from "next/navigation";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
+import { EditForm } from "@/components/staff/edit-form";
 import { Notice } from "@/components/staff/notice";
+import { PageHeader } from "@/components/staff/page-header";
 import { StreamedPanel } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { FormSkeleton, PageHead } from "../../groups/skeletons";
-import { deleteAward } from "../actions";
-import { AwardForm } from "../award-form";
+import { staffTrail } from "../../../trail";
+import { EditFormSkeleton } from "../../credits/skeletons";
+import { deleteAward, saveAward } from "../actions";
+import { AwardFormFields } from "../award-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminEconomy.awards.editPage");
@@ -81,36 +84,33 @@ async function EditAward({
     searchParams,
   ]);
   return (
-    <>
-      <PageHead
-        heading={award.name}
-        subtitle={t("editPage.subtitle", { count: award.grantCount })}
+    <div className="space-y-6">
+      <PageHeader
+        trail={staffTrail(`/admin/awards/${award.id}`)}
+        title={award.name}
+        description={t("editPage.subtitle", { count: award.grantCount })}
       />
-      <Notice
-        searchParams={searchParams}
-        notices={{
-          saved: t("notices.saved"),
-          createdNoPicture: t("notices.createdNoPicture"),
-        }}
-      />
-      <AwardForm award={award} />
-      <ConfirmStep
-        action={deleteAward}
-        fields={{ id: award.id }}
-        heading={t("deleteHeading")}
-        warning={t("deleteWarning")}
-        submit={t("delete")}
-      />
-      <Holders awardId={award.id} params={query} />
-      <p>
-        <Link
-          href="/admin/awards"
-          className="inline-flex min-h-10 items-center text-sm text-primary-ink underline-offset-4 hover:underline"
-        >
-          {t("back")}
-        </Link>
-      </p>
-    </>
+      <div className="space-y-4">
+        <Notice
+          searchParams={searchParams}
+          notices={{
+            saved: t("notices.saved"),
+            createdNoPicture: t("notices.createdNoPicture"),
+          }}
+        />
+        <EditForm action={saveAward}>
+          <AwardFormFields award={award} />
+        </EditForm>
+        <ConfirmStep
+          action={deleteAward}
+          fields={{ id: award.id }}
+          heading={t("deleteHeading")}
+          warning={t("deleteWarning")}
+          submit={t("delete")}
+        />
+        <Holders awardId={award.id} params={query} />
+      </div>
+    </div>
   );
 }
 
@@ -120,10 +120,11 @@ export default async function AwardPage({
 }: PageProps<"/[locale]/admin/awards/[id]">) {
   const t = await getTranslations("adminEconomy.awards");
   return (
-    <div className="space-y-6">
-      <StreamedPanel label={t("loading")} fallback={<FormSkeleton rows={8} />}>
-        <EditAward params={params} searchParams={searchParams} />
-      </StreamedPanel>
-    </div>
+    <StreamedPanel
+      label={t("loading")}
+      fallback={<EditFormSkeleton heading rows={7} advanced />}
+    >
+      <EditAward params={params} searchParams={searchParams} />
+    </StreamedPanel>
   );
 }

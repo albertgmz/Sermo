@@ -4035,3 +4035,27 @@ returns to the tree. Prefixes keep
 their order as a number in their form: the backend has no order action for them, so they have no sort
 page. The prefix pages hang from the section, not from the tree whose address they share
 (`prefixTrail`). Tabs have no screen of their own, as recorded in item 1.
+
+### Economy on the shared patterns (item 9)  Credit rules, award definitions, shop categories and shop
+items are lists of clean rows (`ItemList`): the name leads to the record's own page, badges show
+the state (active or not; a rule's signed credits; an award's tier and "automatic"), a line says
+what it does (the event, the limit and the forums of a rule; the XP, credits and holders of an
+award; the effect, price and stock of an item), and every row keeps an Edit link and a delete
+confirm step on the same action as before. Adding and editing are separate pages with the list's
+gate, registered as detail screens: `/admin/credit-rules/new` and `/[id]`, `/admin/awards/new`
+(the edit page already existed), `/admin/shop/categories/new`, `/sort` and `/[id]`,
+`/admin/shop/items/new` (likewise). Their forms are `EditForm` cards; the page title of an edit
+page is the record's name. Rare options sit in a closed `Advanced` card: an award's icon key and
+"stackable", a category's access rule, an item's position and access rule (an award's automatic
+rule has a card of its own, as it is what makes the award automatic). The shop categories are the
+only list with an order action, so only they get a Sort page (`saveCategoryOrder`, with the
+`before:` and `title:` fields it compares); rules, awards and items have no order action, so an
+item's position stays a number in its form. None of the four has a set-active action, so there is
+no row switch: the active badge stays and the checkbox stays in the form. The old inline editors
+(`?edit=<id>` on the rules and categories lists) redirect to the record's page. The "Add item"
+link carries the category being shown, and an item's page keeps a "back to the items" button for
+that category. Credit adjustment and award grants keep their member picker and review steps and
+only gain the page header and breadcrumb. Known limits: the effect fields of an item and the rule
+builder are `FieldRow`s inside `Field` cards (a narrower label column); a rule condition's number
+is `required`, so one left empty in a closed Advanced card may stop the save out of sight; the
+look in a browser and on a phone has not been checked.

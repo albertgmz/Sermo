@@ -1,4 +1,4 @@
-import { expect, mock, test } from "bun:test";
+import { afterAll, expect, mock, test } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
 import { LITE_COOKIE } from "@/lib/lite-preferences";
 import lite from "../../../../../../messages/en/lite.json";
@@ -34,6 +34,7 @@ function translator(namespace: string) {
   };
 }
 const realIntl = { ...(await import("next-intl")) };
+const realServer = await import("next-intl/server");
 mock.module("next-intl", () => ({
   ...realIntl,
   useLocale: () => "en",
@@ -45,6 +46,12 @@ mock.module("next-intl/server", () => ({
 }));
 
 const { PostAttachments } = await import("./post-attachments");
+
+// The stand-ins are for this file only: the suites that follow read the real modules.
+afterAll(() => {
+  mock.module("next-intl", () => realIntl);
+  mock.module("next-intl/server", () => realServer);
+});
 
 const file = (fileId: number, over: Record<string, unknown> = {}) => ({
   fileId,

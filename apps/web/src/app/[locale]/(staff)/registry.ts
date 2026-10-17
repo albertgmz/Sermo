@@ -753,6 +753,20 @@ export const SECTIONS = [
         built: true,
       },
       {
+        key: "economyCreditRuleNew",
+        path: "/admin/credit-rules/new",
+        access: ["admin.creditRules"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "economyCreditRuleEdit",
+        path: "/admin/credit-rules/[id]",
+        access: ["admin.creditRules"],
+        built: true,
+        listed: false,
+      },
+      {
         key: "economyCredits",
         path: "/admin/credits",
         access: ["credits.adjust"],
@@ -763,6 +777,13 @@ export const SECTIONS = [
         path: "/admin/awards",
         access: ["admin.awards"],
         built: true,
+      },
+      {
+        key: "economyAwardNew",
+        path: "/admin/awards/new",
+        access: ["admin.awards"],
+        built: true,
+        listed: false,
       },
       {
         key: "economyAwardEdit",
@@ -784,10 +805,38 @@ export const SECTIONS = [
         built: true,
       },
       {
+        key: "economyShopCategoryNew",
+        path: "/admin/shop/categories/new",
+        access: ["admin.shop"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "economyShopCategorySort",
+        path: "/admin/shop/categories/sort",
+        access: ["admin.shop"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "economyShopCategoryEdit",
+        path: "/admin/shop/categories/[id]",
+        access: ["admin.shop"],
+        built: true,
+        listed: false,
+      },
+      {
         key: "economyShopItems",
         path: "/admin/shop/items",
         access: ["admin.shop"],
         built: true,
+      },
+      {
+        key: "economyShopItemNew",
+        path: "/admin/shop/items/new",
+        access: ["admin.shop"],
+        built: true,
+        listed: false,
       },
       {
         key: "economyShopItemEdit",
