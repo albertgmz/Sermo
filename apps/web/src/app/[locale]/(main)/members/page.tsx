@@ -38,10 +38,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
+import { publicHead } from "@/lib/sermo/share";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("members.members");
-  return { title: t("metaTitle") };
+  return publicHead({ title: t("metaTitle") }, { path: "/members" });
 }
 
 function first(value: string | string[] | undefined) {

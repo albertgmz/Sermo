@@ -38,12 +38,26 @@ function siteWith(icon: { fileId: number; url: string } | null) {
     Response.json(siteBody({ icon }))) as unknown as typeof fetch;
 }
 
-test("a site with no uploaded icon answers with the default mark", async () => {
+test("a site with no uploaded icon answers with the default mark, as a real ICO file", async () => {
   siteWith(null);
   const response = await GET();
   expect(response.status).toBe(200);
-  expect(response.headers.get("content-type")).toBe("image/svg+xml");
-  expect(await response.text()).toStartWith("<svg ");
+  expect(response.headers.get("content-type")).toBe("image/x-icon");
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const view = new DataView(bytes.buffer, bytes.byteOffset);
+  // An icon directory (reserved 0, type 1) of 16, 32 and 48 pixel frames, each a PNG.
+  expect([view.getUint16(0, true), view.getUint16(2, true)]).toEqual([0, 1]);
+  const count = view.getUint16(4, true);
+  const frames = Array.from({ length: count }, (_, index) => {
+    const entry = 6 + index * 16;
+    const offset = view.getUint32(entry + 12, true);
+    return {
+      size: bytes[entry],
+      png: Array.from(bytes.slice(offset + 1, offset + 4)),
+    };
+  });
+  expect(frames.map((frame) => frame.size)).toEqual([16, 32, 48]);
+  for (const frame of frames) expect(frame.png).toEqual([0x50, 0x4e, 0x47]);
 });
 
 test("a site with an uploaded icon sends the browser to it", async () => {

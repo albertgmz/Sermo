@@ -35,6 +35,7 @@ import { postToWall } from "@/app/[locale]/(main)/members/actions";
 import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
 import { EmptyState } from "@/components/forum/empty-state";
 import { FeedFilterBar } from "@/components/forum/feed-filter-bar";
+import { WebSiteJsonLd } from "@/components/forum/json-ld";
 import { PagedList } from "@/components/forum/paged-list";
 import { PictureViewer } from "@/components/forum/picture-viewer";
 import {
@@ -70,6 +71,7 @@ import { getFeedView } from "@/lib/sermo/feed-view";
 import { getGuestTab } from "@/lib/sermo/home-tab";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
+import { publicHead } from "@/lib/sermo/share";
 import { getSite } from "@/lib/sermo/site";
 import { cn } from "@/lib/utils";
 
@@ -85,13 +87,18 @@ export async function generateMetadata(
     getTranslations("home.seo"),
   ]);
   const address = homeAddress({ opened: tab, guestTab, params });
-  return homeMetadata({
+  const head = homeMetadata({
     address,
     origin: publicUrl(),
     title: t(`${tab}.title`),
     description:
       (address.path === "/" && site.description) ||
       t(`${tab}.description`, { site: site.name }),
+  });
+  // Following is the viewer's own list: nothing to share. The bare address is the site itself.
+  if (tab === "following") return head;
+  return publicHead(head, {
+    title: address.path === "/" ? site.name : t(`${tab}.title`),
   });
 }
 
@@ -114,6 +121,10 @@ export default function HomePage(props: PageProps<"/[locale]">) {
       mainClassName="space-y-(--page-gap)"
     >
       <h1 className="sr-only">{t("heading")}</h1>
+      {/* No fallback: structured data draws nothing. */}
+      <Suspense fallback={null}>
+        <WebSiteJsonLd />
+      </Suspense>
       {/* No fallback: only the page a deleted account lands on has a notice. */}
       <Suspense fallback={null}>
         <AccountDeletedNotice {...props} />

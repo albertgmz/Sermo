@@ -13,6 +13,7 @@ import {
 } from "@/lib/consent/inventory";
 import { isCookielessMatomo } from "@/lib/consent/state";
 import { getCookiePolicyText } from "@/lib/sermo/cookie-policy";
+import { publicHead } from "@/lib/sermo/share";
 import { getSite } from "@/lib/sermo/site";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,7 +21,10 @@ export async function generateMetadata(): Promise<Metadata> {
     getTranslations("cookies.policy"),
     getCookiePolicyText(),
   ]);
-  return { title: written?.title ?? t("metaTitle") };
+  return publicHead(
+    { title: written?.title ?? t("metaTitle") },
+    { path: "/cookies" },
+  );
 }
 
 // The one place the policy's words and the inventory meet: every cookie, storage key and provider

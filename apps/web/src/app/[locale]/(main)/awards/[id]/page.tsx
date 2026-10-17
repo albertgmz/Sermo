@@ -21,6 +21,7 @@ import { formatDate, formatNumber } from "@/lib/format";
 import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
+import { publicHead } from "@/lib/sermo/share";
 import { cn } from "@/lib/utils";
 
 // A path that is not a plain number is a page that does not exist.
@@ -45,7 +46,13 @@ export async function generateMetadata({
     getTranslations("awards.award"),
     getAward(awardIdOf(id)),
   ]);
-  return { title: t("metaTitle", { name: award.name }) };
+  return publicHead(
+    {
+      title: t("metaTitle", { name: award.name }),
+      description: award.description || undefined,
+    },
+    { path: `/awards/${award.id}` },
+  );
 }
 
 // The award's holders, newest grant first; not drawn for a viewer who may not list members.

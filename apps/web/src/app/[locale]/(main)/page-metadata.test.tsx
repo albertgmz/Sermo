@@ -88,7 +88,50 @@ test("each tab has its own title and description, built from the site's name", a
     seen.add(`${metadata.title}|${metadata.description}`);
   }
   expect(seen.size).toBe(4);
-  expect((await head({ tab: "hot" })).openGraph).toBeUndefined();
+});
+
+test("the home page is shared as the site, a tab under its own title, with the site's feed", async () => {
+  backend({ siteTab: "hot", description: "A club for gardeners." });
+  const home = await head();
+  expect(home.openGraph).toEqual({
+    type: "website",
+    title: "Garden Club",
+    description: "A club for gardeners.",
+    url: "http://localhost:3000/",
+    siteName: "Garden Club",
+    locale: "en_US",
+    images: undefined,
+  });
+  expect(home.twitter).toEqual({
+    card: "summary",
+    title: "Garden Club",
+    description: "A club for gardeners.",
+    images: undefined,
+  });
+  expect(home.alternates?.types).toEqual({
+    "application/atom+xml": [
+      {
+        title: "Latest threads on Garden Club",
+        url: "http://localhost:3000/feed.atom",
+      },
+    ],
+  });
+  locale = "es";
+  const latest = await head({ tab: "latest" });
+  expect(latest.openGraph?.title).toBe("Últimos temas y publicaciones");
+  expect(latest.openGraph?.url).toBe("http://localhost:3000/?tab=latest");
+  expect(latest.openGraph?.locale).toBe("es_ES");
+  expect(latest.alternates?.canonical).toBe(
+    "http://localhost:3000/?tab=latest",
+  );
+});
+
+test("a member's own Following list is not shared", async () => {
+  backend({ member: true });
+  const own = await head({ tab: "following" });
+  expect(own.openGraph).toBeUndefined();
+  expect(own.twitter).toBeUndefined();
+  expect(own.alternates?.types).toBeUndefined();
 });
 
 test("the texts are in the page language", async () => {

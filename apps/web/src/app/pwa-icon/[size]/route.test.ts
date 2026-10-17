@@ -34,7 +34,7 @@ function dimensions(bytes: Uint8Array) {
 }
 
 test("the default mark is a square PNG of the size asked for", async () => {
-  for (const size of [192, 512]) {
+  for (const size of [180, 192, 512]) {
     const response = await ask(String(size));
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/png");

@@ -50,6 +50,7 @@ import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
+import { publicHead } from "@/lib/sermo/share";
 import { prefixView } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
 
@@ -81,7 +82,14 @@ export async function generateMetadata({
   searchParams,
 }: PageProps<"/[locale]/members/[id]">): Promise<Metadata> {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  return seoMetadata(seoOf(await getProfile(memberIdOf(id)), query));
+  const profile = await getProfile(memberIdOf(id));
+  const head = seoMetadata(seoOf(profile, query));
+  // Shared as a profile only when guests may see it (the backend indexes it).
+  if (profile.seo.robots !== "index,follow") return head;
+  return publicHead(head, {
+    title: profile.username,
+    kind: { type: "profile", username: profile.username },
+  });
 }
 
 async function LevelStrip({ profile }: { profile: Profile }) {

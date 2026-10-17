@@ -10,11 +10,12 @@ import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { getViewer } from "@/lib/sermo/session";
+import { publicHead } from "@/lib/sermo/share";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("forums.forums");
-  return { title: t("metaTitle") };
+  return publicHead({ title: t("metaTitle") }, { path: "/forums" });
 }
 
 function forumsHref(tab: string | null, stats: StatsTab) {

@@ -6,10 +6,17 @@ import {
   refusal,
 } from "@/app/[locale]/(staff)/admin/groups/test-backend";
 import { messages } from "@/i18n/messages";
+import { siteBody } from "@/lib/test-bodies";
 import { translator, withIntl } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
 
 mock.module("server-only", () => ({}));
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
@@ -46,6 +53,7 @@ const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { default: TagPage, generateMetadata } = await import("./page");
 
 afterAll(() => {
+  mock.module("next/cache", () => nextCache);
   mock.module("next-intl/server", () => intlServer);
   mock.module("next/navigation", () => navigation);
   mock.module("next-intl", () => intl);
@@ -123,6 +131,7 @@ const found = (items: unknown[], nextCursor: string | null = null) => ({
     Response.json({ name: "café", redirect: false, seo: seo() }),
   "tags.threads": () => Response.json({ items, nextCursor }),
   "users.cards": () => Response.json({ items: [] }),
+  "site.get": () => Response.json(siteBody()),
 });
 
 test("the page names the tag and lists its threads as a forum does, asking by the decoded name", async () => {
@@ -209,6 +218,8 @@ test("the head comes from the backend, with a description in the visitor's langu
     "http://localhost:3000/tags/caf%C3%A9",
   );
   expect(meta.robots).toEqual({ index: true, follow: true });
+  expect(meta.openGraph?.title).toBe("#café");
+  expect(meta.openGraph?.url).toBe("http://localhost:3000/tags/caf%C3%A9");
   // A list continued by cursor is a copy of the page.
   const copy = await generateMetadata({
     params: Promise.resolve({ locale: "en", name: "caf%C3%A9" }),

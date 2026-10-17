@@ -27,12 +27,14 @@ import { ThreadBatch } from "@/components/staff/thread-batch";
 import { batchActionsFor } from "@/components/staff/thread-batch-state";
 import { buttonVariants } from "@/components/ui/button";
 import { pagesParam } from "@/lib/list-pages";
+import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
 import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
 import { parsePageId } from "@/lib/sermo/ids";
 import { membersFor } from "@/lib/sermo/members";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
+import { publicHead } from "@/lib/sermo/share";
 import { prefixView } from "@/lib/sermo/threads";
 import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -113,7 +115,21 @@ export async function generateMetadata({
   params,
   searchParams,
 }: PageProps<"/[locale]/forums/[id]">): Promise<Metadata> {
-  return seoMetadata(await seoOf((await params).id, searchParams));
+  const { id } = await params;
+  const head = seoMetadata(await seoOf(id, searchParams));
+  // Shared, with its own feed, only when guests may open it (the backend indexes it).
+  const { node, seo } = await getNode(nodeIdOf(id));
+  if (seo.robots !== "index,follow") return head;
+  return publicHead(head, {
+    title: node.title,
+    forumFeed:
+      node.type === "forum"
+        ? {
+            title: node.title,
+            path: `${canonicalPathOf(seo.canonical)}/feed.atom`,
+          }
+        : undefined,
+  });
 }
 
 export default async function ForumPage({

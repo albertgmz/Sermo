@@ -37,6 +37,8 @@ const EMISSION_GATES: Record<string, string> = {
     "Draws the picture of the media viewer that src/lib/sermo/media-pictures.ts left in the data: the address is dropped there when post pictures are blocked, so there is nothing to emit.",
   "src/components/ui/avatar.tsx":
     "Low-level image primitive, used only by the reviewed UserAvatar gate.",
+  "src/lib/sermo/seo.ts":
+    "Writes the Open Graph and Twitter card tags; a picture appears in them only when a caller passes `image`, and no caller passes one yet.",
 };
 
 // These modules may name paths; they may NOT acquire an image-emitting construct.

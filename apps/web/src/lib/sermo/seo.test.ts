@@ -3,8 +3,11 @@ import { test } from "node:test";
 import {
   copyOf,
   type Seo,
+  type Share,
   seoMetadata,
   serializeJsonLd,
+  shareMetadata,
+  websiteJsonLd,
   withoutPictures,
 } from "./seo";
 
@@ -65,4 +68,133 @@ test("structured data without pictures has no picture property and no picture ad
   assert.ok(!out.includes("image"), out);
   assert.ok(out.includes("Look"));
   assert.ok(out.includes("wren"));
+});
+
+const SHARE: Share = {
+  title: "General",
+  description: "Talk about anything.",
+  url: "http://site.example/forums/3-general",
+  siteName: "Sermo",
+  locale: "es",
+  kind: { type: "website" },
+};
+
+test("a public page shares its own title, description, canonical address, site and language", () => {
+  const { openGraph, twitter } = shareMetadata(SHARE);
+  assert.deepEqual(openGraph, {
+    type: "website",
+    title: "General",
+    description: "Talk about anything.",
+    url: "http://site.example/forums/3-general",
+    siteName: "Sermo",
+    locale: "es_ES",
+    images: undefined,
+  });
+  assert.deepEqual(twitter, {
+    card: "summary",
+    title: "General",
+    description: "Talk about anything.",
+    images: undefined,
+  });
+  assert.equal(
+    shareMetadata({ ...SHARE, locale: "en" }).openGraph?.locale,
+    "en_US",
+  );
+});
+
+test("a thread is an article with its dates, author, forum and tags", () => {
+  const { openGraph } = shareMetadata({
+    ...SHARE,
+    title: "Hello",
+    kind: {
+      type: "article",
+      publishedTime: "2026-01-01T00:00:00.000Z",
+      modifiedTime: "2026-01-02T00:00:00.000Z",
+      author: "http://site.example/members/4",
+      section: "General",
+      tags: ["rust"],
+    },
+  });
+  assert.deepEqual(openGraph, {
+    type: "article",
+    title: "Hello",
+    description: "Talk about anything.",
+    url: "http://site.example/forums/3-general",
+    siteName: "Sermo",
+    locale: "es_ES",
+    images: undefined,
+    publishedTime: "2026-01-01T00:00:00.000Z",
+    modifiedTime: "2026-01-02T00:00:00.000Z",
+    authors: ["http://site.example/members/4"],
+    section: "General",
+    tags: ["rust"],
+  });
+});
+
+test("a member's page is a profile under their name", () => {
+  const { openGraph } = shareMetadata({
+    ...SHARE,
+    title: "wren",
+    kind: { type: "profile", username: "wren" },
+  });
+  assert.equal(openGraph && "type" in openGraph && openGraph.type, "profile");
+  assert.equal(
+    openGraph && "username" in openGraph && openGraph.username,
+    "wren",
+  );
+});
+
+test("a picture makes the card the large one, with its size and text; an empty description is left out", () => {
+  const image = {
+    url: "http://site.example/card.png",
+    width: 1200,
+    height: 630,
+    alt: "General",
+  };
+  const { openGraph, twitter } = shareMetadata({
+    ...SHARE,
+    description: "",
+    image,
+  });
+  assert.deepEqual(openGraph?.images, [image]);
+  assert.equal(openGraph?.description, undefined);
+  assert.deepEqual(twitter, {
+    card: "summary_large_image",
+    title: "General",
+    description: undefined,
+    images: [image],
+  });
+});
+
+test("the site's structured data names it and the search its results page answers", () => {
+  assert.deepEqual(
+    websiteJsonLd({
+      name: "Sermo",
+      description: "",
+      origin: "http://site.example",
+    }),
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": "http://site.example/#website",
+      url: "http://site.example/",
+      name: "Sermo",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: "http://site.example/search?q={search_term_string}",
+        },
+        "query-input": "required name=search_term_string",
+      },
+    },
+  );
+  assert.equal(
+    websiteJsonLd({
+      name: "Sermo",
+      description: "A forum.",
+      origin: "http://site.example",
+    }).description,
+    "A forum.",
+  );
 });

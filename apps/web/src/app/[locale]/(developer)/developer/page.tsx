@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { publicHead } from "@/lib/sermo/share";
 import { ApiReference } from "./api-reference";
 import { DeveloperIntro } from "./intro";
 
 // A public page, open to search engines: the interface text is the same for every visitor.
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("developer.page");
-  return { title: t("metaTitle"), description: t("metaDescription") };
+  return publicHead(
+    { title: t("metaTitle"), description: t("metaDescription") },
+    { path: "/developer" },
+  );
 }
 
 // The page fills the window in its own frame (../layout.tsx), to give the reference room.

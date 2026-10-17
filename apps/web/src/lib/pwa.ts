@@ -14,11 +14,17 @@ export const WORKER_SCOPE = "/";
 
 export const MANIFEST_URL = "/manifest.webmanifest";
 const ICON_PREFIX = "/pwa-icon/";
+// The default home-screen icon of iOS, served beside the manifest's.
+export const APPLE_ICON_URL = `${ICON_PREFIX}180`;
 
 // Colours of a manifest are literal: it is read by the operating system, not by the page, so the
 // tokens of globals.css cannot reach it. These are `--background` of the dark theme and `--primary`.
 const BACKGROUND = "#09090b";
 const DEFAULT_ACCENT = "#dc2626";
+
+// The colour the browser gives its bar above the page (`theme-color`), read by the browser like the
+// manifest: `--background` of each theme, which the sticky header shares.
+export const THEME_COLORS = { light: "#fafafa", dark: BACKGROUND } as const;
 
 // The addresses that belong to the installable app and sit outside the language segment: the
 // proxy lets them through as they are, without a language, a record check or a 404.

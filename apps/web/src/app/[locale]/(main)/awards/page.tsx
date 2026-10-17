@@ -30,11 +30,12 @@ import { formatDate, formatNumber } from "@/lib/format";
 import { read, readIfAllowed } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
+import { publicHead } from "@/lib/sermo/share";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("awards.awards");
-  return { title: t("metaTitle") };
+  return publicHead({ title: t("metaTitle") }, { path: "/awards" });
 }
 
 // The backend adds the inactive awards for holders of admin.awards; the public page is the same

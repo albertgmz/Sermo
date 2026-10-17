@@ -14,6 +14,8 @@ import { themeScript } from "@/components/layout/theme";
 import { WorkerRegistration } from "@/components/layout/worker-registration";
 import { pickClientMessages, ROOT_NAMESPACES } from "@/i18n/client-messages";
 import { isLocale, LOCALES } from "@/i18n/locales";
+import { OPENSEARCH_URL } from "@/lib/opensearch";
+import { THEME_COLORS } from "@/lib/pwa";
 import { getSite } from "@/lib/sermo/site";
 import "../globals.css";
 
@@ -35,9 +37,15 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// The bar the browser draws above the page takes the background of the device's theme; the theme
+// script sets it to the one shown when the visitor picked another.
 export const viewport: Viewport = {
   colorScheme: "light dark",
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
+  ],
 };
 
 // One prerendered shell per language. The segment is hidden: the proxy picks the language of each
@@ -52,7 +60,7 @@ export default async function RootLayout({
 }: LayoutProps<"/[locale]">) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const [{ maxUploadBytes }, messages] = await Promise.all([
+  const [{ maxUploadBytes, name }, messages] = await Promise.all([
     getSite(),
     getMessages(),
   ]);
@@ -67,6 +75,12 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: widthScript }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <link
+          rel="search"
+          type="application/opensearchdescription+xml"
+          title={name}
+          href={OPENSEARCH_URL}
+        />
       </head>
       <body className="min-h-full flex flex-col">
         <Suspense>

@@ -14,7 +14,8 @@ async function slugOf(params: PageProps<"/[locale]/pages/[slug]">["params"]) {
 export async function generateMetadata({
   params,
 }: PageProps<"/[locale]/pages/[slug]">) {
-  return staticPageMetadata(await slugOf(params));
+  const slug = await slugOf(params);
+  return staticPageMetadata(slug, `/pages/${slug}`);
 }
 
 export default async function Page({

@@ -1,14 +1,15 @@
 import { liteBlocks } from "@/lib/lite-mode";
 import { DEFAULT_ICON_PNG } from "@/lib/pwa-icon-data";
 
-// The default mark of the manifest, for a site that has not uploaded an icon. LITE mode hides it
-// like the favicon: the proxy does not reach this address, so this is the only gate.
+// The default mark of the manifest and of the iOS home screen, for a site that has not uploaded an
+// icon. LITE mode hides it like the favicon: the proxy does not reach this address, so this is the
+// only gate.
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ size: string }> },
 ) {
   const { size } = await params;
-  if (size !== "192" && size !== "512")
+  if (size !== "180" && size !== "192" && size !== "512")
     return new Response(null, { status: 404 });
   // The answer depends on the visitor's LITE cookie.
   const vary = { vary: "cookie" };

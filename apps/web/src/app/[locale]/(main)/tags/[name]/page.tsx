@@ -16,6 +16,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
+import { publicHead } from "@/lib/sermo/share";
 import { tagHref } from "@/lib/sermo/tags";
 import { cn } from "@/lib/utils";
 
@@ -50,10 +51,13 @@ export async function generateMetadata({
   const tag = await getTag(nameOf(name));
   const seo =
     cursor !== undefined || pages !== undefined ? copyOf(tag.seo) : tag.seo;
-  return seoMetadata({
+  const head = seoMetadata({
     ...seo,
     description: t("metaDescription", { name: tag.name }),
   });
+  // Shared only when the backend indexes the tag: enough of its threads are open to guests.
+  if (tag.seo.robots !== "index,follow") return head;
+  return publicHead(head, { title: `#${tag.name}` });
 }
 
 export default async function TagPage({

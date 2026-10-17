@@ -22,6 +22,9 @@ const attributes = new Map<string, string>();
 const classes = new Set<string>();
 const windowListeners = new Map<string, Set<Listener>>();
 const mediaListeners = new Set<() => void>();
+// The <head> the script writes the bar's colour into: what it put first, in order.
+type Meta = { name: string; content: string };
+const head: Meta[] = [];
 let deviceDark = true;
 let legacyMedia = false;
 const globals = globalThis as Record<string, unknown>;
@@ -66,6 +69,12 @@ beforeAll(() => {
           on ? classes.add(name) : classes.delete(name),
       },
     },
+    head: { prepend: (meta: Meta) => head.unshift(meta) },
+    createElement: () => ({ name: "", content: "" }),
+    querySelector: (selector: string) =>
+      selector === 'meta[name="theme-color"]:not([media])'
+        ? (head.find((meta) => meta.name === "theme-color") ?? null)
+        : null,
   };
   globals.matchMedia = () => ({
     addListener: (listener: () => void) => mediaListeners.add(listener),
@@ -110,6 +119,7 @@ beforeEach(() => {
   classes.clear();
   windowListeners.clear();
   mediaListeners.clear();
+  head.length = 0;
   deviceDark = true;
   legacyMedia = false;
   useWorkingStorage();
@@ -129,6 +139,18 @@ test("System follows the device before first paint and when it changes", () => {
   for (const listener of mediaListeners) listener();
   expect(theme()).toBe("light");
   expect(classes.has("dark")).toBe(false);
+});
+
+test("the browser bar takes the colour of the theme shown, ahead of the device's", () => {
+  run();
+  expect(head).toEqual([{ name: "theme-color", content: "#09090b" }]);
+  setTheme("light");
+  expect(head).toEqual([{ name: "theme-color", content: "#fafafa" }]);
+  deviceDark = false;
+  setTheme("system");
+  expect(head).toEqual([{ name: "theme-color", content: "#fafafa" }]);
+  setTheme("dark");
+  expect(head).toEqual([{ name: "theme-color", content: "#09090b" }]);
 });
 
 test("a browser with only the old media listener call is followed too", () => {

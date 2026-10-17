@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Locale } from "@/i18n/locales";
 import { canonicalUrlOf } from "./addresses";
 
 export type Seo = {
@@ -77,3 +78,105 @@ export function serializeJsonLd(value: unknown): string {
 // For a page that is nobody's to find through a search engine: the sign-in pages, a member's own
 // account, their messages and notifications, and the settings of the viewing mode.
 export const NOINDEX: Metadata["robots"] = { index: false, follow: false };
+
+// What a page is to a share preview (Open Graph `og:type`): a thread is an article by the member
+// who started it, a member's page is a profile, anything else is the site's.
+export type ShareKind =
+  | { type: "website" }
+  | {
+      type: "article";
+      publishedTime: string;
+      modifiedTime: string;
+      // The address of the author's page, which is a profile in turn.
+      author: string;
+      // The forum the thread is in, and the thread's tags.
+      section: string;
+      tags: string[];
+    }
+  | { type: "profile"; username: string };
+
+// The picture of a share card: an absolute address of a PNG, with its size and a text for it.
+export type ShareImage = {
+  url: string;
+  width: number;
+  height: number;
+  alt: string;
+};
+
+export type Share = {
+  // The page's own title, without the site's name: the preview shows the site apart.
+  title: string;
+  description: string;
+  // The page's absolute canonical address.
+  url: string;
+  siteName: string;
+  locale: Locale;
+  kind: ShareKind;
+  image?: ShareImage;
+};
+
+// Open Graph names a language with its territory.
+const OG_LOCALE: Record<Locale, string> = { en: "en_US", es: "es_ES" };
+
+// The Open Graph and Twitter card tags of a page anyone may open. The picture, when there is one,
+// goes to both and makes the card the large one.
+export function shareMetadata(share: Share): Metadata {
+  const { kind, image } = share;
+  const images = image ? [image] : undefined;
+  const common = {
+    title: share.title,
+    description: share.description || undefined,
+    url: share.url,
+    siteName: share.siteName,
+    locale: OG_LOCALE[share.locale],
+    images,
+  };
+  return {
+    openGraph:
+      kind.type === "article"
+        ? {
+            ...common,
+            type: "article",
+            publishedTime: kind.publishedTime,
+            modifiedTime: kind.modifiedTime,
+            authors: [kind.author],
+            section: kind.section,
+            tags: kind.tags,
+          }
+        : kind.type === "profile"
+          ? { ...common, type: "profile", username: kind.username }
+          : { ...common, type: "website" },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title: share.title,
+      description: share.description || undefined,
+      images,
+    },
+  };
+}
+
+// The site as a whole, for the home page: its name, address and the search box that results
+// pages answer (`/search?q=`).
+export function websiteJsonLd(site: {
+  name: string;
+  description: string;
+  origin: string;
+}) {
+  const home = new URL("/", site.origin).href;
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${home}#website`,
+    url: home,
+    name: site.name,
+    ...(site.description ? { description: site.description } : {}),
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${new URL("/search", site.origin).href}?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+}

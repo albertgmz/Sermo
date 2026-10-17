@@ -4,7 +4,7 @@ import {
 } from "@/app/[locale]/(main)/(static)/static-page";
 
 export function generateMetadata() {
-  return staticPageMetadata("terms");
+  return staticPageMetadata("terms", "/terms");
 }
 
 export default function Page() {

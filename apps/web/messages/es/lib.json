@@ -91,5 +91,9 @@
       "purchase": "Compra de {name}",
       "upgrade": "Mejora a {name}"
     }
+  },
+  "share": {
+    "siteFeed": "Últimos temas en {site}",
+    "forumFeed": "Últimos temas en {forum}"
   }
 }

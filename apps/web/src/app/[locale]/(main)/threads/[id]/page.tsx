@@ -35,12 +35,14 @@ import { POLL_MS } from "@/lib/poll-intervals";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
+import { publicUrl } from "@/lib/sermo/config";
 import { parsePageId } from "@/lib/sermo/ids";
 import { authorsFor } from "@/lib/sermo/members";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
+import { publicHead } from "@/lib/sermo/share";
 import { prefixView } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
 
@@ -81,9 +83,24 @@ export async function generateMetadata({
   searchParams,
 }: PageProps<"/[locale]/threads/[id]">): Promise<Metadata> {
   const [{ id }, { page, cursor }] = await Promise.all([params, searchParams]);
-  return seoMetadata(
-    await getSeo(threadIdOf(id), pageNumber(page), cursor !== undefined),
+  const threadId = threadIdOf(id);
+  const head = seoMetadata(
+    await getSeo(threadId, pageNumber(page), cursor !== undefined),
   );
+  // Shared as an article only when the thread is open to guests (the backend indexes it).
+  const { thread, node, tags, seo } = await getThread(threadId);
+  if (seo.robots !== "index,follow") return head;
+  return publicHead(head, {
+    title: thread.title,
+    kind: {
+      type: "article",
+      publishedTime: thread.createdAt,
+      modifiedTime: thread.lastPost.postedAt,
+      author: new URL(`/members/${thread.author.id}`, publicUrl()).href,
+      section: node.title,
+      tags,
+    },
+  });
 }
 
 export default async function ThreadPage({

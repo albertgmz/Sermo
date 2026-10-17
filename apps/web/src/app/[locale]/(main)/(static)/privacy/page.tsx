@@ -7,7 +7,7 @@ import {
 import { LoggedData } from "@/components/forum/logged-data";
 
 export function generateMetadata() {
-  return staticPageMetadata("privacy");
+  return staticPageMetadata("privacy", "/privacy");
 }
 
 // Under the privacy text: the link to the cookie policy, then what the server records.

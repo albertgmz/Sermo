@@ -1,6 +1,12 @@
 import { getLiteState } from "@/lib/lite-mode";
 import { withOwnAddresses } from "@/lib/sermo/addresses";
-import { serializeJsonLd, withoutPictures } from "@/lib/sermo/seo";
+import { publicUrl } from "@/lib/sermo/config";
+import {
+  serializeJsonLd,
+  websiteJsonLd,
+  withoutPictures,
+} from "@/lib/sermo/seo";
+import { getSite } from "@/lib/sermo/site";
 
 // The structured data the backend gives for a page, one script each. A visitor who blocks any
 // category of pictures gets none of their addresses in it.
@@ -22,4 +28,11 @@ export async function JsonLd({ items }: { items: unknown[] }) {
       }}
     />
   ));
+}
+
+// The site itself and its search box, for the home page.
+export async function WebSiteJsonLd() {
+  const site = await getSite();
+  const website = websiteJsonLd({ ...site, origin: publicUrl() });
+  return <JsonLd items={[website]} />;
 }

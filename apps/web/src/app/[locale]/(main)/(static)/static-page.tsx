@@ -14,12 +14,16 @@ import {
 import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { getNavigation } from "@/lib/sermo/navigation";
+import { publicHead } from "@/lib/sermo/share";
 
 // The title and the text are asked once for the metadata and the page.
 const getPage = cache((slug: string) => read(pagesGet, { slug }));
 
-export async function staticPageMetadata(slug: string): Promise<Metadata> {
-  return { title: (await getPage(slug)).title };
+export async function staticPageMetadata(
+  slug: string,
+  path: string,
+): Promise<Metadata> {
+  return publicHead({ title: (await getPage(slug)).title }, { path });
 }
 
 // The pages listed beside a page are the links under the legal heading of the footer.

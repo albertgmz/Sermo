@@ -29,11 +29,12 @@ import { formatNumber } from "@/lib/format";
 import { call, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { getViewer } from "@/lib/sermo/session";
+import { publicHead } from "@/lib/sermo/share";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("upgrade.upgrade");
-  return { title: t("metaTitle") };
+  return publicHead({ title: t("metaTitle") }, { path: "/upgrade" });
 }
 
 const FAQ_SLUG = "upgrade-faq";
