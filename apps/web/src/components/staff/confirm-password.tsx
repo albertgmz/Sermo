@@ -13,7 +13,7 @@
 
 import { useTranslations } from "next-intl";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
-import { Field } from "./edit-form";
+import { Field } from "./field";
 
 export function ConfirmPassword({
   name = "actorPassword",

@@ -11,7 +11,7 @@ import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import type { Criterion } from "@/components/staff/criteria-rule";
 import { CursorList } from "@/components/staff/cursor-list";
-import { Field } from "@/components/staff/edit-form";
+import { Field } from "@/components/staff/field";
 import { findThreads } from "@/components/staff/find-threads";
 import { FormRows } from "@/components/staff/form-rows";
 import { ForumPicker } from "@/components/staff/forum-picker";
