@@ -1,7 +1,7 @@
 "use client";
 
 // PlacementEditor: the numbers that place a frame around an avatar, with a live preview. Render it
-// inside the frame's form (`FormRows`); the action reads `width`, `left`, `top` and `scale`, and
+// inside the frame's form (`EditForm`); the action reads `width`, `left`, `top` and `scale`, and
 // `before.<name>` (what the form started with, so it can tell what was changed).
 //
 // Props
@@ -53,10 +53,12 @@ export function PlacementEditor({
   const alert = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (!needed) return;
+    // The editor sits in the form's advanced options, closed until now.
+    const width = document.getElementById(`${idPrefix}-width`);
+    const card = width?.closest("details");
+    if (card) card.open = true;
     alert.current?.scrollIntoView({ block: "center" });
-    document
-      .getElementById(`${idPrefix}-width`)
-      ?.focus({ preventScroll: true });
+    width?.focus({ preventScroll: true });
   }, [needed, idPrefix]);
   const [values, setValues] = useState<Record<Name, string>>(
     () =>

@@ -1,7 +1,7 @@
 "use client";
 
-// ColourRows: the colour rows of a palette entry's form, with a live preview. Render it inside
-// `FormRows`; the action reads `color` and, for an accent, `foreground`, as typed.
+// ColourRows: the colour rows of a palette entry's form, with a live preview. Render it inside the
+// `FieldGroup` of an `EditForm`; the action reads `color` and, for an accent, `foreground`, as typed.
 //
 // Props
 //   kind        "accent", "name" or "prefix": decides what the preview draws and whether there is a
@@ -19,7 +19,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { userNameProps } from "@/components/forum/user-name";
-import { FieldRow } from "@/components/staff/form-rows";
+import { Field } from "@/components/staff/edit-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isHexColor } from "@/lib/css-color";
@@ -143,7 +143,7 @@ export function ColourRows({
   const [foreground, setForeground] = useState(initialForeground);
   return (
     <>
-      <FieldRow
+      <Field
         name="color"
         label={t("color")}
         htmlFor={`${idPrefix}-color`}
@@ -156,9 +156,9 @@ export function ColourRows({
           onChange={setColor}
           label={t("picker")}
         />
-      </FieldRow>
+      </Field>
       {kind === "accent" && (
-        <FieldRow
+        <Field
           name="foreground"
           label={t("foreground")}
           htmlFor={`${idPrefix}-foreground`}
@@ -171,9 +171,9 @@ export function ColourRows({
             onChange={setForeground}
             label={t("pickerForeground")}
           />
-        </FieldRow>
+        </Field>
       )}
-      <FieldRow name="preview" label={t("preview")}>
+      <Field name="preview" label={t("preview")}>
         <div
           role="img"
           aria-label={t("previewLabel")}
@@ -192,7 +192,7 @@ export function ColourRows({
             surface="bg-card"
           />
         </div>
-      </FieldRow>
+      </Field>
     </>
   );
 }

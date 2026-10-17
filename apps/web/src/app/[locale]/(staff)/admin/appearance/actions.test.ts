@@ -21,9 +21,16 @@ mock.module("next/cache", () => ({
   revalidateTag: (tag: string) => renewed.push(tag),
 }));
 
-const { saveImage, deleteImage, saveColour, deleteColour } = await import(
-  "./actions"
-);
+const {
+  saveImage,
+  deleteImage,
+  saveColour,
+  deleteColour,
+  setImageActive,
+  setColourActive,
+  saveImageOrder,
+  saveColourOrder,
+} = await import("./actions");
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => {
@@ -310,4 +317,129 @@ test("deleting a colour in use is deactivated, an unused one deleted", async () 
       deleteColour(null, form({ kind: "prefix", id: "5" })),
     ),
   ).toMatch(/prefix-colors\?notice=deleted/);
+});
+
+test("a row's switch sends the flipped state alone and renews the pages", async () => {
+  backend = fakeBackend({
+    "catalogImages.update": () => Response.json(IMAGE),
+    "paletteColors.update": () => Response.json(COLOUR),
+  });
+  expect(
+    await setImageActive(null, form({ kind: "frame", id: "3", active: "0" })),
+  ).toBeNull();
+  expect(
+    await setColourActive(null, form({ kind: "accent", id: "5", active: "1" })),
+  ).toBeNull();
+  expect(backend.asked.map((call) => [call.path, call.body])).toEqual([
+    ["/api/v1/appearance/images/3", { isActive: false }],
+    ["/api/v1/appearance/colors/5", { isActive: true }],
+  ]);
+  expect(renewed).toContain("site");
+  expect(
+    await setImageActive(null, form({ kind: "x", id: "3", active: "1" })),
+  ).toEqual({ error: messages.adminAppearance.errors.id });
+  expect(
+    await setColourActive(null, form({ kind: "name", id: "x", active: "1" })),
+  ).toEqual({ error: messages.adminAppearance.errors.id });
+});
+
+test("a refused switch shows the backend's message and renews nothing", async () => {
+  backend = fakeBackend({
+    "catalogImages.update": () =>
+      refusal(
+        422,
+        "validation",
+        "An entry without a picture cannot be active.",
+      ),
+  });
+  expect(
+    await setImageActive(null, form({ kind: "frame", id: "3", active: "1" })),
+  ).toEqual({ error: "An entry without a picture cannot be active." });
+  expect(renewed).toEqual([]);
+});
+
+test("saving the order sends only the entries whose number changed", async () => {
+  backend = fakeBackend({
+    "catalogImages.update": () => Response.json(IMAGE),
+    "paletteColors.update": () => Response.json(COLOUR),
+  });
+  const digest = await redirectedTo(() =>
+    saveImageOrder(
+      null,
+      form({
+        kind: "thread_cover",
+        "position.1": "20",
+        "before.1": "10",
+        "title.1": "Sky",
+        "position.2": "10",
+        "before.2": "20",
+        "title.2": "Sea",
+        "position.3": "30",
+        "before.3": "30",
+      }),
+    ),
+  );
+  expect(digest).toMatch(
+    /;\/admin\/appearance\/thread-covers\?notice=ordered;/,
+  );
+  const colours = await redirectedTo(() =>
+    saveColourOrder(
+      null,
+      form({
+        kind: "prefix",
+        "position.5": "2",
+        "before.5": "1",
+        "position.6": "1",
+        "before.6": "2",
+      }),
+    ),
+  );
+  expect(colours).toMatch(
+    /;\/admin\/appearance\/prefix-colors\?notice=ordered;/,
+  );
+  expect(backend.asked.map((call) => [call.path, call.body])).toEqual([
+    ["/api/v1/appearance/images/1", { position: 20 }],
+    ["/api/v1/appearance/images/2", { position: 10 }],
+    ["/api/v1/appearance/colors/5", { position: 2 }],
+    ["/api/v1/appearance/colors/6", { position: 1 }],
+  ]);
+  expect(renewed).toContain("site");
+});
+
+test("an order with nothing changed asks nothing, a refusal names the entry and what was saved", async () => {
+  backend = fakeBackend({
+    "catalogImages.update": () => refusal(422, "validation", "Too high."),
+  });
+  expect(
+    await redirectedTo(() =>
+      saveImageOrder(
+        null,
+        form({ kind: "frame", "position.1": "10", "before.1": "10" }),
+      ),
+    ),
+  ).toMatch(/frames\?notice=ordered/);
+  expect(backend.asked).toEqual([]);
+  const state = await saveImageOrder(
+    null,
+    form({
+      kind: "frame",
+      "position.1": "20",
+      "before.1": "10",
+      "title.1": "Gold",
+    }),
+  );
+  expect(state).toEqual({ error: messages.admin.ordering.none });
+  expect(backend.asked).toHaveLength(1);
+  expect(renewed).toEqual([]);
+  expect(await saveImageOrder(null, form({ kind: "x" }))).toEqual({
+    error: messages.adminAppearance.errors.kind,
+  });
+  expect(
+    await saveColourOrder(
+      null,
+      form({ kind: "name", "position.5": "x", "before.5": "1" }),
+    ),
+  ).toEqual({
+    fields: { "position.5": messages.adminAppearance.errors.whole },
+  });
 });

@@ -12,8 +12,12 @@
     "created": "Añadido al catálogo.",
     "saved": "Guardado.",
     "reset": "La posición vuelve a la medida.",
+    "ordered": "Orden guardado.",
     "deleted": "Eliminado.",
     "deactivated": "Todavía se usa, así que se desactiva en su lugar: quien lo tiene lo conserva y nadie nuevo puede elegirlo."
+  },
+  "page": {
+    "sort": "Ordenar"
   },
   "placement": {
     "width": "Ancho (%)",
@@ -44,46 +48,49 @@
     "noPicture": "Esperando una imagen",
     "sample": "AB",
     "order": "Orden {position}",
-    "active": "Activo",
-    "inactive": "Inactivo",
     "measured": "Ancho {width}, izquierda {left}, arriba {top}, escala {scale}",
-    "edit": "Editar",
-    "close": "Cerrar",
+    "activeLabel": "{name} está activo",
+    "editLabel": "Editar {name}",
     "deleteWarning": "Eliminar una entrada que usan miembros, temas o artículos de la tienda la desactiva en su lugar y conserva su imagen.",
     "delete": "Eliminar",
     "none": "El catálogo está vacío.",
+    "sortHelp": "Sube o baja las entradas y guarda el orden.",
     "frames": {
       "metaTitle": "Marcos de avatar",
       "pageHeading": "Marcos de avatar",
-      "subtitle": "Imágenes dibujadas alrededor del avatar de un miembro. Los miembros las obtienen mediante artículos de la tienda.",
-      "heading": "Marcos",
-      "description": "Cada uno se muestra alrededor de un avatar de muestra tal como lo ven los miembros."
+      "subtitle": "Imágenes dibujadas alrededor del avatar de un miembro, mostradas alrededor de un avatar de muestra tal como las ven los miembros. Los miembros las obtienen mediante artículos de la tienda.",
+      "add": "Añadir un marco",
+      "newHeading": "Añadir un marco",
+      "editHeading": "Editar marco de avatar",
+      "sortHeading": "Ordenar marcos de avatar"
     },
     "covers": {
       "metaTitle": "Portadas de perfil",
       "pageHeading": "Portadas de perfil",
-      "subtitle": "La galería de la que eligen su portada de perfil los miembros que pueden usarla.",
-      "heading": "Portadas",
-      "description": "Las portadas inactivas desaparecen de las opciones de los miembros."
+      "subtitle": "La galería de la que eligen su portada de perfil los miembros que pueden usarla. Las portadas inactivas desaparecen de las opciones de los miembros.",
+      "add": "Añadir una portada",
+      "newHeading": "Añadir una portada",
+      "editHeading": "Editar portada de perfil",
+      "sortHeading": "Ordenar portadas de perfil"
     },
     "threadCovers": {
       "metaTitle": "Portadas de tema",
       "pageHeading": "Portadas de tema",
-      "subtitle": "Imágenes que puede llevar un tema. Los miembros las obtienen mediante artículos de la tienda.",
-      "heading": "Portadas de tema",
-      "description": "Las portadas inactivas ya no se pueden elegir."
+      "subtitle": "Imágenes que puede llevar un tema. Los miembros las obtienen mediante artículos de la tienda. Las portadas inactivas ya no se pueden elegir.",
+      "add": "Añadir una portada de tema",
+      "newHeading": "Añadir una portada de tema",
+      "editHeading": "Editar portada de tema",
+      "sortHeading": "Ordenar portadas de tema"
     }
   },
   "entryForm": {
-    "headingEdit": "Editar entrada",
-    "headingNew": "Nueva entrada",
+    "group": "Detalles",
     "descriptionNew": {
       "frames": "Sube la imagen del marco y ponle nombre. Su posición se mide a partir de la imagen.",
       "covers": "Sube la imagen de la portada y ponle nombre.",
       "threadCovers": "Sube la imagen de la portada y ponle nombre."
     },
     "create": "Añadir al catálogo",
-    "name": "Nombre",
     "picture": "Imagen",
     "pictureHelp": "Se sube en cuanto la eliges. Una entrada necesita una imagen para estar activa.",
     "replace": "Reemplazar la imagen",
@@ -91,56 +98,59 @@
     "placement": "Posición",
     "placementHelp": "Los números rellenados son la posición actual del marco.",
     "placementHelpNew": "Opcional: rellena los cuatro campos para anular la posición medida.",
-    "position": "Orden de aparición",
-    "active": "Activo",
     "activeHelp": "Los miembros pueden elegir esta entrada."
+  },
+  "entryFields": {
+    "name": "Nombre",
+    "position": "Orden de aparición",
+    "positionHelp": "Las entradas se muestran en este orden, de menor a mayor. Usa Ordenar para cambiarlo con flechas.",
+    "active": "Activo"
   },
   "palette": {
     "loading": "Cargando los colores…",
-    "samplePrefix": "Prefijo",
-    "sampleName": "Nombre del miembro",
-    "sampleButton": "Botón",
-    "looks": "En uso:",
     "order": "Orden {position}",
-    "inactive": "Inactivo",
-    "edit": "Editar",
+    "activeLabel": "{name} está activo",
+    "editLabel": "Editar {name}",
     "deleteWarning": "Eliminar un color que usan miembros, artículos de la tienda o prefijos de tema lo desactiva en su lugar.",
     "delete": "Eliminar",
     "none": "La paleta está vacía.",
+    "sortHelp": "Sube o baja las entradas y guarda el orden.",
     "accents": {
       "metaTitle": "Colores de acento",
       "pageHeading": "Colores de acento",
-      "subtitle": "Los colores que los miembros pueden dar al sitio. El primer acento activo es el propio del sitio.",
-      "heading": "Acentos",
-      "description": "Cada acento lleva el color del texto dibujado sobre él."
+      "subtitle": "Los colores que los miembros pueden dar al sitio. El primer acento activo es el propio del sitio. Cada acento lleva el color del texto dibujado sobre él.",
+      "add": "Añadir un acento",
+      "newHeading": "Añadir un acento",
+      "editHeading": "Editar acento",
+      "sortHeading": "Ordenar acentos"
     },
     "nameColors": {
       "metaTitle": "Colores del nombre",
       "pageHeading": "Colores del nombre",
-      "subtitle": "Los colores que puede tomar el nombre de un miembro. Los miembros los obtienen mediante artículos de la tienda.",
-      "heading": "Colores del nombre",
-      "description": "También se usan para el color de un grupo."
+      "subtitle": "Los colores que puede tomar el nombre de un miembro. Los miembros los obtienen mediante artículos de la tienda. También se usan para el color de un grupo.",
+      "add": "Añadir un color del nombre",
+      "newHeading": "Añadir un color del nombre",
+      "editHeading": "Editar color del nombre",
+      "sortHeading": "Ordenar colores del nombre"
     },
     "prefixColors": {
       "metaTitle": "Colores de prefijo",
       "pageHeading": "Colores de prefijo",
-      "subtitle": "Los colores que puede tomar un prefijo de tema.",
-      "heading": "Colores de prefijo",
-      "description": "Cambiar uno cambia todos los prefijos que lo usan."
+      "subtitle": "Los colores que puede tomar un prefijo de tema. Cambiar uno cambia todos los prefijos que lo usan.",
+      "add": "Añadir un color de prefijo",
+      "newHeading": "Añadir un color de prefijo",
+      "editHeading": "Editar color de prefijo",
+      "sortHeading": "Ordenar colores de prefijo"
     }
   },
   "colourForm": {
-    "headingEdit": "Editar color",
-    "headingNew": "Nuevo color",
+    "group": "Detalles",
     "descriptionNew": {
       "accent": "Un acento necesita un color y el color del texto dibujado sobre él.",
       "name": "Un color para nombres de miembros.",
       "prefix": "Un color para prefijos de tema."
     },
     "create": "Añadir a la paleta",
-    "name": "Nombre",
-    "position": "Orden de aparición",
-    "active": "Activo",
     "activeHelp": "Los miembros y los prefijos pueden elegir este color."
   }
 }
