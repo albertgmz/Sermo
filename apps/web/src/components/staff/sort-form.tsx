@@ -89,9 +89,16 @@ function SortRows({ name, items }: { name: string; items: SortItem[] }) {
     <>
       <ol className="divide-y">
         {order.map((item, index) => (
-          <li
+          <SortRow
             key={item.id}
-            className="flex min-h-14 items-center gap-3 px-4 py-2"
+            id={item.id}
+            place={index}
+            count={order.length}
+            title={item.title}
+            icon={item.icon}
+            description={item.description}
+            keeper={keeper}
+            onMove={(by) => move(index, by)}
           >
             <input
               type="hidden"
@@ -101,49 +108,82 @@ function SortRows({ name, items }: { name: string; items: SortItem[] }) {
             {Object.entries(item.fields ?? {}).map(([field, value]) => (
               <input key={field} type="hidden" name={field} value={value} />
             ))}
-            <span className="w-6 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-              {index + 1}
-            </span>
-            {item.icon && (
-              <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden">
-                {item.icon}
-              </span>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium [overflow-wrap:anywhere]">
-                {item.title}
-              </p>
-              {item.description && (
-                <div className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                  {item.description}
-                </div>
-              )}
-            </div>
-            <div className="flex shrink-0 gap-1">
-              <Arrow
-                ref={keeper.ref(`${item.id}:-1`)}
-                label={t("up", { title: item.title })}
-                end={index === 0}
-                onMove={() => move(index, -1)}
-              >
-                <ChevronUp />
-              </Arrow>
-              <Arrow
-                ref={keeper.ref(`${item.id}:1`)}
-                label={t("down", { title: item.title })}
-                end={index === order.length - 1}
-                onMove={() => move(index, 1)}
-              >
-                <ChevronDown />
-              </Arrow>
-            </div>
-          </li>
+          </SortRow>
         ))}
       </ol>
       <p aria-live="polite" className="sr-only">
         {said}
       </p>
     </>
+  );
+}
+
+// SortRow: one entry of a sort list (also `SortLists`' on the forums' sort page): its place, icon,
+// title and line, and the up and down arrows.
+//   id        The entry's id: the key of its arrows in `keeper`, the list's `focusKeeper`.
+//   place     Its index in the list; `count` the list's length.
+//   onMove    Moves it by -1 (up) or 1 (down).
+//   children  The hidden fields it sends.
+export function SortRow({
+  id,
+  place,
+  count,
+  title,
+  icon,
+  description,
+  keeper,
+  onMove,
+  children,
+}: {
+  id: number | string;
+  place: number;
+  count: number;
+  title: string;
+  icon?: React.ReactNode;
+  description?: React.ReactNode;
+  keeper: ReturnType<typeof focusKeeper<HTMLButtonElement>>;
+  onMove: (by: -1 | 1) => void;
+  children: React.ReactNode;
+}) {
+  const t = useTranslations("admin.sortForm");
+  return (
+    <li className="flex min-h-14 items-center gap-3 px-4 py-2">
+      {children}
+      <span className="w-6 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+        {place + 1}
+      </span>
+      {icon && (
+        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden">
+          {icon}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium [overflow-wrap:anywhere]">{title}</p>
+        {description && (
+          <div className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
+            {description}
+          </div>
+        )}
+      </div>
+      <div className="flex shrink-0 gap-1">
+        <Arrow
+          ref={keeper.ref(`${id}:-1`)}
+          label={t("up", { title })}
+          end={place === 0}
+          onMove={() => onMove(-1)}
+        >
+          <ChevronUp />
+        </Arrow>
+        <Arrow
+          ref={keeper.ref(`${id}:1`)}
+          label={t("down", { title })}
+          end={place === count - 1}
+          onMove={() => onMove(1)}
+        >
+          <ChevronDown />
+        </Arrow>
+      </div>
+    </li>
   );
 }
 

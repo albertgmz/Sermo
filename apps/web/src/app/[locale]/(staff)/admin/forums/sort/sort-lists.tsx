@@ -1,9 +1,9 @@
 "use client";
 
 // The sort page's form: one list per parent under a single Save. It is the sort pattern
-// (`SortForm`) with several lists, built on the same helpers: an entry moves only within its group,
-// and only the entries that moved are sent with a new number. The text is the pattern's
-// (`admin.sortForm`).
+// (`SortForm`) with several lists, built on the same rows (`SortRow`) and helpers: an entry moves
+// only within its group, and only the entries that moved are sent with a new number. The text is
+// the pattern's (`admin.sortForm`).
 //
 // Props
 //   action    The tree's order action. It reads every `position:<id>` against its `before:<id>`.
@@ -11,12 +11,11 @@
 //   groups    The groups in display order: `id`, `heading` and `items` (`id`, `title`, `position`,
 //             `description`, in ascending `position`).
 
-import { ChevronDown, ChevronUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useLayoutEffect, useState } from "react";
 import { FormRows, type StaffFormState } from "@/components/staff/form-rows";
+import { SortRow } from "@/components/staff/sort-form";
 import { focusKeeper } from "@/components/staff/sort-order";
-import { Button } from "@/components/ui/button";
 import { groupPositions, moveInGroup, type OrderEntry } from "./group-order";
 
 export type SortList = {
@@ -78,9 +77,15 @@ function Lists({ groups }: { groups: SortList[] }) {
           </h3>
           <ol className="divide-y">
             {group.items.map((item, index) => (
-              <li
+              <SortRow
                 key={item.id}
-                className="flex min-h-14 items-center gap-3 px-4 py-2"
+                id={item.id}
+                place={index}
+                count={group.items.length}
+                title={item.title}
+                description={item.description}
+                keeper={keeper}
+                onMove={(by) => move(group, index, by)}
               >
                 <input
                   type="hidden"
@@ -97,36 +102,7 @@ function Lists({ groups }: { groups: SortList[] }) {
                   name={`title:${item.id}`}
                   value={item.title}
                 />
-                <span className="w-6 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-                  {index + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium [overflow-wrap:anywhere]">
-                    {item.title}
-                  </p>
-                  <div className="text-xs text-muted-foreground">
-                    {item.description}
-                  </div>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  <Arrow
-                    ref={keeper.ref(`${item.id}:-1`)}
-                    label={t("up", { title: item.title })}
-                    end={index === 0}
-                    onMove={() => move(group, index, -1)}
-                  >
-                    <ChevronUp />
-                  </Arrow>
-                  <Arrow
-                    ref={keeper.ref(`${item.id}:1`)}
-                    label={t("down", { title: item.title })}
-                    end={index === group.items.length - 1}
-                    onMove={() => move(group, index, 1)}
-                  >
-                    <ChevronDown />
-                  </Arrow>
-                </div>
-              </li>
+              </SortRow>
             ))}
           </ol>
         </section>
@@ -135,36 +111,5 @@ function Lists({ groups }: { groups: SortList[] }) {
         {said}
       </p>
     </>
-  );
-}
-
-// At the end of a list the arrow stays focusable (marked disabled), so the focus given back to it
-// after a move to the end is not lost.
-function Arrow({
-  ref,
-  label,
-  end,
-  onMove,
-  children,
-}: {
-  ref: (node: HTMLButtonElement | null) => void;
-  label: string;
-  end: boolean;
-  onMove: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Button
-      ref={ref}
-      type="button"
-      variant="ghost"
-      size="icon"
-      aria-label={label}
-      aria-disabled={end || undefined}
-      onClick={onMove}
-      className="size-10 aria-disabled:opacity-40"
-    >
-      {children}
-    </Button>
   );
 }
