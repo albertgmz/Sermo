@@ -1,14 +1,10 @@
-import {
-  FormSkeleton,
-  ListSkeleton,
-  LoadingPage,
-} from "../../groups/skeletons";
+import { ListSkeleton } from "../../groups/skeletons";
+import { ForumsLoading } from "../loading-page";
 
 export default function Loading() {
   return (
-    <LoadingPage>
+    <ForumsLoading>
       <ListSkeleton />
-      <FormSkeleton />
-    </LoadingPage>
+    </ForumsLoading>
   );
 }

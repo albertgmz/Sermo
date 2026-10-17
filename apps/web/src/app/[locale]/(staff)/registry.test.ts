@@ -92,6 +92,12 @@ const GATES_BEFORE: Record<string, [string, string | string[]]> = {
   forumsPrefixes: ["/admin/forums/prefixes", ["admin.prefixes"]],
   forumsEdit: ["/admin/forums/[id]", ["admin.nodes"]],
   forumsPermissions: ["/admin/forums/[id]/permissions", ["admin.permissions"]],
+  forumsNew: ["/admin/forums/new/[type]", ["admin.nodes"]],
+  forumsSort: ["/admin/forums/sort", ["admin.nodes"]],
+  forumsTabNew: ["/admin/forums/tabs/new", ["admin.nodes"]],
+  forumsTabEdit: ["/admin/forums/tabs/[id]", ["admin.nodes"]],
+  forumsPrefixNew: ["/admin/forums/prefixes/new", ["admin.prefixes"]],
+  forumsPrefixEdit: ["/admin/forums/prefixes/[id]", ["admin.prefixes"]],
   contentReactions: ["/admin/reactions", ["admin.reactionTypes"]],
   contentReactionNew: ["/admin/reactions/new", ["admin.reactionTypes"]],
   contentReactionSort: ["/admin/reactions/sort", ["admin.reactionTypes"]],
@@ -252,7 +258,18 @@ const SECTION_MAP: Record<string, string[]> = {
     "contentPages",
     "contentPageEdit",
   ],
-  forums: ["forumsTree", "forumsPrefixes", "forumsEdit", "forumsPermissions"],
+  forums: [
+    "forumsTree",
+    "forumsPrefixes",
+    "forumsEdit",
+    "forumsPermissions",
+    "forumsNew",
+    "forumsSort",
+    "forumsTabNew",
+    "forumsTabEdit",
+    "forumsPrefixNew",
+    "forumsPrefixEdit",
+  ],
   communication: [
     "communicationAnnouncements",
     "communicationAnnouncementNew",
@@ -452,6 +469,12 @@ test("an address finds its screen, a static path before a dynamic one", () => {
   expect(screenAt("/admin/forums/12/permissions")?.key).toBe(
     "forumsPermissions",
   );
+  expect(screenAt("/admin/forums/new/forum")?.key).toBe("forumsNew");
+  expect(screenAt("/admin/forums/sort")?.key).toBe("forumsSort");
+  expect(screenAt("/admin/forums/tabs/new")?.key).toBe("forumsTabNew");
+  expect(screenAt("/admin/forums/tabs/3")?.key).toBe("forumsTabEdit");
+  expect(screenAt("/admin/forums/prefixes/new")?.key).toBe("forumsPrefixNew");
+  expect(screenAt("/admin/forums/prefixes/3")?.key).toBe("forumsPrefixEdit");
   expect(screenAt("/moderation/approvals/post/9")?.key).toBe(
     "moderationApprovalReview",
   );
@@ -656,6 +679,19 @@ test("the trail of an address leads up through the home, the section's landing a
     ["forumsTree", "/admin/forums"],
     ["forumsEdit", "/admin/forums/7"],
   ]);
+  // The pages that add or change a node, a sort of the tree and a forum list tab hang from the tree.
+  for (const path of [
+    "/admin/forums/new/forum",
+    "/admin/forums/sort",
+    "/admin/forums/tabs/new",
+    "/admin/forums/tabs/3",
+  ]) {
+    expect(trail(administrator, path), path).toEqual([
+      ["home", "/admin"],
+      ["forumsLanding", "/admin/sections/forums"],
+      ["forumsTree", "/admin/forums"],
+    ]);
+  }
   expect(trail(administrator, "/admin/logs/moderator")).toEqual([
     ["home", "/admin"],
     ["logsLanding", "/admin/sections/logs"],

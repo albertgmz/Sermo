@@ -4019,3 +4019,18 @@ action exists for them) nor an active switch for promotions (the flag is saved o
 rule, so it stays a badge on the row and a checkbox in the form). The password row is a local
 `ConfirmField` (the form-field layout of `EditForm`, which `ConfirmPassword` does not have yet); the
 rule row of a promotion is still `RuleField`, so its label column is narrower than its neighbours'.
+
+### Forums on the shared patterns (item 6)  `/admin/forums` is a filterable list of the tree (the
+depth as dashes before the title; edit, permissions and public-page links per row), with Sort, Add
+category and Add forum in the header, and the forum list tabs as a second list below it (edit link,
+delete behind its confirmation, "Add tab"). A new category or forum is `/admin/forums/new/<category|forum>`;
+a tab `/admin/forums/tabs/new` and `/admin/forums/tabs/[id]`; a prefix `/admin/forums/prefixes/new` and
+`/admin/forums/prefixes/[id]`; all `listed: false` with the gate of the list they belong to. The node
+editor keeps its address: identity and posting limits in two groups, read only and the two approval
+switches in the closed advanced card, then the pictures form and the moderators as sections of their own
+(the minimum age and post count stay outside the card because their fields are required). The sort page
+`/admin/forums/sort` has one list and one Save per parent, because a node's number only counts among its
+siblings; it goes through `saveOrder`, which now returns to the sort page after saving. Prefixes keep
+their order as a number in their form: the backend has no order action for them, so they have no sort
+page. The prefix pages hang from the section, not from the tree whose address they share
+(`prefixTrail`). Tabs have no screen of their own, as recorded in item 1.
