@@ -278,7 +278,7 @@ export const SECTIONS = [
       },
       {
         key: "contentPageNew",
-        path: "/admin/pages/new",
+        path: "/admin/pages/-new",
         access: ["admin.pages"],
         built: true,
         listed: false,

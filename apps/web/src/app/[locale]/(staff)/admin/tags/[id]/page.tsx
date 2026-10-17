@@ -2,7 +2,7 @@ import { tagsList } from "@sermo/core/contracts";
 import { ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ConfirmStep } from "@/components/staff/confirm-step";
@@ -27,20 +27,23 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // The backend lists tags by name only, so the tag is found by the name the list link carries and
 // checked against the id in the address: a name that has changed since, or an id that is not the
-// tag's, is a page that does not exist.
+// tag's, sends the viewer back to the list.
 async function EditTag({
   params,
   searchParams,
 }: Pick<Props, "params" | "searchParams">) {
   const [{ id }, { name }] = await Promise.all([params, searchParams]);
   const tagId = parseId(id);
-  if (tagId === null || typeof name !== "string" || name === "") notFound();
+  // A name the contract would refuse is no tag's name.
+  if (tagId === null || (typeof name === "string" && name.length > 120))
+    notFound();
+  if (typeof name !== "string" || name === "") redirect("/admin/tags");
   const [t, { items }] = await Promise.all([
     getTranslations("adminContent.tags"),
     read(tagsList, { query: name, limit: 1 }),
   ]);
   const tag = items[0];
-  if (!tag || tag.id !== tagId || tag.name !== name) notFound();
+  if (!tag || tag.id !== tagId || tag.name !== name) redirect("/admin/tags");
   return (
     <>
       <Section heading={t("edit.infoHeading")}>

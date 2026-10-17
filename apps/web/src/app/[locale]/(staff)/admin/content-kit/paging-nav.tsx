@@ -18,18 +18,20 @@ export async function PagingNav({
   nextCursor: string | null;
 }) {
   if (!cursor && !nextCursor) return null;
+  // A notice a save redirected with belongs to the page it was shown on, not to the next one.
+  const { notice: _notice, ...kept } = params;
   const t = await getTranslations("admin.cursorList");
   const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
   return (
     <nav aria-label={t("nav")} className="flex flex-wrap gap-2">
       {cursor && (
-        <Link href={listHref(path, params, "cursor")} className={link}>
+        <Link href={listHref(path, kept, "cursor")} className={link}>
           {t("first")}
         </Link>
       )}
       {nextCursor && (
         <Link
-          href={listHref(path, params, "cursor", nextCursor)}
+          href={listHref(path, kept, "cursor", nextCursor)}
           rel="next"
           className={link}
         >

@@ -9,7 +9,7 @@ import { dateInput } from "./dates";
 
 type NoticeItem = z.output<typeof noticesList.output>["items"][number];
 
-// What a notice is written with: its card of fields, then the closed card of its dates. `notice`
+// What a notice is written with: its card of fields, then its dates (in a closed card until it has some). `notice`
 // is what the backend returned for an existing notice; without it the fields start empty
 // (dismissible and active).
 export async function NoticeFields({
@@ -21,6 +21,34 @@ export async function NoticeFields({
 }) {
   const t = await getTranslations("adminCommunication.notices.fields");
   const id = (name: string) => `${prefix}-${name}`;
+  // A notice that already has dates shows them; the closed card is for one that has none.
+  const scheduled = Boolean(notice?.startsAt || notice?.endsAt);
+  const dates = (
+    <>
+      <Field
+        name="startsAt"
+        label={t("startsAt")}
+        htmlFor={id("starts")}
+        help={t("dateHelp")}
+      >
+        <Input
+          id={id("starts")}
+          name="startsAt"
+          type="datetime-local"
+          defaultValue={dateInput(notice?.startsAt ?? null)}
+          aria-describedby={`${id("starts")}-help`}
+        />
+      </Field>
+      <Field name="endsAt" label={t("endsAt")} htmlFor={id("ends")}>
+        <Input
+          id={id("ends")}
+          name="endsAt"
+          type="datetime-local"
+          defaultValue={dateInput(notice?.endsAt ?? null)}
+        />
+      </Field>
+    </>
+  );
   return (
     <>
       <FieldGroup legend={t("group")}>
@@ -77,30 +105,13 @@ export async function NoticeFields({
           </label>
         </Field>
       </FieldGroup>
-      <Advanced label={t("schedule")} fields={["startsAt", "endsAt"]}>
-        <Field
-          name="startsAt"
-          label={t("startsAt")}
-          htmlFor={id("starts")}
-          help={t("dateHelp")}
-        >
-          <Input
-            id={id("starts")}
-            name="startsAt"
-            type="datetime-local"
-            defaultValue={dateInput(notice?.startsAt ?? null)}
-            aria-describedby={`${id("starts")}-help`}
-          />
-        </Field>
-        <Field name="endsAt" label={t("endsAt")} htmlFor={id("ends")}>
-          <Input
-            id={id("ends")}
-            name="endsAt"
-            type="datetime-local"
-            defaultValue={dateInput(notice?.endsAt ?? null)}
-          />
-        </Field>
-      </Advanced>
+      {scheduled ? (
+        <FieldGroup legend={t("schedule")}>{dates}</FieldGroup>
+      ) : (
+        <Advanced label={t("schedule")} fields={["startsAt", "endsAt"]}>
+          {dates}
+        </Advanced>
+      )}
     </>
   );
 }

@@ -25,15 +25,15 @@ export async function PageList({
   // The "New page" link, offered again when the list is empty.
   addAction: React.ReactNode;
 }) {
-  const [t, format, { items }, query] = await Promise.all([
+  const query = await searchParams;
+  if (typeof query.slug === "string" && query.slug !== "") {
+    redirect(`/admin/pages/-new?slug=${encodeURIComponent(query.slug)}`);
+  }
+  const [t, format, { items }] = await Promise.all([
     getTranslations("adminContent.pages"),
     getFormatter(),
     read(pagesList, {}),
-    searchParams,
   ]);
-  if (typeof query.slug === "string" && query.slug !== "") {
-    redirect(`/admin/pages/new?slug=${encodeURIComponent(query.slug)}`);
-  }
   const existing = new Set(items.map((item) => item.slug));
   const missing = WELL_KNOWN.filter((entry) => !existing.has(entry.slug));
   return (
@@ -99,11 +99,11 @@ export async function PageList({
             id: entry.slug,
             icon,
             title: entry.slug,
-            href: `/admin/pages/new?slug=${entry.slug}`,
+            href: `/admin/pages/-new?slug=${entry.slug}`,
             description: t(`wellKnown.${entry.slug}`),
             actions: (
               <RowLink
-                href={`/admin/pages/new?slug=${entry.slug}`}
+                href={`/admin/pages/-new?slug=${entry.slug}`}
                 label={t("suggestions.create", { slug: entry.slug })}
                 icon={<Plus />}
               />

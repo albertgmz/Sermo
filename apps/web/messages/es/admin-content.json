@@ -118,7 +118,6 @@
       "replacedBy": "Se reemplaza por {replacement}"
     },
     "row": {
-      "action": "Acción",
       "replace": "Reemplazar la palabra",
       "moderate": "Retener el mensaje para moderación"
     },

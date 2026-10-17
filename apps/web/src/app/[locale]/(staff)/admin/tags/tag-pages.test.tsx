@@ -115,29 +115,52 @@ test("the edit page has the rename, merge and delete forms with the tag's id", a
   expect(html).toContain("Delete tag");
 });
 
-test("a name that is not the tag's, or an id that is not its own, is a 404", async () => {
+test("a name that is not the tag's, or an id that is not its own, sends the viewer back to the list", async () => {
   const asked = backend();
-  const wrongId = await draw(
-    <EditTagPage
-      params={Promise.resolve({ locale: "en", id: "13" })}
-      searchParams={Promise.resolve({ name: "rústico" })}
-    />,
-  );
-  expect(digest(wrongId.failures).join()).toContain("404");
-  const wrongName = await draw(
-    <EditTagPage
-      params={Promise.resolve({ locale: "en", id: "12" })}
-      searchParams={Promise.resolve({ name: "rust" })}
-    />,
-  );
-  expect(digest(wrongName.failures).join()).toContain("404");
-  const noName = await draw(
-    <EditTagPage
-      params={Promise.resolve({ locale: "en", id: "12" })}
-      searchParams={Promise.resolve({})}
-    />,
-  );
-  expect(digest(noName.failures).join()).toContain("404");
+  const cases: [string, Record<string, string>][] = [
+    ["13", { name: "rústico" }],
+    ["12", { name: "rust" }],
+    ["12", {}],
+  ];
+  for (const [id, search] of cases) {
+    const { failures } = await draw(
+      <EditTagPage
+        params={Promise.resolve({ locale: "en", id })}
+        searchParams={Promise.resolve(search)}
+      />,
+    );
+    expect(digest(failures).join()).toContain(
+      "NEXT_REDIRECT;replace;/admin/tags;",
+    );
+  }
   // The tag is looked up by its name, one at a time.
   expect(asked[0]).toContain("limit=1");
+});
+
+test("a name longer than a tag name can be is a 404, without a read", async () => {
+  const asked = backend();
+  const { failures } = await draw(
+    <EditTagPage
+      params={Promise.resolve({ locale: "en", id: "12" })}
+      searchParams={Promise.resolve({ name: "a".repeat(121) })}
+    />,
+  );
+  expect(digest(failures).join()).toContain("404");
+  expect(asked).toEqual([]);
+});
+
+test("the next page keeps the search but not the notice of the last save", async () => {
+  backend([TAG], "abc");
+  const { html } = await draw(
+    <TagList
+      searchParams={Promise.resolve({
+        q: "rus",
+        cursor: "zz",
+        notice: "renamed",
+      })}
+    />,
+  );
+  expect(html).toContain("Tag renamed.");
+  expect(html).toMatch(/href="\/admin\/tags\?q=rus&(amp;)?cursor=abc"/);
+  expect(html).not.toMatch(/href="[^"]*notice=/);
 });

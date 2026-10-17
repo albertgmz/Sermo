@@ -117,7 +117,7 @@ const GATES_BEFORE: Record<string, [string, string | string[]]> = {
   contentTags: ["/admin/tags", ["tag.manage"]],
   contentTagEdit: ["/admin/tags/[id]", ["tag.manage"]],
   contentPages: ["/admin/pages", ["admin.pages"]],
-  contentPageNew: ["/admin/pages/new", ["admin.pages"]],
+  contentPageNew: ["/admin/pages/-new", ["admin.pages"]],
   contentPageEdit: ["/admin/pages/[slug]", ["admin.pages"]],
   communicationAnnouncements: ["/admin/announcements", ["admin.announcements"]],
   communicationAnnouncementNew: [
@@ -495,6 +495,9 @@ test("an address finds its screen, a static path before a dynamic one", () => {
   expect(screenAt("/admin")?.key).toBe("home");
   expect(screenAt("/admin/")?.key).toBe("home");
   expect(screenAt("/admin/forums/prefixes")?.key).toBe("forumsPrefixes");
+  // A page called "new" is edited at its own address; the new page's address starts with a hyphen.
+  expect(screenAt("/admin/pages/new")?.key).toBe("contentPageEdit");
+  expect(screenAt("/admin/pages/-new")?.key).toBe("contentPageNew");
   expect(screenAt("/admin/forums/12")?.key).toBe("forumsEdit");
   expect(screenAt("/admin/forums/12/permissions")?.key).toBe(
     "forumsPermissions",

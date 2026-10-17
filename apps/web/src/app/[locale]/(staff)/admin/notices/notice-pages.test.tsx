@@ -140,6 +140,22 @@ test("the edit page holds the notice's values, its id and the delete step", asyn
   expect(html).toContain("Delete notice");
 });
 
+test("a notice that has dates shows them outside the closed card", async () => {
+  serve();
+  const { html } = await draw(
+    <EditNoticePage
+      params={Promise.resolve({ locale: "en", id: "5" })}
+      searchParams={Promise.resolve({})}
+    />,
+  );
+  const closed = [
+    ...html.matchAll(/<details(?![^>]*\sopen)[^>]*>[\s\S]*?<\/details>/g),
+  ];
+  expect(closed.some(([card]) => card.includes('name="startsAt"'))).toBe(false);
+  expect(html).toContain('name="startsAt"');
+  expect(html).toContain('name="endsAt"');
+});
+
 test("a notice that does not exist is a 404", async () => {
   serve();
   const { failures } = await draw(

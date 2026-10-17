@@ -21,7 +21,7 @@ export default function PagesPage({
   const t = useTranslations("adminContent.pages");
   const add = (
     <Link
-      href="/admin/pages/new"
+      href="/admin/pages/-new"
       className={cn(buttonVariants(), "h-10 px-4 md:h-8 md:px-3")}
     >
       <Plus aria-hidden="true" />

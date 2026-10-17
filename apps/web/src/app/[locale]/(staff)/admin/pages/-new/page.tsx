@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 async function NewPage({
   searchParams,
 }: {
-  searchParams: PageProps<"/[locale]/admin/pages/new">["searchParams"];
+  searchParams: PageProps<"/[locale]/admin/pages/-new">["searchParams"];
 }) {
   const [t, query] = await Promise.all([
     getTranslations("adminContent.pages"),
@@ -52,13 +52,13 @@ async function NewPage({
 
 export default function NewPagePage({
   searchParams,
-}: PageProps<"/[locale]/admin/pages/new">) {
+}: PageProps<"/[locale]/admin/pages/-new">) {
   const t = useTranslations("adminContent.pages");
   return (
     <ScreenFrame
       heading={t("create.heading")}
       subtitle={t("create.description")}
-      trail={staffTrail("/admin/pages/new")}
+      trail={staffTrail("/admin/pages/-new")}
       label={t("loading")}
       fallback={<FormSkeleton rows={4} />}
     >
