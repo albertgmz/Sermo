@@ -4157,10 +4157,13 @@ of links (`TabLinks`, the underline variant) under the header that scrolls sidew
 marks the open group with `aria-current`; a row of links was chosen over a select because every
 group is one tap away and the open one is always visible. Its labels are the registry's.
 Warnings (`/admin/settings/warnings`) are one of the settings pages and move onto the same header
-and `EditForm` (the type and action forms are grouped fields; the lists keep their rows with the
-edit form inside the row for now), but they show no switcher: the sidebar keeps them under Users
+and `EditForm`. The types and the automatic actions are lists of rows (`ItemList`) with the delete step
+on the row; "Add type" and "Add action" are in the header, and each record has its own page
+(`/admin/settings/warnings/types/new` and `/<id>`, `/admin/settings/warnings/actions/new` and
+`/<id>`), screens of the Users section with the list's gate (`admin.settings`). They show no
+switcher: the sidebar keeps them under Users
 and their breadcrumb says Users, so a row of Setup groups above them would contradict where the
-administrator is. The switcher lists the nine Setup groups.
+administrator is. The switcher lists the nine Setup groups; it scrolls the open group into view on a phone.
 The section titles that used to be sub-headings inside one long panel are now the legends of the
 `FieldGroup`s; no setting is in `Advanced`, because every setting here is one an administrator
 reaches for (several are required numbers, which `Advanced` may not hold). `RuleField` is shared
@@ -4179,6 +4182,8 @@ as before. The sort page has one `SortForm` for each group that is ordered again
 top-level entries of a place, and the entries under one heading), all through the existing order
 action, which sends only the numbers that changed; a group of one has nothing to order and is left
 out. The per-row "on" switch of the old list moved to the edit page: a switch on the list would need
-an action of its own, as the entry's save reads a ticked box and requires the audience.
+an action of its own, as the entry's save reads a ticked box and requires the audience. The
+breadcrumb of the three pages is drawn without "General" (`navigationTrail`): the registry puts it
+there because the addresses share `/admin/settings`.
 Known limits: the look in a browser and on a phone, and the first-load size, have not been checked;
 the list's filter narrows each place's card on its own.

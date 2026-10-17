@@ -1,8 +1,20 @@
-import { expect, mock, test } from "bun:test";
+import { afterAll, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 
+// The links read their words through the library's hook and the provider of `withIntl`, whatever
+// stand-in another suite left in place for it.
+const nextIntl = await import("next-intl");
+const useIntl = await import("use-intl");
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useLocale: () => "en",
+  useTranslations: useIntl.useTranslations,
+}));
 mock.module("server-only", () => ({}));
+afterAll(() => {
+  mock.module("next-intl", () => nextIntl);
+});
 const { SettingsGroups } = await import("./settings-screen");
 
 const draw = (current: Parameters<typeof SettingsGroups>[0]["current"]) =>

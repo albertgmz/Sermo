@@ -5,6 +5,7 @@ import { ScreenFrame } from "@/components/staff/screen-frame";
 import { type ScreenKey, screenByKey } from "../../registry";
 import { staffTrail } from "../../trail";
 import { FormSkeleton } from "../groups/skeletons";
+import { ScrollToCurrent } from "./scroll-to-current";
 
 export type Screen =
   | "general"
@@ -61,18 +62,20 @@ export function SettingsGroups({ current }: { current: Screen | "identity" }) {
   const t = useTranslations("admin.registry.screens");
   const nav = useTranslations("adminSetup.nav");
   return (
-    <TabLinks
-      label={nav("label")}
-      active={current}
-      tabs={[...GROUPS, "identity" as const].map((value) => {
-        const key = value === "identity" ? "setupIdentity" : KEYS[value];
-        return {
-          value,
-          label: t(key),
-          href: screenByKey(key).path,
-        };
-      })}
-    />
+    <ScrollToCurrent>
+      <TabLinks
+        label={nav("label")}
+        active={current}
+        tabs={[...GROUPS, "identity" as const].map((value) => {
+          const key = value === "identity" ? "setupIdentity" : KEYS[value];
+          return {
+            value,
+            label: t(key),
+            href: screenByKey(key).path,
+          };
+        })}
+      />
+    </ScrollToCurrent>
   );
 }
 
@@ -80,10 +83,12 @@ export function SettingsGroups({ current }: { current: Screen | "identity" }) {
 export function SettingsScreen({
   screen,
   searchParams,
+  actions,
   children,
 }: {
   screen: Screen;
   searchParams: Params;
+  actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const t = useTranslations(`adminSetup.pages.${screen}`);
@@ -93,6 +98,7 @@ export function SettingsScreen({
       trail={staffTrail(screenByKey(KEYS[screen]).path)}
       heading={t("heading")}
       subtitle={t("subtitle")}
+      actions={actions}
       label={loading("label")}
       fallback={<FormSkeleton />}
     >

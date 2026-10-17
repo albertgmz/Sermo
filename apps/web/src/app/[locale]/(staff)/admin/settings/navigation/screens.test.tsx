@@ -14,6 +14,15 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
 const intl = await import("next-intl/server");
+// The rows read their words through the library's hook and the provider of `withIntl`, whatever
+// stand-in another suite left in place for it.
+const nextIntl = await import("next-intl");
+const useIntl = await import("use-intl");
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useLocale: () => "en",
+  useTranslations: useIntl.useTranslations,
+}));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace, true),
@@ -26,6 +35,7 @@ let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
+  mock.module("next-intl", () => nextIntl);
 });
 
 const entry = (over: Partial<Entry>): Entry => ({

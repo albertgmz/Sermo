@@ -4,10 +4,10 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { parseId } from "@/lib/sermo/ids";
-import { staffTrail } from "../../../../trail";
 import { FormSkeleton } from "../../../groups/skeletons";
 import { getEntries, globalPermissions } from "../data";
 import { EntryForm } from "../entry-form";
+import { navigationTrail } from "../navigation-trail";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminSetup.navigation.edit");
@@ -49,7 +49,7 @@ export default function EditEntryPage({
   return (
     <ScreenFrame
       trail={params.then(({ id }) =>
-        staffTrail(`/admin/settings/navigation/${id}`),
+        navigationTrail(`/admin/settings/navigation/${id}`),
       )}
       heading={t("heading")}
       subtitle={t("subtitle")}

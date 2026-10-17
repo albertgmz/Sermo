@@ -18,6 +18,15 @@ mock.module("./data", () => ({
   getSettings: async () => settingsGet.output.parse(SETTINGS),
 }));
 const intl = await import("next-intl/server");
+// The rows read their words through the library's hook and the provider of `withIntl`, whatever
+// stand-in another suite left in place for it.
+const nextIntl = await import("next-intl");
+const useIntl = await import("use-intl");
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useLocale: () => "en",
+  useTranslations: useIntl.useTranslations,
+}));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
@@ -30,13 +39,16 @@ const { SeoForm } = await import("./seo/seo-form");
 const { LevelsForm } = await import("./levels/levels-form");
 const { CookiesForm } = await import("./cookies/cookies-form");
 const { HomeForm } = await import("./home/home-form");
-const { WarningTypes } = await import("./warnings/warning-types");
-const { WarningActions } = await import("./warnings/warning-actions");
+const { TypeForm, WarningTypes } = await import("./warnings/warning-types");
+const { ActionForm, WarningActions } = await import(
+  "./warnings/warning-actions"
+);
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
+  mock.module("next-intl", () => nextIntl);
 });
 
 // Every screen of the settings is one form: the controls it posts and the settings it names as
@@ -222,8 +234,29 @@ test("the home page form keeps the rules, the fallback and the forums left out",
     expect(shown, key).toContain(key);
 });
 
-test("the warning forms keep the type and action fields, the edit forms naming their record", async () => {
-  const types = await controls(WarningTypes);
+const TYPE = {
+  id: 1,
+  name: "Spam",
+  nameEn: "Spam",
+  nameEs: "Correo basura",
+  points: 2,
+  expiryDays: 30,
+  defaultReason: "",
+  locked: false,
+};
+const ACTION = {
+  id: 1,
+  threshold: 5,
+  kind: "ban",
+  days: null,
+  groupId: null,
+  groupTitle: null,
+  restrictionKind: null,
+} as const;
+
+test("the warning type and action forms keep their fields, a change naming its record", async () => {
+  const fresh = await controls(() => TypeForm({}));
+  const change = await controls(() => TypeForm({ type: TYPE }));
   for (const name of [
     "nameEn",
     "nameEs",
@@ -231,13 +264,17 @@ test("the warning forms keep the type and action fields, the edit forms naming t
     "expiryDays",
     "defaultReason",
     "locked",
-  ])
-    expect(types.names.has(name), name).toBe(true);
-  // The edit form and the delete step name the record; a second form adds a new one.
-  expect(types.html.match(/name="id" value="1"/g)).toHaveLength(2);
-  expect(types.html.match(/name="nameEn"/g)).toHaveLength(2);
-  expect(types.html).toContain("Add warning type");
-  const actions = await controls(WarningActions);
+  ]) {
+    expect(fresh.names.has(name), name).toBe(true);
+    expect(change.names.has(name), name).toBe(true);
+  }
+  expect(fresh.names.has("id")).toBe(false);
+  expect(change.html).toContain('name="id" value="1"');
+  expect(fresh.html).toContain("Add warning type");
+  const newAction = await controls(() => ActionForm({ groups: null }));
+  const changeAction = await controls(() =>
+    ActionForm({ action: ACTION, groups: null }),
+  );
   for (const name of [
     "threshold",
     "kind",
@@ -246,8 +283,22 @@ test("the warning forms keep the type and action fields, the edit forms naming t
     "groupId",
     "restrictionKind",
     "actorPassword",
-  ])
-    expect(actions.names.has(name), name).toBe(true);
-  expect(actions.html.match(/name="id" value="1"/g)).toHaveLength(2);
-  expect(actions.html.match(/name="threshold"/g)).toHaveLength(2);
+  ]) {
+    expect(newAction.names.has(name), name).toBe(true);
+    expect(changeAction.names.has(name), name).toBe(true);
+  }
+  expect(newAction.names.has("id")).toBe(false);
+  expect(changeAction.html).toContain('name="id" value="1"');
+});
+
+test("the warning lists have a row per record leading to its page, with the delete step and no form", async () => {
+  const types = await controls(WarningTypes);
+  expect(types.html).toContain('href="/admin/settings/warnings/types/1"');
+  expect(types.html).toContain("Spam");
+  expect(types.html.match(/name="id" value="1"/g)).toHaveLength(1);
+  expect(types.names.has("nameEn")).toBe(false);
+  const actions = await controls(WarningActions);
+  expect(actions.html).toContain('href="/admin/settings/warnings/actions/1"');
+  expect(actions.html.match(/name="id" value="1"/g)).toHaveLength(1);
+  expect(actions.names.has("threshold")).toBe(false);
 });

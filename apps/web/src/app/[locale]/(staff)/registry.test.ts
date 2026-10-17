@@ -82,6 +82,22 @@ const GATES_BEFORE: Record<string, [string, string | string[]]> = {
   setupMembers: ["/admin/settings/members", ["admin.settings"]],
   setupAntispam: ["/admin/settings/antispam", ["admin.settings"]],
   setupWarnings: ["/admin/settings/warnings", ["admin.settings"]],
+  setupWarningTypeNew: [
+    "/admin/settings/warnings/types/new",
+    ["admin.settings"],
+  ],
+  setupWarningTypeEdit: [
+    "/admin/settings/warnings/types/[id]",
+    ["admin.settings"],
+  ],
+  setupWarningActionNew: [
+    "/admin/settings/warnings/actions/new",
+    ["admin.settings"],
+  ],
+  setupWarningActionEdit: [
+    "/admin/settings/warnings/actions/[id]",
+    ["admin.settings"],
+  ],
   setupUploads: ["/admin/settings/uploads", ["admin.settings"]],
   setupSeo: ["/admin/settings/seo", ["admin.settings"]],
   setupIdentity: ["/admin/settings/identity", ["admin.settings"]],
@@ -318,6 +334,10 @@ const SECTION_MAP: Record<string, string[]> = {
     "usersBatch",
     "usersBans",
     "setupWarnings",
+    "setupWarningTypeNew",
+    "setupWarningTypeEdit",
+    "setupWarningActionNew",
+    "setupWarningActionEdit",
     "usersEdit",
     "usersGroups",
     "usersProfile",
@@ -747,6 +767,21 @@ test("the trail of an address leads up through the home, the section's landing a
     ["moderationReports", "/moderation/reports"],
   ]);
   expect(trail(administrator, "/admin/nothing-here")).toEqual([]);
+});
+
+test("the warning pages hang from the warnings list, in the users section", () => {
+  for (const path of [
+    "/admin/settings/warnings/types/new",
+    "/admin/settings/warnings/types/3",
+    "/admin/settings/warnings/actions/new",
+    "/admin/settings/warnings/actions/3",
+  ]) {
+    expect(trail(administrator, path), path).toEqual([
+      ["home", "/admin"],
+      ["usersLanding", "/admin/sections/users"],
+      ["setupWarnings", "/admin/settings/warnings"],
+    ]);
+  }
 });
 
 test("the trail leaves out what the member may not open", () => {

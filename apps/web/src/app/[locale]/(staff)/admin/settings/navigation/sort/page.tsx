@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
-import { staffTrail } from "../../../../trail";
 import { ListSkeleton } from "../../../groups/skeletons";
+import { navigationTrail } from "../navigation-trail";
 import { SortLists } from "../sort-lists";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,7 +16,7 @@ export default function SortEntriesPage() {
   const page = useTranslations("adminSetup.pages.navigation");
   return (
     <ScreenFrame
-      trail={staffTrail("/admin/settings/navigation/sort")}
+      trail={navigationTrail("/admin/settings/navigation/sort")}
       heading={t("heading")}
       subtitle={t("subtitle")}
       label={page("loading")}
