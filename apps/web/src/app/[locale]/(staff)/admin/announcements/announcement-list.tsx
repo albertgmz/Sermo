@@ -14,7 +14,7 @@ export async function AnnouncementList({
   addAction,
 }: {
   searchParams: PageProps<"/[locale]/admin/announcements">["searchParams"];
-  // The "New alert" link, offered again when the list is empty.
+  // The "Add alert" link, offered again when the list is empty.
   addAction: React.ReactNode;
 }) {
   const params = await searchParams;

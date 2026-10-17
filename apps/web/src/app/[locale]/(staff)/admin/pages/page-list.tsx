@@ -22,7 +22,7 @@ export async function PageList({
     notice?: string | string[];
     slug?: string | string[];
   }>;
-  // The "New page" link, offered again when the list is empty.
+  // The "Add page" link, offered again when the list is empty.
   addAction: React.ReactNode;
 }) {
   const query = await searchParams;

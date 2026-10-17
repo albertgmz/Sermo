@@ -430,8 +430,8 @@
       "enabled": "Show this entry"
     },
     "new": {
-      "metaTitle": "Add navigation entry",
-      "heading": "Add entry",
+      "metaTitle": "New navigation entry",
+      "heading": "New entry",
       "subtitle": "A link to a page of the site or to another site, or a heading that only groups links."
     },
     "edit": {

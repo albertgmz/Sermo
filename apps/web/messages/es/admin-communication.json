@@ -13,7 +13,7 @@
     "subtitle": "Alertas enviadas a todos los miembros, a un grupo o a miembros concretos.",
     "loading": "Cargando las alertas…",
     "heading": "Alertas enviadas",
-    "new": "Nueva alerta",
+    "new": "Añadir alerta",
     "emptyTitle": "Aún no hay alertas",
     "emptyDescription": "No se ha enviado nada a los miembros.",
     "byline": "Enviada por {author} el {date}",
@@ -110,7 +110,7 @@
     "subtitle": "Banners que se muestran bajo la cabecera de todas las páginas.",
     "loading": "Cargando los avisos…",
     "header": {
-      "add": "Nuevo aviso"
+      "add": "Añadir aviso"
     },
     "notices": {
       "created": "Aviso creado.",

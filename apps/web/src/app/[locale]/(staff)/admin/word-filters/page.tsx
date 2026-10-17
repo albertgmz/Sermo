@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
-// "New filter", for a holder of wordFilter.manage; the others read the list.
+// "Add filter", for a holder of wordFilter.manage; the others read the list.
 async function NewFilterLink() {
   const [t, viewer] = await Promise.all([
     getTranslations("adminContent.wordFilters"),

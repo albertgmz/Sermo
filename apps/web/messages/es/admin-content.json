@@ -98,7 +98,7 @@
     "subtitle": "Palabras que se reemplazan o se envían a moderación cuando un miembro las publica.",
     "loading": "Cargando los filtros de palabras…",
     "header": {
-      "add": "Nuevo filtro"
+      "add": "Añadir filtro"
     },
     "notices": {
       "created": "Filtro añadido.",
@@ -194,7 +194,7 @@
     "subtitle": "Las páginas de texto que el sitio publica sobre sí mismo: condiciones, privacidad, contacto.",
     "loading": "Cargando las páginas…",
     "header": {
-      "add": "Nueva página"
+      "add": "Añadir página"
     },
     "notices": {
       "deleted": "Página eliminada."

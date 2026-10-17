@@ -430,8 +430,8 @@
       "enabled": "Mostrar esta entrada"
     },
     "new": {
-      "metaTitle": "Añadir entrada de navegación",
-      "heading": "Añadir entrada",
+      "metaTitle": "Nueva entrada de navegación",
+      "heading": "Nueva entrada",
       "subtitle": "Un enlace a una página del sitio o a otro sitio, o un encabezado que solo agrupa enlaces."
     },
     "edit": {

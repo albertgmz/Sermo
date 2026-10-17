@@ -13,7 +13,7 @@
     "subtitle": "Alerts sent to every member, to a group or to named members.",
     "loading": "Loading the alerts…",
     "heading": "Alerts sent",
-    "new": "New alert",
+    "new": "Add alert",
     "emptyTitle": "No alerts yet",
     "emptyDescription": "Nothing has been sent to the members.",
     "byline": "Sent by {author} on {date}",
@@ -110,7 +110,7 @@
     "subtitle": "Banners shown under the header of every page.",
     "loading": "Loading the notices…",
     "header": {
-      "add": "New notice"
+      "add": "Add notice"
     },
     "notices": {
       "created": "Notice created.",

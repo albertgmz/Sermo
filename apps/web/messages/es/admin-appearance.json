@@ -52,24 +52,24 @@
       "metaTitle": "Marcos de avatar",
       "pageHeading": "Marcos de avatar",
       "subtitle": "Imágenes dibujadas alrededor del avatar de un miembro, mostradas alrededor de un avatar de muestra tal como las ven los miembros. Los miembros las obtienen mediante artículos de la tienda.",
-      "add": "Añadir un marco",
-      "newHeading": "Añadir un marco",
+      "add": "Añadir marco",
+      "newHeading": "Nuevo marco",
       "editHeading": "Editar marco de avatar"
     },
     "covers": {
       "metaTitle": "Portadas de perfil",
       "pageHeading": "Portadas de perfil",
       "subtitle": "La galería de la que eligen su portada de perfil los miembros que pueden usarla. Las portadas inactivas desaparecen de las opciones de los miembros.",
-      "add": "Añadir una portada",
-      "newHeading": "Añadir una portada",
+      "add": "Añadir portada",
+      "newHeading": "Nueva portada",
       "editHeading": "Editar portada de perfil"
     },
     "threadCovers": {
       "metaTitle": "Portadas de tema",
       "pageHeading": "Portadas de tema",
       "subtitle": "Imágenes que puede llevar un tema. Los miembros las obtienen mediante artículos de la tienda. Las portadas inactivas ya no se pueden elegir.",
-      "add": "Añadir una portada de tema",
-      "newHeading": "Añadir una portada de tema",
+      "add": "Añadir portada de tema",
+      "newHeading": "Nueva portada de tema",
       "editHeading": "Editar portada de tema"
     },
     "editLabel": "Editar {name}",
@@ -109,24 +109,24 @@
       "metaTitle": "Colores de acento",
       "pageHeading": "Colores de acento",
       "subtitle": "Los colores que los miembros pueden dar al sitio. El primer acento activo es el propio del sitio. Cada acento lleva el color del texto dibujado sobre él.",
-      "add": "Añadir un acento",
-      "newHeading": "Añadir un acento",
+      "add": "Añadir acento",
+      "newHeading": "Nuevo acento",
       "editHeading": "Editar acento"
     },
     "nameColors": {
       "metaTitle": "Colores del nombre",
       "pageHeading": "Colores del nombre",
       "subtitle": "Los colores que puede tomar el nombre de un miembro. Los miembros los obtienen mediante artículos de la tienda. También se usan para el color de un grupo.",
-      "add": "Añadir un color del nombre",
-      "newHeading": "Añadir un color del nombre",
+      "add": "Añadir color del nombre",
+      "newHeading": "Nuevo color del nombre",
       "editHeading": "Editar color del nombre"
     },
     "prefixColors": {
       "metaTitle": "Colores de prefijo",
       "pageHeading": "Colores de prefijo",
       "subtitle": "Los colores que puede tomar un prefijo de tema. Cambiar uno cambia todos los prefijos que lo usan.",
-      "add": "Añadir un color de prefijo",
-      "newHeading": "Añadir un color de prefijo",
+      "add": "Añadir color de prefijo",
+      "newHeading": "Nuevo color de prefijo",
       "editHeading": "Editar color de prefijo"
     },
     "editLabel": "Editar {name}",

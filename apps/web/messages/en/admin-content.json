@@ -98,7 +98,7 @@
     "subtitle": "Words that are replaced or sent for moderation when a member posts them.",
     "loading": "Loading the word filters…",
     "header": {
-      "add": "New filter"
+      "add": "Add filter"
     },
     "notices": {
       "created": "Filter added.",
@@ -194,7 +194,7 @@
     "subtitle": "The text pages the site publishes about itself: terms, privacy, contact.",
     "loading": "Loading the pages…",
     "header": {
-      "add": "New page"
+      "add": "Add page"
     },
     "notices": {
       "deleted": "Page deleted."

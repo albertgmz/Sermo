@@ -14,7 +14,7 @@ export async function NoticeList({
   addAction,
 }: {
   searchParams: Promise<{ notice?: string | string[] }>;
-  // The "New notice" link, offered again when the list is empty.
+  // The "Add notice" link, offered again when the list is empty.
   addAction: React.ReactNode;
 }) {
   const [t, format, { items }, groups] = await Promise.all([
