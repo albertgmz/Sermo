@@ -431,9 +431,9 @@ describe("serving", () => {
     const bytes = await picture(80, 80);
     const frame = await storage.upload(admin, stream(bytes), "image/png", "frame");
     const avatar = await storage.upload(member, stream(bytes), "image/png", "avatar");
-    // Not attached yet: only the uploader sees it, and only their browser keeps it, asking each time.
+    // Not attached yet: only the uploader sees it, and it is not cached.
     expect(() => storage.serve(GUEST, frame.id)).toThrow(NotFoundError);
-    expect(storage.serve(admin, frame.id).headers.get("cache-control")).toBe("private, no-cache");
+    expect(storage.serve(admin, frame.id).headers.get("cache-control")).toBe("private, no-store");
     ctx.sqlite
       .prepare("UPDATE files SET visibility = 'public', attached_at = ?1 WHERE id IN (?2, ?3)")
       .run(ctx.now(), frame.id, avatar.id);

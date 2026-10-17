@@ -220,11 +220,14 @@ function isPublicFile(row: FileRecord): boolean {
 
 /**
  * A public file is the same for everyone and never changes at its address: any cache keeps it a
- * year. Any other file is the viewer's: only the browser keeps it, and asks before each use, so a
- * deleted file or a lost permission hides it at once (the check answers 404, not 304).
+ * year. Any other file is the viewer's and is kept by no cache, the browser's included, so a
+ * deleted file or a lost permission hides it at once and nothing of it stays on a shared computer.
+ * A variant is decided by its source, the row access is checked on (`source` null: none).
  */
-function fileCacheControl(row: FileRecord): string {
-  return isPublicFile(row) ? "public, max-age=31536000, immutable" : "private, no-cache";
+function fileCacheControl(source: FileRecord | null): string {
+  return source && isPublicFile(source)
+    ? "public, max-age=31536000, immutable"
+    : "private, no-store";
 }
 
 /**
@@ -697,7 +700,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       if (row.driver !== driver.name) throw new ValidationError("Storage driver is unavailable.");
       const range = request.get("range");
       // Players and their metadata probes always send a range: only a whole-file read (a link
-      // opened or saved, a picture shown, also from the browser's cache) is a download.
+      // opened or saved, a picture shown) is a download, answered 304 or not.
       if (row.purpose === "attachment" && row.parent_file_id === null && !range)
         ctx.downloads.set(id, (ctx.downloads.get(id) ?? 0) + 1);
       // The bytes of a file id never change (a replaced picture is a new upload, a new id), so its
@@ -705,7 +708,9 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       const validators = {
         ETag: `"${row.sha256}"`,
         "Last-Modified": new Date(row.created_at).toUTCString(),
-        "Cache-Control": fileCacheControl(row),
+        "Cache-Control": fileCacheControl(
+          row.parent_file_id === null ? row : byId(ctx, row.parent_file_id),
+        ),
       };
       if (notModified(request, validators.ETag, row.created_at))
         return new Response(null, { status: 304, headers: validators });

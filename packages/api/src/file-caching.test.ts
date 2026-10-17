@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Ctx } from "@sermo/core";
-import { closeContext, localDriver } from "@sermo/core";
+import { closeContext, invalidate, localDriver } from "@sermo/core";
 import { createTestContext, insertNode } from "@sermo/core/testing";
 import { createApp } from "./app";
 
@@ -39,22 +39,27 @@ async function setup() {
   const ip = `10.1.0.${nextIp++}`;
   const env = { requestIP: () => ({ address: ip, family: "IPv4" as const, port: 1 }) };
   const request = (path: string, init: RequestInit = {}) => app.request(path, init, env);
-  const signUp = await request("/api/auth/sign-up/email", {
-    method: "POST",
-    headers: { "content-type": "application/json", origin },
-    body: JSON.stringify({
-      name: "owner",
-      username: "owner",
-      email: "owner@example.test",
-      password: "Password123!",
-    }),
-  });
-  expect(signUp.status).toBe(200);
-  const cookies = signUp.headers.getSetCookie().map((cookie) => cookie.split(";")[0]!);
-  const cookie = cookies.join("; ");
-  // The session token alone: the answer carries a refreshed session cookie.
-  const tokenOnly = cookies.find((part) => part.startsWith("sermo.session_token="))!;
-  const userId = ((await signUp.json()) as { user: { id: string } }).user.id;
+  const signUp = async (username: string) => {
+    const response = await request("/api/auth/sign-up/email", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin },
+      body: JSON.stringify({
+        name: username,
+        username,
+        email: `${username}@example.test`,
+        password: "Password123!",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const cookies = response.headers.getSetCookie().map((cookie) => cookie.split(";")[0]!);
+    return {
+      cookie: cookies.join("; "),
+      // The session token alone: the answer carries a refreshed session cookie.
+      tokenOnly: cookies.find((part) => part.startsWith("sermo.session_token="))!,
+      userId: ((await response.json()) as { user: { id: string } }).user.id,
+    };
+  };
+  const { cookie, tokenOnly, userId } = await signUp("owner");
   const upload = async (purpose: string, blob: Blob, name: string) => {
     const form = new FormData();
     form.append("file", blob, name);
@@ -72,7 +77,7 @@ async function setup() {
       headers: { cookie, origin, "content-type": "application/json" },
       body: JSON.stringify(body),
     });
-  return { ctx, forum, request, cookie, tokenOnly, userId, upload, json };
+  return { ctx, forum, request, signUp, cookie, tokenOnly, userId, upload, json };
 }
 
 async function setAvatar(app: Awaited<ReturnType<typeof setup>>, pixel: typeof redPixel) {
@@ -164,8 +169,9 @@ test("an answer that refreshes the session cookie is kept by the browser alone",
   }
 });
 
-test("a file that depends on the viewer is never public, in any answer", async () => {
+test("a file that depends on the viewer is never kept by any cache, in any answer", async () => {
   const app = await setup();
+  const recipient = await app.signUp("recipient");
   const note = await app.upload(
     "attachment",
     new Blob(["a note of twenty bytes"], { type: "text/plain" }),
@@ -176,12 +182,24 @@ test("a file that depends on the viewer is never public, in any answer", async (
     new Blob([redPixel], { type: "image/png" }),
     "p.png",
   );
+  const letter = await app.upload(
+    "attachment",
+    new Blob(["only for the two of us"], { type: "text/plain" }),
+    "l.txt",
+  );
   const thread = await app.json("POST", `/api/v1/nodes/${app.forum.id}/threads`, {
     title: "Pictures",
     body: "One attached",
     attachmentIds: [picture.id],
   });
   expect(thread.status).toBe(201);
+  const conversation = await app.json("POST", "/api/v1/conversations", {
+    title: "Private",
+    recipientIds: [Number(recipient.userId)],
+    body: "A letter",
+    attachmentIds: [letter.id],
+  });
+  expect(conversation.status).toBe(201);
   // Attached to a post the file is public in storage, yet who may see the post decides.
   expect(
     app.ctx.sqlite
@@ -189,13 +207,13 @@ test("a file that depends on the viewer is never public, in any answer", async (
       .get(picture.id)!.visibility,
   ).toBe("public");
 
-  for (const file of [note, picture]) {
+  for (const file of [note, picture, letter]) {
     const ask = (headers: Record<string, string> = {}, method = "GET") =>
       app.request(file.url, { method, headers: { cookie: app.cookie, ...headers } });
     const served = await ask();
     expect(served.status).toBe(200);
     const headers = caching(served);
-    expect(headers.cacheControl).toBe("private, no-cache");
+    expect(headers.cacheControl).toBe("private, no-store");
     expect(headers.etag).toMatch(/^"[0-9a-f]{64}"$/);
     const answers = [
       served,
@@ -210,18 +228,90 @@ test("a file that depends on the viewer is never public, in any answer", async (
     expect(answers.map((answer) => answer.status)).toEqual([
       200, 304, 304, 304, 200, 206, 416, 200,
     ]);
-    for (const answer of answers) {
-      expect(answer.headers.get("cache-control")).toStartWith("private, no-");
-      expect(answer.headers.get("cache-control")).not.toContain("public");
-    }
+    for (const answer of answers)
+      expect(answer.headers.get("cache-control"), file.url).toBe("private, no-store");
     expect(caching(answers[1]!)).toEqual(headers);
     expect(await answers[1]!.text()).toBe("");
-    // A range that cannot be sent is never kept.
-    expect(answers[6]!.headers.get("cache-control")).toBe("private, no-store");
   }
+  // The other member of the conversation is served the letter the same way.
+  const received = await app.request(letter.url, { headers: { cookie: recipient.cookie } });
+  expect(received.status).toBe(200);
+  expect(received.headers.get("cache-control")).toBe("private, no-store");
 
-  // A visitor who may not see the file is not told that a copy is current.
-  const note304 = await app.request(note.url, { headers: { "if-none-match": "*" } });
-  expect(note304.status).toBe(404);
-  expect(note304.headers.get("etag")).toBeNull();
+  // Whoever may not see a file learns nothing about it, a copy named or not: a guest, a stranger
+  // to the conversation, and a member the forum is closed to.
+  const stranger = await app.signUp("stranger");
+  app.ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (group_id, user_id, node_id, permission_id, value) SELECT 0, ?1, ?2, id, -1 FROM permission_definitions WHERE key = 'node.view'",
+    )
+    .run(Number(stranger.userId), app.forum.id);
+  invalidate(app.ctx, "permissions");
+  const etags = new Map(
+    await Promise.all(
+      [note, picture, letter].map(
+        async (file) =>
+          [
+            file.url,
+            (await app.request(file.url, { headers: { cookie: app.cookie } })).headers.get("etag")!,
+          ] as const,
+      ),
+    ),
+  );
+  for (const [file, viewer] of [
+    [note, {}],
+    [note, { cookie: stranger.cookie }],
+    [picture, { cookie: stranger.cookie }],
+    [letter, {}],
+    [letter, { cookie: stranger.cookie }],
+  ] as const) {
+    for (const conditional of <Record<string, string>[]>[
+      {},
+      { "if-none-match": etags.get(file.url)! },
+      { "if-none-match": "*" },
+    ]) {
+      const headers = { ...viewer, ...conditional };
+      const refused = await app.request(file.url, { headers });
+      expect(refused.status, file.url).toBe(404);
+      expect(refused.headers.get("etag")).toBeNull();
+      expect(refused.headers.get("cache-control") ?? "").not.toContain("public");
+    }
+  }
+});
+
+test("a variant is cached as its source is, whatever its own row says", async () => {
+  const app = await setup();
+  const recipient = await app.signUp("recipient");
+  const letter = await app.upload(
+    "attachment",
+    new Blob([redPixel], { type: "image/png" }),
+    "l.png",
+  );
+  expect(
+    (
+      await app.json("POST", "/api/v1/conversations", {
+        title: "Private",
+        recipientIds: [Number(recipient.userId)],
+        body: "A picture",
+        attachmentIds: [letter.id],
+      })
+    ).status,
+  ).toBe(201);
+  // A variant row that wrongly says public, as a careless backfill could write it.
+  const variant = app.ctx.sqlite
+    .prepare<{ id: number }, [string, number]>(
+      "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, width, height, uploader_id, purpose, visibility, parent_file_id, variant, created_at) SELECT driver, ?1, byte_size, content_type, sha256, width, height, uploader_id, 'avatar', 'public', id, 'w640', created_at FROM files WHERE id = ?2 RETURNING id",
+    )
+    .get(crypto.randomUUID(), letter.id)!.id;
+  const url = `/api/v1/files/${variant}`;
+  const head = await app.request(url, { method: "HEAD", headers: { cookie: recipient.cookie } });
+  expect(head.status).toBe(200);
+  expect(head.headers.get("cache-control")).toBe("private, no-store");
+  const etag = head.headers.get("etag")!;
+  const cached = await app.request(url, {
+    headers: { cookie: recipient.cookie, "if-none-match": etag },
+  });
+  expect(cached.status).toBe(304);
+  expect(cached.headers.get("cache-control")).toBe("private, no-store");
+  expect((await app.request(url)).status).toBe(404);
 });

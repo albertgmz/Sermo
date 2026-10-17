@@ -391,7 +391,10 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     if (c.get("setCookies").length)
       response.headers.set(
         "Cache-Control",
-        (response.headers.get("Cache-Control") ?? "").replace(/^public\b/, "private"),
+        (response.headers.get("Cache-Control") ?? "private, no-store").replace(
+          /^public\b/,
+          "private",
+        ),
       );
     return response;
   });
