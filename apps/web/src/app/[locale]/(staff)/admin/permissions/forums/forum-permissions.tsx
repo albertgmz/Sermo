@@ -4,23 +4,21 @@ import {
   permissionsListNode,
   usersCards,
 } from "@sermo/core/contracts";
-import Link from "next/link";
+import { SearchCheck } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { cn } from "@/lib/utils";
 import { getGroups, groupLabel } from "../../groups/data";
 import { entriesOf, getDefinitions, matrixPermissions } from "../data";
 import { MemberPicker } from "../member-picker";
 import { PermissionForm } from "../permission-form";
-
-const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
 
 const first = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) || undefined;
@@ -167,72 +165,60 @@ export async function ForumPermissions({
         {node.title}
       </h2>
       {editor}
-      <section className="overflow-hidden rounded-lg border bg-card">
-        <div className="border-b p-4">
-          <h2 className="text-sm font-semibold">{t("setHeading")}</h2>
-          <p className="text-xs text-muted-foreground">{t("setDescription")}</p>
-        </div>
-        {listing.items.length > 0 ? (
-          <ul aria-label={t("setHeading")} className="divide-y">
-            {listing.items.map((set) => {
-              const isGroup = set.groupId !== null;
-              const id = (isGroup ? set.groupId : set.userId) as number;
-              return (
-                <li
-                  key={`${isGroup ? "g" : "u"}${id}`}
-                  className="flex flex-col gap-3 p-4 md:flex-row md:items-start"
-                >
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                      <span className="[overflow-wrap:anywhere]">
-                        {isGroup
-                          ? groupLabel(viewerGroups, id, (n) =>
-                              t("groupNumber", { id: n }),
-                            )
-                          : nameOf(id)}
-                      </span>
-                      <Badge variant="secondary">
-                        {isGroup ? t("group") : t("member")}
-                      </Badge>
-                    </p>
-                    <ul className="flex flex-wrap gap-1.5">
-                      {set.entries.map((entry) => (
-                        <li
-                          key={entry.permission}
-                          className="rounded-sm border px-1.5 py-0.5 text-xs [overflow-wrap:anywhere]"
-                        >
-                          {titles.get(entry.permission) ?? entry.permission}:{" "}
-                          <span className="font-medium">
-                            {valueText(entry.value)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Link
-                      href={`${here}&${isGroup ? "group" : "user"}=${id}`}
-                      className={link}
-                    >
-                      {t("edit")}
-                    </Link>
-                    {!isGroup && (
-                      <Link
-                        href={`/admin/permissions/explain?user=${id}&node=${nodeId}`}
-                        className={link}
-                      >
-                        {t("analyse")}
-                      </Link>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="p-4 text-sm text-muted-foreground">{t("none")}</p>
-        )}
-      </section>
+      <ItemList
+        label={t("setHeading")}
+        heading={t("setHeading")}
+        description={t("setDescription")}
+        empty={{ title: t("none") }}
+        items={listing.items.map((set) => {
+          const isGroup = set.groupId !== null;
+          const id = (isGroup ? set.groupId : set.userId) as number;
+          const name = isGroup
+            ? groupLabel(viewerGroups, id, (n) => t("groupNumber", { id: n }))
+            : nameOf(id);
+          const edit = `${here}&${isGroup ? "group" : "user"}=${id}`;
+          return {
+            id: `${isGroup ? "g" : "u"}${id}`,
+            title: name,
+            href: edit,
+            badges: (
+              <Badge variant="secondary">
+                {isGroup ? t("group") : t("member")}
+              </Badge>
+            ),
+            actions: (
+              <>
+                <RowLink href={edit} label={t("editLabel", { target: name })} />
+                {!isGroup && (
+                  <RowLink
+                    href={`/admin/permissions/explain?user=${id}&node=${nodeId}`}
+                    label={t("analyseLabel", { target: name })}
+                    icon={<SearchCheck />}
+                  />
+                )}
+              </>
+            ),
+            panel: (
+              <ul
+                aria-label={t("entriesOf", { target: name })}
+                className="flex flex-wrap gap-1.5 pb-1"
+              >
+                {set.entries.map((entry) => (
+                  <li
+                    key={entry.permission}
+                    className="rounded-sm border px-1.5 py-0.5 text-xs [overflow-wrap:anywhere]"
+                  >
+                    {titles.get(entry.permission) ?? entry.permission}:{" "}
+                    <span className="font-medium">
+                      {valueText(entry.value)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ),
+          };
+        })}
+      />
       <section className="overflow-hidden rounded-lg border bg-card">
         <form className="space-y-3 p-4">
           <h2 className="text-sm font-semibold">{t("addGroup")}</h2>

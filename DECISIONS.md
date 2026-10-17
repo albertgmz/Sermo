@@ -4095,3 +4095,26 @@ second link; a sign-up row keeps its tick and its decide controls, its facts sit
 `panel`. The logs keep `LogTable` (their `LogShell` now carries the breadcrumb) and the tasks
 screen keeps its counts and failure list. `admin.itemList` joins the staff layout's client
 namespaces. The loading files draw the breadcrumb's placeholder (`LoadingPage trail`).
+
+### Permission screens: tabs, bulk buttons and the changed counter (item 3)  The permission
+matrix (groups, members, a group or member on one forum) splits its rows into two tabs, "General
+permissions" (every backend category but `moderation`) and "Moderation" (Base UI tabs: arrow keys
+move, Enter or Space opens, visible focus). Both panels stay mounted while hidden, so every row is
+still posted and `matrixChanges` still sends only the cells that differ from their `was` field. A
+tab with no rows is left out and one tab alone has no tab list: on a forum only node-scope
+permissions show and none of them is a moderation one, so a forum shows the general rows alone.
+Each tab and each category holding a yes/no permission has "Allow all", "Never for all" and "Clear
+all (inherit)": they set every yes/no row of their tab or category, rows the filter hides included
+(a line says so while it is on), and never an integer row; "No" stays a per-row choice on a forum.
+The matrix keeps its cells in state (`matrix-state.ts`); `cellValue` / `cellChanged` in
+`permission-entries.ts` are the one reading of a cell, used by the action and by the counter, so a
+row counts as changed exactly when saving would send it (an integer with no valid number counts
+too: saving it is refused). A bar under the panel's header holds the tabs and "N changes not
+saved"; a changed row is tinted and says what it was. The filter box, the "Set here" mark, the
+password and the save are as before. The group list is an `ItemList` (rank, built-in and staff
+badges, filter); the entries set on a forum are `ItemList` rows (chips in the row's panel, edit and
+analyse links); every permission page has the page header with its breadcrumb; the analyse
+question is a `FieldGroup` of `Field`s. Known limits: the member search (`MemberPicker`) still draws
+`MemberRow`s, as four other screens share it; the forum editor stays on the forum page's address
+(`?node=&group=`), where the save action sends it back; the look in a browser and on a phone has not
+been checked.

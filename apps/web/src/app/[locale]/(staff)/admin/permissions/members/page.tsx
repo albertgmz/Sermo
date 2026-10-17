@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ListSkeleton, PageHead } from "../../groups/skeletons";
+import { staffTrail } from "../../../trail";
+import { ListSkeleton } from "../../groups/skeletons";
 import { MemberPicker } from "../member-picker";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -50,17 +50,14 @@ export default function PermissionMembersPage({
 }: PageProps<"/[locale]/admin/permissions/members">) {
   const t = useTranslations("adminGroups.permissionMembers");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("pageHeading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <ListSkeleton rows={2} />
-          </LoadingRegion>
-        }
-      >
-        <Picker searchParams={searchParams} />
-      </Suspense>
-    </div>
+    <ScreenFrame
+      trail={staffTrail("/admin/permissions/members")}
+      heading={t("pageHeading")}
+      subtitle={t("subtitle")}
+      label={t("loading")}
+      fallback={<ListSkeleton rows={2} />}
+    >
+      <Picker searchParams={searchParams} />
+    </ScreenFrame>
   );
 }

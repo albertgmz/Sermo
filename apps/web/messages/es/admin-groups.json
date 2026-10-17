@@ -132,7 +132,21 @@
     "forumScope": "permiso de foro",
     "initial": "Valor inicial: {value}",
     "save": "Guardar permisos",
-    "unchanged": "No hay nada que cambiar."
+    "unchanged": "No hay nada que cambiar.",
+    "tabsLabel": "Tipos de permiso",
+    "tabs": {
+      "general": "Permisos generales",
+      "moderation": "Moderación"
+    },
+    "bulkLabel": "Todos los permisos de sí o no de {scope}",
+    "allowAll": "Permitir todo",
+    "neverAll": "Nunca para todo",
+    "clearAll": "Quitar todo (heredar)",
+    "bulkHelp": "Estos botones fijan todos los permisos de sí o no de esta pestaña, y los que hay junto a una categoría, los de esa categoría. Los límites y demás números no cambian. No se guarda nada hasta que guardes.",
+    "bulkHelpFiltered": "El filtro está activo: estos botones también fijan los permisos que oculta. Los límites y demás números no cambian.",
+    "noMatch": "Ningún permiso de esta pestaña coincide con «{query}».",
+    "changedCount": "{count, plural, =0 {Sin cambios} one {# cambio sin guardar} other {# cambios sin guardar}}",
+    "changed": "Cambiado, antes {was}"
   },
   "permissionGroups": {
     "metaTitle": "Permisos de grupos",
@@ -142,7 +156,10 @@
     "heading": "Grupos",
     "description": "Del rango más alto al más bajo.",
     "rank": "Rango {rank}",
-    "edit": "Permisos"
+    "empty": "No hay grupos.",
+    "builtin": "Integrado",
+    "staff": "Equipo",
+    "editLabel": "Permisos de {group}"
   },
   "permissionGroup": {
     "metaTitle": "Permisos de un grupo",
@@ -193,8 +210,9 @@
     "setDescription": "Entradas definidas directamente en el foro; las heredadas no aparecen.",
     "group": "Grupo",
     "member": "Miembro",
-    "edit": "Editar",
-    "analyse": "Analizar",
+    "editLabel": "Editar las entradas de {target}",
+    "analyseLabel": "Analizar a {target} en este foro",
+    "entriesOf": "Entradas de {target}",
     "none": "No hay nada definido directamente en este foro.",
     "addGroup": "Añadir un grupo",
     "add": "Añadir",
@@ -206,7 +224,7 @@
     "subtitle": "Por qué un miembro tiene o no un permiso, y qué entradas lo decidieron.",
     "loading": "Cargando…",
     "questionHeading": "Consulta",
-    "member": "Miembro:",
+    "member": "Miembro",
     "noMember": "ninguno elegido",
     "memberPermissions": "Sus permisos",
     "permission": "Permiso",

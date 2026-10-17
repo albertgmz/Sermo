@@ -24,13 +24,35 @@
 //   unit             For an integer: "bytes", "minutes" or "count"; null otherwise.
 //   initial          Optional: the default the permission started with for this group, as text.
 //
+// The rows sit in two tabs, "General permissions" (every category but moderation) and
+// "Moderation"; a tab with no rows is left out, and with one tab left there is no tab list. Every
+// row of both tabs stays in the form: a hidden tab's controls are submitted as they are. Each tab
+// and each category has bulk buttons (allow all, never for all, clear all) that set its yes/no
+// rows only, never an integer one ("No" stays a per-row choice). A bar that stays under the
+// panel's header holds the tabs and says how many rows changed; a changed row is marked with what
+// it showed before.
+//
 // A filter box above the rows hides the rows whose title or id does not contain what is typed;
-// hidden rows stay in the form and are submitted as they are.
+// hidden rows stay in the form and are submitted as they are. Bulk buttons set the hidden rows of
+// their tab or category too, and say so while the filter is on.
 
+import { Ban, Check, Eraser } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import {
+  type BulkMode,
+  bulkSet,
+  type Cell,
+  changedIds,
+  initialCells,
+  type MatrixTab,
+  TABS,
+  tabOf,
+} from "./matrix-state";
 import {
   cellText,
   type MatrixValue,
@@ -52,25 +74,24 @@ export type MatrixPermission = {
   initial?: string | null;
 };
 
+type Change = (cell: Cell) => void;
+
 function IntegerControl({
   permission,
-  value,
+  cell,
+  onChange,
 }: {
   permission: MatrixPermission;
-  value: MatrixValue | undefined;
+  cell: Cell;
+  onChange: Change;
 }) {
   const t = useTranslations("adminGroups.matrix");
-  const id = useId();
-  const [mode, setMode] = useState(
-    value === undefined ? "" : value === -1 ? "unlimited" : "value",
-  );
   return (
     <div className="flex flex-wrap items-center gap-2">
       <select
-        id={id}
         name={modeField(permission.id)}
-        value={mode}
-        onChange={(event) => setMode(event.target.value)}
+        value={cell.mode}
+        onChange={(event) => onChange({ ...cell, mode: event.target.value })}
         aria-label={permission.title}
         className={cn(selectClass, "w-auto min-w-36 flex-1")}
       >
@@ -78,15 +99,16 @@ function IntegerControl({
         <option value="value">{t("limit")}</option>
         <option value="unlimited">{t("unlimited")}</option>
       </select>
-      {mode === "value" && (
+      {cell.mode === "value" && (
         <>
           <Input
             name={numberField(permission.id)}
             type="number"
             inputMode="numeric"
             min={0}
-            defaultValue={
-              typeof value === "number" && value >= 0 ? value : undefined
+            value={cell.amount}
+            onChange={(event) =>
+              onChange({ ...cell, amount: event.target.value })
             }
             aria-label={t("amount", { title: permission.title })}
             className="w-28 flex-none"
@@ -104,18 +126,21 @@ function IntegerControl({
 
 function FlagControl({
   permission,
-  value,
+  cell,
   allowNo,
+  onChange,
 }: {
   permission: MatrixPermission;
-  value: MatrixValue | undefined;
+  cell: Cell;
   allowNo: boolean;
+  onChange: Change;
 }) {
   const t = useTranslations("adminGroups.matrix");
   return (
     <select
       name={modeField(permission.id)}
-      defaultValue={typeof value === "string" ? value : ""}
+      value={cell.mode}
+      onChange={(event) => onChange({ ...cell, mode: event.target.value })}
       aria-label={permission.title}
       className={selectClass}
     >
@@ -125,6 +150,63 @@ function FlagControl({
       <option value="never">{t("never")}</option>
     </select>
   );
+}
+
+const BULK: { mode: BulkMode; key: "allowAll" | "neverAll" | "clearAll" }[] = [
+  { mode: "allow", key: "allowAll" },
+  { mode: "never", key: "neverAll" },
+  { mode: "", key: "clearAll" },
+];
+const BULK_ICONS = { allow: Check, never: Ban, "": Eraser };
+
+// The three bulk buttons of a tab or a category (`scope` names it). `compact` (a category's)
+// shows the icons alone on a phone.
+function BulkButtons({
+  scope,
+  compact = false,
+  onPick,
+}: {
+  scope: string;
+  compact?: boolean;
+  onPick: (mode: BulkMode) => void;
+}) {
+  const t = useTranslations("adminGroups.matrix");
+  return (
+    <fieldset
+      aria-label={t("bulkLabel", { scope })}
+      className="flex min-w-0 flex-wrap gap-1"
+    >
+      {BULK.map(({ mode, key }) => {
+        const Icon = BULK_ICONS[mode];
+        return (
+          <Button
+            key={key}
+            type="button"
+            variant={compact ? "ghost" : "outline"}
+            size="sm"
+            title={compact ? t(key) : undefined}
+            onClick={() => onPick(mode)}
+            className="h-10 min-w-10 md:h-8 md:min-w-8"
+          >
+            <Icon aria-hidden="true" />
+            <span className={compact ? "sr-only sm:not-sr-only" : undefined}>
+              {t(key)}
+            </span>
+          </Button>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+// What a row showed before it was changed, in the words of its controls.
+function shownText(
+  t: ReturnType<typeof useTranslations<"adminGroups.matrix">>,
+  value: MatrixValue | undefined,
+) {
+  if (value === undefined) return t("notSet");
+  if (value === "allow" || value === "no" || value === "never") return t(value);
+  return value === -1 ? t("unlimited") : String(value);
 }
 
 export function PermissionMatrix({
@@ -138,15 +220,90 @@ export function PermissionMatrix({
 }) {
   const t = useTranslations("adminGroups.matrix");
   const [filter, setFilter] = useState("");
+  const [cells, setCells] = useState(() => initialCells(permissions, entries));
+  const root = useRef<HTMLDivElement>(null);
   const needle = filter.trim().toLowerCase();
   const shows = (permission: MatrixPermission) =>
     needle === "" ||
     permission.title.toLowerCase().includes(needle) ||
     permission.id.toLowerCase().includes(needle);
-  const categories = [...new Set(permissions.map((entry) => entry.category))];
   const shown = permissions.filter(shows).length;
+  const changed = new Set(changedIds(permissions, cells, entries, allowNo));
+  const tabs = TABS.map((tab) => ({
+    tab,
+    rows: permissions.filter((entry) => tabOf(entry.category) === tab),
+  })).filter(({ rows }) => rows.length > 0);
+  const setCell = (id: string) => (cell: Cell) =>
+    setCells((current) => ({ ...current, [id]: cell }));
+  const bulk =
+    (rows: readonly MatrixPermission[]) =>
+    (mode: BulkMode): void =>
+      setCells((current) => bulkSet(current, rows, mode));
+
+  const panel = (tab: MatrixTab, rows: readonly MatrixPermission[]) => {
+    const categories = [...new Set(rows.map((entry) => entry.category))];
+    return (
+      <>
+        {rows.some((entry) => entry.type === "flag") && (
+          <div className="space-y-2 border-b p-4">
+            <BulkButtons scope={t(`tabs.${tab}`)} onPick={bulk(rows)} />
+            <p className="text-xs text-pretty text-muted-foreground">
+              {t(needle === "" ? "bulkHelp" : "bulkHelpFiltered")}
+            </p>
+          </div>
+        )}
+        {!rows.some(shows) && (
+          <p className="p-4 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+            {t("noMatch", { query: filter.trim() })}
+          </p>
+        )}
+        {categories.map((category) => {
+          const group = rows.filter((entry) => entry.category === category);
+          return (
+            <section
+              key={category}
+              hidden={!group.some(shows)}
+              aria-labelledby={`matrix-${category}`}
+            >
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/40 px-4 py-1">
+                <h3
+                  id={`matrix-${category}`}
+                  className="me-auto py-2 text-xs font-semibold tracking-wide uppercase"
+                >
+                  {group[0].categoryTitle}
+                </h3>
+                {group.some((entry) => entry.type === "flag") && (
+                  <BulkButtons
+                    scope={group[0].categoryTitle}
+                    compact
+                    onPick={bulk(group)}
+                  />
+                )}
+              </div>
+              <ul className="divide-y">
+                {group.map((permission) => (
+                  <PermissionRow
+                    key={permission.id}
+                    permission={permission}
+                    entry={entries[permission.id]}
+                    cell={cells[permission.id]}
+                    changed={changed.has(permission.id)}
+                    hidden={!shows(permission)}
+                    allowNo={allowNo}
+                    onChange={setCell(permission.id)}
+                    was={shownText(t, entries[permission.id])}
+                  />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </>
+    );
+  };
+
   return (
-    <div>
+    <div ref={root} className="scroll-mt-14">
       <div className="space-y-2 border-b p-4">
         <label htmlFor="matrix-filter" className="text-sm font-medium">
           {t("filter")}
@@ -169,81 +326,142 @@ export function PermissionMatrix({
           {t(allowNo ? "legendNode" : "legend")}
         </p>
       </div>
-      {categories.map((category) => {
-        const rows = permissions.filter((entry) => entry.category === category);
-        return (
-          <section
-            key={category}
-            hidden={!rows.some(shows)}
-            aria-labelledby={`matrix-${category}`}
-          >
-            <h3
-              id={`matrix-${category}`}
-              className="border-b bg-muted/40 px-4 py-2 text-xs font-semibold tracking-wide uppercase"
+      <Tabs
+        defaultValue={tabs[0]?.tab}
+        // Switching tabs from the bar while it is stuck shows the new tab from its top.
+        onValueChange={() => {
+          const box = root.current;
+          if (box && box.getBoundingClientRect().top < 0) {
+            box.scrollIntoView({ block: "start" });
+          }
+        }}
+        className="gap-0"
+      >
+        <div className="sticky top-14 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-card/95 px-4 py-1.5 backdrop-blur-sm">
+          {tabs.length > 1 && (
+            <TabsList
+              variant="line"
+              aria-label={t("tabsLabel")}
+              className="grid w-full grid-cols-2 gap-1 p-0 group-data-horizontal/tabs:h-11 sm:inline-flex sm:w-fit"
             >
-              {rows[0].categoryTitle}
-            </h3>
-            <ul className="divide-y">
-              {rows.map((permission) => {
-                const value = entries[permission.id];
-                return (
-                  <li
-                    key={permission.id}
-                    hidden={!shows(permission)}
-                    className={cn(
-                      "grid gap-2 border-l-2 p-4 md:grid-cols-[minmax(0,1fr)_18rem] md:items-center",
-                      value === undefined
-                        ? "border-l-transparent"
-                        : "border-l-primary",
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <input
-                        type="hidden"
-                        name={wasField(permission.id)}
-                        value={cellText(value)}
-                      />
-                      <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                        <span className="[overflow-wrap:anywhere]">
-                          {permission.title}
-                        </span>
-                        {value !== undefined && (
-                          <span className="rounded-sm border border-primary/40 px-1.5 text-xs font-normal text-primary-ink">
-                            {t("setHere")}
-                          </span>
-                        )}
-                      </p>
-                      <p className="font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                        {permission.id}
-                        {permission.scope === "node" && ` · ${t("forumScope")}`}
-                      </p>
-                      {permission.help && (
-                        <p className="text-xs text-pretty text-muted-foreground">
-                          {permission.help}
-                        </p>
-                      )}
-                      {permission.initial && (
-                        <p className="text-xs text-muted-foreground">
-                          {t("initial", { value: permission.initial })}
-                        </p>
-                      )}
-                    </div>
-                    {permission.type === "integer" ? (
-                      <IntegerControl permission={permission} value={value} />
-                    ) : (
-                      <FlagControl
-                        permission={permission}
-                        value={value}
-                        allowNo={allowNo}
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        );
-      })}
+              {tabs.map(({ tab, rows }) => (
+                <TabsTrigger key={tab} value={tab} className="px-3">
+                  {t(`tabs.${tab}`)}
+                  <span className="hidden rounded-sm bg-muted px-1.5 text-xs font-normal text-muted-foreground tabular-nums sm:inline">
+                    {rows.filter(shows).length}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          )}
+          <p
+            aria-live="polite"
+            className={cn(
+              "ms-auto py-2 text-xs font-medium",
+              changed.size > 0 ? "text-primary-ink" : "text-muted-foreground",
+            )}
+          >
+            {t("changedCount", { count: changed.size })}
+          </p>
+        </div>
+        {tabs.length > 1
+          ? tabs.map(({ tab, rows }) => (
+              <TabsContent
+                key={tab}
+                value={tab}
+                // Kept in the form while hidden: every row is submitted.
+                keepMounted
+                className="focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+              >
+                {panel(tab, rows)}
+              </TabsContent>
+            ))
+          : tabs.map(({ tab, rows }) => (
+              <div key={tab}>{panel(tab, rows)}</div>
+            ))}
+      </Tabs>
     </div>
+  );
+}
+
+function PermissionRow({
+  permission,
+  entry,
+  cell,
+  changed,
+  hidden,
+  allowNo,
+  onChange,
+  was,
+}: {
+  permission: MatrixPermission;
+  entry: MatrixValue | undefined;
+  cell: Cell;
+  changed: boolean;
+  hidden: boolean;
+  allowNo: boolean;
+  onChange: Change;
+  was: string;
+}) {
+  const t = useTranslations("adminGroups.matrix");
+  return (
+    <li
+      hidden={hidden}
+      data-changed={changed ? "" : undefined}
+      className={cn(
+        "grid gap-2 border-l-2 p-4 md:grid-cols-[minmax(0,1fr)_18rem] md:items-center",
+        entry === undefined ? "border-l-transparent" : "border-l-primary",
+        changed && "bg-muted/50",
+      )}
+    >
+      <div className="min-w-0">
+        <input
+          type="hidden"
+          name={wasField(permission.id)}
+          value={cellText(entry)}
+        />
+        <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+          <span className="[overflow-wrap:anywhere]">{permission.title}</span>
+          {entry !== undefined && (
+            <span className="rounded-sm border border-primary/40 px-1.5 text-xs font-normal text-primary-ink">
+              {t("setHere")}
+            </span>
+          )}
+          {changed && (
+            <span className="rounded-sm bg-primary/15 px-1.5 text-xs font-normal text-primary-ink">
+              {t("changed", { was })}
+            </span>
+          )}
+        </p>
+        <p className="font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
+          {permission.id}
+          {permission.scope === "node" && ` · ${t("forumScope")}`}
+        </p>
+        {permission.help && (
+          <p className="text-xs text-pretty text-muted-foreground">
+            {permission.help}
+          </p>
+        )}
+        {permission.initial && (
+          <p className="text-xs text-muted-foreground">
+            {t("initial", { value: permission.initial })}
+          </p>
+        )}
+      </div>
+      {permission.type === "integer" ? (
+        <IntegerControl
+          permission={permission}
+          cell={cell}
+          onChange={onChange}
+        />
+      ) : (
+        <FlagControl
+          permission={permission}
+          cell={cell}
+          allowNo={allowNo}
+          onChange={onChange}
+        />
+      )}
+    </li>
   );
 }

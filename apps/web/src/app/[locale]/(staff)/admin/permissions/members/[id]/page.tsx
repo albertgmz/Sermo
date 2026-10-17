@@ -6,6 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
+import { staffTrail } from "../../../../trail";
 import { FormSkeleton } from "../../../groups/skeletons";
 import { entriesOf, getDefinitions, matrixPermissions } from "../../data";
 import { MatrixHead } from "../../matrix-head";
@@ -60,6 +61,9 @@ export default function PermissionMemberPage({
   const t = useTranslations("adminGroups.permissionMember");
   return (
     <ScreenFrame
+      trail={params.then(({ id }) =>
+        staffTrail(`/admin/permissions/members/${id}`),
+      )}
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
       label={t("loading")}

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { matrixChanges } from "./permission-entries";
+import { cellChanged, cellValue, matrixChanges } from "./permission-entries";
 
 const definitions = [
   { id: "a.flag", type: "flag", scope: "global" },
@@ -97,4 +97,19 @@ test("No is a state only where the caller allows it", () => {
   expect(
     matrixChanges(form({ "perm:a.flag": "no" }), definitions, true),
   ).toEqual({ changes: [{ permission: "a.flag", value: "no" }] });
+});
+
+test("a cell is read the same way by the matrix's counter and by the action", () => {
+  expect(cellValue("flag", "", null, false)).toBe("unset");
+  expect(cellValue("flag", "never", null, false)).toBe("never");
+  expect(cellValue("flag", "no", null, false)).toBeNull();
+  expect(cellValue("flag", "no", null, true)).toBe("no");
+  expect(cellValue("integer", "unlimited", null, false)).toBe(-1);
+  expect(cellValue("integer", "value", " 7 ", false)).toBe(7);
+  expect(cellValue("integer", "value", "", false)).toBeNull();
+  expect(cellValue("integer", "allow", null, false)).toBeNull();
+  expect(cellChanged("unset", "")).toBe(false);
+  expect(cellChanged("unset", "allow")).toBe(true);
+  expect(cellChanged(-1, "-1")).toBe(false);
+  expect(cellChanged(null, "")).toBe(true);
 });

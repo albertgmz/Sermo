@@ -132,7 +132,21 @@
     "forumScope": "forum permission",
     "initial": "Started as: {value}",
     "save": "Save permissions",
-    "unchanged": "Nothing to change."
+    "unchanged": "Nothing to change.",
+    "tabsLabel": "Kinds of permission",
+    "tabs": {
+      "general": "General permissions",
+      "moderation": "Moderation"
+    },
+    "bulkLabel": "Every yes/no permission in {scope}",
+    "allowAll": "Allow all",
+    "neverAll": "Never for all",
+    "clearAll": "Clear all (inherit)",
+    "bulkHelp": "These set every yes/no permission on this tab, and the buttons beside a category set those of the category. Limits and other numbers are left as they are. Nothing is saved until you save.",
+    "bulkHelpFiltered": "The filter is on: these also set the permissions it hides. Limits and other numbers are left as they are.",
+    "noMatch": "No permission on this tab matches “{query}”.",
+    "changedCount": "{count, plural, =0 {No changes} one {# change not saved} other {# changes not saved}}",
+    "changed": "Changed, was {was}"
   },
   "permissionGroups": {
     "metaTitle": "Group permissions",
@@ -142,7 +156,10 @@
     "heading": "Groups",
     "description": "Highest rank first.",
     "rank": "Rank {rank}",
-    "edit": "Permissions"
+    "empty": "There are no groups.",
+    "builtin": "Built in",
+    "staff": "Staff",
+    "editLabel": "Permissions of {group}"
   },
   "permissionGroup": {
     "metaTitle": "Permissions of a group",
@@ -193,8 +210,9 @@
     "setDescription": "Entries set directly on the forum; inherited ones are not listed.",
     "group": "Group",
     "member": "Member",
-    "edit": "Edit",
-    "analyse": "Analyse",
+    "editLabel": "Edit the entries of {target}",
+    "analyseLabel": "Analyse {target} on this forum",
+    "entriesOf": "Entries of {target}",
     "none": "Nothing is set directly on this forum.",
     "addGroup": "Add a group",
     "add": "Add",
@@ -206,7 +224,7 @@
     "subtitle": "Why a member has or lacks a permission, and which entries decided it.",
     "loading": "Loading…",
     "questionHeading": "Question",
-    "member": "Member:",
+    "member": "Member",
     "noMember": "none chosen",
     "memberPermissions": "Their permissions",
     "permission": "Permission",

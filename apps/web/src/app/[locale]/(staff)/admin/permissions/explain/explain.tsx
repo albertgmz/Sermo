@@ -6,6 +6,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { Field, FieldGroup } from "@/components/staff/edit-form";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -177,91 +178,86 @@ export async function Explain({
 
   return (
     <>
-      <section className="overflow-hidden rounded-lg border bg-card">
-        <form className="space-y-3 p-4">
-          <h2 className="text-sm font-semibold">{t("questionHeading")}</h2>
-          {member && <input type="hidden" name="user" value={member.id} />}
-          <p className="text-sm">
-            {t("member")}{" "}
-            <span className="font-medium">
-              {member ? member.username : t("noMember")}
-            </span>
-            {member && (
-              <Link
-                href={`/admin/permissions/members/${member.id}`}
-                className="ml-3 inline-flex min-h-10 items-center text-primary-ink underline-offset-4 hover:underline"
-              >
-                {t("memberPermissions")}
-              </Link>
-            )}
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="min-w-0 space-y-1">
-              <label
-                htmlFor="explain-permission"
-                className="text-sm font-medium"
-              >
-                {t("permission")}
-              </label>
-              <select
-                id="explain-permission"
-                name="permission"
-                required
-                defaultValue={chosen?.id ?? ""}
-                className={selectClass}
-              >
-                <option value="" disabled>
-                  {t("choosePermission")}
+      <form className="min-w-0">
+        {member && <input type="hidden" name="user" value={member.id} />}
+        <FieldGroup legend={t("questionHeading")}>
+          <Field name="user" label={t("member")}>
+            <p className="flex flex-wrap items-center gap-x-3 text-sm md:min-h-8">
+              <span className="font-medium [overflow-wrap:anywhere]">
+                {member ? member.username : t("noMember")}
+              </span>
+              {member && (
+                <Link
+                  href={`/admin/permissions/members/${member.id}`}
+                  className="inline-flex min-h-10 items-center text-primary-ink underline-offset-4 hover:underline md:min-h-8"
+                >
+                  {t("memberPermissions")}
+                </Link>
+              )}
+            </p>
+          </Field>
+          <Field
+            name="permission"
+            label={t("permission")}
+            htmlFor="explain-permission"
+          >
+            <select
+              id="explain-permission"
+              name="permission"
+              required
+              defaultValue={chosen?.id ?? ""}
+              className={selectClass}
+            >
+              <option value="" disabled>
+                {t("choosePermission")}
+              </option>
+              {[...new Set(definitions.map((entry) => entry.category))].map(
+                (category) => (
+                  <optgroup
+                    key={category}
+                    label={
+                      definitions.find((entry) => entry.category === category)
+                        ?.categoryTitle
+                    }
+                  >
+                    {definitions
+                      .filter((entry) => entry.category === category)
+                      .map((entry) => (
+                        <option key={entry.id} value={entry.id}>
+                          {entry.title} ({entry.id})
+                        </option>
+                      ))}
+                  </optgroup>
+                ),
+              )}
+            </select>
+          </Field>
+          <Field name="node" label={t("forum")} htmlFor="explain-node">
+            <select
+              id="explain-node"
+              name="node"
+              defaultValue={nodeId ?? ""}
+              className={selectClass}
+            >
+              <option value="">{t("noForum")}</option>
+              {nodes.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {"— ".repeat(entry.depth)}
+                  {entry.title}
                 </option>
-                {[...new Set(definitions.map((entry) => entry.category))].map(
-                  (category) => (
-                    <optgroup
-                      key={category}
-                      label={
-                        definitions.find((entry) => entry.category === category)
-                          ?.categoryTitle
-                      }
-                    >
-                      {definitions
-                        .filter((entry) => entry.category === category)
-                        .map((entry) => (
-                          <option key={entry.id} value={entry.id}>
-                            {entry.title} ({entry.id})
-                          </option>
-                        ))}
-                    </optgroup>
-                  ),
-                )}
-              </select>
-            </div>
-            <div className="min-w-0 space-y-1">
-              <label htmlFor="explain-node" className="text-sm font-medium">
-                {t("forum")}
-              </label>
-              <select
-                id="explain-node"
-                name="node"
-                defaultValue={nodeId ?? ""}
-                className={selectClass}
-              >
-                <option value="">{t("noForum")}</option>
-                {nodes.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {"— ".repeat(entry.depth)}
-                    {entry.title}
-                  </option>
-                ))}
-              </select>
-            </div>
+              ))}
+            </select>
+          </Field>
+          <div className="flex flex-wrap items-center gap-3 p-4">
+            <Button type="submit" disabled={!member} className="min-h-10 px-4">
+              {t("explain")}
+            </Button>
+            {!member && (
+              <p className="text-xs text-muted-foreground">{t("pickFirst")}</p>
+            )}
           </div>
-          <Button type="submit" disabled={!member} className="min-h-10 px-4">
-            {t("explain")}
-          </Button>
-          {!member && (
-            <p className="text-xs text-muted-foreground">{t("pickFirst")}</p>
-          )}
-        </form>
-      </section>
+        </FieldGroup>
+      </form>
       {answer}
       <MemberPicker
         query={first(params.q)}

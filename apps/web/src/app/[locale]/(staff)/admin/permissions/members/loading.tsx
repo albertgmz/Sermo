@@ -1,9 +1,10 @@
-import { ListSkeleton, LoadingPage } from "../../groups/skeletons";
+import { ListSkeleton } from "../../groups/skeletons";
+import { PermissionsLoading } from "../loading-page";
 
 export default function Loading() {
   return (
-    <LoadingPage>
+    <PermissionsLoading>
       <ListSkeleton rows={2} />
-    </LoadingPage>
+    </PermissionsLoading>
   );
 }

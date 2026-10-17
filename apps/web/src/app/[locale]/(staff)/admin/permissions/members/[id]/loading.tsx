@@ -1,9 +1,10 @@
-import { FormSkeleton, LoadingPage } from "../../../groups/skeletons";
+import { FormSkeleton } from "../../../groups/skeletons";
+import { PermissionsLoading } from "../../loading-page";
 
 export default function Loading() {
   return (
-    <LoadingPage>
+    <PermissionsLoading>
       <FormSkeleton rows={8} />
-    </LoadingPage>
+    </PermissionsLoading>
   );
 }

@@ -8,6 +8,7 @@ import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { hrefFor } from "../../../../registry";
+import { staffTrail } from "../../../../trail";
 import { getGroups } from "../../../groups/data";
 import { FormSkeleton } from "../../../groups/skeletons";
 import { entriesOf, getDefinitions, matrixPermissions } from "../../data";
@@ -70,6 +71,9 @@ export default function PermissionGroupPage({
   const t = useTranslations("adminGroups.permissionGroup");
   return (
     <ScreenFrame
+      trail={params.then(({ id }) =>
+        staffTrail(`/admin/permissions/groups/${id}`),
+      )}
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
       label={t("loading")}
