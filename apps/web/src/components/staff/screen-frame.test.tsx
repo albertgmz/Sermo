@@ -5,7 +5,7 @@ import { ScreenFrame } from "./screen-frame";
 
 const render = (node: React.ReactNode) => renderToStaticMarkup(withIntl(node));
 
-test("with a trail or actions the frame draws the page header, the content below it", () => {
+test("the frame draws the page header, the content below it", () => {
   const html = render(
     <ScreenFrame
       heading="Reaction types"
@@ -30,7 +30,7 @@ test("with a trail or actions the frame draws the page header, the content below
   );
 });
 
-test("without either it keeps the plain heading of the screens not moved yet", () => {
+test("without a trail it is the same page header, with no way up", () => {
   const html = render(
     <ScreenFrame
       heading="Tags"
@@ -42,8 +42,10 @@ test("without either it keeps the plain heading of the screens not moved yet", (
     </ScreenFrame>,
   );
   expect(html).toContain(
-    '<header><h1 class="text-2xl font-bold tracking-tight">Tags</h1>',
+    '<h1 class="text-2xl font-bold tracking-tight [overflow-wrap:anywhere]">Tags</h1>',
   );
+  expect(html).toContain("The tags on threads.");
   expect(html).not.toContain("<nav");
+  expect(html).not.toContain("Back to");
   expect(html).toContain("The list");
 });

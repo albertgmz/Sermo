@@ -64,19 +64,3 @@ export function FormSkeleton({ rows = 5 }: { rows?: number }) {
     </div>
   );
 }
-
-// The heading of a page: shown at once, while the page's content streams in below it.
-export function PageHead({
-  heading,
-  subtitle,
-}: {
-  heading: string;
-  subtitle?: string;
-}) {
-  return (
-    <header>
-      <h1 className="text-2xl font-bold tracking-tight">{heading}</h1>
-      {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
-    </header>
-  );
-}
