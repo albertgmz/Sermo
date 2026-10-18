@@ -1934,3 +1934,128 @@ test("a lookup the backend cannot answer is the page itself under 429 or 503, ne
   ownServer(undefined, { "/api/v1/seo/nodes/3": refusal(500, "internal") });
   passes(await ask("/forums/3-general"));
 });
+
+// The pages a guest reads may wait in the browser's back/forward cache; nothing else may.
+const GUEST_PAGES = {
+  "/api/v1/seo/threads/1": seoOf("http://localhost/threads/1-a", false),
+  "/api/v1/seo/nodes/2": seoOf("http://localhost/forums/2-b", false),
+  "/api/v1/seo/users/1": seoOf("http://localhost/members/1-nova", false),
+  "/api/v1/tags/x": Response.json({
+    name: "x",
+    redirect: false,
+    seo: { ...NODE.seo, canonical: "http://localhost/tags/x", redirect: false },
+  }),
+};
+const NAVIGATE = { "sec-fetch-mode": "navigate" };
+
+test("a guest's page load of a public page may be kept by the browser, never by a shared cache", async () => {
+  for (const path of [
+    "/",
+    "/?tab=latest",
+    "/threads/1-a",
+    "/threads/1-a?page=2",
+    "/forums",
+    "/forums/2-b",
+    "/members",
+    "/members/1-nova",
+    "/tags/x",
+  ]) {
+    reset();
+    backend({ ...GUEST_PAGES });
+    const response = await ask(path, { headers: NAVIGATE });
+    passes(response);
+    assert.equal(
+      response?.headers.get("cache-control"),
+      "private, no-cache",
+      path,
+    );
+  }
+});
+
+test("every other answer is left to Next's no-store", async () => {
+  const none = (response: Response | undefined, label: string) =>
+    assert.equal(response?.headers.get("cache-control") ?? null, null, label);
+  // Pages that are not public content: sign-in and settings, search, an editor.
+  for (const path of [
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+    "/data-saver",
+    "/cookies",
+    "/search?q=a",
+    "/threads/1-a/edit/2",
+    "/terms",
+  ]) {
+    reset();
+    backend({
+      ...GUEST_PAGES,
+      "/api/v1/pages/terms": Response.json(PAGE),
+    });
+    none(await ask(path, { headers: NAVIGATE }), path);
+  }
+  // A member's view of a public page, with either session cookie.
+  for (const cookie of [SESSION, SECURE_SESSION]) {
+    reset();
+    backend({ ...GUEST_PAGES });
+    const response = await ask("/threads/1-a", { cookie, headers: NAVIGATE });
+    passes(response);
+    none(response, cookie);
+  }
+  // A router fetch (prefetch or soft navigation) and an action's POST.
+  reset();
+  backend({ ...GUEST_PAGES });
+  none(
+    await ask("/threads/1-a", { headers: { "sec-fetch-mode": "cors" } }),
+    "router fetch",
+  );
+  none(
+    await ask("/threads/1-a", {
+      method: "POST",
+      headers: { ...NAVIGATE, "next-action": "abc" },
+    }),
+    "action",
+  );
+  // A missing record, rewritten or answered by the proxy itself (private, no-store).
+  reset();
+  backend({});
+  const missing = await ask("/threads/999-x", { headers: NAVIGATE });
+  isNotFound(missing);
+  none(missing, "404 rewrite");
+  await withOrigin(async () => {
+    ownServer();
+    const own404 = await ask("/threads/999-x", { headers: NAVIGATE });
+    assert.equal(own404?.status, 404);
+    assert.equal(own404?.headers.get("cache-control"), "private, no-store");
+  });
+  // A lookup that failed: the page under 503, or the page itself when this server cannot be asked.
+  await withOrigin(async () => {
+    ownServer(undefined, { "/api/v1/seo/threads/1": refusal(500, "internal") });
+    const failed = await ask("/threads/1-a", { headers: NAVIGATE });
+    assert.equal(failed?.status, 503);
+    assert.equal(failed?.headers.get("cache-control"), "private, no-store");
+  });
+  backend({ "/api/v1/seo/threads/1": refusal(500, "internal") });
+  const fallback = await ask("/threads/1-a", { headers: NAVIGATE });
+  passes(fallback);
+  none(fallback, "failed lookup, own request unavailable");
+  // A redirect to the page's current address.
+  backend({
+    "/api/v1/seo/threads/1": seoOf("http://localhost/threads/1-a", true),
+  });
+  const moved = await ask("/threads/1-old", { headers: NAVIGATE });
+  assert.equal(moved?.status, 308);
+  none(moved, "redirect");
+});
+
+test("a public page whose answer sets a cookie is not kept by the browser", async () => {
+  reset();
+  backend({ ...GUEST_PAGES });
+  const response = await ask("/forums", {
+    cookie: "forum_lite=1",
+    headers: NAVIGATE,
+  });
+  passes(response);
+  assert.ok(response?.headers.get("set-cookie")?.includes("forum_lite=all"));
+  assert.equal(response?.headers.get("cache-control"), null);
+});

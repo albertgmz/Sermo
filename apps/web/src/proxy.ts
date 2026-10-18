@@ -485,9 +485,9 @@ export async function proxy(request: NextRequest) {
         maxAge: 60 * 60 * 24 * 365,
       },
     );
-    return migrated;
+    return withoutGuestCache(migrated);
   }
-  return response;
+  return withoutGuestCache(response);
 }
 
 // What the placeholder of a blocked picture address says, in the visitor's language.
@@ -828,7 +828,41 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
       return unavailable(request, locale, security, found.unavailable);
     if (!found) return notFound(request, locale, security);
   }
-  return toPage(request, locale, security);
+  const response = toPage(request, locale, security);
+  // A guest's view of a public page may wait in the browser's back/forward cache, which Next's
+  // `no-store` forbids: it holds no member's data, `private` keeps every shared cache out, and a
+  // real navigation still fetches it afresh (Next sends no validator for a page drawn per request).
+  // Every other answer keeps Next's `no-store`: a member's pages, the sign-in, account and settings
+  // pages, the 404s and the pages whose lookup failed (answered above).
+  if (isPage && !hasSession && isPublicContent(section, id, action))
+    response.headers.set("Cache-Control", GUEST_PAGE_CACHE);
+  return response;
+}
+
+const GUEST_PAGE_CACHE = "private, no-cache";
+
+// The pages a guest reads the forum through: the home page, and threads, forums, members and tags
+// with their lists. Their sub-pages (an editor, the new-thread form) are not among them.
+const PUBLIC_CONTENT = ["threads", "forums", "members", "tags"];
+
+function isPublicContent(
+  section: string,
+  id: string | undefined,
+  action: string | undefined,
+) {
+  if (section === "") return id === undefined;
+  return PUBLIC_CONTENT.includes(section) && action === undefined;
+}
+
+// An answer that sets a cookie is the visitor's own (a referral, a replaced preference): the
+// browser keeps none of it.
+function withoutGuestCache(response: NextResponse | undefined) {
+  if (
+    response?.headers.get("cache-control") === GUEST_PAGE_CACHE &&
+    response.headers.has("set-cookie")
+  )
+    response.headers.delete("cache-control");
+  return response;
 }
 
 // Match before decoding, including image optimizer requests and file aliases.
