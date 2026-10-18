@@ -1,5 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
+import { DISCOVERY_LINKS } from "@/lib/discovery-links";
 import { forgetBanner } from "@/lib/sermo/banner";
 
 // The pages asked for here (the home page, the forum list, the register page) need no record, and
@@ -182,7 +183,8 @@ test("a member who is signed in is not given the cookie, but a stale one is stil
 
 test("a page reached through ?ref= gets no canonical header of its own", async () => {
   const response = await ask("/forums?ref=9", ACCEPTED);
-  expect(response?.headers.get("link")).toBeNull();
+  // The Link header names the site's files for crawlers and agents, nothing of the page.
+  expect(response?.headers.get("link")).toBe(DISCOVERY_LINKS);
 });
 
 const choice = (revision: number, ...categories: string[]) =>

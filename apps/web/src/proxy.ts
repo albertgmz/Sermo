@@ -27,6 +27,7 @@ import {
 } from "@/i18n/locales";
 import { CONSENT_COOKIE, REFERRAL_COOKIE } from "@/lib/consent/inventory";
 import { consentOf, mayStoreReferral, sendsGpc } from "@/lib/consent/state";
+import { DISCOVERY_LINKS } from "@/lib/discovery-links";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -700,11 +701,13 @@ async function handleRequest(request: NextRequest) {
   // The manifest, the service worker and the offline page are files of the installed app, not
   // pages of a language: they are served as they are.
   if (isPwaPath(request.nextUrl.pathname)) return;
-  // Every answer from here on carries the security headers; a page is also rendered with its nonce.
+  // Every answer from here on carries the security headers and the links to the site's files for
+  // crawlers and agents; a page is also rendered with its nonce.
   const security = await pageSecurity(request);
   const response = await pageResponse(request, security);
   for (const [name, value] of securityHeaders(security))
     response?.headers.set(name, value);
+  response?.headers.set("Link", DISCOVERY_LINKS);
   return response;
 }
 

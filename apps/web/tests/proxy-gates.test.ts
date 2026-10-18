@@ -2096,3 +2096,78 @@ test("a public page whose answer sets a cookie is not kept by the browser", asyn
   assert.ok(response?.headers.get("set-cookie")?.includes("forum_lite=all"));
   assert.equal(response?.headers.get("cache-control"), null);
 });
+
+// The links of a `Link` header (RFC 8288): each `<target>` with its parameters.
+function linksOf(response: Response | undefined) {
+  const value = response?.headers.get("link") ?? "";
+  return value.split(/,\s*(?=<)/).map((entry) => {
+    const [target, ...params] = entry.split(/;\s*/);
+    return [target, ...params.sort()].join("; ");
+  });
+}
+
+const DISCOVERY = [
+  '</sitemap.xml>; rel="sitemap"; type="application/xml"',
+  '</llms.txt>; rel="describedby"; type="text/plain"',
+  '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
+  '</feed.atom>; rel="alternate"; type="application/atom+xml"',
+];
+
+test("every answer of the proxy names the sitemap, llms.txt, the API catalog and the site feed in one Link header", async () => {
+  reset();
+  backend({
+    "/api/v1/seo/threads/7": seoOf("http://localhost/threads/7-news", false),
+    "/api/v1/seo/threads/9": seoOf("http://localhost/threads/7-news", true),
+  });
+  const answers: [string, Response | undefined][] = [
+    ["home", await ask("/")],
+    ["thread", await ask("/threads/7-news")],
+    ["redirect", await ask("/threads/9-old")],
+    ["missing thread", await ask("/threads/8-gone")],
+    ["no page", await ask("/this-does-not-exist-xyz")],
+    ["sign-in", await ask("/login")],
+    ["members-only redirect", await ask("/account")],
+    ["prefix redirect", await ask("/es/forums")],
+    [
+      "placeholder",
+      await ask("/pictures/tobi.jpg", { cookie: "forum_lite=all" }),
+    ],
+  ];
+  for (const [label, response] of answers)
+    assert.deepEqual(linksOf(response), DISCOVERY, label);
+  // A thread's own alternates stay in its head: the header is the same on every page.
+  assert.equal(
+    answers[1][1]?.headers.get("link"),
+    answers[0][1]?.headers.get("link"),
+  );
+  assert.equal(await ask("/api/v1/me"), undefined);
+  assert.equal(await ask("/_next/static/chunks/app.js"), undefined);
+});
+
+test("the 404, 429 and 503 pages the proxy answers itself carry the same Link header", async () => {
+  reset();
+  await withOrigin(async () => {
+    ownServer(
+      () =>
+        new Response("<html>a page</html>", {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      {
+        "/api/v1/seo/threads/7": refusal(429, "rate_limited"),
+        "/api/v1/seo/nodes/3": refusal(500, "internal"),
+      },
+    );
+    for (const [path, status] of [
+      ["/this-does-not-exist-xyz", 404],
+      ["/threads/8-gone", 404],
+      ["/threads/7-news", 429],
+      ["/forums/3-general", 503],
+    ] as const) {
+      const response = await ask(path, {
+        headers: { "sec-fetch-mode": "navigate" },
+      });
+      assert.equal(response?.status, status, path);
+      assert.deepEqual(linksOf(response), DISCOVERY, path);
+    }
+  });
+});
