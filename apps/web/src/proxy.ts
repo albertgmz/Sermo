@@ -543,9 +543,18 @@ async function ownAnswer(
         page.headers.get("content-type") ?? "text/html; charset=utf-8",
       // Drawn for this visitor: their session and their language.
       "cache-control": "private, no-store",
+      vary: LANGUAGE_VARY,
     },
   });
 }
+
+// What an answer in the visitor's language depends on: `localeOf` picks the language from the
+// language cookie, then the browser's `Accept-Language`. Only an answer the proxy writes itself
+// (the page loads of `ownAnswer`, the Data saver placeholder) can say so. On a page it lets
+// through, Next's render puts its own `Vary` in place of any the proxy set
+// (`res.setHeader('Vary', ...)` in next/dist/build/templates/app-page-runtime.js); those pages
+// are `private`, so no shared cache holds them.
+const LANGUAGE_VARY = "Cookie, Accept-Language";
 
 // The proxy's own request for a page carries this secret of the server process; nothing else can
 // know it, so a client that sends the header is answered as any other request.
@@ -714,6 +723,7 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
         headers: {
           "Content-Type": "image/svg+xml",
           "Cache-Control": "no-store",
+          Vary: LANGUAGE_VARY,
         },
       },
     );
@@ -873,10 +883,10 @@ function withoutGuestCache(response: NextResponse | undefined) {
 // of threads and forums, written as a class because the matcher's parser drops a backslash): they
 // are rewritten to it as they are, and a page of a language must not take their place. So are the OpenSearch description and the share
 // cards (`/og/...`), files of the web app outside the language segment (app/opensearch.xml, app/og),
-// and so are the GPC support resource (app/.well-known/gpc.json) and the sign-out route
-// (app/sign-out, a POST that answers a redirect).
+// and so are the GPC support resource (app/.well-known/gpc.json), the sign-out route
+// (app/sign-out) and the language route (app/language), POSTs that answer a redirect.
 export const config = {
   matcher: [
-    "/((?!account/picture$|threads/[0-9]+/uploads$|attachments$|admin/uploads$|[^/]+\\.txt$|sitemap\\.xml$|sitemaps/[^/]+$|feed\\.atom$|(?:forums|nodes)/[^/]+/feed\\.atom$|(?:threads|forums)/[^/]+[.]md$|mcp$|health$|opensearch\\.xml$|og/|\\.well-known/gpc\\.json$|sign-out$).*)",
+    "/((?!account/picture$|threads/[0-9]+/uploads$|attachments$|admin/uploads$|[^/]+\\.txt$|sitemap\\.xml$|sitemaps/[^/]+$|feed\\.atom$|(?:forums|nodes)/[^/]+/feed\\.atom$|(?:threads|forums)/[^/]+[.]md$|mcp$|health$|opensearch\\.xml$|og/|\\.well-known/gpc\\.json$|sign-out$|language$).*)",
   ],
 };

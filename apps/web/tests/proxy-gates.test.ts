@@ -1935,6 +1935,43 @@ test("a lookup the backend cannot answer is the page itself under 429 or 503, ne
   passes(await ask("/forums/3-general"));
 });
 
+test("an answer the proxy writes in the visitor's language says it depends on the language cookie and the browser's language", async () => {
+  reset();
+  const navigate = { "sec-fetch-mode": "navigate", "accept-language": "es" };
+  await withOrigin(async () => {
+    ownServer(undefined, { "/api/v1/seo/nodes/3": refusal(500, "internal") });
+    for (const [path, status] of [
+      ["/this-does-not-exist-xyz", 404],
+      ["/forums/3-general", 503],
+    ] as const) {
+      const response = await ask(path, { headers: navigate });
+      assert.equal(response?.status, status, path);
+      assert.equal(
+        response?.headers.get("vary"),
+        "Cookie, Accept-Language",
+        path,
+      );
+    }
+  });
+  // The Data saver placeholder is written in the language too.
+  const placeholder = await ask("/pictures/tobi.jpg", {
+    cookie: "forum_lite=all; forum_locale=es",
+  });
+  assert.equal(placeholder?.headers.get("vary"), "Cookie, Accept-Language");
+  // A page the proxy lets through gets its `Vary` from Next's render, which replaces any set here,
+  // so none is set; nor on a redirect. The icon keeps its own.
+  for (const path of ["/forums", "/es/forums", "/account"])
+    assert.equal((await ask(path))?.headers.get("vary"), null, path);
+  assert.equal((await ask("/favicon.ico"))?.headers.get("vary"), "Cookie");
+});
+
+test("the language route is left to its own handler", () => {
+  const matcher = new RegExp(`^${config.matcher[0]}$`);
+  assert.equal(matcher.test("/language"), false);
+  assert.equal(matcher.test("/languages"), true);
+  assert.equal(matcher.test("/threads/1/language"), true);
+});
+
 // The pages a guest reads may wait in the browser's back/forward cache; nothing else may.
 const GUEST_PAGES = {
   "/api/v1/seo/threads/1": seoOf("http://localhost/threads/1-a", false),
