@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { robotsTxt } from ".";
 
-const BODY = robotsTxt("https://forum.example.test");
+// The site as it ships (training allowed), named here so the default in robots.ts can change.
+const BODY = robotsTxt("https://forum.example.test", true);
 
 type Group = { agents: string[]; rules: { allow: boolean; path: string }[]; lines: string[] };
 
@@ -199,7 +200,7 @@ test("the sitemap line names the site's own sitemap, once, outside the groups", 
     "Sitemap: https://forum.example.test/sitemap.xml",
   ]);
   expect(BODY.endsWith("\n\nSitemap: https://forum.example.test/sitemap.xml\n")).toBe(true);
-  expect(robotsTxt("https://other.example/")).toContain(
+  expect(robotsTxt("https://other.example/", true)).toContain(
     "Sitemap: https://other.example/sitemap.xml\n",
   );
 });
