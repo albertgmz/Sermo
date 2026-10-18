@@ -40,6 +40,8 @@ const BACKEND = [
   "/forums/2.md",
   "/mcp",
   "/health",
+  "/.well-known/security.txt",
+  "/.well-known/api-catalog",
   "/0f3c9a1e.txt",
 ];
 
@@ -134,6 +136,26 @@ test("the proxy does not run for the share cards, files of the web app", () => {
   }
   // A page whose address only starts the same way is still a page.
   expect(proxyRuns("/ogham")).toBe(true);
+});
+
+// The backend's `/.well-known/` files are rewritten by name: the web app answers the rest there
+// itself (app/.well-known), outside the language segment.
+test("the web app's /.well-known addresses are not rewritten, and the proxy does not run for them", () => {
+  for (const path of [
+    "/.well-known",
+    "/.well-known/gpc.json",
+    "/.well-known/change-password",
+    "/.well-known/not-published",
+    "/.well-known/security.txt/x",
+  ]) {
+    expect({ path, source: rewriteOf(path) }).toEqual({
+      path,
+      source: undefined,
+    });
+    expect({ path, runs: proxyRuns(path) }).toEqual({ path, runs: false });
+  }
+  // An address that only starts the same way is still a page.
+  expect(proxyRuns("/.well-knownish")).toBe(true);
 });
 
 // A path added to the rewrites and not to the matcher would be rewritten into `[locale]` by the

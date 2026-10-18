@@ -6,7 +6,8 @@ const withNextIntl = createNextIntlPlugin();
 // What the backend serves at the site's own address besides the API (the paths the Caddyfile sends
 // to it): the files for crawlers and agents, the feeds, the MCP endpoint and the health check. The
 // proxy's matcher (src/proxy.ts) leaves the same paths out, and tests/backend-paths.test.ts keeps
-// the two in step. A `/.well-known/` file the backend serves is added to both.
+// the two in step. A `/.well-known/` file the backend serves is listed here by its own name (a
+// pattern would take the web app's files there too); the matcher leaves all of `/.well-known` out.
 const BACKEND_PATHS = [
   "/robots.txt",
   "/llms.txt",
@@ -20,6 +21,8 @@ const BACKEND_PATHS = [
   "/forums/:name.md",
   "/mcp",
   "/health",
+  "/.well-known/security.txt",
+  "/.well-known/api-catalog",
   // The IndexNow key file, `/<key>.txt`.
   "/:key.txt",
 ];
