@@ -1,5 +1,6 @@
 import {
   type Actor,
+  apiCatalog,
   atomFeed,
   CLIENT_IP_HEADER,
   type Ctx,
@@ -17,6 +18,7 @@ import {
   robotsTxt,
   SermoError,
   type StorageConfig,
+  securityTxt,
   setLocationHeaders,
   sitemapIndex,
   sitemapShard,
@@ -367,6 +369,20 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     if (id === null) return c.json(errorBody("not_found", "Unknown page."), 404);
     return markdown(c, forumMarkdown(ctx, siteURL, id, `/forums/${name.slice(0, -3)}`));
   });
+  // The other /.well-known files are the web app's (the GPC resource, the change-password
+  // redirect); it answers every other /.well-known path with a plain 404.
+  app.get("/.well-known/security.txt", (c) => {
+    const body = securityTxt(ctx, siteURL);
+    if (body === null) return c.text("Not found.\n", 404);
+    return c.text(body, 200, { "content-type": "text/plain; charset=utf-8" });
+  });
+  app.get("/.well-known/api-catalog", (c) =>
+    c.body(JSON.stringify(apiCatalog(siteURL)), 200, {
+      "content-type": 'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
+      // RFC 9727 section 2: a HEAD of the catalog answers this link, so GET sends it too.
+      link: '</.well-known/api-catalog>; rel="api-catalog"',
+    }),
+  );
   app.get("/sitemap.xml", (c) =>
     c.text(sitemapIndex(ctx, siteURL), 200, { "content-type": "application/xml; charset=utf-8" }),
   );

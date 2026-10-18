@@ -63,6 +63,7 @@ export {
   setLocationHeaders,
 } from "./modules/security";
 export {
+  apiCatalog,
   atomFeed,
   forumMarkdown,
   llmsFullTxt,
@@ -71,6 +72,7 @@ export {
   queueSeoEvents,
   registerSeoJobs,
   robotsTxt,
+  securityTxt,
   sitemapIndex,
   sitemapShard,
   threadMarkdown,
