@@ -8,6 +8,7 @@ import {
   serializeLiteCookie,
 } from "@/lib/lite-preferences";
 import { commitLiteValue, liteReloadKey } from "@/lib/lite-sync";
+import { pageChannel } from "@/lib/page-channel";
 
 const attempted = new Set<string>();
 const reloadStorageKey = `${LITE_COOKIE}:reloads`;
@@ -15,10 +16,15 @@ const reloadStorageKey = `${LITE_COOKIE}:reloads`;
 export function LiteModeSync({ cookieValue }: { cookieValue: string }) {
   useEffect(() => {
     const rendered = serializeLiteCookie(parseLiteCookie(cookieValue));
-    const channel =
-      typeof BroadcastChannel === "undefined"
-        ? null
-        : new BroadcastChannel(LITE_COOKIE);
+    const channel = pageChannel(
+      () =>
+        typeof BroadcastChannel === "undefined"
+          ? null
+          : new BroadcastChannel(LITE_COOKIE),
+      () => {
+        check();
+      },
+    );
     try {
       const saved: unknown = JSON.parse(
         sessionStorage.getItem(reloadStorageKey) ?? "[]",
@@ -59,12 +65,8 @@ export function LiteModeSync({ cookieValue }: { cookieValue: string }) {
     function onVisible() {
       if (document.visibilityState === "visible") check();
     }
-    if (channel)
-      channel.onmessage = () => {
-        check();
-      };
     // Only a matching server render announces a committed preference.
-    if (check()) channel?.postMessage(rendered);
+    if (check()) channel.post(rendered);
     window.addEventListener("pageshow", check);
     window.addEventListener("popstate", check);
     window.addEventListener("focus", check);
@@ -74,7 +76,7 @@ export function LiteModeSync({ cookieValue }: { cookieValue: string }) {
       window.removeEventListener("popstate", check);
       window.removeEventListener("focus", check);
       document.removeEventListener("visibilitychange", onVisible);
-      channel?.close();
+      channel.close();
     };
   }, [cookieValue]);
   return null;

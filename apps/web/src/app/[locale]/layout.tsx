@@ -11,6 +11,7 @@ import { EmbedLoader } from "@/components/layout/embed-loader";
 import { widthScript } from "@/components/layout/narrow-width";
 import { QueryProvider } from "@/components/layout/query-provider";
 import { SiteIcon } from "@/components/layout/site-icon";
+import { SpeculationRulesScript } from "@/components/layout/speculation-rules";
 import { themeScript } from "@/components/layout/theme";
 import { WorkerRegistration } from "@/components/layout/worker-registration";
 import { pickClientMessages, ROOT_NAMESPACES } from "@/i18n/client-messages";
@@ -90,6 +91,7 @@ export default async function RootLayout({
           // biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input
           dangerouslySetInnerHTML={{ __html: themeScript }}
         />
+        <SpeculationRulesScript nonce={nonce} />
         <link
           rel="search"
           type="application/opensearchdescription+xml"

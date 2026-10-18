@@ -232,7 +232,9 @@ test("every Art use explicitly supplies a registered category", () => {
 test("tab sync broadcasts committed changes and the member card resets with them", () => {
   const sync = read("src/components/layout/lite-mode-sync.tsx");
   expect(sync).toContain("new BroadcastChannel(");
-  expect(sync).toContain("channel?.postMessage(");
+  // Closed while the page sits in the back/forward cache (lib/page-channel.ts).
+  expect(sync).toContain("const channel = pageChannel(");
+  expect(sync).toContain("channel.post(rendered)");
   expect(sync).toContain('addEventListener("focus", check)');
   const card = read("src/components/forum/member-card-trigger.tsx");
   expect(card).toContain("useSyncExternalStore(");
