@@ -82,7 +82,8 @@ type Finder = (
 const isId = (id: string) => parseId(id) !== null;
 
 // Asks the backend as the visitor. Only its "not found" is a missing record; any other answer,
-// an outage included, lets the request through so the page can show its own error.
+// an outage included, lets the request through so the page can show its own error (under the
+// status `lookupFailure` gives a throttled visitor or a failing backend).
 async function exists(
   request: NextRequest,
   ask: (forward: Forward) => Promise<unknown>,
@@ -91,8 +92,28 @@ async function exists(
     await ask(forwardFromHeaders(request.headers));
     return true;
   } catch (error) {
-    return !(error instanceof SermoError && error.code === "not_found");
+    return lookupFailure(error, (refusal) => refusal.code === "not_found");
   }
+}
+
+// The backend could not say whether the record exists: the page goes on, under this status.
+type Unavailable = { unavailable: 429 | 503 };
+
+const isUnavailable = (found: unknown): found is Unavailable =>
+  typeof found === "object" && found !== null && "unavailable" in found;
+
+// What a failed lookup means: false for a missing record, the status for a backend that throttles
+// the visitor (429) or fails (5xx; one that cannot be reached is a 500 too), true for anything else
+// (the page shows its own refusal).
+function lookupFailure(
+  error: unknown,
+  missing: (refusal: SermoError) => boolean,
+): boolean | Unavailable {
+  if (!(error instanceof SermoError)) return true;
+  if (missing(error)) return false;
+  if (error.status === 429) return { unavailable: 429 };
+  if (error.status >= 500) return { unavailable: 503 };
+  return true;
 }
 
 const backend =
@@ -145,7 +166,7 @@ function seoPage(
       if (action === undefined) target.search = request.nextUrl.search;
       return NextResponse.redirect(target, 308);
     } catch (error) {
-      return !(error instanceof SermoError && error.code === "not_found");
+      return lookupFailure(error, (refusal) => refusal.code === "not_found");
     }
   };
 }
@@ -172,9 +193,9 @@ const postPage: Finder = async (raw, action, request) => {
     response.headers.set("cache-control", "private, no-store");
     return response;
   } catch (error) {
-    return !(
-      error instanceof SermoError &&
-      (error.code === "not_found" || error.code === "forbidden")
+    return lookupFailure(
+      error,
+      (refusal) => refusal.code === "not_found" || refusal.code === "forbidden",
     );
   }
 };
@@ -220,7 +241,7 @@ async function tagPage(name: string, request: NextRequest) {
     target.search = request.nextUrl.search;
     return NextResponse.redirect(target, 308);
   } catch (error) {
-    return !(error instanceof SermoError && error.code === "not_found");
+    return lookupFailure(error, (refusal) => refusal.code === "not_found");
   }
 }
 
@@ -322,13 +343,39 @@ function pageHeaders(request: NextRequest, security: PageSecurity) {
 // Lets the request go on to a page, in the visitor's language. Only a read of the page (GET,
 // HEAD) carries the path; an action's POST does not.
 function toPage(request: NextRequest, locale: Locale, security: PageSecurity) {
+  const response = NextResponse.rewrite(inLocale(request, locale), {
+    request: { headers: pageRequestHeaders(request, security) },
+  });
+  return response;
+}
+
+function pageRequestHeaders(request: NextRequest, security: PageSecurity) {
   const headers = pageHeaders(request, security);
   if (request.method === "GET" || request.method === "HEAD")
     headers.set(PATH_HEADER, request.nextUrl.pathname + request.nextUrl.search);
-  const response = NextResponse.rewrite(inLocale(request, locale), {
-    request: { headers },
-  });
-  return response;
+  return headers;
+}
+
+// A page whose record the backend could not look up: it throttles the visitor (429) or fails
+// (5xx; a backend that cannot be reached is a 500 too). The page is still drawn, with its own
+// error where its reads fail, but a page load is answered with the status that says so: 429 for
+// the visitor's throttling, 503 for the rest, so a crawler comes back instead of taking an error
+// screen for the page.
+async function unavailable(
+  request: NextRequest,
+  locale: Locale,
+  security: PageSecurity,
+  status: 429 | 503,
+) {
+  const target = inLocale(request, locale);
+  return (
+    (await ownAnswer(
+      request,
+      target.pathname + target.search,
+      pageRequestHeaders(request, security),
+      status,
+    )) ?? toPage(request, locale, security)
+  );
 }
 
 // An address that names the hidden segment (`/es/threads/1`) is no address of the site: it goes
@@ -413,7 +460,7 @@ async function withReferral(
 }
 
 export async function proxy(request: NextRequest) {
-  const own = ownNotFoundRender(request);
+  const own = ownRender(request);
   if (own) return own;
   const response = await withReferral(request, await handleRequest(request));
   // Old installations set an HttpOnly preference. Replace it so tab sync can
@@ -448,48 +495,69 @@ const PLACEHOLDER_LABEL: Record<Locale, string> = {
 
 // The 404 page of the visitor's language. Every page is built as a partial prerender whose stored
 // answer says 200, and Next serves a page with that status whatever a rewrite asked for; only an
-// answer the proxy writes itself keeps its status. So a page load (the answer a visitor, a crawler
-// or a checker reads) gets the page from this server, asked as the visitor with this response's
-// nonce, and is answered with it as a 404. Any other request (a router fetch, which keeps the
-// rewrite's status, or an action's POST) is rewritten to the page; so is a page load when this
-// server cannot be asked.
+// answer the proxy writes itself keeps its status (see `ownAnswer`). Any other request (a router
+// fetch, which keeps the rewrite's status, or an action's POST) is rewritten to the page; so is a
+// page load when this server cannot be asked.
 async function notFound(
   request: NextRequest,
   locale: Locale,
   security: PageSecurity,
 ) {
   const headers = pageHeaders(request, security);
+  return (
+    (await ownAnswer(request, `/${locale}/not-found`, headers, 404)) ??
+    NextResponse.rewrite(new URL(`/${locale}/not-found`, request.url), {
+      status: 404,
+      request: { headers },
+    })
+  );
+}
+
+// A page load (the answer a visitor, a crawler or a checker reads) answered with a status of the
+// proxy's own: the page is asked of this server as the visitor, with this response's nonce, and
+// passed on under that status. Undefined for any other request, or when this server cannot be
+// asked.
+async function ownAnswer(
+  request: NextRequest,
+  path: string,
+  headers: Headers,
+  status: number,
+) {
+  if (!isDocumentRequest(request)) return undefined;
   const origin = process.env.__NEXT_PRIVATE_ORIGIN;
-  if (origin && isDocumentRequest(request)) {
-    const page = await notFoundPage(
-      new URL(`/${locale}/not-found`, origin),
-      headers,
-    );
-    if (page) {
-      return new NextResponse(request.method === "HEAD" ? null : page.body, {
-        status: 404,
-        headers: {
-          "content-type":
-            page.headers.get("content-type") ?? "text/html; charset=utf-8",
-          // Drawn for this visitor: their session and their language.
-          "cache-control": "private, no-store",
-        },
-      });
-    }
+  if (!origin) {
+    if (process.env.NODE_ENV === "production")
+      warnUnreachable("the server's own address is not set");
+    return undefined;
   }
-  return NextResponse.rewrite(new URL(`/${locale}/not-found`, request.url), {
-    status: 404,
-    request: { headers },
+  const page = await ownPage(new URL(path, origin), headers, request.signal);
+  if (!page) return undefined;
+  if (request.method === "HEAD") await discard(page);
+  return new NextResponse(request.method === "HEAD" ? null : page.body, {
+    status,
+    headers: {
+      "content-type":
+        page.headers.get("content-type") ?? "text/html; charset=utf-8",
+      // Drawn for this visitor: their session and their language.
+      "cache-control": "private, no-store",
+    },
   });
 }
 
-// The proxy's own request for the 404 page carries this secret of the server process; nothing
-// else can know it, so a client that sends the header is answered as any other request.
-const OWN_REQUEST_HEADER = "x-sermo-not-found";
+// The proxy's own request for a page carries this secret of the server process; nothing else can
+// know it, so a client that sends the header is answered as any other request.
+const OWN_REQUEST_HEADER = "x-sermo-own-request";
 const OWN_REQUEST_SECRET = crypto.randomUUID();
 
-// Headers that describe one connection or one encoding, not the request: the server's own fetch
-// sets its own.
+// How long the proxy waits for its own request's answer to begin. The page's first bytes come as
+// soon as the root layout has the site (kept in a shared cache), the messages and the nonce:
+// milliseconds when the server is well. Five seconds means the server is stuck, and the visitor
+// is better served by the fallback than by a longer wait. Once the page streams, only the
+// visitor's leaving stops it.
+const OWN_REQUEST_TIMEOUT_MS = 5_000;
+
+// Headers that describe one connection, not the request: the server's own fetch sets its own (it
+// also asks for its own encoding and decodes the answer).
 const HOP_HEADERS = [
   "connection",
   "content-length",
@@ -504,26 +572,56 @@ const HOP_HEADERS = [
   "accept-encoding",
 ];
 
-async function notFoundPage(url: URL, forwarded: Headers) {
+async function ownPage(url: URL, forwarded: Headers, visitor: AbortSignal) {
   const headers = new Headers(forwarded);
   for (const name of HOP_HEADERS) headers.delete(name);
   headers.set(OWN_REQUEST_HEADER, OWN_REQUEST_SECRET);
+  const timeout = new AbortController();
+  const timer = setTimeout(
+    () => timeout.abort(new Error("no answer in time")),
+    OWN_REQUEST_TIMEOUT_MS,
+  );
   try {
     const page = await fetch(url, {
       headers,
       redirect: "manual",
       cache: "no-store",
+      // A visitor who leaves stops the page drawn for them.
+      signal: AbortSignal.any([visitor, timeout.signal]),
     });
     // Next answers the page with the 200 it stored, or with a 404 where it has nothing stored.
-    return page.ok || page.status === 404 ? page : undefined;
-  } catch {
+    if (page.ok || page.status === 404) return page;
+    await discard(page);
     return undefined;
+  } catch (error) {
+    if (!visitor.aborted)
+      warnUnreachable(
+        `${url.origin} did not answer: ${timeout.signal.aborted ? "no answer in time" : error instanceof Error ? error.name : "error"}`,
+      );
+    return undefined;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-// The proxy's own request for the 404 page goes straight to it, with the nonce and the policy it
-// was sent with (those of the answer that will carry the page).
-function ownNotFoundRender(request: NextRequest) {
+// An answer that is not passed on still holds its connection until its body is read or cancelled.
+async function discard(page: Response) {
+  await page.body?.cancel().catch(() => {});
+}
+
+// Said once per server process: from then on a missing page is answered with the 200 Next stored.
+let warnedUnreachable = false;
+function warnUnreachable(reason: string) {
+  if (warnedUnreachable) return;
+  warnedUnreachable = true;
+  console.warn(
+    `The proxy could not ask this server for its own pages (${reason}); missing and unavailable pages are answered with a 200 while it cannot.`,
+  );
+}
+
+// The proxy's own request for a page goes straight to it, with the nonce and the policy it was
+// sent with (those of the answer that will carry the page).
+function ownRender(request: NextRequest) {
   if (request.headers.get(OWN_REQUEST_HEADER) !== OWN_REQUEST_SECRET)
     return undefined;
   const headers = new Headers(request.headers);
@@ -700,19 +798,21 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
   if (isPage && section === "tags" && id && action === undefined) {
     const found = await tagPage(id, request);
     if (found instanceof NextResponse) return found;
+    if (isUnavailable(found))
+      return unavailable(request, locale, security, found.unavailable);
     if (!found) return notFound(request, locale, security);
   }
   const slug = isPage ? staticSlug(section, id, action) : undefined;
   if (slug !== undefined) {
     const parsed = PageSlug.safeParse(slug);
-    if (
-      !parsed.success ||
-      !(await exists(request, (forward) =>
+    const found =
+      parsed.success &&
+      (await exists(request, (forward) =>
         callWith(forward, pagesGet, { slug: parsed.data }),
-      ))
-    ) {
-      return notFound(request, locale, security);
-    }
+      ));
+    if (isUnavailable(found))
+      return unavailable(request, locale, security, found.unavailable);
+    if (!found) return notFound(request, locale, security);
   }
   const find =
     isPage && id && !(section === "conversations" && id === "new")
@@ -721,6 +821,8 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
   if (find) {
     const found = await find(id, action, request);
     if (found instanceof NextResponse) return found;
+    if (isUnavailable(found))
+      return unavailable(request, locale, security, found.unavailable);
     if (!found) return notFound(request, locale, security);
   }
   return toPage(request, locale, security);

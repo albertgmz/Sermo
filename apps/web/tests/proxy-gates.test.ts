@@ -1,4 +1,4 @@
-import { afterEach, mock, test } from "bun:test";
+import { afterEach, jest, mock, spyOn, test } from "bun:test";
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -1576,6 +1576,8 @@ function ownServer(
     new Response("<html>not found</html>", {
       headers: { "content-type": "text/html; charset=utf-8" },
     }),
+  // The backend's answers by path; a missing entry is its not_found.
+  backendAnswers: Record<string, Response | "down"> = {},
 ) {
   const asked: Asked[] = [];
   globalThis.fetch = (async (input: string | URL, init: RequestInit) => {
@@ -1586,7 +1588,9 @@ function ownServer(
       headers: new Headers(init.headers),
     });
     if (url.origin === "http://127.0.0.1:4999") return answer();
-    return refusal(404, "not_found");
+    const api = backendAnswers[url.pathname];
+    if (api === "down") throw new TypeError("fetch failed");
+    return api ?? refusal(404, "not_found");
   }) as unknown as typeof fetch;
   return asked;
 }
@@ -1636,7 +1640,7 @@ test("a page load of an address no page has is answered by the proxy itself, as 
     assert.equal(page.headers.get("accept-encoding"), null);
 
     // That request reaches the page as it was sent: no new nonce, no redirect, no second fetch.
-    const secret = page.headers.get("x-sermo-not-found");
+    const secret = page.headers.get("x-sermo-own-request");
     assert.ok(secret);
     const inner = await proxy(
       new NextRequest(page.url, { headers: page.headers }),
@@ -1644,7 +1648,7 @@ test("a page load of an address no page has is answered by the proxy itself, as 
     assert.equal(inner?.headers.get("x-middleware-next"), "1");
     assert.equal(forwarded(inner, "x-nonce"), nonce);
     assert.equal(forwarded(inner, "content-security-policy"), policy);
-    assert.equal(forwarded(inner, "x-sermo-not-found"), null);
+    assert.equal(forwarded(inner, "x-sermo-own-request"), null);
     assert.equal(own(asked).length, 1);
   });
 });
@@ -1668,15 +1672,15 @@ test("a client cannot pass for the proxy's own request", async () => {
   await withOrigin(async () => {
     const asked = ownServer();
     const forged = await ask("/en/not-found", {
-      headers: { "x-sermo-not-found": "guess", "x-nonce": "forged" },
+      headers: { "x-sermo-own-request": "guess", "x-nonce": "forged" },
     });
     assert.equal(forged?.status, 308);
     const page = await ask("/not-found", {
-      headers: { "x-sermo-not-found": "guess", "x-nonce": "forged" },
+      headers: { "x-sermo-own-request": "guess", "x-nonce": "forged" },
     });
     assert.equal(page?.status, 404);
     const [own404] = own(asked);
-    assert.notEqual(own404.headers.get("x-sermo-not-found"), "guess");
+    assert.notEqual(own404.headers.get("x-sermo-own-request"), "guess");
     assert.notEqual(own404.headers.get("x-nonce"), "forged");
   });
 });
@@ -1744,4 +1748,189 @@ test("no route outside the language segment is answered with the 404", async () 
       assert.equal(rewriteOf(response) ?? null, null, `${method} ${path}`);
     }
   }
+});
+
+// An inner answer whose body says when it was cancelled.
+function trackedPage(status = 200) {
+  const state = { cancelled: false };
+  const body = new ReadableStream({
+    pull(controller) {
+      controller.enqueue(new TextEncoder().encode("<html>"));
+    },
+    cancel() {
+      state.cancelled = true;
+    },
+  });
+  const response = new Response(body, {
+    status,
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+  return { response, state };
+}
+
+test("an inner answer that is not passed on has its body cancelled: a HEAD, a failure, a redirect", async () => {
+  reset();
+  for (const [status, method, expected] of [
+    [200, "HEAD", 404],
+    [500, "GET", 404],
+    [308, "GET", 404],
+  ] as const) {
+    await withOrigin(async () => {
+      const { response, state } = trackedPage(status);
+      ownServer(() => response);
+      const answer = await ask("/this-does-not-exist-xyz", { method });
+      assert.equal(answer?.status, expected, `${status} ${method}`);
+      assert.equal(state.cancelled, true, `${status} ${method}`);
+    });
+  }
+  // A body that is passed on is not cancelled.
+  await withOrigin(async () => {
+    const { response, state } = trackedPage();
+    ownServer(() => response);
+    const answer = await ask("/this-does-not-exist-xyz");
+    assert.equal(answer?.status, 404);
+    assert.ok(answer?.body);
+    assert.equal(state.cancelled, false);
+  });
+});
+
+// A server that only ever answers when its request is aborted, and says so.
+function hangingServer() {
+  const seen: { signal?: AbortSignal; called: Promise<void> } = {
+    called: Promise.resolve(),
+  };
+  let called = () => {};
+  seen.called = new Promise((resolve) => {
+    called = resolve;
+  });
+  globalThis.fetch = ((_input: string | URL, init: RequestInit) => {
+    seen.signal = init.signal ?? undefined;
+    called();
+    return new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () =>
+        reject(init.signal?.reason ?? new Error("aborted")),
+      );
+    });
+  }) as unknown as typeof fetch;
+  return seen;
+}
+
+test("the inner request gives up after five seconds, and when the visitor leaves; both fall back to the rewrite", async () => {
+  reset();
+  await withOrigin(async () => {
+    jest.useFakeTimers();
+    try {
+      const seen = hangingServer();
+      const pending = ask("/this-does-not-exist-xyz");
+      await seen.called;
+      jest.advanceTimersByTime(4_999);
+      assert.equal(seen.signal?.aborted, false);
+      jest.advanceTimersByTime(1);
+      isNotFound(await pending);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+  await withOrigin(async () => {
+    const seen = hangingServer();
+    const visitor = new AbortController();
+    const pending = proxy(
+      new NextRequest("http://localhost/this-does-not-exist-xyz", {
+        signal: visitor.signal,
+      }),
+    );
+    await seen.called;
+    assert.equal(seen.signal?.aborted, false);
+    visitor.abort();
+    assert.equal(seen.signal?.aborted, true);
+    isNotFound(await pending);
+  });
+});
+
+test("the fallback is told once per process, naming the address and no secret", async () => {
+  reset();
+  const copy = "../src/proxy.ts?warn";
+  const fresh = (await import(copy)) as typeof import("../src/proxy");
+  const warn = spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    await withOrigin(async () => {
+      const asked = ownServer(() =>
+        Promise.reject(new TypeError("fetch failed")),
+      );
+      for (let i = 0; i < 2; i += 1)
+        await fresh.proxy(
+          new NextRequest("http://localhost/this-does-not-exist-xyz"),
+        );
+      assert.equal(warn.mock.calls.length, 1);
+      const message = String(warn.mock.calls[0][0]);
+      assert.ok(message.includes("http://127.0.0.1:4999"));
+      const secret = own(asked)[0].headers.get("x-sermo-own-request");
+      assert.ok(secret && !message.includes(secret));
+    });
+  } finally {
+    warn.mockRestore();
+  }
+});
+
+test("a lookup the backend cannot answer is the page itself under 429 or 503, never a 404", async () => {
+  reset();
+  for (const [path, api, status] of [
+    [
+      "/threads/7-news",
+      { "/api/v1/seo/threads/7": refusal(429, "rate_limited") },
+      429,
+    ],
+    [
+      "/forums/3-general",
+      { "/api/v1/seo/nodes/3": refusal(500, "internal") },
+      503,
+    ],
+    [
+      "/members/5-ann",
+      { "/api/v1/seo/users/5": refusal(502, "internal") },
+      503,
+    ],
+    ["/tags/news", { "/api/v1/tags/news": "down" }, 503],
+    ["/terms", { "/api/v1/pages/terms": refusal(503, "internal") }, 503],
+    ["/awards/2", { "/api/v1/awards/2": refusal(429, "rate_limited") }, 429],
+  ] as const) {
+    await withOrigin(async () => {
+      const asked = ownServer(
+        () =>
+          new Response("<html>the page</html>", {
+            headers: { "content-type": "text/html; charset=utf-8" },
+          }),
+        api,
+      );
+      const response = await ask(path, {
+        headers: { "accept-language": "es" },
+      });
+      assert.equal(response?.status, status, path);
+      assert.equal(await response?.text(), "<html>the page</html>", path);
+      assert.equal(response?.headers.get("cache-control"), "private, no-store");
+      const [page] = own(asked);
+      assert.equal(page.url.href, `http://127.0.0.1:4999/es${path}`, path);
+      assert.equal(page.headers.get("x-sermo-path"), path, path);
+    });
+  }
+  // Another refusal is the page's own to show, as before; so is the lookup's failure for a router
+  // fetch, or when this server cannot be asked.
+  await withOrigin(async () => {
+    const asked = ownServer(undefined, {
+      "/api/v1/seo/nodes/3": refusal(403, "forbidden"),
+    });
+    passes(await ask("/forums/3-general"));
+    assert.equal(own(asked).length, 0);
+  });
+  await withOrigin(async () => {
+    const asked = ownServer(undefined, {
+      "/api/v1/seo/nodes/3": refusal(500, "internal"),
+    });
+    passes(
+      await ask("/forums/3-general", { headers: { "sec-fetch-mode": "cors" } }),
+    );
+    assert.equal(own(asked).length, 0);
+  });
+  ownServer(undefined, { "/api/v1/seo/nodes/3": refusal(500, "internal") });
+  passes(await ask("/forums/3-general"));
 });
