@@ -26,7 +26,7 @@ import {
   negotiateLocale,
 } from "@/i18n/locales";
 import { CONSENT_COOKIE, REFERRAL_COOKIE } from "@/lib/consent/inventory";
-import { consentOf, mayStoreReferral } from "@/lib/consent/state";
+import { consentOf, mayStoreReferral, sendsGpc } from "@/lib/consent/state";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -56,7 +56,7 @@ import {
   toBackendPath,
 } from "@/lib/sermo/addresses";
 import { bannerAppliesOrUnknown } from "@/lib/sermo/banner";
-import { publicUrl } from "@/lib/sermo/config";
+import { publicUrl, secureCookies } from "@/lib/sermo/config";
 import {
   siteAnalytics,
   siteConsentFacts,
@@ -398,7 +398,8 @@ function localePrefixRedirect(request: NextRequest) {
 // while the site has not been read, or while the backend cannot say whether the banner applies. A
 // visitor the banner is not shown to counts as accepting; the backend is asked about that only for
 // a request that carries a referral or a referral cookie, and its answer is kept a minute per
-// country (see `bannerAppliesOrUnknown`), so no request waits on it each time.
+// country (see `bannerAppliesOrUnknown`), so no request waits on it each time. A request with
+// Global Privacy Control (`Sec-GPC: 1`) accepts referrals only by a choice made after the signal.
 async function referralsAccepted(request: NextRequest) {
   const { cookiePolicyVersion, bannerOutsideEu } = await siteConsentFacts();
   if (cookiePolicyVersion === null) return null;
@@ -414,6 +415,7 @@ async function referralsAccepted(request: NextRequest) {
       unknown = shown === null;
       return shown ?? true;
     },
+    sendsGpc(request.headers),
   );
   return unknown ? null : mayStoreReferral(consent);
 }
@@ -449,7 +451,7 @@ async function withReferral(
     answer.cookies.set(REFERRAL_COOKIE, String(step.set), {
       httpOnly: true,
       sameSite: "lax",
-      secure: publicUrl().startsWith("https:"),
+      secure: secureCookies(),
       path: "/",
       maxAge: REFERRAL_MAX_AGE,
     });
@@ -478,6 +480,7 @@ export async function proxy(request: NextRequest) {
       {
         httpOnly: false,
         sameSite: "lax",
+        secure: secureCookies(),
         path: "/",
         maxAge: 60 * 60 * 24 * 365,
       },
@@ -834,9 +837,11 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
 // So are the backend's own paths (`BACKEND_PATHS` in next.config.ts; `[^/]+\.txt` covers
 // robots.txt, llms.txt and the IndexNow key file): they are rewritten to it as they are, and a
 // page of a language must not take their place. So are the OpenSearch description and the share
-// cards (`/og/...`), files of the web app outside the language segment (app/opensearch.xml, app/og).
+// cards (`/og/...`), files of the web app outside the language segment (app/opensearch.xml, app/og),
+// and so are the GPC support resource (app/.well-known/gpc.json) and the sign-out route
+// (app/sign-out, a POST that answers a redirect).
 export const config = {
   matcher: [
-    "/((?!account/picture$|threads/[0-9]+/uploads$|attachments$|admin/uploads$|[^/]+\\.txt$|sitemap\\.xml$|sitemaps/[^/]+$|feed\\.atom$|(?:forums|nodes)/[^/]+/feed\\.atom$|mcp$|health$|opensearch\\.xml$|og/).*)",
+    "/((?!account/picture$|threads/[0-9]+/uploads$|attachments$|admin/uploads$|[^/]+\\.txt$|sitemap\\.xml$|sitemaps/[^/]+$|feed\\.atom$|(?:forums|nodes)/[^/]+/feed\\.atom$|mcp$|health$|opensearch\\.xml$|og/|\\.well-known/gpc\\.json$|sign-out$).*)",
   ],
 };

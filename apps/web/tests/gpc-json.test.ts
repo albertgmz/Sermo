@@ -35,10 +35,8 @@ test("the matcher is read as the proxy has it", () => {
 });
 
 // The sign-out route (`app/sign-out/route.ts`) is a route outside the language segment too: the
-// proxy would rewrite its POST to `/<locale>/sign-out`, where no route is.
-// To be turned into a plain `test` once the matcher leaves out `\.well-known/gpc\.json$` and
-// `sign-out$` (the proxy is not this change's to edit).
-test.todo("the proxy does not run for /.well-known/gpc.json nor for /sign-out", () => {
+// proxy would answer its POST with the 404, as an address no page answers.
+test("the proxy does not run for /.well-known/gpc.json nor for /sign-out", () => {
   expect(matcher.test("/.well-known/gpc.json")).toBe(false);
   expect(matcher.test("/sign-out")).toBe(false);
   expect(matcher.test("/sign-out/x")).toBe(true);

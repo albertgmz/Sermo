@@ -5,10 +5,6 @@ declare module "bun:test" {
     name: string,
     run: () => unknown | Promise<unknown>,
   ): void;
-  // A test written ahead of the change that makes it pass; reported, not run.
-  export namespace test {
-    function todo(name: string, run?: () => unknown | Promise<unknown>): void;
-  }
   export function afterEach(run: () => unknown | Promise<unknown>): void;
   interface Matchers<T> {
     not: Matchers<T>;

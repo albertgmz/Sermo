@@ -313,3 +313,47 @@ test("a refusal made under an earlier policy version stays a refusal for a visit
     site.cookiePolicyVersion = 1;
   }
 });
+
+const GPC = { "sec-fetch-mode": "navigate", "sec-gpc": "1" };
+// A choice the banner recorded while the browser sent Global Privacy Control.
+const acceptedUnderGpc = `forum_consent=${encodeURIComponent(
+  JSON.stringify({
+    categories: ["necessary", "referrals"],
+    revision: 1,
+    data: { gpc: true },
+  }),
+)}`;
+
+test("under Sec-GPC: 1 a visitor the banner is not shown to gets no cookie, and the backend is not asked", async () => {
+  await withBannerFor(false, async (asked) => {
+    expect(referralCookie(await ask("/?ref=12", "", GPC))).toBeUndefined();
+    expect(asked()).toBe(0);
+    // Without the signal the same visitor counts as accepting.
+    expect(referralCookie(await ask("/?ref=12"))).toContain("forum_ref=12");
+  });
+});
+
+test("under Sec-GPC: 1 an acceptance made before the signal sets nothing and removes a held cookie; one made after it stands", async () => {
+  expect(referralCookie(await ask("/?ref=12", ACCEPTED, GPC))).toBeUndefined();
+  const held = referralCookie(await ask("/", `${ACCEPTED}; forum_ref=7`, GPC));
+  expect(held).toContain("forum_ref=;");
+  expect(
+    referralCookie(await ask("/?ref=12", acceptedUnderGpc, GPC)),
+  ).toContain("forum_ref=12");
+});
+
+test("the Data saver cookie of an old installation is rewritten Secure when the site is served over https", async () => {
+  const before = process.env.SERMO_PUBLIC_URL;
+  process.env.SERMO_PUBLIC_URL = "https://forum.example.test";
+  try {
+    const migrated = (await ask("/", "forum_lite=1"))?.headers
+      .getSetCookie()
+      .find((header) => header.startsWith("forum_lite="));
+    expect(migrated).toContain("Secure");
+    expect(migrated).toContain("SameSite=lax");
+    expect(migrated).not.toContain("HttpOnly");
+  } finally {
+    if (before === undefined) delete process.env.SERMO_PUBLIC_URL;
+    else process.env.SERMO_PUBLIC_URL = before;
+  }
+});
