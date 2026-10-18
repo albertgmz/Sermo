@@ -4788,3 +4788,9 @@ and the rollback are lost, which a test site accepts. `.env` and the tunnel's cr
 the server by hand and never pass through the workflow. The deploy user's key is in the
 repository's secrets; it is in the docker group, which is root on that machine, so only `main`
 deploys, and the key allows no terminal or forwarding.
+
+Until further notice the workflow's check leaves out the web app's tests: their `mock.module`
+replacements stay for the rest of the run, and in Linux's file order about fifty tests see another
+file's mocks (with `--isolate`, about twenty still fail, because they rely on mocks another file
+loaded). Typecheck, lint, the backend tests and the web build still gate the deploy; the web tests
+come back once they pass with `--isolate`.
