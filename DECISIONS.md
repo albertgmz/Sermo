@@ -4700,3 +4700,31 @@ limits: Back after a switch can show the old language until a reload (a browser'
 cache); with the cookie banner open, the next Tab after a switch goes to the consent box, which the
 banner library focuses on purpose; without JavaScript the theme icons and the Cookie settings
 button show but do nothing.
+
+### Well-known addresses  `/.well-known/security.txt` (RFC 9116) comes from the backend: its
+Contact is the published `contact` page, else a new private conversation to the first super admin
+who is not erased or banned and can receive one, else there is no file (a file without Contact is
+invalid); no email address is ever published, since the site configures none and an administrator's
+sign-in address is private, so a report through the fallback needs an account. The fallback
+publishes the username of the lowest-id usable super admin, a flag otherwise shown only in the
+admin panel, and the file exists by default on any https site with a super admin; publishing a
+contact page is the only way to change that, and makes that page the site's security contact too.
+The file is served only on an https site address, except loopback hosts for local runs, because RFC
+9116 wants an https Contact. `Expires` is the 1st of the month a year on: stable for a month, at
+most a year ahead; it never lapses, so it cannot signal that nobody looks at the file, which is
+accepted because the Contact is read live from the site. `/.well-known/change-password` is a web
+route answering 302 to `/account/security#password` with a relative address (it holds behind the
+tunnel and a reverse proxy) and an hour of public caching (Next would otherwise let a shared cache
+keep the prerendered 302 for a year). `/.well-known/api-catalog` (RFC 9727, appendix A.1 form)
+lists `/api/v1` with its OpenAPI description, `/developer` and `/health`, and `/mcp` with its
+status, with no `item` links, so every link answers a GET with the type it names; it is sent with
+the RFC 9727 profile and `Link: rel="api-catalog"`. Any other `/.well-known/*` and bare
+`/.well-known` get a plain-text 404 from the web app, not the HTML page: machines probe these
+addresses. The proxy leaves all of `/.well-known` out and the backend's files are rewritten by
+name, so one exclusion covers the web app's own files (`gpc.json`) and no `:path*` rewrite shadows
+them. The web app's answers there carry only `X-Content-Type-Options: nosniff`, since the proxy
+adds the security headers to pages only; the one loss is HSTS on a first https visit that starts at
+change-password. No MCP server card: it has no settled location or schema yet. Known limits: a
+reporter without an account who follows the fallback Contact registers through `/register`, which
+drops `next`, so they land on `/` after confirming; the legacy `/security.txt` gets the backend's
+JSON 404.
