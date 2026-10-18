@@ -4588,3 +4588,29 @@ pictures (or all of them) cannot be read stops, and any unreadable picture makes
 Known limits: animations and pictures with no smaller copy are read again by every run; a phone at
 DPR 3 gets the 1280 copy in the viewer, so pinch-zoom is softer than before; backend and web must be
 restarted together for this change.
+
+### Privacy signals  Global Privacy Control (`Sec-GPC: 1` on the server, `navigator.globalPrivacyControl`
+in the browser) counts as a refusal of every optional category (analytics, referrals, embeds) until
+the visitor opts in after the signal; such a choice is marked `gpc: true` in the consent cookie's
+`data`. An earlier acceptance, also one adopted from the account, does not count while the signal is
+sent: the browser drops it, erases the optional cookies and the banner asks again, which tells the
+visitor the signal is honoured (en and es); the proxy sets no referral cookie and clears a held one.
+Reason: the strictest preference wins, and GPC is a binding opt-out in several US states. The signal
+itself is never saved on the account, but a member's answer under it is (they chose). The web app
+publishes `/.well-known/gpc.json` itself (outside `[locale]`, skipped by the proxy matcher), since it is
+where the signal is honoured. Sign-out is a POST route, `app/sign-out/route.ts` (outside `[locale]`,
+skipped by the matcher), no longer a server action, because only a route can send `Clear-Site-Data`.
+It refuses an `Origin` other than the site's with 403, relays Better Auth's sign-out and, on success
+(or the 401 of a dead session), answers 303 to `/` with `Clear-Site-Data: "cache", "storage"`. Not
+`"cookies"`: Better Auth already expires its own, and the directive would clear the whole registrable
+domain and the visitor's language, consent and Data saver choices; `"storage"` does clear theme, width,
+panel states and drafts, which is the point on a shared device. When the backend cannot sign out
+(outage, rate limit, any other refusal) nothing is cleared and the home page says so, so a shared
+device never looks signed out when it is not. The app's own cookies keep their names (the backend and
+scripts read them by name, and the consent library writes `Domain=`, which `__Host-` forbids) and get
+`Secure` when `SERMO_PUBLIC_URL` is https, `SameSite=Lax`, `Path=/`, and `HttpOnly` where no script reads
+them. Better Auth 1.7.7's cookies are `HttpOnly; SameSite=Lax; Path=/`, with `Secure` and the
+`__Secure-` prefix only when `BETTER_AUTH_URL` is https; `__Host-` is not reachable with it. Known limits:
+Safari does not implement `Clear-Site-Data`; moving `BETTER_AUTH_URL` between http and https changes the
+session cookie names and leaves the old one until it expires; account deletion (a server action) sends
+no `Clear-Site-Data`; the GPC opt-out is not recorded on the account.
