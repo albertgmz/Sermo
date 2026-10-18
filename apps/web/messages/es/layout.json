@@ -67,6 +67,9 @@
     },
     "failed": "No se pudo cargar. Cierra el menú y ábrelo de nuevo."
   },
+  "languageSwitcher": {
+    "label": "Idioma"
+  },
   "themeControl": {
     "label": "Tema",
     "system": "Sistema",

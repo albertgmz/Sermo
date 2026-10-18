@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { SocialIcon } from "@/components/forum/social-icon";
 import { Container } from "@/components/layout/container";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { Logo } from "@/components/layout/logo";
 import { hasHref, type LinkItem, linkProps } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";
@@ -192,7 +193,10 @@ async function FooterCopyright() {
           brand: (chunks) => <span className="text-foreground">{chunks}</span>,
         })}
       </p>
-      <ThemeControl />
+      <div className="flex flex-wrap items-center gap-3">
+        <LanguageSwitcher />
+        <ThemeControl />
+      </div>
       <ul className="flex basis-full flex-wrap gap-x-4">
         <li>
           <Link href="/cookies" className={FOOTER_LINK}>
