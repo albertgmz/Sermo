@@ -28,7 +28,7 @@ mock.module("next-intl/server", () => ({
     Object.assign((key: string) => key, { rich: (key: string) => key }),
 }));
 
-const { FooterColumns, FooterCopyright, FooterDescription, FooterSocials } =
+const { FooterColumns, FooterDescription, FooterSocials, SiteFooter } =
   await import("../src/components/layout/site-footer");
 
 function backend(
@@ -163,13 +163,17 @@ test("the copyright names the site and carries no year", () => {
   }
 });
 
-test("the footer's last row holds the language choices beside the theme choices", async () => {
+test("the footer's last row holds the language choices beside the theme choices, in the page's first bytes", async () => {
   backend({ ...none, footer: [] });
-  const html = renderToStaticMarkup(withIntl(await FooterCopyright()));
+  // A synchronous render draws each part that waits for data as its fallback: what is left is what
+  // the page sends before any script, which is where the language choices must be.
+  const html = renderToStaticMarkup(withIntl(<SiteFooter />));
   expect(html).toMatch(/<form id="language"[^>]* action="\/language"/);
   expect(html).toContain('aria-label="Language"');
   expect(html).toContain('aria-label="Theme"');
   expect(html.indexOf('action="/language"')).toBeLessThan(
     html.indexOf('aria-label="Theme"'),
   );
+  // The copyright, which waits for the site, is not.
+  expect(html).not.toContain(">copyright<");
 });

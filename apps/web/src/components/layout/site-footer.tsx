@@ -73,15 +73,34 @@ export function SiteFooter() {
             <FooterColumns />
           </Suspense>
         </div>
-        <Suspense
-          fallback={
-            <div className="mt-8 border-t pt-4">
-              <Skeleton className="h-4 w-64 max-w-full" />
-            </div>
-          }
-        >
-          <FooterCopyright />
-        </Suspense>
+        {/* Only the copyright waits for the site. The choices and the cookie links are in the page's
+          first bytes: a streamed part stays hidden until a script shows it, and the language
+          choices must work without one. */}
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+          <Suspense fallback={<Skeleton className="h-4 w-64 max-w-full" />}>
+            <FooterCopyright />
+          </Suspense>
+          <div className="flex flex-wrap items-center gap-3">
+            <LanguageSwitcher />
+            <ThemeControl />
+          </div>
+          <ul className="flex basis-full flex-wrap gap-x-4">
+            <li>
+              <Link href="/cookies" className={FOOTER_LINK}>
+                {t("cookiePolicy")}
+              </Link>
+            </li>
+            <li>
+              <button
+                type="button"
+                data-consent-settings=""
+                className={FOOTER_LINK}
+              >
+                {t("cookieSettings")}
+              </button>
+            </li>
+          </ul>
+        </div>
       </Container>
     </footer>
   );
@@ -180,39 +199,17 @@ export async function FooterColumns() {
   );
 }
 
-export async function FooterCopyright() {
+async function FooterCopyright() {
   const [t, site] = await Promise.all([
     getTranslations("layout.siteFooter"),
     getSite(),
   ]);
   return (
-    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-      <p className="text-xs text-muted-foreground">
-        {t.rich("copyright", {
-          site: site.name,
-          brand: (chunks) => <span className="text-foreground">{chunks}</span>,
-        })}
-      </p>
-      <div className="flex flex-wrap items-center gap-3">
-        <LanguageSwitcher />
-        <ThemeControl />
-      </div>
-      <ul className="flex basis-full flex-wrap gap-x-4">
-        <li>
-          <Link href="/cookies" className={FOOTER_LINK}>
-            {t("cookiePolicy")}
-          </Link>
-        </li>
-        <li>
-          <button
-            type="button"
-            data-consent-settings=""
-            className={FOOTER_LINK}
-          >
-            {t("cookieSettings")}
-          </button>
-        </li>
-      </ul>
-    </div>
+    <p className="text-xs text-muted-foreground">
+      {t.rich("copyright", {
+        site: site.name,
+        brand: (chunks) => <span className="text-foreground">{chunks}</span>,
+      })}
+    </p>
   );
 }
