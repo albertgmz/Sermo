@@ -330,6 +330,23 @@ describe("media.list", () => {
       ]);
   });
 
+  test("the file read builds no Bloom filter when the statistics say no file has a parent", () => {
+    const w = world();
+    // As on a site whose files are all originals: see the attachments page read's test.
+    w.ctx.sqlite.run("ANALYZE");
+    w.ctx.sqlite.run(
+      "DELETE FROM sqlite_stat1 WHERE tbl IN ('files', 'attachments'); INSERT INTO sqlite_stat1 (tbl, idx, stat) VALUES ('files', 'files_variant', '300000 300000 300000'), ('attachments', 'attachments_content', '300000 300000 1 1')",
+    );
+    w.ctx.sqlite.run("ANALYZE sqlite_schema");
+    expect(
+      w.ctx.sqlite
+        .prepare<{ detail: string }, [string, string]>(`EXPLAIN QUERY PLAN ${mediaSql.files}`)
+        .all("[1]", '["image/png"]')
+        .map((step) => step.detail)
+        .filter((detail) => detail.includes("BLOOM FILTER ON")),
+    ).toEqual([]);
+  });
+
   test("each read is one index seek", () => {
     const w = world();
     for (const type of ["post", "profile_post"])

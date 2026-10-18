@@ -5,7 +5,7 @@ import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, permissionsOf } from "../../permissions";
 import { iso } from "../../time";
-import { type AttachmentFileRow, attachmentFile, attachmentFileSql } from "../attachments";
+import { type AttachmentFileRow, attachmentFile, attachmentFileColumns } from "../attachments";
 import type { ThreadRow } from "../forums";
 import { acceptPosts, acceptWall, type PostCandidate, type WallCandidate } from "./feed";
 import { scanKeyset } from "./scan";
@@ -32,7 +32,7 @@ export const mediaSql = {
    * attachment when the kind has none (about 10 ms with 300,000 rows).
    */
   newest: `SELECT ${columns} FROM attachments INDEXED BY attachments_type_id WHERE content_type = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3`,
-  files: `SELECT a.id, ${attachmentFileSql.columns} FROM attachments a JOIN files f ON f.id = a.file_id ${attachmentFileSql.joins} WHERE a.id IN (SELECT value FROM json_each(?1)) AND f.deleted_at IS NULL AND f.content_type IN (SELECT value FROM json_each(?2))`,
+  files: `SELECT a.id, ${attachmentFileColumns} FROM attachments a JOIN files f ON f.id = a.file_id WHERE a.id IN (SELECT value FROM json_each(?1)) AND f.deleted_at IS NULL AND f.content_type IN (SELECT value FROM json_each(?2))`,
   posts:
     "SELECT id, thread_id, user_id, state, created_at, position FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
   walls:

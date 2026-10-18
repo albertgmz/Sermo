@@ -108,8 +108,26 @@ describe("attachments", () => {
       .prepare<{ detail: string }, [string, string]>(`EXPLAIN QUERY PLAN ${attachmentsPageSql}`)
       .all("post", JSON.stringify([post.id]));
     expect(
-      plan.some((step) => step.detail.includes("SEARCH thumb USING INDEX files_variant")),
+      plan.some((step) => step.detail.includes("SEARCH rendition USING INDEX files_variant")),
     ).toBe(true);
+  });
+
+  test("the page read builds no Bloom filter when the statistics say no file has a parent", () => {
+    const ctx = createTestContext();
+    // The statistics of a site whose files are all originals: each lookup in files_variant then
+    // looks like it matches every file, and a join after the first such lookup was given a Bloom
+    // filter, built by reading the whole index on every page.
+    ctx.sqlite.run("ANALYZE");
+    ctx.sqlite.run(
+      "DELETE FROM sqlite_stat1 WHERE tbl IN ('files', 'attachments'); INSERT INTO sqlite_stat1 (tbl, idx, stat) VALUES ('files', 'files_variant', '300000 300000 300000'), ('attachments', 'attachments_content', '300000 300000 1 1')",
+    );
+    // Reads the statistics again, as a new connection does.
+    ctx.sqlite.run("ANALYZE sqlite_schema");
+    const plan = ctx.sqlite
+      .prepare<{ detail: string }, [string, string]>(`EXPLAIN QUERY PLAN ${attachmentsPageSql}`)
+      .all("post", "[1]")
+      .map((step) => step.detail);
+    expect(plan.filter((detail) => detail.includes("BLOOM FILTER ON"))).toEqual([]);
   });
 
   test("profile and conversation pages expose attached metadata only to content viewers", async () => {

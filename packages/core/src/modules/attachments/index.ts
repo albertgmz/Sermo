@@ -30,31 +30,24 @@ interface AttachmentRow extends AttachmentFileRow {
   content_id: number;
 }
 
-const renditions = [
-  ["thumb", "thumbnail"],
-  ...ATTACHMENT_WIDTHS.map((width) => [`w${width}`, `width_${width}`]),
-];
+const renditions = ["thumbnail", ...ATTACHMENT_WIDTHS.map((width) => `width_${width}`)];
 /**
- * The columns of `AttachmentFileRow` for the file `f`, with the joins they need: one seek in
- * `files_variant` per rendition.
+ * The columns of `AttachmentFileRow` for the file `f`: one seek in `files_variant` per rendition
+ * and column. Each is a subquery, not a join: with a join per rendition the planner gave the later
+ * ones a Bloom filter whenever the statistics showed most files without a parent, and built it by
+ * reading the whole index on every call (about 14 ms with 300,000 files).
  */
-export const attachmentFileSql = {
-  columns: [
-    "f.id AS file_id, f.content_type, f.byte_size, f.width, f.height, f.filename",
-    "thumb.id AS thumbnail_id, thumb.width AS thumbnail_width",
-    ...ATTACHMENT_WIDTHS.map(
-      (width) => `w${width}.id AS width_${width}_id, w${width}.width AS width_${width}_width`,
+export const attachmentFileColumns = [
+  "f.id AS file_id, f.content_type, f.byte_size, f.width, f.height, f.filename",
+  ...renditions.flatMap((variant) =>
+    ["id", "width"].map(
+      (column) =>
+        `(SELECT rendition.${column} FROM files rendition INDEXED BY files_variant WHERE rendition.parent_file_id = f.id AND rendition.variant = '${variant}' AND rendition.deleted_at IS NULL) AS ${variant}_${column}`,
     ),
-  ].join(", "),
-  joins: renditions
-    .map(
-      ([alias, variant]) =>
-        `LEFT JOIN files ${alias} INDEXED BY files_variant ON ${alias}.parent_file_id = f.id AND ${alias}.variant = '${variant}' AND ${alias}.deleted_at IS NULL`,
-    )
-    .join(" "),
-};
+  ),
+].join(", ");
 
-/** The `Attachment` of a row read with `attachmentFileSql`. */
+/** The `Attachment` of a row read with `attachmentFileColumns`. */
 export function attachmentFile(row: AttachmentFileRow) {
   const copies = ATTACHMENT_WIDTHS.flatMap((width) => {
     const id = row[`width_${width}_id`];
@@ -79,7 +72,7 @@ export function attachmentFile(row: AttachmentFileRow) {
   };
 }
 
-export const attachmentsPageSql = `SELECT a.content_id, ${attachmentFileSql.columns} FROM attachments a JOIN files f ON f.id = a.file_id ${attachmentFileSql.joins} WHERE a.content_type = ?1 AND a.content_id IN (SELECT value FROM json_each(?2)) ORDER BY a.content_id, a.position`;
+export const attachmentsPageSql = `SELECT a.content_id, ${attachmentFileColumns} FROM attachments a JOIN files f ON f.id = a.file_id WHERE a.content_type = ?1 AND a.content_id IN (SELECT value FROM json_each(?2)) ORDER BY a.content_id, a.position`;
 
 export function loadAttachments(ctx: Ctx, type: AttachmentTarget, ids: number[]) {
   const result = new Map<number, ReturnType<typeof attachmentFile>[]>();
