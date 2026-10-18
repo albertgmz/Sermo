@@ -1,8 +1,9 @@
 // The addresses the pages of `app/[locale]` answer, outside the staff panel (whose registry knows
 // its own, `(staff)/registry.ts`). The proxy answers any other address with the 404 of the
-// visitor's language: the router's own fallback for it (`[...rest]`) streams a 200 shell before it
-// can say not found. A `[name]` part is one segment of any value; the proxy's record checks decide
-// whether the record exists. `page-routes.test.ts` holds this list to the page files.
+// visitor's language: the router's own fallback for it (`[...rest]`) is served with the 200 its
+// prerender stored, whatever it says. A `[name]` part is one segment of any value; the proxy's
+// record checks decide whether the record exists. `page-routes.test.ts` holds this list to the page
+// and route files.
 export const PAGE_ROUTES = [
   "/",
   "/account",

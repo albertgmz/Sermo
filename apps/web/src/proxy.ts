@@ -413,6 +413,8 @@ async function withReferral(
 }
 
 export async function proxy(request: NextRequest) {
+  const own = ownNotFoundRender(request);
+  if (own) return own;
   const response = await withReferral(request, await handleRequest(request));
   // Old installations set an HttpOnly preference. Replace it so tab sync can
   // observe changes without treating an invisible legacy cookie as a mismatch.
@@ -444,19 +446,89 @@ const PLACEHOLDER_LABEL: Record<Locale, string> = {
   es: "AHORRO DE DATOS",
 };
 
-function notFound(
+// The 404 page of the visitor's language. Every page is built as a partial prerender whose stored
+// answer says 200, and Next serves a page with that status whatever a rewrite asked for; only an
+// answer the proxy writes itself keeps its status. So a page load (the answer a visitor, a crawler
+// or a checker reads) gets the page from this server, asked as the visitor with this response's
+// nonce, and is answered with it as a 404. Any other request (a router fetch, which keeps the
+// rewrite's status, or an action's POST) is rewritten to the page; so is a page load when this
+// server cannot be asked.
+async function notFound(
   request: NextRequest,
   locale: Locale,
   security: PageSecurity,
 ) {
-  const response = NextResponse.rewrite(
-    new URL(`/${locale}/not-found`, request.url),
-    {
-      status: 404,
-      request: { headers: pageHeaders(request, security) },
-    },
-  );
-  return response;
+  const headers = pageHeaders(request, security);
+  const origin = process.env.__NEXT_PRIVATE_ORIGIN;
+  if (origin && isDocumentRequest(request)) {
+    const page = await notFoundPage(
+      new URL(`/${locale}/not-found`, origin),
+      headers,
+    );
+    if (page) {
+      return new NextResponse(request.method === "HEAD" ? null : page.body, {
+        status: 404,
+        headers: {
+          "content-type":
+            page.headers.get("content-type") ?? "text/html; charset=utf-8",
+          // Drawn for this visitor: their session and their language.
+          "cache-control": "private, no-store",
+        },
+      });
+    }
+  }
+  return NextResponse.rewrite(new URL(`/${locale}/not-found`, request.url), {
+    status: 404,
+    request: { headers },
+  });
+}
+
+// The proxy's own request for the 404 page carries this secret of the server process; nothing
+// else can know it, so a client that sends the header is answered as any other request.
+const OWN_REQUEST_HEADER = "x-sermo-not-found";
+const OWN_REQUEST_SECRET = crypto.randomUUID();
+
+// Headers that describe one connection or one encoding, not the request: the server's own fetch
+// sets its own.
+const HOP_HEADERS = [
+  "connection",
+  "content-length",
+  "expect",
+  "host",
+  "keep-alive",
+  "proxy-connection",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+  "accept-encoding",
+];
+
+async function notFoundPage(url: URL, forwarded: Headers) {
+  const headers = new Headers(forwarded);
+  for (const name of HOP_HEADERS) headers.delete(name);
+  headers.set(OWN_REQUEST_HEADER, OWN_REQUEST_SECRET);
+  try {
+    const page = await fetch(url, {
+      headers,
+      redirect: "manual",
+      cache: "no-store",
+    });
+    // Next answers the page with the 200 it stored, or with a 404 where it has nothing stored.
+    return page.ok || page.status === 404 ? page : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// The proxy's own request for the 404 page goes straight to it, with the nonce and the policy it
+// was sent with (those of the answer that will carry the page).
+function ownNotFoundRender(request: NextRequest) {
+  if (request.headers.get(OWN_REQUEST_HEADER) !== OWN_REQUEST_SECRET)
+    return undefined;
+  const headers = new Headers(request.headers);
+  headers.delete(OWN_REQUEST_HEADER);
+  return NextResponse.next({ request: { headers } });
 }
 
 // Whether a page answers the address as it was asked for; one that cannot be decoded names none.
@@ -610,7 +682,7 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
     return NextResponse.redirect(login);
   }
   // Any other address no page answers is a 404 here, with its status: the router would hand it to
-  // its fallback page (`[...rest]`), which streams a 200 shell before it says not found. The panel's
+  // its fallback page (`[...rest]`), which is served as a 200 whatever it says. The panel's
   // addresses are its gate's, above.
   if (!staffRequest && !isStaffPath(pathname) && !isPageRoute(pathname))
     return notFound(request, locale, security);

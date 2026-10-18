@@ -5,11 +5,12 @@ import { isPageRoute, PAGE_ROUTES } from "./page-routes";
 
 const APP = join(import.meta.dir, "..", "app", "[locale]");
 
-// The address of every page file under `app/[locale]`, route groups left out of it.
+// The address of every page or route handler under `app/[locale]`, whatever its extension, route
+// groups left out of it.
 function pageAddresses(dir: string, parts: string[] = []): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isFile() && entry.name === "page.tsx")
+    if (entry.isFile() && /^(?:page|route).[jt]sx?$/.test(entry.name))
       found.push(`/${parts.join("/")}`);
     if (!entry.isDirectory()) continue;
     const group = /^\(.+\)$/.test(entry.name);

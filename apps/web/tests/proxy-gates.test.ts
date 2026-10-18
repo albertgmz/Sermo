@@ -1,5 +1,7 @@
 import { afterEach, mock, test } from "bun:test";
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { NextRequest } from "next/server";
 import { SermoError } from "../src/lib/sermo/errors";
 import { POSTS_PER_PAGE } from "../src/lib/sermo/page-sizes";
@@ -1565,4 +1567,181 @@ test("pages, the icon, the API, the upload routes, the installed app's files and
     "/health",
   ])
     assert.equal(matcher.test(path), false, path);
+});
+
+// The proxy's own request for the 404 page: answered by `fetch` here as the server would, with the
+// page's HTML and the 200 Next serves it with.
+function ownServer(
+  answer: () => Response | Promise<Response> = () =>
+    new Response("<html>not found</html>", {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    }),
+) {
+  const asked: Asked[] = [];
+  globalThis.fetch = (async (input: string | URL, init: RequestInit) => {
+    const url = new URL(input);
+    asked.push({
+      method: init.method ?? "GET",
+      url,
+      headers: new Headers(init.headers),
+    });
+    if (url.origin === "http://127.0.0.1:4999") return answer();
+    return refusal(404, "not_found");
+  }) as unknown as typeof fetch;
+  return asked;
+}
+
+async function withOrigin(run: () => Promise<void>) {
+  process.env.__NEXT_PRIVATE_ORIGIN = "http://127.0.0.1:4999";
+  try {
+    await run();
+  } finally {
+    delete process.env.__NEXT_PRIVATE_ORIGIN;
+  }
+}
+
+const own = (asked: Asked[]) =>
+  asked.filter((entry) => entry.url.origin === "http://127.0.0.1:4999");
+
+test("a page load of an address no page has is answered by the proxy itself, as a 404 with the page drawn for this visitor", async () => {
+  reset();
+  await withOrigin(async () => {
+    const asked = ownServer();
+    const response = await ask("/this-does-not-exist-xyz", {
+      cookie: "forum_locale=es; sermo.session_token=abc",
+      headers: { "sec-fetch-mode": "navigate", "accept-encoding": "br" },
+    });
+    assert.equal(response?.status, 404);
+    assert.equal(rewriteOf(response), null);
+    assert.equal(response?.headers.get("x-middleware-next"), null);
+    assert.equal(
+      response?.headers.get("content-type"),
+      "text/html; charset=utf-8",
+    );
+    assert.equal(response?.headers.get("cache-control"), "private, no-store");
+    assert.equal(await response?.text(), "<html>not found</html>");
+    const [page, ...more] = own(asked);
+    assert.equal(more.length, 0);
+    assert.equal(page.url.href, "http://127.0.0.1:4999/es/not-found");
+    // Asked as the visitor, rendered with the nonce the answer's policy names.
+    assert.equal(
+      page.headers.get("cookie"),
+      "forum_locale=es; sermo.session_token=abc",
+    );
+    const policy = response?.headers.get("content-security-policy") ?? "";
+    const nonce = page.headers.get("x-nonce");
+    assert.ok(nonce && policy.includes(`'nonce-${nonce}'`));
+    assert.equal(page.headers.get("content-security-policy"), policy);
+    assert.equal(page.headers.get("host"), null);
+    assert.equal(page.headers.get("accept-encoding"), null);
+
+    // That request reaches the page as it was sent: no new nonce, no redirect, no second fetch.
+    const secret = page.headers.get("x-sermo-not-found");
+    assert.ok(secret);
+    const inner = await proxy(
+      new NextRequest(page.url, { headers: page.headers }),
+    );
+    assert.equal(inner?.headers.get("x-middleware-next"), "1");
+    assert.equal(forwarded(inner, "x-nonce"), nonce);
+    assert.equal(forwarded(inner, "content-security-policy"), policy);
+    assert.equal(forwarded(inner, "x-sermo-not-found"), null);
+    assert.equal(own(asked).length, 1);
+  });
+});
+
+test("a missing record's page load is the same 404, and a HEAD gets no body", async () => {
+  reset();
+  await withOrigin(async () => {
+    const asked = ownServer();
+    const thread = await ask("/threads/8-gone");
+    assert.equal(thread?.status, 404);
+    assert.equal(await thread?.text(), "<html>not found</html>");
+    const head = await ask("/forums/4-y", { method: "HEAD" });
+    assert.equal(head?.status, 404);
+    assert.equal(head?.body, null);
+    assert.equal(own(asked).length, 2);
+  });
+});
+
+test("a client cannot pass for the proxy's own request", async () => {
+  reset();
+  await withOrigin(async () => {
+    const asked = ownServer();
+    const forged = await ask("/en/not-found", {
+      headers: { "x-sermo-not-found": "guess", "x-nonce": "forged" },
+    });
+    assert.equal(forged?.status, 308);
+    const page = await ask("/not-found", {
+      headers: { "x-sermo-not-found": "guess", "x-nonce": "forged" },
+    });
+    assert.equal(page?.status, 404);
+    const [own404] = own(asked);
+    assert.notEqual(own404.headers.get("x-sermo-not-found"), "guess");
+    assert.notEqual(own404.headers.get("x-nonce"), "forged");
+  });
+});
+
+test("a router fetch, an action's POST, a failing or redirecting own request and an unknown origin keep the rewrite", async () => {
+  reset();
+  await withOrigin(async () => {
+    const asked = ownServer();
+    isNotFound(
+      await ask("/this-does-not-exist-xyz", {
+        headers: { "sec-fetch-mode": "cors" },
+      }),
+    );
+    isNotFound(await ask("/this-does-not-exist-xyz", { method: "POST" }));
+    assert.equal(own(asked).length, 0);
+  });
+  for (const answer of [
+    () => new Response("oops", { status: 500 }),
+    () => new Response(null, { status: 308, headers: { location: "/x" } }),
+    () => Promise.reject(new Error("connection refused")),
+  ])
+    await withOrigin(async () => {
+      ownServer(answer);
+      isNotFound(await ask("/this-does-not-exist-xyz"));
+    });
+  ownServer();
+  isNotFound(await ask("/this-does-not-exist-xyz"));
+});
+
+// Every route outside the language segment is served as it is: the proxy's matcher leaves it out,
+// or the proxy lets it through. A new one that is neither would be a 404.
+function routesOutsideLocale(dir: string, parts: string[] = []): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (parts.length === 0 && entry.name === "[locale]") continue;
+      const group = /^\(.+\)$/.test(entry.name);
+      found.push(
+        ...routesOutsideLocale(
+          join(dir, entry.name),
+          group ? parts : [...parts, entry.name.replace(/^\[.+\]$/, "1")],
+        ),
+      );
+    } else if (/^(?:page|route)\.[jt]sx?$/.test(entry.name)) {
+      found.push(`/${parts.join("/")}`);
+    } else if (parts.length === 0 && /^manifest\.[jt]s$/.test(entry.name)) {
+      found.push("/manifest.webmanifest");
+    }
+  }
+  return found;
+}
+
+test("no route outside the language segment is answered with the 404", async () => {
+  reset();
+  backend({});
+  const routes = routesOutsideLocale(join(import.meta.dir, "..", "src", "app"));
+  assert.ok(routes.includes("/favicon.ico"));
+  assert.ok(routes.includes("/opensearch.xml"));
+  const matcher = new RegExp(`^${config.matcher[0]}$`);
+  for (const path of routes) {
+    if (!matcher.test(path)) continue;
+    for (const method of ["GET", "POST"]) {
+      const response = await ask(path, { method });
+      assert.notEqual(response?.status, 404, `${method} ${path}`);
+      assert.equal(rewriteOf(response) ?? null, null, `${method} ${path}`);
+    }
+  }
 });
