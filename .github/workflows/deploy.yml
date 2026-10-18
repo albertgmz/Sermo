@@ -1,0 +1,110 @@
+# Every push to main: the fast check, then both images to the registry, then the test server
+# (deploy/deploy.sh). The benchmark is not run here: its timings need an idle machine.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run check:fast
+
+  images:
+    needs: check
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: sermo
+            dockerfile: Dockerfile
+          - name: sermo-web
+            dockerfile: Dockerfile.web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ghcr.io/albertgmz/${{ matrix.name }}:${{ github.sha }}
+          # Links the package to this repository, so the deploy job's token may pull it.
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: images
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      HOST: deploy@${{ secrets.DEPLOY_HOST }}
+      TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: SSH key
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Release files
+        # The server's Caddyfile is the shipped one, trusting the visitor address only from the
+        # tunnel's fixed address (deploy/compose.vps.yaml; docs/deployment.md, "TLS", case b).
+        run: |
+          sed '/^\tauto_https off$/a\
+          \tservers {\
+          \t\ttrusted_proxies static 172.30.40.10/32\
+          \t\tclient_ip_headers Cf-Connecting-IP\
+          \t}' Caddyfile > Caddyfile.vps
+          grep -q 'client_ip_headers Cf-Connecting-IP' Caddyfile.vps
+          ssh "$HOST" 'mkdir -p /opt/sermo/incoming /opt/sermo/logs'
+          scp compose.yaml Caddyfile.vps deploy/compose.vps.yaml deploy/deploy.sh deploy/compose.sh \
+            "$HOST:/opt/sermo/incoming/"
+      - name: Deploy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        # Detached on the server, so a dropped connection or a cancelled run cannot stop it halfway;
+        # the lock keeps two deploys apart. This step waits for its status file.
+        run: |
+          ssh "$HOST" "docker login ghcr.io -u $ACTOR --password-stdin" <<< "$GH_TOKEN"
+          ssh "$HOST" "rm -f /opt/sermo/logs/$TAG.status; setsid -f bash -c 'flock /opt/sermo/.deploy.lock bash /opt/sermo/incoming/deploy.sh $TAG > /opt/sermo/logs/$TAG.log 2>&1; echo \$? > /opt/sermo/logs/$TAG.status' < /dev/null > /dev/null 2>&1"
+          for i in $(seq 180); do
+            status=$(ssh "$HOST" "cat /opt/sermo/logs/$TAG.status 2>/dev/null" || true)
+            [ -n "$status" ] && break
+            sleep 10
+          done
+          ssh "$HOST" "cat /opt/sermo/logs/$TAG.log"
+          [ "$status" = 0 ]

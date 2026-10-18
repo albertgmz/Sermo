@@ -4763,3 +4763,28 @@ feed, media and posts page with a picture paid for it (feed.list p50 2.7 -> 16.9
 planned on its own and gets no Bloom filter; `files_variant` is unique on (parent_file_id,
 variant), so it returns the same row the join did. Tests load the seed's statistics into
 `sqlite_stat1` and require no Bloom filter on these plans.
+
+## Test server
+
+### Every push to main deploys the test server
+
+forum.albertgmz.com moved from a desktop (servers started by hand, a Cloudflare tunnel on the same
+machine) to a VPS, and `.github/workflows/deploy.yml` deploys it on every push to `main`: `bun run
+check:fast`, then both images built on GitHub and pushed to ghcr.io tagged with the commit, then
+`deploy/deploy.sh` on the server over SSH. The images are built on GitHub because the Next build
+needs more memory than a shared server should give it, and a failed check deploys nothing. The
+benchmark stays a local check, because its timings need an idle machine. The server runs
+`compose.yaml` with `deploy/compose.vps.yaml` on top: images from the registry, no published port,
+and the tunnel as a fourth service in the same network. Only the tunnel's fixed address is a trusted
+proxy, and the visitor address comes from `Cf-Connecting-IP`, which Cloudflare always sets; the
+workflow writes that `servers` block into a copy of the shipped `Caddyfile`, so the two cannot
+drift.
+The deploy script runs detached under a lock, so a dropped connection or a cancelled run cannot stop
+it halfway. It keeps the running release's files, backs up the database with `VACUUM INTO` just
+before the new images start (the newest three are kept), checks `/`, `/robots.txt`, `/sitemap.xml`
+and `/health` through the ingress, and on failure puts back the previous files, images and the
+backup, because the new release may already have migrated the database. Writes between that backup
+and the rollback are lost, which a test site accepts. `.env` and the tunnel's credentials are put on
+the server by hand and never pass through the workflow. The deploy user's key is in the
+repository's secrets; it is in the docker group, which is root on that machine, so only `main`
+deploys, and the key allows no terminal or forwarding.

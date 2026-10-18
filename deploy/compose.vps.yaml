@@ -1,0 +1,37 @@
+# The test server (forum.albertgmz.com), on top of compose.yaml. The images come from the registry,
+# built by .github/workflows/deploy.yml for one commit (SERMO_TAG; deploy/compose.sh reads it from
+# current-tag). The ingress publishes no port: the Cloudflare tunnel, in the same network, is the
+# only way in, and the ingress trusts the visitor address only from the tunnel's fixed address.
+
+services:
+  sermo:
+    image: ghcr.io/albertgmz/sermo:${SERMO_TAG:?set SERMO_TAG to a commit}
+
+  web:
+    image: ghcr.io/albertgmz/sermo-web:${SERMO_TAG:?set SERMO_TAG to a commit}
+
+  ingress:
+    ports: !reset []
+    volumes:
+      - ./Caddyfile.vps:/etc/caddy/Caddyfile:ro
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.0
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    # config.yml and the tunnel's credentials, put there by hand; never in the repository.
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    networks:
+      default:
+        # Caddyfile.vps trusts this address alone (trusted_proxies).
+        ipv4_address: 172.30.40.10
+    depends_on:
+      ingress:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.40.0/24
