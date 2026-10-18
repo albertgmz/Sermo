@@ -185,7 +185,9 @@ export async function processImage(
     }
     // An animation gets none: a narrow screen would be shown a still.
     if (purpose === "attachment" && pages === 1)
-      output.push(...(await widthCopies(inputPath, output[0]!.width, tempDir)));
+      output.push(
+        ...(await widthCopies(inputPath, output[0]!.width, tempDir, output[0]!.byteSize)),
+      );
     return output;
   } catch {
     for (const path of paths) await rm(path, { force: true, maxRetries: 5, retryDelay: 50 });
@@ -194,39 +196,47 @@ export async function processImage(
 }
 
 /**
- * The `width_<n>` WebP copies of a still picture `width` pixels wide (oriented as stored), one per
- * width of `ATTACHMENT_WIDTHS` below it: never enlarged, and none at all for a narrow picture.
+ * The `width_<n>` WebP copies of a still picture `width` pixels wide (oriented as stored) and
+ * `byteSize` bytes, one per width of `ATTACHMENT_WIDTHS` below it: never enlarged, none at all for
+ * a narrow picture, and none that is not smaller than the picture (a flat screenshot's PNG can be).
  * The upload makes them from what was sent, the backfill from the stored picture.
  */
 export async function widthCopies(
   inputPath: string,
   width: number,
   tempDir: string,
+  byteSize: number,
 ): Promise<ProcessedImage[]> {
-  const output: ProcessedImage[] = [];
-  const paths: string[] = [];
-  try {
-    for (const target of ATTACHMENT_WIDTHS) {
-      if (target >= width) continue;
-      const path = join(tempDir, `sermo-image-${randomUUID()}`);
-      paths.push(path);
-      const info = await sharp(inputPath, { limitInputPixels: MAX_PIXELS, failOn: "error" })
+  const targets = ATTACHMENT_WIDTHS.filter((target) => target < width);
+  const paths = targets.map(() => join(tempDir, `sermo-image-${randomUUID()}`));
+  // Each copy is its own decode and encode; they run side by side.
+  const made = await Promise.allSettled(
+    targets.map((target, index) =>
+      sharp(inputPath, { limitInputPixels: MAX_PIXELS, failOn: "error" })
         .autoOrient()
         .resize({ width: target, withoutEnlargement: true })
         .webp({ quality: 82 })
-        .toFile(path);
+        .toFile(paths[index]!),
+    ),
+  );
+  const output: ProcessedImage[] = [];
+  for (const [index, result] of made.entries()) {
+    const path = paths[index]!;
+    if (result.status === "fulfilled" && result.value.size < byteSize)
       output.push({
         path,
         contentType: "image/webp",
-        width: info.width,
-        height: info.height,
-        byteSize: info.size,
-        variant: `width_${target}`,
+        width: result.value.width,
+        height: result.value.height,
+        byteSize: result.value.size,
+        variant: `width_${targets[index]}`,
       });
-    }
-    return output;
-  } catch (error) {
-    for (const path of paths) await rm(path, { force: true, maxRetries: 5, retryDelay: 50 });
-    throw error;
+    else await rm(path, { force: true, maxRetries: 5, retryDelay: 50 });
   }
+  const failed = made.find((result) => result.status === "rejected");
+  if (failed) {
+    for (const item of output) await rm(item.path, { force: true, maxRetries: 5, retryDelay: 50 });
+    throw failed.reason;
+  }
+  return output;
 }

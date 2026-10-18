@@ -185,6 +185,14 @@ function requireCatalogUpload(ctx: Ctx, actor: Actor, purpose: Purpose): void {
 }
 /** The catalog purposes as an SQL list: these files are left out of the attachment.storageQuota sum. */
 const quotaPurposes = CATALOG_FILE_PURPOSES.map((purpose) => `'${purpose}'`).join(", ");
+/**
+ * Whether a stored file counts toward `attachment.storageQuota`: what a member uploaded and its
+ * thumbnail do (as they always have), the width copies made from it for smaller screens do not.
+ * The member did not choose them and cannot remove them apart, and the backfill that makes them
+ * for older pictures must not put anyone over their quota.
+ */
+const countsTowardQuota = (variant: string | null) =>
+  variant === null || !variant.startsWith("width_");
 
 /**
  * The one byte range a `Range` header asks of a file of `size` bytes (`end` included), or null to
@@ -576,11 +584,13 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             if (quota !== -1) {
               const used = ctx.sqlite
                 .prepare<{ bytes: number }, [number]>(
-                  `SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM files WHERE uploader_id = ?1 AND deleted_at IS NULL AND purpose NOT IN (${quotaPurposes})`,
+                  `SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM files WHERE uploader_id = ?1 AND deleted_at IS NULL AND purpose NOT IN (${quotaPurposes}) AND (variant IS NULL OR variant NOT GLOB 'width_*')`,
                 )
                 .get(user.userId)!.bytes;
-              if (used + artifacts.reduce((total, item) => total + item.byteSize, 0) > quota)
-                throw new ValidationError("Upload quota exceeded.");
+              const adding = artifacts
+                .filter((item) => countsTowardQuota(item.variant))
+                .reduce((total, item) => total + item.byteSize, 0);
+              if (used + adding > quota) throw new ValidationError("Upload quota exceeded.");
             }
             const main = artifacts[0]!;
             const created = ctx.sqlite

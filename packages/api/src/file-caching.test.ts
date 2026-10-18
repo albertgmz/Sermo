@@ -356,15 +356,13 @@ test("a width copy of a picture has its own address, type and validator, and is 
   const posted = await app.upload("attachment", wide(), "wide.png");
   const sent = await app.upload("attachment", wide(), "sent.png");
   const avatar = await app.upload("avatar", wide(), "me.png");
-  expect(
-    (
-      await app.json("POST", `/api/v1/nodes/${app.forum.id}/threads`, {
-        title: "Wide",
-        body: "A wide picture",
-        attachmentIds: [posted.id],
-      })
-    ).status,
-  ).toBe(201);
+  const thread = await app.json("POST", `/api/v1/nodes/${app.forum.id}/threads`, {
+    title: "Wide",
+    body: "A wide picture",
+    attachmentIds: [posted.id],
+  });
+  expect(thread.status).toBe(201);
+  const postId = ((await thread.json()) as { post: { id: number } }).post.id;
   expect(
     (
       await app.json("POST", "/api/v1/conversations", {
@@ -425,4 +423,21 @@ test("a width copy of a picture has its own address, type and validator, and is 
       "cache-control",
     ),
   ).toBe("private, no-store");
+  // Nor is a member who is not in the conversation.
+  const stranger = await app.signUp("stranger");
+  expect((await app.request(letterCopy, { headers: { cookie: stranger.cookie } })).status).toBe(
+    404,
+  );
+  // A copy goes with its picture: once the picture is taken off its post, it is served to nobody.
+  const postedCopy = copy(posted.id, "width_1280");
+  expect((await app.request(postedCopy)).status).toBe(200);
+  expect(
+    (await app.json("PATCH", `/api/v1/posts/${postId}`, { body: "No picture", attachmentIds: [] }))
+      .status,
+  ).toBe(200);
+  for (const viewer of [{}, { cookie: stranger.cookie }] as Record<string, string>[]) {
+    const hidden = await app.request(postedCopy, { headers: viewer });
+    expect(hidden.status).toBe(404);
+    expect(hidden.headers.get("etag")).toBeNull();
+  }
 });

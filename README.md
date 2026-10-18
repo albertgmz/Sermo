@@ -162,6 +162,10 @@ docker compose run --rm sermo bun run storage:migrate --from local --to s3
 
 When it reports completion, set `SERMO_STORAGE_DRIVER=s3` in `.env` and run `docker compose up -d`. Keep the API stopped until the command completes. Use `--from s3 --to local` to reverse the move. Local installations can run `bun run storage:migrate --from local --to s3` with the same environment variables. The command refuses unfinished file deletions; let the jobs worker finish those before stopping the API. Back up the database and local files before a move.
 
+## Smaller copies of older pictures
+
+Attachment pictures get WebP copies 640 and 1280 pixels wide when uploaded, which pages offer to narrower screens. Pictures uploaded before Sermo made them have none until this runs once after the upgrade, with the server's environment and the server running (`docker compose exec sermo bun run images:widths`, or `bun run images:widths` locally). It takes about 2.5 minutes per 1,000 pictures; run it at a quiet hour. A picture whose stored bytes are missing or unreadable is reported and passed over. If interrupted, run it again; pictures already done are skipped.
+
 ## Deliverability
 
 For public email delivery, use a dedicated sending domain and configure SPF, DKIM, DMARC, and reverse DNS with the SMTP provider. Monitor rejections and the `email_failures` and `undeliverable_emails` tables. Only synchronous SMTP rejections are recorded; asynchronous bounces after SMTP acceptance are not processed. Unsubscribe-all writes explicit preferences for the notification types registered at that time. Types added later follow the site defaults and can be changed in notification preferences.

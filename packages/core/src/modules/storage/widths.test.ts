@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { rmSync } from "node:fs";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestContext, insertNode, insertUser, userActor } from "@sermo/core/testing";
@@ -10,7 +11,7 @@ import { execute } from "../../operation";
 import { mediaListOp } from "../feed/media";
 import { postsCreateOp, postsListOp, threadsCreateOp } from "../forums";
 import { backfillWidthCopies } from "./backfill";
-import { createStorage, localDriver } from "./index";
+import { createStorage, localDriver, type StorageDriver } from "./index";
 
 const dirs: string[] = [];
 const contexts: Ctx[] = [];
@@ -54,7 +55,16 @@ async function setup() {
   const ctx = createTestContext();
   contexts.push(ctx);
   const files = join(dir, "files");
-  const driver = localDriver(files);
+  const local = localDriver(files);
+  // Reads go through `beforeRead` first, for a test to change the world as the backfill reads.
+  let beforeRead = (_key: string) => {};
+  const driver: StorageDriver = {
+    ...local,
+    read(key) {
+      beforeRead(key);
+      return local.read(key);
+    },
+  };
   const storage = createStorage(ctx, { driver, tempDir: join(dir, "temp") });
   const node = insertNode(ctx, {});
   invalidate(ctx, "node_tree");
@@ -106,10 +116,28 @@ async function setup() {
       .map((row) => row.storage_key);
     expect((await readdir(files)).sort()).toEqual(keys.sort());
   };
+  const skipped: [number, string][] = [];
   const backfill = (after?: number) =>
-    backfillWidthCopies(ctx, driver, { tempDir: join(dir, "backfill"), batchSize: 2, after });
+    backfillWidthCopies(ctx, driver, {
+      tempDir: join(dir, "backfill"),
+      batchSize: 2,
+      after,
+      onSkip: (id, reason) => skipped.push([id, reason]),
+    });
+  const keyOf = (id: number) =>
+    ctx.sqlite
+      .prepare<{ storage_key: string }, [number]>("SELECT storage_key FROM files WHERE id = ?1")
+      .get(id)!.storage_key;
   return {
     ctx,
+    owner,
+    files,
+    driver,
+    skipped,
+    keyOf,
+    onRead: (run: (key: string) => void) => {
+      beforeRead = run;
+    },
     upload,
     post,
     listed,
@@ -174,7 +202,13 @@ describe("width copies of attachment pictures", () => {
     expect((await app.listed()).every((file) => file.widths.length === 0)).toBe(true);
 
     const first = await app.backfill();
-    expect(first).toEqual({ pictures: 4, created: 5, animated: 1, lastFileId: animation });
+    expect(first).toEqual({
+      pictures: 4,
+      created: 5,
+      animated: 1,
+      skipped: 0,
+      lastFileId: animation,
+    });
     // The same copies an upload makes, with the access of their picture.
     expect(pictures.map((id) => app.variants(id))).toEqual(before);
     expect(app.variants(deleted).map((row) => row.variant)).toEqual(["thumbnail"]);
@@ -187,6 +221,7 @@ describe("width copies of attachment pictures", () => {
       pictures: 1,
       created: 0,
       animated: 1,
+      skipped: 0,
       lastFileId: animation,
     });
     // From after the last picture done, nothing at all.
@@ -219,5 +254,97 @@ describe("width copies of attachment pictures", () => {
     // Attaching it later makes the copy public with it, as for an upload.
     await app.post([picture]);
     expect(app.variants(picture).at(-1)).toMatchObject({ visibility: "public" });
+  });
+
+  test("a picture the backfill cannot read is passed over, told and counted, and the run goes on", async () => {
+    const app = await setup();
+    const ids = [];
+    for (let index = 0; index < 5; index++) ids.push(await app.upload(await still(1000, 800)));
+    await app.post(ids);
+    await app.forgetCopies();
+    const [missing, garbled, goneBefore, goneDuring, fine] = ids as [
+      number,
+      number,
+      number,
+      number,
+      number,
+    ];
+    // Its bytes lost, its bytes not a picture, deleted (bytes and all) by a job as the run reads
+    // it, and deleted as the run reads it with its bytes still there.
+    await app.driver.delete(app.keyOf(missing));
+    await writeFile(join(app.files, app.keyOf(garbled)), "not a picture at all");
+    const goneKey = app.keyOf(goneBefore);
+    app.onRead((key) => {
+      for (const id of [goneBefore, goneDuring])
+        if (key === app.keyOf(id))
+          app.ctx.sqlite.prepare("UPDATE files SET deleted_at = -1 WHERE id = ?1").run(id);
+      if (key === goneKey) rmSync(join(app.files, key));
+    });
+    const first = await app.backfill();
+    expect(first).toMatchObject({ pictures: 5, created: 1, skipped: 4, lastFileId: fine });
+    expect(app.skipped).toEqual([
+      [missing, "stored bytes missing or unreadable"],
+      [garbled, "stored bytes are not a picture"],
+      [goneBefore, "deleted during the run"],
+      [goneDuring, "deleted during the run"],
+    ]);
+    expect(app.variants(fine).map((row) => row.variant)).toEqual(["thumbnail", "width_640"]);
+    for (const id of [missing, garbled, goneDuring])
+      expect(app.variants(id).map((row) => row.variant)).toEqual(["thumbnail"]);
+    // Nothing made for a picture passed over is left in storage.
+    const kept = new Set(await readdir(app.files));
+    const live = app.ctx.sqlite
+      .prepare<{ storage_key: string }, []>(
+        "SELECT storage_key FROM files WHERE variant GLOB 'width_*'",
+      )
+      .all();
+    expect(live.map((row) => kept.has(row.storage_key))).toEqual([true]);
+    expect(kept.size).toBe(
+      app.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM files").get()!.n - 2, // the two pictures whose bytes are gone
+    );
+
+    // A second run ends too: the two still listed are passed over again, the deleted ones are not
+    // listed at all.
+    app.skipped.length = 0;
+    expect(await app.backfill()).toMatchObject({ pictures: 2, created: 0, skipped: 2 });
+    expect(app.skipped.map(([id]) => id)).toEqual([missing, garbled]);
+  });
+
+  test("width copies count toward no member's storage quota, from an upload or the backfill", async () => {
+    const app = await setup();
+    const picture = await still(1600, 1200);
+    const first = await app.upload(picture);
+    const sizes = app.ctx.sqlite
+      .prepare<{ variant: string | null; byte_size: number }, [number]>(
+        "SELECT variant, byte_size FROM files WHERE id = ?1 OR parent_file_id = ?1",
+      )
+      .all(first);
+    // What the member uploaded and its thumbnail count, as they always have.
+    const counted = sizes
+      .filter((row) => !row.variant?.startsWith("width_"))
+      .reduce((total, row) => total + row.byte_size, 0);
+    const copies = sizes.reduce((total, row) => total + row.byte_size, 0) - counted;
+    expect(copies).toBeGreaterThan(10);
+    // The Member group's quota, which the owner has.
+    app.ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, 0, 2, 0, ?1 FROM permission_definitions WHERE key = 'attachment.storageQuota' ON CONFLICT (group_id, user_id, node_id, permission_id) DO UPDATE SET value = excluded.value",
+      )
+      .run(2 * counted + 10);
+    invalidate(app.ctx, "permissions");
+    // A second copy of the picture fits exactly, its width copies left out.
+    const second = await app.upload(picture);
+    expect(app.variants(second).map((row) => row.variant)).toContain("width_1280");
+    // The backfill writing the copies again leaves the member the same room: 10 bytes.
+    await app.forgetCopies();
+    expect(await app.backfill()).toMatchObject({ created: 4 });
+    const words = (count: number) => new TextEncoder().encode("x".repeat(count));
+    expect(
+      await app.upload(words(10), "text/plain").then(
+        () => "kept",
+        (error: Error) => error.message,
+      ),
+    ).toBe("kept");
+    await expect(app.upload(words(1), "text/plain")).rejects.toThrow("Upload quota exceeded.");
   });
 });

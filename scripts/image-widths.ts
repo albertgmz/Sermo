@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -41,14 +42,21 @@ const driver =
       });
 const after = values.after === undefined ? 0 : Number(values.after);
 if (!Number.isSafeInteger(after) || after < 0) throw new Error("--after takes a file id.");
-const tempDir = join(dirname(config.path), "image-widths-temp");
+// Its own folder, so that a second run beside it does not remove what this one is working on.
+const tempDir = join(dirname(config.path), "image-widths-temp", randomUUID());
 const ctx = createContext({ path: config.path });
+// The server's checkpointer folds the log back; a commit of this run must not be the one that
+// crosses SQLite's own threshold and checkpoints inline, stalling the server's commits.
+ctx.sqlite.run("PRAGMA wal_autocheckpoint = 0");
 const started = performance.now();
 try {
   const result = await backfillWidthCopies(ctx, driver, {
     tempDir,
     after,
     batchSize: values["batch-size"] === undefined ? 100 : Number(values["batch-size"]),
+    onSkip(fileId, reason) {
+      console.warn(`Passed over file ${fileId}: ${reason}.`);
+    },
     onProgress(progress) {
       if (progress.pictures % 100 === 0)
         console.log(
@@ -58,7 +66,7 @@ try {
   });
   const seconds = (performance.now() - started) / 1000;
   console.log(
-    `Complete: ${result.pictures} pictures read, ${result.created} copies made, ${result.animated} animations passed over, in ${seconds.toFixed(1)} s.`,
+    `Complete: ${result.pictures} pictures read, ${result.created} copies made, ${result.animated} animations need none, ${result.skipped} passed over, in ${seconds.toFixed(1)} s.`,
   );
 } catch (error) {
   console.error(

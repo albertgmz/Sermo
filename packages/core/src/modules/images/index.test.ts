@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp, { type Sharp } from "sharp";
 import { ValidationError } from "../../errors";
 import { processImage } from "./index";
+import { widthCopies } from "./process";
 
 sharp.cache(false);
 
@@ -277,4 +278,30 @@ describe("image processing", () => {
       await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     }
   }, 20_000);
+
+  test("a copy that would not be smaller than the stored picture is not kept", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sermo-images-"));
+    try {
+      const input = join(dir, "flat.png");
+      await sharp({
+        create: { width: 1400, height: 700, channels: 3, background: { r: 9, g: 9, b: 9 } },
+      })
+        .png()
+        .toFile(input);
+      const copies = await widthCopies(input, 1400, dir, Number.MAX_SAFE_INTEGER);
+      expect(copies.map((copy) => copy.variant)).toEqual(["width_640", "width_1280"]);
+      // A stored picture smaller than its 1280 copy keeps only the 640 one.
+      const limit = copies[0]!.byteSize + 1;
+      expect(copies[1]!.byteSize).toBeGreaterThanOrEqual(limit);
+      expect((await widthCopies(input, 1400, dir, limit)).map((copy) => copy.variant)).toEqual([
+        "width_640",
+      ]);
+      // The ones not kept leave no file behind.
+      expect((await readdir(dir)).filter((name) => name.startsWith("sermo-image-"))).toHaveLength(
+        3,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
 });
