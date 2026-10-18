@@ -58,8 +58,12 @@ const player =
     if (url) builder.addLiteral(`<${url}>`);
   };
 
+/**
+ * The document's own headings are the thread (`#`) and its posts (`##`): a post's headings start
+ * at `####`, so nothing a member writes reads as a post of someone else.
+ */
 const heading: FormatCallback = (elem, walk, builder) => {
-  const level = Number(elem.name?.slice(1)) || 2;
+  const level = Math.min(6, (Number(elem.name?.slice(1)) || 1) + 3);
   builder.openBlock({ leadingLineBreaks: 2 });
   walk(elem.children, builder);
   builder.closeBlock({
@@ -68,7 +72,11 @@ const heading: FormatCallback = (elem, walk, builder) => {
   });
 };
 
-/** A code block, fenced, named by its language when the post names one. */
+/**
+ * A code block, fenced, named by its language when the post names one. The block is indented by
+ * three spaces, which Markdown takes off its lines again, so no line of the code starts a line of
+ * the document (a line of code shaped like a post's heading included).
+ */
 const codeBlock: FormatCallback = (elem, walk, builder) => {
   const named = /(?:^|\s)language-([\w+#.-]+)/.exec(String(elem.attribs?.class ?? ""))?.[1];
   const header = elem.parent?.children?.find((node) =>
@@ -81,7 +89,7 @@ const codeBlock: FormatCallback = (elem, walk, builder) => {
     trailingLineBreaks: 2,
     blockTransform: (text) => {
       const ticks = fence(text, 3);
-      return `${ticks}${language}\n${text}\n${ticks}`;
+      return `${ticks}${language}\n${text}\n${ticks}`.replace(/^(?=.)/gm, "   ");
     },
   });
 };

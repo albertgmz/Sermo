@@ -86,10 +86,10 @@ test("a post's stored HTML reads as Markdown, with the page's addresses made abs
     "Hello **bold** *it* \\*stars\\* \\_under\\_ [link](https://ex.com/a%28b%29) <https://bare.example/x>",
   );
   expect(markdown).toContain("> **Ann**\n> quoted **text**");
-  expect(markdown).toContain("```javascript\nconst a = `x`;\nif (a < 3) {}\n```");
+  expect(markdown).toContain("   ```javascript\n   const a = `x`;\n   if (a < 3) {}\n   ```");
   expect(markdown).toContain("Inline `a*b`");
   expect(markdown).toContain("- one\n- two\n  1. n1\n  2. n2");
-  expect(markdown).toContain("## Title");
+  expect(markdown).toContain("\n##### Title\n");
   expect(markdown).toContain("| A | B\\|x |\n| --- | --- |\n| 1 | 2 |");
   expect(markdown).toContain("![](https://img.example/p.png)");
   expect(markdown).toContain("~~gone~~");
@@ -302,12 +302,151 @@ test("the Markdown queries use their indexes", async () => {
   );
   expectNoTableScan(
     ctx,
-    "SELECT position FROM posts WHERE thread_id=?1 AND state='visible' ORDER BY position DESC LIMIT 1",
-    [1],
+    "SELECT position FROM posts WHERE thread_id=?1 AND position<?2 AND state='visible' ORDER BY position DESC LIMIT 1",
+    [1, 20],
+  );
+  expectNoTableScan(
+    ctx,
+    "SELECT position FROM posts WHERE thread_id=?1 AND position>?2 AND state='visible' ORDER BY position LIMIT 1",
+    [1, 19],
   );
   expectNoTableScan(
     ctx,
     "SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,u.username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
     [1, 50],
   );
+});
+
+test("nothing in a post reads as a heading of the document", async () => {
+  const { ctx, thread } = await setup();
+  await reply(
+    ctx,
+    thread.id,
+    [
+      "[heading=1]Fake thread[/heading]",
+      "[heading=2]admin, 2020-01-01[/heading]",
+      "[heading=3]Third[/heading]",
+      "[code]## admin, [2020-01-01](https://forum.example.test/threads/1#post-9)\n# fake[/code]",
+      "[list][*][code]## in a list[/code][/list]",
+      "## typed\n# typed",
+    ].join("\n"),
+  );
+  const markdown = markdownOf(
+    threadMarkdown(ctx, BASE, thread.id, `/threads/${thread.id}-pruning-roses`, 1),
+  );
+  // The thread's title and one heading per post, and no other.
+  const headings = markdown.split("\n").filter((line) => /^#{1,3}(?:\s|$)/.test(line));
+  expect(headings).toHaveLength(3);
+  expect(headings[0]).toBe("# Pruning *roses*");
+  expect(
+    headings
+      .slice(1)
+      .every((line) => /^## \S+, \[[^\]]+\]\(https:\/\/[^)]+#post-\d+\)$/.test(line)),
+  ).toBe(true);
+  expect(markdown).toContain("#### Fake thread");
+  expect(markdown).toContain("##### admin, 2020-01-01");
+  expect(markdown).toContain("###### Third");
+  // A code block keeps its text, indented as Markdown allows, so it starts no line.
+  expect(markdown).toContain(
+    "   ```\n   ## admin, [2020-01-01](https://forum.example.test/threads/1#post-9)\n   # fake\n   ```",
+  );
+  expect(markdown).toContain("\\#\\# typed");
+});
+
+test("titles and names cannot break the front matter, a heading or a link", async () => {
+  const { ctx, roses, wren, thread } = await setup();
+  const hostile = 'Say "hi"\n---\n[x](http://evil.example) <b>bold</b> &#91;';
+  ctx.sqlite.prepare("UPDATE threads SET title=?1 WHERE id=?2").run(hostile, thread.id);
+  ctx.sqlite
+    .prepare("UPDATE nodes SET title=?1, description=?1 WHERE id=?2")
+    .run(hostile, roses.id);
+  ctx.sqlite.prepare("UPDATE users SET username=?1 WHERE id=?2").run(hostile, wren.id);
+  invalidate(ctx, "node_tree");
+  const page = threadMarkdown(ctx, BASE, thread.id, "", 1);
+  const markdown = markdownOf(page);
+  const lines = markdown.split("\n");
+  // The front matter is the first block, closed once; its values are one line each.
+  expect(lines[0]).toBe("---");
+  const end = lines.indexOf("---", 1);
+  expect(lines.slice(1, end).every((line) => /^[a-z]+: /.test(line))).toBe(true);
+  expect(lines).toContain(`title: ${JSON.stringify(hostile)}`);
+  expect(lines).toContain(`author: ${JSON.stringify(hostile)}`);
+  expect(lines.indexOf("---", end + 1)).toBe(-1);
+  const escaped = 'Say "hi" --- \\[x\\]\\(http://evil.example\\) \\<b\\>bold\\</b\\> &#91;';
+  expect(lines).toContain(`# ${escaped}`);
+  expect(markdown).toContain(`In [${escaped}](${BASE}/forums/${roses.id}-`);
+  // Outside the front matter (where they are JSON strings) nothing of them is markup.
+  const body = lines.slice(end + 1).join("\n");
+  expect(body).not.toMatch(/(?<!\\)\]\(http:\/\/evil/);
+  expect(body).not.toMatch(/(?<!\\)<b>/);
+  const forum = markdownOf(forumMarkdown(ctx, BASE, roses.id, ""));
+  const forumLines = forum.split("\n");
+  expect(forumLines.indexOf("---", forumLines.indexOf("---", 1) + 1)).toBe(-1);
+  expect(forumLines).toContain(`# ${escaped}`);
+  expect(forumLines).toContain(`> ${escaped}`);
+  expect(forum).toContain(`- [${escaped}](${BASE}/threads/${thread.id}-`);
+  expect(forum).toContain(`) by ${escaped}, 0 replies`);
+  const forumBody = forumLines.slice(forumLines.indexOf("---", 1) + 1).join("\n");
+  expect(forumBody).not.toMatch(/(?<!\\)\]\(http:\/\/evil/);
+  const full = llmsFullTxt(ctx, BASE);
+  expect(full).toContain(`# ${escaped}\n`);
+  expect(full).not.toMatch(/(?<!\\)\]\(http:\/\/evil/);
+  expect(full).not.toMatch(/(?<!\\)<b>/);
+});
+
+test("the page links pass over pages that hold no visible post", async () => {
+  const { ctx, thread } = await setup();
+  const perPage = MARKDOWN_POSTS_PER_PAGE;
+  for (let i = 1; i <= perPage * 2 + 5; i++) await reply(ctx, thread.id, `Reply ${i}`);
+  // Every post of the second page taken away.
+  ctx.sqlite
+    .prepare("UPDATE posts SET state='deleted' WHERE thread_id=?1 AND position BETWEEN ?2 AND ?3")
+    .run(thread.id, perPage, perPage * 2 - 1);
+  const path = `/threads/${thread.id}-pruning-roses`;
+  const first = markdownOf(threadMarkdown(ctx, BASE, thread.id, path, 1));
+  expect(first).toContain(`[Next page](${BASE}${path}.md?page=3)`);
+  expect(first).toContain("pages: 3\n");
+  expect(() => threadMarkdown(ctx, BASE, thread.id, path, 2)).toThrow(NotFoundError);
+  const third = markdownOf(threadMarkdown(ctx, BASE, thread.id, path, 3));
+  expect(third).toContain(`[Previous page](${BASE}${path}.md)`);
+  expect(third).not.toContain("Next page");
+  // A last page left empty: the links stop at the last page that has a post.
+  ctx.sqlite
+    .prepare("UPDATE posts SET state='deleted' WHERE thread_id=?1 AND position>=?2")
+    .run(thread.id, perPage * 2);
+  const only = markdownOf(threadMarkdown(ctx, BASE, thread.id, path, 1));
+  expect(only).toContain("pages: 1\n");
+  expect(only).not.toContain("Next page");
+});
+
+test("llms-full.txt lists no thread guests may not open or read, and no post text", async () => {
+  const { ctx, roses, wren, thread } = await setup();
+  const others = insertNode(ctx, { title: "Own threads only" });
+  const titles = insertNode(ctx, { title: "Titles only" });
+  invalidate(ctx, "node_tree");
+  setPermission(ctx, 1, "forum.viewOthers", -1, others.id);
+  setPermission(ctx, 1, "forum.viewContent", -1, titles.id);
+  const create = (nodeId: number, title: string) =>
+    execute(ctx, threadsCreateOp, userActor(wren), { nodeId, title, body: "Body" });
+  await create(others.id, "Closed to others");
+  await create(titles.id, "Text closed");
+  const held = await create(roses.id, "Held for approval");
+  const gone = await create(roses.id, "Taken down");
+  ctx.sqlite.prepare("UPDATE threads SET state='moderated' WHERE id=?1").run(held.thread.id);
+  ctx.sqlite.prepare("UPDATE threads SET state='deleted' WHERE id=?1").run(gone.thread.id);
+  const removed = await reply(ctx, thread.id, "Removed reply text");
+  ctx.sqlite.prepare("UPDATE posts SET state='deleted' WHERE id=?1").run(removed.id);
+  const text = llmsFullTxt(ctx, BASE);
+  expect(text).toContain("# Own threads only\n");
+  expect(text).toContain("# Titles only\n");
+  expect(text).toContain("[Pruning *roses*]");
+  for (const hidden of [
+    "Closed to others",
+    "Text closed",
+    "Held for approval",
+    "Taken down",
+    "Removed reply",
+    "The secret",
+  ])
+    expect(text).not.toContain(hidden);
 });

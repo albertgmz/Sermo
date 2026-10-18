@@ -87,12 +87,22 @@ export function threadMarkdown(
     ),
   ).all(id, (page - 1) * perPage, page * perPage - 1);
   if (!posts.length) throw new NotFoundError();
-  const last = prepared(ctx, "seo.markdownLastPosition", () =>
-    ctx.sqlite.prepare<{ position: number }, [number]>(
-      "SELECT position FROM posts WHERE thread_id=?1 AND state='visible' ORDER BY position DESC LIMIT 1",
+  // Positions never change, so posts taken away leave gaps: a page of the thread can hold no
+  // visible post while later ones do. The page links go to the nearest page that has one.
+  const before = prepared(ctx, "seo.markdownPositionBefore", () =>
+    ctx.sqlite.prepare<{ position: number }, [number, number]>(
+      "SELECT position FROM posts WHERE thread_id=?1 AND position<?2 AND state='visible' ORDER BY position DESC LIMIT 1",
     ),
-  ).get(id);
-  const pages = Math.floor((last?.position ?? 0) / perPage) + 1;
+  );
+  const after = prepared(ctx, "seo.markdownPositionAfter", () =>
+    ctx.sqlite.prepare<{ position: number }, [number, number]>(
+      "SELECT position FROM posts WHERE thread_id=?1 AND position>?2 AND state='visible' ORDER BY position LIMIT 1",
+    ),
+  );
+  const pageOf = (position: number) => Math.floor(position / perPage) + 1;
+  const previous = page > 1 ? before.get(id, (page - 1) * perPage) : null;
+  const next = after.get(id, page * perPage - 1);
+  const pages = pageOf(before.get(id, Number.MAX_SAFE_INTEGER)?.position ?? 0);
   const origin = requireBaseURL(baseURL).origin;
   const canonical = withPage(seo.canonical, page);
   const forumUrl = markdownUrl(canonicalUrl(baseURL, "node", node.id, node.title));
@@ -107,8 +117,8 @@ export function threadMarkdown(
   }
   const links = [];
   const pageAddress = markdownUrl(seo.canonical);
-  if (page > 1) links.push(`[Previous page](${withPage(pageAddress, page - 1)})`);
-  if (page < pages) links.push(`[Next page](${withPage(pageAddress, page + 1)})`);
+  if (previous) links.push(`[Previous page](${withPage(pageAddress, pageOf(previous.position))})`);
+  if (next) links.push(`[Next page](${withPage(pageAddress, pageOf(next.position))})`);
   if (links.length) parts.push(`---\n\n${links.join(" · ")}`);
   const markdown = `${frontMatter({
     title: thread.title,

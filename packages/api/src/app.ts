@@ -320,17 +320,30 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     c.text(llmsTxt(ctx, siteURL), 200, { "content-type": "text/plain; charset=utf-8" }),
   );
   // Guest content only, the same for every visitor: a shared cache may keep it for a minute.
-  const GUEST_CACHE = "public, max-age=60";
-  app.get("/llms-full.txt", (c) =>
-    c.text(llmsFullTxt(ctx, siteURL), 200, {
+  const GUEST_MAX_AGE_MS = 60_000;
+  const GUEST_CACHE = `public, max-age=${GUEST_MAX_AGE_MS / 1000}`;
+  // Each of these answers is built from many rows (a page of posts converted, or every public
+  // forum): they count against the read quota of the visitor's address, as a guest, whom they
+  // never resolve.
+  const guestRead = (c: ApiContext, next: () => Promise<void>) => {
+    c.set("actor", GUEST);
+    c.set("setCookies", []);
+    return readLimiter.middleware(c, next);
+  };
+  // One address every agent asks for, and the dearest: built at most once a minute.
+  let llmsFull: { at: number; text: string } | undefined;
+  app.get("/llms-full.txt", guestRead, (c) => {
+    if (!llmsFull || ctx.now() - llmsFull.at >= GUEST_MAX_AGE_MS)
+      llmsFull = { at: ctx.now(), text: llmsFullTxt(ctx, siteURL) };
+    return c.text(llmsFull.text, 200, {
       "content-type": "text/plain; charset=utf-8",
       "cache-control": GUEST_CACHE,
-    }),
-  );
+    });
+  });
   // The Markdown version of a public thread or forum: its page's address with `.md` added.
   const markdown = (c: Context, page: MarkdownPage) =>
     "redirect" in page
-      ? c.redirect(page.redirect, 301)
+      ? c.body(null, 301, { location: page.redirect, "cache-control": GUEST_CACHE })
       : c.body(page.markdown, 200, {
           "content-type": "text/markdown; charset=utf-8",
           "cache-control": GUEST_CACHE,
@@ -340,16 +353,16 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     const id = Number(/^(\d+)(?:-[^/]*)?\.md$/.exec(name)?.[1]);
     return Number.isSafeInteger(id) && id > 0 ? id : null;
   };
-  app.get("/threads/:name", (c) => {
-    const name = c.req.param("name");
+  app.get("/threads/:name", guestRead, (c) => {
+    const name = c.req.param("name") ?? "";
     const id = markdownRef(name);
     if (id === null) return c.json(errorBody("not_found", "Unknown page."), 404);
     const raw = c.req.query("page");
     const page = raw === undefined ? 1 : /^[1-9]\d{0,8}$/.test(raw) ? Number(raw) : 0;
     return markdown(c, threadMarkdown(ctx, siteURL, id, `/threads/${name.slice(0, -3)}`, page));
   });
-  app.get("/forums/:name", (c) => {
-    const name = c.req.param("name");
+  app.get("/forums/:name", guestRead, (c) => {
+    const name = c.req.param("name") ?? "";
     const id = markdownRef(name);
     if (id === null) return c.json(errorBody("not_found", "Unknown page."), 404);
     return markdown(c, forumMarkdown(ctx, siteURL, id, `/forums/${name.slice(0, -3)}`));

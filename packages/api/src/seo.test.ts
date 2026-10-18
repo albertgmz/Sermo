@@ -124,6 +124,8 @@ test("public threads and forums have a Markdown version; nothing a guest cannot 
   const bare = await app.request(`/threads/${thread.id}.md?page=2`);
   expect(bare.status).toBe(301);
   expect(bare.headers.get("location")).toBe(`${base}/threads/${thread.id}-pruning.md?page=2`);
+  // A permanent redirect is kept no longer than the page it leads to.
+  expect(bare.headers.get("cache-control")).toBe("public, max-age=60");
   expect((await app.request(`/threads/${thread.id}-pruning.md?page=2`)).status).toBe(404);
   expect((await app.request(`/threads/${thread.id}-pruning.md?page=x`)).status).toBe(404);
 
@@ -166,4 +168,35 @@ test("public threads and forums have a Markdown version; nothing a guest cannot 
     expect(text).not.toContain("Waiting");
     expect(text).not.toContain("rivate");
   }
+});
+
+test("a Markdown version is gone once its forum closes; llms-full.txt is rebuilt at most once a minute; both count as reads", async () => {
+  const ctx = createTestContext();
+  ctx.config.siteBaseURL = "https://forum.example.test";
+  const forum = insertNode(ctx, { title: "Roses" });
+  invalidate(ctx, "node_tree");
+  const author = userActor(insertUser(ctx));
+  const create = getOperation("threads.create");
+  const thread = (
+    await execute(ctx, create, author, { nodeId: forum.id, title: "Pruning", body: "Cut" })
+  ).thread;
+  const app = createApp(ctx, { trustedProxyHeader: null, rateLimits: { read: 6 } });
+  const md = `/threads/${thread.id}-pruning.md`;
+  expect((await app.request(md)).status).toBe(200);
+  expect(await (await app.request("/llms-full.txt")).text()).toContain("[Pruning]");
+  await execute(ctx, create, author, { nodeId: forum.id, title: "Grafting", body: "Join" });
+  // The same answer within the minute, the new one after it.
+  expect(await (await app.request("/llms-full.txt")).text()).not.toContain("[Grafting]");
+  ctx.clock.advance(60_000);
+  expect(await (await app.request("/llms-full.txt")).text()).toContain("[Grafting]");
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (permission_id,node_id,group_id,user_id,value) VALUES ((SELECT id FROM permission_definitions WHERE key='node.view'),?1,1,0,-1)",
+    )
+    .run(forum.id);
+  expect((await app.request(md)).status).toBe(404);
+  expect((await app.request(`/forums/${forum.id}-roses.md`)).status).toBe(404);
+  // Six reads in the window: the next ones are refused.
+  expect((await app.request(md)).status).toBe(429);
+  expect((await app.request("/llms-full.txt")).status).toBe(429);
 });
