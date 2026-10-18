@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 import { ValidationError } from "../../errors";
 import { processImage } from "./index";
 
@@ -185,6 +185,94 @@ describe("image processing", () => {
       const [main] = await processImage(tiny, "image/gif", "avatar", dir);
       expect([main!.width, main!.height]).toEqual([2, 2]);
       expect((await sharp(main!.path).metadata()).pages).toBe(1000);
+    } finally {
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  }, 20_000);
+
+  test("a still attachment picture gets WebP copies 640 and 1280 wide, each only below its width", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sermo-images-"));
+    try {
+      const picture = async (
+        name: string,
+        width: number,
+        height: number,
+        encode: (image: Sharp) => Sharp,
+      ) => {
+        const path = join(dir, name);
+        await encode(
+          sharp({
+            create: { width, height, channels: 3, background: { r: 90, g: 120, b: 200 } },
+          }),
+        ).toFile(path);
+        return path;
+      };
+      const renditions = async (path: string, mime: string) =>
+        Promise.all(
+          (await processImage(path, mime, "attachment", dir)).map(async (item) => {
+            const meta = await sharp(item.path).metadata();
+            // What is recorded is what is stored.
+            expect([item.width, item.height]).toEqual([meta.width, meta.height]);
+            return [item.variant, item.contentType, meta.format, item.width, item.height];
+          }),
+        );
+
+      // A large photo: the stored picture fits 2048, the copies are WebP of the same shape.
+      expect(
+        await renditions(await picture("wide.jpg", 3000, 2000, (i) => i.jpeg()), "image/jpeg"),
+      ).toEqual([
+        [null, "image/jpeg", "jpeg", 2048, 1365],
+        ["thumbnail", "image/webp", "webp", 320, 213],
+        ["width_640", "image/webp", "webp", 640, 427],
+        ["width_1280", "image/webp", "webp", 1280, 853],
+      ]);
+      // Never enlarged: a picture 1000 wide has no copy 1280 wide, one 640 wide (or narrower) none.
+      expect(
+        await renditions(await picture("mid.png", 1000, 500, (i) => i.png()), "image/png"),
+      ).toEqual([
+        [null, "image/png", "png", 1000, 500],
+        ["thumbnail", "image/webp", "webp", 320, 160],
+        ["width_640", "image/webp", "webp", 640, 320],
+      ]);
+      for (const width of [640, 300])
+        expect(
+          (
+            await renditions(
+              await picture(`narrow-${width}.webp`, width, 200, (i) => i.webp()),
+              "image/webp",
+            )
+          ).map(([variant]) => variant),
+        ).toEqual([null, "thumbnail"]);
+      // A picture turned as its camera said is 1000 wide once turned: one copy, tall like it.
+      const turned = join(dir, "turned.jpg");
+      await sharp({
+        create: { width: 1600, height: 1000, channels: 3, background: { r: 1, g: 2, b: 3 } },
+      })
+        .jpeg()
+        .withMetadata({ orientation: 6 })
+        .toFile(turned);
+      expect((await renditions(turned, "image/jpeg")).slice(2)).toEqual([
+        ["width_640", "image/webp", "webp", 640, 1024],
+      ]);
+      // A still GIF is stored as PNG and gets its copies like any still.
+      expect(
+        (await renditions(await picture("still.gif", 900, 300, (i) => i.gif()), "image/gif")).map(
+          ([variant, type]) => [variant, type],
+        ),
+      ).toEqual([
+        [null, "image/png"],
+        ["thumbnail", "image/webp"],
+        ["width_640", "image/webp"],
+      ]);
+      // An animation, GIF or WebP, keeps every frame and gets no copy: a narrow screen would be
+      // shown a still.
+      for (const format of ["gif", "webp"] as const) {
+        const input = join(dir, `wide-animated.${format}`);
+        await writeFile(input, await animation(format, 1400, 300, 3));
+        const output = await processImage(input, `image/${format}`, "attachment", dir);
+        expect(output.map((item) => item.variant)).toEqual([null, "thumbnail"]);
+        expect((await sharp(output[0]!.path).metadata()).pages).toBe(3);
+      }
     } finally {
       await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     }

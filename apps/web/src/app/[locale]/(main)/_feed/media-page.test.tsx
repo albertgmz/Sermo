@@ -42,6 +42,8 @@ const file = (id: number, thumbnail: boolean) => ({
   width: 10,
   height: 10,
   thumbnailUrl: thumbnail ? `/api/v1/files/${id + 1000}` : null,
+  // A smaller copy goes with the picture to the viewer, through the same gate.
+  widths: thumbnail ? [{ url: `/api/v1/files/${id + 1000}`, width: 5 }] : [],
 });
 
 function reader(answer: unknown) {
@@ -146,6 +148,7 @@ test("each card names where the picture is, and the viewer is told what each one
       url: "/api/v1/files/7",
       width: 10,
       height: 10,
+      widths: [{ url: "/api/v1/files/1007", width: 5 }],
       label: "inThread:Holiday",
     },
     {
@@ -154,6 +157,7 @@ test("each card names where the picture is, and the viewer is told what each one
       url: "/api/v1/files/6",
       width: 10,
       height: 10,
+      widths: [],
       label: "onProfile",
     },
   ]);

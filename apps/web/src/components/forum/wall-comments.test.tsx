@@ -126,6 +126,7 @@ test("the comment composer takes files, and the comments show theirs", async () 
         height: null,
         filename: "informe económico.pdf",
         thumbnailUrl: null,
+        widths: [],
       },
     ],
   } as Comment;

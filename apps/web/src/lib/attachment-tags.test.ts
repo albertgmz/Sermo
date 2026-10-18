@@ -5,6 +5,7 @@ import {
   inlineAttachmentIds,
   placeAttachments,
   type TaggedAttachment,
+  widthCandidates,
 } from "./attachment-tags";
 
 const file = (
@@ -14,6 +15,7 @@ const file = (
   fileId,
   url: `/api/v1/files/${fileId}/plan.png`,
   thumbnailUrl: `/api/v1/files/${fileId}/thumb.png`,
+  widths: [],
   contentType: "image/png",
   byteSize: 2048,
   width: 1000,
@@ -47,6 +49,54 @@ test("a full image is the file itself, scaled by the column", () => {
   expect(html).toContain('width="1000" height="500"');
   expect(html).toContain("max-w-full");
   expect(html).not.toContain("<a ");
+});
+
+// A picture 1000 wide with its thumbnail and the copy 640 wide.
+const copies = [
+  { url: "/api/v1/files/11", width: 320 },
+  { url: "/api/v1/files/12", width: 640 },
+];
+
+test("the candidates of a picture are its copies, narrowest first, then the picture", () => {
+  expect(widthCandidates(file(1, { widths: copies }))).toBe(
+    "/api/v1/files/11 320w, /api/v1/files/12 640w, /api/v1/files/1/plan.png 1000w",
+  );
+  // Without copies, or without a known width, `src` alone draws it.
+  expect(widthCandidates(file(1))).toBeNull();
+  expect(widthCandidates(file(1, { widths: copies, width: null }))).toBeNull();
+});
+
+test("a full image with copies lets the browser take the one its box needs", () => {
+  const html = placeAttachments(
+    slot(1, "full"),
+    [file(1, { widths: copies })],
+    context,
+  );
+  expect(html).toContain('src="/api/v1/files/1/plan.png"');
+  expect(html).toContain(
+    'srcset="/api/v1/files/11 320w, /api/v1/files/12 640w, /api/v1/files/1/plan.png 1000w"',
+  );
+  // Its box is the picture's width or the column's, whichever is less.
+  expect(html).toContain('sizes="auto, (max-width: 1000px) 100vw, 1000px"');
+  expect(html).toContain('width="1000" height="500" loading="lazy"');
+  // A full image without copies, and a thumbnail, are one file each.
+  expect(placeAttachments(slot(1, "full"), [file(1)], context)).not.toContain(
+    "srcset",
+  );
+  expect(
+    placeAttachments(slot(1), [file(1, { widths: copies })], context),
+  ).not.toContain("srcset");
+  // With post pictures blocked no copy is named either.
+  const lite = placeAttachments(
+    slot(1, "full"),
+    [file(1, { widths: copies })],
+    {
+      ...context,
+      liteImages: true,
+    },
+  );
+  expect(lite).not.toContain("srcset");
+  expect(lite).not.toContain("/api/v1/files/");
 });
 
 test("a file that is not a picture is a row that links to it", () => {

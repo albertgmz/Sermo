@@ -6,6 +6,8 @@ declare const gated: unique symbol;
 // the server, and it is null when the visitor blocks post pictures: the viewer draws what it is
 // given and never decides, so the address of a blocked picture does not exist in the browser.
 export type GatedUrl = string & { readonly [gated]: true };
+// A smaller copy of a picture, let through with it (none when it is blocked).
+export type GatedWidth = { url: GatedUrl; width: number };
 
 // One picture of the media list as the viewer knows it, enough to draw it and to step to the one
 // either side.
@@ -16,6 +18,7 @@ export type PictureEntry = {
   url: GatedUrl | null;
   width: number | null;
   height: number | null;
+  widths: GatedWidth[];
   // What the picture is, in words: the thread it is in, or a profile.
   label: string;
 };
@@ -32,6 +35,7 @@ export type PictureDetails = {
     url: GatedUrl | null;
     width: number | null;
     height: number | null;
+    widths: GatedWidth[];
   };
   viewerId: number | null;
   reactions: ReactionsData;

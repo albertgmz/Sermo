@@ -20,9 +20,13 @@ const image = (fileId: number) => ({
   url: `/api/v1/files/${fileId}`,
   contentType: "image/png",
   byteSize: 1,
-  width: 1,
-  height: 1,
+  width: 1000,
+  height: 500,
   thumbnailUrl: `/api/v1/files/${fileId + 1000}`,
+  widths: [
+    { url: `/api/v1/files/${fileId + 1000}`, width: 320 },
+    { url: `/api/v1/files/${fileId + 2000}`, width: 640 },
+  ],
 });
 const poll = {
   id: 5,
@@ -45,7 +49,15 @@ type Drawn = {
     poll: unknown;
     pictures: Record<
       number,
-      { type: unknown; props: { src: string; category: string } }
+      {
+        type: unknown;
+        props: {
+          src: string;
+          category: string;
+          candidates: string;
+          sizes: string;
+        };
+      }
     >;
     attachIn: number;
   };
@@ -104,6 +116,11 @@ test("each picture goes through the data saver's gate as a post picture, by file
   for (const id of [70, 71]) {
     expect(element.props.pictures[id]?.type).toBe(LazyArt);
     expect(element.props.pictures[id]?.props.category).toBe("postImages");
+    // With its smaller copies, for the browser to take the one the box needs.
+    expect(element.props.pictures[id]?.props.candidates).toBe(
+      `/api/v1/files/${id + 1000} 320w, /api/v1/files/${id + 2000} 640w, /api/v1/files/${id} 1000w`,
+    );
+    expect(element.props.pictures[id]?.props.sizes).toBe("auto, 100vw");
   }
   expect(element.props.attachIn).toBe(4);
 });

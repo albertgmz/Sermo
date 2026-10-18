@@ -39,6 +39,7 @@ const file = (id: number, over: Record<string, unknown> = {}) => ({
   height: 480,
   filename: null,
   thumbnailUrl: `/api/v1/files/${id + 1000}`,
+  widths: [{ url: `/api/v1/files/${id + 1000}`, width: 320 }],
   ...over,
 });
 const thread = (canReply: boolean, state = "visible") => ({
@@ -176,6 +177,7 @@ test("a picture of a post comes with its poster, where it is, the reactions and 
     url: "/api/v1/files/7",
     width: 640,
     height: 480,
+    widths: [{ url: "/api/v1/files/1007", width: 320 }],
   });
   expect(details.viewerId).toBe(1);
   expect(details.reply).toEqual({ kind: "post", threadId: 7 });
@@ -297,7 +299,10 @@ test("with post pictures blocked by LITE the viewer is given no address, in deta
   const result = await pictureDetails("post", 31, 7);
   if (result.status !== "ready") throw new Error(result.status);
   expect(result.details.picture.url).toBeNull();
+  // Nor of its smaller copies.
+  expect(result.details.picture.widths).toEqual([]);
   expect(JSON.stringify(result.details)).not.toContain("/api/v1/files/7");
+  expect(JSON.stringify(result.details)).not.toContain("/api/v1/files/1007");
   const item = {
     type: "post" as const,
     id: 30,
@@ -309,6 +314,10 @@ test("with post pictures blocked by LITE the viewer is given no address, in deta
     threadTitle: "Tomatoes",
   };
   expect(pictureEntry(item, "Picture in Tomatoes", true).url).toBeNull();
+  expect(pictureEntry(item, "Picture in Tomatoes", true).widths).toEqual([]);
+  expect(pictureEntry(item, "Picture in Tomatoes", false).widths).toEqual([
+    { url: "/api/v1/files/1007", width: 320 },
+  ]);
   expect(pictureEntry(item, "Picture in Tomatoes", false).url).toBe(
     "/api/v1/files/7",
   );

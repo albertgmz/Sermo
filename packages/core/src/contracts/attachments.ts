@@ -13,4 +13,11 @@ export const Attachment = z.object({
   /** The name the file was uploaded with; null for a file that has none. */
   filename: z.string().nullable(),
   thumbnailUrl: z.string().nullable(),
+  /**
+   * Smaller WebP copies of a still picture wider than 640 pixels, narrowest first: its thumbnail
+   * and the copies 640 and 1280 pixels wide that it is wider than. With the file itself they make
+   * a `srcset`. Empty for anything else: other files, narrower pictures, animations (whose
+   * thumbnail is a still) and pictures stored before the copies were made.
+   */
+  widths: z.array(z.object({ url: z.string(), width: z.number().int().positive() })),
 });

@@ -5,8 +5,8 @@ import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, permissionsOf } from "../../permissions";
 import { iso } from "../../time";
+import { type AttachmentFileRow, attachmentFile, attachmentFileSql } from "../attachments";
 import type { ThreadRow } from "../forums";
-import { fileUrl } from "../storage/url";
 import { acceptPosts, acceptWall, type PostCandidate, type WallCandidate } from "./feed";
 import { scanKeyset } from "./scan";
 import { visibleNodes } from "./viewer";
@@ -20,16 +20,7 @@ type Candidate = {
   content_id: number;
   created_at: number;
 };
-type FileRow = {
-  id: number;
-  file_id: number;
-  content_type: string;
-  byte_size: number;
-  width: number | null;
-  height: number | null;
-  filename: string | null;
-  thumbnail_id: number | null;
-};
+type FileRow = AttachmentFileRow & { id: number };
 type PostRow = PostCandidate & { position: number };
 
 const columns = "id, content_type, content_id, created_at";
@@ -41,7 +32,7 @@ export const mediaSql = {
    * attachment when the kind has none (about 10 ms with 300,000 rows).
    */
   newest: `SELECT ${columns} FROM attachments INDEXED BY attachments_type_id WHERE content_type = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3`,
-  files: `SELECT a.id, f.id AS file_id, f.content_type, f.byte_size, f.width, f.height, f.filename, thumb.id AS thumbnail_id FROM attachments a JOIN files f ON f.id = a.file_id LEFT JOIN files thumb INDEXED BY files_variant ON thumb.parent_file_id = f.id AND thumb.variant = 'thumbnail' AND thumb.deleted_at IS NULL WHERE a.id IN (SELECT value FROM json_each(?1)) AND f.deleted_at IS NULL AND f.content_type IN (SELECT value FROM json_each(?2))`,
+  files: `SELECT a.id, ${attachmentFileSql.columns} FROM attachments a JOIN files f ON f.id = a.file_id ${attachmentFileSql.joins} WHERE a.id IN (SELECT value FROM json_each(?1)) AND f.deleted_at IS NULL AND f.content_type IN (SELECT value FROM json_each(?2))`,
   posts:
     "SELECT id, thread_id, user_id, state, created_at, position FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
   walls:
@@ -131,16 +122,7 @@ export const mediaListOp = implement(mediaList, (ctx, actor, input) => {
       const base = {
         id: row.id,
         createdAt: iso(row.created_at),
-        file: {
-          fileId: file.file_id,
-          url: fileUrl(file.file_id),
-          contentType: file.content_type,
-          byteSize: file.byte_size,
-          width: file.width,
-          height: file.height,
-          filename: file.filename,
-          thumbnailUrl: file.thumbnail_id === null ? null : fileUrl(file.thumbnail_id),
-        },
+        file: attachmentFile(file),
       };
       if (row.content_type === "post") {
         const post = posts.get(row.content_id)!;

@@ -53,6 +53,11 @@ const WEBP_ART = { quality: 90, alphaQuality: 100 };
 const WEBP_EXACT = { quality: 100, alphaQuality: 100, lossless: true };
 /** Longest side of a reaction picture; nothing larger is accepted, so none is ever scaled. */
 const REACTION_IMAGE_SIDE = MAX_REACTION_IMAGE_SIDE;
+/**
+ * Widths of the smaller copies of a still attachment picture, which with its 320 px thumbnail and
+ * the picture itself make a `srcset`. A copy is made only when narrower than the stored picture.
+ */
+export const ATTACHMENT_WIDTHS = [640, 1280] as const;
 const insideWebp = (variant: string | null, width: number, height: number, webp?: Size["webp"]) =>
   ({ variant, width, height, fit: "inside", mime: "image/webp", webp }) satisfies Size;
 
@@ -178,9 +183,50 @@ export async function processImage(
         variant: size.variant,
       });
     }
+    // An animation gets none: a narrow screen would be shown a still.
+    if (purpose === "attachment" && pages === 1)
+      output.push(...(await widthCopies(inputPath, output[0]!.width, tempDir)));
     return output;
   } catch {
     for (const path of paths) await rm(path, { force: true, maxRetries: 5, retryDelay: 50 });
     throw new ValidationError("Image could not be processed.");
+  }
+}
+
+/**
+ * The `width_<n>` WebP copies of a still picture `width` pixels wide (oriented as stored), one per
+ * width of `ATTACHMENT_WIDTHS` below it: never enlarged, and none at all for a narrow picture.
+ * The upload makes them from what was sent, the backfill from the stored picture.
+ */
+export async function widthCopies(
+  inputPath: string,
+  width: number,
+  tempDir: string,
+): Promise<ProcessedImage[]> {
+  const output: ProcessedImage[] = [];
+  const paths: string[] = [];
+  try {
+    for (const target of ATTACHMENT_WIDTHS) {
+      if (target >= width) continue;
+      const path = join(tempDir, `sermo-image-${randomUUID()}`);
+      paths.push(path);
+      const info = await sharp(inputPath, { limitInputPixels: MAX_PIXELS, failOn: "error" })
+        .autoOrient()
+        .resize({ width: target, withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toFile(path);
+      output.push({
+        path,
+        contentType: "image/webp",
+        width: info.width,
+        height: info.height,
+        byteSize: info.size,
+        variant: `width_${target}`,
+      });
+    }
+    return output;
+  } catch (error) {
+    for (const path of paths) await rm(path, { force: true, maxRetries: 5, retryDelay: 50 });
+    throw error;
   }
 }

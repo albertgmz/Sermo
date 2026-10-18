@@ -2,6 +2,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
+import { ATTACHMENT_WIDTHS } from "../images/process";
 import { enqueueJob } from "../jobs";
 import { fileUrl } from "../storage/url";
 
@@ -12,8 +13,8 @@ export type AttachmentTarget =
   | "conversation_message"
   | "poll";
 
-interface AttachmentRow {
-  content_id: number;
+/** An attachment's file as the page queries read it, with its thumbnail and width copies. */
+export interface AttachmentFileRow {
   file_id: number;
   content_type: string;
   byte_size: number;
@@ -21,41 +22,74 @@ interface AttachmentRow {
   height: number | null;
   filename: string | null;
   thumbnail_id: number | null;
+  thumbnail_width: number | null;
+  /** `width_640_id`, `width_640_width` and so on: null for a copy the file does not have. */
+  [copy: `width_${number}_${"id" | "width"}`]: number | null;
+}
+interface AttachmentRow extends AttachmentFileRow {
+  content_id: number;
 }
 
-export const attachmentsPageSql =
-  "SELECT a.content_id, f.id AS file_id, f.content_type, f.byte_size, f.width, f.height, f.filename, thumb.id AS thumbnail_id FROM attachments a JOIN files f ON f.id = a.file_id LEFT JOIN files thumb INDEXED BY files_variant ON thumb.parent_file_id = f.id AND thumb.variant = 'thumbnail' AND thumb.deleted_at IS NULL WHERE a.content_type = ?1 AND a.content_id IN (SELECT value FROM json_each(?2)) ORDER BY a.content_id, a.position";
+const renditions = [
+  ["thumb", "thumbnail"],
+  ...ATTACHMENT_WIDTHS.map((width) => [`w${width}`, `width_${width}`]),
+];
+/**
+ * The columns of `AttachmentFileRow` for the file `f`, with the joins they need: one seek in
+ * `files_variant` per rendition.
+ */
+export const attachmentFileSql = {
+  columns: [
+    "f.id AS file_id, f.content_type, f.byte_size, f.width, f.height, f.filename",
+    "thumb.id AS thumbnail_id, thumb.width AS thumbnail_width",
+    ...ATTACHMENT_WIDTHS.map(
+      (width) => `w${width}.id AS width_${width}_id, w${width}.width AS width_${width}_width`,
+    ),
+  ].join(", "),
+  joins: renditions
+    .map(
+      ([alias, variant]) =>
+        `LEFT JOIN files ${alias} INDEXED BY files_variant ON ${alias}.parent_file_id = f.id AND ${alias}.variant = '${variant}' AND ${alias}.deleted_at IS NULL`,
+    )
+    .join(" "),
+};
+
+/** The `Attachment` of a row read with `attachmentFileSql`. */
+export function attachmentFile(row: AttachmentFileRow) {
+  const copies = ATTACHMENT_WIDTHS.flatMap((width) => {
+    const id = row[`width_${width}_id`];
+    const copyWidth = row[`width_${width}_width`];
+    return id == null || copyWidth == null ? [] : [{ url: fileUrl(id), width: copyWidth }];
+  });
+  return {
+    fileId: row.file_id,
+    url: fileUrl(row.file_id),
+    contentType: row.content_type,
+    byteSize: row.byte_size,
+    width: row.width,
+    height: row.height,
+    filename: row.filename,
+    thumbnailUrl: row.thumbnail_id === null ? null : fileUrl(row.thumbnail_id),
+    // A picture without width copies is drawn from itself alone: an animation's thumbnail is a
+    // still, and a narrow picture gains little from one.
+    widths:
+      copies.length && row.thumbnail_id !== null && row.thumbnail_width !== null
+        ? [{ url: fileUrl(row.thumbnail_id), width: row.thumbnail_width }, ...copies]
+        : copies,
+  };
+}
+
+export const attachmentsPageSql = `SELECT a.content_id, ${attachmentFileSql.columns} FROM attachments a JOIN files f ON f.id = a.file_id ${attachmentFileSql.joins} WHERE a.content_type = ?1 AND a.content_id IN (SELECT value FROM json_each(?2)) ORDER BY a.content_id, a.position`;
 
 export function loadAttachments(ctx: Ctx, type: AttachmentTarget, ids: number[]) {
-  const result = new Map<
-    number,
-    {
-      fileId: number;
-      url: string;
-      contentType: string;
-      byteSize: number;
-      width: number | null;
-      height: number | null;
-      filename: string | null;
-      thumbnailUrl: string | null;
-    }[]
-  >();
+  const result = new Map<number, ReturnType<typeof attachmentFile>[]>();
   if (!ids.length) return result;
   const rows = prepared(ctx, "attachments.page", () =>
     ctx.sqlite.prepare<AttachmentRow, [AttachmentTarget, string]>(attachmentsPageSql),
   ).all(type, JSON.stringify(ids));
   for (const row of rows) {
     const group = result.get(row.content_id) ?? [];
-    group.push({
-      fileId: row.file_id,
-      url: fileUrl(row.file_id),
-      contentType: row.content_type,
-      byteSize: row.byte_size,
-      width: row.width,
-      height: row.height,
-      filename: row.filename,
-      thumbnailUrl: row.thumbnail_id === null ? null : fileUrl(row.thumbnail_id),
-    });
+    group.push(attachmentFile(row));
     result.set(row.content_id, group);
   }
   return result;

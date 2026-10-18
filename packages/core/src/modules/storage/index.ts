@@ -246,7 +246,7 @@ function notModified(request: Headers, etag: string, modifiedAt: number): boolea
   return !Number.isNaN(since) && Math.floor(modifiedAt / 1000) * 1000 <= since;
 }
 
-async function fileHash(path: string): Promise<string> {
+export async function fileHash(path: string): Promise<string> {
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(path)) hash.update(chunk);
   return hash.digest("hex");

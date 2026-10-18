@@ -12,6 +12,7 @@ import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { type PictureKind, parseRef } from "@/components/forum/picture-ref";
 import type {
   GatedUrl,
+  GatedWidth,
   PictureEntry,
   PictureResult,
 } from "@/components/forum/picture-types";
@@ -32,6 +33,16 @@ type Attachment = MediaItem["file"];
 // is dropped here, so nothing after this can send it to the browser.
 export function gateUrl(url: string, blocked: boolean): GatedUrl | null {
   return blocked ? null : (url as GatedUrl);
+}
+
+// The smaller copies of a picture go with it through the same gate: none when it is blocked.
+export function gateWidths(
+  widths: Attachment["widths"],
+  blocked: boolean,
+): GatedWidth[] {
+  return blocked
+    ? []
+    : widths.map((copy) => ({ url: copy.url as GatedUrl, width: copy.width }));
 }
 
 export const picturesBlocked = () => liteBlocks("postImages");
@@ -55,6 +66,7 @@ export function pictureEntry(
     url: gateUrl(item.file.url, blocked),
     width: item.file.width,
     height: item.file.height,
+    widths: gateWidths(item.file.widths, blocked),
     label,
   };
 }
@@ -81,6 +93,7 @@ function pictureOf(
       url: gateUrl(file.url, blocked),
       width: file.width,
       height: file.height,
+      widths: gateWidths(file.widths, blocked),
     }
   );
 }

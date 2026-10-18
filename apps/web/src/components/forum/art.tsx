@@ -28,13 +28,18 @@ export async function Art({
 // A picture that is part of the content, drawn as an image the browser fetches when it comes near
 // the screen (a long grid does not load every file at once). Same gate as `Art`: with the category
 // blocked the placeholder takes its place and the address is never written. The caller gives the
-// box its size and a name for the link or label around it.
+// box its size and a name for the link or label around it, and with them, for a picture that has
+// smaller copies, their `srcset` candidates (`widthCandidates`) and the box's `sizes`.
 export async function LazyArt({
   src,
+  candidates,
+  sizes,
   category,
   className,
 }: {
   src: string;
+  candidates?: string | null;
+  sizes?: string;
   category: LiteCategory;
   className?: string;
 }) {
@@ -44,6 +49,8 @@ export async function LazyArt({
     // biome-ignore lint/performance/noImgElement: next/image optimisation is disabled
     <img
       src={src}
+      srcSet={candidates ?? undefined}
+      sizes={candidates ? sizes : undefined}
       alt=""
       loading="lazy"
       decoding="async"

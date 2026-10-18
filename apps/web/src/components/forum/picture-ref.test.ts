@@ -14,6 +14,7 @@ const entry = (id: number): PictureEntry => ({
   url: `/api/v1/files/${id}` as GatedUrl,
   width: 10,
   height: 10,
+  widths: [],
   label: `Picture ${id}`,
 });
 

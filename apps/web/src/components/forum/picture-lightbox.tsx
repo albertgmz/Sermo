@@ -171,6 +171,7 @@ export default function PictureLightbox({
                 url={picture.url}
                 width={picture.width}
                 height={picture.height}
+                widths={picture.widths}
                 alt={entry?.label ?? t("picture")}
                 blocked={t("blocked")}
                 className="size-full"

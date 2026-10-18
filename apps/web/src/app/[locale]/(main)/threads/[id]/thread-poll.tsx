@@ -1,6 +1,7 @@
 import { pollsGet } from "@sermo/core/contracts";
 import { LazyArt } from "@/components/forum/art";
 import { LazyPoll } from "@/components/forum/poll-lazy";
+import { widthCandidates } from "@/lib/attachment-tags";
 import { readIfAllowed } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { pollForClient } from "@/lib/sermo/polls";
@@ -47,6 +48,8 @@ export async function ThreadPoll({
         pictures[image.fileId] = (
           <LazyArt
             src={image.url}
+            candidates={widthCandidates(image)}
+            sizes="auto, 100vw"
             category="postImages"
             className="aspect-video max-h-56 w-full rounded-md"
           />

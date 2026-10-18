@@ -61,6 +61,7 @@ const picture = {
   fileId: 1,
   url: "/api/v1/files/1/cat.png",
   thumbnailUrl: "/api/v1/files/1/thumb.png",
+  widths: [],
   contentType: "image/png",
   byteSize: 100,
   width: 800,

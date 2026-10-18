@@ -170,7 +170,7 @@ afterAll(() => {
 });
 // Dynamic imports ensure mocks are installed before the server modules load.
 const { proxy, config } = await import("../src/proxy");
-const { Art } = await import("../src/components/forum/art");
+const { Art, LazyArt } = await import("../src/components/forum/art");
 const { UserAvatar } = await import("../src/components/forum/user-avatar");
 const { AwardIcon } = await import("../src/components/forum/award-icon");
 const { ShopIcon } = await import("../src/components/forum/shop-icon");
@@ -491,6 +491,35 @@ test("Art blocks every category before emitting its URL and preserves caller siz
     }
     cookie = LITE_CATEGORIES.find(({ key: other }) => other !== key)?.key;
     expect(renderToStaticMarkup(await Art(props))).toContain(props.src);
+  }
+});
+
+test("LazyArt names a picture's smaller copies only when it draws the picture", async () => {
+  const props = {
+    src: "https://pictures.test/poll.png",
+    candidates:
+      "https://pictures.test/poll-640.webp 640w, https://pictures.test/poll.png 1000w",
+    sizes: "auto, 100vw",
+    category: "postImages" as const,
+    className: "aspect-video w-full",
+  };
+  cookie = undefined;
+  const visible = renderToStaticMarkup(await LazyArt(props));
+  expect(visible).toContain(`srcSet="${props.candidates}"`);
+  expect(visible).toContain('sizes="auto, 100vw"');
+  expect(visible).toContain('loading="lazy"');
+  // Without copies it is the one picture, with no sizes to go by.
+  const single = renderToStaticMarkup(
+    await LazyArt({ ...props, candidates: null }),
+  );
+  expect(single).not.toContain("srcSet");
+  expect(single).not.toContain("sizes=");
+  for (const mode of ["postImages", "all"]) {
+    cookie = mode;
+    const hidden = renderToStaticMarkup(await LazyArt(props));
+    noArtwork(hidden);
+    expect(hidden).not.toContain("srcSet");
+    expect(hidden).not.toContain("poll-640");
   }
 });
 

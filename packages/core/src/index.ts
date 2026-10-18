@@ -83,6 +83,7 @@ export {
   s3Driver,
   uploadLimit,
 } from "./modules/storage";
+export { backfillWidthCopies } from "./modules/storage/backfill";
 export { migrateStorageFiles } from "./modules/storage/migrate";
 export * from "./operation";
 export { getOperation, operations, operationsByName } from "./operations";

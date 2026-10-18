@@ -16,6 +16,7 @@
     "staging:status": "bun scripts/staging.ts status",
     "lighthouse": "bun scripts/lighthouse.ts",
     "storage:migrate": "bun scripts/storage-migrate.ts",
+    "images:widths": "bun scripts/image-widths.ts",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "biome check --error-on-warnings .",
     "format": "biome check --write .",

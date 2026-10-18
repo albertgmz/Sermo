@@ -100,7 +100,7 @@ const post = (over: Partial<PictureDetails> = {}): PictureResult => ({
     author: { id: 3, username: "ember" },
     createdAt: "2026-01-01T00:00:00.000Z",
     where: { href: "/threads/7#post-31", label: "Tomatoes" },
-    picture: { url: null, width: null, height: null },
+    picture: { url: null, width: null, height: null, widths: [] },
     viewerId: 1,
     reactions,
     reply: { kind: "post", threadId: 7 },

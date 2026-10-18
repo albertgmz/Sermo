@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { deflateSync } from "node:zlib";
 import type { Ctx } from "@sermo/core";
 import { closeContext, invalidate, localDriver } from "@sermo/core";
 import { createTestContext, insertNode } from "@sermo/core/testing";
@@ -25,6 +26,30 @@ const clearPixel = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
   "base64",
 );
+
+/** A grey PNG of the given size, made by hand: this package has no image library. */
+function greyPng(width: number, height: number) {
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, "latin1"), data]);
+    const size = Buffer.alloc(4);
+    size.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(Bun.hash.crc32(body));
+    return Buffer.concat([size, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 0, 0, 0, 0], 8); // 8-bit greyscale
+  const rows = Buffer.alloc((width + 1) * height, 0x80);
+  for (let row = 0; row < height; row++) rows[row * (width + 1)] = 0;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(rows)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
 
 async function setup() {
   const dir = await mkdtemp(join(tmpdir(), "sermo-file-caching-"));
@@ -322,4 +347,82 @@ test("a variant is cached as its source is, whatever its own row says", async ()
   expect(cached.status).toBe(304);
   expect(cached.headers.get("cache-control")).toBe("private, no-store");
   expect((await app.request(url)).status).toBe(404);
+});
+
+test("a width copy of a picture has its own address, type and validator, and is kept as its picture is", async () => {
+  const app = await setup();
+  const recipient = await app.signUp("recipient");
+  const wide = () => new Blob([greyPng(1400, 700)], { type: "image/png" });
+  const posted = await app.upload("attachment", wide(), "wide.png");
+  const sent = await app.upload("attachment", wide(), "sent.png");
+  const avatar = await app.upload("avatar", wide(), "me.png");
+  expect(
+    (
+      await app.json("POST", `/api/v1/nodes/${app.forum.id}/threads`, {
+        title: "Wide",
+        body: "A wide picture",
+        attachmentIds: [posted.id],
+      })
+    ).status,
+  ).toBe(201);
+  expect(
+    (
+      await app.json("POST", "/api/v1/conversations", {
+        title: "Private",
+        recipientIds: [Number(recipient.userId)],
+        body: "A wide picture",
+        attachmentIds: [sent.id],
+      })
+    ).status,
+  ).toBe(201);
+  expect((await app.json("PUT", "/api/v1/profile/avatar", { fileId: avatar.id })).status).toBe(200);
+  const copy = (source: number, variant: string) =>
+    `/api/v1/files/${
+      app.ctx.sqlite
+        .prepare<{ id: number }, [number, string]>(
+          "SELECT id FROM files WHERE parent_file_id = ?1 AND variant = ?2",
+        )
+        .get(source, variant)!.id
+    }`;
+
+  for (const [source, url, cacheControl] of [
+    // Attachments depend on who may see their post or conversation, so their copies do too.
+    [posted, copy(posted.id, "width_1280"), "private, no-store"],
+    [posted, copy(posted.id, "width_640"), "private, no-store"],
+    [sent, copy(sent.id, "width_640"), "private, no-store"],
+    // An avatar is anyone's to see, and so are its smaller renditions.
+    [avatar, copy(avatar.id, "square_128"), year],
+  ] as const) {
+    const original = await app.request(source.url, { headers: { cookie: app.cookie } });
+    const served = await app.request(url, { headers: { cookie: app.cookie } });
+    expect(served.status, url).toBe(200);
+    expect(served.headers.get("content-type")).toBe("image/webp");
+    expect(served.headers.get("cache-control"), url).toBe(cacheControl);
+    const etag = served.headers.get("etag")!;
+    expect(etag).toMatch(/^"[0-9a-f]{64}"$/);
+    // Its own bytes: not its picture's validator.
+    expect(etag).not.toBe(original.headers.get("etag"));
+    const cached = await app.request(url, {
+      headers: { cookie: app.cookie, "if-none-match": etag },
+    });
+    expect(cached.status).toBe(304);
+    expect(cached.headers.get("cache-control")).toBe(cacheControl);
+    expect(cached.headers.get("etag")).toBe(etag);
+    // The picture's validator is not the copy's.
+    const other = await app.request(url, {
+      headers: { cookie: app.cookie, "if-none-match": original.headers.get("etag")! },
+    });
+    expect(other.status).toBe(200);
+  }
+  // Who may not see the picture is not served its copies, validator or not.
+  const letterCopy = copy(sent.id, "width_640");
+  expect((await app.request(letterCopy)).status).toBe(404);
+  const refused = await app.request(letterCopy, { headers: { "if-none-match": "*" } });
+  expect(refused.status).toBe(404);
+  expect(refused.headers.get("etag")).toBeNull();
+  expect(
+    (await app.request(letterCopy, { headers: { cookie: recipient.cookie } })).headers.get(
+      "cache-control",
+    ),
+  ).toBe("private, no-store");
 });

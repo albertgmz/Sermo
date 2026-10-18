@@ -1,9 +1,13 @@
 import { formatBytes } from "@/lib/format";
 
+// A smaller copy of a picture and its width in pixels.
+export type PictureWidth = { url: string; width: number };
+
 export type TaggedAttachment = {
   fileId: number;
   url: string;
   thumbnailUrl: string | null;
+  widths: PictureWidth[];
   contentType: string;
   byteSize: number;
   width: number | null;
@@ -89,6 +93,28 @@ const escapeHtml = (value: string) =>
 
 const THUMB_WIDTH = 320;
 
+// The candidates of a picture for `srcset`, narrowest first: its smaller copies, then the picture
+// itself. Null for a picture without copies, which its `src` alone draws.
+export function widthCandidates(picture: {
+  url: string;
+  width: number | null;
+  widths: readonly PictureWidth[];
+}): string | null {
+  if (!picture.width || !picture.widths.length) return null;
+  return [...picture.widths, { url: picture.url, width: picture.width }]
+    .map((copy) => `${copy.url} ${copy.width}w`)
+    .join(", ");
+}
+
+// A full picture in a text is as wide as itself or the column, whichever is less. A browser that
+// knows `auto` measures the box (the picture is lazy and has its size); one that does not takes
+// the window as the column, so a phone gets a copy and a wide screen the picture.
+function fullSources(file: TaggedAttachment) {
+  const candidates = widthCandidates(file);
+  if (!candidates || !file.width) return "";
+  return ` srcset="${escapeHtml(candidates)}" sizes="auto, (max-width: ${file.width}px) 100vw, ${file.width}px"`;
+}
+
 function size(file: TaggedAttachment, wide: number) {
   if (!file.width || !file.height) return "";
   const width = Math.min(file.width, wide);
@@ -144,7 +170,7 @@ function drawn(
     return `<span role="img" aria-label="${escapeHtml(context.liteAria)}" data-slot="lite-placeholder" class="pointer-events-none inline-flex items-center justify-center rounded-md border bg-muted px-3 py-2 font-mono text-(length:--text-tiny) text-muted-foreground">${escapeHtml(context.liteLabel)}</span>`;
   }
   if (how === "full") {
-    return `<img src="${escapeHtml(file.url)}" alt="${name}"${size(file, Number.POSITIVE_INFINITY)} loading="lazy" class="my-1 inline-block h-auto max-w-full rounded-md align-bottom">`;
+    return `<img src="${escapeHtml(file.url)}"${fullSources(file)} alt="${name}"${size(file, Number.POSITIVE_INFINITY)} loading="lazy" class="my-1 inline-block h-auto max-w-full rounded-md align-bottom">`;
   }
   const thumb = `<img src="${escapeHtml(file.thumbnailUrl ?? file.url)}" alt="${name}"${size(file, THUMB_WIDTH)} loading="lazy" class="block h-auto max-w-full">`;
   if (inLink) return thumb;

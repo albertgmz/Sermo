@@ -217,6 +217,7 @@ test("a poll reaches the client with the file ids of its pictures and no address
     height: 1,
     filename: null,
     thumbnailUrl: "/api/v1/files/71",
+    widths: [],
   };
   const poll = pollForClient({
     id: 1,
