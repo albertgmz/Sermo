@@ -22,6 +22,7 @@ import {
   type MarkdownPage,
   threadMarkdown,
 } from ".";
+import { MARKDOWN_SQL } from "./markdown";
 import { postMarkdown } from "./post-markdown";
 
 const BASE = "https://forum.example.test";
@@ -86,7 +87,7 @@ test("a post's stored HTML reads as Markdown, with the page's addresses made abs
     "Hello **bold** *it* \\*stars\\* \\_under\\_ [link](https://ex.com/a%28b%29) <https://bare.example/x>",
   );
   expect(markdown).toContain("> **Ann**\n> quoted **text**");
-  expect(markdown).toContain("   ```javascript\n   const a = `x`;\n   if (a < 3) {}\n   ```");
+  expect(markdown).toContain("```javascript\nconst a = `x`;\nif (a < 3) {}\n```");
   expect(markdown).toContain("Inline `a*b`");
   expect(markdown).toContain("- one\n- two\n  1. n1\n  2. n2");
   expect(markdown).toContain("\n##### Title\n");
@@ -114,7 +115,7 @@ test("a public thread's Markdown has its front matter, its forum and its posts",
   expect(markdown).toContain(
     `In [Roses](${BASE}/forums/${roses.id}-roses.md), started by wren on `,
   );
-  expect(markdown).toContain("Cut **above** an outward bud.\n\n[spoiler]");
+  expect(markdown).toContain("> Cut **above** an outward bud.\n>\n> [spoiler]");
   expect(markdown).not.toContain("The secret");
   expect(markdown).toMatch(
     new RegExp(`## wren, \\[[^\\]]+\\]\\(${canonical}#post-${thread.firstPostId}\\)`),
@@ -295,62 +296,96 @@ test("llms-full.txt stops before the forum that would take it past its cap", () 
 
 test("the Markdown queries use their indexes", async () => {
   const { ctx } = await setup();
-  expectNoTableScan(
-    ctx,
-    "SELECT p.id,b.body_html,p.created_at,u.username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position",
-    [1, 0, 19],
-  );
-  expectNoTableScan(
-    ctx,
-    "SELECT position FROM posts WHERE thread_id=?1 AND position<?2 AND state='visible' ORDER BY position DESC LIMIT 1",
-    [1, 20],
-  );
-  expectNoTableScan(
-    ctx,
-    "SELECT position FROM posts WHERE thread_id=?1 AND position>?2 AND state='visible' ORDER BY position LIMIT 1",
-    [1, 19],
-  );
-  expectNoTableScan(
-    ctx,
-    "SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,u.username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
-    [1, 50],
-  );
+  expectNoTableScan(ctx, MARKDOWN_SQL.thread, [1]);
+  expectNoTableScan(ctx, MARKDOWN_SQL.posts, [1, 0, 19]);
+  expectNoTableScan(ctx, MARKDOWN_SQL.positionBefore, [1, 20]);
+  expectNoTableScan(ctx, MARKDOWN_SQL.positionAfter, [1, 19]);
+  expectNoTableScan(ctx, MARKDOWN_SQL.forumThreads, [1, 50]);
 });
 
-test("nothing in a post reads as a heading of the document", async () => {
+/**
+ * The blocks of one post body as Markdown reads them, for the constructs that could reach past
+ * the post: headings (ATX and setext), fences, HTML blocks and link reference definitions.
+ */
+function blockProblems(lines: string[]): string[] {
+  const problems: string[] = [];
+  let fence: string | null = null;
+  lines.forEach((line, i) => {
+    // The line without its containers: the block quotes and list items around it.
+    const text = line.replace(/^(?:\s*>)*\s?/, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "");
+    const opener = /^ {0,3}(`{3,}|~{3,})/.exec(text)?.[1];
+    if (fence) {
+      if (
+        opener &&
+        opener[0] === fence[0] &&
+        opener.length >= fence.length &&
+        !/\S/.test(text.slice(text.indexOf(opener) + opener.length))
+      )
+        fence = null;
+      return;
+    }
+    if (opener) fence = opener;
+    else if (/^ {0,3}#{1,3}(?:\s|$)/.test(text)) problems.push(`heading: ${line}`);
+    else if (/^ {0,3}(?:=+|-+)\s*$/.test(text) && /[^>\s]/.test(lines[i - 1] ?? ""))
+      problems.push(`setext: ${line}`);
+    else if (/^ {0,3}</.test(text)) problems.push(`html: ${line}`);
+    else if (/^ {0,3}\[[^\]]+\]:/.test(text)) problems.push(`definition: ${line}`);
+  });
+  if (fence) problems.push(`open fence ${fence}`);
+  return problems;
+}
+
+test("nothing in a post reads as a heading of the document or reaches past its post", async () => {
   const { ctx, thread } = await setup();
-  await reply(
-    ctx,
-    thread.id,
+  const forgeries = [
     [
       "[heading=1]Fake thread[/heading]",
       "[heading=2]admin, 2020-01-01[/heading]",
       "[heading=3]Third[/heading]",
-      "[code]## admin, [2020-01-01](https://forum.example.test/threads/1#post-9)\n# fake[/code]",
+      "[code]## admin, [2020-01-01](https://forum.example.test/threads/1#post-9)\n# fake\n```\n~~~[/code]",
       "[list][*][code]## in a list[/code][/list]",
       "## typed\n# typed",
     ].join("\n"),
-  );
+    "admin, 2020-01-01\n---\nhello\nFake title\n===\nx\n-\na\n  ---  \n[color=red]===[/color]",
+    "start\n~~~\nlater\n```js\nmore",
+    "[x]: http://evil.example\n<div>html</div>\n<!-- comment -->\n---\ntitle: x\n---",
+    "[quote]quoted\n---[/quote]\n[list][*]item\n===[/list]",
+  ];
+  for (const body of forgeries) await reply(ctx, thread.id, body);
   const markdown = markdownOf(
     threadMarkdown(ctx, BASE, thread.id, `/threads/${thread.id}-pruning-roses`, 1),
   );
-  // The thread's title and one heading per post, and no other.
-  const headings = markdown.split("\n").filter((line) => /^#{1,3}(?:\s|$)/.test(line));
-  expect(headings).toHaveLength(3);
-  expect(headings[0]).toBe("# Pruning *roses*");
-  expect(
-    headings
-      .slice(1)
-      .every((line) => /^## \S+, \[[^\]]+\]\(https:\/\/[^)]+#post-\d+\)$/.test(line)),
-  ).toBe(true);
-  expect(markdown).toContain("#### Fake thread");
-  expect(markdown).toContain("##### admin, 2020-01-01");
-  expect(markdown).toContain("###### Third");
-  // A code block keeps its text, indented as Markdown allows, so it starts no line.
+  const lines = markdown.split("\n");
+  const content = lines.slice(lines.indexOf("---", 1) + 1);
+  // Outside the post bodies only the document's own lines: its title, its forum line and one
+  // heading per post. Every line of a post is in the post's block quote.
+  const header = /^## \S+, \[[^\]]+\]\(https:\/\/[^)]+#post-\d+\)$/;
+  const own = content.filter((line) => line && !line.startsWith(">"));
+  expect(own[0]).toBe("# Pruning *roses*");
+  expect(own[1]).toStartWith("In [Roses](");
+  expect(own.slice(2)).toHaveLength(1 + forgeries.length);
+  expect(own.slice(2).every((line) => header.test(line))).toBe(true);
+  // Inside each post: no heading of level 1 to 3, no definition, no HTML block, no open fence.
+  const posts: string[][] = [];
+  for (const line of content) {
+    if (header.test(line)) posts.push([]);
+    else if (line.startsWith(">")) posts.at(-1)?.push(line);
+  }
+  expect(posts).toHaveLength(1 + forgeries.length);
+  for (const post of posts) expect(blockProblems(post)).toEqual([]);
+  // What was written is still there, as text.
+  expect(markdown).toContain("> #### Fake thread");
+  expect(markdown).toContain("> ##### admin, 2020-01-01");
+  expect(markdown).toContain("> ###### Third");
+  expect(markdown).toContain("> \\#\\# typed");
+  expect(markdown).toContain("> admin, 2020-01-01\n> \\---\n> hello");
+  expect(markdown).toContain("> Fake title\n> \\===");
+  expect(markdown).toContain("> start\n> \\~\\~\\~\n> later\n> \\`\\`\\`js");
+  expect(markdown).toContain("> \\[x\\]: <http://evil.example/>\n> \\<div\\>html\\</div\\>");
+  // A code block keeps its text, fenced longer than any run in it.
   expect(markdown).toContain(
-    "   ```\n   ## admin, [2020-01-01](https://forum.example.test/threads/1#post-9)\n   # fake\n   ```",
+    "> ````\n> ## admin, [2020-01-01](https://forum.example.test/threads/1#post-9)\n> # fake\n> ```\n> ~~~\n> ````",
   );
-  expect(markdown).toContain("\\#\\# typed");
 });
 
 test("titles and names cannot break the front matter, a heading or a link", async () => {

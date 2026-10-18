@@ -20,6 +20,20 @@ export const LLMS_FULL_FORUM_THREADS = 10;
 /** The largest /llms-full.txt, in bytes: the forums that would go past it are left out. */
 export const LLMS_FULL_CAP = 1_048_576;
 
+/** The queries of these pages (the index test runs them as they are). */
+export const MARKDOWN_SQL = {
+  thread:
+    "SELECT t.title,t.node_id,t.created_at,t.last_post_at,t.content_updated_at,u.username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.id=?1",
+  posts:
+    "SELECT p.id,b.body_html,p.created_at,u.username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position",
+  positionBefore:
+    "SELECT position FROM posts WHERE thread_id=?1 AND position<?2 AND state='visible' ORDER BY position DESC LIMIT 1",
+  positionAfter:
+    "SELECT position FROM posts WHERE thread_id=?1 AND position>?2 AND state='visible' ORDER BY position LIMIT 1",
+  forumThreads:
+    "SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,u.username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
+} as const;
+
 /** A Markdown page, or the address it now lives at (a renamed or merged thread). */
 export type MarkdownPage = { redirect: string } | { markdown: string; canonical: string };
 
@@ -75,29 +89,21 @@ export function threadMarkdown(
   if (seo.robots !== "index,follow") throw new NotFoundError();
   if (seo.redirect) return { redirect: withPage(markdownUrl(seo.canonical), page) };
   const thread = prepared(ctx, "seo.markdownThread", () =>
-    ctx.sqlite.prepare<ThreadRow, [number]>(
-      "SELECT t.title,t.node_id,t.created_at,t.last_post_at,t.content_updated_at,u.username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.id=?1",
-    ),
+    ctx.sqlite.prepare<ThreadRow, [number]>(MARKDOWN_SQL.thread),
   ).get(id);
   const node = thread && getNodeTree(ctx).get(thread.node_id);
   if (!thread || !node) throw new NotFoundError();
   const posts = prepared(ctx, "seo.markdownPosts", () =>
-    ctx.sqlite.prepare<PostRow, [number, number, number]>(
-      "SELECT p.id,b.body_html,p.created_at,u.username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position",
-    ),
+    ctx.sqlite.prepare<PostRow, [number, number, number]>(MARKDOWN_SQL.posts),
   ).all(id, (page - 1) * perPage, page * perPage - 1);
   if (!posts.length) throw new NotFoundError();
   // Positions never change, so posts taken away leave gaps: a page of the thread can hold no
   // visible post while later ones do. The page links go to the nearest page that has one.
   const before = prepared(ctx, "seo.markdownPositionBefore", () =>
-    ctx.sqlite.prepare<{ position: number }, [number, number]>(
-      "SELECT position FROM posts WHERE thread_id=?1 AND position<?2 AND state='visible' ORDER BY position DESC LIMIT 1",
-    ),
+    ctx.sqlite.prepare<{ position: number }, [number, number]>(MARKDOWN_SQL.positionBefore),
   );
   const after = prepared(ctx, "seo.markdownPositionAfter", () =>
-    ctx.sqlite.prepare<{ position: number }, [number, number]>(
-      "SELECT position FROM posts WHERE thread_id=?1 AND position>?2 AND state='visible' ORDER BY position LIMIT 1",
-    ),
+    ctx.sqlite.prepare<{ position: number }, [number, number]>(MARKDOWN_SQL.positionAfter),
   );
   const pageOf = (position: number) => Math.floor(position / perPage) + 1;
   const previous = page > 1 ? before.get(id, (page - 1) * perPage) : null;
@@ -111,9 +117,14 @@ export function threadMarkdown(
     `In [${plain(node.title)}](${forumUrl}), started by ${plain(thread.username)} on ${iso(thread.created_at)}.${pages > 1 ? ` Page ${page} of ${pages}.` : ""}`,
   ];
   for (const post of posts) {
-    const body = postMarkdown(post.body_html, origin);
+    // The body is a block quote: whatever block a post opens (a list, a fence, a heading) ends
+    // with it, so the next post's heading and the page links stay the document's own.
+    const body = postMarkdown(post.body_html, origin)
+      .split("\n")
+      .map((line) => (line ? `> ${line}` : ">"))
+      .join("\n");
     const heading = `## ${plain(post.username)}, [${iso(post.created_at)}](${canonical}#post-${post.id})`;
-    parts.push(body ? `${heading}\n\n${body}` : heading);
+    parts.push(body !== ">" ? `${heading}\n\n${body}` : heading);
   }
   const links = [];
   const pageAddress = markdownUrl(seo.canonical);
@@ -163,9 +174,7 @@ function forumBody(ctx: Ctx, baseURL: string, node: NodeTreeEntry, limit: number
   const gates = readGates(ctx, GUEST);
   if (node.type === "forum" && gates.opensOthers(node.id) && gates.readsOthers(node.id)) {
     const threads = prepared(ctx, "seo.markdownForumThreads", () =>
-      ctx.sqlite.prepare<ListedThread, [number, number]>(
-        "SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,u.username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
-      ),
+      ctx.sqlite.prepare<ListedThread, [number, number]>(MARKDOWN_SQL.forumThreads),
     ).all(node.id, limit);
     if (threads.length)
       parts.push(

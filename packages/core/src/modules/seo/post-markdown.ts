@@ -2,7 +2,7 @@ import { compile, type DomNode, type FormatCallback } from "html-to-text";
 
 /** The characters a post's text escapes so that it reads as written, not as Markdown. */
 const ESCAPES: Record<string, string> = Object.fromEntries(
-  ["\\", "*", "_", "[", "]", "<", ">", "`", "#", "|"].map((char) => [char, `\\${char}`]),
+  ["\\", "*", "_", "[", "]", "<", ">", "`", "~", "#", "|"].map((char) => [char, `\\${char}`]),
 );
 
 const textOf = (node: DomNode): string =>
@@ -72,10 +72,28 @@ const heading: FormatCallback = (elem, walk, builder) => {
   });
 };
 
+/** Marks the lines of a code block until the whole post is written; never left in the output. */
+const CODE_LINE = "\u0001";
+
 /**
- * A code block, fenced, named by its language when the post names one. The block is indented by
- * three spaces, which Markdown takes off its lines again, so no line of the code starts a line of
- * the document (a line of code shaped like a post's heading included).
+ * A line of only dashes or equals signs under a line of text turns that line into a heading
+ * (setext): outside code, such a line gets its first sign escaped.
+ */
+function escapeUnderlines(markdown: string): string {
+  const lines = markdown.split("\n");
+  return lines
+    .map((line, i) => {
+      if (line.includes(CODE_LINE)) return line.replace(CODE_LINE, "");
+      const previous = (lines[i - 1] ?? "").replace(CODE_LINE, "");
+      if (!/[^>\s]/.test(previous)) return line;
+      return line.replace(/^([>\s]*)(?=[-=][-=\s]*$)/, "$1\\");
+    })
+    .join("\n");
+}
+
+/**
+ * A code block, fenced, named by its language when the post names one. Its lines are marked so
+ * that `escapeUnderlines` leaves them as written.
  */
 const codeBlock: FormatCallback = (elem, walk, builder) => {
   const named = /(?:^|\s)language-([\w+#.-]+)/.exec(String(elem.attribs?.class ?? ""))?.[1];
@@ -89,7 +107,7 @@ const codeBlock: FormatCallback = (elem, walk, builder) => {
     trailingLineBreaks: 2,
     blockTransform: (text) => {
       const ticks = fence(text, 3);
-      return `${ticks}${language}\n${text}\n${ticks}`.replace(/^(?=.)/gm, "   ");
+      return `${ticks}${language}\n${text}\n${ticks}`.replace(/^/gm, CODE_LINE);
     },
   });
 };
@@ -202,5 +220,5 @@ export function postMarkdown(html: string, origin: string): string {
     });
     converters.set(origin, convert);
   }
-  return convert(html).trim();
+  return escapeUnderlines(convert(html.replaceAll(CODE_LINE, ""))).trim();
 }
