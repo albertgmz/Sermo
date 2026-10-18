@@ -4522,3 +4522,26 @@ to it); restoring a database backup re-issues later file ids to other bytes, whi
 show; rate-limit headers ride along on public file answers; error answers carry no `Cache-Control`. A
 picture variant served from its source's address by parameter or by `Accept` would need the variant's
 own `ETag` and `Vary: Accept`.
+
+### Share cards  og:image is a 1200x630 PNG drawn by the web app with next/og (`app/og`, outside the language
+segment; the proxy leaves `/og/` alone): one per thread, forum and member, and the site's for every
+other public page. A card says what the backend's guest SEO read says (thread title, forum,
+starter; forum name, parents, description; member name, about), and exists only when that read says
+index: missing, hidden, moderated, closed to guests or thin pages answer 404, the same pages that
+carry no share tags. Its address carries a key of everything drawn (text, site name, accent, icon,
+design version): the page-named address is cached a year (immutable), any other key five minutes.
+The card draws only what its bundled fonts cover (Inter: Latin, Greek, Cyrillic), because next/og
+would otherwise download fonts from Google and emoji from a CDN while rendering: emoji are left
+out, and a title or name with a letter the fonts lack is not drawn at all (a thread falls back to
+its forum's name, a forum or a thread with neither to the site's card, a member to the generic
+member mark). An accent too dark for the card's background is lightened on the card. Guest reads
+are cached for 20 seconds at most (refreshed after 10) and whole cards memoised by key, so an
+arbitrary `v` costs neither a backend read per request nor a redraw. A card is kept a year only
+when its key matches and the read it was drawn from is at most 10 seconds old: a hidden or
+moderated thread's card can still be drawn for up to 20 seconds after the change, kept five minutes
+by caches, and a year only if fetched in the first 10 seconds. The site icon is drawn only as a PNG
+of at most 512 KB and 1024 pixels a side (an administrator's upload, stored at 512 x 512). Members
+get a monogram (avatars are WebP, which the renderer cannot draw); the mark is the uploaded icon
+(PNG) or the drawn mark in the accent. A visitor whose LITE mode blocks anything gets no card
+address, like the structured data. Pages that name no canonical get their own address as one (the
+og:url).
