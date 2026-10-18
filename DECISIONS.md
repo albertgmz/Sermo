@@ -4789,8 +4789,13 @@ the server by hand and never pass through the workflow. The deploy user's key is
 repository's secrets; it is in the docker group, which is root on that machine, so only `main`
 deploys, and the key allows no terminal or forwarding.
 
-Until further notice the workflow's check leaves out the web app's tests: their `mock.module`
-replacements stay for the rest of the run, and in Linux's file order about fifty tests see another
-file's mocks (with `--isolate`, about twenty still fail, because they rely on mocks another file
-loaded). Typecheck, lint, the backend tests and the web build still gate the deploy; the web tests
-come back once they pass with `--isolate`.
+### Web tests run each file on its own
+
+The web app's tests run with `bun test --isolate`: each file gets a fresh global and module
+registry, so a `mock.module` in one file no longer reaches another. Before, about fifty tests passed
+only in Windows' file order, because they used mocks another file had loaded; on Linux CI fifteen
+failed. Files now set up every stub they need, and `apps/web/tests/preload.ts` (named in
+`apps/web/bunfig.toml`) stubs `server-only` for every file, since almost every server module imports
+it. Tests also reset their own state in `beforeEach`, so `--randomize` passes too. A bare `bun test`
+in `apps/web` without the flag is still order-dependent; `bun run test` is the command. The deploy
+workflow runs the whole `check:fast` again.

@@ -23,12 +23,7 @@ jobs:
         with:
           bun-version: 1.4.2
       - run: bun install --frozen-lockfile
-      # `check:fast` without the web app's tests: their module mocks leak between files, and in
-      # Linux's file order some see another file's mocks. They come back once they pass with
-      # --isolate.
-      - run: bun run typecheck && bun run lint && bun run test
-      - run: bun run typecheck && bun run build && bun run js-budget
-        working-directory: apps/web
+      - run: bun run check:fast
 
   images:
     needs: check
