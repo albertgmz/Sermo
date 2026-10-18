@@ -4675,3 +4675,28 @@ limits: not in the OpenAPI document; a forum's thread list is not paged and igno
 (sitemap and feed have the rest); llms-full follows tree order, while llms.txt groups root forums
 under "Forums"; during a thread merge (temporary negative positions) a thread's `.md` can miss
 posts or 404 where the HTML page shows them; Cloudflare caches `.md` only with a cache rule.
+
+### Language switcher  The footer offers the interface languages beside the theme choices, each by
+its own name (autonym) with its `lang`, the current one as text marked `aria-current` (no button:
+choosing it again changes nothing), no flags. It is a plain form posting to `/language`, a route
+outside `[locale]` that checks the Origin like `/sign-out` and answers 303 to the Referer's path on
+this site plus `#language`, so the page loads again in the new language with the switcher in view
+and the focus starting point there, all without JavaScript. The footer's bottom row (switcher,
+theme choices, cookie links) is drawn in the page's first bytes and only the copyright line waits
+for the site in a Suspense, because streamed content stays hidden without JavaScript. A member's
+switch saves the account language (`preferences.update`) before the cookie: the account is the
+source of truth and `LocaleSync` would undo a switch that only set the cookie. So a member whose
+account language was "Default" (follow the browser) has a fixed language after one click; only the
+account page sets "Default" again. A failed save, or a session that cannot be confirmed, changes
+nothing and shows no message: only the home page reads `?notice=`. Refusals are bare, as for
+`/sign-out`: 403 for a form from another origin or with no Origin, 400 for an unsupported language,
+405 for a GET; a site reached on a host other than `SERMO_PUBLIC_URL` gets the 403 on every switch,
+a configuration error the Origin check is not relaxed for. One helper, `writeLocaleCookie`, writes
+the language cookie (`Secure` over https) for the account page, `LocaleSync` and the switch. `Vary:
+Cookie, Accept-Language` is set only on the answers the proxy writes itself in the visitor's
+language (the 404, 429 and 503 loads and the Data saver placeholder): on a rendered page Next
+replaces whatever `Vary` the proxy set, and those pages are not kept by shared caches. Known
+limits: Back after a switch can show the old language until a reload (a browser's back/forward
+cache); with the cookie banner open, the next Tab after a switch goes to the consent box, which the
+banner library focuses on purpose; without JavaScript the theme icons and the Cookie settings
+button show but do nothing.
