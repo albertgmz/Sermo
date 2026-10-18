@@ -4439,6 +4439,9 @@ leaves the same paths out (no language rewrite, no cookie work, no copy of an MC
 which Next cuts at 1 MB), and a test keeps the matcher and the list in step, matching both with the
 same path functions `next start` uses. Any other top-level `.txt` now gets the backend's 404, as
 behind Caddy's `/*.txt`.
+The Markdown versions of threads and forums (`/threads/<id>-<slug>.md`, `/forums/<id>-<slug>.md`,
+web practices round) are on the list too; the matcher writes their dot as `[.]`, because Next's
+matcher parser drops a backslash.
 
 ### Share previews and head links  Open Graph and Twitter card tags come from one builder
 (`shareMetadata`) through one server helper (`publicHead`). A page gets them only when the backend
@@ -4643,3 +4646,32 @@ with time (guest chrome only, a reload corrects it); a sign-out's `Clear-Site-Da
 stored copies only where implemented (not Safari); a page whose own render fails, 404s or redirects
 after the proxy let it through keeps the header; a cold load of a `#post-` address does not scroll to
 the post (as before this change).
+
+### Markdown versions and llms-full.txt  Public threads and forums have a Markdown version at their
+canonical address with `.md` after the path (`/threads/12-pruning.md`, a later page `?page=2`),
+served by the backend and passed through by the web app like its other paths (the proxy's matcher
+names it with `[.]md$`: Next drops a backslash, and `\.md$` would take every slug ending in "md"
+from the proxy); the HTML head links it as `alternate` `text/markdown` wherever it carries share
+tags. Only the suffix, no `Accept: text/markdown` on the HTML address: negotiation would put `Vary:
+Accept` on every thread and forum page and a branch in the proxy, and the practice names the suffix
+as the minimum; the `.md` answer names its HTML page as canonical in a `Link` header. A `.md`
+exists exactly when the guest SEO read indexes the thread's first page or the forum (the share-tag
+rule), and for any later thread page with a visible post; everything else is 404, whoever asks: the
+routes never resolve the visitor, so they carry no cookie and are `public, max-age=60` (the 301s
+too; a hidden thread may stay a minute in a shared cache). Page links skip pages that deleted posts
+left empty. Post bodies are converted from the stored HTML with `html-to-text` (already used for
+plain text), so the Markdown says what the page says (mentions, quotes, hashtags resolved) and a
+read never renders BB code; spoilers stay `[spoiler]` (their content is stored apart), attachments
+`[attachment]` (files keep their own access check), each post's body is a block quote, so whatever
+a post opens ends with it, its headings start at `####`, and a line of dashes or equals signs under
+text, a tilde fence, a link definition or an HTML tag stays text: nothing a member writes reads as
+the thread's title, another post's heading (`## author, [date](link)`) or the page links. A thread
+page holds the thread's page size of posts; a forum lists its 50 threads with the newest posts.
+`llms.txt` links the forums' `.md` and `llms-full.txt`; `llms-full.txt` holds the forums `llms.txt`
+lists, in tree order, each with its newest 10 threads and their stored excerpts, never post texts,
+stops before 1 MiB with a line saying so, and is built at most once a minute per process. The three
+paths count against the read quota of the visitor's address (the `/api/v1` read bucket). Known
+limits: not in the OpenAPI document; a forum's thread list is not paged and ignores stickies
+(sitemap and feed have the rest); llms-full follows tree order, while llms.txt groups root forums
+under "Forums"; during a thread merge (temporary negative positions) a thread's `.md` can miss
+posts or 404 where the HTML page shows them; Cloudflare caches `.md` only with a cache rule.
