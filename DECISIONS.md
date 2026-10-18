@@ -4479,3 +4479,28 @@ the focus when it opens on a first visit (library behaviour); a selected colour 
 colour in forced colours, and a chosen prefix chip keeps its accent ring; Swagger UI adds a second
 `main` landmark on `/developer`; the select option under the pointer is marked only by the focus
 ring; a panel opened by find stays open on later visits.
+
+### Security headers  Every page the proxy renders carries a Content-Security-Policy with a fresh
+nonce: `script-src 'self' 'nonce-…' 'strict-dynamic'` (no host list: browsers ignore it under
+`'strict-dynamic'`, and Turnstile and analytics run because a nonced script inserts them),
+`style-src 'self' 'unsafe-inline'` (React writes style attributes and `<style>` without a nonce),
+`img-src 'self' data: https:` (post pictures are linked from anywhere), `frame-src` the embed
+players and Turnstile, `connect-src` plus the configured analytics origin, `worker-src` and
+`manifest-src 'self'`, `object-src 'none'`, `base-uri` and `form-action 'self'`, `frame-ancestors
+'none'` (with `X-Frame-Options: DENY`), and `upgrade-insecure-requests` when the public URL is
+https. HSTS (two years, subdomains, no preload) when the request came over https or the public URL
+is https; `nosniff` on every path; `Referrer-Policy: strict-origin-when-cross-origin`;
+`Cross-Origin-Opener-Policy: same-origin` (sign-in is password only, no popups); a
+`Permissions-Policy` denying unused features but leaving fullscreen and picture-in-picture to
+embeds; no `x-powered-by`. **The nonce makes every page render per request**: Next 16 cannot put a
+nonce in a prerendered shell, so the root layout sets `instant = false` and reads the nonce with
+`headers()`. `experimental.sri` was considered to keep static shells and not taken, because each
+page's inline flight scripts still need a nonce. The browser keeps the policy of its first load, so
+scripts the page adds later (analytics through `AnalyticsScript`, the Turnstile loader) take the
+document's nonce, read once at first load (`DocumentNonceKeeper`), never the nonce of a later
+navigation or refresh. The analytics tag stays out of the root layout, so the sign-in pages and the
+panel carry none. Known limits: Next's `x-middleware-rewrite` header (it shows the hidden `/en` or
+`/es` segment) cannot be turned off; `/offline.html` has no policy (its inline script would need
+hashes); the prerendered `_global-error.html` and `_not-found.html` carry no nonce, and no request
+the proxy handles was found to serve them; Cloudflare edge injections (Web Analytics, Rocket
+Loader) would be refused on the live site.
