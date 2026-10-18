@@ -12,6 +12,7 @@ import {
   clampText,
   contrast,
   drawable,
+  initialOf,
   planCard,
   TITLE_LINES,
   TITLE_MAX,
@@ -82,6 +83,12 @@ test("the card keeps what its fonts draw: Spanish, Greek and Cyrillic, not emoji
   expect(drawable("Python 教程", covers)).toBe("");
   expect(drawable("Rosas 日本語 العربية", covers)).toBe("");
   expect(drawable("👨‍👩‍👧 🏳️‍🌈", covers)).toBe("");
+  // A keycap emoji keeps its digit; a variation selector goes with the emoji it styles.
+  expect(drawable("Top 1\ufe0f\u20e3 tips", covers)).toBe("Top 1 tips");
+  expect(drawable("Paz \u270c\ufe0e", covers)).toBe("Paz");
+  // A ligature or a full-width letter is drawn as the letters it stands for.
+  expect(drawable("ﬁnal", covers)).toBe("final");
+  expect(drawable("Ｒｏｓａｓ", covers)).toBe("Rosas");
 });
 
 test("a thread's card says its title, its forum and who started it", () => {
@@ -267,4 +274,11 @@ test("a member or forum whose name cannot be drawn gets the generic mark, or the
       covers,
     ),
   ).toMatchObject({ layout: "page", headline: "Roses", chip: "" });
+});
+
+test("the circle shows the first letter as a capital, unless its capital is two letters", () => {
+  expect(initialOf("wren")).toBe("W");
+  expect(initialOf("ßeta")).toBe("ß");
+  expect(initialOf("¡ñu!")).toBe("Ñ");
+  expect(initialOf("")).toBe("");
 });

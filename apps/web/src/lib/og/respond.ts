@@ -21,7 +21,8 @@ import {
 import { drawCard } from "./card-image";
 
 // A card asked for by the address a page named (its key matches what it shows) is kept for a
-// year; one asked for by an old or made-up key is drawn as things are now and kept a few minutes.
+// year; one asked for by an old or made-up key, or drawn from a read that may be out of date, is
+// drawn as things are now and kept a few minutes.
 const KEPT = "public, max-age=31536000, immutable";
 const FRESH = "public, max-age=300";
 // No card is no card for anyone, and a card may exist a moment later.
@@ -29,12 +30,45 @@ const NONE = { "cache-control": "no-store" };
 
 const missing = () => new Response(null, { status: 404, headers: NONE });
 
-// The site's icon is read whole into the card; a bigger file than this is not read at all.
+// How old the backend's answer about a page may be for its card to be kept for a year. An answer
+// older than this may describe a thread hidden, moderated or renamed since; it is drawn, but kept
+// only a few minutes.
+export const READ_FRESH_MS = 10_000;
+
+// The cache header of a drawn card: a year only when the address names exactly what is drawn, the
+// card is whole (its icon was read) and what it says was read from the backend moments ago.
+export function cacheControlOf(card: {
+  version: string | null;
+  key: string;
+  whole: boolean;
+  readAge: number;
+}): string {
+  return card.whole &&
+    card.version === card.key &&
+    card.readAge <= READ_FRESH_MS
+    ? KEPT
+    : FRESH;
+}
+
+// The site's icon is read whole into the card and drawn there: a bigger file than this is not
+// read at all, and a picture larger than this on a side is not drawn (the backend stores the icon
+// at 512 x 512).
 const ICON_MAX_BYTES = 512 * 1024;
+const ICON_MAX_SIDE = 1024;
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
+
+// Whether the bytes are a PNG of a size the card may draw: the signature, then the width and the
+// height from the header chunk that follows it.
+function drawablePng(bytes: Buffer) {
+  if (bytes.length < 24 || PNG_SIGNATURE.some((byte, at) => bytes[at] !== byte))
+    return false;
+  const [width, height] = [bytes.readUInt32BE(16), bytes.readUInt32BE(20)];
+  return width <= ICON_MAX_SIDE && height <= ICON_MAX_SIDE;
+}
 
 // The site's icon (a PNG) as the card draws it, read from the backend: null when the site has
-// none or it is too big to draw, undefined when it cannot be read now. Either way the drawn mark
-// takes its place.
+// none, or it is too big or not a PNG the card can draw; undefined when it cannot be read now.
+// Either way the drawn mark takes its place.
 async function iconOf(brand: CardBrand): Promise<string | null | undefined> {
   if (!brand.icon) return null;
   try {
@@ -64,7 +98,9 @@ async function iconOf(brand: CardBrand): Promise<string | null | undefined> {
       }
       chunks.push(read.value);
     }
-    return `data:image/png;base64,${Buffer.concat(chunks).toString("base64")}`;
+    const bytes = Buffer.concat(chunks);
+    if (!drawablePng(bytes)) return null;
+    return `data:image/png;base64,${bytes.toString("base64")}`;
   } catch {
     return undefined;
   }
@@ -79,6 +115,7 @@ const DRAWN_MAX = 32;
 async function draw(
   content: CardContent,
   version: string | null,
+  readAge: number,
 ): Promise<Response> {
   const brand = brandOf(await getSite());
   const key = cardKey(content, brand);
@@ -93,19 +130,19 @@ async function draw(
       if (DRAWN.size > DRAWN_MAX) DRAWN.delete(DRAWN.keys().next().value ?? "");
     }
   }
-  // A card drawn without the icon it should have is not kept for long.
-  const kept = whole && version === key;
   return new Response(png.slice(0), {
     headers: {
       "content-type": CARD_TYPE,
-      "cache-control": kept ? KEPT : FRESH,
+      "cache-control": cacheControlOf({ version, key, whole, readAge }),
     },
   });
 }
 
-// The site's own card, for the pages that have none of their own.
+// The site's own card, for the pages that have none of their own. What it shows (the site's name,
+// description, accent and icon) is public and never hidden, so the age of the site's read does not
+// matter to how long it is kept.
 export async function siteCard(version: string | null): Promise<Response> {
-  return draw(siteContent(await getSite()), version);
+  return draw(siteContent(await getSite()), version, 0);
 }
 
 // The SEO reads that say what a thread, forum or member page is, asked as a guest (no cookie, no
@@ -118,27 +155,30 @@ const READS = {
 };
 
 type GuestRead =
-  | { seo: Awaited<ReturnType<(typeof READS)[CardKind]>> }
+  | { seo: Awaited<ReturnType<(typeof READS)[CardKind]>>; readAt: number }
   | { status: 404 | 503 };
 
-// Shared for a minute by every request for the card, whatever its `v`: a page that changes, or
-// stops being open to guests, shows in its card within that minute. A failing backend is asked
-// again after a few seconds.
+// Shared for a few seconds by every request for the card, whatever its `v`, so a made-up key
+// cannot make the app ask the backend on every request. An answer is used for 20 seconds at the
+// most: after 10 the next request refreshes it in the background and is still answered from it,
+// after 20 it waits for a new read. `readAt` says when the answer was read, so a card drawn from
+// an answer older than READ_FRESH_MS is not kept for long. A failing backend is asked again
+// after a few seconds.
 async function guestRead(kind: CardKind, id: number): Promise<GuestRead> {
   "use cache";
   try {
     const seo = await READS[kind](id);
-    cacheLife({ stale: 60, revalidate: 60, expire: 300 });
-    return { seo };
+    cacheLife({ stale: 30, revalidate: 10, expire: 20 });
+    return { seo, readAt: Date.now() };
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
     // Not found, not for a guest to see, or no record's id: no card. A throttled or failing
     // backend is not an answer about the page.
     if (error.status >= 400 && error.status < 500 && error.status !== 429) {
-      cacheLife({ stale: 60, revalidate: 60, expire: 300 });
+      cacheLife({ stale: 30, revalidate: 10, expire: 20 });
       return { status: 404 };
     }
-    cacheLife({ stale: 30, revalidate: 5, expire: 60 });
+    cacheLife({ stale: 30, revalidate: 5, expire: 10 });
     return { status: 503 };
   }
 }
@@ -160,5 +200,5 @@ export async function pageCard(
   if (read.seo.robots !== "index,follow") return missing();
   const content = cardOf(kind, read.seo);
   if (!content) return missing();
-  return draw(content, version);
+  return draw(content, version, Date.now() - read.readAt);
 }

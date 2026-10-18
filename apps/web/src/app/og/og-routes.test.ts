@@ -31,6 +31,7 @@ const { GET: siteRoute } = await import("./site/route");
 const { brandOf, cardOf, cardPath, siteContent } = await import(
   "@/lib/og/card"
 );
+const { cacheControlOf, READ_FRESH_MS } = await import("@/lib/og/respond");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -211,30 +212,53 @@ test("the site's uploaded icon is drawn, and a card that could not read it is no
   await expectCard(again);
   expect(asked).not.toContain("/api/v1/files/6");
   expect(again.headers.get("cache-control")).toBe(KEPT);
+  // Nor under a made-up key: the same picture, kept briefly.
+  const madeUp = await get("/og/site?v=made-up");
+  await expectCard(madeUp);
+  expect(asked).not.toContain("/api/v1/files/6");
+  expect(madeUp.headers.get("cache-control")).toBe(FRESH);
 });
 
-test("an icon too big to draw gives the drawn mark, kept like any card", async () => {
-  site = siteBody({
-    description: "Big icon.",
-    icon: { fileId: 6, url: "/api/v1/files/6" },
-  });
-  icon = () =>
-    new Response(new Uint8Array(600 * 1024), {
-      headers: { "content-type": "image/png" },
-    });
+// The card of a site whose icon the backend answers with `body`: the same picture as when the
+// icon cannot be read (the drawn mark), kept like a whole card.
+async function expectDrawnMark(
+  description: string,
+  body: Uint8Array<ArrayBuffer>,
+) {
+  site = siteBody({ description, icon: { fileId: 6, url: "/api/v1/files/6" } });
   const brand = brandOf({
     name: "Garden Club",
     icon: { fileId: 6, url: "/api/v1/files/6" },
     accents: [],
   });
   const path = cardPath(
-    siteContent({ name: "Garden Club", description: "Big icon." }),
+    siteContent({ name: "Garden Club", description }),
     null,
     brand,
   );
+  icon = () => new Response("gone", { status: 500 });
+  const mark = await get(path);
+  expect(mark.headers.get("cache-control")).toBe(FRESH);
+  icon = () => new Response(body, { headers: { "content-type": "image/png" } });
   const drawn = await get(path);
-  await expectCard(drawn);
+  await expectCard(drawn.clone());
   expect(drawn.headers.get("cache-control")).toBe(KEPT);
+  expect(Buffer.from(await drawn.arrayBuffer())).toEqual(
+    Buffer.from(await mark.arrayBuffer()),
+  );
+}
+
+test("an icon too big to read, or too large in pixels, is not drawn: the card has the drawn mark", async () => {
+  const png = Buffer.from(DEFAULT_ICON_PNG[180], "base64");
+  // Over 512 KB.
+  const heavy = Buffer.concat([png, Buffer.alloc(600 * 1024)]);
+  await expectDrawnMark("Heavy icon.", heavy);
+  // Its header says 4096 pixels wide.
+  const wide = Buffer.from(png);
+  wide.writeUInt32BE(4096, 16);
+  await expectDrawnMark("Wide icon.", wide);
+  // Not a PNG at all.
+  await expectDrawnMark("Not an icon.", Buffer.alloc(64));
 });
 
 test("a card is read as a guest: the visitor's cookie and address never reach the backend", async () => {
@@ -247,6 +271,58 @@ test("a card is read as a guest: the visitor's cookie and address never reach th
   for (const headers of sent) {
     expect(headers.get("cookie")).toBeNull();
     expect(headers.get("x-forwarded-for")).toBeNull();
+  }
+});
+
+test("a card is kept for a year only for the key it names, drawn whole, from a read made moments ago", () => {
+  const card = { version: "k", key: "k", whole: true, readAge: 0 };
+  expect(cacheControlOf(card)).toBe(KEPT);
+  expect(cacheControlOf({ ...card, readAge: READ_FRESH_MS })).toBe(KEPT);
+  // An old key: the thread was renamed, hidden or moved since the page named it.
+  expect(cacheControlOf({ ...card, version: "old" })).toBe(FRESH);
+  expect(cacheControlOf({ ...card, version: null })).toBe(FRESH);
+  // The key matches, but the read it was drawn from may be out of date.
+  expect(cacheControlOf({ ...card, readAge: READ_FRESH_MS + 1 })).toBe(FRESH);
+  expect(cacheControlOf({ ...card, whole: false })).toBe(FRESH);
+});
+
+test("a card drawn from a read older than a few seconds is not kept for a year, even under its key", async () => {
+  const brand = brandOf({ name: "Garden Club", icon: null, accents: [] });
+  const thread = cardOf("threads", seo("index,follow", [POSTING, TRAIL]));
+  if (!thread) throw new Error("expected a thread card");
+  const path = cardPath(thread, 12, brand);
+  // Each look at the clock is later than the one before: the read is old by the time it is used,
+  // as a read served from the cache is.
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => {
+    clock += READ_FRESH_MS + 1;
+    return clock;
+  };
+  try {
+    const stale = await get(path);
+    await expectCard(stale);
+    expect(stale.headers.get("cache-control")).toBe(FRESH);
+  } finally {
+    Date.now = realNow;
+  }
+  expect((await get(path)).headers.get("cache-control")).toBe(KEPT);
+});
+
+test("a thread hidden after its page named a card has no card under that key", async () => {
+  const brand = brandOf({ name: "Garden Club", icon: null, accents: [] });
+  const thread = cardOf("threads", seo("index,follow", [POSTING, TRAIL]));
+  if (!thread) throw new Error("expected a thread card");
+  const path = cardPath(thread, 12, brand);
+  expect((await get(path)).headers.get("cache-control")).toBe(KEPT);
+  const answer = ANSWERS["/api/v1/seo/threads/12"];
+  ANSWERS["/api/v1/seo/threads/12"] = notFound;
+  try {
+    const hidden = await get(path);
+    expect(hidden.status).toBe(404);
+    expect(hidden.headers.get("cache-control")).toBe("no-store");
+  } finally {
+    ANSWERS["/api/v1/seo/threads/12"] = answer;
   }
 });
 

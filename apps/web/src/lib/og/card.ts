@@ -213,20 +213,29 @@ export function cardPath(
 
 // The fonts of the card cover Latin, Greek and Cyrillic. A character none of them has would make
 // the renderer download a font (from Google) or an emoji picture while it draws, so nothing the
-// fonts lack is drawn: emoji and symbols are left out, and a text with a letter or digit the fonts
-// lack is not drawn at all (an empty string), since part of a title or name would misstate it.
+// fonts lack is drawn: emoji (with the joiners, keycap marks and variation selectors that build
+// them) and symbols are left out, and a text with a letter or digit the fonts lack is not drawn at
+// all (an empty string), since part of a title or name would misstate it. A letter in a
+// compatibility form (the ligature "ﬁ", a full-width "Ａ") is drawn as the letters it stands for.
 // The page itself, og:title and the picture's alt text keep the whole text. `covers` says which
 // code points the fonts have.
-const PICTOGRAPH = /\p{Extended_Pictographic}|\p{Emoji_Modifier}|[‍︎️]/u;
+const PICTOGRAPH =
+  /\p{Extended_Pictographic}|\p{Emoji_Modifier}|[\u200d\u20e3\ufe00-\ufe0f\u{e0100}-\u{e01ef}]/u;
 const WORDLIKE = /[\p{L}\p{N}\p{M}]/u;
 
 export function drawable(text: string, covers: (codePoint: number) => boolean) {
+  const covered = (chars: string) =>
+    Array.from(chars).every((char) => covers(char.codePointAt(0) ?? 0));
   let kept = "";
   for (const char of text.normalize("NFC")) {
     if (PICTOGRAPH.test(char)) continue;
     if (/\s/.test(char)) kept += " ";
-    else if (covers(char.codePointAt(0) ?? 0)) kept += char;
-    else if (WORDLIKE.test(char)) return "";
+    else if (covered(char)) kept += char;
+    else if (WORDLIKE.test(char)) {
+      const folded = char.normalize("NFKC");
+      if (!covered(folded)) return "";
+      kept += folded;
+    }
   }
   return kept.replace(/ {2,}/g, " ").trim();
 }
@@ -295,10 +304,13 @@ export type CardPlan =
     }
   | { layout: "member"; site: string; member: CardPerson; description: string };
 
-// The first letter or digit of a name, as the circle shows it; "" when there is none.
-function initialOf(name: string) {
+// The first letter or digit of a name, as the circle shows it; "" when there is none. A letter
+// whose capital is two letters ("ß" is "SS") stays as it is.
+export function initialOf(name: string) {
   const first = Array.from(name).find((char) => /[\p{L}\p{N}]/u.test(char));
-  return first?.toLocaleUpperCase() ?? "";
+  if (first === undefined) return "";
+  const capital = first.toLocaleUpperCase();
+  return Array.from(capital).length === 1 ? capital : first;
 }
 
 export function planCard(
