@@ -2,10 +2,14 @@
 // Changing Passwords"): it sends the browser on to the password form of the account's security
 // page, which asks a visitor who is not signed in to sign in first. A file of the site, outside the
 // language segment: the page is drawn in the visitor's language. The address it sends to is
-// relative, so it holds whatever host the site is reached by.
+// relative, so it holds whatever host the site is reached by. The answer is prerendered, and a
+// cache in front would otherwise keep it for a year: an hour lets a moved page be followed soon.
 export function GET() {
   return new Response(null, {
     status: 302,
-    headers: { location: "/account/security#password" },
+    headers: {
+      location: "/account/security#password",
+      "cache-control": "public, max-age=3600",
+    },
   });
 }
