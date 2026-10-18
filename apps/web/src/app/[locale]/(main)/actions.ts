@@ -18,7 +18,6 @@ import { redirect } from "next/navigation";
 import type { LineComposerState } from "@/components/forum/line-composer";
 import { LOCALE_COOKIE, LOCALE_COOKIE_OPTIONS } from "@/i18n/locale-cookie";
 import { isLocale } from "@/i18n/locales";
-import { forgetAdoptedConsent } from "@/lib/consent/sync";
 import { normalizeImagePath } from "@/lib/lite-images";
 import {
   LITE_COOKIE,
@@ -30,8 +29,8 @@ import {
   NOTICES_DISMISSED_COOKIE,
   withDismissed,
 } from "@/lib/notice-dismissals";
-import { signOut } from "@/lib/sermo/auth";
 import { call } from "@/lib/sermo/client";
+import { secureCookies } from "@/lib/sermo/config";
 import { requireIds } from "@/lib/sermo/ids";
 import { attempt, attemptInPlace, invalidArgument } from "@/lib/sermo/outcome";
 import { pageOfRequest } from "@/lib/sermo/request-page";
@@ -53,6 +52,7 @@ export async function setLiteMode(formData: FormData) {
       store.set(LITE_COOKIE, value, {
         httpOnly: false,
         sameSite: "lax",
+        secure: secureCookies(),
         path: "/",
         maxAge: 60 * 60 * 24 * 365,
       });
@@ -69,7 +69,10 @@ export async function setLiteMode(formData: FormData) {
 // the pages the router kept, which are in the old language. The page is read again by the caller.
 export async function setLocaleCookie(language: string) {
   if (!isLocale(language)) return;
-  (await cookies()).set(LOCALE_COOKIE, language, LOCALE_COOKIE_OPTIONS);
+  (await cookies()).set(LOCALE_COOKIE, language, {
+    ...LOCALE_COOKIE_OPTIONS,
+    secure: secureCookies(),
+  });
 }
 
 // Hides a site notice from the visitor: a member's dismissal is kept by the backend, a guest's in
@@ -88,6 +91,7 @@ export async function dismissNotice(noticeId: number) {
       {
         httpOnly: true,
         sameSite: "lax",
+        secure: secureCookies(),
         path: "/",
         maxAge: 60 * 60 * 24 * 365,
       },
@@ -119,12 +123,6 @@ export async function acceptTerms(
   // are now when the version moved on.
   refresh();
   return done.ok ? {} : { error: done.error };
-}
-
-export async function logout() {
-  await signOut();
-  await forgetAdoptedConsent();
-  redirect("/");
 }
 
 // What each place a reaction can sit is called in the backend.

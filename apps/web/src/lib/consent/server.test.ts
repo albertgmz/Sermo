@@ -127,3 +127,48 @@ test("a member is asked like anyone else: the site's silence outside Europe cove
   expect(await getConsent()).toEqual({ decided: false, accepted: [] });
   expect(bannerAsked).toEqual([]);
 });
+
+const choiceWith = (data: unknown, ...categories: string[]) =>
+  encodeURIComponent(
+    JSON.stringify({
+      categories: ["necessary", ...categories],
+      revision: 1,
+      data,
+    }),
+  );
+
+test("a request with Sec-GPC: 1 has nothing optional on, even where the site does not ask, and the backend is not asked", async () => {
+  site = { cookieBannerOutsideEu: false };
+  banner = "hidden";
+  requestHeaders = { "sec-gpc": "1" };
+  expect(await getConsent()).toEqual({ decided: false, accepted: [] });
+  expect(bannerAsked).toEqual([]);
+  // Without the signal the same visitor counts as accepting.
+  requestHeaders = {};
+  expect((await getConsent()).accepted).toEqual([
+    "analytics",
+    "referrals",
+    "embeds",
+  ]);
+});
+
+test("under Sec-GPC: 1 an acceptance made before the signal counts as no choice; one made after it stands", async () => {
+  requestHeaders = { "sec-gpc": "1" };
+  consent = choiceWith(null, "analytics", "embeds");
+  expect(await getConsent()).toEqual({ decided: false, accepted: [] });
+  consent = choiceWith({ source: "account" }, "embeds");
+  expect(await getConsent()).toEqual({ decided: false, accepted: [] });
+  // The banner marked the choice as made while the browser sent the signal.
+  consent = choiceWith({ gpc: true }, "analytics", "embeds");
+  expect(await getConsent()).toEqual({
+    decided: true,
+    accepted: ["analytics", "embeds"],
+  });
+  // A refusal needs no mark: it is what the signal asks anyway.
+  consent = choiceWith(null);
+  expect(await getConsent()).toEqual({ decided: true, accepted: [] });
+  // Another value of the header is no signal.
+  requestHeaders = { "sec-gpc": "0" };
+  consent = choiceWith(null, "embeds");
+  expect(await getConsent()).toEqual({ decided: true, accepted: ["embeds"] });
+});

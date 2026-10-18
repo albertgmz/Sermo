@@ -8,6 +8,10 @@ import {
   startConsent,
 } from "@/components/layout/consent-library";
 import { saveConsentChoice } from "@/lib/consent/actions";
+import {
+  browserSendsGpc,
+  forgetChoiceOverriddenByGpc,
+} from "@/lib/consent/browser-gpc";
 import { consentCallbacks, mustReloadForQuiet } from "@/lib/consent/callbacks";
 import { type ConsentTexts, consentConfig } from "@/lib/consent/config";
 import type { OptionalCategory } from "@/lib/consent/inventory";
@@ -16,7 +20,9 @@ import { reserveBannerSpace } from "@/lib/consent/space";
 // Starts the cookie banner once and keeps it in step with the page (`effectOf` says how). Anything
 // marked `data-consent-settings` (the footer button, the cookie policy page) opens the settings.
 // Every choice is also sent to be saved on the member's account (nothing happens for a guest).
-// `quiet`: the banner is not shown to this visitor. The library draws its own dialogs from markup,
+// `quiet`: the banner is not shown to this visitor. A browser that sends Global Privacy Control
+// starts with nothing optional on, quiet or not, and an acceptance made before the signal is
+// asked again (`forgetChoiceOverriddenByGpc`). The library draws its own dialogs from markup,
 // so the only thing rendered is the cookie icon of "Accept all", hidden, for its markup to be
 // copied into the button.
 export function CookieConsentRoot({
@@ -39,6 +45,9 @@ export function CookieConsentRoot({
   const icon = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const { texts, locale, version, quiet, omit } = first.current;
+    const gpc = browserSendsGpc(navigator);
+    if (gpc)
+      forgetChoiceOverriddenByGpc(document, window.location.hostname, version);
     // The room the page keeps for the banner, given back when the banner goes or the page does.
     let release: (() => void) | undefined;
     const giveBack = () => {
@@ -50,6 +59,7 @@ export function CookieConsentRoot({
         quiet,
         omit,
         acceptIcon: icon.current?.innerHTML,
+        gpc,
       }),
       onModalShow: ({ modalName }) => {
         const banner = document.querySelector("#cc-main .cm");
@@ -62,6 +72,7 @@ export function CookieConsentRoot({
       },
       ...consentCallbacks({
         quiet,
+        gpc,
         omit,
         library: consentLibrary,
         save: () => void saveConsentChoice(),

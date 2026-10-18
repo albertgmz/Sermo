@@ -22,6 +22,8 @@ export type ConsentTexts = {
   savePreferences: string;
   closeLabel: string;
   revisionMessage: string;
+  // Said in both dialogs while the browser sends Global Privacy Control.
+  gpcNotice: string;
   categories: Record<Category, { title: string; description: string }>;
 };
 
@@ -66,18 +68,28 @@ export type ConsentOptions = {
   omit?: readonly OptionalCategory[];
   // Markup drawn before the words of both "Accept all" buttons (the cookie icon).
   acceptIcon?: string;
+  // The browser sends Global Privacy Control: nothing optional is on before a choice, even for a
+  // visitor the banner is not shown to, and both dialogs say so.
+  gpc?: boolean;
 };
 
 // The library's configuration. Opt-in: nothing optional is on before a choice; the three buttons
 // weigh the same; the cookie carries the policy version as `revision`, so a new version asks
-// again. `hostname` is where the page is served, for the domains cookies are cleared on.
+// again. `hostname` is where the page is served, for the domains cookies are cleared on. A quiet
+// visitor has every category on (opt-out), unless their browser sends Global Privacy Control.
 export function consentConfig(
   texts: Record<string, ConsentTexts>,
   locale: string,
   version: number,
   hostname: string,
-  { quiet = false, omit = [], acceptIcon = "" }: ConsentOptions = {},
+  {
+    quiet = false,
+    omit = [],
+    acceptIcon = "",
+    gpc = false,
+  }: ConsentOptions = {},
 ): CookieConsentConfig {
+  const allOn = quiet && !gpc;
   const categories: NonNullable<CookieConsentConfig["categories"]> = {
     necessary: { enabled: true, readOnly: true },
   };
@@ -85,12 +97,12 @@ export function consentConfig(
     if (omit.includes(category)) continue;
     const cookies = cookiesOf(category, hostname);
     categories[category] = {
-      enabled: quiet,
+      enabled: allOn,
       ...(cookies.length > 0 && { autoClear: { cookies } }),
     };
   }
   return {
-    mode: quiet ? "opt-out" : "opt-in",
+    mode: allOn ? "opt-out" : "opt-in",
     autoShow: !quiet,
     revision: version,
     disablePageInteraction: false,
@@ -119,7 +131,7 @@ export function consentConfig(
       translations: Object.fromEntries(
         Object.entries(texts).map(([code, text]) => [
           code,
-          translation(text, omit, acceptIcon),
+          translation(text, omit, acceptIcon, gpc),
         ]),
       ),
     },
@@ -130,12 +142,14 @@ function translation(
   text: ConsentTexts,
   omit: readonly OptionalCategory[],
   acceptIcon: string,
+  gpc: boolean,
 ) {
   const acceptAll = `${acceptIcon}${text.acceptAll}`;
+  const notice = gpc ? ` ${text.gpcNotice}` : "";
   return {
     consentModal: {
       title: text.title,
-      description: `${text.description} {{revisionMessage}}<br><a href="/cookies">${text.policyLink}</a>`,
+      description: `${text.description}${notice} {{revisionMessage}}<br><a href="/cookies">${text.policyLink}</a>`,
       revisionMessage: text.revisionMessage,
       acceptAllBtn: acceptAll,
       acceptNecessaryBtn: text.rejectAll,
@@ -151,7 +165,7 @@ function translation(
       sections: [
         {
           title: text.preferencesTitle,
-          description: `${text.preferencesIntro} <a href="/cookies">${text.policyLink}</a>`,
+          description: `${text.preferencesIntro}${notice} <a href="/cookies">${text.policyLink}</a>`,
         },
         ...CATEGORIES.filter(
           (category) => !(omit as readonly Category[]).includes(category),

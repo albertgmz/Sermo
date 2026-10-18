@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import * as z from "zod";
 import { forwardFromRequest } from "./client";
-import { publicUrl } from "./config";
+import { publicUrl, secureCookies } from "./config";
 import { parseSetCookie } from "./set-cookie";
 import { send } from "./transport";
 
@@ -45,7 +45,14 @@ async function exchange(
   for (const header of response.headers.getSetCookie()) {
     const parsed = parseSetCookie(header);
     if (!parsed) continue;
-    store?.set({ name: parsed.name, value: parsed.value, ...parsed.options });
+    // Better Auth makes its cookies Secure when its own address is https; the web app adds the
+    // flag whenever the site is, so a backend reached over plain http behind it changes nothing.
+    store?.set({
+      name: parsed.name,
+      value: parsed.value,
+      ...parsed.options,
+      ...(secureCookies() ? { secure: true } : {}),
+    });
     if (parsed.value !== "" && parsed.options.maxAge !== 0)
       set.push(header.split(";")[0].trim());
     if (

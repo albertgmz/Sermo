@@ -11,6 +11,7 @@
     "savePreferences": "Save my choices",
     "closeLabel": "Close",
     "revisionMessage": "Our cookie policy has changed since you last chose, so we are asking again.",
+    "gpcNotice": "Your browser sends Global Privacy Control, so every optional cookie stays off unless you turn it on here.",
     "categories": {
       "necessary": {
         "title": "Strictly necessary",
@@ -37,6 +38,7 @@
     "version": "Policy version {version}",
     "openSettings": "Change your choices",
     "yourChoice": "To see or change what you allowed, use “Cookie settings” in the page footer, or the button below. Withdrawing a category deletes its cookies.",
+    "gpc": "If your browser sends Global Privacy Control (GPC), the site takes it as a no to every optional category: nothing optional is stored or loaded unless you turn it on yourself afterwards. An acceptance given before your browser sent the signal does not count while it does, so the banner asks again.",
     "necessaryHeading": "Strictly necessary (no consent needed)",
     "optionalNote": "Needs your consent. Off until you accept it.",
     "name": "Name",

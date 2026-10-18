@@ -430,3 +430,18 @@ test("the home tab choice is sent as a tab, and the site default as null", async
     { homeTab: null },
   ]);
 });
+
+test("the language cookie is Secure on an https site", async () => {
+  const before = process.env.SERMO_PUBLIC_URL;
+  process.env.SERMO_PUBLIC_URL = "https://forum.example.test";
+  try {
+    backend(() => Response.json({ ...PREFERENCES, language: "es" }));
+    await redirectedTo(() =>
+      savePreferences(null as never, preferenceForm("es")),
+    );
+    expect(cookieWrites[0]?.[3]).toMatchObject({ secure: true });
+  } finally {
+    if (before === undefined) delete process.env.SERMO_PUBLIC_URL;
+    else process.env.SERMO_PUBLIC_URL = before;
+  }
+});

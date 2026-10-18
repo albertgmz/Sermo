@@ -141,3 +141,27 @@ test("a layout that is not one is refused before anything is sent", async () => 
   expect(asked).toEqual([]);
   expect(cookieSets).toEqual([]);
 });
+
+test("the guest's layout cookie is HttpOnly, Lax, and Secure on an https site", async () => {
+  const before = process.env.SERMO_PUBLIC_URL;
+  try {
+    for (const [url, secure] of [
+      ["https://forum.example.test", true],
+      ["http://localhost:3000", false],
+    ] as const) {
+      process.env.SERMO_PUBLIC_URL = url;
+      cookieSets.length = 0;
+      backend(false);
+      await setFeedView("compact");
+      expect(cookieSets[0]?.[2], url).toMatchObject({
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure,
+      });
+    }
+  } finally {
+    if (before === undefined) delete process.env.SERMO_PUBLIC_URL;
+    else process.env.SERMO_PUBLIC_URL = before;
+  }
+});

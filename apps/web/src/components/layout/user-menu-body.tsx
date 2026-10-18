@@ -4,11 +4,11 @@ import { Bookmark, LogOut, UserCog } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { DATA_SAVER_HREF } from "@/app/[locale]/(main)/account/links";
-import { logout } from "@/app/[locale]/(main)/actions";
 import { DataSaverLink } from "@/components/layout/data-saver-menu-item";
 import { type LinkItem, linkProps } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";
 import { loadBookmarks } from "@/components/layout/panel-actions";
+import { SignOutForm } from "@/components/layout/sign-out-form";
 import { postStatus } from "@/components/layout/status-action";
 import { StatusForm } from "@/components/layout/status-form";
 import { ThemeControl } from "@/components/layout/theme-control";
@@ -63,16 +63,17 @@ export function UserMenuBody(props: UserMenuBodyProps) {
           <p className="truncate text-sm font-semibold">{user.username}</p>
           <p className="truncate text-xs text-muted-foreground">{user.title}</p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-10 shrink-0 md:h-8"
-          onClick={() => logout()}
-        >
-          <LogOut />
-          {t("logout")}
-        </Button>
+        <SignOutForm className="shrink-0">
+          <Button
+            type="submit"
+            variant="outline"
+            size="sm"
+            className="h-10 md:h-8"
+          >
+            <LogOut />
+            {t("logout")}
+          </Button>
+        </SignOutForm>
       </div>
       <Tabs
         value={tab}

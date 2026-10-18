@@ -369,6 +369,7 @@ test("a device with no choice takes the account's current choice: the consent co
   expect(parseChoice(raw, 1)).toEqual({
     accepted: ["analytics", "referrals"],
     at: Date.parse("2026-10-02T10:00:00.000Z"),
+    gpc: false,
   });
   expect(JSON.parse(decodeURIComponent(raw))).toMatchObject({
     categories: ["necessary", "analytics", "referrals"],

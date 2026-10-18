@@ -11,6 +11,7 @@
     "savePreferences": "Guardar mis opciones",
     "closeLabel": "Cerrar",
     "revisionMessage": "Nuestra política de cookies ha cambiado desde tu última elección, así que volvemos a preguntarte.",
+    "gpcNotice": "Tu navegador envía Global Privacy Control, así que las cookies opcionales siguen desactivadas salvo que las actives aquí.",
     "categories": {
       "necessary": {
         "title": "Estrictamente necesarias",
@@ -37,6 +38,7 @@
     "version": "Versión de la política {version}",
     "openSettings": "Cambiar tus opciones",
     "yourChoice": "Para ver o cambiar lo que permitiste, usa «Ajustes de cookies» en el pie de página o el botón de abajo. Al retirar una categoría se borran sus cookies.",
+    "gpc": "Si tu navegador envía Global Privacy Control (GPC), el sitio lo toma como un no a todas las categorías opcionales: no se guarda ni se carga nada opcional salvo que lo actives tú después. Una aceptación anterior a que tu navegador enviara la señal no cuenta mientras la envíe, así que el aviso vuelve a preguntarte.",
     "necessaryHeading": "Estrictamente necesarias (sin consentimiento)",
     "optionalNote": "Requiere tu consentimiento. Desactivada hasta que la aceptes.",
     "name": "Nombre",

@@ -525,3 +525,28 @@ test("the answer about mail is kept for five minutes, not longer", () => {
   );
   assert.ok(!source.includes("revalidate: 1800"));
 });
+
+test("on an https site every cookie of the answer is written Secure, whatever the backend said", async () => {
+  const before = process.env.SERMO_PUBLIC_URL;
+  process.env.SERMO_PUBLIC_URL = "https://forum.example.test";
+  try {
+    written.length = 0;
+    backend(
+      answer([
+        "sermo.session_token=tok; Max-Age=604800; Path=/; HttpOnly; SameSite=Lax",
+        "__Secure-sermo.session_data=data; Path=/; Secure; HttpOnly; SameSite=Lax",
+      ]),
+    );
+    await signInWithUsername("ann", "secret", true);
+    assert.deepEqual(
+      written.map((cookie) => [cookie.name, cookie.secure, cookie.httpOnly]),
+      [
+        ["sermo.session_token", true, true],
+        ["__Secure-sermo.session_data", true, true],
+      ],
+    );
+  } finally {
+    if (before === undefined) delete process.env.SERMO_PUBLIC_URL;
+    else process.env.SERMO_PUBLIC_URL = before;
+  }
+});

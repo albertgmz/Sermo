@@ -1,10 +1,11 @@
 import { pagesGet } from "@sermo/core/contracts";
 import { LogOut } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { acceptTerms, logout } from "@/app/[locale]/(main)/actions";
+import { acceptTerms } from "@/app/[locale]/(main)/actions";
 import { ActionForm } from "@/components/forum/action-form";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LogoMark } from "@/components/layout/logo";
+import { SignOutForm } from "@/components/layout/sign-out-form";
 import { Button } from "@/components/ui/button";
 import { call, forwardFromRequest } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
@@ -129,7 +130,7 @@ export async function AcceptanceScreen({
               />
             ))}
           </ActionForm>
-          <form action={logout}>
+          <SignOutForm>
             <Button
               type="submit"
               variant="ghost"
@@ -138,7 +139,7 @@ export async function AcceptanceScreen({
               <LogOut aria-hidden="true" />
               {t("logout")}
             </Button>
-          </form>
+          </SignOutForm>
         </div>
       </div>
       {/* While the cookie banner is up, room under the buttons as tall as the banner (as the

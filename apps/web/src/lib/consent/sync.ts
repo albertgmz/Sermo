@@ -3,7 +3,7 @@ import { consentMine, consentSave } from "@sermo/core/contracts";
 import { cookies } from "next/headers";
 import { getLocale } from "next-intl/server";
 import { forwardFromRequest } from "@/lib/sermo/client";
-import { publicUrl } from "@/lib/sermo/config";
+import { publicUrl, secureCookies } from "@/lib/sermo/config";
 import { getSite } from "@/lib/sermo/site";
 import { callWith } from "@/lib/sermo/transport";
 import {
@@ -68,7 +68,7 @@ export async function syncConsentAfterSignIn(
         ...(host.includes(".") ? { domain: host } : {}),
         maxAge: CONSENT_COOKIE_DAYS * 24 * 60 * 60,
         sameSite: "lax",
-        secure: publicUrl().startsWith("https:"),
+        secure: secureCookies(),
       });
       return true;
     } else if (foreign) {

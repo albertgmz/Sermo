@@ -4,6 +4,7 @@ import { preferencesUpdate } from "@sermo/core/contracts";
 import { cookies } from "next/headers";
 import { FEED_VIEW_COOKIE, parseFeedView } from "@/lib/feed-view";
 import { call } from "@/lib/sermo/client";
+import { secureCookies } from "@/lib/sermo/config";
 import { SermoError } from "@/lib/sermo/errors";
 import { attemptInPlace, invalidArgument } from "@/lib/sermo/outcome";
 import { getViewer } from "@/lib/sermo/session";
@@ -42,6 +43,7 @@ export async function setFeedView(
   (await cookies()).set(FEED_VIEW_COOKIE, chosen, {
     httpOnly: true,
     sameSite: "lax",
+    secure: secureCookies(),
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });

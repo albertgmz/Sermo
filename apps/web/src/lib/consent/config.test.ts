@@ -173,3 +173,46 @@ test("both Accept all buttons carry the icon before their words, in every langua
       );
     }
 });
+
+test("under Global Privacy Control nothing optional is on before a choice, even for a visitor who is not asked", () => {
+  for (const quiet of [false, true]) {
+    const gpc = consentConfig({ en: en.banner }, "en", 3, "forum.example.com", {
+      quiet,
+      gpc: true,
+    });
+    expect(gpc.mode, String(quiet)).toBe("opt-in");
+    for (const category of OPTIONAL_CATEGORIES)
+      expect(gpc.categories?.[category]?.enabled, category).toBe(false);
+    // Whether the banner shows itself is still the site's to say.
+    expect(gpc.autoShow).toBe(!quiet);
+  }
+});
+
+test("both dialogs say that Global Privacy Control is honoured, in every language, only while the browser sends it", () => {
+  const dialogs = (gpc: boolean) =>
+    consentConfig({ en: en.banner, es: es.banner }, "en", 3, "localhost", {
+      gpc,
+    }).language?.translations as unknown as Record<
+      string,
+      {
+        consentModal: { description: string };
+        preferencesModal: { sections: { description: string }[] };
+      }
+    >;
+  const on = dialogs(true);
+  const off = dialogs(false);
+  for (const [code, text] of [
+    ["en", en.banner],
+    ["es", es.banner],
+  ] as const) {
+    expect(text.gpcNotice).toContain("Global Privacy Control");
+    expect(on[code]?.consentModal.description).toContain(text.gpcNotice);
+    expect(on[code]?.preferencesModal.sections[0]?.description).toContain(
+      text.gpcNotice,
+    );
+    expect(off[code]?.consentModal.description).not.toContain(text.gpcNotice);
+    expect(off[code]?.preferencesModal.sections[0]?.description).not.toContain(
+      text.gpcNotice,
+    );
+  }
+});

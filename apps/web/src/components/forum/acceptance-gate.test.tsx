@@ -24,7 +24,8 @@ mock.module("next-intl/server", () => ({
   getTranslations: async (namespace: string) => formattedTranslator(namespace),
 }));
 const { AcceptanceGate, pendingOf } = await import("./acceptance-gate");
-const { acceptTerms, logout } = await import("@/app/[locale]/(main)/actions");
+const { acceptTerms } = await import("@/app/[locale]/(main)/actions");
+const { SignOutForm } = await import("@/components/layout/sign-out-form");
 const { LogoMark } = await import("@/components/layout/logo");
 
 const realFetch = globalThis.fetch;
@@ -116,12 +117,12 @@ function forms(screen: unknown) {
     accept?.props?.children,
     (element) => element.props?.name === "accept",
   );
-  const [out] = elementsOf(screen, (element) => element.type === "form");
+  const [out] = elementsOf(screen, (element) => element.type === SignOutForm);
   return {
     action: accept?.props?.action,
     submit: accept?.props?.submit,
     sent: sent.map((input) => input.props?.value),
-    logout: out?.props?.action,
+    logout: out !== undefined,
   };
 }
 
@@ -180,7 +181,7 @@ test("the gate's one button accepts the versions it shows, and log out signs the
     action: acceptTerms,
     submit: "I accept",
     sent: ["terms:3", "rules:2"],
-    logout,
+    logout: true,
   });
   backend([{ kind: "rules", version: 2 }]);
   expect(forms(await screenOf()).sent).toEqual(["rules:2"]);

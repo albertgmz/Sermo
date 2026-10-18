@@ -21,6 +21,7 @@ const device = (
 ) => ({
   accepted,
   at: Date.parse(at),
+  gpc: false,
 });
 const EARLY = "2026-10-01T10:00:00.000Z";
 const LATE = "2026-10-02T10:00:00.000Z";
@@ -112,6 +113,7 @@ test("the cookie written from a record is read back as that record, and only for
   expect(parseChoice(raw, 4)).toEqual({
     accepted: ["referrals", "embeds"],
     at: Date.parse(LATE),
+    gpc: false,
   });
   expect(parseConsent(raw, 3)).toEqual({ decided: false, accepted: [] });
   // What the banner library needs to take the cookie as its own.

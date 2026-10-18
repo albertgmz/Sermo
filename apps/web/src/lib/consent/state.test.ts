@@ -11,6 +11,8 @@ import {
   NO_CONSENT,
   parseChoice,
   parseConsent,
+  sendsGpc,
+  standsUnderGpc,
   withoutBanner,
 } from "./state";
 
@@ -105,7 +107,7 @@ test("a choice carries the time of its latest change", () => {
       }),
       3,
     ),
-  ).toEqual({ accepted: ["embeds"], at: Date.parse(at) });
+  ).toEqual({ accepted: ["embeds"], at: Date.parse(at), gpc: false });
   const later = "2026-10-05T10:00:00.000Z";
   expect(
     parseChoice(
@@ -243,4 +245,34 @@ test("cookieless Matomo is emitted without any choice, with cookies disabled bef
       .map((s) => s.code ?? "")
       .join(""),
   ).not.toContain("disableCookies");
+});
+
+test("Global Privacy Control is the header Sec-GPC with the value 1", () => {
+  expect(sendsGpc(new Headers({ "sec-gpc": "1" }))).toBe(true);
+  for (const value of ["0", "true", ""])
+    expect(sendsGpc(new Headers({ "sec-gpc": value })), value).toBe(false);
+  expect(sendsGpc(new Headers())).toBe(false);
+});
+
+test("a choice says whether it was made under Global Privacy Control, and only such a choice or a refusal stands under it", () => {
+  const made = (data: unknown, ...categories: string[]) =>
+    parseChoice(
+      cookie({ categories: ["necessary", ...categories], revision: 1, data }),
+      1,
+    );
+  expect(made({ gpc: true }, "embeds")?.gpc).toBe(true);
+  for (const data of [null, undefined, { gpc: "true" }, { source: "account" }])
+    expect(made(data, "embeds")?.gpc, JSON.stringify(data)).toBe(false);
+  const stands = (choice: ReturnType<typeof made>) =>
+    choice !== null && standsUnderGpc(choice);
+  expect(stands(made({ gpc: true }, "embeds"))).toBe(true);
+  expect(stands(made(null))).toBe(true);
+  expect(stands(made(null, "analytics"))).toBe(false);
+  // Without the signal the mark changes nothing.
+  expect(
+    parseConsent(cookie({ categories: ["embeds"], revision: 1 }), 1),
+  ).toEqual({ decided: true, accepted: ["embeds"] });
+  expect(
+    parseConsent(cookie({ categories: ["embeds"], revision: 1 }), 1, true),
+  ).toEqual(NO_CONSENT);
 });

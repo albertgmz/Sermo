@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { AccountNavigation } from "@/app/[locale]/(main)/account/navigation";
-import { logout } from "@/app/[locale]/(main)/actions";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { NameWithIcon } from "@/components/forum/name-icon";
 import {
@@ -16,6 +15,7 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { userNameProps } from "@/components/forum/user-name";
 import { ClientMessages } from "@/components/layout/client-messages";
 import { PageLayout } from "@/components/layout/page-layout";
+import { SignOutForm } from "@/components/layout/sign-out-form";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { authorsFor } from "@/lib/sermo/members";
 import { NOINDEX } from "@/lib/sermo/seo";
@@ -55,7 +55,7 @@ export default function AccountLayout({
             >
               {t("notifications")}
             </Link>
-            <form action={logout}>
+            <SignOutForm>
               <Button
                 type="submit"
                 variant="outline"
@@ -63,7 +63,7 @@ export default function AccountLayout({
               >
                 {t("logout")}
               </Button>
-            </form>
+            </SignOutForm>
           </>
         }
       >

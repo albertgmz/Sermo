@@ -25,9 +25,25 @@ export function withoutBanner(own: Consent): Consent {
 export const allows = (consent: Consent, category: OptionalCategory) =>
   consent.accepted.includes(category);
 
-// A choice as the banner library's cookie records it: the optional categories accepted and when
-// (epoch milliseconds, 0 when the cookie does not say).
-export type Choice = { accepted: OptionalCategory[]; at: number };
+// A choice as the banner library's cookie records it: the optional categories accepted, when
+// (epoch milliseconds, 0 when the cookie does not say) and whether it was made while the browser
+// sent Global Privacy Control (`GPC_MARK` in the library's `data` field).
+export type Choice = { accepted: OptionalCategory[]; at: number; gpc: boolean };
+
+// What the banner adds to the library's `data` field when a choice is made while the browser sends
+// Global Privacy Control: that choice came after the signal, so it stands under it.
+export const GPC_MARK = { gpc: true } as const;
+
+// Whether a request carries Global Privacy Control (`Sec-GPC: 1`).
+export const sendsGpc = (headers: { get(name: string): string | null }) =>
+  headers.get("sec-gpc")?.trim() === "1";
+
+// Whether a choice stands while the browser sends Global Privacy Control: one made with the signal
+// on (the visitor opted in after it), or one that accepts nothing optional anyway. Any other is an
+// earlier acceptance the signal overrides: it counts as no choice, nothing optional runs and the
+// banner asks again.
+export const standsUnderGpc = (choice: Choice) =>
+  choice.gpc || choice.accepted.length === 0;
 
 // The choice a cookie value records against the policy version in force, or null: the value is
 // URL-encoded JSON holding the accepted categories, the policy version (`revision`) and the time
@@ -43,7 +59,7 @@ export function parseChoice(
   } catch {
     return null;
   }
-  const { categories, revision, consentTimestamp, lastConsentTimestamp } =
+  const { categories, revision, consentTimestamp, lastConsentTimestamp, data } =
     (record ?? {}) as Record<string, unknown>;
   if (revision !== version || !Array.isArray(categories)) return null;
   const at = Date.parse(String(lastConsentTimestamp ?? consentTimestamp));
@@ -52,6 +68,7 @@ export function parseChoice(
       categories.includes(category),
     ),
     at: Number.isNaN(at) ? 0 : at,
+    gpc: (data as { gpc?: unknown } | null | undefined)?.gpc === true,
   };
 }
 
@@ -87,15 +104,18 @@ export async function isUnasked(
   return !(await bannerApplies());
 }
 
-// The consent of a visitor from their cookie value.
+// The consent of a visitor from their cookie value. `gpc`: the request carries Global Privacy
+// Control, which is the visitor's answer until they choose otherwise after it: nothing optional
+// runs, whether or not the site asks them.
 export async function consentOf(
   value: string | undefined,
   site: SiteConsent,
   signedIn: boolean,
   bannerApplies: () => Promise<boolean>,
+  gpc = false,
 ): Promise<Consent> {
-  const own = parseConsent(value, site.version);
-  if (own.decided) return own;
+  const own = parseConsent(value, site.version, gpc);
+  if (own.decided || gpc) return own;
   return (await isUnasked(value, site, signedIn, bannerApplies))
     ? withoutBanner(own)
     : own;
@@ -104,9 +124,12 @@ export async function consentOf(
 export function parseConsent(
   value: string | undefined,
   version: number,
+  gpc = false,
 ): Consent {
   const choice = parseChoice(value, version);
-  return choice ? { decided: true, accepted: choice.accepted } : NO_CONSENT;
+  return choice && (!gpc || standsUnderGpc(choice))
+    ? { decided: true, accepted: choice.accepted }
+    : NO_CONSENT;
 }
 
 type Provider = z.output<typeof Analytics>;
