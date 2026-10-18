@@ -13,6 +13,7 @@ mock.module("next/headers", () => ({
 const serverIntl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
   ...serverIntl,
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 const navigation = await import("next/navigation");

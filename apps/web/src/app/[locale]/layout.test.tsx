@@ -10,6 +10,11 @@ mock.module("next/font/google", () => ({
   Inter: () => ({ variable: "font-inter" }),
   Geist_Mono: () => ({ variable: "font-geist-mono" }),
 }));
+// The nonce is read from the request's headers; a direct call has no request.
+mock.module("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({ get: () => undefined, toString: () => "" }),
+}));
 const intl = { ...(await import("next-intl/server")) };
 mock.module("next-intl/server", () => ({
   ...intl,

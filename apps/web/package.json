@@ -7,7 +7,7 @@
     "build": "bun scripts/build-sw.ts && next build",
     "start": "next start",
     "lint": "biome check",
-    "test": "bun test",
+    "test": "bun test --isolate",
     "format": "biome format --write",
     "typecheck": "next typegen && tsc --noEmit",
     "js-budget": "bun scripts/js-budget.ts",

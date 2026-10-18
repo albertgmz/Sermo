@@ -12,11 +12,12 @@ const {
 
 const realFetch = globalThis.fetch;
 let asked = 0;
-let answer: () => Promise<Response> = async () =>
-  Response.json(siteBody({ defaultLanguage: "es" }));
+const spanish = async () => Response.json(siteBody({ defaultLanguage: "es" }));
+let answer: () => Promise<Response> = spanish;
 
 beforeEach(() => {
   asked = 0;
+  answer = spanish;
   forgetDefaultLanguage();
   globalThis.fetch = (async () => {
     asked += 1;

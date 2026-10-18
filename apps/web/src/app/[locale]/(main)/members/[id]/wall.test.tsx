@@ -22,6 +22,7 @@ mock.module("next/navigation", () => ({
   ...navigation,
   usePathname: () => "/members/9",
   useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push() {}, replace() {}, refresh() {}, prefetch() {} }),
 }));
 // Another suite replaces the translator with one that fills no placeholders: use the real one.
 const nextIntl = { ...(await import("next-intl")) };

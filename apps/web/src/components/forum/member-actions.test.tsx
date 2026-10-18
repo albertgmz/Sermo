@@ -8,6 +8,11 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {}, toString: () => "" }),
 }));
+const navigation = await import("next/navigation");
+mock.module("next/navigation", () => ({
+  ...navigation,
+  useRouter: () => ({ push() {}, replace() {}, refresh() {}, prefetch() {} }),
+}));
 // Another suite replaces the translator with one that fills no placeholders: use the real one.
 const intl = { ...(await import("next-intl")) };
 const { useTranslations } = await import("use-intl");
@@ -17,6 +22,7 @@ mock.module("next-intl", () => ({
   useTranslations,
 }));
 afterAll(() => {
+  mock.module("next/navigation", () => navigation);
   mock.module("next-intl", () => intl);
 });
 const { MemberActions, memberActionsOf } = await import("./member-actions");

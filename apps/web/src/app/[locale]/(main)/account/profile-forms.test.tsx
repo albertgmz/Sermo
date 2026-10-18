@@ -5,6 +5,7 @@ import { translator, withIntl } from "@/lib/test-intl";
 
 mock.module("server-only", () => ({}));
 mock.module("next-intl/server", () => ({
+  getFormatter: async () => ({ dateTime: () => "" }),
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));

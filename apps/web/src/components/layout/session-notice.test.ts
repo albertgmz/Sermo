@@ -1,4 +1,4 @@
-import { afterEach, mock, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, mock, spyOn, test } from "bun:test";
 import assert from "node:assert/strict";
 import { viewerBody } from "@/lib/test-viewer";
 import layout from "../../../messages/en/layout.json";
@@ -9,10 +9,16 @@ afterEach(() => {
 });
 
 mock.module("server-only", () => ({}));
-mock.module("next/headers", () => ({
-  headers: async () => new Headers({ cookie: "sermo.session_token=live" }),
-  cookies: async () => ({ set: () => {} }),
-}));
+function requestCookie(cookie: string) {
+  mock.module("next/headers", () => ({
+    headers: async () => new Headers({ cookie }),
+    cookies: async () => ({ set: () => {} }),
+  }));
+}
+// A signed-in visitor unless a test says otherwise.
+beforeEach(() => {
+  requestCookie("sermo.session_token=live");
+});
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async () => (key: string) =>
@@ -66,10 +72,7 @@ test("there is no notice when the backend answered about the session", async () 
 
 test("a visitor with no session, when the backend cannot be reached, gets the line about the site", async () => {
   const quiet = spyOn(console, "error").mockImplementation(() => {});
-  mock.module("next/headers", () => ({
-    headers: async () => new Headers({ cookie: "theme=dark" }),
-    cookies: async () => ({ set: () => {} }),
-  }));
+  requestCookie("theme=dark");
   globalThis.fetch = (async () => {
     throw new TypeError("fetch failed");
   }) as unknown as typeof fetch;
