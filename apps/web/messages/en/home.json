@@ -33,6 +33,7 @@
     "description": "Posts go to your profile wall.",
     "startThread": "Start a thread",
     "accountDeleted": "Your account was deleted and you were signed out.",
+    "signOutFailed": "You could not be signed out just now. Try again in a moment.",
     "tabs": {
       "latest": "Latest",
       "following": "Following",

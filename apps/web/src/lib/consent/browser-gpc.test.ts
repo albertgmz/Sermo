@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { browserSendsGpc, forgetChoiceOverriddenByGpc } from "./browser-gpc";
+import {
+  browserSendsGpc,
+  eraseOptionalCookies,
+  forgetChoiceOverriddenByGpc,
+} from "./browser-gpc";
 
 const choice = (data: unknown, ...categories: string[]) =>
   encodeURIComponent(
@@ -64,4 +68,23 @@ test("a choice made after the signal, a refusal, another version or no cookie st
     );
     expect(written).toEqual([]);
   }
+});
+
+test("once a choice is taken off, the cookies of every optional category are erased where the library looks for them", () => {
+  const erased: [string, string, string | undefined][] = [];
+  eraseOptionalCookies(
+    (name, path, domain) => erased.push([String(name), path, domain]),
+    "forum.example.com",
+  );
+  const names = erased.map(([name]) => name);
+  // Statistics (exact names and prefixes) and the referral cookie, on this host and its parents.
+  expect(names).toContain("_ga");
+  expect(names).toContain(String(/^_pk_id\./));
+  expect(names).toContain("forum_ref");
+  expect(erased).toContainEqual(["_ga", "/", ".example.com"]);
+  expect(erased).toContainEqual(["_ga", "/", undefined]);
+  expect(erased.every(([, path]) => path === "/")).toBe(true);
+  // Nothing strictly necessary.
+  for (const name of ["forum_consent", "forum_locale", "forum_lite"])
+    expect(names).not.toContain(name);
 });

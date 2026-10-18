@@ -15,9 +15,9 @@ import {
   PasswordSkeleton,
   SessionsSkeleton,
 } from "@/app/[locale]/(main)/account/security/skeletons";
-import { PendingButton } from "@/components/forum/pending-button";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { SignOutForm } from "@/components/layout/sign-out-form";
+import { Button } from "@/components/ui/button";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("account.security");
@@ -61,9 +61,9 @@ export default function SecurityPage({
           {t("logoutDescription")}
         </p>
         <SignOutForm className="mt-3">
-          <PendingButton variant="outline" className="min-h-10 px-4">
+          <Button type="submit" variant="outline" className="min-h-10 px-4">
             {t("logout")}
-          </PendingButton>
+          </Button>
         </SignOutForm>
       </section>
       {/* No fallback: the section is drawn only for a member whose groups allow it. */}

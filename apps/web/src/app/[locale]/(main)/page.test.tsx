@@ -229,6 +229,14 @@ test("the line a deleted account lands on is shown for that notice only", async 
   expect(await render({ notice: "other" })).not.toContain(line);
 });
 
+test("a sign-out the backend could not make lands on a line that says so, for that notice only", async () => {
+  backend({ member: true });
+  const line = "You could not be signed out just now. Try again in a moment.";
+  expect(await render({ notice: "signOutFailed" })).toContain(line);
+  expect(await render({ notice: "accountDeleted" })).not.toContain(line);
+  expect(await render({ notice: "toString" })).not.toContain(line);
+});
+
 test("a filter in the address narrows the feed and is shown as chips that take each field off", async () => {
   backend({ member: true });
   const html = await render({

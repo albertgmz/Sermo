@@ -127,9 +127,9 @@ export default function HomePage(props: PageProps<"/[locale]">) {
           <WebSiteJsonLd />
         </OnHomeAddress>
       </Suspense>
-      {/* No fallback: only the page a deleted account lands on has a notice. */}
+      {/* No fallback: only the page a deleted account or a failed sign-out lands on has a notice. */}
       <Suspense fallback={null}>
-        <AccountDeletedNotice {...props} />
+        <HomeNotice {...props} />
       </Suspense>
       {/* No fallback: only members get a composer, and the shell cannot tell them from guests
           without reading the cookie. The composer settles on the session alone, ahead of the
@@ -159,16 +159,29 @@ export default function HomePage(props: PageProps<"/[locale]">) {
   );
 }
 
-// The line shown to a member whose account was just deleted: the action sends them here.
-async function AccountDeletedNotice({ searchParams }: PageProps<"/[locale]">) {
+// The lines a visitor is sent here with: a member whose account was just deleted (the action), and
+// one the backend could not sign out (the sign-out route), with the tone of each.
+const HOME_NOTICES = {
+  accountDeleted: "text-success",
+  signOutFailed: "text-destructive",
+} as const;
+
+async function HomeNotice({ searchParams }: PageProps<"/[locale]">) {
   const [{ notice }, t] = await Promise.all([
     searchParams,
     getTranslations("home.page"),
   ]);
-  if (notice !== "accountDeleted") return null;
+  if (typeof notice !== "string" || !Object.hasOwn(HOME_NOTICES, notice))
+    return null;
+  const key = notice as keyof typeof HOME_NOTICES;
   return (
-    <output className="block rounded-lg border bg-card p-4 text-sm text-success">
-      {t("accountDeleted")}
+    <output
+      className={cn(
+        "block rounded-lg border bg-card p-4 text-sm",
+        HOME_NOTICES[key],
+      )}
+    >
+      {t(key)}
     </output>
   );
 }

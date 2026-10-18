@@ -1,4 +1,5 @@
-import { CONSENT_COOKIE } from "./inventory";
+import { cookiesOf } from "./config";
+import { CONSENT_COOKIE, OPTIONAL_CATEGORIES } from "./inventory";
 import { parseChoice, standsUnderGpc } from "./state";
 
 // Whether the browser sends Global Privacy Control (`navigator.globalPrivacyControl`).
@@ -26,4 +27,20 @@ export function forgetChoiceOverriddenByGpc(
   doc.cookie = gone;
   if (hostname.includes(".")) doc.cookie = `${gone}; Domain=${hostname}`;
   return true;
+}
+
+// After `forgetChoiceOverriddenByGpc` took a choice off: the cookies of every optional category go
+// too, as on any withdrawal (the library clears them only when a choice is saved), so what the
+// cookie policy says holds. `erase` is the library's `eraseCookies`; each cookie is erased where
+// the library's own clearing looks for it (`cookiesOf`).
+export function eraseOptionalCookies(
+  erase: (name: string | RegExp, path: string, domain?: string) => void,
+  hostname: string,
+) {
+  for (const category of OPTIONAL_CATEGORIES)
+    for (const { name, domain } of cookiesOf(category, hostname) as {
+      name: string | RegExp;
+      domain?: string;
+    }[])
+      erase(name, "/", domain);
 }

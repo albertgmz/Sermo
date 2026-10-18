@@ -10,6 +10,7 @@ import {
 import { saveConsentChoice } from "@/lib/consent/actions";
 import {
   browserSendsGpc,
+  eraseOptionalCookies,
   forgetChoiceOverriddenByGpc,
 } from "@/lib/consent/browser-gpc";
 import { consentCallbacks, mustReloadForQuiet } from "@/lib/consent/callbacks";
@@ -22,7 +23,7 @@ import { reserveBannerSpace } from "@/lib/consent/space";
 // Every choice is also sent to be saved on the member's account (nothing happens for a guest).
 // `quiet`: the banner is not shown to this visitor. A browser that sends Global Privacy Control
 // starts with nothing optional on, quiet or not, and an acceptance made before the signal is
-// asked again (`forgetChoiceOverriddenByGpc`). The library draws its own dialogs from markup,
+// asked again (`forgetChoiceOverriddenByGpc`), its optional cookies erased. The library draws its own dialogs from markup,
 // so the only thing rendered is the cookie icon of "Accept all", hidden, for its markup to be
 // copied into the button.
 export function CookieConsentRoot({
@@ -46,7 +47,8 @@ export function CookieConsentRoot({
   useEffect(() => {
     const { texts, locale, version, quiet, omit } = first.current;
     const gpc = browserSendsGpc(navigator);
-    if (gpc)
+    const overridden =
+      gpc &&
       forgetChoiceOverriddenByGpc(document, window.location.hostname, version);
     // The room the page keeps for the banner, given back when the banner goes or the page does.
     let release: (() => void) | undefined;
@@ -79,6 +81,9 @@ export function CookieConsentRoot({
         reload: () => window.location.reload(),
         refresh: () => refresh.current(),
       }),
+    }).then((library) => {
+      if (overridden && library)
+        eraseOptionalCookies(library.eraseCookies, window.location.hostname);
     });
     const open = (event: MouseEvent) => {
       if (

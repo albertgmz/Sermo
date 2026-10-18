@@ -33,6 +33,7 @@
     "description": "Las publicaciones van al muro de tu perfil.",
     "startThread": "Iniciar un tema",
     "accountDeleted": "Tu cuenta se eliminó y se cerró tu sesión.",
+    "signOutFailed": "No se pudo cerrar tu sesión en este momento. Vuelve a intentarlo en un rato.",
     "tabs": {
       "latest": "Recientes",
       "following": "Siguiendo",

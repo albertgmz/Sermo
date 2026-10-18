@@ -1,5 +1,5 @@
 // The form of every sign-out button: a plain POST to the sign-out route
-// (`app/[locale]/(auth)/sign-out/route.ts`), which answers with a full load of the home page.
+// (`app/sign-out/route.ts`), which answers with a full load of the home page.
 export function SignOutForm({
   className,
   children,

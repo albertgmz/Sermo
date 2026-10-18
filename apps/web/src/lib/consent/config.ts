@@ -45,7 +45,7 @@ export function cookieDomains(hostname: string): string[] {
 // The cookies a category owns, as the library clears them when the category is withdrawn (and on
 // each visit while it is off). A name ending in `*` in the inventory is a prefix. Each is cleared
 // where the library looks by default (this host) and on every domain of `cookieDomains`.
-function cookiesOf(category: Category, hostname: string) {
+export function cookiesOf(category: Category, hostname: string) {
   const domains = cookieDomains(hostname);
   return INVENTORY.filter(
     (item) => item.category === category && item.storage === "cookie",
