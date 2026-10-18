@@ -4728,3 +4728,28 @@ change-password. No MCP server card: it has no settled location or schema yet. K
 reporter without an account who follows the fallback Contact registers through `/register`, which
 drops `next`, so they land on `/` after confirming; the legacy `/security.txt` gets the backend's
 JSON 404.
+
+### Robots rules and discovery links  robots.txt closes what a crawler has no use for and a guest
+cannot open: the API (except its public files and its OpenAPI description, which the API catalog
+names), search results, the members-only sections and the sign-in pages. Those pages already carry
+`noindex`, which stays as the fallback; closing them saves crawl budget: a guest's fetch of a "new"
+address (for example `/forums/3/new`) is still made, since those addresses are not closed, but the
+307 it answers points at a distinct `/login?next=...` per address, and that follow-up fetch is not
+made, at the cost that a sign-in address linked from elsewhere may be listed without content. The
+staff panel and the styleguide are not named: they answer guests a 404, and a line would publish
+where they are. `/mcp` stays open: POST only, and `llms.txt` and the API catalog advertise it.
+Paths are the public ones, with no language segment. The model makers' crawlers are named in two
+groups, training and answering, beside `*`; each group repeats the path rules, because a crawler
+follows only its most specific group (RFC 9309). There is no site setting for AI training, so
+`TRAINING_ALLOWED` is true and every group says `Content-Signal: search=yes, ai-input=yes,
+ai-train=yes` (the IAB Tech Lab vocabulary, the one validators read; the IETF drafts' names differ
+and may change). Setting it false changes only the training group's signal; Google-Extended and
+Applebot-Extended read only `Disallow`, so a firm opt-out also closes that group. Every answer of
+the proxy carries one `Link` header naming the sitemap (`rel="sitemap"`), `llms.txt`
+(`describedby`, typed `text/plain` as it is served), the API catalog (`api-catalog`, RFC 9727) and
+the site feed (`alternate`), root-relative and without titles (the header is the same in every
+language). Only site-wide files: a thread's Markdown copy and a forum's feed stay `<link>` elements
+in the page's head. Next appends its own font-preload `Link` beside it. Known limit: backend
+answers (API, feeds, the crawler files) carry none. To opt out of training, `TRAINING_ALLOWED =
+false` in `packages/core/src/modules/seo/robots.ts`; a firm opt-out with `Disallow: /` for the
+training group closes the whole site, `llms.txt` and the feeds included, to those seven crawlers.
