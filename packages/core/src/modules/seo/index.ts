@@ -15,7 +15,8 @@ export {
 export type { SeoPage, SeoTemplates } from "./pages";
 export { nodeSeo, profileSeo, searchSeo, TAG_INDEX_MIN_THREADS, tagSeo, threadSeo } from "./pages";
 export { canonicalPath, canonicalUrl, requireBaseURL, resolveCanonical } from "./paths";
-export { robotsTxt, SITEMAP_CAP, sitemapEntries, sitemapIndex, sitemapShard } from "./sitemap";
+export { robotsTxt } from "./robots";
+export { SITEMAP_CAP, sitemapEntries, sitemapIndex, sitemapShard } from "./sitemap";
 export { apiCatalog, securityTxt } from "./well-known";
 
 import type { Actor } from "../../actor";
