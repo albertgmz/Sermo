@@ -83,8 +83,8 @@ function escapeUnderlines(markdown: string): string {
   const lines = markdown.split("\n");
   return lines
     .map((line, i) => {
-      if (line.includes(CODE_LINE)) return line.replace(CODE_LINE, "");
-      const previous = (lines[i - 1] ?? "").replace(CODE_LINE, "");
+      if (line.includes(CODE_LINE)) return line.replaceAll(CODE_LINE, "");
+      const previous = (lines[i - 1] ?? "").replaceAll(CODE_LINE, "");
       if (!/[^>\s]/.test(previous)) return line;
       return line.replace(/^([>\s]*)(?=[-=][-=\s]*$)/, "$1\\");
     })

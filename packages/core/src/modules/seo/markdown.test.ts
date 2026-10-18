@@ -101,6 +101,17 @@ test("a post's stored HTML reads as Markdown, with the page's addresses made abs
   expect(markdown.match(/\[spoiler\]/g)).toHaveLength(3);
 });
 
+test("a code block in a table cell leaves none of its line marks in the Markdown", () => {
+  const markdown = postMarkdown(
+    renderBbCode(
+      "[table][tr][td]a[/td][td]b[/td][/tr][tr][td][code]x\n---[/code][/td][td]---[/td][/tr][/table]",
+    ),
+    BASE,
+  );
+  expect(markdown).toContain("| ``` x --- ``` | --- |");
+  expect(markdown).not.toContain("\u0001");
+});
+
 test("a public thread's Markdown has its front matter, its forum and its posts", async () => {
   const { ctx, roses, thread } = await setup();
   await reply(ctx, thread.id, "Second [url=/threads/1]post[/url]");
