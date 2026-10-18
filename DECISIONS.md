@@ -1985,7 +1985,10 @@ the address. The routes live under `app/[locale]` instead, prerendered for `en` 
 proxy rewrites each page request to the visitor's language; the address the visitor sees never
 changes. A request that names `/en/…` or `/es/…` is sent (307) to the same address without it, so
 the segment is never a second address. Upload routes and `favicon.ico` stay outside it at their
-public paths. Pages are sent `private, no-store`, so no shared cache mixes languages (the proxy cannot add a `Vary` header: Next's render replaces it).
+public paths. Pages are sent `private`, so no shared cache mixes languages (the proxy cannot add a
+`Vary` header: Next's render replaces it). A guest's view of a public page is `private, no-cache`
+(see "Faster navigation"), so the browser's own copy is not keyed by language and Back may show the
+language it was loaded in; every other page is `no-store`.
 
 **Which language.** The cookie `forum_locale`, then the browser's `Accept-Language` (first
 supported language by weight), then the site's default language (`site.get` now carries
@@ -4614,3 +4617,29 @@ them. Better Auth 1.7.7's cookies are `HttpOnly; SameSite=Lax; Path=/`, with `Se
 Safari does not implement `Clear-Site-Data`; moving `BETTER_AUTH_URL` between http and https changes the
 session cookie names and leaves the old one until it expires; account deletion (a server action) sends
 no `Clear-Site-Data`; the GPC opt-out is not recorded on the account.
+
+### Faster navigation  Speculation rules prefetch, never prerender, only links in a rendered body
+(`.bb-content`: posts, messages, the composer's preview, the staff queues) on `moderate` eagerness,
+and only to a thread or forum at its own address (`/threads/<id>-<slug>`, `/forums/<id>-<slug>`, one
+segment) or to `/forums`. Every other link is a next/link `Link`, whose RSC payload Next already
+fetches, so a document prefetch would be a second fetch the soft navigation never uses. A bare id is
+left out because it is redirected and the browser drops a redirected prefetch; the address shape keeps
+editors, upload routes, `/posts`, `/og`, `/api` and staff pages out; a query with `ref=` or any `%` is
+left out because the proxy decodes it and loading a referral address gives the credit; a visitor
+using the data saver gets no rules. Prerender is left out because a hidden thread would run its
+effects (mark read, polls, analytics). The script carries the response's nonce. A prefetch not
+followed still counts one thread view and spends one of the visitor's lookups; under the service
+worker a followed prefetch is used and counts one view. `content-visibility: auto` on posts was tried
+and removed: each post's first draw replaced a fixed placeholder height with its real one, which moved
+the page under a reader scrolling up (78 px on desktop, 190 px on a phone) and put a jumped-to post off
+target. A guest's page load of a public page (home, threads, forums, members, tags and their lists) is
+sent `private, no-cache` by the proxy (Next keeps a Cache-Control the response already has), so Back
+restores it from the back/forward cache while shared caches stay out, and a normal navigation still
+fetches afresh because Next sends no validator. Every other answer keeps `no-store`, Next's or the
+proxy's own: a member's pages, sign-in and settings pages, 404s, failed lookups, redirects and any
+answer that sets a cookie. The tab-sync BroadcastChannel closes while the page is in the back/forward
+cache. Known limits: Back may show a guest copy that is stale after a sign-in, a language switch or
+with time (guest chrome only, a reload corrects it); a sign-out's `Clear-Site-Data: "cache"` clears the
+stored copies only where implemented (not Safari); a page whose own render fails, 404s or redirects
+after the proxy let it through keeps the header; a cold load of a `#post-` address does not scroll to
+the post (as before this change).
