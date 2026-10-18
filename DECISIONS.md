@@ -4545,3 +4545,22 @@ get a monogram (avatars are WebP, which the renderer cannot draw); the mark is t
 (PNG) or the drawn mark in the accent. A visitor whose LITE mode blocks anything gets no card
 address, like the structured data. Pages that name no canonical get their own address as one (the
 og:url).
+
+### Real status codes for missing and unavailable pages  With Cache Components, every page under
+`app/[locale]` has a prerendered entry stored with status 200, and Next serves a page with that
+status whatever the proxy's rewrite says. So for a page load the proxy writes the answer itself. It
+fetches the page from its own server (`__NEXT_PRIVATE_ORIGIN`) as the visitor, with this response's
+nonce, and returns it with its own status and `private, no-store`: 404 for an address no page has
+(`lib/page-routes.ts`, held to the page and route files by a test) or a record the backend says is
+missing; 429 when the backend throttles the visitor on the record lookup; 503 when the lookup fails
+(5xx or unreachable). Other refusals (403, sign-in) are the page's own, as before. The internal
+request carries a per-process secret and goes straight to the page. It gives up after 5 s without
+an answer or when the visitor leaves, and every answer it does not pass on is cancelled. When the
+server cannot be asked, the proxy falls back to the status-404 rewrite (served as 200) and warns
+once per process. Router fetches and action POSTs keep the rewrite. The panel keeps its registry
+gate. A test keeps every route outside `[locale]` clear of the 404 (matcher exclusion or early
+return). The locale-prefix redirect is a 308. The 429 and 503 answers go past the item's brief (no
+soft 200 for missing things); they are one `lookupFailure` branch in the proxy. Known limits:
+depends on `__NEXT_PRIVATE_ORIGIN`, a Next internal that `next start` and the standalone server
+set; pages with no record lookup (home, forum list) still answer 200 with their error screen while
+the backend is down; subresource requests for a missing address still get the stored 200.
