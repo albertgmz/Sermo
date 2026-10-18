@@ -10,7 +10,7 @@ import { type Ctx, invalidate } from "../../context";
 import { execute } from "../../operation";
 import { mediaListOp } from "../feed/media";
 import { postsCreateOp, postsListOp, threadsCreateOp } from "../forums";
-import { backfillWidthCopies } from "./backfill";
+import { backfillWidthCopies, UNREADABLE_FLOOR } from "./backfill";
 import { createStorage, localDriver, type StorageDriver } from "./index";
 
 const dirs: string[] = [];
@@ -207,6 +207,7 @@ describe("width copies of attachment pictures", () => {
       created: 5,
       animated: 1,
       skipped: 0,
+      deleted: 0,
       lastFileId: animation,
     });
     // The same copies an upload makes, with the access of their picture.
@@ -222,6 +223,7 @@ describe("width copies of attachment pictures", () => {
       created: 0,
       animated: 1,
       skipped: 0,
+      deleted: 0,
       lastFileId: animation,
     });
     // From after the last picture done, nothing at all.
@@ -281,10 +283,16 @@ describe("width copies of attachment pictures", () => {
       if (key === goneKey) rmSync(join(app.files, key));
     });
     const first = await app.backfill();
-    expect(first).toMatchObject({ pictures: 5, created: 1, skipped: 4, lastFileId: fine });
+    expect(first).toMatchObject({
+      pictures: 5,
+      created: 1,
+      skipped: 2,
+      deleted: 2,
+      lastFileId: fine,
+    });
     expect(app.skipped).toEqual([
-      [missing, "stored bytes missing or unreadable"],
-      [garbled, "stored bytes are not a picture"],
+      [missing, "stored bytes missing"],
+      [garbled, "stored bytes are not a picture that can be decoded"],
       [goneBefore, "deleted during the run"],
       [goneDuring, "deleted during the run"],
     ]);
@@ -303,11 +311,85 @@ describe("width copies of attachment pictures", () => {
       app.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM files").get()!.n - 2, // the two pictures whose bytes are gone
     );
 
-    // A second run ends too: the two still listed are passed over again, the deleted ones are not
-    // listed at all.
+    // A second run ends too: the two still listed are passed over again (the deleted ones are not
+    // listed at all), and as nothing it read could be read, it says so instead of "complete".
     app.skipped.length = 0;
-    expect(await app.backfill()).toMatchObject({ pictures: 2, created: 0, skipped: 2 });
+    await expect(app.backfill()).rejects.toThrow(
+      "None of the 2 pictures read could be read; check the storage, then run again.",
+    );
     expect(app.skipped.map(([id]) => id)).toEqual([missing, garbled]);
+    // Started after them, there is nothing to do.
+    expect(await app.backfill(garbled)).toMatchObject({ pictures: 0, skipped: 0 });
+  });
+
+  test("a failure that is not the picture's stops the run, naming the picture", async () => {
+    const app = await setup();
+    const ids = [
+      await app.upload(await still(1000, 800)),
+      await app.upload(await still(1000, 800)),
+    ];
+    await app.post(ids);
+    await app.forgetCopies();
+    const failing = app.keyOf(ids[1]!);
+    app.onRead((key) => {
+      if (key === failing) throw new Error("storage unavailable");
+    });
+    await expect(app.backfill()).rejects.toThrow(
+      `Picture ${ids[1]} could not be copied: storage unavailable`,
+    );
+    // The one before was done; the failing one is neither done nor passed over.
+    expect(app.variants(ids[0]!).map((row) => row.variant)).toContain("width_640");
+    expect(app.variants(ids[1]!).map((row) => row.variant)).toEqual(["thumbnail"]);
+    expect(app.skipped).toEqual([]);
+    // So is a temp folder that cannot be written to (a full disk fails the same way).
+    app.onRead(() => {});
+    const blocked = join(app.files, "..", "not-a-folder");
+    await writeFile(blocked, "a file where the temp folder should be");
+    await expect(
+      backfillWidthCopies(app.ctx, app.driver, { tempDir: join(blocked, "inside") }),
+    ).rejects.toThrow();
+    // Once it is fixed, the run takes up where it stopped.
+    expect(await app.backfill()).toMatchObject({ pictures: 1, created: 1, skipped: 0 });
+  });
+
+  test("a run in which most pictures cannot be read stops, as the storage is failing", async () => {
+    const app = await setup();
+    const ids: number[] = [];
+    for (let index = 0; index < UNREADABLE_FLOOR + 1; index++)
+      ids.push(await app.upload(await still(700, 400)));
+    await app.post(ids);
+    await app.forgetCopies();
+    // Every stored picture but the last has lost its bytes.
+    for (const id of ids.slice(0, -1)) await app.driver.delete(app.keyOf(id));
+    await expect(app.backfill()).rejects.toThrow(
+      `${UNREADABLE_FLOOR} of ${UNREADABLE_FLOOR} pictures could not be read, through file ${ids.at(-2)}; check the storage, then run again.`,
+    );
+    // It stopped there: the last picture was not reached.
+    expect(app.variants(ids.at(-1)!).map((row) => row.variant)).toEqual(["thumbnail"]);
+  });
+
+  test("a copy not smaller than the stored picture is not kept, and the picture is read again by the next run", async () => {
+    const app = await setup();
+    // A sharp-edged picture of two colours: a small PNG, and larger as lossy WebP at any width.
+    const checks = new Uint8Array(
+      await sharp(
+        Buffer.from(
+          Array.from({ length: 1400 * 700 }, (_, index) =>
+            (((index % 1400) >> 4) + (Math.floor(index / 1400) >> 4)) % 2 ? 255 : 0,
+          ),
+        ),
+        { raw: { width: 1400, height: 700, channels: 1 } },
+      )
+        .png({ palette: true })
+        .toBuffer(),
+    );
+    const picture = await app.upload(checks, "image/png");
+    await app.post([picture]);
+    expect(app.variants(picture).map((row) => row.variant)).toEqual(["thumbnail"]);
+    for (let run = 0; run < 2; run++)
+      expect(await app.backfill()).toMatchObject({ pictures: 1, created: 0, skipped: 0 });
+    expect(app.variants(picture).map((row) => row.variant)).toEqual(["thumbnail"]);
+    await app.storedMatchesRows();
   });
 
   test("width copies count toward no member's storage quota, from an upload or the backfill", async () => {

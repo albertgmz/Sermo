@@ -164,7 +164,7 @@ When it reports completion, set `SERMO_STORAGE_DRIVER=s3` in `.env` and run `doc
 
 ## Smaller copies of older pictures
 
-Attachment pictures get WebP copies 640 and 1280 pixels wide when uploaded, which pages offer to narrower screens. Pictures uploaded before Sermo made them have none until this runs once after the upgrade, with the server's environment and the server running (`docker compose exec sermo bun run images:widths`, or `bun run images:widths` locally). It takes about 2.5 minutes per 1,000 pictures; run it at a quiet hour. A picture whose stored bytes are missing or unreadable is reported and passed over. If interrupted, run it again; pictures already done are skipped.
+Attachment pictures get WebP copies 640 and 1280 pixels wide when uploaded, which pages offer to narrower screens. Pictures uploaded before Sermo made them have none until this runs once after the upgrade, with the server's environment and the server running (`docker compose exec sermo bun run images:widths`, or `bun run images:widths` locally). It takes about 2.5 minutes per 1,000 pictures; run it at a quiet hour, with the server running (its checkpointer keeps the database log small; with the server stopped the log grows for the whole run and is folded back only when it ends). A picture whose stored bytes are missing or cannot be decoded is reported, passed over and makes the command exit non-zero; any other failure (storage, disk, memory), or a run in which most pictures cannot be read, stops it. If interrupted, run it again; pictures already done are skipped.
 
 ## Deliverability
 

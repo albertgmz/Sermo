@@ -19,8 +19,10 @@ export interface WidthBackfillProgress {
   created: number;
   /** Animations, which get no copies. */
   animated: number;
-  /** Pictures passed over (each told to `onSkip`): bytes missing, not decodable, deleted meanwhile. */
+  /** Pictures passed over as unreadable (each told to `onSkip`): bytes missing or not decodable. */
   skipped: number;
+  /** Pictures deleted while the run read them (each told to `onSkip`). */
+  deleted: number;
   /** The last picture done: a run started after it skips what is done. */
   lastFileId: number;
 }
@@ -47,9 +49,14 @@ const insertSql =
  * Makes the width copies of attachment pictures stored before they existed, from the stored
  * picture. Safe beside a running server: each picture is its own short transaction, and a run
  * stopped anywhere is taken up by running it again (with `after`, from the last picture done).
- * A picture that cannot be read (its bytes missing or not a picture, or deleted meanwhile) is
- * passed over and told to `onSkip`; a failure to store or write a copy stops the run.
+ * A picture whose stored bytes are missing or cannot be decoded, or that is deleted meanwhile, is
+ * passed over and told to `onSkip`. Anything else (the storage failing, a full disk, no memory)
+ * stops the run with an error naming the picture, and so does a run in which every picture read,
+ * or more than half of at least `UNREADABLE_FLOOR`, could not be: that is the storage failing,
+ * not the pictures.
  */
+export const UNREADABLE_FLOOR = 10;
+
 export async function backfillWidthCopies(
   ctx: Ctx,
   driver: StorageDriver,
@@ -79,15 +86,28 @@ export async function backfillWidthCopies(
     created: 0,
     animated: 0,
     skipped: 0,
+    deleted: 0,
     lastFileId: options.after ?? 0,
   };
   const skip = (row: Picture, reason: string) => {
     progress.skipped++;
     options.onSkip?.(row.id, reason);
   };
+  const gone = (row: Picture) => {
+    progress.deleted++;
+    options.onSkip?.(row.id, "deleted during the run");
+  };
+  // Pictures that could have been read: the deleted ones are left out.
+  const unreadableShare = () => progress.skipped / (progress.pictures - progress.deleted);
   for (;;) {
     const rows = page.all(driver.name, progress.lastFileId, batchSize);
-    if (!rows.length) return progress;
+    if (!rows.length) {
+      if (progress.skipped && unreadableShare() === 1)
+        throw new Error(
+          `None of the ${progress.skipped} pictures read could be read; check the storage, then run again.`,
+        );
+      return progress;
+    }
     for (const row of rows) {
       const source = join(options.tempDir, `sermo-backfill-${randomUUID()}`);
       const copies: ProcessedImage[] = [];
@@ -95,8 +115,10 @@ export async function backfillWidthCopies(
       const pending = new Set<string>();
       try {
         const read = await readPicture(driver, row, source, options.tempDir);
-        if ("skip" in read) skip(row, live.get(row.id) ? read.skip : "deleted during the run");
-        else {
+        if ("skip" in read) {
+          if (live.get(row.id)) skip(row, read.skip);
+          else gone(row);
+        } else {
           if (read.animated) progress.animated++;
           copies.push(...read.copies);
           const stored = await Promise.all(
@@ -129,11 +151,15 @@ export async function backfillWidthCopies(
           for (const copy of written) pending.delete(copy.storageKey);
           progress.created += written.length;
           // Refused because the picture went meanwhile, not because the copy was there already.
-          if (written.length < stored.length && !live.get(row.id))
-            skip(row, "deleted during the run");
+          if (written.length < stored.length && !live.get(row.id)) gone(row);
         }
       } catch (error) {
-        throw new Error(`Picture ${row.id} could not be copied.`, { cause: error });
+        // Whatever failed, a picture deleted meanwhile is just gone.
+        if (live.get(row.id))
+          throw new Error(`Picture ${row.id} could not be copied: ${(error as Error).message}`, {
+            cause: error,
+          });
+        gone(row);
       } finally {
         for (const key of pending) await driver.delete(key).catch(() => {});
         for (const path of [source, ...copies.map((copy) => copy.path)])
@@ -142,13 +168,22 @@ export async function backfillWidthCopies(
       progress.pictures++;
       progress.lastFileId = row.id;
       options.onProgress?.({ ...progress });
+      if (progress.skipped >= UNREADABLE_FLOOR && unreadableShare() > 0.5)
+        throw new Error(
+          `${progress.skipped} of ${progress.pictures - progress.deleted} pictures could not be read, through file ${row.id}; check the storage, then run again.`,
+        );
     }
   }
 }
 
+/** What sharp says of bytes that are not a picture it can decode (header or body). */
+const UNDECODABLE =
+  /^Input (?:file|buffer) (?:has corrupt header|contains unsupported image format)|^VipsJpeg: |^vipspng: |^webp: unable to parse|premature end/i;
+
 /**
  * The stored picture fetched to `path` and made into its copies (none for an animation), or why
- * it cannot be: its bytes are not there or not a picture.
+ * it cannot be: its bytes are not there, or not a picture sharp can decode. Any other failure
+ * (the storage, the temp folder, memory) is thrown.
  */
 async function readPicture(
   driver: StorageDriver,
@@ -156,18 +191,18 @@ async function readPicture(
   path: string,
   tempDir: string,
 ): Promise<{ copies: ProcessedImage[]; animated: boolean } | { skip: string }> {
-  try {
-    await pipeline(
-      Readable.fromWeb(driver.read(row.storage_key).stream() as never),
-      createWriteStream(path, { flags: "wx" }),
-    );
-  } catch {
-    return { skip: "stored bytes missing or unreadable" };
-  }
+  if (driver.exists && !(await driver.exists(row.storage_key)))
+    return { skip: "stored bytes missing" };
+  await pipeline(
+    Readable.fromWeb(driver.read(row.storage_key).stream() as never),
+    createWriteStream(path, { flags: "wx" }),
+  );
   try {
     if (((await sharp(path).metadata()).pages ?? 1) > 1) return { copies: [], animated: true };
     return { copies: await widthCopies(path, row.width, tempDir, row.byte_size), animated: false };
-  } catch {
-    return { skip: "stored bytes are not a picture" };
+  } catch (error) {
+    if (UNDECODABLE.test((error as Error).message))
+      return { skip: "stored bytes are not a picture that can be decoded" };
+    throw error;
   }
 }
