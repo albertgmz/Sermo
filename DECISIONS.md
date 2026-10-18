@@ -4753,3 +4753,13 @@ in the page's head. Next appends its own font-preload `Link` beside it. Known li
 answers (API, feeds, the crawler files) carry none. To opt out of training, `TRAINING_ALLOWED =
 false` in `packages/core/src/modules/seo/robots.ts`; a firm opt-out with `Disallow: /` for the
 training group closes the whole site, `llms.txt` and the feeds included, to those seven crawlers.
+
+### Picture widths read without joins  An attachment's thumbnail and width copies are read with one
+scalar subquery each, not one LEFT JOIN each on `files INDEXED BY files_variant`. With the joins,
+SQLite's statistics on a forum where no file has a parent say every seek in that index matches all
+files, so the planner put a Bloom filter on both width joins and read the whole index on every
+call: the attachment page query went from 0.015 ms to about 38 ms on the benchmark seed, and every
+feed, media and posts page with a picture paid for it (feed.list p50 2.7 -> 16.9 ms). A subquery is
+planned on its own and gets no Bloom filter; `files_variant` is unique on (parent_file_id,
+variant), so it returns the same row the join did. Tests load the seed's statistics into
+`sqlite_stat1` and require no Bloom filter on these plans.
