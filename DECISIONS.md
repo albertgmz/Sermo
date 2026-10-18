@@ -4459,3 +4459,23 @@ transparent upload on a black tile). The site feed is linked from every public p
 own feed from its page. `WebSite` + `SearchAction` JSON-LD is on the bare home address as guests
 open it; `/opensearch.xml` (no image, outside the LITE gates; cached five minutes) is left alone by
 the proxy.
+
+### Accessibility pass  A skip link is the first focusable element of each frame (forum, staff
+panel, developer page), translated, hidden by translate until it has focus, and aimed at
+`<main id="main-content" tabIndex={-1}>`; the auth, not-found and error screens have no repeated
+navigation and get none. The link focuses `main` itself on click, because a page script (Swagger
+UI on `/developer`) cancels in-page jumps; the `href` stays, so it works without script. Reduced
+motion is global and `!important`, as the practice gives it, with 0.01ms durations so Base UI and
+the cookie library still get their end events (spinners stand still). Focus is never hidden behind
+the sticky header, the phone bar or the cookie banner (scroll padding per frame). Closed panels use
+`hidden="until-found"` and open when find in page reaches them; spoilers stay out of find in page,
+because their content is not in the HTML until opened. No `inert`: Base UI's modal focus trap and
+`aria-hidden` already cover the background. In forced colours focus draws a `Highlight` outline;
+cards, dialogs, popovers, menus and badges keep an edge; pressed, checked and selected controls
+(not disabled) take the system highlight, and their contents its text colour; the staff switch has
+its own system-colour track and thumb; chips whose edge was a ring add a border in this mode, with
+no generic toggle border (it undid deliberate `border-0`). Known limits: the cookie banner takes
+the focus when it opens on a first visit (library behaviour); a selected colour swatch shows no
+colour in forced colours, and a chosen prefix chip keeps its accent ring; Swagger UI adds a second
+`main` landmark on `/developer`; the select option under the pointer is marked only by the focus
+ring; a panel opened by find stays open on later visits.
