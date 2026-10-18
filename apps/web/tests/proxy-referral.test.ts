@@ -142,7 +142,7 @@ test("any page can carry it, the register page and a redirect included", async (
   );
   // The language segment is not an address: it redirects, and the redirect keeps the cookie.
   const redirect = await ask("/es/forums?ref=5", ACCEPTED);
-  expect(redirect?.status).toBe(307);
+  expect(redirect?.status).toBe(308);
   expect(referralCookie(redirect)).toContain("forum_ref=5");
 });
 

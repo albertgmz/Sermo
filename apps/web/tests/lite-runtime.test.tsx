@@ -238,14 +238,14 @@ const PICTURES = [
   "/a/b/c.webp",
 ];
 
-test("proxy replaces every picture path for master/legacy cookies and passes every one without a cookie", async () => {
+test("proxy replaces every picture path for master/legacy cookies and, without a cookie, answers each as an address no page has", async () => {
   for (const path of PICTURES) {
     for (const master of ["all", "1"])
       await placeholder(
         await proxy(request(path, master)),
         `${path} (${master})`,
       );
-    passThrough(await proxy(request(path)), path);
+    notFound(await proxy(request(path)), path);
   }
 });
 
@@ -370,8 +370,14 @@ test("optimizer requests are disabled in config and also blocked by LITE; matche
     await proxy(request("/_next/image?url=%2Fpictures%2Fx.jpg")),
     "optimizer without cookie",
   );
-  for (const path of ["/_next/static/app.js", "/styles.css", "/robots.txt"])
-    passThrough(await proxy(request(path, "all")), path);
+  passThrough(
+    await proxy(request("/_next/static/app.js", "all")),
+    "/_next/static/app.js",
+  );
+  // No page has these (the matcher keeps the backend's robots.txt away from the proxy): they are the
+  // 404, never a placeholder.
+  for (const path of ["/styles.css", "/robots.txt"])
+    notFound(await proxy(request(path, "all")), path);
 });
 
 test("LITE retains guest redirects, admin protection and unknown-id 404s", async () => {

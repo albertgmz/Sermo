@@ -58,9 +58,10 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
   }
   {
     const response = await request("/pictures/tobi.jpg");
+    assert.equal(response.status, 404);
     assert.equal(
       response.headers.get("x-middleware-rewrite"),
-      "http://localhost/en/pictures/tobi.jpg",
+      "http://localhost/en/not-found",
     );
     assert.equal(response.headers.get("cache-control"), null);
   }

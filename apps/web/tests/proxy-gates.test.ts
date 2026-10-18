@@ -757,11 +757,11 @@ test("a guest who must sign in first goes on to the page, as for any record", as
   passes(await ask("/posts/62"));
 });
 
-test("an id that cannot exist is a 404 unasked, a sub-address is left to the router and an outage to the page", async () => {
+test("an id that cannot exist is a 404 unasked, so is a sub-address no page has, and an outage is left to the page", async () => {
   const unasked = postsBackend({});
   for (const id of ["0", "03", "abc", "5-news"])
     isNotFound(await ask(`/posts/${id}`));
-  passes(await ask("/posts/5/react"));
+  isNotFound(await ask("/posts/5/react"));
   assert.equal(unasked.length, 0);
 
   backend({ "/api/v1/posts/5": refusal(500, "internal") });
@@ -1049,8 +1049,8 @@ test("an address under the old name for forums is a 308 to the current one, what
     );
   }
   assert.equal(asked.length, 0);
-  // A name that only starts like it is nothing special.
-  passes(await ask("/nodesx"));
+  // A name that only starts like it is nothing special: no page has it.
+  isNotFound(await ask("/nodesx"));
 });
 
 test("a prefetch, a soft navigation or an action's POST is not looked up in the backend", async () => {
@@ -1224,9 +1224,10 @@ test("the styleguide is a 404 for a guest and a member without a panel, and open
     passes(await ask("/ui", { cookie: SESSION }));
     assert.equal(state.viewerAsked, 1);
   }
-  // A page like /uikit is not the styleguide.
-  reset();
-  passes(await ask("/uikit"));
+  // An address like /uikit is not the styleguide: no page has it, and no viewer is asked.
+  reset({ viewer: FULL_ADMINISTRATOR });
+  isNotFound(await ask("/uikit", { cookie: SESSION }));
+  assert.equal(state.viewerAsked, 0);
 });
 
 test("the styleguide is gated for a prefetch and an action's POST too", async () => {
@@ -1338,7 +1339,7 @@ test("the rewrite keeps the query, and the root is the language's root", async (
   assert.equal(forwarded(response, "x-sermo-path"), "/forums?page=2&sort=new");
 });
 
-test("an address that carries the language segment is a 307 to the one without it", async () => {
+test("an address that carries the language segment is a 308 to the one without it", async () => {
   reset();
   for (const [path, target] of [
     ["/es/threads/1", "http://localhost/threads/1"],
@@ -1346,17 +1347,18 @@ test("an address that carries the language segment is a 307 to the one without i
     ["/es", "http://localhost/"],
     ["/en", "http://localhost/"],
     ["/en/admin", "http://localhost/admin"],
+    ["/es/this-does-not-exist", "http://localhost/this-does-not-exist"],
   ]) {
     const response = await ask(path);
-    assert.equal(response?.status, 307, path);
+    assert.equal(response?.status, 308, path);
     assert.equal(response?.headers.get("location"), target, path);
   }
-  // A POST keeps its method through a 307.
+  // A POST keeps its method through a 308.
   const post = await ask("/es/forums", { method: "POST" });
-  assert.equal(post?.status, 307);
-  // Segments that only start like a language are pages.
-  passes(await ask("/english"), "http://localhost/en/english");
-  passes(await ask("/espana"), "http://localhost/en/espana");
+  assert.equal(post?.status, 308);
+  // Segments that only start like a language are no language: here, no page either.
+  isNotFound(await ask("/english"));
+  isNotFound(await ask("/espana"));
 });
 
 test("the gates work on the public address, in either language", async () => {
@@ -1425,13 +1427,13 @@ test("the manifest, the service worker and the offline page are left alone", asy
       assert.equal(response?.status ?? 200, 200, path);
     }
   }
-  // Only those addresses: a page that merely starts the same way is still a page.
-  const page = await ask("/offline", { headers: { "accept-language": "es" } });
-  assert.equal(rewriteOf(page), "http://localhost/es/offline");
-  const other = await ask("/sw.js.map", {
-    headers: { "accept-language": "es" },
-  });
-  assert.equal(rewriteOf(other), "http://localhost/es/sw.js.map");
+  // Only those addresses: one that merely starts the same way is an address like any other, here
+  // one no page has.
+  for (const path of ["/offline", "/sw.js.map"]) {
+    const other = await ask(path, { headers: { "accept-language": "es" } });
+    assert.equal(other?.status, 404, path);
+    assert.equal(rewriteOf(other), "http://localhost/es/not-found", path);
+  }
 });
 
 test("Next's own picture addresses are not rewritten into a language", async () => {
@@ -1450,10 +1452,16 @@ test("Next's own picture addresses are not rewritten into a language", async () 
 
 test("a picture-looking address that is no page gets the 404 of the language", async () => {
   reset();
-  const response = await ask("/pictures/tobi.jpg", {
-    headers: { "accept-language": "es" },
-  });
-  assert.equal(rewriteOf(response), "http://localhost/es/pictures/tobi.jpg");
+  for (const path of ["/pictures/tobi.jpg", "/apple-touch-icon.png"]) {
+    const response = await ask(path, { headers: { "accept-language": "es" } });
+    assert.equal(response?.status, 404, path);
+    assert.equal(rewriteOf(response), "http://localhost/es/not-found", path);
+  }
+  // A page whose address ends like a picture's is still that page.
+  passes(
+    await ask("/tags/logo.png", { headers: { "accept-language": "es" } }),
+    "http://localhost/es/tags/logo.png",
+  );
 });
 
 test("the site's default language comes after the cookie and the browser, and is asked for only then", async () => {
@@ -1475,4 +1483,86 @@ test("the site's default language comes after the cookie and the browser, and is
   assert.equal(state.defaultAsked, 2);
   reset({ siteDefault: "en" });
   assert.equal(rewriteOf(await ask("/forums")), "http://localhost/en/forums");
+});
+
+test("an address no page has is a 404 in the visitor's language for every kind of request, unasked and with its nonce", async () => {
+  reset();
+  const asked = backend({});
+  for (const path of [
+    "/this-does-not-exist-xyz",
+    "/this-does-not-exist-xyz?page=2",
+    "/threads",
+    "/threads/7-news/history",
+    "/forums/3-general/edit",
+    "/tags",
+    "/Threads/7",
+    "/.well-known/nothing",
+    "/not-found",
+    "/%E0%A4%A",
+  ]) {
+    for (const init of [
+      {},
+      { headers: { "sec-fetch-mode": "navigate" } },
+      { headers: { "sec-fetch-mode": "cors" } },
+      { method: "POST" },
+    ])
+      isNotFound(await ask(path, init), path);
+  }
+  assert.equal(asked.length, 0);
+  const spanish = await ask("/this-does-not-exist-xyz", {
+    headers: { "accept-language": "es" },
+  });
+  assert.equal(spanish?.status, 404);
+  assert.equal(rewriteOf(spanish), "http://localhost/es/not-found");
+  renderedNonce(spanish);
+  assert.equal(forwarded(spanish, "x-sermo-path"), null);
+  // A members-only address sends a guest to sign in first, as it did; a member gets the 404.
+  assert.equal((await ask("/account/nothing"))?.status, 307);
+  isNotFound(await ask("/account/nothing", { cookie: SESSION }));
+});
+
+test("pages, the icon, the API, the upload routes, the installed app's files and the backend's paths keep their answers", async () => {
+  reset();
+  backend({
+    "/api/v1/seo/nodes/3": FORUM_3,
+    "/api/v1/seo/threads/7": seoOf("http://localhost/threads/7-news", false),
+  });
+  for (const path of [
+    "/",
+    "/forums",
+    "/forums/3-general",
+    "/threads/7-news",
+    "/members",
+    "/search?q=x",
+    "/login",
+    "/register",
+    "/developer",
+    "/data-saver",
+    "/cookies",
+  ])
+    passes(await ask(path));
+  passes(await ask("/account", { cookie: SESSION }));
+  passes(await ask("/conversations/new", { cookie: SESSION }));
+  const icon = await ask("/favicon.ico");
+  assert.equal(icon?.status, 200);
+  assert.equal(icon?.headers.get("x-middleware-next"), "1");
+  assert.equal(await ask("/api/v1/files/12"), undefined);
+  for (const path of ["/manifest.webmanifest", "/sw.js", "/offline.html"])
+    assert.equal(await ask(path), undefined, path);
+  assert.equal(await ask("/_next/static/chunks/app.js"), undefined);
+  // The matcher keeps the proxy away from these; Next serves them as they are.
+  const matcher = new RegExp(`^${config.matcher[0]}$`);
+  for (const path of [
+    "/threads/12/uploads",
+    "/attachments",
+    "/account/picture",
+    "/admin/uploads",
+    "/opensearch.xml",
+    "/robots.txt",
+    "/sitemap.xml",
+    "/feed.atom",
+    "/mcp",
+    "/health",
+  ])
+    assert.equal(matcher.test(path), false, path);
 });

@@ -38,6 +38,7 @@ import {
   parseLiteCookieHeader,
   serializeLiteCookie,
 } from "@/lib/lite-preferences";
+import { isPageRoute } from "@/lib/page-routes";
 import { isPwaPath } from "@/lib/pwa";
 import { REFERRAL_MAX_AGE, referralStep } from "@/lib/referral/cookie";
 import { REFERRAL_PARAM } from "@/lib/referral/link";
@@ -331,7 +332,8 @@ function toPage(request: NextRequest, locale: Locale, security: PageSecurity) {
 }
 
 // An address that names the hidden segment (`/es/threads/1`) is no address of the site: it goes
-// to the one without it, so a page has a single address whatever its language.
+// to the one without it for good, so a page has a single address whatever its language. A 308
+// keeps the method, as a 307 does.
 function localePrefixRedirect(request: NextRequest) {
   const { pathname } = request.nextUrl;
   for (const locale of LOCALES) {
@@ -339,7 +341,7 @@ function localePrefixRedirect(request: NextRequest) {
       continue;
     const target = request.nextUrl.clone();
     target.pathname = pathname.slice(locale.length + 1) || "/";
-    return NextResponse.redirect(target, 307);
+    return NextResponse.redirect(target, 308);
   }
   return undefined;
 }
@@ -457,6 +459,15 @@ function notFound(
   return response;
 }
 
+// Whether a page answers the address as it was asked for; one that cannot be decoded names none.
+function isKnownPage(pathname: string) {
+  try {
+    return isPageRoute(decodeURIComponent(pathname));
+  } catch {
+    return false;
+  }
+}
+
 // Forums used to live under another name; those addresses go to the same place under the
 // current one.
 function legacyForumRedirect(request: NextRequest) {
@@ -545,14 +556,15 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
   if (isImageRequest(request.nextUrl.pathname) && !staffRequest) {
     // The site's icon is a route of its own, outside the language segment, and Next's own
     // picture addresses (`/_next/image`, `/_next/static/media`) are not pages: both go on as
-    // they are. Any other address that looks like a picture is no page and gets the 404 of the
-    // visitor's language.
+    // they are. Any other address that looks like a picture gets the 404 of the visitor's
+    // language, unless a page answers it (a tag may be named `logo.png`).
     const { pathname } = request.nextUrl;
     if (pathname === "/favicon.ico" || pathname.startsWith("/_next/")) {
       const response = NextResponse.next();
       response.headers.set("Vary", "Cookie");
       return response;
     }
+    if (!isKnownPage(pathname)) return notFound(request, locale, security);
     const response = NextResponse.rewrite(inLocale(request, locale), {
       request: { headers: pageHeaders(request, security) },
     });
@@ -567,10 +579,8 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
   try {
     pathname = decodeURIComponent(request.nextUrl.pathname);
   } catch {
-    // An address that cannot be decoded names no page of the panel or the styleguide either.
-    if (staffRequest || isStyleguidePath(request.nextUrl.pathname))
-      return notFound(request, locale, security);
-    return toPage(request, locale, security);
+    // An address that cannot be decoded names no page.
+    return notFound(request, locale, security);
   }
   const [, section, id, action] = pathname.split("/");
   const hasSession = SESSION_COOKIES.some((name) => request.cookies.has(name));
@@ -599,6 +609,11 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
     );
     return NextResponse.redirect(login);
   }
+  // Any other address no page answers is a 404 here, with its status: the router would hand it to
+  // its fallback page (`[...rest]`), which streams a 200 shell before it says not found. The panel's
+  // addresses are its gate's, above.
+  if (!staffRequest && !isStaffPath(pathname) && !isPageRoute(pathname))
+    return notFound(request, locale, security);
   // An id that is not a plain decimal number (for a public page, one followed by `-slug`) is no
   // record, whatever kind of request asks for it.
   if (
