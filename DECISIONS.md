@@ -4504,3 +4504,21 @@ panel carry none. Known limits: Next's `x-middleware-rewrite` header (it shows t
 hashes); the prerendered `_global-error.html` and `_not-found.html` carry no nonce, and no request
 the proxy handles was found to serve them; Cloudflare edge injections (Web Analytics, Rocket
 Loader) would be refused on the live site.
+
+### Uploaded file caching  A file is public when its row (a variant's source row) says
+`visibility = 'public'` and its purpose is not `attachment`, the same test `files.get` uses for the
+public file origin, now one function. Such a file is the same for everyone and never changes at its
+id (a new avatar, cover or catalog picture is a new upload with a new id), so it is sent
+`public, max-age=31536000, immutable`; avatars and covers used to get an hour. Every other file stays
+`private, no-store`, as in Milestone 10: a deletion or a lost permission must hide it at once, and
+nothing of a private message should stay on a shared computer. Every file carries a strong `ETag`
+(its stored sha256) and `Last-Modified` (its upload time); `If-None-Match` (which wins) and
+`If-Modified-Since` answer 304 only after the access check, so who may not see a file gets 404 and no
+validator. An answer that refreshes the session cookie goes out `private`, so no shared cache keeps a
+`Set-Cookie`; a 416 is `private, no-store`; a whole-file 304 counts as a download; `If-Range` is not
+handled, since a file's bytes never change at its address. Known limits: a deleted or moderated public
+picture may stay in a browser or edge cache for up to a year (its address answers 404 and no page links
+to it); restoring a database backup re-issues later file ids to other bytes, which cached copies would
+show; rate-limit headers ride along on public file answers; error answers carry no `Cache-Control`. A
+picture variant served from its source's address by parameter or by `Accept` would need the variant's
+own `ETag` and `Vary: Accept`.
