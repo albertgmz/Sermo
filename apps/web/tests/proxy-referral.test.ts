@@ -357,3 +357,26 @@ test("the Data saver cookie of an old installation is rewritten Secure when the 
     else process.env.SERMO_PUBLIC_URL = before;
   }
 });
+
+// A guest's public page may be kept by the browser (`private, no-cache`), unless its answer sets or
+// removes the referral cookie: then it is the visitor's own and Next's `no-store` stays.
+test("a public page that sets or removes the referral cookie is not kept by the browser", async () => {
+  const cacheOf = (response: Response | undefined) =>
+    response?.headers.get("cache-control") ?? null;
+  const given = await ask("/?ref=12", ACCEPTED);
+  expect(referralCookie(given)).toContain("forum_ref=12");
+  expect(cacheOf(given)).toBeNull();
+  const removed = await ask("/forums", "forum_ref=7");
+  expect(referralCookie(removed)).toContain("forum_ref=;");
+  expect(cacheOf(removed)).toBeNull();
+  // No consent, or Global Privacy Control: no cookie, so the page may be kept.
+  const guests: Record<string, string>[] = [
+    { "sec-fetch-mode": "navigate" },
+    { "sec-fetch-mode": "navigate", "sec-gpc": "1" },
+  ];
+  for (const headers of guests) {
+    const kept = await ask("/?ref=12", "", headers);
+    expect(referralCookie(kept)).toBeUndefined();
+    expect(cacheOf(kept)).toBe("private, no-cache");
+  }
+});

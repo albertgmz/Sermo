@@ -4,11 +4,13 @@ import { REFERRAL_PARAM } from "@/lib/referral/link";
 // What the browser may fetch before a click. Every link the site draws itself is a next/link
 // `Link`, which already fetches what its soft navigation needs; the browser's own speculation
 // would fetch a whole HTML page the click never uses. So the rules cover only the anchors in a
-// post body (`.bb-content`, the backend's HTML, see html-content.tsx), which load a new document
-// when followed. Only a thread or a forum at its own address (`<id>-<slug>`), or the forum list,
-// is fetched: a bare id is answered with a redirect to that address, which the browser will not
-// follow for a prefetch, and one path segment keeps the editor, the new-thread form and the
-// upload route out. An address with a referral code is left alone: loading it gives the credit.
+// rendered body (`.bb-content`, the backend's HTML, see html-content.tsx: posts, messages, the
+// composer's preview, the staff queues), which load a new document when followed. Only a thread
+// or a forum at its own address (`<id>-<slug>`, one segment), or the forum list, is fetched: a
+// bare id is answered with a redirect to that address, which the browser will not follow for a
+// prefetch, and the shape keeps the editor, the new-thread form and the upload route out. An address with a referral code is left alone: loading it gives the credit.
+// So is any query with a percent sign: the proxy decodes the query (`?%72ef=` is `?ref=`), and
+// the patterns cannot.
 // Prefetch only, no prerender: a prerendered thread would run its scripts unseen and mark the
 // thread read. `moderate` waits for the pointer to rest on the link (or for a press).
 export const SPECULATION_RULES = {
@@ -28,6 +30,7 @@ export const SPECULATION_RULES = {
               href_matches: [
                 { pathname: "/*", search: `${REFERRAL_PARAM}=*` },
                 { pathname: "/*", search: `*&${REFERRAL_PARAM}=*` },
+                { pathname: "/*", search: "*%*" },
               ],
             },
           },

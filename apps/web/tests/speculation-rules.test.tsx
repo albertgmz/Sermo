@@ -113,9 +113,17 @@ test("a referral link is not prefetched: loading it gives the credit", () => {
     "/threads/12-a-title?ref=3",
     "/threads/12-a-title?page=2&ref=3",
     "/forums?ref=3",
+    // The proxy decodes the query: these name `ref` too.
+    "/threads/12-a-title?%72ef=3",
+    "/threads/12-a-title?a=1&%72ef=3",
+    "/threads/12-a-title?r%65f=3",
+    "/threads/12-a-title?%52EF=3&ref=3",
+    "/forums?%72%65%66=3",
   ])
     expect([href, prefetched(inBody(href))]).toEqual([href, false]);
   expect(prefetched(inBody("/threads/12-a-title?page=2&pref=3"))).toBe(true);
+  // Any query with a percent sign is left alone: the patterns cannot decode it.
+  expect(prefetched(inBody("/threads/12-a-title?q=caf%C3%A9"))).toBe(false);
 });
 
 test("only post-body anchors are prefetched: a next/link Link fetches its own page", () => {
