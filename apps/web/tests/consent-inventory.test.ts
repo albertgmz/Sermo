@@ -65,9 +65,8 @@ test("every name the code writes into the browser is in the inventory", () => {
   // The scan must really see the writers: each of these is a known one.
   for (const expected of [
     "src/app/[locale]/(main)/actions.ts forum_lite",
-    "src/app/[locale]/(main)/actions.ts forum_locale",
+    "src/i18n/write-locale-cookie.ts forum_locale",
     "src/app/[locale]/(main)/actions.ts forum_notices_dismissed",
-    "src/app/[locale]/(main)/account/actions.ts forum_locale",
     "src/proxy.ts forum_lite",
     "src/components/layout/theme.ts sermo-theme",
     "src/components/layout/narrow-width.ts sermo-width",

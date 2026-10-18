@@ -22,11 +22,11 @@ import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import type { FormState } from "@/app/[locale]/(main)/account/action-form";
 import { failedPath } from "@/app/[locale]/(main)/account/notice";
-import { LOCALE_COOKIE, LOCALE_COOKIE_OPTIONS } from "@/i18n/locale-cookie";
+import { LOCALE_COOKIE } from "@/i18n/locale-cookie";
+import { writeLocaleCookie } from "@/i18n/write-locale-cookie";
 import type { SaveResult } from "@/lib/autosave";
 import type { HomeTab } from "@/lib/home-tabs";
 import { call } from "@/lib/sermo/client";
-import { secureCookies } from "@/lib/sermo/config";
 import { isRecordId, parseId } from "@/lib/sermo/ids";
 import { attempt, invalidArgument } from "@/lib/sermo/outcome";
 import { isPicturePurpose } from "@/lib/sermo/upload";
@@ -299,11 +299,7 @@ export async function savePreferences(
   // The proxy picks the language of a page from this cookie, so the page the redirect opens is
   // already in the new one. "Default" removes it: the browser's language decides again.
   const store = await cookies();
-  if (language)
-    store.set(LOCALE_COOKIE, language, {
-      ...LOCALE_COOKIE_OPTIONS,
-      secure: secureCookies(),
-    });
+  if (language) writeLocaleCookie(store, language);
   else store.delete(LOCALE_COOKIE);
   return done("preferences", "preferences", path);
 }

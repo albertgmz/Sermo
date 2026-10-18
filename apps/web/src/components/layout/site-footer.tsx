@@ -180,7 +180,7 @@ export async function FooterColumns() {
   );
 }
 
-async function FooterCopyright() {
+export async function FooterCopyright() {
   const [t, site] = await Promise.all([
     getTranslations("layout.siteFooter"),
     getSite(),

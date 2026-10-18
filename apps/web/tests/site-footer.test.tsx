@@ -2,6 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { siteBody } from "../src/lib/test-bodies";
+import { withIntl } from "../src/lib/test-intl";
 import { LOCALE_DIRS } from "./locales";
 
 const realFetch = globalThis.fetch;
@@ -23,12 +24,12 @@ mock.module("next/cache", () => ({
 }));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
-  getTranslations: async () => (key: string) => key,
+  getTranslations: async () =>
+    Object.assign((key: string) => key, { rich: (key: string) => key }),
 }));
 
-const { FooterColumns, FooterDescription, FooterSocials } = await import(
-  "../src/components/layout/site-footer"
-);
+const { FooterColumns, FooterCopyright, FooterDescription, FooterSocials } =
+  await import("../src/components/layout/site-footer");
 
 function backend(
   navigation: unknown,
@@ -160,4 +161,15 @@ test("the copyright names the site and carries no year", () => {
     expect(siteFooter.copyright, locale).not.toMatch(/\d{4}/);
     expect(siteFooter.tagline, locale).toBeUndefined();
   }
+});
+
+test("the footer's last row holds the language choices beside the theme choices", async () => {
+  backend({ ...none, footer: [] });
+  const html = renderToStaticMarkup(withIntl(await FooterCopyright()));
+  expect(html).toMatch(/<form id="language"[^>]* action="\/language"/);
+  expect(html).toContain('aria-label="Language"');
+  expect(html).toContain('aria-label="Theme"');
+  expect(html.indexOf('action="/language"')).toBeLessThan(
+    html.indexOf('aria-label="Theme"'),
+  );
 });

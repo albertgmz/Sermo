@@ -1,9 +1,10 @@
 import { preferencesUpdate } from "@sermo/core/contracts";
 import { NextResponse } from "next/server";
-import { LOCALE_COOKIE, LOCALE_COOKIE_OPTIONS } from "@/i18n/locale-cookie";
+import { LANGUAGE_SWITCHER_ID } from "@/components/layout/language-switcher";
 import { isLocale, type Locale } from "@/i18n/locales";
+import { writeLocaleCookie } from "@/i18n/write-locale-cookie";
 import { call, unconfirmedKind } from "@/lib/sermo/client";
-import { publicUrl, secureCookies } from "@/lib/sermo/config";
+import { publicUrl } from "@/lib/sermo/config";
 import { SermoError } from "@/lib/sermo/errors";
 import { pageOfRequest } from "@/lib/sermo/request-page";
 import { getViewer } from "@/lib/sermo/session";
@@ -30,7 +31,9 @@ async function kept(language: Locale) {
 // load in the new language (a soft navigation into another root layout leaves the old page in the
 // document). It sits outside the language segment, like the sign-out route. The browser goes back
 // to the address it came from (its Referer, when that is a path of this site; else the home page),
-// which the proxy draws in the language of the cookie. A form posted from any other site is refused.
+// which the proxy draws in the language of the cookie, scrolled to the switcher: a Referer carries
+// no fragment and a load after a POST starts at the top, which would leave a reader at the foot of
+// a long thread at its head. A form posted from any other site is refused.
 export async function POST(request: Request) {
   const site = new URL(publicUrl());
   if (request.headers.get("origin") !== site.origin)
@@ -38,14 +41,9 @@ export async function POST(request: Request) {
   const form = await request.formData().catch(() => undefined);
   const language = form?.get("language");
   if (!isLocale(language)) return new Response(null, { status: 400 });
-  const response = NextResponse.redirect(
-    new URL(await pageOfRequest(), site),
-    303,
-  );
-  if (await kept(language))
-    response.cookies.set(LOCALE_COOKIE, language, {
-      ...LOCALE_COOKIE_OPTIONS,
-      secure: secureCookies(),
-    });
+  const back = new URL(await pageOfRequest(), site);
+  back.hash = LANGUAGE_SWITCHER_ID;
+  const response = NextResponse.redirect(back, 303);
+  if (await kept(language)) writeLocaleCookie(response.cookies, language);
   return response;
 }

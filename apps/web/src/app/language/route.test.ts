@@ -13,6 +13,9 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ get: () => undefined }),
 }));
 const { POST } = await import("./route");
+const { LANGUAGE_SWITCHER_ID } = await import(
+  "@/components/layout/language-switcher"
+);
 
 type Asked = { method: string; path: string; body: unknown };
 let asked: Asked[] = [];
@@ -91,7 +94,7 @@ test("a guest's choice is written to the language cookie and the same address is
     const response = await switchTo(language);
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
-      `${SITE}/threads/12-hello?page=2`,
+      `${SITE}/threads/12-hello?page=2#language`,
     );
     const [cookie, ...more] = languageCookie(response);
     expect(more).toEqual([]);
@@ -117,7 +120,7 @@ test("the cookie is Secure only on a site served over https", async () => {
     referer: "http://forum.example.test/members",
   });
   expect(response.headers.get("location")).toBe(
-    "http://forum.example.test/members",
+    "http://forum.example.test/members#language",
   );
   expect(languageCookie(response)[0].split("; ")).not.toContain("Secure");
 });
@@ -132,7 +135,7 @@ test("a member's choice is saved on their account first, then written to the coo
   });
   expect(response.status).toBe(303);
   expect(response.headers.get("location")).toBe(
-    `${SITE}/threads/12-hello?page=2`,
+    `${SITE}/threads/12-hello?page=2#language`,
   );
   expect(languageCookie(response)[0]).toStartWith("forum_locale=es;");
 });
@@ -147,7 +150,7 @@ test("when the account does not take the choice, or the session cannot be confir
   const refused = await switchTo("es", { cookie: SESSION });
   expect(refused.status).toBe(303);
   expect(refused.headers.get("location")).toBe(
-    `${SITE}/threads/12-hello?page=2`,
+    `${SITE}/threads/12-hello?page=2#language`,
   );
   expect(languageCookie(refused)).toEqual([]);
   // A session auth.me could not check: a member cannot be told from a guest, so neither the
@@ -198,6 +201,18 @@ test("the browser is only sent back to a path of this site, never to another one
   ]) {
     const response = await switchTo("es", { referer });
     expect(response.status, String(referer)).toBe(303);
-    expect(response.headers.get("location"), String(referer)).toBe(`${SITE}/`);
+    expect(response.headers.get("location"), String(referer)).toBe(
+      `${SITE}/#language`,
+    );
   }
+});
+
+test("the page loads again scrolled to the switcher the reader used, not at its top", async () => {
+  const response = await switchTo("es", {
+    referer: `${SITE}/threads/12-hello?page=9`,
+  });
+  const back = new URL(String(response.headers.get("location")));
+  expect(back.pathname + back.search).toBe("/threads/12-hello?page=9");
+  // The id the footer's form carries (its own test checks the form has it).
+  expect(back.hash).toBe(`#${LANGUAGE_SWITCHER_ID}`);
 });

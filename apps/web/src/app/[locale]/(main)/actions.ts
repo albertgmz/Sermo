@@ -16,8 +16,8 @@ import { refresh } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LineComposerState } from "@/components/forum/line-composer";
-import { LOCALE_COOKIE, LOCALE_COOKIE_OPTIONS } from "@/i18n/locale-cookie";
 import { isLocale } from "@/i18n/locales";
+import { writeLocaleCookie } from "@/i18n/write-locale-cookie";
 import { normalizeImagePath } from "@/lib/lite-images";
 import {
   LITE_COOKIE,
@@ -69,10 +69,7 @@ export async function setLiteMode(formData: FormData) {
 // the pages the router kept, which are in the old language. The page is read again by the caller.
 export async function setLocaleCookie(language: string) {
   if (!isLocale(language)) return;
-  (await cookies()).set(LOCALE_COOKIE, language, {
-    ...LOCALE_COOKIE_OPTIONS,
-    secure: secureCookies(),
-  });
+  writeLocaleCookie(await cookies(), language);
 }
 
 // Hides a site notice from the visitor: a member's dismissal is kept by the backend, a guest's in
