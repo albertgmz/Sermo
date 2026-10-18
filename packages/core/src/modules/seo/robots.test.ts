@@ -33,8 +33,8 @@ function groups(body: string): Group[] {
 
 // Whether a crawler may fetch a path: the group that names it, else `*`; the longest matching rule
 // wins, Allow on a tie, and no rule means allowed.
-function allowed(agent: string, path: string) {
-  const all = groups(BODY);
+function allowed(agent: string, path: string, body = BODY) {
+  const all = groups(body);
   const group =
     all.find((each) => each.agents.some((name) => name.toLowerCase() === agent.toLowerCase())) ??
     all.find((each) => each.agents.includes("*"));
@@ -70,7 +70,7 @@ const CRAWLERS = [
   "CCBot",
 ];
 
-test("account, staff, search, sign-in, API and MCP addresses are closed to every crawler", () => {
+test("account, search, sign-in and API addresses are closed to every crawler", () => {
   for (const agent of CRAWLERS)
     for (const path of [
       "/account",
@@ -79,11 +79,6 @@ test("account, staff, search, sign-in, API and MCP addresses are closed to every
       "/conversations",
       "/conversations/5",
       "/notifications",
-      "/admin",
-      "/admin/settings",
-      "/admin/uploads",
-      "/moderation",
-      "/moderation/reports",
       "/search",
       "/search?q=hello",
       "/login",
@@ -97,7 +92,6 @@ test("account, staff, search, sign-in, API and MCP addresses are closed to every
       "/api/v1/me",
       "/api/v1/search?q=x",
       "/api/auth/sign-in/username",
-      "/mcp",
     ])
       expect({ agent, path, allowed: allowed(agent, path) }).toEqual({
         agent,
@@ -136,6 +130,8 @@ test("the forum and the files for crawlers and agents stay open to every crawler
       "/opensearch.xml",
       "/api/v1/files/12",
       "/api/v1/openapi.json",
+      // POST only, and named by llms.txt and the API catalog.
+      "/mcp",
     ])
       expect({ agent, path, allowed: allowed(agent, path) }).toEqual({
         agent,
@@ -144,26 +140,58 @@ test("the forum and the files for crawlers and agents stay open to every crawler
       });
 });
 
-test("the model makers' crawlers are named in groups of their own, each with every rule of the general group", () => {
+// A group's path rules and its Content-Signal line.
+const rulesOf = (group: Group) => group.lines.filter((line) => /^(Allow|Disallow):/.test(line));
+const signalsOf = (group: Group) => group.lines.filter((line) => /^content-signal:/i.test(line));
+const groupOf = (body: string, agent: string) =>
+  groups(body).find((each) => each.agents.includes(agent));
+
+test("the model makers' crawlers are named in groups of their own, each with every path rule of the general group", () => {
   const all = groups(BODY);
-  const general = all.find((each) => each.agents.includes("*"));
+  const general = groupOf(BODY, "*");
   expect(general).toBeDefined();
-  expect(all.at(-1)).toBe(general);
+  expect(all.at(-1)).toEqual(general);
   const named = all.flatMap((each) => each.agents).filter((agent) => agent !== "*");
   expect(named.sort()).toEqual(
     CRAWLERS.filter((agent) => !["Googlebot", "Bingbot"].includes(agent)).sort(),
   );
   // Training crawlers and the ones that fetch a page to answer apart.
-  expect(all.find((each) => each.agents.includes("GPTBot"))?.agents).not.toContain("OAI-SearchBot");
-  for (const group of all) expect(group.lines).toEqual(general?.lines ?? []);
+  expect(groupOf(BODY, "GPTBot")?.agents).not.toContain("OAI-SearchBot");
+  expect(all).toHaveLength(3);
+  for (const group of all) {
+    expect(rulesOf(group)).toEqual(rulesOf(general as Group));
+    expect(group.lines).toEqual([...rulesOf(group), ...signalsOf(group)]);
+  }
 });
 
 test("every group says search, live answers and training are allowed, in one Content-Signal line", () => {
-  for (const group of groups(BODY)) {
-    const signals = group.lines.filter((line) => line.toLowerCase().startsWith("content-signal"));
-    expect(signals).toEqual(["Content-Signal: search=yes, ai-input=yes, ai-train=yes"]);
-  }
+  for (const group of groups(BODY))
+    expect(signalsOf(group)).toEqual(["Content-Signal: search=yes, ai-input=yes, ai-train=yes"]);
   expect(BODY).not.toContain("Content-Signals:");
+});
+
+test("opting out of training changes only the training crawlers' signal", () => {
+  const optOut = robotsTxt("https://forum.example.test", false);
+  for (const agent of ["GPTBot", "ClaudeBot", "Google-Extended", "CCBot"])
+    expect(signalsOf(groupOf(optOut, agent) as Group)).toEqual([
+      "Content-Signal: search=yes, ai-input=yes, ai-train=no",
+    ]);
+  for (const agent of ["OAI-SearchBot", "Claude-User", "*"])
+    expect(signalsOf(groupOf(optOut, agent) as Group)).toEqual([
+      "Content-Signal: search=yes, ai-input=yes, ai-train=yes",
+    ]);
+  // Nothing else moves: the same lines, the same path rules for every crawler.
+  const lines = BODY.split("\n");
+  const changed = optOut.split("\n").filter((line, index) => line !== lines[index]);
+  expect(changed).toEqual(["Content-Signal: search=yes, ai-input=yes, ai-train=no"]);
+  for (const agent of CRAWLERS)
+    for (const path of ["/threads/7-hello", "/login", "/api/v1/files/12"])
+      expect(allowed(agent, path, optOut)).toBe(allowed(agent, path));
+});
+
+test("the staff panel is not named, so the file does not tell where it is", () => {
+  expect(BODY).not.toContain("/admin");
+  expect(BODY).not.toContain("/moderation");
 });
 
 test("the sitemap line names the site's own sitemap, once, outside the groups", () => {
