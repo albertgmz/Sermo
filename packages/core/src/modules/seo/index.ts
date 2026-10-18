@@ -3,6 +3,15 @@ export { excerptFromMarkdown } from "./excerpt";
 export { atomFeed } from "./feeds";
 export { indexNowBatches, sendIndexNow } from "./indexnow";
 export { LLMS_FORUM_CAP, llmsTxt } from "./llms";
+export {
+  forumMarkdown,
+  LLMS_FULL_CAP,
+  LLMS_FULL_FORUM_THREADS,
+  llmsFullTxt,
+  MARKDOWN_POSTS_PER_PAGE,
+  type MarkdownPage,
+  threadMarkdown,
+} from "./markdown";
 export type { SeoPage, SeoTemplates } from "./pages";
 export { nodeSeo, profileSeo, searchSeo, TAG_INDEX_MIN_THREADS, tagSeo, threadSeo } from "./pages";
 export { canonicalPath, canonicalUrl, requireBaseURL, resolveCanonical } from "./paths";

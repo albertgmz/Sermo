@@ -31,6 +31,9 @@ export type PublicPage = {
   kind?: ShareKind;
   // A forum's own feed (its path), announced after the site's.
   forumFeed?: { title: string; path: string };
+  // The page has a Markdown version (a public thread or forum): the backend serves it at the
+  // page's canonical address with `.md` after the path.
+  markdown?: boolean;
   // The page's own share card: a thread, forum or member, with the SEO read it is drawn from.
   // Without one (or when the read does not carry what it shows) the page shares the site's.
   card?: {
@@ -76,11 +79,19 @@ function cardImage(
   };
 }
 
+// A page's Markdown version: its address with `.md` after the path (a thread's later page keeps
+// its `?page=`).
+function markdownUrlOf(address: string) {
+  const url = new URL(address);
+  url.pathname += ".md";
+  return url.href;
+}
+
 // The head of a page anyone may open, with what a share preview and a feed reader look for: the
 // Open Graph and Twitter card tags (under the canonical address, the page's description or else
 // the site's), the share card's picture (left out, like every picture address, when the visitor's
-// LITE mode blocks any), the canonical address when the head names none, and the site's Atom
-// feed. A page that only some may open (a member's own, the staff's, one closed to guests) does
+// LITE mode blocks any), the canonical address when the head names none, the site's Atom feed
+// and, on a thread or forum, its Markdown version. A page that only some may open (a member's own, the staff's, one closed to guests) does
 // not come here, so it carries none of them.
 export async function publicHead(
   head: Metadata,
@@ -112,11 +123,12 @@ export async function publicHead(
       url: new URL(page.forumFeed.path, origin).href,
     });
   }
+  const title =
+    page.title ?? (typeof head.title === "string" ? head.title : site.name);
   return {
     ...head,
     ...shareMetadata({
-      title:
-        page.title ?? (typeof head.title === "string" ? head.title : site.name),
+      title,
       description:
         (typeof head.description === "string" && head.description) ||
         site.description,
@@ -132,7 +144,14 @@ export async function publicHead(
     alternates: {
       ...head.alternates,
       canonical: head.alternates?.canonical ?? url,
-      types: { "application/atom+xml": feeds },
+      types: {
+        "application/atom+xml": feeds,
+        ...(page.markdown && {
+          "text/markdown": [
+            { title: t("markdown", { title }), url: markdownUrlOf(url) },
+          ],
+        }),
+      },
     },
   };
 }

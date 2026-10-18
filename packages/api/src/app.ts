@@ -5,9 +5,12 @@ import {
   type Ctx,
   createStorage,
   execute,
+  forumMarkdown,
   GUEST,
   getAuth,
+  llmsFullTxt,
   llmsTxt,
+  type MarkdownPage,
   proxyLocation,
   readSiteSettings,
   resolveActor,
@@ -17,6 +20,7 @@ import {
   setLocationHeaders,
   sitemapIndex,
   sitemapShard,
+  threadMarkdown,
   UnauthenticatedError,
 } from "@sermo/core";
 import { createMcpHandler } from "@sermo/mcp";
@@ -315,6 +319,41 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   app.get("/llms.txt", (c) =>
     c.text(llmsTxt(ctx, siteURL), 200, { "content-type": "text/plain; charset=utf-8" }),
   );
+  // Guest content only, the same for every visitor: a shared cache may keep it for a minute.
+  const GUEST_CACHE = "public, max-age=60";
+  app.get("/llms-full.txt", (c) =>
+    c.text(llmsFullTxt(ctx, siteURL), 200, {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": GUEST_CACHE,
+    }),
+  );
+  // The Markdown version of a public thread or forum: its page's address with `.md` added.
+  const markdown = (c: Context, page: MarkdownPage) =>
+    "redirect" in page
+      ? c.redirect(page.redirect, 301)
+      : c.body(page.markdown, 200, {
+          "content-type": "text/markdown; charset=utf-8",
+          "cache-control": GUEST_CACHE,
+          link: `<${page.canonical}>; rel="canonical"`,
+        });
+  const markdownRef = (name: string) => {
+    const id = Number(/^(\d+)(?:-[^/]*)?\.md$/.exec(name)?.[1]);
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+  };
+  app.get("/threads/:name", (c) => {
+    const name = c.req.param("name");
+    const id = markdownRef(name);
+    if (id === null) return c.json(errorBody("not_found", "Unknown page."), 404);
+    const raw = c.req.query("page");
+    const page = raw === undefined ? 1 : /^[1-9]\d{0,8}$/.test(raw) ? Number(raw) : 0;
+    return markdown(c, threadMarkdown(ctx, siteURL, id, `/threads/${name.slice(0, -3)}`, page));
+  });
+  app.get("/forums/:name", (c) => {
+    const name = c.req.param("name");
+    const id = markdownRef(name);
+    if (id === null) return c.json(errorBody("not_found", "Unknown page."), 404);
+    return markdown(c, forumMarkdown(ctx, siteURL, id, `/forums/${name.slice(0, -3)}`));
+  });
   app.get("/sitemap.xml", (c) =>
     c.text(sitemapIndex(ctx, siteURL), 200, { "content-type": "application/xml; charset=utf-8" }),
   );

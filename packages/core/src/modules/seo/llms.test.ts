@@ -41,9 +41,9 @@ test("llms.txt names the site, groups the guest-visible forums by category and l
   expect(text.startsWith("# Acme Talk\n\n> Where Acme users compare notes.\n\n")).toBe(true);
   expect(text.endsWith("\n")).toBe(true);
   expect(text).toContain(
-    `## Support\n\n- [Help \\[new\\]](${BASE}/forums/${help.id}-help-new): Ask anything here\n- [Billing](${BASE}/forums/${nested.id}-billing)\n\n`,
+    `## Support\n\n- [Help \\[new\\]](${BASE}/forums/${help.id}-help-new.md): Ask anything here\n- [Billing](${BASE}/forums/${nested.id}-billing.md)\n\n`,
   );
-  expect(text).toContain(`## Forums\n\n- [Off topic](${BASE}/forums/${loose.id}-off-topic)\n\n`);
+  expect(text).toContain(`## Forums\n\n- [Off topic](${BASE}/forums/${loose.id}-off-topic.md)\n\n`);
   expect(text.indexOf("## Support")).toBeLessThan(text.indexOf("## Forums"));
   expect(text).not.toContain("Staff room");
   expect(text).not.toContain("Never listed");
@@ -52,6 +52,8 @@ test("llms.txt names the site, groups the guest-visible forums by category and l
   expect(text).toContain(`- [OpenAPI description](${BASE}/api/v1/openapi.json):`);
   expect(text).toContain(`- [MCP server](${BASE}/mcp):`);
   expect(text).toContain(`- [Sitemap](${BASE}/sitemap.xml):`);
+  expect(text).toContain("has a Markdown version at its address with `.md` added");
+  expect(text).toContain(`## Optional\n\n- [Full text](${BASE}/llms-full.txt):`);
   expect(text).not.toContain("Only the first");
   expect(text).not.toMatch(/\bAI\b|assistant|Claude|generated/i);
 });
@@ -85,10 +87,10 @@ test("llms.txt text cannot become a live link, a heading or a second line", () =
   const text = llmsTxt(ctx, BASE);
   expect(text).toContain("## \\[cat\\]\\(http://evil.example\\) # x\n");
   expect(text).toContain(
-    `- [a\\\\](${BASE}/forums/${backslash.id}-a): \\[click\\]\\(http://evil.example\\)\n`,
+    `- [a\\\\](${BASE}/forums/${backslash.id}-a.md): \\[click\\]\\(http://evil.example\\)\n`,
   );
   expect(text).toContain(
-    `- [Plain](${BASE}/forums/${markup.id}-plain): line one ## Injected \\<http://evil.example\\> \\\`code\\\` \\[x\\]\\(http://evil.example\\)\n`,
+    `- [Plain](${BASE}/forums/${markup.id}-plain.md): line one ## Injected \\<http://evil.example\\> \\\`code\\\` \\[x\\]\\(http://evil.example\\)\n`,
   );
   expect(text).not.toMatch(/^#+ .*Injected/m);
   expect(text).not.toMatch(/(?<!\\)\]\(http:\/\/evil/);

@@ -101,6 +101,7 @@ export async function generateMetadata({
   if (seo.robots !== "index,follow") return head;
   return publicHead(head, {
     title: thread.title,
+    markdown: true,
     card: { kind: "threads", id: thread.id, seo },
     kind: {
       type: "article",

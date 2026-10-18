@@ -3,7 +3,7 @@ import type { Ctx } from "../../context";
 import { getNodeTree, viewableNodeIds } from "../../permissions";
 import { requireSiteOpenToGuests } from "../members/site-access";
 import { readSiteSettings } from "../settings";
-import { canonicalUrl, requireBaseURL } from "./paths";
+import { canonicalUrl, markdownUrl, requireBaseURL } from "./paths";
 
 /** The most forums /llms.txt lists; the sitemap has the rest. */
 export const LLMS_FORUM_CAP = 200;
@@ -13,9 +13,9 @@ const NOTE_CAP = 200;
 
 const oneLine = (value: string) => value.replace(/\s+/g, " ").trim();
 /** One line of text that cannot become a link, a tag or a code span when read as Markdown. */
-const plain = (value: string) => oneLine(value).replace(/[\\[\]()<>`]/g, "\\$&");
+export const plain = (value: string) => oneLine(value).replace(/[\\[\]()<>`]/g, "\\$&");
 /** At most NOTE_CAP characters, cut on a word, with an ellipsis. */
-function note(value: string): string {
+export function note(value: string): string {
   const text = oneLine(value);
   if (text.length <= NOTE_CAP) return plain(text);
   const cut = text.slice(0, NOTE_CAP);
@@ -53,7 +53,7 @@ export function llmsTxt(ctx: Ctx, baseURL: string): string {
     const key = category?.id ?? null;
     if (category) titles.set(key, plain(category.title));
     const about = note(entry.description);
-    const line = `- [${plain(entry.title)}](${canonicalUrl(baseURL, "node", entry.id, entry.title)})${about ? `: ${about}` : ""}`;
+    const line = `- [${plain(entry.title)}](${markdownUrl(canonicalUrl(baseURL, "node", entry.id, entry.title))})${about ? `: ${about}` : ""}`;
     const lines = groups.get(key);
     if (lines) lines.push(line);
     else groups.set(key, [line]);
@@ -61,14 +61,14 @@ export function llmsTxt(ctx: Ctx, baseURL: string): string {
 
   const parts = [`# ${siteName}`, `> ${description || `${siteName} is a discussion forum.`}`];
   parts.push(
-    `Public forums, threads and member profiles are readable without an account.${truncated ? ` Only the first ${LLMS_FORUM_CAP} forums are listed here; the sitemap lists every public page.` : ""}`,
+    `Public forums, threads and member profiles are readable without an account. Every public forum and thread page also has a Markdown version at its address with \`.md\` added (a later page of a thread adds \`?page=\` after it); the forums below link theirs.${truncated ? ` Only the first ${LLMS_FORUM_CAP} forums are listed here; the sitemap lists every public page.` : ""}`,
   );
   for (const [key, lines] of groups) parts.push(`## ${titles.get(key)}\n\n${lines.join("\n")}`);
   parts.push(
     `## Interfaces\n\n- [OpenAPI description](${at("/api/v1/openapi.json")}): every REST operation and its permissions, as JSON\n- [MCP server](${at("/mcp")}): the same operations as tools over streamable HTTP; send an API key as a Bearer token`,
   );
   parts.push(
-    `## Optional\n\n- [Atom feed](${at("/feed.atom")}): the newest public threads\n- [Sitemap](${at("/sitemap.xml")}): every public forum, thread and member page`,
+    `## Optional\n\n- [Full text](${at("/llms-full.txt")}): the forums listed here with their newest threads, in Markdown\n- [Atom feed](${at("/feed.atom")}): the newest public threads\n- [Sitemap](${at("/sitemap.xml")}): every public forum, thread and member page`,
   );
   return `${parts.join("\n\n")}\n`;
 }

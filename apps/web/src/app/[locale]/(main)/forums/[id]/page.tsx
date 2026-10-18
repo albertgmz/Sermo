@@ -122,6 +122,7 @@ export async function generateMetadata({
   if (seo.robots !== "index,follow") return head;
   return publicHead(head, {
     title: node.title,
+    markdown: true,
     card: { kind: "forums", id: node.id, seo },
     forumFeed:
       node.type === "forum"

@@ -25,6 +25,13 @@ export function canonicalUrl(baseURL: string, kind: SeoKind, id: number, name: s
   return new URL(canonicalPath(kind, id, name), requireBaseURL(baseURL)).href;
 }
 
+/** The Markdown version of a page: its canonical address with `.md` after the path. */
+export function markdownUrl(canonical: string): string {
+  const url = new URL(canonical);
+  url.pathname += ".md";
+  return url.href;
+}
+
 export function requireBaseURL(value: string): URL {
   const url = new URL(value);
   if (!/https?:/.test(url.protocol) || url.username || url.password || url.search || url.hash)

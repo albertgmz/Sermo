@@ -157,6 +157,10 @@ const SITE_FEED = {
   title: "Latest threads on Garden Club",
   url: "http://localhost:3000/feed.atom",
 };
+// The Markdown version a public thread or forum announces.
+const markdown = (title: string, url: string) => ({
+  "text/markdown": [{ title, url }],
+});
 
 function threadAnswers(robots: Robots) {
   answers["threads.get"] = () => ({
@@ -215,7 +219,13 @@ test("a thread is shared as an article by its author, in its forum, with its tag
   });
   expect(head.alternates).toEqual({
     canonical: "http://localhost:3000/threads/12-pruning-roses",
-    types: { "application/atom+xml": [SITE_FEED] },
+    types: {
+      "application/atom+xml": [SITE_FEED],
+      ...markdown(
+        "Pruning roses in Markdown",
+        "http://localhost:3000/threads/12-pruning-roses.md",
+      ),
+    },
   });
   // The document's own title stays the backend's.
   expect(head.title).toEqual({
@@ -249,6 +259,10 @@ test("every address of a shared page is on its canonical's origin, even when thi
   ).toEqual([`${origin}/members/4-wren`]);
   expect(head.alternates?.types).toEqual({
     "application/atom+xml": [{ ...SITE_FEED, url: `${origin}/feed.atom` }],
+    ...markdown(
+      "Pruning roses in Markdown",
+      `${origin}/threads/12-pruning-roses.md`,
+    ),
   });
   // With the text closed to the viewer there is no structured data: the plain address, same origin.
   answers["threads.get"] = () => ({
@@ -274,6 +288,7 @@ test("every address of a shared page is on its canonical's origin, even when thi
         url: `${origin}/forums/3-roses/feed.atom`,
       },
     ],
+    ...markdown("Roses in Markdown", `${origin}/forums/3-roses.md`),
   });
 });
 
@@ -286,6 +301,13 @@ test("a later page of a thread is shared under its own address", async () => {
     "http://localhost:3000/threads/12-pruning-roses?page=2",
   );
   expect(head.alternates?.canonical).toBe(head.openGraph?.url);
+  // Its Markdown version is the same page's.
+  expect(head.alternates?.types?.["text/markdown"]).toEqual([
+    {
+      title: "Pruning roses in Markdown",
+      url: "http://localhost:3000/threads/12-pruning-roses.md?page=2",
+    },
+  ]);
 });
 
 test("a thread guests may not open is not shared", async () => {
@@ -339,6 +361,7 @@ test("a forum is shared as a page of the site, announcing its own feed after the
         url: "http://localhost:3000/forums/3-roses/feed.atom",
       },
     ],
+    ...markdown("Roses en Markdown", "http://localhost:3000/forums/3-roses.md"),
   });
 });
 
@@ -347,6 +370,7 @@ test("a category has no feed of its own, and a forum closed to guests is not sha
   const category = await forum.generateMetadata(props("3-roses"));
   expect(category.alternates?.types).toEqual({
     "application/atom+xml": [SITE_FEED],
+    ...markdown("Roses in Markdown", "http://localhost:3000/forums/3-roses.md"),
   });
   forumAnswers("noindex,follow");
   const closed = await forum.generateMetadata(props("3-roses"));
@@ -391,6 +415,8 @@ test("a member's page is shared as their profile, on every tab under the one add
       ),
     ],
   });
+  // A member's page has no Markdown version.
+  expect(head.alternates?.types?.["text/markdown"]).toBeUndefined();
   const tab = await member.generateMetadata(props("4-wren", { tab: "posts" }));
   expect(tab.robots).toEqual({ index: false, follow: true });
   expect(tab.openGraph?.url).toBe("http://localhost:3000/members/4-wren");
@@ -475,4 +501,5 @@ test("a list page shares the site's card and names its own address as canonical"
   expect(head.openGraph?.images).toEqual([
     card(SITE_CARD, null, "Garden Club"),
   ]);
+  expect(head.alternates?.types?.["text/markdown"]).toBeUndefined();
 });

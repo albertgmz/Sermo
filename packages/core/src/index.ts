@@ -64,12 +64,16 @@ export {
 } from "./modules/security";
 export {
   atomFeed,
+  forumMarkdown,
+  llmsFullTxt,
   llmsTxt,
+  type MarkdownPage,
   queueSeoEvents,
   registerSeoJobs,
   robotsTxt,
   sitemapIndex,
   sitemapShard,
+  threadMarkdown,
 } from "./modules/seo";
 export { readSiteSettings, updateSiteSettings } from "./modules/settings";
 export { registerShopJobs } from "./modules/shop";

@@ -95,6 +95,7 @@
   "share": {
     "siteFeed": "Latest threads on {site}",
     "forumFeed": "Latest threads in {forum}",
+    "markdown": "{title} in Markdown",
     "card": {
       "thread": "“{title}” in {forum}, on {site}",
       "forum": "{forum}, a forum on {site}",
