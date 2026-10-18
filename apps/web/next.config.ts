@@ -15,6 +15,9 @@ const BACKEND_PATHS = [
   "/feed.atom",
   "/forums/:id/feed.atom",
   "/nodes/:id/feed.atom",
+  // The Markdown version of a public thread or forum (`/threads/12-pruning.md`).
+  "/threads/:name.md",
+  "/forums/:name.md",
   "/mcp",
   "/health",
   // The IndexNow key file, `/<key>.txt`.

@@ -869,13 +869,14 @@ function withoutGuestCache(response: NextResponse | undefined) {
 // Non-image Next internals return before the existing page access rules. The four upload routes
 // are left out: the proxy would copy their body, and each checks the session before reading any.
 // So are the backend's own paths (`BACKEND_PATHS` in next.config.ts; `[^/]+\.txt` covers
-// robots.txt, llms.txt and the IndexNow key file): they are rewritten to it as they are, and a
-// page of a language must not take their place. So are the OpenSearch description and the share
+// robots.txt, llms.txt, llms-full.txt and the IndexNow key file, and `[.]md` the Markdown versions
+// of threads and forums, written as a class because the matcher's parser drops a backslash): they
+// are rewritten to it as they are, and a page of a language must not take their place. So are the OpenSearch description and the share
 // cards (`/og/...`), files of the web app outside the language segment (app/opensearch.xml, app/og),
 // and so are the GPC support resource (app/.well-known/gpc.json) and the sign-out route
 // (app/sign-out, a POST that answers a redirect).
 export const config = {
   matcher: [
-    "/((?!account/picture$|threads/[0-9]+/uploads$|attachments$|admin/uploads$|[^/]+\\.txt$|sitemap\\.xml$|sitemaps/[^/]+$|feed\\.atom$|(?:forums|nodes)/[^/]+/feed\\.atom$|mcp$|health$|opensearch\\.xml$|og/|\\.well-known/gpc\\.json$|sign-out$).*)",
+    "/((?!account/picture$|threads/[0-9]+/uploads$|attachments$|admin/uploads$|[^/]+\\.txt$|sitemap\\.xml$|sitemaps/[^/]+$|feed\\.atom$|(?:forums|nodes)/[^/]+/feed\\.atom$|(?:threads|forums)/[^/]+[.]md$|mcp$|health$|opensearch\\.xml$|og/|\\.well-known/gpc\\.json$|sign-out$).*)",
   ],
 };
