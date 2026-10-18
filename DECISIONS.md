@@ -4564,3 +4564,27 @@ soft 200 for missing things); they are one `lookupFailure` branch in the proxy. 
 depends on `__NEXT_PRIVATE_ORIGIN`, a Next internal that `next start` and the standalone server
 set; pages with no record lookup (home, forum list) still answer 200 with their error screen while
 the backend is down; subresource requests for a missing address still get the stored 200.
+
+### Picture widths  Still attachment pictures get WebP copies 640 and 1280 pixels wide next to
+the stored picture (at most 2048) and the 320 thumbnail, each only when the picture is wider and
+only when the copy is smaller than the stored picture; nothing is enlarged. Copies are rows of their
+own (`parent_file_id` + `variant`, as Milestone 10's renditions), so each has its own address,
+`ETag` and 304, and takes its access and caching from its source row ("Uploaded file caching"):
+attachment copies are `private, no-store`. Animated GIF and WebP keep every frame and get no copies;
+non-picture uploads are untouched. sharp was already a dependency. WebP only, no AVIF: AVIF took
+about 2.4 times as long to encode, would double the copy rows and needs `<picture>` sources in every
+LITE gate. The `Attachment` contract carries `widths`; inline full `[ATTACH]` pictures, the media
+viewer and poll pictures draw `srcset` and `sizes` (`sizes="auto, ..."` uses Chrome's lazy-image
+size; other browsers fall back to the window width). Avatars and covers get no `srcset`: the web
+cannot tell an animated avatar from a still one, and covers are CSS backgrounds. Width copies count
+toward no member's `attachment.storageQuota` (derived data; the backfill must not put anyone over
+quota); thumbnails keep counting as since Milestone 10. Uploads take about 150 ms more for a large
+photo (two encodes, side by side). Existing pictures get copies from `bun run images:widths`
+(`scripts/image-widths.ts`), safe beside the running server (one small transaction per picture,
+SQLite auto-checkpoint left to the server), resumable by running it again or with `--after <file
+id>`. It passes over only a picture that is bad (bytes missing, not decodable, deleted during the
+run); a storage, disk or memory failure stops it, a run where more than half of at least 10
+pictures (or all of them) cannot be read stops, and any unreadable picture makes it exit non-zero.
+Known limits: animations and pictures with no smaller copy are read again by every run; a phone at
+DPR 3 gets the 1280 copy in the viewer, so pinch-zoom is softer than before; backend and web must be
+restarted together for this change.
