@@ -1055,6 +1055,29 @@ test("an address under the old name for forums is a 308 to the current one, what
   isNotFound(await ask("/nodesx"));
 });
 
+test("an old XenForo address is a 308 to its page, without the query or a lookup, and an address of this site is not", async () => {
+  const asked = backend({});
+  for (const [from, to] of [
+    ["/tema/mi-tema.123/page-2?x=1", "/threads/123"],
+    ["/index.php?threads/mi-tema.123/post-8", "/posts/8"],
+    ["/goto/post?id=9", "/posts/9"],
+    ["/novedades/", "/"],
+    ["/lost-password/", "/forgot-password"],
+  ]) {
+    const response = await ask(from);
+    assert.equal(response?.status, 308, from);
+    assert.equal(
+      response?.headers.get("location"),
+      `http://localhost${to}`,
+      from,
+    );
+  }
+  assert.equal(asked.length, 0);
+  const posted = await ask("/tema/mi-tema.123/", { method: "POST" });
+  assert.notEqual(posted?.status, 308);
+  assert.notEqual((await ask("/threads/123-mi-tema"))?.status, 308);
+});
+
 test("a prefetch, a soft navigation or an action's POST is not looked up in the backend", async () => {
   const asked = backend({});
   const requests: [string, { headers?: HeadersInit; method?: string }][] = [

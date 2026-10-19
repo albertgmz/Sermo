@@ -4808,3 +4808,31 @@ uploaded logo, else the drawn mark. It used to take the logo only, and a wide lo
 20 px square was barely visible on a phone. The icon is square by definition (it is cut to 512 px
 squares), so it is the right picture there. A picture mark is 32 px by default instead of the line
 mark's 20 px, since a full-colour picture loses its detail sooner than two strokes.
+
+### Old XenForo addresses redirect by id
+
+The forum moves from XenForo to this app and keeps XenForo's ids (thread, post, node, user and
+conversation), so the old addresses in search results, bookmarks and imported posts are answered
+from their own text, with no lookup, by `xenforoRedirect` in `proxy.ts` (the rules are in
+`lib/sermo/xenforo-addresses.ts`). Each is a 308 to a public path with no language prefix and no
+query, like the other address redirects.
+
+- Threads (`tema`, `temas`, `threads`, `foro/temas`) with `<slug>.<id>` or a bare id go to
+  `/threads/<id>`, whatever follows (`page-N`, `unread`, `latest`, `reply`, `watch`); `post-<id>`
+  after the thread goes to `/posts/<id>`, which finds the post's page.
+- Posts (`respuestas`, `goto/post?id=`) go to `/posts/<id>`, with any action after the id.
+- Forums and categories (`foros`, `foro`, `forums`, `categories`) with an id go to `/forums/<id>`;
+  members (`miembros`, `members`) to `/members/<id>`; conversations (`conversaciones`,
+  `conversations`, `direct-messages`) to `/conversations/<id>`.
+- `index.php?<route>` is read like the path form; `/novedades`, `/whats-new` and `/find-new` and
+  `/index.php` go to `/`, and `/lost-password` to `/forgot-password`.
+- XenForo's dot (`slug.123`) never appears in this app's addresses (`123-slug`), so the rules
+  cannot catch one of ours. Under the names this app also serves (`threads`, `forums`, `members`,
+  `posts`, `conversations`) only the dotted form with a slug that has a letter is redirected: a
+  bare id there is already our address, and `/conversations/1.5` stays a 404. `/login`,
+  `/register` and `/tags/<name>` have the same shape here and are not touched; neither is `/forums`,
+  which is our list of forums.
+
+Left out: a forum named without an id (`/foros/politica/`), which needs a table of names that does
+not exist; attachment and avatar file addresses; profile posts; and XenForo's page numbers, so
+`page-3` of a thread opens its first page.

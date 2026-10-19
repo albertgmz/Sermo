@@ -72,6 +72,7 @@ import {
   forwardFromHeaders,
 } from "@/lib/sermo/transport";
 import { viewerOf } from "@/lib/sermo/viewer";
+import { xenforoTarget } from "@/lib/sermo/xenforo-addresses";
 
 // Falsy: there is no such record. A response: answer with it. Anything else: let the page render.
 type Finder = (
@@ -664,6 +665,18 @@ function legacyForumRedirect(request: NextRequest) {
   return NextResponse.redirect(target, 308);
 }
 
+// The forum this site replaced was a XenForo one, and its addresses are in search results,
+// bookmarks and imported posts. The ids were kept, so each goes to its page for good with no
+// lookup; the query is dropped (`lib/sermo/xenforo-addresses.ts` has the rules).
+function xenforoRedirect(request: NextRequest) {
+  if (request.method !== "GET" && request.method !== "HEAD") return undefined;
+  const { pathname, search } = request.nextUrl;
+  const current = xenforoTarget(pathname, search);
+  if (!current) return undefined;
+  // Not a clone of the request's address, which would keep a trailing slash the target lacks.
+  return NextResponse.redirect(new URL(current, request.url), 308);
+}
+
 // The Data saver's page used to be called LITE mode, and its addresses said so. The query is
 // kept, and an address that names a language (`/es/lite`) goes straight to the new one without
 // it, as the prefix redirect would have done.
@@ -759,6 +772,8 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
   if (request.nextUrl.pathname.startsWith("/_next/")) return;
   const legacy = legacyForumRedirect(request);
   if (legacy) return legacy;
+  const xenforo = xenforoRedirect(request);
+  if (xenforo) return xenforo;
   if (isUnknownUnsafePath(request.nextUrl.pathname))
     return notFound(request, locale, security);
   let pathname: string;
