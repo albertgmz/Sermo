@@ -147,27 +147,29 @@ test("inline SVG artwork is classified and consults its LITE category", () => {
 });
 
 // Pictures served by the backend are addressed by id: the category comes from the file's purpose.
-const BACKEND_PICTURE_GATES: Record<string, string> = {
-  "src/components/layout/logo.tsx": "site_logo",
-  "src/components/layout/site-icon.tsx": "site_icon",
-  "src/app/manifest.ts": "site_icon",
-  "src/components/layout/page-backdrop.tsx": "site_backdrop",
+const BACKEND_PICTURE_GATES: Record<string, string[]> = {
+  "src/components/layout/logo.tsx": ["site_logo", "site_icon"],
+  "src/components/layout/site-icon.tsx": ["site_icon"],
+  "src/app/manifest.ts": ["site_icon"],
+  "src/components/layout/page-backdrop.tsx": ["site_backdrop"],
   // Where the pictures reach the data the reaction gate draws from.
-  "src/lib/sermo/reactions.ts": "reaction_image",
+  "src/lib/sermo/reactions.ts": ["reaction_image"],
 };
 
 test("backend pictures consult the category of their file purpose on the server", () => {
   const errors = Object.entries(BACKEND_PICTURE_GATES).flatMap(
-    ([path, purpose]) => {
+    ([path, purposes]) => {
       const source = read(path);
-      const consulted = new RegExp(
-        `await\\s+liteBlocks\\([^;]*liteCategoryOfPurpose\\(\\s*["']${purpose}["']\\s*\\)`,
-      ).test(source);
-      return consulted && !/^["']use client["']/m.test(source)
-        ? []
-        : [
-            `${path}: call liteBlocks(liteCategoryOfPurpose("${purpose}")) on the server before emitting the picture.`,
-          ];
+      return purposes.flatMap((purpose) => {
+        const consulted = new RegExp(
+          `await\\s+liteBlocks\\([^;]*liteCategoryOfPurpose\\(\\s*["']${purpose}["']\\s*\\)`,
+        ).test(source);
+        return consulted && !/^["']use client["']/m.test(source)
+          ? []
+          : [
+              `${path}: call liteBlocks(liteCategoryOfPurpose("${purpose}")) on the server before emitting the picture.`,
+            ];
+      });
     },
   );
   expect(errors, errors.join("\n")).toEqual([]);

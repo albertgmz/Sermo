@@ -27,7 +27,9 @@ async function ResolvedLogoMark({ className }: { className?: string }) {
   return <Mark site={await getSite()} className={className} />;
 }
 
-// The square mark: the site's own picture when there is one, else the drawn mark.
+// The square mark: the site's icon when there is one (it is square), else its logo, else the
+// drawn mark. A picture is drawn larger than the line mark, so a full-colour mark stays legible on
+// a phone's header.
 async function Mark({
   site,
   className,
@@ -35,15 +37,26 @@ async function Mark({
   site: SiteIdentity;
   className?: string;
 }) {
-  if (site.logo) {
-    if (await liteBlocks(liteCategoryOfPurpose("site_logo")))
-      return <LogoMarkPlaceholder className={className} />;
+  const picture = site.icon
+    ? {
+        image: site.icon,
+        blocked: await liteBlocks(liteCategoryOfPurpose("site_icon")),
+      }
+    : site.logo
+      ? {
+          image: site.logo,
+          blocked: await liteBlocks(liteCategoryOfPurpose("site_logo")),
+        }
+      : null;
+  if (picture) {
+    if (picture.blocked)
+      return <LogoMarkPlaceholder className={cn("size-8", className)} />;
     return (
       // biome-ignore lint/performance/noImgElement: next/image optimisation is disabled
       <img
-        src={site.logo.url}
+        src={picture.image.url}
         alt={site.name}
-        className={cn("size-5 object-contain", className)}
+        className={cn("size-8 object-contain", className)}
       />
     );
   }

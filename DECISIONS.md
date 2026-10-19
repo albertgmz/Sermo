@@ -4799,3 +4799,12 @@ failed. Files now set up every stub they need, and `apps/web/tests/preload.ts` (
 it. Tests also reset their own state in `beforeEach`, so `--randomize` passes too. A bare `bun test`
 in `apps/web` without the flag is still order-dependent; `bun run test` is the command. The deploy
 workflow runs the whole `check:fast` again.
+
+### The square mark is the site's icon
+
+Where the interface draws the site's square mark (the phone header, the sign-in and register
+pages, the rules gate, a drawn logo's mark beside the name), it draws the uploaded icon, else the
+uploaded logo, else the drawn mark. It used to take the logo only, and a wide logo shrunk into a
+20 px square was barely visible on a phone. The icon is square by definition (it is cut to 512 px
+squares), so it is the right picture there. A picture mark is 32 px by default instead of the line
+mark's 20 px, since a full-colour picture loses its detail sooner than two strokes.

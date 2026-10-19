@@ -676,8 +676,9 @@ test("backend identity pictures are absent from the page when brand is blocked",
   try {
     const draws = [
       {
+        // The square mark is the icon when there is one.
         element: createElement(LogoMark, { className: "size-12" }),
-        url: "/api/v1/files/5",
+        url: "/api/v1/files/6",
       },
       {
         element: createElement(PageBackdrop, { key: "backdrop" }),
@@ -697,6 +698,21 @@ test("backend identity pictures are absent from the page when brand is blocked",
       expect(icon.includes("/api/v1/files/6")).toBe(!blocked);
       expect(icon).not.toContain("data:image");
     }
+  } finally {
+    site = { name: "Sermo", logo: null, icon: null, backdrop: null };
+  }
+});
+
+test("the square mark falls back to the logo when the site has no icon", async () => {
+  site = {
+    name: "Garden Club",
+    logo: { fileId: 5, url: "/api/v1/files/5" },
+    icon: null,
+    backdrop: null,
+  };
+  try {
+    cookie = undefined;
+    expect(await markup(createElement(LogoMark))).toContain("/api/v1/files/5");
   } finally {
     site = { name: "Sermo", logo: null, icon: null, backdrop: null };
   }
