@@ -277,6 +277,7 @@ test("handleRequest answers an oversized non-upload request with the 413 envelop
     server,
   );
   expect(response.status).toBe(413);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
   expect(((await response.json()) as { error: { code: string } }).error.code).toBe(
     "payload_too_large",
   );

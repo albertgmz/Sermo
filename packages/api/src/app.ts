@@ -140,6 +140,13 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
       referrerPolicy: "strict-origin-when-cross-origin",
     }),
   );
+  // A shared cache in front of the site (a CDN with a "cache everything" rule) keeps any answer
+  // that does not forbid it, and would hand a member's answer to the next visitor: every API
+  // answer, errors included, is private and not stored unless its route set its own value.
+  app.use("/api/*", async (c, next) => {
+    await next();
+    if (!c.res.headers.has("cache-control")) c.header("cache-control", "private, no-store");
+  });
   app.use("*", async (c, next) => {
     let ip: string | undefined;
     // Whether the address came from the trusted proxy's header: a request without it did not pass

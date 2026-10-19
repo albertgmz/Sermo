@@ -265,3 +265,21 @@ test("the log retention age, the location headers and the location database are 
   expect(behind.trustLocationHeaders).toBe(true);
   expect(behind.geoDatabase).toBe("/data/GeoLite2-City.mmdb");
 });
+
+test("the unsubscribe confirm form and its refusal are never kept by a shared cache", async () => {
+  const ctx = createTestContext();
+  const app = createApp(ctx, { trustedProxyHeader: null });
+  const token = "a".repeat(32);
+  const form = await handleUnsubscribeRequest(
+    new Request(`http://localhost:3000/api/v1/unsubscribe?token=${token}`),
+    app,
+  );
+  expect(form.status).toBe(200);
+  expect(form.headers.get("cache-control")).toBe("private, no-store");
+  const invalid = await handleUnsubscribeRequest(
+    new Request("http://localhost:3000/api/v1/unsubscribe?token=short"),
+    app,
+  );
+  expect(invalid.status).toBe(400);
+  expect(invalid.headers.get("cache-control")).toBe("private, no-store");
+});

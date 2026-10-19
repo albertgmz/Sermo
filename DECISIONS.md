@@ -4836,3 +4836,16 @@ query, like the other address redirects.
 Left out: a forum named without an id (`/foros/politica/`), which needs a table of names that does
 not exist; attachment and avatar file addresses; profile posts; and XenForo's page numbers, so
 `page-3` of a thread opens its first page.
+
+### API answers are private and not stored by default
+
+The test site sits behind Cloudflare with a zone "cache everything" rule that cannot be changed.
+Cloudflare obeys the origin's `Cache-Control`, but many API answers carried none, so `GET
+/api/v1/me` and thread answers were kept and could be served to another visitor (a member's
+answer, or a private forum's thread, to a guest). One middleware in `createApp` gives every answer
+under `/api/` (REST and Better Auth, any status, errors and uploads included) that has no
+`Cache-Control` the value `private, no-store`. A value a route sets stays: files keep theirs. The
+answers `server.ts` builds before the app runs (the unsubscribe form and its 400, and the 413 for
+a body over the limit, on any path) carry the same value. Other answers outside `/api/`
+(`robots.txt`, sitemaps, feeds, `/health`, `/mcp`, the guest `.txt` and `.md` answers) are not
+touched.

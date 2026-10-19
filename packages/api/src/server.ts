@@ -58,7 +58,10 @@ export function adaptUnsubscribeRequest(request: Request): Request | Response {
   if (request.method === "GET") {
     const token = url.searchParams.get("token") ?? "";
     if (!/^[A-Za-z0-9_.-]{16,1000}$/.test(token))
-      return new Response("Invalid link.", { status: 400 });
+      return new Response("Invalid link.", {
+        status: 400,
+        headers: { "Cache-Control": "private, no-store" },
+      });
     const body =
       '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' +
       "<h1>Unsubscribe from notification emails</h1>" +
@@ -68,6 +71,8 @@ export function adaptUnsubscribeRequest(request: Request): Request | Response {
         "Content-Type": "text/html; charset=utf-8",
         "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; form-action 'self'",
         "Referrer-Policy": "no-referrer",
+        // The form carries the token: no shared cache may keep it.
+        "Cache-Control": "private, no-store",
       },
     });
   }
@@ -146,6 +151,7 @@ function payloadTooLarge(headers?: Headers): Response {
   const responseHeaders = new Headers(headers);
   for (const name of ["content-length", "content-encoding", "etag"]) responseHeaders.delete(name);
   responseHeaders.set("content-type", "application/json");
+  responseHeaders.set("cache-control", "private, no-store");
   return Response.json(
     { error: { code: "payload_too_large", message: "The request body is too large." } },
     { status: 413, headers: responseHeaders },

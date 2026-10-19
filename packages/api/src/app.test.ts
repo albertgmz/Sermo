@@ -483,7 +483,13 @@ test("multipart upload streams through the API and serves with nosniff", async (
   });
   expect(set.status).toBe(200);
   const profile = await request(`/api/v1/users/${data.user.id}`);
-  expect(((await profile.json()) as { avatar: { fileId: number } }).avatar.fileId).toBe(avatar.id);
+  const avatarUrl = ((await profile.json()) as { avatar: { fileId: number; url: string } }).avatar;
+  expect(avatarUrl.fileId).toBe(avatar.id);
+  // The middleware leaves a value the route set: a public picture keeps its year, a private file
+  // its own no-store.
+  const picture = await request(avatarUrl.url);
+  expect(picture.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+  expect(served.headers.get("cache-control")).toContain("private");
 });
 
 test("a picture anyone may see is served when the session cookie is dead", async () => {
@@ -888,4 +894,27 @@ test("thread, reply, reaction, listing, and search work over HTTP", async () => 
   const titlesOnly = await request("/api/v1/search?q=searchable&titlesOnly=true");
   expect(titlesOnly.status).toBe(200);
   expect(((await titlesOnly.json()) as { items: unknown[] }).items).toHaveLength(0);
+});
+
+test("an API answer without its own Cache-Control is private and not stored, and explicit values stay", async () => {
+  const { request } = setup();
+  const me = await request("/api/v1/me");
+  expect(me.headers.get("cache-control")).toBe("private, no-store");
+  const missing = await request("/api/v1/nothing-here");
+  expect(missing.status).toBe(404);
+  expect(missing.headers.get("cache-control")).toBe("private, no-store");
+  const unauthorized = await request("/api/v1/profile/avatar", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ fileId: 1 }),
+  });
+  expect(unauthorized.status).toBe(401);
+  expect(unauthorized.headers.get("cache-control")).toBe("private, no-store");
+  const session = await request("/api/auth/get-session");
+  expect(session.headers.get("cache-control")).toContain("no-store");
+  // Paths outside /api keep what their routes set, or nothing.
+  const full = await request("/llms-full.txt");
+  expect(full.headers.get("cache-control")).toBe("public, max-age=60");
+  const robots = await request("/robots.txt");
+  expect(robots.headers.get("cache-control")).toBeNull();
 });
