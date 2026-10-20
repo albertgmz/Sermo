@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
@@ -13,15 +12,16 @@ export type ConversationItem = {
   title: string;
   participantCount: number;
   isUnread: boolean;
-  lastMessage: { messageId: number; sentAt: string; user: { id: number } };
+  lastMessage: { sentAt: string; user: { id: number } };
 };
 
 // Where a tap on a conversation's row goes: its first unread message while it has one, else its
-// newest message.
-export function conversationRowHref(conversation: ConversationItem) {
-  return conversation.isUnread
-    ? `/conversations/${conversation.id}/unread`
-    : conversationHref(conversation.id, conversation.lastMessage.messageId);
+// newest message, as the backend places them among those the viewer may see. The summary's last
+// message is not used: it can be one the viewer may not see (a first message held for approval).
+export function conversationRowHref(
+  conversation: Pick<ConversationItem, "id">,
+) {
+  return `/conversations/${conversation.id}/unread`;
 }
 
 // Linked previews need a positioned row, without an enclosing link: the title's link covers the

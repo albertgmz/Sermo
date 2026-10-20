@@ -42,11 +42,9 @@ async function html(isUnread: boolean) {
 const links = (markup: string) =>
   [...markup.matchAll(/<a[^>]*href="([^"]*)"/g)].map((match) => match[1]);
 
-test("a row is one target: the first unread message while there is one, else the newest", async () => {
+test("a row is one target: the first unread message while there is one, else the newest, as the backend places them", async () => {
   expect(links(await html(true))).toEqual(["/conversations/5/unread"]);
-  expect(links(await html(false))).toEqual([
-    "/conversations/5?message=61#message-61",
-  ]);
+  expect(links(await html(false))).toEqual(["/conversations/5/unread"]);
 });
 
 test("the avatar and the name inside a row open no member card", async () => {
