@@ -532,7 +532,7 @@
     },
     "warning": {
       "heading": "Never give your key to anyone",
-      "body": "Whoever has your key acts as you: they can read your private conversations, post in your name and change your account. Do not paste it into a post, a message or a chat, and do not send it to anyone who asks for it. If you think someone else has it, revoke it at once."
+      "body": "Whoever has your key acts as you: they can read your private conversations, post and react in your name, change your profile, your settings and even your username, and, if you are staff, use your moderation and administration powers. What a key cannot do is change your password or email address, close your account, or change anyone's groups or permissions. Do not paste it into a post, a message or a chat, and do not send it to anyone who asks for it. If you think someone else has it, revoke it at once."
     },
     "key": {
       "heading": "Your API key",

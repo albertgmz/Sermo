@@ -178,6 +178,21 @@ describe("one API key per member", () => {
     expect(w.keyIds()).toEqual([Number(replaced.body.id)]);
   });
 
+  test("replacing ends every older key, past any listing cap", async () => {
+    const w = await world();
+    // Fixture rows: 150 keys from before the rule.
+    const insert = w.ctx.sqlite.prepare(
+      "INSERT INTO auth_apikey (reference_id, key, name, created_at, updated_at) VALUES (?1, ?2, 'old', 1, 1)",
+    );
+    for (let i = 0; i < 150; i++) insert.run(String(w.member.id), `old-hash-${i}`);
+    const cookie = await w.login();
+    expect((await w.create(cookie)).status).toBe(409);
+    expect(w.keyIds()).toHaveLength(150);
+    const replaced = await w.create(cookie, { replace: true });
+    expect(replaced.status).toBe(200);
+    expect(w.keyIds()).toEqual([Number(replaced.body.id)]);
+  });
+
   test("revoking the key lets the member make a new one", async () => {
     const w = await world();
     const cookie = await w.login();

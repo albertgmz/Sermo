@@ -532,7 +532,7 @@
     },
     "warning": {
       "heading": "Nunca le des tu clave a nadie",
-      "body": "Quien tenga tu clave actúa como tú: puede leer tus conversaciones privadas, publicar en tu nombre y cambiar tu cuenta. No la pegues en una publicación, ni en un mensaje ni en un chat, y no se la mandes a nadie que te la pida. Si crees que otra persona la tiene, revócala enseguida."
+      "body": "Quien tenga tu clave actúa como tú: puede leer tus conversaciones privadas, publicar y reaccionar en tu nombre, cambiar tu perfil, tus ajustes y hasta tu nombre de usuario y, si eres del personal, usar tus permisos de moderación y administración. Lo que no puede es cambiar tu contraseña ni tu correo, cerrar tu cuenta ni cambiar los grupos o permisos de nadie. No la pegues en una publicación, ni en un mensaje ni en un chat, y no se la mandes a nadie que te la pida. Si crees que otra persona la tiene, revócala enseguida."
     },
     "key": {
       "heading": "Tu clave de API",

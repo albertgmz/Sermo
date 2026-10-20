@@ -193,21 +193,30 @@ async function keepOneApiKey(
   replace: boolean,
 ): Promise<void> {
   const made = returned as { id?: string; referenceId?: string } | undefined;
-  if (!made?.id || !made.referenceId) return;
-  const keys = await authContext.adapter.findMany<{ id: string }>({
+  const id = made?.id;
+  const referenceId = made?.referenceId;
+  if (!id || !referenceId) return;
+  // The member's keys made before (`lt`) or after (`gt`) this one: by condition, so no listing cap
+  // leaves any out.
+  const others = (operator: "lt" | "gt") => [
+    { field: "referenceId", value: referenceId },
+    { field: "id", operator, value: id },
+  ];
+  const refused = await authContext.adapter.findOne({
     model: "apikey",
-    where: [{ field: "referenceId", value: made.referenceId }],
+    where: others(replace ? "gt" : "lt"),
   });
-  const id = Number(made.id);
-  const older = keys.filter((key) => Number(key.id) < id);
-  const refused = replace ? keys.some((key) => Number(key.id) > id) : older.length > 0;
-  for (const key of refused ? [{ id: made.id }] : replace ? older : [])
-    await authContext.adapter.delete({ model: "apikey", where: [{ field: "id", value: key.id }] });
-  if (refused)
+  if (replace && !refused) {
+    await authContext.adapter.deleteMany({ model: "apikey", where: others("lt") });
+    return;
+  }
+  if (refused) {
+    await authContext.adapter.delete({ model: "apikey", where: [{ field: "id", value: id }] });
     throw new APIError("CONFLICT", {
       code: "API_KEY_EXISTS",
       message: "You already have an API key. Replace it or revoke it to make another.",
     });
+  }
 }
 
 function withoutSessionCookies(hook: AuthHookContext) {

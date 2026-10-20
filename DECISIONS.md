@@ -5058,11 +5058,14 @@ member without a key. Refusing rather than always replacing keeps a script that 
 silently ending the key an agent is using. The check runs in the auth module's after hook, once
 the plugin has inserted the key, by id: a plain request loses when an older key exists, a replace
 loses when a newer one exists (a later request won), and a loser deletes its own key and is
-refused, so the key it made never reaches its caller. Of two requests that race, the one inserted
+refused, so the key it made never reaches its caller. A winning replace ends every older key with
+one delete by condition (same member, lower id), and both checks are a lookup by condition too, so
+the adapter's 100-row listing cap leaves no key out. Of two requests that race, the one inserted
 later always sees the earlier key, so no burst of parallel requests leaves two keys. Known limit: a
 plain request that wins over a replace racing it is answered with a key the replace then ends; the
-member still holds one working key. The deletes are separate statements (the adapter's
-transactions are off, AGENTS.md): a failure halfway answers 500 and the page lists what is left.
+member still holds one working key. The insert and the delete are separate statements (the
+adapter's transactions are off, AGENTS.md): a failure between them answers 500 and the page lists
+what is left.
 Expired keys count as keys until the purge job removes them; replacing ends them too. Calls made in
 process with a `userId` and no session (loaders, the benchmark, tests) are not held to the rule.
 Members who made several keys before the rule keep them until they revoke them or replace, which
@@ -5071,7 +5074,12 @@ ends all of them.
 The page is `/account/api` ("API y agentes"), listed after Security, for every signed-in member:
 no permission gates API keys. It says what a key is for (scripts, bots, AI agents through MCP at
 `/mcp`, the address read at request time), links `/developer`, and warns before the key section
-that whoever holds the key acts as the member. The key is listed by name (keys made on the page
+that whoever holds the key acts as the member. The warning lists what was checked in the code: a
+key reads private conversations, posts and reacts, changes the profile, settings and the username
+(when the member has a change to spend), and carries a staff member's moderation and admin
+permissions; it cannot change the password or email (`enableSessionForAPIKeys` is off, so every
+`/api/auth` route answers 401 to a key), close the account, or change groups and permissions
+(those operations refuse a key actor). The key is listed by name (keys made on the page
 have none and show as "Personal key") and creation date; there is no last use, because keys are
 verified read-only and the plugin's `lastRequest` is never written, and no starting characters,
 because the plugin stores only the shared `sermo_` prefix. Creating and replacing take the password
@@ -5079,9 +5087,11 @@ in the shared confirmation field; the action answers with the key in its form st
 address or a cookie, and the panel shows it once, whole, selected and with a copy button, until the
 member presses "Done". The action also refreshes the page in its answer, so the rows behind the
 key, and the page the router keeps for Back, already list the new key. Leaving the page also ends
-the display: the router keeps a page left behind mounted but
-hidden (Activity), so the panel forgets the key when it is hidden and Back does not show it again.
-A refusal because a key exists (made in another tab) reads the page again so the key is listed. Revoking is a confirmation step without a password, as revoking a session is. The copy
-button is a shared component (`components/forum/copy-button.tsx`, in the styleguide). The
-developer page's intro now states the rule and links the page, which closes the "no API keys page
+the display: the router keeps a page left behind mounted but hidden (Activity), so the panel
+forgets the key when it is hidden, and on `pagehide` it forgets it before the browser can keep the
+document in its back/forward cache, so Back after a full navigation does not show it either. A
+refusal because a key exists (made in another tab) reads the page again so the key is listed.
+Revoking is a confirmation step without a password, as revoking a session is. The copy button is a
+shared component (`components/forum/copy-button.tsx`, in the styleguide). The developer page's
+intro now states the rule and links the page, which closes the "no API keys page
 to link from" limit noted for item 31.

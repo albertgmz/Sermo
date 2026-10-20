@@ -3,6 +3,7 @@
 import { KeyRound } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useActionState, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   issueKey,
   type KeyFormState,
@@ -41,7 +42,12 @@ export function KeyPanel({ keys }: { keys: KeyRow[] }) {
   useLayoutEffect(() => {
     clearTimeout(pendingHide.current);
     if (!shownKey) return;
+    // Nor after a full navigation away and Back: a browser may restore the whole page from its
+    // back/forward cache, so the key is taken off the page, at once, as the page is left.
+    const leave = () => flushSync(() => setSaved(shownKey));
+    window.addEventListener("pagehide", leave);
     return () => {
+      window.removeEventListener("pagehide", leave);
       pendingHide.current = setTimeout(() => setSaved(shownKey));
     };
   }, [shownKey]);
