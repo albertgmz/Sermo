@@ -16,6 +16,7 @@
     "preferences": "Preferencias",
     "perks": "Ventajas",
     "security": "Seguridad",
+    "api": "API y agentes",
     "aria": {
       "label": "Secciones de la cuenta"
     }
@@ -518,6 +519,57 @@
       "empty": "No hay inicios de sesión registrados.",
       "failedLoad": "No se pudo cargar el historial de inicios de sesión. Inténtalo de nuevo en un momento.",
       "retention": "El historial se conserva durante {days, plural, one {# día} other {# días}}."
+    }
+  },
+  "apiKeys": {
+    "metaTitle": "API y agentes",
+    "heading": "API y agentes",
+    "intro": {
+      "heading": "Para qué sirve una clave",
+      "lead": "Una clave de API permite que tus propios scripts, bots y agentes de IA usen el foro como tú, sin navegador.",
+      "rest": "Los scripts y los bots llaman a la API REST: la <link>referencia de la API</link> recoge todas las operaciones y te deja probarlas.",
+      "mcp": "Los agentes de IA se conectan por MCP en <address>/mcp</address>. En los dos casos, envía la clave como <code>Authorization: Bearer tu-clave</code>."
+    },
+    "warning": {
+      "heading": "Nunca le des tu clave a nadie",
+      "body": "Quien tenga tu clave actúa como tú: puede leer tus conversaciones privadas, publicar en tu nombre y cambiar tu cuenta. No la pegues en una publicación, ni en un mensaje ni en un chat, y no se la mandes a nadie que te la pida. Si crees que otra persona la tiene, revócala enseguida."
+    },
+    "key": {
+      "heading": "Tu clave de API",
+      "description": "Puedes tener una sola clave. Funciona hasta que la revoques o la reemplaces, o cambies tu contraseña.",
+      "loading": "Cargando tu clave de API…",
+      "none": "Todavía no tienes ninguna clave de API.",
+      "unnamed": "Clave personal",
+      "created": "Creada el <time>{date}</time>",
+      "several": "Tienes {count, plural, one {# clave} other {# claves}} de antes de la regla de una sola clave. Revoca las que ya no uses; si reemplazas, te queda una sola clave nueva.",
+      "failed": "No se pudo cargar tu clave. Inténtalo más tarde.",
+      "create": "Crear clave",
+      "creating": "Creando…",
+      "replace": "Reemplazar…",
+      "replaceWarning": "La clave nueva ocupa el lugar de la actual: todo lo que use la clave actual deja de funcionar en ese momento.",
+      "replaceSeveralWarning": "La clave nueva ocupa el lugar de todas tus claves actuales: todo lo que las use deja de funcionar en ese momento.",
+      "replaceSubmit": "Reemplazar clave",
+      "replacing": "Reemplazando…",
+      "revoke": "Revocar…",
+      "revokeWarning": "Todo lo que use esta clave deja de funcionar en ese momento.",
+      "revokeSubmit": "Revocar clave",
+      "revoking": "Revocando…"
+    },
+    "newKey": {
+      "heading": "Tu clave nueva",
+      "label": "Clave de API",
+      "note": "Cópiala ahora y guárdala en un lugar seguro. No se volverá a mostrar: si la pierdes, reemplázala por una nueva.",
+      "done": "Listo, ya la guardé"
+    },
+    "notices": {
+      "revoked": "Se revocó la clave. Lo que la usaba ya no funciona."
+    },
+    "errors": {
+      "required": "Escribe tu contraseña.",
+      "wrongPassword": "Esa no es tu contraseña.",
+      "exists": "Ya tienes una clave, la de arriba. Para tener una nueva, reemplázala.",
+      "rateLimited": "Demasiados intentos. Espera un rato e inténtalo de nuevo.",
+      "generic": "No funcionó. Inténtalo de nuevo."
     }
   },
   "loading": {

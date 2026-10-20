@@ -53,6 +53,7 @@ test("no menu file and no account navigation file repeats the address of an acco
       "preferences",
       "permissions",
       "security",
+      "api",
     ]) {
       expect(code, `${file} ${screen}`).not.toContain(`/account/${screen}`);
     }

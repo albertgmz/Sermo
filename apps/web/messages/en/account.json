@@ -16,6 +16,7 @@
     "preferences": "Preferences",
     "perks": "Perks",
     "security": "Security",
+    "api": "API and agents",
     "aria": {
       "label": "Account sections"
     }
@@ -518,6 +519,57 @@
       "empty": "No sign-ins are on record.",
       "failedLoad": "The sign-in history could not be loaded. Try again in a moment.",
       "retention": "The history is kept for {days, plural, one {# day} other {# days}}."
+    }
+  },
+  "apiKeys": {
+    "metaTitle": "API and agents",
+    "heading": "API and agents",
+    "intro": {
+      "heading": "What a key is for",
+      "lead": "An API key lets your own scripts, bots and AI agents use the forum as you, without a browser.",
+      "rest": "Scripts and bots call the REST API: the <link>API reference</link> lists every operation and lets you try them.",
+      "mcp": "AI agents connect through MCP at <address>/mcp</address>. Either way, send the key as <code>Authorization: Bearer your-key</code>."
+    },
+    "warning": {
+      "heading": "Never give your key to anyone",
+      "body": "Whoever has your key acts as you: they can read your private conversations, post in your name and change your account. Do not paste it into a post, a message or a chat, and do not send it to anyone who asks for it. If you think someone else has it, revoke it at once."
+    },
+    "key": {
+      "heading": "Your API key",
+      "description": "You can have one key. It works until you revoke or replace it, or change your password.",
+      "loading": "Loading your API key…",
+      "none": "You have no API key yet.",
+      "unnamed": "Personal key",
+      "created": "Created <time>{date}</time>",
+      "several": "You have {count, plural, one {# key} other {# keys}} from before the one-key rule. Revoke the ones you no longer use; replacing leaves you with one new key.",
+      "failed": "Your key could not be loaded. Try again later.",
+      "create": "Create key",
+      "creating": "Creating…",
+      "replace": "Replace…",
+      "replaceWarning": "A new key takes the place of the current one: anything that uses the current key stops working at once.",
+      "replaceSeveralWarning": "A new key takes the place of all your current keys: anything that uses them stops working at once.",
+      "replaceSubmit": "Replace key",
+      "replacing": "Replacing…",
+      "revoke": "Revoke…",
+      "revokeWarning": "Anything that uses this key stops working at once.",
+      "revokeSubmit": "Revoke key",
+      "revoking": "Revoking…"
+    },
+    "newKey": {
+      "heading": "Your new key",
+      "label": "API key",
+      "note": "Copy it now and keep it somewhere safe. It will not be shown again: if you lose it, replace it with a new one.",
+      "done": "Done, I saved it"
+    },
+    "notices": {
+      "revoked": "The key was revoked. Anything that used it no longer works."
+    },
+    "errors": {
+      "required": "Enter your password.",
+      "wrongPassword": "That is not your password.",
+      "exists": "You already have a key, listed above. To get a new one, replace it.",
+      "rateLimited": "Too many attempts. Wait a while and try again.",
+      "generic": "That did not work. Try again."
     }
   },
   "loading": {

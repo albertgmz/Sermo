@@ -220,6 +220,62 @@ export const changePassword = (input: {
   revokeOtherSessions: boolean;
 }) => post("change-password", input);
 
+// What Better Auth lists of one API key: never the key itself, which is shown only once, when it
+// is made. Keys are checked without writing, so no last use is recorded.
+export type ApiKeyRecord = {
+  id: string;
+  name: string | null;
+  createdAt: string;
+};
+
+const ApiKeyList = z.object({
+  apiKeys: z.array(
+    z.object({
+      id: z.coerce.string(),
+      name: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? null),
+      createdAt: z.string(),
+    }),
+  ),
+});
+
+// Oldest first. A member has one key; one who made several before that rule keeps them.
+export async function listApiKeys(): Promise<
+  AuthResult & { keys: ApiKeyRecord[] }
+> {
+  const { result, payload } = await exchange(
+    "GET",
+    "api-key/list?sortBy=createdAt&sortDirection=asc",
+    undefined,
+    false,
+  );
+  const parsed = ApiKeyList.safeParse(payload);
+  return {
+    ...result,
+    keys: result.ok && parsed.success ? parsed.data.apiKeys : [],
+  };
+}
+
+// Makes the member's key, which takes the current password. With `replace` the member's other
+// keys end once the new one exists; without it a member who has one is refused (API_KEY_EXISTS).
+// `key` is the key itself, in the answer only this once.
+export async function createApiKey(
+  password: string,
+  replace: boolean,
+): Promise<AuthResult & { key: string | null }> {
+  const { result, payload } = await exchange("POST", "api-key/create", {
+    password,
+    replace,
+  });
+  const key = (payload as { key?: unknown } | null)?.key;
+  return { ...result, key: result.ok && typeof key === "string" ? key : null };
+}
+
+export const deleteApiKey = (keyId: string) =>
+  post("api-key/delete", { keyId });
+
 // Account emails exist only when the backend has a mail driver. Each of these answers
 // CHANGE_EMAIL_DISABLED, VERIFICATION_EMAIL_NOT_ENABLED or RESET_PASSWORD_DISABLED when it has
 // none.

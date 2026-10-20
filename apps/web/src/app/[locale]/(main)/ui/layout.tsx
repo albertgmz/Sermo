@@ -19,6 +19,7 @@ export default function StyleguideLayout({
         "adminGroups.matrix",
         "auth.passwordField",
         "forum.autosave",
+        "forum.copyButton",
         "forum.framing",
         "forum.memberActions",
         "forums.forum",

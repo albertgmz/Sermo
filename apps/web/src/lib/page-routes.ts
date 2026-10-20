@@ -7,6 +7,7 @@
 export const PAGE_ROUTES = [
   "/",
   "/account",
+  "/account/api",
   "/account/appearance",
   "/account/bookmarks",
   "/account/data-saver",

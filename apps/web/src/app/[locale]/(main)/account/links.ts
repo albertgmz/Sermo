@@ -19,6 +19,7 @@ export const ACCOUNT_GROUPS = [
       // Labelled from the LITE messages.
       { label: null, href: "/account/data-saver" },
       { label: "security", href: "/account/security" },
+      { label: "api", href: "/account/api" },
     ],
   },
 ] as const;

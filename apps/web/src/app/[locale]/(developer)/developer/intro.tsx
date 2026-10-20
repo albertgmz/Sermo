@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { SPEC_PATH } from "./prepare-spec";
 
@@ -37,7 +38,19 @@ export function DeveloperIntro() {
             {t("realRequests")}
           </p>
           <p className="mt-2">{t.rich("authKey", { code })}</p>
-          <p className="mt-2">{t.rich("createKey", { code })}</p>
+          <p className="mt-2">
+            {t.rich("createKey", {
+              code,
+              account: (chunks) => (
+                <Link
+                  href="/account/api"
+                  className="font-medium text-primary-ink underline underline-offset-4 hover:no-underline"
+                >
+                  {chunks}
+                </Link>
+              ),
+            })}
+          </p>
         </section>
         <section className="max-w-prose">
           <Heading>{t("keysHeading")}</Heading>

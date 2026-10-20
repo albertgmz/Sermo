@@ -37,6 +37,7 @@ import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { CompactComposer } from "@/components/forum/compact-composer";
 import { ContentActions } from "@/components/forum/content-actions";
 import { ConversationPreview } from "@/components/forum/conversation-preview";
+import { CopyButton } from "@/components/forum/copy-button";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
@@ -498,6 +499,7 @@ export default async function StyleguidePage() {
           <form action={discard}>
             <PendingButton variant="outline">Pending button</PendingButton>
           </form>
+          <CopyButton value="sermo_example" />
         </Section>
 
         <Section title="Quiet actions">

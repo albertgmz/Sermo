@@ -155,6 +155,11 @@
     "copied": "Link copied",
     "manual": "Copy this link"
   },
+  "copyButton": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "failed": "Could not copy. Select the text and copy it by hand."
+  },
   "pollBadge": {
     "poll": "Poll",
     "quiz": "Quiz"

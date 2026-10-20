@@ -6,6 +6,7 @@
 // error screen has a client component under it whose namespace no provider above it names, when a
 // layout names one that nothing under it reads, and when one listed here is read by no client.
 export const CLIENT_NAMESPACES = [
+  "account.apiKeys",
   "account.navigation",
   "account.pictures",
   "account.profile",
@@ -53,6 +54,7 @@ export const CLIENT_NAMESPACES = [
   "forum.bbCode",
   "forum.composer",
   "forum.contentActions",
+  "forum.copyButton",
   "forum.feedFilters",
   "forum.createFlow",
   "forum.feedViewToggle",

@@ -36,7 +36,10 @@ mock.module("next/headers", () => ({
 
 const {
   changePassword,
+  createApiKey,
+  deleteApiKey,
   getCurrentAccount,
+  listApiKeys,
   listSessions,
   mailAvailable,
   requestEmailChange,
@@ -364,6 +367,72 @@ test("revoking sends the token of one session, or nothing for the others", async
     "http://127.0.0.1:8787/api/auth/revoke-other-sessions",
   );
   assert.deepEqual(JSON.parse(String(seen[0].body)), {});
+});
+
+test("API keys are listed oldest first, with only their id, name and date", async () => {
+  const seen = backend(
+    answer([], {
+      body: {
+        apiKeys: [
+          {
+            id: 4,
+            name: "mcp-client",
+            createdAt: "2026-10-01T10:00:00.000Z",
+            start: "sermo_",
+            referenceId: "7",
+          },
+          { id: "9", name: null, createdAt: "2026-10-02T10:00:00.000Z" },
+        ],
+        total: 2,
+      },
+    }),
+  );
+  const result = await listApiKeys();
+  assert.equal(
+    seen[0].url,
+    "http://127.0.0.1:8787/api/auth/api-key/list?sortBy=createdAt&sortDirection=asc",
+  );
+  assert.equal(seen[0].method, "GET");
+  assert.deepEqual(result.keys, [
+    { id: "4", name: "mcp-client", createdAt: "2026-10-01T10:00:00.000Z" },
+    { id: "9", name: null, createdAt: "2026-10-02T10:00:00.000Z" },
+  ]);
+});
+
+test("a refused key listing has no keys and carries the error code", async () => {
+  backend(answer([], { status: 401, body: { code: "UNAUTHORIZED" } }));
+  const result = await listApiKeys();
+  assert.equal(result.code, "UNAUTHORIZED");
+  assert.deepEqual(result.keys, []);
+});
+
+test("making a key sends the password and whether to replace, and hands back the key", async () => {
+  let seen = backend(answer([], { body: { id: "5", key: "sermo_secret" } }));
+  const made = await createApiKey("current-pass", false);
+  assert.equal(seen[0].url, "http://127.0.0.1:8787/api/auth/api-key/create");
+  assert.equal(seen[0].method, "POST");
+  assert.deepEqual(JSON.parse(String(seen[0].body)), {
+    password: "current-pass",
+    replace: false,
+  });
+  assert.equal(made.ok, true);
+  assert.equal(made.key, "sermo_secret");
+  seen = backend(answer([], { status: 409, body: { code: "API_KEY_EXISTS" } }));
+  const refused = await createApiKey("current-pass", true);
+  assert.deepEqual(JSON.parse(String(seen[0].body)), {
+    password: "current-pass",
+    replace: true,
+  });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.code, "API_KEY_EXISTS");
+  assert.equal(refused.key, null);
+});
+
+test("revoking a key sends its id", async () => {
+  const seen = backend(answer([], { body: { success: true } }));
+  assert.equal((await deleteApiKey("5")).ok, true);
+  assert.equal(seen[0].url, "http://127.0.0.1:8787/api/auth/api-key/delete");
+  assert.deepEqual(JSON.parse(String(seen[0].body)), { keyId: "5" });
 });
 
 test("changing the password sends both passwords and delivers the new session cookie", async () => {
