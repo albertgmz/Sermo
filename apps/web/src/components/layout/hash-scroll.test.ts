@@ -111,9 +111,44 @@ test("the wait ends when the reader scrolls, touches or types", () => {
 test("an element still inside the hidden container of a streaming section is not drawn", () => {
   const rects = { length: 0 };
   const element = { getClientRects: () => rects };
-  const document = { getElementById: () => element };
+  const asked: string[] = [];
+  const document = {
+    querySelectorAll: (selector: string) => {
+      asked.push(selector);
+      return [element];
+    },
+  };
   expect(drawnById(document, "appearance")).toBeNull();
   rects.length = 1;
   expect(drawnById(document, "appearance")).toBe(element);
-  expect(drawnById({ getElementById: () => null }, "appearance")).toBeNull();
+  expect(asked.at(-1)).toBe('[id="appearance"]');
+  expect(drawnById({ querySelectorAll: () => [] }, "appearance")).toBeNull();
+});
+
+test("a hidden copy of the element, kept from a page left earlier, is passed over for the drawn one", () => {
+  const hidden = {
+    getClientRects: () => ({ length: 0 }),
+    checkVisibility: () => false,
+  };
+  const invisible = {
+    getClientRects: () => ({ length: 1 }),
+    checkVisibility: () => false,
+  };
+  const drawn = {
+    getClientRects: () => ({ length: 1 }),
+    checkVisibility: () => true,
+  };
+  const document = { querySelectorAll: () => [hidden, invisible, drawn] };
+  expect(drawnById(document, "profile-post-5")).toBe(drawn);
+  const quoted: string[] = [];
+  drawnById(
+    {
+      querySelectorAll: (selector: string) => {
+        quoted.push(selector);
+        return [];
+      },
+    },
+    'a"b\\c',
+  );
+  expect(quoted).toEqual(['[id="a\\"b\\\\c"]']);
 });

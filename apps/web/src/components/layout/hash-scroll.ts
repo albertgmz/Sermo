@@ -51,12 +51,21 @@ export function scrollToHash(env: ScrollEnv) {
 
 // The element with this id, once it is drawn. A section that streams in is first sent inside a
 // hidden container and moved into place after: until then the id exists but the element has no
-// box, and scrolling to it does nothing. A target must therefore draw a box of its own (not
-// `display: contents`), or it is never found.
-export function drawnById<T extends { getClientRects(): { length: number } }>(
-  document: { getElementById(id: string): T | null },
-  id: string,
-) {
-  const element = document.getElementById(id);
-  return element && element.getClientRects().length > 0 ? element : null;
+// box, and scrolling to it does nothing. A page left earlier can stay in the document, hidden, with
+// the same ids (Cache Components keeps a few), and may come first: only a drawn copy counts. A
+// target must therefore draw a box of its own (not `display: contents`), or it is never found.
+export function drawnById<
+  T extends {
+    getClientRects(): { length: number };
+    checkVisibility?(): boolean;
+  },
+>(document: { querySelectorAll(selector: string): Iterable<T> }, id: string) {
+  const selector = `[id="${id.replace(/["\\]/g, "\\$&")}"]`;
+  for (const element of document.querySelectorAll(selector))
+    if (
+      element.getClientRects().length > 0 &&
+      element.checkVisibility?.() !== false
+    )
+      return element;
+  return null;
 }

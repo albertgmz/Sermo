@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { drawnById } from "@/components/layout/hash-scroll";
 import {
   type Box,
   createHistoryScroll,
@@ -11,7 +12,7 @@ import {
   decideArrival,
   entryId,
   HASH_LINK_EVENT,
-  type RestoreEnv,
+  type HoldEnv,
   type SpotlightEnv,
   TARGET,
 } from "@/components/layout/spotlight";
@@ -35,15 +36,30 @@ const after: SpotlightEnv["later"] = (run, ms) => {
   return () => window.clearTimeout(timer);
 };
 
+// Where a landed element's top goes: just under the sticky header (measured, so a change to the
+// header's height follows), with the element's own scroll margin as the gap. Without the header,
+// the page's scroll padding stands for it.
+function landingTop(element: Element) {
+  const header = document.querySelector("[data-site-header]");
+  const under = header
+    ? Math.max(0, header.getBoundingClientRect().bottom)
+    : Number.parseFloat(
+        getComputedStyle(document.documentElement).scrollPaddingTop,
+      ) || 0;
+  return (
+    under + (Number.parseFloat(getComputedStyle(element).scrollMarginTop) || 0)
+  );
+}
+
 function browserEnv(show: (box: Box) => void, hide: () => void): SpotlightEnv {
   return {
     hash: () => window.location.hash,
-    find: (id) => document.getElementById(id),
-    reducedMotion: () =>
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    find: (id) => drawnById(document, id),
+    landingTop: (element) => landingTop(element as Element),
     on: listen,
     frames: everyFrame,
     later: after,
+    scroll: holdEnv,
     show,
     hide,
   };
@@ -67,10 +83,11 @@ type NavigationWindow = Window & {
 const entryKey = () =>
   (window as NavigationWindow).navigation?.currentEntry?.key;
 
-const restoreEnv: RestoreEnv = {
+const holdEnv: HoldEnv = {
   scrollY: () => window.scrollY,
   maxScrollY: () => document.documentElement.scrollHeight - window.innerHeight,
   scrollTo: (y) => window.scrollTo({ top: y, behavior: "instant" }),
+  loaded: () => document.readyState === "complete",
   on: listen,
   frames: everyFrame,
   later: after,
@@ -84,7 +101,7 @@ const handled = new Set<string>();
 // can jump to the element the address names instead of the saved position (Next scrolls to the
 // address of a navigation and leaves a traversal to the browser), so the position is put back once
 // the page is drawn and held for a moment (see `createScrollRestorer`).
-const restorer = createScrollRestorer(restoreEnv);
+const restorer = createScrollRestorer(holdEnv);
 const historyScroll = createHistoryScroll({
   key: () => entryKey(),
   hash: () => window.location.hash,
@@ -119,8 +136,9 @@ function arrives(navigationType?: string) {
   return decision === "guard" ? !traversals.consume() : decision === "start";
 }
 
-// When the address names an element of the page (a post, a wall post or comment, a message), it
-// is brought into view and the rest of the page is dimmed for a few seconds. A scroll, a click or
+// When the address names an element of the page (a post, a wall post or comment, a message), the
+// page lands on it (its top under the header, held there while the page settles; see
+// `createSpotlight`) and the rest of the page is dimmed for a few seconds. A wheel turn, a touch, a click or
 // a key press takes the dimming away at once, and it never takes the click or the focus: the first
 // click both dismisses it and acts. Mounted once in the site's frame; it covers the first load,
 // the address changing within the page and navigations to another page.
@@ -202,7 +220,7 @@ export function HashTarget() {
       arrived.current = true;
       return;
     }
-    if (arrives()) spotlight.current?.start();
+    if (arrives()) spotlight.current?.start({ fromTop: true });
     else spotlight.current?.stop();
   }, [pathname, search]);
 

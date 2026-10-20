@@ -2,20 +2,25 @@ import { expect, test } from "bun:test";
 import {
   type Box,
   createHistoryScroll,
+  createScrollHolder,
   createScrollMemory,
   createScrollRestorer,
   createSpotlight,
   createTraversalGuard,
   decideArrival,
   entryId,
+  HOLD_MAX_MS,
+  HOLD_QUIET_MS,
+  type HoldEnv,
+  LANDING_WAIT_MS,
   RESTORE_MS,
-  type RestoreEnv,
   restoresScroll,
   type SpotlightTarget,
   TARGET,
 } from "./spotlight";
 
-const BOX: Box = { top: 100, left: 10, width: 300, height: 80 };
+// Where a landed element's top goes: under a 57 px header, with an 8 px gap.
+const LANDING_TOP = 65;
 
 // Like a real DOMRect: the fields are getters on the prototype, so spreading it gives {}.
 class RectLike implements Box {
@@ -37,24 +42,42 @@ class RectLike implements Box {
   }
 }
 
-// A page that can be scrolled, clicked and waited on by hand.
-function fakePage(options: { hash: string; reduced?: boolean }) {
+// A page that can be scrolled, clicked and waited on by hand. An element sits `at` pixels from the
+// top of the document; its box on screen follows the page's scroll.
+function fakePage(options: { hash: string; max?: number }) {
   let now = 0;
   const timers: { at: number; run: () => void; live: boolean }[] = [];
   const listeners = new Map<string, Set<() => void>>();
-  const scrolls: { block: string; behavior: string }[] = [];
+  const jumps: number[] = [];
   const shown: (Box | null)[] = [];
   const present = new Map<string, SpotlightTarget>();
   const frameRuns = new Set<() => void>();
   const page = {
     hash: options.hash,
-    box: BOX,
+    y: 0,
+    max: options.max ?? 100_000,
+    // Where the elements are in the document, and how big.
+    at: 1000,
+    height: 80,
+    loaded: false,
     element(id: string) {
       present.set(id, {
-        getBoundingClientRect: () => new RectLike(page.box),
-        scrollIntoView: (to) => scrolls.push(to),
+        getBoundingClientRect: () =>
+          new RectLike({
+            top: page.at - page.y,
+            left: 10,
+            width: 300,
+            height: page.height,
+          }),
       });
     },
+    // The element's box on screen right now.
+    box: (): Box => ({
+      top: page.at - page.y,
+      left: 10,
+      width: 300,
+      height: page.height,
+    }),
     frame() {
       for (const run of [...frameRuns]) run();
     },
@@ -76,32 +99,51 @@ function fakePage(options: { hash: string; reduced?: boolean }) {
       }
       now = end;
     },
-    scrolls,
+    jumps,
     shown,
     get visible() {
       return shown.at(-1) ?? null;
     },
+    // Where the element's top is on screen.
+    get top() {
+      return page.at - page.y;
+    },
+  };
+  const on: HoldEnv["on"] = (type, listener) => {
+    const set = listeners.get(type) ?? new Set();
+    listeners.set(type, set);
+    set.add(listener);
+    return () => set.delete(listener);
+  };
+  const frames: HoldEnv["frames"] = (run) => {
+    frameRuns.add(run);
+    return () => frameRuns.delete(run);
+  };
+  const later: HoldEnv["later"] = (run, ms) => {
+    const timer = { at: now + ms, run, live: true };
+    timers.push(timer);
+    return () => {
+      timer.live = false;
+    };
   };
   const spotlight = createSpotlight({
     hash: () => page.hash,
     find: (id) => present.get(id) ?? null,
-    reducedMotion: () => options.reduced ?? false,
-    on: (type, listener) => {
-      const set = listeners.get(type) ?? new Set();
-      listeners.set(type, set);
-      set.add(listener);
-      return () => set.delete(listener);
-    },
-    frames: (run) => {
-      frameRuns.add(run);
-      return () => frameRuns.delete(run);
-    },
-    later: (run, ms) => {
-      const timer = { at: now + ms, run, live: true };
-      timers.push(timer);
-      return () => {
-        timer.live = false;
-      };
+    landingTop: () => LANDING_TOP,
+    on,
+    frames,
+    later,
+    scroll: {
+      scrollY: () => page.y,
+      maxScrollY: () => page.max,
+      scrollTo: (y) => {
+        jumps.push(y);
+        page.y = y;
+      },
+      loaded: () => page.loaded,
+      on,
+      frames,
+      later,
     },
     show: (box) => shown.push(box),
     hide: () => {
@@ -132,143 +174,207 @@ test("only the elements a notification can name are targets", () => {
   }
 });
 
-test("the element is scrolled into view smoothly and the page is dimmed once the scroll ends", () => {
+test("the page lands at once with the element's top under the header, and dims around it", () => {
   const { page, spotlight } = fakePage({ hash: "#post-12" });
   page.element("post-12");
   spotlight.start();
-  expect(page.scrolls).toEqual([{ block: "center", behavior: "smooth" }]);
-  expect(page.visible).toBeNull();
-  // The scroll the element's arrival causes keeps the dimming back until it has ended.
-  page.wait(100);
-  page.fire("scroll");
-  page.wait(100);
-  page.fire("scroll");
-  page.wait(100);
-  expect(page.visible).toBeNull();
-  page.wait(100);
-  expect(page.visible).toEqual(BOX);
+  // One instant jump, no smooth scroll to wait for.
+  expect(page.jumps).toEqual([1000 - LANDING_TOP]);
+  expect(page.top).toBe(LANDING_TOP);
+  expect(page.visible).toEqual(page.box());
 });
 
-test("a scroll after that removes the dimming at once", () => {
-  const { page, spotlight } = fakePage({ hash: "#message-4" });
-  page.element("message-4");
+test("the element is held under the header while pictures and late sections above it load", () => {
+  const { page, spotlight } = fakePage({ hash: "#profile-post-3" });
+  page.element("profile-post-3");
   spotlight.start();
-  page.wait(200);
-  expect(page.visible).toEqual(BOX);
-  page.fire("scroll");
-  expect(page.visible).toBeNull();
-  expect(page.listening("scroll")).toBe(0);
+  // A picture above grows from nothing; a notice arrives above the content.
+  page.at = 1400;
+  page.frame();
+  expect(page.top).toBe(LANDING_TOP);
+  page.at = 1450;
+  page.wait(1000);
+  page.frame();
+  expect(page.top).toBe(LANDING_TOP);
+  // The browser's own jump to the fragment is put back too.
+  page.y = 0;
+  page.frame();
+  expect(page.top).toBe(LANDING_TOP);
 });
 
-test("a click, a key press, a touch and a wheel turn remove it at once, even before it is shown", () => {
+test("the reader's first action lets go: the page stays where the reader takes it", () => {
   for (const type of ["pointerdown", "keydown", "touchstart", "wheel"]) {
-    const { page, spotlight } = fakePage({ hash: "#profile-post-3" });
-    page.element("profile-post-3");
+    const { page, spotlight } = fakePage({ hash: "#message-4" });
+    page.element("message-4");
     spotlight.start();
-    page.wait(200);
-    expect(page.visible).toEqual(BOX);
     page.fire(type);
     expect(page.visible).toBeNull();
-    expect(page.listening(type)).toBe(0);
-
-    const early = fakePage({ hash: "#profile-post-3" });
-    early.page.element("profile-post-3");
-    early.spotlight.start();
-    early.page.fire(type);
-    early.page.wait(1000);
-    expect(early.page.shown).toEqual([]);
+    expect(page.framing()).toBe(0);
+    page.y = 200;
+    page.at = 1300;
+    page.frame();
+    expect(page.y).toBe(200);
+    for (const listened of ["pointerdown", "keydown", "touchstart", "wheel"])
+      expect(page.listening(listened)).toBe(0);
   }
 });
 
-test("it goes away by itself after a few seconds", () => {
+test("a scroll the page makes itself does not let go", () => {
+  const { page, spotlight } = fakePage({ hash: "#post-12" });
+  page.element("post-12");
+  spotlight.start();
+  page.fire("scroll");
+  page.at = 1200;
+  page.frame();
+  expect(page.top).toBe(LANDING_TOP);
+  expect(page.visible).not.toBeNull();
+});
+
+test("the holding ends once the page has loaded and stayed still, and at the latest after a while", () => {
+  const settled = fakePage({ hash: "#post-12" });
+  settled.page.element("post-12");
+  settled.spotlight.start();
+  // Still loading: held however still the page is.
+  settled.page.wait(HOLD_QUIET_MS * 3);
+  expect(settled.page.framing()).toBeGreaterThan(0);
+  settled.page.loaded = true;
+  settled.page.wait(HOLD_QUIET_MS * 2);
+  settled.page.at = 1500;
+  settled.page.frame();
+  expect(settled.page.top).toBe(1500 - (1000 - LANDING_TOP));
+
+  const busy = fakePage({ hash: "#post-12" });
+  busy.page.element("post-12");
+  busy.spotlight.start();
+  busy.page.loaded = true;
+  // Something keeps moving it: held until the cap.
+  for (let waited = 0; waited < HOLD_MAX_MS - 500; waited += 500) {
+    busy.page.at += 10;
+    busy.page.frame();
+    busy.page.wait(500);
+  }
+  busy.page.at += 10;
+  busy.page.frame();
+  expect(busy.page.top).toBe(LANDING_TOP);
+  busy.page.wait(1000);
+  busy.page.at += 100;
+  busy.page.frame();
+  expect(busy.page.top).toBe(LANDING_TOP + 100);
+});
+
+test("a page still too short is followed as far as it reaches", () => {
+  const { page, spotlight } = fakePage({ hash: "#post-12", max: 500 });
+  page.element("post-12");
+  spotlight.start();
+  expect(page.y).toBe(500);
+  page.max = 5000;
+  page.frame();
+  expect(page.top).toBe(LANDING_TOP);
+});
+
+test("the dimming goes away by itself after a few seconds", () => {
   const { page, spotlight } = fakePage({ hash: "#profile-comment-9" });
   page.element("profile-comment-9");
   spotlight.start();
-  page.wait(200);
-  expect(page.visible).toEqual(BOX);
   page.wait(3500);
-  expect(page.visible).toEqual(BOX);
+  expect(page.visible).not.toBeNull();
   page.wait(1000);
   expect(page.visible).toBeNull();
 });
 
-test("with reduced motion the scroll is not animated", () => {
-  const { page, spotlight } = fakePage({ hash: "#post-12", reduced: true });
-  page.element("post-12");
-  spotlight.start();
-  expect(page.scrolls).toEqual([{ block: "center", behavior: "auto" }]);
-  page.wait(200);
-  expect(page.visible).toEqual(BOX);
-});
-
-test("an element that streams in after the page loads is waited for, but not forever", () => {
+test("an element that streams in is waited for, a long while but not forever, and not past the reader's action", () => {
   const late = fakePage({ hash: "#post-12" });
   late.spotlight.start();
-  late.page.wait(1500);
-  expect(late.page.scrolls).toEqual([]);
+  late.page.wait(LANDING_WAIT_MS - 1000);
+  expect(late.page.jumps).toEqual([]);
   late.page.element("post-12");
   late.page.wait(200);
-  expect(late.page.scrolls).toHaveLength(1);
-  late.page.wait(300);
-  expect(late.page.visible).toEqual(BOX);
+  expect(late.page.top).toBe(LANDING_TOP);
 
   const never = fakePage({ hash: "#post-99" });
   never.spotlight.start();
-  never.page.wait(10000);
-  expect(never.page.scrolls).toEqual([]);
+  never.page.wait(LANDING_WAIT_MS + 1000);
+  never.page.element("post-99");
+  never.page.wait(1000);
+  expect(never.page.jumps).toEqual([]);
   expect(never.page.shown).toEqual([]);
+
+  const scrolled = fakePage({ hash: "#post-12" });
+  scrolled.spotlight.start();
+  scrolled.page.wait(500);
+  scrolled.page.fire("wheel");
+  scrolled.page.element("post-12");
+  scrolled.page.wait(1000);
+  expect(scrolled.page.jumps).toEqual([]);
+});
+
+test("a navigation from another page shows the new page from its top while the element streams in", () => {
+  const { page, spotlight } = fakePage({ hash: "#post-12" });
+  page.y = 3000; // where the reader was on the page they left
+  spotlight.start({ fromTop: true });
+  expect(page.jumps).toEqual([0]);
+  page.element("post-12");
+  page.wait(200);
+  expect(page.top).toBe(LANDING_TOP);
+
+  // Drawn already: straight to it.
+  const drawn = fakePage({ hash: "#post-12" });
+  drawn.page.element("post-12");
+  drawn.page.y = 3000;
+  drawn.spotlight.start({ fromTop: true });
+  expect(drawn.page.jumps).toEqual([1000 - LANDING_TOP]);
 });
 
 test("an address that names nothing known does nothing", () => {
   const { page, spotlight } = fakePage({ hash: "#main" });
   page.element("main");
-  spotlight.start();
+  spotlight.start({ fromTop: true });
   page.wait(1000);
-  expect(page.scrolls).toEqual([]);
+  expect(page.jumps).toEqual([]);
   expect(page.shown).toEqual([]);
 });
 
 test("a new address replaces the one before it", () => {
   const { page, spotlight } = fakePage({ hash: "#post-1" });
   page.element("post-1");
-  page.element("post-2");
   spotlight.start();
-  page.wait(200);
-  expect(page.visible).toEqual(BOX);
+  expect(page.visible).not.toBeNull();
   page.hash = "#post-2";
   spotlight.start();
   expect(page.visible).toBeNull();
+  page.at = 2000;
+  page.element("post-2");
   page.wait(200);
-  expect(page.visible).toEqual(BOX);
-  expect(page.scrolls).toHaveLength(2);
+  expect(page.top).toBe(LANDING_TOP);
+  expect(page.framing()).toBe(2); // one hold, one dimming
 });
 
-test("a link to the same page starts once the address has changed", () => {
+test("a link to the same page lands once the address has changed", () => {
   const { page, spotlight } = fakePage({ hash: "" });
   page.element("post-5");
   spotlight.startWhenHashIs("#post-5");
   page.wait(120);
-  expect(page.scrolls).toEqual([]);
+  expect(page.jumps).toEqual([]);
   page.hash = "#post-5";
   page.wait(400);
-  expect(page.scrolls).toHaveLength(1);
-  expect(page.visible).toEqual(BOX);
+  expect(page.top).toBe(LANDING_TOP);
+  expect(page.visible).not.toBeNull();
 
   // An address that never changes gives up.
   const stuck = fakePage({ hash: "" });
   stuck.page.element("post-5");
   stuck.spotlight.startWhenHashIs("#post-5");
   stuck.page.wait(5000);
-  expect(stuck.page.scrolls).toEqual([]);
+  expect(stuck.page.jumps).toEqual([]);
 });
 
-test("stopping removes everything it listened to", () => {
+test("stopping removes everything it listened to and lets go of the page", () => {
   const { page, spotlight } = fakePage({ hash: "#post-12" });
   page.element("post-12");
   spotlight.start();
-  page.wait(200);
   spotlight.stop();
   expect(page.visible).toBeNull();
+  expect(page.framing()).toBe(0);
   for (const type of [
     "scroll",
     "resize",
@@ -290,17 +396,15 @@ test("a reload and a visit by history are left to the browser's own scroll", () 
 });
 
 test("a traversal is taken by the first change that follows it, once", () => {
-  const { page } = fakePage({ hash: "" });
+  const pending: { run: () => void; ms: number; timer: { live: boolean } }[] =
+    [];
   const later = (run: () => void, ms: number) => {
     const timer = { live: true };
-    // Same clock as the fake page: the page's own timers are not exposed, so use its wait.
     pending.push({ run, ms, timer });
     return () => {
       timer.live = false;
     };
   };
-  const pending: { run: () => void; ms: number; timer: { live: boolean } }[] =
-    [];
   const guard = createTraversalGuard(later);
   expect(guard.consume()).toBe(false);
   guard.traversal();
@@ -318,25 +422,21 @@ test("a traversal is taken by the first change that follows it, once", () => {
   guard.traversal();
   for (const item of pending) if (item.timer.live) item.run();
   expect(guard.consume()).toBe(false);
-  expect(page.shown).toEqual([]);
 });
 
 test("the dimming stays on the element when content shifts while it is shown", () => {
   const { page, spotlight } = fakePage({ hash: "#post-12" });
   page.element("post-12");
   spotlight.start();
+  const first = page.box();
+  expect(page.visible).toEqual(first);
   page.frame();
-  expect(page.shown).toEqual([]);
-  page.wait(200);
-  expect(page.visible).toEqual(BOX);
+  expect(page.shown).toEqual([first]);
+  // The element grows (a picture inside it loads): the dimming follows.
+  page.height = 200;
   page.frame();
-  expect(page.shown).toEqual([BOX]);
-  const moved = { ...BOX, top: 240, height: 120 };
-  page.box = moved;
-  page.frame();
-  expect(page.visible).toEqual(moved);
-  page.frame();
-  expect(page.shown).toEqual([BOX, moved]);
+  expect(page.visible).toEqual(page.box());
+  expect(page.shown).toHaveLength(2);
   // Once dismissed it measures nothing more.
   page.fire("pointerdown");
   expect(page.framing()).toBe(0);
@@ -346,9 +446,7 @@ test("the dimming is given plain numbers, not the rectangle the browser returned
   const { page, spotlight } = fakePage({ hash: "#post-12" });
   page.element("post-12");
   spotlight.start();
-  page.wait(200);
   const shown = page.visible;
-  expect(shown).toEqual(BOX);
   expect(Object.keys(shown ?? {}).sort()).toEqual([
     "height",
     "left",
@@ -356,10 +454,15 @@ test("the dimming is given plain numbers, not the rectangle the browser returned
     "width",
   ]);
   expect(shown).not.toBeInstanceOf(RectLike);
-  // Content shifting moves it the same way.
-  page.box = { ...BOX, top: 40 };
-  page.frame();
-  expect(page.visible).toEqual({ ...BOX, top: 40 });
+});
+
+test("a second hold replaces the first", () => {
+  const scroller = fakeScroller({ y: 0, max: 5000 });
+  const holder = createScrollHolder(scroller.env);
+  holder.hold(() => 100, { forMs: 1000 });
+  holder.hold(() => 300, { quietMs: 500 });
+  expect(scroller.page.framing()).toBe(1);
+  expect(scroller.page.y).toBe(300);
 });
 
 test("an arrival starts once per history entry", () => {
@@ -414,9 +517,10 @@ function fakeScroller(options: { y: number; max: number }) {
     },
     jumps,
   };
-  const env: RestoreEnv = {
+  const env: HoldEnv = {
     scrollY: () => page.y,
     maxScrollY: () => page.max,
+    loaded: () => true,
     scrollTo: (y) => {
       jumps.push(y);
       page.y = y;

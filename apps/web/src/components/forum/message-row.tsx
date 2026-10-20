@@ -30,7 +30,7 @@ export function MessageRow({
     <article
       id={id}
       className={cn(
-        "flex scroll-mt-4",
+        "flex scroll-mt-landing-gap",
         compact ? "gap-2" : "gap-3 px-4 pt-4",
         !compact && (actions && !footer ? "pb-2" : "pb-4"),
         className,

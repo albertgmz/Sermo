@@ -59,6 +59,8 @@
   --spacing-inline-icon: 1.125rem;
   --spacing-mobile-nav: calc(3.5rem + env(safe-area-inset-bottom));
   --spacing-site-header: calc(3.5rem + 1px);
+  /* How far below the header a post, wall post, comment or message an address names lands. */
+  --spacing-landing-gap: 0.5rem;
   --aspect-cover: 5 / 2;
 
   /* Fonts. */

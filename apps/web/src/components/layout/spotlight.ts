@@ -4,15 +4,20 @@
 // The elements an address can name: a thread post, a wall post, a wall comment, a message.
 export const TARGET = /^#(?:post|profile-post|profile-comment|message)-\d+$/;
 
-// How long to wait for an element that streams in after the page loads, and how often to look.
+// How long to wait for an element that streams in after the page loads, and how often to look. A
+// landing waits longer: the page that holds an item can take a while to stream on a slow line.
 const WAIT_MS = 3000;
+export const LANDING_WAIT_MS = 15000;
 const POLL_MS = 100;
 // How long the dimming stays when nobody does anything.
 const SHOW_MS = 4000;
-// How long without a scroll counts as the end of the scroll that brought the element into view.
-const SETTLE_MS = 150;
 // How long a click on a link to the same page waits for the address to change.
 const NAVIGATE_MS = 1000;
+// A landed item is held in place while the page settles around it: until the reader acts, or once
+// the document has loaded and nothing has moved it for HOLD_QUIET_MS, and never longer than
+// HOLD_MAX_MS.
+export const HOLD_QUIET_MS = 1500;
+export const HOLD_MAX_MS = 10000;
 
 export type Box = { top: number; left: number; width: number; height: number };
 
@@ -35,41 +40,41 @@ const sameBox = (a: Box, b: Box) =>
   a.width === b.width &&
   a.height === b.height;
 
-export type SpotlightTarget = {
-  getBoundingClientRect(): Box;
-  scrollIntoView(options: {
-    block: "center";
-    behavior: "smooth" | "auto";
-  }): void;
-};
+export type SpotlightTarget = { getBoundingClientRect(): Box };
 
 export type SpotlightEnv = {
   hash(): string;
+  // The drawn element with this id (a copy of a page kept hidden does not count), or null.
   find(id: string): SpotlightTarget | null;
-  reducedMotion(): boolean;
+  // How far from the top of the window a landed element's top goes: under the sticky header, with
+  // the element's own gap.
+  landingTop(element: SpotlightTarget): number;
   // Listens for an event anywhere on the page; returns what stops listening.
   on(type: string, listener: () => void): () => void;
   // Runs `run` on every animation frame until cancelled.
   frames(run: () => void): () => void;
   // Runs `run` later; returns what cancels it.
   later(run: () => void, ms: number): () => void;
+  // The page's scroll, which a landing holds (see `createScrollHolder`).
+  scroll: HoldEnv;
   show(box: Box): void;
   hide(): void;
 };
 
-// Looks for an element that streams in after the page loads, every POLL_MS for up to WAIT_MS, and
-// hands it to `found` once it is there. Returns what stops the looking.
+// Looks for an element that streams in after the page loads, every POLL_MS for up to `waitMs`,
+// and hands it to `found` once it is there. Returns what stops the looking.
 export function pollFor<T>(
   find: () => T | null,
   later: (run: () => void, ms: number) => () => void,
   found: (element: T) => void,
+  waitMs = WAIT_MS,
 ) {
   let waited = 0;
   let cancel = () => {};
   const look = () => {
     const element = find();
     if (element) return found(element);
-    if (waited >= WAIT_MS) return;
+    if (waited >= waitMs) return;
     waited += POLL_MS;
     cancel = later(look, POLL_MS);
   };
@@ -77,62 +82,66 @@ export function pollFor<T>(
   return () => cancel();
 }
 
-// What a person does to take the dimming away. A scroll does too, but only once the scroll that
-// showed the element has ended.
+// What a person does to take the dimming, the waiting and the holding away.
 export const DISMISSING = ["pointerdown", "keydown", "wheel", "touchstart"];
 
+// Lands on the element an address names: its top goes just under the header at once (never a
+// smooth scroll, whose end is reckoned before the page has settled) and is held there while
+// pictures and late sections above it load, until the reader acts; the rest of the page is dimmed
+// around it for a few seconds. A soft navigation to such an address starts at the top of the new
+// page while the element streams in.
 export function createSpotlight(env: SpotlightEnv) {
   const stops: (() => void)[] = [];
+  const dimming: (() => void)[] = [];
+  const holder = createScrollHolder(env.scroll);
 
-  function stop() {
-    for (const undo of stops.splice(0)) undo();
+  // Takes the dimming away; the page stays held.
+  function undim() {
+    for (const undo of dimming.splice(0)) undo();
     env.hide();
   }
 
-  function reveal(element: SpotlightTarget) {
-    element.scrollIntoView({
-      block: "center",
-      behavior: env.reducedMotion() ? "auto" : "smooth",
-    });
-    for (const type of DISMISSING) stops.push(env.on(type, stop));
-    let settled = false;
-    let cancelSettle = () => {};
-    const waitForSettle = () => {
-      cancelSettle();
-      cancelSettle = env.later(() => {
-        settled = true;
-        // Kept on the element while it is shown: content that shifts afterwards (late pictures,
-        // a section that streams in) moves it.
-        let shown = measure(element);
-        env.show(shown);
-        stops.push(
-          env.frames(() => {
-            const now = measure(element);
-            if (sameBox(now, shown)) return;
-            shown = now;
-            env.show(now);
-          }),
-        );
-        stops.push(env.later(stop, SHOW_MS));
-      }, SETTLE_MS);
-    };
-    stops.push(() => cancelSettle());
-    stops.push(
-      env.on("scroll", () => {
-        if (settled) stop();
-        else waitForSettle();
-      }),
-    );
-    waitForSettle();
+  function stop() {
+    for (const undo of stops.splice(0)) undo();
+    holder.stop();
+    undim();
   }
 
-  // Dims the page around the element the address names, once it is on the page.
-  function start() {
+  // The scroll position that puts the element's top where a landing wants it.
+  const wanted = (element: SpotlightTarget) => () =>
+    env.scroll.scrollY() +
+    element.getBoundingClientRect().top -
+    env.landingTop(element);
+
+  function land(element: SpotlightTarget) {
+    holder.hold(wanted(element), {
+      quietMs: HOLD_QUIET_MS,
+      maxMs: HOLD_MAX_MS,
+    });
+    // Kept on the element while it is shown: content that shifts afterwards moves it.
+    let shown = measure(element);
+    env.show(shown);
+    dimming.push(
+      env.frames(() => {
+        const now = measure(element);
+        if (sameBox(now, shown)) return;
+        shown = now;
+        env.show(now);
+      }),
+    );
+    dimming.push(env.later(undim, SHOW_MS));
+  }
+
+  // Lands on the element the address names, once it is on the page. `fromTop`: a navigation from
+  // another page, which shows the new page from its top while the element is not drawn yet.
+  function start(options: { fromTop?: boolean } = {}) {
     stop();
     const hash = env.hash();
     if (!TARGET.test(hash)) return;
     const id = hash.slice(1);
-    stops.push(pollFor(() => env.find(id), env.later, reveal));
+    for (const type of DISMISSING) stops.push(env.on(type, stop));
+    if (options.fromTop && !env.find(id)) env.scroll.scrollTo(0);
+    stops.push(pollFor(() => env.find(id), env.later, land, LANDING_WAIT_MS));
   }
 
   // A link to another place on this page was followed: starts once the address has changed.
@@ -233,39 +242,66 @@ export function createScrollMemory(handled: ReadonlySet<string>) {
   };
 }
 
-export type RestoreEnv = {
+export type HoldEnv = {
   scrollY(): number;
   // The furthest the page can be scrolled right now.
   maxScrollY(): number;
   scrollTo(y: number): void;
+  // Whether the document and its pictures have finished loading.
+  loaded(): boolean;
   on(type: string, listener: () => void): () => void;
   frames(run: () => void): () => void;
   later(run: () => void, ms: number): () => void;
 };
 
-// What a person does to take the scroll in their hands.
-const TAKING_OVER = ["pointerdown", "keydown", "wheel", "touchstart"];
-
-// Puts the page back at `y` and holds it there for a moment: every frame it moves the page if
-// something else did (the jump to the address), as far as the page is long enough. The first
-// action of the reader ends it.
-export function createScrollRestorer(env: RestoreEnv) {
+// Holds the page at a scroll position: at once, then every frame it moves the page back if
+// something else did (the jump to an address, a picture or a section loading above), as far as
+// the page is long enough. The reader's first action ends it, and so do the limits it is given:
+// `forMs` in any case; `quietMs` once the document has loaded and nothing moved the page for that
+// long; `maxMs` at the latest. A second hold replaces the first.
+export function createScrollHolder(env: HoldEnv) {
   const stops: (() => void)[] = [];
   function stop() {
     for (const undo of stops.splice(0)) undo();
   }
-  function restore(y: number) {
+  function hold(
+    wanted: () => number,
+    limits: { forMs?: number; quietMs?: number; maxMs?: number },
+  ) {
     stop();
-    for (const type of TAKING_OVER) stops.push(env.on(type, stop));
-    stops.push(env.later(stop, RESTORE_MS));
-    stops.push(
-      env.frames(() => {
-        const to = Math.min(y, env.maxScrollY());
-        if (Math.abs(env.scrollY() - to) >= 1) env.scrollTo(to);
-      }),
-    );
+    for (const type of DISMISSING) stops.push(env.on(type, stop));
+    let moved = false;
+    const keep = () => {
+      const to = Math.max(0, Math.min(wanted(), env.maxScrollY()));
+      if (Math.abs(env.scrollY() - to) < 1) return;
+      env.scrollTo(to);
+      moved = true;
+    };
+    keep();
+    stops.push(env.frames(keep));
+    for (const ms of [limits.forMs, limits.maxMs])
+      if (ms !== undefined) stops.push(env.later(stop, ms));
+    const { quietMs } = limits;
+    if (quietMs !== undefined) {
+      moved = false;
+      const check = () => {
+        if (!moved && env.loaded()) return stop();
+        moved = false;
+        stops.push(env.later(check, quietMs));
+      };
+      stops.push(env.later(check, quietMs));
+    }
   }
-  return { restore, stop };
+  return { hold, stop };
+}
+
+// Puts the page back at `y` on a return to a history entry, and holds it there for a moment.
+export function createScrollRestorer(env: HoldEnv) {
+  const holder = createScrollHolder(env);
+  return {
+    restore: (y: number) => holder.hold(() => y, { forMs: RESTORE_MS }),
+    stop: holder.stop,
+  };
 }
 
 // Sent on the window by a link that changed the address without a navigation: the hash it names.
