@@ -130,6 +130,17 @@ setup("sign in, seed and warm up", async ({ page }) => {
     await page.goto(path);
     await ready(page);
   }
+  // The install and notification cards ("Not now" keeps them away for 30 days) would open over the
+  // pages the flows measure, so both start out put off. `PROMPTS_KEY` in src/lib/app-prompts.ts.
+  await page.goto("/cookies");
+  await ready(page);
+  await page.evaluate(() => {
+    const now = Date.now();
+    localStorage.setItem(
+      "sermo-app-prompts",
+      JSON.stringify({ install: now, push: now }),
+    );
+  });
   await page.context().storageState({ path: MEMBER_STATE });
 });
 
