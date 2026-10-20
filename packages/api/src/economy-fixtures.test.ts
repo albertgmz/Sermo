@@ -213,7 +213,23 @@ export async function fixture(mode: "cookie" | "key" = "cookie") {
     { title: "Replies", trigger: "reply_posted", amount: 2 },
     201,
   );
-  const award = await f.award({ xp: 7, isStackable: true });
+  const awardCategory = await f.api(
+    c.awardCategoriesCreate,
+    "POST",
+    "/awards/categories",
+    f.admin.auth,
+    { title: "Helping" },
+    201,
+  );
+  const emptyAwardCategory = await f.api(
+    c.awardCategoriesCreate,
+    "POST",
+    "/awards/categories",
+    f.admin.auth,
+    { title: "Unused" },
+    201,
+  );
+  const award = await f.award({ xp: 7, isStackable: true, categoryId: awardCategory.id });
   const ungrantedAward = await f.award({ name: "Ungrantable until selected" });
   const category = await f.category();
   const emptyCategory = await f.category({ name: "Empty" });
@@ -251,6 +267,8 @@ export async function fixture(mode: "cookie" | "key" = "cookie") {
     rule,
     award,
     ungrantedAward,
+    awardCategory,
+    emptyAwardCategory,
     category,
     emptyCategory,
     item,

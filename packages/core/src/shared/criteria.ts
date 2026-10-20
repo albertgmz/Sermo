@@ -472,6 +472,17 @@ export function afterAwardGrant(
 }
 
 /**
+ * The number of the rule's first at-least condition ("100" of "at least 100 posts"), or null: how
+ * far up its ladder an award stands, for listings that put the easiest first.
+ */
+export function ruleThreshold(rule: Rule): number | null {
+  for (const condition of rule.conditions)
+    if (byId.get(condition.criterion)?.kind === "atLeast" && condition.value !== undefined)
+      return condition.value;
+  return null;
+}
+
+/**
  * The criteria in a rule that are answered by a measure: one statement for each such condition on
  * top of the per-kind facts. A consumer that decides a rule on every request refuses them to keep
  * its statement count fixed.

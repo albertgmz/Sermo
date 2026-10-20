@@ -203,7 +203,7 @@ describe("award grants", () => {
 });
 
 describe("award catalog and reads", () => {
-  test("catalog and member awards sort by tier, XP and id; inactive grants remain held", async () => {
+  test("member awards sort by tier, XP and id, the catalog by XP; inactive grants remain held", async () => {
     const { ctx, member, call } = setup();
     const awards = [];
     for (const [tier, xp] of [
@@ -226,14 +226,23 @@ describe("award catalog and reads", () => {
       awards[3].id,
       awards[0].id,
     ];
-    expect((await call("list")).items.map((award: { id: number }) => award.id)).toEqual(expected);
+    // Without categories or thresholds the catalog is easiest first: XP ascending, then name, then id.
+    const catalog = [
+      awards[2].id,
+      awards[1].id,
+      awards[4].id,
+      awards[5].id,
+      awards[3].id,
+      awards[0].id,
+    ];
+    expect((await call("list")).items.map((award: { id: number }) => award.id)).toEqual(catalog);
     await call("update", { awardId: awards[2].id, isActive: false });
     const held = await call("member", { userId: member.id });
     expect(held.items.map((item: { award: { id: number } }) => item.award.id)).toEqual(expected);
     expect(held.xp).toBe(1120);
     expect(held.items[0].award.isActive).toBe(false);
     const guestList = await execute(ctx, getOperation("awards.list"), GUEST, {});
-    expect(guestList.items.map((award: { id: number }) => award.id)).toEqual(expected.slice(1));
+    expect(guestList.items.map((award: { id: number }) => award.id)).toEqual(catalog.slice(1));
     for (const actor of [GUEST, userActor(member), userActor(insertUser(ctx, { groupId: 3 }))]) {
       for (const name of ["get", "holders"])
         await expect(

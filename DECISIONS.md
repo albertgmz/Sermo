@@ -5159,3 +5159,29 @@ text alone.
 - Phones: Chrome on Android and Safari on iOS deliver a pasted picture as a paste event with a file
   (or, on Android keyboards, an input event with `dataTransfer`); both are handled. Not tried on a
   device.
+
+### Awards are grouped by category; the tier is only a rarity colour
+
+fcuba.net groups its awards by what they reward (seniority, posts, reactions, welcome, specials),
+each a ladder of many rungs, not by Bronze / Silver / Gold / Legendary. Award categories are
+admin-defined rows (`award_categories`: title, optional description, position) and an award has at
+most one (`awards.category_id`, null for none; deleting a category leaves its awards without one,
+through the foreign key, so a delete is never refused). They are written with `admin.awards`, like
+awards, through `awardCategories.create`, `update` and `delete`, and each write is a moderator log
+entry (`awardCategory.*`); award edits themselves are still not logged. `awardCategories.list` is
+open to whoever may read the awards and counts the awards the viewer can see in each.
+
+`awards.list` keeps one order for every client: by category position (then id), awards without a
+category last, and inside a category easiest first: awards whose rule has an at-least condition
+first, by the number of the first one (`ruleThreshold`, in the criteria engine, since nothing else
+reads a condition's criterion), then XP ascending, then name. A threshold is compared across
+criteria when a category mixes them; a hand-given award sorts after the rungs. `awards.member` keeps
+its rarest-first order, as do the awards shown next to a name.
+
+`/awards` draws one section per category in that order, with its description, and the rest under
+"Others" ("All awards" when there are no categories); an empty category is left out. The award's
+page names its category, linked to its section; a profile's award icons say their category on
+hover. The tier stays: it colours the icon (and the XP figure) from bronze for the easy rungs to
+legendary for the hardest, and its name is shown only in the award form, as "Rarity (colour)". The
+staff lists show the category instead of the tier. The leaderboard and podium medals use the tier
+colours for ranks 1-3, which is not an award's tier, and stay.

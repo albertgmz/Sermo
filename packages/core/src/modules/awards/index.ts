@@ -22,6 +22,7 @@ import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
 import { requireSiteView } from "../members/site-access";
 import { mayViewProfile, profileAccess } from "../profiles/shared";
+import { assertCategory, categoryOperations } from "./categories";
 import { grantAward, revokeAward } from "./grants";
 import {
   type AwardRow,
@@ -29,6 +30,7 @@ import {
   awardRow,
   awardSql,
   awardValue,
+  catalogOrder,
   compareAwards,
   type GrantRow,
   grantValues,
@@ -128,15 +130,15 @@ function grantsPage(
 }
 
 export const operations = [
+  ...categoryOperations,
   implement(contracts.awardsList, (ctx, actor) => {
     requireSiteView(ctx, actor);
     requirePermission(ctx, actor, "profile.view");
     const admin = can(ctx, actor, "admin.awards");
     return {
-      items: all<AwardRow>(ctx, "catalog", awardSql.catalog)
-        .filter((row) => admin || row.is_active)
-        .map((row) => awardValue(ctx, row, admin))
-        .sort(compareAwards),
+      items: catalogOrder(
+        all<AwardRow>(ctx, "catalog", awardSql.catalog).filter((row) => admin || row.is_active),
+      ).map((row) => awardValue(ctx, row, admin)),
     };
   }),
   implement(contracts.awardsGet, (ctx, actor, input) =>
@@ -157,11 +159,12 @@ export const operations = [
     validate(ctx, input.rule);
     return writeTx(ctx, () => {
       requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
+      assertCategory(ctx, input.categoryId);
       const id = Number(
         run(
           ctx,
           "create",
-          "INSERT INTO awards (name, description, icon, tier, xp, credits, is_stackable, is_active, rule, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
+          "INSERT INTO awards (name, description, icon, tier, xp, credits, is_stackable, is_active, rule, created_at, updated_at, category_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10, ?11)",
           input.name,
           input.description,
           input.icon,
@@ -172,6 +175,7 @@ export const operations = [
           Number(input.isActive),
           JSON.stringify(input.rule),
           ctx.now(),
+          input.categoryId,
         ).lastInsertRowid,
       );
       assertNoAwardLoop(ctx, id, input.rule);
@@ -184,13 +188,14 @@ export const operations = [
     return writeTx(ctx, () => {
       requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
       const award = awardRow(ctx, input.awardId);
+      if (input.categoryId !== undefined) assertCategory(ctx, input.categoryId);
       if (input.rule) assertNoAwardLoop(ctx, award.id, input.rule);
       if (input.isStackable === false && one(ctx, "stacked", awardSql.stacked, award.id))
         throw new ConflictError("A member holds this award more than once.");
       run(
         ctx,
         "update",
-        "UPDATE awards SET name = ?1, description = ?2, icon = ?3, tier = ?4, xp = ?5, credits = ?6, is_stackable = ?7, is_active = ?8, rule = ?9, updated_at = ?10 WHERE id = ?11",
+        "UPDATE awards SET name = ?1, description = ?2, icon = ?3, tier = ?4, xp = ?5, credits = ?6, is_stackable = ?7, is_active = ?8, rule = ?9, updated_at = ?10, category_id = ?12 WHERE id = ?11",
         input.name ?? award.name,
         input.description ?? award.description,
         input.icon ?? award.icon,
@@ -202,6 +207,7 @@ export const operations = [
         JSON.stringify(input.rule ?? ruleOf(award)),
         ctx.now(),
         award.id,
+        input.categoryId === undefined ? award.category_id : input.categoryId,
       );
       return awardValue(ctx, awardRow(ctx, award.id), true);
     });

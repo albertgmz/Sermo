@@ -195,6 +195,55 @@ const cases: RouteCase[] = [
     expected: (f) => ({ items: [{ id: f.award.id, grantCount: 1 }, f.ungrantedAward] }),
   },
   {
+    contract: c.awardCategoriesList,
+    method: "GET",
+    path: "/awards/categories",
+    status: 200,
+    url: () => "/awards/categories",
+    guest: "public",
+    denied: { permission: "profile.view" },
+    expected: (f) => ({
+      items: [
+        { ...f.awardCategory, awardCount: 1 },
+        { ...f.emptyAwardCategory, awardCount: 0 },
+      ],
+    }),
+  },
+  {
+    contract: c.awardCategoriesCreate,
+    method: "POST",
+    path: "/awards/categories",
+    status: 201,
+    url: () => "/awards/categories",
+    body: () => ({ title: "  By posts  ", position: 4 }),
+    denied: {},
+    invalid: { body: { title: "" }, issue: "title" },
+    expected: () => ({ title: "By posts", position: 4, description: "", awardCount: 0 }),
+  },
+  {
+    contract: c.awardCategoriesUpdate,
+    method: "PATCH",
+    path: "/awards/categories/{categoryId}",
+    status: 200,
+    url: (f) => `/awards/categories/${f.awardCategory.id}`,
+    body: () => ({ title: "Renamed", position: 9 }),
+    denied: {},
+    invalid: { body: { position: -1 }, issue: "position" },
+    missing: { url: () => `/awards/categories/${missingId}` },
+    expected: (f) => ({ id: f.awardCategory.id, title: "Renamed", position: 9, awardCount: 1 }),
+  },
+  {
+    contract: c.awardCategoriesDelete,
+    method: "DELETE",
+    path: "/awards/categories/{categoryId}",
+    status: 200,
+    url: (f) => `/awards/categories/${f.awardCategory.id}`,
+    denied: {},
+    invalid: { url: () => "/awards/categories/nope", issue: "categoryId" },
+    missing: { url: () => `/awards/categories/${missingId}` },
+    expected: () => ({ ok: true }),
+  },
+  {
     contract: c.awardsGet,
     method: "GET",
     path: "/awards/{awardId}",
@@ -518,13 +567,13 @@ const cases: RouteCase[] = [
   },
 ];
 
-test("economy has exactly the 35 documented route mappings", () => {
-  expect(cases).toHaveLength(35);
-  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(35);
+test("economy has exactly the 39 documented route mappings", () => {
+  expect(cases).toHaveLength(39);
+  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(39);
   const actual = routes.filter(({ operation }) =>
-    /^(credits|creditRules|awards|shopCategories|shopItems|shop)\./.test(operation),
+    /^(credits|creditRules|awards|awardCategories|shopCategories|shopItems|shop)\./.test(operation),
   );
-  expect(actual).toHaveLength(35);
+  expect(actual).toHaveLength(39);
   for (const row of cases)
     expect(actual.find(({ operation }) => operation === row.contract.name)).toMatchObject({
       method: row.method,
@@ -658,7 +707,9 @@ test("OpenAPI over HTTP documents all 35 economy operations and references share
   const expectedNames = cases.map(({ contract }) => contract.name).sort();
   const actualNames = Object.values(doc.paths)
     .flatMap((methods) => Object.values(methods).map(({ operationId }) => operationId))
-    .filter((name) => /^(credits|creditRules|awards|shopCategories|shopItems|shop)\./.test(name))
+    .filter((name) =>
+      /^(credits|creditRules|awards|awardCategories|shopCategories|shopItems|shop)\./.test(name),
+    )
     .sort();
   expect(actualNames).toEqual(expectedNames);
   for (const row of cases) {
@@ -743,7 +794,7 @@ test("MCP tools/list over HTTP exposes exactly one tool for each economy contrac
   };
   expect(body).toMatchObject({ jsonrpc: "2.0", id: 1 });
   const economy = body.result.tools.filter(({ name }) =>
-    /^(credits|creditRules|awards|shopCategories|shopItems|shop)_/.test(name),
+    /^(credits|creditRules|awards|awardCategories|shopCategories|shopItems|shop)_/.test(name),
   );
   expect(economy.map(({ name }) => name).sort()).toEqual(
     cases.map(({ contract }) => contract.name.replaceAll(".", "_")).sort(),

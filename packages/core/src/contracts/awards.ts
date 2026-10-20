@@ -6,6 +6,28 @@ import { CriteriaRule, CriterionDefinition } from "./criteria";
 import { ImageReference } from "./images";
 
 /**
+ * What a group of awards rewards ("By posts", "Welcome", ...). Awards are listed under their
+ * category, categories by ascending `position` (then id), awards without one last.
+ */
+export const AwardCategory = z
+  .object({
+    id: Id,
+    title: z.string(),
+    description: z.string(),
+    position: z.number().int(),
+    /** Awards in it that the viewer can see (inactive ones only with admin.awards). */
+    awardCount: z.number().int().nonnegative(),
+    createdAt: Timestamp,
+    updatedAt: Timestamp,
+  })
+  .meta({ id: "AwardCategory" });
+
+/** The category an award is listed under. */
+export const AwardCategoryRef = z
+  .object({ id: Id, title: z.string() })
+  .meta({ id: "AwardCategoryRef" });
+
+/**
  * An award (achievements are awards too). A stackable award can be granted to the same member
  * any number of times; any other award once.
  */
@@ -18,7 +40,10 @@ export const Award = z
     icon: z.string(),
     /** The award's picture (images.setAwardImage), or null. */
     image: ImageReference,
+    /** Its rarity, for the colours of its icon; awards are grouped by category, not by tier. */
     tier: z.enum(AWARD_TIERS),
+    /** Null when the award has no category. */
+    category: AwardCategoryRef.nullable(),
     /** XP each grant adds to the member's total. */
     xp: z.number().int().nonnegative(),
     /** Credits each grant pays the member. */
@@ -56,6 +81,8 @@ const AwardInput = {
   description: z.string().trim().max(500),
   icon: z.string().trim().max(200),
   tier: Award.shape.tier,
+  /** An existing award category, or null for none. */
+  categoryId: Id.nullable(),
   xp: z.number().int().min(0).max(1_000_000),
   credits: z.number().int().min(0).max(1_000_000),
   isStackable: z.boolean(),
@@ -66,8 +93,10 @@ const AwardInput = {
 export const awardsList = defineContract({
   name: "awards.list",
   summary:
-    "Every active award, best tier first (legendary, gold, silver, bronze), then by XP " +
-    "descending. With admin.awards, inactive awards too. Requires site.view and profile.view.",
+    "Every active award, by category in the categories' order (awards without one last), " +
+    "easiest first inside a category: awards whose rule has an at-least condition first, by the " +
+    "number of the first such condition, then by XP ascending, then by name. With admin.awards, " +
+    "inactive awards too. Requires site.view and profile.view.",
   kind: "read",
   input: Empty,
   output: z.object({ items: z.array(Award) }),
@@ -111,6 +140,7 @@ export const awardsCreate = defineContract({
     ...AwardInput,
     description: AwardInput.description.default(""),
     icon: AwardInput.icon.default(""),
+    categoryId: AwardInput.categoryId.default(null),
     xp: AwardInput.xp.default(0),
     credits: AwardInput.credits.default(0),
     isStackable: AwardInput.isStackable.default(false),
@@ -132,6 +162,7 @@ export const awardsUpdate = defineContract({
     description: AwardInput.description.optional(),
     icon: AwardInput.icon.optional(),
     tier: AwardInput.tier.optional(),
+    categoryId: AwardInput.categoryId.optional(),
     xp: AwardInput.xp.optional(),
     credits: AwardInput.credits.optional(),
     isStackable: AwardInput.isStackable.optional(),
@@ -179,6 +210,59 @@ export const awardsRevoke = defineContract({
     "below zero). Requires award.grant.",
   kind: "write",
   input: z.object({ memberAwardId: Id, reason: z.string().trim().max(500).default("") }),
+  output: Ok,
+});
+
+const CategoryInput = {
+  title: z.string().trim().min(1).max(100),
+  description: z.string().trim().max(500),
+  position: z.number().int().min(0).max(1_000_000),
+};
+
+export const awardCategoriesList = defineContract({
+  name: "awardCategories.list",
+  summary:
+    "Every award category in display order (position, then id), empty ones included, each with " +
+    "how many awards the viewer can see in it. Requires site.view and profile.view.",
+  kind: "read",
+  input: Empty,
+  output: z.object({ items: z.array(AwardCategory) }),
+});
+
+export const awardCategoriesCreate = defineContract({
+  name: "awardCategories.create",
+  summary:
+    "Create an award category. Without a position it goes after the last one. Requires " +
+    "admin.awards.",
+  kind: "write",
+  input: z.object({
+    ...CategoryInput,
+    description: CategoryInput.description.default(""),
+    position: CategoryInput.position.optional(),
+  }),
+  output: AwardCategory,
+});
+
+export const awardCategoriesUpdate = defineContract({
+  name: "awardCategories.update",
+  summary: "Rename, describe or move an award category. Requires admin.awards.",
+  kind: "write",
+  input: z.object({
+    categoryId: Id,
+    title: CategoryInput.title.optional(),
+    description: CategoryInput.description.optional(),
+    position: CategoryInput.position.optional(),
+  }),
+  output: AwardCategory,
+});
+
+export const awardCategoriesDelete = defineContract({
+  name: "awardCategories.delete",
+  summary:
+    "Delete an award category. Its awards stay, without a category (listed last). Requires " +
+    "admin.awards.",
+  kind: "write",
+  input: z.object({ categoryId: Id }),
   output: Ok,
 });
 

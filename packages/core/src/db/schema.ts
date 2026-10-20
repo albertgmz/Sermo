@@ -2115,27 +2115,49 @@ export const creditRuleApplications = sqliteTable(
 // ---------------------------------------------------------------------------
 // Awards
 
-export const awards = sqliteTable("awards", {
+/** What awards reward ("By posts", "Welcome", ...), in the admin's order. */
+export const awardCategories = sqliteTable("award_categories", {
   id: integer("id").primaryKey(),
-  name: text("name").notNull(),
+  title: text("title").notNull(),
   description: text("description").notNull().default(""),
-  /** An icon key or URL the client resolves; opaque to the server. */
-  icon: text("icon").notNull().default(""),
-  tier: text("tier", { enum: AWARD_TIERS }).notNull(),
-  xp: integer("xp").notNull().default(0),
-  /** Credits paid through the ledger with each grant. */
-  credits: integer("credits").notNull().default(0),
-  /** Whether a member can hold it more than once. */
-  isStackable: bool("is_stackable").notNull().default(false),
-  isActive: bool("is_active").notNull().default(true),
-  /** JSON rule `{ match, conditions }` (shared/criteria.ts); no conditions = granted by hand only. */
-  rule: text("rule").notNull().default(EMPTY_RULE),
-  /** Grants currently held, over all members. */
-  grantCount: counter("grant_count"),
+  position: integer("position").notNull().default(0),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
-  imageFileId: integer("image_file_id"),
 });
+
+export const awards = sqliteTable(
+  "awards",
+  {
+    id: integer("id").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    /** An icon key or URL the client resolves; opaque to the server. */
+    icon: text("icon").notNull().default(""),
+    /** The award's rarity, drawn only as the colours of its icon (awards are grouped by category). */
+    tier: text("tier", { enum: AWARD_TIERS }).notNull(),
+    /** Null: no category, listed last. Deleting a category leaves its awards without one. */
+    categoryId: integer("category_id").references(() => awardCategories.id, {
+      onDelete: "set null",
+    }),
+    xp: integer("xp").notNull().default(0),
+    /** Credits paid through the ledger with each grant. */
+    credits: integer("credits").notNull().default(0),
+    /** Whether a member can hold it more than once. */
+    isStackable: bool("is_stackable").notNull().default(false),
+    isActive: bool("is_active").notNull().default(true),
+    /** JSON rule `{ match, conditions }` (shared/criteria.ts); no conditions = granted by hand only. */
+    rule: text("rule").notNull().default(EMPTY_RULE),
+    /** Grants currently held, over all members. */
+    grantCount: counter("grant_count"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    imageFileId: integer("image_file_id"),
+  },
+  (t) => [
+    // A category's awards: its count, and leaving them without one when it is deleted.
+    index("awards_category").on(t.categoryId),
+  ],
+);
 
 /** One row per grant. A revoked grant keeps its row, so ids are never reused. */
 export const memberAwards = sqliteTable(

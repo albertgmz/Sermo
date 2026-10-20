@@ -59,6 +59,12 @@ export const scenarios: Scenario[] = [
     run: (env) => env.call("awards.list", env.actors.admin, {}),
   },
   {
+    // The awards page reads the categories beside the catalog.
+    name: "awardCategories.list guest",
+    kind: "read",
+    run: (env) => env.call("awardCategories.list", env.actors.guest, {}),
+  },
+  {
     name: "awards.get",
     kind: "read",
     run: (env) =>
