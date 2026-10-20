@@ -554,11 +554,12 @@ test("a comment written in the feed lands on it there @landing", async ({
   const feed = page.url();
   const text = `Feed comment ${Date.now().toString(36)}`;
   await write(card, "Write a comment…", text, "Post comment");
-  await expect(page).toHaveURL(/#profile-comment-\d+$/, { timeout: 30_000 });
-  // Still the feed, at the comment.
-  expect(page.url().split("#")[0]).toBe(feed.split("#")[0]);
-  const id = await expectLandedAtHash(page);
-  await expect(drawn(page, id)).toContainText(text);
+  const comment = card
+    .locator('[id^="profile-comment-"]')
+    .filter({ hasText: text });
+  await expectLandedAt(page, comment);
+  // Still the feed: the page is not left, nor its address changed.
+  expect(page.url()).toBe(feed);
 });
 
 test("a new wall post lands on it @landing", async ({ page }) => {
@@ -596,7 +597,6 @@ test("an edited comment and an edited wall post land on themselves @landing", as
     await editor.press("Control+End");
     await editor.pressSequentially(text);
     await item.getByRole("button", { name: "Save changes" }).click();
-    await expect(page).toHaveURL(new RegExp(`#${id}$`), { timeout: 30_000 });
     await expectLandedAt(page, drawn(page, id));
     await expect(drawn(page, id)).toContainText(text.trim());
   }
@@ -677,4 +677,85 @@ test("show more comments loads the older ones in place in the feed @landing", as
   );
   await feedPageWith(page, card);
   await expectEarlierInPlace(page, card);
+});
+
+// The ids of the comments drawn in a list, in order; each drawn once.
+async function commentIds(list: Locator) {
+  const ids = await list
+    .locator('[id^="profile-comment-"]')
+    .evaluateAll((rows) => rows.map((row) => row.id));
+  expect(new Set(ids).size, "no comment is drawn twice").toBe(ids.length);
+  return ids;
+}
+
+// The comments loaded in place follow the page when it is drawn again: an edit shows, a deleted
+// comment goes (one of the newest few too, without a copy), a new one leaves no gap.
+test("the comments loaded in place follow an edit, a deletion and a new comment @landing", async ({
+  page,
+}) => {
+  const { landing } = seed();
+  const postId = landing.wall.newestPostId;
+  // A comment of the member's own to delete later, so the seed keeps its count.
+  await page.goto(`/members/${landing.memberId}`);
+  await ready(page);
+  await write(
+    page.locator(`[id="profile-post-${postId}-comment"]`),
+    "Write a comment…",
+    `Doomed comment ${Date.now().toString(36)}`,
+    "Post comment",
+  );
+  await expect(page).toHaveURL(/#profile-comment-\d+$/, { timeout: 30_000 });
+  const doomed = new URL(page.url()).hash.slice(1);
+
+  await page.goto(`/members/${landing.memberId}`);
+  await ready(page);
+  const post = drawn(page, `profile-post-${postId}`);
+  await expectEarlierInPlace(page, post);
+  const all = await commentIds(post);
+  expect(all.at(-1), "the new comment is among the newest").toBe(doomed);
+
+  // An edit of a loaded comment shows in it, once.
+  const oldest = all[0]!;
+  const text = ` edited ${Date.now().toString(36)}`;
+  const item = drawn(page, oldest);
+  await item.getByRole("button", { name: "Edit", exact: true }).first().click();
+  const editor = item.getByRole("textbox", { name: "Edit your text…" });
+  await editor.click();
+  await editor.press("Control+End");
+  await editor.pressSequentially(text);
+  await item.getByRole("button", { name: "Save changes" }).click();
+  await expect(drawn(page, oldest)).toContainText(text.trim(), {
+    timeout: 30_000,
+  });
+  expect(await commentIds(post)).toEqual(all);
+
+  // One of the newest few, drawn by the server, deleted: the loaded ones close up, with no copy.
+  const gone = drawn(page, doomed);
+  await gone.getByRole("button", { name: "Delete", exact: true }).click();
+  await gone.locator('button[type="submit"]', { hasText: "Delete" }).click();
+  await expect
+    .poll(() => commentIds(post), { timeout: 30_000 })
+    .toEqual(all.filter((id) => id !== doomed));
+});
+
+test("the comments loaded in place in the feed leave no gap after a new comment @landing", async ({
+  page,
+}) => {
+  const { landing } = seed();
+  const card = page.locator(
+    `[id="feed-profile-post-${landing.wall.newestPostId}"]`,
+  );
+  await feedPageWith(page, card);
+  await expectEarlierInPlace(page, card);
+  const before = await commentIds(card);
+  const text = `Feed comment ${Date.now().toString(36)}`;
+  await write(card, "Write a comment…", text, "Post comment");
+  const comment = card
+    .locator('[id^="profile-comment-"]')
+    .filter({ hasText: text });
+  await expect(comment).toBeVisible({ timeout: 30_000 });
+  const added = (await comment.getAttribute("id")) ?? "";
+  await expect
+    .poll(() => commentIds(card), { timeout: 30_000 })
+    .toEqual([...before, added]);
 });

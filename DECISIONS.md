@@ -5478,14 +5478,40 @@ so the reader arrived mid-post or past it, and a hidden copy of the same page co
   its hash (`wallTargetHref`), which lands on it on the page of the wall that holds it. A redirect
   to the bare wall address had no fragment, so the soft navigation scrolled to the top.
 - A comment written elsewhere (the feed, a picture's comments) and every edit refresh the route in
-  place and land through `landOn` (`components/layout/land-on.ts`): the hash replaces the current
-  entry's, with a null state so Next's router takes the address in, and `HashTarget` lands.
+  place and land through `landOn` (`components/layout/land-on.ts`), which tells `HashTarget` the
+  item to land on and leaves the address as it is. Next 16.4 takes an address changed behind its
+  back (`history.replaceState`) as a restore of its state: that drops a navigation in flight, and
+  the next refresh draws the page's sections from their loading state again. Changed through
+  `router.replace`, it appends the new hash to the one already there (`#a#b`).
 - "Show more comments" is a button, not a link: a server action (`members/earlier-comments.tsx`)
   draws the batch before the oldest comment shown, `EarlierComments` inserts it above, and the
   comment that was first is held where it was on the screen while the batch's pictures load, until
   the reader acts (WebKit has no scroll anchoring). The button goes when no batch is left, as in
-  XenForo.
+  XenForo, and the keyboard's focus moves to the oldest comment.
+- The loaded comments stay true to the page: every call reads the range again from the start, and
+  when the server draws the list again (a new comment, an edit, a deletion: a new `load`), the
+  loaded range is read again down to the same comment. A row the server list draws itself is never
+  drawn twice. Comments are few per post, so reading again costs little.
 
 Why: the "show more" link navigated to the wall post's address, so the page landed and dimmed the
 post and swapped the three comments for a page drawn newest first: the jump and the animation the
 owner saw.
+
+### Landing: what the hold lets go on, and two things kept as they are
+
+- Besides the reader's pointer, key, wheel or touch, a landing's hold lets go on a scroll it did
+  not make, once the document has loaded and 300 ms after it began, while the place it wants
+  stayed put (a scrollbar dragged, assistive technology). Before that, the browser's own jump to
+  the address can still come, and a restore on Back keeps fighting it. A target taken out of the
+  page or hidden ends the hold and the dimming.
+- `threads.locateUnread` follows merged threads, as `threads.get` does. `profilePosts.locate` and
+  `profileComments.locate` refuse a viewer who may not open the wall's profile, the author of the
+  item too, as reading the wall does.
+- A conversation row always links `/conversations/N/unread`: the summary's last message can be one
+  the viewer may not see (a first message held for approval). A conversation whose every message is
+  hidden from the viewer then answers 404 there, as before for its unread address.
+- Kept: an old XenForo `page-N` address turns into `?page=` through `POSTS_PER_PAGE` inside a 308.
+  If the page size changes, the targets browsers and search engines stored point at the wrong
+  pages.
+- Kept: follow and announcement e-mails carry no "View it" link (`contentPath` is null for `user`
+  and `announcement`), although the in-app alert has one.
