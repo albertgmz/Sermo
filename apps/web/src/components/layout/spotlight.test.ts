@@ -9,6 +9,7 @@ import {
   createTraversalGuard,
   decideArrival,
   entryId,
+  HOLD_GRACE_MS,
   HOLD_MAX_MS,
   HOLD_QUIET_MS,
   type HoldEnv,
@@ -60,8 +61,14 @@ function fakePage(options: { hash: string; max?: number }) {
     at: 1000,
     height: 80,
     loaded: false,
+    // Whether the elements are in the page and drawn.
+    attached: true,
     element(id: string) {
       present.set(id, {
+        get isConnected() {
+          return page.attached;
+        },
+        getClientRects: () => ({ length: page.attached ? 1 : 0 }),
         getBoundingClientRect: () =>
           new RectLike({
             top: page.at - page.y,
@@ -228,6 +235,67 @@ test("a scroll the page makes itself does not let go", () => {
   page.frame();
   expect(page.top).toBe(LANDING_TOP);
   expect(page.visible).not.toBeNull();
+});
+
+test("a scroll the hold did not make, once the page has loaded, is the reader's: it lets go", () => {
+  // Before the grace, or while the document loads: the browser's own jump, put back.
+  const early = fakePage({ hash: "#post-12" });
+  early.page.element("post-12");
+  early.spotlight.start();
+  early.page.y += 400;
+  early.page.fire("scroll");
+  early.page.frame();
+  expect(early.page.top).toBe(LANDING_TOP);
+  early.page.wait(HOLD_GRACE_MS);
+  early.page.y += 400;
+  early.page.fire("scroll");
+  early.page.frame();
+  expect(early.page.top).toBe(LANDING_TOP);
+
+  // A scrollbar dragged: no event but the scroll.
+  const { page, spotlight } = fakePage({ hash: "#post-12" });
+  page.element("post-12");
+  spotlight.start();
+  page.loaded = true;
+  page.wait(HOLD_GRACE_MS);
+  page.y += 400;
+  page.fire("scroll");
+  page.frame();
+  expect(page.top).toBe(LANDING_TOP - 400);
+
+  // Content above that grew, with the browser keeping the view on it: still held.
+  const shifted = fakePage({ hash: "#post-12" });
+  shifted.page.element("post-12");
+  shifted.spotlight.start();
+  shifted.page.loaded = true;
+  shifted.page.wait(HOLD_GRACE_MS);
+  shifted.page.at += 300;
+  shifted.page.y += 300;
+  shifted.page.fire("scroll");
+  shifted.page.at += 100;
+  shifted.page.frame();
+  expect(shifted.page.top).toBe(LANDING_TOP);
+});
+
+test("an element named without the address lands the same way", () => {
+  const { page, spotlight } = fakePage({ hash: "" });
+  page.element("profile-comment-5");
+  spotlight.start({ hash: "#profile-comment-5" });
+  expect(page.top).toBe(LANDING_TOP);
+  expect(page.visible).not.toBeNull();
+});
+
+test("an element taken out of the page or hidden ends the holding and the dimming", () => {
+  const { page, spotlight } = fakePage({ hash: "#post-12" });
+  page.element("post-12");
+  spotlight.start();
+  const y = page.y;
+  page.attached = false;
+  page.frame();
+  page.frame();
+  expect(page.y).toBe(y);
+  expect(page.visible).toBeNull();
+  expect(page.framing()).toBe(0);
 });
 
 test("the holding ends once the page has loaded and stayed still, and at the latest after a while", () => {

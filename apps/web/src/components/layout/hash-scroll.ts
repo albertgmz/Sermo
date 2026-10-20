@@ -60,7 +60,9 @@ export function drawnById<
     checkVisibility?(): boolean;
   },
 >(document: { querySelectorAll(selector: string): Iterable<T> }, id: string) {
-  const selector = `[id="${id.replace(/["\\]/g, "\\$&")}"]`;
+  // Any text can follow the hash (a newline, a bracket): escaped whole, it never makes the
+  // selector invalid.
+  const selector = `#${CSS.escape(id)}`;
   for (const element of document.querySelectorAll(selector))
     if (
       element.getClientRects().length > 0 &&

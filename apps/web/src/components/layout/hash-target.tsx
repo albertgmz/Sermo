@@ -13,6 +13,7 @@ import {
   entryId,
   HASH_LINK_EVENT,
   type HoldEnv,
+  LAND_EVENT,
   type SpotlightEnv,
   TARGET,
 } from "@/components/layout/spotlight";
@@ -194,6 +195,10 @@ export function HashTarget() {
         if (key !== undefined) handled.add(entryId(key, hash));
       });
     };
+    // Something just written or edited on the page (see `landOn`).
+    const onLand = (event: Event) =>
+      current.start({ hash: (event as CustomEvent<string>).detail });
+    window.addEventListener(LAND_EVENT, onLand);
     window.addEventListener(HASH_LINK_EVENT, onHashLink);
     window.addEventListener("hashchange", onHashChange);
     document.addEventListener("click", onClick);
@@ -204,6 +209,7 @@ export function HashTarget() {
     const [entry] = performance.getEntriesByType("navigation");
     if (arrives((entry as PerformanceNavigationTiming)?.type)) current.start();
     return () => {
+      window.removeEventListener(LAND_EVENT, onLand);
       window.removeEventListener(HASH_LINK_EVENT, onHashLink);
       window.removeEventListener("hashchange", onHashChange);
       document.removeEventListener("click", onClick);

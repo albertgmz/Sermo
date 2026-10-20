@@ -1,15 +1,10 @@
-import { HASH_LINK_EVENT } from "@/components/layout/spotlight";
+import { LAND_EVENT } from "@/components/layout/spotlight";
 
-// Lands on an item of the page just written or edited (`#profile-comment-5`), as a link to it
-// would: the address takes its hash in place of the current entry's (a write is not a step to go
-// back over), and `HashTarget` lands on the item once it is drawn. The state passed is null so
-// Next's router takes the new address in (it skips a state of its own), or its next commit, after
-// the write's refresh, puts the old one back.
+// Lands on an item of the page just written or edited (`#profile-comment-5`) as a link to it
+// would, once it is drawn (`HashTarget`). The address is left as it is: Next 16.4 changed behind
+// its back (`history.replaceState`) takes it in as a restore of its state, which drops a
+// navigation in flight and makes the next refresh draw the page's sections from their loading
+// state again; changed through the router, it appends the new hash to the one already there.
 export function landOn(hash: string) {
-  if (hash !== window.location.hash) {
-    const url = new URL(window.location.href);
-    url.hash = hash;
-    window.history.replaceState(null, "", url);
-  }
-  window.dispatchEvent(new CustomEvent(HASH_LINK_EVENT, { detail: hash }));
+  window.dispatchEvent(new CustomEvent(LAND_EVENT, { detail: hash }));
 }

@@ -18,6 +18,10 @@ const NAVIGATE_MS = 1000;
 // HOLD_MAX_MS.
 export const HOLD_QUIET_MS = 1500;
 export const HOLD_MAX_MS = 10000;
+// From this long after a landing, once the document has loaded, a scroll the hold did not make
+// is the reader's (a scrollbar dragged, assistive technology): before it, the browser's own jump
+// to the address can still come.
+export const HOLD_GRACE_MS = 300;
 
 export type Box = { top: number; left: number; width: number; height: number };
 
@@ -40,7 +44,15 @@ const sameBox = (a: Box, b: Box) =>
   a.width === b.width &&
   a.height === b.height;
 
-export type SpotlightTarget = { getBoundingClientRect(): Box };
+export type SpotlightTarget = {
+  getBoundingClientRect(): Box;
+  readonly isConnected: boolean;
+  getClientRects(): { length: number };
+};
+
+// An element taken out of the page, or hidden: it has no place to hold.
+export const isGone = (element: SpotlightTarget) =>
+  !element.isConnected || element.getClientRects().length === 0;
 
 export type SpotlightEnv = {
   hash(): string;
@@ -107,22 +119,27 @@ export function createSpotlight(env: SpotlightEnv) {
     undim();
   }
 
-  // The scroll position that puts the element's top where a landing wants it.
+  // The scroll position that puts the element's top where a landing wants it; none once the
+  // element is gone.
   const wanted = (element: SpotlightTarget) => () =>
-    env.scroll.scrollY() +
-    element.getBoundingClientRect().top -
-    env.landingTop(element);
+    isGone(element)
+      ? null
+      : env.scroll.scrollY() +
+        element.getBoundingClientRect().top -
+        env.landingTop(element);
 
   function land(element: SpotlightTarget) {
     holder.hold(wanted(element), {
       quietMs: HOLD_QUIET_MS,
       maxMs: HOLD_MAX_MS,
+      letGoOnScrollAfterMs: HOLD_GRACE_MS,
     });
     // Kept on the element while it is shown: content that shifts afterwards moves it.
     let shown = measure(element);
     env.show(shown);
     dimming.push(
       env.frames(() => {
+        if (isGone(element)) return stop();
         const now = measure(element);
         if (sameBox(now, shown)) return;
         shown = now;
@@ -134,9 +151,10 @@ export function createSpotlight(env: SpotlightEnv) {
 
   // Lands on the element the address names, once it is on the page. `fromTop`: a navigation from
   // another page, which shows the new page from its top while the element is not drawn yet.
-  function start(options: { fromTop?: boolean } = {}) {
+  // `hash`: an element named without the address (see `LAND_EVENT`).
+  function start(options: { fromTop?: boolean; hash?: string } = {}) {
     stop();
-    const hash = env.hash();
+    const hash = options.hash ?? env.hash();
     if (!TARGET.test(hash)) return;
     const id = hash.slice(1);
     for (const type of DISMISSING) stops.push(env.on(type, stop));
@@ -258,27 +276,62 @@ export type HoldEnv = {
 // something else did (the jump to an address, a picture or a section loading above), as far as
 // the page is long enough. The reader's first action ends it, and so do the limits it is given:
 // `forMs` in any case; `quietMs` once the document has loaded and nothing moved the page for that
-// long; `maxMs` at the latest. A second hold replaces the first.
+// long; `maxMs` at the latest. `letGoOnScrollAfterMs`: from then on, once the document has loaded,
+// a scroll the hold did not make while the place it wants stayed put is the reader acting too,
+// by means that send the page no event (the scrollbar, assistive technology). `wanted` gives null
+// once there is nothing to hold (the element is gone), which ends it. A second hold replaces the
+// first.
 export function createScrollHolder(env: HoldEnv) {
   const stops: (() => void)[] = [];
   function stop() {
     for (const undo of stops.splice(0)) undo();
   }
   function hold(
-    wanted: () => number,
-    limits: { forMs?: number; quietMs?: number; maxMs?: number },
+    wanted: () => number | null,
+    limits: {
+      forMs?: number;
+      quietMs?: number;
+      maxMs?: number;
+      letGoOnScrollAfterMs?: number;
+    },
   ) {
     stop();
     for (const type of DISMISSING) stops.push(env.on(type, stop));
     let moved = false;
+    // Where the hold last left the page, and the place it wanted then.
+    let left = env.scrollY();
+    let aim: number | null = null;
     const keep = () => {
-      const to = Math.max(0, Math.min(wanted(), env.maxScrollY()));
-      if (Math.abs(env.scrollY() - to) < 1) return;
-      env.scrollTo(to);
-      moved = true;
+      const place = wanted();
+      if (place === null) return stop();
+      aim = place;
+      const to = Math.max(0, Math.min(place, env.maxScrollY()));
+      if (Math.abs(env.scrollY() - to) >= 1) {
+        env.scrollTo(to);
+        moved = true;
+      }
+      left = env.scrollY();
     };
     keep();
     stops.push(env.frames(keep));
+    const { letGoOnScrollAfterMs } = limits;
+    if (letGoOnScrollAfterMs !== undefined) {
+      let watching = false;
+      stops.push(
+        env.later(() => {
+          watching = true;
+        }, letGoOnScrollAfterMs),
+      );
+      stops.push(
+        env.on("scroll", () => {
+          if (!watching || !env.loaded() || aim === null) return;
+          const place = wanted();
+          if (place === null) return stop();
+          if (Math.abs(env.scrollY() - left) >= 1 && Math.abs(place - aim) < 1)
+            stop();
+        }),
+      );
+    }
     for (const ms of [limits.forMs, limits.maxMs])
       if (ms !== undefined) stops.push(env.later(stop, ms));
     const { quietMs } = limits;
@@ -306,6 +359,10 @@ export function createScrollRestorer(env: HoldEnv) {
 
 // Sent on the window by a link that changed the address without a navigation: the hash it names.
 export const HASH_LINK_EVENT = "sermo:hash-link";
+
+// Sent on the window to land on an element of the page without changing the address: the hash
+// that names it (`#profile-comment-5`).
+export const LAND_EVENT = "sermo:land";
 
 // The history entry's scroll position, kept while an address that names a target is left and put
 // back when it is returned to. Every other entry is left to the browser, which restores it itself.

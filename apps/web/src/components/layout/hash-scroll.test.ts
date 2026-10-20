@@ -1,6 +1,14 @@
 import { expect, test } from "bun:test";
 import { drawnById, type ScrollEnv, scrollToHash } from "./hash-scroll";
 
+// The browser's `CSS.escape`, as far as these tests need it: Bun has none.
+globalThis.CSS ??= {
+  escape: (value: string) =>
+    value.replace(/[^\w-]/g, (character) =>
+      character === "\n" ? "\\a " : `\\${character}`,
+    ),
+} as typeof CSS;
+
 // A page whose element appears after `appearsAt` ms; time moves when the test runs the timers.
 function page(
   hash: string,
@@ -121,7 +129,7 @@ test("an element still inside the hidden container of a streaming section is not
   expect(drawnById(document, "appearance")).toBeNull();
   rects.length = 1;
   expect(drawnById(document, "appearance")).toBe(element);
-  expect(asked.at(-1)).toBe('[id="appearance"]');
+  expect(asked.at(-1)).toBe("#appearance");
   expect(drawnById({ querySelectorAll: () => [] }, "appearance")).toBeNull();
 });
 
@@ -148,7 +156,7 @@ test("a hidden copy of the element, kept from a page left earlier, is passed ove
         return [];
       },
     },
-    'a"b\\c',
+    'a"b\nc',
   );
-  expect(quoted).toEqual(['[id="a\\"b\\\\c"]']);
+  expect(quoted).toEqual([`#${CSS.escape('a"b\nc')}`]);
 });
