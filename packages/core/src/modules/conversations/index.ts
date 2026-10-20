@@ -702,6 +702,8 @@ function messageLocation(
 export const conversationsLocateMessageOp = implement(
   conversationsLocateMessage,
   (ctx, actor, input) => {
+    // The caller first, before the input is read: a guest is refused whatever was sent.
+    requireAuthenticated(actor);
     const { message } = visibleTarget(ctx, actor, input.messageId);
     return messageLocation(ctx, actor, message.conversation_id, message.id, input.limit);
   },
@@ -710,6 +712,7 @@ export const conversationsLocateMessageOp = implement(
 export const conversationsLocateUnreadOp = implement(
   conversationsLocateUnread,
   (ctx, actor, input) => {
+    requireAuthenticated(actor);
     const conversation = activeConversation(ctx, actor, input.conversationId);
     const params: [number, number, number, number] = [
       conversation.id,
