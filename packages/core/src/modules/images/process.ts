@@ -5,6 +5,7 @@ import sharp, { type Metadata } from "sharp";
 import { MAX_REACTION_IMAGE_SIDE } from "../../contracts/reactions";
 import type { FILE_PURPOSES } from "../../db/schema";
 import { uploadRefusal } from "../storage/refusal";
+import { withDecodeSlot } from "./decode-slots";
 
 export type ImagePurpose = (typeof FILE_PURPOSES)[number];
 export interface ProcessedImage {
@@ -131,9 +132,10 @@ export async function processImage(
   if (!expectedFormat) throw uploadRefusal("type", "Unsupported image format.");
   let metadata: Metadata;
   try {
-    // Reads the header only; the limit that applies is decided from it below.
+    // Reads the header only, with no pixel limit: the limit that applies is decided from it below,
+    // so a picture over every limit is refused for its size, not as unreadable.
     metadata = await sharp(inputPath, {
-      limitInputPixels: MAX_JPEG_PIXELS,
+      limitInputPixels: false,
       failOn: "error",
     }).metadata();
   } catch {
@@ -196,7 +198,7 @@ export async function processImage(
       if (mime === "image/jpeg") pipeline.jpeg({ quality: 85 });
       else if (mime === "image/png") pipeline.png();
       else pipeline.webp(size.webp ?? { quality: 82 });
-      const info = await pipeline.toFile(path);
+      const info = await withDecodeSlot(() => pipeline.toFile(path));
       output.push({
         path,
         contentType: mime,
@@ -241,14 +243,16 @@ export async function widthCopies(
 ): Promise<ProcessedImage[]> {
   const targets = ATTACHMENT_WIDTHS.filter((target) => target < width);
   const paths = targets.map(() => join(tempDir, `sermo-image-${randomUUID()}`));
-  // Each copy is its own decode and encode; they run side by side.
+  // Each copy is its own decode and encode; they run side by side, as decode slots allow.
   const made = await Promise.allSettled(
     targets.map((target, index) =>
-      sharp(inputPath, { limitInputPixels: limit, failOn: "error" })
-        .autoOrient()
-        .resize({ width: target, withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toFile(paths[index]!),
+      withDecodeSlot(() =>
+        sharp(inputPath, { limitInputPixels: limit, failOn: "error" })
+          .autoOrient()
+          .resize({ width: target, withoutEnlargement: true })
+          .webp({ quality: 82 })
+          .toFile(paths[index]!),
+      ),
     ),
   );
   const output: ProcessedImage[] = [];

@@ -57,6 +57,34 @@ describe("image processing", () => {
     }
   });
 
+  test("a JPEG over every pixel limit is refused for its size, read from its header alone", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sermo-images-"));
+    try {
+      // A small baseline JPEG whose frame header (SOF0) is rewritten to 17000 x 12240 (208 MP):
+      // nothing past the header could be decoded at that size.
+      const jpeg = await sharp({
+        create: { width: 16, height: 16, channels: 3, background: { r: 0, g: 0, b: 0 } },
+      })
+        .jpeg()
+        .toBuffer();
+      const frame = jpeg.indexOf(Buffer.from([0xff, 0xc0]));
+      expect(frame).toBeGreaterThan(0);
+      jpeg.writeUInt16BE(12240, frame + 5);
+      jpeg.writeUInt16BE(17000, frame + 7);
+      const input = join(dir, "panorama.jpg");
+      await writeFile(input, jpeg);
+      const refused = await processImage(input, "image/jpeg", "attachment", dir).catch(
+        (error: unknown) => error,
+      );
+      expect(refused).toBeInstanceOf(ValidationError);
+      expect((refused as ValidationError).issues).toEqual([
+        { path: ["upload"], message: "dimensions" },
+      ]);
+    } finally {
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
   test("accepts a static GIF as PNG and keeps an animated GIF moving", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sermo-images-"));
     try {
