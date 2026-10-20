@@ -48,8 +48,9 @@ export default function HeaderPanelPopup({
         align="end"
         sideOffset={8}
         className="w-88 max-w-[calc(100vw-1rem)] gap-0 p-0"
+        // Not judged by `defaultPrevented`: Next's `Link` cancels the default of every click it
+        // follows itself, so the panel stayed over the page it had just opened.
         onClick={(event) => {
-          if (event.defaultPrevented) return;
           if ((event.target as Element).closest("a")) setOpen(false);
         }}
       >
