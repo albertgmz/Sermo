@@ -2,7 +2,7 @@ import * as z from "zod";
 import type { Actor } from "./actor";
 import { approvalPending } from "./approval";
 import type { Ctx } from "./context";
-import { ValidationError } from "./errors";
+import { ForbiddenError, UnauthenticatedError, ValidationError } from "./errors";
 
 /**
  * A contract describes one operation: its name, whether it reads or writes, and its input and
@@ -80,7 +80,8 @@ export async function execute<I extends z.ZodType, O extends z.ZodType>(
   )
     throw approvalPending();
   const parsed = op.input.safeParse(rawInput ?? {});
-  if (!parsed.success) throw zodToValidationError(parsed.error);
+  if (!parsed.success)
+    return refuseBeforeValidating(ctx, op, actor, zodToValidationError(parsed.error));
   const result = await op.run(ctx, actor, parsed.data);
   if (ctx.config.validateOutput) {
     const checked = op.output.safeParse(result);
@@ -92,6 +93,65 @@ export async function execute<I extends z.ZodType, O extends z.ZodType>(
     return checked.data;
   }
   return result as z.output<O>;
+}
+
+/** Thrown by the stand-in input when an operation reads it. */
+class InputRead extends Error {}
+
+/** An input that refuses to be read: any property access, `in`, spread or destructuring throws. */
+const unreadable = new Proxy(
+  {},
+  {
+    get: () => {
+      throw new InputRead();
+    },
+    has: () => {
+      throw new InputRead();
+    },
+    ownKeys: () => {
+      throw new InputRead();
+    },
+    getOwnPropertyDescriptor: () => {
+      throw new InputRead();
+    },
+  },
+);
+
+/**
+ * The answer to input that does not validate: a caller the operation refuses whatever it sent (a
+ * guest where an account is needed, a member without the permission) gets that 401 or 403, so
+ * the shape of the input is not shown to someone who could not use the operation anyway.
+ *
+ * The operation decides, by running it against an input it cannot read: the checks that come
+ * before its first read of the input are the ones that do not depend on it. An unauthenticated or
+ * forbidden refusal raised before that point is thrown; reaching the input, any other error or
+ * finishing without reading it throws `invalid` as before. An operation whose permission depends
+ * on the input (an own item, a node, a target member) reads it first and so still validates
+ * first. The run cannot write: the connection is read-only while the operation's synchronous
+ * part runs, which is everything before its first `await`. An operation must therefore check the
+ * actor, and read the input, before it writes.
+ */
+export async function refuseBeforeValidating(
+  ctx: Ctx,
+  op: AnyOperation,
+  actor: Actor,
+  invalid: ValidationError,
+): Promise<never> {
+  let outcome: unknown;
+  ctx.sqlite.run("PRAGMA query_only = 1");
+  try {
+    outcome = op.run(ctx, actor, unreadable);
+  } catch (error) {
+    outcome = Promise.reject(error);
+  } finally {
+    ctx.sqlite.run("PRAGMA query_only = 0");
+  }
+  try {
+    await outcome;
+  } catch (error) {
+    if (error instanceof UnauthenticatedError || error instanceof ForbiddenError) throw error;
+  }
+  throw invalid;
 }
 
 export function zodToValidationError(error: z.ZodError): ValidationError {

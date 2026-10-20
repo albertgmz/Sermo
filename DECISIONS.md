@@ -4961,3 +4961,37 @@ fails the 4.5:1 floor of the code comment colour on muted surfaces, so raised su
 passes unchanged. The browser bar in dark (`THEME_COLORS.dark`) and the offline page's dark
 background follow the new page colour, and the chart greys take its tint. Only tokens changed: no
 component draws a fixed colour.
+
+### Order of checks: the caller before the input
+
+An access-control review found that an anonymous `GET /api/v1/admin/ips/members` with no `ip`
+answered 400 with the missing field's path, where the other staff routes answer 401. Input was
+validated before the caller was looked at, so a stranger learned the route and the shape of its
+parameters. No data left the server.
+
+`execute` now answers input that does not validate through `refuseBeforeValidating`: it runs the
+operation against an input that cannot be read, so the checks the operation makes before it first
+touches its input are the ones that run. If one of them refuses the caller (401 or 403), that
+refusal is the answer; if the operation reaches its input, fails some other way or finishes, the
+answer is the 400 it always was. The rule lives in one place, so REST, MCP and the callers inside
+the core agree, and the decision stays the operation's own: no second list of who may call what.
+The REST route handler uses the same function for a body that is not JSON or not an object, and
+the upload route refuses a guest before it looks at the purpose, the content type or the body.
+
+- The run is read-only: `PRAGMA query_only` is on for the operation's synchronous part (all of it
+  before the first `await`), so an operation that writes before it reads its input fails and is
+  answered as invalid input. A write inside `writeTx` is rolled back by the throw in any case.
+  The rule for an operation is: check the caller, and read the input, before changing anything.
+- Only 401 and 403 are taken from the run. A 404 ("the caller may not see it") depends on what
+  was asked for, and a conflict on state, so they are not.
+- Operations whose refusal depends on the input keep validating first: the node a moderator holds
+  a permission in, the member an administrator acts on (hierarchy), an own item, a password the
+  caller must confirm. `refusal-order.test.ts` sweeps every route of the route table with a guest
+  and a plain member, takes the routes the caller is refused on, and requires the same refusal for
+  empty, invalid and malformed input; the operations still answering 400 are named there and the
+  test fails if one of them stops (the list only shrinks). Several are only a matter of order
+  (the input is passed to a service as arguments before the service checks the caller, or the
+  check is the first thing inside `writeTx`) and can be moved when their module is next touched.
+- Not changed: MCP "Tool arguments must be an object" (a protocol error before the operation), the
+  415 for a session cookie with a body that is not JSON, and the hidden routes that answer a
+  guest 404 on purpose.

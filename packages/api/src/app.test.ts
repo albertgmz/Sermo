@@ -228,8 +228,16 @@ test("errors, coercion, health, and security headers", async () => {
     headers: { "content-type": "application/json" },
     body: "{",
   });
-  expect(malformed.status).toBe(400);
-  expect(await malformed.json()).toEqual({
+  // Creating a forum is not for a guest: the body is not looked at.
+  expect(malformed.status).toBe(401);
+  const { cookie } = await register(request);
+  const memberMalformed = await request("/api/v1/nodes/1/threads", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "http://localhost:3000", cookie },
+    body: "{",
+  });
+  expect(memberMalformed.status).toBe(400);
+  expect(await memberMalformed.json()).toEqual({
     error: { code: "validation", message: "Malformed JSON body." },
   });
   for (const value of ["0x1", "1e0", "1.0", "%201", "1%20"]) {

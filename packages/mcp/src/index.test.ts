@@ -229,11 +229,17 @@ test("guest, member, validation and HTTP method errors preserve boundaries", asy
 
 test("schema errors, unknown tools, guest reads and internal errors use tool envelopes", async () => {
   const { ctx, handler } = setup();
-  const call = async (name: string, args: object) => {
-    const response = await post(handler, requestBody("tools/call", { name, arguments: args }));
+  const callAs = async (to: typeof handler, name: string, args: object) => {
+    const response = await post(to, requestBody("tools/call", { name, arguments: args }));
     expect(response.status).toBe(200);
     return (await response.json()).result as CallToolResult;
   };
+  const call = (name: string, args: object) => callAs(handler, name, args);
+  const member = insertUser(ctx);
+  const memberHandler = createMcpHandler({
+    ctx,
+    resolveActor: async () => ({ actor: userActor(member), setCookies: [] }),
+  });
   const guestRead = await call("nodes_list", {});
   expect(guestRead.isError).not.toBe(true);
   expect(guestRead.structuredContent?.items).toEqual([]);
@@ -241,7 +247,9 @@ test("schema errors, unknown tools, guest reads and internal errors use tool env
     { title: "Missing node and body" },
     { nodeId: "bad", title: "T", body: "B" },
   ]) {
-    const result = await call("threads_create", args);
+    // A guest is refused before the arguments are checked; a member hears what is wrong with them.
+    expect(errorCode(await call("threads_create", args)).code).toBe("unauthenticated");
+    const result = await callAs(memberHandler, "threads_create", args);
     expect(result.isError).toBe(true);
     const error = errorCode(result);
     expect(error.code).toBe("validation");

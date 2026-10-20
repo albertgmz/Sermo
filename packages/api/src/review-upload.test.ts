@@ -311,7 +311,7 @@ test("uploadMultipart signals 415 with the error envelope for a non-multipart re
   });
   const error = await uploadMultipart(
     state.ctx,
-    { kind: "guest" } as never,
+    { kind: "user", userId: 1, groupId: 2, sessionId: 0 } as never,
     request,
     { driver: localDriver(join(state.dir, "files")), tempDir: join(state.dir, "temp") },
     "attachment",

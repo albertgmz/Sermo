@@ -14,6 +14,7 @@ import {
   type MarkdownPage,
   proxyLocation,
   readSiteSettings,
+  refuseBeforeValidating,
   resolveActor,
   robotsTxt,
   SermoError,
@@ -24,6 +25,7 @@ import {
   sitemapShard,
   threadMarkdown,
   UnauthenticatedError,
+  ValidationError,
 } from "@sermo/core";
 import { createMcpHandler } from "@sermo/mcp";
 import { type Context, Hono } from "hono";
@@ -478,6 +480,10 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     const path = `/api/v1${route.path.replace(/\{([^}]+)\}/g, ":$1")}`;
     const properties = schemaProperties(z.toJSONSchema(op.input, { io: "input" }));
     app.on(route.method, path, async (c) => {
+      // A body that cannot be read as input is refused like input that does not validate: after
+      // the operation has had its say about the caller.
+      const unreadable = (message: string) =>
+        refuseBeforeValidating(ctx, op, c.get("actor"), new ValidationError(message));
       const raw: Record<string, unknown> = Object.create(null);
       if (route.method === "GET" || route.method === "DELETE") {
         const params = new URL(c.req.url).searchParams;
@@ -493,10 +499,10 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
           try {
             parsed = JSON.parse(body);
           } catch {
-            return c.json(errorBody("validation", "Malformed JSON body."), 400);
+            return unreadable("Malformed JSON body.");
           }
           if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
-            return c.json(errorBody("validation", "JSON body must be an object."), 400);
+            return unreadable("JSON body must be an object.");
           for (const [name, value] of Object.entries(parsed)) {
             if (name !== "__proto__" && name !== "constructor" && name !== "prototype")
               raw[name] = value;

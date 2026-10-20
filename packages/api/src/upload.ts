@@ -4,6 +4,7 @@ import {
   type Actor,
   type Ctx,
   createStorage,
+  requireAuthenticated,
   SermoError,
   type StorageConfig,
   schema,
@@ -47,6 +48,8 @@ export async function uploadMultipart(
   config: StorageConfig,
   purpose: string,
 ) {
+  // A guest is refused before anything about the request is looked at (storage refuses it too).
+  requireAuthenticated(actor);
   if (!purposes.has(purpose)) throw new ValidationError("Invalid file purpose.");
   const contentType = request.headers.get("content-type") ?? "";
   if (!/^multipart\/form-data\s*(?:;|$)/i.test(contentType)) throw unsupportedMediaType();
