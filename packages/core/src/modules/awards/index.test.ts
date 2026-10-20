@@ -56,11 +56,36 @@ describe("award icons", () => {
         ValidationError,
       );
     }
+    // Not the same text twice: a missing award is a 404 before the icon is looked at.
+    await expect(call("update", { awardId: 9999, icon: "nonsense" })).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
     // A refused change leaves the award as it was.
     expect((await call("get", { awardId: keyed.id })).icon).toBe("");
     // An update that leaves the icon out keeps whatever is stored.
     await call("update", { awardId: keyed.id, icon: "crown" });
     expect((await call("update", { awardId: keyed.id, name: "Renamed" })).icon).toBe("crown");
+  });
+});
+
+describe("award icons made before the key was checked", () => {
+  test("an award with free text as its icon can be edited, and the text only sent back is kept", async () => {
+    const { ctx, call } = setup();
+    const award = await call("create", { name: "Old", tier: "bronze" });
+    ctx.sqlite.prepare("UPDATE awards SET icon = 'fa-trophy' WHERE id = ?1").run(award.id);
+    const edited = await call("update", {
+      awardId: award.id,
+      icon: "fa-trophy",
+      xp: 9,
+      name: "New",
+    });
+    expect(edited).toMatchObject({ icon: "fa-trophy", xp: 9, name: "New" });
+    expect((await call("update", { awardId: award.id, xp: 3 })).icon).toBe("fa-trophy");
+    // Changing it to other text is still refused; a key or nothing is taken.
+    await expect(call("update", { awardId: award.id, icon: "other-text" })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    expect((await call("update", { awardId: award.id, icon: "heart" })).icon).toBe("heart");
   });
 });
 

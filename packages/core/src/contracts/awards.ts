@@ -36,7 +36,7 @@ export const Award = z
     id: Id,
     name: z.string(),
     description: z.string(),
-    /** An icon key or URL the client resolves. */
+    /** A key of the site's icon set the client draws; empty for the default medal. */
     icon: z.string(),
     /** The award's picture (images.setAwardImage), or null. */
     image: ImageReference,
@@ -79,6 +79,7 @@ export const MemberAward = z
 const AwardInput = {
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().max(500),
+  /** Empty, or a key of the site's icon set; any other text is refused when it is set. */
   icon: z.string().trim().max(200),
   tier: Award.shape.tier,
   /** An existing award category, or null for none. */

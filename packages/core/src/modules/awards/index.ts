@@ -195,12 +195,14 @@ export const operations = [
   }),
   implement(contracts.awardsUpdate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
-    if (input.icon !== undefined) assertIcon(input.icon);
     if (input.rule) validate(ctx, input.rule);
     return writeTx(ctx, () => {
       requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
       const award = awardRow(ctx, input.awardId);
       if (input.categoryId !== undefined) assertCategory(ctx, input.categoryId);
+      // An icon that is not a key is refused when it is being set, not when it is only sent back
+      // unchanged: awards made before the set was checked keep their text and stay editable.
+      if (input.icon !== undefined && input.icon !== award.icon) assertIcon(input.icon);
       if (input.rule) assertNoAwardLoop(ctx, award.id, input.rule);
       if (input.isStackable === false && one(ctx, "stacked", awardSql.stacked, award.id))
         throw new ConflictError("A member holds this award more than once.");

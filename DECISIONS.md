@@ -5270,8 +5270,9 @@ over them stalled one commit for 370 ms), and other subscribers handle a batch w
   award icon that is neither empty (the default medal) nor a key of the set
   (`modules/awards/icons.ts`, a copy of the set that `tests/award-icons.test.ts` holds equal; a key
   added to the set is added there). The set is otherwise unknown to the backend (forums and
-  navigation check only the key's shape). A stored value that is no longer a key stays until the
-  award is saved again.
+  navigation check only the key's shape). Only a new value is checked: an update that sends back the
+  text the award already holds is accepted, so awards made before the check (free text, a URL)
+  stay editable; changing it to any other text is refused.
 - Eight permissions had no label or description phrase (`profile.signature`, `profile.customTitle`,
   `profile.coverPreset`, `profile.renameFree`, `profile.awardSlots`, `conversation.editOwn`,
   `conversation.deleteOwn`, `admin.appearance`) and showed a made-up English title in every
