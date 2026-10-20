@@ -5,11 +5,13 @@ import { BASE_URL, requireCredentials } from "./e2e/target";
 // staging); the suite starts no server. The members are E2E_USER and E2E_PEER with E2E_PASSWORD (required for any address but the default).
 //
 // Every project runs the flows tagged "@all"; the 360 px phone (`android-small`) runs all of them.
-// The iPhone and iPad projects use WebKit, the rest Chromium.
+// The landing flows ("@landing") also run on the small iPhone and on a desktop window. The iPhone
+// and iPad projects use WebKit, the rest Chromium.
 requireCredentials();
 const baseURL = BASE_URL;
 
 const everyFlow = /@all/;
+const landing = /@all|@landing/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -55,7 +57,7 @@ export default defineConfig({
       // 320 x 568: narrower than the design width.
       name: "iphone-small",
       testIgnore: /setup\.e2e\.ts/,
-      grep: everyFlow,
+      grep: landing,
       use: { ...devices["iPhone SE"] },
       dependencies: ["setup"],
     },
@@ -64,6 +66,17 @@ export default defineConfig({
       testIgnore: /setup\.e2e\.ts/,
       grep: everyFlow,
       use: { ...devices["iPhone 15 Pro Max"] },
+      dependencies: ["setup"],
+    },
+    {
+      // A desktop window, for the landing flows: a wider header and the header's own panels.
+      name: "desktop",
+      testIgnore: /setup\.e2e\.ts/,
+      grep: /@landing/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 800 },
+      },
       dependencies: ["setup"],
     },
     {

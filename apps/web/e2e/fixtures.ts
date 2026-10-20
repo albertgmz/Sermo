@@ -4,6 +4,7 @@ import {
   expect,
   type Locator,
   type Page,
+  type Route,
 } from "@playwright/test";
 import { PASSWORD, USER } from "./target";
 
@@ -13,12 +14,45 @@ export const MEMBER_STATE = "test-results/.state/member.json";
 export const SEED_FILE = "test-results/.state/seed.json";
 
 // What the setup made: a long thread by the member, a thread by another member (reactions and the
-// member card need content that is not the member's own), and a forum the member may post in.
+// member card need content that is not the member's own), a forum the member may post in, and what
+// the landing flows aim at.
 export type Seed = {
   threadId: number;
   peerThreadId: number;
   forumId: number;
+  landing: LandingSeed;
 };
+
+// What the landing flows aim at (see `setup.e2e.ts`): items deep in long lists, each below a few
+// tall pictures, and the alerts another member's reactions to them gave the member.
+export type LandingSeed = {
+  memberId: number;
+  // The last post of the long thread (on its third page), with a word nothing else holds.
+  post: { id: number; position: number };
+  word: string;
+  // The member's own wall: its oldest post (off the first page, with the long run of comments),
+  // its newest, and a comment older than the three the wall shows.
+  wall: {
+    oldestPostId: number;
+    newestPostId: number;
+    commentId: number;
+    posts: number;
+    comments: number;
+  };
+  // A conversation with the other member, and a message on its oldest page.
+  conversation: { id: number; messageId: number; messages: number };
+  // The items whose reaction gave the member an alert, as `type:id`.
+  alerted: string[];
+};
+
+// Pictures in seeded posts are linked from this host, which does not exist: every test serves
+// them (see `test`), and the landing flows serve them late.
+export const PICTURE_HOST = "https://pictures.e2e.invalid";
+export const TALL_PICTURE = `${PICTURE_HOST}/tall.svg`;
+const TALL_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="#888"/></svg>';
+export const servePicture = (route: Route) =>
+  route.fulfill({ contentType: "image/svg+xml", body: TALL_SVG });
 
 export const seed = (): Seed => JSON.parse(readFileSync(SEED_FILE, "utf8"));
 
@@ -38,8 +72,8 @@ type Options = {
   allowConsoleErrors: boolean;
 };
 
-// Every test fails on a console error or an uncaught page error, and hides the development
-// server's floating badge, which sits over the bottom bar of a phone.
+// Every test fails on a console error or an uncaught page error, serves the seeded pictures, and
+// hides the development server's floating badge, which sits over the bottom bar of a phone.
 export const test = base.extend<Options & { monitor: undefined }>({
   allowConsoleErrors: [false, { option: true }],
   monitor: [
@@ -52,6 +86,7 @@ export const test = base.extend<Options & { monitor: undefined }>({
       let fakeFileAnswers = 0;
       const answerChecks: Promise<void>[] = [];
       const loadFailures: string[] = [];
+      await page.context().route(`${PICTURE_HOST}/**`, servePicture);
       await page.addInitScript(() => {
         const hide = () => {
           const style = document.createElement("style");
