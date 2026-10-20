@@ -4818,13 +4818,21 @@ from their own text, with no lookup, by `xenforoRedirect` in `proxy.ts` (the rul
 query, like the other address redirects.
 
 - Threads (`tema`, `temas`, `threads`, `foro/temas`) with `<slug>.<id>` or a bare id go to
-  `/threads/<id>`, whatever follows (`page-N`, `unread`, `latest`, `reply`, `watch`); `post-<id>`
-  after the thread goes to `/posts/<id>`, which finds the post's page.
+  `/threads/<id>`, whatever follows (`reply`, `watch`); `page-N` goes to the page that holds
+  XenForo's first post of that page (XenForo drew 40 a page), `unread` to `/threads/<id>/unread`,
+  `latest` to `/threads/<id>/latest`, and `post-<id>` to `/posts/<id>`, which finds the post's
+  page.
 - Posts (`respuestas`, `goto/post?id=`) go to `/posts/<id>`, with any action after the id.
 - Forums and categories (`foros`, `foro`, `forums`, `categories`) with an id go to `/forums/<id>`;
   members (`miembros`, `members`) to `/members/<id>`; conversations (`conversaciones`,
-  `conversations`, `direct-messages`) to `/conversations/<id>`.
-- `index.php?<route>` is read like the path form; `/novedades`, `/whats-new` and `/find-new` and
+  `conversations`, `direct-messages`) to `/conversations/<id>` (`unread` after it to
+  `/conversations/<id>/unread`), their list to `/conversations`, `add` to `/conversations/new`, and
+  a message (`replies/<id>`, `messages/<id>`) to `/conversations/messages/<id>`.
+- Wall posts (`profile-posts/<id>`) go to `/profile-posts/<id>` and their comments
+  (`profile-posts/comments/<id>`) to `/profile-comments/<id>`.
+- `index.php?<route>` is read like the path form. Next hands the proxy a URL rebuilt from the
+  parsed query (`?threads/x.5/` arrives as `?threads%2Fx.5%2F=`), so the route is read as the
+  query's first name with an empty value, which both forms give. `/novedades`, `/whats-new` and `/find-new` and
   `/index.php` go to `/`, and `/lost-password` to `/forgot-password`.
 - XenForo's dot (`slug.123`) never appears in this app's addresses (`123-slug`), so the rules
   cannot catch one of ours. Under the names this app also serves (`threads`, `forums`, `members`,
@@ -4834,8 +4842,7 @@ query, like the other address redirects.
   which is our list of forums.
 
 Left out: a forum named without an id (`/foros/politica/`), which needs a table of names that does
-not exist; attachment and avatar file addresses; profile posts; and XenForo's page numbers, so
-`page-3` of a thread opens its first page.
+not exist; and attachment and avatar file addresses.
 
 ### API answers are private and not stored by default
 
@@ -5411,3 +5418,56 @@ iOS it is absent from the panel's pages, which have no cards to show the steps i
 before the cookie banner is answered shows the card once the banner is gone. Either card closes
 with Escape from inside it (as Not now), and steps aside while the notice of a popup that could not
 load holds the same corner.
+
+### Every item has one permalink, resolved on follow
+
+A post, a wall post, a comment on one and a conversation message each have one address of their
+own: `/posts/<id>`, `/profile-posts/<id>`, `/profile-comments/<id>` and
+`/conversations/messages/<id>`; `/threads/<id>/unread`, `/threads/<id>/latest` and
+`/conversations/<id>/unread` name where a reader picks up. Following one costs one backend read: on
+a document load the proxy answers a 307 (`private, no-store`) to the page that holds the item
+(`?page=`, `?post=&comment=`, `?message=`) with the item's hash, and the route's `page.tsx` does the
+same with `redirect()` for a navigation inside the app.
+
+- The reads say which page holds an item: `profilePosts.locate`, `profileComments.locate`,
+  `conversations.locateMessage`, `conversations.locateUnread` and `threads.locateUnread`. Each is
+  one count of the newer visible items over the list's own index and one seek of fewer than a page
+  (OFFSET below the limit) for the cursor, null on the first page. The existing indexes cover them:
+  no migration. Each has a bench scenario on the largest list of the seed.
+- Alerts, notification e-mails (which now carry a "View it" link), pushes and the notifications
+  list link these addresses and ask the backend nothing per row. Links drawn where the item's
+  place is known (feed cards and compact rows, moderation, share) name the page that holds it.
+- The wall and a conversation open at the page the backend locates, for every visitor, instead of
+  walking up to ten pages; an item the read cannot place there opens the first page.
+- A conversation row is one tap target, to the first unread message, else the newest; its avatar
+  and name are not links and open no member card.
+
+Why: each source built its own address and several dropped the page (a feed reply opened the
+thread's first page, a wall post off the first page was not found), and the web walked pages to
+find items. One address per item, resolved where it is followed, keeps every source right with
+one indexed read, and what is sent once (an e-mail, a push) never goes stale.
+
+### An item's link lands at its start
+
+Following an address that names an item (`#post-`, `#profile-post-`, `#profile-comment-`,
+`#message-`) puts the item's top just under the sticky header at once and keeps it there while the
+page settles, until the reader acts (`components/layout/spotlight.ts`, `hash-target.tsx`).
+
+- The item is the first drawn element with that id (`drawnById`): a hidden copy of a page kept
+  from earlier, or a section still in its streaming container, is passed over. It is looked for up
+  to 15 s; a navigation inside the app to such an address starts at the top of the new page
+  meanwhile.
+- The scroll is instant (never smooth, whose end is reckoned before pictures load) to the header's
+  measured bottom (`[data-site-header]`) plus one gap token, `--spacing-landing-gap`
+  (`scroll-mt-landing-gap` on posts and message rows).
+- `createScrollHolder` keeps the place every frame against pictures and late sections above the
+  item, and lets go at the reader's first pointer, key, wheel or touch, once the document has
+  loaded and nothing moved it for 1.5 s, or after 10 s. Back and Forward restore through the same
+  holder (`createScrollRestorer`); their behaviour and a reload's are unchanged. The dimming
+  around the item ends on its own, apart from the hold.
+- A link to an item on the same page (the post number) lands the same way.
+- The sources of late shifts (notice banners above the content, the poll's placeholder height)
+  were left as they are: the hold corrects them, and moving them changes the layout.
+
+Why: a centred, smooth scroll ended where the item had been before the pictures above it loaded,
+so the reader arrived mid-post or past it, and a hidden copy of the same page could take the jump.
