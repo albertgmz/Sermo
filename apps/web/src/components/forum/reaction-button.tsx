@@ -11,7 +11,9 @@ import {
   type ReactionPictureData,
 } from "@/components/forum/reaction-picture";
 import {
+  type PickerGrid,
   type PickerPlacement,
+  pickerGrid,
   placePicker,
   VIEWPORT_MARGIN_PX,
 } from "@/components/forum/reaction-placement";
@@ -46,10 +48,20 @@ const HOVER_CLOSE_MS = 250;
 // How long the backend's refusal stays under the button.
 const REFUSAL_MS = 6000;
 
-// The picker is one row while it fits and wraps onto more rows beyond the viewport (staff can add
-// any number of reaction types); each button is size-10, the 40px touch target.
+// The picker is a grid of square reactions, two even rows while they fit (`pickerGrid`); its
+// width never outgrows the viewport.
 export const PICKER_CLASS =
-  "w-auto max-w-[calc(100vw-2rem)] flex-row flex-wrap gap-0 rounded-3xl p-1";
+  "grid w-auto max-w-[calc(100vw-2rem)] gap-0 rounded-3xl p-1";
+
+// The columns and the reactions' size from `pickerGrid`. The picture is 1.25em of the font size,
+// about two thirds of its square: 35px in a 52px reaction, 27px in a 40px one.
+export function pickerStyle({ columns, cell }: PickerGrid) {
+  return {
+    gridTemplateColumns: `repeat(${columns}, ${cell}px)`,
+    gridAutoRows: `${cell}px`,
+    fontSize: `${Math.round(cell * 0.54)}px`,
+  };
+}
 
 // Shifts a label that runs past the screen's margin back inside it.
 function keepInViewport(node: HTMLElement | null) {
@@ -286,6 +298,9 @@ export function ReactionButton(props: {
         initialFocus={() => viaTrigger.current}
         finalFocus={() => (viaTrigger.current ? gesture.button.current : false)}
         className={PICKER_CLASS}
+        style={pickerStyle(
+          placement?.grid ?? pickerGrid(types.length, Number.POSITIVE_INFINITY),
+        )}
         {...hover}
       >
         {types.map((type) =>
@@ -299,7 +314,7 @@ export function ReactionButton(props: {
               aria-label={t("aria.kept", { label: type.label })}
               aria-pressed="true"
               onClick={() => choose(null)}
-              className="relative flex size-10 select-none items-center justify-center rounded-full bg-muted text-xl leading-none"
+              className="relative flex size-full select-none items-center justify-center rounded-full bg-muted leading-none"
             >
               <span className="flex opacity-60 grayscale">
                 <ReactionPicture emoji={type.emoji} picture={type.picture} />
@@ -326,7 +341,7 @@ export function ReactionButton(props: {
               onPointerLeave={() =>
                 setLockedNote((now) => (now?.id === type.id ? undefined : now))
               }
-              className="relative flex size-10 select-none items-center justify-center rounded-full text-xl leading-none aria-pressed:bg-muted"
+              className="relative flex size-full select-none items-center justify-center rounded-full leading-none aria-pressed:bg-muted"
             >
               <span className="flex opacity-40 grayscale">
                 <ReactionPicture emoji={type.emoji} picture={type.picture} />
@@ -361,7 +376,7 @@ export function ReactionButton(props: {
               data-reaction-id={type.id}
               data-hovered={type.id === gesture.hover}
               onClick={() => choose(type.id === current ? null : type.id)}
-              className="group relative flex size-10 select-none items-center justify-center rounded-full text-xl leading-none aria-pressed:bg-muted"
+              className="group relative flex size-full select-none items-center justify-center rounded-full leading-none aria-pressed:bg-muted"
             >
               <span className="flex transition-transform group-hover:scale-125 group-focus-visible:scale-125 group-data-[hovered=true]:-translate-y-1 group-data-[hovered=true]:scale-150">
                 <ReactionPicture emoji={type.emoji} picture={type.picture} />

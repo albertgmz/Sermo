@@ -4849,3 +4849,16 @@ answers `server.ts` builds before the app runs (the unsubscribe form and its 400
 a body over the limit, on any path) carry the same value. Other answers outside `/api/`
 (`robots.txt`, sitemaps, feeds, `/health`, `/mcp`, the guest `.txt` and `.md` answers) are not
 touched.
+
+### Reaction picker in two even rows
+
+The picker lays the reactions out in two rows of half each (`pickerGrid` in
+`reaction-placement.ts`): 12 reactions are 6 + 6, and with an odd count the first row takes the
+extra one. A reaction is a square as large as the screen allows, at most 52 px and never under the
+40 px touch target; its picture is 1.25em of a font size about half the square (35 px in a 52 px
+reaction). Six of 52 px with the 4 px padding are 320 px, which fits the 328 px between the
+margins of a 360 px phone, so a phone shows the full size; a 320 px phone gets 46 px. When half
+the reactions would fall under 40 px (staff can add any number of types), the picker takes as many
+40 px columns as fit, on more rows. Desktop uses the same 52 px. XenForo's tooltip (fcuba's style
+caps it at 260 px wide, 32 px pictures with a small margin) also gives six per row; ours is larger
+for touch.

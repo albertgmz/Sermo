@@ -3,7 +3,9 @@ import {
   BUBBLE_PX,
   PICKER_GAP_PX,
   type PickerPlacement,
+  pickerGrid,
   placePicker,
+  REACTION_MAX_PX,
   REACTION_PX,
   VIEWPORT_MARGIN_PX,
 } from "./reaction-placement";
@@ -25,6 +27,7 @@ describe("placePicker on a 360px phone", () => {
       side: "top",
       sideOffset: PICKER_GAP_PX,
       alignOffset: 0,
+      grid: { columns: 3, cell: REACTION_MAX_PX },
     });
   });
 
@@ -40,7 +43,8 @@ describe("placePicker on a 360px phone", () => {
   });
 
   test("needs the bubble's room too: a picker that only just fits above flips", () => {
-    const pickerHeight = REACTION_PX + 8;
+    // Three reactions: two rows of 52px.
+    const pickerHeight = 2 * REACTION_MAX_PX + 8;
     const top = pickerHeight + PICKER_GAP_PX + BUBBLE_PX;
     const fits = placePicker({
       anchor: { left: 40, top, bottom: top + 40 },
@@ -57,14 +61,14 @@ describe("placePicker on a 360px phone", () => {
   });
 
   test("a button near the right edge shifts the picker left to stay on screen", () => {
-    // Six reactions are 248px wide.
+    // Six reactions are three of 52px: 164px wide.
     const placement = placePicker({
       anchor: { left: 300, top: 400, bottom: 440 },
       count: 6,
       viewport: phone,
     });
     expect(leftEdge(placement, 300)).toBe(
-      phone.width - VIEWPORT_MARGIN_PX - 248,
+      phone.width - VIEWPORT_MARGIN_PX - 164,
     );
   });
 
@@ -77,21 +81,24 @@ describe("placePicker on a 360px phone", () => {
     expect(leftEdge(placement, 4)).toBe(VIEWPORT_MARGIN_PX);
   });
 
-  test("more reactions than fit in a row wrap and still stay inside the margins", () => {
-    // Ten reactions: 408px wide in one row, so two rows of 8 in 328px; 88px tall.
+  test("twelve reactions fill the phone's width in two rows and stay inside the margins", () => {
+    // Six of 52px: 320px wide of the 328px between the margins.
     const placement = placePicker({
       anchor: { left: 200, top: 500, bottom: 540 },
-      count: 10,
+      count: 12,
       viewport: phone,
     });
-    expect(leftEdge(placement, 200)).toBe(VIEWPORT_MARGIN_PX);
+    expect(placement.grid).toEqual({ columns: 6, cell: 52 });
+    expect(leftEdge(placement, 200)).toBe(
+      phone.width - VIEWPORT_MARGIN_PX - 328 + 8,
+    );
     expect(placement.side).toBe("top");
   });
 
   test("a wrapped picker is taller, so it flips sooner", () => {
     const anchor = { left: 20, top: 120, bottom: 160 };
-    const row = placePicker({ anchor, count: 6, viewport: phone });
-    const rows = placePicker({ anchor, count: 24, viewport: phone });
+    const row = placePicker({ anchor, count: 1, viewport: phone });
+    const rows = placePicker({ anchor, count: 40, viewport: phone });
     expect(row.side).toBe("top");
     expect(rows.side).toBe("bottom");
   });
@@ -110,5 +117,30 @@ describe("placePicker on a 360px phone", () => {
     });
     expect(nearTop.side).toBe("bottom");
     expect(nearBottom.side).toBe("top");
+  });
+});
+
+describe("pickerGrid", () => {
+  test("two even rows, the first taking the extra one", () => {
+    expect(pickerGrid(12, 360).columns).toBe(6);
+    expect(pickerGrid(11, 360).columns).toBe(6);
+    expect(pickerGrid(9, 1280).columns).toBe(5);
+    expect(pickerGrid(1, 360).columns).toBe(1);
+  });
+
+  test("reactions are as large as the screen allows, never over the maximum", () => {
+    expect(pickerGrid(12, 1280).cell).toBe(REACTION_MAX_PX);
+    expect(pickerGrid(12, 360).cell).toBe(REACTION_MAX_PX);
+    // A 320px phone: 280px for six, 46px each.
+    expect(pickerGrid(12, 320)).toEqual({ columns: 6, cell: 46 });
+  });
+
+  test("never under the 40px touch target: many reactions take more rows", () => {
+    // 320px between the margins on a 360px phone holds eight of 40px.
+    expect(pickerGrid(20, 360)).toEqual({ columns: 8, cell: REACTION_PX });
+    const { columns, cell } = pickerGrid(20, 360);
+    expect(columns * cell + 8).toBeLessThanOrEqual(
+      360 - 2 * VIEWPORT_MARGIN_PX,
+    );
   });
 });
