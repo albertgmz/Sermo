@@ -181,6 +181,33 @@ function seoPage(
   };
 }
 
+// The path of a thread or a member page with its slug, as the page's own address check would
+// redirect to. Going there at once saves that second redirect, which would lose the item's hash in
+// WebKit: it does not carry a fragment over a redirect whose address has none.
+async function withSlug(target: URL, forward: Forward) {
+  const [, section, raw] =
+    /^\/(threads|members)\/(\d+)$/.exec(target.pathname) ?? [];
+  if (section === undefined || raw === undefined) return target.pathname;
+  const page = Number(target.searchParams.get("page") ?? "1") || 1;
+  const requestedPath =
+    toBackendPath(target.pathname) + (page > 1 ? `?page=${page}` : "");
+  const seo =
+    section === "threads"
+      ? await callWith(forward, seoThread, {
+          threadId: Number(raw),
+          requestedPath,
+          page,
+          pageSize: POSTS_PER_PAGE,
+        })
+      : await callWith(forward, seoProfile, {
+          userId: Number(raw),
+          requestedPath,
+        });
+  return seo.redirect
+    ? new URL(canonicalPathOf(seo.canonical), target).pathname
+    : target.pathname;
+}
+
 // An address of content that has no page of its own goes to the page that holds it, at its anchor:
 // a post to the page of its thread, a wall post or a comment to the wall. The backend's read is the
 // visibility check: content the visitor may not see ("not found", or "forbidden" for a forum whose
@@ -194,10 +221,12 @@ const heldBy =
     // Nothing is served under such an address; the router answers those with its own 404.
     if (action !== undefined) return true;
     try {
-      const href = await locate(id, forwardFromHeaders(request.headers));
+      const forward = forwardFromHeaders(request.headers);
+      const target = new URL(await locate(id, forward), request.url);
+      target.pathname = await withSlug(target, forward);
       // Temporary and private: a split or a move changes where the content is, and the answer
       // depends on who asks.
-      const response = NextResponse.redirect(new URL(href, request.url), 307);
+      const response = NextResponse.redirect(target, 307);
       response.headers.set("cache-control", "private, no-store");
       return response;
     } catch (error) {

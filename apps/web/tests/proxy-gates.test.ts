@@ -689,6 +689,10 @@ function postsBackend(
     const url = new URL(input);
     const headers = new Headers(init.headers);
     asked.push({ method: init.method ?? "GET", url, headers });
+    // The thread's page is named with its slug, as its own address check would redirect to.
+    const thread = /^\/api\/v1\/seo\/threads\/(\d+)$/.exec(url.pathname);
+    if (thread)
+      return seoOf(`http://localhost/threads/${thread[1]}-news`, true);
     const key = `${headers.get("cookie") ?? ""}|${url.pathname}`;
     if (closed.includes(key)) return refusal(403, "forbidden");
     return visible[key]
@@ -705,7 +709,7 @@ function redirectsTo(response: Response | undefined, path: string) {
   assert.equal(response.headers.get("cache-control"), "private, no-store");
 }
 
-test("a post's address is a temporary, private redirect to its thread's page and anchor", async () => {
+test("a post's address is a temporary, private redirect to its thread's page, slug and anchor", async () => {
   const asked = postsBackend({
     "|/api/v1/posts/31": { id: 31, threadId: 7, position: POSTS_PER_PAGE - 1 },
     "|/api/v1/posts/90": {
@@ -714,9 +718,11 @@ test("a post's address is a temporary, private redirect to its thread's page and
       position: POSTS_PER_PAGE * 2 + 5,
     },
   });
-  redirectsTo(await ask("/posts/31"), "/threads/7#post-31");
-  redirectsTo(await ask("/posts/90"), "/threads/7?page=3#post-90");
-  assert.equal(asked.length, 2);
+  redirectsTo(await ask("/posts/31"), "/threads/7-news#post-31");
+  redirectsTo(await ask("/posts/90"), "/threads/7-news?page=3#post-90");
+  // The post, then the thread's address check, which is told the page.
+  assert.equal(asked.length, 4);
+  assert.equal(asked[3].url.searchParams.get("page"), "3");
 });
 
 test("a deleted post redirects for staff and is a 404 for a member, as a missing one is", async () => {
@@ -730,7 +736,7 @@ test("a deleted post redirects for staff and is a 404 for a member, as a missing
   });
   redirectsTo(
     await ask("/posts/44", { cookie: SESSION }),
-    "/threads/9#post-44",
+    "/threads/9-news#post-44",
   );
   isNotFound(await ask("/posts/44", { cookie: SECURE_SESSION }));
   isNotFound(await ask("/posts/45", { cookie: SESSION }));
@@ -743,7 +749,7 @@ test("a post of a private forum is a 404 for a guest and sends the visitor's coo
   isNotFound(await ask("/posts/50"));
   redirectsTo(
     await ask("/posts/50", { cookie: SESSION }),
-    "/threads/12#post-50",
+    "/threads/12-news#post-50",
   );
   assert.equal(asked[1].headers.get("cookie"), SESSION);
 });
@@ -787,18 +793,19 @@ test("a wall post's and a comment's addresses go to the wall at the post and the
         wallCursor: null,
         commentsCursor: null,
       }),
+      "/api/v1/seo/users/5": seoOf("http://localhost/members/5-wren", true),
     });
   wall();
   redirectsTo(
     await ask("/profile-posts/12"),
-    "/members/5?post=12#profile-post-12",
+    "/members/5-wren?post=12#profile-post-12",
   );
   const asked = wall();
   redirectsTo(
     await ask("/profile-comments/80"),
-    "/members/5?post=12&comment=80#profile-comment-80",
+    "/members/5-wren?post=12&comment=80#profile-comment-80",
   );
-  assert.equal(asked.length, 1);
+  assert.equal(asked.length, 2);
   wall();
   isNotFound(await ask("/profile-posts/13"));
   isNotFound(await ask("/profile-comments/81"));
@@ -843,6 +850,7 @@ test("where a reader picks up a thread or a conversation is a private redirect t
       postId: 90,
       position: POSTS_PER_PAGE * 2 + 5,
     }),
+    "/api/v1/seo/threads/7": seoOf("http://localhost/threads/7-news", true),
     "/api/v1/conversations/5/unread": Response.json({
       conversationId: 5,
       messageId: 61,
@@ -851,7 +859,7 @@ test("where a reader picks up a thread or a conversation is a private redirect t
   });
   redirectsTo(
     await ask("/threads/7-a-slug/unread"),
-    "/threads/7?page=3#post-90",
+    "/threads/7-news?page=3#post-90",
   );
   redirectsTo(
     await ask("/conversations/5/unread", { cookie: SESSION }),
