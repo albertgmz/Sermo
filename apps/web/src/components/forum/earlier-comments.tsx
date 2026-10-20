@@ -88,7 +88,6 @@ export function EarlierComments({
   }, [load]);
 
   // Runs once a batch is in, before it is painted.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new batch is what it waits for
   useLayoutEffect(() => {
     const anchor = kept.current;
     kept.current = null;

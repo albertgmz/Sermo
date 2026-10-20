@@ -715,7 +715,7 @@ test("the comments loaded in place follow an edit, a deletion and a new comment 
   expect(all.at(-1), "the new comment is among the newest").toBe(doomed);
 
   // An edit of a loaded comment shows in it, once.
-  const oldest = all[0]!;
+  const oldest = all[0] ?? "";
   const text = ` edited ${Date.now().toString(36)}`;
   const item = drawn(page, oldest);
   await item.getByRole("button", { name: "Edit", exact: true }).first().click();
