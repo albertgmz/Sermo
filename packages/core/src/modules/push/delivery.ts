@@ -44,17 +44,27 @@ export type PushPhrase = {
 };
 export type PushPhraseRenderer = (item: PushItem, language: string) => PushPhrase;
 
+/**
+ * What the service worker shows. `tag` names the notice's group (its `group_key`, else the notice
+ * itself), so a later notice of the same group replaces the one the device still shows.
+ */
 export function pushPayload(
   item: PushItem,
   phrase: PushPhrase,
   url: string,
   includeConversationBody: boolean,
-): { title: string; body: string; url: string } {
+  groupKey: string | null = null,
+): { title: string; body: string; url: string; tag: string } {
   const bodyHtml =
     item.contentType.startsWith("conversation") && !includeConversationBody
       ? (phrase.bodyWithoutContentHtml ?? phrase.title)
       : phrase.bodyHtml;
-  return { title: phrase.title.slice(0, 120), body: renderPlainText(bodyHtml, 180), url };
+  return {
+    title: phrase.title.slice(0, 120),
+    body: renderPlainText(bodyHtml, 180),
+    url,
+    tag: groupKey ?? `notification:${item.notificationId}`,
+  };
 }
 
 type Recipient = PrincipalRow & { group_id: number; language: string | null };
@@ -247,10 +257,10 @@ export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRe
     if (!vapid) return;
     const payload = raw as { item: PushItem; subscriptionId: number; defaultPush: boolean };
     const item = payload.item;
-    const notification = query<{ id: number }, [number, number]>(
+    const notification = query<{ id: number; group_key: string | null }, [number, number]>(
       ctx,
       "notification",
-      "SELECT id FROM notifications WHERE id = ?1 AND user_id = ?2",
+      "SELECT id,group_key FROM notifications WHERE id = ?1 AND user_id = ?2",
     ).get(item.notificationId, item.userId);
     if (!notification || !enabled(ctx, item, payload.defaultPush)) return;
     const member = recipient(ctx, item.userId);
@@ -260,7 +270,13 @@ export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRe
     const settings = readSiteSettings(ctx);
     const phrase = options.renderPhrase(item, member.language ?? settings.defaultLanguage);
     const message = JSON.stringify(
-      pushPayload(item, phrase, content.url, settings.conversationEmailIncludesBody),
+      pushPayload(
+        item,
+        phrase,
+        content.url,
+        settings.conversationEmailIncludesBody,
+        notification.group_key,
+      ),
     );
     const subscription = query<Subscription, [number, number]>(
       ctx,

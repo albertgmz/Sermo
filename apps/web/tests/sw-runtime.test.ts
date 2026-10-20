@@ -79,6 +79,16 @@ function boot(script: string) {
     // How the browser answers a request to delete a database, and when it has.
     databaseAnswer: "onsuccess" as "onsuccess" | "onerror" | "onblocked",
     databasesDeleted: 0,
+    // The notifications shown, the windows of the site and the addresses opened in a new one.
+    shown: [] as { title: string; options: Record<string, unknown> }[],
+    windows: [] as {
+      focused: boolean;
+      visibilityState: string;
+      moved: string[];
+      focus(): Promise<unknown>;
+      navigate(url: string): Promise<unknown>;
+    }[],
+    opened: [] as string[],
   };
   const sandbox: Record<string, unknown> = {
     caches,
@@ -115,12 +125,23 @@ function boot(script: string) {
       claim: async () => {
         scope.claimed = true;
       },
+      matchAll: async () => scope.windows,
+      openWindow: async (url: string) => {
+        scope.opened.push(url);
+        return null;
+      },
     },
     registration: {
       scope: `${ORIGIN}/`,
       unregister: async () => {
         scope.unregistered = true;
         return true;
+      },
+      showNotification: async (
+        title: string,
+        options: Record<string, unknown>,
+      ) => {
+        scope.shown.push({ title, options });
       },
     },
     addEventListener: (type: string, listener: Listener) =>
@@ -217,14 +238,111 @@ const PAGES = (worker: ReturnType<typeof boot>) =>
     [...cache.entries.keys()].map((url) => `${name} ${url}`),
   );
 
-test("it asks for no more than install, activate, fetch and message events", async () => {
+test("it asks for no more than install, activate, fetch, message, push and notification click events", async () => {
   const { listeners } = await ready();
   expect([...listeners.keys()].sort()).toEqual([
     "activate",
     "fetch",
     "install",
     "message",
+    "notificationclick",
+    "push",
   ]);
+});
+
+const pushed = (text: string | null) => ({
+  data:
+    text === null
+      ? null
+      : {
+          text: () => text,
+        },
+});
+
+test("a push shows its notification with the app's icon, the group's tag and the item's address", async () => {
+  const worker = await ready();
+  const url = `${ORIGIN}/threads/4-topic#post-9`;
+  await worker.dispatch(
+    "push",
+    pushed(
+      JSON.stringify({
+        title: "Ana replied",
+        body: "Hi",
+        url,
+        tag: "thread:4",
+      }),
+    ),
+  );
+  expect(worker.scope.shown).toEqual([
+    {
+      title: "Ana replied",
+      options: {
+        body: "Hi",
+        icon: "/pwa-icon/192",
+        badge: "/pwa-icon/badge",
+        tag: "thread:4",
+        renotify: true,
+        data: { url },
+      },
+    },
+  ]);
+});
+
+test("a push with nothing readable in it still shows a notification", async () => {
+  const worker = await ready();
+  await worker.dispatch("push", pushed(null));
+  await worker.dispatch("push", pushed("garbage"));
+  expect(worker.scope.shown.map((entry) => entry.title)).toEqual([
+    "forum.test",
+    "forum.test",
+  ]);
+});
+
+function windowOf(state: { focused?: boolean; visibilityState?: string }) {
+  const client = {
+    focused: state.focused ?? false,
+    visibilityState: state.visibilityState ?? "hidden",
+    moved: [] as string[],
+    focus: async () => client,
+    navigate: async (url: string) => {
+      client.moved.push(url);
+      return client;
+    },
+  };
+  return client;
+}
+
+const tapped = (url: string) => {
+  const notification = {
+    closed: false,
+    data: { url },
+    close() {
+      notification.closed = true;
+    },
+  };
+  return { notification };
+};
+
+test("a tap closes the notification and moves the site's window in front to the item", async () => {
+  const worker = await ready();
+  const behind = windowOf({});
+  const front = windowOf({ focused: true, visibilityState: "visible" });
+  worker.scope.windows.push(behind, front);
+  const event = tapped(`${ORIGIN}/conversations/messages/12`);
+  await worker.dispatch("notificationclick", event);
+  expect(event.notification.closed).toBe(true);
+  expect(front.moved).toEqual([`${ORIGIN}/conversations/messages/12`]);
+  expect(behind.moved).toEqual([]);
+  expect(worker.scope.opened).toEqual([]);
+});
+
+test("a tap with no window of the site open opens one at the item", async () => {
+  const worker = await ready();
+  await worker.dispatch(
+    "notificationclick",
+    tapped(`${ORIGIN}/threads/4#post-9`),
+  );
+  expect(worker.scope.opened).toEqual([`${ORIGIN}/threads/4#post-9`]);
 });
 
 test("installing keeps the offline page and the worker takes over at once", async () => {

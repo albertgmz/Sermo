@@ -5292,3 +5292,38 @@ over them stalled one commit for 370 ms), and other subscribers handle a batch w
   translation. It covers the groups screens, the pickers and filters (`getGroups`) and the shop and
   warning pickers; names the backend sends inside other answers (a warning action's group, a
   rule's group list, a member's group badge) are not translated.
+
+## App install and push notifications
+
+### A push shows the item, and a tap opens the app at it
+
+The service worker now handles `push` and `notificationclick` (rules in `lib/push-worker.ts`, run
+by `src/worker/sw.ts`). A push shows the backend's title and body with the app's icon
+(`/pwa-icon/192`, which sends a site with an uploaded icon to it) and a badge (`/pwa-icon/badge`,
+the two strokes of the default mark in white on transparency; a site with its own icon gets the
+browser's badge, a 404, rather than ours). Every push shows a notification, even one whose payload
+cannot be read (it says the site's host and opens the alert list): browsers take the permission
+away from a site whose pushes show nothing. The payload gained `tag`: the notice's `group_key`, else
+`notification:<id>`, shown with `renotify`, so the device keeps one notification per group (a
+thread followed, the reactions to one post) and a new group still alerts.
+
+A tap closes the notification, then goes to the item's address exactly as the push carries it (an
+anchor or a permalink, whichever the backend writes). An address of the site moves a window the
+site already has (the one in front, else one showing, else any; `Client.url` is not used because it
+keeps the last full load, not the page shown) with `focus()` and `navigate()`, and opens a new
+window only when there is none or the worker cannot move it. Every address of the site is in the
+manifest's scope (`/`), so on Android, and on desktop Chrome, a new window of an installed app is
+the app's own, not a browser tab; on iOS a push reaches only the installed app anyway. An address
+elsewhere opens on its own; one that is no address of the web (`javascript:`, garbage) opens the
+alert list.
+
+Turning pushes on is per device, in the account's notification settings (section "Push
+notifications on your devices"): this device's state (on, off, blocked in the browser, unsupported,
+iOS outside the installed app, or not set up on the forum) with Turn on / Turn off, and the other
+devices the account lists, each removable. The browser's subscription is the device's truth: it is
+"on" only when the browser holds one that the account lists. Turning on asks the browser first (the
+only call before any other await, as iOS and Firefox take the question only from a tap), replaces a
+subscription made for older keys, and takes the browser's subscription back when the account
+refuses it. The calls go through two server actions (`push-actions.ts`). Signing out already ends a
+device's pushes: `Clear-Site-Data: "storage"` removes the worker and with it the subscription; the
+account's row goes on the next send (404/410).

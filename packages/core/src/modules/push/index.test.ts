@@ -121,7 +121,7 @@ test("subscription operations enforce authentication and endpoint ownership", as
     "SELECT push FROM notification_preferences WHERE user_id = ?1 AND type = ?2",
     [actorUserId(recipient)!, "thread_reply"],
   );
-  expectNoTableScan(ctx, "SELECT id FROM notifications WHERE id = ?1 AND user_id = ?2", [
+  expectNoTableScan(ctx, "SELECT id,group_key FROM notifications WHERE id = ?1 AND user_id = ?2", [
     1,
     actorUserId(recipient)!,
   ]);
@@ -152,7 +152,12 @@ test("payload phrases are plain text, capped, and conversation bodies obey priva
     title: "New message",
     body: "A message arrived",
     url: "https://forum.example.test/conversations/2",
+    tag: "notification:1",
   });
+  // A grouped notice is tagged by its group, so the device shows one notification per group.
+  expect(
+    pushPayload(item, phrase, "https://forum.example.test/threads/4", false, "thread:4").tag,
+  ).toBe("thread:4");
   const withBody = pushPayload(item, phrase, "https://forum.example.test/conversations/2", true);
   expect(withBody.body.length).toBeLessThanOrEqual(180);
   expect(withBody.body.startsWith("private")).toBe(true);

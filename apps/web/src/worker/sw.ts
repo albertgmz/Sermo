@@ -6,6 +6,13 @@ import {
   Serwist,
 } from "serwist";
 import {
+  notificationOf,
+  openTarget,
+  readPush,
+  type ShownNotification,
+  type WindowLike,
+} from "../lib/push-worker";
+import {
   deleteStaleCaches,
   isImmutable,
   isPageNavigation,
@@ -15,13 +22,38 @@ import {
 } from "../lib/pwa-routes";
 
 // The service worker, bundled for the browser into `public/sw.js` by `scripts/build-sw.ts`. It has no
-// push, no background sync and no offline reading: see `lib/pwa-routes.ts` for what it does.
+// background sync and no offline reading: see `lib/pwa-routes.ts` for what it does with requests and
+// `lib/push-worker.ts` for pushes.
+type Lasting = { waitUntil(work: Promise<unknown>): void };
 declare const self: {
   // The precache list the build injects: the offline page and its revision.
   __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
+  location: { origin: string };
+  registration: {
+    showNotification(
+      title: string,
+      options: ShownNotification["options"],
+    ): Promise<void>;
+  };
+  clients: {
+    matchAll(options: {
+      type: "window";
+      includeUncontrolled: boolean;
+    }): Promise<readonly WindowLike[]>;
+    openWindow(url: string): Promise<unknown>;
+  };
+  addEventListener(type: "activate", listener: (event: Lasting) => void): void;
   addEventListener(
-    type: "activate",
-    listener: (event: { waitUntil(work: Promise<unknown>): void }) => void,
+    type: "push",
+    listener: (event: Lasting & { data: { text(): string } | null }) => void,
+  ): void;
+  addEventListener(
+    type: "notificationclick",
+    listener: (
+      event: Lasting & {
+        notification: { close(): void; data: { url?: unknown } | null };
+      },
+    ) => void,
   ): void;
 };
 
@@ -67,6 +99,29 @@ const serwist = new Serwist({
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(deleteStaleCaches(caches));
+});
+
+self.addEventListener("push", (event) => {
+  let text: string | null = null;
+  try {
+    text = event.data?.text() ?? null;
+  } catch {}
+  const shown = notificationOf(readPush(text), self.location.origin);
+  event.waitUntil(
+    self.registration.showNotification(shown.title, shown.options),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    openTarget(event.notification.data?.url, {
+      origin: self.location.origin,
+      windows: () =>
+        self.clients.matchAll({ type: "window", includeUncontrolled: true }),
+      openWindow: (url) => self.clients.openWindow(url),
+    }),
+  );
 });
 
 serwist.addEventListeners();

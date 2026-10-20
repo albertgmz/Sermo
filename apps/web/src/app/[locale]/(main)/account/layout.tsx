@@ -36,6 +36,7 @@ export default function AccountLayout({
         "account.navigation",
         "account.pictures",
         "account.profile",
+        "account.pushDevices",
         "account.username",
         "forum.autosave",
         "forum.framing",

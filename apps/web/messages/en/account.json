@@ -333,6 +333,32 @@
       }
     }
   },
+  "pushDevices": {
+    "heading": "Push notifications on your devices",
+    "description": "Push notifications reach your phone or computer even when the forum is closed. Turn them on for each device.",
+    "thisDevice": "This device",
+    "device": "{browser} on {system}",
+    "unknownDevice": "A browser",
+    "added": "Added {date}",
+    "status": {
+      "checking": "Checking this device…",
+      "on": "On: replies, mentions and other alerts arrive here.",
+      "off": "Off.",
+      "blocked": "Notifications are blocked for this site in your browser's settings. Allow them there, then come back.",
+      "unsupported": "This browser cannot receive push notifications.",
+      "needsInstall": "On iPhone and iPad, add the forum to your home screen first (Share, then Add to Home Screen), then open it from there to turn notifications on.",
+      "offSite": "Push notifications are not set up on this forum."
+    },
+    "turnOn": "Turn on",
+    "turnOff": "Turn off",
+    "remove": "Remove",
+    "others": "Your other devices",
+    "denied": "The browser did not allow notifications.",
+    "failed": "This device could not be set up for notifications. Try again later.",
+    "aria": {
+      "remove": "Remove {device}"
+    }
+  },
   "bookmarks": {
     "metaTitle": "Bookmarks",
     "heading": "Bookmarks",

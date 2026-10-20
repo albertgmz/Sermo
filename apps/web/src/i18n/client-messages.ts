@@ -10,6 +10,7 @@ export const CLIENT_NAMESPACES = [
   "account.navigation",
   "account.pictures",
   "account.profile",
+  "account.pushDevices",
   "account.security",
   "account.username",
   "admin.confirmPassword",

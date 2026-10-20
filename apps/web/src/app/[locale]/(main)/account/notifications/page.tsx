@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import type { SearchParams } from "@/app/[locale]/(main)/account/notice";
+import { PushDevicesSection } from "@/app/[locale]/(main)/account/notifications/push-devices-section";
 import { TypesSection } from "@/app/[locale]/(main)/account/notifications/types-section";
 import { SectionSkeleton } from "@/app/[locale]/(main)/account/skeletons";
 import { LoadingRegion } from "@/components/forum/skeletons";
@@ -30,6 +31,9 @@ export default function NotificationsPage({
       >
         <TypesSection searchParams={searchParams} />
       </Suspense>
+      <Suspense fallback={<DevicesSkeleton />}>
+        <PushDevicesSection />
+      </Suspense>
     </div>
   );
 }
@@ -42,5 +46,18 @@ function TypesSkeleton() {
       description={t("sectionDescription")}
       rows={8}
     />
+  );
+}
+
+function DevicesSkeleton() {
+  const t = useTranslations("account.pushDevices");
+  return (
+    <LoadingRegion label={t("status.checking")}>
+      <SectionSkeleton
+        heading={t("heading")}
+        description={t("description")}
+        rows={1}
+      />
+    </LoadingRegion>
   );
 }

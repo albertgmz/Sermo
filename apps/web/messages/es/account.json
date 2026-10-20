@@ -333,6 +333,32 @@
       }
     }
   },
+  "pushDevices": {
+    "heading": "Notificaciones push en tus dispositivos",
+    "description": "Las notificaciones push llegan a tu móvil o a tu ordenador aunque el foro esté cerrado. Actívalas en cada dispositivo.",
+    "thisDevice": "Este dispositivo",
+    "device": "{browser} en {system}",
+    "unknownDevice": "Un navegador",
+    "added": "Añadido el {date}",
+    "status": {
+      "checking": "Comprobando este dispositivo…",
+      "on": "Activadas: las respuestas, menciones y otros avisos llegan aquí.",
+      "off": "Desactivadas.",
+      "blocked": "Las notificaciones de este sitio están bloqueadas en los ajustes del navegador. Permítelas allí y vuelve aquí.",
+      "unsupported": "Este navegador no puede recibir notificaciones push.",
+      "needsInstall": "En iPhone y iPad, primero añade el foro a tu pantalla de inicio (Compartir y luego Añadir a pantalla de inicio) y ábrelo desde allí para activar las notificaciones.",
+      "offSite": "Las notificaciones push no están configuradas en este foro."
+    },
+    "turnOn": "Activar",
+    "turnOff": "Desactivar",
+    "remove": "Quitar",
+    "others": "Tus otros dispositivos",
+    "denied": "El navegador no permitió las notificaciones.",
+    "failed": "No se pudo preparar este dispositivo para las notificaciones. Inténtalo más tarde.",
+    "aria": {
+      "remove": "Quitar {device}"
+    }
+  },
   "bookmarks": {
     "metaTitle": "Marcadores",
     "heading": "Marcadores",

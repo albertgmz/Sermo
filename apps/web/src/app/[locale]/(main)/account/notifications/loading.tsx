@@ -4,6 +4,7 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 
 export default function Loading() {
   const t = useTranslations("account.notifications");
+  const devices = useTranslations("account.pushDevices");
   return (
     <LoadingRegion label={t("loading")}>
       <div className="space-y-4">
@@ -12,6 +13,11 @@ export default function Loading() {
           heading={t("sectionHeading")}
           description={t("sectionDescription")}
           rows={8}
+        />
+        <SectionSkeleton
+          heading={devices("heading")}
+          description={devices("description")}
+          rows={1}
         />
       </div>
     </LoadingRegion>
