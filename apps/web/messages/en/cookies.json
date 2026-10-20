@@ -144,6 +144,16 @@
       "purpose": "Remembers which forum categories and panels you folded.",
       "lifetime": "Until you clear your browser's site data."
     },
+    "appPrompts": {
+      "title": "App and notification offers",
+      "purpose": "Remembers when you answered “Not now” to the offer to install the forum as an app or to turn on notifications, so it is not shown again for 30 days.",
+      "lifetime": "Until you clear your browser's site data."
+    },
+    "appVisit": {
+      "title": "Offers in this visit",
+      "purpose": "Counts the pages of this visit and remembers which offer it showed, so a visit shows one offer at a time and never on the first page after you sign up.",
+      "lifetime": "Until you close the tab."
+    },
     "offlineFiles": {
       "title": "Site files kept for speed",
       "purpose": "A small helper (a service worker) keeps the site's own scripts, styles and fonts on your device so pages load faster, and a short offline page for when you have no connection. It keeps no page, no account data and no identifier.",

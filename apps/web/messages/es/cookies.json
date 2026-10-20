@@ -144,6 +144,16 @@
       "purpose": "Recuerda qué categorías de foros y paneles plegaste.",
       "lifetime": "Hasta que borres los datos del sitio en tu navegador."
     },
+    "appPrompts": {
+      "title": "Ofertas de la app y los avisos",
+      "purpose": "Recuerda cuándo respondiste «Ahora no» a la oferta de instalar el foro como app o de activar los avisos, para no volver a mostrarla en 30 días.",
+      "lifetime": "Hasta que borres los datos del sitio en tu navegador."
+    },
+    "appVisit": {
+      "title": "Ofertas en esta visita",
+      "purpose": "Cuenta las páginas de esta visita y recuerda qué oferta mostró, para que cada visita muestre una sola oferta y nunca en la primera página después de registrarte.",
+      "lifetime": "Hasta que cierres la pestaña."
+    },
     "offlineFiles": {
       "title": "Archivos del sitio guardados para ir más rápido",
       "purpose": "Un pequeño ayudante (un service worker) guarda en tu dispositivo los scripts, estilos y fuentes del propio sitio para que las páginas carguen más rápido, y una página breve para cuando no tienes conexión. No guarda ninguna página, ningún dato de tu cuenta ni ningún identificador.",

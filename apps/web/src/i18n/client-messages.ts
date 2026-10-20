@@ -77,6 +77,7 @@ export const CLIENT_NAMESPACES = [
   "forums.forum",
   "home.clampedBody",
   "home.pictureViewer",
+  "layout.appPrompts",
   "layout.createButton",
   "layout.guestMenu",
   "layout.headerPanel",

@@ -16,6 +16,10 @@ export const MANIFEST_URL = "/manifest.webmanifest";
 const ICON_PREFIX = "/pwa-icon/";
 // The default home-screen icon of iOS, served beside the manifest's.
 export const APPLE_ICON_URL = `${ICON_PREFIX}180`;
+// The default icon at the size the install card and a notification show, and the badge of a
+// notification (`app/pwa-icon/[size]`).
+export const APP_ICON_URL = `${ICON_PREFIX}192`;
+export const BADGE_URL = `${ICON_PREFIX}badge`;
 
 // Colours of a manifest are literal: it is read by the operating system, not by the page, so the
 // tokens of globals.css cannot reach it. The accent is `--primary`; the splash background is that

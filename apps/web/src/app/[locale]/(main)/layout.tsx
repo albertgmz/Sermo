@@ -5,6 +5,7 @@ import { AwaitingNotice } from "@/components/forum/awaiting-notice";
 import { NoticeBanner } from "@/components/forum/notice-banner";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { AnalyticsTag } from "@/components/layout/analytics-tag";
+import { AppPromptsGate } from "@/components/layout/app-prompts-gate";
 import { ClientMessages } from "@/components/layout/client-messages";
 import { CountersPoll } from "@/components/layout/counters-poll";
 import { HashTarget } from "@/components/layout/hash-target";
@@ -99,6 +100,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         "forum.threadTags",
         "home.clampedBody",
         "home.pictureViewer",
+        "layout.appPrompts",
         "layout.createButton",
         "layout.guestMenu",
         "layout.headerPanel",
@@ -146,6 +148,9 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         </Suspense>
         <Suspense>
           <ShortcutsGate />
+        </Suspense>
+        <Suspense>
+          <AppPromptsGate />
         </Suspense>
         <SiteHeader />
         <Suspense>

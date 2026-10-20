@@ -223,5 +223,14 @@
   },
   "createButton": {
     "label": "Crear"
+  },
+  "appPrompts": {
+    "notNow": "Ahora no",
+    "push": {
+      "title": "¿Quieres recibir avisos de respuestas, menciones y mensajes?",
+      "body": "Te llegan a este dispositivo aunque el foro esté cerrado. Puedes desactivarlos cuando quieras en tus ajustes de notificaciones.",
+      "enable": "Activar",
+      "failed": "No se pudieron activar los avisos aquí. Inténtalo de nuevo desde tus ajustes de notificaciones."
+    }
   }
 }

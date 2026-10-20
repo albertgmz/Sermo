@@ -1,5 +1,18 @@
 import { expect, test } from "bun:test";
-import { installOffer, platformOf, pushAvailability } from "./app-prompts";
+import {
+  cardToShow,
+  installOffer,
+  type PromptState,
+  platformOf,
+  pushAvailability,
+  readSnoozes,
+  readVisit,
+  SNOOZE_DAYS,
+  snoozed,
+} from "./app-prompts";
+
+const DAY = 24 * 60 * 60 * 1000;
+const NOW = Date.UTC(2026, 9, 19, 12);
 
 const UA = {
   androidChrome:
@@ -81,4 +94,138 @@ test("pushes need the browser's APIs and the worker, and on iOS the installed ap
   expect(
     pushAvailability({ apis: true, worker: true, platform: iphoneApp }),
   ).toBe("available");
+});
+
+test("'Not now' holds a card back for 30 days", () => {
+  const snoozes = { install: NOW };
+  expect(snoozed(snoozes, "install", NOW + (SNOOZE_DAYS - 1) * DAY)).toBe(true);
+  expect(snoozed(snoozes, "install", NOW + SNOOZE_DAYS * DAY)).toBe(false);
+  expect(snoozed(snoozes, "push", NOW)).toBe(false);
+});
+
+test("what the browser stored is read safely", () => {
+  expect(readSnoozes(null)).toEqual({});
+  expect(readSnoozes("garbage")).toEqual({});
+  expect(readSnoozes('{"install":5,"push":"x","other":1}')).toEqual({
+    install: 5,
+  });
+  expect(readVisit(null)).toEqual({ views: 0, card: null, installed: false });
+  expect(readVisit("[")).toEqual({ views: 0, card: null, installed: false });
+  expect(readVisit('{"views":3,"card":"push","installed":true}')).toEqual({
+    views: 3,
+    card: "push",
+    installed: true,
+  });
+  expect(readVisit('{"card":"other"}').card).toBeNull();
+});
+
+// A member of long standing on an Android phone, on the third page of a visit, nothing decided yet.
+const base: PromptState = {
+  consentSettled: true,
+  install: null,
+  member: { createdAt: NOW - 400 * DAY },
+  push: "available",
+  permission: "default",
+  serverPush: true,
+  snoozes: {},
+  visit: { views: 3, card: null, installed: false },
+  now: NOW,
+};
+
+test("nothing is shown before the cookie banner is answered", () => {
+  expect(cardToShow(base)).toBe("push");
+  expect(cardToShow({ ...base, consentSettled: false })).toBeNull();
+  expect(
+    cardToShow({ ...base, install: "native", consentSettled: false }),
+  ).toBeNull();
+});
+
+test("the notification card: members only, while the browser has not been asked", () => {
+  expect(cardToShow({ ...base, member: null })).toBeNull();
+  expect(cardToShow({ ...base, permission: "granted" })).toBeNull();
+  expect(cardToShow({ ...base, permission: "denied" })).toBeNull();
+  expect(cardToShow({ ...base, permission: null })).toBeNull();
+  expect(cardToShow({ ...base, push: "unsupported" })).toBeNull();
+  expect(cardToShow({ ...base, push: "needsInstall" })).toBeNull();
+  // A forum without push keys asks nothing.
+  expect(cardToShow({ ...base, serverPush: false })).toBeNull();
+  expect(cardToShow({ ...base, snoozes: { push: NOW - DAY } })).toBeNull();
+  expect(
+    cardToShow({ ...base, snoozes: { push: NOW - SNOOZE_DAYS * DAY } }),
+  ).toBe("push");
+});
+
+test("a member who just signed up is not asked on the first page of the visit", () => {
+  const newcomer = { ...base, member: { createdAt: NOW - 5 * 60 * 1000 } };
+  expect(
+    cardToShow({ ...newcomer, visit: { ...base.visit, views: 1 } }),
+  ).toBeNull();
+  expect(cardToShow({ ...newcomer, visit: { ...base.visit, views: 2 } })).toBe(
+    "push",
+  );
+  // A member of long standing may be asked on any page.
+  expect(cardToShow({ ...base, visit: { ...base.visit, views: 1 } })).toBe(
+    "push",
+  );
+});
+
+test("the install card is for guests and members alike, and comes first", () => {
+  expect(cardToShow({ ...base, install: "native" })).toBe("install");
+  expect(cardToShow({ ...base, member: null, install: "ios" })).toBe("install");
+  expect(
+    cardToShow({ ...base, install: "native", snoozes: { install: NOW } }),
+  ).toBe("push");
+});
+
+test("a visit keeps to its card: notifications wait for a later visit, or for the install", () => {
+  const afterInstallCard = {
+    ...base,
+    install: "native" as const,
+    visit: { views: 4, card: "install" as const, installed: false },
+  };
+  expect(cardToShow(afterInstallCard)).toBe("install");
+  // Put off: the rest of the visit shows nothing.
+  expect(
+    cardToShow({ ...afterInstallCard, snoozes: { install: NOW } }),
+  ).toBeNull();
+  // Installed: the browser offers no more install, and the notification card may follow.
+  expect(
+    cardToShow({
+      ...afterInstallCard,
+      install: null,
+      visit: { ...afterInstallCard.visit, installed: true },
+    }),
+  ).toBe("push");
+  // A visit that showed the notification card does not switch to the install card.
+  expect(
+    cardToShow({
+      ...base,
+      install: "native",
+      visit: { views: 2, card: "push", installed: false },
+    }),
+  ).toBe("push");
+  expect(
+    cardToShow({
+      ...base,
+      install: "native",
+      permission: "granted",
+      visit: { views: 2, card: "push", installed: false },
+    }),
+  ).toBeNull();
+});
+
+test("on iOS the install steps come first and the notification card waits for the app", () => {
+  const safari = {
+    ...base,
+    install: installOffer(iphone, false),
+    push: pushAvailability({ apis: false, worker: true, platform: iphone }),
+  };
+  expect(cardToShow(safari)).toBe("install");
+  expect(cardToShow({ ...safari, snoozes: { install: NOW } })).toBeNull();
+  const app = {
+    ...base,
+    install: installOffer(iphoneApp, false),
+    push: pushAvailability({ apis: true, worker: true, platform: iphoneApp }),
+  };
+  expect(cardToShow(app)).toBe("push");
 });

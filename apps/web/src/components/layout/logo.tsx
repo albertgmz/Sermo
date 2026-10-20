@@ -5,6 +5,7 @@ import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { Skeleton } from "@/components/ui/skeleton";
 import { liteBlocks } from "@/lib/lite-mode";
 import { liteCategoryOfPurpose } from "@/lib/lite-preferences";
+import { APP_ICON_URL } from "@/lib/pwa";
 import { getSite, type SiteIdentity } from "@/lib/sermo/site";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +77,24 @@ async function Mark({
       <path d="m13 19 6-8" />
     </svg>
   );
+}
+
+// The app's icon as a home screen shows it, for the cards that offer the app: the uploaded icon,
+// else the default mark of the manifest (`/pwa-icon/192`). Decorative: the card's title names the
+// site.
+export async function AppIcon({ className }: { className?: string }) {
+  const site = await getSite();
+  const box = cn("size-full object-cover", className);
+  if (site.icon) {
+    if (await liteBlocks(liteCategoryOfPurpose("site_icon")))
+      return <LitePlaceholder compact className={box} />;
+    // biome-ignore lint/performance/noImgElement: next/image optimisation is disabled
+    return <img src={site.icon.url} alt="" className={box} />;
+  }
+  if (await liteBlocks("brand"))
+    return <LitePlaceholder compact className={box} />;
+  // biome-ignore lint/performance/noImgElement: next/image optimisation is disabled
+  return <img src={APP_ICON_URL} alt="" className={box} />;
 }
 
 type LogoProps = {

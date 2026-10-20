@@ -3,6 +3,7 @@
 // name the code writes and fails when one is missing here. The words (purpose, lifetime) are in
 // `messages/<locale>/cookies.json` under `items.<id>`.
 import { LOCALE_COOKIE } from "@/i18n/locale-cookie";
+import { PROMPTS_KEY, VISIT_KEY } from "@/lib/app-prompts";
 import { FEED_VIEW_COOKIE } from "@/lib/feed-view";
 import { LITE_COOKIE } from "@/lib/lite-preferences";
 import { NOTICES_DISMISSED_COOKIE } from "@/lib/notice-dismissals";
@@ -128,6 +129,22 @@ export const INVENTORY: readonly InventoryItem[] = [
     category: "necessary",
     storage: "localStorage",
     names: ["forum-stats-open", "forum-category-*", "styleguide-*"],
+    party: "first",
+  },
+  {
+    // When the cards that offer the app and notifications were put off ("Not now").
+    id: "appPrompts",
+    category: "necessary",
+    storage: "localStorage",
+    names: [PROMPTS_KEY],
+    party: "first",
+  },
+  {
+    // The pages of this visit and the card shown in it, so one visit shows one card.
+    id: "appVisit",
+    category: "necessary",
+    storage: "sessionStorage",
+    names: [VISIT_KEY],
     party: "first",
   },
   {

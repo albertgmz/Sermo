@@ -223,5 +223,14 @@
   },
   "createButton": {
     "label": "Create"
+  },
+  "appPrompts": {
+    "notNow": "Not now",
+    "push": {
+      "title": "Would you like alerts for replies, mentions and messages?",
+      "body": "They reach this device even when the forum is closed. You can turn them off at any time in your notification settings.",
+      "enable": "Turn on",
+      "failed": "Alerts could not be turned on here. Try again from your notification settings."
+    }
   }
 }

@@ -28,7 +28,7 @@ const EMISSION_GATES: Record<string, string> = {
   "src/lib/pwa.ts":
     "Names the icons of the web app manifest; src/app/manifest.ts checks the category before asking for them and leaves them out when it is blocked.",
   "src/components/layout/logo.tsx":
-    "Checks brand before emitting the site logo picture.",
+    "Checks brand before emitting the site logo picture, the square mark and the app icon of the install and notification cards.",
   "src/components/layout/page-backdrop.tsx":
     "Checks brand before emitting the site backdrop picture.",
   "src/components/forum/reaction-picture.tsx":

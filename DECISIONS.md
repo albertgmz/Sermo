@@ -5327,3 +5327,27 @@ subscription made for older keys, and takes the browser's subscription back when
 refuses it. The calls go through two server actions (`push-actions.ts`). Signing out already ends a
 device's pushes: `Clear-Site-Data: "storage"` removes the worker and with it the subscription; the
 account's row goes on the next send (404/410).
+
+### The notification card: after the cookie banner, never as the browser's own question
+
+Signed-in members get an in-page card, "Would you like alerts for replies, mentions and
+messages?", with Turn on / Not now (`components/layout/app-prompts.tsx`, rules in
+`lib/app-prompts.ts`, the card itself `PromptCard`). Only Turn on calls
+`Notification.requestPermission()`: a browser asks a site once and then remembers the answer (Chrome
+blocks a site after a few dismissals), so a "no" to our card costs nothing and the browser's
+question is kept for someone who said yes. Not now puts the card away for 30 days
+(`sermo-app-prompts` in localStorage); closing the browser's question without answering does too.
+
+It is shown when all of these hold: the cookie banner is out of the way (a choice is recorded, or
+the banner is not shown to this visitor, or its script could not start: `consentSettled` in
+`consent-library.ts`); the forum has push keys (`push.publicKey`, read like the site settings and
+cached five minutes); the browser can receive pushes (service worker, Push API and notifications on
+a secure page, in a production build, and on iOS only inside the installed app); the browser has
+not been asked yet (`Notification.permission` is `default`); it is not put off; and it is not the
+first page of a visit of an account younger than a day (`sermo-app-visit` in sessionStorage counts
+the pages; "a session in which they signed up" is read as the first day of the account, since the
+web app is not told when a sign-up happened). Any cookie choice lets it show, a rejection included:
+the card and what it stores are strictly necessary (listed in the cookie inventory), and the push
+subscription is made only on the member's tap. A member with terms to accept sees only the
+acceptance screen, and an account waiting for approval (which may not save a device) is not asked.
+A visit shows one card: the one it showed first stays until it is answered.

@@ -5,10 +5,12 @@
 // of the item and a tag that names the notice's group. Every push shows a notification, even one
 // that cannot be read: a browser that sees pushes with nothing shown takes the permission away.
 
+import { APP_ICON_URL, BADGE_URL } from "./pwa";
+
 // The app's icon (the uploaded one, or the default mark: `app/pwa-icon/[size]`) and the small
 // one-colour mark of the status bar.
-export const NOTIFICATION_ICON = "/pwa-icon/192";
-export const NOTIFICATION_BADGE = "/pwa-icon/badge";
+export const NOTIFICATION_ICON = APP_ICON_URL;
+export const NOTIFICATION_BADGE = BADGE_URL;
 // Where a notification without a usable address leads.
 const FALLBACK_PATH = "/notifications";
 
