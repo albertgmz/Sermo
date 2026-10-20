@@ -24,7 +24,7 @@ import {
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { readGates } from "../forums/read-gates";
-import { forgetRecentlyActive } from "../members/recently-active";
+import { forgetRecentlyActive } from "../members/recently-active-cache";
 import { requireSiteView } from "../members/site-access";
 
 type Thread = {

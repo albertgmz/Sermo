@@ -6,6 +6,7 @@ import { requirePermission } from "../../permissions";
 import { iso } from "../../time";
 import { isBanned } from "./access";
 import { loadViewerCards } from "./cards";
+import { recentlyActiveCache as listCache, type RecentlyActiveList } from "./recently-active-cache";
 import { requireSiteView } from "./site-access";
 
 /** How far back the list reaches. */
@@ -32,13 +33,7 @@ export const recentlyActiveSql = {
     "SELECT id, last_activity_at, banned_until, banned_permanently FROM users WHERE id IN (SELECT value FROM json_each(?1)) AND show_online = 1 AND erased_at IS NULL",
 };
 
-type Listed = { total: number; members: { id: number; at: number }[] };
-const listCache = new WeakMap<Ctx, { at: number; listed: Listed }>();
-
-/** Drops the kept list, so a member who just hid their online status is not shown from it. */
-export function forgetRecentlyActive(ctx: Ctx): void {
-  listCache.delete(ctx);
-}
+type Listed = RecentlyActiveList;
 
 function listRecentlyActive(ctx: Ctx, now: number): Listed {
   const since = now - RECENTLY_ACTIVE_WINDOW_MS;

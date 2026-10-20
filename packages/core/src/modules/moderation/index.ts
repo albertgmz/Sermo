@@ -49,6 +49,7 @@ import {
   takeOverLock,
 } from "../forums";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
+import { forgetRecentlyActive } from "../members/recently-active-cache";
 import {
   afterBan,
   afterLift,
@@ -1798,6 +1799,8 @@ function refreshBanState(ctx: Ctx, userId: number, now: number) {
     Number(active != null && active.expires_at == null),
     userId,
   );
+  // A banned member leaves the shared presence list at once (and a lifted ban returns them).
+  forgetRecentlyActive(ctx);
 }
 
 type WarningRow = {

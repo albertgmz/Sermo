@@ -61,6 +61,21 @@ async function world() {
 }
 
 describe("users.adminErase", () => {
+  test("an erased member leaves the recently active list at once", async () => {
+    const w = await world();
+    const seen = w.ctx.sqlite.prepare("UPDATE users SET last_activity_at = ?1 WHERE id = ?2");
+    seen.run(w.ctx.now(), w.target.id);
+    seen.run(w.ctx.now(), w.fan.id);
+    const listed = async () =>
+      (await w.run("users.recentlyActive", GUEST, {})).items.map(
+        (item: { card: { id: number } }) => item.card.id,
+      );
+    expect(await listed()).toContain(w.target.id);
+    await w.erase();
+    expect(await listed()).not.toContain(w.target.id);
+    expect(await listed()).toContain(w.fan.id);
+  });
+
   test("closes the account: nobody can sign in, the identity is gone, the writing stays", async () => {
     const w = await world();
     const name = `Deleted member ${w.target.id}`;

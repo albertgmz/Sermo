@@ -8,7 +8,7 @@ import { requireSiteViewForCards } from "./site-access";
 import { standingsMonthOp, standingsWinnersOp } from "./standings";
 
 export { loadMemberAuthors, loadMemberCards } from "./cards";
-export { forgetRecentlyActive } from "./recently-active";
+export { forgetRecentlyActive } from "./recently-active-cache";
 export { refreshStandings, registerStandingJobs } from "./standings";
 
 export const usersCardsOp = implement(

@@ -111,6 +111,21 @@ describe("users.recentlyActive", () => {
     expect(after).toEqual({ total: 0, items: [] });
   });
 
+  test("a ban leaves the kept list at once, and lifting it brings the member back", async () => {
+    const w = world();
+    const member = w.user();
+    w.set(member.id, { last_activity_at: w.ctx.now() });
+    expect((await w.call("users.recentlyActive", GUEST, {})).total).toBe(1);
+    const ban = await w.call("bans.create", w.adminActor, {
+      userId: member.id,
+      reason: "Spam",
+      expiresAt: null,
+    });
+    expect(await w.call("users.recentlyActive", GUEST, {})).toEqual({ total: 0, items: [] });
+    await w.call("bans.lift", w.adminActor, { banId: ban.id });
+    expect((await w.call("users.recentlyActive", GUEST, {})).total).toBe(1);
+  });
+
   test("a profile the viewer may not open has the minimal card; the list is the same", async () => {
     const w = world();
     const closed = w.user();

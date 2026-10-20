@@ -10,6 +10,7 @@ import { deletePendingTokens, getAuth, markSessionsRevoked, revokeUserCredential
 import { renameThroughAuth } from "../auth/username";
 import { deleteConsentRecord } from "../consent";
 import { clearMemberPicture } from "../images";
+import { forgetRecentlyActive } from "../members/recently-active-cache";
 import { isAwaiting } from "../members/signup-review";
 import { appendModeratorLog, insertAuthorizedBan } from "../moderation";
 import { acceptanceSql } from "../pages/acceptance";
@@ -122,6 +123,7 @@ async function eraseOnce(
       if (isSuperAdminRow(ctx, userId)) assertOtherSuperAdmin(ctx, userId);
       ctx.sqlite.prepare("UPDATE users SET is_super_admin = 0 WHERE id = ?1").run(userId);
       ctx.sqlite.prepare(eraseSql.mark).run(userId, ctx.now());
+      forgetRecentlyActive(ctx);
       appendModeratorLog(ctx, actor, entry.action, "user", userId, reason, entry.details);
       entry.onMark?.(own.email);
     }
