@@ -5263,3 +5263,12 @@ over them stalled one commit for 370 ms), and other subscribers handle a batch w
 - "File type does not match its content." (a picture whose bytes are not the type its name or
   browser said) reaches the panel in the visitor's language through the same refusal mapping as
   every other upload refusal (`unreadable`); the route test holds it.
+- An award's icon is chosen with the shared icon picker from the site's icon set (the one forums and
+  navigation use), not typed: only 17 keys used to draw and any other text silently drew the default
+  medal. The award glyph now draws any key of the set (the six that awards already used, gem,
+  shield, sparkle, sunrise, life-buoy and flame-kindling, joined it), and the backend refuses an
+  award icon that is neither empty (the default medal) nor a key of the set
+  (`modules/awards/icons.ts`, a copy of the set that `tests/award-icons.test.ts` holds equal; a key
+  added to the set is added there). The set is otherwise unknown to the backend (forums and
+  navigation check only the key's shape). A stored value that is no longer a key stays until the
+  award is saved again.

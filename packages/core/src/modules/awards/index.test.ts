@@ -37,6 +37,33 @@ function counters(ctx: ReturnType<typeof createTestContext>, userId: number, awa
     .get(userId, awardId);
 }
 
+describe("award icons", () => {
+  test("an award takes no icon or a key of the site's icon set, and refuses any other", async () => {
+    const { call } = setup();
+    const plain = await call("create", { name: "Plain", tier: "bronze" });
+    expect(plain.icon).toBe("");
+    const keyed = await call("create", { name: "Keyed", tier: "bronze", icon: "shield-check" });
+    expect(keyed.icon).toBe("shield-check");
+    expect((await call("update", { awardId: keyed.id, icon: "gem" })).icon).toBe("gem");
+    expect((await call("update", { awardId: keyed.id, icon: "" })).icon).toBe("");
+    for (const icon of ["nonsense", "Shield", "shield check", "https://example.test/a.png"]) {
+      const refused = await call("create", { name: "Refused", tier: "bronze", icon }).catch(
+        (error) => error,
+      );
+      expect(refused, icon).toBeInstanceOf(ValidationError);
+      expect((refused as ValidationError).issues?.[0]?.path).toEqual(["icon"]);
+      await expect(call("update", { awardId: keyed.id, icon }), icon).rejects.toBeInstanceOf(
+        ValidationError,
+      );
+    }
+    // A refused change leaves the award as it was.
+    expect((await call("get", { awardId: keyed.id })).icon).toBe("");
+    // An update that leaves the icon out keeps whatever is stored.
+    await call("update", { awardId: keyed.id, icon: "crown" });
+    expect((await call("update", { awardId: keyed.id, name: "Renamed" })).icon).toBe("crown");
+  });
+});
+
 describe("award grants", () => {
   test("a second non-stackable grant conflicts without changing any counter or ledger", async () => {
     const { ctx, member, call } = setup();
@@ -282,7 +309,7 @@ describe("award catalog and reads", () => {
       name: "  Award  ",
       tier: "gold",
       isStackable: true,
-      icon: "icon",
+      icon: "star",
       description: "description",
     });
     expect(award.name).toBe("Award");

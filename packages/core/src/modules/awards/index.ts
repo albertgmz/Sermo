@@ -25,6 +25,7 @@ import { mayViewProfile, profileAccess } from "../profiles/shared";
 import { sweepAgainAfterCurrent } from "./automatic";
 import { assertCategory, categoryOperations } from "./categories";
 import { grantAward, revokeAward } from "./grants";
+import { AWARD_ICON_KEYS } from "./icons";
 import {
   type AwardRow,
   all,
@@ -51,6 +52,13 @@ function visibleAward(ctx: Ctx, actor: Actor, id: number): AwardRow {
   const row = awardRow(ctx, id);
   if (!row.is_active && !can(ctx, actor, "admin.awards")) throw new NotFoundError();
   return row;
+}
+/** An award's icon is empty (the default medal) or a key of the site's icon set. */
+function assertIcon(icon: string): void {
+  if (icon !== "" && !AWARD_ICON_KEYS.has(icon)) {
+    const message = "This is not an icon of the site's icon set.";
+    throw new ValidationError(message, [{ path: ["icon"], message }]);
+  }
 }
 function visibleMember(ctx: Ctx, actor: Actor, id: number): void {
   requireSiteView(ctx, actor);
@@ -157,6 +165,7 @@ export const operations = [
   }),
   implement(contracts.awardsCreate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
+    assertIcon(input.icon);
     validate(ctx, input.rule);
     return writeTx(ctx, () => {
       requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
@@ -186,6 +195,7 @@ export const operations = [
   }),
   implement(contracts.awardsUpdate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
+    if (input.icon !== undefined) assertIcon(input.icon);
     if (input.rule) validate(ctx, input.rule);
     return writeTx(ctx, () => {
       requirePermission(ctx, currentActor(ctx, actor), "admin.awards");

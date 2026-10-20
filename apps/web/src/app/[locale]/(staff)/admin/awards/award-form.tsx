@@ -3,6 +3,7 @@ import { awardCategoriesList, awardsCreate } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
+import { IconPicker } from "@/components/icons/icon-picker";
 import { Advanced, Field, FieldGroup } from "@/components/staff/edit-form";
 import { PictureField } from "@/components/staff/picture-field";
 import { selectClass } from "@/components/staff/rows";
@@ -171,12 +172,11 @@ export async function AwardFormFields({ award }: { award?: Award }) {
           htmlFor={`${key}-icon`}
           help={t("iconHelp")}
         >
-          <Input
-            id={`${key}-icon`}
+          <IconPicker
             name="icon"
-            autoCapitalize="none"
+            id={`${key}-icon`}
+            labelId={`${key}-icon-label`}
             defaultValue={award?.icon}
-            aria-describedby={describedBy(`${key}-icon`)}
           />
         </Field>
         <Field name="isStackable" label={t("stackable")}>

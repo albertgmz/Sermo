@@ -1,27 +1,8 @@
-import {
-  Award as AwardFallback,
-  BookOpen,
-  Bug,
-  Crown,
-  Flame,
-  FlameKindling,
-  Gem,
-  Handshake,
-  Heart,
-  LifeBuoy,
-  type LucideIcon,
-  MessageCircle,
-  MessagesSquare,
-  Shield,
-  Sparkle,
-  Star,
-  Sunrise,
-  Trophy,
-  Zap,
-} from "lucide-react";
+import { Award as AwardFallback } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
+import { iconComponent } from "@/components/icons/icon-set";
 import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import { liteBlocks } from "@/lib/lite-mode";
 import type { AuthorView } from "@/lib/sermo/views";
@@ -32,26 +13,6 @@ export type AwardTier = AuthorView["awards"][number]["tier"];
 // Awards shown next to a name: on phones, and from `md` up. A profile says how many slots it has.
 export const MOBILE_AWARD_SLOTS = 3;
 export const DESKTOP_AWARD_SLOTS = 5;
-
-const ICONS: Record<string, LucideIcon> = {
-  "book-open": BookOpen,
-  bug: Bug,
-  crown: Crown,
-  flame: Flame,
-  "flame-kindling": FlameKindling,
-  gem: Gem,
-  handshake: Handshake,
-  heart: Heart,
-  "life-buoy": LifeBuoy,
-  "message-circle": MessageCircle,
-  "messages-square": MessagesSquare,
-  shield: Shield,
-  sparkle: Sparkle,
-  star: Star,
-  sunrise: Sunrise,
-  trophy: Trophy,
-  zap: Zap,
-};
 
 const TIERS: Record<AwardTier, string> = {
   bronze: "border-tier-bronze/40 bg-tier-bronze/15 text-tier-bronze",
@@ -69,7 +30,8 @@ const SIZES = {
 
 export type AwardIconSize = keyof typeof SIZES;
 
-// What an award draws in its round icon: the glyph of its icon key in the colours of its tier.
+// What an award draws in its round icon: the glyph of its icon key (a key of the site's icon set,
+// the medal when it has none) in the colours of its tier.
 // Its picture is a wide backdrop for the award's card, never cropped into the circle.
 export type AwardArt = {
   name: string;
@@ -89,7 +51,7 @@ export async function AwardIcon({
   label?: string;
   className?: string;
 }) {
-  const Icon = ICONS[award.icon] ?? AwardFallback;
+  const Icon = iconComponent(award.icon) ?? AwardFallback;
   const [box, glyph] = SIZES[size];
   const blocked = await liteBlocks("awards");
   return (
