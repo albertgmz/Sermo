@@ -317,7 +317,7 @@ async function ForumThreads({
             start={cursor}
             listKey={["forum", nodeId, prefixId ?? 0]}
             hrefBase={`/forums/${nodeId}${prefixId === undefined ? "" : `?prefix=${prefixId}`}`}
-            moreLabel={t("nextPage")}
+            moreLabel={t("loadMore")}
             estimateSize={72}
             as="ul"
             className={cn(

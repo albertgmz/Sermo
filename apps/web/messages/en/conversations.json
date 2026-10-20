@@ -9,7 +9,7 @@
     "loadingConversations": "Loading conversations…",
     "emptyTitle": "No conversations yet",
     "emptyDescription": "Start one to talk privately with other members.",
-    "older": "Older conversations"
+    "loadMore": "Load more"
   },
   "conversation": {
     "aria": {

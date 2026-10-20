@@ -41,7 +41,7 @@
     "emptyDescription": "Nadie ha conseguido este trofeo hasta ahora.",
     "grants": "{count, plural, =0 {Aún no concedido} one {Concedido una vez} other {Concedido # veces}}",
     "grantsLabel": "{count, plural, one {Concesión} other {Concesiones}}",
-    "loadMore": "Mostrar más",
+    "loadMore": "Cargar más",
     "loadingHolders": "Cargando poseedores…"
   },
   "tiers": {

@@ -6,15 +6,13 @@ import { recorded } from "@/lib/test-calls";
 import { withIntl } from "@/lib/test-intl";
 import { withQuery } from "@/lib/test-query";
 import {
-  AUTO_EMPTY_PAGES,
-  emptyRun,
   flattenRows,
   holdsState,
   InfiniteList,
   listQueryOptions,
   mergeRefreshed,
+  pagesWanted,
   prependFresh,
-  watchSentinel,
   withKept,
 } from "./infinite-list";
 
@@ -196,58 +194,6 @@ test("a list at its end draws no link", () => {
   );
   expect(html).not.toContain("<a ");
   expect(html).toContain("row a");
-});
-
-// A stand-in for the browser's observer that the test drives.
-function fakeObserver() {
-  const seen: { rootMargin?: string; disconnected: boolean }[] = [];
-  let report: (entries: { isIntersecting: boolean }[]) => void = () => {};
-  class Fake {
-    state = { rootMargin: "", disconnected: false } as {
-      rootMargin?: string;
-      disconnected: boolean;
-    };
-    constructor(
-      callback: (entries: { isIntersecting: boolean }[]) => void,
-      init?: IntersectionObserverInit,
-    ) {
-      this.state.rootMargin = init?.rootMargin;
-      report = callback;
-      seen.push(this.state);
-    }
-    observe() {}
-    disconnect() {
-      this.state.disconnected = true;
-    }
-  }
-  return {
-    Observer: Fake as unknown as typeof IntersectionObserver,
-    seen,
-    report: (entries: { isIntersecting: boolean }[]) => report(entries),
-  };
-}
-
-test("the sentinel asks for the next page once, when it comes near the screen", () => {
-  const { Observer, seen, report } = fakeObserver();
-  const onVisible = recorded(() => {});
-  watchSentinel({} as Element, onVisible, Observer);
-  expect(seen[0].rootMargin).toBe("800px 0px");
-  report([{ isIntersecting: false }]);
-  expect(onVisible.calls).toHaveLength(0);
-  report([{ isIntersecting: true }]);
-  report([{ isIntersecting: true }]);
-  expect(onVisible.calls).toHaveLength(1);
-  expect(seen[0].disconnected).toBe(true);
-});
-
-test("a sentinel that is let go stops watching, and without an observer nothing breaks", () => {
-  const { Observer, seen } = fakeObserver();
-  const stop = watchSentinel({} as Element, () => {}, Observer);
-  stop();
-  expect(seen[0].disconnected).toBe(true);
-  expect(() =>
-    watchSentinel({} as Element, () => {}, undefined)(),
-  ).not.toThrow();
 });
 
 // Stand-ins for the elements of a row, with only what `holdsState` asks of them.
@@ -466,16 +412,6 @@ test("the bar of new entries is not in the server's markup, which knows of none"
   expect(html).not.toContain("new post");
 });
 
-test("the list follows cursors by itself past at most two empty pages in a row, then waits for the button", () => {
-  const empty = page([], "next");
-  expect(emptyRun([page(["a"], "c1")])).toBe(0);
-  expect(emptyRun([page(["a"], "c1"), empty])).toBe(1);
-  expect(emptyRun([empty, empty])).toBe(2);
-  expect(emptyRun([empty, page(["a"], "c1"), empty])).toBe(1);
-  expect(emptyRun([])).toBe(0);
-  expect(AUTO_EMPTY_PAGES).toBe(2);
-});
-
 test("the note about a walk that found nothing is drawn only while no row is loaded and the list can go on", () => {
   const draw = (pages: ListPage[]) =>
     renderToStaticMarkup(
@@ -504,4 +440,11 @@ test("the note about a walk that found nothing is drawn only while no row is loa
   expect(draw([page([], null)])).not.toContain(
     "Nothing yet in what was looked at",
   );
+});
+
+test("Back restores as many pages as the address names, and no more than the server would draw", () => {
+  expect(pagesWanted("")).toBe(1);
+  expect(pagesWanted("?tab=latest&pages=3")).toBe(3);
+  expect(pagesWanted("?pages=50")).toBe(8);
+  expect(pagesWanted("?pages=x")).toBe(1);
 });

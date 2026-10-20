@@ -4,7 +4,7 @@
     "heading": "Notificaciones",
     "notifications": "{count, plural, =0 {Estás al día.} one {# sin leer} other {# sin leer}}",
     "markAllRead": "Marcar todo como leído",
-    "nextPage": "Notificaciones anteriores",
+    "loadMore": "Cargar más",
     "emptyTitle": "Todavía no hay notificaciones",
     "emptyDescription": "Aquí aparecerán las respuestas, reacciones, seguidores y publicaciones de perfil."
   },

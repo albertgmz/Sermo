@@ -62,7 +62,7 @@
       "loadingThreads": "Loading threads…",
       "locked": "Locked"
     },
-    "nextPage": "Next page",
+    "loadMore": "Load more",
     "emptyCategory": "No forums here yet",
     "emptyCategoryDescription": "Forums added to this category will be listed here.",
     "batchSelect": "Select thread {title}",
@@ -107,7 +107,7 @@
     "noMoreTitle": "No more threads",
     "noMoreDescription": "There is nothing past this point in the list.",
     "backToStart": "Back to the start",
-    "nextPage": "Next page",
+    "loadMore": "Load more",
     "aria": {
       "loading": "Loading threads…"
     }

@@ -339,7 +339,7 @@
     "loading": "Loading your bookmarks…",
     "emptyTitle": "No bookmarks yet",
     "emptyDescription": "Bookmark a thread, a post or a conversation to find it here later.",
-    "loadMore": "Show more",
+    "loadMore": "Load more",
     "details": "{type} by <author></author>, <time></time>",
     "types": {
       "thread": "Thread",

@@ -4917,3 +4917,18 @@ per viewer, the minimal card for a profile the viewer may not open. A member who
 setting off drops the kept list, so they leave it at once. Guests may read it (site.view,
 profile.view, member.viewList, as `users.birthdays`). Online = active in the last 15 minutes;
 members past the 200 cap read offline.
+
+### Lists load more only on a press
+
+Members of the imported forum could not reach the footer (the theme and language choices sat
+there) because the infinite list loaded the next page 800 px before its button came into view. No
+list loads on scroll now: the next page comes when the member presses the button, which says "Load
+more" / "Cargar más" on every list (the feed, forums, tags, conversations, notifications, search,
+members, activity, bookmarks, award holders, credits). The rest of the infinite list stays: the
+first page drawn by the server, windowed rows, `?pages=N` in the address for Back and reload, and
+the plain `?cursor=` link without scripts. Back comes to the screen the router kept, drawn with
+fewer pages than `?pages=N` names; the list loads the missing ones by itself once (the scroll
+loader used to do it), which is the one load that does not wait for the button. A filtered walk
+that answers an empty page shows its "nothing found yet" line above the button, as before; the
+list no longer follows up to two empty pages by itself. This supersedes "Long lists scroll on one
+infinite list" on loading by scroll.

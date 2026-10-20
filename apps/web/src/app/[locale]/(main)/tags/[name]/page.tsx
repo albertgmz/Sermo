@@ -153,7 +153,7 @@ async function TagThreads({
       start={cursor}
       listKey={["tag", name]}
       hrefBase={tagHref(name)}
-      moreLabel={t("nextPage")}
+      moreLabel={t("loadMore")}
       estimateSize={72}
       as="ul"
       className="mt-4 overflow-hidden rounded-lg border bg-card"

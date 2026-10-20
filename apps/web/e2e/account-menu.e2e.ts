@@ -133,9 +133,7 @@ test.describe("guest", () => {
     page,
   }) => {
     await page.emulateMedia({ colorScheme: "dark" });
-    // The forum list, not the feed: the footer of an endless list keeps moving down as the next
-    // pages load while it is scrolled to, and a press lands where the button was.
-    await visit(page, "/forums");
+    await visit(page, "/");
     await rejectCookies(page);
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
     await page.emulateMedia({ colorScheme: "light" });

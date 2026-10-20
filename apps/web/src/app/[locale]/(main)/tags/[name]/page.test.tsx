@@ -193,7 +193,7 @@ test("an empty page that says where to go on is still the list, with its button"
   backend = fakeBackend(found([], "next-key"));
   const { html, errors } = await page();
   expect(errors).toEqual([]);
-  expect(html).toContain(messages.forums.tagPage.nextPage);
+  expect(html).toContain(messages.forums.tagPage.loadMore);
   expect(html).not.toContain(messages.forums.tagPage.emptyTitle);
 });
 

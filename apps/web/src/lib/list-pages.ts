@@ -54,7 +54,7 @@ export function placeHref(href: string, count: number) {
 }
 
 // The pages an address asks for: the first one, which the screen has already read, and the next
-// ones through `more`, the same function the browser calls when the visitor scrolls. A failure is
+// ones through `more`, the same function the browser calls on "Load more". A failure is
 // the screen's only for the first page: the first page the backend does not give (a rate limit, a
 // failure) ends the restoring, the screen shows the pages it has, and the list offers the rest as
 // it does for any later page.

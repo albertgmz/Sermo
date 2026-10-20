@@ -67,7 +67,7 @@ export default async function NotificationsPage({
           start={cursor}
           listKey={["notifications"]}
           hrefBase="/notifications"
-          moreLabel={t("nextPage")}
+          moreLabel={t("loadMore")}
           estimateSize={72}
           as="ul"
           className="mt-4 overflow-hidden rounded-lg border bg-card"

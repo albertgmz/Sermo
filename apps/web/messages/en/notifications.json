@@ -4,7 +4,7 @@
     "heading": "Notifications",
     "notifications": "{count, plural, =0 {You are all caught up.} one {# unread} other {# unread}}",
     "markAllRead": "Mark all as read",
-    "nextPage": "Older notifications",
+    "loadMore": "Load more",
     "emptyTitle": "No notifications yet",
     "emptyDescription": "Replies, reactions, follows and profile posts will show up here."
   },

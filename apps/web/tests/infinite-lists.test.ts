@@ -97,7 +97,8 @@ test("the shared list keeps the place in the address and takes its first page fr
   // Nothing is fetched on mount: the server's pages are the data and it never goes stale.
   expect(list).toContain("initialData");
   expect(list).toContain("staleTime: Number.POSITIVE_INFINITY");
-  expect(list).toContain("IntersectionObserver");
+  // The next page loads on a press only: nothing watches the scroll to load it.
+  expect(list).not.toContain("IntersectionObserver");
   expect(list).toContain("useWindowVirtualizer");
   expect(list).toContain("measureElement");
 });

@@ -29,6 +29,8 @@ import {
   type ListPage,
   type ListRow,
   listId,
+  PAGES_PARAM,
+  pagesParam,
   placeHref,
 } from "@/lib/list-pages";
 import { usePolling } from "@/lib/polling";
@@ -41,9 +43,6 @@ const SPACING = {
   spaced: "pt-(--page-gap) data-[index=0]:pt-0",
 } as const;
 
-// How far from the sentinel the next page starts to load, so it is there before it is reached.
-const LOAD_AHEAD = "800px 0px";
-
 type ListQuery = {
   listKey: readonly (string | number)[];
   // Which draw of the screen the pages are from: a new one (the server drew the screen again)
@@ -55,15 +54,9 @@ type ListQuery = {
   loadPage: (cursor: string | null) => Promise<ListPage>;
 };
 
-// Pages in a row, at the end of what is loaded, that held no row. A walk the server filters can
-// answer a page with nothing in it and a cursor to go on from; the list follows such cursors by
-// itself only so far, then waits for the visitor's press on the button.
-export const AUTO_EMPTY_PAGES = 2;
-export function emptyRun(pages: ListPage[]) {
-  let run = 0;
-  for (let at = pages.length - 1; at >= 0 && pages[at]?.rows.length === 0; at--)
-    run++;
-  return run;
+// How many pages an address (its search part) names with `?pages=N`.
+export function pagesWanted(search: string) {
+  return pagesParam(new URLSearchParams(search).get(PAGES_PARAM) ?? undefined);
 }
 
 // The page parameter of each page: where the list began, then the cursor each page named.
@@ -95,7 +88,7 @@ export function mergeRefreshed(
 // that moved to the top is not shown twice, and the pages the visitor loaded stay. When more is
 // new than one page holds, its last row is new too, and some of the new entries would be missing
 // between the two (also when the list's first row moved to the top of the page, which says
-// nothing of the rows below it): the list then begins again from the newest page (the sentinel
+// nothing of the rows below it): the list then begins again from the newest page (the button
 // goes on from there).
 export function prependFresh(
   held: InfiniteData<ListPage, unknown>,
@@ -177,30 +170,6 @@ export function flattenRows(pages: ListPage[]) {
   return rows;
 }
 
-// Calls `onVisible` once, the first time the element comes within `LOAD_AHEAD` of the screen.
-// Where the browser has no observer nothing happens: the element is a link the visitor can use.
-export function watchSentinel(
-  node: Element,
-  onVisible: () => void,
-  Observer:
-    | typeof IntersectionObserver
-    | undefined = globalThis.IntersectionObserver,
-) {
-  if (!Observer) return () => {};
-  let done = false;
-  const observer = new Observer(
-    (entries) => {
-      if (done || !entries.some((entry) => entry.isIntersecting)) return;
-      done = true;
-      observer.disconnect();
-      onVisible();
-    },
-    { rootMargin: LOAD_AHEAD },
-  );
-  observer.observe(node);
-  return () => observer.disconnect();
-}
-
 const subscribeNever = () => () => {};
 
 // The heights the rows of a list were drawn at, kept when its screen goes away, so that coming
@@ -263,7 +232,7 @@ export function InfiniteList({
   useEffect(() => {
     if (drawn.current === stamp) return;
     drawn.current = stamp;
-    // A page still on its way was asked for before this draw: it is dropped (the sentinel asks
+    // A page still on its way was asked for before this draw: it is dropped (the button asks
     // again), or its answer would put the older first pages back.
     void client
       .cancelQueries({ queryKey: options.queryKey })
@@ -386,26 +355,36 @@ export function InfiniteList({
     [memory, virtualizer],
   );
 
-  // The address keeps the place: the number of pages loaded.
-  const count = loaded.length;
-  useEffect(() => {
-    const here = `${location.pathname}${location.search}${location.hash}`;
-    const place = placeHref(here, count);
-    if (place !== here) window.history.replaceState(null, "", place);
-  }, [count]);
-
-  const sentinel = useRef<HTMLAnchorElement>(null);
+  // The next page loads only when the visitor presses the button (never on scroll), so the footer
+  // stays in reach. Without scripts the button is a link to the next page.
   const { fetchNextPage, isFetching } = query;
-  const canLoad = query.hasNextPage && !isFetching && !query.isError;
-  const follows = canLoad && emptyRun(loaded) < AUTO_EMPTY_PAGES;
-  // A new observer reports where the sentinel is at once, so a page too short to push it out of
-  // view is followed by the next one.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `count` renews the observer after each page
+
+  // The address keeps the place: the number of pages loaded. Back comes to the screen the router
+  // kept, which holds fewer pages than the address names; the list loads the missing ones by
+  // itself, so the place comes back. That is the one load that does not wait for the button.
+  const count = loaded.length;
+  // `wanted` is read each time the list is shown (a screen the router keeps hidden keeps its
+  // state, so the address of that moment is what counts); null until then, so the address is not
+  // touched before it is read. Once the pages are back, or cannot be, it drops to 1: a list that
+  // shrinks later (new entries put in front) does not load again by itself.
+  const [wanted, setWanted] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    setWanted(pagesWanted(location.search));
+    return () => setWanted(null);
+  }, []);
+  const owed =
+    wanted !== null && count < wanted && query.hasNextPage && !query.isError;
   useEffect(() => {
-    const node = sentinel.current;
-    if (!follows || !node) return;
-    return watchSentinel(node, () => void fetchNextPage());
-  }, [follows, count, fetchNextPage]);
+    if (wanted === null) return;
+    const here = `${location.pathname}${location.search}${location.hash}`;
+    const place = placeHref(here, owed ? wanted : count);
+    if (place !== here) window.history.replaceState(null, "", place);
+  }, [count, owed, wanted]);
+  useEffect(() => {
+    if (owed) {
+      if (!isFetching) void fetchNextPage();
+    } else if (wanted !== null && wanted > 1) setWanted(1);
+  }, [owed, wanted, isFetching, fetchNextPage]);
 
   const List = as;
   const Row = as === "ul" ? "li" : "div";
@@ -501,7 +480,6 @@ export function InfiniteList({
         nextCursor && (
           <div aria-live="polite" className={moreClassName}>
             <a
-              ref={sentinel}
               href={cursorHref(hrefBase, nextCursor)}
               className={cn(
                 buttonVariants({ variant: "outline" }),

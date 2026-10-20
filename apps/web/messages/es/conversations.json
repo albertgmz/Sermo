@@ -9,7 +9,7 @@
     "loadingConversations": "Cargando conversaciones…",
     "emptyTitle": "Aún no hay conversaciones",
     "emptyDescription": "Empieza una para hablar en privado con otros miembros.",
-    "older": "Conversaciones anteriores"
+    "loadMore": "Cargar más"
   },
   "conversation": {
     "aria": {

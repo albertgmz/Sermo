@@ -77,7 +77,7 @@ async function ConversationList({
       start={cursor}
       listKey={["conversations"]}
       hrefBase="/conversations"
-      moreLabel={t("older")}
+      moreLabel={t("loadMore")}
       estimateSize={72}
       as="ul"
       moreClassName="p-2"
