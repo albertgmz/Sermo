@@ -14,6 +14,7 @@ import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { call, read } from "@/lib/sermo/client";
+import { inLanguage } from "../../groups/data";
 import { ifAllowed } from "../../users/data";
 import { deleteWarningAction, saveWarningAction } from "./actions";
 import { CheckField, InputField } from "./fields";
@@ -164,7 +165,11 @@ export async function ActionForm({
 // The groups the viewer may list, for the group of an action; null without that permission.
 export async function groupChoices(): Promise<Groups> {
   const groups = await ifAllowed(() => call(groupsList, {}));
-  return groups?.items.map(({ id, title }) => ({ id, title })) ?? null;
+  if (!groups) return null;
+  return (await inLanguage(groups.items)).map(({ id, title }) => ({
+    id,
+    title,
+  }));
 }
 
 // Every automatic action, lowest threshold first, each row leading to its own page; the delete

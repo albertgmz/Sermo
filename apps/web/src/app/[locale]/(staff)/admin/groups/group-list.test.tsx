@@ -15,6 +15,8 @@ mock.module("next/headers", () => ({
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => (key: string) => {
+    // Stand-in words, so a name in the visitor's language can be told from the stored English.
+    if (namespace === "lib.builtinGroups") return `es:${key}`;
     let value: unknown = messages;
     for (const part of `${namespace}.${key}`.split(".")) {
       value = (value as Record<string, unknown> | undefined)?.[part];
@@ -100,4 +102,71 @@ test("each group's row leads to its edit page, and to its permissions when the v
   expect(html).toContain('href="/admin/permissions/groups/7"');
   backend(4, false);
   expect(await page()).not.toContain("/admin/permissions/groups/7");
+});
+
+function backendOf(items: unknown[]) {
+  globalThis.fetch = (async (input: string) => {
+    const url = new URL(input);
+    if (url.pathname === "/api/v1/groups") return Response.json({ items });
+    if (url.pathname === "/api/v1/appearance/colors")
+      return Response.json({ items: [] });
+    return Response.json(viewerBody(false));
+  }) as unknown as typeof fetch;
+}
+
+const stored = (over: Record<string, unknown>) =>
+  groupBody({ nameColorId: null, memberCount: 1, ...over });
+
+test("a built-in group still named as the migrations named it is shown in the visitor's language", async () => {
+  backendOf([
+    stored({
+      id: 2,
+      builtin: "registered",
+      title: "Member",
+      userTitle: "Member",
+    }),
+    stored({
+      id: 5,
+      builtin: "unconfirmed",
+      title: "Unconfirmed",
+      userTitle: "Awaiting confirmation",
+      description: "Members who have not confirmed their email address.",
+    }),
+  ]);
+  const html = await page();
+  for (const key of [
+    "registered.title",
+    "registered.userTitle",
+    "unconfirmed.title",
+    "unconfirmed.userTitle",
+  ])
+    expect(html, key).toContain(`es:${key}`);
+  expect(html).not.toContain(">Member<");
+  expect(html).not.toContain("Awaiting confirmation");
+  // The pickers and filters take the same names.
+  const groups = await getGroups();
+  expect(groups.map((group) => group.title)).toEqual([
+    "es:registered.title",
+    "es:unconfirmed.title",
+  ]);
+  expect(groups[1]?.description).toBe("es:unconfirmed.description");
+});
+
+test("a renamed built-in group and a group made by hand keep the text stored", async () => {
+  backendOf([
+    stored({ id: 3, builtin: "moderator", title: "Helpers", userTitle: "" }),
+    stored({ id: 9, builtin: null, title: "Member", userTitle: "Member" }),
+    stored({ id: 1, builtin: "guest", title: "Visitors" }),
+  ]);
+  const html = await page();
+  expect(html).toContain("Helpers");
+  expect(html).toContain(">Member<");
+  expect(html).toContain("Visitors");
+  expect(html).not.toContain("es:moderator.title");
+  expect(html).not.toContain("es:guest.title");
+  expect((await getGroups()).map((group) => group.title)).toEqual([
+    "Helpers",
+    "Member",
+    "Visitors",
+  ]);
 });

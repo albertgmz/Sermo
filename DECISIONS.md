@@ -5272,3 +5272,15 @@ over them stalled one commit for 370 ms), and other subscribers handle a batch w
   added to the set is added there). The set is otherwise unknown to the backend (forums and
   navigation check only the key's shape). A stored value that is no longer a key stays until the
   award is saved again.
+- Eight permissions had no label or description phrase (`profile.signature`, `profile.customTitle`,
+  `profile.coverPreset`, `profile.renameFree`, `profile.awardSlots`, `conversation.editOwn`,
+  `conversation.deleteOwn`, `admin.appearance`) and showed a made-up English title in every
+  language; they have both phrases in English and Spanish, and a test holds every permission to
+  have them in both catalogues, the Spanish one not equal to the English one.
+- The built-in groups keep the English names the migrations wrote. The panel shows them in the
+  visitor's language while a field is still exactly that default (`lib/builtin-groups.ts`, words in
+  `lib.builtinGroups`), field by field: a renamed group, one made by hand and any other text stay
+  as stored, and the edit form's own fields always hold the stored text, so saving never writes a
+  translation. It covers the groups screens, the pickers and filters (`getGroups`) and the shop and
+  warning pickers; names the backend sends inside other answers (a warning action's group, a
+  rule's group list, a member's group badge) are not translated.

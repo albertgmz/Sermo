@@ -9,6 +9,7 @@ import { paletteName } from "@/lib/palette-name";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { hrefFor } from "../../registry";
+import { inLanguage } from "./data";
 
 // Every group in the order the backend returns them, each leading to its edit page.
 export async function GroupList({
@@ -16,13 +17,15 @@ export async function GroupList({
 }: {
   searchParams: Promise<{ notice?: string | string[] }>;
 }) {
-  const [t, names, viewer, { items }, { items: colours }] = await Promise.all([
-    getTranslations("adminGroups.list"),
-    getTranslations("lib.appearance"),
-    getViewer(),
-    read(groupsList, { counts: true }),
-    read(paletteColorsList, { kind: "name" }),
-  ]);
+  const [t, names, viewer, { items: stored }, { items: colours }] =
+    await Promise.all([
+      getTranslations("adminGroups.list"),
+      getTranslations("lib.appearance"),
+      getViewer(),
+      read(groupsList, { counts: true }),
+      read(paletteColorsList, { kind: "name" }),
+    ]);
+  const items = await inLanguage(stored);
   const colourOf = new Map(colours.map((colour) => [colour.id, colour]));
   const permissions = hrefFor(viewer, "permissionsGroups");
   return (

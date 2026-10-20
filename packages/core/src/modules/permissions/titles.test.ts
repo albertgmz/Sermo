@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
 import { ForbiddenError } from "../../errors";
+import en from "../../i18n/locales/en.json";
+import es from "../../i18n/locales/es.json";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { PERMISSION_IDS } from "../../permissions";
@@ -30,6 +32,26 @@ describe("titles a client can show", () => {
       expect(item.categoryTitle, item.id).not.toMatch(/^permission\./);
       expect(item.label).toBe(`permission.${item.id}`);
     }
+  });
+
+  test("every permission has its own label and description phrase in English and in Spanish", () => {
+    for (const [language, phrases] of [
+      ["en", en],
+      ["es", es],
+    ] as const) {
+      const held = phrases as Record<string, string>;
+      for (const id of PERMISSION_IDS) {
+        expect(held[`permission.${id}`]?.trim(), `${language} ${id}`).toBeTruthy();
+        expect(held[`permission.${id}.description`]?.trim(), `${language} ${id}`).toBeTruthy();
+      }
+    }
+    // Spanish text that is the English one is a phrase nobody translated.
+    const untranslated = PERMISSION_IDS.filter(
+      (id) =>
+        (es as Record<string, string>)[`permission.${id}`] ===
+        (en as Record<string, string>)[`permission.${id}`],
+    );
+    expect(untranslated).toEqual([]);
   });
 
   test("every criterion has a title, in both operations that list them", async () => {

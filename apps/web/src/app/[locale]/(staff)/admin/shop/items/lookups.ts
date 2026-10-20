@@ -9,6 +9,7 @@ import {
 } from "@sermo/core/contracts";
 import { cache } from "react";
 import { call, read } from "@/lib/sermo/client";
+import { inLanguage } from "../../groups/data";
 import { ifAllowed } from "../../users/data";
 
 // What an item's effect names, once per request: the catalog pictures and name colours (open
@@ -30,7 +31,7 @@ export const getLookups = cache(async () => {
     frames: frames.items,
     covers: covers.items,
     colours: colours.items,
-    groups: groups?.items ?? null,
+    groups: groups ? await inLanguage(groups.items) : null,
     permissions: permissions?.items ?? null,
   };
 });

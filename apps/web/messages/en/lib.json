@@ -1,4 +1,15 @@
 {
+  "builtinGroups": {
+    "guest": { "title": "Guest" },
+    "registered": { "title": "Member", "userTitle": "Member" },
+    "moderator": { "title": "Moderator", "userTitle": "Moderator" },
+    "admin": { "title": "Administrator", "userTitle": "Administrator" },
+    "unconfirmed": {
+      "title": "Unconfirmed",
+      "userTitle": "Awaiting confirmation",
+      "description": "Members who have not confirmed their email address."
+    }
+  },
   "appearance": {
     "accents": {
       "red": "Red",

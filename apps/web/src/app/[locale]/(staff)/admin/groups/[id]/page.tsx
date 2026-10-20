@@ -10,6 +10,7 @@ import { Notice } from "@/components/staff/notice";
 import { HeaderLink } from "@/components/staff/page-header";
 import { ScreenFrame } from "@/components/staff/screen-frame";
 import { Badge } from "@/components/ui/badge";
+import { inVisitorsLanguage } from "@/lib/builtin-groups";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
@@ -54,8 +55,9 @@ async function Group({
 }) {
   const groupId = parseId((await params).id);
   if (groupId === null) notFound();
-  const [t, group] = await Promise.all([
+  const [t, words, group] = await Promise.all([
     getTranslations("adminGroups.edit"),
+    getTranslations("lib.builtinGroups"),
     read(groupsGet, { groupId }),
   ]);
   return (
@@ -67,7 +69,7 @@ async function Group({
       />
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">
-          {group.title}
+          {inVisitorsLanguage(group, words).title}
         </h2>
         {group.builtin && <Badge variant="secondary">{t("builtin")}</Badge>}
       </div>
