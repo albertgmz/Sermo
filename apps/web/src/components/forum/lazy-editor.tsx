@@ -66,36 +66,6 @@ export function LazyEditor({
   const changed = useRef(onChange);
   changed.current = onChange;
 
-  // Requests from elsewhere in the composer (an attachment's tag to put in or take out) are taken
-  // by the plain field until the editor is there. Those that arrive after the field is gone and
-  // before the editor listens are kept, and handed to the editor once it says it is ready.
-  const ready = useRef(false);
-  const queue = useRef<ComposerRequest[]>([]);
-  const form = useRef<HTMLFormElement | null>(null);
-  useEffect(() => {
-    form.current = field.current?.form ?? null;
-    return onComposerRequest(form.current, (request) => {
-      if (ready.current) return;
-      const box = field.current;
-      if (!box) queue.current.push(request);
-      else if ("insert" in request) {
-        insertAtCaret(box, request.insert, asked.current);
-        changed.current?.(box.value);
-      } else {
-        box.value = withoutAttachTag(box.value, request.remove);
-        changed.current?.(box.value);
-      }
-    });
-  }, []);
-  const inbox = useRef<ReturnType<typeof quoteInbox>>(undefined);
-  const editorReady = useCallback(() => {
-    ready.current = true;
-    for (const request of queue.current.splice(0)) {
-      requestOnComposer(form.current, request);
-    }
-    inbox.current?.ready();
-  }, []);
-
   const load = useCallback(() => {
     if (asked.current) return;
     asked.current = true;
@@ -121,6 +91,65 @@ export function LazyEditor({
         setWaiting(false);
       },
     );
+  }, []);
+
+  // Requests from elsewhere in the composer (an attachment's tag to put in or take out) are taken
+  // by the plain field until the editor is there. Those that arrive after the field is gone and
+  // before the editor listens are kept, and handed to the editor once it says it is ready.
+  const ready = useRef(false);
+  const queue = useRef<ComposerRequest[]>([]);
+  const form = useRef<HTMLFormElement | null>(null);
+  useEffect(() => {
+    form.current = field.current?.form ?? null;
+    return onComposerRequest(form.current, (request) => {
+      if (ready.current) return;
+      const box = field.current;
+      if ("drop" in request) {
+        // Files are the editor's to take: it is asked for, and gets them when it is there.
+        queue.current.push(request);
+        load();
+      } else if (!box) queue.current.push(request);
+      else if ("insert" in request) {
+        insertAtCaret(box, request.insert, asked.current);
+        changed.current?.(box.value);
+      } else {
+        box.value = withoutAttachTag(box.value, request.remove);
+        changed.current?.(box.value);
+      }
+    });
+  }, [load]);
+  const inbox = useRef<ReturnType<typeof quoteInbox>>(undefined);
+  const editorReady = useCallback(() => {
+    ready.current = true;
+    for (const request of queue.current.splice(0)) {
+      requestOnComposer(form.current, request);
+    }
+    inbox.current?.ready();
+  }, []);
+
+  // A file dropped anywhere on the composer is the composer's: left alone the browser would open it
+  // and take the member off the page with what they wrote. The editor takes it, as it takes one
+  // dropped on its text (which it has dealt with by the time the drop gets here).
+  useEffect(() => {
+    const target = field.current?.form;
+    if (!target) return;
+    const files = (event: DragEvent) =>
+      event.dataTransfer?.types.includes("Files") === true;
+    const over = (event: DragEvent) => {
+      if (files(event)) event.preventDefault();
+    };
+    const drop = (event: DragEvent) => {
+      if (!files(event) || event.defaultPrevented) return;
+      event.preventDefault();
+      const dropped = Array.from(event.dataTransfer?.files ?? []);
+      if (dropped.length > 0) requestOnComposer(target, { drop: dropped });
+    };
+    target.addEventListener("dragover", over);
+    target.addEventListener("drop", drop);
+    return () => {
+      target.removeEventListener("dragover", over);
+      target.removeEventListener("drop", drop);
+    };
   }, []);
 
   // Text added from elsewhere on the page goes at the end of the plain field, as it would in the

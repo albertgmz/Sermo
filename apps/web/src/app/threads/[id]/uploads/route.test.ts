@@ -99,10 +99,15 @@ test("an address that names no forum is a 404", async () => {
 });
 
 test("the body goes to the backend as the request's own stream, with no read of the forum", async () => {
-  backend(() => Response.json({ id: 31 }, { status: 201 }));
+  backend(() =>
+    Response.json({ id: 31, contentType: "image/png" }, { status: 201 }),
+  );
   const { request } = posted();
   const response = await POST(request, forum());
-  expect(await response.json()).toEqual({ id: 31 });
+  expect(await response.json()).toEqual({
+    id: 31,
+    contentType: "image/png",
+  });
   expect(asked).toHaveLength(1);
   expect(asked[0].url).toBe(
     "http://127.0.0.1:8787/api/v1/files?purpose=attachment",

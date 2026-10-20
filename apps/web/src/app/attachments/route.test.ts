@@ -91,10 +91,15 @@ test("a request that fails a check that needs no body is refused before anything
 });
 
 test("the body goes to the backend as the request's own stream, as an attachment", async () => {
-  backend(() => Response.json({ id: 31 }, { status: 201 }));
+  backend(() =>
+    Response.json({ id: 31, contentType: "image/png" }, { status: 201 }),
+  );
   const { request } = posted();
   const response = await POST(request);
-  expect(await response.json()).toEqual({ id: 31 });
+  expect(await response.json()).toEqual({
+    id: 31,
+    contentType: "image/png",
+  });
   expect(asked).toHaveLength(1);
   expect(asked[0].url).toBe(
     "http://127.0.0.1:8787/api/v1/files?purpose=attachment",

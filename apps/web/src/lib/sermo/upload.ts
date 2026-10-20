@@ -67,13 +67,14 @@ export type UploadSource = {
 };
 
 // Sends the visitor's multipart body to the backend as the visitor and answers the id the file
-// was stored under, which an operation then attaches. An upload is not an operation: the
+// was stored under, which an operation then attaches, and the content type the backend found for it
+// (from its bytes, whatever the browser said; null if the backend did not say). An upload is not an operation: the
 // content type is the visitor's own, with the boundary its body was written with.
 export async function uploadWith(
   forward: Forward,
   purpose: UploadPurpose,
   source: UploadSource,
-): Promise<number> {
+): Promise<{ id: number; contentType: string | null }> {
   if (!isUploadPurpose(purpose)) {
     throw new SermoError("validation", 422, "Not a purpose of upload.");
   }
@@ -134,7 +135,11 @@ export async function uploadWith(
       "The answer of the upload does not carry a file id.",
     );
   }
-  return id;
+  const contentType = (payload as { contentType?: unknown }).contentType;
+  return {
+    id,
+    contentType: typeof contentType === "string" ? contentType : null,
+  };
 }
 
 // Why an upload was not made. Each route words these its own way (a redirect, a JSON line).
@@ -156,7 +161,7 @@ export type UploadRefusal =
   | "failed";
 
 export type Received =
-  | { ok: true; fileId: number }
+  | { ok: true; fileId: number; contentType: string | null }
   | {
       ok: false;
       reason: UploadRefusal;
@@ -223,12 +228,12 @@ export async function receiveUpload(
     return refuse("size", 413, undefined, limit ?? undefined);
   }
   try {
-    const fileId = await uploadWith(
+    const stored = await uploadWith(
       forwardFromHeaders(request.headers),
       purpose,
       { body: request.body, contentType },
     );
-    return { ok: true, fileId };
+    return { ok: true, fileId: stored.id, contentType: stored.contentType };
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
     if (error.code === "unauthenticated") return refuse("session", 401);

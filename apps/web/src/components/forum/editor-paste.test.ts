@@ -11,7 +11,7 @@ import {
 } from "lexical";
 import { $exportBb, BB_NODES } from "./bb-lexical";
 import { offerFiles, onFilesOffered } from "./composer-insert";
-import { nameFiles, registerPaste } from "./editor-paste";
+import { pastedFiles, prepareFiles, registerPaste } from "./editor-paste";
 
 function setup() {
   const editor = createEditor({
@@ -22,7 +22,11 @@ function setup() {
   });
   registerRichText(editor);
   const taken: File[][] = [];
-  registerPaste(editor, (files) => taken.push(files));
+  const told: boolean[] = [];
+  registerPaste(editor, (files, pasted) => {
+    taken.push(files);
+    told.push(pasted);
+  });
   editor.update(
     () => {
       const node = $createTextNode("");
@@ -38,7 +42,7 @@ function setup() {
     });
     return out;
   };
-  return { editor, taken, bb };
+  return { editor, taken, told, bb };
 }
 
 const picture = (name = "image.png", type = "image/png") =>
@@ -195,31 +199,185 @@ test("a drop with no files is refused as before and offers nothing", () => {
   expect(bb()).toBe("");
 });
 
-test('a picture with no name, or the browser\'s "image.png", is named after when it was pasted', () => {
-  const now = new Date(2026, 9, 19, 14, 5, 9);
-  const [one] = nameFiles([picture("image.png")], "pasted", now);
+const NOW = new Date(2026, 9, 19, 14, 5, 9);
+const prepare = (files: File[], pasted = true, prefix = "pasted") =>
+  prepareFiles(files, { prefix, now: NOW, pasted });
+
+test('a pasted picture with no name, or the browser\'s "image.png", is named after when it was pasted', async () => {
+  const [one] = await prepare([picture("image.png")]);
   expect(one.name).toBe("pasted-2026-10-19-140509.png");
   expect(one.type).toBe("image/png");
-  const [jpeg] = nameFiles([picture("", "image/jpeg")], "pegado", now);
+  const [jpeg] = await prepare([picture("", "image/jpeg")], true, "pegado");
   expect(jpeg.name).toBe("pegado-2026-10-19-140509.jpg");
-  const [typeless] = nameFiles([picture("", "")], "pegado", now);
-  expect(typeless.name).toBe("pegado-2026-10-19-140509");
+  const [unknown] = await prepare([picture("", "")]);
+  expect(unknown.name).toBe("pasted-2026-10-19-140509");
 });
 
-test("several nameless pictures get numbers, and a file with a name keeps it", () => {
-  const now = new Date(2026, 0, 2, 3, 4, 5);
+test("a dropped file keeps its name even when it is image.png", async () => {
+  const dropped = picture("image.png");
+  expect(await prepare([dropped], false)).toEqual([dropped]);
+  const [nameless] = await prepare([picture("")], false);
+  expect(nameless.name).toBe("pasted-2026-10-19-140509.png");
+});
+
+test("several nameless pictures get numbers, and a file with a name keeps it", async () => {
   const named = picture("plan.png");
-  const out = nameFiles(
-    [picture("image.png"), named, picture("image.png")],
-    "pasted",
-    now,
-  );
+  const out = await prepare([
+    picture("image.png"),
+    named,
+    picture("image.png"),
+  ]);
   expect(out.map((file) => file.name)).toEqual([
-    "pasted-2026-01-02-030405-1.png",
+    "pasted-2026-10-19-140509-1.png",
     "plan.png",
-    "pasted-2026-01-02-030405-3.png",
+    "pasted-2026-10-19-140509-3.png",
   ]);
   expect(out[1]).toBe(named);
+});
+
+const bytes = (...values: number[]): Uint8Array<ArrayBuffer> =>
+  Uint8Array.from(values);
+const PNG = bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
+
+test("a file sent with no type gets the one its bytes show, then the one its name says", async () => {
+  const cases: [Uint8Array<ArrayBuffer>, string, string, string][] = [
+    [PNG, "", "", "image/png"],
+    [PNG, "", "application/octet-stream", "image/png"],
+    [bytes(0xff, 0xd8, 0xff, 0xe0), "", "", "image/jpeg"],
+    [bytes(0x47, 0x49, 0x46, 0x38, 0x39, 0x61), "", "", "image/gif"],
+    [
+      bytes(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50),
+      "",
+      "",
+      "image/webp",
+    ],
+    [bytes(1, 2, 3, 4), "shot.PNG", "", "image/png"],
+    [bytes(1, 2, 3, 4), "notes.txt", "", ""],
+    [bytes(1, 2, 3, 4), "", "", ""],
+  ];
+  for (const [content, name, type, expected] of cases) {
+    const [sent] = await prepare([new File([content], name, { type })], false);
+    expect(sent.type).toBe(expected);
+  }
+});
+
+test("a file that has its type is not touched", async () => {
+  const typed = picture("a.png", "image/png");
+  expect((await prepare([typed]))[0]).toBe(typed);
+});
+
+// What browsers put next to a copied picture or file, and when it is still the files.
+const IMG_ONLY = '<meta charset="utf-8"><img src="https://example.test/a.png">';
+const clipboards: [string, ReturnType<typeof transfer>, boolean][] = [
+  ["no text at all", transfer({ files: [picture()] }), true],
+  [
+    "only white space",
+    transfer({ files: [picture()], data: { "text/plain": " \r\n " } }),
+    true,
+  ],
+  [
+    "the name of the file (a file manager's copy)",
+    transfer({
+      files: [picture("holiday photo.png")],
+      data: { "text/plain": "holiday photo.png" },
+    }),
+    true,
+  ],
+  [
+    "the address of the picture and HTML that is only the picture (Firefox, Safari)",
+    transfer({
+      files: [picture()],
+      data: {
+        "text/plain": "https://example.test/a.png",
+        "text/html": IMG_ONLY,
+      },
+    }),
+    true,
+  ],
+  [
+    "the address of the picture and no HTML",
+    transfer({
+      files: [picture()],
+      data: { "text/plain": "https://example.test/a.png" },
+    }),
+    true,
+  ],
+  [
+    "the path of the file",
+    transfer({
+      files: [picture()],
+      data: { "text/plain": "C:\\Users\\ana\\Pictures\\a.png" },
+    }),
+    true,
+  ],
+  [
+    "a path that starts at the root",
+    transfer({
+      files: [picture()],
+      data: { "text/plain": "/home/ana/Pictures/a b.png" },
+    }),
+    true,
+  ],
+  [
+    "an address and HTML that has words of its own",
+    transfer({
+      files: [picture()],
+      data: {
+        "text/plain": "https://example.test/a.png",
+        "text/html": '<p>See <a href="https://example.test/a.png">this</a></p>',
+      },
+    }),
+    false,
+  ],
+  [
+    "a spreadsheet cell and the picture of it",
+    transfer({
+      files: [picture()],
+      data: {
+        "text/plain": "Total\t42",
+        "text/html": "<table><tr><td>Total</td><td>42</td></tr></table>",
+      },
+    }),
+    false,
+  ],
+  [
+    "several lines of text",
+    transfer({
+      files: [picture()],
+      data: {
+        "text/plain": "https://example.test/a.png\nhttps://example.test/b.png",
+      },
+    }),
+    false,
+  ],
+  [
+    "words",
+    transfer({ files: [picture()], data: { "text/plain": "look at this" } }),
+    false,
+  ],
+  [
+    "no files",
+    transfer({ data: { "text/plain": "https://example.test" } }),
+    false,
+  ],
+];
+
+for (const [name, clipboard, asFiles] of clipboards) {
+  test(`a paste of files with ${name} is ${asFiles ? "the files" : "text"}`, () => {
+    expect(pastedFiles(clipboard).length > 0).toBe(asFiles);
+    // The paste of text with HTML needs a DOM parser, which these tests do not have.
+    if (!asFiles && clipboard.getData("text/html")) return;
+    const { editor, taken } = setup();
+    paste(editor, clipboard);
+    expect(taken.length).toBe(asFiles ? 1 : 0);
+  });
+}
+
+test("what is told with the files: pasted or dropped", () => {
+  const { editor, told } = setup();
+  paste(editor, transfer({ files: [picture()] }));
+  drop(editor, transfer({ files: [picture()] }));
+  expect(told).toEqual([true, false]);
 });
 
 test("files offered to a composer go to the first list that takes them", () => {

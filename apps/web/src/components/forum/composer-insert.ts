@@ -4,7 +4,13 @@
 // entered, listens for it.
 const EVENT = "sermo:composer-request";
 
-export type ComposerRequest = { insert: string } | { remove: number };
+// `background`: the text is not the member's doing at this moment (a picture that finished
+// uploading), so the editor does not take the focus for it. `drop`: files dropped on the composer
+// outside the editor's own text, for the editor to take as it takes those pasted or dropped on it.
+export type ComposerRequest =
+  | { insert: string; background?: boolean }
+  | { remove: number }
+  | { drop: File[] };
 
 export const attachTag = (id: number, size: "thumb" | "full") =>
   size === "full" ? `[ATTACH=full]${id}[/ATTACH]` : `[ATTACH]${id}[/ATTACH]`;
@@ -35,8 +41,15 @@ export function requestOnComposer(
 }
 
 // Asks the composer that holds `inside` to put `text` at its caret.
-export function insertIntoComposer(inside: Element | null, text: string) {
-  requestOnComposer(inside?.closest("form"), { insert: text });
+export function insertIntoComposer(
+  inside: Element | null,
+  text: string,
+  background = false,
+) {
+  requestOnComposer(
+    inside?.closest("form"),
+    background ? { insert: text, background } : { insert: text },
+  );
 }
 
 // Asks the composer that holds `inside` to drop the tags of attachment `id`.
@@ -63,10 +76,11 @@ export function insertAtCaret(
   field: HTMLTextAreaElement,
   text: string,
   touched = true,
+  focus = true,
 ) {
   if (!touched) field.setSelectionRange(field.value.length, field.value.length);
   field.setRangeText(text, field.selectionStart, field.selectionEnd, "end");
-  field.focus();
+  if (focus) field.focus();
 }
 
 // Files that came into the editor from outside (pasted or dropped), offered to the composer's

@@ -76,10 +76,13 @@ const source = () => ({ body: picture().body, contentType: BOUNDARY });
 
 test("the body goes on as a stream with the visitor's identity and their own content type", async () => {
   const seen = backend(
-    Response.json({ id: 41, url: "/api/v1/files/41" }, { status: 201 }),
+    Response.json(
+      { id: 41, url: "/api/v1/files/41", contentType: "image/png" },
+      { status: 201 },
+    ),
   );
   const { body } = picture();
-  const id = await uploadWith(
+  const stored = await uploadWith(
     {
       cookie: "theme=dark; sermo.session_token=abc",
       userAgent: "agent/1",
@@ -88,7 +91,7 @@ test("the body goes on as a stream with the visitor's identity and their own con
     "avatar",
     { body, contentType: BOUNDARY },
   );
-  assert.equal(id, 41);
+  assert.deepEqual(stored, { id: 41, contentType: "image/png" });
   assert.equal(
     seen[0].url,
     "http://127.0.0.1:8787/api/v1/files?purpose=avatar",
@@ -259,13 +262,25 @@ test("a request is refused before anything is read when it fails a check that ne
   assert.equal(seen.length, 0);
 });
 
+test("the attachment answer carries the id and the content type the backend stored", async () => {
+  backend(Response.json({ id: 12, contentType: "image/png" }, { status: 201 }));
+  const { answerAttachment } = await import("./upload-answer");
+  const { request } = incoming({
+    "content-length": String(DECLARED_LENGTH_CEILING),
+  });
+  const response = await answerAttachment(request, (key) => key);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { id: 12, contentType: "image/png" });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
 test("the body handed to the backend is the request's own stream, never a copy", async () => {
   const seen = backend(Response.json({ id: 7 }, { status: 201 }));
   const { request, state } = incoming({
     "content-length": String(DECLARED_LENGTH_CEILING),
   });
   const received = await receiveUpload(request, "attachment");
-  assert.deepEqual(received, { ok: true, fileId: 7 });
+  assert.deepEqual(received, { ok: true, fileId: 7, contentType: null });
   assert.equal(
     seen[0].url,
     "http://127.0.0.1:8787/api/v1/files?purpose=attachment",
@@ -361,6 +376,7 @@ test("a file within the site's limit, framing included, goes through", async () 
   assert.deepEqual(await receiveUpload(request, "avatar"), {
     ok: true,
     fileId: 9,
+    contentType: null,
   });
   assert.equal(seen.length, 1);
 });
@@ -372,6 +388,7 @@ test("the pictures of the site's catalogs keep 25 MB whatever the site allows me
   assert.deepEqual(await receiveUpload(within.request, "frame"), {
     ok: true,
     fileId: 4,
+    contentType: null,
   });
   const over = incoming({ "content-length": String(26 * MIB + 1) });
   const refused = await receiveUpload(over.request, "site_logo");
@@ -413,6 +430,7 @@ test("a site that cannot be read leaves the backstop", async () => {
     assert.deepEqual(await receiveUpload(within.request, "attachment"), {
       ok: true,
       fileId: 2,
+      contentType: null,
     });
     const over = incoming({
       "content-length": String(DECLARED_LENGTH_CEILING + 1),

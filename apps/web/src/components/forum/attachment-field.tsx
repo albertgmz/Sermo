@@ -11,9 +11,12 @@ import {
 import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import {
+  createIntake,
+  receiveOffers,
+} from "@/components/forum/attachment-intake";
+import {
   attachTag,
   insertIntoComposer,
-  onFilesOffered,
   removeFromComposer,
 } from "@/components/forum/composer-insert";
 import { FormError } from "@/components/forum/form-error";
@@ -78,6 +81,11 @@ export function AttachmentField({
     return () => form.removeEventListener("reset", clear);
   }, []);
 
+  // Every refusal of a batch stays, one after the other.
+  function refuse(message: string) {
+    setError((current) => (current ? `${current} ${message}` : message));
+  }
+
   async function send(file: File): Promise<AttachedFile | undefined> {
     const body = new FormData();
     body.append("file", file, file.name);
@@ -102,41 +110,40 @@ export function AttachmentField({
         setFiles((current) => [...current, added]);
         return added;
       }
-      setError(payload?.error ?? t("failed", { name: file.name }));
+      refuse(payload?.error ?? t("failed", { name: file.name }));
     } catch {
-      setError(t("failed", { name: file.name }));
+      refuse(t("failed", { name: file.name }));
     } finally {
       setBusy((count) => count - 1);
     }
     return undefined;
   }
 
-  // Puts the file's tag at the caret of the composer's text.
-  function place(file: AttachedFile, size: "thumb" | "full") {
-    insertIntoComposer(listed.current, attachTag(file.id, size));
+  // Puts the file's tag at the caret of the composer's text. `background`: it was not asked for just
+  // now (a picture that finished uploading), so the focus stays where the member has it.
+  function place(
+    file: AttachedFile,
+    size: "thumb" | "full",
+    background = false,
+  ) {
+    insertIntoComposer(listed.current, attachTag(file.id, size), background);
   }
 
-  // `inText`: the files came into the text (pasted or dropped), so each picture goes in where the
-  // caret is once it is stored, as the member would have done with its button.
-  async function choose(chosen: File[], inText = false) {
-    setError(undefined);
-    for (const file of chosen) {
-      const added = await send(file);
-      if (inText && added?.type?.startsWith("image/")) place(added, "full");
-    }
-  }
+  // The latest functions, for the intake that is made once.
+  const latest = useRef({ send, place, setError });
+  latest.current = { send, place, setError };
+  const [intake] = useState(() =>
+    createIntake<AttachedFile>({
+      send: (file) => latest.current.send(file),
+      place: (file) => latest.current.place(file, "full", true),
+      clearError: () => latest.current.setError(undefined),
+    }),
+  );
 
   // The editor offers the files pasted or dropped into it, while files may be added here.
-  const receive = useRef(choose);
-  receive.current = choose;
   useEffect(
-    () =>
-      allowed
-        ? onFilesOffered(listed.current?.form, (offered) => {
-            void receive.current(offered, true);
-          })
-        : undefined,
-    [allowed],
+    () => receiveOffers(listed.current?.form, allowed, intake),
+    [allowed, intake],
   );
 
   const trigger = (
@@ -158,7 +165,7 @@ export function AttachmentField({
         onChange={(event) => {
           const chosen = Array.from(event.currentTarget.files ?? []);
           event.currentTarget.value = "";
-          void choose(chosen);
+          void intake(chosen);
         }}
       />
     </label>

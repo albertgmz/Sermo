@@ -25,12 +25,14 @@ export const uploadFailure = (error: string, status: number) =>
   );
 
 // Hands one attachment on to the backend (`receiveUpload`) and answers the way both attachment
-// routes do: the id the backend stored the file under, or the refusal in the route's words.
+// routes do: the id the backend stored the file under and the content type it found for it (the
+// composer puts a picture in the text by that, not by what the browser called it), or the refusal in
+// the route's words.
 export async function answerAttachment(request: Request, t: Words) {
   const received = await receiveUpload(request, "attachment");
   if (received.ok) {
     return Response.json(
-      { id: received.fileId },
+      { id: received.fileId, contentType: received.contentType },
       { headers: { "Cache-Control": "no-store" } },
     );
   }

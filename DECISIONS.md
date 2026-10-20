@@ -5106,23 +5106,56 @@ text alone.
 
 - No second upload path. The editor dispatches a cancelable `sermo:composer-files` event on its
   form (`offerFiles` in `composer-insert.ts`, next to the other composer requests). The first
-  `AttachmentField` that is listening and allows files takes it, sends each file through the same
+  `AttachmentField` that is listening and allows files takes it and sends each file through the same
   `send` its attach button uses (same routes, progress line, file list, `payload.error` refusals for
-  size, type and quota), and puts `[ATTACH=full]<id>[/ATTACH]` at the caret for each stored picture.
-  Other files (a dropped PDF) are uploaded and listed, not put in the text: the member places them.
+  size, type and quota). `attachment-intake.ts` keeps the order: batches wait for the one before, files
+  go up and into the text in the order given, and a refusal is not wiped by a batch that starts while
+  another is in flight (all refusals of a run show, one after the other).
+- A picture goes into the text as `[ATTACH=full]<id>[/ATTACH]` when the content type the backend
+  stored it with is `image/*`. The attachment upload routes (`/attachments`, `/threads/<id>/uploads`)
+  answer `{ id, contentType }` for this: the backend's own answer carries the type, `uploadWith` and
+  `receiveUpload` hand it on. Other files (a dropped PDF) are uploaded and listed, not put in the
+  text: the member places them.
+- The backend does not look at a file's bytes to find its type: it takes the type the file was sent
+  with and refuses one that is empty or not allowed. A file the browser sent with no type (some file
+  managers and screenshot tools) would be refused, so before sending, a file with no type or
+  `application/octet-stream` gets the type its first bytes show (PNG, JPEG, GIF, WebP, AVIF, BMP) or
+  else its extension's. A file that is not recognised is sent as it is and refused with the server's
+  message.
+- A picture that came off the clipboard with no name, or with the `image.png` browsers give every
+  paste, is renamed `pegado-<date>.<ext>` or `pasted-<date>.<ext>` (by language; `-1`, `-2` for
+  several; the extension from its type). A file with a name keeps it, a dropped `image.png` included.
 - No listener (no attachment list, `allowed` false, or an editor outside a form) means nothing
   takes the event, and the editor shows "Pictures cannot be added to this text." under its text
   until the text changes. The old silence is gone.
-- A paste is files only when it holds files and no `text/plain`. A cell copied from a spreadsheet
-  comes with a picture of itself and stays text; "Copy image" on a page (HTML plus a file, no plain
-  text) and a screenshot are files. Before, any clipboard with files put nothing in. A keyboard's
-  paste that arrives as an input event (Android) is read from `dataTransfer`.
-- A picture with no name, or with the `image.png` browsers give every paste, is renamed
-  `pegado-<date>.<ext>` or `pasted-<date>.<ext>` (by language; `-1`, `-2` for several; the extension
-  from its type). A file with a name keeps it. A file with no type is sent as it is: the backend
-  detects the type from the bytes, and only a stored type of `image/*` puts a tag in the text.
-- A drop inserts at the caret, not at the drop point.
-- Not covered: the signature field is a plain textarea, not this editor.
+- A paste is files when it holds files and the plain text with them says no more than the files do:
+  none, white space, the name of a file, or a single address (`http(s)://`, `file://`) or path, with
+  no HTML text beyond a picture. Firefox and Safari put such a line next to a copied picture, file
+  managers put the name, so those still upload. A spreadsheet cell comes with a picture of itself and
+  its text (and a table in the HTML): that stays text. Before, any clipboard with files put nothing
+  in. A keyboard's paste that arrives as an input event (Android) is read from `dataTransfer`.
+- A file dropped anywhere on a composer, not only on the text, is the composer's: `LazyEditor`
+  holds a `dragover`/`drop` guard on its form, so the browser does not open the file and take the
+  member off the page with what they wrote. A drop outside the text is passed to the editor (which
+  is loaded for it when only the plain box is there) and goes through the same path.
+- A picture that finishes uploading while the member is in another field goes in at the selection the
+  editor keeps, without taking the focus (the browser's own selection is left alone while the editor
+  is not the active element). One put in by the member's own click (the insert buttons) still returns
+  the focus to the text.
+- A drop inserts at the caret, not at the drop point, and dragging text inside the editor still does
+  nothing (the drop command is swallowed at high priority, as it was before this change).
+- Not covered: the signature field is a plain textarea, not this editor; pasting a picture into the
+  BB code source view or into another field of the form does nothing.
+- What browsers put on the clipboard, seen with a real clipboard (Playwright's own Chromium and
+  Firefox on Windows, headed; pasting with Ctrl+V into a page that logs the paste event): a picture
+  placed on the system clipboard (like a screenshot) arrives as one `Files` entry named `image.png`
+  with `image/png`, no text, and a file copied in Explorer as that file under its own name
+  (`probe.png`), no text: both upload. A selected `<img>` copied with Ctrl+C is only HTML with the
+  `<img src>` (and an empty `text/plain` in Firefox), no file: it goes in as HTML-to-BB, as before.
+  The context menu's "Copy image" cannot be driven by the test tools, so what it puts is not
+  recorded here. Playwright's WebKit on Windows does not read the system clipboard for files (every
+  copy came as `text/uri-list`), so Safari itself is not covered by this: the Firefox/Safari
+  "address plus file" case is covered by tests of the rule above.
 - Phones: Chrome on Android and Safari on iOS deliver a pasted picture as a paste event with a file
-  (or, on Android keyboards, an input event with `dataTransfer`); both are handled. Checked only in
-  Chromium and WebKit with real and synthetic events, not on a device.
+  (or, on Android keyboards, an input event with `dataTransfer`); both are handled. Not tried on a
+  device.

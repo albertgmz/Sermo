@@ -30,13 +30,15 @@ test("a request reaches the box of its own composer only", () => {
   onComposerRequest(other.form, (request) => got.push(["other", request]));
   insertIntoComposer(mine.inside, "[ATTACH]1[/ATTACH]");
   removeFromComposer(mine.inside, 1);
+  insertIntoComposer(mine.inside, "[ATTACH=full]2[/ATTACH]", true);
   expect(got).toEqual([
     ["mine", { insert: "[ATTACH]1[/ATTACH]" }],
     ["mine", { remove: 1 }],
+    ["mine", { insert: "[ATTACH=full]2[/ATTACH]", background: true }],
   ]);
   stopMine();
   insertIntoComposer(mine.inside, "again");
-  expect(got).toHaveLength(2);
+  expect(got).toHaveLength(3);
 });
 
 test("removing an attachment takes out its tags of both sizes and no other's", () => {

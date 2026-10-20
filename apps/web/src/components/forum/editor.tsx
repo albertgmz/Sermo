@@ -24,6 +24,7 @@ import {
   mergeRegister,
   ParagraphNode,
   RootNode,
+  SKIP_DOM_SELECTION_TAG,
   TabNode,
   TextNode,
 } from "lexical";
@@ -62,7 +63,7 @@ import {
   SourceContext,
   type SourceMode,
 } from "@/components/forum/editor-extras";
-import { nameFiles, registerPaste } from "@/components/forum/editor-paste";
+import { prepareFiles, registerPaste } from "@/components/forum/editor-paste";
 import { Toolbar } from "@/components/forum/editor-toolbar";
 import { sentText } from "@/components/forum/editor-value";
 import { FormError } from "@/components/forum/form-error";
@@ -115,19 +116,30 @@ function ContentSafetyPlugin({
   onFiles,
 }: {
   // Called with the files a paste or a drop brings, and the form the editor is in.
-  onFiles: (files: File[], form: HTMLFormElement | null) => void;
+  onFiles: (
+    files: File[],
+    form: HTMLFormElement | null,
+    pasted: boolean,
+  ) => void;
 }) {
   const [editor] = useLexicalComposerContext();
+  // The latest, so a new one does not register everything again.
+  const latest = useRef(onFiles);
+  latest.current = onFiles;
 
   useLayoutEffect(
     () =>
       mergeRegister(
         registerStyleTransforms(editor),
-        registerPaste(editor, (files) =>
-          onFiles(files, editor.getRootElement()?.closest("form") ?? null),
+        registerPaste(editor, (files, pasted) =>
+          latest.current(
+            files,
+            editor.getRootElement()?.closest("form") ?? null,
+            pasted,
+          ),
         ),
       ),
-    [editor, onFiles],
+    [editor],
   );
 
   return null;
@@ -184,6 +196,7 @@ function FormField({
   value,
   commit,
   onInsertReady,
+  onFiles,
   setInvalid,
   source,
   editorRef,
@@ -193,6 +206,12 @@ function FormField({
 > & {
   value: string;
   commit: (text: string) => void;
+  // Takes the files dropped on the composer outside the editor's text.
+  onFiles: (
+    files: File[],
+    form: HTMLFormElement | null,
+    pasted: boolean,
+  ) => void;
   setInvalid: (invalid: boolean) => void;
   source: SourceMode;
   editorRef: React.RefObject<LexicalEditor | null>;
@@ -230,23 +249,32 @@ function FormField({
   }, [value, setInvalid]);
 
   // Text asked for from elsewhere in the composer (an attachment's tag) goes in at the caret.
-  useEffect(
-    () =>
-      onComposerRequest(inputRef.current?.form, (request) => {
-        const box = shown.current.active ? shown.current.field.current : null;
-        if (box) {
-          if ("insert" in request) insertAtCaret(box, request.insert);
-          else box.value = withoutAttachTag(box.value, request.remove);
-          commit(box.value);
-        } else if ("insert" in request) {
-          editor.update(() => $insertText(request.insert));
-          editor.focus();
-        } else {
-          editor.update(() => $removeAttachTags(request.remove));
-        }
-      }),
-    [editor, commit],
-  );
+  useEffect(() => {
+    const form = inputRef.current?.form;
+    return onComposerRequest(form, (request) => {
+      const box = shown.current.active ? shown.current.field.current : null;
+      if ("drop" in request) {
+        onFiles(request.drop, form ?? null, false);
+      } else if (box) {
+        if ("insert" in request) {
+          insertAtCaret(box, request.insert, true, !request.background);
+        } else box.value = withoutAttachTag(box.value, request.remove);
+        commit(box.value);
+      } else if ("insert" in request) {
+        // Setting the browser's selection in the text would take the focus, so a member who is
+        // elsewhere keeps it, and the text goes in at the selection the editor holds.
+        const away =
+          request.background &&
+          !editor.getRootElement()?.contains(document.activeElement);
+        editor.update(() => $insertText(request.insert), {
+          tag: away ? SKIP_DOM_SELECTION_TAG : undefined,
+        });
+        if (!request.background) editor.focus();
+      } else {
+        editor.update(() => $removeAttachTags(request.remove));
+      }
+    });
+  }, [editor, commit, onFiles]);
 
   // Says that requests are now taken here, for a composer that queued some on the way.
   useEffect(() => onInsertReady?.(), [onInsertReady]);
@@ -365,9 +393,14 @@ export function Editor({
   // Files go to the upload the composer around the editor has, by the same way its attach button
   // sends them; an editor with none refuses them and says so.
   const takeFiles = useCallback(
-    (files: File[], form: HTMLFormElement | null) => {
-      const named = nameFiles(files, t("pastedName"), new Date());
-      setNotice(offerFiles(form, named) ? undefined : t("errors.noUpload"));
+    async (files: File[], form: HTMLFormElement | null, pasted: boolean) => {
+      const sent = await prepareFiles(files, {
+        prefix: t("pastedName"),
+        now: new Date(),
+        pasted,
+      });
+      // A refusal stays on show while more files are being taken, until the text changes.
+      if (!offerFiles(form, sent)) setNotice(t("errors.noUpload"));
     },
     [t],
   );
@@ -392,12 +425,11 @@ export function Editor({
   const changed = useRef(onChange);
   changed.current = onChange;
   const lastValue = useRef<string>(undefined);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a change of the text is what clears it.
-  useEffect(() => setNotice(undefined), [value]);
   const commit = useCallback((text: string) => {
     if (text === lastValue.current) return;
     lastValue.current = text;
     setValue(text);
+    setNotice(undefined);
     changed.current?.(text);
   }, []);
   // Between the rich text and the source, in both directions without losing a character: the
@@ -524,6 +556,7 @@ export function Editor({
             value={value}
             commit={commit}
             onInsertReady={onInsertReady}
+            onFiles={takeFiles}
             setInvalid={setInvalid}
             source={sourceMode}
             editorRef={editorRef}
