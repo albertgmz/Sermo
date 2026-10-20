@@ -65,7 +65,7 @@ const IGNORED_CONSOLE: RegExp[] = [
 // WebKit words a request that was cancelled (the test reloaded or left the page while it was in
 // flight) as "Load failed", also as an uncaught rejection.
 const WEBKIT_CANCELLED =
-  /Failed to fetch RSC payload .* Load failed|^Load failed$|due to access control checks.?$/;
+  /Failed to fetch RSC payload .* Load failed|^(TypeError: )?Load failed$|due to access control checks.?$/;
 
 type Options = {
   // A flow that breaks the network on purpose expects the browser to log failures.

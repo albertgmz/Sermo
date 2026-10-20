@@ -218,6 +218,14 @@ async function seedLanding(
     }),
   );
 
+  // The newest post has more comments than a card shows: the feed's card links the rest.
+  await writeMany(4, (index) =>
+    api(`/profile-posts/${wall.at(-1) ?? 0}/comments`, {
+      method: "POST",
+      data: { body: `Later comment ${index + 1}.` },
+    }),
+  );
+
   // Messages list oldest first on a page: the first two are drawn above the target.
   const started = await api("/conversations", {
     method: "POST",

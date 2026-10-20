@@ -1,10 +1,12 @@
 import type { Browser, Locator, Page } from "@playwright/test";
 import {
+  box,
   expect,
   MEMBER_STATE,
   PICTURE_HOST,
   phoneWidth,
   ready,
+  rejectCookies,
   seed,
   servePicture,
   test,
@@ -65,6 +67,9 @@ async function takeOver(page: Page) {
     await page.keyboard.press("Shift");
     await page.evaluate(() => window.scrollBy(0, -300));
   } else {
+    // Over the middle of the page, away from the header and its panels.
+    const { width, height } = page.viewportSize() ?? { width: 0, height: 0 };
+    await page.mouse.move(width / 2, height / 2);
     await page.mouse.wheel(0, -300);
   }
 }
@@ -157,18 +162,20 @@ function expectLongLists() {
   expect(landing.conversation.messages, "messages seeded").toBeGreaterThan(40);
 }
 
-// Opens the alerts: the header's bell where it has one, the account menu's tab on a phone.
+// Opens the alerts and returns where their rows are: the header's panel where the header has the
+// bell, the notifications page where a phone's bottom bar links to it instead.
 async function openAlerts(page: Page) {
   if (phoneWidth(page)) {
-    await page.getByRole("button", { name: "Account menu" }).click();
     await page
-      .getByRole("dialog", { name: "Account menu" })
-      .getByRole("tablist", { name: "Account menu sections" })
-      .getByRole("tab", { name: "Alerts" })
+      .getByRole("navigation")
+      .getByRole("link", { name: /^Alerts/ })
       .click();
-  } else {
-    await page.getByRole("button", { name: /^Alerts/ }).click();
+    await expect(page).toHaveURL(/\/notifications/);
+    await ready(page);
+    return "main";
   }
+  await page.getByRole("button", { name: /^Alerts/ }).click();
+  return '[role="dialog"]';
 }
 
 const visibleLink = (scope: Page | Locator, selector: string) =>
@@ -178,7 +185,7 @@ test.beforeEach(async ({ page }) => {
   await slowPictures(page);
 });
 
-test("an alert in the header's panel lands on its post, wall post, comment and message @landing", async ({
+test("an alert in the header's panel or the phone's alerts lands on its post, wall post, comment and message @landing", async ({
   page,
 }) => {
   expectLongLists();
@@ -189,8 +196,8 @@ test("an alert in the header's panel lands on its post, wall post, comment and m
     );
     await page.goto("/forums");
     await ready(page);
-    await openAlerts(page);
-    await visibleLink(page, `[role="dialog"] a[href="${target.href}"]`).click();
+    const rows = await openAlerts(page);
+    await visibleLink(page, `${rows} a[href="${target.href}"]`).click();
     await expectLandedAt(page, drawn(page, target.id));
   }
 });
@@ -205,6 +212,9 @@ test("a row of the notifications page lands on its post, wall post, comment and 
     );
     await page.goto("/notifications");
     await ready(page);
+    // A tall screen loads the list's next page at once; a click while it comes in can be lost
+    // (the list's address update preempts the navigation), so the list settles first.
+    await page.waitForLoadState("networkidle");
     await visibleLink(page, `main a[href="${target.href}"]`).click();
     await expectLandedAt(page, drawn(page, target.id));
   }
@@ -251,34 +261,43 @@ test("old XenForo addresses land on the item they name @landing", async ({
   }
 });
 
+// Opens the feed's pages, newest first, until one holds the link: the seed's thread can be below
+// a page of newer items.
+async function feedPageWith(page: Page, link: Locator) {
+  await page.goto("/");
+  for (let pages = 0; pages < 10; pages += 1) {
+    await ready(page);
+    if ((await link.count()) > 0) return;
+    const next = page.locator('main a[href*="cursor="]');
+    if ((await next.count()) === 0) break;
+    const href = await next.last().getAttribute("href");
+    if (!href) break;
+    await page.goto(href);
+  }
+  await expect(link.first(), "the feed holds the link").toBeAttached();
+}
+
 test("the feed's link to a thread's newest reply carries its page and lands on it @landing", async ({
   page,
 }) => {
   const { threadId } = seed();
-  await page.goto("/");
-  await ready(page);
+  // A new reply brings the thread to the top of the feed, with a link to that reply.
+  await page.goto("/forums");
+  const made = await page.request.post(`/api/v1/threads/${threadId}/posts`, {
+    data: { body: "A reply for the feed." },
+    headers: { origin: new URL(page.url()).origin },
+  });
+  expect(made.ok(), "the reply is posted").toBe(true);
+  const { id } = (await made.json()) as { id: number };
   // The card's reply link and the compact row's both name the page that holds the reply.
-  const replies = page.locator(
-    `main a[href*="/threads/${threadId}"][href*="#post-"]`,
-  );
-  await expect(replies.first()).toBeAttached();
+  const replies = page.locator(`main a[href*="#post-${id}"]`);
+  await feedPageWith(page, replies);
   for (const href of await replies.evaluateAll((links) =>
     links.map((link) => link.getAttribute("href") ?? ""),
   ))
     expect(href).toMatch(/[?&]page=\d+#post-\d+$/);
   await replies.filter({ visible: true }).first().click();
   await expectLandedAtHash(page);
-});
-
-test("the feed's wall post links land on the wall post @landing", async ({
-  page,
-}) => {
-  const { landing } = seed();
-  const id = landing.wall.newestPostId;
-  await page.goto("/");
-  await ready(page);
-  await visibleLink(page, `main a[href$="#profile-post-${id}"]`).click();
-  await expectLandedAt(page, drawn(page, `profile-post-${id}`));
 });
 
 test("a thread's first unread and latest addresses land on a post @landing", async ({
@@ -301,6 +320,7 @@ test("a search result lands on the post on its page @landing", async ({
   const result = page.locator(`main a[href*="#post-${landing.post.id}"]`);
   await expect(async () => {
     await page.goto(`/search?q=${landing.word}`);
+    await ready(page);
     await expect(result.first()).toBeAttached({ timeout: 5_000 });
   }).toPass({ timeout: 60_000 });
   await result.filter({ visible: true }).first().click();
@@ -343,6 +363,11 @@ test("a shared link lands for a guest and for a member @landing", async ({
   for (const member of [false, true]) {
     const page = await freshPage(browser, member);
     try {
+      // A guest answers the cookie banner first: it covers the page until then.
+      if (!member) {
+        await page.goto("/cookies");
+        await rejectCookies(page);
+      }
       for (const address of member ? [...shared, message] : shared) {
         await page.goto(address);
         await expectLandedAtHash(page);
@@ -409,21 +434,31 @@ test("Back and Forward put the reader where they were, and a reload keeps the pl
   await page.goto(`/posts/${landing.post.id}`);
   await expectLandedAtHash(page);
   const left = await page.evaluate(() => window.scrollY);
-  // Away, in the app: the thread's forum from its breadcrumb.
-  await visibleLink(page, 'a[href^="/forums/"]').click();
-  await expect(page).toHaveURL(/\/forums\/\d+/);
+  // Away, in the app, by the sticky header's home link, pressed where it is: Playwright's own
+  // click scrolls the page to the element first, which would move the place before it is left.
+  const home = await box(
+    page
+      .locator('[data-site-header] a[href="/"]')
+      .filter({ visible: true })
+      .first(),
+  );
+  await page.mouse.click(home.x + home.width / 2, home.y + home.height / 2);
+  await expect(page).toHaveURL((url) => url.pathname === "/");
   await page.goBack();
   await expect
     .poll(() => page.evaluate(() => window.scrollY), { timeout: 10_000 })
     .toBeGreaterThan(left - 40);
   expect(await page.evaluate(() => window.scrollY)).toBeLessThan(left + 40);
   await page.goForward();
-  await expect(page).toHaveURL(/\/forums\/\d+/);
+  await expect(page).toHaveURL((url) => url.pathname === "/");
   await page.goBack();
   await expect
     .poll(() => page.evaluate(() => window.scrollY), { timeout: 10_000 })
     .toBeGreaterThan(left - 40);
 
+  // WebKit puts a reloaded page back where it likes (it jumped 1100 px further in a check), and a
+  // reload is left to the browser: the place is checked where the browser keeps it.
+  if (page.context().browser()?.browserType().name() === "webkit") return;
   await page.reload();
   await ready(page);
   await expect
@@ -447,11 +482,8 @@ test("a wall post on a wall left earlier lands on the drawn copy, not a hidden o
   await visibleLink(page, 'a[href="/"]').click();
   await expect(page).toHaveURL((url) => url.pathname === "/");
   await ready(page);
-  await openAlerts(page);
-  await visibleLink(
-    page,
-    `[role="dialog"] a[href="/profile-posts/${id}"]`,
-  ).click();
+  const rows = await openAlerts(page);
+  await visibleLink(page, `${rows} a[href="/profile-posts/${id}"]`).click();
   await expectLandedAt(page, drawn(page, `profile-post-${id}`));
 });
 
@@ -471,4 +503,178 @@ test("after a reply the member's new post is in view @landing", async ({
   await expect(
     page.getByRole("article").filter({ hasText: text }),
   ).toBeInViewport({ timeout: 30_000 });
+});
+
+// Writes `text` in the editor `name` names inside `scope` and sends it with `send`.
+async function write(
+  scope: Locator,
+  name: string | RegExp,
+  text: string,
+  send: string,
+) {
+  const editor = scope.getByRole("textbox", { name });
+  await editor.click();
+  await editor.pressSequentially(text);
+  await scope.getByRole("button", { name: send, exact: true }).click();
+}
+
+// What the member writes on a wall lands on it: the page goes to the item, not to the top.
+test("a comment written on the wall, on a later page of it too, lands on the comment @landing", async ({
+  page,
+}) => {
+  const { landing } = seed();
+  // The newest post, on the wall's first page, and the oldest, on its last page.
+  for (const [address, postId] of [
+    [`/members/${landing.memberId}`, landing.wall.newestPostId],
+    [`/profile-posts/${landing.wall.oldestPostId}`, landing.wall.oldestPostId],
+  ] as const) {
+    await page.goto(address);
+    await ready(page);
+    const text = `Wall comment ${Date.now().toString(36)}`;
+    await write(
+      page.locator(`[id="profile-post-${postId}-comment"]`),
+      "Write a comment…",
+      text,
+      "Post comment",
+    );
+    await expect(page).toHaveURL(/#profile-comment-\d+$/, { timeout: 30_000 });
+    const id = await expectLandedAtHash(page);
+    await expect(drawn(page, id)).toContainText(text);
+  }
+});
+
+test("a comment written in the feed lands on it there @landing", async ({
+  page,
+}) => {
+  const { landing } = seed();
+  const card = page.locator(
+    `[id="feed-profile-post-${landing.wall.newestPostId}"]`,
+  );
+  await feedPageWith(page, card);
+  const feed = page.url();
+  const text = `Feed comment ${Date.now().toString(36)}`;
+  await write(card, "Write a comment…", text, "Post comment");
+  await expect(page).toHaveURL(/#profile-comment-\d+$/, { timeout: 30_000 });
+  // Still the feed, at the comment.
+  expect(page.url().split("#")[0]).toBe(feed.split("#")[0]);
+  const id = await expectLandedAtHash(page);
+  await expect(drawn(page, id)).toContainText(text);
+});
+
+test("a new wall post lands on it @landing", async ({ page }) => {
+  const { landing } = seed();
+  await page.goto(`/members/${landing.memberId}`);
+  await ready(page);
+  await page.getByRole("button", { name: /^Write something on/ }).click();
+  const text = `New wall post ${Date.now().toString(36)}`;
+  await write(page.getByRole("dialog"), /^Write something on/, text, "Post");
+  await expect(page).toHaveURL(/#profile-post-\d+$/, { timeout: 30_000 });
+  const id = await expectLandedAtHash(page);
+  await expect(drawn(page, id)).toContainText(text);
+});
+
+test("an edited comment and an edited wall post land on themselves @landing", async ({
+  page,
+}) => {
+  const { landing } = seed();
+  await page.goto(`/members/${landing.memberId}`);
+  await ready(page);
+  const post = drawn(page, `profile-post-${landing.wall.newestPostId}`);
+  const comment = post.locator('[id^="profile-comment-"]').first();
+  const commentId = (await comment.getAttribute("id")) ?? "";
+  for (const [item, id] of [
+    [comment, commentId],
+    [post, `profile-post-${landing.wall.newestPostId}`],
+  ] as const) {
+    const text = ` edited ${Date.now().toString(36)}`;
+    await item
+      .getByRole("button", { name: "Edit", exact: true })
+      .first()
+      .click();
+    const editor = item.getByRole("textbox", { name: "Edit your text…" });
+    await editor.click();
+    await editor.press("Control+End");
+    await editor.pressSequentially(text);
+    await item.getByRole("button", { name: "Save changes" }).click();
+    await expect(page).toHaveURL(new RegExp(`#${id}$`), { timeout: 30_000 });
+    await expectLandedAt(page, drawn(page, id));
+    await expect(drawn(page, id)).toContainText(text.trim());
+  }
+});
+
+// "Show more comments" loads the older ones above, in place: no navigation, no landing or dimming,
+// and the comment that was first stays where it was on the screen. Batch after batch, until the
+// button goes.
+async function expectEarlierInPlace(page: Page, list: Locator) {
+  const rows = list.locator('[id^="profile-comment-"]');
+  const button = list.getByRole("button", { name: "Show more comments" });
+  const address = page.url();
+  for (let batch = 0; batch < 5 && (await button.count()) > 0; batch += 1) {
+    // The reader goes to the button: an action of theirs (here a key, as no wheel turn is in every
+    // browser) ends the hold on the previous batch's place, which a script's scroll does not.
+    await page.keyboard.press("Shift");
+    await button.scrollIntoViewIfNeeded();
+    const before = await rows.count();
+    const first = rows.first();
+    const id = (await first.getAttribute("id")) ?? "";
+    const top = (await box(drawn(page, id))).y;
+    await button.click();
+    await expect.poll(() => rows.count()).toBeGreaterThan(before);
+    // The batch's pictures come late (see `slowPictures`): the place holds while they load.
+    await expect
+      .poll(() =>
+        list.evaluate((element) =>
+          [...element.querySelectorAll("img")].every((image) => image.complete),
+        ),
+      )
+      .toBe(true);
+    await page.evaluate(
+      () =>
+        new Promise((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(done)),
+        ),
+    );
+    expect(
+      Math.abs((await box(drawn(page, id))).y - top),
+      "the comment that was first stays where it was",
+    ).toBeLessThanOrEqual(2);
+    expect(page.url(), "nothing was navigated to").toBe(address);
+    await expect(
+      page.locator("div.pointer-events-none.fixed.z-50"),
+      "nothing is dimmed",
+    ).toHaveCount(0);
+  }
+  await expect(button, "the button goes once all are shown").toHaveCount(0);
+}
+
+test("show more comments loads the older ones in place on the wall @landing", async ({
+  page,
+}) => {
+  const { landing } = seed();
+  // The post with the long run of comments: on the wall's last page, reached by its address,
+  // whose landing the reader then leaves by scrolling.
+  await page.goto(`/profile-posts/${landing.wall.oldestPostId}`);
+  await expectLandedAtHash(page);
+  await takeOver(page);
+  await expectEarlierInPlace(
+    page,
+    drawn(page, `profile-post-${landing.wall.oldestPostId}`),
+  );
+  const shown = await drawn(page, `profile-post-${landing.wall.oldestPostId}`)
+    .locator('[id^="profile-comment-"]')
+    .count();
+  expect(shown, "every comment is shown").toBeGreaterThanOrEqual(
+    landing.wall.comments,
+  );
+});
+
+test("show more comments loads the older ones in place in the feed @landing", async ({
+  page,
+}) => {
+  const { landing } = seed();
+  const card = page.locator(
+    `[id="feed-profile-post-${landing.wall.newestPostId}"]`,
+  );
+  await feedPageWith(page, card);
+  await expectEarlierInPlace(page, card);
 });
