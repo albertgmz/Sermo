@@ -30,12 +30,8 @@ async function setup(env: Parameters<NonNullable<Scenario["setup"]>>[0]) {
       .map((value) => value.split(";")[0])
       .join("; "),
   });
-  const key = await getAuth(env.ctx).api.createApiKey({
-    headers: sessionHeaders,
-    // A session must give its password to create a key; the plugin's input type does not know the field.
-    body: { name: "Benchmark", password: SEED_PASSWORD } as { name: string },
-  });
-  keyHeaders = new Headers({ authorization: `Bearer ${key.key}` });
+  // A member holds one key: the harness made it already.
+  keyHeaders = new Headers({ authorization: await env.authHeader(env.actors.member(0)) });
 }
 
 export const scenarios: Scenario[] = [

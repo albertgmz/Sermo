@@ -5524,3 +5524,15 @@ owner saw.
   pages.
 - Kept: follow and announcement e-mails carry no "View it" link (`contentPath` is null for `user`
   and `announcement`), although the in-app alert has one.
+
+### The conversation locate counts from the index alone
+
+- `conversation_messages_conv` holds `(conversation_id, id, state, user_id)` (migration `0064`):
+  the count of messages newer than one, and the message that closes its page, read the message's
+  state and author from the index instead of every row. The two-column uses of the index are
+  unchanged.
+- The benchmark's `auth.resolveActor api key` uses the harness's key for its member: a member
+  holds one key, and a second one is refused.
+
+Why: `conversations.locateMessage` for the oldest message of a 13,000-message conversation took
+27 ms at p95, over the 20 ms read budget, reading each row only to check its state.

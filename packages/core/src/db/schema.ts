@@ -1153,7 +1153,7 @@ export const conversationMessages = sqliteTable(
     attachmentCount: counter("attachment_count"),
   },
   (t) => [
-    index("conversation_messages_conv").on(t.conversationId, t.id),
+    index("conversation_messages_conv").on(t.conversationId, t.id, t.state, t.userId),
     index("conversation_messages_state_id").on(t.state, t.id),
     index("conversation_messages_user_id").on(t.userId, t.id),
   ],
