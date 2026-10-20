@@ -65,6 +65,19 @@ function sameKey(held: ArrayBuffer | null, wanted: Uint8Array) {
   );
 }
 
+// Said on the window when this device's pushes were turned on or off here, so the cards that read the
+// subscription once (`AppPrompts`) read it again.
+const CHANGED = "sermo-push-change";
+
+function changed() {
+  window.dispatchEvent(new Event(CHANGED));
+}
+
+export function onPushChange(listener: () => void) {
+  window.addEventListener(CHANGED, listener);
+  return () => window.removeEventListener(CHANGED, listener);
+}
+
 function readOwner() {
   try {
     return localStorage.getItem(PUSH_OWNER_KEY);
@@ -152,6 +165,7 @@ export async function turnOnPush(
     );
     if (saved.ok) {
       writeOwner(member);
+      changed();
       return { ok: true };
     }
     await subscription.unsubscribe().catch(() => {});
@@ -169,6 +183,7 @@ export async function turnOffPush(): Promise<{ ok: boolean; error?: string }> {
     const { endpoint } = subscription;
     await subscription.unsubscribe();
     writeOwner(null);
+    changed();
     const removed = await removePushSubscription(endpoint);
     return removed.ok ? { ok: true } : { ok: false, error: removed.error };
   } catch {

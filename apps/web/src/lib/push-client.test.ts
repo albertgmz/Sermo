@@ -53,6 +53,12 @@ const before = {
   localStorage: globals.localStorage,
   navigator: globals.navigator,
   Notification: globals.Notification,
+  window: globals.window,
+};
+// What the page is told when pushes change here.
+const told: string[] = [];
+globals.window = {
+  dispatchEvent: (event: Event) => told.push(event.type),
 };
 globals.localStorage = {
   getItem: (key: string) => stored.get(key) ?? null,
@@ -84,12 +90,14 @@ afterAll(() => {
     value: before.navigator,
   });
   globals.Notification = before.Notification;
+  globals.window = before.window;
 });
 
 beforeEach(() => {
   stored.clear();
   removed.length = 0;
   saved.length = 0;
+  told.length = 0;
   held = null;
 });
 
@@ -97,6 +105,8 @@ test("turning on records the member, who keeps the subscription on every page", 
   expect(await turnOnPush(KEY, "7")).toEqual({ ok: true });
   expect(saved).toEqual([ENDPOINT]);
   expect(stored.get(PUSH_OWNER_KEY)).toBe("7");
+  // The cards read the subscription again.
+  expect(told).toEqual(["sermo-push-change"]);
   expect((await heldSubscription("7", KEY))?.endpoint).toBe(ENDPOINT);
   expect(removed).toEqual([]);
 });
@@ -146,5 +156,6 @@ test("turning off forgets the member", async () => {
   await turnOnPush(KEY, "7");
   expect(await turnOffPush()).toEqual({ ok: true });
   expect(stored.has(PUSH_OWNER_KEY)).toBe(false);
+  expect(told).toEqual(["sermo-push-change", "sermo-push-change"]);
   expect(removed).toEqual([ENDPOINT]);
 });

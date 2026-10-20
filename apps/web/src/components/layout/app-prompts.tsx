@@ -28,6 +28,7 @@ import {
   currentPermission,
   currentPlatform,
   heldSubscription,
+  onPushChange,
   turnOnPush,
 } from "@/lib/push-client";
 
@@ -115,22 +116,28 @@ export function AppPrompts({
     };
   }, []);
 
+  // Read again when the settings turn this device on or off.
   useEffect(() => {
     let live = true;
-    const usable =
-      currentAvailability(currentPlatform()) === "available" &&
-      currentPermission() === "granted";
-    (usable
-      ? heldSubscription(memberId, pushKey).then(
-          (held) => held !== null,
-          () => true,
-        )
-      : Promise.resolve(false)
-    ).then((held) => {
-      if (live) setSubscribed(held);
-    });
+    const read = () => {
+      const usable =
+        currentAvailability(currentPlatform()) === "available" &&
+        currentPermission() === "granted";
+      (usable
+        ? heldSubscription(memberId, pushKey).then(
+            (held) => held !== null,
+            () => true,
+          )
+        : Promise.resolve(false)
+      ).then((held) => {
+        if (live) setSubscribed(held);
+      });
+    };
+    read();
+    const stop = onPushChange(read);
     return () => {
       live = false;
+      stop();
     };
   }, [memberId, pushKey]);
 
@@ -246,7 +253,6 @@ export function AppPrompts({
     setError(null);
     turnOnPush(pushKey, memberId).then((result) => {
       setBusy(false);
-      if (result.ok) setSubscribed(true);
       if (!result.ok && result.reason === "failed") {
         setError(result.error ?? t("push.failed"));
         return;
