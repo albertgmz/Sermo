@@ -5406,4 +5406,8 @@ visit, or follows in the same visit once `appinstalled` fires. On iOS the notifi
 for the installed app regardless, since iOS (16.4 and later) gives the Push API only to a web app
 opened from the home screen. "Install app" in the account menu (members) offers the same to any member whose
 browser can install the forum, whether or not the card was put off: it opens the browser's dialog, or shows the iOS card whatever Not now said; it
-is absent inside the app and where nothing can be installed, and pressing it closes the menu.
+is absent inside the app and where nothing can be installed, and pressing it closes the menu. On
+iOS it is absent from the panel's pages, which have no cards to show the steps in, and a press
+before the cookie banner is answered shows the card once the banner is gone. Either card closes
+with Escape from inside it (as Not now), and steps aside while the notice of a popup that could not
+load holds the same corner.

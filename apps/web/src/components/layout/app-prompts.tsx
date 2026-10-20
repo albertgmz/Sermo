@@ -18,7 +18,11 @@ import {
   VISIT_KEY,
   type Visit,
 } from "@/lib/app-prompts";
-import { promptInstall, useInstallState } from "@/lib/install-prompt";
+import {
+  hostInstallCard,
+  promptInstall,
+  useInstallState,
+} from "@/lib/install-prompt";
 import {
   currentAvailability,
   currentPermission,
@@ -174,13 +178,16 @@ export function AppPrompts({
     install.installed,
   ]);
 
-  // The account menu asked for the install card: shown whatever "Not now" said.
+  useEffect(() => (offers ? hostInstallCard() : undefined), [offers]);
+
+  // The account menu asked for the install card: shown whatever "Not now" said, once the cookie
+  // banner is out of the way.
   useEffect(() => {
-    if (install.asked === asked.current) return;
+    if (!settled || install.asked === asked.current) return;
     asked.current = install.asked;
     const offer = installOffer(currentPlatform(), false);
     if (offer) setShown({ card: "install", offer });
-  }, [install.asked]);
+  }, [settled, install.asked]);
 
   if (!shown) return null;
   const putOff = (card: Card) => {

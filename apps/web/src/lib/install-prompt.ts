@@ -17,9 +17,17 @@ export type InstallState = {
   installed: boolean;
   // How many times the account menu asked for the install card.
   asked: number;
+  // Whether this page has the cards (`AppPrompts`, in the forum's pages but not the panel's): the
+  // iOS steps can be shown only there.
+  host: boolean;
 };
 
-const NONE: InstallState = { native: false, installed: false, asked: 0 };
+const NONE: InstallState = {
+  native: false,
+  installed: false,
+  asked: 0,
+  host: false,
+};
 let deferred: InstallEvent | null = null;
 let state = NONE;
 const listeners = new Set<() => void>();
@@ -66,6 +74,12 @@ export async function promptInstall() {
   } catch {
     return null;
   }
+}
+
+// The cards say they are on the page, for as long as they are.
+export function hostInstallCard() {
+  set({ host: true });
+  return () => set({ host: false });
 }
 
 // The account menu asks for the install card (the iOS steps), whatever "Not now" said.

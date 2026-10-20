@@ -10,6 +10,7 @@ export function LazyPopupNotice() {
   return (
     <p
       role="alert"
+      data-lazy-popup-notice=""
       className="fixed inset-x-4 bottom-20 z-[60] rounded-lg border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-md md:inset-x-auto md:right-4 md:bottom-4 md:max-w-sm"
     >
       {t("failed")}
