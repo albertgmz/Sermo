@@ -912,7 +912,7 @@ describe("notification recipients", () => {
       })
     ).items[0]!;
     expect(messageNotice.contentTitle).toBe("Talk");
-    expect(messageNotice.url).toBe(`/conversations/${convId}`);
+    expect(messageNotice.url).toBe(`/conversations/messages/${replyId}`);
     expect(await types(ctx, f.other)).toEqual([]);
     expect(await types(ctx, f.outsider)).toEqual([]);
     expect(await types(ctx, f.author)).toEqual([]);

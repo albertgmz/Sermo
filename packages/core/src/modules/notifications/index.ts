@@ -16,6 +16,7 @@ import { readGates } from "../forums/read-gates";
 import { enqueueJob } from "../jobs";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { readSiteSettings } from "../settings";
+import { contentPath } from "./paths";
 import { notificationChannels, notificationTypes, typeById } from "./types";
 
 interface Row {
@@ -128,17 +129,9 @@ function titles(
 }
 
 function url(row: Row, announcements: Map<number, AnnouncementRow>): string {
-  if (row.thread_id)
-    return `/threads/${row.thread_id}${row.content_type === "post" ? `#post-${row.content_id}` : ""}`;
+  const path = contentPath(row.content_type, row.content_id, row.thread_id);
+  if (path) return path;
   switch (row.content_type) {
-    case "profile_post":
-      return `/profile-posts/${row.content_id}`;
-    case "profile_post_comment":
-      return `/profile-comments/${row.content_id}`;
-    case "conversation":
-      return `/conversations/${row.content_id}`;
-    case "conversation_message":
-      return `/conversations/${Number((JSON.parse(row.data) as { conversationId?: number }).conversationId ?? 0)}`;
     case "user":
       return `/users/${row.content_id}`;
     case "announcement":

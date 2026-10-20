@@ -19,6 +19,7 @@ import {
 import { renderPlainText } from "../../render";
 import { readGates } from "../forums/read-gates";
 import { enqueueJob, MAX_ATTEMPTS, registerJobHandler } from "../jobs/queue";
+import { contentPath } from "../notifications/paths";
 import { readSiteSettings } from "../settings";
 import { siteBranding } from "./branding";
 import { signUnsubscribe, verifyUnsubscribe } from "./token";
@@ -549,10 +550,20 @@ async function notificationMessage(
         typeUrl: `${siteUrl}/api/v1/unsubscribe?token=${encodeURIComponent(await signUnsubscribe(ctx, user.id, row.type))}`,
         allUrl: `${siteUrl}/api/v1/unsubscribe?token=${encodeURIComponent(await signUnsubscribe(ctx, user.id, "all"))}`,
       };
+  // The alert's content, at its own address (the web app sends it on to the page that holds it).
+  const path =
+    row.content_type === "security"
+      ? null
+      : contentPath(row.content_type, row.content_id, row.thread_id);
   const rendered = await renderEmail({
     language,
     brand,
     ...(unsubscribe ? { reason: "notification", unsubscribe } : { reason: "account" }),
+    ...(path
+      ? {
+          links: [{ label: phrase(language, "email.notification.open"), url: `${siteUrl}${path}` }],
+        }
+      : {}),
     subject: phraseOr(
       language,
       `notification.${row.type}.title`,

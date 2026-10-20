@@ -13,6 +13,7 @@ import {
 import { renderPlainText } from "../../render";
 import { readGates } from "../forums/read-gates";
 import { registerJobHandler } from "../jobs/queue";
+import { contentPath } from "../notifications/paths";
 import { mayViewProfile, requireComment, requirePost } from "../profiles/shared";
 import { canonicalUrl } from "../seo/paths";
 import { readSiteSettings } from "../settings";
@@ -164,8 +165,12 @@ function visibleContent(ctx: Ctx, actor: Actor, item: PushItem): Content | null 
     if (!stateVisible(ctx, actor, row.state, row.user_id, row.node_id)) return null;
     if (row.post_state && !stateVisible(ctx, actor, row.post_state, row.post_user_id!, row.node_id))
       return null;
-    const url = canonicalUrl(base, "thread", row.id, row.title);
-    return { url: item.contentType === "post" ? `${url}#post-${item.contentId}` : url };
+    return {
+      url:
+        item.contentType === "post"
+          ? new URL(contentPath(item.contentType, item.contentId, null)!, base).href
+          : canonicalUrl(base, "thread", row.id, row.title),
+    };
   }
   if (item.contentType === "conversation" || item.contentType === "conversation_message") {
     const conversationId =
@@ -197,20 +202,14 @@ function visibleContent(ctx: Ctx, actor: Actor, item: PushItem): Content | null 
       )
         return null;
     }
-    return { url: new URL(`/conversations/${conversationId}`, base).href };
+    return {
+      url: new URL(contentPath(item.contentType, item.contentId, null)!, base).href,
+    };
   }
   if (item.contentType === "profile_post" || item.contentType === "profile_post_comment") {
     const profileUserId = visibleProfileOwner(ctx, actor, item);
     if (profileUserId === null) return null;
-    const owner = query<{ username: string }, [number]>(
-      ctx,
-      "profileOwner",
-      "SELECT username FROM users WHERE id = ?1",
-    ).get(profileUserId);
-    if (!owner) return null;
-    return {
-      url: `${canonicalUrl(base, "profile", profileUserId, owner.username)}#${item.contentType === "profile_post" ? "profile-post" : "profile-comment"}-${item.contentId}`,
-    };
+    return { url: new URL(contentPath(item.contentType, item.contentId, null)!, base).href };
   }
   if (item.contentType === "user" || item.contentType === "profile") {
     if (!can(ctx, actor, "profile.view")) return null;

@@ -123,6 +123,10 @@ describe("email channel", () => {
     expect(message.inReplyTo).toContain(`thread-${f.threadId}`);
     expect(message.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
     expect(message.text).toContain("Dejar de recibir");
+    // The alert's content, at its own address.
+    expect(message.text).toContain(
+      `Verlo: ${f.ctx.config.siteBaseURL ?? "http://localhost:3000"}/threads/${f.threadId}`,
+    );
     const stored = f.ctx.sqlite
       .prepare<{ email_sent_at: number | null; data: string }, [number]>(
         "SELECT email_sent_at, data FROM notifications WHERE id = ?1",
@@ -357,6 +361,7 @@ describe("email channel", () => {
     );
     await runDueJobs(f.ctx);
     expect(f.capture.messages.at(-1)?.text).not.toContain("secret phrase");
+    expect(f.capture.messages.at(-1)?.text).toContain(`/conversations/messages/${messageId}`);
     const settings = readSiteSettings(f.ctx);
     f.ctx.sqlite
       .prepare(

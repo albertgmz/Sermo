@@ -44,6 +44,7 @@
   "email.conversation.body": "You have a new conversation message.",
   "email.digest.subject": "Your weekly digest from {site}",
   "email.digest.body": "{count, plural, one {# active discussion} other {# active discussions}} since your last visit.",
+  "email.notification.open": "View it",
   "email.digest.replies": "{replies, plural, one {# reply} other {# replies}}",
   "notification.generic.title": "New activity",
   "notification.generic.body": "You have a new notification.",

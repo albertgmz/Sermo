@@ -44,6 +44,7 @@
   "email.conversation.body": "Tienes un mensaje nuevo en una conversación.",
   "email.digest.subject": "Tu resumen semanal de {site}",
   "email.digest.body": "{count, plural, one {# tema activo} other {# temas activos}} desde tu última visita.",
+  "email.notification.open": "Verlo",
   "email.digest.replies": "{replies, plural, one {# respuesta} other {# respuestas}}",
   "notification.generic.title": "Nueva actividad",
   "notification.generic.body": "Tienes una notificación nueva.",
