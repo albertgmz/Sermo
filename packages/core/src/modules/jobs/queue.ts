@@ -19,6 +19,8 @@ export const MAX_ATTEMPTS = 5;
 export const LEASE_MS = 300_000;
 const handlers = new WeakMap<Ctx, Map<string, JobHandler>>();
 const failureHooks = new WeakMap<Ctx, Map<string, JobFailureHook>>();
+/** Job types whose handlers hold checkpoints themselves, around their writes. */
+const ownHolds = new WeakMap<Ctx, Set<string>>();
 type Job = { id: number; type: string; payload: string; attempts: number; locked_until: number };
 type Candidate = { id: number; attempts: number };
 
@@ -54,11 +56,24 @@ export function registerJobHandler(
   ctx: Ctx,
   type: string,
   handler: JobHandler,
-  options: { onFailed?: JobFailureHook } = {},
+  options: {
+    onFailed?: JobFailureHook;
+    /**
+     * False for a handler that awaits turns of the event loop between its writes: it holds
+     * checkpoints (`holdCheckpoints`) only around each write, so the checkpointer can run between
+     * them instead of only when its longest hold runs out. Otherwise the queue holds them for the
+     * whole handler.
+     */
+    holdCheckpoints?: boolean;
+  } = {},
 ): void {
   const map = handlers.get(ctx) ?? new Map<string, JobHandler>();
   map.set(type, handler);
   handlers.set(ctx, map);
+  const own = ownHolds.get(ctx) ?? new Set<string>();
+  if (options.holdCheckpoints === false) own.add(type);
+  else own.delete(type);
+  ownHolds.set(ctx, own);
   if (options.onFailed) {
     const hooks = failureHooks.get(ctx) ?? new Map<string, JobFailureHook>();
     hooks.set(type, options.onFailed);
@@ -146,7 +161,7 @@ export async function runDueJobs(
     let error: string | null = null;
     if (!handler) error = `Unknown job type: ${job.type}`;
     else {
-      const release = holdCheckpoints(ctx);
+      const release = ownHolds.get(ctx)?.has(job.type) ? () => {} : holdCheckpoints(ctx);
       try {
         await handler(ctx, JSON.parse(job.payload), { id: job.id, lockedUntil: job.locked_until });
       } catch (cause) {

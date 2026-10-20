@@ -11,6 +11,7 @@ import {
   userActor,
 } from "@sermo/core/testing";
 import { closeContext, createContext } from "../../context";
+import { startCheckpointer } from "../../db/checkpointer";
 import { writeTx } from "../../db/tx";
 import { execute } from "../../operation";
 import { threadsCreateOp } from "../forums";
@@ -236,6 +237,43 @@ describe("jobs", () => {
     await runDueJobs(ctx);
     expect(seen).toEqual([1, 2, 3]);
     expect(row(ctx, first)).toMatchObject({ status: "done", unique_key: null });
+  });
+
+  test("a handler that holds checkpoints itself lets the checkpointer run while it waits", async () => {
+    for (const queueHolds of [true, false]) {
+      const path = join(tmpdir(), `sermo-jobs-${crypto.randomUUID()}.sqlite`);
+      const ctx = createContext({ path, migrate: true });
+      const stop = startCheckpointer(ctx, { intervalMs: 20 });
+      const walSize = () => Bun.file(`${path}-wal`).size;
+      let restarted = false;
+      registerJobHandler(
+        ctx,
+        "paced",
+        async () => {
+          for (let i = 0; i < 200; i++) insertUser(ctx);
+          // While the handler waits, a checkpoint may copy what it wrote; the next write then
+          // starts the WAL again instead of making it grow.
+          const deadline = Date.now() + 2000;
+          while (!restarted && Date.now() < deadline) {
+            await Bun.sleep(50);
+            const before = walSize();
+            insertUser(ctx);
+            restarted = walSize() === before;
+          }
+        },
+        { holdCheckpoints: queueHolds },
+      );
+      enqueueJob(ctx, "paced", {});
+      try {
+        expect(await runDueJobs(ctx)).toBe(1);
+        expect(restarted).toBe(!queueHolds);
+      } finally {
+        await stop();
+        closeContext(ctx);
+        for (const suffix of ["", "-wal", "-shm"])
+          if (existsSync(path + suffix)) unlinkSync(path + suffix);
+      }
+    }
   });
 
   test("the event loop gets a turn between jobs, so a chain of chunks never holds it", async () => {

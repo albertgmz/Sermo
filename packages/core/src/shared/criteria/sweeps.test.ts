@@ -172,6 +172,27 @@ describe("sweeps and member checks read history before they write", () => {
     expect(holders().length).toBeGreaterThan(0);
   });
 
+  test("an award sweep grants on the member's row as it is when it writes", async () => {
+    const { ctx, member, posted, award, holders } = world();
+    // Both must hold together: credits on the member's row, and a post counted from history.
+    await award(
+      "Rich poster",
+      rule({ criterion: "credits_at_least", value: 10 }, ...posted.conditions),
+    );
+    const pay = (amount: number) =>
+      ctx.sqlite
+        .prepare("UPDATE users SET credits = credits + ?1 WHERE id = ?2")
+        .run(amount, member);
+    pay(10);
+    // The member spends between the read of their row and the read of their posts.
+    beforeHistory(ctx, HISTORY, () => pay(-5));
+    await sweepAwards(ctx, 0);
+    expect(holders()).toEqual([]);
+    pay(5);
+    await sweepAwards(ctx, 0);
+    expect(holders()).toEqual([member]);
+  });
+
   test("a promotion edited while its facts were being read is not judged on the old facts", async () => {
     const { ctx, member, posted, promotion, promoted } = world();
     await promotion("Posters", posted);

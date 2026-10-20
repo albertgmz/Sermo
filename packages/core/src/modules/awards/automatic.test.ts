@@ -7,6 +7,7 @@ import { type DomainEvent, dispatchEvents, publishEvent } from "../../events";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { moveCredits } from "../../shared/credits";
+import { registerCreditRuleJobs } from "../credit-events";
 import { enqueueJob, registerJobHandler, runDueJobs } from "../jobs/queue";
 import { traceStatements } from "../statement-trace";
 import {
@@ -454,6 +455,7 @@ describe("award sweeps", () => {
     };
     setImmediate(tick);
     const turns: number[] = [];
+    let rereads = 0;
     const facts = /JOIN auth_user a ON a.id = u.id|threads_user_id|content_quotes|content_mentions/;
     ctx.statements.clear();
     const prepare = ctx.sqlite.prepare.bind(ctx.sqlite);
@@ -462,7 +464,9 @@ describe("award sweeps", () => {
       if (!facts.test(text) || !text.includes("json_each(?1)")) return statement;
       const all = Reflect.get(statement, "all") as (...args: unknown[]) => unknown;
       Reflect.set(statement, "all", (...args: unknown[]) => {
-        turns.push(ticks);
+        // The member's row is read again inside the write; that read is not paced.
+        if (!ctx.sqlite.inTransaction) turns.push(ticks);
+        else rereads++;
         return Reflect.apply(all, statement, args);
       });
       return statement;
@@ -474,6 +478,7 @@ describe("award sweeps", () => {
     }
     // The member's row and one statement per measure, each after a turn of its own.
     expect(turns).toHaveLength(1 + measured.length);
+    expect(rereads).toBe(1);
     for (let i = 1; i < turns.length; i++) expect(turns[i]!).toBeGreaterThan(turns[i - 1]!);
     expect((await call("member", { userId: member.id })).items).toHaveLength(measured.length);
   });
@@ -573,6 +578,88 @@ describe("award sweeps", () => {
       ctx.sqlite.prepare("SELECT credits, award_xp FROM users WHERE id = ?1").get(ids[0]!),
     ).toEqual({ credits: 3, award_xp: 2 });
     expect(ctx.sqlite.prepare("SELECT id FROM jobs WHERE status = 'failed'").all()).toEqual([]);
+  });
+
+  test("credits earned in a pass count for the awards judged after them, also one that needs an award not to be held", async () => {
+    const { ctx, member, call } = setup();
+    const pays = await call("create", {
+      name: "Pays",
+      tier: "bronze",
+      credits: 100,
+      rule: postRule,
+    });
+    const earned = await call("create", {
+      name: "Earned",
+      tier: "bronze",
+      rule: { match: "all", conditions: [{ criterion: "credits_earned", value: 100 }] },
+    });
+    const without = await call("create", {
+      name: "Without earned",
+      tier: "bronze",
+      rule: {
+        match: "all",
+        conditions: [{ criterion: "holds_awards", ids: [earned.id], mode: "none" }],
+      },
+    });
+    ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);
+    const held = () =>
+      ctx.sqlite
+        .prepare<{ award_id: number }, [number]>(
+          "SELECT award_id FROM member_awards WHERE user_id = ?1 ORDER BY award_id",
+        )
+        .all(member.id)
+        .map((row) => row.award_id);
+    // "Earned" sees the credits "Pays" just paid, so "Without earned" no longer holds when it
+    // is judged (before, "Earned" waited for the credits event and "Without earned" was given).
+    await sweepChunk(ctx);
+    await drainEvents(ctx);
+    expect(held()).toEqual([pays.id, earned.id]);
+    expect(without.id).toBeGreaterThan(earned.id);
+  });
+
+  test("credits a credit rule pays for an automatic award still lead to a check of the member", async () => {
+    const { ctx, member, call } = setup();
+    registerCreditRuleJobs(ctx);
+    const admin = userActor(insertUser(ctx, { groupId: 4 }));
+    await execute(ctx, getOperation("creditRules.create"), admin, {
+      title: "Award bonus",
+      trigger: "award_received",
+      amount: 50,
+    });
+    await call("create", { name: "First", tier: "bronze", rule: postRule });
+    const rich = await call("create", {
+      name: "Rich",
+      tier: "bronze",
+      rule: { match: "all", conditions: [{ criterion: "credits_at_least", value: 50 }] },
+    });
+    ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);
+    expect(evaluateMember(ctx, member.id)).toBe(1);
+    await drainEvents(ctx);
+    expect(
+      (await call("holders", { awardId: rich.id })).items.map(
+        (grant: { user: { id: number } }) => grant.user.id,
+      ),
+    ).toEqual([member.id]);
+  });
+
+  test("an award made while a sweep is under way reaches the members it already passed", async () => {
+    const { ctx, call } = setup();
+    for (let i = 0; i < SWEEP_CHUNK * 2; i++) insertUser(ctx);
+    ctx.sqlite.prepare("UPDATE users SET post_count = 1").run();
+    await call("create", { name: "Before", tier: "bronze", rule: postRule });
+    await call("run");
+    expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
+    // The sweep is past its first page when the award is made.
+    const made = await call("create", { name: "During", tier: "bronze", rule: postRule });
+    const total = (ctx.sqlite.prepare("SELECT count(*) AS n FROM users").get() as { n: number }).n;
+    for (let round = 0; round < 10; round++) {
+      while (await runDueJobs(ctx)) {}
+      ctx.clock.advance(30_000);
+    }
+    expect((await call("get", { awardId: made.id })).grantCount).toBe(total);
+    expect(
+      ctx.sqlite.prepare("SELECT id FROM jobs WHERE status IN ('pending', 'running')").all(),
+    ).toEqual([]);
   });
 
   test("a chunk's transaction ends with the member who takes its grants to the limit", async () => {

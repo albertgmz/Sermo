@@ -379,35 +379,7 @@ function* readFacts(
   const ids = JSON.stringify([...facts.keys()]);
   const set = (id: number, change: Partial<Facts>) => Object.assign(facts.get(id)!, change);
   if (sources.has("member")) {
-    for (const row of prepared(ctx, "shared.criteriaMembers", () =>
-      ctx.sqlite.prepare<MemberRow, [string, number]>(memberFactsSql),
-    ).all(ids, now))
-      set(row.id, {
-        postCount: row.post_count,
-        createdAt: row.created_at,
-        reactionScore: row.reaction_score,
-        emailVerified: row.email_verified !== 0,
-        hasAvatar: row.avatar_file_id !== null,
-        lastActivityAt: row.last_activity_at,
-        credits: row.credits,
-        purchaseCount: row.shop_purchase_count,
-        awardCount: row.award_count,
-        awardXp: row.award_xp,
-        tagCount: row.tag_count,
-        pollVoteCount: row.poll_vote_count,
-        hasCover: row.has_cover !== 0,
-        hasNameColor: row.has_name_color !== 0,
-        hasAccentColor: row.has_accent_color !== 0,
-        hasFrame: row.has_frame !== 0,
-        socialLinkCount: row.social_links,
-        profileComplete: row.profile_complete !== 0,
-        usernameChangedAt: row.username_changed_at,
-        restrictedPosting: row.restricted_posting !== 0,
-        restrictedConversations: row.restricted_conversations !== 0,
-        restrictedProfilePosts: row.restricted_profile_posts !== 0,
-        referralCount: row.referral_count,
-        wasReferred: row.was_referred !== 0,
-      });
+    readMemberRows(ctx, facts, ids, now);
     yield;
   }
   if (sources.has("warnings")) {
@@ -469,6 +441,58 @@ function* readFacts(
   return facts;
 }
 
+/** The facts on the members' own rows (`memberFactsSql`), into `facts`. */
+function readMemberRows(ctx: Ctx, facts: Map<number, Facts>, ids: string, now: number): void {
+  for (const row of prepared(ctx, "shared.criteriaMembers", () =>
+    ctx.sqlite.prepare<MemberRow, [string, number]>(memberFactsSql),
+  ).all(ids, now))
+    Object.assign(facts.get(row.id)!, {
+      postCount: row.post_count,
+      createdAt: row.created_at,
+      reactionScore: row.reaction_score,
+      emailVerified: row.email_verified !== 0,
+      hasAvatar: row.avatar_file_id !== null,
+      lastActivityAt: row.last_activity_at,
+      credits: row.credits,
+      purchaseCount: row.shop_purchase_count,
+      awardCount: row.award_count,
+      awardXp: row.award_xp,
+      tagCount: row.tag_count,
+      pollVoteCount: row.poll_vote_count,
+      hasCover: row.has_cover !== 0,
+      hasNameColor: row.has_name_color !== 0,
+      hasAccentColor: row.has_accent_color !== 0,
+      hasFrame: row.has_frame !== 0,
+      socialLinkCount: row.social_links,
+      profileComplete: row.profile_complete !== 0,
+      usernameChangedAt: row.username_changed_at,
+      restrictedPosting: row.restricted_posting !== 0,
+      restrictedConversations: row.restricted_conversations !== 0,
+      restrictedProfilePosts: row.restricted_profile_posts !== 0,
+      referralCount: row.referral_count,
+      wasReferred: row.was_referred !== 0,
+    });
+}
+
+/**
+ * Reads the facts on the members' own rows again, for a pass that read its facts a statement at a
+ * time and is about to write: balances, counts, XP and restrictions are then the ones its grants
+ * rest on. The measured facts stay as read, each statement at its own moment.
+ */
+export function rereadMemberFacts(
+  ctx: Ctx,
+  facts: Map<number, Facts>,
+  rules: Iterable<Rule>,
+): void {
+  const first = facts.values().next();
+  if (first.done) return;
+  let reads = false;
+  for (const rule of rules)
+    for (const condition of rule.conditions)
+      if (byId.get(condition.criterion)?.source === "member") reads = true;
+  if (reads) readMemberRows(ctx, facts, JSON.stringify([...facts.keys()]), first.value.now);
+}
+
 /**
  * The members, besides the ones a consumer already follows, whose facts for the criteria of
  * `rules` this event may have changed. Each is to be checked again at once.
@@ -491,25 +515,30 @@ export function membersAffected(ctx: Ctx, event: DomainEvent, rules: Iterable<Ru
 export const isRefreshedBy = (event: DomainEvent): boolean =>
   specs.some((spec) => spec.refresh?.on.includes(event.type));
 
+/** The measurements of credits earned that `rules` read, for `afterAwardGrant`. */
+export function creditsEarnedKeys(rules: Iterable<Rule>): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const rule of rules)
+    for (const condition of rule.conditions)
+      if (condition.criterion === "credits_earned") keys.add(measureKey(condition));
+  return keys;
+}
+
 /**
  * Records an award just granted in the facts a pass of automatic awards is judging, so the
- * awards after it in the same pass see it: its credits (also credits earned, in every window of
- * `rules`, since the grant is now), its XP and the award itself. These are all the facts a grant
- * changes, so a pass that judges its awards again until none is granted leaves nothing for the
- * grant's own events to change.
+ * awards after it in the same pass see it: its credits (also credits earned, in every window the
+ * rules read, `creditsEarnedKeys`, since the grant is now), its XP and the award itself. These are
+ * all the facts a grant changes, so a pass that judges its awards again until none is granted
+ * leaves nothing for the grant's own events to change.
  */
 export function afterAwardGrant(
   facts: Facts,
   award: { id: number; xp: number; credits: number },
-  rules: Iterable<Rule>,
+  earned: ReadonlySet<string>,
 ): void {
   facts.credits += award.credits;
   facts.awardXp += award.xp;
   facts.awardCount += 1;
-  const earned = new Set<string>();
-  for (const rule of rules)
-    for (const condition of rule.conditions)
-      if (condition.criterion === "credits_earned") earned.add(measureKey(condition));
   for (const key of earned)
     facts.measures.set(key, Number(facts.measures.get(key) ?? 0) + award.credits);
   for (const [key, measure] of facts.measures) {

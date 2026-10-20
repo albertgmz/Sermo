@@ -1,13 +1,16 @@
 import type { Ctx } from "../../context";
+import { holdCheckpoints, paceWal } from "../../db/checkpointer";
 import { writeTx } from "../../db/tx";
 import { type DomainEvent, registerEventSubscriber } from "../../events";
 import {
   afterAwardGrant,
+  creditsEarnedKeys,
   type Facts,
   isRefreshedBy,
   loadFacts,
   loadFactsPaced,
   membersAffected,
+  rereadMemberFacts,
   evaluate as ruleHolds,
 } from "../../shared/criteria";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "../jobs/queue";
@@ -77,7 +80,7 @@ function evaluate(
     JSON.stringify(members.map((m) => m.id)),
   );
   const byMember = new Map(totals.map((row) => [`${row.user_id}:${row.award_id}`, row]));
-  const rules = plans.map((plan) => plan.rule);
+  const earned = creditsEarnedKeys(plans.map((plan) => plan.rule));
   let granted = 0;
   let judged = 0;
   for (const member of members) {
@@ -101,7 +104,7 @@ function evaluate(
           granted++;
           round = true;
           // Later criteria in this transaction see the credits just paid and the award itself.
-          afterAwardGrant(memberFacts, award, rules);
+          afterAwardGrant(memberFacts, award, earned);
         }
       }
     }
@@ -142,16 +145,46 @@ export async function sweepChunk(ctx: Ctx, after = 0, job?: ClaimedJob): Promise
           seen.map((plan) => plan.rule),
           nextTurn,
         );
-  return writeTx(ctx, () => {
-    if (job && !completeRunningJob(ctx, job)) return 0;
-    const members = page();
-    const { judged } = evaluate(ctx, members, confirmed(ctx, seen), facts, SWEEP_GRANTS);
-    if (judged < members.length || members.length === SWEEP_CHUNK) {
-      const next = members[judged - 1]!.id;
-      enqueueJob(ctx, "awards.sweep", { after: next }, { uniqueKey: "awards.sweep" });
-    }
-    return judged;
-  });
+  // Requests wrote while the facts were read: let a checkpoint restart a WAL grown past its
+  // limit, and keep checkpoints off only while this chunk writes (the queue does not hold them
+  // across the turns above).
+  await paceWal(ctx);
+  const release = holdCheckpoints(ctx);
+  try {
+    return writeTx(ctx, () => {
+      if (job && !completeRunningJob(ctx, job)) return 0;
+      const members = page();
+      const plans = confirmed(ctx, seen);
+      // The statements above ran at different moments; a grant rests on the member's row as it
+      // is now (credits, counts, XP, restrictions) and on measures read moments ago.
+      rereadMemberFacts(
+        ctx,
+        facts,
+        plans.map((plan) => plan.rule),
+      );
+      const { judged } = evaluate(ctx, members, plans, facts, SWEEP_GRANTS);
+      if (judged < members.length || members.length === SWEEP_CHUNK) {
+        const next = members[judged - 1]!.id;
+        enqueueJob(ctx, "awards.sweep", { after: next }, { uniqueKey: "awards.sweep" });
+      }
+      return judged;
+    });
+  } finally {
+    release();
+  }
+}
+
+const AGAIN = "awards.sweep.again";
+const sweepQueued = (ctx: Ctx) =>
+  one<{ id: number }>(ctx, "sweepQueued", "SELECT id FROM jobs WHERE unique_key = 'awards.sweep'");
+
+/**
+ * Called in the transaction that creates or changes an automatic award. A sweep under way has
+ * already passed some members, and passes the rest with the facts it read for the old rules; a
+ * fresh sweep from the first member is queued for when it ends.
+ */
+export function sweepAgainAfterCurrent(ctx: Ctx): void {
+  if (sweepQueued(ctx)) enqueueJob(ctx, AGAIN, {}, { uniqueKey: AGAIN });
 }
 
 function onEvent(ctx: Ctx, event: DomainEvent): void {
@@ -203,8 +236,22 @@ function onEvent(ctx: Ctx, event: DomainEvent): void {
 }
 
 export function registerAwardJobs(ctx: Ctx): void {
-  registerJobHandler(ctx, "awards.sweep", async (context, payload, job) => {
-    await sweepChunk(context, (payload as { after: number }).after, job);
+  registerJobHandler(
+    ctx,
+    "awards.sweep",
+    async (context, payload, job) => {
+      await sweepChunk(context, (payload as { after: number }).after, job);
+    },
+    { holdCheckpoints: false },
+  );
+  // Waits for the sweep under way, looking again every half minute, then starts a fresh one.
+  registerJobHandler(ctx, AGAIN, (context, _payload, job) => {
+    writeTx(context, () => {
+      if (!completeRunningJob(context, job)) return;
+      if (sweepQueued(context))
+        enqueueJob(context, AGAIN, {}, { uniqueKey: AGAIN, runAt: context.now() + 30_000 });
+      else enqueueJob(context, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" });
+    });
   });
   // A turn of the event loop after each event: a batch of them is consumed back to back, and the
   // first pass after new awards publishes one or two for each grant.

@@ -5214,13 +5214,31 @@ until a round grants nothing, with `afterAwardGrant` adding what a grant changes
 as credits earned in every window, XP, the count and the award held), so the award subscriber
 skips automatic grants and the credits they paid (`actorId` null), and takes a turn after every
 event it handles. A chunk's transaction ends with the member who takes it to 100 grants
-(`SWEEP_GRANTS`); the next chunk starts after that member. Results are the same: a full run with
-every event consumed on a 6,000-member seed gives the same grants, totals, balances, ledger and
-award counts before and after (the extra rounds only give earlier what the events gave later).
-**Measured** (bench seed, `awards sweep at scale` scenarios, requests sent over a socket so they
-arrive as a visitor's do): before, threads.list max 400 ms and posts.create max 2,957 ms while the
-sweep runs; after, threads.list p95 4.9 ms, max 18 ms, posts.create p95 7.7 ms, max 20 ms,
-longest event-loop stall 12-38 ms. A sweep that grants nothing takes 9.9 s (9.1 s before); a
+(`SWEEP_GRANTS`); the next chunk starts after that member. The queue no longer holds checkpoints
+across the sweep's turns (`registerJobHandler(..., { holdCheckpoints: false })`): a chunk holds
+them only around its write and calls `paceWal` before it, so the checkpointer runs between
+chunks. Because requests write between the paced statements, the write reads the members' own
+rows again (`rereadMemberFacts`): a grant rests on the balance, counts, XP and restrictions as
+they are when it is made, and on measures (counts over history, items held) read moments before,
+each by its own statement. An award created, activated or given a new rule while a sweep is
+under way queues `awards.sweep.again`, which waits for that sweep to end (looking every 30 s)
+and starts a fresh one, so the members already passed are judged for it the same day.
+
+**Results** are the same for criteria that only grow: a full run with every event consumed on a
+6,000-member seed gives the same grants, totals, balances, ledger and award counts before and
+after (the extra rounds only give earlier what the events gave later). A criterion that can stop
+holding (`holds_awards` with `none`, `award_xp_at_most`, `credits_at_most`) now sees the credits
+earned from a grant earlier in the same pass, as it already saw its credits and XP: with "pays
+100 credits", "100 credits earned" and "does not hold the second", in that order, a member now
+gets the first two, where the old pass gave the third before the credits event gave the second
+(automatic grants are final, so such criteria decide at grant time).
+**Measured** (bench seed, `awards sweep at scale` scenarios, each on its own copy of the seed,
+requests sent over a socket so they arrive as a visitor's do): before, threads.list max 400 ms
+and posts.create max 2,957 ms while the sweep runs; after, threads.list p95 4.3 ms, max 10 ms,
+posts.create p95 6.7 ms, max 90 ms, longest event-loop stall 19-64 ms. The WAL of a whole first
+run (600,000 grants and their 727,000 events) peaked at 134 MB with checkpoints held only around
+each chunk's write, against 136 MB with the queue holding them across the turns (both with
+`paceWal`; the file is cut back to `journal_size_limit` when it restarts). A sweep that grants nothing takes 9.9 s (9.1 s before); a
 first run with 600,000 grants 76 s of sweep and about three minutes for its events (before: 35 s
 of sweep, then about 25 minutes of member checks). Left as they are: the event consumer commits
 each event's position on its own (a first run is 700,000 small commits, and a WAL checkpoint

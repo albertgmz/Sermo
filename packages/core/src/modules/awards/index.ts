@@ -22,6 +22,7 @@ import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
 import { requireSiteView } from "../members/site-access";
 import { mayViewProfile, profileAccess } from "../profiles/shared";
+import { sweepAgainAfterCurrent } from "./automatic";
 import { assertCategory, categoryOperations } from "./categories";
 import { grantAward, revokeAward } from "./grants";
 import {
@@ -179,6 +180,7 @@ export const operations = [
         ).lastInsertRowid,
       );
       assertNoAwardLoop(ctx, id, input.rule);
+      if (input.isActive && input.rule.conditions.length > 0) sweepAgainAfterCurrent(ctx);
       return awardValue(ctx, awardRow(ctx, id), true);
     });
   }),
@@ -209,7 +211,11 @@ export const operations = [
         award.id,
         input.categoryId === undefined ? award.category_id : input.categoryId,
       );
-      return awardValue(ctx, awardRow(ctx, award.id), true);
+      const after = awardRow(ctx, award.id);
+      const judgedAnew = input.rule !== undefined || (after.is_active && !award.is_active);
+      if (judgedAnew && after.is_active && ruleOf(after).conditions.length > 0)
+        sweepAgainAfterCurrent(ctx);
+      return awardValue(ctx, after, true);
     });
   }),
   implement(contracts.awardsDelete, (ctx, actor, input) => {
