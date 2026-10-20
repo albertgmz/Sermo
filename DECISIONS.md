@@ -4929,9 +4929,10 @@ first page drawn by the server, windowed rows, `?pages=N` in the address for Bac
 the plain `?cursor=` link without scripts. Back comes to the screen the router kept, drawn with
 fewer pages than `?pages=N` names; the list loads the missing ones by itself once (the scroll
 loader used to do it), which is the one load that does not wait for the button. A filtered walk
-that answers an empty page shows its "nothing found yet" line above the button, as before; the
-list no longer follows up to two empty pages by itself. This supersedes "Long lists scroll on one
-infinite list" on loading by scroll.
+that answers an empty page shows its "nothing found yet" line, as before above the list while no
+row is loaded, and now also above the button after a press that brought nothing, so the press does
+not seem lost; the list no longer follows up to two empty pages by itself. This supersedes "Long
+lists scroll on one infinite list" on loading by scroll.
 
 ### Light is the default theme
 
@@ -4958,4 +4959,5 @@ and muted text `#a1a5b7` (XenForo's muted). The accent is unchanged. XenForo's r
 fails the 4.5:1 floor of the code comment colour on muted surfaces, so raised surfaces take
 `#262638`; every other pair in `tests/theme-contrast.test.ts` and `tests/consent-contrast.test.ts`
 passes unchanged. The browser bar in dark (`THEME_COLORS.dark`) and the offline page's dark
-background follow the new page colour. Only tokens changed: no component draws a fixed colour.
+background follow the new page colour, and the chart greys take its tint. Only tokens changed: no
+component draws a fixed colour.

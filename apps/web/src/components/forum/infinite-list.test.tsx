@@ -11,6 +11,7 @@ import {
   InfiniteList,
   listQueryOptions,
   mergeRefreshed,
+  pagesOwed,
   pagesWanted,
   prependFresh,
   withKept,
@@ -447,4 +448,17 @@ test("Back restores as many pages as the address names, and no more than the ser
   expect(pagesWanted("?tab=latest&pages=3")).toBe(3);
   expect(pagesWanted("?pages=50")).toBe(8);
   expect(pagesWanted("?pages=x")).toBe(1);
+});
+
+test("after Back the list loads the pages the address named by itself, and stops when it can", () => {
+  // Not read yet: nothing loads and the address is left alone.
+  expect(pagesOwed(null, 1, true)).toBe(false);
+  // The router's screen holds one page of the three named: the next one loads.
+  expect(pagesOwed(3, 1, true)).toBe(true);
+  expect(pagesOwed(3, 2, true)).toBe(true);
+  // All back, or the list cannot go on (its end, or a failed load): nothing more.
+  expect(pagesOwed(3, 3, true)).toBe(false);
+  expect(pagesOwed(3, 2, false)).toBe(false);
+  // Once done the wish drops to one page: a list that shrinks later waits for the button.
+  expect(pagesOwed(1, 1, true)).toBe(false);
 });

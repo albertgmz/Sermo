@@ -458,7 +458,7 @@ export default async function StyleguidePage() {
             <p className="text-sm font-semibold">Card title</p>
             <p className="max-w-prose text-sm leading-relaxed">
               Body text is set in Inter at 14 pixels with relaxed leading. It
-              stays readable on near black surfaces without glowing.
+              stays readable on dark surfaces without glowing.
             </p>
             <p className="text-sm text-muted-foreground">
               Muted text for descriptions and metadata.

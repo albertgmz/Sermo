@@ -9,10 +9,10 @@ export function endsTheList(code: string) {
   return ENDS_THE_LIST.includes(code);
 }
 
-// A page of a list asked for by an action, as the visitor scrolls. A stale cursor or a session that
-// is gone ends the list with an empty last page: the screen is not turned into a 404 or a sign-in
-// page in the middle of a scroll, and a reload says what is the matter. Any other failure (the
-// backend down, a rate limit) is raised, and the list offers to try again.
+// A page of a list asked for by an action, when the visitor presses "Load more". A stale cursor or
+// a session that is gone ends the list with an empty last page: the screen is not turned into a
+// 404 or a sign-in page in the middle of a list, and a reload says what is the matter. Any other
+// failure (the backend down, a rate limit) is raised, and the list offers to try again.
 export async function endQuietly(
   load: () => Promise<ListPage>,
 ): Promise<ListPage> {

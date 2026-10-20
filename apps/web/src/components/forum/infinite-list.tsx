@@ -59,6 +59,17 @@ export function pagesWanted(search: string) {
   return pagesParam(new URLSearchParams(search).get(PAGES_PARAM) ?? undefined);
 }
 
+// Whether the list still owes pages the address named when it was shown (`wanted`, null until the
+// address is read): it loads the next one by itself while it holds fewer and can go on (there is
+// a next page and the last load did not fail).
+export function pagesOwed(
+  wanted: number | null,
+  held: number,
+  canGoOn: boolean,
+) {
+  return wanted !== null && held < wanted && canGoOn;
+}
+
 // The page parameter of each page: where the list began, then the cursor each page named.
 function pageParamsOf(start: string | null, pages: ListPage[]) {
   return [start, ...pages.slice(0, -1).map((page) => page.nextCursor)];
@@ -209,8 +220,9 @@ export function InfiniteList({
   header?: ReactNode;
   className?: string;
   moreClassName?: string;
-  // Said above the button while no row is loaded and the list can go on (a filtered walk found
-  // nothing in what it looked at); it goes when a row arrives.
+  // Said while the list can go on and found nothing in what it looked at last (a filtered walk):
+  // above the list while no row is loaded, else above the button after a press that brought an
+  // empty page, so the press does not seem to have done nothing. It goes when a row arrives.
   emptyNote?: string;
   // For a list that begins at the newest entry and can ask whether newer ones have come (the
   // feed): `check` is given the time of the newest row held. A bar offers the new entries, which
@@ -372,8 +384,7 @@ export function InfiniteList({
     setWanted(pagesWanted(location.search));
     return () => setWanted(null);
   }, []);
-  const owed =
-    wanted !== null && count < wanted && query.hasNextPage && !query.isError;
+  const owed = pagesOwed(wanted, count, query.hasNextPage && !query.isError);
   useEffect(() => {
     if (wanted === null) return;
     const here = `${location.pathname}${location.search}${location.hash}`;
@@ -479,6 +490,13 @@ export function InfiniteList({
       ) : (
         nextCursor && (
           <div aria-live="polite" className={moreClassName}>
+            {emptyNote &&
+              rows.length > 0 &&
+              shown.at(-1)?.rows.length === 0 && (
+                <p role="status" className="mb-3 text-sm text-muted-foreground">
+                  {emptyNote}
+                </p>
+              )}
             <a
               href={cursorHref(hrefBase, nextCursor)}
               className={cn(

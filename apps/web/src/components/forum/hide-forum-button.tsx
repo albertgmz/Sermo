@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { hideFeedForum } from "@/app/[locale]/(main)/_feed/filter-actions";
 
 // Keeps the forum of a feed card out of the member's own feed. The page is drawn again, so the
-// forum's cards leave the pages it draws (pages scrolled to earlier keep theirs until a reload); the
+// forum's cards leave the pages it draws (pages loaded earlier keep theirs until a reload); the
 // filters sheet shows the forum again.
 export function HideForumButton({
   nodeId,

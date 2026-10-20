@@ -15,7 +15,7 @@ const OPTIONS = [
 // Cards or compact rows for the feed. The server keeps the choice (the member's account, a cookie
 // for a guest); the pressed button shows at once and goes back, with a line saying why, if the
 // choice could not be kept. The page is then loaded again rather than refreshed: the list keeps
-// the pages the visitor scrolled to, and a refresh would redraw only the first of them in the new
+// the pages the visitor loaded, and a refresh would redraw only the first of them in the new
 // layout. The address keeps `?pages=N`, so the same pages come back drawn the new way.
 export function FeedViewToggle({
   view,

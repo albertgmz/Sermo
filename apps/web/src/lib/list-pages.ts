@@ -10,7 +10,7 @@ export type ListPage = { rows: ListRow[]; nextCursor: string | null };
 
 // The address keeps the visitor's place as `?pages=N`, the number of pages loaded so far. A load
 // of that address draws N pages on the server (one read each, in turn), so this is the most it
-// brings back; a longer scroll comes back as far as this.
+// brings back; a longer list comes back as far as this.
 export const MAX_RESTORED_PAGES = 8;
 
 export const PAGES_PARAM = "pages";
