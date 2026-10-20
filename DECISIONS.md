@@ -5243,3 +5243,11 @@ first run with 600,000 grants 76 s of sweep and about three minutes for its even
 of sweep, then about 25 minutes of member checks). Left as they are: the event consumer commits
 each event's position on its own (a first run is 700,000 small commits, and a WAL checkpoint
 over them stalled one commit for 370 ms), and other subscribers handle a batch without a turn.
+
+### Shop and admin fixes
+
+- A frame card previews the frame once: the avatar wearing it is sized from the frame's own
+  placement width so the whole frame fills 80% of the picture box (a container-query size, the
+  same on the 360 px card, the desktop card and the inventory thumbnail), and the item's own
+  picture is not drawn behind it when the frame can be worn (it is usually the frame itself, which
+  drew it twice). A frame the catalog no longer holds falls back to the item's picture.

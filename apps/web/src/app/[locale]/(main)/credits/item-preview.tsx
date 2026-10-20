@@ -17,6 +17,9 @@ const BOXES = {
   thumb: "h-14 w-16 shrink-0 rounded-md border",
 };
 
+// How much of the picture box a worn frame fills, in percent of its shorter side.
+const FRAME_FILL = 80;
+
 // An item's picture: its own, else the one its effect names (a cover), with the effect tried on
 // the viewer where it can be (a frame around their avatar, a colour on their name). An item with
 // neither shows the glyph of its effect.
@@ -34,7 +37,15 @@ export function ItemPreview({
   const { effect } = item;
   const cover =
     effect.type === "threadCover" ? catalogs.covers.get(effect.coverId) : null;
-  const art = item.image ? (
+  const frame =
+    effect.type === "frame" ? catalogs.frames.get(effect.frameId) : undefined;
+  const worn =
+    frame?.image && frame.placement
+      ? { url: frame.image.url, placement: frame.placement }
+      : null;
+  // The avatar wearing the frame is the preview: the item's own picture, usually the frame
+  // itself, would draw it a second time behind.
+  const art = worn ? null : item.image ? (
     <Art
       category="shop"
       src={item.image.url}
@@ -50,19 +61,22 @@ export function ItemPreview({
 
   let front: React.ReactNode = null;
   if (effect.type === "frame") {
-    const frame = catalogs.frames.get(effect.frameId);
+    // The frame is drawn wider than the avatar (its placement is a percentage of the avatar's
+    // width), so the avatar is sized from the box to leave the whole frame inside it.
+    const side = worn ? FRAME_FILL / (worn.placement.width / 100) : 0;
+    const fit = `min(${side}cqh, ${side}cqw)`;
     front = (
-      <UserAvatar
-        user={{
-          ...wearer,
-          frame:
-            frame?.image && frame.placement
-              ? { url: frame.image.url, placement: frame.placement }
-              : null,
-        }}
-        size={size === "card" ? "xl" : "md"}
-        link={false}
-      />
+      <div
+        className="shrink-0"
+        style={worn ? { width: fit, height: fit } : undefined}
+      >
+        <UserAvatar
+          user={{ ...wearer, frame: worn }}
+          size={worn ? "2xl" : size === "card" ? "xl" : "md"}
+          link={false}
+          className={worn ? "size-full" : undefined}
+        />
+      </div>
     );
   } else if (effect.type === "nameColor") {
     const name = userNameProps({
@@ -111,7 +125,7 @@ export function ItemPreview({
   return (
     <div
       className={cn(
-        "relative isolate flex items-center justify-center overflow-hidden",
+        "relative isolate flex items-center justify-center overflow-hidden [container-type:size]",
         BOXES[size],
       )}
     >
