@@ -10,7 +10,7 @@ import {
   currentAvailability,
   currentPermission,
   currentPlatform,
-  currentSubscription,
+  heldSubscription,
   turnOffPush,
   turnOnPush,
 } from "@/lib/push-client";
@@ -24,11 +24,14 @@ import {
 type Device = { endpoint: string; userAgent: string; createdAt: string };
 
 // This device's state is known only in the browser: it is read after the page has loaded, and read
-// again after every change.
+// again after every change. A subscription another member turned on, or one made for an old key, is
+// let go and reads "off" (`heldSubscription`).
 export function PushDevices({
+  member,
   publicKey,
   devices,
 }: {
+  member: string;
   publicKey: string | null;
   devices: Device[];
 }) {
@@ -47,7 +50,7 @@ export function PushDevices({
     const availability = currentAvailability(currentPlatform());
     const subscription =
       publicKey && availability === "available"
-        ? await currentSubscription().catch(() => null)
+        ? await heldSubscription(member, publicKey).catch(() => null)
         : null;
     const endpoint = subscription?.endpoint ?? null;
     setOwn({
@@ -61,7 +64,7 @@ export function PushDevices({
       endpoint,
       userAgent: navigator.userAgent,
     });
-  }, [publicKey, devices]);
+  }, [member, publicKey, devices]);
 
   useEffect(() => {
     void check();
@@ -86,7 +89,7 @@ export function PushDevices({
   const turnOn = () =>
     act(async () => {
       if (!publicKey) return null;
-      const result = await turnOnPush(publicKey);
+      const result = await turnOnPush(publicKey, member);
       if (result.ok || result.reason === "dismissed") return null;
       return result.reason === "denied"
         ? t("denied")

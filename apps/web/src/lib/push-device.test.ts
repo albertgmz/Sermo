@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   deviceName,
   deviceStatus,
+  keepsSubscription,
   keyBytes,
   sameEndpoint,
 } from "./push-device";
@@ -78,4 +79,22 @@ test("the forum's public key reaches the browser as its bytes", () => {
   const text = Buffer.from(bytes).toString("base64url");
   expect(keyBytes(text)).toEqual(bytes);
   expect(keyBytes(`${text}=`)).toEqual(bytes);
+});
+
+test("a subscription serves only the member who turned it on, and only for the forum's key", () => {
+  const keeps = (
+    owner: string | null,
+    member: string | null,
+    keyMatches: boolean | null = true,
+  ) => keepsSubscription({ owner, member, keyMatches });
+  expect(keeps("7", "7")).toBe(true);
+  // Another member signed in on this browser, or a guest is viewing (the session ended).
+  expect(keeps("7", "8")).toBe(false);
+  expect(keeps("7", null)).toBe(false);
+  // Nobody is recorded: it is no one's to keep.
+  expect(keeps(null, "7")).toBe(false);
+  expect(keeps(null, null)).toBe(false);
+  // Made for keys the forum no longer has; when the key could not be read it is not judged.
+  expect(keeps("7", "7", false)).toBe(false);
+  expect(keeps("7", "7", null)).toBe(true);
 });

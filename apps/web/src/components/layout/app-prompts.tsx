@@ -23,7 +23,7 @@ import {
   currentAvailability,
   currentPermission,
   currentPlatform,
-  currentSubscription,
+  heldSubscription,
   turnOnPush,
 } from "@/lib/push-client";
 
@@ -66,11 +66,14 @@ const loadVisit = () => readVisit(readStored(() => sessionStorage, VISIT_KEY));
 
 export function AppPrompts({
   member,
+  offers,
   pushKey,
   appName,
   icon,
 }: {
-  member: { createdAt: string } | null;
+  member: { id: string; createdAt: string } | null;
+  // False while a member has terms to accept: no card, only the subscription check.
+  offers: boolean;
   pushKey: string | null;
   appName: string;
   icon: React.ReactNode;
@@ -85,7 +88,12 @@ export function AppPrompts({
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const memberKey = member?.createdAt ?? null;
+  const memberId = member?.id ?? null;
+  const createdAt = member?.createdAt ?? null;
+  // Whether this browser holds a subscription that serves the viewer (null while it is read). One
+  // that does not (another member's, a guest's browser, an old key) is let go at once, whatever the
+  // cookie banner says: that only removes.
+  const [subscribed, setSubscribed] = useState<boolean | null>(null);
   // What the account menu had asked for when this mounted: only a new ask shows the card.
   const asked = useRef(install.asked);
 
@@ -103,11 +111,30 @@ export function AppPrompts({
     };
   }, []);
 
+  useEffect(() => {
+    let live = true;
+    const usable =
+      currentAvailability(currentPlatform()) === "available" &&
+      currentPermission() === "granted";
+    (usable
+      ? heldSubscription(memberId, pushKey).then(
+          (held) => held !== null,
+          () => true,
+        )
+      : Promise.resolve(false)
+    ).then((held) => {
+      if (live) setSubscribed(held);
+    });
+    return () => {
+      live = false;
+    };
+  }, [memberId, pushKey]);
+
   // One page more in this visit, then the card for this page.
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new page is what counts
   useEffect(() => {
-    saveVisit(pageSeen(loadVisit(), memberKey));
-  }, [pathname, memberKey]);
+    saveVisit(pageSeen(loadVisit(), memberId));
+  }, [pathname, memberId]);
 
   // Installed from this page: the visit may go on to the notification card.
   useEffect(() => {
@@ -116,46 +143,32 @@ export function AppPrompts({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: decided again on every page
   useEffect(() => {
-    if (!settled) return;
-    let live = true;
+    if (!settled || !offers || subscribed === null) return;
     const platform = currentPlatform();
-    const push = currentAvailability(platform);
-    const permission = currentPermission();
-    // Whether the browser still holds a subscription matters only once it was allowed.
-    const held =
-      memberKey && pushKey && push === "available" && permission === "granted"
-        ? currentSubscription()
-            .then((subscription) => subscription !== null)
-            .catch(() => true)
-        : Promise.resolve(false);
-    held.then((subscribed) => {
-      if (!live) return;
-      const visit = loadVisit();
-      const offer = installOffer(platform, install.native);
-      const next = cardToShow({
-        consentSettled: true,
-        install: offer,
-        member: memberKey ? { createdAt: Date.parse(memberKey) } : null,
-        push,
-        permission,
-        subscribed,
-        serverPush: pushKey !== null,
-        snoozes: readSnoozes(readStored(() => localStorage, PROMPTS_KEY)),
-        visit,
-        now: Date.now(),
-      });
-      // A card is the visit's only once it is drawn.
-      const drawn = next === "push" && pathname === SETTINGS_PATH ? null : next;
-      if (drawn && visit.card === null) saveVisit({ ...visit, card: drawn });
-      setShown(drawn && { card: drawn, offer });
+    const visit = loadVisit();
+    const offer = installOffer(platform, install.native);
+    const next = cardToShow({
+      consentSettled: true,
+      install: offer,
+      member: createdAt ? { createdAt: Date.parse(createdAt) } : null,
+      push: currentAvailability(platform),
+      permission: currentPermission(),
+      subscribed,
+      serverPush: pushKey !== null,
+      snoozes: readSnoozes(readStored(() => localStorage, PROMPTS_KEY)),
+      visit,
+      now: Date.now(),
     });
-    return () => {
-      live = false;
-    };
+    // A card is the visit's only once it is drawn.
+    const drawn = next === "push" && pathname === SETTINGS_PATH ? null : next;
+    if (drawn && visit.card === null) saveVisit({ ...visit, card: drawn });
+    setShown(drawn && { card: drawn, offer });
   }, [
     settled,
+    offers,
+    subscribed,
     pathname,
-    memberKey,
+    createdAt,
     pushKey,
     install.native,
     install.installed,
@@ -220,12 +233,13 @@ export function AppPrompts({
       </PromptCard>
     );
 
-  if (shown.card !== "push" || !pushKey) return null;
+  if (shown.card !== "push" || !pushKey || !memberId) return null;
   const enable = () => {
     setBusy(true);
     setError(null);
-    turnOnPush(pushKey).then((result) => {
+    turnOnPush(pushKey, memberId).then((result) => {
       setBusy(false);
+      if (result.ok) setSubscribed(true);
       if (!result.ok && result.reason === "failed") {
         setError(result.error ?? t("push.failed"));
         return;

@@ -44,6 +44,27 @@ export function deviceStatus(env: {
     : "off";
 }
 
+// The member who turned pushes on in this browser (localStorage, cleared by signing out). A
+// subscription belongs to the browser and outlives the session that made it (it expires, is signed
+// out from another device, ends with a password reset or a ban), so the page checks it against
+// whoever is viewing.
+export const PUSH_OWNER_KEY = "sermo-push-owner";
+
+// Whether this browser's subscription still serves the one viewing: it was turned on by this member
+// (a guest or another member would get the previous member's alerts), and for the forum's current
+// key (one made for an old key receives nothing). The key is compared only when the forum's could be
+// read (`keyMatches` null otherwise), so a backend that cannot be reached for a moment does not end
+// every device's pushes.
+export function keepsSubscription(env: {
+  owner: string | null;
+  member: string | null;
+  keyMatches: boolean | null;
+}) {
+  return (
+    env.member !== null && env.owner === env.member && env.keyMatches !== false
+  );
+}
+
 // Browser and system named in a device's user agent, or null for those it does not say. Brand
 // names, so they are not translated.
 export function deviceName(userAgent: string): {

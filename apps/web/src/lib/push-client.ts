@@ -8,7 +8,7 @@ import {
   removePushSubscription,
   savePushSubscription,
 } from "@/lib/push-actions";
-import { keyBytes } from "@/lib/push-device";
+import { keepsSubscription, keyBytes, PUSH_OWNER_KEY } from "@/lib/push-device";
 
 // The browser's side of pushes: what this device can do, its subscription, and turning it on and
 // off. The account's copy is kept through the server actions of `push-actions.ts`.
@@ -65,6 +65,46 @@ function sameKey(held: ArrayBuffer | null, wanted: Uint8Array) {
   );
 }
 
+function readOwner() {
+  try {
+    return localStorage.getItem(PUSH_OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeOwner(member: string | null) {
+  try {
+    if (member) localStorage.setItem(PUSH_OWNER_KEY, member);
+    else localStorage.removeItem(PUSH_OWNER_KEY);
+  } catch {}
+}
+
+// This browser's subscription when it serves the one viewing (`keepsSubscription`). One that does
+// not is let go at once: the browser drops it, so the push service refuses the next send and the
+// backend forgets the row, and a member's own stale row is removed from their account now.
+// `member` is the viewer's id, null for a guest; `publicKey` the forum's, null when unknown.
+export async function heldSubscription(
+  member: string | null,
+  publicKey: string | null,
+) {
+  const subscription = await currentSubscription();
+  if (!subscription) return null;
+  const keep = keepsSubscription({
+    owner: readOwner(),
+    member,
+    keyMatches: publicKey
+      ? sameKey(subscription.options.applicationServerKey, keyBytes(publicKey))
+      : null,
+  });
+  if (keep) return subscription;
+  const { endpoint } = subscription;
+  await subscription.unsubscribe().catch(() => false);
+  writeOwner(null);
+  if (member) await removePushSubscription(endpoint).catch(() => {});
+  return null;
+}
+
 export type TurnOn =
   | { ok: true }
   | { ok: false; reason: "denied" | "dismissed" | "failed"; error?: string };
@@ -72,8 +112,12 @@ export type TurnOn =
 // Asks the browser (it must be the first thing a tap does: iOS and Firefox take the question only
 // from a tap), subscribes this device and saves it on the account. A subscription made for other
 // keys (the forum changed them) is replaced, on the account too. When the account refuses it, the browser's
-// subscription is taken back, so the device is not left subscribed for nothing.
-export async function turnOnPush(publicKey: string): Promise<TurnOn> {
+// subscription is taken back, so the device is not left subscribed for nothing. The member it was
+// turned on for is recorded (`heldSubscription`).
+export async function turnOnPush(
+  publicKey: string,
+  member: string,
+): Promise<TurnOn> {
   const permission = await Notification.requestPermission();
   if (permission !== "granted")
     return {
@@ -106,7 +150,10 @@ export async function turnOnPush(publicKey: string): Promise<TurnOn> {
       },
       navigator.userAgent,
     );
-    if (saved.ok) return { ok: true };
+    if (saved.ok) {
+      writeOwner(member);
+      return { ok: true };
+    }
     await subscription.unsubscribe().catch(() => {});
     return { ok: false, reason: "failed", error: saved.error };
   } catch {
@@ -121,6 +168,7 @@ export async function turnOffPush(): Promise<{ ok: boolean; error?: string }> {
     if (!subscription) return { ok: true };
     const { endpoint } = subscription;
     await subscription.unsubscribe();
+    writeOwner(null);
     const removed = await removePushSubscription(endpoint);
     return removed.ok ? { ok: true } : { ok: false, error: removed.error };
   } catch {

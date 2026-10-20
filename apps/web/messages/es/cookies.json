@@ -154,6 +154,11 @@
       "purpose": "Cuenta las páginas de esta visita y recuerda qué oferta mostró, para que cada visita muestre una sola oferta y nunca en la primera página después de registrarte.",
       "lifetime": "Hasta que cierres la pestaña."
     },
+    "pushOwner": {
+      "title": "Avisos en este dispositivo",
+      "purpose": "Recuerda qué miembro activó los avisos en este navegador, para que dejen de llegar cuando otra persona lo use y nadie reciba los avisos de otro miembro.",
+      "lifetime": "Hasta que cierres sesión, desactives los avisos o borres los datos del sitio en tu navegador."
+    },
     "offlineFiles": {
       "title": "Archivos del sitio guardados para ir más rápido",
       "purpose": "Un pequeño ayudante (un service worker) guarda en tu dispositivo los scripts, estilos y fuentes del propio sitio para que las páginas carguen más rápido, y una página breve para cuando no tienes conexión. No guarda ninguna página, ningún dato de tu cuenta ni ningún identificador.",

@@ -154,6 +154,11 @@
       "purpose": "Counts the pages of this visit and remembers which offer it showed, so a visit shows one offer at a time and never on the first page after you sign up.",
       "lifetime": "Until you close the tab."
     },
+    "pushOwner": {
+      "title": "Notifications on this device",
+      "purpose": "Remembers which member turned on notifications in this browser, so that when someone else uses it they stop and no one receives another member's alerts.",
+      "lifetime": "Until you sign out, turn notifications off or clear your browser's site data."
+    },
     "offlineFiles": {
       "title": "Site files kept for speed",
       "purpose": "A small helper (a service worker) keeps the site's own scripts, styles and fonts on your device so pages load faster, and a short offline page for when you have no connection. It keeps no page, no account data and no identifier.",

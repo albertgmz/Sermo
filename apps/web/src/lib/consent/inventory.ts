@@ -7,6 +7,7 @@ import { PROMPTS_KEY, VISIT_KEY } from "@/lib/app-prompts";
 import { FEED_VIEW_COOKIE } from "@/lib/feed-view";
 import { LITE_COOKIE } from "@/lib/lite-preferences";
 import { NOTICES_DISMISSED_COOKIE } from "@/lib/notice-dismissals";
+import { PUSH_OWNER_KEY } from "@/lib/push-device";
 
 export const CATEGORIES = [
   "necessary",
@@ -145,6 +146,15 @@ export const INVENTORY: readonly InventoryItem[] = [
     category: "necessary",
     storage: "sessionStorage",
     names: [VISIT_KEY],
+    party: "first",
+  },
+  {
+    // The member who turned on notifications in this browser, so no one else who signs in here
+    // receives theirs.
+    id: "pushOwner",
+    category: "necessary",
+    storage: "localStorage",
+    names: [PUSH_OWNER_KEY],
     party: "first",
   },
   {

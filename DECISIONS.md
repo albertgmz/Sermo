@@ -5342,9 +5342,22 @@ devices the account lists, each removable. The browser's subscription is the dev
 "on" only when the browser holds one that the account lists. Turning on asks the browser first (the
 only call before any other await, as iOS and Firefox take the question only from a tap), replaces a
 subscription made for older keys (on the account too), and takes the browser's subscription back when the account
-refuses it. The calls go through two server actions (`push-actions.ts`). Signing out already ends a
-device's pushes: `Clear-Site-Data: "storage"` removes the worker and with it the subscription; the
-account's row goes on the next send (404/410).
+refuses it. The calls go through two server actions (`push-actions.ts`).
+
+A subscription belongs to the browser and outlives the session that made it. Signing out with the
+button clears it (`Clear-Site-Data: "storage"` removes the worker and with it the subscription;
+not verified on Safari), but a session also ends by expiring, by being signed out from another
+device, by a password reset or a ban, and none of those reaches the browser. So turning on records
+the member in `sermo-push-owner` (localStorage, in the cookie inventory), and every page of the
+forum and the settings check the browser's subscription against the viewer
+(`heldSubscription` in `push-client.ts`, rule `keepsSubscription` in `push-device.ts`): when a
+guest or another member is viewing, or the subscription was made for keys the forum no longer has,
+the browser drops it at once (the push service then refuses the next send and the backend forgets
+the row), the viewer's own stale row is removed, and the device reads "off" and is offered pushes
+again. The key is compared only when the forum's could be read, so a backend out of reach for a
+moment does not end every device's pushes. Limit: a session revoked from another device keeps
+sending pushes to that browser until someone opens the forum in it; tying a subscription to its
+session, so that revoking the session deletes the row, needs a schema change (orchestrator).
 
 ### The notification card: after the cookie banner, never as the browser's own question
 
@@ -5362,7 +5375,7 @@ the banner is not shown to this visitor, or its script could not start: `consent
 cached five minutes); the browser can receive pushes (service worker, Push API and notifications on
 a secure page, in a production build, and on iOS only inside the installed app); the browser has
 not been asked yet (`Notification.permission` is `default`), or it allowed the site but holds no
-subscription any more (signing out removes it); it is not put off; and it is not the first page of
+subscription that serves this member (signing out removes it; see above); it is not put off; and it is not the first page of
 a visit of an account younger than a day (`sermo-app-visit` in sessionStorage counts the pages
 since this account signed in; "a session in which they signed up" is read as the first day of the account, since the
 web app is not told when a sign-up happened). Any cookie choice lets it show, a rejection included:
