@@ -67,3 +67,25 @@ test("a guest goes to the newest post; a missing thread is not found", async () 
   );
   expectNoTableScan(w.ctx, firstUnreadPostSql, [w.threadId, 1]);
 });
+
+test("a merged thread's address picks up in the thread it was merged into", async () => {
+  const w = await world();
+  const forum = (
+    w.ctx.sqlite.prepare("SELECT node_id FROM threads WHERE id = ?1").get(w.threadId) as {
+      node_id: number;
+    }
+  ).node_id;
+  const merged = await w.call("threads.create", w.author, {
+    nodeId: forum,
+    title: "Merged",
+    body: "Body",
+  });
+  w.ctx.sqlite
+    .prepare("UPDATE threads SET merged_into_id = ?1 WHERE id = ?2")
+    .run(w.threadId, merged.thread.id);
+  expect(await w.call("threads.locateUnread", w.reader, { threadId: merged.thread.id })).toEqual({
+    threadId: w.threadId,
+    postId: w.posts[0]!.id,
+    position: 0,
+  });
+});

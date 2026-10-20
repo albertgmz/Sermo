@@ -4,7 +4,7 @@ import { profileCommentsLocate, profilePostsLocate } from "../../contracts/profi
 import { implement } from "../../operation";
 import { encodeCursor } from "../../pagination";
 import { permissionsOf } from "../../permissions";
-import { requireComment, requirePost } from "./shared";
+import { requireComment, requirePost, requireProfileView } from "./shared";
 
 // What the viewer may see of a wall or of a post's comments, as `WALL_SQL` and `COMMENTS_SQL`
 // filter it (?3 view moderated, ?4 view deleted, ?5 the viewer).
@@ -53,8 +53,11 @@ function pageCursor(
   return closing ? encodeCursor([closing.id]) : null;
 }
 
+// The author of a post or a comment may read it on a wall they may no longer open; its place on
+// that wall is the wall's to give, so a locate asks what reading the wall asks.
 export const profilePostsLocateOp = implement(profilePostsLocate, (ctx, actor, input) => {
   const post = requirePost(ctx, actor, input.profilePostId);
+  requireProfileView(ctx, actor, post.profile_user_id);
   return {
     profilePostId: post.id,
     profileUserId: post.profile_user_id,
@@ -64,6 +67,7 @@ export const profilePostsLocateOp = implement(profilePostsLocate, (ctx, actor, i
 
 export const profileCommentsLocateOp = implement(profileCommentsLocate, (ctx, actor, input) => {
   const { comment, post } = requireComment(ctx, actor, input.commentId);
+  requireProfileView(ctx, actor, post.profile_user_id);
   return {
     commentId: comment.id,
     profilePostId: post.id,

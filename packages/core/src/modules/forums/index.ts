@@ -1147,10 +1147,25 @@ function threadPollFacts(
 }
 export const firstUnreadPostSql =
   "SELECT id, position FROM posts WHERE thread_id = ?1 AND state = 'visible' AND position > ?2 ORDER BY position LIMIT 1";
+// The thread an id names now: a merged thread's address goes on to the thread it was merged into.
+function mergedThreadId(ctx: Ctx, threadId: number) {
+  let targetId = threadId;
+  const mergedTarget = statement<{ merged_into_id: number | null }, [number]>(
+    ctx,
+    "mergedTarget",
+    "SELECT merged_into_id FROM threads WHERE id = ?1",
+  );
+  for (let hops = 0; hops < 16; hops++) {
+    const next = mergedTarget.get(targetId)?.merged_into_id;
+    if (!next) break;
+    targetId = next;
+  }
+  return targetId;
+}
 export const threadsLocateUnreadOp = implement(
   contracts.threadsLocateUnread,
   (ctx, actor, input) => {
-    const { row } = requireThread(ctx, actor, input.threadId);
+    const { row } = requireThread(ctx, actor, mergedThreadId(ctx, input.threadId));
     requireSiteView(ctx, actor);
     const thread = threadValue(ctx, actor, row.id);
     const first =
@@ -1167,17 +1182,7 @@ export const threadsLocateUnreadOp = implement(
   },
 );
 export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) => {
-  let targetId = input.threadId;
-  const mergedTarget = statement<{ merged_into_id: number | null }, [number]>(
-    ctx,
-    "mergedTarget",
-    "SELECT merged_into_id FROM threads WHERE id = ?1",
-  );
-  for (let hops = 0; hops < 16; hops++) {
-    const next = mergedTarget.get(targetId)?.merged_into_id;
-    if (!next) break;
-    targetId = next;
-  }
+  const targetId = mergedThreadId(ctx, input.threadId);
   const { row, node } = requireThread(ctx, actor, targetId);
   requireSiteView(ctx, actor);
   // Crawlers read threads too: their visits are not views.

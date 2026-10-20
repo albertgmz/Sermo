@@ -184,3 +184,26 @@ describe("profileComments.locate", () => {
     expectNoTableScan(f.ctx, locateSql.commentsNth, [1, 1, 0, 0, 1, 3]);
   });
 });
+
+test("a locate is refused, like the wall, to a viewer who may not open the wall's profile, its author too", async () => {
+  const f = fixture();
+  const [postId] = await postMany(f, 1);
+  const comment = await execute(f.ctx, profileCommentsCreateOp, f.authorActor, {
+    profilePostId: postId!,
+    body: "My comment",
+  });
+  f.ctx.sqlite
+    .prepare("UPDATE users SET profile_view_privacy = 'self' WHERE id = ?1")
+    .run(f.wall.id);
+  await expect(
+    execute(f.ctx, profilePostsLocateOp, f.authorActor, { profilePostId: postId! }),
+  ).rejects.toBeInstanceOf(NotFoundError);
+  await expect(
+    execute(f.ctx, profileCommentsLocateOp, f.authorActor, { commentId: comment.id }),
+  ).rejects.toBeInstanceOf(NotFoundError);
+  // The wall's owner still finds both.
+  expect(
+    (await execute(f.ctx, profileCommentsLocateOp, f.wallActor, { commentId: comment.id }))
+      .commentId,
+  ).toBe(comment.id);
+});

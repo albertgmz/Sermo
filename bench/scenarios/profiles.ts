@@ -1,4 +1,4 @@
-import type { Scenario } from "../harness";
+import type { BenchEnv, Scenario } from "../harness";
 
 let deepCursors: string[] = [];
 let commentPostId = 0;
@@ -8,6 +8,16 @@ let restorablePostId = 0;
 let searchPrefix = "";
 let oldestWallPosts: number[] = [];
 let oldestComment = 0;
+
+// The visible wall post with the most comments.
+function biggestCommentPost(env: BenchEnv) {
+  return env.ctx.sqlite
+    .prepare<{ profile_post_id: number }, []>(
+      "SELECT c.profile_post_id FROM profile_post_comments c JOIN profile_posts p ON p.id = c.profile_post_id " +
+        "WHERE p.state = 'visible' GROUP BY c.profile_post_id ORDER BY count(*) DESC LIMIT 1",
+    )
+    .get()!.profile_post_id;
+}
 
 export const scenarios: Scenario[] = [
   {
@@ -65,12 +75,7 @@ export const scenarios: Scenario[] = [
     name: "profileComments.list",
     kind: "read",
     setup(env) {
-      commentPostId = env.ctx.sqlite
-        .prepare<{ profile_post_id: number }, []>(
-          "SELECT c.profile_post_id FROM profile_post_comments c JOIN profile_posts p ON p.id = c.profile_post_id " +
-            "WHERE p.state = 'visible' GROUP BY c.profile_post_id ORDER BY count(*) DESC LIMIT 1",
-        )
-        .get()!.profile_post_id;
+      commentPostId = biggestCommentPost(env);
     },
     run: (env) =>
       env.call("profileComments.list", env.actors.guest, {
@@ -103,7 +108,7 @@ export const scenarios: Scenario[] = [
         .prepare<{ id: number }, [number]>(
           "SELECT min(id) AS id FROM profile_post_comments WHERE profile_post_id = ?1 AND state = 'visible'",
         )
-        .get(commentPostId)!.id;
+        .get(biggestCommentPost(env))!.id;
     },
     run: (env, i) =>
       env.call("profileComments.locate", env.actors.member(i), {
