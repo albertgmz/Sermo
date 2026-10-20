@@ -84,6 +84,13 @@ async function expectLandedAt(page: Page, item: Locator) {
       timeout: 3_000,
     })
     .toBe(true);
+  // The browser's own jump to the address can put it there before the page's code has started
+  // the landing (the dimming shows it has); a reader's action before that is not one the hold
+  // can see.
+  await expect(
+    page.locator("div.pointer-events-none.fixed.z-50"),
+    "the landing has begun",
+  ).toBeAttached();
   await page.waitForFunction(
     () => [...document.images].every((image) => image.complete),
     undefined,
