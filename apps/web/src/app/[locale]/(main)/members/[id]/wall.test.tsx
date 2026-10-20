@@ -91,6 +91,23 @@ function backend(signedIn = true) {
         nextCursor: start + 3 < posts.length ? `p${start + 3}` : null,
       });
     }
+    const single = /^\/api\/v1\/profile-posts\/(\d+)$/.exec(pathname);
+    if (single) {
+      const id = Number(single[1]);
+      // Post 40 is on another member's wall.
+      if (id === 40)
+        return Response.json(profilePostBody({ id, profileUserId: 4 }));
+      if (posts.includes(id) || id === 99)
+        return Response.json(
+          profilePostBody({
+            id,
+            profileUserId: 9,
+            bodyHtml: `<p>wall post ${id}</p>`,
+            commentCount: id === 5 ? 5 : 0,
+            latestComments: id === 5 ? [105, 104, 103].map(comment) : [],
+          }),
+        );
+    }
     if (pathname === "/api/v1/profile-posts/5/comments") {
       const start = Number(searchParams.get("cursor")?.slice(1) ?? 0);
       const ids = [105, 104, 103, 102, 101];
@@ -164,14 +181,32 @@ test("a post the wall does not hold leaves the wall at its first page, without r
   ).toHaveLength(3);
 });
 
-test("a guest gets the first page and nothing is walked", async () => {
+test("a guest is not walked: the post is read on its own and drawn alone, with its comment", async () => {
   backend(false);
   const html = await wall({ focus: { postId: 5, commentId: 102 } });
-  expect(shows(html, 9)).toBe(true);
-  expect(shows(html, 5)).toBe(false);
+  expect(shows(html, 5)).toBe(true);
+  expect([9, 8, 7, 6, 4].some((id) => shows(html, id))).toBe(false);
+  expect(html.includes('id="profile-comment-102"')).toBe(true);
+  expect(html.includes('href="/members/9"')).toBe(true);
   expect(
     asked.filter((line) => line.includes("/users/9/profile-posts")),
   ).toHaveLength(1);
+});
+
+test("a post the walk does not reach is drawn alone", async () => {
+  backend();
+  // Post 99 is on this wall further down than the walk reads (the fake's list never holds it).
+  const html = await wall({ focus: { postId: 99 } });
+  expect(shows(html, 99)).toBe(true);
+  expect(shows(html, 9)).toBe(false);
+  expect(html.includes('href="/members/9?cursor=')).toBe(false);
+});
+
+test("a post on another member's wall leaves the wall at its first page", async () => {
+  backend(false);
+  const html = await wall({ focus: { postId: 40 } });
+  expect(shows(html, 9)).toBe(true);
+  expect(shows(html, 40)).toBe(false);
 });
 
 test("a cursor in the address wins over the post it names", async () => {

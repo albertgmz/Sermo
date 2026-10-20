@@ -150,7 +150,8 @@
     "emptyDescription": "Sé el primero en escribir algo en el perfil de <user>{username}</user>.",
     "login": "Inicia sesión para publicar",
     "unavailableTitle": "El muro no está disponible",
-    "unavailableDescription": "Tu cuenta no puede leer las publicaciones de perfil."
+    "unavailableDescription": "Tu cuenta no puede leer las publicaciones de perfil.",
+    "wholeWall": "Ver todas las publicaciones del perfil de {username}"
   },
   "postComposer": {
     "title": "Nueva publicación",

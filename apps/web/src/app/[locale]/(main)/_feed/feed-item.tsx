@@ -8,6 +8,7 @@ import { ClampedBody } from "@/app/[locale]/(main)/_feed/clamped-body";
 import { CompactFeedItem } from "@/app/[locale]/(main)/_feed/compact-item";
 import { replyFromFeed } from "@/app/[locale]/(main)/actions";
 import { wallHref } from "@/app/[locale]/(main)/members/[id]/wall";
+import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { commentOnWallPost } from "@/app/[locale]/(main)/members/actions";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
@@ -239,13 +240,14 @@ export function FeedItem({
   }
   if (item.type === "profilePost") {
     const { profilePost } = item;
-    const href = `/members/${profilePost.profileUserId}#profile-post-${profilePost.id}`;
+    const href = wallTargetHref(profilePost.profileUserId, profilePost.id);
     const anchor = `feed-profile-post-${profilePost.id}`;
     const comments = profilePost.latestComments;
     const links =
       profilePost.commentCount > comments.length
         ? {
             more: `${wallHref(profilePost.profileUserId, {
+              post: profilePost.id,
               comments: { postId: profilePost.id },
             })}#profile-post-${profilePost.id}`,
           }

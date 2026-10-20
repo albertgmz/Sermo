@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { NextRequest } from "next/server";
 import { SermoError } from "../src/lib/sermo/errors";
 import { POSTS_PER_PAGE } from "../src/lib/sermo/page-sizes";
-import { postBody } from "../src/lib/test-bodies";
+import {
+  postBody,
+  profileCommentBody,
+  profilePostBody,
+} from "../src/lib/test-bodies";
 
 // The part of the `auth.me` answer the panel's gate reads.
 type Viewer = {
@@ -771,6 +775,38 @@ test("an id that cannot exist is a 404 unasked, so is a sub-address no page has,
   passes(await ask("/posts/5"));
   backend({ "/api/v1/posts/5": "down" });
   passes(await ask("/posts/5"));
+});
+
+test("a wall post's and a comment's addresses go to the wall at the post and the comment", async () => {
+  // A fresh answer for each ask: a body is read once.
+  const wall = () =>
+    backend({
+      "/api/v1/profile-posts/12": Response.json(
+        profilePostBody({ id: 12, profileUserId: 5 }),
+      ),
+      "/api/v1/profile-comments/80": Response.json(
+        profileCommentBody({ id: 80, profilePostId: 12 }),
+      ),
+    });
+  wall();
+  redirectsTo(
+    await ask("/profile-posts/12"),
+    "/members/5?post=12#profile-post-12",
+  );
+  const asked = wall();
+  redirectsTo(
+    await ask("/profile-comments/80"),
+    "/members/5?post=12&comment=80#profile-comment-80",
+  );
+  assert.equal(asked.length, 2);
+  wall();
+  isNotFound(await ask("/profile-posts/13"));
+  isNotFound(await ask("/profile-comments/81"));
+  isNotFound(await ask("/profile-comments/x"));
+  // A sub-page is one of the old forum's addresses, sent on to the post's own.
+  const sub = await ask("/profile-posts/12/edit");
+  assert.equal(sub?.status, 308);
+  assert.equal(new URL(sub?.headers.get("location") ?? "").pathname, "/profile-posts/12");
 });
 
 test("an award is a 404 when the backend says it is not found, and only then", async () => {

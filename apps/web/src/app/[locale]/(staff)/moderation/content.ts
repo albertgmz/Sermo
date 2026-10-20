@@ -8,6 +8,7 @@ import {
   ReportTarget,
   threadsGet,
 } from "@sermo/core/contracts";
+import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import type { ContentRef } from "@/components/staff/content-ip";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -146,7 +147,7 @@ export async function describe(
       bodyHtml: post.bodyHtml,
       excerpt: plainExcerpt(post.bodyHtml),
       state: post.state,
-      href: `/members/${post.profileUserId}#profile-post-${post.id}`,
+      href: wallTargetHref(post.profileUserId, post.id),
       where: { kind: "wall", id: post.profileUserId },
       createdAt: post.createdAt,
       ipFrom: { type: "profile_post", id: post.id },
@@ -166,7 +167,7 @@ export async function describe(
       excerpt: plainExcerpt(comment.bodyHtml),
       state: comment.state,
       href: post
-        ? `/members/${post.profileUserId}#profile-post-${post.id}`
+        ? wallTargetHref(post.profileUserId, post.id, comment.id)
         : null,
       where: post ? { kind: "wall", id: post.profileUserId } : null,
       createdAt: comment.createdAt,

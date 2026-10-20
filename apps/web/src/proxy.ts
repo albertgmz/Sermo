@@ -4,12 +4,15 @@ import {
   PageSlug,
   pagesGet,
   postsGet,
+  profileCommentsGet,
+  profilePostsGet,
   seoNode,
   seoProfile,
   seoThread,
   tagsGet,
 } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
+import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import {
   isStaffPath,
@@ -173,37 +176,56 @@ function seoPage(
   };
 }
 
-// A post's address goes to the page of its thread that holds it, at its anchor. The backend's
-// read of the post is the visibility check: a post the visitor may not see ("not found", or
-// "forbidden" for a forum whose posts are closed to them) is a 404, the same as an id that was
-// never used. A visitor who must sign in first goes on to the page, as for any record.
-const postPage: Finder = async (raw, action, request) => {
-  const postId = parseId(raw);
-  if (postId === null) return false;
-  // Nothing is served under a post's address; the router answers those with its own 404.
-  if (action !== undefined) return true;
-  try {
-    const post = await callWith(forwardFromHeaders(request.headers), postsGet, {
-      postId,
-    });
-    // Temporary and private: a split or a move changes the post's thread, and the answer depends
-    // on who asks.
-    const response = NextResponse.redirect(
-      new URL(threadHref(post.threadId, post.position, post.id), request.url),
-      307,
-    );
-    response.headers.set("cache-control", "private, no-store");
-    return response;
-  } catch (error) {
-    return lookupFailure(
-      error,
-      (refusal) => refusal.code === "not_found" || refusal.code === "forbidden",
-    );
-  }
-};
+// An address of content that has no page of its own goes to the page that holds it, at its anchor:
+// a post to the page of its thread, a wall post or a comment to the wall. The backend's read is the
+// visibility check: content the visitor may not see ("not found", or "forbidden" for a forum whose
+// posts are closed to them) is a 404, the same as an id that was never used. A visitor who must
+// sign in first goes on to the page, as for any record.
+const heldBy =
+  (locate: (id: number, forward: Forward) => Promise<string>): Finder =>
+  async (raw, action, request) => {
+    const id = parseId(raw);
+    if (id === null) return false;
+    // Nothing is served under such an address; the router answers those with its own 404.
+    if (action !== undefined) return true;
+    try {
+      const href = await locate(id, forwardFromHeaders(request.headers));
+      // Temporary and private: a split or a move changes where the content is, and the answer
+      // depends on who asks.
+      const response = NextResponse.redirect(new URL(href, request.url), 307);
+      response.headers.set("cache-control", "private, no-store");
+      return response;
+    } catch (error) {
+      return lookupFailure(
+        error,
+        (refusal) =>
+          refusal.code === "not_found" || refusal.code === "forbidden",
+      );
+    }
+  };
+
+const postPage = heldBy(async (postId, forward) => {
+  const post = await callWith(forward, postsGet, { postId });
+  return threadHref(post.threadId, post.position, post.id);
+});
+
+const wallPostPage = heldBy(async (profilePostId, forward) => {
+  const post = await callWith(forward, profilePostsGet, { profilePostId });
+  return wallTargetHref(post.profileUserId, post.id);
+});
+
+const wallCommentPage = heldBy(async (commentId, forward) => {
+  const comment = await callWith(forward, profileCommentsGet, { commentId });
+  const post = await callWith(forward, profilePostsGet, {
+    profilePostId: comment.profilePostId,
+  });
+  return wallTargetHref(post.profileUserId, post.id, comment.id);
+});
 
 const CONTENT: Record<string, Finder> = {
   posts: postPage,
+  "profile-posts": wallPostPage,
+  "profile-comments": wallCommentPage,
   members: seoPage((userId, requestedPath, _page, forward) =>
     callWith(forward, seoProfile, { userId, requestedPath }),
   ),

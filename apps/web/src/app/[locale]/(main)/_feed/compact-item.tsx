@@ -3,6 +3,7 @@ import { MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import type * as z from "zod";
+import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { FeatureMark } from "@/components/forum/feature-mark";
 import { FirstUnreadLink } from "@/components/forum/first-unread-link";
@@ -40,7 +41,7 @@ export function CompactFeedItem({
 
   if (item.type === "profilePost") {
     const { profilePost } = item;
-    const href = `/members/${profilePost.profileUserId}#profile-post-${profilePost.id}`;
+    const href = wallTargetHref(profilePost.profileUserId, profilePost.id);
     const count = profilePost.commentCount;
     return (
       <Row

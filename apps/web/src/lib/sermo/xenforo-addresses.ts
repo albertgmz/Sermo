@@ -89,6 +89,16 @@ export function xenforoTarget(pathname: string, search: string) {
     const page = ACCOUNT_PAGES[first];
     return viaIndex || page !== `/${first}` ? page : undefined;
   }
+  // Wall posts and their comments carry a bare id (`/profile-posts/5/`,
+  // `/profile-posts/comments/9/`); fcuba.net never renamed the prefix. `/profile-posts/5` is this
+  // app's own address as well, so only its sub-pages and the comment form are rewritten.
+  if (first === "profile-posts") {
+    const comment = second === "comments";
+    const id = parseId(segments[comment ? 2 : 1] ?? "");
+    if (id === null) return undefined;
+    if (comment) return `/profile-comments/${id}`;
+    return viaIndex || segments.length > 2 ? `/profile-posts/${id}` : undefined;
+  }
   if (first === "goto" && second === "post") {
     const id = parseId(params.get("id") ?? "");
     return id === null ? undefined : pathOf("post", id);

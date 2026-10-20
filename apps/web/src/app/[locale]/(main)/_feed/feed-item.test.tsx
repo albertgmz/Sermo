@@ -217,7 +217,7 @@ test("a wall post is drawn with its latest comments and a composer for the next 
 test("a wall post with more comments than the card holds links to all of them on the wall", async () => {
   const html = await render(wallItem({ commentCount: 6 }), MEMBER);
   expect(html).toMatch(
-    /<a[^>]*href="\/members\/5\?comments=9#profile-post-9"[^>]*>Show more comments</,
+    /<a[^>]*href="\/members\/5\?post=9&amp;comments=9#profile-post-9"[^>]*>Show more comments</,
   );
 });
 
@@ -227,12 +227,12 @@ test("a wall post the viewer may not comment on has no composer; the count leads
   expect(member).not.toContain("Write a comment…");
   expect(member).not.toContain('-comment"');
   expect(countHref(member, "2 comments")).toContain(
-    'href="/members/5#profile-post-9"',
+    'href="/members/5?post=9#profile-post-9"',
   );
   const guest = await render(wallItem({ canComment: false }), null);
   expect(guest).not.toContain("Write a comment…");
   expect(countHref(guest, "2 comments")).toContain(
-    'href="/members/5#profile-post-9"',
+    'href="/members/5?post=9#profile-post-9"',
   );
 });
 
@@ -391,7 +391,7 @@ test("the whole compact row is a link, under its own links and buttons", async (
   expect(stretched(thread)).toContain('href="/threads/7#post-31"');
   expect(stretched(thread)).toContain('tabindex="-1"');
   const wall = await render(wallItem(), MEMBER, "compact");
-  expect(stretched(wall)).toContain('href="/members/5#profile-post-9"');
+  expect(stretched(wall)).toContain('href="/members/5?post=9#profile-post-9"');
   // The title's link, the forum's and the actions sit above it.
   expect(thread).toContain("relative z-10");
 });
@@ -403,7 +403,7 @@ test("a compact wall post names who wrote it and where, with its comments", asyn
   expect(html).not.toContain("the wall post");
   expect(html).not.toContain("first comment");
   expect(countHref(html, "2 comments")).toContain(
-    'href="/members/5#profile-post-9"',
+    'href="/members/5?post=9#profile-post-9"',
   );
 });
 

@@ -124,6 +124,25 @@ test("members and conversations go to their pages", () => {
   ]);
 });
 
+test("wall posts and their comments go to their own addresses", () => {
+  cases([
+    ["/profile-posts/12/", undefined],
+    ["/profile-posts/12", undefined],
+    ["/profile-posts/12/show", "/profile-posts/12"],
+    ["/profile-posts/12/react?reaction_id=1", "/profile-posts/12"],
+    ["/profile-posts/comments/80/", "/profile-comments/80"],
+    ["/profile-posts/comments/80", "/profile-comments/80"],
+    ["/profile-posts/comments/80/edit", "/profile-comments/80"],
+    ["/index.php?profile-posts/12/", "/profile-posts/12"],
+    ["/index.php?profile-posts/comments/80/", "/profile-comments/80"],
+    ["/index.php/profile-posts/12/", "/profile-posts/12"],
+    ["/profile-posts/", undefined],
+    ["/profile-posts/comments/", undefined],
+    ["/profile-posts/x.12/", undefined],
+    ["/profile-posts/comments/0/", undefined],
+  ]);
+});
+
 test("the news pages go to the front page and the account pages to theirs", () => {
   cases([
     ["/novedades/", "/"],

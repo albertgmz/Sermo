@@ -40,6 +40,8 @@ export const PAGE_ROUTES = [
   "/pages/[slug]",
   "/posts/[id]",
   "/privacy",
+  "/profile-comments/[id]",
+  "/profile-posts/[id]",
   "/register",
   "/reset-password",
   "/rules",
