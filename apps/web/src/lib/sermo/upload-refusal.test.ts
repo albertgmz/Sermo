@@ -18,8 +18,13 @@ afterAll(() => {
   mock.module("next-intl/server", () => intl);
 });
 
-const { UPLOAD_ISSUE_PATH, UPLOAD_REASONS, refusalCause, refusalWords } =
-  await import("./upload-refusal");
+const {
+  UPLOAD_ISSUE_PATH,
+  UPLOAD_REASONS,
+  refusalCause,
+  refusalWords,
+  sizeOf,
+} = await import("./upload-refusal");
 
 const refusal = (
   code: string,
@@ -79,7 +84,10 @@ test("a refusal without an upload issue is worded by its code", () => {
 
 test("the words fill in the limit and the reaction picture's side", async () => {
   expect(await refusalWords({ cause: "size", limit: 25 * 1024 * 1024 })).toBe(
-    en.uploadRefusals.size.replace("{size}", "25"),
+    en.uploadRefusals.size.replace("{size}", "25 MB"),
+  );
+  expect(await refusalWords({ cause: "size", limit: 0 })).toBe(
+    en.uploadRefusals.forbidden,
   );
   expect(await refusalWords({ cause: "size" })).toBe(
     en.uploadRefusals.sizeUnknown,
@@ -89,4 +97,12 @@ test("the words fill in the limit and the reaction picture's side", async () => 
   );
   expect(await refusalWords({ cause: "quota" })).toBe(en.uploadRefusals.quota);
   expect(await refusalWords({})).toBeUndefined();
+});
+
+test("a size limit under a megabyte is said in kilobytes, never as 0 MB", () => {
+  expect(sizeOf(25 * 1024 * 1024)).toBe("25 MB");
+  expect(sizeOf(1024 * 1024)).toBe("1 MB");
+  expect(sizeOf(1024 * 1024 - 1)).toBe("1023 KB");
+  expect(sizeOf(50 * 1024)).toBe("50 KB");
+  expect(sizeOf(1000)).toBe("1000 B");
 });

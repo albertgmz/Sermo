@@ -107,7 +107,7 @@
     "type": "This kind of file cannot be uploaded here. Pictures go up as JPEG, PNG, WebP or GIF.",
     "heic": "HEIC and HEIF photos cannot be uploaded yet. Send the photo as JPEG: on an iPhone choose Settings › Camera › Formats › Most Compatible; on Android turn off the camera's high-efficiency (HEIF) pictures, or share the photo from the gallery as JPEG.",
     "empty": "This file is empty. Choose it again and retry.",
-    "size": "This file is larger than the {size} MB you may upload. Send a smaller file or a smaller copy of the picture.",
+    "size": "This file is larger than the {size} you may upload. Send a smaller file or a smaller copy of the picture.",
     "sizeUnknown": "This file is too large to upload here. Send a smaller file or a smaller copy of the picture.",
     "quota": "You have used all the space you have for uploads. Remove some of your older attachments, or ask the staff for more space.",
     "unreadable": "This file could not be read: it may be damaged or not the kind of file it says it is. Open it on your device, save it again (a photo as JPEG) and retry.",

@@ -107,7 +107,7 @@
     "type": "Este tipo de archivo no se puede subir aquí. Las imágenes se suben como JPEG, PNG, WebP o GIF.",
     "heic": "Las fotos HEIC y HEIF todavía no se pueden subir. Envía la foto como JPEG: en un iPhone elige Ajustes › Cámara › Formatos › Más compatible; en Android desactiva las imágenes de alta eficiencia (HEIF) de la cámara, o comparte la foto desde la galería como JPEG.",
     "empty": "Este archivo está vacío. Elígelo de nuevo y vuelve a intentarlo.",
-    "size": "Este archivo pesa más de los {size} MB que puedes subir. Envía un archivo más pequeño o una copia más pequeña de la imagen.",
+    "size": "Este archivo pesa más de los {size} que puedes subir. Envía un archivo más pequeño o una copia más pequeña de la imagen.",
     "sizeUnknown": "Este archivo es demasiado grande para subirlo aquí. Envía un archivo más pequeño o una copia más pequeña de la imagen.",
     "quota": "Has usado todo el espacio que tienes para subir archivos. Quita algunos de tus adjuntos antiguos o pide más espacio al equipo del foro.",
     "unreadable": "No se pudo leer este archivo: puede estar dañado o no ser el tipo de archivo que dice ser. Ábrelo en tu dispositivo, guárdalo de nuevo (una foto, como JPEG) y vuelve a intentarlo.",

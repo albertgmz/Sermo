@@ -185,7 +185,7 @@ test("a picture the backend refuses comes back with its status, in the member's 
   expect(await answer(await POST(posted(member).request))).toEqual({
     status: 400,
     body: {
-      error: messages.lib.uploadRefusals.size.replace("{size}", "5"),
+      error: messages.lib.uploadRefusals.size.replace("{size}", "5 MB"),
     },
   });
 });

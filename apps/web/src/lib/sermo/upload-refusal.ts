@@ -53,6 +53,13 @@ export function refusalCause(
   return undefined;
 }
 
+// A size limit as members read it: megabytes from 1 MB, kilobytes below, bytes below 1 KB.
+export function sizeOf(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${megabytes(bytes)} MB`;
+  if (bytes >= 1024) return `${Math.floor(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
 // A refusal in the member's language, saying what to do; undefined when there is no cause to word.
 export async function refusalWords(refused: {
   cause?: UploadCause;
@@ -61,10 +68,12 @@ export async function refusalWords(refused: {
   const { cause, limit } = refused;
   if (cause === undefined) return undefined;
   const t = await getTranslations("lib.uploadRefusals");
-  if (cause === "size")
-    return limit === undefined
-      ? t("sizeUnknown")
-      : t("size", { size: megabytes(limit) });
+  if (cause === "size") {
+    if (limit === undefined) return t("sizeUnknown");
+    // A limit of 0 is a group that may upload no file at all.
+    if (limit === 0) return t("forbidden");
+    return t("size", { size: sizeOf(limit) });
+  }
   if (cause === "reaction")
     return t("reaction", { side: MAX_REACTION_IMAGE_SIDE });
   return t(cause);
