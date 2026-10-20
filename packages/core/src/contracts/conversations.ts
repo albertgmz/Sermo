@@ -6,6 +6,7 @@ import {
   Body,
   ContentState,
   Id,
+  Limit,
   Ok,
   Page,
   pageInput,
@@ -126,6 +127,35 @@ export const conversationsListMessages = defineContract({
     ...pageInput,
   }),
   output: Page(Message),
+});
+
+/** Where a message is: the `conversations.listMessages` page (order `newest`) that holds it. */
+export const MessageLocation = z
+  .object({ conversationId: Id, messageId: Id, cursor: z.string().nullable() })
+  .meta({ id: "MessageLocation" });
+
+export const conversationsLocateMessage = defineContract({
+  name: "conversations.locateMessage",
+  summary:
+    "Where a message is: its conversation, and the `conversations.listMessages` cursor (order " +
+    "`newest`) that opens the page of `limit` messages holding it, the pages counted from the " +
+    "newest message the viewer may see (null for the first page). Active participants only; " +
+    "anyone else, or a message the viewer may not see, gets not found.",
+  kind: "read",
+  input: z.object({ messageId: Id, limit: Limit }),
+  output: MessageLocation,
+});
+
+export const conversationsLocateUnread = defineContract({
+  name: "conversations.locateUnread",
+  summary:
+    "Where the viewer's first unread message of a conversation is (the oldest message after the " +
+    "last one they read), or the newest message when they have read everything, as " +
+    "`conversations.locateMessage` gives it. Reading it marks nothing read. Active participants " +
+    "only.",
+  kind: "read",
+  input: z.object({ conversationId: Id, limit: Limit }),
+  output: MessageLocation,
 });
 
 export const conversationsMarkRead = defineContract({

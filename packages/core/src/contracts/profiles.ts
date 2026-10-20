@@ -6,6 +6,7 @@ import {
   ContentState,
   DisplayGroup,
   Id,
+  Limit,
   moderationNotice,
   Page,
   pageInput,
@@ -248,6 +249,17 @@ export const profilePostsGet = defineContract({
   output: ProfilePostDetail,
 });
 
+export const profilePostsLocate = defineContract({
+  name: "profilePosts.locate",
+  summary:
+    "Where a profile post is: its wall, and the `profilePosts.list` cursor that opens the page of " +
+    "`limit` posts holding it, the pages counted from the newest post the viewer may see (null " +
+    "for the first page). Not found when the viewer may not see the post.",
+  kind: "read",
+  input: z.object({ profilePostId: Id, limit: Limit }),
+  output: z.object({ profilePostId: Id, profileUserId: Id, cursor: z.string().nullable() }),
+});
+
 export const profilePostsCreate = defineContract({
   name: "profilePosts.create",
   summary: "Post on a user's profile wall.",
@@ -317,6 +329,25 @@ export const profileCommentsGet = defineContract({
   kind: "read",
   input: z.object({ commentId: Id }),
   output: ProfileCommentDetail,
+});
+
+export const profileCommentsLocate = defineContract({
+  name: "profileComments.locate",
+  summary:
+    "Where a comment is: its profile post and wall, the `profilePosts.list` cursor of the page " +
+    "of `limit` posts holding the post (`wallCursor`) and the `profileComments.list` cursor of " +
+    "the page of `limit` comments holding the comment (`commentsCursor`), each counted from the " +
+    "newest item the viewer may see (null for a first page). Not found when the viewer may not " +
+    "see the comment.",
+  kind: "read",
+  input: z.object({ commentId: Id, limit: Limit }),
+  output: z.object({
+    commentId: Id,
+    profilePostId: Id,
+    profileUserId: Id,
+    wallCursor: z.string().nullable(),
+    commentsCursor: z.string().nullable(),
+  }),
 });
 
 export const profileCommentsCreate = defineContract({

@@ -377,6 +377,17 @@ export const threadsList = defineContract({
   output: Page(Thread).extend({ sticky: z.array(Thread) }),
 });
 
+export const threadsLocateUnread = defineContract({
+  name: "threads.locateUnread",
+  summary:
+    "Where a reader picks a thread up: the first visible post after the newest one the viewer " +
+    "has read, while the thread is unread for them (`Thread.isUnread`) and its posts are open " +
+    "to them; otherwise the newest visible post (always for guests). `position` gives the page.",
+  kind: "read",
+  input: z.object({ threadId: Id }),
+  output: z.object({ threadId: Id, postId: Id, position: z.number().int().nonnegative() }),
+});
+
 export const threadsGet = defineContract({
   name: "threads.get",
   summary:

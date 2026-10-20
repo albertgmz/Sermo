@@ -1,8 +1,46 @@
-import type { Scenario } from "../harness";
+import type { BenchEnv, Scenario } from "../harness";
 
 const cursors = new Map<number, string>();
 const deepMessages: { conversationId: number; userId: number; cursor: string }[] = [];
+const oldestMessages: { messageId: number; conversationId: number; userId: number }[] = [];
+// The first message of the longest conversations, with an active participant of each.
+function loadOldest(env: BenchEnv) {
+  oldestMessages.length = 0;
+  oldestMessages.push(
+    ...env.ctx.sqlite
+      .prepare<{ messageId: number; conversationId: number; userId: number }, []>(
+        "SELECT (SELECT min(m.id) FROM conversation_messages m WHERE m.conversation_id = c.id) AS messageId, c.id AS conversationId, cp.user_id AS userId FROM conversations c JOIN conversation_participants cp ON cp.conversation_id = c.id AND cp.state = 'active' ORDER BY c.message_count DESC LIMIT 8",
+      )
+      .all(),
+  );
+  if (!oldestMessages.length) throw new Error("No conversation has an active participant.");
+}
 export const scenarios: Scenario[] = [
+  {
+    // The longest count of newer messages.
+    name: "conversations.locateMessage oldest",
+    kind: "read",
+    setup: loadOldest,
+    run(env, i) {
+      const row = oldestMessages[i % oldestMessages.length]!;
+      return env.call("conversations.locateMessage", env.actors.user(row.userId), {
+        messageId: row.messageId,
+        limit: 20,
+      });
+    },
+  },
+  {
+    name: "conversations.locateUnread long",
+    kind: "read",
+    setup: loadOldest,
+    run(env, i) {
+      const row = oldestMessages[i % oldestMessages.length]!;
+      return env.call("conversations.locateUnread", env.actors.user(row.userId), {
+        conversationId: row.conversationId,
+        limit: 20,
+      });
+    },
+  },
   {
     name: "conversations.list first page",
     kind: "read",

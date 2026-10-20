@@ -6,6 +6,8 @@ let editablePostId = 0;
 let editableAuthorId = 0;
 let restorablePostId = 0;
 let searchPrefix = "";
+let oldestWallPosts: number[] = [];
+let oldestComment = 0;
 
 export const scenarios: Scenario[] = [
   {
@@ -73,6 +75,39 @@ export const scenarios: Scenario[] = [
     run: (env) =>
       env.call("profileComments.list", env.actors.guest, {
         profilePostId: commentPostId,
+        limit: 20,
+      }),
+  },
+  {
+    // The oldest post of the biggest walls: the longest count of newer posts.
+    name: "profilePosts.locate oldest",
+    kind: "read",
+    setup(env) {
+      const stmt = env.ctx.sqlite.prepare<{ id: number }, [number]>(
+        "SELECT min(id) AS id FROM profile_posts WHERE profile_user_id = ?1 AND state = 'visible'",
+      );
+      oldestWallPosts = env.meta.bigWallUserIds.map((id) => stmt.get(id)!.id);
+    },
+    run: (env, i) =>
+      env.call("profilePosts.locate", env.actors.member(i), {
+        profilePostId: oldestWallPosts[i % oldestWallPosts.length]!,
+        limit: 20,
+      }),
+  },
+  {
+    // The oldest comment of the post with the most comments.
+    name: "profileComments.locate oldest",
+    kind: "read",
+    setup(env) {
+      oldestComment = env.ctx.sqlite
+        .prepare<{ id: number }, [number]>(
+          "SELECT min(id) AS id FROM profile_post_comments WHERE profile_post_id = ?1 AND state = 'visible'",
+        )
+        .get(commentPostId)!.id;
+    },
+    run: (env, i) =>
+      env.call("profileComments.locate", env.actors.member(i), {
+        commentId: oldestComment,
         limit: 20,
       }),
   },

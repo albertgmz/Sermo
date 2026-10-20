@@ -6,6 +6,7 @@ import {
   profileCommentsRestoreOp,
   profileCommentsUpdateOp,
 } from "./comments";
+import { profileCommentsLocateOp, profilePostsLocateOp } from "./locate";
 import {
   profilePostsCreateOp,
   profilePostsDeleteOp,
@@ -37,6 +38,7 @@ export {
   profileCommentsDeleteOp,
   profileCommentsGetOp,
   profileCommentsListOp,
+  profileCommentsLocateOp,
   profileCommentsRestoreOp,
   profileCommentsUpdateOp,
   profilePostsCreateOp,
@@ -44,6 +46,7 @@ export {
   profilePostsGetOp,
   profilePostsHardDeleteOp,
   profilePostsListOp,
+  profilePostsLocateOp,
   profilePostsRestoreOp,
   profilePostsUpdateOp,
   profilesGetOp,
@@ -59,6 +62,7 @@ export const operations = [
   usersSearchOp,
   profilePostsListOp,
   profilePostsGetOp,
+  profilePostsLocateOp,
   profilePostsHardDeleteOp,
   profilePostsCreateOp,
   profilePostsUpdateOp,
@@ -66,6 +70,7 @@ export const operations = [
   profilePostsRestoreOp,
   profileCommentsListOp,
   profileCommentsGetOp,
+  profileCommentsLocateOp,
   profileCommentsCreateOp,
   profileCommentsUpdateOp,
   profileCommentsDeleteOp,

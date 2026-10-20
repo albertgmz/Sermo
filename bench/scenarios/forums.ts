@@ -170,6 +170,14 @@ export const scenarios: Scenario[] = [
       }),
   },
   {
+    name: "threads.locateUnread",
+    kind: "read",
+    run: (env, i) =>
+      env.call("threads.locateUnread", env.actors.member(i), {
+        threadId: choose(env.meta.bigThreadIds, i),
+      }),
+  },
+  {
     name: "threads.get",
     kind: "read",
     run: (env, i) =>

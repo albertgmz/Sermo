@@ -11,6 +11,8 @@ import {
   conversationsLeave,
   conversationsList,
   conversationsListMessages,
+  conversationsLocateMessage,
+  conversationsLocateUnread,
   conversationsMarkRead,
   conversationsRename,
   conversationsReply,
@@ -656,6 +658,82 @@ export const conversationsListMessagesOp = implement(
   },
 );
 
+// The messages of a conversation the viewer may see, as `visibleMessagesSql` filters them (?3 the
+// viewer, ?4 `conversation.viewHidden`): how many are newer than one message (one range of
+// `conversation_messages_conv`), the id of the one `?5` places above it (nearest first), which
+// closes the page before that message's page, and the first unread and the newest message.
+const seenMessage = "(state = 'visible' OR (state = 'moderated' AND user_id = ?3) OR ?4 = 1)";
+export const locateMessageSql = {
+  above: `SELECT count(*) AS n FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND ${seenMessage}`,
+  nth: `SELECT id FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND ${seenMessage} ORDER BY id LIMIT 1 OFFSET ?5`,
+  firstAfter: `SELECT id FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND ${seenMessage} ORDER BY id LIMIT 1`,
+  newest: `SELECT id FROM conversation_messages WHERE conversation_id = ?1 AND id < ?2 AND ${seenMessage} ORDER BY id DESC LIMIT 1`,
+};
+
+// Where a message the viewer may see is: the `newest`-order cursor of the page of `limit`
+// messages that holds it (null for the newest page).
+function messageLocation(
+  ctx: Ctx,
+  actor: Actor,
+  conversationId: number,
+  messageId: number,
+  limit: number,
+) {
+  const params: [number, number, number, number] = [
+    conversationId,
+    messageId,
+    actorUserId(actor) ?? 0,
+    Number(can(ctx, actor, "conversation.viewHidden")),
+  ];
+  const above = prepared(ctx, "conversations.locateAbove", () =>
+    ctx.sqlite.prepare<{ n: number }, [number, number, number, number]>(locateMessageSql.above),
+  ).get(...params)!.n;
+  const closing =
+    above < limit
+      ? null
+      : prepared(ctx, "conversations.locateNth", () =>
+          ctx.sqlite.prepare<{ id: number }, [number, number, number, number, number]>(
+            locateMessageSql.nth,
+          ),
+        ).get(...params, above % limit);
+  return { conversationId, messageId, cursor: closing ? encodeCursor([closing.id]) : null };
+}
+
+export const conversationsLocateMessageOp = implement(
+  conversationsLocateMessage,
+  (ctx, actor, input) => {
+    const { message } = visibleTarget(ctx, actor, input.messageId);
+    return messageLocation(ctx, actor, message.conversation_id, message.id, input.limit);
+  },
+);
+
+export const conversationsLocateUnreadOp = implement(
+  conversationsLocateUnread,
+  (ctx, actor, input) => {
+    const conversation = activeConversation(ctx, actor, input.conversationId);
+    const params: [number, number, number, number] = [
+      conversation.id,
+      conversation.last_read_message_id,
+      actorUserId(actor) ?? 0,
+      Number(can(ctx, actor, "conversation.viewHidden")),
+    ];
+    const target =
+      prepared(ctx, "conversations.firstUnread", () =>
+        ctx.sqlite.prepare<{ id: number }, [number, number, number, number]>(
+          locateMessageSql.firstAfter,
+        ),
+      ).get(...params) ??
+      prepared(ctx, "conversations.newestSeen", () =>
+        ctx.sqlite.prepare<{ id: number }, [number, number, number, number]>(
+          locateMessageSql.newest,
+        ),
+      ).get(conversation.id, Number.MAX_SAFE_INTEGER, params[2], params[3]);
+    // Every conversation keeps its first message, which its participants see.
+    if (!target) throw new NotFoundError();
+    return messageLocation(ctx, actor, conversation.id, target.id, input.limit);
+  },
+);
+
 export const conversationsMarkReadOp = implement(
   conversationsMarkRead,
   (ctx, actor, input) => {
@@ -1023,6 +1101,8 @@ export const operations = [
   conversationsCreateOp,
   conversationsReplyOp,
   conversationsListMessagesOp,
+  conversationsLocateMessageOp,
+  conversationsLocateUnreadOp,
   conversationsMarkReadOp,
   conversationsLeaveOp,
   conversationsAddParticipantsOp,

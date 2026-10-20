@@ -1145,6 +1145,27 @@ function threadPollFacts(
   if (poll) return { exists: !isRetiring(poll), canAdd: false };
   return { exists: false, canAdd: mayAddPoll(permissionsOf(ctx, actor), actor, row) };
 }
+export const firstUnreadPostSql =
+  "SELECT id, position FROM posts WHERE thread_id = ?1 AND state = 'visible' AND position > ?2 ORDER BY position LIMIT 1";
+export const threadsLocateUnreadOp = implement(
+  contracts.threadsLocateUnread,
+  (ctx, actor, input) => {
+    const { row } = requireThread(ctx, actor, input.threadId);
+    requireSiteView(ctx, actor);
+    const thread = threadValue(ctx, actor, row.id);
+    const first =
+      thread.isUnread && readGates(ctx, actor).readsOthers(row.node_id)
+        ? statement<{ id: number; position: number }, [number, number]>(
+            ctx,
+            "firstUnreadPost",
+            firstUnreadPostSql,
+          ).get(row.id, thread.readPosition ?? -1)
+        : null;
+    return first
+      ? { threadId: row.id, postId: first.id, position: first.position }
+      : { threadId: row.id, postId: thread.lastPost.postId, position: thread.lastPost.position };
+  },
+);
 export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) => {
   let targetId = input.threadId;
   const mergedTarget = statement<{ merged_into_id: number | null }, [number]>(
@@ -3735,6 +3756,7 @@ export const operations = [
   nodesSetModeratorOp,
   threadsListOp,
   threadsGetOp,
+  threadsLocateUnreadOp,
   threadsCreateOp,
   threadsUpdateOp,
   threadsRemoveCoverOp,
