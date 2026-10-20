@@ -3,10 +3,12 @@ import { implement } from "../../operation";
 import { usersChangeUsernameOp } from "../auth/username";
 import { loadViewerAuthors, loadViewerCards } from "./cards";
 import { usersBirthdaysOp, usersListOp, usersStaffOp } from "./directory";
+import { usersRecentlyActiveOp } from "./recently-active";
 import { requireSiteViewForCards } from "./site-access";
 import { standingsMonthOp, standingsWinnersOp } from "./standings";
 
 export { loadMemberAuthors, loadMemberCards } from "./cards";
+export { forgetRecentlyActive } from "./recently-active";
 export { refreshStandings, registerStandingJobs } from "./standings";
 
 export const usersCardsOp = implement(
@@ -41,6 +43,7 @@ export const operations = [
   usersListOp,
   usersStaffOp,
   usersBirthdaysOp,
+  usersRecentlyActiveOp,
   standingsMonthOp,
   standingsWinnersOp,
   usersChangeUsernameOp,

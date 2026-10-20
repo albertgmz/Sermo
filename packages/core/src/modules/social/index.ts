@@ -24,6 +24,7 @@ import {
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { readGates } from "../forums/read-gates";
+import { forgetRecentlyActive } from "../members/recently-active";
 import { requireSiteView } from "../members/site-access";
 
 type Thread = {
@@ -58,6 +59,7 @@ type Preferences = {
   keyboard_shortcuts: number;
   home_tab: HomeTab | null;
   feed_view: FeedView;
+  show_online: number;
 };
 const cursorSchema = z.tuple([z.number().int().positive()]);
 const cursorId = (cursor?: string) =>
@@ -509,7 +511,7 @@ function readPreferences(ctx: Ctx, userId: number) {
   const row = query<Preferences, [number]>(
     ctx,
     "preferences",
-    "SELECT watch_on_create, watch_on_reply, language, profile_view_privacy, profile_post_privacy, keyboard_shortcuts, home_tab, feed_view FROM users WHERE id = ?1",
+    "SELECT watch_on_create, watch_on_reply, language, profile_view_privacy, profile_post_privacy, keyboard_shortcuts, home_tab, feed_view, show_online FROM users WHERE id = ?1",
   ).get(userId)!;
   return {
     watchOnCreate: row.watch_on_create,
@@ -520,6 +522,7 @@ function readPreferences(ctx: Ctx, userId: number) {
     keyboardShortcuts: row.keyboard_shortcuts === 1,
     homeTab: row.home_tab,
     feedView: row.feed_view,
+    showOnline: row.show_online === 1,
   };
 }
 export const preferencesGetOp = implement(contracts.preferencesGet, (ctx, actor) => {
@@ -542,7 +545,7 @@ export const preferencesUpdateOp = implement(contracts.preferencesUpdate, (ctx, 
     query(
       ctx,
       "updatePreferences",
-      "UPDATE users SET watch_on_create = ?1, watch_on_reply = ?2, language = ?3, profile_view_privacy = ?4, profile_post_privacy = ?5, keyboard_shortcuts = ?6, home_tab = ?7, feed_view = ?8 WHERE id = ?9",
+      "UPDATE users SET watch_on_create = ?1, watch_on_reply = ?2, language = ?3, profile_view_privacy = ?4, profile_post_privacy = ?5, keyboard_shortcuts = ?6, home_tab = ?7, feed_view = ?8, show_online = ?9 WHERE id = ?10",
     ).run(
       input.watchOnCreate ?? current.watchOnCreate,
       input.watchOnReply ?? current.watchOnReply,
@@ -552,9 +555,12 @@ export const preferencesUpdateOp = implement(contracts.preferencesUpdate, (ctx, 
       (input.keyboardShortcuts ?? current.keyboardShortcuts) ? 1 : 0,
       input.homeTab === undefined ? current.homeTab : input.homeTab,
       input.feedView ?? current.feedView,
+      (input.showOnline ?? current.showOnline) ? 1 : 0,
       user.userId,
     );
   });
+  // A member who hides their online status leaves the shared presence list at once.
+  if (input.showOnline === false) forgetRecentlyActive(ctx);
   return readPreferences(ctx, user.userId);
 });
 

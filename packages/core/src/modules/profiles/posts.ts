@@ -93,6 +93,7 @@ type ProfileRow = PrincipalRow & {
   credits: number;
   referral_count: number;
   last_activity_at: number | null;
+  show_online: number;
 };
 function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
   const display = memberDisplay(
@@ -108,7 +109,7 @@ function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
     }
   );
 }
-export const PROFILE_SQL = `SELECT u.id, u.username, u.group_id, g.title AS group_title, u.about, u.avatar_file_id, u.custom_title, u.signature_source, u.location, u.website, u.birthday_md, u.birth_year, u.social_discord, u.social_telegram, u.social_x, u.follower_count, u.following_count, u.credits, u.referral_count, u.last_activity_at, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`;
+export const PROFILE_SQL = `SELECT u.id, u.username, u.group_id, g.title AS group_title, u.about, u.avatar_file_id, u.custom_title, u.signature_source, u.location, u.website, u.birthday_md, u.birth_year, u.social_discord, u.social_telegram, u.social_x, u.follower_count, u.following_count, u.credits, u.referral_count, u.last_activity_at, u.show_online, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`;
 const MINUTE_MS = 60_000;
 function readProfileRow(ctx: Ctx, userId: number): ProfileRow {
   const row = prepared(ctx, "profiles.profile", () =>
@@ -129,7 +130,12 @@ function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileA
       viewerId,
       row.id,
     );
-  const seen = Math.max(row.last_activity_at ?? 0, ctx.activity.get(row.id) ?? 0);
+  // A member who hides their online status keeps it from everyone but themselves and the staff
+  // who may bypass profile privacy.
+  const seen =
+    row.show_online === 1 || viewerId === row.id || permissions.can("profile.bypassPrivacy")
+      ? Math.max(row.last_activity_at ?? 0, ctx.activity.get(row.id) ?? 0)
+      : 0;
   const [month, day] = row.birthday_md?.split("-").map(Number) ?? [];
   return {
     id: row.id,

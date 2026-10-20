@@ -244,6 +244,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["GET", "/members", "users.list"],
   ["GET", "/members/staff", "users.staff"],
   ["GET", "/members/birthdays", "users.birthdays"],
+  ["GET", "/members/recently-active", "users.recentlyActive"],
   ["GET", "/standings", "standings.month"],
   ["GET", "/standings/winners", "standings.winners"],
   ["GET", "/users/{userId}/profile-posts", "profilePosts.list"],

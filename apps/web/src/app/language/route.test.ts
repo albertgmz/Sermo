@@ -35,6 +35,7 @@ const PREFERENCES = {
   keyboardShortcuts: true,
   homeTab: null,
   feedView: "cards",
+  showOnline: true,
 };
 
 beforeEach(() => {

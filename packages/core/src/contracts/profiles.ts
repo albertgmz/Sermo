@@ -64,7 +64,10 @@ export const Profile = z
     /** How many awards the member shows next to their name (profile.awardSlots); -1 = all. */
     awardSlots: z.number().int().min(-1),
     referralCount: z.number().int().nonnegative(),
-    /** Last request of the member, to the minute; null if never seen. */
+    /**
+     * Last request of the member, to the minute; null if never seen, or when the member hides
+     * their online status and the viewer is neither them nor holds profile.bypassPrivacy.
+     */
     lastActivityAt: Timestamp.nullable(),
     /** The signed-in viewer's relation to this member; both false for guests and for oneself. */
     viewer: z.object({ isFollowing: z.boolean(), isIgnoring: z.boolean() }),

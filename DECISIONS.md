@@ -4892,3 +4892,28 @@ Phones send what XenForo took and Sermo refused, so uploads now handle them:
   `approval`. The upload routes word it from `lib.uploadRefusals` in the member's language; a
   refusal with no reason is worded by its code (forbidden, rate limited), and anything else says
   the upload failed. The backend's English text is no longer shown.
+
+### Online status privacy
+
+`users.show_online` (default on, migration `0062`), imported from XenForo `xf_user.visible`. When
+off, the member is left out of public presence lists and online dots, and others do not see their
+last activity: `profiles.get` answers `lastActivityAt: null` to anyone but the member and those who
+hold `profile.bypassPrivacy` (XenForo's "bypass user privacy": moderators and administrators by
+default), the buffered time included. The member sets it on the privacy page ("Show your online
+status", `MemberPreferences.showOnline`). The staff panel's own lists (`admin.staffOnline`, the
+member list of `admin.members`) are for the panel's people and keep showing activity. The import
+did not carry the flag at first; the 1,566 hidden accounts are set on the live data by a one-off
+update after this change is deployed.
+
+### Recently active members
+
+`users.recentlyActive`: the members seen in the last 24 hours who show their online status, most
+recent first, at most 200, plus an exact total of listed members (banned and erased members are
+left out and not counted, unlike the XenForo add-on, whose total counted hidden members). One
+seek on the partial index `users_last_activity` (`last_activity_at DESC, id DESC`, rows with a
+time), merged with the activity buffered by running requests as `admin.staffOnline` does. The
+id and time list is the same for everyone and kept 60 s across viewers; only the cards are built
+per viewer, the minimal card for a profile the viewer may not open. A member who turns the
+setting off drops the kept list, so they leave it at once. Guests may read it (site.view,
+profile.view, member.viewList, as `users.birthdays`). Online = active in the last 15 minutes;
+members past the 200 cap read offline.

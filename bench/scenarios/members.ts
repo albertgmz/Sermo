@@ -9,6 +9,22 @@ const window = (env: BenchEnv, i: number, count: number) =>
  * The seeded data has no birthdays and no standings (the standings job reads the month in
  * progress, and the seed ends before it), so the scenarios that need them prepare them here.
  */
+/**
+ * The seed spreads activity over whole days, so the last 24 hours are given 300 members here,
+ * a minute apart, one in ten of them hiding their online status: more than the list holds.
+ */
+function recentActivity(env: BenchEnv) {
+  const now = env.ctx.now();
+  const update = env.ctx.sqlite.prepare(
+    "UPDATE users SET last_activity_at = ?1, show_online = ?2 WHERE id = ?3",
+  );
+  env.ctx.sqlite.transaction(() => {
+    env.meta.memberIds.slice(0, 300).forEach((id, index) => {
+      update.run(now - index * 60_000, index % 10 === 9 ? 0 : 1, id);
+    });
+  })();
+}
+
 export const scenarios: Scenario[] = [
   {
     name: "users.cards 20 ids",
@@ -65,6 +81,18 @@ export const scenarios: Scenario[] = [
         .run(day, JSON.stringify(env.meta.memberIds.slice(0, 40)));
     },
     run: (env, i) => env.call("users.birthdays", env.actors.member(i), {}),
+  },
+  {
+    name: "users.recentlyActive guest",
+    kind: "read",
+    setup: recentActivity,
+    run: (env) => env.call("users.recentlyActive", env.actors.guest, {}),
+  },
+  {
+    name: "users.recentlyActive member",
+    kind: "read",
+    setup: recentActivity,
+    run: (env, i) => env.call("users.recentlyActive", env.actors.member(i), {}),
   },
   {
     name: "standings.month",

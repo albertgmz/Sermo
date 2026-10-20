@@ -27,6 +27,7 @@ const {
   saveAppearance,
   saveProfile,
   savePreferences,
+  savePrivacy,
   stopIgnoring,
   stopWatchingForum,
   stopWatchingThread,
@@ -343,6 +344,7 @@ const PREFERENCES = {
   keyboardShortcuts: true,
   homeTab: null,
   feedView: "cards",
+  showOnline: true,
 };
 const preferenceForm = (language: string) =>
   form({ watchOnCreate: "none", watchOnReply: "none", language });
@@ -406,6 +408,35 @@ test("the keyboard shortcuts choice is sent as a yes or a no, and left on when t
     { keyboardShortcuts: false },
     { keyboardShortcuts: true },
     { keyboardShortcuts: true },
+  ]);
+});
+
+test("the online status box is sent as a yes when ticked and a no when left out of the form", async () => {
+  const asked = backend(() => Response.json(PREFERENCES));
+  const send = (showOnline?: string) =>
+    redirectedTo(() =>
+      savePrivacy(
+        null as never,
+        form({
+          profileViewPrivacy: "everyone",
+          profilePostPrivacy: "members",
+          ...(showOnline === undefined ? {} : { showOnline }),
+        }),
+      ),
+    );
+  expect((await send("on"))?.pathname).toBe("/account/privacy");
+  await send();
+  expect(asked.map((call) => call.body)).toEqual([
+    {
+      profileViewPrivacy: "everyone",
+      profilePostPrivacy: "members",
+      showOnline: true,
+    },
+    {
+      profileViewPrivacy: "everyone",
+      profilePostPrivacy: "members",
+      showOnline: false,
+    },
   ]);
 });
 

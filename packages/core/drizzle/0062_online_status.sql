@@ -1,0 +1,2 @@
+ALTER TABLE `users` ADD `show_online` integer DEFAULT true NOT NULL;--> statement-breakpoint
+CREATE INDEX `users_last_activity` ON `users` ("last_activity_at" desc,"id" desc) WHERE last_activity_at IS NOT NULL;

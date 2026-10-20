@@ -170,6 +170,24 @@ export const usersBirthdays = defineContract({
   output: z.object({ items: z.array(MemberCard) }),
 });
 
+export const usersRecentlyActive = defineContract({
+  name: "users.recentlyActive",
+  summary:
+    "The members seen in the last 24 hours who show their online status, most recent first, at " +
+    "most 200, with the total of members listed. Banned and erased members are left out. The " +
+    "list is the same for every viewer and may be up to a minute old; a member whose profile " +
+    "the viewer may not open has the minimal card (`card.restricted` true). Requires site.view, " +
+    "profile.view and member.viewList.",
+  kind: "read",
+  input: Empty,
+  output: z.object({
+    /** Members seen in the last 24 hours who show their online status, banned and erased left out. */
+    total: z.number().int().nonnegative(),
+    /** The most recent first, at most 200; lastActivityAt to the minute. */
+    items: z.array(z.object({ card: MemberCard, lastActivityAt: Timestamp })),
+  }),
+});
+
 // Member of the month --------------------------------------------------------------------------
 
 /** What a member did in one calendar month (UTC) and the points it is worth. */

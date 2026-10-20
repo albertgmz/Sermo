@@ -270,6 +270,28 @@ describe("profiles.get: the member fields", () => {
     ).toBe("2026-01-01T10:30:00.000Z");
   });
 
+  test("a member who hides their online status keeps their last activity from others only", async () => {
+    const w = world();
+    const stamp = Date.UTC(2026, 0, 1, 10, 30, 45);
+    const hidden = w.user();
+    w.set(hidden.id, { last_activity_at: stamp, show_online: 0 });
+    // The buffered time is hidden too, not only the stored one.
+    w.ctx.activity.set(hidden.id, stamp + 60_000);
+    const seenBy = async (actor: object) =>
+      (await w.call("profiles.get", actor, { userId: hidden.id })).lastActivityAt;
+    expect(await seenBy(GUEST)).toBeNull();
+    expect(await seenBy(w.memberActor)).toBeNull();
+    // Themselves, and staff who may bypass profile privacy (moderators and administrators).
+    expect(await seenBy({ kind: "user", userId: hidden.id, groupId: 2, sessionId: 0 })).toBe(
+      "2026-01-01T10:31:00.000Z",
+    );
+    expect(await seenBy(w.moderatorActor)).toBe("2026-01-01T10:31:00.000Z");
+    expect(await seenBy(w.adminActor)).toBe("2026-01-01T10:31:00.000Z");
+    // Shown again once they show their status.
+    w.set(hidden.id, { show_online: 1 });
+    expect(await seenBy(w.memberActor)).toBe("2026-01-01T10:31:00.000Z");
+  });
+
   test("the viewer's follow and ignore are read for someone else only", async () => {
     const w = world();
     const other = w.user();

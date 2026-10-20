@@ -212,6 +212,11 @@ export const MemberPreferences = z
     homeTab: z.enum(HOME_TABS).nullable(),
     /** How the feed is drawn for you: full cards or compact rows. */
     feedView: z.enum(FEED_VIEWS),
+    /**
+     * Whether others see your online status: off leaves you out of users.recentlyActive and
+     * hides your last activity on your profile (staff with profile.bypassPrivacy still see it).
+     */
+    showOnline: z.boolean(),
   })
   .meta({ id: "MemberPreferences" });
 

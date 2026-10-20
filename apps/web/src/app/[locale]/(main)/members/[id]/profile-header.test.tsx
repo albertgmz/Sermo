@@ -20,7 +20,10 @@ afterAll(() => {
   mock.module("next-intl/server", () => intl);
 });
 
-const profile = (socials: Record<string, string>) =>
+const profile = (
+  socials: Record<string, string>,
+  lastActivityAt: string | null = null,
+) =>
   ({
     id: 5,
     username: "wren",
@@ -49,17 +52,20 @@ const profile = (socials: Record<string, string>) =>
     followingCount: 0,
     credits: 0,
     referralCount: 0,
-    lastActivityAt: null,
+    lastActivityAt,
     viewer: { isFollowing: false, isIgnoring: false },
     canPostOnWall: false,
   }) as never;
 
-async function header(socials: Record<string, string>) {
+async function header(
+  socials: Record<string, string>,
+  lastActivityAt: string | null = null,
+) {
   return new Response(
     await renderToReadableStream(
       withIntl(
         createElement(ProfileHeader, {
-          profile: profile(socials),
+          profile: profile(socials, lastActivityAt),
           viewerId: null,
           canMessage: false,
         }),
@@ -75,4 +81,12 @@ test("a Discord name is a button that copies it, never a link to nowhere", async
     /<button[^>]*aria-label="Copy the Discord name wren#42"/,
   );
   expect(html).toContain('href="https://x.com/wren_x"');
+});
+
+test("the last activity shows only when the backend gives it", async () => {
+  expect(await header({}, "2026-01-02T00:00:00.000Z")).toContain("Last seen");
+  // Null for a member who hides their online status (or was never seen): no "last seen" at all.
+  const hidden = await header({});
+  expect(hidden).not.toContain("Last seen");
+  expect(hidden).not.toContain('<time datetime="2026-01-02');
 });

@@ -179,9 +179,12 @@
     "heading": "Privacidad",
     "loading": "Cargando los ajustes de privacidad…",
     "sectionHeading": "Quién puede verte",
-    "sectionDescription": "Decide quién puede abrir tu perfil y quién puede publicar en él.",
+    "sectionDescription": "Decide quién puede abrir tu perfil, quién puede publicar en él y si los demás ven cuándo estás en línea.",
     "viewLegend": "Quién puede ver tu perfil",
     "postLegend": "Quién puede publicar en tu perfil",
+    "onlineLegend": "Estado en línea",
+    "onlineLabel": "Mostrar tu estado en línea",
+    "onlineHelp": "Los demás pueden ver cuándo estuviste activo por última vez, y apareces entre los miembros conectados.",
     "view": {
       "everyone": {
         "label": "Todos",

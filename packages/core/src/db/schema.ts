@@ -240,6 +240,11 @@ export const users = sqliteTable(
     permissionCombinationId: integer("permission_combination_id").notNull().default(0),
     /** Buffered in memory by requests and flushed by the scheduler. */
     lastActivityAt: integer("last_activity_at"),
+    /**
+     * Whether others may see when the member was last active: off leaves them out of public
+     * presence lists and hides their last activity from anyone without profile.bypassPrivacy.
+     */
+    showOnline: bool("show_online").notNull().default(true),
     followerCount: counter("follower_count"),
     followingCount: counter("following_count"),
     unreadNotificationCount: counter("unread_notification_count"),
@@ -352,6 +357,10 @@ export const users = sqliteTable(
     index("users_credits").on(desc(t.credits), t.id),
     index("users_award_count").on(desc(t.awardCount), t.id),
     index("users_referral_count").on(desc(t.referralCount), t.id),
+    // users.recentlyActive: WHERE last_activity_at >= ? ORDER BY last_activity_at DESC, id DESC
+    index("users_last_activity")
+      .on(desc(t.lastActivityAt), desc(t.id))
+      .where(sql`last_activity_at IS NOT NULL`),
     // users.birthdays: WHERE birthday_md = ? ORDER BY id
     index("users_birthday").on(t.birthdayMonthDay, t.id).where(sql`birthday_md IS NOT NULL`),
     // users.staff: the members whose primary group is one of the staff groups.

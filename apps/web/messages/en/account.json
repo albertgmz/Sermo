@@ -179,9 +179,12 @@
     "heading": "Privacy",
     "loading": "Loading privacy settings…",
     "sectionHeading": "Who can see you",
-    "sectionDescription": "Decide who may open your profile and who may post on it.",
+    "sectionDescription": "Decide who may open your profile, who may post on it and whether others see when you are online.",
     "viewLegend": "Who can view your profile",
     "postLegend": "Who can post on your profile",
+    "onlineLegend": "Online status",
+    "onlineLabel": "Show your online status",
+    "onlineHelp": "Others can see when you were last active, and you appear among the members online.",
     "view": {
       "everyone": {
         "label": "Everyone",

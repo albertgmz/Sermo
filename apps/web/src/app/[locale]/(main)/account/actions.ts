@@ -228,6 +228,8 @@ export async function savePrivacy(
     call(preferencesUpdate, {
       profileViewPrivacy: text(formData, "profileViewPrivacy") as "everyone",
       profilePostPrivacy: text(formData, "profilePostPrivacy") as "members",
+      // A checkbox: absent from the form when unticked.
+      showOnline: formData.get("showOnline") === "on",
     }),
   );
   if (!saved.ok) return { error: saved.error };

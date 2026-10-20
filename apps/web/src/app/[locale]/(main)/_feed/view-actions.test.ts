@@ -37,6 +37,7 @@ const PREFERENCES = {
   keyboardShortcuts: true,
   homeTab: null,
   feedView: "compact",
+  showOnline: true,
 };
 
 // The backend: auth.me for the visitor and an answer for the preferences write.
