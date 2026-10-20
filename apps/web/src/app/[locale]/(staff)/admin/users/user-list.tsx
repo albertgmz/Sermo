@@ -1,6 +1,6 @@
 import { ACCOUNT_STATES, usersAdminList } from "@sermo/core/contracts";
 import Link from "next/link";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
@@ -11,6 +11,7 @@ import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatCredits } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getGroups } from "../groups/data";
@@ -35,11 +36,12 @@ export async function UserList({
     : undefined;
   const groupId = parseId(one(params.group)) ?? undefined;
   const prefix = one(params.q).trim().slice(0, 64) || undefined;
-  const [t, states, groups, format, page] = await Promise.all([
+  const [t, states, groups, format, locale, page] = await Promise.all([
     getTranslations("adminUsers.list"),
     getTranslations("adminUsers.states"),
     getGroups(),
     getFormatter(),
+    getLocale(),
     read(usersAdminList, {
       state: stateFilter,
       groupId,
@@ -90,7 +92,7 @@ export async function UserList({
               {t("posts")}: {format.number(member.postCount)}
             </span>
             <span className="tabular-nums">
-              {t("credits")}: {format.number(member.credits)}
+              {t("credits")}: {formatCredits(member.credits, locale)}
             </span>
           </span>
         </>

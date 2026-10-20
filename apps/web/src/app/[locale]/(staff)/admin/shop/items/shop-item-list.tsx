@@ -1,6 +1,6 @@
 import { shopItemsList } from "@sermo/core/contracts";
 import Link from "next/link";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { Art } from "@/components/forum/art";
 import { ShopIcon } from "@/components/forum/shop-icon";
 import { ConfirmStep } from "@/components/staff/confirm-step";
@@ -11,6 +11,7 @@ import { AddLink } from "@/components/staff/page-header";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCredits } from "@/lib/format";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { one } from "../../credits/shared";
@@ -27,10 +28,11 @@ export async function ShopItemList({
 }: {
   searchParams: PageProps<"/[locale]/admin/shop/items">["searchParams"];
 }) {
-  const [t, effects, format, lookups, params] = await Promise.all([
+  const [t, effects, format, locale, lookups, params] = await Promise.all([
     getTranslations("adminEconomy.items"),
     getTranslations("adminEconomy.items.effects"),
     getFormatter(),
+    getLocale(),
     getLookups(),
     searchParams,
   ]);
@@ -124,7 +126,7 @@ export async function ShopItemList({
               </span>
               <span className="block">
                 {t("facts", {
-                  price: format.number(item.price),
+                  price: formatCredits(item.price, locale),
                   stock:
                     item.stock === null
                       ? t("unlimited")

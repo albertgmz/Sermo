@@ -1,7 +1,8 @@
 import { creditsLedger } from "@sermo/core/contracts";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { LogTable } from "@/components/staff/log-table";
+import { formatCredits } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { MemberLink, memberNames, panelHref } from "../links";
@@ -14,10 +15,10 @@ type Params = PageProps<"/[locale]/admin/logs/credits">["searchParams"];
 export async function CreditLedger({ searchParams }: { searchParams: Params }) {
   const params = await searchParams;
   const userId = memberFilterId(params, "userId") ?? undefined;
-  const [t, kinds, format, viewer, page] = await Promise.all([
+  const [t, kinds, locale, viewer, page] = await Promise.all([
     getTranslations("adminTools.creditLedger"),
     getTranslations("credits.history.types"),
-    getFormatter(),
+    getLocale(),
     getViewer(),
     read(creditsLedger, { userId, cursor: cursorFrom(params), limit: 25 }),
   ]);
@@ -45,7 +46,7 @@ export async function CreditLedger({ searchParams }: { searchParams: Params }) {
       />
       {page.balance !== null && (
         <p className="rounded-lg border bg-card px-4 py-2.5 text-sm font-medium">
-          {t("balance", { balance: format.number(page.balance) })}
+          {t("balance", { balance: formatCredits(page.balance, locale) })}
         </p>
       )}
       <LogTable
@@ -57,7 +58,7 @@ export async function CreditLedger({ searchParams }: { searchParams: Params }) {
           id: row.id,
           at: row.createdAt,
           actor: row.actor ? member(row.actor.id) : null,
-          action: `${kinds(row.type)} ${format.number(row.amount, { signDisplay: "always" })}`,
+          action: `${kinds(row.type)} ${formatCredits(row.amount, locale, { signed: true })}`,
           target: member(row.userId),
           details: {
             [t("balanceAfter")]: row.balanceAfter,

@@ -3,7 +3,7 @@
     "metaTitle": "Upgrade",
     "heading": "Ranks",
     "description": "Spend your credits on a rank to unlock what it includes. Moving up a rank costs only the difference.",
-    "credits": "{count, plural, other {You have <amount>#</amount> credits to spend.}}",
+    "credits": "You have <amount>{balance}</amount> credits to spend.",
     "guestCredits": "Log in to see your credits.",
     "login": "Log in to upgrade",
     "currentRank": "Your current rank",

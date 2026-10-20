@@ -10,7 +10,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { LevelBadge } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
-import { formatCompact, formatNumber } from "@/lib/format";
+import { formatCompact, formatCredits, formatNumber } from "@/lib/format";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -128,7 +128,10 @@ export function LeaderboardScore({
   const count = value(member);
   return (
     <span
-      title={t(`titles.${by}`, { count })}
+      title={t(`titles.${by}`, {
+        count,
+        amount: formatCredits(count, locale),
+      })}
       className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold tabular-nums"
     >
       <Icon
@@ -138,7 +141,9 @@ export function LeaderboardScore({
           accent ? "text-primary-ink" : "text-muted-foreground",
         )}
       />
-      {compact ? formatCompact(count, locale) : formatNumber(count, locale)}
+      {compact
+        ? formatCompact(count, locale)
+        : (by === "credits" ? formatCredits : formatNumber)(count, locale)}
       <span className="sr-only"> {t(`aria.units.${by}`, { count })}</span>
     </span>
   );

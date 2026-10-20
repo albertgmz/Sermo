@@ -1,7 +1,7 @@
 import { creditsHistory } from "@sermo/core/contracts";
 import { getLocale, getTranslations } from "next-intl/server";
 import { RelativeTime } from "@/components/forum/relative-time";
-import { formatNumber } from "@/lib/format";
+import { formatCredits } from "@/lib/format";
 import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { cn } from "@/lib/utils";
@@ -48,11 +48,11 @@ export async function historyPage(
               )}
             >
               {line.amount < 0 ? "−" : "+"}
-              {formatNumber(Math.abs(line.amount), locale)}
+              {formatCredits(Math.abs(line.amount), locale)}
             </p>
             <p className="text-xs text-muted-foreground tabular-nums">
               {t("balanceAfter", {
-                balance: formatNumber(line.balanceAfter, locale),
+                balance: formatCredits(line.balanceAfter, locale),
               })}
             </p>
           </div>

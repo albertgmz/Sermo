@@ -22,7 +22,7 @@ import { Container } from "@/components/layout/container";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { formatNumber } from "@/lib/format";
+import { formatCredits } from "@/lib/format";
 import { pagesParam } from "@/lib/list-pages";
 import { read, readIfAllowed } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
@@ -62,7 +62,7 @@ async function Balance() {
               aria-hidden="true"
               className="size-9 shrink-0 text-primary-ink"
             />
-            {formatNumber(ledger.balance, locale)}
+            {formatCredits(ledger.balance, locale)}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             {t("balanceDescription")}

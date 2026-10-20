@@ -24,6 +24,13 @@ function build(locale: string) {
       maximumFractionDigits: 1,
     }),
     full: new Intl.NumberFormat(locale),
+    // Always grouped: Spanish groups only from five digits by default (2300, 23.000), where a
+    // price reads as an amount of money only with the separator (2.300).
+    credits: new Intl.NumberFormat(locale, { useGrouping: "always" }),
+    creditsSigned: new Intl.NumberFormat(locale, {
+      useGrouping: "always",
+      signDisplay: "always",
+    }),
   };
 }
 
@@ -83,6 +90,17 @@ export function formatCompact(value: number, locale: string): string {
 
 export function formatNumber(value: number, locale: string): string {
   return formatters(locale).full.format(value);
+}
+
+// An amount of credits (a price, a balance, a ledger line): the one formatter for all of them.
+// `signed` shows + or - before the amount, for a ledger line.
+export function formatCredits(
+  value: number,
+  locale: string,
+  { signed = false }: { signed?: boolean } = {},
+): string {
+  const { credits, creditsSigned } = formatters(locale);
+  return (signed ? creditsSigned : credits).format(value);
 }
 
 // A file's size in the unit that reads best, up to one decimal.

@@ -4,7 +4,7 @@ import {
   creditsLedger,
   shopInventory,
 } from "@sermo/core/contracts";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { UserLink } from "@/components/forum/user-link";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { cursorFrom } from "@/components/staff/cursor-list";
@@ -14,6 +14,7 @@ import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatCredits } from "@/lib/format";
 import { call } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { ifAllowed } from "../../data";
@@ -47,9 +48,9 @@ export async function Ledger({
   params: Params;
   balance: number;
 }) {
-  const [t, format, page] = await Promise.all([
+  const [t, locale, page] = await Promise.all([
     getTranslations("adminUsers.economy"),
-    getFormatter(),
+    getLocale(),
     call(creditsLedger, { userId, cursor: cursorFrom(params, "ledger") }),
   ]);
   return (
@@ -62,7 +63,7 @@ export async function Ledger({
               className={`tabular-nums ${row.amount < 0 ? "text-destructive" : "text-success"}`}
             >
               {row.amount > 0 ? "+" : ""}
-              {format.number(row.amount)}
+              {formatCredits(row.amount, locale)}
             </span>{" "}
             {row.reason}
           </>
@@ -76,7 +77,7 @@ export async function Ledger({
               </>
             ) : null}
             {row.source ? `${row.source.type} #${row.source.id} · ` : ""}
-            {t("after", { balance: format.number(row.balanceAfter) })} ·{" "}
+            {t("after", { balance: formatCredits(row.balanceAfter, locale) })} ·{" "}
             <Time at={row.createdAt} />
           </>
         ),
@@ -93,7 +94,7 @@ export async function Ledger({
         <>
           {t("balance")}{" "}
           <strong className="tabular-nums text-foreground">
-            {format.number(page.balance ?? balance)}
+            {formatCredits(page.balance ?? balance, locale)}
           </strong>
         </>
       }

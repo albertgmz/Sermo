@@ -5251,3 +5251,8 @@ over them stalled one commit for 370 ms), and other subscribers handle a batch w
   same on the 360 px card, the desktop card and the inventory thumbnail), and the item's own
   picture is not drawn behind it when the frame can be worn (it is usually the frame itself, which
   drew it twice). A frame the catalog no longer holds falls back to the item's picture.
+- Every amount of credits (a price, a balance, a ledger line, a reward) is written by one
+  formatter, `formatCredits` in `lib/format.ts`, in the visitor's language and always grouped:
+  Spanish groups four digits only when asked ("2300" by default, "2.300" here), and an amount
+  of money reads wrong without the separator. Plain counts keep `formatNumber`. A message that
+  holds an amount takes it already written (`{amount}`), never as an ICU `#`.

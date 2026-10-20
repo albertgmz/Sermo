@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
+import { formatCredits } from "@/lib/format";
 import { parseId } from "@/lib/sermo/ids";
 import { one } from "../credits/shared";
 import { deleteRule } from "./actions";
@@ -25,9 +26,9 @@ export async function RuleList({
   // The "Add rule" link, offered again when the list is empty.
   addAction: React.ReactNode;
 }) {
-  const [t, format, { items, nodes }, params] = await Promise.all([
+  const [t, locale, { items, nodes }, params] = await Promise.all([
     getTranslations("adminEconomy.rules"),
-    getFormatter(),
+    getLocale(),
     ruleData(),
     searchParams,
   ]);
@@ -68,7 +69,7 @@ export async function RuleList({
                   rule.amount < 0 ? "text-destructive" : "text-success"
                 }
               >
-                {format.number(rule.amount, { signDisplay: "always" })}
+                {formatCredits(rule.amount, locale, { signed: true })}
               </strong>
               {" · "}
               {rule.limit

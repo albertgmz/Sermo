@@ -1,6 +1,6 @@
 import { creditsLedger } from "@sermo/core/contracts";
 import Link from "next/link";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { Field } from "@/components/staff/edit-form";
 import { FormRows } from "@/components/staff/form-rows";
 import { Notice } from "@/components/staff/notice";
@@ -8,6 +8,7 @@ import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatCredits } from "@/lib/format";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
@@ -32,10 +33,11 @@ export async function AdjustScreen({
   searchParams: PageProps<"/[locale]/admin/credits">["searchParams"];
 }) {
   const params: Params = await searchParams;
-  const [t, kinds, format, viewer] = await Promise.all([
+  const [t, kinds, format, locale, viewer] = await Promise.all([
     getTranslations("adminEconomy.adjust"),
     getTranslations("credits.history.types"),
     getFormatter(),
+    getLocale(),
     getViewer(),
   ]);
   const userId = parseId(one(params.userId));
@@ -46,7 +48,9 @@ export async function AdjustScreen({
     adjusted:
       newBalance === null
         ? t("notices.adjusted")
-        : t("notices.adjustedBalance", { balance: format.number(newBalance) }),
+        : t("notices.adjustedBalance", {
+            balance: formatCredits(newBalance, locale),
+          }),
   };
   const picker = (
     <MemberChoice
@@ -105,7 +109,7 @@ export async function AdjustScreen({
         description={
           balance === null
             ? t("balanceUnknown")
-            : t("balanceNow", { balance: format.number(balance) })
+            : t("balanceNow", { balance: formatCredits(balance, locale) })
         }
       >
         <form method="get" className="divide-y">
@@ -167,15 +171,15 @@ export async function AdjustScreen({
             <p className="text-sm [overflow-wrap:anywhere]">
               {t("summaryLine", {
                 name: name(userId),
-                amount: format.number(amount, { signDisplay: "always" }),
+                amount: formatCredits(amount, locale, { signed: true }),
                 reason,
               })}
             </p>
             {balance !== null ? (
               <p className="text-sm font-medium">
                 {t("beforeAfter", {
-                  before: format.number(balance),
-                  after: format.number(balance + amount),
+                  before: formatCredits(balance, locale),
+                  after: formatCredits(balance + amount, locale),
                 })}
               </p>
             ) : (
@@ -218,7 +222,7 @@ export async function AdjustScreen({
                   <p
                     className={`font-semibold tabular-nums ${row.amount < 0 ? "text-destructive" : "text-success"}`}
                   >
-                    {format.number(row.amount, { signDisplay: "always" })}
+                    {formatCredits(row.amount, locale, { signed: true })}
                   </p>
                   <div className="min-w-0 space-y-0.5 [overflow-wrap:anywhere]">
                     <p>
@@ -228,7 +232,9 @@ export async function AdjustScreen({
                     <p className="text-xs text-muted-foreground">
                       {row.actor &&
                         `${t("by", { name: name(row.actor.id) })} · `}
-                      {t("after", { balance: format.number(row.balanceAfter) })}
+                      {t("after", {
+                        balance: formatCredits(row.balanceAfter, locale),
+                      })}
                     </p>
                   </div>
                   <time

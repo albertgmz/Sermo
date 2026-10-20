@@ -1,6 +1,6 @@
 import { Coins } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { formatNumber } from "@/lib/format";
+import { formatCredits } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function Credits({
@@ -23,7 +23,7 @@ export function Credits({
         aria-hidden="true"
         className="size-[1em] shrink-0 text-primary-ink"
       />
-      {formatNumber(value, locale)}
+      {formatCredits(value, locale)}
       <span className="sr-only"> {t("aria.unit")}</span>
     </span>
   );

@@ -15,7 +15,7 @@ import { UserBadges } from "@/components/forum/user-badges";
 import { userNameProps } from "@/components/forum/user-name";
 import { Container } from "@/components/layout/container";
 import { buttonVariants } from "@/components/ui/button";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatCredits, formatDate, formatNumber } from "@/lib/format";
 
 import { cn } from "@/lib/utils";
 
@@ -75,7 +75,7 @@ export function ProfileHeader({
       label: t("followingLabel"),
       value: formatNumber(profile.followingCount, locale),
     },
-    { label: t("creditsLabel"), value: formatNumber(profile.credits, locale) },
+    { label: t("creditsLabel"), value: formatCredits(profile.credits, locale) },
     {
       label: t("referralsLabel"),
       value: formatNumber(profile.referralCount, locale),

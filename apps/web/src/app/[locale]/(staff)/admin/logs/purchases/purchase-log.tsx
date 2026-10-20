@@ -1,7 +1,8 @@
 import { shopPurchases } from "@sermo/core/contracts";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { LogTable } from "@/components/staff/log-table";
+import { formatCredits } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { MemberLink, memberNames, panelHref } from "../links";
@@ -14,9 +15,9 @@ type Params = PageProps<"/[locale]/admin/logs/purchases">["searchParams"];
 export async function PurchaseLog({ searchParams }: { searchParams: Params }) {
   const params = await searchParams;
   const buyerId = memberFilterId(params, "buyerId") ?? undefined;
-  const [t, format, viewer, page] = await Promise.all([
+  const [t, locale, viewer, page] = await Promise.all([
     getTranslations("adminTools.purchases"),
-    getFormatter(),
+    getLocale(),
     getViewer(),
     read(shopPurchases, { buyerId, cursor: cursorFrom(params), limit: 25 }),
   ]);
@@ -63,7 +64,7 @@ export async function PurchaseLog({ searchParams }: { searchParams: Params }) {
           details: {
             [t("item")]: row.item.id,
             [t("quantity")]: row.quantity,
-            [t("price")]: format.number(row.price),
+            [t("price")]: formatCredits(row.price, locale),
           },
         }))}
         empty={{ title: t("emptyTitle"), description: t("emptyDescription") }}

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   formatBytes,
   formatCompact,
+  formatCredits,
   formatDate,
   formatDateTime,
   formatNumber,
@@ -44,4 +45,18 @@ test("numbers use the separators of the language", () => {
 test("the time zone stays UTC in every language", () => {
   expect(formatDateTime("2026-03-09T23:30:00.000Z", "en")).toContain("11:30");
   expect(formatDate("2026-03-09T23:30:00.000Z", "es")).toBe("9 mar 2026");
+});
+
+test("credit amounts are always grouped: Spanish groups four digits too, plain numbers do not", () => {
+  expect(formatNumber(2300, "es")).toBe("2300");
+  expect(formatCredits(2300, "es")).toBe("2.300");
+  expect(formatCredits(2300, "en")).toBe("2,300");
+  expect(formatCredits(39000, "es")).toBe("39.000");
+  expect(formatCredits(900, "es")).toBe("900");
+});
+
+test("a signed credit amount shows its sign and the grouping", () => {
+  expect(formatCredits(2300, "es", { signed: true })).toBe("+2.300");
+  expect(formatCredits(-2300, "en", { signed: true })).toBe("-2,300");
+  expect(formatCredits(0, "en", { signed: true })).toBe("+0");
 });

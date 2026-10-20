@@ -1,5 +1,5 @@
 import { awardsList } from "@sermo/core/contracts";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { ItemList, RowLink } from "@/components/staff/item-list";
@@ -7,6 +7,7 @@ import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { RunNow } from "@/components/staff/run-now";
 import { Badge } from "@/components/ui/badge";
+import { formatCredits } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { deleteAward, runAwards } from "./actions";
 
@@ -21,9 +22,10 @@ export async function AwardList({
   // The "Add award" link, offered again when the list is empty.
   addAction: React.ReactNode;
 }) {
-  const [t, format, { items }] = await Promise.all([
+  const [t, format, locale, { items }] = await Promise.all([
     getTranslations("adminEconomy.awards"),
     getFormatter(),
+    getLocale(),
     read(awardsList, {}),
   ]);
   return (
@@ -51,7 +53,7 @@ export async function AwardList({
           href: `/admin/awards/${award.id}`,
           description: t("facts", {
             xp: format.number(award.xp),
-            credits: format.number(award.credits),
+            credits: formatCredits(award.credits, locale),
             holders: format.number(award.grantCount),
           }),
           badges: (

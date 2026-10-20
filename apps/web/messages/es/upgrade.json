@@ -3,7 +3,7 @@
     "metaTitle": "Mejorar cuenta",
     "heading": "Rangos",
     "description": "Gasta tus créditos en un rango para desbloquear lo que incluye. Subir de rango cuesta solo la diferencia.",
-    "credits": "{count, plural, other {Créditos para gastar: <amount>#</amount>.}}",
+    "credits": "Créditos para gastar: <amount>{balance}</amount>.",
     "guestCredits": "Inicia sesión para ver tus créditos.",
     "login": "Inicia sesión para mejorar",
     "currentRank": "Tu rango actual",

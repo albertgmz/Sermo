@@ -193,7 +193,7 @@
     "xp": "XP",
     "xpTitle": "{xp} XP",
     "titles": {
-      "credits": "{count, plural, one {# credit} other {# credits}}",
+      "credits": "{count, plural, one {{amount} credit} other {{amount} credits}}",
       "posts": "{count, plural, one {# post} other {# posts}}",
       "reactions": "{count, plural, one {# reaction} other {# reactions}}",
       "awards": "{count, plural, one {# award} other {# awards}}",

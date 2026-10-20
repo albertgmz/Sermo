@@ -25,7 +25,7 @@ import {
   heroTitleClass,
 } from "@/components/layout/page-hero";
 import { buttonVariants } from "@/components/ui/button";
-import { formatNumber } from "@/lib/format";
+import { formatCredits } from "@/lib/format";
 import { call, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { getViewer } from "@/lib/sermo/session";
@@ -101,7 +101,7 @@ async function RankAction({
     <RankForm
       itemId={rank.id}
       rankName={rank.name}
-      cost={formatNumber(rank.price - (current?.price ?? 0), locale)}
+      cost={formatCredits(rank.price - (current?.price ?? 0), locale)}
       upgrade={Boolean(current)}
     />
   );
@@ -136,7 +136,7 @@ async function RankCard({
           {upgrading && (
             <p className="mt-1 text-xs text-muted-foreground tabular-nums">
               {t("upgradePrice", {
-                price: formatNumber(rank.price - current.price, locale),
+                price: formatCredits(rank.price - current.price, locale),
                 rank: current.name,
               })}
             </p>
@@ -159,8 +159,9 @@ async function RankCard({
 }
 
 async function Hero() {
-  const [t, { user }] = await Promise.all([
+  const [t, locale, { user }] = await Promise.all([
     getTranslations("upgrade.upgrade"),
+    getLocale(),
     getViewer(),
   ]);
   const ledger = user ? await read(creditsHistory, { limit: 1 }) : null;
@@ -179,7 +180,7 @@ async function Hero() {
           <span className="text-muted-foreground">
             {ledger
               ? t.rich("credits", {
-                  count: ledger.balance,
+                  balance: formatCredits(ledger.balance, locale),
                   amount: (chunks) => (
                     <span className="font-semibold text-foreground tabular-nums">
                       {chunks}
