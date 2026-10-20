@@ -2,11 +2,13 @@ import { afterAll, expect, mock, test } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 
+// The visitor's data saver cookie, as the test sets it.
+let cookie = "";
 mock.module("server-only", () => ({}));
 const nextHeaders = { ...(await import("next/headers")) };
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
-  cookies: async () => ({ get: () => undefined, toString: () => "" }),
+  cookies: async () => ({ get: () => undefined, toString: () => cookie }),
 }));
 
 const { ItemPreview } = await import("./item-preview");
@@ -53,7 +55,7 @@ async function draw(
   item: Parameters<typeof ItemPreview>[0]["item"],
   size?: "card" | "thumb",
 ) {
-  const element = ItemPreview({ item, catalogs, wearer, size });
+  const element = await ItemPreview({ item, catalogs, wearer, size });
   return new Response(await renderToReadableStream(withIntl(element))).text();
 }
 
@@ -87,4 +89,44 @@ test("a frame the catalog no longer holds keeps the item's picture", async () =>
     image: itemImage("/api/v1/files/item.png"),
   });
   expect(html).toContain("item.png");
+});
+
+test("a frame narrower than the avatar leaves the avatar itself inside the box", async () => {
+  const narrow = {
+    ...catalogs,
+    frames: new Map([
+      [
+        7,
+        {
+          ...catalogs.frames.get(7),
+          placement: { width: 60, left: 20, top: 20, scale: 100 },
+        },
+      ],
+    ]),
+  } as unknown as typeof catalogs;
+  const element = await ItemPreview({
+    item: frameItem(false),
+    catalogs: narrow,
+    wearer,
+  });
+  const html = await new Response(
+    await renderToReadableStream(withIntl(element)),
+  ).text();
+  expect(html).toContain("min(80cqh, 80cqw)");
+});
+
+test("with frame pictures blocked the card shows the item's picture, never a plain avatar", async () => {
+  cookie = "forum_lite=frames";
+  try {
+    const withPicture = await draw(frameItem(true));
+    expect(withPicture).toContain("item.png");
+    expect(withPicture).not.toContain("frame.png");
+    expect(withPicture).not.toContain("avatar");
+    const without = await draw(frameItem(false));
+    expect(without).not.toContain("frame.png");
+    expect(without).not.toContain('data-slot="avatar"');
+    expect(without).toContain("<svg");
+  } finally {
+    cookie = "";
+  }
 });

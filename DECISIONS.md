@@ -5250,7 +5250,10 @@ over them stalled one commit for 370 ms), and other subscribers handle a batch w
   placement width so the whole frame fills 80% of the picture box (a container-query size, the
   same on the 360 px card, the desktop card and the inventory thumbnail), and the item's own
   picture is not drawn behind it when the frame can be worn (it is usually the frame itself, which
-  drew it twice). A frame the catalog no longer holds falls back to the item's picture.
+  drew it twice). A frame the catalog no longer holds falls back to the item's picture, and so does a
+  visitor who blocks frame pictures (data saver): the card shows the item's picture or the glyph of
+  its effect, never a plain avatar. A frame narrower than its avatar sizes the avatar itself to the
+  same 80%.
 - Every amount of credits (a price, a balance, a ledger line, a reward) is written by one
   formatter, `formatCredits` in `lib/format.ts`, in the visitor's language and always grouped:
   Spanish groups four digits only when asked ("2300" by default, "2.300" here), and an amount

@@ -7,6 +7,7 @@ import { NameWithIcon } from "@/components/forum/name-icon";
 import { ShopIcon } from "@/components/forum/shop-icon";
 import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
 import { userNameProps } from "@/components/forum/user-name";
+import { liteBlocks } from "@/lib/lite-mode";
 import { cn } from "@/lib/utils";
 
 // Whose avatar and name an item is tried on.
@@ -23,7 +24,7 @@ const FRAME_FILL = 80;
 // An item's picture: its own, else the one its effect names (a cover), with the effect tried on
 // the viewer where it can be (a frame around their avatar, a colour on their name). An item with
 // neither shows the glyph of its effect.
-export function ItemPreview({
+export async function ItemPreview({
   item,
   catalogs,
   wearer,
@@ -39,8 +40,11 @@ export function ItemPreview({
     effect.type === "threadCover" ? catalogs.covers.get(effect.coverId) : null;
   const frame =
     effect.type === "frame" ? catalogs.frames.get(effect.frameId) : undefined;
+  // A visitor who blocks frame pictures (data saver) sees no frame worn: the card then shows what
+  // any other item without a worn preview shows, its own picture or a placeholder, never a plain
+  // avatar.
   const worn =
-    frame?.image && frame.placement
+    frame?.image && frame.placement && !(await liteBlocks("frames"))
       ? { url: frame.image.url, placement: frame.placement }
       : null;
   // The avatar wearing the frame is the preview: the item's own picture, usually the frame
@@ -60,21 +64,19 @@ export function ItemPreview({
   ) : null;
 
   let front: React.ReactNode = null;
-  if (effect.type === "frame") {
+  if (worn) {
     // The frame is drawn wider than the avatar (its placement is a percentage of the avatar's
-    // width), so the avatar is sized from the box to leave the whole frame inside it.
-    const side = worn ? FRAME_FILL / (worn.placement.width / 100) : 0;
+    // width), so the avatar is sized from the box to leave the whole frame inside it. A frame
+    // narrower than the avatar leaves the avatar itself the wider of the two.
+    const side = FRAME_FILL / (Math.max(worn.placement.width, 100) / 100);
     const fit = `min(${side}cqh, ${side}cqw)`;
     front = (
-      <div
-        className="shrink-0"
-        style={worn ? { width: fit, height: fit } : undefined}
-      >
+      <div className="shrink-0" style={{ width: fit, height: fit }}>
         <UserAvatar
           user={{ ...wearer, frame: worn }}
-          size={worn ? "2xl" : size === "card" ? "xl" : "md"}
+          size="2xl"
           link={false}
-          className={worn ? "size-full" : undefined}
+          className="size-full"
         />
       </div>
     );
