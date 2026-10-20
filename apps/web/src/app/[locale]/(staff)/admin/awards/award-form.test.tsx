@@ -26,6 +26,7 @@ async function form(award?: Parameters<typeof AwardFormFields>[0]["award"]) {
         reactionTypes: [],
       }),
     "shopCategories.list": () => Response.json({ items: [] }),
+    "awardCategories.list": () => Response.json({ items: [] }),
   });
   return htmlOf(await AwardFormFields({ award }));
 }
