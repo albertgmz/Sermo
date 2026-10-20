@@ -6,7 +6,17 @@ import { renderEmail } from "./template";
 test("template escapes hostile text and removes header newlines", async () => {
   const rendered = await renderEmail({
     language: "en",
-    site: "Sermo",
+    brand: {
+      name: "Sermo",
+      url: "https://forum.example.test",
+      logoUrl: null,
+      iconUrl: null,
+      accent: "#dc2626",
+      accentForeground: "#ffffff",
+      contactUrl: null,
+      preferencesUrl: "https://forum.example.test/account/notifications",
+    },
+    reason: "account",
     subject: "Hello\r\nBcc: attacker@example.test",
     body: '<img src=x onerror="alert(1)">',
   });

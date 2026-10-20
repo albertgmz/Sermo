@@ -5005,3 +5005,36 @@ the upload route refuses a guest before it looks at the purpose, the content typ
 - Not changed: MCP "Tool arguments must be an object" (a protocol error before the operation), the
   415 for a session cookie with a body that is not JSON, and the hidden routes that answer a
   guest 404 on purpose.
+
+### Branded email layout
+
+Every email (account and security mail, notification mail, the weekly digest) shares one layout in
+`mail/template.ts`: a white header bar with the site's logo, else its icon beside its name, else the
+name, linking home, under a stripe of the site's accent; a white card with the subject as a heading,
+the body, and one accent button per link with its address written out below for apps that block
+buttons (the digest's threads are a list of linked titles instead); and a footer with the site's
+name, why the member got the mail, the unsubscribe links (notification and digest mail only, never
+account mail, which the template's types enforce) and links home, to the published `contact` page
+and, for notification mail, to `/account/notifications`. A hidden preheader repeats the body's
+first line. Every string is in the core `en`/`es` catalogs and the mail's language is the member's,
+else the site's `defaultLanguage`. The plain-text part carries the same parts.
+
+- The branding (`modules/email/branding.ts`) is built from the settings each path already reads,
+  the cached appearance catalogs and one indexed lookup of the contact page; the digest builds it
+  once per batch. Site settings have no cache key of their own.
+- The accent is the palette's first active accent, as the web app shows guests, else Sermo's
+  `#dc2626`/`#ffffff`. Link text uses the accent moved toward black (light) or white (dark) until it
+  reads at 4.5:1, so a pale accent stays legible; the button keeps the accent and its foreground.
+  The template itself replaces an accent that is not `#rrggbb` (the colours go into attributes and
+  a stylesheet). No web fonts are imported: the system fonts come first in the stack.
+- Pictures are absolute addresses of the public files (the public file origin when set). The logo
+  is stored only as WebP, which classic Outlook for Windows cannot show: Outlook gets the PNG icon
+  and the name in a conditional comment instead.
+- Dark mode: every element has explicit light colours, so apps that recolour mail themselves
+  (Gmail's apps, Outlook) invert a complete palette. Apps that honour `prefers-color-scheme` (Apple
+  Mail, Outlook for Mac and iOS) get a dark card by class; a header that shows the logo stays white,
+  since a logo is drawn for a light background. Known limit: Gmail's apps and Outlook darken that
+  header but not the picture, so a dark, transparent logo loses contrast there.
+- Why MJML: it is already the dependency and compiles to the table layout and Outlook conditional
+  comments these clients need; a framework such as Maizzle would add a build step and a dependency
+  for the same output.

@@ -9,7 +9,8 @@ import { phrase } from "../../i18n";
 import type { CaptureMailer } from "../../mail";
 import { execute } from "../../operation";
 import { enqueueJob, MAX_ATTEMPTS, runDueJobs } from "../jobs/queue";
-import { readSiteSettings } from "../settings";
+import { readSiteSettings, storeSiteSettings } from "../settings";
+import * as branding from "./branding";
 import {
   closeEmail,
   deliverEmail,
@@ -416,6 +417,34 @@ describe("email channel", () => {
     await runDueJobs(f.ctx);
     expect(f.capture.messages).toHaveLength(1);
     expect(f.capture.messages[0]?.headers).toBeUndefined();
+    // Security mail says it is about the account and carries no way to turn it off.
+    for (const part of [f.capture.messages[0]!.text, f.capture.messages[0]!.html]) {
+      expect(part).not.toContain("unsubscribe");
+      expect(part).not.toContain("/account/notifications");
+      expect(part).toContain("because it concerns your account");
+    }
+  });
+
+  test("the digest builds the site's branding once per batch and shows it in every message", async () => {
+    const f = digestFixture(4);
+    const settings = readSiteSettings(f.ctx);
+    storeSiteSettings(f.ctx, { ...settings, siteName: "Foros Cuba", logoFileId: 7 });
+    f.ctx.config.siteBaseURL = "https://forum.example.test";
+    const build = spyOn(branding, "siteBranding");
+    try {
+      enqueueJob(f.ctx, "email.digest.sweep", {}, { uniqueKey: "email.digest.sweep" });
+      await drain(f.ctx);
+      expect(f.capture.messages).toHaveLength(5);
+      expect(build).toHaveBeenCalledTimes(1);
+    } finally {
+      build.mockRestore();
+    }
+    for (const message of f.capture.messages) {
+      expect(message.html).toContain('<img src="https://forum.example.test/api/v1/files/7"');
+      expect(message.text).toContain("Foros Cuba\n\nYour weekly digest from Foros Cuba");
+      expect(message.text).toContain("Recent\n0 replies\nhttps://forum.example.test/threads/");
+      expect(message.text).toContain("Stop all notification emails");
+    }
   });
 
   test("digest filters a node denied to the recipient", async () => {

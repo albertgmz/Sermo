@@ -6,6 +6,7 @@ import { languageFor } from "../../i18n";
 import { type AccountTemplate, renderAccountEmail } from "../../mail/template";
 import { enqueueJob, MAX_ATTEMPTS, registerJobHandler } from "../jobs/queue";
 import { readSiteSettings } from "../settings";
+import { siteBranding } from "./branding";
 import { accountMailState, mailboxRejected, recordFailure, undeliverable } from "./index";
 
 type AccountJob = {
@@ -85,7 +86,7 @@ export function registerAccountEmailJobs(ctx: Ctx): void {
         const rendered = await renderAccountEmail({
           kind: job.kind,
           language: languageFor(member.language, settings.defaultLanguage),
-          site: settings.siteName,
+          brand: siteBranding(ctx, settings),
           ...(job.url ? { url: job.url } : {}),
           ...(job.reason ? { reason: job.reason } : {}),
           ...(job.expiresAt !== undefined ? { expiresAt: job.expiresAt } : {}),

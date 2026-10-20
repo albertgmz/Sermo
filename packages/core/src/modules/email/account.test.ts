@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestContext, expectNoTableScan, insertUser } from "@sermo/core/testing";
 import { dispatchEvents } from "../../events";
 import { runDueJobs } from "../jobs/queue";
+import { readSiteSettings, storeSiteSettings } from "../settings";
 import { queueAccountEmail, registerAccountEmailJobs } from "./account";
 import { registerEmailJobs } from "./index";
 
@@ -174,4 +175,50 @@ test("account send failures are recorded and retried", async () => {
     ctx.sqlite.prepare<{ permanent: number }, []>("SELECT permanent FROM email_failures").get()
       ?.permanent,
   ).toBe(0);
+});
+
+test("account mail speaks the member's language, else the site's, with the site's branding", async () => {
+  const ctx = createTestContext();
+  ctx.config.siteBaseURL = "https://forum.example.test";
+  storeSiteSettings(ctx, {
+    ...readSiteSettings(ctx),
+    siteName: "Foros Cuba",
+    defaultLanguage: "es",
+    iconFileId: 9,
+  });
+  const unset = insertUser(ctx, { username: "Unset" });
+  const english = insertUser(ctx, { username: "English" });
+  ctx.sqlite.prepare("UPDATE users SET language = NULL WHERE id = ?1").run(unset.id);
+  ctx.sqlite.prepare("UPDATE users SET language = 'en' WHERE id = ?1").run(english.id);
+  const capture = registerEmailJobs(
+    ctx,
+    { driver: "capture", sender: "forum@example.test" },
+    { defaults: {}, securityTypes: new Set() },
+  )!;
+  registerAccountEmailJobs(ctx);
+  for (const member of [unset, english])
+    queueAccountEmail(ctx, {
+      kind: "reset",
+      userId: member.id,
+      email: `${member.username}@example.test`,
+      url: "https://forum.example.test/reset?token=t",
+    });
+  await runDueJobs(ctx);
+  const [spanish, englishMail] = [unset, english].map(
+    (member) =>
+      capture.messages.find((message) => message.to === `${member.username}@example.test`)!,
+  );
+  expect(spanish!.subject).toBe("Restablece tu contraseña de Foros Cuba");
+  expect(spanish!.html).toContain('lang="es"');
+  expect(spanish!.html).toContain("Si el botón no funciona");
+  expect(spanish!.text).toContain(
+    "Recibes este correo porque se refiere a tu cuenta en Foros Cuba.",
+  );
+  expect(englishMail!.subject).toBe("Reset your Foros Cuba password");
+  expect(englishMail!.html).toContain('lang="en"');
+  for (const message of [spanish!, englishMail!]) {
+    expect(message.html).toContain('<img src="https://forum.example.test/api/v1/files/9"');
+    expect(message.html).toContain('href="https://forum.example.test/reset?token=t"');
+    expect(message.text).not.toContain("unsubscribe");
+  }
 });

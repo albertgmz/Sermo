@@ -7,7 +7,7 @@ import { ValidationError } from "../../errors";
 import { languageFor, phrase, phraseOr } from "../../i18n";
 import type { MailConfig, Mailer } from "../../mail";
 import { CaptureMailer, noneMailer, smtpMailer } from "../../mail";
-import { renderEmail } from "../../mail/template";
+import { type Brand, renderEmail } from "../../mail/template";
 import { implement } from "../../operation";
 import {
   currentVersions,
@@ -20,6 +20,7 @@ import { renderPlainText } from "../../render";
 import { readGates } from "../forums/read-gates";
 import { enqueueJob, MAX_ATTEMPTS, registerJobHandler } from "../jobs/queue";
 import { readSiteSettings } from "../settings";
+import { siteBranding } from "./branding";
 import { signUnsubscribe, verifyUnsubscribe } from "./token";
 import { visibleTo } from "./visibility";
 
@@ -351,6 +352,7 @@ export async function runWeeklyDigest(
   const now = ctx.now();
   const weekBefore = now - 6 * DAY_MS;
   const run = digestRun(ctx, startedAt, now);
+  const brand = siteBranding(ctx, settings);
   const users = prepared(ctx, "email.digestUsers", () =>
     ctx.sqlite.prepare<DigestRecipient, [number, number, number, number]>(
       `SELECT u.id, u.group_id, u.language, u.email_window_start, u.email_window_count, u.last_activity_at, u.last_digest_at, a.email, ${PRINCIPAL_COLUMNS} FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id > ?1 AND (u.last_activity_at IS NULL OR u.last_activity_at <= ?2) AND (u.last_digest_at IS NULL OR u.last_digest_at <= ?3) ORDER BY u.id LIMIT ?4`,
@@ -434,7 +436,7 @@ export async function runWeeklyDigest(
       const current = state.get(ctx)!;
       let message: Awaited<ReturnType<typeof digestMessage>>;
       try {
-        message = await digestMessage(ctx, user, chosen, current, settings);
+        message = await digestMessage(ctx, user, chosen, current, settings, brand);
       } catch (error) {
         releaseOne();
         recordFailure(ctx, user.id, user.email, "digest.weekly", error, true, false);
@@ -518,8 +520,9 @@ async function notificationMessage(
     return null;
   if (undeliverable(ctx, user.email)) return null;
   const language = languageFor(user.language, settings.defaultLanguage);
-  const site = settings.siteName;
-  const siteUrl = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
+  const brand = siteBranding(ctx, settings);
+  const site = brand.name;
+  const siteUrl = brand.url;
   const t = row.thread_id === null ? null : thread(ctx, row.thread_id);
   const contentTitle = t?.title ?? "";
   const values = { site, title: contentTitle, count: row.actor_count };
@@ -548,7 +551,8 @@ async function notificationMessage(
       };
   const rendered = await renderEmail({
     language,
-    site,
+    brand,
+    ...(unsubscribe ? { reason: "notification", unsubscribe } : { reason: "account" }),
     subject: phraseOr(
       language,
       `notification.${row.type}.title`,
@@ -556,7 +560,6 @@ async function notificationMessage(
       values,
     ),
     body,
-    ...(unsubscribe ? { unsubscribe } : {}),
   });
   const domain = new URL(siteUrl).hostname;
   const messageId = t ? `<thread-${t.id}-notification-${row.id}@${domain}>` : undefined;
@@ -592,10 +595,11 @@ async function digestMessage(
   threadIds: number[],
   current: MailState,
   settings: Settings,
+  brand: Brand,
 ) {
   const actor = memberActor(user.id, user.group_id, user, currentVersions(ctx));
   const language = languageFor(user.language, settings.defaultLanguage);
-  const siteUrl = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
+  const siteUrl = brand.url;
   const selected = threadIds
     .map((id) => thread(ctx, id))
     .filter(
@@ -610,14 +614,13 @@ async function digestMessage(
   };
   const rendered = await renderEmail({
     language,
-    site: settings.siteName,
-    subject: phrase(language, "email.digest.subject", { site: settings.siteName }),
+    brand,
+    reason: "digest",
+    subject: phrase(language, "email.digest.subject", { site: brand.name }),
     body: phrase(language, "email.digest.body", { count: selected.length }),
-    links: selected.map((item) => ({
-      label: phrase(language, "email.digest.thread", {
-        title: item.title,
-        replies: item.reply_count,
-      }),
+    items: selected.map((item) => ({
+      label: item.title,
+      detail: phrase(language, "email.digest.replies", { replies: item.reply_count }),
       url: `${siteUrl}/threads/${item.id}`,
     })),
     unsubscribe,

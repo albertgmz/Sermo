@@ -16,6 +16,17 @@ let longestBlock = 0;
 let probing = false;
 let recentThreads: { id: number; last_post_at: number }[] = [];
 
+const brand = {
+  name: "Sermo",
+  url: "https://forum.example.test",
+  logoUrl: "https://forum.example.test/api/v1/files/1",
+  iconUrl: "https://forum.example.test/api/v1/files/2",
+  accent: "#dc2626",
+  accentForeground: "#ffffff",
+  contactUrl: null,
+  preferencesUrl: "https://forum.example.test/account/notifications",
+};
+
 async function measureComponents(): Promise<void> {
   const capture = new CaptureMailer();
   const renderTimes: number[] = [];
@@ -24,7 +35,12 @@ async function measureComponents(): Promise<void> {
     const startRender = performance.now();
     const rendered = await renderEmail({
       language: "en",
-      site: "Sermo",
+      brand,
+      reason: "notification",
+      unsubscribe: {
+        typeUrl: "https://forum.example.test/u/1",
+        allUrl: "https://forum.example.test/u/2",
+      },
       subject: "New activity",
       body: "A member replied to your thread.",
     });
