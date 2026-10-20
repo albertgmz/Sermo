@@ -784,17 +784,13 @@ test("ensureAdmin ignores a member whose custom group denies admin.permissions",
 
 test("purgeExpiredCredentialsBatch keeps live rows", async () => {
   const ctx = createTestContext();
-  const { cookie } = await signUp(ctx);
+  const { cookie, user } = await signUp(ctx);
   const key = await createKeyFromSession(getAuth(ctx), cookie, "key");
-  const second = await getAuth(ctx).api.signInEmail({
+  // A second session. A member may have one key, so the live one is made in process.
+  await getAuth(ctx).api.signInEmail({
     body: { email: identity.email, password: identity.password },
-    asResponse: true,
   });
-  const secondCookie = second.headers
-    .getSetCookie()
-    .map((value) => value.split(";")[0])
-    .join("; ");
-  await createKeyFromSession(getAuth(ctx), secondCookie, "live");
+  await getAuth(ctx).api.createApiKey({ body: { userId: user.user.id, name: "live" } });
   ctx.sqlite.run(
     "INSERT INTO auth_verification (identifier, value, expires_at, created_at, updated_at) VALUES ('old', 'x', 1, 1, 1), ('live', 'x', 9999999999999, 1, 1)",
   );

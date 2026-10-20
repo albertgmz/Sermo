@@ -5044,3 +5044,44 @@ else the site's `defaultLanguage`. The plain-text part carries the same parts.
 - Why MJML: it is already the dependency and compiles to the table layout and Outlook conditional
   comments these clients need; a framework such as Maizzle would add a build step and a dependency
   for the same output.
+
+### One API key per member, and the "API and agents" account page
+
+The owner asked for an account page where a member makes their one API key, sees it once, and can
+revoke or replace it. The rule is the backend's, so a script cannot pile up keys either: a key made
+from a session (`POST /api/auth/api-key/create`) is kept only when the member holds no other key.
+Otherwise the request is refused with 409 `API_KEY_EXISTS` and the new key is deleted before the
+answer, unless the body also says `"replace": true`, in which case the member's older keys go.
+Replacing is one request, not a revoke followed by a create, so the password (asked before
+anything, as before) is checked before the old key is touched: a wrong password never leaves the
+member without a key. Refusing rather than always replacing keeps a script that asks for a key from
+silently ending the key an agent is using. The check runs in the auth module's after hook, once
+the plugin has inserted the key, by id: a plain request loses when an older key exists, a replace
+loses when a newer one exists (a later request won), and a loser deletes its own key and is
+refused, so the key it made never reaches its caller. Of two requests that race, the one inserted
+later always sees the earlier key, so no burst of parallel requests leaves two keys. Known limit: a
+plain request that wins over a replace racing it is answered with a key the replace then ends; the
+member still holds one working key. The deletes are separate statements (the adapter's
+transactions are off, AGENTS.md): a failure halfway answers 500 and the page lists what is left.
+Expired keys count as keys until the purge job removes them; replacing ends them too. Calls made in
+process with a `userId` and no session (loaders, the benchmark, tests) are not held to the rule.
+Members who made several keys before the rule keep them until they revoke them or replace, which
+ends all of them.
+
+The page is `/account/api` ("API y agentes"), listed after Security, for every signed-in member:
+no permission gates API keys. It says what a key is for (scripts, bots, AI agents through MCP at
+`/mcp`, the address read at request time), links `/developer`, and warns before the key section
+that whoever holds the key acts as the member. The key is listed by name (keys made on the page
+have none and show as "Personal key") and creation date; there is no last use, because keys are
+verified read-only and the plugin's `lastRequest` is never written, and no starting characters,
+because the plugin stores only the shared `sermo_` prefix. Creating and replacing take the password
+in the shared confirmation field; the action answers with the key in its form state, never in an
+address or a cookie, and the panel shows it once, whole, selected and with a copy button, until the
+member presses "Done". The action also refreshes the page in its answer, so the rows behind the
+key, and the page the router keeps for Back, already list the new key. Leaving the page also ends
+the display: the router keeps a page left behind mounted but
+hidden (Activity), so the panel forgets the key when it is hidden and Back does not show it again.
+A refusal because a key exists (made in another tab) reads the page again so the key is listed. Revoking is a confirmation step without a password, as revoking a session is. The copy
+button is a shared component (`components/forum/copy-button.tsx`, in the styleguide). The
+developer page's intro now states the rule and links the page, which closes the "no API keys page
+to link from" limit noted for item 31.

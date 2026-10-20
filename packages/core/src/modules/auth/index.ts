@@ -175,6 +175,41 @@ const SIGN_IN_GUESS = "sermoSignInGuess";
 /** The member a reset-password link belongs to, to end their API keys once it is used. */
 const RESET_HOLDER = "sermoResetHolder";
 
+/** That an API key request from a session asked to replace the member's key (`replace: true`). */
+const REPLACE_API_KEY = "sermoReplaceApiKey";
+
+/**
+ * One API key per member, applied after a key was made from a session and judged by id once the
+ * key is in. A plain request keeps its key only when the member holds no older one. A replace keeps
+ * its key and ends the older ones, unless a newer key exists: a request that came in later wins. A
+ * losing request deletes its own key and is refused, so its caller never sees it. Of two requests
+ * that race, the one inserted later always sees the earlier key, so they never leave two keys. One
+ * case is left: a plain request that wins over a replace racing it is answered with a key the
+ * replace then ends.
+ */
+async function keepOneApiKey(
+  authContext: AuthHookContext["context"],
+  returned: unknown,
+  replace: boolean,
+): Promise<void> {
+  const made = returned as { id?: string; referenceId?: string } | undefined;
+  if (!made?.id || !made.referenceId) return;
+  const keys = await authContext.adapter.findMany<{ id: string }>({
+    model: "apikey",
+    where: [{ field: "referenceId", value: made.referenceId }],
+  });
+  const id = Number(made.id);
+  const older = keys.filter((key) => Number(key.id) < id);
+  const refused = replace ? keys.some((key) => Number(key.id) > id) : older.length > 0;
+  for (const key of refused ? [{ id: made.id }] : replace ? older : [])
+    await authContext.adapter.delete({ model: "apikey", where: [{ field: "id", value: key.id }] });
+  if (refused)
+    throw new APIError("CONFLICT", {
+      code: "API_KEY_EXISTS",
+      message: "You already have an API key. Replace it or revoke it to make another.",
+    });
+}
+
 function withoutSessionCookies(hook: AuthHookContext) {
   const strip = (name: string) => name.toLowerCase().replace(/^__(?:secure|host)-/, "");
   const names = [
@@ -636,6 +671,7 @@ function buildAuth(ctx: Ctx) {
                 });
               throw error;
             }
+            Reflect.set(hook.context, REPLACE_API_KEY, hook.body?.replace === true);
           }
           if (hook.path === "/reset-password") {
             // An erased member's link is dead even if one survived the erasure.
@@ -809,6 +845,12 @@ function buildAuth(ctx: Ctx) {
               requestLocation(headers),
             );
         }
+        if (!failed && hook.path === "/api-key/create" && hook.context.session)
+          await keepOneApiKey(
+            hook.context,
+            hook.context.returned,
+            Reflect.get(hook.context, REPLACE_API_KEY) === true,
+          );
         // A new password also ends the member's API keys: they are credentials too.
         if (!failed && (hook.path === "/change-password" || hook.path === "/reset-password")) {
           const holder = Reflect.get(hook.context, RESET_HOLDER) ?? hook.context.session?.user.id;

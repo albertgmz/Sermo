@@ -95,7 +95,7 @@ curl -sS -b "$cookie_file" -H 'Content-Type: application/json' -H 'Origin: http:
 rm -f "$cookie_file"
 ```
 
-The shell-built JSON in the sign-in example needs proper JSON escaping if a username or password contains `"` or `\`. Copy the returned `key` immediately. API keys cannot create or revoke other keys; manage them with a session. MCP uses stateless Streamable HTTP at `/mcp`. Tool names replace dots in operation names with underscores, for example `posts_create`. A raw tool-list request is:
+The shell-built JSON in the sign-in example needs proper JSON escaping if a username or password contains `"` or `\`. Copy the returned `key` immediately. A member has one key: a second request is refused with 409 (`API_KEY_EXISTS`) unless its body also has `"replace": true`, which ends the member's other keys once the new one exists. Signed-in members can also create, replace and revoke their key on the API and agents page of their account (`/account/api`). API keys cannot create or revoke other keys; manage them with a session. MCP uses stateless Streamable HTTP at `/mcp`. Tool names replace dots in operation names with underscores, for example `posts_create`. A raw tool-list request is:
 
 ```sh
 curl -sS http://localhost:3000/mcp -H 'Authorization: Bearer sermo_your_key_here' -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
