@@ -152,7 +152,7 @@ describe("pickerGrid", () => {
         expect(rows.reduce((sum, row) => sum + row, 0)).toBe(count);
         expect(Math.max(...rows) - Math.min(...rows)).toBeLessThanOrEqual(1);
         expect(cell).toBeGreaterThanOrEqual(REACTION_PX);
-        expect(rows[0]! * cell + 8).toBeLessThanOrEqual(
+        expect(Math.max(...rows) * cell + 8).toBeLessThanOrEqual(
           width - 2 * VIEWPORT_MARGIN_PX,
         );
       }
