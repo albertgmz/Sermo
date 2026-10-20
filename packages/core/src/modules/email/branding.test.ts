@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestContext } from "@sermo/core/testing";
+import { createTestContext, expectNoTableScan, insertUser } from "@sermo/core/testing";
 import { invalidate } from "../../context";
 import { DEFAULT_ACCENT } from "../../mail/template";
 import { readSiteSettings } from "../settings";
@@ -74,4 +74,39 @@ test("the contact link appears only while the contact page is published", () => 
   expect(siteBranding(ctx, settings).contactUrl).toBeNull();
   ctx.sqlite.prepare("UPDATE static_pages SET is_published = 1 WHERE slug = 'contact'").run();
   expect(siteBranding(ctx, settings).contactUrl).toBe("https://forum.example.test/contact");
+});
+
+test("the icon is its 192 px copy when there is one, found by index", () => {
+  const ctx = setup();
+  const owner = insertUser(ctx, { username: "Owner" });
+  const file = (variant: string | null, parent: number | null) =>
+    ctx.sqlite
+      .prepare<{ id: number }, [string, number, number | null, string | null, number]>(
+        "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, uploader_id, purpose, visibility, parent_file_id, variant, created_at) VALUES ('local', ?1, 1, 'image/png', 'x', ?2, 'site_icon', 'public', ?3, ?4, ?5) RETURNING id",
+      )
+      .get(crypto.randomUUID(), owner.id, parent, variant, ctx.now())!.id;
+  const icon = file(null, null);
+  file("icon_48", icon);
+  const settings = { ...readSiteSettings(ctx), iconFileId: icon };
+  expect(siteBranding(ctx, settings).iconUrl).toBe(
+    `https://forum.example.test/api/v1/files/${icon}`,
+  );
+  const small = file("icon_192", icon);
+  expect(siteBranding(ctx, settings).iconUrl).toBe(
+    `https://forum.example.test/api/v1/files/${small}`,
+  );
+  ctx.sqlite.prepare("UPDATE files SET deleted_at = 1 WHERE id = ?1").run(small);
+  expect(siteBranding(ctx, settings).iconUrl).toBe(
+    `https://forum.example.test/api/v1/files/${icon}`,
+  );
+  expectNoTableScan(
+    ctx,
+    "SELECT id FROM files WHERE parent_file_id = ?1 AND variant = 'icon_192' AND deleted_at IS NULL",
+    [icon],
+  );
+  expectNoTableScan(
+    ctx,
+    "SELECT id FROM static_pages WHERE slug = 'contact' AND is_published = 1",
+    [],
+  );
 });

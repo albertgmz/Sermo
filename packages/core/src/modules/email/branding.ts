@@ -6,8 +6,8 @@ import { publicPicture } from "../storage/url";
 
 /**
  * What every email shows of the site, from the settings the caller has already read: the
- * pictures and the accent come from the settings and the cached appearance catalogs, so the only
- * query of its own is the contact page's (one indexed lookup). A batch builds it once.
+ * pictures and the accent come from the settings and the cached appearance catalogs, and its one
+ * query looks up the contact page and the icon's small copy by index. A batch builds it once.
  */
 export function siteBranding(ctx: Ctx, settings: ReturnType<typeof readSiteSettings>): Brand {
   const home = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
@@ -17,19 +17,21 @@ export function siteBranding(ctx: Ctx, settings: ReturnType<typeof readSiteSetti
   };
   // The accent a visitor sees before choosing one: the palette's first.
   const accent = catalogs(ctx).activeColors.accent[0];
-  const contact = prepared(ctx, "email.contactPage", () =>
-    ctx.sqlite.prepare<{ id: number }, []>(
-      "SELECT id FROM static_pages WHERE slug = 'contact' AND is_published = 1",
+  // The icon is shown 40 px wide: its 192 px copy is sharp on a dense screen at a fraction of the
+  // 512 px original's bytes.
+  const row = prepared(ctx, "email.branding", () =>
+    ctx.sqlite.prepare<{ contact: number | null; icon: number | null }, [number | null]>(
+      "SELECT (SELECT id FROM static_pages WHERE slug = 'contact' AND is_published = 1) AS contact, (SELECT id FROM files WHERE parent_file_id = ?1 AND variant = 'icon_192' AND deleted_at IS NULL) AS icon",
     ),
-  ).get();
+  ).get(settings.iconFileId)!;
   return {
     name: settings.siteName,
     url: home,
     logoUrl: absolute(settings.logoFileId),
-    iconUrl: absolute(settings.iconFileId),
+    iconUrl: absolute(row.icon ?? settings.iconFileId),
     accent: accent?.color ?? DEFAULT_ACCENT.color,
     accentForeground: accent?.foreground ?? DEFAULT_ACCENT.foreground,
-    contactUrl: contact ? new URL("/contact", home).href : null,
+    contactUrl: row.contact ? new URL("/contact", home).href : null,
     preferencesUrl: new URL("/account/notifications", home).href,
   };
 }

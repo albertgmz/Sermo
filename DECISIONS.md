@@ -5020,19 +5020,25 @@ first line. Every string is in the core `en`/`es` catalogs and the mail's langua
 else the site's `defaultLanguage`. The plain-text part carries the same parts.
 
 - The branding (`modules/email/branding.ts`) is built from the settings each path already reads,
-  the cached appearance catalogs and one indexed lookup of the contact page; the digest builds it
-  once per batch. Site settings have no cache key of their own.
+  the cached appearance catalogs and one indexed query (the contact page, the icon's 192 px copy);
+  the digest builds it once per batch. Site settings have no cache key of their own.
 - The accent is the palette's first active accent, as the web app shows guests, else Sermo's
   `#dc2626`/`#ffffff`. Link text uses the accent moved toward black (light) or white (dark) until it
   reads at 4.5:1, so a pale accent stays legible; the button keeps the accent and its foreground.
   The template itself replaces an accent that is not `#rrggbb` (the colours go into attributes and
   a stylesheet). No web fonts are imported: the system fonts come first in the stack.
 - Pictures are absolute addresses of the public files (the public file origin when set). The logo
-  is stored only as WebP, which classic Outlook for Windows cannot show: Outlook gets the PNG icon
-  and the name in a conditional comment instead.
+  has only maximum sizes (40 px high, the column wide), so a very wide one scales down whole. The
+  icon, shown 40 px wide, is its 192 px PNG copy when there is one. The logo is stored only as
+  WebP, which classic Outlook for Windows cannot show: Outlook gets the PNG icon and the name in a
+  conditional comment instead.
+- Mail apps load pictures from another origin, and every API answer carries Hono's
+  `Cross-Origin-Resource-Policy: same-origin`. The files route answers `cross-origin` for the
+  site's public logo and icon and their copies (decided by the source file's purpose and
+  visibility), and only when it serves them (200, 206, 304); every other file keeps `same-origin`.
 - Dark mode: every element has explicit light colours, so apps that recolour mail themselves
   (Gmail's apps, Outlook) invert a complete palette. Apps that honour `prefers-color-scheme` (Apple
-  Mail, Outlook for Mac and iOS) get a dark card by class; a header that shows the logo stays white,
+  Mail, Outlook for Mac) get a dark card by class; a header that shows the logo stays white,
   since a logo is drawn for a light background. Known limit: Gmail's apps and Outlook darken that
   header but not the picture, so a dark, transparent logo loses contrast there.
 - Why MJML: it is already the dependency and compiles to the table layout and Outlook conditional

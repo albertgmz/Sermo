@@ -254,7 +254,8 @@ function header(brand: Brand, ink: string): string {
   const mark = `<a href="${home}" style="text-decoration:none;color:${ink}">${icon}${nameText}</a>`;
   if (!brand.logoUrl) return mark;
   // The logo is stored as WebP, which classic Outlook for Windows cannot show: it gets the mark.
-  const logo = `<a href="${home}" style="text-decoration:none"><img src="${escapeXml(brand.logoUrl)}" alt="${name}" height="${LOGO_HEIGHT}" style="display:block;height:${LOGO_HEIGHT}px;width:auto;max-width:100%;border:0;font-size:22px;font-weight:700;color:${ink}"/></a>`;
+  // Only maximums: a logo wider than the column scales down whole instead of being squashed.
+  const logo = `<a href="${home}" style="text-decoration:none"><img src="${escapeXml(brand.logoUrl)}" alt="${name}" style="display:block;width:auto;height:auto;max-width:100%;max-height:${LOGO_HEIGHT}px;border:0;font-size:22px;font-weight:700;color:${ink}"/></a>`;
   return `<!--[if mso]>${mark}<![endif]--><!--[if !mso]><!-->${logo}<!--<![endif]-->`;
 }
 

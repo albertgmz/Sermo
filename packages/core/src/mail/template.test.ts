@@ -58,6 +58,10 @@ test("the header shows the logo, else the icon beside the name, else the name, l
   expect(others).toContain(
     `<a href="${brand.url}" style="text-decoration:none"><img src="${brand.logoUrl}" alt="Sermo"`,
   );
+  // Only maximums, so a very wide logo scales down whole instead of being squashed.
+  const logoTag = others.match(/<img src="[^"]*files\/1"[^>]*>/)![0];
+  expect(logoTag).toContain("width:auto;height:auto;max-width:100%;max-height:40px");
+  expect(logoTag).not.toMatch(/ height="|[;"]height:\d/);
   expect(others).not.toContain(brand.iconUrl!);
   // Classic Outlook cannot show the WebP logo: it gets the PNG icon and the name.
   expect(outlook).toContain(`<img src="${brand.iconUrl}"`);

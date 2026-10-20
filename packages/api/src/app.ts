@@ -135,6 +135,21 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   const windowMs = options.rateLimitWindowMs ?? 60_000;
   let loggedUnknownIp = false;
 
+  // The site's logo and icon are shown in its emails, whose mail apps load pictures from another
+  // origin: those files alone may be embedded anywhere. Registered before the secure headers so
+  // that it runs after them and replaces their `same-origin`.
+  const sitePicture = ctx.sqlite.prepare<{ found: number }, [number]>(
+    "SELECT 1 AS found FROM files f LEFT JOIN files p ON p.id = f.parent_file_id WHERE f.id = ?1 AND COALESCE(p.purpose, f.purpose) IN ('site_logo', 'site_icon') AND COALESCE(p.visibility, f.visibility) = 'public'",
+  );
+  app.use("/api/v1/files/:fileId", async (c, next) => {
+    await next();
+    const status = c.res.status;
+    if (
+      (status === 200 || status === 206 || status === 304) &&
+      sitePicture.get(Number(c.req.param("fileId")))
+    )
+      c.res.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  });
   app.use(
     "*",
     secureHeaders({

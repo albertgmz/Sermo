@@ -441,3 +441,69 @@ test("a width copy of a picture has its own address, type and validator, and is 
     expect(hidden.headers.get("etag")).toBeNull();
   }
 });
+
+test("the site's public logo and icon may be embedded anywhere; every other file stays same-origin", async () => {
+  const app = await setup();
+  const policy = async (id: number, headers: Record<string, string> = {}) => {
+    const response = await app.request(`/api/v1/files/${id}`, { headers });
+    expect(response.status, String(id)).toBe(200);
+    return response.headers.get("cross-origin-resource-policy");
+  };
+  const purpose = (id: number, value: string) =>
+    app.ctx.sqlite.prepare("UPDATE files SET purpose = ?1 WHERE id = ?2").run(value, id);
+  const variantOf = (id: number, visibility: string) =>
+    app.ctx.sqlite
+      .prepare<{ id: number }, [string, string, number]>(
+        "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, width, height, uploader_id, purpose, visibility, parent_file_id, variant, created_at) SELECT driver, ?1, byte_size, content_type, sha256, width, height, uploader_id, purpose, ?2, id, 'icon_192', created_at FROM files WHERE id = ?3 RETURNING id",
+      )
+      .get(crypto.randomUUID(), visibility, id)!.id;
+
+  // A public avatar keeps the default.
+  const avatar = await setAvatar(app, redPixel);
+  expect(await policy(avatar.fileId)).toBe("same-origin");
+  // As the site's logo or icon, the same public file, its variants and their 304s are cross-origin.
+  purpose(avatar.fileId, "site_logo");
+  expect(await policy(avatar.fileId)).toBe("cross-origin");
+  purpose(avatar.fileId, "site_icon");
+  expect(await policy(avatar.fileId)).toBe("cross-origin");
+  const variant = variantOf(avatar.fileId, "public");
+  expect(await policy(variant)).toBe("cross-origin");
+  const etag = (await app.request(`/api/v1/files/${variant}`)).headers.get("etag")!;
+  const kept = await app.request(`/api/v1/files/${variant}`, {
+    headers: { "if-none-match": etag },
+  });
+  expect(kept.status).toBe(304);
+  expect(kept.headers.get("cross-origin-resource-policy")).toBe("cross-origin");
+
+  // A site picture not yet in use is its uploader's alone.
+  const unused = await app.upload("avatar", new Blob([redPixel], { type: "image/png" }), "u.png");
+  purpose(unused.id, "site_logo");
+  expect(await policy(unused.id, { cookie: app.cookie })).toBe("same-origin");
+
+  // A private file keeps the default whatever its row or a variant's row claims.
+  const recipient = await app.signUp("recipient");
+  const letter = await app.upload(
+    "attachment",
+    new Blob([redPixel], { type: "image/png" }),
+    "l.png",
+  );
+  expect(
+    (
+      await app.json("POST", "/api/v1/conversations", {
+        title: "Private",
+        recipientIds: [Number(recipient.userId)],
+        body: "A picture",
+        attachmentIds: [letter.id],
+      })
+    ).status,
+  ).toBe(201);
+  purpose(letter.id, "site_icon");
+  expect(await policy(letter.id, { cookie: recipient.cookie })).toBe("same-origin");
+  expect(await policy(variantOf(letter.id, "public"), { cookie: recipient.cookie })).toBe(
+    "same-origin",
+  );
+  // A refused file says nothing either.
+  const refused = await app.request(`/api/v1/files/${letter.id}`);
+  expect(refused.status).toBe(404);
+  expect(refused.headers.get("cross-origin-resource-policy")).toBe("same-origin");
+});
