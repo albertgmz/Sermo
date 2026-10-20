@@ -15,11 +15,13 @@
     "redoLabel": "Redo",
     "linkPrompt": "Link URL",
     "placeholder": "Type your message here.",
+    "pastedName": "pasted",
     "aria": {
       "formatting": "Formatting"
     },
     "errors": {
-      "required": "This field is required."
+      "required": "This field is required.",
+      "noUpload": "Pictures cannot be added to this text."
     },
     "spoilerLabel": "Spoiler",
     "codeBlockLabel": "Code block",

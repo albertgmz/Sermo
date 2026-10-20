@@ -5095,3 +5095,34 @@ Revoking is a confirmation step without a password, as revoking a session is. Th
 shared component (`components/forum/copy-button.tsx`, in the styleguide). The developer page's
 intro now states the rule and links the page, which closes the "no API keys page
 to link from" limit noted for item 31.
+
+### Pasted and dropped pictures go through the composer's upload
+
+Ctrl+V of a screenshot did nothing: the editor's paste handler swallowed any clipboard with files,
+and its drop handler swallowed every outside drop. Members come from XenForo, where a pasted
+screenshot is uploaded. Now `editor-paste.ts` (the paste and drop commands, moved out of
+`editor.tsx` so they can be tested) hands the files to the composer around the editor and leaves
+text alone.
+
+- No second upload path. The editor dispatches a cancelable `sermo:composer-files` event on its
+  form (`offerFiles` in `composer-insert.ts`, next to the other composer requests). The first
+  `AttachmentField` that is listening and allows files takes it, sends each file through the same
+  `send` its attach button uses (same routes, progress line, file list, `payload.error` refusals for
+  size, type and quota), and puts `[ATTACH=full]<id>[/ATTACH]` at the caret for each stored picture.
+  Other files (a dropped PDF) are uploaded and listed, not put in the text: the member places them.
+- No listener (no attachment list, `allowed` false, or an editor outside a form) means nothing
+  takes the event, and the editor shows "Pictures cannot be added to this text." under its text
+  until the text changes. The old silence is gone.
+- A paste is files only when it holds files and no `text/plain`. A cell copied from a spreadsheet
+  comes with a picture of itself and stays text; "Copy image" on a page (HTML plus a file, no plain
+  text) and a screenshot are files. Before, any clipboard with files put nothing in. A keyboard's
+  paste that arrives as an input event (Android) is read from `dataTransfer`.
+- A picture with no name, or with the `image.png` browsers give every paste, is renamed
+  `pegado-<date>.<ext>` or `pasted-<date>.<ext>` (by language; `-1`, `-2` for several; the extension
+  from its type). A file with a name keeps it. A file with no type is sent as it is: the backend
+  detects the type from the bytes, and only a stored type of `image/*` puts a tag in the text.
+- A drop inserts at the caret, not at the drop point.
+- Not covered: the signature field is a plain textarea, not this editor.
+- Phones: Chrome on Android and Safari on iOS deliver a pasted picture as a paste event with a file
+  (or, on Android keyboards, an input event with `dataTransfer`); both are handled. Checked only in
+  Chromium and WebKit with real and synthetic events, not on a device.

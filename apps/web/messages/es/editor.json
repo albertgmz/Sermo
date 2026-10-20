@@ -15,11 +15,13 @@
     "redoLabel": "Rehacer",
     "linkPrompt": "URL del enlace",
     "placeholder": "Escribe tu mensaje aquí.",
+    "pastedName": "pegado",
     "aria": {
       "formatting": "Formato"
     },
     "errors": {
-      "required": "Este campo es obligatorio."
+      "required": "Este campo es obligatorio.",
+      "noUpload": "No se pueden añadir imágenes a este texto."
     },
     "spoilerLabel": "Spoiler",
     "codeBlockLabel": "Bloque de código",

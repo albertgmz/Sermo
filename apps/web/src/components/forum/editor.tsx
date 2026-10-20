@@ -18,14 +18,10 @@ import {
   $isElementNode,
   CLEAR_EDITOR_COMMAND,
   CLEAR_HISTORY_COMMAND,
-  COMMAND_PRIORITY_HIGH,
   createEditor,
-  DROP_COMMAND,
   type ElementNode,
   type LexicalEditor,
   mergeRegister,
-  PASTE_COMMAND,
-  PASTE_TAG,
   ParagraphNode,
   RootNode,
   TabNode,
@@ -44,12 +40,12 @@ import {
 import { createPortal } from "react-dom";
 import {
   $exportBb,
-  $insertBb,
   $replaceWithBb,
   BB_NODES,
 } from "@/components/forum/bb-lexical";
 import {
   insertAtCaret,
+  offerFiles,
   onComposerRequest,
   withoutAttachTag,
 } from "@/components/forum/composer-insert";
@@ -66,10 +62,10 @@ import {
   SourceContext,
   type SourceMode,
 } from "@/components/forum/editor-extras";
+import { nameFiles, registerPaste } from "@/components/forum/editor-paste";
 import { Toolbar } from "@/components/forum/editor-toolbar";
 import { sentText } from "@/components/forum/editor-value";
 import { FormError } from "@/components/forum/form-error";
-import { htmlToBb } from "@/components/forum/html-to-bb";
 import { prose } from "@/components/forum/prose";
 import { cn } from "@/lib/utils";
 
@@ -115,59 +111,23 @@ function registerStyleTransforms(editor: LexicalEditor) {
   );
 }
 
-// What a paste puts in: pasted rich text becomes BB code, so that bold, links, lists and the rest
-// arrive as formatting and everything else as text, and plain text is taken as typed (its tags
-// stay text). The editor's own copies keep Lexical's paste.
-function pastedBb(data: DataTransfer): { bb: string; literal: boolean } {
-  const html = data.getData("text/html");
-  if (html) {
-    const bb = htmlToBb(
-      new DOMParser().parseFromString(html, "text/html").body,
-    );
-    if (bb) return { bb, literal: false };
-  }
-  return { bb: data.getData("text/plain"), literal: true };
-}
-
-function ContentSafetyPlugin() {
+function ContentSafetyPlugin({
+  onFiles,
+}: {
+  // Called with the files a paste or a drop brings, and the form the editor is in.
+  onFiles: (files: File[], form: HTMLFormElement | null) => void;
+}) {
   const [editor] = useLexicalComposerContext();
 
   useLayoutEffect(
     () =>
       mergeRegister(
         registerStyleTransforms(editor),
-        editor.registerCommand(
-          PASTE_COMMAND,
-          (event) => {
-            // Never allow native insertion, even without a Lexical selection.
-            event.preventDefault();
-            const data = "clipboardData" in event ? event.clipboardData : null;
-            if (!data || data.files.length > 0) return true;
-            if (data.types.includes("application/x-lexical-editor")) {
-              return false;
-            }
-            const { bb, literal } = pastedBb(data);
-            if (bb) {
-              const plain = data.getData("text/plain") || bb;
-              editor.update(() => $insertBb(bb, literal, plain), {
-                tag: PASTE_TAG,
-              });
-            }
-            return true;
-          },
-          COMMAND_PRIORITY_HIGH,
-        ),
-        editor.registerCommand(
-          DROP_COMMAND,
-          (event) => {
-            // External drops otherwise fall through to native DOM insertion.
-            event.preventDefault();
-            return true;
-          },
-          COMMAND_PRIORITY_HIGH,
+        registerPaste(editor, (files) =>
+          onFiles(files, editor.getRootElement()?.closest("form") ?? null),
         ),
       ),
-    [editor],
+    [editor, onFiles],
   );
 
   return null;
@@ -400,6 +360,17 @@ export function Editor({
   const placeholder =
     placeholderProp === undefined ? t("placeholder") : placeholderProp;
   const [invalid, setInvalid] = useState(false);
+  // Why a pasted or dropped file was not taken, until the text changes.
+  const [notice, setNotice] = useState<string>();
+  // Files go to the upload the composer around the editor has, by the same way its attach button
+  // sends them; an editor with none refuses them and says so.
+  const takeFiles = useCallback(
+    (files: File[], form: HTMLFormElement | null) => {
+      const named = nameFiles(files, t("pastedName"), new Date());
+      setNotice(offerFiles(form, named) ? undefined : t("errors.noUpload"));
+    },
+    [t],
+  );
   const errorId = useId();
   const describedByIds =
     [describedBy, invalid ? errorId : undefined].filter(Boolean).join(" ") ||
@@ -421,6 +392,8 @@ export function Editor({
   const changed = useRef(onChange);
   changed.current = onChange;
   const lastValue = useRef<string>(undefined);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a change of the text is what clears it.
+  useEffect(() => setNotice(undefined), [value]);
   const commit = useCallback((text: string) => {
     if (text === lastValue.current) return;
     lastValue.current = text;
@@ -477,7 +450,7 @@ export function Editor({
   return (
     <SourceContext.Provider value={sourceMode}>
       <LexicalComposer initialConfig={initialConfig}>
-        <ContentSafetyPlugin />
+        <ContentSafetyPlugin onFiles={takeFiles} />
         <div
           className={cn(
             "min-w-0 rounded-lg border bg-card transition-colors focus-within:border-ring",
@@ -555,6 +528,7 @@ export function Editor({
             source={sourceMode}
             editorRef={editorRef}
           />
+          {notice && <FormError className="px-3 pb-2">{notice}</FormError>}
         </div>
         {invalid && <FormError id={errorId}>{t("errors.required")}</FormError>}
         <HistoryPlugin />

@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   attachTag,
   insertIntoComposer,
+  onFilesOffered,
   removeFromComposer,
 } from "@/components/forum/composer-insert";
 import { FormError } from "@/components/forum/form-error";
@@ -77,7 +78,7 @@ export function AttachmentField({
     return () => form.removeEventListener("reset", clear);
   }, []);
 
-  async function send(file: File) {
+  async function send(file: File): Promise<AttachedFile | undefined> {
     const body = new FormData();
     body.append("file", file, file.name);
     setBusy((count) => count + 1);
@@ -92,24 +93,22 @@ export function AttachmentField({
         contentType?: string;
       } | null = await response.json().catch(() => null);
       if (response.ok && typeof payload?.id === "number") {
-        const id = payload.id;
-        setFiles((current) => [
-          ...current,
-          {
-            id,
-            name: file.name,
-            size: file.size,
-            type: payload.contentType ?? file.type,
-          },
-        ]);
-      } else {
-        setError(payload?.error ?? t("failed", { name: file.name }));
+        const added = {
+          id: payload.id,
+          name: file.name,
+          size: file.size,
+          type: payload.contentType ?? file.type,
+        };
+        setFiles((current) => [...current, added]);
+        return added;
       }
+      setError(payload?.error ?? t("failed", { name: file.name }));
     } catch {
       setError(t("failed", { name: file.name }));
     } finally {
       setBusy((count) => count - 1);
     }
+    return undefined;
   }
 
   // Puts the file's tag at the caret of the composer's text.
@@ -117,10 +116,28 @@ export function AttachmentField({
     insertIntoComposer(listed.current, attachTag(file.id, size));
   }
 
-  async function choose(chosen: File[]) {
+  // `inText`: the files came into the text (pasted or dropped), so each picture goes in where the
+  // caret is once it is stored, as the member would have done with its button.
+  async function choose(chosen: File[], inText = false) {
     setError(undefined);
-    for (const file of chosen) await send(file);
+    for (const file of chosen) {
+      const added = await send(file);
+      if (inText && added?.type?.startsWith("image/")) place(added, "full");
+    }
   }
+
+  // The editor offers the files pasted or dropped into it, while files may be added here.
+  const receive = useRef(choose);
+  receive.current = choose;
+  useEffect(
+    () =>
+      allowed
+        ? onFilesOffered(listed.current?.form, (offered) => {
+            void receive.current(offered, true);
+          })
+        : undefined,
+    [allowed],
+  );
 
   const trigger = (
     <label

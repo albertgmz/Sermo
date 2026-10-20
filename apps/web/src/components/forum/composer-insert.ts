@@ -68,3 +68,36 @@ export function insertAtCaret(
   field.setRangeText(text, field.selectionStart, field.selectionEnd, "end");
   field.focus();
 }
+
+// Files that came into the editor from outside (pasted or dropped), offered to the composer's
+// attachment list, which uploads them as it does the files of its attach button and puts the
+// pictures in the text. Whether anything takes them is the answer: a composer with no attachment
+// list, or one that does not allow files, leaves them alone.
+const FILES_EVENT = "sermo:composer-files";
+
+export function offerFiles(
+  form: HTMLFormElement | null | undefined,
+  files: File[],
+) {
+  if (!form) return false;
+  const offer = new CustomEvent(FILES_EVENT, {
+    detail: files,
+    cancelable: true,
+  });
+  return !form.dispatchEvent(offer);
+}
+
+// Runs `take` with the files offered to `form`'s composer, unless another list took them first.
+export function onFilesOffered(
+  form: HTMLFormElement | null | undefined,
+  take: (files: File[]) => void,
+) {
+  if (!form) return () => {};
+  const listener = (event: Event) => {
+    if (event.defaultPrevented) return;
+    event.preventDefault();
+    take((event as CustomEvent<File[]>).detail);
+  };
+  form.addEventListener(FILES_EVENT, listener);
+  return () => form.removeEventListener(FILES_EVENT, listener);
+}
