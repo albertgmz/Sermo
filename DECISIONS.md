@@ -4854,12 +4854,14 @@ touched.
 
 The picker lays the reactions out in two rows of half each (`pickerGrid` in
 `reaction-placement.ts`): 12 reactions are 6 + 6, and with an odd count the first row takes the
-extra one. A reaction is a square as large as the screen allows, at most 52 px and never under the
+extra one; one or two reactions sit in one row. A reaction is a square as large as the screen allows, at most 52 px and never under the
 40 px touch target; its picture is 1.25em of a font size about half the square (35 px in a 52 px
 reaction). Six of 52 px with the 4 px padding are 320 px, which fits the 328 px between the
 margins of a 360 px phone, so a phone shows the full size; a 320 px phone gets 46 px. When half
-the reactions would fall under 40 px (staff can add any number of types), the picker takes as many
-40 px columns as fit, on more rows. Desktop uses the same 52 px. XenForo's tooltip (fcuba's style
+the reactions would not fit at 40 px (staff can add any number of types), the picker takes the
+fewest rows that do, differing by at most one (17 on a phone are 6 + 6 + 5). Each row is its own
+centred line, so rows of unequal length need no grid. When the window's width changes while the
+picker is open, it is laid out again. Desktop uses the same 52 px. XenForo's tooltip (fcuba's style
 caps it at 260 px wide, 32 px pictures with a small margin) also gives six per row; ours is larger
 for touch.
 
@@ -4873,6 +4875,11 @@ Phones send what XenForo took and Sermo refused, so uploads now handle them:
   about 210 MB of process memory, against 175 MB for 16 MP, and took 1.2 s. A progressive JPEG,
   a PNG, a WebP, a GIF and each frame of an animation keep the 16 MP limit, because they are read
   whole before they are scaled.
+- The header is read with no pixel limit and the limit is applied to its dimensions, so a picture
+  over every limit is refused as too many pixels, not as damaged.
+- At most two image pipelines decode at once in the process (`images/decode-slots.ts`); the rest
+  wait in order. A 200 MP decode costs about 70 MB and more for a busy picture, and the server is
+  shared with other sites.
 - HEIC/HEIF photos are refused with what to do (send JPEG; the iPhone and Android settings that
   do it). sharp's prebuilt libvips reads AVIF but not HEVC, which these photos are, and a build
   with libde265 would mean a custom libvips in the image.
