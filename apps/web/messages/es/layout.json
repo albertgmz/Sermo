@@ -226,6 +226,17 @@
   },
   "appPrompts": {
     "notNow": "Ahora no",
+    "install": {
+      "title": "Instala {site}",
+      "body": "Ábrelo como cualquier otra app: desde su propio icono y sin las barras del navegador.",
+      "action": "Instalar"
+    },
+    "ios": {
+      "title": "Añade {site} a tu pantalla de inicio",
+      "share": "Toca Compartir <icon></icon> (en los iPhone más recientes está en el menú ⋯).",
+      "add": "Elige «Añadir a pantalla de inicio».",
+      "open": "Abre el foro desde su nuevo icono."
+    },
     "push": {
       "title": "¿Quieres recibir avisos de respuestas, menciones y mensajes?",
       "body": "Te llegan a este dispositivo aunque el foro esté cerrado. Puedes desactivarlos cuando quieras en tus ajustes de notificaciones.",

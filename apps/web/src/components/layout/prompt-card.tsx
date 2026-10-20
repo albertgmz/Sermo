@@ -33,7 +33,7 @@ export function PromptCard({
       className="fixed inset-x-3 bottom-[calc(var(--spacing-mobile-nav)+0.75rem)] z-40 animate-in rounded-xl border bg-popover p-4 text-popover-foreground shadow-lg duration-300 fade-in slide-in-from-bottom-4 motion-reduce:animate-none md:inset-x-auto md:right-6 md:bottom-6 md:w-96"
     >
       <div className="flex gap-3">
-        <div className="size-12 shrink-0 overflow-hidden rounded-xl">
+        <div className="size-12 shrink-0 overflow-hidden rounded-xl ring-1 ring-border">
           {icon}
         </div>
         <div className="min-w-0 flex-1 space-y-1">

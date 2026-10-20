@@ -5351,3 +5351,22 @@ the card and what it stores are strictly necessary (listed in the cookie invento
 subscription is made only on the member's tap. A member with terms to accept sees only the
 acceptance screen, and an account waiting for approval (which may not save a device) is not asked.
 A visit shows one card: the one it showed first stays until it is answered.
+
+### The install card, and "Install app" in the account menu
+
+After the cookie banner, every visitor (guests too) whose browser can install the forum gets a card
+with the app's icon (the uploaded icon, else the default mark, drawn through the data saver's gate
+in `logo.tsx`) and the site's name: "Install {site}", with Install / Not now. Where the browser has
+its own dialog (`beforeinstallprompt`: Chrome, Edge, Samsung Internet) the event is caught as soon as
+the page's script runs (`lib/install-prompt.ts`) and held back (`preventDefault`), so Android's own
+install bar does not compete with the card or ignore "Not now"; Install opens that dialog, which a
+page may open once per event. iOS Safari has no such dialog: its card lists the steps (Share, with
+the share icon, then "Add to Home Screen", then open the new icon; on newer iPhones Share sits in
+the ⋯ menu). No card inside the installed app (`display-mode: standalone`, `navigator.standalone`),
+in other iOS browsers or in-app browsers, or where there is no install dialog (Firefox desktop). Not
+now puts it off for 30 days, as does closing the browser's dialog.
+
+One card at a time: the install card comes first, and the notification card waits for a later
+visit, or follows in the same visit once `appinstalled` fires. On iOS the notification card waits
+for the installed app regardless, since iOS (16.4 and later) gives the Push API only to a web app
+opened from the home screen.

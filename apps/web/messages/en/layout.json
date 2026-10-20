@@ -226,6 +226,17 @@
   },
   "appPrompts": {
     "notNow": "Not now",
+    "install": {
+      "title": "Install {site}",
+      "body": "Open it like any other app: from its own icon, without the browser's bars.",
+      "action": "Install"
+    },
+    "ios": {
+      "title": "Add {site} to your home screen",
+      "share": "Tap Share <icon></icon> (on newer iPhones it is in the ⋯ menu).",
+      "add": "Choose “Add to Home Screen”.",
+      "open": "Open the forum from its new icon."
+    },
     "push": {
       "title": "Would you like alerts for replies, mentions and messages?",
       "body": "They reach this device even when the forum is closed. You can turn them off at any time in your notification settings.",
