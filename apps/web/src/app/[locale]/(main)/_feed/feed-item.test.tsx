@@ -219,11 +219,10 @@ test("a wall post is drawn with its latest comments and a composer for the next 
   expect(html).not.toContain("Show more comments");
 });
 
-test("a wall post with more comments than the card holds links to all of them on the wall", async () => {
+test("a wall post with more comments than the card holds has a button that loads them in place", async () => {
   const html = await render(wallItem({ commentCount: 6 }), MEMBER);
-  expect(html).toMatch(
-    /<a[^>]*href="\/members\/5\?post=9&amp;comments=9#profile-post-9"[^>]*>Show more comments</,
-  );
+  expect(html).toMatch(/<button type="button"[^>]*>Show more comments</);
+  expect(html).not.toContain("comments=");
 });
 
 test("a wall post the viewer may not comment on has no composer; the count leads to the wall, for a guest too", async () => {
