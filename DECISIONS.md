@@ -5369,4 +5369,6 @@ now puts it off for 30 days, as does closing the browser's dialog.
 One card at a time: the install card comes first, and the notification card waits for a later
 visit, or follows in the same visit once `appinstalled` fires. On iOS the notification card waits
 for the installed app regardless, since iOS (16.4 and later) gives the Push API only to a web app
-opened from the home screen.
+opened from the home screen. "Install app" in the account menu (members) offers the same for anyone
+who put the card off: it opens the browser's dialog, or shows the iOS card whatever Not now said; it
+is absent inside the app and where nothing can be installed, and pressing it closes the menu.

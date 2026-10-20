@@ -66,10 +66,11 @@ export default function UserMenuPopup(props: UserMenuPopupProps & OpenedProps) {
     if (next) setTab(OPENING_TAB);
     setOpen(next);
   }
-  // Following a link inside the menu closes it.
+  // Following a link inside the menu closes it, and so does a button that opens something else.
   function closeOnLink(event: React.MouseEvent) {
     if (event.defaultPrevented) return;
-    if ((event.target as Element).closest("a")) change(false);
+    if ((event.target as Element).closest("a, [data-menu-close]"))
+      change(false);
   }
 
   const menu = <UserMenuBody {...body} tab={tab} onTabChange={setTab} />;

@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from "react";
 
 // The browser's offer to install the forum (`beforeinstallprompt`: Chrome, Edge and Samsung
-// Internet), kept for our own card, and what happened to it. The browser sends the event once per
-// page load, often before the page has hydrated, so it is caught as soon as this module runs. Holding it back (`preventDefault`) keeps the browser's own bar off the screen: the
+// Internet), kept for our own card and the account menu, and what happened to it. The browser sends
+// the event once per page load, often before the page has hydrated, so it is caught as soon as this
+// module runs. Holding it back (`preventDefault`) keeps the browser's own bar off the screen: the
 // forum asks with its card, after the cookie banner, and not while "Not now" holds.
 
 type InstallEvent = Event & {
@@ -14,9 +15,11 @@ export type InstallState = {
   native: boolean;
   // The app was installed from this page.
   installed: boolean;
+  // How many times the account menu asked for the install card.
+  asked: number;
 };
 
-const NONE: InstallState = { native: false, installed: false };
+const NONE: InstallState = { native: false, installed: false, asked: 0 };
 let deferred: InstallEvent | null = null;
 let state = NONE;
 const listeners = new Set<() => void>();
@@ -63,4 +66,9 @@ export async function promptInstall() {
   } catch {
     return null;
   }
+}
+
+// The account menu asks for the install card (the iOS steps), whatever "Not now" said.
+export function askForInstallCard() {
+  set({ asked: state.asked + 1 });
 }

@@ -124,6 +124,13 @@ export function AppPrompts({
     setShown(next && { card: next, offer });
   }, [settled, pathname, member, pushKey, install.native, install.installed]);
 
+  // The account menu asked for the install card: shown whatever "Not now" said.
+  useEffect(() => {
+    if (install.asked === 0) return;
+    const offer = installOffer(currentPlatform(), false);
+    if (offer) setShown({ card: "install", offer });
+  }, [install.asked]);
+
   if (!shown) return null;
   const putOff = (card: Card) => {
     snoozeCard(card, Date.now());

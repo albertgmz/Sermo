@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { DATA_SAVER_HREF } from "@/app/[locale]/(main)/account/links";
 import { DataSaverLink } from "@/components/layout/data-saver-menu-item";
+import { InstallAppItem } from "@/components/layout/install-app-item";
 import { type LinkItem, linkProps } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";
 import { loadBookmarks } from "@/components/layout/panel-actions";
@@ -123,6 +124,7 @@ export function UserMenuBody(props: UserMenuBodyProps) {
                 )}
               </li>
             ))}
+            <InstallAppItem className={`${ROW} w-full text-left`} />
           </ul>
           <div className="flex items-center justify-between gap-2 border-t px-4 py-2">
             <span className="text-sm text-muted-foreground">{t("theme")}</span>
