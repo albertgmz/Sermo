@@ -7,9 +7,13 @@ const realFetch = globalThis.fetch;
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
+// The language the page is drawn in, as the test sets it.
+let locale = "en";
 mock.module("next-intl/server", () => ({
-  getLocale: async () => "en",
-  getTranslations: async (namespace: string) => translator(namespace),
+  getLocale: async () => locale,
+  // Words are filled in only for the test that reads an amount.
+  getTranslations: async (namespace: string) =>
+    translator(namespace, locale === "es"),
 }));
 // A guest: the request carries no cookie.
 mock.module("next/headers", () => ({
@@ -78,4 +82,23 @@ test("with no rule the block says so", async () => {
   const { html } = await ways([]);
   expect(html).toContain(messages.credits.ways.emptyTitle);
   expect(html).not.toContain("<li ");
+});
+
+test("an amount is written grouped in the visitor's language, not by the message", async () => {
+  locale = "es";
+  try {
+    const { html } = await ways([
+      {
+        title: "Big",
+        trigger: "thread_created",
+        amount: 1000,
+        limit: null,
+        forums: [],
+      },
+    ]);
+    expect(html).toContain("1.000");
+    expect(html).not.toContain("1000");
+  } finally {
+    locale = "en";
+  }
 });

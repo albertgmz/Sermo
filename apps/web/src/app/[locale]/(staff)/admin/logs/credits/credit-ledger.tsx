@@ -61,7 +61,7 @@ export async function CreditLedger({ searchParams }: { searchParams: Params }) {
           action: `${kinds(row.type)} ${formatCredits(row.amount, locale, { signed: true })}`,
           target: member(row.userId),
           details: {
-            [t("balanceAfter")]: row.balanceAfter,
+            [t("balanceAfter")]: formatCredits(row.balanceAfter, locale),
             ...(row.source && {
               [t("source")]: t("sourceValue", {
                 type: row.source.type,

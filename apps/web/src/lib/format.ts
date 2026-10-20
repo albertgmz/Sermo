@@ -24,13 +24,18 @@ function build(locale: string) {
       maximumFractionDigits: 1,
     }),
     full: new Intl.NumberFormat(locale),
-    // Always grouped: Spanish groups only from five digits by default (2300, 23.000), where a
-    // price reads as an amount of money only with the separator (2.300).
-    credits: new Intl.NumberFormat(locale, { useGrouping: "always" }),
-    creditsSigned: new Intl.NumberFormat(locale, {
-      useGrouping: "always",
+    // Credit amounts are grouped by `formatCredits`, not by `useGrouping: "always"`: that option
+    // is newer than the string forms and an older browser would ignore it and write 2300 where the
+    // server wrote 2.300. These two never group; the group symbol is the locale's own.
+    ungrouped: new Intl.NumberFormat(locale, { useGrouping: false }),
+    ungroupedSigned: new Intl.NumberFormat(locale, {
+      useGrouping: false,
       signDisplay: "always",
     }),
+    groupSymbol:
+      new Intl.NumberFormat(locale)
+        .formatToParts(1_000_000)
+        .find((part) => part.type === "group")?.value ?? ",",
   };
 }
 
@@ -93,14 +98,24 @@ export function formatNumber(value: number, locale: string): string {
 }
 
 // An amount of credits (a price, a balance, a ledger line): the one formatter for all of them.
-// `signed` shows + or - before the amount, for a ledger line.
+// Always grouped in threes with the locale's symbol (Spanish groups only from five digits by
+// default, so 2300 would read as a bare number): the digits come from `Intl` ungrouped and the
+// separators are put in here, so the text is the same on a server and in any browser, whatever its
+// `Intl.NumberFormat` supports. `signed` shows + or - before the amount, for a ledger line.
 export function formatCredits(
   value: number,
   locale: string,
   { signed = false }: { signed?: boolean } = {},
 ): string {
-  const { credits, creditsSigned } = formatters(locale);
-  return (signed ? creditsSigned : credits).format(value);
+  const { ungrouped, ungroupedSigned, groupSymbol } = formatters(locale);
+  return (signed ? ungroupedSigned : ungrouped)
+    .formatToParts(value)
+    .map((part) =>
+      part.type === "integer"
+        ? part.value.replace(/\B(?=(\d{3})+$)/g, groupSymbol)
+        : part.value,
+    )
+    .join("");
 }
 
 // A file's size in the unit that reads best, up to one decimal.

@@ -31,7 +31,7 @@
     "description": "What earns or costs credits on this site.",
     "emptyTitle": "No ways to earn yet",
     "emptyDescription": "Nothing earns or costs credits right now.",
-    "amount": "{sign, select, minus {−} other {+}}{value, plural, one {# credit} other {# credits}}",
+    "amount": "{sign, select, minus {−} other {+}}{count, plural, one {{value} credit} other {{value} credits}}",
     "limit": "Up to {count} per {hours, plural, one {hour} other {# hours}}",
     "forums": "Only in:",
     "triggers": {

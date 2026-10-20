@@ -5254,7 +5254,11 @@ over them stalled one commit for 370 ms), and other subscribers handle a batch w
 - Every amount of credits (a price, a balance, a ledger line, a reward) is written by one
   formatter, `formatCredits` in `lib/format.ts`, in the visitor's language and always grouped:
   Spanish groups four digits only when asked ("2300" by default, "2.300" here), and an amount
-  of money reads wrong without the separator. Plain counts keep `formatNumber`. A message that
+  of money reads wrong without the separator. The grouping is put in by the formatter itself
+  (digits from `Intl` with no grouping, a separator every three from the locale's own group
+  symbol) and not by `useGrouping: "always"`, which an older browser ignores: a client component
+  would then hydrate "2.300" from the server and draw "2300". The same text comes out on the server
+  and in every browser. Plain counts keep `formatNumber`. A message that
   holds an amount takes it already written (`{amount}`), never as an ICU `#`.
 - The panel's upload route (`/admin/uploads`) answers 429 with the member's words ("too many
   uploads in a short time") when the backend throttles the `auth.me` read that decides whether the

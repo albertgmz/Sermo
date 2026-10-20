@@ -60,3 +60,33 @@ test("a signed credit amount shows its sign and the grouping", () => {
   expect(formatCredits(-2300, "en", { signed: true })).toBe("-2,300");
   expect(formatCredits(0, "en", { signed: true })).toBe("+0");
 });
+
+test("credit grouping is made here, in threes with the locale's symbol, from any number of digits", () => {
+  expect(formatCredits(1234567, "es")).toBe("1.234.567");
+  expect(formatCredits(1234567, "en")).toBe("1,234,567");
+  expect(formatCredits(-2300, "es")).toBe("-2.300");
+  expect(formatCredits(999, "es")).toBe("999");
+  expect(formatCredits(1000, "es")).toBe("1.000");
+  expect(formatCredits(0, "es")).toBe("0");
+  // A locale that groups with a space groups four digits too.
+  expect(formatCredits(2300, "fr").replace(/\s/g, " ")).toBe("2 300");
+});
+
+test("the credit formatter asks for no grouping option an older browser might ignore", () => {
+  const real = Intl.NumberFormat;
+  const asked: unknown[] = [];
+  Intl.NumberFormat = new Proxy(real, {
+    construct(target, args) {
+      asked.push(args[1]?.useGrouping);
+      return Reflect.construct(target, args);
+    },
+  });
+  try {
+    formatCredits(2300, "de-CH");
+    formatCredits(2300, "de-CH", { signed: true });
+  } finally {
+    Intl.NumberFormat = real;
+  }
+  expect(asked).not.toContain("always");
+  expect(asked).not.toContain("min2");
+});

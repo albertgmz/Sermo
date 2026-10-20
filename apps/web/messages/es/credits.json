@@ -31,7 +31,7 @@
     "description": "Lo que da o cuesta créditos en este sitio.",
     "emptyTitle": "Todavía no hay formas de ganar",
     "emptyDescription": "Ahora mismo nada da ni cuesta créditos.",
-    "amount": "{sign, select, minus {−} other {+}}{value, plural, one {# crédito} other {# créditos}}",
+    "amount": "{sign, select, minus {−} other {+}}{count, plural, one {{value} crédito} other {{value} créditos}}",
     "limit": "Hasta {count} por {hours, plural, one {hora} other {# horas}}",
     "forums": "Solo en:",
     "triggers": {

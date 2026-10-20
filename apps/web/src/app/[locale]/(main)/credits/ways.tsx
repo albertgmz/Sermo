@@ -1,16 +1,18 @@
 import { creditsWays } from "@sermo/core/contracts";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/forum/empty-state";
 import { SectionCard } from "@/components/forum/section-card";
+import { formatCredits } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { cn } from "@/lib/utils";
 
 // The ways to earn (or lose) credits: one row per active rule, for guests too. The title is what
 // the administrator wrote; the trigger is phrased here, as the backend only names it.
 export async function Ways() {
-  const [t, { items }] = await Promise.all([
+  const [t, locale, { items }] = await Promise.all([
     getTranslations("credits.ways"),
+    getLocale(),
     read(creditsWays, {}),
   ]);
   return (
@@ -38,7 +40,8 @@ export async function Ways() {
                 >
                   {t("amount", {
                     sign: way.amount < 0 ? "minus" : "plus",
-                    value: Math.abs(way.amount),
+                    count: Math.abs(way.amount),
+                    value: formatCredits(Math.abs(way.amount), locale),
                   })}
                 </p>
               </div>
