@@ -178,6 +178,10 @@ export async function runDueJobs(
         if (failed && changes) notifyFailed(ctx, job.type, job.id, job.payload, error);
       }
     });
+    // Jobs run on the thread that serves requests, and a chunked job queues its next chunk at
+    // once: without a turn of the event loop here, a batch of chunks would hold it until the
+    // batch ends (an award sweep held it for over a second at a time).
+    await new Promise<void>((resolve) => setImmediate(resolve));
   }
   return ran;
 }

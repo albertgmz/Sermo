@@ -95,7 +95,7 @@ describe("sweeps and member checks read history before they write", () => {
   test("the award sweep and the member check count history with no transaction open", async () => {
     const { ctx, trace, member, posted, award, holders } = world();
     await award("Posted", posted);
-    sweepAwards(ctx, 0);
+    await sweepAwards(ctx, 0);
     expect(holders()).toEqual([member]);
     const reads = trace.sql.flatMap((text, at) => (HISTORY.test(text) ? [at] : []));
     expect(reads.length).toBe(1);
@@ -138,11 +138,11 @@ describe("sweeps and member checks read history before they write", () => {
     beforeHistory(ctx, HISTORY, () =>
       ctx.sqlite.prepare("UPDATE awards SET is_active = 0 WHERE id = ?1").run(id),
     );
-    sweepAwards(ctx, 0);
+    await sweepAwards(ctx, 0);
     expect(holders()).toEqual([]);
     // Once it is active again the next pass gives it.
     ctx.sqlite.prepare("UPDATE awards SET is_active = 1 WHERE id = ?1").run(id);
-    sweepAwards(ctx, 0);
+    await sweepAwards(ctx, 0);
     expect(holders()).toEqual([member]);
   });
 
@@ -163,11 +163,11 @@ describe("sweeps and member checks read history before they write", () => {
         .prepare("UPDATE awards SET rule = ?1 WHERE id = ?2")
         .run(JSON.stringify(changed), target),
     );
-    sweepAwards(ctx, 0);
+    await sweepAwards(ctx, 0);
     expect(holders()).toEqual([]);
     // The next pass loads what the new rule reads: the member holds it, so it is not given
     // (members who hold none of it are).
-    sweepAwards(ctx, 0);
+    await sweepAwards(ctx, 0);
     expect(holders()).not.toContain(member);
     expect(holders().length).toBeGreaterThan(0);
   });

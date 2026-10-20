@@ -6,6 +6,7 @@ import {
   type Facts,
   isRefreshedBy,
   loadFacts,
+  loadFactsPaced,
   membersAffected,
   evaluate as ruleHolds,
 } from "../../shared/criteria";
@@ -15,6 +16,11 @@ import { type AwardRow, all, awardSql, one, ruleOf, type TotalRow } from "./stor
 
 // Granting can append several ledger and event rows per award; keep each lock brief.
 export const SWEEP_CHUNK = 50;
+/**
+ * A chunk's transaction ends with the member that takes its grants to this many, and the next
+ * chunk starts after that member: the first pass after new awards gives some to nearly everyone.
+ */
+export const SWEEP_GRANTS = 100;
 type MemberRow = { id: number };
 export const evaluationSql = {
   member: "SELECT id FROM users WHERE id = ?1",
@@ -47,13 +53,23 @@ function readFacts(ctx: Ctx, memberIds: number[], seen: Plans) {
         seen.map((plan) => plan.rule),
       );
 }
+
+const nextTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 function confirmed(ctx: Ctx, seen: Plans): Plans {
   const rules = new Map(seen.map((plan) => [plan.award.id, plan.award.rule]));
   return activePlans(ctx).filter((plan) => rules.get(plan.award.id) === plan.award.rule);
 }
 
-function evaluate(ctx: Ctx, members: MemberRow[], plans: Plans, facts: Map<number, Facts>): number {
-  if (plans.length === 0 || members.length === 0) return 0;
+/** Judges `members` in order until `budget` grants are made; says how many it judged. */
+function evaluate(
+  ctx: Ctx,
+  members: MemberRow[],
+  plans: Plans,
+  facts: Map<number, Facts>,
+  budget = Number.POSITIVE_INFINITY,
+): { granted: number; judged: number } {
+  if (plans.length === 0 || members.length === 0) return { granted: 0, judged: members.length };
   const totals = all<TotalRow>(
     ctx,
     "evaluationTotals",
@@ -61,23 +77,36 @@ function evaluate(ctx: Ctx, members: MemberRow[], plans: Plans, facts: Map<numbe
     JSON.stringify(members.map((m) => m.id)),
   );
   const byMember = new Map(totals.map((row) => [`${row.user_id}:${row.award_id}`, row]));
+  const rules = plans.map((plan) => plan.rule);
   let granted = 0;
+  let judged = 0;
   for (const member of members) {
+    if (granted >= budget) break;
+    judged++;
     // A member who joined after the facts were read waits for the next pass.
     const memberFacts = facts.get(member.id);
     if (!memberFacts) continue;
-    for (const { award, rule } of plans) {
-      const total = byMember.get(`${member.id}:${award.id}`);
-      if (total?.auto_granted || (!award.is_stackable && (total?.count ?? 0) > 0)) continue;
-      if (!ruleHolds(rule, memberFacts)) continue;
-      if (grantAward(ctx, award, member.id, null, "")) {
-        granted++;
-        // Later criteria in this transaction see the credits just paid and the award itself.
-        afterAwardGrant(memberFacts, award);
+    const decided = new Set<number>();
+    // Again until a round grants nothing: an award may need one that comes after it, and its
+    // grant's own events are not judged again (`onEvent`).
+    for (let round = true; round; ) {
+      round = false;
+      for (const { award, rule } of plans) {
+        if (decided.has(award.id)) continue;
+        const total = byMember.get(`${member.id}:${award.id}`);
+        if (total?.auto_granted || (!award.is_stackable && (total?.count ?? 0) > 0)) continue;
+        if (!ruleHolds(rule, memberFacts)) continue;
+        decided.add(award.id);
+        if (grantAward(ctx, award, member.id, null, "")) {
+          granted++;
+          round = true;
+          // Later criteria in this transaction see the credits just paid and the award itself.
+          afterAwardGrant(memberFacts, award, rules);
+        }
       }
     }
   }
-  return granted;
+  return { granted, judged };
 }
 
 export function evaluateMember(ctx: Ctx, userId: number): number {
@@ -87,37 +116,53 @@ export function evaluateMember(ctx: Ctx, userId: number): number {
   const facts = readFacts(ctx, [userId], seen);
   return writeTx(ctx, () => {
     const member = one<MemberRow>(ctx, "evaluationMember", evaluationSql.member, userId);
-    return member ? evaluate(ctx, [member], confirmed(ctx, seen), facts) : 0;
+    return member ? evaluate(ctx, [member], confirmed(ctx, seen), facts).granted : 0;
   });
 }
 
 /**
  * Evaluates one page of members. Run by the queue (`job` given), the chunk commits together with
- * the job's completion and its successor; a run that no longer owns the job does nothing.
+ * the job's completion and its successor; a run that no longer owns the job does nothing. The
+ * facts are read a statement at a time with a turn of the event loop after each, so a page
+ * against a hundred rules never holds the thread that serves requests for long.
  */
-export function sweepChunk(ctx: Ctx, after = 0, job?: ClaimedJob): number {
+export async function sweepChunk(ctx: Ctx, after = 0, job?: ClaimedJob): Promise<number> {
   if (!Number.isSafeInteger(after) || after < 0)
     throw new TypeError("Invalid award sweep progress.");
   const page = () =>
     all<MemberRow>(ctx, "evaluationMembers", evaluationSql.members, after, SWEEP_CHUNK);
   const seen = activePlans(ctx);
-  const facts = readFacts(
-    ctx,
-    page().map((m) => m.id),
-    seen,
-  );
+  const memberIds = page().map((m) => m.id);
+  const facts =
+    seen.length === 0 || memberIds.length === 0
+      ? new Map<number, Facts>()
+      : await loadFactsPaced(
+          ctx,
+          memberIds,
+          seen.map((plan) => plan.rule),
+          nextTurn,
+        );
   return writeTx(ctx, () => {
     if (job && !completeRunningJob(ctx, job)) return 0;
     const members = page();
-    evaluate(ctx, members, confirmed(ctx, seen), facts);
-    if (members.length === SWEEP_CHUNK) {
-      enqueueJob(ctx, "awards.sweep", { after: members.at(-1)!.id }, { uniqueKey: "awards.sweep" });
+    const { judged } = evaluate(ctx, members, confirmed(ctx, seen), facts, SWEEP_GRANTS);
+    if (judged < members.length || members.length === SWEEP_CHUNK) {
+      const next = members[judged - 1]!.id;
+      enqueueJob(ctx, "awards.sweep", { after: next }, { uniqueKey: "awards.sweep" });
     }
-    return members.length;
+    return judged;
   });
 }
 
 function onEvent(ctx: Ctx, event: DomainEvent): void {
+  // An automatic grant, and the credits it paid, come from a pass that judged every award again
+  // with them (`evaluate`): they leave nothing to change.
+  if (
+    event.payload.actorId === null &&
+    (event.type === "award.granted" ||
+      (event.type === "credits.changed" && event.payload.type === "award"))
+  )
+    return;
   let userId: number | null = null;
   if (event.type === "content.created") {
     const table = new Map([
@@ -158,8 +203,13 @@ function onEvent(ctx: Ctx, event: DomainEvent): void {
 }
 
 export function registerAwardJobs(ctx: Ctx): void {
-  registerJobHandler(ctx, "awards.sweep", (context, payload, job) => {
-    sweepChunk(context, (payload as { after: number }).after, job);
+  registerJobHandler(ctx, "awards.sweep", async (context, payload, job) => {
+    await sweepChunk(context, (payload as { after: number }).after, job);
   });
-  registerEventSubscriber(ctx, "awards", (event) => onEvent(ctx, event));
+  // A turn of the event loop after each event: a batch of them is consumed back to back, and the
+  // first pass after new awards publishes one or two for each grant.
+  registerEventSubscriber(ctx, "awards", async (event) => {
+    onEvent(ctx, event);
+    await nextTurn();
+  });
 }

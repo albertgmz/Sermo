@@ -1,5 +1,12 @@
 import { parseArgs } from "node:util";
-import { enqueueJob, registerAwardJobs, registerJobHandler, runDueJobs } from "@sermo/core";
+import {
+  dispatchEvents,
+  enqueueJob,
+  registerAwardJobs,
+  registerJobHandler,
+  runDueJobs,
+  startJobWorker,
+} from "@sermo/core";
 import { sweepChunk } from "../../packages/core/src/modules/awards/automatic";
 import type { BenchEnv, Scenario } from "../harness";
 
@@ -23,6 +30,61 @@ async function createAward(env: BenchEnv, fields: Record<string, unknown> = {}):
   ) as { id: number };
   return result.id;
 }
+/**
+ * About a hundred automatic awards of the kinds a large forum runs (fcuba.net: ladders of posts,
+ * reactions, referrals and account age, profile set-up, community and economy counts, reactions by
+ * type, awards held and items owned). Created through the API, so each rule is validated.
+ */
+export async function createScaleAwards(env: BenchEnv): Promise<number[]> {
+  const ids: number[] = [];
+  const add = async (conditions: Record<string, unknown>[], credits = 0) => {
+    ids.push(
+      await createAward(env, {
+        name: `Scale award ${ids.length + 1}`,
+        xp: 10 * (1 + (ids.length % 5)),
+        credits,
+        rule: { match: "all", conditions },
+      }),
+    );
+    return ids.at(-1)!;
+  };
+  const ladder = async (criterion: string, values: number[], extra = {}) => {
+    for (const [i, value] of values.entries())
+      await add([{ criterion, value, ...extra }], i % 3 === 2 ? 5 : 0);
+  };
+  await ladder("post_count", [1, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10_000, 25_000]);
+  await ladder("reaction_score", [1, 10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]);
+  await ladder("referrals_at_least", [1, 3, 5, 10]);
+  await ladder("days_registered", [7, 30, 182, 365, 730, 1095, 1460, 1825, 2190, 2555, 2920, 3650]);
+  await add([{ criterion: "has_cover", value: 1 }]);
+  await add([{ criterion: "profile_complete", value: 1 }]);
+  await ladder("social_links_at_least", [1, 2, 3]);
+  await ladder("credits_earned", [100, 500, 1000, 5000]);
+  await add([{ criterion: "credits_earned", value: 200, days: 30 }]);
+  await ladder("gifted_items", [1, 5, 20]);
+  await ladder("replies_received", [10, 50, 100, 500, 1000, 5000]);
+  await ladder("most_reacted_post", [5, 10, 25, 50]);
+  await ladder("quoted_by_others", [1, 10, 50, 100]);
+  await ladder("mentioned_by_others", [1, 10, 50, 100]);
+  const gems: number[] = [];
+  for (const type of [1, 2, 3, 4, 5, 6])
+    for (const value of [10, 100, 1000])
+      gems.push(await add([{ criterion: "reactions_received_by_type", ids: [type], value }]));
+  for (const rung of [0, 1, 2])
+    await add([
+      { criterion: "holds_awards", ids: gems.filter((_, i) => i % 3 === rung), mode: "each" },
+    ]);
+  await ladder("awards_held_at_least", [5, 10, 25, 50]);
+  for (const item of env.meta.economy.itemIds.permanent.slice(0, 4))
+    await add([{ criterion: "owns_item", ids: [item] }]);
+  await add([
+    { criterion: "post_count", value: 100 },
+    { criterion: "days_registered", value: 365 },
+    { criterion: "reaction_score", value: 100 },
+  ]);
+  return ids;
+}
+
 let updateAwardId = 0;
 let grantAwardId = 0;
 let deleteIds: number[] = [];
@@ -36,15 +98,126 @@ let background: Promise<void> | null = null;
 function registerMeasuredSweep(env: BenchEnv): void {
   registerAwardJobs(env.ctx);
   maxChunkMs = 0;
-  registerJobHandler(env.ctx, "awards.sweep", (ctx, payload, job) => {
+  registerJobHandler(env.ctx, "awards.sweep", async (ctx, payload, job) => {
     const start = performance.now();
-    sweepChunk(ctx, (payload as { after: number }).after, job);
+    await sweepChunk(ctx, (payload as { after: number }).after, job);
     maxChunkMs = Math.max(maxChunkMs, performance.now() - start);
   });
 }
 async function drain(env: BenchEnv): Promise<void> {
   while (await runDueJobs(env.ctx, { limit: 1 }))
     await new Promise((resolve) => setImmediate(resolve));
+}
+
+let scaleReady = false;
+let scaleStarted = 0;
+let scaleChunks: number[] = [];
+let scaleLagMs = 0;
+let scaleStop: (() => Promise<void>) | null = null;
+
+const pendingSweeps = (env: BenchEnv) =>
+  env.ctx.sqlite
+    .prepare<{ n: number }, []>(
+      "SELECT count(*) AS n FROM jobs WHERE type = 'awards.sweep' AND status IN ('pending', 'running')",
+    )
+    .get()!.n;
+
+/**
+ * Runs the award sweep over every member against the scale awards as the server does: the job
+ * worker polls the queue and events are dispatched every second, on the thread that serves
+ * requests. Measuring starts once the first chunk is done; a sweep that ended is started again
+ * (then it grants nothing, the daily case).
+ */
+async function startScaleSweep(env: BenchEnv): Promise<void> {
+  if (!scaleReady) {
+    const existing = env.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT count(*) AS n FROM awards WHERE name LIKE 'Scale award %'",
+      )
+      .get()!.n;
+    if (existing === 0) await createScaleAwards(env);
+    // The award subscriber starts after the seeded history: it judges what this run publishes.
+    env.ctx.sqlite
+      .prepare(
+        "INSERT INTO event_subscribers (name, last_event_id, updated_at) VALUES ('awards', (SELECT coalesce(max(id), 0) FROM domain_events), ?1) " +
+          "ON CONFLICT (name) DO UPDATE SET last_event_id = excluded.last_event_id, updated_at = excluded.updated_at",
+      )
+      .run(env.ctx.now());
+    scaleReady = true;
+  }
+  registerAwardJobs(env.ctx);
+  registerJobHandler(env.ctx, "awards.sweep", async (ctx, payload, job) => {
+    const start = performance.now();
+    await sweepChunk(ctx, (payload as { after: number }).after, job);
+    scaleChunks.push(performance.now() - start);
+  });
+  scaleChunks = [];
+  scaleLagMs = 0;
+  let last = performance.now();
+  const lag = setInterval(() => {
+    const now = performance.now();
+    scaleLagMs = Math.max(scaleLagMs, now - last - 5);
+    last = now;
+  }, 5);
+  let dispatching: Promise<unknown> | null = null;
+  const events = setInterval(() => {
+    dispatching ??= dispatchEvents(env.ctx).finally(() => {
+      dispatching = null;
+    });
+  }, 1000);
+  const stopWorker = startJobWorker(env.ctx);
+  scaleStop = async () => {
+    clearInterval(events);
+    await stopWorker();
+    await dispatching;
+    clearInterval(lag);
+  };
+  if (pendingSweeps(env) === 0) {
+    scaleStarted = performance.now();
+    enqueueJob(env.ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" });
+  }
+  while (scaleChunks.length === 0) await new Promise((resolve) => setTimeout(resolve, 10));
+}
+
+async function stopScaleSweep(env: BenchEnv): Promise<void> {
+  await scaleStop?.();
+  scaleStop = null;
+  await relay?.stop(true);
+  relay = null;
+  const sorted = scaleChunks.toSorted((a, b) => a - b);
+  const p95 = sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] ?? 0;
+  const left = pendingSweeps(env);
+  console.log(
+    `Award sweep at scale: ${sorted.length} chunks, chunk p95 ${p95.toFixed(2)} ms, max ${(sorted.at(-1) ?? 0).toFixed(2)} ms; ` +
+      `longest event-loop stall ${scaleLagMs.toFixed(2)} ms; ${left ? "still running" : `done in ${((performance.now() - scaleStarted) / 1000).toFixed(1)} s`}`,
+  );
+}
+
+let relay: ReturnType<typeof Bun.serve> | null = null;
+
+/**
+ * Sends one call over a local socket, as a visitor's request reaches the server: it is served
+ * when the event loop next polls for input, so it waits for whatever background work holds the
+ * loop when it arrives (a call made in process would slip in between the work's own promises).
+ */
+async function overSocket(env: BenchEnv, operation: string, userId: number, input: unknown) {
+  relay ??= Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    async fetch(request) {
+      const call = (await request.json()) as { operation: string; userId: number; input: unknown };
+      return new Response(
+        String(await env.call(call.operation, env.actors.user(call.userId), call.input)),
+      );
+    },
+  });
+  const response = await fetch(relay.url, {
+    method: "POST",
+    body: JSON.stringify({ operation, userId, input }),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`${operation} -> ${response.status} ${text}`);
+  return text;
 }
 
 export const scenarios: Scenario[] = [
@@ -277,5 +450,29 @@ export const scenarios: Scenario[] = [
       background = null;
       console.log(`Maximum concurrent award sweep chunk: ${maxChunkMs.toFixed(2)} ms`);
     },
+  },
+  {
+    name: "awards sweep at scale: threads.list while it runs",
+    kind: "read",
+    iterations: 3000,
+    setup: startScaleSweep,
+    run: (env, i) =>
+      overSocket(env, "threads.list", env.meta.memberIds[i % env.meta.memberIds.length]!, {
+        nodeId: env.meta.forumIds[0]!,
+        limit: 20,
+      }),
+    teardown: stopScaleSweep,
+  },
+  {
+    name: "awards sweep at scale: posts.create while it runs",
+    kind: "write",
+    iterations: 1000,
+    setup: startScaleSweep,
+    run: (env, i) =>
+      overSocket(env, "posts.create", env.meta.memberIds[i % env.meta.memberIds.length]!, {
+        threadId: env.meta.threadIds[0]!,
+        body: `Reply while the award sweep runs ${i}.`,
+      }),
+    teardown: stopScaleSweep,
   },
 ];

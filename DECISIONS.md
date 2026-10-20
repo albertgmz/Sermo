@@ -5188,3 +5188,40 @@ hover. The tier stays: it colours the icon (and the XP figure) from bronze for t
 legendary for the hardest, and its name is shown only in the award form, as "Rarity (colour)". The
 staff lists show the category instead of the tier. The leaderboard and podium medals use the tier
 colours for ranks 1-3, which is not an award's tier, and stay.
+
+### Award sweeps in the background
+
+On a forum of 67,000 members with about a hundred automatic awards, a full award sweep made the
+site wait 7-57 s per page for 20-45 s, and for minutes the first time after new awards.
+**Cause**, reproduced on the bench seed (60,000 members) with 114 automatic awards of the kinds
+that forum runs (`createScaleAwards` in `bench/scenarios/awards.ts`):
+
+- The job worker ran up to 100 jobs per poll back to back on the thread that serves requests,
+  awaiting each handler without a turn of the event loop. The sweep queues its next chunk at
+  once, so one poll was 100 chunks with no request served: event-loop stalls of 1.4 s on a sweep
+  that granted nothing (chunks of 5-12 ms), 3.6-6.4 s on a first run (chunks of 20-60 ms); 8
+  reads got through in 9 s. At the forum's chunk times (cold cache, small server) that is the
+  minute-long wait.
+- Every automatic grant published `award.granted` (and `credits.changed` when it paid), and the
+  award subscriber checked the member again with every rule for each of them, a hundred at a time
+  without a turn: 600,000 grants of a first run left 430,000 such checks, about 25 minutes of
+  batches of up to 0.8 s.
+- A chunk's transaction held every grant of its 50 members: up to 160 ms on a first run.
+
+**Fix.** The worker gives the event loop a turn after every job. A sweep chunk reads its facts a
+statement at a time (`loadFactsPaced`, one turn after each). A pass judges a member's awards again
+until a round grants nothing, with `afterAwardGrant` adding what a grant changes (credits, also
+as credits earned in every window, XP, the count and the award held), so the award subscriber
+skips automatic grants and the credits they paid (`actorId` null), and takes a turn after every
+event it handles. A chunk's transaction ends with the member who takes it to 100 grants
+(`SWEEP_GRANTS`); the next chunk starts after that member. Results are the same: a full run with
+every event consumed on a 6,000-member seed gives the same grants, totals, balances, ledger and
+award counts before and after (the extra rounds only give earlier what the events gave later).
+**Measured** (bench seed, `awards sweep at scale` scenarios, requests sent over a socket so they
+arrive as a visitor's do): before, threads.list max 400 ms and posts.create max 2,957 ms while the
+sweep runs; after, threads.list p95 4.9 ms, max 18 ms, posts.create p95 7.7 ms, max 20 ms,
+longest event-loop stall 12-38 ms. A sweep that grants nothing takes 9.9 s (9.1 s before); a
+first run with 600,000 grants 76 s of sweep and about three minutes for its events (before: 35 s
+of sweep, then about 25 minutes of member checks). Left as they are: the event consumer commits
+each event's position on its own (a first run is 700,000 small commits, and a WAL checkpoint
+over them stalled one commit for 370 ms), and other subscribers handle a batch without a turn.

@@ -238,6 +238,34 @@ describe("jobs", () => {
     expect(row(ctx, first)).toMatchObject({ status: "done", unique_key: null });
   });
 
+  test("the event loop gets a turn between jobs, so a chain of chunks never holds it", async () => {
+    const ctx = createTestContext();
+    let ticks = 0;
+    let ticking = true;
+    const tick = () => {
+      ticks++;
+      if (ticking) setImmediate(tick);
+    };
+    setImmediate(tick);
+    const turns: number[] = [];
+    registerJobHandler(ctx, "chain", (context, payload, job) => {
+      const { n } = payload as { n: number };
+      turns.push(ticks);
+      writeTx(context, () => {
+        if (!completeRunningJob(context, job)) return;
+        if (n < 4) enqueueJob(context, "chain", { n: n + 1 }, { uniqueKey: "chain" });
+      });
+    });
+    enqueueJob(ctx, "chain", { n: 1 }, { uniqueKey: "chain" });
+    try {
+      expect(await runDueJobs(ctx)).toBe(4);
+    } finally {
+      ticking = false;
+    }
+    expect(turns).toHaveLength(4);
+    for (let i = 1; i < turns.length; i++) expect(turns[i]!).toBeGreaterThan(turns[i - 1]!);
+  });
+
   test("a run whose lease expired cannot complete the reclaimed job or its successor", async () => {
     const ctx = createTestContext();
     const gates: (() => void)[] = [];

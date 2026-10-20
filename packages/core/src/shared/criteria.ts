@@ -329,6 +329,38 @@ export function loadFacts(
   memberIds: readonly number[],
   rules: Iterable<Rule>,
 ): Map<number, Facts> {
+  const reading = readFacts(ctx, memberIds, rules);
+  let step = reading.next();
+  while (!step.done) step = reading.next();
+  return step.value;
+}
+
+/**
+ * The same facts, awaiting `pause` after each statement: a background pass over a page of
+ * members against many rules runs dozens of statements, and the thread that serves requests
+ * should not wait for all of them at once.
+ */
+export async function loadFactsPaced(
+  ctx: Ctx,
+  memberIds: readonly number[],
+  rules: Iterable<Rule>,
+  pause: () => Promise<void>,
+): Promise<Map<number, Facts>> {
+  const reading = readFacts(ctx, memberIds, rules);
+  let step = reading.next();
+  while (!step.done) {
+    await pause();
+    step = reading.next();
+  }
+  return step.value;
+}
+
+/** Reads the facts of `loadFacts`, stopping after each statement. */
+function* readFacts(
+  ctx: Ctx,
+  memberIds: readonly number[],
+  rules: Iterable<Rule>,
+): Generator<void, Map<number, Facts>> {
   const now = ctx.now();
   const facts = new Map(memberIds.map((id) => [id, noFacts(id, now)] as const));
   if (facts.size === 0) return facts;
@@ -346,7 +378,7 @@ export function loadFacts(
     }
   const ids = JSON.stringify([...facts.keys()]);
   const set = (id: number, change: Partial<Facts>) => Object.assign(facts.get(id)!, change);
-  if (sources.has("member"))
+  if (sources.has("member")) {
     for (const row of prepared(ctx, "shared.criteriaMembers", () =>
       ctx.sqlite.prepare<MemberRow, [string, number]>(memberFactsSql),
     ).all(ids, now))
@@ -376,13 +408,17 @@ export function loadFacts(
         referralCount: row.referral_count,
         wasReferred: row.was_referred !== 0,
       });
-  if (sources.has("warnings"))
+    yield;
+  }
+  if (sources.has("warnings")) {
     for (const row of prepared(ctx, "shared.criteriaWarnings", () =>
       ctx.sqlite.prepare<{ user_id: number; points: number }, [string, number]>(
         "SELECT user_id, sum(points) AS points FROM warnings WHERE user_id IN (SELECT value FROM json_each(?1)) AND (expires_at IS NULL OR expires_at > ?2) GROUP BY user_id",
       ),
     ).all(ids, now))
       set(row.user_id, { warningPoints: row.points });
+    yield;
+  }
   if (sources.has("purchases") && itemIds.size > 0) {
     const bought = new Map<number, Set<number>>();
     for (const row of prepared(ctx, "shared.criteriaPurchasedItems", () =>
@@ -396,6 +432,7 @@ export function loadFacts(
       bought.set(row.buyer_id, items);
     }
     for (const [id, items] of bought) set(id, { purchasedItemIds: items });
+    yield;
   }
   if (sources.has("groups")) {
     const groups = new Map<number, Set<number>>();
@@ -412,6 +449,7 @@ export function loadFacts(
       groups.set(row.user_id, memberGroups);
     }
     for (const [id, memberGroups] of groups) set(id, { groupIds: memberGroups });
+    yield;
   }
   for (const [key, { spec, condition }] of measured) {
     const { sql, shape } = spec.measure!;
@@ -426,6 +464,7 @@ export function loadFacts(
       // A statement may answer in several rows for one member (one per source); they add up.
       else memberFacts.measures.set(key, Number(memberFacts.measures.get(key) ?? 0) + row.n);
     }
+    yield;
   }
   return facts;
 }
@@ -454,15 +493,25 @@ export const isRefreshedBy = (event: DomainEvent): boolean =>
 
 /**
  * Records an award just granted in the facts a pass of automatic awards is judging, so the
- * awards after it in the same pass see it (its credits, XP, and the award itself).
+ * awards after it in the same pass see it: its credits (also credits earned, in every window of
+ * `rules`, since the grant is now), its XP and the award itself. These are all the facts a grant
+ * changes, so a pass that judges its awards again until none is granted leaves nothing for the
+ * grant's own events to change.
  */
 export function afterAwardGrant(
   facts: Facts,
   award: { id: number; xp: number; credits: number },
+  rules: Iterable<Rule>,
 ): void {
   facts.credits += award.credits;
   facts.awardXp += award.xp;
   facts.awardCount += 1;
+  const earned = new Set<string>();
+  for (const rule of rules)
+    for (const condition of rule.conditions)
+      if (condition.criterion === "credits_earned") earned.add(measureKey(condition));
+  for (const key of earned)
+    facts.measures.set(key, Number(facts.measures.get(key) ?? 0) + award.credits);
   for (const [key, measure] of facts.measures) {
     const [criterion, ids] = key.split("|");
     if (criterion !== "holds_awards" || !(measure instanceof Map)) continue;

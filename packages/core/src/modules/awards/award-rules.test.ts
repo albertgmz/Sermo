@@ -145,9 +145,9 @@ describe("an award that needs other awards", () => {
     ).rejects.toThrow(/Unknown award: 999/);
   });
 
-  test("is checked again when a required award is given or taken away, and the chain ends", async () => {
+  test("is given in the same pass when the award it needs comes after it, and the chain ends", async () => {
     const { ctx, call, create, requires, held, drain, member } = setup();
-    // Made last-first, so each step has to wait for the event of the one before it.
+    // Made last-first, so each step needs an award judged after it.
     const c = await create("C", { match: "all", conditions: [] });
     const b = await create("B", { match: "all", conditions: [] });
     const a = await create("A", { match: "all", conditions: [] });
@@ -155,8 +155,8 @@ describe("an award that needs other awards", () => {
     await call("update", { awardId: b, rule: requires(a) });
     await call("update", { awardId: a, rule: posts });
     ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);
-    expect(evaluateMember(ctx, member.id)).toBe(1);
-    expect(held(member.id)).toEqual([a]);
+    expect(evaluateMember(ctx, member.id)).toBe(3);
+    expect(held(member.id)).toEqual([a, b, c].sort((x, y) => x - y));
     await drain();
     expect(held(member.id)).toEqual([a, b, c].sort((x, y) => x - y));
   });
