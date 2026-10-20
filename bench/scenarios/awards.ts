@@ -1,14 +1,22 @@
+import { copyFileSync, rmSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import {
+  type Ctx,
+  closeContext,
+  createContext,
   dispatchEvents,
   enqueueJob,
   registerAwardJobs,
   registerJobHandler,
   runDueJobs,
+  startCheckpointer,
   startJobWorker,
 } from "@sermo/core";
 import { sweepChunk } from "../../packages/core/src/modules/awards/automatic";
-import type { BenchEnv, Scenario } from "../harness";
+import { type BenchEnv, createEnv, type Scenario } from "../harness";
+import { Rng } from "../rng";
+import { benchDir, seedPaths } from "../seed";
 
 const WRITE_ITERATIONS = 100;
 function fixtureCount(): number {
@@ -35,7 +43,7 @@ async function createAward(env: BenchEnv, fields: Record<string, unknown> = {}):
  * reactions, referrals and account age, profile set-up, community and economy counts, reactions by
  * type, awards held and items owned). Created through the API, so each rule is validated.
  */
-export async function createScaleAwards(env: BenchEnv): Promise<number[]> {
+async function createScaleAwards(env: BenchEnv): Promise<number[]> {
   const ids: number[] = [];
   const add = async (conditions: Record<string, unknown>[], credits = 0) => {
     ids.push(
@@ -98,120 +106,145 @@ let background: Promise<void> | null = null;
 function registerMeasuredSweep(env: BenchEnv): void {
   registerAwardJobs(env.ctx);
   maxChunkMs = 0;
-  registerJobHandler(env.ctx, "awards.sweep", async (ctx, payload, job) => {
-    const start = performance.now();
-    await sweepChunk(ctx, (payload as { after: number }).after, job);
-    maxChunkMs = Math.max(maxChunkMs, performance.now() - start);
-  });
+  registerJobHandler(
+    env.ctx,
+    "awards.sweep",
+    async (ctx, payload, job) => {
+      const start = performance.now();
+      await sweepChunk(ctx, (payload as { after: number }).after, job);
+      maxChunkMs = Math.max(maxChunkMs, performance.now() - start);
+    },
+    { holdCheckpoints: false },
+  );
 }
 async function drain(env: BenchEnv): Promise<void> {
   while (await runDueJobs(env.ctx, { limit: 1 }))
     await new Promise((resolve) => setImmediate(resolve));
 }
 
-let scaleReady = false;
-let scaleStarted = 0;
-let scaleChunks: number[] = [];
-let scaleLagMs = 0;
-let scaleStop: (() => Promise<void>) | null = null;
-
-const pendingSweeps = (env: BenchEnv) =>
-  env.ctx.sqlite
-    .prepare<{ n: number }, []>(
-      "SELECT count(*) AS n FROM jobs WHERE type = 'awards.sweep' AND status IN ('pending', 'running')",
-    )
-    .get()!.n;
+type ScaleRun = {
+  env: BenchEnv;
+  started: number;
+  chunks: number[];
+  lagMs: number;
+  walBytes: number;
+  relay: ReturnType<typeof Bun.serve>;
+  stop: () => Promise<void>;
+};
+let scale: ScaleRun | null = null;
 
 /**
- * Runs the award sweep over every member against the scale awards as the server does: the job
- * worker polls the queue and events are dispatched every second, on the thread that serves
- * requests. Measuring starts once the first chunk is done; a sweep that ended is started again
- * (then it grants nothing, the daily case).
+ * Runs a first award sweep over every member against about a hundred awards as the server does:
+ * the job worker polls the queue and events are dispatched every second, on the thread that
+ * serves requests. It runs on its own copy of the seed, so the awards, the grants, the events,
+ * the replies and the sweep left unfinished never reach another scenario. Measuring starts once
+ * the first chunk is done.
  */
 async function startScaleSweep(env: BenchEnv): Promise<void> {
-  if (!scaleReady) {
-    const existing = env.ctx.sqlite
-      .prepare<{ n: number }, []>(
-        "SELECT count(*) AS n FROM awards WHERE name LIKE 'Scale award %'",
-      )
-      .get()!.n;
-    if (existing === 0) await createScaleAwards(env);
-    // The award subscriber starts after the seeded history: it judges what this run publishes.
-    env.ctx.sqlite
-      .prepare(
-        "INSERT INTO event_subscribers (name, last_event_id, updated_at) VALUES ('awards', (SELECT coalesce(max(id), 0) FROM domain_events), ?1) " +
-          "ON CONFLICT (name) DO UPDATE SET last_event_id = excluded.last_event_id, updated_at = excluded.updated_at",
-      )
-      .run(env.ctx.now());
-    scaleReady = true;
-  }
-  registerAwardJobs(env.ctx);
-  registerJobHandler(env.ctx, "awards.sweep", async (ctx, payload, job) => {
-    const start = performance.now();
-    await sweepChunk(ctx, (payload as { after: number }).after, job);
-    scaleChunks.push(performance.now() - start);
-  });
-  scaleChunks = [];
-  scaleLagMs = 0;
+  const path = join(benchDir(), `award-sweep-${process.pid}.db`);
+  for (const suffix of ["", "-wal", "-shm"]) rmSync(path + suffix, { force: true });
+  copyFileSync(seedPaths().db, path);
+  const ctx: Ctx = createContext({ path, config: env.ctx.config });
+  const stopCheckpointer = startCheckpointer(ctx);
+  const copy = await createEnv(ctx, env.meta, new Rng(42));
+  await createScaleAwards(copy);
+  // The award subscriber starts after the seeded history: it judges what this run publishes.
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO event_subscribers (name, last_event_id, updated_at) VALUES ('awards', (SELECT coalesce(max(id), 0) FROM domain_events), ?1) " +
+        "ON CONFLICT (name) DO UPDATE SET last_event_id = excluded.last_event_id, updated_at = excluded.updated_at",
+    )
+    .run(ctx.now());
+  registerAwardJobs(ctx);
+  const chunks: number[] = [];
+  registerJobHandler(
+    ctx,
+    "awards.sweep",
+    async (context, payload, job) => {
+      const start = performance.now();
+      await sweepChunk(context, (payload as { after: number }).after, job);
+      chunks.push(performance.now() - start);
+    },
+    { holdCheckpoints: false },
+  );
   let last = performance.now();
   const lag = setInterval(() => {
     const now = performance.now();
-    scaleLagMs = Math.max(scaleLagMs, now - last - 5);
+    run.lagMs = Math.max(run.lagMs, now - last - 5);
     last = now;
   }, 5);
+  const wal = setInterval(() => {
+    try {
+      run.walBytes = Math.max(run.walBytes, statSync(`${path}-wal`).size);
+    } catch {}
+  }, 100);
   let dispatching: Promise<unknown> | null = null;
   const events = setInterval(() => {
-    dispatching ??= dispatchEvents(env.ctx).finally(() => {
+    dispatching ??= dispatchEvents(ctx).finally(() => {
       dispatching = null;
     });
   }, 1000);
-  const stopWorker = startJobWorker(env.ctx);
-  scaleStop = async () => {
-    clearInterval(events);
-    await stopWorker();
-    await dispatching;
-    clearInterval(lag);
-  };
-  if (pendingSweeps(env) === 0) {
-    scaleStarted = performance.now();
-    enqueueJob(env.ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" });
-  }
-  while (scaleChunks.length === 0) await new Promise((resolve) => setTimeout(resolve, 10));
-}
-
-async function stopScaleSweep(env: BenchEnv): Promise<void> {
-  await scaleStop?.();
-  scaleStop = null;
-  await relay?.stop(true);
-  relay = null;
-  const sorted = scaleChunks.toSorted((a, b) => a - b);
-  const p95 = sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] ?? 0;
-  const left = pendingSweeps(env);
-  console.log(
-    `Award sweep at scale: ${sorted.length} chunks, chunk p95 ${p95.toFixed(2)} ms, max ${(sorted.at(-1) ?? 0).toFixed(2)} ms; ` +
-      `longest event-loop stall ${scaleLagMs.toFixed(2)} ms; ${left ? "still running" : `done in ${((performance.now() - scaleStarted) / 1000).toFixed(1)} s`}`,
-  );
-}
-
-let relay: ReturnType<typeof Bun.serve> | null = null;
-
-/**
- * Sends one call over a local socket, as a visitor's request reaches the server: it is served
- * when the event loop next polls for input, so it waits for whatever background work holds the
- * loop when it arrives (a call made in process would slip in between the work's own promises).
- */
-async function overSocket(env: BenchEnv, operation: string, userId: number, input: unknown) {
-  relay ??= Bun.serve({
+  const stopWorker = startJobWorker(ctx);
+  const relay = Bun.serve({
     port: 0,
     hostname: "127.0.0.1",
     async fetch(request) {
       const call = (await request.json()) as { operation: string; userId: number; input: unknown };
       return new Response(
-        String(await env.call(call.operation, env.actors.user(call.userId), call.input)),
+        String(await copy.call(call.operation, copy.actors.user(call.userId), call.input)),
       );
     },
   });
-  const response = await fetch(relay.url, {
+  const run: ScaleRun = {
+    env: copy,
+    started: performance.now(),
+    chunks,
+    lagMs: 0,
+    walBytes: 0,
+    relay,
+    async stop() {
+      clearInterval(events);
+      await stopWorker();
+      await dispatching;
+      clearInterval(lag);
+      clearInterval(wal);
+      await relay.stop(true);
+      await stopCheckpointer();
+      closeContext(ctx);
+      for (const suffix of ["", "-wal", "-shm"]) rmSync(path + suffix, { force: true });
+    },
+  };
+  scale = run;
+  enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" });
+  while (chunks.length === 0) await new Promise((resolve) => setTimeout(resolve, 10));
+}
+
+async function stopScaleSweep(): Promise<void> {
+  const run = scale;
+  if (!run) return;
+  scale = null;
+  const left = run.env.ctx.sqlite
+    .prepare<{ n: number }, []>("SELECT count(*) AS n FROM jobs WHERE unique_key = 'awards.sweep'")
+    .get()!.n;
+  const elapsed = (performance.now() - run.started) / 1000;
+  await run.stop();
+  const sorted = run.chunks.toSorted((a, b) => a - b);
+  const p95 = sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] ?? 0;
+  console.log(
+    `Award sweep at scale: ${sorted.length} chunks in ${elapsed.toFixed(1)} s${left ? " (stopped before the end)" : ""}, ` +
+      `chunk p95 ${p95.toFixed(2)} ms, max ${(sorted.at(-1) ?? 0).toFixed(2)} ms; longest event-loop stall ${run.lagMs.toFixed(2)} ms; ` +
+      `largest WAL ${(run.walBytes / 1e6).toFixed(1)} MB`,
+  );
+}
+
+/**
+ * Sends one call to the sweep's copy over a local socket, as a visitor's request reaches the
+ * server: it is served when the event loop next polls for input, so it waits for whatever
+ * background work holds the loop when it arrives (a call made in process would slip in between
+ * the work's own promises).
+ */
+async function overSocket(operation: string, userId: number, input: unknown) {
+  const response = await fetch(scale!.relay.url, {
     method: "POST",
     body: JSON.stringify({ operation, userId, input }),
   });
@@ -457,7 +490,7 @@ export const scenarios: Scenario[] = [
     iterations: 3000,
     setup: startScaleSweep,
     run: (env, i) =>
-      overSocket(env, "threads.list", env.meta.memberIds[i % env.meta.memberIds.length]!, {
+      overSocket("threads.list", env.meta.memberIds[i % env.meta.memberIds.length]!, {
         nodeId: env.meta.forumIds[0]!,
         limit: 20,
       }),
@@ -469,7 +502,7 @@ export const scenarios: Scenario[] = [
     iterations: 1000,
     setup: startScaleSweep,
     run: (env, i) =>
-      overSocket(env, "posts.create", env.meta.memberIds[i % env.meta.memberIds.length]!, {
+      overSocket("posts.create", env.meta.memberIds[i % env.meta.memberIds.length]!, {
         threadId: env.meta.threadIds[0]!,
         body: `Reply while the award sweep runs ${i}.`,
       }),
