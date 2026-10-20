@@ -25,6 +25,7 @@ const FIELDS = [
   "description",
   "icon",
   "tier",
+  "categoryId",
   "xp",
   "credits",
   "isStackable",
@@ -46,6 +47,10 @@ export async function saveAward(
   if (raw !== "" && awardId === null) return { error: t("id") };
   const tier = text(formData, "tier");
   if (!TIERS.includes(tier)) return { fields: { tier: t("tier") } };
+  const typedCategory = text(formData, "categoryId");
+  const categoryId = typedCategory === "" ? null : parseId(typedCategory);
+  if (typedCategory !== "" && categoryId === null)
+    return { fields: { categoryId: t("category") } };
   const xp = whole(text(formData, "xp").trim());
   if (xp === null) return { fields: { xp: t("number") } };
   const credits = whole(text(formData, "credits").trim());
@@ -63,6 +68,7 @@ export async function saveAward(
     description: text(formData, "description"),
     icon: text(formData, "icon"),
     tier: tier as (typeof awardsCreate.input.shape.tier.options)[number],
+    categoryId,
     xp,
     credits,
     isStackable: formData.get("isStackable") !== null,

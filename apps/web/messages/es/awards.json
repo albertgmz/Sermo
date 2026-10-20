@@ -21,6 +21,7 @@
     "loadingAwards": "Cargando trofeos…",
     "login": "Inicia sesión para seguir tu progreso",
     "catalogueHeading": "Todos los trofeos",
+    "others": "Otros",
     "earnedCount": "{earned} de {total} conseguidos",
     "awards": "{count, plural, one {# trofeo} other {# trofeos}}",
     "empty": "Aún no se ofrece ningún trofeo.",
@@ -31,7 +32,6 @@
     "metaFallbackTitle": "Trofeo",
     "homeLabel": "Inicio",
     "awardsLabel": "Trofeos",
-    "tierLabel": "Trofeo {tier}",
     "xpLabel": "XP",
     "xpValue": "+{xp}",
     "earnedDate": "Conseguiste este trofeo el {date}",
@@ -43,12 +43,6 @@
     "grantsLabel": "{count, plural, one {Concesión} other {Concesiones}}",
     "loadMore": "Cargar más",
     "loadingHolders": "Cargando poseedores…"
-  },
-  "tiers": {
-    "legendary": "Legendario",
-    "gold": "Oro",
-    "silver": "Plata",
-    "bronze": "Bronce"
   },
   "loading": {
     "label": "Cargando trofeos…",

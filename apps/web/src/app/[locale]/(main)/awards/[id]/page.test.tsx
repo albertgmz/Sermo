@@ -40,6 +40,7 @@ const award = {
   icon: "star",
   image: null,
   tier: "gold",
+  category: null,
   xp: 10,
   credits: 0,
   isStackable: false,
@@ -51,7 +52,7 @@ const award = {
 };
 
 // The backend refuses awards.holders to a viewer whose group lacks member.viewList.
-function backend(viewList: boolean) {
+function backend(viewList: boolean, shown: object = award) {
   globalThis.fetch = (async (url: string) => {
     const { pathname } = new URL(url);
     if (pathname === "/api/v1/me") {
@@ -60,7 +61,7 @@ function backend(viewList: boolean) {
         resolvedPermissions: viewList ? {} : { "member.viewList": false },
       });
     }
-    if (pathname === "/api/v1/awards/1") return Response.json(award);
+    if (pathname === "/api/v1/awards/1") return Response.json(shown);
     if (pathname === "/api/v1/awards/1/holders") {
       if (viewList) return Response.json({ items: [], nextCursor: null });
       return Response.json(
@@ -103,4 +104,15 @@ test("the holders are there for a viewer who may list members", async () => {
   const { html, errors } = await page();
   expect(errors).toEqual([]);
   expect(html).toContain(messages.awards.award.holdersHeading);
+});
+
+test("the award names its category, linked to its group on the awards page, and never its tier", async () => {
+  backend(true, { ...award, category: { id: 3, title: "By posts" } });
+  const { html, errors } = await page();
+  expect(errors).toEqual([]);
+  expect(html).toContain('href="/awards#category-3"');
+  expect(html).toContain("By posts");
+  expect(html).not.toContain("Gold");
+  backend(true);
+  expect((await page()).html).not.toContain("/awards#category-");
 });

@@ -117,22 +117,17 @@
   "awards": {
     "metaTitle": "Award definitions",
     "pageHeading": "Award definitions",
-    "subtitle": "The awards members can hold: their tier, what they are worth, and when they are given automatically.",
+    "subtitle": "The awards members can hold: their category, what they are worth, and when they are given automatically.",
     "loading": "Loading the awards…",
     "heading": "Awards",
-    "description": "Best tier first. Inactive awards are shown too.",
+    "description": "In the order of the awards page: by category, easiest first. Inactive awards are shown too.",
     "active": "Active",
     "inactive": "Inactive",
     "automatic": "Automatic",
     "facts": "{xp} XP · {credits} credits · held {holders} times",
     "edit": "Edit {name}",
     "none": "No awards yet",
-    "tiers": {
-      "bronze": "Bronze",
-      "silver": "Silver",
-      "gold": "Gold",
-      "legendary": "Legendary"
-    },
+    "noCategory": "No category",
     "runHeading": "Run the automatic awards now",
     "runHelp": "Checks every member against every active award that has criteria. It also runs by itself every day.",
     "run": "Run now",
@@ -159,7 +154,11 @@
     "form": {
       "name": "Name",
       "description": "Description",
-      "tier": "Tier",
+      "category": "Category",
+      "categoryHelp": "Where the awards page lists it. Without one it is listed last, under Others.",
+      "noCategory": "No category",
+      "tier": "Rarity (colour)",
+      "tierHelp": "Only the colours of its round icon: bronze for the easy rungs up to legendary for the hardest. Its name is never shown to members.",
       "tiers": {
         "bronze": "Bronze",
         "silver": "Silver",
@@ -179,13 +178,14 @@
       "active": "Active",
       "activeHelp": "An inactive award cannot be granted and is hidden from members.",
       "basics": "Award",
-      "basicsHelp": "What the award is called, its tier and what each grant is worth.",
+      "basicsHelp": "What the award is called, where it is listed and what each grant is worth.",
       "automatic": "Automatic award",
       "automaticHelp": "Criteria that grant the award by themselves. With none, it is only given by hand."
     },
     "errors": {
       "id": "That is not a valid award.",
-      "tier": "Choose one of the tiers offered.",
+      "category": "Choose one of the categories offered.",
+      "tier": "Choose one of the rarities offered.",
       "number": "Enter a whole number.",
       "file": "That is not a valid uploaded file."
     },
@@ -197,6 +197,53 @@
       "heading": "New award",
       "description": "Create the award, then grant it by hand or let its criteria grant it.",
       "submit": "Create award"
+    }
+  },
+  "awardCategories": {
+    "loading": "Loading the categories…",
+    "heading": "Categories",
+    "description": "What the awards reward. The awards page groups them in this order.",
+    "add": "Add category",
+    "sortLink": "Sort",
+    "none": "No categories yet",
+    "emptyDescription": "Without categories the awards page lists every award in one group.",
+    "count": "{count, plural, =0 {No awards} one {# award} other {# awards}}",
+    "edit": "Edit {title}",
+    "deleteShort": "Delete",
+    "delete": "Delete category",
+    "deleteHeading": "Delete this category",
+    "deleteWarning": "{count, plural, =0 {It holds no awards.} one {Its award stays, without a category: the awards page lists it last, under Others.} other {Its # awards stay, without a category: the awards page lists them last, under Others.}}",
+    "notices": {
+      "created": "Category created.",
+      "saved": "Category saved.",
+      "ordered": "Order saved.",
+      "deleted": "Category deleted."
+    },
+    "form": {
+      "basics": "Category",
+      "basicsHelp": "Its title heads its awards on the awards page.",
+      "title": "Title",
+      "description": "Description",
+      "descriptionHelp": "Optional. A line under the title on the awards page."
+    },
+    "errors": {
+      "id": "That is not a valid category.",
+      "order": "Every position must be a whole number."
+    },
+    "new": {
+      "metaTitle": "New award category",
+      "heading": "New award category",
+      "description": "It is added after the last category; move it on the sort page.",
+      "submit": "Create category"
+    },
+    "editPage": {
+      "metaTitle": "Award category"
+    },
+    "sort": {
+      "metaTitle": "Sort award categories",
+      "heading": "Sort award categories",
+      "description": "The awards page shows the categories in this order; awards without one come last.",
+      "list": "Categories"
     }
   },
   "grants": {
@@ -215,12 +262,6 @@
     "heldHeading": "Awards held by {name}",
     "heldLabel": "Awards held",
     "none": "This member holds no awards.",
-    "tiers": {
-      "bronze": "Bronze",
-      "silver": "Silver",
-      "gold": "Gold",
-      "legendary": "Legendary"
-    },
     "by": "granted by {name}",
     "automatic": "granted automatically",
     "revoke": "Revoke",

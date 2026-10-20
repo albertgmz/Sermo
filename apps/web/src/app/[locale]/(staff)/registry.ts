@@ -877,6 +877,27 @@ export const SECTIONS = [
         listed: false,
       },
       {
+        key: "economyAwardCategoryNew",
+        path: "/admin/awards/categories/new",
+        access: ["admin.awards"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "economyAwardCategorySort",
+        path: "/admin/awards/categories/sort",
+        access: ["admin.awards"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "economyAwardCategoryEdit",
+        path: "/admin/awards/categories/[id]",
+        access: ["admin.awards"],
+        built: true,
+        listed: false,
+      },
+      {
         key: "economyAwardGrants",
         path: "/admin/award-grants",
         access: ["award.grant"],

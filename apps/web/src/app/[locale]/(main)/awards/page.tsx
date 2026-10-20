@@ -1,4 +1,5 @@
 import {
+  awardCategoriesList,
   awardsList,
   awardsMember,
   profilesGet,
@@ -9,7 +10,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { TIER_ORDER, TIERS } from "@/app/[locale]/(main)/awards/tiers";
+import { catalogueSections } from "@/app/[locale]/(main)/awards/catalogue";
+import { TIERS } from "@/app/[locale]/(main)/awards/tiers";
 import { Art } from "@/components/forum/art";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { Leaderboard } from "@/components/forum/leaderboard";
@@ -50,6 +52,11 @@ async function listAwards() {
 }
 
 type Award = Awaited<ReturnType<typeof listAwards>>["items"][number];
+
+// The categories the awards are grouped under; the same permission as the awards themselves.
+async function listCategories() {
+  return (await readIfAllowed(awardCategoriesList, {}))?.items ?? [];
+}
 
 // The awards the viewer holds, with the date of the last grant.
 async function heldBy(userId: number | undefined) {
@@ -227,10 +234,10 @@ function AwardCard({
 
 async function Catalogue({ userId }: { userId: number | undefined }) {
   const locale = await getLocale();
-  const [t, tTiers, awards, held] = await Promise.all([
+  const [t, awards, categories, held] = await Promise.all([
     getTranslations("awards.awards"),
-    getTranslations("awards.tiers"),
     listAwards(),
+    listCategories(),
     heldBy(userId),
   ]);
   if (awards.items.length === 0) {
@@ -245,54 +252,72 @@ async function Catalogue({ userId }: { userId: number | undefined }) {
       <h2 id="catalogue-title" className="sr-only">
         {t("catalogueHeading")}
       </h2>
-      {TIER_ORDER.map((tier) => {
-        const group = awards.items.filter((award) => award.tier === tier);
-        if (group.length === 0) return null;
-        const owned = group.filter((award) => held?.has(award.id));
-        return (
-          <section key={tier} className="space-y-3">
-            <div className="flex items-center justify-between gap-3 border-b pb-2">
-              <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <span
-                  aria-hidden="true"
-                  className={cn("size-2 rounded-full", TIERS[tier].dot)}
-                />
-                <span className={TIERS[tier].text}>{tTiers(tier)}</span>
-              </h3>
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {held
-                  ? t("earnedCount", {
-                      earned: formatNumber(owned.length, locale),
-                      total: formatNumber(group.length, locale),
-                    })
-                  : t("awards", { count: group.length })}
-              </p>
-            </div>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {group.map((award) => {
-                const earnedAt = held?.get(award.id);
-                return (
-                  <AwardCard
-                    key={award.id}
-                    award={award}
-                    earnedAt={earnedAt}
-                    locked={Boolean(held) && !earnedAt}
-                    xp={t("xpReward", { xp: formatNumber(award.xp, locale) })}
-                    holders={t("holders", { count: award.grantCount })}
-                    note={
-                      earnedAt
-                        ? t("earnedDate", {
-                            date: formatDate(earnedAt, locale),
-                          })
-                        : t("lockedLabel")
-                    }
-                  />
-                );
-              })}
-            </ul>
-          </section>
-        );
-      })}
+      {catalogueSections(awards.items, categories, t("others")).map(
+        (section, _, sections) => {
+          const group = section.awards;
+          const owned = group.filter((award) => held?.has(award.id));
+          const key = section.id ?? "others";
+          // With no categories at all, the one section is the whole catalogue.
+          const title =
+            section.id === null && sections.length === 1
+              ? t("catalogueHeading")
+              : section.title;
+          return (
+            <section
+              key={key}
+              id={section.id === null ? undefined : `category-${section.id}`}
+              aria-labelledby={`section-${key}`}
+              className="scroll-mt-20 space-y-3"
+            >
+              <div className="border-b pb-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3
+                    id={`section-${key}`}
+                    className="text-sm font-semibold [overflow-wrap:anywhere]"
+                  >
+                    {title}
+                  </h3>
+                  <p className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {held
+                      ? t("earnedCount", {
+                          earned: formatNumber(owned.length, locale),
+                          total: formatNumber(group.length, locale),
+                        })
+                      : t("awards", { count: group.length })}
+                  </p>
+                </div>
+                {section.description && (
+                  <p className="mt-0.5 text-xs text-pretty text-muted-foreground [overflow-wrap:anywhere]">
+                    {section.description}
+                  </p>
+                )}
+              </div>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {group.map((award) => {
+                  const earnedAt = held?.get(award.id);
+                  return (
+                    <AwardCard
+                      key={award.id}
+                      award={award}
+                      earnedAt={earnedAt}
+                      locked={Boolean(held) && !earnedAt}
+                      xp={t("xpReward", { xp: formatNumber(award.xp, locale) })}
+                      holders={t("holders", { count: award.grantCount })}
+                      note={
+                        earnedAt
+                          ? t("earnedDate", {
+                              date: formatDate(earnedAt, locale),
+                            })
+                          : t("lockedLabel")
+                      }
+                    />
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        },
+      )}
     </section>
   );
 }

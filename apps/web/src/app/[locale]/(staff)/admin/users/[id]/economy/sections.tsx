@@ -267,7 +267,9 @@ export async function Awards({
           items={grants.items.map((grant) => ({
             id: grant.id,
             title: grant.award.name,
-            badges: <Badge variant="secondary">{grant.award.tier}</Badge>,
+            badges: grant.award.category && (
+              <Badge variant="secondary">{grant.award.category.title}</Badge>
+            ),
             description: (
               <>
                 <Time at={grant.grantedAt} /> ·{" "}

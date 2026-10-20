@@ -667,6 +667,7 @@ const AWARD = {
   icon: "",
   image: null,
   tier: "gold",
+  category: null,
   xp: 10,
   credits: 0,
   isStackable: false,

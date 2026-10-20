@@ -77,13 +77,16 @@ export type AwardArt = {
   tier: AwardTier;
 };
 
+// `label` is what it is called (default: the award's name), e.g. with its category on a profile.
 export async function AwardIcon({
   award,
   size = "md",
+  label = award.name,
   className,
 }: {
   award: AwardArt;
   size?: AwardIconSize;
+  label?: string;
   className?: string;
 }) {
   const Icon = ICONS[award.icon] ?? AwardFallback;
@@ -91,7 +94,7 @@ export async function AwardIcon({
   const blocked = await liteBlocks("awards");
   return (
     <LazyTooltip
-      label={award.name}
+      label={label}
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-full border",
         TIERS[award.tier],

@@ -120,9 +120,11 @@ export async function GrantsScreen({
             <div className="min-w-0 flex-1 space-y-1">
               <p className="flex flex-wrap items-center gap-2 font-medium [overflow-wrap:anywhere]">
                 {grant.award.name}
-                <Badge variant="secondary">
-                  {t(`tiers.${grant.award.tier}`)}
-                </Badge>
+                {grant.award.category && (
+                  <Badge variant="secondary">
+                    {grant.award.category.title}
+                  </Badge>
+                )}
               </p>
               <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
                 {format.dateTime(new Date(grant.grantedAt), {

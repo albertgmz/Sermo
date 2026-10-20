@@ -90,6 +90,7 @@
     "awardsDescription": "Explore <user>{username}</user>'s awards collection.",
     "awardsEmpty": "<user>{username}</user> has no awards at this time.",
     "quantity": "×{count, number}",
+    "awardInCategory": "{name} · {category}",
     "activityHeading": "Latest activity",
     "activityDescription": "What <user>{username}</user> has been up to lately.",
     "activityStarted": "Started a thread · <time></time>",

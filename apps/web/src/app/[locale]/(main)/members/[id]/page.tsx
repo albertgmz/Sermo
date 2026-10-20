@@ -192,7 +192,17 @@ async function ProfileCards({
                     href={`/awards/${award.id}`}
                     className="inline-flex size-10 items-center justify-center rounded-md transition-colors hover:bg-muted"
                   >
-                    <AwardIcon award={award} />
+                    <AwardIcon
+                      award={award}
+                      label={
+                        award.category
+                          ? t("awardInCategory", {
+                              name: award.name,
+                              category: award.category.title,
+                            })
+                          : award.name
+                      }
+                    />
                   </Link>
                   {count > 1 && (
                     <span className="-ml-1.5 mr-1 text-xs text-muted-foreground tabular-nums">

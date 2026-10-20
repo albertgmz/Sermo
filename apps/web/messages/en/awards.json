@@ -21,6 +21,7 @@
     "loadingAwards": "Loading awards…",
     "login": "Log in to track your progress",
     "catalogueHeading": "All awards",
+    "others": "Others",
     "earnedCount": "{earned} of {total} earned",
     "awards": "{count, plural, one {# award} other {# awards}}",
     "empty": "No awards are offered yet.",
@@ -31,7 +32,6 @@
     "metaFallbackTitle": "Award",
     "homeLabel": "Home",
     "awardsLabel": "Awards",
-    "tierLabel": "{tier} award",
     "xpLabel": "XP",
     "xpValue": "+{xp}",
     "earnedDate": "You earned this on {date}",
@@ -43,12 +43,6 @@
     "grantsLabel": "{count, plural, one {Grant} other {Grants}}",
     "loadMore": "Load more",
     "loadingHolders": "Loading holders…"
-  },
-  "tiers": {
-    "legendary": "Legendary",
-    "gold": "Gold",
-    "silver": "Silver",
-    "bronze": "Bronze"
   },
   "loading": {
     "label": "Loading awards…",

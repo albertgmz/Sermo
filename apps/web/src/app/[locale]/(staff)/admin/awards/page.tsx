@@ -6,6 +6,7 @@ import { ScreenFrame } from "@/components/staff/screen-frame";
 import { ListSkeleton } from "../../skeletons";
 import { staffTrail } from "../../trail";
 import { AwardList } from "./award-list";
+import { AwardCategoryList } from "./categories/category-list";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminEconomy.awards");
@@ -26,6 +27,7 @@ export default function AwardsPage({
       label={t("loading")}
       fallback={<ListSkeleton rows={6} />}
     >
+      <AwardCategoryList searchParams={searchParams} />
       <AwardList searchParams={searchParams} addAction={add} />
     </ScreenFrame>
   );

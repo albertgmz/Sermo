@@ -1,5 +1,5 @@
 import type { awardsGet } from "@sermo/core/contracts";
-import { awardsCreate } from "@sermo/core/contracts";
+import { awardCategoriesList, awardsCreate } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
@@ -8,6 +8,7 @@ import { PictureField } from "@/components/staff/picture-field";
 import { selectClass } from "@/components/staff/rows";
 import { RuleField } from "@/components/staff/rule-field";
 import { Input } from "@/components/ui/input";
+import { read } from "@/lib/sermo/client";
 
 export type Award = z.output<typeof awardsGet.output>;
 
@@ -19,7 +20,10 @@ const describedBy = (id: string) => `${id}-help ${id}-error`;
 // The fields of an award, for a new one (no `award`) or one being edited, inside the page's
 // `EditForm`. A rule with no conditions means the award is given by hand only.
 export async function AwardFormFields({ award }: { award?: Award }) {
-  const t = await getTranslations("adminEconomy.awards.form");
+  const [t, categories] = await Promise.all([
+    getTranslations("adminEconomy.awards.form"),
+    read(awardCategoriesList, {}),
+  ]);
   const key = `award-${award?.id ?? "new"}`;
   return (
     <>
@@ -46,12 +50,38 @@ export async function AwardFormFields({ award }: { award?: Award }) {
             aria-describedby={`${key}-description-error`}
           />
         </Field>
-        <Field name="tier" label={t("tier")} htmlFor={`${key}-tier`}>
+        <Field
+          name="categoryId"
+          label={t("category")}
+          htmlFor={`${key}-category`}
+          help={t("categoryHelp")}
+        >
+          <select
+            id={`${key}-category`}
+            name="categoryId"
+            defaultValue={award?.category?.id ?? ""}
+            aria-describedby={describedBy(`${key}-category`)}
+            className={selectClass}
+          >
+            <option value="">{t("noCategory")}</option>
+            {categories.items.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.title}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field
+          name="tier"
+          label={t("tier")}
+          htmlFor={`${key}-tier`}
+          help={t("tierHelp")}
+        >
           <select
             id={`${key}-tier`}
             name="tier"
             defaultValue={award?.tier ?? TIERS[0]}
-            aria-describedby={`${key}-tier-error`}
+            aria-describedby={describedBy(`${key}-tier`)}
             className={selectClass}
           >
             {TIERS.map((tier) => (

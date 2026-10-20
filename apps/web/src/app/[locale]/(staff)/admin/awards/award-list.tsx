@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { deleteAward, runAwards } from "./actions";
 
-// Every award, best tier first as the backend orders them (inactive ones too, for an
-// administrator), each leading to its edit page; then the sweep. The backend does not page awards.
+// Every award in the order of the awards page (by category, easiest first; inactive ones too, for
+// an administrator), each leading to its edit page; then the sweep. The backend does not page
+// awards. Its tier is the colour of its icon.
 export async function AwardList({
   searchParams,
   addAction,
@@ -55,7 +56,9 @@ export async function AwardList({
           }),
           badges: (
             <>
-              <Badge variant="secondary">{t(`tiers.${award.tier}`)}</Badge>
+              <Badge variant="secondary">
+                {award.category?.title ?? t("noCategory")}
+              </Badge>
               {award.isActive ? (
                 <Badge variant="success">{t("active")}</Badge>
               ) : (

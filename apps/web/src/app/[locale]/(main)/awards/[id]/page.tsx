@@ -1,6 +1,7 @@
 import { awardsGet, awardsMember } from "@sermo/core/contracts";
 import { Check, Lock, Users } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
@@ -135,13 +136,11 @@ export default async function AwardPage({
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const awardId = awardIdOf(id);
   const cursor = first(query.cursor) || undefined;
-  const [t, tTiers, award, { user }] = await Promise.all([
+  const [t, award, { user }] = await Promise.all([
     getTranslations("awards.award"),
-    getTranslations("awards.tiers"),
     getAward(awardId),
     getViewer(),
   ]);
-  const tier = TIERS[award.tier];
 
   return (
     <PageLayout className="pt-2" mainClassName="space-y-4">
@@ -166,15 +165,24 @@ export default async function AwardPage({
           size="lg"
           className="size-16 md:size-20 [&_svg]:size-8 md:[&_svg]:size-10"
         />
-        <p
+        {/* The category the award is listed under on the awards page, in its rarity's colour. */}
+        {award.category && (
+          <Link
+            href={`/awards#category-${award.category.id}`}
+            className={cn(
+              "mt-4 inline-flex min-h-10 items-center rounded-md text-xs font-semibold tracking-wide uppercase underline-offset-4 [overflow-wrap:anywhere] hover:underline",
+              TIERS[award.tier].text,
+            )}
+          >
+            {award.category.title}
+          </Link>
+        )}
+        <h1
           className={cn(
-            "mt-5 text-xs font-semibold tracking-wide uppercase",
-            tier.text,
+            award.category ? "mt-0" : "mt-5",
+            "text-3xl font-bold tracking-tight text-balance [overflow-wrap:anywhere] md:text-4xl",
           )}
         >
-          {t("tierLabel", { tier: tTiers(award.tier) })}
-        </p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight text-balance [overflow-wrap:anywhere] md:text-4xl">
           {award.name}
         </h1>
         <p className="mt-2 max-w-md text-pretty text-muted-foreground [overflow-wrap:anywhere]">

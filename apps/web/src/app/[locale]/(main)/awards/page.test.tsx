@@ -33,7 +33,11 @@ afterEach(() => {
 
 const STAMP = "2026-01-01T00:00:00.000Z";
 
-function award(id: number, isActive: boolean) {
+function award(
+  id: number,
+  isActive: boolean,
+  category: { id: number; title: string } | null = null,
+) {
   return {
     id,
     name: `Award ${id}`,
@@ -41,6 +45,7 @@ function award(id: number, isActive: boolean) {
     icon: "star",
     image: null,
     tier: "gold",
+    category,
     xp: 10,
     credits: 0,
     isStackable: false,
@@ -52,12 +57,29 @@ function award(id: number, isActive: boolean) {
   };
 }
 
+function category(id: number, title: string, description = "") {
+  return {
+    id,
+    title,
+    description,
+    position: id,
+    awardCount: 0,
+    createdAt: STAMP,
+    updatedAt: STAMP,
+  };
+}
+
 // The backend lists inactive awards too to a holder of admin.awards; users.list is answered with
-// `members`.
-function backend(members: () => Response, awards?: () => Response) {
+// `members`, the categories with `categories` (none by default).
+function backend(
+  members: () => Response,
+  awards?: () => Response,
+  categories: () => Response = () => Response.json({ items: [] }),
+) {
   globalThis.fetch = (async (url: string) => {
     const { pathname } = new URL(url);
     if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
+    if (pathname === "/api/v1/awards/categories") return categories();
     if (pathname === "/api/v1/awards") {
       if (awards) return awards();
       return Response.json({ items: [award(1, true), award(2, false)] });
@@ -123,4 +145,59 @@ test("a guest who may not open profiles is told so where the catalogue would be,
   const { html, errors } = await page();
   expect(errors).toEqual([]);
   expect(html).toContain(messages.awards.awards.restricted);
+});
+
+test("the catalogue is grouped by category in the backend's order, the rest last under Others", async () => {
+  const posts = { id: 3, title: "By posts" };
+  const welcome = { id: 5, title: "Welcome" };
+  backend(
+    refused(403, "forbidden"),
+    () =>
+      Response.json({
+        items: [
+          award(11, true, welcome),
+          award(12, true, posts),
+          award(13, true, posts),
+          award(14, true, null),
+          award(15, true, { id: 99, title: "Unknown" }),
+        ],
+      }),
+    () =>
+      Response.json({
+        items: [
+          category(5, "Welcome", "The first steps."),
+          category(3, "By posts"),
+          category(4, "Empty"),
+        ],
+      }),
+  );
+  const { html, errors } = await page();
+  expect(errors).toEqual([]);
+  const at = (text: string) => html.indexOf(text);
+  const order = [
+    "Welcome",
+    "The first steps.",
+    "Award 11",
+    "By posts",
+    "Award 12",
+    "Award 13",
+    messages.awards.awards.others,
+    "Award 14",
+    "Award 15",
+  ].map(at);
+  expect(order.every((index) => index >= 0)).toBe(true);
+  expect(order).toEqual([...order].sort((a, b) => a - b));
+  // An empty category is left out; no tier is named.
+  expect(html).not.toContain("Empty");
+  expect(html).not.toContain(">Gold<");
+  expect(html).toContain('id="category-3"');
+});
+
+test("without categories the one group is the whole catalogue", async () => {
+  backend(refused(403, "forbidden"));
+  const { html } = await page();
+  expect(/<h3 id="section-others"[^>]*>([^<]*)</.exec(html)?.[1]).toBe(
+    messages.awards.awards.catalogueHeading,
+  );
+  expect(html).not.toContain(`>${messages.awards.awards.others}<`);
 });

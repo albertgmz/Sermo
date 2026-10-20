@@ -90,6 +90,7 @@
     "awardsDescription": "Explora la colección de trofeos de <user>{username}</user>.",
     "awardsEmpty": "<user>{username}</user> no tiene trofeos por ahora.",
     "quantity": "×{count, number}",
+    "awardInCategory": "{name} · {category}",
     "activityHeading": "Última actividad",
     "activityDescription": "Lo que <user>{username}</user> ha hecho últimamente.",
     "activityStarted": "Empezó un tema · <time></time>",

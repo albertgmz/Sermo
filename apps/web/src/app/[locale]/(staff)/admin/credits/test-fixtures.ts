@@ -35,6 +35,15 @@ export const ITEM = {
   ...STAMPS,
 };
 
+export const AWARD_CATEGORY = {
+  id: 3,
+  title: "By posts",
+  description: "",
+  position: 0,
+  awardCount: 2,
+  ...STAMPS,
+};
+
 export const AWARD = {
   id: 7,
   name: "Hero",
@@ -42,6 +51,7 @@ export const AWARD = {
   icon: "",
   image: null,
   tier: "gold",
+  category: null,
   xp: 50,
   credits: 0,
   isStackable: false,

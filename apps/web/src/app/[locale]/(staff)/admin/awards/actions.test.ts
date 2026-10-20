@@ -90,6 +90,7 @@ test("an award sends the rule as the builder wrote it, duplicates and all, and a
         description: "",
         icon: "",
         tier: "gold",
+        categoryId: null,
         xp: 50,
         credits: 0,
         isStackable: true,
@@ -99,6 +100,25 @@ test("an award sends the rule as the builder wrote it, duplicates and all, and a
     ],
     ["images.setAwardImage", { fileId: 9 }],
   ]);
+});
+
+test("the award's category is sent as chosen, none as null", async () => {
+  backend = fakeBackend({ "awards.update": () => Response.json(AWARD) });
+  const none = JSON.stringify({ match: "all", conditions: [] });
+  for (const categoryId of ["4", ""])
+    await redirectedTo(() =>
+      saveAward(null, form({ ...base, id: "7", categoryId, rule: none })),
+    );
+  expect(
+    backend.asked.map(
+      (call) => (call.body as { categoryId?: unknown }).categoryId,
+    ),
+  ).toEqual([4, null]);
+  expect(
+    await saveAward(null, form({ ...base, categoryId: "x", rule: none })),
+  ).toEqual({
+    fields: { categoryId: messages.adminEconomy.awards.errors.category },
+  });
 });
 
 test("a bad tier, number or rule is refused; the backend answer is shown", async () => {

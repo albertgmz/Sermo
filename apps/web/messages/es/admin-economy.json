@@ -117,22 +117,17 @@
   "awards": {
     "metaTitle": "Definiciones de trofeos",
     "pageHeading": "Definiciones de trofeos",
-    "subtitle": "Los trofeos que pueden tener los miembros: su nivel, lo que valen y cuándo se conceden automáticamente.",
+    "subtitle": "Los trofeos que pueden tener los miembros: su categoría, lo que valen y cuándo se conceden automáticamente.",
     "loading": "Cargando los trofeos…",
     "heading": "Trofeos",
-    "description": "Primero el nivel más alto. También se muestran los trofeos inactivos.",
+    "description": "En el orden de la página de trofeos: por categoría, primero los más fáciles. También se muestran los trofeos inactivos.",
     "active": "Activo",
     "inactive": "Inactivo",
     "automatic": "Automático",
     "facts": "{xp} XP · {credits} créditos · concedido {holders} veces",
     "edit": "Editar {name}",
     "none": "Aún no hay trofeos",
-    "tiers": {
-      "bronze": "Bronce",
-      "silver": "Plata",
-      "gold": "Oro",
-      "legendary": "Legendario"
-    },
+    "noCategory": "Sin categoría",
     "runHeading": "Ejecutar ahora los trofeos automáticos",
     "runHelp": "Comprueba a cada miembro con cada trofeo activo que tenga criterios. También se ejecuta solo cada día.",
     "run": "Ejecutar ahora",
@@ -159,7 +154,11 @@
     "form": {
       "name": "Nombre",
       "description": "Descripción",
-      "tier": "Nivel",
+      "category": "Categoría",
+      "categoryHelp": "Dónde lo muestra la página de trofeos. Sin categoría aparece al final, en Otros.",
+      "noCategory": "Sin categoría",
+      "tier": "Rareza (color)",
+      "tierHelp": "Solo los colores de su icono redondo: bronce para los peldaños fáciles hasta legendario para los más difíciles. Su nombre nunca se muestra a los miembros.",
       "tiers": {
         "bronze": "Bronce",
         "silver": "Plata",
@@ -179,13 +178,14 @@
       "active": "Activo",
       "activeHelp": "Un trofeo inactivo no se puede conceder y se oculta a los miembros.",
       "basics": "Trofeo",
-      "basicsHelp": "Cómo se llama el trofeo, su nivel y lo que vale cada concesión.",
+      "basicsHelp": "Cómo se llama el trofeo, dónde aparece y lo que vale cada concesión.",
       "automatic": "Trofeo automático",
       "automaticHelp": "Criterios que conceden el trofeo por sí solos. Sin ninguno, solo se concede a mano."
     },
     "errors": {
       "id": "Ese trofeo no es válido.",
-      "tier": "Elige uno de los niveles ofrecidos.",
+      "category": "Elige una de las categorías ofrecidas.",
+      "tier": "Elige una de las rarezas ofrecidas.",
       "number": "Escribe un número entero.",
       "file": "Ese archivo subido no es válido."
     },
@@ -197,6 +197,53 @@
       "heading": "Nuevo trofeo",
       "description": "Crea el trofeo y luego concédelo a mano o deja que lo conceda su criterio.",
       "submit": "Crear trofeo"
+    }
+  },
+  "awardCategories": {
+    "loading": "Cargando las categorías…",
+    "heading": "Categorías",
+    "description": "Lo que premian los trofeos. La página de trofeos los agrupa en este orden.",
+    "add": "Añadir categoría",
+    "sortLink": "Ordenar",
+    "none": "Aún no hay categorías",
+    "emptyDescription": "Sin categorías, la página de trofeos muestra todos los trofeos en un solo grupo.",
+    "count": "{count, plural, =0 {Ningún trofeo} one {# trofeo} other {# trofeos}}",
+    "edit": "Editar {title}",
+    "deleteShort": "Eliminar",
+    "delete": "Eliminar categoría",
+    "deleteHeading": "Eliminar esta categoría",
+    "deleteWarning": "{count, plural, =0 {No tiene trofeos.} one {Su trofeo se queda, sin categoría: la página de trofeos lo muestra al final, en Otros.} other {Sus # trofeos se quedan, sin categoría: la página de trofeos los muestra al final, en Otros.}}",
+    "notices": {
+      "created": "Categoría creada.",
+      "saved": "Categoría guardada.",
+      "ordered": "Orden guardado.",
+      "deleted": "Categoría eliminada."
+    },
+    "form": {
+      "basics": "Categoría",
+      "basicsHelp": "Su título encabeza sus trofeos en la página de trofeos.",
+      "title": "Título",
+      "description": "Descripción",
+      "descriptionHelp": "Opcional. Una línea bajo el título en la página de trofeos."
+    },
+    "errors": {
+      "id": "Esa categoría no es válida.",
+      "order": "Cada posición debe ser un número entero."
+    },
+    "new": {
+      "metaTitle": "Nueva categoría de trofeos",
+      "heading": "Nueva categoría de trofeos",
+      "description": "Se añade después de la última categoría; muévela en la página de ordenar.",
+      "submit": "Crear categoría"
+    },
+    "editPage": {
+      "metaTitle": "Categoría de trofeos"
+    },
+    "sort": {
+      "metaTitle": "Ordenar las categorías de trofeos",
+      "heading": "Ordenar las categorías de trofeos",
+      "description": "La página de trofeos muestra las categorías en este orden; los trofeos sin categoría van al final.",
+      "list": "Categorías"
     }
   },
   "grants": {
@@ -215,12 +262,6 @@
     "heldHeading": "Trofeos de {name}",
     "heldLabel": "Trofeos que tiene",
     "none": "Este miembro no tiene trofeos.",
-    "tiers": {
-      "bronze": "Bronce",
-      "silver": "Plata",
-      "gold": "Oro",
-      "legendary": "Legendario"
-    },
     "by": "concedido por {name}",
     "automatic": "concedido automáticamente",
     "revoke": "Revocar",

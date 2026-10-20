@@ -27,18 +27,22 @@ async function list(items: unknown[]) {
 
 const text = messages.adminEconomy.awards;
 
-test("each award is a row leading to its edit page, with its tier and state", async () => {
+test("each award is a row leading to its edit page, with its category and state", async () => {
   const html = await list([
     {
       ...AWARD,
+      category: { id: 3, title: "By posts" },
       rule: { match: "all", conditions: [{ criterion: "posts", value: 5 }] },
     },
     { ...AWARD, id: 8, name: "Rookie", tier: "bronze", isActive: false },
   ]);
   for (const id of [7, 8]) expect(html).toContain(`href="/admin/awards/${id}"`);
   expect(html).toContain("Edit Hero");
-  expect(html).toContain(text.tiers.gold);
-  expect(html).toContain(text.tiers.bronze);
+  expect(html).toContain("By posts");
+  expect(html).toContain(text.noCategory);
+  // The tier is the colour of the icon, never a label.
+  expect(html).not.toContain(text.form.tiers.gold);
+  expect(html).not.toContain(text.form.tiers.bronze);
   expect(html).toContain(text.automatic);
   expect(html).toContain(text.inactive);
 });
