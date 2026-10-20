@@ -253,8 +253,8 @@ export function FeedItem({
               profilePost.id,
               profilePost.profileUserId,
               oldest.id,
+              null,
             ),
-            from: null,
           }
         : undefined;
     return (

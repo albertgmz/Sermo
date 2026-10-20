@@ -52,13 +52,11 @@ type ReactionTypes = Awaited<ReturnType<typeof getReactionTypes>>;
 // One post whose comments are read in full, and where its page of them continues.
 export type OpenComments = { postId: number; cursor?: string };
 
-// `post` names a post the wall opens at (see `Wall`).
 export function wallHref(
   profileId: number,
-  params: { cursor?: string; comments?: OpenComments; post?: number } = {},
+  params: { cursor?: string; comments?: OpenComments } = {},
 ) {
   const query = new URLSearchParams();
-  if (params.post !== undefined) query.set("post", String(params.post));
   if (params.cursor) query.set("cursor", params.cursor);
   if (params.comments) {
     query.set("comments", String(params.comments.postId));
@@ -346,8 +344,8 @@ export async function Wall({
                             post.id,
                             profile.id,
                             null,
+                            openPage.nextCursor,
                           ),
-                          from: openPage.nextCursor,
                         }
                     : oldest && post.commentCount > post.latestComments.length
                       ? {
@@ -356,8 +354,8 @@ export async function Wall({
                             post.id,
                             profile.id,
                             oldest.id,
+                            null,
                           ),
-                          from: null,
                         }
                       : undefined
                 }

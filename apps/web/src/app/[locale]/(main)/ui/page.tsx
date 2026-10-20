@@ -1552,7 +1552,7 @@ export default async function StyleguidePage() {
               anchor="sample-wall-post"
               profileUserId={1}
               comments={SAMPLE_WALL_COMMENTS}
-              earlier={{ load: noEarlierComments, from: null }}
+              earlier={{ load: noEarlierComments }}
               action={discardLine}
               member={memberOf}
               viewerId={null}

@@ -51,10 +51,9 @@ export function hasWallComments(
   return comments.length > 0 || post.canComment || earlier !== undefined;
 }
 
-// Loads the comments before those a list shows (see `EarlierComments`), from `from` on.
+// Loads the comments before those a list shows (see `EarlierComments`).
 export type EarlierLoad = {
-  load: (cursor: string | null) => Promise<EarlierPage>;
-  from: string | null;
+  load: (through: number | null) => Promise<EarlierPage>;
 };
 
 type RowProps = {
@@ -158,7 +157,7 @@ export function WallComments({
       {earlier && (
         <EarlierComments
           load={earlier.load}
-          from={earlier.from}
+          shown={comments.map((comment) => comment.id)}
           label={t("showMore")}
           className={cn(textLinkClass, "text-primary-ink")}
         />
