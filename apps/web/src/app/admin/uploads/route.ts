@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { RATE_LIMITED_DIGEST, SermoError } from "@/lib/sermo/errors";
 import { hasSessionCookie } from "@/lib/sermo/transport";
 import {
   PANEL_PURPOSES,
@@ -28,9 +29,18 @@ const isPanelPurpose = (value: string | null): value is UploadPurpose =>
 // The proxy skips this path (its matcher), because it would copy the body and cut it short, so
 // the proxy's gate for the panel does not run and this route decides itself: whoever is not
 // allowed in the panel gets the 404 of an address that does not exist, for every method, before
-// anything is read. One `auth.me` read decides.
+// anything is read. One `auth.me` read decides; when the backend answers that read with "too many
+// requests" it decides nothing, and the visitor is told to wait (429) rather than shown a 404 that
+// reads as a missing page.
 export async function POST(request: Request) {
-  if (!(await mayUsePanel(request))) return absent();
+  const panel = await mayUsePanel(request);
+  if (panel === "limited") {
+    return answer(
+      { error: (await refusalWords({ cause: "rateLimited" })) ?? "" },
+      429,
+    );
+  }
+  if (panel === "no") return absent();
   const t = await getTranslations("adminForums.uploads");
   const purpose = new URL(request.url).searchParams.get("purpose");
   if (!isPanelPurpose(purpose)) return answer({ error: t("purpose") }, 400);
@@ -54,15 +64,21 @@ export async function POST(request: Request) {
   return answer({ error: words[received.reason] }, received.status);
 }
 
-async function mayUsePanel(request: Request) {
+async function mayUsePanel(
+  request: Request,
+): Promise<"yes" | "no" | "limited"> {
   if (!hasSessionCookie(request.headers.get("cookie") ?? undefined)) {
-    return false;
+    return "no";
   }
   // An API that cannot be reached cannot take the file either: the answer is the same.
   try {
-    return (await viewerOf(request.headers))?.staff.panel === true;
-  } catch {
-    return false;
+    return (await viewerOf(request.headers))?.staff.panel === true
+      ? "yes"
+      : "no";
+  } catch (error) {
+    return error instanceof SermoError && error.digest === RATE_LIMITED_DIGEST
+      ? "limited"
+      : "no";
   }
 }
 

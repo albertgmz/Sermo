@@ -5256,3 +5256,7 @@ over them stalled one commit for 370 ms), and other subscribers handle a batch w
   Spanish groups four digits only when asked ("2300" by default, "2.300" here), and an amount
   of money reads wrong without the separator. Plain counts keep `formatNumber`. A message that
   holds an amount takes it already written (`{amount}`), never as an ICU `#`.
+- The panel's upload route (`/admin/uploads`) answers 429 with the member's words ("too many
+  uploads in a short time") when the backend throttles the `auth.me` read that decides whether the
+  visitor may use the panel, instead of the 404 of an address that does not exist. Any other
+  failure of that read stays a 404. The backend already answered 429 to a throttled upload.

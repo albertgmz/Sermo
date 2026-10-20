@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { SermoError } from "@/lib/sermo/errors";
 import { siteAnswer } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
@@ -21,7 +22,14 @@ mock.module("next-intl/server", () => ({
 // Who is asking: the viewer module is replaced (other suites replace it too, and a replacement
 // outlives its file), `viewer` is what `auth.me` says, null for a session the backend refuses.
 let viewer: ReturnType<typeof viewerBody> | null = null;
-mock.module("@/lib/sermo/viewer", () => ({ viewerOf: async () => viewer }));
+// What the `auth.me` read raises instead of answering, when a test says so.
+let viewerFails: Error | null = null;
+mock.module("@/lib/sermo/viewer", () => ({
+  viewerOf: async () => {
+    if (viewerFails) throw viewerFails;
+    return viewer;
+  },
+}));
 
 const { PANEL_PURPOSES } = await import("@/lib/sermo/upload");
 const route = await import("./route");
@@ -39,6 +47,7 @@ beforeEach(() => {
   process.env.SERMO_PUBLIC_URL = "http://localhost:3000";
   process.env.SERMO_API_URL = "http://127.0.0.1:8787";
   forwarded = [];
+  viewerFails = null;
   viewer = viewerBody(true);
   viewer.staff.panel = true;
 });
@@ -107,6 +116,44 @@ test("a session the backend does not accept gets a 404 too", async () => {
   backendAnswers(() => Response.json({ id: 1 }));
   expect((await POST(upload("frame"))).status).toBe(404);
   expect(forwarded).toEqual([]);
+});
+
+test("a throttled panel check is a 429 in the member's words, not a 404", async () => {
+  viewerFails = new SermoError("rate_limited", 429, "Too many requests.");
+  backendAnswers(() => Response.json({ id: 1 }));
+  const response = await POST(upload("frame"));
+  expect(response.status).toBe(429);
+  expect(await response.json()).toEqual({
+    error: messages.lib.uploadRefusals.rateLimited,
+  });
+  expect(forwarded).toEqual([]);
+});
+
+test("a panel check that fails for any other reason is still a 404", async () => {
+  backendAnswers(() => Response.json({ id: 1 }));
+  for (const failure of [
+    new SermoError("internal", 500, "The API could not be reached."),
+    new SermoError("forbidden", 403, "No."),
+    new Error("boom"),
+  ]) {
+    viewerFails = failure;
+    expect((await POST(upload("frame"))).status).toBe(404);
+  }
+  expect(forwarded).toEqual([]);
+});
+
+test("a throttled upload is a 429 in the member's words", async () => {
+  backendAnswers(() =>
+    Response.json(
+      { error: { code: "rate_limited", message: "Too many requests." } },
+      { status: 429 },
+    ),
+  );
+  const response = await POST(upload("frame"));
+  expect(response.status).toBe(429);
+  expect(await response.json()).toEqual({
+    error: messages.lib.uploadRefusals.rateLimited,
+  });
 });
 
 test("another site's origin, or none, is refused", async () => {

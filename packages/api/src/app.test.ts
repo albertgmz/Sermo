@@ -443,6 +443,31 @@ async function expectDocumentedUploadAnswer(
   }
 }
 
+test("an upload over the write limit answers 429 with the request limiter's body", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "sermo-api-files-"));
+  uploadDirs.push(dir);
+  const { request } = setup({
+    trustedProxyHeader: null,
+    rateLimits: { write: 1 },
+    storage: { driver: localDriver(join(dir, "files")), tempDir: join(dir, "temp") },
+  });
+  const { cookie } = await register(request, "uploader");
+  const send = () => {
+    const form = new FormData();
+    form.append("file", new Blob(["x"], { type: "text/plain" }), "note.txt");
+    return request("/api/v1/files", {
+      method: "POST",
+      headers: { cookie, origin: "http://localhost:3000" },
+      body: form,
+    });
+  };
+  expect((await send()).status).toBe(201);
+  const limited = await send();
+  expect(limited.status).toBe(429);
+  expect(limited.headers.get("retry-after")).toBeTruthy();
+  expect(((await limited.json()) as { error: { code: string } }).error.code).toBe("rate_limited");
+});
+
 test("multipart upload streams through the API and serves with nosniff", async () => {
   const dir = await mkdtemp(join(tmpdir(), "sermo-api-files-"));
   uploadDirs.push(dir);
