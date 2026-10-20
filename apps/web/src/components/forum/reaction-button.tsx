@@ -48,19 +48,39 @@ const HOVER_CLOSE_MS = 250;
 // How long the backend's refusal stays under the button.
 const REFUSAL_MS = 6000;
 
-// The picker is a grid of square reactions, two even rows while they fit (`pickerGrid`); its
-// width never outgrows the viewport.
+// The picker is rows of square reactions, centred, two even rows while they fit (`pickerGrid`);
+// its width never outgrows the viewport.
 export const PICKER_CLASS =
-  "grid w-auto max-w-[calc(100vw-2rem)] gap-0 rounded-3xl p-1";
+  "w-auto max-w-[calc(100vw-2rem)] flex-col items-center gap-0 rounded-3xl p-1";
 
-// The columns and the reactions' size from `pickerGrid`. The picture is 1.25em of the font size,
-// about two thirds of its square: 35px in a 52px reaction, 27px in a 40px one.
-export function pickerStyle({ columns, cell }: PickerGrid) {
+// The reactions' size from `pickerGrid`: each reaction is `--cell` square. The picture is 1.25em
+// of the font size, about two thirds of its square: 35px in a 52px reaction, 27px in a 40px one.
+export function pickerStyle({ cell }: PickerGrid) {
   return {
-    gridTemplateColumns: `repeat(${columns}, ${cell}px)`,
-    gridAutoRows: `${cell}px`,
+    "--cell": `${cell}px`,
     fontSize: `${Math.round(cell * 0.54)}px`,
-  };
+  } as React.CSSProperties;
+}
+
+// The reactions cut into the rows of `pickerGrid`, in order.
+export function pickerRows<T>(items: T[], rows: number[]): T[][] {
+  return rows.map((length, index) => {
+    const start = rows.slice(0, index).reduce((sum, row) => sum + row, 0);
+    return items.slice(start, start + length);
+  });
+}
+
+// Where the picker goes for the button as it is on screen now, or nothing when it is not drawn.
+function placementNow(anchor: HTMLElement | null, count: number) {
+  const rect = anchor?.getBoundingClientRect();
+  return (
+    rect &&
+    placePicker({
+      anchor: rect,
+      count,
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+    })
+  );
 }
 
 // Shifts a label that runs past the screen's margin back inside it.
@@ -130,6 +150,22 @@ export function ReactionButton(props: {
     return () => clearTimeout(hide);
   }, [refusal]);
 
+  // The picker is laid out for the window's width when it opens; when the width changes while it
+  // is open (a phone turned, a window resized) it is laid out again. A height change alone (a
+  // phone's address bar) leaves it as it is.
+  useEffect(() => {
+    if (!open) return;
+    let width = window.innerWidth;
+    const relayout = () => {
+      if (window.innerWidth === width) return;
+      width = window.innerWidth;
+      const next = placementNow(anchor.current, types.length);
+      if (next) setPlacement(next);
+    };
+    window.addEventListener("resize", relayout);
+    return () => window.removeEventListener("resize", relayout);
+  }, [open, types.length]);
+
   const gesture = useReactionGesture({
     picker,
     given: current,
@@ -182,18 +218,12 @@ export function ReactionButton(props: {
     );
   }
   if (viewerId === authorId || types.length === 0) return null;
+  const grid =
+    placement?.grid ?? pickerGrid(types.length, Number.POSITIVE_INFINITY);
 
   function show(next: boolean) {
-    const rect = anchor.current?.getBoundingClientRect();
-    if (next && rect) {
-      setPlacement(
-        placePicker({
-          anchor: rect,
-          count: types.length,
-          viewport: { width: window.innerWidth, height: window.innerHeight },
-        }),
-      );
-    }
+    const placed = next && placementNow(anchor.current, types.length);
+    if (placed) setPlacement(placed);
     if (!next) setLockedNote(undefined);
     setOpen(next);
   }
@@ -298,106 +328,119 @@ export function ReactionButton(props: {
         initialFocus={() => viaTrigger.current}
         finalFocus={() => (viaTrigger.current ? gesture.button.current : false)}
         className={PICKER_CLASS}
-        style={pickerStyle(
-          placement?.grid ?? pickerGrid(types.length, Number.POSITIVE_INFINITY),
-        )}
+        style={pickerStyle(grid)}
         {...hover}
       >
-        {types.map((type) =>
-          type.kept ? (
-            // The viewer's own reaction, whose type is no longer offered: greyed, and pressing it
-            // takes it back.
-            <button
-              key={type.id}
-              type="button"
-              title={type.label}
-              aria-label={t("aria.kept", { label: type.label })}
-              aria-pressed="true"
-              onClick={() => choose(null)}
-              className="relative flex size-full select-none items-center justify-center rounded-full bg-muted leading-none"
-            >
-              <span className="flex opacity-60 grayscale">
-                <ReactionPicture emoji={type.emoji} picture={type.picture} />
-              </span>
-            </button>
-          ) : type.locked !== undefined ? (
-            <button
-              key={type.id}
-              type="button"
-              title={`${type.label}: ${type.locked}`}
-              aria-label={t("aria.locked", {
-                label: type.label,
-                hint: type.locked,
-              })}
-              aria-disabled="true"
-              aria-pressed={type.id === current}
-              onClick={() =>
-                type.id === current ? choose(null) : setLockedNote(type)
-              }
-              onFocus={() => setLockedNote(type)}
-              onPointerEnter={(event) =>
-                event.pointerType === "mouse" && setLockedNote(type)
-              }
-              onPointerLeave={() =>
-                setLockedNote((now) => (now?.id === type.id ? undefined : now))
-              }
-              className="relative flex size-full select-none items-center justify-center rounded-full leading-none aria-pressed:bg-muted"
-            >
-              <span className="flex opacity-40 grayscale">
-                <ReactionPicture emoji={type.emoji} picture={type.picture} />
-              </span>
-              <Lock
-                aria-hidden="true"
-                className="absolute bottom-1 right-1 size-3.5 text-foreground"
-              />
-              {lockedNote?.id === type.id && type.locked && (
-                // The hint rides on the label bubble: out of the layout, so the picker keeps the
-                // size `placePicker` measured. It may wrap, and is pulled back inside the screen.
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute bottom-full left-1/2 mb-2 flex w-0 justify-center"
+        {pickerRows(types, grid.rows).map((row) => (
+          <div key={row[0]?.id} className="flex">
+            {row.map((type) =>
+              type.kept ? (
+                // The viewer's own reaction, whose type is no longer offered: greyed, and pressing it
+                // takes it back.
+                <button
+                  key={type.id}
+                  type="button"
+                  title={type.label}
+                  aria-label={t("aria.kept", { label: type.label })}
+                  aria-pressed="true"
+                  onClick={() => choose(null)}
+                  className="relative flex size-(--cell) select-none items-center justify-center rounded-full bg-muted leading-none"
                 >
-                  <span
-                    ref={keepInViewport}
-                    className="w-max shrink-0 max-w-[min(18rem,calc(100vw-2rem))] rounded-2xl bg-foreground px-2 py-1 text-center text-xs leading-normal text-background"
-                  >
-                    {type.locked}
+                  <span className="flex opacity-60 grayscale">
+                    <ReactionPicture
+                      emoji={type.emoji}
+                      picture={type.picture}
+                    />
                   </span>
-                </span>
-              )}
-            </button>
-          ) : (
-            <button
-              key={type.id}
-              type="button"
-              title={type.label}
-              aria-label={type.label}
-              aria-pressed={type.id === current}
-              data-reaction-id={type.id}
-              data-hovered={type.id === gesture.hover}
-              onClick={() => choose(type.id === current ? null : type.id)}
-              className="group relative flex size-full select-none items-center justify-center rounded-full leading-none aria-pressed:bg-muted"
-            >
-              <span className="flex transition-transform group-hover:scale-125 group-focus-visible:scale-125 group-data-[hovered=true]:-translate-y-1 group-data-[hovered=true]:scale-150">
-                <ReactionPicture emoji={type.emoji} picture={type.picture} />
-              </span>
-              {type.id === gesture.hover && (
-                // Zero wide and centred on the reaction; the label is pulled back inside the screen.
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute bottom-full left-1/2 mb-2 flex w-0 justify-center"
+                </button>
+              ) : type.locked !== undefined ? (
+                <button
+                  key={type.id}
+                  type="button"
+                  title={`${type.label}: ${type.locked}`}
+                  aria-label={t("aria.locked", {
+                    label: type.label,
+                    hint: type.locked,
+                  })}
+                  aria-disabled="true"
+                  aria-pressed={type.id === current}
+                  onClick={() =>
+                    type.id === current ? choose(null) : setLockedNote(type)
+                  }
+                  onFocus={() => setLockedNote(type)}
+                  onPointerEnter={(event) =>
+                    event.pointerType === "mouse" && setLockedNote(type)
+                  }
+                  onPointerLeave={() =>
+                    setLockedNote((now) =>
+                      now?.id === type.id ? undefined : now,
+                    )
+                  }
+                  className="relative flex size-(--cell) select-none items-center justify-center rounded-full leading-none aria-pressed:bg-muted"
                 >
-                  <span
-                    ref={keepInViewport}
-                    className="whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-xs leading-normal text-background"
-                  >
-                    {type.label}
+                  <span className="flex opacity-40 grayscale">
+                    <ReactionPicture
+                      emoji={type.emoji}
+                      picture={type.picture}
+                    />
                   </span>
-                </span>
-              )}
-            </button>
-          ),
-        )}
+                  <Lock
+                    aria-hidden="true"
+                    className="absolute bottom-1 right-1 size-3.5 text-foreground"
+                  />
+                  {lockedNote?.id === type.id && type.locked && (
+                    // The hint rides on the label bubble: out of the layout, so the picker keeps the
+                    // size `placePicker` measured. It may wrap, and is pulled back inside the screen.
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute bottom-full left-1/2 mb-2 flex w-0 justify-center"
+                    >
+                      <span
+                        ref={keepInViewport}
+                        className="w-max shrink-0 max-w-[min(18rem,calc(100vw-2rem))] rounded-2xl bg-foreground px-2 py-1 text-center text-xs leading-normal text-background"
+                      >
+                        {type.locked}
+                      </span>
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <button
+                  key={type.id}
+                  type="button"
+                  title={type.label}
+                  aria-label={type.label}
+                  aria-pressed={type.id === current}
+                  data-reaction-id={type.id}
+                  data-hovered={type.id === gesture.hover}
+                  onClick={() => choose(type.id === current ? null : type.id)}
+                  className="group relative flex size-(--cell) select-none items-center justify-center rounded-full leading-none aria-pressed:bg-muted"
+                >
+                  <span className="flex transition-transform group-hover:scale-125 group-focus-visible:scale-125 group-data-[hovered=true]:-translate-y-1 group-data-[hovered=true]:scale-150">
+                    <ReactionPicture
+                      emoji={type.emoji}
+                      picture={type.picture}
+                    />
+                  </span>
+                  {type.id === gesture.hover && (
+                    // Zero wide and centred on the reaction; the label is pulled back inside the screen.
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute bottom-full left-1/2 mb-2 flex w-0 justify-center"
+                    >
+                      <span
+                        ref={keepInViewport}
+                        className="whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-xs leading-normal text-background"
+                      >
+                        {type.label}
+                      </span>
+                    </span>
+                  )}
+                </button>
+              ),
+            )}
+          </div>
+        ))}
       </PopoverContent>
     </Popover>
   );

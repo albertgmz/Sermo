@@ -27,7 +27,7 @@ describe("placePicker on a 360px phone", () => {
       side: "top",
       sideOffset: PICKER_GAP_PX,
       alignOffset: 0,
-      grid: { columns: 3, cell: REACTION_MAX_PX },
+      grid: { rows: [3, 3], cell: REACTION_MAX_PX },
     });
   });
 
@@ -88,7 +88,7 @@ describe("placePicker on a 360px phone", () => {
       count: 12,
       viewport: phone,
     });
-    expect(placement.grid).toEqual({ columns: 6, cell: 52 });
+    expect(placement.grid).toEqual({ rows: [6, 6], cell: 52 });
     expect(leftEdge(placement, 200)).toBe(
       phone.width - VIEWPORT_MARGIN_PX - 328 + 8,
     );
@@ -121,26 +121,40 @@ describe("placePicker on a 360px phone", () => {
 });
 
 describe("pickerGrid", () => {
-  test("two even rows, the first taking the extra one", () => {
-    expect(pickerGrid(12, 360).columns).toBe(6);
-    expect(pickerGrid(11, 360).columns).toBe(6);
-    expect(pickerGrid(9, 1280).columns).toBe(5);
-    expect(pickerGrid(1, 360).columns).toBe(1);
+  test("two even rows, the first taking the extra one; one row for one or two", () => {
+    expect(pickerGrid(12, 360).rows).toEqual([6, 6]);
+    expect(pickerGrid(11, 360).rows).toEqual([6, 5]);
+    expect(pickerGrid(9, 1280).rows).toEqual([5, 4]);
+    expect(pickerGrid(3, 360).rows).toEqual([2, 1]);
+    expect(pickerGrid(2, 360).rows).toEqual([2]);
+    expect(pickerGrid(1, 360).rows).toEqual([1]);
   });
 
   test("reactions are as large as the screen allows, never over the maximum", () => {
     expect(pickerGrid(12, 1280).cell).toBe(REACTION_MAX_PX);
     expect(pickerGrid(12, 360).cell).toBe(REACTION_MAX_PX);
     // A 320px phone: 280px for six, 46px each.
-    expect(pickerGrid(12, 320)).toEqual({ columns: 6, cell: 46 });
+    expect(pickerGrid(12, 320)).toEqual({ rows: [6, 6], cell: 46 });
   });
 
-  test("never under the 40px touch target: many reactions take more rows", () => {
-    // 320px between the margins on a 360px phone holds eight of 40px.
-    expect(pickerGrid(20, 360)).toEqual({ columns: 8, cell: REACTION_PX });
-    const { columns, cell } = pickerGrid(20, 360);
-    expect(columns * cell + 8).toBeLessThanOrEqual(
-      360 - 2 * VIEWPORT_MARGIN_PX,
-    );
+  test("more reactions than two rows hold take the fewest even rows, never under 40px", () => {
+    // 320px between the margins of a 360px phone holds eight of 40px a row.
+    expect(pickerGrid(17, 360)).toEqual({
+      rows: [6, 6, 5],
+      cell: REACTION_MAX_PX,
+    });
+    expect(pickerGrid(19, 360)).toEqual({ rows: [7, 6, 6], cell: 45 });
+    expect(pickerGrid(24, 360)).toEqual({ rows: [8, 8, 8], cell: REACTION_PX });
+    expect(pickerGrid(25, 360).rows).toEqual([7, 6, 6, 6]);
+    for (let count = 1; count <= 60; count++)
+      for (const width of [320, 360, 412, 1280]) {
+        const { rows, cell } = pickerGrid(count, width);
+        expect(rows.reduce((sum, row) => sum + row, 0)).toBe(count);
+        expect(Math.max(...rows) - Math.min(...rows)).toBeLessThanOrEqual(1);
+        expect(cell).toBeGreaterThanOrEqual(REACTION_PX);
+        expect(rows[0]! * cell + 8).toBeLessThanOrEqual(
+          width - 2 * VIEWPORT_MARGIN_PX,
+        );
+      }
   });
 });

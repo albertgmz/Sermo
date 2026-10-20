@@ -14,7 +14,8 @@ export const PICKER_GAP_PX = 4;
 export const VIEWPORT_MARGIN_PX = 16;
 
 export type PickerGrid = {
-  columns: number;
+  // How many reactions each row holds, top row first.
+  rows: number[];
   // The side of one reaction's square, in pixels.
   cell: number;
 };
@@ -29,18 +30,30 @@ export type PickerPlacement = {
   grid: PickerGrid;
 };
 
-// Two rows of half the reactions each (with an odd count the first row takes the extra one), each
-// reaction as large as the screen allows up to `REACTION_MAX_PX`. When half the reactions would
-// fall under the 40px target, as many 40px columns as fit, on more rows.
+// Two rows of half the reactions each (with an odd count the first row takes the extra one); one
+// row for one or two reactions. When half the reactions would not fit at the 40px target, the
+// fewest rows that do, which differ by at most one (the first rows take the extras). Each
+// reaction is as large as the screen allows for the widest row, up to `REACTION_MAX_PX`.
 export function pickerGrid(count: number, viewportWidth: number): PickerGrid {
   const room = viewportWidth - 2 * VIEWPORT_MARGIN_PX - 2 * PICKER_PADDING_PX;
-  const half = Math.max(1, Math.ceil(count / 2));
-  const columns = Math.max(1, Math.min(half, Math.floor(room / REACTION_PX)));
+  const fit = Math.max(1, Math.floor(room / REACTION_PX));
+  const total = Math.max(1, count);
+  const rowCount = Math.min(
+    total,
+    Math.max(total <= 2 ? 1 : 2, Math.ceil(total / fit)),
+  );
+  const base = Math.floor(total / rowCount);
+  const extra = total % rowCount;
+  const rows = Array.from(
+    { length: rowCount },
+    (_, index) => base + Number(index < extra),
+  );
+  const widest = base + Number(extra > 0);
   const cell = Math.max(
     REACTION_PX,
-    Math.min(REACTION_MAX_PX, Math.floor(room / columns)),
+    Math.min(REACTION_MAX_PX, Math.floor(room / widest)),
   );
-  return { columns, cell };
+  return { rows, cell };
 }
 
 export function placePicker({
@@ -53,9 +66,8 @@ export function placePicker({
   viewport: { width: number; height: number };
 }): PickerPlacement {
   const grid = pickerGrid(count, viewport.width);
-  const width = grid.columns * grid.cell + 2 * PICKER_PADDING_PX;
-  const height =
-    Math.ceil(count / grid.columns) * grid.cell + 2 * PICKER_PADDING_PX;
+  const width = (grid.rows[0] ?? 1) * grid.cell + 2 * PICKER_PADDING_PX;
+  const height = grid.rows.length * grid.cell + 2 * PICKER_PADDING_PX;
 
   const left = Math.min(
     Math.max(anchor.left, VIEWPORT_MARGIN_PX),
