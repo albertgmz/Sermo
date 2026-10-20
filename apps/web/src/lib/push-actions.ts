@@ -23,7 +23,7 @@ export async function savePushSubscription(
     call(pushSubscribe, {
       endpoint: subscription.endpoint,
       keys: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth },
-      userAgent: userAgent.slice(0, 500),
+      userAgent: String(userAgent).slice(0, 500),
     }),
   );
   return saved.ok ? { ok: true as const } : saved;

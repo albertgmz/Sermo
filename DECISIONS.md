@@ -5309,10 +5309,11 @@ thread followed, the reactions to one post) and a new group still alerts.
 
 A tap closes the notification, then goes to the item's address exactly as the push carries it (an
 anchor or a permalink, whichever the backend writes). An address of the site moves a window the
-site already has (the one in front, else one showing, else any; `Client.url` is not used because it
-keeps the last full load, not the page shown) with `focus()` and `navigate()`, and opens a new
-window only when there is none or the worker cannot move it. Every address of the site is in the
-manifest's scope (`/`), so on Android, and on desktop Chrome, a new window of an installed app is
+site already has and the worker controls, the one in front or else one showing, with `focus()` and
+`navigate()` (`Client.url` is not used: it keeps the last full load, not the page shown). A hidden
+window is left alone, since the worker cannot tell a background browser tab from the installed app,
+and a new window is opened instead; so is one when there is no window or the worker cannot move it.
+Every address of the site is in the manifest's scope (`/`), so on Android, and on desktop Chrome, a new window of an installed app is
 the app's own, not a browser tab; on iOS a push reaches only the installed app anyway. An address
 elsewhere opens on its own; one that is no address of the web (`javascript:`, garbage) opens the
 alert list.
@@ -5323,7 +5324,7 @@ iOS outside the installed app, or not set up on the forum) with Turn on / Turn o
 devices the account lists, each removable. The browser's subscription is the device's truth: it is
 "on" only when the browser holds one that the account lists. Turning on asks the browser first (the
 only call before any other await, as iOS and Firefox take the question only from a tap), replaces a
-subscription made for older keys, and takes the browser's subscription back when the account
+subscription made for older keys (on the account too), and takes the browser's subscription back when the account
 refuses it. The calls go through two server actions (`push-actions.ts`). Signing out already ends a
 device's pushes: `Clear-Site-Data: "storage"` removes the worker and with it the subscription; the
 account's row goes on the next send (404/410).
@@ -5343,14 +5344,18 @@ the banner is not shown to this visitor, or its script could not start: `consent
 `consent-library.ts`); the forum has push keys (`push.publicKey`, read like the site settings and
 cached five minutes); the browser can receive pushes (service worker, Push API and notifications on
 a secure page, in a production build, and on iOS only inside the installed app); the browser has
-not been asked yet (`Notification.permission` is `default`); it is not put off; and it is not the
-first page of a visit of an account younger than a day (`sermo-app-visit` in sessionStorage counts
-the pages; "a session in which they signed up" is read as the first day of the account, since the
+not been asked yet (`Notification.permission` is `default`), or it allowed the site but holds no
+subscription any more (signing out removes it); it is not put off; and it is not the first page of
+a visit of an account younger than a day (`sermo-app-visit` in sessionStorage counts the pages
+since this account signed in; "a session in which they signed up" is read as the first day of the account, since the
 web app is not told when a sign-up happened). Any cookie choice lets it show, a rejection included:
 the card and what it stores are strictly necessary (listed in the cookie inventory), and the push
 subscription is made only on the member's tap. A member with terms to accept sees only the
 acceptance screen, and an account waiting for approval (which may not save a device) is not asked.
-A visit shows one card: the one it showed first stays until it is answered.
+A visit shows one card: the one it drew first stays until it is answered (a card due on the
+notification settings, which have their own switch, is not drawn there and does not count). The
+cards wait a moment and a half after the cookie banner settles, so that a browser's install offer
+arriving late still comes first.
 
 ### The install card, and "Install app" in the account menu
 
@@ -5369,6 +5374,6 @@ now puts it off for 30 days, as does closing the browser's dialog.
 One card at a time: the install card comes first, and the notification card waits for a later
 visit, or follows in the same visit once `appinstalled` fires. On iOS the notification card waits
 for the installed app regardless, since iOS (16.4 and later) gives the Push API only to a web app
-opened from the home screen. "Install app" in the account menu (members) offers the same for anyone
-who put the card off: it opens the browser's dialog, or shows the iOS card whatever Not now said; it
+opened from the home screen. "Install app" in the account menu (members) offers the same to any member whose
+browser can install the forum, whether or not the card was put off: it opens the browser's dialog, or shows the iOS card whatever Not now said; it
 is absent inside the app and where nothing can be installed, and pressing it closes the menu.

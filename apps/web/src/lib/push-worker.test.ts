@@ -101,7 +101,7 @@ function fakeWindow(
   return client;
 }
 
-test("a tap goes to the window in front, else one showing, else any", () => {
+test("a tap goes to the window in front, else one showing, and never to one hidden", () => {
   const hidden = fakeWindow("hidden");
   const visible = fakeWindow("visible", { visibilityState: "visible" });
   const front = fakeWindow("front", {
@@ -110,7 +110,8 @@ test("a tap goes to the window in front, else one showing, else any", () => {
   });
   expect(pickWindow([hidden, visible, front])?.name).toBe("front");
   expect(pickWindow([hidden, visible])?.name).toBe("visible");
-  expect(pickWindow([hidden])?.name).toBe("hidden");
+  // Hidden: a browser tab or the app, the worker cannot tell; a new window goes to the app.
+  expect(pickWindow([hidden])).toBeNull();
   expect(pickWindow([])).toBeNull();
 });
 
@@ -141,6 +142,14 @@ test("with no window of the site, a tap opens one at the item (the app's own whe
   const { opened, scope } = scopeWith([]);
   await openTarget(`${ORIGIN}/members/3#profile-post-5`, scope);
   expect(opened).toEqual([`${ORIGIN}/members/3#profile-post-5`]);
+});
+
+test("with only hidden windows of the site, a tap opens a new one (the app's own when installed)", async () => {
+  const hidden = fakeWindow("hidden");
+  const { opened, scope } = scopeWith([hidden]);
+  await openTarget(`${ORIGIN}/threads/4`, scope);
+  expect(hidden.moved).toEqual([]);
+  expect(opened).toEqual([`${ORIGIN}/threads/4`]);
 });
 
 test("a window the worker cannot move is left, and a new one opens", async () => {

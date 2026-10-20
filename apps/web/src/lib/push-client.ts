@@ -71,7 +71,7 @@ export type TurnOn =
 
 // Asks the browser (it must be the first thing a tap does: iOS and Firefox take the question only
 // from a tap), subscribes this device and saves it on the account. A subscription made for other
-// keys (the forum changed them) is replaced. When the account refuses it, the browser's
+// keys (the forum changed them) is replaced, on the account too. When the account refuses it, the browser's
 // subscription is taken back, so the device is not left subscribed for nothing.
 export async function turnOnPush(publicKey: string): Promise<TurnOn> {
   const permission = await Notification.requestPermission();
@@ -89,7 +89,9 @@ export async function turnOnPush(publicKey: string): Promise<TurnOn> {
       subscription &&
       !sameKey(subscription.options.applicationServerKey, key)
     ) {
+      const { endpoint } = subscription;
       await subscription.unsubscribe();
+      await removePushSubscription(endpoint).catch(() => {});
       subscription = null;
     }
     subscription ??= await ready.pushManager.subscribe({

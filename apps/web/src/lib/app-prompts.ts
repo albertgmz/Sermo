@@ -9,11 +9,12 @@
 //   browsers).
 // - Notifications: signed-in members whose browser can receive pushes, while the browser has not
 //   been asked yet (once it has, the browser remembers the answer and only the settings can change
-//   it), and only when the forum can send them. On iOS a page can receive pushes only from the
-//   installed app (iOS 16.4 and later), so the card waits for it there.
+//   it) or was allowed but holds no subscription any more, and only when the forum can send them.
+//   On iOS a page can receive pushes only from the installed app (iOS 16.4 and later), so the card
+//   waits for it there.
 // - The install card comes first; the notification card follows on a later visit, or in the same
-//   one once the app has been installed. A member who signed up recently sees neither on the first
-//   page of a visit.
+//   one once the app has been installed. A member who has just signed up (an account younger than a
+//   day) is not asked about notifications on the first page they see signed in.
 
 export const SNOOZE_DAYS = 30;
 const DAY = 24 * 60 * 60 * 1000;
@@ -104,7 +105,22 @@ export function readSnoozes(text: string | null): Snoozes {
   }
 }
 
-export type Visit = { views: number; card: Card | null; installed: boolean };
+// A visit: the pages seen since the visitor last signed in or out (`member` names who was counted:
+// the account's creation time, or null for a guest), the card it showed, and whether the app was
+// installed in it.
+export type Visit = {
+  views: number;
+  card: Card | null;
+  installed: boolean;
+  member: string | null;
+};
+
+const NEW_VISIT: Visit = {
+  views: 0,
+  card: null,
+  installed: false,
+  member: null,
+};
 
 export function readVisit(text: string | null): Visit {
   try {
@@ -114,10 +130,19 @@ export function readVisit(text: string | null): Visit {
       card:
         value?.card === "install" || value?.card === "push" ? value.card : null,
       installed: value?.installed === true,
+      member: typeof value?.member === "string" ? value.member : null,
     };
   } catch {
-    return { views: 0, card: null, installed: false };
+    return NEW_VISIT;
   }
+}
+
+// One page more in the visit. Signing in or out starts the count again, so the first page a new
+// member sees is their first, whatever they read as a guest before signing up.
+export function pageSeen(visit: Visit, member: string | null): Visit {
+  return visit.member === member
+    ? { ...visit, views: visit.views + 1 }
+    : { ...visit, member, views: 1 };
 }
 
 export type PromptState = {
@@ -128,6 +153,8 @@ export type PromptState = {
   member: { createdAt: number } | null;
   push: PushAvailability;
   permission: NotificationPermission | null;
+  // This browser holds a push subscription.
+  subscribed: boolean;
   // The forum has push keys (`push.publicKey`).
   serverPush: boolean;
   snoozes: Snoozes;
@@ -144,7 +171,14 @@ function installWanted(state: PromptState) {
 function pushWanted(state: PromptState) {
   const { member, visit, now } = state;
   if (!member || !state.serverPush) return false;
-  if (state.push !== "available" || state.permission !== "default")
+  if (state.push !== "available") return false;
+  // Not asked yet; or allowed once, with the subscription gone since (a sign-out clears it, and so
+  // does a change of the forum's keys): Turn on then subscribes without asking again.
+  const { permission } = state;
+  if (
+    permission !== "default" &&
+    !(permission === "granted" && !state.subscribed)
+  )
     return false;
   if (snoozed(state.snoozes, "push", now)) return false;
   // Not on the first page of the visit in which they signed up.

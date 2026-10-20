@@ -3,7 +3,7 @@
 import { Share } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { consentSettled } from "@/components/layout/consent-library";
 import { PromptCard } from "@/components/layout/prompt-card";
 import {
@@ -12,6 +12,7 @@ import {
   type InstallOffer,
   installOffer,
   PROMPTS_KEY,
+  pageSeen,
   readSnoozes,
   readVisit,
   VISIT_KEY,
@@ -22,6 +23,7 @@ import {
   currentAvailability,
   currentPermission,
   currentPlatform,
+  currentSubscription,
   turnOnPush,
 } from "@/lib/push-client";
 
@@ -54,7 +56,11 @@ function saveVisit(visit: Visit) {
   } catch {}
 }
 
+// The notification settings have their own switch for this device.
 const SETTINGS_PATH = "/account/notifications";
+// After the cookie banner, a moment for the browser to say it can install the forum: the install
+// card comes first, and the event can come after the banner of a returning visitor has settled.
+const GRACE_MS = 1500;
 
 const loadVisit = () => readVisit(readStored(() => sessionStorage, VISIT_KEY));
 
@@ -79,23 +85,29 @@ export function AppPrompts({
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const memberKey = member?.createdAt ?? null;
+  // What the account menu had asked for when this mounted: only a new ask shows the card.
+  const asked = useRef(install.asked);
 
   useEffect(() => {
     let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     consentSettled().then(() => {
-      if (live) setSettled(true);
+      timer = setTimeout(() => {
+        if (live) setSettled(true);
+      }, GRACE_MS);
     });
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, []);
 
   // One page more in this visit, then the card for this page.
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new page is what counts
   useEffect(() => {
-    const visit = loadVisit();
-    saveVisit({ ...visit, views: visit.views + 1 });
-  }, [pathname]);
+    saveVisit(pageSeen(loadVisit(), memberKey));
+  }, [pathname, memberKey]);
 
   // Installed from this page: the visit may go on to the notification card.
   useEffect(() => {
@@ -105,28 +117,54 @@ export function AppPrompts({
   // biome-ignore lint/correctness/useExhaustiveDependencies: decided again on every page
   useEffect(() => {
     if (!settled) return;
-    const now = Date.now();
+    let live = true;
     const platform = currentPlatform();
-    const visit = loadVisit();
-    const offer = installOffer(platform, install.native);
-    const next = cardToShow({
-      consentSettled: true,
-      install: offer,
-      member: member && { createdAt: Date.parse(member.createdAt) },
-      push: currentAvailability(platform),
-      permission: currentPermission(),
-      serverPush: pushKey !== null,
-      snoozes: readSnoozes(readStored(() => localStorage, PROMPTS_KEY)),
-      visit,
-      now,
+    const push = currentAvailability(platform);
+    const permission = currentPermission();
+    // Whether the browser still holds a subscription matters only once it was allowed.
+    const held =
+      memberKey && pushKey && push === "available" && permission === "granted"
+        ? currentSubscription()
+            .then((subscription) => subscription !== null)
+            .catch(() => true)
+        : Promise.resolve(false);
+    held.then((subscribed) => {
+      if (!live) return;
+      const visit = loadVisit();
+      const offer = installOffer(platform, install.native);
+      const next = cardToShow({
+        consentSettled: true,
+        install: offer,
+        member: memberKey ? { createdAt: Date.parse(memberKey) } : null,
+        push,
+        permission,
+        subscribed,
+        serverPush: pushKey !== null,
+        snoozes: readSnoozes(readStored(() => localStorage, PROMPTS_KEY)),
+        visit,
+        now: Date.now(),
+      });
+      // A card is the visit's only once it is drawn.
+      const drawn = next === "push" && pathname === SETTINGS_PATH ? null : next;
+      if (drawn && visit.card === null) saveVisit({ ...visit, card: drawn });
+      setShown(drawn && { card: drawn, offer });
     });
-    if (next && visit.card === null) saveVisit({ ...visit, card: next });
-    setShown(next && { card: next, offer });
-  }, [settled, pathname, member, pushKey, install.native, install.installed]);
+    return () => {
+      live = false;
+    };
+  }, [
+    settled,
+    pathname,
+    memberKey,
+    pushKey,
+    install.native,
+    install.installed,
+  ]);
 
   // The account menu asked for the install card: shown whatever "Not now" said.
   useEffect(() => {
-    if (install.asked === 0) return;
+    if (install.asked === asked.current) return;
+    asked.current = install.asked;
     const offer = installOffer(currentPlatform(), false);
     if (offer) setShown({ card: "install", offer });
   }, [install.asked]);
@@ -182,9 +220,7 @@ export function AppPrompts({
       </PromptCard>
     );
 
-  // The notification settings have their own switch for this device.
-  if (shown.card !== "push" || !pushKey || pathname === SETTINGS_PATH)
-    return null;
+  if (shown.card !== "push" || !pushKey) return null;
   const enable = () => {
     setBusy(true);
     setError(null);

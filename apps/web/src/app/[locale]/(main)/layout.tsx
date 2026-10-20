@@ -149,9 +149,6 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         <Suspense>
           <ShortcutsGate />
         </Suspense>
-        <Suspense>
-          <AppPromptsGate />
-        </Suspense>
         <SiteHeader />
         <Suspense>
           <NoticeBanner />
@@ -211,6 +208,10 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
           </main>
           <SiteFooter />
         </div>
+        {/* After the page, so the keyboard reaches the card after the header and the content. */}
+        <Suspense>
+          <AppPromptsGate />
+        </Suspense>
       </div>
     </ClientMessages>
   );

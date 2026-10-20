@@ -118,7 +118,7 @@ self.addEventListener("notificationclick", (event) => {
     openTarget(event.notification.data?.url, {
       origin: self.location.origin,
       windows: () =>
-        self.clients.matchAll({ type: "window", includeUncontrolled: true }),
+        self.clients.matchAll({ type: "window", includeUncontrolled: false }),
       openWindow: (url) => self.clients.openWindow(url),
     }),
   );

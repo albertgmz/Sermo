@@ -3,6 +3,7 @@ import {
   cardToShow,
   installOffer,
   type PromptState,
+  pageSeen,
   platformOf,
   pushAvailability,
   readSnoozes,
@@ -109,13 +110,12 @@ test("what the browser stored is read safely", () => {
   expect(readSnoozes('{"install":5,"push":"x","other":1}')).toEqual({
     install: 5,
   });
-  expect(readVisit(null)).toEqual({ views: 0, card: null, installed: false });
-  expect(readVisit("[")).toEqual({ views: 0, card: null, installed: false });
-  expect(readVisit('{"views":3,"card":"push","installed":true}')).toEqual({
-    views: 3,
-    card: "push",
-    installed: true,
-  });
+  const none = { views: 0, card: null, installed: false, member: null };
+  expect(readVisit(null)).toEqual(none);
+  expect(readVisit("[")).toEqual(none);
+  expect(
+    readVisit('{"views":3,"card":"push","installed":true,"member":"m"}'),
+  ).toEqual({ views: 3, card: "push", installed: true, member: "m" });
   expect(readVisit('{"card":"other"}').card).toBeNull();
 });
 
@@ -126,9 +126,10 @@ const base: PromptState = {
   member: { createdAt: NOW - 400 * DAY },
   push: "available",
   permission: "default",
+  subscribed: false,
   serverPush: true,
   snoozes: {},
-  visit: { views: 3, card: null, installed: false },
+  visit: { views: 3, card: null, installed: false, member: "m" },
   now: NOW,
 };
 
@@ -142,7 +143,12 @@ test("nothing is shown before the cookie banner is answered", () => {
 
 test("the notification card: members only, while the browser has not been asked", () => {
   expect(cardToShow({ ...base, member: null })).toBeNull();
-  expect(cardToShow({ ...base, permission: "granted" })).toBeNull();
+  // Allowed before, and still subscribed: nothing to ask.
+  expect(
+    cardToShow({ ...base, permission: "granted", subscribed: true }),
+  ).toBeNull();
+  // Allowed before, but the subscription went (a sign-out clears it): offered again.
+  expect(cardToShow({ ...base, permission: "granted" })).toBe("push");
   expect(cardToShow({ ...base, permission: "denied" })).toBeNull();
   expect(cardToShow({ ...base, permission: null })).toBeNull();
   expect(cardToShow({ ...base, push: "unsupported" })).toBeNull();
@@ -181,7 +187,12 @@ test("a visit keeps to its card: notifications wait for a later visit, or for th
   const afterInstallCard = {
     ...base,
     install: "native" as const,
-    visit: { views: 4, card: "install" as const, installed: false },
+    visit: {
+      views: 4,
+      card: "install" as const,
+      installed: false,
+      member: "m",
+    },
   };
   expect(cardToShow(afterInstallCard)).toBe("install");
   // Put off: the rest of the visit shows nothing.
@@ -201,7 +212,7 @@ test("a visit keeps to its card: notifications wait for a later visit, or for th
     cardToShow({
       ...base,
       install: "native",
-      visit: { views: 2, card: "push", installed: false },
+      visit: { views: 2, card: "push", installed: false, member: "m" },
     }),
   ).toBe("push");
   expect(
@@ -209,7 +220,8 @@ test("a visit keeps to its card: notifications wait for a later visit, or for th
       ...base,
       install: "native",
       permission: "granted",
-      visit: { views: 2, card: "push", installed: false },
+      subscribed: true,
+      visit: { views: 2, card: "push", installed: false, member: "m" },
     }),
   ).toBeNull();
 });
@@ -228,4 +240,23 @@ test("on iOS the install steps come first and the notification card waits for th
     push: pushAvailability({ apis: true, worker: true, platform: iphoneApp }),
   };
   expect(cardToShow(app)).toBe("push");
+});
+
+test("the pages of a visit count again from signing in, so a guest who signs up is new on their first page", () => {
+  const guest = { views: 0, card: null, installed: false, member: null };
+  const browsing = pageSeen(pageSeen(pageSeen(guest, null), null), null);
+  expect(browsing.views).toBe(3);
+  const joined = pageSeen(
+    { ...browsing, card: "install" },
+    "2026-10-19T12:00:00.000Z",
+  );
+  expect(joined).toEqual({
+    views: 1,
+    card: "install",
+    installed: false,
+    member: "2026-10-19T12:00:00.000Z",
+  });
+  expect(pageSeen(joined, joined.member).views).toBe(2);
+  // Signing out counts again too.
+  expect(pageSeen(joined, null).views).toBe(1);
 });

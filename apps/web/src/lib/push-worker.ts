@@ -98,22 +98,25 @@ export type WindowLike = {
   navigate(url: string): Promise<WindowLike | null>;
 };
 
-// The window of the site a tap goes to: the one in front, else one that is showing, else any.
-// `Client.url` is not used: it keeps the address of the last full load, not the page shown now.
+// The window of the site a tap goes to: the one in front, else one that is showing. A window that
+// is not showing is left alone: the worker cannot tell a browser tab from the installed app, and on
+// a phone that was locked or showing another app every window is hidden, so a new window is opened
+// instead, which the system gives to the installed app (its scope is the whole site). `Client.url`
+// is not used: it keeps the address of the last full load, not the page shown now.
 export function pickWindow<T extends WindowLike>(windows: readonly T[]) {
   return (
     windows.find((client) => client.focused) ??
     windows.find((client) => client.visibilityState === "visible") ??
-    windows[0] ??
     null
   );
 }
 
-// What a tap does. An address of the site goes to a window the site already has, brought to the
-// front and moved there; with none (or one the worker does not control, which cannot be moved) it
-// opens a new window. Every address of the site is in the app's scope, so on a device where the app
-// is installed that window is the app's own. An address elsewhere opens on its own and leaves the
-// site's windows as they are.
+// What a tap does. An address of the site goes to the site's window in front, if there is one,
+// brought forward and moved there; otherwise a new window opens at it (in the installed app where
+// there is one). The worker is handed only the windows it controls (`navigate` refuses the others);
+// a move that still fails falls back to a new window, which the browser may refuse once the tap's
+// permission to focus is spent. An address elsewhere opens on its own and leaves the site's
+// windows as they are.
 export async function openTarget(
   raw: unknown,
   scope: {
