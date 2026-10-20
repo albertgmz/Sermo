@@ -150,8 +150,7 @@
     "emptyDescription": "Be the first to write something on <user>{username}</user>'s profile.",
     "login": "Log in to post",
     "unavailableTitle": "The wall is not available",
-    "unavailableDescription": "Your account cannot read profile posts.",
-    "wholeWall": "See all of {username}'s profile posts"
+    "unavailableDescription": "Your account cannot read profile posts."
   },
   "postComposer": {
     "title": "New post",

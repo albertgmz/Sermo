@@ -91,22 +91,39 @@ function backend(signedIn = true) {
         nextCursor: start + 3 < posts.length ? `p${start + 3}` : null,
       });
     }
-    const single = /^\/api\/v1\/profile-posts\/(\d+)$/.exec(pathname);
-    if (single) {
-      const id = Number(single[1]);
+    // Where the backend places a post: its wall, and the cursor of the page of three that holds it.
+    const placed = /^\/api\/v1\/profile-posts\/(\d+)\/location$/.exec(pathname);
+    if (placed) {
+      const id = Number(placed[1]);
       // Post 40 is on another member's wall.
       if (id === 40)
-        return Response.json(profilePostBody({ id, profileUserId: 4 }));
-      if (posts.includes(id) || id === 99)
-        return Response.json(
-          profilePostBody({
-            id,
-            profileUserId: 9,
-            bodyHtml: `<p>wall post ${id}</p>`,
-            commentCount: id === 5 ? 5 : 0,
-            latestComments: id === 5 ? [105, 104, 103].map(comment) : [],
-          }),
-        );
+        return Response.json({
+          profilePostId: id,
+          profileUserId: 4,
+          cursor: null,
+        });
+      const index = posts.indexOf(id);
+      if (index !== -1)
+        return Response.json({
+          profilePostId: id,
+          profileUserId: 9,
+          cursor: index < 3 ? null : `p${index - (index % 3)}`,
+        });
+    }
+    const placedComment = /^\/api\/v1\/profile-comments\/(\d+)\/location$/.exec(
+      pathname,
+    );
+    if (placedComment) {
+      const id = Number(placedComment[1]);
+      const index = [105, 104, 103, 102, 101].indexOf(id);
+      if (index !== -1)
+        return Response.json({
+          commentId: id,
+          profilePostId: 5,
+          profileUserId: 9,
+          wallCursor: "p3",
+          commentsCursor: index < 2 ? null : `c${index - (index % 2)}`,
+        });
     }
     if (pathname === "/api/v1/profile-posts/5/comments") {
       const start = Number(searchParams.get("cursor")?.slice(1) ?? 0);
@@ -161,7 +178,7 @@ test("a post that is not on the first page opens the wall at the page that holds
   expect(html.includes('href="/members/9?cursor=p6"')).toBe(true);
 });
 
-test("a post on the first page is found with one read", async () => {
+test("a post on the first page is found with one read of the wall", async () => {
   backend();
   const html = await wall({ focus: { postId: 8 } });
   expect(shows(html, 8)).toBe(true);
@@ -170,36 +187,21 @@ test("a post on the first page is found with one read", async () => {
   ).toHaveLength(1);
 });
 
-test("a post the wall does not hold leaves the wall at its first page, without reading it twice", async () => {
+test("a guest's address opens the page that holds the post too", async () => {
+  backend(false);
+  const html = await wall({ focus: { postId: 2 } });
+  expect([3, 2, 1].map((id) => shows(html, id))).toEqual([true, true, true]);
+  expect(shows(html, 9)).toBe(false);
+});
+
+test("a post the backend cannot place leaves the wall at its first page, read once", async () => {
   backend();
   const html = await wall({ focus: { postId: 77 } });
   expect(shows(html, 9)).toBe(true);
   expect(shows(html, 5)).toBe(false);
-  // The three pages of the wall, once each.
-  expect(
-    asked.filter((line) => line.includes("/users/9/profile-posts")),
-  ).toHaveLength(3);
-});
-
-test("a guest is not walked: the post is read on its own and drawn alone, with its comment", async () => {
-  backend(false);
-  const html = await wall({ focus: { postId: 5, commentId: 102 } });
-  expect(shows(html, 5)).toBe(true);
-  expect([9, 8, 7, 6, 4].some((id) => shows(html, id))).toBe(false);
-  expect(html.includes('id="profile-comment-102"')).toBe(true);
-  expect(html.includes('href="/members/9"')).toBe(true);
   expect(
     asked.filter((line) => line.includes("/users/9/profile-posts")),
   ).toHaveLength(1);
-});
-
-test("a post the walk does not reach is drawn alone", async () => {
-  backend();
-  // Post 99 is on this wall further down than the walk reads (the fake's list never holds it).
-  const html = await wall({ focus: { postId: 99 } });
-  expect(shows(html, 99)).toBe(true);
-  expect(shows(html, 9)).toBe(false);
-  expect(html.includes('href="/members/9?cursor=')).toBe(false);
 });
 
 test("a post on another member's wall leaves the wall at its first page", async () => {
@@ -214,6 +216,7 @@ test("a cursor in the address wins over the post it names", async () => {
   const html = await wall({ cursor: "p6", focus: { postId: 5 } });
   expect([3, 2, 1].map((id) => shows(html, id))).toEqual([true, true, true]);
   expect(shows(html, 5)).toBe(false);
+  expect(asked.some((line) => line.includes("/location"))).toBe(false);
 });
 
 test("a comment among the newest few is shown with the post", async () => {
@@ -225,12 +228,16 @@ test("a comment among the newest few is shown with the post", async () => {
   );
 });
 
-test("an older comment opens the page of comments that holds it", async () => {
-  backend();
-  const html = await wall({ focus: { postId: 5, commentId: 102 } });
-  expect(html.includes('id="profile-comment-102"')).toBe(true);
-  expect(html.includes('id="profile-comment-103"')).toBe(true);
-  expect(html.includes('id="profile-comment-105"')).toBe(false);
+test("an older comment opens the page of comments that holds it, for a guest as well", async () => {
+  for (const signedIn of [true, false]) {
+    backend(signedIn);
+    const html = await wall({ focus: { postId: 5, commentId: 101 } });
+    expect(html.includes('id="profile-comment-101"')).toBe(true);
+    expect(html.includes('id="profile-comment-103"')).toBe(false);
+    expect(
+      asked.filter((line) => line.includes("/profile-posts/5/comments")),
+    ).toEqual(["/api/v1/profile-posts/5/comments?cursor=c4"]);
+  }
 });
 
 test("an edited wall post says so beside its time, and only that one", async () => {

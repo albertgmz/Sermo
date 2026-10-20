@@ -1,17 +1,8 @@
 import "server-only";
 
-import {
-  type notificationsList,
-  postsGet,
-  profileCommentsGet,
-  profilePostsGet,
-} from "@sermo/core/contracts";
+import type { notificationsList } from "@sermo/core/contracts";
 import type * as z from "zod";
 import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
-import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
-import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
-import { call } from "@/lib/sermo/client";
-import { SermoError } from "@/lib/sermo/errors";
 
 export type ApiNotification = z.output<
   typeof notificationsList.output
@@ -28,15 +19,9 @@ const APPROVABLE = [
   "conversation_message",
 ];
 
-const conversationOf = (item: ApiNotification) => {
-  const id = item.data.conversationId;
-  return typeof id === "number" ? id : null;
-};
-
-// The page that holds what a notification is about, with the anchor of the element: the page of
-// the thread and the post, the wall post or comment, the conversation message. Null where the
-// notification has no page of its own.
-async function targetOf(item: ApiNotification): Promise<string | null> {
+// Where a notification leads: what it is about, or the screen where staff act on it. Null where
+// the notification has no page of its own.
+function targetOf(item: ApiNotification): string | null {
   if (item.type === "moderator.report" && item.contentType === "report_group") {
     return `/moderation/reports/${item.contentId}`;
   }
@@ -55,37 +40,21 @@ async function targetOf(item: ApiNotification): Promise<string | null> {
     const follower = item.actors[0];
     return follower ? `/members/${follower.id}` : null;
   }
+  // Content is linked by its own address, which goes to the page that holds it, at the item:
+  // the list asks the backend nothing per row.
   switch (item.contentType) {
-    case "post": {
-      if (item.threadId === null) return null;
-      const post = await call(postsGet, { postId: item.contentId });
-      return threadHref(item.threadId, post.position, post.id);
-    }
+    case "post":
+      return `/posts/${item.contentId}`;
     case "thread":
       return `/threads/${item.contentId}`;
-    case "profile_post": {
-      const post = await call(profilePostsGet, {
-        profilePostId: item.contentId,
-      });
-      return wallTargetHref(post.profileUserId, post.id);
-    }
-    case "profile_post_comment": {
-      const comment = await call(profileCommentsGet, {
-        commentId: item.contentId,
-      });
-      const post = await call(profilePostsGet, {
-        profilePostId: comment.profilePostId,
-      });
-      return wallTargetHref(post.profileUserId, post.id, comment.id);
-    }
+    case "profile_post":
+      return `/profile-posts/${item.contentId}`;
+    case "profile_post_comment":
+      return `/profile-comments/${item.contentId}`;
     case "conversation":
       return conversationHref(item.contentId);
-    case "conversation_message": {
-      const conversationId = conversationOf(item);
-      return conversationId === null
-        ? "/conversations"
-        : conversationHref(conversationId, item.contentId);
-    }
+    case "conversation_message":
+      return `/conversations/messages/${item.contentId}`;
     case "user":
       return `/members/${item.contentId}`;
     default:
@@ -99,17 +68,10 @@ export async function hrefOf(item: ApiNotification): Promise<string> {
   if (item.contentType === "announcement") {
     return /^\/announcements\/\d+$/.test(item.url) ? FALLBACK : item.url;
   }
-  try {
-    const target = await targetOf(item);
-    if (target !== null) return target;
-  } catch (error) {
-    // Content the viewer can no longer open: the backend's own path is the best that is left.
-    if (!(error instanceof SermoError)) throw error;
-  }
+  const target = targetOf(item);
+  if (target !== null) return target;
   const user = /^\/users\/(\d+)$/.exec(item.url);
   if (user) return `/members/${user[1]}`;
-  // Reports have no page for a member; the backend's wall and comment paths are not routes here.
-  return /^\/(reports|profile-posts|profile-comments)\//.test(item.url)
-    ? FALLBACK
-    : item.url;
+  // Reports have no page for a member.
+  return /^\/reports\//.test(item.url) ? FALLBACK : item.url;
 }

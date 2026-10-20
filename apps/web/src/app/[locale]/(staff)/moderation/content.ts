@@ -9,6 +9,7 @@ import {
   threadsGet,
 } from "@sermo/core/contracts";
 import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
+import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import type { ContentRef } from "@/components/staff/content-ip";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -107,7 +108,7 @@ export async function describe(
       bodyHtml: post.bodyHtml,
       excerpt: plainExcerpt(post.bodyHtml),
       state: post.state,
-      href: `/threads/${post.threadId}#post-${post.id}`,
+      href: threadHref(post.threadId, post.position, post.id),
       where: {
         kind: "thread",
         id: post.threadId,

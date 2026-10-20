@@ -5,11 +5,7 @@ import { join } from "node:path";
 import { NextRequest } from "next/server";
 import { SermoError } from "../src/lib/sermo/errors";
 import { POSTS_PER_PAGE } from "../src/lib/sermo/page-sizes";
-import {
-  postBody,
-  profileCommentBody,
-  profilePostBody,
-} from "../src/lib/test-bodies";
+import { postBody, profilePostBody } from "../src/lib/test-bodies";
 
 // The part of the `auth.me` answer the panel's gate reads.
 type Viewer = {
@@ -784,9 +780,13 @@ test("a wall post's and a comment's addresses go to the wall at the post and the
       "/api/v1/profile-posts/12": Response.json(
         profilePostBody({ id: 12, profileUserId: 5 }),
       ),
-      "/api/v1/profile-comments/80": Response.json(
-        profileCommentBody({ id: 80, profilePostId: 12 }),
-      ),
+      "/api/v1/profile-comments/80/location": Response.json({
+        commentId: 80,
+        profilePostId: 12,
+        profileUserId: 5,
+        wallCursor: null,
+        commentsCursor: null,
+      }),
     });
   wall();
   redirectsTo(
@@ -798,7 +798,7 @@ test("a wall post's and a comment's addresses go to the wall at the post and the
     await ask("/profile-comments/80"),
     "/members/5?post=12&comment=80#profile-comment-80",
   );
-  assert.equal(asked.length, 2);
+  assert.equal(asked.length, 1);
   wall();
   isNotFound(await ask("/profile-posts/13"));
   isNotFound(await ask("/profile-comments/81"));
@@ -806,7 +806,59 @@ test("a wall post's and a comment's addresses go to the wall at the post and the
   // A sub-page is one of the old forum's addresses, sent on to the post's own.
   const sub = await ask("/profile-posts/12/edit");
   assert.equal(sub?.status, 308);
-  assert.equal(new URL(sub?.headers.get("location") ?? "").pathname, "/profile-posts/12");
+  assert.equal(
+    new URL(sub?.headers.get("location") ?? "").pathname,
+    "/profile-posts/12",
+  );
+});
+
+test("a message's address goes to its conversation at the message, for a member only", async () => {
+  const answer = () =>
+    backend({
+      "/api/v1/conversation-messages/9/location": Response.json({
+        conversationId: 5,
+        messageId: 9,
+        cursor: "abc",
+      }),
+    });
+  answer();
+  redirectsTo(
+    await ask("/conversations/messages/9", { cookie: SESSION }),
+    "/conversations/5?message=9#message-9",
+  );
+  answer();
+  isNotFound(await ask("/conversations/messages/10", { cookie: SESSION }));
+  isNotFound(await ask("/conversations/messages/x", { cookie: SESSION }));
+  const guest = await ask("/conversations/messages/9");
+  assert.equal(
+    new URL(guest?.headers.get("location") ?? "").pathname,
+    "/login",
+  );
+});
+
+test("where a reader picks up a thread or a conversation is a private redirect to that post or message", async () => {
+  backend({
+    "/api/v1/threads/7/unread": Response.json({
+      threadId: 7,
+      postId: 90,
+      position: POSTS_PER_PAGE * 2 + 5,
+    }),
+    "/api/v1/conversations/5/unread": Response.json({
+      conversationId: 5,
+      messageId: 61,
+      cursor: null,
+    }),
+  });
+  redirectsTo(
+    await ask("/threads/7-a-slug/unread"),
+    "/threads/7?page=3#post-90",
+  );
+  redirectsTo(
+    await ask("/conversations/5/unread", { cookie: SESSION }),
+    "/conversations/5?message=61#message-61",
+  );
+  isNotFound(await ask("/threads/8/unread"));
+  isNotFound(await ask("/conversations/6/unread", { cookie: SESSION }));
 });
 
 test("an award is a 404 when the backend says it is not found, and only then", async () => {
@@ -1095,8 +1147,13 @@ test("an address under the old name for forums is a 308 to the current one, what
 test("an old XenForo address is a 308 to its page, without the query or a lookup, and an address of this site is not", async () => {
   const asked = backend({});
   for (const [from, to] of [
-    ["/tema/mi-tema.123/page-2?x=1", "/threads/123"],
+    [
+      "/tema/mi-tema.123/page-2?x=1",
+      `/threads/123?page=${Math.floor(40 / POSTS_PER_PAGE) + 1}`,
+    ],
     ["/index.php?threads/mi-tema.123/post-8", "/posts/8"],
+    // What the server hands the proxy for `/index.php?threads/mi-tema.5721/`.
+    ["/index.php?threads%2Fmi-tema.5721%2F=", "/threads/5721"],
     ["/goto/post?id=9", "/posts/9"],
     ["/novedades/", "/"],
     ["/lost-password/", "/forgot-password"],

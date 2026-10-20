@@ -1,7 +1,8 @@
 import {
   profileCommentsList,
-  profilePostsGet,
+  profileCommentsLocate,
   profilePostsList,
+  profilePostsLocate,
 } from "@sermo/core/contracts";
 import { MessageCircle, PenLine } from "lucide-react";
 import Link from "next/link";
@@ -36,7 +37,6 @@ import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { formatNumber } from "@/lib/format";
 import { call, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
-import { pageHolding } from "@/lib/sermo/locate";
 import { membersFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
@@ -49,7 +49,7 @@ type ReactionTypes = Awaited<ReturnType<typeof getReactionTypes>>;
 // One post whose comments are read in full, and where its page of them continues.
 export type OpenComments = { postId: number; cursor?: string };
 
-// `post` keeps a post that is drawn alone (see `Wall`) on the page the address opens.
+// `post` names a post the wall opens at (see `Wall`).
 export function wallHref(
   profileId: number,
   params: { cursor?: string; comments?: OpenComments; post?: number } = {},
@@ -187,11 +187,32 @@ function WallPost({
 }
 
 // A post (and a comment on it) an address names, which the wall brings to the page that shows it.
-// The comments of a post are looked through by pages of this many (the most a page may hold), so
-// that the walk reaches back as far as any post's comments go.
-const COMMENT_WALK_PAGE = 100;
-
 export type WallFocus = { postId: number; commentId?: number };
+
+// Where the backend places the named post on this wall (the page of posts that holds it) and the
+// named comment among its post's comments; null for one it cannot place here (gone, hidden from
+// the viewer, on another wall), which leaves the wall at its first page.
+async function locate(profileId: number, focus: WallFocus) {
+  const placed = (error: unknown) => {
+    if (error instanceof SermoError && error.status < 500) return null;
+    throw error;
+  };
+  if (focus.commentId !== undefined) {
+    const found = await call(profileCommentsLocate, {
+      commentId: focus.commentId,
+    }).catch(placed);
+    return found?.profileUserId === profileId &&
+      found.profilePostId === focus.postId
+      ? { cursor: found.wallCursor, commentsCursor: found.commentsCursor }
+      : null;
+  }
+  const found = await call(profilePostsLocate, {
+    profilePostId: focus.postId,
+  }).catch(placed);
+  return found?.profileUserId === profileId
+    ? { cursor: found.cursor, commentsCursor: null }
+    : null;
+}
 
 export async function Wall({
   profile,
@@ -204,10 +225,7 @@ export async function Wall({
   open?: OpenComments;
   focus?: WallFocus;
 }) {
-  // A named post that the first page does not hold is looked for further down the wall, and the
-  // wall continues from the page that has it. A guest's address is not walked (the first page and
-  // one read of the post itself); a post the walk does not reach is drawn alone, with a way back
-  // to the whole wall, so an address always shows what it names.
+  // A named post opens the page of the wall that holds it, for every visitor.
   const viewer = await getViewer();
   // The backend refuses the wall to a viewer without `profilePost.view`: draw none.
   if (viewer.resolvedPermissions["profilePost.view"] === false) {
@@ -220,64 +238,37 @@ export async function Wall({
       />
     );
   }
-  const focusing = focus !== undefined && requested === undefined;
-  const walk =
-    focusing && viewer.user
-      ? await pageHolding(
-          (at) => read(profilePostsList, { userId: profile.id, cursor: at }),
-          (post) => post.id === focus.postId,
-        )
+  const located =
+    focus !== undefined && requested === undefined
+      ? await locate(profile.id, focus)
       : null;
-  const cursor = walk?.hit ? walk.hit.cursor : requested;
-  const [firstPage, reactionTypes, t, loadMore] = await Promise.all([
-    walk
-      ? Promise.resolve(walk.hit?.page ?? walk.first)
-      : read(profilePostsList, { userId: profile.id, cursor }),
-    getReactionTypes(),
-    getTranslations("members.wall"),
-    getTranslations("members.loadMore"),
-  ]);
-  // The named post, read on its own when the pages read do not hold it. One that is gone, or on
-  // another member's wall, leaves the wall as it is.
-  const alone =
-    focusing && !firstPage.items.some((post) => post.id === focus.postId)
-      ? await call(profilePostsGet, { profilePostId: focus.postId })
-          .then((post) => (post.profileUserId === profile.id ? post : null))
-          .catch((error: unknown) => {
-            if (error instanceof SermoError && error.status < 500) return null;
-            throw error;
-          })
-      : null;
-  const { items: posts, nextCursor } = alone
-    ? { items: [alone], nextCursor: null }
-    : firstPage;
+  const cursor = located ? (located.cursor ?? undefined) : requested;
+  const [{ items: posts, nextCursor }, reactionTypes, t, loadMore] =
+    await Promise.all([
+      read(profilePostsList, { userId: profile.id, cursor }),
+      getReactionTypes(),
+      getTranslations("members.wall"),
+      getTranslations("members.loadMore"),
+    ]);
   // A named comment that is not among the newest few opens the page of comments that holds it.
   const focused =
-    focus?.commentId !== undefined && !requestedOpen
+    located && focus?.commentId !== undefined && !requestedOpen
       ? posts.find((post) => post.id === focus.postId)
       : undefined;
-  const commentHit =
-    focused && !focused.latestComments.some((c) => c.id === focus?.commentId)
-      ? await pageHolding(
-          (at) =>
-            read(profileCommentsList, {
-              profilePostId: focused.id,
-              cursor: at,
-              limit: COMMENT_WALK_PAGE,
-            }),
-          (comment) => comment.id === focus?.commentId,
-        )
-      : null;
-  const open: OpenComments | undefined = commentHit?.hit
-    ? { postId: focused?.id ?? 0, cursor: commentHit.hit.cursor }
-    : requestedOpen;
+  const open: OpenComments | undefined =
+    focused &&
+    !focused.latestComments.some((comment) => comment.id === focus?.commentId)
+      ? {
+          postId: focused.id,
+          cursor: located?.commentsCursor ?? undefined,
+        }
+      : requestedOpen;
   const openPost = open && posts.find((post) => post.id === open.postId);
   const openPage = openPost
-    ? (commentHit?.hit?.page ??
-      (await read(profileCommentsList, {
+    ? await read(profileCommentsList, {
         profilePostId: openPost.id,
         cursor: open?.cursor,
-      })))
+      })
     : null;
   const member = await membersFor([
     ...posts.flatMap((post) => [
@@ -295,7 +286,7 @@ export async function Wall({
       : [];
   const viewList = viewer.resolvedPermissions["reaction.viewList"] !== false;
   // The page as it is drawn, which the links on it keep.
-  const here = { cursor, post: alone?.id };
+  const here = { cursor };
   const returnTo = wallHref(profile.id, here);
 
   return (
@@ -373,16 +364,6 @@ export async function Wall({
               />
             );
           })}
-        </div>
-      )}
-      {alone && (
-        <div className="border-t p-3">
-          <Link
-            href={wallHref(profile.id)}
-            className="inline-flex h-10 items-center text-sm font-medium text-primary-ink underline-offset-4 hover:underline md:h-8"
-          >
-            {t("wholeWall", { username: profile.username })}
-          </Link>
         </div>
       )}
       {nextCursor && (

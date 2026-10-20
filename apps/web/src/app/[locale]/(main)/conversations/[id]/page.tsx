@@ -1,6 +1,7 @@
 import {
   conversationsGet,
   conversationsListMessages,
+  conversationsLocateMessage,
 } from "@sermo/core/contracts";
 import { ChevronUp, LogOut } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -31,9 +32,9 @@ import { getCounters } from "@/components/layout/header-data";
 import { PageLayout } from "@/components/layout/page-layout";
 import { POLL_MS } from "@/lib/poll-intervals";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
-import { read } from "@/lib/sermo/client";
+import { call, read } from "@/lib/sermo/client";
+import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
-import { pageHolding } from "@/lib/sermo/locate";
 import { authorsFor, membersFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getMember } from "@/lib/sermo/session";
@@ -201,11 +202,21 @@ async function Messages({
       order: "newest",
       cursor: at,
     });
-  const walk =
+  // A named message opens the page that holds it; one the backend cannot place in this
+  // conversation leaves the newest page.
+  const located =
     focus !== null && requested === undefined
-      ? await pageHolding(readPage, (message) => message.id === focus)
+      ? await call(conversationsLocateMessage, { messageId: focus }).catch(
+          (error: unknown) => {
+            if (error instanceof SermoError && error.status < 500) return null;
+            throw error;
+          },
+        )
       : null;
-  const cursor = walk?.hit ? walk.hit.cursor : requested;
+  const cursor =
+    located?.conversationId === conversation.id
+      ? (located.cursor ?? undefined)
+      : requested;
   const [
     { items: newestFirst, nextCursor },
     { user },
@@ -213,7 +224,7 @@ async function Messages({
     t,
     { notifications },
   ] = await Promise.all([
-    walk ? Promise.resolve(walk.hit?.page ?? walk.first) : readPage(cursor),
+    readPage(cursor),
     getMember(),
     getReactionTypes(),
     getTranslations("conversations.conversation"),

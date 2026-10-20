@@ -122,7 +122,11 @@ const threadItem = (
   type: "thread" | "post",
   canReply: boolean,
   featured: "staff" | "paid" | null = null,
-  over: { unread?: unknown; thread?: Record<string, unknown> } = {},
+  over: {
+    unread?: unknown;
+    thread?: Record<string, unknown>;
+    position?: number;
+  } = {},
 ) =>
   ({
     type,
@@ -163,6 +167,7 @@ const threadItem = (
     post: postBody({
       id: type === "thread" ? 30 : 31,
       bodyHtml: "<p>the post shown</p>",
+      ...(over.position === undefined ? {} : { position: over.position }),
     }),
   }) as unknown as Item;
 
@@ -257,7 +262,9 @@ test("a thread card has a Reply button when the viewer may reply, and nothing of
     expect(html).not.toContain(`id="feed-post-${postId}-comment"`);
     // The count of replies leads to the thread: the replies are read there.
     expect(countHref(html, "4 replies")).toContain(
-      type === "thread" ? 'href="/threads/7"' : 'href="/threads/7#post-31"',
+      type === "thread"
+        ? 'href="/threads/7"'
+        : 'href="/threads/7?page=2#post-31"',
     );
   }
 });
@@ -278,7 +285,9 @@ test("a thread card without the right to reply has no Reply button; the count le
   const member = await render(threadItem("post", false), MEMBER);
   expect(member).not.toContain('aria-label="Reply"');
   expect(member).not.toContain('-comment"');
-  expect(countHref(member, "4 replies")).toContain('href="/threads/7#post-31"');
+  expect(countHref(member, "4 replies")).toContain(
+    'href="/threads/7?page=2#post-31"',
+  );
   const guest = await render(threadItem("thread", false), null);
   expect(guest).not.toContain('aria-label="Reply"');
   expect(countHref(guest, "4 replies")).toContain('href="/threads/7"');
@@ -373,7 +382,9 @@ test("the compact row is the thread in one line: title, where, answers and what 
   expect(html).toContain("Featured");
   expect(html).toContain("Poll");
   expect(html).toContain("3 new");
-  expect(countHref(html, "4 replies")).toContain('href="/threads/7#post-31"');
+  expect(countHref(html, "4 replies")).toContain(
+    'href="/threads/7?page=2#post-31"',
+  );
   expect(html).not.toContain("the post shown");
   expect(html).not.toContain("how it started");
   expect(html).not.toContain('aria-label="Reply"');
@@ -386,9 +397,17 @@ test("the compact row is the thread in one line: title, where, answers and what 
 const stretched = (html: string) =>
   html.match(/<a[^>]*class="absolute inset-0"[^>]*>/)?.[0] ?? "";
 
+test("a reply further into its thread is linked on the page that holds it, as a card and as a row", async () => {
+  const item = threadItem("post", true, null, { position: 45 });
+  const href = `href="${threadHref(7, 45, 31)}"`;
+  expect(threadHref(7, 45, 31)).toContain("?page=");
+  expect(countHref(await render(item, MEMBER), "4 replies")).toContain(href);
+  expect(stretched(await render(item, MEMBER, "compact"))).toContain(href);
+});
+
 test("the whole compact row is a link, under its own links and buttons", async () => {
   const thread = await render(threadItem("post", true), MEMBER, "compact");
-  expect(stretched(thread)).toContain('href="/threads/7#post-31"');
+  expect(stretched(thread)).toContain('href="/threads/7?page=2#post-31"');
   expect(stretched(thread)).toContain('tabindex="-1"');
   const wall = await render(wallItem(), MEMBER, "compact");
   expect(stretched(wall)).toContain('href="/members/5?post=9#profile-post-9"');

@@ -1,5 +1,6 @@
 import { FORUM_PREFIX } from "@/lib/sermo/addresses";
 import { parseId } from "@/lib/sermo/ids";
+import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 
 // Addresses of the XenForo forum this site replaced, which Google, bookmarks and imported posts
 // still carry. Imported content keeps XenForo's ids, so an address is answered from its own text,
@@ -45,6 +46,14 @@ const ACCOUNT_PAGES: Record<string, string> = {
   "lost-password": "/forgot-password",
 };
 
+// How many posts a page of a thread held on the old forum (`messagesPerPage`).
+const XENFORO_POSTS_PER_PAGE = 40;
+
+// The page of this site that holds the first post of the old forum's page `page` of a thread.
+function threadPage(page: number) {
+  return Math.floor(((page - 1) * XENFORO_POSTS_PER_PAGE) / POSTS_PER_PAGE) + 1;
+}
+
 // The id in `<slug>.<id>` or a bare `<id>`; null for anything else. In a name this app serves too,
 // the slug must have a letter (`/conversations/1.5` is no address) and a bare id is its own.
 function idIn(segment: string, own: boolean, viaIndex: boolean) {
@@ -67,10 +76,13 @@ export function xenforoTarget(pathname: string, search: string) {
   let viaIndex = false;
   if (pathname === "/index.php") {
     viaIndex = true;
-    const [route = "", ...rest] = search.slice(1).split("&");
-    if (route.includes("=")) return undefined;
+    // The route is the query's first name, with no value: `?threads/x.1/&page=2`. The server hands
+    // the proxy that query rewritten (`?threads%2Fx.1%2F=&page=2`), which reads the same.
+    const [first, ...rest] = [...params];
+    const [route = "", value = ""] = first ?? [];
+    if (value !== "") return undefined;
     path = `/${route}`;
-    params = new URLSearchParams(rest.join("&"));
+    params = new URLSearchParams(rest);
   } else if (pathname.startsWith("/index.php/")) {
     viaIndex = true;
     path = pathname.slice("/index.php".length);
@@ -99,6 +111,23 @@ export function xenforoTarget(pathname: string, search: string) {
     if (comment) return `/profile-comments/${id}`;
     return viaIndex || segments.length > 2 ? `/profile-posts/${id}` : undefined;
   }
+  // Conversations: the list, the form (which keeps the member it is addressed `to`), and a
+  // message's own address (`/conversaciones/replies/5/`, also `messages/5`).
+  if (
+    first === "conversaciones" ||
+    first === "direct-messages" ||
+    (viaIndex && first === "conversations")
+  ) {
+    if (segments.length === 1) return "/conversations";
+    if (second === "add") {
+      const to = params.get("to");
+      return `/conversations/new${to ? `?${new URLSearchParams({ to })}` : ""}`;
+    }
+    if (second === "replies" || second === "messages") {
+      const id = parseId(segments[2] ?? "");
+      return id === null ? undefined : `/conversations/messages/${id}`;
+    }
+  }
   if (first === "goto" && second === "post") {
     const id = parseId(params.get("id") ?? "");
     return id === null ? undefined : pathOf("post", id);
@@ -115,11 +144,22 @@ export function xenforoTarget(pathname: string, search: string) {
     if (own && !viaIndex && /^[1-9]\d*(?:-|$)/.test(segment)) return undefined;
     const id = idIn(segment, own, viaIndex);
     if (id === null) return undefined;
+    const next = lowered[depth + 1] ?? "";
     if (kind === "thread") {
-      const post = /^post-(\d+)$/.exec(segments[depth + 1] ?? "");
+      const post = /^post-(\d+)$/.exec(next);
       const postId = post ? parseId(post[1]) : null;
       if (postId !== null) return pathOf("post", postId);
+      // A page of the old forum held a different number of posts.
+      const page = /^page-(\d+)$/.exec(next);
+      const number = page ? parseId(page[1]) : null;
+      if (number !== null && threadPage(number) > 1)
+        return `${pathOf(kind, id)}?page=${threadPage(number)}`;
     }
+    // Where a reader picks up: the first unread post or message, or the newest post.
+    if ((kind === "thread" || kind === "conversation") && next === "unread")
+      return `${pathOf(kind, id)}/unread`;
+    if (kind === "thread" && next === "latest")
+      return `${pathOf(kind, id)}/latest`;
     return pathOf(kind, id);
   }
   return undefined;

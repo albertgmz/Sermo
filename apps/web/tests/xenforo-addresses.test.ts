@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
+import { POSTS_PER_PAGE } from "../src/lib/sermo/page-sizes";
 import { xenforoTarget } from "../src/lib/sermo/xenforo-addresses";
+
+// The page of this site that holds the first post of the old forum's page `n` (40 posts each).
+const page = (n: number) => Math.floor(((n - 1) * 40) / POSTS_PER_PAGE) + 1;
 
 // Splits "/path?query" the way a request does.
 function target(address: string) {
@@ -17,9 +21,10 @@ test("every thread prefix goes to the thread, with or without the slash, a slug 
     cases([
       [`/${prefix}/mi-tema.123/`, "/threads/123"],
       [`/${prefix}/mi-tema.123`, "/threads/123"],
-      [`/${prefix}/mi-tema.123/page-4`, "/threads/123"],
-      [`/${prefix}/mi-tema.123/unread`, "/threads/123"],
-      [`/${prefix}/mi-tema.123/latest?x=1`, "/threads/123"],
+      [`/${prefix}/mi-tema.123/page-4`, `/threads/123?page=${page(4)}`],
+      [`/${prefix}/mi-tema.123/page-1`, "/threads/123"],
+      [`/${prefix}/mi-tema.123/unread`, "/threads/123/unread"],
+      [`/${prefix}/mi-tema.123/latest?x=1`, "/threads/123/latest"],
       [`/${prefix}/mi-tema.123/reply`, "/threads/123"],
       [`/${prefix}/mi-tema.123/watch`, "/threads/123"],
       [`/${prefix}/mi-tema.123/post-77`, "/posts/77"],
@@ -29,7 +34,7 @@ test("every thread prefix goes to the thread, with or without the slash, a slug 
   cases([
     ["/tema/123/", "/threads/123"],
     ["/temas/123", "/threads/123"],
-    ["/foro/temas/123/page-2", "/threads/123"],
+    ["/foro/temas/123/page-2", `/threads/123?page=${page(2)}`],
     ["/tema/123/post-9", "/posts/9"],
     ["/tema/a.b.123/", "/threads/123"],
     ["/tema/Mi-Tema.123/", "/threads/123"],
@@ -42,7 +47,10 @@ test("the index.php form is read like the path form", () => {
     ["/index.php?threads/mi-tema.123/", "/threads/123"],
     ["/index.php?threads/123/", "/threads/123"],
     ["/index.php?tema/123", "/threads/123"],
-    ["/index.php?threads/mi-tema.123/page-2&x=1", "/threads/123"],
+    [
+      "/index.php?threads/mi-tema.123/page-2&x=1",
+      `/threads/123?page=${page(2)}`,
+    ],
     ["/index.php?threads/mi-tema.123/post-8", "/posts/8"],
     ["/index.php?posts/8/", "/posts/8"],
     ["/index.php?members/5/", "/members/5"],
@@ -58,6 +66,17 @@ test("the index.php form is read like the path form", () => {
     ["/index.php/threads/mi-tema.123/", "/threads/123"],
     ["/index.php", "/"],
     ["/index.php/", "/"],
+  ]);
+});
+
+test("the index.php form is read as the server hands it to the proxy, its route percent-encoded", () => {
+  cases([
+    ["/index.php?threads%2Fmi-tema.5721%2F=", "/threads/5721"],
+    ["/index.php?threads%2Fmi-tema.123%2Fpost-8=", "/posts/8"],
+    ["/index.php?goto%2Fpost=&id=31", "/posts/31"],
+    ["/index.php?profile-posts%2F12%2F=", "/profile-posts/12"],
+    ["/index.php?conversations%2Freplies%2F9%2F=", "/conversations/messages/9"],
+    ["/index.php?id=5", undefined],
   ]);
 });
 
@@ -117,7 +136,24 @@ test("members and conversations go to their pages", () => {
       [`/${prefix}/asunto.8/page-2`, "/conversations/8"],
     ]);
   }
+  for (const prefix of ["conversaciones", "direct-messages"]) {
+    cases([
+      [`/${prefix}/`, "/conversations"],
+      [`/${prefix}`, "/conversations"],
+      [`/${prefix}/add`, "/conversations/new"],
+      [`/${prefix}/add?to=ana`, "/conversations/new?to=ana"],
+      [`/${prefix}/add?to=ana%20p&x=1`, "/conversations/new?to=ana+p"],
+      [`/${prefix}/replies/9/`, "/conversations/messages/9"],
+      [`/${prefix}/messages/9`, "/conversations/messages/9"],
+      [`/${prefix}/replies/x/`, undefined],
+      [`/${prefix}/asunto.8/unread`, "/conversations/8/unread"],
+      [`/${prefix}/asunto.8/latest`, "/conversations/8"],
+    ]);
+  }
   cases([
+    ["/index.php?conversaciones/replies/9/", "/conversations/messages/9"],
+    ["/index.php?conversations/replies/9/", "/conversations/messages/9"],
+    ["/conversations/replies/9", undefined],
     ["/miembros/55/", "/members/55"],
     ["/conversaciones/8", "/conversations/8"],
     ["/direct-messages/8/", "/conversations/8"],

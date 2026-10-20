@@ -329,7 +329,9 @@ export function FeedItem({
   const { thread, post } = item;
   const isThread = item.type === "thread";
   const threadPath = `/threads/${thread.id}`;
-  const href = isThread ? threadPath : `${threadPath}#post-${post.id}`;
+  const href = isThread
+    ? threadPath
+    : threadHref(thread.id, post.position, post.id);
   const card = threadCard(thread, (id) => author(id).member);
   const anchor = `feed-post-${post.id}`;
   return (

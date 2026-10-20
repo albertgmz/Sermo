@@ -95,7 +95,7 @@ export function CompactFeedItem({
   const isThread = item.type === "thread";
   const href = isThread
     ? `/threads/${thread.id}`
-    : `/threads/${thread.id}#post-${post.id}`;
+    : threadHref(thread.id, post.position, post.id);
   const card = threadCard(thread, (id) => author(id).member);
   const count = thread.replyCount;
   return (

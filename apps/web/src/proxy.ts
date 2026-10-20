@@ -1,17 +1,22 @@
 import {
   awardsGet,
   conversationsGet,
+  conversationsLocateMessage,
+  conversationsLocateUnread,
   PageSlug,
   pagesGet,
   postsGet,
-  profileCommentsGet,
+  profileCommentsLocate,
   profilePostsGet,
   seoNode,
   seoProfile,
   seoThread,
   tagsGet,
+  threadsGet,
+  threadsLocateUnread,
 } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
+import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
 import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import {
@@ -215,12 +220,72 @@ const wallPostPage = heldBy(async (profilePostId, forward) => {
 });
 
 const wallCommentPage = heldBy(async (commentId, forward) => {
-  const comment = await callWith(forward, profileCommentsGet, { commentId });
-  const post = await callWith(forward, profilePostsGet, {
-    profilePostId: comment.profilePostId,
-  });
-  return wallTargetHref(post.profileUserId, post.id, comment.id);
+  const comment = await callWith(forward, profileCommentsLocate, { commentId });
+  return wallTargetHref(
+    comment.profileUserId,
+    comment.profilePostId,
+    comment.commentId,
+  );
 });
+
+const messagePage = heldBy(async (messageId, forward) => {
+  const message = await callWith(forward, conversationsLocateMessage, {
+    messageId,
+  });
+  return conversationHref(message.conversationId, message.messageId);
+});
+
+// Where a reader picks a thread or a conversation up (`/threads/5/unread`, `/threads/5/latest`,
+// `/conversations/5/unread`): the page that holds the first unread post or message, or the newest
+// post, at its anchor. Found as an address of content is (see `heldBy`).
+const threadUnread = heldBy(async (threadId, forward) => {
+  const post = await callWith(forward, threadsLocateUnread, { threadId });
+  return threadHref(post.threadId, post.position, post.postId);
+});
+
+const threadLatest = heldBy(async (threadId, forward) => {
+  const { thread } = await callWith(forward, threadsGet, {
+    threadId,
+    countView: false,
+  });
+  return threadHref(
+    thread.id,
+    thread.lastPost.position,
+    thread.lastPost.postId,
+  );
+});
+
+const conversationUnread = heldBy(async (conversationId, forward) => {
+  const message = await callWith(forward, conversationsLocateUnread, {
+    conversationId,
+  });
+  return conversationHref(message.conversationId, message.messageId);
+});
+
+// The finder of a sub-address that names where to land rather than a page of its own.
+function landingFinder(
+  section: string,
+  id: string,
+  action: string | undefined,
+): { find: Finder; id: string } | undefined {
+  if (section === "conversations" && id === "messages" && action)
+    return { find: messagePage, id: action };
+  if (section === "conversations" && action === "unread")
+    return { find: conversationUnread, id };
+  if (section === "threads" && action === "unread") {
+    const threadId = parsePageId(id);
+    return threadId === null
+      ? undefined
+      : { find: threadUnread, id: String(threadId) };
+  }
+  if (section === "threads" && action === "latest") {
+    const threadId = parsePageId(id);
+    return threadId === null
+      ? undefined
+      : { find: threadLatest, id: String(threadId) };
+  }
+  return undefined;
+}
 
 const CONTENT: Record<string, Finder> = {
   posts: postPage,
@@ -842,7 +907,7 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
   if (
     id &&
     CONTENT[section] &&
-    !(section === "conversations" && id === "new") &&
+    !(section === "conversations" && (id === "new" || id === "messages")) &&
     !(PUBLIC_PAGES.includes(section) ? parsePageId(id) !== null : isId(id))
   ) {
     return notFound(request, locale, security);
@@ -867,11 +932,18 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
       return unavailable(request, locale, security, found.unavailable);
     if (!found) return notFound(request, locale, security);
   }
+  const landing = isPage && id ? landingFinder(section, id, action) : undefined;
   const find =
     isPage && id && !(section === "conversations" && id === "new")
       ? CONTENT[section]
       : undefined;
-  if (find) {
+  if (landing) {
+    const found = await landing.find(landing.id, undefined, request);
+    if (found instanceof NextResponse) return found;
+    if (isUnavailable(found))
+      return unavailable(request, locale, security, found.unavailable);
+    if (!found) return notFound(request, locale, security);
+  } else if (find) {
     const found = await find(id, action, request);
     if (found instanceof NextResponse) return found;
     if (isUnavailable(found))

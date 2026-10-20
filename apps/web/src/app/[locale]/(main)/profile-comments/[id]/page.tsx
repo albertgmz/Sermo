@@ -1,4 +1,4 @@
-import { profileCommentsGet, profilePostsGet } from "@sermo/core/contracts";
+import { profileCommentsLocate } from "@sermo/core/contracts";
 import { notFound, redirect } from "next/navigation";
 import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { read } from "@/lib/sermo/client";
@@ -12,14 +12,17 @@ export default async function ProfileCommentPage({
 }: PageProps<"/[locale]/profile-comments/[id]">) {
   const commentId = parseId((await params).id);
   if (commentId === null) notFound();
-  try {
-    const comment = await read(profileCommentsGet, { commentId });
-    const post = await read(profilePostsGet, {
-      profilePostId: comment.profilePostId,
-    });
-    redirect(wallTargetHref(post.profileUserId, post.id, comment.id));
-  } catch (error) {
-    if (error instanceof SermoError && error.code === "forbidden") notFound();
-    throw error;
-  }
+  const comment = await read(profileCommentsLocate, { commentId }).catch(
+    (error: unknown) => {
+      if (error instanceof SermoError && error.code === "forbidden") notFound();
+      throw error;
+    },
+  );
+  redirect(
+    wallTargetHref(
+      comment.profileUserId,
+      comment.profilePostId,
+      comment.commentId,
+    ),
+  );
 }

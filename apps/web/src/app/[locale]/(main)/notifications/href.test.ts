@@ -1,9 +1,4 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
-import {
-  postBody,
-  profileCommentBody,
-  profilePostBody,
-} from "@/lib/test-bodies";
 
 const realFetch = globalThis.fetch;
 
@@ -38,29 +33,11 @@ function notice(over: Record<string, unknown>) {
   } as Parameters<typeof hrefOf>[0];
 }
 
-let refused = false;
 const asked: string[] = [];
 beforeEach(() => {
-  refused = false;
   asked.length = 0;
   globalThis.fetch = (async (url: string) => {
-    const { pathname } = new URL(url);
-    asked.push(pathname);
-    if (refused) {
-      return Response.json(
-        { error: { code: "not_found", message: "?" } },
-        { status: 404 },
-      );
-    }
-    if (pathname === "/api/v1/posts/31") {
-      return Response.json(postBody({ id: 31, threadId: 7, position: 25 }));
-    }
-    if (pathname === "/api/v1/profile-posts/12") {
-      return Response.json(profilePostBody());
-    }
-    if (pathname === "/api/v1/profile-comments/44") {
-      return Response.json(profileCommentBody());
-    }
+    asked.push(new URL(url).pathname);
     return Response.json(
       { error: { code: "not_found", message: "?" } },
       { status: 404 },
@@ -71,19 +48,14 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-// POSTS_PER_PAGE is 20 in these cases: position 25 is on page 2.
 const cases: [string, Record<string, unknown>, string][] = [
   [
-    "a reply in a watched thread: its page and post",
+    "a reply in a watched thread: the post",
     { type: "thread.watched" },
-    "/threads/7?page=2#post-31",
+    "/posts/31",
   ],
-  ["a quote", { type: "content.quoted" }, "/threads/7?page=2#post-31"],
-  [
-    "a reaction to a post",
-    { type: "content.reaction" },
-    "/threads/7?page=2#post-31",
-  ],
+  ["a quote", { type: "content.quoted" }, "/posts/31"],
+  ["a reaction to a post", { type: "content.reaction" }, "/posts/31"],
   [
     "a new thread of a forum or a member",
     { type: "node.thread", contentType: "thread", contentId: 7 },
@@ -97,7 +69,7 @@ const cases: [string, Record<string, unknown>, string][] = [
       contentId: 12,
       threadId: null,
     },
-    "/members/9?post=12#profile-post-12",
+    "/profile-posts/12",
   ],
   [
     "a reaction to a wall post",
@@ -107,7 +79,7 @@ const cases: [string, Record<string, unknown>, string][] = [
       contentId: 12,
       threadId: null,
     },
-    "/members/9?post=12#profile-post-12",
+    "/profile-posts/12",
   ],
   [
     "a comment on a wall post",
@@ -117,7 +89,7 @@ const cases: [string, Record<string, unknown>, string][] = [
       contentId: 44,
       threadId: null,
     },
-    "/members/9?post=12&comment=44#profile-comment-44",
+    "/profile-comments/44",
   ],
   [
     "a comment after yours",
@@ -127,7 +99,7 @@ const cases: [string, Record<string, unknown>, string][] = [
       contentId: 44,
       threadId: null,
     },
-    "/members/9?post=12&comment=44#profile-comment-44",
+    "/profile-comments/44",
   ],
   [
     "being added to a conversation",
@@ -148,7 +120,7 @@ const cases: [string, Record<string, unknown>, string][] = [
       threadId: null,
       data: { conversationId: 5 },
     },
-    "/conversations/5?message=61#message-61",
+    "/conversations/messages/61",
   ],
   [
     "a reaction to a conversation message",
@@ -159,7 +131,7 @@ const cases: [string, Record<string, unknown>, string][] = [
       threadId: null,
       data: { conversationId: 5 },
     },
-    "/conversations/5?message=61#message-61",
+    "/conversations/messages/61",
   ],
   [
     "a message whose conversation the alert does not name",
@@ -169,7 +141,7 @@ const cases: [string, Record<string, unknown>, string][] = [
       contentId: 61,
       threadId: null,
     },
-    "/conversations",
+    "/conversations/messages/61",
   ],
   [
     "a new follower: the follower's profile",
@@ -195,7 +167,7 @@ const cases: [string, Record<string, unknown>, string][] = [
   [
     "a moderator's action on a post",
     { type: "moderation.content" },
-    "/threads/7?page=2#post-31",
+    "/posts/31",
   ],
   [
     "a new report: its screen in the moderation panel",
@@ -302,22 +274,9 @@ for (const [name, over, expected] of cases) {
   });
 }
 
-test("content the viewer can no longer open falls back to the backend's own path or the list", async () => {
-  refused = true;
-  expect(
-    await hrefOf(notice({ type: "thread.watched", url: "/threads/7#post-31" })),
-  ).toBe("/threads/7#post-31");
-  expect(
-    await hrefOf(
-      notice({
-        type: "profile.post",
-        contentType: "profile_post",
-        contentId: 12,
-        threadId: null,
-        url: "/profile-posts/12",
-      }),
-    ),
-  ).toBe("/notifications");
+test("content is linked by its own address: the list asks the backend nothing per row", async () => {
+  for (const [, over] of cases) await hrefOf(notice(over));
+  expect(asked).toEqual([]);
 });
 
 test("a follower alert with no actor listed falls back to the member's profile", async () => {

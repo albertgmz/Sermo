@@ -1,5 +1,5 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
-import { profileCommentBody, profilePostBody } from "@/lib/test-bodies";
+import { profilePostBody } from "@/lib/test-bodies";
 import { viewerBody } from "@/lib/test-viewer";
 
 const realFetch = globalThis.fetch;
@@ -36,8 +36,14 @@ function backend() {
     if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
     if (pathname === "/api/v1/profile-posts/12")
       return Response.json(profilePostBody({ id: 12, profileUserId: 5 }));
-    if (pathname === "/api/v1/profile-comments/80")
-      return Response.json(profileCommentBody({ id: 80, profilePostId: 12 }));
+    if (pathname === "/api/v1/profile-comments/80/location")
+      return Response.json({
+        commentId: 80,
+        profilePostId: 12,
+        profileUserId: 5,
+        wallCursor: null,
+        commentsCursor: null,
+      });
     return Response.json(
       { error: { code: "not_found", message: "Not found." } },
       { status: 404 },
