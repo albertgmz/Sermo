@@ -95,6 +95,7 @@ export function WallItemActions({
                   load={wallItemSource.bind(null, kind, item.id)}
                   action={editWallItem.bind(null, kind, item.id)}
                   placeholder={t("editPlaceholder")}
+                  target={`#profile-${kind === "post" ? "post" : "comment"}-${item.id}`}
                 />
               ),
             }

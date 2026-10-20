@@ -1,14 +1,16 @@
 "use client";
 
 import { SendHorizontal } from "lucide-react";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { PendingButton } from "@/components/forum/pending-button";
+import { landOn } from "@/components/layout/land-on";
 import { cn } from "@/lib/utils";
 
-export type LineComposerState = { error?: string };
+// `landOn`: the hash of what was just written, which the page then lands on.
+export type LineComposerState = { error?: string; landOn?: string };
 
 // The one-line composer for answering where the item is read: the comments of a wall post, a
 // reply from a feed card. The backend's refusal is shown as it comes. With `attach` the line
@@ -31,6 +33,9 @@ export function LineComposer({
 }) {
   const [state, formAction] = useActionState(action, {});
   const [uploading, setUploading] = useState(false);
+  useEffect(() => {
+    if (state.landOn) landOn(state.landOn);
+  }, [state]);
   return (
     <form action={formAction} className={cn("space-y-2", className)}>
       <div className={cn("flex items-end gap-2", attach && "flex-wrap")}>

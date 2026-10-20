@@ -7,9 +7,9 @@ import type * as z from "zod";
 import { ClampedBody } from "@/app/[locale]/(main)/_feed/clamped-body";
 import { CompactFeedItem } from "@/app/[locale]/(main)/_feed/compact-item";
 import { replyFromFeed } from "@/app/[locale]/(main)/actions";
-import { wallHref } from "@/app/[locale]/(main)/members/[id]/wall";
 import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { commentOnWallPost } from "@/app/[locale]/(main)/members/actions";
+import { earlierComments } from "@/app/[locale]/(main)/members/earlier-comments";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { Art } from "@/components/forum/art";
@@ -33,6 +33,7 @@ import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import {
   hasWallComments,
+  oldestFirst,
   WallComments,
 } from "@/components/forum/wall-comments";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
@@ -243,15 +244,19 @@ export function FeedItem({
     const href = wallTargetHref(profilePost.profileUserId, profilePost.id);
     const anchor = `feed-profile-post-${profilePost.id}`;
     const comments = profilePost.latestComments;
-    const links =
-      profilePost.commentCount > comments.length
+    const oldest = oldestFirst(comments)[0];
+    const earlier =
+      oldest && profilePost.commentCount > comments.length
         ? {
-            more: `${wallHref(profilePost.profileUserId, {
-              post: profilePost.id,
-              comments: { postId: profilePost.id },
-            })}#profile-post-${profilePost.id}`,
+            load: earlierComments.bind(
+              null,
+              profilePost.id,
+              profilePost.profileUserId,
+              oldest.id,
+            ),
+            from: null,
           }
-        : {};
+        : undefined;
     return (
       <Card
         id={anchor}
@@ -287,12 +292,12 @@ export function FeedItem({
         count={profilePost.commentCount}
         noun="comments"
         answers={
-          hasWallComments(profilePost, comments, links) && (
+          hasWallComments(profilePost, comments, earlier) && (
             <WallComments
               anchor={anchor}
               profileUserId={profilePost.profileUserId}
               comments={comments}
-              links={links}
+              earlier={earlier}
               action={
                 profilePost.canComment
                   ? commentOnWallPost.bind(null, profilePost.id, undefined)

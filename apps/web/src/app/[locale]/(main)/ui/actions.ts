@@ -3,6 +3,7 @@
 import { createElement, type ReactNode } from "react";
 import { requireStyleguide } from "@/app/[locale]/(main)/ui/guard";
 import type { ActionFormState } from "@/components/forum/action-form";
+import type { EarlierPage } from "@/components/forum/earlier-comments";
 import type { LineComposerState } from "@/components/forum/line-composer";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import type { SaveResult } from "@/lib/autosave";
@@ -21,6 +22,14 @@ export async function discardLine(
   return String(formData.get("body") ?? "").trim()
     ? {}
     : { error: "Write something first." };
+}
+
+// The styleguide's "show more comments": there are no older ones.
+export async function noEarlierComments(
+  _cursor: string | null,
+): Promise<EarlierPage> {
+  await requireStyleguide();
+  return { rows: null, nextCursor: null };
 }
 
 // The styleguide's delete and report forms: take the form and store nothing.

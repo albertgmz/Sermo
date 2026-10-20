@@ -14,6 +14,7 @@ import {
   commentOnWallPost,
   postToWall,
 } from "@/app/[locale]/(main)/members/actions";
+import { earlierComments } from "@/app/[locale]/(main)/members/earlier-comments";
 import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { EditedMark } from "@/components/forum/edited-mark";
@@ -27,7 +28,9 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import {
   type ApiWallComment,
+  type EarlierLoad,
   hasWallComments,
+  oldestFirst,
   WallComments,
   WallStateNote,
 } from "@/components/forum/wall-comments";
@@ -70,6 +73,7 @@ export function wallHref(
 function WallPost({
   post,
   comments,
+  earlier,
   links,
   member,
   viewerId,
@@ -82,8 +86,10 @@ function WallPost({
   post: ApiWallPost;
   // The newest few, or one page of them where the post is open.
   comments: ApiWallComment[];
-  // Where the comments can be followed: more of them, older ones, or back to the newest few.
-  links: { more?: string; older?: string; fewer?: string };
+  // Loads the older comments in place, where there are any.
+  earlier?: EarlierLoad;
+  // Back to the newest few, where the post is open at an older page.
+  links: { fewer?: string };
   member: (id: number) => MemberView;
   viewerId: number | null;
   picker: ReactionType[];
@@ -151,15 +157,16 @@ function WallPost({
         />
       }
       footer={
-        hasWallComments(post, comments, links) && (
+        hasWallComments(post, comments, earlier) && (
           <WallComments
             anchor={anchor}
             profileUserId={post.profileUserId}
             comments={comments}
+            earlier={earlier}
             links={links}
             action={
               post.canComment
-                ? commentOnWallPost.bind(null, post.id, returnTo)
+                ? commentOnWallPost.bind(null, post.id, post.profileUserId)
                 : undefined
             }
             member={member}
@@ -323,34 +330,43 @@ export async function Wall({
         <div className="divide-y divide-border">
           {posts.map((post) => {
             const isOpen = openPage !== null && post.id === openPost?.id;
+            const oldest = oldestFirst(post.latestComments)[0];
             return (
               <WallPost
                 key={post.id}
                 post={post}
                 comments={isOpen ? openPage.items : post.latestComments}
+                earlier={
+                  isOpen
+                    ? openPage.nextCursor === null
+                      ? undefined
+                      : {
+                          load: earlierComments.bind(
+                            null,
+                            post.id,
+                            profile.id,
+                            null,
+                          ),
+                          from: openPage.nextCursor,
+                        }
+                    : oldest && post.commentCount > post.latestComments.length
+                      ? {
+                          load: earlierComments.bind(
+                            null,
+                            post.id,
+                            profile.id,
+                            oldest.id,
+                          ),
+                          from: null,
+                        }
+                      : undefined
+                }
                 links={
                   isOpen
                     ? {
-                        older:
-                          openPage.nextCursor === null
-                            ? undefined
-                            : wallHref(profile.id, {
-                                ...here,
-                                comments: {
-                                  postId: post.id,
-                                  cursor: openPage.nextCursor,
-                                },
-                              }),
                         fewer: `${wallHref(profile.id, here)}#profile-post-${post.id}`,
                       }
-                    : post.commentCount > post.latestComments.length
-                      ? {
-                          more: `${wallHref(profile.id, {
-                            ...here,
-                            comments: { postId: post.id },
-                          })}#profile-post-${post.id}`,
-                        }
-                      : {}
+                    : {}
                 }
                 member={member}
                 viewerId={viewerId}

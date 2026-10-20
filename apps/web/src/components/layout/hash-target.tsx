@@ -83,7 +83,9 @@ type NavigationWindow = Window & {
 const entryKey = () =>
   (window as NavigationWindow).navigation?.currentEntry?.key;
 
-const holdEnv: HoldEnv = {
+// The page's scroll as `createScrollHolder` holds it; also kept still by the comments that load
+// above in place (`EarlierComments`).
+export const holdEnv: HoldEnv = {
   scrollY: () => window.scrollY,
   maxScrollY: () => document.documentElement.scrollHeight - window.innerHeight,
   scrollTo: (y) => window.scrollTo({ top: y, behavior: "instant" }),

@@ -10,16 +10,19 @@ import {
 import { ClosePanel } from "@/components/forum/content-actions";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
+import { landOn } from "@/components/layout/land-on";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Edits an item where it is read: it asks for the BB code the item was written in when it opens
 // (the lists only carry the rendered text) and shows the editor on it. A saved edit reports
-// `done`: the panel closes and the refreshed page shows the item anew.
+// `done`: the panel closes and the refreshed page shows the item anew, landing on it when
+// `target` names it (`#profile-comment-5`).
 export function InlineEditForm({
   load,
   action,
   placeholder,
+  target,
 }: {
   load: () => Promise<string | null>;
   action: (
@@ -27,12 +30,16 @@ export function InlineEditForm({
     formData: FormData,
   ) => Promise<ActionFormState>;
   placeholder: string;
+  target?: string;
 }) {
   const t = useTranslations("forum.contentActions");
   const close = use(ClosePanel);
   const saveAndClose: typeof action = async (previous, formData) => {
     const state = await action(previous, formData);
-    if (state.done) close();
+    if (state.done) {
+      close();
+      if (target) landOn(target);
+    }
     return state;
   };
   const [source, setSource] = useState<string | null>();

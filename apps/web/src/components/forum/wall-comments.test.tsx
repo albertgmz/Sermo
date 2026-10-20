@@ -92,8 +92,8 @@ async function render(over: Partial<Parameters<typeof WallComments>[0]> = {}) {
   );
 }
 
-test("the comments are drawn in the order given, each with its author and its own anchor", async () => {
-  const html = await render();
+test("the comments are drawn oldest first, each with its author and its own anchor", async () => {
+  const html = await render({ comments: [comment(2), comment(1)] });
   expect(html.indexOf("comment 2")).toBeGreaterThan(html.indexOf("comment 1"));
   expect(html).toContain("member21");
   expect(html).toContain('id="profile-comment-1"');
@@ -136,16 +136,23 @@ test("the comment composer takes files, and the comments show theirs", async () 
   expect(shown).toContain("informe económico.pdf");
 });
 
-test("the links to more, older and fewer comments are drawn only when given", async () => {
+test("the button for older comments and the link to fewer are drawn only when given", async () => {
   const none = await render();
-  for (const text of ["Show more comments", "Older comments", "Show fewer"]) {
+  for (const text of ["Show more comments", "Show fewer"]) {
     expect(none).not.toContain(text);
   }
   const html = await render({
-    links: { more: "/more", older: "/older", fewer: "/fewer" },
+    earlier: {
+      load: async () => ({ rows: null, nextCursor: null }),
+      from: null,
+    },
+    links: { fewer: "/fewer" },
   });
-  expect(html).toMatch(/href="\/more"[^>]*>Show more comments</);
-  expect(html).toMatch(/href="\/older"[^>]*>Older comments</);
+  // A button that loads them in place, above the comments: no address to go to.
+  expect(html).toMatch(/<button type="button"[^>]*>Show more comments</);
+  expect(html.indexOf("Show more comments")).toBeLessThan(
+    html.indexOf("comment 1"),
+  );
   expect(html).toMatch(/href="\/fewer"[^>]*>Show fewer comments</);
 });
 
@@ -159,11 +166,14 @@ test("a comment that is not visible to everyone says so", async () => {
   );
 });
 
-test("there is something to draw with a comment, the right to comment, or more comments elsewhere", async () => {
+test("there is something to draw with a comment, the right to comment, or older comments to load", async () => {
   expect(hasWallComments({ canComment: false }, [])).toBe(false);
   expect(hasWallComments({ canComment: false }, [comment(1)])).toBe(true);
   expect(hasWallComments({ canComment: true }, [])).toBe(true);
-  expect(hasWallComments({ canComment: false }, [], { more: "/more" })).toBe(
-    true,
-  );
+  expect(
+    hasWallComments({ canComment: false }, [], {
+      load: async () => ({ rows: null, nextCursor: null }),
+      from: null,
+    }),
+  ).toBe(true);
 });

@@ -73,7 +73,7 @@ test("an attachment id that is not a record id never reaches the backend", async
 test("a comment carries the files that were attached to it", async () => {
   await commentOnWallPost(
     8,
-    "/members/5",
+    5,
     {},
     form({ body: "hi", attachmentIds: ["4", "5"] }),
   );
@@ -82,12 +82,7 @@ test("a comment carries the files that were attached to it", async () => {
 
 test("a comment's attachment id that is not a record id never reaches the backend", async () => {
   await assert.rejects(() =>
-    commentOnWallPost(
-      8,
-      "/members/5",
-      {},
-      form({ body: "hi", attachmentIds: "x" }),
-    ),
+    commentOnWallPost(8, 5, {}, form({ body: "hi", attachmentIds: "x" })),
   );
   assert.equal(asked.length, 0);
 });
@@ -95,7 +90,7 @@ test("a comment's attachment id that is not a record id never reaches the backen
 // The wall composer keeps what was written by not letting React reset its form, so what empties
 // and closes it is the redirect alone: Next draws the page's forms anew when an action ends in
 // one. A refusal must therefore come back as a state, and a post that was taken must redirect.
-test("a wall post that was taken ends in a redirect to the page it was written on", async () => {
+test("a wall post that was taken ends in a redirect to the page it was written on, on the wall at the post", async () => {
   globalThis.fetch = (async () =>
     Response.json({
       id: 9,
@@ -115,13 +110,18 @@ test("a wall post that was taken ends in a redirect to the page it was written o
       canDelete: true,
       canComment: true,
     })) as unknown as typeof fetch;
-  for (const page of ["/", "/members/5"]) {
+  for (const [page, to] of [
+    ["/", "/"],
+    ["/members/5", "/members/5?post=9#profile-post-9"],
+    ["/members/5?cursor=abc", "/members/5?post=9#profile-post-9"],
+    ["/members/51", "/members/51"],
+  ]) {
     const digest = await postToWall(5, page, {}, form({ body: "hi" })).then(
       () => undefined,
       (error: { digest?: unknown }) => String(error.digest),
     );
     assert.equal(digest?.split(";")[0], "NEXT_REDIRECT");
-    assert.equal(digest?.split(";")[2], page);
+    assert.equal(digest?.split(";")[2], to);
   }
 });
 
@@ -140,81 +140,55 @@ test("a refused wall post answers the form it came from and goes nowhere", async
   assert.deepEqual(state, { error: "Write something first." });
 });
 
-// The comment count leads to the composer by a hash, and an address that differs from the
-// browser's by its hash alone is not asked of the server again: without the refresh the new
-// comment is saved and not shown.
-test("a comment that was taken refreshes the page and returns to the wall or the feed it was written on", async () => {
-  for (const page of ["/members/5", "/?tab=following&cursor=abc"]) {
-    refreshed = 0;
-    globalThis.fetch = (async () =>
-      Response.json({
-        id: 12,
-        profilePostId: 8,
-        author: { id: 3, username: "ember" },
-        state: "visible",
-        createdAt: "2026-10-13T03:57:31.497Z",
-        editedAt: null,
-        bodyHtml: "<p>hi</p>",
-        attachmentCount: 0,
-        attachments: [],
-        bodySource: "hi",
-        reactions: { counts: {}, total: 0, mine: null },
-        canEdit: true,
-        canDelete: true,
-      })) as unknown as typeof fetch;
-    const digest = await commentOnWallPost(
-      8,
-      page,
-      {},
-      form({ body: "hi" }),
-    ).then(
-      () => undefined,
-      (error: { digest?: unknown }) => String(error.digest),
-    );
-    assert.equal(digest?.split(";")[0], "NEXT_REDIRECT");
-    assert.equal(digest?.split(";")[2], page);
-    assert.equal(refreshed, 1);
-  }
+const COMMENT = {
+  id: 12,
+  profilePostId: 8,
+  author: { id: 3, username: "ember" },
+  state: "visible",
+  createdAt: "2026-10-13T03:57:31.497Z",
+  editedAt: null,
+  bodyHtml: "<p>hi</p>",
+  attachmentCount: 0,
+  attachments: [],
+  bodySource: "hi",
+  reactions: { counts: {}, total: 0, mine: null },
+  canEdit: true,
+  canDelete: true,
+};
+
+// On the wall the page goes to the wall at the new comment, which lands on it whatever page of
+// the wall or of the comments was shown.
+test("a comment written on a wall goes to the wall at the comment", async () => {
+  globalThis.fetch = (async () =>
+    Response.json(COMMENT)) as unknown as typeof fetch;
+  const digest = await commentOnWallPost(8, 5, {}, form({ body: "hi" })).then(
+    () => undefined,
+    (error: { digest?: unknown }) => String(error.digest),
+  );
+  assert.equal(digest?.split(";")[0], "NEXT_REDIRECT");
+  assert.equal(
+    digest?.split(";")[2],
+    "/members/5?post=8&comment=12#profile-comment-12",
+  );
 });
 
 test("a refused comment answers its form and refreshes nothing", async () => {
-  const state = await commentOnWallPost(8, "/", {}, form({ body: "" }));
+  const state = await commentOnWallPost(8, undefined, {}, form({ body: "" }));
   assert.deepEqual(state, { error: "No." });
   assert.equal(refreshed, 0);
 });
 
-// The feed has no address of its own to give: a comment written on a card there returns to the
-// address the browser has, the number of pages loaded included.
-test("a comment written in the feed returns to the feed address the browser has", async () => {
+// The feed stays where it is: drawn again with the new comment, which the composer lands on. A
+// redirect to the feed's own address would differ from the browser's by its hash alone, which the
+// router answers by scrolling to the top.
+test("a comment written in the feed draws the page again and names the comment to land on", async () => {
   incoming = new Headers({
     referer: "http://localhost:3105/?tab=top&pages=3",
     host: "localhost:3105",
   });
   globalThis.fetch = (async () =>
-    Response.json({
-      id: 12,
-      profilePostId: 8,
-      author: { id: 3, username: "ember" },
-      state: "visible",
-      createdAt: "2026-10-13T03:57:31.497Z",
-      editedAt: null,
-      bodyHtml: "<p>hi</p>",
-      attachmentCount: 0,
-      attachments: [],
-      bodySource: "hi",
-      reactions: { counts: {}, total: 0, mine: null },
-      canEdit: true,
-      canDelete: true,
-    })) as unknown as typeof fetch;
-  const digest = await commentOnWallPost(
-    8,
-    undefined,
-    {},
-    form({ body: "hi" }),
-  ).then(
-    () => undefined,
-    (error: { digest?: unknown }) => String(error.digest),
-  );
-  assert.equal(digest?.split(";")[0], "NEXT_REDIRECT");
-  assert.equal(digest?.split(";")[2], "/?tab=top&pages=3");
+    Response.json(COMMENT)) as unknown as typeof fetch;
+  const state = await commentOnWallPost(8, undefined, {}, form({ body: "hi" }));
+  assert.deepEqual(state, { landOn: "#profile-comment-12" });
+  assert.equal(refreshed, 1);
 });

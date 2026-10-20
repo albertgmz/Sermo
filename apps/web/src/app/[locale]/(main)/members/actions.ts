@@ -16,6 +16,7 @@ import {
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, requireIds } from "@/lib/sermo/ids";
@@ -25,7 +26,8 @@ import { safeReturnPath } from "@/lib/sermo/return-path";
 
 export type WallState = { error?: string; done?: boolean };
 
-// Posts on the wall of `profileUserId` and goes back to the page the form was on.
+// Posts on the wall of `profileUserId` and goes back to the page the form was on: on that wall,
+// to its first page at the new post, which the page lands on.
 export async function postToWall(
   profileUserId: number,
   returnTo: string,
@@ -39,29 +41,42 @@ export async function postToWall(
     call(profilePostsCreate, { userId: profileUserId, body, attachmentIds }),
   );
   if (!created.ok) return { error: created.error };
-  redirect(safeReturnPath(returnTo));
+  const back = safeReturnPath(returnTo);
+  redirect(
+    back === `/members/${profileUserId}` ||
+      back.startsWith(`/members/${profileUserId}?`)
+      ? wallTargetHref(profileUserId, created.value.id)
+      : back,
+  );
 }
 
-// Comments on a wall post and goes back to the page the form was on: the wall (its address,
-// `returnTo`), or the feed (no `returnTo`: the address the browser has, `?pages=N` included). That
-// address can differ from the one in the browser by its hash alone (the comment count leads to
-// the composer), which is no navigation to the server, so the page is refreshed first.
+// Comments on a wall post, and the page lands on the new comment. On the wall (`wall`, the id of
+// its member) it goes to the wall at the comment, which opens the page that holds it whatever the
+// wall showed. Elsewhere (the feed, a picture's viewer) the page is drawn again where it is and
+// the composer lands on the comment (`landOn`): a redirect to the same address would only change
+// its hash, which the router answers by scrolling to the top of the page.
 export async function commentOnWallPost(
   profilePostId: number,
-  returnTo: string | undefined,
+  wall: number | undefined,
   _previous: WallState,
   formData: FormData,
-): Promise<WallState> {
+): Promise<WallState & { landOn?: string }> {
   requireIds(profilePostId);
+  if (wall !== undefined) requireIds(wall);
   const body = String(formData.get("body") ?? "");
   const attachmentIds = formIds(formData, "attachmentIds");
-  const page = returnTo === undefined ? await pageOfRequest() : returnTo;
+  const page =
+    wall === undefined
+      ? await pageOfRequest()
+      : wallTargetHref(wall, profilePostId);
   const created = await attempt(page, () =>
     call(profileCommentsCreate, { profilePostId, body, attachmentIds }),
   );
   if (!created.ok) return { error: created.error };
+  if (wall !== undefined)
+    redirect(wallTargetHref(wall, profilePostId, created.value.id));
   refresh();
-  redirect(safeReturnPath(page));
+  return { landOn: `#profile-comment-${created.value.id}` };
 }
 
 // A wall post or a comment on one: the same actions on both.

@@ -20,6 +20,7 @@ import {
   discardForm,
   discardLine,
   discardQuote,
+  noEarlierComments,
 } from "@/app/[locale]/(main)/ui/actions";
 import { EditorDemo } from "@/app/[locale]/(main)/ui/editor-demo";
 import { LiteMenuDemo } from "@/app/[locale]/(main)/ui/lite-menu-demo";
@@ -1542,16 +1543,16 @@ export default async function StyleguidePage() {
 
         <Section title="Wall comments">
           <p className="text-sm text-muted-foreground">
-            The comments under a wall post, the links to the rest of them and
-            the composer for the next one. Drawn by the profile wall and by the
-            feed's wall-post cards.
+            The comments under a wall post, the button that loads the older ones
+            above them and the composer for the next one. Drawn by the profile
+            wall and by the feed's wall-post cards.
           </p>
           <div className="max-w-xl rounded-lg border bg-card p-4">
             <WallComments
               anchor="sample-wall-post"
               profileUserId={1}
               comments={SAMPLE_WALL_COMMENTS}
-              links={{ more: "/ui" }}
+              earlier={{ load: noEarlierComments, from: null }}
               action={discardLine}
               member={memberOf}
               viewerId={null}

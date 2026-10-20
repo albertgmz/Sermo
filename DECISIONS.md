@@ -5471,3 +5471,21 @@ page settles, until the reader acts (`components/layout/spotlight.ts`, `hash-tar
 
 Why: a centred, smooth scroll ended where the item had been before the pictures above it loaded,
 so the reader arrived mid-post or past it, and a hidden copy of the same page could take the jump.
+
+### A wall write lands on what was written; older comments load in place
+
+- A new wall post, or a comment written on the wall, redirects to the item's own wall address with
+  its hash (`wallTargetHref`), which lands on it on the page of the wall that holds it. A redirect
+  to the bare wall address had no fragment, so the soft navigation scrolled to the top.
+- A comment written elsewhere (the feed, a picture's comments) and every edit refresh the route in
+  place and land through `landOn` (`components/layout/land-on.ts`): the hash replaces the current
+  entry's, with a null state so Next's router takes the address in, and `HashTarget` lands.
+- "Show more comments" is a button, not a link: a server action (`members/earlier-comments.tsx`)
+  draws the batch before the oldest comment shown, `EarlierComments` inserts it above, and the
+  comment that was first is held where it was on the screen while the batch's pictures load, until
+  the reader acts (WebKit has no scroll anchoring). The button goes when no batch is left, as in
+  XenForo.
+
+Why: the "show more" link navigated to the wall post's address, so the page landed and dimmed the
+post and swapped the three comments for a page drawn newest first: the jump and the animation the
+owner saw.
