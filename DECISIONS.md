@@ -4964,10 +4964,13 @@ component draws a fixed colour.
 
 ### Order of checks: the caller before the input
 
-An access-control review found that an anonymous `GET /api/v1/admin/ips/members` with no `ip`
+An access-control review noted that an anonymous `GET /api/v1/admin/ips/members` with no `ip`
 answered 400 with the missing field's path, where the other staff routes answer 401. Input was
-validated before the caller was looked at, so a stranger learned the route and the shape of its
-parameters. No data left the server.
+validated before the caller was looked at, so the refusal depended on what was sent. Nothing was
+exposed: the routes and their parameters are public by design (`/api/v1/openapi.json`, the MCP
+tool list and the `/developer` reference show the whole spec, staff operations included). The
+change makes the order consistent: a caller who may not use an operation is refused the same way
+whatever the input, and clients and scanners see the refusal rather than a validation error.
 
 `execute` now answers input that does not validate through `refuseBeforeValidating`: it runs the
 operation against an input that cannot be read, so the checks the operation makes before it first
@@ -4978,20 +4981,27 @@ the core agree, and the decision stays the operation's own: no second list of wh
 The REST route handler uses the same function for a body that is not JSON or not an object, and
 the upload route refuses a guest before it looks at the purpose, the content type or the body.
 
-- The run is read-only: `PRAGMA query_only` is on for the operation's synchronous part (all of it
-  before the first `await`), so an operation that writes before it reads its input fails and is
+- The run is read-only while its synchronous part runs: `PRAGMA query_only` is on until the
+  operation's first `await`, so an operation that writes before it reads its input fails and is
   answered as invalid input. A write inside `writeTx` is rolled back by the throw in any case.
-  The rule for an operation is: check the caller, and read the input, before changing anything.
+  An operation that has not refused by its first `await` is not decided (the answer is the 400,
+  and the rest of its run is not waited for; it cannot be stopped). The rule for an operation is:
+  check the caller, and read the input, before changing anything or awaiting anything that must
+  not repeat. `operation.test.ts` runs the probe of every operation as a guest, a member and an
+  administrator and fails if one changes the database or the in-memory buffers.
 - Only 401 and 403 are taken from the run. A 404 ("the caller may not see it") depends on what
   was asked for, and a conflict on state, so they are not.
 - Operations whose refusal depends on the input keep validating first: the node a moderator holds
   a permission in, the member an administrator acts on (hierarchy), an own item, a password the
   caller must confirm. `refusal-order.test.ts` sweeps every route of the route table with a guest
   and a plain member, takes the routes the caller is refused on, and requires the same refusal for
-  empty, invalid and malformed input; the operations still answering 400 are named there and the
-  test fails if one of them stops (the list only shrinks). Several are only a matter of order
-  (the input is passed to a service as arguments before the service checks the caller, or the
-  check is the first thing inside `writeTx`) and can be moved when their module is next touched.
+  empty, invalid and malformed input. A route whose own valid sample is answered 400 must be
+  named (the operation is open to that caller and judges the sample itself), and so must every
+  operation still answering 400 to a caller it refuses; the test fails if a named one stops, so the
+  lists only shrink. Several are only a matter of order (the input is passed to a service as
+  arguments before the service checks the caller, or the check is the first thing inside
+  `writeTx`) and can be moved when their module is next touched. `bans.create` checks the caller
+  and `member.ban` first.
 - Not changed: MCP "Tool arguments must be an object" (a protocol error before the operation), the
   415 for a session cookie with a body that is not JSON, and the hidden routes that answer a
   guest 404 on purpose.

@@ -117,19 +117,32 @@ const unreadable = new Proxy(
   },
 );
 
+/** What the race below answers when the operation has not finished or refused yet. */
+const UNDECIDED = Symbol("undecided");
+
 /**
  * The answer to input that does not validate: a caller the operation refuses whatever it sent (a
- * guest where an account is needed, a member without the permission) gets that 401 or 403, so
- * the shape of the input is not shown to someone who could not use the operation anyway.
+ * guest where an account is needed, a member without the permission) gets that 401 or 403, the
+ * same refusal valid input would get, instead of a 400 that depends on what was sent. The routes
+ * and their parameters are public (the OpenAPI document, the MCP tool list, the API reference
+ * page), so this hides nothing; it makes the order of the checks the same on every route.
  *
  * The operation decides, by running it against an input it cannot read: the checks that come
  * before its first read of the input are the ones that do not depend on it. An unauthenticated or
  * forbidden refusal raised before that point is thrown; reaching the input, any other error or
  * finishing without reading it throws `invalid` as before. An operation whose permission depends
  * on the input (an own item, a node, a target member) reads it first and so still validates
- * first. The run cannot write: the connection is read-only while the operation's synchronous
- * part runs, which is everything before its first `await`. An operation must therefore check the
- * actor, and read the input, before it writes.
+ * first.
+ *
+ * Only what the operation does before its first `await` counts. The connection is read-only while
+ * that part runs, so a write there fails and the answer is `invalid`. An operation that has not
+ * refused by then (it is waiting on something) is not decided: the answer is `invalid` and the
+ * rest of its run is not waited for. That rest cannot be stopped, so an operation must check the
+ * caller and read its input before it writes or awaits anything it must not repeat;
+ * `operation.test.ts` runs the probe of every operation as a guest, a member and an
+ * administrator and fails if one changes the database or the in-memory buffers. The flag is set
+ * and cleared around the call, so a probe started inside another probe's synchronous part would
+ * clear it early; no operation calls `execute` from inside `run`.
  */
 export async function refuseBeforeValidating(
   ctx: Ctx,
@@ -147,7 +160,10 @@ export async function refuseBeforeValidating(
     ctx.sqlite.run("PRAGMA query_only = 0");
   }
   try {
-    await outcome;
+    // A promise that is already settled wins the race, so a refusal raised before the first
+    // `await` is seen and one that comes later is not.
+    const settled = await Promise.race([outcome, Promise.resolve(UNDECIDED)]);
+    if (settled === UNDECIDED) Promise.resolve(outcome).catch(() => undefined);
   } catch (error) {
     if (error instanceof UnauthenticatedError || error instanceof ForbiddenError) throw error;
   }

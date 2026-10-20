@@ -18,6 +18,25 @@ afterEach(() => {
 });
 
 /**
+ * Operations the caller may use, so the sample (valid in shape) is judged on its merits and is
+ * rightly answered 400 by the operation itself: a token that is not one, yourself as the person
+ * to follow, a name that is too short, Web Push that is off. The sweep cannot say anything about
+ * the order of checks on them, by the caller they are open to.
+ */
+const SAMPLE_REJECTED: Record<string, readonly ("guest" | "member")[]> = {
+  "auth.notMe": ["guest", "member"],
+  "bookmarks.status": ["guest", "member"],
+  "conversations.create": ["member"],
+  "notifications.markRead": ["member"],
+  "notifications.setPreferences": ["member"],
+  "notifications.unsubscribe": ["guest", "member"],
+  "push.subscribe": ["member"],
+  "users.changeUsername": ["member"],
+  "users.follow": ["member"],
+  "users.ignore": ["member"],
+};
+
+/**
  * Operations that still answer 400 to a caller they would refuse, by the caller they refuse: they
  * read their input before they decide about the caller. Some cannot decide without it (the
  * node a moderator holds a permission in, the member an administrator acts on, a password the
@@ -66,6 +85,38 @@ function resolveRef(root: Json, node: Json): Json {
   return resolveRef(root, target as Json);
 }
 
+/** Values tried, in order, for a string with a pattern: the first one the pattern accepts. */
+const PATTERN_CANDIDATES = [
+  "x",
+  "a",
+  "1",
+  "abc-def",
+  "abcdefgh",
+  "/a",
+  "a@example.test",
+  "https://example.test/",
+  "#aabbcc",
+  "G-ABCD",
+  "image/png",
+  "B".padEnd(87, "A"),
+  "A".repeat(21) + "A",
+];
+
+function stringSample(node: Json): string {
+  if (node.format === "date-time") return "2099-01-01T00:00:00.000Z";
+  if (node.format === "date") return "2099-01-01";
+  if (node.format === "email") return "a@example.test";
+  if (node.format === "uri") return "https://example.test/";
+  if (node.format === "uuid") return "00000000-0000-4000-8000-000000000000";
+  const length = typeof node.minLength === "number" ? Math.max(1, node.minLength) : 1;
+  if (typeof node.pattern === "string") {
+    const pattern = new RegExp(node.pattern, "u");
+    const found = PATTERN_CANDIDATES.find((candidate) => pattern.test(candidate));
+    if (found) return found;
+  }
+  return "x".repeat(length);
+}
+
 /** The smallest value a JSON Schema accepts, for the shapes the contracts use. */
 function sample(root: Json, schema: Json): unknown {
   const node = resolveRef(root, schema);
@@ -87,7 +138,7 @@ function sample(root: Json, schema: Json): unknown {
         typeof node.minimum === "number" ? node.minimum : 1,
         typeof node.exclusiveMinimum === "number" ? node.exclusiveMinimum + 1 : 1,
       );
-      return minimum;
+      return typeof node.maximum === "number" ? Math.min(minimum, node.maximum) : minimum;
     }
     case "boolean":
       return false;
@@ -102,11 +153,8 @@ function sample(root: Json, schema: Json): unknown {
         out[name] = sample(root, properties[name] ?? {});
       return out;
     }
-    case "string": {
-      if (node.format === "email") return "a@example.test";
-      const length = typeof node.minLength === "number" ? Math.max(1, node.minLength) : 1;
-      return "x".repeat(length);
-    }
+    case "string":
+      return stringSample(node);
     default:
       return null;
   }
@@ -213,6 +261,16 @@ async function sweep() {
       const actor = member ? "member" : "guest";
       const wanted = member ? 403 : 401;
       const base = await send(route.method, path, reference.query, reference.body, member);
+      // A sample the route rejects as invalid tells nothing about the order of checks.
+      if (base === 400)
+        findings.push({
+          operation: op.name,
+          route: `${route.method} ${route.path} (${op.name})`,
+          actor,
+          wanted,
+          got: base,
+          sent: "valid sample",
+        });
       if (base !== wanted) {
         uncompared.push(`${actor} ${route.method} ${route.path} -> ${base}`);
         continue;
@@ -239,17 +297,32 @@ test("a caller the operation refuses is refused before its input is validated", 
   const { findings, compared } = await sweep();
   // Enough routes refuse the caller for the sweep to mean something (it grows with the API).
   expect(compared).toBeGreaterThan(300);
-  const unexpected = findings.filter(
-    (f) => !(VALIDATES_FIRST[f.operation] ?? []).includes(f.actor as "guest" | "member"),
+  const isSample = (f: { sent: string }) => f.sent === "valid sample";
+  const check = (
+    found: typeof findings,
+    allowed: Record<string, readonly ("guest" | "member")[]>,
+  ) => {
+    const unexpected = found.filter(
+      (f) => !(allowed[f.operation] ?? []).includes(f.actor as "guest" | "member"),
+    );
+    const seen = new Set(found.map((f) => `${f.operation} ${f.actor}`));
+    const stale = Object.entries(allowed).flatMap(([operation, actors]) =>
+      actors
+        .filter((actor) => !seen.has(`${operation} ${actor}`))
+        .map((actor) => `${operation} ${actor}`),
+    );
+    return { unexpected, stale };
+  };
+  // A route whose own sample is answered 400 is not covered, so it must be named.
+  const samples = check(findings.filter(isSample), SAMPLE_REJECTED);
+  expect(samples.unexpected).toEqual([]);
+  expect(samples.stale).toEqual([]);
+  const order = check(
+    findings.filter((f) => !isSample(f)),
+    VALIDATES_FIRST,
   );
-  expect(unexpected).toEqual([]);
-  const seen = new Set(findings.map((f) => `${f.operation} ${f.actor}`));
-  const stale = Object.entries(VALIDATES_FIRST).flatMap(([operation, actors]) =>
-    actors
-      .filter((actor) => !seen.has(`${operation} ${actor}`))
-      .map((actor) => `${operation} ${actor}`),
-  );
-  expect(stale).toEqual([]);
+  expect(order.unexpected).toEqual([]);
+  expect(order.stale).toEqual([]);
 }, 600_000);
 
 async function signIn(

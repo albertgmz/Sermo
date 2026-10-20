@@ -1,7 +1,7 @@
 import type { SQLQueryBindings } from "bun:sqlite";
 import * as z from "zod";
 import type { Actor } from "../../actor";
-import { actorUserId, requireAuthenticated } from "../../actor";
+import { actorUserId, GUEST, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import * as contracts from "../../contracts/moderation";
 import type { ContentStateValue } from "../../db/schema";
@@ -2443,16 +2443,20 @@ export const operations = [
   implement(contracts.warningsList, (ctx, actor, input) =>
     contracts.warningsList.output.parse(page(listWarnings(ctx, actor, input.userId, input))),
   ),
-  implement(contracts.bansCreate, (ctx, actor, input) =>
-    banUser(
+  implement(contracts.bansCreate, (ctx, actor, input) => {
+    // Whether the caller may ban anyone at all is decided before the input is read; the member
+    // is checked against its rank in banUser.
+    requireAuthenticated(actor);
+    requirePermission(ctx, actor, "member.ban", { target: GUEST });
+    return banUser(
       ctx,
       actor,
       input.userId,
       input.reason,
       input.expiresAt ? Date.parse(input.expiresAt) : null,
       { notify: input.notify, message: input.message },
-    ),
-  ),
+    );
+  }),
   implement(
     contracts.bansLift,
     (ctx, actor, input) =>
