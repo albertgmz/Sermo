@@ -540,6 +540,7 @@ export const CONVERSATIONS = [
   id,
   isUnread: id === 0,
   lastMessage: {
+    messageId: id + 1,
     sentAt: SAMPLE_DATE,
     user: { id: MODERATOR.id, username: MODERATOR.username },
   },

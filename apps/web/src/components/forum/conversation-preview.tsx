@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserLink } from "@/components/forum/user-link";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -13,10 +13,19 @@ export type ConversationItem = {
   title: string;
   participantCount: number;
   isUnread: boolean;
-  lastMessage: { sentAt: string; user: { id: number } };
+  lastMessage: { messageId: number; sentAt: string; user: { id: number } };
 };
 
-// Linked previews need a positioned row, without an enclosing link.
+// Where a tap on a conversation's row goes: its first unread message while it has one, else its
+// newest message.
+export function conversationRowHref(conversation: ConversationItem) {
+  return conversation.isUnread
+    ? `/conversations/${conversation.id}/unread`
+    : conversationHref(conversation.id, conversation.lastMessage.messageId);
+}
+
+// Linked previews need a positioned row, without an enclosing link: the title's link covers the
+// whole row, which is one target (the avatar and the name inside are neither links nor cards).
 // `ringClassName` matches the avatar ring to the surface the row sits on.
 export function ConversationPreview({
   conversation,
@@ -51,7 +60,7 @@ export function ConversationPreview({
           >
             {linked ? (
               <Link
-                href={`/conversations/${conversation.id}`}
+                href={conversationRowHref(conversation)}
                 className="after:absolute after:inset-0"
               >
                 {conversation.title}
@@ -69,12 +78,7 @@ export function ConversationPreview({
           <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
             {t.rich("summary", {
               participants: conversation.participantCount,
-              author: () =>
-                linked ? (
-                  <UserLink user={member} className="relative z-10" />
-                ) : (
-                  member.username
-                ),
+              author: () => member.username,
             })}
           </span>
           {conversation.isUnread && <UnreadDot />}
