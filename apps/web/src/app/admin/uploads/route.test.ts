@@ -156,6 +156,26 @@ test("a throttled upload is a 429 in the member's words", async () => {
   });
 });
 
+test("a file whose type does not match its content is refused in the member's words, not the backend's English", async () => {
+  backendAnswers(() =>
+    Response.json(
+      {
+        error: {
+          code: "validation",
+          message: "File type does not match its content.",
+          issues: [{ path: ["upload"], message: "unreadable" }],
+        },
+      },
+      { status: 422 },
+    ),
+  );
+  const response = await POST(upload("frame"));
+  expect(response.status).toBe(422);
+  const { error } = await response.json();
+  expect(error).toBe(messages.lib.uploadRefusals.unreadable);
+  expect(error).not.toContain("does not match");
+});
+
 test("another site's origin, or none, is refused", async () => {
   backendAnswers(() => Response.json({ id: 1 }));
   expect(

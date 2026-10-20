@@ -5260,3 +5260,6 @@ over them stalled one commit for 370 ms), and other subscribers handle a batch w
   uploads in a short time") when the backend throttles the `auth.me` read that decides whether the
   visitor may use the panel, instead of the 404 of an address that does not exist. Any other
   failure of that read stays a 404. The backend already answered 429 to a throttled upload.
+- "File type does not match its content." (a picture whose bytes are not the type its name or
+  browser said) reaches the panel in the visitor's language through the same refusal mapping as
+  every other upload refusal (`unreadable`); the route test holds it.
