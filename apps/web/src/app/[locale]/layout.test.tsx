@@ -46,12 +46,20 @@ const childrenOf = (node: ReactNode): ReactNode[] =>
     ? [(node.props as { children?: ReactNode }).children].flat()
     : [];
 
-test("the browser bar takes the page background of each theme", () => {
-  expect(viewport.themeColor).toEqual([
-    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
-    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
-  ]);
+test("the browser bar takes the light page background, the default theme", () => {
+  expect(viewport.themeColor).toBe(THEME_COLORS.light);
   expect(THEME_COLORS).toEqual({ light: "#fafafa", dark: "#09090b" });
+});
+
+test("the page is drawn light, so a visitor with no choice sees no dark first paint", async () => {
+  globalThis.fetch = (async () =>
+    Response.json(siteBody())) as unknown as typeof fetch;
+  const html = (await RootLayout({
+    children: null,
+    params: Promise.resolve({ locale: "en" }),
+  } as never)) as ReactElement<{ "data-theme"?: string; className?: string }>;
+  expect(html.props["data-theme"]).toBe("light");
+  expect(html.props.className?.split(" ")).not.toContain("dark");
 });
 
 test("the head names the site's search for the browser", async () => {

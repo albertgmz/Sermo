@@ -24,6 +24,14 @@ const windowListeners = new Map<string, Set<Listener>>();
 const mediaListeners = new Set<() => void>();
 // The <head> the script writes the bar's colour into: what it put first, in order.
 type Meta = { name: string; content: string };
+const marked = new WeakSet<object>();
+class FakeMeta {
+  name = "";
+  content = "";
+  setAttribute() {
+    marked.add(this);
+  }
+}
 const head: Meta[] = [];
 let deviceDark = true;
 let legacyMedia = false;
@@ -70,11 +78,13 @@ beforeAll(() => {
       },
     },
     head: { prepend: (meta: Meta) => head.unshift(meta) },
-    createElement: () => ({ name: "", content: "" }),
+    createElement: () => new FakeMeta(),
     querySelector: (selector: string) =>
-      selector === 'meta[name="theme-color"]:not([media])'
-        ? (head.find((meta) => meta.name === "theme-color") ?? null)
-        : null,
+      selector === 'meta[name="theme-color"][data-theme-bar]'
+        ? (head.find((meta) => marked.has(meta)) ?? null)
+        : selector === 'meta[name="theme-color"]:not([media])'
+          ? (head.find((meta) => meta.name === "theme-color") ?? null)
+          : null,
   };
   globals.matchMedia = () => ({
     addListener: (listener: () => void) => mediaListeners.add(listener),
@@ -131,7 +141,20 @@ function run() {
 
 const theme = () => attributes.get("data-theme");
 
+test("with no choice the page is light before first paint, whatever the device", () => {
+  run();
+  expect(theme()).toBe("light");
+  expect(classes.has("dark")).toBe(false);
+  expect(attributes.get("data-theme-choice")).toBe("light");
+  expect(currentTheme()).toBe("light");
+  // A value this version does not know is no choice either.
+  store.set("sermo-theme", "blue");
+  emit("storage", { key: "sermo-theme" });
+  expect(theme()).toBe("light");
+});
+
 test("System follows the device before first paint and when it changes", () => {
+  store.set("sermo-theme", "system");
   run();
   expect(theme()).toBe("dark");
   expect(classes.has("dark")).toBe(true);
@@ -141,19 +164,22 @@ test("System follows the device before first paint and when it changes", () => {
   expect(classes.has("dark")).toBe(false);
 });
 
-test("the browser bar takes the colour of the theme shown, ahead of the device's", () => {
+test("the browser bar takes the colour of the theme shown", () => {
   run();
-  expect(head).toEqual([{ name: "theme-color", content: "#09090b" }]);
-  setTheme("light");
-  expect(head).toEqual([{ name: "theme-color", content: "#fafafa" }]);
-  deviceDark = false;
-  setTheme("system");
   expect(head).toEqual([{ name: "theme-color", content: "#fafafa" }]);
   setTheme("dark");
   expect(head).toEqual([{ name: "theme-color", content: "#09090b" }]);
+  setTheme("system");
+  expect(head).toEqual([{ name: "theme-color", content: "#09090b" }]);
+  deviceDark = false;
+  for (const listener of mediaListeners) listener();
+  expect(head).toEqual([{ name: "theme-color", content: "#fafafa" }]);
+  setTheme("light");
+  expect(head).toEqual([{ name: "theme-color", content: "#fafafa" }]);
 });
 
 test("a browser with only the old media listener call is followed too", () => {
+  store.set("sermo-theme", "system");
   legacyMedia = true;
   run();
   deviceDark = false;
@@ -173,32 +199,41 @@ test("the page listeners are in place before the device query is read", () => {
   expect(registered).toBe(1);
 });
 
-test("a stored choice beats the device", () => {
-  store.set("sermo-theme", "light");
+test("a stored choice beats the default and the device", () => {
+  store.set("sermo-theme", "dark");
+  deviceDark = false;
   run();
+  expect(theme()).toBe("dark");
+  expect(classes.has("dark")).toBe(true);
+  store.set("sermo-theme", "light");
+  deviceDark = true;
+  emit("storage", { key: "sermo-theme" });
   expect(theme()).toBe("light");
   expect(classes.has("dark")).toBe(false);
 });
 
-test("choosing applies at once and keeps the choice; System clears it", () => {
+test("choosing applies at once and keeps the choice, System included", () => {
   run();
-  setTheme("light");
-  expect(theme()).toBe("light");
-  expect(store.get("sermo-theme")).toBe("light");
-  expect(currentTheme()).toBe("light");
+  setTheme("dark");
+  expect(theme()).toBe("dark");
+  expect(store.get("sermo-theme")).toBe("dark");
+  expect(currentTheme()).toBe("dark");
   setTheme("system");
-  expect(store.has("sermo-theme")).toBe(false);
+  expect(store.get("sermo-theme")).toBe("system");
   expect(currentTheme()).toBe("system");
   expect(theme()).toBe("dark");
+  setTheme("light");
+  expect(store.get("sermo-theme")).toBe("light");
+  expect(theme()).toBe("light");
 });
 
-test("with storage blocked the choice still switches the page", () => {
+test("with storage blocked the page is light and the choice still switches it", () => {
   useBlockedStorage();
   expect(run).not.toThrow();
-  expect(theme()).toBe("dark");
-  setTheme("light");
   expect(theme()).toBe("light");
-  expect(currentTheme()).toBe("light");
+  setTheme("dark");
+  expect(theme()).toBe("dark");
+  expect(currentTheme()).toBe("dark");
 });
 
 test("another tab's choice is applied and announced here", () => {
@@ -223,9 +258,21 @@ test("the group has three buttons and marks the chosen one", () => {
   expect(html.match(/aria-pressed="true"/g)).toHaveLength(1);
 });
 
-test("labelled draws the words and the control starts on System", () => {
+test("labelled draws the words and the control starts on Light", () => {
   const html = renderToStaticMarkup(withIntl(<ThemeControl labelled />));
   expect(html).toContain(">System<");
   expect(html).toContain(">Dark<");
-  expect(html).toMatch(/aria-pressed="true"[^>]*>(?:(?!<button).)*System/);
+  expect(html).toMatch(/aria-pressed="true"[^>]*>(?:(?!<button).)*Light/);
+});
+
+test("the bar's colour is a meta of the script's own, ahead of the layout's, which is left alone", () => {
+  const layouts = { name: "theme-color", content: "#fafafa" };
+  head.push(layouts);
+  store.set("sermo-theme", "dark");
+  run();
+  expect(head).toEqual([
+    { name: "theme-color", content: "#151521" },
+    { name: "theme-color", content: "#fafafa" },
+  ]);
+  expect(head[1]).toBe(layouts);
 });

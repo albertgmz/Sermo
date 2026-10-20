@@ -117,31 +117,32 @@ test.describe("signed in", () => {
     await expect(html(page)).toHaveAttribute("data-theme", "light");
     await page.keyboard.press("Escape");
     await expectFits(page, "light");
-    // Back to following the system, as the other flows expect.
-    await openAccountTab(page);
-    await menu
-      .getByRole("group", { name: "Theme" })
-      .getByRole("button", { name: "System" })
-      .click();
   });
 });
 
 test.describe("guest", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("a guest chooses the theme in the footer, and the system choice follows the device @all", async ({
+  test("a guest with no choice gets light whatever the device, and the system choice follows it @all", async ({
     page,
   }) => {
     await page.emulateMedia({ colorScheme: "dark" });
     await visit(page, "/");
     await rejectCookies(page);
+    await expect(html(page)).toHaveAttribute("data-theme", "light");
+
+    const theme = page.getByRole("group", { name: "Theme" });
+    await theme.getByRole("button", { name: "System" }).click();
+    await expect(html(page)).toHaveAttribute("data-theme", "dark");
+    // Kept over a reload: no choice would be light here.
+    await page.reload();
+    await ready(page);
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
     await page.emulateMedia({ colorScheme: "light" });
     await page.reload();
     await ready(page);
     await expect(html(page)).toHaveAttribute("data-theme", "light");
 
-    const theme = page.getByRole("group", { name: "Theme" });
     await theme.getByRole("button", { name: "Dark" }).click();
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
     await expectFits(page, "guest dark");

@@ -18,7 +18,7 @@ function useTheme() {
   return useSyncExternalStore(
     subscribeTheme,
     currentTheme,
-    () => "system" as const,
+    () => "light" as const,
   );
 }
 

@@ -22,7 +22,7 @@ test("the manifest takes the site's name, description and first accent", () => {
 test("a site with no accent and no description gets the defaults", () => {
   const manifest = manifestOf({ ...site, description: "", accents: [] });
   expect(manifest.theme_color).toBe("#dc2626");
-  expect(manifest.background_color).toBe("#09090b");
+  expect(manifest.background_color).toBe("#fafafa");
   expect("description" in manifest).toBe(false);
 });
 

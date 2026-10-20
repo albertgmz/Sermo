@@ -18,13 +18,13 @@ const ICON_PREFIX = "/pwa-icon/";
 export const APPLE_ICON_URL = `${ICON_PREFIX}180`;
 
 // Colours of a manifest are literal: it is read by the operating system, not by the page, so the
-// tokens of globals.css cannot reach it. These are `--background` of the dark theme and `--primary`.
-const BACKGROUND = "#09090b";
+// tokens of globals.css cannot reach it. The accent is `--primary`; the splash background is that
+// of the light theme, the default.
 const DEFAULT_ACCENT = "#dc2626";
 
 // The colour the browser gives its bar above the page (`theme-color`), read by the browser like the
 // manifest: `--background` of each theme, which the sticky header shares.
-export const THEME_COLORS = { light: "#fafafa", dark: BACKGROUND } as const;
+export const THEME_COLORS = { light: "#fafafa", dark: "#09090b" } as const;
 
 // The addresses that belong to the installable app and sit outside the language segment: the
 // proxy lets them through as they are, without a language, a record check or a 404.
@@ -86,7 +86,7 @@ export function manifestOf(
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: BACKGROUND,
+    background_color: THEME_COLORS.light,
     theme_color: site.accents[0]?.color ?? DEFAULT_ACCENT,
     ...(withIcons ? { icons: iconsOf(site.icon) } : {}),
   };

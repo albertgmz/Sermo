@@ -4932,3 +4932,19 @@ loader used to do it), which is the one load that does not wait for the button. 
 that answers an empty page shows its "nothing found yet" line above the button, as before; the
 list no longer follows up to two empty pages by itself. This supersedes "Long lists scroll on one
 infinite list" on loading by scroll.
+
+### Light is the default theme
+
+A visitor who has not chosen a theme gets Light, whatever the device prefers (fcuba's members
+asked for it; XenForo's style there followed the device). System, Light and Dark stay the three
+choices, and System is now stored as a choice (`sermo-theme` = `system`) instead of clearing the
+key, so "System" and "no choice" can be told apart; a value the script does not know, or blocked
+storage, counts as no choice. The server renders `data-theme="light"` without the `dark` class, so
+the first paint and a page without scripts are light, and the head script switches to dark before
+paint when a dark (or System on a dark device) choice is stored. The layout's `theme-color` is the
+light background; the script puts a `theme-color` of its own (`data-theme-bar`) before it, with
+the colour of the theme shown, and leaves the layout's alone. The manifest's
+splash background is the light one. Visitors who picked System before have no stored key and now
+get Light until they pick again; there is no installed base to migrate. This supersedes "the server
+renders dark" in "The light theme is a browser choice". The error page drawn outside the layouts
+and the offline page are unchanged (dark, and following the device).

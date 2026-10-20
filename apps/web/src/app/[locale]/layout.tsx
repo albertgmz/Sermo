@@ -40,15 +40,12 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// The bar the browser draws above the page takes the background of the device's theme; the theme
-// script sets it to the one shown when the visitor picked another.
+// The bar the browser draws above the page takes the background of the light theme, the default;
+// the theme script sets it to the one shown when the visitor picked another.
 export const viewport: Viewport = {
   colorScheme: "light dark",
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
-    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
-  ],
+  themeColor: THEME_COLORS.light,
 };
 
 // Every page is rendered for its request: the scripts of a page carry that response's nonce (see
@@ -77,7 +74,8 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      className={`dark ${inter.variable} ${geistMono.variable} h-full antialiased`}
+      data-theme="light"
+      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
