@@ -168,9 +168,9 @@ test("the browser bar takes the colour of the theme shown", () => {
   run();
   expect(head).toEqual([{ name: "theme-color", content: "#fafafa" }]);
   setTheme("dark");
-  expect(head).toEqual([{ name: "theme-color", content: "#09090b" }]);
+  expect(head).toEqual([{ name: "theme-color", content: "#151521" }]);
   setTheme("system");
-  expect(head).toEqual([{ name: "theme-color", content: "#09090b" }]);
+  expect(head).toEqual([{ name: "theme-color", content: "#151521" }]);
   deviceDark = false;
   for (const listener of mediaListeners) listener();
   expect(head).toEqual([{ name: "theme-color", content: "#fafafa" }]);

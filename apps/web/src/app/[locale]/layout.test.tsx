@@ -48,7 +48,7 @@ const childrenOf = (node: ReactNode): ReactNode[] =>
 
 test("the browser bar takes the light page background, the default theme", () => {
   expect(viewport.themeColor).toBe(THEME_COLORS.light);
-  expect(THEME_COLORS).toEqual({ light: "#fafafa", dark: "#09090b" });
+  expect(THEME_COLORS).toEqual({ light: "#fafafa", dark: "#151521" });
 });
 
 test("the page is drawn light, so a visitor with no choice sees no dark first paint", async () => {

@@ -4948,3 +4948,14 @@ splash background is the light one. Visitors who picked System before have no st
 get Light until they pick again; there is no installed base to migrate. This supersedes "the server
 renders dark" in "The light theme is a browser choice". The error page drawn outside the layouts
 and the offline page are unchanged (dark, and following the device).
+
+### A blue-grey dark theme
+
+The dark theme follows fcuba's own XenForo dark style (the "alternate" variation of its style 60,
+which its members knew) instead of near-black: page `#151521`, cards and menus `#1e1e2d`, raised
+surfaces (muted, secondary, accent) `#262638`, borders `#2b2b40`, inputs `#34344d`, text `#f4f4f8`
+and muted text `#a1a5b7` (XenForo's muted). The accent is unchanged. XenForo's raised `#2b2b40`
+fails the 4.5:1 floor of the code comment colour on muted surfaces, so raised surfaces take
+`#262638`; every other pair in `tests/theme-contrast.test.ts` and `tests/consent-contrast.test.ts`
+passes unchanged. The browser bar in dark (`THEME_COLORS.dark`) and the offline page's dark
+background follow the new page colour. Only tokens changed: no component draws a fixed colour.

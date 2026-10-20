@@ -24,7 +24,7 @@ const DEFAULT_ACCENT = "#dc2626";
 
 // The colour the browser gives its bar above the page (`theme-color`), read by the browser like the
 // manifest: `--background` of each theme, which the sticky header shares.
-export const THEME_COLORS = { light: "#fafafa", dark: "#09090b" } as const;
+export const THEME_COLORS = { light: "#fafafa", dark: "#151521" } as const;
 
 // The addresses that belong to the installable app and sit outside the language segment: the
 // proxy lets them through as they are, without a language, a record check or a 404.

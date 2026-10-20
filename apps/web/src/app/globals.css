@@ -119,12 +119,12 @@
   color-scheme: dark;
 
   /* Surfaces. */
-  --background: #09090b;
-  --card: #0b0b0d;
-  --popover: #0c0c0f;
-  --secondary: #18181b;
-  --muted: #18181b;
-  --accent: #18181b;
+  --background: #151521;
+  --card: #1e1e2d;
+  --popover: #1e1e2d;
+  --secondary: #262638;
+  --muted: #262638;
+  --accent: #262638;
   /* What dims the page behind a dialog or a sheet. */
   --overlay: rgb(0 0 0 / 0.1);
   --skeleton: var(--muted);
@@ -132,16 +132,16 @@
   --spotlight-dim: color-mix(in srgb, var(--background) 60%, transparent);
 
   /* Text. */
-  --foreground: #fafafa;
-  --card-foreground: #fafafa;
-  --popover-foreground: #fafafa;
-  --secondary-foreground: #fafafa;
-  --muted-foreground: #a1a1aa;
-  --accent-foreground: #fafafa;
+  --foreground: #f4f4f8;
+  --card-foreground: #f4f4f8;
+  --popover-foreground: #f4f4f8;
+  --secondary-foreground: #f4f4f8;
+  --muted-foreground: #a1a5b7;
+  --accent-foreground: #f4f4f8;
 
   /* Borders. */
-  --border: #1f1f23;
-  --input: #27272a;
+  --border: #2b2b40;
+  --input: #34344d;
   --focus-ring-width: 3px;
 
   /* Accent and status. */
