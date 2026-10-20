@@ -5307,16 +5307,33 @@ away from a site whose pushes show nothing. The payload gained `tag`: the notice
 `notification:<id>`, shown with `renotify`, so the device keeps one notification per group (a
 thread followed, the reactions to one post) and a new group still alerts.
 
-A tap closes the notification, then goes to the item's address exactly as the push carries it (an
-anchor or a permalink, whichever the backend writes). An address of the site moves a window the
-site already has and the worker controls, the one in front or else one showing, with `focus()` and
-`navigate()` (`Client.url` is not used: it keeps the last full load, not the page shown). A hidden
-window is left alone, since the worker cannot tell a background browser tab from the installed app,
-and a new window is opened instead; so is one when there is no window or the worker cannot move it.
-Every address of the site is in the manifest's scope (`/`), so on Android, and on desktop Chrome, a new window of an installed app is
-the app's own, not a browser tab; on iOS a push reaches only the installed app anyway. An address
-elsewhere opens on its own; one that is no address of the web (`javascript:`, garbage) opens the
-alert list.
+A tap closes the notification, then goes to the item's address exactly as the push carries it: the
+backend links each item by its permalink (`/posts/<id>`, `/conversations/messages/<id>`, the wall's
+permalinks), which the site resolves to the right page, and the worker never rewrites it. Only an
+address of the worker's own origin is opened, every one of which is in the manifest's scope (`/`);
+anything else (another origin, a backend that fell back to its local base address, `javascript:`,
+garbage) opens the site's home, so a payload cannot send a member elsewhere.
+
+The tap moves a window of the site that the worker controls, with `focus()` and then
+`navigate()`: the one in front, else one showing, else a hidden one (a phone that was locked or
+showing another app has every window hidden). `Client.url` is not used: it keeps the last full
+load, not the page shown. Only when the site has no such window does a new one open, which on
+Android, once the app is installed, is the app's own (Chrome hands the addresses of an installed
+app's scope to it). Reusing a hidden window was chosen over opening a new one each time because most
+members will use the site in the browser first, and a new tab per tap would pile up; the cost is
+that a member with both the app and a browser tab open may land in the tab. Desktop Chrome opens a
+new window as a tab unless the member turned on link capturing for the app: not verified, and not
+claimed. A move that fails (a window the worker cannot move; iOS home-screen apps are known to fail
+`navigate()`, WebKit bug 263687) falls back to a new window, which the browser may refuse once
+`focus()` has spent the tap's permission: on iOS the app may then come forward on the page it had.
+Not tried on a real iPhone.
+
+When the browser drops or replaces a subscription (`pushsubscriptionchange`), the worker subscribes
+again with the old one's key (when the browser made no new one) and posts it to
+`/push/subscription`, a route the worker can call (it cannot call a server action) that saves it on
+the account of the session cookie and removes the old one. A refusal (signed out) takes the new
+subscription back, so the page offers pushes again; a browser that gives no old key gets nothing
+made, and the page offers pushes again too.
 
 Turning pushes on is per device, in the account's notification settings (section "Push
 notifications on your devices"): this device's state (on, off, blocked in the browser, unsupported,

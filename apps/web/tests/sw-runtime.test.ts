@@ -89,6 +89,9 @@ function boot(script: string) {
       navigate(url: string): Promise<unknown>;
     }[],
     opened: [] as string[],
+    // What the worker posted (a renewed push subscription), and the keys it subscribed with.
+    posted: [] as { url: string; body: unknown }[],
+    subscribedWith: [] as unknown[],
   };
   const sandbox: Record<string, unknown> = {
     caches,
@@ -113,9 +116,13 @@ function boot(script: string) {
     setTimeout,
     clearTimeout,
     location: new URL(`${ORIGIN}/sw.js`),
-    fetch: async (request: { url: string } | string) => {
+    fetch: async (
+      request: { url: string } | string,
+      init?: { body?: string },
+    ) => {
       const url = typeof request === "string" ? request : request.url;
       asked.push(url);
+      if (init?.body) scope.posted.push({ url, body: JSON.parse(init.body) });
       return scope.network(typeof request === "string" ? { url } : request);
     },
     skipWaiting: () => {
@@ -133,6 +140,16 @@ function boot(script: string) {
     },
     registration: {
       scope: `${ORIGIN}/`,
+      pushManager: {
+        subscribe: async (options: { applicationServerKey: unknown }) => {
+          scope.subscribedWith.push(options.applicationServerKey);
+          return {
+            endpoint: "https://push.test/again",
+            toJSON: () => ({ keys: { p256dh: "p", auth: "a" } }),
+            unsubscribe: async () => true,
+          };
+        },
+      },
       unregister: async () => {
         scope.unregistered = true;
         return true;
@@ -238,7 +255,7 @@ const PAGES = (worker: ReturnType<typeof boot>) =>
     [...cache.entries.keys()].map((url) => `${name} ${url}`),
   );
 
-test("it asks for no more than install, activate, fetch, message, push and notification click events", async () => {
+test("it asks for no more than install, activate, fetch, message, push, notification click and subscription change events", async () => {
   const { listeners } = await ready();
   expect([...listeners.keys()].sort()).toEqual([
     "activate",
@@ -247,6 +264,7 @@ test("it asks for no more than install, activate, fetch, message, push and notif
     "message",
     "notificationclick",
     "push",
+    "pushsubscriptionchange",
   ]);
 });
 
@@ -343,6 +361,32 @@ test("a tap with no window of the site open opens one at the item", async () => 
     tapped(`${ORIGIN}/threads/4#post-9`),
   );
   expect(worker.scope.opened).toEqual([`${ORIGIN}/threads/4#post-9`]);
+});
+
+test("a dropped subscription is made again with its key and posted to the site as the member", async () => {
+  const worker = await ready();
+  worker.scope.network = () => Response.json({ ok: true });
+  const key = new Uint8Array([4, 1]).buffer;
+  await worker.dispatch("pushsubscriptionchange", {
+    oldSubscription: {
+      endpoint: "https://push.test/old",
+      options: { applicationServerKey: key },
+      toJSON: () => ({}),
+      unsubscribe: async () => true,
+    },
+    newSubscription: null,
+  });
+  expect(worker.scope.subscribedWith).toEqual([key]);
+  expect(worker.scope.posted).toEqual([
+    {
+      url: "/push/subscription",
+      body: {
+        previous: "https://push.test/old",
+        endpoint: "https://push.test/again",
+        keys: { p256dh: "p", auth: "a" },
+      },
+    },
+  ]);
 });
 
 test("installing keeps the offline page and the worker takes over at once", async () => {

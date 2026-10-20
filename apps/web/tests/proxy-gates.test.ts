@@ -2195,3 +2195,9 @@ test("the 404, 429 and 503 pages the proxy answers itself carry the same Link he
     }
   });
 });
+
+test("the worker's renewed push subscription is left to its own handler", () => {
+  const matcher = new RegExp(`^${config.matcher[0]}$`);
+  assert.equal(matcher.test("/push/subscription"), false);
+  assert.equal(matcher.test("/push/subscriptions"), true);
+});

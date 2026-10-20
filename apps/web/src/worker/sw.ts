@@ -8,8 +8,11 @@ import {
 import {
   notificationOf,
   openTarget,
+  RENEW_PATH,
   readPush,
+  renewSubscription,
   type ShownNotification,
+  type SubscriptionLike,
   type WindowLike,
 } from "../lib/push-worker";
 import {
@@ -30,6 +33,12 @@ declare const self: {
   __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
   location: { origin: string };
   registration: {
+    pushManager: {
+      subscribe(options: {
+        userVisibleOnly: boolean;
+        applicationServerKey: ArrayBuffer;
+      }): Promise<SubscriptionLike>;
+    };
     showNotification(
       title: string,
       options: ShownNotification["options"],
@@ -52,6 +61,15 @@ declare const self: {
     listener: (
       event: Lasting & {
         notification: { close(): void; data: { url?: unknown } | null };
+      },
+    ) => void,
+  ): void;
+  addEventListener(
+    type: "pushsubscriptionchange",
+    listener: (
+      event: Lasting & {
+        oldSubscription?: SubscriptionLike | null;
+        newSubscription?: SubscriptionLike | null;
       },
     ) => void,
   ): void;
@@ -121,6 +139,31 @@ self.addEventListener("notificationclick", (event) => {
         self.clients.matchAll({ type: "window", includeUncontrolled: false }),
       openWindow: (url) => self.clients.openWindow(url),
     }),
+  );
+});
+
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    renewSubscription(
+      {
+        oldSubscription: event.oldSubscription ?? null,
+        newSubscription: event.newSubscription ?? null,
+      },
+      {
+        subscribe: (applicationServerKey) =>
+          self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          }),
+        send: (body) =>
+          fetch(RENEW_PATH, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            credentials: "same-origin",
+            body,
+          }),
+      },
+    ),
   );
 });
 

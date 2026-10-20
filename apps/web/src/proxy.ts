@@ -903,9 +903,10 @@ function withoutGuestCache(response: NextResponse | undefined) {
 // cards (`/og/...`), files of the web app outside the language segment (app/opensearch.xml, app/og),
 // and so are `/.well-known` and every address under it (the backend's files, the web app's own in
 // app/.well-known and its plain 404 for the rest), the sign-out route (app/sign-out) and the
-// language route (app/language), POSTs that answer a redirect.
+// language route (app/language), POSTs that answer a redirect, and the service worker's POST of a
+// renewed push subscription (app/push/subscription).
 export const config = {
   matcher: [
-    "/((?!account/picture$|threads/[0-9]+/uploads$|attachments$|admin/uploads$|[^/]+\\.txt$|sitemap\\.xml$|sitemaps/[^/]+$|feed\\.atom$|(?:forums|nodes)/[^/]+/feed\\.atom$|(?:threads|forums)/[^/]+[.]md$|mcp$|health$|opensearch\\.xml$|og/|\\.well-known(?:/|$)|sign-out$|language$).*)",
+    "/((?!account/picture$|threads/[0-9]+/uploads$|attachments$|admin/uploads$|[^/]+\\.txt$|sitemap\\.xml$|sitemaps/[^/]+$|feed\\.atom$|(?:forums|nodes)/[^/]+/feed\\.atom$|(?:threads|forums)/[^/]+[.]md$|mcp$|health$|opensearch\\.xml$|og/|\\.well-known(?:/|$)|sign-out$|language$|push/subscription$).*)",
   ],
 };
