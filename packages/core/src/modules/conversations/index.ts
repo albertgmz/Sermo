@@ -728,7 +728,8 @@ export const conversationsLocateUnreadOp = implement(
           locateMessageSql.newest,
         ),
       ).get(conversation.id, Number.MAX_SAFE_INTEGER, params[2], params[3]);
-    // Every conversation keeps its first message, which its participants see.
+    // None the viewer may see: a conversation whose only message is held for approval (or
+    // deleted) is still listed for its recipients, and has no place to open at.
     if (!target) throw new NotFoundError();
     return messageLocation(ctx, actor, conversation.id, target.id, input.limit);
   },

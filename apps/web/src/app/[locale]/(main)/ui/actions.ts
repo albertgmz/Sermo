@@ -26,10 +26,11 @@ export async function discardLine(
 
 // The styleguide's "show more comments": there are no older ones.
 export async function noEarlierComments(
+  _cursor: string | null,
   _through: number | null,
 ): Promise<EarlierPage> {
   await requireStyleguide();
-  return { rows: [], nextCursor: null, oldest: null };
+  return { rows: [], cursor: null, done: true };
 }
 
 // The styleguide's delete and report forms: take the form and store nothing.

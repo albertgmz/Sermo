@@ -53,7 +53,7 @@ export function hasWallComments(
 
 // Loads the comments before those a list shows (see `EarlierComments`).
 export type EarlierLoad = {
-  load: (through: number | null) => Promise<EarlierPage>;
+  load: (cursor: string | null, through: number | null) => Promise<EarlierPage>;
 };
 
 type RowProps = {

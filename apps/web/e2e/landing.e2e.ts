@@ -759,3 +759,36 @@ test("the comments loaded in place in the feed leave no gap after a new comment 
     .poll(() => commentIds(card), { timeout: 30_000 })
     .toEqual([...before, added]);
 });
+
+test("the page drawn again keeps the comments loaded, no older ones, and the button while more are left @landing", async ({
+  page,
+}) => {
+  const { landing } = seed();
+  await page.goto(`/profile-posts/${landing.wall.oldestPostId}`);
+  await expectLandedAtHash(page);
+  await takeOver(page);
+  const post = drawn(page, `profile-post-${landing.wall.oldestPostId}`);
+  const button = post.getByRole("button", { name: "Show more comments" });
+  const before = (await commentIds(post)).length;
+  await button.click();
+  await expect
+    .poll(async () => (await commentIds(post)).length)
+    .toBeGreaterThan(before);
+  const loaded = await commentIds(post);
+  // An edit of the newest comment draws the page again.
+  const newest = drawn(page, loaded.at(-1) ?? "");
+  await newest
+    .getByRole("button", { name: "Edit", exact: true })
+    .first()
+    .click();
+  const editor = newest.getByRole("textbox", { name: "Edit your text…" });
+  await editor.click();
+  await editor.press("Control+End");
+  const text = ` again ${Date.now().toString(36)}`;
+  await editor.pressSequentially(text);
+  await newest.getByRole("button", { name: "Save changes" }).click();
+  await expect(newest).toContainText(text.trim(), { timeout: 30_000 });
+  await page.waitForLoadState("networkidle");
+  expect(await commentIds(post)).toEqual(loaded);
+  await expect(button).toBeVisible();
+});

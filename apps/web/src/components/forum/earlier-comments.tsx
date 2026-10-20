@@ -12,16 +12,17 @@ import {
 import { holdEnv } from "@/components/layout/hash-target";
 import {
   createScrollHolder,
+  HOLD_GRACE_MS,
   HOLD_MAX_MS,
   HOLD_QUIET_MS,
 } from "@/components/layout/spotlight";
 
-// The older comments, drawn by the server one row each, from the newest down to `oldest` (the
-// oldest comment read, which the next batch goes past); `nextCursor` is null when none is left.
+// Older comments, drawn by the server one row each, oldest first; where the next press reads from
+// (null: from the start), and whether none is left.
 export type EarlierPage = {
   rows: { id: number; node: ReactNode }[];
-  nextCursor: string | null;
-  oldest: number | null;
+  cursor: string | null;
+  done: boolean;
 };
 
 // Whether a picture can still move the comments: one that is loading, or a lazy one on the screen
@@ -33,23 +34,40 @@ function stillLoading(image: HTMLImageElement) {
   return box.bottom > 0 && box.top < window.innerHeight;
 }
 
-// "Show more comments" under a wall post: each press loads the batch before the oldest comment
-// shown and inserts it above, where the list starts, and the page keeps still around what the
-// reader was looking at: the comment that was first stays where it was on the screen, also while
-// the pictures of the batch load, until the reader acts (WebKit has no scroll anchoring of its
-// own). Nothing is navigated to, so nothing scrolls or dims. The button goes once every comment
-// is shown, and the keyboard's focus goes to the oldest comment.
+// The rows of both, each comment once and oldest first; a row of `later` replaces its older copy.
+const merged = (held: EarlierPage["rows"], later: EarlierPage["rows"]) =>
+  [...new Map([...held, ...later].map((row) => [row.id, row])).values()].sort(
+    (a, b) => a.id - b.id,
+  );
+
+// The comment the reader is looking at in the list (the first one still on the screen), and
+// where it is, to keep it there while rows go in above it.
+function anchorIn(list: Element | null | undefined) {
+  const rows = [...(list?.querySelectorAll('[id^="profile-comment-"]') ?? [])];
+  const element =
+    rows.find((row) => row.getBoundingClientRect().bottom > 0) ?? rows[0];
+  return element ? { element, top: element.getBoundingClientRect().top } : null;
+}
+
+// "Show more comments" under a wall post: each press reads the next page of older comments and
+// inserts it above, where the list starts, and the page keeps still around what the reader was
+// looking at: the comment they see stays where it was on the screen, also while the pictures of
+// the batch load, until the reader acts (WebKit has no scroll anchoring of its own). Nothing is
+// navigated to, so nothing scrolls or dims. The button goes once every comment is shown, and the
+// keyboard's focus goes to the oldest comment.
 //
 // The page drawn again (a new comment, an edit, a deletion) gives a new `load`: the comments
-// loaded are read again down to the same one, so they match it, and a row the server list now
-// draws itself (`shown`) is never drawn twice.
+// loaded are read again down to the oldest one, so they match it, with the reader's place held
+// the same way; a row the server list now draws itself (`shown`) is never drawn twice. Presses
+// and readings again run one after the other, each from what the one before left.
 export function EarlierComments({
   load,
   shown,
   label,
   className,
 }: {
-  load: (through: number | null) => Promise<EarlierPage>;
+  // `through` null: the page at `cursor`; else the comments from the start down to `through`.
+  load: (cursor: string | null, through: number | null) => Promise<EarlierPage>;
   // The ids of the comments the server list draws.
   shown: number[];
   label: string;
@@ -58,43 +76,61 @@ export function EarlierComments({
   const [page, setPage] = useState<EarlierPage | null>(null);
   const [pending, startTransition] = useTransition();
   const button = useRef<HTMLButtonElement>(null);
-  // The comment that was first before a batch went in, where it was on the screen, and whether
-  // the button had the keyboard's focus.
+  const marker = useRef<HTMLSpanElement>(null);
+  // The comment held while rows go in, and whether the keyboard's focus was on the button.
   const kept = useRef<{ element: Element; top: number; focus: boolean } | null>(
     null,
   );
   const holder = useRef<ReturnType<typeof createScrollHolder>>(null);
-  // Answers are taken in the order asked: a later one replaces an earlier one still on its way.
-  const asked = useRef(0);
-  const loaded = useRef(page);
-  loaded.current = page;
+  // What is loaded, as the last answer left it; the newest `load`; the work in line.
+  const current = useRef(page);
+  const latest = useRef(load);
+  latest.current = load;
+  const queue = useRef(Promise.resolve());
   useEffect(() => () => holder.current?.stop(), []);
+
+  // Runs `work` once the work before it is done: it starts from what that left.
+  const enqueue = (work: () => Promise<void>) => {
+    const run = queue.current.then(work).catch(() => {
+      // Nothing changes: the button stays for another try.
+    });
+    queue.current = run;
+    return run;
+  };
+  const apply = (next: EarlierPage) => {
+    const anchor = anchorIn(marker.current?.parentElement);
+    kept.current = anchor && {
+      ...anchor,
+      focus: document.activeElement === button.current,
+    };
+    current.current = next;
+    setPage(next);
+  };
 
   // A new `load` is the list drawn again: what was loaded is read again.
   const first = useRef(true);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `enqueue` and `apply` read only refs; a new `load` is what it waits for
   useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
-    const before = loaded.current;
-    if (before === null) return;
-    const ask = ++asked.current;
-    load(before.oldest)
-      .then((again) => {
-        if (ask === asked.current) setPage(again);
-      })
-      .catch(() => {});
+    void enqueue(async () => {
+      const held = current.current;
+      const oldest = held?.rows[0];
+      if (!held || !oldest) return;
+      apply(await latest.current(null, oldest.id));
+    });
   }, [load]);
 
-  // Runs once a batch is in, before it is painted.
+  // Runs once rows went in, before they are painted.
   useLayoutEffect(() => {
     const anchor = kept.current;
     kept.current = null;
     if (!anchor?.element.isConnected) return;
     const { element, top } = anchor;
     const list = element.parentElement;
-    if (anchor.focus && page?.nextCursor === null) {
+    if (anchor.focus && page?.done) {
       const oldest = list?.querySelector<HTMLElement>(
         '[id^="profile-comment-"]',
       );
@@ -115,38 +151,28 @@ export function EarlierComments({
         element.isConnected
           ? window.scrollY + element.getBoundingClientRect().top - top
           : null,
-      { quietMs: HOLD_QUIET_MS, maxMs: HOLD_MAX_MS },
+      {
+        quietMs: HOLD_QUIET_MS,
+        maxMs: HOLD_MAX_MS,
+        letGoOnScrollAfterMs: HOLD_GRACE_MS,
+      },
     );
   }, [page]);
 
   const more = () =>
-    startTransition(async () => {
-      const ask = ++asked.current;
-      let next: EarlierPage;
-      try {
-        next = await load(page?.oldest == null ? null : page.oldest - 1);
-      } catch {
-        // The button stays for another try.
-        return;
-      }
-      if (ask !== asked.current) return;
-      const firstRow = button.current?.parentElement?.querySelector(
-        '[id^="profile-comment-"]',
-      );
-      kept.current = firstRow
-        ? {
-            element: firstRow,
-            top: firstRow.getBoundingClientRect().top,
-            focus: document.activeElement === button.current,
-          }
-        : null;
-      setPage(next);
-    });
+    startTransition(() =>
+      enqueue(async () => {
+        const held = current.current;
+        const next = await latest.current(held?.cursor ?? null, null);
+        apply({ ...next, rows: merged(held?.rows ?? [], next.rows) });
+      }),
+    );
 
   const drawn = new Set(shown);
   return (
     <>
-      {page?.nextCursor !== null && (
+      <span ref={marker} hidden />
+      {!page?.done && (
         <button
           ref={button}
           type="button"

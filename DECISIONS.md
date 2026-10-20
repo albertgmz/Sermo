@@ -5484,14 +5484,20 @@ so the reader arrived mid-post or past it, and a hidden copy of the same page co
   the next refresh draws the page's sections from their loading state again. Changed through
   `router.replace`, it appends the new hash to the one already there (`#a#b`).
 - "Show more comments" is a button, not a link: a server action (`members/earlier-comments.tsx`)
-  draws the batch before the oldest comment shown, `EarlierComments` inserts it above, and the
-  comment that was first is held where it was on the screen while the batch's pictures load, until
-  the reader acts (WebKit has no scroll anchoring). The button goes when no batch is left, as in
-  XenForo, and the keyboard's focus moves to the oldest comment.
-- The loaded comments stay true to the page: every call reads the range again from the start, and
-  when the server draws the list again (a new comment, an edit, a deletion: a new `load`), the
-  loaded range is read again down to the same comment. A row the server list draws itself is never
-  drawn twice. Comments are few per post, so reading again costs little.
+  reads one page from the stored cursor (comment cursors name an id, so a page read from one stays
+  right whatever changed above it), `EarlierComments` inserts it above, and the comment the reader
+  sees is held where it was on the screen while the batch's pictures load, until the reader acts
+  (WebKit has no scroll anchoring), a scroll they make by any means included. The button goes when
+  no batch is left, as in XenForo, and the keyboard's focus moves to the oldest comment.
+- The loaded comments stay true to the page: when the server draws the list again (a new comment,
+  an edit, a deletion: a new `load`), they are read again from the start down to the oldest one
+  loaded, nothing older, with the reader's place held the same way. That reading stops after 50
+  pages (1000 comments) and the button goes on from where it stopped. Presses and readings again
+  run one after the other, each from what the one before left. A row the server list draws itself
+  is never drawn twice.
+- Known limit: comments loaded in a feed card are lost when the card leaves the feed's virtual
+  window and comes back (`infinite-list` unmounts it); the card shows the newest few and the
+  button again.
 
 Why: the "show more" link navigated to the wall post's address, so the page landed and dimmed the
 post and swapped the three comments for a page drawn newest first: the jump and the animation the
@@ -5510,6 +5516,9 @@ owner saw.
 - A conversation row always links `/conversations/N/unread`: the summary's last message can be one
   the viewer may not see (a first message held for approval). A conversation whose every message is
   hidden from the viewer then answers 404 there, as before for its unread address.
+- Known limit: a hold whose place is past the page's end (the last post, by `/latest` or
+  `/unread`) lets go when content below shrinks after 300 ms, as the browser's clamp is taken for
+  the reader's scroll; a late picture above can then move the post.
 - Kept: an old XenForo `page-N` address turns into `?page=` through `POSTS_PER_PAGE` inside a 308.
   If the page size changes, the targets browsers and search engines stored point at the wrong
   pages.

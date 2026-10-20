@@ -143,7 +143,7 @@ test("the button for older comments and the link to fewer are drawn only when gi
   }
   const html = await render({
     earlier: {
-      load: async () => ({ rows: [], nextCursor: null, oldest: null }),
+      load: async () => ({ rows: [], cursor: null, done: true }),
     },
     links: { fewer: "/fewer" },
   });
@@ -171,7 +171,7 @@ test("there is something to draw with a comment, the right to comment, or older 
   expect(hasWallComments({ canComment: true }, [])).toBe(true);
   expect(
     hasWallComments({ canComment: false }, [], {
-      load: async () => ({ rows: [], nextCursor: null, oldest: null }),
+      load: async () => ({ rows: [], cursor: null, done: true }),
     }),
   ).toBe(true);
 });
