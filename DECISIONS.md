@@ -4862,3 +4862,26 @@ the reactions would fall under 40 px (staff can add any number of types), the pi
 40 px columns as fit, on more rows. Desktop uses the same 52 px. XenForo's tooltip (fcuba's style
 caps it at 260 px wide, 32 px pictures with a small margin) also gives six per row; ours is larger
 for touch.
+
+### Phone photos
+
+Phones send what XenForo took and Sermo refused, so uploads now handle them:
+
+- A baseline JPEG, what cameras write, is read up to 200 megapixels (a 200 MP sensor's full
+  picture is 16320 x 12240) and scaled to the purpose's box. libjpeg scales it by up to 8 while it
+  decodes (sharp's shrink-on-load), line by line: a 192 MP picture with an EXIF rotation peaked at
+  about 210 MB of process memory, against 175 MB for 16 MP, and took 1.2 s. A progressive JPEG,
+  a PNG, a WebP, a GIF and each frame of an animation keep the 16 MP limit, because they are read
+  whole before they are scaled.
+- HEIC/HEIF photos are refused with what to do (send JPEG; the iPhone and Android settings that
+  do it). sharp's prebuilt libvips reads AVIF but not HEVC, which these photos are, and a build
+  with libde265 would mean a custom libvips in the image.
+- A file sent with no type (`application/octet-stream`, or none, which busboy reads as
+  `text/plain`) is stored as what its bytes are, when the site takes that type for the purpose.
+- The type is checked once the whole file is read, not before: a refusal answered while a large
+  body still streamed in reached the browser as a broken connection ("could not be uploaded").
+- Every storage refusal carries its reason as an `upload` issue (`modules/storage/refusal.ts`;
+  for a size, the limit in bytes in the issue's path), as the approval refusal carries
+  `approval`. The upload routes word it from `lib.uploadRefusals` in the member's language; a
+  refusal with no reason is worded by its code (forbidden, rate limited), and anything else says
+  the upload failed. The backend's English text is no longer shown.

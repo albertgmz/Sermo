@@ -11,6 +11,7 @@ import {
   hasSessionCookie,
 } from "./transport";
 import { uploadLimit } from "./upload-limit";
+import { refusalCause, type UploadCause } from "./upload-refusal";
 
 // The pictures a member uploads for their own profile: each is then attached by its own operation
 // (images.setAvatar, images.setCover).
@@ -142,7 +143,8 @@ export async function uploadWith(
 //   type         The body is not a multipart form.
 //   length       The request does not declare its length.
 //   size         The declared length is above what the site allows for this purpose (`limit`).
-//   refused      The backend refused; `message` is its own and `status` its status.
+//   refused      The backend refused; `message` is its own and `status` its status, `cause` why
+//                (`refusalWords` words it) and, for a size, `limit` the backend's limit.
 //   failed       The API could not be reached or answered something unreadable.
 export type UploadRefusal =
   | "session"
@@ -160,7 +162,8 @@ export type Received =
       reason: UploadRefusal;
       status: number;
       message?: string;
-      // For `size`: the most a file may have, in bytes.
+      cause?: UploadCause;
+      // For `size`, and a `refused` of cause `size`: the most a file may have, in bytes.
       limit?: number;
     };
 
@@ -169,12 +172,14 @@ const refuse = (
   status: number,
   message?: string,
   limit?: number,
+  cause?: UploadCause,
 ): Received => ({
   ok: false,
   reason,
   status,
   message,
   ...(limit !== undefined && { limit }),
+  ...(cause !== undefined && { cause }),
 });
 
 const MULTIPART = /^multipart\/form-data\s*(?:;|$)/i;
@@ -231,6 +236,13 @@ export async function receiveUpload(
       console.error("An upload could not be made", error);
       return refuse("failed", 502);
     }
-    return refuse("refused", error.status, error.message);
+    const why = refusalCause(error);
+    return refuse(
+      "refused",
+      error.status,
+      error.message,
+      why?.limit,
+      why?.cause,
+    );
   }
 }

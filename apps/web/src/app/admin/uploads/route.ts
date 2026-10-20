@@ -7,6 +7,7 @@ import {
   type UploadRefusal,
 } from "@/lib/sermo/upload";
 import { megabytes } from "@/lib/sermo/upload-limit";
+import { refusalWords } from "@/lib/sermo/upload-refusal";
 import { viewerOf } from "@/lib/sermo/viewer";
 
 const answer = (body: { id: number } | { error: string }, status = 200) =>
@@ -36,6 +37,8 @@ export async function POST(request: Request) {
   const received = await receiveUpload(request, purpose);
   if (received.ok) return answer({ id: received.fileId });
   if (received.reason === "session") return absent();
+  const refused =
+    received.reason === "refused" ? await refusalWords(received) : undefined;
   const words: Record<UploadRefusal, string> = {
     session: "",
     origin: t("notAllowed"),
@@ -45,7 +48,7 @@ export async function POST(request: Request) {
       received.limit === undefined
         ? t("tooLarge")
         : t("overLimit", { size: megabytes(received.limit) }),
-    refused: received.message ?? t("failed"),
+    refused: refused ?? t("failed"),
     failed: t("failed"),
   };
   return answer({ error: words[received.reason] }, received.status);

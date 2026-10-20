@@ -143,7 +143,7 @@ test("the body is handed on as the visitor and the stored id is answered", async
   expect(forwarded[0].body).toBeInstanceOf(ReadableStream);
 });
 
-test("the backend's refusal and its status are passed on", async () => {
+test("the backend's refusal and its status are passed on, in the member's words", async () => {
   backendAnswers(() =>
     Response.json(
       { error: { code: "forbidden", message: "You may not upload this." } },
@@ -152,7 +152,9 @@ test("the backend's refusal and its status are passed on", async () => {
   );
   const response = await POST(upload("frame"));
   expect(response.status).toBe(403);
-  expect(await response.json()).toEqual({ error: "You may not upload this." });
+  expect(await response.json()).toEqual({
+    error: messages.lib.uploadRefusals.forbidden,
+  });
 });
 
 test("a body that is not a multipart form, or declares no length, or too much, is refused", async () => {

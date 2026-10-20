@@ -7,6 +7,7 @@ import { SermoError } from "@/lib/sermo/errors";
 import { callWith, forwardFromHeaders } from "@/lib/sermo/transport";
 import { isPicturePurpose, receiveUpload } from "@/lib/sermo/upload";
 import { megabytes } from "@/lib/sermo/upload-limit";
+import { refusalWords } from "@/lib/sermo/upload-refusal";
 
 const NO_STORE = { "cache-control": "no-store" };
 
@@ -32,7 +33,9 @@ export async function POST(request: NextRequest) {
     if (received.reason === "origin")
       return new Response(null, { status: 403 });
     const message =
-      received.message ??
+      (received.reason === "refused"
+        ? await refusalWords(received)
+        : undefined) ??
       (received.reason === "size" && received.limit !== undefined
         ? (await getTranslations("account.pictures"))("overLimit", {
             size: megabytes(received.limit),

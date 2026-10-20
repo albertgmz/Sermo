@@ -103,7 +103,7 @@ test("the body goes to the backend as the request's own stream, as an attachment
   expect(asked[0].headers.get("cookie")).toBe("sermo.session_token=abc");
 });
 
-test("the backend's refusal is passed on with its words and status", async () => {
+test("the backend's refusal is passed on with its status, in the member's words", async () => {
   backend(() =>
     Response.json(
       { error: { code: "forbidden", message: "You may not upload files." } },
@@ -112,7 +112,9 @@ test("the backend's refusal is passed on with its words and status", async () =>
   );
   const response = await POST(posted().request);
   expect(response.status).toBe(403);
-  expect(await response.json()).toEqual({ error: "You may not upload files." });
+  expect(await response.json()).toEqual({
+    error: messages.lib.uploadRefusals.forbidden,
+  });
 });
 
 test("a file above the site's limit is refused with the limit in the message and nothing is sent", async () => {

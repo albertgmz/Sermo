@@ -169,16 +169,24 @@ test("a picture is streamed on and attached", async () => {
   expect(asked[1].body).toEqual({ fileId: 9 });
 });
 
-test("a picture the backend refuses comes back with the backend's message and status", async () => {
+test("a picture the backend refuses comes back with its status, in the member's words", async () => {
   backend(
     Response.json(
-      { error: { code: "validation", message: "File exceeds upload limit." } },
+      {
+        error: {
+          code: "validation",
+          message: "File exceeds upload limit.",
+          issues: [{ path: ["upload", 5 * 1024 * 1024], message: "size" }],
+        },
+      },
       { status: 400 },
     ),
   );
   expect(await answer(await POST(posted(member).request))).toEqual({
     status: 400,
-    body: { error: "File exceeds upload limit." },
+    body: {
+      error: messages.lib.uploadRefusals.size.replace("{size}", "5"),
+    },
   });
 });
 

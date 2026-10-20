@@ -277,7 +277,7 @@ test("the body handed to the backend is the request's own stream, never a copy",
   assert.equal(state.pulled, false);
 });
 
-test("the backend's refusal keeps its status and words, a dead session is a session, an outage a failure", async () => {
+test("the backend's refusal keeps its status, words and cause, a dead session is a session, an outage a failure", async () => {
   backend(
     Response.json(
       { error: { code: "forbidden", message: "Not for you." } },
@@ -289,6 +289,27 @@ test("the backend's refusal keeps its status and words, a dead session is a sess
     reason: "refused",
     status: 403,
     message: "Not for you.",
+    cause: "forbidden",
+  });
+  backend(
+    Response.json(
+      {
+        error: {
+          code: "validation",
+          message: "File exceeds upload limit.",
+          issues: [{ path: ["upload", 1000], message: "size" }],
+        },
+      },
+      { status: 400 },
+    ),
+  );
+  assert.deepEqual(await receiveUpload(incoming().request, "frame"), {
+    ok: false,
+    reason: "refused",
+    status: 400,
+    message: "File exceeds upload limit.",
+    cause: "size",
+    limit: 1000,
   });
   backend(
     Response.json(

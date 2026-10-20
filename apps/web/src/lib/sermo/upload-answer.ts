@@ -1,5 +1,6 @@
 import { receiveUpload, type UploadRefusal } from "@/lib/sermo/upload";
 import { megabytes } from "@/lib/sermo/upload-limit";
+import { refusalWords } from "@/lib/sermo/upload-refusal";
 
 // The words of an upload route's refusals. Each route reads them from its own namespace.
 // (A method signature, so the routes' own typed translators fit: they take no values for the
@@ -33,6 +34,9 @@ export async function answerAttachment(request: Request, t: Words) {
       { headers: { "Cache-Control": "no-store" } },
     );
   }
+  // The backend's refusal in the member's language; one it gives no cause for is a failure.
+  const refused =
+    received.reason === "refused" ? await refusalWords(received) : undefined;
   const words: Record<UploadRefusal, string> = {
     session: t("signIn"),
     origin: t("notAllowed"),
@@ -42,7 +46,7 @@ export async function answerAttachment(request: Request, t: Words) {
       received.limit === undefined
         ? t("tooLarge")
         : t("overLimit", { size: megabytes(received.limit) }),
-    refused: received.message ?? t("failed"),
+    refused: refused ?? t("failed"),
     failed: t("failed"),
   };
   return uploadFailure(words[received.reason], received.status);

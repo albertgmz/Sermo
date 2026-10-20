@@ -112,17 +112,39 @@ test("the body goes to the backend as the request's own stream, with no read of 
   expect(asked[0].headers.get("cookie")).toBe("sermo.session_token=abc");
 });
 
-test("the backend's refusal is passed on with its words and status", async () => {
+test("the backend's refusal is passed on with its status, in the member's words for its cause", async () => {
   backend(() =>
     Response.json(
-      { error: { code: "validation", message: "File exceeds upload limit." } },
+      {
+        error: {
+          code: "validation",
+          message: "Upload quota exceeded.",
+          issues: [{ path: ["upload"], message: "quota" }],
+        },
+      },
       { status: 400 },
     ),
   );
   const response = await POST(posted().request, forum());
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({
-    error: "File exceeds upload limit.",
+    error: messages.lib.uploadRefusals.quota,
+  });
+});
+
+test("a backend refusal with no cause to word says the upload failed, never the backend's English", async () => {
+  backend(() =>
+    Response.json(
+      {
+        error: { code: "validation", message: "Malformed multipart request." },
+      },
+      { status: 400 },
+    ),
+  );
+  const response = await POST(posted().request, forum());
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: messages.forum.attachments.failed,
   });
 });
 

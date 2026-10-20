@@ -4,7 +4,7 @@ import { join } from "node:path";
 import sharp, { type Metadata } from "sharp";
 import { MAX_REACTION_IMAGE_SIDE } from "../../contracts/reactions";
 import type { FILE_PURPOSES } from "../../db/schema";
-import { ValidationError } from "../../errors";
+import { uploadRefusal } from "../storage/refusal";
 
 export type ImagePurpose = (typeof FILE_PURPOSES)[number];
 export interface ProcessedImage {
@@ -20,7 +20,19 @@ export interface ProcessedImage {
 // an open GIF cannot be deleted on Windows (the upload's clean-up failed with EBUSY).
 sharp.cache({ files: 0 });
 
+/**
+ * The most pixels decoded at full size: a PNG, a GIF, a WebP or a progressive JPEG, and each frame
+ * of an animation, is read whole before it is scaled.
+ */
 const MAX_PIXELS = 16_000_000;
+/**
+ * The most pixels of a baseline JPEG, what phone cameras write (a 200 MP sensor's full picture is
+ * 16320 x 12240). libjpeg scales it by up to 8 while it decodes (sharp's shrink-on-load), line by
+ * line, so a picture this large is never held at full size; it is then scaled to the purpose's
+ * largest box. A progressive JPEG needs its whole coefficient buffer at full size, so it keeps
+ * `MAX_PIXELS`.
+ */
+const MAX_JPEG_PIXELS = 200_000_000;
 /**
  * All frames of an animated picture together; each frame alone stays within `MAX_PIXELS`. An
  * animation is never enlarged, so what is written is at most what was read.
@@ -116,29 +128,41 @@ export async function processImage(
   tempDir: string,
 ): Promise<ProcessedImage[]> {
   const expectedFormat = inputTypes.get(mime);
-  if (!expectedFormat) throw new ValidationError("Unsupported image format.");
+  if (!expectedFormat) throw uploadRefusal("type", "Unsupported image format.");
   let metadata: Metadata;
   try {
-    metadata = await sharp(inputPath, { limitInputPixels: MAX_PIXELS, failOn: "error" }).metadata();
+    // Reads the header only; the limit that applies is decided from it below.
+    metadata = await sharp(inputPath, {
+      limitInputPixels: MAX_JPEG_PIXELS,
+      failOn: "error",
+    }).metadata();
   } catch {
-    throw new ValidationError("Image could not be decoded.");
+    throw uploadRefusal("unreadable", "Image could not be decoded.");
   }
   if (metadata.format !== expectedFormat)
-    throw new ValidationError("Image type does not match its content.");
-  if (!metadata.width || !metadata.height || metadata.width * metadata.height > MAX_PIXELS)
-    throw new ValidationError("Image dimensions exceed the limit.");
+    throw uploadRefusal("unreadable", "Image type does not match its content.");
+  const pages = metadata.pages ?? 1;
+  const stillLimit =
+    metadata.format === "jpeg" && !metadata.isProgressive && pages === 1
+      ? MAX_JPEG_PIXELS
+      : MAX_PIXELS;
+  if (!metadata.width || !metadata.height || metadata.width * metadata.height > stillLimit)
+    throw uploadRefusal("dimensions", "Image dimensions exceed the limit.");
   if (
     purpose === "reaction_image" &&
     (metadata.width > REACTION_IMAGE_SIDE || metadata.height > REACTION_IMAGE_SIDE)
   )
-    throw new ValidationError(
+    throw uploadRefusal(
+      "reaction",
       `Reaction pictures are at most ${REACTION_IMAGE_SIDE} pixels on a side.`,
     );
-  const pages = metadata.pages ?? 1;
   if (pages > 1 && !ANIMATED_PURPOSES.has(purpose))
-    throw new ValidationError("Animated images are not supported.");
-  if (pages > MAX_FRAMES || metadata.width * metadata.height * pages > MAX_ANIMATED_PIXELS)
-    throw new ValidationError("The animation has too many frames.");
+    throw uploadRefusal("animation", "Animated images are not supported.");
+  if (
+    pages > 1 &&
+    (pages > MAX_FRAMES || metadata.width * metadata.height * pages > MAX_ANIMATED_PIXELS)
+  )
+    throw uploadRefusal("animation", "The animation has too many frames.");
   const { width: frameWidth, height: frameHeight } = metadata;
 
   const output: ProcessedImage[] = [];
@@ -157,7 +181,7 @@ export async function processImage(
           ? Math.min(1, frameWidth / size.width, frameHeight / size.height)
           : 1;
       const pipeline = sharp(inputPath, {
-        limitInputPixels: animated ? MAX_ANIMATED_PIXELS : MAX_PIXELS,
+        limitInputPixels: animated ? MAX_ANIMATED_PIXELS : stillLimit,
         failOn: "error",
         animated,
       })
@@ -186,12 +210,18 @@ export async function processImage(
     // An animation gets none: a narrow screen would be shown a still.
     if (purpose === "attachment" && pages === 1)
       output.push(
-        ...(await widthCopies(inputPath, output[0]!.width, tempDir, output[0]!.byteSize)),
+        ...(await widthCopies(
+          inputPath,
+          output[0]!.width,
+          tempDir,
+          output[0]!.byteSize,
+          stillLimit,
+        )),
       );
     return output;
   } catch {
     for (const path of paths) await rm(path, { force: true, maxRetries: 5, retryDelay: 50 });
-    throw new ValidationError("Image could not be processed.");
+    throw uploadRefusal("unreadable", "Image could not be processed.");
   }
 }
 
@@ -199,20 +229,22 @@ export async function processImage(
  * The `width_<n>` WebP copies of a still picture `width` pixels wide (oriented as stored) and
  * `byteSize` bytes, one per width of `ATTACHMENT_WIDTHS` below it: never enlarged, none at all for
  * a narrow picture, and none that is not smaller than the picture (a flat screenshot's PNG can be).
- * The upload makes them from what was sent, the backfill from the stored picture.
+ * The upload makes them from what was sent (read within the `limit` `processImage` chose for it),
+ * the backfill from the stored picture.
  */
 export async function widthCopies(
   inputPath: string,
   width: number,
   tempDir: string,
   byteSize: number,
+  limit = MAX_PIXELS,
 ): Promise<ProcessedImage[]> {
   const targets = ATTACHMENT_WIDTHS.filter((target) => target < width);
   const paths = targets.map(() => join(tempDir, `sermo-image-${randomUUID()}`));
   // Each copy is its own decode and encode; they run side by side.
   const made = await Promise.allSettled(
     targets.map((target, index) =>
-      sharp(inputPath, { limitInputPixels: MAX_PIXELS, failOn: "error" })
+      sharp(inputPath, { limitInputPixels: limit, failOn: "error" })
         .autoOrient()
         .resize({ width: target, withoutEnlargement: true })
         .webp({ quality: 82 })

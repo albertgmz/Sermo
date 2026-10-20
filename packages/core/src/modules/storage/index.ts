@@ -34,6 +34,7 @@ import {
   requirePost as requireProfilePost,
 } from "../profiles/shared";
 import { cleanFilename, contentDisposition, renamedFor } from "./filename";
+import { uploadRefusal } from "./refusal";
 import { fileUrl, resolvedFileUrl } from "./url";
 
 export { fileUrl } from "./url";
@@ -159,6 +160,23 @@ const allowedTypes = new Set([
   "application/zip",
   "application/octet-stream",
 ]);
+/**
+ * HEIC/HEIF photos (the "high efficiency" setting of many phones). The image library's prebuilt
+ * build reads AVIF but not HEVC, which these photos are: they are refused with what to do instead.
+ */
+const heifTypes = new Set([
+  "image/heic",
+  "image/heif",
+  "image/heic-sequence",
+  "image/heif-sequence",
+]);
+const heifRefusal = () =>
+  uploadRefusal("heic", "HEIC and HEIF photos are not supported: send the photo as JPEG.");
+/**
+ * What a file picker sends for a file whose type it does not know: `application/octet-stream`, or
+ * no type at all (`text/plain`, the multipart default). The bytes decide what such a file is.
+ */
+const unnamedTypes = new Set(["", "application/octet-stream", "text/plain"]);
 const maxBytesDefault = 25 * 1024 * 1024;
 /** Catalog and site pictures take these types whatever the site settings say for members. */
 const catalogTypes: readonly string[] = ["image/jpeg", "image/png", "image/webp"];
@@ -470,15 +488,10 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       if (catalog) requireCatalogUpload(ctx, actor, purpose);
       if (purpose === "avatar") requirePermission(ctx, actor, "profile.uploadAvatar");
       if (purpose === "cover") requirePermission(ctx, actor, "profile.uploadCover");
-      const declaredType = typeName(clientType);
-      if (
-        !allowedTypes.has(declaredType) ||
-        (catalog
-          ? !typesOfCatalogPurpose(purpose).includes(declaredType)
-          : config.allowedTypesByPurpose &&
-            !config.allowedTypesByPurpose[purpose as UploadSettingPurpose]?.includes(declaredType))
-      )
-        throw new ValidationError("File type is not allowed.");
+      const clientDeclared = typeName(clientType);
+      // The type the file is checked and stored as: the client's, or for an unnamed type what its
+      // bytes are (set once they are read).
+      let declaredType = clientDeclared;
       // The member's own largest file (-1: none; 0: no file at all) can only lower the site's limit.
       const memberLimit = catalog ? -1 : permissionValue(ctx, actor, "attachment.maxFileSize");
       const siteLimit = uploadLimit(purpose, maxBytes);
@@ -502,10 +515,12 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             size += chunk.byteLength;
             if (size > effectiveLimit)
               return callback(
-                new ValidationError(
+                uploadRefusal(
+                  "size",
                   groupBinds
                     ? `File exceeds your upload limit of ${effectiveLimit} bytes.`
                     : "File exceeds upload limit.",
+                  effectiveLimit,
                 ),
               );
             hash.update(chunk);
@@ -517,12 +532,27 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
           meter,
           createWriteStream(tempPath, { flags: "wx" }),
         );
-        if (size === 0) throw new ValidationError("File is empty.");
+        if (size === 0) throw uploadRefusal("empty", "File is empty.");
         const detected = await fileTypeFromFile(tempPath);
+        if (heifTypes.has(declaredType) || (detected && heifTypes.has(detected.mime)))
+          throw heifRefusal();
+        if (unnamedTypes.has(declaredType) && detected) declaredType = typeName(detected.mime);
+        // Checked once the file is read to its end: a refusal answered while a large body still
+        // streams in reaches the browser as a broken connection, not as words.
+        if (
+          !allowedTypes.has(declaredType) ||
+          (catalog
+            ? !typesOfCatalogPurpose(purpose).includes(declaredType)
+            : config.allowedTypesByPurpose &&
+              !config.allowedTypesByPurpose[purpose as UploadSettingPurpose]?.includes(
+                declaredType,
+              ))
+        )
+          throw uploadRefusal("type", "File type is not allowed.");
         if (detected && typeName(detected.mime) !== declaredType)
-          throw new ValidationError("File type does not match its content.");
+          throw uploadRefusal("unreadable", "File type does not match its content.");
         if (!detected && !knownText.has(declaredType))
-          throw new ValidationError("File type could not be verified.");
+          throw uploadRefusal("unreadable", "File type could not be verified.");
         if (!detected) {
           let tail = "";
           try {
@@ -536,12 +566,12 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
                 }) ||
                 /<\s*(?:svg|script|html|iframe)\b/i.test(decoded)
               )
-                throw new ValidationError("Scriptable content is not allowed.");
+                throw uploadRefusal("unreadable", "Scriptable content is not allowed.");
               tail = decoded.slice(-32);
             }
             decoder.decode();
           } catch {
-            throw new ValidationError("File type could not be verified.");
+            throw uploadRefusal("unreadable", "File type could not be verified.");
           }
         }
         processed = safeInline.has(declaredType)
@@ -590,7 +620,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
               const adding = artifacts
                 .filter((item) => countsTowardQuota(item.variant))
                 .reduce((total, item) => total + item.byteSize, 0);
-              if (used + adding > quota) throw new ValidationError("Upload quota exceeded.");
+              if (used + adding > quota) throw uploadRefusal("quota", "Upload quota exceeded.");
             }
             const main = artifacts[0]!;
             const created = ctx.sqlite
@@ -625,7 +655,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
                 purpose,
                 ctx.now(),
                 meta,
-                filename && main.contentType !== declaredType
+                filename && main.contentType !== clientDeclared
                   ? renamedFor(filename, main.contentType)
                   : filename,
               )!;

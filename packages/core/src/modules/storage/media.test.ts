@@ -6,7 +6,9 @@ import { join } from "node:path";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
 import sharp from "sharp";
 import type { Ctx } from "../../context";
+import { SermoError } from "../../errors";
 import { createStorage, localDriver } from "./index";
+import { UPLOAD_REFUSAL_PATH } from "./refusal";
 
 // The smallest headers the content sniffer recognises, padded so that each looks like a file.
 const bytes = (...parts: (string | number[])[]) =>
@@ -165,6 +167,120 @@ describe("video and audio attachments", () => {
       },
       { attachment: ["audio/mp4"], avatar: ["image/png"] },
     ));
+});
+
+// The reason a refused upload names in its `upload` issue, and the path that carries it.
+async function refusal(upload: Promise<unknown>) {
+  const error = await upload.then(
+    () => undefined,
+    (thrown: unknown) => thrown,
+  );
+  if (!(error instanceof SermoError)) throw new Error("The upload was not refused.");
+  const issue = error.issues?.find((item) => item.path[0] === UPLOAD_REFUSAL_PATH);
+  return { reason: issue?.message, path: issue?.path };
+}
+
+describe("photos from phones", () => {
+  const jpeg = async (width: number, height: number, progressive = false) =>
+    new Uint8Array(
+      await sharp({
+        create: { width, height, channels: 3, background: { r: 30, g: 120, b: 200 } },
+      })
+        .jpeg({ progressive })
+        .toBuffer(),
+    );
+  // An HEIC file's first box: the content sniffer names it by its brand.
+  const heic = padded(ftyp("heic"));
+
+  test("a picture sent with no type is stored as what its bytes are", () =>
+    withStorage(async (storage, owner) => {
+      const picture = await jpeg(40, 30);
+      for (const declared of ["application/octet-stream", "", "text/plain"]) {
+        const uploaded = await storage.upload(
+          owner,
+          stream(picture),
+          declared,
+          "attachment",
+          "IMG_0001",
+        );
+        expect(uploaded.contentType).toBe("image/jpeg");
+        const record = storage.get(owner, uploaded.id);
+        expect(record.width).toBe(40);
+        // Named for what it is, so a saved copy opens.
+        expect(record.filename).toBe("IMG_0001.jpg");
+      }
+      // An avatar too: the bytes are a type avatars take.
+      const avatar = await storage.upload(owner, stream(picture), "", "avatar");
+      expect(avatar.contentType).toBe("image/webp");
+    }));
+
+  test("a file with no type is still refused when its bytes are a type the site does not take", () =>
+    withStorage(
+      async (storage, owner) => {
+        expect(
+          await refusal(
+            storage.upload(owner, stream(await jpeg(4, 4)), "application/octet-stream"),
+          ),
+        ).toMatchObject({ reason: "type" });
+        expect(
+          await refusal(storage.upload(owner, stream(fixtures.mp4), "application/octet-stream")),
+        ).toMatchObject({ reason: "type" });
+      },
+      { attachment: ["application/pdf"] },
+    ));
+
+  test("HEIC and HEIF photos are refused with their own reason, by type or by bytes", () =>
+    withStorage(async (storage, owner) => {
+      for (const declared of ["image/heic", "image/heif"])
+        expect(await refusal(storage.upload(owner, stream(heic), declared))).toEqual({
+          reason: "heic",
+          path: [UPLOAD_REFUSAL_PATH],
+        });
+      for (const declared of ["application/octet-stream", "image/jpeg"])
+        expect(await refusal(storage.upload(owner, stream(heic), declared))).toMatchObject({
+          reason: "heic",
+        });
+    }));
+
+  test("a camera photo over 16 megapixels is scaled down, not refused", () =>
+    withStorage(async (storage, owner) => {
+      // 5000 x 4000: 20 MP, like a 64 MP sensor's binned picture.
+      const uploaded = await storage.upload(owner, stream(await jpeg(5000, 4000)), "image/jpeg");
+      const record = storage.get(owner, uploaded.id);
+      expect([record.width, record.height]).toEqual([2048, 1638]);
+    }));
+
+  test("a refusal names its reason, and a size refusal its limit", () =>
+    withStorage(async (storage, owner, ctx) => {
+      expect(await refusal(storage.upload(owner, stream(new Uint8Array()), "text/plain"))).toEqual({
+        reason: "empty",
+        path: [UPLOAD_REFUSAL_PATH],
+      });
+      expect(await refusal(storage.upload(owner, stream(fixtures.mp3), "video/mp4"))).toMatchObject(
+        { reason: "unreadable" },
+      );
+      expect(
+        await refusal(storage.upload(owner, stream(fixtures.mp4), "video/x-matroska")),
+      ).toMatchObject({ reason: "type" });
+      // A progressive JPEG is read whole: over 16 MP it is too large to read safely.
+      expect(
+        await refusal(storage.upload(owner, stream(await jpeg(4100, 4000, true)), "image/jpeg")),
+      ).toMatchObject({ reason: "dimensions" });
+      const dir = await mkdtemp(join(tmpdir(), "sermo-media-small-"));
+      try {
+        const small = createStorage(ctx, {
+          driver: localDriver(join(dir, "files")),
+          tempDir: dir,
+          maxBytes: 10,
+        });
+        expect(await refusal(small.upload(owner, stream(fixtures.mp4), "video/mp4"))).toEqual({
+          reason: "size",
+          path: [UPLOAD_REFUSAL_PATH, 10],
+        });
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    }));
 });
 
 describe("byte ranges", () => {
