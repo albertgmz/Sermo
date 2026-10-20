@@ -471,15 +471,24 @@ export function afterAwardGrant(
   }
 }
 
+/** At-least criteria whose number is no step of progress: time away, or a balance that can fall. */
+const NOT_PROGRESS = new Set(["inactive_days", "days_since_last_post", "credits_at_least"]);
+
 /**
- * The number of the rule's first at-least condition ("100" of "at least 100 posts"), or null: how
- * far up its ladder an award stands, for listings that put the easiest first.
+ * How far up its ladder a rule stands ("100" of "at least 100 posts"), for listings that put the
+ * easiest first: of its at-least conditions that measure progress, the lowest number when any one
+ * is enough, the highest when all must hold; null when there is none.
  */
 export function ruleThreshold(rule: Rule): number | null {
-  for (const condition of rule.conditions)
-    if (byId.get(condition.criterion)?.kind === "atLeast" && condition.value !== undefined)
-      return condition.value;
-  return null;
+  const values = rule.conditions.flatMap((condition) =>
+    byId.get(condition.criterion)?.kind === "atLeast" &&
+    !NOT_PROGRESS.has(condition.criterion) &&
+    condition.value !== undefined
+      ? [condition.value]
+      : [],
+  );
+  if (values.length === 0) return null;
+  return rule.match === "any" ? Math.min(...values) : Math.max(...values);
 }
 
 /**

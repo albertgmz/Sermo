@@ -425,9 +425,21 @@ content is hidden or restored.
 ### Awards
 
 Awards include achievements. Each has a name, description, icon, tier (`bronze`, `silver`, `gold`
-or `legendary`), XP and credits per grant, and flags for active and stackable. XP and credits
-are nonnegative whole numbers, each up to 1,000,000. Award lists show legendary first, then gold,
-silver and bronze, with higher XP first within each tier. XP accumulates in the member's total.
+or `legendary`), an optional category (`categoryId`, `null` for none), XP and credits per grant,
+and flags for active and stackable. XP and credits are nonnegative whole numbers, each up to
+1,000,000. XP accumulates in the member's total. The tier is the award's rarity: it only colours the
+icon, and its name is shown to award managers alone.
+
+Categories group the catalog by what the awards reward (seniority, posts, reactions...). Each has a
+title (up to 100 characters), an optional description (up to 500) and a position (0 to 1,000,000; a
+new category without one goes after the last). Deleting a category is never refused: its awards
+stay, without a category. Category changes are written to the moderator log.
+
+The catalog (`awards.list`) lists the categories by position, then the awards without a category,
+and inside each the easiest first: awards whose rule counts progress (at least N posts, days,
+reactions...) by N, the highest N when all conditions must hold and the lowest when any one is
+enough; then the rest. Ties go by XP, lowest first, then by name. A member's own award list shows
+legendary first, then gold, silver and bronze, with higher XP first within each tier.
 
 A stackable award can be held several times; a non-stackable one cannot be granted while the
 member already holds it. Each grant adds XP and pays the award's credits through the ledger.
@@ -454,11 +466,14 @@ rule; a held non-stackable manual grant prevents an automatic grant while it is 
 | Grant by hand (`awardId` in the body) | `POST /users/{userId}/awards` | `awards.grant` |
 | Revoke one grant | `DELETE /award-grants/{memberAwardId}` | `awards.revoke` |
 | Queue an evaluation of everyone | `POST /awards/run` | `awards.run` |
+| List categories, in order, with their award counts | `GET /awards/categories` | `awardCategories.list` |
+| Create, change (title, description, position), delete a category | `POST /awards/categories`, `PATCH`/`DELETE /awards/categories/{categoryId}` | `awardCategories.create`, `awardCategories.update`, `awardCategories.delete` |
 
 Catalog and holder calls need `profile.view`; inactive awards are shown there only to holders
 of `admin.awards`. Member award calls require access to that member's profile and include the
-awards they still hold, even if deactivated. Managing awards, reading criteria and queuing a
-sweep need `admin.awards`.
+awards they still hold, even if deactivated. Managing awards and their categories, reading
+criteria and queuing a sweep need `admin.awards`. The category list needs `profile.view`; without
+`admin.awards` it holds only categories with an active award, and counts only active awards.
 
 Set `isActive: false` to stop further grants while keeping existing ones. An award that has
 ever been granted cannot be deleted, even after every grant is revoked. Changing XP or credits

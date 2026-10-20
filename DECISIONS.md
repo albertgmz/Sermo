@@ -5169,12 +5169,15 @@ most one (`awards.category_id`, null for none; deleting a category leaves its aw
 through the foreign key, so a delete is never refused). They are written with `admin.awards`, like
 awards, through `awardCategories.create`, `update` and `delete`, and each write is a moderator log
 entry (`awardCategory.*`); award edits themselves are still not logged. `awardCategories.list` is
-open to whoever may read the awards and counts the awards the viewer can see in each.
+open to whoever may read the awards and counts the awards the viewer can see in each; only award
+managers see a category that holds no active award, so a category made for an unreleased award
+stays unseen.
 
 `awards.list` keeps one order for every client: by category position (then id), awards without a
 category last, and inside a category easiest first: awards whose rule has an at-least condition
-first, by the number of the first one (`ruleThreshold`, in the criteria engine, since nothing else
-reads a condition's criterion), then XP ascending, then name. A threshold is compared across
+first, by its number (`ruleThreshold`, in the criteria engine, since nothing else reads a
+condition's criterion: the highest number of an `all` rule, the lowest of an `any` rule, leaving out
+time away and the credit balance, which are no progress), then XP ascending, then name. A threshold is compared across
 criteria when a category mixes them; a hand-given award sorts after the rungs. `awards.member` keeps
 its rarest-first order, as do the awards shown next to a name.
 

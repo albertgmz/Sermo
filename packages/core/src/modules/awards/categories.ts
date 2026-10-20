@@ -61,8 +61,10 @@ export const categoryOperations = [
     requireSiteView(ctx, actor);
     requirePermission(ctx, actor, "profile.view");
     const admin = Number(can(ctx, actor, "admin.awards"));
+    // Anyone else sees a category only once it holds an active award.
+    const rows = all<CategoryRow>(ctx, "categories", categorySql.list, admin);
     return {
-      items: all<CategoryRow>(ctx, "categories", categorySql.list, admin).map(categoryValue),
+      items: rows.filter((row) => admin || row.award_count > 0).map(categoryValue),
     };
   }),
   implement(contracts.awardCategoriesCreate, (ctx, actor, input) => {

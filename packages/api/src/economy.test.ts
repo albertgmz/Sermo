@@ -200,14 +200,11 @@ const cases: RouteCase[] = [
     path: "/awards/categories",
     status: 200,
     url: () => "/awards/categories",
+    as: "member",
     guest: "public",
     denied: { permission: "profile.view" },
-    expected: (f) => ({
-      items: [
-        { ...f.awardCategory, awardCount: 1 },
-        { ...f.emptyAwardCategory, awardCount: 0 },
-      ],
-    }),
+    // The empty category is for award managers only.
+    expected: (f) => ({ items: [{ ...f.awardCategory, awardCount: 1 }] }),
   },
   {
     contract: c.awardCategoriesCreate,

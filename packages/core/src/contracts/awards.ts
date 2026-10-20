@@ -94,8 +94,9 @@ export const awardsList = defineContract({
   name: "awards.list",
   summary:
     "Every active award, by category in the categories' order (awards without one last), " +
-    "easiest first inside a category: awards whose rule has an at-least condition first, by the " +
-    "number of the first such condition, then by XP ascending, then by name. With admin.awards, " +
+    "easiest first inside a category: awards whose rule counts progress (at least N posts, days, " +
+    "reactions...) first, by N (the highest N of an all rule, the lowest of an any rule), then by " +
+    "XP ascending, then by name. With admin.awards, " +
     "inactive awards too. Requires site.view and profile.view.",
   kind: "read",
   input: Empty,
@@ -222,8 +223,9 @@ const CategoryInput = {
 export const awardCategoriesList = defineContract({
   name: "awardCategories.list",
   summary:
-    "Every award category in display order (position, then id), empty ones included, each with " +
-    "how many awards the viewer can see in it. Requires site.view and profile.view.",
+    "The award categories in display order (position, then id), each with how many awards the " +
+    "viewer can see in it. With admin.awards every category, empty ones included; anyone else " +
+    "sees only those holding an active award. Requires site.view and profile.view.",
   kind: "read",
   input: Empty,
   output: z.object({ items: z.array(AwardCategory) }),

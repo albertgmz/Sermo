@@ -112,6 +112,25 @@ describe("award categories", () => {
     expect((await as(GUEST, "awardCategories.list")).items[0].awardCount).toBe(1);
   });
 
+  test("only award managers see a category with no active award", async () => {
+    const { member, as, call } = setup();
+    const shown = await call("awardCategories.create", { title: "Shown" });
+    const hidden = await call("awardCategories.create", { title: "Unreleased" });
+    const empty = await call("awardCategories.create", { title: "Empty" });
+    await call("awards.create", { name: "On", tier: "bronze", categoryId: shown.id });
+    const off = await call("awards.create", {
+      name: "Off",
+      tier: "bronze",
+      categoryId: hidden.id,
+      isActive: false,
+    });
+    expect(ids(await call("awardCategories.list"))).toEqual([shown.id, hidden.id, empty.id]);
+    for (const actor of [member, GUEST])
+      expect(ids(await as(actor, "awardCategories.list"))).toEqual([shown.id]);
+    await call("awards.update", { awardId: off.id, isActive: true });
+    expect(ids(await as(member, "awardCategories.list"))).toEqual([shown.id, hidden.id]);
+  });
+
   test("only award managers write them; the list needs profile.view", async () => {
     const { ctx, member, as, call } = setup();
     const category = await call("awardCategories.create", { title: "Kept" });
@@ -254,18 +273,26 @@ describe("the catalog order", () => {
     expect(empty.awardCount).toBe(0);
   });
 
-  test("a threshold is the number of the first at-least condition", () => {
+  test("a threshold is the highest progress number when all must hold, the lowest when any", () => {
+    const conditions = [
+      { criterion: "email_verified", value: 1 },
+      { criterion: "post_count", value: 500 },
+      { criterion: "days_registered", value: 30 },
+      { criterion: "inactive_days", value: 900 },
+      { criterion: "days_since_last_post", value: 2 },
+      { criterion: "credits_at_least", value: 1 },
+    ];
     expect(threshold({ match: "all", conditions: [] })).toBeNull();
-    expect(
-      threshold({
-        match: "all",
-        conditions: [
-          { criterion: "email_verified", value: 1 },
-          { criterion: "days_registered", value: 30 },
-          { criterion: "post_count", value: 5 },
-        ],
-      }),
-    ).toBe(30);
+    expect(threshold({ match: "all", conditions })).toBe(500);
+    expect(threshold({ match: "all", conditions: [...conditions].reverse() })).toBe(500);
+    expect(threshold({ match: "any", conditions })).toBe(30);
+    expect(threshold({ match: "any", conditions: [...conditions].reverse() })).toBe(30);
+    // An explicit 0 is a rung.
+    expect(threshold({ match: "any", conditions: [{ criterion: "post_count", value: 0 }] })).toBe(
+      0,
+    );
+    // Time away, a balance and an at-most condition are no progress.
+    expect(threshold({ match: "all", conditions: conditions.slice(3) })).toBeNull();
     expect(
       threshold({ match: "any", conditions: [{ criterion: "credits_at_most", value: 9 }] }),
     ).toBeNull();
