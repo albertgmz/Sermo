@@ -163,6 +163,8 @@ export function EarlierComments({
     startTransition(() =>
       enqueue(async () => {
         const held = current.current;
+        // A redraw ahead of this press may have loaded every comment already.
+        if (held?.done) return;
         const next = await latest.current(held?.cursor ?? null, null);
         apply({ ...next, rows: merged(held?.rows ?? [], next.rows) });
       }),
