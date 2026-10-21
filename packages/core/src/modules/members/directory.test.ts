@@ -125,6 +125,13 @@ describe("users.list", () => {
     expect(await ids(userActor(users[0]!))).toContain(users[0]!.id);
   });
 
+  test("the plain directory goes by the ban alone: an erased mark without a ban does not hide a member", async () => {
+    const { w, users } = populated();
+    w.set(users[8]!.id, { erased_at: w.ctx.now() });
+    expect(await walk(w, "newest", 5)).toContain(users[8]!.id);
+    expect(await walk(w, "credits", 5)).toContain(users[8]!.id);
+  });
+
   test("newest: the most recently registered first", async () => {
     const { w, users } = populated();
     const expected = [w.admin, w.moderator, w.member, ...users].map((user) => user.id).reverse();

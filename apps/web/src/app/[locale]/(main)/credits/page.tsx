@@ -89,10 +89,11 @@ async function Leaders() {
   const [t, { user }, richest] = await Promise.all([
     getTranslations("credits.credits"),
     getViewer(),
-    readIfAllowed(usersList, { sort: "credits", limit: 10 }),
+    readIfAllowed(usersList, { sort: "credits", ranked: true, limit: 10 }),
   ]);
-  // The member directory needs a permission a guest may lack: then there is no ranking to show.
-  if (!richest) return null;
+  // The member directory needs a permission a guest may lack: then there is no ranking to show,
+  // and none while nobody holds a credit.
+  if (!richest || richest.items.length === 0) return null;
   return (
     <SectionCard
       title={t("leadersHeading")}

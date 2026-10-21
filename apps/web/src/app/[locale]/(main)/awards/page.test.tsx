@@ -132,11 +132,51 @@ test("a failure on the backend's side is still raised", async () => {
   expect(errors).not.toEqual([]);
 });
 
-test("the ranking is there when the backend gives it", async () => {
-  backend(() => Response.json({ items: [], nextCursor: null }));
+const member = (id: number) => ({
+  card: {
+    id,
+    username: `member${id}`,
+    avatar: null,
+    frame: null,
+    nameColor: null,
+    nameIcon: null,
+    title: "",
+    badges: [],
+    level: 1,
+    restricted: false,
+  },
+  createdAt: STAMP,
+  postCount: 0,
+  reactionScore: 0,
+  awardXp: 40,
+  credits: 0,
+  awardCount: 0,
+  referralCount: 0,
+});
+
+test("the ranking is there when the backend gives it, and asks for members who have earned XP", async () => {
+  const asked: string[] = [];
+  backend(() => Response.json({ items: [member(7)], nextCursor: null }));
+  const inner = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const { pathname, search } = new URL(url);
+    if (pathname === "/api/v1/members") asked.push(search);
+    return inner(url, init);
+  }) as unknown as typeof fetch;
   const { html, errors } = await page();
   expect(errors).toEqual([]);
   expect(html).toContain(messages.awards.awards.leadersHeading);
+  expect(html).toContain("member7");
+  expect(asked).toHaveLength(1);
+  expect(asked[0]).toContain("sort=level");
+  expect(asked[0]).toContain("ranked=true");
+});
+
+test("nobody has earned XP: the ranking card is left out", async () => {
+  backend(() => Response.json({ items: [], nextCursor: null }));
+  const { html, errors } = await page();
+  expect(errors).toEqual([]);
+  expect(html).not.toContain(messages.awards.awards.leadersHeading);
 });
 
 test("a guest who may not open profiles is told so where the catalogue would be, without an error", async () => {

@@ -75,8 +75,12 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
       actor,
       rows.map((row) => row.id),
     );
+    // A ranking also checks the erased mark; the plain directory goes by the ban alone, as before.
     return new Set(
-      rows.filter((row) => row.erased_at === null && !isBanned(row, now) && open.has(row.id)),
+      rows.filter(
+        (row) =>
+          (!input.ranked || row.erased_at === null) && !isBanned(row, now) && open.has(row.id),
+      ),
     );
   };
 

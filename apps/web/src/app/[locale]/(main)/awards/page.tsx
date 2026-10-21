@@ -325,10 +325,11 @@ async function Catalogue({ userId }: { userId: number | undefined }) {
 async function Leaders({ viewerId }: { viewerId?: number }) {
   const [t, leaders] = await Promise.all([
     getTranslations("awards.awards"),
-    readIfAllowed(usersList, { sort: "level", limit: 10 }),
+    readIfAllowed(usersList, { sort: "level", ranked: true, limit: 10 }),
   ]);
-  // The member directory needs a permission a guest may lack: then there is no ranking to show.
-  if (!leaders) return null;
+  // The member directory needs a permission a guest may lack: then there is no ranking to show,
+  // and none while nobody has earned XP.
+  if (!leaders || leaders.items.length === 0) return null;
   return (
     <SectionCard
       title={t("leadersHeading")}

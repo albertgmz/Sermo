@@ -13,7 +13,8 @@ import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 
 // One page of a ranking of the members who have something to count, drawn: the list's first page
-// and each page the browser asks for. `numbered` is the cursor of the page (see `numberedCursor`), none for the first.
+// and each page the browser asks for. `numbered` is the cursor of the page (see
+// `numberedCursor`), none for the first.
 export async function rankingPage(
   sort: MemberSort,
   by: LeaderboardKind,
