@@ -5,6 +5,7 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { evaluationSql, SWEEP_CHUNK } from "./automatic";
 import { claimSql } from "./grants";
+import { REVOKE_CHUNK, revokeSql } from "./revoke";
 import { awardSql } from "./store";
 
 test("award hot queries use indexed lookups and keyset order", () => {
@@ -35,9 +36,14 @@ test("award hot queries use indexed lookups and keyset order", () => {
         ["[1,2]", "[1,2]"],
       ],
       [
-        "UPDATE member_award_totals SET count = count - 1 WHERE user_id = ?1 AND award_id = ?2",
-        [1, 1],
+        "UPDATE member_award_totals SET count = count - 1, auto_granted = auto_granted AND NOT ?3 WHERE user_id = ?1 AND award_id = ?2",
+        [1, 1, 1],
       ],
+      [revokeSql.members, [0, REVOKE_CHUNK]],
+      [revokeSql.grants, ["[1,2]"]],
+      [revokeSql.top, []],
+      [revokeSql.record, []],
+      [revokeSql.setRecord, ["{}", 1]],
       ["UPDATE users SET award_xp = award_xp + ?1 WHERE id = ?2", [1, 1]],
       ["UPDATE users SET award_xp = award_xp - ?1 WHERE id = ?2", [1, 1]],
       ["UPDATE awards SET grant_count = grant_count + 1 WHERE id = ?1", [1]],

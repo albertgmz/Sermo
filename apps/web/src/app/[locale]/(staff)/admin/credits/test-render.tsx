@@ -30,6 +30,10 @@ export async function mockIntl() {
     getFormatter: async () => ({
       number: (value: number, options?: Intl.NumberFormatOptions) =>
         new Intl.NumberFormat("en", options).format(value),
+      dateTime: (value: Date, options?: Intl.DateTimeFormatOptions) =>
+        new Intl.DateTimeFormat("en", { timeZone: "UTC", ...options }).format(
+          value,
+        ),
     }),
   }));
   return () => {

@@ -14,6 +14,8 @@ import {
   startJobWorker,
 } from "@sermo/core";
 import { sweepChunk } from "../../packages/core/src/modules/awards/automatic";
+import { revokeChunk } from "../../packages/core/src/modules/awards/revoke";
+import type { ClaimedJob } from "../../packages/core/src/modules/jobs/queue";
 import { type BenchEnv, createEnv, type Scenario } from "../harness";
 import { Rng } from "../rng";
 import { benchDir, seedPaths } from "../seed";
@@ -124,6 +126,7 @@ async function drain(env: BenchEnv): Promise<void> {
 
 type ScaleRun = {
   env: BenchEnv;
+  work: ScaleWork;
   started: number;
   chunks: number[];
   lagMs: number;
@@ -133,21 +136,39 @@ type ScaleRun = {
 };
 let scale: ScaleRun | null = null;
 
+/** A background run measured on its own copy of the seed, as the server runs it. */
+type ScaleWork = {
+  /** What the report calls it. */
+  label: string;
+  /** The job type that carries it, and the chunk it runs. */
+  job: string;
+  chunk(ctx: Ctx, payload: unknown, job: ClaimedJob): Promise<unknown>;
+  /** Makes the data the run works on, once the copy has its awards. */
+  prepare?(copy: BenchEnv, awardIds: number[]): Promise<void>;
+  /** Queues the first chunk. */
+  start(copy: BenchEnv): void | Promise<void>;
+  /** True once the whole run is done. */
+  finished(copy: BenchEnv): boolean;
+  /** What the run did, for the report. */
+  summary?(copy: BenchEnv): string;
+};
+
 /**
- * Runs a first award sweep over every member against about a hundred awards as the server does:
- * the job worker polls the queue and events are dispatched every second, on the thread that
- * serves requests. It runs on its own copy of the seed, so the awards, the grants, the events,
- * the replies and the sweep left unfinished never reach another scenario. Measuring starts once
- * the first chunk is done.
+ * Runs a background job over every member against about a hundred awards as the server does: the
+ * job worker polls the queue and events are dispatched every second, on the thread that serves
+ * requests. It runs on its own copy of the seed, so the awards, the grants, the events, the
+ * replies and the run left unfinished never reach another scenario. Measuring starts once the
+ * first chunk is done.
  */
-async function startScaleSweep(env: BenchEnv): Promise<void> {
+async function startScale(env: BenchEnv, work: ScaleWork): Promise<void> {
   const path = join(benchDir(), `award-sweep-${process.pid}.db`);
   for (const suffix of ["", "-wal", "-shm"]) rmSync(path + suffix, { force: true });
   copyFileSync(seedPaths().db, path);
   const ctx: Ctx = createContext({ path, config: env.ctx.config });
   const stopCheckpointer = startCheckpointer(ctx);
   const copy = await createEnv(ctx, env.meta, new Rng(42));
-  await createScaleAwards(copy);
+  const awardIds = await createScaleAwards(copy);
+  await work.prepare?.(copy, awardIds);
   // The award subscriber starts after the seeded history: it judges what this run publishes.
   ctx.sqlite
     .prepare(
@@ -159,10 +180,10 @@ async function startScaleSweep(env: BenchEnv): Promise<void> {
   const chunks: number[] = [];
   registerJobHandler(
     ctx,
-    "awards.sweep",
+    work.job,
     async (context, payload, job) => {
       const start = performance.now();
-      await sweepChunk(context, (payload as { after: number }).after, job);
+      await work.chunk(context, payload, job);
       chunks.push(performance.now() - start);
     },
     { holdCheckpoints: false },
@@ -197,6 +218,7 @@ async function startScaleSweep(env: BenchEnv): Promise<void> {
   });
   const run: ScaleRun = {
     env: copy,
+    work,
     started: performance.now(),
     chunks,
     lagMs: 0,
@@ -215,27 +237,114 @@ async function startScaleSweep(env: BenchEnv): Promise<void> {
     },
   };
   scale = run;
-  enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" });
+  await work.start(copy);
   while (chunks.length === 0) await new Promise((resolve) => setTimeout(resolve, 10));
 }
 
-async function stopScaleSweep(): Promise<void> {
+/** Stops the run and reports it; with `untilDone`, waits (at most ten minutes) for its end first. */
+async function stopScale(untilDone = false): Promise<void> {
   const run = scale;
   if (!run) return;
   scale = null;
-  const left = run.env.ctx.sqlite
-    .prepare<{ n: number }, []>("SELECT count(*) AS n FROM jobs WHERE unique_key = 'awards.sweep'")
-    .get()!.n;
+  const deadline = performance.now() + 600_000;
+  while (untilDone && !run.work.finished(run.env) && performance.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  const left = !run.work.finished(run.env);
   const elapsed = (performance.now() - run.started) / 1000;
+  const summary = run.work.summary?.(run.env);
   await run.stop();
   const sorted = run.chunks.toSorted((a, b) => a - b);
   const p95 = sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] ?? 0;
   console.log(
-    `Award sweep at scale: ${sorted.length} chunks in ${elapsed.toFixed(1)} s${left ? " (stopped before the end)" : ""}, ` +
+    `${run.work.label} at scale: ${sorted.length} chunks in ${elapsed.toFixed(1)} s${left ? " (stopped before the end)" : ""}, ` +
       `chunk p95 ${p95.toFixed(2)} ms, max ${(sorted.at(-1) ?? 0).toFixed(2)} ms; longest event-loop stall ${run.lagMs.toFixed(2)} ms; ` +
-      `largest WAL ${(run.walBytes / 1e6).toFixed(1)} MB`,
+      `largest WAL ${(run.walBytes / 1e6).toFixed(1)} MB${summary ? `; ${summary}` : ""}`,
   );
 }
+
+const sweepWork: ScaleWork = {
+  label: "Award sweep",
+  job: "awards.sweep",
+  chunk: (ctx, payload, job) => sweepChunk(ctx, (payload as { after: number }).after, job),
+  start: (copy) => {
+    enqueueJob(copy.ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" });
+  },
+  finished: (copy) =>
+    copy.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT count(*) AS n FROM jobs WHERE unique_key = 'awards.sweep'",
+      )
+      .get()!.n === 0,
+};
+
+/**
+ * What a live site has when the administrator takes back the awards of those who no longer
+ * qualify: about 950,000 automatic grants (the seed has some 60,000 members; each holds one award
+ * of every seven), judged against the real rules of the scale awards, so most fall and some hold,
+ * and awards that read other awards cascade. The totals, XP and counts are made to match, as the
+ * grants would have left them.
+ */
+function grantAtLiveScale(copy: BenchEnv, awardIds: number[]): void {
+  const db = copy.ctx.sqlite;
+  const ids = JSON.stringify(awardIds);
+  const { first, last } = db
+    .prepare<{ first: number; last: number }, []>(
+      "SELECT min(id) AS first, max(id) AS last FROM users",
+    )
+    .get()!;
+  const insert = db.prepare(
+    "INSERT INTO member_awards (user_id, award_id, granted_by, reason, xp, credits, created_at) " +
+      "SELECT u.id, a.id, NULL, '', a.xp, a.credits, ?1 FROM users u JOIN awards a ON a.id IN (SELECT value FROM json_each(?2)) " +
+      "WHERE u.id BETWEEN ?3 AND ?4 AND (u.id * 7 + a.id) % 7 = 0",
+  );
+  const step = 2000;
+  for (let from = first; from <= last; from += step)
+    db.transaction(() => insert.run(copy.ctx.now(), ids, from, from + step - 1))();
+  db.transaction(() => {
+    db.prepare(
+      "INSERT INTO member_award_totals (user_id, award_id, count, auto_granted, last_granted_at) " +
+        "SELECT user_id, award_id, 1, 1, created_at FROM member_awards WHERE award_id IN (SELECT value FROM json_each(?1)) AND revoked_at IS NULL " +
+        "ON CONFLICT (user_id, award_id) DO UPDATE SET count = count + 1, auto_granted = 1",
+    ).run(ids);
+    db.prepare(
+      "UPDATE users SET award_xp = award_xp + coalesce((SELECT sum(xp) FROM member_awards g WHERE g.user_id = users.id AND g.revoked_at IS NULL AND g.award_id IN (SELECT value FROM json_each(?1))), 0), " +
+        "award_count = award_count + (SELECT count(*) FROM member_awards g WHERE g.user_id = users.id AND g.revoked_at IS NULL AND g.award_id IN (SELECT value FROM json_each(?1)))",
+    ).run(ids);
+    db.prepare(
+      "UPDATE awards SET grant_count = (SELECT count(*) FROM member_awards g WHERE g.award_id = awards.id AND g.revoked_at IS NULL) WHERE id IN (SELECT value FROM json_each(?1))",
+    ).run(ids);
+  })();
+}
+
+const revokeWork: ScaleWork = {
+  label: "Award revoke",
+  job: "awards.revoke",
+  chunk: (ctx, payload, job) => revokeChunk(ctx, (payload as { after: number }).after, job),
+  prepare: async (copy, awardIds) => {
+    grantAtLiveScale(copy, awardIds);
+  },
+  start: async (copy) => {
+    await copy.call("awards.revokeUnqualified", copy.actors.admin, { apply: true });
+  },
+  finished: (copy) =>
+    copy.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT count(*) AS n FROM site_settings WHERE key = 'awards.revokeUnqualified' AND json_extract(value, '$.state') = 'running'",
+      )
+      .get()!.n === 0,
+  summary: (copy) => {
+    const record = copy.ctx.sqlite
+      .prepare<{ value: string }, []>(
+        "SELECT value FROM site_settings WHERE key = 'awards.revokeUnqualified'",
+      )
+      .get();
+    const { grants, affected, members } = JSON.parse(record?.value ?? "{}") as Record<
+      string,
+      number
+    >;
+    return `${grants} grants taken back from ${affected} of ${members} members seen`;
+  },
+};
 
 /**
  * Sends one call to the sweep's copy over a local socket, as a visitor's request reaches the
@@ -252,6 +361,33 @@ async function overSocket(operation: string, userId: number, input: unknown) {
   if (!response.ok) throw new Error(`${operation} -> ${response.status} ${text}`);
   return text;
 }
+
+/** A read, over a socket, while a background run works on its own copy of the seed. */
+const readWhile = (name: string, work: ScaleWork): Scenario => ({
+  name,
+  kind: "read",
+  iterations: 3000,
+  setup: (env) => startScale(env, work),
+  run: (env, i) =>
+    overSocket("threads.list", env.meta.memberIds[i % env.meta.memberIds.length]!, {
+      nodeId: env.meta.forumIds[0]!,
+      limit: 20,
+    }),
+  teardown: () => stopScale(),
+});
+/** A write, over a socket, while a background run works; `untilDone` waits for the run's end. */
+const writeWhile = (name: string, work: ScaleWork, untilDone = false): Scenario => ({
+  name,
+  kind: "write",
+  iterations: 1000,
+  setup: (env) => startScale(env, work),
+  run: (env, i) =>
+    overSocket("posts.create", env.meta.memberIds[i % env.meta.memberIds.length]!, {
+      threadId: env.meta.threadIds[0]!,
+      body: `Reply while the ${work.label.toLowerCase()} runs ${i}.`,
+    }),
+  teardown: () => stopScale(untilDone),
+});
 
 export const scenarios: Scenario[] = [
   {
@@ -444,6 +580,22 @@ export const scenarios: Scenario[] = [
     run: (env) => env.call("awards.run", env.actors.admin, {}),
   },
   {
+    name: "awards.revokeStatus",
+    kind: "read",
+    run: (env) => env.call("awards.revokeStatus", env.actors.admin, {}),
+  },
+  {
+    // The first call queues the count; the others find it queued.
+    name: "awards.revokeUnqualified",
+    kind: "write",
+    iterations: WRITE_ITERATIONS,
+    run: (env) => env.call("awards.revokeUnqualified", env.actors.admin, { apply: false }),
+    teardown(env) {
+      env.ctx.sqlite.run("DELETE FROM jobs WHERE type = 'awards.revoke'");
+      env.ctx.sqlite.run("DELETE FROM site_settings WHERE key = 'awards.revokeUnqualified'");
+    },
+  },
+  {
     name: "awards.sweep chunk",
     kind: "write",
     iterations: WRITE_ITERATIONS,
@@ -484,28 +636,10 @@ export const scenarios: Scenario[] = [
       console.log(`Maximum concurrent award sweep chunk: ${maxChunkMs.toFixed(2)} ms`);
     },
   },
-  {
-    name: "awards sweep at scale: threads.list while it runs",
-    kind: "read",
-    iterations: 3000,
-    setup: startScaleSweep,
-    run: (env, i) =>
-      overSocket("threads.list", env.meta.memberIds[i % env.meta.memberIds.length]!, {
-        nodeId: env.meta.forumIds[0]!,
-        limit: 20,
-      }),
-    teardown: stopScaleSweep,
-  },
-  {
-    name: "awards sweep at scale: posts.create while it runs",
-    kind: "write",
-    iterations: 1000,
-    setup: startScaleSweep,
-    run: (env, i) =>
-      overSocket("posts.create", env.meta.memberIds[i % env.meta.memberIds.length]!, {
-        threadId: env.meta.threadIds[0]!,
-        body: `Reply while the award sweep runs ${i}.`,
-      }),
-    teardown: stopScaleSweep,
-  },
+  readWhile("awards sweep at scale: threads.list while it runs", sweepWork),
+  writeWhile("awards sweep at scale: posts.create while it runs", sweepWork),
+  // About 950,000 automatic grants, taken back in chunks while visitors read and write; the
+  // second also waits for the run to end (at most ten minutes) and reports how long it took.
+  readWhile("awards revoke at scale: threads.list while it runs", revokeWork),
+  writeWhile("awards revoke at scale: posts.create while it runs", revokeWork, true),
 ];

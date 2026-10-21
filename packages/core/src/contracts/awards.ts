@@ -52,8 +52,10 @@ export const Award = z
     isActive: z.boolean(),
     /**
      * Granted automatically, once per member, when the rule holds; no conditions = by hand only.
-     * An award the rule granted is never taken back when it stops holding, and never granted
-     * again by it after it was revoked. Only shown with admin.awards, empty otherwise.
+     * An award the rule granted is not taken back when it stops holding, except by the
+     * administrator's run of awards.revokeUnqualified, and it is not granted again by the rule
+     * after a grant is revoked by hand (a grant that run takes back is granted again if the
+     * member comes to meet the rule). Only shown with admin.awards, empty otherwise.
      */
     rule: CriteriaRule,
     /** Grants currently held, over all members. */
@@ -192,6 +194,65 @@ export const awardsRun = defineContract({
   kind: "write",
   input: Empty,
   output: z.object({ queued: z.boolean() }),
+});
+
+/**
+ * The administrator's run that takes automatic grants back from members who no longer meet the
+ * rule of the award: a count first, then the revocation.
+ */
+export const AwardRevokeRun = z
+  .object({
+    /** Idle: nothing was run yet. Failed: stopped by an error; starting the same run again resumes it. */
+    state: z.enum(["idle", "running", "failed", "done"]),
+    /** Count only reads and writes nothing; revoke takes the grants back. Null when idle. */
+    mode: z.enum(["count", "revoke"]).nullable(),
+    startedAt: Timestamp.nullable(),
+    finishedAt: Timestamp.nullable(),
+    /** How far through the members the run is, from 0 to 1. */
+    progress: z.number().min(0).max(1),
+    /** Members with automatic grants looked at so far. */
+    members: z.number().int().nonnegative(),
+    /** Of them, the members who lose (count) or lost (revoke) at least one grant. */
+    affectedMembers: z.number().int().nonnegative(),
+    /** Grants that would be taken back (count) or were (revoke). */
+    grants: z.number().int().nonnegative(),
+    /** XP and credits those grants gave. */
+    xp: z.number().int().nonnegative(),
+    credits: z.number().int().nonnegative(),
+    /** The grants by award, most first. */
+    awards: z.array(
+      z.object({ awardId: Id, name: z.string(), grants: z.number().int().positive() }),
+    ),
+    error: z.string().nullable(),
+  })
+  .meta({ id: "AwardRevokeRun" });
+
+export const awardsRevokeUnqualified = defineContract({
+  name: "awards.revokeUnqualified",
+  summary:
+    "Start a background run over every member holding automatic grants (granted by a rule, " +
+    "never by hand) of active awards with conditions. With apply false it only counts the " +
+    "grants whose rule the member no longer meets (awards.revokeStatus reports it). With apply " +
+    "true it revokes them like awards.revoke: takes back the XP and the credits each gave " +
+    "(balances may go below zero), judging the member's other awards again with what is left " +
+    "until none more falls; members are not notified. Grants made by hand are never touched. " +
+    "A grant it revokes is granted again if the member later meets the rule. It runs in small " +
+    "chunks, only when called (never at deploy or from the sweep), and a run that stopped on " +
+    "an error resumes from where it stopped when called again with the same apply. Returns " +
+    "queued false when a run is under way. Requires admin.awards.",
+  kind: "write",
+  input: z.object({ apply: z.boolean() }),
+  output: z.object({ queued: z.boolean() }),
+});
+
+export const awardsRevokeStatus = defineContract({
+  name: "awards.revokeStatus",
+  summary:
+    "The latest run of awards.revokeUnqualified: where it stands, how many grants it counted " +
+    "or took back, and by award. Requires admin.awards.",
+  kind: "read",
+  input: Empty,
+  output: AwardRevokeRun,
 });
 
 export const awardsGrant = defineContract({

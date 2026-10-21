@@ -3,10 +3,12 @@
 import {
   awardsCreate,
   awardsDelete,
+  awardsRevokeUnqualified,
   awardsRun,
   awardsUpdate,
   imagesSetAwardImage,
 } from "@sermo/core/contracts";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
@@ -135,4 +137,31 @@ export async function runAwards(
   } catch (error) {
     return formFailure(error, []);
   }
+}
+
+// Start the count of grants whose member no longer meets the rule (`apply` false), or the run
+// that takes them back (true); the same call resumes a run that stopped on an error. The page is
+// rendered again so that it shows the run.
+async function startRevoke(apply: boolean): Promise<StaffFormState> {
+  const t = await getTranslations("adminEconomy.awards.revoke");
+  try {
+    const { queued } = await call(awardsRevokeUnqualified, { apply });
+    if (!queued) return { error: t("notQueued") };
+    revalidatePath("/[locale]/admin/awards", "page");
+    return { notice: t(apply ? "revokeQueued" : "countQueued") };
+  } catch (error) {
+    return formFailure(error, []);
+  }
+}
+
+export async function countUnqualified(
+  _previous: StaffFormState,
+): Promise<StaffFormState> {
+  return startRevoke(false);
+}
+
+export async function revokeUnqualified(
+  _previous: StaffFormState,
+): Promise<StaffFormState> {
+  return startRevoke(true);
 }

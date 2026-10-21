@@ -10,9 +10,10 @@ mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
+const renewed: string[] = [];
 mock.module("next/cache", () => ({
   ...cache,
-  revalidatePath: () => {},
+  revalidatePath: (path: string) => renewed.push(path),
   revalidateTag: () => {},
   updateTag: () => {},
 }));
@@ -45,7 +46,13 @@ async function redirectedTo(run: () => Promise<unknown>) {
   return undefined;
 }
 
-const { saveAward, deleteAward, runAwards } = await import("./actions");
+const {
+  countUnqualified,
+  deleteAward,
+  revokeUnqualified,
+  runAwards,
+  saveAward,
+} = await import("./actions");
 
 const base = {
   name: "Hero",
@@ -163,4 +170,35 @@ test("delete shows the backend refusal and the sweep shows its answer", async ()
   expect(await runAwards(null)).toEqual({
     notice: messages.adminEconomy.awards.runQueued,
   });
+});
+
+test("the count and the run that takes awards back start the backend run with their own apply, and refresh the page", async () => {
+  const words = messages.adminEconomy.awards.revoke;
+  backend = fakeBackend({
+    "awards.revokeUnqualified": () => Response.json({ queued: true }),
+  });
+  renewed.length = 0;
+  expect(await countUnqualified(null)).toEqual({ notice: words.countQueued });
+  expect(await revokeUnqualified(null)).toEqual({ notice: words.revokeQueued });
+  expect(backend.asked.map((call) => call.body)).toEqual([
+    { apply: false },
+    { apply: true },
+  ]);
+  expect(renewed).toEqual(["/[locale]/admin/awards", "/[locale]/admin/awards"]);
+});
+
+test("a run already under way is told so, and the backend's refusal is shown", async () => {
+  backend = fakeBackend({
+    "awards.revokeUnqualified": () => Response.json({ queued: false }),
+  });
+  renewed.length = 0;
+  expect(await revokeUnqualified(null)).toEqual({
+    error: messages.adminEconomy.awards.revoke.notQueued,
+  });
+  expect(renewed).toEqual([]);
+  backend.restore();
+  backend = fakeBackend({
+    "awards.revokeUnqualified": () => refusal(403, "forbidden", "Not allowed."),
+  });
+  expect(await countUnqualified(null)).toEqual({ error: "Not allowed." });
 });

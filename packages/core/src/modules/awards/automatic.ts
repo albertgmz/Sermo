@@ -32,14 +32,14 @@ export const evaluationSql = {
 };
 
 /** The active awards with conditions: one with none is granted by hand only, whatever an empty rule means elsewhere. */
-function activePlans(ctx: Ctx) {
+export function activePlans(ctx: Ctx) {
   return all<AwardRow>(ctx, "catalog", awardSql.catalog)
     .filter((award) => award.is_active)
     .map((award) => ({ award, rule: ruleOf(award) }))
     .filter((plan) => plan.rule.conditions.length > 0);
 }
 
-type Plans = ReturnType<typeof activePlans>;
+export type Plans = ReturnType<typeof activePlans>;
 
 /**
  * The facts a pass reads from history take as long as that history is, so they are loaded before
@@ -57,9 +57,9 @@ function readFacts(ctx: Ctx, memberIds: number[], seen: Plans) {
       );
 }
 
-const nextTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
+export const nextTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-function confirmed(ctx: Ctx, seen: Plans): Plans {
+export function confirmed(ctx: Ctx, seen: Plans): Plans {
   const rules = new Map(seen.map((plan) => [plan.award.id, plan.award.rule]));
   return activePlans(ctx).filter((plan) => rules.get(plan.award.id) === plan.award.rule);
 }

@@ -402,6 +402,11 @@ const attempts: Record<
     lost: F,
     banned: F,
   },
+  "awards.revokeUnqualified": {
+    run: (ctx, actor) => execute(ctx, op("awards.revokeUnqualified"), actor, { apply: false }),
+    lost: F,
+    banned: F,
+  },
   "awards.grant": {
     run: (ctx, actor, s) =>
       execute(ctx, op("awards.grant"), actor, { userId: s.member.id, awardId: s.awards.grant }),

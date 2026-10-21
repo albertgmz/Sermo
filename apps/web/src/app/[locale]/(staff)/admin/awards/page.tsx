@@ -7,6 +7,7 @@ import { ListSkeleton } from "../../skeletons";
 import { staffTrail } from "../../trail";
 import { AwardList } from "./award-list";
 import { AwardCategoryList } from "./categories/category-list";
+import { RevokeUnqualified } from "./revoke-unqualified";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminEconomy.awards");
@@ -29,6 +30,7 @@ export default function AwardsPage({
     >
       <AwardCategoryList searchParams={searchParams} />
       <AwardList searchParams={searchParams} addAction={add} />
+      <RevokeUnqualified />
     </ScreenFrame>
   );
 }

@@ -45,6 +45,8 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["DELETE", "/credit-rules/{ruleId}", "creditRules.delete"],
   ["GET", "/awards/criteria", "awards.criteria"],
   ["POST", "/awards/run", "awards.run", 201],
+  ["GET", "/awards/revoke-unqualified", "awards.revokeStatus"],
+  ["POST", "/awards/revoke-unqualified", "awards.revokeUnqualified", 201],
   ["GET", "/awards/categories", "awardCategories.list"],
   ["POST", "/awards/categories", "awardCategories.create", 201],
   ["PATCH", "/awards/categories/{categoryId}", "awardCategories.update"],

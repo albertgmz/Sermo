@@ -82,16 +82,28 @@ export function grantAward(
   return grant;
 }
 
-export function revokeAward(ctx: Ctx, id: number, actorId: number, reason: string): void {
+/**
+ * Takes one grant back. A grant the criteria made stays marked as made (`auto_granted`), so the
+ * criteria do not give it again; `rearm` clears the mark, for a grant taken back because its
+ * member no longer meets the rule (they get it again if they come to meet it).
+ */
+export function revokeAward(
+  ctx: Ctx,
+  id: number,
+  actorId: number,
+  reason: string,
+  options: { rearm?: boolean } = {},
+): void {
   if (!ctx.sqlite.inTransaction) throw new Error("Award revocations require a write transaction.");
   const grant = one<GrantRow>(ctx, "revoke", awardSql.revoke, ctx.now(), actorId, id);
   if (!grant) throw new NotFoundError();
   run(
     ctx,
     "removeTotal",
-    "UPDATE member_award_totals SET count = count - 1 WHERE user_id = ?1 AND award_id = ?2",
+    "UPDATE member_award_totals SET count = count - 1, auto_granted = auto_granted AND NOT ?3 WHERE user_id = ?1 AND award_id = ?2",
     grant.user_id,
     grant.award_id,
+    Number(options.rearm ?? false),
   );
   run(
     ctx,

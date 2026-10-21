@@ -451,9 +451,23 @@ to that grant reverse separately when the revoke event is processed.
 An award whose `rule` has no conditions is manual only. Otherwise the rule must hold for an
 automatic grant. Members are evaluated after relevant activity (including credit changes and
 purchases) and by a daily sweep. Each award is granted automatically at most once per member,
-even when stackable. Losing eligibility never takes it back, and revoking an automatic grant
-never makes the criteria grant it again. Manual grants remain possible under the stackability
-rule; a held non-stackable manual grant prevents an automatic grant while it is held.
+even when stackable. Losing eligibility does not take it back by itself, and revoking an
+automatic grant by hand never makes the criteria grant it again. Manual grants remain possible
+under the stackability rule; a held non-stackable manual grant prevents an automatic grant while
+it is held.
+
+To take automatic grants back from members who no longer meet the rule, an administrator starts
+a run on `/admin/awards` ("Retirar a quien ya no cumple"), never at deploy or from the sweep. It
+first counts (`apply: false`: nothing is written, the result lists the grants by award), then
+revokes (`apply: true`). The run goes through the members who hold automatic grants of active
+awards with conditions, 25 at a time, and revokes each grant whose rule the member no longer
+meets like `awards.revoke` does (XP and credits taken back, balances may go below zero), judging
+the member's other awards again with what is left until none more falls. Grants made by hand,
+inactive awards and awards with no conditions are never touched, nobody is notified, and the
+start and the end of a revoking run are written to the moderator log. A grant taken back is given
+again if the member later meets the rule. A run that stopped on an error resumes from where it
+stopped when started again with the same `apply`; credit rules that paid for a grant reverse
+afterwards, so a second run settles what that changes.
 
 | Task | REST | Operation |
 | --- | --- | --- |
@@ -466,13 +480,15 @@ rule; a held non-stackable manual grant prevents an automatic grant while it is 
 | Grant by hand (`awardId` in the body) | `POST /users/{userId}/awards` | `awards.grant` |
 | Revoke one grant | `DELETE /award-grants/{memberAwardId}` | `awards.revoke` |
 | Queue an evaluation of everyone | `POST /awards/run` | `awards.run` |
+| Count, or take back, automatic grants whose rule is no longer met | `POST /awards/revoke-unqualified` | `awards.revokeUnqualified` |
+| Where that run stands and what it counted or took back | `GET /awards/revoke-unqualified` | `awards.revokeStatus` |
 | List categories, in order, with their award counts | `GET /awards/categories` | `awardCategories.list` |
 | Create, change (title, description, position), delete a category | `POST /awards/categories`, `PATCH`/`DELETE /awards/categories/{categoryId}` | `awardCategories.create`, `awardCategories.update`, `awardCategories.delete` |
 
 Catalog and holder calls need `profile.view`; inactive awards are shown there only to holders
 of `admin.awards`. Member award calls require access to that member's profile and include the
 awards they still hold, even if deactivated. Managing awards and their categories, reading
-criteria and queuing a sweep need `admin.awards`. The category list needs `profile.view`; without
+criteria, queuing a sweep and the run that takes back grants need `admin.awards`. The category list needs `profile.view`; without
 `admin.awards` it holds only categories with an active award, and counts only active awards.
 
 Set `isActive: false` to stop further grants while keeping existing ones. An award that has

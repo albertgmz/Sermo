@@ -22,10 +22,11 @@ import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
 import { requireSiteView } from "../members/site-access";
 import { mayViewProfile, profileAccess } from "../profiles/shared";
-import { sweepAgainAfterCurrent } from "./automatic";
+import { registerAwardJobs as registerSweepJobs, sweepAgainAfterCurrent } from "./automatic";
 import { assertCategory, categoryOperations } from "./categories";
 import { grantAward, revokeAward } from "./grants";
 import { AWARD_ICON_KEYS } from "./icons";
+import { registerRevokeJobs, revokeRunValue, startRevoke } from "./revoke";
 import {
   type AwardRow,
   all,
@@ -44,7 +45,10 @@ import {
   type TotalRow,
 } from "./store";
 
-export { registerAwardJobs } from "./automatic";
+export function registerAwardJobs(ctx: Ctx): void {
+  registerSweepJobs(ctx);
+  registerRevokeJobs(ctx);
+}
 
 function visibleAward(ctx: Ctx, actor: Actor, id: number): AwardRow {
   requireSiteView(ctx, actor);
@@ -256,6 +260,18 @@ export const operations = [
           enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" }) !== null,
       };
     });
+  }),
+  implement(contracts.awardsRevokeUnqualified, (ctx, actor, input) => {
+    requirePermission(ctx, actor, "admin.awards");
+    const admin = requireAuthenticated(actor);
+    return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
+      return { queued: startRevoke(ctx, admin.userId, input.apply) };
+    });
+  }),
+  implement(contracts.awardsRevokeStatus, (ctx, actor) => {
+    requirePermission(ctx, actor, "admin.awards");
+    return revokeRunValue(ctx);
   }),
   implement(contracts.awardsGrant, (ctx, actor, input) => {
     requirePermission(ctx, actor, "award.grant");
