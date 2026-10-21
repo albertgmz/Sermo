@@ -125,7 +125,7 @@ setup("sign in, seed and warm up", async ({ page }) => {
     "/login",
     "/register",
     "/cookies",
-    "/lite",
+    "/account/data-saver",
   ]) {
     await page.goto(path);
     await ready(page);
