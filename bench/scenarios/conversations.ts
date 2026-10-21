@@ -163,6 +163,16 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    // Before markRead, which puts the read marks it moves back.
+    name: "conversations.markUnread",
+    kind: "write",
+    run(env, i) {
+      const [conversationId, userId] =
+        env.meta.conversationMembers[i % env.meta.conversationMembers.length]!;
+      return env.call("conversations.markUnread", env.actors.user(userId), { conversationId });
+    },
+  },
+  {
     name: "conversations.markRead",
     kind: "write",
     run(env, i) {
