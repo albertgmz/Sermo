@@ -499,6 +499,28 @@ describe("conversations", () => {
     // Reading it again clears the mark.
     await execute(ctx, conversationsMarkReadOp, a, { conversationId: id });
     expect([await isUnread(a), await counter(a)]).toEqual([false, 0]);
+    // A mark already behind the target stays where it is: nothing unread becomes read.
+    const markOf = (userId: number) =>
+      ctx.sqlite
+        .prepare<{ m: number }, [number, number]>(
+          "SELECT last_read_message_id AS m FROM conversation_participants WHERE conversation_id = ?1 AND user_id = ?2",
+        )
+        .get(id, userId)!.m;
+    expect(markOf(idOf(a))).toBe(third.id);
+    ctx.sqlite
+      .prepare(
+        "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
+      )
+      .run(made.message.id, id, idOf(a));
+    await execute(ctx, conversationsMarkUnreadOp, a, { conversationId: id });
+    expect(markOf(idOf(a))).toBe(made.message.id);
+    ctx.sqlite
+      .prepare(
+        "UPDATE conversation_participants SET last_read_message_id = 0 WHERE conversation_id = ?1 AND user_id = ?2",
+      )
+      .run(id, idOf(a));
+    await execute(ctx, conversationsMarkUnreadOp, a, { conversationId: id });
+    expect(markOf(idOf(a))).toBe(0);
     // A conversation of one message goes back to nothing read.
     const alone = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
     await execute(ctx, conversationsMarkUnreadOp, a, { conversationId: alone.conversation.id });

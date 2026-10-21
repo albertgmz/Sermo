@@ -16,7 +16,7 @@
       "post": "Post",
       "profile_post": "Profile post",
       "profile_post_comment": "Profile comment",
-      "conversation_message": "Private message",
+      "conversation_message": "Direct message",
       "user": "Member"
     },
     "state": {
@@ -127,12 +127,12 @@
   },
   "auditedRead": {
     "heading": "This view is logged",
-    "warning": "Private conversations are not open to moderators. Opening this message shows it with the messages around it, and the moderator log records that you did, with your name and the time. Open it only to decide this case.",
+    "warning": "Direct messages are not open to moderators. Opening this message shows it with the messages around it, and the moderator log records that you did, with your name and the time. Open it only to decide this case.",
     "confirm": "Open and log the view",
     "opening": "Opening…",
     "viewDescription": "The message under review is marked. The view was logged.",
     "target": "Reported message",
-    "empty": "The conversation has no messages to show."
+    "empty": "The direct message has no messages to show."
   },
   "approvals": {
     "metaTitle": "Approvals",

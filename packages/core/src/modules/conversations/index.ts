@@ -801,14 +801,15 @@ export const conversationsMarkUnreadOp = implement(
     writeTx(ctx, () => {
       const row = activeConversation(ctx, actor, input.conversationId);
       // The mark goes back to the visible message before the newest one (0 when there is none),
-      // so the newest message is the first unread.
+      // so the newest message is the first unread. It never moves forward: a mark already
+      // behind stays, so nothing unread becomes read.
       const before =
         prepared(ctx, "conversations.beforeNewest", () =>
           ctx.sqlite.prepare<{ id: number | null }, [number, number]>(markUnreadSql),
         ).get(row.id, row.last_message_id)?.id ?? 0;
-      prepared(ctx, "conversations.updateReadState", () =>
+      prepared(ctx, "conversations.markUnreadState", () =>
         ctx.sqlite.prepare(
-          "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
+          "UPDATE conversation_participants SET last_read_message_id = min(last_read_message_id, ?1) WHERE conversation_id = ?2 AND user_id = ?3",
         ),
       ).run(before, row.id, user.userId);
     });

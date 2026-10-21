@@ -16,7 +16,7 @@
       "post": "Mensaje",
       "profile_post": "Publicación de perfil",
       "profile_post_comment": "Comentario de perfil",
-      "conversation_message": "Mensaje privado",
+      "conversation_message": "Mensaje directo",
       "user": "Miembro"
     },
     "state": {
@@ -127,12 +127,12 @@
   },
   "auditedRead": {
     "heading": "Esta vista queda registrada",
-    "warning": "Las conversaciones privadas no están abiertas a los moderadores. Abrir este mensaje lo muestra junto con los mensajes de alrededor, y el registro de moderación anota que lo hiciste, con tu nombre y la hora. Ábrelo solo para decidir este caso.",
+    "warning": "Los mensajes directos no están abiertos a los moderadores. Abrir este mensaje lo muestra junto con los mensajes de alrededor, y el registro de moderación anota que lo hiciste, con tu nombre y la hora. Ábrelo solo para decidir este caso.",
     "confirm": "Abrir y registrar la vista",
     "opening": "Abriendo…",
     "viewDescription": "El mensaje en revisión aparece marcado. La vista quedó registrada.",
     "target": "Mensaje denunciado",
-    "empty": "La conversación no tiene mensajes que mostrar."
+    "empty": "No hay mensajes que mostrar en este mensaje directo."
   },
   "approvals": {
     "metaTitle": "Aprobaciones",

@@ -33,7 +33,9 @@ if (values.help || !values.pairs) {
 
 const dbPath = values.db ?? process.env.SERMO_DB_PATH ?? "./data/sermo.db";
 const pairs = parsePairs(readFileSync(values.pairs, "utf8"));
-const db = new Database(dbPath, { readwrite: true, strict: true });
+const db = values.apply
+  ? new Database(dbPath, { readwrite: true, strict: true })
+  : new Database(dbPath, { readonly: true, strict: true });
 db.run("PRAGMA busy_timeout = 30000");
 try {
   if (values.apply) {
