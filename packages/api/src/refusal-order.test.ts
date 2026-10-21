@@ -45,34 +45,10 @@ const SAMPLE_REJECTED: Record<string, readonly ("guest" | "member")[]> = {
  * test, so this list only shrinks.
  */
 const VALIDATES_FIRST: Record<string, readonly ("guest" | "member")[]> = {
-  "auth.verifyPassword": ["guest"],
-  "bans.lift": ["guest"],
-  "conversations.listMessages": ["guest"],
-  "images.setAvatar": ["guest"],
-  "images.setCover": ["guest"],
-  "images.setNodeCover": ["guest", "member"],
-  "images.setNodeIcon": ["guest", "member"],
-  "moderation.bulk": ["guest"],
-  "moderation.setState": ["guest"],
+  "auth.verifyPassword": ["member"],
   "moderatorLog.list": ["member"],
-  "reports.create": ["guest"],
-  "reports.setState": ["guest"],
-  "restrictions.create": ["member"],
-  "shop.buy": ["guest"],
-  "shop.upgrade": ["guest"],
-  "shop.use": ["guest"],
-  "spamCleanup.start": ["member"],
-  "users.adminErase": ["member"],
-  "users.adminRevokeSessions": ["member"],
-  "users.adminUpdateIdentity": ["member"],
-  "users.adminUpdateProfile": ["member"],
   "users.deleteOwnAccount": ["member"],
-  "users.ips": ["member"],
-  "warnings.create": ["guest", "member"],
-  "warnings.delete": ["guest"],
-  "warnings.expire": ["guest"],
-  "warnings.list": ["guest"],
-  "wordFilters.remove": ["guest", "member"],
+  "warnings.create": ["member"],
 };
 
 type Json = Record<string, unknown>;

@@ -6,7 +6,7 @@ import { writeTx } from "../../db/tx";
 import { ForbiddenError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
-import { can, currentActor, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission, resolvedPermissions } from "../../permissions";
 import { catalogs } from "../appearance/store";
 import { clearMemberPicture } from "../images";
 import { appendModeratorLog } from "../moderation";
@@ -154,6 +154,11 @@ export function editMemberProfile(
 }
 
 export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx, actor, input) => {
+  // Whether the caller edits members' profiles at all is decided before the input is read.
+  requireAuthenticated(actor);
+  const held = resolvedPermissions(ctx, actor);
+  if (held["admin.members"] !== true && held["member.editProfile"] !== true)
+    throw new ForbiddenError();
   editMemberProfile(ctx, actor, input);
   return viewFor(ctx, actor, input.userId);
 });

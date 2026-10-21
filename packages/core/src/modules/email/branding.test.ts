@@ -104,9 +104,7 @@ test("the icon is its 192 px copy when there is one, found by index", () => {
     "SELECT id FROM files WHERE parent_file_id = ?1 AND variant = 'icon_192' AND deleted_at IS NULL",
     [icon],
   );
-  expectNoTableScan(
-    ctx,
-    "SELECT id FROM static_pages WHERE slug = 'contact' AND is_published = 1",
-    [],
-  );
+  expectNoTableScan(ctx, "SELECT id FROM static_pages WHERE slug = ?1 AND is_published = 1", [
+    "contact",
+  ]);
 });

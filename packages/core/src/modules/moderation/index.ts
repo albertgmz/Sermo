@@ -2378,9 +2378,10 @@ export const operations = [
         })),
     };
   }),
-  implement(contracts.reportsCreate, (ctx, actor, input) =>
-    createReport(ctx, actor, input.target, input.reason),
-  ),
+  implement(contracts.reportsCreate, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    return createReport(ctx, actor, input.target, input.reason);
+  }),
   implement(contracts.reportsList, (ctx, actor, input) => {
     const result = listReports(ctx, actor, input);
     const context = describeQueueItems(
@@ -2403,16 +2404,17 @@ export const operations = [
       reports: group.reports.map(publicRow),
     });
   }),
-  implement(contracts.reportsSetState, (ctx, actor, input) =>
-    contracts.reportsSetState.output.parse(
+  implement(contracts.reportsSetState, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    return contracts.reportsSetState.output.parse(
       publicRow(
         setReportState(ctx, actor, input.groupId, input.state, input.reason, input.assigneeId, {
           notify: input.notify,
           message: input.message,
         }),
       ),
-    ),
-  ),
+    );
+  }),
   implement(contracts.approvalsList, (ctx, actor, input) => {
     const result = listApprovals(ctx, actor, input);
     const context = describeQueueItems(
@@ -2431,18 +2433,20 @@ export const operations = [
       nextCursor: result.nextCursor,
     });
   }),
-  implement(contracts.moderationSetState, (ctx, actor, input) =>
-    moderateContent(ctx, actor, input.target, input.state, input.reason, {
+  implement(contracts.moderationSetState, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    return moderateContent(ctx, actor, input.target, input.state, input.reason, {
       notify: input.notify,
       message: input.message,
-    }),
-  ),
-  implement(contracts.moderationBulk, (ctx, actor, input) =>
-    bulkModerate(ctx, actor, input.targets, input.action, input.reason, input.nodeId, {
+    });
+  }),
+  implement(contracts.moderationBulk, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    return bulkModerate(ctx, actor, input.targets, input.action, input.reason, input.nodeId, {
       notify: input.notify,
       message: input.message,
-    }),
-  ),
+    });
+  }),
   implement(contracts.moderatorLogList, (ctx, actor, input) =>
     contracts.moderatorLogList.output.parse(page(listModeratorLog(ctx, actor, input))),
   ),
@@ -2454,12 +2458,13 @@ export const operations = [
   implement(contracts.wordFiltersUpsert, (ctx, actor, input) =>
     upsertWordFilter(ctx, actor, input),
   ),
-  implement(
-    contracts.wordFiltersRemove,
-    (ctx, actor, input) => removeWordFilter(ctx, actor, input.filterId) as { ok: true },
-  ),
-  implement(contracts.warningsCreate, (ctx, actor, input) =>
-    addWarning(
+  implement(contracts.wordFiltersRemove, (ctx, actor, input) => {
+    requireGlobal(ctx, actor, "wordFilter.manage");
+    return removeWordFilter(ctx, actor, input.filterId) as { ok: true };
+  }),
+  implement(contracts.warningsCreate, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    return addWarning(
       ctx,
       actor,
       input.userId,
@@ -2471,17 +2476,20 @@ export const operations = [
       { notify: input.notify, message: input.message },
       input.typeId,
       input.postId,
-    ),
-  ),
-  implement(contracts.warningsDelete, (ctx, actor, input) =>
-    removeWarning(ctx, actor, input.warningId, "delete", input.reason),
-  ),
-  implement(contracts.warningsExpire, (ctx, actor, input) =>
-    removeWarning(ctx, actor, input.warningId, "expire", input.reason),
-  ),
-  implement(contracts.warningsList, (ctx, actor, input) =>
-    contracts.warningsList.output.parse(page(listWarnings(ctx, actor, input.userId, input))),
-  ),
+    );
+  }),
+  implement(contracts.warningsDelete, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    return removeWarning(ctx, actor, input.warningId, "delete", input.reason);
+  }),
+  implement(contracts.warningsExpire, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    return removeWarning(ctx, actor, input.warningId, "expire", input.reason);
+  }),
+  implement(contracts.warningsList, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    return contracts.warningsList.output.parse(page(listWarnings(ctx, actor, input.userId, input)));
+  }),
   implement(contracts.bansCreate, (ctx, actor, input) => {
     // Whether the caller may ban anyone at all is decided before the input is read; the member
     // is checked against its rank in banUser.
@@ -2496,14 +2504,13 @@ export const operations = [
       { notify: input.notify, message: input.message },
     );
   }),
-  implement(
-    contracts.bansLift,
-    (ctx, actor, input) =>
-      liftBan(ctx, actor, input.banId, input.reason, {
-        notify: input.notify,
-        message: input.message,
-      }) as { ok: true },
-  ),
+  implement(contracts.bansLift, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    return liftBan(ctx, actor, input.banId, input.reason, {
+      notify: input.notify,
+      message: input.message,
+    }) as { ok: true };
+  }),
   implement(contracts.postRevisionsList, (ctx, actor, input) =>
     contracts.postRevisionsList.output.parse(
       page(listPostRevisions(ctx, actor, input.postId, input)),
@@ -2511,6 +2518,8 @@ export const operations = [
   ),
   implement(contracts.spamCleanupStart, (ctx, actor, input) => {
     requireAuthenticated(actor);
+    // Whether the caller may clean up anyone's spam at all is decided before the input is read.
+    requirePermission(ctx, actor, "member.spamCleanup", { target: GUEST });
     requirePermission(ctx, actor, "member.spamCleanup", {
       target: principalMember(ctx, input.userId),
     });

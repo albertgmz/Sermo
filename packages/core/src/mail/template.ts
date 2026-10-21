@@ -231,6 +231,31 @@ function checkedAccent(brand: Brand): Brand {
   return { ...brand, accentForeground: white ? "#ffffff" : "#000000" };
 }
 
+const WEB_ADDRESS = /^https?:\/\//i;
+
+/**
+ * Every address in a mail is set by the server, but the layout does not rely on it: an address
+ * that is not http or https (`javascript:`, `data:`) is refused, so a caller that one day passes a
+ * member's address cannot put a script in a button. A required address that fails is a mistake of
+ * the caller and throws; a picture or a contact page that fails is left out.
+ */
+function webAddress(value: string, what: string): string {
+  if (!WEB_ADDRESS.test(value)) throw new Error(`${what} must be an http or https address.`);
+  return value;
+}
+
+function checkedAddresses(brand: Brand): Brand {
+  const optional = (value: string | null) => (value && WEB_ADDRESS.test(value) ? value : null);
+  webAddress(brand.url, "The site address");
+  webAddress(brand.preferencesUrl, "The notification settings address");
+  return {
+    ...brand,
+    logoUrl: optional(brand.logoUrl),
+    iconUrl: optional(brand.iconUrl),
+    contactUrl: optional(brand.contactUrl),
+  };
+}
+
 /** Paragraphs on blank lines, line breaks on single newlines; the text itself is escaped. */
 function paragraphs(text: string): string {
   return text
@@ -282,12 +307,17 @@ export async function renderEmail(
   input: TemplateInput,
 ): Promise<{ subject: string; html: string; text: string }> {
   const { language } = input;
-  const brand = checkedAccent(input.brand);
+  const brand = checkedAddresses(checkedAccent(input.brand));
   const t = (key: string, values: Record<string, string | number> = {}) =>
     phrase(language, key, values);
   const subject = input.subject.replace(/[\r\n]+/g, " ");
   const links = input.links ?? [];
   const items = input.items ?? [];
+  for (const { url } of [...links, ...items]) webAddress(url, "A link");
+  if (input.unsubscribe) {
+    webAddress(input.unsubscribe.typeUrl, "An unsubscribe link");
+    webAddress(input.unsubscribe.allUrl, "An unsubscribe link");
+  }
   const reason = t(`email.layout.reason.${input.reason}`, { site: brand.name });
   const footerLinks = [
     { label: t("email.layout.home"), url: brand.url },

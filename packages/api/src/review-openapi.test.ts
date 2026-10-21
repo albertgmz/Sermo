@@ -180,3 +180,30 @@ test("the document is OpenAPI 3.1: no 3.0 `nullable`, and enum-keyed records dec
   ).components.schemas.SiteSettings.properties.allowedUploadTypes;
   expect(Object.keys(settings.properties as object)).toEqual(settings.required as string[]);
 });
+
+test("making an API key from a session documents the password and the replace flag the hooks read", async () => {
+  const doc = (await document()) as unknown as {
+    paths: Record<
+      string,
+      Record<
+        string,
+        {
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: { required: string[]; properties: Record<string, { type: string }> };
+              };
+            };
+          };
+        }
+      >
+    >;
+  };
+  const schema =
+    doc.paths["/api/auth/api-key/create"]!.post!.requestBody.content["application/json"].schema;
+  expect(schema.required).toContain("password");
+  expect(schema.properties.password?.type).toBe("string");
+  expect(schema.properties.replace?.type).toBe("boolean");
+  // Better Auth's own fields stay.
+  expect(schema.properties.name?.type).toBe("string");
+});

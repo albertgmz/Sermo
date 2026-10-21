@@ -32,20 +32,6 @@ export function shareNatively(
   return true;
 }
 
-// Puts the link on the clipboard; false where there is no clipboard or it refuses.
-export async function copyLink(
-  url: string,
-  device: { clipboard?: { writeText: (text: string) => Promise<void> } },
-) {
-  try {
-    if (!device.clipboard) return false;
-    await device.clipboard.writeText(url);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // The menu's content: the button to copy and, where copying failed, the link in a field already
 // selected so it can be copied by hand.
 export function ShareMenuBody({

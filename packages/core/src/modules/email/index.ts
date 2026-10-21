@@ -494,6 +494,29 @@ export async function runWeeklyDigest(
   return sent;
 }
 
+/**
+ * Where the mail's "open" button leads: the alert's own destination, as the web app sends it.
+ * Content goes to its own address; a new follower to the member who followed, a sign-up waiting
+ * for approval to the queue, an announcement to the address its author gave (a path of the site
+ * or an http(s) address) or else the alert list, and a security alert to the alert list.
+ */
+function notificationLink(ctx: Ctx, row: Notification): string | null {
+  if (row.content_type === "security") return "/notifications";
+  const path = contentPath(row.content_type, row.content_id, row.thread_id);
+  if (path) return path;
+  if (row.type === "member.followed") return row.actor_id ? `/members/${row.actor_id}` : null;
+  if (row.type === "moderator.signup") return "/moderation/signups";
+  if (row.content_type !== "announcement") return null;
+  const given = prepared(ctx, "email.announcementUrl", () =>
+    ctx.sqlite.prepare<{ url: string | null }, [number]>(
+      "SELECT url FROM announcements WHERE id = ?1",
+    ),
+  ).get(row.content_id)?.url;
+  return given && (/^\/(?!\/)/.test(given) || /^https?:\/\//i.test(given))
+    ? given
+    : "/notifications";
+}
+
 async function notificationMessage(
   ctx: Ctx,
   row: Notification,
@@ -551,17 +574,19 @@ async function notificationMessage(
         allUrl: `${siteUrl}/api/v1/unsubscribe?token=${encodeURIComponent(await signUnsubscribe(ctx, user.id, "all"))}`,
       };
   // The alert's content, at its own address (the web app sends it on to the page that holds it).
-  const path =
-    row.content_type === "security"
-      ? null
-      : contentPath(row.content_type, row.content_id, row.thread_id);
+  const path = notificationLink(ctx, row);
   const rendered = await renderEmail({
     language,
     brand,
     ...(unsubscribe ? { reason: "notification", unsubscribe } : { reason: "account" }),
     ...(path
       ? {
-          links: [{ label: phrase(language, "email.notification.open"), url: `${siteUrl}${path}` }],
+          links: [
+            {
+              label: phrase(language, "email.notification.open"),
+              url: path.startsWith("/") ? `${siteUrl}${path}` : path,
+            },
+          ],
         }
       : {}),
     subject: phraseOr(

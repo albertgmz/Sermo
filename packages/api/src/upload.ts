@@ -35,6 +35,34 @@ function unsupportedMediaType(): HTTPException {
   });
 }
 
+/** How long a refused upload's remaining body is read for before the connection is given up. */
+const DRAIN_MS = 30_000;
+
+/**
+ * Reads what is left of a request body and drops it. A browser that is still sending when the
+ * answer arrives sees the connection reset, not the answer, so a refusal that comes while a large
+ * body is arriving (a size limit, a rejected part) is sent only once the body is in. A body that
+ * has not ended by `DRAIN_MS` is cut off.
+ */
+async function drain(source: Readable): Promise<void> {
+  if (source.destroyed || source.readableEnded) return;
+  source.unpipe();
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(() => {
+      source.destroy();
+      resolve();
+    }, DRAIN_MS);
+    const finish = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    source.once("end", finish);
+    source.once("close", finish);
+    source.once("error", finish);
+    source.resume();
+  });
+}
+
 /**
  * Stream one `file` part into storage. The storage upload only sees the end of the file after the
  * whole request has been validated, so a request rejected for any reason (extra part, malformed
@@ -118,9 +146,18 @@ export async function uploadMultipart(
   parser.on("fieldsLimit", reject);
   parser.on("partsLimit", reject);
 
+  // The parser reads the body through `tap`, so a parser that stops does not take the request's
+  // own stream with it: what is left of the body can still be read before the answer.
+  const source = Readable.fromWeb(request.body as never);
+  const tap = new PassThrough();
+  source.once("error", (error) => tap.destroy(error));
+  source.once("close", () => {
+    if (!source.readableEnded) tap.destroy(new Error("The request was aborted."));
+  });
+  source.pipe(tap);
   let failure: unknown;
   try {
-    await pipeline(Readable.fromWeb(request.body as never), parser);
+    await pipeline(tap, parser);
   } catch (error) {
     failure = error;
   }
@@ -131,6 +168,7 @@ export async function uploadMultipart(
     throw result.error;
   }
   abort(new ValidationError("The upload was rejected."));
+  await drain(source);
   if (upload) await upload;
   if (storageError !== undefined && storageError !== abortError) throw storageError;
   if (failure instanceof SermoError) throw failure;

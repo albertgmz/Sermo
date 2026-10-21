@@ -11,8 +11,8 @@
 import { Check, Copy } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import { copyLink } from "@/components/forum/share-button";
 import { Button } from "@/components/ui/button";
+import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 
 export function CopyButton({
@@ -29,7 +29,7 @@ export function CopyButton({
 
   async function copy() {
     clearTimeout(reset.current);
-    if (!(await copyLink(value, navigator))) {
+    if (!(await copyText(value, navigator))) {
       setStatus("failed");
       return;
     }

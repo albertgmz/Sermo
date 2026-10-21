@@ -118,6 +118,49 @@ const errorSchema = {
   },
 };
 
+/**
+ * What Sermo's hooks read from the body of `POST /api-key/create` and Better Auth's own document
+ * does not list: the member's password (a key is made from a session only with it) and `replace`
+ * (ends the member's older key; without it a member who has a key is refused with a 409). Without
+ * them "Try it out" can send neither.
+ */
+function withKeyCreateFields(operation: JsonObject): JsonObject {
+  const body = operation.requestBody as JsonObject | undefined;
+  const json = (body?.content as JsonObject | undefined)?.["application/json"] as
+    | JsonObject
+    | undefined;
+  const schema = json?.schema as JsonObject | undefined;
+  if (!body || !json || !schema) return operation;
+  return {
+    ...operation,
+    requestBody: {
+      ...body,
+      content: {
+        ...(body.content as JsonObject),
+        "application/json": {
+          ...json,
+          schema: {
+            ...schema,
+            required: [...((schema.required as string[] | undefined) ?? []), "password"],
+            properties: {
+              password: {
+                type: "string",
+                description: "Your current password. A key made from a session needs it.",
+              },
+              replace: {
+                type: "boolean",
+                description:
+                  "true ends your older API key; without it, a member who already has one is refused with 409.",
+              },
+              ...(schema.properties as JsonObject | undefined),
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
 export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
   const auth = nullableToType(await getAuth(ctx).api.generateOpenAPISchema());
   const authDocument = auth as unknown as {
@@ -132,7 +175,10 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
   for (const [path, methods] of Object.entries(authDocument.paths)) {
     const prefixed: JsonObject = {};
     for (const [method, endpoint] of Object.entries(methods)) {
-      const operation = endpoint as JsonObject;
+      const operation =
+        method === "post" && path === "/api-key/create"
+          ? withKeyCreateFields(endpoint as JsonObject)
+          : (endpoint as JsonObject);
       prefixed[method] = {
         ...operation,
         summary:

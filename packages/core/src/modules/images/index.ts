@@ -23,9 +23,16 @@ export { processImage } from "./process";
 
 type ImageSlot = "avatar" | "cover" | "node_icon" | "node_cover";
 
-function setImage(ctx: Ctx, actor: Actor, fileId: number | null, slot: ImageSlot, nodeId?: number) {
+/** The input is read only after the caller has been checked, so a refused caller never sees a 400. */
+function setImage(
+  ctx: Ctx,
+  actor: Actor,
+  input: { fileId: number | null; nodeId?: number },
+  slot: ImageSlot,
+) {
   const user = requireAuthenticated(actor);
-  if (nodeId !== undefined) requirePermission(ctx, actor, "admin.nodes");
+  if (slot === "node_icon" || slot === "node_cover") requirePermission(ctx, actor, "admin.nodes");
+  const { fileId, nodeId } = input;
   // Taking a picture off needs no permission.
   if (fileId !== null && slot === "avatar") requirePermission(ctx, actor, "profile.uploadAvatar");
   if (fileId !== null && slot === "cover") requirePermission(ctx, actor, "profile.uploadCover");
@@ -135,14 +142,10 @@ function setArtwork(
 }
 
 export const operations = [
-  implement(imagesSetAvatar, (ctx, actor, input) => setImage(ctx, actor, input.fileId, "avatar")),
-  implement(imagesSetCover, (ctx, actor, input) => setImage(ctx, actor, input.fileId, "cover")),
-  implement(imagesSetNodeIcon, (ctx, actor, input) =>
-    setImage(ctx, actor, input.fileId, "node_icon", input.nodeId),
-  ),
-  implement(imagesSetNodeCover, (ctx, actor, input) =>
-    setImage(ctx, actor, input.fileId, "node_cover", input.nodeId),
-  ),
+  implement(imagesSetAvatar, (ctx, actor, input) => setImage(ctx, actor, input, "avatar")),
+  implement(imagesSetCover, (ctx, actor, input) => setImage(ctx, actor, input, "cover")),
+  implement(imagesSetNodeIcon, (ctx, actor, input) => setImage(ctx, actor, input, "node_icon")),
+  implement(imagesSetNodeCover, (ctx, actor, input) => setImage(ctx, actor, input, "node_cover")),
   implement(imagesSetAwardImage, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
     return setArtwork(ctx, actor, input.fileId, {

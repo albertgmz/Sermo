@@ -401,6 +401,93 @@ describe("email channel", () => {
     }
   });
 
+  test("a mail for a follow, an announcement or a security alert leads where its alert does", async () => {
+    const f = fixture();
+    f.ctx.config.siteBaseURL = "https://forum.example.test";
+    const kinds = {
+      ...registry,
+      defaults: {
+        ...defaults,
+        "member.followed": { inApp: true, email: true, push: false },
+        announcement: { inApp: true, email: true, push: false },
+      },
+    };
+    const announce = (url: string | null) =>
+      f.ctx.sqlite
+        .prepare<{ id: number }, [number, number, string | null]>(
+          "INSERT INTO announcements (user_id, title, body_source, body_html, created_at, url) VALUES (?1, 'News', 'B', '<p>B</p>', ?2, ?3) RETURNING id",
+        )
+        .get(f.author.id, f.ctx.now(), url)!.id;
+    const send = async (type: string, contentType: string, contentId: number) => {
+      const id = f.ctx.sqlite
+        .prepare<{ id: number }, [number, string, string, number, number, number]>(
+          "INSERT INTO notifications (user_id, type, content_type, content_id, actor_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6) RETURNING id",
+        )
+        .get(f.reader.id, type, contentType, contentId, f.author.id, f.ctx.now())!.id;
+      deliverEmail(
+        f.ctx,
+        [
+          {
+            ...f.item,
+            notificationId: id,
+            type,
+            contentType,
+            contentId,
+            threadId: null,
+            actorId: f.author.id,
+          },
+        ],
+        kinds,
+      );
+      await runDueJobs(f.ctx);
+      return f.capture.messages.at(-1)?.text ?? "";
+    };
+    const before = f.capture.messages.length;
+    // A follow leads to the member who followed, not to the one followed.
+    expect(await send("member.followed", "user", f.reader.id)).toContain(
+      `View it: https://forum.example.test/members/${f.author.id}\n`,
+    );
+    // An announcement leads to the address its author gave, a path of the site or an address.
+    expect(await send("announcement", "announcement", announce("/threads/9"))).toContain(
+      "https://forum.example.test/threads/9",
+    );
+    expect(
+      await send("announcement", "announcement", announce("https://news.example.test/a")),
+    ).toContain("https://news.example.test/a");
+    // Without one, or with one that is neither, to the list of alerts.
+    for (const given of [null, "javascript:alert(1)", "//evil.example.test/x"])
+      expect(await send("announcement", "announcement", announce(given))).toContain(
+        "https://forum.example.test/notifications",
+      );
+    expect(f.capture.messages.length).toBe(before + 6);
+  });
+
+  test("a security alert's mail leads to the list of alerts", async () => {
+    const f = fixture();
+    f.ctx.config.siteBaseURL = "https://forum.example.test";
+    const id = f.ctx.sqlite
+      .prepare<{ id: number }, [number, number]>(
+        "INSERT INTO notifications (user_id, type, content_type, content_id, created_at, updated_at) VALUES (?1, 'security.login', 'security', ?1, ?2, ?2) RETURNING id",
+      )
+      .get(f.reader.id, f.ctx.now())!.id;
+    deliverEmail(
+      f.ctx,
+      [
+        {
+          ...f.item,
+          notificationId: id,
+          type: "security.login",
+          contentType: "security",
+          contentId: f.reader.id,
+          threadId: null,
+        },
+      ],
+      registry,
+    );
+    await runDueJobs(f.ctx);
+    expect(f.capture.messages.at(-1)?.text).toContain("https://forum.example.test/notifications");
+  });
+
   test("the digest builds the site's branding once per batch and shows it in every message", async () => {
     const f = digestFixture(4);
     const settings = readSiteSettings(f.ctx);

@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Ctx } from "@sermo/core";
@@ -7,6 +8,7 @@ import { closeContext, localDriver, readSiteSettings } from "@sermo/core";
 import { createTestContext } from "@sermo/core/testing";
 import { HTTPException } from "hono/http-exception";
 import { createApp } from "./app";
+import { createServerOptions } from "./server";
 import { uploadMultipart } from "./upload";
 
 const contexts: Ctx[] = [];
@@ -59,7 +61,7 @@ async function setup(storage = true) {
   });
   expect(created.status).toBe(200);
   const { key } = (await created.json()) as { key: string };
-  return { dir, ctx, request, cookie, key };
+  return { dir, ctx, app, request, cookie, key };
 }
 
 const boundary = "XBOUNDARYX";
@@ -365,3 +367,52 @@ test("the file name a browser sends as UTF-8 is stored and used as the download 
     `attachment; filename="informe econ_mico.txt"; filename*=UTF-8''informe%20econ%C3%B3mico.txt`,
   );
 });
+
+test("a refusal that comes while a large body is still arriving reaches the sender as an answer", async () => {
+  const state = await setup();
+  const live = Bun.serve({ ...createServerOptions(state.app, 0), hostname: "127.0.0.1" });
+  const limit = readSiteSettings(state.ctx).maxUploadBytes;
+  const megabytes = Math.ceil(limit / (1 << 20)) + 15;
+  try {
+    // Node's client, not fetch: it reports a connection reset instead of hiding it.
+    const answer = await new Promise<string>((resolve) => {
+      const sent = httpRequest(
+        {
+          host: "127.0.0.1",
+          port: live.port,
+          method: "POST",
+          path: "/api/v1/files?purpose=attachment",
+          headers: {
+            cookie: state.cookie,
+            origin: "http://localhost:3000",
+            "content-type": `multipart/form-data; boundary=${boundary}`,
+          },
+        },
+        (response) => {
+          response.resume();
+          response.on("end", () => resolve(`status ${response.statusCode}`));
+        },
+      );
+      sent.on("error", (error) => resolve(`error ${error.message}`));
+      const chunk = Buffer.alloc(1 << 20, 97);
+      sent.write(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`,
+      );
+      let count = 0;
+      const pump = () => {
+        while (count < megabytes) {
+          count += 1;
+          if (!sent.write(chunk)) {
+            sent.once("drain", pump);
+            return;
+          }
+        }
+        sent.end(`\r\n${end}`);
+      };
+      pump();
+    });
+    expect(answer).toBe("status 400");
+  } finally {
+    await live.stop(true);
+  }
+}, 30_000);

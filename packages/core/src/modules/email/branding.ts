@@ -1,6 +1,7 @@
 import { type Ctx, prepared } from "../../context";
 import { type Brand, DEFAULT_ACCENT } from "../../mail/template";
 import { catalogs } from "../appearance/store";
+import { CONTACT_PATH, CONTACT_SLUG } from "../pages/contact";
 import type { readSiteSettings } from "../settings";
 import { publicPicture } from "../storage/url";
 
@@ -20,10 +21,10 @@ export function siteBranding(ctx: Ctx, settings: ReturnType<typeof readSiteSetti
   // The icon is shown 40 px wide: its 192 px copy is sharp on a dense screen at a fraction of the
   // 512 px original's bytes.
   const row = prepared(ctx, "email.branding", () =>
-    ctx.sqlite.prepare<{ contact: number | null; icon: number | null }, [number | null]>(
-      "SELECT (SELECT id FROM static_pages WHERE slug = 'contact' AND is_published = 1) AS contact, (SELECT id FROM files WHERE parent_file_id = ?1 AND variant = 'icon_192' AND deleted_at IS NULL) AS icon",
+    ctx.sqlite.prepare<{ contact: number | null; icon: number | null }, [number | null, string]>(
+      "SELECT (SELECT id FROM static_pages WHERE slug = ?2 AND is_published = 1) AS contact, (SELECT id FROM files WHERE parent_file_id = ?1 AND variant = 'icon_192' AND deleted_at IS NULL) AS icon",
     ),
-  ).get(settings.iconFileId)!;
+  ).get(settings.iconFileId, CONTACT_SLUG)!;
   return {
     name: settings.siteName,
     url: home,
@@ -31,7 +32,7 @@ export function siteBranding(ctx: Ctx, settings: ReturnType<typeof readSiteSetti
     iconUrl: absolute(row.icon ?? settings.iconFileId),
     accent: accent?.color ?? DEFAULT_ACCENT.color,
     accentForeground: accent?.foreground ?? DEFAULT_ACCENT.foreground,
-    contactUrl: row.contact ? new URL("/contact", home).href : null,
+    contactUrl: row.contact ? new URL(CONTACT_PATH, home).href : null,
     preferencesUrl: new URL("/account/notifications", home).href,
   };
 }

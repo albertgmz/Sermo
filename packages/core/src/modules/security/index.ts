@@ -157,7 +157,8 @@ export const ipsContentOp = implement(ipsContent, (ctx, actor, input) => {
 });
 
 export const usersIpsOp = implement(usersIps, (ctx, actor, input) => {
-  requireAuthenticated(actor);
+  // Whether the caller may see addresses at all is decided before the input is read.
+  requireHeld(ctx, actor, "member.viewIps");
   requirePermission(ctx, actor, "member.viewIps", {
     target: targetMember(ctx, actor, input.userId),
   });

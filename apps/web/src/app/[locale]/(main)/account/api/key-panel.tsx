@@ -2,7 +2,13 @@
 
 import { KeyRound } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useActionState, useLayoutEffect, useRef, useState } from "react";
+import {
+  useActionState,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { flushSync } from "react-dom";
 import {
   issueKey,
@@ -26,14 +32,26 @@ export type KeyRow = {
 
 // The member's key, or the form that makes one. A key made here is shown once, in place of the
 // whole panel, until the member says they saved it. The action's answer already carries the page
-// read again, so the rows behind it name the new key.
+// read again, so the rows behind it name the new key. The panel below is drawn again from nothing
+// when the key is let go of: its action state is the only place the key is held, and it cannot be
+// emptied from inside.
 export function KeyPanel({ keys }: { keys: KeyRow[] }) {
+  const [round, setRound] = useState(0);
+  const onDone = useCallback(() => setRound((current) => current + 1), []);
+  return <Panel key={round} keys={keys} onDone={onDone} />;
+}
+
+function Panel({ keys, onDone }: { keys: KeyRow[]; onDone: () => void }) {
   const t = useTranslations("account.apiKeys.key");
   const [state, action] = useActionState<KeyFormState, FormData>(
     issueKey,
     null,
   );
-  const [saved, setSaved] = useState<string | null>(null);
+  const done = useRef(false);
+  const letGo = useCallback(() => {
+    done.current = true;
+    onDone();
+  }, [onDone]);
   // Shown once means not again on Back: the router keeps a page left behind mounted but hidden,
   // with its state, and hiding it runs this cleanup. The hide waits a moment because a remount in
   // development (Strict Mode) runs the cleanup and the effect again at once, and must keep the key.
@@ -44,19 +62,17 @@ export function KeyPanel({ keys }: { keys: KeyRow[] }) {
     if (!shownKey) return;
     // Nor after a full navigation away and Back: a browser may restore the whole page from its
     // back/forward cache, so the key is taken off the page, at once, as the page is left.
-    const leave = () => flushSync(() => setSaved(shownKey));
+    const leave = () => flushSync(letGo);
     window.addEventListener("pagehide", leave);
     return () => {
       window.removeEventListener("pagehide", leave);
-      pendingHide.current = setTimeout(() => setSaved(shownKey));
+      pendingHide.current = setTimeout(() => {
+        if (!done.current) letGo();
+      });
     };
-  }, [shownKey]);
+  }, [shownKey, letGo]);
 
-  if (state?.key && state.key !== saved) {
-    return (
-      <NewKey value={state.key} onDone={() => setSaved(state.key ?? null)} />
-    );
-  }
+  if (state?.key) return <NewKey value={state.key} onDone={letGo} />;
 
   const issue = (
     <form action={action} className="space-y-3">

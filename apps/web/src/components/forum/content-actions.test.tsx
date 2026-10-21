@@ -38,7 +38,7 @@ afterAll(() => {
 });
 const { ContentActions } = await import("./content-actions");
 const { ContentMenu } = await import("./content-menu");
-const { ShareButton, ShareMenuBody, copyLink, shareNatively } = await import(
+const { ShareButton, ShareMenuBody, shareNatively } = await import(
   "./share-button"
 );
 
@@ -307,26 +307,6 @@ test("closing the share sheet is quiet; any other failure opens the copy menu", 
       },
       fallback,
     ),
-  ).toBe(false);
-});
-
-test("copying reports whether the clipboard took the link", async () => {
-  const written: string[] = [];
-  expect(
-    await copyLink("u", {
-      clipboard: {
-        writeText: async (text) => {
-          written.push(text);
-        },
-      },
-    }),
-  ).toBe(true);
-  expect(written).toEqual(["u"]);
-  expect(await copyLink("u", {})).toBe(false);
-  expect(
-    await copyLink("u", {
-      clipboard: { writeText: () => Promise.reject(new Error("no")) },
-    }),
   ).toBe(false);
 });
 

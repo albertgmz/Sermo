@@ -642,6 +642,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
 export const conversationsListMessagesOp = implement(
   conversationsListMessages,
   (ctx, actor, input) => {
+    requireAuthenticated(actor);
     const conversation = activeConversation(ctx, actor, input.conversationId);
     const polling = input.cursor === undefined && input.afterMessageId !== undefined;
     const newest = input.order === "newest" && !polling;

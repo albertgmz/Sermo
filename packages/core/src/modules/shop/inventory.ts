@@ -251,19 +251,21 @@ function purchase(
   };
 }
 
-export const buy = implement(contracts.shopBuy, (ctx, actor, input) =>
-  writeTx(ctx, () => {
+export const buy = implement(contracts.shopBuy, (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  return writeTx(ctx, () => {
     const { replacedItemId: _replaced, ...bought } = purchase(ctx, actor, input);
     return bought;
-  }),
-);
+  });
+});
 
-export const upgrade = implement(contracts.shopUpgrade, (ctx, actor, input) =>
-  writeTx(ctx, () => {
+export const upgrade = implement(contracts.shopUpgrade, (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  return writeTx(ctx, () => {
     const result = purchase(ctx, actor, { itemId: input.itemId, quantity: 1 }, true);
     return { ...result, inventory: result.inventory! };
-  }),
-);
+  });
+});
 
 export const inventory = implement(contracts.shopInventory, (ctx, actor, input) => {
   const member = requireAuthenticated(actor);
@@ -297,8 +299,9 @@ export const inventory = implement(contracts.shopInventory, (ctx, actor, input) 
   };
 });
 
-export const use = implement(contracts.shopUse, (ctx, actor, input) =>
-  writeTx(ctx, () => {
+export const use = implement(contracts.shopUse, (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  return writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     requirePermission(ctx, current, "shop.buy");
     const member = requireAuthenticated(actor);
@@ -408,8 +411,8 @@ export const use = implement(contracts.shopUse, (ctx, actor, input) =>
       },
     });
     return inventoryValue(used, value);
-  }),
-);
+  });
+});
 
 export const purchases = implement(contracts.shopPurchases, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.shop");

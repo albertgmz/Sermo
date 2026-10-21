@@ -16,7 +16,7 @@ import { appendModeratorLog, insertAuthorizedBan } from "../moderation";
 import { acceptanceSql } from "../pages/acceptance";
 import { ipLogSql } from "../security/log";
 import { endMemberFollows } from "../social";
-import { requireTakeoverRights, targetMember, verifyActorPassword } from "./shared";
+import { requireHeld, requireTakeoverRights, targetMember, verifyActorPassword } from "./shared";
 import { assertOtherSuperAdmin, isSuperAdminRow } from "./super-admin";
 
 interface MemberRow {
@@ -257,7 +257,8 @@ export async function eraseAsAdministrator(
 }
 
 export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, input) => {
-  requireAuthenticated(actor);
+  // Whether the caller administers members at all is decided before the input is read.
+  requireHeld(ctx, actor, "admin.members");
   await verifyActorPassword(ctx, actor, input.actorPassword);
   await eraseAsAdministrator(ctx, actor, input.userId, input.reason);
   return { ok: true as const };

@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { useState } from "react";
+import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 
 // A network with no address to open (a Discord name) is shown as a button that copies the handle.
@@ -21,7 +22,7 @@ export function CopyHandle({
   const [copied, setCopied] = useState(false);
 
   async function copy() {
-    await navigator.clipboard.writeText(handle);
+    if (!(await copyText(handle, navigator))) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }

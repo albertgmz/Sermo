@@ -136,8 +136,9 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   let loggedUnknownIp = false;
 
   // The site's logo and icon are shown in its emails, whose mail apps load pictures from another
-  // origin: those files alone may be embedded anywhere. Registered before the secure headers so
-  // that it runs after them and replaces their `same-origin`.
+  // origin: those files alone may be embedded anywhere. A picture a mail shows besides these
+  // (`siteBranding`, modules/email/branding.ts) needs its purpose in the list below. Registered
+  // before the secure headers so that it runs after them and replaces their `same-origin`.
   const sitePicture = ctx.sqlite.prepare<{ found: number }, [number]>(
     "SELECT 1 AS found FROM files f LEFT JOIN files p ON p.id = f.parent_file_id WHERE f.id = ?1 AND COALESCE(p.purpose, f.purpose) IN ('site_logo', 'site_icon') AND COALESCE(p.visibility, f.visibility) = 'public'",
   );

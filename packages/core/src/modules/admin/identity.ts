@@ -19,6 +19,7 @@ import { accountEmailEnabled } from "../email/account";
 import { appendModeratorLog } from "../moderation";
 import { loadAdminMember } from "./members";
 import {
+  requireHeld,
   requireNotErased,
   requireTakeoverRights,
   targetMember,
@@ -28,6 +29,7 @@ import {
 export const authVerifyPasswordOp = implement(
   authVerifyPassword,
   async (ctx, actor, input) => {
+    requireAuthenticated(actor);
     await verifyActorPassword(ctx, actor, input.password, "password");
     return { ok: true as const };
   },
@@ -59,7 +61,8 @@ function addressRefusal(error: unknown): unknown {
 export const usersAdminUpdateIdentityOp = implement(
   usersAdminUpdateIdentity,
   async (ctx, actor, input) => {
-    requireAuthenticated(actor);
+    // Whether the caller administers members at all is decided before the input is read.
+    requireHeld(ctx, actor, "admin.members");
     if (input.password !== undefined && input.sendPasswordReset)
       throw new ValidationError("Set a password or send a reset link, not both.");
     // Their own password first, then who they act on.

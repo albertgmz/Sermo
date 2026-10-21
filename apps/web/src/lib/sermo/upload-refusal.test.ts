@@ -106,3 +106,9 @@ test("a size limit under a megabyte is said in kilobytes, never as 0 MB", () => 
   expect(sizeOf(50 * 1024)).toBe("50 KB");
   expect(sizeOf(1000)).toBe("1000 B");
 });
+
+test("the words of a refused type or an unreadable file name no format and no JPEG advice, as the allowed formats differ by purpose and site", () => {
+  for (const words of [en.uploadRefusals, es.uploadRefusals])
+    for (const cause of ["type", "unreadable"] as const)
+      expect(words[cause]).not.toMatch(/JPEG|PNG|WebP|GIF/);
+});

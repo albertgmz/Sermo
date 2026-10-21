@@ -205,3 +205,48 @@ test("the digest's threads are a list of linked titles with their detail", async
   expect(rendered.text).toContain("because digests are on for your account at Sermo");
   expect(rendered.text).toContain(`Notification settings: ${brand.preferencesUrl}`);
 });
+
+test("with a logo and no icon, classic Outlook gets the name alone", async () => {
+  const html = (await render({ ...brand, iconUrl: null })).html;
+  const outlook = [...html.matchAll(OUTLOOK_ONLY)].map((match) => match[1]).join("");
+  expect(outlook).toContain(`<a href="${brand.url}"`);
+  expect(outlook).toContain(">Sermo</span>");
+  expect(outlook).not.toContain("<img");
+  expect(outlook).not.toContain(brand.logoUrl!);
+  expect(html.replace(OUTLOOK_ONLY, "")).toContain(`<img src="${brand.logoUrl}" alt="Sermo"`);
+});
+
+test("only http and https addresses reach a mail: others are refused or, for pictures and the contact page, left out", async () => {
+  for (const bad of [
+    "javascript:alert(1)",
+    "data:text/html,x",
+    "//evil.example.test",
+    "ftp://evil.example.test",
+  ]) {
+    await expect(render({ ...brand, url: bad })).rejects.toThrow("http or https");
+    await expect(render({ ...brand, preferencesUrl: bad })).rejects.toThrow("http or https");
+    for (const input of [
+      { links: [{ label: "Open", url: bad }] },
+      { items: [{ label: "A", detail: "b", url: bad }] },
+      { unsubscribe: { typeUrl: bad, allUrl: unsubscribe.allUrl } },
+      { unsubscribe: { typeUrl: unsubscribe.typeUrl, allUrl: bad } },
+    ])
+      await expect(
+        renderEmail({
+          language: "en",
+          brand,
+          reason: "notification",
+          unsubscribe,
+          subject: "Hi",
+          body: "Body",
+          ...input,
+        }),
+      ).rejects.toThrow("http or https");
+    const left = await render({ ...brand, logoUrl: bad, iconUrl: bad, contactUrl: bad });
+    expect(left.html).not.toContain(bad);
+    expect(left.text).not.toContain(bad);
+  }
+  expect((await render({ ...brand, url: "HTTPS://forum.example.test" })).html).toContain(
+    "HTTPS://forum.example.test",
+  );
+});

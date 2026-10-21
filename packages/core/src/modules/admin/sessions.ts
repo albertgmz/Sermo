@@ -55,7 +55,8 @@ export const usersAdminSessionsOp = implement(usersAdminSessions, (ctx, actor, i
 export const usersAdminRevokeSessionsOp = implement(
   usersAdminRevokeSessions,
   async (ctx, actor, input) => {
-    requireAuthenticated(actor);
+    // Whether the caller administers members at all is decided before the input is read.
+    requireHeld(ctx, actor, "admin.members");
     const target = targetMember(ctx, actor, input.userId);
     requirePermission(ctx, actor, "admin.members", { target });
     requireTakeoverRights(ctx, actor, target);
