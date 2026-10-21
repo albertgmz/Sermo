@@ -13,7 +13,7 @@ import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 
 // The files of the item, as its page drew them, which the tags inside the spoiler place. They come
 // from the browser, so each address must be one of the backend's file addresses and nothing else.
-const FILE_URL = /^\/api\/v1\/files\/\d+(?:\/[^\s"'<>\\?#]*)?$/;
+const FILE_URL = /^\/api\/v1\/files\/\d+$/;
 const fileUrl = z.string().regex(FILE_URL);
 const size = z.number().int().positive();
 const Files = z
@@ -27,7 +27,7 @@ const Files = z
       byteSize: z.number().int().nonnegative(),
       width: size.nullable(),
       height: size.nullable(),
-      filename: z.string().max(1024).nullable(),
+      filename: z.string().max(255).nullable(),
     }),
   )
   .max(30);

@@ -147,3 +147,33 @@ test("a colour typed in the body is drawn through the guard", async () => {
   expect(out).toContain('class="bb-color" style="--ink:#000"');
   expect(out).not.toContain('style="color:');
 });
+
+// The wrapper that reveals spoilers: the element `HtmlContent` returns holds it under the mention
+// cards, and its props are what the browser gets.
+async function revealer(body: string, content = true) {
+  const { SpoilerReveal } = await import("./spoiler-reveal");
+  const tree = (await HtmlContent({
+    children: body,
+    attachments: [picture],
+    content: content ? { type: "post", id: 3 } : undefined,
+  })) as { props: { children: { type: unknown; props: object } } };
+  const inner = tree.props.children;
+  return inner.type === SpoilerReveal
+    ? (inner.props as { attachments?: unknown; content: unknown })
+    : null;
+}
+
+const spoiler =
+  '<div class="bb-spoiler" data-spoiler="0" data-spoiler-title="t"></div>';
+
+test("the spoiler's reveal is given the item's files, so its tags can be placed", async () => {
+  const props = await revealer(`<p>${slot(1)}</p>${spoiler}`);
+  expect(props?.content).toEqual({ type: "post", id: 3 });
+  expect(props?.attachments).toEqual([picture]);
+});
+
+test("a body without a spoiler sends no files to the browser, and one without a content has no reveal", async () => {
+  const plain = await revealer(`<p>${slot(1)}</p>`);
+  expect(plain?.attachments).toBeUndefined();
+  expect(await revealer(spoiler, false)).toBeNull();
+});

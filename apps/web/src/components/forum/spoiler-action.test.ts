@@ -152,8 +152,8 @@ const slot = (id: number, size: "thumb" | "full" = "thumb") =>
   `<span class="bb-attach" data-attach-id="${id}" data-attach-size="${size}">${id}</span>`;
 const file = (fileId: number, over: Record<string, unknown> = {}) => ({
   fileId,
-  url: `/api/v1/files/${fileId}/plan.png`,
-  thumbnailUrl: `/api/v1/files/${fileId}/thumb.png`,
+  url: `/api/v1/files/${fileId}`,
+  thumbnailUrl: `/api/v1/files/${fileId}1`,
   widths: [],
   contentType: "image/png",
   byteSize: 2048,
@@ -168,7 +168,7 @@ test("an attachment tag inside a spoiler is drawn from the item's files, and a m
     Response.json({ html: `<p>${slot(4, "full")} ${slot(9)}</p>` }),
   );
   const result = await revealSpoiler("post", 5, 0, [file(4)]);
-  expect(result?.html).toContain('src="/api/v1/files/4/plan.png"');
+  expect(result?.html).toContain('src="/api/v1/files/4"');
   expect(result?.html).not.toContain("bb-attach");
   expect(result?.html).toContain("border-dashed");
   expect(result?.html).not.toContain(">9<");
@@ -179,7 +179,10 @@ test("files whose addresses are not the backend's file addresses are refused bef
   for (const bad of [
     file(4, { url: "javascript:alert(1)" }),
     file(4, { url: "https://evil.test/a.png" }),
-    file(4, { thumbnailUrl: '/api/v1/files/4/"onerror=x' }),
+    file(4, { thumbnailUrl: '/api/v1/files/4"onerror=x' }),
+    file(4, { url: "/api/v1/files/4/../../x" }),
+    file(4, { url: "/api/v1/files/4,/x" }),
+    file(4, { filename: "x".repeat(256) }),
     file(4, { widths: [{ url: "//evil.test/a", width: 320 }] }),
     file(0),
   ])

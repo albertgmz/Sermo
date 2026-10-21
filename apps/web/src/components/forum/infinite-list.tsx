@@ -23,6 +23,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useListPlace } from "@/components/forum/list-place";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   cursorHref,
@@ -31,8 +32,6 @@ import {
   listId,
   PAGES_PARAM,
   pagesParam,
-  placeHref,
-  writePlace,
 } from "@/lib/list-pages";
 import { usePolling } from "@/lib/polling";
 import { cn } from "@/lib/utils";
@@ -386,12 +385,7 @@ export function InfiniteList({
     return () => setWanted(null);
   }, []);
   const owed = pagesOwed(wanted, count, query.hasNextPage && !query.isError);
-  useEffect(() => {
-    if (wanted === null) return;
-    const here = `${location.pathname}${location.search}${location.hash}`;
-    const place = placeHref(here, owed ? wanted : count);
-    if (place !== here) writePlace(window.history, place);
-  }, [count, owed, wanted]);
+  useListPlace({ count, owed, wanted, stamp });
   useEffect(() => {
     if (owed) {
       if (!isFetching) void fetchNextPage();

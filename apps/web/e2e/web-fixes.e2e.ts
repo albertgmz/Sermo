@@ -24,8 +24,5 @@ test.describe("signed in", () => {
         bars.map((bar) => bar.getAttribute("aria-valuetext")),
       );
     for (const text of spoken) expect(text).toMatch(/^\d+ %$/);
-    await context.addCookies([
-      { name: "forum_locale", value: "en", url: baseURL ?? "" },
-    ]);
   });
 });

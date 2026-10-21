@@ -92,11 +92,13 @@ for (const [name, screen, action] of SCREENS) {
 
 test("the shared list keeps the place in the address and takes its first page from the server", () => {
   const list = source("components/forum/infinite-list.tsx");
-  expect(list).toContain("placeHref(");
+  expect(list).toContain("useListPlace(");
   // Through the browser's own method: Next's replaces `history.replaceState`, and a call to it
   // throws away a navigation in flight.
-  expect(list).toContain("writePlace(window.history");
-  expect(list).not.toContain("history.replaceState");
+  const place = source("components/forum/list-place.ts");
+  expect(place).toContain("placeHref(");
+  expect(place).toContain("writePlace(window.history");
+  expect(`${list}${place}`).not.toContain("history.replaceState");
   // Nothing is fetched on mount: the server's pages are the data and it never goes stale.
   expect(list).toContain("initialData");
   expect(list).toContain("staleTime: Number.POSITIVE_INFINITY");
