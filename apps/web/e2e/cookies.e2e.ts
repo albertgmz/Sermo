@@ -60,8 +60,23 @@ test("the cookie banner shows inside the screen with three buttons you can press
   expect(Math.round((await box(accept)).width)).toBe(Math.round(reject.width));
   await expect(accept.locator("svg")).toHaveCount(1);
   // The usual gutter on each side, and above the bottom bar where there is one.
-  expect(frame.x).toBeGreaterThanOrEqual(15);
-  expect(size.width - frame.x - frame.width).toBeGreaterThanOrEqual(15);
+  // A page wider than the screen widens the layout viewport the banner is centred in, which moves
+  // its right edge in: the message names what sticks out of the screen.
+  const wide = await page.evaluate((width) => {
+    const out = [...document.querySelectorAll("body *")]
+      .filter((el) => el.getBoundingClientRect().right > width + 0.5)
+      .slice(0, 6)
+      .map(
+        (el) =>
+          `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 50)} ${Math.round(el.getBoundingClientRect().right)}`,
+      );
+    return `inner ${window.innerWidth}, scroll ${document.documentElement.scrollWidth}: ${out.join(" | ")}`;
+  }, size.width);
+  expect(frame.x, wide).toBeGreaterThanOrEqual(15);
+  expect(
+    size.width - frame.x - frame.width,
+    `the banner's right gutter (${wide})`,
+  ).toBeGreaterThanOrEqual(15);
   if (phoneWidth(page)) {
     const bar = await box(page.getByRole("navigation", { name: "Primary" }));
     expect(frame.y + frame.height).toBeLessThanOrEqual(bar.y);

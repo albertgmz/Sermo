@@ -78,14 +78,14 @@ test.describe("service worker", () => {
       .toBe(`${new URL(page.url()).origin}/`);
 
     await context.setOffline(true);
-    await page.goto("/forums").catch(() => {});
+    await page.goto("/").catch(() => {});
     await expect(
       page.getByRole("heading", { name: "You are offline" }),
     ).toBeVisible();
     await expectFits(page, "offline page from the worker");
     await context.setOffline(false);
     await page.getByRole("button", { name: "Try again" }).click();
-    await expect(page).toHaveURL(/\/forums$/);
+    await expect(page).toHaveURL((url) => url.pathname === "/");
     await expect(
       page.getByRole("heading", { name: "You are offline" }),
     ).toBeHidden();

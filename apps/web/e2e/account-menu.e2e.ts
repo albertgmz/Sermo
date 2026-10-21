@@ -14,8 +14,7 @@ import {
 
 const html = (page: Page) => page.locator("html");
 
-// The menu opens on the tab with something unread, which is the alerts of a member who has some:
-// the theme buttons are on the Account tab.
+// The menu always opens on Account, where the theme buttons are; the tab is chosen again to be sure.
 async function openAccountTab(page: Page) {
   await page.getByRole("button", { name: "Account menu" }).click();
   const menu = page.getByRole("dialog", { name: "Account menu" });
@@ -56,9 +55,9 @@ test.describe("signed in", () => {
       expect(frame.y + frame.height).toBeLessThan(size.height);
     }
 
-    // The four tabs show their own panel.
+    // The two tabs show their own panel (Messages and Alerts are header and phone bar buttons).
     const tabs = menu.getByRole("tablist", { name: "Account menu sections" });
-    for (const name of ["Alerts", "Conversations", "Bookmarks", "Account"]) {
+    for (const name of ["Bookmarks", "Account"]) {
       await tabs.getByRole("tab", { name }).click();
       await expect(tabs.getByRole("tab", { name })).toHaveAttribute(
         "aria-selected",

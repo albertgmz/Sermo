@@ -274,6 +274,9 @@ async function feedPageWith(page: Page, link: Locator) {
   await page.goto("/novedades");
   for (let pages = 0; pages < 10; pages += 1) {
     await ready(page);
+    // The list streams in after the controls are hydrated: count its cards and its link to the
+    // next page only once it is drawn, or a card that is on this page is missed.
+    await expect(page.locator("main article").first()).toBeAttached();
     if ((await link.count()) > 0) return;
     const next = page.locator('main a[href*="cursor="]');
     if ((await next.count()) === 0) break;

@@ -169,7 +169,7 @@ test.describe("signed in", () => {
   test("the compact feed list is kept over a reload and every row fits @all", async ({
     page,
   }) => {
-    await visit(page, "/");
+    await visit(page, "/novedades");
     // The toggle saves the choice with a server action and then loads the page again. A reload of
     // the test's own before that is done would cancel the save, or collide with the page's reload
     // (the large forum answers slowly), so the test waits until the document it marked is gone.
@@ -248,7 +248,7 @@ test.describe("signed in", () => {
   test("the feed filter sheet opens inside the screen, applies a forum and clears @all", async ({
     page,
   }) => {
-    await visit(page, "/");
+    await visit(page, "/novedades");
     await page.getByRole("button", { name: "Filters" }).click();
     const sheet = page.getByRole("dialog", { name: "Filter the feed" });
     await expect(sheet).toBeVisible();
@@ -400,7 +400,9 @@ test.describe("guest", () => {
     expect(paged.canonical).toBe(`${baseURL}/novedades?tab=hot`);
     const following = await head("/novedades?tab=following");
     expect(following.robots).toMatch(/^noindex/);
-    expect(latest.og || hot.og).toBe(false);
+    // The public tabs carry a share card (`publicHead`); the member's own list has none.
+    expect(latest.og && hot.og).toBe(true);
+    expect(following.og).toBe(false);
     const spanish = await head("/novedades?tab=hot", "es");
     expect(spanish.title).not.toBe(hot.title);
   });
