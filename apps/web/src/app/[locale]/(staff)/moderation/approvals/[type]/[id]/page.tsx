@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { HtmlContent } from "@/components/forum/html-content";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { ContentIp } from "@/components/staff/content-ip";
 import { PageHeader } from "@/components/staff/page-header";
@@ -12,7 +11,6 @@ import { linkClass, Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
-import { spoilerContentFor } from "@/lib/spoiler-buttons";
 import {
   MemberLink,
   memberNames,
@@ -23,6 +21,7 @@ import { staffTrail } from "../../../../trail";
 import { AuditedRead } from "../../../audited-read";
 import "../../../conversation-context-parts";
 import { APPROVAL_TYPES, describe } from "../../../content";
+import { ContentBody } from "../../../content-body";
 import { ContentSkeleton } from "../../../skeletons";
 import { Where } from "../../../where";
 import { viewApprovalMessage } from "./actions";
@@ -123,9 +122,12 @@ async function Review({ params }: { params: Props["params"] }) {
               )}
             </p>
             {detail.bodyHtml !== null && (
-              <HtmlContent content={spoilerContentFor(type, id)}>
-                {detail.bodyHtml}
-              </HtmlContent>
+              <ContentBody
+                type={type}
+                id={id}
+                html={detail.bodyHtml}
+                attachments={detail.attachments}
+              />
             )}
             <p className="flex flex-wrap gap-x-6 text-xs">
               <Where where={detail.where} name={name} />

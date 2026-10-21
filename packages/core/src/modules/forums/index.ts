@@ -95,6 +95,7 @@ import {
   threadTagNames,
 } from "../tags/store";
 import { addFeature, endStaffFeature, featureKinds } from "./features";
+import { loadPostDeletions, type PostDeletionRow } from "./post-deletions";
 import { forumPrefixOperations, requireActivePrefix } from "./prefixes";
 import { nodeTabs, threadPresenter } from "./presentation";
 import { type ReadGates, readGates } from "./read-gates";
@@ -234,6 +235,7 @@ export const forumSql = {
     "UPDATE users SET post_count = max(0, post_count + ?1 * authors.n) FROM (SELECT user_id, count(*) AS n FROM posts WHERE thread_id = ?2 AND state = 'visible' GROUP BY user_id) AS authors WHERE users.id = authors.user_id AND (SELECT counts_posts FROM nodes WHERE id = ?3) = 1",
   readPost:
     "SELECT id, position FROM posts WHERE thread_id = ?1 AND position <= ?2 AND state = 'visible' ORDER BY position DESC LIMIT 1",
+  decodedReadPost: `SELECT p.id, ${storedPosition("p.position")} AS position FROM posts p WHERE p.thread_id = ?1 AND (p.position BETWEEN 0 AND ?2 OR p.position BETWEEN -?2 - 1 AND -1) AND p.state = 'visible' ORDER BY ${storedPosition("p.position")} DESC LIMIT 1`,
   readPosition: "SELECT last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id = ?2",
   // Unread state uses post ids: reading a post clears notices for it and every older post.
   clearThreadNotices:
@@ -674,6 +676,15 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
     };
   });
 }
+function deletionOf(
+  deletion: PostDeletionRow | undefined,
+  users: ReturnType<typeof loadUserSummaries>,
+  authorId: number,
+) {
+  return deletion
+    ? { by: users(deletion.actorId ?? authorId), reason: deletion.reason, at: iso(deletion.at) }
+    : null;
+}
 function postValues(
   ctx: Ctx,
   actor: Actor,
@@ -698,17 +709,30 @@ export function postValuesMixed(
   detail = false,
 ) {
   const rows = entries.map((entry) => entry.row);
-  const users = loadUserSummaries(
+  const permissions = permissionsOf(ctx, actor);
+  // Who hid a post is for those who may see deleted posts in its forum.
+  const deletions = loadPostDeletions(
     ctx,
-    rows.map((r) => r.user_id),
+    entries
+      .filter(
+        (entry) =>
+          entry.row.state === "deleted" &&
+          permissions.can("forum.viewDeleted", { nodeId: entry.nodeId }),
+      )
+      .map((entry) => entry.row.id),
   );
+  const users = loadUserSummaries(ctx, [
+    ...rows.map((r) => r.user_id),
+    ...[...deletions.values()].flatMap((deletion) =>
+      deletion.actorId === null ? [] : [deletion.actorId],
+    ),
+  ]);
   const reactions = loadViewerReactions(
     ctx,
     actor,
     "post",
     rows.map((r) => r.id),
   );
-  const permissions = permissionsOf(ctx, actor);
   const withAttachments = entries.filter((entry) =>
     permissions.can("forum.viewAttachments", { nodeId: entry.nodeId }),
   );
@@ -745,6 +769,7 @@ export function postValuesMixed(
           permissions.can("forum.hardDeleteOwn", { nodeId, ownerId: row.user_id })),
     canReact: permissions.can("forum.react", { nodeId }),
     canReport: permissions.can("report.create"),
+    deletion: deletionOf(deletions.get(row.id), users, row.user_id),
     ...(detail ? { bodySource: row.body_source } : {}),
   }));
 }
@@ -953,6 +978,7 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.nodes");
   const id = writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.nodes");
     if (input.parentId != null && !getNodeTree(ctx).get(input.parentId)) throw new NotFoundError();
     requireTabFor(ctx, input.tabId, input.parentId, input.type);
     const row = forumDb(ctx)
@@ -985,6 +1011,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.nodes");
   writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.nodes");
     const tree = getNodeTree(ctx);
     const current = tree.get(input.nodeId);
     if (!current || (input.parentId != null && !tree.get(input.parentId)))
@@ -1031,6 +1058,7 @@ export const nodesSetModeratorOp = implement(
     requirePermission(ctx, actor, "admin.permissions");
     await confirmActorPassword(ctx, actor, input.actorPassword);
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.permissions");
       if (!getNodeTree(ctx).get(input.nodeId)) throw new NotFoundError();
       if (
         !forumDb(ctx)
@@ -1398,6 +1426,29 @@ function mergingPostPage(
     { behavior: "deferred" },
   );
 }
+/**
+ * The newest visible post at or before a position of the target of a merge in progress, with the
+ * position it ends up at. Stored positions are not the final ones until the merge has flipped
+ * them, so the lookup goes by the same slots paging does.
+ */
+function mergingReadPost(ctx: Ctx, threadId: number, position: number) {
+  const state = mergeStateOf(ctx, threadId);
+  if (state && state.phase === undefined) {
+    const { rows, slots } = mergeSlots(ctx, threadId, state);
+    let found: { id: number; position: number } | undefined;
+    for (const post of rows) {
+      const slot = slots.get(post.id)!;
+      if (post.state === "visible" && slot <= position && (!found || slot > found.position))
+        found = { id: post.id, position: slot };
+    }
+    return found;
+  }
+  return statement<{ id: number; position: number }, [number, number]>(
+    ctx,
+    "decodedReadPost",
+    forumSql.decodedReadPost,
+  ).get(threadId, position);
+}
 export const postsListOp = implement(contracts.postsList, (ctx, actor, input) => {
   const { row } = requireThread(ctx, actor, input.threadId);
   requireSiteView(ctx, actor);
@@ -1453,7 +1504,7 @@ export const postsListOp = implement(contracts.postsList, (ctx, actor, input) =>
 export const postsGetOp = implement(contracts.postsGet, (ctx, actor, input) => {
   const { post, thread } = requirePost(ctx, actor, input.postId, true);
   requireSiteView(ctx, actor);
-  return postValues(
+  const value = postValues(
     ctx,
     actor,
     [post],
@@ -1462,6 +1513,20 @@ export const postsGetOp = implement(contracts.postsGet, (ctx, actor, input) => {
     thread.row.first_post_id,
     true,
   )[0]! as z.infer<typeof contracts.PostDetail>;
+  // A post the merge has not renumbered yet is told at the place it will have, as paging does.
+  if (thread.row.transfer_role === "merge_target") {
+    const slot = ctx.db.transaction(
+      () => {
+        const state = mergeStateOf(ctx, post.thread_id);
+        return state && state.phase === undefined
+          ? mergeSlots(ctx, post.thread_id, state).slots.get(post.id)
+          : undefined;
+      },
+      { behavior: "deferred" },
+    );
+    if (slot !== undefined) value.position = slot;
+  }
+  return value;
 });
 
 /** For reactions: returns a visible post's author and reaction eligibility. */
@@ -2432,9 +2497,12 @@ export const threadsMarkReadOp = implement(contracts.threadsMarkRead, (ctx, acto
   const user = requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
   return writeTx(ctx, () => {
-    const post = forumDb(ctx)
-      .prepare<{ id: number; position: number }, [number, number]>(forumSql.readPost)
-      .get(row.id, input.position);
+    const post =
+      row.transfer_role === "merge_target"
+        ? mergingReadPost(ctx, row.id, input.position)
+        : forumDb(ctx)
+            .prepare<{ id: number; position: number }, [number, number]>(forumSql.readPost)
+            .get(row.id, input.position);
     if (!post) throw new Error("Visible post missing at read position.");
     const cleared = statement<unknown, [number, number, number, number]>(
       ctx,

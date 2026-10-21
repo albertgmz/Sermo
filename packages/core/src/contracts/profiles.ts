@@ -89,6 +89,8 @@ export const ProfileComment = z
     reactions: ReactionSummary,
     canEdit: z.boolean(),
     canDelete: z.boolean(),
+    /** The viewer may report it (reports.create would accept it). */
+    canReport: z.boolean(),
   })
   .meta({ id: "ProfileComment" });
 
@@ -113,6 +115,8 @@ export const ProfilePost = z
     latestComments: z.array(ProfileComment),
     canEdit: z.boolean(),
     canDelete: z.boolean(),
+    /** The viewer may report it (reports.create would accept it). */
+    canReport: z.boolean(),
     canComment: z.boolean(),
   })
   .meta({ id: "ProfilePost" });

@@ -351,6 +351,7 @@ export function commentValues(
         ownerId:
           typeof wallOwnerId === "number" ? wallOwnerId : wallOwnerId.get(row.profile_post_id),
       }),
+    canReport: permissions.can("report.create"),
   }));
 }
 export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: CommentRow[] = []) {
@@ -403,6 +404,7 @@ export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: Comm
       permissions.can("profilePost.deleteAny") ||
       permissions.can("profilePost.deleteOwn", { ownerId: row.user_id }) ||
       permissions.can("profilePost.manageOwnWall", { ownerId: row.profile_user_id }),
+    canReport: permissions.can("report.create"),
     canComment: commentAccess.get(row.profile_user_id) === true && row.state === "visible",
   }));
 }

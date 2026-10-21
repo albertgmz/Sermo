@@ -8,6 +8,7 @@ import { GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { CATALOG_FILE_PURPOSES } from "../../db/schema";
 import { ForbiddenError, NotFoundError, UnauthenticatedError, ValidationError } from "../../errors";
+import { resolvedActor } from "../../permissions/test-contexts";
 import { createStorage, localDriver } from "./index";
 
 sharp.cache(false);
@@ -217,6 +218,24 @@ describe("who may upload what", () => {
           "SELECT COUNT(*) AS n FROM files WHERE uploader_id IN (?1, ?2)",
         )
         .get(memberRow.id, moderatorRow.id)!.n,
+    ).toBe(0);
+  });
+
+  test("an administrator demoted while the file was being read is refused and nothing is stored", async () => {
+    const { ctx, storage } = await setup();
+    const row = insertUser(ctx, { groupId: 4 });
+    // The actor the request resolved before the demotion.
+    const resolved = resolvedActor(ctx, row.id);
+    ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE id = ?1").run(row.id);
+    const bytes = await picture(40, 40);
+    for (const purpose of CATALOG_FILE_PURPOSES)
+      await expect(
+        storage.upload(resolved, stream(bytes), "image/png", purpose),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(
+      ctx.sqlite
+        .prepare<{ n: number }, [number]>("SELECT COUNT(*) AS n FROM files WHERE uploader_id = ?1")
+        .get(row.id)!.n,
     ).toBe(0);
   });
 

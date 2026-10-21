@@ -272,6 +272,7 @@ function messages(ctx: Ctx, actor: Actor, conversation: ConversationRow, rows: M
     reactions: reactionSummary(r.reaction_counts, viewer.get(r.id)),
     canEdit: mayEdit(permissions, conversation, r),
     canDelete: mayDelete(permissions, conversation, r, first),
+    canReport: permissions.can("report.create"),
   }));
 }
 
@@ -284,7 +285,7 @@ function newMessage(
   html: string,
   state: "visible" | "moderated",
   attachments: ReturnType<typeof loadAttachments>,
-  abilities: { canEdit: boolean; canDelete: boolean },
+  abilities: { canEdit: boolean; canDelete: boolean; canReport: boolean },
 ) {
   return {
     id,
@@ -522,6 +523,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
             { id: messageId, user_id: starter.userId, state: messageState },
             messageId,
           ),
+          canReport: permissions.can("report.create"),
         },
       ),
     };
@@ -617,6 +619,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
           { id: messageId, user_id: user.userId, state: messageState },
           null,
         ),
+        canReport: permissions.can("report.create"),
       },
     );
   });

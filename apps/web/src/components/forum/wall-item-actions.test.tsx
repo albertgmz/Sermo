@@ -39,6 +39,7 @@ const item = (over: Record<string, unknown> = {}) =>
     editedAt: null,
     canEdit: false,
     canDelete: false,
+    canReport: true,
     reactions: { counts: {}, total: 0, mine: null },
     ...over,
   }) as Props["item"];
@@ -79,6 +80,11 @@ for (const kind of ["post", "comment"] as const) {
     expect(has(html, "Delete")).toBe(true);
     expect(has(html, "Edit")).toBe(false);
     expect(has(html, "Report")).toBe(true);
+  });
+
+  test(`report on a wall ${kind} follows the backend's word, not the viewer being signed in`, () => {
+    expect(has(draw(kind, {}, 9), "Report")).toBe(true);
+    expect(has(draw(kind, { canReport: false }, 9), "Report")).toBe(false);
   });
 
   test(`a guest gets only share on a wall ${kind}`, () => {

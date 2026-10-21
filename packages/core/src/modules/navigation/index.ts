@@ -15,6 +15,7 @@ import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import {
   can,
+  currentActor,
   type FlagPermissionId,
   PERMISSIONS,
   type PermissionDefinition,
@@ -207,6 +208,7 @@ const list = implement(navigationList, (ctx, actor) => {
 const create = implement(navigationCreate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.navigation");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.navigation");
     if (ctx.sqlite.prepare<{ n: number }, []>(navigationSql.count).get()!.n >= NAVIGATION_LIMIT)
       throw new ConflictError(`The site holds at most ${NAVIGATION_LIMIT} navigation entries.`);
     if (input.parentId !== null) requireParent(ctx, input.parentId, input.location);
@@ -239,6 +241,7 @@ const create = implement(navigationCreate, (ctx, actor, input) => {
 const update = implement(navigationUpdate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.navigation");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.navigation");
     const row = entryRow(ctx, input.entryId);
     const location = input.location ?? row.location;
     const parentId = input.parentId === undefined ? row.parent_id : input.parentId;
@@ -297,6 +300,7 @@ const update = implement(navigationUpdate, (ctx, actor, input) => {
 const remove = implement(navigationDelete, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.navigation");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.navigation");
     const row = entryRow(ctx, input.entryId);
     if (row.builtin !== null) throw new ConflictError("A built-in entry cannot be deleted.");
     const children = ctx.sqlite

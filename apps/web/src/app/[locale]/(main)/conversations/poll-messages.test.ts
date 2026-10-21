@@ -36,6 +36,7 @@ const message = (id: number) => ({
   reactions: { counts: {}, total: 0, mine: null },
   canEdit: false,
   canDelete: false,
+  canReport: true,
 });
 
 function backend(messages: Response) {

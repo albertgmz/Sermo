@@ -66,6 +66,7 @@ const comment = (id: number, state = "visible") =>
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: false,
     canDelete: false,
+    canReport: true,
   }) as unknown as Comment;
 
 // The avatars and the bodies are async components: the markup is read once all of it settled.

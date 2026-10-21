@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { HtmlContent } from "@/components/forum/html-content";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { ContentIp } from "@/components/staff/content-ip";
 import { Notice } from "@/components/staff/notice";
@@ -15,12 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
-import { spoilerContentFor } from "@/lib/spoiler-buttons";
 import { MemberLink, memberNames, panelHref } from "../../../admin/logs/links";
 import { hrefFor } from "../../../registry";
 import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
 import { describe } from "../../content";
+import { ContentBody } from "../../content-body";
 import { ContentSkeleton } from "../../skeletons";
 import { Where } from "../../where";
 import { STATE_BADGE } from "../report-list";
@@ -149,11 +148,12 @@ async function Case({
             <Badge variant="secondary">{contentState(detail.state)}</Badge>
           )}
           {detail.bodyHtml !== null ? (
-            <HtmlContent
-              content={spoilerContentFor(group.targetType, group.targetId)}
-            >
-              {detail.bodyHtml}
-            </HtmlContent>
+            <ContentBody
+              type={group.targetType}
+              id={group.targetId}
+              html={detail.bodyHtml}
+              attachments={detail.attachments}
+            />
           ) : group.targetType === "conversation_message" ? (
             <Help>{t("messageHelp")}</Help>
           ) : group.targetType === "user" ? (

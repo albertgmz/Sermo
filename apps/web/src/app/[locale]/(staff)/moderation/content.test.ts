@@ -52,3 +52,44 @@ test("a reported post, wall post or comment links to the page that holds it, at 
     "/members/5?post=12&comment=80#profile-comment-80",
   );
 });
+
+test("what a reported post, wall post, comment or thread has attached is read with it", async () => {
+  const attachment = {
+    fileId: 5,
+    url: "/attachments/5/plan.pdf",
+    thumbnailUrl: null,
+    widths: [],
+    contentType: "application/pdf",
+    byteSize: 2048,
+    width: null,
+    height: null,
+    filename: "plan.pdf",
+  };
+  globalThis.fetch = (async (url: string) => {
+    const { pathname } = new URL(url);
+    if (pathname === "/api/v1/posts/31")
+      return Response.json(
+        postBody({ id: 31, threadId: 7, attachments: [attachment] }),
+      );
+    if (pathname === "/api/v1/profile-posts/12")
+      return Response.json(
+        profilePostBody({ id: 12, attachments: [attachment] }),
+      );
+    if (pathname === "/api/v1/profile-comments/80")
+      return Response.json(
+        profileCommentBody({ id: 80, attachments: [attachment] }),
+      );
+    return Response.json(
+      { error: { code: "not_found", message: "?" } },
+      { status: 404 },
+    );
+  }) as unknown as typeof fetch;
+  expect((await describe("post", 31)).attachments).toEqual([attachment]);
+  expect((await describe("profile_post", 12)).attachments).toEqual([
+    attachment,
+  ]);
+  expect((await describe("profile_post_comment", 80)).attachments).toEqual([
+    attachment,
+  ]);
+  expect((await describe("post", 99)).attachments).toEqual([]);
+});

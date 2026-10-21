@@ -147,6 +147,7 @@ const message = (id: number) => ({
   reactions: { counts: {}, total: 0, mine: null },
   canEdit: false,
   canDelete: false,
+  canReport: true,
 });
 
 // Answers each read by its path and keeps every path asked.

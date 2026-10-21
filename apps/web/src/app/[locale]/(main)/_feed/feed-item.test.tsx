@@ -88,6 +88,7 @@ const comment = (id: number, bodyHtml: string) => ({
   reactions: { counts: {}, total: 0, mine: null },
   canEdit: false,
   canDelete: false,
+  canReport: true,
 });
 
 const wallItem = (over: Record<string, unknown> = {}) =>
@@ -113,6 +114,7 @@ const wallItem = (over: Record<string, unknown> = {}) =>
       ],
       canEdit: false,
       canDelete: false,
+      canReport: true,
       canComment: true,
       ...over,
     },

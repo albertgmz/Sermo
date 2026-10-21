@@ -59,6 +59,8 @@ export const Message = z
     canEdit: z.boolean(),
     /** As canEdit with `conversation.deleteOwn`; never the conversation's first message. */
     canDelete: z.boolean(),
+    /** The viewer may report it (reports.create would accept it). */
+    canReport: z.boolean(),
   })
   .meta({ id: "Message" });
 

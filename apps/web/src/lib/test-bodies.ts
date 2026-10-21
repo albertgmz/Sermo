@@ -132,6 +132,7 @@ export function postBody(over: Record<string, unknown> = {}) {
     canHardDelete: false,
     canReact: true,
     canReport: true,
+    deletion: null,
     bodySource: "",
     ...over,
   };
@@ -152,6 +153,7 @@ export function profileCommentBody(over: Record<string, unknown> = {}) {
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: false,
     canDelete: false,
+    canReport: true,
     bodySource: "",
     ...over,
   };
@@ -174,6 +176,7 @@ export function profilePostBody(over: Record<string, unknown> = {}) {
     latestComments: [],
     canEdit: false,
     canDelete: false,
+    canReport: true,
     canComment: false,
     bodySource: "",
     ...over,

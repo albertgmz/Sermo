@@ -11,6 +11,7 @@ import {
 import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import type { ContentRef } from "@/components/staff/content-ip";
+import type { TaggedAttachment } from "@/lib/attachment-tags";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 
@@ -28,6 +29,8 @@ export type Described = {
   author: { id: number; username: string } | null;
   // The backend's sanitised HTML, or null when the target has none to show.
   bodyHtml: string | null;
+  // The files attached to the content (a thread by its first post).
+  attachments: TaggedAttachment[];
   // A plain-text start of the content, for lists.
   excerpt: string;
   state: "visible" | "moderated" | "deleted" | null;
@@ -84,6 +87,7 @@ export async function orGone<T>(run: () => Promise<T>): Promise<T | null> {
 const nothing: Described = {
   author: null,
   bodyHtml: null,
+  attachments: [],
   excerpt: "",
   state: null,
   href: null,
@@ -106,6 +110,7 @@ export async function describe(
     return {
       author: post.author,
       bodyHtml: post.bodyHtml,
+      attachments: post.attachments,
       excerpt: plainExcerpt(post.bodyHtml),
       state: post.state,
       href: threadHref(post.threadId, post.position, post.id),
@@ -130,6 +135,7 @@ export async function describe(
     return {
       author: thread.author,
       bodyHtml: first?.bodyHtml ?? null,
+      attachments: first?.attachments ?? [],
       excerpt: thread.excerpt,
       state: thread.state,
       href: `/threads/${thread.id}`,
@@ -146,6 +152,7 @@ export async function describe(
     return {
       author: post.author,
       bodyHtml: post.bodyHtml,
+      attachments: post.attachments,
       excerpt: plainExcerpt(post.bodyHtml),
       state: post.state,
       href: wallTargetHref(post.profileUserId, post.id),
@@ -165,6 +172,7 @@ export async function describe(
     return {
       author: comment.author,
       bodyHtml: comment.bodyHtml,
+      attachments: comment.attachments,
       excerpt: plainExcerpt(comment.bodyHtml),
       state: comment.state,
       href: post

@@ -233,3 +233,42 @@ test("a deleted post has no share in its header", async () => {
   ]);
   expect(headerOf(html)).not.toContain('aria-label="Share"');
 });
+
+const deletedPost = (deletion: unknown) =>
+  postBody({
+    id: 33,
+    position: 3,
+    author: ember,
+    state: "deleted",
+    bodyHtml: "<p>hi</p>",
+    deletion,
+  }) as Parameters<typeof postRows>[0][number];
+
+test("a deleted post says who deleted it and why, to the moderators who see it", async () => {
+  backend({ readPosition: 3 });
+  const [html] = await drawn([
+    deletedPost({
+      by: { id: 4, username: "warden" },
+      reason: "Off topic",
+      at: "2026-01-02T00:00:00.000Z",
+    }),
+  ]);
+  expect(html).toContain("This post was deleted by warden.");
+  expect(html).toContain("Reason: Off topic");
+  expect(html).not.toContain("This post was deleted. Only");
+});
+
+test("a deleted post with no reason names only who deleted it, and one without a record keeps the plain note", async () => {
+  backend({ readPosition: 3 });
+  const [named, plain] = await drawn([
+    deletedPost({
+      by: ember,
+      reason: "",
+      at: "2026-01-02T00:00:00.000Z",
+    }),
+    deletedPost(null),
+  ]);
+  expect(named).toContain("This post was deleted by ember.");
+  expect(named).not.toContain("Reason:");
+  expect(plain).toContain("This post was deleted. Only moderators can see it.");
+});

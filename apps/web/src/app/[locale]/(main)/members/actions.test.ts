@@ -108,6 +108,7 @@ test("a wall post that was taken ends in a redirect to the page it was written o
       latestComments: [],
       canEdit: true,
       canDelete: true,
+      canReport: true,
       canComment: true,
     })) as unknown as typeof fetch;
   for (const [page, to] of [
@@ -154,6 +155,7 @@ const COMMENT = {
   reactions: { counts: {}, total: 0, mine: null },
   canEdit: true,
   canDelete: true,
+  canReport: true,
 };
 
 // On the wall the page goes to the wall at the new comment, which lands on it whatever page of

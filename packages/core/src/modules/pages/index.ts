@@ -12,7 +12,7 @@ import { termsAccept } from "../../contracts/terms";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { implement } from "../../operation";
-import { can, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { renderBbCode } from "../../render";
 import { iso } from "../../time";
 import { appendModeratorLog } from "../moderation";
@@ -92,6 +92,7 @@ const save = implement(pagesSave, (ctx, actor, input) => {
   // Rendered before the transaction and without an actor: a page resolves no mentions or quotes.
   const html = renderBbCode(input.body, { maxLength: PAGE_BODY_LENGTH });
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.pages");
     const existing = bySlug(ctx, input.slug);
     if (!existing && ctx.sqlite.prepare<{ n: number }, []>(pageSql.count).get()!.n >= PAGE_LIMIT)
       throw new ConflictError(`The site holds at most ${PAGE_LIMIT} pages.`);
@@ -126,6 +127,7 @@ const save = implement(pagesSave, (ctx, actor, input) => {
 const remove = implement(pagesDelete, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.pages");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.pages");
     const row = bySlug(ctx, input.slug);
     if (!row) throw new NotFoundError();
     ctx.sqlite.prepare("DELETE FROM static_pages WHERE id = ?1").run(row.id);

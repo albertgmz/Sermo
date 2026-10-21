@@ -104,6 +104,7 @@ test("starting a conversation refreshes the list in the layout before going to t
         reactions: { counts: {}, total: 0, mine: null },
         canEdit: true,
         canDelete: false,
+        canReport: true,
       },
     })) as unknown as typeof fetch;
   const form = new FormData();
@@ -131,6 +132,7 @@ test("a reply and a new conversation name the files attached to them", async () 
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: true,
     canDelete: true,
+    canReport: true,
   };
   const sent: unknown[] = [];
   // A reply is answered with the message; the conversation is refused, which is enough to see

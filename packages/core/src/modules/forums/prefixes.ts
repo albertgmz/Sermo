@@ -4,7 +4,7 @@ import * as contracts from "../../contracts/forums";
 import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
-import { can, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { iso } from "../../time";
 import { appendModeratorLog } from "../moderation";
 import { type PrefixRow, prefixRows, prefixValue } from "./presentation";
@@ -60,6 +60,7 @@ const threadPrefixesCreateOp = implement(contracts.threadPrefixesCreate, (ctx, a
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.prefixes");
   const id = writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.prefixes");
     if (ctx.sqlite.prepare<{ n: number }, []>(prefixSql.count).get()!.n >= PREFIX_LIMIT)
       throw new ConflictError(`The site holds at most ${PREFIX_LIMIT} thread prefixes.`);
     requirePrefixColor(ctx, input.colorId);
@@ -86,6 +87,7 @@ const threadPrefixesUpdateOp = implement(contracts.threadPrefixesUpdate, (ctx, a
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.prefixes");
   writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.prefixes");
     const row = prefixRow(ctx, input.prefixId);
     // A colour is checked when it is chosen, and again when the prefix comes back into use.
     const reactivated = input.isActive === true && !row.is_active;
@@ -116,6 +118,7 @@ const threadPrefixesDeleteOp = implement(contracts.threadPrefixesDelete, (ctx, a
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.prefixes");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.prefixes");
     const row = prefixRow(ctx, input.prefixId);
     const deactivated = !!ctx.sqlite.prepare(prefixSql.carried).get(row.id);
     if (deactivated)
@@ -170,6 +173,7 @@ const forumTabsCreateOp = implement(contracts.forumTabsCreate, (ctx, actor, inpu
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.nodes");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.nodes");
     const { n } = ctx.sqlite
       .prepare<{ n: number }, []>("SELECT COUNT(*) AS n FROM forum_tabs")
       .get()!;
@@ -188,6 +192,7 @@ const forumTabsUpdateOp = implement(contracts.forumTabsUpdate, (ctx, actor, inpu
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.nodes");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.nodes");
     const row = tabRow(ctx, input.tabId);
     const updated = ctx.sqlite
       .prepare<TabRow, [string, number, number, number]>(
@@ -205,6 +210,7 @@ const forumTabsDeleteOp = implement(contracts.forumTabsDelete, (ctx, actor, inpu
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.nodes");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.nodes");
     const row = tabRow(ctx, input.tabId);
     ctx.sqlite.prepare("UPDATE nodes SET tab_id = NULL WHERE tab_id = ?1").run(row.id);
     ctx.sqlite.prepare("DELETE FROM forum_tabs WHERE id = ?1").run(row.id);

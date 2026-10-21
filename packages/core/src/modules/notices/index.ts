@@ -11,7 +11,7 @@ import {
 import { writeTx } from "../../db/tx";
 import { NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
-import { requirePermission } from "../../permissions";
+import { currentActor, requirePermission } from "../../permissions";
 import { renderBbCode } from "../../render";
 import { actorFacts, assertRule, evaluate, parseRule, type Rule } from "../../shared/criteria";
 import { iso, isoOrNull } from "../../time";
@@ -169,6 +169,7 @@ const create = implement(noticesCreate, (ctx, actor, input) => {
   const userId = requireAuthenticated(actor).userId;
   const stored = prepare(input);
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.announcements");
     const id = Number(
       prepared(ctx, "notices.insert", () =>
         ctx.sqlite.prepare<unknown, [...Stored, number, number]>(
@@ -184,6 +185,7 @@ const update = implement(noticesUpdate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.announcements");
   const stored = prepare(input);
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.announcements");
     const changed = prepared(ctx, "notices.update", () =>
       ctx.sqlite.prepare<unknown, [...Stored, number, number]>(
         "UPDATE notices SET title = ?1, body_source = ?2, body_html = ?3, rule = ?4, dismissible = ?5, active = ?6, starts_at = ?7, ends_at = ?8, updated_at = ?9 WHERE id = ?10",
@@ -197,6 +199,7 @@ const update = implement(noticesUpdate, (ctx, actor, input) => {
 const remove = implement(noticesDelete, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.announcements");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.announcements");
     const changed = prepared(ctx, "notices.delete", () =>
       ctx.sqlite.prepare<unknown, [number]>("DELETE FROM notices WHERE id = ?1"),
     ).run(input.noticeId).changes;

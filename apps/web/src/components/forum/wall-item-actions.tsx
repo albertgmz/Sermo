@@ -24,6 +24,7 @@ type Item = {
   editedAt: string | null;
   canEdit: boolean;
   canDelete: boolean;
+  canReport: boolean;
   reactions: {
     counts: Record<string, number>;
     total: number;
@@ -33,7 +34,7 @@ type Item = {
 
 // The footer of a wall post or of a comment on one: the same controls on both, and the same on the
 // profile wall as in the feed. What the viewer may edit or delete is the backend's word
-// (`canEdit`, `canDelete`); editing happens in place.
+// (`canEdit`, `canDelete`, `canReport`); editing happens in place.
 export function WallItemActions({
   kind,
   item,
@@ -124,6 +125,7 @@ export function WallItemActions({
         )
       }
       report={
+        item.canReport &&
         viewerId !== null &&
         viewerId !== item.author.id &&
         item.state === "visible"

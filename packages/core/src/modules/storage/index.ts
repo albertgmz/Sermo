@@ -20,7 +20,7 @@ import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { consumeEvents } from "../../events";
 import { implement } from "../../operation";
-import { can, permissionValue, requirePermission } from "../../permissions";
+import { can, currentActor, permissionValue, requirePermission } from "../../permissions";
 import { iso } from "../../time";
 import { setAttachments } from "../attachments";
 import { reactableConversationMessage } from "../conversations";
@@ -610,7 +610,13 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             stored.push(item.storageKey);
           }
           const row = writeTx(ctx, () => {
-            const quota = catalog ? -1 : permissionValue(ctx, actor, "attachment.storageQuota");
+            // The file was read and stored while the request ran: what the member may upload is
+            // decided again from their standing now.
+            const current = currentActor(ctx, actor);
+            if (catalog) requireCatalogUpload(ctx, current, purpose);
+            if (purpose === "avatar") requirePermission(ctx, current, "profile.uploadAvatar");
+            if (purpose === "cover") requirePermission(ctx, current, "profile.uploadCover");
+            const quota = catalog ? -1 : permissionValue(ctx, current, "attachment.storageQuota");
             if (quota !== -1) {
               const used = ctx.sqlite
                 .prepare<{ bytes: number }, [number]>(

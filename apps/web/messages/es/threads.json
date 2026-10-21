@@ -24,6 +24,8 @@
     },
     "awaitingApproval": "Este mensaje está pendiente de aprobación. Solo tú y los moderadores pueden verlo.",
     "deleted": "Este mensaje fue eliminado. Solo los moderadores pueden verlo.",
+    "deletedBy": "Este mensaje fue eliminado por {name}. Solo los moderadores pueden verlo.",
+    "deletedReason": "Motivo: {reason}",
     "threadAwaitingApproval": "Este tema está pendiente de aprobación. Solo tú y los moderadores pueden verlo.",
     "threadDeleted": "Este tema fue eliminado. Solo los moderadores pueden verlo.",
     "locked": "Este tema está cerrado. Ya no admite respuestas.",

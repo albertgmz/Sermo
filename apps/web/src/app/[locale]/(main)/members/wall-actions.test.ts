@@ -213,6 +213,7 @@ test("editing a message sends its text, leaves its files alone and returns to it
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: true,
     canDelete: false,
+    canReport: true,
   });
   const digest = await editMessageAction(5, 11, {}, form({ body: "new" })).then(
     () => "",

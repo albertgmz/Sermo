@@ -13,7 +13,7 @@ type Message = z.output<
 >["items"][number];
 
 // The footer of a message in a conversation. Edit (`canEdit`, which opens the edit page) and
-// delete (`canDelete`) are the backend's word for the viewer.
+// delete (`canDelete`) and report (`canReport`) are the backend's word for the viewer.
 export function MessageActions({
   message,
   viewerId,
@@ -66,6 +66,7 @@ export function MessageActions({
           : undefined
       }
       report={
+        message.canReport &&
         viewerId !== null &&
         viewerId !== message.author.id &&
         message.state === "visible"

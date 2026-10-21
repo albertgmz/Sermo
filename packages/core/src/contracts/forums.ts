@@ -166,6 +166,16 @@ export const Thread = z
   })
   .meta({ id: "Thread" });
 
+export const PostDeletion = z
+  .object({
+    /** Who hid it: the moderator, or the author when they hid their own post. */
+    by: UserSummary,
+    /** The reason given; empty when none was. */
+    reason: z.string(),
+    at: Timestamp,
+  })
+  .meta({ id: "PostDeletion" });
+
 export const Post = z
   .object({
     id: Id,
@@ -191,6 +201,11 @@ export const Post = z
     canReact: z.boolean(),
     /** The viewer may report it (reports.create would accept it). */
     canReport: z.boolean(),
+    /**
+     * Who hid a deleted post and why, for viewers who may see deleted posts in its forum
+     * (forum.viewDeleted); null for everyone else and for a post that is not deleted.
+     */
+    deletion: PostDeletion.nullable(),
   })
   .meta({ id: "Post" });
 

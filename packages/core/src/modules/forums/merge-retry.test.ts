@@ -11,6 +11,7 @@ import {
   threadsCreateOp,
   threadsGetOp,
   threadsListOp,
+  threadsMarkReadOp,
   threadsMergeOp,
 } from "./index";
 
@@ -383,4 +384,86 @@ test("posts.list gives members the visible posts of a merge of two sources, with
       if (index > 0) expect(post.position).toBeGreaterThan(seen[index - 1]!.position);
     }
   }
+});
+
+test("a post the merge has not renumbered yet is told, and read up to, at the place it ends up in", async () => {
+  const ctx = createTestContext();
+  const node = insertNode(ctx, {});
+  invalidate(ctx, "node_tree");
+  const author = insertUser(ctx);
+  const readerRow = insertUser(ctx);
+  const reader = userActor(readerRow);
+  const moderator = userActor(insertUser(ctx, { groupId: 3 }));
+  registerModerationJobs(ctx);
+  const target = await execute(ctx, threadsCreateOp, userActor(author), {
+    nodeId: node.id,
+    title: "Target",
+    body: "Body",
+  });
+  const source = await execute(ctx, threadsCreateOp, userActor(author), {
+    nodeId: node.id,
+    title: "Source",
+    body: "Body",
+  });
+  const start = ctx.now() + 1000;
+  // The target's posts are the newest, so they end up after all of the source's.
+  addPosts(ctx, target.thread.id, author.id, 100, start + 2000);
+  addPosts(ctx, source.thread.id, author.id, 600, start);
+  const own = new Set(
+    ctx.sqlite
+      .prepare<{ id: number }, [number]>("SELECT id FROM posts WHERE thread_id = ?1")
+      .all(target.thread.id)
+      .map((post) => post.id),
+  );
+  await execute(ctx, threadsMergeOp, moderator, {
+    threadId: target.thread.id,
+    sourceThreadIds: [source.thread.id],
+  });
+
+  // One streams chunk has renumbered the first 500 places; the posts after them still have the
+  // position they had before the merge.
+  let reached = false;
+  for (let i = 0; i < 60 && !reached; i++) {
+    const job = nextJob(ctx)!;
+    reached =
+      job.type === "forums.mergeFinalize" &&
+      (JSON.parse(job.payload).phase ?? "streams") === "streams";
+    if (!reached) await runDueJobs(ctx, { limit: 1 });
+  }
+  expect(reached).toBe(true);
+  await runDueJobs(ctx, { limit: 1 });
+  const pending = ctx.sqlite
+    .prepare<{ id: number; position: number }, [number]>(
+      "SELECT id, position FROM posts WHERE thread_id = ?1 AND position > 0 ORDER BY id DESC",
+    )
+    .all(target.thread.id)
+    .filter((post) => own.has(post.id));
+  expect(pending.length).toBeGreaterThan(0);
+  const probe = pending[0]!;
+
+  const got = await execute(ctx, postsGetOp, moderator, { postId: probe.id });
+  expect(got.position).not.toBe(probe.position);
+  await execute(ctx, threadsMarkReadOp, reader, {
+    threadId: target.thread.id,
+    position: got.position,
+  });
+  const marked = ctx.sqlite
+    .prepare<{ last_read_post_id: number }, [number, number]>(
+      "SELECT last_read_post_id FROM thread_reads WHERE thread_id = ?1 AND user_id = ?2",
+    )
+    .get(target.thread.id, readerRow.id)!;
+  expect(marked.last_read_post_id).toBe(probe.id);
+
+  await runDueJobs(ctx);
+  const final = ctx.sqlite
+    .prepare<{ position: number }, [number]>("SELECT position FROM posts WHERE id = ?1")
+    .get(probe.id)!;
+  expect(final.position).toBe(got.position);
+  expect(
+    ctx.sqlite
+      .prepare<{ last_read_position: number }, [number, number]>(
+        "SELECT last_read_position FROM thread_reads WHERE thread_id = ?1 AND user_id = ?2",
+      )
+      .get(target.thread.id, readerRow.id)!.last_read_position,
+  ).toBe(final.position);
 });

@@ -45,6 +45,7 @@ const message = (over: Record<string, unknown> = {}) =>
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: false,
     canDelete: false,
+    canReport: true,
     ...over,
   }) as Props["message"];
 
@@ -81,6 +82,11 @@ test("another participant can report a message, and a moderator can also delete 
   const moderator = draw({ canDelete: true }, 9);
   expect(has(moderator, "Delete")).toBe(true);
   expect(has(moderator, "Report")).toBe(true);
+});
+
+test("report follows the backend's word, not the viewer being another participant", () => {
+  expect(has(draw({}, 9), "Report")).toBe(true);
+  expect(has(draw({ canReport: false }, 9), "Report")).toBe(false);
 });
 
 test("edit follows the backend's flag and opens the message's edit page", () => {

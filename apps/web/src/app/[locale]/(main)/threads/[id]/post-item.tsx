@@ -161,7 +161,17 @@ export function PostItem({
         <PostNote icon={Hourglass}>{t("awaitingApproval")}</PostNote>
       )}
       {noteState && post.state === "deleted" && (
-        <PostNote icon={Trash2}>{t("deleted")}</PostNote>
+        <PostNote icon={Trash2}>
+          {post.deletion ? (
+            <span>
+              {t("deletedBy", { name: post.deletion.by.username })}
+              {post.deletion.reason &&
+                ` ${t("deletedReason", { reason: post.deletion.reason })}`}
+            </span>
+          ) : (
+            t("deleted")
+          )}
+        </PostNote>
       )}
       {post.state === "deleted" ? (
         <details className="mt-2">
