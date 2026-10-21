@@ -82,9 +82,10 @@ const node = (
   },
 });
 
-// 1: the first category, with a cover. 2: a category with none. 5: a later category with a cover.
+// 9: a top-level forum before them all. 1: the first category, with a cover. 2: a category with none. 5: a later category with a cover.
 // 6: a forum at the top level, with a cover. 7: a category with an icon only.
 const NODES = [
+  node(9, null, "forum", null),
   node(1, null, "category", "cover"),
   node(3, 1, "forum", "cover"),
   node(2, null, "category", null),
@@ -167,7 +168,7 @@ const list = async () =>
     }),
   );
 
-test("the first category header draws its cover at once and a later one lazily", async () => {
+test("the first category header, even after a forum, draws its cover at once and a later one lazily", async () => {
   backend();
   const page = await list();
   const first = header(page, "Category 1");
@@ -232,7 +233,10 @@ test("a forum page with a cover draws it behind its title in a box that keeps it
   backend();
   const covered = await forumPage("3");
   expect(covered).toContain(`background-image:url(&quot;${COVER}&quot;)`);
-  expect(top(covered)).toContain("aspect-(--aspect-cover)");
+  // The box is a least height, so a long title or description makes it grow; an aspect ratio
+  // with a clipped overflow would cut the content off instead.
+  expect(top(covered)).toContain("min-h-36");
+  expect(top(covered)).not.toContain("aspect-");
   expect(top(covered)).toContain("from-background/95");
   // The description is in the foreground colour over a picture, not the muted one.
   expect(covered).toMatch(/text-foreground[^"]*">About it/);
@@ -241,7 +245,7 @@ test("a forum page with a cover draws it behind its title in a box that keeps it
 test("a category page with a cover draws it behind its title and lists its forums below", async () => {
   backend();
   const page = await forumPage("1");
-  expect(top(page)).toContain("aspect-(--aspect-cover)");
+  expect(top(page)).toContain("min-h-36");
   expect(top(page)).toContain(`background-image:url(&quot;${COVER}&quot;)`);
   expect(page).toContain("Forum 3");
 });
@@ -251,7 +255,7 @@ test("a page with no cover, or with an icon only, looks as before", async () => 
   for (const id of ["4", "7"]) {
     const plain = await forumPage(id);
     expect(top(plain), id).not.toContain("from-background/95");
-    expect(top(plain), id).not.toContain("aspect-(--aspect-cover)");
+    expect(top(plain), id).not.toContain("min-h-36");
     expect(top(plain), id).not.toContain("background-image");
     expect(top(plain), id).not.toContain(ICON);
   }
@@ -262,6 +266,6 @@ test("with forum pictures blocked by LITE mode the page header stays plain", asy
   blocked = true;
   const page = await forumPage("3");
   expect(top(page)).not.toContain(COVER);
-  expect(top(page)).not.toContain("aspect-(--aspect-cover)");
+  expect(top(page)).not.toContain("min-h-36");
   expect(top(page)).not.toContain("lite-placeholder");
 });

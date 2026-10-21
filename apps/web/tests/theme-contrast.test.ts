@@ -323,12 +323,10 @@ for (const [theme, tokens, worst] of [
       worst,
       Math.min(...alphas),
     );
-    // A header over a cover draws its text and controls in the foreground colour, never the muted one.
-    for (const text of ["foreground"]) {
-      expect(
-        contrast(resolve(tokens, text), blended),
-        `${text} on ${blended}`,
-      ).toBeGreaterThanOrEqual(4.5);
-    }
+    // A header over a cover draws its text in the foreground colour, not the muted one.
+    expect(
+      contrast(resolve(tokens, "foreground"), blended),
+      `foreground on ${blended}`,
+    ).toBeGreaterThanOrEqual(4.5);
   });
 }

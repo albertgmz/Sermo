@@ -96,11 +96,14 @@ async function ForumCategories({
   );
 
   // Only a category has a header to put its cover behind. A top-level forum is drawn as a card,
-  // which already holds its cover, so the picture is not repeated above it. The first header is
-  // above the fold and loads at once.
+  // which already holds its cover, so the picture is not repeated above it. The first header with
+  // a picture is above the fold and loads at once.
+  const bannered = (category: (typeof categories)[number]) =>
+    category.type === "category" ? category.cover : null;
+  const first = categories.findIndex(bannered);
   const banners = await Promise.all(
     categories.map((category, index) =>
-      bannerOf(category.type === "category" ? category.cover : null, index > 0),
+      bannerOf(bannered(category), index !== first),
     ),
   );
 

@@ -8,6 +8,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import { BANNER_HEADER_HEIGHT } from "@/components/forum/banner-size";
 import { cn } from "@/lib/utils";
 
 const listeners = new Set<() => void>();
@@ -91,7 +92,7 @@ export function CollapsiblePanel({
             onClick={() => writeOpen(storageKey, !open)}
             className={cn(
               "flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-              banner ? "min-h-20 md:min-h-24" : "min-h-12",
+              banner ? BANNER_HEADER_HEIGHT : "min-h-12",
             )}
           >
             {title}

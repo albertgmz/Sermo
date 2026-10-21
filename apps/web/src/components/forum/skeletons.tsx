@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { BANNER_HEADER_HEIGHT } from "@/components/forum/banner-size";
 import { COMPOSER_PAGE_CLASS } from "@/components/forum/composer-page";
 import { Container } from "@/components/layout/container";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -85,7 +86,7 @@ export function CardSkeleton({
       <div
         className={cn(
           "flex items-center border-b px-4 py-2",
-          banner ? "min-h-20 md:min-h-24" : "min-h-12",
+          banner ? BANNER_HEADER_HEIGHT : "min-h-12",
         )}
       >
         {described ? (

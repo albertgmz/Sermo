@@ -184,7 +184,7 @@ export default async function ForumPage({
         className={cn(
           "mt-1 flex flex-wrap items-end justify-between gap-3",
           banner &&
-            "relative isolate aspect-(--aspect-cover) content-end overflow-hidden rounded-lg border p-4 md:aspect-auto md:min-h-44",
+            "relative isolate min-h-36 content-end overflow-hidden rounded-lg border p-4 md:min-h-44",
         )}
       >
         {banner}
