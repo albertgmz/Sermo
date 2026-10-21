@@ -38,7 +38,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   $exportBb,
   $replaceWithBb,
@@ -343,8 +342,6 @@ export type EditorProps = {
   compact?: boolean;
   // The formatting bar. A compact editor has none unless it is asked for.
   toolbar?: boolean;
-  // Where the formatting bar is drawn instead, for a composer that has a bar of its own.
-  toolbarContainer?: HTMLElement | null;
   // Takes the focus once it is on the page, with the caret after what it holds.
   autoFocus?: boolean;
   // With `autoFocus`: where the focus goes in `defaultValue`, as the offsets of the selection of the
@@ -374,7 +371,6 @@ export function Editor({
   minHeight,
   compact = false,
   toolbar = !compact,
-  toolbarContainer,
   autoFocus,
   selection,
   onChange,
@@ -485,16 +481,11 @@ export function Editor({
         <ContentSafetyPlugin onFiles={takeFiles} />
         <div
           className={cn(
-            "min-w-0 rounded-lg border bg-card transition-colors focus-within:border-ring",
+            "group/editor min-w-0 rounded-lg border bg-card transition-colors focus-within:border-ring",
             className,
           )}
         >
           {toolbar && <Toolbar />}
-          {toolbarContainer &&
-            createPortal(
-              <Toolbar className="border-b-0 p-0" />,
-              toolbarContainer,
-            )}
           <div className="relative" hidden={sourceShown}>
             <RichTextPlugin
               contentEditable={

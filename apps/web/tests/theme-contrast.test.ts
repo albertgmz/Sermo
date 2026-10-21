@@ -197,6 +197,54 @@ for (const [theme, tokens] of [
   });
 }
 
+// A colour drawn at `alpha` over a surface, as the browser composites it.
+function over(colour: string, alpha: number, surface: string) {
+  const channel = (hex: string, at: number) =>
+    Number.parseInt(hex.slice(at, at + 2), 16);
+  return `#${[1, 3, 5]
+    .map((at) =>
+      Math.round(
+        alpha * channel(colour, at) + (1 - alpha) * channel(surface, at),
+      )
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+for (const [theme, tokens] of [
+  ["dark", dark],
+  ["light", light],
+] as const) {
+  // The submit of a composer (components/forum/composer-buttons.tsx): the accent's ink on a 10 %
+  // tint of the accent (15 % under the pointer), over the card or the page.
+  test(`${theme} theme: a composer's submit reads on its soft tint of every preset accent`, () => {
+    const failures: string[] = [];
+    for (const accent of [
+      ...ACCENTS.map((preset) => preset.color),
+      "#dc2626",
+    ]) {
+      const ink = hold(
+        accent,
+        number(tokens, "--accent-min"),
+        number(tokens, "--ink-max"),
+      );
+      for (const surface of ["card", "background"]) {
+        for (const alpha of [0.1, 0.15]) {
+          const tint = over(accent, alpha, resolve(tokens, surface));
+          const ratio = contrast(ink, tint);
+          if (ratio < 4.5) {
+            failures.push(
+              `${accent} at ${alpha} on ${surface}: ${ratio.toFixed(2)}`,
+            );
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+}
+
 const palette = (colours: (string | null)[]) =>
   colours.filter((colour): colour is string => colour !== null);
 

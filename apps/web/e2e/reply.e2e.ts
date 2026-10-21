@@ -5,7 +5,6 @@ import {
   expect,
   expectFits,
   MEMBER_STATE,
-  phoneWidth,
   ready,
   screen,
   seed,
@@ -17,29 +16,28 @@ import {
 test.use({ storageState: MEMBER_STATE });
 
 const replyBox = (page: Page) =>
-  page.getByRole("textbox", { name: "Type your message here." });
+  page.getByRole("textbox", { name: "Write your reply…" });
 
-// Turns a command on or off from its button, or, when the bar is too narrow to show it, from the
-// menu that holds it.
-async function choose(
-  page: Page,
-  toolbar: Locator,
-  menu: string,
-  command: string,
-) {
+const MORE = "More options…";
+
+// The button of a command: in its group, or, when the bar is too narrow to show it there, in the
+// strip one of the "⋮" opens (the strip is left open).
+async function reveal(toolbar: Locator, command: string) {
   const button = toolbar.getByRole("button", { name: command, exact: true });
-  if (await button.isVisible()) {
-    await button.click();
-    return;
+  if (await button.isVisible()) return button;
+  const more = toolbar.getByRole("button", { name: MORE, exact: true });
+  for (let index = 0; index < (await more.count()); index += 1) {
+    const trigger = more.nth(index);
+    if (!(await trigger.isVisible())) continue;
+    if ((await trigger.getAttribute("aria-expanded")) !== "true") {
+      await trigger.click();
+    }
+    if (await button.isVisible()) return button;
   }
-  await toolbar.getByRole("button", { name: menu, exact: true }).click();
-  await page
-    .getByRole("menuitemcheckbox", { name: command, exact: true })
-    .click();
-  await expect(page.getByRole("menu")).toBeHidden();
+  throw new Error(`${command} is nowhere in the bar`);
 }
 
-test("the reply editor's toolbar fits a phone without scrolling and its menu items work @all", async ({
+test("the reply editor's toolbar fits a phone without scrolling and its strips work @all", async ({
   page,
 }) => {
   const { threadId } = seed();
@@ -53,23 +51,29 @@ test("the reply editor's toolbar fits a phone without scrolling and its menu ite
   expect(frame.x).toBeGreaterThanOrEqual(0);
   expect(frame.x + frame.width).toBeLessThanOrEqual(size.width);
   await expectFits(page, "toolbar");
-  // The bar has no scroll of its own: what does not fit is in its menus.
+  // The bar has no scroll of its own: what does not fit is behind its "⋮".
   expect(
     await toolbar.evaluate((bar) => bar.scrollWidth <= bar.clientWidth),
   ).toBe(true);
 
-  // On a phone each button is a touch target (a tablet has the desktop size), and every one is in
-  // view inside the bar.
+  // XenForo's sizes at every width: 30 x 32 px buttons and a 22 px "⋮", each in view inside the
+  // bar; the common commands are always buttons.
   const buttons = toolbar.getByRole("button");
   const count = await buttons.count();
-  expect(count).toBeGreaterThanOrEqual(6);
   for (let index = 0; index < count; index += 1) {
-    const button = await box(buttons.nth(index));
-    const least = phoneWidth(page) ? 40 : 32;
-    expect(button.width).toBeGreaterThanOrEqual(least);
-    expect(button.height).toBeGreaterThanOrEqual(least);
+    const control = buttons.nth(index);
+    if (!(await control.isVisible())) continue;
+    const button = await box(control);
+    const more = (await control.getAttribute("aria-label")) === MORE;
+    expect(button.width).toBeGreaterThanOrEqual(more ? 22 : 30);
+    expect(button.height).toBeGreaterThanOrEqual(32);
     expect(button.x).toBeGreaterThanOrEqual(frame.x);
     expect(button.x + button.width).toBeLessThanOrEqual(frame.x + frame.width);
+  }
+  for (const command of ["Bold", "Italic", "Link", "Image", "Undo"]) {
+    await expect(
+      toolbar.getByRole("button", { name: command, exact: true }),
+    ).toBeVisible();
   }
 
   // Bold wraps the typed word, and the editor keeps the focus and the selection.
@@ -77,54 +81,59 @@ test("the reply editor's toolbar fits a phone without scrolling and its menu ite
   await editor.click();
   await editor.pressSequentially("phone");
   await editor.press("Control+A");
-  await choose(page, toolbar, "Text", "Bold");
-  await expect(editor).toBeFocused();
-
-  // The Text menu shows what is on, and Escape closes it with the focus back on its button.
-  const text = toolbar.getByRole("button", { name: "Text", exact: true });
-  await text.click();
   const bold = toolbar.getByRole("button", { name: "Bold", exact: true });
-  if (await bold.isVisible()) {
-    await expect(bold).toHaveAttribute("aria-pressed", "true");
-  } else {
-    await expect(
-      page.getByRole("menuitemcheckbox", { name: "Bold", exact: true }),
-    ).toHaveAttribute("aria-checked", "true");
+  await bold.click();
+  await expect(editor).toBeFocused();
+  await expect(bold).toHaveAttribute("aria-pressed", "true");
+
+  // A "⋮" opens its strip under the groups and keeps the focus in the text; a second one closes
+  // the first; Escape in a strip closes it with the focus back on its "⋮".
+  const triggers = toolbar.getByRole("button", { name: MORE, exact: true });
+  const shown: Locator[] = [];
+  for (let index = 0; index < (await triggers.count()); index += 1) {
+    if (await triggers.nth(index).isVisible()) shown.push(triggers.nth(index));
   }
+  expect(shown.length).toBeGreaterThanOrEqual(1);
+  const [first, second] = shown;
+  await first.click();
+  await expect(first).toHaveAttribute("aria-expanded", "true");
+  await expect(editor).toBeFocused();
+  const strip = toolbar.locator(
+    `[id="${await first.getAttribute("aria-controls")}"]`,
+  );
+  await expect(strip).toBeVisible();
+  if (second) {
+    await second.click();
+    await expect(first).toHaveAttribute("aria-expanded", "false");
+    await expect(strip).toBeHidden();
+    await second.click();
+  } else {
+    await first.click();
+  }
+  await expect(strip).toBeHidden();
+  await first.focus();
+  await page.keyboard.press("Enter");
+  await expect(strip.getByRole("button").first()).toBeFocused();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("menu")).toBeHidden();
-  await expect(text).toBeFocused();
+  await expect(strip).toBeHidden();
+  await expect(first).toBeFocused();
 
   // The BB code source shows the bold word as text, and the rich text reads it back.
-  await choose(page, toolbar, "More", "BB code source");
+  await (await reveal(toolbar, "BB code source")).click();
   const source = reply.locator("textarea").first();
   await expect(source).toHaveValue(/\[B\]phone\[\/B\]/);
   await expect(source).toBeFocused();
   await expectFits(page, "source");
   await source.fill("[I]changed[/I]");
-  await choose(page, toolbar, "More", "BB code source");
+  await (await reveal(toolbar, "BB code source")).click();
   await expect(replyBox(page)).toContainText("changed");
   await expectFits(page, "back to rich text");
 
   // From the keyboard too, the source takes the focus into its field and the rich text takes it
-  // back, whether the toggle is a button or an item of the More menu; the focus stays there once
-  // the menu has gone.
-  const more = toolbar.getByRole("button", { name: "More", exact: true });
+  // back, whether the toggle is a button of its group or of the misc strip.
   const toggleByKey = async () => {
-    if (await more.isVisible()) {
-      await more.focus();
-      await page.keyboard.press("Enter");
-      await expect(
-        page.getByRole("menuitemcheckbox", { name: "BB code source" }),
-      ).toBeFocused();
-      await page.keyboard.press("Enter");
-      await expect(page.getByRole("menu")).toBeHidden();
-    } else {
-      await toolbar
-        .getByRole("button", { name: "BB code source", exact: true })
-        .focus();
-      await page.keyboard.press("Enter");
-    }
+    await (await reveal(toolbar, "BB code source")).focus();
+    await page.keyboard.press("Enter");
   };
   await toggleByKey();
   await expect(source).toBeFocused();

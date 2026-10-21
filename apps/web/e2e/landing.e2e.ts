@@ -523,7 +523,7 @@ test("after a reply the member's new post is in view @landing", async ({
   );
   await ready(page);
   const text = `Landing reply ${Date.now().toString(36)}`;
-  const editor = page.getByRole("textbox", { name: "Type your message here." });
+  const editor = page.getByRole("textbox", { name: "Write your reply…" });
   await editor.click();
   await editor.pressSequentially(text);
   await page.getByRole("button", { name: "Post reply" }).click();

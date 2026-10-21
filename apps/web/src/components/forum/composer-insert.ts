@@ -115,3 +115,28 @@ export function onFilesOffered(
   form.addEventListener(FILES_EVENT, listener);
   return () => form.removeEventListener(FILES_EVENT, listener);
 }
+
+// The Image button of the editor asks its composer's attachment list to open its picture picker;
+// whether one did is the answer (a composer with no attachment list, or one that does not allow
+// files, leaves it, and the button asks for a picture's address instead).
+const PICK_EVENT = "sermo:composer-pick-image";
+
+export function pickImage(form: HTMLFormElement | null | undefined) {
+  if (!form) return false;
+  return !form.dispatchEvent(new Event(PICK_EVENT, { cancelable: true }));
+}
+
+// Runs `open` when the editor of `form`'s composer asks for a picture.
+export function onImagePick(
+  form: HTMLFormElement | null | undefined,
+  open: () => void,
+) {
+  if (!form) return () => {};
+  const listener = (event: Event) => {
+    if (event.defaultPrevented) return;
+    event.preventDefault();
+    open();
+  };
+  form.addEventListener(PICK_EVENT, listener);
+  return () => form.removeEventListener(PICK_EVENT, listener);
+}

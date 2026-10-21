@@ -1,20 +1,22 @@
 "use client";
 
-import { SendHorizontal } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 import { AttachmentField } from "@/components/forum/attachment-field";
+import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
-import { PendingButton } from "@/components/forum/pending-button";
 import { landOn } from "@/components/layout/land-on";
 import { cn } from "@/lib/utils";
 
 // `landOn`: the hash of what was just written, which the page then lands on.
 export type LineComposerState = { error?: string; landOn?: string };
 
-// The one-line composer for answering where the item is read: the comments of a wall post, a
-// reply from a feed card. The backend's refusal is shown as it comes. With `attach` the line
-// takes files too (a paperclip in its row, the chosen files on a line above).
+// The short composer for answering where the item is read: the comments of a wall post, a reply
+// from a feed card. Until it is entered it is one line, as XenForo's "Write a comment…" box is;
+// entered, the editor takes the whole width with its bar over a taller text, and the labelled
+// buttons follow it (`ComposerButtons`). The backend's refusal is shown as it comes. With `attach`
+// it is a comment that takes files (a wall post's): XenForo puts the submit first and "Attach
+// files" after it there; a reply has its submit at the end of the row.
 export function LineComposer({
   action,
   placeholder,
@@ -33,28 +35,29 @@ export function LineComposer({
 }) {
   const [state, formAction] = useActionState(action, {});
   const [uploading, setUploading] = useState(false);
+  const [entered, setEntered] = useState(false);
   useEffect(() => {
     if (state.landOn) landOn(state.landOn);
   }, [state]);
   return (
-    <form action={formAction} className={cn("space-y-2", className)}>
-      <div className={cn("flex items-end gap-2", attach && "flex-wrap")}>
-        {attach && <AttachmentField compact onBusy={setUploading} />}
-        <LazyEditor
-          name="body"
-          placeholder={placeholder}
-          className="flex-1 rounded-4xl"
-        />
-        <PendingButton
-          size="icon"
-          aria-label={submitLabel}
-          className="size-10"
-          disabled={uploading}
-        >
-          <SendHorizontal />
-        </PendingButton>
-      </div>
+    <form
+      action={formAction}
+      onFocus={() => setEntered(true)}
+      className={cn("space-y-2", className)}
+    >
+      <LazyEditor
+        name="body"
+        placeholder={placeholder}
+        minHeight={entered ? 100 : 40}
+      />
       {state.error && <FormError>{state.error}</FormError>}
+      <ComposerButtons
+        submitLabel={submitLabel}
+        order={attach ? "comment" : "reply"}
+        disabled={uploading}
+        files={attach && <AttachmentField compact onBusy={setUploading} />}
+        className={entered ? undefined : "hidden"}
+      />
     </form>
   );
 }

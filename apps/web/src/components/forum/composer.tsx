@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { type RefObject, useEffect, useState } from "react";
 import { AttachmentField } from "@/components/forum/attachment-field";
+import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { COMPOSER_PAGE_CLASS } from "@/components/forum/composer-page";
 import type { EditorProps } from "@/components/forum/editor";
 import { FormError } from "@/components/forum/form-error";
@@ -18,9 +19,9 @@ import {
 import { cn } from "@/lib/utils";
 
 // The composer of a post, shared by everything that is written in a sheet: a wall post and a new
-// thread. It is a form with close and Post at the top, the text, and one bar of tools at the
-// bottom (files, then the editor's formatting bar). The caller puts what is its own above the text
-// (`top`); a poll or tags would join the bottom bar here.
+// thread. It is a form with close at the top, the text with the editor's formatting bar over it,
+// and XenForo's button row at the bottom: "Attach files" at the start, the labelled submit at the
+// end (`ComposerButtons`). The caller puts what is its own above the text (`top`).
 //
 // Two frames hold it. `ComposerSheet` is a dialog: the whole screen of a phone and a centred box
 // from `md` up, or the whole screen at every size (`screen`, the Create button's). `ComposerPage`
@@ -135,7 +136,7 @@ export function ComposerPage({
 export type ComposerFrame =
   // Inside a `Dialog`: close is the dialog's, and `heading` names it for assistive technology. A
   // dialog that holds several composers names itself once and leaves `heading` out. `grow`: the
-  // dialog is the whole screen, and the text takes all of it down to the bar of tools.
+  // dialog is the whole screen, and the text takes all of it down to the buttons.
   | { kind: "dialog"; heading?: string; grow?: boolean }
   // On a page of its own, which has its own heading: close is a link back.
   | { kind: "page"; closeHref: string };
@@ -222,7 +223,7 @@ export function ComposerForm({
   onBodyChange?: (text: string) => void;
   error?: string;
   // Whether files may be added. The files already added stay in view (and can be removed) while
-  // this is false: only the paperclip goes.
+  // this is false: only the "Attach files" button goes.
   attach?: boolean;
   // The forum the post is for; a message or a wall post has none.
   attachNodeId?: number;
@@ -232,8 +233,7 @@ export function ComposerForm({
 }) {
   const t = useTranslations("forum.composer");
   const [uploading, setUploading] = useState(false);
-  const [bar, setBar] = useState<HTMLDivElement | null>(null);
-  // On a page the bar follows the keyboard up; the sheet is as tall as what is in view already.
+  // On a page the buttons follow the keyboard up; the sheet is as tall as what is in view already.
   const { inset } = useVisualViewport(frame.kind === "page");
   const grow = frame.kind === "dialog" && frame.grow === true;
   const editor = (
@@ -241,7 +241,6 @@ export function ComposerForm({
       name="body"
       placeholder={placeholder}
       minHeight={minHeight}
-      toolbarContainer={bar}
       findMembers={findMembers}
       onChange={onBodyChange}
       className={cn("rounded-none border-0 bg-transparent", grow && "flex-1")}
@@ -262,7 +261,7 @@ export function ComposerForm({
         cover
       )}
       <div className={cn("flex min-h-0 flex-1 flex-col", cover && "hidden")}>
-        <div className="flex items-center justify-between gap-2 border-b p-2">
+        <div className="flex items-center gap-2 border-b p-2">
           {frame.kind === "dialog" ? (
             <>
               <DialogClose
@@ -294,13 +293,6 @@ export function ComposerForm({
               <X />
             </Link>
           )}
-          <Button
-            type="submit"
-            disabled={pending || uploading || !canSubmit}
-            className="h-10 rounded-full px-5"
-          >
-            {submitLabel}
-          </Button>
         </div>
         <div
           className={cn(
@@ -329,21 +321,27 @@ export function ComposerForm({
             frame.kind === "page" && inset > 0 ? { bottom: inset } : undefined
           }
           className={cn(
-            "flex flex-wrap items-center gap-x-1 gap-y-2 border-t px-1.5 pt-1",
+            "border-t px-3 pt-2",
             frame.kind === "dialog"
-              ? "pb-[calc(0.25rem+env(safe-area-inset-bottom))] md:pb-1"
-              : // On a page the bar stays in view: above the phone's bottom navigation, which
+              ? "pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-2"
+              : // On a page the row stays in view: above the phone's bottom navigation, which
                 // already counts the safe area, and above the keyboard when there is one.
-                "sticky bottom-(--spacing-mobile-nav) z-10 bg-card pb-1 md:bottom-0",
+                "sticky bottom-(--spacing-mobile-nav) z-10 bg-card pb-2 md:bottom-0",
           )}
         >
-          <AttachmentField
-            compact
-            allowed={attach}
-            nodeId={attachNodeId}
-            onBusy={setUploading}
+          <ComposerButtons
+            submitLabel={submitLabel}
+            order="reply"
+            disabled={pending || uploading || !canSubmit}
+            files={
+              <AttachmentField
+                compact
+                allowed={attach}
+                nodeId={attachNodeId}
+                onBusy={setUploading}
+              />
+            }
           />
-          <div ref={setBar} className="min-w-0 flex-1" />
         </div>
       </div>
     </form>

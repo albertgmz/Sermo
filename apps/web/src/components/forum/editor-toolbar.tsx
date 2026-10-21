@@ -1,5 +1,6 @@
 "use client";
 
+import { Toolbar as Bar } from "@base-ui/react/toolbar";
 import { $isCodeNode } from "@lexical/code";
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
 import {
@@ -25,31 +26,29 @@ import {
 import {
   Bold,
   Brackets,
-  ChevronDown,
   Clapperboard,
   Code,
-  Ellipsis,
+  EllipsisVertical,
   Eraser,
   EyeOff,
   Heading,
+  ImageIcon,
   Italic,
   Link2,
   List,
   ListOrdered,
   type LucideIcon,
-  Pilcrow,
-  Plus,
   Redo2,
   SquareCode,
   Strikethrough,
   TextQuote,
-  Type,
   Underline,
   Undo2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useContext, useEffect, useState } from "react";
-import { linkAddressOf } from "@/components/forum/bb-scan";
+import { useContext, useEffect, useId, useRef, useState } from "react";
+import { isWebAddress, linkAddressOf } from "@/components/forum/bb-scan";
+import { pickImage } from "@/components/forum/composer-insert";
 import {
   $applyLink,
   $insertText,
@@ -61,22 +60,14 @@ import {
 import { SourceContext } from "@/components/forum/editor-extras";
 import {
   type CommandId,
-  END,
-  type MenuId,
+  GROUPS,
+  type GroupId,
   SHOWN,
   type Slot,
-  START,
+  toggleStrip,
 } from "@/components/forum/editor-toolbar-layout";
 import { FormError } from "@/components/forum/form-error";
 import { mediaTagOf } from "@/components/forum/media-url";
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 type ToolbarState = {
@@ -97,13 +88,6 @@ const FORMATS = [
   icon: LucideIcon;
 }[];
 
-const MENU_ICONS: Record<MenuId, LucideIcon> = {
-  text: Type,
-  paragraph: Pilcrow,
-  insert: Plus,
-  more: Ellipsis,
-};
-
 function $readToolbarState(): ToolbarState | null {
   const selection = $getSelection();
   if (!$isRangeSelection(selection)) return null;
@@ -123,7 +107,7 @@ function $readToolbarState(): ToolbarState | null {
   };
 }
 
-// One thing the bar does, drawn as a button or as an item of a menu.
+// One thing the bar does, drawn as a button of a group or of its strip.
 type Command = {
   label: string;
   icon: LucideIcon;
@@ -132,11 +116,14 @@ type Command = {
   disabled?: boolean;
   // Stays usable while the BB code source is shown (the command that switches to and from it).
   always?: boolean;
-  // Puts the focus where it belongs itself (the BB code source: in its field, or back in the
-  // editor).
-  focuses?: boolean;
   run: () => void;
 };
+
+// XenForo's sizes: 30 x 32 px buttons and a 22 px "⋮", the same on a phone and on a desktop (eight
+// buttons in three boxes fit the 326 px bar of a 360 px phone).
+const TOOL =
+  "my-0.5 inline-flex h-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:bg-muted aria-pressed:text-foreground data-disabled:opacity-40 data-disabled:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0";
+const BUTTON = `${TOOL} mx-px w-[30px]`;
 
 function useUnavailable() {
   const source = useContext(SourceContext)?.active;
@@ -144,6 +131,9 @@ function useUnavailable() {
     Boolean(command.disabled || (source && !command.always));
 }
 
+// A press keeps the focus where it is (`preventDefault`), in the editor with its selection, so a
+// phone keeps its keyboard up; a command that moves the selection puts the focus back in the
+// editor itself (Lexical does), and the BB code source puts it in its own field.
 function ToolbarButton({
   command,
   className,
@@ -154,106 +144,25 @@ function ToolbarButton({
   const unavailable = useUnavailable();
   const { label, icon: Icon, active, run } = command;
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
+    <Bar.Button
       aria-label={label}
       title={label}
       aria-pressed={active}
       disabled={unavailable(command)}
       onMouseDown={(event) => event.preventDefault()}
       onClick={run}
-      className={cn(
-        "size-10 text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground md:size-8",
-        className,
-      )}
+      className={cn(BUTTON, className)}
     >
-      <Icon />
-    </Button>
+      <Icon aria-hidden="true" />
+    </Bar.Button>
   );
-}
-
-// A group of commands behind one button, for a bar too narrow to show them all. A chosen command
-// leaves the focus where it puts it: in the editor, with its selection (Lexical moves the focus
-// there whenever a command changes the selection), or in the BB code field. Base UI respects that;
-// only Escape and a press elsewhere give the focus back to this button.
-function ToolbarMenu({
-  id,
-  label,
-  items,
-  className,
-}: {
-  id: MenuId;
-  label: string;
-  items: Command[];
-  className?: string;
-}) {
-  const [editor] = useLexicalComposerContext();
-  const unavailable = useUnavailable();
-  const Icon = MENU_ICONS[id];
-  // The focus goes to the editor inside the press, so that a phone raises its keyboard again.
-  const choose = (item: Command) => {
-    item.run();
-    if (!item.focuses) editor.focus();
-  };
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={label}
-        title={label}
-        data-active={items.some((item) => item.active) || undefined}
-        disabled={items.every(unavailable)}
-        onMouseDown={(event) => event.preventDefault()}
-        className={cn(
-          buttonVariants({ variant: "ghost" }),
-          "group size-10 gap-0 px-0 text-muted-foreground data-active:bg-muted data-active:text-foreground md:size-8",
-          className,
-        )}
-      >
-        <Icon />
-        {id !== "more" && (
-          <ChevronDown className="-mr-1 size-3 transition-transform group-data-popup-open:rotate-180" />
-        )}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-auto min-w-44">
-        {items.map((item) => {
-          const ItemIcon = item.icon;
-          const shared = {
-            disabled: unavailable(item),
-            onClick: () => choose(item),
-            className: "min-h-10 gap-2 md:min-h-8",
-          };
-          return item.active === undefined ? (
-            <DropdownMenuItem key={item.label} {...shared}>
-              <ItemIcon />
-              {item.label}
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuCheckboxItem
-              key={item.label}
-              checked={item.active}
-              closeOnClick
-              {...shared}
-            >
-              <ItemIcon />
-              {item.label}
-            </DropdownMenuCheckboxItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function Divider({ className }: { className?: string }) {
-  return <span className={cn("mx-1 h-5 w-px shrink-0 bg-border", className)} />;
 }
 
 export function Toolbar({ className }: { className?: string }) {
   const t = useTranslations("editor.editor");
   const [editor] = useLexicalComposerContext();
   const source = useContext(SourceContext);
+  const unavailable = useUnavailable();
   const [state, setState] = useState<ToolbarState>({
     formats: [],
     block: "paragraph",
@@ -262,7 +171,18 @@ export function Toolbar({ className }: { className?: string }) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   // The button whose address was refused.
-  const [refused, setRefused] = useState<"media" | "link" | null>(null);
+  const [refused, setRefused] = useState<"media" | "link" | "image" | null>(
+    null,
+  );
+  // The group whose strip is open, one at a time, as in XenForo.
+  const [open, setOpen] = useState<GroupId | null>(null);
+  const stripId = useId();
+  const strips = useRef<Partial<Record<GroupId, HTMLDivElement | null>>>({});
+  const triggers = useRef<Partial<Record<GroupId, HTMLButtonElement | null>>>(
+    {},
+  );
+  // A strip opened from the keyboard takes the focus on its first button.
+  const [enterStrip, setEnterStrip] = useState(false);
 
   useEffect(
     () =>
@@ -291,6 +211,15 @@ export function Toolbar({ className }: { className?: string }) {
     [editor],
   );
 
+  useEffect(() => {
+    if (!enterStrip || !open) return;
+    setEnterStrip(false);
+    // The strip's first button the bar's size draws.
+    [...(strips.current[open]?.querySelectorAll("button") ?? [])]
+      .find((button) => button.offsetParent !== null)
+      ?.focus();
+  }, [enterStrip, open]);
+
   function setBlock(block: "heading" | "quote" | "code") {
     editor.update(() => $setBlock(state.block, block));
   }
@@ -305,30 +234,46 @@ export function Toolbar({ className }: { className?: string }) {
     }
   }
 
+  // Asks for an address; empty or cancelled asks nothing more.
+  function ask(prompt: string) {
+    const input = window.prompt(prompt, "https://");
+    if (!input) setRefused(null);
+    return input || null;
+  }
+
   function toggleLink() {
     if (state.link) {
       editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
       return;
     }
-    const input = window.prompt(t("linkPrompt"), "https://");
-    if (!input) {
-      setRefused(null);
-      return;
-    }
+    const input = ask(t("linkPrompt"));
+    if (!input) return;
     const url = linkAddressOf(input);
     setRefused(url ? null : "link");
     if (url) editor.update(() => $applyLink(url));
   }
 
   function addMedia() {
-    const address = window.prompt(t("mediaPrompt"), "https://");
-    if (!address) {
-      setRefused(null);
-      return;
-    }
+    const address = ask(t("mediaPrompt"));
+    if (!address) return;
     const media = mediaTagOf(address);
     setRefused(media ? null : "media");
     if (media) editor.update(() => $insertText(media));
+  }
+
+  // The composer's own picture picker, whose pictures go in at the caret once they are uploaded
+  // (`[ATTACH=full]`); where the composer takes no files, a picture on the web by its address.
+  function addImage() {
+    if (pickImage(editor.getRootElement()?.closest("form"))) {
+      setRefused(null);
+      return;
+    }
+    const input = ask(t("imagePrompt"));
+    if (!input) return;
+    const url = linkAddressOf(input);
+    const ok = url !== null && isWebAddress(url);
+    setRefused(ok ? null : "image");
+    if (ok) editor.update(() => $insertText(`[IMG]${url}[/IMG]`));
   }
 
   const [bold, italic, underline, strikethrough, code] = FORMATS.map(
@@ -380,6 +325,7 @@ export function Toolbar({ className }: { className?: string }) {
       active: state.link,
       run: toggleLink,
     },
+    image: { label: t("imageLabel"), icon: ImageIcon, run: addImage },
     spoiler: {
       label: t("spoilerLabel"),
       icon: EyeOff,
@@ -400,7 +346,6 @@ export function Toolbar({ className }: { className?: string }) {
       icon: Brackets,
       active: source?.active ?? false,
       always: true,
-      focuses: true,
       run: () => source?.toggle(),
     },
     undo: {
@@ -417,52 +362,105 @@ export function Toolbar({ className }: { className?: string }) {
     },
   };
 
-  const draw = (slot: Slot, index: number) => {
-    const shown = SHOWN[slot.shown];
-    if (slot.kind === "divider") {
-      return <Divider key={`divider-${index}`} className={shown} />;
-    }
-    if (slot.kind === "command") {
-      return (
-        <ToolbarButton
-          key={slot.id}
-          command={commands[slot.id]}
-          className={shown}
-        />
-      );
-    }
-    return (
-      <ToolbarMenu
-        key={`${slot.id}-${slot.shown}`}
-        id={slot.id}
-        label={t(`menus.${slot.id}`)}
-        items={slot.items.map((id) => commands[id])}
-        className={shown}
-      />
-    );
-  };
+  const draw = (slot: Slot) => (
+    <ToolbarButton
+      key={`${slot.id}-${slot.shown}`}
+      command={commands[slot.id]}
+      className={SHOWN[slot.shown]}
+    />
+  );
 
   return (
     <>
       {/* The bar picks its size from its own width (see `editor-toolbar-layout.ts`). */}
-      <div className="@container">
-        <div
-          role="toolbar"
+      <div className="@container rounded-t-[inherit]">
+        <Bar.Root
           aria-label={t("aria.formatting")}
           className={cn(
-            "flex flex-wrap items-center gap-0.5 border-b px-1.5 py-1",
+            "flex flex-wrap items-center gap-1 rounded-t-[inherit] border-b bg-muted p-1.5",
             className,
           )}
         >
-          {START.map(draw)}
-          <span className="ml-auto flex items-center gap-0.5">
-            {END.map(draw)}
-          </span>
-        </div>
+          {GROUPS.map((group) => {
+            const more = group.more.map((slot) => commands[slot.id]);
+            const expanded = open === group.id;
+            return (
+              <Bar.Group
+                key={group.id}
+                data-group={group.id}
+                aria-label={t(`groups.${group.id}`)}
+                className={cn(
+                  "flex items-center rounded-lg border bg-card px-1 transition-colors group-focus-within/editor:border-dashed group-focus-within/editor:border-ring/60",
+                  // The misc group keeps to the right and takes what is left of the line.
+                  group.id === "misc" && "flex-1 justify-end",
+                  SHOWN[group.shown],
+                )}
+              >
+                {group.direct.map(draw)}
+                <Bar.Button
+                  ref={(element) => {
+                    triggers.current[group.id] = element;
+                  }}
+                  aria-label={t("moreOptions")}
+                  title={t("moreOptions")}
+                  aria-expanded={expanded}
+                  aria-controls={`${stripId}-${group.id}`}
+                  // Its strip holds a command that is on where the caret is.
+                  data-active={
+                    more.some((command) => command.active) || undefined
+                  }
+                  disabled={more.every(unavailable)}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={(event) => {
+                    setOpen((current) => toggleStrip(current, group.id));
+                    // Enter or Space (a click with no pointer) goes on into the strip.
+                    setEnterStrip(!expanded && event.detail === 0);
+                  }}
+                  className={cn(
+                    TOOL,
+                    "w-[22px] opacity-50 aria-expanded:opacity-100 data-active:opacity-100",
+                    SHOWN[group.moreShown],
+                  )}
+                >
+                  <EllipsisVertical aria-hidden="true" />
+                </Bar.Button>
+              </Bar.Group>
+            );
+          })}
+          {GROUPS.map((group) => (
+            <Bar.Group
+              key={group.id}
+              ref={(element: HTMLDivElement | null) => {
+                strips.current[group.id] = element;
+              }}
+              id={`${stripId}-${group.id}`}
+              data-strip={group.id}
+              aria-label={t(`groups.${group.id}`)}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                event.stopPropagation();
+                setOpen(null);
+                triggers.current[group.id]?.focus();
+              }}
+              className={cn(
+                "basis-full flex-wrap items-center px-1",
+                open === group.id ? "flex" : "hidden",
+              )}
+            >
+              {group.more.map(draw)}
+            </Bar.Group>
+          ))}
+        </Bar.Root>
       </div>
       {refused && (
         <FormError className="px-3 py-1.5">
-          {t(refused === "media" ? "mediaUnsupported" : "linkUnsupported")}
+          {t(
+            refused === "media"
+              ? "mediaUnsupported"
+              : refused === "image"
+                ? "imageUnsupported"
+                : "linkUnsupported",
+          )}
         </FormError>
       )}
     </>

@@ -294,7 +294,7 @@
     }
   },
   "threadComposer": {
-    "post": "Publicar",
+    "post": "Publicar tema",
     "postingIn": "Publicando en",
     "titleLabel": "Título",
     "titlePlaceholder": "Título del tema",
@@ -333,7 +333,7 @@
   },
   "wallComments": {
     "placeholder": "Escribe un comentario…",
-    "submit": "Publicar comentario",
+    "submit": "Comentar mensaje",
     "awaitingApproval": "Esto está pendiente de aprobación.",
     "deleted": "Esto se eliminó.",
     "showMore": "Mostrar más comentarios",

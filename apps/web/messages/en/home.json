@@ -67,9 +67,9 @@
     "inThread": "In {title}",
     "onWall": "On a profile wall",
     "replyPlaceholder": "Reply to this thread…",
-    "replySubmit": "Reply",
+    "replySubmit": "Post reply",
     "commentPlaceholder": "Write a comment…",
-    "commentSubmit": "Comment",
+    "commentSubmit": "Post comment",
     "signIn": "Sign in to react or comment"
   },
   "layout": {

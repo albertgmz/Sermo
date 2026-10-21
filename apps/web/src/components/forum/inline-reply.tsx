@@ -21,7 +21,7 @@ const LazyLineComposer = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <Skeleton className="h-10 w-full rounded-4xl" />,
+    loading: () => <Skeleton className="h-10 w-full rounded-lg" />,
   },
 );
 

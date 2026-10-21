@@ -84,7 +84,9 @@ test("a discussion: the draft is kept when the dialog is closed and reopened, th
     dialog(page).getByRole("textbox", { name: "Title" }),
   ).toHaveValue(title);
 
-  await dialog(page).getByRole("button", { name: "Post", exact: true }).click();
+  await dialog(page)
+    .getByRole("button", { name: "Post thread", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/threads\/\d+/);
   await expect(
     page.getByRole("heading", { name: title, level: 1 }),
@@ -139,7 +141,7 @@ test("a poll is made from the dialog and voted on", async ({ page }) => {
   await body.click();
   await body.pressSequentially("Which one?");
   await expectFits(page, "poll composer");
-  await form.getByRole("button", { name: "Post", exact: true }).click();
+  await form.getByRole("button", { name: "Post thread", exact: true }).click();
 
   await expect(page).toHaveURL(/\/threads\/\d+/);
   const poll = page.getByRole("region", { name: "Poll", exact: true });

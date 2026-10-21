@@ -212,7 +212,7 @@ test("a wall post is drawn with its latest comments and a composer for the next 
   expect(html).toContain("member21");
   expect(html).toContain('id="feed-profile-post-9-comment"');
   expect(html).toContain("Write a comment…");
-  expect(html).toContain('aria-label="Post comment"');
+  expect(html).toContain("</svg>Post comment</button>");
   expect(countHref(html, "2 comments")).toContain(
     'href="#feed-profile-post-9-comment"',
   );

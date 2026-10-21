@@ -69,7 +69,7 @@
     "replyPlaceholder": "Responde a este hilo…",
     "replySubmit": "Responder",
     "commentPlaceholder": "Escribe un comentario…",
-    "commentSubmit": "Comentar",
+    "commentSubmit": "Comentar mensaje",
     "signIn": "Inicia sesión para reaccionar o comentar"
   },
   "layout": {
@@ -97,7 +97,7 @@
     "replyContext": "respondió a un tema en <forum>{title}</forum>",
     "reply": "Responder",
     "replyPlaceholder": "Escribe una respuesta…",
-    "replySubmit": "Publicar respuesta"
+    "replySubmit": "Responder"
   },
   "featured": {
     "title": "Recomendados"

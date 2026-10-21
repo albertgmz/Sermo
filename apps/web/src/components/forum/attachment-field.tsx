@@ -17,11 +17,13 @@ import {
 import {
   attachTag,
   insertIntoComposer,
+  onImagePick,
   removeFromComposer,
 } from "@/components/forum/composer-insert";
 import { FormError } from "@/components/forum/form-error";
 import { messageActionClass } from "@/components/forum/message-action";
 import { useUploadLimit } from "@/components/forum/upload-limit";
+import { buttonVariants } from "@/components/ui/button";
 import { megabytes, uploadLimit } from "@/lib/sermo/upload-limit";
 import { cn } from "@/lib/utils";
 
@@ -48,11 +50,12 @@ export function AttachmentField({
   // The forum the post is for. A message or a profile post has none.
   nodeId?: number;
   initial?: AttachedFile[];
-  // For a one-line composer: only the paperclip, which takes its place in the composer's own row
-  // (a wrapping flex row), with the chosen files on a line of their own before it.
+  // For the button row at the end of a composer (`ComposerButtons`, a wrapping flex row): the
+  // labelled "Attach files" button, which goes last in the row, with the chosen files on lines of
+  // their own before it. Without it the button and the size limit sit on a line above the files.
   compact?: boolean;
-  // Whether files may be added here. Without it the paperclip is gone and the files already
-  // chosen stay listed, so they can be removed.
+  // Whether files may be added here. Without it the button is gone and the files already chosen
+  // stay listed, so they can be removed.
   allowed?: boolean;
   // Told whether a file is still on its way, so the form can wait for it.
   onBusy?: (busy: boolean) => void;
@@ -64,6 +67,7 @@ export function AttachmentField({
   const [busy, setBusy] = useState(0);
   const [error, setError] = useState<string>();
   const listed = useRef<HTMLInputElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const first = useRef(initial);
 
   useEffect(() => onBusy?.(busy > 0), [busy, onBusy]);
@@ -146,29 +150,63 @@ export function AttachmentField({
     [allowed, intake],
   );
 
+  // The editor's Image button opens a picker of pictures, which go in at the caret once they are
+  // uploaded, as pasted ones do.
+  useEffect(
+    () =>
+      allowed
+        ? onImagePick(listed.current?.form, () => picker.current?.click())
+        : undefined,
+    [allowed],
+  );
+
+  // Takes the files a picker chose, and empties it so the same file can be chosen again.
+  const choose =
+    (inText: boolean) => (event: React.ChangeEvent<HTMLInputElement>) => {
+      const chosen = Array.from(event.currentTarget.files ?? []);
+      event.currentTarget.value = "";
+      void intake(chosen, inText);
+    };
+
   const trigger = (
-    <label
-      className={cn(
-        messageActionClass,
-        "cursor-pointer has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-        compact
-          ? "size-10 shrink-0 px-0 md:size-10"
-          : "border border-border px-3",
-      )}
-    >
-      <Paperclip aria-hidden="true" />
-      {compact ? <span className="sr-only">{t("attach")}</span> : t("attach")}
+    <>
+      <label
+        // The row has no room for the size a file may have, which the pointer shows here.
+        title={
+          compact && limit !== null
+            ? t("limit", { size: megabytes(limit) })
+            : undefined
+        }
+        className={cn(
+          "cursor-pointer has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+          compact
+            ? // XenForo's button: as tall as the submit beside it, last in the row.
+              cn(
+                buttonVariants({ variant: "outline" }),
+                "order-last h-11 gap-2 px-4 text-(length:--text-compact)",
+              )
+            : cn(messageActionClass, "border border-border px-3"),
+        )}
+      >
+        <Paperclip aria-hidden="true" />
+        {t("attach")}
+        <input
+          type="file"
+          multiple
+          className="sr-only"
+          onChange={choose(false)}
+        />
+      </label>
       <input
+        ref={picker}
         type="file"
+        accept="image/*"
         multiple
-        className="sr-only"
-        onChange={(event) => {
-          const chosen = Array.from(event.currentTarget.files ?? []);
-          event.currentTarget.value = "";
-          void intake(chosen);
-        }}
+        hidden
+        tabIndex={-1}
+        onChange={choose(true)}
       />
-    </label>
+    </>
   );
   const uploading = busy > 0 && (
     <span

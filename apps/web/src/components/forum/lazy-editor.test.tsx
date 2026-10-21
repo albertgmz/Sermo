@@ -27,6 +27,7 @@ test("the one-line composers reach the editor's code only through the import mad
     "components/forum/composer.tsx",
     "components/forum/attachment-field.tsx",
     "components/forum/line-composer.tsx",
+    "components/forum/composer-buttons.tsx",
     "app/[locale]/(main)/members/post-composer.tsx",
     "app/[locale]/(main)/conversations/[id]/reply-form.tsx",
     "app/[locale]/(main)/threads/[id]/reply-composer.tsx",

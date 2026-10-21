@@ -4,6 +4,8 @@ import {
   insertAtCaret,
   insertIntoComposer,
   onComposerRequest,
+  onImagePick,
+  pickImage,
   removeFromComposer,
   withoutAttachTag,
 } from "./composer-insert";
@@ -94,4 +96,18 @@ test("removing an attachment also takes the thumb form and the spaced and quoted
   expect(withoutAttachTag(text, 6)).toBe(
     "||||[ATTACH=small]6[/ATTACH]|[ATTACH]66[/ATTACH]",
   );
+});
+
+test("the Image button reaches the picture picker of its own composer, and says when there is none", () => {
+  const mine = composer();
+  const other = composer();
+  const opened: string[] = [];
+  const stop = onImagePick(mine.form, () => opened.push("mine"));
+  onImagePick(other.form, () => opened.push("other"));
+  expect(pickImage(mine.form)).toBe(true);
+  expect(opened).toEqual(["mine"]);
+  stop();
+  expect(pickImage(mine.form)).toBe(false);
+  expect(pickImage(null)).toBe(false);
+  expect(opened).toEqual(["mine"]);
 });

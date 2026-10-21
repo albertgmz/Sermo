@@ -27,12 +27,28 @@ test("the field names its files for the form and says the size a file may have",
   expect(html).toContain(limit);
 });
 
-test("the compact field is the paperclip alone, with the files on a line before it", () => {
+test("the compact field is the labelled Attach files button, last in its row, with the files before it", () => {
   const html = render(<AttachmentField compact initial={files} />);
-  expect(html).toContain(`<span class="sr-only">${text.attach}</span>`);
-  expect(html).not.toContain(limit);
+  const button = html.match(
+    /<label title="([^"]*)" class="([^"]*)">(.*?)<\/label>/,
+  );
+  expect(button?.[3]).toContain(`</svg>${text.attach}<input`);
+  expect(button?.[2].split(" ")).toContain("order-last");
+  // The size a file may have is the button's title, not a text of the row.
+  expect(button?.[1]).toContain(limit);
+  expect(html.split(limit)).toHaveLength(2);
   expect(html).toContain('name="attachmentIds" value="4"');
   expect(html.indexOf("plan.pdf")).toBeLessThan(html.indexOf('type="file"'));
+});
+
+test("where files may be added, a picker of pictures waits for the editor's Image button", () => {
+  const picker =
+    /<input type="file" accept="image\/\*" multiple="" hidden="" tabindex="-1"\/>/;
+  expect(render(<AttachmentField compact />)).toMatch(picker);
+  expect(render(<AttachmentField />)).toMatch(picker);
+  expect(render(<AttachmentField compact allowed={false} />)).not.toMatch(
+    picker,
+  );
 });
 
 test("a picture offers its thumbnail and its full size, any other file one insert button", () => {

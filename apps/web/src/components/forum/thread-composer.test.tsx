@@ -2,6 +2,7 @@ import { expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
+import { messages } from "@/i18n/messages";
 import { withIntl } from "@/lib/test-intl";
 
 // The composer hands on server actions.
@@ -25,8 +26,8 @@ const PREFIXES = [
 const source = (path: string) =>
   readFileSync(join(import.meta.dir, "../..", path), "utf8");
 
-// The part of a composer that holds its close button and Post.
-const HEADER = /<div class="flex items-center justify-between/;
+// The part of a composer that holds its close button.
+const HEADER = /<div class="flex items-center gap-2 border-b p-2"/;
 
 function plainForm(cover?: React.ReactNode) {
   return renderToStaticMarkup(
@@ -126,16 +127,34 @@ test("the forum choice takes the screen without taking the draft away", () => {
   expect(html).toContain("Choose a forum");
   expect(html).toContain('name="body"');
   const wrapper = html.match(
-    /<div class="([^"]*)">(?=<div class="flex items-center justify-between)/,
+    /<div class="([^"]*)">(?=<div class="flex items-center gap-2 border-b p-2")/,
   );
   expect(wrapper?.[1]).toContain("hidden");
+});
+
+test("the submit is not at the top: it ends the bottom row, labelled, after Attach files", () => {
+  const html = plainForm();
+  const header = html.slice(html.search(HEADER));
+  const top = header.slice(0, header.indexOf("</div>"));
+  expect(top).not.toContain('type="submit"');
+  const submit = html.indexOf('type="submit"');
+  expect(submit).toBeGreaterThan(
+    html.indexOf(messages.forum.attachmentField.attach),
+  );
+  expect(html.slice(submit, html.indexOf("</button>", submit))).toContain(
+    "Post",
+  );
+  // The formatting bar comes with the text, above it: no bar of its own at the bottom.
+  expect(source("components/forum/composer.tsx")).not.toContain(
+    "toolbarContainer",
+  );
 });
 
 test("without a cover the composer is shown", () => {
   const html = plainForm();
   expect(html).toMatch(HEADER);
   const wrapper = html.match(
-    /<div class="([^"]*)">(?=<div class="flex items-center justify-between)/,
+    /<div class="([^"]*)">(?=<div class="flex items-center gap-2 border-b p-2")/,
   );
   expect(wrapper?.[1]).not.toContain("hidden");
 });
@@ -273,7 +292,7 @@ test("the composer pins its bar on a page and never hides the attachment list", 
   expect(src).toContain("{ bottom: inset }");
   // The safe area is counted once: by the sheet's bar at the screen's edge, not by the page's.
   expect(src).toMatch(
-    /frame\.kind === "dialog"\s*\?\s*"pb-\[calc\(0\.25rem\+env\(safe-area-inset-bottom\)\)\]/,
+    /frame\.kind === "dialog"\s*\?\s*"pb-\[calc\(0\.5rem\+env\(safe-area-inset-bottom\)\)\]/,
   );
 });
 

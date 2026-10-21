@@ -106,7 +106,7 @@ test("the composer is there only with an action, at the post's comment anchor", 
   const html = await render({ action: async () => ({}) });
   expect(html).toContain('id="profile-post-9-comment"');
   expect(html).toContain("Write a comment…");
-  expect(html).toContain('aria-label="Post comment"');
+  expect(html).toContain("</svg>Post comment</button>");
   expect(html).not.toContain("contenteditable");
 });
 

@@ -284,7 +284,7 @@ test.describe("signed in", () => {
     await visit(page, `/threads/${threadId}?page=3`);
     const reply = page.getByRole("region", { name: "Reply" });
     const field = reply.getByRole("textbox", {
-      name: "Type your message here.",
+      name: "Write your reply…",
     });
     await field.click();
     await field.pressSequentially("typed at once without waiting", {

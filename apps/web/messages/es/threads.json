@@ -40,9 +40,8 @@
     "selectPost": "Seleccionar mensaje {number}"
   },
   "replyComposer": {
-    "aria": {
-      "submit": "Publicar respuesta"
-    }
+    "submit": "Responder",
+    "placeholder": "Escribe tu respuesta…"
   },
   "errors": {
     "notThread": "Escribe el número o la dirección de un tema.",

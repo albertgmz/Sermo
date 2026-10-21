@@ -294,7 +294,7 @@
     }
   },
   "threadComposer": {
-    "post": "Post",
+    "post": "Post thread",
     "postingIn": "Posting in",
     "titleLabel": "Title",
     "titlePlaceholder": "Thread title",

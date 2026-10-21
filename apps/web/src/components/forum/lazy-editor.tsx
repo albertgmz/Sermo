@@ -32,7 +32,6 @@ export function LazyEditor({
   defaultValue,
   compact = true,
   minHeight = compact ? 40 : 120,
-  toolbarContainer,
   findMembers,
   insertEvent,
   onChange,
@@ -42,14 +41,10 @@ export function LazyEditor({
   placeholder: string;
   // The text it opens with, to edit something written before.
   defaultValue?: string;
-  // False for the roomy editor of a page's own reply form: more padding and a formatting bar of
-  // its own.
+  // False for the roomy editor of a page's own reply form: more padding.
   compact?: boolean;
   // One line unless the composer gives the text more room.
   minHeight?: number;
-  // The element of the composer's own bar that takes the formatting bar; without one it sits
-  // above the text.
-  toolbarContainer?: HTMLElement | null;
   findMembers?: EditorProps["findMembers"];
   // The name of a window event whose detail is BB code to add at the end (the quote button of a
   // post). The plain field takes it until the editor does.
@@ -62,7 +57,6 @@ export function LazyEditor({
   const asked = useRef(false);
   const [waiting, setWaiting] = useState(false);
   const [loaded, setLoaded] = useState<Loaded>();
-  const ownBar = toolbarContainer === undefined;
   const changed = useRef(onChange);
   changed.current = onChange;
 
@@ -171,8 +165,7 @@ export function LazyEditor({
     return (
       <loaded.Editor
         compact={compact}
-        toolbar={ownBar}
-        toolbarContainer={toolbarContainer}
+        toolbar
         autoFocus={loaded.focused}
         selection={loaded.selection}
         name={name}
@@ -194,10 +187,11 @@ export function LazyEditor({
         className,
       )}
     >
-      {/* The room the formatting bar takes, from the first tap, so nothing moves when it comes. */}
-      {waiting && ownBar && (
-        <div className="border-b px-1.5 py-1">
-          <Skeleton className="h-10 w-48 max-w-full md:h-8" />
+      {/* The room the formatting bar takes, from the first tap, so nothing moves when it comes:
+          its padding and a group's box (a 32 px button between 2 px margins and a border). */}
+      {waiting && (
+        <div className="rounded-t-[inherit] border-b bg-muted p-1.5">
+          <Skeleton className="h-[38px] w-48 max-w-full rounded-lg" />
         </div>
       )}
       <textarea

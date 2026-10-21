@@ -40,9 +40,8 @@
     "selectPost": "Select post {number}"
   },
   "replyComposer": {
-    "aria": {
-      "submit": "Post reply"
-    }
+    "submit": "Post reply",
+    "placeholder": "Write your reply…"
   },
   "errors": {
     "notThread": "Enter the number or the address of a thread.",

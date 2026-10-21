@@ -27,11 +27,15 @@
     "codeBlockLabel": "Bloque de código",
     "mediaLabel": "Multimedia",
     "sourceLabel": "Código BB",
-    "menus": {
+    "imageLabel": "Imagen",
+    "imagePrompt": "URL de la imagen",
+    "imageUnsupported": "Esa no es la dirección de una imagen en la web. Usa una que empiece por http:// o https://.",
+    "moreOptions": "Más opciones…",
+    "groups": {
       "text": "Texto",
       "paragraph": "Párrafo",
       "insert": "Insertar",
-      "more": "Más"
+      "misc": "Otras herramientas"
     },
     "mediaPrompt": "Dirección del vídeo, la canción o la publicación",
     "linkUnsupported": "Eso no es una dirección web. Usa una que empiece por http:// o https://, o una página de este sitio que empiece por /.",

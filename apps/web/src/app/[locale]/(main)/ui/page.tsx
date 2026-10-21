@@ -35,7 +35,7 @@ import { AttachmentField } from "@/components/forum/attachment-field";
 import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
 import { ClientIcons } from "@/components/forum/client-icons";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
-import { CompactComposer } from "@/components/forum/compact-composer";
+import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { ContentActions } from "@/components/forum/content-actions";
 import { ConversationPreview } from "@/components/forum/conversation-preview";
 import { CopyButton } from "@/components/forum/copy-button";
@@ -1505,16 +1505,6 @@ export default async function StyleguidePage() {
           <EditorDemo defaultValue={SAMPLE_BB} />
         </Section>
 
-        <Section title="Compact composer">
-          <CompactComposer
-            action={discard}
-            user={MEMBER}
-            placeholder="What's on your mind?"
-            submitLabel="Post"
-            className="max-w-xl"
-          />
-        </Section>
-
         <Section title="Lazy editor">
           <p className="text-sm text-muted-foreground">
             A one-line box that loads the editor, with its formatting bar, when
@@ -1529,14 +1519,22 @@ export default async function StyleguidePage() {
 
         <Section title="Line composer">
           <p className="text-sm text-muted-foreground">
-            The lazy editor with its send button, for answering where the item
-            is read: a comment on a wall post, a reply from a feed card. A
-            refusal is shown under the line.
+            For answering where the item is read: a reply from a feed card, a
+            comment on a wall post. One line until it is entered; then the
+            editor grows and the labelled buttons show under it. A refusal is
+            shown under the text.
           </p>
           <LineComposer
             action={discardLine}
             placeholder="Write a reply…"
             submitLabel="Post reply"
+            className="max-w-xl"
+          />
+          <LineComposer
+            action={discardLine}
+            placeholder="Write a comment…"
+            submitLabel="Post comment"
+            attach
             className="max-w-xl"
           />
         </Section>
@@ -1563,19 +1561,25 @@ export default async function StyleguidePage() {
           </div>
         </Section>
 
-        <Section title="Attachment field, compact">
+        <Section title="Composer buttons">
           <p className="text-sm text-muted-foreground">
-            The paperclip alone, for a composer's own row: the chosen files take
-            a line before it and scroll once they are many.
+            The end of every composer, as XenForo draws it: the chosen files,
+            then &quot;Attach files&quot; and the labelled submit. A reply or a
+            new post puts the submit at the end of the row, a comment puts it
+            first.
           </p>
-          <div className="flex max-w-xl flex-wrap items-end gap-2">
-            <AttachmentField compact />
-            <LazyEditor
-              name="message"
-              placeholder="Write a message…"
-              className="flex-1 rounded-4xl"
+          <form action={discard} className="max-w-xl space-y-4">
+            <ComposerButtons
+              submitLabel="Post reply"
+              order="reply"
+              files={<AttachmentField compact />}
             />
-          </div>
+            <ComposerButtons
+              submitLabel="Post comment"
+              order="comment"
+              files={<AttachmentField compact />}
+            />
+          </form>
         </Section>
 
         <Section title="Message row">
@@ -1610,10 +1614,11 @@ export default async function StyleguidePage() {
                       {"<p>A compact row, used for comments.</p>"}
                     </MessageBody>
                   </MessageRow>
-                  <CompactComposer
-                    action={discard}
+                  <LineComposer
+                    action={discardLine}
                     placeholder="Write a comment…"
                     submitLabel="Post comment"
+                    attach
                   />
                 </div>
               }
