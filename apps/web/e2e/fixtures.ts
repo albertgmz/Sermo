@@ -63,10 +63,9 @@ const IGNORED_CONSOLE: RegExp[] = [
   /__nextjs_original-stack-frames/,
 ];
 // WebKit words a request that was cancelled (the test reloaded or left the page while it was in
-// flight) as "Load failed", also as an uncaught rejection, and a seeded picture still in flight
-// (its fake host is answered by the test's own route) as an unresolved name.
+// flight) as "Load failed", also as an uncaught rejection.
 const WEBKIT_CANCELLED =
-  /Failed to fetch RSC payload .* Load failed|^(TypeError: )?Load failed$|due to access control checks.?$|^Failed to load resource: Error resolving .pictures\.e2e\.invalid./;
+  /Failed to fetch RSC payload .* Load failed|^(TypeError: )?Load failed$|due to access control checks.?$/;
 
 type Options = {
   // A flow that breaks the network on purpose expects the browser to log failures.
@@ -177,6 +176,46 @@ export async function ready(page: Page) {
     undefined,
     { timeout: 30_000 },
   );
+}
+
+// Nothing in the header is cut off by the screen's edge, and nothing wraps to a second line. Below
+// the design width the overflow is reported by expectFits, not failed here.
+export async function expectHeaderOnScreen(page: Page) {
+  const header = page.getByRole("banner");
+  const size = screen(page);
+  const shown = header.locator("a:visible, button:visible");
+  const count = size.width < DESIGN_WIDTH ? 0 : await shown.count();
+  for (let index = 0; index < count; index += 1) {
+    const frame = await box(shown.nth(index));
+    expect(
+      frame.x,
+      `header item ${index} starts on the screen`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      frame.x + frame.width,
+      `header item ${index} ends on the screen`,
+    ).toBeLessThanOrEqual(size.width);
+  }
+  const height = await header.evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+  expect(height).toBeLessThanOrEqual(80);
+}
+
+// Every picture the page has begun to load has finished (or failed). A picture still in flight when
+// the test leaves the page is cut off, and WebKit logs that cut-off request as an unresolved name
+// for the seeded pictures' fake host, which would fail the test on a console error. A lazy picture
+// that has not begun (no `currentSrc` yet) is not waited for.
+export async function picturesSettled(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          [...document.images].filter((img) => img.currentSrc && !img.complete)
+            .length,
+      ),
+    )
+    .toBe(0);
 }
 
 // The width the pages are designed for. A narrower phone (an iPhone SE is 320) is tested too.

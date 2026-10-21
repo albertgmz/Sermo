@@ -1,7 +1,9 @@
 import {
   expect,
   expectFits,
+  expectHeaderOnScreen,
   phoneWidth,
+  picturesSettled,
   rejectCookies,
   seed,
   test,
@@ -84,6 +86,19 @@ test("a guest goes from the feed to the forum list, a forum, a thread, a profile
   await expectFits(page, "search");
 });
 
+// "Create Account" is the longest label the header holds: at 360 px every control ends on the screen
+// (the page and the cookie banner's layout viewport grew by 2 px when it did not).
+test("a guest's English header fits the screen with every control whole @all", async ({
+  page,
+}) => {
+  await visit(page, "/");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(
+    page.getByRole("banner").getByRole("link", { name: "Create Account" }),
+  ).toBeVisible();
+  await expectHeaderOnScreen(page);
+});
+
 test("a thread of three pages: the first page, the last page and back @all", async ({
   page,
 }) => {
@@ -97,6 +112,7 @@ test("a thread of three pages: the first page, the last page and back @all", asy
   await expectFits(page, "first page");
 
   for (let step = 1; step < total; step += 1) {
+    await picturesSettled(page);
     await pages.getByRole("link", { name: "Next" }).click();
     await expect(pages.getByText(`Page ${step + 1} of ${total}`)).toBeVisible();
   }
@@ -104,7 +120,9 @@ test("a thread of three pages: the first page, the last page and back @all", asy
   await expect(page.getByRole("article").last()).toBeVisible();
   await expectFits(page, "last page");
 
+  await picturesSettled(page);
   await pages.getByRole("link", { name: "Previous" }).click();
   await expect(pages.getByText(`Page ${total - 1} of ${total}`)).toBeVisible();
   await expectFits(page, "previous page");
+  await picturesSettled(page);
 });

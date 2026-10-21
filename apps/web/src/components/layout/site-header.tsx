@@ -15,7 +15,7 @@ import { getViewerCard } from "@/components/layout/header-data";
 import { headerIconClass } from "@/components/layout/header-icon-class";
 import { SearchPanel } from "@/components/layout/header-panels";
 import {
-  HEADER_TOOLS_GAP,
+  HEADER_TOOLS,
   REGISTER_BUTTON,
 } from "@/components/layout/header-widths";
 import { Logo, LogoPlaceholder } from "@/components/layout/logo";
@@ -97,7 +97,7 @@ export function SiteHeader() {
         >
           <HeaderNavigation />
         </Suspense>
-        <div className={cn("ml-auto flex items-center", HEADER_TOOLS_GAP)}>
+        <div className={HEADER_TOOLS}>
           <IconLink href="/search" label={t("search")}>
             <Search />
           </IconLink>
@@ -151,7 +151,7 @@ async function HeaderNavigation() {
   );
 }
 
-async function AccountTools() {
+export async function AccountTools() {
   const [viewer, card] = await Promise.all([getViewer(), getViewerCard()]);
   const t = await getTranslations("layout.siteHeader");
   if (viewer.user && card) {
@@ -173,7 +173,9 @@ async function AccountTools() {
     );
   }
   return (
-    <>
+    // The marker lets the tools row close up on a phone for a guest only (`HEADER_TOOLS`);
+    // `contents` leaves the three controls direct children of that row.
+    <span data-guest-tools className="contents">
       {/* A guest's Create only leads to sign-in: on a tablet that room goes to the sign-in buttons. */}
       <span className="hidden lg:contents">
         <CreateButton variant="header" member={false} />
@@ -195,6 +197,6 @@ async function AccountTools() {
       >
         {t("register")}
       </Link>
-    </>
+    </span>
   );
 }

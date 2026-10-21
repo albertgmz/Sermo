@@ -78,14 +78,16 @@ test.describe("service worker", () => {
       .toBe(`${new URL(page.url()).origin}/`);
 
     await context.setOffline(true);
-    await page.goto("/").catch(() => {});
+    // Another page than the one the visitor is on, and one that exists (`/forums` is now a
+    // redirect to the home page): the retry must reload what was asked for.
+    await page.goto("/novedades").catch(() => {});
     await expect(
       page.getByRole("heading", { name: "You are offline" }),
     ).toBeVisible();
     await expectFits(page, "offline page from the worker");
     await context.setOffline(false);
     await page.getByRole("button", { name: "Try again" }).click();
-    await expect(page).toHaveURL((url) => url.pathname === "/");
+    await expect(page).toHaveURL((url) => url.pathname === "/novedades");
     await expect(
       page.getByRole("heading", { name: "You are offline" }),
     ).toBeHidden();

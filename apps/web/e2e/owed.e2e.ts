@@ -402,7 +402,13 @@ test.describe("guest", () => {
     expect(following.robots).toMatch(/^noindex/);
     // The public tabs carry a share card (`publicHead`). A guest who asks for Following gets a
     // copy of Latest, so it has the card too; only a member's own list has none (unit-tested).
-    expect(latest.og && hot.og && following.og).toBe(true);
+    expect({ latest: latest.og, hot: hot.og, following: following.og }).toEqual(
+      {
+        latest: true,
+        hot: true,
+        following: true,
+      },
+    );
     const spanish = await head("/novedades?tab=hot", "es");
     expect(spanish.title).not.toBe(hot.title);
   });

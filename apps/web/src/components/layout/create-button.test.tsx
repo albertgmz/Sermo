@@ -116,11 +116,10 @@ test("between md and lg Create is a square +, and the navigation scrolls, withou
   expect(site).toMatch(
     /<HeaderNav[\s\S]*?className="[^"]*\bmin-w-0\b[^"]*\boverflow-x-auto\b[^"]*\bwhitespace-nowrap\b[^"]*\[scrollbar-width:none\][^"]*\[&::-webkit-scrollbar\]:hidden/,
   );
-  // The gaps are the guest's as they were: only the member's own pieces change.
+  // The gaps are the guest's as they were: only the member's own pieces change (the tools row is
+  // `HEADER_TOOLS`, tested with its guest-only closer gap in header-widths.test.tsx).
   expect(site).toContain(
     '<Container className="flex h-14 items-center gap-1 md:gap-4">',
   );
-  expect(site).toContain(
-    '<div className="ml-auto flex items-center gap-1 md:gap-2">',
-  );
+  expect(site).toContain("<div className={HEADER_TOOLS}>");
 });
