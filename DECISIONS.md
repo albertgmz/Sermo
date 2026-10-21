@@ -5619,3 +5619,12 @@ it now runs in about 45 s with the same tests passing.
 Known limits: `bun run test` uses every core, so the benchmark must not run beside it; the slowest
 files (starter load, review upload, economy flows) are slow from real work, listed for the owner as
 pruning candidates, none removed.
+
+### The notification card waits for any answer to the cookie banner
+
+- `consentSettled()` already resolves on the first choice, accept or reject, and the notification
+  card reads nothing else about it; tests now pin both answers (unit) and an e2e group checks that
+  no card shows while the banner is up and that it appears after Accept all and after Reject all.
+  `GRACE_MS` moved to `lib/app-prompts.ts` so the card and the e2e share it.
+
+Why: backlog A2 asked for the card after either answer; it was already so, and is now tested.
