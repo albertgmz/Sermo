@@ -83,7 +83,7 @@ export const creditsRecalculate = defineContract({
  * - `thread_created`: the member started a thread.
  * - `reply_posted`: the member posted a reply (not a thread's first post).
  * - `reply_received`: someone else replied in the member's thread.
- * - `reaction_given`, `reaction_received`: a reaction on any reactable content.
+ * - `reaction_given`, `reaction_received`: a reaction with a non-negative score on any reactable content except a private conversation message.
  * - `profile_post_created`: the member posted on another member's profile.
  * - `profile_post_received`: another member posted on the member's profile.
  * - `followed`: another member started following the member.

@@ -594,6 +594,35 @@ test("reactions in a private conversation pay neither the reactor nor the author
   await f.replay();
 });
 
+test("a reaction type with a negative score pays neither the reactor nor the author", async () => {
+  const f = fixture();
+  for (const trigger of ["reaction_given", "reaction_received"] as const)
+    await f.createRule(trigger);
+  const [dislike, like] = [-1, 1].map((score) =>
+    Number(
+      f.ctx.sqlite
+        .prepare("INSERT INTO reaction_types (title, emoji, score) VALUES ('Credits', 'x', ?1)")
+        .run(score).lastInsertRowid,
+    ),
+  );
+  const postId = f.post(f.thread(), 1, "visible", f.author.id);
+  f.event("reaction.added", "post", postId, {
+    userId: f.other.id,
+    contentUserId: f.author.id,
+    reactionTypeId: dislike,
+  });
+  expect(f.balance()).toBe(0);
+  expect(f.balance(f.other.id)).toBe(0);
+  f.event("reaction.added", "post", postId, {
+    userId: f.third.id,
+    contentUserId: f.author.id,
+    reactionTypeId: like,
+  });
+  expect(f.balance()).toBe(10);
+  expect(f.balance(f.third.id)).toBe(10);
+  await f.replay();
+});
+
 test("unreact/react and unfollow/follow never pay twice, but different reactors do", async () => {
   const f = fixture();
   for (const trigger of ["reaction_given", "reaction_received", "followed"] as const)

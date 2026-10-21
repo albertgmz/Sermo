@@ -46,6 +46,7 @@ export const queries = {
   conversation_message:
     "SELECT user_id, state, created_at FROM conversation_messages WHERE id = ?1",
   award: "SELECT user_id, revoked_at FROM member_awards WHERE id = ?1",
+  reactionScore: "SELECT score FROM reaction_types WHERE id = ?1",
 } as const;
 
 export function query<T>(ctx: Ctx, key: keyof typeof queries) {

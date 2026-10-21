@@ -24,6 +24,7 @@ test("every credit rule query uses indexed lookups or the allowed small rule tab
       profile_post_comment: [1],
       conversation_message: [1],
       award: [1],
+      reactionScore: [1],
     };
     expect(Object.keys(params).sort()).toEqual(Object.keys(queries).sort());
     for (const key of Object.keys(queries) as (keyof typeof queries)[])
