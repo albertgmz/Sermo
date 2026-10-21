@@ -5603,3 +5603,19 @@ Why: the suite had not run since the home swap (0.1.177) and stopped at setup, s
 ran; it now passes in full (Chromium 95/95, WebKit 52 + 1 skipped, the formerly flaky thread spec
 4/4 repeated).
 Known limits: with workers blocked, only the worker's own spec runs in a page the worker controls.
+
+### Backend tests copy one migrated database and run in parallel
+
+- `testing/index.ts` migrates and permission-syncs one database per test process (kept on
+  `globalThis`) and gives each `createTestContext()` a copy (`Database.deserialize`, about 0.3 ms
+  instead of about 120 ms for 67 migrations). Each context has its own configuration object, and
+  permission definitions are re-stamped when a test passes its own clock.
+- The root `test` script is `bun test --parallel ./packages ./scripts ./bench ./load`; `bun test
+  <file>` alone still works. Parallel runs count 32 more tests because `feed/fixtures.test.ts` is
+  imported by 32 files and registers its test in each; nothing was deleted.
+
+Why: the backend suite took about 875 s, nearly all of it migrating a fresh database per context;
+it now runs in about 45 s with the same tests passing.
+Known limits: `bun run test` uses every core, so the benchmark must not run beside it; the slowest
+files (starter load, review upload, economy flows) are slow from real work, listed for the owner as
+pruning candidates, none removed.
