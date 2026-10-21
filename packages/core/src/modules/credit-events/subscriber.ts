@@ -200,7 +200,9 @@ export function handleCreditRuleEvent(ctx: Ctx, event: DomainEvent): void | Prom
         (row.parent_state === undefined || row.parent_state === "visible");
       const source = { type: event.targetType, id: event.targetId };
       if (event.type === "reaction.added") {
-        if (!visible) return;
+        // A reaction in a private conversation pays nothing: nobody else can see it, so two
+        // accounts could trade them unchecked (XenForo does not count these reactions either).
+        if (!visible || event.targetType === "conversation_message") return;
         const userId = Number(event.payload.userId);
         const recipientId = Number(event.payload.contentUserId);
         const nodeId = event.targetType === "post" ? row.node_id : undefined;

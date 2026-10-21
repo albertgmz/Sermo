@@ -377,7 +377,7 @@ amounts charge that same member.
 | `thread_created` | The author of a new visible thread |
 | `reply_posted` | The reply's author; excludes the thread's first post, but includes replying to your own thread |
 | `reply_received` | The thread's author when someone else replies |
-| `reaction_given` | The member reacting to visible content, for any reactable content type |
+| `reaction_given` | The member reacting to visible content, for any reactable content type except a message in a private conversation (nobody else sees those, so they would be easy to trade) |
 | `reaction_received` | The author of that content |
 | `profile_post_created` | The author posting on another member's profile |
 | `profile_post_received` | That profile's owner; posting on your own profile triggers neither profile rule |

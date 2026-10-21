@@ -250,13 +250,7 @@ test("self replies only pay reply_posted; self profile posts and lifted warnings
 });
 
 describe("visibility and reversals", () => {
-  for (const type of [
-    "thread",
-    "post",
-    "profile_post",
-    "profile_post_comment",
-    "conversation_message",
-  ] as const) {
+  for (const type of ["thread", "post", "profile_post", "profile_post_comment"] as const) {
     test(`${type}: delete, restore, delete, restore uses the stored amount`, async () => {
       const f = fixture();
       const isCreation = type === "thread" || type === "profile_post";
@@ -274,9 +268,7 @@ describe("visibility and reversals", () => {
             ? f.post(f.thread(), 1, "visible", f.author.id)
             : type === "profile_post"
               ? f.profile("visible", f.author.id, f.other.id)
-              : type === "profile_post_comment"
-                ? f.comment()
-                : f.message();
+              : f.comment();
       f.event(
         isCreation ? "content.created" : "reaction.added",
         type,
@@ -579,6 +571,26 @@ test("forum restrictions filter creation and only allow reactions on matching po
     f.event("reaction.added", type, id, { userId: f.author.id, contentUserId: f.other.id });
   expect(f.balance()).toBe(30);
   expect(f.balance(f.other.id)).toBe(20);
+  await f.replay();
+});
+
+test("reactions in a private conversation pay neither the reactor nor the author", async () => {
+  const f = fixture();
+  for (const trigger of ["reaction_given", "reaction_received"] as const)
+    await f.createRule(trigger);
+  const messageId = f.message();
+  f.event("reaction.added", "conversation_message", messageId, {
+    userId: f.other.id,
+    contentUserId: f.author.id,
+  });
+  expect(f.balance()).toBe(0);
+  expect(f.balance(f.other.id)).toBe(0);
+  f.event("reaction.added", "profile_post_comment", f.comment(), {
+    userId: f.other.id,
+    contentUserId: f.author.id,
+  });
+  expect(f.balance()).toBe(10);
+  expect(f.balance(f.other.id)).toBe(10);
   await f.replay();
 });
 
