@@ -975,7 +975,10 @@ export default async function StyleguidePage() {
             Labels show from the small breakpoint up; below it the buttons are
             icons with an accessible name. Edit, delete and report come from the
             backend's answer for the viewer, so each bar draws only what it is
-            given. Delete asks first and report opens its reason form.
+            given. Delete asks first and report opens its reason form. A wall
+            post or comment has XenForo's bar: its date, report and a "•••" menu
+            holding share, edit and delete on the left, react on the right, who
+            reacted under it.
           </p>
           <div className="grid gap-4 lg:grid-cols-2">
             <SectionCard title="Thread post, someone else's">
@@ -1033,7 +1036,7 @@ export default async function StyleguidePage() {
             </SectionCard>
             <SectionCard title="Message, edited in place">
               <div className="p-3">
-                <p className="text-sm">A message or a wall post.</p>
+                <p className="text-sm">A message.</p>
                 <ContentActions
                   share="/ui"
                   edit={{
@@ -1047,12 +1050,33 @@ export default async function StyleguidePage() {
                 />
               </div>
             </SectionCard>
-            <SectionCard title="Comment">
+            <SectionCard title="Wall post or comment">
               <div className="p-3">
                 <p className="text-sm">A comment on a wall post.</p>
                 <ContentActions
-                  compact
+                  layout="wall"
+                  leading={
+                    <span className="inline-flex h-10 items-center px-2 text-xs text-muted-foreground md:h-8">
+                      <RelativeTime date={SAMPLE_DATE} />
+                    </span>
+                  }
+                  summary={
+                    <ReactionSummary
+                      reactions={REACTIONS}
+                      members={reactionMembers}
+                      showTotal={false}
+                      size="sm"
+                    />
+                  }
                   share="/ui"
+                  edit={{
+                    panel: (
+                      <p className="rounded-md border bg-muted/30 p-3 text-sm">
+                        The edit form opens here.
+                      </p>
+                    ),
+                  }}
+                  remove={{ action: discardForm }}
                   report={{ action: discardForm }}
                 />
               </div>
@@ -1595,6 +1619,7 @@ export default async function StyleguidePage() {
               time={<RelativeTime date={SAMPLE_DATE} />}
               actions={
                 <ContentActions
+                  layout="wall"
                   share="/ui"
                   start={
                     <button type="button" className={messageActionClass}>
@@ -1603,29 +1628,10 @@ export default async function StyleguidePage() {
                   }
                 />
               }
-              footer={
-                <div className="mt-2 space-y-3 border-l pl-3">
-                  <MessageRow
-                    compact
-                    author={ADMIN}
-                    time={<RelativeTime date={SAMPLE_DATE} />}
-                  >
-                    <MessageBody className="text-[0.8125rem]">
-                      {"<p>A compact row, used for comments.</p>"}
-                    </MessageBody>
-                  </MessageRow>
-                  <LineComposer
-                    action={discardLine}
-                    placeholder="Write a comment…"
-                    submitLabel="Post comment"
-                    attach
-                  />
-                </div>
-              }
             >
               <MessageBody>
                 {
-                  "<p>The horizontal row used by the feed, profile walls and comments.</p>"
+                  "<p>The row of a wall post. On a phone the avatar moves into the header line, so the comments under it span the row.</p>"
                 }
               </MessageBody>
             </MessageRow>

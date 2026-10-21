@@ -33,8 +33,8 @@ export async function feedPage(
     getReactionTypes(),
     getFeedView(),
   ]);
-  const author = await authorsFor(
-    feed.items.flatMap((item) =>
+  const author = await authorsFor([
+    ...feed.items.flatMap((item) =>
       item.type === "profilePost"
         ? [
             item.profilePost.author,
@@ -42,7 +42,9 @@ export async function feedPage(
           ]
         : [item.post.author, ...threadMembers(item.thread)],
     ),
-  );
+    // The viewer's avatar heads the composer under a wall post.
+    ...(viewer.user ? [viewer.user] : []),
+  ]);
   // A reaction type may be limited to forums: what is offered depends on the forum of the item.
   const pickerFor = (forumId: number | null) =>
     viewer.permissions.canReact ? pickerTypes(reactionTypes, forumId) : [];

@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server";
-import { postBody } from "@/lib/test-bodies";
+import { postBody, profilePostBody } from "@/lib/test-bodies";
 import { translator, withIntl } from "@/lib/test-intl";
 import { withQuery } from "@/lib/test-query";
 import { viewerBody } from "@/lib/test-viewer";
@@ -100,8 +100,19 @@ const entry = {
   post: postBody({ id: 30, bodyHtml: "<p>the opening text</p>" }),
 };
 
-// The viewer, one thread entry, and empty answers for everything else.
-function backend(member: { feedView: string } | null) {
+const wallEntry = {
+  type: "profilePost",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  following: false,
+  featured: null,
+  profilePost: profilePostBody({
+    author: { id: 4, username: "member4" },
+    canComment: true,
+  }),
+};
+
+// The viewer, one thread entry (or `item`), and empty answers for everything else.
+function backend(member: { feedView: string } | null, item: object = entry) {
   globalThis.fetch = (async (url: string) => {
     const { pathname } = new URL(url);
     if (pathname === "/api/v1/me") {
@@ -110,7 +121,7 @@ function backend(member: { feedView: string } | null) {
       return Response.json(body);
     }
     if (pathname === "/api/v1/feed")
-      return Response.json({ items: [entry], nextCursor: null });
+      return Response.json({ items: [item], nextCursor: null });
     return Response.json({ items: [], nextCursor: null });
   }) as unknown as typeof fetch;
 }
@@ -151,4 +162,13 @@ test("a guest's cookie decides, and a guest has cards without one", async () => 
   expect(await firstRow()).toContain("the opening text");
   cookie = "compact";
   expect(await firstRow()).not.toContain("the opening text");
+});
+
+test("the composer under a wall post carries the viewer's avatar, so the viewer is looked up too", async () => {
+  backend({ feedView: "cards" }, wallEntry);
+  const html = await firstRow();
+  const composer = html.slice(
+    html.indexOf('id="feed-profile-post-12-comment"'),
+  );
+  expect(composer).toContain('href="/members/1"');
 });

@@ -8,16 +8,15 @@ import {
   EarlierComments,
   type EarlierPage,
 } from "@/components/forum/earlier-comments";
-import { EditedMark } from "@/components/forum/edited-mark";
 import { HtmlContent } from "@/components/forum/html-content";
 import {
   LineComposer,
   type LineComposerState,
 } from "@/components/forum/line-composer";
-import { MessageRow } from "@/components/forum/message-row";
 import { PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
-import { RelativeTime } from "@/components/forum/relative-time";
+import { UserAvatar } from "@/components/forum/user-avatar";
+import { UserLink } from "@/components/forum/user-link";
 import { WallItemActions } from "@/components/forum/wall-item-actions";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
@@ -27,8 +26,15 @@ import { cn } from "@/lib/utils";
 type ApiWallPost = z.output<typeof profilePostsList.output>["items"][number];
 export type ApiWallComment = ApiWallPost["latestComments"][number];
 
-const textLinkClass =
-  "inline-flex h-10 items-center text-sm font-medium underline-offset-4 hover:underline md:h-8";
+// A row of the block under a wall post, as XenForo's `message-responseRow`: each has its own
+// border, drawn over its neighbour's so the rows share one line, on the quieter alternate ground.
+const rowClass = "-mt-px border bg-muted/60 px-2";
+
+// A row that is one link or button: the older comments, back to the newest ones.
+const linkRowClass = cn(
+  rowClass,
+  "flex min-h-10 w-full items-center text-left font-medium underline-offset-4 hover:underline md:min-h-8",
+);
 
 // Says that a wall post or a comment is not visible to everyone; nothing for a visible one.
 export function WallStateNote({ state }: { state: ApiWallPost["state"] }) {
@@ -42,7 +48,7 @@ export function WallStateNote({ state }: { state: ApiWallPost["state"] }) {
   );
 }
 
-// Whether a wall post has anything to draw under it.
+// Whether a wall post has a block of comments to draw under it.
 export function hasWallComments(
   post: Pick<ApiWallPost, "canComment">,
   comments: ApiWallComment[],
@@ -72,7 +78,8 @@ export const oldestFirst = (comments: ApiWallComment[]) =>
   [...comments].sort((a, b) => a.id - b.id);
 
 // The rows of comments, oldest first: those a list is drawn with, and each batch of older ones
-// loaded into it.
+// loaded into it. A comment is drawn as XenForo draws one: a small avatar, then the author's name,
+// the text and one quiet footer (date, report, "•••" | react), who reacted under it.
 export function WallCommentRows({
   comments,
   profileUserId,
@@ -82,55 +89,59 @@ export function WallCommentRows({
   reactionTypes,
   viewList,
 }: RowProps & { comments: ApiWallComment[] }) {
-  return oldestFirst(comments).map((comment) => (
-    <MessageRow
-      key={comment.id}
-      id={`profile-comment-${comment.id}`}
-      compact
-      author={member(comment.author.id)}
-      time={
-        <>
-          <RelativeTime date={comment.createdAt} />
-          {comment.editedAt && (
-            <EditedMark date={comment.editedAt} className="ml-1.5" />
-          )}
-        </>
-      }
-      actions={
-        <WallItemActions
-          kind="comment"
-          item={comment}
-          address={{ profileUserId, postId: comment.profilePostId }}
-          viewerId={viewerId}
-          picker={picker}
-          reactionTypes={reactionTypes}
-          viewList={viewList}
-        />
-      }
-    >
-      <WallStateNote state={comment.state} />
-      <HtmlContent
-        className="text-(length:--text-compact)"
-        content={{ type: "profile_post_comment", id: comment.id }}
-        attachments={comment.attachments}
+  return oldestFirst(comments).map((comment) => {
+    const author = member(comment.author.id);
+    return (
+      <article
+        key={comment.id}
+        id={`profile-comment-${comment.id}`}
+        className={cn(rowClass, "flex scroll-mt-landing-gap gap-3 pt-2")}
       >
-        {comment.bodyHtml}
-      </HtmlContent>
-      <PostAttachments
-        attachments={comment.attachments}
-        inline={inlineAttachmentIds(comment.bodyHtml, comment.attachments)}
-      />
-    </MessageRow>
-  ));
+        <UserAvatar
+          user={author}
+          size="sm"
+          className="relative after:absolute after:-inset-2"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="leading-6 font-semibold [overflow-wrap:anywhere]">
+            <UserLink user={author} />
+          </p>
+          <WallStateNote state={comment.state} />
+          <HtmlContent
+            className="text-(length:--text-compact)"
+            content={{ type: "profile_post_comment", id: comment.id }}
+            attachments={comment.attachments}
+          >
+            {comment.bodyHtml}
+          </HtmlContent>
+          <PostAttachments
+            attachments={comment.attachments}
+            inline={inlineAttachmentIds(comment.bodyHtml, comment.attachments)}
+          />
+          <WallItemActions
+            kind="comment"
+            item={comment}
+            address={{ profileUserId, postId: comment.profilePostId }}
+            viewerId={viewerId}
+            picker={picker}
+            reactionTypes={reactionTypes}
+            viewList={viewList}
+          />
+        </div>
+      </article>
+    );
+  });
 }
 
-// The comments under a wall post and the one-line composer for a new one, wherever a wall post
-// is drawn: the profile wall and the feed. Older comments load above in place (`earlier`). The
-// composer sits at `#<anchor>-comment`.
+// The block under a wall post, wherever one is drawn (the profile wall, the feed), in XenForo's
+// order: who reacted to the post (a row only once someone did), the button that loads the older
+// comments above in place (`earlier`), the comments oldest first, then the viewer's composer for
+// the next one, at `#<anchor>-comment`.
 export function WallComments({
   anchor,
   comments,
   earlier,
+  summary,
   links = {},
   action,
   className,
@@ -142,6 +153,8 @@ export function WallComments({
   comments: ApiWallComment[];
   // Loads the older comments, where there are any.
   earlier?: EarlierLoad;
+  // Who reacted to the post (`WallItemSummary`); it draws nothing while nobody has.
+  summary?: React.ReactNode;
   // Back to the newest few, where the post is open at an older page.
   links?: { fewer?: string };
   // Posts a comment; left out when the viewer may not comment.
@@ -152,32 +165,45 @@ export function WallComments({
   className?: string;
 }) {
   const t = useTranslations("forum.wallComments");
+  const { member, viewerId } = rows;
   return (
-    <div className={cn("mt-2 space-y-3 border-l pl-3", className)}>
+    <div className={cn("mt-2 pt-px text-(length:--text-compact)", className)}>
+      {summary && (
+        <div className={cn(rowClass, "flex py-0.5 empty:hidden")}>
+          {summary}
+        </div>
+      )}
       {earlier && (
         <EarlierComments
           load={earlier.load}
           shown={comments.map((comment) => comment.id)}
           label={t("showMore")}
-          className={cn(textLinkClass, "text-primary-ink")}
+          className={cn(linkRowClass, "text-primary-ink")}
         />
       )}
       <WallCommentRows comments={comments} {...rows} />
       {links.fewer && (
         <Link
           href={links.fewer}
-          className={cn(textLinkClass, "ml-4 text-muted-foreground")}
+          className={cn(linkRowClass, "text-muted-foreground")}
         >
           {t("fewer")}
         </Link>
       )}
       {action && (
-        <div id={`${anchor}-comment`} className="scroll-mt-24">
+        <div
+          id={`${anchor}-comment`}
+          className={cn(rowClass, "flex scroll-mt-24 items-start gap-3 py-2")}
+        >
+          {viewerId !== null && (
+            <UserAvatar user={member(viewerId)} size="sm" className="mt-2" />
+          )}
           <LineComposer
             action={action}
             placeholder={t("placeholder")}
             submitLabel={t("submit")}
             attach
+            className="min-w-0 flex-1"
           />
         </div>
       )}

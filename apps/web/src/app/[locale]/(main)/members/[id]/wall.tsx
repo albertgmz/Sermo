@@ -34,7 +34,10 @@ import {
   WallComments,
   WallStateNote,
 } from "@/components/forum/wall-comments";
-import { WallItemActions } from "@/components/forum/wall-item-actions";
+import {
+  WallItemActions,
+  WallItemSummary,
+} from "@/components/forum/wall-item-actions";
 import { buttonVariants } from "@/components/ui/button";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { formatNumber } from "@/lib/format";
@@ -111,6 +114,8 @@ function WallPost({
     </>
   );
   const label = t("aria.comments", { count: post.commentCount });
+  // Who reacted heads the block of comments, as on XenForo; with no block, it sits under the bar.
+  const block = hasWallComments(post, comments, earlier);
   return (
     <MessageRow
       id={anchor}
@@ -133,6 +138,7 @@ function WallPost({
           reactionTypes={reactionTypes}
           viewList={viewList}
           mayHardDelete={mayHardDelete}
+          summary={!block}
           start={
             commentsHref ? (
               <Link
@@ -155,12 +161,22 @@ function WallPost({
         />
       }
       footer={
-        hasWallComments(post, comments, earlier) && (
+        block && (
           <WallComments
             anchor={anchor}
             profileUserId={post.profileUserId}
             comments={comments}
             earlier={earlier}
+            summary={
+              <WallItemSummary
+                kind="post"
+                item={post}
+                viewerId={viewerId}
+                picker={picker}
+                reactionTypes={reactionTypes}
+                viewList={viewList}
+              />
+            }
             links={links}
             action={
               post.canComment

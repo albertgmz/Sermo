@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { createContext, useMemo, useState } from "react";
 import type { ActionFormState } from "@/components/forum/action-form";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
+import { ContentMenu } from "@/components/forum/content-menu";
 import { DeleteControl } from "@/components/forum/delete-control";
 import {
   actionLabelClass,
@@ -74,7 +75,7 @@ function PanelButton({
 //   remove      Deleting: the action, whether to ask for a reason, and a line saying what it does.
 //   report      Reporting: the action that files it.
 //   moderation  Moderator tools that exist for the item (approve, restore), after the rest.
-//   compact     The smaller bar of a comment.
+//   leading     The first thing on the left: a comment's date.
 //   layout      `split` is a thread post's footer as XenForo draws it: what the viewer does to the
 //               item on the left (report first, then edit, delete and the moderator tools), how
 //               they answer it on the right (react, "+ Quote", reply), the summary under the bar
@@ -82,6 +83,10 @@ function PanelButton({
 //               not drawn: the post's header row has them. When nothing but report is on the
 //               left (an ordinary member's bar), the words show on a phone too: they fit 360 px
 //               on one line; with edit, delete or moderator tools the bar keeps to icons there.
+//               `wall` is a wall post's or comment's footer as XenForo draws it: laid out as
+//               `split`, with report (its word shown on a phone too) followed by a "•••" menu
+//               that holds share, edit and delete, then the moderator tools; on the right, react
+//               and `start`.
 export function ContentActions({
   summary,
   react,
@@ -94,7 +99,7 @@ export function ContentActions({
   remove,
   report,
   moderation,
-  compact = false,
+  leading,
   layout = "default",
   className,
 }: {
@@ -115,8 +120,8 @@ export function ContentActions({
   remove?: { action: FormAction; withReason?: boolean; warning?: string };
   report?: { action: FormAction };
   moderation?: React.ReactNode;
-  compact?: boolean;
-  layout?: "default" | "split";
+  leading?: React.ReactNode;
+  layout?: "default" | "split" | "wall";
   className?: string;
 }) {
   const t = useTranslations("forum.contentActions");
@@ -141,9 +146,14 @@ export function ContentActions({
     [bookmark],
   );
 
-  const split = layout === "split";
+  const wall = layout === "wall";
+  const split = layout === "split" || wall;
+  // In the wall bar edit and delete are in the menu: report is alone there but for the rare
+  // moderator tool, which keeps its own label.
   const labelClass =
-    split && !edit && !remove && !moderation ? "inline" : actionLabelClass;
+    wall || (split && !edit && !remove && !moderation)
+      ? "inline"
+      : actionLabelClass;
   const answers = (
     <>
       {react}
@@ -179,7 +189,18 @@ export function ContentActions({
       labelClassName={labelClass}
     />
   );
-  const tools = (
+  const tools = wall ? (
+    <>
+      {reportButton}
+      <ContentMenu
+        className={messageActionClass}
+        share={share}
+        edit={edit && ("href" in edit ? edit.href : () => toggle("edit"))}
+        onDelete={remove && (() => toggle("delete"))}
+      />
+      {moderation}
+    </>
+  ) : (
     <>
       {split ? (
         reportButton
@@ -231,15 +252,14 @@ export function ContentActions({
     <div
       data-slot="content-actions"
       className={cn(
-        split
-          ? "mt-3"
-          : ["border-t border-dashed", compact ? "mt-1.5 pt-0.5" : "mt-3 pt-1"],
+        wall ? "mt-1" : split ? "mt-3" : "mt-3 border-t border-dashed pt-1",
         className,
       )}
     >
       {!split && summaryRow}
       <div className="-mx-2 flex flex-wrap items-center justify-between gap-x-1">
         <div className="flex flex-wrap items-center">
+          {leading}
           {split ? tools : answers}
         </div>
         <div className="ml-auto flex flex-wrap items-center">

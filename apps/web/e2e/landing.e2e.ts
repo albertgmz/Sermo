@@ -615,10 +615,7 @@ test("an edited comment and an edited wall post land on themselves @landing", as
     [post, `profile-post-${landing.wall.newestPostId}`],
   ] as const) {
     const text = ` edited ${Date.now().toString(36)}`;
-    await item
-      .getByRole("button", { name: "Edit", exact: true })
-      .first()
-      .click();
+    await fromMenu(page, item, "Edit");
     const editor = item.getByRole("textbox", { name: "Edit your text…" });
     await editor.click();
     await editor.press("Control+End");
@@ -629,12 +626,12 @@ test("an edited comment and an edited wall post land on themselves @landing", as
   }
 });
 
-// "Show more comments" loads the older ones above, in place: no navigation, no landing or dimming,
+// "View previous comments" loads the older ones above, in place: no navigation, no landing or dimming,
 // and the comment that was first stays where it was on the screen. Batch after batch, until the
 // button goes.
 async function expectEarlierInPlace(page: Page, list: Locator) {
   const rows = list.locator('[id^="profile-comment-"]');
-  const button = list.getByRole("button", { name: "Show more comments" });
+  const button = list.getByRole("button", { name: "View previous comments" });
   const address = page.url();
   for (let batch = 0; batch < 5 && (await button.count()) > 0; batch += 1) {
     // The reader goes to the button: an action of theirs (here a key, as no wheel turn is in every
@@ -707,6 +704,12 @@ test("show more comments loads the older ones in place in the feed @landing", as
 });
 
 // The ids of the comments drawn in a list, in order; each drawn once.
+// Edit and Delete of a wall post or comment are in its "•••" menu, which opens over the page.
+async function fromMenu(page: Page, item: Locator, name: string) {
+  await item.getByRole("button", { name: "More options" }).first().click();
+  await page.getByRole("menuitem", { name, exact: true }).click();
+}
+
 async function commentIds(list: Locator) {
   const ids = await list
     .locator('[id^="profile-comment-"]')
@@ -745,7 +748,7 @@ test("the comments loaded in place follow an edit, a deletion and a new comment 
   const oldest = all[0] ?? "";
   const text = ` edited ${Date.now().toString(36)}`;
   const item = drawn(page, oldest);
-  await item.getByRole("button", { name: "Edit", exact: true }).first().click();
+  await fromMenu(page, item, "Edit");
   const editor = item.getByRole("textbox", { name: "Edit your text…" });
   await editor.click();
   await editor.press("Control+End");
@@ -758,7 +761,7 @@ test("the comments loaded in place follow an edit, a deletion and a new comment 
 
   // One of the newest few, drawn by the server, deleted: the loaded ones close up, with no copy.
   const gone = drawn(page, doomed);
-  await gone.getByRole("button", { name: "Delete", exact: true }).click();
+  await fromMenu(page, gone, "Delete");
   await gone.locator('button[type="submit"]', { hasText: "Delete" }).click();
   await expect
     .poll(() => commentIds(post), { timeout: 30_000 })
@@ -795,7 +798,7 @@ test("the page drawn again keeps the comments loaded, no older ones, and the but
   await expectLandedAtHash(page);
   await takeOver(page);
   const post = drawn(page, `profile-post-${landing.wall.oldestPostId}`);
-  const button = post.getByRole("button", { name: "Show more comments" });
+  const button = post.getByRole("button", { name: "View previous comments" });
   const before = (await commentIds(post)).length;
   await button.click();
   await expect
@@ -804,10 +807,7 @@ test("the page drawn again keeps the comments loaded, no older ones, and the but
   const loaded = await commentIds(post);
   // An edit of the newest comment draws the page again.
   const newest = drawn(page, loaded.at(-1) ?? "");
-  await newest
-    .getByRole("button", { name: "Edit", exact: true })
-    .first()
-    .click();
+  await fromMenu(page, newest, "Edit");
   const editor = newest.getByRole("textbox", { name: "Edit your text…" });
   await editor.click();
   await editor.press("Control+End");

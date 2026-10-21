@@ -22,9 +22,23 @@ mock.module("next-intl", () => ({
   useLocale: () => "en",
   useTranslations,
 }));
+// The stand-in records what the "•••" menu would open with; the bar draws only its plain button.
+let menus: Record<string, unknown>[] = [];
+const realPopup = { ...(await import("@/components/ui/lazy-popup")) };
+mock.module("@/components/ui/lazy-popup", () => ({
+  ...realPopup,
+  LazyPopup: (props: {
+    popup: Record<string, unknown>;
+    trigger: (lazy: object) => React.ReactElement;
+  }) => {
+    if ("onDelete" in props.popup) menus.push(props.popup);
+    return props.trigger({});
+  },
+}));
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
   mock.module("next-intl", () => intl);
+  mock.module("@/components/ui/lazy-popup", () => realPopup);
 });
 
 const { WallItemActions } = await import("./wall-item-actions");
@@ -36,6 +50,7 @@ const item = (over: Record<string, unknown> = {}) =>
     id: 12,
     author: { id: 3 },
     state: "visible",
+    createdAt: "2026-01-02T00:00:00.000Z",
     editedAt: null,
     canEdit: false,
     canDelete: false,
@@ -44,12 +59,15 @@ const item = (over: Record<string, unknown> = {}) =>
     ...over,
   }) as Props["item"];
 
+// The bar's markup, with what its "•••" menu holds written as the labels of its items.
 function draw(
   kind: "post" | "comment",
   over: Record<string, unknown>,
   viewerId: number | null,
+  props: Partial<Props> = {},
 ) {
-  return renderToStaticMarkup(
+  menus = [];
+  const html = renderToStaticMarkup(
     withIntl(
       <WallItemActions
         kind={kind}
@@ -58,9 +76,19 @@ function draw(
         viewerId={viewerId}
         picker={[]}
         reactionTypes={[]}
+        {...props}
       />,
     ),
   );
+  const menu = menus[0];
+  const held = menu
+    ? [
+        menu.share && "Share",
+        menu.edit && "Edit",
+        menu.onDelete && "Delete",
+      ].filter(Boolean)
+    : [];
+  return `${html}${held.map((label) => ` aria-label="${label}"`).join("")}`;
 }
 
 const has = (html: string, label: string) =>
@@ -106,3 +134,36 @@ for (const kind of ["post", "comment"] as const) {
     }
   });
 }
+
+test("a comment's footer: its date, report and the menu on the left, react on the right", () => {
+  const html = draw("comment", { canDelete: true }, 9, {
+    picker: [{ id: 1, key: "like", label: "Like", emoji: "👍", picture: null }],
+  });
+  const at = (text: string) => html.indexOf(text);
+  expect(at("<time")).toBeGreaterThan(-1);
+  expect(at("<time")).toBeLessThan(at('aria-label="Report"'));
+  expect(at('aria-label="Report"')).toBeLessThan(
+    at('aria-label="More options"'),
+  );
+  expect(at('aria-label="More options"')).toBeLessThan(at("ml-auto"));
+  expect(at("ml-auto")).toBeLessThan(at("lucide-heart"));
+  // The word, also on a phone, as XenForo's "Denunciar".
+  expect(html).toContain('<span class="inline">Report</span>');
+  // No rule above the bar.
+  expect(html).not.toContain("border-dashed");
+});
+
+test("a wall post's date stays in its header: its footer starts with report", () => {
+  const html = draw("post", {}, 5);
+  expect(html).not.toContain("<time");
+  expect(html.indexOf('aria-label="Report"')).toBeLessThan(
+    html.indexOf('aria-label="More options"'),
+  );
+});
+
+test("the share link of the menu names the item: the post, or the comment on it", () => {
+  draw("post", {}, null);
+  expect(menus[0]?.share).toBe("/members/9?post=12#profile-post-12");
+  draw("comment", {}, null);
+  expect(menus[0]?.share).toContain("comment=12");
+});

@@ -139,7 +139,7 @@ test("the comment composer takes files, and the comments show theirs", async () 
 
 test("the button for older comments and the link to fewer are drawn only when given", async () => {
   const none = await render();
-  for (const text of ["Show more comments", "Show fewer"]) {
+  for (const text of ["View previous comments", "Show fewer"]) {
     expect(none).not.toContain(text);
   }
   const html = await render({
@@ -149,8 +149,8 @@ test("the button for older comments and the link to fewer are drawn only when gi
     links: { fewer: "/fewer" },
   });
   // A button that loads them in place, above the comments: no address to go to.
-  expect(html).toMatch(/<button type="button"[^>]*>Show more comments</);
-  expect(html.indexOf("Show more comments")).toBeLessThan(
+  expect(html).toMatch(/<button type="button"[^>]*>View previous comments…</);
+  expect(html.indexOf("View previous comments")).toBeLessThan(
     html.indexOf("comment 1"),
   );
   expect(html).toMatch(/href="\/fewer"[^>]*>Show fewer comments</);
@@ -175,4 +175,50 @@ test("there is something to draw with a comment, the right to comment, or older 
       load: async () => ({ rows: [], cursor: null, done: true }),
     }),
   ).toBe(true);
+});
+
+test("the block keeps XenForo's order: who reacted, the older comments, the comments, the composer", async () => {
+  const html = await render({
+    summary: <i data-mark="summary" />,
+    earlier: {
+      load: async () => ({ rows: [], cursor: null, done: true }),
+    },
+    action: async () => ({}),
+  });
+  const at = (text: string) => html.indexOf(text);
+  expect(at('data-mark="summary"')).toBeGreaterThan(-1);
+  expect(at('data-mark="summary"')).toBeLessThan(at("View previous comments"));
+  expect(at("View previous comments")).toBeLessThan(at("comment 1"));
+  expect(at("comment 2")).toBeLessThan(at('id="profile-post-9-comment"'));
+});
+
+test("each row has its own border over its neighbour's, and the summary row goes while nobody reacted", async () => {
+  const html = await render({ summary: <i data-mark="summary" /> });
+  expect(html).not.toContain("border-l pl-3");
+  expect(html).toMatch(
+    /<div class="-mt-px border bg-muted\/60 px-2 flex py-0.5 empty:hidden"><i data-mark="summary"/,
+  );
+  expect(html).toMatch(/<article id="profile-comment-1" class="-mt-px border/);
+  // No summary given: no row for it.
+  expect(await render()).not.toContain("py-0.5 empty:hidden");
+});
+
+test("a comment is its avatar, the author's name, the text, then one footer with the date", async () => {
+  const html = await render({ comments: [comment(1)] });
+  const row = html.slice(html.indexOf('id="profile-comment-1"'));
+  const at = (text: string) => row.indexOf(text);
+  expect(at("member21")).toBeLessThan(at("comment 1"));
+  expect(at("comment 1")).toBeLessThan(at("<time"));
+  expect(row.match(/data-slot="content-actions"/g)).toHaveLength(1);
+  // The date sits in the footer, not beside the name.
+  expect(row).not.toContain("· ");
+});
+
+test("the composer row carries the viewer's avatar before the line", async () => {
+  const html = await render({ action: async () => ({}) });
+  const composer = html.slice(html.indexOf('id="profile-post-9-comment"'));
+  expect(composer.indexOf('aria-label="member3"')).toBeGreaterThan(-1);
+  expect(composer.indexOf('aria-label="member3"')).toBeLessThan(
+    composer.indexOf("<form"),
+  );
 });

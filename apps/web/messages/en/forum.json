@@ -336,7 +336,7 @@
     "submit": "Post comment",
     "awaitingApproval": "This is waiting for approval.",
     "deleted": "This was deleted.",
-    "showMore": "Show more comments",
+    "showMore": "View previous comments…",
     "fewer": "Show fewer comments"
   },
   "bbCode": {
@@ -359,6 +359,7 @@
     "edit": "Edit",
     "delete": "Delete",
     "report": "Report",
+    "moreOptions": "More options",
     "confirmDelete": "Delete",
     "cancel": "Cancel",
     "deleteReason": "Reason (optional)",

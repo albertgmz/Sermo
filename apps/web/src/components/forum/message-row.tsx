@@ -3,6 +3,10 @@ import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
 import { type LinkUser, UserLink } from "@/components/forum/user-link";
 import { cn } from "@/lib/utils";
 
+// A wall post: the author's avatar on the left, then the header (`name · time`), the body, the
+// actions and what follows them (the block of comments). Below `md` the avatar is drawn small at
+// the start of the header instead, so the body and the comments span the row, as XenForo draws a
+// profile post on a phone.
 export function MessageRow({
   id,
   author,
@@ -11,7 +15,6 @@ export function MessageRow({
   time,
   actions,
   footer,
-  compact = false,
   className,
   children,
 }: {
@@ -22,7 +25,6 @@ export function MessageRow({
   time: React.ReactNode;
   actions?: React.ReactNode;
   footer?: React.ReactNode;
-  compact?: boolean;
   className?: string;
   children: React.ReactNode;
 }) {
@@ -30,40 +32,31 @@ export function MessageRow({
     <article
       id={id}
       className={cn(
-        "flex scroll-mt-landing-gap",
-        compact ? "gap-2" : "gap-3 px-4 pt-4",
-        !compact && (actions && !footer ? "pb-2" : "pb-4"),
+        "flex scroll-mt-landing-gap gap-3 px-4 pt-4",
+        actions && !footer ? "pb-2" : "pb-4",
         className,
       )}
     >
-      <UserAvatar
-        user={author}
-        size={compact ? "sm" : "lg"}
-        className={
-          compact ? "relative after:absolute after:-inset-2" : undefined
-        }
-      />
+      <UserAvatar user={author} size="lg" className="max-md:hidden" />
       <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "text-muted-foreground [overflow-wrap:anywhere]",
-            compact ? "text-xs leading-6" : "text-sm",
-          )}
-        >
-          <UserLink user={author} />
-          {badge && <> {badge}</>}
-          {context && (
-            <>
-              <span aria-hidden="true"> · </span>
-              {context}
-            </>
-          )}{" "}
-          <span className="text-xs whitespace-nowrap">
-            <span aria-hidden="true">· </span>
-            {time}
-          </span>
-        </p>
-        <div className={compact ? undefined : "mt-1"}>{children}</div>
+        <div className="flex items-center gap-2">
+          <UserAvatar user={author} size="sm" className="md:hidden" />
+          <p className="min-w-0 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+            <UserLink user={author} />
+            {badge && <> {badge}</>}
+            {context && (
+              <>
+                <span aria-hidden="true"> · </span>
+                {context}
+              </>
+            )}{" "}
+            <span className="text-xs whitespace-nowrap">
+              <span aria-hidden="true">· </span>
+              {time}
+            </span>
+          </p>
+        </div>
+        <div className="mt-1">{children}</div>
         {actions}
         {footer}
       </div>

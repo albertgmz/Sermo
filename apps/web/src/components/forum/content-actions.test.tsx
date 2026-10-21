@@ -18,9 +18,23 @@ mock.module("next-intl", () => ({
   useLocale: () => "en",
   useTranslations,
 }));
+// The stand-in records what the "•••" menu would open with; the bar draws only its plain button.
+let menus: Record<string, unknown>[] = [];
+const realPopup = { ...(await import("@/components/ui/lazy-popup")) };
+mock.module("@/components/ui/lazy-popup", () => ({
+  ...realPopup,
+  LazyPopup: (props: {
+    popup: Record<string, unknown>;
+    trigger: (lazy: object) => React.ReactElement;
+  }) => {
+    if ("onDelete" in props.popup) menus.push(props.popup);
+    return props.trigger({});
+  },
+}));
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
   mock.module("next-intl", () => intl);
+  mock.module("@/components/ui/lazy-popup", () => realPopup);
 });
 const { ContentActions } = await import("./content-actions");
 const { ShareButton, ShareMenuBody, copyLink, shareNatively } = await import(
@@ -31,6 +45,7 @@ const action = async () => ({});
 const load = async () => null;
 
 function draw(props: Parameters<typeof ContentActions>[0]) {
+  menus = [];
   return renderToStaticMarkup(withIntl(<ContentActions {...props} />));
 }
 
@@ -123,6 +138,51 @@ test("the split bar leaves share and bookmark to the post's header row", () => {
   });
   expect(html).not.toContain('aria-label="Share"');
   expect(html).not.toContain("Bookmark");
+});
+
+test("the wall bar: the date, report, the menu and moderation on the left, react and the rest on the right, the summary under it", () => {
+  const html = draw({
+    ...full,
+    quote: undefined,
+    reply: undefined,
+    start: <i data-mark="start" />,
+    leading: <i data-mark="date" />,
+    layout: "wall",
+  });
+  const at = (text: string) => html.indexOf(text);
+  expect(at('data-mark="date"')).toBeLessThan(at('aria-label="Report"'));
+  expect(at('aria-label="Report"')).toBeLessThan(
+    at('aria-label="More options"'),
+  );
+  expect(at('aria-label="More options"')).toBeLessThan(
+    at('data-mark="moderation"'),
+  );
+  expect(at('data-mark="moderation"')).toBeLessThan(at('data-mark="react"'));
+  expect(at('data-mark="react"')).toBeLessThan(at('data-mark="start"'));
+  expect(at('data-mark="start"')).toBeLessThan(at('data-mark="summary"'));
+  // Report keeps its word on a phone, as XenForo's "Denunciar"; no rule above the bar.
+  expect(html).toContain('<span class="inline">Report</span>');
+  expect(html).not.toContain("border-t");
+});
+
+test("the wall bar folds share, edit and delete into its menu", () => {
+  const html = draw({ ...full, layout: "wall" });
+  for (const label of ["Share", "Edit", "Delete"]) {
+    expect(html).not.toContain(`aria-label="${label}"`);
+  }
+  expect(menus).toHaveLength(1);
+  expect(menus[0]?.share).toBe("/threads/3#post-1");
+  expect(menus[0]?.edit).toBe("/threads/3/edit/1");
+  expect(typeof menus[0]?.onDelete).toBe("function");
+  // An edit panel is opened from the menu.
+  draw({ edit: { panel: <i data-mark="form" /> }, layout: "wall" });
+  expect(typeof menus[0]?.edit).toBe("function");
+});
+
+test("the wall bar has no menu when it would hold nothing", () => {
+  const html = draw({ report: { action }, layout: "wall" });
+  expect(html).not.toContain("More options");
+  expect(html).toContain('aria-label="Report"');
 });
 
 test("the default bar keeps the plain Quote word", () => {

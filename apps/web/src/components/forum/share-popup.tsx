@@ -25,6 +25,30 @@ export type SharePopupProps = {
   className?: string;
 };
 
+// Copies the link to `href` (`linkTo`) and says how it went: `copied`, back to `idle` a moment
+// later, when `done` runs too; `manual` where the clipboard refused it, with the `url` to copy by
+// hand. Shared by this menu and the "•••" menu of a wall post or comment (`content-menu-popup`).
+export function useLinkCopy(href: string, done: () => void) {
+  const [status, setStatus] = useState<"idle" | "copied" | "manual">("idle");
+  const [url, setUrl] = useState("");
+
+  async function copy() {
+    const target = linkTo(href);
+    setUrl(target);
+    if (await copyLink(target, navigator)) {
+      setStatus("copied");
+      setTimeout(() => {
+        setStatus("idle");
+        done();
+      }, 2000);
+    } else {
+      setStatus("manual");
+    }
+  }
+
+  return { status, url, copy, reset: () => setStatus("idle") };
+}
+
 // The share button and its menu, which Base UI draws. It is loaded when the plain button of
 // `ShareButton` is pressed and mounts open.
 export default function SharePopup({
@@ -35,29 +59,14 @@ export default function SharePopup({
 }: SharePopupProps & OpenedProps) {
   const t = useTranslations("forum.shareButton");
   const focus = usePopupFocus(openedBy);
-  const [status, setStatus] = useState<"idle" | "copied" | "manual">("idle");
   const [open, setOpen] = useState(true);
-  const [url, setUrl] = useState("");
-
-  async function copy() {
-    const target = linkTo(href);
-    setUrl(target);
-    if (await copyLink(target, navigator)) {
-      setStatus("copied");
-      setTimeout(() => {
-        setStatus("idle");
-        setOpen(false);
-      }, 2000);
-    } else {
-      setStatus("manual");
-    }
-  }
+  const { status, url, copy, reset } = useLinkCopy(href, () => setOpen(false));
 
   function change(next: boolean) {
     if (next && shareNatively(linkTo(href), navigator, () => setOpen(true))) {
       return;
     }
-    setStatus("idle");
+    reset();
     setOpen(next);
   }
 

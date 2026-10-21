@@ -55,6 +55,23 @@ const posts = Array.from({ length: 9 }, (_, i) => 9 - i);
 const asked: string[] = [];
 // The posts the fake backend says were edited.
 let edited: number[] = [];
+// The posts the fake backend says two members reacted to, with its one reaction type.
+let reacted: number[] = [];
+const like = {
+  id: 1,
+  title: "Like",
+  emoji: "L",
+  score: 1,
+  position: 0,
+  isActive: true,
+  image: null,
+  frames: null,
+  forumIds: [],
+  hideWhenLocked: false,
+  rule: null,
+  access: "open",
+  lockHint: null,
+};
 
 function comment(id: number) {
   return profileCommentBody({
@@ -67,12 +84,13 @@ function comment(id: number) {
 function backend(signedIn = true) {
   asked.length = 0;
   edited = [];
+  reacted = [];
   globalThis.fetch = (async (url: string) => {
     const { pathname, searchParams } = new URL(url);
     asked.push(`${pathname}?${searchParams}`);
     if (pathname === "/api/v1/me") return Response.json(viewerBody(signedIn));
     if (pathname === "/api/v1/reaction-types")
-      return Response.json({ items: [] });
+      return Response.json({ items: reacted.length > 0 ? [like] : [] });
     if (pathname === "/api/v1/member-cards")
       return Response.json({ items: [] });
     if (pathname === "/api/v1/users/9/profile-posts") {
@@ -82,6 +100,9 @@ function backend(signedIn = true) {
           id,
           bodyHtml: `<p>wall post ${id}</p>`,
           editedAt: edited.includes(id) ? "2026-01-02T00:00:00.000Z" : null,
+          reactions: reacted.includes(id)
+            ? { counts: { "1": 2 }, total: 2, mine: null }
+            : { counts: {}, total: 0, mine: null },
           commentCount: id === 5 ? 5 : 0,
           latestComments: id === 5 ? [105, 104, 103].map(comment) : [],
         }),
@@ -250,9 +271,37 @@ test("an edited wall post says so beside its time, and only that one", async () 
 test("the author's controls come from the backend's flags on each post", async () => {
   backend();
   const html = await wall({});
-  // The fake backend allows nobody to edit or delete: a signed-in member sees share and report.
+  // The fake backend allows nobody to edit or delete: a signed-in member sees report, and share
+  // in the "•••" menu.
   expect(html).not.toContain('aria-label="Edit"');
   expect(html).not.toContain('aria-label="Delete"');
   expect(html).toContain('aria-label="Report"');
-  expect(html).toContain('aria-label="Share"');
+  expect(html).toContain('aria-label="More options"');
+});
+
+test("who reacted to a post heads its block of comments; with no block it sits under the bar", async () => {
+  backend();
+  reacted = [5, 8];
+  const html = await wall({ cursor: "p3" });
+  const summary = (from: number) =>
+    html.indexOf("2 reactions, show who reacted", from);
+  // Post 5 has comments: its summary is the block's first row, before the oldest comment.
+  const five = html.indexOf('id="profile-post-5"');
+  expect(summary(five)).toBeLessThan(html.indexOf("comment 103", five));
+  expect(html.slice(five, summary(five))).toContain("py-0.5 empty:hidden");
+  // Post 8 has none and cannot be commented on: the summary follows its bar.
+  const page = await wall({});
+  const eight = page.indexOf('id="profile-post-8"');
+  const at = page.indexOf("2 reactions, show who reacted", eight);
+  expect(at).toBeGreaterThan(eight);
+  expect(at).toBeLessThan(page.indexOf('id="profile-post-7"'));
+  expect(page.slice(eight, at)).not.toContain("py-0.5 empty:hidden");
+});
+
+test("on a phone a wall post's avatar sits small in its header, so the comments span the post", async () => {
+  backend();
+  const html = await wall({ cursor: "p3" });
+  const five = html.slice(html.indexOf('id="profile-post-5"'));
+  expect(five).toMatch(/class="[^"]*max-md:hidden"/);
+  expect(five).toMatch(/class="[^"]*md:hidden"/);
 });

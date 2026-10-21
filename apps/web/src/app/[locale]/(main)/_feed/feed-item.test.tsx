@@ -218,12 +218,12 @@ test("a wall post is drawn with its latest comments and a composer for the next 
   expect(countHref(html, "2 comments")).toContain(
     'href="#feed-profile-post-9-comment"',
   );
-  expect(html).not.toContain("Show more comments");
+  expect(html).not.toContain("View previous comments");
 });
 
 test("a wall post with more comments than the card holds has a button that loads them in place", async () => {
   const html = await render(wallItem({ commentCount: 6 }), MEMBER);
-  expect(html).toMatch(/<button type="button"[^>]*>Show more comments</);
+  expect(html).toMatch(/<button type="button"[^>]*>View previous comments…</);
   expect(html).not.toContain("comments=");
 });
 
