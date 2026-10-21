@@ -1785,6 +1785,12 @@ function insertBan(
 }
 
 function refreshBanState(ctx: Ctx, userId: number, now: number) {
+  const wasPermanent = !!read<{ banned_permanently: number }>(
+    ctx,
+    "banPermanent",
+    "SELECT banned_permanently FROM users WHERE id = ?1",
+    userId,
+  )?.banned_permanently;
   const active = read<{ expires_at: number | null }>(
     ctx,
     "remainingBan",
@@ -1802,9 +1808,10 @@ function refreshBanState(ctx: Ctx, userId: number, now: number) {
   );
   // A banned member leaves the shared presence list at once (and a lifted ban returns them).
   forgetRecentlyActive(ctx);
-  // Past months are decided again: a ban only matters to the months the member won, a lifted ban
-  // may give back any month they led.
-  requestStandingsRedecide(ctx, active ? userId : undefined);
+  // Past winners: only a permanent ban disqualifies (a temporary one hides the win while it lasts),
+  // and it only matters to the months the member won; lifting it may give back any month they led.
+  const permanent = active != null && active.expires_at == null;
+  if (permanent !== wasPermanent) requestStandingsRedecide(ctx, permanent ? userId : undefined);
 }
 
 type WarningRow = {

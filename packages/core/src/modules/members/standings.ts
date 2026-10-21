@@ -26,7 +26,7 @@ import { requireSiteView } from "./site-access";
 /** Rows one slice of the recomputation reads before it yields to the event loop. */
 const SLICE = 2000;
 /** Members written, or stale rows removed, per transaction. */
-export const WRITE_BATCH = 200;
+const WRITE_BATCH = 200;
 /** How many months back a run decides the months a missed run left open. */
 const CATCH_UP_MONTHS = 12;
 /** The marker row that says every month up to and including its value has been decided. */
@@ -58,8 +58,9 @@ export const standingSql = {
     "SELECT user_id FROM member_month_stats WHERE month = ?1 AND user_id > ?2 ORDER BY user_id LIMIT ?3",
   remove:
     "DELETE FROM member_month_stats WHERE month = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
-  // The best placed member who is neither banned nor erased when the winner is written.
-  top: "SELECT s.user_id, s.posts, s.reactions, s.referrals, s.points_tenths FROM member_month_stats s JOIN users u ON u.id = s.user_id WHERE s.month = ?1 AND u.erased_at IS NULL AND u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?2) ORDER BY s.points_tenths DESC, s.posts DESC, s.user_id LIMIT 1",
+  // The best placed member who is not banned for good and not erased when the winner is written
+  // (keep in step with `redecideSql.eligible` and the ranking of `chooseWinner`).
+  top: "SELECT s.user_id, s.posts, s.reactions, s.referrals, s.points_tenths FROM member_month_stats s JOIN users u ON u.id = s.user_id WHERE s.month = ?1 AND u.erased_at IS NULL AND u.banned_permanently = 0 ORDER BY s.points_tenths DESC, s.posts DESC, s.user_id LIMIT 1",
   principals: `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id IN (SELECT value FROM json_each(?1))`,
   winner: "SELECT 1 FROM month_winners WHERE month = ?1",
   prune:
@@ -345,9 +346,9 @@ function* decideMonth(
           referrals: number;
           points_tenths: number;
         },
-        [number, number]
+        [number]
       >(standingSql.top),
-    ).get(key, ctx.now());
+    ).get(key);
     const now = ctx.now();
     if (top)
       prepared(ctx, "members.standingInsertWinner", () =>
@@ -389,7 +390,7 @@ export function refreshStandings(ctx: Ctx): void {
   while (!run.next().done);
 }
 
-const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
+export const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 /**
  * Registers the refresh job and queues one now, so the standings exist right after a start

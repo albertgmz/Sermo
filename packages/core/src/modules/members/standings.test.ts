@@ -3,11 +3,11 @@ import { GUEST } from "../../actor";
 import { ForbiddenError, ValidationError } from "../../errors";
 import { expectNoTableScan, insertNode } from "../../testing";
 import { accounts, closeAll, PASSWORD } from "../admin/fixtures.test";
-import { runDueJobs } from "../jobs/queue";
+import { registerJobHandler, runDueJobs } from "../jobs/queue";
 import { runMinuteTasks } from "../jobs/scheduler";
 import { type World, world } from "./fixtures.test";
 import { registerStandingJobs as registerAllStandingJobs } from "./index";
-import { redecideSql } from "./redecide";
+import { redecideChunk, redecideSql } from "./redecide";
 import { DECIDED_KEY, refreshStandings, registerStandingJobs, standingSql } from "./standings";
 
 const DEC = (day: number) => Date.UTC(2025, 11, day, 12);
@@ -482,7 +482,7 @@ describe("the standings job", () => {
     expectNoTableScan(w.ctx, standingSql.referrals, [0, 10, 0, 0, 100]);
     expectNoTableScan(w.ctx, standingSql.stored, [202601, 0, 10]);
     expectNoTableScan(w.ctx, standingSql.remove, [202601, "[1]"]);
-    expectNoTableScan(w.ctx, standingSql.top, [202601, 1_000]);
+    expectNoTableScan(w.ctx, standingSql.top, [202601]);
     expectNoTableScan(w.ctx, standingSql.winner, [202601]);
     expectNoTableScan(w.ctx, standingSql.prune, [202512, 200]);
     expectNoTableScan(w.ctx, standingSql.decided, []);
@@ -736,6 +736,61 @@ describe("past months follow the current rules", () => {
     expect(jobs(w)).toBe(1);
   });
 
+  test("a ban that lands while a run is choosing a month is not lost", async () => {
+    const { w, m1 } = staff();
+    refreshStandings(w.ctx);
+    w.ctx.clock.set(FEB(2));
+    refreshStandings(w.ctx);
+    await w.call("settings.update", w.adminActor, { standingExcludeStaff: true });
+    registerAllStandingJobs(w.ctx);
+    let banned = false;
+    // The run has chosen December (`m1`) and is still rewriting its standing when `m1` is banned.
+    registerJobHandler(
+      w.ctx,
+      "standings.redecide",
+      async (ctx, payload, job) => {
+        const run = redecideChunk(ctx, (payload as { month: number }).month, job);
+        while (!banned) {
+          await new Promise((resolve) => setImmediate(resolve));
+          if (rows(w, 202601).length > 0) {
+            await w.call("bans.create", w.adminActor, {
+              userId: m1.id,
+              reason: "spam",
+              expiresAt: null,
+            });
+            banned = true;
+          }
+        }
+        await run;
+      },
+      { holdCheckpoints: false },
+    );
+    await runDueJobs(w.ctx, { limit: 1000 });
+    expect(stored(w).map((row) => row.user_id)).toContain(m1.id);
+    w.ctx.clock.advance(31_000);
+    await runDueJobs(w.ctx, { limit: 1000 });
+    expect(stored(w).map((row) => row.user_id)).not.toContain(m1.id);
+  });
+
+  test("a temporary ban hides a win while it lasts and does not take it away", async () => {
+    const { w } = staff();
+    refreshStandings(w.ctx);
+    await w.call("bans.create", w.adminActor, {
+      userId: w.moderator.id,
+      reason: "spat",
+      expiresAt: new Date(JAN(15) + 3 * 86_400_000).toISOString(),
+    });
+    expect(jobs(w)).toBe(0);
+    expect((await winners(w)).items).toEqual([]);
+    w.ctx.clock.set(JAN(20));
+    expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
+    // A run started for another reason keeps a temporarily banned leader as well.
+    await w.call("settings.update", w.adminActor, { standingPostPoints: 2 });
+    w.ctx.clock.set(JAN(16));
+    await settle(w);
+    expect(stored(w).map((row) => row.user_id)).toEqual([w.moderator.id]);
+  });
+
   test("an erased member loses the months they won", async () => {
     const w = await accounts();
     const founder = await w.register("Founder", 4);
@@ -844,7 +899,7 @@ describe("past months follow the current rules", () => {
   test("every statement of the decision reads an index or a bounded key range", () => {
     const { w } = scenario();
     expectNoTableScan(w.ctx, redecideSql.firstWinner, []);
-    expectNoTableScan(w.ctx, redecideSql.eligible, ["[1,2]", 1_000]);
+    expectNoTableScan(w.ctx, redecideSql.eligible, ["[1,2]"]);
     expectNoTableScan(w.ctx, redecideSql.setWinner, [202512, 1, 1, 0, 0, 10, 0]);
     expectNoTableScan(w.ctx, redecideSql.clearWinner, [202512]);
   });

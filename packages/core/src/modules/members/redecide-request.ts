@@ -20,11 +20,13 @@ export function redecideUnderWay(ctx: Ctx): boolean {
  * The current month's table is refreshed too, without waiting for the next tenth minute.
  *
  * A ban or an erasure can only change the months its member won, so it passes `onlyIfWinner`:
- * nothing is queued unless that member is the winner of some month.
+ * nothing is queued unless that member is the winner of some month, or a run is under way (it may
+ * be about to give them a month it has not written yet).
  */
 export function requestStandingsRedecide(ctx: Ctx, onlyIfWinner?: number): void {
   if (
     onlyIfWinner !== undefined &&
+    !redecideUnderWay(ctx) &&
     !prepared(ctx, "members.standingWon", () =>
       ctx.sqlite.prepare<{ 1: number }, [number]>(
         "SELECT 1 FROM month_winners WHERE user_id = ?1 LIMIT 1",

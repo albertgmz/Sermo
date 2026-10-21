@@ -51,6 +51,12 @@ function seededActivityBack(env: BenchEnv) {
  * Requests are timed while the runs follow one another; the first complete run reports its time
  * and its longest chunk. The winners it writes are removed afterwards: the seed has none.
  */
+const previousMonthKey = (now: number) => {
+  const last = new Date(
+    Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth() - 1, 1),
+  );
+  return last.getUTCFullYear() * 100 + last.getUTCMonth() + 1;
+};
 let redecideRunning = false;
 let redecideLoop: Promise<void> | null = null;
 let redecideChunkMs = 0;
@@ -212,17 +218,10 @@ export const scenarios: Scenario[] = [
       env.ctx.sqlite.run("DELETE FROM jobs WHERE type LIKE 'standings.%'");
       env.ctx.sqlite.run("DELETE FROM month_winners");
       env.ctx.sqlite.run("DELETE FROM site_settings WHERE key = 'standings.decided'");
-      // The run rewrites the standing of the previous month.
-      const last = new Date(
-        Date.UTC(
-          new Date(env.ctx.now()).getUTCFullYear(),
-          new Date(env.ctx.now()).getUTCMonth() - 1,
-          1,
-        ),
-      );
+      // The run rewrites the standing of the previous month, and its refresh the current one.
       env.ctx.sqlite
-        .prepare("DELETE FROM member_month_stats WHERE month = ?1")
-        .run(last.getUTCFullYear() * 100 + last.getUTCMonth() + 1);
+        .prepare("DELETE FROM member_month_stats WHERE month >= ?1")
+        .run(previousMonthKey(env.ctx.now()));
     },
   },
 ];

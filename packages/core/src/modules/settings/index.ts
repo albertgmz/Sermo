@@ -259,7 +259,12 @@ export function updateSiteSettings(
     const { groupUploadLimitBytes: _quota, turnstileSecretSet: _secret, ...stored } = next;
     storeSiteSettings(ctx, stored);
     // The rules that decide who wins a month changed: past winners are decided again.
-    if (STANDING_RULES.some((key) => JSON.stringify(current[key]) !== JSON.stringify(next[key])))
+    // The listed members are a set: the same ones in another order change nothing.
+    const asKey = (value: unknown) =>
+      JSON.stringify(
+        Array.isArray(value) && typeof value[0] === "number" ? [...value].sort() : value,
+      );
+    if (STANDING_RULES.some((key) => asKey(current[key]) !== asKey(next[key])))
       requestStandingsRedecide(ctx);
     appendModeratorLog(ctx, actor, "settings.update", "settings", 1, "", {
       changedKeys: Object.keys(changes),

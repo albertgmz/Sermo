@@ -2752,7 +2752,11 @@ export const memberMonthStats = sqliteTable(
   ],
 );
 
-/** The member of the month of each finished month that had one. Never rewritten. */
+/**
+ * The member of the month of each finished month that had one. Decided once when the month ends,
+ * and decided again (the row is rewritten) when the standing rules change or a winner is banned
+ * for good or erased.
+ */
 export const monthWinners = sqliteTable("month_winners", {
   /** year * 100 + month. */
   month: integer("month").primaryKey(),

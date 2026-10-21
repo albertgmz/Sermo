@@ -16,6 +16,7 @@ import {
   splitMonth,
   standingSql,
   storeMonth,
+  yieldToEventLoop,
 } from "./standings";
 
 /** Members whose standing is checked, best placed first, per round of the choice of a winner. */
@@ -23,16 +24,15 @@ const CANDIDATES = 50;
 
 export const redecideSql = {
   firstWinner: "SELECT min(month) AS month FROM month_winners",
-  // Neither banned nor erased now: the same test as `standingSql.top`, for a batch of members.
+  // Not banned for good and not erased: the same test as `standingSql.top`, for a batch of
+  // members. A temporary ban does not disqualify; the reads hide the winner while it lasts.
   eligible:
-    "SELECT id FROM users WHERE id IN (SELECT value FROM json_each(?1)) AND erased_at IS NULL AND banned_permanently = 0 AND (banned_until IS NULL OR banned_until <= ?2)",
+    "SELECT id FROM users WHERE id IN (SELECT value FROM json_each(?1)) AND erased_at IS NULL AND banned_permanently = 0",
   setWinner:
     "INSERT INTO month_winners (month, user_id, posts, reactions, referrals, points_tenths, decided_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) " +
     "ON CONFLICT (month) DO UPDATE SET user_id = excluded.user_id, posts = excluded.posts, reactions = excluded.reactions, referrals = excluded.referrals, points_tenths = excluded.points_tenths, decided_at = excluded.decided_at",
   clearWinner: "DELETE FROM month_winners WHERE month = ?1",
 };
-
-const nextTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 /**
  * Runs a generator to its end with a turn of the event loop after each step, so the thread that
@@ -50,7 +50,7 @@ async function drive<T>(ctx: Ctx, run: Generator<void, T, void>, writes = false)
       release();
     }
     if (step.done) return step.value;
-    await nextTurn();
+    await yieldToEventLoop();
   }
 }
 
@@ -87,17 +87,14 @@ function* chooseWinner(
     .sort((a, b) => b.tenths - a.tenths || b.entry.posts - a.entry.posts || a.userId - b.userId);
   const excluder = excluderFor(ctx, currentVersions(ctx));
   const eligible = prepared(ctx, "members.standingEligible", () =>
-    ctx.sqlite.prepare<{ id: number }, [string, number]>(redecideSql.eligible),
+    ctx.sqlite.prepare<{ id: number }, [string]>(redecideSql.eligible),
   );
   for (let at = 0; at < ranked.length; at += CANDIDATES) {
     const batch = ranked.slice(at, at + CANDIDATES);
     const left = excluder(batch.map((row) => row.userId));
     const open = new Set(
       eligible
-        .all(
-          JSON.stringify(batch.filter((row) => !left.has(row.userId)).map((row) => row.userId)),
-          ctx.now(),
-        )
+        .all(JSON.stringify(batch.filter((row) => !left.has(row.userId)).map((row) => row.userId)))
         .map((row) => row.id),
     );
     const winner = batch.find((row) => open.has(row.userId));
