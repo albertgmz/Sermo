@@ -327,11 +327,23 @@ export async function saveLevels(
     );
   }
 
+  // The rule that leaves members out, replaced whole, so only by a form that showed it.
+  if (shownKeys(formData).has("standingExcludeRule")) {
+    const rule = ruleOf(formData, "standingExcludeRule");
+    if (rule === null)
+      Object.assign(
+        parsed.fields,
+        (await ruleRefusal(formData, "standingExcludeRule")).fields,
+      );
+    else parsed.body.standingExcludeRule = rule;
+  }
+
   return saveSettings(parsed, {
     back: "/admin/settings/levels",
     known: (name) =>
       knownIn(LEVELS, "levelTitles")(name) ||
-      name === "standingExcludedUserIds",
+      name === "standingExcludedUserIds" ||
+      name === "standingExcludeRule",
     rename: (path) =>
       path[0] === "levelTitles" && typeof path[1] === "number"
         ? ["levelTitles", rows[path[1]] ?? path[1]]

@@ -224,9 +224,14 @@ test("the uploads and levels forms keep the size, the types, the group storage, 
     "standingReferralPoints",
     "standingExcludeStaff",
     "standingExcludedUserIds",
+    "standingExcludeRule",
   ])
     expect(levels.names.has(name), name).toBe(true);
-  for (const key of ["levelTitles", "standingExcludedUserIds"])
+  for (const key of [
+    "levelTitles",
+    "standingExcludedUserIds",
+    "standingExcludeRule",
+  ])
     expect(levels.shown, key).toContain(key);
 });
 

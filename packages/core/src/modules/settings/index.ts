@@ -9,6 +9,7 @@ import { implement } from "../../operation";
 import { currentActor, requirePermission } from "../../permissions";
 import { assertRule } from "../../shared/criteria";
 import { attachUploadedFile, releaseFile } from "../images/attach";
+import { requestStandingsRedecide } from "../members/redecide-request";
 import { appendModeratorLog } from "../moderation";
 import { assertHomeTab } from "./home-tab";
 import { storedTurnstileSecret, storeTurnstileSecret } from "./turnstile";
@@ -24,6 +25,16 @@ const StoredSiteSettings = SiteSettings.omit({
 });
 /** What settings.update takes: the settings that can change, and the write-only Turnstile secret. */
 type SettingsChanges = z.infer<typeof settingsUpdate.input>;
+
+/** The settings that decide who wins a month (and the points): a change decides past months again. */
+const STANDING_RULES = [
+  "standingPostPoints",
+  "standingReactionsPerPoint",
+  "standingReferralPoints",
+  "standingExcludeStaff",
+  "standingExcludedUserIds",
+  "standingExcludeRule",
+] as const;
 
 const defaults: StoredSiteSettingsValue = {
   maxUploadBytes: 25 * 1024 * 1024,
@@ -97,6 +108,7 @@ const defaults: StoredSiteSettingsValue = {
   standingReactionsPerPoint: 10,
   standingReferralPoints: 20,
   standingExcludeStaff: false,
+  standingExcludeRule: { match: "all", conditions: [] },
   standingExcludedUserIds: [],
   analytics: { provider: "none" },
   matomoCookieless: false,
@@ -182,7 +194,12 @@ export function updateSiteSettings(
       if (current[key] !== null) releaseFile(ctx, current[key]);
     }
     // Both rules are decided on every write, so only criteria that read the member's own row.
-    for (const key of ["linksRule", "approvalRule", "signatureRule"] as const) {
+    for (const key of [
+      "linksRule",
+      "approvalRule",
+      "signatureRule",
+      "standingExcludeRule",
+    ] as const) {
       const rule = changes[key];
       if (rule) assertCheapRule(ctx, key, rule);
     }
@@ -241,6 +258,9 @@ export function updateSiteSettings(
     }
     const { groupUploadLimitBytes: _quota, turnstileSecretSet: _secret, ...stored } = next;
     storeSiteSettings(ctx, stored);
+    // The rules that decide who wins a month changed: past winners are decided again.
+    if (STANDING_RULES.some((key) => JSON.stringify(current[key]) !== JSON.stringify(next[key])))
+      requestStandingsRedecide(ctx);
     appendModeratorLog(ctx, actor, "settings.update", "settings", 1, "", {
       changedKeys: Object.keys(changes),
     });

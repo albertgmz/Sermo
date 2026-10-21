@@ -312,6 +312,7 @@
       "postLinks": "Pueden publicar enlaces",
       "postApproval": "Publican sin revisión",
       "signature": "Pueden poner una firma",
+      "standing": "Quedan fuera del miembro del mes",
       "homeTab": "Abren el inicio en",
       "memberBatch": "Miembros que cumplen"
     },
@@ -325,6 +326,7 @@
       "postLinks": "Un miembro debe cumplir esto para publicar enlaces, imágenes o medios de otros sitios. Déjalo vacío para permitirlo a todos. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
       "postApproval": "Los hilos y respuestas nuevos de quienes no cumplan esto esperan a un moderador, además del número de primeros mensajes y de los interruptores de aprobación de cada foro. Déjalo vacío para no retener a nadie. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
       "signature": "Un miembro debe cumplir esto para poner una firma, además del permiso. Una firma guardada por un miembro que ya no lo cumple sigue guardada pero no se muestra. Déjalo vacío para que pueda cualquiera con el permiso. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
+      "standing": "Los miembros que cumplan esto quedan fuera de la clasificación y no pueden ganar un mes. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
       "homeTab": "Los visitantes que cumplan esto abren el inicio en la pestaña elegida abajo, salvo que hayan elegido la suya. Los invitados son los visitantes que no han iniciado sesión. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
       "memberBatch": "Los miembros que cumplen estas condiciones, tomados por el orden de sus ids; cada pasada mira las primeras coincidencias y un mensaje avisa cuando puede haber más. Solo se ofrecen las condiciones que se pueden comprobar mientras se ejecuta la vista previa; las que cuentan el historial del miembro no."
     },
@@ -337,7 +339,8 @@
       "everyone": "Todos. Añade una condición para acotarlo.",
       "manual": "Solo a mano: nadie lo recibe automáticamente. Añade una condición para concederlo automáticamente.",
       "required": "Una promoción necesita al menos una condición. Añade una abajo.",
-      "selection": "Añade al menos una condición para elegir miembros."
+      "selection": "Añade al menos una condición para elegir miembros.",
+      "nobody": "No se excluye a nadie. Añade una condición para dejar fuera a miembros."
     },
     "remove": "Quitar {title}",
     "kept": "No se edita aquí, se guarda tal cual: {detail}",

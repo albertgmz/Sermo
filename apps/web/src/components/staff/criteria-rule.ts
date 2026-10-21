@@ -38,6 +38,9 @@ export const PLACES = {
   postApproval: { cheapOnly: true, noMeasured: false, empty: "everyone" },
   // Decided when a member saves a signature.
   signature: { cheapOnly: true, noMeasured: false, empty: "everyone" },
+  // Decided whenever the standings are read and when a month is decided again: cheap criteria
+  // only, and a rule with no condition leaves nobody out.
+  standing: { cheapOnly: true, noMeasured: false, empty: "nobody" },
   // Decided on every home page view of a visitor who chose no tab.
   homeTab: { cheapOnly: true, noMeasured: false, empty: "everyone" },
   // Evaluated while the preview request is served, for the members of a batch update: the cheap

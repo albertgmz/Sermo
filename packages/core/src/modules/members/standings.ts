@@ -14,6 +14,7 @@ import {
   requirePermission,
   resolvedPermissions,
 } from "../../permissions";
+import { evaluate, loadFacts } from "../../shared/criteria";
 import { ADMIN_PERMISSIONS } from "../auth/staff";
 import { scanKeyset } from "../feed/scan";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
@@ -25,7 +26,7 @@ import { requireSiteView } from "./site-access";
 /** Rows one slice of the recomputation reads before it yields to the event loop. */
 const SLICE = 2000;
 /** Members written, or stale rows removed, per transaction. */
-const WRITE_BATCH = 200;
+export const WRITE_BATCH = 200;
 /** How many months back a run decides the months a missed run left open. */
 const CATCH_UP_MONTHS = 12;
 /** The marker row that says every month up to and including its value has been decided. */
@@ -83,27 +84,33 @@ export const standingSql = {
 };
 
 export const monthKey = (year: number, month: number) => year * 100 + month;
-const splitMonth = (key: number) => ({ year: Math.floor(key / 100), month: key % 100 });
-const monthOf = (ms: number) => {
+export const splitMonth = (key: number) => ({ year: Math.floor(key / 100), month: key % 100 });
+export const monthOf = (ms: number) => {
   const date = new Date(ms);
   return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 };
 };
-const previousOf = ({ year, month }: { year: number; month: number }) =>
+export const previousOf = ({ year, month }: { year: number; month: number }) =>
   month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
 const startOf = ({ year, month }: { year: number; month: number }) => Date.UTC(year, month - 1, 1);
 
 // Exclusions -----------------------------------------------------------------------------------
 
 /**
- * Which of a batch of members the site leaves out of the standings: the ones its settings list
- * and, with `standingExcludeStaff`, anyone who holds `moderation.access` or an administration
- * permission (decided through the permissions, never by group). Read per call, so a change of
- * the settings takes effect on the next read.
+ * Which of a batch of members the site leaves out of the standings: the ones its settings list,
+ * the ones its exclusion rule matches (a group, for one) and, with `standingExcludeStaff`, anyone
+ * who holds `moderation.access` or an administration permission (decided through the
+ * permissions, never by group). Read per call, so a change of the settings takes effect on the
+ * next read.
  */
-function excluderFor(ctx: Ctx, versions: PermissionVersions): (ids: number[]) => Set<number> {
+export function excluderFor(
+  ctx: Ctx,
+  versions: PermissionVersions,
+): (ids: number[]) => Set<number> {
   const settings = readSiteSettings(ctx);
   const listed = new Set(settings.standingExcludedUserIds);
-  if (!settings.standingExcludeStaff && listed.size === 0) return () => new Set();
+  const rule = settings.standingExcludeRule;
+  const ruled = rule.conditions.length > 0;
+  if (!settings.standingExcludeStaff && listed.size === 0 && !ruled) return () => new Set();
   const principals = prepared(ctx, "members.standingPrincipals", () =>
     ctx.sqlite.prepare<PrincipalRow & { id: number; group_id: number }, [string]>(
       standingSql.principals,
@@ -111,7 +118,12 @@ function excluderFor(ctx: Ctx, versions: PermissionVersions): (ids: number[]) =>
   );
   return (ids) => {
     const out = new Set(ids.filter((id) => listed.has(id)));
-    const rest = ids.filter((id) => !out.has(id));
+    let rest = ids.filter((id) => !out.has(id));
+    if (ruled && rest.length > 0) {
+      const facts = loadFacts(ctx, rest, [rule]);
+      for (const id of rest) if (evaluate(rule, facts.get(id)!)) out.add(id);
+      rest = rest.filter((id) => !out.has(id));
+    }
     if (!settings.standingExcludeStaff || rest.length === 0) return out;
     for (const row of principals.all(JSON.stringify(rest))) {
       const held = resolvedPermissions(ctx, memberActor(row.id, row.group_id, row, versions));
@@ -151,7 +163,7 @@ function firstIdAt(ctx: Ctx, table: "posts" | "reactions", at: number): number {
  * What every member did in a month, in bounded slices (the generator yields between them).
  * Visible posts in visible threads, reactions received, members referred.
  */
-function* computeMonth(
+export function* computeMonth(
   ctx: Ctx,
   window: { year: number; month: number },
 ): Generator<void, Map<number, MonthStats>, void> {
@@ -225,7 +237,10 @@ function* computeMonth(
 }
 
 /** The points of a member's month, times ten, from the site's standing settings. */
-function pointsTenths(settings: ReturnType<typeof readSiteSettings>, entry: MonthStats): number {
+export function pointsTenths(
+  settings: ReturnType<typeof readSiteSettings>,
+  entry: MonthStats,
+): number {
   return Math.round(
     10 *
       (entry.posts * settings.standingPostPoints +
@@ -239,7 +254,7 @@ function pointsTenths(settings: ReturnType<typeof readSiteSettings>, entry: Mont
  * place and members who no longer have any are removed, a batch per short transaction, so a
  * reader never sees the month empty.
  */
-function* storeMonth(
+export function* storeMonth(
   ctx: Ctx,
   key: number,
   stats: Map<number, MonthStats>,

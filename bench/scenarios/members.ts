@@ -1,4 +1,7 @@
+import { registerJobHandler, registerStandingJobs, runDueJobs } from "@sermo/core";
 import { forgetRecentlyActive } from "../../packages/core/src/modules/members/recently-active-cache";
+import { redecideChunk } from "../../packages/core/src/modules/members/redecide";
+import { requestStandingsRedecide } from "../../packages/core/src/modules/members/redecide-request";
 import type { BenchEnv, Scenario } from "../harness";
 
 const choose = (values: number[], i: number) => values[i % values.length]!;
@@ -40,6 +43,43 @@ function seededActivityBack(env: BenchEnv) {
   })();
   seededActivity = [];
   forgetRecentlyActive(env.ctx);
+}
+
+/**
+ * Deciding every past month again (what a change of the standing rules, or the ban of a winner,
+ * queues) reads the posts, reactions and referrals of the whole history, a month per job run.
+ * Requests are timed while the runs follow one another; the first complete run reports its time
+ * and its longest chunk. The winners it writes are removed afterwards: the seed has none.
+ */
+let redecideRunning = false;
+let redecideLoop: Promise<void> | null = null;
+let redecideChunkMs = 0;
+async function redecideRuns(env: BenchEnv) {
+  registerStandingJobs(env.ctx);
+  redecideChunkMs = 0;
+  registerJobHandler(
+    env.ctx,
+    "standings.redecide",
+    async (ctx, payload, job) => {
+      const start = performance.now();
+      await redecideChunk(ctx, (payload as { month: number }).month, job);
+      redecideChunkMs = Math.max(redecideChunkMs, performance.now() - start);
+    },
+    { holdCheckpoints: false },
+  );
+  const first = performance.now();
+  let reported = false;
+  while (redecideRunning) {
+    requestStandingsRedecide(env.ctx);
+    while (redecideRunning && (await runDueJobs(env.ctx, { limit: 1 })))
+      await new Promise((resolve) => setImmediate(resolve));
+    if (!reported && redecideRunning) {
+      console.log(
+        `First complete redecide run: ${(performance.now() - first).toFixed(0)} ms; longest chunk (one month): ${redecideChunkMs.toFixed(1)} ms`,
+      );
+      reported = true;
+    }
+  }
 }
 
 /**
@@ -156,5 +196,33 @@ export const scenarios: Scenario[] = [
     },
     run: (env, i) =>
       env.call("standings.month", env.actors.member(i), { month: "current", limit: 20 }),
+  },
+  {
+    name: "standings.winners during a redecide of every past month",
+    kind: "read",
+    setup(env) {
+      redecideRunning = true;
+      redecideLoop = redecideRuns(env);
+    },
+    run: (env, i) => env.call("standings.winners", env.actors.member(i), {}),
+    async teardown(env) {
+      redecideRunning = false;
+      await redecideLoop;
+      redecideLoop = null;
+      env.ctx.sqlite.run("DELETE FROM jobs WHERE type LIKE 'standings.%'");
+      env.ctx.sqlite.run("DELETE FROM month_winners");
+      env.ctx.sqlite.run("DELETE FROM site_settings WHERE key = 'standings.decided'");
+      // The run rewrites the standing of the previous month.
+      const last = new Date(
+        Date.UTC(
+          new Date(env.ctx.now()).getUTCFullYear(),
+          new Date(env.ctx.now()).getUTCMonth() - 1,
+          1,
+        ),
+      );
+      env.ctx.sqlite
+        .prepare("DELETE FROM member_month_stats WHERE month = ?1")
+        .run(last.getUTCFullYear() * 100 + last.getUTCMonth() + 1);
+    },
   },
 ];

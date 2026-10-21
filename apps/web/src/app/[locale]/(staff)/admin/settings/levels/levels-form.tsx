@@ -1,6 +1,7 @@
 import { usersCards } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { EditForm, Field, FieldGroup } from "@/components/staff/edit-form";
+import { RuleField } from "@/components/staff/rule-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { read } from "@/lib/sermo/client";
@@ -79,7 +80,7 @@ export async function LevelsForm() {
           value={settings.customTitleMaxLength}
         />
       </FieldGroup>
-      <FieldGroup legend={t("standing")}>
+      <FieldGroup legend={t("standing")} description={t("standingNote")}>
         <NumberRow
           name="standingPostPoints"
           value={settings.standingPostPoints}
@@ -113,6 +114,12 @@ export async function LevelsForm() {
             aria-describedby="field-standingExcludedUserIds-help"
           />
         </Field>
+        <Shown name="standingExcludeRule" />
+        <RuleField
+          place="standing"
+          name="standingExcludeRule"
+          rule={settings.standingExcludeRule}
+        />
       </FieldGroup>
     </EditForm>
   );

@@ -794,6 +794,24 @@ test("the levels form turns typed usernames into ids and sends the switch", asyn
   });
 });
 
+test("the levels form sends the exclusion rule whole, and only when it showed it", async () => {
+  backend = fakeBackend({ "settings.update": read, "users.search": MEMBERS });
+  await redirectedTo(() =>
+    saveLevels(
+      null,
+      form([
+        ...LEVEL_FIELDS,
+        ["standingExcludeRule", JSON.stringify(POST_COUNT_RULE)],
+      ]),
+    ),
+  );
+  expect(sent()?.[0]?.body).toMatchObject({
+    standingExcludeRule: POST_COUNT_RULE,
+  });
+  await redirectedTo(() => saveLevels(null, form(LEVEL_FIELDS)));
+  expect(sent()?.[1]?.body).not.toHaveProperty("standingExcludeRule");
+});
+
 test("a username that belongs to no member is refused and nothing is saved", async () => {
   backend = fakeBackend({ "settings.update": read, "users.search": MEMBERS });
   const state = await saveLevels(

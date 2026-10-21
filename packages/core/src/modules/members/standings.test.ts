@@ -1,10 +1,13 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { GUEST } from "../../actor";
 import { ForbiddenError, ValidationError } from "../../errors";
 import { expectNoTableScan, insertNode } from "../../testing";
+import { accounts, closeAll, PASSWORD } from "../admin/fixtures.test";
 import { runDueJobs } from "../jobs/queue";
 import { runMinuteTasks } from "../jobs/scheduler";
 import { type World, world } from "./fixtures.test";
+import { registerStandingJobs as registerAllStandingJobs } from "./index";
+import { redecideSql } from "./redecide";
 import { DECIDED_KEY, refreshStandings, registerStandingJobs, standingSql } from "./standings";
 
 const DEC = (day: number) => Date.UTC(2025, 11, day, 12);
@@ -12,7 +15,7 @@ const JAN = (day: number) => Date.UTC(2026, 0, day, 12);
 const FEB = (day: number) => Date.UTC(2026, 1, day, 12);
 
 /** Content with explicit dates. Insert it in date order: the job relies on ids growing with time. */
-function content(w: World) {
+function content(w: Pick<World, "ctx">) {
   const node = insertNode(w.ctx, {}).id;
   let sequence = 0;
   let reactionId = 0;
@@ -45,7 +48,9 @@ function content(w: World) {
     for (let i = 0; i < count; i++) post(userId, id, at);
   };
   const referral = (referrer: number, memberId: number, at: number) =>
-    w.set(memberId, { referred_by: referrer, referred_at: at });
+    w.ctx.sqlite
+      .prepare("UPDATE users SET referred_by = ?1, referred_at = ?2 WHERE id = ?3")
+      .run(referrer, at, memberId);
   return { thread, post, posts, reactions, referral };
 }
 
@@ -556,7 +561,7 @@ describe("members the site leaves out", () => {
     expect(ids((await winners(w)).items)).toEqual([m1.id]);
   });
 
-  test("without exclusions the staff member wins, and a decided winner is not rewritten", async () => {
+  test("without exclusions the staff member wins, and a refresh alone does not rewrite a decided winner", async () => {
     const { w, m1 } = staffScenario();
     refreshStandings(w.ctx);
     expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
@@ -566,5 +571,281 @@ describe("members the site leaves out", () => {
     });
     refreshStandings(w.ctx);
     expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
+  });
+});
+
+describe("past months follow the current rules", () => {
+  afterEach(closeAll);
+
+  /** Runs the queued jobs, the decision of past months among them, until none is left. */
+  const settle = async (w: Pick<World, "ctx">) => {
+    registerAllStandingJobs(w.ctx);
+    await runDueJobs(w.ctx, { limit: 1000 });
+  };
+  const ids = (list: { card: { id: number } }[]) => list.map((entry) => entry.card.id);
+  const stored = (w: Pick<World, "ctx">) =>
+    w.ctx.sqlite
+      .prepare<{ month: number; user_id: number; points_tenths: number }, []>(
+        "SELECT month, user_id, points_tenths FROM month_winners ORDER BY month DESC",
+      )
+      .all();
+  const jobs = (w: Pick<World, "ctx">, type = "standings.redecide") =>
+    w.ctx.sqlite
+      .prepare<{ n: number }, [string]>("SELECT count(*) AS n FROM jobs WHERE type = ?1")
+      .get(type)!.n;
+  const untouched = (w: Pick<World, "ctx">) =>
+    w.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT (SELECT count(*) FROM notifications) + (SELECT count(*) FROM member_awards) + (SELECT count(*) FROM member_award_totals) AS n",
+      )
+      .get()!.n;
+
+  /** December: the moderator leads, then m1, then m2. January: the admin leads, then m1, then m2. */
+  function staff() {
+    const w = world();
+    const c = content(w);
+    const [m1, m2] = [1, 2].map((i) => w.user({ username: `x${i}` }));
+    w.ctx.clock.set(JAN(15));
+    c.posts(w.moderator.id, 9, DEC(3));
+    c.posts(m1!.id, 5, DEC(4));
+    c.posts(m2!.id, 2, DEC(5));
+    c.posts(w.admin.id, 8, JAN(2));
+    c.posts(m1!.id, 4, JAN(3));
+    c.posts(m2!.id, 1, JAN(4));
+    return { w, m1: m1!, m2: m2! };
+  }
+
+  test("excluding the staff gives the month to the next member, and including them gives it back", async () => {
+    const { w, m1 } = staff();
+    refreshStandings(w.ctx);
+    expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
+    await w.call("settings.update", w.adminActor, { standingExcludeStaff: true });
+    await settle(w);
+    expect(ids((await winners(w)).items)).toEqual([m1.id]);
+    expect(stored(w)).toEqual([{ month: 202512, user_id: m1.id, points_tenths: 50 }]);
+    await w.call("settings.update", w.adminActor, { standingExcludeStaff: false });
+    await settle(w);
+    expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
+  });
+
+  test("listing a member, or changing a point weight, decides past months again", async () => {
+    const { w, m1 } = staff();
+    refreshStandings(w.ctx);
+    await w.call("settings.update", w.adminActor, { standingExcludedUserIds: [w.moderator.id] });
+    await settle(w);
+    expect(ids((await winners(w)).items)).toEqual([m1.id]);
+    // Posts worth nothing and every ten reactions a point: nobody scored, so nobody wins.
+    await w.call("settings.update", w.adminActor, {
+      standingExcludedUserIds: [],
+      standingPostPoints: 0,
+    });
+    await settle(w);
+    expect(stored(w)).toEqual([]);
+    // Two points for a post and a referral worth nothing: the order of posts decides again.
+    await w.call("settings.update", w.adminActor, { standingPostPoints: 2 });
+    await settle(w);
+    expect(stored(w)).toEqual([{ month: 202512, user_id: w.moderator.id, points_tenths: 180 }]);
+  });
+
+  test("the points of the winner follow the weights", async () => {
+    const { w, alice, bob } = scenario();
+    refreshStandings(w.ctx);
+    expect(stored(w)).toEqual([{ month: 202512, user_id: alice.id, points_tenths: 220 }]);
+    await w.call("settings.update", w.adminActor, { standingReferralPoints: 0 });
+    await settle(w);
+    expect(stored(w)).toEqual([{ month: 202512, user_id: bob.id, points_tenths: 40 }]);
+    expect((await winners(w)).items).toMatchObject([{ card: { id: bob.id }, points: 4 }]);
+  });
+
+  test("a rule on groups leaves out the members it matches, and an empty rule leaves out nobody", async () => {
+    const { w, m1 } = staff();
+    refreshStandings(w.ctx);
+    const group = w.group({ title: "Colaboradores", rank: 5 });
+    w.ctx.sqlite
+      .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
+      .run(w.moderator.id, group);
+    await w.call("settings.update", w.adminActor, {
+      standingExcludeRule: {
+        match: "all",
+        conditions: [{ criterion: "in_group", ids: [group] }],
+      },
+    });
+    await settle(w);
+    expect(ids((await winners(w)).items)).toEqual([m1.id]);
+    expect(ids((await month(w, "current")).items)).not.toContain(w.moderator.id);
+    await w.call("settings.update", w.adminActor, {
+      standingExcludeRule: { match: "all", conditions: [] },
+    });
+    await settle(w);
+    expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
+  });
+
+  test("the rule takes the cheap criteria only", async () => {
+    const { w } = staff();
+    await expect(
+      w.call("settings.update", w.adminActor, {
+        standingExcludeRule: {
+          match: "all",
+          conditions: [{ criterion: "warning_points_below", value: 3 }],
+        },
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("the winner is replaced without a notification, an award or a log of it for anyone", async () => {
+    const { w, m1 } = staff();
+    refreshStandings(w.ctx);
+    const before = untouched(w);
+    await w.call("settings.update", w.adminActor, { standingExcludeStaff: true });
+    await settle(w);
+    expect(ids((await winners(w)).items)).toEqual([m1.id]);
+    expect(untouched(w)).toBe(before);
+    const mentioned = w.ctx.sqlite
+      .prepare<{ n: number }, [number]>(
+        "SELECT count(*) AS n FROM notifications WHERE user_id = ?1",
+      )
+      .get(w.moderator.id)!.n;
+    expect(mentioned).toBe(0);
+  });
+
+  test("a ban replaces the winner, and lifting it gives the month back", async () => {
+    const { w, m1 } = staff();
+    refreshStandings(w.ctx);
+    const ban = await w.call("bans.create", w.adminActor, {
+      userId: w.moderator.id,
+      reason: "spam",
+      expiresAt: null,
+    });
+    await settle(w);
+    expect(ids((await winners(w)).items)).toEqual([m1.id]);
+    await w.call("bans.lift", w.adminActor, { banId: ban.id });
+    await settle(w);
+    expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
+  });
+
+  test("banning a member who won no month queues nothing", async () => {
+    const { w, m2 } = staff();
+    refreshStandings(w.ctx);
+    await w.call("bans.create", w.adminActor, { userId: m2.id, reason: "spam", expiresAt: null });
+    expect(jobs(w)).toBe(0);
+    await w.call("bans.create", w.adminActor, {
+      userId: w.moderator.id,
+      reason: "spam",
+      expiresAt: null,
+    });
+    expect(jobs(w)).toBe(1);
+  });
+
+  test("an erased member loses the months they won", async () => {
+    const w = await accounts();
+    const founder = await w.register("Founder", 4);
+    const [first, second] = [await w.register("First"), await w.register("Second")];
+    const c = content(w);
+    w.ctx.clock.set(JAN(15));
+    c.posts(first.id, 6, DEC(3));
+    c.posts(second.id, 3, DEC(4));
+    refreshStandings(w.ctx);
+    const leader = () =>
+      w.ctx.sqlite.prepare<{ user_id: number }, []>("SELECT user_id FROM month_winners").get()
+        ?.user_id;
+    expect(leader()).toBe(first.id);
+    await w.run("users.adminErase", founder.actor, {
+      userId: first.id,
+      actorPassword: PASSWORD,
+      reason: "Right to be forgotten",
+    });
+    await settle(w);
+    expect(leader()).toBe(second.id);
+  });
+
+  test("months are decided newest first, one per run, and a run that stops resumes", async () => {
+    const w = world();
+    const c = content(w);
+    const [a, b] = [w.user(), w.user()];
+    w.ctx.clock.set(Date.UTC(2026, 3, 10));
+    c.posts(a.id, 2, Date.UTC(2026, 0, 5));
+    c.posts(b.id, 3, Date.UTC(2026, 1, 5));
+    c.posts(a.id, 4, Date.UTC(2026, 2, 5));
+    refreshStandings(w.ctx);
+    expect(stored(w).map((row) => [row.month, row.user_id])).toEqual([
+      [202603, a.id],
+      [202602, b.id],
+      [202601, a.id],
+    ]);
+    await w.call("settings.update", w.adminActor, { standingExcludedUserIds: [a.id, b.id] });
+    registerAllStandingJobs(w.ctx);
+    // One run: the newest month only.
+    await runDueJobs(w.ctx, { limit: 1 });
+    expect(stored(w).map((row) => row.month)).toEqual([202602, 202601]);
+    expect(jobs(w)).toBe(2);
+    await runDueJobs(w.ctx, { limit: 1000 });
+    expect(stored(w)).toEqual([]);
+    // The run ended: its key is free, and a new change starts another.
+    expect(
+      w.ctx.sqlite.prepare("SELECT 1 FROM jobs WHERE unique_key = 'standings.redecide'").get(),
+    ).toBeNull();
+  });
+
+  test("a change made while a run is under way queues a fresh run for when it ends", async () => {
+    const w = world();
+    const c = content(w);
+    const [a, b] = [w.user(), w.user()];
+    w.ctx.clock.set(Date.UTC(2026, 3, 10));
+    c.posts(a.id, 5, Date.UTC(2026, 0, 5));
+    c.posts(a.id, 5, Date.UTC(2026, 1, 5));
+    c.posts(a.id, 5, Date.UTC(2026, 2, 5));
+    c.posts(b.id, 1, Date.UTC(2026, 0, 6));
+    c.posts(b.id, 1, Date.UTC(2026, 1, 6));
+    c.posts(b.id, 1, Date.UTC(2026, 2, 6));
+    refreshStandings(w.ctx);
+    await w.call("settings.update", w.adminActor, { standingExcludedUserIds: [a.id] });
+    registerAllStandingJobs(w.ctx);
+    // March is decided without `a`; the run is under way when the second change comes.
+    await runDueJobs(w.ctx, { limit: 1 });
+    await w.call("settings.update", w.adminActor, { standingExcludedUserIds: [a.id, b.id] });
+    expect(jobs(w, "standings.redecide.again")).toBe(1);
+    await runDueJobs(w.ctx, { limit: 1000 });
+    // March kept `b` for now: the run had passed it.
+    expect(stored(w).map((row) => [row.month, row.user_id])).toEqual([[202603, b.id]]);
+    w.ctx.clock.advance(31_000);
+    await runDueJobs(w.ctx, { limit: 1000 });
+    expect(stored(w)).toEqual([]);
+  });
+
+  test("a month whose posts are gone keeps the winner it has", async () => {
+    const { w, m1 } = staff();
+    refreshStandings(w.ctx);
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO month_winners (month, user_id, posts, reactions, referrals, points_tenths, decided_at) VALUES (201905, ?1, 7, 0, 0, 70, 0)",
+      )
+      .run(m1.id);
+    await w.call("settings.update", w.adminActor, { standingExcludeStaff: true });
+    await settle(w);
+    expect(stored(w).map((row) => [row.month, row.user_id])).toEqual([
+      [202512, m1.id],
+      [201905, m1.id],
+    ]);
+  });
+
+  test("the previous month's standing follows the weights as well", async () => {
+    const { w, alice, bob } = scenario();
+    refreshStandings(w.ctx);
+    w.ctx.clock.set(FEB(2));
+    refreshStandings(w.ctx);
+    expect(rows(w, 202601).length).toBeGreaterThan(0);
+    await w.call("settings.update", w.adminActor, { standingPostPoints: 10 });
+    await settle(w);
+    const byUser = new Map(rows(w, 202601).map((row) => [row.user_id, row.points_tenths]));
+    expect(byUser.get(alice.id)).toBe(100);
+    expect(byUser.get(bob.id)).toBe(20 * 10 + 25);
+  });
+
+  test("every statement of the decision reads an index or a bounded key range", () => {
+    const { w } = scenario();
+    expectNoTableScan(w.ctx, redecideSql.firstWinner, []);
+    expectNoTableScan(w.ctx, redecideSql.eligible, ["[1,2]", 1_000]);
+    expectNoTableScan(w.ctx, redecideSql.setWinner, [202512, 1, 1, 0, 0, 10, 0]);
+    expectNoTableScan(w.ctx, redecideSql.clearWinner, [202512]);
   });
 });

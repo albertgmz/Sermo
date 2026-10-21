@@ -233,7 +233,11 @@ export const standingsWinners = defineContract({
   name: "standings.winners",
   summary:
     "The member of the month of past months, newest month first: the member with the most " +
-    "points when the month ended, fixed at that moment. A month in which nobody scored has no " +
+    "points in the month under the site's current rules (weights, staff, listed members and " +
+    "the exclusion rule leave members out, and so do banned and erased accounts). A change of " +
+    "those rules, a ban or its lifting, or an erasure decides past months again in the " +
+    "background, newest first, and a month's winner is replaced without telling the member " +
+    "who held it. A month in which nobody scored has no " +
     "winner and is left out, and so is a month whose winner is banned or has a profile the " +
     "viewer may not open. The first item is the current member of the month when it is last " +
     "month's. Requires site.view, profile.view and member.viewList.",

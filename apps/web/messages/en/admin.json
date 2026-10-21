@@ -312,6 +312,7 @@
       "postLinks": "May post links",
       "postApproval": "Posts go live without review for",
       "signature": "May set a signature",
+      "standing": "Left out of the member of the month",
       "homeTab": "Opens the home page on",
       "memberBatch": "Members matching"
     },
@@ -325,6 +326,7 @@
       "postLinks": "A member must meet this to post links, pictures or media from other sites. Leave it empty to let everyone. Only conditions that can be checked on every post are offered.",
       "postApproval": "New threads and replies by members who do not meet this wait for a moderator, on top of the first-posts count and each forum's own approval switches. Leave it empty to hold nobody. Only conditions that can be checked on every post are offered.",
       "signature": "A member must meet this to set a signature, on top of the permission. A signature kept by a member who no longer meets it stays stored but is not shown. Leave it empty to let everyone who may. Only conditions that can be checked on every post are offered.",
+      "standing": "Members who meet this are left out of the standings and cannot win a month. Only conditions that can be checked on every page are offered.",
       "homeTab": "Visitors who meet this open the home page on the tab chosen below, unless they picked their own. Guests are visitors who are not signed in. Only conditions that can be checked on every page are offered.",
       "memberBatch": "The members who meet these conditions, taken in the order of their ids; one run looks at the first matches and a message says when more may follow. Only conditions that can be checked while the preview runs are offered; those that count a member's history are not."
     },
@@ -337,7 +339,8 @@
       "everyone": "Everyone. Add a condition to narrow it down.",
       "manual": "Manual only: nobody is given it automatically. Add a condition to give it automatically.",
       "required": "A promotion needs at least one condition. Add one below.",
-      "selection": "Add at least one condition to choose members."
+      "selection": "Add at least one condition to choose members.",
+      "nobody": "Nobody is left out. Add a condition to leave members out."
     },
     "remove": "Remove {title}",
     "kept": "Not edited here, saved as it is: {detail}",

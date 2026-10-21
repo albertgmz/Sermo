@@ -50,6 +50,7 @@ import {
 } from "../forums";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import { forgetRecentlyActive } from "../members/recently-active-cache";
+import { requestStandingsRedecide } from "../members/redecide-request";
 import {
   afterBan,
   afterLift,
@@ -1801,6 +1802,9 @@ function refreshBanState(ctx: Ctx, userId: number, now: number) {
   );
   // A banned member leaves the shared presence list at once (and a lifted ban returns them).
   forgetRecentlyActive(ctx);
+  // Past months are decided again: a ban only matters to the months the member won, a lifted ban
+  // may give back any month they led.
+  requestStandingsRedecide(ctx, active ? userId : undefined);
 }
 
 type WarningRow = {

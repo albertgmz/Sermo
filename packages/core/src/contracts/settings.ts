@@ -271,6 +271,12 @@ export const SiteSettings = z
     standingReferralPoints: z.number().int().min(0).max(1000).default(20),
     /** Members holding `moderation.access` or any admin permission are left out of the standings. */
     standingExcludeStaff: z.boolean().default(false),
+    /**
+     * Members this rule matches are left out of the standings, like the staff and the members
+     * listed below (cheap criteria only: the member's own row and groups). An empty rule excludes
+     * nobody. Changing any of these settings recomputes the winners of past months.
+     */
+    standingExcludeRule: CriteriaRule.default({ match: "all", conditions: [] }),
     /** Members left out of the standings by hand (ids; the panel names them by username). */
     standingExcludedUserIds: z.array(Id).max(200).default([]),
     /**

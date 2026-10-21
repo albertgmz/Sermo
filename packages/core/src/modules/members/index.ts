@@ -1,15 +1,27 @@
+import type { Ctx } from "../../context";
 import { usersAuthors, usersCards } from "../../contracts/members";
 import { implement } from "../../operation";
 import { usersChangeUsernameOp } from "../auth/username";
 import { loadViewerAuthors, loadViewerCards } from "./cards";
 import { usersBirthdaysOp, usersListOp, usersStaffOp } from "./directory";
 import { usersRecentlyActiveOp } from "./recently-active";
+import { registerRedecideJobs } from "./redecide";
 import { requireSiteViewForCards } from "./site-access";
-import { standingsMonthOp, standingsWinnersOp } from "./standings";
+import {
+  registerStandingJobs as registerRefreshJob,
+  standingsMonthOp,
+  standingsWinnersOp,
+} from "./standings";
 
 export { loadMemberAuthors, loadMemberCards } from "./cards";
 export { forgetRecentlyActive } from "./recently-active-cache";
-export { refreshStandings, registerStandingJobs } from "./standings";
+export { refreshStandings } from "./standings";
+
+/** The standings refresh, and the job that decides past months again when their rules change. */
+export function registerStandingJobs(ctx: Ctx): void {
+  registerRefreshJob(ctx);
+  registerRedecideJobs(ctx);
+}
 
 export const usersCardsOp = implement(
   usersCards,

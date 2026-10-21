@@ -50,6 +50,7 @@ test("notices and the shop are offered every cheap criterion and no background o
     "postLinks",
     "postApproval",
     "signature",
+    "standing",
     "memberBatch",
   ] as const) {
     expect(PLACES[place].cheapOnly).toBe(true);
@@ -119,6 +120,8 @@ test("an empty rule means everyone, manual only for an award, and is refused for
     "signature",
   ] as const)
     expect(PLACES[place].empty).toBe("everyone");
+  // The standings rule leaves members out: with no condition, nobody.
+  expect(PLACES.standing.empty).toBe("nobody");
 });
 
 test("a rule goes into the builder and out of it unchanged, duplicates and any included", () => {

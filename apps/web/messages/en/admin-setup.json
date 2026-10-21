@@ -114,6 +114,7 @@
       "titleLabel": "Title",
       "limits": "Profile text limits",
       "standing": "Member of the month",
+      "standingNote": "The winners of past months follow these rules: when you change a weight, the staff switch, the listed members or the rule below, every past month is decided again in the background, newest first, and a member who loses a month loses it without being told.",
       "noPreview": "The site gives no table of levels to read, so no preview is shown here."
     },
     "navigation": {
@@ -298,7 +299,7 @@
     },
     "standingExcludedUserIds": {
       "label": "Excluded members",
-      "help": "Usernames, one per line or separated by commas. These members are left out of the standings and cannot win the month. Winners already decided stay as they are."
+      "help": "Usernames, one per line or separated by commas. These members are left out of the standings and cannot win the month. Past winners are decided again when this list changes."
     },
     "socialLinks": {
       "discord": {
