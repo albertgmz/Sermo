@@ -39,11 +39,11 @@
   },
   "headerPanels": {
     "messages": {
-      "title": "Messages",
-      "empty": "No conversations yet",
+      "title": "Direct messages",
+      "empty": "No direct messages yet",
       "viewAll": "View all",
-      "new": "New conversation",
-      "loading": "Loading conversations…"
+      "new": "Send direct message",
+      "loading": "Loading direct messages…"
     },
     "alerts": {
       "title": "Alerts",
@@ -206,7 +206,7 @@
       "create": "Start a new thread, in a forum",
       "goHome": "Home",
       "goAlerts": "Alerts",
-      "goConversations": "Conversations",
+      "goConversations": "Direct messages",
       "removeFormatting": "Remove formatting (Cmd instead of Ctrl on a Mac)"
     }
   },

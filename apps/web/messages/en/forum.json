@@ -128,7 +128,7 @@
   "memberActions": {
     "message": "Message",
     "aria": {
-      "message": "Start a private conversation with {username}"
+      "message": "Send a direct message to {username}"
     }
   },
   "memberCardTrigger": {

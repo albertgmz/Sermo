@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 //   warning      A line saying what the action does, above the fields.
 //   variant      "destructive" (default) or "outline" for an action that is not a deletion.
 //   id           Id of the form once open, for controls elsewhere that submit with it.
+//   className    Classes of the open form.
 //   children     The action's own inputs, shown in the step above the reason.
 //   open         Set where a bar owns the opening button: the step is then shown or hidden by
 //                this flag, and `onOpenChange` hears of the cancel button.
@@ -33,6 +34,7 @@ export function DeleteControl({
   warning,
   variant = "destructive",
   id,
+  className,
   open: controlledOpen,
   onOpenChange,
   children,
@@ -48,6 +50,7 @@ export function DeleteControl({
   warning?: string;
   variant?: "destructive" | "outline";
   id?: string;
+  className?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   children?: React.ReactNode;
@@ -78,6 +81,7 @@ export function DeleteControl({
       action={action}
       submit={confirm}
       variant={variant}
+      className={className}
       aside={
         <Button
           type="button"

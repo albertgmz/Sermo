@@ -88,7 +88,7 @@
     "renameFree": "Cambios de nombre de usuario sin coste",
     "awardSlots": "Trofeos mostrados junto a tu nombre",
     "mentionLimit": "Menciones por mensaje",
-    "recipientLimit": "Destinatarios por conversación"
+    "recipientLimit": "Destinatarios por mensaje directo"
   },
   "loadMore": {
     "label": "Cargar más"

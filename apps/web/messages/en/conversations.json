@@ -1,23 +1,23 @@
 {
   "layout": {
-    "metaTitle": "Conversations"
+    "metaTitle": "Direct messages"
   },
   "list": {
     "home": "Home",
-    "heading": "Conversations",
-    "newConversation": "New conversation",
-    "loadingConversations": "Loading conversations…",
-    "emptyTitle": "No conversations yet",
-    "emptyDescription": "Start one to talk privately with other members.",
+    "heading": "Direct messages",
+    "newConversation": "Send direct message",
+    "loadingConversations": "Loading direct messages…",
+    "emptyTitle": "No direct messages to show.",
+    "emptyDescription": "Send one to talk privately with other members.",
     "loadMore": "Load more"
   },
   "conversation": {
     "aria": {
-      "leave": "Leave conversation",
+      "leave": "Leave direct message",
       "loadingMessages": "Loading messages…"
     },
     "home": "Home",
-    "conversations": "Conversations",
+    "conversations": "Direct messages",
     "participants": "Participants",
     "participantSeparator": ", ",
     "placeholder": "Write a message…",
@@ -26,19 +26,19 @@
     "leave": "Leave",
     "awaitingApproval": "This message is awaiting approval.",
     "deleted": "This message was deleted.",
-    "cannotReply": "You cannot reply to this conversation.",
+    "cannotReply": "You cannot reply to this direct message.",
     "locked": "Locked",
-    "lockedNote": "This conversation is locked: no new replies.",
+    "lockedNote": "This direct message is closed to new replies.",
     "earlier": "Earlier messages",
     "newest": "Newest messages",
     "markRead": "Mark as read",
     "details": {
       "open": "Details",
-      "title": "Conversation details",
-      "description": "Information about the conversation, who takes part and what you can change."
+      "title": "Direct message details",
+      "description": "Information about the direct message, who takes part and what you can change."
     },
     "info": {
-      "title": "Conversation",
+      "title": "Direct message information",
       "startedBy": "Started by",
       "startedOn": "Started on",
       "messages": "Messages",
@@ -51,44 +51,51 @@
     },
     "lock": {
       "title": "Lock",
-      "submit": "Lock conversation"
+      "submit": "Lock direct message"
     },
     "unlock": {
       "title": "Unlock",
-      "submit": "Unlock conversation"
+      "submit": "Unlock direct message"
     },
     "rename": {
       "title": "Rename",
-      "label": "Conversation name",
+      "label": "Direct message name",
       "submit": "Rename"
     },
     "unread": {
       "title": "Unread"
+    },
+    "leaveDialog": {
+      "warning": "Leaving a direct message removes it from your list of direct messages.",
+      "legend": "Control of future messages",
+      "accept": "Accept future messages",
+      "ignore": "Ignore future messages",
+      "cancel": "Cancel"
     }
   },
   "newConversation": {
     "home": "Home",
-    "conversations": "Conversations",
-    "heading": "New conversation",
-    "cannotStartTitle": "You cannot start conversations",
-    "cannotStartDescription": "Your account is not allowed to start a private conversation."
+    "conversations": "Direct messages",
+    "heading": "Send direct message",
+    "cannotStartTitle": "You cannot send direct messages",
+    "cannotStartDescription": "Your account is not allowed to start a direct message."
   },
   "newConversationForm": {
     "titleLabel": "Title",
     "titlePlaceholder": "What is it about?",
     "messageLabel": "Message",
     "messagePlaceholder": "Write your message...",
-    "submit": "Start conversation"
+    "submit": "Send direct message"
   },
   "loading": {
-    "label": "Loading conversations…",
-    "heading": "Conversations",
+    "label": "Loading direct messages…",
+    "heading": "Direct messages",
     "conversation": {
       "label": "Loading messages…"
     },
     "newConversation": {
-      "label": "Loading the conversation form…",
-      "heading": "New conversation"
+      "label": "Loading the form…",
+      "heading": "Send direct message"
     }
   },
   "conversationPreview": {
@@ -107,7 +114,7 @@
   "edit": {
     "metaTitle": "Edit message",
     "home": "Home",
-    "conversations": "Conversations",
+    "conversations": "Direct messages",
     "heading": "Edit message"
   },
   "editForm": {

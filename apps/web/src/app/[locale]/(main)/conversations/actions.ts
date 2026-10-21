@@ -100,13 +100,18 @@ export async function deleteMessageAction(
 
 export type LeaveState = { error?: string };
 
+// Leaving keeps XenForo's choice: the form's `futureMessages` radio is "accept" (the default: a
+// new reply brings the conversation back) or "ignore".
 export async function leaveAction(
   conversationId: number,
   _previous: LeaveState,
+  formData: FormData,
 ): Promise<LeaveState> {
   requireIds(conversationId);
+  const futureMessages =
+    formData.get("futureMessages") === "ignore" ? "ignore" : "accept";
   const left = await attempt(`/conversations/${conversationId}`, () =>
-    call(conversationsLeave, { conversationId }),
+    call(conversationsLeave, { conversationId, futureMessages }),
   );
   if (!left.ok) return { error: left.error };
   redirect("/conversations");

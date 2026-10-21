@@ -39,11 +39,11 @@
   },
   "headerPanels": {
     "messages": {
-      "title": "Mensajes",
-      "empty": "Aún no hay conversaciones",
+      "title": "Mensajes directos",
+      "empty": "Aún no hay mensajes directos",
       "viewAll": "Ver todas",
-      "new": "Nueva conversación",
-      "loading": "Cargando conversaciones…"
+      "new": "Enviar mensaje directo",
+      "loading": "Cargando mensajes directos…"
     },
     "alerts": {
       "title": "Notificaciones",
@@ -206,7 +206,7 @@
       "create": "Crear un tema nuevo, en un foro",
       "goHome": "Inicio",
       "goAlerts": "Avisos",
-      "goConversations": "Conversaciones",
+      "goConversations": "Mensajes directos",
       "removeFormatting": "Quitar el formato (Cmd en lugar de Ctrl en un Mac)"
     }
   },

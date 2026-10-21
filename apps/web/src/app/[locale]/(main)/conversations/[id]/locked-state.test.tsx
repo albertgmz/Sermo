@@ -34,7 +34,7 @@ const conversation = {
   isLocked: false,
   canLock: false,
 };
-const NOTE = "This conversation is locked: no new replies.";
+const NOTE = "This direct message is closed to new replies.";
 const draw = (over: Partial<typeof conversation>, canAttach?: boolean) =>
   renderToStaticMarkup(
     withIntl(
@@ -78,6 +78,6 @@ test("anyone else sees the note instead of the form", () => {
 
 test("a member who may not reply to an open conversation gets the plain refusal", () => {
   const html = draw({ canReply: false });
-  expect(html).toContain("You cannot reply to this conversation.");
+  expect(html).toContain("You cannot reply to this direct message.");
   expect(html).not.toContain(NOTE);
 });

@@ -112,12 +112,12 @@ test("the rename form is drawn only when the viewer may rename, with the current
 
 test("the lock control is drawn only when the viewer may lock, and offers the opposite of the current state", async () => {
   const open = await draw();
-  expect(open).toContain("Lock conversation");
-  expect(open).not.toContain("Unlock conversation");
+  expect(open).toContain("Lock direct message");
+  expect(open).not.toContain("Unlock direct message");
   const locked = await draw({ isLocked: true });
-  expect(locked).toContain("Unlock conversation");
+  expect(locked).toContain("Unlock direct message");
   const without = await draw({ canLock: false });
-  expect(without).not.toContain("Lock conversation");
+  expect(without).not.toContain("Lock direct message");
 });
 
 test("mark as read is not drawn while the page's own mark is running or when nothing is unread", async () => {

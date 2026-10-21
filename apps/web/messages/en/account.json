@@ -220,7 +220,7 @@
     },
     "submit": "Save privacy",
     "ignoredHeading": "Ignored members",
-    "ignoredDescription": "They cannot notify you, start a conversation with you or post on your profile.",
+    "ignoredDescription": "They cannot notify you, send you direct messages or post on your profile.",
     "ignoredEmpty": "You are not ignoring anyone.",
     "since": "Since",
     "stop": "Stop ignoring"
@@ -288,12 +288,12 @@
         "body": "Someone starts following you."
       },
       "conversation_added": {
-        "title": "Added to a conversation",
-        "body": "Someone adds you to a conversation."
+        "title": "Added to a direct message",
+        "body": "Someone adds you to a direct message."
       },
       "conversation_message": {
-        "title": "Conversation messages",
-        "body": "A new message arrives in one of your conversations."
+        "title": "Direct message replies",
+        "body": "A new message arrives in one of your direct messages."
       },
       "moderation_content": {
         "title": "Moderation of your posts",
@@ -365,13 +365,13 @@
     "sectionHeading": "Saved items",
     "loading": "Loading your bookmarks…",
     "emptyTitle": "No bookmarks yet",
-    "emptyDescription": "Bookmark a thread, a post or a conversation to find it here later.",
+    "emptyDescription": "Bookmark a thread, a post or a direct message to find it here later.",
     "loadMore": "Load more",
     "details": "{type} by <author></author>, <time></time>",
     "types": {
       "thread": "Thread",
       "post": "Post",
-      "conversation": "Conversation"
+      "conversation": "Direct message"
     }
   },
   "preferences": {
@@ -557,7 +557,7 @@
     },
     "warning": {
       "heading": "Never give your key to anyone",
-      "body": "Whoever has your key acts as you: they can read your private conversations, post and react in your name, change your profile, your settings and even your username, and, if you are staff, use your moderation and administration powers. What a key cannot do is change your password or email address, close your account, or change anyone's groups or permissions. Do not paste it into a post, a message or a chat, and do not send it to anyone who asks for it. If you think someone else has it, revoke it at once."
+      "body": "Whoever has your key acts as you: they can read your direct messages, post and react in your name, change your profile, your settings and even your username, and, if you are staff, use your moderation and administration powers. What a key cannot do is change your password or email address, close your account, or change anyone's groups or permissions. Do not paste it into a post, a message or a chat, and do not send it to anyone who asks for it. If you think someone else has it, revoke it at once."
     },
     "key": {
       "heading": "Your API key",

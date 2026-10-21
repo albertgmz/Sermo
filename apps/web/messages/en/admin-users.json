@@ -259,7 +259,7 @@
     "noRestrictions": "No restrictions.",
     "kinds": {
       "posting": "No posting",
-      "conversations": "No starting conversations",
+      "conversations": "No sending direct messages",
       "profile_posts": "No profile posts"
     },
     "lifted": "lifted",

@@ -19,6 +19,7 @@ import {
   conversationsSetLocked,
   conversationsUpdateMessage,
 } from "../../contracts/conversations";
+import type { PARTICIPANT_STATES } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
@@ -66,7 +67,7 @@ interface ConversationRow {
 }
 interface ParticipantRow {
   user_id: number;
-  state: "active" | "left";
+  state: (typeof PARTICIPANT_STATES)[number];
 }
 interface MessageRow {
   id: number;
@@ -99,7 +100,10 @@ export const visibleMessagesNewestSql =
 export const participantStatesSql =
   "SELECT user_id, state FROM conversation_participants WHERE conversation_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))";
 export const reactivateParticipantSql =
-  "UPDATE conversation_participants SET state = 'active', last_message_at = ?1 WHERE conversation_id = ?2 AND user_id = ?3 AND state = 'left'";
+  "UPDATE conversation_participants SET state = 'active', last_message_at = ?1 WHERE conversation_id = ?2 AND user_id = ?3 AND state != 'active'";
+// A new reply brings back everyone who left accepting future messages.
+export const restoreLeaversSql =
+  "UPDATE conversation_participants SET state = 'active', last_message_at = ?1 WHERE conversation_id = ?2 AND state = 'left'";
 export const addParticipantSql =
   "INSERT INTO conversation_participants (conversation_id, user_id, state, joined_at, last_message_at, last_read_message_id) VALUES (?1, ?2, 'active', ?3, ?4, ?5)";
 export const incrementParticipantsSql =
@@ -236,7 +240,10 @@ function fullConversation(ctx: Ctx, actor: Actor, row: ConversationRow) {
   ]);
   return {
     ...summary(row, user),
-    participants: participants.map((p) => ({ user: user(p.user_id), state: p.state })),
+    participants: participants.map((p) => ({
+      user: user(p.user_id),
+      state: p.state === "active" ? ("active" as const) : ("left" as const),
+    })),
     ...viewerAbilities(permissions, row, actorUserId(actor)),
   };
 }
@@ -574,11 +581,14 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
       validateEmbeddedAttachments(ctx, "conversation_message", id, html);
       logIp(ctx, actor, "conversation_message", { type: "conversation_message", id });
       if (!decision.moderated && !spam) {
+        const restored = prepared(ctx, "conversations.restoreLeavers", () =>
+          ctx.sqlite.prepare(restoreLeaversSql),
+        ).run(now, input.conversationId).changes;
         prepared(ctx, "conversations.updateLastMessage", () =>
           ctx.sqlite.prepare(
-            "UPDATE conversations SET last_message_at = ?1, last_message_id = ?2, last_message_user_id = ?3, message_count = message_count + 1 WHERE id = ?4",
+            "UPDATE conversations SET last_message_at = ?1, last_message_id = ?2, last_message_user_id = ?3, message_count = message_count + 1, participant_count = participant_count + ?5 WHERE id = ?4",
           ),
-        ).run(now, id, user.userId, input.conversationId);
+        ).run(now, id, user.userId, input.conversationId, restored);
         prepared(ctx, "conversations.updateParticipantActivity", () =>
           ctx.sqlite.prepare(
             "UPDATE conversation_participants SET last_message_at = ?1 WHERE conversation_id = ?2 AND state = 'active'",
@@ -788,9 +798,13 @@ export const conversationsLeaveOp = implement(
       activeConversation(ctx, actor, input.conversationId);
       prepared(ctx, "conversations.markLeft", () =>
         ctx.sqlite.prepare(
-          "UPDATE conversation_participants SET state = 'left' WHERE conversation_id = ?1 AND user_id = ?2",
+          "UPDATE conversation_participants SET state = ?3 WHERE conversation_id = ?1 AND user_id = ?2",
         ),
-      ).run(input.conversationId, user.userId);
+      ).run(
+        input.conversationId,
+        user.userId,
+        input.futureMessages === "ignore" ? "left_ignored" : "left",
+      );
       prepared(ctx, "conversations.decrementParticipants", () =>
         ctx.sqlite.prepare(
           "UPDATE conversations SET participant_count = participant_count - 1 WHERE id = ?1",

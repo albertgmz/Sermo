@@ -17,9 +17,9 @@ test("a conversation is started with another member and a message is sent in it"
 }) => {
   await visit(page, "/conversations");
   await expect(
-    page.getByRole("heading", { name: "Conversations", level: 1 }),
+    page.getByRole("heading", { name: "Direct messages", level: 1 }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "New conversation" }).click();
+  await page.getByRole("link", { name: "Send direct message" }).click();
   await expect(page).toHaveURL(/\/conversations\/new/);
   await ready(page);
 
@@ -36,7 +36,7 @@ test("a conversation is started with another member and a message is sent in it"
     .getByRole("textbox", { name: /^Write your message/ })
     .fill("Hello from a phone.");
   await expectFits(page, "new conversation");
-  await page.getByRole("button", { name: "Start conversation" }).click();
+  await page.getByRole("button", { name: "Send direct message" }).click();
 
   await expect(page).toHaveURL(/\/conversations\/\d+/);
   await expect(

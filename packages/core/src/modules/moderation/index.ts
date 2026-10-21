@@ -1053,6 +1053,24 @@ function stateChange(
         row.user_id,
         row.id,
       );
+    // A reply approved late brings back those who left accepting future messages, as a posted one does.
+    const restored =
+      row.state === "moderated" && state === "visible"
+        ? exec(
+            ctx,
+            "restoreLeavers",
+            "UPDATE conversation_participants SET state = 'active' WHERE conversation_id = ?1 AND state = 'left'",
+            row.conversation_id,
+          ).changes
+        : 0;
+    if (restored)
+      exec(
+        ctx,
+        "restoredParticipants",
+        "UPDATE conversations SET participant_count = participant_count + ?1 WHERE id = ?2",
+        restored,
+        row.conversation_id,
+      );
     exec(
       ctx,
       "conversationCount",

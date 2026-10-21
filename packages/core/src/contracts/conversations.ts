@@ -1,5 +1,4 @@
 import * as z from "zod";
-import { PARTICIPANT_STATES } from "../db/schema";
 import { defineContract } from "../operation";
 import { Attachment, AttachmentIds } from "./attachments";
 import {
@@ -31,7 +30,8 @@ export const ConversationSummary = z
   .meta({ id: "ConversationSummary" });
 
 export const Conversation = ConversationSummary.extend({
-  participants: z.array(z.object({ user: UserSummary, state: z.enum(PARTICIPANT_STATES) })),
+  /** Who left shows as `left` whether or not they ignore future messages. */
+  participants: z.array(z.object({ user: UserSummary, state: z.enum(["active", "left"]) })),
   canReply: z.boolean(),
   /** True when the viewer may add people: the starter, holding `conversation.start`, with room under `conversation.maxRecipients`. */
   canInvite: z.boolean(),
@@ -170,9 +170,15 @@ export const conversationsMarkRead = defineContract({
 
 export const conversationsLeave = defineContract({
   name: "conversations.leave",
-  summary: "Leave a conversation. It disappears from the viewer's list for good.",
+  summary:
+    "Leave a conversation. It disappears from the viewer's list. With `futureMessages` " +
+    "`accept` (the default) a new reply brings it back, with the messages sent meanwhile unread; " +
+    "with `ignore` it stays gone until someone adds the viewer again.",
   kind: "write",
-  input: z.object({ conversationId: Id }),
+  input: z.object({
+    conversationId: Id,
+    futureMessages: z.enum(["accept", "ignore"]).default("accept"),
+  }),
   output: Ok,
 });
 

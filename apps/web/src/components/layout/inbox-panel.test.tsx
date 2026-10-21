@@ -75,7 +75,7 @@ test("each button is named with its unread count and shows it as a number", () =
   const messages = render(
     <InboxPanel kind="conversations" unread={120} footer={<p>footer</p>} />,
   );
-  expect(messages).toContain('aria-label="Messages, 120 unread"');
+  expect(messages).toContain('aria-label="Direct messages, 120 unread"');
   expect(messages).toMatch(/data-slot="count-badge"[^>]*>99\+<\/span>/);
   expect(messages).toContain("lucide-mail");
 });
@@ -105,14 +105,14 @@ test("the messages panel opens on the latest conversations with its footer", () 
       footer={<p>messages footer</p>}
     />,
   );
-  expect(opened?.title).toBe("Messages");
+  expect(opened?.title).toBe("Direct messages");
   expect(list()).toMatchObject({
     kind: "conversations",
     count: 0,
     load: loadConversations,
   });
   const panel = render(opened?.children);
-  expect(panel).toContain("Loading conversations…");
+  expect(panel).toContain("Loading direct messages…");
   expect(panel).toContain("messages footer");
 });
 

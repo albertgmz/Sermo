@@ -88,7 +88,7 @@
     "renameFree": "Username changes without cost",
     "awardSlots": "Awards shown next to your name",
     "mentionLimit": "Mentions per post",
-    "recipientLimit": "Recipients per conversation"
+    "recipientLimit": "Recipients per direct message"
   },
   "loadMore": {
     "label": "Load more"

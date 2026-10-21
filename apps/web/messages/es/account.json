@@ -220,7 +220,7 @@
     },
     "submit": "Guardar privacidad",
     "ignoredHeading": "Miembros ignorados",
-    "ignoredDescription": "No pueden enviarte notificaciones, iniciar una conversación contigo ni publicar en tu perfil.",
+    "ignoredDescription": "No pueden enviarte notificaciones, enviarte mensajes directos ni publicar en tu perfil.",
     "ignoredEmpty": "No estás ignorando a nadie.",
     "since": "Desde",
     "stop": "Dejar de ignorar"
@@ -288,12 +288,12 @@
         "body": "Alguien empieza a seguirte."
       },
       "conversation_added": {
-        "title": "Añadido a una conversación",
-        "body": "Alguien te añade a una conversación."
+        "title": "Añadido a un mensaje directo",
+        "body": "Alguien te añade a un mensaje directo."
       },
       "conversation_message": {
-        "title": "Mensajes de conversaciones",
-        "body": "Llega un mensaje nuevo a una de tus conversaciones."
+        "title": "Respuestas de mensajes directos",
+        "body": "Llega un mensaje nuevo a uno de tus mensajes directos."
       },
       "moderation_content": {
         "title": "Moderación de tus mensajes",
@@ -365,13 +365,13 @@
     "sectionHeading": "Elementos guardados",
     "loading": "Cargando tus marcadores…",
     "emptyTitle": "Aún no tienes marcadores",
-    "emptyDescription": "Marca un tema, un mensaje o una conversación para encontrarlo aquí más tarde.",
+    "emptyDescription": "Marca un tema, un mensaje o un mensaje directo para encontrarlo aquí más tarde.",
     "loadMore": "Cargar más",
     "details": "{type} de <author></author>, <time></time>",
     "types": {
       "thread": "Tema",
       "post": "Mensaje",
-      "conversation": "Conversación"
+      "conversation": "Mensaje directo"
     }
   },
   "preferences": {
@@ -557,7 +557,7 @@
     },
     "warning": {
       "heading": "Nunca le des tu clave a nadie",
-      "body": "Quien tenga tu clave actúa como tú: puede leer tus conversaciones privadas, publicar y reaccionar en tu nombre, cambiar tu perfil, tus ajustes y hasta tu nombre de usuario y, si eres del personal, usar tus permisos de moderación y administración. Lo que no puede es cambiar tu contraseña ni tu correo, cerrar tu cuenta ni cambiar los grupos o permisos de nadie. No la pegues en una publicación, ni en un mensaje ni en un chat, y no se la mandes a nadie que te la pida. Si crees que otra persona la tiene, revócala enseguida."
+      "body": "Quien tenga tu clave actúa como tú: puede leer tus mensajes directos, publicar y reaccionar en tu nombre, cambiar tu perfil, tus ajustes y hasta tu nombre de usuario y, si eres del personal, usar tus permisos de moderación y administración. Lo que no puede es cambiar tu contraseña ni tu correo, cerrar tu cuenta ni cambiar los grupos o permisos de nadie. No la pegues en una publicación, ni en un mensaje ni en un chat, y no se la mandes a nadie que te la pida. Si crees que otra persona la tiene, revócala enseguida."
     },
     "key": {
       "heading": "Tu clave de API",

@@ -169,7 +169,7 @@
     },
     "floodSeconds": {
       "label": "Flood interval",
-      "help": "Seconds a member must wait between two posts. Threads, replies, wall posts, wall comments and conversation messages share one clock. 0 turns it off. Groups with the flood bypass permission are exempt.",
+      "help": "Seconds a member must wait between two posts. Threads, replies, wall posts, wall comments and direct messages share one clock. 0 turns it off. Groups with the flood bypass permission are exempt.",
       "unit": "seconds"
     },
     "newMemberMentionLimit": {
@@ -563,7 +563,7 @@
       "chooseRestriction": "Choose a restriction",
       "restrictions": {
         "posting": "No posting",
-        "conversations": "No starting conversations",
+        "conversations": "No sending direct messages",
         "profile_posts": "No profile posts"
       },
       "permanent": "Permanent",

@@ -161,7 +161,7 @@ describe("conversation message alerts and pushes", () => {
     for (const payload of payloads) {
       expect(new URL(payload.url).pathname).toBe(`/conversations/messages/${id}`);
       expect(payload.tag).toBe(`conversation:${f.conversationId}`);
-      expect(payload.title).toBe("New private message");
+      expect(payload.title).toBe("New direct message");
       // A private message's text never travels in a push.
       expect(payload.body).not.toContain("Friday");
     }
@@ -203,11 +203,12 @@ describe("conversation message alerts and pushes", () => {
     expect(f.received.filter((path) => path === `/push/${first.id}`)).toHaveLength(2);
   });
 
-  test("members who left and members who ignore the sender are skipped", async () => {
+  test("members who left ignoring future messages and members who ignore the sender are skipped", async () => {
     const f = await fixture();
     const [stays, , leaves, ignores] = f.members;
     await execute(f.ctx, conversationsLeaveOp, userActor(leaves), {
       conversationId: f.conversationId,
+      futureMessages: "ignore",
     });
     await execute(f.ctx, usersIgnoreOp, userActor(ignores), { userId: f.sender.id });
     await f.say(f.sender, "Anyone for Friday?");
@@ -217,6 +218,20 @@ describe("conversation message alerts and pushes", () => {
     expect(f.received).not.toContain(`/push/${leaves.id}`);
     expect(f.received).not.toContain(`/push/${ignores.id}`);
     expect(f.received).toContain(`/push/${stays.id}`);
+  });
+
+  test("a member who left accepting future messages is alerted again by the next reply, and not before", async () => {
+    const f = await fixture();
+    const [stays, , leaves] = f.members;
+    await execute(f.ctx, conversationsLeaveOp, userActor(leaves), {
+      conversationId: f.conversationId,
+      futureMessages: "accept",
+    });
+    expect(f.rows(leaves)).toEqual([]);
+    await f.say(stays, "Anyone for Friday?");
+    expect(f.rows(leaves)).toHaveLength(1);
+    expect(f.rows(leaves)[0]!.read_at).toBeNull();
+    expect(f.received).toContain(`/push/${leaves.id}`);
   });
 
   test("a participant who already read the message gets nothing", async () => {
@@ -281,7 +296,7 @@ describe("conversation message alerts and pushes", () => {
       (mail) => mail.to === `${member.username.toLowerCase()}@example.test`,
     );
     expect(mails).toHaveLength(1);
-    expect(mails[0]!.subject).toBe("New private message");
+    expect(mails[0]!.subject).toBe("New direct message");
     expect(f.capture.messages).toHaveLength(1);
   });
 

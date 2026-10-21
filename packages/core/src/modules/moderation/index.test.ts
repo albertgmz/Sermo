@@ -16,7 +16,9 @@ import { getAuth, resolveActor } from "../auth";
 import {
   conversationsCreateOp,
   conversationsGetOp,
+  conversationsLeaveOp,
   conversationsListMessagesOp,
+  conversationsReplyOp,
 } from "../conversations";
 import { forumSql, postsCreateOp, postsUpdateOp, threadsCreateOp } from "../forums";
 import { runDueJobs } from "../jobs";
@@ -262,6 +264,51 @@ describe("moderation core", () => {
         })
       ).items,
     ).toEqual([]);
+  });
+  test("approving a held reply brings back a member who left accepting future messages", async () => {
+    const ctx = createTestContext();
+    const author = userActor(insertUser(ctx));
+    const accepts = userActor(insertUser(ctx));
+    const ignores = userActor(insertUser(ctx));
+    const adminActor = userActor(insertUser(ctx, { groupId: 4 }));
+    if (accepts.kind === "guest" || ignores.kind === "guest") throw new Error("fixture");
+    const made = await execute(ctx, conversationsCreateOp, author, {
+      title: "Private",
+      recipientIds: [accepts.userId, ignores.userId],
+      body: "Hello",
+    });
+    const id = made.conversation.id;
+    await execute(ctx, conversationsLeaveOp, accepts, { conversationId: id });
+    await execute(ctx, conversationsLeaveOp, ignores, {
+      conversationId: id,
+      futureMessages: "ignore",
+    });
+    upsertWordFilter(ctx, adminActor, { term: "blocked", action: "moderate" });
+    const held = await execute(ctx, conversationsReplyOp, author, {
+      conversationId: id,
+      body: "blocked",
+    });
+    expect(held.state).toBe("moderated");
+    const states = () =>
+      ctx.sqlite
+        .prepare<{ state: string }, [number]>(
+          "SELECT state FROM conversation_participants WHERE conversation_id = ?1 ORDER BY user_id",
+        )
+        .all(id)
+        .map((row) => row.state);
+    expect(states()).toEqual(["active", "left", "left_ignored"]);
+    moderateContent(ctx, adminActor, { type: "conversation_message", id: held.id }, "visible");
+    expect(states()).toEqual(["active", "active", "left_ignored"]);
+    expect(
+      ctx.sqlite
+        .prepare<{ participant_count: number }, [number]>(
+          "SELECT participant_count FROM conversations WHERE id = ?1",
+        )
+        .get(id)!.participant_count,
+    ).toBe(2);
+    expect((await execute(ctx, conversationsGetOp, accepts, { conversationId: id })).isUnread).toBe(
+      true,
+    );
   });
   test("configured first-post, link, and word rules enter approval with correct counters", async () => {
     const ctx = createTestContext();

@@ -35,6 +35,7 @@ import {
   reactableConversationMessage,
   reactableSql,
   reactivateParticipantSql,
+  restoreLeaversSql,
   visibleMessagesNewestSql,
 } from "./index";
 
@@ -501,7 +502,7 @@ describe("conversations", () => {
     await execute(ctx, conversationsReplyOp, c, { conversationId: id, body: "from c" });
     expect(await unread()).toEqual([true, true, false]);
     const bActivity = activity().find((row) => row.user_id === idOf(b))!.last_message_at;
-    await execute(ctx, conversationsLeaveOp, b, { conversationId: id });
+    await execute(ctx, conversationsLeaveOp, b, { conversationId: id, futureMessages: "ignore" });
     const aBefore = (await execute(ctx, conversationsListOp, a, { limit: 10 })).items[0]!;
     const cBefore = (await execute(ctx, conversationsListOp, c, { limit: 10 })).items[0]!;
     expect(aBefore.isUnread).toBe(true);
@@ -586,6 +587,7 @@ describe("conversations", () => {
     }
     expect((await execute(ctx, conversationsListOp, c, { limit: 10 })).items).toHaveLength(0);
     expectNoTableScan(ctx, activeSql, [id, idOf(a)]);
+    expectNoTableScan(ctx, restoreLeaversSql, [0, id]);
     expectNoTableScan(ctx, reactableSql, [privateConversation.message.id, idOf(a)]);
   });
 
@@ -892,6 +894,74 @@ describe("adding people and renaming", () => {
     expect(rowOf(ctx, id, idOf(b))!.last_message_at).toBe(ctx.now());
     expect((await execute(ctx, conversationsListOp, b, { limit: 10 })).items).toHaveLength(1);
     expect(events(ctx).at(-1)).toEqual({ userIds: [idOf(b)], actorId: idOf(a) });
+  });
+
+  test("leaving and accepting future messages: a new reply brings the conversation back unread", async () => {
+    const { ctx, a, b, id } = await started();
+    await execute(ctx, conversationsLeaveOp, b, { conversationId: id });
+    expect(rowOf(ctx, id, idOf(b))!.state).toBe("left");
+    expect(countOf(ctx, id)).toBe(1);
+    expect((await execute(ctx, conversationsListOp, b, { limit: 10 })).items).toHaveLength(0);
+    ctx.clock.advance(1000);
+    // A reply by someone else restores them; their own earlier read mark is kept, so what was sent meanwhile is unread.
+    const reply = await execute(ctx, conversationsReplyOp, a, {
+      conversationId: id,
+      body: "still there?",
+    });
+    expect(rowOf(ctx, id, idOf(b))).toMatchObject({
+      state: "active",
+      last_message_at: ctx.now(),
+    });
+    expect(countOf(ctx, id)).toBe(2);
+    const inbox = (await execute(ctx, conversationsListOp, b, { limit: 10 })).items;
+    expect(inbox.map((item) => [item.id, item.isUnread, item.participantCount])).toEqual([
+      [id, true, 2],
+    ]);
+    expect(inbox[0]!.lastMessage.messageId).toBe(reply.id);
+    // Replying again changes nothing more.
+    await execute(ctx, conversationsReplyOp, a, { conversationId: id, body: "again" });
+    expect(countOf(ctx, id)).toBe(2);
+  });
+
+  test("leaving and ignoring future messages: replies do not bring it back, adding the member does", async () => {
+    const { ctx, a, b, id } = await started();
+    await execute(ctx, conversationsLeaveOp, b, { conversationId: id, futureMessages: "ignore" });
+    expect(rowOf(ctx, id, idOf(b))!.state).toBe("left_ignored");
+    expect(countOf(ctx, id)).toBe(1);
+    ctx.clock.advance(1000);
+    await execute(ctx, conversationsReplyOp, a, { conversationId: id, body: "gone" });
+    expect(rowOf(ctx, id, idOf(b))!.state).toBe("left_ignored");
+    expect(countOf(ctx, id)).toBe(1);
+    expect((await execute(ctx, conversationsListOp, b, { limit: 10 })).items).toHaveLength(0);
+    await expect(execute(ctx, conversationsGetOp, b, { conversationId: id })).rejects.toThrow(
+      NotFoundError,
+    );
+    // Others see "left", not that the member ignores the conversation.
+    const seen = await execute(ctx, conversationsGetOp, a, { conversationId: id });
+    expect(seen.participants.find((p) => p.user.id === idOf(b))?.state).toBe("left");
+    const result = await execute(ctx, conversationsAddParticipantsOp, a, {
+      conversationId: id,
+      userIds: [idOf(b)],
+    });
+    expect(result.participantCount).toBe(2);
+    expect(rowOf(ctx, id, idOf(b))!.state).toBe("active");
+    expect((await execute(ctx, conversationsListOp, b, { limit: 10 })).items).toHaveLength(1);
+  });
+
+  test("a guest and an outsider cannot leave, and the choice is checked before it is used", async () => {
+    const { ctx, c, id } = await started();
+    await expect(
+      execute(ctx, conversationsLeaveOp, GUEST, { conversationId: id, futureMessages: "ignore" }),
+    ).rejects.toThrow(UnauthenticatedError);
+    await expect(
+      execute(ctx, conversationsLeaveOp, c, { conversationId: id, futureMessages: "ignore" }),
+    ).rejects.toThrow(NotFoundError);
+    await expect(
+      execute(ctx, conversationsLeaveOp, c, {
+        conversationId: id,
+        futureMessages: "later" as "ignore",
+      }),
+    ).rejects.toThrow();
   });
 
   test("only the starter, while active, may add people", async () => {

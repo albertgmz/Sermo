@@ -150,6 +150,6 @@ test("every bookmark line shows its type, author and time", async () => {
     expect(html).toContain(title);
   expect(html.match(/href="\/members\//g)).toHaveLength(3);
   expect(html.match(/<time /g)).toHaveLength(3);
-  for (const type of ["Thread", "Post", "Conversation"])
+  for (const type of ["Thread", "Post", "Direct message"])
     expect(html).toContain(`${type} by `);
 });

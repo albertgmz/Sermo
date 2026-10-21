@@ -95,7 +95,7 @@
       "profileComment": "comentó tu publicación del perfil",
       "reaction": "{target, select, post {reaccionó con {emoji} a tu mensaje en «{title}»} message {reaccionó con {emoji} a tu mensaje en «{title}»} profilePost {reaccionó con {emoji} a tu publicación del perfil} other {reaccionó con {emoji} a tu comentario}}",
       "follow": "empezó a seguirte",
-      "conversation": "inició la conversación «{title}»",
+      "conversation": "inició el mensaje directo «{title}»",
       "message": "envió un mensaje en «{title}»"
     },
     "transactions": {

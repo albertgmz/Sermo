@@ -94,8 +94,8 @@
       "unit": "per member"
     },
     "conversationEmailIncludesBody": {
-      "label": "Conversation emails",
-      "help": "When off, an email about a conversation message only says there is one.",
+      "label": "Direct message emails",
+      "help": "When off, an email about a direct message only says there is one.",
       "switch": "Include the text of the message"
     },
     "digestInactiveDays": {

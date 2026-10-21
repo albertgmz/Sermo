@@ -2,7 +2,7 @@ import { afterEach, beforeEach, mock, test } from "bun:test";
 import assert from "node:assert/strict";
 
 const realFetch = globalThis.fetch;
-const asked: { method: string; url: string }[] = [];
+const asked: { method: string; url: string; body?: unknown }[] = [];
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
@@ -33,7 +33,11 @@ beforeEach(() => {
   asked.length = 0;
   revalidated.length = 0;
   globalThis.fetch = (async (url: string, init: RequestInit) => {
-    asked.push({ method: init.method ?? "GET", url });
+    asked.push({
+      method: init.method ?? "GET",
+      url,
+      body: typeof init.body === "string" ? JSON.parse(init.body) : undefined,
+    });
     return Response.json({ ok: true });
   }) as unknown as typeof fetch;
 });
@@ -50,20 +54,41 @@ async function redirectedTo(run: () => Promise<unknown>) {
   return undefined;
 }
 
+const choice = (futureMessages?: string) => {
+  const form = new FormData();
+  if (futureMessages !== undefined) form.set("futureMessages", futureMessages);
+  return form;
+};
+
 test("leaving a conversation asks the backend about that conversation and goes to the list", async () => {
-  const digest = await redirectedTo(() => leaveAction(7, {}));
+  const digest = await redirectedTo(() => leaveAction(7, {}, choice("accept")));
   assert.match(digest ?? "", /^NEXT_REDIRECT;[a-z]+;\/conversations;/);
   assert.deepEqual(asked, [
     {
       method: "POST",
       url: "http://127.0.0.1:8787/api/v1/conversations/7/leave",
+      body: { futureMessages: "accept" },
     },
   ]);
 });
 
+test("leaving sends the choice about future messages: ignore only when it is asked for", async () => {
+  await redirectedTo(() => leaveAction(7, {}, choice("ignore")));
+  await redirectedTo(() => leaveAction(7, {}, choice()));
+  await redirectedTo(() => leaveAction(7, {}, choice("something else")));
+  assert.deepEqual(
+    asked.map((request) => request.body),
+    [
+      { futureMessages: "ignore" },
+      { futureMessages: "accept" },
+      { futureMessages: "accept" },
+    ],
+  );
+});
+
 test("a conversation id that is not a record id never becomes a path", async () => {
   for (const id of [".." as unknown as number, 0, -3, Number.NaN]) {
-    await assert.rejects(() => leaveAction(id, {}));
+    await assert.rejects(() => leaveAction(id, {}, choice()));
     await assert.rejects(() => markRead(id));
     await assert.rejects(() => markOneRead(id));
   }

@@ -78,7 +78,7 @@ async function markup(node: React.ReactNode) {
 test("a member gets the Messages and Alerts buttons, with their counts, before the avatar", async () => {
   backend = fakeBackend(answers(true));
   const html = await markup(await AccountMenu({ inboxClassName: "hidden" }));
-  const messages = html.indexOf('aria-label="Messages, 2 unread"');
+  const messages = html.indexOf('aria-label="Direct messages, 2 unread"');
   const alerts = html.indexOf('aria-label="Alerts, 5 unread"');
   const avatar = html.indexOf('aria-label="Account menu"');
   expect(messages).toBeGreaterThan(-1);

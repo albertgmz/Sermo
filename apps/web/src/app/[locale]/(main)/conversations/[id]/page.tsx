@@ -97,6 +97,14 @@ function Header({
           conversationId={conversation.id}
           label={t("leave")}
           ariaLabel={t("aria.leave")}
+          texts={{
+            warning: t("leaveDialog.warning"),
+            legend: t("leaveDialog.legend"),
+            accept: t("leaveDialog.accept"),
+            ignore: t("leaveDialog.ignore"),
+            confirm: t("leave"),
+            cancel: t("leaveDialog.cancel"),
+          }}
         >
           <LogOut />
         </LeaveForm>

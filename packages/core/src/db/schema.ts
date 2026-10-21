@@ -33,7 +33,11 @@ export const CONTENT_STATES = ["visible", "moderated", "deleted"] as const;
 export type ContentStateValue = (typeof CONTENT_STATES)[number];
 
 export const NODE_TYPES = ["category", "forum"] as const;
-export const PARTICIPANT_STATES = ["active", "left"] as const;
+/**
+ * `left` left the conversation but accepts future messages: a new reply restores the member.
+ * `left_ignored` left and ignores them: only being added again brings the conversation back.
+ */
+export const PARTICIPANT_STATES = ["active", "left", "left_ignored"] as const;
 export const REACTION_CONTENT_TYPES = [
   "post",
   "profile_post",

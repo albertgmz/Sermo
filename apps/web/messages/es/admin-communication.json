@@ -94,8 +94,8 @@
       "unit": "por miembro"
     },
     "conversationEmailIncludesBody": {
-      "label": "Correos de conversaciones",
-      "help": "Si está desactivado, el correo sobre un mensaje de una conversación solo avisa de que hay uno.",
+      "label": "Correos de mensajes directos",
+      "help": "Si está desactivado, el correo sobre un mensaje directo solo avisa de que hay uno.",
       "switch": "Incluir el texto del mensaje"
     },
     "digestInactiveDays": {

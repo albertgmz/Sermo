@@ -119,5 +119,5 @@ test("the page says what a key is for, links the reference and warns before the 
   expect(html).toContain('href="/developer"');
   expect(html).toContain("http://localhost:3000/mcp");
   expect(html).toContain(text.warning.heading);
-  expect(html).toContain("can read your private conversations");
+  expect(html).toContain("can read your direct messages");
 });

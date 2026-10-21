@@ -169,7 +169,7 @@
     },
     "floodSeconds": {
       "label": "Intervalo anti-flood",
-      "help": "Segundos que un miembro debe esperar entre dos mensajes. Hilos, respuestas, publicaciones y comentarios del muro y mensajes de conversación comparten un mismo reloj. 0 lo desactiva. Los grupos con el permiso de omitir el intervalo quedan exentos.",
+      "help": "Segundos que un miembro debe esperar entre dos mensajes. Hilos, respuestas, publicaciones y comentarios del muro y mensajes directos comparten un mismo reloj. 0 lo desactiva. Los grupos con el permiso de omitir el intervalo quedan exentos.",
       "unit": "segundos"
     },
     "newMemberMentionLimit": {
@@ -563,7 +563,7 @@
       "chooseRestriction": "Elige una restricción",
       "restrictions": {
         "posting": "Sin publicar",
-        "conversations": "Sin iniciar conversaciones",
+        "conversations": "Sin enviar mensajes directos",
         "profile_posts": "Sin publicaciones en el perfil"
       },
       "permanent": "Permanente",

@@ -139,7 +139,7 @@
   "erase": {
     "heading": "Eliminar miembro",
     "removes": "Borrar cierra la cuenta para siempre y elimina lo que identifica al miembro: su correo y su contraseña (nadie podrá iniciar sesión ni recuperar la cuenta), su nombre de usuario (pasa a ser Miembro eliminado más su número), su texto de presentación, título, firma, ubicación, sitio web, cumpleaños, usuarios de redes sociales, avatar y portada, y lo que lleva puesto. Se cierran todas las sesiones y claves de API, se eliminan los enlaces de restablecimiento pendientes y los correos en cola, y se terminan sus seguimientos en ambos sentidos.",
-    "keeps": "Lo que escribió permanece tal cual bajo el nuevo nombre: temas, mensajes, publicaciones del muro y mensajes de conversaciones. Se conservan su registro de créditos, sus advertencias y sus entradas del registro. La cuenta queda expulsada de forma permanente y la expulsión no se podrá levantar después.",
+    "keeps": "Lo que escribió permanece tal cual bajo el nuevo nombre: temas, mensajes, publicaciones del muro y mensajes directos. Se conservan su registro de créditos, sus advertencias y sus entradas del registro. La cuenta queda expulsada de forma permanente y la expulsión no se podrá levantar después.",
     "permanent": "Esto no se puede deshacer.",
     "formHeading": "Borrar esta cuenta",
     "submit": "Borrar la cuenta",
@@ -259,7 +259,7 @@
     "noRestrictions": "No hay restricciones.",
     "kinds": {
       "posting": "No puede publicar",
-      "conversations": "No puede iniciar conversaciones",
+      "conversations": "No puede enviar mensajes directos",
       "profile_posts": "No puede publicar en perfiles"
     },
     "lifted": "levantada",

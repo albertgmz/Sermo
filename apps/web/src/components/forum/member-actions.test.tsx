@@ -41,7 +41,7 @@ test("not following: a follow button and a message link", async () => {
   const out = await html(<MemberActions member={ember} relation={ALL} />);
   expect(out).toContain('aria-label="Follow ember"');
   expect(out).toContain("Follow");
-  expect(out).toContain('aria-label="Start a private conversation with ember"');
+  expect(out).toContain('aria-label="Send a direct message to ember"');
   expect(out).toContain('href="/conversations/new?to=ember"');
 });
 

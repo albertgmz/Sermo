@@ -1,23 +1,23 @@
 {
   "layout": {
-    "metaTitle": "Conversaciones"
+    "metaTitle": "Mensajes directos"
   },
   "list": {
     "home": "Inicio",
-    "heading": "Conversaciones",
-    "newConversation": "Nueva conversación",
-    "loadingConversations": "Cargando conversaciones…",
-    "emptyTitle": "Aún no hay conversaciones",
-    "emptyDescription": "Empieza una para hablar en privado con otros miembros.",
+    "heading": "Mensajes directos",
+    "newConversation": "Enviar mensaje directo",
+    "loadingConversations": "Cargando mensajes directos…",
+    "emptyTitle": "No hay mensajes directos para mostrar.",
+    "emptyDescription": "Envía uno para hablar en privado con otros miembros.",
     "loadMore": "Cargar más"
   },
   "conversation": {
     "aria": {
-      "leave": "Salir de la conversación",
+      "leave": "Salir del mensaje directo",
       "loadingMessages": "Cargando mensajes…"
     },
     "home": "Inicio",
-    "conversations": "Conversaciones",
+    "conversations": "Mensajes directos",
     "participants": "Participantes",
     "participantSeparator": ", ",
     "placeholder": "Escribe un mensaje…",
@@ -26,21 +26,21 @@
     "leave": "Salir",
     "awaitingApproval": "Este mensaje está pendiente de aprobación.",
     "deleted": "Este mensaje fue eliminado.",
-    "cannotReply": "No puedes responder a esta conversación.",
-    "locked": "Bloqueada",
-    "lockedNote": "Esta conversación está bloqueada: no se admiten respuestas nuevas.",
+    "cannotReply": "No puedes responder a este mensaje directo.",
+    "locked": "Bloqueado",
+    "lockedNote": "Este mensaje directo está cerrado para nuevas respuestas.",
     "earlier": "Mensajes anteriores",
     "newest": "Mensajes más recientes",
     "markRead": "Marcar como leído",
     "details": {
       "open": "Detalles",
-      "title": "Detalles de la conversación",
-      "description": "Información sobre la conversación, quién participa y qué puedes cambiar."
+      "title": "Detalles del mensaje directo",
+      "description": "Información sobre el mensaje directo, quién participa y qué puedes cambiar."
     },
     "info": {
-      "title": "Conversación",
-      "startedBy": "Iniciada por",
-      "startedOn": "Iniciada el",
+      "title": "Información de mensaje directo",
+      "startedBy": "Iniciado por",
+      "startedOn": "Iniciado el",
       "messages": "Mensajes",
       "participants": "Participantes"
     },
@@ -51,44 +51,51 @@
     },
     "lock": {
       "title": "Bloquear",
-      "submit": "Bloquear conversación"
+      "submit": "Bloquear mensaje directo"
     },
     "unlock": {
       "title": "Desbloquear",
-      "submit": "Desbloquear conversación"
+      "submit": "Desbloquear mensaje directo"
     },
     "rename": {
       "title": "Renombrar",
-      "label": "Nombre de la conversación",
+      "label": "Nombre del mensaje directo",
       "submit": "Renombrar"
     },
     "unread": {
       "title": "Sin leer"
+    },
+    "leaveDialog": {
+      "warning": "Dejar un mensaje directo lo eliminará de tu lista de mensajes directos.",
+      "legend": "Control de futuros mensajes",
+      "accept": "Aceptar futuros mensajes",
+      "ignore": "Ignorar futuros mensajes",
+      "cancel": "Cancelar"
     }
   },
   "newConversation": {
     "home": "Inicio",
-    "conversations": "Conversaciones",
-    "heading": "Nueva conversación",
-    "cannotStartTitle": "No puedes iniciar conversaciones",
-    "cannotStartDescription": "Tu cuenta no tiene permiso para iniciar una conversación privada."
+    "conversations": "Mensajes directos",
+    "heading": "Enviar mensaje directo",
+    "cannotStartTitle": "No puedes enviar mensajes directos",
+    "cannotStartDescription": "Tu cuenta no tiene permiso para enviar mensajes directos."
   },
   "newConversationForm": {
     "titleLabel": "Título",
     "titlePlaceholder": "¿De qué trata?",
     "messageLabel": "Mensaje",
     "messagePlaceholder": "Escribe tu mensaje...",
-    "submit": "Iniciar conversación"
+    "submit": "Enviar mensaje directo"
   },
   "loading": {
-    "label": "Cargando conversaciones…",
-    "heading": "Conversaciones",
+    "label": "Cargando mensajes directos…",
+    "heading": "Mensajes directos",
     "conversation": {
       "label": "Cargando mensajes…"
     },
     "newConversation": {
-      "label": "Cargando el formulario de conversación…",
-      "heading": "Nueva conversación"
+      "label": "Cargando el formulario…",
+      "heading": "Enviar mensaje directo"
     }
   },
   "conversationPreview": {
@@ -107,7 +114,7 @@
   "edit": {
     "metaTitle": "Editar mensaje",
     "home": "Inicio",
-    "conversations": "Conversaciones",
+    "conversations": "Mensajes directos",
     "heading": "Editar mensaje"
   },
   "editForm": {
