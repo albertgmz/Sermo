@@ -202,22 +202,6 @@ export async function expectHeaderOnScreen(page: Page) {
   expect(height).toBeLessThanOrEqual(80);
 }
 
-// Every picture the page has begun to load has finished (or failed). A picture still in flight when
-// the test leaves the page is cut off, and WebKit logs that cut-off request as an unresolved name
-// for the seeded pictures' fake host, which would fail the test on a console error. A lazy picture
-// that has not begun (no `currentSrc` yet) is not waited for.
-export async function picturesSettled(page: Page) {
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          [...document.images].filter((img) => img.currentSrc && !img.complete)
-            .length,
-      ),
-    )
-    .toBe(0);
-}
-
 // The width the pages are designed for. A narrower phone (an iPhone SE is 320) is tested too.
 const DESIGN_WIDTH = 360;
 

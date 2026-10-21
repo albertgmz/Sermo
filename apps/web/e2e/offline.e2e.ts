@@ -46,7 +46,7 @@ test("the manifest names the site and carries icons @all", async ({
 
 // Failed requests while the connection is cut are logged by the browser on purpose.
 test.describe("service worker", () => {
-  test.use({ allowConsoleErrors: true });
+  test.use({ allowConsoleErrors: true, serviceWorkers: "allow" });
 
   test("the service worker registers and a lost connection shows the offline page", async ({
     page,

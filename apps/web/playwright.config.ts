@@ -31,6 +31,10 @@ export default defineConfig({
     actionTimeout: 30_000,
     navigationTimeout: 90_000,
     trace: "retain-on-failure",
+    // WebKit does not route the requests of a page a service worker controls: the seeded pictures'
+    // fake host (`PICTURE_HOST`) would then be looked up for real and logged as an unresolved name.
+    // The service worker's own spec turns it back on.
+    serviceWorkers: "block",
     screenshot: "only-on-failure",
   },
   projects: [

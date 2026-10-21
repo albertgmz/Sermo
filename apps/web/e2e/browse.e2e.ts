@@ -3,7 +3,6 @@ import {
   expectFits,
   expectHeaderOnScreen,
   phoneWidth,
-  picturesSettled,
   rejectCookies,
   seed,
   test,
@@ -112,7 +111,6 @@ test("a thread of three pages: the first page, the last page and back @all", asy
   await expectFits(page, "first page");
 
   for (let step = 1; step < total; step += 1) {
-    await picturesSettled(page);
     await pages.getByRole("link", { name: "Next" }).click();
     await expect(pages.getByText(`Page ${step + 1} of ${total}`)).toBeVisible();
   }
@@ -120,9 +118,7 @@ test("a thread of three pages: the first page, the last page and back @all", asy
   await expect(page.getByRole("article").last()).toBeVisible();
   await expectFits(page, "last page");
 
-  await picturesSettled(page);
   await pages.getByRole("link", { name: "Previous" }).click();
   await expect(pages.getByText(`Page ${total - 1} of ${total}`)).toBeVisible();
   await expectFits(page, "previous page");
-  await picturesSettled(page);
 });
