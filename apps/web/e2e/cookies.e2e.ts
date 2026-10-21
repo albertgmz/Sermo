@@ -3,6 +3,7 @@ import {
   box,
   expect,
   expectFits,
+  MEMBER_STATE,
   phoneWidth,
   ready,
   screen,
@@ -176,4 +177,58 @@ test("choose opens the settings from the banner, and a saved choice is kept @all
   await page.reload();
   await ready(page);
   await expect(banner(page)).toBeHidden();
+});
+
+// The notification card waits for the banner and follows either answer. The member's session comes
+// from the setup, which answered the banner and put the cards off: this test asks again for both.
+// The card needs a browser that can receive pushes (Chromium; iOS Safari waits for the installed
+// app) and a forum with push keys (`SERMO_VAPID_*`).
+test.describe("the notification card after the cookie banner", () => {
+  test.use({ storageState: MEMBER_STATE });
+
+  const card = (page: Page) =>
+    page.getByRole("region", {
+      name: "Would you like alerts for replies, mentions and messages?",
+    });
+
+  for (const [answer, categories] of [
+    ["Accept all", ["necessary", "referrals", "embeds"]],
+    ["Reject all", ["necessary"]],
+  ] as const) {
+    test(`it appears once the banner is answered with ${answer.toLowerCase()} @all`, async ({
+      page,
+      browserName,
+    }) => {
+      test.skip(browserName === "webkit", "iOS pushes need the installed app");
+      const key = await page.request.get("/api/v1/push/public-key");
+      expect(key.ok()).toBe(true);
+      test.skip(
+        ((await key.json()) as { publicKey: string | null }).publicKey === null,
+        "this forum has no push keys",
+      );
+      // The banner is asked again and neither card is put off.
+      await page.context().clearCookies({ name: "forum_consent" });
+      await page.goto("/cookies");
+      await ready(page);
+      await page.evaluate(() => localStorage.removeItem("sermo-app-prompts"));
+      await page.goto("/");
+      await ready(page);
+      await expect(banner(page)).toBeVisible();
+      // The card is held back for a moment after the answer: wait longer than that with the banner
+      // still up, and it has not appeared.
+      await page.waitForTimeout(2_500);
+      await expect(card(page)).toHaveCount(0);
+
+      await banner(page).getByRole("button", { name: answer }).click();
+      await expect(banner(page)).toBeHidden();
+      expect(await chosen(page)).toEqual(
+        expect.arrayContaining([...categories]),
+      );
+      await expect(card(page)).toBeVisible();
+      await expect(
+        card(page).getByRole("button", { name: "Turn on" }),
+      ).toBeVisible();
+      await expectFits(page, `notification card after ${answer}`);
+    });
+  }
 });
