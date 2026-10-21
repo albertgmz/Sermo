@@ -1,4 +1,4 @@
-import { afterAll, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, expect, mock, test } from "bun:test";
 import { isValidElement, type ReactNode } from "react";
 import { HEADER_TOOLS, REGISTER_BUTTON } from "./header-widths";
 
@@ -24,6 +24,21 @@ mock.module("@/lib/lite-mode", () => ({
   getLiteState: async () => ({}),
 }));
 
+// The site as the header reads it: only whether registration is open matters here.
+let registrationOpen = true;
+const site = await import("@/lib/sermo/site");
+mock.module("@/lib/sermo/site", () => ({
+  ...site,
+  getSite: async () => ({
+    registration: {
+      open: registrationOpen,
+      approval: false,
+      minimumAge: 0,
+      fields: [],
+    },
+  }),
+}));
+
 const { AccountTools, SiteHeader } = await import("./site-header");
 
 afterAll(() => {
@@ -31,6 +46,10 @@ afterAll(() => {
   mock.module("next-intl/server", () => intlServer);
   mock.module("@/lib/sermo/session", () => session);
   mock.module("@/lib/lite-mode", () => lite);
+  mock.module("@/lib/sermo/site", () => site);
+});
+beforeEach(() => {
+  registrationOpen = true;
 });
 
 type Props = { className?: string; href?: string; children?: ReactNode };
@@ -57,6 +76,18 @@ test("a guest's Create Account button takes the phone size below md and its usua
     expect(classes).toContain(name);
   expect(classes).not.toContain("px-3");
   expect(classes).not.toContain("text-sm");
+});
+
+test("a guest's header has no Create Account button once registration is closed, and keeps its other controls", async () => {
+  registrationOpen = false;
+  const tools = elements(await AccountTools());
+  expect(tools.some((element) => element.props.href === "/register")).toBe(
+    false,
+  );
+  expect(tools.some((element) => element.props.href === "/login")).toBe(true);
+  expect(
+    tools.filter((element) => "data-guest-tools" in element.props),
+  ).toHaveLength(1);
 });
 
 test("a guest's controls carry the marker the tools row closes up on", async () => {
