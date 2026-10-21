@@ -629,31 +629,39 @@ describe("conversations", () => {
         .run(idOf(actor));
     }
 
-    test("a reply creates no alert and leaves the alert counter alone", async () => {
+    test("a reply raises one alert for the other participants, and a second reply joins it", async () => {
       const { ctx, a, b } = fixture();
       registerNotificationJobs(ctx);
       const made = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
       await dispatchEvents(ctx);
       await runDueJobs(ctx);
       const before = unreadCount(ctx, b);
-      await execute(ctx, conversationsReplyOp, a, {
-        conversationId: made.conversation.id,
-        body: "again",
-      });
-      await dispatchEvents(ctx);
-      await runDueJobs(ctx);
-      expect(unreadCount(ctx, b)).toBe(before);
+      const beforeSender = unreadCount(ctx, a);
+      for (const body of ["again", "and again"]) {
+        await execute(ctx, conversationsReplyOp, a, {
+          conversationId: made.conversation.id,
+          body,
+        });
+        await dispatchEvents(ctx);
+        await runDueJobs(ctx);
+      }
+      expect(unreadCount(ctx, b)).toBe(before + 1);
+      expect(unreadCount(ctx, a)).toBe(beforeSender);
       expect(
         ctx.sqlite
-          .prepare<{ n: number }, []>(
-            "SELECT count(*) AS n FROM notifications WHERE type = 'conversation.message'",
+          .prepare<{ user_id: number }, []>(
+            "SELECT user_id FROM notifications WHERE type = 'conversation.message'",
           )
-          .get()!.n,
-      ).toBe(0);
+          .all(),
+      ).toEqual([{ user_id: idOf(b) }]);
+      // The envelope counter is separate: the conversation is still unread.
       const detail = await execute(ctx, conversationsGetOp, b, {
         conversationId: made.conversation.id,
       });
       expect(detail.isUnread).toBe(true);
+      // Opening the conversation clears its alerts, the addition's and the messages'.
+      await execute(ctx, conversationsMarkReadOp, b, { conversationId: made.conversation.id });
+      expect(unreadCount(ctx, b)).toBe(0);
     });
 
     test("marking a conversation read clears its alerts and the counter, for the caller only", async () => {

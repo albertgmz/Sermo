@@ -542,6 +542,16 @@ function stages(ctx: Ctx, event: DomainEvent, item: Content | null): Stage[] {
         0,
       ),
     );
+    if (item.type === "conversation_message" && item.conversationId && !isFirstMessage(ctx, item))
+      result.push(
+        source(
+          "conversation",
+          "conversation.message",
+          "SELECT user_id FROM conversation_participants WHERE conversation_id = ?1 AND state = 'active' AND user_id > ?2 ORDER BY user_id LIMIT ?3",
+          item.conversationId,
+          { conversationId: item.conversationId },
+        ),
+      );
     if (item.type === "post" && item.id !== item.firstPostId && item.threadId && item.nodeId) {
       result.push(
         source(
@@ -864,9 +874,11 @@ function deliverBatch(
       ? `reaction:${contentType}:${contentId}`
       : stage.type === "thread.watched"
         ? `thread:${item?.threadId}`
-        : stage.type === "moderator.signup"
-          ? "signups"
-          : null;
+        : stage.type === "conversation.message"
+          ? `conversation:${item?.conversationId}`
+          : stage.type === "moderator.signup"
+            ? "signups"
+            : null;
   // Each member's open group row (unread, current epoch), and the members whose group row this
   // event or a later one already wrote (a replay). Both seek by member: a member's full history
   // can hold tens of thousands of rows.
@@ -981,6 +993,20 @@ function deliverBatch(
           .map((row) => row.user_id),
       )
     : null;
+  // Unread state uses message ids: a participant who has read this message (or a later one)
+  // has seen it, so it raises no alert.
+  const readMessage =
+    item?.type === "conversation_message" && stage.type === "conversation.message"
+      ? new Set(
+          prepared(ctx, "notifications.readMessage", () =>
+            ctx.sqlite.prepare<{ user_id: number }, [number, number, string]>(
+              "SELECT user_id FROM conversation_participants WHERE conversation_id = ?1 AND last_read_message_id >= ?2 AND user_id IN (SELECT value FROM json_each(?3))",
+            ),
+          )
+            .all(item.conversationId!, item.id, encoded)
+            .map((row) => row.user_id),
+        )
+      : null;
   const profilePrivacy = item?.profileUserId
     ? prepared(ctx, "notifications.profilePrivacy", () =>
         ctx.sqlite.prepare<{ profile_view_privacy: string }, [number]>(
@@ -1053,6 +1079,7 @@ function deliverBatch(
     if (!visible(ctx, recipient, item, stage.type)) continue;
     if (activeConversationUsers && !activeConversationUsers.has(row.id)) continue;
     if (alreadyRead?.has(row.id)) continue;
+    if (readMessage?.has(row.id)) continue;
     if (
       item?.profileUserId &&
       row.id !== item.userId &&

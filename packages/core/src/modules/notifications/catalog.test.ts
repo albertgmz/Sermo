@@ -207,7 +207,8 @@ describe("notification recipients", () => {
     });
     await dispatchEvents(ctx);
     await runDueJobs(ctx);
-    expect(await types(ctx, f.recipient)).not.toContain("conversation.message");
+    expect(await types(ctx, f.recipient)).toContain("conversation.message");
+    expect(await types(ctx, f.author)).not.toContain("conversation.message");
     expect(await types(ctx, f.outsider)).not.toContain("conversation.message");
   });
   test("a real new thread includes its first post quote in the single notice", async () => {
@@ -891,20 +892,8 @@ describe("notification recipients", () => {
         .run(convId, f.author.id, ctx.now()).lastInsertRowid,
     );
     await send(ctx, "content.created", "conversation_message", replyId, { conversationId: convId });
-    expect(await types(ctx, f.recipient)).toEqual([]);
-    expect(
-      ctx.sqlite
-        .prepare<{ unread_notification_count: number }, [number]>(
-          "SELECT unread_notification_count FROM users WHERE id = ?1",
-        )
-        .get(f.recipient.id)?.unread_notification_count,
-    ).toBe(0);
-    // A row an earlier version created still lists, with its title and link.
-    ctx.sqlite
-      .prepare(
-        "INSERT INTO notifications (user_id, epoch, type, content_type, content_id, data, created_at, updated_at) VALUES (?1, (SELECT notification_epoch FROM users WHERE id = ?1), 'conversation.message', 'conversation_message', ?2, ?3, ?4, ?4)",
-      )
-      .run(f.recipient.id, replyId, JSON.stringify({ conversationId: convId }), ctx.now());
+    expect(await types(ctx, f.recipient)).toEqual(["conversation.message"]);
+    expect(await unreadCount(ctx, f.recipient)).toBe(1);
     const messageNotice = (
       await execute(ctx, notificationsListOp, userActor(f.recipient), {
         unreadOnly: true,

@@ -778,8 +778,6 @@ export function registerEmailJobs(
     if (!user) return;
     const current = state.get(ctx)!;
     const types = activeRegistry(ctx, current);
-    // A row of a type that is no longer sent (queued before it was removed) finishes quietly.
-    if (RETIRED_TYPES.has(row.type)) return;
     if (!(row.type in types.defaults) && !types.securityTypes.has(row.type))
       throw new ValidationError(`Email type ${row.type} is not registered.`);
     const claimTime = ctx.now();
@@ -834,9 +832,6 @@ export function closeEmail(ctx: Ctx): void {
   state.get(ctx)?.mailer.close?.();
 }
 
-// Notification types that were removed while mail for them was already out or queued.
-const RETIRED_TYPES = new Set(["conversation.message"]);
-
 export const unsubscribeOp = implement(
   notificationsUnsubscribe,
   async (ctx, _actor, input) => {
@@ -850,12 +845,7 @@ export const unsubscribeOp = implement(
         : claim.scope in registry.defaults && !isSecurity(registry, claim.scope)
           ? [claim.scope]
           : [];
-    if (!types.length) {
-      // The link in a mail already sent for a type that is gone: nothing is left to switch off.
-      if (RETIRED_TYPES.has(claim.scope) && recipient(ctx, claim.userId))
-        return { scope: claim.scope };
-      throw new ValidationError("Invalid unsubscribe scope.");
-    }
+    if (!types.length) throw new ValidationError("Invalid unsubscribe scope.");
     writeTx(ctx, () => {
       if (!recipient(ctx, claim.userId)) throw new ValidationError("Invalid link.");
       const upsert = prepared(ctx, "email.unsubscribe", () =>

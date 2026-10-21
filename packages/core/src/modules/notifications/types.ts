@@ -4,7 +4,7 @@ export interface NotificationDefinition {
   id: string;
   events: readonly EventType[];
   recipient: string;
-  group: "reaction" | "thread" | null;
+  group: "reaction" | "thread" | "conversation" | null;
   defaults: { inApp: boolean; email: boolean; push: boolean };
   required: boolean;
   title: string;
@@ -46,6 +46,17 @@ export const notificationTypes: readonly NotificationDefinition[] = [
   entry("member.thread", ["content.created", "content.state_changed"], "follower"),
   entry("member.followed", ["member.followed"], "followed member"),
   entry("conversation.added", ["conversation.participants_added"], "added participant"),
+  // Private messages push by default, as XenForo's "push on conversation" does; the device must
+  // still be registered, and a burst in one conversation alerts once while it stays unread.
+  {
+    ...entry(
+      "conversation.message",
+      ["content.created", "content.state_changed"],
+      "conversation participant",
+      "conversation",
+    ),
+    defaults: { inApp: true, email: false, push: true },
+  },
   entry(
     "moderation.content",
     ["content.deleted", "content.edited", "content.state_changed", "moderation.action"],

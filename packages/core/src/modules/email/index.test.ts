@@ -286,35 +286,6 @@ describe("email channel", () => {
     ).toBeNull();
   });
 
-  test("the unsubscribe link of a mail for a removed type is accepted and a queued job for it ends quietly", async () => {
-    const f = fixture();
-    const link = await signUnsubscribe(f.ctx, f.reader.id, "conversation.message");
-    expect(await execute(f.ctx, unsubscribeOp, GUEST, { token: link })).toEqual({
-      scope: "conversation.message",
-    });
-    // An unknown scope is still refused.
-    await expect(
-      execute(f.ctx, unsubscribeOp, GUEST, {
-        token: await signUnsubscribe(f.ctx, f.reader.id, "no.such.type"),
-      }),
-    ).rejects.toBeInstanceOf(ValidationError);
-    const old = f.ctx.sqlite
-      .prepare<{ id: number }, [number, number]>(
-        "INSERT INTO notifications (user_id, type, content_type, content_id, created_at, updated_at) VALUES (?1, 'conversation.message', 'conversation_message', 1, ?2, ?2) RETURNING id",
-      )
-      .get(f.reader.id, f.ctx.now())!.id;
-    enqueueJob(f.ctx, "email.send", { kind: "notification", notificationId: old });
-    await runDueJobs(f.ctx);
-    expect(f.capture.messages).toHaveLength(0);
-    expect(
-      f.ctx.sqlite
-        .prepare<{ status: string; last_error: string | null }, []>(
-          "SELECT status, last_error FROM jobs WHERE type = 'email.send'",
-        )
-        .get(),
-    ).toMatchObject({ status: "done", last_error: null });
-  });
-
   test("conversation message text follows the privacy setting", async () => {
     const f = fixture();
     const registryWithConversation = {

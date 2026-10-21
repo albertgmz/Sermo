@@ -1058,7 +1058,8 @@ is authorized by its signed token. `announcements.create` needs `admin.announcem
 | `profile.comment`, `profile.commented` | The profile post's author, and earlier commenters, on a new comment |
 | `member.thread` | Followers, when the member starts a thread |
 | `member.followed` | A member who gained a follower |
-| `conversation.added` | A member added to a conversation (new messages raise the conversation counter, not an alert) |
+| `conversation.added` | A member added to a conversation |
+| `conversation.message` | The other active participants, on a new message after the first (not the sender, members who left, or members who ignore the sender): one unread alert per conversation, which a burst of messages updates instead of repeating; it clears when the conversation is opened |
 | `moderation.content`, `moderation.member` | A member whose content or account a moderator acted on (with `notify`) |
 | `report.resolved` | Reporters, when their report is resolved or rejected (with `notify`) |
 | `moderator.report`, `moderator.approval` | Moderators who can handle a new report or approve new content |
@@ -1074,7 +1075,9 @@ cannot be ignored (they lack `member.ignorable` by default), so their actions al
 ### Channels and preferences
 
 Each type has three channels: in-app, email and push. Out of the box every type is in-app only,
-except `account.security`, which is email only, and the watch types described below. Members
+except `account.security`, which is email only, `conversation.message`, which is in-app and push
+(as XenForo's push for conversations is on by default; it reaches only members who registered a
+device), and the watch types described below. Members
 change their own choice per type and channel with `GET`/`PUT /notifications/preferences`
 (`notifications.preferences`, `notifications.setPreferences`); `null` returns a channel to the
 site default.
@@ -1086,7 +1089,8 @@ Web Push configured and a registered device. Rules:
 - **In-app comes first.** A member who turns in-app off for a type gets no notification of that
   type, and so no email or push for it either.
 - **Once per unread group.** A grouped notification (see below) sends one email and one push
-  message. Further replies or reactions folded into it while it is unread do not send again.
+  message. Further replies, reactions or conversation messages folded into it while it is unread
+  do not send again.
 - **Watch types** (`thread.watched`, `node.thread`, `node.post`): the watch's own email flag
   decides (`PUT /threads/{threadId}/watch`, `PUT /nodes/{nodeId}/watch` with `email`, or the
   `watch_email` auto-watch preferences), unless the member turned that type's email off in their
@@ -1103,8 +1107,8 @@ The weekly digest uses the type id `digest.weekly` here (email on by default).
 
 ### Grouping, reading and retention
 
-- **Grouping.** Reactions to the same item, and new replies in the same watched thread, fold into
-  one unread notification that shows the most recent actors (up to five) and how many different
+- **Grouping.** Reactions to the same item, new replies in the same watched thread, and new messages
+  in the same conversation, fold into one unread notification that shows the most recent actors (up to five) and how many different
   members acted.
   Once read, the next one starts a new notification.
 - **Mark read.** `PUT /notifications/read` (`notifications.markRead`) takes up to 100 `ids`, or
