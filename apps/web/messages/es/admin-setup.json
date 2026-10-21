@@ -142,11 +142,6 @@
       "help": "Desactivado: nadie puede crear publicaciones ni comentarios en el perfil.",
       "switch": "Permitir publicaciones y comentarios en el perfil"
     },
-    "forumStatsEnabled": {
-      "label": "Estadísticas del foro",
-      "help": "Activado: la lista de foros muestra un panel con los temas más recientes, con más respuestas, con más reacciones y más vistos.",
-      "switch": "Mostrar el panel de estadísticas del foro"
-    },
     "newMemberDays": {
       "label": "Periodo de miembro nuevo",
       "help": "Cuánto tiempo después de unirse se considera nuevo a un miembro para el límite de menciones de abajo.",

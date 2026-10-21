@@ -142,11 +142,6 @@
       "help": "Off: nobody can create profile posts or comments.",
       "switch": "Allow profile posts and comments"
     },
-    "forumStatsEnabled": {
-      "label": "Forum statistics",
-      "help": "On: the forum list shows a panel with the latest, most replied, most reacted and most viewed threads.",
-      "switch": "Show the forum statistics panel"
-    },
     "newMemberDays": {
       "label": "New-member period",
       "help": "How long after joining a member counts as new for the mention limit below.",

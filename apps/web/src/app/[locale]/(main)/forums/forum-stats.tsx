@@ -18,8 +18,6 @@ import { membersFor } from "@/lib/sermo/members";
 import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
 
-const ROWS = 10;
-
 type Figure = "replies" | "views";
 
 const FIGURES: Record<
@@ -150,10 +148,16 @@ function ThreadRow({
   );
 }
 
+// The panel of the forum statistics widget: `title` heads it, `limit` is how many threads a tab
+// lists.
 export function ForumStats({
+  title,
+  limit,
   active,
   hrefFor,
 }: {
+  title: string;
+  limit: number;
   active: StatsTab;
   hrefFor: (tab: StatsTab) => string;
 }) {
@@ -163,7 +167,7 @@ export function ForumStats({
 
   return (
     <CollapsiblePanel
-      title={t("heading")}
+      title={title}
       storageKey="forum-stats-open"
       defaultOpen="md"
     >
@@ -191,15 +195,21 @@ export function ForumStats({
             </LoadingRegion>
           }
         >
-          <StatsRows tab={tab} />
+          <StatsRows tab={tab} limit={limit} />
         </Suspense>
       </div>
     </CollapsiblePanel>
   );
 }
 
-async function StatsRows({ tab }: { tab: (typeof STATS_TABS)[number] }) {
-  const { items } = await read(threadsRanked, { by: tab.by, limit: ROWS });
+async function StatsRows({
+  tab,
+  limit,
+}: {
+  tab: (typeof STATS_TABS)[number];
+  limit: number;
+}) {
+  const { items } = await read(threadsRanked, { by: tab.by, limit });
   const member = await membersFor(items.flatMap(threadMembers));
   return (
     <ol className="@container divide-y divide-border">

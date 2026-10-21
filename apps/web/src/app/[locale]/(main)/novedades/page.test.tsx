@@ -8,6 +8,7 @@ import {
   test,
 } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
+import { NOVEDADES_WIDGETS } from "@/lib/test-bodies";
 import { translator, withIntl } from "@/lib/test-intl";
 import { withQuery } from "@/lib/test-query";
 import { viewerBody } from "@/lib/test-viewer";
@@ -56,12 +57,14 @@ function backend({
   own = null,
   siteFails = false,
   canPost = false,
+  widgets = NOVEDADES_WIDGETS,
 }: {
   member: boolean;
   siteTab?: string;
   own?: string | null;
   siteFails?: boolean;
   canPost?: boolean;
+  widgets?: unknown[];
 }) {
   asked.length = 0;
   globalThis.fetch = (async (url: string) => {
@@ -75,6 +78,8 @@ function backend({
       body.permissions.canPostProfile = canPost;
       return Response.json(body);
     }
+    if (pathname === "/api/v1/widgets")
+      return Response.json({ items: widgets });
     if (pathname === "/api/v1/site/home-tab")
       return siteFails
         ? Response.json({ error: { code: "internal" } }, { status: 500 })
@@ -146,6 +151,28 @@ test("the featured threads and the wall composer are asked for on the feed tabs 
   backend({ member: true });
   await render({ tab: "media" });
   expect(paths()).not.toContain(FEATURED);
+});
+
+test("the page asks for its own widgets, and draws the featured threads only when one is placed", async () => {
+  const FEATURED = "/api/v1/featured-threads";
+  backend({ member: true });
+  await render({ tab: "latest" });
+  expect(
+    asked.find((entry) => entry.path === "/api/v1/widgets")?.search.get("page"),
+  ).toBe("novedades");
+  backend({ member: true, widgets: [] });
+  const html = await render({ tab: "latest" });
+  expect(paths()).not.toContain(FEATURED);
+  expect(html).not.toContain("<aside");
+});
+
+test("the side blocks are drawn below the feed on phones, not hidden there", async () => {
+  backend({ member: true });
+  const html = await render({ tab: "latest" });
+  const aside = html.match(/<aside class="([^"]*)"/)?.[1] ?? "";
+  expect(aside.split(" ")).toContain("grid");
+  expect(aside).not.toContain("hidden");
+  expect(paths()).toContain("/api/v1/thread-rankings");
 });
 
 test("a tab in the address wins over the choice and the default", async () => {

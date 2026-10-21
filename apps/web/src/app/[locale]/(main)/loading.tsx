@@ -1,22 +1,17 @@
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 import {
   ForumCategoriesSkeleton,
-  ForumStatsSkeleton,
   LoadingRegion,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
-import { getSite } from "@/lib/sermo/site";
 
-export default async function Loading() {
-  const [t, { forumStatsEnabled }] = await Promise.all([
-    getTranslations("forums.loading"),
-    getSite(),
-  ]);
+// The forum list's own parts; the widgets around it are the visitor's, so they are not known yet.
+export default function Loading() {
+  const t = useTranslations("forums.loading");
   return (
     <LoadingRegion label={t("aria.forums")}>
       <PageLayout mainClassName="space-y-(--page-gap)">
-        {forumStatsEnabled && <ForumStatsSkeleton />}
         <TabsSkeleton />
         <ForumCategoriesSkeleton />
       </PageLayout>

@@ -39,6 +39,7 @@ import staticMessages from "../../messages/en/static.json";
 import threads from "../../messages/en/threads.json";
 import ui from "../../messages/en/ui.json";
 import upgrade from "../../messages/en/upgrade.json";
+import widgets from "../../messages/en/widgets.json";
 
 export const messages = {
   account,
@@ -74,6 +75,7 @@ export const messages = {
   threads,
   ui,
   upgrade,
+  widgets,
 };
 
 export type Messages = typeof messages;
@@ -113,6 +115,7 @@ const FILES: Record<keyof Messages, string> = {
   threads: "threads",
   ui: "ui",
   upgrade: "upgrade",
+  widgets: "widgets",
 };
 
 // The catalogue of one language, loaded when asked for: only the active language reaches the

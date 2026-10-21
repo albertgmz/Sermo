@@ -1013,20 +1013,30 @@ as a missing one. Turning off the site setting `profilePostsEnabled` (default on
 profile posts and comments for everyone, including holders of `profile.bypassPrivacy`; existing
 ones stay visible.
 
-The forum statistics panel of the forum list (the ranked thread lists: latest posts, latest
-threads, most replied, most reacted, most viewed) is shown only while the site setting
-`forumStatsEnabled` is on (default off; General settings in the panel). `GET /site` (`site.get`)
-carries the switch for the web app; `threads.ranked` itself answers either way.
+The forum statistics panel (the ranked thread lists: latest posts, latest threads, most replied,
+most reacted, most viewed) is a widget (`forumStats`): it is drawn where one is placed and enabled.
+A new site places it above the forum list, enabled when the old site setting `forumStatsEnabled`
+was on; the setting itself no longer changes the pages. `threads.ranked` answers either way.
 
 ## Home page and What's new
 
-The home page (`/`) is the forum list: the forum statistics panel (when it is on) and the categories
-under the section tabs (`/?section=<tab id>&stats=<tab>`). It carries the site's name as its title,
+The home page (`/`) is the forum list: the categories under the section tabs
+(`/?section=<tab id>&stats=<tab>`), with the widgets of its positions around them. It carries the site's name as its title,
 the site's description and its structured data. The feed is on its own page, What's new
 (`/novedades`), with four tabs in this fixed order: Latest, Hot, Following (members only) and Media
 (the newest pictures attached to posts and wall posts, limited to what the viewer may open). Every
 tab has an address that names it (`/novedades?tab=hot`). The wall composer and the featured threads
-are drawn on the first three tabs only.
+are drawn on the first three tabs only, and the featured threads not above a list a filter narrowed.
+
+Both pages draw the widgets of their positions (`widgets.current`, asked with the visitor's session
+once per page): `overview_top` spans both columns above them; `forum_list_above` and
+`forum_list_below` (`/`) or `novedades_above` (`/novedades`) sit in the main column above and below
+the page's own content, `overview_bottom` after them; the sidebar holds `sidebar_top`, then
+`forum_list_sidebar` (`/`) or `novedades_sidebar` (`/novedades`), then `sidebar_bottom`. A page
+with no sidebar widget for the viewer has no sidebar column. Below `lg` the sidebar is drawn below
+the content (in two columns from `sm`); a widget whose `phones` is off is not drawn below `md`, and
+a sidebar with no widget drawn there is left out. A widget whose own read is refused or empty draws
+nothing; one that fails is logged and draws nothing, and the rest of the page stands.
 
 The old addresses answer with a permanent redirect (308) that keeps the query: a feed tab or a
 feed parameter on `/` (`/?tab=hot`, `/?cursor=...`) goes to `/novedades`, `/?tab=forums` and

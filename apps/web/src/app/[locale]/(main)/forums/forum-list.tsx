@@ -1,16 +1,12 @@
 import { forumTabsList, nodesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import {
-  ForumStats,
-  type StatsTab,
-} from "@/app/[locale]/(main)/forums/forum-stats";
+import type { StatsTab } from "@/app/[locale]/(main)/forums/forum-stats";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { bannerOf } from "@/components/forum/forum-banner";
 import { ForumCardGrid } from "@/components/forum/forum-card-grid";
 import {
   ForumCategoriesSkeleton,
-  ForumStatsSkeleton,
   LoadingRegion,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
@@ -18,14 +14,13 @@ import { TabLinks } from "@/components/forum/tab-links";
 import { read } from "@/lib/sermo/client";
 import { childrenByParent, nodeMembers } from "@/lib/sermo/forums";
 import { membersFor } from "@/lib/sermo/members";
-import { getSite } from "@/lib/sermo/site";
 
-// The forum list: the statistics panel (when the site shows it) and the categories under the
-// section tabs, drawn by the home page; it says where its section and statistics links go.
+// The forum list: the categories under the section tabs, drawn by the home page; it says where its
+// section links go. The statistics panel is a widget the page draws around it.
 //
 // Props
 //   section  The section tab chosen in the address (the id of a forum tab), or null for the first.
-//   stats    The statistics tab chosen in the address.
+//   stats    The statistics tab chosen in the address, which a section link keeps.
 //   hrefFor  The address of a section (null is the first) with a statistics tab.
 export async function ForumList({
   section,
@@ -36,38 +31,18 @@ export async function ForumList({
   stats: StatsTab;
   hrefFor: (section: string | null, stats: StatsTab) => string;
 }) {
-  const [{ forumStatsEnabled }, t] = await Promise.all([
-    getSite(),
-    getTranslations("forums.forums"),
-  ]);
+  const t = await getTranslations("forums.forums");
   return (
-    <>
-      {forumStatsEnabled && (
-        <Suspense
-          fallback={
-            <LoadingRegion label={t("aria.loadingStatistics")}>
-              <ForumStatsSkeleton />
-            </LoadingRegion>
-          }
-        >
-          <ForumStats
-            active={stats}
-            hrefFor={(value) => hrefFor(section, value)}
-          />
-        </Suspense>
-      )}
-
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("aria.loadingCategories")}>
-            <TabsSkeleton />
-            <ForumCategoriesSkeleton />
-          </LoadingRegion>
-        }
-      >
-        <ForumCategories section={section} stats={stats} hrefFor={hrefFor} />
-      </Suspense>
-    </>
+    <Suspense
+      fallback={
+        <LoadingRegion label={t("aria.loadingCategories")}>
+          <TabsSkeleton />
+          <ForumCategoriesSkeleton />
+        </LoadingRegion>
+      }
+    >
+      <ForumCategories section={section} stats={stats} hrefFor={hrefFor} />
+    </Suspense>
   );
 }
 

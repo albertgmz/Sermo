@@ -19,7 +19,6 @@
   },
   "page": {
     "heading": "What's new",
-    "loadingSidebar": "Loading feed sidebar…",
     "loadingFeed": "Loading your feed…",
     "aria": {
       "newPost": "New post",
@@ -98,22 +97,5 @@
     "reply": "Reply",
     "replyPlaceholder": "Write a reply…",
     "replySubmit": "Post reply"
-  },
-  "featured": {
-    "title": "Featured"
-  },
-  "feedSidebar": {
-    "loadingTrending": "Loading the most reacted threads…",
-    "loadingLatest": "Loading latest threads…",
-    "loadingMembers": "Loading suggested members…",
-    "loadingForums": "Loading forums…",
-    "trendingTitle": "Most reacted",
-    "replies": "{count, plural, one {{value} reply} other {{value} replies}}",
-    "latestTitle": "Latest threads",
-    "membersTitle": "Members to follow",
-    "forumsTitle": "Forums",
-    "viewAll": "View all",
-    "threads": "{value}<label>{count, plural, other { threads}}</label>",
-    "views": "{count, plural, one {{value} view} other {{value} views}}"
   }
 }

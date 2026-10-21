@@ -24,7 +24,6 @@
     "login": "Log in",
     "register": "Create Account",
     "aria": {
-      "loadingStatistics": "Loading forum statistics…",
       "sections": "Forum sections",
       "loadingCategories": "Loading forum categories…"
     }
@@ -36,7 +35,6 @@
     "repliedTab": "Most replied",
     "reactedTab": "Most reacted",
     "viewedTab": "Most viewed",
-    "heading": "Forum statistics",
     "aria": {
       "replies": "Replies",
       "views": "Views",

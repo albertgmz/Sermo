@@ -10,11 +10,17 @@ import { WebSiteJsonLd } from "@/components/forum/json-ld";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
+import {
+  WidgetArea,
+  widgetAreas,
+  widgetAside,
+} from "@/components/widgets/widget-area";
 import { forumListAddress, homeMetadata } from "@/lib/home-seo";
 import { publicUrl } from "@/lib/sermo/config";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
 import { getSite } from "@/lib/sermo/site";
+import { getWidgets } from "@/lib/sermo/widgets";
 import { cn } from "@/lib/utils";
 
 // The home page is the forum list, under the site's own name. An address with a section, a
@@ -63,16 +69,25 @@ async function GuestHero() {
   );
 }
 
+// The forum list with the widgets of its positions: the lead above both columns, the statistics
+// above the categories by default, and the sidebar.
 export default async function HomePage(props: PageProps<"/[locale]">) {
-  const [params, { user }, t] = await Promise.all([
+  const [params, { user }, widgets, t] = await Promise.all([
     props.searchParams,
     getViewer(),
+    getWidgets("home"),
     getTranslations("forums.forums"),
   ]);
-  const { section, stats: statsParam } = params;
+  const { section: sectionParam, stats: statsParam } = params;
+  const section = typeof sectionParam === "string" ? sectionParam : null;
   const stats: StatsTab =
     STATS_TABS.find((entry) => entry.value === statsParam)?.value ??
     STATS_TABS[0].value;
+  const context = {
+    stats,
+    statsHref: (tab: StatsTab) => forumsHref(section, tab),
+  };
+  const areas = widgetAreas("home", widgets);
 
   return (
     <>
@@ -80,16 +95,20 @@ export default async function HomePage(props: PageProps<"/[locale]">) {
       <PageLayout
         className={user ? undefined : "pt-2"}
         mainClassName="space-y-(--page-gap)"
+        lead={
+          areas.lead.length > 0 && (
+            <WidgetArea widgets={areas.lead} context={context} />
+          )
+        }
+        {...widgetAside(areas.aside, context)}
       >
         {user && <h1 className="sr-only">{t("metaTitle")}</h1>}
         {/* The site's structured data belongs to its home address, not to a copy of it. */}
         {forumListAddress(params).index && <WebSiteJsonLd />}
         <HomeNotice notice={params.notice} />
-        <ForumList
-          section={typeof section === "string" ? section : null}
-          stats={stats}
-          hrefFor={forumsHref}
-        />
+        <WidgetArea widgets={areas.above} context={context} />
+        <ForumList section={section} stats={stats} hrefFor={forumsHref} />
+        <WidgetArea widgets={areas.below} context={context} />
       </PageLayout>
     </>
   );

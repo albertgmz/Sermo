@@ -28,8 +28,6 @@ export type SiteIdentity = {
   };
   // The most a member's file may have, in bytes; null when the site could not be read.
   maxUploadBytes: number | null;
-  // Whether the forum list shows the statistics panel; off when the site could not be read.
-  forumStatsEnabled: boolean;
   // The analytics tag public pages carry; provider "none" when unset or the site could not be read.
   analytics: z.output<typeof Analytics>;
   // Cloudflare Turnstile on the guest forms: the public site key and the forms it guards; null
@@ -77,7 +75,6 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       backdrop,
       socialLinks,
       maxUploadBytes,
-      forumStatsEnabled,
       analytics,
       cookiePolicyVersion,
       matomoCookieless,
@@ -97,7 +94,6 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       backdrop,
       socialLinks,
       maxUploadBytes,
-      forumStatsEnabled,
       analytics,
       cookiePolicyVersion,
       matomoCookieless,
@@ -125,7 +121,6 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       backdrop: null,
       socialLinks: { discord: null, telegram: null, x: null },
       maxUploadBytes: null,
-      forumStatsEnabled: false,
       analytics: { provider: "none" },
       turnstile: null,
       registration: { open: true, approval: false, minimumAge: 0, fields: [] },

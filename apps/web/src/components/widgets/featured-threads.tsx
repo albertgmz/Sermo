@@ -1,26 +1,30 @@
 import { threadsFeatured } from "@sermo/core/contracts";
-import { getTranslations } from "next-intl/server";
 import { ThreadTitle } from "@/app/[locale]/(main)/_feed/thread-title";
 import { FeatureMark } from "@/components/forum/feature-mark";
 import { SectionCard } from "@/components/forum/section-card";
-import { read } from "@/lib/sermo/client";
+import type { WidgetBodyProps } from "@/components/widgets/widget-types";
+import { readIfAllowed } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { threadMembers } from "@/lib/sermo/threads";
 
-// How many featured threads the home page lists.
+// How many featured threads the block lists.
 const FEATURED_SIZE = 3;
 
 // The threads featured right now, newest feature first: staff picks and paid promotions. Nothing
 // is drawn when there are none.
-export async function FeaturedThreads() {
-  const { items } = await read(threadsFeatured, { limit: FEATURED_SIZE });
-  if (items.length === 0) return null;
-  const [member, t] = await Promise.all([
-    membersFor(items.flatMap(({ thread }) => threadMembers(thread))),
-    getTranslations("home.featured"),
-  ]);
+export async function FeaturedThreads({
+  title,
+}: Pick<WidgetBodyProps<"featured">, "title">) {
+  const featured = await readIfAllowed(threadsFeatured, {
+    limit: FEATURED_SIZE,
+  });
+  if (!featured || featured.items.length === 0) return null;
+  const { items } = featured;
+  const member = await membersFor(
+    items.flatMap(({ thread }) => threadMembers(thread)),
+  );
   return (
-    <SectionCard title={t("title")}>
+    <SectionCard title={title}>
       {items.map(({ kind, thread }) => (
         <div key={thread.id} className="px-4 py-2.5">
           <ThreadTitle thread={thread} member={member} />

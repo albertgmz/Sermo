@@ -57,10 +57,6 @@ export async function GeneralForm() {
           name="profilePostsEnabled"
           value={settings.profilePostsEnabled}
         />
-        <SwitchRow
-          name="forumStatsEnabled"
-          value={settings.forumStatsEnabled}
-        />
       </FieldGroup>
       {networks.length > 0 && (
         <FieldGroup

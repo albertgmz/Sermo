@@ -1,0 +1,24 @@
+{
+  "widgetArea": {
+    "loading": "Cargando «{title}»…",
+    "titles": {
+      "forumStats": "Estadísticas del foro",
+      "featured": "Recomendados",
+      "suggestedMembers": "Miembros a quienes seguir",
+      "forumLinks": "Foros",
+      "latestPosts": "Últimos mensajes",
+      "latestThreads": "Últimos temas",
+      "mostReplied": "Más respondidos",
+      "mostReacted": "Con más reacciones",
+      "mostViewed": "Más vistos"
+    }
+  },
+  "rankedThreads": {
+    "replies": "{count, plural, one {{value} respuesta} other {{value} respuestas}}",
+    "views": "{count, plural, one {{value} vista} other {{value} vistas}}"
+  },
+  "forumLinks": {
+    "viewAll": "Ver todos",
+    "threads": "{value}<label>{count, plural, other { temas}}</label>"
+  }
+}

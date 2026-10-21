@@ -125,7 +125,6 @@ test("the general form keeps every setting, the social links and the analytics t
     "siteDescription",
     "defaultLanguage",
     "profilePostsEnabled",
-    "forumStatsEnabled",
     "socialLinks.discord",
     "socialLinks.telegram",
     "socialLinks.x",
@@ -140,10 +139,11 @@ test("the general form keeps every setting, the social links and the analytics t
     "siteDescription",
     "defaultLanguage",
     "profilePostsEnabled",
-    "forumStatsEnabled",
     "analytics",
   ])
     expect(shown, key).toContain(key);
+  // The forum statistics are a widget now, placed with the other widgets.
+  expect(names.has("forumStatsEnabled")).toBe(false);
   // The help sits with its field, and the save bar closes the form.
   expect(html).toContain("Shown in emails and titles.");
   expect(html).toContain("Save changes");

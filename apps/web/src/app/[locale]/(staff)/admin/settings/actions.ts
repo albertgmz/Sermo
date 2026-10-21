@@ -35,7 +35,6 @@ const GENERAL: Spec = {
   siteDescription: "text",
   defaultLanguage: "language",
   profilePostsEnabled: "bool",
-  forumStatsEnabled: "bool",
 };
 
 // The analytics setting is one nested object, sent whole by a form that showed it: the provider

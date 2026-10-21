@@ -99,7 +99,7 @@ test("the home block lists the featured threads with their mark, and asks for a 
     featured(8, "paid", "Promoted thread"),
     featured(7, "staff", "Picked thread"),
   ]);
-  const text = await html(await FeaturedThreads());
+  const text = await html(await FeaturedThreads({ title: "Featured" }));
   expect(
     backend.asked.find((call) => call.operation === "threads.featured")?.path,
   ).toBe("/api/v1/featured-threads");
@@ -116,5 +116,5 @@ test("the home block lists the featured threads with their mark, and asks for a 
 
 test("nothing is drawn when nothing is featured", async () => {
   backend = serve([]);
-  expect(await FeaturedThreads()).toBeNull();
+  expect(await FeaturedThreads({ title: "Featured" })).toBeNull();
 });

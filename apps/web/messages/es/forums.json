@@ -24,7 +24,6 @@
     "login": "Iniciar sesión",
     "register": "Crear cuenta",
     "aria": {
-      "loadingStatistics": "Cargando estadísticas del foro…",
       "sections": "Secciones del foro",
       "loadingCategories": "Cargando categorías del foro…"
     }
@@ -36,7 +35,6 @@
     "repliedTab": "Más respondidos",
     "reactedTab": "Más reacciones",
     "viewedTab": "Más vistos",
-    "heading": "Estadísticas del foro",
     "aria": {
       "replies": "Respuestas",
       "views": "Vistas",

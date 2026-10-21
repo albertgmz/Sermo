@@ -9,10 +9,8 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
-import { FeaturedThreads } from "@/app/[locale]/(main)/_feed/featured-threads";
 import {
   moreFeed,
   moreMedia,
@@ -23,8 +21,11 @@ import {
   feedPage,
   type Tab,
 } from "@/app/[locale]/(main)/_feed/feed-page";
-import { FeedSidebar } from "@/app/[locale]/(main)/_feed/feed-sidebar";
 import { mediaPage } from "@/app/[locale]/(main)/_feed/media-page";
+import {
+  STATS_TABS,
+  type StatsTab,
+} from "@/app/[locale]/(main)/forums/forum-stats";
 import { postToWall } from "@/app/[locale]/(main)/members/actions";
 import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
 import { EmptyState } from "@/components/forum/empty-state";
@@ -34,13 +35,17 @@ import { PictureViewer } from "@/components/forum/picture-viewer";
 import {
   FeedSkeleton,
   LoadingRegion,
-  SidebarSkeleton,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
+import {
+  WidgetArea,
+  widgetAreas,
+  widgetAside,
+} from "@/components/widgets/widget-area";
 import {
   feedHref,
   filterFromParams,
@@ -67,6 +72,7 @@ import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
 import { getSite } from "@/lib/sermo/site";
+import { getWidgets } from "@/lib/sermo/widgets";
 import { cn } from "@/lib/utils";
 
 // The head of the tab the page opens on. The bare address and the guests' own tab are one page.
@@ -90,25 +96,42 @@ export async function generateMetadata(
   return publicHead(head, { title: t(`${tab}.title`) });
 }
 
-// The feed: the wall composer, the featured threads and the feed tabs, with the feed's side
-// blocks. The home page (`/`) is the forum list.
-export default function NovedadesPage(props: PageProps<"/[locale]/novedades">) {
-  const t = useTranslations("home.page");
+// The feed: the wall composer and the feed tabs, with the widgets of the page's positions (the
+// featured threads above the tabs and the side blocks, by default). The home page (`/`) is the
+// forum list.
+export default async function NovedadesPage(
+  props: PageProps<"/[locale]/novedades">,
+) {
+  const [{ tab, params }, widgets, t] = await Promise.all([
+    opening(props.searchParams),
+    getWidgets("novedades"),
+    getTranslations("home.page"),
+  ]);
+  // The featured threads belong to the feed: on its tabs only, and not above a list a filter
+  // narrowed, which may leave them out.
+  const featured =
+    FEED_TABS.some((feed) => feed === tab) &&
+    !isFiltered(filterFromParams(params));
+  const areas = widgetAreas(
+    "novedades",
+    widgets.filter((widget) => featured || widget.type !== "featured"),
+  );
+  const stats: StatsTab =
+    STATS_TABS.find((entry) => entry.value === params.stats)?.value ??
+    STATS_TABS[0].value;
+  const context = {
+    stats,
+    statsHref: (value: StatsTab) => statsHref(tab, value),
+  };
   return (
     <PageLayout
-      aside={
-        <Suspense
-          fallback={
-            <LoadingRegion label={t("loadingSidebar")}>
-              <SidebarSkeleton />
-            </LoadingRegion>
-          }
-        >
-          <FeedSidebar />
-        </Suspense>
-      }
-      asideOnMobile="hidden"
       mainClassName="space-y-(--page-gap)"
+      lead={
+        areas.lead.length > 0 && (
+          <WidgetArea widgets={areas.lead} context={context} />
+        )
+      }
+      {...widgetAside(areas.aside, context)}
     >
       <h1 className="sr-only">{t("heading")}</h1>
       {/* No fallback: only members get a composer, and the shell cannot tell them from guests
@@ -119,12 +142,7 @@ export default function NovedadesPage(props: PageProps<"/[locale]/novedades">) {
           <HomeComposer />
         </OnFeedTabs>
       </Suspense>
-      {/* No fallback: the block is drawn only when something is featured. */}
-      <Suspense fallback={null}>
-        <OnFeedTabs {...props} unfiltered>
-          <FeaturedThreads />
-        </OnFeedTabs>
-      </Suspense>
+      <WidgetArea widgets={areas.above} context={context} />
       <Suspense
         fallback={
           <LoadingRegion label={t("loadingFeed")}>
@@ -135,8 +153,16 @@ export default function NovedadesPage(props: PageProps<"/[locale]/novedades">) {
       >
         <HomeTabs {...props} />
       </Suspense>
+      <WidgetArea widgets={areas.below} context={context} />
     </PageLayout>
   );
+}
+
+// The address of a forum statistics tab on this page: the open tab's, with the statistics tab.
+function statsHref(tab: HomeTab, stats: StatsTab) {
+  return stats === STATS_TABS[0].value
+    ? homeHref(tab)
+    : `${homeHref(tab)}&stats=${stats}`;
 }
 
 // Posts on the wall of the member who is signed in. Not on a phone, where the + of the bottom bar
@@ -192,18 +218,12 @@ const opening = cache(
   },
 );
 
-// What belongs to the feed (the wall composer, the featured threads) is drawn on its tabs only; the
-// featured threads not above a list narrowed by a filter, which may leave them out.
+// What belongs to the feed (the wall composer) is drawn on its tabs only.
 async function OnFeedTabs({
   searchParams,
-  unfiltered = false,
   children,
-}: PageProps<"/[locale]/novedades"> & {
-  unfiltered?: boolean;
-  children: React.ReactNode;
-}) {
-  const { tab, params } = await opening(searchParams);
-  if (unfiltered && isFiltered(filterFromParams(params))) return null;
+}: PageProps<"/[locale]/novedades"> & { children: React.ReactNode }) {
+  const { tab } = await opening(searchParams);
   return FEED_TABS.some((feed) => feed === tab) ? children : null;
 }
 

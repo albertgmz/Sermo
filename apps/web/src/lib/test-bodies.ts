@@ -1,4 +1,9 @@
-import { creditRulesCreate } from "@sermo/core/contracts";
+import {
+  creditRulesCreate,
+  WIDGET_OPTIONS,
+  type WidgetPosition,
+} from "@sermo/core/contracts";
+import type * as z from "zod";
 
 // What the backend answers for the records the panel and the forum pages fake in their tests, with
 // every field its contract lists. A test overrides only what it is about; when the backend adds a
@@ -182,3 +187,48 @@ export function profilePostBody(over: Record<string, unknown> = {}) {
     ...over,
   };
 }
+
+// One widget of widgets.current: its options are the type's defaults overlaid with `options`, as the
+// backend gives them.
+export function widgetBody<K extends keyof typeof WIDGET_OPTIONS>({
+  id,
+  position,
+  type,
+  options = {},
+  title = null,
+  phones = true,
+}: {
+  id: number;
+  position: z.output<typeof WidgetPosition>;
+  type: K;
+  options?: Record<string, unknown>;
+  title?: string | null;
+  phones?: boolean;
+}) {
+  const parsed: Record<string, unknown> = WIDGET_OPTIONS[type].parse(options);
+  return { id, position, type, options: parsed, title, phones };
+}
+
+// The widgets a new site starts with on the feed page: the featured threads above the feed and the
+// four side blocks.
+export const NOVEDADES_WIDGETS = [
+  widgetBody({ id: 2, position: "novedades_above", type: "featured" }),
+  widgetBody({
+    id: 3,
+    position: "novedades_sidebar",
+    type: "rankedThreads",
+    options: { by: "mostReacted", limit: 5 },
+  }),
+  widgetBody({
+    id: 4,
+    position: "novedades_sidebar",
+    type: "rankedThreads",
+    options: { by: "latestThreads", limit: 5 },
+  }),
+  widgetBody({
+    id: 5,
+    position: "novedades_sidebar",
+    type: "suggestedMembers",
+  }),
+  widgetBody({ id: 6, position: "novedades_sidebar", type: "forumLinks" }),
+];
