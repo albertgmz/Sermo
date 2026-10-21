@@ -741,8 +741,8 @@ describe("conversations", () => {
       await expect(
         execute(ctx, conversationsMarkReadOp, GUEST, { conversationId: id }),
       ).rejects.toThrow(UnauthenticatedError);
-      notice(ctx, b, "conversation", id);
       await execute(ctx, conversationsLeaveOp, b, { conversationId: id });
+      notice(ctx, b, "conversation", id);
       await expect(
         execute(ctx, conversationsMarkReadOp, b, { conversationId: id }),
       ).rejects.toThrow(NotFoundError);

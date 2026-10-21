@@ -79,7 +79,7 @@
   "notification.conversation.added.title": "Te añadieron a una conversación",
   "notification.conversation.added.body": "Te añadieron a una conversación privada.",
   "notification.conversation.message.title": "Nuevo mensaje privado",
-  "notification.conversation.message.body": "{count, plural, one {Hay un mensaje nuevo en una de tus conversaciones.} other {# miembros escribieron en una de tus conversaciones.}}",
+  "notification.conversation.message.body": "{count, plural, one {Un miembro escribió en una de tus conversaciones.} other {# miembros escribieron en una de tus conversaciones.}}",
   "notification.moderation.content.title": "Moderación de tu contenido",
   "notification.moderation.content.body": "Un moderador tomó una acción sobre tu contenido.",
   "notification.moderation.member.title": "Aviso de moderación",

@@ -738,6 +738,24 @@ export const conversationsLocateUnreadOp = implement(
   },
 );
 
+/** Marks the member's unread alerts about a conversation read and lowers their counter by them. */
+function clearAlerts(ctx: Ctx, conversationId: number, userId: number): void {
+  const now = ctx.now();
+  const cleared =
+    prepared(ctx, "conversations.clearNotices", () =>
+      ctx.sqlite.prepare(clearConversationNoticesSql),
+    ).run(now, conversationId, userId).changes +
+    prepared(ctx, "conversations.clearMessageNotices", () =>
+      ctx.sqlite.prepare(clearMessageNoticesSql),
+    ).run(now, conversationId, userId).changes;
+  if (cleared)
+    prepared(ctx, "conversations.countDownNotices", () =>
+      ctx.sqlite.prepare(
+        "UPDATE users SET unread_notification_count = max(0, unread_notification_count - ?1) WHERE id = ?2",
+      ),
+    ).run(cleared, userId);
+}
+
 export const conversationsMarkReadOp = implement(
   conversationsMarkRead,
   (ctx, actor, input) => {
@@ -749,20 +767,7 @@ export const conversationsMarkReadOp = implement(
           "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
         ),
       ).run(row.last_message_id, row.id, user.userId);
-      const now = ctx.now();
-      const cleared =
-        prepared(ctx, "conversations.clearNotices", () =>
-          ctx.sqlite.prepare(clearConversationNoticesSql),
-        ).run(now, row.id, user.userId).changes +
-        prepared(ctx, "conversations.clearMessageNotices", () =>
-          ctx.sqlite.prepare(clearMessageNoticesSql),
-        ).run(now, row.id, user.userId).changes;
-      if (cleared)
-        prepared(ctx, "conversations.countDownNotices", () =>
-          ctx.sqlite.prepare(
-            "UPDATE users SET unread_notification_count = max(0, unread_notification_count - ?1) WHERE id = ?2",
-          ),
-        ).run(cleared, user.userId);
+      clearAlerts(ctx, row.id, user.userId);
     });
     return { ok: true as const };
   },
@@ -785,6 +790,8 @@ export const conversationsLeaveOp = implement(
           "UPDATE conversations SET participant_count = participant_count - 1 WHERE id = ?1",
         ),
       ).run(input.conversationId);
+      // A conversation the member left is no longer theirs to open: its alerts would link nowhere.
+      clearAlerts(ctx, input.conversationId, user.userId);
     });
     return { ok: true as const };
   },

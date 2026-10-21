@@ -3,13 +3,16 @@ import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createTestContext, expectNoTableScan, insertUser, userActor } from "@sermo/core/testing";
 import webPush from "web-push";
-import { dispatchEvents } from "../../events";
+import { writeTx } from "../../db/tx";
+import { dispatchEvents, publishEvent } from "../../events";
 import { execute } from "../../operation";
 import {
   conversationsCreateOp,
+  conversationsDeleteMessageOp,
   conversationsLeaveOp,
   conversationsMarkReadOp,
   conversationsReplyOp,
+  conversationsUpdateMessageOp,
 } from "../conversations";
 import { registerEmailJobs } from "../email";
 import { runDueJobs } from "../jobs";
@@ -280,6 +283,99 @@ describe("conversation message alerts and pushes", () => {
     expect(mails).toHaveLength(1);
     expect(mails[0]!.subject).toBe("New private message");
     expect(f.capture.messages).toHaveLength(1);
+  });
+
+  test("leaving clears the leaver's alert and lowers their counter, and nobody else's", async () => {
+    const f = await fixture();
+    const [leaves, stays] = f.members;
+    await f.say(f.sender, "Anyone for Friday?");
+    const counter = (user: Member) =>
+      f.ctx.sqlite
+        .prepare<{ n: number }, [number]>(
+          "SELECT unread_notification_count AS n FROM users WHERE id = ?1",
+        )
+        .get(user.id)!.n;
+    expect(counter(leaves)).toBe(1);
+    await execute(f.ctx, conversationsLeaveOp, userActor(leaves), {
+      conversationId: f.conversationId,
+    });
+    expect(await f.unread(leaves)).toEqual([]);
+    expect(counter(leaves)).toBe(0);
+    expect(await f.unread(stays)).toHaveLength(1);
+    expect(counter(stays)).toBe(1);
+  });
+
+  test("deleting the newest message of a burst removes the alert, and the next message starts one", async () => {
+    const f = await fixture();
+    const [member] = f.members;
+    await f.say(f.sender, "One");
+    const second = await f.say(f.sender, "Two");
+    expect(f.rows(member)).toHaveLength(1);
+    await execute(f.ctx, conversationsDeleteMessageOp, userActor(f.sender), { messageId: second });
+    await f.settle();
+    expect(await f.unread(member)).toEqual([]);
+    await f.say(f.sender, "Three");
+    expect(await f.unread(member)).toHaveLength(1);
+  });
+
+  test("a banned member gets nothing", async () => {
+    const f = await fixture();
+    const [banned, other] = f.members;
+    f.ctx.sqlite.prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1").run(banned.id);
+    await f.say(f.sender, "Anyone for Friday?");
+    expect(f.rows(banned)).toEqual([]);
+    expect(f.rows(other)).toHaveLength(1);
+  });
+
+  test("a message held for approval alerts once it is approved, not before", async () => {
+    const f = await fixture();
+    f.ctx.sqlite
+      .prepare(
+        "INSERT INTO word_filters (term, action, is_active, created_at, updated_at) VALUES ('holdme', 'moderate', 1, ?1, ?1)",
+      )
+      .run(f.ctx.now());
+    const id = await f.say(f.sender, "holdme please");
+    expect(f.rows(f.members[0])).toEqual([]);
+    expect(f.received).toEqual([]);
+    f.ctx.sqlite
+      .prepare("UPDATE conversation_messages SET state = 'visible' WHERE id = ?1")
+      .run(id);
+    writeTx(f.ctx, () =>
+      publishEvent(f.ctx, {
+        type: "content.state_changed",
+        targetType: "conversation_message",
+        targetId: id,
+        payload: { conversationId: f.conversationId, previousState: "moderated" },
+      }),
+    );
+    await f.settle();
+    for (const member of f.members) expect(f.rows(member)).toHaveLength(1);
+    expect(f.received).toHaveLength(f.members.length);
+  });
+
+  test("editing a message does not alert again", async () => {
+    const f = await fixture();
+    const [member] = f.members;
+    const id = await f.say(f.sender, "Anyone for Friday?");
+    await execute(f.ctx, conversationsMarkReadOp, userActor(member), {
+      conversationId: f.conversationId,
+    });
+    await execute(f.ctx, conversationsUpdateMessageOp, userActor(f.sender), {
+      messageId: id,
+      body: "Anyone for Saturday?",
+    });
+    await f.settle();
+    expect(await f.unread(member)).toEqual([]);
+    expect(f.rows(member)).toHaveLength(1);
+    expect(f.received.filter((path) => path === `/push/${member.id}`)).toHaveLength(1);
+  });
+
+  test("a member mentioned in the message gets the mention only", async () => {
+    const f = await fixture();
+    const [mentioned, other] = f.members;
+    await f.say(f.sender, `Anyone for Friday, @${mentioned.username}?`);
+    expect((await f.unread(mentioned)).map((alert) => alert.type)).toEqual(["content.mentioned"]);
+    expect((await f.unread(other)).map((alert) => alert.type)).toEqual(["conversation.message"]);
   });
 
   test("the lookups of a message's fan-out read indexes", async () => {
