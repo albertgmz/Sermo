@@ -41,11 +41,14 @@ export function CollapsiblePanel({
   title,
   storageKey,
   defaultOpen = "always",
+  banner,
   children,
 }: {
   title: string;
   storageKey: string;
   defaultOpen?: "always" | "md";
+  /** A picture behind the header (a `ForumBanner`); the header is taller with it. */
+  banner?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const id = useId();
@@ -78,24 +81,30 @@ export function CollapsiblePanel({
   }, [storageKey]);
   return (
     <section className="overflow-hidden rounded-lg border bg-card">
-      <h2>
-        <button
-          type="button"
-          aria-expanded={open ?? undefined}
-          aria-controls={id}
-          onClick={() => writeOpen(storageKey, !open)}
-          className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-        >
-          {title}
-          <ChevronDown
-            aria-hidden="true"
+      <div className={cn(banner && "relative isolate")}>
+        {banner}
+        <h2>
+          <button
+            type="button"
+            aria-expanded={open ?? undefined}
+            aria-controls={id}
+            onClick={() => writeOpen(storageKey, !open)}
             className={cn(
-              "size-4 shrink-0 text-muted-foreground transition-transform",
-              responsive ? "md:rotate-180" : shown && "rotate-180",
+              "flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+              banner ? "min-h-20 md:min-h-24" : "min-h-12",
             )}
-          />
-        </button>
-      </h2>
+          >
+            {title}
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                "size-4 shrink-0 text-muted-foreground transition-transform",
+                responsive ? "md:rotate-180" : shown && "rotate-180",
+              )}
+            />
+          </button>
+        </h2>
+      </div>
       <div
         ref={body}
         id={id}

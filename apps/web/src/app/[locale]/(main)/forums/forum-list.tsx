@@ -6,6 +6,7 @@ import {
   type StatsTab,
 } from "@/app/[locale]/(main)/forums/forum-stats";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
+import { ForumBanner } from "@/components/forum/forum-banner";
 import { ForumCard } from "@/components/forum/forum-card";
 import {
   ForumCategoriesSkeleton,
@@ -113,6 +114,7 @@ async function ForumCategories({
           key={category.id}
           title={category.title}
           storageKey={`forum-category-${category.id}-open`}
+          banner={category.cover && <ForumBanner cover={category.cover} lazy />}
         >
           <ul className="grid gap-2 p-2 md:grid-cols-2">
             {(category.type === "category"

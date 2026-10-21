@@ -12,6 +12,7 @@ import { threadsPage } from "@/app/[locale]/(main)/forums/[id]/thread-page";
 import { batchUpdateThreadsAction } from "@/app/[locale]/(main)/forums/actions";
 import { forumsOtherThan } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import { EmptyState } from "@/components/forum/empty-state";
+import { ForumBanner } from "@/components/forum/forum-banner";
 import { ForumCard } from "@/components/forum/forum-card";
 import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
@@ -178,7 +179,14 @@ export default async function ForumPage({
           })),
         ]}
       />
-      <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+      <div
+        className={cn(
+          "mt-1 flex flex-wrap items-end justify-between gap-3",
+          node.cover &&
+            "relative isolate aspect-(--aspect-cover) content-end overflow-hidden rounded-lg border p-4 md:aspect-auto md:min-h-44",
+        )}
+      >
+        {node.cover && <ForumBanner cover={node.cover} />}
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">
             {node.title}
