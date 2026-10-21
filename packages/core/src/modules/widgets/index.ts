@@ -72,6 +72,16 @@ const readers = Object.fromEntries(
   Object.entries(WIDGET_OPTIONS).map(([type, schema]) => [type, z.object(schema.shape)]),
 ) as Record<WidgetType, z.ZodObject>;
 
+/** The stored options as an object; text that is not a JSON object reads as no options. */
+function storedOptions(json: string): { bodyHtml?: string; body?: unknown } {
+  try {
+    const value: unknown = JSON.parse(json);
+    return value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * The `type`, `options` and, for a text widget, `bodyHtml` of a row. Options that no longer parse
  * (a range narrowed since, a row edited by hand) read as the type's defaults, so one bad row never
@@ -79,7 +89,7 @@ const readers = Object.fromEntries(
  * rendered body out, the panel still lists it).
  */
 function typed(row: WidgetRow) {
-  const stored = JSON.parse(row.options) as { bodyHtml?: string; body?: unknown };
+  const stored = storedOptions(row.options);
   const { bodyHtml, ...given } = stored;
   const reader = readers[row.type];
   const options = (reader.safeParse(given).data ??

@@ -47,21 +47,29 @@ function setup() {
 }
 
 describe("the default widgets", () => {
-  test("a new site draws the feed page's side blocks and the featured threads, statistics off", async () => {
+  test("a new site draws what the pages draw today: statistics (off) on the forum list, featured threads and the four side blocks on the feed page", async () => {
     const { ctx, admin, current } = setup();
-    const novedades = await current("novedades");
-    expect(novedades.map((item) => [item.position, item.type, item.options])).toEqual([
-      ["overview_top", "featured", {}],
+    const draws = async (page: string) =>
+      (await current(page)).map((item) => [item.position, item.type, item.options]);
+    expect(await draws("novedades")).toEqual([
+      ["novedades_above", "featured", {}],
       ["novedades_sidebar", "rankedThreads", { by: "mostReacted", limit: 5 }],
       ["novedades_sidebar", "rankedThreads", { by: "latestThreads", limit: 5 }],
       ["novedades_sidebar", "suggestedMembers", { limit: 4 }],
       ["novedades_sidebar", "forumLinks", { limit: 6 }],
     ]);
-    // The forum statistics are there, off while the old setting is off.
+    // The forum statistics are there, off while the old setting is off, and nothing else is.
     const all = await run(ctx, "widgets.list", admin);
-    const stats = all.items.find((item: { type: string }) => item.type === "forumStats");
-    expect(stats).toMatchObject({ position: "overview_top", isEnabled: false, displayOrder: 0 });
-    expect((await current("home")).map((item) => item.type)).toEqual(["featured"]);
+    const stats = all.items.filter((item: { type: string }) => item.type === "forumStats");
+    expect(stats).toMatchObject([
+      { position: "forum_list_above", isEnabled: false, displayOrder: 0 },
+    ]);
+    expect(await draws("home")).toEqual([]);
+    expect(await draws("forum")).toEqual([]);
+    expect(await draws("members")).toEqual([]);
+    expect(all.items.every((item: { position: string }) => item.position !== "overview_top")).toBe(
+      true,
+    );
   });
 
   test("the seed follows the old statistics setting and adds nothing when run again", () => {
@@ -108,6 +116,7 @@ describe("widgets.current", () => {
     await make("sidebar_bottom");
     await make("forum_list_sidebar");
     await make("overview_top");
+    await make("novedades_above");
     await make("novedades_sidebar");
     await make("forum_view_sidebar");
     await make("members_sidenav");
@@ -125,6 +134,7 @@ describe("widgets.current", () => {
     expect(await positions("novedades")).toEqual([
       "overview_top",
       "overview_top",
+      "novedades_above",
       "novedades_sidebar",
       "sidebar_top",
       "sidebar_bottom",
@@ -340,17 +350,27 @@ describe("widgets management", () => {
     clear();
     const fine = await create({ position: "overview_top", type: "featured" });
     ctx.sqlite.exec(
-      `INSERT INTO widgets (position, type, display_order, options, created_at, updated_at) VALUES ('overview_top', 'birthdays', 1, '{"limit":999}', 1, 1), ('overview_top', 'text', 2, '{"body":"kept","bodyHtml":"<p>kept</p>","made_up":1}', 1, 1), ('overview_top', 'text', 3, '{}', 1, 1)`,
+      `INSERT INTO widgets (position, type, display_order, options, created_at, updated_at) VALUES ('overview_top', 'birthdays', 1, '{"limit":999}', 1, 1), ('overview_top', 'text', 2, '{"body":"kept","bodyHtml":"<p>kept</p>","made_up":1}', 1, 1), ('overview_top', 'text', 3, '{}', 1, 1), ('overview_top', 'forumLinks', 4, 'not json', 1, 1), ('overview_top', 'topReferrers', 5, '[1]', 1, 1)`,
     );
     ctx.sqlite.exec("UPDATE cache_versions SET version = version + 1 WHERE key = 'widgets'");
     const shown = await current("home");
     expect(shown.map((item) => item.id)[0]).toBe(fine.id);
-    expect(shown.map((item) => item.options)).toEqual([{}, { limit: 12 }, { body: "kept" }]);
+    expect(shown.map((item) => item.options)).toEqual([
+      {},
+      { limit: 12 },
+      { body: "kept" },
+      { limit: 6 },
+      { limit: 5 },
+    ]);
     const listed = (await run(ctx, "widgets.list", admin)).items;
     // The panel still lists the text row that has no body, so it can be fixed or deleted.
     expect(listed.map((item: { options: object }) => item.options)).toEqual([
-      ...shown.map((item) => item.options),
+      {},
+      { limit: 12 },
+      { body: "kept" },
       { body: "?" },
+      { limit: 6 },
+      { limit: 5 },
     ]);
   });
 

@@ -2680,6 +2680,7 @@ export const WIDGET_POSITIONS = [
   "overview_top",
   "forum_list_above",
   "forum_list_below",
+  "novedades_above",
   "overview_bottom",
   "forum_list_sidebar",
   "novedades_sidebar",

@@ -35,6 +35,7 @@ export const WIDGET_PAGE_POSITIONS = {
   ],
   novedades: [
     "overview_top",
+    "novedades_above",
     "overview_bottom",
     "novedades_sidebar",
     "sidebar_top",
