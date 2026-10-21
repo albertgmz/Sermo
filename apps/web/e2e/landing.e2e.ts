@@ -201,7 +201,7 @@ test("an alert in the header's panel or the phone's alerts lands on its post, wa
     expect(landing.alerted, `an alert for the ${target.kind}`).toContain(
       target.key,
     );
-    await page.goto("/forums");
+    await page.goto("/");
     await ready(page);
     const rows = await openAlerts(page);
     await visibleLink(page, `${rows} a[href="${target.href}"]`).click();
@@ -271,7 +271,7 @@ test("old XenForo addresses land on the item they name @landing", async ({
 // Opens the feed's pages, newest first, until one holds the link: the seed's thread can be below
 // a page of newer items.
 async function feedPageWith(page: Page, link: Locator) {
-  await page.goto("/");
+  await page.goto("/novedades");
   for (let pages = 0; pages < 10; pages += 1) {
     await ready(page);
     if ((await link.count()) > 0) return;
@@ -289,7 +289,7 @@ test("the feed's link to a thread's newest reply carries its page and lands on i
 }) => {
   const { threadId } = seed();
   // A new reply brings the thread to the top of the feed, with a link to that reply.
-  await page.goto("/forums");
+  await page.goto("/");
   const made = await page.request.post(`/api/v1/threads/${threadId}/posts`, {
     data: { body: "A reply for the feed." },
     headers: { origin: new URL(page.url()).origin },
@@ -389,7 +389,7 @@ test("a bookmark and the profile's posts land on the post @landing", async ({
   page,
 }) => {
   const { landing } = seed();
-  await page.goto("/forums");
+  await page.goto("/");
   const origin = new URL(page.url()).origin;
   const marked = await page.request.put("/api/v1/bookmarks", {
     data: { contentType: "post", contentId: landing.post.id, bookmarked: true },

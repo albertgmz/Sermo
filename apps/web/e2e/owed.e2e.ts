@@ -372,8 +372,8 @@ test.describe("guest", () => {
     await expect(trigger).toBeFocused();
   });
 
-  // Item 18: each home tab says what it is in the page's own head.
-  test("the home tabs carry their own title, canonical address and robots rule", async ({
+  // Item 18: each feed tab says what it is in the page's own head.
+  test("the feed tabs carry their own title, canonical address and robots rule", async ({
     request,
     baseURL,
   }) => {
@@ -390,18 +390,18 @@ test.describe("guest", () => {
         og: /<meta property="og:/.test(html),
       };
     };
-    const latest = await head("/");
-    const hot = await head("/?tab=hot");
+    const latest = await head("/novedades");
+    const hot = await head("/novedades?tab=hot");
     expect(hot.title).not.toBe(latest.title);
-    expect(hot.canonical).toBe(`${baseURL}/?tab=hot`);
+    expect(hot.canonical).toBe(`${baseURL}/novedades?tab=hot`);
     expect(hot.robots).toMatch(/^index/);
-    const paged = await head("/?tab=hot&cursor=x");
+    const paged = await head("/novedades?tab=hot&cursor=x");
     expect(paged.robots).toMatch(/^noindex/);
-    expect(paged.canonical).toBe(`${baseURL}/?tab=hot`);
-    const following = await head("/?tab=following");
+    expect(paged.canonical).toBe(`${baseURL}/novedades?tab=hot`);
+    const following = await head("/novedades?tab=following");
     expect(following.robots).toMatch(/^noindex/);
     expect(latest.og || hot.og).toBe(false);
-    const spanish = await head("/?tab=hot", "es");
+    const spanish = await head("/novedades?tab=hot", "es");
     expect(spanish.title).not.toBe(hot.title);
   });
 });

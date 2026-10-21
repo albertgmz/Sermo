@@ -34,7 +34,7 @@ async function pickForum(page: Page) {
 test("the Create dialog offers four choices, Esc closes it and Back closes it @all", async ({
   page,
 }) => {
-  await visit(page, "/forums");
+  await visit(page, "/members");
   await visit(page, "/");
   await openCreate(page);
   for (const name of [
@@ -52,7 +52,7 @@ test("the Create dialog offers four choices, Esc closes it and Back closes it @a
 
   await openCreate(page);
   await page.goBack();
-  await expect(page).toHaveURL(/\/forums$/);
+  await expect(page).toHaveURL(/\/members$/);
   await expect(dialog(page)).toBeHidden();
 });
 

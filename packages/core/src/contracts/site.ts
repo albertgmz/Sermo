@@ -85,7 +85,7 @@ export const siteGet = defineContract({
 export const siteHomeTab = defineContract({
   name: "site.homeTab",
   summary:
-    "The tab of the home page the viewer opens on when the address names none: the tab the " +
+    "The tab of the feed page (What's new) the viewer opens on when the address names none: the tab the " +
     "member chose, else the tab of the first of the site's home tab rules (an administrator's " +
     "setting, cheap criteria only, guests included) that the viewer meets, else the site's " +
     "fallback. `following` needs an account, so a guest is never answered it (they get " +

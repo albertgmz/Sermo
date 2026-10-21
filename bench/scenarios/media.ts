@@ -13,7 +13,7 @@ const rules = {
     { rule: { match: "all", conditions: [{ criterion: "is_guest", value: 1 }] }, tab: "hot" },
     {
       rule: { match: "all", conditions: [{ criterion: "post_count", value: 100 }] },
-      tab: "forums",
+      tab: "media",
     },
     { rule: { match: "all", conditions: [{ criterion: "is_guest", value: 0 }] }, tab: "following" },
   ],

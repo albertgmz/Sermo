@@ -6,7 +6,7 @@ import { REFERRAL_PARAM } from "@/lib/referral/link";
 // would fetch a whole HTML page the click never uses. So the rules cover only the anchors in a
 // rendered body (`.bb-content`, the backend's HTML, see html-content.tsx: posts, messages, the
 // composer's preview, the staff queues), which load a new document when followed. Only a thread
-// or a forum at its own address (`<id>-<slug>`, one segment), or the forum list, is fetched: a
+// or a forum at its own address (`<id>-<slug>`, one segment), or the forum list (`/`), is fetched: a
 // bare id is answered with a redirect to that address, which the browser will not follow for a
 // prefetch, and the shape keeps the editor, the new-thread form and the upload route out. An address with a referral code is left alone: loading it gives the credit.
 // So is any query with a percent sign: the proxy decodes the query (`?%72ef=` is `?ref=`), and
@@ -22,7 +22,9 @@ export const SPECULATION_RULES = {
             href_matches: [
               "/threads/:thread(\\d+)-:slug",
               "/forums/:forum(\\d+)-:slug",
-              "/forums",
+              // The forum list, the home page, at its plain address: an old address with a
+              // query (`/?tab=hot`) is redirected.
+              { pathname: "/", search: "" },
             ],
           },
           {

@@ -112,9 +112,9 @@ setup("sign in, seed and warm up", async ({ page }) => {
 
   for (const path of [
     "/",
-    "/?tab=hot",
-    "/?tab=media",
-    "/forums",
+    "/novedades",
+    "/novedades?tab=hot",
+    "/novedades?tab=media",
     `/forums/${forum.id}`,
     `/threads/${threadId}`,
     "/search?q=phone",

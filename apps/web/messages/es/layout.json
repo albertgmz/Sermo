@@ -127,15 +127,15 @@
     }
   },
   "navigation": {
-    "headerHome": "Inicio",
-    "headerForums": "Foros",
+    "headerHome": "Foros",
+    "headerNovedades": "Novedades",
     "headerMembers": "Miembros",
     "headerAwards": "Trofeos",
     "headerCredits": "Créditos",
     "mobileHome": "Inicio",
+    "mobileNovedades": "Novedades",
     "mobileMessages": "Mensajes",
     "mobileAlerts": "Alertas",
-    "mobileProfile": "Perfil",
     "mobileLogin": "Iniciar sesión",
     "accountProfile": "Perfil",
     "accountSettings": "Cuenta",

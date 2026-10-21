@@ -62,7 +62,7 @@ test("navigation is public, its administration is not, and PATCH null reaches th
   const guest = await request("/api/v1/navigation");
   expect(guest.status).toBe(200);
   const view = (await guest.json()) as { header: { title: string }[]; footer: unknown[] };
-  expect(view.header[0]?.title).toBe("Home");
+  expect(view.header[0]?.title).toBe("Forums");
 
   expect((await request("/api/v1/navigation/entries")).status).toBe(401);
   expect((await request("/api/v1/navigation/entries", json(member.cookie, "GET"))).status).toBe(

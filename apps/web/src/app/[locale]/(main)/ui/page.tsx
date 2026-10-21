@@ -219,8 +219,8 @@ const TOKENS = [
 // The entries a site ships with; a real site reads them from the navigation.
 const NAV_SAMPLES = toNavItems(
   [
-    ["header.home", "Home", "/"],
-    ["header.forums", "Forums", "/forums"],
+    ["header.home", "Forums", "/"],
+    ["header.novedades", "What's new", "/novedades"],
     ["header.members", "Members", "/members"],
     ["header.awards", "Awards", "/awards"],
     ["header.credits", "Credits", "/credits"],
@@ -527,7 +527,7 @@ export default async function StyleguidePage() {
           <PageBreadcrumb
             items={[
               { label: "Home", href: "/" },
-              { label: "General", href: "/forums" },
+              { label: "General", href: "/forums/1" },
               { label: FORUMS[1].title },
             ]}
           />
@@ -1897,7 +1897,7 @@ export default async function StyleguidePage() {
             <p className="text-sm">Thanks, that fixed it for me.</p>
             <SignatureHtml className="mt-3 border-t pt-2">
               {
-                '<p><em>Measure twice, cut once.</em><br>Commissions are open: <a href="/forums">see my threads</a>.</p>'
+                '<p><em>Measure twice, cut once.</em><br>Commissions are open: <a href="/forums/1">see my threads</a>.</p>'
               }
             </SignatureHtml>
           </div>

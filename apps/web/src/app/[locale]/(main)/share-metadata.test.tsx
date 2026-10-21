@@ -63,7 +63,7 @@ const thread = await import("./threads/[id]/page");
 const forum = await import("./forums/[id]/page");
 const member = await import("./members/[id]/page");
 const account = await import("./account/page");
-const forumList = await import("./forums/page");
+const forumList = await import("./page");
 const accountLayout = await import("./account/layout");
 
 afterAll(() => {
@@ -494,10 +494,16 @@ test("a renamed thread names a new card", async () => {
   expect(after).not.toBe(before);
 });
 
-test("a list page shares the site's card and names its own address as canonical", async () => {
-  const head = await forumList.generateMetadata();
-  expect(head.alternates?.canonical).toBe("http://localhost:3000/forums");
-  expect(head.openGraph?.url).toBe("http://localhost:3000/forums");
+test("the home page, the forum list, shares the site's card under the site's name at its own address", async () => {
+  const head = await forumList.generateMetadata({
+    params: Promise.resolve({ locale: "en" }),
+    searchParams: Promise.resolve({}),
+  });
+  expect(head.title).toEqual({ absolute: "Garden Club" });
+  expect(head.alternates?.canonical).toBe("http://localhost:3000/");
+  expect(head.openGraph?.url).toBe("http://localhost:3000/");
+  expect(head.openGraph?.title).toBe("Garden Club");
+  expect(head.robots).toEqual({ index: true, follow: true });
   expect(head.openGraph?.images).toEqual([
     card(SITE_CARD, null, "Garden Club"),
   ]);

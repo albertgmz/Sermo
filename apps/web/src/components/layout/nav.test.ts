@@ -38,8 +38,8 @@ function entry(
   };
 }
 
-const [forums, custom, external, heading] = toNavItems([
-  entry("header.forums", "/forums"),
+const [home, custom, external, heading] = toNavItems([
+  entry("header.home", "/"),
   entry(null, "/pages/rules", "Rules"),
   entry(null, "https://example.test/a"),
   entry("footer.legal", null, "Legal", [entry(null, "/terms")]),
@@ -53,16 +53,22 @@ test("a path is current for itself and its sub-paths; the root only for itself",
   expect(isActivePath("/threads/1", "/forums", ["/threads"])).toBe(true);
 });
 
-test("the header forums entry also matches threads and the mobile profile matches the account", () => {
-  expect(isCurrent("/threads/1", forums)).toBe(true);
-  expect(isCurrent("/forums", forums)).toBe(true);
+test("Home is the forum list: it also matches a forum and a thread; What's new matches its own page", () => {
+  const [mobileHome, novedades] = toNavItems([
+    entry("mobile.home", "/"),
+    entry("mobile.novedades", "/novedades"),
+  ]);
+  for (const entry of [home, mobileHome]) {
+    expect(isCurrent("/", entry)).toBe(true);
+    expect(isCurrent("/forums/3-garden", entry)).toBe(true);
+    expect(isCurrent("/threads/1", entry)).toBe(true);
+    expect(isCurrent("/novedades", entry)).toBe(false);
+    expect(isCurrent("/members", entry)).toBe(false);
+  }
+  expect(isCurrent("/novedades", novedades)).toBe(true);
+  expect(isCurrent("/", novedades)).toBe(false);
+  expect(isCurrent("/threads/1", novedades)).toBe(false);
   expect(isCurrent("/threads/1", custom)).toBe(false);
-  const [profile] = toNavItems(
-    [entry("mobile.profile", "/members")],
-    "/members/7",
-  );
-  expect(isCurrent("/account/data-saver", profile)).toBe(true);
-  expect(isCurrent("/members/7", profile)).toBe(true);
 });
 
 test("any other entry matches its own path and sub-paths, ignoring a query", () => {
@@ -73,20 +79,17 @@ test("any other entry matches its own path and sub-paths, ignoring a query", () 
   expect(isCurrent("/search", withQuery)).toBe(true);
 });
 
-test("the profile entries lead to the member's own page", () => {
+test("the profile entry leads to the member's own page", () => {
   const entries = [
-    entry("mobile.profile", "/members"),
     entry("account.profile", "/members"),
     entry("mobile.home", "/"),
   ];
   expect(toNavItems(entries, "/members/7").map((item) => item.href)).toEqual([
     "/members/7",
-    "/members/7",
     "/",
   ]);
   // Without a member the stored target stays.
   expect(toNavItems(entries).map((item) => item.href)).toEqual([
-    "/members",
     "/members",
     "/",
   ]);

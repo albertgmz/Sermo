@@ -18,6 +18,7 @@
   },
   "forums": {
     "metaTitle": "Forums",
+    "metaDescription": "Every forum on {site}, with its latest activity.",
     "heading": "Ask questions. Share what you know.",
     "description": "Join a community of makers who trade ideas, feedback and good advice every day.",
     "login": "Log in",

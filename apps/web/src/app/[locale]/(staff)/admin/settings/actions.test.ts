@@ -783,7 +783,7 @@ test("the home tab form sends its rules ordered by position, leaves out rows wit
       form(
         [
           ["homeTab.rules.0.rule", members],
-          ["homeTab.rules.0.tab", "forums"],
+          ["homeTab.rules.0.tab", "following"],
           ["homeTab.rules.0.position", "3"],
           ["homeTab.rules.1.rule", everyone],
           ["homeTab.rules.1.tab", ""],
@@ -808,7 +808,7 @@ test("the home tab form sends its rules ordered by position, leaves out rows wit
             match: "all",
             conditions: [{ criterion: "is_guest", value: 0 }],
           },
-          tab: "forums",
+          tab: "following",
         },
       ],
       fallback: "hot",
@@ -828,7 +828,7 @@ test("equal positions keep the order of the rows, and a blank position is the ro
           ["homeTab.rules.0.tab", "hot"],
           ["homeTab.rules.0.position", "2"],
           ["homeTab.rules.1.rule", members],
-          ["homeTab.rules.1.tab", "forums"],
+          ["homeTab.rules.1.tab", "following"],
           ["homeTab.rules.1.position", "2"],
           ["homeTab.rules.2.rule", everyone],
           ["homeTab.rules.2.tab", "media"],
@@ -843,7 +843,7 @@ test("equal positions keep the order of the rows, and a blank position is the ro
     homeTab: { rules: { tab: string }[] };
   };
   const { rules } = body.homeTab;
-  expect(rules.map((rule) => rule.tab)).toEqual(["hot", "forums", "media"]);
+  expect(rules.map((rule) => rule.tab)).toEqual(["hot", "following", "media"]);
 });
 
 test("a form that did not show the home tab setting writes nothing", async () => {

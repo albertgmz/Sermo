@@ -1,3 +1,4 @@
+import { NOVEDADES_PATH } from "@/lib/home-tabs";
 import { FORUM_PREFIX } from "@/lib/sermo/addresses";
 import { parseId } from "@/lib/sermo/ids";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
@@ -38,8 +39,9 @@ const TARGETS: Record<Exclude<Kind, "forum">, string> = {
   conversation: "conversations",
 };
 
-// Sections whose every address goes to the front page.
-const HOME_SECTIONS = ["novedades", "whats-new", "find-new"];
+// Sections whose every address goes to the feed page. `/novedades` itself is this app's own
+// address, so only its sub-pages (`/novedades/posts/`) are rewritten.
+const NOVEDADES_SECTIONS = ["whats-new", "find-new"];
 const ACCOUNT_PAGES: Record<string, string> = {
   login: "/login",
   register: "/register",
@@ -91,9 +93,12 @@ export function xenforoTarget(pathname: string, search: string) {
   const lowered = segments.map((part) => part.toLowerCase());
   const [first = "", second = ""] = lowered;
   if (segments.length === 0) return viaIndex ? "/" : undefined;
-  if (HOME_SECTIONS.includes(first)) return "/";
+  if (NOVEDADES_SECTIONS.includes(first)) return NOVEDADES_PATH;
+  if (first === NOVEDADES_PATH.slice(1))
+    return viaIndex || segments.length > 1 ? NOVEDADES_PATH : undefined;
   if (first === "forums" && segments.length === 1) {
-    // `/forums` is this app's own list of forums.
+    // XenForo's forum list is this app's home page. The app's own `/forums` is left to the proxy,
+    // which sends it to `/` as well.
     return viaIndex ? "/" : undefined;
   }
   if (segments.length === 1 && first in ACCOUNT_PAGES) {

@@ -2,16 +2,18 @@ import { afterAll, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 
+let pathname = "/";
 const navigation = { ...(await import("next/navigation")) };
 mock.module("next/navigation", () => ({
   ...navigation,
-  usePathname: () => "/",
+  usePathname: () => pathname,
 }));
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
 });
 
 const { MobileNav } = await import("./mobile-nav");
+const { mobileItems, toNavItems } = await import("./nav");
 
 const item = (id: number, title: string, builtin: string, href: string) => ({
   id,
@@ -26,12 +28,12 @@ const item = (id: number, title: string, builtin: string, href: string) => ({
   children: [],
 });
 
-// A member's bar: Home, Messages, Alerts, Profile.
+// A member's bar: Home, What's new, Messages, Alerts.
 const items = [
   item(1, "Home", "mobile.home", "/"),
-  item(2, "Messages", "mobile.messages", "/conversations"),
-  item(3, "Alerts", "mobile.alerts", "/notifications"),
-  item(4, "Profile", "mobile.profile", "/members/1"),
+  item(2, "What's new", "mobile.novedades", "/novedades"),
+  item(3, "Messages", "mobile.messages", "/conversations"),
+  item(4, "Alerts", "mobile.alerts", "/notifications"),
 ];
 
 const bar = (conversations: number, notifications: number) =>
@@ -72,9 +74,85 @@ test("nothing unread, no number; the other entries never carry one", () => {
   expect(html).not.toContain("unread");
   const busy = bar(4, 4);
   expect(entry(busy, "/")).not.toContain("count-badge");
-  expect(entry(busy, "/members/1")).not.toContain("count-badge");
+  expect(entry(busy, "/novedades")).not.toContain("count-badge");
 });
 
 test("Messages wears the same envelope as the header's Messages button", () => {
   expect(entry(bar(0, 0), "/conversations")).toContain("lucide-mail");
+});
+
+// The bar as the layout builds it from the navigation the backend sends.
+const shipped = (member: boolean) =>
+  mobileItems(
+    toNavItems(
+      [
+        ["Home", "mobile.home", "/"],
+        ["What's new", "mobile.novedades", "/novedades"],
+        ...(member
+          ? [
+              ["Messages", "mobile.messages", "/conversations"],
+              ["Alerts", "mobile.alerts", "/notifications"],
+            ]
+          : [["Log in", "mobile.login", "/login"]]),
+      ].map(([title, builtin, target], id) => ({
+        id,
+        title,
+        target,
+        builtin,
+        icon: null,
+        iconPosition: "before" as const,
+        children: [],
+      })),
+    ),
+  );
+
+const drawn = (member: boolean, at = "/") => {
+  pathname = at;
+  try {
+    return renderToStaticMarkup(
+      withIntl(
+        <MobileNav
+          items={shipped(member)}
+          unread={{ conversations: 0, notifications: 0 }}
+          member={member}
+        />,
+      ),
+    );
+  } finally {
+    pathname = "/";
+  }
+};
+
+// The entries in the order drawn, the + as "+", and which one is current.
+const order = (html: string) =>
+  [...html.matchAll(/<a [^>]*href="([^"]+)"[^>]*>|aria-label="Create"/g)].map(
+    ([whole, href]) => href ?? (whole.includes("Create") ? "+" : whole),
+  );
+const current = (html: string) =>
+  [...html.matchAll(/<a ([^>]*)>/g)]
+    .filter(([, attributes]) => attributes.includes('aria-current="page"'))
+    .map(([, attributes]) => /href="([^"]+)"/.exec(attributes)?.[1]);
+
+test("a member's bar is Home, What's new, +, Messages and Alerts; a guest's is Home, What's new, + and Log in", () => {
+  expect(order(drawn(true))).toEqual([
+    "/",
+    "/novedades",
+    "+",
+    "/conversations",
+    "/notifications",
+  ]);
+  const guest = order(drawn(false));
+  expect(guest[0]).toBe("/");
+  expect(guest[1]).toBe("/novedades");
+  expect(guest.at(-1)).toBe("/login");
+  expect(guest).toHaveLength(4);
+  expect(drawn(true)).toContain("lucide-newspaper");
+});
+
+test("Home is current on the forum list, a forum and a thread; What's new on its own page", () => {
+  for (const at of ["/", "/forums/3-garden", "/threads/1-a"])
+    expect(current(drawn(true, at)), at).toEqual(["/"]);
+  expect(current(drawn(true, "/novedades"))).toEqual(["/novedades"]);
+  expect(current(drawn(false, "/novedades"))).toEqual(["/novedades"]);
+  expect(current(drawn(true, "/members"))).toEqual([]);
 });

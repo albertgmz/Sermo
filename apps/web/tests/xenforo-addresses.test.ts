@@ -59,7 +59,8 @@ test("the index.php form is read like the path form", () => {
     ["/index.php?conversations/7/", "/conversations/7"],
     ["/index.php?goto/post&id=31", "/posts/31"],
     ["/index.php?forums/", "/"],
-    ["/index.php?whats-new/", "/"],
+    ["/index.php?whats-new/", "/novedades"],
+    ["/index.php?novedades/", "/novedades"],
     ["/index.php?login/", "/login"],
     ["/index.php?register/", "/register"],
     ["/index.php?lost-password/", "/forgot-password"],
@@ -179,12 +180,14 @@ test("wall posts and their comments go to their own addresses", () => {
   ]);
 });
 
-test("the news pages go to the front page and the account pages to theirs", () => {
+test("the news pages go to the feed page and the account pages to theirs", () => {
   cases([
-    ["/novedades/", "/"],
-    ["/novedades/posts/", "/"],
-    ["/whats-new/latest-activity", "/"],
-    ["/find-new/threads", "/"],
+    ["/novedades/posts/", "/novedades"],
+    ["/novedades/latest-activity?x=1", "/novedades"],
+    ["/whats-new/", "/novedades"],
+    ["/whats-new/posts/", "/novedades"],
+    ["/whats-new/latest-activity", "/novedades"],
+    ["/find-new/threads", "/novedades"],
     ["/lost-password/", "/forgot-password"],
   ]);
 });
@@ -192,6 +195,9 @@ test("the news pages go to the front page and the account pages to theirs", () =
 test("this site's own addresses and unknown ones are not redirected", () => {
   cases([
     ["/", undefined],
+    // The feed page itself.
+    ["/novedades", undefined],
+    ["/novedades/", undefined],
     ["/threads/123", undefined],
     ["/threads/123-slug", undefined],
     ["/threads/123-slug?page=2", undefined],

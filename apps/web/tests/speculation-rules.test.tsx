@@ -79,7 +79,7 @@ test("a link in a post body to a thread or a forum at its own address, or to the
     "/threads/12-a-title?page=3",
     "/threads/12-a-title#post-40",
     "/forums/4-news",
-    "/forums",
+    "/",
     `${ORIGIN}/threads/12-a-title`,
   ])
     expect([href, prefetched(inBody(href))]).toEqual([href, true]);
@@ -92,6 +92,9 @@ test("nothing with a side effect, nothing that redirects, nothing elsewhere and 
     "/forums/4",
     "/threads/12?page=2",
     "/threads/12-a-title/edit/40",
+    // The forum list's old address, and the feed's old one on the home page.
+    "/forums",
+    "/?tab=hot",
     "/threads/12/uploads",
     "/forums/4-news/new",
     "/posts/40",
@@ -112,13 +115,13 @@ test("a referral link is not prefetched: loading it gives the credit", () => {
   for (const href of [
     "/threads/12-a-title?ref=3",
     "/threads/12-a-title?page=2&ref=3",
-    "/forums?ref=3",
+    "/?ref=3",
     // The proxy decodes the query: these name `ref` too.
     "/threads/12-a-title?%72ef=3",
     "/threads/12-a-title?a=1&%72ef=3",
     "/threads/12-a-title?r%65f=3",
     "/threads/12-a-title?%52EF=3&ref=3",
-    "/forums?%72%65%66=3",
+    "/?%72%65%66=3",
   ])
     expect([href, prefetched(inBody(href))]).toEqual([href, false]);
   expect(prefetched(inBody("/threads/12-a-title?page=2&pref=3"))).toBe(true);

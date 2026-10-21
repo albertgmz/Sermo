@@ -34,12 +34,12 @@ export const SelfUser = z
     language: z.string().nullable(),
     /** Whether the member keeps the web interface's keyboard shortcuts on (their preference). */
     keyboardShortcuts: z.boolean(),
-    /** The home page tab the member chose; null when they made no choice (the site default applies). */
+    /** The tab of the feed page (What's new) the member chose; null when they made no choice (the site default applies). */
     homeTab: z.enum(HOME_TABS).nullable(),
     /** How the member wants the feed drawn: full cards or compact rows. */
     feedView: z.enum(FEED_VIEWS),
     /**
-     * The tab the home page opens on for this member when the address names none: their choice
+     * The tab the feed page (What's new) opens on for this member when the address names none: their choice
      * (`homeTab`), else the site's home tab rules decided for them, else the site's fallback.
      */
     openHomeTab: z.enum(HOME_TABS),

@@ -29,9 +29,9 @@
       "analyticsDescription": "Una etiqueta de analítica de visitas que se añade a todas las páginas públicas. El panel del personal nunca la lleva."
     },
     "home": {
-      "metaTitle": "Página de inicio",
-      "heading": "Página de inicio",
-      "subtitle": "Con qué pestaña se abre el inicio para los visitantes que no han elegido la suya. Decide la primera regla que cumpla el visitante; la pestaña de reserva es para todos los demás. Los miembros pueden elegir la suya en sus preferencias, y todas las pestañas están a un clic.",
+      "metaTitle": "Novedades",
+      "heading": "Novedades",
+      "subtitle": "Con qué pestaña se abre Novedades (la página de actividad) para los visitantes que no han elegido la suya. Decide la primera regla que cumpla el visitante; la pestaña de reserva es para todos los demás. Los miembros pueden elegir la suya en sus preferencias, y todas las pestañas están a un clic.",
       "formHeading": "Pestaña de apertura",
       "ruleRow": "Regla {n}",
       "tabLabel": "Se abre en",
@@ -39,14 +39,13 @@
       "positionLabel": "Posición",
       "positionHelp": "Las reglas se prueban desde la posición más baja. Con posiciones iguales se mantiene el orden mostrado.",
       "fallbackLabel": "Todos los demás se abren en",
-      "excludedLabel": "Fuera del inicio",
-      "excludedHelp": "Los temas de los foros que marques (y de los foros que hay dentro) no se muestran nunca en el inicio, para nadie, ni siquiera cuando un filtro nombra el foro. Los foros siguen abiertos en todo lo demás. Cada miembro también puede ocultar foros de su propio inicio.",
+      "excludedLabel": "Fuera de novedades",
+      "excludedHelp": "Los temas de los foros que marques (y de los foros que hay dentro) no se muestran nunca en Novedades, para nadie, ni siquiera cuando un filtro nombra el foro. Los foros siguen abiertos en todo lo demás. Cada miembro también puede ocultar foros de su propia actividad.",
       "fallbackHelp": "Siguiendo necesita una cuenta, así que una regla que pueden cumplir los invitados no puede abrir en ella, ni tampoco la pestaña de reserva.",
       "tabs": {
         "latest": "Recientes",
         "hot": "Tendencias",
         "following": "Siguiendo",
-        "forums": "Foros",
         "media": "Multimedia"
       }
     },

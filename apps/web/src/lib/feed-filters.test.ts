@@ -62,8 +62,8 @@ test("a filter is one address, whatever order it was built in", () => {
   expect(filterFromParams(Object.fromEntries(filterParams(filter)))).toEqual(
     filter,
   );
-  expect(feedHref("hot", { prefixId: 3 })).toBe("/?tab=hot&prefix=3");
-  expect(feedHref("latest")).toBe("/?tab=latest");
+  expect(feedHref("hot", { prefixId: 3 })).toBe("/novedades?tab=hot&prefix=3");
+  expect(feedHref("latest")).toBe("/novedades?tab=latest");
 });
 
 test("a chip takes its field off, one forum at a time", () => {

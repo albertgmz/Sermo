@@ -104,8 +104,8 @@ export const PERMISSION_SCOPES = ["global", "node"] as const;
 export const PERMISSION_VALUE_TYPES = ["flag", "integer"] as const;
 export const USER_PROMOTION_STATES = ["auto", "manual", "exempt"] as const;
 export const PROMOTION_LOG_ACTIONS = ["promote", "demote", "exempt", "reset"] as const;
-/** The tabs of the home page, in the fixed order they fill the bar after the default tab. */
-export const HOME_TABS = ["latest", "hot", "following", "forums", "media"] as const;
+/** The tabs of the feed page (What's new), in the fixed order they fill the bar after the default tab. */
+export const HOME_TABS = ["latest", "hot", "following", "media"] as const;
 export type HomeTab = (typeof HOME_TABS)[number];
 /** How the feed draws its entries: full cards or one compact row each. */
 export const FEED_VIEWS = ["cards", "compact"] as const;

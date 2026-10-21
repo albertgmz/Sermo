@@ -10,37 +10,34 @@ import {
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test("a guest goes from the home feed to a forum, a thread, a profile and search @all", async ({
+test("a guest goes from the feed to the forum list, a forum, a thread, a profile and search @all", async ({
   page,
 }) => {
-  await visit(page, "/");
+  await visit(page, "/novedades");
   await rejectCookies(page);
   await expect(
-    page.getByRole("heading", { name: "Home", level: 1 }),
+    page.getByRole("heading", { name: "What's new", level: 1 }),
   ).toBeVisible();
   await expect(page.getByRole("article").first()).toBeVisible();
   if (phoneWidth(page))
     await expect(
       page.getByRole("navigation", { name: "Primary" }),
     ).toBeVisible();
-  await expectFits(page, "home");
+  await expectFits(page, "feed");
 
-  // A phone has no Forums link in its bars: the forums are a tab of the home page.
+  // The home page is the forum list: Home on a phone's bar, Forums in the header.
   if (phoneWidth(page)) {
     await page
-      .getByRole("navigation", { name: "Home tabs" })
-      .getByRole("link", { name: "Forums", exact: true })
+      .getByRole("navigation", { name: "Primary" })
+      .getByRole("link", { name: "Home", exact: true })
       .click();
-    await expect(page).toHaveURL(/[?&]tab=forums/);
-    await expectFits(page, "forums tab");
-    await visit(page, "/forums");
   } else {
     await page
       .getByRole("link", { name: "Forums", exact: true })
       .first()
       .click();
-    await expect(page).toHaveURL(/\/forums$/);
   }
+  await expect(page).toHaveURL((url) => url.pathname === "/" && !url.search);
   await expectFits(page, "forums");
 
   const forum = page

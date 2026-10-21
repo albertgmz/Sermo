@@ -36,6 +36,7 @@ import {
 import { CONSENT_COOKIE, REFERRAL_COOKIE } from "@/lib/consent/inventory";
 import { consentOf, mayStoreReferral, sendsGpc } from "@/lib/consent/state";
 import { DISCOVERY_LINKS } from "@/lib/discovery-links";
+import { homeRedirectTarget } from "@/lib/home-redirects";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -781,6 +782,16 @@ function legacyForumRedirect(request: NextRequest) {
   return NextResponse.redirect(target, 308);
 }
 
+// The home page used to be the feed and the forum list was `/forums`: their addresses go to the
+// forum list (`/`) or the feed (`/novedades`) for good (`lib/home-redirects.ts` has the rules).
+function homeRedirect(request: NextRequest) {
+  if (request.method !== "GET" && request.method !== "HEAD") return undefined;
+  const { pathname, search } = request.nextUrl;
+  const current = homeRedirectTarget(pathname, search);
+  if (!current) return undefined;
+  return NextResponse.redirect(new URL(current, request.url), 308);
+}
+
 // The forum this site replaced was a XenForo one, and its addresses are in search results,
 // bookmarks and imported posts. The ids were kept, so each goes to its page for good with no
 // lookup; the query is dropped (`lib/sermo/xenforo-addresses.ts` has the rules).
@@ -890,6 +901,8 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
   if (legacy) return legacy;
   const xenforo = xenforoRedirect(request);
   if (xenforo) return xenforo;
+  const home = homeRedirect(request);
+  if (home) return home;
   if (isUnknownUnsafePath(request.nextUrl.pathname))
     return notFound(request, locale, security);
   let pathname: string;
@@ -992,9 +1005,10 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
 
 const GUEST_PAGE_CACHE = "private, no-cache";
 
-// The pages a guest reads the forum through: the home page, and threads, forums, members and tags
-// with their lists. Their sub-pages (an editor, the new-thread form) are not among them.
-const PUBLIC_CONTENT = ["threads", "forums", "members", "tags"];
+// The pages a guest reads the forum through: the home page (the forum list), the feed, and threads,
+// forums, members and tags with their lists. Their sub-pages (an editor, the new-thread form) are
+// not among them.
+const PUBLIC_CONTENT = ["novedades", "threads", "forums", "members", "tags"];
 
 function isPublicContent(
   section: string,

@@ -22,7 +22,7 @@ const draw = (current: Parameters<typeof SettingsGroups>[0]["current"]) =>
 
 const GROUPS = [
   ["General", "/admin/settings"],
-  ["Home page", "/admin/settings/home"],
+  ["What&#x27;s new", "/admin/settings/home"],
   ["New members", "/admin/settings/members"],
   ["Anti-spam", "/admin/settings/antispam"],
   ["Uploads", "/admin/settings/uploads"],

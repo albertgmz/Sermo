@@ -82,16 +82,16 @@ const head = (searchParams: Record<string, string> = {}) =>
 test("each tab has its own title and description, built from the site's name", async () => {
   backend();
   const seen = new Set<string>();
-  for (const tab of ["latest", "hot", "forums", "media"]) {
+  for (const tab of ["latest", "hot", "media"]) {
     const metadata = await head({ tab });
     expect(typeof metadata.title, tab).toBe("string");
     expect(String(metadata.description), tab).toContain("Garden Club");
     seen.add(`${metadata.title}|${metadata.description}`);
   }
-  expect(seen.size).toBe(4);
+  expect(seen.size).toBe(3);
 });
 
-test("the home page is shared as the site, a tab under its own title, with the site's feed", async () => {
+test("the feed page is shared under the title of its tab, with the site's card and feed", async () => {
   backend({ siteTab: "hot", description: "A club for gardeners." });
   const home = await head();
   // The site's own share card.
@@ -110,19 +110,21 @@ test("the home page is shared as the site, a tab under its own title, with the s
     alt: "Garden Club",
   };
   expect(card.url).toStartWith("http://localhost:3000/og/site?v=");
+  const hot =
+    "The threads people are replying to and reacting to right now on Garden Club.";
   expect(home.openGraph).toEqual({
     type: "website",
-    title: "Garden Club",
-    description: "A club for gardeners.",
-    url: "http://localhost:3000/",
+    title: "Trending threads",
+    description: hot,
+    url: "http://localhost:3000/novedades",
     siteName: "Garden Club",
     locale: "en_US",
     images: [card],
   });
   expect(home.twitter).toEqual({
     card: "summary_large_image",
-    title: "Garden Club",
-    description: "A club for gardeners.",
+    title: "Trending threads",
+    description: hot,
     images: [card],
   });
   expect(home.alternates?.types).toEqual({
@@ -136,10 +138,12 @@ test("the home page is shared as the site, a tab under its own title, with the s
   locale = "es";
   const latest = await head({ tab: "latest" });
   expect(latest.openGraph?.title).toBe("Últimos temas y publicaciones");
-  expect(latest.openGraph?.url).toBe("http://localhost:3000/?tab=latest");
+  expect(latest.openGraph?.url).toBe(
+    "http://localhost:3000/novedades?tab=latest",
+  );
   expect(latest.openGraph?.locale).toBe("es_ES");
   expect(latest.alternates?.canonical).toBe(
-    "http://localhost:3000/?tab=latest",
+    "http://localhost:3000/novedades?tab=latest",
   );
 });
 
@@ -164,12 +168,14 @@ test("the texts are in the page language", async () => {
 
 test("the bare address is the canonical of the guests' tab; the others are named", async () => {
   backend({ siteTab: "hot" });
-  expect((await head()).alternates?.canonical).toBe("http://localhost:3000/");
+  expect((await head()).alternates?.canonical).toBe(
+    "http://localhost:3000/novedades",
+  );
   expect((await head({ tab: "hot" })).alternates?.canonical).toBe(
-    "http://localhost:3000/",
+    "http://localhost:3000/novedades",
   );
   expect((await head({ tab: "latest" })).alternates?.canonical).toBe(
-    "http://localhost:3000/?tab=latest",
+    "http://localhost:3000/novedades?tab=latest",
   );
   expect((await head()).title).toBe("Trending threads");
 });
@@ -190,7 +196,7 @@ test("a paged, filtered or picture address is noindex and points at the tab", as
       follow: true,
     });
     expect(metadata.alternates?.canonical).toBe(
-      "http://localhost:3000/?tab=hot",
+      "http://localhost:3000/novedades?tab=hot",
     );
   }
   expect((await head({ tab: "hot" })).robots).toEqual({
@@ -204,35 +210,40 @@ test("Following is never indexed, and a guest who asks for it gets a copy of Lat
   const own = await head({ tab: "following" });
   expect(own.robots).toEqual({ index: false, follow: true });
   expect(own.alternates?.canonical).toBe(
-    "http://localhost:3000/?tab=following",
+    "http://localhost:3000/novedades?tab=following",
   );
   backend();
   const guest = await head({ tab: "following" });
   expect(guest.robots).toEqual({ index: false, follow: true });
-  expect(guest.alternates?.canonical).toBe("http://localhost:3000/");
+  expect(guest.alternates?.canonical).toBe("http://localhost:3000/novedades");
   expect(guest.title).toBe("Latest threads and posts");
 });
 
-test("the owner's own description speaks for the home address only", async () => {
+test("the owner's own description is the forum list's, not the feed's", async () => {
   backend({ description: "A club for gardeners." });
-  expect((await head()).description).toBe("A club for gardeners.");
-  expect((await head({ tab: "hot" })).description).toContain("Garden Club");
+  expect((await head()).description).toBe(
+    "The newest threads and replies on Garden Club.",
+  );
 });
 
 test("a member whose own tab differs gets the head of the tab shown; a guest does not depend on it", async () => {
   backend({ member: true, siteTab: "latest", own: "hot" });
   const member = await head();
   expect(member.title).toBe("Trending threads");
-  expect(member.alternates?.canonical).toBe("http://localhost:3000/?tab=hot");
+  expect(member.alternates?.canonical).toBe(
+    "http://localhost:3000/novedades?tab=hot",
+  );
   backend({ siteTab: "latest" });
   const guest = await head();
   expect(guest.title).toBe("Latest threads and posts");
-  expect(guest.alternates?.canonical).toBe("http://localhost:3000/");
+  expect(guest.alternates?.canonical).toBe("http://localhost:3000/novedades");
 });
 
 test("tracking parameters leave a plain tab address indexed", async () => {
   backend();
   const metadata = await head({ utm_source: "news", fbclid: "x", ref: "7" });
   expect(metadata.robots).toEqual({ index: true, follow: true });
-  expect(metadata.alternates?.canonical).toBe("http://localhost:3000/");
+  expect(metadata.alternates?.canonical).toBe(
+    "http://localhost:3000/novedades",
+  );
 });

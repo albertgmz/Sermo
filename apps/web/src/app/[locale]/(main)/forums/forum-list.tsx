@@ -20,8 +20,7 @@ import { membersFor } from "@/lib/sermo/members";
 import { getSite } from "@/lib/sermo/site";
 
 // The forum list: the statistics panel (when the site shows it) and the categories under the
-// section tabs. The `/forums` page and the home page's Forums tab both draw it; each says where
-// its section and statistics links go.
+// section tabs, drawn by the home page; it says where its section and statistics links go.
 //
 // Props
 //   section  The section tab chosen in the address (the id of a forum tab), or null for the first.

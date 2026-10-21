@@ -18,6 +18,7 @@
   },
   "forums": {
     "metaTitle": "Foros",
+    "metaDescription": "Todos los foros de {site}, con su actividad más reciente.",
     "heading": "Haz preguntas. Comparte lo que sabes.",
     "description": "Únete a una comunidad de creadores que intercambian ideas, opiniones y buenos consejos cada día.",
     "login": "Iniciar sesión",

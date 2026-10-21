@@ -208,7 +208,7 @@ export const MemberPreferences = z
     profilePostPrivacy: z.enum(PROFILE_POST_PRIVACY),
     /** Whether the keyboard shortcuts of the web interface are on. */
     keyboardShortcuts: z.boolean(),
-    /** The tab of the home page you open on; null follows the site default. */
+    /** The tab of the feed page (What's new) you open on; null follows the site default. */
     homeTab: z.enum(HOME_TABS).nullable(),
     /** How the feed is drawn for you: full cards or compact rows. */
     feedView: z.enum(FEED_VIEWS),

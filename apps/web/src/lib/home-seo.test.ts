@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { homeAddress, homeMetadata } from "./home-seo";
+import { forumListAddress, homeAddress, homeMetadata } from "./home-seo";
 import { HOME_TABS, type HomeTab } from "./home-tabs";
 
 const address = (
@@ -9,48 +9,50 @@ const address = (
 ) => homeAddress({ opened, guestTab, params });
 
 test("the bare address is the canonical of the tab guests open on, and is indexed", () => {
-  expect(address("latest")).toEqual({ path: "/", index: true });
-  expect(address("hot", {}, "hot")).toEqual({ path: "/", index: true });
-  expect(address("forums", {}, "forums")).toEqual({ path: "/", index: true });
+  expect(address("latest")).toEqual({ path: "/novedades", index: true });
+  expect(address("hot", {}, "hot")).toEqual({
+    path: "/novedades",
+    index: true,
+  });
+  expect(address("media", {}, "media")).toEqual({
+    path: "/novedades",
+    index: true,
+  });
 });
 
 test("naming the guests' own tab points at the bare address", () => {
   expect(address("latest", { tab: "latest" })).toEqual({
-    path: "/",
+    path: "/novedades",
     index: true,
   });
   expect(address("hot", { tab: "hot" }, "hot")).toEqual({
-    path: "/",
+    path: "/novedades",
     index: true,
   });
 });
 
 test("every other public tab has its own named address", () => {
   expect(address("hot", { tab: "hot" })).toEqual({
-    path: "/?tab=hot",
+    path: "/novedades?tab=hot",
     index: true,
   });
   expect(address("media", { tab: "media" })).toEqual({
-    path: "/?tab=media",
-    index: true,
-  });
-  expect(address("forums", { tab: "forums" })).toEqual({
-    path: "/?tab=forums",
+    path: "/novedades?tab=media",
     index: true,
   });
 });
 
 test("a member who opens on another tab at the bare address gets that tab's named address", () => {
-  expect(address("hot")).toEqual({ path: "/?tab=hot", index: true });
+  expect(address("hot")).toEqual({ path: "/novedades?tab=hot", index: true });
 });
 
 test("a guest default of following is Latest: guests never open Following", () => {
-  expect(address("latest", {}, "following").path).toBe("/");
+  expect(address("latest", {}, "following").path).toBe("/novedades");
 });
 
 test("Following is the viewer's own list: never indexed", () => {
   expect(address("following", { tab: "following" })).toEqual({
-    path: "/?tab=following",
+    path: "/novedades?tab=following",
     index: false,
   });
   expect(address("following").index).toBe(false);
@@ -58,12 +60,12 @@ test("Following is the viewer's own list: never indexed", () => {
 
 test("a guest who asks for Following is shown Latest as a copy of it", () => {
   expect(address("latest", { tab: "following" })).toEqual({
-    path: "/",
+    path: "/novedades",
     index: false,
   });
 });
 
-test("a cursor, pages, a feed filter, a picture, a section or a notice make a copy of the tab", () => {
+test("a cursor, pages, a feed filter, or a picture make a copy of the tab", () => {
   const variants: Record<string, string>[] = [
     { cursor: "abc" },
     { pages: "3" },
@@ -74,19 +76,16 @@ test("a cursor, pages, a feed filter, a picture, a section or a notice make a co
     { watched: "1" },
     { unread: "1" },
     { picture: "12" },
-    { section: "5" },
-    { stats: "members" },
-    { notice: "accountDeleted" },
     { anything: "else" },
   ];
   for (const variant of variants) {
     const label = JSON.stringify(variant);
     expect(address("hot", { tab: "hot", ...variant }), label).toEqual({
-      path: "/?tab=hot",
+      path: "/novedades?tab=hot",
       index: false,
     });
     expect(address("latest", variant), label).toEqual({
-      path: "/",
+      path: "/novedades",
       index: false,
     });
   }
@@ -102,11 +101,11 @@ test("tracking parameters and the referral code do not make a copy", () => {
     "ref",
   ]) {
     expect(address("latest", { [key]: "x" }), key).toEqual({
-      path: "/",
+      path: "/novedades",
       index: true,
     });
     expect(address("hot", { tab: "hot", [key]: "x" }), key).toEqual({
-      path: "/?tab=hot",
+      path: "/novedades?tab=hot",
       index: true,
     });
   }
@@ -120,11 +119,11 @@ test("tracking parameters and the referral code do not make a copy", () => {
 
 test("a tab that names none, or names two, is a copy of the tab the page opened", () => {
   expect(address("latest", { tab: "top" })).toEqual({
-    path: "/",
+    path: "/novedades",
     index: false,
   });
   expect(address("hot", { tab: ["hot", "media"] })).toEqual({
-    path: "/?tab=hot",
+    path: "/novedades?tab=hot",
     index: false,
   });
 });
@@ -136,9 +135,27 @@ test("only the plain address of a public tab is indexed, whatever the tab", () =
   }
 });
 
+test("the forum list has the bare address; a section, statistics tab or notice is a copy of it", () => {
+  expect(forumListAddress({})).toEqual({ path: "/", index: true });
+  expect(forumListAddress({ utm_source: "x", ref: "7" })).toEqual({
+    path: "/",
+    index: true,
+  });
+  for (const variant of [
+    { section: "5" },
+    { stats: "members" },
+    { notice: "accountDeleted" },
+    { anything: "else" },
+  ])
+    expect(forumListAddress(variant), JSON.stringify(variant)).toEqual({
+      path: "/",
+      index: false,
+    });
+});
+
 test("the head carries the title, description, canonical and robots, and no Open Graph card", () => {
   const head = homeMetadata({
-    address: { path: "/?tab=hot", index: true },
+    address: { path: "/novedades?tab=hot", index: true },
     origin: "https://forum.example",
     title: "Hot threads",
     description: "Hot on Garden Club.",
@@ -146,18 +163,18 @@ test("the head carries the title, description, canonical and robots, and no Open
   expect(head).toEqual({
     title: "Hot threads",
     description: "Hot on Garden Club.",
-    alternates: { canonical: "https://forum.example/?tab=hot" },
+    alternates: { canonical: "https://forum.example/novedades?tab=hot" },
     robots: { index: true, follow: true },
   });
 });
 
 test("a copy is noindex, follow, and points at its tab", () => {
   const head = homeMetadata({
-    address: { path: "/", index: false },
+    address: { path: "/novedades", index: false },
     origin: "https://forum.example",
     title: "t",
     description: "d",
   });
   expect(head.robots).toEqual({ index: false, follow: true });
-  expect(head.alternates?.canonical).toBe("https://forum.example/");
+  expect(head.alternates?.canonical).toBe("https://forum.example/novedades");
 });

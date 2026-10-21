@@ -6,6 +6,11 @@
       "maxBytes": 317000
     },
     {
+      "name": "novedades",
+      "match": "^/\\[locale\\]/\\(main\\)/novedades$",
+      "maxBytes": 317000
+    },
+    {
       "name": "thread",
       "match": "^/\\[locale\\]/\\(main\\)/threads/\\[id\\]$",
       "maxBytes": 305000

@@ -12,22 +12,18 @@
       "title": "Following",
       "description": "Posts from the members you follow on {site}."
     },
-    "forums": {
-      "title": "Forums",
-      "description": "Every forum on {site}, with its latest activity."
-    },
     "media": {
       "title": "Latest pictures",
       "description": "The newest pictures shared on {site}."
     }
   },
   "page": {
-    "heading": "Home",
+    "heading": "What's new",
     "loadingSidebar": "Loading feed sidebar…",
     "loadingFeed": "Loading your feed…",
     "aria": {
       "newPost": "New post",
-      "feed": "Home tabs"
+      "feed": "What's new tabs"
     },
     "placeholder": "What's on your mind?",
     "description": "Posts go to your profile wall.",
@@ -38,7 +34,6 @@
       "latest": "Latest",
       "following": "Following",
       "hot": "Trending",
-      "forums": "Forums",
       "media": "Media",
       "more": "More"
     },

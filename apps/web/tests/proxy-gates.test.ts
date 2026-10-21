@@ -450,9 +450,9 @@ test("the developer page is open to a guest and to a member, in the visitor's la
 
 test("a page request carries the path and query in x-sermo-path", async () => {
   reset();
-  const response = await ask("/forums?page=2");
+  const response = await ask("/members?page=2");
   passes(response);
-  assert.equal(forwarded(response, "x-sermo-path"), "/forums?page=2");
+  assert.equal(forwarded(response, "x-sermo-path"), "/members?page=2");
   // The rest of the request is forwarded as it came.
   const kept = await ask("/", { headers: { "user-agent": "agent" } });
   assert.equal(forwarded(kept, "user-agent"), "agent");
@@ -460,15 +460,15 @@ test("a page request carries the path and query in x-sermo-path", async () => {
 
 test("a value the client sent under x-sermo-path is overwritten", async () => {
   reset();
-  const response = await ask("/forums", {
+  const response = await ask("/members", {
     headers: { "x-sermo-path": "//evil.example" },
   });
-  assert.equal(forwarded(response, "x-sermo-path"), "/forums");
+  assert.equal(forwarded(response, "x-sermo-path"), "/members");
 });
 
 test("an action's POST carries no x-sermo-path, whatever the client sent", async () => {
   reset();
-  const response = await ask("/forums", {
+  const response = await ask("/members", {
     method: "POST",
     headers: { "x-sermo-path": "/forged" },
   });
@@ -506,7 +506,7 @@ test("a page, a 404 and a picture's 404 are rendered with the nonce the browser 
     "x-nonce": "forged",
     "content-security-policy": "script-src 'nonce-forged'",
   };
-  const page = await ask("/forums", { headers: forged });
+  const page = await ask("/members", { headers: forged });
   passes(page);
   const missing = await ask("/forums/abc", { headers: forged });
   isNotFound(missing);
@@ -516,7 +516,7 @@ test("a page, a 404 and a picture's 404 are rendered with the nonce the browser 
   assert.equal(new Set(nonces).size, 3);
   assert.ok(!nonces.includes("forged"));
   // An action's POST is rendered with one too: it can answer with a page.
-  renderedNonce(await ask("/forums", { method: "POST" }));
+  renderedNonce(await ask("/members", { method: "POST" }));
 });
 
 test("every answer of the proxy carries the security headers; the API and Next's files are left alone", async () => {
@@ -615,8 +615,8 @@ test("a blocked picture address answers with the placeholder in the visitor's la
 
 test("the legacy LITE cookie is replaced on a page that carries the header", async () => {
   reset();
-  const response = await ask("/forums", { cookie: "forum_lite=1" });
-  assert.equal(forwarded(response, "x-sermo-path"), "/forums");
+  const response = await ask("/members", { cookie: "forum_lite=1" });
+  assert.equal(forwarded(response, "x-sermo-path"), "/members");
   assert.ok(response?.headers.get("set-cookie")?.includes("forum_lite=all"));
 });
 
@@ -1163,7 +1163,7 @@ test("an old XenForo address is a 308 to its page, without the query or a lookup
     // What the server hands the proxy for `/index.php?threads/mi-tema.5721/`.
     ["/index.php?threads%2Fmi-tema.5721%2F=", "/threads/5721"],
     ["/goto/post?id=9", "/posts/9"],
-    ["/novedades/", "/"],
+    ["/whats-new/posts/", "/novedades"],
     ["/lost-password/", "/forgot-password"],
   ]) {
     const response = await ask(from);
@@ -1178,6 +1178,49 @@ test("an old XenForo address is a 308 to its page, without the query or a lookup
   const posted = await ask("/tema/mi-tema.123/", { method: "POST" });
   assert.notEqual(posted?.status, 308);
   assert.notEqual((await ask("/threads/123-mi-tema"))?.status, 308);
+});
+
+test("the old feed and forum list addresses are a 308 to the forum list or to the feed page, keeping the query", async () => {
+  const asked = backend({});
+  for (const [from, to] of [
+    ["/?tab=latest", "/novedades?tab=latest"],
+    ["/?tab=hot&cursor=abc", "/novedades?tab=hot&cursor=abc"],
+    ["/?tab=following", "/novedades?tab=following"],
+    ["/?tab=media&picture=post-1-2", "/novedades?tab=media&picture=post-1-2"],
+    ["/?forums=3,4&unread=1", "/novedades?forums=3%2C4&unread=1"],
+    ["/?pages=2", "/novedades?pages=2"],
+    ["/?tab=forums", "/"],
+    ["/?tab=forums&section=5&stats=threads", "/?section=5&stats=threads"],
+    ["/forums", "/"],
+    ["/forums/", "/"],
+    ["/forums?tab=5&stats=reacted", "/?stats=reacted&section=5"],
+    ["/whats-new/", "/novedades"],
+    ["/find-new/posts/", "/novedades"],
+    ["/whats-new/posts/", "/novedades"],
+  ]) {
+    for (const cookie of [undefined, SESSION]) {
+      const response = await ask(from, { cookie });
+      assert.equal(response?.status, 308, from);
+      assert.equal(
+        response?.headers.get("location"),
+        `http://localhost${to}`,
+        from,
+      );
+    }
+  }
+  assert.equal(asked.length, 0);
+  // The new addresses are pages; so are a section of the list, a notice and a tracked link.
+  for (const path of [
+    "/",
+    "/?section=5&stats=threads",
+    "/?notice=accountDeleted",
+    "/?utm_source=x",
+    "/novedades",
+    "/novedades?tab=hot",
+  ])
+    passes(await ask(path));
+  // An action posts to the page it is on: nothing is redirected.
+  assert.notEqual((await ask("/?tab=hot", { method: "POST" }))?.status, 308);
 });
 
 test("a prefetch, a soft navigation or an action's POST is not looked up in the backend", async () => {
@@ -1261,7 +1304,7 @@ test("/pages/<slug> asks for that slug, and a slug that cannot exist is a 404 un
 test("only the exact static paths are looked up", async () => {
   const asked = backend({});
   passes(await ask("/"));
-  passes(await ask("/forums"));
+  passes(await ask("/members"));
   passes(await ask("/search"));
   assert.equal(asked.length, 0);
 });
@@ -1396,21 +1439,21 @@ test("the language cookie wins over the browser's language", async () => {
   reset();
   assert.equal(
     rewriteOf(
-      await ask("/forums", {
+      await ask("/members", {
         cookie: "forum_locale=en",
         headers: { "accept-language": "es-ES,es;q=0.9" },
       }),
     ),
-    "http://localhost/en/forums",
+    "http://localhost/en/members",
   );
   assert.equal(
     rewriteOf(
-      await ask("/forums", {
+      await ask("/members", {
         cookie: "forum_locale=es",
         headers: { "accept-language": "en-US" },
       }),
     ),
-    "http://localhost/es/forums",
+    "http://localhost/es/members",
   );
 });
 
@@ -1418,12 +1461,12 @@ test("a cookie that names no supported language is ignored", async () => {
   reset();
   assert.equal(
     rewriteOf(
-      await ask("/forums", {
+      await ask("/members", {
         cookie: "forum_locale=fr",
         headers: { "accept-language": "es" },
       }),
     ),
-    "http://localhost/es/forums",
+    "http://localhost/es/members",
   );
 });
 
@@ -1442,12 +1485,12 @@ test("the browser's language is negotiated by preference, then English", async (
   ];
   for (const [header, expected] of cases) {
     reset();
-    const response = await ask("/forums", {
+    const response = await ask("/members", {
       headers: header === undefined ? {} : { "accept-language": header },
     });
     assert.equal(
       rewriteOf(response),
-      `http://localhost/${expected}/forums`,
+      `http://localhost/${expected}/members`,
       String(header),
     );
   }
@@ -1455,15 +1498,15 @@ test("the browser's language is negotiated by preference, then English", async (
 
 test("the rewrite keeps the query, and the root is the language's root", async () => {
   reset();
-  const response = await ask("/forums?page=2&sort=new", {
+  const response = await ask("/members?page=2&sort=new", {
     headers: { "accept-language": "es" },
   });
   assert.equal(
     rewriteOf(response),
-    "http://localhost/es/forums?page=2&sort=new",
+    "http://localhost/es/members?page=2&sort=new",
   );
   assert.equal(rewriteOf(await ask("/")), "http://localhost/en");
-  assert.equal(forwarded(response, "x-sermo-path"), "/forums?page=2&sort=new");
+  assert.equal(forwarded(response, "x-sermo-path"), "/members?page=2&sort=new");
 });
 
 test("an address that carries the language segment is a 308 to the one without it", async () => {
@@ -1481,7 +1524,7 @@ test("an address that carries the language segment is a 308 to the one without i
     assert.equal(response?.headers.get("location"), target, path);
   }
   // A POST keeps its method through a 308.
-  const post = await ask("/es/forums", { method: "POST" });
+  const post = await ask("/es/members", { method: "POST" });
   assert.equal(post?.status, 308);
   // Segments that only start like a language are no language: here, no page either.
   isNotFound(await ask("/english"));
@@ -1594,22 +1637,22 @@ test("a picture-looking address that is no page gets the 404 of the language", a
 test("the site's default language comes after the cookie and the browser, and is asked for only then", async () => {
   reset({ siteDefault: "es" });
   assert.equal(
-    rewriteOf(await ask("/forums", { cookie: "forum_locale=en" })),
-    "http://localhost/en/forums",
+    rewriteOf(await ask("/members", { cookie: "forum_locale=en" })),
+    "http://localhost/en/members",
   );
   assert.equal(
-    rewriteOf(await ask("/forums", { headers: { "accept-language": "en" } })),
-    "http://localhost/en/forums",
+    rewriteOf(await ask("/members", { headers: { "accept-language": "en" } })),
+    "http://localhost/en/members",
   );
   assert.equal(state.defaultAsked, 0);
   assert.equal(
-    rewriteOf(await ask("/forums", { headers: { "accept-language": "fr" } })),
-    "http://localhost/es/forums",
+    rewriteOf(await ask("/members", { headers: { "accept-language": "fr" } })),
+    "http://localhost/es/members",
   );
-  assert.equal(rewriteOf(await ask("/forums")), "http://localhost/es/forums");
+  assert.equal(rewriteOf(await ask("/members")), "http://localhost/es/members");
   assert.equal(state.defaultAsked, 2);
   reset({ siteDefault: "en" });
-  assert.equal(rewriteOf(await ask("/forums")), "http://localhost/en/forums");
+  assert.equal(rewriteOf(await ask("/members")), "http://localhost/en/members");
 });
 
 test("an address no page has is a 404 in the visitor's language for every kind of request, unasked and with its nonce", async () => {
@@ -1656,7 +1699,7 @@ test("pages, the icon, the API, the upload routes, the installed app's files and
   });
   for (const path of [
     "/",
-    "/forums",
+    "/novedades",
     "/forums/3-general",
     "/threads/7-news",
     "/members",
@@ -2085,7 +2128,7 @@ test("an answer the proxy writes in the visitor's language says it depends on th
   assert.equal(placeholder?.headers.get("vary"), "Cookie, Accept-Language");
   // A page the proxy lets through gets its `Vary` from Next's render, which replaces any set here,
   // so none is set; nor on a redirect. The icon keeps its own.
-  for (const path of ["/forums", "/es/forums", "/account"])
+  for (const path of ["/members", "/es/members", "/account"])
     assert.equal((await ask(path))?.headers.get("vary"), null, path);
   assert.equal((await ask("/favicon.ico"))?.headers.get("vary"), "Cookie");
 });
@@ -2113,12 +2156,12 @@ const NAVIGATE = { "sec-fetch-mode": "navigate" };
 test("a guest's page load of a public page may be kept by the browser, never by a shared cache", async () => {
   for (const path of [
     "/",
-    "/?tab=latest",
+    "/novedades?tab=latest",
     "/threads/1-a",
     "/threads/1-a?page=2",
-    "/forums",
-    "/forums/2-b",
     "/members",
+    "/forums/2-b",
+    "/novedades",
     "/members/1-nova",
     "/tags/x",
   ]) {
@@ -2213,7 +2256,7 @@ test("every other answer is left to Next's no-store", async () => {
 test("a public page whose answer sets a cookie is not kept by the browser", async () => {
   reset();
   backend({ ...GUEST_PAGES });
-  const response = await ask("/forums", {
+  const response = await ask("/members", {
     cookie: "forum_lite=1",
     headers: NAVIGATE,
   });
@@ -2252,7 +2295,7 @@ test("every answer of the proxy names the sitemap, llms.txt, the API catalog and
     ["no page", await ask("/this-does-not-exist-xyz")],
     ["sign-in", await ask("/login")],
     ["members-only redirect", await ask("/account")],
-    ["prefix redirect", await ask("/es/forums")],
+    ["prefix redirect", await ask("/es/members")],
     [
       "placeholder",
       await ask("/pictures/tobi.jpg", { cookie: "forum_lite=all" }),

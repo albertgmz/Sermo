@@ -36,7 +36,7 @@
     "screens": {
       "home": "Inicio",
       "setupGeneral": "General",
-      "setupHome": "Página de inicio",
+      "setupHome": "Novedades",
       "setupMembers": "Nuevos miembros",
       "setupAntispam": "Antispam",
       "setupWarnings": "Advertencias",
@@ -174,7 +174,7 @@
     },
     "descriptions": {
       "setupGeneral": "Nombre del sitio, idioma predeterminado, mensajes de perfil y enlaces sociales.",
-      "setupHome": "Qué pestaña abre la página de inicio para cada visitante.",
+      "setupHome": "Qué pestaña abre Novedades para cada visitante.",
       "setupMembers": "Cuánto tiempo cuenta un miembro como nuevo y qué espera hasta entonces.",
       "setupAntispam": "Ritmo de publicación, enlaces, firmas y la comprobación de los formularios de invitados.",
       "setupUploads": "Tamaño de las subidas, tipos de archivo y espacio por grupo.",

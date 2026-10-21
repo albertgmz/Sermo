@@ -5,7 +5,7 @@ import { expect, MEMBER_STATE, phoneWidth, test, visit } from "./fixtures";
 // bar inside the screen: nothing wraps, nothing is cut.
 async function expectBarFits(page: Page, label: string) {
   const bar = page.getByRole("navigation", {
-    name: /^(Home tabs|Pestañas del inicio)$/,
+    name: /^(What's new tabs|Pestañas de novedades)$/,
   });
   await expect(bar).toBeVisible();
   const found = await bar.evaluate((nav) => {
@@ -38,7 +38,7 @@ async function expectBarFits(page: Page, label: string) {
 
 async function everyTab(page: Page, tabs: string[], language: string) {
   for (const tab of tabs) {
-    await visit(page, `/?tab=${tab}`);
+    await visit(page, `/novedades?tab=${tab}`);
     await expectBarFits(page, `${language} ${tab}`);
   }
 }
@@ -52,12 +52,12 @@ async function inSpanish(page: Page) {
 test.describe("guest", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("a guest's home tabs fit a phone on one line, in English and Spanish @all", async ({
+  test("a guest's feed tabs fit a phone on one line, in English and Spanish @all", async ({
     page,
   }) => {
     test.skip(!phoneWidth(page), "the phone bar is drawn below md only");
-    await visit(page, "/");
-    const tabs = ["latest", "hot", "forums", "media"];
+    await visit(page, "/novedades");
+    const tabs = ["latest", "hot", "media"];
     await everyTab(page, tabs, "en");
     await inSpanish(page);
     await everyTab(page, tabs, "es");
@@ -67,18 +67,18 @@ test.describe("guest", () => {
 test.describe("member", () => {
   test.use({ storageState: MEMBER_STATE });
 
-  test("a member's home tabs fit a phone on one line, and there is no wall composer @all", async ({
+  test("a member's feed tabs fit a phone on one line, and there is no wall composer @all", async ({
     page,
   }) => {
     test.skip(!phoneWidth(page), "the phone bar is drawn below md only");
-    await visit(page, "/?tab=latest");
+    await visit(page, "/novedades?tab=latest");
     // The member may post on their wall, so the composer is in the page; a phone does not show it.
     const composer = page.locator(
       'section[aria-label="New post"], section[aria-label="Nueva publicación"]',
     );
     await expect(composer).toHaveCount(1);
     await expect(composer).toBeHidden();
-    const tabs = ["latest", "hot", "following", "forums", "media"];
+    const tabs = ["latest", "hot", "following", "media"];
     await everyTab(page, tabs, "en");
     await inSpanish(page);
     await everyTab(page, tabs, "es");

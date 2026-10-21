@@ -190,8 +190,8 @@ test("a built-in entry that still has its seeded title is drawn in the visitor's
           ? me
           : {
               header: [
-                entry(1, "Home", "header.home"),
-                entry(2, "Start", "header.forums"),
+                entry(1, "Forums", "header.home"),
+                entry(2, "Start", "header.novedades"),
                 entry(3, "Forums", null),
               ],
               mobile: [entry(4, "Log in", "mobile.login")],
@@ -207,7 +207,7 @@ test("a built-in entry that still has its seeded title is drawn in the visitor's
     const { header, mobile, account, footer } = await getNavigation();
     assert.deepEqual(
       header.map((item) => item.title),
-      ["Inicio", "Start", "Forums"],
+      ["Foros", "Start", "Forums"],
     );
     assert.equal(mobile[0]?.title, "Iniciar sesión");
     assert.equal(account[0]?.title, "Mejorar cuenta");
@@ -235,6 +235,13 @@ test("the English titles are the ones the migrations seed", () => {
   seeded.delete("footer.useful.upgrade");
   // Migration 0058 drops the mobile bar's Forums entry: Home leads to the forums list there.
   seeded.delete("mobile.forums");
+  // Migration 0065 makes Home the forum list, so it is called Forums, sends the header's Forums
+  // entry to What's new and puts What's new in the phone bar's Profile place.
+  seeded.set("header.home", "Forums");
+  seeded.delete("header.forums");
+  seeded.set("header.novedades", "What's new");
+  seeded.delete("mobile.profile");
+  seeded.set("mobile.novedades", "What's new");
   const camel = (key: string) =>
     key
       .split(".")

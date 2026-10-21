@@ -127,15 +127,15 @@
     }
   },
   "navigation": {
-    "headerHome": "Home",
-    "headerForums": "Forums",
+    "headerHome": "Forums",
+    "headerNovedades": "What's new",
     "headerMembers": "Members",
     "headerAwards": "Awards",
     "headerCredits": "Credits",
     "mobileHome": "Home",
+    "mobileNovedades": "What's new",
     "mobileMessages": "Messages",
     "mobileAlerts": "Alerts",
-    "mobileProfile": "Profile",
     "mobileLogin": "Log in",
     "accountProfile": "Profile",
     "accountSettings": "Account",

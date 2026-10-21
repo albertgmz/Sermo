@@ -5536,3 +5536,44 @@ owner saw.
 
 Why: `conversations.locateMessage` for the oldest message of a 13,000-message conversation took
 27 ms at p95, over the 20 ms read budget, reading each row only to check its state.
+
+## Home page and What's new
+
+### The home page is the forum list; the feed moves to `/novedades`
+
+- `/` draws the forum list (`ForumList`, the guest hero, sections as `/?section=<id>&stats=<tab>`),
+  titled with the site's name alone, canonical `/`, the site's description and its JSON-LD on the
+  plain address; any other parameter but tracking ones and the referral code (a section, a
+  statistics tab, a notice) makes a noindex copy (`forumListAddress` in `home-seo.ts`). The
+  `?notice=` lines of the sign-out route and the account erasure stay on `/`.
+- `/novedades` is the former feed home without its Forums tab: composer, featured threads, the
+  Latest/Hot/Following/Media tabs and `FeedSidebar`, unchanged. `homeHref` names
+  `/novedades?tab=...`; the bare `/novedades` is the canonical of the guests' tab.
+- `HOME_TABS` loses `forums`. Migration `0065` sets `users.home_tab = 'forums'` to NULL, drops the
+  `homeTab` rules that picked it (the others keep their order) and turns a `forums` fallback into
+  `latest`; the settings read would otherwise refuse the stored configuration. The preference and
+  the admin screen are now "What's new opens on" / "Novedades se abre en".
+- The same migration rewrites the navigation rows: `header.home` (still `/`) is titled Forums,
+  `header.forums` becomes `header.novedades` -> `/novedades` (What's new), the footer's Forums link
+  goes to `/`, and `mobile.profile` becomes `mobile.novedades` (What's new, everyone, enabled, no
+  icon or permission; entries under it are deleted), placed right after `mobile.home` whatever the
+  numbering (the top-level entries after Home move one place down; with no Home row nothing moves
+  and it keeps Profile's place). A title an administrator gave `header.home` is kept; the old
+  Forums entry and the Profile row are replaced whatever was done to them, since each now leads to
+  another page. The phone bar is Home · What's new · + · Messages · Alerts, and
+  a guest's Home · What's new · + · Log in; `header.home` and `mobile.home` are current on
+  `/forums/*` and `/threads/*`. Supersedes "Forum feel" item 12 (Home with a Forums tab).
+- The proxy answers the old addresses with a 308 that keeps the query (`lib/home-redirects.ts`):
+  `/?tab=<feed tab>` and the feed's own keys on `/` (`cursor`, `pages`, `picture`, the filters) go
+  to `/novedades`; `/?tab=forums` drops the tab; `/forums?tab=x&stats=y` is `/?section=x&stats=y`.
+  XenForo's `whats-new`, `find-new` and `novedades/<anything>` go to `/novedades` (the bare
+  `/novedades` is now this app's page, so `novedades` left the list that sent to `/`).
+- The speculation rules prefetch the forum list at `/` with no query only: an old address with a
+  query is a redirect. `/novedades` is public content for the guest page cache.
+
+Why: the owner approved the swap (OWNER-DECISIONS "Home page and widget areas", decision 1: the
+header calls `/` "Foros", the phone bar "Inicio"). A forum's front page is its forum list, as on the
+XenForo site this replaces, and the feed keeps its own address for the widget areas to come.
+Known limits: `/forums` (and its `loading.tsx`) is gone as a page, so `/nodes` takes two hops
+(`/nodes` -> `/forums` -> `/`); a member who had chosen Forums now opens What's new on the site
+default.

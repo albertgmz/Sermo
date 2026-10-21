@@ -40,7 +40,7 @@ describe("site.homeTab", () => {
     await f.save({
       rules: [
         { rule: GUESTS, tab: "hot" },
-        { rule: OLD_HANDS, tab: "forums" },
+        { rule: OLD_HANDS, tab: "latest" },
         { rule: MEMBERS, tab: "following" },
       ],
       fallback: "media",
@@ -49,18 +49,18 @@ describe("site.homeTab", () => {
     // A member with few posts misses the second rule and meets the third.
     expect(await f.tab(f.member)).toBe("following");
     f.ctx.sqlite.prepare("UPDATE users SET post_count = 12 WHERE id = ?1").run(f.memberUser.id);
-    expect(await f.tab(f.member)).toBe("forums");
+    expect(await f.tab(f.member)).toBe("latest");
   });
 
   test("the fallback answers a viewer no rule fits", async () => {
     const f = setup();
-    await f.save({ rules: [{ rule: GUESTS, tab: "hot" }], fallback: "forums" });
-    expect(await f.tab(f.member)).toBe("forums");
+    await f.save({ rules: [{ rule: GUESTS, tab: "hot" }], fallback: "media" });
+    expect(await f.tab(f.member)).toBe("media");
   });
 
   test("a member's own choice beats the rules and the fallback", async () => {
     const f = setup();
-    await f.save({ rules: [{ rule: MEMBERS, tab: "hot" }], fallback: "forums" });
+    await f.save({ rules: [{ rule: MEMBERS, tab: "hot" }], fallback: "media" });
     await run(f.ctx, "preferences.update", f.member, { homeTab: "media" });
     expect(await f.tab(f.member)).toBe("media");
     await run(f.ctx, "preferences.update", f.member, { homeTab: null });
@@ -89,14 +89,14 @@ describe("the home tab setting", () => {
         homeTab: { rules: [], fallback: "hot" },
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
-    const saved = await f.save({ rules: [{ rule: MEMBERS, tab: "hot" }], fallback: "forums" });
+    const saved = await f.save({ rules: [{ rule: MEMBERS, tab: "hot" }], fallback: "media" });
     expect(saved.homeTab).toEqual({
       rules: [{ rule: MEMBERS, tab: "hot" }],
-      fallback: "forums",
+      fallback: "media",
     });
     // An update that does not name it leaves it alone.
     await run(f.ctx, "settings.update", f.admin, { siteName: "Other" });
-    expect(readSiteSettings(f.ctx).homeTab.fallback).toBe("forums");
+    expect(readSiteSettings(f.ctx).homeTab.fallback).toBe("media");
   });
 
   test("refuses a rule that is too heavy to read on every home page", async () => {

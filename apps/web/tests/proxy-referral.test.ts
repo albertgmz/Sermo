@@ -138,11 +138,11 @@ test("any page can carry it, the register page and a redirect included", async (
   expect(referralCookie(await ask("/register?ref=5", ACCEPTED))).toContain(
     "forum_ref=5",
   );
-  expect(referralCookie(await ask("/forums?ref=5", ACCEPTED))).toContain(
+  expect(referralCookie(await ask("/members?ref=5", ACCEPTED))).toContain(
     "forum_ref=5",
   );
   // The language segment is not an address: it redirects, and the redirect keeps the cookie.
-  const redirect = await ask("/es/forums?ref=5", ACCEPTED);
+  const redirect = await ask("/es/members?ref=5", ACCEPTED);
   expect(redirect?.status).toBe(308);
   expect(referralCookie(redirect)).toContain("forum_ref=5");
 });
@@ -182,7 +182,7 @@ test("a member who is signed in is not given the cookie, but a stale one is stil
 });
 
 test("a page reached through ?ref= gets no canonical header of its own", async () => {
-  const response = await ask("/forums?ref=9", ACCEPTED);
+  const response = await ask("/members?ref=9", ACCEPTED);
   // The Link header names the site's files for crawlers and agents, nothing of the page.
   expect(response?.headers.get("link")).toBe(DISCOVERY_LINKS);
 });
@@ -274,7 +274,7 @@ test("when the backend cannot say whether the banner applies, the visitor is ask
 
 test("a request without a referral does not ask the backend anything", async () => {
   await withBannerFor(false, async (asked) => {
-    await ask("/forums");
+    await ask("/members");
     await ask("/");
     expect(asked()).toBe(0);
   });
@@ -283,7 +283,7 @@ test("a request without a referral does not ask the backend anything", async () 
 test("a held cookie of a visitor who is not asked costs one question a minute, not one a request", async () => {
   await withBannerFor(false, async (asked) => {
     for (let page = 0; page < 5; page += 1) {
-      const response = await ask("/forums", "forum_ref=7");
+      const response = await ask("/members", "forum_ref=7");
       expect(referralCookie(response)).toBeUndefined();
     }
     expect(asked()).toBe(1);
@@ -305,7 +305,7 @@ test("a refusal made under an earlier policy version stays a refusal for a visit
       expect(referralCookie(await ask("/?ref=12", choice(1)))).toBeUndefined();
       // The referral cookie held from before goes, as for any visitor who has not accepted it.
       const cleared = referralCookie(
-        await ask("/forums", `${choice(1)}; forum_ref=7`),
+        await ask("/members", `${choice(1)}; forum_ref=7`),
       );
       expect(cleared).toContain("forum_ref=;");
       // Asked again, not silently treated as accepting, and the backend is not even asked.
@@ -368,7 +368,7 @@ test("a public page that sets or removes the referral cookie is not kept by the 
   const given = await ask("/?ref=12", ACCEPTED);
   expect(referralCookie(given)).toContain("forum_ref=12");
   expect(cacheOf(given)).toBeNull();
-  const removed = await ask("/forums", "forum_ref=7");
+  const removed = await ask("/members", "forum_ref=7");
   expect(referralCookie(removed)).toContain("forum_ref=;");
   expect(cacheOf(removed)).toBeNull();
   // No consent, or Global Privacy Control: no cookie, so the page may be kept.

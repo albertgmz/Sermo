@@ -41,7 +41,7 @@ test("the media tab viewer opens, Esc closes it, and the Back button closes it",
   page,
 }) => {
   await postPicture(page);
-  await visit(page, "/?tab=media");
+  await visit(page, "/novedades?tab=media");
   const card = page.getByRole("main").locator("li a").first();
   await expect(card).toBeVisible();
   await expectFits(page, "media tab");
@@ -92,7 +92,7 @@ test("with the data saver on the media tab loads no picture", async ({
   page.on("request", (request) => {
     if (request.url().includes("/api/v1/files/")) pictures.push(request.url());
   });
-  await visit(page, "/?tab=media");
+  await visit(page, "/novedades?tab=media");
   await expect(page.getByRole("main").locator("li").first()).toBeVisible();
   expect(pictures, "picture requests with the data saver on").toEqual([]);
   expect(await page.locator("main img").count()).toBe(0);

@@ -12,22 +12,18 @@
       "title": "Siguiendo",
       "description": "Publicaciones de los miembros a los que sigues en {site}."
     },
-    "forums": {
-      "title": "Foros",
-      "description": "Todos los foros de {site}, con su actividad más reciente."
-    },
     "media": {
       "title": "Últimas imágenes",
       "description": "Las imágenes más recientes compartidas en {site}."
     }
   },
   "page": {
-    "heading": "Inicio",
+    "heading": "Novedades",
     "loadingSidebar": "Cargando la barra lateral de actividad…",
     "loadingFeed": "Cargando tu actividad…",
     "aria": {
       "newPost": "Nueva publicación",
-      "feed": "Pestañas del inicio"
+      "feed": "Pestañas de novedades"
     },
     "placeholder": "¿Qué hay de nuevo?",
     "description": "Las publicaciones van al muro de tu perfil.",
@@ -38,7 +34,6 @@
       "latest": "Recientes",
       "following": "Siguiendo",
       "hot": "Tendencias",
-      "forums": "Foros",
       "media": "Multimedia",
       "more": "Más"
     },

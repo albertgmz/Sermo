@@ -36,7 +36,7 @@
     "screens": {
       "home": "Home",
       "setupGeneral": "General",
-      "setupHome": "Home page",
+      "setupHome": "What's new",
       "setupMembers": "New members",
       "setupAntispam": "Anti-spam",
       "setupWarnings": "Warnings",
@@ -174,7 +174,7 @@
     },
     "descriptions": {
       "setupGeneral": "Site name, default language, profile posts and social links.",
-      "setupHome": "Which tab the home page opens on for each visitor.",
+      "setupHome": "Which tab What's new opens on for each visitor.",
       "setupMembers": "How long a member counts as new and what waits until then.",
       "setupAntispam": "Posting speed, links, signatures and the guest form check.",
       "setupUploads": "Upload sizes, file types and storage per group.",

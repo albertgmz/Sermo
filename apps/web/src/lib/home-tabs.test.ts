@@ -8,39 +8,33 @@ import {
   tabParam,
 } from "./home-tabs";
 
-test("the tabs are latest, hot, following, forums and media, in that order", () => {
-  expect([...HOME_TABS]).toEqual([
-    "latest",
-    "hot",
-    "following",
-    "forums",
-    "media",
-  ]);
+test("the tabs are latest, hot, following and media, in that order: the forums are the home page", () => {
+  expect([...HOME_TABS]).toEqual(["latest", "hot", "following", "media"]);
 });
 
-test("the address names a tab or none: top is no longer a name", () => {
-  expect(tabParam("forums")).toBe("forums");
+test("the address names a tab or none: top and forums are no longer names", () => {
+  expect(tabParam("hot")).toBe("hot");
   expect(tabParam(["media", "hot"])).toBe("media");
+  expect(tabParam("forums")).toBeNull();
   expect(tabParam("top")).toBeNull();
   expect(tabParam("nonsense")).toBeNull();
   expect(tabParam(undefined)).toBeNull();
 });
 
-test("every tab has a stable address that names it", () => {
+test("every tab has a stable address on the feed page that names it", () => {
   expect(HOME_TABS.map((tab) => homeHref(tab))).toEqual([
-    "/?tab=latest",
-    "/?tab=hot",
-    "/?tab=following",
-    "/?tab=forums",
-    "/?tab=media",
+    "/novedades?tab=latest",
+    "/novedades?tab=hot",
+    "/novedades?tab=following",
+    "/novedades?tab=media",
   ]);
-  expect(homeHref("media", "a b")).toBe("/?tab=media&cursor=a+b");
+  expect(homeHref("media", "a b")).toBe("/novedades?tab=media&cursor=a+b");
 });
 
 test("a tab in the address wins; otherwise the visitor's default opens", () => {
-  const base = { home: "forums", signedIn: true } as const;
+  const base = { home: "media", signedIn: true } as const;
   expect(openTab({ ...base, named: "hot" })).toBe("hot");
-  expect(openTab({ ...base, named: null })).toBe("forums");
+  expect(openTab({ ...base, named: null })).toBe("media");
 });
 
 test("a guest is never opened on following, whoever asked for it", () => {
@@ -58,42 +52,33 @@ test("a guest is never opened on following, whoever asked for it", () => {
 test("the bar holds the default and the first tabs of the order, three in all", () => {
   expect(
     barOf({ active: "latest", fallback: "latest", signedIn: true }),
-  ).toEqual({ bar: ["latest", "hot", "following"], more: ["forums", "media"] });
-  expect(
-    barOf({ active: "forums", fallback: "forums", signedIn: true }),
-  ).toEqual({ bar: ["latest", "hot", "forums"], more: ["following", "media"] });
+  ).toEqual({ bar: ["latest", "hot", "following"], more: ["media"] });
   expect(barOf({ active: "media", fallback: "media", signedIn: true })).toEqual(
-    {
-      bar: ["latest", "hot", "media"],
-      more: ["following", "forums"],
-    },
+    { bar: ["latest", "hot", "media"], more: ["following"] },
   );
 });
 
 test("the tab that is open is always on the bar, in place of the last one that is not the default", () => {
   expect(
     barOf({ active: "media", fallback: "latest", signedIn: true }),
-  ).toEqual({ bar: ["latest", "hot", "media"], more: ["following", "forums"] });
+  ).toEqual({ bar: ["latest", "hot", "media"], more: ["following"] });
   // The default is the last on the bar and keeps its place.
   expect(
-    barOf({ active: "forums", fallback: "media", signedIn: true }),
-  ).toEqual({ bar: ["latest", "forums", "media"], more: ["hot", "following"] });
-  expect(barOf({ active: "hot", fallback: "forums", signedIn: true })).toEqual({
-    bar: ["latest", "hot", "forums"],
-    more: ["following", "media"],
+    barOf({ active: "following", fallback: "media", signedIn: true }),
+  ).toEqual({ bar: ["latest", "following", "media"], more: ["hot"] });
+  expect(barOf({ active: "hot", fallback: "media", signedIn: true })).toEqual({
+    bar: ["latest", "hot", "media"],
+    more: ["following"],
   });
 });
 
-test("a guest has no following tab, so the bar fills with the next ones", () => {
+test("a guest has no following tab, so every other tab fits on the bar", () => {
   expect(
     barOf({ active: "latest", fallback: "latest", signedIn: false }),
-  ).toEqual({ bar: ["latest", "hot", "forums"], more: ["media"] });
+  ).toEqual({ bar: ["latest", "hot", "media"], more: [] });
   expect(
     barOf({ active: "media", fallback: "media", signedIn: false }),
-  ).toEqual({
-    bar: ["latest", "hot", "media"],
-    more: ["forums"],
-  });
+  ).toEqual({ bar: ["latest", "hot", "media"], more: [] });
   // A default a guest cannot have is Latest.
   expect(
     barOf({ active: "latest", fallback: "following", signedIn: false }).bar,
@@ -102,27 +87,27 @@ test("a guest has no following tab, so the bar fills with the next ones", () => 
 
 test("on a phone the bar holds every tab but Media, which is in More, whatever the default", () => {
   expect(phoneBarOf({ active: "latest", signedIn: true })).toEqual({
-    bar: ["latest", "hot", "following", "forums"],
+    bar: ["latest", "hot", "following"],
     more: ["media"],
   });
-  expect(phoneBarOf({ active: "forums", signedIn: true })).toEqual({
-    bar: ["latest", "hot", "following", "forums"],
+  expect(phoneBarOf({ active: "following", signedIn: true })).toEqual({
+    bar: ["latest", "hot", "following"],
     more: ["media"],
   });
   // A guest has no Following.
   expect(phoneBarOf({ active: "hot", signedIn: false })).toEqual({
-    bar: ["latest", "hot", "forums"],
+    bar: ["latest", "hot"],
     more: ["media"],
   });
 });
 
 test("on a phone Media open is on the bar, and there is nothing left for More", () => {
   expect(phoneBarOf({ active: "media", signedIn: true })).toEqual({
-    bar: ["latest", "hot", "following", "forums", "media"],
+    bar: ["latest", "hot", "following", "media"],
     more: [],
   });
   expect(phoneBarOf({ active: "media", signedIn: false })).toEqual({
-    bar: ["latest", "hot", "forums", "media"],
+    bar: ["latest", "hot", "media"],
     more: [],
   });
 });

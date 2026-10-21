@@ -44,8 +44,8 @@ describe("navigation.get", () => {
   test("a guest sees the shipped links of their audience, in order, children nested", async () => {
     const { ctx, titles } = setup();
     const view = await run(ctx, "navigation.get", GUEST);
-    expect(titles(view.header)).toEqual(["Home", "Forums", "Members", "Awards", "Credits"]);
-    expect(titles(view.mobile)).toEqual(["Home", "Log in"]);
+    expect(titles(view.header)).toEqual(["Forums", "What's new", "Members", "Awards", "Credits"]);
+    expect(titles(view.mobile)).toEqual(["Home", "What's new", "Log in"]);
     expect(view.account).toEqual([]);
     expect(titles(view.footer)).toEqual(["Community", "Useful", "Legal"]);
     expect(titles(view.footer[2].children)).toEqual([
@@ -77,7 +77,7 @@ describe("navigation.get", () => {
     const { ctx, member, token, titles } = setup();
     for (const actor of [member, token]) {
       const view = await run(ctx, "navigation.get", actor);
-      expect(titles(view.mobile)).toEqual(["Home", "Messages", "Alerts", "Profile"]);
+      expect(titles(view.mobile)).toEqual(["Home", "What's new", "Messages", "Alerts"]);
       expect(titles(view.account)).toEqual(["Profile", "Account", "Upgrade"]);
     }
   });
@@ -166,7 +166,7 @@ describe("navigation.get", () => {
     expect(titles(view.footer)).not.toContain("Empty");
     view = await run(ctx, "navigation.get", admin);
     expect(titles(view.footer)).toContain("Empty");
-    expect(titles(view.header)).toContain("Home");
+    expect(titles(view.header)).toContain("Forums");
   });
 
   test("entries are ordered by position, then id", async () => {

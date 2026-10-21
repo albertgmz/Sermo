@@ -95,7 +95,7 @@ test("a sign-in sent before the page's script loaded lands signed in on a real p
   await withoutScripts(page);
   await sendSignIn(page, USER, PASSWORD);
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Forums" })).toBeVisible();
   await expect(page.getByText("does not exist or has moved")).toHaveCount(0);
   const cookies = await context.cookies();
   expect(cookies.map((cookie) => cookie.name)).toContain("sermo.session_token");

@@ -37,8 +37,8 @@ function backend(answer: (path: string) => Response) {
 }
 
 test("a guest's default is read without the visitor, so it can be shared", async () => {
-  const asked = backend(() => Response.json({ tab: "forums" }));
-  expect(await getGuestTab()).toBe("forums");
+  const asked = backend(() => Response.json({ tab: "media" }));
+  expect(await getGuestTab()).toBe("media");
   expect(asked).toHaveLength(1);
   expect(asked[0]?.path).toBe("/api/v1/site/home-tab");
   expect(asked[0]?.headers.get("cookie")).toBeNull();

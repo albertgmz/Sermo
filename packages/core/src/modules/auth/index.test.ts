@@ -663,8 +663,8 @@ test("auth.me carries the home tab the member chose: null until they choose", as
   const user = insertUser(ctx, {});
   const actor = userActor(user);
   expect((await execute(ctx, authMeOp, actor, {})).user?.homeTab).toBeNull();
-  ctx.sqlite.prepare("UPDATE users SET home_tab = 'forums' WHERE id = ?1").run(user.id);
-  expect((await execute(ctx, authMeOp, actor, {})).user?.homeTab).toBe("forums");
+  ctx.sqlite.prepare("UPDATE users SET home_tab = 'hot' WHERE id = ?1").run(user.id);
+  expect((await execute(ctx, authMeOp, actor, {})).user?.homeTab).toBe("hot");
 });
 
 test("auth.me carries how the member wants the feed drawn: cards until they choose", async () => {
@@ -896,13 +896,13 @@ test("auth.me carries the tab the home page opens on: the member's choice, else 
       rules: [
         {
           rule: { match: "all", conditions: [{ criterion: "is_guest", value: 0 }] },
-          tab: "forums",
+          tab: "media",
         },
       ],
       fallback: "hot",
     },
   });
-  expect(await opens()).toBe("forums");
-  ctx.sqlite.prepare("UPDATE users SET home_tab = 'media' WHERE id = ?1").run(user.id);
   expect(await opens()).toBe("media");
+  ctx.sqlite.prepare("UPDATE users SET home_tab = 'following' WHERE id = ?1").run(user.id);
+  expect(await opens()).toBe("following");
 });

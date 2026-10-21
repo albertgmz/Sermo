@@ -7,6 +7,7 @@ import {
   LogIn,
   type LucideIcon,
   Mail,
+  Newspaper,
   Settings,
   UserRound,
 } from "lucide-react";
@@ -35,9 +36,9 @@ export type LinkItem = NavItem & { href: string };
 
 const ICONS: Record<string, LucideIcon> = {
   "mobile.home": House,
+  "mobile.novedades": Newspaper,
   "mobile.messages": Mail,
   "mobile.alerts": Bell,
-  "mobile.profile": UserRound,
   "mobile.login": LogIn,
   "account.profile": UserRound,
   "account.settings": Settings,
@@ -47,14 +48,13 @@ const ICONS: Record<string, LucideIcon> = {
 
 // Paths that also mark an entry as current.
 const MATCH: Record<string, string[]> = {
-  "header.forums": ["/threads"],
-  // The phone bar has no Forums entry: the forums are a tab of Home.
+  // Home is the forum list: a forum and a thread are under it.
+  "header.home": ["/forums", "/threads"],
   "mobile.home": ["/forums", "/threads"],
-  "mobile.profile": ["/account"],
 };
 
 // These lead to the signed-in member's own profile whatever target is stored.
-const OWN_PROFILE = new Set(["mobile.profile", "account.profile"]);
+const OWN_PROFILE = new Set(["account.profile"]);
 const MOBILE_LIMIT = 5;
 
 export function iconFor(builtin: string | null): LucideIcon {

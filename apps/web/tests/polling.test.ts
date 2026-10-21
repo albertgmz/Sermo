@@ -65,7 +65,7 @@ test("the polling screens use the one hook, at their interval", () => {
   expect(source("app/[locale]/(main)/threads/[id]/page.tsx")).toContain(
     "intervalMs={POLL_MS.thread}",
   );
-  expect(source("app/[locale]/(main)/page.tsx")).toContain(
+  expect(source("app/[locale]/(main)/novedades/page.tsx")).toContain(
     "intervalMs: POLL_MS.feed",
   );
 });
@@ -91,7 +91,7 @@ test("the thread asks again only for the last page, and the counters only for a 
 });
 
 test("the feed asks for new entries on the tabs that can have them, and the badges read one value", () => {
-  expect(source("app/[locale]/(main)/page.tsx")).toMatch(
+  expect(source("app/[locale]/(main)/novedades/page.tsx")).toMatch(
     /tab === "hot"\s*\?\s*undefined/,
   );
   for (const file of [

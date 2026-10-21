@@ -1,23 +1,24 @@
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import {
-  FeedSkeleton,
+  ForumCategoriesSkeleton,
+  ForumStatsSkeleton,
   LoadingRegion,
-  SidebarSkeleton,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
+import { getSite } from "@/lib/sermo/site";
 
-export default function Loading() {
-  const t = useTranslations("home.loading");
+export default async function Loading() {
+  const [t, { forumStatsEnabled }] = await Promise.all([
+    getTranslations("forums.loading"),
+    getSite(),
+  ]);
   return (
-    <LoadingRegion label={t("feed")}>
-      <PageLayout
-        aside={<SidebarSkeleton />}
-        asideOnMobile="hidden"
-        mainClassName="space-y-(--page-gap)"
-      >
+    <LoadingRegion label={t("aria.forums")}>
+      <PageLayout mainClassName="space-y-(--page-gap)">
+        {forumStatsEnabled && <ForumStatsSkeleton />}
         <TabsSkeleton />
-        <FeedSkeleton />
+        <ForumCategoriesSkeleton />
       </PageLayout>
     </LoadingRegion>
   );

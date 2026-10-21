@@ -507,7 +507,7 @@ short, none of it happens. Free items still create purchases but no credit ledge
 | `group` | Adds a secondary group while held. This is how to sell a paid rank; the item cannot be consumable. |
 | `frame`, `nameColor` | Store a frame key or a `#rrggbb` color; using the item only publishes `shop.item_used`. |
 | `threadCover`, `highlight`, `bump` | Store the effect; use needs `threadId`, a visible thread started by the member in a forum they can see, and only publishes `shop.item_used`. |
-| `promote` | A consumable. Use needs `threadId` (an unlocked, visible thread of the member, not already featured) and features it for 24 hours, marked as promoted. The 10 newest features are listed first in Hot whatever their activity; an older one is listed there only where it ranks. The home page lists the newest features. One unit is one promotion; nothing is refunded if the thread is deleted afterwards. |
+| `promote` | A consumable. Use needs `threadId` (an unlocked, visible thread of the member, not already featured) and features it for 24 hours, marked as promoted. The 10 newest features are listed first in Hot whatever their activity; an older one is listed there only where it ranks. What's new lists the newest features. One unit is one promotion; nothing is refunded if the thread is deleted afterwards. |
 | `usernameChange` | Use needs the proposed name in `value` and only publishes `shop.item_used`. |
 
 Only `permission` and `group` apply now, as part of the purchase. The other effects are validated
@@ -766,7 +766,7 @@ the queue; edited content sent back to the queue notifies nobody.
   `forum.move` on the destination forum (`nodeId`) and on each thread's forum. If any item fails,
   nothing changes.
 - Per thread: `PUT /threads/{threadId}/sticky` (`forum.stick`), `PUT /threads/{threadId}/feature`
-  (`forum.feature`: a staff pick that lasts until it is ended; the 10 newest features are listed first in Hot, an older one only where it ranks, and `GET /featured-threads` lists every current one for the home page),
+  (`forum.feature`: a staff pick that lasts until it is ended; the 10 newest features are listed first in Hot, an older one only where it ranks, and `GET /featured-threads` lists every current one for What's new),
   `PUT /threads/{threadId}/lock` (`forum.lock`), `POST /threads/{threadId}/move` (`forum.move` on both forums). Replying in a
   locked thread needs `forum.replyLocked`.
 - `GET /posts/{postId}/revisions` (`postRevisions.list`, `forum.viewHistory`) shows earlier bodies
@@ -995,12 +995,25 @@ threads, most replied, most reacted, most viewed) is shown only while the site s
 `forumStatsEnabled` is on (default off; General settings in the panel). `GET /site` (`site.get`)
 carries the switch for the web app; `threads.ranked` itself answers either way.
 
-## Home page
+## Home page and What's new
 
-The home page has five tabs, in this fixed order: Latest, Hot, Following (members only), Forums (the
-forum list) and Media (the newest pictures attached to posts and wall posts, limited to what the
-viewer may open). Every tab has an address that names it (`/?tab=forums`); `/forums` always shows
-the forum list. The wall composer and the featured threads are drawn on the first three tabs only.
+The home page (`/`) is the forum list: the forum statistics panel (when it is on) and the categories
+under the section tabs (`/?section=<tab id>&stats=<tab>`). It carries the site's name as its title,
+the site's description and its structured data. The feed is on its own page, What's new
+(`/novedades`), with four tabs in this fixed order: Latest, Hot, Following (members only) and Media
+(the newest pictures attached to posts and wall posts, limited to what the viewer may open). Every
+tab has an address that names it (`/novedades?tab=hot`). The wall composer and the featured threads
+are drawn on the first three tabs only.
+
+The old addresses answer with a permanent redirect (308) that keeps the query: a feed tab or a
+feed parameter on `/` (`/?tab=hot`, `/?cursor=...`) goes to `/novedades`, `/?tab=forums` and
+`/forums?tab=<id>` go to `/` with the section, and XenForo's `whats-new`, `find-new` and
+`novedades/...` go to `/novedades`.
+
+The header's first entry (Forums) leads to `/` and its second (What's new) to `/novedades`. The
+phone bar holds Home, What's new, the + button, Messages and Alerts (a guest: Home, What's new, the
++ and Log in); Home is current on the forum list, a forum and a thread. The profile is reached from
+the avatar menu.
 
 The bar shows three tabs and puts the rest in a "More" menu. It holds the visitor's default tab and
 then the first tabs of the order above that are not it, up to three, drawn in the fixed order (a
@@ -1011,7 +1024,7 @@ cannot reach them from the bar).
 
 A visitor opens the tab their address names. With no tab in the address, a member opens the tab
 they chose in their preferences (`homeTab`, null for the site default); otherwise the `homeTab`
-setting decides (`PATCH /settings`, admin panel: Settings, Home page): an ordered list of
+setting decides (`PATCH /settings`, admin panel: Settings, What's new): an ordered list of
 `{ rule, tab }` entries, where the first rule the visitor meets wins, and a fallback tab. Rules are
 the shared criteria rules, cheap criteria only (they are checked on every page view). Guests are
 decided by the same rules (`is_guest` and the criteria that need no account apply to them; a guest
@@ -1019,7 +1032,7 @@ is in no group). Following needs an account, so a rule a guest can meet, and the
 pick it, and a guest who asks for it gets Latest.
 
 `auth.me` carries both the member's choice (`user.homeTab`) and the tab decided for them
-(`user.openHomeTab`), so the home page makes no extra request for a member. `GET /site/home-tab`
+(`user.openHomeTab`), so What's new makes no extra request for a member. `GET /site/home-tab`
 (`site.homeTab`) answers the same for any caller, guests included; `GET /media` (`media.list`) is
 the Media tab.
 

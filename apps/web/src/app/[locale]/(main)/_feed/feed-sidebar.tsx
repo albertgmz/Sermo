@@ -212,7 +212,7 @@ async function FeedForums() {
     <SectionCard
       title={t("forumsTitle")}
       action={
-        <Link href="/forums" className={viewAllClass}>
+        <Link href="/" className={viewAllClass}>
           {t("viewAll")}
         </Link>
       }

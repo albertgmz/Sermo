@@ -6,7 +6,7 @@ const source = (path: string) =>
   readFileSync(join(import.meta.dir, "..", "src", path), "utf8");
 
 const SCREENS = [
-  ["feed", "app/[locale]/(main)/page.tsx", "_feed/feed-actions.ts"],
+  ["feed", "app/[locale]/(main)/novedades/page.tsx", "_feed/feed-actions.ts"],
   [
     "forum thread lists",
     "app/[locale]/(main)/forums/[id]/page.tsx",

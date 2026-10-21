@@ -87,7 +87,7 @@ export type TurnstileForm = (typeof TURNSTILE_FORMS)[number];
 export const MAX_HOME_TAB_RULES = 10;
 
 /**
- * Which tab of the home page a visitor who chose none opens on: the tab of the first rule they
+ * Which tab of the feed page (What's new) a visitor who chose none opens on: the tab of the first rule they
  * meet (cheap criteria only), else `fallback`. Guests are decided by the same rules, and a tab
  * `following` (it needs an account) cannot be picked by a rule a guest meets, nor as the fallback.
  */
@@ -137,7 +137,7 @@ export const SiteSettings = z
      * one. The forums themselves are untouched. Ids of forums that do not exist are refused.
      */
     feedExcludedForumIds: z.array(Id).max(100).default([]),
-    /** The home page tab of members who chose none, and of guests. */
+    /** The feed page tab of members who chose none, and of guests. */
     homeTab: HomeTabSetting.default({ rules: [], fallback: "latest" }),
     threadTitleTemplate: z.string().min(1).max(200),
     nodeTitleTemplate: z.string().min(1).max(200),
