@@ -5628,3 +5628,17 @@ pruning candidates, none removed.
   `GRACE_MS` moved to `lib/app-prompts.ts` so the card and the e2e share it.
 
 Why: backlog A2 asked for the card after either answer; it was already so, and is now tested.
+
+### Manual award holders from XenForo are granted by a script, not at deploy
+
+- `bun run awards:grant-manual [--dry-run] [--rate n] [--url u] [--holders f]` grants Género
+  Diverso (156), Maestro de la Integración (18), Fiesta de Cumpleaños (9) and Defensor de la
+  Seguridad (1) through the API, from `scripts/manual-award-holders.json` (XenForo user ids are
+  Sermo ids, checked against the import). At most 3 writes a second, idempotent (skips holders),
+  stops before writing if an award is missing, doubled or inactive, or on 401/403; the credential
+  comes from `SERMO_API_KEY` or `SERMO_SESSION_COOKIE`, never from a file.
+
+Why: the owner grants these as an administrator on the live site; nothing in a deploy writes them.
+Known limits: a grant revoked on purpose on the live site would be granted again; a manual grant
+pays the award's credits and fires the credit rules, so it runs before an "award received" rule
+exists.
