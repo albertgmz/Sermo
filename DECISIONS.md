@@ -5642,3 +5642,15 @@ Why: the owner grants these as an administrator on the live site; nothing in a d
 Known limits: a grant revoked on purpose on the live site would be granted again; a manual grant
 pays the award's credits and fires the credit rules, so it runs before an "award received" rule
 exists.
+
+### Credit rules: private reactions and negative reactions pay nothing
+
+- A reaction on a message in a private conversation pays no credit rule (moderators cannot see
+  those, so two accounts could trade them unchecked; XenForo never counted them).
+- A reaction type with a negative score, or an unknown one, pays neither side.
+- The empty shop for a member who sees no category says that some sections open as they take part.
+- The earning rules themselves are a proposal for the owner (amounts, daily caps, invite steps) and
+  are created by hand, not by a migration or a seed.
+
+Why: backlog A3; the proposal sizes the economy from a year of fcuba activity so an active member
+reaches the shop in weeks, and the code closes the two farming paths it found.
