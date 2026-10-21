@@ -31,11 +31,12 @@
     "imagePrompt": "URL de la imagen",
     "imageUnsupported": "Esa no es la dirección de una imagen en la web. Usa una que empiece por http:// o https://.",
     "moreOptions": "Más opciones…",
+    "moreOptionsOf": "Más opciones: {group}",
     "groups": {
       "text": "Texto",
       "paragraph": "Párrafo",
       "insert": "Insertar",
-      "misc": "Otras herramientas"
+      "misc": "Varios"
     },
     "mediaPrompt": "Dirección del vídeo, la canción o la publicación",
     "linkUnsupported": "Eso no es una dirección web. Usa una que empiece por http:// o https://, o una página de este sitio que empiece por /.",

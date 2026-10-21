@@ -27,18 +27,23 @@ test("the field names its files for the form and says the size a file may have",
   expect(html).toContain(limit);
 });
 
-test("the compact field is the labelled Attach files button, last in its row, with the files before it", () => {
+test("the compact field is the labelled Attach files button, last in its row, with the files before it and the size under it", () => {
   const html = render(<AttachmentField compact initial={files} />);
-  const button = html.match(
-    /<label title="([^"]*)" class="([^"]*)">(.*?)<\/label>/,
-  );
-  expect(button?.[3]).toContain(`</svg>${text.attach}<input`);
-  expect(button?.[2].split(" ")).toContain("order-last");
-  // The size a file may have is the button's title, not a text of the row.
-  expect(button?.[1]).toContain(limit);
-  expect(html.split(limit)).toHaveLength(2);
+  const button = html.match(/<label class="([^"]*)">(.*?)<\/label>/);
+  expect(button?.[2]).toContain(`</svg>${text.attach}<input`);
+  expect(button?.[1].split(" ")).toContain("order-last");
   expect(html).toContain('name="attachmentIds" value="4"');
   expect(html.indexOf("plan.pdf")).toBeLessThan(html.indexOf('type="file"'));
+  // The size a file may have is a line of its own that ends the row, and the file field names it.
+  const note = html.match(/<span id="([^"]*)" class="([^"]*)">([^<]*)<\/span>/);
+  expect(note?.[3]).toContain(limit);
+  const noteClasses = note?.[2].split(" ") ?? [];
+  expect(noteClasses).toContain("order-[10000]");
+  expect(noteClasses).toContain("basis-full");
+  expect(html).toContain(`aria-describedby="${note?.[1]}"`);
+  expect(render(<AttachmentField compact allowed={false} />)).not.toContain(
+    limit,
+  );
 });
 
 test("where files may be added, a picker of pictures waits for the editor's Image button", () => {

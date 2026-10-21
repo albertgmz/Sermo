@@ -31,11 +31,12 @@
     "imagePrompt": "Image URL",
     "imageUnsupported": "That is not the address of a picture on the web. Use one that starts with http:// or https://.",
     "moreOptions": "More options…",
+    "moreOptionsOf": "More options: {group}",
     "groups": {
       "text": "Text",
       "paragraph": "Paragraph",
       "insert": "Insert",
-      "misc": "Other tools"
+      "misc": "Misc"
     },
     "mediaPrompt": "Address of the video, song or post",
     "linkUnsupported": "That is not a web address. Use one that starts with http:// or https://, or a page of this site that starts with /.",

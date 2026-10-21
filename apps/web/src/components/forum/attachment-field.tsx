@@ -9,7 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   createIntake,
   receiveOffers,
@@ -63,6 +63,20 @@ export function AttachmentField({
   const t = useTranslations("forum.attachmentField");
   const format = useFormatter();
   const limit = uploadLimit("attachment", useUploadLimit());
+  const limitId = useId();
+  // The size a file may have, beside the button. In a composer's row it ends the row, on a line of
+  // its own under the buttons: the buttons keep one line on a phone.
+  const limitNote = limit !== null && (
+    <span
+      id={limitId}
+      className={cn(
+        "text-xs text-muted-foreground",
+        compact && "order-[10000] basis-full",
+      )}
+    >
+      {t("limit", { size: megabytes(limit) })}
+    </span>
+  );
   const [files, setFiles] = useState<AttachedFile[]>(initial);
   const [busy, setBusy] = useState(0);
   const [error, setError] = useState<string>();
@@ -171,12 +185,6 @@ export function AttachmentField({
   const trigger = (
     <>
       <label
-        // The row has no room for the size a file may have, which the pointer shows here.
-        title={
-          compact && limit !== null
-            ? t("limit", { size: megabytes(limit) })
-            : undefined
-        }
         className={cn(
           "cursor-pointer has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
           compact
@@ -193,6 +201,7 @@ export function AttachmentField({
         <input
           type="file"
           multiple
+          aria-describedby={limit !== null ? limitId : undefined}
           className="sr-only"
           onChange={choose(false)}
         />
@@ -320,6 +329,7 @@ export function AttachmentField({
         {chosen}
         {uploading}
         {allowed && trigger}
+        {allowed && limitNote}
       </div>
     );
   }
@@ -327,11 +337,7 @@ export function AttachmentField({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         {allowed && trigger}
-        {limit !== null && (
-          <span className="text-xs text-muted-foreground">
-            {t("limit", { size: megabytes(limit) })}
-          </span>
-        )}
+        {limitNote}
         {uploading}
       </div>
       {chosen}

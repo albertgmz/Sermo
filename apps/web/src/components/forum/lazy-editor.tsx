@@ -190,7 +190,7 @@ export function LazyEditor({
       {/* The room the formatting bar takes, from the first tap, so nothing moves when it comes:
           its padding and a group's box (a 32 px button between 2 px margins and a border). */}
       {waiting && (
-        <div className="rounded-t-[inherit] border-b bg-muted p-1.5">
+        <div className="rounded-t-[inherit] border-b bg-muted p-1">
           <Skeleton className="h-[38px] w-48 max-w-full rounded-lg" />
         </div>
       )}

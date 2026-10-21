@@ -216,9 +216,10 @@ for (const [theme, tokens] of [
   ["dark", dark],
   ["light", light],
 ] as const) {
-  // The submit of a composer (components/forum/composer-buttons.tsx): the accent's ink on a 10 %
-  // tint of the accent (15 % under the pointer), over the card or the page.
-  test(`${theme} theme: a composer's submit reads on its soft tint of every preset accent`, () => {
+  // The submit of a composer (components/forum/composer-buttons.tsx) and a formatting command that
+  // is on (editor-toolbar.tsx, whose ring is the same ink, held against the card above): the
+  // accent's ink on a 10 % tint of the accent (15 % under the pointer), over the card or the page.
+  test(`${theme} theme: a composer's submit and a pressed command read on their soft tint of every preset accent`, () => {
     const failures: string[] = [];
     for (const accent of [
       ...ACCENTS.map((preset) => preset.color),

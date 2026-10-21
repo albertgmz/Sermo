@@ -45,9 +45,12 @@ const LABELS: Record<CommandId, string> = {
 
 const EVERY_COMMAND = Object.keys(LABELS).sort();
 
-// The narrowest bar the toolbar is drawn in: the editor of a 320 px phone (16 px page gutters and
-// the editor's border).
-const NARROWEST = 286;
+// The narrowest bar the toolbar is drawn in on one line: the comment column under a wall post on
+// a 360 px phone (the thread reply of a 320 px phone, 286 px, is wider).
+const NARROWEST = 270;
+
+const moreOf = (id: GroupId) =>
+  text.moreOptionsOf.replace("{group}", text.groups[id]);
 
 // A bar of each size, at its narrowest and at its widest.
 const WIDTHS: [ToolbarSize, number][] = TOOLBAR_SIZES.flatMap(
@@ -85,7 +88,7 @@ function parts(html: string, kind: "group" | "strip") {
   return [
     ...html.matchAll(
       new RegExp(
-        `(<div[^>]*data-${kind}="[^"]*"[^>]*>)([\\s\\S]*?)</div>`,
+        `(<fieldset[^>]*data-${kind}="[^"]*"[^>]*>)([\\s\\S]*?)</fieldset>`,
         "g",
       ),
     ),
@@ -312,17 +315,17 @@ test("the classes switch each part of the bar at the widths the sizes start from
 });
 
 test("the groups of each size fit on one line of their narrowest bar, which wraps rather than scrolls", () => {
-  // A button is 30 px wide and a ⋮ 22, each with 1 px on either side; a group's box adds 4 px of
+  // A button is 30 px wide with 1 px on either side, a ⋮ 24 px; a group's box adds 2 px of
   // padding and a 1 px border on either side; the boxes are 4 px apart and the bar's padding is
-  // 6 px on either side.
+  // 4 px on either side.
   for (const size of TOOLBAR_SIZES) {
     const { groups } = layoutAt(size);
     const boxes = groups.map(
       (group) =>
-        group.direct.length * 32 + (group.more.length > 0 ? 24 : 0) + 10,
+        group.direct.length * 32 + (group.more.length > 0 ? 24 : 0) + 6,
     );
     const width =
-      boxes.reduce((sum, box) => sum + box, 0) + (groups.length - 1) * 4 + 12;
+      boxes.reduce((sum, box) => sum + box, 0) + (groups.length - 1) * 4 + 8;
     const narrowest = Math.max(SIZE_FROM[size], NARROWEST);
     expect({ size, width, fits: width <= narrowest }).toEqual({
       size,
@@ -335,6 +338,11 @@ test("the groups of each size fit on one line of their narrowest bar, which wrap
   expect(html).toMatch(/<div class="@container[^"]*"><div[^>]*role="toolbar"/);
   const bar = html.match(/role="toolbar"[^>]*class="([^"]*)"/)?.[1] ?? "";
   expect(bar.split(" ")).toContain("flex-wrap");
+  expect(bar.split(" ")).toContain("p-1");
+  expect(bar.split(" ")).toContain("gap-1");
+  for (const group of parts(html, "group")) {
+    expect(classesOf(group.tag)).toContain("px-0.5");
+  }
   expect(bar).not.toContain("overflow-x");
 });
 
@@ -343,20 +351,30 @@ test("every control of the bar is a button of one toolbar, which the arrow keys 
   const bar = html.match(/<div[^>]*role="toolbar"[^>]*>/)?.[0] ?? "";
   expect(attribute(bar, "aria-label")).toBe(text.aria.formatting);
   expect(attribute(bar, "aria-orientation")).toBe("horizontal");
+  // The bar is the one stop of the Tab order; it hands the focus to a button in view.
+  expect(attribute(bar, "tabindex")).toBe("0");
   const toolbar = html.slice(html.indexOf(bar));
   const controls = toolbar
     .slice(0, toolbar.indexOf('role="textbox"'))
     .match(/<(button|a|input|select)\b[^>]*>/g);
   for (const control of controls ?? []) {
     expect(control).toStartWith('<button type="button"');
-    // One stop of the toolbar for Tab; the arrow keys go from button to button (Base UI's
-    // roving focus, which skips the buttons the bar's size hides).
+    // No button is a stop of its own: the arrow keys go from button to button
+    // (`editor-toolbar-keys.test.ts`).
     expect(attribute(control, "tabindex")).toBe("-1");
   }
-  for (const group of [...parts(html, "group"), ...parts(html, "strip")]) {
-    expect(attribute(group.tag, "role")).toBe("group");
-    expect(attribute(group.tag, "aria-label")).toBe(text.groups[group.id]);
-  }
+  // Each box and each strip is a named group (a fieldset), every name different.
+  const names = [
+    ...parts(html, "group").map((group) => {
+      expect(attribute(group.tag, "aria-label")).toBe(text.groups[group.id]);
+      return attribute(group.tag, "aria-label");
+    }),
+    ...parts(html, "strip").map((strip) => {
+      expect(attribute(strip.tag, "aria-label")).toBe(moreOf(strip.id));
+      return attribute(strip.tag, "aria-label");
+    }),
+  ];
+  expect(new Set(names).size).toBe(names.length);
 });
 
 test("each ⋮ names its strip, which is closed until it is pressed; one strip is open at a time", () => {
@@ -365,7 +383,8 @@ test("each ⋮ names its strip, which is closed until it is pressed; one strip i
   for (const group of parts(html, "group")) {
     const more = group.buttons.find((tag) => attribute(tag, "aria-expanded"));
     if (!more) continue;
-    expect(attribute(more, "aria-label")).toBe(text.moreOptions);
+    expect(attribute(more, "aria-label")).toBe(moreOf(group.id));
+    expect(attribute(more, "title")).toBe(text.moreOptions);
     expect(attribute(more, "aria-expanded")).toBe("false");
     const strip = strips.find(
       (part) => attribute(part.tag, "id") === attribute(more, "aria-controls"),
@@ -405,16 +424,34 @@ test("while the BB code source shows, only the button that leaves it works, in i
   const buttons = [...html.matchAll(/<button[^>]*>/g)].map(([tag]) => tag);
   const usable = buttons
     .filter((tag) => attribute(tag, "aria-disabled") !== "true")
-    .map(
-      (tag) =>
-        `${attribute(tag, "aria-label")}${
-          attribute(tag, "aria-controls")?.endsWith("-misc") ? " (misc)" : ""
-        }`,
-    );
+    .map((tag) => attribute(tag, "aria-label"));
   // The source button of the large bar and of the misc strip, and the misc ⋮ that opens it.
   expect(usable.sort()).toEqual(
-    [text.sourceLabel, text.sourceLabel, `${text.moreOptions} (misc)`].sort(),
+    [text.sourceLabel, text.sourceLabel, moreOf("misc")].sort(),
   );
+});
+
+test("a command that is on is told from a hovered one by more than a colour: a tint, the accent's ink and a ring", () => {
+  const html = editorHtml();
+  const bold = html.match(
+    new RegExp(`<button[^>]*aria-label="${text.boldLabel}"[^>]*>`),
+  )?.[0];
+  const classes = classesOf(bold ?? "");
+  expect(attribute(bold ?? "", "aria-pressed")).toBe("false");
+  for (const name of [
+    "aria-pressed:bg-primary/10",
+    "aria-pressed:text-primary-ink",
+    "aria-pressed:ring-1",
+    "aria-pressed:ring-inset",
+    "aria-pressed:ring-primary-ink",
+    "hover:bg-muted",
+  ]) {
+    expect(classes).toContain(name);
+  }
+  expect(classes).not.toContain("aria-pressed:bg-muted");
+  // The ⋮ is 24 px wide, WCAG's least target.
+  const more = html.match(/<button[^>]*aria-expanded[^>]*>/)?.[0] ?? "";
+  expect(classesOf(more)).toContain("w-6");
 });
 
 test("the bar has an underline button and the button that shows the BB code source", () => {

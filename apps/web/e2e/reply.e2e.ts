@@ -18,14 +18,15 @@ test.use({ storageState: MEMBER_STATE });
 const replyBox = (page: Page) =>
   page.getByRole("textbox", { name: "Write your reply…" });
 
-const MORE = "More options…";
+// The "⋮" of each group, named after it ("More options: Text").
+const MORE = /^More options: /;
 
 // The button of a command: in its group, or, when the bar is too narrow to show it there, in the
 // strip one of the "⋮" opens (the strip is left open).
 async function reveal(toolbar: Locator, command: string) {
   const button = toolbar.getByRole("button", { name: command, exact: true });
   if (await button.isVisible()) return button;
-  const more = toolbar.getByRole("button", { name: MORE, exact: true });
+  const more = toolbar.getByRole("button", { name: MORE });
   for (let index = 0; index < (await more.count()); index += 1) {
     const trigger = more.nth(index);
     if (!(await trigger.isVisible())) continue;
@@ -56,7 +57,7 @@ test("the reply editor's toolbar fits a phone without scrolling and its strips w
     await toolbar.evaluate((bar) => bar.scrollWidth <= bar.clientWidth),
   ).toBe(true);
 
-  // XenForo's sizes at every width: 30 x 32 px buttons and a 22 px "⋮", each in view inside the
+  // XenForo's sizes at every width: 30 x 32 px buttons and a 24 px "⋮", each in view inside the
   // bar; the common commands are always buttons.
   const buttons = toolbar.getByRole("button");
   const count = await buttons.count();
@@ -64,8 +65,8 @@ test("the reply editor's toolbar fits a phone without scrolling and its strips w
     const control = buttons.nth(index);
     if (!(await control.isVisible())) continue;
     const button = await box(control);
-    const more = (await control.getAttribute("aria-label")) === MORE;
-    expect(button.width).toBeGreaterThanOrEqual(more ? 22 : 30);
+    const more = MORE.test((await control.getAttribute("aria-label")) ?? "");
+    expect(button.width).toBeGreaterThanOrEqual(more ? 24 : 30);
     expect(button.height).toBeGreaterThanOrEqual(32);
     expect(button.x).toBeGreaterThanOrEqual(frame.x);
     expect(button.x + button.width).toBeLessThanOrEqual(frame.x + frame.width);
@@ -88,7 +89,7 @@ test("the reply editor's toolbar fits a phone without scrolling and its strips w
 
   // A "⋮" opens its strip under the groups and keeps the focus in the text; a second one closes
   // the first; Escape in a strip closes it with the focus back on its "⋮".
-  const triggers = toolbar.getByRole("button", { name: MORE, exact: true });
+  const triggers = toolbar.getByRole("button", { name: MORE });
   const shown: Locator[] = [];
   for (let index = 0; index < (await triggers.count()); index += 1) {
     if (await triggers.nth(index).isVisible()) shown.push(triggers.nth(index));
@@ -139,6 +140,36 @@ test("the reply editor's toolbar fits a phone without scrolling and its strips w
   await expect(source).toBeFocused();
   await toggleByKey();
   await expect(replyBox(page)).toBeFocused();
+});
+
+test("where a composer takes no files, Image asks for a picture's address and puts it in as [IMG] @all", async ({
+  page,
+}) => {
+  await visit(page, "/novedades");
+  await page
+    .getByRole("button", { name: "Reply", exact: true })
+    .first()
+    .click();
+  const box = page.getByRole("textbox", { name: "Write a reply…" }).first();
+  await expect(box).toBeFocused();
+  const form = page.locator("form").filter({ has: box });
+  await editorReady(form);
+  const image = form
+    .getByRole("toolbar", { name: "Formatting" })
+    .getByRole("button", { name: "Image", exact: true });
+
+  page.once("dialog", (question) => question.accept("javascript:alert(1)"));
+  await image.click();
+  await expect(
+    form.getByText("That is not the address of a picture on the web."),
+  ).toBeVisible();
+
+  page.once("dialog", (question) => question.accept("https://x.test/a.png"));
+  await image.click();
+  await expect(box).toContainText("[IMG]https://x.test/a.png[/IMG]");
+  await expect(
+    form.getByText("That is not the address of a picture on the web."),
+  ).toBeHidden();
 });
 
 test("a reply is posted from the phone and the quote and r key reach the editor", async ({

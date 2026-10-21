@@ -1,6 +1,5 @@
 "use client";
 
-import { Toolbar as Bar } from "@base-ui/react/toolbar";
 import { $isCodeNode } from "@lexical/code";
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
 import {
@@ -47,7 +46,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useContext, useEffect, useId, useRef, useState } from "react";
-import { isWebAddress, linkAddressOf } from "@/components/forum/bb-scan";
+import { linkAddressOf } from "@/components/forum/bb-scan";
 import { pickImage } from "@/components/forum/composer-insert";
 import {
   $applyLink,
@@ -58,6 +57,13 @@ import {
   type BlockKind,
 } from "@/components/forum/editor-commands";
 import { SourceContext } from "@/components/forum/editor-extras";
+import {
+  entryOf,
+  fromKeyboard,
+  imageTag,
+  moveTo,
+  registerStripEscape,
+} from "@/components/forum/editor-toolbar-keys";
 import {
   type CommandId,
   GROUPS,
@@ -119,11 +125,16 @@ type Command = {
   run: () => void;
 };
 
-// XenForo's sizes: 30 x 32 px buttons and a 22 px "⋮", the same on a phone and on a desktop (eight
-// buttons in three boxes fit the 326 px bar of a 360 px phone).
+// XenForo's sizes: 30 x 32 px buttons, the same on a phone and on a desktop, and a "⋮" of 24 px
+// (WCAG's least target; XenForo's is 22). Eight buttons in three boxes fit the 270 px comment
+// column of a 360 px phone. A command that is on has the accent's tint, its ink and a ring of it,
+// so it is told from a hovered button by more than a colour.
 const TOOL =
-  "my-0.5 inline-flex h-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:bg-muted aria-pressed:text-foreground data-disabled:opacity-40 data-disabled:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0";
+  "my-0.5 inline-flex h-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:bg-primary/10 aria-pressed:text-primary-ink aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-primary-ink aria-disabled:opacity-40 aria-disabled:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0";
 const BUTTON = `${TOOL} mx-px w-[30px]`;
+
+// Drawn by the bar's size, which a container query decides: a hidden one has no box.
+const inView = (element: Element) => element.getClientRects().length > 0;
 
 function useUnavailable() {
   const source = useContext(SourceContext)?.active;
@@ -141,20 +152,25 @@ function ToolbarButton({
   command: Command;
   className?: string;
 }) {
-  const unavailable = useUnavailable();
+  const unavailable = useUnavailable()(command);
   const { label, icon: Icon, active, run } = command;
   return (
-    <Bar.Button
+    // An unavailable button stays focusable (`aria-disabled`), so the arrow keys do not skip it.
+    <button
+      type="button"
+      tabIndex={-1}
       aria-label={label}
       title={label}
       aria-pressed={active}
-      disabled={unavailable(command)}
+      aria-disabled={unavailable || undefined}
       onMouseDown={(event) => event.preventDefault()}
-      onClick={run}
+      onClick={() => {
+        if (!unavailable) run();
+      }}
       className={cn(BUTTON, className)}
     >
       <Icon aria-hidden="true" />
-    </Bar.Button>
+    </button>
   );
 }
 
@@ -177,12 +193,36 @@ export function Toolbar({ className }: { className?: string }) {
   // The group whose strip is open, one at a time, as in XenForo.
   const [open, setOpen] = useState<GroupId | null>(null);
   const stripId = useId();
-  const strips = useRef<Partial<Record<GroupId, HTMLDivElement | null>>>({});
+  const strips = useRef<Partial<Record<GroupId, HTMLFieldSetElement | null>>>(
+    {},
+  );
   const triggers = useRef<Partial<Record<GroupId, HTMLButtonElement | null>>>(
     {},
   );
   // A strip opened from the keyboard takes the focus on its first button.
   const [enterStrip, setEnterStrip] = useState(false);
+  const bar = useRef<HTMLDivElement>(null);
+  // While the focus is on one of its buttons the bar itself is out of the Tab order, so Shift+Tab
+  // leaves it; `last` is where Tab comes back to.
+  const [inside, setInside] = useState(false);
+  const last = useRef<HTMLButtonElement | null>(null);
+  const openNow = useRef(open);
+  openNow.current = open;
+  const controls = () => [
+    ...(bar.current?.querySelectorAll<HTMLButtonElement>("button") ?? []),
+  ];
+
+  useEffect(() => {
+    if (!bar.current) return;
+    return registerStripEscape(
+      bar.current,
+      () => openNow.current,
+      (group) => {
+        setOpen(null);
+        triggers.current[group]?.focus();
+      },
+    );
+  }, []);
 
   useEffect(
     () =>
@@ -215,9 +255,11 @@ export function Toolbar({ className }: { className?: string }) {
     if (!enterStrip || !open) return;
     setEnterStrip(false);
     // The strip's first button the bar's size draws.
-    [...(strips.current[open]?.querySelectorAll("button") ?? [])]
-      .find((button) => button.offsetParent !== null)
-      ?.focus();
+    entryOf(
+      [...(strips.current[open]?.querySelectorAll("button") ?? [])],
+      null,
+      inView,
+    )?.focus();
   }, [enterStrip, open]);
 
   function setBlock(block: "heading" | "quote" | "code") {
@@ -268,12 +310,10 @@ export function Toolbar({ className }: { className?: string }) {
       setRefused(null);
       return;
     }
-    const input = ask(t("imagePrompt"));
-    if (!input) return;
-    const url = linkAddressOf(input);
-    const ok = url !== null && isWebAddress(url);
-    setRefused(ok ? null : "image");
-    if (ok) editor.update(() => $insertText(`[IMG]${url}[/IMG]`));
+    const tag = imageTag(ask(t("imagePrompt")));
+    if (!tag) return;
+    setRefused(tag === "refused" ? "image" : null);
+    if (tag !== "refused") editor.update(() => $insertText(tag));
   }
 
   const [bold, italic, underline, strikethrough, code] = FORMATS.map(
@@ -374,34 +414,74 @@ export function Toolbar({ className }: { className?: string }) {
     <>
       {/* The bar picks its size from its own width (see `editor-toolbar-layout.ts`). */}
       <div className="@container rounded-t-[inherit]">
-        <Bar.Root
+        {/* One stop of the Tab order: Tab on the bar itself goes on to the button last used
+            or the first in view, and the arrow keys move along the buttons in view
+            (`editor-toolbar-keys.ts`). A press on the bar keeps the focus in the text. */}
+        <div
+          ref={bar}
+          role="toolbar"
           aria-label={t("aria.formatting")}
+          aria-orientation="horizontal"
+          tabIndex={inside ? -1 : 0}
+          onMouseDown={(event) => event.preventDefault()}
+          onFocus={(event) => {
+            if (event.target === event.currentTarget) {
+              entryOf(controls(), last.current, inView)?.focus();
+              return;
+            }
+            setInside(true);
+            if (event.target instanceof HTMLButtonElement) {
+              last.current = event.target;
+            }
+          }}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setInside(false);
+            }
+          }}
+          onKeyDown={(event) => {
+            const shown = controls().filter(inView);
+            const next = moveTo(
+              event.key,
+              shown.indexOf(event.target as HTMLButtonElement),
+              shown.length,
+            );
+            if (next === null) return;
+            event.preventDefault();
+            shown[next]?.focus();
+          }}
           className={cn(
-            "flex flex-wrap items-center gap-1 rounded-t-[inherit] border-b bg-muted p-1.5",
+            "flex flex-wrap items-center gap-1 rounded-t-[inherit] border-b bg-muted p-1 outline-none",
             className,
           )}
         >
           {GROUPS.map((group) => {
             const more = group.more.map((slot) => commands[slot.id]);
             const expanded = open === group.id;
+            const disabled = more.every(unavailable);
+            const name = t("moreOptionsOf", {
+              group: t(`groups.${group.id}`),
+            });
             return (
-              <Bar.Group
+              <fieldset
                 key={group.id}
                 data-group={group.id}
                 aria-label={t(`groups.${group.id}`)}
                 className={cn(
-                  "flex items-center rounded-lg border bg-card px-1 transition-colors group-focus-within/editor:border-dashed group-focus-within/editor:border-ring/60",
+                  "flex min-w-0 items-center rounded-lg border bg-card px-0.5 transition-colors group-focus-within/editor:border-dashed group-focus-within/editor:border-ring/60",
                   // The misc group keeps to the right and takes what is left of the line.
                   group.id === "misc" && "flex-1 justify-end",
                   SHOWN[group.shown],
                 )}
               >
                 {group.direct.map(draw)}
-                <Bar.Button
+                <button
+                  type="button"
+                  tabIndex={-1}
                   ref={(element) => {
                     triggers.current[group.id] = element;
                   }}
-                  aria-label={t("moreOptions")}
+                  aria-label={name}
                   title={t("moreOptions")}
                   aria-expanded={expanded}
                   aria-controls={`${stripId}-${group.id}`}
@@ -409,48 +489,44 @@ export function Toolbar({ className }: { className?: string }) {
                   data-active={
                     more.some((command) => command.active) || undefined
                   }
-                  disabled={more.every(unavailable)}
+                  aria-disabled={disabled || undefined}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={(event) => {
+                    if (disabled) return;
                     setOpen((current) => toggleStrip(current, group.id));
-                    // Enter or Space (a click with no pointer) goes on into the strip.
-                    setEnterStrip(!expanded && event.detail === 0);
+                    setEnterStrip(!expanded && fromKeyboard(event));
                   }}
                   className={cn(
                     TOOL,
-                    "w-[22px] opacity-50 aria-expanded:opacity-100 data-active:opacity-100",
+                    "w-6 opacity-50 aria-expanded:opacity-100 data-active:text-primary-ink data-active:opacity-100",
                     SHOWN[group.moreShown],
                   )}
                 >
                   <EllipsisVertical aria-hidden="true" />
-                </Bar.Button>
-              </Bar.Group>
+                </button>
+              </fieldset>
             );
           })}
           {GROUPS.map((group) => (
-            <Bar.Group
+            <fieldset
               key={group.id}
-              ref={(element: HTMLDivElement | null) => {
+              ref={(element) => {
                 strips.current[group.id] = element;
               }}
               id={`${stripId}-${group.id}`}
               data-strip={group.id}
-              aria-label={t(`groups.${group.id}`)}
-              onKeyDown={(event) => {
-                if (event.key !== "Escape") return;
-                event.stopPropagation();
-                setOpen(null);
-                triggers.current[group.id]?.focus();
-              }}
+              aria-label={t("moreOptionsOf", {
+                group: t(`groups.${group.id}`),
+              })}
               className={cn(
-                "basis-full flex-wrap items-center px-1",
+                "min-w-0 basis-full flex-wrap items-center px-0.5",
                 open === group.id ? "flex" : "hidden",
               )}
             >
               {group.more.map(draw)}
-            </Bar.Group>
+            </fieldset>
           ))}
-        </Bar.Root>
+        </div>
       </div>
       {refused && (
         <FormError className="px-3 py-1.5">

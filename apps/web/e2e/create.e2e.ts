@@ -177,6 +177,56 @@ test("a wall post is written from the dialog and lands on the member's wall", as
   await expectFits(page, "the wall");
 });
 
+test("in the wall post sheet Escape in a ⋮ strip closes the strip and not the sheet, and Image opens the picture picker @all", async ({
+  page,
+}) => {
+  await visit(page, "/");
+  await openCreate(page);
+  await dialog(page)
+    .getByRole("button", { name: /^Wall post/ })
+    .click();
+  const box = dialog(page).getByRole("textbox", {
+    name: "What's on your mind?",
+  });
+  await box.click();
+  await editorReady(dialog(page));
+  const toolbar = dialog(page).getByRole("toolbar", { name: "Formatting" });
+
+  // From the keyboard: Enter on the text group's ⋮ goes into its strip, Escape comes back to the
+  // ⋮ with the strip closed and the sheet still open.
+  const more = toolbar.getByRole("button", {
+    name: "More options: Text",
+    exact: true,
+  });
+  await more.focus();
+  await page.keyboard.press("Enter");
+  const strip = toolbar.getByRole("group", {
+    name: "More options: Text",
+    exact: true,
+  });
+  await expect(strip.getByRole("button").first()).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(strip).toBeHidden();
+  await expect(more).toBeFocused();
+  await expect(dialog(page)).toBeVisible();
+
+  // The composer takes files: Image opens its picker of pictures, and asks for no address.
+  let asked = false;
+  page.once("dialog", (question) => {
+    asked = true;
+    void question.dismiss();
+  });
+  const chooser = page.waitForEvent("filechooser");
+  await toolbar.getByRole("button", { name: "Image", exact: true }).click();
+  expect((await chooser).isMultiple()).toBe(true);
+  expect(asked).toBe(false);
+
+  // With no strip open, Escape is the sheet's again.
+  await box.click();
+  await page.keyboard.press("Escape");
+  await expect(dialog(page)).toBeHidden();
+});
+
 test("in the Create dialog a press below the text puts the caret at its end, and a selection is not undone by the press that ends it", async ({
   page,
 }) => {
