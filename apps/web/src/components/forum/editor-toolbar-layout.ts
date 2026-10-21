@@ -55,6 +55,21 @@ export const SHOWN = {
 } as const;
 export type Shown = keyof typeof SHOWN;
 
+// The classes that draw a "⋮" as holding a command that is on (the accent's ink, full opacity), at
+// the sizes named only: its strip holds the command only there, and elsewhere the command is a
+// button in view or in another strip. Spelled out whole so that Tailwind finds them; a test holds
+// them to `SHOWN`.
+export const ACTIVE_ON = {
+  xs: "@max-[419px]:text-primary-ink @max-[419px]:opacity-100",
+  "xs sm": "@max-[574px]:text-primary-ink @max-[574px]:opacity-100",
+  "xs sm md": "@max-[899px]:text-primary-ink @max-[899px]:opacity-100",
+  sm: "@min-[420px]:@max-[574px]:text-primary-ink @min-[420px]:@max-[574px]:opacity-100",
+  "sm md lg": "@min-[420px]:text-primary-ink @min-[420px]:opacity-100",
+  "md lg": "@min-[575px]:text-primary-ink @min-[575px]:opacity-100",
+  lg: "@min-[900px]:text-primary-ink @min-[900px]:opacity-100",
+  all: "text-primary-ink opacity-100",
+} as const satisfies Record<Shown, string>;
+
 export type Slot = { id: CommandId; shown: Shown };
 
 export type Group = {
@@ -159,6 +174,14 @@ export function layoutAt(size: ToolbarSize): SizeLayout {
     ),
   };
 }
+
+// The classes of a "⋮" whose strip holds commands that are on (`on`), each at the sizes where the
+// strip holds it.
+export const activeMore = (more: Slot[], on: (id: CommandId) => boolean) =>
+  more
+    .filter((slot) => on(slot.id))
+    .map((slot) => ACTIVE_ON[slot.shown])
+    .join(" ");
 
 // The strip open after a "⋮" is pressed: its own, or none when it was already open. Opening one
 // closes the one that was open.

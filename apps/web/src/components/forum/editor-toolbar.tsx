@@ -74,6 +74,7 @@ import {
   registerStripEscape,
 } from "@/components/forum/editor-toolbar-keys";
 import {
+  activeMore,
   type CommandId,
   GROUPS,
   type GroupId,
@@ -184,7 +185,7 @@ function ToolbarButton({
   );
 }
 
-export function Toolbar({ className }: { className?: string }) {
+export function Toolbar() {
   const t = useTranslations("editor.editor");
   const [editor] = useLexicalComposerContext();
   const source = useContext(SourceContext);
@@ -468,10 +469,7 @@ export function Toolbar({ className }: { className?: string }) {
             event.preventDefault();
             shown[next]?.focus();
           }}
-          className={cn(
-            "flex flex-wrap items-center gap-1 rounded-t-[inherit] border-b bg-muted p-1 outline-none",
-            className,
-          )}
+          className="flex flex-wrap items-center gap-1 rounded-t-[inherit] border-b bg-muted p-1 outline-none"
         >
           {GROUPS.map((group) => {
             const more = group.more.map((slot) => commands[slot.id]);
@@ -502,13 +500,9 @@ export function Toolbar({ className }: { className?: string }) {
                     triggers.current[group.id] = element;
                   }}
                   aria-label={name}
-                  title={t("moreOptions")}
+                  title={name}
                   aria-expanded={expanded}
                   aria-controls={`${stripId}-${group.id}`}
-                  // Its strip holds a command that is on where the caret is.
-                  data-active={
-                    more.some((command) => command.active) || undefined
-                  }
                   aria-disabled={disabled || undefined}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={(event) => {
@@ -518,8 +512,13 @@ export function Toolbar({ className }: { className?: string }) {
                   }}
                   className={cn(
                     TOOL,
-                    "w-6 opacity-50 aria-expanded:opacity-100 data-active:text-primary-ink data-active:opacity-100",
+                    "w-6 opacity-50 aria-expanded:opacity-100",
                     SHOWN[group.moreShown],
+                    // Its strip holds a command that is on where the caret is, at this width.
+                    activeMore(
+                      group.more,
+                      (id) => commands[id].active === true,
+                    ),
                   )}
                 >
                   <EllipsisVertical aria-hidden="true" />

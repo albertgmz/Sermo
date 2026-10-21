@@ -9,6 +9,8 @@ import { Editor } from "./editor";
 import { SourceContext } from "./editor-extras";
 import { Toolbar } from "./editor-toolbar";
 import {
+  ACTIVE_ON,
+  activeMore,
   type CommandId,
   GROUPS,
   type GroupId,
@@ -387,7 +389,8 @@ test("each ⋮ names its strip, which is closed until it is pressed; one strip i
     const more = group.buttons.find((tag) => attribute(tag, "aria-expanded"));
     if (!more) continue;
     expect(attribute(more, "aria-label")).toBe(moreOf(group.id));
-    expect(attribute(more, "title")).toBe(text.moreOptions);
+    // The pointer's tooltip names the group too.
+    expect(attribute(more, "title")).toBe(moreOf(group.id));
     expect(attribute(more, "aria-expanded")).toBe("false");
     const strip = strips.find(
       (part) => attribute(part.tag, "id") === attribute(more, "aria-controls"),
@@ -513,4 +516,88 @@ test("the text an editor opens with is what its field holds until the member cha
     withIntl(<Editor name="body" defaultValue={source} />),
   );
   expect(html).toContain(`value="${source}"`);
+});
+
+// Whether a "⋮" with these classes is drawn as holding a command that is on, in a bar this wide:
+// a class that sets the full opacity, under container queries the width meets.
+function activeAt(classes: string[], width: number) {
+  return classes.some((name) => {
+    const parts = name.split(":");
+    if (parts.at(-1) !== "opacity-100") return false;
+    return parts.slice(0, -1).every((variant) => {
+      const query = variant.match(/^@(min|max)-\[(\d+)px\]$/);
+      if (!query) return false;
+      const edge = Number(query[2]);
+      return query[1] === "min" ? width >= edge : width <= edge;
+    });
+  });
+}
+
+test("a ⋮ looks active only at the widths where its strip holds the command that is on", () => {
+  const text = GROUPS.find((group) => group.id === "text");
+  const insert = GROUPS.find((group) => group.id === "insert");
+  if (!text || !insert) throw new Error("no text or insert group");
+  const on = (ids: CommandId[]) => (id: CommandId) => ids.includes(id);
+  // A list or a heading is in the text strip at extra small only; from 420 px it is a button of
+  // the paragraph group or in its own strip, so the text ⋮ stays quiet there.
+  for (const id of ["bullet", "number", "heading"] as const) {
+    const classes = activeMore(text.more, on([id])).split(" ");
+    expect({
+      id,
+      at: [419, 420, 575, 900].map((w) => activeAt(classes, w)),
+    }).toEqual({ id, at: [true, false, false, false] });
+  }
+  // Inline code is in the text strip at every width.
+  const code = activeMore(text.more, on(["code"])).split(" ");
+  expect([300, 600, 1200].map((w) => activeAt(code, w))).toEqual([
+    true,
+    true,
+    true,
+  ]);
+  // Strikethrough up to medium, a button at large.
+  const strike = activeMore(text.more, on(["strikethrough"])).split(" ");
+  expect([574, 899, 900].map((w) => activeAt(strike, w))).toEqual([
+    true,
+    true,
+    false,
+  ]);
+  // Nothing on: never active. A command of another strip: not this one's.
+  expect(activeMore(text.more, on([]))).toBe("");
+  expect(activeMore(insert.more, on(["bold"]))).toBe("");
+});
+
+test("the active classes of each size range switch exactly where the range's sizes do", () => {
+  for (const shown of Object.keys(ACTIVE_ON) as Shown[]) {
+    for (const [size, width] of WIDTHS) {
+      expect({
+        shown,
+        width,
+        on: activeAt(ACTIVE_ON[shown].split(" "), width),
+      }).toEqual({ shown, width, on: sizesOf(shown).includes(size) });
+    }
+  }
+});
+
+test("with nothing on, no ⋮ is drawn active, and the bar takes no classes from outside", () => {
+  const html = editorHtml();
+  for (const group of parts(html, "group")) {
+    const more = group.buttons.find((tag) => attribute(tag, "aria-expanded"));
+    if (!more) continue;
+    expect(classesOf(more)).toContain("opacity-50");
+    expect(
+      classesOf(more).some(
+        (name) =>
+          name.endsWith("opacity-100") && !name.startsWith("aria-expanded:"),
+      ),
+    ).toBe(false);
+    expect(more).not.toContain("data-active");
+  }
+  const source = readFileSync(
+    join(import.meta.dir, "editor-toolbar.tsx"),
+    "utf8",
+  );
+  expect(source).toContain("export function Toolbar() {");
+  expect(source).toMatch(
+    /activeMore\(\s*group\.more,\s*\(id\) => commands\[id\]\.active === true,?\s*\)/,
+  );
 });
