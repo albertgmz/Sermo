@@ -5670,3 +5670,14 @@ reaches the shop in weeks, and the code closes the two farming paths it found.
   for the header row. Conversation messages share the frame (dashed rule, signature above footer).
 
 Why: backlog C1 and the owner's forum-feel review: members compare the post with fcuba's XenForo.
+
+### Forum covers on category headers and the forum page
+
+- A category's uploaded cover is drawn behind its header on the forum list and on its own page,
+  under a scrim from the background token (never below 75%) so the title, chevron and description
+  read in both themes (tested at 4.5:1 over white and black). Forums keep their card picture; only
+  categories get a banner, as on XenForo. The forum page header grows to fit (144 px, 176 px from
+  `md`); the first covered category loads eagerly, later ones lazily; LITE mode draws no banner.
+
+Why: backlog D1; the covers were uploaded and only the cards used them.
+Known limits: the cover is a full-size download (no smaller renditions in the node output).
