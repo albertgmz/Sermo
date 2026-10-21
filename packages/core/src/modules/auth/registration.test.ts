@@ -40,6 +40,18 @@ async function world(options: { mail?: boolean } = {}) {
       id: body.user ? Number(body.user.id) : null,
     };
   };
+  const resend = (email: string) =>
+    getAuth(w.ctx).handler(
+      new Request(`${ORIGIN}/api/auth/send-verification-email`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: ORIGIN,
+          "x-sermo-client-ip": `198.51.100.${++visitor}`,
+        },
+        body: JSON.stringify({ email }),
+      }),
+    );
   const row = (id: number) =>
     w.ctx.sqlite
       .prepare<
@@ -60,7 +72,7 @@ async function world(options: { mail?: boolean } = {}) {
       .get(id);
   const members = () =>
     w.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM users").get()!.n;
-  return { ...w, founder, settings, join, row, members };
+  return { ...w, founder, settings, join, resend, row, members };
 }
 
 const mailTo = (w: Awaited<ReturnType<typeof world>>, address: string) =>
@@ -97,6 +109,8 @@ test("a closed site refuses every visitor, and leaves no account", async () => {
   await w.settings({ registrationOpen: false });
   const before = w.members();
   expect(await w.join("Newcomer")).toMatchObject({ status: 403, code: "REGISTRATION_CLOSED" });
+  // Whatever the body holds, a closed site says it is closed.
+  expect(await w.join("Newcomer", { email: 123 })).toMatchObject({ code: "REGISTRATION_CLOSED" });
   expect(w.members()).toBe(before);
   expect((await w.run("site.get", GUEST)).registration.open).toBe(false);
   // The call the server makes for itself (the first administrator) has no visitor to refuse.
@@ -342,4 +356,36 @@ test("a sign-up refused after the confirmation decision leaves nothing behind: t
   const sent = mailTo(w, "victim@example.test");
   expect(sent).toHaveLength(1);
   expect(sent[0]!.text).toMatch(/verify-email/);
+});
+
+test("a sign-up refused by the username plugin cannot suppress another address's link", async () => {
+  const w = await world({ mail: true });
+  const victim = await w.join("Victim");
+  expect(w.row(victim.id!)?.group_id).toBe(GROUP_IDS.unconfirmed);
+  await runDueJobs(w.ctx);
+  expect(mailTo(w, "victim@example.test")).toHaveLength(1);
+  await w.settings({ requireEmailConfirmation: false });
+  // Valid in every way, but for a username that is taken: the plugin refuses it after our hook.
+  const planted = await w.join("Founder", { email: "victim@example.test" });
+  expect(planted).toMatchObject({ status: 400, code: "USERNAME_IS_ALREADY_TAKEN" });
+  expect((await w.resend("victim@example.test")).status).toBe(200);
+  await runDueJobs(w.ctx);
+  const sent = mailTo(w, "victim@example.test");
+  expect(sent).toHaveLength(2);
+  expect(sent[1]!.text).toMatch(/verify-email/);
+});
+
+test("two sign-ups for one address at once each keep their own required field", async () => {
+  const w = await world();
+  await w.settings({ registrationFields: ["about"] });
+  const results = await Promise.all(
+    ["One", "Two", "Three"].map((name) =>
+      w.join(name, { email: "same@example.test", profile: { about: `about ${name}` } }),
+    ),
+  );
+  const made = results.map((result, i) => ({ ...result, name: ["One", "Two", "Three"][i]! }));
+  const created = made.filter((result) => result.status === 200);
+  expect(created).toHaveLength(1);
+  const winner = created[0]!;
+  expect(w.row(winner.id!)?.about).toBe(`about ${winner.name}`);
 });

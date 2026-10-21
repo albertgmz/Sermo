@@ -171,6 +171,9 @@ const DEAD_SESSION_COOKIE = "sermoDeadSessionCookie";
 /** The wrong-password guess a change-password request took, to give back when it succeeds. */
 const PASSWORD_GUESS = "sermoPasswordGuess";
 
+/** The registration plan a sign-up request made (see `planSignup`), kept on that request's context. */
+const SIGNUP_PLAN = "sermoSignupPlan";
+
 /** The wrong-password count a sign-in request took, to give back when it was not one. */
 const SIGN_IN_GUESS = "sermoSignInGuess";
 
@@ -414,14 +417,6 @@ function buildAuth(ctx: Ctx) {
   // Usernames the spam check flagged at sign-up, from the hook before the account is made to the
   // hook after it (one request); a sign-up that failed in between leaves its entry to expire.
   const flaggedSignups = new Map<string, number>();
-  // What the site decided for each sign-up request that passed every check, by address, from the
-  // last refusal to the hook that makes the account (one request). The hook after the request
-  // clears what an endpoint failure left, and an entry older than FLAG_MEMORY_MS is not used.
-  const signupPlans = new Map<string, SignupPlan & { at: number }>();
-  const planOf = (address: string) => {
-    const kept = signupPlans.get(address.toLowerCase());
-    return kept && kept.at >= ctx.now() - FLAG_MEMORY_MS ? kept : undefined;
-  };
   const auth = betterAuth({
     ...authSchemaOptions,
     secret: config.secret,
@@ -504,9 +499,6 @@ function buildAuth(ctx: Ctx) {
               url: string;
               token: string;
             }) => {
-              // The site asks no confirmation of new accounts: the sign-up sends no link. A later
-              // request for one (the member's own, or an email change) is answered as always.
-              if (planOf(user.email)?.confirms === false) return;
               const claim = await verifyJWT(token, config.secret);
               if (!claim) throw invalidToken();
               if (claim.updateTo)
@@ -621,17 +613,20 @@ function buildAuth(ctx: Ctx) {
           }
           // The site's registration rules (closed, required fields, minimum age) are for a visitor's
           // request; the call that creates the first administrator is made inside the server and
-          // has no request. This is the last refusal of a sign-up, so the plan below is kept only
-          // for a request that goes on to make its account.
-          if (
-            hook.path === "/sign-up/email" &&
-            hook.request &&
-            typeof hook.body?.email === "string"
-          ) {
+          // has no request. The plan lives on this request's own context only (the database hook
+          // that makes the account reads it there): nothing is kept between requests, so a refused
+          // or failed sign-up leaves nothing behind and no request can see another's plan.
+          if (hook.path === "/sign-up/email" && hook.request) {
             const plan = planSignup(ctx, hook.body, mailEnabled);
-            for (const [address, kept] of signupPlans)
-              if (kept.at < ctx.now() - FLAG_MEMORY_MS) signupPlans.delete(address);
-            signupPlans.set(hook.body.email.toLowerCase(), { ...plan, at: ctx.now() });
+            Reflect.set(hook.context, SIGNUP_PLAN, plan);
+            // A site that asks no confirmation sends no link with the sign-up: this request alone
+            // sees the sign-up mail switched off (a resend or an email change is answered as always).
+            const verification = hook.context.options.emailVerification;
+            if (mailEnabled && !plan.confirms && verification)
+              Reflect.set(hook.context, "options", {
+                ...hook.context.options,
+                emailVerification: { ...verification, sendOnSignUp: false },
+              });
           }
           if (hook.path === "/change-password" && hook.context.session) {
             // The current password is asked here, so guessing it is held to the limit of the
@@ -850,8 +845,6 @@ function buildAuth(ctx: Ctx) {
       ),
       after: createAuthMiddleware(async (hook) => {
         if (Reflect.get(hook.context, DEAD_SESSION_COOKIE) === true) retireDeadSessionCookies(hook);
-        if (hook.path === "/sign-up/email" && typeof hook.body?.email === "string")
-          signupPlans.delete(hook.body.email.toLowerCase());
         const failed =
           hook.context.returned instanceof APIError ||
           (hook.context.returned instanceof Response && !hook.context.returned.ok);
@@ -1031,7 +1024,10 @@ function buildAuth(ctx: Ctx) {
                 // The sign-up request's plan was made with the settings read once; a call made
                 // inside the server has none. Without a mail driver nobody can be asked to
                 // confirm; with one, the site decides.
-                const plan = planOf(user.email as string);
+                const plan = Reflect.get(
+                  (hookContext as { context?: object } | undefined)?.context ?? {},
+                  SIGNUP_PLAN,
+                ) as SignupPlan | undefined;
                 const confirms =
                   plan?.confirms ?? (mailEnabled && readSiteSettings(ctx).requireEmailConfirmation);
                 const review = signupReviewFor(ctx, flagged);

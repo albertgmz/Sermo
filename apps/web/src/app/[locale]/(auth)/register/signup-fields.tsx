@@ -20,8 +20,6 @@ export function SignupFields({
   kept: Record<string, string>;
 }) {
   const t = useTranslations("auth.registerForm");
-  // A date of birth cannot lie in the future.
-  const today = new Date().toISOString().slice(0, 10);
   return fields.map((field) => {
     const id = `register-${field}`;
     const hint = field === "birthday" && minimumAge > 0;
@@ -51,7 +49,6 @@ export function SignupFields({
                   ? "url"
                   : "text"
             }
-            {...(field === "birthday" ? { max: today } : {})}
             {...(field === "website" ? { maxLength: 200 } : {})}
             autoComplete={field === "birthday" ? "bday" : "off"}
             aria-describedby={hint ? `${id}-hint` : undefined}
