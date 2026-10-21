@@ -13,9 +13,9 @@ import type { TailPoll } from "@/lib/tail";
 // post stands at that position now; when it is not the one the page holds (a merge moved posts
 // under it, the post was removed) the thread has to be drawn again, and the replies are not used.
 // Replies that arrive are on the visitor's screen, so the thread is marked read up to the newest
-// of them, which is also where the next poll starts. That comes after they are drawn: drawn after,
-// they would read as already read and lose their "New" badge. What the browser sends is only
-// where to start; how the rows are drawn is worked out here.
+// of them, which is also where the next poll starts. The marking comes after the rows are drawn:
+// marked first, they would read as already read and lose their "New" badge. What the browser
+// sends is only where to start; how the rows are drawn is worked out here.
 export async function pollPosts(
   threadId: number,
   held: { id: number; mark: number },

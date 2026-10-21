@@ -166,8 +166,17 @@ test("the time is never cut short: an edited mark beside it truncates instead", 
   expect(html).toContain('"className":"min-w-0 truncate"');
 });
 
-test("a dashed rule parts the header row from the content", () => {
-  expect(JSON.stringify(PostFrame(base))).toContain("border-b border-dashed");
+test("a dashed rule parts the header row from the content, as wide as the content", () => {
+  const classes = [
+    ...JSON.stringify(PostFrame(base)).matchAll(/"className":"([^"]*)"/g),
+  ].map((match) => match[1]);
+  const ruled = classes.filter((name) =>
+    name.includes("border-b border-dashed"),
+  );
+  expect(ruled).toHaveLength(1);
+  // The row inside reaches into the padding on a phone; the rule itself does not overhang.
+  expect(ruled[0]).not.toMatch(/(^|\s)-m[rx]-/);
+  expect(classes.some((name) => /(^|\s)-mr-2\.5(\s|$)/.test(name))).toBe(true);
 });
 
 test("the postbit sits in the frame's grid with the column width set once", () => {

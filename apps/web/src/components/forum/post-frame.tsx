@@ -84,18 +84,22 @@ export function PostFrame({
       />
 
       <div className="min-w-0">
-        <div className="-mr-2.5 mb-2 flex items-center justify-between gap-2 border-b border-dashed pb-0.5 text-xs text-muted-foreground md:mr-0 md:mb-3 md:pb-1.5">
-          {/* The time is never cut short: the edited mark gives way instead. */}
-          <div className="flex min-w-0 items-center gap-2">
-            <RelativeTime date={createdAt} className="shrink-0 md:hidden" />
-            <time dateTime={createdAt} className="hidden shrink-0 md:inline">
-              {formatDateTime(createdAt, locale)}
-            </time>
-            {edited && <span className="min-w-0 truncate">{edited}</span>}
+        {/* The rule spans the column exactly; only the row inside reaches into the padding on a
+            phone, so the 40 px controls at its right line up with the card's edge. */}
+        <div className="mb-2 border-b border-dashed pb-0.5 md:mb-3 md:pb-1.5">
+          <div className="-mr-2.5 flex items-center justify-between gap-2 text-xs text-muted-foreground md:mr-0">
+            {/* The time is never cut short: the edited mark gives way instead. */}
+            <div className="flex min-w-0 items-center gap-2">
+              <RelativeTime date={createdAt} className="shrink-0 md:hidden" />
+              <time dateTime={createdAt} className="hidden shrink-0 md:inline">
+                {formatDateTime(createdAt, locale)}
+              </time>
+              {edited && <span className="min-w-0 truncate">{edited}</span>}
+            </div>
+            {trailing && (
+              <div className="flex shrink-0 items-center">{trailing}</div>
+            )}
           </div>
-          {trailing && (
-            <div className="flex shrink-0 items-center">{trailing}</div>
-          )}
         </div>
 
         {children}
