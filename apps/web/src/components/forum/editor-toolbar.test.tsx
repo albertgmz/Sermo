@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { renderToStaticMarkup } from "react-dom/server";
 import { messages } from "@/i18n/messages";
@@ -351,8 +353,9 @@ test("every control of the bar is a button of one toolbar, which the arrow keys 
   const bar = html.match(/<div[^>]*role="toolbar"[^>]*>/)?.[0] ?? "";
   expect(attribute(bar, "aria-label")).toBe(text.aria.formatting);
   expect(attribute(bar, "aria-orientation")).toBe("horizontal");
-  // The bar is the one stop of the Tab order; it hands the focus to a button in view.
-  expect(attribute(bar, "tabindex")).toBe("0");
+  // The bar itself is never in the Tab order: one of its buttons is (`placeStop`, put on the
+  // page once the bar is drawn), so nothing can leave the bar out of it.
+  expect(attribute(bar, "tabindex")).toBeUndefined();
   const toolbar = html.slice(html.indexOf(bar));
   const controls = toolbar
     .slice(0, toolbar.indexOf('role="textbox"'))
@@ -395,6 +398,18 @@ test("each ⋮ names its strip, which is closed until it is pressed; one strip i
   expect(toggleStrip(null, "text")).toBe("text");
   expect(toggleStrip("text", "insert")).toBe("insert");
   expect(toggleStrip("insert", "insert")).toBeNull();
+});
+
+test("an open strip is drawn only where its ⋮ is, and its ⋮ closes it while the BB code source shows", () => {
+  // Read from the component: no strip is open in a page drawn on the server.
+  const source = readFileSync(
+    join(import.meta.dir, "editor-toolbar.tsx"),
+    "utf8",
+  );
+  expect(source).toMatch(
+    /open === group\.id\s*\?\s*cn\("flex", SHOWN\[group\.moreShown\]\)\s*:\s*"hidden"/,
+  );
+  expect(source).toContain("more.every(unavailable) && !expanded");
 });
 
 test("while the BB code source shows, only the button that leaves it works, in its strip too", () => {
@@ -449,6 +464,25 @@ test("a command that is on is told from a hovered one by more than a colour: a t
     expect(classes).toContain(name);
   }
   expect(classes).not.toContain("aria-pressed:bg-muted");
+  // The focus is an outline, a property the pressed state does not set: a focused command that
+  // is on keeps its focus ring (two rings would share one property, and the later rule wins).
+  for (const name of [
+    "focus-visible:outline-2",
+    "focus-visible:outline-solid",
+    "focus-visible:outline-ring",
+  ]) {
+    expect(classes).toContain(name);
+  }
+  const property = (name: string) =>
+    name
+      .split(":")
+      .at(-1)
+      ?.match(/^(ring|outline|bg|text)/)?.[1];
+  const focus = classes.filter((name) => name.startsWith("focus-visible:"));
+  const pressed = classes.filter((name) => name.startsWith("aria-pressed:"));
+  for (const name of focus) {
+    expect(pressed.map(property)).not.toContain(property(name));
+  }
   // The ⋮ is 24 px wide, WCAG's least target.
   const more = html.match(/<button[^>]*aria-expanded[^>]*>/)?.[0] ?? "";
   expect(classesOf(more)).toContain("w-6");

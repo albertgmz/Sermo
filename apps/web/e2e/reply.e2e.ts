@@ -142,6 +142,54 @@ test("the reply editor's toolbar fits a phone without scrolling and its strips w
   await expect(replyBox(page)).toBeFocused();
 });
 
+test("Tab enters the bar on one button and Shift+Tab leaves it, also once the bar's size hid that button @all", async ({
+  page,
+}) => {
+  const { threadId } = seed();
+  await visit(page, `/threads/${threadId}`);
+  await replyBox(page).click();
+  const reply = page.getByRole("region", { name: "Reply" });
+  await editorReady(reply);
+  const toolbar = reply.getByRole("toolbar", { name: "Formatting" });
+  // Where the focus is: on a button of the bar in view, elsewhere in the bar, or outside it.
+  const where = () =>
+    toolbar.evaluate((bar) => {
+      const at = document.activeElement;
+      if (!at || !bar.contains(at)) return "outside";
+      return at instanceof HTMLButtonElement && at.getClientRects().length > 0
+        ? "button"
+        : "bar";
+    });
+
+  // The bar is just before the text: Shift+Tab from the text lands on its one stop, a button.
+  await replyBox(page).focus();
+  await page.keyboard.press("Shift+Tab");
+  expect(await where()).toBe("button");
+  // Shift+Tab again leaves the bar, and Tab comes back to the same button.
+  const stop = await page.evaluate(() =>
+    document.activeElement?.getAttribute("aria-label"),
+  );
+  await page.keyboard.press("Shift+Tab");
+  expect(await where()).toBe("outside");
+  await page.keyboard.press("Tab");
+  expect(await where()).toBe("button");
+  expect(
+    await page.evaluate(() =>
+      document.activeElement?.getAttribute("aria-label"),
+    ),
+  ).toBe(stop);
+
+  // The last button of the bar has the focus when the page narrows to a phone's width, which
+  // may hide it: the bar is still in the Tab order, on a button in view.
+  await page.keyboard.press("End");
+  const size = screen(page);
+  await page.setViewportSize({ width: 320, height: size.height });
+  await replyBox(page).focus();
+  await page.keyboard.press("Shift+Tab");
+  expect(await where()).toBe("button");
+  await page.setViewportSize(size);
+});
+
 test("where a composer takes no files, Image asks for a picture's address and puts it in as [IMG] @all", async ({
   page,
 }) => {

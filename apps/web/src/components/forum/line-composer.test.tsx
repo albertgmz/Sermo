@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { messages } from "@/i18n/messages";
 import { withIntl } from "@/lib/test-intl";
@@ -48,4 +50,15 @@ test("a comment with files has Attach files after its submit; a reply has none",
   expect(reply.match(/<button[^>]*type="submit"[^>]*>/)?.[0]).toContain(
     "ml-auto",
   );
+});
+
+test("once a comment is in the page the box starts over as one line", () => {
+  const source = readFileSync(
+    join(import.meta.dir, "line-composer.tsx"),
+    "utf8",
+  );
+  expect(source).toMatch(
+    /if \(!state\.landOn\) return;\s*landOn\(state\.landOn\);\s*setEntered\(false\);\s*setSent/,
+  );
+  expect(source).toContain("key={sent}");
 });

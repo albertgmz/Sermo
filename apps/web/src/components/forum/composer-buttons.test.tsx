@@ -49,6 +49,17 @@ test("a reply puts Attach files first and the submit at the end; a comment the s
   expect(commentSubmit).not.toContain("ml-auto");
 });
 
+test("both buttons are touch targets on a touch screen and XenForo's quieter size under a mouse", () => {
+  const html = draw({});
+  for (const tag of [
+    submitOf(html)?.[0] ?? "",
+    html.match(/<label[^>]*>/)?.[0] ?? "",
+  ]) {
+    expect(classesOf(tag)).toContain("h-11");
+    expect(classesOf(tag)).toContain("pointer-fine:h-8");
+  }
+});
+
 test("the submit waits while a file is on its way", () => {
   expect(submitOf(draw({ disabled: true }))?.[0]).toContain('disabled=""');
   expect(submitOf(draw({}))?.[0]).not.toContain('disabled=""');

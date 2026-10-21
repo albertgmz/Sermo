@@ -45,7 +45,15 @@ import {
   Undo2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useContext, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { linkAddressOf } from "@/components/forum/bb-scan";
 import { pickImage } from "@/components/forum/composer-insert";
 import {
@@ -62,6 +70,7 @@ import {
   fromKeyboard,
   imageTag,
   moveTo,
+  placeStop,
   registerStripEscape,
 } from "@/components/forum/editor-toolbar-keys";
 import {
@@ -128,9 +137,10 @@ type Command = {
 // XenForo's sizes: 30 x 32 px buttons, the same on a phone and on a desktop, and a "⋮" of 24 px
 // (WCAG's least target; XenForo's is 22). Eight buttons in three boxes fit the 270 px comment
 // column of a 360 px phone. A command that is on has the accent's tint, its ink and a ring of it,
-// so it is told from a hovered button by more than a colour.
+// so it is told from a hovered button by more than a colour. The focus is an outline, which no
+// other state sets, so a focused command that is on still shows where the focus is.
 const TOOL =
-  "my-0.5 inline-flex h-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:bg-primary/10 aria-pressed:text-primary-ink aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-primary-ink aria-disabled:opacity-40 aria-disabled:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0";
+  "my-0.5 inline-flex h-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring focus-visible:outline-solid aria-pressed:bg-primary/10 aria-pressed:text-primary-ink aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-primary-ink aria-disabled:opacity-40 aria-disabled:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0";
 const BUTTON = `${TOOL} mx-px w-[30px]`;
 
 // Drawn by the bar's size, which a container query decides: a hidden one has no box.
@@ -202,15 +212,33 @@ export function Toolbar({ className }: { className?: string }) {
   // A strip opened from the keyboard takes the focus on its first button.
   const [enterStrip, setEnterStrip] = useState(false);
   const bar = useRef<HTMLDivElement>(null);
-  // While the focus is on one of its buttons the bar itself is out of the Tab order, so Shift+Tab
-  // leaves it; `last` is where Tab comes back to.
-  const [inside, setInside] = useState(false);
+  // The button last used, which stays the bar's stop of the Tab order while it is in view.
   const last = useRef<HTMLButtonElement | null>(null);
   const openNow = useRef(open);
   openNow.current = open;
-  const controls = () => [
-    ...(bar.current?.querySelectorAll<HTMLButtonElement>("button") ?? []),
-  ];
+  const controls = useCallback(
+    () => [
+      ...(bar.current?.querySelectorAll<HTMLButtonElement>("button") ?? []),
+    ],
+    [],
+  );
+  // One button of the bar, in view, is in the Tab order: put again after every render (a strip
+  // opened or closed) and whenever the bar's size changes what it shows, so the stop is never a
+  // button that went out of view, whatever had the focus then.
+  const placeTabStop = useCallback(
+    () => placeStop(controls(), last.current, inView),
+    [controls],
+  );
+  useLayoutEffect(() => {
+    placeTabStop();
+  });
+  useEffect(() => {
+    const element = bar.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(placeTabStop);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [placeTabStop]);
 
   useEffect(() => {
     if (!bar.current) return;
@@ -414,29 +442,19 @@ export function Toolbar({ className }: { className?: string }) {
     <>
       {/* The bar picks its size from its own width (see `editor-toolbar-layout.ts`). */}
       <div className="@container rounded-t-[inherit]">
-        {/* One stop of the Tab order: Tab on the bar itself goes on to the button last used
-            or the first in view, and the arrow keys move along the buttons in view
-            (`editor-toolbar-keys.ts`). A press on the bar keeps the focus in the text. */}
+        {/* One stop of the Tab order: the button last used, or the first in view, and the
+            arrow keys move along the buttons in view (`editor-toolbar-keys.ts`). A press on
+            the bar keeps the focus in the text. */}
         <div
           ref={bar}
           role="toolbar"
           aria-label={t("aria.formatting")}
           aria-orientation="horizontal"
-          tabIndex={inside ? -1 : 0}
           onMouseDown={(event) => event.preventDefault()}
           onFocus={(event) => {
-            if (event.target === event.currentTarget) {
-              entryOf(controls(), last.current, inView)?.focus();
-              return;
-            }
-            setInside(true);
             if (event.target instanceof HTMLButtonElement) {
               last.current = event.target;
-            }
-          }}
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget)) {
-              setInside(false);
+              placeTabStop();
             }
           }}
           onKeyDown={(event) => {
@@ -458,7 +476,9 @@ export function Toolbar({ className }: { className?: string }) {
           {GROUPS.map((group) => {
             const more = group.more.map((slot) => commands[slot.id]);
             const expanded = open === group.id;
-            const disabled = more.every(unavailable);
+            // Unavailable while nothing in its strip works (the BB code source shows), except to
+            // close a strip that was open.
+            const disabled = more.every(unavailable) && !expanded;
             const name = t("moreOptionsOf", {
               group: t(`groups.${group.id}`),
             });
@@ -520,7 +540,11 @@ export function Toolbar({ className }: { className?: string }) {
               })}
               className={cn(
                 "min-w-0 basis-full flex-wrap items-center px-0.5",
-                open === group.id ? "flex" : "hidden",
+                // Only where its ⋮ is: a strip left open when the bar grows past the sizes that
+                // hide anything of its group is not drawn there.
+                open === group.id
+                  ? cn("flex", SHOWN[group.moreShown])
+                  : "hidden",
               )}
             >
               {group.more.map(draw)}

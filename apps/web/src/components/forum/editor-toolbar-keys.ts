@@ -2,7 +2,8 @@
 // that it can be tested without a browser. The bar is one stop of the Tab order (WAI-ARIA's toolbar
 // pattern): Tab lands on the button last used there, or on the first one the bar's size shows, and
 // the arrow keys, Home and End move between the buttons in view. A button hidden by the bar's size
-// is never the stop, whatever the bar's width became since it was last used.
+// is never the stop, whatever the bar's width became since it was last used: the stop is placed
+// again after every redraw and every change of the bar's size.
 
 import { isWebAddress, linkAddressOf } from "@/components/forum/bb-scan";
 import type { GroupId } from "@/components/forum/editor-toolbar-layout";
@@ -34,6 +35,23 @@ export function entryOf<T>(
 ): T | undefined {
   if (last !== null && controls.includes(last) && shown(last)) return last;
   return controls.find(shown);
+}
+
+// Makes one control of the bar the stop of the Tab order (`tabIndex` 0) and every other one -1: the
+// one last used while it is in view, else the first in view, else none (a bar out of view). Tab
+// from before the bar lands on it, Shift+Tab from it leaves the bar, as nothing else of it is in
+// the Tab order.
+export function placeStop<T extends { tabIndex: number }>(
+  controls: readonly T[],
+  last: T | null,
+  shown: (control: T) => boolean,
+): T | undefined {
+  const stop = entryOf(controls, last, shown);
+  for (const control of controls) {
+    const index = control === stop ? 0 : -1;
+    if (control.tabIndex !== index) control.tabIndex = index;
+  }
+  return stop;
 }
 
 // Whether a press came from the keyboard (Enter or Space on a button is a click with no pointer

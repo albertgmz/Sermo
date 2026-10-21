@@ -191,7 +191,7 @@ export function AttachmentField({
             ? // XenForo's button: as tall as the submit beside it, last in the row.
               cn(
                 buttonVariants({ variant: "outline" }),
-                "order-last h-11 gap-2 px-4 text-(length:--text-compact)",
+                "order-last h-11 gap-2 px-4 text-(length:--text-compact) pointer-fine:h-8",
               )
             : cn(messageActionClass, "border border-border px-3"),
         )}

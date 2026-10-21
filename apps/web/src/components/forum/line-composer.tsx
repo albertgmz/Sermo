@@ -36,8 +36,14 @@ export function LineComposer({
   const [state, formAction] = useActionState(action, {});
   const [uploading, setUploading] = useState(false);
   const [entered, setEntered] = useState(false);
+  // What was sent is in the page: the box starts over as one line, the plain field again until it
+  // is entered (the editor's code is in the browser by then, so it comes back at once).
+  const [sent, setSent] = useState(0);
   useEffect(() => {
-    if (state.landOn) landOn(state.landOn);
+    if (!state.landOn) return;
+    landOn(state.landOn);
+    setEntered(false);
+    setSent((count) => count + 1);
   }, [state]);
   return (
     <form
@@ -46,6 +52,7 @@ export function LineComposer({
       className={cn("space-y-2", className)}
     >
       <LazyEditor
+        key={sent}
         name="body"
         placeholder={placeholder}
         minHeight={entered ? 100 : 40}

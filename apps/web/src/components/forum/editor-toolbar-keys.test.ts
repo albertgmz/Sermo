@@ -6,6 +6,7 @@ import {
   fromKeyboard,
   imageTag,
   moveTo,
+  placeStop,
   registerStripEscape,
 } from "./editor-toolbar-keys";
 import type { GroupId } from "./editor-toolbar-layout";
@@ -38,6 +39,59 @@ test("Tab lands on the button last used while it is in view, and never on one th
   // One that is no longer in the bar at all.
   expect(entryOf(controls, "gone", inView)).toBe("bold");
   expect(entryOf(controls, null, () => false)).toBeUndefined();
+});
+
+// A button as the bar holds it: in the Tab order or not, in view or not.
+const button = (id: string, shown = true) => ({ id, shown, tabIndex: -1 });
+const inView = (control: { shown: boolean }) => control.shown;
+const stops = (controls: { id: string; tabIndex: number }[]) =>
+  controls.filter((control) => control.tabIndex === 0).map((c) => c.id);
+
+test("exactly one button in view is in the Tab order, so Tab enters the bar and Shift+Tab leaves it", () => {
+  const hidden = button("removeFormatting", false);
+  const bold = button("bold");
+  const italic = button("italic");
+  const undo = button("undo");
+  const controls = [hidden, bold, italic, undo];
+  // Entry: the first in view, never the hidden one before it.
+  expect(placeStop(controls, null, inView)).toBe(bold);
+  expect(stops(controls)).toEqual(["bold"]);
+  // The button used last (arrowed to) becomes the stop, and the one before leaves the Tab order,
+  // so Shift+Tab from it goes to what is before the bar, not to another button of it.
+  expect(placeStop(controls, undo, inView)).toBe(undo);
+  expect(stops(controls)).toEqual(["undo"]);
+});
+
+test("when the button that was the stop goes out of view, the first in view takes its place", () => {
+  const remove = button("removeFormatting");
+  const bold = button("bold");
+  const controls = [remove, bold];
+  placeStop(controls, remove, inView);
+  expect(stops(controls)).toEqual(["removeFormatting"]);
+  // The bar narrowed (or its strip closed) while it had the focus: the bar keeps a stop.
+  remove.shown = false;
+  placeStop(controls, remove, inView);
+  expect(stops(controls)).toEqual(["bold"]);
+  // A bar out of view (a closed dialog) has none, and gets one back when it shows.
+  bold.shown = false;
+  expect(placeStop(controls, remove, inView)).toBeUndefined();
+  expect(stops(controls)).toEqual([]);
+  bold.shown = true;
+  placeStop(controls, remove, inView);
+  expect(stops(controls)).toEqual(["bold"]);
+});
+
+test("the stop is placed again after every redraw and every change of the bar's size", () => {
+  const source = readFileSync(
+    join(import.meta.dir, "editor-toolbar.tsx"),
+    "utf8",
+  );
+  expect(source).toMatch(
+    /useLayoutEffect\(\(\) => \{\s*placeTabStop\(\);\s*\}\);/,
+  );
+  expect(source).toContain("new ResizeObserver(placeTabStop)");
+  // No state of "the focus is inside" that a vanished button could leave behind.
+  expect(source).not.toMatch(/tabIndex=\{inside|setInside/);
 });
 
 test("a ⋮ pressed from the keyboard takes the focus into its strip, one pressed by a pointer leaves it in the text", () => {
