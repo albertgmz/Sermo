@@ -11,6 +11,7 @@ import { ForbiddenError, NotFoundError, UnauthenticatedError, ValidationError } 
 import { dispatchEvents } from "../../events";
 import { execute } from "../../operation";
 import { encodeCursor } from "../../pagination";
+import { authCountersOp } from "../auth";
 import { runDueJobs } from "../jobs";
 import { registerNotificationJobs } from "../notifications";
 import {
@@ -24,11 +25,14 @@ import {
   conversationsLeaveOp,
   conversationsListMessagesOp,
   conversationsListOp,
+  conversationsLocateUnreadOp,
   conversationsMarkReadOp,
+  conversationsMarkUnreadOp,
   conversationsRenameOp,
   conversationsReplyOp,
   inboxSql,
   incrementParticipantsSql,
+  markUnreadSql,
   messagesSql,
   participantStatesSql,
   participantsSql,
@@ -463,6 +467,53 @@ describe("conversations", () => {
         execute(ctx, conversationsListMessagesOp, c, { conversationId: id, order, limit: 2 }),
       ).rejects.toThrow(NotFoundError);
     expectNoTableScan(ctx, visibleMessagesNewestSql, [id, Number.MAX_SAFE_INTEGER, 21, 0, 0]);
+  });
+
+  test("marking a conversation unread puts its newest message back as the first unread, for the caller only", async () => {
+    const { ctx, a, b, c } = fixture();
+    const idOf = (actor: typeof a) => (actor.kind === "guest" ? 0 : actor.userId);
+    const made = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+    const id = made.conversation.id;
+    ctx.clock.advance(1000);
+    await execute(ctx, conversationsReplyOp, b, { conversationId: id, body: "second" });
+    ctx.clock.advance(1000);
+    const third = await execute(ctx, conversationsReplyOp, b, {
+      conversationId: id,
+      body: "third",
+    });
+    await execute(ctx, conversationsMarkReadOp, a, { conversationId: id });
+    const isUnread = async (actor: typeof a) =>
+      (await execute(ctx, conversationsGetOp, actor, { conversationId: id })).isUnread;
+    const counter = async (actor: typeof a) =>
+      (await execute(ctx, authCountersOp, actor, {})).conversations;
+    expect([await isUnread(a), await counter(a)]).toEqual([false, 0]);
+    await execute(ctx, conversationsMarkUnreadOp, a, { conversationId: id });
+    expect([await isUnread(a), await counter(a)]).toEqual([true, 1]);
+    // It opens at the newest message, the only unread one, and the other reader's mark is theirs.
+    const place = await execute(ctx, conversationsLocateUnreadOp, a, {
+      conversationId: id,
+      limit: 20,
+    });
+    expect(place.messageId).toBe(third.id);
+    expect(await isUnread(b)).toBe(false);
+    // Reading it again clears the mark.
+    await execute(ctx, conversationsMarkReadOp, a, { conversationId: id });
+    expect([await isUnread(a), await counter(a)]).toEqual([false, 0]);
+    // A conversation of one message goes back to nothing read.
+    const alone = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+    await execute(ctx, conversationsMarkUnreadOp, a, { conversationId: alone.conversation.id });
+    expect(
+      (await execute(ctx, conversationsGetOp, a, { conversationId: alone.conversation.id }))
+        .isUnread,
+    ).toBe(true);
+    // Only a participant: an outsider and a guest are refused before anything is read.
+    await expect(
+      execute(ctx, conversationsMarkUnreadOp, c, { conversationId: id }),
+    ).rejects.toThrow(NotFoundError);
+    await expect(
+      execute(ctx, conversationsMarkUnreadOp, GUEST, { conversationId: id }),
+    ).rejects.toThrow(UnauthenticatedError);
+    expectNoTableScan(ctx, markUnreadSql, [id, third.id]);
   });
 
   test("three readers retain independent unread state and left rows keep their activity time", async () => {

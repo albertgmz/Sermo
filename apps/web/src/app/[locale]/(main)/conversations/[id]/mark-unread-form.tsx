@@ -1,0 +1,40 @@
+"use client";
+
+import { useActionState } from "react";
+import { markUnreadAction } from "@/app/[locale]/(main)/conversations/actions";
+import { FormError } from "@/components/forum/form-error";
+import { PendingButton } from "@/components/forum/pending-button";
+
+// "Mark as unread": puts the conversation back among the unread ones and goes to the list. It can
+// be refused; the backend's reason is shown under the header's row.
+export function MarkUnreadForm({
+  conversationId,
+  label,
+  children,
+}: {
+  conversationId: number;
+  label: string;
+  children: React.ReactNode;
+}) {
+  const [state, action] = useActionState(
+    markUnreadAction.bind(null, conversationId),
+    {},
+  );
+  return (
+    <>
+      <form action={action}>
+        <PendingButton
+          variant="ghost"
+          aria-label={label}
+          className="h-10 px-2 text-xs text-muted-foreground"
+        >
+          {children}
+          <span className="max-sm:sr-only">{label}</span>
+        </PendingButton>
+      </form>
+      {state.error && (
+        <FormError className="basis-full px-2 text-xs">{state.error}</FormError>
+      )}
+    </>
+  );
+}

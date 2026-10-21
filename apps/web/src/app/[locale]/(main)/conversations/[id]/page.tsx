@@ -3,7 +3,7 @@ import {
   conversationsListMessages,
   conversationsLocateMessage,
 } from "@sermo/core/contracts";
-import { ChevronUp, LogOut } from "lucide-react";
+import { ChevronUp, LogOut, Mail } from "lucide-react";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
@@ -17,6 +17,7 @@ import {
   ReplyArea,
 } from "@/app/[locale]/(main)/conversations/[id]/locked-state";
 import { MarkReadProvider } from "@/app/[locale]/(main)/conversations/[id]/mark-read-state";
+import { MarkUnreadForm } from "@/app/[locale]/(main)/conversations/[id]/mark-unread-form";
 import { MessageItem } from "@/app/[locale]/(main)/conversations/[id]/message-item";
 import { MessagesSkeleton } from "@/app/[locale]/(main)/conversations/[id]/messages-skeleton";
 import { WidgetsSheet } from "@/app/[locale]/(main)/conversations/[id]/widgets-sheet";
@@ -93,6 +94,12 @@ function Header({
             labelClassName="max-sm:sr-only"
           />
         )}
+        <MarkUnreadForm
+          conversationId={conversation.id}
+          label={t("markUnread")}
+        >
+          <Mail />
+        </MarkUnreadForm>
         <LeaveForm
           conversationId={conversation.id}
           label={t("leave")}

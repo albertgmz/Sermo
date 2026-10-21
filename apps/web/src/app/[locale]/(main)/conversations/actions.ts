@@ -6,6 +6,7 @@ import {
   conversationsDeleteMessage,
   conversationsLeave,
   conversationsMarkRead,
+  conversationsMarkUnread,
   conversationsRename,
   conversationsSetLocked,
   conversationsUpdateMessage,
@@ -114,6 +115,22 @@ export async function leaveAction(
     call(conversationsLeave, { conversationId, futureMessages }),
   );
   if (!left.ok) return { error: left.error };
+  redirect("/conversations");
+}
+
+// "Mark as unread" puts the conversation back among the unread ones and goes to the list: the
+// conversation page marks itself read as soon as it opens, so staying on it would undo this. The
+// list in the frame (counts, popup) is drawn afresh.
+export async function markUnreadAction(
+  conversationId: number,
+  _previous: LeaveState,
+): Promise<LeaveState> {
+  requireIds(conversationId);
+  const marked = await attempt(`/conversations/${conversationId}`, () =>
+    call(conversationsMarkUnread, { conversationId }),
+  );
+  if (!marked.ok) return { error: marked.error };
+  revalidatePath("/[locale]/conversations", "layout");
   redirect("/conversations");
 }
 

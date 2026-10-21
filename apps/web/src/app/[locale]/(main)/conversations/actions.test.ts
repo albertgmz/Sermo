@@ -22,6 +22,7 @@ const {
   leaveAction,
   markRead,
   markReadAction,
+  markUnreadAction,
   renameAction,
   replyAction,
   setLockedAction,
@@ -84,6 +85,20 @@ test("leaving sends the choice about future messages: ignore only when it is ask
       { futureMessages: "accept" },
     ],
   );
+});
+
+test("marking unread asks the backend about that conversation, refreshes the frame and goes to the list", async () => {
+  const digest = await redirectedTo(() => markUnreadAction(7, {}));
+  assert.match(digest ?? "", /^NEXT_REDIRECT;[a-z]+;\/conversations;/);
+  assert.deepEqual(asked, [
+    {
+      method: "DELETE",
+      url: "http://127.0.0.1:8787/api/v1/conversations/7/read",
+      body: undefined,
+    },
+  ]);
+  assert.deepEqual(revalidated, [["/[locale]/conversations", "layout"]]);
+  await assert.rejects(() => markUnreadAction(0, {}));
 });
 
 test("a conversation id that is not a record id never becomes a path", async () => {

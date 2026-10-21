@@ -32,6 +32,7 @@
     "earlier": "Earlier messages",
     "newest": "Newest messages",
     "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
     "details": {
       "open": "Details",
       "title": "Direct message details",

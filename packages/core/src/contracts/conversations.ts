@@ -168,6 +168,17 @@ export const conversationsMarkRead = defineContract({
   output: Ok,
 });
 
+export const conversationsMarkUnread = defineContract({
+  name: "conversations.markUnread",
+  summary:
+    "Mark the conversation unread again: the viewer's read mark goes back to before its newest " +
+    "visible message, so the conversation counts as unread and opens there. Active participants " +
+    "only.",
+  kind: "write",
+  input: z.object({ conversationId: Id }),
+  output: Ok,
+});
+
 export const conversationsLeave = defineContract({
   name: "conversations.leave",
   summary:

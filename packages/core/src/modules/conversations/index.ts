@@ -14,6 +14,7 @@ import {
   conversationsLocateMessage,
   conversationsLocateUnread,
   conversationsMarkRead,
+  conversationsMarkUnread,
   conversationsRename,
   conversationsReply,
   conversationsSetLocked,
@@ -790,6 +791,32 @@ export const conversationsMarkReadOp = implement(
   { public: "Only active participants can mark their own conversation read." },
 );
 
+export const markUnreadSql =
+  "SELECT max(id) AS id FROM conversation_messages WHERE conversation_id = ?1 AND id < ?2 AND state = 'visible'";
+
+export const conversationsMarkUnreadOp = implement(
+  conversationsMarkUnread,
+  (ctx, actor, input) => {
+    const user = requireAuthenticated(actor);
+    writeTx(ctx, () => {
+      const row = activeConversation(ctx, actor, input.conversationId);
+      // The mark goes back to the visible message before the newest one (0 when there is none),
+      // so the newest message is the first unread.
+      const before =
+        prepared(ctx, "conversations.beforeNewest", () =>
+          ctx.sqlite.prepare<{ id: number | null }, [number, number]>(markUnreadSql),
+        ).get(row.id, row.last_message_id)?.id ?? 0;
+      prepared(ctx, "conversations.updateReadState", () =>
+        ctx.sqlite.prepare(
+          "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
+        ),
+      ).run(before, row.id, user.userId);
+    });
+    return { ok: true as const };
+  },
+  { public: "Only active participants can mark their own conversation unread." },
+);
+
 export const conversationsLeaveOp = implement(
   conversationsLeave,
   (ctx, actor, input) => {
@@ -1135,6 +1162,7 @@ export const operations = [
   conversationsLocateMessageOp,
   conversationsLocateUnreadOp,
   conversationsMarkReadOp,
+  conversationsMarkUnreadOp,
   conversationsLeaveOp,
   conversationsAddParticipantsOp,
   conversationsRenameOp,
