@@ -46,17 +46,17 @@ function reactionsOf(
   { kind, item, viewerId, picker, reactionTypes, viewList }: ReactionsProps,
   part: "button" | "summary",
 ) {
-  const compact = kind === "comment";
+  const isComment = kind === "comment";
   return (
     <Reactions
-      target={compact ? "profileComment" : "profilePost"}
+      target={isComment ? "profileComment" : "profilePost"}
       id={item.id}
       reactions={item.reactions}
       authorId={item.author.id}
       viewerId={viewerId}
       picker={item.state === "visible" ? picker : []}
       reactionTypes={reactionTypes}
-      size={compact ? "sm" : undefined}
+      size={isComment ? "sm" : undefined}
       viewList={viewList}
       part={part}
     />
@@ -101,14 +101,14 @@ export function WallItemActions({
   summary?: boolean;
 }) {
   const t = useTranslations("forum.contentActions");
-  const compact = kind === "comment";
+  const isComment = kind === "comment";
   const reactions = { kind, item, viewerId, picker, reactionTypes, viewList };
   const live = item.state !== "deleted";
   return (
     <ContentActions
       layout="wall"
       leading={
-        compact && (
+        isComment && (
           <span className="inline-flex h-10 items-center px-2 text-xs whitespace-nowrap text-muted-foreground md:h-8">
             <RelativeTime date={item.createdAt} />
             {item.editedAt && (
@@ -125,7 +125,7 @@ export function WallItemActions({
           ? wallTargetHref(
               address.profileUserId,
               address.postId,
-              compact ? item.id : undefined,
+              isComment ? item.id : undefined,
             )
           : undefined
       }
@@ -173,7 +173,7 @@ export function WallItemActions({
           ? {
               action: reportContent.bind(
                 null,
-                compact ? "profile_post_comment" : "profile_post",
+                isComment ? "profile_post_comment" : "profile_post",
                 item.id,
               ),
             }

@@ -271,12 +271,13 @@ test("an edited wall post says so beside its time, and only that one", async () 
 test("the author's controls come from the backend's flags on each post", async () => {
   backend();
   const html = await wall({});
-  // The fake backend allows nobody to edit or delete: a signed-in member sees report, and share
-  // in the "•••" menu.
+  // The fake backend allows nobody to edit or delete: a signed-in member sees share and report,
+  // and no "•••" menu with nothing in it.
   expect(html).not.toContain('aria-label="Edit"');
   expect(html).not.toContain('aria-label="Delete"');
   expect(html).toContain('aria-label="Report"');
-  expect(html).toContain('aria-label="More options"');
+  expect(html).toContain('aria-label="Share"');
+  expect(html).not.toContain('aria-label="More options"');
 });
 
 test("who reacted to a post heads its block of comments; with no block it sits under the bar", async () => {
@@ -298,10 +299,20 @@ test("who reacted to a post heads its block of comments; with no block it sits u
   expect(page.slice(eight, at)).not.toContain("py-0.5 empty:hidden");
 });
 
-test("on a phone a wall post's avatar sits small in its header, so the comments span the post", async () => {
+test("on a phone a wall post's one avatar sits small in its header, so the comments span the post", async () => {
   backend();
   const html = await wall({ cursor: "p3" });
-  const five = html.slice(html.indexOf('id="profile-post-5"'));
-  expect(five).toMatch(/class="[^"]*max-md:hidden"/);
-  expect(five).toMatch(/class="[^"]*md:hidden"/);
+  const five = html.slice(
+    html.indexOf('id="profile-post-5"'),
+    html.indexOf('id="profile-post-5-comment"') > -1
+      ? html.indexOf('id="profile-post-5-comment"')
+      : html.indexOf('id="profile-post-4"'),
+  );
+  const head = five.slice(0, five.indexOf("wall post 5"));
+  // One avatar of the author, 24 px below md and 40 px from md up, spanning the header and body
+  // rows there; the body column spans both columns below md.
+  expect(head.match(/href="\/members\/3"/g)).toHaveLength(2);
+  expect(head).toContain("size-6 md:size-10");
+  expect(head).toContain("md:row-span-2");
+  expect(head).toContain("col-span-2 min-w-0 md:col-span-1 md:col-start-2");
 });

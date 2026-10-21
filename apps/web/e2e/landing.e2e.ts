@@ -703,13 +703,13 @@ test("show more comments loads the older ones in place in the feed @landing", as
   await expectEarlierInPlace(page, card);
 });
 
-// The ids of the comments drawn in a list, in order; each drawn once.
 // Edit and Delete of a wall post or comment are in its "•••" menu, which opens over the page.
 async function fromMenu(page: Page, item: Locator, name: string) {
   await item.getByRole("button", { name: "More options" }).first().click();
   await page.getByRole("menuitem", { name, exact: true }).click();
 }
 
+// The ids of the comments drawn in a list, in order; each drawn once.
 async function commentIds(list: Locator) {
   const ids = await list
     .locator('[id^="profile-comment-"]')

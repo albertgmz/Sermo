@@ -62,6 +62,7 @@ const { ProfileMore } = await import(
   "@/app/[locale]/(main)/members/[id]/profile-more"
 );
 const { LazyTooltip } = await import("@/components/ui/lazy-tooltip");
+const { ContentMenu } = await import("@/components/forum/content-menu");
 const { FeedFiltersButton } = await import(
   "@/components/forum/feed-filters-button"
 );
@@ -224,6 +225,11 @@ const cases: [string, () => React.ReactNode, boolean][] = [
         findThreads="Find threads"
       />
     ),
+    true,
+  ],
+  [
+    "the more options button of a wall post or comment",
+    () => <ContentMenu className="x" edit="/a" onDelete={() => {}} />,
     true,
   ],
   [

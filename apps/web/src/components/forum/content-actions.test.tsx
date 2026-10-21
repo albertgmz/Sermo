@@ -165,13 +165,19 @@ test("the wall bar: the date, report, the menu and moderation on the left, react
   expect(html).not.toContain("border-t");
 });
 
-test("the wall bar folds share, edit and delete into its menu", () => {
+test("the wall bar folds edit and delete into its menu and keeps share as an icon beside report", () => {
   const html = draw({ ...full, layout: "wall" });
-  for (const label of ["Share", "Edit", "Delete"]) {
+  for (const label of ["Edit", "Delete"]) {
     expect(html).not.toContain(`aria-label="${label}"`);
   }
+  const at = (text: string) => html.indexOf(text);
+  expect(at('aria-label="Report"')).toBeLessThan(at('aria-label="Share"'));
+  expect(at('aria-label="Share"')).toBeLessThan(
+    at('aria-label="More options"'),
+  );
+  // An icon: no word beside it.
+  expect(html).not.toContain(">Share</span>");
   expect(menus).toHaveLength(1);
-  expect(menus[0]?.share).toBe("/threads/3#post-1");
   expect(menus[0]?.edit).toBe("/threads/3/edit/1");
   expect(typeof menus[0]?.onDelete).toBe("function");
   // An edit panel is opened from the menu.
@@ -179,10 +185,11 @@ test("the wall bar folds share, edit and delete into its menu", () => {
   expect(typeof menus[0]?.edit).toBe("function");
 });
 
-test("the wall bar has no menu when it would hold nothing", () => {
-  const html = draw({ report: { action }, layout: "wall" });
+test("the wall bar has no menu when it would hold nothing: a member who may only report and share sees both at once", () => {
+  const html = draw({ report: { action }, share: "/x", layout: "wall" });
   expect(html).not.toContain("More options");
   expect(html).toContain('aria-label="Report"');
+  expect(html).toContain('aria-label="Share"');
 });
 
 test("the default bar keeps the plain Quote word", () => {

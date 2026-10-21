@@ -84,9 +84,9 @@ function PanelButton({
 //               left (an ordinary member's bar), the words show on a phone too: they fit 360 px
 //               on one line; with edit, delete or moderator tools the bar keeps to icons there.
 //               `wall` is a wall post's or comment's footer as XenForo draws it: laid out as
-//               `split`, with report (its word shown on a phone too) followed by a "•••" menu
-//               that holds share, edit and delete, then the moderator tools; on the right, react
-//               and `start`.
+//               `split`: report (its word shown on a phone too), share as an icon and a "•••"
+//               menu that holds edit and delete (choosing one opens its panel), then the
+//               moderator tools; on the right, react and `start`.
 export function ContentActions({
   summary,
   react,
@@ -192,11 +192,11 @@ export function ContentActions({
   const tools = wall ? (
     <>
       {reportButton}
+      {share && <ShareButton href={share} className={messageActionClass} />}
       <ContentMenu
         className={messageActionClass}
-        share={share}
-        edit={edit && ("href" in edit ? edit.href : () => toggle("edit"))}
-        onDelete={remove && (() => toggle("delete"))}
+        edit={edit && ("href" in edit ? edit.href : () => setOpen("edit"))}
+        onDelete={remove && (() => setOpen("delete"))}
       />
       {moderation}
     </>

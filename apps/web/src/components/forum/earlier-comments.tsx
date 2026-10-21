@@ -68,12 +68,12 @@ export function workQueue() {
   };
 }
 
-// "Show more comments" under a wall post: each press reads the next page of older comments and
-// inserts it above, where the list starts, and the page keeps still around what the reader was
-// looking at: the comment they see stays where it was on the screen, also while the pictures of
-// the batch load, until the reader acts (WebKit has no scroll anchoring of its own). Nothing is
-// navigated to, so nothing scrolls or dims. The button goes once every comment is shown, and the
-// keyboard's focus goes to the oldest comment.
+// "View previous comments…" above the comments of a wall post: each press reads the next page of
+// older comments and inserts it above, where the list starts, and the page keeps still around what
+// the reader was looking at: the comment they see stays where it was on the screen, also while the
+// pictures of the batch load, until the reader acts (WebKit has no scroll anchoring of its own).
+// Nothing is navigated to, so nothing scrolls or dims. The button goes once every comment is
+// shown, and the keyboard's focus goes to the oldest comment.
 //
 // The page drawn again (a new comment, an edit, a deletion) gives a new `load`: the comments
 // loaded are read again down to the oldest one, so they match it, with the reader's place held

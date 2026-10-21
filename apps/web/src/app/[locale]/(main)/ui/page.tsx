@@ -976,9 +976,9 @@ export default async function StyleguidePage() {
             icons with an accessible name. Edit, delete and report come from the
             backend's answer for the viewer, so each bar draws only what it is
             given. Delete asks first and report opens its reason form. A wall
-            post or comment has XenForo's bar: its date, report and a "•••" menu
-            holding share, edit and delete on the left, react on the right, who
-            reacted under it.
+            post or comment has XenForo's bar: its date, report, share and a
+            "•••" menu holding edit and delete on the left, react on the right,
+            who reacted under it.
           </p>
           <div className="grid gap-4 lg:grid-cols-2">
             <SectionCard title="Thread post, someone else's">

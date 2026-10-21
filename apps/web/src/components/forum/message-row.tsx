@@ -4,9 +4,9 @@ import { type LinkUser, UserLink } from "@/components/forum/user-link";
 import { cn } from "@/lib/utils";
 
 // A wall post: the author's avatar on the left, then the header (`name · time`), the body, the
-// actions and what follows them (the block of comments). Below `md` the avatar is drawn small at
-// the start of the header instead, so the body and the comments span the row, as XenForo draws a
-// profile post on a phone.
+// actions and what follows them (the block of comments). Below `md` the avatar is small and starts
+// the header line instead, so the body and the comments span the row, as XenForo draws a profile
+// post on a phone. One grid places the same avatar both ways.
 export function MessageRow({
   id,
   author,
@@ -32,30 +32,31 @@ export function MessageRow({
     <article
       id={id}
       className={cn(
-        "flex scroll-mt-landing-gap gap-3 px-4 pt-4",
+        "grid scroll-mt-landing-gap grid-cols-[auto_minmax(0,1fr)] gap-x-2 px-4 pt-4 md:gap-x-3",
         actions && !footer ? "pb-2" : "pb-4",
         className,
       )}
     >
-      <UserAvatar user={author} size="lg" className="max-md:hidden" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <UserAvatar user={author} size="sm" className="md:hidden" />
-          <p className="min-w-0 text-sm text-muted-foreground [overflow-wrap:anywhere]">
-            <UserLink user={author} />
-            {badge && <> {badge}</>}
-            {context && (
-              <>
-                <span aria-hidden="true"> · </span>
-                {context}
-              </>
-            )}{" "}
-            <span className="text-xs whitespace-nowrap">
-              <span aria-hidden="true">· </span>
-              {time}
-            </span>
-          </p>
-        </div>
+      <UserAvatar
+        user={author}
+        size="sm-lg"
+        className="self-start md:row-span-2"
+      />
+      <p className="text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere] md:leading-5">
+        <UserLink user={author} />
+        {badge && <> {badge}</>}
+        {context && (
+          <>
+            <span aria-hidden="true"> · </span>
+            {context}
+          </>
+        )}{" "}
+        <span className="text-xs whitespace-nowrap">
+          <span aria-hidden="true">· </span>
+          {time}
+        </span>
+      </p>
+      <div className="col-span-2 min-w-0 md:col-span-1 md:col-start-2">
         <div className="mt-1">{children}</div>
         {actions}
         {footer}

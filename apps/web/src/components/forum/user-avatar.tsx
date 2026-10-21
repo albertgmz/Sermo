@@ -12,6 +12,13 @@ const SIZES = {
   sm: { box: "size-6", text: "text-(length:--text-tiny)", framed: true },
   md: { box: "size-8", text: "text-xs", framed: true },
   lg: { box: "size-10", text: "text-sm", framed: true },
+  // 24 px on a phone, 40 px from `md` up: one avatar for a row that draws it in its header line
+  // on a phone and in a column beside the text above (`MessageRow`).
+  "sm-lg": {
+    box: "size-6 md:size-10",
+    text: "text-(length:--text-tiny) md:text-sm",
+    framed: true,
+  },
   xl: { box: "size-16", text: "text-xl", framed: true },
   "2xl": { box: "size-24", text: "text-3xl", framed: true },
 };

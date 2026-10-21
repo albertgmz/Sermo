@@ -22,8 +22,10 @@ mock.module("next-intl", () => ({
   useLocale: () => "en",
   useTranslations,
 }));
-// The stand-in records what the "•••" menu would open with; the bar draws only its plain button.
+// The stand-in records what the "•••" menu and the share button would open with; the bar draws
+// only their plain buttons.
 let menus: Record<string, unknown>[] = [];
+let shares: Record<string, unknown>[] = [];
 const realPopup = { ...(await import("@/components/ui/lazy-popup")) };
 mock.module("@/components/ui/lazy-popup", () => ({
   ...realPopup,
@@ -32,6 +34,7 @@ mock.module("@/components/ui/lazy-popup", () => ({
     trigger: (lazy: object) => React.ReactElement;
   }) => {
     if ("onDelete" in props.popup) menus.push(props.popup);
+    if ("href" in props.popup) shares.push(props.popup);
     return props.trigger({});
   },
 }));
@@ -67,6 +70,7 @@ function draw(
   props: Partial<Props> = {},
 ) {
   menus = [];
+  shares = [];
   const html = renderToStaticMarkup(
     withIntl(
       <WallItemActions
@@ -82,11 +86,7 @@ function draw(
   );
   const menu = menus[0];
   const held = menu
-    ? [
-        menu.share && "Share",
-        menu.edit && "Edit",
-        menu.onDelete && "Delete",
-      ].filter(Boolean)
+    ? [menu.edit && "Edit", menu.onDelete && "Delete"].filter(Boolean)
     : [];
   return `${html}${held.map((label) => ` aria-label="${label}"`).join("")}`;
 }
@@ -156,14 +156,22 @@ test("a comment's footer: its date, report and the menu on the left, react on th
 test("a wall post's date stays in its header: its footer starts with report", () => {
   const html = draw("post", {}, 5);
   expect(html).not.toContain("<time");
+  expect(html.indexOf('aria-label="Report"')).toBeGreaterThan(-1);
   expect(html.indexOf('aria-label="Report"')).toBeLessThan(
-    html.indexOf('aria-label="More options"'),
+    html.indexOf('aria-label="Share"'),
   );
 });
 
-test("the share link of the menu names the item: the post, or the comment on it", () => {
+test("the share link names the item: the post, or the comment on it", () => {
   draw("post", {}, null);
-  expect(menus[0]?.share).toBe("/members/9?post=12#profile-post-12");
+  expect(shares[0]?.href).toBe("/members/9?post=12#profile-post-12");
   draw("comment", {}, null);
-  expect(menus[0]?.share).toContain("comment=12");
+  expect(shares[0]?.href).toContain("comment=12");
+});
+
+test("a member who may only report and share gets no menu", () => {
+  const html = draw("comment", {}, 5);
+  expect(has(html, "Report")).toBe(true);
+  expect(has(html, "Share")).toBe(true);
+  expect(html).not.toContain("More options");
 });
