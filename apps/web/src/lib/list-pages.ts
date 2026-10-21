@@ -53,6 +53,22 @@ export function placeHref(href: string, count: number) {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+// Writes the address the list has reached over the current history entry, keeping the entry's state.
+// Not through `history.replaceState` itself: Next replaces that method and takes every call for
+// a restore of the page, which throws away a navigation in flight (a link pressed while the next
+// page was coming in did nothing). The method of the prototype is the browser's own. Next keeps
+// its own record of the address; nothing here reads it (the list reads `location`).
+export function writePlace(
+  history: Pick<History, "state">,
+  place: string,
+): void {
+  const native = Object.getPrototypeOf(history) as Pick<
+    History,
+    "replaceState"
+  >;
+  native.replaceState.call(history, history.state, "", place);
+}
+
 // The pages an address asks for: the first one, which the screen has already read, and the next
 // ones through `more`, the same function the browser calls on "Load more". A failure is
 // the screen's only for the first page: the first page the backend does not give (a rate limit, a

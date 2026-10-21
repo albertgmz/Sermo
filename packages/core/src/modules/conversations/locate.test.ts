@@ -139,6 +139,18 @@ describe("conversations.locateUnread", () => {
     ).rejects.toThrow(NotFoundError);
   });
 
+  test("a guest is refused before anything about the conversation is read", async () => {
+    const f = await fixture(0);
+    for (const conversationId of [f.conversationId, 999]) {
+      await expect(
+        execute(f.ctx, conversationsLocateUnreadOp, GUEST, { conversationId, limit: 20 }),
+      ).rejects.toThrow(UnauthenticatedError);
+    }
+    await expect(
+      execute(f.ctx, conversationsLocateMessageOp, GUEST, { messageId: 999, limit: 20 }),
+    ).rejects.toThrow(UnauthenticatedError);
+  });
+
   test("its queries seek the conversation's index", async () => {
     const f = await fixture(0);
     expectNoTableScan(f.ctx, locateMessageSql.above, [1, 1, 1, 0]);

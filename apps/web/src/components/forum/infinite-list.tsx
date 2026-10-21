@@ -32,6 +32,7 @@ import {
   PAGES_PARAM,
   pagesParam,
   placeHref,
+  writePlace,
 } from "@/lib/list-pages";
 import { usePolling } from "@/lib/polling";
 import { cn } from "@/lib/utils";
@@ -389,7 +390,7 @@ export function InfiniteList({
     if (wanted === null) return;
     const here = `${location.pathname}${location.search}${location.hash}`;
     const place = placeHref(here, owed ? wanted : count);
-    if (place !== here) window.history.replaceState(null, "", place);
+    if (place !== here) writePlace(window.history, place);
   }, [count, owed, wanted]);
   useEffect(() => {
     if (owed) {

@@ -275,6 +275,44 @@ for (const [theme, tokens] of [
     expect(failures).toEqual([]);
   });
 
+  // `[color=…]` in a post (lib/color-guard.ts, `.bb-content .bb-color`): any colour a member types
+  // is held between the bounds of the accent's ink, so the extremes read on every surface.
+  test(`${theme} theme: a colour typed in a post reads on the surfaces`, () => {
+    const failures: string[] = [];
+    const typed = [
+      "#000000",
+      "#ffffff",
+      "#ffff00",
+      "#00ffff",
+      "#ff00ff",
+      "#00ff00",
+      "#0000ff",
+      "#ff0000",
+      "#808080",
+      "#ffa500",
+      "#000080",
+      "#800000",
+      "#fffff0",
+      "#010101",
+    ];
+    for (const colour of typed) {
+      const ink = hold(
+        colour,
+        number(tokens, "--accent-min"),
+        number(tokens, "--ink-max"),
+      );
+      for (const surface of SURFACES) {
+        const ratio = contrast(ink, resolve(tokens, surface));
+        if (ratio < 4.5) {
+          failures.push(
+            `${colour} -> ${ink} on ${surface}: ${ratio.toFixed(2)}`,
+          );
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
   test(`${theme} theme: names, prefixes and badges chosen by administrators`, () => {
     const colours = palette([
       ...NAME_COLORS.map((colour) => colour.color),

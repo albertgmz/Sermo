@@ -2,16 +2,22 @@
 
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 import { cn } from "cn";
+import { useLocale } from "next-intl";
 
+// The value is spoken in the language of the page (`aria-valuetext`: "77 %" in Spanish). Left to
+// Base UI it is the runtime's locale, the server's in the HTML and the browser's on the screen, and
+// the two differ.
 function Progress({
   className,
   children,
   value,
   ...props
 }: ProgressPrimitive.Root.Props) {
+  const locale = useLocale();
   return (
     <ProgressPrimitive.Root
       value={value}
+      locale={locale}
       data-slot="progress"
       className={cn("flex flex-wrap gap-3", className)}
       {...props}

@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { revealSpoiler } from "@/components/forum/spoiler-action";
+import type { TaggedAttachment } from "@/lib/attachment-tags";
 
 // What the spoilers of a body belong to: the key `spoilers.get` takes.
 export type SpoilerContent = {
@@ -20,6 +21,7 @@ export async function openSpoiler(
   target: EventTarget | null,
   root: { contains(node: Node | null): boolean },
   content: SpoilerContent,
+  attachments: TaggedAttachment[] = [],
 ): Promise<boolean> {
   const button = (target as Element | null)?.closest?.<HTMLButtonElement>(
     "button[data-spoiler-button]",
@@ -35,6 +37,7 @@ export async function openSpoiler(
       content.type,
       content.id,
       Number(holder.dataset.spoiler),
+      attachments,
     );
   } catch {
     revealed = null;
@@ -57,12 +60,15 @@ export async function openSpoiler(
 
 // Wraps rendered content whose spoilers are buttons (`withSpoilerButtons`). Pressing one asks for
 // that spoiler and puts it in place; one inside it works the same. Delegated, so the server's HTML
-// stays the children. A refusal is said in a polite live region.
+// stays the children. A refusal is said in a polite live region. The `attachments` of the item
+// take the place of the `[ATTACH]` tags inside the spoiler, as they do in the body.
 export function SpoilerReveal({
   content,
+  attachments,
   children,
 }: {
   content: SpoilerContent;
+  attachments?: TaggedAttachment[];
   children: React.ReactNode;
 }) {
   const t = useTranslations("forum.bbCode");
@@ -78,6 +84,7 @@ export function SpoilerReveal({
             event.target,
             event.currentTarget,
             content,
+            attachments,
           );
           setFailed(!ok);
         }}

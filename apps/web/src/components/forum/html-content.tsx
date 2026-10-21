@@ -1,4 +1,4 @@
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import "@/components/forum/member-card-parts";
 import { MentionCards } from "@/components/forum/mention-cards";
 import { prose } from "@/components/forum/prose";
@@ -6,15 +6,12 @@ import {
   type SpoilerContent,
   SpoilerReveal,
 } from "@/components/forum/spoiler-reveal";
-import { placeAttachments, type TaggedAttachment } from "@/lib/attachment-tags";
+import type { TaggedAttachment } from "@/lib/attachment-tags";
+import { withColorGuard } from "@/lib/color-guard";
 import { withEmbedGate } from "@/lib/consent/embed-gate";
+import { placeInlineAttachments } from "@/lib/inline-attachments";
 import { stripHtmlMedia } from "@/lib/lite-content";
-import {
-  getLiteLabel,
-  getLiteOrigin,
-  getLiteState,
-  liteBlocks,
-} from "@/lib/lite-mode";
+import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 import { cn } from "@/lib/utils";
 
@@ -56,24 +53,17 @@ export async function HtmlContent(props: {
     getLiteLabel(),
     getTranslations("forum.bbCode"),
   ]);
-  let html = withSpoilerButtons(
-    await withEmbedGate(stripHtmlMedia(props.children, state, origin, label)),
-    props.content !== undefined,
+  let html = withColorGuard(
+    withSpoilerButtons(
+      await withEmbedGate(stripHtmlMedia(props.children, state, origin, label)),
+      props.content !== undefined,
+    ),
   );
-  if (html.includes("bb-attach")) {
-    const [locale, lite, liteImages] = await Promise.all([
-      getLocale(),
-      getTranslations("lite.litePlaceholder"),
-      liteBlocks("postImages"),
-    ]);
-    html = placeAttachments(html, props.attachments ?? [], {
-      locale,
-      liteImages,
-      liteLabel: lite("label"),
-      liteAria: lite("aria.label"),
-      missingLabel: t("attachment"),
-    });
-  }
+  html = await placeInlineAttachments(html, props.attachments ?? []);
+  // The files go to the client only when there is a spoiler that may place one.
+  const spoilerFiles = html.includes("data-spoiler=")
+    ? props.attachments
+    : undefined;
   const body = (
     <div
       className={cn("bb-content", prose.root, elements, props.className)}
@@ -92,7 +82,9 @@ export async function HtmlContent(props: {
   return (
     <MentionCards>
       {props.content ? (
-        <SpoilerReveal content={props.content}>{body}</SpoilerReveal>
+        <SpoilerReveal content={props.content} attachments={spoilerFiles}>
+          {body}
+        </SpoilerReveal>
       ) : (
         body
       )}

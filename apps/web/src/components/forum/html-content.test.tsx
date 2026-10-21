@@ -141,3 +141,9 @@ test("a hashtag link in a body is drawn as the link the backend wrote, with data
     );
   }
 });
+
+test("a colour typed in the body is drawn through the guard", async () => {
+  const out = await render('<p><span style="color:#000">dark</span></p>');
+  expect(out).toContain('class="bb-color" style="--ink:#000"');
+  expect(out).not.toContain('style="color:');
+});

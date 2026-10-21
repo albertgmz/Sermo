@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { closesPopup } from "@/components/layout/popup-links";
 import type { OpenedProps } from "@/components/ui/lazy-popup";
 import { usePopupFocus } from "@/components/ui/lazy-popup-focus";
 import {
@@ -48,10 +49,8 @@ export default function HeaderPanelPopup({
         align="end"
         sideOffset={8}
         className="w-88 max-w-[calc(100vw-1rem)] gap-0 p-0"
-        // Not judged by `defaultPrevented`: Next's `Link` cancels the default of every click it
-        // follows itself, so the panel stayed over the page it had just opened.
         onClick={(event) => {
-          if ((event.target as Element).closest("a")) setOpen(false);
+          if (closesPopup(event.target)) setOpen(false);
         }}
       >
         <PopoverTitle className="border-b px-4 py-3 text-sm font-semibold">

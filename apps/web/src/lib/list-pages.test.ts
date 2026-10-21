@@ -6,6 +6,7 @@ import {
   pagesParam,
   placeHref,
   restorePages,
+  writePlace,
 } from "./list-pages";
 import { SermoError } from "./sermo/errors";
 import { recorded } from "./test-calls";
@@ -84,4 +85,24 @@ test("a failure that is not the backend's is not hidden", async () => {
     raised = true;
   });
   expect(raised).toBe(true);
+});
+
+// The browser's history as Next leaves it: the method of the instance is Next's, which takes every
+// call for a restore of the page (and drops a navigation in flight); the prototype's is the browser's.
+test("the place is written with the browser's own method and the entry's state, never through Next's", () => {
+  const written: unknown[][] = [];
+  const restores: unknown[][] = [];
+  class Browser {
+    state = { __NA: true };
+    replaceState(...args: unknown[]) {
+      written.push(args);
+    }
+  }
+  const history = new Browser();
+  Object.assign(history, {
+    replaceState: (...args: unknown[]) => restores.push(args),
+  });
+  writePlace(history, "/novedades?pages=2");
+  expect(restores).toEqual([]);
+  expect(written).toEqual([[{ __NA: true }, "", "/novedades?pages=2"]]);
 });

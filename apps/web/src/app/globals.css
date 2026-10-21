@@ -467,13 +467,23 @@ html.show--consent {
   color: oklch(from var(--ink) clamp(var(--ink-min), l, var(--ink-max)) c h);
 }
 
+/*
+ * The colour a member typed in a post ([color=…], set as --ink by lib/color-guard.ts): held between
+ * the bounds of the accent's ink, so white text does not vanish on the light page and black text
+ * does not on the dark one.
+ */
+.bb-content .bb-color {
+  color: oklch(from var(--ink) clamp(var(--accent-min), l, var(--ink-max)) c h);
+}
+
 /* A browser without relative colours keeps the colours as they are. */
 @supports not (color: oklch(from red l c h)) {
   :root,
   .accent-scope {
     --primary-ink: var(--primary);
   }
-  .ink {
+  .ink,
+  .bb-content .bb-color {
     color: var(--ink);
   }
 }

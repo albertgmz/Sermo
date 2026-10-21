@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { closesPopup } from "@/components/layout/popup-links";
 import {
   UserMenuBody,
   type UserMenuBodyProps,
@@ -68,9 +69,7 @@ export default function UserMenuPopup(props: UserMenuPopupProps & OpenedProps) {
   }
   // Following a link inside the menu closes it, and so does a button that opens something else.
   function closeOnLink(event: React.MouseEvent) {
-    if (event.defaultPrevented) return;
-    if ((event.target as Element).closest("a, [data-menu-close]"))
-      change(false);
+    if (closesPopup(event.target, "a, [data-menu-close]")) change(false);
   }
 
   const menu = <UserMenuBody {...body} tab={tab} onTabChange={setTab} />;

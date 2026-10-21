@@ -147,3 +147,52 @@ test("a player inside a spoiler is a placeholder until the embeds category is ac
   expect(shown?.html).toContain("<iframe");
   expect(shown?.html).not.toContain("data-embed-load");
 });
+
+const slot = (id: number, size: "thumb" | "full" = "thumb") =>
+  `<span class="bb-attach" data-attach-id="${id}" data-attach-size="${size}">${id}</span>`;
+const file = (fileId: number, over: Record<string, unknown> = {}) => ({
+  fileId,
+  url: `/api/v1/files/${fileId}/plan.png`,
+  thumbnailUrl: `/api/v1/files/${fileId}/thumb.png`,
+  widths: [],
+  contentType: "image/png",
+  byteSize: 2048,
+  width: 1000,
+  height: 500,
+  filename: "plan.png",
+  ...over,
+});
+
+test("an attachment tag inside a spoiler is drawn from the item's files, and a missing one is a label", async () => {
+  backend(() =>
+    Response.json({ html: `<p>${slot(4, "full")} ${slot(9)}</p>` }),
+  );
+  const result = await revealSpoiler("post", 5, 0, [file(4)]);
+  expect(result?.html).toContain('src="/api/v1/files/4/plan.png"');
+  expect(result?.html).not.toContain("bb-attach");
+  expect(result?.html).toContain("border-dashed");
+  expect(result?.html).not.toContain(">9<");
+});
+
+test("files whose addresses are not the backend's file addresses are refused before the backend is asked", async () => {
+  backend(() => Response.json({ html: slot(4) }));
+  for (const bad of [
+    file(4, { url: "javascript:alert(1)" }),
+    file(4, { url: "https://evil.test/a.png" }),
+    file(4, { thumbnailUrl: '/api/v1/files/4/"onerror=x' }),
+    file(4, { widths: [{ url: "//evil.test/a", width: 320 }] }),
+    file(0),
+  ])
+    expect(await revealSpoiler("post", 5, 0, [bad])).toBeNull();
+  expect(await revealSpoiler("post", 5, 0, "files")).toBeNull();
+  expect(urls).toEqual([]);
+});
+
+test("a colour typed inside a spoiler is guarded like one in the body", async () => {
+  backend(() =>
+    Response.json({ html: '<p><span style="color:#fff">white</span></p>' }),
+  );
+  const result = await revealSpoiler("post", 5, 0);
+  expect(result?.html).toContain('class="bb-color" style="--ink:#fff"');
+  expect(result?.html).not.toContain('style="color:');
+});

@@ -3,10 +3,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 
 const calls: [string, number, number][] = [];
+const filesAsked: unknown[] = [];
 let answer: { html: string } | null | "throw" = { html: "<p>secret</p>" };
 mock.module("@/components/forum/spoiler-action", () => ({
-  revealSpoiler: async (type: string, id: number, position: number) => {
+  revealSpoiler: async (
+    type: string,
+    id: number,
+    position: number,
+    files: unknown,
+  ) => {
     calls.push([type, id, position]);
+    filesAsked.push(files);
     if (answer === "throw") throw new Error("network");
     return answer;
   },
@@ -54,6 +61,20 @@ test("pressing a spoiler asks for it by position and puts it in place", async ()
   expect(dom.holder.innerHTML).toBe("<p>secret</p>");
   expect(dom.holder.classes).toEqual(["bb-spoiler-open"]);
   expect(dom.holder.focused).toBe(true);
+});
+
+test("the files of the item go with the request, for the tags inside the spoiler", async () => {
+  filesAsked.length = 0;
+  answer = { html: "<p>secret</p>" };
+  const dom = fakeDom();
+  const files = [{ fileId: 4 }] as never;
+  await openSpoiler(
+    dom.event.target as never,
+    dom.event.currentTarget as never,
+    content,
+    files,
+  );
+  expect(filesAsked).toEqual([files]);
 });
 
 test("a refusal leaves the button pressable again and marks it", async () => {

@@ -35,18 +35,37 @@ function stillLoading(image: HTMLImageElement) {
 }
 
 // The rows of both, each comment once and oldest first; a row of `later` replaces its older copy.
-const merged = (held: EarlierPage["rows"], later: EarlierPage["rows"]) =>
+export const merged = (held: EarlierPage["rows"], later: EarlierPage["rows"]) =>
   [...new Map([...held, ...later].map((row) => [row.id, row])).values()].sort(
     (a, b) => a.id - b.id,
   );
 
 // The comment the reader is looking at in the list (the first one still on the screen), and
-// where it is, to keep it there while rows go in above it.
-function anchorIn(list: Element | null | undefined) {
+// where it is, to keep it there while rows go in above it. When the list is all above the screen
+// the first comment is held; when its first comment still on the screen is below it, none is
+// (the reader is not looking at the list, and holding one would drag the page for a redraw they
+// did not ask for).
+export function anchorIn(
+  list: Element | null | undefined,
+  viewport = window.innerHeight,
+) {
   const rows = [...(list?.querySelectorAll('[id^="profile-comment-"]') ?? [])];
   const element =
     rows.find((row) => row.getBoundingClientRect().bottom > 0) ?? rows[0];
-  return element ? { element, top: element.getBoundingClientRect().top } : null;
+  if (!element) return null;
+  const top = element.getBoundingClientRect().top;
+  return top < viewport ? { element, top } : null;
+}
+
+// Work that runs one piece after the other, each once the one before is done, so each starts from
+// what that left. A piece that fails changes nothing and does not stop the line.
+export function workQueue() {
+  let line = Promise.resolve();
+  return (work: () => Promise<void>) => {
+    const run = line.then(work).catch(() => {});
+    line = run;
+    return run;
+  };
 }
 
 // "Show more comments" under a wall post: each press reads the next page of older comments and
@@ -86,17 +105,11 @@ export function EarlierComments({
   const current = useRef(page);
   const latest = useRef(load);
   latest.current = load;
-  const queue = useRef(Promise.resolve());
+  const queue = useRef(workQueue());
   useEffect(() => () => holder.current?.stop(), []);
 
-  // Runs `work` once the work before it is done: it starts from what that left.
-  const enqueue = (work: () => Promise<void>) => {
-    const run = queue.current.then(work).catch(() => {
-      // Nothing changes: the button stays for another try.
-    });
-    queue.current = run;
-    return run;
-  };
+  // The button stays for another try when a piece fails.
+  const enqueue = (work: () => Promise<void>) => queue.current(work);
   const apply = (next: EarlierPage) => {
     const anchor = anchorIn(marker.current?.parentElement);
     kept.current = anchor && {
