@@ -335,6 +335,25 @@ describe("widgets management", () => {
     expect(listed[0].options).toEqual({ limit: 10, topPosters: true });
   });
 
+  test("a row whose options no longer parse reads as the defaults and breaks no page", async () => {
+    const { ctx, clear, create, admin, current } = setup();
+    clear();
+    const fine = await create({ position: "overview_top", type: "featured" });
+    ctx.sqlite.exec(
+      `INSERT INTO widgets (position, type, display_order, options, created_at, updated_at) VALUES ('overview_top', 'birthdays', 1, '{"limit":999}', 1, 1), ('overview_top', 'text', 2, '{"body":"kept","bodyHtml":"<p>kept</p>","made_up":1}', 1, 1), ('overview_top', 'text', 3, '{}', 1, 1)`,
+    );
+    ctx.sqlite.exec("UPDATE cache_versions SET version = version + 1 WHERE key = 'widgets'");
+    const shown = await current("home");
+    expect(shown.map((item) => item.id)[0]).toBe(fine.id);
+    expect(shown.map((item) => item.options)).toEqual([{}, { limit: 12 }, { body: "kept" }]);
+    const listed = (await run(ctx, "widgets.list", admin)).items;
+    // The panel still lists the text row that has no body, so it can be fixed or deleted.
+    expect(listed.map((item: { options: object }) => item.options)).toEqual([
+      ...shown.map((item) => item.options),
+      { body: "?" },
+    ]);
+  });
+
   test("the site holds a bounded number of widgets", async () => {
     const { ctx, clear, create, admin } = setup();
     clear();
@@ -351,7 +370,7 @@ describe("widgets management", () => {
   });
 
   test("update replaces the fields, keeps the type and moves to the end when the position changes", async () => {
-    const { ctx, clear, create, admin, ids } = setup();
+    const { ctx, clear, create, admin, ids, current } = setup();
     clear();
     const a = await create({ position: "forum_list_sidebar", type: "birthdays" });
     const b = await create({ position: "forum_list_sidebar", type: "birthdays" });
@@ -374,8 +393,13 @@ describe("widgets management", () => {
       options: { limit: 3 },
     });
     expect(same.rule).toEqual(MEMBERS);
+    // The page is read before the move, so the move shows only if the write dropped the cache.
+    const positionOfA = async () =>
+      (await current("home", admin)).find((item) => item.id === a.id)?.position;
+    expect(await positionOfA()).toBe("forum_list_sidebar");
     const moved = await run(ctx, "widgets.update", admin, { ...fields, position: "overview_top" });
     expect(moved).toMatchObject({ position: "overview_top", displayOrder: 1 });
+    expect(await positionOfA()).toBe("overview_top");
     expect(await ids("home", admin)).toEqual([c.id, a.id, b.id]);
     await expect(
       run(ctx, "widgets.update", admin, { ...fields, type: "featured", options: {} }),
@@ -424,6 +448,7 @@ describe("widgets management", () => {
       rule: MEMBERS,
     });
     const other = await create({ position: "forum_list_sidebar", type: "featured" });
+    expect(await ids("home", admin)).toEqual([original.id, other.id]);
     const copy = await run(ctx, "widgets.duplicate", admin, { widgetId: original.id });
     expect(copy.id).not.toBe(original.id);
     expect(copy).toMatchObject({
@@ -436,6 +461,7 @@ describe("widgets management", () => {
       options: { limit: 7 },
     });
     expect(copy.rule).toEqual(MEMBERS);
+    expect(await ids("home", admin)).toEqual([original.id, other.id, copy.id]);
     const elsewhere = await run(ctx, "widgets.duplicate", admin, {
       widgetId: original.id,
       position: "novedades_sidebar",
@@ -456,6 +482,7 @@ describe("widgets management", () => {
       await create({ position: "overview_top", type: "siteTotals" }),
     ];
     const elsewhere = await create({ position: "overview_bottom", type: "featured" });
+    expect(await ids("home")).toEqual([a.id, b.id, c.id, elsewhere.id]);
     await run(ctx, "widgets.reorder", admin, { position: "overview_top", ids: [c.id, a.id, b.id] });
     expect(await ids("home")).toEqual([c.id, a.id, b.id, elsewhere.id]);
     for (const bad of [

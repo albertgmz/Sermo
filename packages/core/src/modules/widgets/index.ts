@@ -72,14 +72,19 @@ const readers = Object.fromEntries(
   Object.entries(WIDGET_OPTIONS).map(([type, schema]) => [type, z.object(schema.shape)]),
 ) as Record<WidgetType, z.ZodObject>;
 
-/** The `type`, `options` and, for a text widget, `bodyHtml` of a row. */
+/**
+ * The `type`, `options` and, for a text widget, `bodyHtml` of a row. Options that no longer parse
+ * (a range narrowed since, a row edited by hand) read as the type's defaults, so one bad row never
+ * breaks the pages; a text widget keeps the body as stored (the pages leave one without a
+ * rendered body out, the panel still lists it).
+ */
 function typed(row: WidgetRow) {
-  const stored = JSON.parse(row.options) as { bodyHtml?: string };
-  const { bodyHtml, ...options } = stored;
-  const value = {
-    type: row.type,
-    options: readers[row.type].parse(options) as Record<string, unknown>,
-  };
+  const stored = JSON.parse(row.options) as { bodyHtml?: string; body?: unknown };
+  const { bodyHtml, ...given } = stored;
+  const reader = readers[row.type];
+  const options = (reader.safeParse(given).data ??
+    reader.safeParse({}).data ?? { body: String(given.body || "?") }) as Record<string, unknown>;
+  const value = { type: row.type, options };
   return row.type === "text" ? { ...value, bodyHtml: bodyHtml ?? "" } : value;
 }
 
@@ -133,9 +138,11 @@ function snapshot(ctx: Ctx): Record<Page, Entry[]> {
           a.display_order - b.display_order ||
           a.id - b.id,
       );
-    const entries = rows.map((row): [WidgetPosition, Entry] => {
+    const entries = rows.flatMap((row): [WidgetPosition, Entry][] => {
+      const item = shown(row);
+      if (item.type === "text" && !item.bodyHtml) return [];
       const rule = parseRule(row.rule);
-      return [row.position, { item: shown(row), rule: rule.conditions.length ? rule : null }];
+      return [[row.position, { item, rule: rule.conditions.length ? rule : null }]];
     });
     return Object.fromEntries(
       (Object.keys(WIDGET_PAGE_POSITIONS) as Page[]).map((page) => {
