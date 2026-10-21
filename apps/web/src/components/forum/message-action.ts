@@ -7,4 +7,4 @@ export const actionLabelClass = "hidden sm:inline";
 // A control in the header row of a post (share, bookmark, the post number), as XenForo's message
 // attribution draws them: a small muted icon, 40 px wide on a phone and 28 px from `md` up.
 export const attributionGadgetClass =
-  "inline-flex h-10 min-w-10 items-center justify-center rounded-md border-0 bg-transparent px-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:h-7 md:min-w-7 [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5";
+  "inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-md border-0 bg-transparent px-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:h-7 md:min-w-7 [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5";

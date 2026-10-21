@@ -88,18 +88,22 @@ export function PostItem({
       edited={post.editedAt && <EditedMark date={post.editedAt} />}
       trailing={
         <>
+          {/* On a phone the two marks are icons, their words for screen readers only, so the
+              row keeps room for the time. */}
           {highlighted && (
             <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">
-              <Sparkles aria-hidden="true" className="size-3" />
+              <Sparkles aria-hidden="true" className="size-3 shrink-0" />
               <span className={LABEL}>{t("highlightedLabel")}</span>
             </span>
           )}
           {byThreadAuthor && (
             <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium">
-              <PenLine aria-hidden="true" className="hidden size-3 sm:block" />
-              {t.rich("authorLabel", {
-                hidden: (chunks) => <span className="sr-only">{chunks}</span>,
-              })}
+              <PenLine aria-hidden="true" className="size-3 shrink-0" />
+              <span className={LABEL}>
+                {t.rich("authorLabel", {
+                  hidden: (chunks) => <span className="sr-only">{chunks}</span>,
+                })}
+              </span>
             </span>
           )}
           {isNew && <Badge className="mr-1">{t("newBadge")}</Badge>}
@@ -113,6 +117,7 @@ export function PostItem({
               bookmarked={bookmarked}
               className={attributionGadgetClass}
               labelClassName="hidden"
+              floatingError
             />
           )}
           <HashLink
@@ -226,7 +231,8 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
     permissions.canReact && found.resolvedPermissions["forum.react"] !== false
       ? pickerTypes(reactionTypes, found.thread.node.id)
       : [];
-  // Read now: a reply of the viewer's own has moved their read position past it already.
+  // Read now: the poll marks the thread read only after drawing what arrived, and a reply of the
+  // viewer's own has moved their read position past it already.
   const viewer = {
     signedIn: user !== null,
     readPosition: found.thread.readPosition,

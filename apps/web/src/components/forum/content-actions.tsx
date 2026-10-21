@@ -33,11 +33,13 @@ function PanelButton({
   label,
   open,
   onClick,
+  labelClassName = actionLabelClass,
 }: {
   icon: React.ReactNode;
   label: string;
   open: boolean;
   onClick: () => void;
+  labelClassName?: string;
 }) {
   return (
     <button
@@ -48,7 +50,7 @@ function PanelButton({
       onClick={onClick}
     >
       {icon}
-      <span className={actionLabelClass}>{label}</span>
+      <span className={labelClassName}>{label}</span>
     </button>
   );
 }
@@ -76,7 +78,10 @@ function PanelButton({
 //   layout      `split` is a thread post's footer as XenForo draws it: what the viewer does to the
 //               item on the left (report first, then edit, delete and the moderator tools), how
 //               they answer it on the right (react, "+ Quote", reply), the summary under the bar
-//               and no rule above it (the post's header row carries one).
+//               and no rule above it (the post's header row carries one). Share and bookmark are
+//               not drawn: the post's header row has them. When nothing but report is on the
+//               left (an ordinary member's bar), the words show on a phone too: they fit 360 px
+//               on one line; with edit, delete or moderator tools the bar keeps to icons there.
 export function ContentActions({
   summary,
   react,
@@ -137,6 +142,8 @@ export function ContentActions({
   );
 
   const split = layout === "split";
+  const labelClass =
+    split && !edit && !remove && !moderation ? "inline" : actionLabelClass;
   const answers = (
     <>
       {react}
@@ -147,6 +154,7 @@ export function ContentActions({
           load={quote.load}
           label={t("quote")}
           text={split ? t("addQuote") : undefined}
+          labelClassName={labelClass}
         />
       )}
       {reply && (
@@ -156,7 +164,7 @@ export function ContentActions({
           className={messageActionClass}
         >
           <Reply />
-          <span className={actionLabelClass}>{t("reply")}</span>
+          <span className={labelClass}>{t("reply")}</span>
         </HashLink>
       )}
       {start}
@@ -168,18 +176,24 @@ export function ContentActions({
       label={t("report")}
       open={open === "report"}
       onClick={() => toggle("report")}
+      labelClassName={labelClass}
     />
   );
   const tools = (
     <>
-      {split && reportButton}
-      {bookmarkButton}
-      {share && (
-        <ShareButton
-          href={share}
-          label={t("share")}
-          className={messageActionClass}
-        />
+      {split ? (
+        reportButton
+      ) : (
+        <>
+          {bookmarkButton}
+          {share && (
+            <ShareButton
+              href={share}
+              label={t("share")}
+              className={messageActionClass}
+            />
+          )}
+        </>
       )}
       {edit &&
         ("href" in edit ? (

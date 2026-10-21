@@ -86,6 +86,45 @@ test("the split bar of a post: report, edit, delete and moderation on the left, 
   expect(html).not.toContain("border-t");
 });
 
+test("an ordinary member's split bar shows the words on a phone too; with edit, delete or moderation it keeps to icons there", () => {
+  const member = draw({
+    react: <i data-mark="react" />,
+    quote: { postId: 1, event: "quote", load },
+    reply: { href: "#reply" },
+    report: { action },
+    layout: "split",
+  });
+  expect(member).toContain('<span class="inline">+ Quote</span>');
+  expect(member).toContain('<span class="inline">Reply</span>');
+  expect(member).toContain('<span class="inline">Report</span>');
+  for (const extra of [
+    { edit: { href: "/threads/3/edit/1" } },
+    { remove: { action } },
+    { moderation: <i data-mark="moderation" /> },
+  ]) {
+    const staff = draw({
+      quote: { postId: 1, event: "quote", load },
+      reply: { href: "#reply" },
+      report: { action },
+      layout: "split",
+      ...extra,
+    });
+    expect(staff).toContain('<span class="hidden sm:inline">+ Quote</span>');
+    expect(staff).not.toContain('<span class="inline">');
+  }
+});
+
+test("the split bar leaves share and bookmark to the post's header row", () => {
+  const html = draw({
+    share: "/x",
+    bookmark: { contentType: "post", contentId: 1, bookmarked: false },
+    report: { action },
+    layout: "split",
+  });
+  expect(html).not.toContain('aria-label="Share"');
+  expect(html).not.toContain("Bookmark");
+});
+
 test("the default bar keeps the plain Quote word", () => {
   expect(draw(full)).toContain('<span class="hidden sm:inline">Quote</span>');
 });

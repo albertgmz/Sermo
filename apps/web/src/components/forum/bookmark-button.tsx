@@ -10,6 +10,28 @@ import { Button } from "@/components/ui/button";
 import { changeItem, useItemState } from "@/lib/item-state";
 import { cn } from "@/lib/utils";
 
+// Why the backend refused the change, under the button: on its own line, or floating over what
+// follows (`floating`, as wide as the words need up to 16rem) where the button sits in a row.
+export function BookmarkRefusal({
+  floating,
+  children,
+}: {
+  floating: boolean;
+  children: string;
+}) {
+  return (
+    <FormError
+      className={cn(
+        "text-xs",
+        floating &&
+          "absolute top-full right-0 z-10 w-max max-w-64 rounded-md border bg-popover px-2 py-1 shadow-md",
+      )}
+    >
+      {children}
+    </FormError>
+  );
+}
+
 // Bookmarks or un-bookmarks an item from where it is drawn and stays on the page: the action asks
 // for the opposite of what is shown, which shows at once and is put back when the backend refuses
 // (the refusal is shown under the button). The label carries the state (no `aria-pressed`: a
@@ -22,9 +44,18 @@ export function BookmarkButton(props: {
   // How the visible text is hidden where only the icon fits; `className` then gives the button the
   // width of a touch target.
   labelClassName?: string;
+  // In a row of small controls (a post's header row) the refusal floats under the button, over
+  // what follows, instead of widening the row; elsewhere it takes its own line under it.
+  floatingError?: boolean;
 }) {
-  const { contentType, contentId, bookmarked, className, labelClassName } =
-    props;
+  const {
+    contentType,
+    contentId,
+    bookmarked,
+    className,
+    labelClassName,
+    floatingError = false,
+  } = props;
   const t = useTranslations("ui.bookmark");
   const tFailed = useTranslations("lib.errors");
   const router = useRouter();
@@ -34,7 +65,12 @@ export function BookmarkButton(props: {
   const [error, setError] = useState<string | undefined>();
   const label = t(shown ? "remove" : "add");
   return (
-    <div className="flex min-w-0 max-w-full flex-col">
+    <div
+      className={cn(
+        "flex min-w-0 max-w-full flex-col",
+        floatingError && "relative shrink-0",
+      )}
+    >
       <Button
         type="button"
         variant="ghost"
@@ -63,7 +99,9 @@ export function BookmarkButton(props: {
         {shown ? <BookmarkCheck /> : <Bookmark />}
         <span className={cn(labelClassName)}>{label}</span>
       </Button>
-      {error && <FormError className="text-xs">{error}</FormError>}
+      {error && (
+        <BookmarkRefusal floating={floatingError}>{error}</BookmarkRefusal>
+      )}
     </div>
   );
 }

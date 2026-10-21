@@ -16,6 +16,7 @@ export function QuoteButton({
   load,
   label,
   text = label,
+  labelClassName = actionLabelClass,
 }: {
   postId: number;
   event: string;
@@ -24,6 +25,8 @@ export function QuoteButton({
   ) => Promise<{ author: string; authorId: number; source: string } | null>;
   label: string;
   text?: string;
+  // How the word is hidden where only the icon fits.
+  labelClassName?: string;
 }) {
   return (
     <button
@@ -42,7 +45,7 @@ export function QuoteButton({
       }}
     >
       <Quote />
-      <span className={actionLabelClass}>{text}</span>
+      <span className={labelClassName}>{text}</span>
     </button>
   );
 }

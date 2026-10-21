@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import type { ReactElement } from "react";
 import { postBody } from "@/lib/test-bodies";
 import { viewerBody } from "@/lib/test-viewer";
 
@@ -152,6 +153,54 @@ test("new replies are drawn as rows ordered by position, and the thread is marke
     (request) => request.path === "/api/v1/threads/7/read",
   );
   expect(read?.method).toBe("PUT");
+});
+
+test("arriving replies by others are drawn as new: the thread is marked read only after they are drawn", async () => {
+  // The read position moves when the thread is marked read, as the backend's does.
+  let readPosition = 25;
+  const recent = new Date().toISOString();
+  const asked: string[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    const { pathname } = new URL(url);
+    asked.push(`${init.method ?? "GET"} ${pathname}`);
+    if (pathname === "/api/v1/threads/7/posts")
+      return page({
+        items: [
+          postBody({ id: 32, position: 26, createdAt: recent }),
+          postBody({ id: 33, position: 27, createdAt: recent }),
+        ],
+      });
+    if (pathname === "/api/v1/threads/7/read") {
+      readPosition = 27;
+      return Response.json({ readPosition });
+    }
+    if (pathname === "/api/v1/threads/7")
+      return Response.json({
+        ...threadBody,
+        thread: { ...threadBody.thread, readPosition },
+      });
+    if (pathname === "/api/v1/me") return Response.json(viewerBody(true));
+    if (pathname === "/api/v1/reaction-types")
+      return Response.json({ items: [] });
+    if (pathname === "/api/v1/member-authors")
+      return Response.json({ items: [] });
+    if (pathname === "/api/v1/bookmarks/status")
+      return Response.json({ bookmarked: [] });
+    return Response.json(
+      { error: { code: "not_found", message: pathname } },
+      { status: 404 },
+    );
+  }) as unknown as typeof fetch;
+  const answer = await pollPosts(7, held);
+  const rows = "rows" in answer ? answer.rows : [];
+  expect(
+    rows.map(
+      (row) => (row.node as ReactElement<{ isNew: boolean }>).props.isNew,
+    ),
+  ).toEqual([true, true]);
+  expect(asked.indexOf("GET /api/v1/threads/7")).toBeLessThan(
+    asked.indexOf("PUT /api/v1/threads/7/read"),
+  );
 });
 
 test("a different post at the held position means the thread is drawn again, and the replies are not used", async () => {

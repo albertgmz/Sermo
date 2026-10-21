@@ -156,6 +156,16 @@ test("as on XenForo, the signature sits above the footer and the footer closes t
   expect(html.indexOf("<p>sig</p>")).toBeLessThan(html.indexOf("actions"));
 });
 
+test("the time is never cut short: an edited mark beside it truncates instead", () => {
+  const html = JSON.stringify(
+    PostFrame({ ...base, edited: <i data-mark="edited" /> }),
+    (key, value) => (key === "author" ? undefined : value),
+  );
+  expect(html).toContain('"className":"shrink-0 md:hidden"');
+  expect(html).toContain('"className":"hidden shrink-0 md:inline"');
+  expect(html).toContain('"className":"min-w-0 truncate"');
+});
+
 test("a dashed rule parts the header row from the content", () => {
   expect(JSON.stringify(PostFrame(base))).toContain("border-b border-dashed");
 });

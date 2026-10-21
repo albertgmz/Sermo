@@ -193,7 +193,8 @@ test("the header row reads time, then New, share, bookmark and the post number, 
     ">#4<",
   ].map(at);
   expect(order).not.toContain(-1);
-  expect(order).toEqual([...order].sort((a, b) => a - b));
+  expect(order).toEqual([...order].sort((a, b) => a - b)); // A refusal of the bookmark floats under it instead of widening the row.
+  expect(header).toContain("flex-col relative shrink-0");
 });
 
 test("only the posts after the viewer's read position are new", async () => {
