@@ -5654,3 +5654,19 @@ exists.
 
 Why: backlog A3; the proposal sizes the economy from a year of fcuba activity so an active member
 reaches the shop in weeks, and the code closes the two farming paths it found.
+
+### A thread post is laid out as on fcuba's XenForo
+
+- Header row: the time on the left; on the right the highlighted and thread-author marks, "Nuevo",
+  share, bookmark and `#N`, over a dashed rule. Footer: Report, Edit, Delete and moderator tools on
+  the left; react, "+ Citar" and Responder on the right; who reacted under the bar; the signature
+  above the footer. The postbit is unchanged. On a phone an ordinary member's footer keeps its
+  words; with staff tools it is icons only.
+- "Nuevo" marks posts after the viewer's read position (read before the visit is recorded, so live
+  posts get it too); guests never see it; in a thread never opened, posts of the last 30 days are
+  new (as XenForo and the thread list's unread mark). "Nuevo" sits on the right, as in fcuba's
+  template, not beside the date.
+- `ContentActions` has `layout="split"` for thread posts; `BookmarkButton` takes `floatingError`
+  for the header row. Conversation messages share the frame (dashed rule, signature above footer).
+
+Why: backlog C1 and the owner's forum-feel review: members compare the post with fcuba's XenForo.
