@@ -91,12 +91,13 @@ async function site() {
   const sleeps: number[] = [];
   const logs: string[] = [];
   let intercept: ((method: string, path: string) => Response | undefined) | undefined;
+  let rewrite: ((path: string) => string) | undefined;
   const deps: Dependencies = {
     fetch: async (url, init) => {
       const target = new URL(url);
       const path = target.pathname + target.search;
       calls.push({ method: String(init.method), path });
-      return intercept?.(String(init.method), path) ?? request(path, init);
+      return intercept?.(String(init.method), path) ?? request(rewrite?.(path) ?? path, init);
     },
     sleep: async (ms) => {
       sleeps.push(ms);
@@ -114,6 +115,9 @@ async function site() {
     sleeps,
     logs,
     deps,
+    setRewrite: (fn: typeof rewrite) => {
+      rewrite = fn;
+    },
     setIntercept: (fn: typeof intercept) => {
       intercept = fn;
     },
@@ -182,6 +186,21 @@ describe("grant manual awards", () => {
     expect(s.logs).toContain(`  would grant to member ${bruno}`);
     expect(await s.holdersOf(diverse.id)).toEqual([anna!]);
     expect(formatSummary(summary, true)).toContain("1 to grant");
+  });
+
+  test("the current holders are read page by page, so a rerun skips all of them", async () => {
+    const s = await site();
+    await s.award("Género Diverso");
+    const ids = s.members.map((m) => m.id);
+    const holders: AwardHolders[] = [{ name: "Género Diverso", xenforoTrophyId: 18, userIds: ids }];
+    await grantManualAwards(options, { apiKey: s.apiKey }, holders, s.deps);
+    s.calls.length = 0;
+    // The server pages by one member, so the script must follow the cursor to see all three.
+    s.setRewrite((path) => path.replace("limit=100", "limit=1"));
+    const second = await grantManualAwards(options, { apiKey: s.apiKey }, holders, s.deps);
+    expect(second[0]).toMatchObject({ granted: 0, alreadyHeld: 3, refused: 0 });
+    expect(writes(s.calls)).toHaveLength(0);
+    expect(s.calls.filter((c) => c.path.includes("/holders?"))).toHaveLength(3);
   });
 
   test("writes are spaced at most three a second", async () => {

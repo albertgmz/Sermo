@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 // The parts of `grant-manual-awards.ts` that the test drives: the holders file, the arguments, and
 // the run itself, which talks to the API only through an injected `fetch`.
 
@@ -44,7 +46,7 @@ export interface Options {
 
 export function parseArgs(argv: string[]): Options {
   const options: Options = {
-    holdersFile: new URL("./manual-award-holders.json", import.meta.url).pathname,
+    holdersFile: join(import.meta.dir, "manual-award-holders.json"),
     url: "https://fcuba.net",
     dryRun: false,
     perSecond: MAX_WRITES_PER_SECOND,
