@@ -1,5 +1,6 @@
 import type { Ctx } from "./context";
 import { prepared } from "./context";
+import { holdCheckpoints, paceWal } from "./db/checkpointer";
 import { writeTx } from "./db/tx";
 
 export const CONTENT_EVENT_TYPES = [
@@ -117,9 +118,21 @@ export function publishEvent(ctx: Ctx, event: EventInput): number {
   return Number(result.lastInsertRowid);
 }
 
+/** Handlers run this long (ms) before the event loop gets a turn. */
+const TURN_MS = 10;
+/** From this many events a batch is a backlog: it waits for the WAL and holds checkpoints. */
+const BACKLOG = 20;
+
 /**
- * Durable subscriber cursor. A failed handler leaves the event pending for retry. Handlers must
- * be idempotent because a crash can occur after their side effect and before the cursor commit.
+ * Durable subscriber cursor, moved once per batch (at most `limit` events) after the handlers ran,
+ * not after each event: a backlog of hundreds of thousands of events is not as many commits. A
+ * failed handler leaves its event pending for retry, with the cursor after the events before it.
+ * Handlers must be idempotent because a crash can occur after their side effect and before the
+ * cursor commit, which then repeats the batch.
+ *
+ * Handlers that run long give the event loop a turn every few milliseconds, and a batch that is a
+ * backlog waits for a checkpoint when the WAL is large and holds checkpoints while it runs (they
+ * would overlap its stream of writes).
  */
 export async function consumeEvents(
   ctx: Ctx,
@@ -150,22 +163,41 @@ export async function consumeEvents(
       "SELECT id, type, target_type, target_id, payload, created_at FROM domain_events WHERE id > ?1 ORDER BY id LIMIT ?2",
     ),
   ).all(cursor, limit);
-  for (const row of rows) {
-    await handler({
-      id: row.id,
-      type: row.type,
-      targetType: row.target_type,
-      targetId: row.target_id,
-      payload: JSON.parse(row.payload) as Record<string, unknown>,
-      createdAt: row.created_at,
-    });
-    writeTx(ctx, () => {
-      ctx.sqlite
-        .prepare(
-          "INSERT INTO event_subscribers (name, last_event_id, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT (name) DO UPDATE SET last_event_id = MAX(last_event_id, excluded.last_event_id), updated_at = excluded.updated_at",
-        )
-        .run(subscriber, row.id, ctx.now());
-    });
+  if (rows.length === 0) return 0;
+  const backlog = rows.length >= BACKLOG;
+  if (backlog) await paceWal(ctx);
+  const release = backlog ? holdCheckpoints(ctx) : () => {};
+  let done = 0;
+  let turnStart = performance.now();
+  try {
+    for (const row of rows) {
+      await handler({
+        id: row.id,
+        type: row.type,
+        targetType: row.target_type,
+        targetId: row.target_id,
+        payload: JSON.parse(row.payload) as Record<string, unknown>,
+        createdAt: row.created_at,
+      });
+      done++;
+      if (performance.now() - turnStart >= TURN_MS) {
+        await new Promise((resolve) => setImmediate(resolve));
+        turnStart = performance.now();
+      }
+    }
+  } finally {
+    try {
+      if (done > 0)
+        writeTx(ctx, () => {
+          prepared(ctx, "events.advance", () =>
+            ctx.sqlite.prepare<unknown, [string, number, number]>(
+              "INSERT INTO event_subscribers (name, last_event_id, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT (name) DO UPDATE SET last_event_id = MAX(last_event_id, excluded.last_event_id), updated_at = excluded.updated_at",
+            ),
+          ).run(subscriber, rows[done - 1]!.id, ctx.now());
+        });
+    } finally {
+      release();
+    }
   }
   return rows.length;
 }

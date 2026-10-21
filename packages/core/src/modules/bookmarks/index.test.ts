@@ -287,6 +287,8 @@ describe("bookmarks.list", () => {
   test("list queries are bounded by the index", () => {
     const f = fixture();
     expectNoTableScan(f.ctx, bookmarksSql.page, [1, Number.MAX_SAFE_INTEGER, 100]);
+    expectNoTableScan(f.ctx, bookmarksSql.mergedAmong, ["[1,2]"]);
+    expectNoTableScan(f.ctx, bookmarksSql.mergedBookmarks, [1, 2000]);
   });
 });
 
@@ -328,6 +330,39 @@ describe("bookmarks edge cases", () => {
     expect((await list(f, f.reader)).items[1]!.threadId).toBe(last.thread.id);
     await set(f, f.other, "thread", old.thread.id);
     expect(await status(f, f.other, "thread", [last.thread.id])).toEqual([last.thread.id]);
+  });
+
+  test("a bookmark made before a merge is reported as the thread it became, and removing it clears it", async () => {
+    const f = fixture();
+    const first = await thread(f);
+    const second = await thread(f);
+    const target = await thread(f);
+    const unrelated = await thread(f);
+    const elsewhere = await thread(f);
+    for (const made of [first, second, unrelated]) await set(f, f.reader, "thread", made.thread.id);
+    const merge = (from: number, into: number) =>
+      f.ctx.sqlite
+        .prepare("UPDATE threads SET state = 'deleted', merged_into_id = ?1 WHERE id = ?2")
+        .run(into, from);
+    expect(await status(f, f.reader, "thread", [target.thread.id])).toEqual([]);
+    merge(first.thread.id, target.thread.id);
+    merge(second.thread.id, first.thread.id);
+    merge(unrelated.thread.id, elsewhere.thread.id);
+    // The rows are still under the old ids; the answer names the thread they became.
+    expect(await status(f, f.reader, "thread", [target.thread.id])).toEqual([target.thread.id]);
+    expect(await status(f, f.reader, "thread", [second.thread.id])).toEqual([target.thread.id]);
+    expect(
+      await status(f, f.reader, "thread", [target.thread.id, elsewhere.thread.id, 999_999]),
+    ).toEqual([target.thread.id, elsewhere.thread.id]);
+    expect(await status(f, f.other, "thread", [target.thread.id])).toEqual([]);
+    // Other kinds of item are untouched.
+    expect(await status(f, f.reader, "post", [target.thread.id])).toEqual([]);
+    // Removing it clears the rows of every thread merged into it, and no other.
+    await set(f, f.reader, "thread", target.thread.id, false);
+    expect(await status(f, f.reader, "thread", [target.thread.id])).toEqual([]);
+    expect(await status(f, f.reader, "thread", [elsewhere.thread.id])).toEqual([
+      elsewhere.thread.id,
+    ]);
   });
 
   test("moderated content is the author's alone", async () => {

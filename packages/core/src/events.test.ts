@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { Ctx } from "./context";
 import { invalidate } from "./context";
+import * as checkpointer from "./db/checkpointer";
 import { writeTx } from "./db/tx";
 import { consumeEvents, dispatchEvents, publishEvent, registerEventSubscriber } from "./events";
 import { postsCreateOp, postsDeleteOp, postsRestoreOp, threadsCreateOp } from "./modules/forums";
@@ -114,6 +115,133 @@ describe("durable domain events", () => {
     });
     expect(await dispatchEvents(ctx, { budgetMs: 0 })).toBe(0);
     expect(await dispatchEvents(ctx)).toBe(2);
+  });
+});
+
+describe("batched cursors", () => {
+  const publish = (ctx: Ctx, count: number) =>
+    writeTx(ctx, () => {
+      for (let i = 1; i <= count; i++)
+        publishEvent(ctx, { type: "reaction.added", targetType: "post", targetId: i });
+    });
+  const cursorOf = (ctx: Ctx, name: string) =>
+    ctx.sqlite
+      .prepare<{ last_event_id: number }, [string]>(
+        "SELECT last_event_id FROM event_subscribers WHERE name = ?1",
+      )
+      .get(name)?.last_event_id;
+
+  /** Counts the writes to the subscribers' cursors from now on. */
+  function countCursorWrites(ctx: Ctx) {
+    ctx.sqlite.run("CREATE TEMP TABLE cursor_writes (n INTEGER)");
+    for (const action of ["INSERT", "UPDATE"])
+      ctx.sqlite.run(
+        `CREATE TEMP TRIGGER cursor_${action} AFTER ${action} ON main.event_subscribers BEGIN INSERT INTO cursor_writes VALUES (1); END`,
+      );
+    return () =>
+      ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM cursor_writes").get()!.n;
+  }
+
+  test("a batch moves the cursor once, after its last event", async () => {
+    const ctx = createTestContext();
+    publish(ctx, 250);
+    const seen: number[] = [];
+    registerEventSubscriber(ctx, "batched", (event) => {
+      seen.push(event.id);
+    });
+    try {
+      const writes = countCursorWrites(ctx);
+      expect(await dispatchEvents(ctx)).toBe(250);
+      expect(writes()).toBe(3);
+      expect(seen).toHaveLength(250);
+      expect(seen).toEqual(seen.toSorted((a, b) => a - b));
+      expect(cursorOf(ctx, "batched")).toBe(seen[249]!);
+      expect(await dispatchEvents(ctx)).toBe(0);
+    } finally {
+      ctx.sqlite.close(true);
+    }
+  });
+
+  test("a failure inside a batch keeps the events before it done and retries from it", async () => {
+    const ctx = createTestContext();
+    publish(ctx, 60);
+    const first: number[] = [];
+    try {
+      await expect(
+        consumeEvents(ctx, "partial", (event) => {
+          if (first.length === 40) throw new Error("stop");
+          first.push(event.id);
+        }),
+      ).rejects.toThrow("stop");
+      expect(cursorOf(ctx, "partial")).toBe(first[39]!);
+      const again: number[] = [];
+      expect(
+        await consumeEvents(ctx, "partial", (event) => {
+          again.push(event.id);
+        }),
+      ).toBe(20);
+      expect(again[0]).toBe(first[39]! + 1);
+      expect(cursorOf(ctx, "partial")).toBe(again[19]!);
+    } finally {
+      ctx.sqlite.close(true);
+    }
+  });
+
+  test("handlers that run long give the event loop a turn", async () => {
+    const ctx = createTestContext();
+    publish(ctx, 100);
+    let turned = false;
+    setImmediate(() => {
+      turned = true;
+    });
+    let handled = 0;
+    let turnedAt = -1;
+    try {
+      await consumeEvents(ctx, "busy", () => {
+        if (turned && turnedAt < 0) turnedAt = handled;
+        handled++;
+        const until = performance.now() + 2;
+        while (performance.now() < until);
+      });
+      // Without a yield the loop is not reached before the 100 handlers are done.
+      expect(turnedAt).toBeGreaterThan(0);
+      expect(turnedAt).toBeLessThan(30);
+    } finally {
+      ctx.sqlite.close(true);
+    }
+  });
+
+  test("a backlog holds checkpoints while it runs and a short batch does not", async () => {
+    const ctx = createTestContext();
+    let holding = 0;
+    let held = 0;
+    const hold = spyOn(checkpointer, "holdCheckpoints").mockImplementation(() => {
+      holding++;
+      held++;
+      return () => {
+        holding--;
+      };
+    });
+    const pace = spyOn(checkpointer, "paceWal").mockResolvedValue();
+    try {
+      publish(ctx, 5);
+      await consumeEvents(ctx, "short", () => {});
+      expect(held).toBe(0);
+      expect(pace).not.toHaveBeenCalled();
+      publish(ctx, 30);
+      let during = 0;
+      await consumeEvents(ctx, "long", () => {
+        during = holding;
+      });
+      expect(during).toBe(1);
+      expect(held).toBe(1);
+      expect(holding).toBe(0);
+      expect(pace).toHaveBeenCalledTimes(1);
+    } finally {
+      hold.mockRestore();
+      pace.mockRestore();
+      ctx.sqlite.close(true);
+    }
   });
 });
 

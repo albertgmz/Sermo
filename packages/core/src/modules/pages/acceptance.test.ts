@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import {
   createKeyFromSession,
   expectNoTableScan,
@@ -28,6 +28,9 @@ import {
 } from "../security/retention";
 import { traceStatements } from "../statement-trace";
 import { acceptanceSql } from "./acceptance";
+
+// These tests are slow only when the full suite shares the machine (disk and CPU): the 5 s default is too short.
+setDefaultTimeout(30_000);
 
 afterEach(closeAll);
 

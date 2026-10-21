@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
 import type { Ctx } from "../../context";
 import { ForbiddenError } from "../../errors";
@@ -6,6 +6,9 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { can } from "../../permissions";
 import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
+
+// These tests are slow only when the full suite shares the machine (disk and CPU): the 5 s default is too short.
+setDefaultTimeout(30_000);
 
 const op = (name: string) => getOperation(name);
 

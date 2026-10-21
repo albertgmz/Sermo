@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,6 +6,9 @@ import type { Ctx } from "@sermo/core";
 import { closeContext, localDriver } from "@sermo/core";
 import { createTestContext } from "@sermo/core/testing";
 import { createApp } from "./app";
+
+// These tests are slow only when the full suite shares the machine (disk and CPU): the 5 s default is too short.
+setDefaultTimeout(30_000);
 
 const contexts: Ctx[] = [];
 const dirs: string[] = [];

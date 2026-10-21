@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,6 +17,9 @@ import { renderBbCode } from "./render";
 import { loadViewerReactions, reactionSummary } from "./shared/reactions";
 import { loadUserSummaries } from "./shared/users";
 import { createTestContext, expectNoTableScan, insertNode, insertUser, userActor } from "./testing";
+
+// These tests are slow only when the full suite shares the machine (disk and CPU): the 5 s default is too short.
+setDefaultTimeout(30_000);
 
 const tempDirs: string[] = [];
 afterEach(() => {

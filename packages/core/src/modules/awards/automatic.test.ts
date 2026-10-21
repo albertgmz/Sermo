@@ -379,6 +379,41 @@ describe("automatic awards", () => {
     expect((await call("member", { userId: member.id })).items).toEqual([]);
   });
 
+  test("a backlog of events grants what one event at a time does, with one cursor write per batch", async () => {
+    const { ctx, call } = setup();
+    const award = await call("create", { name: "Poster", tier: "bronze", rule: postRule });
+    const members = Array.from({ length: 130 }, () => insertUser(ctx));
+    // Half of them qualify; every member has an event, and two events name the same member.
+    for (const [n, member] of members.entries())
+      if (n % 2 === 0)
+        ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);
+    writeTx(ctx, () => {
+      for (const member of [...members, members[0]!])
+        publishEvent(ctx, {
+          type: "member.groups_changed",
+          targetType: "user",
+          targetId: member.id,
+          payload: { source: "admin" },
+        });
+    });
+    ctx.sqlite.run("CREATE TEMP TABLE cursor_writes (n INTEGER)");
+    for (const action of ["INSERT", "UPDATE"])
+      ctx.sqlite.run(
+        `CREATE TEMP TRIGGER cursor_${action} AFTER ${action} ON main.event_subscribers BEGIN INSERT INTO cursor_writes VALUES (1); END`,
+      );
+    await drainEvents(ctx);
+    const holders = (await call("holders", { awardId: award.id, limit: 100 })).items.map(
+      (grant: { user: { id: number } }) => grant.user.id,
+    );
+    expect(holders.toSorted((a: number, b: number) => a - b)).toEqual(
+      members.filter((_, n) => n % 2 === 0).map((member) => member.id),
+    );
+    // 131 events plus the 65 grants' own: a few batches of at most 100, not 196 writes.
+    expect(
+      ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM cursor_writes").get()!.n,
+    ).toBeLessThanOrEqual(4);
+  });
+
   for (const targetType of ["post", "thread", "profile_post", "profile_post_comment"]) {
     test(`content.created evaluates the author of a ${targetType}`, async () => {
       const { ctx, member, call } = setup();

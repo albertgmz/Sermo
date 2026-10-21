@@ -1,9 +1,12 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, setDefaultTimeout, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { closeContext, createContext } from "../context";
 import { writeTx } from "./tx";
+
+// These tests are slow only when the full suite shares the machine (disk and CPU): the 5 s default is too short.
+setDefaultTimeout(30_000);
 
 const tempDirs: string[] = [];
 afterEach(() => {

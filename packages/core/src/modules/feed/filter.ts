@@ -26,10 +26,13 @@ const UNREAD_WINDOW_MS = 30 * 86_400_000;
 export const filterSql = {
   /**
    * The place of the newest threads of each forum in `?1` below the key, one `threads_node_feed`
-   * seek per forum; only the newest `?4` of all of them are read in full afterwards.
+   * seek per forum, `?4` of each: the first read of `forumsWalk`.
    */
   forums:
-    "SELECT t.id, t.last_post_at FROM json_each(?1) AS j CROSS JOIN threads t WHERE t.id IN (SELECT t2.id FROM threads t2 WHERE t2.node_id = j.value AND t2.state = 'visible' AND (t2.last_post_at, t2.id) < (?2, ?3) ORDER BY t2.last_post_at DESC, t2.id DESC LIMIT ?4)",
+    "SELECT t.node_id, t.id, t.last_post_at FROM json_each(?1) AS j CROSS JOIN threads t WHERE t.id IN (SELECT t2.id FROM threads t2 WHERE t2.node_id = j.value AND t2.state = 'visible' AND (t2.last_post_at, t2.id) < (?2, ?3) ORDER BY t2.last_post_at DESC, t2.id DESC LIMIT ?4)",
+  /** The next `?4` threads of one forum `?1` below the key: a forum of `forumsWalk` that ran out. */
+  forum:
+    "SELECT id, last_post_at FROM threads WHERE node_id = ?1 AND state = 'visible' AND (last_post_at, id) < (?2, ?3) ORDER BY last_post_at DESC, id DESC LIMIT ?4",
   prefix: `SELECT ${threadColumns} FROM threads INDEXED BY threads_prefix_feed WHERE prefix_id = ?1 AND state = 'visible' AND (last_post_at, id) < (?2, ?3) ORDER BY last_post_at DESC, id DESC LIMIT ?4`,
   sticky: `SELECT ${threadColumns} FROM threads INDEXED BY threads_sticky_feed WHERE is_sticky = 1 AND state = 'visible' AND (last_post_at, id) < (?1, ?2) ORDER BY last_post_at DESC, id DESC LIMIT ?3`,
   locked: `SELECT ${threadColumns} FROM threads INDEXED BY threads_locked_feed WHERE is_locked = 1 AND state = 'visible' AND (last_post_at, id) < (?1, ?2) ORDER BY last_post_at DESC, id DESC LIMIT ?3`,
@@ -97,27 +100,107 @@ function openThreads(ctx: Ctx, ids: number[]): ThreadRow[] {
   );
 }
 
+/** A thread's place in a forum's run: the walk's order, newest first. */
+interface Place {
+  id: number;
+  last_post_at: number;
+}
+
+/** The threads of one forum read so far, newest first, down to the page it last read. */
+interface ForumRun {
+  forum: number;
+  places: Place[];
+  /** Threads the next read asks for; it doubles each time, so a forum that is drawn on a lot reads rarely. */
+  page: number;
+  /** The last read came back short: nothing is left below `places`. */
+  done: boolean;
+}
+
+/** `a` is before `b` in the walk: newer activity, or the same time and a higher id. */
+const newer = (a: Place, b: Place) =>
+  a.last_post_at > b.last_post_at || (a.last_post_at === b.last_post_at && a.id > b.id);
+
+/**
+ * The forums named, walked as one list. Each forum keeps the threads read from it so far, and the
+ * walk merges them newest first, reading more from a forum only when its run is used up. A page
+ * of a category of many forums thus reads a few threads of each forum once, not `count` of every
+ * forum at every batch (the keys of a request only go down; a key above the first one starts over).
+ */
 function forumsWalk(ctx: Ctx, forums: number[]): ThreadWalk {
   const json = JSON.stringify(forums);
+  let runs: ForumRun[] | undefined;
+  let origin: Place = { id: 0, last_post_at: 0 };
+  const below = (place: Place, time: number, id: number) =>
+    place.last_post_at < time || (place.last_post_at === time && place.id < id);
+
+  const start = (time: number, id: number, count: number) => {
+    const page = Math.max(8, Math.ceil((2 * count) / forums.length));
+    const byForum = new Map<number, ForumRun>(
+      forums.map((forum) => [forum, { forum, places: [], page, done: false }]),
+    );
+    for (const row of prepared(ctx, "feed.forumsWalk", () =>
+      ctx.sqlite.prepare<
+        { node_id: number; id: number; last_post_at: number },
+        [string, number, number, number]
+      >(filterSql.forums),
+    ).all(json, time, id, page))
+      byForum.get(row.node_id)?.places.push({ id: row.id, last_post_at: row.last_post_at });
+    for (const run of byForum.values()) {
+      run.places.sort((a, b) => (newer(a, b) ? -1 : 1));
+      run.done = run.places.length < page;
+    }
+    runs = [...byForum.values()];
+    origin = { id, last_post_at: time };
+  };
+
+  const more = (run: ForumRun) => {
+    const last = run.places[run.places.length - 1] ?? origin;
+    run.page *= 2;
+    const rows = prepared(ctx, "feed.forumWalk", () =>
+      ctx.sqlite.prepare<Place, [number, number, number, number]>(filterSql.forum),
+    ).all(run.forum, last.last_post_at, last.id, run.page);
+    run.places.push(...rows);
+    run.done = rows.length < run.page;
+  };
+
   return {
-    // Each forum's newest `count` below the key; the newest `count` of all of them are the
-    // newest `count` of their union.
     fetch: (time, id, count) => {
-      const newest = prepared(ctx, "feed.forumsWalk", () =>
-        ctx.sqlite.prepare<{ id: number; last_post_at: number }, [string, number, number, number]>(
-          filterSql.forums,
-        ),
-      )
-        .all(json, time, id, count)
-        .sort((a, b) => b.last_post_at - a.last_post_at || b.id - a.id)
-        .slice(0, count);
+      if (!runs || newer({ id, last_post_at: time }, origin)) start(time, id, count);
+      // Where each run stands: its first thread below the key.
+      const at = runs!.map((run) => {
+        let i = 0;
+        while (i < run.places.length && !below(run.places[i]!, time, id)) i++;
+        return { run, i };
+      });
+      const newest: Place[] = [];
+      while (newest.length < count) {
+        let best: Place | undefined;
+        let from: (typeof at)[number] | undefined;
+        for (const cursor of at) {
+          for (;;) {
+            const { run } = cursor;
+            while (cursor.i < run.places.length && !below(run.places[cursor.i]!, time, id))
+              cursor.i++;
+            if (cursor.i < run.places.length || run.done) break;
+            more(run);
+          }
+          const place = cursor.run.places[cursor.i];
+          if (place && (!best || newer(place, best))) {
+            best = place;
+            from = cursor;
+          }
+        }
+        if (!best || !from) break;
+        newest.push(best);
+        from.i++;
+      }
       const rows = new Map(
         threadRowsByIds(
           ctx,
-          newest.map((row) => row.id),
+          newest.map((place) => place.id),
         ).map((t) => [t.id, t]),
       );
-      return newest.flatMap((row) => rows.get(row.id) ?? []);
+      return newest.flatMap((place) => rows.get(place.id) ?? []);
     },
     time: byLastPost,
   };

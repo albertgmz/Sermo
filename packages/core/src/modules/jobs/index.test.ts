@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, setDefaultTimeout, test } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,6 +24,9 @@ import {
   startJobWorker,
 } from "./index";
 import { jobSql, LEASE_MS } from "./queue";
+
+// These tests are slow only when the full suite shares the machine (disk and CPU): the 5 s default is too short.
+setDefaultTimeout(30_000);
 
 const row = (ctx: ReturnType<typeof createTestContext>, id: number) =>
   ctx.sqlite

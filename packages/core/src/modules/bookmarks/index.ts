@@ -24,6 +24,8 @@ const SCAN_CAP = 300;
 const BATCH_SIZE = 100;
 /** Merges followed to the thread that holds a merged thread, as `threads.get` does. */
 const MERGE_HOPS = 16;
+/** Thread bookmarks of one member that a merge has moved, read to find what they became. */
+const MERGED_BOOKMARKS_CAP = 2000;
 /** Source characters masked for an excerpt. */
 const EXCERPT_SOURCE = 2000;
 
@@ -50,6 +52,12 @@ type Item = {
 export const bookmarksSql = {
   status:
     "SELECT content_id FROM bookmarks WHERE user_id = ?1 AND content_type = ?2 AND content_id IN (SELECT value FROM json_each(?3))",
+  /** Which of the threads in `?1` a merge has moved. */
+  mergedAmong:
+    "SELECT id FROM threads WHERE id IN (SELECT value FROM json_each(?1)) AND merged_into_id IS NOT NULL",
+  /** The member's thread bookmarks that a merge has moved: `bookmarks_user_content`, then the thread by id. */
+  mergedBookmarks:
+    "SELECT b.content_id FROM bookmarks b JOIN threads t ON t.id = b.content_id WHERE b.user_id = ?1 AND b.content_type = 'thread' AND t.merged_into_id IS NOT NULL LIMIT ?2",
   page: "SELECT id, created_at, content_type, content_id FROM bookmarks WHERE user_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3",
   add: "INSERT INTO bookmarks (user_id, content_type, content_id, created_at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (user_id, content_type, content_id) DO NOTHING",
   remove: "DELETE FROM bookmarks WHERE user_id = ?1 AND content_type = ?2 AND content_id = ?3",
@@ -81,6 +89,20 @@ function mergeTarget(ctx: Ctx, id: number): number {
     target = merged;
   }
   return target;
+}
+
+/**
+ * The member's thread bookmarks that a merge has moved, each with the thread it became: a
+ * bookmark made before the merge is still under the old id.
+ */
+function mergedBookmarks(ctx: Ctx, userId: number): { id: number; target: number }[] {
+  return statement<{ content_id: number }, [number, number]>(
+    ctx,
+    "mergedBookmarks",
+    bookmarksSql.mergedBookmarks,
+  )
+    .all(userId, MERGED_BOOKMARKS_CAP)
+    .map((row) => ({ id: row.content_id, target: mergeTarget(ctx, row.content_id) }));
 }
 
 /** Whether the viewer may see the item, by the rule of its own read. */
@@ -139,6 +161,10 @@ export const bookmarksSetOp = implement(
         // Both ids: a row made before the merge is under the old one.
         remove.run(userId, input.contentType, input.contentId);
         if (contentId !== input.contentId) remove.run(userId, input.contentType, contentId);
+        // Every row a merge moved into this thread, whichever old thread it was made on.
+        if (input.contentType === "thread")
+          for (const moved of mergedBookmarks(ctx, userId))
+            if (moved.target === contentId) remove.run(userId, input.contentType, moved.id);
       }
     });
     return { ok: true as const };
@@ -154,12 +180,36 @@ export const bookmarksStatusOp = implement(
   (ctx, actor, input) => {
     const userId = actorUserId(actor);
     if (userId === null || input.ids.length === 0) return { bookmarked: [] };
-    const rows = statement<{ content_id: number }, [number, string, string]>(
+    const ids = [...new Set(input.ids)];
+    const direct = statement<{ content_id: number }, [number, string, string]>(
       ctx,
       "status",
       bookmarksSql.status,
-    ).all(userId, input.contentType, JSON.stringify([...new Set(input.ids)]));
-    return { bookmarked: rows.map((row) => row.content_id) };
+    );
+    if (input.contentType !== "thread")
+      return {
+        bookmarked: direct
+          .all(userId, input.contentType, JSON.stringify(ids))
+          .map((r) => r.content_id),
+      };
+    // A merged thread is reported as the thread it became, whichever of the two the bookmark was
+    // made on (`bookmarks.set` stores the target; a bookmark older than the merge is under the
+    // old id).
+    const moved = new Set(
+      statement<{ id: number }, [string]>(ctx, "mergedAmong", bookmarksSql.mergedAmong)
+        .all(JSON.stringify(ids))
+        .map((row) => row.id),
+    );
+    const targets = new Set(ids.map((id) => (moved.has(id) ? mergeTarget(ctx, id) : id)));
+    const marked = new Set(
+      direct
+        .all(userId, input.contentType, JSON.stringify([...new Set([...ids, ...targets])]))
+        .map((row) =>
+          moved.has(row.content_id) ? mergeTarget(ctx, row.content_id) : row.content_id,
+        ),
+    );
+    for (const row of mergedBookmarks(ctx, userId)) marked.add(row.target);
+    return { bookmarked: [...targets].filter((id) => marked.has(id)) };
   },
   { public: "A member reads only their own bookmarks; a guest gets an empty list." },
 );

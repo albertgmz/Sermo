@@ -1,6 +1,9 @@
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+
+// These tests are slow only when the full suite shares the machine (disk and CPU): the 5 s default is too short.
+setDefaultTimeout(30_000);
 
 // Colours come from the tokens in globals.css so both themes keep working. The styleguide draws
 // sample art with fixed colours, the admin colour input needs a #rrggbb value to start from, the

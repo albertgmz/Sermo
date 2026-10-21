@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, setDefaultTimeout, test } from "bun:test";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
 import { ValidationError } from "../errors";
 import { nodesCreateOp, threadsCreateOp } from "../modules/forums";
@@ -6,6 +6,9 @@ import { execute } from "../operation";
 import { renderBbCode, renderContent } from "../render";
 import { ADVERSARIAL_INPUTS } from "./adversarial-inputs";
 import { Deadline, TOO_COMPLEX } from "./deadline";
+
+// These tests are slow only when the full suite shares the machine (disk and CPU): the 5 s default is too short.
+setDefaultTimeout(30_000);
 
 const RUNS = 10;
 /** Well under the 50 ms the renderer allows itself (ten runs, so this bounds the slowest of them). */

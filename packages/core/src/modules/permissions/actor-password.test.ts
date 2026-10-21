@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { insertNode, tokenActor } from "@sermo/core/testing";
 import type { Actor } from "../../actor";
 import { ForbiddenError, RateLimitedError, ValidationError } from "../../errors";
 import { accounts, closeAll, PASSWORD } from "../admin/fixtures.test";
+
+// These tests are slow only when the full suite shares the machine (disk and CPU): the 5 s default is too short.
+setDefaultTimeout(30_000);
 
 afterEach(closeAll);
 

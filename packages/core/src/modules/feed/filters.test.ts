@@ -705,6 +705,65 @@ describe("round 2: wall posts, the walk a filter needs, the side blocks", () => 
     expect((page.items as Item[]).map(titleOf)).toEqual(["Deep in the category"]);
   });
 
+  test("a category of many forums pages in order and reads a few threads of each forum, not a batch of each at every step", async () => {
+    const { w } = await scene();
+    const category = insertNode(w.ctx, { type: "category" });
+    const forums = Array.from({ length: 10 }, () => insertNode(w.ctx, { parentId: category.id }));
+    invalidate(w.ctx, "node_tree");
+    for (const [n, forum] of forums.entries())
+      for (let i = 0; i < (n === 3 ? 90 : 60); i++) await thread(w, w.bob, forum.id, `F${n}T${i}`);
+    // Times repeat across forums and inside one, so the order rests on the id.
+    w.ctx.sqlite
+      .prepare("UPDATE threads SET last_post_at = ?1 + (id * 7 % 40) * 1000")
+      .run(w.ctx.now());
+    const expected = w.ctx.sqlite
+      .prepare<{ id: number }, [string]>(
+        "SELECT id FROM threads WHERE node_id IN (SELECT value FROM json_each(?1)) AND state = 'visible' ORDER BY last_post_at DESC, id DESC",
+      )
+      .all(JSON.stringify(forums.map((forum) => forum.id)))
+      .map((row) => row.id)
+      .slice(0, 60);
+    const ids: number[] = [];
+    let rowsRead = 0;
+    const prepare = w.ctx.sqlite.prepare.bind(w.ctx.sqlite);
+    w.ctx.statements.clear();
+    // biome-ignore lint/suspicious/noExplicitAny: the wrapper forwards whatever the statement takes
+    (w.ctx.sqlite as any).prepare = (sql: string) => {
+      // biome-ignore lint/suspicious/noExplicitAny: bun's statement type is generic over its rows
+      const statement = prepare(sql) as any;
+      if (sql.includes("node_id = j.value") || sql.includes("WHERE node_id = ?1")) {
+        const all = statement.all.bind(statement);
+        statement.all = (...args: unknown[]) => {
+          const rows = all(...args);
+          rowsRead += rows.length;
+          return rows;
+        };
+      }
+      return statement;
+    };
+    try {
+      let cursor: string | undefined;
+      for (let guard = 0; guard < 3; guard++) {
+        const page = await w.call("feed.list", w.carol, {
+          forumIds: [category.id],
+          limit: 20,
+          ...(cursor ? { cursor } : {}),
+        });
+        ids.push(...(page.items as Item[]).map((item) => item.thread.id));
+        if (page.nextCursor === null) break;
+        cursor = page.nextCursor;
+      }
+    } finally {
+      // biome-ignore lint/suspicious/noExplicitAny: restoring the method replaced above
+      (w.ctx.sqlite as any).prepare = prepare;
+      w.ctx.statements.clear();
+    }
+    expect(ids).toEqual(expected);
+    // A page examines 40 threads at a time: reading 40 threads from each of 10 forums at each
+    // step is 400 rows or more a step; the runs kept between steps read a fraction of that.
+    expect(rowsRead).toBeLessThan(400);
+  });
+
   test("the featured block and the ranked side lists leave out the forums the feed leaves out", async () => {
     const { w, other } = await scene();
     const a = await thread(w, w.bob, w.open.id, "Picked in open");
@@ -828,6 +887,7 @@ describe("plans and statements", () => {
   const plans: [string, string, unknown[]][] = [
     ["all", rankingSql.latestPosts, [MAX, MAX, 20]],
     ["forums", filterSql.forums, ["[1,2,3]", MAX, MAX, 20]],
+    ["forum", filterSql.forum, [1, MAX, MAX, 20]],
     ["prefix", filterSql.prefix, [1, MAX, MAX, 20]],
     ["sticky", filterSql.sticky, [MAX, MAX, 20]],
     ["locked", filterSql.locked, [MAX, MAX, 20]],
