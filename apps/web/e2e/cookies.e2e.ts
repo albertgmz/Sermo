@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { GRACE_MS } from "../src/lib/app-prompts";
 import {
   box,
   expect,
@@ -206,7 +207,9 @@ test.describe("the notification card after the cookie banner", () => {
         ((await key.json()) as { publicKey: string | null }).publicKey === null,
         "this forum has no push keys",
       );
-      // The banner is asked again and neither card is put off.
+      // The banner is asked again and neither card is put off. The visit to /cookies first also
+      // counts as a page seen: a member whose account is under a day old gets no notification card
+      // on the first page of a visit (`pushWanted`), so keep two page loads before "/".
       await page.context().clearCookies({ name: "forum_consent" });
       await page.goto("/cookies");
       await ready(page);
@@ -214,15 +217,18 @@ test.describe("the notification card after the cookie banner", () => {
       await page.goto("/");
       await ready(page);
       await expect(banner(page)).toBeVisible();
-      // The card is held back for a moment after the answer: wait longer than that with the banner
+      // The card is held back for `GRACE_MS` after the answer: wait longer than that with the banner
       // still up, and it has not appeared.
-      await page.waitForTimeout(2_500);
+      await page.waitForTimeout(GRACE_MS + 1_000);
       await expect(card(page)).toHaveCount(0);
 
       await banner(page).getByRole("button", { name: answer }).click();
       await expect(banner(page)).toBeHidden();
+      // Reject keeps the necessary category and nothing else; accept keeps at least the optional ones.
       expect(await chosen(page)).toEqual(
-        expect.arrayContaining([...categories]),
+        answer === "Reject all"
+          ? ["necessary"]
+          : expect.arrayContaining([...categories]),
       );
       await expect(card(page)).toBeVisible();
       await expect(

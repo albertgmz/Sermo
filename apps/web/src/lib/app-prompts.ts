@@ -17,6 +17,9 @@
 //   day) is not asked about notifications on the first page they see signed in.
 
 export const SNOOZE_DAYS = 30;
+// After the cookie banner, a moment for the browser to say it can install the forum: the install
+// card comes first, and the event can come after the banner of a returning visitor has settled.
+export const GRACE_MS = 1500;
 const DAY = 24 * 60 * 60 * 1000;
 // A member whose account is younger than this is treated as having signed up in this visit.
 const NEW_MEMBER = DAY;

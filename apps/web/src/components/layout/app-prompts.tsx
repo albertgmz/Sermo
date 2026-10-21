@@ -9,6 +9,7 @@ import { PromptCard } from "@/components/layout/prompt-card";
 import {
   type Card,
   cardToShow,
+  GRACE_MS,
   type InstallOffer,
   installOffer,
   PROMPTS_KEY,
@@ -63,9 +64,6 @@ function saveVisit(visit: Visit) {
 
 // The notification settings have their own switch for this device.
 const SETTINGS_PATH = "/account/notifications";
-// After the cookie banner, a moment for the browser to say it can install the forum: the install
-// card comes first, and the event can come after the banner of a returning visitor has settled.
-const GRACE_MS = 1500;
 
 const loadVisit = () => readVisit(readStored(() => sessionStorage, VISIT_KEY));
 
