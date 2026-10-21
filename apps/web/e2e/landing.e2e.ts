@@ -268,21 +268,33 @@ test("old XenForo addresses land on the item they name @landing", async ({
   }
 });
 
+// The feed draws only the rows near the window (a virtualised list), and the document it is sent
+// as holds them all: once the page is hydrated a card far down is not in it until the window gets
+// there. Scrolls down a screen at a time until the card is drawn; false at the bottom without it.
+async function scrolledTo(page: Page, link: Locator) {
+  for (let step = 0; step < 60; step += 1) {
+    if ((await link.count()) > 0) return true;
+    const moved = await page.evaluate(async () => {
+      const before = window.scrollY;
+      window.scrollBy(0, window.innerHeight * 0.6);
+      // Two frames: the list measures and draws the rows of the new place.
+      await new Promise((done) =>
+        requestAnimationFrame(() => requestAnimationFrame(done)),
+      );
+      return window.scrollY > before;
+    });
+    if (!moved) return (await link.count()) > 0;
+  }
+  return false;
+}
+
 // Opens the feed's pages, newest first, until one holds the link: the seed's thread can be below
 // a page of newer items.
 async function feedPageWith(page: Page, link: Locator) {
   await page.goto("/novedades");
   for (let pages = 0; pages < 10; pages += 1) {
     await ready(page);
-    // The list is drawn in pieces after the controls are hydrated (a count taken then sees one
-    // card and the link to the next page): give the card a moment to appear before leaving.
-    const found = await expect(link.first())
-      .toBeAttached({ timeout: 2_000 })
-      .then(
-        () => true,
-        () => false,
-      );
-    if (found) return;
+    if (await scrolledTo(page, link)) return;
     const next = page.locator('main a[href*="cursor="]');
     if ((await next.count()) === 0) break;
     const href = await next.last().getAttribute("href");

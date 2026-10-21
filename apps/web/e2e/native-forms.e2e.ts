@@ -90,6 +90,9 @@ test("a sign-in sent before the page's script loaded lands signed in on a real p
     .getByRole("button", { name: "Accept all" })
     .click();
   await saved;
+  // The page is left before the cookies go: a page whose preference cookies change under it loads
+  // itself again (`LiteModeSync`), which in WebKit cut into the next navigation.
+  await page.goto("about:blank");
   await context.clearCookies();
 
   await withoutScripts(page);

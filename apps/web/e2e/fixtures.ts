@@ -63,9 +63,10 @@ const IGNORED_CONSOLE: RegExp[] = [
   /__nextjs_original-stack-frames/,
 ];
 // WebKit words a request that was cancelled (the test reloaded or left the page while it was in
-// flight) as "Load failed", also as an uncaught rejection.
+// flight) as "Load failed", also as an uncaught rejection, and a seeded picture still in flight
+// (its fake host is answered by the test's own route) as an unresolved name.
 const WEBKIT_CANCELLED =
-  /Failed to fetch RSC payload .* Load failed|^(TypeError: )?Load failed$|due to access control checks.?$/;
+  /Failed to fetch RSC payload .* Load failed|^(TypeError: )?Load failed$|due to access control checks.?$|^Failed to load resource: Error resolving .pictures\.e2e\.invalid./;
 
 type Options = {
   // A flow that breaks the network on purpose expects the browser to log failures.

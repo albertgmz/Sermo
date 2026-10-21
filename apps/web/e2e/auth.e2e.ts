@@ -88,6 +88,9 @@ test("a member's cookie choice follows the account to a browser that has made no
   await saved;
 
   // A browser with no cookies: the banner shows, and signing in adopts the account's choice.
+  // The page is left before the cookies go: a page whose preference cookies change under it loads
+  // itself again (`LiteModeSync`), which in WebKit cut into the next navigation.
+  await page.goto("about:blank");
   await context.clearCookies();
   await page.goto("/login");
   await ready(page);
