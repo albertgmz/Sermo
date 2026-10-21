@@ -6,7 +6,7 @@ import {
   type StatsTab,
 } from "@/app/[locale]/(main)/forums/forum-stats";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
-import { ForumBanner } from "@/components/forum/forum-banner";
+import { bannerOf } from "@/components/forum/forum-banner";
 import { ForumCard } from "@/components/forum/forum-card";
 import {
   ForumCategoriesSkeleton,
@@ -95,6 +95,15 @@ async function ForumCategories({
       (!active || node.tabId === null || node.tabId === active.id),
   );
 
+  // Only a category has a header to put its cover behind. A top-level forum is drawn as a card,
+  // which already holds its cover, so the picture is not repeated above it. The first header is
+  // above the fold and loads at once.
+  const banners = await Promise.all(
+    categories.map((category, index) =>
+      bannerOf(category.type === "category" ? category.cover : null, index > 0),
+    ),
+  );
+
   return (
     <>
       {active && (
@@ -109,12 +118,12 @@ async function ForumCategories({
           variant="segmented"
         />
       )}
-      {categories.map((category) => (
+      {categories.map((category, index) => (
         <CollapsiblePanel
           key={category.id}
           title={category.title}
           storageKey={`forum-category-${category.id}-open`}
-          banner={category.cover && <ForumBanner cover={category.cover} lazy />}
+          banner={banners[index]}
         >
           <ul className="grid gap-2 p-2 md:grid-cols-2">
             {(category.type === "category"

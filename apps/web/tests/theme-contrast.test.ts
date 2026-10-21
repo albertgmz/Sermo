@@ -287,3 +287,48 @@ test("the light theme gives every colour token a value of its own", () => {
   );
   expect(missing).toEqual([]);
 });
+
+// The cover behind a forum header: the scrim is the page background at a set opacity over a
+// picture that can be any colour. Text and controls sit over every part of it, so the weakest
+// part of the gradient is blended over the picture that hurts most (as bright as the text on the
+// dark theme, as dark as the text on the light one).
+const scrim = readFileSync(
+  new URL("../src/components/forum/forum-banner.tsx", import.meta.url),
+  "utf8",
+).match(/BANNER_SCRIM\s*=\s*"([^"]+)"/)?.[1];
+
+function mix(over: string, under: string, alpha: number) {
+  return `#${[1, 3, 5]
+    .map((at) => {
+      const top = Number.parseInt(over.slice(at, at + 2), 16);
+      const bottom = Number.parseInt(under.slice(at, at + 2), 16);
+      return Math.round(top * alpha + bottom * (1 - alpha))
+        .toString(16)
+        .padStart(2, "0");
+    })
+    .join("")}`;
+}
+
+for (const [theme, tokens, worst] of [
+  ["dark", dark, "#ffffff"],
+  ["light", light, "#000000"],
+] as const) {
+  test(`${theme} theme: text and controls stay readable over the weakest part of a cover's scrim on the worst picture`, () => {
+    const alphas = [...(scrim ?? "").matchAll(/-background\/(\d+)/g)].map(
+      (match) => Number(match[1]) / 100,
+    );
+    expect(alphas.length).toBeGreaterThan(0);
+    const blended = mix(
+      resolve(tokens, "background"),
+      worst,
+      Math.min(...alphas),
+    );
+    // A header over a cover draws its text and controls in the foreground colour, never the muted one.
+    for (const text of ["foreground"]) {
+      expect(
+        contrast(resolve(tokens, text), blended),
+        `${text} on ${blended}`,
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+}

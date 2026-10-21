@@ -98,7 +98,8 @@ export function CollapsiblePanel({
             <ChevronDown
               aria-hidden="true"
               className={cn(
-                "size-4 shrink-0 text-muted-foreground transition-transform",
+                "size-4 shrink-0 transition-transform",
+                banner ? "text-foreground" : "text-muted-foreground",
                 responsive ? "md:rotate-180" : shown && "rotate-180",
               )}
             />

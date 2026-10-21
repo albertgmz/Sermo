@@ -12,7 +12,7 @@ import { threadsPage } from "@/app/[locale]/(main)/forums/[id]/thread-page";
 import { batchUpdateThreadsAction } from "@/app/[locale]/(main)/forums/actions";
 import { forumsOtherThan } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import { EmptyState } from "@/components/forum/empty-state";
-import { ForumBanner } from "@/components/forum/forum-banner";
+import { bannerOf } from "@/components/forum/forum-banner";
 import { ForumCard } from "@/components/forum/forum-card";
 import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
@@ -153,6 +153,7 @@ export default async function ForumPage({
   ]);
 
   const isForum = node.type === "forum";
+  const banner = await bannerOf(node.cover);
   const newThread = isForum && node.permissions.canPost && (
     <Link
       href={`/forums/${node.id}/new`}
@@ -182,17 +183,22 @@ export default async function ForumPage({
       <div
         className={cn(
           "mt-1 flex flex-wrap items-end justify-between gap-3",
-          node.cover &&
+          banner &&
             "relative isolate aspect-(--aspect-cover) content-end overflow-hidden rounded-lg border p-4 md:aspect-auto md:min-h-44",
         )}
       >
-        {node.cover && <ForumBanner cover={node.cover} />}
+        {banner}
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">
             {node.title}
           </h1>
           {node.description && (
-            <p className="mt-1 max-w-2xl text-sm text-pretty text-muted-foreground">
+            <p
+              className={cn(
+                "mt-1 max-w-2xl text-sm text-pretty",
+                banner ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
               {node.description}
             </p>
           )}

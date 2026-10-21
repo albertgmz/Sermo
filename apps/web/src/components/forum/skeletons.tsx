@@ -68,10 +68,13 @@ export function StatTileSkeleton() {
 
 export function CardSkeleton({
   described = false,
+  banner = false,
   children,
 }: {
   // The header carries a second line under the title.
   described?: boolean;
+  // The header is as tall as one with a picture behind it.
+  banner?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -79,7 +82,12 @@ export function CardSkeleton({
       aria-hidden="true"
       className="overflow-hidden rounded-lg border bg-card"
     >
-      <div className="flex min-h-12 items-center border-b px-4 py-2">
+      <div
+        className={cn(
+          "flex items-center border-b px-4 py-2",
+          banner ? "min-h-20 md:min-h-24" : "min-h-12",
+        )}
+      >
         {described ? (
           <div>
             <div className="flex h-5 items-center">
@@ -281,7 +289,7 @@ export function ForumCategoriesSkeleton() {
   return (
     <>
       {[1, 2].map((category) => (
-        <CardSkeleton key={category}>
+        <CardSkeleton key={category} banner>
           <div className="grid gap-2 p-2 md:grid-cols-2">
             {[1, 2, 3, 4].map((forum) => (
               <div key={forum} className="space-y-3 rounded-md border p-3">

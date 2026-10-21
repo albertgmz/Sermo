@@ -22,10 +22,11 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
+let blocked = false;
 const liteMode = { ...(await import("@/lib/lite-mode")) };
 mock.module("@/lib/lite-mode", () => ({
   ...liteMode,
-  liteBlocks: async () => false,
+  liteBlocks: async () => blocked,
 }));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
@@ -41,21 +42,29 @@ beforeEach(() => {
   mock.module("@/lib/sermo/session", () => ({ getViewer: viewerOfRequest }));
 });
 afterEach(() => {
+  blocked = false;
   globalThis.fetch = realFetch;
 });
 
 const STAMP = "2026-01-01T00:00:00.000Z";
 const COVER = "/api/v1/files/77";
 
-const node = (id: number, parentId: number | null, cover: boolean) => ({
+const ICON = "/api/v1/files/88";
+
+const node = (
+  id: number,
+  parentId: number | null,
+  type: "category" | "forum",
+  picture: "cover" | "icon" | null,
+) => ({
   id,
   parentId,
-  type: parentId === null ? "category" : "forum",
-  title: parentId === null ? `Category ${id}` : `Forum ${id}`,
-  description: "",
-  icon: null,
+  type,
+  title: `${type === "category" ? "Category" : "Forum"} ${id}`,
+  description: type === "forum" ? "About it" : "",
+  icon: picture === "icon" ? { fileId: 88, url: ICON } : null,
   iconKey: null,
-  cover: cover ? { fileId: 77, url: COVER } : null,
+  cover: picture === "cover" ? { fileId: 77, url: COVER } : null,
   position: id,
   tabId: null,
   depth: parentId === null ? 0 : 1,
@@ -73,12 +82,17 @@ const node = (id: number, parentId: number | null, cover: boolean) => ({
   },
 });
 
-// Category 1 has a cover, category 2 has none; forum 3 has a cover, forum 4 has none.
+// 1: the first category, with a cover. 2: a category with none. 5: a later category with a cover.
+// 6: a forum at the top level, with a cover. 7: a category with an icon only.
 const NODES = [
-  node(1, null, true),
-  node(3, 1, true),
-  node(2, null, false),
-  node(4, 2, false),
+  node(1, null, "category", "cover"),
+  node(3, 1, "forum", "cover"),
+  node(2, null, "category", null),
+  node(4, 2, "forum", null),
+  node(5, null, "category", "cover"),
+  node(6, null, "forum", "cover"),
+  node(7, null, "category", "icon"),
+  node(8, 7, "forum", null),
 ];
 
 function backend() {
@@ -131,56 +145,123 @@ async function html(node: React.ReactNode) {
   return new Response(stream).text();
 }
 
-// The category's header is the button that folds it; its section is the one around it.
-function header(page: string, title: string) {
+// The panel of a category: its header is the button that folds it.
+function panel(page: string, title: string) {
+  const at = page.indexOf(title);
   return page.slice(
-    page.lastIndexOf("<section", page.indexOf(title)),
-    page.indexOf("</h2>", page.indexOf(title)),
+    page.lastIndexOf("<section", at),
+    page.indexOf("</section>", at),
   );
 }
+const header = (page: string, title: string) => {
+  const whole = panel(page, title);
+  return whole.slice(0, whole.indexOf("</h2>"));
+};
 
-test("a category with a cover draws it behind its header, lazily, and one without draws the plain header", async () => {
-  backend();
-  const page = await html(
+const list = async () =>
+  html(
     await ForumList({
       section: null,
       stats: "threads",
       hrefFor: () => "/",
     }),
   );
-  const covered = header(page, "Category 1");
-  expect(covered).toContain(`src="${COVER}"`);
-  expect(covered).toContain('loading="lazy"');
-  expect(covered).toContain("md:min-h-24");
-  expect(covered).toContain("from-background/95");
-  const plain = header(page, "Category 2");
-  expect(plain).not.toContain("<img");
-  expect(plain).not.toContain("from-background");
-  expect(plain).toContain("min-h-12");
+
+test("the first category header draws its cover at once and a later one lazily", async () => {
+  backend();
+  const page = await list();
+  const first = header(page, "Category 1");
+  expect(first).toContain(`background-image:url(&quot;${COVER}&quot;)`);
+  expect(first).not.toContain("<img");
+  expect(first).toContain("md:min-h-24");
+  expect(first).toContain("from-background/95");
+  expect(first).toContain("text-foreground");
+  const later = header(page, "Category 5");
+  expect(later).toContain(`src="${COVER}"`);
+  expect(later).toContain('loading="lazy"');
 });
 
-test("a forum page with a cover draws it behind its title in a box that keeps its shape, and one without looks as before", async () => {
+test("a category with no cover, or with an icon only, has the plain header", async () => {
   backend();
-  const covered = await html(
+  const page = await list();
+  for (const title of ["Category 2", "Category 7"]) {
+    const plain = header(page, title);
+    expect(plain, title).not.toContain("<img");
+    expect(plain, title).not.toContain("background-image");
+    expect(plain, title).not.toContain("from-background");
+    expect(plain, title).toContain("min-h-12");
+    expect(plain, title).not.toContain(ICON);
+  }
+});
+
+test("a forum at the top level shows its cover once, on its card, not also behind its header", async () => {
+  backend();
+  const forum = panel(await list(), "Forum 6");
+  expect(forum.split(COVER).length - 1).toBe(1);
+  expect(header(await list(), "Forum 6")).not.toContain(COVER);
+});
+
+test("with forum pictures blocked by LITE mode the headers stay plain and announce no picture", async () => {
+  backend();
+  blocked = true;
+  const page = await list();
+  for (const title of ["Category 1", "Category 5"]) {
+    const plain = header(page, title);
+    expect(plain, title).not.toContain(COVER);
+    expect(plain, title).not.toContain("lite-placeholder");
+    expect(plain, title).not.toContain('role="img"');
+    expect(plain, title).toContain("min-h-12");
+  }
+});
+
+const forumPage = async (id: string) =>
+  html(
     await ForumPage({
-      params: Promise.resolve({ locale: "en", id: "3" }),
+      params: Promise.resolve({ locale: "en", id }),
       searchParams: Promise.resolve({}),
     }),
   );
-  const title = covered.slice(
-    covered.lastIndexOf('<div class="mt-1 flex', covered.indexOf("<h1")),
-    covered.indexOf("<h1"),
+// From the box around the title to the title.
+const top = (page: string) =>
+  page.slice(
+    page.lastIndexOf('<div class="mt-1 flex', page.indexOf("<h1")),
+    page.indexOf("</h1>"),
   );
+
+test("a forum page with a cover draws it behind its title in a box that keeps its shape", async () => {
+  backend();
+  const covered = await forumPage("3");
   expect(covered).toContain(`background-image:url(&quot;${COVER}&quot;)`);
-  expect(title).toContain("aspect-(--aspect-cover)");
-  expect(title).toContain("from-background/95");
-  const plain = await html(
-    await ForumPage({
-      params: Promise.resolve({ locale: "en", id: "4" }),
-      searchParams: Promise.resolve({}),
-    }),
-  );
-  expect(plain).not.toContain("background-image");
-  expect(plain).not.toContain("from-background/95");
-  expect(plain).not.toContain("aspect-(--aspect-cover)");
+  expect(top(covered)).toContain("aspect-(--aspect-cover)");
+  expect(top(covered)).toContain("from-background/95");
+  // The description is in the foreground colour over a picture, not the muted one.
+  expect(covered).toMatch(/text-foreground[^"]*">About it/);
+});
+
+test("a category page with a cover draws it behind its title and lists its forums below", async () => {
+  backend();
+  const page = await forumPage("1");
+  expect(top(page)).toContain("aspect-(--aspect-cover)");
+  expect(top(page)).toContain(`background-image:url(&quot;${COVER}&quot;)`);
+  expect(page).toContain("Forum 3");
+});
+
+test("a page with no cover, or with an icon only, looks as before", async () => {
+  backend();
+  for (const id of ["4", "7"]) {
+    const plain = await forumPage(id);
+    expect(top(plain), id).not.toContain("from-background/95");
+    expect(top(plain), id).not.toContain("aspect-(--aspect-cover)");
+    expect(top(plain), id).not.toContain("background-image");
+    expect(top(plain), id).not.toContain(ICON);
+  }
+});
+
+test("with forum pictures blocked by LITE mode the page header stays plain", async () => {
+  backend();
+  blocked = true;
+  const page = await forumPage("3");
+  expect(top(page)).not.toContain(COVER);
+  expect(top(page)).not.toContain("aspect-(--aspect-cover)");
+  expect(top(page)).not.toContain("lite-placeholder");
 });
