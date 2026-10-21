@@ -1,9 +1,13 @@
 /**
  * Test helpers. Import from "@sermo/core/testing" in tests only.
  */
+import { Database } from "bun:sqlite";
 import { expect } from "bun:test";
+import { drizzle } from "drizzle-orm/bun-sqlite";
 import type { Actor } from "../actor";
-import { type Ctx, createContext } from "../context";
+import { type CoreConfig, type Ctx, createContext, DEFAULT_CONFIG } from "../context";
+import * as authSchema from "../db/auth-schema";
+import * as sermoSchema from "../db/schema";
 import { GROUP_IDS } from "../db/schema";
 
 export interface TestClock {
@@ -25,24 +29,81 @@ export function createTestClock(start = Date.UTC(2026, 0, 1)): TestClock {
   };
 }
 
-/** A fresh, migrated in-memory database with cheap password hashing and output validation on. */
+/** A new object per context: tests change their own context's configuration. */
+function testConfig(): Partial<CoreConfig> {
+  return {
+    passwordHash: { algorithm: "argon2id", memoryCost: 8, timeCost: 1 },
+    validateOutput: true,
+    auth: {
+      secret: "test-secret-for-sermo-tests-0123456789abcdef",
+      baseURL: "http://localhost:3000",
+      trustedOrigins: [],
+      clientIpHeader: "x-sermo-client-ip",
+    },
+  };
+}
+
+interface MigratedTemplate {
+  bytes: Uint8Array;
+  /** The clock reading the permission sync stamped its rows with. */
+  stampedAt: number;
+}
+
+const TEMPLATE_KEY = Symbol.for("sermo.testing.migratedTemplate");
+
+/**
+ * The migrated, permission-synced schema, built once per process and kept on `globalThis` so a
+ * test runner that reloads modules per file still shares it. Migrating costs about 120 ms; a copy
+ * of the serialized database costs well under a millisecond.
+ */
+function migratedTemplate(): MigratedTemplate {
+  const holder = globalThis as { [TEMPLATE_KEY]?: MigratedTemplate };
+  if (!holder[TEMPLATE_KEY]) {
+    const stampedAt = Date.UTC(2026, 0, 1);
+    const ctx = createContext({
+      path: ":memory:",
+      migrate: true,
+      now: () => stampedAt,
+      config: testConfig(),
+    });
+    holder[TEMPLATE_KEY] = { bytes: ctx.sqlite.serialize(), stampedAt };
+    ctx.sqlite.close(true);
+  }
+  return holder[TEMPLATE_KEY]!;
+}
+
+/**
+ * A fresh, migrated in-memory database with cheap password hashing and output validation on. It is
+ * a copy of one migrated template, so it costs a fraction of a millisecond instead of a migration.
+ */
 export function createTestContext(options: { clock?: TestClock } = {}): Ctx & { clock: TestClock } {
   const clock = options.clock ?? createTestClock();
-  const ctx = createContext({
-    path: ":memory:",
-    migrate: true,
+  const template = migratedTemplate();
+  const sqlite = Database.deserialize(template.bytes, { strict: true });
+  // The pragmas of `openDatabase` (a deserialized copy starts with SQLite's defaults).
+  sqlite.run("PRAGMA busy_timeout = 5000");
+  sqlite.run("PRAGMA synchronous = NORMAL");
+  sqlite.run("PRAGMA journal_size_limit = 67108864");
+  sqlite.run("PRAGMA foreign_keys = ON");
+  sqlite.run("PRAGMA temp_store = MEMORY");
+  sqlite.run("PRAGMA cache_size = -65536");
+  sqlite.run("PRAGMA mmap_size = 1073741824");
+  const stampedAt = clock.now();
+  if (stampedAt !== template.stampedAt) {
+    sqlite.run("UPDATE permission_definitions SET created_at = ?", [stampedAt]);
+  }
+  const ctx: Ctx = {
+    db: drizzle({ client: sqlite, schema: { ...sermoSchema, ...authSchema } }),
+    sqlite,
+    config: { ...DEFAULT_CONFIG, ...testConfig() },
     now: clock.now,
-    config: {
-      passwordHash: { algorithm: "argon2id", memoryCost: 8, timeCost: 1 },
-      validateOutput: true,
-      auth: {
-        secret: "test-secret-for-sermo-tests-0123456789abcdef",
-        baseURL: "http://localhost:3000",
-        trustedOrigins: [],
-        clientIpHeader: "x-sermo-client-ip",
-      },
-    },
-  });
+    views: new Map(),
+    downloads: new Map(),
+    activity: new Map(),
+    caches: new Map(),
+    statements: new Map(),
+  };
+  (require("../render") as typeof import("../render")).warmUpRenderer();
   return Object.assign(ctx, { clock });
 }
 
