@@ -1,11 +1,22 @@
 "use client";
 
 import { Send } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useActionState } from "react";
 import { discard, echoBbCode } from "@/app/[locale]/(main)/ui/actions";
-import { Editor } from "@/components/forum/editor";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// The editor's code comes after the page, as it does everywhere the forum writes: the style guide
+// shows it without carrying it in its first load.
+const Editor = dynamic(
+  () => import("@/components/forum/editor").then((module) => module.Editor),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-40 w-full rounded-lg" />,
+  },
+);
 
 export function EditorDemoClient({ defaultValue }: { defaultValue: string }) {
   const [preview, action, pending] = useActionState(echoBbCode, null);
