@@ -7,6 +7,7 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
 import { MarkRead } from "@/app/[locale]/(main)/threads/[id]/mark-read";
 import { SplitPanel } from "@/app/[locale]/(main)/threads/[id]/moderation";
+import { isNewPost } from "@/app/[locale]/(main)/threads/[id]/new-posts";
 import { pageCount } from "@/app/[locale]/(main)/threads/[id]/pages";
 import {
   type ThreadMay,
@@ -414,6 +415,13 @@ async function ThreadPosts({
       return [post.id];
     }),
   );
+  // "New" goes by where the viewer had read to before this page: `MarkRead` moves it only once the
+  // page is on screen.
+  const reader = {
+    signedIn: viewerId !== null,
+    readPosition: thread.readPosition,
+  };
+  const now = Date.now();
   const pages = pageCount(thread.lastPost.position);
   const lastPost = posts.at(-1);
   const lastPosition = lastPost?.position;
@@ -452,6 +460,7 @@ async function ThreadPosts({
             selecting={selecting}
             canQuote={canQuote}
             bookmarked={bookmarks ? bookmarks.toggle(post.id) : null}
+            isNew={isNewPost(post, reader, now)}
           />
         ))}
         {goesOn && (

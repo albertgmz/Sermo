@@ -8,6 +8,7 @@
     "highlightedLabel": "Highlighted",
     "authorLabel": "<hidden>Thread </hidden>Author",
     "postNumber": "#{number}",
+    "newBadge": "New",
     "home": "Home",
     "replyTitle": "Log in to reply",
     "replyDescription": "Join the conversation with your account.",

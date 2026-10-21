@@ -132,7 +132,7 @@ test("the frame draws the time and hands the author to the postbit", () => {
   expect(bit.props.author).toBe(author);
 });
 
-test("the signature closes the frame only when asked for and the author has one", () => {
+test("the signature follows the content only when asked for and the author has one", () => {
   // The postbit element carries the author as a prop: only what the frame draws itself counts.
   const drawn = (props: Parameters<typeof PostFrame>[0]) =>
     JSON.stringify(PostFrame(props), (key, value) =>
@@ -143,6 +143,21 @@ test("the signature closes the frame only when asked for and the author has one"
   expect(
     drawn({ ...base, signed: true, author: { ...author, signatureHtml: "" } }),
   ).not.toContain("<p>sig</p>");
+});
+
+test("as on XenForo, the signature sits above the footer and the footer closes the frame", () => {
+  const { texts, marks } = frame({ signed: true });
+  expect(texts.indexOf("<p>sig</p>")).toBeGreaterThan(-1);
+  expect(marks.at(-1)).toBe("actions");
+  const html = JSON.stringify(
+    PostFrame({ ...base, signed: true, actions: <i data-mark="actions" /> }),
+    (key, value) => (key === "author" ? undefined : value),
+  );
+  expect(html.indexOf("<p>sig</p>")).toBeLessThan(html.indexOf("actions"));
+});
+
+test("a dashed rule parts the header row from the content", () => {
+  expect(JSON.stringify(PostFrame(base))).toContain("border-b border-dashed");
 });
 
 test("the postbit sits in the frame's grid with the column width set once", () => {

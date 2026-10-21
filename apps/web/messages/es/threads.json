@@ -8,6 +8,7 @@
     "highlightedLabel": "Destacado",
     "authorLabel": "Autor<hidden> del tema</hidden>",
     "postNumber": "#{number}",
+    "newBadge": "Nuevo",
     "home": "Inicio",
     "replyTitle": "Inicia sesión para responder",
     "replyDescription": "Únete a la conversación con tu cuenta.",

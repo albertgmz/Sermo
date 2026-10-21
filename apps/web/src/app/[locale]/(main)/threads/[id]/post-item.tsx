@@ -2,6 +2,7 @@ import { threadsGet } from "@sermo/core/contracts";
 import { Hourglass, PenLine, Sparkles, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SPLIT_FORM } from "@/app/[locale]/(main)/threads/[id]/moderation";
+import { isNewPost } from "@/app/[locale]/(main)/threads/[id]/new-posts";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import {
   type ThreadMay,
@@ -9,11 +10,15 @@ import {
 } from "@/app/[locale]/(main)/threads/[id]/permissions";
 import { PostActions } from "@/app/[locale]/(main)/threads/[id]/post-actions";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { HtmlContent } from "@/components/forum/html-content";
+import { attributionGadgetClass } from "@/components/forum/message-action";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
+import { ShareButton } from "@/components/forum/share-button";
 import { HashLink } from "@/components/layout/hash-link";
+import { Badge } from "@/components/ui/badge";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { call } from "@/lib/sermo/client";
@@ -27,7 +32,8 @@ import type { TailRow } from "@/lib/tail";
 const LABEL = "sr-only sm:not-sr-only";
 
 // One post of a thread as it is drawn in the list, on the page and in what is added to the last
-// page while it is open.
+// page while it is open. Its header row reads as XenForo's: the time on the left; on the right the
+// highlighted and thread-author marks, "New", share, bookmark and the post number.
 export function PostItem({
   post,
   author,
@@ -43,6 +49,7 @@ export function PostItem({
   selecting,
   canQuote,
   bookmarked,
+  isNew,
   viewList,
 }: {
   post: ApiPost;
@@ -62,7 +69,10 @@ export function PostItem({
   // The posts carry a tick for the split form.
   selecting: boolean;
   canQuote: boolean;
+  // Null for a guest or when the state could not be read: no toggle is drawn.
   bookmarked: boolean | null;
+  // After the viewer's read position (`isNewPost`).
+  isNew: boolean;
   viewList?: boolean;
 }) {
   const t = useTranslations("threads.page");
@@ -92,9 +102,22 @@ export function PostItem({
               })}
             </span>
           )}
+          {isNew && <Badge className="mr-1">{t("newBadge")}</Badge>}
+          {post.state !== "deleted" && (
+            <ShareButton href={href} className={attributionGadgetClass} />
+          )}
+          {bookmarked !== null && (
+            <BookmarkButton
+              contentType="post"
+              contentId={post.id}
+              bookmarked={bookmarked}
+              className={attributionGadgetClass}
+              labelClassName="hidden"
+            />
+          )}
           <HashLink
             href={href}
-            className="inline-flex h-10 min-w-10 items-center justify-center px-1.5 tabular-nums hover:text-foreground md:h-7 md:min-w-7"
+            className={`${attributionGadgetClass} tabular-nums`}
           >
             {t("postNumber", { number })}
           </HashLink>
@@ -110,7 +133,6 @@ export function PostItem({
           may={may}
           noteState={noteState}
           canQuote={canQuote}
-          bookmarked={bookmarked}
           viewList={viewList}
         />
       }
@@ -204,6 +226,12 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
     permissions.canReact && found.resolvedPermissions["forum.react"] !== false
       ? pickerTypes(reactionTypes, found.thread.node.id)
       : [];
+  // Read now: a reply of the viewer's own has moved their read position past it already.
+  const viewer = {
+    signedIn: user !== null,
+    readPosition: found.thread.readPosition,
+  };
+  const now = Date.now();
   return posts.map((post) => ({
     key: `post-${post.id}`,
     id: post.id,
@@ -225,6 +253,7 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
         selecting={false}
         canQuote={context.canQuote}
         bookmarked={bookmarks ? bookmarks.toggle(post.id) : null}
+        isNew={isNewPost(post, viewer, now)}
       />
     ),
   }));

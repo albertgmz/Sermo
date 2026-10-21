@@ -8,12 +8,14 @@ import {
 } from "@/components/forum/message-action";
 
 // Puts a post, quoted, at the end of the reply editor (which listens for `event`) and takes the
-// member there. The BB code source comes from the backend, never from the rendered post.
+// member there. The BB code source comes from the backend, never from the rendered post. `label`
+// names the button; `text`, when given, is the word drawn beside the icon in its place.
 export function QuoteButton({
   postId,
   event,
   load,
   label,
+  text = label,
 }: {
   postId: number;
   event: string;
@@ -21,6 +23,7 @@ export function QuoteButton({
     postId: number,
   ) => Promise<{ author: string; authorId: number; source: string } | null>;
   label: string;
+  text?: string;
 }) {
   return (
     <button
@@ -39,7 +42,7 @@ export function QuoteButton({
       }}
     >
       <Quote />
-      <span className={actionLabelClass}>{label}</span>
+      <span className={actionLabelClass}>{text}</span>
     </button>
   );
 }

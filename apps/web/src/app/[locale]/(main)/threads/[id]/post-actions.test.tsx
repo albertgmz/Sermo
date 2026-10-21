@@ -56,7 +56,6 @@ function draw(over: Record<string, unknown>, props: Partial<Props> = {}) {
         may={may}
         noteState={false}
         canQuote
-        bookmarked={null}
         {...props}
       />,
     ),
@@ -83,45 +82,46 @@ test("another member can report a post, and does not get edit or delete", () => 
 
 test("an administrator who may edit, delete and report gets all three", () => {
   const html = draw({ canEdit: true, canDelete: true, canReport: true });
-  for (const label of ["Edit", "Delete", "Report", "Share", "Quote", "Reply"]) {
+  for (const label of ["Edit", "Delete", "Report", "Quote", "Reply"]) {
     expect(has(html, label)).toBe(true);
   }
 });
 
-test("a signed-in viewer gets the bookmark toggle beside share, with the state in its label", () => {
-  const off = draw({}, { bookmarked: false });
-  expect(has(off, "Bookmark")).toBe(true);
-  expect(off.indexOf("Bookmark")).toBeLessThan(off.indexOf("Share"));
-  expect(off).not.toContain('aria-pressed="');
-  const on = draw({}, { bookmarked: true });
-  expect(has(on, "Remove bookmark")).toBe(true);
-  expect(has(on, "Bookmark")).toBe(false);
+test("as on XenForo, report, edit and delete sit on the left and react, + Quote and reply on the right", () => {
+  const html = draw({ canEdit: true, canDelete: true, canReport: true });
+  const at = (label: string) => html.indexOf(`aria-label="${label}"`);
+  expect(at("Report")).toBeLessThan(at("Edit"));
+  expect(at("Edit")).toBeLessThan(at("Delete"));
+  expect(at("Delete")).toBeLessThan(at("Quote"));
+  expect(at("Quote")).toBeLessThan(at("Reply"));
+  expect(html).toContain('<span class="hidden sm:inline">+ Quote</span>');
 });
 
-test("no bookmark toggle for a guest or when the state is unknown", () => {
-  expect(has(draw({}, { bookmarked: null }), "Bookmark")).toBe(false);
+test("share and bookmark are not in the footer: the post's header row has them", () => {
+  const html = draw({ canEdit: true, canDelete: true, canReport: true });
+  expect(has(html, "Share")).toBe(false);
+  expect(html).not.toContain("Bookmark");
 });
 
-test("a guest gets share and reply, and no quote, edit, delete or report", () => {
+test("a guest gets reply, and no quote, edit, delete or report", () => {
   const html = draw(
     { canEdit: false, canDelete: false, canReport: false },
     { viewerId: null, canQuote: false },
   );
-  expect(has(html, "Share")).toBe(true);
   expect(has(html, "Reply")).toBe(true);
   for (const label of ["Quote", "Edit", "Delete", "Report"]) {
     expect(has(html, label)).toBe(false);
   }
 });
 
-test("a deleted post offers no share, delete or report, and no quote", () => {
+test("a deleted post offers no delete or report, and no quote", () => {
   const html = draw({
     state: "deleted",
     canEdit: false,
     canDelete: true,
     canReport: true,
   });
-  for (const label of ["Share", "Quote", "Delete", "Report"]) {
+  for (const label of ["Quote", "Delete", "Report"]) {
     expect(has(html, label)).toBe(false);
   }
 });

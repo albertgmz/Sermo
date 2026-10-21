@@ -32,7 +32,9 @@ export function PostNote({
 }
 
 // The frame of a post in a thread or a message in a conversation: the author on the left (above
-// the text on a phone), then the time, the content and the actions. What differs is passed in.
+// the text on a phone), then the header row (the time, `trailing` at its right, a dashed rule
+// under it, as XenForo's message attribution), the content, the signature and the actions. What
+// differs is passed in.
 export function PostFrame({
   id,
   author,
@@ -54,9 +56,9 @@ export function PostFrame({
   edited?: React.ReactNode;
   // At the right of the time row.
   trailing?: React.ReactNode;
-  // The footer under the content: a `ContentActions`, which parts itself from the body.
+  // The footer that closes the frame: a `ContentActions`, which parts itself from the body.
   actions: React.ReactNode;
-  // Whether the author's signature closes the frame.
+  // Whether the author's signature follows the content, above the footer.
   signed?: boolean;
   // Under the time row: notes, the body and its attachments.
   children: React.ReactNode;
@@ -82,7 +84,7 @@ export function PostFrame({
       />
 
       <div className="min-w-0">
-        <div className="-mr-2.5 flex items-center justify-between gap-2 text-xs text-muted-foreground md:mr-0">
+        <div className="-mr-2.5 mb-2 flex items-center justify-between gap-2 border-b border-dashed pb-0.5 text-xs text-muted-foreground md:mr-0 md:mb-3 md:pb-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <RelativeTime date={createdAt} className="truncate md:hidden" />
             <time dateTime={createdAt} className="hidden truncate md:inline">
@@ -97,13 +99,13 @@ export function PostFrame({
 
         {children}
 
-        {actions}
-
         {signed && author.signatureHtml && (
-          <SignatureHtml className="mt-2 border-t pt-2">
+          <SignatureHtml className="mt-3 border-t pt-2">
             {author.signatureHtml}
           </SignatureHtml>
         )}
+
+        {actions}
       </div>
     </article>
   );

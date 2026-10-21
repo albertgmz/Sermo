@@ -71,6 +71,25 @@ test("a soft rule parts the footer from the body", () => {
   expect(draw({ share: "/x" })).toContain("border-t border-dashed");
 });
 
+test("the split bar of a post: report, edit, delete and moderation on the left, react, + Quote and reply on the right, the summary under it", () => {
+  const html = draw({ ...full, share: undefined, layout: "split" });
+  const at = (text: string) => html.indexOf(text);
+  expect(at('aria-label="Report"')).toBeLessThan(at('aria-label="Edit"'));
+  expect(at('aria-label="Edit"')).toBeLessThan(at('aria-label="Delete"'));
+  expect(at('aria-label="Delete"')).toBeLessThan(at('data-mark="moderation"'));
+  expect(at('data-mark="moderation"')).toBeLessThan(at('data-mark="react"'));
+  expect(at('data-mark="react"')).toBeLessThan(at('aria-label="Quote"'));
+  expect(at('aria-label="Quote"')).toBeLessThan(at('aria-label="Reply"'));
+  expect(at('aria-label="Reply"')).toBeLessThan(at('data-mark="summary"'));
+  expect(html).toContain('<span class="hidden sm:inline">+ Quote</span>');
+  // The post's header row carries the rule.
+  expect(html).not.toContain("border-t");
+});
+
+test("the default bar keeps the plain Quote word", () => {
+  expect(draw(full)).toContain('<span class="hidden sm:inline">Quote</span>');
+});
+
 test("on a phone the buttons are icons with the label as their name", () => {
   const html = draw(full);
   // The word is drawn from sm up only.

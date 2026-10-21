@@ -1,6 +1,5 @@
 import { useTranslations } from "next-intl";
 import { reportContent } from "@/app/[locale]/(main)/actions";
-import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import {
   mayRestore,
   type ThreadMay,
@@ -20,8 +19,10 @@ import { Reactions } from "@/components/forum/reactions";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import type { ApiPost } from "@/lib/sermo/threads";
 
-// The footer of a post in a thread. Edit, delete and report are the backend's word for the viewer
-// (`canEdit`, `canDelete`, `canReport`); quoting needs the right to reply.
+// The footer of a post in a thread, laid out as XenForo's: report, edit, delete and the moderator
+// tools on the left; react, "+ Quote" and reply on the right; who reacted under it. Share and
+// bookmark sit in the post's header row (`PostItem`). Edit, delete and report are the backend's
+// word for the viewer (`canEdit`, `canDelete`, `canReport`); quoting needs the right to reply.
 export function PostActions({
   post,
   viewerId,
@@ -30,7 +31,6 @@ export function PostActions({
   may,
   noteState,
   canQuote,
-  bookmarked,
   viewList,
 }: {
   post: ApiPost;
@@ -42,8 +42,6 @@ export function PostActions({
   // Whether the post says it is waiting or deleted (the moderator can approve or restore it).
   noteState: boolean;
   canQuote: boolean;
-  // Null for a guest or when the state could not be read: no toggle is drawn.
-  bookmarked: boolean | null;
   viewList?: boolean;
 }) {
   const t = useTranslations("threads.page");
@@ -61,6 +59,7 @@ export function PostActions({
   const live = viewerId !== null && post.state !== "deleted";
   return (
     <ContentActions
+      layout="split"
       summary={<Reactions {...reactions} part="summary" />}
       react={<Reactions {...reactions} part="button" />}
       quote={
@@ -69,16 +68,6 @@ export function PostActions({
           : undefined
       }
       reply={{ href: "#reply" }}
-      share={
-        post.state === "deleted"
-          ? undefined
-          : threadHref(post.threadId, post.position, post.id)
-      }
-      bookmark={
-        bookmarked === null
-          ? undefined
-          : { contentType: "post", contentId: post.id, bookmarked }
-      }
       edit={
         post.canEdit
           ? { href: `/threads/${post.threadId}/edit/${post.id}` }

@@ -73,6 +73,10 @@ function PanelButton({
 //   report      Reporting: the action that files it.
 //   moderation  Moderator tools that exist for the item (approve, restore), after the rest.
 //   compact     The smaller bar of a comment.
+//   layout      `split` is a thread post's footer as XenForo draws it: what the viewer does to the
+//               item on the left (report first, then edit, delete and the moderator tools), how
+//               they answer it on the right (react, "+ Quote", reply), the summary under the bar
+//               and no rule above it (the post's header row carries one).
 export function ContentActions({
   summary,
   react,
@@ -86,6 +90,7 @@ export function ContentActions({
   report,
   moderation,
   compact = false,
+  layout = "default",
   className,
 }: {
   summary?: React.ReactNode;
@@ -106,6 +111,7 @@ export function ContentActions({
   report?: { action: FormAction };
   moderation?: React.ReactNode;
   compact?: boolean;
+  layout?: "default" | "split";
   className?: string;
 }) {
   const t = useTranslations("forum.contentActions");
@@ -130,83 +136,100 @@ export function ContentActions({
     [bookmark],
   );
 
+  const split = layout === "split";
+  const answers = (
+    <>
+      {react}
+      {quote && (
+        <QuoteButton
+          postId={quote.postId}
+          event={quote.event}
+          load={quote.load}
+          label={t("quote")}
+          text={split ? t("addQuote") : undefined}
+        />
+      )}
+      {reply && (
+        <HashLink
+          href={reply.href}
+          aria-label={t("reply")}
+          className={messageActionClass}
+        >
+          <Reply />
+          <span className={actionLabelClass}>{t("reply")}</span>
+        </HashLink>
+      )}
+      {start}
+    </>
+  );
+  const reportButton = report && (
+    <PanelButton
+      icon={<Flag />}
+      label={t("report")}
+      open={open === "report"}
+      onClick={() => toggle("report")}
+    />
+  );
+  const tools = (
+    <>
+      {split && reportButton}
+      {bookmarkButton}
+      {share && (
+        <ShareButton
+          href={share}
+          label={t("share")}
+          className={messageActionClass}
+        />
+      )}
+      {edit &&
+        ("href" in edit ? (
+          <Link
+            href={edit.href}
+            aria-label={t("edit")}
+            className={messageActionClass}
+          >
+            <Pencil />
+            <span className={actionLabelClass}>{t("edit")}</span>
+          </Link>
+        ) : (
+          <PanelButton
+            icon={<Pencil />}
+            label={t("edit")}
+            open={open === "edit"}
+            onClick={() => toggle("edit")}
+          />
+        ))}
+      {remove && (
+        <PanelButton
+          icon={<Trash2 />}
+          label={t("delete")}
+          open={open === "delete"}
+          onClick={() => toggle("delete")}
+        />
+      )}
+      {!split && reportButton}
+      {moderation}
+    </>
+  );
+  const summaryRow = summary && <div className="-mx-2 flex">{summary}</div>;
+
   return (
     <div
       data-slot="content-actions"
       className={cn(
-        "border-t border-dashed",
-        compact ? "mt-1.5 pt-0.5" : "mt-3 pt-1",
+        split
+          ? "mt-3"
+          : ["border-t border-dashed", compact ? "mt-1.5 pt-0.5" : "mt-3 pt-1"],
         className,
       )}
     >
-      {summary && <div className="-mx-2 flex">{summary}</div>}
+      {!split && summaryRow}
       <div className="-mx-2 flex flex-wrap items-center justify-between gap-x-1">
         <div className="flex flex-wrap items-center">
-          {react}
-          {quote && (
-            <QuoteButton
-              postId={quote.postId}
-              event={quote.event}
-              load={quote.load}
-              label={t("quote")}
-            />
-          )}
-          {reply && (
-            <HashLink
-              href={reply.href}
-              aria-label={t("reply")}
-              className={messageActionClass}
-            >
-              <Reply />
-              <span className={actionLabelClass}>{t("reply")}</span>
-            </HashLink>
-          )}
-          {start}
+          {split ? tools : answers}
         </div>
         <div className="ml-auto flex flex-wrap items-center">
-          {bookmarkButton}
-          {share && (
-            <ShareButton
-              href={share}
-              label={t("share")}
-              className={messageActionClass}
-            />
-          )}
-          {edit &&
-            ("href" in edit ? (
-              <Link
-                href={edit.href}
-                aria-label={t("edit")}
-                className={messageActionClass}
-              >
-                <Pencil />
-                <span className={actionLabelClass}>{t("edit")}</span>
-              </Link>
-            ) : (
-              <PanelButton
-                icon={<Pencil />}
-                label={t("edit")}
-                open={open === "edit"}
-                onClick={() => toggle("edit")}
-              />
-            ))}
-          {remove && (
-            <PanelButton
-              icon={<Trash2 />}
-              label={t("delete")}
-              open={open === "delete"}
-              onClick={() => toggle("delete")}
-            />
-          )}
-          {report && (
-            <PanelButton
-              icon={<Flag />}
-              label={t("report")}
-              open={open === "report"}
-              onClick={() => toggle("report")}
-            />
-          )}
-          {moderation}
+          {split ? answers : tools}
         </div>
       </div>
       {edit && "panel" in edit && open === "edit" && (
@@ -233,6 +256,7 @@ export function ContentActions({
           <ReportForm action={report.action} onCancel={close} />
         </div>
       )}
+      {split && summaryRow}
     </div>
   );
 }
