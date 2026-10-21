@@ -5681,3 +5681,23 @@ Why: backlog C1 and the owner's forum-feel review: members compare the post with
 
 Why: backlog D1; the covers were uploaded and only the cards used them.
 Known limits: the cover is a full-size download (no smaller renditions in the node output).
+
+### The editor looks and works like fcuba's XenForo editor
+
+- The toolbar is four boxed groups on a tinted bar (text, paragraph, insert, misc); each shows its
+  common commands and a ⋮ opens the rest on a strip, one strip at a time; every command is in the
+  bar exactly once at each width and the phone bar fits 266 px (the wall-comment column). A plain
+  toolbar with one roving tab stop (no library: Base UI's toolbar was 8.7 KB gzipped against 8.4 KB
+  of budget headroom); Escape in a strip closes only the strip; a pressed command has an accent tint
+  and inset ring and keeps its focus outline; a ⋮ lights up only when its strip holds an active
+  command at that width.
+- A new Image button opens the picture picker (inserted as `[ATTACH=full]` at the caret) or, where
+  a composer takes no files, asks for an address (`[IMG]`). Every composer has a labelled submit
+  (Responder, Comentar mensaje, Publicar, Publicar tema) and "Adjuntar archivos" with the size note
+  under it; comment boxes stay one line until used. `compact-composer.tsx` is gone.
+- The wall-post and new-thread sheet keeps its X at the top and moves Publicar to the bottom row.
+  Supersedes the top-pill entries (DECISIONS "Post at the top" and its follow-ups).
+
+Why: backlog C4; members said the editor changed the forum's feel most.
+Known limits: in a long post the toolbar scrolls away with the text instead of staying above the
+phone keyboard, as on XenForo.
