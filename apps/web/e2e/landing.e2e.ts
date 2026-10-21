@@ -274,10 +274,15 @@ async function feedPageWith(page: Page, link: Locator) {
   await page.goto("/novedades");
   for (let pages = 0; pages < 10; pages += 1) {
     await ready(page);
-    // The list streams in after the controls are hydrated: count its cards and its link to the
-    // next page only once it is drawn, or a card that is on this page is missed.
-    await expect(page.locator("main article").first()).toBeAttached();
-    if ((await link.count()) > 0) return;
+    // The list is drawn in pieces after the controls are hydrated (a count taken then sees one
+    // card and the link to the next page): give the card a moment to appear before leaving.
+    const found = await expect(link.first())
+      .toBeAttached({ timeout: 2_000 })
+      .then(
+        () => true,
+        () => false,
+      );
+    if (found) return;
     const next = page.locator('main a[href*="cursor="]');
     if ((await next.count()) === 0) break;
     const href = await next.last().getAttribute("href");

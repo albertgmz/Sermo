@@ -400,9 +400,9 @@ test.describe("guest", () => {
     expect(paged.canonical).toBe(`${baseURL}/novedades?tab=hot`);
     const following = await head("/novedades?tab=following");
     expect(following.robots).toMatch(/^noindex/);
-    // The public tabs carry a share card (`publicHead`); the member's own list has none.
-    expect(latest.og && hot.og).toBe(true);
-    expect(following.og).toBe(false);
+    // The public tabs carry a share card (`publicHead`). A guest who asks for Following gets a
+    // copy of Latest, so it has the card too; only a member's own list has none (unit-tested).
+    expect(latest.og && hot.og && following.og).toBe(true);
     const spanish = await head("/novedades?tab=hot", "es");
     expect(spanish.title).not.toBe(hot.title);
   });

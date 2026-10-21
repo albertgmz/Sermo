@@ -14,6 +14,10 @@ import { GuestMenu } from "@/components/layout/guest-menu";
 import { getViewerCard } from "@/components/layout/header-data";
 import { headerIconClass } from "@/components/layout/header-icon-class";
 import { SearchPanel } from "@/components/layout/header-panels";
+import {
+  HEADER_TOOLS_GAP,
+  REGISTER_BUTTON,
+} from "@/components/layout/header-widths";
 import { Logo, LogoPlaceholder } from "@/components/layout/logo";
 import { NarrowToggle } from "@/components/layout/narrow-toggle";
 import { toNavItems } from "@/components/layout/nav-server";
@@ -93,7 +97,7 @@ export function SiteHeader() {
         >
           <HeaderNavigation />
         </Suspense>
-        <div className="ml-auto flex items-center gap-1 md:gap-2">
+        <div className={cn("ml-auto flex items-center", HEADER_TOOLS_GAP)}>
           <IconLink href="/search" label={t("search")}>
             <Search />
           </IconLink>
@@ -185,7 +189,10 @@ async function AccountTools() {
         <LogIn aria-hidden="true" className="lg:hidden" />
         <span className="sr-only lg:not-sr-only">{t("login")}</span>
       </Link>
-      <Link href="/register" className={cn(buttonVariants(), "h-10 px-3")}>
+      <Link
+        href="/register"
+        className={cn(buttonVariants(), "h-10", REGISTER_BUTTON)}
+      >
         {t("register")}
       </Link>
     </>
