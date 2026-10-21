@@ -344,7 +344,7 @@
     },
     "minimumAge": {
       "label": "Minimum age",
-      "help": "The youngest age that may register. Above 0 the sign-up form asks for a date of birth and refuses a visitor who is younger. 0 asks for no age.",
+      "help": "The youngest age that may register, counted in whole years by the UTC calendar day. Above 0 the sign-up form asks for a date of birth and refuses a visitor who is younger. 0 asks for no age.",
       "unit": "years"
     },
     "registrationFields": {
@@ -353,7 +353,7 @@
     },
     "requireEmailConfirmation": {
       "label": "Email confirmation",
-      "help": "On: a new account is Unconfirmed until its owner follows the link in the email. Off: new accounts are members at once and no link is sent. It only matters on a site that sends email; accounts already unconfirmed stay so.",
+      "help": "On: a new account is Unconfirmed until its owner follows the link in the email. Off: new accounts are members at once, no link is sent and the welcome email goes out at sign-up instead. It only matters on a site that sends email (it does nothing without a mail driver); accounts already unconfirmed stay so.",
       "switch": "New accounts must confirm their email address"
     }
   },

@@ -155,13 +155,15 @@ export const SiteSettings = z
     /**
      * The youngest age that may register, in years; 0 asks for no age. Above 0 the sign-up asks
      * for the full date of birth and refuses a visitor younger than this (code
-     * `UNDER_MINIMUM_AGE`). 0 by default.
+     * `UNDER_MINIMUM_AGE`); the age is in whole years by the UTC calendar day. 0 by default.
      */
     minimumAge: z.number().int().min(0).max(99).default(0),
     /**
      * The profile fields a visitor must fill in to register (code `REGISTRATION_FIELD_REQUIRED`
-     * names the first missing one). A field that is not listed is not asked at sign-up. Empty by
-     * default.
+     * names the first missing one). A field that is not listed is not asked at sign-up: the sign-up
+     * request (`POST /api/auth/sign-up/email`) carries the asked fields in a `profile` object
+     * (`{ birthday: { year, month, day }, location, website, about, discord, telegram, x }`, the
+     * strings as `profiles.update` takes them) and ignores any other key of it. Empty by default.
      */
     registrationFields: z
       .array(z.enum(REGISTRATION_FIELDS))
@@ -170,7 +172,8 @@ export const SiteSettings = z
     /**
      * Whether a new account must confirm its email address before it joins the Member group. It
      * takes effect only on a site that sends account email (`SERMO_MAIL_DRIVER` other than
-     * `none`): without a mail driver nobody can be asked. Accounts already unconfirmed stay so.
+     * `none`): without a mail driver nobody can be asked. Accounts already unconfirmed stay so. Off, the
+     * welcome email is sent at sign-up instead of after the confirmation.
      * On by default, which is how a site with a mail driver behaved before this setting.
      */
     requireEmailConfirmation: z.boolean().default(true),

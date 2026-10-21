@@ -344,7 +344,7 @@
     },
     "minimumAge": {
       "label": "Edad mínima",
-      "help": "La edad mínima para registrarse. Con un valor mayor que 0, el formulario pide la fecha de nacimiento y rechaza a quien sea más joven. 0 no pide la edad.",
+      "help": "La edad mínima para registrarse, en años cumplidos según el día del calendario UTC. Con un valor mayor que 0, el formulario pide la fecha de nacimiento y rechaza a quien sea más joven. 0 no pide la edad.",
       "unit": "años"
     },
     "registrationFields": {
@@ -353,7 +353,7 @@
     },
     "requireEmailConfirmation": {
       "label": "Confirmación del correo",
-      "help": "Activada: la cuenta nueva queda sin confirmar hasta que su dueño abre el enlace del correo. Desactivada: las cuentas nuevas son miembros de inmediato y no se envía ningún enlace. Solo importa en un sitio que envía correo; las cuentas que ya están sin confirmar siguen así.",
+      "help": "Activada: la cuenta nueva queda sin confirmar hasta que su dueño abre el enlace del correo. Desactivada: las cuentas nuevas son miembros de inmediato, no se envía ningún enlace y el correo de bienvenida sale al registrarse. Solo importa en un sitio que envía correo (sin servidor de correo no hace nada); las cuentas que ya están sin confirmar siguen así.",
       "switch": "Las cuentas nuevas deben confirmar su correo"
     }
   },

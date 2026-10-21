@@ -1213,8 +1213,8 @@ When the mail driver is `capture` or `smtp`, Better Auth sends these through Ser
   primary group is still Unconfirmed to Member and sends a welcome email. Accounts that existed
   before email was enabled keep their groups. The site setting `requireEmailConfirmation` (on by
   default; **Settings > Members** > Registration) turns this off for new accounts: they join Member
-  at once and the sign-up sends no link (a member can still ask for one, and email change works as
-  always). Accounts already Unconfirmed stay so.
+  at once, the sign-up sends no link and the welcome email goes out at sign-up (a member can still ask
+  for a link, and email change works as always). Accounts already Unconfirmed stay so.
 - **Password reset.** `POST /api/auth/request-password-reset` with `email` and `redirectTo`. The
   `redirectTo` URL must be on a trusted origin (`BETTER_AUTH_URL` or `SERMO_TRUSTED_ORIGINS`).
   A completed reset signs the account out everywhere and sends a "password changed" notice.
@@ -1290,8 +1290,9 @@ open, no extra fields, no age, confirmation as the mail driver implies.
 The sign-up request carries the fields in a `profile` object (`{ "birthday": { "year", "month",
 "day" }, "location": "...", ... }`). Only the fields the site requires are asked on the form;
 `site.get` says what the form should ask (`registration`: `open`, `approval`, `minimumAge`,
-`fields`, where `fields` already holds `birthday` when there is a minimum age). A field that is
-sent without being required is still checked and stored.
+`fields`, where `fields` already holds `birthday` when there is a minimum age). Any other key of `profile` is
+ignored, as it was before these settings existed; the age is counted in whole years by the UTC
+calendar day.
 
 ## Sign-up approval
 

@@ -63,6 +63,9 @@ async function world(options: { mail?: boolean } = {}) {
   return { ...w, founder, settings, join, row, members };
 }
 
+const mailTo = (w: Awaited<ReturnType<typeof world>>, address: string) =>
+  w.capture!.messages.filter((message) => message.to === address);
+
 const yearsAgo = (ctx: { now(): number }, years: number, days = 0) => {
   const at = new Date(ctx.now() - days * 86_400_000);
   return { year: at.getUTCFullYear() - years, month: at.getUTCMonth() + 1, day: at.getUTCDate() };
@@ -193,19 +196,68 @@ test("a required field that is missing or blank is refused; a given one is store
   expect(w.row(joined.id!)).toMatchObject({
     location: "Havana",
     social_discord: "full#1",
-    website: "https://example.test",
+    // Not asked, so not stored.
+    website: "",
   });
 });
 
-test("a field the site does not require is optional, but must still be valid", async () => {
+test("a profile field the site does not ask is ignored, as it was before the settings existed", async () => {
   const w = await world();
-  expect(await w.join("Plain")).toMatchObject({ status: 200 });
+  // Defaults: nothing is asked, so nothing is stored or even looked at.
+  const joined = await w.join("Chatty", {
+    profile: {
+      about: "buy now",
+      website: "https://spam.example/",
+      birthday: { month: 2, day: 30 },
+    },
+  });
+  expect(joined.status).toBe(200);
+  expect(w.row(joined.id!)).toMatchObject({
+    about: "",
+    website: "",
+    location: "",
+    birth_year: null,
+  });
+  // Asking one field leaves the others ignored.
+  await w.settings({ registrationFields: ["location"] });
+  const asked = await w.join("Asked", {
+    profile: { location: "Havana", about: "buy now", website: "https://spam.example/" },
+  });
+  expect(w.row(asked.id!)).toMatchObject({ location: "Havana", about: "", website: "" });
+  // An asked field must still be valid.
+  await w.settings({ registrationFields: ["website"] });
   expect(await w.join("Bad", { profile: { website: "javascript:alert(1)" } })).toMatchObject({
     status: 400,
     code: "INVALID_PROFILE_FIELD",
   });
-  const joined = await w.join("Chatty", { profile: { about: "Hello" } });
-  expect(w.row(joined.id!)?.about).toBe("Hello");
+});
+
+test("a stored configuration written before the registration settings behaves as sign-up always did", async () => {
+  const w = await world({ mail: true });
+  // Store a row, then take the new keys out of it: what an existing site holds.
+  await w.settings({});
+  w.ctx.sqlite
+    .prepare(
+      "UPDATE site_settings SET value = json_remove(value, '$.registrationOpen', '$.minimumAge', '$.registrationFields', '$.requireEmailConfirmation') WHERE key = 'configuration'",
+    )
+    .run();
+  const stored = JSON.parse(
+    w.ctx.sqlite
+      .prepare<{ value: string }, []>("SELECT value FROM site_settings WHERE key = 'configuration'")
+      .get()!.value,
+  );
+  expect(stored).not.toHaveProperty("registrationOpen");
+  expect((await w.run("site.get", GUEST)).registration).toEqual({
+    open: true,
+    approval: false,
+    minimumAge: 0,
+    fields: [],
+  });
+  const joined = await w.join("Newcomer", { profile: { about: "ignored" } });
+  expect(joined.status).toBe(200);
+  expect(w.row(joined.id!)).toMatchObject({ group_id: GROUP_IDS.unconfirmed, about: "" });
+  await runDueJobs(w.ctx);
+  expect(mailTo(w, "newcomer@example.test")).toHaveLength(1);
 });
 
 test("the settings are bounded and the site says what the form asks", async () => {
@@ -216,9 +268,6 @@ test("the settings are bounded and the site says what the form asks", async () =
   await w.settings({ minimumAge: 18, registrationFields: ["about", "birthday"] });
   expect((await w.run("site.get", GUEST)).registration.fields).toEqual(["birthday", "about"]);
 });
-
-const mailTo = (w: Awaited<ReturnType<typeof world>>, address: string) =>
-  w.capture!.messages.filter((message) => message.to === address);
 
 test("with mail, a new account confirms its address by default", async () => {
   const w = await world({ mail: true });
@@ -236,7 +285,10 @@ test("with confirmation off, a new account is a member at once and gets no link;
   expect(joined.status).toBe(200);
   expect(w.row(joined.id!)?.group_id).toBe(GROUP_IDS.member);
   await runDueJobs(w.ctx);
-  expect(mailTo(w, "newcomer@example.test")).toHaveLength(0);
+  // Nothing to confirm: the welcome is sent at sign-up, and no link comes with it.
+  const first = mailTo(w, "newcomer@example.test");
+  expect(first).toHaveLength(1);
+  expect(first[0]!.text).not.toMatch(/verify-email/);
   // The member may still ask for a confirmation link of their own accord.
   const resent = await getAuth(w.ctx).handler(
     new Request(`${ORIGIN}/api/auth/send-verification-email`, {
@@ -251,7 +303,9 @@ test("with confirmation off, a new account is a member at once and gets no link;
   );
   expect(resent.status).toBe(200);
   await runDueJobs(w.ctx);
-  expect(mailTo(w, "newcomer@example.test")).toHaveLength(1);
+  const after = mailTo(w, "newcomer@example.test");
+  expect(after).toHaveLength(2);
+  expect(after[1]!.text).toMatch(/verify-email/);
 });
 
 test("with confirmation off, an approved-by-hand sign-up waits for staff at once", async () => {
@@ -272,4 +326,20 @@ test("without a mail driver the confirmation switch changes nothing", async () =
     const joined = await w.join(`Person${on}`);
     expect(w.row(joined.id!)?.group_id).toBe(GROUP_IDS.member);
   }
+});
+
+test("a sign-up refused after the confirmation decision leaves nothing behind: the next one still gets its link", async () => {
+  const w = await world({ mail: true });
+  await w.settings({ requireEmailConfirmation: false });
+  // Refused for its username (400), as a sign-up planted for an address would be.
+  const refused = await w.join("a", { email: "victim@example.test" });
+  expect(refused).toMatchObject({ status: 400, code: "USERNAME_TOO_SHORT" });
+  await w.settings({ requireEmailConfirmation: true });
+  const joined = await w.join("Victim", { email: "victim@example.test" });
+  expect(joined.status).toBe(200);
+  expect(w.row(joined.id!)?.group_id).toBe(GROUP_IDS.unconfirmed);
+  await runDueJobs(w.ctx);
+  const sent = mailTo(w, "victim@example.test");
+  expect(sent).toHaveLength(1);
+  expect(sent[0]!.text).toMatch(/verify-email/);
 });

@@ -66,9 +66,15 @@ function profileColumns(ctx: Ctx, profile: SignupProfile) {
   return changes;
 }
 
-function parseProfile(body: unknown): SignupProfile {
+/** The pieces of a request's `profile` object the site asks for; anything else is ignored. */
+function parseProfile(settings: Settings, body: unknown): SignupProfile {
   const sent = (body as { profile?: unknown } | null | undefined)?.profile;
-  const parsed = SignupProfile.safeParse(sent ?? {});
+  const given: Record<string, unknown> =
+    typeof sent === "object" && sent !== null ? (sent as Record<string, unknown>) : {};
+  const asked: Record<string, unknown> = {};
+  for (const field of signupFields(settings))
+    if (given[field] !== undefined) asked[field] = given[field];
+  const parsed = SignupProfile.safeParse(asked);
   if (!parsed.success)
     throw refuse(
       "BAD_REQUEST",
@@ -78,21 +84,32 @@ function parseProfile(body: unknown): SignupProfile {
   return parsed.data;
 }
 
+/** What the site decided for one sign-up request, read from the settings once. */
+export interface SignupPlan {
+  /** The new account must confirm its email address (the site sends account email and asks it). */
+  confirms: boolean;
+  /** The columns of the new `users` row that the asked profile fields fill in. */
+  columns: Record<string, string | number | null>;
+}
+
 /**
  * The site's registration rules for one sign-up request: refused when registration is closed,
- * when a required field is missing or malformed, or when the visitor is under the minimum age.
- * Throws before anything is written, so a refused visitor leaves no account.
+ * when a required field is missing or malformed, or when the visitor is under the minimum age
+ * (counted in whole years by the UTC calendar day). Throws before anything is written, so a
+ * refused visitor leaves no account. Only the fields the site asks are read; any other key of the
+ * request's `profile` is ignored, as it was before the settings existed.
  */
-export function checkSignup(ctx: Ctx, body: unknown): void {
+export function planSignup(ctx: Ctx, body: unknown, mailEnabled: boolean): SignupPlan {
   const settings = readSiteSettings(ctx);
   if (!settings.registrationOpen)
     throw refuse("FORBIDDEN", "REGISTRATION_CLOSED", "Registration is closed.");
-  const profile = parseProfile(body);
+  const profile = parseProfile(settings, body);
   for (const field of signupFields(settings))
     if (!present(profile, field))
       throw refuse("BAD_REQUEST", "REGISTRATION_FIELD_REQUIRED", `The ${field} field is required.`);
+  let columns: SignupPlan["columns"];
   try {
-    profileColumns(ctx, profile);
+    columns = profileColumns(ctx, profile);
   } catch (error) {
     if (error instanceof ValidationError)
       throw refuse("BAD_REQUEST", "INVALID_PROFILE_FIELD", error.message);
@@ -108,17 +125,5 @@ export function checkSignup(ctx: Ctx, body: unknown): void {
         `You must be at least ${settings.minimumAge} years old to register.`,
       );
   }
-}
-
-/**
- * The columns of the new `users` row that the request's profile fills in. Called once the account
- * exists, after `checkSignup` accepted the same body: a body that no longer passes (a setting
- * changed in between) fills in nothing rather than leaving an account without its forum row.
- */
-export function signupColumns(ctx: Ctx, body: unknown): Record<string, string | number | null> {
-  try {
-    return profileColumns(ctx, parseProfile(body));
-  } catch {
-    return {};
-  }
+  return { confirms: mailEnabled && settings.requireEmailConfirmation, columns };
 }

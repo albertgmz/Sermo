@@ -68,7 +68,7 @@ import { logFailedSignIn } from "../security/sign-in";
 import { readSiteSettings } from "../settings";
 import { resolveHomeTab } from "../settings/home-tab";
 import { checkTurnstile, TurnstileRefusal } from "../settings/turnstile";
-import { checkSignup, signupColumns } from "./registration";
+import { planSignup, type SignupPlan } from "./registration";
 import { usernameChange } from "./rename-marker";
 import { requestLanguage } from "./request-language";
 import { forgiveSignInGuess, takeSignInGuess } from "./sign-in-limit";
@@ -414,10 +414,14 @@ function buildAuth(ctx: Ctx) {
   // Usernames the spam check flagged at sign-up, from the hook before the account is made to the
   // hook after it (one request); a sign-up that failed in between leaves its entry to expire.
   const flaggedSignups = new Map<string, number>();
-  // Addresses signing up while the site asks for no email confirmation, from the hook before the
-  // account is made to the call that would have sent the link (one request); the hook after the
-  // request clears what a failed sign-up left.
-  const unconfirmedSignups = new Set<string>();
+  // What the site decided for each sign-up request that passed every check, by address, from the
+  // last refusal to the hook that makes the account (one request). The hook after the request
+  // clears what an endpoint failure left, and an entry older than FLAG_MEMORY_MS is not used.
+  const signupPlans = new Map<string, SignupPlan & { at: number }>();
+  const planOf = (address: string) => {
+    const kept = signupPlans.get(address.toLowerCase());
+    return kept && kept.at >= ctx.now() - FLAG_MEMORY_MS ? kept : undefined;
+  };
   const auth = betterAuth({
     ...authSchemaOptions,
     secret: config.secret,
@@ -502,7 +506,7 @@ function buildAuth(ctx: Ctx) {
             }) => {
               // The site asks no confirmation of new accounts: the sign-up sends no link. A later
               // request for one (the member's own, or an email change) is answered as always.
-              if (unconfirmedSignups.delete(user.email.toLowerCase())) return;
+              if (planOf(user.email)?.confirms === false) return;
               const claim = await verifyJWT(token, config.secret);
               if (!claim) throw invalidToken();
               if (claim.updateTo)
@@ -567,18 +571,6 @@ function buildAuth(ctx: Ctx) {
                 throw accountBanned();
             }
           }
-          // The site's registration rules (closed, required fields, minimum age) are for a visitor's
-          // request; the call that creates the first administrator is made inside the server and
-          // has no request.
-          if (hook.path === "/sign-up/email" && hook.request) {
-            checkSignup(ctx, hook.body);
-            if (
-              mailEnabled &&
-              !readSiteSettings(ctx).requireEmailConfirmation &&
-              typeof hook.body?.email === "string"
-            )
-              unconfirmedSignups.add(hook.body.email.toLowerCase());
-          }
           // The plugin accepts any name, as sign-in must for an imported account; the rule for
           // new names is applied here, to the endpoints that register or rename.
           const rejected =
@@ -626,6 +618,20 @@ function buildAuth(ctx: Ctx) {
                 message: error.message,
               });
             }
+          }
+          // The site's registration rules (closed, required fields, minimum age) are for a visitor's
+          // request; the call that creates the first administrator is made inside the server and
+          // has no request. This is the last refusal of a sign-up, so the plan below is kept only
+          // for a request that goes on to make its account.
+          if (
+            hook.path === "/sign-up/email" &&
+            hook.request &&
+            typeof hook.body?.email === "string"
+          ) {
+            const plan = planSignup(ctx, hook.body, mailEnabled);
+            for (const [address, kept] of signupPlans)
+              if (kept.at < ctx.now() - FLAG_MEMORY_MS) signupPlans.delete(address);
+            signupPlans.set(hook.body.email.toLowerCase(), { ...plan, at: ctx.now() });
           }
           if (hook.path === "/change-password" && hook.context.session) {
             // The current password is asked here, so guessing it is held to the limit of the
@@ -845,7 +851,7 @@ function buildAuth(ctx: Ctx) {
       after: createAuthMiddleware(async (hook) => {
         if (Reflect.get(hook.context, DEAD_SESSION_COOKIE) === true) retireDeadSessionCookies(hook);
         if (hook.path === "/sign-up/email" && typeof hook.body?.email === "string")
-          unconfirmedSignups.delete(hook.body.email.toLowerCase());
+          signupPlans.delete(hook.body.email.toLowerCase());
         const failed =
           hook.context.returned instanceof APIError ||
           (hook.context.returned instanceof Response && !hook.context.returned.ok);
@@ -1022,8 +1028,12 @@ function buildAuth(ctx: Ctx) {
             const flagged = flaggedSignups.delete(normalized);
             try {
               writeTx(ctx, () => {
-                // Without a mail driver nobody can be asked to confirm; with one, the site decides.
-                const confirms = mailEnabled && readSiteSettings(ctx).requireEmailConfirmation;
+                // The sign-up request's plan was made with the settings read once; a call made
+                // inside the server has none. Without a mail driver nobody can be asked to
+                // confirm; with one, the site decides.
+                const plan = planOf(user.email as string);
+                const confirms =
+                  plan?.confirms ?? (mailEnabled && readSiteSettings(ctx).requireEmailConfirmation);
                 const review = signupReviewFor(ctx, flagged);
                 const headers = (hookContext as { headers?: Headers } | undefined)?.headers;
                 ctx.sqlite
@@ -1041,12 +1051,7 @@ function buildAuth(ctx: Ctx) {
                     requestLanguage(headers),
                   );
                 // The profile fields the sign-up form asked for.
-                storeProfileChanges(
-                  ctx,
-                  Number(user.id),
-                  signupColumns(ctx, (hookContext as { body?: unknown } | undefined)?.body),
-                  false,
-                );
+                storeProfileChanges(ctx, Number(user.id), plan?.columns ?? {}, false);
                 // The sign-up form may carry the member whose link brought the visitor.
                 const referrer = parseReferrer(
                   (hookContext as { body?: { ref?: unknown } } | undefined)?.body?.ref,
@@ -1077,6 +1082,14 @@ function buildAuth(ctx: Ctx) {
                 });
                 // With no email to confirm the account waits for staff at once.
                 if (review !== null && !confirms) announceWaiting(ctx, Number(user.id));
+                // Nothing will confirm the address and so nothing will send the welcome (an
+                // account that waits for staff is welcomed when it is approved).
+                if (mailEnabled && !confirms && review === null)
+                  queueAccountEmail(ctx, {
+                    kind: "welcome",
+                    userId: Number(user.id),
+                    email: user.email as string,
+                  });
               });
             } catch (error) {
               const mapped = userConstraintError(error);
