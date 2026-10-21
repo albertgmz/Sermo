@@ -37,7 +37,8 @@ const elements = cn(
 
 // Renders HTML the backend produced and sanitised. The text is not edited, only its placeholders
 // are filled: LITE mode removes its pictures on the server first, `[color=…]` spans go through the
-// colour guard, spoilers become buttons and `[ATTACH]` tags become the item's files. A mention in it shows the member's card on hover.
+// colour guard, spoilers become buttons and `[ATTACH]` tags become the item's files. A mention in
+// it shows the member's card on hover.
 // The words BB code shows (a code block's header, "said:", "Spoiler") are not in the HTML: they are
 // CSS variables set here in the visitor's language. A body with spoilers needs the `content` it
 // belongs to, to ask for them; without it their buttons are disabled. The `attachments` of the item

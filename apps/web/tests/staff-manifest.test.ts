@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
 // A server action that returns UI (`loadMemberCard`, `loadReactionUsers`, the audited reads of the
@@ -86,19 +92,18 @@ function routeList(page: string) {
 
 const name = (file: string) => relative(SRC, file);
 
-// [what the action sends, the routes that offer it]
 const MODERATION = join(STAFF, "moderation");
+const CONTEXT = join(MODERATION, "conversation-context.tsx");
+
+// The pages that offer an audited read (`AuditedRead`, whose action returns `ConversationContext`):
+// found from the code, so a page that moves or a new one is checked too.
+const auditedPages = pages(STAFF).filter((page) =>
+  /from\s+["'][^"']*\/audited-read["']/.test(readFileSync(page, "utf8")),
+);
+
+// [what the action sends, the routes that offer it]
 const CASES: [string, string, string[]][] = [
-  [
-    "the audited read of a conversation message (approvals)",
-    join(MODERATION, "conversation-context.tsx"),
-    [join(MODERATION, "approvals/[type]/[id]/page.tsx")],
-  ],
-  [
-    "the audited read of a conversation message (reports)",
-    join(MODERATION, "conversation-context.tsx"),
-    [join(MODERATION, "reports/[id]/page.tsx")],
-  ],
+  ["an audited read", CONTEXT, auditedPages],
   [
     "the member card, opened from any name",
     join(SRC, "components/forum/member-card-action.tsx"),
@@ -110,6 +115,13 @@ const CASES: [string, string, string[]][] = [
     pages(STAFF),
   ],
 ];
+
+test("the audited reads are found: the approvals page and the reported message page", () => {
+  expect(auditedPages.map(name).sort()).toEqual([
+    "app/[locale]/(staff)/moderation/approvals/[type]/[id]/page.tsx",
+    "app/[locale]/(staff)/moderation/reports/[id]/message/page.tsx",
+  ]);
+});
 
 for (const [what, sent, routes] of CASES) {
   test(`every client component ${what} can send is in the list of each staff route that offers it`, () => {
@@ -126,12 +138,28 @@ for (const [what, sent, routes] of CASES) {
   });
 }
 
-test("the walk sees a gap: a route that imports nothing lacks what an action sends", () => {
-  const needed = clientModules(
-    join(SRC, "components/forum/member-card-action.tsx"),
+// The reported message page without the import of the parts list is the gap that answered the
+// moderator's "confirm view" with React error #441: the walk must see it.
+test("the walk sees the gap when a page does not import the audited read's parts", () => {
+  const page = join(MODERATION, "reports/[id]/message/page.tsx");
+  const without = join(dirname(page), "page.without-parts.tsx");
+  const source = readFileSync(page, "utf8").replace(
+    /^import ["'][^"']*conversation-context-parts["'];\n/m,
+    "",
   );
-  const bare = clientModules(join(SRC, "lib/utils.ts"));
-  expect(
-    [...needed].filter((client) => !bare.has(client)).length,
-  ).toBeGreaterThan(0);
+  expect(source).not.toContain("conversation-context-parts");
+  writeFileSync(without, source);
+  try {
+    const list = routeList(without);
+    const lacking = [...clientModules(CONTEXT)]
+      .filter((client) => !list.has(client))
+      .map(name)
+      .sort();
+    expect(lacking).toEqual([
+      "components/forum/mention-cards.tsx",
+      "components/forum/spoiler-reveal.tsx",
+    ]);
+  } finally {
+    rmSync(without, { force: true });
+  }
 });
