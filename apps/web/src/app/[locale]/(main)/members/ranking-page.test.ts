@@ -75,6 +75,17 @@ test("the first page numbers its rows from one and hands on the rank of the next
   expect(page.nextCursor).toBe("4.c1");
 });
 
+test("the ranking asks for the members who scored only, the directory for everyone", async () => {
+  const asked = backend();
+  await rankingPage("credits", "credits");
+  await directoryPage("credits");
+  const [ranking, directory] = asked.filter((request) =>
+    request.includes("/members?"),
+  );
+  expect(ranking).toContain("ranked=true");
+  expect(directory).not.toContain("ranked");
+});
+
 test("the page after it continues the numbers and asks the backend for its own cursor", async () => {
   const asked = backend();
   const page = await rankingPage("posts", "posts", "4.c1");

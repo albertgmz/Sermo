@@ -12,8 +12,8 @@ import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 
-// One page of a ranking of all members, drawn: the list's first page and each page the browser asks
-// for. `numbered` is the cursor of the page (see `numberedCursor`), none for the first.
+// One page of a ranking of the members who have something to count, drawn: the list's first page
+// and each page the browser asks for. `numbered` is the cursor of the page (see `numberedCursor`), none for the first.
 export async function rankingPage(
   sort: MemberSort,
   by: LeaderboardKind,
@@ -22,7 +22,7 @@ export async function rankingPage(
 ): Promise<ListPage> {
   const { start, cursor } = readNumbered(numbered);
   const [{ items, nextCursor }, { user }] = await Promise.all([
-    reader(usersList, { sort, cursor }),
+    reader(usersList, { sort, ranked: true, cursor }),
     getViewer(),
   ]);
   return {

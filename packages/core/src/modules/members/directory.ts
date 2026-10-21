@@ -29,7 +29,7 @@ const SORT_COLUMN: Record<Exclude<Sort, "newest">, string> = {
   referrals: "referral_count",
 };
 const LIST_COLUMNS =
-  "id, created_at, post_count, reaction_score, award_xp, credits, award_count, referral_count, banned_until, banned_permanently";
+  "id, created_at, post_count, reaction_score, award_xp, credits, award_count, referral_count, banned_until, banned_permanently, erased_at";
 
 interface ListRow {
   id: number;
@@ -42,6 +42,7 @@ interface ListRow {
   referral_count: number;
   banned_until: number | null;
   banned_permanently: number;
+  erased_at: number | null;
 }
 
 /**
@@ -53,10 +54,12 @@ export const listSql = {
   newest: `SELECT ${LIST_COLUMNS} FROM users WHERE id < ?1 ORDER BY id DESC LIMIT ?2`,
   tie: (sort: Exclude<Sort, "newest">) =>
     `SELECT ${LIST_COLUMNS} FROM users WHERE ${SORT_COLUMN[sort]} = ?1 AND id > ?2 ORDER BY id LIMIT ?3`,
+  /** `?3` is the value the rows must exceed: `NO_FLOOR` lists every member, 0 only those who scored. */
   below: (sort: Exclude<Sort, "newest">) =>
-    `SELECT ${LIST_COLUMNS} FROM users WHERE ${SORT_COLUMN[sort]} < ?1 ORDER BY ${SORT_COLUMN[sort]} DESC, id LIMIT ?2`,
+    `SELECT ${LIST_COLUMNS} FROM users WHERE ${SORT_COLUMN[sort]} < ?1 AND ${SORT_COLUMN[sort]} > ?3 ORDER BY ${SORT_COLUMN[sort]} DESC, id LIMIT ?2`,
 };
 
+const NO_FLOOR = -Number.MAX_SAFE_INTEGER;
 const NumericCursor = z.tuple([z.number().int(), z.number().int().positive()]);
 const NewestCursor = z.tuple([z.number().int().positive()]);
 
@@ -72,9 +75,12 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
       actor,
       rows.map((row) => row.id),
     );
-    return new Set(rows.filter((row) => !isBanned(row, now) && open.has(row.id)));
+    return new Set(
+      rows.filter((row) => row.erased_at === null && !isBanned(row, now) && open.has(row.id)),
+    );
   };
 
+  const floor = input.ranked ? 0 : NO_FLOOR;
   let items: ListRow[];
   let next: number[] | null;
   if (sort === "newest") {
@@ -96,17 +102,17 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
       ctx.sqlite.prepare<ListRow, [number, number, number]>(listSql.tie(sort)),
     );
     const below = prepared(ctx, `members.listBelow.${sort}`, () =>
-      ctx.sqlite.prepare<ListRow, [number, number]>(listSql.below(sort)),
+      ctx.sqlite.prepare<ListRow, [number, number, number]>(listSql.below(sort)),
     );
     const scan = scanKeyset<ListRow, [number, number]>({
       before: input.cursor ? decodeCursor(input.cursor, NumericCursor) : null,
       limit: input.limit,
       fetch: (before, count) => {
-        if (!before) return below.all(Number.MAX_SAFE_INTEGER, count);
-        const same = tie.all(before[0], before[1], count);
+        if (!before) return below.all(Number.MAX_SAFE_INTEGER, count, floor);
+        const same = before[0] > floor ? tie.all(before[0], before[1], count) : [];
         return same.length >= count
           ? same
-          : [...same, ...below.all(before[0], count - same.length)];
+          : [...same, ...below.all(before[0], count - same.length, floor)];
       },
       keyOf: (row) => [row[column] as number, row.id],
       accept,

@@ -86,6 +86,14 @@ export const scenarios: Scenario[] = [
     kind: "read",
     run: (env, i) => env.call("users.list", env.actors.member(i), { sort: "level", limit: 20 }),
   },
+  ...(["credits", "level", "reactions"] as const).map(
+    (sort): Scenario => ({
+      name: `users.list ranked ${sort}`,
+      kind: "read",
+      run: (env, i) =>
+        env.call("users.list", env.actors.member(i), { sort, ranked: true, limit: 20 }),
+    }),
+  ),
   {
     name: "users.staff",
     kind: "read",

@@ -193,7 +193,11 @@ async function NotablePodium({
   view: (typeof NOTABLE)[number];
   viewerId?: number;
 }) {
-  const { items } = await read(usersList, { sort: view.sort, limit: TOP });
+  const { items } = await read(usersList, {
+    sort: view.sort,
+    ranked: true,
+    limit: TOP,
+  });
   return <Podium members={items} by={view.ranking} viewerId={viewerId} />;
 }
 

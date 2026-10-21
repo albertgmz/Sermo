@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { GUEST } from "../../actor";
 import { MEMBER_SORTS } from "../../contracts/members";
 import { ForbiddenError, ValidationError } from "../../errors";
-import { expectNoTableScan } from "../../testing";
+import { encodeCursor } from "../../pagination";
+import { expectNoTableScan, userActor } from "../../testing";
 import { birthdaySql, listSql, staffBanSql, staffSql } from "./directory";
 import { type World, world } from "./fixtures.test";
 
@@ -64,6 +65,65 @@ describe("users.list", () => {
       const first = await list(w, { sort, limit: 4 });
       expect(first.items.map((item) => item.card.id)).toEqual(expected.slice(0, 4));
     });
+
+  for (const sort of MEMBER_SORTS.filter((name) => name !== "newest"))
+    test(`ranked ${sort}: only members above zero, highest first, across pages`, async () => {
+      const { w } = populated();
+      const column = COLUMN[sort as keyof typeof COLUMN];
+      const expected = w.ctx.sqlite
+        .prepare<{ id: number }, []>(
+          `SELECT id FROM users WHERE ${column} > 0 ORDER BY ${column} DESC, id ASC`,
+        )
+        .all()
+        .map((row) => row.id);
+      expect(expected.length).toBeGreaterThan(0);
+      for (const limit of [1, 3, 100]) {
+        const ids: number[] = [];
+        let cursor: string | undefined;
+        do {
+          const page = await list(w, { sort, ranked: true, limit, cursor });
+          ids.push(...page.items.map((item) => item.card.id));
+          cursor = page.nextCursor ?? undefined;
+        } while (cursor);
+        expect(ids).toEqual(expected);
+      }
+    });
+
+  test("ranked: a cursor on a zero figure does not walk into the members who scored nothing", async () => {
+    const { w } = populated();
+    const cursor = encodeCursor([0, 1]);
+    const page = await list(w, { sort: "posts", ranked: true, limit: 50, cursor });
+    expect(page.items).toEqual([]);
+    expect(page.nextCursor).toBeNull();
+    expect((await list(w, { sort: "posts", limit: 50, cursor })).items.length).toBeGreaterThan(0);
+  });
+
+  test("ranked: nobody has scored, so the ranking is empty while the directory is not", async () => {
+    const w = world();
+    expect((await list(w, { sort: "credits", ranked: true })).items).toEqual([]);
+    expect((await list(w, { sort: "credits" })).items.length).toBeGreaterThan(0);
+  });
+
+  test("ranked: negative balances, banned, erased and private members are left out", async () => {
+    const { w, users } = populated();
+    w.set(users[7]!.id, { banned_permanently: 1 });
+    w.set(users[8]!.id, { erased_at: w.ctx.now() });
+    w.set(users[0]!.id, { profile_view_privacy: "self" });
+    const ids = (actor: object) =>
+      list(w, { sort: "credits", ranked: true, limit: 100 }, actor).then((page) =>
+        page.items.map((item) => item.card.id),
+      );
+    const seen = await ids(GUEST);
+    for (const gone of [7, 8, 0]) expect(seen).not.toContain(users[gone]!.id);
+    // Credits are value - 4: only the members above 4 hold a positive balance.
+    expect(seen).toEqual(
+      users
+        .filter((user, index) => user.value > 4 && ![7, 8, 0].includes(index))
+        .sort((a, b) => b.value - a.value || a.id - b.id)
+        .map((user) => user.id),
+    );
+    expect(await ids(userActor(users[0]!))).toContain(users[0]!.id);
+  });
 
   test("newest: the most recently registered first", async () => {
     const { w, users } = populated();
@@ -148,7 +208,7 @@ describe("users.list", () => {
     for (const sort of MEMBER_SORTS.filter((name) => name !== "newest")) {
       const s = sort as keyof typeof COLUMN;
       expectNoTableScan(w.ctx, listSql.tie(s), [3, 5, 21]);
-      expectNoTableScan(w.ctx, listSql.below(s), [3, 21]);
+      expectNoTableScan(w.ctx, listSql.below(s), [3, 21, 0]);
     }
   });
 });

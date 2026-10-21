@@ -130,10 +130,21 @@ async function RankingView({
   cursor?: string;
   pages: number;
 }) {
-  const [first, loadMore] = await Promise.all([
+  const [first, loadMore, t] = await Promise.all([
     rankingPage(sort, by, cursor),
     getTranslations("members.loadMore"),
+    getTranslations("members.members"),
   ]);
+  if (first.rows.length === 0 && first.nextCursor === null && !cursor)
+    return (
+      <div className="rounded-lg border bg-card">
+        <EmptyState
+          icon={VIEWS.find((entry) => entry.value === view)?.icon}
+          title={t("rankingEmptyTitle")}
+          description={t("rankingEmptyDescription")}
+        />
+      </div>
+    );
   return (
     <PagedList
       first={first}

@@ -73,6 +73,21 @@ test("the directory and standing routes answer to guests", async () => {
   expect(Array.isArray(staff.items)).toBe(true);
 });
 
+test("/members?ranked=true leaves out the members who scored nothing, ranked=false lists them", async () => {
+  const { ctx, get } = setup();
+  const scorer = insertUser(ctx);
+  insertUser(ctx);
+  ctx.sqlite.prepare("UPDATE users SET credits = 7 WHERE id = ?1").run(scorer.id);
+  const ids = async (query: string) =>
+    (
+      (await (await get(`/api/v1/members?sort=credits&${query}`)).json()) as {
+        items: { card: { id: number } }[];
+      }
+    ).items.map((item) => item.card.id);
+  expect(await ids("ranked=true")).toEqual([scorer.id]);
+  expect((await ids("ranked=false")).length).toBeGreaterThan(1);
+});
+
 test("the account routes need a signed-in member", async () => {
   const { get } = setup();
   expect((await get("/api/v1/profile")).status).toBe(401);

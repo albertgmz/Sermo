@@ -140,9 +140,16 @@ export const usersList = defineContract({
     "The member directory, one sort at a time, highest first (`newest`: most recently " +
     "registered first; `level` sorts by award XP). Ties go to the older account. Banned members " +
     "and members whose profile the viewer may not open are left out, so a page can hold fewer " +
-    "than `limit` items while `nextCursor` is non-null. Requires profile.view and member.viewList.",
+    "than `limit` items while `nextCursor` is non-null. With `ranked` the list is a ranking: " +
+    "members whose figure for the sort is zero or less are left out too (ignored for " +
+    "`newest`), so a sort nobody has earned anything on is empty. Requires profile.view and " +
+    "member.viewList.",
   kind: "read",
-  input: z.object({ sort: z.enum(MEMBER_SORTS).default("newest"), ...pageInput }),
+  input: z.object({
+    sort: z.enum(MEMBER_SORTS).default("newest"),
+    ranked: z.boolean().default(false),
+    ...pageInput,
+  }),
   output: Page(MemberListItem),
 });
 
