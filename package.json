@@ -9,6 +9,7 @@
   "scripts": {
     "start": "bun packages/api/src/server.ts",
     "dev:fixture": "bun scripts/dev-fixture.ts",
+    "awards:grant-manual": "bun scripts/grant-manual-awards.ts",
     "starter:load": "bun scripts/starter/load.ts",
     "staging:build": "bun scripts/staging.ts build",
     "staging:start": "bun scripts/staging.ts start",
