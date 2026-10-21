@@ -52,7 +52,7 @@
   "shop": {
     "sampleUsername": "your_name",
     "emptyTitle": "The shop is empty",
-    "emptyDescription": "Nothing is for sale right now. Check back later.",
+    "emptyDescription": "Nothing is for sale for you right now. Some sections open as you take part in the forum.",
     "emptyCategoryTitle": "Nothing in this category",
     "emptyCategoryDescription": "Try another category.",
     "stock": "{count, plural, one {# left} other {# left}}",

@@ -52,7 +52,7 @@
   "shop": {
     "sampleUsername": "tu_nombre",
     "emptyTitle": "La tienda está vacía",
-    "emptyDescription": "Ahora mismo no hay nada a la venta. Vuelve más tarde.",
+    "emptyDescription": "Ahora mismo no hay nada a la venta para ti. Algunas secciones se abren cuando participas más en el foro.",
     "emptyCategoryTitle": "No hay nada en esta categoría",
     "emptyCategoryDescription": "Prueba con otra categoría.",
     "stock": "{count, plural, one {Queda #} other {Quedan #}}",

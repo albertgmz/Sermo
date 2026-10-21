@@ -43,6 +43,8 @@ function fixture() {
     targetId: number,
     payload: DomainEvent["payload"] = {},
   ) {
+    // Reactions default to the seeded Like (id 1, score 1).
+    if (type === "reaction.added") payload = { reactionTypeId: 1, ...payload };
     const id = writeTx(ctx, () => publishEvent(ctx, { type, targetType, targetId, payload }));
     const result = { id, type, targetType, targetId, payload, createdAt: ctx.now() };
     events.push(result);
@@ -594,7 +596,7 @@ test("reactions in a private conversation pay neither the reactor nor the author
   await f.replay();
 });
 
-test("a reaction type with a negative score pays neither the reactor nor the author", async () => {
+test("a reaction type with a negative score, or an unknown one, pays neither the reactor nor the author", async () => {
   const f = fixture();
   for (const trigger of ["reaction_given", "reaction_received"] as const)
     await f.createRule(trigger);
@@ -620,6 +622,14 @@ test("a reaction type with a negative score pays neither the reactor nor the aut
   });
   expect(f.balance()).toBe(10);
   expect(f.balance(f.third.id)).toBe(10);
+  for (const reactionTypeId of [9_999, undefined])
+    f.event("reaction.added", "profile_post_comment", f.comment(), {
+      userId: f.other.id,
+      contentUserId: f.author.id,
+      reactionTypeId,
+    });
+  expect(f.balance()).toBe(10);
+  expect(f.balance(f.other.id)).toBe(0);
   await f.replay();
 });
 
