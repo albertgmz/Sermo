@@ -8,7 +8,7 @@ import {
   test,
 } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
-import { NOVEDADES_WIDGETS } from "@/lib/test-bodies";
+import { NOVEDADES_WIDGETS, widgetBody } from "@/lib/test-bodies";
 import { translator, withIntl } from "@/lib/test-intl";
 import { withQuery } from "@/lib/test-query";
 import { viewerBody } from "@/lib/test-viewer";
@@ -164,6 +164,32 @@ test("the page asks for its own widgets, and draws the featured threads only whe
   const html = await render({ tab: "latest" });
   expect(paths()).not.toContain(FEATURED);
   expect(html).not.toContain("<aside");
+});
+
+test("a forum statistics widget keeps the open tab and its filter on its tab links, and opens the tab asked for", async () => {
+  backend({
+    member: true,
+    widgets: [
+      widgetBody({ id: 9, position: "overview_top", type: "forumStats" }),
+    ],
+  });
+  const html = await render({
+    tab: "hot",
+    forums: "3",
+    stats: "viewed",
+    cursor: "abc",
+  });
+  expect(html).toContain(
+    'href="/novedades?tab=hot&amp;forums=3&amp;stats=threads"',
+  );
+  // The first statistics tab is the bare address of the view.
+  expect(html).toContain('href="/novedades?tab=hot&amp;forums=3"');
+  const rankings = asked.filter(
+    (entry) => entry.path === "/api/v1/thread-rankings",
+  );
+  expect(rankings.map((entry) => entry.search.get("by"))).toContain(
+    "mostViewed",
+  );
 });
 
 test("the side blocks are drawn below the feed on phones, not hidden there", async () => {

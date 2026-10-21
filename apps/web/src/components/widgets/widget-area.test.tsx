@@ -393,8 +393,7 @@ test("the sidebar is no column when empty, and none on a phone when no widget in
   expect(widgetAside([], context)).toEqual({});
   const one = widgetAside([mostReacted] as never, context);
   expect(one.aside).toBeDefined();
-  expect(one.asideClassName).toContain("sm:grid-cols-2");
-  expect(one.asideClassName).not.toContain("max-md:hidden");
+  expect(one.asideClassName ?? "").not.toContain("max-md:hidden");
   const off = widgetAside(
     [
       { ...mostReacted, phones: false },
@@ -407,5 +406,16 @@ test("the sidebar is no column when empty, and none on a phone when no widget in
     [{ ...mostReacted, phones: false }, latest] as never,
     context,
   );
-  expect(mixed.asideClassName).not.toContain("max-md:hidden");
+  expect(mixed.asideClassName ?? "").not.toContain("max-md:hidden");
+});
+
+test("a widget of a type this app does not draw opens no column and no lead", () => {
+  const undrawn = [
+    widgetBody({ id: 1, position: "overview_top", type: "visitorCard" }),
+    widgetBody({ id: 2, position: "sidebar_bottom", type: "birthdays" }),
+  ] as never;
+  const areas = widgetAreas("home", undrawn);
+  expect(areas.lead).toEqual([]);
+  expect(areas.aside).toEqual([]);
+  expect(widgetAside(areas.aside, context)).toEqual({});
 });

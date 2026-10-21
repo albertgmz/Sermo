@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
 import { siteBody, widgetBody } from "@/lib/test-bodies";
 import { translator, withIntl } from "@/lib/test-intl";
@@ -136,7 +144,24 @@ test("a sidebar widget opens the sidebar, drawn below the content on phones", as
   const aside = text.match(/<aside class="([^"]*)"/)?.[1] ?? "";
   expect(aside.split(" ")).toContain("grid");
   expect(aside).not.toContain("hidden");
-  expect(aside).toContain("sm:grid-cols-2");
+});
+
+test("a widgets read that fails leaves the forum list drawn, without widgets", async () => {
+  const log = spyOn(console, "error").mockImplementation(() => {});
+  backend([STATS]);
+  const answer = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init?: RequestInit) =>
+    new URL(url).pathname === "/api/v1/widgets"
+      ? Response.json(
+          { error: { code: "internal", message: "Broken." } },
+          { status: 500 },
+        )
+      : answer(url, init)) as unknown as typeof fetch;
+  const text = await page();
+  log.mockRestore();
+  expect(text).toContain(">Main<");
+  expect(text).not.toContain(panel);
+  expect(text).not.toContain("<aside");
 });
 
 test("a lead widget spans both columns above them", async () => {

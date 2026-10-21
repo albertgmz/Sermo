@@ -121,7 +121,7 @@ export default async function NovedadesPage(
     STATS_TABS[0].value;
   const context = {
     stats,
-    statsHref: (value: StatsTab) => statsHref(tab, value),
+    statsHref: (value: StatsTab) => statsHref(tab, params, value),
   };
   return (
     <PageLayout
@@ -158,11 +158,12 @@ export default async function NovedadesPage(
   );
 }
 
-// The address of a forum statistics tab on this page: the open tab's, with the statistics tab.
-function statsHref(tab: HomeTab, stats: StatsTab) {
-  return stats === STATS_TABS[0].value
-    ? homeHref(tab)
-    : `${homeHref(tab)}&stats=${stats}`;
+// The address of a forum statistics tab on this page: the open tab with its filter, from its first
+// page, with the statistics tab.
+function statsHref(tab: HomeTab, params: Params, stats: StatsTab) {
+  const href =
+    tab === "media" ? homeHref(tab) : feedHref(tab, filterFromParams(params));
+  return stats === STATS_TABS[0].value ? href : `${href}&stats=${stats}`;
 }
 
 // Posts on the wall of the member who is signed in. Not on a phone, where the + of the bottom bar

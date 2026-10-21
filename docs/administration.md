@@ -1021,21 +1021,23 @@ was on; the setting itself no longer changes the pages. `threads.ranked` answers
 ## Home page and What's new
 
 The home page (`/`) is the forum list: the categories under the section tabs
-(`/?section=<tab id>&stats=<tab>`), with the widgets of its positions around them. It carries the site's name as its title,
-the site's description and its structured data. The feed is on its own page, What's new
-(`/novedades`), with four tabs in this fixed order: Latest, Hot, Following (members only) and Media
-(the newest pictures attached to posts and wall posts, limited to what the viewer may open). Every
-tab has an address that names it (`/novedades?tab=hot`). The wall composer and the featured threads
-are drawn on the first three tabs only, and the featured threads not above a list a filter narrowed.
+(`/?section=<tab id>&stats=<tab>`), with the widgets of its positions around them. It carries the
+site's name as its title, the site's description and its structured data. The feed is on its own
+page, What's new (`/novedades`), with four tabs in this fixed order: Latest, Hot, Following (members
+only) and Media (the newest pictures attached to posts and wall posts, limited to what the viewer
+may open). Every tab has an address that names it (`/novedades?tab=hot`). The wall composer and
+the featured threads are drawn on the first three tabs only, and the featured threads not above a
+list a filter narrowed.
 
 Both pages draw the widgets of their positions (`widgets.current`, asked with the visitor's session
 once per page): `overview_top` spans both columns above them; `forum_list_above` and
 `forum_list_below` (`/`) or `novedades_above` (`/novedades`) sit in the main column above and below
 the page's own content, `overview_bottom` after them; the sidebar holds `sidebar_top`, then
 `forum_list_sidebar` (`/`) or `novedades_sidebar` (`/novedades`), then `sidebar_bottom`. A page
-with no sidebar widget for the viewer has no sidebar column. Below `lg` the sidebar is drawn below
-the content (in two columns from `sm`); a widget whose `phones` is off is not drawn below `md`, and
-a sidebar with no widget drawn there is left out. A widget whose own read is refused or empty draws
+with no sidebar widget for the viewer (or only widgets of types the web app does not draw yet) has
+no sidebar column. Below `lg` the sidebar is drawn below the content, one block under another; a
+widget whose `phones` is off is not drawn below `md`, and a sidebar with no widget drawn there is
+left out. A widget whose own read is refused or empty draws
 nothing; one that fails is logged and draws nothing, and the rest of the page stands.
 
 The old addresses answer with a permanent redirect (308) that keeps the query: a feed tab or a

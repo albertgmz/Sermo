@@ -13,7 +13,6 @@ import type {
   WidgetType,
 } from "@/components/widgets/widget-types";
 import type { ApiWidget } from "@/lib/sermo/widgets";
-import { cn } from "@/lib/utils";
 
 type Position = z.output<typeof WidgetPosition>;
 
@@ -41,13 +40,18 @@ const AREAS = {
 
 export type WidgetAreas = Record<keyof (typeof AREAS)["home"], ApiWidget[]>;
 
-// A page's widgets, sorted into its areas.
+// A page's widgets, sorted into its areas. A widget of a type this app does not draw is left out
+// here, so that it opens no column and leaves no gap.
 export function widgetAreas(
   page: keyof typeof AREAS,
   widgets: readonly ApiWidget[],
 ): WidgetAreas {
   const of = (positions: readonly Position[]) =>
-    widgets.filter((widget) => positions.includes(widget.position));
+    widgets.filter(
+      (widget) =>
+        positions.includes(widget.position) &&
+        Object.hasOwn(WIDGET_ENTRIES, widget.type),
+    );
   const areas = AREAS[page];
   return {
     lead: of(areas.lead),
@@ -58,16 +62,15 @@ export function widgetAreas(
 }
 
 // The page's sidebar, as `PageLayout` takes it: no column at all when no widget is in it, and none
-// on a phone when no widget in it is drawn there. Below the content it lays its blocks out in two
-// columns until the screen is wide enough for the sidebar to stand beside the content.
+// on a phone when no widget in it is drawn there. Below `lg` it follows the content, one block under
+// another at the content's width.
 export function widgetAside(widgets: ApiWidget[], context: WidgetContext) {
   if (widgets.length === 0) return {};
   return {
     aside: <WidgetArea widgets={widgets} context={context} />,
-    asideClassName: cn(
-      "sm:grid-cols-2 sm:items-start lg:grid-cols-1",
-      widgets.every((widget) => !widget.phones) && "max-md:hidden",
-    ),
+    asideClassName: widgets.every((widget) => !widget.phones)
+      ? "max-md:hidden"
+      : undefined,
   };
 }
 
