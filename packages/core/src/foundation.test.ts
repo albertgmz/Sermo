@@ -453,7 +453,9 @@ describe("checkpointer", () => {
       fixture.grow(200);
       expect(await fixture.timed(300)).toBeGreaterThanOrEqual(300);
       expect(await fixture.timed(300)).toBeLessThan(100);
-      fixture.grow(400);
+      // Past twice the size it gave up at; the migrated schema is part of that size, so the
+      // growth leaves room for it to get bigger.
+      fixture.grow(800);
       expect(await fixture.timed(300)).toBeGreaterThanOrEqual(300);
     } finally {
       await fixture.close();

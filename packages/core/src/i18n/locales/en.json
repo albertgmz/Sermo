@@ -555,6 +555,8 @@
   "permission.admin.prefixes.description": "Create, change, order and remove the labels members put on threads.",
   "permission.admin.navigation": "Manage navigation",
   "permission.admin.navigation.description": "Edit the links of the header, footer and menus.",
+  "permission.admin.widgets": "Manage widgets",
+  "permission.admin.widgets.description": "Add, change, order and remove the blocks drawn on the home page, the feed page and the member pages.",
   "permission.admin.pages": "Manage static pages",
   "permission.admin.pages.description": "Create, edit, publish and delete pages such as the terms and the rules.",
   "permission.category.general": "General",

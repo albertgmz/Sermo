@@ -2675,6 +2675,63 @@ export const navigationEntries = sqliteTable(
   ],
 );
 
+/** Where a widget can sit, in the order the pages draw them. */
+export const WIDGET_POSITIONS = [
+  "overview_top",
+  "forum_list_above",
+  "forum_list_below",
+  "overview_bottom",
+  "forum_list_sidebar",
+  "novedades_sidebar",
+  "forum_view_sidebar",
+  "members_sidenav",
+  "sidebar_top",
+  "sidebar_bottom",
+] as const;
+export type WidgetPosition = (typeof WIDGET_POSITIONS)[number];
+export const WIDGET_TYPES = [
+  "forumStats",
+  "rankedThreads",
+  "featured",
+  "visitorCard",
+  "monthStandings",
+  "referralLink",
+  "topReferrers",
+  "birthdays",
+  "suggestedMembers",
+  "forumLinks",
+  "recentlyActive",
+  "siteTotals",
+  "text",
+] as const;
+export type WidgetType = (typeof WIDGET_TYPES)[number];
+
+/**
+ * The blocks of the public pages. One row is one widget in one position (to show a block in two
+ * positions, duplicate it). `options` is JSON validated for the widget's type when written; a key
+ * added later is read with its default, so no migration is needed. `rule` is a criteria rule over
+ * the viewer, `cheap` criteria only (it is checked on each request).
+ */
+export const widgets = sqliteTable(
+  "widgets",
+  {
+    id: integer("id").primaryKey(),
+    position: text("position", { enum: WIDGET_POSITIONS }).notNull(),
+    type: text("type", { enum: WIDGET_TYPES }).notNull(),
+    displayOrder: integer("display_order").notNull(),
+    /** Null draws the type's own title. */
+    title: text("title"),
+    options: text("options").notNull().default("{}"),
+    rule: text("rule").notNull().default(EMPTY_RULE),
+    /** Whether a phone draws it. */
+    phones: bool("phones").notNull().default(true),
+    isEnabled: bool("is_enabled").notNull().default(true),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [index("widgets_position").on(t.position, t.displayOrder, t.id)],
+);
+
 /** Pages of text the site publishes about itself (terms, privacy, ...), written in Markdown. */
 export const staticPages = sqliteTable(
   "static_pages",

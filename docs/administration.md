@@ -61,11 +61,13 @@ category, its defaults and its conditions. Examples:
 - `attachment.storageQuota` (bytes, -1 for unlimited), `conversation.maxRecipients`,
   `mention.maxPerItem`: limits.
 - `admin.groups`, `admin.members`, `admin.permissions`, `admin.settings`, `admin.nodes`,
-  `admin.prefixes`, `admin.navigation`, `admin.pages`, `admin.promotions`,
+  `admin.prefixes`, `admin.navigation`, `admin.pages`, `admin.widgets`, `admin.promotions`,
   `admin.announcements`, `admin.reactionTypes`: administration, each separate.
   Thread prefixes (`threadPrefixes.*`), navigation entries (`navigation.*`) and static pages
   (`pages.list`, `pages.getSource`, `pages.save`, `pages.delete`, and reading a draft) are managed
-  with `admin.prefixes`, `admin.navigation` and `admin.pages`; `admin.nodes` keeps the forums
+  with `admin.prefixes`, `admin.navigation` and `admin.pages`; the widgets drawn on the public
+  pages (`widgets.list`, `widgets.create`, `widgets.update`, `widgets.duplicate`,
+  `widgets.reorder`, `widgets.delete`) with `admin.widgets`; `admin.nodes` keeps the forums
   and the forum list tabs, and `admin.settings` the rest of the site settings.
 
 All permission operations need `admin.permissions`.

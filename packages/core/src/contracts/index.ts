@@ -36,3 +36,4 @@ export * from "./spoilers";
 export * from "./storage";
 export * from "./tags";
 export * from "./terms";
+export * from "./widgets";

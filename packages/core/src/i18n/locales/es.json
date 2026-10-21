@@ -555,6 +555,8 @@
   "permission.admin.prefixes.description": "Crear, cambiar, ordenar y quitar las etiquetas que los miembros ponen a los hilos.",
   "permission.admin.navigation": "Administrar la navegación",
   "permission.admin.navigation.description": "Editar los enlaces de la cabecera, el pie y los menús.",
+  "permission.admin.widgets": "Administrar los widgets",
+  "permission.admin.widgets.description": "Añadir, cambiar, ordenar y quitar los bloques de la página de inicio, la de novedades y las de miembros.",
   "permission.admin.pages": "Administrar páginas estáticas",
   "permission.admin.pages.description": "Crear, editar, publicar y eliminar páginas como los términos y las normas.",
   "permission.category.general": "General",

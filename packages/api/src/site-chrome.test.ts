@@ -128,3 +128,61 @@ test("pages are read by slug, written with PUT and hidden while unpublished", as
   expect((await request("/api/v1/pages/terms", json(admin.cookie, "DELETE"))).status).toBe(200);
   expect((await request("/api/v1/pages/terms")).status).toBe(404);
 });
+
+test("widgets are read by page without signing in; the rest needs admin.widgets", async () => {
+  const { request, admin, member } = await setup();
+  const guest = await request("/api/v1/widgets?page=novedades");
+  expect(guest.status).toBe(200);
+  const shown = (await guest.json()) as { items: { position: string; type: string }[] };
+  expect(shown.items.some((item) => item.position === "novedades_sidebar")).toBe(true);
+  expect((await request("/api/v1/widgets?page=nowhere")).status).toBe(400);
+
+  expect((await request("/api/v1/widgets/all")).status).toBe(401);
+  expect((await request("/api/v1/widgets/all", json(member.cookie, "GET"))).status).toBe(403);
+  const refused = await request(
+    "/api/v1/widgets",
+    json(member.cookie, "POST", { position: "overview_top", type: "nothing" }),
+  );
+  expect(refused.status).toBe(403);
+
+  const created = await request(
+    "/api/v1/widgets",
+    json(admin.cookie, "POST", {
+      position: "overview_top",
+      type: "recentlyActive",
+      options: { window: "15m" },
+    }),
+  );
+  expect(created.status).toBe(201);
+  const made = (await created.json()) as { id: number; options: object };
+  expect(made.options).toEqual({ window: "15m" });
+  const copied = await request(
+    `/api/v1/widgets/${made.id}/copies`,
+    json(admin.cookie, "POST", { position: "overview_bottom" }),
+  );
+  expect(copied.status).toBe(201);
+  const copy = (await copied.json()) as { id: number; position: string };
+  expect(copy.position).toBe("overview_bottom");
+  const patched = await request(
+    `/api/v1/widgets/${made.id}`,
+    json(admin.cookie, "PATCH", {
+      type: "recentlyActive",
+      position: "overview_top",
+      title: null,
+      phones: false,
+      isEnabled: true,
+      rule: { match: "all", conditions: [] },
+      options: { window: "24h" },
+    }),
+  );
+  expect(patched.status).toBe(200);
+  expect(await patched.json()).toMatchObject({ phones: false, options: { window: "24h" } });
+  const ordered = await request(
+    "/api/v1/widgets/order",
+    json(admin.cookie, "PUT", { position: "overview_bottom", ids: [copy.id] }),
+  );
+  expect(ordered.status).toBe(200);
+  expect((await request(`/api/v1/widgets/${made.id}`, json(admin.cookie, "DELETE"))).status).toBe(
+    200,
+  );
+});

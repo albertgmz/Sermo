@@ -140,7 +140,8 @@ export type CacheKey =
   | "appearance"
   | "thread_prefixes"
   | "node_tabs"
-  | "navigation";
+  | "navigation"
+  | "widgets";
 
 /**
  * Returns a cached value for `key`, rebuilding it when the key's version in `cache_versions`

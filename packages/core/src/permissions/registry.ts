@@ -909,6 +909,8 @@ export const PERMISSIONS = {
   "admin.prefixes": globalAdmin("admin"),
   /** Manage the navigation entries of the header, footer and menus. */
   "admin.navigation": globalAdmin("admin"),
+  /** Manage the widgets: the blocks drawn on the home page, the feed page and the member pages. */
+  "admin.widgets": globalAdmin("admin"),
   /** Manage static pages (terms, rules, about). */
   "admin.pages": globalAdmin("admin"),
   "admin.groups": globalAdmin("admin"),
