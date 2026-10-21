@@ -7,6 +7,7 @@ import { Logo } from "@/components/layout/logo";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
 import { referrerOf } from "@/lib/referral/link";
 import { isPublished } from "@/lib/sermo/pages";
+import { getSite } from "@/lib/sermo/site";
 import { turnstileKeyFor } from "@/lib/sermo/turnstile";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,14 +20,16 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RegisterPage({
   searchParams,
 }: PageProps<"/[locale]/register">) {
-  const [t, { ref, refused }, turnstileKey, hasTerms, hasRules] =
+  const [t, { ref, refused }, turnstileKey, hasTerms, hasRules, site] =
     await Promise.all([
       getTranslations("auth.register"),
       searchParams,
       turnstileKeyFor("register"),
       isPublished("terms"),
       isPublished("rules"),
+      getSite(),
     ]);
+  const { registration } = site;
   const refusal = await refusalText(refused);
   // What the checkbox names: only the pages the site publishes.
   const pages =
@@ -58,15 +61,36 @@ export default async function RegisterPage({
             <h1 className="text-center text-2xl font-bold tracking-tight">
               {t("heading")}
             </h1>
-            <p className="mt-1 mb-6 text-center text-sm text-muted-foreground">
-              {t("description")}
-            </p>
-            <RegisterForm
-              referrer={referrerOf(ref)?.toString()}
-              turnstileKey={turnstileKey}
-              pages={pages}
-              {...(refusal ? { refusal } : {})}
-            />
+            {registration.open ? (
+              <>
+                <p className="mt-1 mb-6 text-center text-sm text-muted-foreground">
+                  {t("description")}
+                </p>
+                {registration.approval && (
+                  <p
+                    role="note"
+                    className="mb-6 text-center text-sm text-muted-foreground"
+                  >
+                    {t("approvalNote")}
+                  </p>
+                )}
+                <RegisterForm
+                  referrer={referrerOf(ref)?.toString()}
+                  turnstileKey={turnstileKey}
+                  pages={pages}
+                  fields={registration.fields}
+                  minimumAge={registration.minimumAge}
+                  {...(refusal ? { refusal } : {})}
+                />
+              </>
+            ) : (
+              <p
+                role="status"
+                className="mt-1 text-center text-sm text-muted-foreground"
+              >
+                {t("closed")}
+              </p>
+            )}
           </div>
         </div>
       </div>

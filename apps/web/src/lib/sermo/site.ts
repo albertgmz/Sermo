@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   type Analytics,
+  type RegistrationField,
   siteGet,
   type TurnstileForm,
 } from "@sermo/core/contracts";
@@ -34,6 +35,15 @@ export type SiteIdentity = {
   // Cloudflare Turnstile on the guest forms: the public site key and the forms it guards; null
   // when it is off, not fully set up, or the site could not be read.
   turnstile: { siteKey: string; forms: TurnstileForm[] } | null;
+  // What the sign-up form asks: whether registration is open, whether new accounts wait for
+  // staff, the youngest age that may register (0: none) and the profile fields to ask. Open and
+  // asking nothing while the site could not be read: the backend decides at sign-up.
+  registration: {
+    open: boolean;
+    approval: boolean;
+    minimumAge: number;
+    fields: RegistrationField[];
+  };
   // The version of the cookie policy visitors consent to (an administrator raises it to ask
   // everyone again); the first version while the site cannot be read.
   cookiePolicyVersion: number;
@@ -73,6 +83,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       matomoCookieless,
       cookieBannerOutsideEu,
       turnstile,
+      registration,
       palette,
     } = site;
     // Fresh for a minute, so a change in the administration panel shows up without a deploy. The
@@ -92,6 +103,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       matomoCookieless,
       cookieBannerOutsideEu,
       turnstile,
+      registration,
       accents: palette.accents.map(({ id, color, foreground }) => ({
         id,
         color,
@@ -116,6 +128,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       forumStatsEnabled: false,
       analytics: { provider: "none" },
       turnstile: null,
+      registration: { open: true, approval: false, minimumAge: 0, fields: [] },
       cookiePolicyVersion: POLICY_VERSION,
       matomoCookieless: false,
       cookieBannerOutsideEu: true,

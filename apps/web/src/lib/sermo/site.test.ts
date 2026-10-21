@@ -48,6 +48,7 @@ test("the site is read without the visitor and keeps only its identity", async (
     forumStatsEnabled: false,
     analytics: { provider: "none" },
     turnstile: null,
+    registration: { open: true, approval: false, minimumAge: 0, fields: [] },
     cookiePolicyVersion: 1,
     matomoCookieless: false,
     cookieBannerOutsideEu: true,
@@ -129,6 +130,7 @@ test("an unreachable backend gives the default name and is logged outside the bu
       forumStatsEnabled: false,
       analytics: { provider: "none" },
       turnstile: null,
+      registration: { open: true, approval: false, minimumAge: 0, fields: [] },
       cookiePolicyVersion: 1,
       matomoCookieless: false,
       cookieBannerOutsideEu: true,
@@ -159,4 +161,16 @@ test("the cookie policy version and the banner settings are the site's", async (
   assert.equal(site.cookiePolicyVersion, 4);
   assert.equal(site.matomoCookieless, true);
   assert.equal(site.cookieBannerOutsideEu, false);
+});
+
+test("the registration rules are the site's", async () => {
+  const registration = {
+    open: false,
+    approval: true,
+    minimumAge: 13,
+    fields: ["birthday", "location"],
+  };
+  globalThis.fetch = (async () =>
+    Response.json(siteBody({ registration }))) as unknown as typeof fetch;
+  assert.deepEqual((await getSite()).registration, registration);
 });

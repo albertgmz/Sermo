@@ -6,6 +6,7 @@ import { LoginForm } from "@/app/[locale]/(auth)/login/login-form";
 import { refusalText } from "@/app/[locale]/(auth)/refusal-text";
 import { ResendForm } from "@/app/[locale]/(auth)/resend-form";
 import { safeReturnPath } from "@/lib/sermo/return-path";
+import { getSite } from "@/lib/sermo/site";
 import { turnstileKeyFor } from "@/lib/sermo/turnstile";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,10 +23,11 @@ export default async function LoginPage({
   const resend = await getTranslations("auth.resendForm");
   const { next, registered, reset, resent, notMe, refused, form } =
     await searchParams;
-  const [loginKey, resendKey, refusal] = await Promise.all([
+  const [loginKey, resendKey, refusal, site] = await Promise.all([
     turnstileKeyFor("login"),
     registered ? turnstileKeyFor("resendConfirmation") : null,
     refusalText(refused),
+    getSite(),
   ]);
   // The refusal is the resend form's when that form was the one sent.
   const resendRefused = form === "resend";
@@ -50,18 +52,20 @@ export default async function LoginPage({
         turnstileKey={loginKey}
         {...(resendRefused ? {} : { refusal })}
       />
-      <p className="mt-4 text-center text-sm text-muted-foreground">
-        {t.rich("createAccount", {
-          link: (chunks) => (
-            <Link
-              href="/register"
-              className="inline-flex min-h-10 items-center font-medium text-foreground underline-offset-4 hover:underline"
-            >
-              {chunks}
-            </Link>
-          ),
-        })}
-      </p>
+      {site.registration.open && (
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          {t.rich("createAccount", {
+            link: (chunks) => (
+              <Link
+                href="/register"
+                className="inline-flex min-h-10 items-center font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                {chunks}
+              </Link>
+            ),
+          })}
+        </p>
+      )}
       {registered && (
         <div className="mt-6 space-y-4 border-t pt-6">
           <h2 className="text-center text-sm font-semibold">

@@ -1,5 +1,6 @@
 "use client";
 
+import type { RegistrationField } from "@sermo/core/contracts";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
@@ -7,6 +8,7 @@ import { register } from "@/app/[locale]/(auth)/actions";
 import { HydrationMark } from "@/app/[locale]/(auth)/hydration-mark";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
 import { PasswordStrength } from "@/app/[locale]/(auth)/password-strength";
+import { SignupFields } from "@/app/[locale]/(auth)/register/signup-fields";
 import { TurnstileField } from "@/app/[locale]/(auth)/turnstile-field";
 import { useHardNavigation } from "@/app/[locale]/(auth)/use-hard-navigation";
 import { FormError } from "@/components/forum/form-error";
@@ -23,10 +25,16 @@ export function RegisterForm({
   referrer,
   turnstileKey,
   pages,
+  fields,
+  minimumAge,
   refusal = "",
 }: {
   referrer?: string;
   turnstileKey: string | null;
+  // The profile fields the site asks at sign-up (its registration settings), and the youngest age
+  // that may register (0: none).
+  fields: readonly RegistrationField[];
+  minimumAge: number;
   // Which of the terms and the rules the site publishes: the checkbox names only those.
   pages: "both" | "terms" | "rules" | "none";
   // What a form sent without the page's script was refused for (see `native-form.ts`).
@@ -86,6 +94,11 @@ export function RegisterForm({
         />
         <PasswordStrength password={password} />
       </div>
+      <SignupFields
+        fields={fields}
+        minimumAge={minimumAge}
+        kept={state.profile ?? {}}
+      />
       {turnstileKey && (
         <TurnstileField
           siteKey={turnstileKey}

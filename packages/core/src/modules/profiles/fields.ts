@@ -102,11 +102,15 @@ export function profileFieldChanges(
   return { changes, settingTitle, settingSignature };
 }
 
-/** Stores the columns `profileFieldChanges` returned. Call inside the write transaction. */
+/**
+ * Stores the columns `profileFieldChanges` returned. Call inside the write transaction. A profile
+ * that was just created (the sign-up's) announces no edit.
+ */
 export function storeProfileChanges(
   ctx: Ctx,
   userId: number,
   changes: Record<string, string | number | null>,
+  announce = true,
 ): void {
   const columns = Object.keys(changes);
   if (columns.length === 0) return;
@@ -115,5 +119,6 @@ export function storeProfileChanges(
       `UPDATE users SET ${columns.map((column, i) => `${column} = ?${i + 3}`).join(", ")}, content_updated_at = ?2 WHERE id = ?1`,
     )
     .run(userId, ctx.now(), ...columns.map((column) => changes[column]!));
-  publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: userId });
+  if (announce)
+    publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: userId });
 }

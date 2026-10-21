@@ -52,8 +52,10 @@
     "members": {
       "metaTitle": "Miembros nuevos",
       "heading": "Miembros nuevos",
-      "subtitle": "Cuánto tiempo se considera nuevo a un miembro y qué se le restringe.",
-      "formHeading": "Reglas para miembros nuevos"
+      "subtitle": "Quién puede registrarse y qué pide el formulario, cuánto tiempo se considera nuevo a un miembro y qué se le restringe.",
+      "formHeading": "Reglas para miembros nuevos",
+      "registration": "Registro",
+      "registrationNote": "Quién puede crear una cuenta, qué pide el formulario de registro y cómo entra una cuenta nueva."
     },
     "antispam": {
       "metaTitle": "Antispam",
@@ -334,6 +336,25 @@
         "label": "Id de medición de Google",
         "help": "Empieza por G-, por ejemplo G-ABC123XYZ."
       }
+    },
+    "registrationOpen": {
+      "label": "Registro",
+      "help": "Si lo desactivas, los visitantes no pueden crear cuentas: la página de registro dice que está cerrado y el servidor rechaza todo intento. Las cuentas existentes no cambian.",
+      "switch": "Los visitantes pueden crear una cuenta"
+    },
+    "minimumAge": {
+      "label": "Edad mínima",
+      "help": "La edad mínima para registrarse. Con un valor mayor que 0, el formulario pide la fecha de nacimiento y rechaza a quien sea más joven. 0 no pide la edad.",
+      "unit": "años"
+    },
+    "registrationFields": {
+      "label": "Campos de perfil obligatorios",
+      "help": "El formulario de registro pide los campos de perfil marcados y rechaza a quien deje alguno vacío. La fecha de nacimiento se pide siempre que haya una edad mínima."
+    },
+    "requireEmailConfirmation": {
+      "label": "Confirmación del correo",
+      "help": "Activada: la cuenta nueva queda sin confirmar hasta que su dueño abre el enlace del correo. Desactivada: las cuentas nuevas son miembros de inmediato y no se envía ningún enlace. Solo importa en un sitio que envía correo; las cuentas que ya están sin confirmar siguen así.",
+      "switch": "Las cuentas nuevas deben confirmar su correo"
     }
   },
   "signatureFormats": {
@@ -552,5 +573,14 @@
   },
   "nav": {
     "label": "Grupos de ajustes"
+  },
+  "registrationFields": {
+    "birthday": "Fecha de nacimiento",
+    "location": "Ubicación",
+    "website": "Sitio web",
+    "about": "Acerca de ti",
+    "discord": "Discord",
+    "telegram": "Telegram",
+    "x": "X"
   }
 }

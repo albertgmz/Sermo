@@ -36,6 +36,7 @@ export function siteBody(over: Record<string, unknown> = {}) {
     matomoCookieless: false,
     cookieBannerOutsideEu: true,
     turnstile: null,
+    registration: { open: true, approval: false, minimumAge: 0, fields: [] },
     defaultLanguage: "en",
     palette: { accents: [], nameColors: [], prefixColors: [] },
     ...over,

@@ -55,6 +55,10 @@ const defaults: StoredSiteSettingsValue = {
   linksRule: { match: "all", conditions: [] },
   approvalRule: { match: "all", conditions: [] },
   approveSignups: false,
+  registrationOpen: true,
+  minimumAge: 0,
+  registrationFields: [],
+  requireEmailConfirmation: true,
   feedExcludedForumIds: [],
   homeTab: { rules: [], fallback: "latest" },
   threadTitleTemplate: "{title} | {site}",
@@ -189,6 +193,8 @@ export function updateSiteSettings(
       settingChanges.signatureFormats = [...new Set(settingChanges.signatureFormats)];
     if (settingChanges.turnstileForms)
       settingChanges.turnstileForms = [...new Set(settingChanges.turnstileForms)];
+    if (settingChanges.registrationFields)
+      settingChanges.registrationFields = [...new Set(settingChanges.registrationFields)];
     if (settingChanges.feedExcludedForumIds) {
       const ids = [...new Set(settingChanges.feedExcludedForumIds)];
       settingChanges.feedExcludedForumIds = ids;

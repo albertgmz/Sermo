@@ -41,9 +41,12 @@ afterAll(() => {
 
 type Answer = "published" | "draft" | "not_found" | "rate_limited" | "down";
 
-function backend(answers: Record<"terms" | "rules", Answer>) {
+function backend(
+  answers: Record<"terms" | "rules", Answer>,
+  siteOver: Record<string, unknown> = {},
+) {
   globalThis.fetch = (async (input: string) => {
-    const site = siteAnswer(input);
+    const site = siteAnswer(input, siteOver);
     if (site) return site;
     const slug = new URL(input).pathname.split("/").pop() as "terms" | "rules";
     const answer = answers[slug];
@@ -69,20 +72,31 @@ function backend(answers: Record<"terms" | "rules", Answer>) {
   }) as unknown as typeof fetch;
 }
 
-// The `pages` prop the page gave the form.
-function pagesOf(node: unknown): string | undefined {
+type FormProps = { pages?: string; fields?: string[]; minimumAge?: number };
+
+// The props the page gave the form, or undefined when it drew none.
+function formOf(node: unknown): FormProps | undefined {
   if (node === null || typeof node !== "object") return undefined;
-  const element = node as ReactElement<{ children?: unknown; pages?: string }>;
-  if (element.type === RegisterForm) return element.props.pages;
+  const element = node as ReactElement<FormProps & { children?: unknown }>;
+  if (element.type === RegisterForm) return element.props;
   for (const child of [element.props?.children].flat(Infinity)) {
-    const found = pagesOf(child);
+    const found = formOf(child);
     if (found) return found;
   }
   return undefined;
 }
 
-const draw = async () =>
-  pagesOf(await RegisterPage({ searchParams: Promise.resolve({}) } as never));
+// Every string the page put in its tree (the translator answers each key with itself).
+function textsOf(node: unknown): string[] {
+  if (typeof node === "string") return [node];
+  if (node === null || typeof node !== "object") return [];
+  const { children } =
+    (node as ReactElement<{ children?: unknown }>).props ?? {};
+  return [children].flat(Infinity).flatMap(textsOf);
+}
+
+const page = () => RegisterPage({ searchParams: Promise.resolve({}) } as never);
+const draw = async () => formOf(await page())?.pages;
 
 test("the form names the pages the site publishes", async () => {
   backend({ terms: "published", rules: "published" });
@@ -107,4 +121,43 @@ test("a failure other than not found is an error, not a form that names fewer pa
     backend({ terms: failure, rules: "not_found" });
     await expect(draw()).rejects.toThrow();
   }
+});
+
+test("the form is asked for the profile fields and the minimum age the site sets", async () => {
+  backend(
+    { terms: "published", rules: "published" },
+    {
+      registration: {
+        open: true,
+        approval: false,
+        minimumAge: 13,
+        fields: ["birthday", "location"],
+      },
+    },
+  );
+  const form = formOf(await page());
+  expect(form?.fields).toEqual(["birthday", "location"]);
+  expect(form?.minimumAge).toBe(13);
+});
+
+test("a closed site draws its notice and no form", async () => {
+  backend(
+    { terms: "published", rules: "published" },
+    {
+      registration: { open: false, approval: false, minimumAge: 0, fields: [] },
+    },
+  );
+  const tree = await page();
+  expect(formOf(tree)).toBeUndefined();
+  expect(textsOf(tree)).toContain("closed");
+});
+
+test("a site that approves new accounts says so above the form", async () => {
+  backend(
+    { terms: "published", rules: "published" },
+    { registration: { open: true, approval: true, minimumAge: 0, fields: [] } },
+  );
+  expect(textsOf(await page())).toContain("approvalNote");
+  backend({ terms: "published", rules: "published" });
+  expect(textsOf(await page())).not.toContain("approvalNote");
 });

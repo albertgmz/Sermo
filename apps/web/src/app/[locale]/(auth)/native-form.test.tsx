@@ -42,6 +42,8 @@ const FORMS = {
     <RegisterForm
       turnstileKey={null}
       pages="both"
+      fields={[]}
+      minimumAge={0}
       {...(refusal ? { refusal } : {})}
     />
   ),

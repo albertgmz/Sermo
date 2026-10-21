@@ -84,14 +84,15 @@ export function SwitchRow({ name, value }: { name: FieldKey; value: boolean }) {
   );
 }
 
-// A row of ticked kinds (the formatting a signature may use, the forms Turnstile guards). The
+// A row of ticked kinds (the formatting a signature may use, the forms Turnstile guards, the profile
+// fields sign-up requires). The
 // ticked ones are posted under the row's name; `options` pairs each kind with its label.
 export async function ChecklistRow({
   name,
   options,
   value,
 }: {
-  name: "signatureFormats" | "turnstileForms";
+  name: "signatureFormats" | "turnstileForms" | "registrationFields";
   options: { kind: string; label: string; note?: string }[];
   value: readonly string[];
 }) {

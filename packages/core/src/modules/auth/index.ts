@@ -60,6 +60,7 @@ import {
   pendingAcceptances,
   recordSignUpAcceptance,
 } from "../pages/acceptance";
+import { storeProfileChanges } from "../profiles/fields";
 import { requestLocation } from "../security/location";
 import { logMemberIp } from "../security/log";
 import { noteSessionActive, recordSignIn } from "../security/session";
@@ -67,6 +68,7 @@ import { logFailedSignIn } from "../security/sign-in";
 import { readSiteSettings } from "../settings";
 import { resolveHomeTab } from "../settings/home-tab";
 import { checkTurnstile, TurnstileRefusal } from "../settings/turnstile";
+import { checkSignup, signupColumns } from "./registration";
 import { usernameChange } from "./rename-marker";
 import { requestLanguage } from "./request-language";
 import { forgiveSignInGuess, takeSignInGuess } from "./sign-in-limit";
@@ -412,6 +414,10 @@ function buildAuth(ctx: Ctx) {
   // Usernames the spam check flagged at sign-up, from the hook before the account is made to the
   // hook after it (one request); a sign-up that failed in between leaves its entry to expire.
   const flaggedSignups = new Map<string, number>();
+  // Addresses signing up while the site asks for no email confirmation, from the hook before the
+  // account is made to the call that would have sent the link (one request); the hook after the
+  // request clears what a failed sign-up left.
+  const unconfirmedSignups = new Set<string>();
   const auth = betterAuth({
     ...authSchemaOptions,
     secret: config.secret,
@@ -494,6 +500,9 @@ function buildAuth(ctx: Ctx) {
               url: string;
               token: string;
             }) => {
+              // The site asks no confirmation of new accounts: the sign-up sends no link. A later
+              // request for one (the member's own, or an email change) is answered as always.
+              if (unconfirmedSignups.delete(user.email.toLowerCase())) return;
               const claim = await verifyJWT(token, config.secret);
               if (!claim) throw invalidToken();
               if (claim.updateTo)
@@ -557,6 +566,18 @@ function buildAuth(ctx: Ctx) {
               if (hook.path !== "/sign-out" && isClosed(ctx, Number(session.user.id)))
                 throw accountBanned();
             }
+          }
+          // The site's registration rules (closed, required fields, minimum age) are for a visitor's
+          // request; the call that creates the first administrator is made inside the server and
+          // has no request.
+          if (hook.path === "/sign-up/email" && hook.request) {
+            checkSignup(ctx, hook.body);
+            if (
+              mailEnabled &&
+              !readSiteSettings(ctx).requireEmailConfirmation &&
+              typeof hook.body?.email === "string"
+            )
+              unconfirmedSignups.add(hook.body.email.toLowerCase());
           }
           // The plugin accepts any name, as sign-in must for an imported account; the rule for
           // new names is applied here, to the endpoints that register or rename.
@@ -823,6 +844,8 @@ function buildAuth(ctx: Ctx) {
       ),
       after: createAuthMiddleware(async (hook) => {
         if (Reflect.get(hook.context, DEAD_SESSION_COOKIE) === true) retireDeadSessionCookies(hook);
+        if (hook.path === "/sign-up/email" && typeof hook.body?.email === "string")
+          unconfirmedSignups.delete(hook.body.email.toLowerCase());
         const failed =
           hook.context.returned instanceof APIError ||
           (hook.context.returned instanceof Response && !hook.context.returned.ok);
@@ -999,6 +1022,8 @@ function buildAuth(ctx: Ctx) {
             const flagged = flaggedSignups.delete(normalized);
             try {
               writeTx(ctx, () => {
+                // Without a mail driver nobody can be asked to confirm; with one, the site decides.
+                const confirms = mailEnabled && readSiteSettings(ctx).requireEmailConfirmation;
                 const review = signupReviewFor(ctx, flagged);
                 const headers = (hookContext as { headers?: Headers } | undefined)?.headers;
                 ctx.sqlite
@@ -1009,18 +1034,25 @@ function buildAuth(ctx: Ctx) {
                     Number(user.id),
                     display,
                     normalized,
-                    mailEnabled ? GROUP_IDS.unconfirmed : GROUP_IDS.member,
+                    confirms ? GROUP_IDS.unconfirmed : GROUP_IDS.member,
                     ctx.now(),
                     review,
                     // The language the visitor read the sign-up page in, for the mails to come.
                     requestLanguage(headers),
                   );
+                // The profile fields the sign-up form asked for.
+                storeProfileChanges(
+                  ctx,
+                  Number(user.id),
+                  signupColumns(ctx, (hookContext as { body?: unknown } | undefined)?.body),
+                  false,
+                );
                 // The sign-up form may carry the member whose link brought the visitor.
                 const referrer = parseReferrer(
                   (hookContext as { body?: { ref?: unknown } } | undefined)?.body?.ref,
                 );
                 if (referrer !== null)
-                  referOnRegistration(ctx, Number(user.id), referrer, mailEnabled);
+                  referOnRegistration(ctx, Number(user.id), referrer, confirms);
                 const ip = headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip");
                 // The form's checkbox covers the terms and the rules published now. A sign-up
                 // without it records nothing: the member is asked on their first visit.
@@ -1044,7 +1076,7 @@ function buildAuth(ctx: Ctx) {
                   targetId: Number(user.id),
                 });
                 // With no email to confirm the account waits for staff at once.
-                if (review !== null && !mailEnabled) announceWaiting(ctx, Number(user.id));
+                if (review !== null && !confirms) announceWaiting(ctx, Number(user.id));
               });
             } catch (error) {
               const mapped = userConstraintError(error);
@@ -1288,7 +1320,9 @@ function groupFor(ctx: Ctx, userId: number): number {
         ? identity.display_username
         : normalized;
     const repairedGroup =
-      accountEmailEnabled(ctx) && !identity.email_verified
+      accountEmailEnabled(ctx) &&
+      readSiteSettings(ctx).requireEmailConfirmation &&
+      !identity.email_verified
         ? GROUP_IDS.unconfirmed
         : GROUP_IDS.member;
     ctx.sqlite

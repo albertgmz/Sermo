@@ -32,6 +32,10 @@ export const REFUSALS = [
   "turnstileRequired",
   "turnstileFailed",
   "turnstileUnavailable",
+  "registrationClosed",
+  "underAge",
+  "fieldRequired",
+  "invalidField",
 ] as const;
 
 export type Refusal = (typeof REFUSALS)[number];

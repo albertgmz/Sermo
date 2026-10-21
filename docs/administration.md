@@ -1211,7 +1211,10 @@ When the mail driver is `capture` or `smtp`, Better Auth sends these through Ser
 - **Verification.** New accounts join the Unconfirmed group and receive a confirmation link
   (`POST /api/auth/send-verification-email` sends it again). Following it moves an account whose
   primary group is still Unconfirmed to Member and sends a welcome email. Accounts that existed
-  before email was enabled keep their groups.
+  before email was enabled keep their groups. The site setting `requireEmailConfirmation` (on by
+  default; **Settings > Members** > Registration) turns this off for new accounts: they join Member
+  at once and the sign-up sends no link (a member can still ask for one, and email change works as
+  always). Accounts already Unconfirmed stay so.
 - **Password reset.** `POST /api/auth/request-password-reset` with `email` and `redirectTo`. The
   `redirectTo` URL must be on a trusted origin (`BETTER_AUTH_URL` or `SERMO_TRUSTED_ORIGINS`).
   A completed reset signs the account out everywhere and sends a "password changed" notice.
@@ -1268,6 +1271,27 @@ cookie is deleted once the account exists.
 
 Erasing a member ends their links as before: the referrer's count drops by one and the members
 they referred lose their referrer.
+
+## Registration
+
+**Settings > Members** > Registration holds the rules of the sign-up, as XenForo's registration
+options do. They are enforced by the backend on the sign-up request (`POST /api/auth/sign-up/email`),
+not only by the form, and a refusal creates no account. The defaults leave a site as it was:
+open, no extra fields, no age, confirmation as the mail driver implies.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `registrationOpen` | on | Off: every visitor's sign-up is refused with `REGISTRATION_CLOSED` (403); `/register` says registration is closed, and the sign-in page and the header leave out the link. Existing accounts are untouched, and the call the server makes to create the first administrator is not a visitor's request. |
+| `approveSignups` | off | New accounts wait for staff, see [Sign-up approval](#sign-up-approval). Together with `registrationOpen` these are the three states of XenForo: closed, open, open with approval. |
+| `requireEmailConfirmation` | on | See Verification under [Account emails](#account-emails). It does nothing without a mail driver: nobody can be asked. |
+| `minimumAge` | 0 | Above 0 the form asks for a full date of birth and a visitor younger than this is refused with `UNDER_MINIMUM_AGE` (403). The date is stored on the profile, where the member can change it later like any profile field (the age is checked at sign-up only). 0 asks for no age. |
+| `registrationFields` | none | Profile fields a visitor must fill in: `birthday` (full date), `location`, `website`, `about`, `discord`, `telegram`, `x`. A missing or blank one is refused with `REGISTRATION_FIELD_REQUIRED`, an invalid one (a date that does not exist or lies in the future, a website that is not an http(s) URL) with `INVALID_PROFILE_FIELD`. |
+
+The sign-up request carries the fields in a `profile` object (`{ "birthday": { "year", "month",
+"day" }, "location": "...", ... }`). Only the fields the site requires are asked on the form;
+`site.get` says what the form should ask (`registration`: `open`, `approval`, `minimumAge`,
+`fields`, where `fields` already holds `birthday` when there is a minimum age). A field that is
+sent without being required is still checked and stored.
 
 ## Sign-up approval
 

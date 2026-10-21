@@ -1,5 +1,6 @@
 "use server";
 
+import { REGISTRATION_FIELDS } from "@sermo/core/contracts";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -25,7 +26,13 @@ import { safeReturnPath } from "@/lib/sermo/return-path";
 import { tokenOf } from "@/lib/turnstile/field";
 
 // `assign`: go to this address with a full page load (see `useHardNavigation`).
-export type AuthState = { error: string; username: string; assign?: string };
+// `profile`: what the sign-up form's profile fields held, drawn again after a refusal.
+export type AuthState = {
+  error: string;
+  username: string;
+  assign?: string;
+  profile?: Record<string, string>;
+};
 
 // Better Auth's error code to the key under auth.actions.errors.
 const ERRORS: Record<string, Refusal> = {
@@ -51,6 +58,10 @@ const ERRORS: Record<string, Refusal> = {
   TURNSTILE_REQUIRED: "turnstileRequired",
   TURNSTILE_FAILED: "turnstileFailed",
   TURNSTILE_UNAVAILABLE: "turnstileUnavailable",
+  REGISTRATION_CLOSED: "registrationClosed",
+  UNDER_MINIMUM_AGE: "underAge",
+  REGISTRATION_FIELD_REQUIRED: "fieldRequired",
+  INVALID_PROFILE_FIELD: "invalidField",
 };
 
 const keyOf = (code: string | undefined): Refusal =>
@@ -123,6 +134,34 @@ export async function login(
   redirect(next);
 }
 
+// The profile fields the sign-up form held: each as typed, a date of birth as the date input posts
+// it (YYYY-MM-DD). The backend decides which the site requires and whether they are valid.
+function profileOf(formData: FormData) {
+  const typed: Record<string, string> = {};
+  for (const field of REGISTRATION_FIELDS) {
+    const value = formData.get(field);
+    if (typeof value === "string" && value.trim() !== "")
+      typed[field] = value.trim();
+  }
+  const { birthday, ...rest } = typed;
+  const date = birthday?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return {
+    typed,
+    sent: {
+      ...rest,
+      ...(date
+        ? {
+            birthday: {
+              year: Number(date[1]),
+              month: Number(date[2]),
+              day: Number(date[3]),
+            },
+          }
+        : {}),
+    },
+  };
+}
+
 export async function register(
   _previous: AuthState,
   formData: FormData,
@@ -132,11 +171,19 @@ export async function register(
   const password = String(formData.get("password") ?? "");
   const ref = String(formData.get("ref") ?? "");
   const again: Retry = { username, params: ref ? { ref } : {} };
+  const profile = profileOf(formData);
+  // A refusal draws the form again with what was typed in the profile fields.
+  const refuseSignUp = async (key: Refusal) => ({
+    ...(await refuseKeeping(formData, "/register", key, again)),
+    ...(Object.keys(profile.typed).length === 0
+      ? {}
+      : { profile: profile.typed }),
+  });
   if (!username || !email || !password) {
-    return refuseKeeping(formData, "/register", "passwordRequired", again);
+    return refuseSignUp("passwordRequired");
   }
   if (!formData.get("terms")) {
-    return refuseKeeping(formData, "/register", "termsRequired", again);
+    return refuseSignUp("termsRequired");
   }
   // The member whose link brought the visitor travels with the sign-up, and the backend decides
   // whether and when it counts. The cookie, kept once the visitor accepted it, was set by the
@@ -155,11 +202,14 @@ export async function register(
       password,
       acceptTerms: true,
       ...(referrer === null ? {} : { ref: referrer }),
+      ...(Object.keys(profile.sent).length === 0
+        ? {}
+        : { profile: profile.sent }),
     },
     tokenOf(formData),
   );
   if (!result.ok) {
-    return refuseKeeping(formData, "/register", keyOf(result.code), again);
+    return refuseSignUp(keyOf(result.code));
   }
   if (store.has(REFERRAL_COOKIE)) store.delete(REFERRAL_COOKIE);
   const adopted =

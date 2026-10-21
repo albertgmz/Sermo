@@ -83,6 +83,21 @@ export const TURNSTILE_FORMS = [
 ] as const;
 export type TurnstileForm = (typeof TURNSTILE_FORMS)[number];
 
+/**
+ * The profile fields a site can require at sign-up: the member's own profile fields (see
+ * `profiles.update`). `birthday` asks the full date, year included.
+ */
+export const REGISTRATION_FIELDS = [
+  "birthday",
+  "location",
+  "website",
+  "about",
+  "discord",
+  "telegram",
+  "x",
+] as const;
+export type RegistrationField = (typeof REGISTRATION_FIELDS)[number];
+
 /** The most rules the site's home tab setting holds. */
 export const MAX_HOME_TAB_RULES = 10;
 
@@ -131,6 +146,34 @@ export const SiteSettings = z
      * confirmed. Off by default; accounts already waiting stay in the queue when it is turned off.
      */
     approveSignups: z.boolean().default(false),
+    /**
+     * Whether visitors can register. Off: the sign-up endpoint refuses every visitor (code
+     * `REGISTRATION_CLOSED`); accounts that exist, and the administrator the site is started
+     * with, are not affected. On by default.
+     */
+    registrationOpen: z.boolean().default(true),
+    /**
+     * The youngest age that may register, in years; 0 asks for no age. Above 0 the sign-up asks
+     * for the full date of birth and refuses a visitor younger than this (code
+     * `UNDER_MINIMUM_AGE`). 0 by default.
+     */
+    minimumAge: z.number().int().min(0).max(99).default(0),
+    /**
+     * The profile fields a visitor must fill in to register (code `REGISTRATION_FIELD_REQUIRED`
+     * names the first missing one). A field that is not listed is not asked at sign-up. Empty by
+     * default.
+     */
+    registrationFields: z
+      .array(z.enum(REGISTRATION_FIELDS))
+      .max(REGISTRATION_FIELDS.length)
+      .default([]),
+    /**
+     * Whether a new account must confirm its email address before it joins the Member group. It
+     * takes effect only on a site that sends account email (`SERMO_MAIL_DRIVER` other than
+     * `none`): without a mail driver nobody can be asked. Accounts already unconfirmed stay so.
+     * On by default, which is how a site with a mail driver behaved before this setting.
+     */
+    requireEmailConfirmation: z.boolean().default(true),
     /**
      * Forums (or categories, with everything under them) the home feed leaves out for the whole
      * site: `feed.list` never lists their threads, whoever asks, even when a forum filter names

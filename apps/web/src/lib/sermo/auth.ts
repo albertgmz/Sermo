@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { RegistrationField } from "@sermo/core/contracts";
+
 import { cacheLife } from "next/cache";
 import { cookies } from "next/headers";
 import { cache } from "react";
@@ -116,6 +118,12 @@ export const signUp = (
     password: string;
     acceptTerms: true;
     ref?: number;
+    // The profile fields the site asks at sign-up (its registration settings).
+    profile?: Partial<
+      Record<Exclude<RegistrationField, "birthday">, string>
+    > & {
+      birthday?: { year: number; month: number; day: number };
+    };
   },
   turnstile?: string,
 ) =>

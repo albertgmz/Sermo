@@ -150,13 +150,21 @@ test("the general form keeps every setting, the social links and the analytics t
 });
 
 test("the new-member, search engine and cookie forms keep their settings", async () => {
-  expect([...(await controls(MembersForm)).names].sort()).toEqual([
+  const members = await controls(MembersForm);
+  expect([...members.names].sort()).toEqual([
     "approveSignups",
     "firstPostsToModerate",
+    "minimumAge",
     "moderateLinksFromNewMembers",
     "newMemberDays",
     "newMemberMentionLimit",
+    "registrationFields",
+    "registrationOpen",
+    "requireEmailConfirmation",
   ]);
+  // The list of required fields is replaced whole, so the form says it showed it.
+  expect(members.shown).toContain("registrationFields");
+  expect(members.html).toContain('value="birthday"');
   expect([...(await controls(SeoForm)).names].sort()).toEqual([
     "indexNowKey",
     "nodeTitleTemplate",

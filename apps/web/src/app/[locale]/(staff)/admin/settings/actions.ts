@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  REGISTRATION_FIELDS,
   SIGNATURE_FORMATS,
   settingsGet,
   TURNSTILE_FORMS,
@@ -94,16 +95,31 @@ const MEMBERS: Spec = {
   firstPostsToModerate: "int",
   moderateLinksFromNewMembers: "bool",
   approveSignups: "bool",
+  registrationOpen: "bool",
+  requireEmailConfirmation: "bool",
+  minimumAge: "int",
   newMemberMentionLimit: "int",
 };
 
+// The required profile fields are a list ticked in the form: replaced whole, so read only when the
+// form showed it.
 export async function saveMembers(
   _previous: StaffFormState,
   formData: FormData,
 ): Promise<StaffFormState> {
-  return saveSettings(await scalars(MEMBERS, formData), {
+  const parsed = await scalars(MEMBERS, formData);
+  if (parsed.refused) return { error: await invalidArgument() };
+  if (shownKeys(formData).has("registrationFields")) {
+    const ticked = new Set(formData.getAll("registrationFields"));
+    parsed.body.registrationFields = REGISTRATION_FIELDS.filter((field) =>
+      ticked.has(field),
+    );
+  }
+  return saveSettings(parsed, {
     back: "/admin/settings/members",
-    known: knownIn(MEMBERS),
+    known: (name) => name in MEMBERS || name === "registrationFields",
+    // The sign-up page and the login page read the registration rules from the cached site.
+    site: true,
   });
 }
 

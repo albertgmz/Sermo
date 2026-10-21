@@ -5,7 +5,7 @@ import { PaletteColor } from "./appearance";
 import { Empty } from "./common";
 import { MAX_COOKIE_POLICY_VERSION } from "./consent";
 import { ImageReference } from "./images";
-import { Analytics, SUPPORTED_LANGUAGES, TURNSTILE_FORMS } from "./settings";
+import { Analytics, REGISTRATION_FIELDS, SUPPORTED_LANGUAGES, TURNSTILE_FORMS } from "./settings";
 
 /**
  * What every page needs to draw the site before it knows anything about the visitor: the name,
@@ -63,6 +63,17 @@ export const Site = z
     turnstile: z
       .object({ siteKey: z.string(), forms: z.array(z.enum(TURNSTILE_FORMS)) })
       .nullable(),
+    /**
+     * What the sign-up form needs: whether registration is open, whether a new account waits for
+     * staff, the youngest age that may register (0: none; above 0 the form asks for the full
+     * date of birth), and the profile fields the form must ask.
+     */
+    registration: z.object({
+      open: z.boolean(),
+      approval: z.boolean(),
+      minimumAge: z.number().int().min(0),
+      fields: z.array(z.enum(REGISTRATION_FIELDS)),
+    }),
     palette: z.object({
       accents: z.array(PaletteColor),
       nameColors: z.array(PaletteColor),

@@ -29,7 +29,7 @@ const draw = (node: React.ReactNode) => renderToStaticMarkup(withIntl(node));
 const FORMS = {
   login: (key: string | null) => <LoginForm next="/" turnstileKey={key} />,
   register: (key: string | null) => (
-    <RegisterForm turnstileKey={key} pages="both" />
+    <RegisterForm turnstileKey={key} pages="both" fields={[]} minimumAge={0} />
   ),
   forgot: (key: string | null) => <ForgotForm turnstileKey={key} />,
   resend: (key: string | null) => (

@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getLiteState } from "@/lib/lite-mode";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 import { cn } from "@/lib/utils";
 
 const PANEL = "hidden md:inline-flex";
@@ -191,12 +192,14 @@ export async function AccountTools() {
         <LogIn aria-hidden="true" className="lg:hidden" />
         <span className="sr-only lg:not-sr-only">{t("login")}</span>
       </Link>
-      <Link
-        href="/register"
-        className={cn(buttonVariants(), "h-10", REGISTER_BUTTON)}
-      >
-        {t("register")}
-      </Link>
+      {(await getSite()).registration.open && (
+        <Link
+          href="/register"
+          className={cn(buttonVariants(), "h-10", REGISTER_BUTTON)}
+        >
+          {t("register")}
+        </Link>
+      )}
     </span>
   );
 }

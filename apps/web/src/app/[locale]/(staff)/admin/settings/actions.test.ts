@@ -117,18 +117,26 @@ test("a language the contract does not list is refused without a call", async ()
   });
 });
 
-test("the new-member form sends exactly its five keys, the sign-up approval switch among them", async () => {
+test("the new-member form sends exactly its keys, the registration switches among them, and renews the site", async () => {
   backend = fakeBackend({ "settings.update": read });
   await redirectedTo(() =>
     saveMembers(
       null,
-      form([
-        ["newMemberDays", "14"],
-        ["firstPostsToModerate", "2"],
-        ["moderateLinksFromNewMembers", "on"],
-        ["approveSignups", "on"],
-        ["newMemberMentionLimit", "1"],
-      ]),
+      form(
+        [
+          ["newMemberDays", "14"],
+          ["firstPostsToModerate", "2"],
+          ["moderateLinksFromNewMembers", "on"],
+          ["approveSignups", "on"],
+          ["registrationOpen", "on"],
+          ["requireEmailConfirmation", "on"],
+          ["minimumAge", "13"],
+          ["registrationFields", "location"],
+          ["registrationFields", "birthday"],
+          ["newMemberMentionLimit", "1"],
+        ],
+        "registrationFields",
+      ),
     ),
   );
   expect(sent()?.[0]?.body).toEqual({
@@ -136,20 +144,63 @@ test("the new-member form sends exactly its five keys, the sign-up approval swit
     firstPostsToModerate: 2,
     moderateLinksFromNewMembers: true,
     approveSignups: true,
+    registrationOpen: true,
+    requireEmailConfirmation: true,
+    minimumAge: 13,
+    // The contract's order, whatever order the boxes were posted in.
+    registrationFields: ["birthday", "location"],
     newMemberMentionLimit: 1,
   });
-  expect(expired).toEqual([]);
+  // The sign-up and login pages read the registration rules from the cached site.
+  expect(expired).toContain("site");
 });
 
-test("an unticked sign-up approval switch turns the setting off", async () => {
+test("unticked registration switches turn the settings off, and no ticked field clears the list", async () => {
   backend = fakeBackend({ "settings.update": read });
   await redirectedTo(() =>
-    saveMembers(null, form([["newMemberDays", "14"]], "approveSignups")),
+    saveMembers(
+      null,
+      form(
+        [["newMemberDays", "14"]],
+        "approveSignups",
+        "registrationOpen",
+        "requireEmailConfirmation",
+        "registrationFields",
+      ),
+    ),
   );
   expect(sent()?.[0]?.body).toEqual({
     newMemberDays: 14,
     approveSignups: false,
+    registrationOpen: false,
+    requireEmailConfirmation: false,
+    registrationFields: [],
   });
+});
+
+test("a field the contract does not know is never sent as required, and a form that did not show the list leaves it alone", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  await redirectedTo(() =>
+    saveMembers(
+      null,
+      form(
+        [
+          ["newMemberDays", "14"],
+          ["registrationFields", "passport"],
+          ["registrationFields", "x"],
+        ],
+        "registrationFields",
+      ),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    newMemberDays: 14,
+    registrationFields: ["x"],
+  });
+  const data = form([["newMemberDays", "14"]]);
+  data.append("registrationFields", "x");
+  await redirectedTo(() => saveMembers(null, data));
+  expect(sent()?.[1]?.body).toEqual({ newMemberDays: 14 });
 });
 
 const POST_COUNT_RULE = {

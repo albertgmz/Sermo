@@ -222,6 +222,52 @@ test("the sign-up says the terms and rules were accepted; without the box nothin
   expect(bodies).toEqual([]);
 });
 
+test("the profile fields of the sign-up form travel with it, a date of birth as year, month and day", async () => {
+  backend(SIGNED_UP);
+  await signUp({
+    birthday: "2001-07-04",
+    location: " Havana ",
+    about: "",
+    discord: "ann#1",
+  });
+  expect(bodies[0]?.profile).toEqual({
+    birthday: { year: 2001, month: 7, day: 4 },
+    location: "Havana",
+    discord: "ann#1",
+  });
+  bodies.length = 0;
+  await signUp();
+  expect(bodies[0]).not.toHaveProperty("profile");
+});
+
+test("a refusal for the registration rules is said in the form's words, with the typed fields kept", async () => {
+  const errors = messages.auth.actions.errors;
+  for (const [code, text] of [
+    ["REGISTRATION_CLOSED", errors.registrationClosed],
+    ["UNDER_MINIMUM_AGE", errors.underAge],
+    ["REGISTRATION_FIELD_REQUIRED", errors.fieldRequired],
+    ["INVALID_PROFILE_FIELD", errors.invalidField],
+  ] as const) {
+    backend(() => Response.json({ code }, { status: 400 }));
+    expect(
+      await register(
+        { error: "", username: "" },
+        form({
+          username: "ann",
+          email: "ann@example.test",
+          password: "right-password",
+          terms: "on",
+          location: "Havana",
+        }),
+      ),
+    ).toEqual({
+      error: text,
+      username: "ann",
+      profile: { location: "Havana" },
+    });
+  }
+});
+
 test("registering from a ?ref= link sends the referrer with the sign-up", async () => {
   backend(SIGNED_UP);
   expect(await signUp({ ref: "12" })).toMatch(/^NEXT_REDIRECT;[a-z]+;\/;/);

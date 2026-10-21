@@ -17,6 +17,7 @@ import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { can, requirePermission } from "../../permissions";
+import { signupFields } from "../auth/registration";
 import { attachUploadedFile, releaseFile } from "../images/attach";
 import { type FrameOpening, frameGeometry } from "../images/frame-geometry";
 import { appendModeratorLog } from "../moderation";
@@ -326,6 +327,12 @@ export const operations = [
         cookieBannerOutsideEu: settings.cookieBannerOutsideEu,
         defaultLanguage: settings.defaultLanguage,
         turnstile: publicTurnstile(ctx),
+        registration: {
+          open: settings.registrationOpen,
+          approval: settings.approveSignups,
+          minimumAge: settings.minimumAge,
+          fields: signupFields(settings),
+        },
         palette: {
           accents: lists.activeColors.accent,
           nameColors: lists.activeColors.name,
