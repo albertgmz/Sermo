@@ -5577,3 +5577,29 @@ XenForo site this replaces, and the feed keeps its own address for the widget ar
 Known limits: `/forums` (and its `loading.tsx`) is gone as a page, so `/nodes` takes two hops
 (`/nodes` -> `/forums` -> `/`); a member who had chosen Forums now opens What's new on the site
 default.
+
+### The end-to-end suite runs again after the home swap, and on WebKit
+
+- The setup's warm-up visits `/account/data-saver`, a member's real address: `/lite` redirects to
+  `/data-saver`, which moves a signed-in member on to `/account/data-saver` after load, and that
+  late navigation cancelled the next `goto`.
+- The specs follow the home swap and the current menus: the feed specs visit `/novedades`, the
+  offline spec goes offline to `/novedades` from another page, the account menu has two tabs
+  (Account, Bookmarks), and the public feed tabs carry a share card (a guest's Following is a copy
+  of Latest). The feed search scrolls the virtualised list a screen at a time until the card is
+  drawn; the WebKit sign-in specs leave the page before clearing cookies, since a page reloads
+  itself when its preference cookies change.
+- Service workers are blocked for every spec except the worker's own: WebKit does not route the
+  requests of a page a worker controls, so the seeded pictures escaped the routes and looked up
+  their fake host for real.
+- A guest's phone header (below `md`) has a smaller register button and a closer gap, marked by
+  `data-guest-tools`: in English it was 18 px wider than its box and pushed the page 2 px past a
+  360 px screen. Signed-in headers and `md` and up are unchanged. Every English guest header
+  control is checked to end on the screen.
+- The WebKit project (`iphone-small`) runs in the official Playwright image
+  (`mcr.microsoft.com/playwright:v1.64.1-noble`), since this machine lacks its system libraries.
+
+Why: the suite had not run since the home swap (0.1.177) and stopped at setup, so 93 specs never
+ran; it now passes in full (Chromium 95/95, WebKit 52 + 1 skipped, the formerly flaky thread spec
+4/4 repeated).
+Known limits: with workers blocked, only the worker's own spec runs in a page the worker controls.
