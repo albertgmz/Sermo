@@ -6041,3 +6041,21 @@ Why: XenForo's widget positions (handover B3), so the sidebar is configured, not
 Why: backlog B6 and the forum-feel findings (screenshots 9, 10, 5).
 Known limits: the online window constant lives in two places and the presence read loads up to 200
 member cards per render (both need a contract change).
+
+### Leftovers of the shop, paste, install and upload work
+
+- Uploads: a body refused by its declared type alone (HEIC, or a type the site or purpose does not
+  take) is still read to its end, so the refusal reaches the browser as words, but only its first
+  64 KiB is written to the temp file; a disk error while doing so refuses the upload instead of
+  stopping the process.
+- Editor: file drops are left to Lexical (the picture lands where it is released); files pasted
+  into the plain box or the source box reach the editor as pasted files; two pastes in one second
+  get `-2`, `-3` names, and the paste notice is announced through `aria-describedby`.
+- Install: an inline head script holds an install offer that arrives before the app loads; the
+  menu offers "Install" only while the install card is put off.
+- One list of award icon keys (`@sermo/core/icon-keys`, the web type derived from it); every
+  credit amount is written with one minus sign (U+2212); unused `award.tier.*` phrases removed.
+
+Why: items from the 2026-10-20 handover leftovers list (06). Not built: shop-admin-fixes 7 (owner
+decision: declared type must equal the sniffed type), shop-admin-fixes 9 (the catalog does not
+carry a frame's size).
