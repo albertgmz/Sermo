@@ -342,12 +342,31 @@ test("the bar's buttons are small filled pills, spaced apart, as XenForo's messa
       html.match(/<button[^>]*aria-label="Report"[^>]*>/)?.[0] ?? "";
     expect(report).toContain("bg-[color:var(--action-fill,transparent)]");
     expect(report).not.toContain("bg-transparent");
-    const sides = [
-      ...html.matchAll(
-        /<div class="([^"]*flex flex-wrap items-center[^"]*)">/g,
-      ),
-    ];
+    const sides = [...html.matchAll(/<div class="([^"]*)">/g)].filter(
+      (match) => {
+        const names = match[1].split(" ");
+        return names.includes("flex-wrap") && names.includes("items-center");
+      },
+    );
     expect(sides.length).toBe(3);
-    for (const side of sides) expect(side[1].split(" ")).toContain("gap-1.5");
+    const gap = layout === "wall" ? "gap-1" : "gap-1.5";
+    for (const side of sides) expect(side[1].split(" ")).toContain(gap);
   }
+});
+
+test("a pill darkens under the pointer, and a pressed pill lays its tint over the fill instead of replacing it", () => {
+  const html = draw({ ...full, layout: "split" });
+  const row =
+    html.match(/<div class="([^"]*justify-between[^"]*)">/)?.[1] ?? "";
+  expect(row.split(" ")).toContain("[--action-hover:var(--border)]");
+  const report = (
+    html.match(/<button[^>]*aria-label="Report"[^>]*class="([^"]*)"/)?.[1] ??
+    html.match(/<button[^>]*class="([^"]*)"[^>]*aria-label="Report"/)?.[1] ??
+    ""
+  ).split(" ");
+  expect(report).toContain("hover:bg-[color:var(--action-hover,var(--muted))]");
+  expect(report).not.toContain("hover:bg-muted");
+  expect(report).not.toContain("aria-pressed:bg-primary/10");
+  expect(report).toContain("aria-pressed:from-primary/8");
+  expect(report).toContain("aria-pressed:to-primary/8");
 });

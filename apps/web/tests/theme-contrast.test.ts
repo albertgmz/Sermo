@@ -419,3 +419,30 @@ for (const [theme, tokens, worst] of [
     ).toBeGreaterThanOrEqual(4.5);
   });
 }
+
+for (const [theme, tokens] of [
+  ["dark", dark],
+  ["light", light],
+] as const) {
+  // A pressed footer pill (components/forum/message-action.ts): the accent's ink on an 8 % tint of
+  // the accent laid over the pill's fill, the muted one of a post's bar or the card of a comment's.
+  test(`${theme} theme: a pressed footer pill reads on its tint over the pill's fill`, () => {
+    const failures: string[] = [];
+    for (const accent of [
+      ...ACCENTS.map((preset) => preset.color),
+      "#dc2626",
+    ]) {
+      const ink = hold(
+        accent,
+        number(tokens, "--accent-min"),
+        number(tokens, "--ink-max"),
+      );
+      for (const fill of ["muted", "card"]) {
+        const ratio = contrast(ink, over(accent, 0.08, resolve(tokens, fill)));
+        if (ratio < 4.5)
+          failures.push(`${accent} on ${fill}: ${ratio.toFixed(2)}`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+}

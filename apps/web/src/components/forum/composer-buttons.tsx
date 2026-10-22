@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
 // too narrow. Both are 44 px touch targets, and 32 px under a mouse, as quiet as XenForo's. The
 // icon says what the submit does, as XenForo's: the reply arrow (a reply, a post, a comment)
 // unless the composer names another (a pen for a new thread, a conversation for a direct message).
+// The submit's look, shared with an edit page's save (`FormFooter`).
+export const submitClass =
+  "h-11 gap-2 border border-primary/30 bg-primary/10 px-4 pointer-fine:h-8 text-(length:--text-compact) text-primary-ink hover:bg-primary/15";
+
 export function ComposerButtons({
   submitLabel,
   icon: Icon = Reply,
@@ -33,7 +37,7 @@ export function ComposerButtons({
       <PendingButton
         disabled={disabled}
         className={cn(
-          "h-11 gap-2 border border-primary/30 bg-primary/10 px-4 pointer-fine:h-8 text-(length:--text-compact) text-primary-ink hover:bg-primary/15",
+          submitClass,
           // The files' Attach button is `order-last` too (`AttachmentField`): with the same
           // order the page's order decides, so the submit follows it at the end of the row. A
           // comment's submit keeps the default order and comes before it.

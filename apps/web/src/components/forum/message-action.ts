@@ -1,7 +1,9 @@
 // A footer button. Inside a footer bar (`ContentActions`) it is a filled pill, as XenForo's: the bar
-// sets `--action-fill`; elsewhere it stays plain.
+// sets `--action-fill` and a stronger `--action-hover`; elsewhere it stays plain. Pressed, the
+// accent's tint is laid over the fill (an image over the colour), so a pressed pill is never
+// lighter than the others.
 export const messageActionClass =
-  "inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md border-0 bg-[color:var(--action-fill,transparent)] px-2 text-xs font-medium tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-primary/10 aria-pressed:text-primary-ink md:h-8 md:min-w-8 [&_svg]:size-4 [&_svg]:shrink-0";
+  "inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-md border-0 bg-[color:var(--action-fill,transparent)] px-2 text-xs font-medium tabular-nums text-muted-foreground transition-colors hover:bg-[color:var(--action-hover,var(--muted))] hover:text-foreground aria-pressed:bg-linear-to-r aria-pressed:from-primary/8 aria-pressed:to-primary/8 aria-pressed:text-primary-ink md:h-8 md:min-w-8 [&_svg]:size-4 [&_svg]:shrink-0";
 
 // The text of a bar button: drawn from `sm` up, the button's `aria-label` carries it below.
 export const actionLabelClass = "hidden sm:inline";

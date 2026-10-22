@@ -152,7 +152,11 @@ function WallPost({
               <span
                 role="img"
                 aria-label={label}
-                className={cn(messageActionClass, "pointer-events-none")}
+                className={cn(
+                  messageActionClass,
+                  // Not a button: no pill.
+                  "pointer-events-none bg-transparent",
+                )}
               >
                 {count}
               </span>

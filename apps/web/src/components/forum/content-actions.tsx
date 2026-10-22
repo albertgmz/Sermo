@@ -174,10 +174,17 @@ export function ContentActions({
 
   const wall = layout === "wall";
   const split = layout === "split" || wall;
+  // A comment's bar (a wall bar led by the comment's date) sits in a narrow column: it keeps to one
+  // line, its date giving way first, with report an icon on a phone, as XenForo's compact comment
+  // footer.
+  const comment = wall && Boolean(leading);
   // An ordinary member's bar shows report's word on a phone too; with edit, delete (the wall's
   // "•••") or moderator tools beside it, the bar keeps to icons there, so it stays one line.
   const labelClass =
-    split && !edit && !remove && !moderation ? "inline" : actionLabelClass;
+    split && !comment && !edit && !remove && !moderation
+      ? "inline"
+      : actionLabelClass;
+  const gap = wall ? "gap-1" : "gap-1.5";
   const editLink = edit && "href" in edit && (
     <Link
       href={edit.href}
@@ -290,13 +297,34 @@ export function ContentActions({
     >
       {!split && summaryRow}
       {/* XenForo's footer buttons are small filled pills, apart from each other and level with
-          the text (`messageActionClass` takes the fill). */}
-      <div className="flex flex-wrap items-center justify-between gap-1.5 [--action-fill:var(--muted)]">
-        <div className="flex flex-wrap items-center gap-1.5">
+          the text (`messageActionClass` takes the fill). A comment's row is already muted: its
+          pills take the card. */}
+      <div
+        className={cn(
+          "flex items-center justify-between [--action-hover:var(--border)]",
+          gap,
+          comment
+            ? "flex-nowrap [--action-fill:var(--card)]"
+            : "flex-wrap [--action-fill:var(--muted)]",
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center",
+            gap,
+            comment ? "min-w-0 flex-nowrap" : "flex-wrap",
+          )}
+        >
           {leading}
           {split ? tools : answers}
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+        <div
+          className={cn(
+            "ml-auto flex items-center",
+            gap,
+            comment ? "shrink-0 flex-nowrap" : "flex-wrap",
+          )}
+        >
           {split ? answers : tools}
         </div>
       </div>

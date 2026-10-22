@@ -236,3 +236,34 @@ test("on a phone the composer spans the row: the viewer's avatar sits beside it 
   expect(classes).toContain("md:block");
   expect(composer).toMatch(/<form[^>]*class="[^"]*\bflex-1\b/);
 });
+
+test("a comment's footer keeps to one line in a phone's narrow column: the date level with the text and cut short before the buttons wrap, report an icon on a phone, small gaps, pills on the card", async () => {
+  const edited = {
+    ...comment(1),
+    editedAt: "2026-01-03T00:00:00.000Z",
+    canEdit: true,
+    canDelete: true,
+  } as unknown as Comment;
+  for (const item of [comment(1), edited]) {
+    const markup = await render({ comments: [item] });
+    const footer = markup.slice(markup.indexOf('data-slot="content-actions"'));
+    const classes = (pattern: RegExp) =>
+      footer.match(pattern)?.[1].split(" ") ?? [];
+    const row = classes(/<div class="([^"]*justify-between[^"]*)">/);
+    expect(row).toContain("flex-nowrap");
+    expect(row).not.toContain("flex-wrap");
+    expect(row).toContain("gap-1");
+    expect(row).toContain("[--action-fill:var(--card)]");
+    // The left side, which holds the date, gives way; the buttons keep their size.
+    const left = classes(/justify-between[^"]*"><div class="([^"]*)">/);
+    expect(left).toContain("min-w-0");
+    expect(left).toContain("flex-nowrap");
+    expect(left).toContain("gap-1");
+    const date = classes(/<span class="([^"]*)"><time/);
+    expect(date).toContain("truncate");
+    expect(date).toContain("min-w-0");
+    expect(date).not.toContain("px-2");
+  }
+  const member = await render({ comments: [comment(1)] });
+  expect(member).toContain('<span class="hidden sm:inline">Report</span>');
+});
