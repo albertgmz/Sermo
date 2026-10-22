@@ -8,8 +8,8 @@ import { placeInlineAttachments } from "@/lib/inline-attachments";
 import { stripHtmlMedia } from "@/lib/lite-content";
 import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
 import { withMediaPlayers } from "@/lib/media-links";
-import { publicUrl } from "@/lib/sermo/config";
 import { call } from "@/lib/sermo/client";
+import { publicUrl } from "@/lib/sermo/config";
 import { SermoError } from "@/lib/sermo/errors";
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 
@@ -61,7 +61,12 @@ export async function revealSpoiler(
     const gated = withColorGuard(
       withSpoilerButtons(
         await withEmbedGate(
-          stripHtmlMedia(withMediaPlayers(html, publicUrl()), state, origin, label),
+          stripHtmlMedia(
+            withMediaPlayers(html, publicUrl()),
+            state,
+            origin,
+            label,
+          ),
         ),
         true,
       ),
