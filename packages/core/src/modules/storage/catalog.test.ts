@@ -92,7 +92,7 @@ describe("catalog uploads are renditions of the right size", () => {
     thread_cover: { type: "image/webp", box: [1600, 600], variants: [["cover_small", [800, 300]]] },
     award_image: { type: "image/webp", box: [960, 540], variants: [["art_small", [480, 270]]] },
     shop_image: { type: "image/webp", box: [960, 540], variants: [["art_small", [480, 270]]] },
-    site_logo: { type: "image/webp", box: [640, 160], variants: [] },
+    site_logo: { type: "image/webp", box: [640, 160], variants: [["mail_logo", [480, 80]]] },
     site_icon: {
       type: "image/png",
       box: [512, 512],
