@@ -6244,3 +6244,18 @@ fcuba's XenForo).
 
 Why: XenForo's widget positions (handover B8). Known limits: thread, profile and other pages have
 no widget page yet; the loading screens have no sidebar skeleton.
+
+### Forum cards show message counts and unread forums
+
+- The shared forum card (home list, category page, subforums) shows the message count beside the
+  thread count, and for a signed-in member an unread forum (or one with an unread forum inside)
+  has a bold title, an accent icon and an "Unread" text for screen readers. Read titles are
+  medium weight.
+- `nodes.unread` (one statement per request, not cached) returns the viewer's unread forums: a
+  visible thread in the last 30 days whose last post is newer than both the member's forum marker
+  and their read position, among each forum's 100 newest such threads. Forums where the viewer may
+  not open others' threads report nothing; a guest gets an empty list.
+
+Why: the forum list as XenForo's node list (F3's known limit). Known limits: older unread threads
+behind a fully read newest hundred are not reported; in a forum where a member sees only their own
+threads, a reply by someone else in one of them does not mark the forum unread.
