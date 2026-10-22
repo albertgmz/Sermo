@@ -322,6 +322,54 @@ test("encrypted push reaches a mock endpoint, then 410 removes the device", asyn
   }
 });
 
+test("each batch and each send is logged with counts and the push service's status", async () => {
+  let status = 201;
+  const server = Bun.serve({
+    port: 0,
+    tls: { cert, key },
+    fetch: () => new Response(null, { status }),
+  });
+  const info = spyOn(console, "info").mockImplementation(() => {});
+  const warn = spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    const { ctx, author, recipient, node } = fixture();
+    configurePush(ctx, {
+      vapid: { ...webPush.generateVAPIDKeys(), subject: "mailto:test@example.test" },
+      testAllowedEndpointOrigin: `https://localhost:${server.port}`,
+      testCa: cert,
+    });
+    registerPushJobs(ctx, { renderPhrase: () => ({ title: "Reply", bodyHtml: "<p>Body</p>" }) });
+    const endpoint = `https://localhost:${server.port}/push/secret-token`;
+    await execute(ctx, pushSubscribeOp, recipient, subscribeInput(endpoint));
+    const made = await execute(ctx, threadsCreateOp, author, {
+      nodeId: node.id,
+      title: "Topic",
+      body: "Body",
+    });
+    const item = notification(ctx, actorUserId(recipient)!, made.thread.id);
+    deliverPush(ctx, [item], defaults);
+    expect(info).toHaveBeenCalledWith("[push.queue]", { items: 1, queued: 1 });
+    await runDueJobs(ctx);
+    expect(info).toHaveBeenCalledWith(
+      "[push.send]",
+      expect.objectContaining({ outcome: "sent", status: 201, host: "localhost" }),
+    );
+    status = 403;
+    ctx.sqlite.prepare("DELETE FROM jobs").run();
+    deliverPush(ctx, [item], defaults);
+    await runDueJobs(ctx);
+    expect(warn).toHaveBeenCalledWith(
+      "[push.send]",
+      expect.objectContaining({ outcome: "failed", status: 403 }),
+    );
+    expect(JSON.stringify([...info.mock.calls, ...warn.mock.calls])).not.toContain("secret-token");
+  } finally {
+    info.mockRestore();
+    warn.mockRestore();
+    server.stop(true);
+  }
+});
+
 test("5xx retries and deleted content is not sent", async () => {
   let calls = 0;
   const server = Bun.serve({

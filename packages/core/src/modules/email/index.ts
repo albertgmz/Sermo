@@ -230,6 +230,7 @@ export function deliverEmail(ctx: Ctx, items: EmailItem[], registry: EmailRegist
   // Nothing to queue without registered email jobs: they would fail as an unknown type.
   if (!current || current.config.driver === "none" || !items.length) return;
   current.registry = registry;
+  let queued = 0;
   writeTx(ctx, () => {
     const settings = readSiteSettings(ctx);
     const now = ctx.now();
@@ -269,13 +270,18 @@ export function deliverEmail(ctx: Ctx, items: EmailItem[], registry: EmailRegist
         { kind: "notification", notificationId: item.notificationId },
         { uniqueKey: `email.notification.${item.notificationId}` },
       );
-      if (jobId === null || security) continue;
-      if (!claimCap.run(now - 3_600_000, now, item.userId, settings.emailHourlyCap).changes)
+      if (jobId === null) continue;
+      if (
+        !security &&
+        !claimCap.run(now - 3_600_000, now, item.userId, settings.emailHourlyCap).changes
+      )
         prepared(ctx, "email.unqueue", () =>
           ctx.sqlite.prepare("DELETE FROM jobs WHERE id = ?1"),
         ).run(jobId);
+      else queued++;
     }
   });
+  console.info("[email.queue]", { items: items.length, queued });
 }
 
 function digestKey(startedAt: number, after: number): string {
@@ -828,9 +834,17 @@ export function registerEmailJobs(
         return;
       }
       await current.mailer.send(message);
+      console.info("[email.send]", { outcome: "sent", type: row.type, notificationId: row.id });
     } catch (error) {
       writeTx(ctx, () => resetSent.run(row.id, claimTime));
       const rejectedAddress = mailboxRejected(error);
+      console.warn("[email.send]", {
+        outcome: "failed",
+        type: row.type,
+        notificationId: row.id,
+        rejectedAddress,
+        error: (error instanceof Error ? error.message : String(error)).slice(0, 200),
+      });
       recordFailure(
         ctx,
         user.id,

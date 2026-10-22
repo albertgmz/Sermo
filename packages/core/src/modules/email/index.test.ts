@@ -286,6 +286,32 @@ describe("email channel", () => {
     ).toBeNull();
   });
 
+  test("queueing, sending and a failed send are logged without the address", async () => {
+    const f = fixture();
+    const info = spyOn(console, "info").mockImplementation(() => {});
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      deliverEmail(f.ctx, [f.item], registry);
+      expect(await runDueJobs(f.ctx)).toBe(1);
+      expect(info).toHaveBeenCalledWith("[email.queue]", { items: 1, queued: 1 });
+      expect(info).toHaveBeenCalledWith("[email.send]", {
+        outcome: "sent",
+        type: "watch.thread",
+        notificationId: f.id,
+      });
+      const g = fixture();
+      g.ctx.config.auth!.secret = "";
+      deliverEmail(g.ctx, [g.item], registry);
+      await runDueJobs(g.ctx);
+      const failed = warn.mock.calls.find((call) => call[0] === "[email.send]");
+      expect(failed?.[1]).toMatchObject({ outcome: "failed", type: "watch.thread" });
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("@");
+    } finally {
+      info.mockRestore();
+      warn.mockRestore();
+    }
+  });
+
   test("conversation message text follows the privacy setting", async () => {
     const f = fixture();
     const registryWithConversation = {

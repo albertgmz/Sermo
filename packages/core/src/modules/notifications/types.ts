@@ -11,7 +11,24 @@ export interface NotificationDefinition {
   body: string;
 }
 
-const regular = { inApp: true, email: false, push: false };
+// Types that reach a member because of something said to them or about them.
+// They push by default: a device is only registered when its owner turned pushes on, and with
+// every type off that device never received anything. Broad feeds (reactions, watches, follows) and
+// staff duties stay opt-in.
+const PUSHED_BY_DEFAULT = new Set([
+  "content.quoted",
+  "content.mentioned",
+  "profile.post",
+  "profile.comment",
+  "profile.commented",
+  "member.followed",
+  "conversation.added",
+  "report.resolved",
+  "moderation.content",
+  "moderation.member",
+  "member.groups",
+]);
+
 const entry = (
   id: string,
   events: readonly EventType[],
@@ -23,7 +40,9 @@ const entry = (
   events,
   recipient,
   group,
-  defaults: required ? { inApp: false, email: true, push: false } : regular,
+  defaults: required
+    ? { inApp: false, email: true, push: false }
+    : { inApp: true, email: false, push: PUSHED_BY_DEFAULT.has(id) },
   required,
   title: `notification.${id}.title`,
   body: `notification.${id}.body`,

@@ -233,6 +233,15 @@ function visibleContent(ctx: Ctx, actor: Actor, item: PushItem): Content | null 
   return null;
 }
 
+/** One structured line per send: counts and the push service's answer, never keys or the endpoint. */
+function sendLog(
+  level: "info" | "warn",
+  outcome: string,
+  fields: Record<string, string | number | null>,
+): void {
+  console[level]("[push.send]", { outcome, ...fields });
+}
+
 /** Called synchronously by notification creation, including inside its transaction. */
 export function deliverPush(ctx: Ctx, items: PushItem[], defaults: PushDefaults): void {
   if (!pushJobsReady(ctx) || !items.length) return;
@@ -243,19 +252,22 @@ export function deliverPush(ctx: Ctx, items: PushItem[], defaults: PushDefaults)
       defaultPush: Number(adminDefaults[item.type]?.push ?? defaults[item.type]?.push ?? false),
     })),
   );
-  writeTx(ctx, () => {
-    query(
-      ctx,
-      "queueBatch",
-      "INSERT INTO jobs (type,payload,run_at,unique_key,created_at,updated_at) " +
-        "SELECT 'push.send',json_object('item',json(json_extract(j.value,'$.item')),'subscriptionId',s.id,'defaultPush',json_extract(j.value,'$.defaultPush')),?2, " +
-        "'push.notification.' || json_extract(j.value,'$.item.notificationId') || '.subscription.' || s.id,?2,?2 " +
-        "FROM json_each(?1) j JOIN push_subscriptions s ON s.user_id = json_extract(j.value,'$.item.userId') " +
-        "JOIN notifications n ON n.id = json_extract(j.value,'$.item.notificationId') AND n.user_id = s.user_id " +
-        "LEFT JOIN notification_preferences p ON p.user_id = s.user_id AND p.type = json_extract(j.value,'$.item.type') " +
-        "WHERE COALESCE(p.push,json_extract(j.value,'$.defaultPush')) = 1 ON CONFLICT(unique_key) DO NOTHING",
-    ).run(payload, ctx.now());
-  });
+  const queued = writeTx(
+    ctx,
+    () =>
+      query(
+        ctx,
+        "queueBatch",
+        "INSERT INTO jobs (type,payload,run_at,unique_key,created_at,updated_at) " +
+          "SELECT 'push.send',json_object('item',json(json_extract(j.value,'$.item')),'subscriptionId',s.id,'defaultPush',json_extract(j.value,'$.defaultPush')),?2, " +
+          "'push.notification.' || json_extract(j.value,'$.item.notificationId') || '.subscription.' || s.id,?2,?2 " +
+          "FROM json_each(?1) j JOIN push_subscriptions s ON s.user_id = json_extract(j.value,'$.item.userId') " +
+          "JOIN notifications n ON n.id = json_extract(j.value,'$.item.notificationId') AND n.user_id = s.user_id " +
+          "LEFT JOIN notification_preferences p ON p.user_id = s.user_id AND p.type = json_extract(j.value,'$.item.type') " +
+          "WHERE COALESCE(p.push,json_extract(j.value,'$.defaultPush')) = 1 ON CONFLICT(unique_key) DO NOTHING",
+      ).run(payload, ctx.now()).changes,
+  );
+  console.info("[push.queue]", { items: items.length, queued });
 }
 
 export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRenderer }): void {
@@ -264,16 +276,21 @@ export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRe
     if (!vapid) return;
     const payload = raw as { item: PushItem; subscriptionId: number; defaultPush: boolean };
     const item = payload.item;
+    const base = { notificationId: item.notificationId, subscriptionId: payload.subscriptionId };
     const notification = query<{ id: number; group_key: string | null }, [number, number]>(
       ctx,
       "notification",
       "SELECT id,group_key FROM notifications WHERE id = ?1 AND user_id = ?2",
     ).get(item.notificationId, item.userId);
-    if (!notification || !enabled(ctx, item, payload.defaultPush)) return;
+    if (!notification || !enabled(ctx, item, payload.defaultPush))
+      return sendLog("info", "skipped", {
+        ...base,
+        reason: "notification gone or push turned off",
+      });
     const member = recipient(ctx, item.userId);
-    if (!member) return;
+    if (!member) return sendLog("info", "skipped", { ...base, reason: "recipient gone" });
     const content = visibleContent(ctx, member.actor, item);
-    if (!content) return;
+    if (!content) return sendLog("info", "skipped", { ...base, reason: "content not visible" });
     const settings = readSiteSettings(ctx);
     const phrase = options.renderPhrase(item, member.language ?? settings.defaultLanguage);
     const message = JSON.stringify(
@@ -291,7 +308,7 @@ export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRe
       "SELECT id,endpoint,p256dh,auth,session_id,(SELECT expires_at FROM auth_session WHERE id = session_id) AS session_expires_at " +
         "FROM push_subscriptions WHERE id = ?1 AND user_id = ?2",
     ).get(payload.subscriptionId, item.userId);
-    if (!subscription) return;
+    if (!subscription) return sendLog("info", "skipped", { ...base, reason: "device gone" });
     const remove = () =>
       writeTx(ctx, () => {
         query(
@@ -306,11 +323,11 @@ export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRe
       (subscription.session_expires_at === null || subscription.session_expires_at <= ctx.now())
     ) {
       remove();
-      return;
+      return sendLog("info", "removed", { ...base, reason: "session ended" });
     }
     if (allowedPushEndpoint(ctx, subscription.endpoint) !== subscription.endpoint) {
       remove();
-      return;
+      return sendLog("warn", "removed", { ...base, reason: "endpoint not allowed" });
     }
     // Request-building failures (a bad stored key) never succeed on retry.
     let request: ReturnType<typeof webPush.generateRequestDetails>;
@@ -324,14 +341,15 @@ export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRe
         { vapidDetails: vapid, TTL: 3600, contentEncoding: "aes128gcm" },
       );
     } catch (error) {
-      console.warn("[push.send] cannot build the request for the subscription", {
-        subscriptionId: subscription.id,
+      return sendLog("warn", "failed", {
+        ...base,
+        reason: "cannot build the request",
         error: error instanceof Error ? error.message : String(error),
       });
-      return;
     }
     // The deadline covers connect, TLS and response headers. A timeout or network error throws,
     // and the queue retries the job.
+    const host = new URL(subscription.endpoint).hostname;
     const transport = pushTransport(ctx);
     const signal = AbortSignal.timeout(transport.timeoutMs);
     const response = await fetch(request.endpoint, {
@@ -346,21 +364,23 @@ export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRe
     });
     await response.body?.cancel();
     const status = response.status;
-    if (status >= 200 && status <= 299) return;
+    if (status >= 200 && status <= 299) return sendLog("info", "sent", { ...base, host, status });
     // Only 404/410 mean the subscription is gone; 403 usually means our VAPID credentials are
     // wrong, and deleting on it would wipe every subscriber after one misconfiguration.
-    if (status === 404 || status === 410) remove();
-    else if (
+    if (status === 404 || status === 410) {
+      remove();
+      sendLog("info", "removed", { ...base, host, status, reason: "push service dropped it" });
+    } else if (
       (status >= 300 && status <= 399) ||
       status === 400 ||
       status === 403 ||
       status === 413
     ) {
-      console.warn("[push.send] permanent delivery failure", {
-        subscriptionId: subscription.id,
-        status,
-      });
-    } else throw new Error(`Push service responded ${status}.`);
+      sendLog("warn", "failed", { ...base, host, status, reason: "permanent refusal" });
+    } else {
+      sendLog("warn", "retry", { ...base, host, status });
+      throw new Error(`Push service responded ${status}.`);
+    }
   });
   markPushJobsRegistered(ctx);
 }
