@@ -8,9 +8,11 @@ import {
   wallItemSource,
 } from "@/app/[locale]/(main)/members/actions";
 import { ContentActions } from "@/components/forum/content-actions";
+import { ContentMenu } from "@/components/forum/content-menu";
 import { DeleteControl } from "@/components/forum/delete-control";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { InlineEditForm } from "@/components/forum/inline-edit-form";
+import { messageActionClass } from "@/components/forum/message-action";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -107,6 +109,7 @@ export function WallItemActions({
   return (
     <ContentActions
       layout="wall"
+      menu={<ContentMenu className={messageActionClass} />}
       leading={
         isComment && (
           <span className="inline-flex h-10 items-center px-2 text-xs whitespace-nowrap text-muted-foreground md:h-8">

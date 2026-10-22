@@ -37,6 +37,7 @@ afterAll(() => {
   mock.module("@/components/ui/lazy-popup", () => realPopup);
 });
 const { ContentActions } = await import("./content-actions");
+const { ContentMenu } = await import("./content-menu");
 const { ShareButton, ShareMenuBody, copyLink, shareNatively } = await import(
   "./share-button"
 );
@@ -149,6 +150,7 @@ test("the wall bar: the date, report, the menu and moderation on the left, react
     start: <i data-mark="start" />,
     leading: <i data-mark="date" />,
     layout: "wall",
+    menu: <ContentMenu className="m" />,
   });
   const at = (text: string) => html.indexOf(text);
   expect(at('data-mark="date"')).toBeLessThan(at('aria-label="Report"'));
@@ -172,6 +174,7 @@ test("the wall bar folds edit and delete into its menu and keeps share as an ico
     ...full,
     edit: { panel: <i data-mark="form" /> },
     layout: "wall",
+    menu: <ContentMenu className="m" />,
   });
   for (const label of ["Edit", "Delete"]) {
     expect(html).not.toContain(`aria-label="${label}"`);
@@ -187,13 +190,22 @@ test("the wall bar folds edit and delete into its menu and keeps share as an ico
   expect(typeof menus[0]?.onEdit).toBe("function");
   expect(typeof menus[0]?.onDelete).toBe("function");
   // An edit page is a link beside the menu, not in it.
-  const page = draw({ edit: { href: "/edit/1" }, layout: "wall" });
+  const page = draw({
+    edit: { href: "/edit/1" },
+    layout: "wall",
+    menu: <ContentMenu className="m" />,
+  });
   expect(page).toContain('href="/edit/1"');
   expect(menus).toHaveLength(0);
 });
 
 test("the wall bar has no menu when it would hold nothing: a member who may only report and share sees both at once", () => {
-  const html = draw({ report: { action }, share: "/x", layout: "wall" });
+  const html = draw({
+    report: { action },
+    share: "/x",
+    layout: "wall",
+    menu: <ContentMenu className="m" />,
+  });
   expect(html).not.toContain("More options");
   expect(html).toContain('aria-label="Report"');
   expect(html).toContain('aria-label="Share"');

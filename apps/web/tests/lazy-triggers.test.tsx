@@ -63,6 +63,7 @@ const { ProfileMore } = await import(
 );
 const { LazyTooltip } = await import("@/components/ui/lazy-tooltip");
 const { ContentMenu } = await import("@/components/forum/content-menu");
+const { MenuPanels } = await import("@/components/forum/content-actions");
 const { FeedFiltersButton } = await import(
   "@/components/forum/feed-filters-button"
 );
@@ -229,7 +230,11 @@ const cases: [string, () => React.ReactNode, boolean][] = [
   ],
   [
     "the more options button of a wall post or comment",
-    () => <ContentMenu className="x" onEdit={() => {}} onDelete={() => {}} />,
+    () => (
+      <MenuPanels value={{ open: () => {}, edit: true, remove: true }}>
+        <ContentMenu className="x" />
+      </MenuPanels>
+    ),
     true,
   ],
   [

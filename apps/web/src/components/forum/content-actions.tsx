@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { createContext, useMemo, useState } from "react";
 import type { ActionFormState } from "@/components/forum/action-form";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
-import { ContentMenu } from "@/components/forum/content-menu";
 import { DeleteControl } from "@/components/forum/delete-control";
 import {
   actionLabelClass,
@@ -27,6 +26,14 @@ type Panel = "edit" | "delete" | "report";
 
 // What a panel calls to close itself: the cancel button of a form in the `edit` panel.
 export const ClosePanel = createContext<() => void>(() => undefined);
+
+// What the wall bar's "•••" menu (`ContentMenu`, given as `menu`) reads from the bar: which of its
+// panels the viewer may open from it, and how to open one.
+export const MenuPanels = createContext<{
+  open: (panel: "edit" | "delete") => void;
+  edit: boolean;
+  remove: boolean;
+}>({ open: () => undefined, edit: false, remove: false });
 
 // A bar button that opens its panel under the bar.
 function PanelButton({
@@ -77,6 +84,8 @@ function PanelButton({
 //   report      Reporting: the action that files it.
 //   moderation  Moderator tools that exist for the item (approve, restore), after the rest.
 //   leading     The first thing on the left: a comment's date.
+//   menu        The wall bar's "•••" menu (`ContentMenu`), which reads the panels it may open from
+//               `MenuPanels`. The caller brings it, so the pages without wall items do not load it.
 //   layout      `split` is a thread post's footer as XenForo draws it: what the viewer does to the
 //               item on the left (report first, then edit, delete and the moderator tools), how
 //               they answer it on the right (react, "+ Quote", reply), the summary under the bar
@@ -103,6 +112,7 @@ export function ContentActions({
   moderation,
   leading,
   layout = "default",
+  menu,
   className,
 }: {
   summary?: React.ReactNode;
@@ -124,6 +134,7 @@ export function ContentActions({
   moderation?: React.ReactNode;
   leading?: React.ReactNode;
   layout?: "default" | "split" | "wall";
+  menu?: React.ReactNode;
   className?: string;
 }) {
   const t = useTranslations("forum.contentActions");
@@ -204,11 +215,15 @@ export function ContentActions({
       {reportButton}
       {share && <ShareButton href={share} className={messageActionClass} />}
       {editLink}
-      <ContentMenu
-        className={messageActionClass}
-        onEdit={edit && "panel" in edit ? () => setOpen("edit") : undefined}
-        onDelete={remove && (() => setOpen("delete"))}
-      />
+      <MenuPanels
+        value={{
+          open: setOpen,
+          edit: !!edit && "panel" in edit,
+          remove: !!remove,
+        }}
+      >
+        {menu}
+      </MenuPanels>
       {moderation}
     </>
   ) : (

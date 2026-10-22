@@ -37,6 +37,7 @@ import { ClientIcons } from "@/components/forum/client-icons";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { ContentActions } from "@/components/forum/content-actions";
+import { ContentMenu } from "@/components/forum/content-menu";
 import { ConversationPreview } from "@/components/forum/conversation-preview";
 import { CopyButton } from "@/components/forum/copy-button";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
@@ -1055,6 +1056,7 @@ export default async function StyleguidePage() {
                 <p className="text-sm">A comment on a wall post.</p>
                 <ContentActions
                   layout="wall"
+                  menu={<ContentMenu className={messageActionClass} />}
                   leading={
                     <span className="inline-flex h-10 items-center px-2 text-xs text-muted-foreground md:h-8">
                       <RelativeTime date={SAMPLE_DATE} />
@@ -1620,6 +1622,7 @@ export default async function StyleguidePage() {
               actions={
                 <ContentActions
                   layout="wall"
+                  menu={<ContentMenu className={messageActionClass} />}
                   share="/ui"
                   start={
                     <button type="button" className={messageActionClass}>
