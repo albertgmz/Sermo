@@ -780,7 +780,7 @@ export function mailboxRejected(error: unknown): boolean {
 
 /** What may be logged of a send error: SMTP error text embeds recipient addresses, so only codes. */
 function transportFields(error: unknown): Record<string, string | number> {
-  const fields: Record<string, unknown> = error && typeof error === "object" ? error : {};
+  const fields = (error && typeof error === "object" ? error : {}) as Record<string, unknown>;
   const out: Record<string, string | number> = {};
   for (const name of ["code", "responseCode", "command"]) {
     const value = fields[name];
