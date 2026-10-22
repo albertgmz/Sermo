@@ -126,3 +126,9 @@ test("the cookie for a theme the browser took from the account is written for th
   expect(cookieSets).toHaveLength(1);
   expect(cookieSets[0]?.slice(0, 2)).toEqual(["sermo-account-theme", "dark"]);
 });
+
+test("a cookie that no signed-in account claims is dropped", async () => {
+  const { forgetTheme } = await import(source);
+  await forgetTheme();
+  expect(cookieDeletes).toEqual(["sermo-account-theme"]);
+});

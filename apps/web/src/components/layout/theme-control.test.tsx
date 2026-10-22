@@ -312,3 +312,13 @@ test("choosing a theme applies it here and asks the server to keep it", () => {
   expect(store.get("sermo-theme")).toBe("dark");
   expect(saved).toEqual(["dark"]);
 });
+
+test("another tab's change wins over the cookie in this one", () => {
+  (globals.document as { cookie?: string }).cookie =
+    "sermo-account-theme=light";
+  run();
+  expect(attributes.get("data-theme-choice")).toBe("light");
+  emit("storage", { key: "sermo-theme", newValue: "dark" } as never);
+  expect(theme()).toBe("dark");
+  (globals.document as { cookie?: string }).cookie = "";
+});

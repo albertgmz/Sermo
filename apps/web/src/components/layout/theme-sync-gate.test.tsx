@@ -2,6 +2,7 @@ import { expect, mock, test } from "bun:test";
 import { viewerBody } from "@/lib/test-viewer";
 
 let accountTheme: string | null = null;
+let signedIn = true;
 let cookie: string | undefined;
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
@@ -15,7 +16,7 @@ mock.module("next/headers", () => ({
 }));
 mock.module("@/lib/sermo/session", () => ({
   getViewer: async () => {
-    const body = viewerBody(true);
+    const body = viewerBody(signedIn);
     return {
       ...body,
       user: body.user && { ...body.user, theme: accountTheme },
@@ -40,4 +41,15 @@ test("nothing is drawn when the cookie already holds the account theme, or the a
   accountTheme = null;
   cookie = undefined;
   expect(await ThemeSyncGate()).toBeNull();
+});
+
+test("a cookie with no account theme behind it is dropped: for a member who chose none and for a guest", async () => {
+  cookie = "dark";
+  accountTheme = null;
+  expect(await ThemeSyncGate()).toEqual(<ThemeSync theme={null} />);
+  signedIn = false;
+  expect(await ThemeSyncGate()).toEqual(<ThemeSync theme={null} />);
+  cookie = undefined;
+  expect(await ThemeSyncGate()).toBeNull();
+  signedIn = true;
 });

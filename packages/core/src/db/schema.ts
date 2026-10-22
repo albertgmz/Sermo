@@ -111,10 +111,9 @@ export const PROMOTION_LOG_ACTIONS = ["promote", "demote", "exempt", "reset"] as
 /** The tabs of the feed page (What's new), in the fixed order they fill the bar after the default tab. */
 export const HOME_TABS = ["latest", "hot", "following", "media"] as const;
 export type HomeTab = (typeof HOME_TABS)[number];
-/** How the feed draws its entries: full cards or one compact row each. */
 export const THEMES = ["system", "light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
-
+/** How the feed draws its entries: full cards or one compact row each. */
 export const FEED_VIEWS = ["cards", "compact"] as const;
 export type FeedView = (typeof FEED_VIEWS)[number];
 export const AUTO_WATCH_MODES = ["none", "watch", "watch_email"] as const;

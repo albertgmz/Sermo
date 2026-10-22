@@ -62,3 +62,8 @@ export async function saveTheme(
 export async function rememberTheme(theme: string) {
   if (isTheme(theme)) await writeThemeCookie(theme);
 }
+
+// Drops the cookie for `ThemeSync` when it holds a theme no account in this browser claims.
+export async function forgetTheme() {
+  (await cookies()).delete(ACCOUNT_THEME_COOKIE);
+}

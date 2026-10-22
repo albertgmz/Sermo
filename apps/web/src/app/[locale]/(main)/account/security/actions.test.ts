@@ -4,6 +4,7 @@ import { translator } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
 
 const realFetch = globalThis.fetch;
+const deleted: string[] = [];
 const stored: { name: string; value: string; maxAge?: number }[] = [];
 
 mock.module("server-only", () => ({}));
@@ -19,6 +20,9 @@ mock.module("next/headers", () => ({
       stored.push(cookie);
     },
     get: () => undefined,
+    delete: (name: string) => {
+      deleted.push(name);
+    },
   }),
 }));
 
@@ -206,4 +210,14 @@ test("the sign-out that follows is a 401 and still clears the browser's cookies"
   expect(
     stored.map(({ name, value, maxAge }) => [name, value, maxAge]),
   ).toEqual([["sermo.session_token", "", 0]]);
+});
+
+test("a deleted account takes off the cookie that carries its theme", async () => {
+  deleted.length = 0;
+  backendOf({
+    "/api/v1/me": member,
+    "/api/v1/me/delete-account": () => Response.json({ ok: true }),
+  });
+  await redirectedTo(() => deleteAccount(null, form(deletion)));
+  expect(deleted).toEqual(["sermo-account-theme"]);
 });

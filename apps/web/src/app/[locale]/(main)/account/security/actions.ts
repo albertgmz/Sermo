@@ -1,6 +1,7 @@
 "use server";
 
 import { usersDeleteOwnAccount } from "@sermo/core/contracts";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { FormState } from "@/app/[locale]/(auth)/actions";
@@ -8,6 +9,7 @@ import {
   formFailure,
   text,
 } from "@/app/[locale]/(staff)/admin/groups/form-errors";
+import { ACCOUNT_THEME_COOKIE } from "@/components/layout/theme";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { forgetAdoptedConsent } from "@/lib/consent/sync";
 import {
@@ -150,5 +152,6 @@ export async function deleteAccount(
   // still clears the browser's cookies, which is all it is for. Its result is not checked.
   await signOut();
   await forgetAdoptedConsent();
+  (await cookies()).delete(ACCOUNT_THEME_COOKIE);
   redirect("/?notice=accountDeleted");
 }
