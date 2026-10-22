@@ -23,12 +23,14 @@ async function ensure(env: BenchEnv): Promise<void> {
   else {
     ids = [];
     for (const rule of RULES) {
-      const made = (await env.call("widgets.create", env.actors.admin, {
-        position: "forum_list_sidebar",
-        type: "birthdays",
-        title: TITLE,
-        rule,
-      })) as { id: number };
+      const made = JSON.parse(
+        (await env.call("widgets.create", env.actors.admin, {
+          position: "forum_list_sidebar",
+          type: "birthdays",
+          title: TITLE,
+          rule,
+        })) as string,
+      ) as { id: number };
       ids.push(made.id);
     }
   }
