@@ -1,0 +1,238 @@
+{
+  "pages": {
+    "loading": "Cargando widgets…",
+    "add": "Añadir widget",
+    "list": {
+      "metaTitle": "Widgets",
+      "heading": "Widgets",
+      "subtitle": "Los bloques que rodean el contenido del inicio y de Novedades: dónde va cada uno, quién lo ve y en qué orden."
+    },
+    "new": {
+      "metaTitle": "Nuevo widget",
+      "heading": "Nuevo widget",
+      "subtitle": "Elige qué muestra el widget y después dónde va y quién lo ve."
+    },
+    "edit": {
+      "metaTitle": "Widget",
+      "heading": "Widget",
+      "subtitle": "Su lugar, título, opciones y público."
+    },
+    "sort": {
+      "metaTitle": "Ordenar widgets",
+      "heading": "Ordenar widgets",
+      "subtitle": "Sube o baja un widget dentro de su posición y guarda. Las páginas los dibujan en este orden."
+    }
+  },
+  "sitePages": {
+    "home": "Inicio",
+    "novedades": "Novedades",
+    "forum": "Páginas de foro",
+    "members": "Páginas de miembros"
+  },
+  "positions": {
+    "overview_top": "Parte superior de la página",
+    "forum_list_above": "Encima de la lista de foros",
+    "forum_list_below": "Debajo de la lista de foros",
+    "novedades_above": "Encima de las novedades",
+    "overview_bottom": "Parte inferior de la página",
+    "forum_list_sidebar": "Columna lateral del inicio",
+    "novedades_sidebar": "Columna lateral de Novedades",
+    "forum_view_sidebar": "Columna lateral del foro",
+    "members_sidenav": "Columna lateral de miembros",
+    "sidebar_top": "Arriba de todas las columnas laterales",
+    "sidebar_bottom": "Abajo de todas las columnas laterales"
+  },
+  "types": {
+    "forumStats": {
+      "name": "Estadísticas del foro",
+      "help": "Pestañas con los temas más activos y, si se pide, los miembros con más mensajes."
+    },
+    "rankedThreads": {
+      "name": "Lista de temas",
+      "help": "Una lista corta de temas: últimos mensajes, últimos temas, más respondidos, con más reacciones o más vistos."
+    },
+    "featured": {
+      "name": "Temas destacados",
+      "help": "Los temas que el equipo ha destacado."
+    },
+    "visitorCard": {
+      "name": "Tarjeta del visitante",
+      "help": "La tarjeta del propio miembro: avatar, título, mensajes y reacciones. Solo para miembros."
+    },
+    "monthStandings": {
+      "name": "Miembros del mes",
+      "help": "Los mejores miembros del mes por puntos, con un selector para otros meses."
+    },
+    "referralLink": {
+      "name": "Enlace de referido",
+      "help": "El enlace de invitación del propio miembro, para copiar y compartir. Solo para miembros."
+    },
+    "topReferrers": {
+      "name": "Mejores referidores",
+      "help": "Los miembros que han traído más miembros nuevos."
+    },
+    "birthdays": {
+      "name": "Cumpleaños",
+      "help": "Los miembros que cumplen años hoy."
+    },
+    "suggestedMembers": {
+      "name": "Miembros a quienes seguir",
+      "help": "Algunos miembros activos a quienes el visitante aún no sigue."
+    },
+    "forumLinks": {
+      "name": "Foros",
+      "help": "Una lista de foros, con un enlace a todos."
+    },
+    "recentlyActive": {
+      "name": "Miembros activos hace poco",
+      "help": "Los nombres de los miembros vistos hace poco, con un total."
+    },
+    "siteTotals": {
+      "name": "Totales del sitio",
+      "help": "Los temas, mensajes y miembros del sitio, y el miembro más reciente."
+    },
+    "text": {
+      "name": "Texto",
+      "help": "Un bloque de texto que escribes tú, en código BB."
+    }
+  },
+  "optionValues": {
+    "latestPosts": "Últimos mensajes",
+    "latestThreads": "Últimos temas",
+    "mostReplied": "Más respondidos",
+    "mostReacted": "Con más reacciones",
+    "mostViewed": "Más vistos",
+    "15m": "Los últimos 15 minutos",
+    "24h": "Las últimas 24 horas"
+  },
+  "options": {
+    "forumStats": {
+      "limit": {
+        "label": "Filas",
+        "help": "Cuántas filas lista cada pestaña."
+      },
+      "topPosters": {
+        "label": "Más mensajes",
+        "switch": "Mostrar los miembros con más mensajes",
+        "help": "Añade una columna con los miembros que más han escrito."
+      }
+    },
+    "rankedThreads": {
+      "by": { "label": "Lista", "help": "Qué temas lista." },
+      "limit": { "label": "Temas", "help": "Cuántos temas lista." }
+    },
+    "monthStandings": {
+      "limit": { "label": "Miembros", "help": "Cuántos miembros lista." },
+      "picker": {
+        "label": "Selector de mes",
+        "switch": "Dejar que los visitantes vean otro mes",
+        "help": "Ofrece un año y un mes bajo la lista."
+      }
+    },
+    "topReferrers": {
+      "limit": { "label": "Miembros", "help": "Cuántos miembros lista." }
+    },
+    "birthdays": {
+      "limit": { "label": "Miembros", "help": "Cuántos miembros muestra." }
+    },
+    "suggestedMembers": {
+      "limit": { "label": "Miembros", "help": "Cuántos miembros sugiere." }
+    },
+    "forumLinks": {
+      "limit": { "label": "Foros", "help": "Cuántos foros lista." }
+    },
+    "recentlyActive": {
+      "window": {
+        "label": "Vistos en",
+        "help": "Hasta cuándo atrás un miembro cuenta como activo hace poco."
+      }
+    },
+    "text": {
+      "body": {
+        "label": "Texto",
+        "help": "Código BB: [B]negrita[/B], [I]cursiva[/I], [URL=https://ejemplo.com]enlace[/URL], [QUOTE]cita[/QUOTE], [LIST][*]elemento[/LIST]."
+      }
+    }
+  },
+  "audiences": {
+    "everyone": "Todos",
+    "guests": "Invitados",
+    "members": "Miembros",
+    "group": "Grupo {group}",
+    "custom": "Una regla personalizada"
+  },
+  "list": {
+    "label": "Widgets: {position}",
+    "pages": "Se muestra en: {pages}",
+    "addHere": "Añadir widget aquí",
+    "sort": "Cambiar el orden",
+    "emptyPosition": "No hay widgets aquí.",
+    "emptyLabel": "Posiciones sin widgets",
+    "emptyHeading": "Posiciones sin widgets",
+    "emptyDescription": "No se dibuja nada en estas. Añade el primer widget.",
+    "addTo": "Añadir un widget a {position}"
+  },
+  "row": {
+    "edit": "Editar {title}",
+    "off": "Apagado",
+    "noPhones": "Oculto en móviles",
+    "notShown": "Aún no se muestra"
+  },
+  "steps": {
+    "duplicate": "Duplicar",
+    "duplicateWarning": "Se añade una copia con el mismo título, opciones y público al final de la posición elegida.",
+    "duplicatePosition": "Poner la copia en",
+    "duplicateConfirm": "Duplicar widget",
+    "delete": "Eliminar",
+    "deleteHeading": "Eliminar widget",
+    "deleteWarning": "¿Eliminar «{title}»? Deja de mostrarse al instante y no se puede restaurar.",
+    "deleteConfirm": "Eliminar widget"
+  },
+  "new": {
+    "typeLabel": "Tipos de widget",
+    "typeHeading": "Elige un tipo",
+    "typeDescription": "Lo que muestra el widget. Después eliges su lugar y su público."
+  },
+  "edit": {
+    "about": "{title} en {position}",
+    "typeNotShown": "El sitio aún no dibuja este tipo de widget. Se conserva y se mostrará cuando el sitio pueda dibujarlo.",
+    "positionNotShown": "El sitio aún no dibuja esta posición. El widget se conserva y se mostrará cuando el sitio pueda dibujarla.",
+    "view": "Ver {page}"
+  },
+  "form": {
+    "widget": "Widget",
+    "type": "Tipo",
+    "position": "Posición",
+    "positionChoose": "Elige una posición",
+    "positionHelp": "Dónde va. Para mostrar un bloque en dos sitios, duplícalo.",
+    "title": "Título",
+    "titleHelp": "Se muestra sobre el bloque. Déjalo vacío para usar el título propio del tipo.",
+    "titlePlaceholder": "El título propio del tipo",
+    "enabled": "Activo",
+    "enabledSwitch": "Mostrar el widget",
+    "phones": "En móviles",
+    "phonesHelp": "Los móviles dibujan las columnas laterales bajo el contenido. Desactívalo para dejar el widget fuera ahí.",
+    "phonesSwitch": "Mostrar en móviles",
+    "options": "Opciones",
+    "audience": "Público",
+    "add": "Añadir widget",
+    "save": "Guardar cambios"
+  },
+  "sort": {
+    "none": "Ninguna posición tiene más de un widget que ordenar."
+  },
+  "notices": {
+    "saved": "Widget guardado.",
+    "added": "Widget añadido.",
+    "duplicated": "Widget duplicado. Esta es la copia.",
+    "deleted": "Widget eliminado.",
+    "ordered": "Orden guardado."
+  },
+  "errors": {
+    "id": "No se encontró ese widget. Recarga la página.",
+    "type": "Elige un tipo de widget.",
+    "position": "Elige una posición.",
+    "order": "El orden debe ser un número entero.",
+    "number": "Escribe un número entero de {min} a {max}."
+  }
+}

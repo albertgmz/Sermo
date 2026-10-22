@@ -219,6 +219,33 @@ export const SECTIONS = [
         built: true,
         listed: false,
       },
+      {
+        key: "setupWidgets",
+        path: "/admin/widgets",
+        access: ["admin.widgets"],
+        built: true,
+      },
+      {
+        key: "setupWidgetNew",
+        path: "/admin/widgets/new",
+        access: ["admin.widgets"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "setupWidgetSort",
+        path: "/admin/widgets/sort",
+        access: ["admin.widgets"],
+        built: true,
+        listed: false,
+      },
+      {
+        key: "setupWidgetEdit",
+        path: "/admin/widgets/[id]",
+        access: ["admin.widgets"],
+        built: true,
+        listed: false,
+      },
     ],
   },
   {

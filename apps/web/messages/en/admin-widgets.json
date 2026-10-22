@@ -1,0 +1,235 @@
+{
+  "pages": {
+    "loading": "Loading widgets…",
+    "add": "Add widget",
+    "list": {
+      "metaTitle": "Widgets",
+      "heading": "Widgets",
+      "subtitle": "The blocks around the content of the home page and What's new: where each goes, who sees it and in what order."
+    },
+    "new": {
+      "metaTitle": "New widget",
+      "heading": "New widget",
+      "subtitle": "Choose what the widget shows, then where it goes and who sees it."
+    },
+    "edit": {
+      "metaTitle": "Widget",
+      "heading": "Widget",
+      "subtitle": "Its place, title, options and audience."
+    },
+    "sort": {
+      "metaTitle": "Sort widgets",
+      "heading": "Sort widgets",
+      "subtitle": "Move a widget up or down within its position, then save. The pages draw them in this order."
+    }
+  },
+  "sitePages": {
+    "home": "Home",
+    "novedades": "What's new",
+    "forum": "Forum pages",
+    "members": "Members pages"
+  },
+  "positions": {
+    "overview_top": "Top of the page",
+    "forum_list_above": "Above the forum list",
+    "forum_list_below": "Below the forum list",
+    "novedades_above": "Above the feed",
+    "overview_bottom": "Bottom of the page",
+    "forum_list_sidebar": "Home sidebar",
+    "novedades_sidebar": "What's new sidebar",
+    "forum_view_sidebar": "Forum sidebar",
+    "members_sidenav": "Members side column",
+    "sidebar_top": "Top of every sidebar",
+    "sidebar_bottom": "Bottom of every sidebar"
+  },
+  "types": {
+    "forumStats": {
+      "name": "Forum statistics",
+      "help": "Tabs of the busiest threads and, if asked, the members with most messages."
+    },
+    "rankedThreads": {
+      "name": "Thread list",
+      "help": "A short list of threads: latest posts, latest threads, most replied, most reacted or most viewed."
+    },
+    "featured": {
+      "name": "Featured threads",
+      "help": "The threads staff have featured."
+    },
+    "visitorCard": {
+      "name": "Visitor card",
+      "help": "The member's own card: avatar, title, messages and reactions. Members only."
+    },
+    "monthStandings": {
+      "name": "Members of the month",
+      "help": "The top members of the month by points, with a picker for other months."
+    },
+    "referralLink": {
+      "name": "Referral link",
+      "help": "The member's own invitation link, to copy and share. Members only."
+    },
+    "topReferrers": {
+      "name": "Top referrers",
+      "help": "The members who have brought in the most new members."
+    },
+    "birthdays": {
+      "name": "Birthdays",
+      "help": "The members who have a birthday today."
+    },
+    "suggestedMembers": {
+      "name": "Members to follow",
+      "help": "A few active members the visitor does not follow yet."
+    },
+    "forumLinks": {
+      "name": "Forums",
+      "help": "A list of the forums, with a link to all of them."
+    },
+    "recentlyActive": {
+      "name": "Recently active members",
+      "help": "The names of the members seen lately, with a total."
+    },
+    "siteTotals": {
+      "name": "Site totals",
+      "help": "The threads, messages and members of the site, and the newest member."
+    },
+    "text": {
+      "name": "Text",
+      "help": "A block of text you write yourself, in BB code."
+    }
+  },
+  "optionValues": {
+    "latestPosts": "Latest posts",
+    "latestThreads": "Latest threads",
+    "mostReplied": "Most replied",
+    "mostReacted": "Most reacted",
+    "mostViewed": "Most viewed",
+    "15m": "The last 15 minutes",
+    "24h": "The last 24 hours"
+  },
+  "options": {
+    "forumStats": {
+      "limit": { "label": "Rows", "help": "How many rows each tab lists." },
+      "topPosters": {
+        "label": "Most messages",
+        "switch": "Show the members with most messages",
+        "help": "Adds a column with the members who wrote the most."
+      }
+    },
+    "rankedThreads": {
+      "by": { "label": "List", "help": "Which threads it lists." },
+      "limit": { "label": "Threads", "help": "How many threads it lists." }
+    },
+    "monthStandings": {
+      "limit": { "label": "Members", "help": "How many members it lists." },
+      "picker": {
+        "label": "Month picker",
+        "switch": "Let visitors look at another month",
+        "help": "Offers a year and a month under the list."
+      }
+    },
+    "topReferrers": {
+      "limit": { "label": "Members", "help": "How many members it lists." }
+    },
+    "birthdays": {
+      "limit": { "label": "Members", "help": "How many members it shows." }
+    },
+    "suggestedMembers": {
+      "limit": { "label": "Members", "help": "How many members it suggests." }
+    },
+    "forumLinks": {
+      "limit": { "label": "Forums", "help": "How many forums it lists." }
+    },
+    "recentlyActive": {
+      "window": {
+        "label": "Seen within",
+        "help": "How far back a member counts as recently active."
+      }
+    },
+    "text": {
+      "body": {
+        "label": "Text",
+        "help": "BB code: [B]bold[/B], [I]italic[/I], [URL=https://example.com]link[/URL], [QUOTE]quote[/QUOTE], [LIST][*]item[/LIST]."
+      }
+    }
+  },
+  "audiences": {
+    "everyone": "Everyone",
+    "guests": "Guests",
+    "members": "Members",
+    "group": "Group {group}",
+    "custom": "A custom rule"
+  },
+  "list": {
+    "label": "Widgets: {position}",
+    "pages": "Shown on: {pages}",
+    "addHere": "Add widget here",
+    "sort": "Change order",
+    "emptyPosition": "No widgets here.",
+    "emptyLabel": "Positions with no widgets",
+    "emptyHeading": "Positions with no widgets",
+    "emptyDescription": "Nothing is drawn in these. Add the first widget.",
+    "addTo": "Add a widget to {position}"
+  },
+  "row": {
+    "edit": "Edit {title}",
+    "off": "Off",
+    "noPhones": "Hidden on phones",
+    "notShown": "Not shown yet"
+  },
+  "steps": {
+    "duplicate": "Duplicate",
+    "duplicateWarning": "A copy with the same title, options and audience is added at the end of the position chosen.",
+    "duplicatePosition": "Put the copy in",
+    "duplicateConfirm": "Duplicate widget",
+    "delete": "Delete",
+    "deleteHeading": "Delete widget",
+    "deleteWarning": "Delete “{title}”? It stops showing at once and cannot be restored.",
+    "deleteConfirm": "Delete widget"
+  },
+  "new": {
+    "typeLabel": "Widget types",
+    "typeHeading": "Choose a type",
+    "typeDescription": "What the widget shows. You choose its place and audience next."
+  },
+  "edit": {
+    "about": "{title} in {position}",
+    "typeNotShown": "The site does not draw this type of widget yet. It is kept, and shows once the site can draw it.",
+    "positionNotShown": "The site does not draw this position yet. The widget is kept, and shows once the site can draw it.",
+    "view": "View {page}"
+  },
+  "form": {
+    "widget": "Widget",
+    "type": "Type",
+    "position": "Position",
+    "positionChoose": "Choose a position",
+    "positionHelp": "Where it goes. To show a block in two places, duplicate it.",
+    "title": "Title",
+    "titleHelp": "Shown above the block. Leave it empty for the type's own title.",
+    "titlePlaceholder": "The type's own title",
+    "enabled": "Enabled",
+    "enabledSwitch": "Show the widget",
+    "phones": "On phones",
+    "phonesHelp": "Phones draw the sidebars below the content. Switch this off to leave the widget out there.",
+    "phonesSwitch": "Show on phones",
+    "options": "Options",
+    "audience": "Audience",
+    "add": "Add widget",
+    "save": "Save changes"
+  },
+  "sort": {
+    "none": "No position has more than one widget to put in order."
+  },
+  "notices": {
+    "saved": "Widget saved.",
+    "added": "Widget added.",
+    "duplicated": "Widget duplicated. This is the copy.",
+    "deleted": "Widget deleted.",
+    "ordered": "Order saved."
+  },
+  "errors": {
+    "id": "That widget could not be found. Reload the page.",
+    "type": "Choose a type of widget.",
+    "position": "Choose a position.",
+    "order": "The order must be a whole number.",
+    "number": "Enter a whole number from {min} to {max}."
+  }
+}

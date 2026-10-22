@@ -17,6 +17,7 @@ import adminGroups from "../../messages/en/admin-groups.json";
 import adminSetup from "../../messages/en/admin-setup.json";
 import adminTools from "../../messages/en/admin-tools.json";
 import adminUsers from "../../messages/en/admin-users.json";
+import adminWidgets from "../../messages/en/admin-widgets.json";
 import auth from "../../messages/en/auth.json";
 import awards from "../../messages/en/awards.json";
 import conversations from "../../messages/en/conversations.json";
@@ -54,6 +55,7 @@ export const messages = {
   adminSetup,
   adminTools,
   adminUsers,
+  adminWidgets,
   auth,
   awards,
   conversations,
@@ -95,6 +97,7 @@ const FILES: Record<keyof Messages, string> = {
   adminSetup: "admin-setup",
   adminTools: "admin-tools",
   adminUsers: "admin-users",
+  adminWidgets: "admin-widgets",
   auth: "auth",
   awards: "awards",
   conversations: "conversations",

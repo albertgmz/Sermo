@@ -38,6 +38,11 @@ const AREAS = {
   Record<"lead" | "above" | "below" | "aside", readonly Position[]>
 >;
 
+// The positions the pages draw, for the admin screens to tell an admin which widgets show.
+export const DRAWN_POSITIONS: ReadonlySet<string> = new Set(
+  Object.values(AREAS).flatMap((areas) => Object.values(areas).flat()),
+);
+
 export type WidgetAreas = Record<keyof (typeof AREAS)["home"], ApiWidget[]>;
 
 // A page's widgets, sorted into its areas, each area position by position in the order above (the

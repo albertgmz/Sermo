@@ -7,6 +7,7 @@ import {
   spyOn,
   test,
 } from "bun:test";
+import { WidgetPosition } from "@sermo/core/contracts";
 import { renderToReadableStream } from "react-dom/server";
 import { messages } from "@/i18n/messages";
 import { widgetBody } from "@/lib/test-bodies";
@@ -36,9 +37,8 @@ mock.module("next-intl", () => ({
 }));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
-const { WidgetArea, widgetAreas, widgetAside, widgetLead } = await import(
-  "./widget-area"
-);
+const { DRAWN_POSITIONS, WidgetArea, widgetAreas, widgetAside, widgetLead } =
+  await import("./widget-area");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intlServer);
@@ -486,4 +486,22 @@ test("each forum statistics widget keeps its open state apart, the first under t
     ).props.instance;
   expect(keyOf(first)).toBeNull();
   expect(keyOf(second)).toBe(7);
+});
+
+// The admin panel marks a position "not shown yet" from this set: it is the positions the two
+// pages' areas draw, so a position added to an area is drawn there and in the panel's words.
+test("the drawn positions are exactly those the areas of the pages take widgets from", () => {
+  const everywhere = WidgetPosition.options.map((position, index) =>
+    widgetBody({ id: index + 1, position, type: "forumLinks" }),
+  ) as never;
+  const taken = new Set(
+    (["home", "novedades"] as const).flatMap((page) =>
+      Object.values(widgetAreas(page, everywhere)).flatMap((area) =>
+        area.map((widget: { position: string }) => widget.position),
+      ),
+    ),
+  );
+  expect([...DRAWN_POSITIONS].sort()).toEqual([...taken].sort());
+  expect(DRAWN_POSITIONS.has("forum_list_sidebar")).toBe(true);
+  expect(DRAWN_POSITIONS.has("members_sidenav")).toBe(false);
 });

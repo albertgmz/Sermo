@@ -1074,6 +1074,14 @@ same list for up to a minute; its option `window` set to `15m` lists only those 
 visitor and counted at most every ten minutes; the newest member is shown only to a visitor who may
 list members.
 
+The panel's Widgets screen (Setup, `/admin/widgets`, `admin.widgets`) lists the widgets under their
+positions, in the order the pages draw them. A widget is added in two steps (its type, then its
+form: position, title, enabled switch, phone switch, the type's options and who sees it, with the
+same rule builder as notices), edited, duplicated into any position, deleted after a confirmation,
+and put in order with up and down buttons (one position at a time, or all of them). The options on
+the form come from the backend's schema for the type. A widget of a type, or in a position, the web
+app does not draw yet is kept, listed and editable, and marked "Not shown yet".
+
 The old addresses answer with a permanent redirect (308) that keeps the query: a feed tab or a
 feed parameter on `/` (`/?tab=hot`, `/?cursor=...`) goes to `/novedades`, `/?tab=forums` and
 `/forums?tab=<id>` go to `/` with the section, and XenForo's `whats-new`, `find-new` and

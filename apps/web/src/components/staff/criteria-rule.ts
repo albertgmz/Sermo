@@ -29,6 +29,8 @@ export const PLACES = {
   promotion: { cheapOnly: false, noMeasured: false, empty: "required" },
   award: { cheapOnly: false, noMeasured: false, empty: "manual" },
   notice: { cheapOnly: true, noMeasured: false, empty: "everyone" },
+  // Decided on every page view that draws widgets.
+  widget: { cheapOnly: true, noMeasured: false, empty: "everyone" },
   shopCategory: { cheapOnly: true, noMeasured: false, empty: "everyone" },
   shopItem: { cheapOnly: true, noMeasured: false, empty: "everyone" },
   // Decided on every reaction and for every picker: no criterion that measures the member's
