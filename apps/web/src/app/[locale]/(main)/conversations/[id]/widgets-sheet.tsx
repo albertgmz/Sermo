@@ -3,31 +3,21 @@
 import { PanelRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { takeDetailsFocus } from "@/app/[locale]/(main)/conversations/[id]/details-focus";
-import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import type { WidgetsSheetPopupProps } from "@/app/[locale]/(main)/conversations/[id]/widgets-sheet-popup";
+import { buttonVariants } from "@/components/ui/button";
+import { LazyPopup } from "@/components/ui/lazy-popup";
+import { cn } from "@/lib/utils";
+
+// The sheet's code (Base UI) is fetched when the button is first reached for; until then the
+// button is a plain one, so the conversation's first load does not carry it.
+const loadPopup = () =>
+  import("@/app/[locale]/(main)/conversations/[id]/widgets-sheet-popup");
 
 // The conversation's widgets below the desktop layout, where the aside column does not exist: a
 // header button opens them in a drawer. The widgets are the same server-rendered components the
 // aside shows; this copy is mounted only while the drawer is open (the aside's is always in the
 // page, hidden by CSS below the desktop layout).
-export function WidgetsSheet({
-  label,
-  title,
-  description,
-  children,
-}: {
-  label: string;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
+export function WidgetsSheet(popup: WidgetsSheetPopupProps) {
   const trigger = useRef<HTMLButtonElement>(null);
   // Drawn anew after a write made inside the drawer (adding people ends in a redirect): the form
   // that had the focus is gone, so the button that opened the drawer takes it.
@@ -35,30 +25,26 @@ export function WidgetsSheet({
     if (takeDetailsFocus()) trigger.current?.focus();
   }, []);
   return (
-    <Sheet>
-      <SheetTrigger
-        ref={trigger}
-        render={
-          <Button variant="ghost" className="h-10 px-2 text-xs lg:hidden" />
-        }
-      >
-        <PanelRight />
-        {label}
-      </SheetTrigger>
-      <SheetContent
-        side="right"
-        className="w-[min(24rem,92vw)] gap-0 [&_[data-slot=sheet-close]]:top-2 [&_[data-slot=sheet-close]]:right-2 [&_[data-slot=sheet-close]]:size-10"
-      >
-        <SheetHeader className="border-b py-2 pr-14">
-          <SheetTitle className="flex min-h-10 items-center">
-            {title}
-          </SheetTitle>
-          <SheetDescription className="sr-only">{description}</SheetDescription>
-        </SheetHeader>
-        <div className="flex min-h-0 flex-1 flex-col gap-(--page-gap) overflow-y-auto p-3 [&>*]:shrink-0">
-          {children}
-        </div>
-      </SheetContent>
-    </Sheet>
+    <LazyPopup
+      load={loadPopup}
+      popup={popup}
+      trigger={(lazy) => (
+        <button
+          ref={trigger}
+          type="button"
+          data-slot="sheet-trigger"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          className={cn(
+            buttonVariants({ variant: "ghost" }),
+            "h-10 px-2 text-xs lg:hidden",
+          )}
+          {...lazy}
+        >
+          <PanelRight />
+          {popup.label}
+        </button>
+      )}
+    />
   );
 }

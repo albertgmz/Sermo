@@ -1,21 +1,30 @@
 "use client";
 
 import { Flag, Pencil, Reply, Trash2 } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { createContext, useMemo, useState } from "react";
 import type { ActionFormState } from "@/components/forum/action-form";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
-import { DeleteControl } from "@/components/forum/delete-control";
 import {
   actionLabelClass,
   messageActionClass,
 } from "@/components/forum/message-action";
 import { QuoteButton } from "@/components/forum/quote-button";
-import { ReportForm } from "@/components/forum/report-form";
 import { ShareButton } from "@/components/forum/share-button";
 import { HashLink } from "@/components/layout/hash-link";
 import { cn } from "@/lib/utils";
+
+// The delete step and the report form come with the first press of their buttons.
+const DeleteControl = dynamic(() =>
+  import("@/components/forum/delete-control").then(
+    (module) => module.DeleteControl,
+  ),
+);
+const ReportForm = dynamic(() =>
+  import("@/components/forum/report-form").then((module) => module.ReportForm),
+);
 
 type FormAction = (
   previous: ActionFormState,
