@@ -17,6 +17,7 @@ import {
   type ViewValue,
   viewHref,
 } from "@/app/[locale]/(main)/members/views";
+import { AvatarList } from "@/components/forum/avatar-list";
 import { EmptyState } from "@/components/forum/empty-state";
 import { MemberRow } from "@/components/forum/member-row";
 import { Podium } from "@/components/forum/podium";
@@ -35,10 +36,7 @@ import {
   StandingList,
   WinnerList,
 } from "@/components/forum/standing";
-import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserLink } from "@/components/forum/user-link";
 import { read } from "@/lib/sermo/client";
-import type { MemberView } from "@/lib/sermo/views";
 
 const TOP = 5;
 const RACE = 3;
@@ -69,21 +67,6 @@ function ViewLink({
 const getWinners = cache(() =>
   read(standingsWinners, { limit: PAST_WINNERS + 1 }),
 );
-
-function NewestMembers({ members }: { members: MemberView[] }) {
-  return (
-    <ul className="flex flex-wrap gap-2 px-4 py-3">
-      {members.map((member) => (
-        <li key={member.id}>
-          <UserLink user={member} className="block w-fit rounded-full">
-            <UserAvatar user={member} size="lg" link={false} />
-            <span className="sr-only">{member.username}</span>
-          </UserLink>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 // The month that is running: its first rows are the race list and, while there is no winner of the
 // last month to show, the leader in the hero.
@@ -217,7 +200,7 @@ async function StaffRows() {
 
 async function NewestMembersList() {
   const { items } = await read(usersList, { sort: "newest", limit: NEWEST });
-  return <NewestMembers members={items.map((item) => item.card)} />;
+  return <AvatarList members={items.map((item) => item.card)} />;
 }
 
 async function Birthdays() {

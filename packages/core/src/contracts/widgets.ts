@@ -88,6 +88,9 @@ export const WIDGET_OPTIONS = {
   text: z.strictObject({ body: Body }),
 } as const satisfies Record<WidgetType, z.ZodObject>;
 
+/** Types that are about the signed-in visitor: a guest is not given them. */
+export const WIDGET_MEMBERS_ONLY: readonly WidgetType[] = ["visitorCard", "referralLink"];
+
 /** Whether a phone draws a new widget of this type unless told otherwise. */
 export const widgetPhonesByDefault = (type: WidgetType): boolean => type !== "visitorCard";
 

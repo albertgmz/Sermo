@@ -380,6 +380,14 @@ const PUBLIC_PAGES = ["threads", "forums", "members"];
 
 const MEMBERS_ONLY = ["account", "notifications", "conversations"];
 
+// `/members/month` is the standing of a month, a page of its own among the member pages (whose
+// second segment is a member's id).
+const isMonthStanding = (
+  section: string,
+  id: string | undefined,
+  action: string | undefined,
+) => section === "members" && id === "month" && action === undefined;
+
 // Whether the browser is loading a page, as opposed to Next fetching one for a <Link> (a prefetch
 // or a soft navigation) or posting an action. Those requests are answered by the page itself,
 // which asks the backend anyway, so a record lookup here would only repeat it. Next removes its
@@ -950,6 +958,7 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
     id &&
     CONTENT[section] &&
     !(section === "conversations" && (id === "new" || id === "messages")) &&
+    !isMonthStanding(section, id, action) &&
     !(PUBLIC_PAGES.includes(section) ? parsePageId(id) !== null : isId(id))
   ) {
     return notFound(request, locale, security);
@@ -976,7 +985,10 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
   }
   const landing = isPage && id ? landingFinder(section, id, action) : undefined;
   const find =
-    isPage && id && !(section === "conversations" && id === "new")
+    isPage &&
+    id &&
+    !(section === "conversations" && id === "new") &&
+    !isMonthStanding(section, id, action)
       ? CONTENT[section]
       : undefined;
   if (landing) {

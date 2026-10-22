@@ -224,4 +224,12 @@ export const scenarios: Scenario[] = [
         .run(previousMonthKey(env.ctx.now()));
     },
   },
+  {
+    // A month named as YYYY-MM that nothing is kept for (the picker of the month widget): one
+    // range probe on the standing index that finds no row.
+    name: "standings.month by YYYY-MM, a month nothing is kept for",
+    kind: "read",
+    run: (env, i) =>
+      env.call("standings.month", env.actors.member(i), { month: "2019-06", limit: 20 }),
+  },
 ];

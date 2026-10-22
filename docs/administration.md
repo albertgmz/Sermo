@@ -1049,6 +1049,17 @@ widget whose `phones` is off is not drawn below `md`, and a sidebar with no widg
 left out. A widget whose own read is refused or empty draws
 nothing; one that fails is logged and draws nothing, and the rest of the page stands.
 
+Widget types for the members: `visitorCard` (the signed-in member's picture, name, title and
+counts; off on phones by default), `referralLink` (their invitation link, with Copy, Share and a
+line on what it is), `monthStandings` (the top of this month, last month's before anyone scores,
+with how the points are counted and, with `picker`, a field that opens
+`/members/month?month=YYYY-MM`), `topReferrers` (all time, members with at least one referral),
+`birthdays` (today's, as avatars) and `text` (an administrator's BB code, with a heading only when
+the widget has a title). A guest is not given `visitorCard` or `referralLink`. `/members/month` is
+the standing of any month named with `month=YYYY-MM`: the list exists for the running and the last
+complete month, an older month shows its winner only. `standings.month` accepts the same
+`YYYY-MM` and tells how points are counted.
+
 The old addresses answer with a permanent redirect (308) that keeps the query: a feed tab or a
 feed parameter on `/` (`/?tab=hot`, `/?cursor=...`) goes to `/novedades`, `/?tab=forums` and
 `/forums?tab=<id>` go to `/` with the section, and XenForo's `whats-new`, `find-new` and

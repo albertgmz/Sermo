@@ -661,6 +661,15 @@ test("a member is a 404 when the backend says the profile is not found, and only
   passes(await ask("/members/5-wren"));
 });
 
+test("the standing of a month is a page of the members section, not a member", async () => {
+  // No member is asked for: `month` is not an id, and the page answers.
+  backend({});
+  passes(await ask("/members/month"));
+  passes(await ask("/members/month?month=2026-01"));
+  isNotFound(await ask("/members/month/5"));
+  isNotFound(await ask("/members/mont"));
+});
+
 const AWARD = {
   id: 2,
   name: "Pioneer",

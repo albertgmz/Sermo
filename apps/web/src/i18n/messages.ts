@@ -39,6 +39,7 @@ import staticMessages from "../../messages/en/static.json";
 import threads from "../../messages/en/threads.json";
 import ui from "../../messages/en/ui.json";
 import upgrade from "../../messages/en/upgrade.json";
+import widgetTypes from "../../messages/en/widget-types.json";
 import widgets from "../../messages/en/widgets.json";
 
 export const messages = {
@@ -75,6 +76,7 @@ export const messages = {
   threads,
   ui,
   upgrade,
+  widgetTypes,
   widgets,
 };
 
@@ -115,6 +117,7 @@ const FILES: Record<keyof Messages, string> = {
   threads: "threads",
   ui: "ui",
   upgrade: "upgrade",
+  widgetTypes: "widget-types",
   widgets: "widgets",
 };
 

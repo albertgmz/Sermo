@@ -163,6 +163,39 @@ describe("widgets.current", () => {
     expect(await ids("home")).not.toContain(off.id);
   });
 
+  test("a guest is not given the types about the signed-in member, and a member is", async () => {
+    const { clear, create, ids, member } = setup();
+    clear();
+    const card = await create({ position: "forum_list_sidebar", type: "visitorCard" });
+    const link = await create({ position: "forum_list_sidebar", type: "referralLink" });
+    const birthdays = await create({ position: "forum_list_sidebar", type: "birthdays" });
+    expect(await ids("home")).toEqual([birthdays.id]);
+    expect(await ids("home", member)).toEqual([card.id, link.id, birthdays.id]);
+  });
+
+  test("a new visitor card is off on phones and the other new types are on", async () => {
+    const { clear, create, current, member } = setup();
+    clear();
+    for (const type of [
+      "visitorCard",
+      "birthdays",
+      "topReferrers",
+      "referralLink",
+      "monthStandings",
+    ])
+      await create({ position: "forum_list_sidebar", type });
+    const phones = Object.fromEntries(
+      (await current("home", member)).map((item) => [item.type, item.phones]),
+    );
+    expect(phones).toEqual({
+      visitorCard: false,
+      birthdays: true,
+      topReferrers: true,
+      referralLink: true,
+      monthStandings: true,
+    });
+  });
+
   test("a visitor is told what to draw and nothing administrative", async () => {
     const { clear, create, current } = setup();
     clear();

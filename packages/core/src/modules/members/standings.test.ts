@@ -61,17 +61,13 @@ type Entry = {
   referrals: number;
   points: number;
 };
-const month = (
-  w: World,
-  which: "current" | "previous",
-  extra: object = {},
-  actor: object = w.memberActor,
-) =>
+const month = (w: World, which: string, extra: object = {}, actor: object = w.memberActor) =>
   w.call("standings.month", actor, { month: which, ...extra }) as Promise<{
     items: Entry[];
     nextCursor: string | null;
     year: number;
     month: number;
+    scoring: { postPoints: number; reactionsPerPoint: number; referralPoints: number };
   }>;
 const winners = (w: World, actor: object = w.memberActor) =>
   w.call("standings.winners", actor, {}) as Promise<{
@@ -146,6 +142,43 @@ describe("the standings job", () => {
     expect(previous.items.map((entry) => entry.card.id)).toEqual([alice.id, bob.id]);
     expect(previous.items[0]).toMatchObject({ posts: 2, referrals: 1, points: 22 });
     expect(previous.items[1]).toMatchObject({ posts: 3, reactions: 10, points: 4 });
+  });
+
+  test("a month named as YYYY-MM is that month's standing, and a month nothing is kept for lists nobody", async () => {
+    const { w } = scenario();
+    refreshStandings(w.ctx);
+    expect(await month(w, "2026-01")).toEqual(await month(w, "current"));
+    expect(await month(w, "2025-12")).toEqual(await month(w, "previous"));
+    const older = await month(w, "2025-06");
+    expect([older.year, older.month, older.items, older.nextCursor]).toEqual([2025, 6, [], null]);
+  });
+
+  test("a month after the current one, and a month that is not YYYY-MM, are refused", async () => {
+    const { w } = scenario();
+    await expect(month(w, "2026-02")).rejects.toBeInstanceOf(ValidationError);
+    await expect(month(w, "2027-01")).rejects.toBeInstanceOf(ValidationError);
+    await expect(month(w, "2026-13")).rejects.toBeInstanceOf(ValidationError);
+    await expect(month(w, "last")).rejects.toBeInstanceOf(ValidationError);
+    await expect(month(w, "2026-1")).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("the standing says how its points are counted, and follows the settings", async () => {
+    const { w } = scenario();
+    expect((await month(w, "current")).scoring).toEqual({
+      postPoints: 1,
+      reactionsPerPoint: 10,
+      referralPoints: 20,
+    });
+    await w.call("settings.update", w.adminActor, {
+      standingPostPoints: 3,
+      standingReactionsPerPoint: 5,
+      standingReferralPoints: 0,
+    });
+    expect((await month(w, "2025-12")).scoring).toEqual({
+      postPoints: 3,
+      reactionsPerPoint: 5,
+      referralPoints: 0,
+    });
   });
 
   test("the previous month's winner is decided once and never rewritten", async () => {

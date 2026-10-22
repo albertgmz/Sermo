@@ -5,12 +5,10 @@ import { ForumIcon } from "@/components/forum/forum-icon";
 import { SectionCard } from "@/components/forum/section-card";
 import { CardSkeleton } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ViewAllLink } from "@/components/widgets/view-all-link";
 import type { WidgetBodyProps } from "@/components/widgets/widget-types";
 import { formatCompact } from "@/lib/format";
 import { readIfAllowed } from "@/lib/sermo/client";
-
-const viewAllClass =
-  "relative text-xs font-medium text-muted-foreground transition-colors after:absolute after:-inset-x-2 after:-inset-y-3.5 hover:text-foreground";
 
 // The first forums of the list, each with its thread count, and a link to the whole list.
 export async function ForumLinks({
@@ -27,11 +25,7 @@ export async function ForumLinks({
   return (
     <SectionCard
       title={title}
-      action={
-        <Link href="/" className={viewAllClass}>
-          {t("viewAll")}
-        </Link>
-      }
+      action={<ViewAllLink href="/">{t("viewAll")}</ViewAllLink>}
     >
       {forums.slice(0, widget.options.limit).map((forum) => (
         <Link

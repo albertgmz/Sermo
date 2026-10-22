@@ -10,7 +10,13 @@
       "latestThreads": "Últimos temas",
       "mostReplied": "Más respondidos",
       "mostReacted": "Con más reacciones",
-      "mostViewed": "Más vistos"
+      "mostViewed": "Más vistos",
+      "visitorCard": "Tu perfil",
+      "birthdays": "Cumpleaños de hoy",
+      "topReferrers": "Más referidos",
+      "referralLink": "Tu enlace de referido",
+      "monthStandings": "Usuarios del mes",
+      "text": "Texto"
     }
   },
   "rankedThreads": {

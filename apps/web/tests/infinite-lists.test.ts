@@ -49,7 +49,7 @@ const SCREENS = [
   ],
   [
     "member rankings and the month's standing",
-    "app/[locale]/(main)/members/page.tsx",
+    "app/[locale]/(main)/members/members-view.tsx",
     "members/more-members.ts",
   ],
   [

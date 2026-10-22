@@ -1,0 +1,24 @@
+{
+  "visitorCard": {
+    "posts": "Posts",
+    "reactions": "Reactions"
+  },
+  "topReferrers": {
+    "viewAll": "View all"
+  },
+  "referralLink": {
+    "linkLabel": "Your referral link",
+    "whatIsThis": "What is this?",
+    "explanation": "Members who sign up through this link count as your referrals. A link you copy with Copy or Share carries your code; one copied from the address bar does not."
+  },
+  "monthStandings": {
+    "viewAll": "Full standing",
+    "empty": "Nobody has earned points yet.",
+    "scoring": "Points: {postPoints} per post, 1 per {reactionsPerPoint, plural, one {reaction} other {# reactions}} received, {referralPoints} per referral."
+  },
+  "monthPicker": {
+    "label": "Month",
+    "placeholder": "YYYY-MM",
+    "submit": "Show"
+  }
+}

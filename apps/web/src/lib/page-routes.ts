@@ -36,6 +36,7 @@ export const PAGE_ROUTES = [
   "/login",
   "/members",
   "/members/[id]",
+  "/members/month",
   "/not-me",
   "/notifications",
   "/novedades",

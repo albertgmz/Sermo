@@ -212,20 +212,38 @@ export const StandingEntry = z
   })
   .meta({ id: "StandingEntry" });
 
+/** `current`, `previous` or a month as `YYYY-MM`. */
+export const StandingMonth = z
+  .string()
+  .regex(/^(current|previous|\d{4}-(0[1-9]|1[0-2]))$/, "Use current, previous or YYYY-MM.")
+  .describe("`current`, `previous` or a calendar month as YYYY-MM (UTC).");
+
 export const standingsMonth = defineContract({
   name: "standings.month",
   summary:
     "The standing of one calendar month (UTC), most points first; ties go to more posts, then " +
     "to the older account. Only members with points are listed; banned members and members " +
     "whose profile the viewer may not open are left out. `current` is the month in progress, " +
-    "recomputed in the background every few minutes; `previous` is the last complete month. " +
+    "recomputed in the background every few minutes; `previous` is the last complete month; " +
+    "`YYYY-MM` names any month up to the current one (a month before the previous one keeps " +
+    "no standing, so it lists nobody; its winner is in standings.winners). A month after the " +
+    "current one is a validation error. `scoring` gives the weights the points are made of. " +
     "Requires site.view, profile.view and member.viewList.",
   kind: "read",
-  input: z.object({ month: z.enum(["current", "previous"]).default("current"), ...pageInput }),
+  input: z.object({ month: StandingMonth.default("current"), ...pageInput }),
   output: Page(StandingEntry).extend({
     year: z.number().int(),
     /** 1 to 12. */
     month: z.number().int().min(1).max(12),
+    /** How a member's points are counted, from the site's settings. */
+    scoring: z.object({
+      /** Points for each visible post. */
+      postPoints: z.number().int().nonnegative(),
+      /** Reactions received that make one point. */
+      reactionsPerPoint: z.number().int().positive(),
+      /** Points for each member referred. */
+      referralPoints: z.number().int().nonnegative(),
+    }),
   }),
 });
 

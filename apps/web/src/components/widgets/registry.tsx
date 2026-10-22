@@ -1,4 +1,5 @@
 import { ForumStatsSkeleton } from "@/components/forum/skeletons";
+import { Birthdays, BirthdaysSkeleton } from "@/components/widgets/birthdays";
 import { FeaturedThreads } from "@/components/widgets/featured-threads";
 import {
   ForumLinks,
@@ -6,13 +7,33 @@ import {
 } from "@/components/widgets/forum-links";
 import { ForumStatsWidget } from "@/components/widgets/forum-stats-widget";
 import {
+  MonthStandings,
+  MonthStandingsSkeleton,
+} from "@/components/widgets/month-standings";
+import {
   RankedThreads,
   RankedThreadsSkeleton,
 } from "@/components/widgets/ranked-threads";
 import {
+  ReferralLink,
+  ReferralLinkSkeleton,
+} from "@/components/widgets/referral-link";
+import {
   SuggestedMembers,
   SuggestedMembersSkeleton,
 } from "@/components/widgets/suggested-members";
+import {
+  TextWidget,
+  TextWidgetSkeleton,
+} from "@/components/widgets/text-widget";
+import {
+  TopReferrers,
+  TopReferrersSkeleton,
+} from "@/components/widgets/top-referrers";
+import {
+  VisitorCard,
+  VisitorCardSkeleton,
+} from "@/components/widgets/visitor-card";
 import type {
   WidgetBodyProps,
   WidgetOf,
@@ -44,4 +65,10 @@ export const WIDGET_ENTRIES: { [K in WidgetType]?: WidgetEntry<K> } = {
     Skeleton: SuggestedMembersSkeleton,
   },
   forumLinks: { Body: ForumLinks, Skeleton: ForumLinksSkeleton },
+  visitorCard: { Body: VisitorCard, Skeleton: VisitorCardSkeleton },
+  birthdays: { Body: Birthdays, Skeleton: BirthdaysSkeleton },
+  topReferrers: { Body: TopReferrers, Skeleton: TopReferrersSkeleton },
+  referralLink: { Body: ReferralLink, Skeleton: ReferralLinkSkeleton },
+  monthStandings: { Body: MonthStandings, Skeleton: MonthStandingsSkeleton },
+  text: { Body: TextWidget, Skeleton: TextWidgetSkeleton },
 };

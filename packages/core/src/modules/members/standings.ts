@@ -3,6 +3,7 @@ import type { Actor, PermissionVersions } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { standingsMonth, standingsWinners } from "../../contracts/members";
 import { writeTx } from "../../db/tx";
+import { ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
@@ -430,11 +431,22 @@ const shownIn =
     return new Set(rows.filter((row) => !isBanned(row, now) && open.has(row.user_id)));
   };
 
+/** The month a `standings.month` input names; a month after the current one is refused. */
+function windowOf(named: string, current: { year: number; month: number }) {
+  if (named === "current") return current;
+  if (named === "previous") return previousOf(current);
+  const window = { year: Number(named.slice(0, 4)), month: Number(named.slice(5)) };
+  if (monthKey(window.year, window.month) > monthKey(current.year, current.month))
+    throw new ValidationError("That month has not begun.");
+  return window;
+}
+
 export const standingsMonthOp = implement(standingsMonth, (ctx, actor, input) => {
   requireSiteView(ctx, actor);
   requirePermission(ctx, actor, "profile.view");
   requirePermission(ctx, actor, "member.viewList");
   const now = ctx.now();
+  const settings = readSiteSettings(ctx);
   const shownAmong = shownIn(ctx, actor, now);
   const excluder = excluderFor(ctx, requestVersions(ctx, actor));
   // A member the site leaves out is not listed, whatever the last refresh stored.
@@ -443,7 +455,7 @@ export const standingsMonthOp = implement(standingsMonth, (ctx, actor, input) =>
     return shownAmong(rows.filter((row) => !left.has(row.user_id)));
   };
   const current = monthOf(now);
-  const window = input.month === "current" ? current : previousOf(current);
+  const window = windowOf(input.month, current);
   const key = monthKey(window.year, window.month);
   const same = prepared(ctx, "members.standingSame", () =>
     ctx.sqlite.prepare<EntryRow, [number, number, number, number, number]>(
@@ -498,6 +510,11 @@ export const standingsMonthOp = implement(standingsMonth, (ctx, actor, input) =>
     nextCursor: scan.next ? encodeCursor(scan.next) : null,
     year: window.year,
     month: window.month,
+    scoring: {
+      postPoints: settings.standingPostPoints,
+      reactionsPerPoint: settings.standingReactionsPerPoint,
+      referralPoints: settings.standingReferralPoints,
+    },
   };
 });
 

@@ -243,11 +243,14 @@ export function StandingList({
   entries,
   viewerId,
   start = 1,
+  compact = false,
 }: {
   entries: StandingEntry[];
   viewerId?: number;
   // The rank of the first entry, where the list continues an earlier page.
   start?: number;
+  // A narrow column: a small picture and no breakdown, the first place not set apart.
+  compact?: boolean;
 }) {
   return (
     <ol className="divide-y divide-border">
@@ -256,8 +259,9 @@ export function StandingList({
           <StandingRow
             entry={entry}
             rank={start + index}
-            leader={start === 1 && index === 0}
+            leader={!compact && start === 1 && index === 0}
             viewer={entry.card.id === viewerId}
+            compact={compact}
           />
         </li>
       ))}

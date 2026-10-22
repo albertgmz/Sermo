@@ -10,7 +10,13 @@
       "latestThreads": "Latest threads",
       "mostReplied": "Most replied",
       "mostReacted": "Most reacted",
-      "mostViewed": "Most viewed"
+      "mostViewed": "Most viewed",
+      "visitorCard": "Your profile",
+      "birthdays": "Today's birthdays",
+      "topReferrers": "Most referrals",
+      "referralLink": "Your referral link",
+      "monthStandings": "Members of the month",
+      "text": "Text"
     }
   },
   "rankedThreads": {

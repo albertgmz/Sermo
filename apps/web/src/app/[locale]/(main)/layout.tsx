@@ -82,6 +82,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         "forum.bbCode",
         "forum.composer",
         "forum.contentActions",
+        "forum.copyButton",
         "forum.createFlow",
         "forum.feedFilters",
         "forum.feedViewToggle",

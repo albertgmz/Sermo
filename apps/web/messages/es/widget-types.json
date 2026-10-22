@@ -1,0 +1,24 @@
+{
+  "visitorCard": {
+    "posts": "Mensajes",
+    "reactions": "Reacciones"
+  },
+  "topReferrers": {
+    "viewAll": "Ver todos"
+  },
+  "referralLink": {
+    "linkLabel": "Tu enlace de referido",
+    "whatIsThis": "¿Qué es eso?",
+    "explanation": "Los miembros que se registren con este enlace cuentan como tus referidos. Un enlace copiado con Copiar o Compartir lleva tu código; uno copiado de la barra de direcciones, no."
+  },
+  "monthStandings": {
+    "viewAll": "Clasificación completa",
+    "empty": "Todavía nadie ha obtenido puntos.",
+    "scoring": "Puntos: {postPoints} por mensaje, 1 por cada {reactionsPerPoint, plural, one {reacción recibida} other {# reacciones recibidas}}, {referralPoints} por referido."
+  },
+  "monthPicker": {
+    "label": "Mes",
+    "placeholder": "AAAA-MM",
+    "submit": "Ver"
+  }
+}

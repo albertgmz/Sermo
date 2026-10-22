@@ -321,12 +321,15 @@ test("a widget whose read fails draws nothing and is logged; the others are stil
 
 test("a widget of a type this app does not draw is left out", async () => {
   backend(rankings);
-  const visitor = widgetBody({
-    id: 9,
-    position: "novedades_sidebar",
-    type: "visitorCard",
-  });
-  const { html, errors } = await draw(area([visitor, mostReacted]));
+  const visitor = {
+    ...widgetBody({
+      id: 9,
+      position: "novedades_sidebar",
+      type: "featured",
+    }),
+    type: "somethingNew",
+  };
+  const { html, errors } = await draw(area([visitor as never, mostReacted]));
   expect(errors).toEqual([]);
   expect(html).toContain(titles.mostReacted);
 });
@@ -446,9 +449,13 @@ test("the sidebar is no column when empty, and none on a phone when no widget in
 });
 
 test("a widget of a type this app does not draw opens no column and no lead", () => {
+  const at = (
+    id: number,
+    position: Parameters<typeof widgetBody>[0]["position"],
+  ) => widgetBody({ id, position, type: "featured" });
   const undrawn = [
-    widgetBody({ id: 1, position: "overview_top", type: "visitorCard" }),
-    widgetBody({ id: 2, position: "sidebar_bottom", type: "birthdays" }),
+    { ...at(1, "overview_top"), type: "somethingNew" },
+    { ...at(2, "sidebar_bottom"), type: "somethingElse" },
   ] as never;
   const areas = widgetAreas("home", undrawn);
   expect(areas.lead).toEqual([]);

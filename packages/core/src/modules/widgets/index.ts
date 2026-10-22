@@ -3,6 +3,7 @@ import type { Actor } from "../../actor";
 import { type Ctx, cached, invalidate, prepared } from "../../context";
 import {
   WIDGET_LIMIT,
+  WIDGET_MEMBERS_ONLY,
   WIDGET_OPTIONS,
   WIDGET_PAGE_POSITIONS,
   type Widget,
@@ -170,7 +171,9 @@ function snapshot(ctx: Ctx): Record<Page, Entry[]> {
 
 /** The widgets of a page the actor is shown. */
 function shownTo(ctx: Ctx, actor: Actor, page: Page): Shown[] {
-  const entries = snapshot(ctx)[page];
+  const entries = snapshot(ctx)[page].filter(
+    (entry) => actor.kind !== "guest" || !WIDGET_MEMBERS_ONLY.includes(entry.item.type),
+  );
   const rules = entries.flatMap((entry) => (entry.rule ? [entry.rule] : []));
   if (!rules.length) return entries.map((entry) => entry.item);
   const facts = actorFacts(ctx, actor, rules);

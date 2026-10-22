@@ -8,7 +8,6 @@ export default function ApiLayout({ children }: { children: React.ReactNode }) {
         "admin.confirmPassword",
         "admin.formRows",
         "auth.passwordField",
-        "forum.copyButton",
       ]}
     >
       {children}

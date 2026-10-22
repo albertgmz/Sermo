@@ -197,6 +197,7 @@ export function widgetBody<K extends keyof typeof WIDGET_OPTIONS>({
   options = {},
   title = null,
   phones = true,
+  bodyHtml,
 }: {
   id: number;
   position: z.output<typeof WidgetPosition>;
@@ -204,9 +205,19 @@ export function widgetBody<K extends keyof typeof WIDGET_OPTIONS>({
   options?: Record<string, unknown>;
   title?: string | null;
   phones?: boolean;
+  // A text widget's body, rendered.
+  bodyHtml?: string;
 }) {
   const parsed: Record<string, unknown> = WIDGET_OPTIONS[type].parse(options);
-  return { id, position, type, options: parsed, title, phones };
+  return {
+    id,
+    position,
+    type,
+    options: parsed,
+    title,
+    phones,
+    ...(bodyHtml === undefined ? {} : { bodyHtml }),
+  };
 }
 
 // The widgets a new site starts with on the feed page: the featured threads above the feed and the
