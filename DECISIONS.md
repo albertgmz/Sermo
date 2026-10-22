@@ -5718,3 +5718,21 @@ phone keyboard, as on XenForo.
 Why: backlog A1; the install card's promise of message notifications is now true.
 Known limits: members whose XenForo setting was off get pushes once they register a device; a
 member with the conversation open still gets the push, as on XenForo.
+
+### Registration settings as on XenForo
+
+- New site settings `registrationOpen`, `minimumAge`, `registrationFields` and
+  `requireEmailConfirmation`, read with today's defaults when missing (open, no age, no required
+  fields, confirmation on), so the stored configuration behaves as before. Approval keeps using
+  `approveSignups` and the sign-up queue. `site.get` returns `registration`.
+- Refusals happen in the sign-up hook before the account exists (`REGISTRATION_CLOSED`,
+  `UNDER_MINIMUM_AGE`, `REGISTRATION_FIELD_REQUIRED`); only the asked fields are read and stored.
+  The sign-up plan rides on the request's own context, and confirmation-off turns off the sign-up
+  mail on that request's copy of the options only, so resends and email changes are untouched.
+  In-process sign-ups (first administrator, fixtures) bypass the rules, like Turnstile.
+- The sign-up form asks only the required fields, shows a notice when closed and an approval note;
+  the header and sign-in hide the register link when closed. Age is whole years by UTC day.
+
+Why: backlog E5 (Registration settings were a known gap).
+Known limits: the home and thread pages keep their register buttons when closed (they lead to the
+closed notice); the minimum age is checked at sign-up only.
