@@ -16,7 +16,7 @@ export async function TopReferrers({
   const { limit } = widget.options;
   const [{ user }, list] = await Promise.all([
     getViewer(),
-    readIfAllowed(usersList, { sort: "referrals", limit }),
+    readIfAllowed(usersList, { sort: "referrals", ranked: true, limit }),
   ]);
   const members = list?.items.filter((item) => item.referralCount > 0) ?? [];
   if (members.length === 0) return null;

@@ -253,6 +253,7 @@ test("top referrers ranks by referrals at its own size and leaves out members no
   expect(errors).toEqual([]);
   const list = asked.find((call) => call.path === "/api/v1/members");
   expect(list?.search.get("sort")).toBe("referrals");
+  expect(list?.search.get("ranked")).toBe("true");
   expect(list?.search.get("limit")).toBe("3");
   expect(html).toContain(titles.topReferrers);
   expect(html).toContain("ana");
