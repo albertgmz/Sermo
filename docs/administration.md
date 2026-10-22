@@ -485,7 +485,9 @@ longer meet exactly as the run above does (XP and credits taken back, balances m
 and grants the automatic awards they meet and do not hold, as the sweep does (XP and credits paid;
 an award taken back in a pass is not given again in the same pass). Grants made by hand are never
 touched, an automatic grant a moderator revoked is not given again, and nobody is notified. It runs
-in chunks of 25 members, one run at a time, ends before its next chunk when stopped (the Stop
+in chunks of at most 50 members, 200 grants and revocations and about 25 ms of work, resting as long
+between chunks (the benchmark's 60,000 members and 1.35 million changes took about three minutes;
+plan on five for fcuba.net's 67,000), one run at a time, ends before its next chunk when stopped (the Stop
 button, `awards.rebuildStop`), resumes after an error or a stop when started again, and is written
 to the moderator log (`awards.rebuild.start`, `.done`, `.stopped`, `.failed`). A second run changes
 nothing unless rules depend on time, credits or XP, or credit rules pay for awards.

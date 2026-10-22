@@ -22,17 +22,20 @@ import { type AwardRow, all, awardSql, one, run } from "./store";
 export const REBUILD_JOB = "awards.rebuild";
 /** The settings row that holds the run's progress and totals. */
 const RECORD_KEY = "awards.rebuild";
+/** Members taken in order per chunk. */
+export const REBUILD_CHUNK = 50;
 /**
- * Members taken in order per chunk. Each statement that reads their facts covers them all, and
- * one statement runs on the thread that serves requests without a break: a page of members with
- * long histories, read for the first time, kept it for a quarter of a second at 25.
+ * Members whose facts one statement reads. A statement runs on the thread that serves requests
+ * without a break: 25 members with long histories, read for the first time, held it for a quarter
+ * of a second.
  */
-export const REBUILD_CHUNK = 10;
+const FACTS_GROUP = 10;
 /**
  * A chunk's transaction ends with the member that takes its grants and revocations to this many
- * (one member always, whatever they need): each is a dozen statements and two events.
+ * (one member always, whatever they need): each is a dozen statements and two events. Each
+ * commit writes every page it changed again, so many small ones write far more than a few larger.
  */
-export const REBUILD_BUDGET = 30;
+export const REBUILD_BUDGET = 200;
 /**
  * A chunk's transaction also ends with the member it passes this many milliseconds on (one member
  * always): whatever the members need, it holds the thread and the write lock about this long.
@@ -40,8 +43,8 @@ export const REBUILD_BUDGET = 30;
 export const REBUILD_TIME_MS = 25;
 /**
  * After a chunk the run rests as long as the chunk took, up to this many milliseconds: it then
- * has at most half of the thread that serves requests, and writes at most half as fast, so the
- * checkpoints that copy what it wrote stay short (a commit that overlaps a long one waits).
+ * has at most half of the thread that serves requests, and writes slowly enough for checkpoints
+ * to keep up (without the rest the WAL reached 400 MB in the benchmark, with it 130 MB).
  */
 const REBUILD_REST_MS = 50;
 /** Awards listed in the status of a run, the ones most affected first. */
@@ -403,11 +406,12 @@ function pageOf(ctx: Ctx, dryRun: boolean, work: () => PageResult): PageResult {
 }
 
 /**
- * Rebuilds one page of members. The facts are read first, a statement at a time with a turn of
- * the event loop after each; then one transaction, which commits together with the job's
- * completion and its successor, rebuilds the members (`rebuildPage`). A preview does the same and
- * undoes it, keeping only the figures. A run that no longer owns the job, or that is not the one
- * the record describes, does nothing; one the administrator stopped ends before it.
+ * Rebuilds one page of members. The facts are read first, a statement at a time for at most
+ * `FACTS_GROUP` members, with a turn of the event loop after each; then one transaction, which
+ * commits together with the job's completion and its successor, rebuilds the members
+ * (`rebuildPage`). A preview does the same and undoes it, keeping only the figures. A run that no
+ * longer owns the job, or that is not the one the record describes, does nothing; one the
+ * administrator stopped ends before it. Then it rests (`REBUILD_REST_MS`).
  */
 export async function rebuildChunk(ctx: Ctx, after: number, job: ClaimedJob): Promise<void> {
   if (!Number.isSafeInteger(after) || after < 0)
@@ -421,15 +425,16 @@ export async function rebuildChunk(ctx: Ctx, after: number, job: ClaimedJob): Pr
     REBUILD_CHUNK,
   ).map((row) => row.id);
   const seen = activePlans(ctx);
-  const facts =
-    seen.length === 0 || ids.length === 0
-      ? new Map<number, Facts>()
-      : await loadFactsPaced(
-          ctx,
-          ids,
-          seen.map((plan) => plan.rule),
-          nextTurn,
-        );
+  const facts = new Map<number, Facts>();
+  if (seen.length > 0)
+    for (let from = 0; from < ids.length; from += FACTS_GROUP)
+      for (const [id, memberFacts] of await loadFactsPaced(
+        ctx,
+        ids.slice(from, from + FACTS_GROUP),
+        seen.map((plan) => plan.rule),
+        nextTurn,
+      ))
+        facts.set(id, memberFacts);
   await paceWal(ctx);
   const release = holdCheckpoints(ctx);
   try {
