@@ -5748,3 +5748,21 @@ closed notice); the minimum age is checked at sign-up only.
 Why: the credit and XP rankings already existed but, with credits starting at zero for everyone,
 listed tens of thousands of members at 0 after the few who had earned something (backlog E1).
 Known limits: the feed sidebar's suggested members by reactions still lists zero scores.
+
+### Past month winners follow the current standing rules
+
+- Changing the standing settings (point weights, staff switch, listed members, the new
+  `standingExcludeRule` on the group criteria) re-decides every past month with data in the
+  background, newest first, one month per job run (resumable; a change during a run queues another).
+  A permanent ban or an erasure re-decides only if that member won a month; lifting a ban always
+  does. The winner row is rewritten in place; the old winner gets no notification.
+- Only a permanent ban or an erasure disqualifies a past win; a temporary ban hides it while it
+  lasts. A member under a temporary ban at month end can now win that month (hidden until the ban
+  ends), where before the runner-up won.
+- The levels panel help no longer says decided winners never change. Supersedes "never rewritten"
+  for `month_winners`.
+
+Why: owner decision, member of the month follows the current rules (backlog A7). No award,
+notification or credit is tied to a month win, so only the winner row changes owner.
+Known limits: winners banned or erased before this release change only on the next settings save;
+group or staff changes do not trigger a run.
