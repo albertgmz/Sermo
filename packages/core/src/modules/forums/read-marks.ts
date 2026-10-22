@@ -7,9 +7,13 @@ import { implement, markPublic } from "../../operation";
 import { getNodeTree, requirePermission, viewableNodeIds } from "../../permissions";
 import { iso } from "../../time";
 import { requireSiteView } from "../members/site-access";
+import { readGates } from "./read-gates";
 
 /** After this long every thread counts as read. */
 const UNREAD_WINDOW_MS = 30 * 86_400_000;
+
+/** The newest threads of a forum `nodes.unread` looks at; older ones count as read. */
+export const UNREAD_SCAN = 100;
 
 export const readMarkSql = {
   /** The markers of one viewer for a set of forums: one seek of `node_reads_user_node` each. */
@@ -24,13 +28,13 @@ export const readMarkSql = {
   recent:
     "SELECT id FROM nodes WHERE id IN (SELECT value FROM json_each(?1)) AND last_post_at > ?2",
   /**
-   * The forums among `?2` with a thread, last posted in the window starting at `?3` and after the
-   * viewer's marker (`node_reads`, one seek), that the viewer has not read to its last post
-   * (`thread_reads`, one seek). One seek of `threads_node_feed` per forum that stops at the first
-   * unread thread.
+   * The forums among `?2` with a thread, among the `UNREAD_SCAN` most recently posted in the
+   * window starting at `?3` and after the viewer's marker (`node_reads`, one seek), that the
+   * viewer has not read to its last post (`thread_reads`, one seek). One seek of
+   * `threads_node_feed` per forum that stops at the first unread thread and, for a member who has
+   * read everything, at the cap: never more than `UNREAD_SCAN` lookups per forum.
    */
-  unread:
-    "SELECT n.id FROM nodes n WHERE n.id IN (SELECT value FROM json_each(?2)) AND EXISTS (SELECT 1 FROM threads t WHERE t.node_id = n.id AND t.state = 'visible' AND t.last_post_at > max(?3, COALESCE((SELECT r.read_at FROM node_reads r WHERE r.user_id = ?1 AND r.node_id = n.id), 0)) AND NOT EXISTS (SELECT 1 FROM thread_reads x WHERE x.user_id = ?1 AND x.thread_id = t.id AND x.last_read_post_id >= t.last_post_id))",
+  unread: `SELECT n.id FROM nodes n WHERE n.id IN (SELECT value FROM json_each(?2)) AND EXISTS (SELECT 1 FROM (SELECT t.id, t.last_post_id FROM threads t WHERE t.node_id = n.id AND t.state = 'visible' AND t.last_post_at > max(?3, COALESCE((SELECT r.read_at FROM node_reads r WHERE r.user_id = ?1 AND r.node_id = n.id), 0)) ORDER BY t.last_post_at DESC LIMIT ${UNREAD_SCAN}) c WHERE NOT EXISTS (SELECT 1 FROM thread_reads x WHERE x.user_id = ?1 AND x.thread_id = c.id AND x.last_read_post_id >= c.last_post_id))`,
   /** Removes a batch of the markers older than `?1`: an index range of `node_reads_read_at`. */
   expire:
     "DELETE FROM node_reads WHERE id IN (SELECT id FROM node_reads WHERE read_at < ?1 ORDER BY read_at LIMIT 1000)",
@@ -135,11 +139,16 @@ export const nodesMarkAllReadOp = implement(contracts.nodesMarkAllRead, (ctx, ac
 });
 
 export const nodesUnreadOp = implement(contracts.nodesUnread, (ctx, actor) => {
-  requireSiteView(ctx, actor);
   const userId = actorUserId(actor);
   if (userId === null) return { nodeIds: [] };
+  requireSiteView(ctx, actor);
   const tree = getNodeTree(ctx);
-  const forums = viewableNodeIds(ctx, actor).filter((id) => tree.get(id)?.type === "forum");
+  // Where the viewer may not open other members' threads, nodes.list hides the last post and so
+  // does this: nothing is reported for the forum.
+  const gates = readGates(ctx, actor);
+  const forums = viewableNodeIds(ctx, actor).filter(
+    (id) => tree.get(id)?.type === "forum" && gates.opensOthers(id),
+  );
   const rows = prepared(ctx, "forums.unreadNodes", () =>
     ctx.sqlite.prepare<{ id: number }, [number, string, number]>(readMarkSql.unread),
   ).all(userId, JSON.stringify(forums), ctx.now() - UNREAD_WINDOW_MS);

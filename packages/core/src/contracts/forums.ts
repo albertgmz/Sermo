@@ -727,8 +727,10 @@ export const nodesUnread = defineContract({
   summary:
     "The forums the viewer can see that hold an unread thread: one whose last post is newer " +
     "than the viewer's read marker for the forum (nodes.markRead) and than what they have read " +
-    "of the thread, within the 30 days after which every thread counts as read. One read for " +
-    "the whole tree, not per forum. Empty for a guest.",
+    "of the thread, within the 30 days after which every thread counts as read. Only the 100 " +
+    "most recently posted threads of a forum are looked at (older ones count as read). Forums " +
+    "where the viewer may not open other members' threads are never reported. One read for the " +
+    "whole tree, not per forum. Empty for a guest, whatever the site's access.",
   kind: "read",
   input: Empty,
   output: z.object({ nodeIds: z.array(Id) }),
