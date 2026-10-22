@@ -189,7 +189,6 @@ export function sweepAgainAfterCurrent(ctx: Ctx): void {
 }
 
 function onEvent(ctx: Ctx, event: DomainEvent): void {
-  if (isRevokeRunEvent(ctx, event)) return;
   // An automatic grant, and the credits it paid, come from a pass that judged every award again
   // with them (`evaluate`): they leave nothing to change.
   if (
@@ -258,6 +257,8 @@ export function registerAwardJobs(ctx: Ctx): void {
   // A turn of the event loop after each event: a batch of them is consumed back to back, and the
   // first pass after new awards publishes one or two for each grant.
   registerEventSubscriber(ctx, "awards", async (event) => {
+    // No turn of the event loop for these: a run publishes up to two for each grant it takes back.
+    if (isRevokeRunEvent(event)) return;
     onEvent(ctx, event);
     await nextTurn();
   });

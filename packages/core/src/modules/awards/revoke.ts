@@ -3,7 +3,7 @@ import type { Ctx } from "../../context";
 import type { AwardRevokeRun } from "../../contracts/awards";
 import { holdCheckpoints, paceWal } from "../../db/checkpointer";
 import { writeTx } from "../../db/tx";
-import { ConflictError } from "../../errors";
+import { ConflictError, UnauthenticatedError } from "../../errors";
 import { can, currentActor } from "../../permissions";
 import {
   creditsEarnedKeys,
@@ -16,7 +16,6 @@ import { iso, isoOrNull } from "../../time";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "../jobs/queue";
 import { activePlans, confirmed, nextTurn, type Plans } from "./automatic";
 import { revokeAward } from "./grants";
-import { REVOKE_REASON } from "./revoke-events";
 import { type AwardRow, all, awardSql, one, run } from "./store";
 
 /** The queue's job and the key that lets one run be under way at a time. */
@@ -219,7 +218,7 @@ function judge(
     for (const grant of [...left]) {
       if (ruleHolds(plans.get(grant.award_id)!.rule, facts)) continue;
       left = left.filter((other) => other !== grant);
-      if (adminId !== null) revokeAward(ctx, grant.id, adminId, REVOKE_REASON, { rearm: true });
+      if (adminId !== null) revokeAward(ctx, grant.id, adminId, "", { unqualified: true });
       afterRevoke(facts, grant, earned);
       taken.push(grant);
       again = true;
@@ -236,8 +235,10 @@ function mayManage(ctx: Ctx, adminId: number): boolean {
       currentActor(ctx, { kind: "user", userId: adminId, groupId: 0, sessionId: 0 }),
       "admin.awards",
     );
-  } catch {
-    return false;
+  } catch (error) {
+    // Only a member who is gone has lost the permission; any other error is the chunk's.
+    if (error instanceof UnauthenticatedError) return false;
+    throw error;
   }
 }
 

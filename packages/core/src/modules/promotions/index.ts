@@ -870,7 +870,7 @@ export function deletePromotionChunk(ctx: Ctx, progress: DeleteProgress): number
   });
 }
 function onEvent(ctx: Ctx, event: DomainEvent): void {
-  if (isRevokeRunEvent(ctx, event)) return;
+  if (isRevokeRunEvent(event)) return;
   let userId: number | null = null;
   if (
     event.type === "content.created" &&

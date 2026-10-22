@@ -12,6 +12,7 @@ import { registerPromotionJobs } from "../promotions";
 import { evaluateMember, sweepChunk } from "./automatic";
 import { registerAwardJobs } from "./index";
 import { REVOKE_BUDGET, REVOKE_CHUNK, REVOKE_JOB, revokeChunk } from "./revoke";
+import { UNQUALIFIED_SOURCE } from "./revoke-events";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
 afterEach(() => {
@@ -182,6 +183,13 @@ describe("taking back automatic awards from members who no longer meet the rule"
         loses.id,
       ),
     ).toEqual([{ amount: -10, type: "award_revoked", actor_id: adminUser.id }]);
+    // Marked for the subscribers, with no text a member would read in the wrong language.
+    expect(
+      sql(
+        "SELECT source_type, reason FROM credit_transactions WHERE user_id = ?1 AND type = 'award_revoked'",
+        loses.id,
+      ),
+    ).toEqual([{ source_type: UNQUALIFIED_SOURCE, reason: "" }]);
     // The trail: a line when it starts and one with the totals when it ends.
     const log = sql("SELECT actor_id, action, details FROM moderator_log ORDER BY id") as {
       actor_id: number;
@@ -550,7 +558,11 @@ describe("taking back automatic awards from members who no longer meet the rule"
     const handGrant = (await call("memberGrants", { userId: byHand.id })).items.find(
       (grant: { award: { id: number } }) => grant.award.id === base.id,
     );
-    await call("revoke", { memberAwardId: handGrant.id });
+    // The words the run used to give as its reason change nothing: only its own marks count.
+    await call("revoke", {
+      memberAwardId: handGrant.id,
+      reason: "The member no longer meets the rule of the award.",
+    });
     await call("revokeUnqualified", { apply: true });
     await drain();
     await events();

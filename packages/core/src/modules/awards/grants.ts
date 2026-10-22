@@ -2,6 +2,7 @@ import type { Ctx } from "../../context";
 import { ConflictError, NotFoundError } from "../../errors";
 import { publishEvent } from "../../events";
 import { moveCredits } from "../../shared/credits";
+import { UNQUALIFIED_SOURCE } from "./revoke-events";
 import { type AwardRow, awardSql, type GrantRow, one, run } from "./store";
 
 export const claimSql =
@@ -84,16 +85,18 @@ export function grantAward(
 
 /**
  * Takes one grant back. A grant the criteria made stays marked as made (`auto_granted`), so the
- * criteria do not give it again; `rearm` clears the mark, for a grant taken back because its
- * member no longer meets the rule (they get it again if they come to meet it).
+ * criteria do not give it again. `unqualified` is for the run that takes grants back from members
+ * who no longer meet the rule: it clears the mark (they get the award again if they come to meet
+ * the rule) and marks the events and the credits row as the run's (`revoke-events.ts`).
  */
 export function revokeAward(
   ctx: Ctx,
   id: number,
   actorId: number,
   reason: string,
-  options: { rearm?: boolean } = {},
+  options: { unqualified?: boolean } = {},
 ): void {
+  const unqualified = options.unqualified ?? false;
   if (!ctx.sqlite.inTransaction) throw new Error("Award revocations require a write transaction.");
   const grant = one<GrantRow>(ctx, "revoke", awardSql.revoke, ctx.now(), actorId, id);
   if (!grant) throw new NotFoundError();
@@ -103,7 +106,7 @@ export function revokeAward(
     "UPDATE member_award_totals SET count = count - 1, auto_granted = auto_granted AND NOT ?3 WHERE user_id = ?1 AND award_id = ?2",
     grant.user_id,
     grant.award_id,
-    Number(options.rearm ?? false),
+    Number(unqualified),
   );
   run(
     ctx,
@@ -124,7 +127,7 @@ export function revokeAward(
         userId: grant.user_id,
         amount: -grant.credits,
         type: "award_revoked",
-        source: { type: "member_award", id },
+        source: { type: unqualified ? UNQUALIFIED_SOURCE : "member_award", id },
         actorId,
         reason,
       },
@@ -140,6 +143,7 @@ export function revokeAward(
       credits: grant.credits,
       actorId,
       reason,
+      ...(unqualified && { unqualified }),
     },
   });
 }
