@@ -6141,3 +6141,15 @@ Mes").
 Why: backlog B7 and the widget findings 3.6 (fcuba's "Miembros en línea" and site statistics).
 Known limits: the member count is a full count, cold about 260 ms on a 60k-member copy, once per
 10 minutes.
+
+### The sign-in pages share one layout with the Cuban flag
+
+- Login, register, forgot and reset password, verify-email and not-me share one frame: on wide
+  screens a night-blue panel beside the form holds a drawn Cuban flag (inline SVG at 1:2, five
+  equal stripes, equilateral red triangle, white star on its centroid), the site name and a
+  welcome line; on phones a slim band above the form. The flag's colours are fixed tokens, the
+  same in both themes; a slow sheen stops under reduced motion. No client JS.
+- On /register the "Log in" link moved below the form, as login's "create an account" is.
+
+Why: the owner asked for better sign-in pages with the Cuban flag (fcuba.net is a Cuban
+community). The flag counts as brand artwork for LITE (a same-size placeholder when blocked).
