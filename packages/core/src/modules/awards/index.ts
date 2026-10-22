@@ -18,6 +18,7 @@ import {
 import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
+import { confirmActorPassword } from "../admin/shared";
 import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
 import { requireSiteView } from "../members/site-access";
@@ -26,6 +27,7 @@ import { registerAwardJobs as registerSweepJobs, sweepAgainAfterCurrent } from "
 import { assertCategory, categoryOperations } from "./categories";
 import { grantAward, revokeAward } from "./grants";
 import { AWARD_ICON_KEYS } from "./icons";
+import { rebuildRunValue, registerRebuildJobs, startRebuild } from "./rebuild";
 import { registerRevokeJobs, revokeRunValue, startRevoke } from "./revoke";
 import {
   type AwardRow,
@@ -48,6 +50,7 @@ import {
 export function registerAwardJobs(ctx: Ctx): void {
   registerSweepJobs(ctx);
   registerRevokeJobs(ctx);
+  registerRebuildJobs(ctx);
 }
 
 function visibleAward(ctx: Ctx, actor: Actor, id: number): AwardRow {
@@ -272,6 +275,19 @@ export const operations = [
   implement(contracts.awardsRevokeStatus, (ctx, actor) => {
     requirePermission(ctx, actor, "admin.awards");
     return revokeRunValue(ctx);
+  }),
+  implement(contracts.awardsRebuild, async (ctx, actor, input) => {
+    requirePermission(ctx, actor, "admin.awards");
+    const admin = requireAuthenticated(actor);
+    await confirmActorPassword(ctx, actor, input.actorPassword);
+    return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
+      return { queued: startRebuild(ctx, admin.userId) };
+    });
+  }),
+  implement(contracts.awardsRebuildStatus, (ctx, actor) => {
+    requirePermission(ctx, actor, "admin.awards");
+    return rebuildRunValue(ctx);
   }),
   implement(contracts.awardsGrant, (ctx, actor, input) => {
     requirePermission(ctx, actor, "award.grant");

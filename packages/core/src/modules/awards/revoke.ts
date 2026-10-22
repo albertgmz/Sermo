@@ -51,7 +51,13 @@ type RunRecord = {
   byAward: { [awardId: string]: number };
   error: string | null;
 };
-type HeldGrant = { id: number; user_id: number; award_id: number; xp: number; credits: number };
+export type HeldGrant = {
+  id: number;
+  user_id: number;
+  award_id: number;
+  xp: number;
+  credits: number;
+};
 
 /**
  * An automatic grant is proven so twice: it was made with no granter and the member's totals say
@@ -203,7 +209,7 @@ function afterRevoke(facts: Facts, grant: HeldGrant, earned: ReadonlySet<string>
  * award that needs XP, credits or another award is judged with what the member is left with after
  * the ones taken back before it. With `apply` they are revoked; without it only counted.
  */
-function judge(
+export function judge(
   ctx: Ctx,
   held: HeldGrant[],
   plans: Map<number, Plans[number]>,
@@ -228,7 +234,7 @@ function judge(
 }
 
 /** Whether the administrator who started the run still holds `admin.awards`, as the database says now. */
-function mayManage(ctx: Ctx, adminId: number): boolean {
+export function mayManage(ctx: Ctx, adminId: number): boolean {
   try {
     return can(
       ctx,
@@ -250,7 +256,7 @@ function stop(ctx: Ctx, record: RunRecord, error: string): void {
   if (record.mode === "revoke") logRun(ctx, record, "awards.revokeUnqualified.failed", { error });
 }
 
-function heldBy(ctx: Ctx, members: number[]): HeldGrant[] {
+export function heldBy(ctx: Ctx, members: number[]): HeldGrant[] {
   return all<HeldGrant>(ctx, "revokeGrants", revokeSql.grants, JSON.stringify(members));
 }
 

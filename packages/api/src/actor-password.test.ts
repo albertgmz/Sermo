@@ -304,3 +304,21 @@ test("a member deletes their own account with a session and their password, neve
   // The session that did it is over.
   expect((await asSession("GET", "/me/counters")).status).toBe(403);
 });
+
+test("the rebuild of levels and awards needs the session's password, and a key cannot start it", async () => {
+  const { ctx, asSession, asKey } = await setup();
+  const jobs = () =>
+    ctx.sqlite
+      .prepare<{ n: number }, []>("SELECT count(*) AS n FROM jobs WHERE type = 'awards.rebuild'")
+      .get()!.n;
+  expect((await asSession("POST", "/awards/rebuild", {})).status).toBe(400);
+  expect(
+    (await asSession("POST", "/awards/rebuild", { actorPassword: "nope-nope-1" })).status,
+  ).toBe(403);
+  expect((await asKey("POST", "/awards/rebuild", { actorPassword: PASSWORD })).status).toBe(403);
+  expect(jobs()).toBe(0);
+  const started = await asSession("POST", "/awards/rebuild", { actorPassword: PASSWORD });
+  expect(started.status).toBe(201);
+  expect(await started.json()).toEqual({ queued: true });
+  expect(jobs()).toBe(1);
+});

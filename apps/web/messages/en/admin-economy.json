@@ -160,6 +160,24 @@
       "revokeQueued": "The run was queued and will start shortly.",
       "notQueued": "A run is already under way."
     },
+    "rebuild": {
+      "heading": "Rebuild levels and awards",
+      "help": "Sets every member's XP, and with it their level, to what the awards they hold add up to, takes back the automatic awards they no longer qualify for (with their XP and credits) and gives the automatic awards they qualify for and do not hold yet (with their XP and credits). Awards given by hand are never touched, and an award a moderator revoked is not given again. Members are not told. It is safe to run again: a second run changes nothing.",
+      "aria": "Progress of the rebuild",
+      "idle": "Nothing has been rebuilt yet.",
+      "progress": "Rebuilding: {percent} of the members done. So far {granted} awards given and {takenBack} taken back.",
+      "failed": "The rebuild stopped at {percent} on an error: {error} Nothing is lost: resume it and it goes on from there.",
+      "done": "Last run: {members} members looked at, {xpCorrected} had their XP corrected, {levels} changed level, {granted} awards given and {takenBack} taken back.",
+      "started": "Started {when}.",
+      "finished": "Finished {when}.",
+      "rebuild": "Rebuild levels and awards…",
+      "rebuildNow": "Rebuild levels and awards",
+      "resume": "Resume the rebuild",
+      "starting": "Starting…",
+      "warning": "This recalculates the XP and level of all members from the awards they hold and judges every automatic award again: awards a member no longer qualifies for are taken back, with their XP and credits (a balance can go below zero), and awards they qualify for are given, with their XP and credits. Levels can go up or down. Members are not told. Awards given by hand are not touched. It runs in the background, a few members at a time, and can take a long while; this page shows how far it is.",
+      "queued": "The rebuild was queued and will start shortly.",
+      "notQueued": "A run is already under way."
+    },
     "notices": {
       "created": "Award created.",
       "saved": "Award saved.",

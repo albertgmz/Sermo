@@ -14,6 +14,7 @@ import {
   startJobWorker,
 } from "@sermo/core";
 import { sweepChunk } from "../../packages/core/src/modules/awards/automatic";
+import { rebuildChunk } from "../../packages/core/src/modules/awards/rebuild";
 import { revokeChunk } from "../../packages/core/src/modules/awards/revoke";
 import type { ClaimedJob } from "../../packages/core/src/modules/jobs/queue";
 import { type BenchEnv, createEnv, type Scenario } from "../harness";
@@ -351,6 +352,36 @@ const revokeWork: ScaleWork = {
   },
 };
 
+/** The same live-scale grants, rebuilt: judged again, the fallen taken back, the missing given. */
+const rebuildWork: ScaleWork = {
+  label: "Award rebuild",
+  job: "awards.rebuild",
+  chunk: (ctx, payload, job) => rebuildChunk(ctx, (payload as { after: number }).after, job),
+  prepare: async (copy, awardIds) => {
+    grantAtLiveScale(copy, awardIds);
+  },
+  start: async (copy) => {
+    await copy.call("awards.rebuild", copy.actors.admin, {});
+  },
+  finished: (copy) =>
+    copy.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT count(*) AS n FROM site_settings WHERE key = 'awards.rebuild' AND json_extract(value, '$.state') = 'running'",
+      )
+      .get()!.n === 0,
+  summary: (copy) => {
+    const record = copy.ctx.sqlite
+      .prepare<{ value: string }, []>(
+        "SELECT value FROM site_settings WHERE key = 'awards.rebuild'",
+      )
+      .get();
+    const { granted, takenBack, levelsChanged, members } = JSON.parse(
+      record?.value ?? "{}",
+    ) as Record<string, number>;
+    return `${members} members seen, ${granted} grants made, ${takenBack} taken back, ${levelsChanged} levels changed`;
+  },
+};
+
 /**
  * Sends one call to the sweep's copy over a local socket, as a visitor's request reaches the
  * server: it is served when the event loop next polls for input, so it waits for whatever
@@ -647,4 +678,7 @@ export const scenarios: Scenario[] = [
   // second also waits for the run to end (at most ten minutes) and reports how long it took.
   readWhile("awards revoke at scale: threads.list while it runs", revokeWork),
   writeWhile("awards revoke at scale: posts.create while it runs", revokeWork, true),
+  // The whole rebuild: every member judged, so one chunk is 25 members (fewer when they need much).
+  readWhile("awards rebuild at scale: threads.list while it runs", rebuildWork),
+  writeWhile("awards rebuild at scale: posts.create while it runs", rebuildWork, true),
 ];

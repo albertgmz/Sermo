@@ -3,6 +3,7 @@
 import {
   awardsCreate,
   awardsDelete,
+  awardsRebuild,
   awardsRevokeUnqualified,
   awardsRun,
   awardsUpdate,
@@ -16,6 +17,7 @@ import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import {
   formFailure,
+  missingPassword,
   ruleOf,
   ruleRefusal,
   text,
@@ -164,4 +166,25 @@ export async function revokeUnqualified(
   _previous: StaffFormState,
 ): Promise<StaffFormState> {
   return startRevoke(true);
+}
+
+// Start the rebuild of every member's XP and automatic awards, or resume one that stopped. It asks
+// for the administrator's own password, which the backend checks first.
+export async function rebuildLevelsAndAwards(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminEconomy.awards.rebuild");
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
+  try {
+    const { queued } = await call(awardsRebuild, {
+      actorPassword: text(formData, "actorPassword"),
+    });
+    if (!queued) return { error: t("notQueued") };
+    revalidatePath("/[locale]/admin/awards", "page");
+    return { notice: t("queued") };
+  } catch (error) {
+    return formFailure(error, ["actorPassword"]);
+  }
 }

@@ -49,6 +49,7 @@ async function redirectedTo(run: () => Promise<unknown>) {
 const {
   countUnqualified,
   deleteAward,
+  rebuildLevelsAndAwards,
   revokeUnqualified,
   runAwards,
   saveAward,
@@ -201,4 +202,34 @@ test("a run already under way is told so, and the backend's refusal is shown", a
     "awards.revokeUnqualified": () => refusal(403, "forbidden", "Not allowed."),
   });
   expect(await countUnqualified(null)).toEqual({ error: "Not allowed." });
+});
+
+test("the rebuild asks for the password first, sends it, refreshes the page and says when a run is under way", async () => {
+  const words = messages.adminEconomy.awards.rebuild;
+  backend = fakeBackend({
+    "awards.rebuild": () => Response.json({ queued: true }),
+  });
+  renewed.length = 0;
+  expect(await rebuildLevelsAndAwards(null, form({}))).toEqual({
+    fields: { actorPassword: messages.adminGroups.errors.password },
+  });
+  expect(backend.asked).toEqual([]);
+  expect(
+    await rebuildLevelsAndAwards(null, form({ actorPassword: "secret" })),
+  ).toEqual({
+    notice: words.queued,
+  });
+  expect(backend.asked.map((call) => call.body)).toEqual([
+    { actorPassword: "secret" },
+  ]);
+  expect(renewed).toEqual(["/[locale]/admin/awards"]);
+  backend.restore();
+  backend = fakeBackend({
+    "awards.rebuild": () => Response.json({ queued: false }),
+  });
+  expect(
+    await rebuildLevelsAndAwards(null, form({ actorPassword: "secret" })),
+  ).toEqual({
+    error: words.notQueued,
+  });
 });

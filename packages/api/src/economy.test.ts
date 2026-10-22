@@ -24,6 +24,8 @@ interface RouteCase {
   body?: (f: Fixture) => object;
   as?: "member";
   guest?: "public";
+  /** Asks for the administrator's password, which a key cannot give (`actor-password.test.ts`). */
+  sessionOnly?: true;
   denied?: { permission?: string; status?: 403 | 404; url?: (f: Fixture) => string };
   invalid?: { url?: (f: Fixture) => string; body?: object; issue: string };
   missing?: { url?: (f: Fixture) => string; body?: (f: Fixture) => object };
@@ -202,6 +204,27 @@ const cases: RouteCase[] = [
     body: () => ({ apply: false }),
     denied: {},
     invalid: { body: { apply: "yes" }, issue: "apply" },
+    expected: () => ({ queued: true }),
+  },
+  {
+    contract: c.awardsRebuildStatus,
+    method: "GET",
+    path: "/awards/rebuild",
+    status: 200,
+    url: () => "/awards/rebuild",
+    denied: {},
+    expected: () => ({ state: "idle", granted: 0, takenBack: 0 }),
+  },
+  {
+    contract: c.awardsRebuild,
+    method: "POST",
+    path: "/awards/rebuild",
+    status: 201,
+    url: () => "/awards/rebuild",
+    body: () => ({ actorPassword: "Password123!" }),
+    sessionOnly: true,
+    denied: {},
+    invalid: { body: { actorPassword: 5 }, issue: "actorPassword" },
     expected: () => ({ queued: true }),
   },
   {
@@ -584,13 +607,13 @@ const cases: RouteCase[] = [
   },
 ];
 
-test("economy has exactly the 41 documented route mappings", () => {
-  expect(cases).toHaveLength(41);
-  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(41);
+test("economy has exactly the 43 documented route mappings", () => {
+  expect(cases).toHaveLength(43);
+  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(43);
   const actual = routes.filter(({ operation }) =>
     /^(credits|creditRules|awards|awardCategories|shopCategories|shopItems|shop)\./.test(operation),
   );
-  expect(actual).toHaveLength(41);
+  expect(actual).toHaveLength(43);
   for (const row of cases)
     expect(actual.find(({ operation }) => operation === row.contract.name)).toMatchObject({
       method: row.method,
@@ -602,6 +625,7 @@ test("economy has exactly the 41 documented route mappings", () => {
 for (const mode of ["cookie", "key"] as const) {
   describe(`economy HTTP with ${mode} authentication`, () => {
     for (const row of cases) {
+      if (mode === "key" && row.sessionOnly) continue;
       test(`${row.contract.name}: ${row.method} ${row.path} returns ${row.status} and its contract`, async () => {
         const f = await fixture(mode);
         const body = await success(
@@ -688,7 +712,7 @@ for (const mode of ["cookie", "key"] as const) {
   });
 }
 
-test("OpenAPI over HTTP documents all 35 economy operations and references shared schemas", async () => {
+test("OpenAPI over HTTP documents all 37 economy operations and references shared schemas", async () => {
   const f = await setup();
   const response = await f.request("/api/v1/openapi.json");
   expect(response.status).toBe(200);

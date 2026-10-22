@@ -66,7 +66,7 @@ export function confirmed(ctx: Ctx, seen: Plans): Plans {
 }
 
 /** Judges `members` in order until `budget` grants are made; says how many it judged. */
-function evaluate(
+export function evaluate(
   ctx: Ctx,
   members: MemberRow[],
   plans: Plans,
