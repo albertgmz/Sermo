@@ -34,7 +34,7 @@ async function setup(env: BenchEnv) {
       .run(kind);
     filled.push(kind);
   }
-  const site = (await env.call("settings.get", env.actors.admin, {})) as {
+  const site = JSON.parse((await env.call("settings.get", env.actors.admin, {})) as string) as {
     feedExcludedForumIds: number[];
   };
   excludedBefore = site.feedExcludedForumIds;
