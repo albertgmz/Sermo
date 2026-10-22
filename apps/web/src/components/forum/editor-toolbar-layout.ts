@@ -123,6 +123,8 @@ export const GROUPS: Group[] = [
   {
     id: "insert",
     shown: "all",
+    // XenForo's insert group reads link, image, emoji, quote, table, line: an emoji button goes
+    // right after Image (behind the "⋮" on a phone, which shows link and image only).
     direct: [
       slot("link"),
       slot("image"),

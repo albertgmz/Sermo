@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { MessagesSquare, SquarePen } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { messages } from "@/i18n/messages";
 import { withIntl } from "@/lib/test-intl";
@@ -77,4 +78,20 @@ test("a composer with no files has the submit alone", () => {
   const html = draw({ files: undefined });
   expect(html).not.toContain(attach);
   expect(submitOf(html)).not.toBeNull();
+});
+
+test("the submit's icon says what it does, as XenForo's: a reply unless the composer names another", () => {
+  expect(submitOf(draw({}))?.[1]).toContain("lucide-reply");
+  const thread = submitOf(draw({ icon: SquarePen }))?.[1] ?? "";
+  expect(thread).toContain("lucide-square-pen");
+  expect(thread).not.toContain("lucide-reply");
+  expect(submitOf(draw({ icon: MessagesSquare }))?.[1]).toContain(
+    "lucide-messages-square",
+  );
+});
+
+test("the submit's tint has a faint border of the accent, as XenForo's primary button", () => {
+  const classes = classesOf(submitOf(draw({}))?.[0] ?? "");
+  expect(classes).toContain("border");
+  expect(classes).toContain("border-primary/30");
 });

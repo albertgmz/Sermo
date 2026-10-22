@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, SquarePen } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -387,6 +387,7 @@ export function ThreadComposer({
           : { kind: "page", closeHref: `/forums/${forum}` }
       }
       submitLabel={t("post")}
+      submitIcon={SquarePen}
       pending={pending}
       canSubmit={threadReady(title, body, prefixBlocks(offered, prefix))}
       top={top}

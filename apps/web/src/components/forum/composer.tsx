@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { type LucideIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { type RefObject, useEffect, useState } from "react";
@@ -195,6 +195,7 @@ export function ComposerForm({
   onSubmit,
   frame,
   submitLabel,
+  submitIcon,
   pending,
   canSubmit = true,
   top,
@@ -211,6 +212,8 @@ export function ComposerForm({
   onSubmit: React.FormEventHandler<HTMLFormElement>;
   frame: ComposerFrame;
   submitLabel: string;
+  // The submit's icon when it is not the reply arrow (`ComposerButtons`).
+  submitIcon?: LucideIcon;
   pending: boolean;
   // False until what the post needs is written; the caller says what that is.
   canSubmit?: boolean;
@@ -331,6 +334,7 @@ export function ComposerForm({
         >
           <ComposerButtons
             submitLabel={submitLabel}
+            icon={submitIcon}
             order="reply"
             disabled={pending || uploading || !canSubmit}
             files={

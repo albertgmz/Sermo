@@ -1,14 +1,15 @@
 "use client";
 
+import { MessagesSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { startConversation } from "@/app/[locale]/(main)/conversations/actions";
 import { RecipientPicker } from "@/app/[locale]/(main)/conversations/new/recipient-picker";
 import { AttachmentField } from "@/components/forum/attachment-field";
+import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { useKeptForm } from "@/components/forum/use-kept-form";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -45,15 +46,15 @@ export function NewConversationForm({
           placeholder={t("messagePlaceholder")}
         />
       </div>
-      {canAttach && <AttachmentField onBusy={setUploading} />}
       {state.error && <FormError>{state.error}</FormError>}
-      <Button
-        type="submit"
+      {/* The composer's row, as XenForo's: Attach files first, the send at the end. */}
+      <ComposerButtons
+        submitLabel={t("submit")}
+        icon={MessagesSquare}
+        order="reply"
         disabled={pending || uploading}
-        className="h-10 px-4 md:h-8"
-      >
-        {t("submit")}
-      </Button>
+        files={canAttach && <AttachmentField compact onBusy={setUploading} />}
+      />
     </form>
   );
 }

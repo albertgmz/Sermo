@@ -21,7 +21,6 @@ import {
   removeFromComposer,
 } from "@/components/forum/composer-insert";
 import { FormError } from "@/components/forum/form-error";
-import { messageActionClass } from "@/components/forum/message-action";
 import { useUploadLimit } from "@/components/forum/upload-limit";
 import { buttonVariants } from "@/components/ui/button";
 import { megabytes, uploadLimit } from "@/lib/sermo/upload-limit";
@@ -187,13 +186,11 @@ export function AttachmentField({
       <label
         className={cn(
           "cursor-pointer has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-          compact
-            ? // XenForo's button: as tall as the submit beside it, last in the row.
-              cn(
-                buttonVariants({ variant: "outline" }),
-                "order-last h-11 gap-2 px-4 text-(length:--text-compact) pointer-fine:h-8",
-              )
-            : cn(messageActionClass, "border border-border px-3"),
+          // XenForo's outline button with its paperclip, as tall as a composer's submit; in a
+          // composer's row it goes last (`ComposerButtons`).
+          buttonVariants({ variant: "outline" }),
+          "h-11 gap-2 px-4 text-(length:--text-compact) pointer-fine:h-8",
+          compact && "order-last",
         )}
       >
         <Paperclip aria-hidden="true" />

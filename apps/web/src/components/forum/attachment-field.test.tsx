@@ -72,3 +72,16 @@ test("a picture offers its thumbnail and its full size, any other file one inser
   expect(titled(text.insertThumbnail)).toBe(1);
   expect(titled(text.insertFull)).toBe(1);
 });
+
+test("Attach files is XenForo's outline button with its paperclip in a form's own row too", () => {
+  const classesOf = (html: string) =>
+    html.match(/<label class="([^"]*)">/)?.[1].split(" ") ?? [];
+  const row = classesOf(render(<AttachmentField compact />));
+  const own = classesOf(render(<AttachmentField />));
+  expect(render(<AttachmentField />)).toMatch(
+    new RegExp(`lucide-paperclip.*</svg>${text.attach}<input`),
+  );
+  // The same button, but not pushed to the end of a composer's row.
+  expect(own).toEqual(row.filter((name) => name !== "order-last"));
+  expect(own).toContain("border");
+});

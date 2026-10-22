@@ -376,3 +376,24 @@ test("the section for a poll or quiz is part of the form of a member who may sta
   // Closed, it sends nothing: the thread has no poll unless the section was opened.
   expect(draw(true)).not.toContain('name="poll"');
 });
+
+test("a new thread is posted with XenForo's pen, a wall post with the reply arrow", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <ThreadComposer
+        forumId={2}
+        forums={[...FORUMS]}
+        prefixes={PREFIXES}
+        requirePrefix={false}
+        canAttach
+        canTag={false}
+        canPoll={false}
+        memberId={1}
+      />,
+    ),
+  );
+  const submit = (markup: string) =>
+    markup.match(/<button[^>]*type="submit"[^>]*>(.*?)<\/button>/)?.[1] ?? "";
+  expect(submit(html)).toContain("lucide-square-pen");
+  expect(submit(plainForm())).toContain("lucide-reply");
+});

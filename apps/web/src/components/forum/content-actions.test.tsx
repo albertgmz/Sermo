@@ -328,3 +328,26 @@ test("where copying failed the menu shows the link in a read-only field to copy 
   expect(draw("idle")).not.toContain("<input");
   expect(draw("copied")).toContain("Link copied");
 });
+
+test("the bar's buttons are small filled pills, spaced apart, as XenForo's message footer", () => {
+  // The bar fills every action button drawn inside it (`--action-fill`); outside a bar the same
+  // buttons stay plain.
+  for (const layout of ["default", "split", "wall"] as const) {
+    const html = draw({ ...full, layout });
+    const row =
+      html.match(/<div class="([^"]*justify-between[^"]*)">/)?.[1] ?? "";
+    expect(row.split(" ")).toContain("[--action-fill:var(--muted)]");
+    expect(row.split(" ")).not.toContain("-mx-2");
+    const report =
+      html.match(/<button[^>]*aria-label="Report"[^>]*>/)?.[0] ?? "";
+    expect(report).toContain("bg-[color:var(--action-fill,transparent)]");
+    expect(report).not.toContain("bg-transparent");
+    const sides = [
+      ...html.matchAll(
+        /<div class="([^"]*flex flex-wrap items-center[^"]*)">/g,
+      ),
+    ];
+    expect(sides.length).toBe(3);
+    for (const side of sides) expect(side[1].split(" ")).toContain("gap-1.5");
+  }
+});

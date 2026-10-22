@@ -289,12 +289,14 @@ export function ContentActions({
       )}
     >
       {!split && summaryRow}
-      <div className="-mx-2 flex flex-wrap items-center justify-between gap-x-1">
-        <div className="flex flex-wrap items-center">
+      {/* XenForo's footer buttons are small filled pills, apart from each other and level with
+          the text (`messageActionClass` takes the fill). */}
+      <div className="flex flex-wrap items-center justify-between gap-1.5 [--action-fill:var(--muted)]">
+        <div className="flex flex-wrap items-center gap-1.5">
           {leading}
           {split ? tools : answers}
         </div>
-        <div className="ml-auto flex flex-wrap items-center">
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
           {split ? answers : tools}
         </div>
       </div>
