@@ -22,9 +22,23 @@ mock.module("next-intl", () => ({
   useLocale: () => "en",
   useTranslations,
 }));
+// The quote button the bar draws, as the bar handed it its props, so its press can be run here.
+type QuoteProps = Parameters<
+  typeof import("@/components/forum/quote-button").QuoteButton
+>[0];
+let quoteProps: QuoteProps | undefined;
+const realQuote = { ...(await import("@/components/forum/quote-button")) };
+mock.module("@/components/forum/quote-button", () => ({
+  ...realQuote,
+  QuoteButton: (props: QuoteProps) => {
+    quoteProps = props;
+    return realQuote.QuoteButton(props);
+  },
+}));
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
   mock.module("next-intl", () => intl);
+  mock.module("@/components/forum/quote-button", () => realQuote);
 });
 
 const { MessageActions } = await import("./message-actions");
@@ -125,4 +139,33 @@ test("a deleted message offers neither share, delete nor report", () => {
   for (const label of ["Share", "Delete", "Report"]) {
     expect(has(html, label)).toBe(false);
   }
+});
+
+test("Reply puts the message in the editor quoted as a conversation message, not a post", async () => {
+  quoteProps = undefined;
+  draw({}, 9);
+  // Set by the stand-in while drawing, which the compiler cannot follow.
+  const drawn = quoteProps as QuoteProps | undefined;
+  if (!drawn) throw new Error("the bar drew no quote button");
+  const sent: string[] = [];
+  const saved = { window: globalThis.window, document: globalThis.document };
+  Object.assign(globalThis, {
+    window: {
+      dispatchEvent: (event: CustomEvent<string>) => sent.push(event.detail),
+    },
+    document: { getElementById: () => null },
+  });
+  try {
+    // The source comes from the backend (`quoteMessageSource`); here, as it would answer.
+    const button = realQuote.QuoteButton({
+      ...drawn,
+      load: async () => ({ author: "ember", authorId: 3, source: "Hi" }),
+    });
+    await (button.props as { onClick: () => Promise<void> }).onClick();
+  } finally {
+    Object.assign(globalThis, saved);
+  }
+  expect(sent).toEqual([
+    '[QUOTE="ember, convMessage: 11, member: 3"]Hi[/QUOTE]',
+  ]);
 });

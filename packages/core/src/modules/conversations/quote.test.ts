@@ -73,6 +73,15 @@ describe("the source of a message to quote", () => {
     await expect(s.quote(GUEST, s.first)).rejects.toThrow(UnauthenticatedError);
   });
 
+  test("a guest is refused before what they sent is read", async () => {
+    const s = await setup();
+    await expect(
+      execute(s.ctx, conversationsQuoteMessageOp, GUEST, {
+        messageId: "abc" as unknown as number,
+      }),
+    ).rejects.toThrow(UnauthenticatedError);
+  });
+
   test("a deleted message cannot be quoted", async () => {
     const s = await setup();
     const gone = await s.reply(s.b, s.id, "gone");

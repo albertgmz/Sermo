@@ -1095,6 +1095,8 @@ export const conversationsGetMessageOp = implement(conversationsGetMessage, (ctx
 export const conversationsQuoteMessageOp = implement(
   conversationsQuoteMessage,
   (ctx, actor, input) => {
+    // The caller first, before the input is read: a guest is refused whatever was sent.
+    requireAuthenticated(actor);
     const { message } = visibleTarget(ctx, actor, input.messageId);
     // Only what every participant sees is quoted: a quote of a waiting message would show it.
     if (message.state !== "visible") throw new NotFoundError();
