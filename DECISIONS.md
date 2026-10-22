@@ -5790,3 +5790,22 @@ group or staff changes do not trigger a run.
 Why: handover leftovers (link-landing 2, 3, 6, 8; site-content 14.11; award-categories 6).
 Known limits: the light theme stays a browser choice (a per-account theme needs a column and is a
 separate item); #441 reports on other admin pages are unconfirmed until a production console check.
+
+### Moderation gaps closed
+
+- A deleted post tells moderators who deleted it and why: `Post.deletion` (`by`, `reason`, `at`) is
+  read from the newest `content.deleted` event and filled only for viewers with `forum.viewDeleted`
+  in that forum (one indexed query, only when the page holds a deleted post). An event with no actor
+  means the author hid the post; spam cleanup publishes its moderator.
+- Messages, wall posts and comments carry `canReport`; Report shows only where `reports.create`
+  accepts the report (for messages: `report.create` and the message visible or the viewer's own).
+- Report and approval pages list the attachments of posts, first posts, wall posts and comments.
+- The stale-actor re-check inside the transaction now also covers navigation, notices, pages, thread
+  prefixes, forum tabs, `nodes.create/update/setModerator`, appearance catalogs, reaction types,
+  credit rules, `announcements.create` and the image setters. Admin writes not named here were not
+  audited.
+- During a merge, `threads.markRead` and `posts.get` on the target use the post's final position.
+
+Why: backlog E4 and the "Second review round" known limits.
+Known limits: the audited read of a reported private message shows no attachments; search keeps the
+pre-merge position while the merge streams.
