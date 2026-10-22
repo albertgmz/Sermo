@@ -1,7 +1,7 @@
 import type { SQLQueryBindings } from "bun:sqlite";
 import * as z from "zod";
 import type { Actor } from "../../actor";
-import { actorUserId, GUEST, requireAuthenticated } from "../../actor";
+import { actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import * as contracts from "../../contracts/moderation";
 import type { ContentStateValue } from "../../db/schema";
@@ -35,6 +35,7 @@ import { renderContent } from "../../render";
 import { viewerLanguage } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
+import { requireHeld } from "../admin/held";
 import { revokeUserCredentials } from "../auth";
 import { moderationOf } from "../auth/staff";
 import { scanKeyset } from "../feed/scan";
@@ -2493,8 +2494,7 @@ export const operations = [
   implement(contracts.bansCreate, (ctx, actor, input) => {
     // Whether the caller may ban anyone at all is decided before the input is read; the member
     // is checked against its rank in banUser.
-    requireAuthenticated(actor);
-    requirePermission(ctx, actor, "member.ban", { target: GUEST });
+    requireHeld(ctx, actor, "member.ban");
     return banUser(
       ctx,
       actor,
@@ -2517,9 +2517,8 @@ export const operations = [
     ),
   ),
   implement(contracts.spamCleanupStart, (ctx, actor, input) => {
-    requireAuthenticated(actor);
     // Whether the caller may clean up anyone's spam at all is decided before the input is read.
-    requirePermission(ctx, actor, "member.spamCleanup", { target: GUEST });
+    requireHeld(ctx, actor, "member.spamCleanup");
     requirePermission(ctx, actor, "member.spamCleanup", {
       target: principalMember(ctx, input.userId),
     });

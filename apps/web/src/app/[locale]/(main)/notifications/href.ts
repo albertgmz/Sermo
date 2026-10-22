@@ -20,7 +20,8 @@ const APPROVABLE = [
 ];
 
 // Where a notification leads: what it is about, or the screen where staff act on it. Null where
-// the notification has no page of its own.
+// the notification has no page of its own. The e-mail for an alert leads to the same place
+// (`notificationLink`, packages/core/src/modules/email/index.ts): change both together.
 function targetOf(item: ApiNotification): string | null {
   if (item.type === "moderator.report" && item.contentType === "report_group") {
     return `/moderation/reports/${item.contentId}`;

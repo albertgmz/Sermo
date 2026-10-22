@@ -4,8 +4,8 @@ import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Ctx } from "@sermo/core";
-import { closeContext, localDriver, readSiteSettings } from "@sermo/core";
-import { createTestContext } from "@sermo/core/testing";
+import { closeContext, localDriver, readSiteSettings, ValidationError } from "@sermo/core";
+import { createTestContext, userActor } from "@sermo/core/testing";
 import { HTTPException } from "hono/http-exception";
 import { createApp } from "./app";
 import { createServerOptions } from "./server";
@@ -368,11 +368,20 @@ test("the file name a browser sends as UTF-8 is stored and used as the download 
   );
 });
 
-test("a refusal that comes while a large body is still arriving reaches the sender as an answer", async () => {
+function filePrefix() {
+  return `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`;
+}
+
+test("a refusal that comes while a body of ordinary size is still arriving reaches the sender as an answer", async () => {
   const state = await setup();
+  // A limit under the body, a body under what is read after a refusal.
+  const settings = readSiteSettings(state.ctx);
+  state.ctx.sqlite
+    .prepare(
+      "INSERT INTO site_settings (key, value, updated_at) VALUES ('configuration', ?1, ?2) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+    )
+    .run(JSON.stringify({ ...settings, maxUploadBytes: 100_000 }), state.ctx.now());
   const live = Bun.serve({ ...createServerOptions(state.app, 0), hostname: "127.0.0.1" });
-  const limit = readSiteSettings(state.ctx).maxUploadBytes;
-  const megabytes = Math.ceil(limit / (1 << 20)) + 15;
   try {
     // Node's client, not fetch: it reports a connection reset instead of hiding it.
     const answer = await new Promise<string>((resolve) => {
@@ -389,30 +398,98 @@ test("a refusal that comes while a large body is still arriving reaches the send
           },
         },
         (response) => {
-          response.resume();
-          response.on("end", () => resolve(`status ${response.statusCode}`));
+          let text = "";
+          response.on("data", (chunk) => {
+            text += chunk;
+          });
+          response.on("end", () => resolve(`status ${response.statusCode} ${text}`));
         },
       );
       sent.on("error", (error) => resolve(`error ${error.message}`));
-      const chunk = Buffer.alloc(1 << 20, 97);
-      sent.write(
-        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`,
-      );
-      let count = 0;
-      const pump = () => {
-        while (count < megabytes) {
-          count += 1;
-          if (!sent.write(chunk)) {
-            sent.once("drain", pump);
-            return;
-          }
-        }
-        sent.end(`\r\n${end}`);
-      };
-      pump();
+      sent.write(filePrefix());
+      const chunk = Buffer.alloc(50_000, 97);
+      for (let count = 0; count < 12; count++) sent.write(chunk);
+      sent.end(`\r\n${end}`);
     });
-    expect(answer).toBe("status 400");
+    expect(answer).toStartWith("status 400");
+    expect(answer).toContain("File exceeds upload limit.");
   } finally {
     await live.stop(true);
   }
 }, 30_000);
+
+/** A request whose body is `first`, then `more` pieces of 64 KiB, `pause` ms apart; counts what was pulled. */
+function slowRequest(more: number, pause: number) {
+  const pulled = { bytes: 0, cancelled: false };
+  const head = Buffer.from(filePrefix());
+  const piece = Buffer.alloc(64 * 1024, 97);
+  let sent = -1;
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (sent >= 0 && pause) await new Promise((resolve) => setTimeout(resolve, pause));
+      if (sent === more) return controller.close();
+      const next = sent < 0 ? head : piece;
+      sent += 1;
+      pulled.bytes += next.length;
+      controller.enqueue(next);
+    },
+    cancel() {
+      pulled.cancelled = true;
+    },
+  });
+  const request = new Request("http://localhost/api/v1/files", {
+    method: "POST",
+    headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
+    body,
+    duplex: "half",
+  } as RequestInit);
+  return { request, pulled };
+}
+
+async function refused(state: Awaited<ReturnType<typeof setup>>, request: Request, limits = {}) {
+  const user = state.ctx.sqlite
+    .prepare<{ id: number; group_id: number }, []>("SELECT id, group_id FROM users LIMIT 1")
+    .get()!;
+  return uploadMultipart(
+    state.ctx,
+    userActor({ id: user.id, groupId: user.group_id }),
+    request,
+    {
+      driver: localDriver(join(state.dir, "files")),
+      tempDir: join(state.dir, "temp"),
+      maxBytes: 1000,
+    },
+    "attachment",
+    limits,
+  ).catch((caught: unknown) => caught);
+}
+
+test("a refused upload whose body is larger than what is read after a refusal is cut off", async () => {
+  const state = await setup();
+  const { request, pulled } = slowRequest(200, 1);
+  const error = await refused(state, request, { bytes: 256 * 1024 });
+  expect(error).toBeInstanceOf(ValidationError);
+  // About the file's limit, the cap and what was in flight; not the 12.5 MB that was on offer.
+  expect(pulled.bytes).toBeLessThan(2 * 1024 * 1024);
+  expect(pulled.cancelled).toBe(true);
+});
+
+test("a refused upload whose body trickles in is cut off when the time is up", async () => {
+  const state = await setup();
+  const { request, pulled } = slowRequest(1000, 40);
+  const started = Date.now();
+  const error = await refused(state, request, { ms: 300, bytes: 1e9 });
+  expect(error).toBeInstanceOf(ValidationError);
+  expect(Date.now() - started).toBeLessThan(5000);
+  expect(pulled.bytes).toBeLessThan(2 * 1024 * 1024);
+  expect(pulled.cancelled).toBe(true);
+});
+
+test("a refused upload whose body is smaller than the cap is read to its end", async () => {
+  const state = await setup();
+  const { request, pulled } = slowRequest(8, 0);
+  const error = await refused(state, request);
+  expect(error).toBeInstanceOf(ValidationError);
+  expect(pulled.bytes).toBeGreaterThan(8 * 64 * 1024);
+  expect(pulled.cancelled).toBe(false);
+});

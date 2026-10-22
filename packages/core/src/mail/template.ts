@@ -240,6 +240,8 @@ const WEB_ADDRESS = /^https?:\/\//i;
  * the caller and throws; a picture or a contact page that fails is left out.
  */
 function webAddress(value: string, what: string): string {
+  // Only the scheme is judged here: every address is also escaped for HTML (`escapeXml`), and an
+  // address with spaces or control characters cannot be made by the callers that build them.
   if (!WEB_ADDRESS.test(value)) throw new Error(`${what} must be an http or https address.`);
   return value;
 }

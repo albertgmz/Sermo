@@ -38,11 +38,9 @@ const SAMPLE_REJECTED: Record<string, readonly ("guest" | "member")[]> = {
 
 /**
  * Operations that still answer 400 to a caller they would refuse, by the caller they refuse: they
- * read their input before they decide about the caller. Some cannot decide without it (the
- * node a moderator holds a permission in, the member an administrator acts on, a password the
- * caller must confirm); the others pass the input to a service as arguments, or check inside a
- * write transaction, and could be reordered. An entry that no longer shows the 400 fails the
- * test, so this list only shrinks.
+ * cannot decide without their input (the node a moderator holds a permission in, the member a
+ * warning is for, a password the caller must confirm). An entry that no longer shows the 400
+ * fails the test, so this list only shrinks.
  */
 const VALIDATES_FIRST: Record<string, readonly ("guest" | "member")[]> = {
   "auth.verifyPassword": ["member"],
@@ -50,6 +48,39 @@ const VALIDATES_FIRST: Record<string, readonly ("guest" | "member")[]> = {
   "users.deleteOwnAccount": ["member"],
   "warnings.create": ["member"],
 };
+
+/** The (operation, caller) pairs taken out of `VALIDATES_FIRST`, which the sweep must still compare. */
+const FORMER_ENTRIES = [
+  "auth.verifyPassword guest",
+  "bans.lift guest",
+  "conversations.listMessages guest",
+  "images.setAvatar guest",
+  "images.setCover guest",
+  "images.setNodeCover guest",
+  "images.setNodeCover member",
+  "images.setNodeIcon guest",
+  "images.setNodeIcon member",
+  "moderation.bulk guest",
+  "moderation.setState guest",
+  "reports.create guest",
+  "reports.setState guest",
+  "restrictions.create member",
+  "shop.buy guest",
+  "shop.upgrade guest",
+  "shop.use guest",
+  "spamCleanup.start member",
+  "users.adminErase member",
+  "users.adminRevokeSessions member",
+  "users.adminUpdateIdentity member",
+  "users.adminUpdateProfile member",
+  "users.ips member",
+  "warnings.create guest",
+  "warnings.delete guest",
+  "warnings.expire guest",
+  "warnings.list guest",
+  "wordFilters.remove guest",
+  "wordFilters.remove member",
+];
 
 type Json = Record<string, unknown>;
 
@@ -206,6 +237,7 @@ async function sweep() {
     sent: string;
   }[] = [];
   let compared = 0;
+  const comparedPairs = new Set<string>();
   const uncompared: string[] = [];
   for (const { route, op } of routeOperations) {
     const root = z.toJSONSchema(op.input, { io: "input" }) as Json;
@@ -252,6 +284,7 @@ async function sweep() {
         continue;
       }
       compared += 1;
+      comparedPairs.add(`${op.name} ${actor}`);
       for (const variant of invalid) {
         const got = await send(route.method, path, variant.query, variant.body, member);
         if (got !== wanted)
@@ -266,13 +299,16 @@ async function sweep() {
       }
     }
   }
-  return { findings, compared, uncompared };
+  return { findings, compared, comparedPairs, uncompared };
 }
 
 test("a caller the operation refuses is refused before its input is validated", async () => {
-  const { findings, compared } = await sweep();
+  const { findings, compared, comparedPairs } = await sweep();
   // Enough routes refuse the caller for the sweep to mean something (it grows with the API).
   expect(compared).toBeGreaterThan(300);
+  // The operations that used to validate first stay in the comparison: were their valid sample
+  // answered by anything but a refusal they would drop out of it unnoticed.
+  expect(FORMER_ENTRIES.filter((pair) => !comparedPairs.has(pair))).toEqual([]);
   const isSample = (f: { sent: string }) => f.sent === "valid sample";
   const check = (
     found: typeof findings,

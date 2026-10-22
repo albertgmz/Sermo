@@ -6,7 +6,7 @@ import { writeTx } from "../../db/tx";
 import { ForbiddenError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
-import { can, currentActor, requirePermission, resolvedPermissions } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { catalogs } from "../appearance/store";
 import { clearMemberPicture } from "../images";
 import { appendModeratorLog } from "../moderation";
@@ -34,7 +34,7 @@ function viewFor(ctx: Ctx, actor: Actor, userId: number) {
   };
 }
 
-import { requireNotErased, targetMember } from "./shared";
+import { requireHeld, requireNotErased, targetMember } from "./shared";
 
 const unavailable = () => new ValidationError("That catalog entry is not available.");
 
@@ -155,10 +155,7 @@ export function editMemberProfile(
 
 export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx, actor, input) => {
   // Whether the caller edits members' profiles at all is decided before the input is read.
-  requireAuthenticated(actor);
-  const held = resolvedPermissions(ctx, actor);
-  if (held["admin.members"] !== true && held["member.editProfile"] !== true)
-    throw new ForbiddenError();
+  requireHeld(ctx, actor, ["admin.members", "member.editProfile"]);
   editMemberProfile(ctx, actor, input);
   return viewFor(ctx, actor, input.userId);
 });

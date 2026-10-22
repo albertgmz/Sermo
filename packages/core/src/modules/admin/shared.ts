@@ -14,7 +14,10 @@ import {
 import { getAuth } from "../auth";
 import { ADMIN_PERMISSIONS } from "../auth/staff";
 import { requireNotErased } from "./erased";
+import { requireHeld } from "./held";
 import { checkOwnPassword } from "./password-guesses";
+
+export { requireHeld };
 
 type Row = PrincipalRow & { id: number; group_id: number };
 const TARGET_SQL = `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`;
@@ -39,19 +42,6 @@ export const targetMember = markPublic(
     );
   },
 );
-
-/**
- * Whether the actor holds a permission that is otherwise checked against a member (a list of
- * members or of bans has none). The resolved permissions apply no member-dependent condition.
- */
-export function requireHeld(
-  ctx: Ctx,
-  actor: Actor,
-  id: "admin.members" | "member.ban" | "member.viewIps",
-): void {
-  requireAuthenticated(actor);
-  if (resolvedPermissions(ctx, actor)[id] !== true) throw new ForbiddenError();
-}
 
 /**
  * Setting a password or an address, or ending sessions, lets an administrator sign in as the

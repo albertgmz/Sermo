@@ -10,8 +10,6 @@ import {
 import { CONTACT_PATH, CONTACT_SLUG } from "../pages/contact";
 import { requireBaseURL } from "./paths";
 
-/** The page an administrator writes with the site's contact details, and where the site shows it. */
-
 type Administrator = PrincipalRow & { id: number; group_id: number; username: string };
 
 /** Hosts a site is run on only for local development and checks, where plain http is accepted. */

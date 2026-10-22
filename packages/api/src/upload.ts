@@ -35,27 +35,41 @@ function unsupportedMediaType(): HTTPException {
   });
 }
 
-/** How long a refused upload's remaining body is read for before the connection is given up. */
-const DRAIN_MS = 30_000;
+/** What is read of a refused upload's body before the connection is given up on. */
+export interface DrainLimits {
+  /** The most bytes read and dropped. */
+  bytes?: number;
+  /** The longest the reading may take, however slowly the body comes. */
+  ms?: number;
+}
+export const DRAIN_BYTES = 1024 * 1024;
+export const DRAIN_MS = 30_000;
 
 /**
- * Reads what is left of a request body and drops it. A browser that is still sending when the
- * answer arrives sees the connection reset, not the answer, so a refusal that comes while a large
- * body is arriving (a size limit, a rejected part) is sent only once the body is in. A body that
- * has not ended by `DRAIN_MS` is cut off.
+ * Reads what is left of a request body and drops it, up to `limits`. A browser that is still
+ * sending when the answer arrives sees the connection reset, not the answer, so a refusal that
+ * comes while a body of ordinary size is arriving (a size limit just over, a rejected part) is sent
+ * once that body is in. A body that is larger than the cap, or has not ended in time, is cut off:
+ * whoever sends that much to a refused request is not owed an answer.
  */
-async function drain(source: Readable): Promise<void> {
+async function drain(source: Readable, limits: DrainLimits): Promise<void> {
   if (source.destroyed || source.readableEnded) return;
   source.unpipe();
   await new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
+    let read = 0;
+    const timer = setTimeout(cut, limits.ms ?? DRAIN_MS);
+    function cut() {
       source.destroy();
-      resolve();
-    }, DRAIN_MS);
-    const finish = () => {
+      finish();
+    }
+    function finish() {
       clearTimeout(timer);
       resolve();
-    };
+    }
+    source.on("data", (chunk: Buffer) => {
+      read += chunk.length;
+      if (read > (limits.bytes ?? DRAIN_BYTES)) cut();
+    });
     source.once("end", finish);
     source.once("close", finish);
     source.once("error", finish);
@@ -75,6 +89,7 @@ export async function uploadMultipart(
   request: Request,
   config: StorageConfig,
   purpose: string,
+  drainLimits: DrainLimits = {},
 ) {
   // A guest is refused before anything about the request is looked at (storage refuses it too).
   requireAuthenticated(actor);
@@ -168,7 +183,7 @@ export async function uploadMultipart(
     throw result.error;
   }
   abort(new ValidationError("The upload was rejected."));
-  await drain(source);
+  await drain(source, drainLimits);
   if (upload) await upload;
   if (storageError !== undefined && storageError !== abortError) throw storageError;
   if (failure instanceof SermoError) throw failure;

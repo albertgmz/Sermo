@@ -1,5 +1,5 @@
 import type { Actor } from "../../actor";
-import { actorUserId, GUEST, requireAuthenticated } from "../../actor";
+import { actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { restrictionsCreate, restrictionsLift, restrictionsList } from "../../contracts/moderation";
 import { RESTRICTION_PERMANENT } from "../../db/schema";
@@ -18,6 +18,7 @@ import {
 } from "../../permissions";
 import { iso, isoOrNull } from "../../time";
 import { requireNotErased } from "../admin/erased";
+import { requireHeld } from "../admin/held";
 import { appendModeratorLog } from "./index";
 import type { Notice } from "./notify";
 
@@ -121,9 +122,8 @@ export const insertAuthorizedRestriction = markPublic(
 );
 
 export const restrictionsCreateOp = implement(restrictionsCreate, (ctx, actor, input) => {
-  requireAuthenticated(actor);
   // Whether the caller may restrict anyone at all is decided before the input is read.
-  requirePermission(ctx, actor, "member.restrict", { target: GUEST });
+  requireHeld(ctx, actor, "member.restrict");
   const expiry = input.expiresAt === null ? null : Date.parse(input.expiresAt);
   if (!input.reason.trim() || (expiry !== null && expiry <= ctx.now()))
     throw new ValidationError("A reason and future expiry are required.");
