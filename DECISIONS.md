@@ -6081,3 +6081,21 @@ Known limits: the BB code source box and the plain box shown before the editor l
 
 Why: the owner asked for lighter test runs after the suite filled the machine's memory. Known
 limit: concurrent tests (`test.concurrent`) would need the flag per test; none exist.
+
+### Forums are marked read, and a forum or category can be deleted
+
+- A member marks one forum read, or every forum at once (`nodes.markRead`, `nodes.markAllRead`):
+  one marker per member and forum, older than any thread activity it covers; markers older than
+  30 days are purged hourly in small batches.
+- An administrator deletes a forum or category (`nodes.delete`, password confirmed, a session
+  only) in a background job: its threads are moved to a chosen forum or deleted with it, in
+  chunks; children are moved up or deleted. While it runs the node is read-only.
+- Moving children up never lets anyone see a node they could not see before: the deleted node's
+  entries are copied down, children's own more open view entries are lowered to the deleted
+  node's, members who saw a child keep it through an entry of their own, and the engine is asked
+  again before the chunk commits (otherwise it rolls back and the job fails). Moved threads drop a
+  prefix their new forum does not offer, as a single moved thread does.
+
+Why: XenForo's mark-forums-read and node deletion (handover E3). Known limit (fails safe): a member
+with no entries of their own who saw a moved node only through two groups that no longer meet
+loses sight of it; a member's restored entry stays if they later leave the group that opened it.
