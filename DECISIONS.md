@@ -6335,3 +6335,22 @@ notifications, bookmarks, staff queues, members): a held row keeps its place wit
 new rows go in front.
 
 Why: the undecided feed behaviours in the handover (E10), decided as XenForo does.
+
+### The light theme is an account choice
+
+System, Light or Dark is saved on the member's account (`users.theme`, null until they choose;
+`auth.me` returns it and `preferences.update` sets it), as XenForo stores the style per user. A
+guest, and a member whose group may not edit their profile, keep the choice per browser in
+localStorage. The head script applies the theme before paint and reads, first, the cookie
+`sermo-account-theme`, which the server writes when the member changes the theme and which
+`ThemeSync` writes when the account holds a theme the browser does not know (another device, a
+new sign-in); a browser that has none uses localStorage; the server still renders light, so the
+root layout does not depend on the request and a page without scripts is consistent. Changing the
+theme on one device reaches the member's others on their next page load. Signing out expires the
+cookie. Colours an admin or member picks are drawn as text through an OKLCH lightness clamp
+(`.ink`, `--primary-ink`) that keeps their hue and reaches 4.5:1 in both themes; fills keep the
+raw colour. Tests compute contrast from the tokens and forbid fixed colours in components. The
+error page drawn outside the layouts stays dark.
+
+This supersedes "The light theme is a browser choice". A stale cookie (signed out, deleted account,
+expired session, or a member with no saved theme) is forgotten on the next page load.
