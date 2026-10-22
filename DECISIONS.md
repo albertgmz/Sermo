@@ -6210,3 +6210,14 @@ empty space below.
 Why: the owner asked for a way to reset levels and recompute all awards. Known limits: awards whose
 rules depend on time, credits or XP change between runs; a grant held with no counter row is kept
 as a hand grant (never taken back by the rules), as it already was.
+
+### The mention list tells members apart
+
+- The "@" list in every composer uses the shared suggestion list (keys, touch, ARIA as the emoji
+  list): each row has the avatar (initials when there is none or avatars are blocked), the name in
+  its group colour with the typed part underlined, staff in bold, and the user title on a second
+  line. `users.search` gains `staff`, set as the staff list decides it (not banned, and only for a
+  viewer who may see the member list).
+
+Why: member feedback (matched members were hard to tell apart; an administrator should show in
+bold with the group colour). fcuba's XenForo draws no bold; the member's request was followed.
