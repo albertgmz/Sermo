@@ -16,6 +16,15 @@ test("strips a picture tag and leaves the link around it", () => {
   );
 });
 
+test("a picture tag with XenForo's width and alt text goes too", () => {
+  assert.equal(
+    stripBbCodeImages(
+      'A [IMG width="300px" alt="Mapa"]https://pictures.test/a.png[/IMG] b',
+    ),
+    "A DATA SAVER b",
+  );
+});
+
 test("keeps source formatting, links to pictures and code samples that are not pictures", () => {
   const input =
     "[B]text[/B]\n\n[URL=https://example.test/file.jpg]download[/URL]\n\n[ICODE][IMG]https://pictures.test/a.png[/IMG][/ICODE]\n\n[CODE]\n[IMG]https://pictures.test/a.png[/IMG]\n[/CODE]\n\n[PLAIN][IMG]https://pictures.test/a.png[/IMG][/PLAIN]\n\n[IMG]never closed";

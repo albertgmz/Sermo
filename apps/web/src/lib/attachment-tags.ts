@@ -49,25 +49,40 @@ export const MEDIA_CLASS = {
 };
 
 // What the renderer leaves for `[ATTACH]id[/ATTACH]` and `[ATTACH=full]id[/ATTACH]`: a span that
-// carries the file's id twice, as an attribute and as its fallback text. Anything else, in any
-// attribute order, is not a placeholder.
+// carries the file's id twice, as an attribute and as its fallback text, and for XenForo's
+// `[ATTACH type="full" width="300px" alt="…"]` the width and the alt text too. Anything else, in
+// any attribute order, is not a placeholder.
 const SPAN = /<span ([^<>]*)>(\d{1,12})<\/span>/g;
-const ATTRIBUTE = /^([a-z-]+)="([^"]*)"$/;
+const ATTRIBUTE = / ?([a-z-]+)="([^"]*)"/y;
+const OPTIONAL = new Set(["data-attach-width", "data-attach-alt"]);
+// The widths the renderer writes (`300px`, `50%`).
+const WIDTH = /^(?:[1-9]\d{0,3}px|(?:[1-9]\d?|100)%)$/;
 
-type Placeholder = { id: number; size: "thumb" | "full" };
+// `alt` is as the renderer escaped it, ready to go into an attribute.
+type Placeholder = {
+  id: number;
+  size: "thumb" | "full";
+  width?: string;
+  alt?: string;
+};
 
 function placeholderOf(attributes: string, text: string): Placeholder | null {
   const found = new Map<string, string>();
-  for (const attribute of attributes.split(" ")) {
-    const match = ATTRIBUTE.exec(attribute);
-    if (!match) return null;
+  ATTRIBUTE.lastIndex = 0;
+  while (ATTRIBUTE.lastIndex < attributes.length) {
+    const match = ATTRIBUTE.exec(attributes);
+    if (!match || found.has(match[1])) return null;
     found.set(match[1], match[2]);
   }
   const id = found.get("data-attach-id");
   const size = found.get("data-attach-size");
-  if (found.size !== 3 || found.get("class") !== "bb-attach") return null;
+  const optional = [...found.keys()].filter((key) => OPTIONAL.has(key)).length;
+  if (found.size !== 3 + optional || found.get("class") !== "bb-attach")
+    return null;
   if (id !== text || (size !== "thumb" && size !== "full")) return null;
-  return { id: Number(id), size };
+  const width = found.get("data-attach-width");
+  if (width !== undefined && !WIDTH.test(width)) return null;
+  return { id: Number(id), size, width, alt: found.get("data-attach-alt") };
 }
 
 // The ids of the attachments the text places inline, among those the item has.
@@ -134,11 +149,13 @@ export type InlineContext = {
 
 function drawn(
   file: TaggedAttachment,
-  how: Placeholder["size"],
+  { size: how, width, alt }: Placeholder,
   context: InlineContext,
   inLink: boolean,
 ) {
   const name = escapeHtml(fileName(file));
+  // The width the member gave the picture, which the column still caps (`max-w-full`).
+  const style = width ? ` style="width:${width}"` : "";
   const media = mediaKind(file.contentType);
   if (!file.contentType.startsWith("image/")) {
     // A link inside a link is no link: inside one, the file is just its name.
@@ -170,9 +187,9 @@ function drawn(
     return `<span role="img" aria-label="${escapeHtml(context.liteAria)}" data-slot="lite-placeholder" class="pointer-events-none inline-flex items-center justify-center rounded-md border bg-muted px-3 py-2 font-mono text-(length:--text-tiny) text-muted-foreground">${escapeHtml(context.liteLabel)}</span>`;
   }
   if (how === "full") {
-    return `<img src="${escapeHtml(file.url)}"${fullSources(file)} alt="${name}"${size(file, Number.POSITIVE_INFINITY)} loading="lazy" class="my-1 inline-block h-auto max-w-full rounded-md align-bottom">`;
+    return `<img src="${escapeHtml(file.url)}"${fullSources(file)} alt="${alt ?? name}"${size(file, Number.POSITIVE_INFINITY)}${style} loading="lazy" class="my-1 inline-block h-auto max-w-full rounded-md align-bottom">`;
   }
-  const thumb = `<img src="${escapeHtml(file.thumbnailUrl ?? file.url)}" alt="${name}"${size(file, THUMB_WIDTH)} loading="lazy" class="block h-auto max-w-full">`;
+  const thumb = `<img src="${escapeHtml(file.thumbnailUrl ?? file.url)}" alt="${alt ?? name}"${size(file, THUMB_WIDTH)}${style} loading="lazy" class="block h-auto max-w-full">`;
   if (inLink) return thumb;
   return (
     `<a href="${escapeHtml(file.url)}" class="my-1 inline-block max-w-full overflow-hidden rounded-md border align-bottom">` +
@@ -205,7 +222,7 @@ export function placeAttachments(
       if (!placeholder) return whole;
       const file = own.get(placeholder.id);
       return file
-        ? drawn(file, placeholder.size, context, open > 0)
+        ? drawn(file, placeholder, context, open > 0)
         : `<span class="inline-block rounded-sm border border-dashed px-1.5 text-xs text-muted-foreground">${escapeHtml(context.missingLabel)}</span>`;
     },
   );

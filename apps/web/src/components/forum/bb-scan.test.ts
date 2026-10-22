@@ -265,3 +265,50 @@ test("a quote's name with brackets or quotation marks is the same tag for the ed
     expect(mine, source.slice(0, 40)).toEqual(theirs);
   }
 });
+
+// XenForo's editor writes a picture's size and alt text as attributes; the editor reads them as
+// the renderer does.
+test("ATTACH and IMG with attributes are read as the renderer reads them", () => {
+  const HEADS = [
+    '[ATTACH type="full" width="300px" alt="Mapa de Cuba"]',
+    '[ATTACH width="50%"]',
+    '[ATTACH type="thumb"]',
+    '[ATTACH  type="full"   alt="x"]',
+    '[ATTACH type="huge"]',
+    "[ATTACH type=full]",
+    '[ATTACH type="full"width="1px"]',
+    '[ATTACH type="full" ]',
+    '[ATTACH type="a]b"]',
+    '[ATTACH ="x"]',
+    `[ATTACH alt="${"x".repeat(201)}"]`,
+    `[ATTACH${' a="1"'.repeat(9)}]`,
+    '[IMG width="200px" alt="Mapa"]',
+    '[IMG alt="x"]',
+    '[B width="1px"]',
+    '[QUOTE alt="x"]',
+  ];
+  for (const head of HEADS) {
+    const name = /^\[([A-Z]+)/.exec(head)?.[1] as string;
+    const content = name === "IMG" ? "https://a.test/a.png" : "12";
+    const source = `${head}${content}[/${name}]`;
+    const toks = lex(source, new Deadline());
+    const atom = toks.some((t) => t.kind === "atom" && t.name === name);
+    const match = new RegExp(TAG_SOURCE, "y").exec(source);
+    const tag = match && tagOf(match);
+    expect(
+      tag !== null &&
+        readsLiterally(tag.name, tag.option) &&
+        literalContentOk(tag.name, content),
+      head,
+    ).toBe(atom);
+  }
+  const match = new RegExp(TAG_SOURCE).exec(
+    '[ATTACH type="full" width="300px" alt=" Mapa "]',
+  );
+  expect(match && tagOf(match)).toEqual({
+    closing: false,
+    name: "ATTACH",
+    option: "full",
+    attrs: { type: "full", width: "300px", alt: "Mapa" },
+  });
+});

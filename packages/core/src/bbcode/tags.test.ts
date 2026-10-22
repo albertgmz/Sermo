@@ -326,6 +326,32 @@ describe("BB code tags", () => {
       expect(md(bad)).not.toContain("bb-attach");
   });
 
+  test("ATTACH and IMG take XenForo's attributes: the type, a width and the alt text", () => {
+    expect(md('[ATTACH type="full" width="300px" alt="Mapa <de> Cuba"]123[/ATTACH]')).toBe(
+      '<p><span class="bb-attach" data-attach-id="123" data-attach-size="full" data-attach-width="300px" data-attach-alt="Mapa &lt;de&gt; Cuba">123</span></p>',
+    );
+    expect(md('[attach width="50%"]7[/attach]')).toBe(
+      '<p><span class="bb-attach" data-attach-id="7" data-attach-size="thumb" data-attach-width="50%">7</span></p>',
+    );
+    expect(md('[IMG width="200px" alt="Mapa"]https://a.test/x.png[/IMG]')).toBe(
+      '<p><img src="https://a.test/x.png" alt="Mapa" style="width:200px" /></p>',
+    );
+    // A width XenForo would not take is left out; the picture stays.
+    for (const width of ["300", "0px", "300px;color:red", "12345px", "101%", "calc(1px)"]) {
+      expect(md(`[ATTACH type="full" width="${width}"]1[/ATTACH]`)).toBe(
+        '<p><span class="bb-attach" data-attach-id="1" data-attach-size="full">1</span></p>',
+      );
+    }
+    for (const bad of [
+      '[ATTACH type="huge"]1[/ATTACH]',
+      "[ATTACH type=full]1[/ATTACH]",
+      '[ATTACH=full width="1px"]1[/ATTACH]',
+      '[ATTACH type="full"width="1px"]1[/ATTACH]',
+    ])
+      expect(md(bad)).not.toContain("bb-attach");
+    expect(md('[B width="1px"]x[/B]')).toBe('<p>[B width="1px"]x[/B]</p>');
+  });
+
   test("unknown, malformed and unclosed tags stay text", () => {
     for (const source of [
       "[unknown]x[/unknown]",

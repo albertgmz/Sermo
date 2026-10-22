@@ -74,7 +74,15 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     div: ["class", "data-spoiler", "data-spoiler-title"],
     pre: ["class"],
     table: ["class"],
-    span: ["class", "style", "data-spoiler", "data-attach-id", "data-attach-size"],
+    span: [
+      "class",
+      "style",
+      "data-spoiler",
+      "data-attach-id",
+      "data-attach-size",
+      "data-attach-width",
+      "data-attach-alt",
+    ],
     iframe: [
       "src",
       "class",
@@ -85,7 +93,7 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       { name: "allowfullscreen", values: [""] },
       "data-media-url",
     ],
-    img: ["src", "alt"],
+    img: ["src", "alt", "style"],
   },
   allowedClasses: {
     code: ["language-*"],
@@ -100,7 +108,11 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     iframe: ["bb-*"],
     span: ["spoiler", "hljs-*", "bb-*"],
   },
-  allowedStyles: { span: { color: [COLOR_STYLE] } },
+  allowedStyles: {
+    span: { color: [COLOR_STYLE] },
+    // An [IMG]'s width, as the scanner took it (`300px`, `50%`).
+    img: { width: [/^(?:[1-9]\d{0,3}px|(?:[1-9]\d?|100)%)$/] },
+  },
   allowedIframeHostnames: [...MEDIA_IFRAME_HOSTS],
   allowedSchemes: ["http", "https", "mailto"],
   allowedSchemesByTag: { img: ["http", "https"] },

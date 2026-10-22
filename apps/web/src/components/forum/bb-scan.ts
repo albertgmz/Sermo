@@ -8,13 +8,29 @@
 
 // Groups: 1 the slash of a closing tag, 2 the name, 3 a quoted option, 4 an option in apostrophes,
 // 5 a bare option (which does not start with an apostrophe), 6 a quote's name in quotation marks that
-// holds closing brackets or quotation marks (it ends at a quotation mark followed by the closing bracket).
-export const TAG_SOURCE = String.raw`\[(\/)?([A-Za-z]{1,10}|\*)(?:=(?:"([^"\n\]]{0,2000})"|'((?:[^'\n\]]|'(?!\])){0,2000})'|((?!')[^\]\n"]{0,2000})|"((?:[^"\n]|"(?!\])){0,200})"))?\]`;
+// holds closing brackets or quotation marks (it ends at a quotation mark followed by the closing
+// bracket), 7 the attributes XenForo's editor writes on ATTACH and IMG (`[ATTACH type="full"
+// width="300px" alt="…"]`): one to eight of one to ten spaces and `key="value"`, a value of at most
+// 200 characters with no quotation mark, bracket or line break, the closing bracket right after.
+export const TAG_SOURCE = String.raw`\[(\/)?([A-Za-z]{1,10}|\*)(?:=(?:"([^"\n\]]{0,2000})"|'((?:[^'\n\]]|'(?!\])){0,2000})'|((?!')[^\]\n"]{0,2000})|"((?:[^"\n]|"(?!\])){0,200})")|((?: {1,10}[A-Za-z]{1,10}="[^"\n\]\[]{0,200}"){1,8}))?\]`;
+
+const ATTRIBUTE = / +([A-Za-z]+)="([^"]*)"/g;
 
 // The tag a match of `TAG_SOURCE` is, or null when the renderer does not read it as one (the
-// caller goes on from the character after its `[`, as the renderer does).
+// caller goes on from the character after its `[`, as the renderer does). An ATTACH with
+// attributes has its `type` as its option.
 export function tagOf(match: RegExpExecArray) {
   const name = match[2].toUpperCase();
+  if (match[7] !== undefined) {
+    if (match[1] !== undefined || (name !== "ATTACH" && name !== "IMG"))
+      return null;
+    const attrs: Record<string, string> = {};
+    for (const [, key, value] of match[7].matchAll(ATTRIBUTE)) {
+      attrs[key.toLowerCase()] = value.trim();
+    }
+    const option = name === "ATTACH" ? attrs.type : undefined;
+    return { closing: false, name, option, attrs };
+  }
   if (match[6] !== undefined && name !== "QUOTE") return null;
   const option = (match[3] ?? match[4] ?? match[5] ?? match[6])?.trim();
   const length = option?.length ?? 0;

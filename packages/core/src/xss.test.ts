@@ -76,6 +76,9 @@ const payloads = [
   ["BB ICODE rich HTML", "[ICODE=rich]<img src=x onerror=alert(1)>[/ICODE]"],
   ["BB USER attribute breakout", '[USER=1" onclick="alert(1)]x[/USER]'],
   ["BB ATTACH attribute breakout", '[ATTACH]1" onclick="alert(1)[/ATTACH]'],
+  ["BB ATTACH alt HTML", '[ATTACH alt="\'><img src=x onerror=alert(1)>"]1[/ATTACH]'],
+  ["BB ATTACH width breakout", "[ATTACH width=\"1px' onclick='alert(1)\"]1[/ATTACH]"],
+  ["BB IMG alt HTML", '[IMG alt="><svg onload=alert(1)>"]https://a.test/x.png[/IMG]'],
   ["BB PLAIN HTML", "[PLAIN]<script>alert(1)</script>[/PLAIN]"],
   [
     "BB HTML in tag content",

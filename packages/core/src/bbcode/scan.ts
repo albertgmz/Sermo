@@ -32,6 +32,9 @@ export interface Tok {
   stray?: boolean;
   id?: string;
   size?: string;
+  /** ATTACH and IMG: the width XenForo's editor stores (`300px`, `50%`) and the alt text. */
+  width?: string;
+  alt?: string;
   language?: string;
   /** MEDIA: whether the embed is a player or only a link. */
   embed?: "iframe" | "link";
@@ -181,7 +184,48 @@ interface Head {
   close: boolean;
   name: string;
   option: string | undefined;
+  /** ATTACH and IMG as XenForo's editor writes them: `[ATTACH type="full" width="300px"]`. */
+  attrs?: Record<string, string>;
   end: number;
+}
+
+/** The tags that take XenForo's attributes, and how many a tag may have. */
+const ATTRIBUTE_NAMES = new Set(["ATTACH", "IMG"]);
+const MAX_ATTRIBUTES = 8;
+
+/**
+ * The attributes from `p` (a space after the tag's name) to the closing bracket, as XenForo's
+ * editor writes them: one to ten spaces, then `key="value"`, at most eight times, and the bracket
+ * right after the last value. A value has no double quote, bracket or line break and is at most
+ * 200 characters. Null when anything else is there: the tag is text.
+ */
+function readAttributes(
+  source: string,
+  p: number,
+): { attrs: Record<string, string>; end: number } | null {
+  const attrs: Record<string, string> = Object.create(null);
+  for (let count = 0; count < MAX_ATTRIBUTES; count++) {
+    const spaced = p;
+    while (source.charCodeAt(p) === 32 && p - spaced < 10) p++;
+    if (p === spaced) return null;
+    const keyStart = p;
+    while (p - keyStart < 10 && isLetter(source.charCodeAt(p))) p++;
+    if (p === keyStart || source.charCodeAt(p) !== 61 || source.charCodeAt(p + 1) !== 34)
+      return null;
+    const key = source.slice(keyStart, p).toLowerCase();
+    const from = p + 2;
+    const limit = Math.min(source.length, from + MAX_OPTION_LENGTH);
+    let q = from;
+    for (; q < limit; q++) {
+      const code = source.charCodeAt(q);
+      if (code === 34 || code === 93 || code === 91 || code === 10) break;
+    }
+    if (source.charCodeAt(q) !== 34) return null;
+    attrs[key] = source.slice(from, q).trim();
+    p = q + 1;
+    if (source.charCodeAt(p) === 93) return { attrs, end: p + 1 };
+  }
+  return null;
 }
 
 function isLetter(code: number): boolean {
@@ -203,6 +247,10 @@ function readHead(source: string, at: number): Head | null {
   const name = source.slice(nameStart, p).toUpperCase();
   const next = source.charCodeAt(p);
   if (next === 93) return { close, name, option: undefined, end: p + 1 };
+  if (next === 32 && !close && ATTRIBUTE_NAMES.has(name)) {
+    const read = readAttributes(source, p);
+    return read && { close, name, option: undefined, attrs: read.attrs, end: read.end };
+  }
   if (next !== 61 || close) return null;
   p++;
   const mark = source.charCodeAt(p);
@@ -255,7 +303,21 @@ class Closers {
   }
 }
 
-type AtomTok = Pick<Tok, "text" | "href" | "html" | "id" | "size" | "language" | "embed">;
+type AtomTok = Pick<
+  Tok,
+  "text" | "href" | "html" | "id" | "size" | "width" | "alt" | "language" | "embed"
+>;
+
+/** A width XenForo's renderer takes (`^[\d.]+(px|%)$`), held to a sane size. */
+const WIDTH = /^(?:[1-9]\d{0,3}px|(?:[1-9]\d?|100)%)$/i;
+
+/** The width and alt text of an ATTACH or IMG tag's attributes, each only when it is valid. */
+function display(attrs: Record<string, string> | undefined): Pick<Tok, "width" | "alt"> {
+  const out: Pick<Tok, "width" | "alt"> = {};
+  if (attrs?.width && WIDTH.test(attrs.width)) out.width = attrs.width.toLowerCase();
+  if (attrs?.alt) out.alt = attrs.alt;
+  return out;
+}
 
 /** What a literal tag holds, or null when its content is not valid (the tag stays text). */
 function atomFor(head: Head, inner: string): AtomTok | null {
@@ -268,7 +330,9 @@ function atomFor(head: Head, inner: string): AtomTok | null {
       return { text: inner };
     case "IMG": {
       const href = inner.trim();
-      return inner.length <= MAX_LITERAL_CONTENT && URL_PATTERN.test(href) ? { href } : null;
+      return inner.length <= MAX_LITERAL_CONTENT && URL_PATTERN.test(href)
+        ? { href, ...display(head.attrs) }
+        : null;
     }
     case "URL": {
       const text = inner.trim();
@@ -294,7 +358,8 @@ function atomFor(head: Head, inner: string): AtomTok | null {
     case "ATTACH": {
       const id = inner.trim();
       if (inner.length > 40 || !/^[1-9]\d{0,11}$/.test(id)) return null;
-      return { id, size: option?.toLowerCase() === "full" ? "full" : "thumb" };
+      const size = (option ?? head.attrs?.type)?.toLowerCase();
+      return { id, size: size === "full" ? "full" : "thumb", ...display(head.attrs) };
     }
     case "USER": {
       const label = inner.trim();
@@ -322,8 +387,10 @@ function isLiteralHead(head: Head): boolean {
       return option === undefined;
     case "MEDIA":
       return option !== undefined && /^[a-z]+$/i.test(option);
-    case "ATTACH":
-      return option === undefined || /^(?:full|thumb)$/i.test(option);
+    case "ATTACH": {
+      const type = option ?? head.attrs?.type;
+      return type === undefined || /^(?:full|thumb)$/i.test(type);
+    }
     case "USER":
       return option !== undefined && /^[1-9]\d{0,8}$/.test(option);
   }

@@ -217,7 +217,7 @@ function atom(tok: Tok, plainInline: boolean, env: Env, inLink: boolean): string
         ? text(tok.text!, false)
         : `<div class="bb-plain">${text(trimNewlines(tok.text!), false)}</div>`;
     case "IMG":
-      return `<img src="${escapeHtml(tok.href!)}" alt="">`;
+      return `<img src="${escapeHtml(tok.href!)}" alt="${escapeHtml(tok.alt ?? "")}"${tok.width ? ` style="width:${tok.width}"` : ""}>`;
     case "MEDIA": {
       const address = escapeHtml(tok.href!);
       // No link inside a link: a link to a provider's page is only named.
@@ -230,7 +230,7 @@ function atom(tok: Tok, plainInline: boolean, env: Env, inLink: boolean): string
       return tok.html!;
     }
     case "ATTACH":
-      return `<span class="bb-attach" data-attach-id="${tok.id}" data-attach-size="${tok.size}">${tok.id}</span>`;
+      return `<span class="bb-attach" data-attach-id="${tok.id}" data-attach-size="${tok.size}"${tok.width ? ` data-attach-width="${tok.width}"` : ""}${tok.alt ? ` data-attach-alt="${escapeHtml(tok.alt)}"` : ""}>${tok.id}</span>`;
     case "URL":
     case "EMAIL":
       return inLink

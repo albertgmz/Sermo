@@ -51,6 +51,45 @@ test("a full image is the file itself, scaled by the column", () => {
   expect(html).not.toContain("<a ");
 });
 
+// XenForo's `[ATTACH type="full" width="300px" alt="…"]`, as the renderer leaves it.
+const sized = (id: number, size: "thumb" | "full", extra: string) =>
+  `<span class="bb-attach" data-attach-id="${id}" data-attach-size="${size}"${extra}>${id}</span>`;
+
+test("a picture placed with a width and alt text is drawn that wide, with that text", () => {
+  const full = placeAttachments(
+    sized(
+      1,
+      "full",
+      ' data-attach-width="300px" data-attach-alt="Mapa &amp; costa"',
+    ),
+    [file(1)],
+    context,
+  );
+  expect(full).toContain('style="width:300px"');
+  expect(full).toContain('alt="Mapa &amp; costa"');
+  expect(full).toContain("max-w-full");
+  const thumb = placeAttachments(
+    sized(1, "thumb", ' data-attach-width="50%"'),
+    [file(1)],
+    context,
+  );
+  expect(thumb).toContain('style="width:50%"');
+  expect(thumb).toContain('alt="plan.png"');
+  expect(
+    inlineAttachmentIds(sized(1, "full", ' data-attach-width="300px"'), [
+      file(1),
+    ]),
+  ).toEqual([1]);
+  // A width that is not one the renderer writes is not drawn.
+  expect(
+    placeAttachments(
+      sized(1, "full", ' data-attach-width="1px;color:red"'),
+      [file(1)],
+      context,
+    ),
+  ).not.toContain("style=");
+});
+
 // A picture 1000 wide with its thumbnail and the copy 640 wide.
 const copies = [
   { url: "/api/v1/files/11", width: 320 },
