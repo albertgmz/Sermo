@@ -5847,3 +5847,22 @@ suite peaks at 3.2 GB (4,994 tests, about 60 s) and a full `check:fast` at about
 machine.
 Known limits: a plain serial `bun test` over many files loads the helpers once, so only the first
 file's databases are closed at its end (serial runs are small targeted runs).
+
+### Direct messages: XenForo's wording, leave choice, paging and mark unread
+
+- Conversations are "Mensajes directos" / "Direct messages" in both languages (the address stays
+  `/conversations`).
+- Leave offers XenForo's choice: accept future messages (default; a new reply, or a held reply
+  when approved, restores the member with their old read mark) or ignore them (state
+  `left_ignored`, restored only by being added again; other members see "left"). Every reader that
+  filters `state = 'active'` treats `left_ignored` like `left`; no migration.
+- The list loads 40 per page; "Mark unread" moves the read mark back before the newest visible
+  message and never forward.
+- `scripts/ignored-leavers.ts` marks XenForo's "left and ignore" pairs as `left_ignored` (dry run by
+  default and read-only; `--apply` copies the database with `VACUUM INTO` first; idempotent). It
+  runs by hand after a deploy (owner).
+
+Why: backlog C5 and the conversations findings; the brief's "53,077 dropped deleted recipients" are
+XenForo users missing from `xf_user` (no Sermo member to hold them), so they are not imported.
+Known limits: no stars; the approval path keeps its own copy of the restore statement (a shared one
+would make moderation import conversations).
