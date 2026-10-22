@@ -6304,3 +6304,14 @@ MCP tool errors.
 
 Why: on fcuba.net nothing was pushed (no type pushed by default) and nothing was logged, so the
 owner, subscribed on a device, received nothing. Open: whether watched threads push by default.
+
+### The reaction picker loads when a member reaches for it
+
+- The reaction picker's code (its popover and rows) is fetched on the first pointer, touch or
+  focus on a reaction button, during the hover delay or the long-press hold, so the first open
+  shows no lag; until then a plain "Choose a reaction" button stands in. While the code loads, a
+  slide toward where the picker will appear waits and a far slide or lift cancels, as with a drawn
+  picker. A failed load throws nothing and the next opening tries again. Thread and conversation
+  pages load about 40 KB less up front, the feed about 5 KB.
+
+Why: the feed page was at its JS budget, which blocked approved items; budgets are not raised.
