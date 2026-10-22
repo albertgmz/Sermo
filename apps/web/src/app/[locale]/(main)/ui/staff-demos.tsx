@@ -26,6 +26,7 @@ import { PictureField } from "@/components/staff/picture-field";
 import { RuleBuilder } from "@/components/staff/rule-builder";
 import { ThreadBatch, ThreadTick } from "@/components/staff/thread-batch";
 import { Input } from "@/components/ui/input";
+import { formatCredits } from "@/lib/format";
 import { plainMember } from "@/lib/sermo/members";
 
 const criterion = (
@@ -264,7 +265,8 @@ export function StaffDemos() {
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3">
               <p className="min-w-0 text-sm font-medium">{rule.name}</p>
               <p className="text-xs text-muted-foreground">
-                +{rule.amount} credits · {rule.limit}
+                {formatCredits(rule.amount, "en", { signed: true })} credits ·{" "}
+                {rule.limit}
               </p>
             </div>
           )}

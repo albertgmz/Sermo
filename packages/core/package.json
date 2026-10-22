@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./testing": "./src/testing/index.ts",
-    "./contracts": "./src/contracts/index.ts"
+    "./contracts": "./src/contracts/index.ts",
+    "./icon-keys": "./src/modules/awards/icons.ts"
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.7",

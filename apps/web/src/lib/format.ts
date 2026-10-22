@@ -97,11 +97,14 @@ export function formatNumber(value: number, locale: string): string {
   return formatters(locale).full.format(value);
 }
 
+const MINUS = "\u2212";
+
 // An amount of credits (a price, a balance, a ledger line): the one formatter for all of them.
 // Always grouped in threes with the locale's symbol (Spanish groups only from five digits by
 // default, so 2300 would read as a bare number): the digits come from `Intl` ungrouped and the
 // separators are put in here, so the text is the same on a server and in any browser, whatever its
-// `Intl.NumberFormat` supports. `signed` shows + or - before the amount, for a ledger line.
+// `Intl.NumberFormat` supports. `signed` shows + or - before the amount, for a ledger line. A minus
+// is always the typographic one (U+2212), signed or not, so a debit reads the same everywhere.
 export function formatCredits(
   value: number,
   locale: string,
@@ -113,7 +116,9 @@ export function formatCredits(
     .map((part) =>
       part.type === "integer"
         ? part.value.replace(/\B(?=(\d{3})+$)/g, groupSymbol)
-        : part.value,
+        : part.type === "minusSign"
+          ? MINUS
+          : part.value,
     )
     .join("");
 }

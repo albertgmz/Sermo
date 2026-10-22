@@ -1,3 +1,4 @@
+import type { ICON_KEYS } from "@sermo/core/icon-keys";
 import {
   ArrowDown,
   ArrowLeft,
@@ -159,11 +160,11 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
-import type messages from "../../../messages/en/ui.json";
 
-// A key of the site's icon set, as the interface text names it: the labels of the picker are keyed
-// by these, so a key without a label (or a label without an icon) does not compile.
-export type IconName = keyof typeof messages.iconPicker.labels;
+// A key of the site's icon set. The list of keys is the backend's (`ICON_KEYS`, which also decides
+// what an award may take as its icon), so an icon without a component here does not compile; the
+// picker's labels and search words are held to the same keys by `icon-set.test.ts`.
+export type IconName = (typeof ICON_KEYS)[number];
 
 // The site's icon set: the keys stored for forums, navigation entries and anything else that
 // takes an icon, mapped to the component that draws them. The backend keeps only the key; this

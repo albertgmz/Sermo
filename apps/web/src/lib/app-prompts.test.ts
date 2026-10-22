@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   cardToShow,
   installOffer,
+  menuInstallOffer,
   type PromptState,
   pageSeen,
   platformOf,
@@ -259,4 +260,26 @@ test("the pages of a visit count again from signing in, so a guest who signs up 
   expect(pageSeen(joined, joined.member).views).toBe(2);
   // Signing out counts again too.
   expect(pageSeen(joined, null).views).toBe(1);
+});
+
+test("the menu offers to install only to someone who put the install card off, and while that holds", () => {
+  const off = { install: NOW - DAY };
+  expect(menuInstallOffer(android, true, off, NOW)).toBe("native");
+  expect(menuInstallOffer(iphone, false, off, NOW)).toBe("ios");
+  // Never put off, or put off with the 30 days over: the card is the offer, not the menu.
+  expect(menuInstallOffer(android, true, {}, NOW)).toBeNull();
+  expect(menuInstallOffer(iphone, false, { push: NOW - DAY }, NOW)).toBeNull();
+  expect(
+    menuInstallOffer(
+      android,
+      true,
+      { install: NOW - (SNOOZE_DAYS + 1) * DAY },
+      NOW,
+    ),
+  ).toBeNull();
+  // Where the card itself would not be offered, neither is the menu.
+  expect(menuInstallOffer(desktop, false, off, NOW)).toBeNull();
+  expect(
+    menuInstallOffer({ ...android, standalone: true }, true, off, NOW),
+  ).toBeNull();
 });

@@ -1,9 +1,10 @@
-import { expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { registerRichText } from "@lexical/rich-text";
 import {
   $createParagraphNode,
   $createTextNode,
   $getRoot,
+  COMMAND_PRIORITY_LOW,
   COMMAND_PRIORITY_NORMAL,
   createEditor,
   DROP_COMMAND,
@@ -11,7 +12,8 @@ import {
 } from "lexical";
 import { $exportBb, BB_NODES } from "./bb-lexical";
 import { offerFiles, onFilesOffered } from "./composer-insert";
-import { pastedFiles, prepareFiles, registerPaste } from "./editor-paste";
+import { prepareFiles, registerPaste } from "./editor-paste";
+import { pastedFiles } from "./pasted-files";
 
 function setup() {
   const editor = createEditor({
@@ -164,37 +166,88 @@ test("a paste with no data inserts nothing", () => {
   expect(bb()).toBe("");
 });
 
+// Lexical tells a drag from a clipboard event by the event's class name, which a test without a
+// browser has to give it.
+class DragEvent {
+  clientX = 0;
+  clientY = 0;
+  prevented = false;
+  constructor(readonly dataTransfer: unknown) {}
+  preventDefault() {
+    this.prevented = true;
+  }
+}
+Object.assign(globalThis, { DragEvent });
+
+// Where Lexical looks for the caret under the pointer: a page with nothing at that point.
+const nowhere = { caretRangeFromPoint: () => null };
+let hadDocument: PropertyDescriptor | undefined;
+beforeAll(() => {
+  hadDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  Object.assign(globalThis, { document: nowhere });
+});
+afterAll(() => {
+  if (hadDocument) Object.defineProperty(globalThis, "document", hadDocument);
+  else Reflect.deleteProperty(globalThis, "document");
+});
+
 function drop(
   editor: ReturnType<typeof setup>["editor"],
-  dataTransfer: ReturnType<typeof transfer> | null,
+  dataTransfer: unknown,
 ) {
-  let prevented = false;
-  const handled = editor.dispatchCommand(DROP_COMMAND, {
-    dataTransfer,
-    preventDefault: () => {
-      prevented = true;
-    },
-  } as unknown as DragEvent);
-  return { handled, prevented };
+  const event = new DragEvent(dataTransfer);
+  const handled = editor.dispatchCommand(
+    DROP_COMMAND,
+    event as unknown as globalThis.DragEvent,
+  );
+  return { handled, prevented: event.prevented };
 }
 
-test("dropped files go to the file handler", () => {
+// Counts the drops that get past the handler of this file, and stops them there.
+function watchDrops(editor: ReturnType<typeof setup>["editor"]) {
+  const seen = { count: 0 };
+  editor.registerCommand(
+    DROP_COMMAND,
+    () => {
+      seen.count += 1;
+      return true;
+    },
+    COMMAND_PRIORITY_LOW,
+  );
+  return seen;
+}
+
+test("dropped files are left to Lexical's own drop handling, which puts the caret where they were released and offers them", () => {
   const { editor, taken } = setup();
+  const seen = watchDrops(editor);
   const files = [picture("a.png"), picture("b.jpg", "image/jpeg")];
-  expect(drop(editor, transfer({ files }))).toEqual({
+  drop(editor, transfer({ files }));
+  expect(seen.count).toBe(1);
+  expect(taken).toEqual([]);
+  // Without the watcher Lexical offers them, once, as a drop.
+  const other = setup();
+  expect(drop(other.editor, transfer({ files }))).toEqual({
     handled: true,
     prevented: true,
   });
-  expect(taken).toEqual([files]);
+  expect(other.taken).toEqual([files]);
+  expect(other.told).toEqual([false]);
 });
 
-test("a drop with no files is refused as before and offers nothing", () => {
+test("text dragged inside the editor is left to Lexical, any other external drop is refused and offers nothing", () => {
   const { editor, taken, bb } = setup();
+  const seen = watchDrops(editor);
   expect(drop(editor, transfer({ data: { "text/plain": "text" } }))).toEqual({
     handled: true,
     prevented: true,
   });
   expect(drop(editor, null).handled).toBe(true);
+  expect(seen.count).toBe(0);
+  expect(
+    drop(editor, transfer({ data: { "application/x-lexical-drag": "{}" } }))
+      .prevented,
+  ).toBe(false);
+  expect(seen.count).toBe(1);
   expect(taken).toEqual([]);
   expect(bb()).toBe("");
 });
@@ -211,6 +264,32 @@ test('a pasted picture with no name, or the browser\'s "image.png", is named aft
   expect(jpeg.name).toBe("pegado-2026-10-19-140509.jpg");
   const [unknown] = await prepare([picture("", "")]);
   expect(unknown.name).toBe("pasted-2026-10-19-140509");
+});
+
+test("pictures pasted in the same second are named apart, in the order they came", async () => {
+  const used = new Set<string>();
+  const name = async (files: File[]) =>
+    (
+      await prepareFiles(files, {
+        prefix: "pasted",
+        now: NOW,
+        pasted: true,
+        used,
+      })
+    ).map((file) => file.name);
+  expect(await name([picture("image.png")])).toEqual([
+    "pasted-2026-10-19-140509.png",
+  ]);
+  expect(await name([picture("image.png")])).toEqual([
+    "pasted-2026-10-19-140509-2.png",
+  ]);
+  expect(await name([picture("image.png")])).toEqual([
+    "pasted-2026-10-19-140509-3.png",
+  ]);
+  expect(await name([picture("image.png"), picture("image.png")])).toEqual([
+    "pasted-2026-10-19-140509-1.png",
+    "pasted-2026-10-19-140509-2-2.png",
+  ]);
 });
 
 test("a dropped file keeps its name even when it is image.png", async () => {

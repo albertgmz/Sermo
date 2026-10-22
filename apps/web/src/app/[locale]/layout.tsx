@@ -16,6 +16,7 @@ import { themeScript } from "@/components/layout/theme";
 import { WorkerRegistration } from "@/components/layout/worker-registration";
 import { pickClientMessages, ROOT_NAMESPACES } from "@/i18n/client-messages";
 import { isLocale, LOCALES } from "@/i18n/locales";
+import { installScript } from "@/lib/install-early";
 import { OPENSEARCH_URL } from "@/lib/opensearch";
 import { THEME_COLORS } from "@/lib/pwa";
 import { scriptNonce } from "@/lib/script-nonce";
@@ -88,6 +89,11 @@ export default async function RootLayout({
           nonce={nonce}
           // biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input
           dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
+        <script
+          nonce={nonce}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input
+          dangerouslySetInnerHTML={{ __html: installScript }}
         />
         <SpeculationRulesScript nonce={nonce} />
         <link

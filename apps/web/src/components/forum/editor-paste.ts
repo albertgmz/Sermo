@@ -1,3 +1,4 @@
+import { DRAG_DROP_PASTE } from "@lexical/rich-text";
 import {
   COMMAND_PRIORITY_HIGH,
   DROP_COMMAND,
@@ -8,6 +9,7 @@ import {
 } from "lexical";
 import { $insertBb } from "@/components/forum/bb-lexical";
 import { htmlToBb } from "@/components/forum/html-to-bb";
+import { pastedFiles } from "@/components/forum/pasted-files";
 
 // What a paste puts in: pasted rich text becomes BB code, so that bold, links, lists and the rest
 // arrive as formatting and everything else as text, and plain text is taken as typed (its tags
@@ -21,38 +23,6 @@ function pastedBb(data: DataTransfer): { bb: string; literal: boolean } {
     if (bb) return { bb, literal: false };
   }
   return { bb: data.getData("text/plain"), literal: true };
-}
-
-// The text a clipboard's HTML holds, tags and comments aside.
-const htmlText = (html: string) =>
-  html
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;|\u00A0/g, " ")
-    .trim();
-
-// What a browser puts as plain text next to a copied picture or file: its address, or its path.
-const ADDRESS = /^(?:https?:\/\/|file:\/\/)\S+$/i;
-const PATH = /^(?:[a-z]:[\\/]|\\\\|\/)[^\r\n]*$/i;
-
-// A paste is files when it holds files and the text with them says nothing more than the files
-// do: no text, the name of one of the files, or one address or path (Firefox and Safari put one
-// next to a copied picture, as file managers do next to a copied file) with no text in the HTML
-// but a picture. A cell copied from a spreadsheet comes with a picture of itself and its text,
-// so it stays text.
-export function pastedFiles(data: {
-  files: ArrayLike<File>;
-  getData: (type: string) => string;
-}) {
-  const files = Array.from(data.files);
-  if (files.length === 0) return [];
-  const plain = data.getData("text/plain").trim();
-  if (!plain) return files;
-  if (files.some((file) => file.name === plain)) return files;
-  const bare =
-    ADDRESS.test(plain) || (PATH.test(plain) && !/\s{2,}/.test(plain));
-  return bare && !htmlText(data.getData("text/html")) ? files : [];
 }
 
 const EXTENSIONS: Record<string, string> = {
@@ -102,10 +72,16 @@ const two = (value: number) => String(value).padStart(2, "0");
 // What the pasted or dropped files are sent as: a file with no type gets the one it turns out to
 // be, and a picture that came off the clipboard with no name, or the "image.png" browsers give
 // every pasted picture, is named after the moment (a dropped file keeps its own name, whatever it
-// is). Files with a name and a type are not touched.
+// is). Files with a name and a type are not touched. `used` holds the names given so far, so that
+// two pictures pasted in the same second do not get the same one.
 export async function prepareFiles(
   files: File[],
-  { prefix, now, pasted }: { prefix: string; now: Date; pasted: boolean },
+  {
+    prefix,
+    now,
+    pasted,
+    used,
+  }: { prefix: string; now: Date; pasted: boolean; used?: Set<string> },
 ): Promise<File[]> {
   const stamp = `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}-${two(now.getHours())}${two(now.getMinutes())}${two(now.getSeconds())}`;
   return Promise.all(
@@ -116,18 +92,29 @@ export async function prepareFiles(
       if (!nameless && type === file.type) return file;
       const extension =
         EXTENSIONS[type] ?? (file.name.split(".")[1] || undefined);
-      const name = nameless
-        ? `${prefix}-${stamp}${files.length > 1 ? `-${index + 1}` : ""}${extension ? `.${extension}` : ""}`
-        : file.name;
+      let name = file.name;
+      if (nameless) {
+        const stem = `${prefix}-${stamp}${files.length > 1 ? `-${index + 1}` : ""}`;
+        const ending = extension ? `.${extension}` : "";
+        name = `${stem}${ending}`;
+        for (let again = 2; used?.has(name); again += 1)
+          name = `${stem}-${again}${ending}`;
+        used?.add(name);
+      }
       return new File([file], name, { type, lastModified: file.lastModified });
     }),
   );
 }
 
+// The type Lexical gives a drag that starts in an editor.
+const DRAG_SOURCE = "application/x-lexical-drag";
+
 // The commands that bring things into the editor from outside, at the priority that keeps
 // Lexical's own from putting anything in on its own: pasted text becomes BB code, the editor's own
 // copies keep Lexical's paste, and files (pasted or dropped) go to `onFiles`, which uploads them.
-// The editor takes no file itself.
+// The editor takes no file itself. A drop of files is left to Lexical's own handling, which puts the
+// caret where the files were released and then offers them as DRAG_DROP_PASTE; text dragged inside
+// the editor is left to it too.
 export function registerPaste(
   editor: LexicalEditor,
   onFiles: (files: File[], pasted: boolean) => void,
@@ -168,10 +155,19 @@ export function registerPaste(
     editor.registerCommand(
       DROP_COMMAND,
       (event) => {
-        // External drops otherwise fall through to native DOM insertion.
+        const data = event.dataTransfer;
+        if (data && Array.from(data.files).length > 0) return false;
+        if (data?.types.includes(DRAG_SOURCE)) return false;
+        // Other external drops otherwise fall through to native DOM insertion.
         event.preventDefault();
-        const files = Array.from(event.dataTransfer?.files ?? []);
-        if (files.length > 0) onFiles(files, false);
+        return true;
+      },
+      COMMAND_PRIORITY_HIGH,
+    ),
+    editor.registerCommand(
+      DRAG_DROP_PASTE,
+      (files) => {
+        onFiles(files, false);
         return true;
       },
       COMMAND_PRIORITY_HIGH,

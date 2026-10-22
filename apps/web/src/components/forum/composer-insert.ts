@@ -2,15 +2,18 @@
 // an attachment whose tags are to come out. A request is an event on the composer's form, so it
 // finds its own box and no other: the editor, or the plain field that stands in for it until it is
 // entered, listens for it.
+import { pastedFiles } from "@/components/forum/pasted-files";
+
 const EVENT = "sermo:composer-request";
 
 // `background`: the text is not the member's doing at this moment (a picture that finished
 // uploading), so the editor does not take the focus for it. `drop`: files dropped on the composer
-// outside the editor's own text, for the editor to take as it takes those pasted or dropped on it.
+// outside the editor's own text, for the editor to take as it takes those pasted or dropped on it
+// (`pasted`: they came off the clipboard).
 export type ComposerRequest =
   | { insert: string; background?: boolean }
   | { remove: number }
-  | { drop: File[] };
+  | { drop: File[]; pasted?: boolean };
 
 export const attachTag = (id: number, size: "thumb" | "full") =>
   size === "full" ? `[ATTACH=full]${id}[/ATTACH]` : `[ATTACH]${id}[/ATTACH]`;
@@ -38,6 +41,19 @@ export function requestOnComposer(
   request: ComposerRequest,
 ) {
   form?.dispatchEvent(new CustomEvent(EVENT, { detail: request }));
+}
+
+// A paste into a plain field of a composer (the box before the editor loads, the source view) that
+// holds files: they go to the editor as those pasted into its text, and the field takes no text.
+export function takePastedFiles(event: {
+  clipboardData: DataTransfer | null;
+  currentTarget: { form: HTMLFormElement | null };
+  preventDefault: () => void;
+}) {
+  const files = event.clipboardData ? pastedFiles(event.clipboardData) : [];
+  if (files.length === 0) return;
+  event.preventDefault();
+  requestOnComposer(event.currentTarget.form, { drop: files, pasted: true });
 }
 
 // Asks the composer that holds `inside` to put `text` at its caret.

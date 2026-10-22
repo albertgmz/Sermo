@@ -1,9 +1,11 @@
 import { useSyncExternalStore } from "react";
+import { EARLY_INSTALL_KEY } from "@/lib/install-early";
 
 // The browser's offer to install the forum (`beforeinstallprompt`: Chrome, Edge and Samsung
 // Internet), kept for our own card and the account menu, and what happened to it. The browser sends
 // the event once per page load, often before the page has hydrated, so it is caught as soon as this
-// module runs. Holding it back (`preventDefault`) keeps the browser's own bar off the screen: the
+// module runs, and an event that came before that was held by the script in the page's head
+// (`install-early.ts`). Holding it back (`preventDefault`) keeps the browser's own bar off the screen: the
 // forum asks with its card, after the cookie banner, and not while "Not now" holds.
 
 type InstallEvent = Event & {
@@ -38,6 +40,13 @@ function set(next: Partial<InstallState>) {
 }
 
 if (typeof window !== "undefined") {
+  const early = (window as unknown as Record<string, unknown>)[
+    EARLY_INSTALL_KEY
+  ] as InstallEvent | undefined;
+  if (early) {
+    deferred = early;
+    state = { ...state, native: true };
+  }
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     deferred = event as InstallEvent;

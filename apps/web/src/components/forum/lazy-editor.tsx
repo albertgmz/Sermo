@@ -7,6 +7,7 @@ import {
   insertAtCaret,
   onComposerRequest,
   requestOnComposer,
+  takePastedFiles,
   withoutAttachTag,
 } from "@/components/forum/composer-insert";
 import type { Editor, EditorProps } from "@/components/forum/editor";
@@ -202,6 +203,7 @@ export function LazyEditor({
         placeholder={placeholder}
         aria-label={placeholder}
         onFocus={load}
+        onPaste={takePastedFiles}
         onInput={(event) => {
           load();
           onChange?.(event.currentTarget.value);

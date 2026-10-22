@@ -7,6 +7,7 @@ import {
   onImagePick,
   pickImage,
   removeFromComposer,
+  takePastedFiles,
   withoutAttachTag,
 } from "./composer-insert";
 
@@ -110,4 +111,35 @@ test("the Image button reaches the picture picker of its own composer, and says 
   expect(pickImage(mine.form)).toBe(false);
   expect(pickImage(null)).toBe(false);
   expect(opened).toEqual(["mine"]);
+});
+
+function paste(files: File[], text = "") {
+  const { form } = composer();
+  const got: unknown[] = [];
+  onComposerRequest(form, (request) => got.push(request));
+  let prevented = false;
+  takePastedFiles({
+    clipboardData: {
+      files,
+      types: files.length ? ["Files"] : [],
+      getData: (type: string) => (type === "text/plain" ? text : ""),
+    } as unknown as DataTransfer,
+    currentTarget: { form },
+    preventDefault: () => {
+      prevented = true;
+    },
+  });
+  return { got, prevented };
+}
+
+test("files pasted into a plain field of the composer go to the editor as pasted files, and the field takes none", () => {
+  const files = [new File(["x"], "image.png", { type: "image/png" })];
+  expect(paste(files)).toEqual({
+    got: [{ drop: files, pasted: true }],
+    prevented: true,
+  });
+});
+
+test("a paste of text into a plain field is left alone", () => {
+  expect(paste([], "hello")).toEqual({ got: [], prevented: false });
 });

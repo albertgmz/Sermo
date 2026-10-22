@@ -57,14 +57,14 @@ test("credit amounts are always grouped: Spanish groups four digits too, plain n
 
 test("a signed credit amount shows its sign and the grouping", () => {
   expect(formatCredits(2300, "es", { signed: true })).toBe("+2.300");
-  expect(formatCredits(-2300, "en", { signed: true })).toBe("-2,300");
+  expect(formatCredits(-2300, "en", { signed: true })).toBe("\u22122,300");
   expect(formatCredits(0, "en", { signed: true })).toBe("+0");
 });
 
 test("credit grouping is made here, in threes with the locale's symbol, from any number of digits", () => {
   expect(formatCredits(1234567, "es")).toBe("1.234.567");
   expect(formatCredits(1234567, "en")).toBe("1,234,567");
-  expect(formatCredits(-2300, "es")).toBe("-2.300");
+  expect(formatCredits(-2300, "es")).toBe("\u22122.300");
   expect(formatCredits(999, "es")).toBe("999");
   expect(formatCredits(1000, "es")).toBe("1.000");
   expect(formatCredits(0, "es")).toBe("0");

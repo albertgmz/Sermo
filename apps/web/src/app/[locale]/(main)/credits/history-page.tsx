@@ -47,8 +47,7 @@ export async function historyPage(
                 line.amount < 0 ? "text-destructive" : "text-success",
               )}
             >
-              {line.amount < 0 ? "−" : "+"}
-              {formatCredits(Math.abs(line.amount), locale)}
+              {formatCredits(line.amount, locale, { signed: true })}
             </p>
             <p className="text-xs text-muted-foreground tabular-nums">
               {t("balanceAfter", {

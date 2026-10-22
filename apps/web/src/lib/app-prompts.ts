@@ -76,6 +76,19 @@ export function installOffer(
   return null;
 }
 
+// What the account menu's "Install app" offers: the same as the card, but only to someone who put
+// the card off (a card not put off is on its way, or already in front of them).
+export function menuInstallOffer(
+  platform: Platform,
+  nativeEvent: boolean,
+  snoozes: Snoozes,
+  now: number,
+): InstallOffer {
+  return snoozed(snoozes, "install", now)
+    ? installOffer(platform, nativeEvent)
+    : null;
+}
+
 export type PushAvailability = "available" | "needsInstall" | "unsupported";
 
 // Whether this browser can receive pushes. `apis`: service workers, the Push API and notifications

@@ -25,6 +25,7 @@ import {
 import { EditorDemo } from "@/app/[locale]/(main)/ui/editor-demo";
 import { LiteMenuDemo } from "@/app/[locale]/(main)/ui/lite-menu-demo";
 import { MemberActionsDemo } from "@/app/[locale]/(main)/ui/member-actions-demo";
+import { PromptCardDemo } from "@/app/[locale]/(main)/ui/prompt-card-demo";
 import { ReactionDemo } from "@/app/[locale]/(main)/ui/reaction-demo";
 import { SettingsDemo } from "@/app/[locale]/(main)/ui/settings-demo";
 import { SkeletonDemos } from "@/app/[locale]/(main)/ui/skeleton-demos";
@@ -101,7 +102,7 @@ import { WallComments } from "@/components/forum/wall-comments";
 import { IconPicker } from "@/components/icons/icon-picker";
 import { headerIconClass } from "@/components/layout/header-icon-class";
 import { HeaderPanel } from "@/components/layout/header-panel";
-import { Logo, LogoMark } from "@/components/layout/logo";
+import { AppIcon, Logo, LogoMark } from "@/components/layout/logo";
 import { NarrowToggle } from "@/components/layout/narrow-toggle";
 import { toNavItems } from "@/components/layout/nav";
 import { PageHero } from "@/components/layout/page-hero";
@@ -1825,6 +1826,15 @@ export default async function StyleguidePage() {
               </li>
             ))}
           </ul>
+        </Section>
+
+        <Section title="Prompt card">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            Offers the app or notifications. On the pages it floats at the foot
+            of the screen, above the phone's bottom bar; here it sits in the
+            page.
+          </p>
+          <PromptCardDemo icon={<AppIcon />} />
         </Section>
 
         <Section title={liteText("title")}>

@@ -62,8 +62,7 @@ export async function Ledger({
             <span
               className={`tabular-nums ${row.amount < 0 ? "text-destructive" : "text-success"}`}
             >
-              {row.amount > 0 ? "+" : ""}
-              {formatCredits(row.amount, locale)}
+              {formatCredits(row.amount, locale, { signed: true })}
             </span>{" "}
             {row.reason}
           </>

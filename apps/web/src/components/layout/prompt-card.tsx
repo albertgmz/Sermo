@@ -2,12 +2,14 @@
 
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 // A card that offers the visitor something the forum cannot do without them: installing it as an
 // app, or turning on notifications. It floats above the content at the foot of the screen (above the
 // phone's bottom bar), takes no focus and blocks nothing; "Not now" puts it away, as does Escape
 // from inside it. It steps aside while the notice of a popup that could not load is up (the same
-// corner). One component for every such offer, so they look and behave alike.
+// corner). One component for every such offer, so they look and behave alike. `inline` sets it in the
+// flow of the page instead, for the styleguide.
 export function PromptCard({
   icon,
   title,
@@ -16,6 +18,7 @@ export function PromptCard({
   dismiss,
   busy = false,
   error,
+  inline = false,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -25,6 +28,7 @@ export function PromptCard({
   dismiss: { label: string; onClick: () => void };
   busy?: boolean;
   error?: string | null;
+  inline?: boolean;
 }) {
   const titleId = useId();
   return (
@@ -34,7 +38,12 @@ export function PromptCard({
       onKeyDown={(event) => {
         if (event.key === "Escape") dismiss.onClick();
       }}
-      className="[body:has([data-lazy-popup-notice])_&]:hidden fixed inset-x-3 bottom-[calc(var(--spacing-mobile-nav)+0.75rem)] z-40 animate-in rounded-xl border bg-popover p-4 text-popover-foreground shadow-lg duration-300 fade-in slide-in-from-bottom-4 motion-reduce:animate-none md:inset-x-auto md:right-6 md:bottom-6 md:w-96"
+      className={cn(
+        "[body:has([data-lazy-popup-notice])_&]:hidden animate-in rounded-xl border bg-popover p-4 text-popover-foreground shadow-lg duration-300 fade-in slide-in-from-bottom-4 motion-reduce:animate-none",
+        inline
+          ? "w-full max-w-sm"
+          : "fixed inset-x-3 bottom-[calc(var(--spacing-mobile-nav)+0.75rem)] z-40 md:inset-x-auto md:right-6 md:bottom-6 md:w-96",
+      )}
     >
       <div className="flex gap-3">
         <div className="size-12 shrink-0 overflow-hidden rounded-xl ring-1 ring-border">

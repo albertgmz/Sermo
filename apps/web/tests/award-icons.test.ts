@@ -1,13 +1,15 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { AWARD_ICON_KEYS, ICON_KEYS } from "@sermo/core/icon-keys";
 import { ICONS } from "@/components/icons/icon-set";
-import { AWARD_ICON_KEYS } from "../../../packages/core/src/modules/awards/icons";
 
-// The backend refuses an award icon that is not a key of the site's icon set, so it holds a copy
-// of the set. A key added to the set must be added to that copy (`modules/awards/icons.ts`).
+// The list of keys is the backend's (`modules/awards/icons.ts`), which refuses an award icon that is
+// not one of them; the web app draws exactly those.
 test("the backend accepts exactly the keys of the site's icon set for an award", () => {
   expect([...AWARD_ICON_KEYS].sort()).toEqual(Object.keys(ICONS).sort());
+  expect([...ICON_KEYS].sort()).toEqual(Object.keys(ICONS).sort());
+  expect(new Set(ICON_KEYS).size).toBe(ICON_KEYS.length);
 });
 
 test("every icon the starter awards use is one the backend accepts", () => {

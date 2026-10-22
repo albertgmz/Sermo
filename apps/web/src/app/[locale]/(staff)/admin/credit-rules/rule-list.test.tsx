@@ -50,7 +50,7 @@ test("each rule is a row leading to its own page, with what it does", async () =
   expect(html).toContain("Edit Posting pays");
   expect(html).toContain(text.triggers.reply_posted);
   expect(html).toContain("+5");
-  expect(html).toContain("-3");
+  expect(html).toContain("\u22123");
   expect(html).toContain("at most 10 per 24 h");
   expect(html).toContain("only in #3");
   expect(html).toContain(text.inactive);

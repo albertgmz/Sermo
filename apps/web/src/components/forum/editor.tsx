@@ -47,6 +47,7 @@ import {
   insertAtCaret,
   offerFiles,
   onComposerRequest,
+  takePastedFiles,
   withoutAttachTag,
 } from "@/components/forum/composer-insert";
 import { $placeSelection } from "@/components/forum/editor-caret";
@@ -253,7 +254,7 @@ function FormField({
     return onComposerRequest(form, (request) => {
       const box = shown.current.active ? shown.current.field.current : null;
       if ("drop" in request) {
-        onFiles(request.drop, form ?? null, false);
+        onFiles(request.drop, form ?? null, request.pasted ?? false);
       } else if (box) {
         if ("insert" in request) {
           insertAtCaret(box, request.insert, true, !request.background);
@@ -388,12 +389,14 @@ export function Editor({
   const [notice, setNotice] = useState<string>();
   // Files go to the upload the composer around the editor has, by the same way its attach button
   // sends them; an editor with none refuses them and says so.
+  const named = useRef(new Set<string>());
   const takeFiles = useCallback(
     async (files: File[], form: HTMLFormElement | null, pasted: boolean) => {
       const sent = await prepareFiles(files, {
         prefix: t("pastedName"),
         now: new Date(),
         pasted,
+        used: named.current,
       });
       // A refusal stays on show while more files are being taken, until the text changes.
       if (!offerFiles(form, sent)) setNotice(t("errors.noUpload"));
@@ -401,9 +404,11 @@ export function Editor({
     [t],
   );
   const errorId = useId();
+  const noticeId = useId();
   const describedByIds =
-    [describedBy, invalid ? errorId : undefined].filter(Boolean).join(" ") ||
-    undefined;
+    [describedBy, invalid ? errorId : undefined, notice ? noticeId : undefined]
+      .filter(Boolean)
+      .join(" ") || undefined;
   const padding = compact ? "px-3 py-2" : "px-4 py-3";
   const [initialConfig] = useState<InitialConfigType>(() => {
     const editorState = defaultValue && initialEditorState(defaultValue);
@@ -525,6 +530,7 @@ export function Editor({
               id={id}
               value={value}
               onChange={(event) => commit(event.target.value)}
+              onPaste={takePastedFiles}
               aria-label={fieldLabel}
               aria-labelledby={labelledBy}
               aria-required={required}
@@ -552,7 +558,11 @@ export function Editor({
             source={sourceMode}
             editorRef={editorRef}
           />
-          {notice && <FormError className="px-3 pb-2">{notice}</FormError>}
+          {notice && (
+            <FormError id={noticeId} className="px-3 pb-2">
+              {notice}
+            </FormError>
+          )}
         </div>
         {invalid && <FormError id={errorId}>{t("errors.required")}</FormError>}
         <HistoryPlugin />
