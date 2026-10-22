@@ -5701,3 +5701,20 @@ Known limits: the cover is a full-size download (no smaller renditions in the no
 Why: backlog C4; members said the editor changed the forum's feel most.
 Known limits: in a long post the toolbar scrolls away with the text instead of staying above the
 phone keyboard, as on XenForo.
+
+### A conversation message alerts and pushes the other participants
+
+- The alert type `conversation.message` is back: a new message alerts every other active
+  participant (not the sender, members who left, banned members, members who ignore the sender, or
+  one whose read position already covers it), per their channel preferences and the site defaults.
+  A burst gives one unread alert per member and conversation, updated by later messages, and one
+  push; reading the conversation clears it and the next message starts a new one. Leaving clears
+  the leaver's alerts. The alert and push point at the newest message
+  (`/conversations/messages/{id}`), with tag `conversation:<id>` and no message text.
+- Push is on by default for this type and email off (XenForo's default; its alerts did not cover
+  messages). Supersedes "Alerts: conversations" (no alert for a message; a retired type's
+  unsubscribe ends quietly).
+
+Why: backlog A1; the install card's promise of message notifications is now true.
+Known limits: members whose XenForo setting was off get pushes once they register a device; a
+member with the conversation open still gets the push, as on XenForo.
