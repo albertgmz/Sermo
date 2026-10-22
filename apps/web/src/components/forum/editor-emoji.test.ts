@@ -11,7 +11,12 @@ import {
   type LexicalEditor,
   type TextNode,
 } from "lexical";
-import { $emojiTyped, emojiTyped } from "./editor-emoji";
+import {
+  $emojiTyped,
+  emojiTyped,
+  loader,
+  shortcodeStarted,
+} from "./editor-emoji";
 import { $replaceTyped, registerEmojiTyping } from "./emoji-suggest";
 
 test("a colon that starts a word opens a shortcode, with what follows it", () => {
@@ -125,7 +130,7 @@ test("the listener says what is being typed, and nothing once it is closed", () 
   type(editor, " :pe");
   type(editor, "nsa");
   type(editor, " ");
-  expect(seen).toEqual(["pe", "pensa", null]);
+  expect(seen).toEqual([null, "pe", "pensa", null]);
 });
 
 test("a picked emoji takes the place of the shortcode, followed by one space", () => {
@@ -158,6 +163,46 @@ test("the emoji list and its data are not part of the editor's first load", () =
     }
   }
   expect(read("editor-emoji.tsx")).toContain(
-    'lazy(() => import("@/components/forum/emoji-suggest"))',
+    '() => import("@/components/forum/emoji-suggest")',
   );
+});
+
+test("what was typed before the list arrived is read as soon as it starts", async () => {
+  const open = editorWith("hola :think");
+  const seen: (string | null)[] = [];
+  registerEmojiTyping(open, (typed) => seen.push(typed?.query ?? null));
+  expect(seen).toEqual(["think"]);
+  const closed = editorWith("hola :thinking:");
+  registerEmojiTyping(closed, () => {});
+  await Promise.resolve();
+  expect(textOf(closed)).toBe("hola 🤔");
+});
+
+test("the list is asked for once a letter or a number follows the colon, never for an emoticon", () => {
+  const asks = (text: string) => shortcodeStarted(emojiTyped(text));
+  expect(asks(":")).toBe(false);
+  expect(asks(":-")).toBe(false);
+  expect(asks("hola :)")).toBe(false);
+  expect(asks(":t")).toBe(true);
+  expect(asks(":+1")).toBe(true);
+});
+
+test("a load that fails is asked for again on the next call, and one that worked is not", async () => {
+  const results = [Promise.reject(new Error("gone")), Promise.resolve("list")];
+  let calls = 0;
+  const done: string[] = [];
+  const ask = loader(
+    () => results[calls++],
+    (loaded) => done.push(loaded),
+  );
+  ask();
+  ask();
+  expect(calls).toBe(1);
+  await Promise.resolve();
+  await Promise.resolve();
+  ask();
+  await Promise.resolve();
+  ask();
+  expect(calls).toBe(2);
+  expect(done).toEqual(["list"]);
 });

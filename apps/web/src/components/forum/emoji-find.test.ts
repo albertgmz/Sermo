@@ -67,3 +67,13 @@ test("a name folds to the shortcode it is typed as", () => {
   expect(fold("Bandera: Cuba")).toBe("bandera_cuba");
   expect(fold("corazón rojo")).toBe("corazon_rojo");
 });
+
+test("two characters offer only emoji with a word that starts with them, so emoticons and numbers open nothing", () => {
+  expect(findEmoji("DD", "es")).toEqual([]);
+  expect(findEmoji("pp", "es")).toEqual([]);
+  expect(findEmoji("30", "es")).toEqual([]);
+  expect(findEmoji("ok", "es")[0].code).toBe("ok");
+  expect(findEmoji("sm", "es")[0].code).toBe("smile");
+  // From three on, a shortcode that only holds what is typed is offered too.
+  expect(findEmoji("ensa", "es").map((hit) => hit.emoji)).toContain("🤔");
+});

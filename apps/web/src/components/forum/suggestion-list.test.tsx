@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Matched, SuggestionList, suggestionPlace } from "./suggestion-list";
+import {
+  Matched,
+  SuggestionList,
+  shownBand,
+  suggestionPlace,
+} from "./suggestion-list";
 
 const list = (options: string[], active = 0) =>
   renderToStaticMarkup(
@@ -95,4 +100,18 @@ test("what was typed is in bold where the text holds it", () => {
   expect(renderToStaticMarkup(<Matched text="fire" query="xyz" />)).toBe(
     "fire",
   );
+});
+
+test("inside a box that clips it (a dialog's scroll box), the list goes over the caret when the box has no room under it", () => {
+  const screen = { top: 0, bottom: 800 };
+  const scrollBox = { top: 150, bottom: 340 };
+  expect(shownBand([screen, scrollBox])).toEqual({ top: 150, bottom: 340 });
+  expect(
+    suggestionPlace(
+      { top: 300, bottom: 320, left: 120 },
+      box,
+      list300,
+      shownBand([screen, scrollBox]),
+    ).top,
+  ).toBe(76);
 });

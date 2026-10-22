@@ -70,7 +70,11 @@ const EMOJI = emojiIndex(
 );
 
 // The ways a shortcode or a keyword can answer what was typed, best first: it starts with it, one
-// of its words does, it holds it.
+// of its words does, it holds it. Two characters must start a shortcode or one of its words, and
+// keywords wait for a third: otherwise emoticons and numbers would open the list (":DD" -> ladder,
+// ":30" -> the "1:30" clock), and Enter would pick an emoji instead of starting a line.
+const WORD_STARTS = 2;
+const SHORT = 3;
 const ANSWERS = [
   (text: string, query: string) => text.startsWith(query),
   (text: string, query: string) => text.includes(`_${query}`),
@@ -81,13 +85,15 @@ const ANSWERS = [
 // keywords) and the shortcode to show: the shortest that answers as well, or the first when only a
 // keyword does.
 function answer({ codes, tags }: Emoji, query: string) {
-  for (const [rank, answers] of ANSWERS.entries()) {
+  const short = query.length < SHORT;
+  const ways = short ? ANSWERS.slice(0, WORD_STARTS) : ANSWERS;
+  for (const [rank, answers] of ways.entries()) {
     const code = codes
       .filter((one) => answers(one, query))
       .sort((a, b) => a.length - b.length)[0];
     if (code) return { rank, code };
   }
-  for (const [rank, answers] of ANSWERS.entries()) {
+  for (const [rank, answers] of short ? [] : ANSWERS.entries()) {
     if (tags.some((tag) => answers(tag, query))) {
       return { rank: ANSWERS.length + rank, code: codes[0] };
     }

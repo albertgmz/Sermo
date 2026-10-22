@@ -7,6 +7,7 @@ import {
   $isTextNode,
   BLUR_COMMAND,
   COMMAND_PRIORITY_LOW,
+  type EditorState,
   HISTORIC_TAG,
   type LexicalEditor,
   mergeRegister,
@@ -50,17 +51,23 @@ export function $convertClosed() {
 // or one just closed), and turns a closed one into its emoji. Not when Undo or Redo puts the text
 // back (Undo after the change gives the shortcode back, and it stays), nor in the middle of a
 // composition, which a phone's keyboard is still writing (it is turned when the composition ends).
+// What is in the text when it starts (typed while the list was on its way) is read at once.
 export function registerEmojiTyping(
   editor: LexicalEditor,
   onTyped: (typed: EmojiTyped | null) => void,
 ) {
-  return editor.registerUpdateListener(({ editorState, tags }) => {
-    const now = editorState.read($emojiTyped);
+  const read = (state: EditorState, tags: Set<string>) => {
+    const now = state.read($emojiTyped);
     onTyped(now?.closed ? null : now);
     if (now?.closed && !tags.has(HISTORIC_TAG) && !editor.isComposing()) {
       editor.update($convertClosed);
     }
-  });
+  };
+  const unregister = editor.registerUpdateListener(({ editorState, tags }) =>
+    read(editorState, tags),
+  );
+  read(editor.getEditorState(), new Set());
+  return unregister;
 }
 
 function pick(
@@ -71,7 +78,7 @@ function pick(
   if (typed) editor.update(() => $replaceTyped(typed.length, hit.emoji, true));
 }
 
-// The emoji list of the editor's composers (`EmojiPlugin` loads it on the first ":"): ":" and two
+// The emoji list of the editor's composers (`EmojiPlugin` loads it when a shortcode is first typed): ":" and two
 // characters offer the emoji whose shortcode, name or keywords hold them, in English and Spanish;
 // the arrow keys move, Enter or Tab picks, Escape closes it until something else is typed, and a
 // press picks too. The picked emoji takes the place of the ":" and what follows.
@@ -97,6 +104,8 @@ export default function EmojiSuggest() {
         registerEmojiTyping(editor, (now) => {
           setTyped(now ?? undefined);
           setActive(0);
+          // Escape closes the list on one shortcode, not on the next one that is the same.
+          if (!now) setClosedOn(undefined);
         }),
         // Gone when the text loses the focus (a press on the list keeps it), as XenForo's is.
         editor.registerCommand(

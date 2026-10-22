@@ -3,11 +3,7 @@
 import { $isCodeNode } from "@lexical/code";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $getSelection, $isRangeSelection, $isTextNode } from "lexical";
-import { lazy, Suspense, useEffect, useState } from "react";
-
-// The list itself and the emoji data: asked for when the first ":" is typed, so neither is part of
-// the editor's first load.
-const EmojiSuggest = lazy(() => import("@/components/forum/emoji-suggest"));
+import { type ComponentType, useEffect, useState } from "react";
 
 // A ":" that starts a word (after a space, a bracket or another emoji, or at the start of the
 // text), then what is typed after it up to the caret, then the ":" that closes a whole shortcode.
@@ -48,20 +44,41 @@ export function $emojiTyped() {
   return emojiTyped(node.getTextContent().slice(0, selection.anchor.offset));
 }
 
-// Offers emoji for the shortcode typed after a ":", as XenForo does. Until a ":" starts a word it
-// only watches; then it loads the list, which does the rest.
+// A letter or a number follows the ":": a shortcode, not an emoticon such as ":)" or ":-)".
+export function shortcodeStarted(typed: EmojiTyped | null) {
+  return typed !== null && /[\p{L}\p{N}]/u.test(typed.query);
+}
+
+// Calls `load` when asked, one load at a time, and hands what it gives to `done`. A load that fails
+// (a connection that drops, a page opened before the site was updated and whose files are gone) is
+// asked for again on the next call.
+export function loader<T>(load: () => Promise<T>, done: (loaded: T) => void) {
+  let asked = false;
+  return () => {
+    if (asked) return;
+    asked = true;
+    load().then(done, () => {
+      asked = false;
+    });
+  };
+}
+
+// Offers emoji for the shortcode typed after a ":", as XenForo does. Until a letter or a number
+// follows a ":" that starts a word it only watches (":)" asks for nothing); then it loads the list
+// and the emoji data, which do the rest, so neither is part of the editor's first load. A failed
+// load leaves the text as it is, and the next shortcode typed asks again.
 export function EmojiPlugin() {
   const [editor] = useLexicalComposerContext();
-  const [wanted, setWanted] = useState(false);
+  const [Suggest, setSuggest] = useState<ComponentType>();
   useEffect(() => {
-    if (wanted) return;
+    if (Suggest) return;
+    const ask = loader(
+      () => import("@/components/forum/emoji-suggest"),
+      (loaded) => setSuggest(() => loaded.default),
+    );
     return editor.registerUpdateListener(({ editorState }) => {
-      if (editorState.read($emojiTyped)) setWanted(true);
+      if (shortcodeStarted(editorState.read($emojiTyped))) ask();
     });
-  }, [editor, wanted]);
-  return wanted ? (
-    <Suspense fallback={null}>
-      <EmojiSuggest />
-    </Suspense>
-  ) : null;
+  }, [editor, Suggest]);
+  return Suggest ? <Suggest /> : null;
 }

@@ -3,17 +3,19 @@
 import { type ReactNode, useId, useLayoutEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
+type Band = { top: number; bottom: number };
+
 // The room kept between the list, the caret's line and the edges.
 const GAP = 4;
 
-// Where the list goes: under the caret's line, or over it when there is no room under it in what
-// the screen shows (a phone's keyboard takes the lower half), and from the caret's left, inside the
-// box it is drawn in. In pixels from that box's corner.
+// Where the list goes: under the caret's line, or over it when there is no room under it in the
+// band it can be seen in (`shownBand`), and from the caret's left, inside the box it is drawn in.
+// In pixels from that box's corner.
 export function suggestionPlace(
   caret: { top: number; bottom: number; left: number },
   box: { top: number; left: number; width: number },
   list: { width: number; height: number },
-  shown: { top: number; bottom: number },
+  shown: Band,
 ) {
   const below = caret.bottom + GAP + list.height <= shown.bottom;
   const above = caret.top - GAP - list.height >= shown.top;
@@ -24,6 +26,26 @@ export function suggestionPlace(
     Math.min(caret.left - box.left - 2 * GAP, box.width - list.width),
   );
   return { top: top - box.top, left };
+}
+
+// The part of the screen the list can be seen in: what the screen shows (a phone's keyboard left
+// out) and what each box around the list that clips its overflow shows (a dialog's scroll box).
+export function shownBand(bands: Band[]): Band {
+  return {
+    top: Math.max(...bands.map((band) => band.top)),
+    bottom: Math.min(...bands.map((band) => band.bottom)),
+  };
+}
+
+// The vertical band of each box from `element` up that clips what overflows it.
+function clipping(element: Element | null) {
+  const bands: Band[] = [];
+  for (let at = element; at; at = at.parentElement) {
+    if (getComputedStyle(at).overflowY !== "visible") {
+      bands.push(at.getBoundingClientRect());
+    }
+  }
+  return bands;
 }
 
 // The caret's rectangle on the screen, if the page has one.
@@ -86,10 +108,13 @@ export function SuggestionList<T>({
       caret,
       box.getBoundingClientRect(),
       { width: element.offsetWidth, height: element.offsetHeight },
-      {
-        top: shownTop,
-        bottom: shownTop + (view?.height ?? window.innerHeight),
-      },
+      shownBand([
+        {
+          top: shownTop,
+          bottom: shownTop + (view?.height ?? window.innerHeight),
+        },
+        ...clipping(box),
+      ]),
     );
     element.style.top = `${place.top}px`;
     element.style.left = `${place.left}px`;
