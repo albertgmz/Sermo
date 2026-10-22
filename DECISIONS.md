@@ -6072,3 +6072,12 @@ carry a frame's size).
 
 Why: member feedback (":think" did nothing, unlike any messaging app).
 Known limits: the BB code source box and the plain box shown before the editor loads have no list.
+
+### Tests close their databases as each test ends
+
+- A test database opened inside a test body is closed when that test ends; one opened in
+  `beforeAll` or at describe scope is still closed when the file ends. The image test builds its
+  long animation in one buffer. The backend suite peaks at 2.4 GB (was 3.3 GB) at the same speed.
+
+Why: the owner asked for lighter test runs after the suite filled the machine's memory. Known
+limit: concurrent tests (`test.concurrent`) would need the flag per test; none exist.
