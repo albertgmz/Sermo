@@ -390,7 +390,7 @@
       "watch_email": "Follow and email me"
     },
     "languageLabel": "Language",
-    "languageDefault": "Site default",
+    "languageDefault": "System",
     "homeTabLabel": "What's new opens on",
     "homeTabHelp": "The tab you land on in What's new. Every tab is one click away whichever you pick.",
     "homeTabDefault": "Site default",

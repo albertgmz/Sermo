@@ -76,7 +76,7 @@ export async function AppearanceGroup() {
         title={t("themeHeading")}
         description={t("themeDescription")}
       >
-        <ThemeControl labelled />
+        <ThemeControl />
       </SettingsRow>
 
       <ChoiceForm

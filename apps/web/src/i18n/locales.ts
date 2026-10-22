@@ -5,6 +5,8 @@ import { SUPPORTED_LANGUAGES } from "@sermo/core/contracts";
 // sees: the proxy picks it per visitor and rewrites to it.
 export const LOCALES = SUPPORTED_LANGUAGES;
 export type Locale = (typeof LOCALES)[number];
+// What a visitor picks to follow their browser's language (then the site's) instead of a language.
+export const SYSTEM_LANGUAGE = "system";
 export const DEFAULT_LOCALE: Locale = "en";
 
 export function isLocale(value: unknown): value is Locale {

@@ -18,9 +18,7 @@ mock.module("./theme-actions", () => ({
   },
 }));
 
-const { ThemeChoices, ThemeControl, chooseTheme } = await import(
-  "./theme-control"
-);
+const { ThemeControl, chooseTheme } = await import("./theme-control");
 const { currentTheme, setTheme, subscribeTheme, themeScript } = await import(
   "./theme"
 );
@@ -151,16 +149,19 @@ function run() {
 
 const theme = () => attributes.get("data-theme");
 
-test("with no choice the page is light before first paint, whatever the device", () => {
+test("with no choice the page follows the device before first paint", () => {
   run();
+  expect(theme()).toBe("dark");
+  expect(classes.has("dark")).toBe(true);
+  expect(attributes.get("data-theme-choice")).toBe("system");
+  expect(currentTheme()).toBe("system");
+  deviceDark = false;
+  for (const listener of mediaListeners) listener();
   expect(theme()).toBe("light");
-  expect(classes.has("dark")).toBe(false);
-  expect(attributes.get("data-theme-choice")).toBe("light");
-  expect(currentTheme()).toBe("light");
   // A value this version does not know is no choice either.
   store.set("sermo-theme", "blue");
   emit("storage", { key: "sermo-theme" });
-  expect(theme()).toBe("light");
+  expect(attributes.get("data-theme-choice")).toBe("system");
 });
 
 test("System follows the device before first paint and when it changes", () => {
@@ -175,6 +176,7 @@ test("System follows the device before first paint and when it changes", () => {
 });
 
 test("the browser bar takes the colour of the theme shown", () => {
+  store.set("sermo-theme", "light");
   run();
   expect(head).toEqual([{ name: "theme-color", content: "#fafafa" }]);
   setTheme("dark");
@@ -217,7 +219,7 @@ test("a stored choice beats the default and the device", () => {
   expect(classes.has("dark")).toBe(true);
   store.set("sermo-theme", "light");
   deviceDark = true;
-  emit("storage", { key: "sermo-theme" });
+  emit("storage", { key: "sermo-theme", newValue: "light" } as never);
   expect(theme()).toBe("light");
   expect(classes.has("dark")).toBe(false);
 });
@@ -237,8 +239,9 @@ test("choosing applies at once and keeps the choice, System included", () => {
   expect(theme()).toBe("light");
 });
 
-test("with storage blocked the page is light and the choice still switches it", () => {
+test("with storage blocked the page follows the device and the choice still switches it", () => {
   useBlockedStorage();
+  deviceDark = false;
   expect(run).not.toThrow();
   expect(theme()).toBe("light");
   setTheme("dark");
@@ -253,26 +256,23 @@ test("another tab's choice is applied and announced here", () => {
     heard += 1;
   });
   store.set("sermo-theme", "light");
-  emit("storage", { key: "sermo-theme" });
+  emit("storage", { key: "sermo-theme", newValue: "light" } as never);
   expect(theme()).toBe("light");
   expect(heard).toBe(1);
 });
 
-test("the group has three buttons and marks the chosen one", () => {
-  const html = renderToStaticMarkup(
-    withIntl(<ThemeChoices value="light" onChange={() => {}} />),
-  );
-  expect(html).toContain("<fieldset");
-  expect(html.match(/<button/g)).toHaveLength(3);
-  expect(html).toContain('aria-label="Light" title="Light"');
-  expect(html.match(/aria-pressed="true"/g)).toHaveLength(1);
-});
-
-test("labelled draws the words and the control starts on Light", () => {
-  const html = renderToStaticMarkup(withIntl(<ThemeControl labelled />));
-  expect(html).toContain(">System<");
-  expect(html).toContain(">Dark<");
-  expect(html).toMatch(/aria-pressed="true"[^>]*>(?:(?!<button).)*Light/);
+test("the dropdown lists System, Light and Dark, in that order, and shows the chosen one", () => {
+  const html = renderToStaticMarkup(withIntl(<ThemeControl />));
+  expect(html).toContain('aria-label="Theme"');
+  expect(
+    [...html.matchAll(/<option value="([^"]*)"([^>]*)>([^<]*)/g)].map(
+      ([, value, attrs, name]) => [value, name, attrs.includes("selected")],
+    ),
+  ).toEqual([
+    ["system", "System", true],
+    ["light", "Light", false],
+    ["dark", "Dark", false],
+  ]);
 });
 
 test("the bar's colour is a meta of the script's own, ahead of the layout's, which is left alone", () => {

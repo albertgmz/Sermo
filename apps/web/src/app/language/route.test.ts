@@ -218,3 +218,24 @@ test("the page loads again scrolled to the switcher the reader used, not at its 
   // The id the footer's form carries (its own test checks the form has it).
   expect(back.hash).toBe(`#${LANGUAGE_SWITCHER_ID}`);
 });
+
+test("System removes the language cookie, so the browser's language decides again; a guest saves nothing", async () => {
+  const response = await switchTo("system", { cookie: "forum_locale=es" });
+  expect(response.status).toBe(303);
+  const [cookie, ...more] = languageCookie(response);
+  expect(more).toEqual([]);
+  expect(cookie).toStartWith("forum_locale=;");
+  expect(cookie).toContain("Expires=Thu, 01 Jan 1970");
+  expect(asked.filter((call) => call.path !== "/api/v1/me")).toEqual([]);
+});
+
+test("for a member System also clears the saved language, or the next page would put the cookie back", async () => {
+  backend.member = true;
+  const response = await switchTo("system", { cookie: SESSION });
+  expect(asked.at(-1)).toEqual({
+    method: "PATCH",
+    path: "/api/v1/me/preferences",
+    body: { language: null },
+  });
+  expect(languageCookie(response)[0]).toContain("Expires=Thu, 01 Jan 1970");
+});

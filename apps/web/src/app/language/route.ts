@@ -1,7 +1,8 @@
 import { preferencesUpdate } from "@sermo/core/contracts";
 import { NextResponse } from "next/server";
 import { LANGUAGE_SWITCHER_ID } from "@/components/layout/language-switcher";
-import { isLocale, type Locale } from "@/i18n/locales";
+import { LOCALE_COOKIE } from "@/i18n/locale-cookie";
+import { isLocale, type Locale, SYSTEM_LANGUAGE } from "@/i18n/locales";
 import { writeLocaleCookie } from "@/i18n/write-locale-cookie";
 import { call, unconfirmedKind } from "@/lib/sermo/client";
 import { publicUrl } from "@/lib/sermo/config";
@@ -13,7 +14,7 @@ import { getViewer } from "@/lib/sermo/session";
 // language saved on their account, which every browser they sign in on follows (`LocaleSync`), so
 // it is saved there first: a cookie alone would be put back to the saved language on the next
 // page. When the backend cannot say who is asking, or does not save it, nothing changes.
-async function kept(language: Locale) {
+async function kept(language: Locale | null) {
   if ((await getViewer()).user) {
     try {
       await call(preferencesUpdate, { language });
@@ -26,7 +27,9 @@ async function kept(language: Locale) {
   return (await unconfirmedKind()) !== "session";
 }
 
-// Switches the interface language, from the language choices in the footer. A route rather than
+// "System" is no language: it removes the cookie (and a member's saved language), so the browser's
+// language and then the site's default decide again.
+// Switches the interface language, from the language chooser in the footer. A route rather than
 // an action, so the plain form works before any script has run and the page that follows is a full
 // load in the new language (a soft navigation into another root layout leaves the old page in the
 // document). It sits outside the language segment, like the sign-out route. The browser goes back
@@ -39,11 +42,16 @@ export async function POST(request: Request) {
   if (request.headers.get("origin") !== site.origin)
     return new Response(null, { status: 403 });
   const form = await request.formData().catch(() => undefined);
-  const language = form?.get("language");
-  if (!isLocale(language)) return new Response(null, { status: 400 });
+  const chosen = form?.get("language");
+  if (chosen !== SYSTEM_LANGUAGE && !isLocale(chosen))
+    return new Response(null, { status: 400 });
+  const language = isLocale(chosen) ? chosen : null;
   const back = new URL(await pageOfRequest(), site);
   back.hash = LANGUAGE_SWITCHER_ID;
   const response = NextResponse.redirect(back, 303);
-  if (await kept(language)) writeLocaleCookie(response.cookies, language);
+  if (await kept(language)) {
+    if (language) writeLocaleCookie(response.cookies, language);
+    else response.cookies.delete(LOCALE_COOKIE);
+  }
   return response;
 }

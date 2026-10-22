@@ -1,7 +1,7 @@
 import { THEME_COLORS } from "@/lib/pwa";
 
 // The visitor's colour theme: System (follow the device), Light or Dark. A visitor who has chosen
-// nothing gets Light, whatever the device prefers; System is a choice kept like the other two. The
+// nothing gets System, which is also a choice kept like the other two. The
 // source of truth for the page is data-theme="light|dark" (plus the dark class when dark, which
 // the dark: variants read) on <html>; data-theme-choice holds what the visitor picked, so a
 // browser that refuses storage still switches for the page. localStorage only keeps the choice
@@ -33,7 +33,7 @@ export function isTheme(value: unknown): value is Theme {
   return THEMES.some((theme) => theme === value);
 }
 
-export const themeScript = `(function(){try{var d=document.documentElement,k=${JSON.stringify(THEME_KEY)},a=${JSON.stringify(CHOICE_ATTRIBUTE)},m;function w(v){d.setAttribute(a,v==="light"||v==="dark"||v==="system"?v:"light")}function r(){var v=null;try{var c=(document.cookie||"").match(/(?:^|; )${ACCOUNT_THEME_COOKIE}=(light|dark|system)/);v=c?c[1]:localStorage.getItem(k)}catch(e){}w(v)}function s(){var c=d.getAttribute(a),n=c==="dark"||(c==="system"&&!!m&&m.matches);d.setAttribute("data-theme",n?"dark":"light");d.classList.toggle("dark",n);var t=document.querySelector('meta[name="theme-color"][data-theme-bar]');if(!t){t=document.createElement("meta");t.name="theme-color";t.setAttribute("data-theme-bar","");document.head.prepend(t)}t.content=n?${JSON.stringify(THEME_COLORS.dark)}:${JSON.stringify(THEME_COLORS.light)}}addEventListener(${JSON.stringify(THEME_EVENT)},s);addEventListener("storage",function(e){if(e.key===null){r();s()}else if(e.key===k){w(e.newValue);s()}});r();s();m=matchMedia("(prefers-color-scheme: dark)");s();if(m.addEventListener)m.addEventListener("change",s);else if(m.addListener)m.addListener(s)}catch(e){}})()`;
+export const themeScript = `(function(){try{var d=document.documentElement,k=${JSON.stringify(THEME_KEY)},a=${JSON.stringify(CHOICE_ATTRIBUTE)},m;function w(v){d.setAttribute(a,v==="light"||v==="dark"||v==="system"?v:"system")}function r(){var v=null;try{var c=(document.cookie||"").match(/(?:^|; )${ACCOUNT_THEME_COOKIE}=(light|dark|system)/);v=c?c[1]:localStorage.getItem(k)}catch(e){}w(v)}function s(){var c=d.getAttribute(a),n=c==="dark"||(c==="system"&&!!m&&m.matches);d.setAttribute("data-theme",n?"dark":"light");d.classList.toggle("dark",n);var t=document.querySelector('meta[name="theme-color"][data-theme-bar]');if(!t){t=document.createElement("meta");t.name="theme-color";t.setAttribute("data-theme-bar","");document.head.prepend(t)}t.content=n?${JSON.stringify(THEME_COLORS.dark)}:${JSON.stringify(THEME_COLORS.light)}}addEventListener(${JSON.stringify(THEME_EVENT)},s);addEventListener("storage",function(e){if(e.key===null){r();s()}else if(e.key===k){w(e.newValue);s()}});r();s();m=matchMedia("(prefers-color-scheme: dark)");s();if(m.addEventListener)m.addEventListener("change",s);else if(m.addListener)m.addListener(s)}catch(e){}})()`;
 
 export function subscribeTheme(listener: () => void) {
   window.addEventListener(THEME_EVENT, listener);
@@ -46,7 +46,7 @@ export function subscribeTheme(listener: () => void) {
 
 export function currentTheme(): Theme {
   const choice = document.documentElement.getAttribute(CHOICE_ATTRIBUTE);
-  return choice === "system" || choice === "dark" ? choice : "light";
+  return choice === "light" || choice === "dark" ? choice : "system";
 }
 
 export function setTheme(theme: Theme) {

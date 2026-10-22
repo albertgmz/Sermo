@@ -68,7 +68,9 @@
     "failed": "No se pudo cargar. Cierra el menú y ábrelo de nuevo."
   },
   "languageSwitcher": {
-    "label": "Idioma"
+    "label": "Idioma",
+    "system": "Sistema",
+    "apply": "Aplicar"
   },
   "themeControl": {
     "label": "Tema",
