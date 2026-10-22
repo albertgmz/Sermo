@@ -144,6 +144,11 @@
       "purpose": "Recuerda si elegiste el ancho de página estrecho.",
       "lifetime": "Hasta que borres los datos del sitio en tu navegador."
     },
+    "emojiPicker": {
+      "title": "Selector de emojis",
+      "purpose": "Recuerda los últimos emojis y smilies que elegiste y tu tono de piel.",
+      "lifetime": "Hasta que borres los datos del sitio en tu navegador."
+    },
     "panels": {
       "title": "Paneles plegados",
       "purpose": "Recuerda qué categorías de foros y paneles plegaste.",

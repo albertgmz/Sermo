@@ -144,6 +144,11 @@
       "purpose": "Remembers whether you chose the narrow page width.",
       "lifetime": "Until you clear your browser's site data."
     },
+    "emojiPicker": {
+      "title": "Emoji picker",
+      "purpose": "Remembers the emoji and smilies you picked last and your skin tone.",
+      "lifetime": "Until you clear your browser's site data."
+    },
     "panels": {
       "title": "Collapsed panels",
       "purpose": "Remembers which forum categories and panels you folded.",

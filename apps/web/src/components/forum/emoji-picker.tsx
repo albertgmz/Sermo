@@ -38,14 +38,11 @@ import {
   type KeyPlace,
   registerPickerKeys,
 } from "@/components/forum/emoji-picker-keys";
+import { RECENT_KEY, TONE_KEY } from "@/components/forum/emoji-storage";
 import { listSmilies } from "@/components/forum/smilie-action";
 import { knownSmilies, loadSmilies } from "@/components/forum/smilie-store";
 import type { Smilie } from "@/lib/smilies";
 
-// What the picker remembers in this browser: the last things picked (an emoji as it went in, a
-// smilie by its code), and the skin tone chosen (0 is none, 1 to 5 light to dark).
-const RECENT_KEY = "sermo.emoji.recent";
-const TONE_KEY = "sermo.emoji.tone";
 const RECENT_LIMIT = 24;
 const TONES = [
   "default",
@@ -64,12 +61,17 @@ function stored(key: string) {
   }
 }
 
-function store(key: string, value: string) {
+// A browser that keeps nothing (private mode, storage off) just does not remember.
+function storeRecent(value: string) {
   try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // A browser that keeps nothing (private mode, storage off) just does not remember.
-  }
+    window.localStorage.setItem(RECENT_KEY, value);
+  } catch {}
+}
+
+function storeTone(value: string) {
+  try {
+    window.localStorage.setItem(TONE_KEY, value);
+  } catch {}
 }
 
 export function readRecent(): string[] {
@@ -308,7 +310,7 @@ export default function EmojiPicker({
 
   function pick(choice: Choice) {
     caret.current = insertChoice(editor, choice.text, caret.current);
-    store(RECENT_KEY, JSON.stringify(withRecent(readRecent(), choice.text)));
+    storeRecent(JSON.stringify(withRecent(readRecent(), choice.text)));
   }
 
   function close() {
@@ -355,7 +357,7 @@ export default function EmojiPicker({
           onChange={(event) => {
             const value = Number(event.target.value);
             setTone(value);
-            store(TONE_KEY, String(value));
+            storeTone(String(value));
           }}
           aria-label={t("emojiTone")}
           title={t("emojiTone")}

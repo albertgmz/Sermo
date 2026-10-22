@@ -2,6 +2,8 @@
 // banner are drawn from it, and `tests/consent-inventory.test.ts` scans the source for every
 // name the code writes and fails when one is missing here. The words (purpose, lifetime) are in
 // `messages/<locale>/cookies.json` under `items.<id>`.
+
+import { RECENT_KEY, TONE_KEY } from "@/components/forum/emoji-storage";
 import { ACCOUNT_THEME_COOKIE } from "@/components/layout/theme";
 import { LOCALE_COOKIE } from "@/i18n/locale-cookie";
 import { PROMPTS_KEY, VISIT_KEY } from "@/lib/app-prompts";
@@ -131,6 +133,13 @@ export const INVENTORY: readonly InventoryItem[] = [
     category: "necessary",
     storage: "localStorage",
     names: ["sermo-width"],
+    party: "first",
+  },
+  {
+    id: "emojiPicker",
+    category: "necessary",
+    storage: "localStorage",
+    names: [RECENT_KEY, TONE_KEY],
     party: "first",
   },
   {
