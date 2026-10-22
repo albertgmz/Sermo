@@ -6389,3 +6389,18 @@ Known limits: `vm.tiktok.com` / `fb.watch` short links and less common sites sta
 
 Why: the logo is stored as WebP, and mail clients and their image proxies that drop WebP
 transparency drew fcuba's transparent logo on a black box.
+
+### An emoji picker in every composer, and fcuba's smilies
+
+- A toolbar button (after Image; behind ⋮ on phones) opens a picker inline under the toolbar:
+  search in English and Spanish, recently used, the site's smilies, then every emoji by category,
+  with skin tones. Picking keeps focus in the text; Enter in the search inserts the first result
+  and never submits; Escape closes only the picker. It loads on first press.
+- Smilies are site-defined codes drawn as emoji (`smilies` table, `smilies.list`), seeded with
+  fcuba's 26 (plus `:like:` on Thumbs up). Codes are replaced when stored HTML is shown, as
+  XenForo matches them (case-sensitive, longest first, not inside code, links, mentions, quote
+  authors or spoiler titles); stored posts are not rewritten. A smilie also shows in the ":" list,
+  matched by its own codes and title.
+
+Why: the owner asked for an emoji selector and smilies like `:like:`. fcuba's smilies have no
+image files (its XenForo drew them as emoji), so they are emoji here too.
