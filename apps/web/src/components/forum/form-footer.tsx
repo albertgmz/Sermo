@@ -28,7 +28,7 @@ export function FormFooter({
           href={cancelHref}
           className={cn(
             buttonVariants({ variant: "outline" }),
-            "h-11 px-4 pointer-fine:h-8 text-(length:--text-compact)",
+            "h-11 rounded-[9px] px-5 text-(length:--text-compact)",
           )}
         >
           {cancel}

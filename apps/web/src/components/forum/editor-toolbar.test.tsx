@@ -134,6 +134,32 @@ function stripAt(html: string, id: GroupId, width: number) {
 const editorHtml = () => renderToStaticMarkup(withIntl(<Editor name="body" />));
 
 test("each size has XenForo's groups, with its buttons and what each strip holds", () => {
+  // The narrowest bar (a comment column on a phone) keeps XenForo's sizes and holds fewer
+  // buttons: Image opens the insert strip.
+  expect(layoutAt("xxs").groups).toEqual([
+    {
+      id: "text",
+      direct: ["bold", "italic"],
+      more: [
+        "underline",
+        "strikethrough",
+        "code",
+        "heading",
+        "bullet",
+        "number",
+      ],
+    },
+    {
+      id: "insert",
+      direct: ["link"],
+      more: ["image", "emoji", "media", "quote", "spoiler", "codeBlock"],
+    },
+    {
+      id: "misc",
+      direct: ["undo"],
+      more: ["redo", "source", "removeFormatting"],
+    },
+  ]);
   expect(layoutAt("xs").groups).toEqual([
     {
       id: "text",
@@ -167,8 +193,8 @@ test("each size has XenForo's groups, with its buttons and what each strip holds
     { id: "paragraph", direct: ["bullet"], more: ["number", "heading"] },
     {
       id: "insert",
-      direct: ["link", "image", "emoji", "media"],
-      more: ["quote", "spoiler", "codeBlock"],
+      direct: ["link", "image", "emoji"],
+      more: ["media", "quote", "spoiler", "codeBlock"],
     },
     {
       id: "misc",
@@ -240,13 +266,13 @@ test("every command is in the bar exactly once at every size", () => {
   }
 });
 
-test("Bold, Italic, Link, Image and Undo are buttons at every size", () => {
+test("Bold, Italic, Link and Undo are buttons at every size, Image at every size but the narrowest", () => {
   for (const size of TOOLBAR_SIZES) {
     for (const id of ["bold", "italic", "link", "image", "undo"] as const) {
       expect({ size, id, button: directAt(size).includes(id) }).toEqual({
         size,
         id,
-        button: true,
+        button: !(id === "image" && size === "xxs"),
       });
     }
   }
@@ -328,17 +354,17 @@ test("the classes switch each part of the bar at the widths the sizes start from
 });
 
 test("the groups of each size fit on one line of their narrowest bar, which wraps rather than scrolls", () => {
-  // A button is 30 px wide with 1 px on either side, a ⋮ 24 px; a group's box adds 2 px of
-  // padding and a 1 px border on either side; the boxes are 4 px apart and the bar's padding is
-  // 4 px on either side.
+  // XenForo's sizes: a button is 30 px wide with 1 px on either side, a ⋮ 24 px; a group's box
+  // adds 6 px of padding and a 1 px border on either side; the boxes are 3 px apart and the bar's
+  // padding is 6 px on either side.
   for (const size of TOOLBAR_SIZES) {
     const { groups } = layoutAt(size);
     const boxes = groups.map(
       (group) =>
-        group.direct.length * 32 + (group.more.length > 0 ? 24 : 0) + 6,
+        group.direct.length * 32 + (group.more.length > 0 ? 24 : 0) + 14,
     );
     const width =
-      boxes.reduce((sum, box) => sum + box, 0) + (groups.length - 1) * 4 + 8;
+      boxes.reduce((sum, box) => sum + box, 0) + (groups.length - 1) * 3 + 12;
     const narrowest = Math.max(SIZE_FROM[size], NARROWEST);
     expect({ size, width, fits: width <= narrowest }).toEqual({
       size,
@@ -351,10 +377,10 @@ test("the groups of each size fit on one line of their narrowest bar, which wrap
   expect(html).toMatch(/<div class="@container[^"]*"><div[^>]*role="toolbar"/);
   const bar = html.match(/role="toolbar"[^>]*class="([^"]*)"/)?.[1] ?? "";
   expect(bar.split(" ")).toContain("flex-wrap");
-  expect(bar.split(" ")).toContain("p-1");
-  expect(bar.split(" ")).toContain("gap-1");
+  expect(bar.split(" ")).toContain("p-1.5");
+  expect(bar.split(" ")).toContain("gap-[3px]");
   for (const group of parts(html, "group")) {
-    expect(classesOf(group.tag)).toContain("px-0.5");
+    expect(classesOf(group.tag)).toContain("px-1.5");
   }
   expect(bar).not.toContain("overflow-x");
 });
@@ -471,7 +497,7 @@ test("a command that is on is told from a hovered one by more than a colour: a t
     "aria-pressed:ring-1",
     "aria-pressed:ring-inset",
     "aria-pressed:ring-primary-ink",
-    "hover:bg-muted",
+    "hover:bg-border",
   ]) {
     expect(classes).toContain(name);
   }

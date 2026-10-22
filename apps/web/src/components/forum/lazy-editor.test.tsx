@@ -43,8 +43,8 @@ test("the roomy plain field keeps the editor's padding and height, so the page d
   const html = renderToStaticMarkup(
     <LazyEditor name="body" placeholder="Write" compact={false} />,
   );
-  expect(html).toContain("px-4 py-3");
-  expect(html).toContain("min-height:120px");
+  expect(html).toContain("pt-2.5 px-5 pb-5");
+  expect(html).toContain("min-height:100px");
   const compact = renderToStaticMarkup(
     <LazyEditor name="body" placeholder="Write" />,
   );

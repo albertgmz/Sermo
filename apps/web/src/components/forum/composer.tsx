@@ -246,7 +246,10 @@ export function ComposerForm({
       minHeight={minHeight}
       findMembers={findMembers}
       onChange={onBodyChange}
-      className={cn("rounded-none border-0 bg-transparent", grow && "flex-1")}
+      className={cn(
+        "rounded-none border-0 bg-transparent focus-within:bg-transparent",
+        grow && "flex-1",
+      )}
     />
   );
   return (

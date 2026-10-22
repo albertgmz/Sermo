@@ -8,12 +8,13 @@ import { cn } from "@/lib/utils";
 // button (`files`, an `AttachmentField` in its `compact` form, whose button goes last in the row).
 // A reply or a new post has "Attach files" at the start and the submit at the end of the row; a
 // comment has the submit first and "Attach files" after it, on a line of its own where the row is
-// too narrow. Both are 44 px touch targets, and 32 px under a mouse, as quiet as XenForo's. The
+// too narrow. Both have XenForo's size everywhere: 44 px tall, 20 px of padding, a 9 px radius and
+// 13 px text (the submit's tint and edge are 10 % of the accent). The
 // icon says what the submit does, as XenForo's: the reply arrow (a reply, a post, a comment)
 // unless the composer names another (a pen for a new thread, a conversation for a direct message).
 // The submit's look, shared with an edit page's save (`FormFooter`).
 export const submitClass =
-  "h-11 gap-2 border border-primary/30 bg-primary/10 px-4 pointer-fine:h-8 text-(length:--text-compact) text-primary-ink hover:bg-primary/15";
+  "h-11 gap-2 rounded-[9px] border border-primary/10 bg-primary/10 px-5 text-(length:--text-compact) text-primary-ink hover:bg-primary/15";
 
 export function ComposerButtons({
   submitLabel,

@@ -50,15 +50,30 @@ test("a reply puts Attach files first and the submit at the end; a comment the s
   expect(commentSubmit).not.toContain("ml-auto");
 });
 
-test("both buttons are touch targets on a touch screen and XenForo's quieter size under a mouse", () => {
+test("both buttons have XenForo's size everywhere: 44 px tall, 20 px of padding, a 9 px radius, 13 px text", () => {
   const html = draw({});
   for (const tag of [
     submitOf(html)?.[0] ?? "",
     html.match(/<label[^>]*>/)?.[0] ?? "",
   ]) {
-    expect(classesOf(tag)).toContain("h-11");
-    expect(classesOf(tag)).toContain("pointer-fine:h-8");
+    for (const name of [
+      "h-11",
+      "px-5",
+      "rounded-[9px]",
+      "text-(length:--text-compact)",
+    ])
+      expect(classesOf(tag)).toContain(name);
+    expect(classesOf(tag)).not.toContain("pointer-fine:h-8");
   }
+  // Attach files is filled with the card and edged with the border colour, in both themes.
+  const label = classesOf(html.match(/<label[^>]*>/)?.[0] ?? "");
+  for (const name of [
+    "bg-card",
+    "border-border",
+    "dark:bg-card",
+    "dark:border-border",
+  ])
+    expect(label).toContain(name);
 });
 
 test("the submit waits while a file is on its way", () => {
@@ -90,8 +105,8 @@ test("the submit's icon says what it does, as XenForo's: a reply unless the comp
   );
 });
 
-test("the submit's tint has a faint border of the accent, as XenForo's primary button", () => {
+test("the submit's tint has a faint border of the accent, as XenForo's primary button: 10 % of it", () => {
   const classes = classesOf(submitOf(draw({}))?.[0] ?? "");
   expect(classes).toContain("border");
-  expect(classes).toContain("border-primary/30");
+  expect(classes).toContain("border-primary/10");
 });

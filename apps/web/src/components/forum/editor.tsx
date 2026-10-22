@@ -45,6 +45,12 @@ import {
   TEXT_NODES,
 } from "@/components/forum/bb-lexical";
 import {
+  EDITOR_BOX,
+  EDITOR_TEXT,
+  editorMinHeight,
+  editorPadding,
+} from "@/components/forum/composer-box";
+import {
   attachTag,
   insertAtCaret,
   offerFiles,
@@ -450,7 +456,7 @@ export function Editor({
     [describedBy, invalid ? errorId : undefined, notice ? noticeId : undefined]
       .filter(Boolean)
       .join(" ") || undefined;
-  const padding = compact ? "px-3 py-2" : "px-4 py-3";
+  const padding = editorPadding(compact);
   const [initialConfig] = useState<InitialConfigType>(() => {
     const editorState = defaultValue && initialEditorState(defaultValue);
     return editorState ? { ...CONFIG, editorState } : CONFIG;
@@ -523,12 +529,7 @@ export function Editor({
     <SourceContext.Provider value={sourceMode}>
       <LexicalComposer initialConfig={initialConfig}>
         <ContentSafetyPlugin onFiles={takeFiles} />
-        <div
-          className={cn(
-            "group/editor min-w-0 rounded-lg border bg-card transition-colors focus-within:border-ring",
-            className,
-          )}
-        >
+        <div className={cn("group/editor", EDITOR_BOX, className)}>
           {toolbar && <Toolbar />}
           <div className="relative" hidden={sourceShown}>
             <RichTextPlugin
@@ -544,7 +545,8 @@ export function Editor({
                   placeholder={
                     <div
                       className={cn(
-                        "pointer-events-none absolute inset-0 truncate text-base leading-relaxed text-muted-foreground md:text-sm",
+                        "pointer-events-none absolute inset-0 truncate text-foreground/40",
+                        EDITOR_TEXT,
                         padding,
                       )}
                     >
@@ -553,10 +555,11 @@ export function Editor({
                   }
                   className={cn(
                     prose.root,
-                    "text-base outline-none md:text-sm",
+                    EDITOR_TEXT,
+                    "outline-none",
                     padding,
                   )}
-                  style={{ minHeight: minHeight ?? (compact ? 40 : 120) }}
+                  style={{ minHeight: minHeight ?? editorMinHeight(compact) }}
                 />
               }
               ErrorBoundary={LexicalErrorBoundary}
@@ -579,10 +582,11 @@ export function Editor({
               spellCheck={false}
               autoCapitalize="off"
               className={cn(
-                "block field-sizing-content w-full resize-none bg-transparent font-mono text-base leading-relaxed outline-none md:text-sm",
+                "block field-sizing-content w-full resize-none bg-transparent font-mono outline-none",
+                EDITOR_TEXT,
                 padding,
               )}
-              style={{ minHeight: minHeight ?? (compact ? 40 : 120) }}
+              style={{ minHeight: minHeight ?? editorMinHeight(compact) }}
             />
           )}
           <FormField

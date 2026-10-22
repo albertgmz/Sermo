@@ -200,10 +200,10 @@ export function AttachmentField({
       <label
         className={cn(
           "cursor-pointer has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-          // XenForo's outline button with its paperclip, as tall as a composer's submit; in a
-          // composer's row it goes last (`ComposerButtons`).
+          // XenForo's button with its paperclip, the card's fill edged by the border colour, the
+          // size of a composer's submit; in a composer's row it goes last (`ComposerButtons`).
           buttonVariants({ variant: "outline" }),
-          "h-11 gap-2 px-4 text-(length:--text-compact) pointer-fine:h-8",
+          "h-11 gap-2 rounded-[9px] border-border bg-card px-5 text-(length:--text-compact) dark:border-border dark:bg-card",
           compact && "order-last",
         )}
       >

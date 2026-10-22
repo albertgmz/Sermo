@@ -33,7 +33,22 @@ test("the save is the composers' submit: the accent's soft tint, edged by a fain
       .match(/<button[^>]*class="([^"]*)"[^>]*type="submit"/)?.[1]
       .split(" ") ??
     [];
-  for (const name of ["bg-primary/10", "border-primary/30", "text-primary-ink"])
+  for (const name of ["bg-primary/10", "border-primary/10", "text-primary-ink"])
     expect(classes).toContain(name);
   expect(classes).not.toContain("bg-primary");
+});
+
+test("Cancel has the save's size everywhere: 44 px tall, 20 px of padding, a 9 px radius", () => {
+  const html = renderToStaticMarkup(
+    <FormFooter
+      cancelHref="/back"
+      cancel="Cancel"
+      submit="Save"
+      disabled={false}
+    />,
+  );
+  const classes = html.match(/<a[^>]*class="([^"]*)"/)?.[1].split(" ") ?? [];
+  for (const name of ["h-11", "px-5", "rounded-[9px]"])
+    expect(classes).toContain(name);
+  expect(classes).not.toContain("pointer-fine:h-8");
 });

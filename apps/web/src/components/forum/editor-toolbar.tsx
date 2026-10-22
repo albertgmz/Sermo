@@ -140,13 +140,14 @@ type Command = {
 
 type PickerProps = { focusSearch: boolean; onClose: () => void };
 
-// XenForo's sizes: 30 x 32 px buttons, the same on a phone and on a desktop, and a "⋮" of 24 px
-// (WCAG's least target; XenForo's is 22). Eight buttons in three boxes fit the 270 px comment
-// column of a 360 px phone. A command that is on has the accent's tint, its ink and a ring of it,
-// so it is told from a hovered button by more than a colour. The focus is an outline, which no
+// XenForo's sizes: 30 x 32 px buttons, 4 px round, the same on a phone and on a desktop, and a "⋮"
+// of 24 px (WCAG's least target; XenForo's is 22 between 1 px margins). Under the pointer a button
+// takes XenForo's fill, the border colour, and the text's colour. The narrowest set fits the 270 px
+// comment column of a 360 px phone. A command that is on has the accent's tint, its ink and a ring
+// of it, so it is told from a hovered button by more than a colour. The focus is an outline, which no
 // other state sets, so a focused command that is on still shows where the focus is.
 const TOOL =
-  "my-0.5 inline-flex h-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring focus-visible:outline-solid aria-pressed:bg-primary/10 aria-pressed:text-primary-ink aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-primary-ink aria-disabled:opacity-40 aria-disabled:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0";
+  "my-0.5 inline-flex h-8 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground outline-none transition-colors hover:bg-border hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring focus-visible:outline-solid aria-pressed:bg-primary/10 aria-pressed:text-primary-ink aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-primary-ink aria-disabled:opacity-40 aria-disabled:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0";
 const BUTTON = `${TOOL} mx-px w-[30px]`;
 
 // Drawn by the bar's size, which a container query decides: a hidden one has no box.
@@ -505,7 +506,10 @@ export function Toolbar() {
             event.preventDefault();
             shown[next]?.focus();
           }}
-          className="flex flex-wrap items-center gap-1 rounded-t-[inherit] border-b bg-muted p-1 outline-none"
+          // XenForo's bar, 55 px: 6 px of padding around 42 px boxes, 3 px apart. At rest it is a band
+          // of the border colour, into which the boxes' borders melt; while the text is written in
+          // it clears and the boxes show their edges.
+          className="flex flex-wrap items-center gap-[3px] rounded-t-[inherit] border-b bg-border p-1.5 outline-none group-focus-within/editor:bg-transparent"
         >
           {GROUPS.map((group) => {
             const more = group.more.map((slot) => commands[slot.id]);
@@ -522,7 +526,7 @@ export function Toolbar() {
                 data-group={group.id}
                 aria-label={t(`groups.${group.id}`)}
                 className={cn(
-                  "flex min-w-0 items-center rounded-lg border bg-card px-0.5 transition-colors group-focus-within/editor:border-dashed group-focus-within/editor:border-ring/60",
+                  "flex min-w-0 items-center rounded-[9px] border bg-card px-1.5 py-0.5",
                   // The misc group keeps to the right and takes what is left of the line.
                   group.id === "misc" && "flex-1 justify-end",
                   SHOWN[group.shown],
@@ -574,7 +578,7 @@ export function Toolbar() {
                 group: t(`groups.${group.id}`),
               })}
               className={cn(
-                "min-w-0 basis-full flex-wrap items-center px-0.5",
+                "min-w-0 basis-full flex-wrap items-center px-1.5",
                 // Only where its ⋮ is: a strip left open when the bar grows past the sizes that
                 // hide anything of its group is not drawn there.
                 open === group.id

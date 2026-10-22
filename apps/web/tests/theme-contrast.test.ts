@@ -475,3 +475,30 @@ for (const [theme, tokens] of [
     expect(failures).toEqual([]);
   });
 }
+
+// A formatting button (components/forum/editor-toolbar.tsx), as XenForo draws it: its icon on the
+// card-filled box at rest, and under the pointer the text's colour on the border colour's fill,
+// which shows against the box.
+const tool = readFileSync(
+  new URL("../src/components/forum/editor-toolbar.tsx", import.meta.url),
+  "utf8",
+).match(/const TOOL =\s*"([^"]*)"/)?.[1];
+const toolToken = (prefix: string) =>
+  tool?.match(new RegExp(`(?:^| )${prefix}([a-z-]+)(?: |$)`))?.[1] ?? "";
+
+for (const [theme, tokens] of [
+  ["dark", dark],
+  ["light", light],
+] as const) {
+  test(`${theme} theme: a formatting button reads at rest and under the pointer, whose fill shows on its box`, () => {
+    const box = resolve(tokens, "card");
+    const hover = resolve(tokens, toolToken("hover:bg-"));
+    expect(
+      contrast(resolve(tokens, toolToken("text-")), box),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrast(resolve(tokens, toolToken("hover:text-")), hover),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(hover, box)).toBeGreaterThanOrEqual(1.15);
+  });
+}

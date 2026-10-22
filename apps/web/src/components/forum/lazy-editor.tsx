@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import {
+  EDITOR_BOX,
+  EDITOR_TEXT,
+  editorMinHeight,
+  editorPadding,
+} from "@/components/forum/composer-box";
+import {
   type ComposerRequest,
   insertAtCaret,
   onComposerRequest,
@@ -32,7 +38,7 @@ export function LazyEditor({
   placeholder,
   defaultValue,
   compact = true,
-  minHeight = compact ? 40 : 120,
+  minHeight = editorMinHeight(compact),
   findMembers,
   insertEvent,
   onChange,
@@ -182,17 +188,13 @@ export function LazyEditor({
     );
   }
   return (
-    <div
-      className={cn(
-        "min-w-0 rounded-lg border bg-card transition-colors focus-within:border-ring",
-        className,
-      )}
-    >
+    <div className={cn(EDITOR_BOX, className)}>
       {/* The room the formatting bar takes, from the first tap, so nothing moves when it comes:
-          its padding and a group's box (a 32 px button between 2 px margins and a border). */}
+          its padding and a group's box (a 32 px button between 2 px margins, 2 px of padding and
+          a border). The box has the focus then, so the bar is clear, as the editor's. */}
       {waiting && (
-        <div className="rounded-t-[inherit] border-b bg-muted p-1">
-          <Skeleton className="h-[38px] w-48 max-w-full rounded-lg" />
+        <div className="rounded-t-[inherit] border-b p-1.5">
+          <Skeleton className="h-[42px] w-48 max-w-full rounded-[9px]" />
         </div>
       )}
       <textarea
@@ -210,8 +212,9 @@ export function LazyEditor({
         }}
         style={{ minHeight }}
         className={cn(
-          "block field-sizing-content w-full resize-none bg-transparent text-base leading-relaxed outline-none placeholder:text-muted-foreground md:text-sm",
-          compact ? "px-3 py-2" : "px-4 py-3",
+          "block field-sizing-content w-full resize-none bg-transparent outline-none placeholder:text-foreground/40",
+          EDITOR_TEXT,
+          editorPadding(compact),
         )}
       />
     </div>

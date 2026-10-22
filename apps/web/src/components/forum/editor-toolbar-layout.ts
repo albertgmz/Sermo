@@ -4,16 +4,25 @@
 // with the rest, one strip at a time, on a line under the groups. The sizes are XenForo's too,
 // measured on the bar's own width (a container query, so an editor in a narrow column picks its
 // size from the room it has): extra small below 420 px, small from 420, medium from 575, large from
-// 900. At every size each command is in the bar exactly once, as a button or in one strip.
+// 900. Below 292 px (a comment column on a phone), where XenForo's extra small set does not fit at
+// XenForo's sizes, the bar holds one button fewer: Image opens the insert strip. At every size each
+// command is in the bar exactly once, as a button or in one strip.
 
-export type ToolbarSize = "xs" | "sm" | "md" | "lg";
+export type ToolbarSize = "xxs" | "xs" | "sm" | "md" | "lg";
 
-export const TOOLBAR_SIZES: readonly ToolbarSize[] = ["xs", "sm", "md", "lg"];
+export const TOOLBAR_SIZES: readonly ToolbarSize[] = [
+  "xxs",
+  "xs",
+  "sm",
+  "md",
+  "lg",
+];
 
 // The narrowest bar of each size, in CSS pixels. `SHOWN` spells the same numbers out for Tailwind;
 // a test holds the two together.
 export const SIZE_FROM: Record<ToolbarSize, number> = {
-  xs: 0,
+  xxs: 0,
+  xs: 292,
   sm: 420,
   md: 575,
   lg: 900,
@@ -45,9 +54,11 @@ export type GroupId = "text" | "paragraph" | "insert" | "misc";
 // The classes that show a part of the bar at the sizes named, and hide it at the others. Spelled
 // out whole so that Tailwind finds them.
 export const SHOWN = {
-  xs: "@min-[420px]:hidden",
-  "xs sm": "@min-[575px]:hidden",
-  "xs sm md": "@min-[900px]:hidden",
+  xxs: "@min-[292px]:hidden",
+  "xxs xs": "@min-[420px]:hidden",
+  "xxs xs sm": "@min-[575px]:hidden",
+  "xxs xs sm md": "@min-[900px]:hidden",
+  "xs sm md lg": "hidden @min-[292px]:flex",
   sm: "hidden @min-[420px]:flex @min-[575px]:hidden",
   "sm md lg": "hidden @min-[420px]:flex",
   "md lg": "hidden @min-[575px]:flex",
@@ -61,9 +72,11 @@ export type Shown = keyof typeof SHOWN;
 // button in view or in another strip. Spelled out whole so that Tailwind finds them; a test holds
 // them to `SHOWN`.
 export const ACTIVE_ON = {
-  xs: "@max-[419px]:text-primary-ink @max-[419px]:opacity-100",
-  "xs sm": "@max-[574px]:text-primary-ink @max-[574px]:opacity-100",
-  "xs sm md": "@max-[899px]:text-primary-ink @max-[899px]:opacity-100",
+  xxs: "@max-[291px]:text-primary-ink @max-[291px]:opacity-100",
+  "xxs xs": "@max-[419px]:text-primary-ink @max-[419px]:opacity-100",
+  "xxs xs sm": "@max-[574px]:text-primary-ink @max-[574px]:opacity-100",
+  "xxs xs sm md": "@max-[899px]:text-primary-ink @max-[899px]:opacity-100",
+  "xs sm md lg": "@min-[292px]:text-primary-ink @min-[292px]:opacity-100",
   sm: "@min-[420px]:@max-[574px]:text-primary-ink @min-[420px]:@max-[574px]:opacity-100",
   "sm md lg": "@min-[420px]:text-primary-ink @min-[420px]:opacity-100",
   "md lg": "@min-[575px]:text-primary-ink @min-[575px]:opacity-100",
@@ -86,8 +99,9 @@ export type Group = {
 
 const slot = (id: CommandId, shown: Shown = "all"): Slot => ({ id, shown });
 
-// XenForo's table (its `editorToolbarConfig`), with Sermo's commands. Medium keeps Media as a
-// button, as small does: a smaller bar never shows a button that a larger one keeps behind its "⋮".
+// XenForo's table (its `editorToolbarConfig`), with Sermo's commands. At XenForo's sizes small has
+// room for link, image and emoji in its insert box, and Media joins the strip there; medium keeps
+// it as a button: a smaller bar never shows a button that a larger one keeps behind its "⋮".
 export const GROUPS: Group[] = [
   {
     id: "text",
@@ -100,13 +114,13 @@ export const GROUPS: Group[] = [
       slot("strikethrough", "lg"),
     ],
     more: [
-      slot("underline", "xs sm"),
-      slot("strikethrough", "xs sm md"),
+      slot("underline", "xxs xs sm"),
+      slot("strikethrough", "xxs xs sm md"),
       slot("code"),
       // Extra small has no paragraph group: its commands join the text strip.
-      slot("heading", "xs"),
-      slot("bullet", "xs"),
-      slot("number", "xs"),
+      slot("heading", "xxs xs"),
+      slot("bullet", "xxs xs"),
+      slot("number", "xxs xs"),
     ],
     moreShown: "all",
   },
@@ -128,32 +142,33 @@ export const GROUPS: Group[] = [
     // right after Image (behind the "⋮" on a phone, which shows link and image only).
     direct: [
       slot("link"),
-      slot("image"),
+      slot("image", "xs sm md lg"),
       slot("emoji", "sm md lg"),
-      slot("media", "sm md lg"),
+      slot("media", "md lg"),
       slot("quote", "lg"),
       slot("spoiler", "lg"),
       slot("codeBlock", "lg"),
     ],
     more: [
-      slot("emoji", "xs"),
-      slot("media", "xs"),
-      slot("quote", "xs sm md"),
-      slot("spoiler", "xs sm md"),
-      slot("codeBlock", "xs sm md"),
+      slot("image", "xxs"),
+      slot("emoji", "xxs xs"),
+      slot("media", "xxs xs sm"),
+      slot("quote", "xxs xs sm md"),
+      slot("spoiler", "xxs xs sm md"),
+      slot("codeBlock", "xxs xs sm md"),
     ],
-    moreShown: "xs sm md",
+    moreShown: "xxs xs sm md",
   },
   {
     id: "misc",
     shown: "all",
     direct: [slot("undo"), slot("redo", "lg"), slot("source", "lg")],
     more: [
-      slot("redo", "xs sm md"),
-      slot("source", "xs sm md"),
-      slot("removeFormatting", "xs sm md"),
+      slot("redo", "xxs xs sm md"),
+      slot("source", "xxs xs sm md"),
+      slot("removeFormatting", "xxs xs sm md"),
     ],
-    moreShown: "xs sm md",
+    moreShown: "xxs xs sm md",
   },
 ];
 
