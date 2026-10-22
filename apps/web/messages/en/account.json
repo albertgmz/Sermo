@@ -323,6 +323,10 @@
         "title": "Announcements",
         "body": "The administrators announce something to every member."
       },
+      "admin_alert": {
+        "title": "Staff alerts",
+        "body": "The administrators send you an alert."
+      },
       "account_security": {
         "title": "Account security",
         "body": "Messages about the safety of your account."

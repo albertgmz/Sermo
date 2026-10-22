@@ -136,6 +136,8 @@ function url(row: Row, announcements: Map<number, AnnouncementRow>): string {
       return `/users/${row.content_id}`;
     case "announcement":
       return announcements.get(row.content_id)?.url ?? `/announcements/${row.content_id}`;
+    case "admin_alert":
+      return (JSON.parse(row.data) as { url?: string }).url ?? "/notifications";
     case "report_group":
       return `/reports/${row.content_id}`;
     default:

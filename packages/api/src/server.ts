@@ -19,6 +19,7 @@ import {
   openGeoDatabase,
   registerAccountEmailJobs,
   registerAwardJobs,
+  registerBroadcastJobs,
   registerCreditJobs,
   registerCreditRuleJobs,
   registerEmailJobs,
@@ -482,6 +483,7 @@ async function main(): Promise<void> {
   registerCreditJobs(ctx);
   registerCreditRuleJobs(ctx);
   registerAwardJobs(ctx);
+  registerBroadcastJobs(ctx);
   registerShopJobs(ctx);
   registerRankingJobs(ctx);
   registerStandingJobs(ctx);

@@ -81,6 +81,8 @@
       "contentPageNew": "New static page",
       "communicationAnnouncements": "Send alert",
       "communicationAnnouncementNew": "New alert",
+      "communicationBroadcastMessage": "Message to members",
+      "communicationBroadcastAlert": "Alert to members",
       "communicationNotices": "Notices",
       "communicationNoticeNew": "New notice",
       "communicationNoticeEdit": "Notice",
@@ -195,6 +197,8 @@
       "forumsTree": "Create, arrange and edit categories and forums.",
       "forumsPrefixes": "Labels a thread can carry in front of its title.",
       "communicationAnnouncements": "Send an alert to everyone, a group or named members.",
+      "communicationBroadcastMessage": "Send a private message to all members, some groups or the members a rule picks.",
+      "communicationBroadcastAlert": "Send an alert to all members, some groups or the members a rule picks.",
       "communicationNotices": "Banners shown under the header of every page.",
       "communicationNotifications": "What members get until they choose for themselves.",
       "communicationEmail": "How much mail the forum sends and what it holds.",
@@ -320,7 +324,8 @@
       "signature": "May set a signature",
       "standing": "Left out of the member of the month",
       "homeTab": "Opens the home page on",
-      "memberBatch": "Members matching"
+      "memberBatch": "Members matching",
+      "broadcast": "Receive it"
     },
     "help": {
       "promotion": "The groups below are added while the conditions hold and removed when they stop holding.",
@@ -335,7 +340,8 @@
       "signature": "A member must meet this to set a signature, on top of the permission. A signature kept by a member who no longer meets it stays stored but is not shown. Leave it empty to let everyone who may. Only conditions that can be checked on every post are offered.",
       "standing": "Members who meet this are left out of the standings and cannot win a month. Only conditions that can be checked on every page are offered.",
       "homeTab": "Visitors who meet this open the home page on the tab chosen below, unless they picked their own. Guests are visitors who are not signed in. Only conditions that can be checked on every page are offered.",
-      "memberBatch": "The members who meet these conditions, taken in the order of their ids; one run looks at the first matches and a message says when more may follow. Only conditions that can be checked while the preview runs are offered; those that count a member's history are not."
+      "memberBatch": "The members who meet these conditions, taken in the order of their ids; one run looks at the first matches and a message says when more may follow. Only conditions that can be checked while the preview runs are offered; those that count a member's history are not.",
+      "broadcast": "Choose who receives it. With no condition it goes to every member; banned, erased, unconfirmed and awaiting-approval accounts are never reached. Any condition may be used: the send runs in the background."
     },
     "match": {
       "legend": "How the conditions combine",
@@ -434,6 +440,15 @@
       "awards_rebuild_start": "Rebuilding levels and awards started",
       "awards_rebuild_done": "Levels and awards rebuilt",
       "awards_rebuild_stopped": "Rebuilding levels and awards stopped by an administrator",
+      "broadcast_start": "Message or alert send started",
+      "broadcast_done": "Message or alert send finished",
+      "broadcast_failed": "Message or alert send stopped by an error",
+      "broadcast_stopped": "Message or alert send stopped",
+      "broadcast_count_start": "Recipient count started",
+      "broadcast_count_done": "Recipient count finished",
+      "broadcast_count_failed": "Recipient count stopped by an error",
+      "broadcast_count_stopped": "Recipient count stopped",
+      "broadcast_test": "Message or alert test sent",
       "awards_rebuild_failed": "Rebuilding levels and awards stopped on an error",
       "ban_add": "Ban added",
       "ban_lift": "Ban lifted",

@@ -28,6 +28,7 @@ export {
   startRebuild,
   stopRebuild,
 } from "./modules/awards/rebuild";
+export { registerBroadcastJobs } from "./modules/broadcasts";
 export { registerCreditRuleJobs } from "./modules/credit-events";
 export { registerCreditJobs } from "./modules/credits";
 export {

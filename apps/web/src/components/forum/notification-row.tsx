@@ -31,6 +31,7 @@ const TEXTS = {
   "moderator.signup": "moderatorSignup",
   "member.groups": "memberGroups",
   announcement: "announcement",
+  "admin.alert": "adminAlert",
   "account.security": "accountSecurity",
 } as const;
 

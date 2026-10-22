@@ -69,6 +69,8 @@ export async function hrefOf(item: ApiNotification): Promise<string> {
   if (item.contentType === "announcement") {
     return /^\/announcements\/\d+$/.test(item.url) ? FALLBACK : item.url;
   }
+  // A staff alert opens the address it gave, or the list.
+  if (item.contentType === "admin_alert") return item.url;
   const target = targetOf(item);
   if (target !== null) return target;
   const user = /^\/users\/(\d+)$/.exec(item.url);

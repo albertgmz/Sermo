@@ -45,6 +45,30 @@ afterAll(() => {
   );
 });
 
+test("a staff alert shows its text under the line that names it", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <NotificationRow
+        item={{
+          id: 2,
+          type: "admin.alert",
+          contentType: "admin_alert",
+          actors: [],
+          actorCount: 1,
+          contentTitle: null,
+          data: { message: "The forum moves tonight" },
+          createdAt: "2026-01-01T00:00:00.000Z",
+          read: false,
+        }}
+        href="/notifications"
+        member={(id) => ({ id, username: "x" }) as never}
+      />,
+    ),
+  );
+  expect(html).toContain("The staff sent you an alert");
+  expect(html).toContain("The forum moves tonight");
+});
+
 test("an alert shows the text of its announcement under the title", () => {
   const html = renderToStaticMarkup(
     withIntl(

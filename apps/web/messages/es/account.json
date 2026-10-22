@@ -323,6 +323,10 @@
         "title": "Anuncios",
         "body": "Los administradores anuncian algo a todos los miembros."
       },
+      "admin_alert": {
+        "title": "Avisos del personal",
+        "body": "Los administradores te envían un aviso."
+      },
       "account_security": {
         "title": "Seguridad de la cuenta",
         "body": "Mensajes sobre la seguridad de tu cuenta."

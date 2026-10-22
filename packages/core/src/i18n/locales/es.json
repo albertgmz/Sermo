@@ -96,6 +96,8 @@
   "notification.member.groups.body": "Se actualizaron tus grupos de usuario.",
   "notification.announcement.title": "Nuevo anuncio en {site}",
   "notification.announcement.body": "Hay un anuncio nuevo en {site}.",
+  "notification.admin.alert.title": "Aviso de {site}",
+  "notification.admin.alert.body": "El equipo de {site} te envió un aviso.",
   "notification.account.security.title": "Aviso de seguridad de la cuenta",
   "notification.account.security.body": "Se produjo un evento de seguridad en tu cuenta.",
   "permission.profile.view": "Ver perfiles",

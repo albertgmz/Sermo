@@ -514,15 +514,26 @@ function notificationLink(ctx: Ctx, row: Notification): string | null {
   if (path) return path;
   if (row.type === "member.followed") return row.actor_id ? `/members/${row.actor_id}` : null;
   if (row.type === "moderator.signup") return "/moderation/signups";
+  if (row.content_type === "admin_alert") return staffAlertLink(adminAlertData(row).url);
   if (row.content_type !== "announcement") return null;
   const given = prepared(ctx, "email.announcementUrl", () =>
     ctx.sqlite.prepare<{ url: string | null }, [number]>(
       "SELECT url FROM announcements WHERE id = ?1",
     ),
   ).get(row.content_id)?.url;
+  return staffAlertLink(given);
+}
+
+/** The address a staff alert or an announcement gave: a site path or an http(s) address, else the list. */
+function staffAlertLink(given: string | null | undefined): string {
   return given && (/^\/(?!\/)/.test(given) || /^https?:\/\//i.test(given))
     ? given
     : "/notifications";
+}
+
+/** A staff alert keeps its text and address in the row. */
+function adminAlertData(row: Notification): { message?: string; url?: string } {
+  return JSON.parse(row.data) as { message?: string; url?: string };
 }
 
 async function notificationMessage(
@@ -565,6 +576,7 @@ async function notificationMessage(
     contentTitle || phrase(language, "email.notification.body"),
     values,
   );
+  if (row.content_type === "admin_alert") body = adminAlertData(row).message ?? body;
   if (row.content_type === "conversation_message") {
     body = phrase(language, "email.conversation.body");
     if (settings.conversationEmailIncludesBody) {

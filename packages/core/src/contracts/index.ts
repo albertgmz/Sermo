@@ -5,6 +5,7 @@ export * from "./auth";
 export * from "./awards";
 export * from "./batch";
 export * from "./bookmarks";
+export * from "./broadcasts";
 export * from "./common";
 export * from "./consent";
 export * from "./conversations";

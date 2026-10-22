@@ -219,6 +219,11 @@ function visibleContent(ctx: Ctx, actor: Actor, item: PushItem): Content | null 
     if (profileUserId === null) return null;
     return { url: new URL(contentPath(item.contentType, item.contentId, null)!, base).href };
   }
+  // A staff alert holds its own text and address, and every recipient may see them.
+  if (item.contentType === "admin_alert") {
+    const given = typeof item.data.url === "string" ? item.data.url : "/notifications";
+    return { url: new URL(given, base).href };
+  }
   if (item.contentType === "user" || item.contentType === "profile") {
     if (!can(ctx, actor, "profile.view")) return null;
     const row = query<{ username: string }, [number]>(

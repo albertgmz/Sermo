@@ -47,6 +47,8 @@ export const PLACES = {
   homeTab: { cheapOnly: true, noMeasured: false, empty: "everyone" },
   // Evaluated while the preview request is served, for the members of a batch update: the cheap
   // criteria alone (the backend refuses the others), and a rule with no condition names nobody.
+  // Decided by a background run over every member, so any criterion works.
+  broadcast: { cheapOnly: false, noMeasured: false, empty: "everyone" },
   memberBatch: { cheapOnly: true, noMeasured: false, empty: "selection" },
 } as const;
 export type Place = keyof typeof PLACES;

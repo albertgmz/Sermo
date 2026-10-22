@@ -23,7 +23,12 @@ export function notificationPushPhrase(ctx: Ctx): PushPhraseRenderer {
       title: row?.title ?? "",
       count: row?.actor_count ?? 1,
     };
-    const bodyHtml = escapeHtml(phrase(lang, `notification.${item.type}.body`, values));
+    // A staff alert is its text.
+    const bodyHtml = escapeHtml(
+      item.type === "admin.alert" && typeof item.data.message === "string"
+        ? item.data.message
+        : phrase(lang, `notification.${item.type}.body`, values),
+    );
     // Notification phrases never quote message text, so the private form is the same body.
     return {
       title: phrase(lang, `notification.${item.type}.title`, values),

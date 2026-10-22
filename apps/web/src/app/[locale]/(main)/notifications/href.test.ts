@@ -212,6 +212,17 @@ const cases: [string, Record<string, unknown>, string][] = [
     "/notifications",
   ],
   [
+    "a staff alert: the address it gave, or the list",
+    {
+      type: "admin.alert",
+      contentType: "admin_alert",
+      contentId: 5,
+      threadId: null,
+      url: "/pages/moving",
+    },
+    "/pages/moving",
+  ],
+  [
     "an announcement: no member page shows one",
     {
       type: "announcement",

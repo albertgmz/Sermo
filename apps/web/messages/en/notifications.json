@@ -32,6 +32,7 @@
       "moderatorApproval": "Content from <actors></actors> is waiting for approval",
       "memberGroups": "Your member groups changed",
       "announcement": "Announcement: {titled, select, yes {“{title}”} other {read it}}",
+      "adminAlert": "The staff sent you an alert",
       "accountSecurity": "There is a security notice about your account",
       "unknown": "You have a new notification",
       "moderatorSignup": "{count, plural, =0 {A new account is waiting for approval} one {<actors></actors> signed up and waits for approval} other {<actors></actors> signed up and wait for approval}}"

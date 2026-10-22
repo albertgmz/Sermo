@@ -96,6 +96,8 @@
   "notification.member.groups.body": "Your user groups were updated.",
   "notification.announcement.title": "New announcement on {site}",
   "notification.announcement.body": "There is a new announcement on {site}.",
+  "notification.admin.alert.title": "Alert from {site}",
+  "notification.admin.alert.body": "The staff of {site} sent you an alert.",
   "notification.account.security.title": "Account security notice",
   "notification.account.security.body": "A security event occurred on your account.",
   "permission.profile.view": "View profiles",

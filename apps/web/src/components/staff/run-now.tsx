@@ -14,7 +14,10 @@ import { useFormStatus } from "react-dom";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { Button } from "@/components/ui/button";
 
-type Namespace = "adminEconomy.awards" | "adminGroups.promotions";
+type Namespace =
+  | "adminEconomy.awards"
+  | "adminGroups.promotions"
+  | "adminCommunication.broadcasts.run";
 
 type Labels = { run: string; running: string };
 

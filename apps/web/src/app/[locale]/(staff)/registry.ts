@@ -444,6 +444,18 @@ export const SECTIONS = [
         listed: false,
       },
       {
+        key: "communicationBroadcastMessage",
+        path: "/admin/broadcasts/message",
+        access: ["admin.announcements"],
+        built: true,
+      },
+      {
+        key: "communicationBroadcastAlert",
+        path: "/admin/broadcasts/alert",
+        access: ["admin.announcements"],
+        built: true,
+      },
+      {
         key: "communicationNotices",
         path: "/admin/notices",
         access: ["admin.announcements"],

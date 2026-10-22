@@ -56,6 +56,7 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
         "admin.sortForm",
         "adminAppearance.colourRows",
         "adminAppearance.placement",
+        "adminCommunication.broadcasts",
         "adminEconomy.awards",
         "adminEconomy.items",
         "adminEconomy.rules",

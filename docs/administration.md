@@ -1007,6 +1007,36 @@ threads involved are refused with "This thread is being reorganized; try again s
 background jobs retry on failure; if they still fail after five attempts, repeat the same merge or
 split request to resume it.
 
+### Messages and alerts to members
+
+`/admin/broadcasts/message` and `/admin/broadcasts/alert` (needs `admin.announcements`) write to
+many members at once: a private message, as XenForo's "Send conversation", or an alert, as its
+"Send alert". The audience is a rule of the criteria engine (every member, the members of some
+groups, or any rule of the builder, background criteria included). Banned, erased, unconfirmed
+and awaiting-approval accounts are never written to.
+
+- **Message.** One conversation per member (never one conversation with every member), started by
+  the chosen sender (the administrator by default; another member needs `admin.members` over them),
+  with the same BB-code body. Options: lock the conversations, and remove each from the sender's
+  list (the sender then does not see replies; on by default in the web form, because one
+  conversation per member fills the sender's inbox). The members' ignore lists are not read, as for
+  staff, but a member without `conversation.receive` is skipped and counted. Each member gets the
+  usual "added to a conversation" alert (in-app and push by default).
+- **Alert.** A notification of type `admin.alert` with a text (300 characters) and an optional link
+  (a site path or an http(s) address). It follows each member's preferences for that type: in-app
+  (turning it off skips the member), push on by default, email only if the member opted in.
+- **Test.** `broadcasts.test` sends the same thing at once to the administrator, or to one chosen
+  member, with no password and without touching the run. Use it before the real send.
+- **Count.** `broadcasts.start` with `dryRun` runs the same chunks, undoes each and reports how
+  many members would be reached and how many skipped. It needs no password.
+- **Send.** `broadcasts.start` needs the administrator's own password (a browser session sends it;
+  an API key is refused). It runs in the background, 50 members per chunk for a message and 200 for
+  an alert, one run at a time, with the checkpoint holds and WAL pacing of the other long jobs. Stop
+  it with `broadcasts.stop`; calling `broadcasts.start` with no `content` and no `rule` resumes it
+  from the member it stopped at, with its first content and audience. A run whose administrator
+  loses `admin.announcements` ends as failed. The start, end, stop and every test are in the
+  moderator log.
+
 ### Node moderators and node rules
 
 `PUT /nodes/{nodeId}/moderators/{userId}` (`nodes.setModerator`, needs `admin.permissions`) makes a
@@ -1176,6 +1206,7 @@ is authorized by its signed token. `announcements.create` needs `admin.announcem
 | `moderator.signup` | Staff who hold `member.approveRegistrations`: one standing alert that lists the newest accounts waiting for approval; it clears when nobody waits |
 | `member.groups` | A member whose groups changed (not when email confirmation moves them to Member) |
 | `announcement` | Every member, for `POST /announcements` (`announcements.create`, needs `admin.announcements`) |
+| `admin.alert` | The members a staff send names (see [Messages and alerts to members](#messages-and-alerts-to-members)); in-app and push by default, email only for members who turned it on |
 | `account.security` | Reserved: email only and cannot be turned off. Nothing creates it in this release; account emails are sent separately (see [Account emails](#account-emails)). |
 
 Nobody is notified of their own action or of content they cannot see. A member who ignores

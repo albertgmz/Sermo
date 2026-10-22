@@ -153,6 +153,14 @@ const GATES_BEFORE: Record<string, [string, string | string[]]> = {
     "/admin/announcements/new",
     ["admin.announcements"],
   ],
+  communicationBroadcastMessage: [
+    "/admin/broadcasts/message",
+    ["admin.announcements"],
+  ],
+  communicationBroadcastAlert: [
+    "/admin/broadcasts/alert",
+    ["admin.announcements"],
+  ],
   communicationNotices: ["/admin/notices", ["admin.announcements"]],
   communicationNoticeNew: ["/admin/notices/new", ["admin.announcements"]],
   communicationNoticeEdit: ["/admin/notices/[id]", ["admin.announcements"]],
@@ -334,6 +342,8 @@ const SECTION_MAP: Record<string, string[]> = {
   communication: [
     "communicationAnnouncements",
     "communicationAnnouncementNew",
+    "communicationBroadcastMessage",
+    "communicationBroadcastAlert",
     "communicationNotices",
     "communicationNoticeNew",
     "communicationNoticeEdit",

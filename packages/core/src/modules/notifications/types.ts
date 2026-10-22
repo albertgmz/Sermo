@@ -27,6 +27,7 @@ const PUSHED_BY_DEFAULT = new Set([
   "moderation.content",
   "moderation.member",
   "member.groups",
+  "admin.alert",
 ]);
 
 const entry = (
@@ -92,6 +93,8 @@ export const notificationTypes: readonly NotificationDefinition[] = [
   entry("moderator.signup", ["member.awaiting_approval"], "moderator"),
   entry("member.groups", ["member.groups_changed"], "affected member"),
   entry("announcement", ["announcement.published"], "every member"),
+  // Written by a staff send (`modules/broadcasts`), not by an event.
+  entry("admin.alert", [], "member chosen by staff"),
   entry("account.security", [], "account owner", null, true),
 ];
 

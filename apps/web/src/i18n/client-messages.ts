@@ -25,6 +25,7 @@ export const CLIENT_NAMESPACES = [
   "admin.sortForm",
   "adminAppearance.colourRows",
   "adminAppearance.placement",
+  "adminCommunication.broadcasts",
   "adminEconomy.awards",
   "adminEconomy.items",
   "adminEconomy.rules",

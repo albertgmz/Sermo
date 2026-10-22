@@ -81,6 +81,8 @@
       "contentPageNew": "Nueva página estática",
       "communicationAnnouncements": "Enviar alerta",
       "communicationAnnouncementNew": "Nueva alerta",
+      "communicationBroadcastMessage": "Mensaje a los miembros",
+      "communicationBroadcastAlert": "Alerta a los miembros",
       "communicationNotices": "Avisos",
       "communicationNoticeNew": "Nuevo aviso",
       "communicationNoticeEdit": "Aviso",
@@ -195,6 +197,8 @@
       "forumsTree": "Crea, ordena y edita categorías y foros.",
       "forumsPrefixes": "Etiquetas que un tema puede llevar delante del título.",
       "communicationAnnouncements": "Envía una alerta a todos, a un grupo o a miembros concretos.",
+      "communicationBroadcastMessage": "Envía un mensaje privado a todos los miembros, a algunos grupos o a los miembros que elija una regla.",
+      "communicationBroadcastAlert": "Envía una alerta a todos los miembros, a algunos grupos o a los miembros que elija una regla.",
       "communicationNotices": "Avisos que se muestran bajo la cabecera de cada página.",
       "communicationNotifications": "Lo que reciben los miembros hasta que elijan por sí mismos.",
       "communicationEmail": "Cuánto correo envía el foro y qué contiene.",
@@ -320,7 +324,8 @@
       "signature": "Pueden poner una firma",
       "standing": "Quedan fuera del miembro del mes",
       "homeTab": "Abren el inicio en",
-      "memberBatch": "Miembros que cumplen"
+      "memberBatch": "Miembros que cumplen",
+      "broadcast": "Lo reciben"
     },
     "help": {
       "promotion": "Los grupos de abajo se añaden mientras se cumplen las condiciones y se quitan cuando dejan de cumplirse.",
@@ -335,7 +340,8 @@
       "signature": "Un miembro debe cumplir esto para poner una firma, además del permiso. Una firma guardada por un miembro que ya no lo cumple sigue guardada pero no se muestra. Déjalo vacío para que pueda cualquiera con el permiso. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
       "standing": "Los miembros que cumplan esto quedan fuera de la clasificación y no pueden ganar un mes. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
       "homeTab": "Los visitantes que cumplan esto abren el inicio en la pestaña elegida abajo, salvo que hayan elegido la suya. Los invitados son los visitantes que no han iniciado sesión. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
-      "memberBatch": "Los miembros que cumplen estas condiciones, tomados por el orden de sus ids; cada pasada mira las primeras coincidencias y un mensaje avisa cuando puede haber más. Solo se ofrecen las condiciones que se pueden comprobar mientras se ejecuta la vista previa; las que cuentan el historial del miembro no."
+      "memberBatch": "Los miembros que cumplen estas condiciones, tomados por el orden de sus ids; cada pasada mira las primeras coincidencias y un mensaje avisa cuando puede haber más. Solo se ofrecen las condiciones que se pueden comprobar mientras se ejecuta la vista previa; las que cuentan el historial del miembro no.",
+      "broadcast": "Elige quién lo recibe. Sin ninguna condición va a todos los miembros; las cuentas vetadas, borradas, sin confirmar o pendientes de aprobación nunca lo reciben. Sirve cualquier condición: el envío se hace en segundo plano."
     },
     "match": {
       "legend": "Cómo se combinan las condiciones",
@@ -434,6 +440,15 @@
       "awards_rebuild_start": "Empezó la reconstrucción de niveles y trofeos",
       "awards_rebuild_done": "Niveles y trofeos reconstruidos",
       "awards_rebuild_stopped": "Un administrador detuvo la reconstrucción de niveles y trofeos",
+      "broadcast_start": "Empezó el envío de un mensaje o alerta",
+      "broadcast_done": "Terminó el envío de un mensaje o alerta",
+      "broadcast_failed": "El envío de un mensaje o alerta se detuvo por un error",
+      "broadcast_stopped": "Se detuvo el envío de un mensaje o alerta",
+      "broadcast_count_start": "Empezó el recuento de destinatarios",
+      "broadcast_count_done": "Terminó el recuento de destinatarios",
+      "broadcast_count_failed": "El recuento de destinatarios se detuvo por un error",
+      "broadcast_count_stopped": "Se detuvo el recuento de destinatarios",
+      "broadcast_test": "Se envió la prueba de un mensaje o alerta",
       "awards_rebuild_failed": "La reconstrucción de niveles y trofeos se detuvo por un error",
       "ban_add": "Expulsión añadida",
       "ban_lift": "Expulsión levantada",
