@@ -1062,6 +1062,16 @@ complete month, an older month shows its winner only, and the month field starts
 winner on record. `standings.month` accepts the same `YYYY-MM` from 2000 and tells how points are
 counted.
 
+Two widget types show who is around. `recentlyActive` ("Online in the last 24 hours", names only
+and a "Total: N" line, the heading leading to the member list) reads `users.recentlyActive`: members
+who hide their online state, and banned or erased ones, are not in it, and every visitor gets the
+same list for up to a minute; its option `window` set to `15m` lists only those seen in the last
+15 minutes ("Online now", counted from the list, which holds at most 200). `siteTotals` reads
+`site.stats` (`GET /site/stats`): threads and messages in the forums guests can open, members
+(confirmed, approved, not banned, not erased) and the newest member, the same numbers for every
+visitor and counted at most every ten minutes; the newest member is shown only to a visitor who may
+list members.
+
 The old addresses answer with a permanent redirect (308) that keeps the query: a feed tab or a
 feed parameter on `/` (`/?tab=hot`, `/?cursor=...`) goes to `/novedades`, `/?tab=forums` and
 `/forums?tab=<id>` go to `/` with the section, and XenForo's `whats-new`, `find-new` and

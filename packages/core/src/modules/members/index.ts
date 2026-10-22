@@ -7,6 +7,7 @@ import { usersBirthdaysOp, usersListOp, usersStaffOp } from "./directory";
 import { usersRecentlyActiveOp } from "./recently-active";
 import { registerRedecideJobs } from "./redecide";
 import { requireSiteViewForCards } from "./site-access";
+import { siteStatsOp } from "./site-stats";
 import {
   registerStandingJobs as registerRefreshJob,
   standingsMonthOp,
@@ -56,6 +57,7 @@ export const operations = [
   usersStaffOp,
   usersBirthdaysOp,
   usersRecentlyActiveOp,
+  siteStatsOp,
   standingsMonthOp,
   standingsWinnersOp,
   usersChangeUsernameOp,

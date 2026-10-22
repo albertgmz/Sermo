@@ -2,6 +2,7 @@ import { registerJobHandler, registerStandingJobs, runDueJobs } from "@sermo/cor
 import { forgetRecentlyActive } from "../../packages/core/src/modules/members/recently-active-cache";
 import { redecideChunk } from "../../packages/core/src/modules/members/redecide";
 import { requestStandingsRedecide } from "../../packages/core/src/modules/members/redecide-request";
+import { forgetSiteStats } from "../../packages/core/src/modules/members/site-stats";
 import type { BenchEnv, Scenario } from "../harness";
 
 const choose = (values: number[], i: number) => values[i % values.length]!;
@@ -180,6 +181,25 @@ export const scenarios: Scenario[] = [
     run: (env, i) => {
       forgetRecentlyActive(env.ctx);
       return env.call("users.recentlyActive", env.actors.member(i), {});
+    },
+  },
+  {
+    name: "site.stats guest",
+    kind: "read",
+    run: (env) => env.call("site.stats", env.actors.guest, {}),
+  },
+  {
+    name: "site.stats member",
+    kind: "read",
+    run: (env, i) => env.call("site.stats", env.actors.member(i), {}),
+  },
+  {
+    // The totals counted afresh on every request: the cost a viewer meets once every ten minutes.
+    name: "site.stats member, uncached",
+    kind: "read",
+    run: (env, i) => {
+      forgetSiteStats(env.ctx);
+      return env.call("site.stats", env.actors.member(i), {});
     },
   },
   {

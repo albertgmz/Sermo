@@ -195,6 +195,24 @@ export const usersRecentlyActive = defineContract({
   }),
 });
 
+export const siteStats = defineContract({
+  name: "site.stats",
+  summary:
+    "The site's totals: visible threads and messages in the forums guests can open, members " +
+    "(banned, erased and waiting accounts left out) and the newest member. The numbers are the " +
+    "same for every viewer and may be up to ten minutes old; `latestMember` is null unless the " +
+    "viewer holds profile.view and member.viewList, and is the minimal card (`card.restricted` " +
+    "true) when they may not open that profile. Requires site.view.",
+  kind: "read",
+  input: Empty,
+  output: z.object({
+    threads: z.number().int().nonnegative(),
+    posts: z.number().int().nonnegative(),
+    members: z.number().int().nonnegative(),
+    latestMember: MemberCard.nullable(),
+  }),
+});
+
 // Member of the month --------------------------------------------------------------------------
 
 /** What a member did in one calendar month (UTC) and the points it is worth. */

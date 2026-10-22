@@ -102,9 +102,14 @@ export function WidgetArea({
   ));
 }
 
-// The default title of a widget: its type's, and for a thread list the list's.
-const titleKey = (widget: ApiWidget) =>
-  widget.type === "rankedThreads" ? widget.options.by : widget.type;
+// The default title of a widget: its type's, and for a thread list the list's and for the online
+// members the window's.
+const titleKey = (widget: ApiWidget) => {
+  if (widget.type === "rankedThreads") return widget.options.by;
+  if (widget.type === "recentlyActive" && widget.options.window === "15m")
+    return "recentlyActiveNow";
+  return widget.type;
+};
 
 function WidgetSlot({
   widget,

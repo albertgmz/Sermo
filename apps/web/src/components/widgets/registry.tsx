@@ -15,9 +15,17 @@ import {
   RankedThreadsSkeleton,
 } from "@/components/widgets/ranked-threads";
 import {
+  RecentlyActive,
+  RecentlyActiveSkeleton,
+} from "@/components/widgets/recently-active";
+import {
   ReferralLink,
   ReferralLinkSkeleton,
 } from "@/components/widgets/referral-link";
+import {
+  SiteTotals,
+  SiteTotalsSkeleton,
+} from "@/components/widgets/site-totals";
 import {
   SuggestedMembers,
   SuggestedMembersSkeleton,
@@ -71,4 +79,6 @@ export const WIDGET_ENTRIES: { [K in WidgetType]?: WidgetEntry<K> } = {
   referralLink: { Body: ReferralLink, Skeleton: ReferralLinkSkeleton },
   monthStandings: { Body: MonthStandings, Skeleton: MonthStandingsSkeleton },
   text: { Body: TextWidget, Skeleton: TextWidgetSkeleton },
+  recentlyActive: { Body: RecentlyActive, Skeleton: RecentlyActiveSkeleton },
+  siteTotals: { Body: SiteTotals, Skeleton: SiteTotalsSkeleton },
 };

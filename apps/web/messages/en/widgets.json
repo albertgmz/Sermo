@@ -16,7 +16,10 @@
       "topReferrers": "Most referrals",
       "referralLink": "Your referral link",
       "monthStandings": "Members of the month",
-      "text": "Text"
+      "text": "Text",
+      "recentlyActive": "Online in the last 24 hours",
+      "recentlyActiveNow": "Online now",
+      "siteTotals": "Site totals"
     }
   },
   "rankedThreads": {
@@ -26,5 +29,14 @@
   "forumLinks": {
     "viewAll": "View all",
     "threads": "{value}<label>{count, plural, other { threads}}</label>"
+  },
+  "recentlyActive": {
+    "total": "Total: {value}"
+  },
+  "siteTotals": {
+    "threads": "Threads",
+    "posts": "Messages",
+    "members": "Members",
+    "latestMember": "Latest member"
   }
 }
