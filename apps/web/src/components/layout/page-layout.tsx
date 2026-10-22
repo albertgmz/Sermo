@@ -15,6 +15,7 @@ export function PageLayout({
   asideOnMobile = "below",
   className,
   mainClassName,
+  leadClassName,
   asideClassName,
   children,
 }: {
@@ -24,6 +25,7 @@ export function PageLayout({
   asideOnMobile?: "below" | "hidden";
   className?: string;
   mainClassName?: string;
+  leadClassName?: string;
   asideClassName?: string;
   children: React.ReactNode;
 }) {
@@ -36,7 +38,12 @@ export function PageLayout({
       )}
     >
       {lead && (
-        <div className="min-w-0 space-y-(--page-gap) empty:hidden lg:order-first lg:col-span-full">
+        <div
+          className={cn(
+            "min-w-0 space-y-(--page-gap) empty:hidden lg:order-first lg:col-span-full",
+            leadClassName,
+          )}
+        >
           {lead}
         </div>
       )}

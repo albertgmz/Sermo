@@ -1,9 +1,9 @@
 import type { WidgetPosition } from "@sermo/core/contracts";
-import { unstable_rethrow } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import type * as z from "zod";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { drawnOrNothing } from "@/components/widgets/drawn-or-nothing";
 import {
   WIDGET_ENTRIES,
   type WidgetEntry,
@@ -40,17 +40,20 @@ const AREAS = {
 
 export type WidgetAreas = Record<keyof (typeof AREAS)["home"], ApiWidget[]>;
 
-// A page's widgets, sorted into its areas. A widget of a type this app does not draw is left out
-// here, so that it opens no column and leaves no gap.
+// A page's widgets, sorted into its areas, each area position by position in the order above (the
+// backend lists the global positions last) and within a position in the backend's order. A widget
+// of a type this app does not draw is left out here, so that it opens no column and leaves no gap.
 export function widgetAreas(
   page: keyof typeof AREAS,
   widgets: readonly ApiWidget[],
 ): WidgetAreas {
   const of = (positions: readonly Position[]) =>
-    widgets.filter(
-      (widget) =>
-        positions.includes(widget.position) &&
-        Object.hasOwn(WIDGET_ENTRIES, widget.type),
+    positions.flatMap((position) =>
+      widgets.filter(
+        (widget) =>
+          widget.position === position &&
+          Object.hasOwn(WIDGET_ENTRIES, widget.type),
+      ),
     );
   const areas = AREAS[page];
   return {
@@ -61,6 +64,19 @@ export function widgetAreas(
   };
 }
 
+// Hidden on a phone when no widget in it is drawn there, so that it leaves no gap.
+const offPhones = (widgets: readonly ApiWidget[]) =>
+  widgets.every((widget) => !widget.phones) ? "max-md:hidden" : undefined;
+
+// The page's lead, as `PageLayout` takes it: nothing when no widget is in it.
+export function widgetLead(widgets: ApiWidget[], context: WidgetContext) {
+  if (widgets.length === 0) return {};
+  return {
+    lead: <WidgetArea widgets={widgets} context={context} />,
+    leadClassName: offPhones(widgets),
+  };
+}
+
 // The page's sidebar, as `PageLayout` takes it: no column at all when no widget is in it, and none
 // on a phone when no widget in it is drawn there. Below `lg` it follows the content, one block under
 // another at the content's width.
@@ -68,9 +84,7 @@ export function widgetAside(widgets: ApiWidget[], context: WidgetContext) {
   if (widgets.length === 0) return {};
   return {
     aside: <WidgetArea widgets={widgets} context={context} />,
-    asideClassName: widgets.every((widget) => !widget.phones)
-      ? "max-md:hidden"
-      : undefined,
+    asideClassName: offPhones(widgets),
   };
 }
 
@@ -128,8 +142,9 @@ function WidgetSlot({
   );
 }
 
-// One widget that fails draws nothing and is logged; the page and the other widgets stand. What
-// Next.js throws on purpose (a redirect, a request-time read during a prerender) is passed on.
+// One widget that fails draws nothing and is logged; the page and the other widgets stand. This
+// covers what the body itself awaits; a part it streams on its own (the statistics rows) guards its
+// own read the same way.
 async function Drawn({
   entry,
   widget,
@@ -141,14 +156,7 @@ async function Drawn({
   title: string;
   context: WidgetContext;
 }) {
-  try {
-    return await entry.Body({ widget, title, context });
-  } catch (error) {
-    unstable_rethrow(error);
-    console.error(
-      `The ${widget.type} widget ${widget.id} could not be drawn`,
-      error,
-    );
-    return null;
-  }
+  return drawnOrNothing(`The ${widget.type} widget ${widget.id}`, () =>
+    entry.Body({ widget, title, context }),
+  );
 }

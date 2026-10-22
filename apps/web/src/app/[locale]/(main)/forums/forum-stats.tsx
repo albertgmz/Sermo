@@ -12,8 +12,9 @@ import { TabLinks } from "@/components/forum/tab-links";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
+import { drawnOrNothing } from "@/components/widgets/drawn-or-nothing";
 import { formatCompact } from "@/lib/format";
-import { read } from "@/lib/sermo/client";
+import { readIfAllowed } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
@@ -149,26 +150,30 @@ function ThreadRow({
 }
 
 // The panel of the forum statistics widget: `title` heads it, `limit` is how many threads a tab
-// lists.
+// lists. Whether it is open is kept per panel: `instance` is null for the page's first one (kept
+// under the name it has always had) and the widget's id for any other.
 export function ForumStats({
   title,
   limit,
   active,
   hrefFor,
+  instance,
 }: {
   title: string;
   limit: number;
   active: StatsTab;
   hrefFor: (tab: StatsTab) => string;
+  instance: number | null;
 }) {
   const t = useTranslations("forums.forumStats");
+  const part = instance === null ? "" : `${instance}-`;
   const tab =
     STATS_TABS.find((entry) => entry.value === active) ?? STATS_TABS[0];
 
   return (
     <CollapsiblePanel
       title={title}
-      storageKey="forum-stats-open"
+      storageKey={`forum-stats-${part}open`}
       defaultOpen="md"
     >
       <div className="min-w-0">
@@ -202,6 +207,8 @@ export function ForumStats({
   );
 }
 
+// The rows load after the panel's frame and tabs: a read that is refused or fails leaves the panel
+// without rows (logged), not the page broken.
 async function StatsRows({
   tab,
   limit,
@@ -209,19 +216,22 @@ async function StatsRows({
   tab: (typeof STATS_TABS)[number];
   limit: number;
 }) {
-  const { items } = await read(threadsRanked, { by: tab.by, limit });
-  const member = await membersFor(items.flatMap(threadMembers));
-  return (
-    <ol className="@container divide-y divide-border">
-      {items.map((thread, index) => (
-        <ThreadRow
-          key={thread.id}
-          thread={thread}
-          member={member}
-          rank={index + 1}
-          figure={tab.figure}
-        />
-      ))}
-    </ol>
-  );
+  return drawnOrNothing("The forum statistics rows", async () => {
+    const ranked = await readIfAllowed(threadsRanked, { by: tab.by, limit });
+    if (!ranked) return null;
+    const member = await membersFor(ranked.items.flatMap(threadMembers));
+    return (
+      <ol className="@container divide-y divide-border">
+        {ranked.items.map((thread, index) => (
+          <ThreadRow
+            key={thread.id}
+            thread={thread}
+            member={member}
+            rank={index + 1}
+            figure={tab.figure}
+          />
+        ))}
+      </ol>
+    );
+  });
 }

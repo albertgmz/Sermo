@@ -87,9 +87,14 @@ function backend(widgets: unknown[], member = false) {
   }) as unknown as typeof fetch;
 }
 
+// What the page drew; what failed while drawing it is kept in `failed`.
+const failed: unknown[] = [];
 async function html(node: React.ReactNode) {
+  failed.length = 0;
   const stream = await renderToReadableStream(withIntl(node), {
-    onError: () => {},
+    onError: (error) => {
+      failed.push(error);
+    },
   });
   await stream.allReady;
   return new Response(stream).text();
@@ -218,4 +223,46 @@ test("a sign-out the backend could not make lands on a line that says so, for th
   expect(await page({ notice: "signOutFailed" })).toContain(line);
   expect(await page({ notice: "accountDeleted" })).not.toContain(line);
   expect(await page({ notice: "toString" })).not.toContain(line);
+});
+
+test("two statistics widgets keep their own tab in the address", async () => {
+  backend([
+    STATS,
+    widgetBody({ id: 7, position: "forum_list_below", type: "forumStats" }),
+  ]);
+  const text = await page({ "stats-7": "viewed" });
+  // The first keeps the address the forum list has always used; the second is named after itself.
+  expect(text).toContain('href="/?stats=threads"');
+  expect(text).toContain('href="/?stats-7=threads"');
+  const rankings: string[] = [];
+  const answer = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const { pathname, searchParams } = new URL(url);
+    if (pathname === RANKINGS) rankings.push(searchParams.get("by") ?? "");
+    return answer(url, init);
+  }) as unknown as typeof fetch;
+  await page({ "stats-7": "viewed" });
+  expect(rankings.sort()).toEqual(["latestPosts", "mostViewed"]);
+});
+
+test("a statistics read that fails leaves the panel without rows, logged, and the page standing", async () => {
+  const log = spyOn(console, "error").mockImplementation(() => {});
+  backend([STATS]);
+  const answer = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init?: RequestInit) =>
+    new URL(url).pathname === RANKINGS
+      ? Response.json(
+          { error: { code: "internal", message: "Broken." } },
+          { status: 500 },
+        )
+      : answer(url, init)) as unknown as typeof fetch;
+  const text = await page();
+  const logged = log.mock.calls.map(([line]) => String(line));
+  log.mockRestore();
+  expect(failed).toEqual([]);
+  expect(text).toContain(panel);
+  expect(text).toContain(">Main<");
+  expect(logged.some((line) => line.includes("forum statistics rows"))).toBe(
+    true,
+  );
 });

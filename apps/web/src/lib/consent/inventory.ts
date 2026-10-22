@@ -129,7 +129,12 @@ export const INVENTORY: readonly InventoryItem[] = [
     id: "panels",
     category: "necessary",
     storage: "localStorage",
-    names: ["forum-stats-open", "forum-category-*", "styleguide-*"],
+    names: [
+      "forum-stats-open",
+      "forum-stats-*",
+      "forum-category-*",
+      "styleguide-*",
+    ],
     party: "first",
   },
   {

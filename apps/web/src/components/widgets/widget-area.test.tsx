@@ -36,7 +36,9 @@ mock.module("next-intl", () => ({
 }));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
-const { WidgetArea, widgetAreas, widgetAside } = await import("./widget-area");
+const { WidgetArea, widgetAreas, widgetAside, widgetLead } = await import(
+  "./widget-area"
+);
 
 afterAll(() => {
   mock.module("next-intl/server", () => intlServer);
@@ -51,7 +53,12 @@ afterEach(() => {
 });
 
 const titles = messages.widgets.widgetArea.titles;
-const context = { stats: "posts" as const, statsHref: () => "/" };
+const context = {
+  params: {},
+  widgets: [],
+  href: (query: [string, string][]) =>
+    `/?${new URLSearchParams(query).toString()}`,
+};
 
 const thread = (id: number, title: string) => ({
   id,
@@ -378,15 +385,43 @@ test("the areas of a page take its positions in order, and other pages' are left
   expect(ids(widgetAreas("home", list))).toEqual({
     lead: [1],
     above: [2],
-    below: [4, 9],
-    aside: [5, 7, 8],
+    below: [9, 4],
+    aside: [7, 5, 8],
   });
   expect(ids(widgetAreas("novedades", list))).toEqual({
     lead: [1],
     above: [3],
     below: [4],
-    aside: [6, 7, 8],
+    aside: [7, 6, 8],
   });
+});
+
+test("the global sidebar positions open and close the sidebar, though the backend lists them last", () => {
+  // widgets.current orders by position as `WIDGET_PAGE_POSITIONS` lists them, global ones last, and
+  // then by display order.
+  const at = (
+    id: number,
+    position: Parameters<typeof widgetBody>[0]["position"],
+  ) => widgetBody({ id, position, type: "featured" });
+  const backendOrder = [
+    at(1, "forum_list_sidebar"),
+    at(2, "forum_list_sidebar"),
+    at(3, "sidebar_top"),
+    at(4, "sidebar_top"),
+    at(5, "sidebar_bottom"),
+  ] as never;
+  expect(widgetAreas("home", backendOrder).aside.map(({ id }) => id)).toEqual([
+    3, 4, 1, 2, 5,
+  ]);
+});
+
+test("a lead with no widget for phones is hidden there, so it leaves no gap", () => {
+  expect(widgetLead([], context)).toEqual({});
+  const top = widgetBody({ id: 1, position: "overview_top", type: "featured" });
+  expect(widgetLead([top] as never, context).leadClassName).toBeUndefined();
+  expect(
+    widgetLead([{ ...top, phones: false }] as never, context).leadClassName,
+  ).toBe("max-md:hidden");
 });
 
 test("the sidebar is no column when empty, and none on a phone when no widget in it is drawn there", () => {
@@ -418,4 +453,29 @@ test("a widget of a type this app does not draw opens no column and no lead", ()
   expect(areas.lead).toEqual([]);
   expect(areas.aside).toEqual([]);
   expect(widgetAside(areas.aside, context)).toEqual({});
+});
+
+test("each forum statistics widget keeps its open state apart, the first under the old name", async () => {
+  const { ForumStatsWidget } = await import("./forum-stats-widget");
+  const first = widgetBody({
+    id: 1,
+    position: "overview_top",
+    type: "forumStats",
+  });
+  const second = widgetBody({
+    id: 7,
+    position: "forum_list_below",
+    type: "forumStats",
+  });
+  const page = { ...context, widgets: [first, second] as never };
+  const keyOf = (widget: typeof first) =>
+    (
+      ForumStatsWidget({
+        widget: widget as never,
+        title: "Statistics",
+        context: page,
+      }) as { props: { instance: number | null } }
+    ).props.instance;
+  expect(keyOf(first)).toBeNull();
+  expect(keyOf(second)).toBe(7);
 });

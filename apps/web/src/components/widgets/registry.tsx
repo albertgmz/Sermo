@@ -1,10 +1,10 @@
-import { ForumStats } from "@/app/[locale]/(main)/forums/forum-stats";
 import { ForumStatsSkeleton } from "@/components/forum/skeletons";
 import { FeaturedThreads } from "@/components/widgets/featured-threads";
 import {
   ForumLinks,
   ForumLinksSkeleton,
 } from "@/components/widgets/forum-links";
+import { ForumStatsWidget } from "@/components/widgets/forum-stats-widget";
 import {
   RankedThreads,
   RankedThreadsSkeleton,
@@ -34,14 +34,7 @@ export type WidgetEntry<K extends WidgetType> = {
 // The types this web app draws; a widget of any other type draws nothing.
 export const WIDGET_ENTRIES: { [K in WidgetType]?: WidgetEntry<K> } = {
   forumStats: {
-    Body: ({ widget, title, context }) => (
-      <ForumStats
-        title={title}
-        limit={widget.options.limit}
-        active={context.stats}
-        hrefFor={context.statsHref}
-      />
-    ),
+    Body: ForumStatsWidget,
     Skeleton: () => <ForumStatsSkeleton />,
   },
   rankedThreads: { Body: RankedThreads, Skeleton: RankedThreadsSkeleton },

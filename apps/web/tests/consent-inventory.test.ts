@@ -72,7 +72,7 @@ test("every name the code writes into the browser is in the inventory", () => {
     "src/components/layout/narrow-width.ts sermo-width",
     // The sessionStorage key is read from the source, not written out here.
     "src/components/layout/lite-mode-sync.tsx forum_lite:reloads",
-    "src/app/[locale]/(main)/forums/forum-stats.tsx forum-stats-open",
+    "src/app/[locale]/(main)/forums/forum-stats.tsx forum-stats-1open",
     "src/app/[locale]/(main)/forums/forum-list.tsx forum-category-1-open",
     "src/lib/sermo/auth.ts (passed through)",
     "src/components/forum/collapsible-panel.tsx (passed through)",

@@ -22,10 +22,6 @@ import {
   type Tab,
 } from "@/app/[locale]/(main)/_feed/feed-page";
 import { mediaPage } from "@/app/[locale]/(main)/_feed/media-page";
-import {
-  STATS_TABS,
-  type StatsTab,
-} from "@/app/[locale]/(main)/forums/forum-stats";
 import { postToWall } from "@/app/[locale]/(main)/members/actions";
 import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
 import { EmptyState } from "@/components/forum/empty-state";
@@ -45,6 +41,7 @@ import {
   WidgetArea,
   widgetAreas,
   widgetAside,
+  widgetLead,
 } from "@/components/widgets/widget-area";
 import {
   feedHref,
@@ -112,25 +109,19 @@ export default async function NovedadesPage(
   const featured =
     FEED_TABS.some((feed) => feed === tab) &&
     !isFiltered(filterFromParams(params));
-  const areas = widgetAreas(
-    "novedades",
-    widgets.filter((widget) => featured || widget.type !== "featured"),
+  const drawn = widgets.filter(
+    (widget) => featured || widget.type !== "featured",
   );
-  const stats: StatsTab =
-    STATS_TABS.find((entry) => entry.value === params.stats)?.value ??
-    STATS_TABS[0].value;
+  const areas = widgetAreas("novedades", drawn);
   const context = {
-    stats,
-    statsHref: (value: StatsTab) => statsHref(tab, params, value),
+    params,
+    widgets: drawn,
+    href: (query: [string, string][]) => viewHref(tab, params, query),
   };
   return (
     <PageLayout
       mainClassName="space-y-(--page-gap)"
-      lead={
-        areas.lead.length > 0 && (
-          <WidgetArea widgets={areas.lead} context={context} />
-        )
-      }
+      {...widgetLead(areas.lead, context)}
       {...widgetAside(areas.aside, context)}
     >
       <h1 className="sr-only">{t("heading")}</h1>
@@ -158,12 +149,13 @@ export default async function NovedadesPage(
   );
 }
 
-// The address of a forum statistics tab on this page: the open tab with its filter, from its first
-// page, with the statistics tab.
-function statsHref(tab: HomeTab, params: Params, stats: StatsTab) {
+// The address of the open tab with its filter, from its first page, with `query` set on it (a
+// widget's choice, such as a statistics tab).
+function viewHref(tab: HomeTab, params: Params, query: [string, string][]) {
   const href =
     tab === "media" ? homeHref(tab) : feedHref(tab, filterFromParams(params));
-  return stats === STATS_TABS[0].value ? href : `${href}&stats=${stats}`;
+  const extra = new URLSearchParams(query).toString();
+  return extra ? `${href}&${extra}` : href;
 }
 
 // Posts on the wall of the member who is signed in. Not on a phone, where the + of the bottom bar

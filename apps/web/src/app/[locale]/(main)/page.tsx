@@ -14,6 +14,7 @@ import {
   WidgetArea,
   widgetAreas,
   widgetAside,
+  widgetLead,
 } from "@/components/widgets/widget-area";
 import { forumListAddress, homeMetadata } from "@/lib/home-seo";
 import { publicUrl } from "@/lib/sermo/config";
@@ -43,13 +44,27 @@ export async function generateMetadata({
   return publicHead({ ...head, title: { absolute: site.name } }, {});
 }
 
+// The forum list's address of a section (null is the first) with `query` set on it.
+function withQuery(
+  path: string,
+  section: string | null,
+  query: [string, string][],
+) {
+  const params = new URLSearchParams(
+    section === null ? [] : [["section", section]],
+  );
+  for (const [key, value] of query) params.set(key, value);
+  const search = params.toString();
+  return search ? `${path}?${search}` : path;
+}
+
 // The address of a section with a statistics tab.
 function forumsHref(section: string | null, stats: StatsTab) {
-  const params = new URLSearchParams();
-  if (section !== null) params.set("section", section);
-  if (stats !== STATS_TABS[0].value) params.set("stats", stats);
-  const query = params.toString();
-  return query ? `/?${query}` : "/";
+  return withQuery(
+    "/",
+    section,
+    stats === STATS_TABS[0].value ? [] : [["stats", stats]],
+  );
 }
 
 async function GuestHero() {
@@ -83,11 +98,12 @@ export default async function HomePage(props: PageProps<"/[locale]">) {
   const stats: StatsTab =
     STATS_TABS.find((entry) => entry.value === statsParam)?.value ??
     STATS_TABS[0].value;
-  const context = {
-    stats,
-    statsHref: (tab: StatsTab) => forumsHref(section, tab),
-  };
   const areas = widgetAreas("home", widgets);
+  const context = {
+    params,
+    widgets,
+    href: (query: [string, string][]) => withQuery("/", section, query),
+  };
 
   return (
     <>
@@ -95,11 +111,7 @@ export default async function HomePage(props: PageProps<"/[locale]">) {
       <PageLayout
         className={user ? undefined : "pt-2"}
         mainClassName="space-y-(--page-gap)"
-        lead={
-          areas.lead.length > 0 && (
-            <WidgetArea widgets={areas.lead} context={context} />
-          )
-        }
+        {...widgetLead(areas.lead, context)}
         {...widgetAside(areas.aside, context)}
       >
         {user && <h1 className="sr-only">{t("metaTitle")}</h1>}
