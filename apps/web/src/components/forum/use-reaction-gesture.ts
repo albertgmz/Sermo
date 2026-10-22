@@ -11,11 +11,11 @@ import {
   distanceToRects,
   type GestureEffect,
   type GestureEvent,
-  gestureDistance,
   type Hit,
   HOLD_MS,
   idleGesture,
   locksPage,
+  type Rect,
   reduceGesture,
 } from "@/components/forum/reaction-gesture";
 
@@ -42,15 +42,16 @@ function vibrate() {
 // effects. While the finger slides, the page does not scroll and no text is selected.
 export function useReactionGesture({
   picker,
-  pickerAsked,
+  pickerExpected,
   given,
   open,
   close,
   choose,
 }: {
   picker: RefObject<HTMLElement | null>;
-  // The picker is open or on its way (see `gestureDistance`).
-  pickerAsked: () => boolean;
+  // The box the picker will take while it is asked for but not drawn yet (its code is on its way):
+  // the gesture is measured against it, so a slide toward it waits for it and one away gives up.
+  pickerExpected: () => Rect | undefined;
   given: number | null;
   open: () => void;
   close: () => void;
@@ -162,14 +163,17 @@ export function useReactionGesture({
       ?.getAttribute("data-reaction-id");
     const buttonRect = button.current?.getBoundingClientRect();
     const pickerRect =
-      picker.current?.getBoundingClientRect() ??
-      (pickerAsked() ? "awaited" : undefined);
+      picker.current?.getBoundingClientRect() ?? pickerExpected();
     return {
       reactionId: id == null ? null : Number(id),
       overButton: buttonRect
         ? distanceToRects(x, y, [buttonRect]) === 0
         : false,
-      distance: gestureDistance(x, y, buttonRect, pickerRect),
+      distance: distanceToRects(
+        x,
+        y,
+        [buttonRect, pickerRect].filter((rect) => rect !== undefined),
+      ),
     };
   }
 

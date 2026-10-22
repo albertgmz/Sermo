@@ -5,13 +5,13 @@ import {
   type GestureEffect,
   type GestureEvent,
   type GestureState,
-  gestureDistance,
   type Hit,
   idleGesture,
   locksPage,
   reduceGesture,
   SLOP_PX,
 } from "./reaction-gesture";
+import { pickerBox, placePicker } from "./reaction-placement";
 
 // Feeds the events in order; returns the final state and every effect, in order.
 function run(events: GestureEvent[], from: GestureState = idleGesture) {
@@ -421,24 +421,36 @@ describe("distanceToRects", () => {
 });
 
 describe("a picker whose code is still on its way", () => {
+  // The button, and the box the picker will take above it on a 360 x 740 phone.
   const button = { left: 80, top: 280, right: 120, bottom: 320 };
-  // 100 px above the button: where the picker will be drawn.
-  const above = (awaited: boolean): Hit => ({
+  const placement = placePicker({
+    anchor: button,
+    count: 6,
+    viewport: { width: 360, height: 740 },
+  });
+  const expected = pickerBox(button, placement);
+  const at = (x: number, y: number): Hit => ({
     reactionId: null,
     overButton: false,
-    distance: gestureDistance(
-      100,
-      200,
-      button,
-      awaited ? "awaited" : undefined,
-    ),
+    distance: distanceToRects(x, y, [button, expected]),
   });
+  const centre = {
+    x: (expected.left + expected.right) / 2,
+    y: (expected.top + expected.bottom) / 2,
+  };
+  const inBox = at(centre.x, centre.y);
+  // 300 px under the button: the member changed their mind.
+  const farAway = at(100, 620);
 
-  test("a slide toward it after the hold waits for it, and a lift on a reaction once it is drawn gives that one", () => {
+  test("a slide toward where it will be waits for it, and a lift on a reaction once it is drawn gives that one", () => {
+    // Measured from the button alone, the same slide would give up.
+    expect(distanceToRects(centre.x, centre.y, [button])).toBeGreaterThan(
+      CANCEL_DISTANCE_PX,
+    );
     const { state, effects } = run([
       touchDown(),
       { type: "hold" },
-      move(above(true)),
+      move(inBox),
       // The code arrived and the picker is drawn under the finger.
       move(onReaction(4)),
       { type: "up", pointerId: 1, hit: onReaction(4) },
@@ -448,29 +460,35 @@ describe("a picker whose code is still on its way", () => {
     expect(state.phase).toBe("idle");
   });
 
-  test("a lift before it is drawn leaves it to open for a tap", () => {
+  test("a lift where it will be leaves it to open for a tap", () => {
     const { effects } = run([
       touchDown(),
       { type: "hold" },
-      move(above(true)),
-      { type: "up", pointerId: 1, hit: above(true) },
+      move(inBox),
+      { type: "up", pointerId: 1, hit: inBox },
     ]);
     expect(effects).not.toContainEqual({ type: "close" });
   });
 
-  test("measured from the button alone, the same slide would give up", () => {
-    expect(above(false).distance).toBeGreaterThan(CANCEL_DISTANCE_PX);
+  test("a slide far from the button and from where it will be gives up", () => {
+    expect(farAway.distance).toBeGreaterThan(CANCEL_DISTANCE_PX);
+    const { state, effects } = run([
+      touchDown(),
+      { type: "hold" },
+      move(farAway),
+    ]);
+    expect(effects).toContainEqual({ type: "close" });
+    expect(state.phase).toBe("cancelled");
+  });
+
+  test("a lift far from both before it arrives closes it", () => {
     const { effects } = run([
       touchDown(),
       { type: "hold" },
-      move(above(false)),
+      move(inBox),
+      { type: "up", pointerId: 1, hit: farAway },
     ]);
     expect(effects).toContainEqual({ type: "close" });
-  });
-
-  test("once drawn, the picker's own box is measured", () => {
-    const picker = { left: 60, top: 150, right: 300, bottom: 250 };
-    expect(gestureDistance(100, 200, button, picker)).toBe(0);
-    expect(gestureDistance(100, 50, button, picker)).toBe(100);
+    expect(effects.some((effect) => effect.type === "choose")).toBe(false);
   });
 });

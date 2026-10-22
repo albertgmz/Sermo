@@ -56,6 +56,14 @@ export function pickerGrid(count: number, viewportWidth: number): PickerGrid {
   return { rows, cell };
 }
 
+// The picker's outer size: the widest (first) row and every row, inside its padding.
+function pickerSize(grid: PickerGrid) {
+  return {
+    width: (grid.rows[0] ?? 1) * grid.cell + 2 * PICKER_PADDING_PX,
+    height: grid.rows.length * grid.cell + 2 * PICKER_PADDING_PX,
+  };
+}
+
 export function placePicker({
   anchor,
   count,
@@ -66,8 +74,7 @@ export function placePicker({
   viewport: { width: number; height: number };
 }): PickerPlacement {
   const grid = pickerGrid(count, viewport.width);
-  const width = (grid.rows[0] ?? 1) * grid.cell + 2 * PICKER_PADDING_PX;
-  const height = grid.rows.length * grid.cell + 2 * PICKER_PADDING_PX;
+  const { width, height } = pickerSize(grid);
 
   const left = Math.min(
     Math.max(anchor.left, VIEWPORT_MARGIN_PX),
@@ -85,4 +92,19 @@ export function placePicker({
     alignOffset: left - anchor.left,
     grid,
   };
+}
+
+// The box a placed picker takes on screen, in the anchor's coordinates: known before the picker is
+// drawn, so a gesture can be measured against it while the picker's code is on its way.
+export function pickerBox(
+  anchor: { left: number; top: number; bottom: number },
+  { side, sideOffset, alignOffset, grid }: PickerPlacement,
+) {
+  const { width, height } = pickerSize(grid);
+  const left = anchor.left + alignOffset;
+  const top =
+    side === "top"
+      ? anchor.top - sideOffset - height
+      : anchor.bottom + sideOffset;
+  return { left, top, right: left + width, bottom: top + height };
 }

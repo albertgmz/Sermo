@@ -3,6 +3,7 @@ import {
   BUBBLE_PX,
   PICKER_GAP_PX,
   type PickerPlacement,
+  pickerBox,
   pickerGrid,
   placePicker,
   REACTION_MAX_PX,
@@ -156,5 +157,29 @@ describe("pickerGrid", () => {
           width - 2 * VIEWPORT_MARGIN_PX,
         );
       }
+  });
+});
+
+describe("pickerBox", () => {
+  test("above the button: the picker's bottom is the gap over the button's top", () => {
+    const anchor = { left: 40, top: 400, bottom: 440 };
+    const placement = placePicker({ anchor, count: 6, viewport: phone });
+    expect(pickerBox(anchor, placement)).toEqual({
+      left: 40,
+      right: 40 + 3 * REACTION_MAX_PX + 8,
+      bottom: 400 - PICKER_GAP_PX,
+      top: 400 - PICKER_GAP_PX - (2 * REACTION_MAX_PX + 8),
+    });
+  });
+
+  test("below the button: the picker's top leaves the gap and the bubble's room, shifted inside the screen", () => {
+    const anchor = { left: 300, top: 20, bottom: 60 };
+    const placement = placePicker({ anchor, count: 6, viewport: phone });
+    expect(placement.side).toBe("bottom");
+    const box = pickerBox(anchor, placement);
+    expect(box.top).toBe(60 + PICKER_GAP_PX + BUBBLE_PX);
+    expect(box.left).toBe(leftEdge(placement, 300));
+    expect(box.right).toBeLessThanOrEqual(phone.width - VIEWPORT_MARGIN_PX);
+    expect(box.bottom - box.top).toBe(2 * REACTION_MAX_PX + 8);
   });
 });

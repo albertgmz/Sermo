@@ -14,6 +14,7 @@ import {
 import {
   type PickerGrid,
   type PickerPlacement,
+  pickerBox,
   placePicker,
 } from "@/components/forum/reaction-placement";
 import { useReactionGesture } from "@/components/forum/use-reaction-gesture";
@@ -97,13 +98,26 @@ export function createPickerControl<C>(
 ) {
   let asked = false;
   let failed = false;
+  let arrived = false;
   const opener = createOpener(load, {
     slot: "reaction",
-    show: () => view.arrived(loadedCode(load) as C),
+    show: () => {
+      arrived = true;
+      view.arrived(loadedCode(load) as C);
+    },
+    // A wish that ends without the picker arriving (another button's opening took its place, or
+    // the fetch failed) leaves it closed, so the next press opens it again. The code's arrival
+    // ends the wish just before handing it over: wait for that first.
+    busy: (waiting) => {
+      if (waiting) return;
+      queueMicrotask(() => {
+        if (!asked || arrived || opener.pending) return;
+        asked = false;
+        view.setOpen(false);
+      });
+    },
     fail: () => {
       failed = true;
-      asked = false;
-      view.setOpen(false);
     },
   });
   const warm = () => {
@@ -179,6 +193,8 @@ export function ReactionButton(props: {
   const picker = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const viaTrigger = useRef(false);
+  // Where the picker last asked for goes, for the gesture while it is not drawn yet.
+  const expected = useRef<PickerPlacement>(undefined);
 
   useEffect(() => () => clearTimeout(timer.current), []);
   // A button drawn away while its picker's code is on its way wants it no more.
@@ -208,7 +224,12 @@ export function ReactionButton(props: {
 
   const gesture = useReactionGesture({
     picker,
-    pickerAsked: control.asked,
+    pickerExpected: () => {
+      const rect = anchor.current?.getBoundingClientRect();
+      return control.asked() && rect && expected.current
+        ? pickerBox(rect, expected.current)
+        : undefined;
+    },
     given: current,
     open: () => {
       clearTimeout(timer.current);
@@ -262,7 +283,10 @@ export function ReactionButton(props: {
 
   function show(next: boolean) {
     const placed = next && placementNow(anchor.current, types.length);
-    if (placed) setPlacement(placed);
+    if (placed) {
+      setPlacement(placed);
+      expected.current = placed;
+    }
     control.show(next);
   }
 

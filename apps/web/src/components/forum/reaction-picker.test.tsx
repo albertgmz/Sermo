@@ -132,6 +132,23 @@ test("a code that cannot be fetched closes the picker without throwing; only the
   expect(attempts).toBe(tried + 1);
 });
 
+test("a picker whose wish another button's opening took over is closed, so its next press opens it", async () => {
+  const slow = deferred();
+  const load = () => slow.promise;
+  const first = recorder(load);
+  const second = recorder(load);
+  first.control.show(true);
+  second.control.show(true);
+  await tick();
+  expect(first.control.asked()).toBe(false);
+  expect(first.seen.open).toEqual([true, false]);
+  slow.resolve({ default: "picker" });
+  await tick();
+  expect(first.seen.arrived).toEqual([]);
+  expect(second.seen.arrived).toEqual(["picker"]);
+  expect(second.seen.open).toEqual([true]);
+});
+
 // A static import of Base UI's popover (or of the picker) in the button's file would put its code,
 // and the positioning library with it, back in the first load of every page with reactions.
 test("the button's file loads the picker only on demand", () => {
