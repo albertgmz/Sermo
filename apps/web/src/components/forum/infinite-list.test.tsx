@@ -288,6 +288,40 @@ test("a screen drawn again replaces the first pages and keeps the ones loaded be
   expect(short.pages).toHaveLength(2);
 });
 
+test("a redraw keeps the rows the list held where they were, so a reply that re-sorts the feed does not move the card", () => {
+  const held = {
+    pages: [page(["a", "b"], "c1"), page(["c", "d"], null)],
+    pageParams: [null, "c1"],
+  };
+  // The server bumped "d" to the top: it is first in the redrawn pages, which have the same sizes.
+  const merged = mergeRefreshed(
+    held,
+    [page(["d", "a"], "c1"), page(["b", "c"], null)],
+    null,
+  );
+  expect(merged.pages.map((p) => p.rows.map((r) => r.key))).toEqual([
+    ["a", "b"],
+    ["c", "d"],
+  ]);
+  expect(merged.pages.map((p) => p.nextCursor)).toEqual(["c1", null]);
+  // A row the list did not hold is a new entry: it goes in front.
+  const grown = mergeRefreshed(
+    held,
+    [page(["n", "d"], "c1"), page(["a", "b"], null)],
+    null,
+  );
+  expect(grown.pages.flatMap((p) => p.rows.map((r) => r.key))).toEqual([
+    "n",
+    "a",
+    "b",
+    "d",
+  ]);
+  // The redrawn row replaces the held one.
+  const fresh = [page(["d", "a"], "c1"), page(["b", "c"], null)];
+  const again = mergeRefreshed(held, fresh, null);
+  expect(again.pages[1].rows[1]).toBe(fresh[0].rows[0]);
+});
+
 test("the first page of a list is asked for by a null cursor, like any other", async () => {
   const loadPage = recorded(async (_cursor: string | null) =>
     page(["x"], null),

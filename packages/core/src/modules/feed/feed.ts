@@ -53,6 +53,12 @@ export const feedSql = {
   followedWall:
     "SELECT p.id, p.profile_user_id, p.user_id, p.state, p.created_at FROM json_each(?1) AS j CROSS JOIN profile_posts p WHERE p.id IN (SELECT p2.id FROM profile_posts p2 WHERE p2.user_id = j.value AND p2.id < ?2 ORDER BY p2.id DESC LIMIT ?3)",
   wallRows: "SELECT * FROM profile_posts WHERE id IN (SELECT value FROM json_each(?1))",
+  /**
+   * The visible posts of a thread older than post `?2`, newest first, by `posts_thread_position`:
+   * what `latest` shows of a thread whose newest posts are by members the viewer ignores.
+   */
+  olderPosts:
+    "SELECT id, user_id FROM posts WHERE thread_id = ?1 AND state = 'visible' AND position < (SELECT position FROM posts WHERE id = ?2) ORDER BY position DESC LIMIT 20",
   hotPosts:
     "SELECT id, thread_id, user_id, state, created_at FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
 };
@@ -210,6 +216,40 @@ function merge<PostKey, WallKey>(
 }
 
 /**
+ * Replaces `row`, a thread's newest post by an ignored member, with the newest older post the
+ * viewer does not ignore and may read; false when the thread has none.
+ */
+function showNewestUnignored(
+  ctx: Ctx,
+  actor: Actor,
+  row: PostCandidate,
+  nodeId: number,
+  gates: ReturnType<typeof readGates>,
+): boolean {
+  const older = prepared(ctx, "feed.olderPosts", () =>
+    ctx.sqlite.prepare<{ id: number; user_id: number }, [number, number]>(feedSql.olderPosts),
+  );
+  let from = row.id;
+  for (;;) {
+    const batch = older.all(row.thread_id, from);
+    const ignored = ignoredAmong(
+      ctx,
+      actor,
+      batch.map((post) => post.user_id),
+    );
+    const found = batch.find(
+      (post) => !ignored.has(post.user_id) && gates.reads(nodeId, post.user_id),
+    );
+    if (found) {
+      Object.assign(row, { id: found.id, user_id: found.user_id });
+      return true;
+    }
+    if (batch.length < 20) return false;
+    from = batch[batch.length - 1]!.id;
+  }
+}
+
+/**
  * What the viewer may see of a batch of posts, with the threads loaded on the way. `once` makes
  * the feed a list of conversations: `newest` takes only a thread's newest visible post (what the
  * walk of threads by activity hands in, one candidate per thread); `perAnswer` keeps the first
@@ -235,6 +275,8 @@ export const acceptPosts = markPublic(
     };
     return (rows: PostCandidate[]) => {
       loadThreads(ctx, rows, threads);
+      // The walk of threads keeps a thread whose newest post is by an ignored member and shows an
+      // older post instead; a thread with no post by anyone else is left out.
       const ignored = ignoredAmong(
         ctx,
         actor,
@@ -251,8 +293,11 @@ export const acceptPosts = markPublic(
           // A thread the viewer may not open, or a post whose text is closed to them, is left out.
           gates.opens(thread.node_id, thread.user_id) &&
           gates.reads(thread.node_id, row.user_id) &&
-          !ignored.has(row.user_id) &&
-          (once !== "newest" || row.id === thread.last_post_id)
+          (once === "newest"
+            ? row.id === thread.last_post_id &&
+              (!ignored.has(row.user_id) ||
+                showNewestUnignored(ctx, actor, row, thread.node_id, gates))
+            : !ignored.has(row.user_id))
         );
       });
       const passing = extra

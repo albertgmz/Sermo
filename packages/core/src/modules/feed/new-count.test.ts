@@ -102,10 +102,12 @@ describe("feed.newCount latest", () => {
     });
     expect((await count(w, w.carol, since)).count).toBe(1);
 
-    // An ignored member's activity does not count for the viewer who ignores them.
+    // A thread an ignored member started does not count; one they only replied to still does.
     await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
-    expect((await count(w, w.carol, since)).count).toBe(0);
-    expect((await count(w, w.alice, since)).count).toBe(1);
+    expect((await count(w, w.carol, since)).count).toBe(1);
+    await w.thread(w.bob, w.open.id, "Bobs");
+    expect((await count(w, w.carol, since)).count).toBe(1);
+    expect((await count(w, w.alice, since)).count).toBe(2);
   });
 
   test("a wall the viewer may not open does not count", async () => {

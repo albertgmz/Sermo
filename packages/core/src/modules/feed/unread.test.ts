@@ -92,14 +92,14 @@ describe("feed.list unread", () => {
     expect(await unreadOf(w, w.carol, "Old")).toBeNull();
   });
 
-  test("posts of an ignored member count where the thread shows them, but a thread they ended is not listed", async () => {
+  test("posts of an ignored member count where the thread shows them, and a thread they ended is listed by an older post", async () => {
     const w = world();
     const mixed = await busy(w, "Mixed", 2);
     await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
     // The opening post is bob's, the replies alice's: the thread is listed and all three count.
     expect((await unreadOf(w, w.carol, "Mixed"))?.count).toBe(3);
     await w.reply(w.bob, mixed, "bob last");
-    expect((await items(w, w.carol)).some((item) => item.thread?.title === "Mixed")).toBe(false);
+    expect((await items(w, w.carol)).some((item) => item.thread?.title === "Mixed")).toBe(true);
   });
 
   test("a forum open for titles only gives no count and no position to anyone who may not read it", async () => {

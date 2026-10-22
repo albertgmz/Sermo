@@ -317,15 +317,28 @@ describe("feed.list latest", () => {
     expect(after.items[0].thread.id).toBe(older.thread.id);
   });
 
-  test("a thread whose newest post is by an ignored member is left out", async () => {
+  test("a thread whose newest post is by an ignored member stays, showing the newest post of anyone else", async () => {
     const w = world();
     const t = await w.thread(w.alice, w.open.id, "Alices");
+    await w.reply(w.carol, t.thread.id, "carol middle");
     await w.reply(w.bob, t.thread.id, "bob last");
+    await w.reply(w.bob, t.thread.id, "bob again");
+    const other = await w.thread(w.alice, w.open.id, "Other");
     await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
-    expect((await w.call("feed.list", w.carol, {})).items).toEqual([]);
-    expect((await w.call("feed.list", w.alice, {})).items.map(describeItem)).toEqual([
-      "post:bob last",
-    ]);
+    const items = (await w.call("feed.list", w.carol, {})).items;
+    expect(items.map(describeItem)).toEqual(["thread:Other body", "post:carol middle"]);
+    expect(items[0].thread.id).toBe(other.thread.id);
+    expect(items[1].thread.id).toBe(t.thread.id);
+    // Nothing older by anyone else but the starter: the thread shows its first post.
+    const lone = await w.thread(w.alice, w.open.id, "Lone");
+    await w.reply(w.bob, lone.thread.id, "bob alone");
+    expect((await w.call("feed.list", w.carol, {})).items.map(describeItem)[0]).toBe(
+      "thread:Lone body",
+    );
+    expect((await w.call("feed.list", w.alice, {})).items.map(describeItem)[0]).toBe(
+      "post:bob alone",
+    );
+    expectNoTableScan(w.ctx, feedSql.olderPosts, [t.thread.id, 3]);
   });
 
   test("a page can be short while nextCursor is set: what the viewer cannot see is skipped in bounded batches", async () => {

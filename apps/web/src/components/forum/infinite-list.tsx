@@ -77,14 +77,33 @@ function pageParamsOf(start: string | null, pages: ListPage[]) {
 
 // The list after the server drew its screen again (a reply was written, a reaction counted): the
 // pages drawn again replace the first ones, and the pages the visitor had loaded beyond them stay,
-// so the list does not shrink under them. Rows that came twice are shown once.
+// so the list does not shrink under them. Rows that came twice are shown once. A row the list
+// already held keeps its place, drawn again: a reply re-sorts the feed and the thread would
+// otherwise jump to the top from under the visitor. Rows new to the list go in front.
 export function mergeRefreshed(
   held: InfiniteData<ListPage, unknown>,
   fresh: ListPage[],
   start: string | null,
 ): InfiniteData<ListPage, unknown> {
+  const place = new Map<string, number>();
+  for (const page of held.pages)
+    for (const row of page.rows)
+      if (!place.has(row.key)) place.set(row.key, place.size);
+  const redrawn = fresh.flatMap((page) => page.rows);
+  const rows = [
+    ...redrawn.filter((row) => !place.has(row.key)),
+    ...redrawn
+      .filter((row) => place.has(row.key))
+      .sort((a, b) => place.get(a.key)! - place.get(b.key)!),
+  ];
+  let taken = 0;
+  const pages = fresh.map((page) => {
+    const chunk = rows.slice(taken, taken + page.rows.length);
+    taken += page.rows.length;
+    return { ...page, rows: chunk };
+  });
   return {
-    pages: [...fresh, ...held.pages.slice(fresh.length)],
+    pages: [...pages, ...held.pages.slice(fresh.length)],
     pageParams: [
       ...pageParamsOf(start, fresh),
       ...held.pageParams.slice(fresh.length),
