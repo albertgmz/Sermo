@@ -58,7 +58,7 @@ test("the root layout reads the nonce and is allowed to block on it", () => {
   const layout = read("src/app/[locale]/layout.tsx");
   expect(layout).toMatch(/^export const instant = false;$/m);
   expect(layout).toMatch(/\bscriptNonce\(\)/);
-  expect(layout.match(/<script\s+nonce=\{nonce\}/g)).toHaveLength(2);
+  expect(layout.match(/<script\s+nonce=\{nonce\}/g)).toHaveLength(3);
   // The document's nonce is taken while the page first loads (src/lib/document-nonce.ts).
   expect(layout).toContain("<DocumentNonceKeeper />");
 });
