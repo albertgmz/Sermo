@@ -5832,3 +5832,18 @@ Why: backlog A9; awards granted before the 1-post-and-1-reaction rule (and under
 held by members who no longer meet them.
 Known limits: awards with volatile rules (inactive days, credits at least, windowed measures) churn
 across runs; a failed revoking run can only be resumed; there is no stop button.
+
+### Test runs no longer fill the machine's memory
+
+- Each test file's databases are closed when the file ends (`afterAll`, registered by the test
+  helpers; `closeTestDatabases`), and a test database keeps a 2 MB page cache instead of the 64 MB
+  of a served connection (the copy is a 1.5 MB database already in memory).
+- `bun run test` runs four workers (`--parallel=4`) instead of one per core.
+
+Why: after A10 every copy stayed open with a 64 MB cache and the suite ran sixteen workers that each
+grew past 1.5 GB, so one `bun run test` could take 25-30 GB; with agents testing beside it the
+machine ran out of memory and the terminal was killed. Measured after the fix: the whole backend
+suite peaks at 3.2 GB (4,994 tests, about 60 s) and a full `check:fast` at about 8 GB for the
+machine.
+Known limits: a plain serial `bun test` over many files loads the helpers once, so only the first
+file's databases are closed at its end (serial runs are small targeted runs).
