@@ -6182,3 +6182,12 @@ the live poll shows Reply even where the viewer cannot reply, until the page rel
 Why: backlog B4 and the widget findings 3.7.
 Known limits: a widget whose stored options no longer parse shows its type's defaults on the edit
 page without a warning (needs an `optionsReadable` field on the widget detail).
+
+### A message's footer sits at the bottom of its cell
+
+- In a post or conversation message drawn with the user column beside it, the content cell is a
+  column and its footer (reactions and the action bar) is pushed to the bottom, level with the
+  bottom of the user column, as XenForo's message footer. Long posts and phones are unchanged.
+
+Why: the owner saw a short conversation message with its buttons right under the text and a large
+empty space below.
