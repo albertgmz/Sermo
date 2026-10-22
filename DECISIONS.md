@@ -6444,3 +6444,21 @@ limit: imported posts carry no widths (the importer dropped them).
   box keeps its label. Focus shows through the caret, the fill change and the bar, with no ring.
 
 Why: the owner asked for the same editor as their XenForo, at its default sizes, without its icons.
+
+### Administrators can send a private message or an alert to many members
+
+- `/admin/broadcasts/message` and `/admin/broadcasts/alert` (`admin.announcements`): an audience of
+  every member, some groups or a rule with at least one condition (the criteria engine); banned,
+  erased, unconfirmed and awaiting-approval accounts are never written to, and a member who may
+  not receive conversations is skipped. A message is one conversation per member (sent as the
+  admin or as a member they have authority over; optionally locked and removed from the sender's
+  list; no attachments). An alert is an `admin.alert` notification with text and an optional
+  http(s) or site link, following each member's preferences (pushed by default).
+- Test sends go to the admin or one chosen member only. A count runs the real chunks and rolls
+  them back. A real send needs the password and sends exactly the count the admin confirmed
+  (`countedAt`); resume, discard and stop name the run the page showed (`runAt`, `kind`), all
+  checked inside the write transaction. A background job in chunks (50 messages / 200 alerts) with
+  checkpoint holds, WAL pacing, one run at a time and a moderator log.
+
+Why: the owner asked for global private messages and alerts with a test mode. XenForo's admin
+conversations ignore ignore-lists; so do these.
