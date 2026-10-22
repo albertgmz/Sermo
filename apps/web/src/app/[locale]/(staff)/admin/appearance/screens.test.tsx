@@ -57,7 +57,7 @@ function backend() {
     const path = new URL(input).pathname;
     if (path === "/api/v1/appearance/colors")
       return Response.json({
-        items: [colour(5, "Teal"), colour(6, "Rose", false)],
+        items: [colour(5, "Teal"), colour(6, "Rose", false), colour(7, "SKY")],
       });
     if (path === "/api/v1/appearance/images")
       return Response.json({ items: [cover(3, "Dunes"), cover(4, "Fjord")] });
@@ -70,6 +70,15 @@ async function draw(element: Promise<React.ReactNode> | React.ReactNode) {
   await stream.allReady;
   return new Response(stream).text();
 }
+
+test("an accent the install ships is listed by the name the message files give it", async () => {
+  backend();
+  const html = await draw(
+    PaletteList({ kind: "accent", searchParams: Promise.resolve({}) }),
+  );
+  expect(html).toContain(">Sky<");
+  expect(html).not.toContain(">SKY<");
+});
 
 test("a colour row links to its page, says whether it is active and keeps its delete", async () => {
   backend();

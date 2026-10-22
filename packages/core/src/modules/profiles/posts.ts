@@ -32,6 +32,7 @@ import {
   requirePermission,
 } from "../../permissions";
 import { storeContentReferences, storeSpoilers } from "../../render";
+import { builtinGroupText, viewerLanguage } from "../../shared/language";
 import { iso, isoOrNull } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { renameStanding } from "../auth/rename-limit";
@@ -79,6 +80,7 @@ type ProfileRow = PrincipalRow & {
   username: string;
   group_id: number;
   group_title: string;
+  group_builtin: string | null;
   about: string;
   avatar_file_id: number | null;
   custom_title: string | null;
@@ -111,7 +113,7 @@ function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
     }
   );
 }
-export const PROFILE_SQL = `SELECT u.id, u.username, u.group_id, g.title AS group_title, u.about, u.avatar_file_id, u.custom_title, u.signature_source, u.location, u.website, u.birthday_md, u.birth_year, u.social_discord, u.social_telegram, u.social_x, u.follower_count, u.following_count, u.credits, u.referral_count, u.last_activity_at, u.show_online, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`;
+export const PROFILE_SQL = `SELECT u.id, u.username, u.group_id, g.title AS group_title, g.builtin AS group_builtin, u.about, u.avatar_file_id, u.custom_title, u.signature_source, u.location, u.website, u.birthday_md, u.birth_year, u.social_discord, u.social_telegram, u.social_x, u.follower_count, u.following_count, u.credits, u.referral_count, u.last_activity_at, u.show_online, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`;
 const MINUTE_MS = 60_000;
 function readProfileRow(ctx: Ctx, userId: number): ProfileRow {
   const row = prepared(ctx, "profiles.profile", () =>
@@ -142,7 +144,12 @@ function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileA
   return {
     id: row.id,
     username: row.username,
-    groupTitle: row.group_title,
+    groupTitle: builtinGroupText(
+      viewerLanguage(ctx, actor),
+      row.group_builtin,
+      "title",
+      row.group_title,
+    ),
     displayGroup: displayGroupOf(ctx, actor, row),
     createdAt: author.createdAt,
     about: row.about,

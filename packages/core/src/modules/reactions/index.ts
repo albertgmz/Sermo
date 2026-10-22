@@ -27,7 +27,7 @@ import {
   type Rule,
 } from "../../shared/criteria";
 import { lockHint } from "../../shared/criteria/hint";
-import { viewerLanguage } from "../../shared/language";
+import { defaultText, viewerLanguage } from "../../shared/language";
 import { parseReactionCounts, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
@@ -154,6 +154,10 @@ function forViewer(ctx: Ctx, actor: Actor, types: readonly Listed[], asked?: Lan
     if (locked) language ??= viewerLanguage(ctx, actor);
     return {
       ...value,
+      // The answer for a client that says its language; the administration's own lists keep the stored name.
+      title: asked
+        ? defaultText(asked, `reaction.default.${value.title}`, value.title)
+        : value.title,
       rule: administrator ? rule : null,
       access: open ? ("open" as const) : locked ? ("locked" as const) : ("hidden" as const),
       lockHint: locked ? lockHint(language!, rule) : null,

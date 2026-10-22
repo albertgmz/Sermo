@@ -23,7 +23,7 @@ import {
   memberStanding,
   requirePermission,
 } from "../../permissions";
-import { viewerLanguage } from "../../shared/language";
+import { builtinGroupText, viewerLanguage } from "../../shared/language";
 import { confirmActorPassword } from "../admin/shared";
 import { appendModeratorLog } from "./index";
 import { cleanupJob } from "./warning-actions";
@@ -46,6 +46,7 @@ type ActionRow = {
   days: number | null;
   group_id: number | null;
   group_title: string | null;
+  group_builtin?: string | null;
   restriction_kind: RestrictionKind | null;
 };
 
@@ -70,14 +71,17 @@ function typeValue(row: TypeRow, language: Language) {
   };
 }
 
-function actionValue(row: ActionRow) {
+function actionValue(row: ActionRow, language: Language) {
   return {
     id: row.id,
     threshold: row.threshold,
     kind: row.kind,
     days: row.days,
     groupId: row.group_id,
-    groupTitle: row.group_title,
+    groupTitle:
+      row.group_title === null
+        ? null
+        : builtinGroupText(language, row.group_builtin ?? null, "title", row.group_title),
     restrictionKind: row.restriction_kind,
   };
 }
@@ -218,11 +222,12 @@ export const warningTypesDeleteOp = implement(warningTypesDelete, (ctx, actor, i
 });
 
 const actionColumns =
-  "a.id, a.threshold, a.kind, a.days, a.group_id, g.title AS group_title, a.restriction_kind";
+  "a.id, a.threshold, a.kind, a.days, a.group_id, g.title AS group_title, g.builtin AS group_builtin, a.restriction_kind";
 const actionFrom = "warning_actions a LEFT JOIN groups g ON g.id = a.group_id";
 
 export const warningActionsListOp = implement(warningActionsList, (ctx, actor) => {
   requirePermission(ctx, actor, "admin.settings");
+  const language = viewerLanguage(ctx, actor);
   return {
     items: statement<ActionRow>(
       ctx,
@@ -230,7 +235,7 @@ export const warningActionsListOp = implement(warningActionsList, (ctx, actor) =
       `SELECT ${actionColumns} FROM ${actionFrom} WHERE a.deleted_at IS NULL ORDER BY a.threshold, a.id`,
     )
       .all()
-      .map(actionValue),
+      .map((row) => actionValue(row, language)),
   };
 });
 
@@ -339,7 +344,7 @@ export const warningActionsCreateOp = implement(warningActionsCreate, async (ctx
       threshold: input.threshold,
       kind: input.kind,
     });
-    return actionValue(readAction(ctx, id));
+    return actionValue(readAction(ctx, id), viewerLanguage(ctx, actor));
   });
 });
 
@@ -370,7 +375,7 @@ export const warningActionsUpdateOp = implement(warningActionsUpdate, async (ctx
       threshold: input.threshold,
       kind: input.kind,
     });
-    return actionValue(readAction(ctx, input.actionId));
+    return actionValue(readAction(ctx, input.actionId), viewerLanguage(ctx, actor));
   });
 });
 

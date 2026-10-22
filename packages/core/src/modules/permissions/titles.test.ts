@@ -54,6 +54,23 @@ describe("titles a client can show", () => {
     expect(untranslated).toEqual([]);
   });
 
+  test("no permission text is a placeholder made from its id", () => {
+    for (const [language, phrases] of [
+      ["en", en],
+      ["es", es],
+    ] as const) {
+      const held = phrases as Record<string, string>;
+      for (const id of PERMISSION_IDS) {
+        const label = held[`permission.${id}`]!;
+        const description = held[`permission.${id}.description`]!;
+        expect(label.toLowerCase(), `${language} ${id}`).not.toBe(readableTitle(id).toLowerCase());
+        expect(description, `${language} ${id}`).not.toBe(`Allows ${label}.`);
+        expect(description.toLowerCase(), `${language} ${id}`).not.toBe(`${label.toLowerCase()}.`);
+        expect(description, `${language} ${id}`).not.toMatch(/^Allows [a-z ]+\.$/);
+      }
+    }
+  });
+
   test("every criterion has a title, in both operations that list them", async () => {
     const w = world();
     for (const name of ["promotions.criteria", "awards.criteria"]) {
@@ -81,6 +98,21 @@ describe("titles a client can show", () => {
     expect(criteriaEs.items.find((item) => item.id === "post_count")!.title).toBe(
       "Número de publicaciones",
     );
+  });
+
+  test("the rule builder names the built-in groups in the viewer's language", async () => {
+    const w = world();
+    const groups = async () =>
+      (
+        (await execute(w.ctx, getOperation("criteria.list"), w.admin, {})) as {
+          groups: { title: string }[];
+        }
+      ).groups.map((group) => group.title);
+    expect(await groups()).toContain("Administrator");
+    w.ctx.sqlite.prepare("UPDATE users SET language = 'es' WHERE id = ?1").run(w.adminId);
+    expect(await groups()).toContain("Administrador");
+    w.ctx.sqlite.prepare("UPDATE groups SET title = 'Founders' WHERE builtin = 'admin'").run();
+    expect(await groups()).toContain("Founders");
   });
 
   test("a key without a phrase gets a readable title made from the id, never an empty one", () => {

@@ -1,6 +1,6 @@
 import { type Actor, actorUserId } from "../actor";
 import { type Ctx, prepared } from "../context";
-import { type Language, languageFor, phraseOr } from "../i18n";
+import { type Language, languageFor, phrase, phraseOr } from "../i18n";
 import { readSiteSettings } from "../modules/settings";
 import { markPublic } from "../operation";
 
@@ -54,4 +54,22 @@ export function withTitles<T extends { id: string; label: string; description: s
     title: titleFor(language, item.label, item.id),
     help: helpFor(language, item.description),
   }));
+}
+
+/**
+ * Text the migrations wrote in English (a built-in group's name, a default reaction's name) in the
+ * reader's language while it is still that text; anything an administrator changed stays as stored.
+ */
+export function defaultText(language: Language, key: string, stored: string): string {
+  const english = phraseOr("en", key, "");
+  return english !== "" && stored === english ? phrase(language, key) : stored;
+}
+
+export function builtinGroupText(
+  language: Language,
+  builtin: string | null,
+  field: "title" | "userTitle",
+  stored: string,
+): string {
+  return builtin === null ? stored : defaultText(language, `group.${builtin}.${field}`, stored);
 }

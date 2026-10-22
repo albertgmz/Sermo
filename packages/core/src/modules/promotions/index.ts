@@ -34,7 +34,7 @@ import {
   type Rule,
   evaluate as ruleHolds,
 } from "../../shared/criteria";
-import { viewerLanguage, withTitles } from "../../shared/language";
+import { builtinGroupText, viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
 import { confirmActorPassword } from "../admin/shared";
@@ -442,13 +442,19 @@ export const operations = [
   implement(criteriaList, (ctx, actor) =>
     readWithCurrentActor(ctx, actor, (current) => {
       requireRuleEditor(ctx, current);
+      const language = viewerLanguage(ctx, current);
       return {
-        items: withTitles(viewerLanguage(ctx, current), criterionDefinitions),
+        items: withTitles(language, criterionDefinitions),
         groups: prepared(ctx, "promotions.ruleGroups", () =>
-          ctx.sqlite.prepare<{ id: number; title: string }, []>(
-            "SELECT id, title FROM groups ORDER BY rank DESC, id",
+          ctx.sqlite.prepare<{ id: number; title: string; builtin: string | null }, []>(
+            "SELECT id, title, builtin FROM groups ORDER BY rank DESC, id",
           ),
-        ).all(),
+        )
+          .all()
+          .map((group) => ({
+            id: group.id,
+            title: builtinGroupText(language, group.builtin, "title", group.title),
+          })),
         // An inactive award is hidden from everyone but those who manage awards.
         awards: prepared(ctx, "promotions.ruleAwards", () =>
           ctx.sqlite.prepare<{ id: number; title: string }, [number]>(

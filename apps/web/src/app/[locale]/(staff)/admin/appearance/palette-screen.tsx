@@ -11,6 +11,7 @@ import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { isHexColor } from "@/lib/css-color";
+import { paletteName } from "@/lib/palette-name";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { cn } from "@/lib/utils";
@@ -123,6 +124,13 @@ async function ColourForm({
   );
 }
 
+// The palettes whose shipped names `lib.appearance` holds in each language.
+const NAMED_GROUPS: Partial<Record<PaletteKindName, "accents" | "nameColors">> =
+  {
+    accent: "accents",
+    name: "nameColors",
+  };
+
 // One colour palette: its entries as rows with the active switch, the edit link and the delete.
 export async function PaletteList({
   kind,
@@ -131,11 +139,17 @@ export async function PaletteList({
   kind: PaletteKindName;
   searchParams: Promise<{ notice?: string | string[] }>;
 }) {
-  const [t, { items }] = await Promise.all([
+  const [t, names, { items }] = await Promise.all([
     getTranslations("adminAppearance.palette"),
+    getTranslations("lib.appearance"),
     readPalette(kind),
   ]);
   const { key, path } = PALETTE_KINDS[kind];
+  // The colours the install ships are named in the visitor's language; the edit form keeps the
+  // stored name.
+  const group = NAMED_GROUPS[kind];
+  const nameOf = (colour: Colour) =>
+    group ? paletteName(names, group, colour.name) : colour.name;
   return (
     <>
       <Notice
@@ -150,9 +164,9 @@ export async function PaletteList({
         items={items.map((colour) => ({
           id: colour.id,
           icon: <Swatch colour={colour} />,
-          title: colour.name,
+          title: nameOf(colour),
           href: `${path}/${colour.id}`,
-          search: `${colour.name} ${colour.color}`,
+          search: `${nameOf(colour)} ${colour.name} ${colour.color}`,
           description: (
             <>
               <code>{colour.color}</code>
@@ -168,7 +182,7 @@ export async function PaletteList({
             <>
               <RowLink
                 href={`${path}/${colour.id}`}
-                label={t("editLabel", { name: colour.name })}
+                label={t("editLabel", { name: nameOf(colour) })}
               />
               <ConfirmStep
                 action={deleteColour}

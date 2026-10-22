@@ -79,6 +79,16 @@ describe("users.cards", () => {
     expect(card.level).toBe(3);
   });
 
+  test("a built-in group's title and badge follow the site's language, a renamed one does not", async () => {
+    const w = world();
+    await w.call("settings.update", w.adminActor, { defaultLanguage: "es" });
+    const spanish = await one(w, w.moderator.id);
+    expect(spanish.badges.map((badge) => badge.label)).toEqual(["Moderador"]);
+    expect(await one(w, w.member.id)).toMatchObject({ title: "Miembro" });
+    w.ctx.sqlite.prepare("UPDATE groups SET title = 'Wardens' WHERE builtin = 'moderator'").run();
+    expect((await one(w, w.moderator.id)).badges.map((badge) => badge.label)).toEqual(["Wardens"]);
+  });
+
   test("an avatar without a small rendition falls back to the main url", async () => {
     const w = world();
     const avatar = w.file(w.member.id, "avatar");

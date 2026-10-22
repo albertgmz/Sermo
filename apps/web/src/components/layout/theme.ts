@@ -12,7 +12,7 @@ import { THEME_COLORS } from "@/lib/pwa";
 export const THEMES = ["system", "light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
 
-const THEME_KEY = "sermo-theme";
+export const THEME_KEY = "sermo-theme";
 const CHOICE_ATTRIBUTE = "data-theme-choice";
 const THEME_EVENT = "sermo-theme";
 

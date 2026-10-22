@@ -8,6 +8,8 @@ export * as schema from "./db/schema";
 export { type Tx, writeTx } from "./db/tx";
 export * from "./errors";
 export * from "./events";
+export { languageFor } from "./i18n";
+export { translateRefusal } from "./i18n/refusals";
 export type { MailConfig, Mailer, MailMessage, SendResult } from "./mail";
 export { CaptureMailer, isLoopbackHost, smtpMailer } from "./mail";
 export {
@@ -18,6 +20,7 @@ export {
   revokeUserCredentials,
   type SermoAuth,
 } from "./modules/auth";
+export { requestLanguage } from "./modules/auth/request-language";
 export { registerAwardJobs } from "./modules/awards";
 export {
   rebuildAdministrator,

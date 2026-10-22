@@ -9,12 +9,14 @@ import {
   forumMarkdown,
   GUEST,
   getAuth,
+  languageFor,
   llmsFullTxt,
   llmsTxt,
   type MarkdownPage,
   proxyLocation,
   readSiteSettings,
   refuseBeforeValidating,
+  requestLanguage,
   resolveActor,
   robotsTxt,
   SermoError,
@@ -24,6 +26,7 @@ import {
   sitemapIndex,
   sitemapShard,
   threadMarkdown,
+  translateRefusal,
   UnauthenticatedError,
   ValidationError,
 } from "@sermo/core";
@@ -164,6 +167,33 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   app.use("/api/*", async (c, next) => {
     await next();
     if (!c.res.headers.has("cache-control")) c.header("cache-control", "private, no-store");
+  });
+  // A refusal is written in English by the service; a client that reads Spanish (its language
+  // cookie or Accept-Language, else the site's language) gets the Spanish text of it.
+  app.use("/api/*", async (c, next) => {
+    await next();
+    if (c.res.status < 400 || !c.res.headers.get("content-type")?.includes("application/json"))
+      return;
+    const language = languageFor(
+      requestLanguage(c.req.raw.headers),
+      readSiteSettings(ctx).defaultLanguage,
+    );
+    if (language === "en") return;
+    const body = (await c.res
+      .clone()
+      .json()
+      .catch(() => null)) as {
+      error?: { message?: string; issues?: { message?: string }[] };
+    } | null;
+    const error = body?.error;
+    if (typeof error?.message !== "string") return;
+    error.message = translateRefusal(language, error.message);
+    for (const issue of error.issues ?? [])
+      if (typeof issue.message === "string")
+        issue.message = translateRefusal(language, issue.message);
+    const headers = new Headers(c.res.headers);
+    headers.delete("content-length");
+    c.res = new Response(JSON.stringify(body), { status: c.res.status, headers });
   });
   app.use("*", async (c, next) => {
     let ip: string | undefined;

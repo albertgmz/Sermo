@@ -198,6 +198,19 @@ describe("reactions", () => {
       ).title,
     ).toBe("Updated");
   });
+  test("a client that names its language gets the default reactions' names in it", async () => {
+    const f = fixture();
+    const titles = async (input: { language?: "en" | "es" }) =>
+      (await execute(f.ctx, reactionTypesListOp, GUEST, input)).items.map((type) => type.title);
+    expect((await titles({ language: "es" })).slice(0, 2)).toEqual(["Me gusta", "Me encanta"]);
+    expect((await titles({ language: "en" })).slice(0, 2)).toEqual(["Like", "Love"]);
+    expect((await titles({})).slice(0, 2)).toEqual(["Like", "Love"]);
+    await execute(f.ctx, reactionTypesUpdateOp, userActor(f.admin), {
+      reactionTypeId: 1,
+      title: "Thumbs up",
+    });
+    expect((await titles({ language: "es" }))[0]).toBe("Thumbs up");
+  });
   test("registers all contracts and manages ordered cached types", async () => {
     const f = fixture();
     expect(operations.map((op) => op.name).sort()).toEqual(

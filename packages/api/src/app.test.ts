@@ -247,6 +247,24 @@ test("errors, coercion, health, and security headers", async () => {
   expect((await request("/mcp")).headers.get("x-content-type-options")).toBe("nosniff");
 });
 
+test("a refusal reaches a Spanish reader in Spanish, by cookie or Accept-Language", async () => {
+  const { request } = setup();
+  const missing = async (headers: Record<string, string>) =>
+    (
+      (await (await request("/api/v1/nodes/999", { headers })).json()) as {
+        error: { message: string };
+      }
+    ).error.message;
+  expect(await missing({})).toBe("The requested item could not be found.");
+  expect(await missing({ cookie: "forum_locale=es" })).toBe("No se encontró lo que pides.");
+  expect(await missing({ "accept-language": "es-CU,es;q=0.9" })).toBe(
+    "No se encontró lo que pides.",
+  );
+  expect(await missing({ cookie: "forum_locale=en", "accept-language": "es" })).toBe(
+    "The requested item could not be found.",
+  );
+});
+
 test("database failure returns a generic 500 and unhealthy status", async () => {
   const { request, ctx } = setup();
   contexts.pop();

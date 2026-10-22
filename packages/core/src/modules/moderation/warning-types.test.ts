@@ -6,7 +6,7 @@ import {
   tokenActor,
   userActor,
 } from "@sermo/core/testing";
-import { type Actor, GUEST } from "../../actor";
+import { type Actor, actorUserId, GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { RESTRICTION_PERMANENT } from "../../db/schema";
 import { writeTx } from "../../db/tx";
@@ -334,6 +334,20 @@ describe("warning actions", () => {
     expect(await w.createAction({ kind: "group", groupId: fine })).toMatchObject({
       groupTitle: "Probation",
     });
+  });
+
+  test("an action names a built-in group in the viewer's language", async () => {
+    const w = world();
+    expect(await w.createAction({ kind: "group", groupId: 2 })).toMatchObject({
+      groupTitle: "Member",
+    });
+    w.ctx.sqlite
+      .prepare("UPDATE users SET language = 'es' WHERE id = ?1")
+      .run(actorUserId(w.admin));
+    const { items } = (await execute(w.ctx, op("warningActions.list"), w.admin, {})) as {
+      items: Action[];
+    };
+    expect(items.map((item) => item.groupTitle)).toEqual(["Miembro"]);
   });
 
   test("a group used by an action cannot be deleted or made to decide administration", async () => {

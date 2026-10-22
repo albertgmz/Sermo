@@ -2,6 +2,7 @@ import type * as z from "zod";
 import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import type { MemberAuthor, MemberCard } from "../../contracts/members";
+import { languageFor } from "../../i18n";
 import {
   can,
   memberActor,
@@ -11,6 +12,7 @@ import {
   permissionValue,
   requestVersions,
 } from "../../permissions";
+import { builtinGroupText } from "../../shared/language";
 import { levelFor, levelTitle } from "../../shared/levels";
 import { iso } from "../../time";
 import { catalogs } from "../appearance/store";
@@ -30,7 +32,7 @@ export const MEMBER_ROWS_SQL =
   "FROM users u LEFT JOIN permission_combinations c ON c.id = u.permission_combination_id " +
   "WHERE u.id IN (SELECT value FROM json_each(?1))";
 export const MEMBER_GROUPS_SQL =
-  "SELECT id, title, rank, user_title, badge, name_color_id FROM groups WHERE id IN (SELECT value FROM json_each(?1))";
+  "SELECT id, title, rank, user_title, badge, builtin, name_color_id FROM groups WHERE id IN (SELECT value FROM json_each(?1))";
 export const AVATAR_VARIANTS_SQL =
   "SELECT parent_file_id, id FROM files WHERE variant = 'square_128' AND deleted_at IS NULL AND parent_file_id IN (SELECT value FROM json_each(?1))";
 export const NAME_ICON_ITEMS_SQL =
@@ -61,6 +63,7 @@ interface GroupRow {
   rank: number;
   user_title: string;
   badge: string;
+  builtin: string | null;
   name_color_id: number | null;
 }
 interface HeldAward {
@@ -112,7 +115,8 @@ interface LoadedMembers {
  * The cards of a page of members in a fixed number of queries: the site settings, the member
  * rows (with their group combination), their groups, their avatars' small renditions and the
  * catalog cache's version. `viewer` only supplies the cache versions the members' own
- * permissions are resolved with; nothing here depends on who is looking.
+ * permissions are resolved with; nothing here depends on who is looking. The built-in groups'
+ * names are written in the site's default language for that reason.
  */
 function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMembers {
   const unique = [...new Set(ids)];
@@ -178,6 +182,7 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
       smallAvatar.set(variant.parent_file_id, variant.id);
 
   const versions = requestVersions(ctx, viewer);
+  const language = languageFor(null, settings.defaultLanguage);
   const colorHex = (id: number | null) =>
     id === null ? null : (catalog.colorById.get(id)?.color ?? null);
   for (const row of rows.values()) {
@@ -188,7 +193,9 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
       .sort((a, b) => b.rank - a.rank || a.id - b.id);
     const level = levelFor(row.award_xp, settings.levelStep).level;
     const custom = row.custom_title?.trim() ?? "";
-    const groupTitle = held[0]?.user_title ?? "";
+    const groupTitle = held[0]
+      ? builtinGroupText(language, held[0].builtin, "userTitle", held[0].user_title)
+      : "";
     const mayTitle = can(ctx, member, "profile.customTitle");
     const title =
       custom !== "" && mayTitle
@@ -232,7 +239,7 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
       badges: held
         .filter((group) => group.badge !== "")
         .map((group) => ({
-          label: group.title,
+          label: builtinGroupText(language, group.builtin, "title", group.title),
           color: colorHex(group.name_color_id),
           style: group.badge,
         })),
