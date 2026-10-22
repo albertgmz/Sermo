@@ -6273,3 +6273,20 @@ threads, a reply by someone else in one of them does not mark the forum unread.
 
 Why: handover B9; run by the owner on the production site. Known limit: the statistics panel also
 leads /novedades, since `overview_top` is the only full-width position.
+
+### Permissions, built-in groups and backend refusals speak Spanish too
+
+- Every permission has a real label and description in English and Spanish (a test refuses
+  "Allows X." placeholders). Built-in groups still holding their original English names are shown
+  in the reader's language (member cards and the staff list use the site's default language);
+  renamed groups keep their stored name. The six default reactions are named in the reader's
+  language. Bans read "expulsar"/"expulsión", as the web does.
+- Backend refusals are translated: an `/api` answer with status 400 or above (except 500) has its
+  message and issue messages replaced from `refusals.es.json` for a Spanish reader (`forum_locale`
+  cookie, else `Accept-Language` by q-weight, else the site default). A source scan fails when a
+  thrown message, issue `message:` or contract Zod message has no Spanish text. This supersedes
+  the earlier note that backend refusal text is untranslated everywhere.
+- `global-error` follows the language and theme cookies.
+
+Why: handover E6. Not translated: the staff styleguide (/ui), Better Auth's own sign-up refusals,
+MCP tool errors.
