@@ -31,6 +31,7 @@ const FORMS = {
   standing: ["settings/levels/levels-form.tsx", "settings/actions.ts"],
   homeTab: ["settings/home/home-form.tsx", "settings/actions.ts"],
   memberBatch: ["users/batch/batch-screen.tsx", "users/batch/actions.ts"],
+  broadcast: ["broadcasts/broadcast-screen.tsx", "broadcasts/actions.ts"],
 } as const;
 
 test("there is a form for every place a rule is edited", () => {
