@@ -35,24 +35,62 @@ function unsupportedMediaType(): HTTPException {
   });
 }
 
+/**
+ * A readable as a web stream that is read only when asked for. `Readable.toWeb` pushes on its own
+ * and, when the reader cancels while data is still coming (a refusal that arrives mid-file),
+ * enqueues into the closed stream and throws.
+ */
+function toWebStream(source: Readable): ReadableStream<Uint8Array> {
+  // An error is handed to the reader by the next read; it is not also an unhandled event.
+  source.on("error", () => {});
+  const chunks = source[Symbol.asyncIterator]();
+  let ended = false;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const next = await chunks.next();
+        if (ended) return;
+        if (next.done) {
+          ended = true;
+          controller.close();
+        } else controller.enqueue(next.value as Uint8Array);
+      } catch (error) {
+        if (ended) return;
+        ended = true;
+        controller.error(error);
+      }
+    },
+    cancel() {
+      ended = true;
+      source.destroy();
+    },
+  });
+}
+
 /** What is read of a refused upload's body before the connection is given up on. */
 export interface DrainLimits {
-  /** The most bytes read and dropped. */
+  /**
+   * The most bytes read and dropped. Without it: after a size refusal, the site's upload limit
+   * (the largest body any member may send) and `DRAIN_MARGIN_BYTES`; after any other refusal
+   * (permission, type, purpose), `DRAIN_BYTES`.
+   */
   bytes?: number;
   /** The longest the reading may take, however slowly the body comes. */
   ms?: number;
 }
 export const DRAIN_BYTES = 1024 * 1024;
+export const DRAIN_MARGIN_BYTES = 4 * 1024 * 1024;
 export const DRAIN_MS = 30_000;
 
 /**
  * Reads what is left of a request body and drops it, up to `limits`. A browser that is still
  * sending when the answer arrives sees the connection reset, not the answer, so a refusal that
  * comes while a body of ordinary size is arriving (a size limit just over, a rejected part) is sent
- * once that body is in. A body that is larger than the cap, or has not ended in time, is cut off:
+ * once that body is in (a member over their group's size limit with an ordinary photo is told
+ * so). A body that is larger than the cap, or has not ended in time, is cut off:
  * whoever sends that much to a refused request is not owed an answer.
  */
-async function drain(source: Readable, limits: DrainLimits): Promise<void> {
+async function drain(source: Readable, limits: DrainLimits, cap: number): Promise<void> {
   if (source.destroyed || source.readableEnded) return;
   source.unpipe();
   await new Promise<void>((resolve) => {
@@ -68,7 +106,7 @@ async function drain(source: Readable, limits: DrainLimits): Promise<void> {
     }
     source.on("data", (chunk: Buffer) => {
       read += chunk.length;
-      if (read > (limits.bytes ?? DRAIN_BYTES)) cut();
+      if (read > cap) cut();
     });
     source.once("end", finish);
     source.once("close", finish);
@@ -140,13 +178,7 @@ export async function uploadMultipart(
     // The source is ended by the caller once the whole request is known to be well formed.
     file.pipe(source, { end: false });
     upload = createStorage(ctx, config)
-      .upload(
-        actor,
-        Readable.toWeb(source) as ReadableStream<Uint8Array>,
-        info.mimeType,
-        purpose as Purpose,
-        info.filename,
-      )
+      .upload(actor, toWebStream(source), info.mimeType, purpose as Purpose, info.filename)
       .then(
         (value) => ({ ok: true as const, value }),
         (error: unknown) => {
@@ -183,7 +215,16 @@ export async function uploadMultipart(
     throw result.error;
   }
   abort(new ValidationError("The upload was rejected."));
-  await drain(source, drainLimits);
+  // `upload`/`size` is the issue a size refusal carries (storage/refusal.ts).
+  const sizeRefused =
+    storageError instanceof SermoError &&
+    storageError.issues?.some((issue) => issue.path[0] === "upload" && issue.message === "size");
+  const cap =
+    drainLimits.bytes ??
+    (sizeRefused
+      ? uploadLimit(purpose as Purpose, config.maxBytes) + DRAIN_MARGIN_BYTES
+      : DRAIN_BYTES);
+  await drain(source, drainLimits, cap);
   if (upload) await upload;
   if (storageError !== undefined && storageError !== abortError) throw storageError;
   if (failure instanceof SermoError) throw failure;

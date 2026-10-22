@@ -4,9 +4,16 @@ import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Ctx } from "@sermo/core";
-import { closeContext, localDriver, readSiteSettings, ValidationError } from "@sermo/core";
+import {
+  closeContext,
+  ForbiddenError,
+  localDriver,
+  readSiteSettings,
+  ValidationError,
+} from "@sermo/core";
 import { createTestContext, userActor } from "@sermo/core/testing";
 import { HTTPException } from "hono/http-exception";
+import { invalidate } from "../../core/src/context";
 import { createApp } from "./app";
 import { createServerOptions } from "./server";
 import { uploadMultipart } from "./upload";
@@ -446,7 +453,13 @@ function slowRequest(more: number, pause: number) {
   return { request, pulled };
 }
 
-async function refused(state: Awaited<ReturnType<typeof setup>>, request: Request, limits = {}) {
+async function refused(
+  state: Awaited<ReturnType<typeof setup>>,
+  request: Request,
+  limits = {},
+  purpose = "attachment",
+  maxBytes = 1000,
+) {
   const user = state.ctx.sqlite
     .prepare<{ id: number; group_id: number }, []>("SELECT id, group_id FROM users LIMIT 1")
     .get()!;
@@ -457,9 +470,9 @@ async function refused(state: Awaited<ReturnType<typeof setup>>, request: Reques
     {
       driver: localDriver(join(state.dir, "files")),
       tempDir: join(state.dir, "temp"),
-      maxBytes: 1000,
+      maxBytes,
     },
-    "attachment",
+    purpose,
     limits,
   ).catch((caught: unknown) => caught);
 }
@@ -492,4 +505,90 @@ test("a refused upload whose body is smaller than the cap is read to its end", a
   expect(error).toBeInstanceOf(ValidationError);
   expect(pulled.bytes).toBeGreaterThan(8 * 64 * 1024);
   expect(pulled.cancelled).toBe(false);
+});
+
+test("a member over their group's size limit with a photo of several MiB is told so, not reset", async () => {
+  const state = await setup();
+  // The site takes 25 MB; this member's group takes 100 KB, which the web form cannot know.
+  state.ctx.sqlite
+    .prepare(
+      "UPDATE permission_entries SET value = 100000 WHERE node_id = 0 AND user_id = 0 AND permission_id = (SELECT id FROM permission_definitions WHERE key = 'attachment.maxFileSize')",
+    )
+    .run();
+  invalidate(state.ctx, "node_tree");
+  const live = Bun.serve({ ...createServerOptions(state.app, 0), hostname: "127.0.0.1" });
+  try {
+    const answer = await new Promise<string>((resolve) => {
+      const sent = httpRequest(
+        {
+          host: "127.0.0.1",
+          port: live.port,
+          method: "POST",
+          path: "/api/v1/files?purpose=attachment",
+          headers: {
+            cookie: state.cookie,
+            origin: "http://localhost:3000",
+            "content-type": `multipart/form-data; boundary=${boundary}`,
+          },
+        },
+        (response) => {
+          let text = "";
+          response.on("data", (chunk) => {
+            text += chunk;
+          });
+          response.on("end", () => resolve(`status ${response.statusCode} ${text}`));
+        },
+      );
+      sent.on("error", (error) => resolve(`error ${error.message}`));
+      sent.write(filePrefix());
+      const chunk = Buffer.alloc(1 << 20, 97);
+      for (let count = 0; count < 8; count++) sent.write(chunk);
+      sent.end(`\r\n${end}`);
+    });
+    expect(answer).toStartWith("status 400");
+    expect(answer).toContain("File exceeds your upload limit of 100000 bytes.");
+  } finally {
+    await live.stop(true);
+  }
+}, 30_000);
+
+test("after a size refusal the body is read up to the site's limit and a margin, and cut beyond that", async () => {
+  const state = await setup();
+  const site = 4 * 1024 * 1024;
+  // The member's group takes 1000 bytes: every file of theirs is refused for its size.
+  state.ctx.sqlite
+    .prepare(
+      "UPDATE permission_entries SET value = 1000 WHERE node_id = 0 AND user_id = 0 AND permission_id = (SELECT id FROM permission_definitions WHERE key = 'attachment.maxFileSize')",
+    )
+    .run();
+  invalidate(state.ctx, "node_tree");
+  // 3 MiB: over the group's limit, under the site's, and over the 1 MiB read after other refusals.
+  const ordinary = slowRequest(48, 1);
+  expect(await refused(state, ordinary.request, {}, "attachment", site)).toBeInstanceOf(
+    ValidationError,
+  );
+  expect(ordinary.pulled.cancelled).toBe(false);
+  expect(ordinary.pulled.bytes).toBeGreaterThan(3 * 1024 * 1024);
+  // 14 MiB: over the site's limit and the margin.
+  const large = slowRequest(224, 1);
+  expect(await refused(state, large.request, {}, "attachment", site)).toBeInstanceOf(
+    ValidationError,
+  );
+  expect(large.pulled.cancelled).toBe(true);
+  expect(large.pulled.bytes).toBeLessThan(12 * 1024 * 1024);
+});
+
+test("a permission refusal with a large body gets its answer for a body of ordinary size and is cut beyond 1 MiB", async () => {
+  const state = await setup();
+  // A plain member may not upload a frame picture.
+  const small = slowRequest(8, 1);
+  const refusal = await refused(state, small.request, {}, "frame", 25 * 1024 * 1024);
+  expect(refusal).toBeInstanceOf(ForbiddenError);
+  expect(small.pulled.cancelled).toBe(false);
+  const large = slowRequest(48, 1);
+  expect(await refused(state, large.request, {}, "frame", 25 * 1024 * 1024)).toBeInstanceOf(
+    ForbiddenError,
+  );
+  expect(large.pulled.cancelled).toBe(true);
+  expect(large.pulled.bytes).toBeLessThan(2.5 * 1024 * 1024);
 });
