@@ -5945,3 +5945,22 @@ Known limits: the importer change for `xf_user.visible` lives in the separate im
 Why: backlog E2 (per-forum prefixes were a known gap); XenForo defines prefixes globally and lets
 each forum pick.
 Known limits: no per-prefix group restriction and no forum default prefix.
+
+### Handover leftovers: callers refused before input, refused uploads answered, mail links
+
+- 26 operations refuse a guest or a member without the permission before reading their input
+  (`requireAuthenticated`, or `requireHeld` from `admin/held.ts` for a permission floor, also used
+  by `bans.create`); `VALIDATES_FIRST` keeps four input-dependent entries.
+- A refused upload's remaining body is read before answering, so the member gets the worded refusal
+  instead of a reset connection: up to the site's maximum upload size plus 4 MiB after a size
+  refusal, 1 MiB after any other refusal, and 30 s at most. Uploads reach storage through a
+  pull-based stream (`toWebStream`), which fixed a "Controller is already closed" crash when
+  storage refused mid-file.
+- Mail: only http(s) addresses are drawn (required ones throw, optional ones are left out); follow,
+  announcement, moderator sign-up and security mails carry the same link as their in-app alert.
+- The API key "Try it out" documents `password` and `replace`; a copied key leaves state on Done or
+  page hide; clipboard copying is one shared `copyText`.
+
+Why: handover leftovers (auth-before-validation 1, api-agents-page 8/11/12, quick-media 2/5,
+email-layout 8/9/10, link-landing 13).
+Known limits: the upload picker does not filter by the site's allowed types (needs a contract field).
