@@ -166,6 +166,10 @@
       "window": {
         "label": "Seen within",
         "help": "How far back a member counts as recently active."
+      },
+      "limit": {
+        "label": "Names shown",
+        "help": "How many names are written out; the rest are counted."
       }
     },
     "text": {

@@ -166,6 +166,10 @@
       "window": {
         "label": "Vistos en",
         "help": "Hasta cuándo atrás un miembro cuenta como activo hace poco."
+      },
+      "limit": {
+        "label": "Nombres mostrados",
+        "help": "Cuántos nombres se escriben; el resto se cuenta."
       }
     },
     "text": {

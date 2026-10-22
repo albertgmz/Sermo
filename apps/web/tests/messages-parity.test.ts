@@ -220,7 +220,7 @@ test("word order and a missing # do not matter, a changed argument or tag does",
 });
 
 test("every language has exactly the English message files", () => {
-  expect(FILES.length).toBe(35);
+  expect(FILES.length).toBe(36);
   for (const locale of OTHERS)
     expect(readdirSync(join(MESSAGES, locale)).sort(), locale).toEqual(FILES);
 });

@@ -47,6 +47,14 @@ test("the options of each type are read from the backend's schema", () => {
   ]);
   expect(optionFields("recentlyActive")).toEqual([
     { name: "window", kind: "choice", values: ["15m", "24h"], required: false },
+    {
+      name: "limit",
+      kind: "number",
+      min: 1,
+      max: 200,
+      required: false,
+      byDefault: 50,
+    },
   ]);
   const [body] = optionFields("text");
   expect(body).toMatchObject({ name: "body", kind: "text" });
