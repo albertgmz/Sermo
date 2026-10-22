@@ -5809,3 +5809,26 @@ separate item); #441 reports on other admin pages are unconfirmed until a produc
 Why: backlog E4 and the "Second review round" known limits.
 Known limits: the audited read of a reported private message shows no attachments; search keeps the
 pre-merge position while the merge streams.
+
+### Automatic awards a member no longer qualifies for can be taken back, on an admin's press
+
+- `/admin/awards` "Retirar a quien ya no cumple" (`awards.revokeUnqualified`, `awards.revokeStatus`,
+  `admin.awards`): a count first (a background run that writes nothing), then a revoke offered only
+  after a count that found something. It takes back each automatic grant (`granted_by` NULL and
+  `auto_granted = 1`) whose current rule the member no longer meets, through `revokeAward`, so XP,
+  credits, counters and credit-rule reversals follow; awards that read XP, credits or other awards
+  are judged again until none more falls. Manual grants, inactive awards and awards with no
+  conditions are never touched. Nothing queues it at deploy, from the sweep or from events.
+- Chunks of up to 25 members (about 100 grants) with `paceWal` and `holdCheckpoints`; the chunk, the
+  job and its successor commit together; progress lives in a `site_settings` row; a run that stopped
+  resumes when started again; each chunk re-checks the admin's `admin.awards`; start, end and
+  failure go to the moderator log; no member is notified.
+- A grant taken back clears `auto_granted`, so the member gets it again on qualifying later. The
+  run's events carry `unqualified: true` and the source type `member_award_unqualified`; the awards
+  and promotions subscribers skip them, so what a revocation makes true waits for the daily sweeps.
+  This is the deliberate exception to "automatic grants are final".
+
+Why: backlog A9; awards granted before the 1-post-and-1-reaction rule (and under older rules) were
+held by members who no longer meet them.
+Known limits: awards with volatile rules (inactive days, credits at least, windowed measures) churn
+across runs; a failed revoking run can only be resumed; there is no stop button.
