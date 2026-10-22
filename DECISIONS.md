@@ -6099,3 +6099,15 @@ limit: concurrent tests (`test.concurrent`) would need the flag per test; none e
 Why: XenForo's mark-forums-read and node deletion (handover E3). Known limit (fails safe): a member
 with no entries of their own who saw a moved node only through two groups that no longer meet
 loses sight of it; a member's restored entry stays if they later leave the group that opened it.
+
+### Rarely opened panels load when first used
+
+- The conversation details sheet and the reactions summary popover are plain buttons until first
+  hover, focus or press (`LazyPopup`, as the mobile menu and feed filters), and the delete and
+  report steps of the shared action bar load when pressed. The conversation pages load 4.9 KB less
+  up front and every page with the action bar about 0.7 KB less.
+
+Why: the conversation pages were at their JS budget, which blocked the widgets screen (whose new
+routes change how shared chunks are cut, +1 KB) and the conversation-as-thread work; budgets are
+not raised. Known lead: the reaction picker's popover code (~35 KB) is still eager on every page
+with reactions.
