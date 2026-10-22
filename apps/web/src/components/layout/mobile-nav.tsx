@@ -63,7 +63,7 @@ export function MobileNav(props: {
                   ) : (
                     <Icon className="size-5" />
                   )}
-                  <CountBadge count={count} className="-top-1.5 left-2.5" />
+                  <CountBadge count={count} className="-top-1.5 right-0" />
                 </span>
                 <span className="max-w-full truncate px-0.5">
                   {count

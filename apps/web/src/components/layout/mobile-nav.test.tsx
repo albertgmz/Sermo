@@ -68,6 +68,14 @@ test("a count above 99 reads 99+", () => {
   );
 });
 
+test("the number is anchored to the icon's right edge, so it never extends the icon box to the right", () => {
+  const badge = /<span[^>]*data-slot="count-badge"[^>]*>/.exec(
+    entry(bar(0, 5), "/notifications"),
+  )?.[0];
+  expect(badge).toContain("right-0");
+  expect(badge).not.toMatch(/\bleft-/);
+});
+
 test("nothing unread, no number; the other entries never carry one", () => {
   const html = bar(0, 0);
   expect(html).not.toContain("count-badge");
