@@ -222,3 +222,17 @@ test("the composer row carries the viewer's avatar before the line", async () =>
     composer.indexOf("<form"),
   );
 });
+
+test("on a phone the composer spans the row: the viewer's avatar sits beside it from md up only", async () => {
+  const html = await render({ action: async () => ({}) });
+  const composer = html.slice(html.indexOf('id="profile-post-9-comment"'));
+  const at = composer.indexOf('aria-label="member3"');
+  const tag = composer.slice(
+    composer.lastIndexOf("<a", at),
+    composer.indexOf(">", at),
+  );
+  const classes = tag.match(/class="([^"]*)"/)?.[1].split(" ");
+  expect(classes).toContain("hidden");
+  expect(classes).toContain("md:block");
+  expect(composer).toMatch(/<form[^>]*class="[^"]*\bflex-1\b/);
+});

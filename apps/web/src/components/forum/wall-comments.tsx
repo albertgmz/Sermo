@@ -136,7 +136,7 @@ export function WallCommentRows({
 // The block under a wall post, wherever one is drawn (the profile wall, the feed), in XenForo's
 // order: who reacted to the post (a row only once someone did), the button that loads the older
 // comments above in place (`earlier`), the comments oldest first, then the viewer's composer for
-// the next one, at `#<anchor>-comment`.
+// the next one, at `#<anchor>-comment`, with the viewer's avatar beside it from `md` up.
 export function WallComments({
   anchor,
   comments,
@@ -195,8 +195,13 @@ export function WallComments({
           id={`${anchor}-comment`}
           className={cn(rowClass, "flex scroll-mt-24 items-start gap-3 py-2")}
         >
+          {/* Below `md` the editor takes the whole row, so its bar fits on one line on a phone. */}
           {viewerId !== null && (
-            <UserAvatar user={member(viewerId)} size="sm" className="mt-2" />
+            <UserAvatar
+              user={member(viewerId)}
+              size="sm"
+              className="mt-2 hidden md:block"
+            />
           )}
           <LineComposer
             action={action}
