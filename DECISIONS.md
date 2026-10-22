@@ -5911,3 +5911,20 @@ Why: backlog C3 and forum-feel findings §4 (XenForo shows `Author ▸ Owner`).
 
 Why: owner decisions on widget areas (one position per widget with Duplicate, sidebars below
 content on phones); the web drawing comes next (B3).
+
+### Event consumers write their cursor once per batch and yield
+
+- `consumeEvents` (events.ts) writes a subscriber's cursor once per batch instead of per event (a
+  failure still leaves it after the last event that succeeded), holds checkpoints and paces the WAL
+  for batches of 20 or more, and yields to the event loop when a handler run goes 10 ms without a
+  turn. After a crash a whole batch is delivered again; every subscriber is idempotent for that.
+  This changes core infrastructure on purpose: the fix has no other place.
+- The feed's forum filter keeps each forum's rows between batches of one request instead of
+  re-reading them (54 forums x 40 rows at every batch before).
+- `bookmarks.status` follows thread merges (chains up to 16 hops) and un-bookmarking clears rows a
+  merge moved into the thread; the read of merged bookmarks is capped at 2000 rows.
+- Files that time out under parallel load get a 30 s per-file timeout.
+
+Why: the award sweep stalled request writes for up to 0.8 s and the categories-and-unread feed bench
+ran near its 20 ms budget.
+Known limits: the importer change for `xf_user.visible` lives in the separate importer repository.
