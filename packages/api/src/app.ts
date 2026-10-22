@@ -174,7 +174,7 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     await next();
     if (
       c.res.status < 400 ||
-      c.res.status >= 500 ||
+      c.res.status === 500 ||
       !c.res.headers.get("content-type")?.includes("application/json")
     )
       return;

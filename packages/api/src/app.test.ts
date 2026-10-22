@@ -268,6 +268,15 @@ test("a refusal reaches a Spanish reader in Spanish, by cookie or Accept-Languag
   );
 });
 
+test("the file storage refusal (503) reaches a Spanish reader in Spanish", async () => {
+  const { request } = setup();
+  const answer = await request("/api/v1/files/1", { headers: { cookie: "forum_locale=es" } });
+  expect(answer.status).toBe(503);
+  expect(((await answer.json()) as { error: { message: string } }).error.message).toBe(
+    "El almacenamiento de archivos no está disponible.",
+  );
+});
+
 test("database failure returns a generic 500 and unhealthy status", async () => {
   const { request, ctx } = setup();
   contexts.pop();
