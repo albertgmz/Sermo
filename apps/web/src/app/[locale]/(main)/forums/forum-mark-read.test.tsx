@@ -66,6 +66,7 @@ const node = (
     countsPosts: true,
     minAccountAgeDays: 0,
     minPostCount: 0,
+    requirePrefix: false,
   },
 });
 const NODES = [node(1, null, "category"), node(2, 1, "forum")];
