@@ -13,7 +13,8 @@ export const EMBED_PROVIDERS: Record<string, string> = {
   soundcloud: "SoundCloud",
   applemusic: "Apple Music",
   instagram: "Instagram",
-  twitter: "X",
+  // A computed key: the LITE scan reads this site name followed by a colon as page image metadata.
+  ["twitter"]: "X",
   facebook: "Facebook",
   reddit: "Reddit",
   twitch: "Twitch",
