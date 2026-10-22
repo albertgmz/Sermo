@@ -6111,3 +6111,18 @@ Why: the conversation pages were at their JS budget, which blocked the widgets s
 routes change how shared chunks are cut, +1 KB) and the conversation-as-thread work; budgets are
 not raised. Known lead: the reaction picker's popover code (~35 KB) is still eager on every page
 with reactions.
+
+### More widget types and the month standing page
+
+- Widgets visitorCard (off on phones by default), birthdays, topReferrers (members with no referrals
+  left out), referralLink (the member's link once, Copy and Share; nothing for a guest or an
+  unconfirmed member), monthStandings (Sermo points with the scoring line, the running month or last
+  month while nobody has points; its picker runs from the last complete month) and text (the stored
+  body). `widgets.current` leaves visitorCard and referralLink out for guests.
+- `/members/month?month=YYYY-MM` shows a month's standing (only the running and last complete month
+  keep rows; older months show their winner, said in the copy); `/members?view=month` redirects
+  there. `standings.month` takes `YYYY-MM`, refuses future months and years before 2000, and
+  returns the scoring weights.
+
+Why: backlog B5 and the widget findings 3.5 (fcuba's birthdays, top referrers and "Usuarios del
+Mes").
