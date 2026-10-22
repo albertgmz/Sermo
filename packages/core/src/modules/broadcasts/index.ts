@@ -15,7 +15,7 @@ import {
   requirePermission,
 } from "../../permissions";
 import { renderContent } from "../../render";
-import { assertRule } from "../../shared/criteria";
+import { assertRule, everyone } from "../../shared/criteria";
 import { loadUserSummaries } from "../../shared/users";
 import { requireNotErased } from "../admin/erased";
 import { confirmActorPassword } from "../admin/shared";
@@ -94,11 +94,12 @@ function requireMaySendAs(ctx: Ctx, actor: Actor, content: StoredContent): void 
 const count = implement(contracts.broadcastsCount, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.announcements");
   const admin = requireAuthenticated(actor);
-  assertRule(ctx, input.rule, "background");
+  const rule = input.audience === "everyone" ? everyone() : input.audience;
+  assertRule(ctx, rule, "background");
   const content = prepareContent(ctx, actor, input.content);
   return writeTx(ctx, () => {
     requirePermission(ctx, currentActor(ctx, actor), "admin.announcements");
-    return { queued: countBroadcast(ctx, admin.userId, content, input.rule) };
+    return { queued: countBroadcast(ctx, admin.userId, content, rule) };
   });
 });
 
@@ -112,14 +113,16 @@ const send = implement(contracts.broadcastsSend, async (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.announcements");
   const admin = requireAuthenticated(actor);
   const counted = pending(ctx, (run) => run.state === "done" && run.dryRun);
+  const countedAt = Date.parse(input.countedAt);
   if (counted) requireMaySendAs(ctx, actor, counted.content);
   await confirmActorPassword(ctx, actor, input.actorPassword);
   return writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     requirePermission(ctx, current, "admin.announcements");
     const latest = latestRun(ctx);
-    if (latest) requireMaySendAs(ctx, current, latest.content);
-    return { queued: sendCounted(ctx, admin.userId) };
+    // Only a finished count is sent; whose message it is matters then.
+    if (latest?.state === "done" && latest.dryRun) requireMaySendAs(ctx, current, latest.content);
+    return { queued: sendCounted(ctx, admin.userId, countedAt) };
   });
 });
 

@@ -27,6 +27,8 @@ const IDLE = {
   dryRun: false,
   summary: "",
   startedAt: null,
+  startedBy: null,
+  sender: null,
   finishedAt: null,
   progress: 0,
   members: 0,
@@ -36,15 +38,13 @@ const IDLE = {
   skipped: 0,
   error: null,
 };
-const words = (template: string, values: Record<string, string>) =>
-  template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
 
-async function render(run: object) {
+async function render(run: object, kind: "message" | "alert" = "message") {
   backend = fakeBackend({
     "auth.me": () => Response.json(viewerBody(false)),
     "broadcasts.status": () => Response.json(run),
   });
-  return htmlOf(await BroadcastStatus());
+  return htmlOf(await BroadcastStatus({ kind }));
 }
 
 test("before any run it says so and offers nothing to stop or resume", async () => {
@@ -66,11 +66,7 @@ test("a send under way shows its progress and the stop button", async () => {
   });
   expect(html).toContain("progressbar");
   expect(html).toContain(
-    words(text.progress, {
-      summary: "Tonight",
-      percent: "40%",
-      sent: "26,000",
-    }),
+    "Sending the alert “Tonight”: 40%. 26,000 sent so far.",
   );
   expect(html).toContain(text.stop);
 });
@@ -110,39 +106,35 @@ test("a finished count says how many would be reached", async () => {
     skipped: 3,
   });
   expect(html).toContain(
-    words(text.doneCount, {
-      summary: "Hello",
-      matched: "900",
-      members: "1,000",
-      skipped: "3",
-    }),
+    "The private message “Hello” would reach 900 of 1,000 members; 3 of them could not receive it.",
   );
 });
 
 test("a finished count offers the send, naming the effect and the counted figure", async () => {
-  const html = await render({
-    ...IDLE,
-    state: "done",
-    kind: "alert",
-    dryRun: true,
-    summary: "Tonight",
-    startedAt: "2026-10-21T10:00:00.000Z",
-    finishedAt: "2026-10-21T10:05:00.000Z",
-    progress: 1,
-    members: 1000,
-    matched: 900,
-    reachable: 897,
-    skipped: 3,
-  });
+  const html = await render(
+    {
+      ...IDLE,
+      state: "done",
+      kind: "alert",
+      dryRun: true,
+      summary: "Tonight",
+      startedAt: "2026-10-21T10:00:00.000Z",
+      finishedAt: "2026-10-21T10:05:00.000Z",
+      progress: 1,
+      members: 1000,
+      matched: 900,
+      reachable: 897,
+      skipped: 3,
+    },
+    "alert",
+  );
   expect(html).toContain(text.sendCounted);
   expect(html).toContain(
-    words(text.sendWarning, {
-      summary: "Tonight",
-      reachable: "897",
-      when: "Oct 21, 2026, 10:05 AM",
-    }),
+    "This sends the alert “Tonight” to 897 members, as counted on Oct 21, 2026, 10:05 AM. It cannot be recalled.",
   );
   expect(html).toContain('name="actorPassword"');
+  // The count that was looked at is the one the send names.
+  expect(html).toContain('name="countedAt" value="2026-10-21T10:00:00.000Z"');
   // A finished real send offers nothing more.
   const sent = await render({
     ...IDLE,
@@ -151,4 +143,28 @@ test("a finished count offers the send, naming the effect and the counted figure
     dryRun: false,
   });
   expect(sent).not.toContain(text.sendCounted);
+});
+
+test("a page offers only the send of a count of its own kind, and says whose it is", async () => {
+  const counted = {
+    ...IDLE,
+    state: "done",
+    kind: "message",
+    dryRun: true,
+    summary: "Hello",
+    startedAt: "2026-10-21T10:00:00.000Z",
+    finishedAt: "2026-10-21T10:05:00.000Z",
+    progress: 1,
+    reachable: 5,
+    startedBy: { id: 1, username: "Ana" },
+    sender: { id: 2, username: "Staff" },
+  };
+  const own = await render(counted, "message");
+  expect(own).toContain(text.sendCounted);
+  expect(own).toContain("This sends the private message “Hello” to 5 members");
+  expect(own).toContain("Started by Ana.");
+  expect(own).toContain("Sent as Staff.");
+  const other = await render(counted, "alert");
+  expect(other).not.toContain(text.sendCounted);
+  expect(other).toContain("send it from the message page");
 });

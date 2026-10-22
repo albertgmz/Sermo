@@ -82,7 +82,7 @@ async function contentOf(
 // everyone, the members of the groups ticked, or the rule the builder sent.
 async function audienceOf(
   formData: FormData,
-): Promise<{ rule: Rule } | { refused: BroadcastState }> {
+): Promise<{ audience: "everyone" | Rule } | { refused: BroadcastState }> {
   const audience = text(formData, "audience");
   if (audience === "rule") {
     const rule = ruleOf(formData);
@@ -92,7 +92,7 @@ async function audienceOf(
       const t = await getTranslations("adminCommunication.broadcasts.errors");
       return { refused: { fields: { rule: t("emptyRule") } } };
     }
-    return { rule };
+    return { audience: rule };
   }
   if (audience === "groups") {
     const ids = formData
@@ -104,13 +104,13 @@ async function audienceOf(
       return { refused: { fields: { groups: t("noGroups") } } };
     }
     return {
-      rule: {
+      audience: {
         match: "all",
         conditions: [{ criterion: "in_group", ids: [...new Set(ids)] }],
       },
     };
   }
-  return { rule: { match: "all", conditions: [] } };
+  return { audience: "everyone" };
 }
 
 const KNOWN = ["title", "body", "text", "url", "sender"];
@@ -151,7 +151,7 @@ export async function runBroadcast(
     if ("refused" in chosen) return chosen.refused;
     const { queued } = await call(broadcastsCount, {
       content,
-      rule: chosen.rule,
+      audience: chosen.audience,
     });
     renew();
     return queued
@@ -172,6 +172,7 @@ export async function sendCounted(
   if (absent) return absent;
   try {
     const { queued } = await call(broadcastsSend, {
+      countedAt: text(formData, "countedAt"),
       actorPassword: text(formData, "actorPassword"),
     });
     renew();

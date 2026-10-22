@@ -6,6 +6,7 @@ import { writeTx } from "../../db/tx";
 import { ConflictError, UnauthenticatedError, ValidationError } from "../../errors";
 import { can, currentActor } from "../../permissions";
 import { evaluate, everyone, type Facts, loadFactsPaced, type Rule } from "../../shared/criteria";
+import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "../jobs/queue";
 import {
@@ -92,7 +93,9 @@ function mayBroadcast(ctx: Ctx, adminId: number): boolean {
 }
 
 /** The latest run's kind and content, for the checks an operation makes before it writes. */
-export function latestRun(ctx: Ctx): Pick<RunRecord, "state" | "dryRun" | "content" | "by"> | null {
+export function latestRun(
+  ctx: Ctx,
+): Pick<RunRecord, "state" | "dryRun" | "content" | "by" | "startedAt"> | null {
   return readRecord(ctx);
 }
 
@@ -140,11 +143,14 @@ export const countBroadcast = (ctx: Ctx, adminId: number, content: StoredContent
  * Starts the send of the latest run's content and audience, which must be a finished count.
  * Call it in a write transaction.
  */
-export function sendCounted(ctx: Ctx, adminId: number): boolean {
+export function sendCounted(ctx: Ctx, adminId: number, countedAt: number): boolean {
   const previous = readRecord(ctx);
   if (previous?.state === "running") return false;
   if (previous?.state !== "done" || !previous.dryRun)
     throw new ValidationError("Count the recipients of this message or alert first, then send.");
+  // What is sent is the count that was looked at, not a newer one.
+  if (previous.startedAt !== countedAt)
+    throw new ConflictError("The count changed since you looked at it; look at it again.");
   return queueNew(ctx, adminId, previous.content, previous.rule, false);
 }
 
@@ -197,6 +203,13 @@ export function stopBroadcast(ctx: Ctx): boolean {
   return true;
 }
 
+/** Who started the run and, for a message, who it comes from. */
+function people(ctx: Ctx, record: RunRecord) {
+  const senderId = record.content.kind === "message" ? record.content.senderId : null;
+  const user = loadUserSummaries(ctx, senderId === null ? [record.by] : [record.by, senderId]);
+  return { startedBy: user(record.by), sender: senderId === null ? null : user(senderId) };
+}
+
 /** The latest run as the contract returns it. */
 export function broadcastRunValue(ctx: Ctx): z.infer<typeof BroadcastRun> {
   const record = readRecord(ctx);
@@ -207,6 +220,8 @@ export function broadcastRunValue(ctx: Ctx): z.infer<typeof BroadcastRun> {
       dryRun: false,
       summary: "",
       startedAt: null,
+      startedBy: null,
+      sender: null,
       finishedAt: null,
       progress: 0,
       members: 0,
@@ -222,6 +237,7 @@ export function broadcastRunValue(ctx: Ctx): z.infer<typeof BroadcastRun> {
     dryRun: record.dryRun,
     summary: record.content.kind === "message" ? record.content.title : record.content.text,
     startedAt: iso(record.startedAt),
+    ...people(ctx, record),
     finishedAt: isoOrNull(record.finishedAt),
     progress:
       record.state === "done" || record.through <= 0

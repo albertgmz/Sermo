@@ -234,10 +234,10 @@
       "help": "One send or count runs at a time. It works in the background, a few members at a time; you can stop it and resume it.",
       "aria": "Progress of the run",
       "idle": "Nothing has been sent or counted yet.",
-      "progress": "Sending “{summary}”: {percent}. {sent} sent so far.",
-      "progressCount": "Counting for “{summary}”: {percent}. {matched} members so far.",
-      "done": "“{summary}” was sent to {sent} members; {skipped} could not be reached.",
-      "doneCount": "“{summary}” would reach {matched} of {members} members; {skipped} of them could not receive it.",
+      "progress": "Sending the {kind, select, message {private message} other {alert}} “{summary}”: {percent}. {sent} sent so far.",
+      "progressCount": "Counting for the {kind, select, message {private message} other {alert}} “{summary}”: {percent}. {matched} members so far.",
+      "done": "The {kind, select, message {private message} other {alert}} “{summary}” was sent to {sent} members; {skipped} could not be reached.",
+      "doneCount": "The {kind, select, message {private message} other {alert}} “{summary}” would reach {matched} of {members} members; {skipped} of them could not receive it.",
       "stopped": "Stopped at {percent} with {sent} sent. Resuming continues from there.",
       "stoppedCount": "The count stopped at {percent}.",
       "failed": "Stopped by an error at {percent} with {sent} sent: {error}",
@@ -257,7 +257,7 @@
       "notQueued": "A run is already under way.",
       "sendCounted": "Send to the counted members",
       "sendNow": "Send now",
-      "sendWarning": "This sends “{summary}” to {reachable} members, as counted on {when}. It cannot be recalled. It asks for your password.",
+      "sendWarning": "This sends the {kind, select, message {private message} other {alert}} “{summary}” to {reachable} members, as counted on {when}. It cannot be recalled. It asks for your password.",
       "sendQueued": "Sending started.",
       "discard": "Discard the stopped send",
       "discardNow": "Discard now",
@@ -265,7 +265,10 @@
       "discardWarning": "Gives up “{summary}”, stopped at {percent} with {sent} sent: what was sent stays sent and the rest is not sent. Then another can be counted and sent. It asks for your password.",
       "discarded": "The run was discarded.",
       "nothingToDiscard": "No run is stopped.",
-      "discardedRun": "“{summary}” was discarded at {percent} with {sent} sent."
+      "discardedRun": "“{summary}” was discarded at {percent} with {sent} sent.",
+      "otherKind": "The count that is waiting is for a {kind, select, message {private message} other {alert}}: send it from the {kind, select, message {message} other {alert}} page.",
+      "startedBy": "Started by {name}.",
+      "sentAs": "Sent as {name}."
     }
   }
 }

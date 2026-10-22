@@ -1030,9 +1030,10 @@ and awaiting-approval accounts are never written to.
 - **Count.** `broadcasts.count` runs the same chunks, undoes each (nothing is sent, queued or
   alerted) and reports how many members would be reached and how many skipped. It needs no
   password. A rule audience with no condition is refused by the form; "Every member" is the way to
-  reach everyone.
-- **Send.** `broadcasts.send` sends exactly what the latest finished count counted (the status panel
-  names the figure and the effect), so a send always follows a count of the same content and
+  reach everyone; the backend takes `"everyone"` or a rule with at least one condition, never an empty rule.
+- **Send.** `broadcasts.send` sends exactly what the latest finished count counted: the request names that
+  count's `startedAt`, and a newer count makes it a conflict (the status panel names the kind, the
+  figure and the effect, and a page offers the send only of a count of its own kind), so a send always follows a count of the same content and
   audience. It needs the administrator's own password (a browser session sends it; an API key is
   refused). It runs in the background, 50 members per chunk for a message and 200 for an alert, one
   run at a time, with the checkpoint holds and WAL pacing of the other long jobs.
@@ -1041,7 +1042,9 @@ and awaiting-approval accounts are never written to.
   send is refused while a run is stopped, so a correction is made by `broadcasts.discard` (password
   for a send; what was sent stays sent) and a new count. A run whose administrator loses
   `admin.announcements` ends as failed. The start, end, stop, discard and every test are in the
-  moderator log. Attachments cannot go in a mass message.
+  moderator log. Attachments cannot go in a mass message. A run that shows "running" without
+  progress has a failing chunk and is retrying (30 s up to 1 h); Stop takes effect when the retry
+  runs.
 
 ### Node moderators and node rules
 

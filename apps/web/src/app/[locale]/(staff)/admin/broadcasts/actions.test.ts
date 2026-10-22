@@ -135,7 +135,7 @@ test("a count asks for no password and sends the audience as a rule", async () =
   expect(backend.asked.map((call) => call.body)).toEqual([
     {
       content: { kind: "alert", text: "Tonight", url: "/pages/x" },
-      rule: {
+      audience: {
         match: "all",
         conditions: [{ criterion: "in_group", ids: [3, 5] }],
       },
@@ -169,8 +169,8 @@ test("a rule audience with no condition is refused, not taken for everyone", asy
   // Every member stays the way to reach everyone.
   await runBroadcast(null, form({ ...message, step: "count" }));
   expect(
-    backend.asked.map((call) => (call.body as { rule: unknown }).rule),
-  ).toEqual([{ match: "all", conditions: [] }]);
+    backend.asked.map((call) => (call.body as { audience: unknown }).audience),
+  ).toEqual(["everyone"]);
 });
 
 test("the count sends the rule it was given", async () => {
@@ -199,7 +199,7 @@ test("the count sends the rule it was given", async () => {
         locked: false,
         removeFromSender: false,
       },
-      rule,
+      audience: rule,
     },
   ]);
 });
@@ -212,11 +212,16 @@ test("the send of the counted members asks for the password first and sends only
     fields: { actorPassword: messages.adminGroups.errors.password },
   });
   expect(backend.asked).toEqual([]);
-  expect(await sendCounted(null, form({ actorPassword: "secret" }))).toEqual({
+  expect(
+    await sendCounted(
+      null,
+      form({ countedAt: "2026-10-21T10:00:00.000Z", actorPassword: "secret" }),
+    ),
+  ).toEqual({
     notice: words.run.sendQueued,
   });
   expect(backend.asked.map((call) => call.body)).toEqual([
-    { actorPassword: "secret" },
+    { countedAt: "2026-10-21T10:00:00.000Z", actorPassword: "secret" },
   ]);
 });
 

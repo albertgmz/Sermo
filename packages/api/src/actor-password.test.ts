@@ -331,13 +331,17 @@ test("a send to members needs the session's password, a key cannot send, and a c
       .get()!.n;
   const body = {
     content: { kind: "alert", text: "Tonight" },
-    rule: { match: "all", conditions: [] },
+    audience: "everyone",
   };
-  expect((await asSession("POST", "/broadcasts/send", {})).status).toBe(400);
+  const countedAt = "2026-10-21T10:00:00.000Z";
+  expect((await asSession("POST", "/broadcasts/send", { countedAt })).status).toBe(400);
   expect(
-    (await asSession("POST", "/broadcasts/send", { actorPassword: "nope-nope-1" })).status,
+    (await asSession("POST", "/broadcasts/send", { countedAt, actorPassword: "nope-nope-1" }))
+      .status,
   ).toBe(403);
-  expect((await asKey("POST", "/broadcasts/send", { actorPassword: PASSWORD })).status).toBe(403);
+  expect(
+    (await asKey("POST", "/broadcasts/send", { countedAt, actorPassword: PASSWORD })).status,
+  ).toBe(403);
   expect(jobs()).toBe(0);
   const counted = await asSession("POST", "/broadcasts/count", body);
   expect(counted.status).toBe(201);

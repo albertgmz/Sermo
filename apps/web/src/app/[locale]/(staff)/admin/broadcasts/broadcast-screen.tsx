@@ -18,7 +18,7 @@ export async function BroadcastScreen({ kind }: { kind: BroadcastKind }) {
           .map(({ id, title }) => ({ id, title }))}
         rule={<RuleField place="broadcast" />}
       />
-      <BroadcastStatus />
+      <BroadcastStatus kind={kind} />
     </div>
   );
 }

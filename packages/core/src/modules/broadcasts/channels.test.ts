@@ -91,14 +91,14 @@ test("an alert pushes to devices by default, honours a push opt-out and e-mails 
     text: "Maintenance tonight at 22:00",
     url: "/pages/maintenance",
   };
-  const rule = { match: "all", conditions: [] };
+  const audience = "everyone";
 
   // A count, of an alert and of a message, delivers and queues nothing, though push and e-mail are on.
   for (const counted of [
     content,
     { kind: "message", title: "Hello", body: "Maintenance tonight" },
   ]) {
-    await run("count", { content: counted, rule });
+    await run("count", { content: counted, audience });
     while (await runDueJobs(ctx)) {}
     expect(await run("status", {})).toMatchObject({ state: "done", dryRun: true });
     await run("discard", {}).catch(() => {});
@@ -110,9 +110,9 @@ test("an alert pushes to devices by default, honours a push opt-out and e-mails 
   expect(left("SELECT id FROM conversations")).toEqual([]);
   expect(left("SELECT id FROM jobs WHERE type != 'broadcasts.run'")).toEqual([]);
 
-  await run("count", { content, rule });
+  await run("count", { content, audience });
   while (await runDueJobs(ctx)) {}
-  await run("send", {});
+  await run("send", { countedAt: (await run("status", {})).startedAt });
   while (await runDueJobs(ctx)) {}
 
   expect(received.sort()).toEqual([`/push/${plain.id}`, `/push/${mails.id}`].sort());

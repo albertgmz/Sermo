@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { defineContract } from "../operation";
 import { ActorPassword, Body, Empty, Id, Timestamp, Title, UserSummary } from "./common";
-import { CriteriaRule } from "./criteria";
+import { NonEmptyCriteriaRule } from "./criteria";
 import { AlertUrl } from "./notifications";
 
 /*
@@ -45,6 +45,9 @@ export const BroadcastRun = z
     /** The message's title or the alert's text. */
     summary: z.string(),
     startedAt: Timestamp.nullable(),
+    /** The administrator who started or last resumed it, and who the messages come from. */
+    startedBy: UserSummary.nullable(),
+    sender: UserSummary.nullable(),
     finishedAt: Timestamp.nullable(),
     /** How far through the members the run is, from 0 to 1. */
     progress: z.number().min(0).max(1),
@@ -68,8 +71,9 @@ const COUNT_FIRST =
 export const broadcastsCount = defineContract({
   name: "broadcasts.count",
   summary:
-    "Start a background count of the members a message or alert would reach: `rule` is the " +
-    "audience, the criteria engine's rule (an empty rule is every member), any criterion. Members " +
+    "Start a background count of the members a message or alert would reach: `audience` is " +
+    '"everyone" or a rule of the criteria engine with at least one condition (an empty rule is ' +
+    "refused, so a rule builder left empty cannot reach every member), any criterion. Members " +
     "who are banned, erased, unconfirmed or awaiting approval are never written to. The count runs " +
     "the delivery chunk by chunk and undoes it, so nothing is sent, queued or alerted, and " +
     "broadcasts.status reports how many would be reached and how many skipped (a member without " +
@@ -79,15 +83,19 @@ export const broadcastsCount = defineContract({
     "that member. Requires admin.announcements; no password. " +
     COUNT_FIRST,
   kind: "write",
-  input: z.object({ content: BroadcastContent, rule: CriteriaRule }),
+  input: z.object({
+    content: BroadcastContent,
+    audience: z.union([z.literal("everyone"), NonEmptyCriteriaRule]),
+  }),
   output: z.object({ queued: z.boolean() }),
 });
 
 export const broadcastsSend = defineContract({
   name: "broadcasts.send",
   summary:
-    "Send the content and audience of the latest run, which must be a finished count " +
-    "(broadcasts.count then broadcasts.status says done): a private message (one conversation per " +
+    "Send the content and audience of the latest run, which must be a finished count whose " +
+    "`startedAt` (from broadcasts.status) is `countedAt`: a conflict otherwise, so what is sent " +
+    "is the count the administrator looked at and not a newer one. A private message (one conversation per " +
     "member, never one conversation with many participants; the members' ignore lists are not " +
     "read, and each member is alerted that they were added) or an alert (notification type " +
     "`admin.alert`; in the alert list, pushed by default, e-mailed only if the member opted in). " +
@@ -97,7 +105,7 @@ export const broadcastsSend = defineContract({
     "another member, admin.members over them. Needs `actorPassword`, the acting administrator's " +
     "own password: a browser session must send it, and an API key or token cannot send.",
   kind: "write",
-  input: z.object({ actorPassword: ActorPassword.optional() }),
+  input: z.object({ countedAt: Timestamp, actorPassword: ActorPassword.optional() }),
   output: z.object({ queued: z.boolean() }),
 });
 

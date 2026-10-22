@@ -234,10 +234,10 @@
       "help": "Solo se ejecuta un envío o recuento a la vez. Trabaja en segundo plano, unos pocos miembros cada vez; puedes detenerlo y reanudarlo.",
       "aria": "Progreso de la ejecución",
       "idle": "Todavía no se ha enviado ni contado nada.",
-      "progress": "Enviando «{summary}»: {percent}. {sent} enviados hasta ahora.",
-      "progressCount": "Contando para «{summary}»: {percent}. {matched} miembros hasta ahora.",
-      "done": "«{summary}» se envió a {sent} miembros; {skipped} no pudieron recibirlo.",
-      "doneCount": "«{summary}» llegaría a {matched} de {members} miembros; {skipped} de ellos no podrían recibirlo.",
+      "progress": "Enviando el {kind, select, message {mensaje privado} other {alerta}} «{summary}»: {percent}. {sent} enviados hasta ahora.",
+      "progressCount": "Contando para el {kind, select, message {mensaje privado} other {alerta}} «{summary}»: {percent}. {matched} miembros hasta ahora.",
+      "done": "El {kind, select, message {mensaje privado} other {alerta}} «{summary}» se envió a {sent} miembros; {skipped} no pudieron recibirlo.",
+      "doneCount": "El {kind, select, message {mensaje privado} other {alerta}} «{summary}» llegaría a {matched} de {members} miembros; {skipped} de ellos no podrían recibirlo.",
       "stopped": "Detenido al {percent} con {sent} enviados. Al reanudar continúa desde ahí.",
       "stoppedCount": "El recuento se detuvo al {percent}.",
       "failed": "Detenido por un error al {percent} con {sent} enviados: {error}",
@@ -257,7 +257,7 @@
       "notQueued": "Ya hay una ejecución en curso.",
       "sendCounted": "Enviar a los miembros contados",
       "sendNow": "Enviar ahora",
-      "sendWarning": "Esto envía «{summary}» a {reachable} miembros, según el recuento del {when}. No se puede retirar. Pide tu contraseña.",
+      "sendWarning": "Esto envía el {kind, select, message {mensaje privado} other {alerta}} «{summary}» a {reachable} miembros, según el recuento del {when}. No se puede retirar. Pide tu contraseña.",
       "sendQueued": "Se inició el envío.",
       "discard": "Descartar el envío detenido",
       "discardNow": "Descartar ahora",
@@ -265,7 +265,10 @@
       "discardWarning": "Abandona «{summary}», detenido al {percent} con {sent} enviados: lo enviado queda enviado y el resto no se envía. Después se puede contar y enviar otro. Pide tu contraseña.",
       "discarded": "Se descartó la ejecución.",
       "nothingToDiscard": "No hay ninguna ejecución detenida.",
-      "discardedRun": "«{summary}» se descartó al {percent} con {sent} enviados."
+      "discardedRun": "«{summary}» se descartó al {percent} con {sent} enviados.",
+      "otherKind": "El recuento que espera es de un {kind, select, message {mensaje privado} other {alerta}}: envíalo desde la página de {kind, select, message {mensajes} other {alertas}}.",
+      "startedBy": "Iniciado por {name}.",
+      "sentAs": "Enviado como {name}."
     }
   }
 }

@@ -14,11 +14,12 @@ import {
   sendCounted,
   stopRun,
 } from "./actions";
+import type { BroadcastKind } from "./state";
 
 // "Latest run": where the latest send or count stands and what it reached, with the button that
 // stops the run under way or resumes one that stopped (a send behind the administrator's password).
 // While a run is under way the page refreshes itself.
-export async function BroadcastStatus() {
+export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
   const [t, format, run] = await Promise.all([
     getTranslations("adminCommunication.broadcasts.run"),
     getFormatter(),
@@ -32,6 +33,7 @@ export async function BroadcastStatus() {
   const running = run.state === "running";
   const figures = {
     summary: run.summary,
+    kind: run.kind ?? "message",
     percent: format.number(run.progress, { style: "percent" }),
     members: format.number(run.members),
     matched: format.number(run.matched),
@@ -51,7 +53,8 @@ export async function BroadcastStatus() {
   }[run.state];
   const resumable = run.state === "failed" || run.state === "stopped";
   // A finished count is what a send is made of.
-  const sendable = run.state === "done" && run.dryRun;
+  const counted = run.state === "done" && run.dryRun;
+  const sendable = counted && run.kind === kind;
   return (
     <Section heading={t("heading")} description={t("help")}>
       <div className="space-y-4 p-4">
@@ -64,6 +67,17 @@ export async function BroadcastStatus() {
         >
           {status}
         </p>
+        {run.startedBy && (
+          <p className="text-xs text-muted-foreground">
+            {t("startedBy", { name: run.startedBy.username })}
+            {run.sender && ` ${t("sentAs", { name: run.sender.username })}`}
+          </p>
+        )}
+        {counted && !sendable && (
+          <p role="status" className="text-sm font-medium">
+            {t("otherKind", figures)}
+          </p>
+        )}
         {run.startedAt && (
           <p className="text-xs text-muted-foreground">
             {t("started", { when: when(run.startedAt) })}
@@ -119,8 +133,8 @@ export async function BroadcastStatus() {
             summary={t("sendCounted")}
             submit={t("sendNow")}
             pendingLabel={t("starting")}
+            fields={{ countedAt: run.startedAt ?? "" }}
             warning={t("sendWarning", figures)}
-            danger={false}
             password
           />
         )}
