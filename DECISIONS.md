@@ -6290,3 +6290,17 @@ leads /novedades, since `overview_top` is the only full-width position.
 
 Why: handover E6. Not translated: the staff styleguide (/ui), Better Auth's own sign-up refusals,
 MCP tool errors.
+
+### Alerts aimed at a member push by default
+
+- With no preference saved, a member with a push device now gets a push for alerts aimed at them
+  personally: mentions, quotes, wall posts and comments, new followers, being added to a
+  conversation, report outcomes, moderation notices and group changes (as XenForo pushes every
+  alert the member receives). Reactions, forum and member watches and moderator duties stay
+  opt-in, as does e-mail. A saved member preference or an admin default still wins.
+- Push and e-mail sends are logged (`[push.queue]`, `[push.send]`, `[email.queue]`,
+  `[email.send]`): counts and outcomes with ids, the push service host and status; never keys,
+  endpoints, addresses or message text.
+
+Why: on fcuba.net nothing was pushed (no type pushed by default) and nothing was logged, so the
+owner, subscribed on a device, received nothing. Open: whether watched threads push by default.
