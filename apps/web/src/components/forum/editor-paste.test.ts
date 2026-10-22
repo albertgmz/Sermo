@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { $createCodeNode } from "@lexical/code";
 import { registerRichText } from "@lexical/rich-text";
 import {
   $createParagraphNode,
@@ -511,4 +512,22 @@ test("an address of a site that is not embedded is pasted as it is", () => {
   const { editor, bb } = setup();
   paste(editor, transfer({ data: { "text/plain": "https://example.com/a" } }));
   expect(bb()).toBe("https://example.com/a");
+});
+
+test("an address pasted in a code block is pasted as the address", () => {
+  const { editor, bb } = setup();
+  editor.update(
+    () => {
+      const code = $createCodeNode();
+      $getRoot().clear().append(code);
+      code.select();
+    },
+    { discrete: true },
+  );
+  paste(
+    editor,
+    transfer({ data: { "text/plain": "https://youtu.be/dQw4w9WgXcQ" } }),
+  );
+  expect(bb()).not.toContain("MEDIA");
+  expect(bb()).toContain("https://youtu.be/dQw4w9WgXcQ");
 });

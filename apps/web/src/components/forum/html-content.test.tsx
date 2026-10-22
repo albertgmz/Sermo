@@ -12,6 +12,7 @@ import lite from "../../../messages/en/lite.json";
 
 let cookie: string | undefined;
 let consent: string | undefined;
+let requestHost: string | undefined;
 mock.module("server-only", () => ({}));
 // Bun applies module mocks to the whole run, so this matches the one in the other suites.
 const nextCache = await import("next/cache");
@@ -30,7 +31,8 @@ mock.module("next/headers", () => ({
           : undefined,
     toString: () => (cookie === undefined ? "" : `${LITE_COOKIE}=${cookie}`),
   }),
-  headers: async () => new Headers(),
+  headers: async () =>
+    new Headers(requestHost ? { host: requestHost } : undefined),
 }));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
@@ -176,4 +178,22 @@ test("a body without a spoiler sends no files to the browser, and one without a 
   const plain = await revealer(`<p>${slot(1)}</p>`);
   expect(plain?.attachments).toBeUndefined();
   expect(await revealer(spoiler, false)).toBeNull();
+});
+
+test("a Twitch player names the configured site as its parent, whatever Host the request carries", async () => {
+  const before = process.env.SERMO_PUBLIC_URL;
+  process.env.SERMO_PUBLIC_URL = "https://fcuba.net";
+  requestHost = "forged.example";
+  consent = choice("necessary", "embeds");
+  try {
+    const out = await render(
+      '<p><a class="bb-media-link bb-media-twitch" href="https://www.twitch.tv/somechannel">x</a></p>',
+    );
+    expect(out).toContain("channel=somechannel&amp;parent=fcuba.net");
+    expect(out).not.toContain("forged.example");
+  } finally {
+    requestHost = undefined;
+    if (before === undefined) delete process.env.SERMO_PUBLIC_URL;
+    else process.env.SERMO_PUBLIC_URL = before;
+  }
 });

@@ -13,6 +13,7 @@ import { placeInlineAttachments } from "@/lib/inline-attachments";
 import { stripHtmlMedia } from "@/lib/lite-content";
 import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
 import { withMediaPlayers } from "@/lib/media-links";
+import { publicUrl } from "@/lib/sermo/config";
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +61,7 @@ export async function HtmlContent(props: {
     withSpoilerButtons(
       await withEmbedGate(
         stripHtmlMedia(
-          withMediaPlayers(props.children, origin),
+          withMediaPlayers(props.children, publicUrl()),
           state,
           origin,
           label,

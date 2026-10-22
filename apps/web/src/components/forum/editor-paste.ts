@@ -1,3 +1,4 @@
+import { $isCodeNode } from "@lexical/code";
 import { DRAG_DROP_PASTE } from "@lexical/rich-text";
 import {
   $getSelection,
@@ -35,6 +36,7 @@ function $inEmptyLine() {
   return (
     $isRangeSelection(selection) &&
     selection.isCollapsed() &&
+    !$isCodeNode(selection.anchor.getNode().getTopLevelElement()) &&
     selection.anchor.getNode().getTopLevelElement()?.getTextContent().trim() ===
       ""
   );

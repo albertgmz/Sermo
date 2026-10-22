@@ -1,5 +1,6 @@
 import { MAX_MEDIA_EMBEDS } from "../limits";
 import { escapeHtml } from "./escape";
+import { SOUNDCLOUD_PAGES, TWITCH_PAGES } from "./media-url";
 
 export { MAX_MEDIA_EMBEDS };
 
@@ -99,8 +100,8 @@ const providers: Record<string, (id: string, context: MediaContext) => Resolved 
     );
   },
   soundcloud(id) {
-    const match = /^([\w-]{1,60})\/([\w-]{1,120})$/.exec(id);
-    if (!match) return null;
+    const match = /^([\w-]{1,60})\/((?:sets\/)?[\w-]{1,120})$/.exec(id);
+    if (!match || SOUNDCLOUD_PAGES.has(match[1]!) || SOUNDCLOUD_PAGES.has(match[2]!)) return null;
     const page = `https://soundcloud.com/${match[1]}/${match[2]}`;
     return audio(`https://w.soundcloud.com/player/?url=${encodeURIComponent(page)}`, page);
   },
@@ -130,7 +131,17 @@ const providers: Record<string, (id: string, context: MediaContext) => Resolved 
         `https://www.facebook.com/plugins/${kind}.php?href=${encodeURIComponent(page)}&show_text=true&width=500`,
         page,
       );
+    const video = (n: string) => plugin("video", `https://www.facebook.com/video.php?v=${n}`);
     if (/^\d{1,25}$/.test(id)) return plugin("video", `https://www.facebook.com/watch/?v=${id}`);
+    // As XenForo wrote them: `id=N;type=v` (also `r`, with `;user=name`) and `story_fbid=N:id=M`.
+    const imported = /^id=(\d{1,25});type=[vr](?:;user=[\w.]{1,80})?$/.exec(id);
+    if (imported) return video(imported[1]!);
+    const story = /^story_fbid=(\d{1,25}|pfbid\w{1,100}):id=(\d{1,25})$/.exec(id);
+    if (story)
+      return plugin(
+        "post",
+        `https://www.facebook.com/permalink.php?story_fbid=${story[1]}&id=${story[2]}`,
+      );
     const match = /^[\w.-]{1,80}\/(posts|videos)\/(?:\d{1,25}|pfbid\w{1,100})$/.exec(id);
     if (!match) return null;
     return plugin(match[1] === "videos" ? "video" : "post", `https://www.facebook.com/${id}`);
@@ -165,7 +176,7 @@ const providers: Record<string, (id: string, context: MediaContext) => Resolved 
     const path = `r/${match[1]}/comments/${match[2]}${match[3] ? `/${match[3]}` : ""}`;
     return social(
       context,
-      `https://embed.reddit.com/${path}?embed=true`,
+      `https://embed.reddit.com/${path}/?embed=true`,
       `https://www.reddit.com/${path}`,
     );
   },
@@ -178,7 +189,7 @@ const providers: Record<string, (id: string, context: MediaContext) => Resolved 
     const { parent } = context;
     const clip = /^clips?[:/]([\w-]{3,100})$/.exec(id);
     const videoId = /^videos?[:/](\d{1,15})$/.exec(id);
-    const channel = /^[A-Za-z0-9_]{3,25}$/.test(id);
+    const channel = /^[A-Za-z0-9_]{3,25}$/.test(id) && !TWITCH_PAGES.has(id.toLowerCase());
     const page = clip
       ? `https://clips.twitch.tv/${clip[1]}`
       : videoId

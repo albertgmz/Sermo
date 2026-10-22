@@ -174,20 +174,32 @@ export function quoteTag(author: string, pairs?: string): string {
   return `[QUOTE="${name}${pairs ? `, ${pairs}` : ""}"]`;
 }
 
+/** The tags whose content is lines of their own; every other tag holds a run of a line. */
+const LINE_CONTAINERS = new Set(["SPOILER", "CENTER", "LEFT", "RIGHT", "JUSTIFY", "INDENT"]);
+
 /**
  * The player of an address that is alone on its line, as XenForo embeds a pasted link; null for any
- * other address or place. A text run's end counts as a line end.
+ * other address or place. `runEnd` is where the text run ends in the source: the run's end counts
+ * as a line end only when the source has a line break (or its end) there. Never in a quote or in a
+ * tag that holds a run of a line (bold, heading, table cell, list item...).
  */
 function lineMedia(
-  frame: { kids: Node[] },
+  frame: Frame,
+  source: string,
+  runEnd: number,
   text: string,
   from: number,
   address: string,
 ): Tok | null {
+  if (frame.quotes > 0 || (frame.el && !LINE_CONTAINERS.has(frame.el.name))) return null;
   const lineStart = from === 0 ? 0 : text.lastIndexOf("\n", from - 1) + 1;
   if (lineStart === 0 && frame.kids.length > 0) return null;
   if (!/^[ \t]*$/.test(text.slice(lineStart, from))) return null;
-  if (!/^[ \t]*(?:\r?\n|$)/.test(text.slice(from + address.length))) return null;
+  const rest = /^[ \t]*(\r?\n)?/.exec(text.slice(from + address.length))![0];
+  const afterRest = text.length - (from + address.length) - rest.length;
+  if (afterRest > 0 && !rest.includes("\n")) return null;
+  const ended = rest.includes("\n") || runEnd >= source.length || /[\r\n]/.test(source[runEnd]!);
+  if (!ended) return null;
   const ref = mediaRefOf(address);
   const media = ref && resolveMedia(ref.site, ref.id);
   if (!ref || !media) return null;
@@ -230,6 +242,9 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
     pending: "",
   };
   const stack: Frame[] = [root];
+
+  // Where the text run being split ends in the source: the start of the tag that ends it.
+  let runEnd = 0;
 
   const splitText = (frame: Frame, text: string): void => {
     if (frame.rich || !/[@#]|http|www\./i.test(text)) {
@@ -274,7 +289,7 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
       const address = trimAddress(found[0]);
       const href = /^www\./i.test(address) ? `https://${address}` : address;
       if (!URL_PATTERN.test(href)) continue;
-      const media = lineMedia(frame, text, from, address);
+      const media = lineMedia(frame, source, runEnd, text, from, address);
       if (from > last) frame.kids.push({ t: "text", text: text.slice(last, from) });
       if (media) frame.kids.push({ t: "atom", tok: media, inline: false });
       else frame.kids.push({ t: "link", href, text: address });
@@ -354,6 +369,7 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
   let position = 0;
   for (const tok of toks) {
     deadline.tick();
+    runEnd = tok.start;
     const top = stack[stack.length - 1]!;
     if (tok.start > position) top.pending += source.slice(position, tok.start);
     position = tok.end;
@@ -389,6 +405,7 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
     }
   }
   if (position < source.length) root.pending += source.slice(position);
+  runEnd = source.length;
   flush(root);
   return { kids: root.kids, mentions, hashtags, quotes };
 }

@@ -6,6 +6,58 @@ export interface MediaRef {
   id: string;
 }
 
+/** SoundCloud pages that are not one track or set, and Twitch ones that are not a channel. */
+export const SOUNDCLOUD_PAGES = new Set([
+  "discover",
+  "you",
+  "stations",
+  "upload",
+  "pages",
+  "search",
+  "charts",
+  "feed",
+  "settings",
+  "stream",
+  "jobs",
+  "people",
+  "mobile",
+  "likes",
+  "tracks",
+  "albums",
+  "reposts",
+  "followers",
+  "following",
+  "popular-tracks",
+  "comments",
+  "spotlight",
+  "insights",
+  "playlists",
+]);
+export const TWITCH_PAGES = new Set([
+  "directory",
+  "settings",
+  "downloads",
+  "p",
+  "search",
+  "turbo",
+  "jobs",
+  "store",
+  "subscriptions",
+  "wallet",
+  "inventory",
+  "drops",
+  "friends",
+  "messages",
+  "prime",
+  "login",
+  "signup",
+  "team",
+  "videos",
+  "popout",
+  "embed",
+  "clip",
+]);
+
 const tag = (site: string, id: string | undefined): MediaRef | null => (id ? { site, id } : null);
 
 type Reader = (parts: string[], url: URL) => MediaRef | null;
@@ -44,8 +96,12 @@ const READERS: Record<string, Reader> = {
     );
     return at < 0 || !parts[at + 1] ? null : tag("spotify", `${parts[at]}/${parts[at + 1]}`);
   },
-  "soundcloud.com": (parts) =>
-    parts.length >= 2 ? tag("soundcloud", `${parts[0]}/${parts[1]}`) : null,
+  "soundcloud.com": (parts) => {
+    const [user, page, name] = parts;
+    if (!user || !page || SOUNDCLOUD_PAGES.has(user) || SOUNDCLOUD_PAGES.has(page)) return null;
+    if (page === "sets") return name ? tag("soundcloud", `${user}/sets/${name}`) : null;
+    return tag("soundcloud", `${user}/${page}`);
+  },
   "music.apple.com": (parts) =>
     parts.length >= 3 ? tag("applemusic", parts.slice(0, 4).join("/")) : null,
   "bsky.app": (parts) =>
@@ -56,9 +112,17 @@ const READERS: Record<string, Reader> = {
   "facebook.com": (parts, url) => {
     if (parts.length >= 3 && ["posts", "videos"].includes(parts[1] ?? ""))
       return tag("facebook", parts.slice(0, 3).join("/"));
-    const watched = url.searchParams.get("v");
+    const query = url.searchParams;
+    if (parts[0] === "permalink.php" || parts[0] === "story.php") {
+      const story = query.get("story_fbid");
+      const owner = query.get("id");
+      return story && owner && /^(?:\d+|pfbid\w+)$/.test(story) && /^\d+$/.test(owner)
+        ? tag("facebook", `story_fbid=${story}:id=${owner}`)
+        : null;
+    }
     const isVideo = parts[0] === "watch" || parts[0] === "video.php";
-    return isVideo && watched && /^\d+$/.test(watched) ? tag("facebook", watched) : null;
+    const video = query.get("v") ?? (parts[0] === "video.php" ? query.get("id") : null);
+    return isVideo && video && /^\d+$/.test(video) ? tag("facebook", video) : null;
   },
   "flickr.com": (parts) => (parts[0] === "photos" ? tag("flickr", parts[2]) : null),
   "imgur.com": (parts) =>
@@ -79,7 +143,9 @@ const READERS: Record<string, Reader> = {
       ? tag("twitch", parts[1] && `videos/${parts[1]}`)
       : parts[1] === "clip"
         ? tag("twitch", parts[2] && `clip/${parts[2]}`)
-        : tag("twitch", parts[0]),
+        : parts[0] && !TWITCH_PAGES.has(parts[0])
+          ? tag("twitch", parts[0])
+          : null,
   "clips.twitch.tv": (parts) => tag("twitch", parts[0] && `clip/${parts[0]}`),
   "twitter.com": (parts) => tag("twitter", after(parts, "status") ?? after(parts, "statuses")),
   "x.com": (parts) => tag("twitter", after(parts, "status") ?? after(parts, "statuses")),

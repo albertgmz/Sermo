@@ -33,7 +33,7 @@ const PLAYERS: [address: string, src: string, provider: string][] = [
   ],
   [
     "https://www.reddit.com/r/cuba/comments/1ash6mv/a_title/",
-    "https://embed.reddit.com/r/cuba/comments/1ash6mv/a_title?embed=true",
+    "https://embed.reddit.com/r/cuba/comments/1ash6mv/a_title/?embed=true",
     "Reddit",
   ],
   [
@@ -130,4 +130,12 @@ test("the policy lets exactly these frames in, and no script origin is added", (
   }
   const scripts = policy.split("; ").find((d) => d.startsWith("script-src "));
   expect(scripts).toBe("script-src 'self' 'nonce-bm9uY2U=' 'strict-dynamic'");
+});
+
+test("a link stored under the name x is shown as the tweet's player", () => {
+  const html =
+    '<p><a class="bb-media-link bb-media-x" href="https://x.com/i/status/12345">x</a></p>';
+  expect(withMediaPlayers(html, FORUM)).toContain(
+    "https://platform.twitter.com/embed/Tweet.html?id=12345",
+  );
 });

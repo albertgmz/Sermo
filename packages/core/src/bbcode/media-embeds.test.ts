@@ -105,7 +105,7 @@ test("imported tags are accepted in the forms XenForo wrote them", () => {
   const players = { players: true, parent: "fcuba.net" };
   expect(resolveMedia("reddit", "cuba/comments/1ash6mv", players)).toMatchObject({
     kind: "iframe",
-    src: "https://embed.reddit.com/r/cuba/comments/1ash6mv?embed=true",
+    src: "https://embed.reddit.com/r/cuba/comments/1ash6mv/?embed=true",
     url: "https://www.reddit.com/r/cuba/comments/1ash6mv",
   });
   expect(
@@ -188,4 +188,87 @@ test("an address of a site that is not embedded stays a link", () => {
   expect(renderBbCode("https://example.com/video/1")).toContain(
     '<a href="https://example.com/video/1"',
   );
+});
+
+test("an address followed by a tag on its line, or inside a quote or a tag that holds a line, is not embedded", () => {
+  const address = "https://youtu.be/dQw4w9WgXcQ";
+  for (const source of [
+    `${address} [b]bold[/b]`,
+    `${address}[b]bold[/b]`,
+    `[QUOTE]${address}[/QUOTE]`,
+    `[QUOTE=a]\n${address}\n[/QUOTE]`,
+    `[B]${address}[/B]`,
+    `[HEADING=2]${address}[/HEADING]`,
+    `[TABLE][TR][TD]${address}[/TD][/TR][/TABLE]`,
+    `[LIST][*]${address}[/LIST]`,
+    `[b]x[/b] ${address}`,
+  ])
+    expect(renderBbCode(source), source).not.toContain("<iframe");
+  for (const source of [`${address}\n[b]bold[/b]`, `[SPOILER]\n${address}\n[/SPOILER]`])
+    expect(renderBbCode(source), source).toContain("<iframe");
+});
+
+test("imported Facebook ids in the forms XenForo wrote them are players", () => {
+  const players = { players: true };
+  for (const id of [
+    "id=190622359809076;type=v",
+    "id=3405208316416948;type=v;user=soynicosastre",
+    "id=935018278270098;type=r",
+  ])
+    expect(resolveMedia("facebook", id, players), id).toMatchObject({
+      kind: "iframe",
+      src: expect.stringContaining(
+        "plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Fvideo.php%3Fv%3D",
+      ),
+    });
+  expect(
+    resolveMedia("facebook", "story_fbid=267561494863047:id=100048275954477", players),
+  ).toMatchObject({
+    kind: "iframe",
+    url: "https://www.facebook.com/permalink.php?story_fbid=267561494863047&id=100048275954477",
+  });
+  expect(renderBbCode("[MEDIA=facebook]id=190622359809076;type=v[/MEDIA]")).toContain(
+    "https://www.facebook.com/video.php?v=190622359809076",
+  );
+});
+
+test("Facebook permalink, story and video.php addresses are found", () => {
+  expect(mediaRefOf("https://www.facebook.com/permalink.php?story_fbid=2675&id=1000")).toEqual({
+    site: "facebook",
+    id: "story_fbid=2675:id=1000",
+  });
+  expect(mediaRefOf("https://www.facebook.com/story.php?story_fbid=pfbid02abc&id=1000")).toEqual({
+    site: "facebook",
+    id: "story_fbid=pfbid02abc:id=1000",
+  });
+  expect(mediaRefOf("https://www.facebook.com/video.php?id=1234567")).toEqual({
+    site: "facebook",
+    id: "1234567",
+  });
+});
+
+test("SoundCloud sets are players of the set, and profile pages stay links", () => {
+  expect(mediaRefOf("https://soundcloud.com/forss/sets/soulhack")).toEqual({
+    site: "soundcloud",
+    id: "forss/sets/soulhack",
+  });
+  expect(resolveMedia("soundcloud", "forss/sets/soulhack")).toMatchObject({
+    url: "https://soundcloud.com/forss/sets/soulhack",
+  });
+  for (const page of ["likes", "tracks", "albums", "reposts", "followers", "sets"])
+    expect(mediaRefOf(`https://soundcloud.com/forss/${page}`), page).toBeNull();
+  expect(resolveMedia("soundcloud", "forss/likes")).toBeNull();
+  expect(renderBbCode("https://soundcloud.com/forss/likes")).not.toContain("<iframe");
+});
+
+test("Twitch pages that are not a channel are not embedded", () => {
+  for (const page of ["directory", "settings", "downloads", "p/about", "search"])
+    expect(mediaRefOf(`https://www.twitch.tv/${page}`), page).toBeNull();
+  expect(resolveMedia("twitch", "directory", { players: true, parent: "fcuba.net" })).toBeNull();
+});
+
+test("Reddit's frame address ends in a slash", () => {
+  expect(resolveMedia("reddit", "r/cuba/comments/1ash6mv", { players: true })).toMatchObject({
+    src: "https://embed.reddit.com/r/cuba/comments/1ash6mv/?embed=true",
+  });
 });
