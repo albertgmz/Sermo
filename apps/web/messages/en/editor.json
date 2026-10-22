@@ -40,6 +40,8 @@
     },
     "mediaPrompt": "Address of the video, song or post",
     "linkUnsupported": "That is not a web address. Use one that starts with http:// or https://, or a page of this site that starts with /.",
-    "mediaUnsupported": "That address is not from a site that can be embedded."
+    "mediaUnsupported": "That address is not from a site that can be embedded.",
+    "emojiLabel": "Emoji",
+    "emojiFound": "{count, plural, one {# emoji found} other {# emoji found}}"
   }
 }

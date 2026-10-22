@@ -56,6 +56,7 @@ import {
   $removeAttachTags,
   registerRemoveFormattingShortcut,
 } from "@/components/forum/editor-commands";
+import { EmojiPlugin } from "@/components/forum/editor-emoji";
 import {
   InsertPlugin,
   type MemberHit,
@@ -523,6 +524,7 @@ export function Editor({
               ErrorBoundary={LexicalErrorBoundary}
             />
             {findMembers && <MentionPlugin find={findMembers} />}
+            <EmojiPlugin />
           </div>
           {sourceShown && (
             <textarea
