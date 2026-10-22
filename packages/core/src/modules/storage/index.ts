@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
-import { Readable, Transform, Writable } from "node:stream";
+import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileTypeFromFile } from "file-type";
 import sharp from "sharp";
@@ -176,31 +176,23 @@ const heifRefusal = () =>
  * What a file picker sends for a file whose type it does not know: `application/octet-stream`, or
  * no type at all (`text/plain`, the multipart default). The bytes decide what such a file is.
  */
+const unnamedTypes = new Set(["", "application/octet-stream", "text/plain"]);
+
 /** How much of a body that is refused by its declared type is kept on the disk. */
 const REFUSED_PREFIX_BYTES = 64 * 1024;
 
-/** A file that takes the first `limit` bytes it is given and drops the rest. */
-function prefixWriter(path: string, limit: number) {
-  const file = createWriteStream(path, { flags: "wx" });
+/** Passes on the first `limit` bytes and drops the rest, so a file stream after it stays small. */
+function prefixOnly(limit: number) {
   let taken = 0;
-  return new Writable({
-    write(chunk: Buffer, _encoding, callback) {
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
       const part = chunk.subarray(0, Math.max(0, limit - taken));
       taken += part.byteLength;
-      if (part.byteLength === 0) return callback();
-      file.write(part, callback);
-    },
-    final(callback) {
-      file.end(callback);
-    },
-    destroy(error, callback) {
-      file.destroy();
-      callback(error);
+      callback(null, part.byteLength > 0 ? part : undefined);
     },
   });
 }
 
-const unnamedTypes = new Set(["", "application/octet-stream", "text/plain"]);
 const maxBytesDefault = 25 * 1024 * 1024;
 /** Catalog and site pictures take these types whatever the site settings say for members. */
 const catalogTypes: readonly string[] = ["image/jpeg", "image/png", "image/webp"];
@@ -565,9 +557,8 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
         await pipeline(
           Readable.fromWeb(source as never),
           meter,
-          refusedAtOnce
-            ? prefixWriter(tempPath, REFUSED_PREFIX_BYTES)
-            : createWriteStream(tempPath, { flags: "wx" }),
+          ...(refusedAtOnce ? [prefixOnly(REFUSED_PREFIX_BYTES)] : []),
+          createWriteStream(tempPath, { flags: "wx" }),
         );
         if (size === 0) throw uploadRefusal("empty", "File is empty.");
         const detected = await fileTypeFromFile(tempPath);

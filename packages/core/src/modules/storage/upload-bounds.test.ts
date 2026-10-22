@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
@@ -95,6 +95,19 @@ describe("a body that will be refused", () => {
     // Not a PDF, so it is refused at the end: what was written shows the check is real.
     expect(await refusal(storage().upload(owner, body, "application/pdf"))).toBe("unreadable");
     expect(seen.largest).toBeGreaterThan(64 * 1024);
+  });
+
+  test("a disk that cannot be written ends the upload with an error, not a crash", async () => {
+    const owner = userActor(insertUser(ctx));
+    await chmod(dir, 0o500);
+    try {
+      for (const type of ["application/x-msdownload", "application/pdf"]) {
+        const { body } = watched(4, new Uint8Array());
+        await expect(storage().upload(owner, body, type)).rejects.toThrow();
+      }
+    } finally {
+      await chmod(dir, 0o700);
+    }
   });
 
   test("the size limit still stops a refused body", async () => {
