@@ -15,6 +15,7 @@ import {
   conversationsLocateUnread,
   conversationsMarkRead,
   conversationsMarkUnread,
+  conversationsQuoteMessage,
   conversationsRename,
   conversationsReply,
   conversationsSetLocked,
@@ -551,7 +552,10 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
   requireAttach(ctx, actor, input.attachmentIds);
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const refs = renderModeratedContent(ctx, actor, content, LINK_HASHTAGS);
+    const refs = renderModeratedContent(ctx, actor, content, {
+      ...LINK_HASHTAGS,
+      conversationId: input.conversationId,
+    });
     const html = refs.html;
     const now = ctx.now();
     const messageId = writeTx(ctx, () => {
@@ -1009,6 +1013,7 @@ export const conversationsUpdateMessageOp = implement(
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const refs = renderModeratedContent(ctx, actor, content, {
       ...LINK_HASHTAGS,
+      conversationId: message.conversation_id,
       edit: {
         contentType: "conversation_message",
         contentId: message.id,
@@ -1087,6 +1092,25 @@ export const conversationsGetMessageOp = implement(conversationsGetMessage, (ctx
   return { ...messages(ctx, actor, conversation, [row])[0]!, bodySource: body_source };
 });
 
+export const conversationsQuoteMessageOp = implement(
+  conversationsQuoteMessage,
+  (ctx, actor, input) => {
+    const { message } = visibleTarget(ctx, actor, input.messageId);
+    // Only what every participant sees is quoted: a quote of a waiting message would show it.
+    if (message.state !== "visible") throw new NotFoundError();
+    const { body_source } = prepared(ctx, "conversations.messageSource", () =>
+      ctx.sqlite.prepare<{ body_source: string }, [number]>(
+        "SELECT body_source FROM conversation_messages WHERE id = ?1",
+      ),
+    ).get(message.id)!;
+    return {
+      messageId: message.id,
+      author: loadUserSummaries(ctx, [message.user_id])(message.user_id),
+      bodySource: body_source,
+    };
+  },
+);
+
 export const conversationsDeleteMessageOp = implement(
   conversationsDeleteMessage,
   (ctx, actor, input) => {
@@ -1155,6 +1179,7 @@ export const operations = [
   conversationsSetLockedOp,
   conversationsUpdateMessageOp,
   conversationsGetMessageOp,
+  conversationsQuoteMessageOp,
   conversationsDeleteMessageOp,
   conversationsListOp,
   conversationsGetOp,

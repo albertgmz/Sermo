@@ -42,6 +42,17 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "conversations.quoteMessage",
+    kind: "read",
+    setup: loadOldest,
+    run(env, i) {
+      const row = oldestMessages[i % oldestMessages.length]!;
+      return env.call("conversations.quoteMessage", env.actors.user(row.userId), {
+        messageId: row.messageId,
+      });
+    },
+  },
+  {
     name: "conversations.list first page",
     kind: "read",
     run(env, i) {
@@ -201,6 +212,19 @@ async function ownConversations(env: Parameters<NonNullable<Scenario["setup"]>>[
   }
 }
 scenarios.push(
+  {
+    // A reply quoting the conversation's first message, which the render looks up to link it.
+    name: "conversations.reply with a quote",
+    kind: "write",
+    setup: ownConversations,
+    run(env, i) {
+      const row = owned[i % owned.length]!;
+      return env.call("conversations.reply", env.actors.user(row.userId), {
+        conversationId: row.conversationId,
+        body: `[QUOTE="x, convMessage: ${row.messageId}, member: ${row.userId}"]First message[/QUOTE]\n\nReply ${i}`,
+      });
+    },
+  },
   {
     name: "conversations.updateMessage",
     kind: "write",

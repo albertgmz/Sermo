@@ -126,6 +126,8 @@ interface RenderTiming {
   clock?: () => number;
   limitMs?: number;
   hashtags?: HashtagRules;
+  /** The conversation the text is written in: a quote of one of its messages links to it. */
+  conversationId?: number;
 }
 
 /**
@@ -164,16 +166,21 @@ type Rendered = ContentReferences & {
   hashtags: string[];
 };
 
-/** The source with each quote's opening tag naming its author and member (resolved) or only its author. */
+/**
+ * The source with each quote's opening tag naming its author, the post or conversation message and
+ * its member (resolved) or only its author.
+ */
 function canonicalSource(source: string, quotes: El[]): string {
   let result = "";
   let position = 0;
   for (const el of quotes) {
     const quote = el.quote!;
-    // A quote an import could not link keeps only its author's name, so the stored text, the
-    // HTML and a later edit agree that it is not a reference to a post.
+    // A quote that could not be linked (by an import, or of a message outside the conversation)
+    // keeps only its author's name, so the stored text, the HTML and a later edit agree that it
+    // is not a reference.
+    const reference = quote.postId ? `post: ${quote.postId}` : `convMessage: ${quote.messageId}`;
     const tag = quote.resolvedAuthor
-      ? quoteTag(quote.resolvedAuthor, `post: ${quote.postId}, member: ${quote.userId}`)
+      ? quoteTag(quote.resolvedAuthor, `${reference}, member: ${quote.userId}`)
       : quote.author
         ? quoteTag(quote.author)
         : "[QUOTE]";
@@ -427,7 +434,8 @@ function renderOnce(
     if (timing.hashtags)
       hashtags.push(...resolveHashtags(ctx, actor, tree.hashtags, timing.hashtags));
 
-    const quoteIds = [...new Set(tree.quotes.map((el) => el.quote!.postId!))];
+    const postQuotes = tree.quotes.filter((el) => el.quote!.postId);
+    const quoteIds = [...new Set(postQuotes.map((el) => el.quote!.postId!))];
     const rows = quoteIds.length
       ? prepared(ctx, "markdown.quotePosts", () =>
           ctx.sqlite.prepare<
@@ -471,7 +479,7 @@ function renderOnce(
           guestGates.reads(row.node_id, row.user_id)));
     // A post is checked once, however many times it is quoted.
     const checked = new Set<number>();
-    for (const el of tree.quotes) {
+    for (const el of postQuotes) {
       const quote = el.quote!;
       const row = byPost.get(quote.postId!);
       if (importing) {
@@ -495,6 +503,8 @@ function renderOnce(
       quote.resolvedAuthor = previous.quoteAuthors.get(row.id) ?? row.username;
       quote.userId = previous.quotes.get(row.id) ?? row.user_id;
     }
+    if (timing.conversationId !== undefined)
+      resolveMessageQuotes(ctx, timing.conversationId, tree.quotes);
   }
   const storedSource = canonicalSource(source, tree.quotes);
   if (storedSource.length > maxLength)
@@ -517,6 +527,32 @@ function renderOnce(
     spoilers: sink?.html ?? [],
     hashtags,
   };
+}
+
+/**
+ * Names the author of each quote of a visible message of `conversationId`, the conversation the
+ * text is written in, whose participants all see that message. A quote of any other message is not
+ * refused: it stays a plain quote under the name typed, with no link, so it tells nobody what the
+ * message is or that it exists.
+ */
+function resolveMessageQuotes(ctx: Ctx, conversationId: number, quotes: El[]): void {
+  const messageQuotes = quotes.filter((el) => el.quote!.messageId);
+  if (messageQuotes.length === 0) return;
+  const rows = prepared(ctx, "markdown.quoteMessages", () =>
+    ctx.sqlite.prepare<{ id: number; user_id: number; username: string }, [string, number]>(
+      "SELECT m.id, m.user_id, u.username FROM conversation_messages m JOIN users u ON u.id = m.user_id WHERE m.id IN (SELECT value FROM json_each(?1)) AND m.conversation_id = ?2 AND m.state = 'visible'",
+    ),
+  ).all(
+    JSON.stringify([...new Set(messageQuotes.map((el) => el.quote!.messageId))]),
+    conversationId,
+  );
+  const byMessage = new Map(rows.map((row) => [row.id, row]));
+  for (const el of messageQuotes) {
+    const row = byMessage.get(el.quote!.messageId!);
+    if (!row) continue;
+    el.quote!.resolvedAuthor = row.username;
+    el.quote!.userId = row.user_id;
+  }
 }
 
 /** Time a render for an import may take: a long body is not a hostile one, and the machine may be busy. */

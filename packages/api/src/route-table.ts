@@ -294,6 +294,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["PUT", "/conversations/{conversationId}/lock", "conversations.setLocked"],
   ["GET", "/conversation-messages/{messageId}", "conversations.getMessage"],
   ["GET", "/conversation-messages/{messageId}/location", "conversations.locateMessage"],
+  ["GET", "/conversation-messages/{messageId}/quote", "conversations.quoteMessage"],
   ["PATCH", "/conversation-messages/{messageId}", "conversations.updateMessage"],
   ["DELETE", "/conversation-messages/{messageId}", "conversations.deleteMessage"],
   ["GET", "/reaction-types", "reactionTypes.list"],

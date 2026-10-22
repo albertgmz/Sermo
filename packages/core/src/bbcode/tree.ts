@@ -8,10 +8,14 @@ const MAX_SPOILER_DEPTH = 10;
 /** Containers inside containers, of any kind. */
 const MAX_NESTING = 30;
 
-/** A quote's data; a `post` reference is resolved against the database by the caller. */
+/**
+ * A quote's data; a `post` or `convMessage` (a conversation message) reference is resolved against
+ * the database by the caller. A quote names one or the other: the one written last.
+ */
 export interface Quote {
   author: string | null;
   postId: number | null;
+  messageId: number | null;
   resolvedAuthor?: string;
   userId?: number;
 }
@@ -65,7 +69,7 @@ export interface Tree {
   mentions: MentionNode[];
   /** The hashtags, in source order. */
   hashtags: HashtagNode[];
-  /** The quotes that name a post, in source order. */
+  /** The quotes that name a post or a conversation message, in source order. */
   quotes: El[];
 }
 
@@ -137,16 +141,25 @@ const QUOTE_PAIRS =
   /(?:,|^(?=\s*(?:post|member|convMessage)\s*:))\s*[A-Za-z_]\w{0,30}\s*:\s*\d{1,12}(?:\s*,\s*[A-Za-z_]\w{0,30}\s*:\s*\d{1,12})*\s*$/i;
 
 /**
- * The post named by a run of `key: N` pairs; every other key is ignored. The last one counts: a
- * name such as `Ann, post: 7` puts a pair of its own before the ones written after it.
+ * The post or conversation message named by a run of `key: N` pairs; every other key is ignored.
+ * The last one counts: a name such as `Ann, post: 7` puts a pair of its own before the ones written
+ * after it.
  */
-function quotedPost(pairs: string): number | null {
-  let post: number | null = null;
+function quotedReference(pairs: string): { postId: number | null; messageId: number | null } {
+  let found: { postId: number | null; messageId: number | null } = {
+    postId: null,
+    messageId: null,
+  };
   for (const part of pairs.split(",")) {
-    const found = /^\s*post\s*:\s*(\d+)\s*$/i.exec(part);
-    if (found) post = Number(found[1]) || null;
+    const pair = /^\s*(post|convMessage)\s*:\s*(\d+)\s*$/i.exec(part);
+    if (!pair) continue;
+    const id = Number(pair[2]) || null;
+    found =
+      pair[1]!.toLowerCase() === "post"
+        ? { postId: id, messageId: null }
+        : { postId: null, messageId: id };
   }
-  return post;
+  return found;
 }
 
 /**
@@ -283,10 +296,12 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
     if (quote) {
       const option = tok.option ?? "";
       const reference = QUOTE_PAIRS.exec(option);
-      const postId = reference ? quotedPost(reference[0]) : null;
+      const { postId, messageId } = reference
+        ? quotedReference(reference[0])
+        : { postId: null, messageId: null };
       const author = (reference ? option.slice(0, reference.index) : option).trim();
-      el.quote = { author: author || null, postId: postId && postId > 0 ? postId : null };
-      if (el.quote.postId) quotes.push(el);
+      el.quote = { author: author || null, postId, messageId };
+      if (postId || messageId) quotes.push(el);
     }
     stack.push({
       el,

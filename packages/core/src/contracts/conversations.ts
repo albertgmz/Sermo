@@ -248,6 +248,18 @@ export const conversationsGetMessage = defineContract({
   output: MessageDetail,
 });
 
+export const conversationsQuoteMessage = defineContract({
+  name: "conversations.quoteMessage",
+  summary:
+    "A visible message's author and source, to quote it in a reply. Active participants only; " +
+    "anyone else, or a message that is not visible, gets not found.",
+  kind: "read",
+  input: z.object({ messageId: Id }),
+  output: z
+    .object({ messageId: Id, author: UserSummary, bodySource: z.string() })
+    .meta({ id: "MessageQuote" }),
+});
+
 export const conversationsDeleteMessage = defineContract({
   name: "conversations.deleteMessage",
   summary:

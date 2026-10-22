@@ -266,6 +266,14 @@ function quote(el: El, env: Env, inLink: boolean): string {
     const author = inLink ? name : `<a href="/posts/${data.postId}">${name}</a>`;
     return `<blockquote class="quote" data-post-id="${data.postId}"><cite>${author} wrote:</cite>${body}</blockquote>`;
   }
+  // A message of the conversation the text is written in: its author, linked to it, "said:".
+  if (data.resolvedAuthor && data.messageId) {
+    const name = escapeHtml(data.resolvedAuthor);
+    const author = inLink
+      ? name
+      : `<a href="/conversations/messages/${data.messageId}">${name}</a>`;
+    return `<blockquote class="bb-quote"><cite class="bb-quote-author">${author}</cite>${body}</blockquote>`;
+  }
   const author = data.author
     ? `<cite class="bb-quote-author">${escapeHtml(data.author)}</cite>`
     : "";
