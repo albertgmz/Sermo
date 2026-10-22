@@ -10,6 +10,12 @@ test("a post is quoted with its author, post and member", () => {
   );
 });
 
+test("a conversation message is quoted with its author, message and member", () => {
+  expect(quoteOf(5, "ember", 9, "Hi", "convMessage")).toBe(
+    '[QUOTE="ember, convMessage: 5, member: 9"]Hi[/QUOTE]',
+  );
+});
+
 test("a name the tag cannot hold is cleaned and one with nothing left is a placeholder", () => {
   expect(quoteOf(1, 'a"b], c\nd', 2, "x")).toBe(
     '[QUOTE="a b c d, post: 1, member: 2"]x[/QUOTE]',

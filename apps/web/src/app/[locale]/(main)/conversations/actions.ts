@@ -7,6 +7,7 @@ import {
   conversationsLeave,
   conversationsMarkRead,
   conversationsMarkUnread,
+  conversationsQuoteMessage,
   conversationsRename,
   conversationsSetLocked,
   conversationsUpdateMessage,
@@ -32,6 +33,21 @@ export async function replyAction(
   if (!sent.ok) return { error: sent.error };
   // The page the member lands on is rendered afresh, with their message on it.
   redirect(`/conversations/${conversationId}`);
+}
+
+// What a message's Reply puts in the editor: its author and its BB code source, which the backend
+// gives a participant for a visible message. A refusal (a message deleted meanwhile) quotes nothing.
+export async function quoteMessageSource(messageId: number) {
+  requireIds(messageId);
+  try {
+    const { author, bodySource } = await call(conversationsQuoteMessage, {
+      messageId,
+    });
+    return { author: author.username, authorId: author.id, source: bodySource };
+  } catch (error) {
+    if (!(error instanceof SermoError)) throw error;
+    return null;
+  }
 }
 
 // Called by the page itself once the newest message is shown, so a refusal (a dead session, a

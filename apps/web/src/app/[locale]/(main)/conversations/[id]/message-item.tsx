@@ -29,6 +29,7 @@ export function MessageItem({
   picker,
   reactionTypes,
   viewList,
+  canQuote,
 }: {
   message: ApiMessage;
   author: AuthorView;
@@ -38,6 +39,8 @@ export function MessageItem({
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
   viewList?: boolean;
+  // Whether the viewer may reply here, so a message's Reply has an editor to quote it into.
+  canQuote: boolean;
 }) {
   const t = useTranslations("conversations.conversation");
   return (
@@ -54,6 +57,7 @@ export function MessageItem({
           picker={picker}
           reactionTypes={reactionTypes}
           viewList={viewList}
+          canQuote={canQuote}
         />
       }
     >
@@ -79,7 +83,9 @@ export function MessageItem({
 }
 
 // Messages that came after the page was drawn, drawn the way the page draws them. A signature
-// stays under the author's first message on the page, so none is drawn here.
+// stays under the author's first message on the page, so none is drawn here. Their Reply is
+// drawn: they come to the newest page, which has the reply editor unless the viewer may not reply
+// there (then Reply quotes into nothing until the page is drawn again).
 export async function messageRows(messages: ApiMessage[]): Promise<TailRow[]> {
   if (messages.length === 0) return [];
   const [{ user, permissions, resolvedPermissions }, reactionTypes] =
@@ -102,6 +108,7 @@ export async function messageRows(messages: ApiMessage[]): Promise<TailRow[]> {
         picker={picker}
         reactionTypes={reactionTypes}
         viewList={resolvedPermissions["reaction.viewList"] !== false}
+        canQuote
       />
     ),
   }));

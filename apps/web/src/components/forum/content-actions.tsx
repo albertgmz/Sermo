@@ -84,7 +84,9 @@ function PanelButton({
 //   summary     The reactions summary (`Reactions` with `part="summary"`).
 //   react       The reaction button (`Reactions` with `part="button"`).
 //   start       More controls on the left, after reply.
-//   quote       A post to quote into the reply editor: the post id, the event and the loader.
+//   quote       A post to quote into the reply editor: the post id, the event and the loader. A
+//               conversation message gives `reference: "convMessage"` and `asReply`: its Reply
+//               quotes it, as XenForo's, in place of "+ Quote".
 //   reply       Where the reply editor is.
 //   share       The permalink of the item.
 //   bookmark    The item and whether the viewer bookmarked it; only for signed-in viewers.
@@ -92,7 +94,7 @@ function PanelButton({
 //   remove      Deleting: the action, whether to ask for a reason, and a line saying what it does.
 //   report      Reporting: the action that files it.
 //   moderation  Moderator tools that exist for the item (approve, restore), after the rest.
-//   leading     The first thing on the left: a comment's date.
+//   leading     The first thing on the left: a comment's date, a conversation message's share.
 //   menu        The wall bar's "•••" menu (`ContentMenu`), which reads the panels it may open from
 //               `MenuPanels`. The caller brings it, so the pages without wall items do not load it.
 //   layout      `split` is a thread post's footer as XenForo draws it: what the viewer does to the
@@ -133,6 +135,8 @@ export function ContentActions({
     load: (
       postId: number,
     ) => Promise<{ author: string; authorId: number; source: string } | null>;
+    reference?: "post" | "convMessage";
+    asReply?: boolean;
   };
   reply?: { href: string };
   share?: string;
@@ -192,8 +196,10 @@ export function ContentActions({
           postId={quote.postId}
           event={quote.event}
           load={quote.load}
-          label={t("quote")}
-          text={split ? t("addQuote") : undefined}
+          reference={quote.reference}
+          icon={quote.asReply ? <Reply /> : undefined}
+          label={quote.asReply ? t("reply") : t("quote")}
+          text={split && !quote.asReply ? t("addQuote") : undefined}
           labelClassName={labelClass}
         />
       )}

@@ -23,6 +23,7 @@ const {
   markRead,
   markReadAction,
   markUnreadAction,
+  quoteMessageSource,
   renameAction,
   replyAction,
   setLockedAction,
@@ -366,4 +367,33 @@ test("locking and unlocking ask the backend for that state and return to the con
     error: "Only the starter may do that.",
   });
   await assert.rejects(() => setLockedAction(-1, true, {}));
+});
+
+test("a message is quoted from the source the backend gives a participant, and a refusal quotes nothing", async () => {
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    asked.push({ method: init.method ?? "GET", url });
+    return Response.json({
+      messageId: 11,
+      author: { id: 3, username: "ember" },
+      bodySource: "[B]hi[/B]",
+    });
+  }) as unknown as typeof fetch;
+  assert.deepEqual(await quoteMessageSource(11), {
+    author: "ember",
+    authorId: 3,
+    source: "[B]hi[/B]",
+  });
+  assert.deepEqual(asked, [
+    {
+      method: "GET",
+      url: "http://127.0.0.1:8787/api/v1/conversation-messages/11/quote",
+    },
+  ]);
+  globalThis.fetch = (async () =>
+    Response.json(
+      { error: { code: "not_found", message: "Not found." } },
+      { status: 404 },
+    )) as unknown as typeof fetch;
+  assert.equal(await quoteMessageSource(11), null);
+  await assert.rejects(() => quoteMessageSource(".." as unknown as number));
 });

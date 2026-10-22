@@ -185,7 +185,8 @@ export default async function ConversationPage({
           </Suspense>
         </div>
 
-        <section className="mt-4">
+        {/* Where a message's Reply takes the member, with the message quoted in the editor. */}
+        <section id="reply" className="mt-4 scroll-mt-4">
           <ReplyArea
             conversation={conversation}
             tailKey={tailKey(conversation.id)}
@@ -286,6 +287,7 @@ async function Messages({
               picker={picker}
               reactionTypes={reactionTypes}
               viewList={viewList}
+              canQuote={conversation.canReply}
             />
           </li>
         ))}

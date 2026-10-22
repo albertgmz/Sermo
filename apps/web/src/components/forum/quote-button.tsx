@@ -9,7 +9,8 @@ import {
 
 // Puts a post, quoted, at the end of the reply editor (which listens for `event`) and takes the
 // member there. The BB code source comes from the backend, never from the rendered post. `label`
-// names the button; `text`, when given, is the word drawn beside the icon in its place.
+// names the button; `text`, when given, is the word drawn beside the icon in its place. `reference`
+// says what `postId` is: a post, or a conversation message (`convMessage`, whose Reply quotes it).
 export function QuoteButton({
   postId,
   event,
@@ -17,6 +18,8 @@ export function QuoteButton({
   label,
   text = label,
   labelClassName = actionLabelClass,
+  reference,
+  icon = <Quote />,
 }: {
   postId: number;
   event: string;
@@ -27,6 +30,8 @@ export function QuoteButton({
   text?: string;
   // How the word is hidden where only the icon fits.
   labelClassName?: string;
+  reference?: "post" | "convMessage";
+  icon?: React.ReactNode;
 }) {
   return (
     <button
@@ -38,13 +43,19 @@ export function QuoteButton({
         if (!post) return;
         window.dispatchEvent(
           new CustomEvent(event, {
-            detail: quoteOf(postId, post.author, post.authorId, post.source),
+            detail: quoteOf(
+              postId,
+              post.author,
+              post.authorId,
+              post.source,
+              reference,
+            ),
           }),
         );
         document.getElementById("reply")?.scrollIntoView({ block: "start" });
       }}
     >
-      <Quote />
+      {icon}
       <span className={labelClassName}>{text}</span>
     </button>
   );

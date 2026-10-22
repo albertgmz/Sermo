@@ -105,15 +105,16 @@ function balanced(source: string) {
   return out + source.slice(at);
 }
 
-// A post quoted as the renderer reads it: the author's name, the post and the member, in the form
-// the renderer itself writes back when it saves. It fills in the name from the member, so a name
-// the tag cannot hold costs nothing.
+// A post (or, with `reference`, a conversation message) quoted as the renderer reads it: the
+// author's name, the post and the member, in the form the renderer itself writes back when it
+// saves. It fills in the name from the member, so a name the tag cannot hold costs nothing.
 export function quoteOf(
   postId: number,
   author: string,
   authorId: number,
   source: string,
+  reference: "post" | "convMessage" = "post",
 ) {
   const name = author.replace(/["[\],\s]+/g, " ").trim() || "member";
-  return `[QUOTE="${name}, post: ${postId}, member: ${authorId}"]${balanced(source.trim())}[/QUOTE]`;
+  return `[QUOTE="${name}, ${reference}: ${postId}, member: ${authorId}"]${balanced(source.trim())}[/QUOTE]`;
 }

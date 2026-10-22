@@ -1,15 +1,15 @@
 "use client";
 
-import { Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { replyAction } from "@/app/[locale]/(main)/conversations/actions";
 import { replyInPlace } from "@/app/[locale]/(main)/conversations/reply-in-place";
+import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import { AttachmentField } from "@/components/forum/attachment-field";
+import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { useTailForm } from "@/components/forum/use-tail-form";
-import { Button } from "@/components/ui/button";
 
 // Whether a message is on its way to a page that will be drawn anew (the form is gone with it): the
 // new form takes the focus back, so the member can go on writing.
@@ -68,26 +68,30 @@ export function ReplyForm({
       }}
       className="space-y-3 rounded-lg border bg-card p-3 md:p-4"
     >
+      {/* The thread's quick reply: the editor takes what a message's Reply quotes; under it,
+          "Attach files" and the submit on one row, as XenForo's. */}
       <LazyEditor
         key={`editor-${generation}`}
         name="body"
+        compact={false}
         placeholder={placeholder}
-        minHeight={96}
+        insertEvent={QUOTE_EVENT}
       />
-      {canAttach && (
-        <AttachmentField key={`files-${generation}`} onBusy={setUploading} />
-      )}
       {state.error && <FormError>{state.error}</FormError>}
-      <div className="flex justify-end">
-        <Button
-          type="submit"
-          disabled={pending || uploading}
-          className="h-10 px-4"
-        >
-          <Send />
-          {submitLabel}
-        </Button>
-      </div>
+      <ComposerButtons
+        submitLabel={submitLabel}
+        order="reply"
+        disabled={pending || uploading}
+        files={
+          canAttach && (
+            <AttachmentField
+              key={`files-${generation}`}
+              compact
+              onBusy={setUploading}
+            />
+          )
+        }
+      />
     </form>
   );
 }

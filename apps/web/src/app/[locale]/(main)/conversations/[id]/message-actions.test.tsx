@@ -49,12 +49,17 @@ const message = (over: Record<string, unknown> = {}) =>
     ...over,
   }) as Props["message"];
 
-function draw(over: Record<string, unknown>, viewerId: number | null) {
+function draw(
+  over: Record<string, unknown>,
+  viewerId: number | null,
+  canQuote = true,
+) {
   return renderToStaticMarkup(
     withIntl(
       <MessageActions
         message={message(over)}
         viewerId={viewerId}
+        canQuote={canQuote}
         picker={[]}
         reactionTypes={[]}
       />,
@@ -96,11 +101,23 @@ test("edit follows the backend's flag and opens the message's edit page", () => 
   expect(has(draw({ canEdit: false }, 3), "Edit")).toBe(false);
 });
 
-test("a message has no quote or reply control", () => {
-  const html = draw({ canEdit: true, canDelete: true }, 3);
-  for (const label of ["Quote", "Reply"]) {
-    expect(has(html, label)).toBe(false);
-  }
+test("a visible message has Reply, which quotes it, on the right of report and edit", () => {
+  const html = draw({ canEdit: true }, 9);
+  expect(has(html, "Reply")).toBe(true);
+  expect(has(html, "Quote")).toBe(false);
+  // As XenForo's footer: what the viewer does to the message first, how they answer it last.
+  expect(html.indexOf('aria-label="Report"')).toBeLessThan(
+    html.indexOf('aria-label="Reply"'),
+  );
+  expect(html.indexOf('aria-label="Edit"')).toBeLessThan(
+    html.indexOf('aria-label="Reply"'),
+  );
+});
+
+test("a message has no Reply where the viewer cannot reply, nor when it is not visible", () => {
+  expect(has(draw({ canEdit: true }, 9, false), "Reply")).toBe(false);
+  for (const state of ["moderated", "deleted"])
+    expect(has(draw({ state }, 9), "Reply")).toBe(false);
 });
 
 test("a deleted message offers neither share, delete nor report", () => {
