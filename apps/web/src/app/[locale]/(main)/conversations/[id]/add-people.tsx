@@ -1,17 +1,20 @@
 "use client";
 
 import { UserPlus } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import {
-  expectDetailsFocus,
-  forgetDetailsFocus,
-  isRedirect,
-} from "@/app/[locale]/(main)/conversations/[id]/details-focus";
-import { addParticipantsAction } from "@/app/[locale]/(main)/conversations/actions";
-import { RecipientPicker } from "@/app/[locale]/(main)/conversations/new/recipient-picker";
-import { ActionForm } from "@/components/forum/action-form";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// The picker and its form come with the first press.
+const AddPeopleForm = dynamic(
+  () =>
+    import("@/app/[locale]/(main)/conversations/[id]/add-people-form").then(
+      (module) => module.AddPeopleForm,
+    ),
+  { loading: () => <Skeleton className="m-4 h-24" /> },
+);
 
 // The "Add people" row of the participants card: a button that opens the recipient picker in
 // place. Everyone already taking part is left out of the picker; a member who left is not, as
@@ -25,7 +28,6 @@ export function AddPeople({
 }) {
   const t = useTranslations("conversations.conversation.addPeople");
   const [open, setOpen] = useState(false);
-  const [picked, setPicked] = useState(0);
   if (!open) {
     return (
       <div className="px-4 py-2">
@@ -42,40 +44,10 @@ export function AddPeople({
     );
   }
   return (
-    <ActionForm
-      action={async (previous, formData) => {
-        // A success is a redirect that draws the drawer anew: its button takes the focus back.
-        expectDetailsFocus();
-        try {
-          const state = await addParticipantsAction(
-            conversationId,
-            previous,
-            formData,
-          );
-          if (state?.error) forgetDetailsFocus();
-          return state;
-        } catch (error) {
-          // A success rejects with a redirect (Next sends the page elsewhere); any other throw is
-          // no success.
-          if (!isRedirect(error)) forgetDetailsFocus();
-          throw error;
-        }
-      }}
-      submit={t("submit")}
-      aside={
-        <Button
-          type="button"
-          variant="ghost"
-          className="h-10 px-3"
-          onClick={() => setOpen(false)}
-        >
-          {t("cancel")}
-        </Button>
-      }
-      submitDisabled={picked === 0}
-      className="p-4"
-    >
-      <RecipientPicker exclude={exclude} onCount={setPicked} />
-    </ActionForm>
+    <AddPeopleForm
+      conversationId={conversationId}
+      exclude={exclude}
+      onCancel={() => setOpen(false)}
+    />
   );
 }

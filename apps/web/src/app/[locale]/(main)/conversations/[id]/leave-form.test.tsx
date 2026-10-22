@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 mock.module("@/app/[locale]/(main)/conversations/actions", () => ({
   leaveAction: async () => ({}),
 }));
-const { FutureMessagesChoice, LeaveForm } = await import("./leave-form");
+const { LeaveForm } = await import("./leave-form");
+const { FutureMessagesChoice } = await import("./leave-step");
 
 const texts = {
   warning: "Leaving removes it from your list.",
