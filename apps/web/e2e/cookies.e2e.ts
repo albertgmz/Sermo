@@ -207,6 +207,13 @@ test.describe("the notification card after the cookie banner", () => {
         ((await key.json()) as { publicKey: string | null }).publicKey === null,
         "this forum has no push keys",
       );
+      // Headless Chromium reports notifications as already refused ("denied"), which keeps the card
+      // away by design; a browser that has not been asked says "default", so the page is shown that.
+      await page.addInitScript(() => {
+        Object.defineProperty(Notification, "permission", {
+          get: () => "default",
+        });
+      });
       // The banner is asked again and neither card is put off. The visit to /cookies first also
       // counts as a page seen: a member whose account is under a day old gets no notification card
       // on the first page of a visit (`pushWanted`), so keep two page loads before "/".

@@ -93,13 +93,10 @@ test.describe("signed in", () => {
   }) => {
     await visit(page, "/");
     const menu = await openAccountTab(page);
-    const group = menu.getByRole("group", { name: "Theme" });
-    await group.getByRole("button", { name: "Dark" }).click();
+    const theme = menu.getByRole("combobox", { name: "Theme" });
+    await theme.selectOption("dark");
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
-    await expect(group.getByRole("button", { name: "Dark" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await expect(theme).toHaveValue("dark");
     await page.keyboard.press("Escape");
     await expectFits(page, "dark");
 
@@ -109,10 +106,7 @@ test.describe("signed in", () => {
     await expectFits(page, "dark after a reload");
 
     await openAccountTab(page);
-    await menu
-      .getByRole("group", { name: "Theme" })
-      .getByRole("button", { name: "Light" })
-      .click();
+    await menu.getByRole("combobox", { name: "Theme" }).selectOption("light");
     await expect(html(page)).toHaveAttribute("data-theme", "light");
     await page.keyboard.press("Escape");
     await expectFits(page, "light");
@@ -122,34 +116,35 @@ test.describe("signed in", () => {
 test.describe("guest", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("a guest with no choice gets light whatever the device, and the system choice follows it @all", async ({
+  test("a guest with no choice follows the device, and a choice is kept over a reload @all", async ({
     page,
   }) => {
     await page.emulateMedia({ colorScheme: "dark" });
     await visit(page, "/");
     await rejectCookies(page);
-    await expect(html(page)).toHaveAttribute("data-theme", "light");
-
-    const theme = page.getByRole("group", { name: "Theme" });
-    await theme.getByRole("button", { name: "System" }).click();
-    await expect(html(page)).toHaveAttribute("data-theme", "dark");
-    // Kept over a reload: no choice would be light here.
-    await page.reload();
-    await ready(page);
+    const theme = page.getByRole("combobox", { name: "Theme" });
+    await expect(theme).toHaveValue("system");
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
     await page.emulateMedia({ colorScheme: "light" });
     await page.reload();
     await ready(page);
     await expect(html(page)).toHaveAttribute("data-theme", "light");
 
-    await theme.getByRole("button", { name: "Dark" }).click();
+    await theme.selectOption("dark");
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
     await expectFits(page, "guest dark");
     await page.reload();
     await ready(page);
     await expect(html(page)).toHaveAttribute("data-theme", "dark");
-    await theme.getByRole("button", { name: "Light" }).click();
+    await theme.selectOption("light");
     await expect(html(page)).toHaveAttribute("data-theme", "light");
     await expectFits(page, "guest light");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.reload();
+    await ready(page);
+    await expect(html(page)).toHaveAttribute("data-theme", "light");
+
+    await theme.selectOption("system");
+    await expect(html(page)).toHaveAttribute("data-theme", "dark");
   });
 });
