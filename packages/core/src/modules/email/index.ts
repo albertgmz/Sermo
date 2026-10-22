@@ -21,6 +21,7 @@ import { readGates } from "../forums/read-gates";
 import { enqueueJob, MAX_ATTEMPTS, registerJobHandler } from "../jobs/queue";
 import { contentPath } from "../notifications/paths";
 import { readSiteSettings } from "../settings";
+import { ensureMailLogo } from "../storage/mail-logo";
 import { siteBranding } from "./branding";
 import { signUnsubscribe, verifyUnsubscribe } from "./token";
 import { visibleTo } from "./visibility";
@@ -356,6 +357,7 @@ export async function runWeeklyDigest(
   const mail = state.get(ctx);
   if (!mail || mail.config.driver === "none") return 0;
   const settings = readSiteSettings(ctx);
+  await ensureMailLogo(ctx, settings.logoFileId);
   const now = ctx.now();
   const weekBefore = now - 6 * DAY_MS;
   const run = digestRun(ctx, startedAt, now);
@@ -550,6 +552,7 @@ async function notificationMessage(
     return null;
   if (undeliverable(ctx, user.email)) return null;
   const language = languageFor(user.language, settings.defaultLanguage);
+  await ensureMailLogo(ctx, settings.logoFileId);
   const brand = siteBranding(ctx, settings);
   const site = brand.name;
   const siteUrl = brand.url;

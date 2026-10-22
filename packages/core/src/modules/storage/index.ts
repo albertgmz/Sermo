@@ -34,6 +34,7 @@ import {
   requirePost as requireProfilePost,
 } from "../profiles/shared";
 import { cleanFilename, contentDisposition, renamedFor } from "./filename";
+import { rememberStorage } from "./mail-logo";
 import { uploadRefusal } from "./refusal";
 import { fileUrl, resolvedFileUrl } from "./url";
 
@@ -296,6 +297,7 @@ export async function fileHash(path: string): Promise<string> {
 
 export function registerStorageJobs(ctx: Ctx, config: StorageConfig): void {
   const storage = createStorage(ctx, config);
+  rememberStorage(ctx, config);
   registerJobHandler(ctx, "storage.delete", async (_ctx, payload) => {
     const id = (payload as { id?: unknown })?.id;
     if (!Number.isSafeInteger(id) || Number(id) < 1)

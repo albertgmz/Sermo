@@ -6,6 +6,7 @@ import { languageFor } from "../../i18n";
 import { type AccountTemplate, renderAccountEmail } from "../../mail/template";
 import { enqueueJob, MAX_ATTEMPTS, registerJobHandler } from "../jobs/queue";
 import { readSiteSettings } from "../settings";
+import { ensureMailLogo } from "../storage/mail-logo";
 import { siteBranding } from "./branding";
 import { accountMailState, mailboxRejected, recordFailure, undeliverable } from "./index";
 
@@ -83,6 +84,7 @@ export function registerAccountEmailJobs(ctx: Ctx): void {
       if (!member) return finish();
       try {
         const settings = readSiteSettings(ctx);
+        await ensureMailLogo(ctx, settings.logoFileId);
         const rendered = await renderAccountEmail({
           kind: job.kind,
           language: languageFor(member.language, settings.defaultLanguage),
