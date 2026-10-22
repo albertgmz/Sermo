@@ -6126,3 +6126,18 @@ with reactions.
 
 Why: backlog B5 and the widget findings 3.5 (fcuba's birthdays, top referrers and "Usuarios del
 Mes").
+
+### Who is online and the site totals as widgets
+
+- `site.stats` (`GET /site/stats`) returns threads and messages in the forums a guest can open, the
+  member count (confirmed, approved, not banned, not erased) and the newest such member, chosen in
+  SQL. The totals are the same for every viewer with `site.view` and kept 10 minutes per process
+  (dropped on a ban, lift, erasure or hide-online change); the newest member is a card built per
+  viewer (minimal for a closed profile, none without `profile.view` and `member.viewList`).
+- Widgets `recentlyActive` (names only, up to `limit` with "and N more", "Total: N"; `window: "15m"`
+  titles it "Online now"; members who hide their online state are left out) and `siteTotals`. Neither
+  is placed by default.
+
+Why: backlog B7 and the widget findings 3.6 (fcuba's "Miembros en línea" and site statistics).
+Known limits: the member count is a full count, cold about 260 ms on a 60k-member copy, once per
+10 minutes.
