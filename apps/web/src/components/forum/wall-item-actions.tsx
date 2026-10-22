@@ -113,7 +113,7 @@ export function WallItemActions({
       menu={<ContentMenu className={messageActionClass} />}
       leading={
         isComment && (
-          <span className="block min-w-0 truncate text-xs leading-10 whitespace-nowrap text-muted-foreground md:leading-8">
+          <span className="block min-w-0 text-xs text-muted-foreground max-sm:basis-full max-sm:pt-1 max-sm:leading-5 sm:truncate sm:leading-10 md:leading-8">
             <RelativeTime date={item.createdAt} />
             {item.editedAt && (
               <EditedMark date={item.editedAt} className="ml-1.5" />

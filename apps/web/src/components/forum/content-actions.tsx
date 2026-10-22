@@ -174,9 +174,10 @@ export function ContentActions({
 
   const wall = layout === "wall";
   const split = layout === "split" || wall;
-  // A comment's bar (a wall bar led by the comment's date) sits in a narrow column: it keeps to one
-  // line, its date giving way first, with report an icon on a phone, as XenForo's compact comment
-  // footer.
+  // A comment's bar (a wall bar led by the comment's date) sits in a narrow column. On a phone the
+  // whole date is a line of its own under the text and the buttons follow on the next; from `sm`
+  // it is one line, the date giving way first. Report is an icon on a phone, as XenForo's compact
+  // comment footer.
   const comment = wall && Boolean(leading);
   // An ordinary member's bar shows report's word on a phone too; with edit, delete (the wall's
   // "•••") or moderator tools beside it, the bar keeps to icons there, so it stays one line.
@@ -301,10 +302,10 @@ export function ContentActions({
           pills take the card. */}
       <div
         className={cn(
-          "flex items-center justify-between [--action-hover:var(--border)]",
+          "flex items-center justify-between [--action-hover:var(--input)]",
           gap,
           comment
-            ? "flex-nowrap [--action-fill:var(--card)]"
+            ? "flex-nowrap max-sm:flex-wrap [--action-fill:var(--card)]"
             : "flex-wrap [--action-fill:var(--muted)]",
         )}
       >
@@ -312,7 +313,9 @@ export function ContentActions({
           className={cn(
             "flex items-center",
             gap,
-            comment ? "min-w-0 flex-nowrap" : "flex-wrap",
+            // On a phone the left side dissolves into the row, so the date (its `leading`, which
+            // takes a whole line there) stands over the buttons.
+            comment ? "min-w-0 flex-nowrap max-sm:contents" : "flex-wrap",
           )}
         >
           {leading}

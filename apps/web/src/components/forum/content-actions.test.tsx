@@ -358,7 +358,7 @@ test("a pill darkens under the pointer, and a pressed pill lays its tint over th
   const html = draw({ ...full, layout: "split" });
   const row =
     html.match(/<div class="([^"]*justify-between[^"]*)">/)?.[1] ?? "";
-  expect(row.split(" ")).toContain("[--action-hover:var(--border)]");
+  expect(row.split(" ")).toContain("[--action-hover:var(--input)]");
   const report = (
     html.match(/<button[^>]*aria-label="Report"[^>]*class="([^"]*)"/)?.[1] ??
     html.match(/<button[^>]*class="([^"]*)"[^>]*aria-label="Report"/)?.[1] ??
@@ -369,4 +369,8 @@ test("a pill darkens under the pointer, and a pressed pill lays its tint over th
   expect(report).not.toContain("aria-pressed:bg-primary/10");
   expect(report).toContain("aria-pressed:from-primary/8");
   expect(report).toContain("aria-pressed:to-primary/8");
+  // Under the pointer a pressed pill keeps its fill: its tint stays where its ink was checked.
+  expect(report).toContain(
+    "aria-pressed:hover:bg-[color:var(--action-fill,transparent)]",
+  );
 });

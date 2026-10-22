@@ -237,30 +237,39 @@ test("on a phone the composer spans the row: the viewer's avatar sits beside it 
   expect(composer).toMatch(/<form[^>]*class="[^"]*\bflex-1\b/);
 });
 
-test("a comment's footer keeps to one line in a phone's narrow column: the date level with the text and cut short before the buttons wrap, report an icon on a phone, small gaps, pills on the card", async () => {
+test("a comment's footer: on a phone the whole date on a line of its own under the text, the buttons on the next; from sm one line with the date giving way; report an icon on a phone, small gaps, pills on the card", async () => {
   const edited = {
     ...comment(1),
     editedAt: "2026-01-03T00:00:00.000Z",
     canEdit: true,
     canDelete: true,
   } as unknown as Comment;
-  for (const item of [comment(1), edited]) {
+  // A moderator on someone else's comment: every tool at once.
+  const moderated = { ...edited, canReport: true } as unknown as Comment;
+  for (const item of [comment(1), edited, moderated]) {
     const markup = await render({ comments: [item] });
     const footer = markup.slice(markup.indexOf('data-slot="content-actions"'));
     const classes = (pattern: RegExp) =>
       footer.match(pattern)?.[1].split(" ") ?? [];
     const row = classes(/<div class="([^"]*justify-between[^"]*)">/);
+    // A phone: the row wraps, its left side dissolves into it (`contents`), and the date takes a
+    // whole line, never cut; the buttons follow on the next line, react at its end.
+    expect(row).toContain("max-sm:flex-wrap");
     expect(row).toContain("flex-nowrap");
     expect(row).not.toContain("flex-wrap");
     expect(row).toContain("gap-1");
     expect(row).toContain("[--action-fill:var(--card)]");
-    // The left side, which holds the date, gives way; the buttons keep their size.
     const left = classes(/justify-between[^"]*"><div class="([^"]*)">/);
+    expect(left).toContain("max-sm:contents");
+    // From sm: one line, the left side (the date) gives way, the buttons keep their size.
     expect(left).toContain("min-w-0");
     expect(left).toContain("flex-nowrap");
     expect(left).toContain("gap-1");
     const date = classes(/<span class="([^"]*)"><time/);
-    expect(date).toContain("truncate");
+    expect(date).toContain("max-sm:basis-full");
+    expect(date).toContain("sm:truncate");
+    expect(date).not.toContain("truncate");
+    expect(date).not.toContain("whitespace-nowrap");
     expect(date).toContain("min-w-0");
     expect(date).not.toContain("px-2");
   }

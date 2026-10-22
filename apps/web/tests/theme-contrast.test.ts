@@ -420,13 +420,42 @@ for (const [theme, tokens, worst] of [
   });
 }
 
+// The hover fill a footer bar gives its pills (components/forum/content-actions.tsx), and whether a
+// pressed pill keeps its own fill under the pointer (message-action.ts).
+const actionHover =
+  readFileSync(
+    new URL("../src/components/forum/content-actions.tsx", import.meta.url),
+    "utf8",
+  ).match(/\[--action-hover:var\(--([a-z-]+)\)\]/)?.[1] ?? "missing";
+const pressedKeepsFill = readFileSync(
+  new URL("../src/components/forum/message-action.ts", import.meta.url),
+  "utf8",
+).includes("aria-pressed:hover:bg-[color:var(--action-fill,transparent)]");
+
 for (const [theme, tokens] of [
   ["dark", dark],
   ["light", light],
 ] as const) {
+  // A footer pill under the pointer: its words (the foreground) read on the hover fill, and the
+  // fill is a visible step from the rest fills, the muted of a post's bar and the card of a comment's.
+  test(`${theme} theme: a footer pill's hover fill reads and shows against its rest fill`, () => {
+    const hover = resolve(tokens, actionHover);
+    expect(
+      contrast(resolve(tokens, "foreground"), hover),
+    ).toBeGreaterThanOrEqual(4.5);
+    for (const fill of ["muted", "card"]) {
+      expect(contrast(hover, resolve(tokens, fill))).toBeGreaterThanOrEqual(
+        1.15,
+      );
+    }
+  });
+
   // A pressed footer pill (components/forum/message-action.ts): the accent's ink on an 8 % tint of
-  // the accent laid over the pill's fill, the muted one of a post's bar or the card of a comment's.
-  test(`${theme} theme: a pressed footer pill reads on its tint over the pill's fill`, () => {
+  // the accent laid over the pill's fill, the muted one of a post's bar or the card of a comment's,
+  // and over the bar's hover fill too unless a pressed pill keeps its own fill under the pointer.
+  test(`${theme} theme: a pressed footer pill reads on its tint over the pill's fill, at rest and under the pointer`, () => {
+    const fills = ["muted", "card"];
+    if (!pressedKeepsFill) fills.push(actionHover);
     const failures: string[] = [];
     for (const accent of [
       ...ACCENTS.map((preset) => preset.color),
@@ -437,7 +466,7 @@ for (const [theme, tokens] of [
         number(tokens, "--accent-min"),
         number(tokens, "--ink-max"),
       );
-      for (const fill of ["muted", "card"]) {
+      for (const fill of fills) {
         const ratio = contrast(ink, over(accent, 0.08, resolve(tokens, fill)));
         if (ratio < 4.5)
           failures.push(`${accent} on ${fill}: ${ratio.toFixed(2)}`);
