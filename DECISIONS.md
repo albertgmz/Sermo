@@ -6462,3 +6462,12 @@ Why: the owner asked for the same editor as their XenForo, at its default sizes,
 
 Why: the owner asked for global private messages and alerts with a test mode. XenForo's admin
 conversations ignore ignore-lists; so do these.
+
+### End-to-end tests follow the theme dropdown and a fresh browser's notification state
+
+- The account-menu theme tests choose the theme with the dropdown and expect System as the default
+  (a guest with no choice follows the device), as G10 decided. The notification-card tests start
+  from a browser that has not been asked about notifications (`Notification.permission` reads
+  "default"), since headless Chromium reports "denied" and the card is never offered then.
+
+Why: the full end-to-end run after tonight's merges had these four failures.
