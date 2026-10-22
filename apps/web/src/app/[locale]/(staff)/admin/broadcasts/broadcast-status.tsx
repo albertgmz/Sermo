@@ -18,7 +18,9 @@ import type { BroadcastKind } from "./state";
 
 // "Latest run": where the latest send or count stands and what it reached, with the button that
 // stops the run under way or resumes one that stopped (a send behind the administrator's password).
-// While a run is under way the page refreshes itself.
+// Each button names the run it was drawn for, and the backend refuses it on any other; a stopped
+// run is resumed or discarded only from the page of its kind. While a run is under way the page
+// refreshes itself.
 export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
   const [t, format, run] = await Promise.all([
     getTranslations("adminCommunication.broadcasts.run"),
@@ -39,6 +41,7 @@ export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
     matched: format.number(run.matched),
     reachable: format.number(run.reachable),
     when: run.finishedAt ? when(run.finishedAt) : "",
+    started: run.startedAt ? when(run.startedAt) : "",
     sent: format.number(run.sent),
     skipped: format.number(run.skipped),
     error: run.error ?? "",
@@ -51,7 +54,10 @@ export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
     done: t(run.dryRun ? "doneCount" : "done", figures),
     discarded: t("discardedRun", figures),
   }[run.state];
-  const resumable = run.state === "failed" || run.state === "stopped";
+  const stopped = run.state === "failed" || run.state === "stopped";
+  const resumable = stopped && run.kind === kind;
+  // What the buttons act on: the run this panel shows, and no other.
+  const seen = { runAt: run.startedAt ?? "", kind };
   // A finished count is what a send is made of.
   const counted = run.state === "done" && run.dryRun;
   const sendable = counted && run.kind === kind;
@@ -78,6 +84,11 @@ export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
             {t("otherKind", figures)}
           </p>
         )}
+        {stopped && !resumable && (
+          <p role="status" className="text-sm font-medium">
+            {t("otherKindStopped", figures)}
+          </p>
+        )}
         {run.startedAt && (
           <p className="text-xs text-muted-foreground">
             {t("started", { when: when(run.startedAt) })}
@@ -90,6 +101,7 @@ export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
             action={stopRun}
             namespace="adminCommunication.broadcasts.run"
             labels={{ run: t("stop"), running: t("starting") }}
+            fields={{ runAt: seen.runAt }}
           />
         )}
         {resumable && run.dryRun && (
@@ -97,6 +109,7 @@ export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
             action={resumeCount}
             namespace="adminCommunication.broadcasts.run"
             labels={{ run: t("resumeCount"), running: t("starting") }}
+            fields={seen}
           />
         )}
         {resumable && run.dryRun && (
@@ -104,6 +117,7 @@ export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
             action={discardCount}
             namespace="adminCommunication.broadcasts.run"
             labels={{ run: t("discardCount"), running: t("starting") }}
+            fields={seen}
           />
         )}
         {resumable && !run.dryRun && (
@@ -113,7 +127,8 @@ export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
               summary={t("resume")}
               submit={t("resumeNow")}
               pendingLabel={t("starting")}
-              warning={t("resumeWarning")}
+              fields={seen}
+              warning={t("resumeWarning", figures)}
               danger={false}
               password
             />
@@ -122,6 +137,7 @@ export async function BroadcastStatus({ kind }: { kind: BroadcastKind }) {
               summary={t("discard")}
               submit={t("discardNow")}
               pendingLabel={t("starting")}
+              fields={seen}
               warning={t("discardWarning", figures)}
               password
             />

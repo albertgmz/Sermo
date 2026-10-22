@@ -35,11 +35,13 @@ export const BroadcastContent = z
   ])
   .meta({ id: "BroadcastContent" });
 
+export const BroadcastKind = z.enum(["message", "alert"]);
+
 export const BroadcastRun = z
   .object({
     /** Idle: nothing was run yet. Failed or stopped: broadcasts.resume continues it, broadcasts.discard gives it up. */
     state: z.enum(["idle", "running", "failed", "stopped", "done", "discarded"]),
-    kind: z.enum(["message", "alert"]).nullable(),
+    kind: BroadcastKind.nullable(),
     /** True: a count. Nothing was sent. */
     dryRun: z.boolean(),
     /** The message's title or the alert's text. */
@@ -64,6 +66,11 @@ export const BroadcastRun = z
     error: z.string().nullable(),
   })
   .meta({ id: "BroadcastRun" });
+
+/** An action names the run the administrator looked at, so it never falls on another that took its place. */
+const SEEN =
+  "`runAt` and `kind` name the run as broadcasts.status showed it: a conflict when the stopped " +
+  "or failed run is another one (another administrator may have discarded it and started their own).";
 
 const COUNT_FIRST =
   "Every send comes from a count: count the recipients of the message or alert, then send what was counted.";
@@ -113,11 +120,17 @@ export const broadcastsResume = defineContract({
   name: "broadcasts.resume",
   summary:
     "Continue the run that stopped (by broadcasts.stop or an error) from the member it stopped at, " +
-    "with its own content and audience. A send needs `actorPassword` as broadcasts.send does; a " +
-    "count needs none. Returns queued false when a run is under way, and a validation error when " +
-    "none is stopped or failed. Requires admin.announcements.",
+    "with its own content and audience. " +
+    SEEN +
+    " A send needs `actorPassword` as broadcasts.send does; a count needs none. Returns queued " +
+    "false when a run is under way, and a validation error when the run named is no longer " +
+    "stopped or failed. Requires admin.announcements.",
   kind: "write",
-  input: z.object({ actorPassword: ActorPassword.optional() }),
+  input: z.object({
+    runAt: Timestamp,
+    kind: BroadcastKind,
+    actorPassword: ActorPassword.optional(),
+  }),
   output: z.object({ queued: z.boolean() }),
 });
 
@@ -125,10 +138,16 @@ export const broadcastsDiscard = defineContract({
   name: "broadcasts.discard",
   summary:
     "Give up the run that stopped or failed, so another can start: what a send already sent stays " +
-    "sent. Needs `actorPassword` for a send, none for a count. Logged. Returns discarded false when " +
+    "sent. " +
+    SEEN +
+    " Needs `actorPassword` for a send, none for a count. Logged. Returns discarded false when " +
     "none is stopped or failed. Requires admin.announcements.",
   kind: "write",
-  input: z.object({ actorPassword: ActorPassword.optional() }),
+  input: z.object({
+    runAt: Timestamp,
+    kind: BroadcastKind,
+    actorPassword: ActorPassword.optional(),
+  }),
   output: z.object({ discarded: z.boolean() }),
 });
 
@@ -164,9 +183,10 @@ export const broadcastsStop = defineContract({
   name: "broadcasts.stop",
   summary:
     "Ask the run under way to end before its next chunk, leaving what is sent as it is. Calling " +
-    "broadcasts.resume continues it. Returns stopped false when none is under way. Requires " +
-    "admin.announcements.",
+    "broadcasts.resume continues it. `runAt` names the run as broadcasts.status showed it: a " +
+    "conflict when the run under way is another one. Returns stopped false when none is under " +
+    "way. Requires admin.announcements.",
   kind: "write",
-  input: Empty,
+  input: z.object({ runAt: Timestamp }),
   output: z.object({ stopped: z.boolean() }),
 });

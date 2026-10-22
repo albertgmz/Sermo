@@ -19,15 +19,23 @@ function setup() {
   const admin = userActor(adminUser);
   const raw = (name: string, input: unknown, actor = admin) =>
     execute(ctx, getOperation(`broadcasts.${name}`), actor, input);
-  // A send names the count the administrator looked at; unless a test says which, it is the latest.
+  // A send, resume, discard or stop names the run the administrator looked at; unless a test says
+  // which, it is the latest.
   const call = async (name: string, input: unknown = {}, actor = admin) => {
-    if (name === "send" && !(input as { countedAt?: string }).countedAt) {
+    const given = input as { countedAt?: string; runAt?: string };
+    if (name === "send" && !given.countedAt) {
       const { startedAt } = await raw("status", {});
       return raw(
         name,
         { ...(input as object), countedAt: startedAt ?? "2026-01-01T00:00:00.000Z" },
         actor,
       );
+    }
+    if (["resume", "discard", "stop"].includes(name) && !given.runAt) {
+      const { startedAt, kind } = await raw("status", {});
+      const runAt = startedAt ?? "2026-01-01T00:00:00.000Z";
+      const seen = name === "stop" ? { runAt } : { runAt, kind: kind ?? "message" };
+      return raw(name, { ...seen, ...(input as object) }, actor);
     }
     return raw(name, input, actor);
   };
@@ -233,6 +241,103 @@ describe("a stopped run", () => {
     await expect(call("resume", {}, session)).rejects.toThrow(ValidationError);
     await expect(call("discard", {}, session)).rejects.toThrow(ValidationError);
     await expect(call("resume", {}, tokenActor(adminUser))).rejects.toThrow(ForbiddenError);
+  });
+});
+
+describe("an action names the run the administrator looked at", () => {
+  test("a stale page cannot resume another administrator's stopped send", async () => {
+    const { ctx, call, sql, drain, go } = setup();
+    const other = userActor(insertUser(ctx, { groupId: 4 }));
+    const moderator = insertUser(ctx, { groupId: 3 });
+    for (let i = 0; i < ALERT_CHUNK + 10; i++) insertUser(ctx);
+    // A sends an alert to everyone and stops it; A's page shows that stopped alert.
+    await go({ content: alert, audience: everyone });
+    expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
+    expect(await call("stop")).toEqual({ stopped: true });
+    await drain();
+    const seen = await call("status");
+    expect(seen).toMatchObject({ state: "stopped", kind: "alert" });
+    // B discards it, counts and sends a message as a moderator, and stops it after one chunk.
+    expect(await call("discard", {}, other)).toEqual({ discarded: true });
+    ctx.clock.advance(1000);
+    await go({ content: { ...message, senderId: moderator.id }, audience: everyone }, other);
+    expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
+    expect(await call("stop", {}, other)).toEqual({ stopped: true });
+    await drain();
+    const sent = sql("SELECT count(*) AS n FROM conversations");
+    expect(sent).toEqual([{ n: MESSAGE_CHUNK }]);
+    // A presses Resume on the stale page: refused, and nothing more is sent.
+    await expect(call("resume", { runAt: seen.startedAt, kind: "alert" })).rejects.toThrow(
+      ConflictError,
+    );
+    await expect(call("resume", { runAt: seen.startedAt, kind: "message" })).rejects.toThrow(
+      ConflictError,
+    );
+    await drain();
+    expect(sql("SELECT count(*) AS n FROM conversations")).toEqual(sent);
+    const current = await call("status");
+    expect(current).toMatchObject({ state: "stopped", kind: "message" });
+    // The run B stopped is resumed only by naming it, from the page of its kind.
+    await expect(
+      call("resume", { runAt: current.startedAt, kind: "alert" }, other),
+    ).rejects.toThrow(ConflictError);
+    expect(await call("resume", { runAt: current.startedAt, kind: "message" }, other)).toEqual({
+      queued: true,
+    });
+  });
+
+  test("discarding with a stale run or the other kind is refused, and the run stays stopped", async () => {
+    const { ctx, call, drain, go } = setup();
+    for (let i = 0; i < MESSAGE_CHUNK * 2; i++) insertUser(ctx);
+    await go({ content: message, audience: everyone });
+    expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
+    expect(await call("stop")).toEqual({ stopped: true });
+    await drain();
+    const { startedAt } = await call("status");
+    const stale = new Date(Date.parse(startedAt) - 1000).toISOString();
+    await expect(call("discard", { runAt: stale, kind: "message" })).rejects.toThrow(ConflictError);
+    await expect(call("discard", { runAt: startedAt, kind: "alert" })).rejects.toThrow(
+      ConflictError,
+    );
+    expect((await call("status")).state).toBe("stopped");
+    expect(await call("discard", { runAt: startedAt, kind: "message" })).toEqual({
+      discarded: true,
+    });
+  });
+
+  test("stopping names the run under way: another one is not stopped", async () => {
+    const { ctx, call, go } = setup();
+    for (let i = 0; i < MESSAGE_CHUNK * 2; i++) insertUser(ctx);
+    await go({ content: message, audience: everyone });
+    const { startedAt } = await call("status");
+    const stale = new Date(Date.parse(startedAt) - 1000).toISOString();
+    await expect(call("stop", { runAt: stale })).rejects.toThrow(ConflictError);
+    expect(await call("status")).toMatchObject({ state: "running" });
+    expect(await call("stop", { runAt: startedAt })).toEqual({ stopped: true });
+  });
+
+  test("resuming while another administrator's send as someone runs answers not queued", async () => {
+    const { ctx, call, go } = setup();
+    const otherUser = insertUser(ctx, { groupId: 4 });
+    const other = userActor(otherUser);
+    for (let i = 0; i < MESSAGE_CHUNK * 2; i++) insertUser(ctx);
+    // B sends as themselves, an administrator A has no authority over.
+    await go({ content: message, audience: everyone }, other);
+    const running = await call("status");
+    expect(running).toMatchObject({ state: "running", sender: { id: otherUser.id } });
+    expect(await call("resume", { runAt: running.startedAt, kind: "message" })).toEqual({
+      queued: false,
+    });
+  });
+
+  test("two runs never share a start time, even within one millisecond", async () => {
+    const { ctx, call, drain } = setup();
+    insertUser(ctx);
+    await call("count", { content: alert, audience: everyone });
+    await drain();
+    const counted = await call("status");
+    expect(await call("send", {})).toEqual({ queued: true });
+    expect((await call("status")).startedAt).not.toBe(counted.startedAt);
   });
 });
 

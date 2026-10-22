@@ -7,6 +7,7 @@
 //   action     The server action that queues the sweep.
 //   namespace  The screen's message namespace; its `run` and `running` are the button's text.
 //   labels     Optional: the button's text, when the screen has more than one such button.
+//   fields     Optional hidden fields the action reads, by name (what the button acts on).
 
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
@@ -41,14 +42,22 @@ export function RunNow({
   action,
   namespace,
   labels,
+  fields = {},
 }: {
-  action: (previous: StaffFormState) => Promise<StaffFormState>;
+  action: (
+    previous: StaffFormState,
+    formData: FormData,
+  ) => Promise<StaffFormState>;
   namespace: Namespace;
   labels?: Labels;
+  fields?: Record<string, string>;
 }) {
   const [state, formAction] = useActionState(action, null);
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-3">
+      {Object.entries(fields).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
       <Submit namespace={namespace} labels={labels} />
       <output
         className={

@@ -1040,7 +1040,10 @@ and awaiting-approval accounts are never written to.
 - **Stop, resume, discard.** `broadcasts.stop` ends a run before its next chunk. `broadcasts.resume`
   continues it from the member it stopped at with its own content and audience; a new count or
   send is refused while a run is stopped, so a correction is made by `broadcasts.discard` (password
-  for a send; what was sent stays sent) and a new count. A run whose administrator loses
+  for a send; what was sent stays sent) and a new count. Each of the three names the run the panel
+  showed (`runAt`, its `startedAt`; resume and discard also its kind) and is a conflict on any
+  other, so a page left open never stops, resumes or discards a run another administrator started
+  since; a stopped run is resumed or discarded only from the page of its kind. A run whose administrator loses
   `admin.announcements` ends as failed. The start, end, stop, discard and every test are in the
   moderator log. Attachments cannot go in a mass message. A run that shows "running" without
   progress has a failing chunk and is retrying (30 s up to 1 h); Stop takes effect when the retry

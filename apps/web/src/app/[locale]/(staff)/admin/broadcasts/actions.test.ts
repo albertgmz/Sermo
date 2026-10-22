@@ -241,36 +241,55 @@ test("a refusal of the backend, and a run already under way, come back as the fo
   );
 });
 
-test("resuming and discarding send no content: the send with the password, the count without", async () => {
+test("resuming, discarding and stopping send no content, only the run the panel showed", async () => {
   backend = fakeBackend({
     "broadcasts.resume": () => Response.json({ queued: true }),
     "broadcasts.discard": () => Response.json({ discarded: true }),
     "broadcasts.stop": () => Response.json({ stopped: true }),
   });
-  expect(await resumeSend(null, form({}))).toEqual({
+  const seen = { runAt: "2026-10-21T10:00:00.000Z", kind: "alert" };
+  expect(await resumeSend(null, form(seen))).toEqual({
     fields: { actorPassword: messages.adminGroups.errors.password },
   });
-  expect(await discardSend(null, form({}))).toEqual({
+  expect(await discardSend(null, form(seen))).toEqual({
     fields: { actorPassword: messages.adminGroups.errors.password },
   });
-  expect(await resumeSend(null, form({ actorPassword: "secret" }))).toEqual({
+  // A form that does not name the run is not sent.
+  expect(await resumeCount(null, form({}))).toEqual({
+    error: messages.lib.errors.generic,
+  });
+  expect(backend.asked).toEqual([]);
+  expect(
+    await resumeSend(null, form({ ...seen, actorPassword: "secret" })),
+  ).toEqual({
     notice: words.run.queued,
   });
-  expect(await resumeCount(null)).toEqual({ notice: words.run.countResumed });
-  expect(await discardSend(null, form({ actorPassword: "secret" }))).toEqual({
+  expect(await resumeCount(null, form(seen))).toEqual({
+    notice: words.run.countResumed,
+  });
+  expect(
+    await discardSend(null, form({ ...seen, actorPassword: "secret" })),
+  ).toEqual({
     notice: words.run.discarded,
   });
-  expect(await discardCount(null)).toEqual({ notice: words.run.discarded });
+  expect(await discardCount(null, form(seen))).toEqual({
+    notice: words.run.discarded,
+  });
+  expect(await stopRun(null, form({ runAt: seen.runAt }))).toEqual({
+    notice: words.run.stopRequested,
+  });
   expect(backend.asked.map((call) => call.body)).toEqual([
-    { actorPassword: "secret" },
-    {},
-    { actorPassword: "secret" },
-    {},
+    { ...seen, actorPassword: "secret" },
+    seen,
+    { ...seen, actorPassword: "secret" },
+    seen,
+    { runAt: seen.runAt },
   ]);
-  expect(await stopRun(null)).toEqual({ notice: words.run.stopRequested });
   backend.restore();
   backend = fakeBackend({
     "broadcasts.stop": () => Response.json({ stopped: false }),
   });
-  expect(await stopRun(null)).toEqual({ error: words.run.nothingToStop });
+  expect(await stopRun(null, form({ runAt: seen.runAt }))).toEqual({
+    error: words.run.nothingToStop,
+  });
 });

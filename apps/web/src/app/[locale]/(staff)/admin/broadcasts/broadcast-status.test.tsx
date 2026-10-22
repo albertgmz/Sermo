@@ -85,10 +85,60 @@ test("a stopped send is resumed or discarded behind the password; a stopped coun
   expect(send).toContain(text.resume);
   expect(send).toContain(text.discard);
   expect(send).toContain('name="actorPassword"');
+  // The texts name the run, and the buttons post which one it is.
+  expect(send).toContain(
+    "The send of the private message “Hello” stopped at 50% with 10 sent.",
+  );
+  expect(send).toContain(
+    "Continues the stopped send of the private message “Hello”, started Oct 21, 2026, 10:00 AM,",
+  );
+  expect(send).toContain("Gives up the send of the private message “Hello”");
+  expect(send).toContain('name="runAt" value="2026-10-21T10:00:00.000Z"');
+  expect(send).toContain('name="kind" value="message"');
   const count = await render({ ...stopped, dryRun: true });
   expect(count).toContain(text.resumeCount);
   expect(count).toContain(text.discardCount);
   expect(count).not.toContain('name="actorPassword"');
+  expect(count).toContain(
+    "The count for the private message “Hello” stopped at 50%.",
+  );
+  expect(count).toContain('name="runAt" value="2026-10-21T10:00:00.000Z"');
+});
+
+test("a stopped run is resumed or discarded only from the page of its kind", async () => {
+  const stopped = {
+    ...IDLE,
+    state: "stopped",
+    kind: "message",
+    summary: "Hello",
+    startedAt: "2026-10-21T10:00:00.000Z",
+    progress: 0.5,
+    sent: 10,
+  };
+  for (const dryRun of [false, true]) {
+    const html = await render({ ...stopped, dryRun }, "alert");
+    for (const label of [
+      text.resume,
+      text.discard,
+      text.resumeCount,
+      text.discardCount,
+    ])
+      expect(html).not.toContain(label);
+    expect(html).toContain(
+      "The run that is stopped is a private message: resume or discard it from the message page.",
+    );
+  }
+});
+
+test("the stop button names the run under way", async () => {
+  const html = await render({
+    ...IDLE,
+    state: "running",
+    kind: "message",
+    summary: "Hello",
+    startedAt: "2026-10-21T10:00:00.000Z",
+  });
+  expect(html).toContain('name="runAt" value="2026-10-21T10:00:00.000Z"');
 });
 
 test("a finished count says how many would be reached", async () => {

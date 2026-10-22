@@ -182,6 +182,14 @@ export async function sendCounted(
   }
 }
 
+// The run the button was drawn for (its start time and kind, as the panel showed them), or null
+// when the form does not name one: the backend refuses an action on any other run.
+function seenRun(formData: FormData) {
+  const kind = text(formData, "kind");
+  if (kind !== "message" && kind !== "alert") return null;
+  return { runAt: text(formData, "runAt"), kind } as const;
+}
+
 // Resume the send that stopped (it keeps its content and audience); asks for the password.
 export async function resumeSend(
   _previous: StaffFormState,
@@ -190,8 +198,11 @@ export async function resumeSend(
   const t = await getTranslations("adminCommunication.broadcasts.run");
   const absent = await missingPassword(formData);
   if (absent) return absent;
+  const seen = seenRun(formData);
+  if (!seen) return { error: await invalidArgument() };
   try {
     const { queued } = await call(broadcastsResume, {
+      ...seen,
       actorPassword: text(formData, "actorPassword"),
     });
     renew();
@@ -204,10 +215,13 @@ export async function resumeSend(
 // Resume the count that stopped; it changes nothing that stays, so it asks for no password.
 export async function resumeCount(
   _previous: StaffFormState,
+  formData: FormData,
 ): Promise<StaffFormState> {
   const t = await getTranslations("adminCommunication.broadcasts.run");
+  const seen = seenRun(formData);
+  if (!seen) return { error: await invalidArgument() };
   try {
-    const { queued } = await call(broadcastsResume, {});
+    const { queued } = await call(broadcastsResume, seen);
     renew();
     return queued ? { notice: t("countResumed") } : { error: t("notQueued") };
   } catch (error) {
@@ -223,8 +237,11 @@ export async function discardSend(
   const t = await getTranslations("adminCommunication.broadcasts.run");
   const absent = await missingPassword(formData);
   if (absent) return absent;
+  const seen = seenRun(formData);
+  if (!seen) return { error: await invalidArgument() };
   try {
     const { discarded } = await call(broadcastsDiscard, {
+      ...seen,
       actorPassword: text(formData, "actorPassword"),
     });
     renew();
@@ -239,10 +256,13 @@ export async function discardSend(
 // Give up the count that stopped.
 export async function discardCount(
   _previous: StaffFormState,
+  formData: FormData,
 ): Promise<StaffFormState> {
   const t = await getTranslations("adminCommunication.broadcasts.run");
+  const seen = seenRun(formData);
+  if (!seen) return { error: await invalidArgument() };
   try {
-    const { discarded } = await call(broadcastsDiscard, {});
+    const { discarded } = await call(broadcastsDiscard, seen);
     renew();
     return discarded
       ? { notice: t("discarded") }
@@ -252,13 +272,16 @@ export async function discardCount(
   }
 }
 
-// End the run under way before its next chunk.
+// End the run under way, the one the panel showed, before its next chunk.
 export async function stopRun(
   _previous: StaffFormState,
+  formData: FormData,
 ): Promise<StaffFormState> {
   const t = await getTranslations("adminCommunication.broadcasts.run");
   try {
-    const { stopped } = await call(broadcastsStop, {});
+    const { stopped } = await call(broadcastsStop, {
+      runAt: text(formData, "runAt"),
+    });
     renew();
     return stopped
       ? { notice: t("stopRequested") }

@@ -4,7 +4,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import * as contracts from "../../contracts/broadcasts";
 import { writeTx } from "../../db/tx";
-import { NotFoundError, ValidationError } from "../../errors";
+import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import {
   currentActor,
@@ -28,11 +28,14 @@ import {
 } from "./deliver";
 import {
   broadcastRunValue,
+  CHANGED,
   countBroadcast,
   discardBroadcast,
+  isSeen,
   latestRun,
   logBroadcast,
   resumeBroadcast,
+  type Seen,
   sendCounted,
   stopBroadcast,
 } from "./run";
@@ -126,31 +129,54 @@ const send = implement(contracts.broadcastsSend, async (ctx, actor, input) => {
   });
 });
 
+type Stoppable = NonNullable<ReturnType<typeof latestRun>>;
+const isStopped = (run: Stoppable) => run.state === "stopped" || run.state === "failed";
+const seenOf = (input: { runAt: string; kind: Seen["kind"] }): Seen => ({
+  runAt: Date.parse(input.runAt),
+  kind: input.kind,
+});
+
+/**
+ * A send's resume or discard needs the password, confirmed before the transaction: one that finds
+ * a send there it did not confirm for is refused (the run changed since it was read).
+ */
+function requireConfirmed(run: Stoppable, confirmed: boolean): void {
+  if (!run.dryRun && !confirmed) throw new ConflictError(CHANGED);
+}
+
 const resume = implement(contracts.broadcastsResume, async (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.announcements");
   const admin = requireAuthenticated(actor);
-  const stopped = pending(ctx, (run) => run.state === "stopped" || run.state === "failed");
-  if (stopped) {
-    requireMaySendAs(ctx, actor, stopped.content);
-    if (!stopped.dryRun) await confirmActorPassword(ctx, actor, input.actorPassword);
-  }
+  const seen = seenOf(input);
+  const stopped = pending(ctx, (run) => isStopped(run) && isSeen(run, seen));
+  if (stopped) requireMaySendAs(ctx, actor, stopped.content);
+  const confirmed = stopped !== null && !stopped.dryRun;
+  if (confirmed) await confirmActorPassword(ctx, actor, input.actorPassword);
   return writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     requirePermission(ctx, current, "admin.announcements");
-    const latest = latestRun(ctx);
-    if (latest) requireMaySendAs(ctx, current, latest.content);
-    return { queued: resumeBroadcast(ctx, admin.userId) };
+    // Only the stopped run named is resumed; whose message it is matters then.
+    const queued = resumeBroadcast(ctx, admin.userId, seen, (run) => {
+      requireMaySendAs(ctx, current, run.content);
+      requireConfirmed(run, confirmed);
+    });
+    return { queued };
   });
 });
 
 const discard = implement(contracts.broadcastsDiscard, async (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.announcements");
   const admin = requireAuthenticated(actor);
-  if (pending(ctx, (run) => (run.state === "stopped" || run.state === "failed") && !run.dryRun))
-    await confirmActorPassword(ctx, actor, input.actorPassword);
+  const seen = seenOf(input);
+  const confirmed =
+    pending(ctx, (run) => isStopped(run) && isSeen(run, seen) && !run.dryRun) !== null;
+  if (confirmed) await confirmActorPassword(ctx, actor, input.actorPassword);
   return writeTx(ctx, () => {
     requirePermission(ctx, currentActor(ctx, actor), "admin.announcements");
-    return { discarded: discardBroadcast(ctx, admin.userId) };
+    const discarded = discardBroadcast(ctx, admin.userId, seen, (run) =>
+      requireConfirmed(run, confirmed),
+    );
+    return { discarded };
   });
 });
 
@@ -199,11 +225,12 @@ const status = implement(contracts.broadcastsStatus, (ctx, actor) => {
   return broadcastRunValue(ctx);
 });
 
-const stop = implement(contracts.broadcastsStop, (ctx, actor) => {
+const stop = implement(contracts.broadcastsStop, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.announcements");
+  const runAt = Date.parse(input.runAt);
   return writeTx(ctx, () => {
     requirePermission(ctx, currentActor(ctx, actor), "admin.announcements");
-    return { stopped: stopBroadcast(ctx) };
+    return { stopped: stopBroadcast(ctx, runAt) };
   });
 });
 

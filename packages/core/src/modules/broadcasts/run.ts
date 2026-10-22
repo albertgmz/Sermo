@@ -92,6 +92,15 @@ function mayBroadcast(ctx: Ctx, adminId: number): boolean {
   }
 }
 
+/** The run an administrator looked at: its start time and kind, as broadcasts.status showed them. */
+export type Seen = { runAt: number; kind: StoredContent["kind"] };
+
+/** Whether the run is the one the administrator looked at. */
+export const isSeen = (run: Pick<RunRecord, "startedAt" | "content">, seen: Seen) =>
+  run.startedAt === seen.runAt && run.content.kind === seen.kind;
+
+export const CHANGED = "The run changed since you looked at it; look at it again.";
+
 /** The latest run's kind and content, for the checks an operation makes before it writes. */
 export function latestRun(
   ctx: Ctx,
@@ -124,6 +133,8 @@ function queueNew(ctx: Ctx, adminId: number, content: StoredContent, rule: Rule,
     return false;
   const record: RunRecord = {
     ...blank(ctx),
+    // The start time names the run (send, resume, discard and stop are given it): never repeated.
+    startedAt: Math.max(ctx.now(), (previous?.startedAt ?? 0) + 1),
     state: "running",
     dryRun,
     by: adminId,
@@ -155,14 +166,36 @@ export function sendCounted(ctx: Ctx, adminId: number, countedAt: number): boole
 }
 
 /**
- * Continues the run that stopped, with its own content and audience. False when one is under
- * way. Call it in a write transaction.
+ * The stopped or failed run the administrator looked at, after `authorize` accepted it: "running"
+ * when a run is under way, "ended" when it is no longer stopped, a conflict when the latest run is
+ * another one.
  */
-export function resumeBroadcast(ctx: Ctx, adminId: number): boolean {
-  const previous = readRecord(ctx);
-  if (previous?.state === "running") return false;
-  if (previous?.state !== "stopped" && previous?.state !== "failed")
-    throw new ValidationError("There is no stopped run to resume.");
+function seenStopped(
+  ctx: Ctx,
+  seen: Seen,
+  authorize: (run: RunRecord) => void,
+): RunRecord | "running" | "ended" {
+  const record = readRecord(ctx);
+  if (record?.state === "running") return "running";
+  if (!record || !isSeen(record, seen)) throw new ConflictError(CHANGED);
+  if (record.state !== "stopped" && record.state !== "failed") return "ended";
+  authorize(record);
+  return record;
+}
+
+/**
+ * Continues the stopped run the administrator looked at, with its own content and audience,
+ * once `authorize` accepted it. False when one is under way. Call it in a write transaction.
+ */
+export function resumeBroadcast(
+  ctx: Ctx,
+  adminId: number,
+  seen: Seen,
+  authorize: (run: RunRecord) => void,
+): boolean {
+  const previous = seenStopped(ctx, seen, authorize);
+  if (previous === "running") return false;
+  if (previous === "ended") throw new ValidationError("There is no stopped run to resume.");
   if (
     enqueueJob(ctx, BROADCAST_JOB, { after: previous.after }, { uniqueKey: BROADCAST_JOB }) === null
   )
@@ -179,10 +212,18 @@ export function resumeBroadcast(ctx: Ctx, adminId: number): boolean {
   return true;
 }
 
-/** Gives up the run that stopped, logged; false when none is stopped. Call it in a write transaction. */
-export function discardBroadcast(ctx: Ctx, adminId: number): boolean {
-  const previous = readRecord(ctx);
-  if (previous?.state !== "stopped" && previous?.state !== "failed") return false;
+/**
+ * Gives up the stopped run the administrator looked at, once `authorize` accepted it, logged;
+ * false when none is stopped. Call it in a write transaction.
+ */
+export function discardBroadcast(
+  ctx: Ctx,
+  adminId: number,
+  seen: Seen,
+  authorize: (run: RunRecord) => void,
+): boolean {
+  const previous = seenStopped(ctx, seen, authorize);
+  if (typeof previous === "string") return false;
   previous.state = "discarded";
   previous.finishedAt = ctx.now();
   writeRecord(ctx, previous);
@@ -194,10 +235,14 @@ export function discardBroadcast(ctx: Ctx, adminId: number): boolean {
   return true;
 }
 
-/** Asks the run under way to end after the chunk it is on; false when none is under way. */
-export function stopBroadcast(ctx: Ctx): boolean {
+/**
+ * Asks the run under way, which started at `runAt`, to end after the chunk it is on; false when
+ * none is under way, a conflict when another is.
+ */
+export function stopBroadcast(ctx: Ctx, runAt: number): boolean {
   const record = readRecord(ctx);
   if (record?.state !== "running") return false;
+  if (record.startedAt !== runAt) throw new ConflictError(CHANGED);
   record.stopRequested = true;
   writeRecord(ctx, record);
   return true;
