@@ -6414,3 +6414,17 @@ image files (its XenForo drew them as emoji), so they are emoji here too.
   language (then the site default) applies.
 
 Why: the owner asked for XenForo-style dropdowns and System as the default for both.
+
+### Pictures show in the editor as pictures, and can be sized
+
+- A pasted, dropped or Image-button picture uploads at once and appears at the caret as the
+  picture (the member's own copy, dimmed, while it uploads; a red box with Remove if refused);
+  existing posts open with their attachments drawn. A selected picture has a corner handle
+  (arrow keys from the keyboard), Small / Medium / Full presets, an alt text field and Remove.
+- Sizes and alt are stored as XenForo writes them (`[ATTACH type="full" width="320px" alt="…"]`),
+  and posts draw `[ATTACH]` and `[IMG]` at the stored width (capped by the column) with the alt;
+  the width is accepted only as 1-9999px or 1-100%. Sizing a thumbnail makes it the full picture.
+  A picture inserted in a code block goes after the block.
+
+Why: the owner asked to see pasted pictures and resize them instead of `[ATTACH]` text. Known
+limit: imported posts carry no widths (the importer dropped them).
