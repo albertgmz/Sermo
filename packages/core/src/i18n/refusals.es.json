@@ -468,5 +468,6 @@
   "Content-Type must be multipart/form-data.": "Content-Type debe ser multipart/form-data.",
   "A signature may hold at most {limit}; this one has {count}.": "Una firma admite como máximo {limit}; esta tiene {count}.",
   "Unknown {noun}: {list}.": "No existen estos elementos ({noun}): {list}.",
-  "You have reached your limit of {limit} {noun} in 24 hours. Try again later.": "Has alcanzado tu límite de {limit} {noun} en 24 horas. Inténtalo más tarde."
+  "You have reached your limit of {limit} {noun} in 24 hours. Try again later.": "Has alcanzado tu límite de {limit} {noun} en 24 horas. Inténtalo más tarde.",
+  "A rebuild stopped; resume it before previewing another.": "Una reconstrucción quedó detenida; reanúdala antes de previsualizar otra."
 }
