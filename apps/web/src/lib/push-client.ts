@@ -6,7 +6,6 @@ import {
 } from "@/lib/app-prompts";
 import {
   removePushSubscription,
-  restorePushSubscription,
   savePushSubscription,
 } from "@/lib/push-actions";
 import {
@@ -76,7 +75,7 @@ function sameKey(held: ArrayBuffer | null, wanted: Uint8Array) {
 // subscription once (`AppPrompts`) read it again.
 const CHANGED = "sermo-push-change";
 
-function changed() {
+export function changed() {
   window.dispatchEvent(new Event(CHANGED));
 }
 
@@ -103,7 +102,10 @@ function readSession() {
 
 // The member this browser's pushes are on for and the session the account last knew the device
 // under; both are forgotten together.
-function writeOwner(member: string | null, session: string | null = null) {
+export function writeOwner(
+  member: string | null,
+  session: string | null = null,
+) {
   try {
     if (member) localStorage.setItem(PUSH_OWNER_KEY, member);
     else localStorage.removeItem(PUSH_OWNER_KEY);
@@ -112,33 +114,8 @@ function writeOwner(member: string | null, session: string | null = null) {
   } catch {}
 }
 
-// Saves the kept subscription on the account again, under the current session, when the member
-// signed in again since the account last had it (`restoreNeeded`); with the same session there is no
-// request at all. Run without waiting, so the page does not. A "Turn off" tapped while it ran leaves
-// nothing behind: the row it wrote is removed. The session is recorded even when the account was
-// full, so the next try waits for the next session instead of asking on every page.
-async function restoreIfLost(
-  subscription: PushSubscription,
-  member: string,
-  session: string,
-) {
-  const { keys } = subscription.toJSON();
-  if (!keys?.p256dh || !keys.auth) return;
-  const { endpoint } = subscription;
-  const done = await restorePushSubscription(
-    { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } },
-    navigator.userAgent,
-    { member, session },
-  );
-  if (!done.ok) return;
-  if ((await currentSubscription())?.endpoint !== endpoint) {
-    if (done.result !== "full") await removePushSubscription(endpoint);
-    return;
-  }
-  writeOwner(member, session);
-  if (done.result === "saved") changed();
-}
-
+// (`restoreIfLost` lives in `push-restore.ts`, loaded only when a restore is due, so it is not part
+// of the code every page loads.)
 // This browser's subscription when it serves the one viewing (`keepsSubscription`). One that does
 // not is let go at once: the browser drops it, so the push service refuses the next send and the
 // backend forgets the row, and a member's own stale row is removed from their account now. One
@@ -168,7 +145,9 @@ export async function heldSubscription(
       publicKey &&
       restoreNeeded({ stored: readSession(), session })
     )
-      void restoreIfLost(subscription, member, session).catch(() => {});
+      void import("@/lib/push-restore")
+        .then((restore) => restore.restoreIfLost(subscription, member, session))
+        .catch(() => {});
     return subscription;
   }
   const { endpoint } = subscription;
