@@ -40,6 +40,10 @@ export function WallOwner({
   );
 }
 
+// The look of a link inside the muted line that says where an item was made.
+export const contextLinkClass =
+  "font-medium text-foreground underline-offset-4 hover:underline";
+
 // "posted on a profile", linked to the wall: for a wall whose owner has no name.
 export function UnnamedWall({
   ownerId,
@@ -53,10 +57,7 @@ export function UnnamedWall({
     profile: (chunks) => (
       <Link
         href={`/members/${ownerId}`}
-        className={cn(
-          "font-medium text-foreground underline-offset-4 hover:underline",
-          className,
-        )}
+        className={cn(contextLinkClass, className)}
       >
         {chunks}
       </Link>

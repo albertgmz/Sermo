@@ -14,6 +14,7 @@ import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import {
+  contextLinkClass,
   UnnamedWall,
   WallOwner,
   wallPlace,
@@ -23,9 +24,6 @@ import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 type Item = z.output<typeof feedList.output>["items"][number];
-
-const contextLinkClass =
-  "font-medium text-foreground underline-offset-4 hover:underline";
 
 // One entry of the feed as a single row: who, what it is about, how many answers, how many posts
 // are new. No text of the post, no reactions and no reply box, so a row is the same two lines
@@ -78,7 +76,10 @@ export function CompactFeedItem({
             {place.kind === "unnamed" && (
               <span className="font-normal text-muted-foreground">
                 {" "}
-                <UnnamedWall ownerId={profilePost.profileUserId} />
+                <UnnamedWall
+                  ownerId={profilePost.profileUserId}
+                  className="relative z-10"
+                />
               </span>
             )}
           </>

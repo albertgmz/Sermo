@@ -37,6 +37,7 @@ import {
   WallComments,
 } from "@/components/forum/wall-comments";
 import {
+  contextLinkClass,
   UnnamedWall,
   WallOwner,
   wallPlace,
@@ -50,9 +51,6 @@ import type { AuthorView, PictureView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 export type ApiFeedItem = z.output<typeof feedList.output>["items"][number];
-
-const contextLinkClass =
-  "font-medium text-foreground underline-offset-4 hover:underline";
 
 // About what the clamped box holds on a phone.
 const CLAMP_LENGTH = 440;

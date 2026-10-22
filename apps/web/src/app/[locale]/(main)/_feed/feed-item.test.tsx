@@ -497,4 +497,9 @@ test("a compact wall post on another member's wall reads Author, a caret, Owner,
 
   const unnamed = await render(wallItem(), MEMBER, "compact", nameless);
   expect(unnamed).toContain("posted on");
+  // Its link sits above the row's stretched link, or a press on it would open the post.
+  const unnamedTitle = unnamed.match(/<h2[^>]*>[\s\S]*?<\/h2>/)?.[0] ?? "";
+  expect(unnamedTitle.match(/<a[^>]*href="\/members\/5"[^>]*>/)?.[0]).toContain(
+    "relative z-10",
+  );
 });
