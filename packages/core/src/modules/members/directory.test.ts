@@ -225,7 +225,9 @@ describe("users.staff", () => {
     const w = world();
     await w.call("settings.update", w.adminActor, { defaultLanguage: "es" });
     const result = await w.call("users.staff", GUEST, {});
-    const admin = result.items.find((item: { card: { id: number } }) => item.card.id === w.admin.id);
+    const admin = result.items.find(
+      (item: { card: { id: number } }) => item.card.id === w.admin.id,
+    );
     expect(admin.groups).toEqual(["Administrador"]);
   });
 

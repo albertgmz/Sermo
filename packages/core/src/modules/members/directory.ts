@@ -9,9 +9,9 @@ import { builtinGroupText } from "../../shared/language";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { scanKeyset } from "../feed/scan";
+import { readSiteSettings } from "../settings";
 import { isBanned, openableProfiles } from "./access";
 import { loadMemberCards } from "./cards";
-import { readSiteSettings } from "../settings";
 import { requireSiteView } from "./site-access";
 
 type Sort = (typeof MEMBER_SORTS)[number];
