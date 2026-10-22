@@ -95,6 +95,7 @@ import {
   threadTagNames,
 } from "../tags/store";
 import { addFeature, endStaffFeature, featureKinds } from "./features";
+import { nodesDeleteOp, registerNodeDeleteJob, requireNotBeingDeleted } from "./node-delete";
 import { loadPostDeletions, type PostDeletionRow } from "./post-deletions";
 import {
   forumPrefixOperations,
@@ -103,7 +104,6 @@ import {
   requirePrefixChosen,
   setOfferedPrefixes,
 } from "./prefixes";
-import { nodesDeleteOp, registerNodeDeleteJob, requireNotBeingDeleted } from "./node-delete";
 import { nodeTabs, threadPresenter } from "./presentation";
 import { type ReadGates, readGates } from "./read-gates";
 import { nodesMarkAllReadOp, nodesMarkReadOp, positionBeforeMark, readMarksOf } from "./read-marks";

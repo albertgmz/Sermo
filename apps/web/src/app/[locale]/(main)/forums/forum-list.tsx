@@ -1,8 +1,8 @@
 import { forumTabsList, nodesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import type { StatsTab } from "@/app/[locale]/(main)/forums/forum-stats";
 import { ForumMarkRead } from "@/app/[locale]/(main)/forums/[id]/forum-mark-read";
+import type { StatsTab } from "@/app/[locale]/(main)/forums/forum-stats";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { bannerOf } from "@/components/forum/forum-banner";
 import { ForumCardGrid } from "@/components/forum/forum-card-grid";
