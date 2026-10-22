@@ -8,13 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import type { WidgetType } from "@/components/widgets/widget-types";
 import { createWidget, saveWidget } from "./actions";
 import type { WidgetItem } from "./data";
+import { POSITIONS_IN_ORDER } from "./drawn";
 import {
   OPTION_PREFIX,
   type OptionField,
   optionDefaults,
   optionFields,
 } from "./options";
-import { POSITIONS, type Position } from "./positions";
+import type { Position } from "./positions";
 
 // One option of a widget type, as the control its kind needs. The labels are the form's own
 // (`options.<type>.<name>`); the range, choices and default come from the backend's schema.
@@ -41,9 +42,14 @@ async function OptionControl({
             name={name}
             type="number"
             inputMode="numeric"
-            required
+            required={field.required}
             min={field.min}
             max={field.max}
+            placeholder={
+              field.byDefault === undefined
+                ? undefined
+                : String(field.byDefault)
+            }
             defaultValue={typeof value === "number" ? value : undefined}
             aria-describedby={describedBy}
           />
@@ -83,7 +89,7 @@ async function OptionControl({
           <Textarea
             id={id}
             name={name}
-            required
+            required={field.required}
             rows={8}
             maxLength={field.max}
             defaultValue={typeof value === "string" ? value : undefined}
@@ -156,7 +162,7 @@ export async function WidgetForm({
                 {t("form.positionChoose")}
               </option>
             )}
-            {POSITIONS.map((place) => (
+            {POSITIONS_IN_ORDER.map((place) => (
               <option key={place} value={place}>
                 {t(`positions.${place}`)}
               </option>

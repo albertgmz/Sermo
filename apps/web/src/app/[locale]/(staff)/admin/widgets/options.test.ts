@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { WIDGET_OPTIONS, WidgetKind } from "@sermo/core/contracts";
 import { messages } from "@/i18n/messages";
 import es from "../../../../../../messages/es/admin-widgets.json";
-import { optionDefaults, optionFields, optionsFrom } from "./options";
+import { fieldsOf, optionDefaults, optionFields, optionsFrom } from "./options";
 
 const form = (entries: [string, string][]) => {
   const data = new FormData();
@@ -13,7 +13,14 @@ const refuse = (min: number, max: number) => `${min}-${max}`;
 
 test("the options of each type are read from the backend's schema", () => {
   expect(optionFields("forumStats")).toEqual([
-    { name: "limit", kind: "number", min: 5, max: 20 },
+    {
+      name: "limit",
+      kind: "number",
+      min: 5,
+      max: 20,
+      required: false,
+      byDefault: 10,
+    },
     { name: "topPosters", kind: "boolean" },
   ]);
   expect(optionFields("rankedThreads")).toEqual([
@@ -27,11 +34,19 @@ test("the options of each type are read from the backend's schema", () => {
         "mostReacted",
         "mostViewed",
       ],
+      required: false,
     },
-    { name: "limit", kind: "number", min: 1, max: 20 },
+    {
+      name: "limit",
+      kind: "number",
+      min: 1,
+      max: 20,
+      required: false,
+      byDefault: 5,
+    },
   ]);
   expect(optionFields("recentlyActive")).toEqual([
-    { name: "window", kind: "choice", values: ["15m", "24h"] },
+    { name: "window", kind: "choice", values: ["15m", "24h"], required: false },
   ]);
   const [body] = optionFields("text");
   expect(body).toMatchObject({ name: "body", kind: "text" });
@@ -102,10 +117,42 @@ test("a form is read into the options of its type", () => {
 });
 
 test("a number outside the range, or not a whole number, is refused with the range", () => {
-  for (const typed of ["4", "21", "", "abc", "7.5", "1e1"]) {
+  for (const typed of ["4", "21", "abc", "7.5", "1e1"]) {
     expect(
       optionsFrom("forumStats", form([["option.limit", typed]]), refuse),
       typed,
     ).toEqual({ fields: { "option.limit": "5-20" } });
   }
+});
+
+test("a number with a default may be left empty and then takes the default; a required one may not", () => {
+  expect(
+    optionsFrom("forumStats", form([["option.limit", " "]]), refuse),
+  ).toEqual({ options: { topPosters: false } });
+  expect(
+    fieldsOf({ properties: { n: { type: "integer" } }, required: ["n"] }),
+  ).toEqual([
+    {
+      name: "n",
+      kind: "number",
+      min: Number.MIN_SAFE_INTEGER,
+      max: Number.MAX_SAFE_INTEGER,
+      required: true,
+    },
+  ]);
+});
+
+test("a shape the form cannot draw is an error, not a text box", () => {
+  for (const property of [
+    { anyOf: [{ type: "string" }, { type: "null" }] },
+    { type: "array" },
+    { type: "object" },
+    { type: "number" },
+    { type: "integer", exclusiveMinimum: 0 },
+    {},
+  ])
+    expect(() => fieldsOf({ properties: { odd: property } })).toThrow(/odd/);
+  // Every type there is today can be drawn.
+  for (const type of WidgetKind.options)
+    expect(() => optionFields(type), type).not.toThrow();
 });

@@ -38,16 +38,25 @@ mock.module("@/components/widgets/registry", () => ({
     suggestedMembers: { Body: body },
   },
 }));
-mock.module("@/components/widgets/widget-area", () => ({
-  DRAWN_POSITIONS: new Set([
+const DRAWN_PAGES = {
+  home: [
     "overview_top",
     "forum_list_above",
-    "novedades_above",
     "forum_list_sidebar",
-    "novedades_sidebar",
     "sidebar_top",
     "sidebar_bottom",
-  ]),
+  ],
+  novedades: [
+    "overview_top",
+    "novedades_above",
+    "sidebar_top",
+    "novedades_sidebar",
+    "sidebar_bottom",
+  ],
+};
+mock.module("@/components/widgets/widget-area", () => ({
+  DRAWN_PAGES,
+  DRAWN_POSITIONS: [...new Set(Object.values(DRAWN_PAGES).flat())],
 }));
 
 const { WidgetList } = await import("./widget-list");
@@ -173,6 +182,16 @@ test("the widgets are listed under their position, each leading to its edit page
 });
 
 // The row of the list that holds `text`.
+// The card (a section) of the list that holds `text`.
+const rowOfCard = (html: string, text: string) =>
+  html
+    .split("<section")
+    .find((card) => new RegExp(`<h2[^>]*>${text}`).test(card)) ?? "";
+
+// The headings of the position cards, in the order they come.
+const headings = (html: string) =>
+  [...html.matchAll(/<h2[^>]*>(.*?)<\/h2>/g)].map(([, heading]) => heading);
+
 const rowOf = (html: string, text: string) =>
   html.split("<li").find((row) => row.includes(text)) ?? "";
 
@@ -285,7 +304,9 @@ test("with a type the new page is the form of that type, at the position asked f
   expect(limit).toContain('min="5"');
   expect(limit).toContain('max="20"');
   expect(limit).toContain('value="10"');
-  expect(limit).toContain("required");
+  // It has a default, so it may be left empty and shows the default as its hint.
+  expect(limit).not.toContain("required");
+  expect(limit).toContain('placeholder="10"');
   expect(html).toContain('name="option.topPosters"');
   expect(control(html, "phones")).toContain("checked");
   expect(html).toContain('name="rule"');
@@ -407,4 +428,35 @@ test("with no position that has two widgets the sort page says there is nothing 
     />,
   );
   expect(html).toContain("No position has more than one widget");
+});
+
+test("a position says which pages draw it, the global sidebars only the two that do", async () => {
+  serve();
+  const html = await listed();
+  // Only the card's header: its rows are the widgets in it.
+  const header = (card: string) => card.slice(0, card.indexOf("<ul"));
+  const top = header(rowOfCard(html, "Top of every sidebar"));
+  expect(top).toContain(
+    "Shown on: Home and What&#x27;s new".replace("&#x27;", "'"),
+  );
+  expect(top).not.toContain("Forum pages");
+  expect(top).not.toContain("Members pages");
+  expect(top).not.toContain("Not shown yet");
+  // A position no page draws yet says where it is planned and is marked.
+  const card = header(rowOfCard(html, "Members side column"));
+  expect(card).toContain("Planned for: Members pages");
+  expect(card).toContain("Not shown yet");
+});
+
+test("the positions come in the order the pages draw them, those no page draws last", async () => {
+  serve([STATS, RANKED, CARD, TEXT]);
+  const order = headings(await listed()).map((heading) =>
+    heading.replace(/<.*/, ""),
+  );
+  expect(order.slice(0, 4)).toEqual([
+    "Above the forum list",
+    "Top of every sidebar",
+    "What&#x27;s new sidebar".replace("&#x27;", "'"),
+    "Members side column",
+  ]);
 });

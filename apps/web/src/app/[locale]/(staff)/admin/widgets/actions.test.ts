@@ -300,5 +300,20 @@ test("an order that cannot be read is refused, and the backend's refusal of a ch
         ["order.5", "1"],
       ]),
     ),
-  ).toEqual({ error: "List every widget of the position, once each." });
+  ).toEqual({ error: errors.stale });
+});
+
+test("any other refusal of the order is shown as the backend gave it", async () => {
+  backend = fakeBackend({
+    "widgets.reorder": () => refusal(403, "forbidden", "Not allowed."),
+  });
+  expect(
+    await saveOrder(
+      null,
+      form([
+        ["position", "sidebar_top"],
+        ["order.5", "1"],
+      ]),
+    ),
+  ).toEqual({ error: "Not allowed." });
 });

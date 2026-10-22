@@ -2,8 +2,8 @@ import { WidgetKind } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { ItemList } from "@/components/staff/item-list";
 import { Badge } from "@/components/ui/badge";
+import { typeDrawn } from "./drawn";
 import type { Position } from "./positions";
-import { typeDrawn } from "./positions";
 
 // The first step of adding a widget: its type, each a link to the form for it (carrying the
 // position chosen on the list, if any).

@@ -86,6 +86,15 @@ function failure(error: unknown) {
   return formFailure(error, FIELDS);
 }
 
+// The widget a form is about: its id, or the state to show when the form carries none.
+async function widgetIdOf(
+  formData: FormData,
+): Promise<number | { error: string }> {
+  const widgetId = parseId(text(formData, "id"));
+  if (widgetId !== null) return widgetId;
+  return { error: (await getTranslations("adminWidgets.errors"))("id") };
+}
+
 export async function createWidget(
   _previous: StaffFormState,
   formData: FormData,
@@ -105,9 +114,8 @@ export async function saveWidget(
   _previous: StaffFormState,
   formData: FormData,
 ): Promise<StaffFormState> {
-  const t = await getTranslations("adminWidgets.errors");
-  const widgetId = parseId(text(formData, "id"));
-  if (widgetId === null) return { error: t("id") };
+  const widgetId = await widgetIdOf(formData);
+  if (typeof widgetId !== "number") return widgetId;
   const input = await fields(formData);
   if ("fields" in input) return input;
   try {
@@ -124,12 +132,14 @@ export async function duplicateWidget(
   _previous: StaffFormState,
   formData: FormData,
 ): Promise<StaffFormState> {
-  const t = await getTranslations("adminWidgets.errors");
-  const widgetId = parseId(text(formData, "id"));
-  if (widgetId === null) return { error: t("id") };
+  const widgetId = await widgetIdOf(formData);
+  if (typeof widgetId !== "number") return widgetId;
   const chosen = text(formData, "position");
   const position = chosen === "" ? undefined : asPosition(chosen);
-  if (position === null) return { fields: { position: t("position") } };
+  if (position === null) {
+    const t = await getTranslations("adminWidgets.errors");
+    return { fields: { position: t("position") } };
+  }
   let copy: number;
   try {
     copy = (
@@ -148,9 +158,8 @@ export async function removeWidget(
   _previous: StaffFormState,
   formData: FormData,
 ): Promise<StaffFormState> {
-  const t = await getTranslations("adminWidgets.errors");
-  const widgetId = parseId(text(formData, "id"));
-  if (widgetId === null) return { error: t("id") };
+  const widgetId = await widgetIdOf(formData);
+  if (typeof widgetId !== "number") return widgetId;
   try {
     await call(widgetsDelete, { widgetId });
   } catch (error) {
@@ -160,8 +169,8 @@ export async function removeWidget(
 }
 
 // The order of one position: every widget of it with its number (`order.<id>`), which is sorted
-// into the list of ids the backend takes. The backend refuses a list that is not the whole
-// position, so a widget added or deleted meanwhile asks for the page to be drawn again.
+// into the list of ids the backend takes. A save is the last write (no check that another admin
+// changed the widget meanwhile), as with the other panel forms.
 export async function saveOrder(
   _previous: StaffFormState,
   formData: FormData,
@@ -186,6 +195,10 @@ export async function saveOrder(
         .map(({ id }) => id),
     });
   } catch (error) {
+    // The backend refuses a list that is not the whole position: a widget was added, deleted or
+    // moved meanwhile.
+    if (error instanceof SermoError && error.code === "validation")
+      return { error: t("stale") };
     return formFailure(error, []);
   }
   redirect(`${BACK}?notice=ordered`);

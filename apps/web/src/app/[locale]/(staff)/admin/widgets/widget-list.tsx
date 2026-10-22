@@ -8,18 +8,18 @@ import { Badge } from "@/components/ui/badge";
 import { groupsIfAllowed } from "../groups/data";
 import { audienceOf } from "../notices/audience";
 import { getWidgetList, type WidgetItem } from "./data";
-import { type Say, widgetName } from "./labels";
 import {
-  POSITIONS,
-  type Position,
-  pagesOf,
+  POSITIONS_IN_ORDER,
+  pagesDrawn,
   positionDrawn,
   typeDrawn,
-} from "./positions";
+} from "./drawn";
+import { widgetName } from "./labels";
+import { type Position, pagesOf } from "./positions";
 import { DeleteStep, DuplicateStep } from "./widget-steps";
 
-// The widgets, one list for each position in the order the backend gives them (the order the
-// pages draw them in); a position with none is a row of the list at the end, to add the first.
+// The widgets, one list for each position in the order the pages draw them in (the home page's
+// positions, then What's new's, then those no page draws yet); a position with none is a row of the list at the end, to add the first.
 export async function WidgetList({
   searchParams,
 }: {
@@ -31,7 +31,6 @@ export async function WidgetList({
     getWidgetList(),
     groupsIfAllowed(),
   ]);
-  const say = t as unknown as Say;
   const audience = (rule: Rule) => {
     const { audience: kind, groupId } = audienceOf(rule);
     if (kind !== "group") return t(`audiences.${kind}`);
@@ -40,14 +39,17 @@ export async function WidgetList({
         groups?.find((group) => group.id === groupId)?.title ?? `#${groupId}`,
     });
   };
-  const where = (position: Position) =>
-    t("list.pages", {
-      pages: format.list(
-        pagesOf(position).map((page) => t(`sitePages.${page}`)),
-      ),
-    });
+  // The pages that draw a position; a position no page draws yet says where it is planned.
+  const where = (position: Position) => {
+    const drawn = pagesDrawn(position);
+    const names = (pages: typeof drawn) =>
+      format.list(pages.map((page) => t(`sitePages.${page}`)));
+    return drawn.length > 0
+      ? t("list.pages", { pages: names(drawn) })
+      : t("list.planned", { pages: names(pagesOf(position)) });
+  };
   const row = (widget: WidgetItem): Item => {
-    const named = widgetName(say, widget);
+    const named = widgetName(t, widget);
     const title = widget.title ?? named;
     return {
       id: widget.id,
@@ -80,7 +82,7 @@ export async function WidgetList({
       ),
     };
   };
-  const empty = POSITIONS.filter(
+  const empty = POSITIONS_IN_ORDER.filter(
     (position) => !widgets.some((widget) => widget.position === position),
   );
   return (
@@ -92,7 +94,7 @@ export async function WidgetList({
           ordered: t("notices.ordered"),
         }}
       />
-      {POSITIONS.map((position) => {
+      {POSITIONS_IN_ORDER.map((position) => {
         const here = widgets.filter((widget) => widget.position === position);
         if (here.length === 0) return null;
         const title = t(`positions.${position}`);

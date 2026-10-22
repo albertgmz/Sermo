@@ -3,12 +3,21 @@ import * as z from "zod";
 import type { WidgetType } from "@/components/widgets/widget-types";
 
 // The options each widget type takes, read from the backend's own schemas (`WIDGET_OPTIONS`), so a
-// type or an option added there is on the form with no change here but its words.
+// type or an option added there is on the form with no change here but its words. `required` is
+// whether the schema asks for it: one it does not (it has a default) may be left empty, and then
+// takes the backend's default.
 export type OptionField =
-  | { name: string; kind: "number"; min: number; max: number }
+  | {
+      name: string;
+      kind: "number";
+      min: number;
+      max: number;
+      required: boolean;
+      byDefault?: number;
+    }
   | { name: string; kind: "boolean" }
-  | { name: string; kind: "choice"; values: string[] }
-  | { name: string; kind: "text"; max: number };
+  | { name: string; kind: "choice"; values: string[]; required: boolean }
+  | { name: string; kind: "text"; max: number; required: boolean };
 
 type Property = {
   type?: string;
@@ -19,30 +28,54 @@ type Property = {
   default?: unknown;
 };
 
-const properties = (type: WidgetType) =>
-  Object.entries(
-    (
-      z.toJSONSchema(WIDGET_OPTIONS[type], { io: "input" }) as {
-        properties?: Record<string, Property>;
-      }
-    ).properties ?? {},
-  );
+type Schema = { properties?: Record<string, Property>; required?: string[] };
 
-export function optionFields(type: WidgetType): OptionField[] {
-  return properties(type).map(([name, property]) => {
-    if (property.enum)
-      return { name, kind: "choice", values: property.enum } as const;
-    if (property.type === "boolean") return { name, kind: "boolean" } as const;
-    if (property.type === "integer" || property.type === "number")
-      return {
-        name,
-        kind: "number",
-        min: property.minimum ?? 0,
-        max: property.maximum ?? Number.MAX_SAFE_INTEGER,
-      } as const;
-    return { name, kind: "text", max: property.maxLength ?? 10000 } as const;
+const schemaOf = (type: WidgetType) =>
+  z.toJSONSchema(WIDGET_OPTIONS[type], { io: "input" }) as Schema;
+
+const properties = (type: WidgetType) =>
+  Object.entries(schemaOf(type).properties ?? {});
+
+// The control each option of a schema needs. A shape the form cannot draw (an optional or nullable
+// value, a list, a decimal, an exclusive bound) throws, so a type that gains one fails the tests
+// instead of showing a control that sends something the backend refuses.
+export function fieldsOf(schema: Schema): OptionField[] {
+  const asked = new Set(schema.required ?? []);
+  return Object.entries(schema.properties ?? {}).map(([name, property]) => {
+    const required = asked.has(name);
+    const bounded = Object.keys(property).filter((key) =>
+      key.startsWith("exclusive"),
+    );
+    if (bounded.length === 0) {
+      if (property.type === "string" && property.enum)
+        return { name, kind: "choice", values: property.enum, required };
+      if (property.type === "boolean") return { name, kind: "boolean" };
+      if (property.type === "integer")
+        return {
+          name,
+          kind: "number",
+          min: property.minimum ?? Number.MIN_SAFE_INTEGER,
+          max: property.maximum ?? Number.MAX_SAFE_INTEGER,
+          required,
+          ...(typeof property.default === "number" && {
+            byDefault: property.default,
+          }),
+        };
+      if (property.type === "string" && !property.enum)
+        return {
+          name,
+          kind: "text",
+          max: property.maxLength ?? Number.MAX_SAFE_INTEGER,
+          required,
+        };
+    }
+    throw new Error(
+      `The widget option "${name}" has a shape the form cannot draw.`,
+    );
   });
 }
+
+export const optionFields = (type: WidgetType) => fieldsOf(schemaOf(type));
 
 // The default of each option that has one, for a form that starts a new widget.
 export function optionDefaults(type: WidgetType): Record<string, unknown> {
@@ -77,6 +110,8 @@ export function optionsFrom(
         options[field.name] = sent !== null;
         break;
       case "number": {
+        // Left empty, an option with a default takes it.
+        if (value.trim() === "" && !field.required) break;
         const number = WHOLE.test(value.trim()) ? Number(value.trim()) : null;
         if (number === null || number < field.min || number > field.max)
           fields[name] = refuse(field.min, field.max);
@@ -84,7 +119,7 @@ export function optionsFrom(
         break;
       }
       case "choice":
-        options[field.name] = value;
+        if (value !== "" || field.required) options[field.name] = value;
         break;
       case "text":
         // A browser sends the line breaks of a text area as CRLF; the source is kept with LF.

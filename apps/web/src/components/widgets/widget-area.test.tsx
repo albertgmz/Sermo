@@ -37,8 +37,14 @@ mock.module("next-intl", () => ({
 }));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
-const { DRAWN_POSITIONS, WidgetArea, widgetAreas, widgetAside, widgetLead } =
-  await import("./widget-area");
+const {
+  DRAWN_PAGES,
+  DRAWN_POSITIONS,
+  WidgetArea,
+  widgetAreas,
+  widgetAside,
+  widgetLead,
+} = await import("./widget-area");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intlServer);
@@ -488,20 +494,32 @@ test("each forum statistics widget keeps its open state apart, the first under t
   expect(keyOf(second)).toBe(7);
 });
 
-// The admin panel marks a position "not shown yet" from this set: it is the positions the two
-// pages' areas draw, so a position added to an area is drawn there and in the panel's words.
+// The admin panel marks a position "not shown yet", and names the pages that show it, from these:
+// they are what the areas of the two pages take widgets from, so a position added to an area is
+// drawn there and in the panel's words.
 test("the drawn positions are exactly those the areas of the pages take widgets from", () => {
   const everywhere = WidgetPosition.options.map((position, index) =>
     widgetBody({ id: index + 1, position, type: "forumLinks" }),
   ) as never;
-  const taken = new Set(
-    (["home", "novedades"] as const).flatMap((page) =>
-      Object.values(widgetAreas(page, everywhere)).flatMap((area) =>
-        area.map((widget: { position: string }) => widget.position),
-      ),
-    ),
+  for (const page of ["home", "novedades"] as const) {
+    const taken = Object.values(widgetAreas(page, everywhere)).flatMap((area) =>
+      area.map((widget: { position: string }) => widget.position),
+    );
+    expect([...DRAWN_PAGES[page]].sort()).toEqual([...taken].sort());
+  }
+  expect([...DRAWN_POSITIONS].sort()).toEqual(
+    [...new Set(Object.values(DRAWN_PAGES).flat())].sort(),
   );
-  expect([...DRAWN_POSITIONS].sort()).toEqual([...taken].sort());
-  expect(DRAWN_POSITIONS.has("forum_list_sidebar")).toBe(true);
-  expect(DRAWN_POSITIONS.has("members_sidenav")).toBe(false);
+});
+
+test("only the home page and What's new draw the global sidebars, and no page draws the forum or members positions", () => {
+  expect(Object.keys(DRAWN_PAGES)).toEqual(["home", "novedades"]);
+  for (const position of ["sidebar_top", "sidebar_bottom"] as const) {
+    expect(DRAWN_PAGES.home).toContain(position);
+    expect(DRAWN_PAGES.novedades).toContain(position);
+  }
+  expect(DRAWN_POSITIONS).not.toContain("forum_view_sidebar");
+  expect(DRAWN_POSITIONS).not.toContain("members_sidenav");
+  expect(DRAWN_PAGES.home).not.toContain("novedades_sidebar");
+  expect(DRAWN_PAGES.novedades).not.toContain("forum_list_sidebar");
 });

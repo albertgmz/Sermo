@@ -107,7 +107,10 @@
   },
   "options": {
     "forumStats": {
-      "limit": { "label": "Rows", "help": "How many rows each tab lists." },
+      "limit": {
+        "label": "Rows",
+        "help": "How many rows each tab lists."
+      },
       "topPosters": {
         "label": "Most messages",
         "switch": "Show the members with most messages",
@@ -115,11 +118,20 @@
       }
     },
     "rankedThreads": {
-      "by": { "label": "List", "help": "Which threads it lists." },
-      "limit": { "label": "Threads", "help": "How many threads it lists." }
+      "by": {
+        "label": "List",
+        "help": "Which threads it lists."
+      },
+      "limit": {
+        "label": "Threads",
+        "help": "How many threads it lists."
+      }
     },
     "monthStandings": {
-      "limit": { "label": "Members", "help": "How many members it lists." },
+      "limit": {
+        "label": "Members",
+        "help": "How many members it lists."
+      },
       "picker": {
         "label": "Month picker",
         "switch": "Let visitors look at another month",
@@ -127,16 +139,28 @@
       }
     },
     "topReferrers": {
-      "limit": { "label": "Members", "help": "How many members it lists." }
+      "limit": {
+        "label": "Members",
+        "help": "How many members it lists."
+      }
     },
     "birthdays": {
-      "limit": { "label": "Members", "help": "How many members it shows." }
+      "limit": {
+        "label": "Members",
+        "help": "How many members it shows."
+      }
     },
     "suggestedMembers": {
-      "limit": { "label": "Members", "help": "How many members it suggests." }
+      "limit": {
+        "label": "Members",
+        "help": "How many members it suggests."
+      }
     },
     "forumLinks": {
-      "limit": { "label": "Forums", "help": "How many forums it lists." }
+      "limit": {
+        "label": "Forums",
+        "help": "How many forums it lists."
+      }
     },
     "recentlyActive": {
       "window": {
@@ -167,7 +191,8 @@
     "emptyLabel": "Positions with no widgets",
     "emptyHeading": "Positions with no widgets",
     "emptyDescription": "Nothing is drawn in these. Add the first widget.",
-    "addTo": "Add a widget to {position}"
+    "addTo": "Add a widget to {position}",
+    "planned": "Planned for: {pages}. No page draws it yet."
   },
   "row": {
     "edit": "Edit {title}",
@@ -177,7 +202,7 @@
   },
   "steps": {
     "duplicate": "Duplicate",
-    "duplicateWarning": "A copy with the same title, options and audience is added at the end of the position chosen.",
+    "duplicateWarning": "The copy keeps the widget's title, options, audience and switches, so it is shown straight away if the original is on. It goes to the end of the position chosen.",
     "duplicatePosition": "Put the copy in",
     "duplicateConfirm": "Duplicate widget",
     "delete": "Delete",
@@ -208,7 +233,7 @@
     "enabled": "Enabled",
     "enabledSwitch": "Show the widget",
     "phones": "On phones",
-    "phonesHelp": "Phones draw the sidebars below the content. Switch this off to leave the widget out there.",
+    "phonesHelp": "Switch it off to hide the widget on phones, wherever it is.",
     "phonesSwitch": "Show on phones",
     "options": "Options",
     "audience": "Audience",
@@ -230,6 +255,7 @@
     "type": "Choose a type of widget.",
     "position": "Choose a position.",
     "order": "The order must be a whole number.",
-    "number": "Enter a whole number from {min} to {max}."
+    "number": "Enter a whole number from {min} to {max}.",
+    "stale": "The widgets of this position changed while you were ordering them. Reload the page and order them again."
   }
 }

@@ -118,11 +118,20 @@
       }
     },
     "rankedThreads": {
-      "by": { "label": "Lista", "help": "Qué temas lista." },
-      "limit": { "label": "Temas", "help": "Cuántos temas lista." }
+      "by": {
+        "label": "Lista",
+        "help": "Qué temas lista."
+      },
+      "limit": {
+        "label": "Temas",
+        "help": "Cuántos temas lista."
+      }
     },
     "monthStandings": {
-      "limit": { "label": "Miembros", "help": "Cuántos miembros lista." },
+      "limit": {
+        "label": "Miembros",
+        "help": "Cuántos miembros lista."
+      },
       "picker": {
         "label": "Selector de mes",
         "switch": "Dejar que los visitantes vean otro mes",
@@ -130,16 +139,28 @@
       }
     },
     "topReferrers": {
-      "limit": { "label": "Miembros", "help": "Cuántos miembros lista." }
+      "limit": {
+        "label": "Miembros",
+        "help": "Cuántos miembros lista."
+      }
     },
     "birthdays": {
-      "limit": { "label": "Miembros", "help": "Cuántos miembros muestra." }
+      "limit": {
+        "label": "Miembros",
+        "help": "Cuántos miembros muestra."
+      }
     },
     "suggestedMembers": {
-      "limit": { "label": "Miembros", "help": "Cuántos miembros sugiere." }
+      "limit": {
+        "label": "Miembros",
+        "help": "Cuántos miembros sugiere."
+      }
     },
     "forumLinks": {
-      "limit": { "label": "Foros", "help": "Cuántos foros lista." }
+      "limit": {
+        "label": "Foros",
+        "help": "Cuántos foros lista."
+      }
     },
     "recentlyActive": {
       "window": {
@@ -170,7 +191,8 @@
     "emptyLabel": "Posiciones sin widgets",
     "emptyHeading": "Posiciones sin widgets",
     "emptyDescription": "No se dibuja nada en estas. Añade el primer widget.",
-    "addTo": "Añadir un widget a {position}"
+    "addTo": "Añadir un widget a {position}",
+    "planned": "Prevista para: {pages}. Ninguna página la dibuja aún."
   },
   "row": {
     "edit": "Editar {title}",
@@ -180,7 +202,7 @@
   },
   "steps": {
     "duplicate": "Duplicar",
-    "duplicateWarning": "Se añade una copia con el mismo título, opciones y público al final de la posición elegida.",
+    "duplicateWarning": "La copia conserva el título, las opciones, el público y los interruptores del widget, así que se muestra de inmediato si el original está activo. Va al final de la posición elegida.",
     "duplicatePosition": "Poner la copia en",
     "duplicateConfirm": "Duplicar widget",
     "delete": "Eliminar",
@@ -211,7 +233,7 @@
     "enabled": "Activo",
     "enabledSwitch": "Mostrar el widget",
     "phones": "En móviles",
-    "phonesHelp": "Los móviles dibujan las columnas laterales bajo el contenido. Desactívalo para dejar el widget fuera ahí.",
+    "phonesHelp": "Desactívalo para ocultar el widget en móviles, esté donde esté.",
     "phonesSwitch": "Mostrar en móviles",
     "options": "Opciones",
     "audience": "Público",
@@ -233,6 +255,7 @@
     "type": "Elige un tipo de widget.",
     "position": "Elige una posición.",
     "order": "El orden debe ser un número entero.",
-    "number": "Escribe un número entero de {min} a {max}."
+    "number": "Escribe un número entero de {min} a {max}.",
+    "stale": "Los widgets de esta posición cambiaron mientras los ordenabas. Recarga la página y ordénalos de nuevo."
   }
 }

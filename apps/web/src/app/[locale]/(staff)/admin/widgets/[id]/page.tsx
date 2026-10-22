@@ -10,13 +10,8 @@ import { parseId } from "@/lib/sermo/ids";
 import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
 import { getWidgetList } from "../data";
-import { type Say, widgetName } from "../labels";
-import {
-  PAGE_ADDRESSES,
-  pagesOf,
-  positionDrawn,
-  typeDrawn,
-} from "../positions";
+import { PAGE_ADDRESSES, pagesDrawn, positionDrawn, typeDrawn } from "../drawn";
+import { widgetName } from "../labels";
 import { WidgetForm } from "../widget-form";
 import { DeleteStep, DuplicateStep } from "../widget-steps";
 
@@ -40,10 +35,7 @@ async function Editor({
   ]);
   const widget = widgets.find((item) => item.id === widgetId);
   if (!widget) notFound();
-  const say = t as unknown as Say;
-  const pages = pagesOf(widget.position).filter((page) =>
-    Object.hasOwn(PAGE_ADDRESSES, page),
-  );
+  const pages = pagesDrawn(widget.position);
   return (
     <>
       <Notice
@@ -56,7 +48,7 @@ async function Editor({
       />
       <p className="text-sm font-medium [overflow-wrap:anywhere]">
         {t("edit.about", {
-          title: widget.title ?? widgetName(say, widget),
+          title: widget.title ?? widgetName(t, widget),
           position: t(`positions.${widget.position}`),
         })}
       </p>

@@ -3,8 +3,9 @@ import { EmptyState } from "@/components/forum/empty-state";
 import { SortForm } from "@/components/staff/sort-form";
 import { saveOrder } from "./actions";
 import { getWidgetList } from "./data";
-import { type Say, widgetName } from "./labels";
-import { POSITIONS, type Position } from "./positions";
+import { POSITIONS_IN_ORDER } from "./drawn";
+import { widgetName } from "./labels";
+import type { Position } from "./positions";
 
 // One form for each position with more than one widget (or the one position asked for), the
 // widgets in the order the pages draw them. The numbers are the stored order, so the form sends
@@ -14,8 +15,7 @@ export async function SortLists({ position }: { position?: Position }) {
     getTranslations("adminWidgets"),
     getWidgetList(),
   ]);
-  const say = t as unknown as Say;
-  const orderable = (position ? [position] : POSITIONS).filter(
+  const orderable = (position ? [position] : POSITIONS_IN_ORDER).filter(
     (place) => widgets.filter((widget) => widget.position === place).length > 1,
   );
   if (orderable.length === 0) {
@@ -36,9 +36,9 @@ export async function SortLists({ position }: { position?: Position }) {
         .filter((widget) => widget.position === place)
         .map((widget) => ({
           id: widget.id,
-          title: widget.title ?? widgetName(say, widget),
+          title: widget.title ?? widgetName(t, widget),
           position: widget.displayOrder,
-          description: widget.title !== null && widgetName(say, widget),
+          description: widget.title !== null && widgetName(t, widget),
           fields: { position: place },
         }))}
     />

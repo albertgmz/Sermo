@@ -3,8 +3,8 @@ import { ConfirmStep } from "@/components/staff/confirm-step";
 import { selectClass } from "@/components/staff/rows";
 import { duplicateWidget, removeWidget } from "./actions";
 import type { WidgetItem } from "./data";
-import { type Say, widgetName } from "./labels";
-import { POSITIONS } from "./positions";
+import { POSITIONS_IN_ORDER } from "./drawn";
+import { widgetName } from "./labels";
 
 // The two steps behind a widget, on its row of the list and on its own page: a copy to the end of
 // a position, and the delete.
@@ -30,7 +30,7 @@ export async function DuplicateStep({ widget }: { widget: WidgetItem }) {
           defaultValue={widget.position}
           className={selectClass}
         >
-          {POSITIONS.map((place) => (
+          {POSITIONS_IN_ORDER.map((place) => (
             <option key={place} value={place}>
               {t(`positions.${place}`)}
             </option>
@@ -49,7 +49,6 @@ export async function DeleteStep({
   heading?: string;
 }) {
   const t = await getTranslations("adminWidgets");
-  const say = t as unknown as Say;
   return (
     <ConfirmStep
       heading={heading}
@@ -57,7 +56,7 @@ export async function DeleteStep({
       fields={{ id: widget.id }}
       summary={t("steps.delete")}
       warning={t("steps.deleteWarning", {
-        title: widget.title ?? widgetName(say, widget),
+        title: widget.title ?? widgetName(t, widget),
       })}
       submit={t("steps.deleteConfirm")}
     />
