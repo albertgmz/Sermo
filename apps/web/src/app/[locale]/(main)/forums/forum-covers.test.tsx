@@ -95,6 +95,9 @@ const NODES = [
   node(6, null, "forum", "cover"),
   node(7, null, "category", "icon"),
   node(8, 7, "forum", null),
+  node(10, 2, "forum", null),
+  { ...node(11, 10, "forum", null), threadCount: 4 },
+  node(12, 10, "forum", null),
 ];
 
 function backend() {
@@ -269,4 +272,18 @@ test("with forum pictures blocked by LITE mode the page header stays plain", asy
   expect(top(page)).not.toContain(COVER);
   expect(top(page)).not.toContain("min-h-36");
   expect(top(page)).not.toContain("lite-placeholder");
+});
+
+test("a forum with forums inside lists them as cards above its threads, one without shows none", async () => {
+  backend();
+  const page = await forumPage("10");
+  const cards = page.indexOf("<ul");
+  expect(page.slice(cards)).toContain("Forum 11");
+  expect(page.slice(cards)).toContain("Forum 12");
+  expect(page).toContain("4 threads");
+  // Above the thread list: its empty state comes after the cards.
+  expect(page.indexOf("Forum 12")).toBeLessThan(page.indexOf("No threads"));
+  expect(page).toContain('href="/forums/11"');
+  const bare = await forumPage("4");
+  expect(bare).not.toContain("<ul");
 });

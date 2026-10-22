@@ -7,7 +7,7 @@ import {
 } from "@/app/[locale]/(main)/forums/forum-stats";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { bannerOf } from "@/components/forum/forum-banner";
-import { ForumCard } from "@/components/forum/forum-card";
+import { ForumCardGrid } from "@/components/forum/forum-card-grid";
 import {
   ForumCategoriesSkeleton,
   ForumStatsSkeleton,
@@ -16,7 +16,7 @@ import {
 } from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
 import { read } from "@/lib/sermo/client";
-import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
+import { childrenByParent, nodeMembers } from "@/lib/sermo/forums";
 import { membersFor } from "@/lib/sermo/members";
 import { getSite } from "@/lib/sermo/site";
 
@@ -128,18 +128,16 @@ async function ForumCategories({
           storageKey={`forum-category-${category.id}-open`}
           banner={banners[index]}
         >
-          <ul className="grid gap-2 p-2 md:grid-cols-2">
-            {(category.type === "category"
-              ? childrenOf(category.id)
-              : [category]
-            ).map((forum) => (
-              <ForumCard
-                key={forum.id}
-                forum={forumCard(forum, childrenOf(forum.id), member)}
-                className="md:last:odd:col-span-2"
-              />
-            ))}
-          </ul>
+          <ForumCardGrid
+            forums={
+              category.type === "category"
+                ? childrenOf(category.id)
+                : [category]
+            }
+            childrenOf={childrenOf}
+            member={member}
+            className="p-2"
+          />
         </CollapsiblePanel>
       ))}
     </>

@@ -13,7 +13,7 @@ import { batchUpdateThreadsAction } from "@/app/[locale]/(main)/forums/actions";
 import { forumsOtherThan } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import { EmptyState } from "@/components/forum/empty-state";
 import { bannerOf } from "@/components/forum/forum-banner";
-import { ForumCard } from "@/components/forum/forum-card";
+import { ForumCardGrid } from "@/components/forum/forum-card-grid";
 import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PagedList } from "@/components/forum/paged-list";
@@ -30,7 +30,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { pagesParam } from "@/lib/list-pages";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
-import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
+import { childrenByParent, nodeMembers } from "@/lib/sermo/forums";
 import { parsePageId } from "@/lib/sermo/ids";
 import { membersFor } from "@/lib/sermo/members";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
@@ -211,6 +211,12 @@ export default async function ForumPage({
         </div>
       )}
 
+      {isForum && (
+        <Suspense fallback={null}>
+          <Subforums nodeId={node.id} />
+        </Suspense>
+      )}
+
       <Suspense
         fallback={
           <LoadingRegion label={t("aria.loadingThreads")}>
@@ -262,15 +268,29 @@ async function CategoryForums({ nodeId }: { nodeId: number }) {
     );
   }
   return (
-    <ul className="mt-4 grid gap-2 md:grid-cols-2">
-      {forums.map((forum) => (
-        <ForumCard
-          key={forum.id}
-          forum={forumCard(forum, childrenOf(forum.id), member)}
-          className="md:last:odd:col-span-2"
-        />
-      ))}
-    </ul>
+    <ForumCardGrid
+      forums={forums}
+      childrenOf={childrenOf}
+      member={member}
+      className="mt-4"
+    />
+  );
+}
+
+// The forums inside a forum, above its threads (nothing when it has none).
+async function Subforums({ nodeId }: { nodeId: number }) {
+  const { items: nodes } = await read(nodesList, {});
+  const childrenOf = childrenByParent(nodes);
+  const forums = childrenOf(nodeId);
+  if (forums.length === 0) return null;
+  const member = await membersFor(nodeMembers(forums));
+  return (
+    <ForumCardGrid
+      forums={forums}
+      childrenOf={childrenOf}
+      member={member}
+      className="mt-4"
+    />
   );
 }
 
