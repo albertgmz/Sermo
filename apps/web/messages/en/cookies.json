@@ -134,6 +134,11 @@
       "purpose": "Remembers whether you chose the light, dark or system theme.",
       "lifetime": "Until you clear your browser's site data."
     },
+    "accountTheme": {
+      "title": "Account theme",
+      "purpose": "Holds the theme saved on your account, so pages open in it before they load.",
+      "lifetime": "1 year, or until you sign out."
+    },
     "width": {
       "title": "Page width",
       "purpose": "Remembers whether you chose the narrow page width.",

@@ -2,6 +2,7 @@
 // banner are drawn from it, and `tests/consent-inventory.test.ts` scans the source for every
 // name the code writes and fails when one is missing here. The words (purpose, lifetime) are in
 // `messages/<locale>/cookies.json` under `items.<id>`.
+import { ACCOUNT_THEME_COOKIE } from "@/components/layout/theme";
 import { LOCALE_COOKIE } from "@/i18n/locale-cookie";
 import { PROMPTS_KEY, VISIT_KEY } from "@/lib/app-prompts";
 import { FEED_VIEW_COOKIE } from "@/lib/feed-view";
@@ -116,6 +117,13 @@ export const INVENTORY: readonly InventoryItem[] = [
     category: "necessary",
     storage: "localStorage",
     names: ["sermo-theme"],
+    party: "first",
+  },
+  {
+    id: "accountTheme",
+    category: "necessary",
+    storage: "cookie",
+    names: [ACCOUNT_THEME_COOKIE],
     party: "first",
   },
   {

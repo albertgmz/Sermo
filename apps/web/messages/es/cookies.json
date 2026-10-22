@@ -134,6 +134,11 @@
       "purpose": "Recuerda si elegiste el tema claro, oscuro o el del sistema.",
       "lifetime": "Hasta que borres los datos del sitio en tu navegador."
     },
+    "accountTheme": {
+      "title": "Tema de la cuenta",
+      "purpose": "Guarda el tema elegido en tu cuenta, para que las páginas se abran con él desde el principio.",
+      "lifetime": "1 año, o hasta que cierres la sesión."
+    },
     "width": {
       "title": "Ancho de página",
       "purpose": "Recuerda si elegiste el ancho de página estrecho.",
