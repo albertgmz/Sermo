@@ -1,8 +1,8 @@
 import { preferencesUpdate } from "@sermo/core/contracts";
 import { NextResponse } from "next/server";
 import { LANGUAGE_SWITCHER_ID } from "@/components/layout/language-switcher";
-import { LOCALE_COOKIE } from "@/i18n/locale-cookie";
-import { isLocale, type Locale, SYSTEM_LANGUAGE } from "@/i18n/locales";
+import { LOCALE_COOKIE, SYSTEM_LANGUAGE } from "@/i18n/locale-cookie";
+import { isLocale, type Locale } from "@/i18n/locales";
 import { writeLocaleCookie } from "@/i18n/write-locale-cookie";
 import { call, unconfirmedKind } from "@/lib/sermo/client";
 import { publicUrl } from "@/lib/sermo/config";
