@@ -488,6 +488,10 @@ test("a compact wall post on another member's wall reads Author, a caret, Owner,
   expect(title).toContain("<svg");
   expect(title.indexOf("member4")).toBeLessThan(title.indexOf("member5"));
   expect(other).not.toContain("posted on");
+  // The owner's link sits above the row's stretched link, or a press on it would open the post.
+  expect(title.match(/<a[^>]*href="\/members\/5"[^>]*>/)?.[0]).toContain(
+    "relative z-10",
+  );
 
   const own = await render(ownWall(), MEMBER, "compact");
   const ownTitle = own.match(/<h2[^>]*>[\s\S]*?<\/h2>/)?.[0] ?? "";

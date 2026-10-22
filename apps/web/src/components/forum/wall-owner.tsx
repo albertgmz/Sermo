@@ -19,7 +19,8 @@ export function wallPlace(
 }
 
 // `▸ Owner`, drawn after the author's name as XenForo does: a muted caret for the eye, and for a
-// screen reader the words that link the author's name to the owner's.
+// screen reader the words that link the author's name to the owner's. `className` styles the
+// owner's link only: the caret is decoration, and a press on it may fall through to the item.
 export function WallOwner({
   owner,
   className,
