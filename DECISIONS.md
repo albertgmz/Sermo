@@ -5866,3 +5866,21 @@ Why: backlog C5 and the conversations findings; the brief's "53,077 dropped dele
 XenForo users missing from `xf_user` (no Sermo member to hold them), so they are not imported.
 Known limits: no stars; the approval path keeps its own copy of the restore statement (a shared one
 would make moderation import conversations).
+
+### Wall posts and their comments are drawn as on fcuba's XenForo
+
+- Under a wall post, one bordered block of rows in XenForo's order: who reacted, "Ver comentarios
+  previos…", the comments oldest first, and the composer with the viewer's small avatar. A comment is
+  a 24 px avatar, the bold name, the text and one footer: date, Report and the "•••" menu on the
+  left, react on the right. On a phone the post's avatar sits small in its header line, so the block
+  spans the full width.
+- Share is a direct button after Report (XenForo has no share on profile posts; one tap); the "•••"
+  menu ("Más opciones") holds Edit and Delete only and is not drawn for viewers who can do neither.
+  A moderator's hard delete stays a visible button (its confirm step cannot live in a closing menu).
+  "Show fewer comments" stays, so a link to an older comment keeps the newer ones reachable.
+- `ContentActions` gains `layout="wall"` and a `leading` slot; the default and thread layouts are
+  unchanged. The `compact` modes are gone. A new `sm-lg` avatar size (24 px on phones, 40 px from
+  `md`) has a compact Data saver placeholder on phones.
+
+Why: backlog C2 and the owner's forum-feel review.
+Known limits: the feed card's own footer is unchanged (shared with thread cards).
