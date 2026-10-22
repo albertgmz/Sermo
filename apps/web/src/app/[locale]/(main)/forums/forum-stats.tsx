@@ -140,7 +140,8 @@ function ThreadRow({
               : `/threads/${thread.id}`
           }
           className={cn(
-            "block max-w-full truncate hover:underline",
+            // `relative` keeps the absolutely placed unread label inside the cut title.
+            "relative block max-w-full truncate hover:underline",
             thread.isUnread ? "font-bold" : "font-medium",
           )}
         >

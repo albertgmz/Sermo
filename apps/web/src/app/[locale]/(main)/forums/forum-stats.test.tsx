@@ -196,6 +196,15 @@ test("an unread thread's title is bold and opens at its first unread post; a rea
   expect(read).not.toContain("font-bold");
 });
 
+// The unread label is absolutely placed: without a positioned link it sits at the end of the
+// uncut title, outside the truncation, and a long title widens the whole page on a phone.
+test("the cut title holds its unread label inside the link", async () => {
+  backend();
+  const html = await panel();
+  const opening = titleOf(html, "Unread thread").slice(0, 400);
+  expect(opening).toMatch(/class="[^"]*\brelative\b[^"]*\btruncate\b/);
+});
+
 test("each row is one line whose columns leave as the panel narrows, the title last", async () => {
   backend();
   const row = rowOf(await panel(), "Read one");
