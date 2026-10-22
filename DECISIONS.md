@@ -5766,3 +5766,27 @@ Why: owner decision, member of the month follows the current rules (backlog A7).
 notification or credit is tied to a month win, so only the winner row changes owner.
 Known limits: winners banned or erased before this release change only on the next settings save;
 group or staff changes do not trigger a run.
+
+### Web fixes from the handover leftovers
+
+- A list's `?pages=N` is written with the browser's own `replaceState` (`writePlace`), keeping the
+  entry's state: Next's patched method treated it as a restore and cancelled a navigation in flight.
+  The place is written again whenever the list is drawn anew, so a router refresh does not drop it.
+  Members of `usePathname`/`useSearchParams` on list pages see the address without `pages`.
+- The account menu and the header panels share one closing rule (`closesPopup`); the
+  `defaultPrevented` guard is gone.
+- A revealed spoiler places its `[ATTACH]` pictures; the reveal accepts only `/api/v1/files/<id>`
+  addresses (the file route still checks access). A picture tagged only inside a spoiler is still
+  also listed under the post.
+- Typed colours (`[color=…]`) are drawn as `bb-color` with `--ink`, held between the accent's
+  lightness bounds in each theme (dark: 0.72 and up), with a plain fallback.
+- The earlier-comments anchor ignores a first comment that is still below the viewport; Base UI
+  `Progress` takes the page's locale (no hydration mismatch).
+- The reported-message page lists the client parts its audited read returns
+  (`conversation-context-parts.ts`: mention cards, spoiler reveal); without them a production build
+  answered the moderator's "confirm view" with React error #441. A test finds every page that offers
+  an audited read and checks its list.
+
+Why: handover leftovers (link-landing 2, 3, 6, 8; site-content 14.11; award-categories 6).
+Known limits: the light theme stays a browser choice (a per-account theme needs a column and is a
+separate item); #441 reports on other admin pages are unconfirmed until a production console check.
