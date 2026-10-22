@@ -6483,3 +6483,11 @@ Why: the full end-to-end run after tonight's merges had these four failures.
 Why: at live scale the first version stalled requests for up to a second. Known limit: the
 timings assume the database in memory (read it first when memory allows); a preview rolls back
 its writes, so the real run's write load is only seen in the real run.
+
+### Benchmark scenarios read the API's JSON answers
+
+- The widget and forum statistics scenarios parse the harness's answer (it returns the response
+  text) before reading fields, so the widgets they create have ids and the feed exclusions they
+  change are put back.
+
+Why: with a freshly built seed the widget scenarios sent `undefined` ids and stopped the bench.
