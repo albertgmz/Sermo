@@ -6167,3 +6167,18 @@ community). The flag counts as brand artwork for LITE (a same-size placeholder w
 Why: the owner wants conversations to read like a private thread with quote and reply, and a link
 must never tell a non-participant about a private message. Known limit: a message that arrives by
 the live poll shows Reply even where the viewer cannot reply, until the page reloads.
+
+### Widgets are managed on /admin/widgets
+
+- A Setup screen lists widgets by position in the pages' drawing order, says which pages draw each
+  position ("Planned for ..." and a "Not shown yet" badge where no page does), and offers Edit,
+  Duplicate and Delete (with a confirm); badges mark widgets that are off or hidden on phones.
+- Add picks a type, then its form; edit sets position, title, the on and phone switches, the
+  type's options (generated from the backend's option schema, refusing a shape it cannot draw) and a
+  viewer rule from the shared rule builder (cheap criteria only). Reorder uses the shared up/down
+  form, so it works from the keyboard. Gated by `admin.widgets`.
+- A duplicate keeps the widget's switches, so it is live at once if the original is on.
+
+Why: backlog B4 and the widget findings 3.7.
+Known limits: a widget whose stored options no longer parse shows its type's defaults on the edit
+page without a warning (needs an `optionsReadable` field on the widget detail).
