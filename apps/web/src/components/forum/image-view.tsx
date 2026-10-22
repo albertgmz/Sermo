@@ -276,7 +276,15 @@ export function ImageView({
                 type="button"
                 aria-pressed={full && width === preset}
                 className={buttonVariants({ variant: "ghost", size: "sm" })}
-                onClick={() => update((node) => node.setWidth(preset))}
+                onClick={() => {
+                  // No larger than the picture itself, which "full" is.
+                  const natural = picture.current?.naturalWidth ?? 0;
+                  const capped =
+                    preset && natural && Number.parseInt(preset, 10) >= natural
+                      ? null
+                      : preset;
+                  update((node) => node.setWidth(capped));
+                }}
               >
                 {t(name)}
               </button>

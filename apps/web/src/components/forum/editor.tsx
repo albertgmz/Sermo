@@ -74,6 +74,7 @@ import {
   $insertImage,
   attachOf,
   finishUpload,
+  forgetUploads,
   placeUploads,
   settleUpload,
 } from "@/components/forum/image-node";
@@ -301,6 +302,9 @@ function FormField({
     });
   }, [editor, commit, onFiles]);
 
+  // An editor that is gone lets go of the pictures it uploaded.
+  useEffect(() => () => forgetUploads(editor), [editor]);
+
   // Says that requests are now taken here, for a composer that queued some on the way.
   useEffect(() => onInsertReady?.(), [onInsertReady]);
 
@@ -309,6 +313,8 @@ function FormField({
     // What is written after a clear is not the text the editor opened with.
     original.current = undefined;
     editor.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined);
+    // The pictures it uploaded are in the post that was sent.
+    forgetUploads(editor);
     commit("");
   }, [editor, commit, setInvalid]);
 

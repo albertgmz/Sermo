@@ -65,3 +65,37 @@ test("a refused upload says so and can be taken out", () => {
   expect(html).toContain(`aria-label="${words.remove}"`);
   expect(html).not.toContain("<img");
 });
+
+// The data saver's cookie as the page has it.
+function withLiteCookie(cookie: string, draw: () => string) {
+  const had = Object.getOwnPropertyDescriptor(globalThis, "document");
+  Object.defineProperty(globalThis, "document", {
+    value: { cookie },
+    configurable: true,
+  });
+  try {
+    return draw();
+  } finally {
+    if (had) Object.defineProperty(globalThis, "document", had);
+    else Reflect.deleteProperty(globalThis, "document");
+  }
+}
+
+test("with post pictures blocked by the data saver a stored picture is not fetched", () => {
+  const html = withLiteCookie("a=1; forum_lite=postImages", () =>
+    markupOf({ id: 5 }),
+  );
+  expect(html).not.toContain("/api/v1/files/");
+  expect(html).toContain(words.hidden);
+  // Other blocked categories leave it alone.
+  expect(
+    withLiteCookie("forum_lite=avatars", () => markupOf({ id: 5 })),
+  ).toContain('src="/api/v1/files/5"');
+});
+
+test("a picture still uploading shows the member's own copy under the data saver too", () => {
+  const upload = startUpload();
+  showPreview(upload, "data:image/png;base64,BBBB");
+  const html = withLiteCookie("forum_lite=all", () => markupOf({ upload }));
+  expect(html).toContain('src="data:image/png;base64,BBBB"');
+});

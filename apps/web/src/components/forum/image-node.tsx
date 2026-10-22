@@ -1,6 +1,8 @@
+import { $isCodeNode } from "@lexical/code";
 import {
   $addUpdateTag,
   $applyNodeReplacement,
+  $createParagraphNode,
   $getRoot,
   $getSelection,
   $isElementNode,
@@ -23,10 +25,12 @@ import { ImageView } from "@/components/forum/image-view";
 // text at once, while it uploads; it is written only once the upload has given it an id.
 
 // Pictures on their way up, by the key the editor gave each: what shows meanwhile (the file read as
-// a `data:` address, as the site's policy allows no `blob:` picture) and how the upload ended. Kept
-// out of the nodes, so that Undo and Redo bring back a picture with its upload's outcome.
+// a `data:` address, as the site's img-src policy allows no `blob:` picture) and how the upload
+// ended. The copy of the file goes as soon as the upload ends, and the entries of an editor when it
+// is done (`forgetUploads`); a stored id is written into the pictures themselves too.
 type Upload = { preview?: string; id?: number; failed?: true };
 const uploads = new Map<string, Upload>();
+const started = new WeakMap<LexicalEditor, Set<string>>();
 let made = 0;
 
 export function startUpload(): string {
@@ -43,8 +47,15 @@ export const uploadOf = (key: string | null) =>
 export function settleUpload(key: string, id?: number) {
   const upload = uploads.get(key);
   if (!upload) return;
+  upload.preview = undefined;
   if (id) upload.id = id;
   else upload.failed = true;
+}
+
+// Lets go of the uploads `editor` started: it is gone, or its form was sent and starts over.
+export function forgetUploads(editor: LexicalEditor) {
+  for (const key of started.get(editor) ?? []) uploads.delete(key);
+  started.delete(editor);
 }
 
 export function showPreview(key: string, preview: string) {
@@ -147,7 +158,8 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
   exportJSON(): SerializedImageNode {
     return {
       ...super.exportJSON(),
-      id: this.__id,
+      // A copy in another editor, or after a reload, has no upload to ask.
+      id: this.storedId(),
       upload: this.__upload,
       full: this.__full,
       width: this.__width,
@@ -197,11 +209,12 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     return this.getLatest().__alt;
   }
 
-  // A picture given a size is drawn at that size: a thumbnail becomes the picture itself.
+  // A picture given a size (a width, or none for its own) is drawn at that size: a thumbnail
+  // becomes the picture itself.
   setWidth(width: string | null) {
     const self = this.getWritable();
     self.__width = width;
-    if (width) self.__full = true;
+    self.__full = true;
     self.__raw = null;
   }
 
@@ -255,27 +268,36 @@ export function $allImages(): ImageNode[] {
   return found;
 }
 
-export const $findUpload = (key: string) =>
-  $allImages().find((image) => image.__upload === key) ?? null;
-
 // Puts pictures in at the caret, over the selection if there is one; an editor that never had the
-// focus has no selection yet, and they go at its end.
+// focus has no selection yet, and they go at its end. Code shows a tag as text and is not a place
+// for a picture: with the caret there, they go on a line of their own after the block.
 export function $insertImage(...specs: ImageSpec[]) {
   let selection = $getSelection();
   if (!$isRangeSelection(selection)) {
     $getRoot().selectEnd();
     selection = $getSelection();
   }
-  if ($isRangeSelection(selection))
-    selection.insertNodes(specs.map($createImageNode));
+  if (!$isRangeSelection(selection)) return;
+  const nodes = specs.map($createImageNode);
+  const block = selection.anchor.getNode().getTopLevelElement();
+  if ($isCodeNode(block)) {
+    const after = $createParagraphNode().append(...nodes);
+    block.insertAfter(after);
+    after.selectEnd();
+  } else selection.insertNodes(nodes);
 }
 
-// Draws the picture under `key` again, now that there is more to show (its preview, or how its
-// upload ended). Not a step of its own for Undo.
+// Draws every copy of the picture under `key` again, now that there is more to show (its preview,
+// or how its upload ended), with its id once it has one. Not a step of its own for Undo.
 function redraw(editor: LexicalEditor, key: string) {
   editor.update(() => {
     $addUpdateTag(HISTORY_MERGE_TAG);
-    $findUpload(key)?.getWritable();
+    const id = uploads.get(key)?.id;
+    for (const image of $allImages()) {
+      if (image.__upload !== key) continue;
+      const self = image.getWritable();
+      if (id) self.__id = id;
+    }
   });
 }
 
@@ -287,11 +309,16 @@ export function placeUploads(editor: LexicalEditor, files: File[]) {
     .filter((file) => file.type.startsWith("image/"))
     .map((file) => {
       const key = startUpload();
+      const mine = started.get(editor) ?? new Set();
+      started.set(editor, mine.add(key));
       placeFile(file, key);
       if (typeof FileReader !== "undefined") {
         const reader = new FileReader();
         reader.onload = () => {
-          if (typeof reader.result !== "string") return;
+          // Not when the upload ended first: its copy is no longer needed.
+          const upload = uploads.get(key);
+          if (typeof reader.result !== "string" || !upload) return;
+          if (upload.id || upload.failed) return;
           showPreview(key, reader.result);
           redraw(editor, key);
         };

@@ -12,15 +12,16 @@ import { placedKey } from "./composer-insert";
 import { $removeAttachTags } from "./editor-commands";
 import {
   $createImageNode,
-  $findUpload,
   $insertImage,
   $isImageNode,
   attachOf,
   finishUpload,
+  forgetUploads,
   type ImageNode,
   placeUploads,
-  settleUpload,
+  showPreview,
   startUpload,
+  uploadOf,
 } from "./image-node";
 
 function editorOf(source: string) {
@@ -129,12 +130,8 @@ test("a picture being uploaded writes nothing until its upload ends, then its ta
       );
   });
   expect(bbOf(editor)).toBe("a  b");
-  settleUpload(done, 9);
-  settleUpload(refused);
-  run(editor, () => {
-    $findUpload(done)?.getWritable();
-    $findUpload(refused)?.getWritable();
-  });
+  finishUpload(editor, done, 9);
+  finishUpload(editor, refused);
   expect(bbOf(editor)).toBe("a [ATTACH=full]9[/ATTACH] b");
   expect(
     editor.read(() => $images().map((image) => image.uploadState())),
@@ -178,4 +175,58 @@ test("pictures pasted or dropped go in at the caret at once, each under a key it
   expect(bbOf(editor)).toBe("before after");
   finishUpload(editor, key, 4);
   expect(bbOf(editor)).toBe("before [ATTACH=full]4[/ATTACH]after");
+});
+
+test("the Full size makes a thumbnail the picture itself", () => {
+  const editor = editorOf("[ATTACH]6[/ATTACH]");
+  run(editor, () => $images()[0].setWidth(null));
+  expect(bbOf(editor)).toBe("[ATTACH=full]6[/ATTACH]");
+});
+
+test("a picture put in with the caret in a code block goes after the block, not into its text", () => {
+  const editor = editorOf("[CODE]\nabc\n[/CODE]");
+  run(editor, () => {
+    $getRoot().getAllTextNodes()[0].select(1, 1);
+    $insertImage({ id: 5, full: true });
+  });
+  expect(bbOf(editor)).toBe("[CODE]\nabc\n[/CODE]\n\n[ATTACH=full]5[/ATTACH]");
+});
+
+test("a picture uploaded in this session is copied with its id, and every copy of it is drawn when its upload ends", () => {
+  const editor = editorOf("");
+  const key = startUpload();
+  run(editor, () => {
+    $getRoot()
+      .clear()
+      .append(
+        $createParagraphNode().append(
+          $createImageNode({ upload: key }),
+          $createImageNode({ upload: key }),
+        ),
+      );
+  });
+  finishUpload(editor, key, 7);
+  // Another tab, or the same one after a reload, knows nothing of this session's uploads.
+  forgetUploads(editor);
+  const json = JSON.stringify(editor.getEditorState());
+  expect(
+    editor.read(() => $images().map((image) => image.exportJSON().id)),
+  ).toEqual([7, 7]);
+  const other = editorOf("");
+  other.setEditorState(other.parseEditorState(json));
+  expect(bbOf(other)).toBe("[ATTACH=full]7[/ATTACH][ATTACH=full]7[/ATTACH]");
+});
+
+test("an upload's copy of the file is let go when the upload ends, and its entry when the editor is done", () => {
+  const editor = editorOf("");
+  const shot = new File(["x"], "shot.png", { type: "image/png" });
+  placeUploads(editor, [shot]);
+  const key = placedKey(shot) as string;
+  showPreview(key, "data:image/png;base64,AAAA");
+  finishUpload(editor, key, 3);
+  expect(uploadOf(key)?.preview).toBeUndefined();
+  expect(uploadOf(key)?.id).toBe(3);
+  forgetUploads(editor);
+  expect(uploadOf(key)).toBeUndefined();
+  expect(bbOf(editor)).toBe("[ATTACH=full]3[/ATTACH]");
 });
