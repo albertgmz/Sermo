@@ -1,61 +1,17 @@
 "use client";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export type ForumOption = { id: number; title: string; depth: number };
 
 // A choice among the forums the backend lists; the chosen forum's id is submitted under `name`.
-export function ForumPicker({
-  name,
-  forums,
-  labelledBy,
-  placeholder,
-  defaultValue,
-}: {
-  name: string;
-  forums: ForumOption[];
-  labelledBy: string;
-  placeholder: string;
-  defaultValue?: number;
-}) {
-  const items = forums.map((forum) => ({
-    value: String(forum.id),
-    label: forum.title,
-  }));
-  return (
-    <Select
-      name={name}
-      items={items}
-      defaultValue={
-        defaultValue === undefined ? undefined : String(defaultValue)
-      }
-    >
-      <SelectTrigger
-        aria-labelledby={labelledBy}
-        className="w-full data-[size=default]:h-10"
-      >
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {forums.map((forum) => (
-          <SelectItem
-            key={forum.id}
-            value={String(forum.id)}
-            label={forum.title}
-            className="min-h-10"
-          >
-            <span style={{ paddingLeft: `${Math.max(0, forum.depth - 1)}rem` }}>
-              {forum.title}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
+// It is drawn inside a confirm step that opens on a press, and the select's code is asked for
+// then, so it is no part of the page's first load.
+export const ForumPicker = dynamic(
+  () =>
+    import("@/components/forum/forum-picker-field").then(
+      (module) => module.ForumPickerField,
+    ),
+  { loading: () => <Skeleton className="h-10 w-full" /> },
+);
