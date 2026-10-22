@@ -18,9 +18,12 @@ export type ForumCardData = {
   /** The picture behind the title; none draws the plain card. */
   image: string | null;
   isNew?: boolean;
+  /** The forum or one under it holds a thread the viewer has not read. */
+  unread?: boolean;
   /** `id` makes the title a link. */
   subforums?: { id?: number; title: string }[];
   threadCount: number;
+  postCount: number;
   lastPost: {
     threadId: number;
     threadTitle: string;
@@ -63,22 +66,35 @@ export function ForumCard({
           aria-hidden="true"
           className="absolute inset-0 -z-10 bg-linear-to-r from-background/95 from-25% via-background/75 via-60% to-background/10"
         />
-        <ForumIcon name={forum.icon} className="size-5 shrink-0" />
+        <ForumIcon
+          name={forum.icon}
+          className={cn("size-5 shrink-0", forum.unread && "text-primary-ink")}
+        />
         <div className="max-w-[70%] min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="min-w-0 truncate text-sm font-semibold">
+            <h3
+              className={cn(
+                "min-w-0 truncate text-sm",
+                forum.unread ? "font-bold" : "font-medium",
+              )}
+            >
               <Link
                 href={`/forums/${forum.id}`}
                 data-forum-link=""
                 className="outline-none after:absolute after:inset-0"
               >
                 {forum.title}
+                {forum.unread && (
+                  <span className="sr-only"> {t("unread")}</span>
+                )}
               </Link>
             </h3>
             {forum.isNew && <Badge>{t("newBadge")}</Badge>}
           </div>
           <p className="mt-0.5 truncate text-xs text-foreground/80 tabular-nums">
             {t("threads", { count: forum.threadCount })}
+            <span aria-hidden="true"> · </span>
+            {t("messages", { count: forum.postCount })}
             {forum.subforums?.map((subforum) => (
               <span key={subforum.id ?? subforum.title}>
                 <span aria-hidden="true"> · </span>

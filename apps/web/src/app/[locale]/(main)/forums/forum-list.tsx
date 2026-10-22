@@ -16,6 +16,7 @@ import { read } from "@/lib/sermo/client";
 import { childrenByParent, nodeMembers } from "@/lib/sermo/forums";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
+import { unreadForums } from "@/lib/sermo/unread-forums";
 
 // The forum list: the categories under the section tabs, drawn by the home page; it says where its
 // section links go. The statistics panel is a widget the page draws around it.
@@ -57,12 +58,14 @@ async function ForumCategories({
   stats: StatsTab;
   hrefFor: (section: string | null, stats: StatsTab) => string;
 }) {
-  const [{ items: nodes }, { items: tabs }, { user }, t] = await Promise.all([
-    read(nodesList, {}),
-    read(forumTabsList, {}),
-    getViewer(),
-    getTranslations("forums.forums"),
-  ]);
+  const [{ items: nodes }, { items: tabs }, { user }, unread, t] =
+    await Promise.all([
+      read(nodesList, {}),
+      read(forumTabsList, {}),
+      getViewer(),
+      unreadForums(),
+      getTranslations("forums.forums"),
+    ]);
   const member = await membersFor(nodeMembers(nodes));
   const childrenOf = childrenByParent(nodes);
   const active = tabs.find((entry) => String(entry.id) === param) ?? tabs[0];
@@ -119,6 +122,7 @@ async function ForumCategories({
             }
             childrenOf={childrenOf}
             member={member}
+            unread={unread}
             className="p-2"
           />
         </CollapsiblePanel>

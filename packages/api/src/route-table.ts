@@ -156,6 +156,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["DELETE", "/nodes/{nodeId}/watch", "nodes.unwatch"],
   ["PATCH", "/nodes/{nodeId}", "nodes.update"],
   ["POST", "/nodes/{nodeId}/delete", "nodes.delete"],
+  ["GET", "/nodes/unread", "nodes.unread"],
   ["PUT", "/nodes/read", "nodes.markAllRead"],
   ["PUT", "/nodes/{nodeId}/read", "nodes.markRead"],
   ["PUT", "/nodes/{nodeId}/moderators/{userId}", "nodes.setModerator"],

@@ -27,6 +27,7 @@ export function forumCard(
   node: ApiNode,
   children: ApiNode[],
   member: (id: number) => MemberView,
+  unread = false,
 ): ForumCardData {
   const { lastPost } = node;
   return {
@@ -36,6 +37,8 @@ export function forumCard(
     image: (node.cover ?? node.icon)?.url ?? null,
     subforums: children.map(({ id, title }) => ({ id, title })),
     threadCount: node.threadCount,
+    postCount: node.postCount,
+    unread,
     lastPost: lastPost && {
       threadId: lastPost.threadId,
       threadTitle: lastPost.threadTitle,

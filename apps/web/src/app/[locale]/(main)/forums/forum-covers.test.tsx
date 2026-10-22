@@ -287,3 +287,48 @@ test("a forum with forums inside lists them as cards above its threads, one with
   const bare = await forumPage("4");
   expect(bare).not.toContain("<ul");
 });
+
+// The same backend, with a signed-in member for whom these forums hold an unread thread.
+function memberBackend(unreadIds: number[]) {
+  backend();
+  const guest = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const { pathname } = new URL(url);
+    if (pathname === "/api/v1/me") return Response.json(viewerBody(true));
+    if (pathname === "/api/v1/nodes/unread")
+      return Response.json({ nodeIds: unreadIds });
+    return guest(url, init);
+  }) as unknown as typeof fetch;
+}
+const card = (page: string, title: string) =>
+  page.slice(
+    page.lastIndexOf("<li", page.indexOf(title)),
+    page.indexOf("</li>", page.indexOf(title)),
+  );
+
+test("a forum card shows the message count beside the thread count", async () => {
+  backend();
+  const page = await forumPage("10");
+  expect(card(page, "Forum 11")).toContain("4 threads");
+  expect(card(page, "Forum 11")).toContain("0 messages");
+});
+
+test("a card is unread, with a text for screen readers, when its forum or one under it is", async () => {
+  memberBackend([12]);
+  const page = await forumPage("10");
+  expect(card(page, "Forum 12")).toContain("font-bold");
+  expect(card(page, "Forum 12")).toContain("sr-only");
+  expect(card(page, "Forum 12")).toContain("Unread");
+  expect(card(page, "Forum 11")).not.toContain("Unread");
+  // Forum 10 holds Forum 12, so on the category page its card is unread too.
+  const category = await forumPage("2");
+  expect(card(category, "Forum 10")).toContain("Unread");
+  expect(card(category, "Forum 4")).not.toContain("Unread");
+});
+
+test("the forum list draws unread cards for a member and none for a guest", async () => {
+  memberBackend([3]);
+  expect(card(await list(), "Forum 3")).toContain("Unread");
+  backend();
+  expect(await list()).not.toContain("Unread");
+});

@@ -401,6 +401,7 @@ export const FORUMS: (ForumCardData & { description: string })[] = [
     image: scene("#7c3aed", "#1e1b4b"),
     isNew: true,
     threadCount: 24,
+    postCount: 168,
     lastPost: {
       threadId: 1,
       threadTitle: "Welcome to the forum",
@@ -415,8 +416,10 @@ export const FORUMS: (ForumCardData & { description: string })[] = [
     description: "Talk about anything.",
     icon: "messages-square",
     image: scene("#0ea5e9", "#164e63"),
+    unread: true,
     subforums: [{ id: 3, title: "Introductions" }, { title: "Off topic" }],
     threadCount: 1310,
+    postCount: 9170,
     lastPost: {
       threadId: 2,
       threadTitle: "What are you reading?",
@@ -432,6 +435,7 @@ export const FORUMS: (ForumCardData & { description: string })[] = [
     icon: "store",
     image: null,
     threadCount: 0,
+    postCount: 0,
     lastPost: null,
   },
 ];

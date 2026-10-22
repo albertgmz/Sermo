@@ -39,6 +39,7 @@ import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
 import { activePrefixViews } from "@/lib/sermo/threads";
+import { unreadForums } from "@/lib/sermo/unread-forums";
 import type { PrefixView } from "@/lib/sermo/views";
 import { getWidgets } from "@/lib/sermo/widgets";
 import { cn } from "@/lib/utils";
@@ -266,8 +267,9 @@ export default async function ForumPage({
 
 // A category holds no threads: its forums are what the page lists.
 async function CategoryForums({ nodeId }: { nodeId: number }) {
-  const [{ items: nodes }, t] = await Promise.all([
+  const [{ items: nodes }, unread, t] = await Promise.all([
     read(nodesList, {}),
+    unreadForums(),
     getTranslations("forums.forum"),
   ]);
   const childrenOf = childrenByParent(nodes);
@@ -289,6 +291,7 @@ async function CategoryForums({ nodeId }: { nodeId: number }) {
       forums={forums}
       childrenOf={childrenOf}
       member={member}
+      unread={unread}
       className="mt-4"
     />
   );
@@ -296,7 +299,10 @@ async function CategoryForums({ nodeId }: { nodeId: number }) {
 
 // The forums inside a forum, above its threads (nothing when it has none).
 async function Subforums({ nodeId }: { nodeId: number }) {
-  const { items: nodes } = await read(nodesList, {});
+  const [{ items: nodes }, unread] = await Promise.all([
+    read(nodesList, {}),
+    unreadForums(),
+  ]);
   const childrenOf = childrenByParent(nodes);
   const forums = childrenOf(nodeId);
   if (forums.length === 0) return null;
@@ -306,6 +312,7 @@ async function Subforums({ nodeId }: { nodeId: number }) {
       forums={forums}
       childrenOf={childrenOf}
       member={member}
+      unread={unread}
       className="mt-4"
     />
   );

@@ -722,6 +722,18 @@ export const threadsMarkRead = defineContract({
   output: z.object({ readPosition: z.number().int().nonnegative() }),
 });
 
+export const nodesUnread = defineContract({
+  name: "nodes.unread",
+  summary:
+    "The forums the viewer can see that hold an unread thread: one whose last post is newer " +
+    "than the viewer's read marker for the forum (nodes.markRead) and than what they have read " +
+    "of the thread, within the 30 days after which every thread counts as read. One read for " +
+    "the whole tree, not per forum. Empty for a guest.",
+  kind: "read",
+  input: Empty,
+  output: z.object({ nodeIds: z.array(Id) }),
+});
+
 const ForumMarkedRead = z.object({
   /** When the viewer marked it: threads whose last post is not newer count as read. */
   readAt: Timestamp,

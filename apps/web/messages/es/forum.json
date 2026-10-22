@@ -115,6 +115,8 @@
   "forumCard": {
     "newBadge": "Nuevo",
     "threads": "{count, plural, one {# tema} other {# temas}}",
+    "messages": "{count, plural, one {# mensaje} other {# mensajes}}",
+    "unread": "No leído",
     "empty": "Todavía no hay mensajes"
   },
   "memberCard": {

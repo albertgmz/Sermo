@@ -106,7 +106,13 @@ import {
 } from "./prefixes";
 import { nodeTabs, threadPresenter } from "./presentation";
 import { type ReadGates, readGates } from "./read-gates";
-import { nodesMarkAllReadOp, nodesMarkReadOp, positionBeforeMark, readMarksOf } from "./read-marks";
+import {
+  nodesMarkAllReadOp,
+  nodesMarkReadOp,
+  nodesUnreadOp,
+  positionBeforeMark,
+  readMarksOf,
+} from "./read-marks";
 
 export { type ReadGates, readGates } from "./read-gates";
 
@@ -3948,6 +3954,7 @@ export const operations = [
   threadsMarkReadOp,
   nodesMarkReadOp,
   nodesMarkAllReadOp,
+  nodesUnreadOp,
   threadsMergeOp,
   threadsSplitOp,
   postsListOp,

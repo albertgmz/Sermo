@@ -3,6 +3,17 @@ import { type ApiNode, forumCard } from "@/lib/sermo/forums";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
+function holdsUnread(
+  id: number,
+  childrenOf: (parentId: number) => ApiNode[],
+  unread: ReadonlySet<number>,
+): boolean {
+  return (
+    unread.has(id) ||
+    childrenOf(id).some((child) => holdsUnread(child.id, childrenOf, unread))
+  );
+}
+
 // The forums of a node as cards, two to a row from the medium width, the last odd one across.
 // Each card lists its own sub-forums.
 //
@@ -10,16 +21,20 @@ import { cn } from "@/lib/utils";
 //   forums       The forums to draw, in order.
 //   childrenOf   The direct children of a node (`childrenByParent`).
 //   member       The author of a last post, by id (`membersFor`).
+//   unread       The ids of the forums with an unread thread (`unreadForums`); a card is unread
+//                when its forum or one under it is.
 //   className    Spacing of the list.
 export function ForumCardGrid({
   forums,
   childrenOf,
   member,
+  unread,
   className,
 }: {
   forums: ApiNode[];
   childrenOf: (parentId: number) => ApiNode[];
   member: (id: number) => MemberView;
+  unread?: ReadonlySet<number>;
   className?: string;
 }) {
   return (
@@ -27,7 +42,12 @@ export function ForumCardGrid({
       {forums.map((forum) => (
         <ForumCard
           key={forum.id}
-          forum={forumCard(forum, childrenOf(forum.id), member)}
+          forum={forumCard(
+            forum,
+            childrenOf(forum.id),
+            member,
+            unread !== undefined && holdsUnread(forum.id, childrenOf, unread),
+          )}
           className="md:last:odd:col-span-2"
         />
       ))}

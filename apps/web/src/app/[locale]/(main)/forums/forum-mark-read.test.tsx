@@ -76,6 +76,8 @@ function backend(signedIn: boolean) {
     const { pathname } = new URL(url);
     if (pathname === "/api/v1/me") return Response.json(viewerBody(signedIn));
     if (pathname === "/api/v1/site") return Response.json(siteBody({}));
+    if (pathname === "/api/v1/nodes/unread")
+      return Response.json({ nodeIds: [] });
     if (pathname === "/api/v1/nodes")
       return Response.json({ items: NODES, nextCursor: null });
     if (pathname === "/api/v1/forum-tabs")
