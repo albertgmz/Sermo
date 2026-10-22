@@ -5736,3 +5736,15 @@ member with the conversation open still gets the push, as on XenForo.
 Why: backlog E5 (Registration settings were a known gap).
 Known limits: the home and thread pages keep their register buttons when closed (they lead to the
 closed notice); the minimum age is checked at sign-up only.
+
+### Rankings leave out members with nothing to rank
+
+- `users.list` takes `ranked` (default false); true leaves out members whose figure for the sort is
+  zero or less, and erased members. The `/members` rankings, the overview podiums and the credits and
+  awards leaderboards use it; an empty ranking shows an empty state, an empty leaderboard hides its
+  card. The plain directory is unchanged. The existing per-sort indexes serve the range, so there
+  is no migration.
+
+Why: the credit and XP rankings already existed but, with credits starting at zero for everyone,
+listed tens of thousands of members at 0 after the few who had earned something (backlog E1).
+Known limits: the feed sidebar's suggested members by reactions still lists zero scores.
