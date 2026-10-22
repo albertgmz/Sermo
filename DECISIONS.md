@@ -6234,3 +6234,13 @@ bold with the group colour). fcuba's XenForo draws no bold; the member's request
 
 Why: the owner asked for XenForo's button grouping, send and attach buttons (reference captures of
 fcuba's XenForo).
+
+### Forum and members pages draw their widget positions
+
+- The forum and category pages draw `sidebar_top`, `forum_view_sidebar` and `sidebar_bottom` in a
+  sidebar (below the content under `lg`, beside it from `lg`); the members pages draw
+  `sidebar_top`, `members_sidenav` and `sidebar_bottom` under the views list. With no widgets,
+  neither page changes. The widgets screen's "View" links skip pages with no address of their own.
+
+Why: XenForo's widget positions (handover B8). Known limits: thread, profile and other pages have
+no widget page yet; the loading screens have no sidebar skeleton.
