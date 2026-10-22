@@ -159,6 +159,19 @@ export function holdsState(row: Element, active: Element | null) {
   return false;
 }
 
+// The time of the newest row held: where the check for new entries starts. After a redraw the
+// first row can be older than another (held rows keep their place), so the first is not enough.
+export function newestAt(rows: ListRow[]) {
+  return rows.reduce<string | undefined>(
+    (newest, row) =>
+      row.at !== undefined &&
+      (newest === undefined || Date.parse(row.at) > Date.parse(newest))
+        ? row.at
+        : newest,
+    undefined,
+  );
+}
+
 // The indexes the window shows plus those of the rows to keep, in order.
 export function withKept(shown: number[], kept: number[]) {
   return [...new Set([...shown, ...kept])].sort((a, b) => a - b);
@@ -284,9 +297,9 @@ export function InfiniteList({
   const shown = live ? loaded : loaded.slice(0, 1);
   const rows = useMemo(() => flattenRows(shown), [shown]);
   const nextCursor = shown[shown.length - 1]?.nextCursor ?? null;
-  const newestAt = rows[0]?.at;
-  const newestRef = useRef(newestAt);
-  newestRef.current = newestAt;
+  const newest = newestAt(rows);
+  const newestRef = useRef(newest);
+  newestRef.current = newest;
   const [waiting, setWaiting] = useState<{
     count: number;
     more: boolean;
@@ -302,7 +315,7 @@ export function InfiniteList({
     },
     {
       intervalMs: fresh?.intervalMs ?? 0,
-      enabled: fresh !== undefined && live && start === null && !!newestAt,
+      enabled: fresh !== undefined && live && start === null && !!newest,
     },
   );
   async function showNew() {

@@ -341,6 +341,16 @@ describe("feed.list latest", () => {
     expectNoTableScan(w.ctx, feedSql.olderPosts, [t.thread.id, 3]);
   });
 
+  test("a thread with more ignored posts at its end than the lookback reaches is left out", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Spammed");
+    await w.reply(w.carol, t.thread.id, "carol early");
+    for (let i = 0; i < 110; i++) await w.reply(w.bob, t.thread.id, `spam ${i}`);
+    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    expect((await w.call("feed.list", w.carol, {})).items).toEqual([]);
+    expect((await w.call("feed.list", w.alice, {})).items).toHaveLength(1);
+  });
+
   test("a page can be short while nextCursor is set: what the viewer cannot see is skipped in bounded batches", async () => {
     const w = world();
     const visible = await w.thread(w.alice, w.open.id, "Visible");

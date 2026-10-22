@@ -11,6 +11,7 @@ import {
   InfiniteList,
   listQueryOptions,
   mergeRefreshed,
+  newestAt,
   pagesOwed,
   pagesWanted,
   prependFresh,
@@ -320,6 +321,39 @@ test("a redraw keeps the rows the list held where they were, so a reply that re-
   const fresh = [page(["d", "a"], "c1"), page(["b", "c"], null)];
   const again = mergeRefreshed(held, fresh, null);
   expect(again.pages[1].rows[1]).toBe(fresh[0].rows[0]);
+});
+
+test("the check for new entries starts at the newest row held, not the first", () => {
+  const at = (key: string, time: string) => ({ key, node: <b />, at: time });
+  const held = {
+    pages: [
+      {
+        rows: [
+          at("a", "2026-01-01T10:00:00.000Z"),
+          at("b", "2026-01-01T09:00:00.000Z"),
+        ],
+        nextCursor: null,
+      },
+    ],
+    pageParams: [null],
+  };
+  // "b" was replied to and redrawn with a newer time, but keeps its place below "a".
+  const merged = mergeRefreshed(
+    held,
+    [
+      {
+        rows: [
+          at("b", "2026-01-01T11:00:00.000Z"),
+          at("a", "2026-01-01T10:00:00.000Z"),
+        ],
+        nextCursor: null,
+      },
+    ],
+    null,
+  );
+  expect(merged.pages[0].rows.map((r) => r.key)).toEqual(["a", "b"]);
+  expect(newestAt(merged.pages[0].rows)).toBe("2026-01-01T11:00:00.000Z");
+  expect(newestAt([{ key: "x", node: <b /> }])).toBeUndefined();
 });
 
 test("the first page of a list is asked for by a null cursor, like any other", async () => {

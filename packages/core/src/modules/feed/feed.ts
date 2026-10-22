@@ -215,9 +215,14 @@ function merge<PostKey, WallKey>(
   return out;
 }
 
+const OLDER_BATCH = 20;
+/** How many posts back a thread of ignored posts is searched for one the viewer may see. */
+const IGNORED_LOOKBACK = 100;
+
 /**
  * Replaces `row`, a thread's newest post by an ignored member, with the newest older post the
- * viewer does not ignore and may read; false when the thread has none.
+ * viewer does not ignore and may read; false when the thread has none within the last
+ * `IGNORED_LOOKBACK` posts (the thread is then left out: the walk stays bounded per request).
  */
 function showNewestUnignored(
   ctx: Ctx,
@@ -230,7 +235,7 @@ function showNewestUnignored(
     ctx.sqlite.prepare<{ id: number; user_id: number }, [number, number]>(feedSql.olderPosts),
   );
   let from = row.id;
-  for (;;) {
+  for (let looked = 0; looked < IGNORED_LOOKBACK; looked += OLDER_BATCH) {
     const batch = older.all(row.thread_id, from);
     const ignored = ignoredAmong(
       ctx,
@@ -244,9 +249,10 @@ function showNewestUnignored(
       Object.assign(row, { id: found.id, user_id: found.user_id });
       return true;
     }
-    if (batch.length < 20) return false;
+    if (batch.length < OLDER_BATCH) return false;
     from = batch[batch.length - 1]!.id;
   }
+  return false;
 }
 
 /**
