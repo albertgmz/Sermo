@@ -6354,3 +6354,12 @@ error page drawn outside the layouts stays dark.
 
 This supersedes "The light theme is a browser choice". A stale cookie (signed out, deleted account,
 expired session, or a member with no saved theme) is forgotten on the next page load.
+
+### The bottom bar's count badge stays inside its icon
+
+- The unread count on a bottom-bar icon is anchored to the icon's right edge, so a wider count
+  ("99+") grows to the left instead of spilling out of the icon's box (and the bar's labels are
+  never cut).
+
+Why: with unread alerts the badge overflowed its 20 px icon box (the bar's "no label cut off"
+check).
