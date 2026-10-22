@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Help } from "@/components/staff/rows";
 import { Button } from "@/components/ui/button";
 import { removePushSubscription } from "@/lib/push-actions";
@@ -11,6 +11,7 @@ import {
   currentPermission,
   currentPlatform,
   heldSubscription,
+  onPushChange,
   turnOffPush,
   turnOnPush,
 } from "@/lib/push-client";
@@ -28,10 +29,12 @@ type Device = { endpoint: string; userAgent: string; createdAt: string };
 // let go and reads "off" (`heldSubscription`).
 export function PushDevices({
   member,
+  session,
   publicKey,
   devices,
 }: {
   member: string;
+  session: string | null;
   publicKey: string | null;
   devices: Device[];
 }) {
@@ -70,6 +73,17 @@ export function PushDevices({
     void check();
   }, [check]);
 
+  // A device put back by the page's silent check (`heldSubscription`) shows in the list. A change
+  // made by this page's own buttons is redrawn once, when the button's work is done (`act`).
+  const acting = useRef(false);
+  useEffect(
+    () =>
+      onPushChange(() => {
+        if (!acting.current) router.refresh();
+      }),
+    [router],
+  );
+
   const nameOf = (userAgent: string) => {
     const { browser, system } = deviceName(userAgent);
     if (browser && system) return t("device", { browser, system });
@@ -79,7 +93,10 @@ export function PushDevices({
   const act = (run: () => Promise<string | null>) => {
     setError(null);
     startTransition(async () => {
-      const failure = await run();
+      acting.current = true;
+      const failure = await run().finally(() => {
+        acting.current = false;
+      });
       if (failure) setError(failure);
       router.refresh();
       await check();
@@ -89,7 +106,7 @@ export function PushDevices({
   const turnOn = () =>
     act(async () => {
       if (!publicKey) return null;
-      const result = await turnOnPush(publicKey, member);
+      const result = await turnOnPush(publicKey, member, session);
       if (result.ok || result.reason === "dismissed") return null;
       return result.reason === "denied"
         ? t("denied")

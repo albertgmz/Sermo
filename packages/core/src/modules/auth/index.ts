@@ -1638,6 +1638,7 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
       openHomeTab: resolveHomeTab(ctx, actor, readSiteSettings(ctx).homeTab),
       pendingAcceptance: pendingAcceptances(ctx, actor),
       awaitingApproval: row.awaiting === 1,
+      sessionId: actor.kind === "user" && actor.sessionId > 0 ? actor.sessionId : null,
       displayGroup: display && {
         id: display.groupId,
         title: display.title,

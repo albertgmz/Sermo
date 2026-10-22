@@ -6,9 +6,16 @@ import {
 } from "@/lib/app-prompts";
 import {
   removePushSubscription,
+  restorePushSubscription,
   savePushSubscription,
 } from "@/lib/push-actions";
-import { keepsSubscription, keyBytes, PUSH_OWNER_KEY } from "@/lib/push-device";
+import {
+  keepsSubscription,
+  keyBytes,
+  PUSH_OWNER_KEY,
+  PUSH_SESSION_KEY,
+  restoreNeeded,
+} from "@/lib/push-device";
 
 // The browser's side of pushes: what this device can do, its subscription, and turning it on and
 // off. The account's copy is kept through the server actions of `push-actions.ts`.
@@ -86,20 +93,64 @@ function readOwner() {
   }
 }
 
-function writeOwner(member: string | null) {
+function readSession() {
+  try {
+    return localStorage.getItem(PUSH_SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+// The member this browser's pushes are on for and the session the account last knew the device
+// under; both are forgotten together.
+function writeOwner(member: string | null, session: string | null = null) {
   try {
     if (member) localStorage.setItem(PUSH_OWNER_KEY, member);
     else localStorage.removeItem(PUSH_OWNER_KEY);
+    if (member && session) localStorage.setItem(PUSH_SESSION_KEY, session);
+    else localStorage.removeItem(PUSH_SESSION_KEY);
   } catch {}
+}
+
+// Saves the kept subscription on the account again, under the current session, when the member
+// signed in again since the account last had it (`restoreNeeded`); with the same session there is no
+// request at all. Run without waiting, so the page does not. A "Turn off" tapped while it ran leaves
+// nothing behind: the row it wrote is removed. The session is recorded even when the account was
+// full, so the next try waits for the next session instead of asking on every page.
+async function restoreIfLost(
+  subscription: PushSubscription,
+  member: string,
+  session: string,
+) {
+  const { keys } = subscription.toJSON();
+  if (!keys?.p256dh || !keys.auth) return;
+  const { endpoint } = subscription;
+  const done = await restorePushSubscription(
+    { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } },
+    navigator.userAgent,
+    { member, session },
+  );
+  if (!done.ok) return;
+  if ((await currentSubscription())?.endpoint !== endpoint) {
+    if (done.result !== "full") await removePushSubscription(endpoint);
+    return;
+  }
+  writeOwner(member, session);
+  if (done.result === "saved") changed();
 }
 
 // This browser's subscription when it serves the one viewing (`keepsSubscription`). One that does
 // not is let go at once: the browser drops it, so the push service refuses the next send and the
-// backend forgets the row, and a member's own stale row is removed from their account now.
+// backend forgets the row, and a member's own stale row is removed from their account now. One
+// that is kept but that the account lost with the session it was saved under is saved again,
+// silently, once for each session the browser has not saved it under: the member's pushes were on
+// and the permission is granted. `session` is the viewer's session, null where nothing is to be
+// restored (a page that only reads, a member who must accept terms first).
 // `member` is the viewer's id, null for a guest; `publicKey` the forum's, null when unknown.
 export async function heldSubscription(
   member: string | null,
   publicKey: string | null,
+  session: string | null = null,
 ) {
   const subscription = await currentSubscription();
   if (!subscription) return null;
@@ -110,7 +161,16 @@ export async function heldSubscription(
       ? sameKey(subscription.options.applicationServerKey, keyBytes(publicKey))
       : null,
   });
-  if (keep) return subscription;
+  if (keep) {
+    if (
+      member &&
+      session &&
+      publicKey &&
+      restoreNeeded({ stored: readSession(), session })
+    )
+      void restoreIfLost(subscription, member, session).catch(() => {});
+    return subscription;
+  }
   const { endpoint } = subscription;
   await subscription.unsubscribe().catch(() => false);
   writeOwner(null);
@@ -130,6 +190,7 @@ export type TurnOn =
 export async function turnOnPush(
   publicKey: string,
   member: string,
+  session: string | null,
 ): Promise<TurnOn> {
   const permission = await Notification.requestPermission();
   if (permission !== "granted")
@@ -164,7 +225,7 @@ export async function turnOnPush(
       navigator.userAgent,
     );
     if (saved.ok) {
-      writeOwner(member);
+      writeOwner(member, session);
       changed();
       return { ok: true };
     }

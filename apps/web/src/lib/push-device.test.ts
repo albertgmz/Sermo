@@ -4,6 +4,7 @@ import {
   deviceStatus,
   keepsSubscription,
   keyBytes,
+  restoreNeeded,
   sameEndpoint,
 } from "./push-device";
 
@@ -97,4 +98,13 @@ test("a subscription serves only the member who turned it on, and only for the f
   // Made for keys the forum no longer has; when the key could not be read it is not judged.
   expect(keeps("7", "7", false)).toBe(false);
   expect(keeps("7", "7", null)).toBe(true);
+});
+
+test("a device is checked only for a session it was not last saved under", () => {
+  expect(restoreNeeded({ stored: "10", session: "10" })).toBe(false);
+  expect(restoreNeeded({ stored: "10", session: "11" })).toBe(true);
+  // A browser from before the session was kept is checked once.
+  expect(restoreNeeded({ stored: null, session: "11" })).toBe(true);
+  // An API key has no session: nothing to compare.
+  expect(restoreNeeded({ stored: "10", session: null })).toBe(false);
 });

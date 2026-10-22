@@ -50,6 +50,21 @@ export function deviceStatus(env: {
 // whoever is viewing.
 export const PUSH_OWNER_KEY = "sermo-push-owner";
 
+// The session (its id, which is no secret) this browser last saved its subscription under, or last
+// found the account full under. A session that ends takes its devices with it, so a different
+// session now means the account may have lost this one, or still ties it to an older session, and
+// it is saved again; the same session means a missing device was removed on purpose (from another
+// device) and stays removed. A browser that has none (it subscribed before this was kept) is
+// checked once.
+export const PUSH_SESSION_KEY = "sermo-push-session";
+
+export function restoreNeeded(env: {
+  stored: string | null;
+  session: string | null;
+}) {
+  return env.session !== null && env.stored !== env.session;
+}
+
 // Whether this browser's subscription still serves the one viewing: it was turned on by this member
 // (a guest or another member would get the previous member's alerts), and for the forum's current
 // key (one made for an old key receives nothing). The key is compared only when the forum's could be

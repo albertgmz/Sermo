@@ -56,6 +56,12 @@ export const SelfUser = z
      * those refusals are `forbidden` errors whose issue path is `approval`.
      */
     awaitingApproval: z.boolean(),
+    /**
+     * The id of the session this request came from, or null for an API key. Not a secret and never
+     * reused: a browser compares it with the one it stored to tell that the member signed in again
+     * since it last saved a push device (`push.subscribe` links a device to its session).
+     */
+    sessionId: Id.nullable(),
   })
   .meta({ id: "SelfUser" });
 

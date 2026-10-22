@@ -171,7 +171,9 @@ export const pushSubscribe = defineContract({
   name: "push.subscribe",
   summary:
     "Store a Web Push subscription for this device. Signed-in members. Push service hosts " +
-    `only; the oldest subscription is replaced past ${PUSH_SUBSCRIPTIONS_PER_MEMBER}.`,
+    `only; the oldest subscription is replaced past ${PUSH_SUBSCRIPTIONS_PER_MEMBER}. It ends with ` +
+    "the session that saved it (signing out, revoking the session, a password change or the " +
+    "session expiring); one saved with an API key has no session and stays.",
   kind: "write",
   input: z.object({
     endpoint: z.url().max(2000),

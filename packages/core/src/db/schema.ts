@@ -1968,6 +1968,13 @@ export const undeliverableEmails = sqliteTable(
   (t) => [uniqueIndex("undeliverable_emails_email").on(t.email)],
 );
 
+/**
+ * One row per device that asked for pushes. `session_id` is the session that saved it: the row goes
+ * with that session (sign-out, revoking it, a password change or reset, a ban, the expired
+ * session's purge), and a push is not sent once the session has expired. Null for a row saved
+ * before sessions were linked and for a subscription saved with an API key; those live until the
+ * push service refuses them.
+ */
 export const pushSubscriptions = sqliteTable(
   "push_subscriptions",
   {
@@ -1975,6 +1982,7 @@ export const pushSubscriptions = sqliteTable(
     userId: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    sessionId: integer("session_id").references(() => auth_session.id, { onDelete: "cascade" }),
     endpoint: text("endpoint").notNull(),
     p256dh: text("p256dh").notNull(),
     auth: text("auth").notNull(),
@@ -1984,6 +1992,7 @@ export const pushSubscriptions = sqliteTable(
   (t) => [
     uniqueIndex("push_subscriptions_endpoint").on(t.endpoint),
     index("push_subscriptions_user").on(t.userId, t.id),
+    index("push_subscriptions_session").on(t.sessionId).where(sql`session_id IS NOT NULL`),
   ],
 );
 

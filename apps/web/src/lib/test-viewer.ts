@@ -16,6 +16,7 @@ export function viewerBody(signedIn: boolean) {
           openHomeTab: "latest",
           pendingAcceptance: [],
           awaitingApproval: false,
+          sessionId: 1,
         }
       : null,
     permissions: {

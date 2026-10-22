@@ -19,7 +19,11 @@ export async function AppPromptsGate() {
     <AppPrompts
       member={
         user && !user.awaitingApproval
-          ? { id: String(user.id), createdAt: user.createdAt }
+          ? {
+              id: String(user.id),
+              createdAt: user.createdAt,
+              session: user.sessionId === null ? null : String(user.sessionId),
+            }
           : null
       }
       offers={!user || user.pendingAcceptance.length === 0}

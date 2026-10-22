@@ -74,7 +74,8 @@ export function AppPrompts({
   appName,
   icon,
 }: {
-  member: { id: string; createdAt: string } | null;
+  // `session`: the id of the session this page was drawn for (null for an API key).
+  member: { id: string; createdAt: string; session: string | null } | null;
   // False while a member has terms to accept: no card, only the subscription check.
   offers: boolean;
   pushKey: string | null;
@@ -93,6 +94,7 @@ export function AppPrompts({
   const [error, setError] = useState<string | null>(null);
   const memberId = member?.id ?? null;
   const createdAt = member?.createdAt ?? null;
+  const session = member?.session ?? null;
   // Whether this browser holds a subscription that serves the viewer (null while it is read). One
   // that does not (another member's, a guest's browser, an old key) is let go at once, whatever the
   // cookie banner says: that only removes.
@@ -122,7 +124,7 @@ export function AppPrompts({
         currentAvailability(currentPlatform()) === "available" &&
         currentPermission() === "granted";
       (usable
-        ? heldSubscription(memberId, pushKey).then(
+        ? heldSubscription(memberId, pushKey, offers ? session : null).then(
             (held) => held !== null,
             () => true,
           )
@@ -137,7 +139,7 @@ export function AppPrompts({
       live = false;
       stop();
     };
-  }, [memberId, pushKey]);
+  }, [memberId, pushKey, session, offers]);
 
   // One page more in this visit, then the card for this page.
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new page is what counts
@@ -249,7 +251,7 @@ export function AppPrompts({
   const enable = () => {
     setBusy(true);
     setError(null);
-    turnOnPush(pushKey, memberId).then((result) => {
+    turnOnPush(pushKey, memberId, session).then((result) => {
       setBusy(false);
       if (!result.ok && result.reason === "failed") {
         setError(result.error ?? t("push.failed"));

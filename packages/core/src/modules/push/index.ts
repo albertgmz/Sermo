@@ -9,7 +9,7 @@ import {
   pushUnsubscribe,
 } from "../../contracts/notifications";
 import { writeTx } from "../../db/tx";
-import { ForbiddenError, ValidationError } from "../../errors";
+import { ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { requirePermission } from "../../permissions";
 import { iso } from "../../time";
@@ -31,7 +31,20 @@ export const pushSubscribeOp = implement(pushSubscribe, (ctx, actor, input) => {
   if (!pushVapid(ctx)) throw new ValidationError("Web Push is disabled.");
   const endpoint = allowedPushEndpoint(ctx, input.endpoint);
   if (!endpoint) throw new ValidationError("The endpoint is not an approved push service.");
+  // The subscription ends with the session that saves it. An API key has no session, and nor do
+  // the actors that loaders and tests build by hand (session 0): their rows are not linked.
+  const sessionId = actor.kind === "user" && actor.sessionId > 0 ? actor.sessionId : null;
   writeTx(ctx, () => {
+    // A session that ended while the request ran would leave a subscription nothing removes.
+    if (
+      sessionId !== null &&
+      !prepared(ctx, "push.liveSession", () =>
+        ctx.sqlite.prepare<{ one: number }, [number, number]>(
+          "SELECT 1 AS one FROM auth_session WHERE id = ?1 AND expires_at > ?2",
+        ),
+      ).get(sessionId, ctx.now())
+    )
+      throw new UnauthenticatedError();
     const existing = prepared(ctx, "push.subscriptionByEndpoint", () =>
       ctx.sqlite.prepare<{ id: number; user_id: number; auth: string }, [string]>(
         "SELECT id,user_id,auth FROM push_subscriptions WHERE endpoint = ?1",
@@ -54,9 +67,16 @@ export const pushSubscribeOp = implement(pushSubscribe, (ctx, actor, input) => {
     if (existing && !transferring) {
       prepared(ctx, "push.updateSubscription", () =>
         ctx.sqlite.prepare(
-          "UPDATE push_subscriptions SET p256dh = ?1,auth = ?2,user_agent = ?3 WHERE id = ?4 AND user_id = ?5",
+          "UPDATE push_subscriptions SET p256dh = ?1,auth = ?2,user_agent = ?3,session_id = COALESCE(?6,session_id) WHERE id = ?4 AND user_id = ?5",
         ),
-      ).run(input.keys.p256dh, input.keys.auth, input.userAgent, existing.id, user.userId);
+      ).run(
+        input.keys.p256dh,
+        input.keys.auth,
+        input.userAgent,
+        existing.id,
+        user.userId,
+        sessionId,
+      );
     } else {
       if (transferring)
         prepared(ctx, "push.removeTransferred", () =>
@@ -64,9 +84,17 @@ export const pushSubscribeOp = implement(pushSubscribe, (ctx, actor, input) => {
         ).run(existing.id, existing.auth);
       prepared(ctx, "push.insertSubscription", () =>
         ctx.sqlite.prepare(
-          "INSERT INTO push_subscriptions (user_id,endpoint,p256dh,auth,user_agent,created_at) VALUES (?1,?2,?3,?4,?5,?6)",
+          "INSERT INTO push_subscriptions (user_id,endpoint,p256dh,auth,user_agent,created_at,session_id) VALUES (?1,?2,?3,?4,?5,?6,?7)",
         ),
-      ).run(user.userId, endpoint, input.keys.p256dh, input.keys.auth, input.userAgent, ctx.now());
+      ).run(
+        user.userId,
+        endpoint,
+        input.keys.p256dh,
+        input.keys.auth,
+        input.userAgent,
+        ctx.now(),
+        sessionId,
+      );
     }
   });
   return { ok: true as const };

@@ -69,7 +69,15 @@ export function pushPayload(
 }
 
 type Recipient = PrincipalRow & { group_id: number; language: string | null };
-type Subscription = { id: number; endpoint: string; p256dh: string; auth: string };
+type Subscription = {
+  id: number;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  session_id: number | null;
+  /** When the session that saved it ends; null when it is not linked to one, or it is gone. */
+  session_expires_at: number | null;
+};
 type Content = { url: string };
 
 function query<Row, Params extends (string | number | null)[]>(ctx: Ctx, key: string, sql: string) {
@@ -280,7 +288,8 @@ export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRe
     const subscription = query<Subscription, [number, number]>(
       ctx,
       "subscription",
-      "SELECT id,endpoint,p256dh,auth FROM push_subscriptions WHERE id = ?1 AND user_id = ?2",
+      "SELECT id,endpoint,p256dh,auth,session_id,(SELECT expires_at FROM auth_session WHERE id = session_id) AS session_expires_at " +
+        "FROM push_subscriptions WHERE id = ?1 AND user_id = ?2",
     ).get(payload.subscriptionId, item.userId);
     if (!subscription) return;
     const remove = () =>
@@ -291,6 +300,14 @@ export function registerPushJobs(ctx: Ctx, options: { renderPhrase: PushPhraseRe
           "DELETE FROM push_subscriptions WHERE id = ?1 AND endpoint = ?2",
         ).run(subscription.id, subscription.endpoint);
       });
+    // Its session expired and the purge has not removed it yet, or is gone: the device is signed out.
+    if (
+      subscription.session_id !== null &&
+      (subscription.session_expires_at === null || subscription.session_expires_at <= ctx.now())
+    ) {
+      remove();
+      return;
+    }
     if (allowedPushEndpoint(ctx, subscription.endpoint) !== subscription.endpoint) {
       remove();
       return;

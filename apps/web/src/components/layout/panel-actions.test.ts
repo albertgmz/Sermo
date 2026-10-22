@@ -38,6 +38,7 @@ const member = {
     openHomeTab: "latest",
     pendingAcceptance: [],
     awaitingApproval: false,
+    sessionId: 1,
   },
   permissions: {
     isAdmin: false,

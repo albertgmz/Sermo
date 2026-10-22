@@ -19,6 +19,7 @@ export async function PushDevicesSection() {
     <Section id="devices" heading={t("heading")} description={t("description")}>
       <PushDevices
         member={String(user.id)}
+        session={user.sessionId === null ? null : String(user.sessionId)}
         publicKey={key.publicKey}
         devices={list.items}
       />
