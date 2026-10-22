@@ -6363,3 +6363,19 @@ expired session, or a member with no saved theme) is forgotten on the next page 
 
 Why: with unread alerts the badge overflowed its 20 px icon box (the bar's "no label cut off"
 check).
+
+### Media from the big sites is embedded as XenForo does it
+
+- A supported address alone on its line (not inside quotes or inline tags) is saved as
+  `[MEDIA=site]id[/MEDIA]`, and stored links to X, Instagram, Facebook, Reddit and Twitch become
+  players when shown (stored posts are not rewritten; at most 50 players per post). Each player is
+  a fixed per-site iframe built from a strictly validated id (YouTube via youtube-nocookie, Vimeo,
+  Spotify, SoundCloud tracks and sets, Twitch videos, clips and channels with the site's own host
+  as `parent`, X, Instagram, Facebook, Reddit, TikTok), behind the existing click-to-load
+  placeholder, never loaded under LITE. Imported XenForo ids are read in their stored forms.
+  `frame-src` names exactly the added hosts; no provider script runs.
+
+Why: the owner asked for media embeds from the most famous social sites. No oEmbed library
+(`@extractus/oembed-extractor` was considered): it would fetch from providers at save or view time
+(latency, SSRF surface, a cache) and return script embeds; fixed templates need no network call.
+Known limits: `vm.tiktok.com` / `fb.watch` short links and less common sites stay links.
