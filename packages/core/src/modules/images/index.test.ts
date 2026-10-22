@@ -123,21 +123,17 @@ describe("image processing", () => {
 
   // Four frames of 300x200, each its own colour.
   async function animation(format: "gif" | "webp", width = 300, height = 200, frames = 4) {
-    const pixels = await Promise.all(
-      Array.from({ length: frames }, (_, index) =>
-        sharp({
-          create: {
-            width,
-            height,
-            channels: 4,
-            background: { r: (index * 60) % 256, g: 255 - ((index * 60) % 256), b: 40, alpha: 1 },
-          },
-        })
-          .raw()
-          .toBuffer(),
-      ),
-    );
-    const strip = sharp(Buffer.concat(pixels), {
+    // One buffer filled frame by frame: a long animation is hundreds of MB of raw pixels.
+    const pixels = Buffer.alloc(width * height * 4 * frames);
+    for (let index = 0; index < frames; index += 1) {
+      const red = (index * 60) % 256;
+      pixels.fill(
+        Buffer.from([red, 255 - red, 40, 255]),
+        index * width * height * 4,
+        (index + 1) * width * height * 4,
+      );
+    }
+    const strip = sharp(pixels, {
       raw: { width, height: height * frames, channels: 4, pageHeight: height },
     });
     return format === "gif"

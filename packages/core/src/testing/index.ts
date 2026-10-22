@@ -2,7 +2,7 @@
  * Test helpers. Import from "@sermo/core/testing" in tests only.
  */
 import { Database } from "bun:sqlite";
-import { afterAll, expect } from "bun:test";
+import { afterAll, afterEach, beforeEach, expect } from "bun:test";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import type { Actor } from "../actor";
 import { type CoreConfig, type Ctx, createContext, DEFAULT_CONFIG } from "../context";
@@ -81,7 +81,22 @@ export const TEST_CACHE_KIB = 2048;
 /** The databases this file's tests opened and have not closed; `afterAll` closes the rest. */
 const openDatabases = new Set<Database>();
 
+/** The databases opened while a test body runs: closed when that test ends. */
+const testDatabases = new Set<Database>();
+let inTest = false;
+
 try {
+  beforeEach(() => {
+    inTest = true;
+  });
+  afterEach(() => {
+    inTest = false;
+    for (const sqlite of testDatabases) {
+      sqlite.close(true);
+      openDatabases.delete(sqlite);
+    }
+    testDatabases.clear();
+  });
   afterAll(() => {
     for (const sqlite of openDatabases) sqlite.close(true);
     openDatabases.clear();
@@ -108,6 +123,7 @@ export function createTestContext(options: { clock?: TestClock } = {}): Ctx & { 
   const template = migratedTemplate();
   const sqlite = Database.deserialize(template.bytes, { strict: true });
   openDatabases.add(sqlite);
+  if (inTest) testDatabases.add(sqlite);
   // The pragmas of `openDatabase` (a deserialized copy starts with SQLite's defaults), except the
   // page cache, which only costs memory on a database that is already in memory (and the memory
   // map, which a deserialized database does not use).
