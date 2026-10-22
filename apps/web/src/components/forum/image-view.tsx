@@ -9,14 +9,42 @@ import {
   type NodeKey,
   stopLexicalPropagation,
 } from "lexical";
-import { LoaderCircle, Paperclip, X } from "lucide-react";
+import { ImageIcon, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import type { ImageNode } from "@/components/forum/image-node";
 import { uploadOf } from "@/components/forum/image-node";
-import { buttonVariants } from "@/components/ui/button";
-import { blocks, parseLiteCookieHeader } from "@/lib/lite-preferences";
 import { cn } from "@/lib/utils";
+
+// Whether the data saver blocks post pictures, read from its cookie as `parseLiteCookieHeader` and
+// `blocks` read it (`image-view.test.tsx` holds the two together). Not imported from there: that
+// module is in every page's first script, and the editor's own chunk sharing it splits those
+// scripts differently, adding kilobytes to every page.
+export function picturesBlocked(cookies: string) {
+  let value: string | undefined;
+  for (const cookie of cookies.split(";")) {
+    const entry = cookie.trim();
+    if (entry === "forum_lite") value = "";
+    else if (entry.startsWith("forum_lite=")) {
+      try {
+        value = decodeURIComponent(entry.slice(11));
+      } catch {
+        // A malformed one does not replace a good one.
+      }
+    }
+  }
+  const tokens = value?.split(".") ?? [];
+  return (
+    value === "1" || tokens.includes("all") || tokens.includes("postImages")
+  );
+}
+
+// Buttons drawn here rather than with the shared button: a module the editor's lazy chunk shares
+// with the pages' first scripts changes how those scripts are split, and every page grows.
+const ICON_BUTTON =
+  "inline-flex size-7 shrink-0 items-center justify-center rounded-md outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-4";
+const TEXT_BUTTON =
+  "inline-flex h-7 shrink-0 items-center rounded-md px-2.5 text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:bg-muted aria-pressed:font-medium";
 
 // The size presets, for touch and for the keyboard: a width in pixels, or the column's (none).
 const PRESETS = [
@@ -79,9 +107,7 @@ export function ImageView({
   const pending = state !== undefined && !state.id && !state.failed;
   // Data saver: a stored picture is not fetched (one still uploading is the member's own file).
   const [hidden] = useState(
-    () =>
-      typeof document !== "undefined" &&
-      blocks(parseLiteCookieHeader(document.cookie), "postImages"),
+    () => typeof document !== "undefined" && picturesBlocked(document.cookie),
   );
   const src =
     state?.preview ??
@@ -196,7 +222,7 @@ export function ImageView({
           selected && "ring-2 ring-ring",
         )}
       >
-        <Paperclip aria-hidden="true" className="size-4 shrink-0" />
+        <ImageIcon aria-hidden="true" className="size-4 shrink-0" />
         <span className="truncate">
           {state?.failed
             ? t("failed")
@@ -208,7 +234,7 @@ export function ImageView({
           <button
             type="button"
             aria-label={t("remove")}
-            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+            className={ICON_BUTTON}
             onClick={remove}
           >
             <X />
@@ -244,9 +270,9 @@ export function ImageView({
           role="status"
           className="absolute inset-0 flex items-center justify-center"
         >
-          <LoaderCircle
+          <span
             aria-hidden="true"
-            className="size-8 animate-spin rounded-full bg-card/80 p-1 text-foreground"
+            className="size-8 animate-spin rounded-full border-4 border-card/80 border-t-foreground"
           />
           <span className="sr-only">{t("uploading")}</span>
         </span>
@@ -275,7 +301,7 @@ export function ImageView({
                 key={name}
                 type="button"
                 aria-pressed={full && width === preset}
-                className={buttonVariants({ variant: "ghost", size: "sm" })}
+                className={TEXT_BUTTON}
                 onClick={() => {
                   // No larger than the picture itself, which "full" is.
                   const natural = picture.current?.naturalWidth ?? 0;
@@ -304,7 +330,7 @@ export function ImageView({
             <button
               type="button"
               aria-label={t("remove")}
-              className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+              className={ICON_BUTTON}
               onClick={remove}
             >
               <X />

@@ -1,11 +1,13 @@
 import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { renderToStaticMarkup } from "react-dom/server";
 import { messages } from "@/i18n/messages";
+import { blocks, parseLiteCookieHeader } from "@/lib/lite-preferences";
 import { withIntl } from "@/lib/test-intl";
 import { BB_NODES } from "./bb-lexical";
 import { settleUpload, showPreview, startUpload } from "./image-node";
-import { ImageView } from "./image-view";
+import { ImageView, picturesBlocked } from "./image-view";
 
 const words = messages.editor.editor.image;
 
@@ -98,4 +100,37 @@ test("a picture still uploading shows the member's own copy under the data saver
   showPreview(upload, "data:image/png;base64,BBBB");
   const html = withLiteCookie("forum_lite=all", () => markupOf({ upload }));
   expect(html).toContain('src="data:image/png;base64,BBBB"');
+});
+
+test("the editor reads the data saver's cookie as the rest of the site does", () => {
+  for (const cookies of [
+    "",
+    "forum_lite",
+    "forum_lite=",
+    "forum_lite=1",
+    "forum_lite=all",
+    "forum_lite=postImages",
+    "forum_lite=avatars.postImages",
+    "forum_lite=avatars",
+    "forum_lite=all.avatars",
+    "a=1; forum_lite=postImages; b=2",
+    "forum_lite=postImages; forum_lite=avatars",
+    "forum_lite=avatars; forum_lite=%E0%A4%A",
+    "forum_lite=%61ll",
+    "x_forum_lite=all",
+  ])
+    expect(picturesBlocked(cookies), cookies).toBe(
+      blocks(parseLiteCookieHeader(cookies), "postImages"),
+    );
+});
+
+// A module the lazy editor shares with the pages' first scripts changes how Turbopack splits them:
+// the shared button and the data saver's helpers here added about 4 KB to every page.
+test("the picture's code shares no module with the pages' first scripts that the editor did not already", () => {
+  for (const file of ["image-view.tsx", "image-node.tsx"]) {
+    const source = readFileSync(new URL(file, import.meta.url), "utf8");
+    expect(source, file).not.toMatch(/from "@\/components\/ui\//);
+    expect(source, file).not.toMatch(/from "@\/lib\/lite-preferences"/);
+    expect(source, file).not.toMatch(/\b(?:LoaderCircle|Paperclip)\b/);
+  }
 });
