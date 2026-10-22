@@ -1,11 +1,12 @@
 "use client";
 
-import { ChevronDown, Heart, Lock } from "lucide-react";
+import { ChevronDown, Heart } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { type ComponentType, useEffect, useRef, useState } from "react";
 import { messageActionClass } from "@/components/forum/message-action";
+import type { ReactionPickerProps } from "@/components/forum/reaction-picker";
 import {
   ReactionPicture,
   type ReactionPictureData,
@@ -13,17 +14,14 @@ import {
 import {
   type PickerGrid,
   type PickerPlacement,
-  pickerGrid,
   placePicker,
-  VIEWPORT_MARGIN_PX,
 } from "@/components/forum/reaction-placement";
 import { useReactionGesture } from "@/components/forum/use-reaction-gesture";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-
+  createOpener,
+  type Loader,
+  loadedCode,
+} from "@/components/ui/lazy-popup-gate";
 import { changeItem, useItemState } from "@/lib/item-state";
 import { cn } from "@/lib/utils";
 
@@ -83,16 +81,32 @@ function placementNow(anchor: HTMLElement | null, count: number) {
   );
 }
 
-// Shifts a label that runs past the screen's margin back inside it.
-function keepInViewport(node: HTMLElement | null) {
-  if (!node) return;
-  node.style.translate = "";
-  const rect = node.getBoundingClientRect();
-  const left = VIEWPORT_MARGIN_PX - rect.left;
-  const right = window.innerWidth - VIEWPORT_MARGIN_PX - rect.right;
-  const shift = left > 0 ? left : right < 0 ? right : 0;
-  if (shift !== 0) node.style.translate = `${shift}px 0`;
+// The picker's trigger for the keyboard, the same plain or real: hidden until it has focus.
+export const PICKER_TRIGGER_CLASS =
+  "sr-only inline-flex items-center justify-center rounded-md text-muted-foreground focus-visible:not-sr-only focus-visible:size-10 md:focus-visible:size-8";
+
+// The picker's code (Base UI's popover and the positioning library with it) is not part of the
+// page's first load: it is fetched when the button is first reached for (a pointer over it, a
+// touch, focus: `warm`), so the hover delay or the hold hides the fetch, and handed to `arrived`
+// when the picker is asked for (`want(true)`) and still wanted once it is there. A fetch that
+// fails twice runs `failed`; the next gesture asks again.
+export function pickerCode<C>(
+  load: Loader<C>,
+  arrived: (picker: C) => void,
+  failed: () => void,
+) {
+  const opener = createOpener(load, {
+    slot: "reaction",
+    show: () => arrived(loadedCode(load) as C),
+    fail: failed,
+  });
+  return {
+    warm: opener.warm,
+    want: (open: boolean) => (open ? opener.open() : opener.cancel()),
+  };
 }
+
+const loadPicker = () => import("@/components/forum/reaction-picker");
 
 const SIZES = {
   default: "",
@@ -134,8 +148,15 @@ export function ReactionButton(props: {
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const [open, setOpen] = useState(false);
-  // The locked reaction pressed (or pointed at) last: its hint is drawn over it, as touch has no hover.
-  const [lockedNote, setLockedNote] = useState<ReactionType>();
+  // The picker, once it was asked for and its code is there; a plain trigger until then.
+  const [Picker, setPicker] = useState<ComponentType<ReactionPickerProps>>();
+  const [loader] = useState(() =>
+    pickerCode(
+      loadPicker,
+      (code) => setPicker(() => code),
+      () => setOpen(false),
+    ),
+  );
   const [placement, setPlacement] = useState<PickerPlacement>();
   const anchor = useRef<HTMLSpanElement>(null);
   const picker = useRef<HTMLDivElement>(null);
@@ -143,6 +164,8 @@ export function ReactionButton(props: {
   const viaTrigger = useRef(false);
 
   useEffect(() => () => clearTimeout(timer.current), []);
+  // A button drawn away while its picker's code is on its way wants it no more.
+  useEffect(() => () => loader.want(false), [loader]);
 
   useEffect(() => {
     if (!refusal) return;
@@ -218,13 +241,11 @@ export function ReactionButton(props: {
     );
   }
   if (viewerId === authorId || types.length === 0) return null;
-  const grid =
-    placement?.grid ?? pickerGrid(types.length, Number.POSITIVE_INFINITY);
 
   function show(next: boolean) {
     const placed = next && placementNow(anchor.current, types.length);
     if (placed) setPlacement(placed);
-    if (!next) setLockedNote(undefined);
+    loader.want(next);
     setOpen(next);
   }
 
@@ -257,6 +278,7 @@ export function ReactionButton(props: {
 
   const hover = {
     onPointerEnter: (event: React.PointerEvent) => {
+      loader.warm();
       // Right after a drag the enter is the capture letting go: it must not open the picker again.
       if (event.pointerType === "mouse" && !gesture.justReleased()) {
         schedule(true, HOVER_OPEN_MS);
@@ -270,178 +292,78 @@ export function ReactionButton(props: {
   };
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next, details) => {
-        const pressedAnchor =
-          details.reason === "outside-press" &&
-          anchor.current?.contains(details.event.target as Node);
-        if (pressedAnchor) return;
-        if (next) viaTrigger.current = details.reason === "trigger-press";
-        show(next);
-      }}
+    <span
+      ref={anchor}
+      className={cn("inline-flex items-center", className)}
+      {...hover}
     >
-      <span
-        ref={anchor}
-        className={cn("inline-flex items-center", className)}
-        {...hover}
+      <button
+        ref={gesture.buttonRef}
+        type="button"
+        aria-pressed={current !== null}
+        aria-label={t("aria.state", {
+          label: (active ?? first ?? types[0]).label,
+          count,
+        })}
+        className={buttonClass}
+        onFocus={loader.warm}
+        onTouchStart={loader.warm}
+        {...gesture.handlers}
+        onClick={() => {
+          if (gesture.consumeSwallowedClick()) return;
+          if (current !== null) choose(null);
+          else if (first) choose(first.id);
+          else show(true);
+        }}
       >
+        {content}
+      </button>
+      {Picker ? (
+        <Picker
+          open={open}
+          onOpenChange={(next, details) => {
+            const pressedAnchor =
+              details.reason === "outside-press" &&
+              anchor.current?.contains(details.event.target as Node);
+            if (pressedAnchor) return;
+            if (next) viaTrigger.current = details.reason === "trigger-press";
+            show(next);
+          }}
+          anchor={anchor}
+          picker={picker}
+          placement={placement}
+          types={types}
+          current={current}
+          hovered={gesture.hover}
+          hover={hover}
+          viaTrigger={viaTrigger}
+          button={gesture.button}
+          choose={choose}
+        />
+      ) : (
+        // The picker's trigger until its code is asked for, the same as far as the page can tell.
+        // A second press while the code is on its way withdraws the wish.
         <button
-          ref={gesture.buttonRef}
           type="button"
-          aria-pressed={current !== null}
-          aria-label={t("aria.state", {
-            label: (active ?? first ?? types[0]).label,
-            count,
-          })}
-          className={buttonClass}
-          {...gesture.handlers}
+          data-slot="popover-trigger"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-label={t("aria.choose")}
+          className={PICKER_TRIGGER_CLASS}
+          onFocus={loader.warm}
           onClick={() => {
-            if (gesture.consumeSwallowedClick()) return;
-            if (current !== null) choose(null);
-            else if (first) choose(first.id);
-            else show(true);
+            viaTrigger.current = true;
+            show(!open);
           }}
         >
-          {content}
-        </button>
-        <PopoverTrigger
-          aria-label={t("aria.choose")}
-          className="sr-only inline-flex items-center justify-center rounded-md text-muted-foreground focus-visible:not-sr-only focus-visible:size-10 md:focus-visible:size-8"
-        >
           <ChevronDown className="size-4" />
-        </PopoverTrigger>
-        {refusal && (
-          <span role="alert" className="ml-1 text-xs text-destructive">
-            {refusal}
-          </span>
-        )}
-      </span>
-      <PopoverContent
-        ref={picker}
-        side={placement?.side ?? "top"}
-        sideOffset={placement?.sideOffset}
-        alignOffset={placement?.alignOffset}
-        align="start"
-        anchor={anchor}
-        aria-label={t("aria.choose")}
-        initialFocus={() => viaTrigger.current}
-        finalFocus={() => (viaTrigger.current ? gesture.button.current : false)}
-        className={PICKER_CLASS}
-        style={pickerStyle(grid)}
-        {...hover}
-      >
-        {pickerRows(types, grid.rows).map((row) => (
-          <div key={row[0]?.id} className="flex">
-            {row.map((type) =>
-              type.kept ? (
-                // The viewer's own reaction, whose type is no longer offered: greyed, and pressing it
-                // takes it back.
-                <button
-                  key={type.id}
-                  type="button"
-                  title={type.label}
-                  aria-label={t("aria.kept", { label: type.label })}
-                  aria-pressed="true"
-                  onClick={() => choose(null)}
-                  className="relative flex size-(--cell) select-none items-center justify-center rounded-full bg-muted leading-none"
-                >
-                  <span className="flex opacity-60 grayscale">
-                    <ReactionPicture
-                      emoji={type.emoji}
-                      picture={type.picture}
-                    />
-                  </span>
-                </button>
-              ) : type.locked !== undefined ? (
-                <button
-                  key={type.id}
-                  type="button"
-                  title={`${type.label}: ${type.locked}`}
-                  aria-label={t("aria.locked", {
-                    label: type.label,
-                    hint: type.locked,
-                  })}
-                  aria-disabled="true"
-                  aria-pressed={type.id === current}
-                  onClick={() =>
-                    type.id === current ? choose(null) : setLockedNote(type)
-                  }
-                  onFocus={() => setLockedNote(type)}
-                  onPointerEnter={(event) =>
-                    event.pointerType === "mouse" && setLockedNote(type)
-                  }
-                  onPointerLeave={() =>
-                    setLockedNote((now) =>
-                      now?.id === type.id ? undefined : now,
-                    )
-                  }
-                  className="relative flex size-(--cell) select-none items-center justify-center rounded-full leading-none aria-pressed:bg-muted"
-                >
-                  <span className="flex opacity-40 grayscale">
-                    <ReactionPicture
-                      emoji={type.emoji}
-                      picture={type.picture}
-                    />
-                  </span>
-                  <Lock
-                    aria-hidden="true"
-                    className="absolute bottom-1 right-1 size-3.5 text-foreground"
-                  />
-                  {lockedNote?.id === type.id && type.locked && (
-                    // The hint rides on the label bubble: out of the layout, so the picker keeps the
-                    // size `placePicker` measured. It may wrap, and is pulled back inside the screen.
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute bottom-full left-1/2 mb-2 flex w-0 justify-center"
-                    >
-                      <span
-                        ref={keepInViewport}
-                        className="w-max shrink-0 max-w-[min(18rem,calc(100vw-2rem))] rounded-2xl bg-foreground px-2 py-1 text-center text-xs leading-normal text-background"
-                      >
-                        {type.locked}
-                      </span>
-                    </span>
-                  )}
-                </button>
-              ) : (
-                <button
-                  key={type.id}
-                  type="button"
-                  title={type.label}
-                  aria-label={type.label}
-                  aria-pressed={type.id === current}
-                  data-reaction-id={type.id}
-                  data-hovered={type.id === gesture.hover}
-                  onClick={() => choose(type.id === current ? null : type.id)}
-                  className="group relative flex size-(--cell) select-none items-center justify-center rounded-full leading-none aria-pressed:bg-muted"
-                >
-                  <span className="flex transition-transform group-hover:scale-125 group-focus-visible:scale-125 group-data-[hovered=true]:-translate-y-1 group-data-[hovered=true]:scale-150">
-                    <ReactionPicture
-                      emoji={type.emoji}
-                      picture={type.picture}
-                    />
-                  </span>
-                  {type.id === gesture.hover && (
-                    // Zero wide and centred on the reaction; the label is pulled back inside the screen.
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute bottom-full left-1/2 mb-2 flex w-0 justify-center"
-                    >
-                      <span
-                        ref={keepInViewport}
-                        className="whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-xs leading-normal text-background"
-                      >
-                        {type.label}
-                      </span>
-                    </span>
-                  )}
-                </button>
-              ),
-            )}
-          </div>
-        ))}
-      </PopoverContent>
-    </Popover>
+        </button>
+      )}
+      {refusal && (
+        <span role="alert" className="ml-1 text-xs text-destructive">
+          {refusal}
+        </span>
+      )}
+    </span>
   );
 }
