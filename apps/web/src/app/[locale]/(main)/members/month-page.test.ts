@@ -67,8 +67,8 @@ test("the month of an address is YYYY-MM or current, and anything else is no mon
     expect(monthParam(odd), String(odd)).toBeUndefined();
 });
 
-test("the standing of the default month is the member of the month view, any other has its own address", () => {
-  expect(monthHref()).toBe("/members?view=month");
+test("the standing of the default month and any other are on the one page", () => {
+  expect(monthHref()).toBe("/members/month");
   expect(monthHref("2025-06")).toBe("/members/month?month=2025-06");
 });
 

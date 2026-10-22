@@ -124,11 +124,21 @@ const asked: { path: string; search: URLSearchParams }[] = [];
 
 // The viewer is signed in or a guest; each read answers from `answers` by path, anything else with
 // an empty list.
-function backend(signedIn: boolean, answers: Record<string, Answer> = {}) {
+function backend(
+  signedIn: boolean,
+  answers: Record<string, Answer> = {},
+  groupId = 2,
+) {
   asked.length = 0;
   globalThis.fetch = (async (url: string) => {
     const { pathname, searchParams } = new URL(url);
-    if (pathname === "/api/v1/me") return Response.json(viewerBody(signedIn));
+    if (pathname === "/api/v1/me") {
+      const body = viewerBody(signedIn);
+      return Response.json({
+        ...body,
+        user: body.user && { ...body.user, groupId },
+      });
+    }
     asked.push({ path: pathname, search: searchParams });
     const answer = answers[pathname];
     if (answer) return answer(searchParams);
@@ -277,6 +287,22 @@ test("the referral link carries the signed-in member's id and offers to copy, sh
   expect(html).toContain(messages.widgetTypes.referralLink.explanation);
 });
 
+test("the referral link draws nothing for a member who has not confirmed their address", async () => {
+  // Their referrals would not be counted.
+  backend(true, {}, 5);
+  const { html, errors } = await draw(referralLink);
+  expect(errors).toEqual([]);
+  expect(html).not.toContain("<section");
+});
+
+test("the share button is given the plain page, which adds the member's id once", async () => {
+  backend(true);
+  const { html } = await draw(referralLink);
+  // The field and the copy button hold the link with the id; the share button's address is built
+  // in the browser from `/register`.
+  expect(html.match(/ref=1/g)).toHaveLength(1);
+});
+
 test("the referral link draws nothing for a guest", async () => {
   backend(false);
   const log = spyOn(console, "error").mockImplementation(() => {});
@@ -336,11 +362,18 @@ test("the scoring line follows the site's weights, a single reaction included", 
   );
 });
 
-test("the picker is a form that opens the standing of the month chosen", async () => {
+test("the picker is a form that opens the standing of the month chosen, from the oldest month with something to show", async () => {
   backend(false, {
     "/api/v1/standings": byMonth({
       current: standing(2026, 10, [entry(3, "ana", 5)]),
     }),
+    "/api/v1/standings/winners": () =>
+      Response.json({
+        items: [
+          { ...entry(3, "ana", 22), year: 2026, month: 9 },
+          { ...entry(4, "ben", 18), year: 2025, month: 3 },
+        ],
+      }),
   });
   const { html } = await draw(month());
   expect(html).toContain('action="/members/month"');
@@ -348,6 +381,10 @@ test("the picker is a form that opens the standing of the month chosen", async (
   expect(html).toContain('name="month"');
   expect(html).toContain('value="2026-10"');
   expect(html).toContain(messages.widgetTypes.monthPicker.submit);
+  // The oldest winner on record to the running month, with what an older month shows.
+  expect(html).toContain('min="2025-03"');
+  expect(html).toContain('max="');
+  expect(html).toContain(messages.widgetTypes.monthPicker.hint);
   // Turned off, the standing has no form.
   backend(false, {
     "/api/v1/standings": byMonth({
@@ -367,12 +404,28 @@ test("before anyone has points in the new month, the last month is listed", asyn
     }),
   });
   const { html } = await draw(month());
-  expect(asked.map((call) => call.search.get("month"))).toEqual([
-    "current",
-    "previous",
-  ]);
+  expect(
+    asked
+      .filter((call) => call.path === "/api/v1/standings")
+      .map((call) => call.search.get("month")),
+  ).toEqual(["current", "previous"]);
   expect(html).toContain("October 2026");
   expect(html).toContain("ana");
+});
+
+test("a first page with nobody on it, while the month has more, is not an empty month", async () => {
+  // Members hidden from this viewer: the rows are further on, so last month does not stand in.
+  backend(false, {
+    "/api/v1/standings": () =>
+      Response.json({ ...standing(2026, 11, []), nextCursor: "c1" }),
+  });
+  const { html } = await draw(month());
+  expect(
+    asked
+      .filter((call) => call.path === "/api/v1/standings")
+      .map((call) => call.search.get("month")),
+  ).toEqual(["current"]);
+  expect(html).not.toContain(titles.monthStandings);
 });
 
 test("month standings draws nothing when listing members is refused", async () => {

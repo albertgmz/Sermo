@@ -157,6 +157,10 @@ describe("the standings job", () => {
     const { w } = scenario();
     await expect(month(w, "2026-02")).rejects.toBeInstanceOf(ValidationError);
     await expect(month(w, "2027-01")).rejects.toBeInstanceOf(ValidationError);
+    // Before the first year: a heading would read 0050 as 1950.
+    await expect(month(w, "0050-05")).rejects.toBeInstanceOf(ValidationError);
+    await expect(month(w, "1999-12")).rejects.toBeInstanceOf(ValidationError);
+    expect((await month(w, "2000-01")).year).toBe(2000);
     await expect(month(w, "2026-13")).rejects.toBeInstanceOf(ValidationError);
     await expect(month(w, "last")).rejects.toBeInstanceOf(ValidationError);
     await expect(month(w, "2026-1")).rejects.toBeInstanceOf(ValidationError);

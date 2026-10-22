@@ -131,3 +131,13 @@ test("a month that nothing is kept for but has a winner shows the winner, not an
   expect(html).toContain("member-of-the-month");
   expect(html).toContain("ben");
 });
+
+test("the picker starts at the oldest winner on record, and an older month says its standing is not kept", async () => {
+  backend();
+  const picked = await draw({ view: "month", month: "2025-06" });
+  expect(picked.html).toContain('min="2025-05"');
+  // April 2025 has no standing and no winner, and is older than the last complete month.
+  const { html } = await draw({ view: "month", month: "2025-04" });
+  expect(html).toContain("The standing of April 2025 is no longer kept.");
+  expect(html).not.toContain("Nobody earned points in April 2025.");
+});

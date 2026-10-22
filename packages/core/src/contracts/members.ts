@@ -225,9 +225,9 @@ export const standingsMonth = defineContract({
     "to the older account. Only members with points are listed; banned members and members " +
     "whose profile the viewer may not open are left out. `current` is the month in progress, " +
     "recomputed in the background every few minutes; `previous` is the last complete month; " +
-    "`YYYY-MM` names any month up to the current one (a month before the previous one keeps " +
+    "`YYYY-MM` names any month from 2000 to the current one (a month before the previous one keeps " +
     "no standing, so it lists nobody; its winner is in standings.winners). A month after the " +
-    "current one is a validation error. `scoring` gives the weights the points are made of. " +
+    "current one, or before 2000, is a validation error. `scoring` gives the weights the points are made of. " +
     "Requires site.view, profile.view and member.viewList.",
   kind: "read",
   input: z.object({ month: StandingMonth.default("current"), ...pageInput }),

@@ -431,11 +431,15 @@ const shownIn =
     return new Set(rows.filter((row) => !isBanned(row, now) && open.has(row.user_id)));
   };
 
-/** The month a `standings.month` input names; a month after the current one is refused. */
+/** The first year a standing can be asked for: no forum here is older, and `Date` reads years 0-99 as 19xx. */
+export const FIRST_STANDING_YEAR = 2000;
+
+/** The month a `standings.month` input names; a month before 2000 or after the current one is refused. */
 function windowOf(named: string, current: { year: number; month: number }) {
   if (named === "current") return current;
   if (named === "previous") return previousOf(current);
   const window = { year: Number(named.slice(0, 4)), month: Number(named.slice(5)) };
+  if (window.year < FIRST_STANDING_YEAR) throw new ValidationError("That month is too early.");
   if (monthKey(window.year, window.month) > monthKey(current.year, current.month))
     throw new ValidationError("That month has not begun.");
   return window;

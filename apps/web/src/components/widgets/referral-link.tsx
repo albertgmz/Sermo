@@ -9,26 +9,26 @@ import type { WidgetBodyProps } from "@/components/widgets/widget-types";
 import { publicUrl } from "@/lib/sermo/config";
 import { getViewer } from "@/lib/sermo/session";
 
+// The built-in group of a member who has not confirmed their address: the backend does not count
+// a referral brought by one.
+const UNCONFIRMED_GROUP = 5;
+
 // The signed-in visitor's invitation link, to copy or share, with a line on what it is for. The
 // link carries their id; whoever registers through it is counted as their referral. Nothing for a
-// guest.
+// guest or for a member who cannot bring referrals yet.
 export async function ReferralLink({ title }: WidgetBodyProps<"referralLink">) {
   const { user } = await getViewer();
-  if (!user) return null;
+  if (!user || user.groupId === UNCONFIRMED_GROUP) return null;
   const t = await getTranslations("widgetTypes.referralLink");
-  const path = `/register?ref=${user.id}`;
+  const link = new URL(`/register?ref=${user.id}`, publicUrl()).href;
   return (
     <SectionCard title={title}>
       <div className="space-y-3 px-4 py-3">
-        <Input
-          readOnly
-          value={new URL(path, publicUrl()).href}
-          aria-label={t("linkLabel")}
-        />
+        <Input readOnly value={link} aria-label={t("linkLabel")} />
         <div className="flex items-center gap-2">
-          <CopyButton value={new URL(path, publicUrl()).href} />
+          <CopyButton value={link} />
           <ShareButton
-            href={path}
+            href="/register"
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border text-muted-foreground hover:text-foreground md:size-8 [&_svg]:size-4"
           />
         </div>

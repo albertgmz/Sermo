@@ -38,7 +38,11 @@ import {
 import { MonthHero, WinnerList } from "@/components/forum/standing";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MonthPicker, monthValue } from "@/components/widgets/month-picker";
+import {
+  MonthPicker,
+  monthValue,
+  pickableMonths,
+} from "@/components/widgets/month-picker";
 import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
@@ -56,8 +60,9 @@ async function MonthView({
   cursor?: string;
   pages: number;
 }) {
-  const [t, loadMore, format, winners, standing] = await Promise.all([
+  const [t, kept, loadMore, format, winners, standing] = await Promise.all([
     getTranslations("members.members"),
+    getTranslations("widgetTypes.monthPicker"),
     getTranslations("members.loadMore"),
     getFormatter(),
     read(standingsWinners, { limit: 24 }),
@@ -72,14 +77,16 @@ async function MonthView({
     new Date(Date.UTC(standing.year, standing.month - 1, 1)),
     { month: "long", year: "numeric", timeZone: "UTC" },
   );
-  const now = new Date();
+  const range = pickableMonths(winners.items, new Date());
+  const shown = monthValue(standing.year, standing.month);
   return (
     <>
       <div className="rounded-lg border bg-card p-3">
         <MonthPicker
           id="standing-month"
-          value={monthValue(standing.year, standing.month)}
-          max={monthValue(now.getUTCFullYear(), now.getUTCMonth() + 1)}
+          value={shown}
+          min={range.min}
+          max={range.max}
         />
       </div>
       {winner && <MonthHero winner={winner} />}
@@ -108,7 +115,12 @@ async function MonthView({
             <EmptyState
               icon={Crown}
               title={t("emptyTitle")}
-              description={t("emptyDescription", { month: monthName })}
+              description={
+                // A month before the last complete one keeps no standing.
+                shown < range.previous
+                  ? kept("notKept", { month: monthName })
+                  : t("emptyDescription", { month: monthName })
+              }
             />
           </div>
         )
@@ -137,10 +149,21 @@ async function RankingView({
   cursor?: string;
   pages: number;
 }) {
-  const [first, loadMore] = await Promise.all([
+  const [first, loadMore, t] = await Promise.all([
     rankingPage(sort, by, cursor),
     getTranslations("members.loadMore"),
+    getTranslations("members.members"),
   ]);
+  if (first.rows.length === 0 && first.nextCursor === null && !cursor)
+    return (
+      <div className="rounded-lg border bg-card">
+        <EmptyState
+          icon={VIEWS.find((entry) => entry.value === view)?.icon}
+          title={t("rankingEmptyTitle")}
+          description={t("rankingEmptyDescription")}
+        />
+      </div>
+    );
   return (
     <PagedList
       first={first}

@@ -104,7 +104,9 @@ export const VIEWS = [
 
 export type ViewValue = (typeof VIEWS)[number]["value"];
 
-// Views live in the query string: a path below /members is a username.
+// Views live in the query string, except the month's standing, which has a page of its own.
 export function viewHref(view: ViewValue) {
-  return view === "overview" ? "/members" : `/members?view=${view}`;
+  if (view === "overview") return "/members";
+  if (view === "month") return "/members/month";
+  return `/members?view=${view}`;
 }

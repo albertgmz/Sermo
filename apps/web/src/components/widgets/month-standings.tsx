@@ -1,10 +1,14 @@
-import { standingsMonth } from "@sermo/core/contracts";
+import { standingsMonth, standingsWinners } from "@sermo/core/contracts";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { monthHref } from "@/app/[locale]/(main)/members/month-page";
 import { SectionCard } from "@/components/forum/section-card";
 import { MemberListSkeleton } from "@/components/forum/skeletons";
 import { monthLabel, StandingList } from "@/components/forum/standing";
-import { MonthPicker, monthValue } from "@/components/widgets/month-picker";
+import {
+  MonthPicker,
+  monthValue,
+  pickableMonths,
+} from "@/components/widgets/month-picker";
 import { ViewAllLink } from "@/components/widgets/view-all-link";
 import type { WidgetBodyProps } from "@/components/widgets/widget-types";
 import { readIfAllowed } from "@/lib/sermo/client";
@@ -18,21 +22,28 @@ export async function MonthStandings({
   title,
 }: WidgetBodyProps<"monthStandings">) {
   const { limit, picker } = widget.options;
-  const [{ user }, running] = await Promise.all([
+  const [{ user }, running, winners] = await Promise.all([
     getViewer(),
     readIfAllowed(standingsMonth, { month: "current", limit }),
+    // The oldest month the picker offers is the oldest winner on record.
+    picker
+      ? readIfAllowed(standingsWinners, { limit: 24 })
+      : Promise.resolve(null),
   ]);
   if (!running) return null;
-  const standing =
-    running.items.length > 0
-      ? running
-      : ((await readIfAllowed(standingsMonth, { month: "previous", limit })) ??
-        running);
+  // A first page can be empty while the month has rows further on (members hidden from this
+  // viewer): only a month with nothing at all gives way to the last one.
+  const wholeMonthEmpty = running.items.length === 0 && !running.nextCursor;
+  if (running.items.length === 0 && !wholeMonthEmpty) return null;
+  const standing = wholeMonthEmpty
+    ? ((await readIfAllowed(standingsMonth, { month: "previous", limit })) ??
+      running)
+    : running;
   const [t, format] = await Promise.all([
     getTranslations("widgetTypes.monthStandings"),
     getFormatter(),
   ]);
-  const now = new Date();
+  const range = pickableMonths(winners?.items ?? [], new Date());
   return (
     <SectionCard
       title={title}
@@ -57,7 +68,8 @@ export async function MonthStandings({
         <MonthPicker
           id={`widget-${widget.id}-month`}
           value={monthValue(standing.year, standing.month)}
-          max={monthValue(now.getUTCFullYear(), now.getUTCMonth() + 1)}
+          min={range.min}
+          max={range.max}
           className="px-4 py-3"
         />
       )}

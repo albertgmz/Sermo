@@ -102,3 +102,17 @@ test("a page after the first that holds nobody is not the empty state either", a
     emptyTitle,
   );
 });
+
+test("the old address of the month's standing goes to its own page, keeping the rest of the query", async () => {
+  backend([]);
+  const redirected = await page({
+    view: "month",
+    month: "2025-06",
+    cursor: "21.c1",
+  }).then(
+    () => null,
+    (error: { digest?: string }) => error.digest ?? "",
+  );
+  expect(redirected).toContain("/members/month?month=2025-06&cursor=21.c1");
+  expect(redirected).not.toContain("view=");
+});
