@@ -6004,3 +6004,12 @@ Known limit: at 320 px the row is 236 px and the bar still wraps.
 
 Why: backlog leftovers app-install-push 2 and 11.
 Known limits: a restore that keeps failing is retried on every full page load.
+
+### The forum picker loads when it is first drawn
+
+- `ForumPicker` (the Select used by the move and split steps, and other forum choices) is loaded
+  with `next/dynamic` when it is drawn, with a skeleton meanwhile, as polls are. The thread page's
+  first load drops by 16.5 KB and the forum page's by 23.8 KB.
+
+Why: the thread route was at its JS budget (297.8 of 297.9 KB), which blocked every change to the
+thread page; budgets are not raised.
