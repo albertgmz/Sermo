@@ -6,6 +6,8 @@ import type { BenchEnv, Scenario } from "../harness";
  * (as fcuba keeps its archives out), the hardest case for the walks that skip them.
  */
 const MOST = ["mostReplied", "mostReacted", "mostViewed"] as const;
+// What each ranking is ordered by here. The reacted score is made up (the seed's threads carry no
+// reaction totals): only the read's cost is measured, not the order.
 const SCORE: Record<(typeof MOST)[number], string> = {
   mostReplied: "reply_count",
   mostReacted: "reply_count + view_count % 50",
@@ -14,6 +16,8 @@ const SCORE: Record<(typeof MOST)[number], string> = {
 
 /** The "most" rankings this file filled (a kind the seed or another scenario filled is left be). */
 let filled: string[] = [];
+/** The forums the site kept out of the feed before, put back by the teardown. */
+let excludedBefore: number[] = [];
 
 async function setup(env: BenchEnv) {
   filled = [];
@@ -30,13 +34,17 @@ async function setup(env: BenchEnv) {
       .run(kind);
     filled.push(kind);
   }
+  const site = (await env.call("settings.get", env.actors.admin, {})) as {
+    feedExcludedForumIds: number[];
+  };
+  excludedBefore = site.feedExcludedForumIds;
   await env.call("settings.update", env.actors.admin, {
     feedExcludedForumIds: env.meta.bigForumIds.slice(0, 3),
   });
 }
 
 async function teardown(env: BenchEnv) {
-  await env.call("settings.update", env.actors.admin, { feedExcludedForumIds: [] });
+  await env.call("settings.update", env.actors.admin, { feedExcludedForumIds: excludedBefore });
   for (const kind of filled)
     env.ctx.sqlite.prepare("DELETE FROM rankings WHERE kind = ?1").run(kind);
   filled = [];

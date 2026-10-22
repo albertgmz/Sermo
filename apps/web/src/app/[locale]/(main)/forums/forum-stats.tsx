@@ -35,44 +35,56 @@ import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
 
 // The tabs, as fcuba's forum statistics had them. The three "most" lists rank the threads active
-// in the last 30 days (the backend's window).
+// in the last 30 days (the backend's window), which their `note` says under the tabs.
 export const STATS_TABS = [
   {
     value: "posts",
     label: "postsTab",
     by: "latestPosts",
     icon: MessageSquareText,
+    note: null,
   },
   {
     value: "threads",
     label: "threadsTab",
     by: "latestThreads",
     icon: MessagesSquare,
+    note: null,
   },
   {
     value: "replied",
     label: "repliedTab",
     by: "mostReplied",
     icon: MessageSquarePlus,
+    note: "repliedNote",
   },
   {
     value: "reacted",
     label: "reactedTab",
     by: "mostReacted",
     icon: ThumbsUp,
+    note: "reactedNote",
   },
-  { value: "viewed", label: "viewedTab", by: "mostViewed", icon: Eye },
+  {
+    value: "viewed",
+    label: "viewedTab",
+    by: "mostViewed",
+    icon: Eye,
+    note: "viewedNote",
+  },
 ] as const satisfies readonly {
   value: string;
   label: string;
   by: string;
   icon: LucideIcon;
+  note: string | null;
 }[];
 
 export type StatsTab = (typeof STATS_TABS)[number]["value"];
 
 // The figures of a row. The backend does not say how many reactions a thread has, so the most
-// reacted list shows its replies and views too.
+// reacted list (in the order of its opening post's reactions, as its note says) shows its replies
+// and views too.
 const FIGURES = [
   {
     label: "replies",
@@ -225,6 +237,11 @@ export function ForumStats({
             className="px-1"
             arrow
           />
+          {tab.note && (
+            <p className="border-b px-2 py-1 text-caption text-muted-foreground">
+              {t(tab.note)}
+            </p>
+          )}
           <Suspense
             fallback={
               <LoadingRegion label={t("aria.loadingActivity")}>
@@ -236,7 +253,8 @@ export function ForumStats({
           </Suspense>
         </div>
         {topPosters && (
-          <Suspense fallback={<TopPostersFrame />}>
+          // No placeholder: a visitor refused the member list gets no column, so none flashes.
+          <Suspense fallback={null}>
             <TopPosters />
           </Suspense>
         )}
@@ -279,7 +297,7 @@ async function StatsRows({
 }
 
 // The top posters' column, its heading level with the tabs.
-function TopPostersFrame({ children }: { children?: React.ReactNode }) {
+function TopPostersFrame({ children }: { children: React.ReactNode }) {
   const t = useTranslations("forums.forumStats");
   return (
     <section className="hidden w-1/5 shrink-0 border-l @6xl:block">
@@ -287,7 +305,7 @@ function TopPostersFrame({ children }: { children?: React.ReactNode }) {
         <Users aria-hidden="true" className="size-4 shrink-0" />
         {t("topPosters")}
       </h3>
-      {children ?? <ForumStatsRowsSkeleton />}
+      {children}
     </section>
   );
 }

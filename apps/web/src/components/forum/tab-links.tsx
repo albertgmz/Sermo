@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { TabMore } from "@/components/forum/tab-more";
-import { TabStripArrow } from "@/components/forum/tab-strip-arrow";
+import { TabStripWithArrow } from "@/components/forum/tab-strip-arrow";
 import { cn } from "@/lib/utils";
 
 export type TabLink = {
@@ -103,10 +103,5 @@ export function TabLinks({
     </nav>
   );
   if (!arrow) return bar;
-  return (
-    <div className="relative">
-      {bar}
-      <TabStripArrow />
-    </div>
-  );
+  return <TabStripWithArrow>{bar}</TabStripWithArrow>;
 }

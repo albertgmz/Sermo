@@ -35,6 +35,9 @@
     "reactedTab": "Most reacted",
     "viewedTab": "Most viewed",
     "topPosters": "Most messages",
+    "repliedNote": "Most replies among the threads active in the last 30 days.",
+    "reactedNote": "Most reactions on the first post among the threads active in the last 30 days.",
+    "viewedNote": "Most views among the threads active in the last 30 days.",
     "aria": {
       "replies": "Replies",
       "views": "Views",

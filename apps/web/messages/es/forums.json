@@ -35,6 +35,9 @@
     "reactedTab": "Más reacciones",
     "viewedTab": "Más vistos",
     "topPosters": "Más mensajes",
+    "repliedNote": "Más respuestas entre los temas con actividad en los últimos 30 días.",
+    "reactedNote": "Más reacciones al primer mensaje entre los temas con actividad en los últimos 30 días.",
+    "viewedNote": "Más vistas entre los temas con actividad en los últimos 30 días.",
     "aria": {
       "replies": "Respuestas",
       "views": "Vistas",

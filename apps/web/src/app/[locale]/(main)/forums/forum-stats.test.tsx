@@ -93,18 +93,24 @@ const refused = () =>
     { status: 403 },
   );
 
-// Two threads: one unread by member 4, seen 2 minutes ago, one read by member 5, seen an hour ago.
+// Three threads: one unread by member 4, seen 14 minutes ago (online); one read by member 5, seen
+// 16 minutes ago (offline); one by member 6, who hides their online status, so the backend leaves
+// them out of the list.
 const DEFAULT: Record<string, Answer> = {
   "/api/v1/thread-rankings": () =>
     Response.json({
-      items: [thread(10, "Unread thread", 4, true), thread(11, "Read one", 5)],
+      items: [
+        thread(10, "Unread thread", 4, true),
+        thread(11, "Read one", 5),
+        thread(12, "Hidden status", 6),
+      ],
     }),
   "/api/v1/members/recently-active": () =>
     Response.json({
       total: 2,
       items: [
-        { card: card(4, "member4"), lastActivityAt: minutesAgo(2) },
-        { card: card(5, "member5"), lastActivityAt: minutesAgo(60) },
+        { card: card(4, "member4"), lastActivityAt: minutesAgo(14) },
+        { card: card(5, "member5"), lastActivityAt: minutesAgo(16) },
       ],
     }),
   "/api/v1/members": () =>
@@ -139,14 +145,14 @@ function backend(answers: Record<string, Answer> = {}) {
   }) as unknown as typeof fetch;
 }
 
-async function panel(topPosters = false) {
+async function panel(topPosters = false, active = "posts") {
   const stream = await renderToReadableStream(
     withIntl(
       <ForumStats
         title="Forum statistics"
         limit={10}
         topPosters={topPosters}
-        active="posts"
+        active={active as "posts"}
         hrefFor={(tab) => `/?stats=${tab}`}
         instance={null}
       />,
@@ -211,6 +217,56 @@ test("the starter's avatar is marked online when they were seen in the last 15 m
   const offline = rowOf(html, "Read one");
   expect(offline).toContain("bg-destructive");
   expect(offline).not.toContain("bg-success");
+  expect(offline).not.toContain(">Online<");
+});
+
+test("a member who hides their online status is left out of the list by the backend, and reads offline", async () => {
+  backend();
+  const hidden = rowOf(await panel(), "Hidden status");
+  expect(hidden).toContain("bg-destructive");
+  expect(hidden).not.toContain("bg-success");
+});
+
+test("each tab asks for its own ranking, and an unknown tab is the first", async () => {
+  const { STATS_TABS } = await import("./forum-stats");
+  const expected = {
+    posts: "latestPosts",
+    threads: "latestThreads",
+    replied: "mostReplied",
+    reacted: "mostReacted",
+    viewed: "mostViewed",
+  };
+  expect(STATS_TABS.map((tab) => tab.value)).toEqual(
+    Object.keys(expected) as never,
+  );
+  for (const [active, by] of Object.entries(expected)) {
+    backend();
+    const html = await panel(false, active);
+    expect(asked.get("/api/v1/thread-rankings")?.get("by")).toBe(by);
+    expect(html).toMatch(
+      new RegExp(
+        `href="/\\?stats=${active}"[^>]*aria-current="page"|aria-current="page"[^>]*href="/\\?stats=${active}"`,
+      ),
+    );
+  }
+  backend();
+  await panel(false, "nope");
+  expect(asked.get("/api/v1/thread-rankings")?.get("by")).toBe("latestPosts");
+});
+
+test("the three most tabs say they cover the threads active in the last 30 days", async () => {
+  for (const active of ["replied", "reacted", "viewed"]) {
+    backend();
+    expect(await panel(false, active)).toContain("in the last 30 days.");
+  }
+  for (const active of ["posts", "threads"]) {
+    backend();
+    expect(await panel(false, active)).not.toContain("in the last 30 days");
+  }
+  backend();
+  expect(await panel(false, "reacted")).toContain(
+    "Most reactions on the first post",
+  );
 });
 
 test("a visitor who may not see who is online gets no marks at all, rather than everyone offline", async () => {
@@ -297,4 +353,31 @@ test("the widget draws the top posters column when its option says so", async ()
   };
   expect(drawn(true)).toBe(true);
   expect(drawn(false)).toBe(false);
+});
+
+test("the top posters are read only where the panel can span the page", async () => {
+  const { spansPage } = await import("@/components/widgets/forum-stats-widget");
+  const { widgetBody } = await import("@/lib/test-bodies");
+  const stats = (position: string) =>
+    widgetBody({ id: 1, position: position as never, type: "forumStats" });
+  const side = widgetBody({
+    id: 2,
+    position: "forum_list_sidebar",
+    type: "forumLinks",
+  });
+  const on = (widget: ReturnType<typeof stats>, others: unknown[] = []) =>
+    spansPage(widget as never, [widget, ...others] as never);
+  // The lead spans both columns, whatever the sidebar holds.
+  expect(on(stats("overview_top"), [side])).toBe(true);
+  // The main column spans the page only when no sidebar opens beside it.
+  expect(on(stats("forum_list_above"))).toBe(true);
+  expect(on(stats("forum_list_above"), [side])).toBe(false);
+  expect(
+    on(stats("novedades_above"), [
+      widgetBody({ id: 3, position: "sidebar_bottom", type: "forumLinks" }),
+    ]),
+  ).toBe(false);
+  // A sidebar is never wide enough.
+  expect(on(stats("novedades_sidebar"))).toBe(false);
+  expect(on(stats("sidebar_top"))).toBe(false);
 });
