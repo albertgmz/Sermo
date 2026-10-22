@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ACCOUNT_THEME_COOKIE } from "@/components/layout/theme";
 import { forgetAdoptedConsent } from "@/lib/consent/sync";
 import { signOut } from "@/lib/sermo/auth";
 import { publicUrl } from "@/lib/sermo/config";
@@ -40,6 +41,8 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL("/?notice=signOutFailed", site), 303);
   await forgetAdoptedConsent();
   const response = NextResponse.redirect(new URL("/", site), 303);
+  // The member's theme travels in a cookie, which Clear-Site-Data above does not take.
+  response.cookies.delete(ACCOUNT_THEME_COOKIE);
   response.headers.set("Clear-Site-Data", CLEAR_SITE_DATA);
   return response;
 }

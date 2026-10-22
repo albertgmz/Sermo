@@ -37,6 +37,7 @@ const PREFERENCES = {
   keyboardShortcuts: true,
   homeTab: null,
   feedView: "compact",
+  theme: null,
   showOnline: true,
 };
 

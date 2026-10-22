@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { FEED_VIEWS, HOME_TABS } from "../db/schema";
+import { FEED_VIEWS, HOME_TABS, THEMES } from "../db/schema";
 import { defineContract } from "../operation";
 import { DisplayGroup, Empty, Id, ResolvedPermissions, Timestamp } from "./common";
 import { PendingAcceptance } from "./terms";
@@ -38,6 +38,8 @@ export const SelfUser = z
     homeTab: z.enum(HOME_TABS).nullable(),
     /** How the member wants the feed drawn: full cards or compact rows. */
     feedView: z.enum(FEED_VIEWS),
+    /** The colour theme the member chose (system follows the device); null when they made no choice (the browser's own applies). */
+    theme: z.enum(THEMES).nullable(),
     /**
      * The tab the feed page (What's new) opens on for this member when the address names none: their choice
      * (`homeTab`), else the site's home tab rules decided for them, else the site's fallback.

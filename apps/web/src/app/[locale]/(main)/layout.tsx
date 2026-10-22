@@ -26,6 +26,7 @@ import {
   StaffBar,
   staffLinks,
 } from "@/components/layout/staff-bar";
+import { ThemeSyncGate } from "@/components/layout/theme-sync-gate";
 import { ViewerScope } from "@/components/layout/viewer-scope";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getNavigation } from "@/lib/sermo/navigation";
@@ -143,6 +144,9 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         </Suspense>
         <Suspense>
           <LocaleSyncGate />
+        </Suspense>
+        <Suspense>
+          <ThemeSyncGate />
         </Suspense>
         <Suspense>
           <AnalyticsTag />

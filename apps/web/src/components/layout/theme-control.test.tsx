@@ -10,7 +10,17 @@ mock.module("next-intl", () => ({
   useTranslations: useIntl.useTranslations,
 }));
 
-const { ThemeChoices, ThemeControl } = await import("./theme-control");
+const saved: string[] = [];
+mock.module("./theme-actions", () => ({
+  saveTheme: async (theme: string) => {
+    saved.push(theme);
+    return { ok: true };
+  },
+}));
+
+const { ThemeChoices, ThemeControl, chooseTheme } = await import(
+  "./theme-control"
+);
 const { currentTheme, setTheme, subscribeTheme, themeScript } = await import(
   "./theme"
 );
@@ -275,4 +285,30 @@ test("the bar's colour is a meta of the script's own, ahead of the layout's, whi
     { name: "theme-color", content: "#fafafa" },
   ]);
   expect(head[1]).toBe(layouts);
+});
+
+test("the account's cookie wins over what this browser kept, so a member's page starts in their theme", () => {
+  store.set("sermo-theme", "light");
+  (globals.document as { cookie?: string }).cookie =
+    "a=b; sermo-account-theme=dark; c=d";
+  run();
+  expect(theme()).toBe("dark");
+  expect(attributes.get("data-theme-choice")).toBe("dark");
+  // A cookie value this version does not know falls back to the browser's own choice.
+  (globals.document as { cookie?: string }).cookie = "sermo-account-theme=blue";
+  run();
+  expect(attributes.get("data-theme-choice")).toBe("light");
+  store.set("sermo-theme", "system");
+  run();
+  expect(attributes.get("data-theme-choice")).toBe("system");
+  (globals.document as { cookie?: string }).cookie = "";
+});
+
+test("choosing a theme applies it here and asks the server to keep it", () => {
+  saved.length = 0;
+  chooseTheme("dark");
+  expect(theme()).toBeUndefined();
+  expect(currentTheme()).toBe("dark");
+  expect(store.get("sermo-theme")).toBe("dark");
+  expect(saved).toEqual(["dark"]);
 });

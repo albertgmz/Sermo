@@ -53,6 +53,7 @@ const member = {
     keyboardShortcuts: true,
     homeTab: null,
     feedView: "cards",
+    theme: null,
     openHomeTab: "latest",
     pendingAcceptance: [],
     awaitingApproval: false,

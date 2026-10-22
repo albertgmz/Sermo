@@ -6,6 +6,7 @@ import {
   NODE_WATCH_MODES,
   PROFILE_POST_PRIVACY,
   PROFILE_VIEW_PRIVACY,
+  THEMES,
 } from "../db/schema";
 import { defineContract } from "../operation";
 import { Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
@@ -212,6 +213,8 @@ export const MemberPreferences = z
     homeTab: z.enum(HOME_TABS).nullable(),
     /** How the feed is drawn for you: full cards or compact rows. */
     feedView: z.enum(FEED_VIEWS),
+    /** Your colour theme (system follows the device); null follows the browser's own choice. */
+    theme: z.enum(THEMES).nullable(),
     /**
      * Whether others see your online status: off leaves you out of users.recentlyActive and
      * hides your last activity on your profile (staff with profile.bypassPrivacy still see it).

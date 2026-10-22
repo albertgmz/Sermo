@@ -10,6 +10,7 @@ import {
   THEMES,
   type Theme,
 } from "@/components/layout/theme";
+import { saveTheme } from "@/components/layout/theme-actions";
 import { cn } from "@/lib/utils";
 
 const ICONS = { system: Monitor, light: Sun, dark: Moon } as const;
@@ -67,6 +68,13 @@ export function ThemeChoices({
   );
 }
 
+// Applies the choice here at once, then keeps it on the account (a guest's stays in this browser).
+// A save that fails leaves the choice applied on this page.
+export function chooseTheme(theme: Theme) {
+  setTheme(theme);
+  saveTheme(theme).catch(() => {});
+}
+
 export function ThemeControl({
   labelled,
   className,
@@ -77,7 +85,7 @@ export function ThemeControl({
   return (
     <ThemeChoices
       value={useTheme()}
-      onChange={setTheme}
+      onChange={chooseTheme}
       labelled={labelled}
       className={className}
     />

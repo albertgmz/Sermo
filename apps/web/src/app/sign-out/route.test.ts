@@ -158,3 +158,12 @@ test("the home page it sends the browser to has no language in its address and t
   ];
   expect(JSON.stringify(touched)).not.toContain("forum_locale");
 });
+
+test("signing out expires the cookie that carries the member's theme to the page script", async () => {
+  const response = await signOutFrom("https://forum.example.test");
+  const cookie = response.headers
+    .getSetCookie()
+    .find((line) => line.startsWith("sermo-account-theme="));
+  expect(cookie).toContain("sermo-account-theme=;");
+  expect(cookie).toContain("Expires=Thu, 01 Jan 1970");
+});

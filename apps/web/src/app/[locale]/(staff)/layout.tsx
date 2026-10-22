@@ -15,6 +15,7 @@ import { Logo } from "@/components/layout/logo";
 import { SessionNotice } from "@/components/layout/session-notice";
 import { ViewerAccent } from "@/components/layout/site-accent";
 import { MAIN_ID, SkipLink } from "@/components/layout/skip-link";
+import { ThemeSyncGate } from "@/components/layout/theme-sync-gate";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StaffMenu } from "./mobile-menu";
 import { StaffNavigation } from "./navigation";
@@ -102,6 +103,9 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
         </Suspense>
         <Suspense>
           <LocaleSyncGate />
+        </Suspense>
+        <Suspense>
+          <ThemeSyncGate />
         </Suspense>
         <header className="sticky top-0 z-30 border-b bg-background">
           <Container className="flex h-14 items-center gap-1 sm:gap-3">

@@ -258,6 +258,26 @@ describe("social", () => {
     expect((await call(f.ctx, preferencesGetOp, other, {})).feedView).toBe("cards");
   });
 
+  test("the theme preference is null until chosen, changes alone, goes back to null and refuses anything else", async () => {
+    const f = fixture();
+    const actor = userActor(f.owner);
+    const before = await call(f.ctx, preferencesGetOp, actor, {});
+    expect(before.theme).toBeNull();
+    const dark = await call(f.ctx, preferencesUpdateOp, actor, { theme: "dark" });
+    expect(dark).toEqual({ ...before, theme: "dark" });
+    expect((await call(f.ctx, preferencesUpdateOp, actor, { language: "es" })).theme).toBe("dark");
+    expect((await call(f.ctx, preferencesUpdateOp, actor, { theme: "system" })).theme).toBe(
+      "system",
+    );
+    expect((await call(f.ctx, preferencesUpdateOp, actor, { theme: null })).theme).toBeNull();
+    await expect(
+      call(f.ctx, preferencesUpdateOp, actor, { theme: "sepia" } as never),
+    ).rejects.toBeInstanceOf(ValidationError);
+    // Another member's choice is theirs.
+    await call(f.ctx, preferencesUpdateOp, actor, { theme: "light" });
+    expect((await call(f.ctx, preferencesGetOp, userActor(f.other), {})).theme).toBeNull();
+  });
+
   test("a hidden watch leaves a short page with a cursor to the next visible watch", async () => {
     const f = fixture();
     const actor = userActor(f.owner);

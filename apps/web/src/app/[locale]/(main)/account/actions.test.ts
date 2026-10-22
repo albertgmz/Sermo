@@ -344,6 +344,7 @@ const PREFERENCES = {
   keyboardShortcuts: true,
   homeTab: null,
   feedView: "cards",
+  theme: null,
   showOnline: true,
 };
 const preferenceForm = (language: string) =>

@@ -17,6 +17,7 @@ import { Logo } from "@/components/layout/logo";
 import { SessionNotice } from "@/components/layout/session-notice";
 import { ViewerAccent } from "@/components/layout/site-accent";
 import { MAIN_ID, SkipLink } from "@/components/layout/skip-link";
+import { ThemeSyncGate } from "@/components/layout/theme-sync-gate";
 import { buttonVariants } from "@/components/ui/button";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,9 @@ export default function DeveloperLayout({
         </Suspense>
         <Suspense>
           <LocaleSyncGate />
+        </Suspense>
+        <Suspense>
+          <ThemeSyncGate />
         </Suspense>
         <Suspense>
           <AnalyticsTag />
