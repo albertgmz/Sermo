@@ -19,16 +19,20 @@ export function siteBranding(ctx: Ctx, settings: ReturnType<typeof readSiteSetti
   // The accent a visitor sees before choosing one: the palette's first.
   const accent = catalogs(ctx).activeColors.accent[0];
   // The icon is shown 40 px wide: its 192 px copy is sharp on a dense screen at a fraction of the
-  // 512 px original's bytes.
+  // 512 px original's bytes. The logo is shown as its PNG copy, which keeps its transparency in
+  // every mail app; a logo uploaded before the copy existed is shown as stored.
   const row = prepared(ctx, "email.branding", () =>
-    ctx.sqlite.prepare<{ contact: number | null; icon: number | null }, [number | null, string]>(
-      "SELECT (SELECT id FROM static_pages WHERE slug = ?2 AND is_published = 1) AS contact, (SELECT id FROM files WHERE parent_file_id = ?1 AND variant = 'icon_192' AND deleted_at IS NULL) AS icon",
+    ctx.sqlite.prepare<
+      { contact: number | null; icon: number | null; logo: number | null },
+      [number | null, string, number | null]
+    >(
+      "SELECT (SELECT id FROM static_pages WHERE slug = ?2 AND is_published = 1) AS contact, (SELECT id FROM files WHERE parent_file_id = ?1 AND variant = 'icon_192' AND deleted_at IS NULL) AS icon, (SELECT id FROM files WHERE parent_file_id = ?3 AND variant = 'mail_logo' AND deleted_at IS NULL) AS logo",
     ),
-  ).get(settings.iconFileId, CONTACT_SLUG)!;
+  ).get(settings.iconFileId, CONTACT_SLUG, settings.logoFileId)!;
   return {
     name: settings.siteName,
     url: home,
-    logoUrl: absolute(settings.logoFileId),
+    logoUrl: absolute(row.logo ?? settings.logoFileId),
     iconUrl: absolute(row.icon ?? settings.iconFileId),
     accent: accent?.color ?? DEFAULT_ACCENT.color,
     accentForeground: accent?.foreground ?? DEFAULT_ACCENT.foreground,

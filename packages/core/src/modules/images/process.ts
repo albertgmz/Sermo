@@ -98,7 +98,13 @@ function sizesFor(purpose: ImagePurpose, mime: string): Size[] {
     case "reaction_image":
       return [insideWebp(null, REACTION_IMAGE_SIDE, REACTION_IMAGE_SIDE, WEBP_EXACT)];
     case "site_logo":
-      return [insideWebp(null, 640, 160, WEBP_ART)];
+      // The mail copy is PNG: mail apps and their image proxies drop or flatten the transparency
+      // of WebP (the logo showed on a black box), and Outlook cannot show it at all. It is 40 px
+      // tall in a mail, so 80 px is sharp on a dense screen.
+      return [
+        insideWebp(null, 640, 160, WEBP_ART),
+        { variant: "mail_logo", width: 480, height: 80, fit: "inside", mime: "image/png" },
+      ];
     case "site_icon":
       return [
         { variant: null, width: 512, height: 512, fit: "cover", mime: "image/png" },
