@@ -178,6 +178,7 @@ const { HtmlContent } = await import("../src/components/forum/html-content");
 const { SiteIcon } = await import("../src/components/layout/site-icon");
 const { LogoMark } = await import("../src/components/layout/logo");
 const { PageBackdrop } = await import("../src/components/layout/page-backdrop");
+const { CubanFlag } = await import("../src/components/brand/cuban-flag");
 const { SignatureHtml } = await import(
   "../src/components/forum/signature-html"
 );
@@ -592,7 +593,7 @@ test("avatar and frame gates are independent and preserve the outer box at every
   ).toContain(scale);
 });
 
-test("inline award, shop, logo and backdrop artwork disappears with its category", async () => {
+test("inline award, shop, logo, backdrop and flag artwork disappears with its category", async () => {
   const cases = [
     {
       category: "awards",
@@ -611,6 +612,10 @@ test("inline award, shop, logo and backdrop artwork disappears with its category
       draw: async () => createElement(LogoMark, { className: "size-12" }),
     },
     { category: "brand", draw: async () => createElement(PageBackdrop) },
+    {
+      category: "brand",
+      draw: async () => createElement(CubanFlag, { className: "h-7" }),
+    },
   ];
   for (const { category, draw } of cases) {
     cookie = undefined;

@@ -67,6 +67,10 @@ const INLINE_ART: Record<string, { category: string; reason: string }> = {
     category: "shop",
     reason: "Shop glyphs are artwork even when provided by lucide.",
   },
+  "src/components/brand/cuban-flag.tsx": {
+    category: "brand",
+    reason: "The drawn Cuban flag of the sign-in pages is brand artwork.",
+  },
   "src/components/layout/logo.tsx": {
     category: "brand",
     reason: "The inline logo is brand artwork.",

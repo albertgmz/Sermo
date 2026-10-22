@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { AuthShell } from "@/app/[locale]/(auth)/auth-shell";
 import { refusalText } from "@/app/[locale]/(auth)/refusal-text";
 import { RegisterForm } from "@/app/[locale]/(auth)/register/register-form";
-import { Logo } from "@/components/layout/logo";
-import { PageBackdrop } from "@/components/layout/page-backdrop";
 import { referrerOf } from "@/lib/referral/link";
 import { isPublished } from "@/lib/sermo/pages";
 import { getSite } from "@/lib/sermo/site";
@@ -41,59 +40,46 @@ export default async function RegisterPage({
           ? "rules"
           : "none";
   return (
-    <main className="relative isolate flex min-h-dvh flex-1 items-center justify-center px-4 py-8">
-      <PageBackdrop />
-      <div className="grid w-full max-w-5xl overflow-hidden rounded-lg border bg-background md:min-h-[36rem] md:grid-cols-2">
-        <div className="hidden flex-col justify-between bg-muted p-8 md:flex">
-          <Logo />
-        </div>
-        <div className="flex flex-col p-4 sm:p-8">
-          <div className="flex items-center justify-between md:justify-end">
-            <Logo className="md:hidden" />
+    <AuthShell heading={t("heading")}>
+      {registration.open ? (
+        <>
+          <p className="mb-6 -mt-3 text-center text-sm text-muted-foreground md:-mt-5">
+            {t("description")}
+          </p>
+          {registration.approval && (
+            <p
+              role="note"
+              className="mb-6 text-center text-sm text-muted-foreground"
+            >
+              {t("approvalNote")}
+            </p>
+          )}
+          <RegisterForm
+            referrer={referrerOf(ref)?.toString()}
+            turnstileKey={turnstileKey}
+            pages={pages}
+            fields={registration.fields}
+            minimumAge={registration.minimumAge}
+            {...(refusal ? { refusal } : {})}
+          />
+        </>
+      ) : (
+        <p role="status" className="text-center text-sm text-muted-foreground">
+          {t("closed")}
+        </p>
+      )}
+      <p className="mt-4 text-center text-sm text-muted-foreground">
+        {t.rich("haveAccount", {
+          link: (chunks) => (
             <Link
               href="/login"
-              className="inline-flex h-10 items-center rounded-md px-2 text-sm font-medium underline-offset-4 hover:underline"
+              className="inline-flex min-h-10 items-center font-medium text-foreground underline-offset-4 hover:underline"
             >
-              {t("login")}
+              {chunks}
             </Link>
-          </div>
-          <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-6">
-            <h1 className="text-center text-2xl font-bold tracking-tight">
-              {t("heading")}
-            </h1>
-            {registration.open ? (
-              <>
-                <p className="mt-1 mb-6 text-center text-sm text-muted-foreground">
-                  {t("description")}
-                </p>
-                {registration.approval && (
-                  <p
-                    role="note"
-                    className="mb-6 text-center text-sm text-muted-foreground"
-                  >
-                    {t("approvalNote")}
-                  </p>
-                )}
-                <RegisterForm
-                  referrer={referrerOf(ref)?.toString()}
-                  turnstileKey={turnstileKey}
-                  pages={pages}
-                  fields={registration.fields}
-                  minimumAge={registration.minimumAge}
-                  {...(refusal ? { refusal } : {})}
-                />
-              </>
-            ) : (
-              <p
-                role="status"
-                className="mt-1 text-center text-sm text-muted-foreground"
-              >
-                {t("closed")}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </main>
+          ),
+        })}
+      </p>
+    </AuthShell>
   );
 }

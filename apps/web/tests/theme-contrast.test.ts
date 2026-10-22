@@ -170,6 +170,8 @@ const PAIRS: [string[], string[], number][] = [
     4.5,
   ],
   [CODE, ["card", "muted"], 4.5],
+  // The sign-in pages' flag panel (app/[locale]/(auth)/auth-shell.tsx), the same in both themes.
+  [["flag-white", "flag-mist"], ["flag-night"], 4.5],
 ];
 
 for (const [theme, tokens] of [

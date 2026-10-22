@@ -39,6 +39,13 @@
   --color-destructive: var(--destructive);
   --color-success: var(--success);
 
+  /* The Cuban flag (components/brand/cuban-flag.tsx) and the panel of the sign-in pages. */
+  --color-flag-blue: var(--flag-blue);
+  --color-flag-red: var(--flag-red);
+  --color-flag-white: var(--flag-white);
+  --color-flag-night: var(--flag-night);
+  --color-flag-mist: var(--flag-mist);
+
   /* Tiers. */
   --color-tier-bronze: var(--tier-bronze);
   --color-tier-silver: var(--tier-silver);
@@ -165,6 +172,16 @@
   --chart-3: #a1a5b7;
   --chart-4: #5c5c7a;
   --chart-5: #3d3d5c;
+
+  /*
+   * The Cuban flag's blue, red and white, and the night blue and mist text of the panel that holds
+   * it on the sign-in pages: the same in both themes, as a flag is.
+   */
+  --flag-blue: #002a8f;
+  --flag-red: #cf142b;
+  --flag-white: #ffffff;
+  --flag-night: #0a1a3f;
+  --flag-mist: #c3cdea;
 
   /* Tiers. */
   --tier-bronze: #c2814a;
@@ -320,6 +337,36 @@ html.show--consent {
  */
 [data-shortcut-item]:focus-visible {
   outline-offset: -2px;
+}
+
+/*
+ * The light moving over the Cuban flag (components/brand/cuban-flag.tsx): soft bands of light and
+ * shade, wider than the flag, drift slowly from side to side like cloth in a breeze. Reduced motion
+ * (below) leaves them still.
+ */
+.flag-wave::after {
+  content: "";
+  position: absolute;
+  inset: 0 -50%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    105deg,
+    rgb(255 255 255 / 0) 0%,
+    rgb(255 255 255 / 0.14) 8%,
+    rgb(255 255 255 / 0) 16%,
+    rgb(0 0 0 / 0.12) 24%,
+    rgb(0 0 0 / 0) 32%
+  );
+  animation: flag-wave 14s ease-in-out infinite alternate;
+}
+
+@keyframes flag-wave {
+  from {
+    transform: translateX(-8%);
+  }
+  to {
+    transform: translateX(8%);
+  }
 }
 
 /*

@@ -22,7 +22,11 @@ mock.module("next/headers", () => ({
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
-  getTranslations: async () => (key: string) => key,
+  getTranslations: async () => {
+    const t = (key: string) => key;
+    t.rich = (key: string) => key;
+    return t;
+  },
 }));
 // The form needs the sign-up action, which needs the app router.
 const actions = await import("@/app/[locale]/(auth)/actions");
@@ -32,6 +36,7 @@ mock.module("@/app/[locale]/(auth)/actions", () => ({
 
 const { default: RegisterPage } = await import("./page");
 const { RegisterForm } = await import("./register-form");
+const { AuthShell } = await import("@/app/[locale]/(auth)/auth-shell");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -160,4 +165,17 @@ test("a site that approves new accounts says so above the form", async () => {
   expect(textsOf(await page())).toContain("approvalNote");
   backend({ terms: "published", rules: "published" });
   expect(textsOf(await page())).not.toContain("approvalNote");
+});
+
+test("the page is drawn in the frame every sign-in page shares, and leads to sign in whether open or closed", async () => {
+  for (const open of [true, false]) {
+    backend(
+      { terms: "published", rules: "published" },
+      { registration: { open, approval: false, minimumAge: 0, fields: [] } },
+    );
+    const tree = (await page()) as ReactElement<{ heading: string }>;
+    expect(tree.type).toBe(AuthShell);
+    expect(tree.props.heading).toBe("heading");
+    expect(textsOf(tree)).toContain("haveAccount");
+  }
 });
