@@ -6059,3 +6059,16 @@ member cards per render (both need a contract change).
 Why: items from the 2026-10-20 handover leftovers list (06). Not built: shop-admin-fixes 7 (owner
 decision: declared type must equal the sniffed type), shop-admin-fixes 9 (the catalog does not
 carry a frame's size).
+
+### Emoji by shortcode in every composer
+
+- In the editor and the line composer, ":" at the start of a word plus two letters opens a list of
+  up to five matching emoji (English shortcodes and names, Spanish keywords: ":think" and ":pensa"
+  both find 🤔); arrows, Enter/Tab and Esc work, a tap keeps the phone keyboard up, and a complete
+  ":name:" converts on its own (Undo brings the code back). A ":" after a letter or digit, and code,
+  never trigger it.
+- The list and its data (`emojibase-data`, pinned) load on the first ":", not with the editor.
+  The list (`suggestion-list.tsx`, `suggestion-keys.ts`) is shared for mentions and smilies.
+
+Why: member feedback (":think" did nothing, unlike any messaging app).
+Known limits: the BB code source box and the plain box shown before the editor loads have no list.
