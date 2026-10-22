@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToReadableStream } from "react-dom/server";
 import { createFormatter } from "use-intl";
+import { widgetBody } from "@/lib/test-bodies";
 import { translator, withIntl } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
 
@@ -55,11 +56,17 @@ const entry = (id: number, username: string, points: number) => ({
 // The standing of the month asked for lists nobody unless it is June 2025, and the winners are
 // those of May and June 2025. The months asked for are recorded.
 const months: (string | null)[] = [];
-function backend() {
+const widgetsAsked: (string | null)[] = [];
+function backend(widgets: unknown[] = []) {
   months.length = 0;
+  widgetsAsked.length = 0;
   globalThis.fetch = (async (url: string) => {
     const { pathname, searchParams } = new URL(url);
     if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
+    if (pathname === "/api/v1/widgets") {
+      widgetsAsked.push(searchParams.get("page"));
+      return Response.json({ items: widgets });
+    }
     if (pathname === "/api/v1/standings") {
       months.push(searchParams.get("month"));
       const named = /^(\d{4})-(\d{2})$/.exec(searchParams.get("month") ?? "");
@@ -140,4 +147,43 @@ test("the picker starts at the oldest winner on record, and an older month says 
   const { html } = await draw({ view: "month", month: "2025-04" });
   expect(html).toContain("The standing of April 2025 is no longer kept.");
   expect(html).not.toContain("Nobody earned points in April 2025.");
+});
+
+const text = (
+  id: number,
+  position: "members_sidenav" | "sidebar_top" | "sidebar_bottom",
+  body: string,
+) =>
+  widgetBody({
+    id,
+    position,
+    type: "text",
+    options: { body },
+    bodyHtml: `<p>${body}</p>`,
+  });
+
+test("the side column holds the views, then the widgets of members_sidenav between the global sidebars, below the content on a phone", async () => {
+  backend([
+    text(1, "sidebar_top", "global-top"),
+    text(2, "members_sidenav", "sidenav-own"),
+    text(3, "sidebar_bottom", "global-bottom"),
+  ]);
+  const { html } = await draw({ view: "staff" });
+  expect(widgetsAsked).toEqual(["members"]);
+  const aside = html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+  expect(aside).toContain('aria-label="Member views"');
+  // Each widget streams in on its own, in the order of the column.
+  const at = (word: string) => html.indexOf(word);
+  expect(at("global-top")).toBeGreaterThan(html.indexOf("<aside"));
+  expect(at("sidenav-own")).toBeGreaterThan(at("global-top"));
+  expect(at("global-bottom")).toBeGreaterThan(at("sidenav-own"));
+  // The list of views stays for large screens (phones have the chips); the widgets are not hidden.
+  expect(html).not.toMatch(/<aside[^>]*class="[^"]*hidden lg:grid/);
+  expect(aside).toMatch(/<nav[^>]*class="[^"]*max-lg:hidden/);
+});
+
+test("without widgets the side column is for large screens only", async () => {
+  backend();
+  const { html } = await draw({ view: "staff" });
+  expect(html).toMatch(/<aside[^>]*class="[^"]*hidden lg:grid/);
 });

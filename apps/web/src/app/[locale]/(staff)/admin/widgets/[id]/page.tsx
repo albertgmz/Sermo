@@ -35,7 +35,9 @@ async function Editor({
   ]);
   const widget = widgets.find((item) => item.id === widgetId);
   if (!widget) notFound();
-  const pages = pagesDrawn(widget.position);
+  const pages = pagesDrawn(widget.position).filter(
+    (page) => PAGE_ADDRESSES[page],
+  );
   return (
     <>
       <Notice
@@ -68,7 +70,7 @@ async function Editor({
         {pages.map((page) => (
           <Link
             key={page}
-            href={PAGE_ADDRESSES[page] ?? "/"}
+            href={PAGE_ADDRESSES[page] as string}
             className={linkClass}
           >
             {t("edit.view", { page: t(`sitePages.${page}`) })}

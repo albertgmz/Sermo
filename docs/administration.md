@@ -1076,6 +1076,12 @@ widget whose `phones` is off is not drawn below `md`, and a sidebar with no widg
 left out. A widget whose own read is refused or empty draws
 nothing; one that fails is logged and draws nothing, and the rest of the page stands.
 
+A forum or category page (`/forums/<id>`) draws a sidebar beside its content, below it on a phone:
+`sidebar_top`, `forum_view_sidebar`, `sidebar_bottom`. The members pages (`/members`,
+`/members/month`) hold the same three around `members_sidenav` in their left column, under the list
+of views; on a phone the views are the chips above the content, and the column is drawn below the
+content only when it holds a widget.
+
 Widget types for the members: `visitorCard` (the signed-in member's picture, name, title and
 counts; off on phones by default), `referralLink` (their invitation link, with Copy, Share and a
 line on what it is), `monthStandings` (the top of this month, last month's before anyone scores,

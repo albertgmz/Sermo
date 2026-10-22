@@ -16,7 +16,7 @@ import type { ApiWidget } from "@/lib/sermo/widgets";
 
 type Position = z.output<typeof WidgetPosition>;
 
-// The areas of the two pages that draw widgets, each with its positions in drawing order (the
+// The areas of the pages that draw widgets, each with its positions in drawing order (the
 // backend's list is already in that order). `lead` spans both columns above them; `above` and
 // `below` sit in the main column around the page's own content; `aside` is the sidebar, which opens
 // and closes with the two global positions.
@@ -33,6 +33,18 @@ const AREAS = {
     below: ["overview_bottom"],
     aside: ["sidebar_top", "novedades_sidebar", "sidebar_bottom"],
   },
+  forum: {
+    lead: [],
+    above: [],
+    below: [],
+    aside: ["sidebar_top", "forum_view_sidebar", "sidebar_bottom"],
+  },
+  members: {
+    lead: [],
+    above: [],
+    below: [],
+    aside: ["sidebar_top", "members_sidenav", "sidebar_bottom"],
+  },
 } as const satisfies Record<
   string,
   Record<"lead" | "above" | "below" | "aside", readonly Position[]>
@@ -47,6 +59,8 @@ const positionsOf = (areas: Record<string, readonly Position[]>) =>
 export const DRAWN_PAGES: Record<keyof typeof AREAS, readonly Position[]> = {
   home: positionsOf(AREAS.home),
   novedades: positionsOf(AREAS.novedades),
+  forum: positionsOf(AREAS.forum),
+  members: positionsOf(AREAS.members),
 };
 
 export const DRAWN_POSITIONS: readonly Position[] = [

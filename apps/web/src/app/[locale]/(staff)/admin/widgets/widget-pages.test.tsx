@@ -53,6 +53,8 @@ const DRAWN_PAGES = {
     "novedades_sidebar",
     "sidebar_bottom",
   ],
+  // A page with no address of its own.
+  forum: ["forum_view_sidebar"],
 };
 mock.module("@/components/widgets/widget-area", () => ({
   DRAWN_PAGES,
@@ -350,6 +352,13 @@ const edit = (id: string) =>
       searchParams={Promise.resolve({})}
     />,
   );
+
+test("the edit page links to the page that draws the widget, and to none that has no address of its own", async () => {
+  serve([{ ...RANKED, id: 8, position: "forum_view_sidebar" }]);
+  const { html } = await edit("8");
+  expect(html).not.toContain("View Forum pages");
+  expect(html).not.toMatch(/<a[^>]*href="\/"/);
+});
 
 test("the edit page holds the widget's values, its id, its type and the steps", async () => {
   serve();

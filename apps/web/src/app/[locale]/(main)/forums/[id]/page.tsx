@@ -28,6 +28,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { ThreadBatch } from "@/components/staff/thread-batch";
 import { batchActionsFor } from "@/components/staff/thread-batch-state";
 import { buttonVariants } from "@/components/ui/button";
+import { widgetAreas, widgetAside } from "@/components/widgets/widget-area";
 import { pagesParam } from "@/lib/list-pages";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
@@ -39,6 +40,7 @@ import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
 import { activePrefixViews } from "@/lib/sermo/threads";
 import type { PrefixView } from "@/lib/sermo/views";
+import { getWidgets } from "@/lib/sermo/widgets";
 import { cn } from "@/lib/utils";
 
 const filterClass =
@@ -148,10 +150,20 @@ export default async function ForumPage({
     nodeIdOf(raw),
   );
   const seo = await seoOf(raw, searchParams);
-  const [{ user }, t] = await Promise.all([
+  const [{ user }, widgets, t] = await Promise.all([
     getViewer(),
+    getWidgets("forum"),
     getTranslations("forums.forum"),
   ]);
+  const context = {
+    params: { prefix },
+    widgets,
+    href: (query: [string, string][]) => {
+      const kept = typeof prefix === "string" ? [["prefix", prefix]] : [];
+      const extra = new URLSearchParams([...kept, ...query]).toString();
+      return `/forums/${node.id}${extra && `?${extra}`}`;
+    },
+  };
 
   const isForum = node.type === "forum";
   const banner = await bannerOf(node.cover);
@@ -169,7 +181,10 @@ export default async function ForumPage({
     breadcrumbs.at(-1)?.id === node.id ? breadcrumbs : [...breadcrumbs, node];
 
   return (
-    <PageLayout className="pt-2">
+    <PageLayout
+      className="pt-2"
+      {...widgetAside(widgetAreas("forum", widgets).aside, context)}
+    >
       <JsonLd items={seo.jsonLd} />
       <PageBreadcrumb
         items={[

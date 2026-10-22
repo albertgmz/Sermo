@@ -501,7 +501,7 @@ test("the drawn positions are exactly those the areas of the pages take widgets 
   const everywhere = WidgetPosition.options.map((position, index) =>
     widgetBody({ id: index + 1, position, type: "forumLinks" }),
   ) as never;
-  for (const page of ["home", "novedades"] as const) {
+  for (const page of ["home", "novedades", "forum", "members"] as const) {
     const taken = Object.values(widgetAreas(page, everywhere)).flatMap((area) =>
       area.map((widget: { position: string }) => widget.position),
     );
@@ -512,14 +512,36 @@ test("the drawn positions are exactly those the areas of the pages take widgets 
   );
 });
 
-test("only the home page and What's new draw the global sidebars, and no page draws the forum or members positions", () => {
-  expect(Object.keys(DRAWN_PAGES)).toEqual(["home", "novedades"]);
-  for (const position of ["sidebar_top", "sidebar_bottom"] as const) {
-    expect(DRAWN_PAGES.home).toContain(position);
-    expect(DRAWN_PAGES.novedades).toContain(position);
+test("every page that has a sidebar draws the two global sidebars, around its own position", () => {
+  expect(Object.keys(DRAWN_PAGES)).toEqual([
+    "home",
+    "novedades",
+    "forum",
+    "members",
+  ]);
+  for (const page of Object.values(DRAWN_PAGES)) {
+    expect(page).toContain("sidebar_top");
+    expect(page).toContain("sidebar_bottom");
   }
-  expect(DRAWN_POSITIONS).not.toContain("forum_view_sidebar");
-  expect(DRAWN_POSITIONS).not.toContain("members_sidenav");
+  expect(DRAWN_PAGES.forum).toContain("forum_view_sidebar");
+  expect(DRAWN_PAGES.members).toContain("members_sidenav");
+  expect(DRAWN_POSITIONS).toContain("forum_view_sidebar");
+  expect(DRAWN_POSITIONS).toContain("members_sidenav");
   expect(DRAWN_PAGES.home).not.toContain("novedades_sidebar");
   expect(DRAWN_PAGES.novedades).not.toContain("forum_list_sidebar");
+  expect(DRAWN_PAGES.forum).not.toContain("members_sidenav");
+});
+
+test("the forum and members pages take their sidebar widgets with the global ones around them", () => {
+  const widgets = [
+    widgetBody({ id: 1, position: "sidebar_bottom", type: "forumLinks" }),
+    widgetBody({ id: 2, position: "members_sidenav", type: "forumLinks" }),
+    widgetBody({ id: 3, position: "forum_view_sidebar", type: "forumLinks" }),
+    widgetBody({ id: 4, position: "sidebar_top", type: "forumLinks" }),
+    widgetBody({ id: 5, position: "forum_list_sidebar", type: "forumLinks" }),
+  ] as never;
+  const ids = (page: "forum" | "members") =>
+    widgetAreas(page, widgets).aside.map((widget: { id: number }) => widget.id);
+  expect(ids("forum")).toEqual([4, 3, 1]);
+  expect(ids("members")).toEqual([4, 2, 1]);
 });

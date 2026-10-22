@@ -43,9 +43,11 @@ import {
   monthValue,
   pickableMonths,
 } from "@/components/widgets/month-picker";
+import { widgetAreas, widgetAside } from "@/components/widgets/widget-area";
 import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
+import { getWidgets } from "@/lib/sermo/widgets";
 
 function first(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : (value ?? "")).trim();
@@ -202,16 +204,40 @@ export async function MembersView({
   // A search or a sort without a view is a link to the directory.
   const param = first(params.view) || (query || sort ? "all" : "");
   const view = VIEWS.find((entry) => entry.value === param) ?? VIEWS[0];
-  const viewer = await getViewer();
+  const [viewer, widgets] = await Promise.all([
+    getViewer(),
+    getWidgets("members"),
+  ]);
   // The member list is the backend's to refuse: a viewer without `member.viewList` finds none.
   if (viewer.resolvedPermissions["member.viewList"] === false) notFound();
   const viewerId = viewer.user?.id;
+  // The widgets follow the list of views in the side column. On a phone the views are the chips
+  // above the content, so the column is drawn there only when it holds widgets, below the content.
+  const sidenav = widgetAside(widgetAreas("members", widgets).aside, {
+    params,
+    widgets,
+    href: (query) => {
+      const base = viewHref(view.value);
+      const extra = new URLSearchParams(query).toString();
+      return extra ? `${base}${base.includes("?") ? "&" : "?"}${extra}` : base;
+    },
+  });
 
   return (
     <PageLayout
-      aside={<MembersNav active={view.value} variant="list" />}
+      aside={
+        <>
+          <MembersNav
+            active={view.value}
+            variant="list"
+            className={sidenav.aside ? "max-lg:hidden" : undefined}
+          />
+          {sidenav.aside}
+        </>
+      }
+      asideClassName={sidenav.asideClassName}
       asideSide="start"
-      asideOnMobile="hidden"
+      asideOnMobile={sidenav.aside ? "below" : "hidden"}
       mainClassName="space-y-(--page-gap)"
     >
       <header>

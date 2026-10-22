@@ -27,8 +27,9 @@ export const POSITIONS_IN_ORDER: readonly Position[] = [
   ...POSITIONS.filter((position) => !DRAWN_POSITIONS.includes(position)),
 ];
 
-// The address of each page that draws widgets, to look at one.
+// The address of each page that draws widgets and has one of its own, to look at one.
 export const PAGE_ADDRESSES: Partial<Record<Page, string>> = {
   home: "/",
   novedades: "/novedades",
+  members: "/members",
 };
