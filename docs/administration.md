@@ -491,6 +491,12 @@ plan on five for fcuba.net's 67,000), one run at a time, ends before its next ch
 button, `awards.rebuildStop`), resumes after an error or a stop when started again, and is written
 to the moderator log (`awards.rebuild.start`, `.done`, `.stopped`, `.failed`). A second run changes
 nothing unless rules depend on time, credits or XP, or credit rules pay for awards.
+Those timings were taken with the whole database in memory: on a server where it is not (compare
+`free -h` with the size of the database file), the first reads of each member's history are slower,
+so read the file once at a quiet hour before the run when memory allows. A preview rolls back what
+it writes, so it shows what would change but not the real run's write load: watch the backend log
+for `[db.write-wait]` lines during the first minutes of the real run and stop it if commits keep
+taking more than about half a second.
 
 "Ver qué cambiaría" (`awards.rebuild` with `dryRun: true`, no password) does the same chunk by
 chunk and undoes each chunk, so only the figures stay: members whose XP or counters would change,
