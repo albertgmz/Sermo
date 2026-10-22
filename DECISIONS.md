@@ -5964,3 +5964,14 @@ Known limits: no per-prefix group restriction and no forum default prefix.
 Why: handover leftovers (auth-before-validation 1, api-agents-page 8/11/12, quick-media 2/5,
 email-layout 8/9/10, link-landing 13).
 Known limits: the upload picker does not filter by the site's allowed types (needs a contract field).
+
+### A forum with subforums lists them above its threads
+
+- Entering a forum that has child forums shows them first, with the forum list's own card (cover or
+  icon, title, thread count, its own subforums, last post), one column on phones and two from medium
+  width, as XenForo's forum_view (no heading; repeated on later pages). The home list, the category
+  page and this block share one `ForumCardGrid`.
+
+Why: member feedback (entering "Música" showed only threads, not Rock, Pop, Hip hop).
+Known limits: the shared card shows no message count or unread state yet (one follow-up for all
+three lists); every forum page reads the cached node list once more.
