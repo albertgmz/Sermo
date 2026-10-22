@@ -220,3 +220,20 @@ export function distanceToRects(x: number, y: number, rects: Rect[]) {
   }
   return nearest;
 }
+
+// How far a point is from the button and the picker, 0 on either. A picker asked for but not drawn
+// yet (its code is still on its way) counts as everywhere near: the slide waits for it instead of
+// giving up, and once it is drawn its own box is measured.
+export function gestureDistance(
+  x: number,
+  y: number,
+  button: Rect | undefined,
+  picker: Rect | "awaited" | undefined,
+) {
+  if (picker === "awaited") return 0;
+  return distanceToRects(
+    x,
+    y,
+    [button, picker].filter((rect) => rect !== undefined),
+  );
+}

@@ -11,6 +11,7 @@ import {
   distanceToRects,
   type GestureEffect,
   type GestureEvent,
+  gestureDistance,
   type Hit,
   HOLD_MS,
   idleGesture,
@@ -41,12 +42,15 @@ function vibrate() {
 // effects. While the finger slides, the page does not scroll and no text is selected.
 export function useReactionGesture({
   picker,
+  pickerAsked,
   given,
   open,
   close,
   choose,
 }: {
   picker: RefObject<HTMLElement | null>;
+  // The picker is open or on its way (see `gestureDistance`).
+  pickerAsked: () => boolean;
   given: number | null;
   open: () => void;
   close: () => void;
@@ -157,15 +161,15 @@ export function useReactionGesture({
       ?.closest(REACTION_SELECTOR)
       ?.getAttribute("data-reaction-id");
     const buttonRect = button.current?.getBoundingClientRect();
-    const rects = [buttonRect, picker.current?.getBoundingClientRect()].filter(
-      (rect) => rect !== undefined,
-    );
+    const pickerRect =
+      picker.current?.getBoundingClientRect() ??
+      (pickerAsked() ? "awaited" : undefined);
     return {
       reactionId: id == null ? null : Number(id),
       overButton: buttonRect
         ? distanceToRects(x, y, [buttonRect]) === 0
         : false,
-      distance: distanceToRects(x, y, rects),
+      distance: gestureDistance(x, y, buttonRect, pickerRect),
     };
   }
 

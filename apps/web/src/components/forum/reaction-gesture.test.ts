@@ -5,6 +5,7 @@ import {
   type GestureEffect,
   type GestureEvent,
   type GestureState,
+  gestureDistance,
   type Hit,
   idleGesture,
   locksPage,
@@ -416,5 +417,60 @@ describe("distanceToRects", () => {
 
   test("is infinite with nothing to measure to", () => {
     expect(distanceToRects(0, 0, [])).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe("a picker whose code is still on its way", () => {
+  const button = { left: 80, top: 280, right: 120, bottom: 320 };
+  // 100 px above the button: where the picker will be drawn.
+  const above = (awaited: boolean): Hit => ({
+    reactionId: null,
+    overButton: false,
+    distance: gestureDistance(
+      100,
+      200,
+      button,
+      awaited ? "awaited" : undefined,
+    ),
+  });
+
+  test("a slide toward it after the hold waits for it, and a lift on a reaction once it is drawn gives that one", () => {
+    const { state, effects } = run([
+      touchDown(),
+      { type: "hold" },
+      move(above(true)),
+      // The code arrived and the picker is drawn under the finger.
+      move(onReaction(4)),
+      { type: "up", pointerId: 1, hit: onReaction(4) },
+    ]);
+    expect(effects).not.toContainEqual({ type: "close" });
+    expect(effects).toContainEqual({ type: "choose", typeId: 4 });
+    expect(state.phase).toBe("idle");
+  });
+
+  test("a lift before it is drawn leaves it to open for a tap", () => {
+    const { effects } = run([
+      touchDown(),
+      { type: "hold" },
+      move(above(true)),
+      { type: "up", pointerId: 1, hit: above(true) },
+    ]);
+    expect(effects).not.toContainEqual({ type: "close" });
+  });
+
+  test("measured from the button alone, the same slide would give up", () => {
+    expect(above(false).distance).toBeGreaterThan(CANCEL_DISTANCE_PX);
+    const { effects } = run([
+      touchDown(),
+      { type: "hold" },
+      move(above(false)),
+    ]);
+    expect(effects).toContainEqual({ type: "close" });
+  });
+
+  test("once drawn, the picker's own box is measured", () => {
+    const picker = { left: 60, top: 150, right: 300, bottom: 250 };
+    expect(gestureDistance(100, 200, button, picker)).toBe(0);
+    expect(gestureDistance(100, 50, button, picker)).toBe(100);
   });
 });

@@ -86,23 +86,41 @@ export const PICKER_TRIGGER_CLASS =
   "sr-only inline-flex items-center justify-center rounded-md text-muted-foreground focus-visible:not-sr-only focus-visible:size-10 md:focus-visible:size-8";
 
 // The picker's code (Base UI's popover and the positioning library with it) is not part of the
-// page's first load: it is fetched when the button is first reached for (a pointer over it, a
-// touch, focus: `warm`), so the hover delay or the hold hides the fetch, and handed to `arrived`
-// when the picker is asked for (`want(true)`) and still wanted once it is there. A fetch that
-// fails twice runs `failed`; the next gesture asks again.
-export function pickerCode<C>(
+// page's first load. `handlers` fetch it when the button is first reached for (the pointer coming
+// over it, a touch, focus on it or on the picker's trigger), so the hover delay or the hold hides
+// the fetch. `show` opens or closes the picker: asked for, it is handed to `arrived` once its code
+// is there and it is still wanted. A fetch that fails twice closes it, and from then on only an
+// opening fetches again, so a pointer sweeping a list of buttons offline asks for nothing.
+export function createPickerControl<C>(
   load: Loader<C>,
-  arrived: (picker: C) => void,
-  failed: () => void,
+  view: { arrived: (picker: C) => void; setOpen: (open: boolean) => void },
 ) {
+  let asked = false;
+  let failed = false;
   const opener = createOpener(load, {
     slot: "reaction",
-    show: () => arrived(loadedCode(load) as C),
-    fail: failed,
+    show: () => view.arrived(loadedCode(load) as C),
+    fail: () => {
+      failed = true;
+      asked = false;
+      view.setOpen(false);
+    },
   });
+  const warm = () => {
+    if (!failed) opener.warm();
+  };
   return {
-    warm: opener.warm,
-    want: (open: boolean) => (open ? opener.open() : opener.cancel()),
+    handlers: { onPointerEnter: warm, onTouchStart: warm, onFocus: warm },
+    show(next: boolean) {
+      asked = next;
+      if (next) {
+        failed = false;
+        opener.open();
+      } else opener.cancel();
+      view.setOpen(next);
+    },
+    // The picker is open or on its way: while it is not drawn yet, a slide toward it waits for it.
+    asked: () => asked,
   };
 }
 
@@ -150,12 +168,11 @@ export function ReactionButton(props: {
   const [open, setOpen] = useState(false);
   // The picker, once it was asked for and its code is there; a plain trigger until then.
   const [Picker, setPicker] = useState<ComponentType<ReactionPickerProps>>();
-  const [loader] = useState(() =>
-    pickerCode(
-      loadPicker,
-      (code) => setPicker(() => code),
-      () => setOpen(false),
-    ),
+  const [control] = useState(() =>
+    createPickerControl(loadPicker, {
+      arrived: (code) => setPicker(() => code),
+      setOpen,
+    }),
   );
   const [placement, setPlacement] = useState<PickerPlacement>();
   const anchor = useRef<HTMLSpanElement>(null);
@@ -165,7 +182,7 @@ export function ReactionButton(props: {
 
   useEffect(() => () => clearTimeout(timer.current), []);
   // A button drawn away while its picker's code is on its way wants it no more.
-  useEffect(() => () => loader.want(false), [loader]);
+  useEffect(() => () => control.show(false), [control]);
 
   useEffect(() => {
     if (!refusal) return;
@@ -191,6 +208,7 @@ export function ReactionButton(props: {
 
   const gesture = useReactionGesture({
     picker,
+    pickerAsked: control.asked,
     given: current,
     open: () => {
       clearTimeout(timer.current);
@@ -245,8 +263,7 @@ export function ReactionButton(props: {
   function show(next: boolean) {
     const placed = next && placementNow(anchor.current, types.length);
     if (placed) setPlacement(placed);
-    loader.want(next);
-    setOpen(next);
+    control.show(next);
   }
 
   function schedule(next: boolean, delay: number) {
@@ -278,7 +295,6 @@ export function ReactionButton(props: {
 
   const hover = {
     onPointerEnter: (event: React.PointerEvent) => {
-      loader.warm();
       // Right after a drag the enter is the capture letting go: it must not open the picker again.
       if (event.pointerType === "mouse" && !gesture.justReleased()) {
         schedule(true, HOVER_OPEN_MS);
@@ -306,8 +322,7 @@ export function ReactionButton(props: {
           count,
         })}
         className={buttonClass}
-        onFocus={loader.warm}
-        onTouchStart={loader.warm}
+        {...control.handlers}
         {...gesture.handlers}
         onClick={() => {
           if (gesture.consumeSwallowedClick()) return;
@@ -350,7 +365,7 @@ export function ReactionButton(props: {
           aria-expanded="false"
           aria-label={t("aria.choose")}
           className={PICKER_TRIGGER_CLASS}
-          onFocus={loader.warm}
+          {...control.handlers}
           onClick={() => {
             viaTrigger.current = true;
             show(!open);

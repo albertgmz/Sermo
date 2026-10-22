@@ -23,7 +23,9 @@ afterAll(() => {
   mock.module("next/navigation", () => navigation);
   mock.module("next-intl", () => intl);
 });
-const { ReactionButton, pickerCode } = await import("./reaction-button");
+const { ReactionButton, createPickerControl } = await import(
+  "./reaction-button"
+);
 const { default: ReactionPicker } = await import("./reaction-picker");
 
 const types = [
@@ -43,73 +45,91 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+// A control with a stand-in for the button: what it was handed and whether it is open.
 function recorder(load: () => Promise<{ default: string }>) {
-  const seen = { arrived: [] as string[], failed: 0 };
-  const code = pickerCode(
-    load,
-    (picker) => seen.arrived.push(picker),
-    () => seen.failed++,
-  );
-  return { code, seen };
+  const seen = { arrived: [] as string[], open: [] as boolean[] };
+  const control = createPickerControl(load, {
+    arrived: (picker) => seen.arrived.push(picker),
+    setOpen: (open) => seen.open.push(open),
+  });
+  return { control, seen };
 }
 
-test("the first pointer over the button fetches the picker's code and opens nothing", async () => {
-  let fetched = 0;
-  const { code, seen } = recorder(async () => {
-    fetched += 1;
+function counting() {
+  const calls = { fetched: 0 };
+  const load = async () => {
+    calls.fetched += 1;
     return { default: "picker" };
-  });
-  code.warm();
-  code.warm();
-  await tick();
-  expect(fetched).toBe(1);
-  expect(seen.arrived).toEqual([]);
-  // Asked for once the code is there, it is handed over at once.
-  code.want(true);
-  expect(seen.arrived).toEqual(["picker"]);
-});
+  };
+  return { calls, load };
+}
 
-test("a picker asked for before its code arrives opens when it does", async () => {
+for (const handler of ["onPointerEnter", "onTouchStart", "onFocus"] as const) {
+  test(`${handler} on the button fetches the picker's code once and opens nothing`, async () => {
+    const { calls, load } = counting();
+    const { control, seen } = recorder(load);
+    control.handlers[handler]();
+    control.handlers[handler]();
+    await tick();
+    expect(calls.fetched).toBe(1);
+    expect(seen).toEqual({ arrived: [], open: [] });
+    // Asked for once the code is there, it is handed over at once.
+    control.show(true);
+    expect(seen).toEqual({ arrived: ["picker"], open: [true] });
+  });
+}
+
+test("opening the picker fetches its code and draws it when it arrives", async () => {
   const slow = deferred();
-  const { code, seen } = recorder(() => slow.promise);
-  code.want(true);
-  expect(seen.arrived).toEqual([]);
+  const { control, seen } = recorder(() => slow.promise);
+  control.show(true);
+  expect(seen).toEqual({ arrived: [], open: [true] });
+  // The slide toward it waits for it meanwhile.
+  expect(control.asked()).toBe(true);
   slow.resolve({ default: "picker" });
   await tick();
   expect(seen.arrived).toEqual(["picker"]);
+  control.show(false);
+  expect(control.asked()).toBe(false);
 });
 
 test("a picker closed again before its code arrives does not open", async () => {
   const slow = deferred();
-  const { code, seen } = recorder(() => slow.promise);
-  code.want(true);
+  const { control, seen } = recorder(() => slow.promise);
+  control.show(true);
   // The pointer left, or the hold was let go.
-  code.want(false);
+  control.show(false);
   slow.resolve({ default: "picker" });
   await tick();
-  expect(seen.arrived).toEqual([]);
+  expect(seen).toEqual({ arrived: [], open: [true, false] });
 });
 
-test("a code that cannot be fetched closes the picker without throwing, and the next gesture asks again", async () => {
+test("a code that cannot be fetched closes the picker without throwing; only the next opening asks again", async () => {
   let attempts = 0;
   let online = false;
-  const { code, seen } = recorder(() => {
+  const { control, seen } = recorder(() => {
     attempts += 1;
     return online
       ? Promise.resolve({ default: "picker" })
       : Promise.reject(new Error("chunk load failed"));
   });
-  code.warm();
-  code.want(true);
+  control.show(true);
   await tick();
   await tick();
-  expect(seen.failed).toBe(1);
-  expect(seen.arrived).toEqual([]);
+  expect(seen).toEqual({ arrived: [], open: [true, false] });
+  expect(control.asked()).toBe(false);
+  // A pointer passing over, a touch or focus does not fetch again after a failure.
+  const tried = attempts;
+  control.handlers.onPointerEnter();
+  control.handlers.onTouchStart();
+  control.handlers.onFocus();
+  await tick();
+  expect(attempts).toBe(tried);
   online = true;
-  code.want(true);
+  control.show(true);
   await tick();
   expect(seen.arrived).toEqual(["picker"]);
-  expect(attempts).toBeGreaterThan(2);
+  expect(attempts).toBe(tried + 1);
 });
 
 // A static import of Base UI's popover (or of the picker) in the button's file would put its code,
@@ -124,6 +144,8 @@ test("the button's file loads the picker only on demand", () => {
     /^import \{[^}]*\} from "@\/components\/forum\/reaction-picker"/m,
   );
   expect(code).toContain('import("@/components/forum/reaction-picker")');
+  // The button and the plain trigger carry the handlers that fetch it.
+  expect(code.split("{...control.handlers}").length - 1).toBe(2);
 });
 
 // The first element of some markup that is the picker's trigger, with its attributes.

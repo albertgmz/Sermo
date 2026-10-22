@@ -165,6 +165,106 @@ test.describe("signed in", () => {
     await expect(page.locator('[data-slot="popover-content"]')).toHaveCount(0);
   });
 
+  // The picker's code is fetched when the button is first reached for: on a fresh page the keyboard
+  // opens it from its own trigger, focus goes into it and comes back to the button.
+  test("the keyboard opens the reaction picker on a fresh page and gets focus back", async ({
+    page,
+  }) => {
+    const { peerThreadId } = seed();
+    await visit(page, `/threads/${peerThreadId}`);
+    const like = page.getByRole("button", { name: REACTION_BUTTON }).first();
+    const choose = like.locator("xpath=following-sibling::button[1]");
+    await expect(choose).toHaveAccessibleName("Choose a reaction");
+    await like.focus();
+    await page.keyboard.press("Tab");
+    await expect(choose).toBeFocused();
+    await page.keyboard.press("Enter");
+    const picker = page.locator('[data-slot="popover-content"]').first();
+    await expect(picker).toBeVisible();
+    await expect
+      .poll(() =>
+        picker.evaluate((element) => element.contains(document.activeElement)),
+      )
+      .toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(picker).toHaveCount(0);
+    await expect(like).toBeFocused();
+  });
+
+  // A slow first load: the hold runs out before the picker's code is there. The finger slides
+  // toward where the picker will be and waits for it, then lands on a reaction, all in one touch.
+  test("a first hold and slide onto a reaction works while the picker's code is slow", async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(
+      browserName !== "chromium",
+      "touch events are sent through the Chrome protocol",
+    );
+    const { peerThreadId } = seed();
+    await visit(page, `/threads/${peerThreadId}`);
+    // Every script fetched from now on (the picker's code among them) comes late.
+    await page.route(/\/_next\/static\/chunks\/.+\.js/, async (route) => {
+      await new Promise((done) => setTimeout(done, 2_000));
+      await route.continue();
+    });
+    const like = page.getByRole("button", { name: REACTION_BUTTON }).first();
+    const chosen = ((await like.getAttribute("aria-label")) ?? "").includes(
+      "Haha",
+    )
+      ? "Wow"
+      : "Haha";
+    await like.evaluate((element) =>
+      element.scrollIntoView({ block: "center" }),
+    );
+    const spot = await box(like);
+    const x = spot.x + spot.width / 2;
+    const y = spot.y + spot.height / 2;
+    const touch = await context.newCDPSession(page);
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y }],
+    });
+    // Past the 450 ms hold, the code still on its way.
+    await page.waitForTimeout(800);
+    const picker = page.locator('[data-slot="popover-content"]').first();
+    await expect(picker).toHaveCount(0);
+    // Further up than a finger's width from the button: measured from the button alone, the
+    // gesture would give up here.
+    for (let step = 1; step <= 4; step += 1) {
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x, y: y - step * 20 }],
+      });
+    }
+    await expect(picker).toBeVisible();
+    await picker.evaluate((element) =>
+      Promise.all(
+        element.getAnimations().map((animation) => animation.finished),
+      ),
+    );
+    const target = await box(picker.getByRole("button", { name: chosen }));
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        { x: target.x + target.width / 2, y: target.y + target.height / 2 },
+      ],
+    });
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await expect(
+      page
+        .getByRole("button", {
+          name: new RegExp(`^${chosen}, \\d+ reactions?`),
+        })
+        .first(),
+    ).toBeVisible();
+    await expect(picker).toHaveCount(0);
+  });
+
   // Item 15: the compact list.
   test("the compact feed list is kept over a reload and every row fits @all", async ({
     page,
