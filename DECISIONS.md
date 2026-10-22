@@ -6379,3 +6379,13 @@ Why: the owner asked for media embeds from the most famous social sites. No oEmb
 (`@extractus/oembed-extractor` was considered): it would fetch from providers at save or view time
 (latency, SSRF surface, a cache) and return script embeds; fixed templates need no network call.
 Known limits: `vm.tiktok.com` / `fb.watch` short links and less common sites stay links.
+
+### Mail shows the logo as a PNG
+
+- A site logo upload also stores a `mail_logo` PNG variant (at most 480x80, transparency kept),
+  and mail branding uses it. A logo stored before this gets its variant on the first mail sent
+  after the deploy (once; concurrent mails share one run; a failure is logged once and the mail
+  falls back to the stored logo).
+
+Why: the logo is stored as WebP, and mail clients and their image proxies that drop WebP
+transparency drew fcuba's transparent logo on a black box.
