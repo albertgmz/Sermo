@@ -260,6 +260,9 @@ test("a refusal reaches a Spanish reader in Spanish, by cookie or Accept-Languag
   expect(await missing({ "accept-language": "es-CU,es;q=0.9" })).toBe(
     "No se encontró lo que pides.",
   );
+  expect(await missing({ "accept-language": "en;q=0.5, es;q=0.9" })).toBe(
+    "No se encontró lo que pides.",
+  );
   expect(await missing({ cookie: "forum_locale=en", "accept-language": "es" })).toBe(
     "The requested item could not be found.",
   );

@@ -36,43 +36,80 @@ const NAMED = [
   "ACCEPTANCE_REQUIRED_MESSAGE",
 ];
 
-// A refusal's text is written inside the constructor, or in the constant or `message` variable
-// declared just before it. One built any other way is not seen here.
+// A refusal's text is a string literal in one of these places: the arguments of an error
+// constructor or of a helper that makes one, a `message:` property (an issue shown under a form
+// field), the declaration of a constant or `message` variable, and the message argument of a Zod
+// check in the contracts. Every literal of such a place that reads as a sentence (it holds a
+// space) must have a Spanish text, so a ternary or a second argument is seen as well.
 const ROOTS = [join(import.meta.dir, ".."), join(import.meta.dir, "../../../api/src")];
-const FORMS = [
-  String.raw`new\s+(?:Validation|Forbidden|NotFound|Conflict|Unauthenticated|RateLimited)Error\(`,
-  String.raw`\b(?:const|let)\s+(?:message|${NAMED.join("|")})\s*=`,
-  String.raw`\b(?:invalid|refuse)\(`,
-  String.raw`\b(?:uploadRefusal|errorBody)\(\s*"\w+",`,
-];
-const CONSTRUCTOR = new RegExp(`(?:${FORMS.join("|")})\\s*(["\`])`, "g");
+const CALLS = String.raw`(?:new\s+(?:Validation|Forbidden|NotFound|Conflict|Unauthenticated|RateLimited)Error|\b(?:invalid|refuse|uploadRefusal|errorBody))\(`;
+const ZOD_CALLS = String.raw`\.(?:regex|min|max|length|refine|superRefine|url|email|startsWith|endsWith|includes)\(`;
+const ASSIGNED = String.raw`\b(?:const|let)\s+(?:message|${NAMED.join("|")})\s*=`;
+const MESSAGE_KEY = String.raw`\bmessage:\s*(?=["\`])`;
 
-// The text starting at the quote at `at`, with each `${...}` as `{}`, or null when more follows it
-// than the end of the argument (a concatenation).
-function textAt(source: string, at: number): string | null {
-  const quote = source[at];
-  let text = "";
-  let index = at + 1;
-  while (index < source.length && source[index] !== quote) {
-    if (source[index] === "\\") {
-      text += quote === '"' ? JSON.parse(`"${source.slice(index, index + 2)}"`) : source[index + 1];
-      index += 2;
-    } else if (quote === "`" && source.startsWith("${", index)) {
-      let depth = 0;
+// Every string literal from `from` to the end of the parenthesis it sits in (or, for an assignment
+// or a property, to the end of the statement or entry), each `${...}` as `{}`.
+function literalsFrom(source: string, from: number, closer: RegExp): string[] {
+  const found: string[] = [];
+  let depth = 0;
+  let index = from;
+  while (index < source.length) {
+    const char = source[index] as string;
+    if (char === '"' || char === "'" || char === "`") {
+      let text = "";
       index++;
-      do {
-        if (source[index] === "{") depth++;
-        if (source[index] === "}") depth--;
+      while (index < source.length && source[index] !== char) {
+        if (source[index] === "\\") {
+          text += source[index + 1];
+          index += 2;
+        } else if (char === "`" && source.startsWith("${", index)) {
+          let braces = 0;
+          index++;
+          do {
+            if (source[index] === "{") braces++;
+            if (source[index] === "}") braces--;
+            index++;
+          } while (braces > 0);
+          text += "{}";
+        } else text += source[index++];
+      }
+      index++;
+      found.push(text);
+      continue;
+    }
+    // A regular expression literal: skip it whole, its quotes and parentheses are not code.
+    if (char === "/" && /[(,=:]\s*$/.test(source.slice(Math.max(0, index - 6), index))) {
+      let inClass = false;
+      index++;
+      while (index < source.length && (inClass || source[index] !== "/")) {
+        if (source[index] === "\\") index++;
+        else if (source[index] === "[") inClass = true;
+        else if (source[index] === "]") inClass = false;
         index++;
-      } while (depth > 0);
-      text += "{}";
-    } else text += source[index++];
+      }
+      index++;
+      continue;
+    }
+    if ("([{".includes(char)) depth++;
+    if (")]}".includes(char)) {
+      if (depth === 0) break;
+      depth--;
+    }
+    if (depth === 0 && closer.test(char)) break;
+    index++;
   }
-  return /^\s*[,);]/.test(source.slice(index + 1)) ? text : null;
+  return found;
 }
 
 function sourceRefusals(): Map<string, string> {
   const found = new Map<string, string>();
+  const forms: [RegExp, RegExp, (name: string) => boolean][] = [
+    [new RegExp(CALLS, "g"), /$^/, () => true],
+    [new RegExp(ZOD_CALLS, "g"), /$^/, (name) => name.startsWith("contracts/")],
+    [new RegExp(ASSIGNED, "g"), /;/, () => true],
+    // Better Auth's own answers (`APIError` bodies) are not the services' refusals.
+    [new RegExp(MESSAGE_KEY, "g"), /,/, (name) => !name.startsWith("modules/auth/")],
+  ];
   for (const root of ROOTS)
     for (const name of readdirSync(root, { recursive: true, encoding: "utf8" })) {
       // Registration refusals are Better Auth's own answers, not the services'.
@@ -84,9 +121,12 @@ function sourceRefusals(): Map<string, string> {
       )
         continue;
       const source = readFileSync(join(root, name), "utf8");
-      for (const match of source.matchAll(CONSTRUCTOR)) {
-        const text = textAt(source, match.index + match[0].length - 1);
-        if (text !== null) found.set(text, name);
+      for (const [pattern, closer, applies] of forms) {
+        if (!applies(name)) continue;
+        for (const match of source.matchAll(pattern))
+          for (const text of literalsFrom(source, match.index + match[0].length, closer))
+            if (/\s/.test(text.trim()) && /[a-z]/i.test(text) && !/^SELECT /.test(text))
+              found.set(text, name);
       }
     }
   return found;

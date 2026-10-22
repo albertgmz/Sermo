@@ -14,9 +14,19 @@ export function requestLanguage(headers: Headers | undefined): string | null {
   );
   const chosen = supported(cookie?.[1]);
   if (chosen) return chosen;
-  for (const part of (headers.get("accept-language") ?? "").split(",")) {
-    const found = supported(part.split(";")[0]?.trim());
-    if (found) return found;
-  }
+  // By weight (a missing q is 1, a refusal q=0 is skipped), then by position.
+  const ranked = (headers.get("accept-language") ?? "")
+    .split(",")
+    .map((part, position) => {
+      const [tag = "", ...params] = part.trim().split(";");
+      const q = params
+        .map((param) => /^\s*q\s*=(.*)$/i.exec(param)?.[1])
+        .find((v) => v !== undefined);
+      const weight = q === undefined ? 1 : Number(q.trim() === "" ? Number.NaN : q);
+      return { found: supported(tag.trim()), weight: Number.isNaN(weight) ? 0 : weight, position };
+    })
+    .filter((entry) => entry.found && entry.weight > 0)
+    .sort((a, b) => b.weight - a.weight || a.position - b.position);
+  if (ranked[0]?.found) return ranked[0].found;
   return null;
 }

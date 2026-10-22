@@ -7,15 +7,15 @@ import { buttonVariants } from "@/components/ui/button";
 import { localeCookieValue } from "@/i18n/locale-cookie";
 import { type ErrorLook, errorLook } from "@/lib/error-look";
 import { cn } from "@/lib/utils";
-import { globalError as en } from "../../messages/en/layout.json";
-import { globalError as es } from "../../messages/es/layout.json";
+import enLayout from "../../messages/en/layout.json";
+import esLayout from "../../messages/es/layout.json";
 import "./globals.css";
 
 // Shown when the root layout itself fails, so it stands without the layout's providers, fonts and
 // shell: it has its own document and reads its text straight from the messages. It sits outside
 // the language segment, so it has no locale to follow: it draws English and light, then, once in
 // the browser, the language and theme the visitor chose (see `errorLook`).
-const TEXT = { en, es };
+const TEXT = { en: enLayout.globalError, es: esLayout.globalError };
 
 function storedTheme() {
   try {

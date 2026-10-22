@@ -172,7 +172,11 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   // cookie or Accept-Language, else the site's language) gets the Spanish text of it.
   app.use("/api/*", async (c, next) => {
     await next();
-    if (c.res.status < 400 || !c.res.headers.get("content-type")?.includes("application/json"))
+    if (
+      c.res.status < 400 ||
+      c.res.status >= 500 ||
+      !c.res.headers.get("content-type")?.includes("application/json")
+    )
       return;
     const language = languageFor(
       requestLanguage(c.req.raw.headers),

@@ -221,6 +221,14 @@ describe("users.list", () => {
 });
 
 describe("users.staff", () => {
+  test("the built-in staff groups are named in the site's language", async () => {
+    const w = world();
+    await w.call("settings.update", w.adminActor, { defaultLanguage: "es" });
+    const result = await w.call("users.staff", GUEST, {});
+    const admin = result.items.find((item: { card: { id: number } }) => item.card.id === w.admin.id);
+    expect(admin.groups).toEqual(["Administrador"]);
+  });
+
   test("members of staff groups by every route, highest rank first, then username", async () => {
     const w = world();
     const lead = w.group({ title: "Lead", rank: 60 });

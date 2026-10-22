@@ -1,14 +1,17 @@
 import * as z from "zod";
 import { type Ctx, prepared } from "../../context";
 import { type MEMBER_SORTS, usersBirthdays, usersList, usersStaff } from "../../contracts/members";
+import { languageFor } from "../../i18n";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { requirePermission } from "../../permissions";
+import { builtinGroupText } from "../../shared/language";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { scanKeyset } from "../feed/scan";
 import { isBanned, openableProfiles } from "./access";
 import { loadMemberCards } from "./cards";
+import { readSiteSettings } from "../settings";
 import { requireSiteView } from "./site-access";
 
 type Sort = (typeof MEMBER_SORTS)[number];
@@ -154,7 +157,7 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
 // users.staff -----------------------------------------------------------------------------------
 
 export const staffSql = {
-  groups: "SELECT id, title, rank FROM groups WHERE is_staff = 1",
+  groups: "SELECT id, title, rank, builtin FROM groups WHERE is_staff = 1",
   /** Members of the staff groups `?1` through one source; `users_group`, `user_groups_group`, ... */
   members: (table: "users" | "user_groups" | "user_group_grants" | "shop_group_grants") =>
     `SELECT t.${table === "users" ? "id" : "user_id"} AS user_id, j.value AS group_id FROM json_each(?1) AS j CROSS JOIN ${table} AS t ON t.group_id = j.value LIMIT ${STAFF_LIMIT}`,
@@ -170,7 +173,9 @@ const STAFF_SOURCES = ["users", "user_groups", "user_group_grants", "shop_group_
  */
 export function staffMembership(ctx: Ctx) {
   const groups = prepared(ctx, "members.staffGroups", () =>
-    ctx.sqlite.prepare<{ id: number; title: string; rank: number }, []>(staffSql.groups),
+    ctx.sqlite.prepare<{ id: number; title: string; rank: number; builtin: string | null }, []>(
+      staffSql.groups,
+    ),
   ).all();
   const staffGroupsOf = new Map<number, Set<number>>();
   if (groups.length === 0) return { groups, staffGroupsOf };
@@ -221,10 +226,20 @@ export const usersStaffOp = implement(usersStaff, (ctx, actor) => {
     actor,
     page.map((row) => row.userId),
   );
+  const language = languageFor(null, readSiteSettings(ctx).defaultLanguage);
   return {
     items: page.flatMap((row) => {
       const card = cards.get(row.userId);
-      return card ? [{ card, groups: row.mine.map((group) => group.title) }] : [];
+      return card
+        ? [
+            {
+              card,
+              groups: row.mine.map((group) =>
+                builtinGroupText(language, group.builtin, "title", group.title),
+              ),
+            },
+          ]
+        : [];
     }),
   };
 });
