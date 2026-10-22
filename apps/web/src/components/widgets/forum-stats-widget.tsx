@@ -29,6 +29,7 @@ export function ForumStatsWidget({
     <ForumStats
       title={title}
       limit={widget.options.limit}
+      topPosters={widget.options.topPosters}
       active={active}
       hrefFor={(tab) =>
         context.href(tab === STATS_TABS[0].value ? [] : [[param, tab]])

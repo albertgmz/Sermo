@@ -269,19 +269,25 @@ export function SidebarSkeleton() {
   );
 }
 
+// The ten rows of a forum statistics tab: the starter's avatar and the title.
+export function ForumStatsRowsSkeleton() {
+  return (
+    <div aria-hidden="true" className="divide-y">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((row) => (
+        <div key={row} className="flex min-h-8 items-center gap-2 px-2 py-1">
+          <Skeleton className="size-6 shrink-0 rounded-full" />
+          <Skeleton className="h-3 w-2/3" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ForumStatsSkeleton() {
   return (
     <CardSkeleton>
-      <div className="hidden md:block">
-        <div className="min-w-0">
-          <TabsSkeleton />
-          <div className="divide-y">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((row) => (
-              <MemberRowSkeleton key={row} />
-            ))}
-          </div>
-        </div>
-      </div>
+      <TabsSkeleton />
+      <ForumStatsRowsSkeleton />
     </CardSkeleton>
   );
 }

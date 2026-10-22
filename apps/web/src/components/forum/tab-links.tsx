@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { TabMore } from "@/components/forum/tab-more";
+import { TabStripArrow } from "@/components/forum/tab-strip-arrow";
 import { cn } from "@/lib/utils";
 
 export type TabLink = {
@@ -38,6 +39,7 @@ const NARROW_TAB = "relative max-sm:px-2.5";
 //   tabs   The tabs of the bar.
 //   more   Tabs that do not fit the bar: a menu at its end, named `moreLabel`, holds them.
 //   narrow Below `sm` every tab but the open one, and the menu button, shows only its icon.
+//   arrow  A ">" over the bar's right end while tabs lie beyond it; a press scrolls the bar on.
 export function TabLinks({
   tabs,
   active,
@@ -47,6 +49,7 @@ export function TabLinks({
   more,
   moreLabel,
   narrow = false,
+  arrow = false,
 }: {
   tabs: TabLink[];
   active: string;
@@ -56,9 +59,10 @@ export function TabLinks({
   more?: TabLink[];
   moreLabel?: string;
   narrow?: boolean;
+  arrow?: boolean;
 }) {
   const tabClass = cn(TAB_CLASS, VARIANTS[variant].link, narrow && NARROW_TAB);
-  return (
+  const bar = (
     <nav
       aria-label={label}
       className={cn("flex", VARIANTS[variant].nav, className)}
@@ -97,5 +101,12 @@ export function TabLinks({
         />
       )}
     </nav>
+  );
+  if (!arrow) return bar;
+  return (
+    <div className="relative">
+      {bar}
+      <TabStripArrow />
+    </div>
   );
 }

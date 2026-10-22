@@ -1,105 +1,136 @@
-import { threadsRanked } from "@sermo/core/contracts";
-import { Eye, type LucideIcon, MessageCircle } from "lucide-react";
+import { threadsRanked, usersList } from "@sermo/core/contracts";
+import {
+  Eye,
+  type LucideIcon,
+  MessageCircle,
+  MessageSquarePlus,
+  MessageSquareText,
+  MessagesSquare,
+  ThumbsUp,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Suspense } from "react";
+import type * as z from "zod";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { RankNumber } from "@/components/forum/leaderboard";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import { PresenceDot } from "@/components/forum/presence-dot";
 import { RelativeTime } from "@/components/forum/relative-time";
-import { LoadingRegion, MemberRowSkeleton } from "@/components/forum/skeletons";
+import {
+  ForumStatsRowsSkeleton,
+  LoadingRegion,
+} from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { drawnOrNothing } from "@/components/widgets/drawn-or-nothing";
-import { formatCompact } from "@/lib/format";
+import { formatCompact, formatNumber } from "@/lib/format";
 import { readIfAllowed } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
+import { onlineMembers } from "@/lib/sermo/presence";
 import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
 
-type Figure = "replies" | "views";
-
-const FIGURES: Record<
-  Figure,
-  { label: Figure; icon: LucideIcon; value: (thread: ApiThread) => number }
-> = {
-  replies: {
-    label: "replies",
-    icon: MessageCircle,
-    value: (thread) => thread.replyCount,
-  },
-  views: { label: "views", icon: Eye, value: (thread) => thread.viewCount },
-};
-
-// `figure` is the one the list is about; it stays visible at every width. The backend does not
-// say how many reactions a thread has, so the most reacted list shows its replies.
+// The tabs, as fcuba's forum statistics had them. The three "most" lists rank the threads active
+// in the last 30 days (the backend's window).
 export const STATS_TABS = [
   {
     value: "posts",
     label: "postsTab",
     by: "latestPosts",
-    figure: "replies",
+    icon: MessageSquareText,
   },
   {
     value: "threads",
     label: "threadsTab",
     by: "latestThreads",
-    figure: "replies",
+    icon: MessagesSquare,
   },
   {
     value: "replied",
     label: "repliedTab",
     by: "mostReplied",
-    figure: "replies",
+    icon: MessageSquarePlus,
   },
   {
     value: "reacted",
     label: "reactedTab",
     by: "mostReacted",
-    figure: "replies",
+    icon: ThumbsUp,
   },
-  {
-    value: "viewed",
-    label: "viewedTab",
-    by: "mostViewed",
-    figure: "views",
-  },
+  { value: "viewed", label: "viewedTab", by: "mostViewed", icon: Eye },
 ] as const satisfies readonly {
   value: string;
   label: string;
   by: string;
-  figure: Figure;
+  icon: LucideIcon;
 }[];
 
 export type StatsTab = (typeof STATS_TABS)[number]["value"];
 
+// The figures of a row. The backend does not say how many reactions a thread has, so the most
+// reacted list shows its replies and views too.
+const FIGURES = [
+  {
+    label: "replies",
+    icon: MessageCircle,
+    value: (thread: ApiThread) => thread.replyCount,
+  },
+  {
+    label: "views",
+    icon: Eye,
+    value: (thread: ApiThread) => thread.viewCount,
+  },
+] as const;
+
+// A column after the title, at XenForo's width: a faint line on its left.
+const CELL = "shrink-0 items-center border-l pl-2";
+
+// One thread of a tab, on one line. As the panel narrows the columns go in XenForo's order (the
+// panel's own width, not the window's): the date and the rank below 48rem, the replies and views
+// below 42rem, the last poster below 36rem and the forum below 28rem, leaving the starter's
+// avatar and the title. An unread thread's title is bold and opens at its first unread post.
 function ThreadRow({
   thread,
   member,
   rank,
-  figure,
+  online,
 }: {
   thread: ApiThread;
   member: Awaited<ReturnType<typeof membersFor>>;
   rank: number;
-  figure: Figure;
+  online: ReadonlySet<number> | null;
 }) {
   const locale = useLocale();
   const t = useTranslations("forums.forumStats");
+  const unread = useTranslations("forum.unreadDot");
   const card = threadCard(thread, member);
   return (
-    <li className="flex items-center gap-3 px-3 py-2.5 md:px-4">
-      <RankNumber rank={rank} medal={false} />
-      <UserAvatar
-        user={card.author.member}
-        className="relative after:absolute after:-inset-1"
-      />
-      <div className="min-w-0 flex-1">
+    <li className="flex min-h-8 items-stretch gap-2 px-2 text-compact even:bg-muted/50">
+      <span className="hidden items-center @3xl:flex">
+        <RankNumber rank={rank} medal={false} />
+      </span>
+      <span className="flex shrink-0 items-center py-1">
+        <span className="relative">
+          <UserAvatar user={card.author.member} size="sm" />
+          {online && <PresenceDot online={online.has(thread.author.id)} />}
+        </span>
+      </span>
+      <span className="flex min-w-0 flex-1 items-center py-1">
         <ThreadHoverCard
           thread={card}
-          className="line-clamp-2 w-fit max-w-full text-sm font-medium [overflow-wrap:anywhere] hover:underline @lg:line-clamp-1"
+          href={
+            thread.isUnread
+              ? `/threads/${thread.id}/unread`
+              : `/threads/${thread.id}`
+          }
+          className={cn(
+            "block max-w-full truncate hover:underline",
+            thread.isUnread ? "font-bold" : "font-medium",
+          )}
         >
           {card.prefix && (
             <PrefixTag
@@ -108,59 +139,67 @@ function ThreadRow({
             />
           )}
           {card.title}
+          {thread.isUnread && (
+            <span className="sr-only"> ({unread("aria.label")})</span>
+          )}
         </ThreadHoverCard>
-        <p className="truncate text-xs text-muted-foreground">
-          {t.rich("activity", {
-            forumTitle: card.forum.title,
-            forum: (chunks) => (
-              <Link
-                href={`/forums/${card.forum.id}`}
-                className="font-medium underline-offset-4 hover:text-foreground hover:underline"
-              >
-                {chunks}
-              </Link>
-            ),
-            time: () => <RelativeTime date={card.lastPost.createdAt} />,
-            author: () => <UserLink user={card.lastPost.author.member} />,
-          })}
-        </p>
-      </div>
-      <dl className="flex shrink-0 text-xs text-muted-foreground tabular-nums">
-        {(Object.keys(FIGURES) as Figure[]).map((key) => {
-          const { label, icon: Icon, value } = FIGURES[key];
-          return (
-            <div
-              key={key}
-              className={cn(
-                "w-14 items-center justify-end gap-1",
-                key === figure ? "flex text-foreground" : "hidden @lg:flex",
-              )}
-            >
-              <dt>
-                <Icon aria-hidden="true" className="size-3.5" />
-                <span className="sr-only">{t(`aria.${label}`)}</span>
-              </dt>
-              <dd>{formatCompact(value(thread), locale)}</dd>
-            </div>
-          );
-        })}
+      </span>
+      <Link
+        href={`/forums/${card.forum.id}`}
+        className={cn(
+          CELL,
+          "hidden w-30 text-muted-foreground hover:text-foreground hover:underline @md:flex",
+        )}
+      >
+        <span className="truncate">{card.forum.title}</span>
+      </Link>
+      <dl className="hidden text-muted-foreground tabular-nums @2xl:flex">
+        {FIGURES.map(({ label, icon: Icon, value }) => (
+          <div
+            key={label}
+            className={cn(CELL, "flex w-17.5 justify-end gap-1 pr-2")}
+          >
+            <dt>
+              <Icon aria-hidden="true" className="size-3.5" />
+              <span className="sr-only">{t(`aria.${label}`)}</span>
+            </dt>
+            <dd>{formatCompact(value(thread), locale)}</dd>
+          </div>
+        ))}
       </dl>
+      <span
+        className={cn(CELL, "hidden w-22.5 text-muted-foreground @3xl:flex")}
+      >
+        <span className="sr-only">{t("aria.lastPost")}</span>
+        <RelativeTime date={card.lastPost.createdAt} className="truncate" />
+      </span>
+      <span className={cn(CELL, "hidden w-27.5 gap-1.5 @xl:flex")}>
+        <UserAvatar user={card.lastPost.author.member} size="xs" />
+        <UserLink
+          user={card.lastPost.author.member}
+          className="min-w-0 truncate"
+        />
+      </span>
     </li>
   );
 }
 
-// The panel of the forum statistics widget: `title` heads it, `limit` is how many threads a tab
-// lists. Whether it is open is kept per panel: `instance` is null for the page's first one (kept
-// under the name it has always had) and the widget's id for any other.
+// The forum statistics panel: `title` heads it, `limit` is how many threads a tab lists, and
+// `topPosters` adds the column of the members with most messages, drawn only where the panel is
+// wide enough (72rem, as XenForo hid it below a 1200-pixel window). Open until the visitor closes
+// it, a choice kept per panel: `instance` is null for the page's first one (kept under the name
+// it has always had) and the widget's id for any other.
 export function ForumStats({
   title,
   limit,
+  topPosters,
   active,
   hrefFor,
   instance,
 }: {
   title: string;
   limit: number;
+  topPosters: boolean;
   active: StatsTab;
   hrefFor: (tab: StatsTab) => string;
   instance: number | null;
@@ -171,44 +210,44 @@ export function ForumStats({
     STATS_TABS.find((entry) => entry.value === active) ?? STATS_TABS[0];
 
   return (
-    <CollapsiblePanel
-      title={title}
-      storageKey={`forum-stats-${part}open`}
-      defaultOpen="md"
-    >
-      <div className="min-w-0">
-        <TabLinks
-          tabs={STATS_TABS.map(({ value, label }) => ({
-            value,
-            label: t(label),
-            href: hrefFor(value),
-          }))}
-          active={tab.value}
-          label={t("aria.statistics")}
-          className="px-1"
-        />
-        <Suspense
-          fallback={
-            <LoadingRegion label={t("aria.loadingActivity")}>
-              <ol className="@container divide-y divide-border">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((row) => (
-                  <li key={row}>
-                    <MemberRowSkeleton />
-                  </li>
-                ))}
-              </ol>
-            </LoadingRegion>
-          }
-        >
-          <StatsRows tab={tab} limit={limit} />
-        </Suspense>
+    <CollapsiblePanel title={title} storageKey={`forum-stats-${part}open`}>
+      <div className="flex @container">
+        <div className="min-w-0 flex-1">
+          <TabLinks
+            tabs={STATS_TABS.map(({ value, label, icon: Icon }) => ({
+              value,
+              label: t(label),
+              href: hrefFor(value),
+              icon: <Icon aria-hidden="true" />,
+            }))}
+            active={tab.value}
+            label={t("aria.statistics")}
+            className="px-1"
+            arrow
+          />
+          <Suspense
+            fallback={
+              <LoadingRegion label={t("aria.loadingActivity")}>
+                <ForumStatsRowsSkeleton />
+              </LoadingRegion>
+            }
+          >
+            <StatsRows tab={tab} limit={limit} />
+          </Suspense>
+        </div>
+        {topPosters && (
+          <Suspense fallback={<TopPostersFrame />}>
+            <TopPosters />
+          </Suspense>
+        )}
       </div>
     </CollapsiblePanel>
   );
 }
 
 // The rows load after the panel's frame and tabs: a read that is refused or fails leaves the panel
-// without rows (logged), not the page broken.
+// without rows (logged), not the page broken. The lists leave out what the feed leaves out (the
+// forums the site keeps out of it, such as archives, and the ones the viewer hides).
 async function StatsRows({
   tab,
   limit,
@@ -217,21 +256,75 @@ async function StatsRows({
   limit: number;
 }) {
   return drawnOrNothing("The forum statistics rows", async () => {
-    const ranked = await readIfAllowed(threadsRanked, { by: tab.by, limit });
+    const [ranked, online] = await Promise.all([
+      readIfAllowed(threadsRanked, { by: tab.by, limit, feed: true }),
+      onlineMembers(),
+    ]);
     if (!ranked) return null;
     const member = await membersFor(ranked.items.flatMap(threadMembers));
     return (
-      <ol className="@container divide-y divide-border">
+      <ol className="max-h-89 divide-y overflow-y-auto [scrollbar-width:thin]">
         {ranked.items.map((thread, index) => (
           <ThreadRow
             key={thread.id}
             thread={thread}
             member={member}
             rank={index + 1}
-            figure={tab.figure}
+            online={online}
           />
         ))}
       </ol>
+    );
+  });
+}
+
+// The top posters' column, its heading level with the tabs.
+function TopPostersFrame({ children }: { children?: React.ReactNode }) {
+  const t = useTranslations("forums.forumStats");
+  return (
+    <section className="hidden w-1/5 shrink-0 border-l @6xl:block">
+      <h3 className="box-content flex h-11 items-center justify-center gap-1.5 border-b text-sm font-medium text-muted-foreground">
+        <Users aria-hidden="true" className="size-4 shrink-0" />
+        {t("topPosters")}
+      </h3>
+      {children ?? <ForumStatsRowsSkeleton />}
+    </section>
+  );
+}
+
+type TopPoster = z.output<typeof usersList.output>["items"][number];
+
+function TopPosterRows({ members }: { members: TopPoster[] }) {
+  const locale = useLocale();
+  const t = useTranslations("forums.forumStats");
+  return (
+    <ol className="max-h-89 divide-y overflow-y-auto [scrollbar-width:thin]">
+      {members.map(({ card, postCount }) => (
+        <li
+          key={card.id}
+          className="flex min-h-8 items-center gap-1.5 px-2 py-1 text-compact even:bg-muted/50"
+        >
+          <UserAvatar user={card} size="xs" />
+          <UserLink user={card} className="min-w-0 flex-1 truncate" />
+          <span className="shrink-0 text-muted-foreground tabular-nums">
+            <span className="sr-only">{t("aria.posts")} </span>
+            {formatNumber(postCount, locale)}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// The members with most messages; a visitor who may not see the member list gets no column.
+async function TopPosters() {
+  return drawnOrNothing("The forum statistics top posters", async () => {
+    const top = await readIfAllowed(usersList, { sort: "posts", limit: 10 });
+    if (!top || top.items.length === 0) return null;
+    return (
+      <TopPostersFrame>
+        <TopPosterRows members={top.items} />
+      </TopPostersFrame>
     );
   });
 }

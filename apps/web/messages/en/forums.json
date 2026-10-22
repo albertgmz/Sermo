@@ -29,17 +29,19 @@
     }
   },
   "forumStats": {
-    "activity": "<forum>{forumTitle}</forum> · <time></time> · <author></author>",
     "postsTab": "Latest posts",
     "threadsTab": "New threads",
     "repliedTab": "Most replied",
     "reactedTab": "Most reacted",
     "viewedTab": "Most viewed",
+    "topPosters": "Most messages",
     "aria": {
       "replies": "Replies",
       "views": "Views",
       "statistics": "Forum statistics",
-      "loadingActivity": "Loading forum activity…"
+      "loadingActivity": "Loading forum activity…",
+      "posts": "Messages",
+      "lastPost": "Last post"
     }
   },
   "forum": {

@@ -169,6 +169,9 @@
       "label": "Sin leer"
     }
   },
+  "presenceDot": {
+    "online": "Conectado"
+  },
   "userStats": {
     "messagesLabel": "Mensajes",
     "reactionsLabel": "Reacciones recibidas",

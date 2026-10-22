@@ -1017,6 +1017,15 @@ The forum statistics panel (the ranked thread lists: latest posts, latest thread
 most reacted, most viewed) is a widget (`forumStats`): it is drawn where one is placed and enabled.
 A new site places it above the forum list, enabled when the old site setting `forumStatsEnabled`
 was on; the setting itself no longer changes the pages. `threads.ranked` answers either way.
+Each tab lists `limit` threads (10 by default) and leaves out the forums the feed leaves out
+(`feedExcludedForumIds`, and the ones the viewer hides), so archives kept out of the feed stay out
+of the statistics too. A row is one line: rank, the starter's avatar with an online mark (green
+when seen in the last 15 minutes, red otherwise, none for a visitor who may not see the member
+list; members who hide their online status read as offline), the title (bold when unread, opening
+at the first unread post), forum, replies, views, last post date and last poster; the columns
+leave as the panel narrows, down to the avatar and title on phones. The option `topPosters` adds
+the "Most messages" column (the ten members with most posts), drawn where the panel is at least
+72rem wide. The panel is open until a visitor closes it.
 
 ## Home page and What's new
 
