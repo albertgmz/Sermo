@@ -321,6 +321,8 @@ describe("widgets management", () => {
       { type: "forumStats", options: { topPosters: "yes" } },
       { type: "rankedThreads", options: { by: "loudest" } },
       { type: "recentlyActive", options: { window: "1h" } },
+      { type: "recentlyActive", options: { limit: 0 } },
+      { type: "recentlyActive", options: { limit: 201 } },
       { type: "monthStandings", options: { limit: 11 } },
       { type: "text", options: {} },
       { type: "text", options: { body: "" } },
@@ -340,7 +342,13 @@ describe("widgets management", () => {
       type: "recentlyActive",
       options: { window: "15m" },
     });
-    expect(good.options).toEqual({ window: "15m" });
+    expect(good.options).toEqual({ window: "15m", limit: 50 });
+    const capped = await create({
+      position: "overview_top",
+      type: "recentlyActive",
+      options: { limit: 10 },
+    });
+    expect(capped.options).toEqual({ window: "24h", limit: 10 });
     expect(
       (await run(ctx, "widgets.list", userActor(insertUser(ctx, { groupId: 4 })))).items.length,
     ).toBeGreaterThan(0);

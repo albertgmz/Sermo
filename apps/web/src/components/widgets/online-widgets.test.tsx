@@ -127,12 +127,44 @@ test("the members seen in the last 24 hours are named in the order given, with t
   expect(html).toContain('href="/members"');
   expect(html.indexOf("nova")).toBeGreaterThan(-1);
   expect(html.indexOf("nova")).toBeLessThan(html.indexOf("wren"));
-  // A comma after the first name only, and the backend's total (more than it lists).
-  expect(html.match(/aria-hidden="true"[^>]*>,</g)).toHaveLength(1);
+  // The backend's total is more than it lists: a comma after each name, then the rest counted.
+  expect(html.match(/aria-hidden="true"[^>]*>,</g)).toHaveLength(2);
+  expect(html).toContain("and 228 more");
   expect(html).toContain("Total: 230");
   // Names, not pictures.
   expect(html).not.toContain("<img");
   expect(asked).toEqual([RECENT]);
+});
+
+test("only the first names are listed, the rest are counted", async () => {
+  backend({
+    [RECENT]: () =>
+      Response.json({
+        total: 230,
+        items: [
+          { card: card(7, "nova"), lastActivityAt: minutesAgo(2) },
+          { card: card(8, "wren"), lastActivityAt: minutesAgo(3) },
+          { card: card(9, "juniper"), lastActivityAt: minutesAgo(4) },
+        ],
+      }),
+  });
+  const { html } = await draw(online({ limit: 2 }));
+  expect(html).toContain("nova");
+  expect(html).toContain("wren");
+  expect(html).not.toContain("juniper");
+  // 230 in all, two named.
+  expect(html).toContain("and 228 more");
+  expect(html).toContain("Total: 230");
+  expect(html.match(/aria-hidden="true"[^>]*>,</g)).toHaveLength(2);
+  // Everyone named: no tail.
+  backend({
+    [RECENT]: () =>
+      Response.json({
+        total: 1,
+        items: [{ card: card(7, "nova"), lastActivityAt: minutesAgo(2) }],
+      }),
+  });
+  expect((await draw(online({ limit: 2 }))).html).not.toContain(" more");
 });
 
 test("the shorter window lists only those seen in the last 15 minutes, and counts them", async () => {
@@ -148,7 +180,7 @@ test("the shorter window lists only those seen in the last 15 minutes, and count
       }),
   });
   const { html } = await draw(online({ window: "15m" }));
-  expect(html).toContain(titles.recentlyActiveNow);
+  expect(html).toContain(messages.widgets.recentlyActive.nowTitle);
   expect(html).not.toContain(titles.recentlyActive);
   expect(html).toContain("nova");
   expect(html).toContain("wren");

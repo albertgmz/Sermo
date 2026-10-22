@@ -1066,7 +1066,9 @@ Two widget types show who is around. `recentlyActive` ("Online in the last 24 ho
 and a "Total: N" line, the heading leading to the member list) reads `users.recentlyActive`: members
 who hide their online state, and banned or erased ones, are not in it, and every visitor gets the
 same list for up to a minute; its option `window` set to `15m` lists only those seen in the last
-15 minutes ("Online now", counted from the list, which holds at most 200). `siteTotals` reads
+15 minutes ("Online now", counted from the list, which holds at most 200). Its option `limit`
+(default 50, at most 200) is how many names are written out; the rest are counted ("and N more").
+`siteTotals` reads
 `site.stats` (`GET /site/stats`): threads and messages in the forums guests can open, members
 (confirmed, approved, not banned, not erased) and the newest member, the same numbers for every
 visitor and counted at most every ten minutes; the newest member is shown only to a visitor who may

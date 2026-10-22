@@ -101,6 +101,31 @@ describe("site.stats", () => {
     expect(result.latestMember).toMatchObject({ id: newest.id, restricted: true });
   });
 
+  test("the newest member is still named when the newest accounts are all banned", async () => {
+    const w = world();
+    const counted = w.user();
+    for (let i = 0; i < 25; i++) w.set(w.user().id, { banned_permanently: 1 });
+    const result: Answer = await w.call("site.stats", w.memberActor, {});
+    expect(result.latestMember?.id).toBe(counted.id);
+  });
+
+  test("a ban or an erasure drops the kept totals at once, and lifting the ban brings them back", async () => {
+    const w = world();
+    const newest = w.user();
+    const before: Answer = await w.call("site.stats", w.memberActor, {});
+    expect(before.latestMember?.id).toBe(newest.id);
+    const ban = await w.call("bans.create", w.adminActor, {
+      userId: newest.id,
+      reason: "Spam",
+      expiresAt: null,
+    });
+    const banned: Answer = await w.call("site.stats", w.memberActor, {});
+    expect(banned.members).toBe(before.members - 1);
+    expect(banned.latestMember?.id).not.toBe(newest.id);
+    await w.call("bans.lift", w.adminActor, { banId: ban.id });
+    expect((await w.call("site.stats", w.memberActor, {})).latestMember?.id).toBe(newest.id);
+  });
+
   test("a viewer who may not list members is given the totals without the newest member", async () => {
     const w = world();
     w.user();
@@ -136,10 +161,10 @@ describe("site.stats", () => {
 
   test("the newest accounts are read by walking the primary key backwards", () => {
     const w = world();
-    expectNoTableScan(w.ctx, siteStatsSql.newest, [], { allow: ["users"] });
+    expectNoTableScan(w.ctx, siteStatsSql.newest, [0], { allow: ["users"] });
     const plan = w.ctx.sqlite
-      .prepare<{ detail: string }, []>(`EXPLAIN QUERY PLAN ${siteStatsSql.newest}`)
-      .all();
+      .prepare<{ detail: string }, [number]>(`EXPLAIN QUERY PLAN ${siteStatsSql.newest}`)
+      .all(0);
     expect(plan.map((row) => row.detail)).toEqual(["SCAN u"]);
   });
 });

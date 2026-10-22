@@ -18,7 +18,6 @@
       "monthStandings": "Usuarios del mes",
       "text": "Texto",
       "recentlyActive": "Conectados en las últimas 24 horas",
-      "recentlyActiveNow": "Conectados ahora",
       "siteTotals": "Totales del sitio"
     }
   },
@@ -31,7 +30,9 @@
     "threads": "{value}<label>{count, plural, other { temas}}</label>"
   },
   "recentlyActive": {
-    "total": "Total: {value}"
+    "total": "Total: {value}",
+    "more": "y {value} más",
+    "nowTitle": "Conectados ahora"
   },
   "siteTotals": {
     "threads": "Temas",

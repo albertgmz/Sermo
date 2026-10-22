@@ -32,25 +32,33 @@ export async function RecentlyActive({
     getFormatter(),
   ]);
   const total = now ? members.length : list.total;
+  // The first names only (each is a hover card); the others are counted.
+  const named = members.slice(0, widget.options.limit);
+  const more = total - named.length;
   return (
     <SectionCard
       title={
         <Link href="/members" className="hover:underline">
-          {title}
+          {widget.title ?? (now ? t("nowTitle") : title)}
         </Link>
       }
     >
       <ul className="flex flex-wrap gap-x-1 px-4 py-1.5 text-sm">
-        {members.map(({ card }, index) => (
+        {named.map(({ card }, index) => (
           <li key={card.id} className="flex">
             <UserLink user={card} className="block py-2.5" />
-            {index < members.length - 1 && (
+            {(index < named.length - 1 || more > 0) && (
               <span aria-hidden="true" className="py-2.5">
                 ,
               </span>
             )}
           </li>
         ))}
+        {more > 0 && (
+          <li className="py-2.5 text-muted-foreground">
+            {t("more", { value: format.number(more) })}
+          </li>
+        )}
       </ul>
       <p className="px-4 py-2 text-xs text-muted-foreground">
         {t("total", { value: format.number(total) })}

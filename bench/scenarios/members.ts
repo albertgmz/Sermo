@@ -2,7 +2,7 @@ import { registerJobHandler, registerStandingJobs, runDueJobs } from "@sermo/cor
 import { forgetRecentlyActive } from "../../packages/core/src/modules/members/recently-active-cache";
 import { redecideChunk } from "../../packages/core/src/modules/members/redecide";
 import { requestStandingsRedecide } from "../../packages/core/src/modules/members/redecide-request";
-import { forgetSiteStats } from "../../packages/core/src/modules/members/site-stats";
+import { forgetSiteStats } from "../../packages/core/src/modules/members/site-stats-cache";
 import type { BenchEnv, Scenario } from "../harness";
 
 const choose = (values: number[], i: number) => values[i % values.length]!;

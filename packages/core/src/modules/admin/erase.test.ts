@@ -71,9 +71,13 @@ describe("users.adminErase", () => {
         (item: { card: { id: number } }) => item.card.id,
       );
     expect(await listed()).toContain(w.target.id);
+    const members = async () => (await w.run("site.stats", GUEST, {})).members;
+    const counted = await members();
     await w.erase();
     expect(await listed()).not.toContain(w.target.id);
     expect(await listed()).toContain(w.fan.id);
+    // The site totals are kept apart, and drop the erased member at once too.
+    expect(await members()).toBe(counted - 1);
   });
 
   test("closes the account: nobody can sign in, the identity is gone, the writing stays", async () => {

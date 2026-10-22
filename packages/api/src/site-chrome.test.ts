@@ -155,7 +155,7 @@ test("widgets are read by page without signing in; the rest needs admin.widgets"
   );
   expect(created.status).toBe(201);
   const made = (await created.json()) as { id: number; options: object };
-  expect(made.options).toEqual({ window: "15m" });
+  expect(made.options).toEqual({ window: "15m", limit: 50 });
   const copied = await request(
     `/api/v1/widgets/${made.id}/copies`,
     json(admin.cookie, "POST", { position: "overview_bottom" }),
@@ -176,7 +176,10 @@ test("widgets are read by page without signing in; the rest needs admin.widgets"
     }),
   );
   expect(patched.status).toBe(200);
-  expect(await patched.json()).toMatchObject({ phones: false, options: { window: "24h" } });
+  expect(await patched.json()).toMatchObject({
+    phones: false,
+    options: { window: "24h", limit: 50 },
+  });
   const ordered = await request(
     "/api/v1/widgets/order",
     json(admin.cookie, "PUT", { position: "overview_bottom", ids: [copy.id] }),

@@ -18,7 +18,6 @@
       "monthStandings": "Members of the month",
       "text": "Text",
       "recentlyActive": "Online in the last 24 hours",
-      "recentlyActiveNow": "Online now",
       "siteTotals": "Site totals"
     }
   },
@@ -31,7 +30,9 @@
     "threads": "{value}<label>{count, plural, other { threads}}</label>"
   },
   "recentlyActive": {
-    "total": "Total: {value}"
+    "total": "Total: {value}",
+    "more": "and {value} more",
+    "nowTitle": "Online now"
   },
   "siteTotals": {
     "threads": "Threads",

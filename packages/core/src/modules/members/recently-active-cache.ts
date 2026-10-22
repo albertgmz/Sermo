@@ -1,4 +1,5 @@
 import type { Ctx } from "../../context";
+import { forgetSiteStats } from "./site-stats-cache";
 
 /**
  * The kept `users.recentlyActive` list, apart from the read so the writes that drop it (privacy,
@@ -10,4 +11,6 @@ export const recentlyActiveCache = new WeakMap<Ctx, { at: number; listed: Recent
 /** Drops the kept list, so a member who just hid their status, or was banned or erased, leaves it. */
 export function forgetRecentlyActive(ctx: Ctx): void {
   recentlyActiveCache.delete(ctx);
+  // The site totals count and name the same members.
+  forgetSiteStats(ctx);
 }

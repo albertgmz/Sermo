@@ -5,39 +5,27 @@ import { siteStats } from "../../contracts/members";
 import { GROUP_IDS } from "../../db/schema";
 import { implement } from "../../operation";
 import { can, viewableNodeIds } from "../../permissions";
-import { isBanned } from "./access";
 import { loadViewerCards } from "./cards";
 import { requireSiteView } from "./site-access";
+import { siteStatsCache as kept, type SiteTotals } from "./site-stats-cache";
 
 /** How long the totals are kept: they are the same for every viewer. */
 export const SITE_STATS_CACHE_MS = 10 * 60_000;
-/** How many of the newest accounts are looked at to find one that is not banned. */
-const NEWEST_SCAN = 20;
 
 /** An account that counts as a member: confirmed, approved and not erased. */
 const COUNTED = `u.erased_at IS NULL AND u.group_id <> ${GROUP_IDS.unconfirmed} AND u.signup_review IS NULL`;
 
+/** Not banned at the time `?1`. */
+const NOT_BANNED = "u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?1)";
+
 export const siteStatsSql = {
   nodes: "SELECT id, thread_count, post_count FROM nodes",
-  members: `SELECT COUNT(*) AS n FROM users u WHERE ${COUNTED} AND u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?1)`,
-  newest: `SELECT u.id, u.banned_until, u.banned_permanently FROM users u WHERE ${COUNTED} ORDER BY u.id DESC LIMIT ${NEWEST_SCAN}`,
+  members: `SELECT COUNT(*) AS n FROM users u WHERE ${COUNTED} AND ${NOT_BANNED}`,
+  /** The newest member: the primary key walked backwards until the first account that counts. */
+  newest: `SELECT u.id FROM users u WHERE ${COUNTED} AND ${NOT_BANNED} ORDER BY u.id DESC LIMIT 1`,
 };
 
-interface Totals {
-  threads: number;
-  posts: number;
-  members: number;
-  latestId: number | null;
-}
-
-const kept = new WeakMap<Ctx, { at: number; totals: Totals }>();
-
-/** Drops the kept totals (a test that changes the data reads them again). */
-export function forgetSiteStats(ctx: Ctx): void {
-  kept.delete(ctx);
-}
-
-function countTotals(ctx: Ctx, now: number): Totals {
+function countTotals(ctx: Ctx, now: number): SiteTotals {
   const visible = new Set(viewableNodeIds(ctx, GUEST));
   let threads = 0;
   let posts = 0;
@@ -55,12 +43,8 @@ function countTotals(ctx: Ctx, now: number): Totals {
       ctx.sqlite.prepare<{ n: number }, [number]>(siteStatsSql.members),
     ).get(now)?.n ?? 0;
   const newest = prepared(ctx, "members.siteStatsNewest", () =>
-    ctx.sqlite.prepare<{ id: number; banned_until: number | null; banned_permanently: number }, []>(
-      siteStatsSql.newest,
-    ),
-  )
-    .all()
-    .find((row) => !isBanned(row, now));
+    ctx.sqlite.prepare<{ id: number }, [number]>(siteStatsSql.newest),
+  ).get(now);
   return { threads, posts, members, latestId: newest?.id ?? null };
 }
 

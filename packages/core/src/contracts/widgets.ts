@@ -83,6 +83,7 @@ export const WIDGET_OPTIONS = {
       .enum(["15m", "24h"])
       .default("24h")
       .describe("How far back a member counts as recently active."),
+    limit: limit(1, 200, 50).describe("How many names are listed; the rest are counted."),
   }),
   siteTotals: z.strictObject({}),
   text: z.strictObject({ body: Body }),
@@ -160,7 +161,7 @@ const WidgetOptionsInput = z
       "value is a validation error. forumStats: limit 5-20 (10), topPosters (false). " +
       "rankedThreads: by (mostReacted), limit 1-20 (5). monthStandings: limit 1-10 (5), picker " +
       "(true). topReferrers: limit 1-20 (5). birthdays: limit 1-50 (12). suggestedMembers: " +
-      "limit 1-12 (4). forumLinks: limit 1-20 (6). recentlyActive: window 15m or 24h (24h). " +
+      "limit 1-12 (4). forumLinks: limit 1-20 (6). recentlyActive: window 15m or 24h (24h), limit 1-200 (50). " +
       "text: body (BB code, required). featured, visitorCard, referralLink and siteTotals take none.",
   );
 
