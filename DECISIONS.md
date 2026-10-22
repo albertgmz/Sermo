@@ -5884,3 +5884,14 @@ would make moderation import conversations).
 
 Why: backlog C2 and the owner's forum-feel review.
 Known limits: the feed card's own footer is unchanged (shared with thread cards).
+
+### A wall post in the feed names its author and the wall's owner
+
+- A wall post made on another member's wall shows `Author ▸ Owner` on the card's first line and in
+  the compact row's title, with a muted caret hidden from screen readers and the phrase "escribió en
+  el perfil de" / "wrote on the profile of" for them instead. On the author's own wall only the
+  author shows. The owner comes from the feed item's `profileUserId` and the authors lookup, owners
+  first; an owner with no name falls back to "posted on a profile". The owner link wraps long names
+  and, in the compact row, sits above the row's stretched link.
+
+Why: backlog C3 and forum-feel findings §4 (XenForo shows `Author ▸ Owner`).
