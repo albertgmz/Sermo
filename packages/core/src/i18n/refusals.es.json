@@ -469,5 +469,11 @@
   "A signature may hold at most {limit}; this one has {count}.": "Una firma admite como máximo {limit}; esta tiene {count}.",
   "Unknown {noun}: {list}.": "No existen estos elementos ({noun}): {list}.",
   "You have reached your limit of {limit} {noun} in 24 hours. Try again later.": "Has alcanzado tu límite de {limit} {noun} en 24 horas. Inténtalo más tarde.",
-  "A rebuild stopped; resume it before previewing another.": "Una reconstrucción quedó detenida; reanúdala antes de previsualizar otra."
+  "A rebuild stopped; resume it before previewing another.": "Una reconstrucción quedó detenida; reanúdala antes de previsualizar otra.",
+  "Attachments cannot be sent in a message to many members.": "No se pueden enviar archivos adjuntos en un mensaje a muchos miembros.",
+  "Remove the [ATTACH] tags.": "Quita las etiquetas [ATTACH].",
+  "A run is stopped: resume it or discard it before starting another.": "Hay un envío detenido: reanúdalo o descártalo antes de empezar otro.",
+  "Count the recipients of this message or alert first, then send.": "Cuenta primero los destinatarios de este mensaje o alerta y luego envía.",
+  "The count changed since you looked at it; look at it again.": "El recuento cambió desde que lo viste; vuelve a mirarlo.",
+  "There is no stopped run to resume.": "No hay ningún envío detenido que reanudar."
 }
