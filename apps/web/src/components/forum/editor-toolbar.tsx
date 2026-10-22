@@ -508,8 +508,9 @@ export function Toolbar() {
           }}
           // XenForo's bar, 55 px: 6 px of padding around 42 px boxes, 3 px apart. At rest it is a band
           // of the border colour, into which the boxes' borders melt; while the text is written in
-          // it clears and the boxes show their edges.
-          className="flex flex-wrap items-center gap-[3px] rounded-t-[inherit] border-b bg-border p-1.5 outline-none group-focus-within/editor:bg-transparent"
+          // it clears and the boxes show their edges; it clears too while a strip is open, whose
+          // buttons lie on the bar itself and take the border colour under the pointer.
+          className="flex flex-wrap items-center gap-[3px] rounded-t-[inherit] border-b bg-border p-1.5 outline-none group-focus-within/editor:bg-transparent has-[[aria-expanded=true]]:bg-transparent"
         >
           {GROUPS.map((group) => {
             const more = group.more.map((slot) => commands[slot.id]);

@@ -15,7 +15,7 @@ export default function Loading() {
       <PageLayout className="pt-2">
         <HeadingSkeleton />
         <div className="mt-4 space-y-4">
-          <EditorSkeleton className="min-h-50" />
+          <EditorSkeleton minHeight={200} />
           <FormRowSkeleton />
           <div className="flex justify-end gap-2">
             <Skeleton className="h-10 w-20" />

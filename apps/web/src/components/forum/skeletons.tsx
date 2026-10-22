@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 import { BANNER_HEADER_HEIGHT } from "@/components/forum/banner-size";
+import { EDITOR_BOX, editorMinHeight } from "@/components/forum/composer-box";
 import { COMPOSER_PAGE_CLASS } from "@/components/forum/composer-page";
 import { Container } from "@/components/layout/container";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -153,26 +154,31 @@ export function FormRowSkeleton() {
   );
 }
 
+// The editor's box as it looks at rest (`composer-box.ts`, `editor-toolbar.tsx`): the bar's band
+// with three of its segments, and the text's room, so nothing moves or changes colour when the
+// page arrives. The editor and its least height come from the same module.
 export function EditorSkeleton({
-  className = "min-h-30",
+  minHeight = editorMinHeight(false),
 }: {
-  className?: string;
+  minHeight?: number;
 }) {
   return (
-    <div
-      aria-hidden="true"
-      className="overflow-hidden rounded-lg border bg-card"
-    >
-      <div className="flex h-12 items-center gap-2 border-b px-3 md:h-10">
-        {[1, 2, 3, 4, 5, 6].map((item) => (
-          <Skeleton key={item} className="size-6" />
+    <div aria-hidden="true" className={cn("overflow-hidden", EDITOR_BOX)}>
+      <div className="flex gap-[3px] rounded-t-[inherit] border-b bg-border p-1.5">
+        {[
+          ["text", "w-24"],
+          ["insert", "w-24"],
+          ["misc", "flex-1"],
+        ].map(([group, width]) => (
+          <div
+            key={group}
+            className={cn("h-[42px] rounded-[9px] border bg-card", width)}
+          />
         ))}
       </div>
-      <div className={className}>
-        <div className="px-4 py-3">
-          <TextSkeleton />
-        </div>
-      </div>
+      {/* Empty, as the box is before anything is written in it (the skeleton's own fill is the
+          muted one in the dark theme, the box's). */}
+      <div style={{ minHeight }} />
     </div>
   );
 }

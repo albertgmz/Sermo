@@ -1,10 +1,9 @@
-import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 import { Editor } from "./editor";
 import { LazyEditor } from "./lazy-editor";
+import { EditorSkeleton } from "./skeletons";
 
 // XenForo's editor (fcuba's style), as measured on the forum's quick reply. The
 // colours are Sermo's tokens in the roles XenForo gives its own: the box is the muted fill and
@@ -114,11 +113,58 @@ test("the plain box before the editor loads looks the same, so nothing moves", (
   expect(field).toContain("min-height:100px");
 });
 
-// The Create flow's sheet is the one place the box has no frame: its text fills the screen. It
-// stays clear there while written in, rather than turning the card's colour.
-test("the whole-screen composer keeps its frameless box clear while written in", () => {
-  const source = readFileSync(join(import.meta.dir, "composer.tsx"), "utf8");
-  expect(source).toContain(
-    '"rounded-none border-0 bg-transparent focus-within:bg-transparent"',
+// The Create flow's sheet and a thread's own page are the place the box has no frame: its text
+// fills the screen. It stays clear there while written in, rather than turning the card's colour.
+test("the whole-screen composer keeps its frameless box clear while written in", async () => {
+  mock.module("server-only", () => ({}));
+  const { ComposerForm } = await import("./composer");
+  const html = renderToStaticMarkup(
+    withIntl(
+      <ComposerForm
+        onSubmit={() => {}}
+        frame={{ kind: "page", closeHref: "/forums/2" }}
+        submitLabel="Post"
+        pending={false}
+        placeholder="Write"
+      />,
+    ),
+  );
+  const box =
+    html.match(/<div class="([^"]*)"><textarea/)?.[1].split(" ") ?? [];
+  for (const name of [
+    "border-0",
+    "bg-transparent",
+    "focus-within:bg-transparent",
+  ])
+    expect(box).toContain(name);
+  expect(box).not.toContain("bg-muted");
+  expect(box).not.toContain("focus-within:bg-card");
+});
+
+// An open ⋮ strip lies on the bar itself: the band clears while one is open, so a button's hover
+// fill (the border colour) shows there too.
+test("the bar's band clears while a strip is open", () => {
+  const bar = tagWith(editorHtml(), /<div[^>]*role="toolbar"[^>]*>/);
+  expectClasses(bar, ["has-[[aria-expanded=true]]:bg-transparent"]);
+});
+
+// The page's loading shape of a composer is the box it stands in for: the same frame, fills, bar
+// and text room, so nothing changes colour or size when the page arrives.
+test("the editor's loading shape is the editor's box, bar and text room", () => {
+  const html = renderToStaticMarkup(<EditorSkeleton />);
+  expectClasses(tagWith(html, /<div[^>]*>/), BOX);
+  expectClasses(tagWith(html, /<div[^>]*class="[^"]*border-b[^"]*"[^>]*>/), [
+    "p-1.5",
+    "gap-[3px]",
+    "bg-border",
+  ]);
+  const segments = [...html.matchAll(/<div class="[^"]*h-\[42px\][^"]*"/g)];
+  expect(segments.length).toBeGreaterThan(0);
+  for (const [segment] of segments)
+    expectClasses(`${segment}>`, ["rounded-[9px]", "border", "bg-card"]);
+  const body = tagWith(html, /<div[^>]*min-height[^>]*>/);
+  expect(body).toContain("min-height:100px");
+  expect(renderToStaticMarkup(<EditorSkeleton minHeight={200} />)).toContain(
+    "min-height:200px",
   );
 });
