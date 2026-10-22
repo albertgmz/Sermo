@@ -215,8 +215,11 @@ describe("job maintenance", () => {
       recipientIds: [reactor.id, left.id],
       body: "first",
     });
+    // Ignoring future messages: the next reply must not bring the member back, so the rebuilt
+    // count has to leave `left_ignored` out like `left`.
     await execute(ctx, conversationsLeaveOp, userActor(left), {
       conversationId: conv.conversation.id,
+      futureMessages: "ignore",
     });
     const leftAt = ctx.sqlite
       .prepare<{ last_message_at: number }, [number, number]>(
