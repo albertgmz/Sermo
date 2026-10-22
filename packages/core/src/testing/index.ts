@@ -2,7 +2,7 @@
  * Test helpers. Import from "@sermo/core/testing" in tests only.
  */
 import { Database } from "bun:sqlite";
-import { expect } from "bun:test";
+import { afterAll, expect } from "bun:test";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import type { Actor } from "../actor";
 import { type CoreConfig, type Ctx, createContext, DEFAULT_CONFIG } from "../context";
@@ -73,21 +73,50 @@ function migratedTemplate(): MigratedTemplate {
 }
 
 /**
+ * A test database's page cache: 2 MB instead of the 64 MB a served connection gets. The copy is a
+ * 1.5 MB database already held in memory, and a test file may open hundreds of them.
+ */
+export const TEST_CACHE_KIB = 2048;
+
+/** The databases this file's tests opened and have not closed; `afterAll` closes the rest. */
+const openDatabases = new Set<Database>();
+
+try {
+  afterAll(() => {
+    for (const sqlite of openDatabases) sqlite.close(true);
+    openDatabases.clear();
+  });
+} catch {
+  // Imported outside a test run (a script, the bench): nothing registers, nothing to close.
+}
+
+/** Closes every test database still open; each test file does this when it ends. */
+export function closeTestDatabases(): number {
+  const count = openDatabases.size;
+  for (const sqlite of openDatabases) sqlite.close(true);
+  openDatabases.clear();
+  return count;
+}
+
+/**
  * A fresh, migrated in-memory database with cheap password hashing and output validation on. It is
  * a copy of one migrated template, so it costs a fraction of a millisecond instead of a migration.
+ * It is closed when its test file ends, so a file's databases do not outlive it.
  */
 export function createTestContext(options: { clock?: TestClock } = {}): Ctx & { clock: TestClock } {
   const clock = options.clock ?? createTestClock();
   const template = migratedTemplate();
   const sqlite = Database.deserialize(template.bytes, { strict: true });
-  // The pragmas of `openDatabase` (a deserialized copy starts with SQLite's defaults).
+  openDatabases.add(sqlite);
+  // The pragmas of `openDatabase` (a deserialized copy starts with SQLite's defaults), except the
+  // page cache, which only costs memory on a database that is already in memory (and the memory
+  // map, which a deserialized database does not use).
   sqlite.run("PRAGMA busy_timeout = 5000");
   sqlite.run("PRAGMA synchronous = NORMAL");
   sqlite.run("PRAGMA journal_size_limit = 67108864");
   sqlite.run("PRAGMA foreign_keys = ON");
   sqlite.run("PRAGMA temp_store = MEMORY");
-  sqlite.run("PRAGMA cache_size = -65536");
-  sqlite.run("PRAGMA mmap_size = 1073741824");
+  sqlite.run(`PRAGMA cache_size = -${TEST_CACHE_KIB}`);
   const stampedAt = clock.now();
   if (stampedAt !== template.stampedAt) {
     sqlite.run("UPDATE permission_definitions SET created_at = ?", [stampedAt]);

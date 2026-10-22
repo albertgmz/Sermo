@@ -1,16 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createContext } from "../context";
-import { createTestClock, createTestContext } from "./index";
+import { closeTestDatabases, createTestClock, createTestContext, TEST_CACHE_KIB } from "./index";
 
-const PRAGMAS = [
-  "busy_timeout",
-  "synchronous",
-  "journal_size_limit",
-  "foreign_keys",
-  "temp_store",
-  "cache_size",
-  "mmap_size",
-];
+const PRAGMAS = ["busy_timeout", "synchronous", "journal_size_limit", "foreign_keys", "temp_store"];
 
 /** Some migrations stamp rows with the real time, which differs between any two builds. */
 function withoutWallClock(row: Record<string, unknown>) {
@@ -62,6 +54,23 @@ describe("createTestContext", () => {
         reference.sqlite.query(`PRAGMA ${name}`).get(),
       );
     }
+  });
+
+  test("keeps a small page cache, since the copy is already in memory", () => {
+    const copy = createTestContext();
+    expect(copy.sqlite.query("PRAGMA cache_size").get()).toEqual({
+      cache_size: -TEST_CACHE_KIB,
+    });
+  });
+
+  test("the databases a file opened are closed when it ends", () => {
+    closeTestDatabases();
+    const a = createTestContext();
+    const b = createTestContext();
+    expect(closeTestDatabases()).toBe(2);
+    expect(() => a.sqlite.query("SELECT 1").get()).toThrow();
+    expect(() => b.sqlite.query("SELECT 1").get()).toThrow();
+    expect(closeTestDatabases()).toBe(0);
   });
 
   test("copies are independent of each other", () => {
