@@ -326,7 +326,7 @@ describe("review regressions", () => {
     expectNoTableScan(ctx, "SELECT n.id FROM nodes n");
     expect(() => expectNoTableScan(ctx, "SELECT p.id FROM posts p")).toThrow();
     expect(() =>
-      expectNoTableScan(ctx, "SELECT id FROM posts WHERE thread_id = ?1 ORDER BY created_at", [1]),
+      expectNoTableScan(ctx, "SELECT id FROM posts WHERE thread_id = ?1 ORDER BY user_id", [1]),
     ).toThrow();
   });
 });
