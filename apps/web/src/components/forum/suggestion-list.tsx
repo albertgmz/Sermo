@@ -161,11 +161,12 @@ export function SuggestionList<T>({
 }
 
 // `text` with the first place it holds `query` (any case) in bold: what was typed, in a suggestion.
-// `mark` draws it another way (the member list underlines it, as a name's weight means staff).
+// `mark` draws it another way, in a plain span that keeps the text's own colour and weight (the
+// member list underlines it, as a name's weight means staff).
 export function Matched({
   text,
   query,
-  mark = "font-semibold text-foreground",
+  mark,
 }: {
   text: string;
   query: string;
@@ -176,7 +177,13 @@ export function Matched({
   return (
     <>
       {text.slice(0, at)}
-      <strong className={mark}>{text.slice(at, at + query.length)}</strong>
+      {mark ? (
+        <span className={mark}>{text.slice(at, at + query.length)}</span>
+      ) : (
+        <strong className="font-semibold text-foreground">
+          {text.slice(at, at + query.length)}
+        </strong>
+      )}
       {text.slice(at + query.length)}
     </>
   );

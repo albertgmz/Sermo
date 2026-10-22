@@ -35,6 +35,7 @@ import { storeContentReferences, storeSpoilers } from "../../render";
 import { iso, isoOrNull } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { renameStanding } from "../auth/rename-limit";
+import { isBanned } from "../members/access";
 import { groupIdsOf, loadMemberDetails } from "../members/cards";
 import { staffSql } from "../members/directory";
 import {
@@ -276,12 +277,19 @@ export const profilesSelfOp = implement(profilesSelf, (ctx, actor) => {
   };
 });
 // An account that waits in the sign-up queue is not found.
-// With the groups each member holds (their stored combination), to tell staff apart.
+// With the groups each member holds (their stored combination) and their ban, to tell staff apart.
 const USER_SEARCH_COLUMNS =
-  "u.id, u.username, u.group_id, c.group_ids FROM users u LEFT JOIN permission_combinations c ON c.id = u.permission_combination_id";
+  "u.id, u.username, u.group_id, u.banned_until, u.banned_permanently, c.group_ids FROM users u LEFT JOIN permission_combinations c ON c.id = u.permission_combination_id";
 export const USER_SEARCH_SQL = `SELECT ${USER_SEARCH_COLUMNS} WHERE u.username_key >= ?1 AND u.username_key < ?2 AND NOT (${AWAITING_SQL}) ORDER BY u.username_key LIMIT ?3`;
 export const USER_SEARCH_TAIL_SQL = `SELECT ${USER_SEARCH_COLUMNS} WHERE u.username_key >= ?1 AND NOT (${AWAITING_SQL}) ORDER BY u.username_key LIMIT ?2`;
-type UserSearchRow = { id: number; username: string; group_id: number; group_ids: string | null };
+type UserSearchRow = {
+  id: number;
+  username: string;
+  group_id: number;
+  banned_until: number | null;
+  banned_permanently: number;
+  group_ids: string | null;
+};
 export function prefixSuccessor(prefix: string): string | null {
   const points = Array.from(prefix);
   while (points.length) {
@@ -303,18 +311,23 @@ export const usersSearchOp = implement(usersSearch, (ctx, actor, input) => {
       : prepared(ctx, "profiles.userSearch", () =>
           ctx.sqlite.prepare<UserSearchRow, [string, string, number]>(USER_SEARCH_SQL),
         ).all(prefix, end, input.limit);
+  // Staff as the staff list (users.staff) has it: not banned, and told only to a viewer who may
+  // see the member list.
   const staff = new Set(
-    prepared(ctx, "members.staffGroups", () =>
-      ctx.sqlite.prepare<{ id: number }, []>(staffSql.groups),
-    )
-      .all()
-      .map((group) => group.id),
+    can(ctx, actor, "member.viewList")
+      ? prepared(ctx, "members.staffGroups", () =>
+          ctx.sqlite.prepare<{ id: number }, []>(staffSql.groups),
+        )
+          .all()
+          .map((group) => group.id)
+      : [],
   );
+  const now = ctx.now();
   return {
     items: rows.map((row) => ({
       id: row.id,
       username: row.username,
-      staff: groupIdsOf(row).some((id) => staff.has(id)),
+      staff: !isBanned(row, now) && groupIdsOf(row).some((id) => staff.has(id)),
     })),
   };
 });

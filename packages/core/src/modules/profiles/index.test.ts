@@ -496,6 +496,23 @@ describe("profiles", () => {
       ["Admin", true],
       ["Author", false],
     ]);
+    // As the staff list: a banned member is not staff, and a viewer who may not see the member
+    // list is told of no staff at all.
+    f.ctx.sqlite.run(`UPDATE users SET banned_permanently = 1 WHERE id = ${f.moderator.id}`);
+    const banned = await execute(f.ctx, usersSearchOp, GUEST, { prefix: "m" });
+    expect(banned.items.map(({ username, staff }) => [username, staff])).toEqual([
+      ["Mhelper", true],
+      ["Mod", false],
+    ]);
+    f.ctx.sqlite.run(
+      "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, 0, 1, 0, -1 FROM permission_definitions WHERE key = 'member.viewList' ON CONFLICT (group_id, user_id, node_id, permission_id) DO UPDATE SET value = excluded.value",
+    );
+    invalidate(f.ctx, "permissions");
+    const unlisted = await execute(f.ctx, usersSearchOp, GUEST, { prefix: "a" });
+    expect(unlisted.items.map(({ username, staff }) => [username, staff])).toEqual([
+      ["Admin", false],
+      ["Author", false],
+    ]);
   });
   test("post ownership, moderation, hidden states, and wall paging", async () => {
     const f = fixture();

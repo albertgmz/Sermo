@@ -224,7 +224,10 @@ export const profilesSelf = defineContract({
 
 export const usersSearch = defineContract({
   name: "users.search",
-  summary: "Find users whose username starts with `prefix` (case-insensitive).",
+  summary:
+    "Find users whose username starts with `prefix` (case-insensitive). Each says whether the " +
+    "member is staff as `users.staff` counts it: in a staff group and not banned; false for " +
+    "everyone when the viewer lacks member.viewList.",
   kind: "read",
   input: z.object({
     prefix: z.string().trim().min(1).max(32),
@@ -233,7 +236,10 @@ export const usersSearch = defineContract({
   output: z.object({
     items: z.array(
       UserSummary.extend({
-        /** In a group marked as staff (primary, by hand, by promotion or bought). */
+        /**
+         * In a group marked as staff (primary, by hand, by promotion or bought) and not banned;
+         * false for everyone when the viewer lacks member.viewList.
+         */
         staff: z.boolean(),
       }),
     ),

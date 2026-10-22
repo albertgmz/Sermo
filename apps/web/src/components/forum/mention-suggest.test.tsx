@@ -29,7 +29,7 @@ const option = (member: MentionHit, query = "Luc") =>
 
 // The element that holds the member's name: the one around the underlined match.
 const nameOf = (html: string) =>
-  /<span ([^>]*)><strong [^>]*>/.exec(html)?.[1] ?? "";
+  /<span ([^>]*)><span class="[^"]*underline[^"]*">/.exec(html)?.[1] ?? "";
 
 test("a staff member's name is bold and drawn in their colour, held readable in the theme", () => {
   const name = nameOf(
@@ -51,10 +51,9 @@ test("a member who is not staff keeps the normal weight, and their colour if the
 
 test("what was typed is underlined at the start of the name, in the name's own colour and weight", () => {
   const html = option(hit({}), "luc");
-  expect(html).toMatch(/<strong class="[^"]*underline[^"]*">Luc<\/strong>ien/);
-  const mark = /<strong class="([^"]*)">/.exec(html)?.[1] ?? "";
-  expect(mark).toContain("[font-weight:inherit]");
-  expect(mark).toContain("text-inherit");
+  // A plain span: it takes the name's colour and weight, and is not read as emphasis.
+  expect(html).toMatch(/<span class="[^"]*underline[^"]*">Luc<\/span>ien/);
+  expect(html).not.toContain("<strong");
 });
 
 test("the title goes on a second line, and a member without one has none", () => {
@@ -62,6 +61,11 @@ test("the title goes on a second line, and a member without one has none", () =>
     ">Administrator</span>",
   );
   expect(option(hit({}))).not.toContain("text-xs text-muted-foreground");
+  // Two lines keep a little room above and below in a 36 px row.
+  expect(option(hit({ title: "Administrator" }))).toContain(
+    '<span class="min-w-0 py-1">',
+  );
+  expect(option(hit({}))).toContain('<span class="min-w-0">');
 });
 
 test("the avatar is the member's small picture, or their initials", () => {

@@ -57,7 +57,7 @@ function MentionAvatar({ hit }: { hit: MentionHit }) {
 
 // One member of the list, told apart as XenForo draws names: the avatar, the name in its colour
 // (held readable in the theme, `.ink`) and in bold for staff, what was typed underlined (the weight
-// already says staff), and the title on a second line.
+// already says staff), and the title on a second line, with room above and below.
 export function MentionOption({
   hit,
   query,
@@ -69,7 +69,7 @@ export function MentionOption({
   return (
     <>
       <MentionAvatar hit={hit} />
-      <span className="min-w-0">
+      <span className={cn("min-w-0", hit.title && "py-1")}>
         <span
           className={cn(
             "block truncate",
@@ -81,7 +81,7 @@ export function MentionOption({
           <Matched
             text={hit.username}
             query={query}
-            mark="[font-weight:inherit] text-inherit underline decoration-2 underline-offset-2"
+            mark="underline decoration-2 underline-offset-2"
           />
         </span>
         {hit.title && (
