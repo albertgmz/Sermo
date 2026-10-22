@@ -6023,3 +6023,21 @@ thread page; budgets are not raised.
   a type the web app does not draw opens no column.
 
 Why: XenForo's widget positions (handover B3), so the sidebar is configured, not coded per page.
+
+### The forum statistics panel is fcuba's "Estadísticas del foro"
+
+- Tabs Últimos mensajes, Temas nuevos, Más respondidos, Más reacciones and Más vistos (the three
+  "Más" tabs over threads active in the last 30 days, said under the tabs; "Más reacciones" orders
+  by reactions on the first post and shows replies and views), 10 rows by default, one line each
+  (rank, starter's avatar with an online dot, prefix and title, forum, replies, views, last post);
+  columns drop as the panel narrows; unread titles are bold and open at the first unread post.
+- The optional "Más mensajes" column (`topPosters`) shows only where the panel spans the page.
+- The online dot is green for a member seen in the last 15 minutes; members who hide their status
+  show offline, and a visitor who may not list members sees no dots.
+- The lists leave out the forums the feed leaves out (`feedExcludedForumIds`).
+- Placement is left to the owner's widget configuration (fcuba drew it full width at the top of
+  its home page).
+
+Why: backlog B6 and the forum-feel findings (screenshots 9, 10, 5).
+Known limits: the online window constant lives in two places and the presence read loads up to 200
+member cards per render (both need a contract change).
