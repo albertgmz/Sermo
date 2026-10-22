@@ -13,6 +13,7 @@ import { RelativeTime } from "@/components/forum/relative-time";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
+import { WallOwner, wallPlace } from "@/components/forum/wall-owner";
 import { threadCard } from "@/lib/sermo/threads";
 import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,11 @@ export function CompactFeedItem({
     const { profilePost } = item;
     const href = wallTargetHref(profilePost.profileUserId, profilePost.id);
     const count = profilePost.commentCount;
+    const place = wallPlace(
+      profilePost.author.id,
+      profilePost.profileUserId,
+      (id) => author(id).member,
+    );
     return (
       <Row
         id={`feed-profile-post-${profilePost.id}`}
@@ -58,19 +64,28 @@ export function CompactFeedItem({
             <UserLink
               user={author(profilePost.author.id).member}
               className="relative z-10"
-            />{" "}
-            <span className="font-normal text-muted-foreground">
-              {t.rich("profileContext", {
-                profile: (chunks) => (
-                  <Link
-                    href={`/members/${profilePost.profileUserId}`}
-                    className={cn(contextLinkClass, "relative z-10")}
-                  >
-                    {chunks}
-                  </Link>
-                ),
-              })}
-            </span>
+            />
+            {place.kind === "other" && (
+              <>
+                {" "}
+                <WallOwner owner={place.owner} className="relative z-10" />
+              </>
+            )}
+            {place.kind === "unnamed" && (
+              <span className="font-normal text-muted-foreground">
+                {" "}
+                {t.rich("profileContext", {
+                  profile: (chunks) => (
+                    <Link
+                      href={`/members/${profilePost.profileUserId}`}
+                      className={cn(contextLinkClass, "relative z-10")}
+                    >
+                      {chunks}
+                    </Link>
+                  ),
+                })}
+              </span>
+            )}
           </>
         }
         meta={<RelativeTime date={item.createdAt} />}

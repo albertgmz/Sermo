@@ -331,6 +331,9 @@
     "save": "Guardar etiquetas",
     "cancel": "Cancelar"
   },
+  "wallOwner": {
+    "wroteOn": "ha escrito en el perfil de"
+  },
   "wallComments": {
     "placeholder": "Escribe un comentario…",
     "submit": "Comentar mensaje",

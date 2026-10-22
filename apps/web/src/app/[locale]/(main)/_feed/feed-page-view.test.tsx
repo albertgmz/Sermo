@@ -111,10 +111,16 @@ const wallEntry = {
   }),
 };
 
+// The query of every call for authors.
+const asked: string[] = [];
+
 // The viewer, one thread entry (or `item`), and empty answers for everything else.
 function backend(member: { feedView: string } | null, item: object = entry) {
-  globalThis.fetch = (async (url: string) => {
-    const { pathname } = new URL(url);
+  asked.length = 0;
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const { pathname, search } = new URL(url);
+    if (pathname === "/api/v1/member-authors")
+      asked.push(`${search}${String(init?.body ?? "")}`);
     if (pathname === "/api/v1/me") {
       const body = viewerBody(member !== null);
       if (body.user && member) Object.assign(body.user, member);
@@ -171,4 +177,11 @@ test("the composer under a wall post carries the viewer's avatar, so the viewer 
     html.indexOf('id="feed-profile-post-12-comment"'),
   );
   expect(composer).toContain('href="/members/1"');
+});
+
+test("the owner of the wall a post was made on is looked up with the authors, so the feed can name it", async () => {
+  backend({ feedView: "cards" }, wallEntry);
+  await firstRow();
+  // The author is member 4, the wall is member 9's, the viewer is the one signed in.
+  expect(asked.join("&")).toMatch(/(^|[^0-9])9([^0-9]|$)/);
 });

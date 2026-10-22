@@ -184,12 +184,13 @@ async function render(
   item: Item,
   viewerId: number | null,
   view: "cards" | "compact" = "cards",
+  lookup: (id: number) => AuthorView = author,
 ) {
   return html(
     withIntl(
       <FeedItem
         item={item}
-        author={author}
+        author={lookup}
         now={Date.parse("2026-01-03T00:00:00.000Z")}
         viewerId={viewerId}
         picker={[]}
@@ -419,7 +420,7 @@ test("the whole compact row is a link, under its own links and buttons", async (
 test("a compact wall post names who wrote it and where, with its comments", async () => {
   const html = await render(wallItem(), MEMBER, "compact");
   expect(html).toContain("member4");
-  expect(html).toContain("posted on");
+  expect(html).toContain("member5");
   expect(html).not.toContain("the wall post");
   expect(html).not.toContain("first comment");
   expect(countHref(html, "2 comments")).toContain(
@@ -431,4 +432,65 @@ test("a compact row for a new thread leads its count to the thread", async () =>
   const html = await render(threadItem("thread", false), null, "compact");
   expect(countHref(html, "4 replies")).toContain('href="/threads/7"');
   expect(html).not.toContain("Jump to");
+});
+
+// A wall's owner the lookup could not name: the author lookup gives the ref's empty name back.
+const nameless = (id: number): AuthorView => {
+  const view = author(id);
+  return id === 5
+    ? { ...view, member: { ...view.member, username: "" } }
+    : view;
+};
+const ownWall = () => wallItem({ author: { id: 5, username: "member5" } });
+
+// The header's first line: the author, `▸`, the owner.
+const attribution = (html: string) =>
+  html.match(/<p class="flex flex-wrap[^>]*>[\s\S]*?<\/p>/)?.[0] ?? "";
+
+test("a wall post made on another member's wall reads Author, a muted caret, Owner, with the sentence for a screen reader", async () => {
+  const html = await render(wallItem(), MEMBER);
+  const line = attribution(html);
+  expect(line).toContain('href="/members/4"');
+  expect(line).toContain('href="/members/5"');
+  expect(line.indexOf('href="/members/4"')).toBeLessThan(
+    line.indexOf('href="/members/5"'),
+  );
+  expect(line).toContain(
+    '<span class="sr-only">wrote on the profile of</span>',
+  );
+  expect(line).toMatch(/<svg[^>]*text-muted-foreground[^>]*aria-hidden="true"/);
+  // The owner is no longer a second line.
+  expect(html).not.toContain("posted on");
+});
+
+test("a wall post on its author's own wall has no caret, no owner and no second line", async () => {
+  const html = await render(ownWall(), MEMBER);
+  expect(attribution(html)).not.toContain("<svg");
+  expect(html).not.toContain("wrote on the profile of");
+  expect(html).not.toContain("posted on");
+});
+
+test("a wall whose owner has no name keeps the wording of a post on a profile, linked to that wall", async () => {
+  const html = await render(wallItem(), MEMBER, "cards", nameless);
+  expect(html).toContain("posted on");
+  expect(html).toContain('href="/members/5"');
+  expect(html).not.toContain("wrote on the profile of");
+});
+
+test("a compact wall post on another member's wall reads Author, a caret, Owner, and on its own wall only the author", async () => {
+  const other = await render(wallItem(), MEMBER, "compact");
+  const title = other.match(/<h2[^>]*>[\s\S]*?<\/h2>/)?.[0] ?? "";
+  expect(title).toContain("wrote on the profile of");
+  expect(title).toContain("<svg");
+  expect(title.indexOf("member4")).toBeLessThan(title.indexOf("member5"));
+  expect(other).not.toContain("posted on");
+
+  const own = await render(ownWall(), MEMBER, "compact");
+  const ownTitle = own.match(/<h2[^>]*>[\s\S]*?<\/h2>/)?.[0] ?? "";
+  expect(ownTitle).toContain("member5");
+  expect(ownTitle).not.toContain("<svg");
+  expect(ownTitle).not.toContain("posted on");
+
+  const unnamed = await render(wallItem(), MEMBER, "compact", nameless);
+  expect(unnamed).toContain("posted on");
 });

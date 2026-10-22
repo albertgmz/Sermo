@@ -331,6 +331,9 @@
     "save": "Save tags",
     "cancel": "Cancel"
   },
+  "wallOwner": {
+    "wroteOn": "wrote on the profile of"
+  },
   "wallComments": {
     "placeholder": "Write a comment…",
     "submit": "Post comment",

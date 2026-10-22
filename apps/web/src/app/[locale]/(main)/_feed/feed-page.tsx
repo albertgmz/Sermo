@@ -37,6 +37,9 @@ export async function feedPage(
     ...feed.items.flatMap((item) =>
       item.type === "profilePost"
         ? [
+            // The owner of the wall, named beside the author on another member's wall. The
+            // answer fills in the name; a ref that follows (the author, a commenter) wins.
+            { id: item.profilePost.profileUserId, username: "" },
             item.profilePost.author,
             ...item.profilePost.latestComments.map((comment) => comment.author),
           ]

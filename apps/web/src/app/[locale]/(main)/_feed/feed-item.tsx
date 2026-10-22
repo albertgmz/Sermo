@@ -36,6 +36,7 @@ import {
   oldestFirst,
   WallComments,
 } from "@/components/forum/wall-comments";
+import { WallOwner, wallPlace } from "@/components/forum/wall-owner";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import type { FeedView } from "@/lib/feed-view";
 import { formatCompact } from "@/lib/format";
@@ -85,6 +86,7 @@ function Card({
   author,
   createdAt,
   context,
+  attribution,
   highlighted = false,
   featured = null,
   cover,
@@ -103,6 +105,8 @@ function Card({
   author: AuthorView;
   createdAt: string;
   context: React.ReactNode;
+  // After the author's name and badges: `▸ Owner` on a wall post made on another member's wall.
+  attribution?: React.ReactNode;
   highlighted?: boolean;
   // Why the thread is featured: a moderator picked it, or its author paid for a promotion.
   featured?: "staff" | "paid" | null;
@@ -153,6 +157,7 @@ function Card({
             <UserLink user={member} className="[overflow-wrap:anywhere]" />
             <UserBadges user={member} />
             <LevelBadge level={{ level: member.level }} />
+            {attribution}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">
             {context}
@@ -243,6 +248,11 @@ export function FeedItem({
     const { profilePost } = item;
     const href = wallTargetHref(profilePost.profileUserId, profilePost.id);
     const anchor = `feed-profile-post-${profilePost.id}`;
+    const place = wallPlace(
+      profilePost.author.id,
+      profilePost.profileUserId,
+      (id) => author(id).member,
+    );
     const comments = profilePost.latestComments;
     const oldest = oldestFirst(comments)[0];
     const earlier =
@@ -262,8 +272,11 @@ export function FeedItem({
         id={anchor}
         author={author(profilePost.author.id)}
         createdAt={item.createdAt}
+        attribution={
+          place.kind === "other" && <WallOwner owner={place.owner} />
+        }
         context={
-          profilePost.profileUserId !== profilePost.author.id &&
+          place.kind === "unnamed" &&
           t.rich("profileContext", {
             profile: (chunks) => (
               <Link
