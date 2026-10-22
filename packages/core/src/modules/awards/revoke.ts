@@ -3,6 +3,8 @@ import type { Ctx } from "../../context";
 import type { AwardRevokeRun } from "../../contracts/awards";
 import { holdCheckpoints, paceWal } from "../../db/checkpointer";
 import { writeTx } from "../../db/tx";
+import { ConflictError } from "../../errors";
+import { can, currentActor } from "../../permissions";
 import {
   creditsEarnedKeys,
   type Facts,
@@ -14,6 +16,7 @@ import { iso, isoOrNull } from "../../time";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "../jobs/queue";
 import { activePlans, confirmed, nextTurn, type Plans } from "./automatic";
 import { revokeAward } from "./grants";
+import { REVOKE_REASON } from "./revoke-events";
 import { type AwardRow, all, awardSql, one, run } from "./store";
 
 /** The queue's job and the key that lets one run be under way at a time. */
@@ -28,8 +31,6 @@ export const REVOKE_CHUNK = 25;
  * two events, and the facts of the members are read for the whole chunk.
  */
 export const REVOKE_BUDGET = 100;
-/** What a revoked grant says about why. */
-export const REVOKE_REASON = "The member no longer meets the rule of the award.";
 
 type Mode = "count" | "revoke";
 type RunRecord = {
@@ -53,12 +54,24 @@ type RunRecord = {
 };
 type HeldGrant = { id: number; user_id: number; award_id: number; xp: number; credits: number };
 
+/**
+ * An automatic grant is proven so twice: it was made with no granter and the member's totals say
+ * the criteria made it (`claimSql` sets the mark for every grant the criteria make). Only
+ * `grantAward` writes grants; anything else with no granter is left alone.
+ */
+const AUTOMATIC =
+  "EXISTS (SELECT 1 FROM member_award_totals t WHERE t.user_id = g.user_id AND t.award_id = g.award_id AND t.auto_granted = 1)";
+
 export const revokeSql = {
   // Members with automatic grants in order: the member's held grants sit together in the index.
   members:
-    "SELECT DISTINCT user_id FROM member_awards WHERE user_id > ?1 AND revoked_at IS NULL AND granted_by IS NULL ORDER BY user_id LIMIT ?2",
+    "SELECT DISTINCT g.user_id FROM member_awards g WHERE g.user_id > ?1 AND g.revoked_at IS NULL AND g.granted_by IS NULL AND " +
+    AUTOMATIC +
+    " ORDER BY g.user_id LIMIT ?2",
   grants:
-    "SELECT id, user_id, award_id, xp, credits FROM member_awards WHERE user_id IN (SELECT value FROM json_each(?1)) AND revoked_at IS NULL AND granted_by IS NULL ORDER BY user_id, id",
+    "SELECT g.id, g.user_id, g.award_id, g.xp, g.credits FROM member_awards g WHERE g.user_id IN (SELECT value FROM json_each(?1)) AND g.revoked_at IS NULL AND g.granted_by IS NULL AND " +
+    AUTOMATIC +
+    " ORDER BY g.user_id, g.id",
   top: "SELECT max(id) AS id FROM users",
   record: `SELECT value FROM site_settings WHERE key = '${RECORD_KEY}'`,
   setRecord: `INSERT INTO site_settings (key, value, updated_at) VALUES ('${RECORD_KEY}', ?1, ?2) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
@@ -96,6 +109,10 @@ export function startRevoke(ctx: Ctx, adminId: number, apply: boolean): boolean 
   const resumed = previous !== null && previous.state !== "done" && previous.mode === mode;
   const after = resumed ? previous.after : 0;
   if (enqueueJob(ctx, REVOKE_JOB, { after }, { uniqueKey: REVOKE_JOB }) === null) return false;
+  // A count would replace the record and with it the place a stopped revoking run is to resume
+  // (this throws inside the caller's transaction, which undoes the job just queued).
+  if (previous && previous.state !== "done" && previous.mode === "revoke" && !apply)
+    throw new ConflictError("A run that takes awards back stopped; resume it first.");
   const now = ctx.now();
   const record: RunRecord = resumed
     ? { ...previous, state: "running", by: adminId, error: null }
@@ -211,6 +228,27 @@ function judge(
   return taken;
 }
 
+/** Whether the administrator who started the run still holds `admin.awards`, as the database says now. */
+function mayManage(ctx: Ctx, adminId: number): boolean {
+  try {
+    return can(
+      ctx,
+      currentActor(ctx, { kind: "user", userId: adminId, groupId: 0, sessionId: 0 }),
+      "admin.awards",
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Ends the run as failed, in the transaction that completes its job: starting it again resumes it. */
+function stop(ctx: Ctx, record: RunRecord, error: string): void {
+  record.state = "failed";
+  record.error = error;
+  writeRecord(ctx, record);
+  if (record.mode === "revoke") logRun(ctx, record, "awards.revokeUnqualified.failed", { error });
+}
+
 function heldBy(ctx: Ctx, members: number[]): HeldGrant[] {
   return all<HeldGrant>(ctx, "revokeGrants", revokeSql.grants, JSON.stringify(members));
 }
@@ -266,7 +304,15 @@ export async function revokeChunk(ctx: Ctx, after: number, job: ClaimedJob): Pro
     writeTx(ctx, () => {
       if (!completeRunningJob(ctx, job)) return;
       const record = readRecord(ctx);
-      if (record?.state !== "running" || record.after !== after) return;
+      if (record?.state !== "running") return;
+      // A run the record does not describe would otherwise leave it "running" for ever.
+      if (record.after !== after) return stop(ctx, record, "The run does not match its record.");
+      if (!mayManage(ctx, record.by))
+        return stop(
+          ctx,
+          record,
+          "The administrator who started the run can no longer manage awards.",
+        );
       const plans = confirmed(ctx, seen);
       rereadMemberFacts(
         ctx,
@@ -335,12 +381,7 @@ export function registerRevokeJobs(ctx: Ctx): void {
       // The run stays where it stopped; calling it again with the same mode resumes it.
       onFailed: (context, { error }) => {
         const record = readRecord(context);
-        if (record?.state !== "running") return;
-        record.state = "failed";
-        record.error = error;
-        writeRecord(context, record);
-        if (record.mode === "revoke")
-          logRun(context, record, "awards.revokeUnqualified.failed", { error });
+        if (record?.state === "running") stop(context, record, error);
       },
     },
   );

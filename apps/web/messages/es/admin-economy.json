@@ -155,7 +155,7 @@
       "revoke": "Retirarlos…",
       "revokeNow": "Retirarlos",
       "resumeRevoke": "Reanudar la retirada",
-      "revokeWarning": "Se revocarán {grants} trofeos de {affected} miembros, con lo que se quitan {xp} XP y {credits} créditos (un saldo puede quedar por debajo de cero) y bajan sus niveles. No se avisa a los miembros. Se ejecuta en segundo plano, unos pocos miembros cada vez, y puede tardar; esta página muestra cuánto falta. Los trofeos concedidos a mano no se tocan.",
+      "revokeWarning": "Contado el {when}. La ejecución vuelve a juzgar a cada uno tal como esté cuando le llegue el turno, así que las cifras pueden variar: se revocarán unos {grants} trofeos de unos {affected} miembros, con lo que se quitan {xp} XP y {credits} créditos (un saldo puede quedar por debajo de cero) y bajan sus niveles. No se avisa a los miembros. Se ejecuta en segundo plano, unos pocos miembros cada vez, y puede tardar; esta página muestra cuánto falta. Los trofeos concedidos a mano no se tocan.",
       "countQueued": "El recuento se puso en cola y empezará en breve.",
       "revokeQueued": "La ejecución se puso en cola y empezará en breve.",
       "notQueued": "Ya hay una ejecución en curso."

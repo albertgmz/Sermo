@@ -38,6 +38,7 @@ import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
 import { confirmActorPassword } from "../admin/shared";
+import { isRevokeRunEvent } from "../awards/revoke-events";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { assertAdministrator } from "../permissions";
 
@@ -869,6 +870,7 @@ export function deletePromotionChunk(ctx: Ctx, progress: DeleteProgress): number
   });
 }
 function onEvent(ctx: Ctx, event: DomainEvent): void {
+  if (isRevokeRunEvent(ctx, event)) return;
   let userId: number | null = null;
   if (
     event.type === "content.created" &&

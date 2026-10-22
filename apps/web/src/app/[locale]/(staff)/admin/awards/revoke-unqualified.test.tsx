@@ -88,6 +88,8 @@ test("a finished count shows the totals and the awards, and offers to take them 
   expect(html).toContain(text.revoke);
   expect(html).toContain(text.revokeNow);
   expect(html).toContain("54,000 members");
+  // The warning says when the figures were counted.
+  expect(html).toContain("Counted Oct 20, 2026, 11:00 AM.");
 });
 
 test("a count that found nothing offers nothing to take back", async () => {
@@ -126,6 +128,8 @@ test("a run that stopped on an error says why and offers to resume it", async ()
   const revoking = await render({ ...stopped, mode: "revoke" });
   expect(revoking).toContain("disk full");
   expect(revoking).toContain(text.resumeRevoke);
+  // A new count would lose the place to resume from.
+  expect(revoking).not.toContain(text.recount);
   const counting = await render(stopped);
   expect(counting).toContain("disk full");
   expect(counting).toContain(text.resumeCount);

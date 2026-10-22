@@ -2,12 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { closeContext } from "../../context";
-import { ForbiddenError, UnauthenticatedError } from "../../errors";
+import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../errors";
 import { dispatchEvents } from "../../events";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { enqueueJob, runDueJobs } from "../jobs/queue";
 import { registerNotificationJobs } from "../notifications";
+import { registerPromotionJobs } from "../promotions";
 import { evaluateMember, sweepChunk } from "./automatic";
 import { registerAwardJobs } from "./index";
 import { REVOKE_BUDGET, REVOKE_CHUNK, REVOKE_JOB, revokeChunk } from "./revoke";
@@ -486,11 +487,162 @@ describe("taking back automatic awards from members who no longer meet the rule"
     await revokeChunk(ctx, 7, { id: job.id, lockedUntil: lease });
     expect(sql("SELECT id FROM member_awards WHERE revoked_at IS NOT NULL")).toEqual([]);
     expect(sql("SELECT status FROM jobs WHERE id = ?1", job.id)).toEqual([{ status: "done" }]);
-    expect(await call("revokeStatus")).toMatchObject({ state: "running", members: 0 });
-    // A stopped record that is not running gives the next start a fresh run.
+    // The run does not stay "running" for ever: it is told to have stopped, and resumes.
+    expect(await call("revokeStatus")).toMatchObject({ state: "failed", members: 0 });
+    expect((await call("revokeStatus")).error).toContain("does not match");
     expect(await call("revokeUnqualified", { apply: true })).toEqual({ queued: true });
     await drain();
     expect(await call("revokeStatus")).toMatchObject({ state: "done", grants: 1 });
+  });
+
+  test("a grant with no granter that the totals do not say the criteria made is left alone", async () => {
+    const { ctx, call, posts, drain, events, sql } = setup();
+    const member = insertUser(ctx);
+    const award = await call("create", { name: "Posts", tier: "bronze", xp: 4, rule: postRule });
+    const other = await call("create", { name: "Other", tier: "bronze", xp: 4, rule: postRule });
+    posts([member.id], 1);
+    evaluateMember(ctx, member.id);
+    await events();
+    posts([member.id], 0);
+    // As if something other than the criteria had written one of the two grants.
+    ctx.sqlite
+      .prepare("UPDATE member_award_totals SET auto_granted = 0 WHERE award_id = ?1")
+      .run(other.id);
+    await call("revokeUnqualified", { apply: true });
+    await drain();
+    expect(await call("revokeStatus")).toMatchObject({
+      grants: 1,
+      awards: [{ awardId: award.id }],
+    });
+    expect(
+      sql(
+        "SELECT award_id FROM member_awards WHERE revoked_at IS NULL AND user_id = ?1",
+        member.id,
+      ),
+    ).toEqual([{ award_id: other.id }]);
+  });
+
+  test("a run's own events do not make the awards subscriber look at the member again, a hand revoke's do", async () => {
+    const { ctx, call, posts, drain, events } = setup();
+    const byRun = insertUser(ctx);
+    const byHand = insertUser(ctx);
+    const base = await call("create", {
+      name: "Base",
+      tier: "bronze",
+      xp: 2,
+      credits: 3,
+      rule: postRule,
+    });
+    // Held by those who do not hold the base: true for a member once the base is gone.
+    const without = await call("create", {
+      name: "Without",
+      tier: "silver",
+      rule: {
+        match: "all",
+        conditions: [{ criterion: "holds_awards", ids: [base.id], mode: "none" }],
+      },
+    });
+    posts([byRun.id, byHand.id], 1);
+    evaluateMember(ctx, byRun.id);
+    evaluateMember(ctx, byHand.id);
+    await events();
+    posts([byRun.id], 0);
+    const handGrant = (await call("memberGrants", { userId: byHand.id })).items.find(
+      (grant: { award: { id: number } }) => grant.award.id === base.id,
+    );
+    await call("revoke", { memberAwardId: handGrant.id });
+    await call("revokeUnqualified", { apply: true });
+    await drain();
+    await events();
+    const held = async (userId: number) =>
+      (await call("member", { userId })).items.map(
+        (item: { award: { id: number } }) => item.award.id,
+      );
+    expect(await held(byHand.id)).toEqual([without.id]);
+    expect(await held(byRun.id)).toEqual([]);
+    // The sweep that runs every day gives it.
+    await sweepChunk(ctx);
+    expect(await held(byRun.id)).toEqual([without.id]);
+  });
+
+  test("a run's own events do not make the promotions subscriber look at the member again", async () => {
+    const { ctx, admin, call, posts, drain, events, sql } = setup();
+    registerPromotionJobs(ctx);
+    const member = insertUser(ctx);
+    const promoted = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('Promoted', 30) RETURNING id",
+      )
+      .get()!.id;
+    await call("create", { name: "Base", tier: "bronze", xp: 2, credits: 3, rule: postRule });
+    posts([member.id], 1);
+    evaluateMember(ctx, member.id);
+    await execute(ctx, getOperation("promotions.create"), admin, {
+      title: "No XP",
+      rule: { match: "all", conditions: [{ criterion: "award_xp_at_most", value: 0 }] },
+      groupIds: [promoted],
+    });
+    await events();
+    await drain();
+    const groupsOf = () =>
+      sql("SELECT group_id FROM user_group_grants WHERE user_id = ?1", member.id);
+    expect(groupsOf()).toEqual([]);
+    posts([member.id], 0);
+    await call("revokeUnqualified", { apply: true });
+    await drain();
+    await events();
+    expect(groupsOf()).toEqual([]);
+  });
+
+  test("a run stops when the administrator who started it can no longer manage awards", async () => {
+    const { ctx, adminUser, call, posts, drain, events, sql } = setup();
+    const member = insertUser(ctx);
+    await call("create", { name: "Posts", tier: "bronze", xp: 1, rule: postRule });
+    posts([member.id], 1);
+    evaluateMember(ctx, member.id);
+    await events();
+    posts([member.id], 0);
+    await call("revokeUnqualified", { apply: true });
+    ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE id = ?1").run(adminUser.id);
+    await drain();
+    expect(
+      await call("revokeStatus", {}, userActor(insertUser(ctx, { groupId: 4 }))),
+    ).toMatchObject({
+      state: "failed",
+      grants: 0,
+    });
+    expect(sql("SELECT id FROM member_awards WHERE revoked_at IS NOT NULL")).toEqual([]);
+    expect(
+      sql("SELECT action FROM moderator_log ORDER BY id").map(
+        (row) => (row as { action: string }).action,
+      ),
+    ).toEqual(["awards.revokeUnqualified.start", "awards.revokeUnqualified.failed"]);
+  });
+
+  test("a count cannot replace a revoking run that stopped, and can once it is done", async () => {
+    const { ctx, call, posts, drain, events } = setup();
+    const member = insertUser(ctx);
+    await call("create", { name: "Posts", tier: "bronze", xp: 1, rule: postRule });
+    posts([member.id], 1);
+    evaluateMember(ctx, member.id);
+    await events();
+    posts([member.id], 0);
+    await call("revokeUnqualified", { apply: true });
+    ctx.sqlite.exec(
+      "CREATE TRIGGER refuse BEFORE UPDATE ON member_awards WHEN NEW.revoked_at IS NOT NULL BEGIN SELECT RAISE(ABORT, 'disk full'); END",
+    );
+    for (let attempt = 0; attempt < 6; attempt++) {
+      ctx.clock.advance(2 * 3_600_000);
+      await runDueJobs(ctx);
+    }
+    expect(await call("revokeStatus")).toMatchObject({ state: "failed", mode: "revoke" });
+    await expect(call("revokeUnqualified", { apply: false })).rejects.toThrow(ConflictError);
+    expect(await call("revokeStatus")).toMatchObject({ state: "failed", mode: "revoke" });
+    ctx.sqlite.exec("DROP TRIGGER refuse");
+    await call("revokeUnqualified", { apply: true });
+    await drain();
+    expect(await call("revokeStatus")).toMatchObject({ state: "done", grants: 1 });
+    expect(await call("revokeUnqualified", { apply: false })).toEqual({ queued: true });
   });
 
   test("the sweep, a new award and registering the jobs revoke nothing and start no run", async () => {

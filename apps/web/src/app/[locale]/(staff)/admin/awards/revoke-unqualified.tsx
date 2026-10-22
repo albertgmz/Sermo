@@ -45,6 +45,12 @@ export async function RevokeUnqualified() {
     run.state === "failed" && counting
       ? t("resumeCount")
       : t(run.state === "idle" ? "count" : "recount");
+  // A count would replace a stopped revoking run, and with it the place to resume from.
+  const offerCount = !(run.state === "failed" && !counting);
+  const when = format.dateTime(new Date(run.finishedAt ?? run.startedAt ?? 0), {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
   const offerRevoke =
     (run.state === "done" && counting && run.grants > 0) ||
     (run.state === "failed" && !counting);
@@ -86,11 +92,13 @@ export async function RevokeUnqualified() {
         )}
         {!running && (
           <div className="flex flex-wrap items-start gap-3">
-            <RunNow
-              action={countUnqualified}
-              namespace="adminEconomy.awards"
-              labels={{ run: countLabel, running: t("starting") }}
-            />
+            {offerCount && (
+              <RunNow
+                action={countUnqualified}
+                namespace="adminEconomy.awards"
+                labels={{ run: countLabel, running: t("starting") }}
+              />
+            )}
             {offerRevoke && (
               <ConfirmStep
                 action={revokeUnqualified}
@@ -101,7 +109,7 @@ export async function RevokeUnqualified() {
                   run.state === "failed" ? t("resumeRevoke") : t("revokeNow")
                 }
                 pendingLabel={t("starting")}
-                warning={t("revokeWarning", figures)}
+                warning={t("revokeWarning", { ...figures, when })}
               />
             )}
           </div>

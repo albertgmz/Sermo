@@ -463,7 +463,7 @@ revokes (`apply: true`). The run goes through the members who hold automatic gra
 awards with conditions, 25 at a time, and revokes each grant whose rule the member no longer
 meets like `awards.revoke` does (XP and credits taken back, balances may go below zero), judging
 the member's other awards again with what is left until none more falls. Grants made by hand,
-inactive awards and awards with no conditions are never touched, nobody is notified, and the
+inactive awards and awards with no conditions are never touched, and a grant counts as automatic only when the member's totals also say the criteria made it. Nobody is notified, the awards and promotions subscribers do not look at a member again for the run's own revocations (the daily sweeps pick up what they make true), the run stops if the administrator who started it loses `admin.awards`, and the
 start and the end of a revoking run are written to the moderator log. A grant taken back is given
 again if the member later meets the rule. A run that stopped on an error resumes from where it
 stopped when started again with the same `apply`; credit rules that paid for a grant reverse

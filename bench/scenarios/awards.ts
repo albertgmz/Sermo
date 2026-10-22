@@ -342,7 +342,12 @@ const revokeWork: ScaleWork = {
       string,
       number
     >;
-    return `${grants} grants taken back from ${affected} of ${members} members seen`;
+    const behind = copy.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT (SELECT coalesce(max(id), 0) FROM domain_events) - coalesce((SELECT last_event_id FROM event_subscribers WHERE name = 'awards'), 0) AS n",
+      )
+      .get()!.n;
+    return `${grants} grants taken back from ${affected} of ${members} members seen; the awards subscriber is ${behind} events behind`;
   },
 };
 

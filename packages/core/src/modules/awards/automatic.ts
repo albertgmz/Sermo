@@ -15,6 +15,7 @@ import {
 } from "../../shared/criteria";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "../jobs/queue";
 import { grantAward } from "./grants";
+import { isRevokeRunEvent } from "./revoke-events";
 import { type AwardRow, all, awardSql, one, ruleOf, type TotalRow } from "./store";
 
 // Granting can append several ledger and event rows per award; keep each lock brief.
@@ -188,6 +189,7 @@ export function sweepAgainAfterCurrent(ctx: Ctx): void {
 }
 
 function onEvent(ctx: Ctx, event: DomainEvent): void {
+  if (isRevokeRunEvent(ctx, event)) return;
   // An automatic grant, and the credits it paid, come from a pass that judged every award again
   // with them (`evaluate`): they leave nothing to change.
   if (

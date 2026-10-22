@@ -155,7 +155,7 @@
       "revoke": "Take them back…",
       "revokeNow": "Take them back",
       "resumeRevoke": "Resume taking back",
-      "revokeWarning": "{grants} grants held by {affected} members will be revoked, taking back {xp} XP and {credits} credits (a balance can go below zero) and lowering their levels. Members are not told. It runs in the background, a few members at a time, and can take a while; this page shows how far it is. Awards given by hand are not touched.",
+      "revokeWarning": "Counted {when}. The run judges everyone again as they are when it gets to them, so the figures can differ: about {grants} grants held by about {affected} members will be revoked, taking back {xp} XP and {credits} credits (a balance can go below zero) and lowering their levels. Members are not told. It runs in the background, a few members at a time, and can take a while; this page shows how far it is. Awards given by hand are not touched.",
       "countQueued": "The count was queued and will start shortly.",
       "revokeQueued": "The run was queued and will start shortly.",
       "notQueued": "A run is already under way."
