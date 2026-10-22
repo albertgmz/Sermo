@@ -85,14 +85,23 @@ const SCALED_PURPOSES = CATALOG_FILE_PURPOSES.filter((purpose) => purpose !== "r
 describe("catalog uploads are renditions of the right size", () => {
   const expectations: Record<
     (typeof SCALED_PURPOSES)[number],
-    { type: string; box: [number, number]; variants: [string, [number, number]][] }
+    {
+      type: string;
+      box: [number, number];
+      // A variant in another format than its upload names it third.
+      variants: [string, [number, number], string?][];
+    }
   > = {
     frame: { type: "image/webp", box: [512, 512], variants: [["frame_256", [256, 256]]] },
     cover_preset: { type: "image/webp", box: [1600, 600], variants: [["cover_small", [800, 300]]] },
     thread_cover: { type: "image/webp", box: [1600, 600], variants: [["cover_small", [800, 300]]] },
     award_image: { type: "image/webp", box: [960, 540], variants: [["art_small", [480, 270]]] },
     shop_image: { type: "image/webp", box: [960, 540], variants: [["art_small", [480, 270]]] },
-    site_logo: { type: "image/webp", box: [640, 160], variants: [["mail_logo", [480, 80]]] },
+    site_logo: {
+      type: "image/webp",
+      box: [640, 160],
+      variants: [["mail_logo", [480, 80], "image/png"]],
+    },
     site_icon: {
       type: "image/png",
       box: [512, 512],
@@ -133,8 +142,8 @@ describe("catalog uploads are renditions of the right size", () => {
         expected.variants.map(([name]) => name).sort(),
       );
       for (const variant of variants) {
-        const [, box] = expected.variants.find(([name]) => name === variant.variant)!;
-        expect(variant.content_type).toBe(expected.type);
+        const [, box, type] = expected.variants.find(([name]) => name === variant.variant)!;
+        expect(variant.content_type).toBe(type ?? expected.type);
         expect(variant.width).toBeLessThanOrEqual(box[0]);
         expect(variant.height).toBeLessThanOrEqual(box[1]);
       }
