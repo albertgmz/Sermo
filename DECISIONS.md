@@ -6191,3 +6191,22 @@ page without a warning (needs an `optionsReadable` field on the widget detail).
 
 Why: the owner saw a short conversation message with its buttons right under the text and a large
 empty space below.
+
+### Administrators can rebuild every member's levels and awards
+
+- `awards.rebuild` (a section on /admin/awards, and `bun run awards:rebuild` inside the backend
+  container) is a background run in chunks of 25 members: each member's award XP and award count are
+  set to what the grants they hold add up to (the level follows from XP; nothing stores a level),
+  missing and drifted per-award counters are repaired, automatic awards whose rule is met are
+  granted and automatic ones no longer met are taken back through the take-back run's path, hand
+  grants are kept, and each award's holder count is repaired at the end. Credits follow the grants
+  (paid on grant, taken back on take-back), as the sweep and the take-back run do. Members are not
+  notified. The administrator's password is required, an API key is refused, and the moderator log
+  records the start and end.
+- A preview (`--dry-run`, "Ver qué cambiaría") runs the same chunks inside a rolled-back savepoint
+  and reports what a real run would change; a run can be stopped between chunks and resumed, and a
+  preview and a real run never mix.
+
+Why: the owner asked for a way to reset levels and recompute all awards. Known limits: awards whose
+rules depend on time, credits or XP change between runs; a grant held with no counter row is kept
+as a hand grant (never taken back by the rules), as it already was.
