@@ -18,7 +18,6 @@ const forum = (
 const data = (over: Partial<CreateData>): CreateData => ({
   memberId: 5,
   forums: [forum(1, null, "category", false), forum(2, 1, "forum", true)],
-  prefixes: [],
   canTag: false,
   canWall: true,
   ...over,

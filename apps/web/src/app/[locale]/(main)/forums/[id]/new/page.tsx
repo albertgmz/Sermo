@@ -10,7 +10,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
-import { prefixView } from "@/lib/sermo/threads";
+import { activePrefixViews } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("forums.new");
@@ -40,6 +40,7 @@ export default async function NewThreadPage({
         <ThreadForm
           id={node.id}
           canPost={node.permissions.canPost}
+          requirePrefix={node.settings.requirePrefix}
           canAttach={resolvedPermissions["forum.uploadAttachments"] === true}
           canPoll={resolvedPermissions["poll.create"] === true}
         />
@@ -51,11 +52,13 @@ export default async function NewThreadPage({
 async function ThreadForm({
   id,
   canPost,
+  requirePrefix,
   canAttach,
   canPoll,
 }: {
   id: number;
   canPost: boolean;
+  requirePrefix: boolean;
   canAttach: boolean;
   canPoll: boolean;
 }) {
@@ -71,12 +74,10 @@ async function ThreadForm({
     );
   }
   const [{ items: prefixItems }, { items: nodes }] = await Promise.all([
-    read(threadPrefixesList, {}),
+    read(threadPrefixesList, { nodeId: id }),
     read(nodesList, {}),
   ]);
-  const prefixes = prefixItems.flatMap((prefix) =>
-    prefix.isActive ? (prefixView(prefix) ?? []) : [],
-  );
+  const prefixes = activePrefixViews(prefixItems);
   const viewer = await getViewer();
   const forums = nodes.map(({ id, parentId, title, type, permissions }) => ({
     id,
@@ -90,6 +91,8 @@ async function ThreadForm({
       forumId={id}
       forums={forums}
       prefixes={prefixes}
+      // As the backend applies it: a forum with nothing to choose from asks for nothing.
+      requirePrefix={requirePrefix && prefixes.length > 0}
       canAttach={canAttach}
       canTag={viewer.resolvedPermissions["tag.apply"] === true}
       canPoll={canPoll}

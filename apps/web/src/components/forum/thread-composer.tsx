@@ -25,9 +25,14 @@ import { useKeptForm } from "@/components/forum/use-kept-form";
 import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
-// A thread can be sent once it has a title and a first post.
-export function threadReady(title: string, body: string) {
-  return title.trim() !== "" && body.trim() !== "";
+// A thread can be sent once it has a title and a first post, and a prefix where the forum asks
+// for one.
+export function threadReady(
+  title: string,
+  body: string,
+  prefixMissing = false,
+) {
+  return title.trim() !== "" && body.trim() !== "" && !prefixMissing;
 }
 
 // A thread is sent from the composer, never from the choice of forum that stands in its place.
@@ -38,6 +43,39 @@ export function sendUnlessPicking(
 ) {
   if (picking) event.preventDefault();
   else send();
+}
+
+// What a forum offers as prefixes, as the composer knows it: still being asked for (after a change
+// of forum), asked for and answered, or asked for and not answered.
+export type Offer = {
+  status: "ready" | "loading" | "failed";
+  prefixes: PrefixView[];
+  requirePrefix: boolean;
+};
+
+export const OFFER_LOADING: Offer = {
+  status: "loading",
+  prefixes: [],
+  requirePrefix: false,
+};
+
+// The offer once the forum's access was asked for; null is a read that failed, which leaves the
+// forum without a picker until it is asked for again.
+export function offerFrom(
+  read: { prefixes: PrefixView[]; requirePrefix: boolean } | null,
+): Offer {
+  return read
+    ? {
+        status: "ready",
+        prefixes: read.prefixes,
+        requirePrefix: read.requirePrefix,
+      }
+    : { status: "failed", prefixes: [], requirePrefix: false };
+}
+
+// Post waits while the prefixes are unknown, and for a prefix where the forum asks for one.
+export function prefixBlocks(offer: Offer, chosen: string) {
+  return offer.status !== "ready" || (offer.requirePrefix && chosen === "");
 }
 
 // Where the composer is visited. The forum is changed in place, so the address follows without a
@@ -64,7 +102,8 @@ export function addressAfterForumChange(
 export function ThreadComposer({
   forumId,
   forums,
-  prefixes,
+  prefixes: firstPrefixes,
+  requirePrefix: firstRequired,
   canAttach,
   canTag,
   canPoll,
@@ -79,7 +118,10 @@ export function ThreadComposer({
   forumId: number;
   // The forums the member may start a thread in, under the categories that hold them.
   forums: ForumChoice[];
+  // The prefixes the first forum offers, and whether it asks for one; the composer asks again when
+  // the forum is changed.
   prefixes: PrefixView[];
+  requirePrefix: boolean;
   canAttach: boolean;
   // The member may put tags on a thread (tag.apply): the field for them is shown.
   canTag: boolean;
@@ -112,7 +154,13 @@ export function ThreadComposer({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [prefixId, setPrefixId] = useState("");
-  // A kept prefix that has since been removed is not one.
+  const [offered, setOffered] = useState<Offer>({
+    status: "ready",
+    prefixes: firstPrefixes,
+    requirePrefix: firstRequired,
+  });
+  const { prefixes, requirePrefix } = offered;
+  // A kept prefix that has since been removed, or that the forum does not offer, is not one.
   const prefix = prefixes.some((item) => String(item.id) === prefixId)
     ? prefixId
     : "";
@@ -200,16 +248,28 @@ export function ThreadComposer({
     onForum?.(id);
     const address = addressAfterForumChange(frame, id);
     if (address) window.history.replaceState(null, "", address);
-    // Whether files and a poll may be added is a permission of the forum.
+    loadForum(id);
+  }
+
+  // Whether files and a poll may be added is a permission of the forum, and the prefixes are the
+  // ones it offers: those of the forum left are not, so Post waits for the answer. A forum that
+  // could not be read leaves the files and the poll as they were (that is no refusal), but not the
+  // prefixes: it has no picker and Post stays off until the member asks again.
+  function loadForum(id: number) {
+    setOffered(OFFER_LOADING);
     const turn = ++asked.current;
     forumComposeAccessAction(id).then(
       (allowed) => {
-        // A forum that could not be read leaves what was known: that is no refusal.
-        if (turn !== asked.current || !allowed) return;
-        setAttach(allowed.attach);
-        setPoll(allowed.poll);
+        if (turn !== asked.current) return;
+        if (allowed) {
+          setAttach(allowed.attach);
+          setPoll(allowed.poll);
+        }
+        setOffered(offerFrom(allowed));
       },
-      () => {},
+      () => {
+        if (turn === asked.current) setOffered(offerFrom(null));
+      },
     );
   }
 
@@ -252,9 +312,29 @@ export function ThreadComposer({
         autoComplete="off"
         className="block w-full min-w-0 bg-transparent py-1 text-xl font-semibold outline-none placeholder:text-muted-foreground md:text-2xl"
       />
+      {offered.status === "failed" && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+        >
+          {t("prefixesFailed")}
+          <button
+            type="button"
+            onClick={() => loadForum(target.current)}
+            className="min-h-10 rounded-md px-2 font-medium text-primary-ink underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring md:min-h-8"
+          >
+            {t("prefixesRetry")}
+          </button>
+        </div>
+      )}
       {prefixes.length > 0 && (
         <fieldset className="flex min-w-0 flex-wrap gap-2">
           <legend className="sr-only">{t("prefixLabel")}</legend>
+          {requirePrefix && !prefix && (
+            <p className="w-full text-xs text-muted-foreground">
+              {t("prefixRequired")}
+            </p>
+          )}
           <input type="hidden" name="prefixId" value={prefix} />
           {prefixes.map((item) => {
             const chosen = String(item.id) === prefix;
@@ -308,7 +388,7 @@ export function ThreadComposer({
       }
       submitLabel={t("post")}
       pending={pending}
-      canSubmit={threadReady(title, body)}
+      canSubmit={threadReady(title, body, prefixBlocks(offered, prefix))}
       top={top}
       placeholder={t(
         kind === "question" ? "questionBodyPlaceholder" : "bodyPlaceholder",

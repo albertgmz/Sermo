@@ -38,19 +38,8 @@ const node = (id: number, parentId: number | null, canPost: boolean) => ({
     countsPosts: true,
     minAccountAgeDays: 0,
     minPostCount: 0,
+    requirePrefix: false,
   },
-});
-
-const prefix = (id: number, isActive: boolean) => ({
-  id,
-  label: `Prefix ${id}`,
-  color: "#22aa66",
-  icon: "",
-  colorId: 1,
-  position: id,
-  isActive,
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
 });
 
 beforeEach(() => {
@@ -77,14 +66,14 @@ beforeEach(() => {
         items: [node(1, null, false), node(2, 1, true), node(3, 1, false)],
       });
     }
-    return Response.json({ items: [prefix(7, true), prefix(8, false)] });
+    return Response.json({ items: [] });
   }) as unknown as typeof fetch;
 });
 afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-test("the flow gets the forums with the postable ones marked, the active prefixes and the two global permissions", async () => {
+test("the flow gets the forums with the postable ones marked and the two global permissions", async () => {
   const loaded = await loadCreateAction();
   expect(loaded.ok).toBe(true);
   if (!loaded.ok) return;
@@ -94,9 +83,10 @@ test("the flow gets the forums with the postable ones marked, the active prefixe
     [2, true],
     [3, false],
   ]);
-  expect(loaded.data.prefixes.map((item) => item.id)).toEqual([7]);
   expect(loaded.data.canTag).toBe(true);
   expect(loaded.data.canWall).toBe(true);
+  // A forum's prefixes are asked when the forum is chosen, not for all of them at once.
+  expect(asked.some((url) => url.includes("thread-prefixes"))).toBe(false);
 });
 
 test("a member who may not post on their wall is told so", async () => {

@@ -18,13 +18,68 @@ export const prefixSql = {
   carried: "SELECT 1 FROM threads WHERE prefix_id = ?1 LIMIT 1",
   color: "SELECT kind, is_active FROM palette_colors WHERE id = ?1",
   count: "SELECT COUNT(*) AS n FROM thread_prefixes",
+  /** The prefixes a forum offers: a primary-key range on the unique pair. */
+  offered: "SELECT prefix_id FROM forum_prefixes WHERE node_id = ?1",
+  clearOffered: "DELETE FROM forum_prefixes WHERE node_id = ?1",
+  offer: "INSERT INTO forum_prefixes (node_id, prefix_id) VALUES (?1, ?2)",
+  offerInEveryForum:
+    "INSERT INTO forum_prefixes (node_id, prefix_id) SELECT id, ?1 FROM nodes WHERE type = 'forum'",
+  /** One probe on the index threads_prefix (prefix, forum). */
+  carriedHere: "SELECT 1 FROM threads WHERE prefix_id = ?1 AND node_id = ?2 LIMIT 1",
+  required: "SELECT require_prefix FROM nodes WHERE id = ?1",
 };
 
-/** A prefix a thread may newly take: it exists and is active. Call inside the write transaction. */
-export function requireActivePrefix(ctx: Ctx, prefixId: number): PrefixRow {
+/** The prefixes a forum offers, in display order, active or not. */
+export function offeredPrefixRows(ctx: Ctx, nodeId: number): PrefixRow[] {
+  const ids = new Set(
+    ctx.sqlite
+      .prepare<{ prefix_id: number }, [number]>(prefixSql.offered)
+      .all(nodeId)
+      .map((row) => row.prefix_id),
+  );
+  return prefixRows(ctx).filter((row) => ids.has(row.id));
+}
+
+/**
+ * A prefix a thread of the forum may newly take: it exists, is active and the forum offers it.
+ * Call inside the write transaction.
+ */
+export function requireActivePrefix(ctx: Ctx, prefixId: number, nodeId: number): PrefixRow {
   const row = prefixRows(ctx).find((candidate) => candidate.id === prefixId);
   if (!row?.is_active) throw new ValidationError("That thread prefix is not available.");
+  if (!offeredPrefixRows(ctx, nodeId).some((offered) => offered.id === prefixId))
+    throw new ValidationError("That thread prefix is not available in this forum.");
   return row;
+}
+
+/**
+ * A forum that requires a prefix and offers an active one refuses a thread without a prefix. A
+ * forum that offers none cannot require one: nobody could post there.
+ */
+export function requirePrefixChosen(ctx: Ctx, nodeId: number): void {
+  if (
+    !ctx.sqlite.prepare<{ require_prefix: number }, [number]>(prefixSql.required).get(nodeId)
+      ?.require_prefix
+  )
+    return;
+  if (offeredPrefixRows(ctx, nodeId).some((row) => row.is_active))
+    throw new ValidationError("Choose a prefix for this thread.");
+}
+
+/** A new forum offers every active prefix, as every forum did before forums chose. */
+export function offerEveryActivePrefix(ctx: Ctx, nodeId: number): void {
+  const insert = ctx.sqlite.prepare(prefixSql.offer);
+  for (const row of prefixRows(ctx)) if (row.is_active) insert.run(nodeId, row.id);
+}
+
+/** Replaces the prefixes a forum offers. Call inside the write transaction. */
+export function setOfferedPrefixes(ctx: Ctx, nodeId: number, prefixIds: readonly number[]): void {
+  const known = new Set(prefixRows(ctx).map((row) => row.id));
+  const wanted = [...new Set(prefixIds)];
+  if (wanted.some((id) => !known.has(id))) throw new ValidationError("A thread prefix is unknown.");
+  ctx.sqlite.prepare(prefixSql.clearOffered).run(nodeId);
+  const insert = ctx.sqlite.prepare(prefixSql.offer);
+  for (const id of wanted) insert.run(nodeId, id);
 }
 
 function requirePrefixColor(ctx: Ctx, colorId: number): void {
@@ -43,17 +98,34 @@ function prefixRow(ctx: Ctx, id: number): PrefixRow {
   return row;
 }
 
+/** The forum's offered prefixes, and with `carried` the ones its threads still carry. */
+function listedForForum(ctx: Ctx, nodeId: number, carried: boolean): PrefixRow[] {
+  const offered = offeredPrefixRows(ctx, nodeId);
+  if (!carried) return offered;
+  const probe = ctx.sqlite.prepare(prefixSql.carriedHere);
+  const have = new Set(offered.map((row) => row.id));
+  return prefixRows(ctx).filter((row) => have.has(row.id) || !!probe.get(row.id, nodeId));
+}
+
 const threadPrefixesListOp = implement(
   contracts.threadPrefixesList,
-  (ctx, actor) => {
-    const all = can(ctx, actor, "admin.prefixes");
+  (ctx, actor, input) => {
+    const all = can(ctx, actor, "admin.prefixes") || can(ctx, actor, "admin.nodes");
+    if (input.nodeId !== undefined)
+      requirePermission(ctx, actor, "node.view", { nodeId: input.nodeId }, { notFound: true });
     return {
-      items: prefixRows(ctx)
+      items: (input.nodeId === undefined
+        ? prefixRows(ctx)
+        : listedForForum(ctx, input.nodeId, input.carried)
+      )
         .filter((row) => all || row.is_active)
         .map((row) => prefixValue(ctx, row)),
     };
   },
-  { public: "Anyone can list the active prefixes; inactive ones need admin.prefixes." },
+  {
+    public:
+      "Anyone can list the active prefixes, or the ones a forum they may view offers; inactive ones need admin.prefixes or admin.nodes.",
+  },
 );
 
 const threadPrefixesCreateOp = implement(contracts.threadPrefixesCreate, (ctx, actor, input) => {
@@ -76,6 +148,7 @@ const threadPrefixesCreateOp = implement(contracts.threadPrefixesCreate, (ctx, a
         input.isActive ? 1 : 0,
         ctx.now(),
       )!;
+    if (input.offerInAllForums) ctx.sqlite.prepare(prefixSql.offerInEveryForum).run(row.id);
     invalidate(ctx, "thread_prefixes");
     appendModeratorLog(ctx, actor, "threadPrefix.create", "thread_prefix", row.id, "", {});
     return row.id;

@@ -1,6 +1,11 @@
-import type { forumTabsList, nodesGet } from "@sermo/core/contracts";
+import type {
+  forumTabsList,
+  nodesGet,
+  threadPrefixesList,
+} from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { ForumChecks } from "@/components/forum/forum-checks";
 import { IconPicker } from "@/components/icons/icon-picker";
 import {
   Advanced,
@@ -16,6 +21,7 @@ import { NodeOptions, type TreeNode } from "../node-options";
 
 type Node = z.output<typeof nodesGet.output>["node"];
 type Tab = z.output<typeof forumTabsList.output>["items"][number];
+type Prefix = z.output<typeof threadPrefixesList.output>["items"][number];
 
 function Switch({
   name,
@@ -45,16 +51,21 @@ function Switch({
 // Every field `nodes.update` takes, grouped. The type of a node is fixed when it is created and is
 // shown, not edited. The tab of the forum list belongs to a root node only, so the row is there
 // only for one (`hasTab` tells the action the field was shown), and the counting switch to a
-// forum (`hasCountsPosts`). Read only and the approval switches, which most forums never touch,
+// forum (`hasCountsPosts`), and the prefixes (`hasPrefixes`) too. Read only and the approval switches, which most forums never touch,
 // sit in the closed advanced card.
 export async function NodeForm({
   node,
   nodes,
   tabs,
+  prefixes,
+  offered,
 }: {
   node: Node;
   nodes: readonly TreeNode[];
   tabs: readonly Tab[];
+  // Every prefix of the site, and the ids of the ones this forum offers.
+  prefixes: readonly Prefix[];
+  offered: ReadonlySet<number>;
 }) {
   const t = await getTranslations("adminForums.edit");
   const { settings } = node;
@@ -193,6 +204,39 @@ export async function NodeForm({
           </Field>
         )}
       </FieldGroup>
+      {node.type === "forum" && (
+        <FieldGroup legend={t("groupPrefixes")}>
+          <input type="hidden" name="hasPrefixes" value="1" />
+          <Field
+            name="prefixIds"
+            label={t("prefixes")}
+            help={prefixes.length > 0 ? t("prefixesHelp") : t("prefixesNone")}
+          >
+            {prefixes.length > 0 && (
+              <ForumChecks
+                name="prefixIds"
+                label={t("prefixesList")}
+                forums={prefixes.map((prefix) => ({
+                  id: prefix.id,
+                  title: prefix.isActive
+                    ? prefix.label
+                    : t("prefixInactive", { label: prefix.label }),
+                  depth: 0,
+                }))}
+                checked={offered}
+              />
+            )}
+          </Field>
+          <Field name="requirePrefix" label={t("requirePrefix")}>
+            <Switch
+              id="node-require-prefix"
+              name="requirePrefix"
+              label={t("requirePrefixHelp")}
+              checked={settings.requirePrefix}
+            />
+          </Field>
+        </FieldGroup>
+      )}
       <Advanced
         label={t("groupApproval")}
         fields={["isReadOnly", "requireThreadApproval", "requireReplyApproval"]}

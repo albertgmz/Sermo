@@ -4,6 +4,7 @@ import {
   nodesGet,
   nodesUnwatch,
   nodesWatch,
+  threadPrefixesList,
   threadsBatchUpdate,
   threadsCreate,
 } from "@sermo/core/contracts";
@@ -21,6 +22,8 @@ import { formIds, parseId, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 import { pollFromJson } from "@/lib/sermo/polls";
 import { tagsFromText } from "@/lib/sermo/tags";
+import { activePrefixViews } from "@/lib/sermo/threads";
+import type { PrefixView } from "@/lib/sermo/views";
 
 export type NewThreadState = {
   error?: string;
@@ -70,20 +73,32 @@ export async function createThreadAction(
 }
 
 // What the member may add to a thread in this forum, for a composer whose forum was changed after
-// the page was drawn: files, and a poll or quiz. Null when the forum could not be read, which is not
-// the same as a forum that allows neither.
-export async function forumComposeAccessAction(
-  nodeId: number,
-): Promise<{ attach: boolean; poll: boolean } | null> {
+// the page was drawn: files, and a poll or quiz; and the prefixes the forum offers, whether it asks
+// for one. Null when the forum could not be read, which is not the same as a forum that allows
+// neither.
+export async function forumComposeAccessAction(nodeId: number): Promise<{
+  attach: boolean;
+  poll: boolean;
+  prefixes: PrefixView[];
+  requirePrefix: boolean;
+} | null> {
   requireIds(nodeId);
-  const read = await attempt(`/forums/${nodeId}/new`, () =>
-    call(nodesGet, { nodeId }),
-  );
-  if (!read.ok) return null;
+  const [read, listed] = await Promise.all([
+    attempt(`/forums/${nodeId}/new`, () => call(nodesGet, { nodeId })),
+    attempt(`/forums/${nodeId}/new`, () =>
+      call(threadPrefixesList, { nodeId }),
+    ),
+  ]);
+  if (!read.ok || !listed.ok) return null;
   const allowed = read.value.resolvedPermissions;
+  const prefixes = activePrefixViews(listed.value.items);
   return {
     attach: allowed["forum.uploadAttachments"] === true,
     poll: allowed["poll.create"] === true,
+    prefixes,
+    // As the backend applies it: a forum with nothing to choose from asks for nothing.
+    requirePrefix:
+      read.value.node.settings.requirePrefix && prefixes.length > 0,
   };
 }
 

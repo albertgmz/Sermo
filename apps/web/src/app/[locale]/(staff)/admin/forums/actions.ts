@@ -38,6 +38,7 @@ const NODE_FIELDS = [
   "iconKey",
   "minAccountAgeDays",
   "minPostCount",
+  "prefixIds",
 ];
 
 // What the public forum list shows comes from the node tree: the pages that show it are renewed.
@@ -89,9 +90,27 @@ async function settingsOf(formData: FormData, fields: Fields) {
     ...(formData.get("hasCountsPosts") !== null && {
       countsPosts: formData.get("countsPosts") !== null,
     }),
+    // The prefix switch is in the form only for a forum, like the counting one.
+    ...(formData.get("hasPrefixes") !== null && {
+      requirePrefix: formData.get("requirePrefix") !== null,
+    }),
     ...(minAccountAgeDays != null && { minAccountAgeDays }),
     ...(minPostCount != null && { minPostCount }),
   };
+}
+
+// The ticked prefixes of a forum's editor: undefined when the form had none to tick (a category),
+// an empty list when all were cleared.
+async function prefixIdsOf(formData: FormData, fields: Fields) {
+  if (formData.get("hasPrefixes") === null) return undefined;
+  const ids = formData
+    .getAll("prefixIds")
+    .map((value) => parseId(String(value)));
+  if (ids.some((id) => id === null)) {
+    fields.prefixIds = (await getTranslations("adminForums.errors"))("choice");
+    return undefined;
+  }
+  return ids as number[];
 }
 
 // A new category or forum. The type comes from the form that was used; the backend decides what a
@@ -143,6 +162,7 @@ export async function saveNode(
   const parentId = await optionalId(formData, "parentId", fields);
   const position = await number(formData, "position", fields);
   const settings = await settingsOf(formData, fields);
+  const prefixIds = await prefixIdsOf(formData, fields);
   const tabId =
     formData.get("hasTab") === null
       ? undefined
@@ -159,6 +179,7 @@ export async function saveNode(
         iconKey: text(formData, "iconKey") || null,
       }),
       ...(tabId !== undefined && { tabId }),
+      ...(prefixIds !== undefined && { prefixIds }),
       settings,
     });
   } catch (error) {
@@ -334,8 +355,13 @@ export async function savePrefix(
     isActive: formData.get("isActive") !== null,
   };
   try {
-    if (prefixId === null) await call(threadPrefixesCreate, input);
-    else await call(threadPrefixesUpdate, { prefixId, ...input });
+    if (prefixId === null) {
+      await call(threadPrefixesCreate, {
+        ...input,
+        // The box is in the form of a new prefix only.
+        offerInAllForums: formData.get("offerInAllForums") !== null,
+      });
+    } else await call(threadPrefixesUpdate, { prefixId, ...input });
   } catch (error) {
     return formFailure(error, PREFIX_FIELDS);
   }

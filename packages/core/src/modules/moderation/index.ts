@@ -1205,6 +1205,14 @@ export function bulkModerate(
           continue;
         }
         exec(ctx, "moveThread", "UPDATE threads SET node_id = ?1 WHERE id = ?2", nodeId, row.id);
+        // As XenForo does, a prefix the new forum does not offer is dropped.
+        exec(
+          ctx,
+          "moveThreadPrefix",
+          "UPDATE threads SET prefix_id = NULL WHERE id = ?1 AND prefix_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM forum_prefixes WHERE node_id = ?2 AND prefix_id = threads.prefix_id)",
+          row.id,
+          nodeId,
+        );
         exec(
           ctx,
           "moveThreadEntryLog",

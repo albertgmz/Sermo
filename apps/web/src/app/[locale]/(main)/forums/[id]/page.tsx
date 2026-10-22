@@ -36,7 +36,7 @@ import { membersFor } from "@/lib/sermo/members";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
-import { prefixView } from "@/lib/sermo/threads";
+import { activePrefixViews } from "@/lib/sermo/threads";
 import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -293,14 +293,17 @@ async function ForumThreads({
   resolved: Record<string, boolean | number>;
 }) {
   const prefixId = /^[1-9]\d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
-  const [first, { items: allPrefixes }, t] = await Promise.all([
-    threadsPage(nodeId, prefixId, cursor),
-    read(threadPrefixesList, {}),
-    getTranslations("forums.forum"),
-  ]);
-  const prefixes = allPrefixes
-    .filter((entry) => entry.isActive)
-    .flatMap((entry) => prefixView(entry) ?? []);
+  const [first, { items: allPrefixes }, { items: carried }, t] =
+    await Promise.all([
+      threadsPage(nodeId, prefixId, cursor),
+      read(threadPrefixesList, { nodeId }),
+      read(threadPrefixesList, { nodeId, carried: true }),
+      getTranslations("forums.forum"),
+    ]);
+  // The batch tools set the prefixes the forum offers; the filter also lists a prefix the forum
+  // stopped offering while threads still carry it.
+  const prefixes = activePrefixViews(allPrefixes);
+  const filterPrefixes = activePrefixViews(carried);
   const listed = first.rows.length > 0;
   // Staff who may change threads tick them in the list and apply one change to all.
   const batchActions = listed ? batchActionsFor(resolved) : [];
@@ -313,8 +316,8 @@ async function ForumThreads({
 
   return (
     <>
-      {prefixes.length > 0 && (
-        <PrefixFilter id={nodeId} prefixes={prefixes} active={prefixId} />
+      {filterPrefixes.length > 0 && (
+        <PrefixFilter id={nodeId} prefixes={filterPrefixes} active={prefixId} />
       )}
 
       {listed ? (
@@ -336,7 +339,7 @@ async function ForumThreads({
             as="ul"
             className={cn(
               "overflow-hidden rounded-lg border bg-card",
-              prefixes.length > 0 ? "mt-1" : "mt-4",
+              filterPrefixes.length > 0 ? "mt-1" : "mt-4",
             )}
             moreClassName="mt-3"
           />
@@ -345,7 +348,7 @@ async function ForumThreads({
         <div
           className={cn(
             "overflow-hidden rounded-lg border bg-card",
-            prefixes.length > 0 ? "mt-1" : "mt-4",
+            filterPrefixes.length > 0 ? "mt-1" : "mt-4",
           )}
         >
           <EmptyState

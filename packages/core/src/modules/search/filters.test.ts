@@ -15,12 +15,17 @@ function fixture() {
   const forumA = insertNode(ctx, { parentId: category.id, title: "Alpha" });
   const forumB = insertNode(ctx, { parentId: category.id, title: "Beta" });
   invalidate(ctx, "node_tree");
-  const prefix = (label: string) =>
-    ctx.sqlite
+  const prefix = (label: string) => {
+    const { id } = ctx.sqlite
       .prepare<{ id: number }, [string]>(
         "INSERT INTO thread_prefixes (label, color_id, created_at, updated_at) VALUES (?1, (SELECT id FROM palette_colors WHERE kind = 'prefix' ORDER BY position LIMIT 1), 1, 1) RETURNING id",
       )
-      .get(label)!.id;
+      .get(label)!;
+    ctx.sqlite
+      .prepare("INSERT INTO forum_prefixes (node_id, prefix_id) VALUES (?1, ?3), (?2, ?3)")
+      .run(forumA.id, forumB.id, id);
+    return id;
+  };
   const search = (input: Record<string, unknown>, actor: Parameters<typeof execute>[2] = GUEST) =>
     execute(ctx, searchQueryOp, actor, { q: "needle", ...input } as never);
   return { ctx, admin, ann, ben, forumA, forumB, prefix, search };

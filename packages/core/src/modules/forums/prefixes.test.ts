@@ -53,8 +53,20 @@ function setup() {
         "SELECT id FROM palette_colors WHERE kind = ?1 AND is_active = ?2 ORDER BY position LIMIT 1",
       )
       .get(kind, active)!.id;
-  const prefix = (label: string, extra: object = {}) =>
-    run(ctx, "threadPrefixes.create", admin, { label, colorId: color(), ...extra });
+  // A new prefix is offered by the forum unless a test says otherwise.
+  const offer = (nodeId: number, prefixId: number) =>
+    ctx.sqlite
+      .prepare("INSERT OR IGNORE INTO forum_prefixes (node_id, prefix_id) VALUES (?1, ?2)")
+      .run(nodeId, prefixId);
+  const prefix = async (label: string, extra: object = {}, offered = true) => {
+    const made = await run(ctx, "threadPrefixes.create", admin, {
+      label,
+      colorId: color(),
+      ...extra,
+    });
+    if (offered) offer(forum.id, made.id);
+    return made;
+  };
   const thread = async (actor = author, extra: object = {}) =>
     (
       await execute(ctx, threadsCreateOp, actor, {
@@ -64,7 +76,20 @@ function setup() {
         ...extra,
       })
     ).thread;
-  return { ctx, admin, mod, author, authorUser, other, category, forum, color, prefix, thread };
+  return {
+    ctx,
+    admin,
+    mod,
+    author,
+    authorUser,
+    other,
+    category,
+    forum,
+    color,
+    prefix,
+    offer,
+    thread,
+  };
 }
 
 describe("thread prefixes", () => {

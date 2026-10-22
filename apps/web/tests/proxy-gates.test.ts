@@ -132,6 +132,7 @@ const NODE = {
       countsPosts: true,
       minAccountAgeDays: 0,
       minPostCount: 0,
+      requirePrefix: false,
     },
   },
   seo: {

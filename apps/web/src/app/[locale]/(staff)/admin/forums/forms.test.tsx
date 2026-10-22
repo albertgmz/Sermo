@@ -54,8 +54,44 @@ const NODE = {
     minAccountAgeDays: 0,
     minPostCount: 0,
     countsPosts: true,
+    requirePrefix: false,
   },
 };
+const PREFIXES = [
+  {
+    id: 1,
+    label: "Alert",
+    color: "#ff0000",
+    icon: "",
+    colorId: 1,
+    position: 0,
+    isActive: true,
+  },
+  {
+    id: 2,
+    label: "Old",
+    color: "#00ff00",
+    icon: "",
+    colorId: 1,
+    position: 1,
+    isActive: false,
+  },
+].map((prefix) => ({
+  ...prefix,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+}));
+const nodeForm = (
+  node: Parameters<typeof NodeForm>[0]["node"],
+  extra: { offered?: number[] } = {},
+) =>
+  NodeForm({
+    node,
+    nodes: [],
+    tabs: [TAB],
+    prefixes: PREFIXES,
+    offered: new Set(extra.offered ?? []),
+  }) as Promise<never>;
 const TAB = {
   id: 1,
   title: "Main",
@@ -76,9 +112,7 @@ const draw = async (node: Promise<React.ReactNode>) =>
   renderToStaticMarkup(withIntl(await node));
 
 test("the node editor sends every field its action reads, the rarely changed ones in the closed card", async () => {
-  const html = await draw(
-    NodeForm({ node: NODE, nodes: [], tabs: [TAB] }) as Promise<never>,
-  );
+  const html = await draw(nodeForm(NODE));
   expect([...names(html)].sort()).toEqual(
     [
       "id",
@@ -93,6 +127,9 @@ test("the node editor sends every field its action reads, the rarely changed one
       "minPostCount",
       "hasCountsPosts",
       "countsPosts",
+      "hasPrefixes",
+      "prefixIds",
+      "requirePrefix",
       "isReadOnly",
       "requireThreadApproval",
       "requireReplyApproval",
@@ -117,26 +154,43 @@ test("the node editor sends every field its action reads, the rarely changed one
 });
 
 test("a category's editor has no counting switch, so saving it leaves the flag as it is", async () => {
-  const html = await draw(
-    NodeForm({
-      node: { ...NODE, type: "category" as const },
-      nodes: [],
-      tabs: [TAB],
-    }) as Promise<never>,
-  );
+  const html = await draw(nodeForm({ ...NODE, type: "category" as const }));
   const sent = names(html);
   expect(sent.has("countsPosts")).toBe(false);
   expect(sent.has("hasCountsPosts")).toBe(false);
 });
 
-test("a node under another has no tab field", async () => {
-  const html = await draw(
-    NodeForm({
-      node: { ...NODE, parentId: 4 },
-      nodes: [],
-      tabs: [TAB],
-    }) as Promise<never>,
+test("a forum's editor lists every prefix with the ones it offers ticked; a category's has none", async () => {
+  const html = await draw(nodeForm(NODE, { offered: [2] }));
+  const boxes = [...html.matchAll(/<input[^>]*name="prefixIds"[^>]*>/g)].map(
+    (match) => match[0],
   );
+  expect(boxes).toHaveLength(2);
+  expect(boxes[0]).toContain('value="1"');
+  expect(boxes[0]).not.toContain("checked");
+  expect(boxes[1]).toContain('value="2"');
+  expect(boxes[1]).toContain("checked");
+  expect(html).toContain("(inactive)");
+  const category = names(
+    await draw(nodeForm({ ...NODE, type: "category" as const })),
+  );
+  for (const name of ["hasPrefixes", "prefixIds", "requirePrefix"]) {
+    expect(category.has(name)).toBe(false);
+  }
+});
+
+test("the prefix switch shows the forum's setting", async () => {
+  const on = await draw(
+    nodeForm({ ...NODE, settings: { ...NODE.settings, requirePrefix: true } }),
+  );
+  expect(on).toMatch(/<input[^>]*name="requirePrefix"[^>]*checked/);
+  expect(await draw(nodeForm(NODE))).not.toMatch(
+    /<input[^>]*name="requirePrefix"[^>]*checked/,
+  );
+});
+
+test("a node under another has no tab field", async () => {
+  const html = await draw(nodeForm({ ...NODE, parentId: 4 }));
   expect(names(html).has("tabId")).toBe(false);
   expect(names(html).has("hasTab")).toBe(false);
 });
@@ -191,9 +245,17 @@ test("the prefix form sends every field, a new prefix starting active", async ()
   ] as never;
   const fresh = await draw(PrefixForm({ colours }) as Promise<never>);
   expect(names(fresh)).toEqual(
-    new Set(["label", "colorId", "icon", "position", "isActive"]),
+    new Set([
+      "label",
+      "colorId",
+      "icon",
+      "position",
+      "isActive",
+      "offerInAllForums",
+    ]),
   );
   expect(fresh).toMatch(/<input[^>]*name="isActive"[^>]*checked/);
+  expect(fresh).toMatch(/<input[^>]*name="offerInAllForums"[^>]*checked/);
   const prefix = {
     id: 2,
     label: "Solved",
@@ -205,5 +267,6 @@ test("the prefix form sends every field, a new prefix starting active", async ()
   } as never;
   const change = await draw(PrefixForm({ prefix, colours }) as Promise<never>);
   expect(names(change).has("id")).toBe(true);
+  expect(names(change).has("offerInAllForums")).toBe(false);
   expect(change).not.toMatch(/<input[^>]*name="isActive"[^>]*checked/);
 });

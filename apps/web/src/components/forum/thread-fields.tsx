@@ -23,8 +23,11 @@ export function ThreadFields({
   prefixId,
   title,
   placeholder,
+  mustHavePrefix = false,
 }: {
   prefixes: PrefixView[];
+  // The thread has one that its forum does not let its author take off: no "No prefix" choice.
+  mustHavePrefix?: boolean;
   prefixId?: string;
   title?: string;
   placeholder?: string;
@@ -32,7 +35,7 @@ export function ThreadFields({
   const t = useTranslations("forum.threadFields");
   const ids = useId();
   const options = [
-    { value: NO_PREFIX, label: t("noPrefix") },
+    ...(mustHavePrefix ? [] : [{ value: NO_PREFIX, label: t("noPrefix") }]),
     ...prefixes.map((prefix) => ({
       value: String(prefix.id),
       label: prefix.label,
@@ -55,9 +58,11 @@ export function ThreadFields({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NO_PREFIX} className="min-h-10 md:min-h-8">
-              {t("noPrefix")}
-            </SelectItem>
+            {!mustHavePrefix && (
+              <SelectItem value={NO_PREFIX} className="min-h-10 md:min-h-8">
+                {t("noPrefix")}
+              </SelectItem>
+            )}
             {prefixes.map((prefix) => (
               <SelectItem
                 key={prefix.id}

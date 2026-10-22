@@ -43,7 +43,6 @@ const DATA: CreateData = {
     },
     { id: 2, parentId: 1, title: "Help", type: "forum", canPost: true },
   ],
-  prefixes: [],
   canTag: false,
   canWall: true,
 };
@@ -135,6 +134,7 @@ test("a question is a discussion worded as one, and a poll opens the poll sectio
             forumId={2}
             forums={DATA.forums}
             prefixes={[]}
+            requirePrefix={false}
             canAttach={false}
             canTag={false}
             canPoll={canPoll}
@@ -170,6 +170,7 @@ test("a composer in a dialog that names itself draws no title of its own", () =>
           forumId={2}
           forums={DATA.forums}
           prefixes={[]}
+          requirePrefix={false}
           canAttach={false}
           canTag={false}
           canPoll={false}
@@ -294,6 +295,7 @@ test("a poll the member did not ask for is not sent with a discussion, and one a
             forumId={2}
             forums={DATA.forums}
             prefixes={[]}
+            requirePrefix={false}
             canAttach={false}
             canTag={false}
             canPoll
@@ -442,6 +444,7 @@ test("in the Create dialog the text of a thread or a wall post takes the rest of
           forumId={2}
           forums={DATA.forums}
           prefixes={[]}
+          requirePrefix={false}
           canAttach={false}
           canTag={false}
           canPoll={false}

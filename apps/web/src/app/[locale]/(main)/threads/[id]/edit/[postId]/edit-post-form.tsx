@@ -35,7 +35,12 @@ export function EditPostForm({
   attachIn: number | null;
   attached: AttachedFile[];
   // The title and prefix of the thread, for the opening post when the viewer may change them.
-  thread: { title: string; prefixId: string; prefixes: PrefixView[] } | null;
+  thread: {
+    title: string;
+    prefixId: string;
+    prefixes: PrefixView[];
+    mustHavePrefix: boolean;
+  } | null;
 }) {
   const t = useTranslations("threads.editForm");
   const tEditor = useTranslations("editor.editor");
@@ -51,6 +56,7 @@ export function EditPostForm({
             prefixes={thread.prefixes}
             prefixId={thread.prefixId}
             title={thread.title}
+            mustHavePrefix={thread.mustHavePrefix}
           />
           <input type="hidden" name="titleWas" value={thread.title} />
           <input type="hidden" name="prefixWas" value={thread.prefixId} />

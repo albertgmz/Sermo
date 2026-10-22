@@ -96,7 +96,13 @@ import {
 } from "../tags/store";
 import { addFeature, endStaffFeature, featureKinds } from "./features";
 import { loadPostDeletions, type PostDeletionRow } from "./post-deletions";
-import { forumPrefixOperations, requireActivePrefix } from "./prefixes";
+import {
+  forumPrefixOperations,
+  offerEveryActivePrefix,
+  requireActivePrefix,
+  requirePrefixChosen,
+  setOfferedPrefixes,
+} from "./prefixes";
 import { nodeTabs, threadPresenter } from "./presentation";
 import { type ReadGates, readGates } from "./read-gates";
 
@@ -146,6 +152,7 @@ type NodeRow = {
   id: number;
   require_thread_approval: number;
   require_reply_approval: number;
+  require_prefix: number;
   is_read_only: number;
   counts_posts: number;
   min_account_age_days: number;
@@ -191,7 +198,7 @@ const postVisibleBy = (moderated: number, deleted: number, viewer: number) =>
 const postVisible = postVisibleBy(4, 5, 6);
 const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
 const nodeColumns =
-  "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, is_read_only, counts_posts, min_account_age_days, min_post_count";
+  "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, require_prefix, is_read_only, counts_posts, min_account_age_days, min_post_count";
 /** SQL shared by the hot paths and their query-plan tests. */
 export const forumSql = {
   sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC`,
@@ -851,6 +858,7 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
         countsPosts: !!row.counts_posts,
         minAccountAgeDays: row.min_account_age_days,
         minPostCount: row.min_post_count,
+        requirePrefix: !!row.require_prefix,
       },
     };
   });
@@ -950,6 +958,7 @@ function writeNodeSettings(
     ["countsPosts", "counts_posts"],
     ["minAccountAgeDays", "min_account_age_days"],
     ["minPostCount", "min_post_count"],
+    ["requirePrefix", "require_prefix"],
   ];
   for (const [key, column] of columns) {
     const value = settings[key];
@@ -960,6 +969,25 @@ function writeNodeSettings(
       .prepare(`UPDATE nodes SET ${column} = ?1 WHERE id = ?2`)
       .run(typeof value === "boolean" ? Number(value) : value, nodeId);
   }
+}
+/**
+ * Replaces the prefixes a forum offers, when the write names them (inside its transaction). A new
+ * forum that does not name them offers every active prefix.
+ */
+function writeNodePrefixes(
+  ctx: Ctx,
+  nodeId: number,
+  type: "category" | "forum",
+  prefixIds: readonly number[] | undefined,
+  created = false,
+): void {
+  if (prefixIds === undefined) {
+    if (created && type === "forum") offerEveryActivePrefix(ctx, nodeId);
+    return;
+  }
+  if (type !== "forum" && prefixIds.length > 0)
+    throw new ValidationError("Only a forum offers thread prefixes.");
+  setOfferedPrefixes(ctx, nodeId, prefixIds);
 }
 /** A tab may be set only on a root category, and must exist. */
 function requireTabFor(
@@ -999,6 +1027,7 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
         input.iconKey ?? null,
       )!;
     writeNodeSettings(ctx, row.id, input.settings);
+    writeNodePrefixes(ctx, row.id, input.type, input.prefixIds, true);
     invalidate(ctx, "node_tree");
     invalidate(ctx, "node_tabs");
     publishEvent(ctx, { type: "content.created", targetType: "node", targetId: row.id });
@@ -1043,6 +1072,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
         input.iconKey === undefined ? stored.icon_key : input.iconKey,
       );
     writeNodeSettings(ctx, input.nodeId, input.settings);
+    writeNodePrefixes(ctx, input.nodeId, current.type, input.prefixIds);
     invalidate(ctx, "node_tree");
     invalidate(ctx, "node_tabs");
     publishEvent(ctx, { type: "content.edited", targetType: "node", targetId: input.nodeId });
@@ -1694,7 +1724,8 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
         throw new ConflictError("Moderation rules changed; retry.");
       const settings = checkNodePostingRules(ctx, actor, input.nodeId);
       requireWriteRoom(ctx, actor, "thread", decision.floodSeconds);
-      if (input.prefixId !== null) requireActivePrefix(ctx, input.prefixId);
+      if (input.prefixId !== null) requireActivePrefix(ctx, input.prefixId, input.nodeId);
+      else requirePrefixChosen(ctx, input.nodeId);
       if (poll && JSON.stringify(cleanPoll(ctx, actor, poll)) !== JSON.stringify(cleanedPoll))
         throw new ConflictError("Moderation rules changed; retry.");
       const state =
@@ -1883,11 +1914,20 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
         !readGates(ctx, moderator).reads(current.node_id, current.user_id),
       );
     }
-    if (input.prefixId != null && input.prefixId !== current.prefix_id)
-      requireActivePrefix(ctx, input.prefixId);
+    const prefixId = input.prefixId === undefined ? current.prefix_id : input.prefixId;
+    if (prefixId !== null && prefixId !== current.prefix_id)
+      requireActivePrefix(ctx, prefixId, current.node_id);
+    // Taking the prefix off is refused to the author where the forum requires one; a moderator
+    // may, and a thread that has none can still be retitled.
+    if (
+      input.prefixId === null &&
+      current.prefix_id !== null &&
+      !can(ctx, moderator, "forum.editAny", { nodeId: current.node_id })
+    )
+      requirePrefixChosen(ctx, current.node_id);
     forumDb(ctx)
       .prepare("UPDATE threads SET prefix_id = ?1, content_updated_at = ?2 WHERE id = ?3")
-      .run(input.prefixId === undefined ? current.prefix_id : input.prefixId, ctx.now(), row.id);
+      .run(prefixId, ctx.now(), row.id);
     if (input.title !== undefined) {
       forumDb(ctx).prepare("UPDATE threads SET title = ?1 WHERE id = ?2").run(input.title, row.id);
       forumDb(ctx)
@@ -2248,6 +2288,12 @@ function moveThread(ctx: Ctx, moderator: Actor, id: number, nodeId: number, noti
     return false;
   }
   forumDb(ctx).prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2").run(nodeId, id);
+  // As XenForo does, a prefix the new forum does not offer is dropped.
+  forumDb(ctx)
+    .prepare(
+      "UPDATE threads SET prefix_id = NULL WHERE id = ?1 AND prefix_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM forum_prefixes WHERE node_id = ?2 AND prefix_id = threads.prefix_id)",
+    )
+    .run(id, nodeId);
   forumDb(ctx)
     .prepare(
       "UPDATE report_groups SET node_id = ?1 WHERE target_type = 'post' AND target_id IN (SELECT id FROM posts WHERE thread_id = ?2)",
@@ -3500,7 +3546,7 @@ function setThreadPrefix(
   const current = requireThread(ctx, moderator, id).row;
   if (!mayEditTitle(ctx, moderator, current)) throw new ForbiddenError();
   if (prefixId === current.prefix_id) return false;
-  if (prefixId !== null) requireActivePrefix(ctx, prefixId);
+  if (prefixId !== null) requireActivePrefix(ctx, prefixId, current.node_id);
   forumDb(ctx)
     .prepare("UPDATE threads SET prefix_id = ?1, content_updated_at = ?2 WHERE id = ?3")
     .run(prefixId, ctx.now(), id);

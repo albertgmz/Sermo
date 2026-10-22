@@ -104,7 +104,7 @@
     "metaTitle": "Editar mensaje",
     "home": "Inicio",
     "heading": "Editar mensaje",
-    "inactivePrefix": "(inactivo) {label}",
+    "inactivePrefix": "(no disponible) {label}",
     "cannotTitle": "No puedes editar este mensaje",
     "cannotDescription": "Tu cuenta ya no puede editar este mensaje."
   },

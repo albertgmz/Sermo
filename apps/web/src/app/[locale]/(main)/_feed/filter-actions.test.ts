@@ -88,6 +88,7 @@ test("the sheet's options are three reads, shaped for the sheet", async () => {
               countsPosts: true,
               minAccountAgeDays: 0,
               minPostCount: 0,
+              requirePrefix: false,
             },
           },
         ],

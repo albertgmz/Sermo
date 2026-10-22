@@ -63,9 +63,9 @@ function Swatches({
   );
 }
 
-// The form of a prefix, for a new one (no `prefix`) or a change. The forums a prefix applies to
-// and whether a forum requires one are not something the backend has: a prefix is offered
-// everywhere. The colours are those of the prefix palette (`isActive` ones, and the current).
+// The form of a prefix, for a new one (no `prefix`) or a change. Which forums offer a prefix is
+// set on each forum's page; a new prefix can start offered in all of them. The colours are those
+// of the prefix palette (`isActive` ones, and the current).
 export async function PrefixForm({
   prefix,
   colours,
@@ -132,6 +132,19 @@ export async function PrefixForm({
             {t("activeHelp")}
           </label>
         </Field>
+        {!prefix && (
+          <Field name="offerInAllForums" label={t("offerInAllForums")}>
+            <label className="flex min-h-10 items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                name="offerInAllForums"
+                defaultChecked
+                className="size-5"
+              />
+              {t("offerInAllForumsHelp")}
+            </label>
+          </Field>
+        )}
       </FieldGroup>
     </EditForm>
   );

@@ -75,6 +75,11 @@ export const NodeSettings = z
     minAccountAgeDays: z.number().int().min(0).max(3650),
     /** Minimum post count to post here. */
     minPostCount: z.number().int().min(0).max(1_000_000),
+    /**
+     * A new thread must carry one of the forum's prefixes. It binds only while the forum offers
+     * an active prefix, and moderators editing a thread are exempt.
+     */
+    requirePrefix: z.boolean(),
   })
   .meta({ id: "NodeSettings" });
 
@@ -253,6 +258,11 @@ export const nodesCreate = defineContract({
     /** A key of the site's icon set; null for none. */
     iconKey: IconKey.nullable().optional(),
     settings: NodeSettings.partial().optional(),
+    /**
+     * The prefixes the forum offers, replacing the whole set (an empty list clears it); active
+     * or not. Forums only. A new forum offers every active prefix when this is left out.
+     */
+    prefixIds: z.array(Id).max(100).optional(),
   }),
   output: Node,
 });
@@ -272,6 +282,11 @@ export const nodesUpdate = defineContract({
     /** A key of the site's icon set; null removes it. */
     iconKey: IconKey.nullable().optional(),
     settings: NodeSettings.partial().optional(),
+    /**
+     * The prefixes the forum offers, replacing the whole set (an empty list clears it); active
+     * or not. Forums only.
+     */
+    prefixIds: z.array(Id).max(100).optional(),
   }),
   output: Node,
 });
@@ -332,19 +347,25 @@ const PrefixInput = {
 export const threadPrefixesList = defineContract({
   name: "threadPrefixes.list",
   summary:
-    "Thread prefixes in display order (position, then id). Open to everyone; inactive ones " +
-    "only with admin.prefixes.",
+    "Thread prefixes in display order (position, then id). With `nodeId`, only the ones that " +
+    "forum offers (the ones a thread there may carry); with `carried` also the ones threads " +
+    "of that forum still carry although it no longer offers them. Open to everyone; inactive " +
+    "ones only with admin.prefixes or admin.nodes.",
   kind: "read",
-  input: Empty,
+  input: z.object({ nodeId: Id.optional(), carried: z.boolean().default(false) }),
   output: z.object({ items: z.array(ThreadPrefix) }),
 });
 
 export const threadPrefixesCreate = defineContract({
   name: "threadPrefixes.create",
-  summary: "Add a thread prefix (at most 100). Requires admin.prefixes.",
+  summary:
+    "Add a thread prefix (at most 100). Requires admin.prefixes. Unless `offerInAllForums` is " +
+    "false, every forum offers it from the start; forums can narrow their set afterwards.",
   kind: "write",
   input: z.object({
     ...PrefixInput,
+    /** Offer the new prefix in every existing forum. */
+    offerInAllForums: z.boolean().default(true),
     icon: PrefixInput.icon.default(""),
     position: PrefixInput.position.default(0),
     isActive: PrefixInput.isActive.default(true),
@@ -452,7 +473,8 @@ export const threadsGet = defineContract({
 export const threadsCreate = defineContract({
   name: "threads.create",
   summary:
-    "Start a thread in a forum, optionally with an active prefix and up to 10 `tags`. The " +
+    "Start a thread in a forum, optionally with an active prefix the forum offers (required " +
+    "when the forum says so and offers one) and up to 10 `tags`. The " +
     "thread's tags are those, plus the hashtags of the opening post (replies' hashtags only " +
     "link). Putting tags on a thread needs tag.apply; a tag nobody used before needs " +
     "tag.create (without it a typed `#word` that is no tag stays plain text, and a listed one " +
@@ -475,7 +497,9 @@ export const threadsUpdate = defineContract({
   name: "threads.update",
   summary:
     "Change a thread's title, its prefix, its tags, or any of them (`prefixId: null` removes " +
-    "the prefix; a new prefix must be active). `tags` replaces the thread's whole tag list " +
+    "the prefix; a new prefix must be active and offered by the thread's forum; an author " +
+    "cannot take the prefix off a thread where the forum requires one). `tags` replaces the " +
+    "thread's whole tag list " +
     "(at most 10; an empty list clears it): only the thread's author (while unlocked) or " +
     "staff may set it, with tag.apply, and a tag nobody used before needs tag.create. A " +
     "moderator may set the title and prefix (forum.editAny) or the tags (forum.editAny or " +

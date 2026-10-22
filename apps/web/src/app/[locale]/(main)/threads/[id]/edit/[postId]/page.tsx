@@ -1,4 +1,5 @@
 import {
+  nodesGet,
   postsGet,
   threadPrefixesList,
   threadsGet,
@@ -16,7 +17,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { parseId, parsePageId } from "@/lib/sermo/ids";
 import { getMember } from "@/lib/sermo/session";
-import { prefixChoices, prefixView } from "@/lib/sermo/threads";
+import { activePrefixViews, prefixChoices } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("threads.edit");
@@ -47,11 +48,19 @@ export default async function EditPostPage({
   const { thread, node, permissions, resolvedPermissions } = found;
   const back = threadHref(threadId, post.position, post.id);
   const opening = post.id === thread.firstPostId && permissions.canEditTitle;
-  const prefixes = opening
-    ? (await read(threadPrefixesList, {})).items.flatMap((prefix) =>
-        prefix.isActive ? (prefixView(prefix) ?? []) : [],
-      )
-    : [];
+  const [prefixes, requirePrefix] = opening
+    ? await Promise.all([
+        read(threadPrefixesList, { nodeId: node.id }).then(({ items }) =>
+          activePrefixViews(items),
+        ),
+        // Only a thread that has a prefix can be kept from losing it.
+        thread.prefix
+          ? read(nodesGet, { nodeId: node.id }).then(
+              (found) => found.node.settings.requirePrefix,
+            )
+          : false,
+      ])
+    : [[], false];
 
   return (
     <PageLayout className="pt-2">
@@ -87,6 +96,12 @@ export default async function EditPostPage({
                     prefixes: prefixChoices(prefixes, thread.prefix, (label) =>
                       t("inactivePrefix", { label }),
                     ),
+                    // As the backend applies it: the author may not take the prefix off where the
+                    // forum requires one it offers; a moderator may.
+                    mustHavePrefix:
+                      requirePrefix &&
+                      prefixes.length > 0 &&
+                      resolvedPermissions["forum.editAny"] !== true,
                   }
                 : null
             }

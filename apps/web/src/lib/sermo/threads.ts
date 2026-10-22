@@ -15,8 +15,18 @@ export function prefixView(prefix: ApiThread["prefix"]): PrefixView | null {
   return prefix && { ...prefix };
 }
 
-// The prefixes a form offers for a thread that already has one: the active ones, and the thread's
-// own when it is no longer active, marked as such, so that saving the form keeps it.
+// The prefixes of a list that members may put on a thread now: the active ones.
+export function activePrefixViews(
+  items: readonly (NonNullable<ApiThread["prefix"]> & { isActive: boolean })[],
+): PrefixView[] {
+  return items.flatMap((prefix) =>
+    prefix.isActive ? (prefixView(prefix) ?? []) : [],
+  );
+}
+
+// The prefixes a form offers for a thread that already has one: the ones on offer, and the
+// thread's own when it is no longer one of them (retired, or its forum stopped offering it),
+// marked as such, so that saving the form keeps it.
 export function prefixChoices(
   active: PrefixView[],
   stored: ApiThread["prefix"],

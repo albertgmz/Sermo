@@ -2,7 +2,6 @@
 // held by tests.
 
 import type { ForumChoice } from "@/components/forum/forum-choices";
-import type { PrefixView } from "@/lib/sermo/views";
 
 // A discussion, a question and a poll or quiz are threads; a wall post is a post on the member's own
 // wall. The backend has no thread type for a question, so it is a discussion worded as one.
@@ -16,7 +15,6 @@ export const isThreadKind = (kind: CreateKind): kind is ThreadKind =>
 export type CreateData = {
   memberId: number;
   forums: ForumChoice[];
-  prefixes: PrefixView[];
   // The member may put tags on a thread (tag.apply).
   canTag: boolean;
   // The member may post on their own wall (profilePost.postOwn).

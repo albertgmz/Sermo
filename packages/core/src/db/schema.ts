@@ -794,6 +794,8 @@ export const nodes = sqliteTable(
     minPostCount: counter("min_post_count"),
     /** Root categories only: the tab of the forum list the category is shown under. */
     tabId: integer("tab_id"),
+    /** A new thread must carry one of the forum's prefixes (when the forum has any usable). */
+    requirePrefix: bool("require_prefix").notNull().default(false),
   },
   (t) => [index("nodes_parent_position").on(t.parentId, t.position)],
 );
@@ -2396,6 +2398,28 @@ export const threadPrefixes = sqliteTable(
     index("thread_prefixes_position").on(t.position, t.id),
     // "Is this colour in use?" before a palette colour is deleted.
     index("thread_prefixes_color").on(t.colorId),
+  ],
+);
+
+/**
+ * The prefixes a forum offers: only these may be put on its threads. A forum with no row here
+ * offers none. A thread moved to a forum that does not offer its prefix loses it.
+ */
+export const forumPrefixes = sqliteTable(
+  "forum_prefixes",
+  {
+    id: integer("id").primaryKey(),
+    nodeId: integer("node_id")
+      .notNull()
+      .references(() => nodes.id, { onDelete: "cascade" }),
+    prefixId: integer("prefix_id")
+      .notNull()
+      .references(() => threadPrefixes.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    uniqueIndex("forum_prefixes_pair").on(t.nodeId, t.prefixId),
+    // "Which forums offer this prefix?" when a prefix is deleted.
+    index("forum_prefixes_prefix").on(t.prefixId),
   ],
 );
 

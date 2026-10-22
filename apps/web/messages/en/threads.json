@@ -104,7 +104,7 @@
     "metaTitle": "Edit post",
     "home": "Home",
     "heading": "Edit post",
-    "inactivePrefix": "(inactive) {label}",
+    "inactivePrefix": "(unavailable) {label}",
     "cannotTitle": "You cannot edit this post",
     "cannotDescription": "This post can no longer be edited by your account."
   },

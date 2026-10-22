@@ -8,8 +8,15 @@ import { withIntl } from "@/lib/test-intl";
 // The composer hands on server actions.
 mock.module("server-only", () => ({}));
 
-const { ThreadComposer, threadReady, composeAddress, sendUnlessPicking } =
-  await import("./thread-composer");
+const {
+  ThreadComposer,
+  threadReady,
+  composeAddress,
+  sendUnlessPicking,
+  OFFER_LOADING,
+  offerFrom,
+  prefixBlocks,
+} = await import("./thread-composer");
 const { ComposerForm } = await import("./composer");
 const { panelKey } = await import("./forum-choice-panel");
 const { AttachmentField } = await import("./attachment-field");
@@ -53,6 +60,55 @@ test("Post waits for a title and a text", () => {
   expect(threadReady("A title", "Some text")).toBe(true);
 });
 
+test("Post also waits for a prefix where the forum asks for one", () => {
+  expect(threadReady("A title", "Some text", true)).toBe(false);
+  expect(threadReady("A title", "Some text", false)).toBe(true);
+});
+
+test("Post waits while a forum's prefixes load, and after a read that failed, and for a required prefix", () => {
+  const ready = offerFrom({ prefixes: PREFIXES, requirePrefix: true });
+  expect(prefixBlocks(OFFER_LOADING, "")).toBe(true);
+  expect(prefixBlocks(OFFER_LOADING, "7")).toBe(true);
+  expect(prefixBlocks(offerFrom(null), "7")).toBe(true);
+  expect(offerFrom(null).status).toBe("failed");
+  expect(prefixBlocks(ready, "")).toBe(true);
+  expect(prefixBlocks(ready, "7")).toBe(false);
+  expect(
+    prefixBlocks(offerFrom({ prefixes: [], requirePrefix: false }), ""),
+  ).toBe(false);
+});
+
+test("changing the forum asks for its prefixes again, and a failed read can be asked again", () => {
+  const src = source("components/forum/thread-composer.tsx");
+  // The forum chosen is asked for through the one function the retry button calls too.
+  expect(src).toMatch(/target\.current = id;[\s\S]*?loadForum\(id\);/);
+  expect(src).toContain("loadForum(target.current)");
+  expect(src).toContain("setOffered(OFFER_LOADING)");
+  expect(src).toContain('offered.status === "failed"');
+  // An answer for a forum the member has since left is dropped.
+  expect(src).toMatch(/if \(turn !== asked\.current\) return;/);
+});
+
+test("a forum that asks for a prefix says so above the chips until one is chosen", () => {
+  const draw = (requirePrefix: boolean) =>
+    renderToStaticMarkup(
+      withIntl(
+        <ThreadComposer
+          forumId={2}
+          forums={[...FORUMS]}
+          prefixes={PREFIXES}
+          requirePrefix={requirePrefix}
+          canAttach
+          canTag
+          canPoll={false}
+          memberId={1}
+        />,
+      ),
+    );
+  expect(draw(true)).toContain("Choose a prefix to post in this forum.");
+  expect(draw(false)).not.toContain("Choose a prefix to post in this forum.");
+});
+
 test("a thread starts out unsendable: Post is disabled, beside the forum chip, the title line and the prefix chips", () => {
   const html = renderToStaticMarkup(
     withIntl(
@@ -60,6 +116,7 @@ test("a thread starts out unsendable: Post is disabled, beside the forum chip, t
         forumId={2}
         forums={[...FORUMS]}
         prefixes={PREFIXES}
+        requirePrefix={false}
         canAttach
         canTag
         canPoll={false}
@@ -87,6 +144,7 @@ test("a forum without prefixes draws no prefix chips", () => {
         forumId={2}
         forums={[...FORUMS]}
         prefixes={[]}
+        requirePrefix={false}
         canAttach={false}
         canTag={false}
         canPoll={false}
@@ -106,6 +164,7 @@ test("the field for tags is part of the form of a member who may tag threads", (
         forumId={2}
         forums={[...FORUMS]}
         prefixes={[]}
+        requirePrefix={false}
         canAttach={false}
         canTag
         canPoll={false}
@@ -304,6 +363,7 @@ test("the section for a poll or quiz is part of the form of a member who may sta
           forumId={2}
           forums={[...FORUMS]}
           prefixes={[]}
+          requirePrefix={false}
           canAttach={false}
           canTag={false}
           canPoll={canPoll}

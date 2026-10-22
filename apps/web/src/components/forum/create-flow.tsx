@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { DialogClose, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 const ICONS = {
@@ -44,7 +45,13 @@ const ICONS = {
 // How long what the flow read stays good: a reopening within it asks nothing.
 const REFRESH_MS = 60_000;
 
-type Access = { forumId: number; attach: boolean; poll: boolean };
+type Access = {
+  forumId: number;
+  attach: boolean;
+  poll: boolean;
+  prefixes: PrefixView[];
+  requirePrefix: boolean;
+};
 
 // The dialog is the whole screen; each step is a column in its middle: as wide as the forum's own
 // for writing, narrower for a choice. On a phone the column is the screen; from `md` it is a
@@ -341,7 +348,8 @@ export function CreateFlow({
             kind={threadKind}
             forumId={access.forumId}
             forums={data.forums}
-            prefixes={data.prefixes}
+            prefixes={access.prefixes}
+            requirePrefix={access.requirePrefix}
             canAttach={access.attach}
             canPoll={access.poll}
             canTag={data.canTag}

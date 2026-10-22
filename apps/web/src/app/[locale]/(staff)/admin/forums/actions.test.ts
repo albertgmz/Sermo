@@ -66,6 +66,7 @@ const NODE = {
     countsPosts: true,
     minAccountAgeDays: 0,
     minPostCount: 0,
+    requirePrefix: false,
   },
 };
 const TAB = {
@@ -85,9 +86,10 @@ const PREFIX = {
   isActive: true,
 };
 
-function form(fields: Record<string, string>) {
+function form(fields: Record<string, string | string[]>) {
   const data = new FormData();
-  for (const [name, value] of Object.entries(fields)) data.set(name, value);
+  for (const [name, value] of Object.entries(fields))
+    for (const each of [value].flat()) data.append(name, each);
   return data;
 }
 
@@ -193,6 +195,47 @@ test("the editor sends every field it showed, the tab only for a root node", asy
     settings: { countsPosts: false },
   });
   expect(backend.asked[1].body).not.toHaveProperty("iconKey");
+});
+
+test("the ticked prefixes and the prefix switch are saved with a forum, and left alone for a category", async () => {
+  backend = fakeBackend({ "nodes.update": () => Response.json(NODE) });
+  await redirectedTo(() =>
+    saveNode(
+      null,
+      form({
+        id: "9",
+        title: "News",
+        hasPrefixes: "1",
+        prefixIds: ["3", "5"],
+        requirePrefix: "on",
+      }),
+    ),
+  );
+  expect(backend.asked[0].body).toMatchObject({
+    prefixIds: [3, 5],
+    settings: { requirePrefix: true },
+  });
+  // Every box cleared and the switch off: an empty list, not "nothing sent".
+  await redirectedTo(() =>
+    saveNode(null, form({ id: "9", title: "News", hasPrefixes: "1" })),
+  );
+  expect(backend.asked[1].body).toMatchObject({
+    prefixIds: [],
+    settings: { requirePrefix: false },
+  });
+  // A category's form has neither, and sends neither.
+  await redirectedTo(() => saveNode(null, form({ id: "9", title: "Cat" })));
+  expect(backend.asked[2].body).not.toHaveProperty("prefixIds");
+  expect(
+    (backend.asked[2].body as { settings: object }).settings,
+  ).not.toHaveProperty("requirePrefix");
+  expect(
+    await saveNode(
+      null,
+      form({ id: "9", title: "News", hasPrefixes: "1", prefixIds: ["x"] }),
+    ),
+  ).toEqual({ fields: { prefixIds: messages.adminForums.errors.choice } });
+  expect(backend.asked).toHaveLength(3);
 });
 
 test("a count that is not a whole number is shown under its field", async () => {
@@ -375,6 +418,7 @@ test("a prefix is created with every field the form showed", async () => {
         icon: "circle-check",
         position: "1",
         isActive: "on",
+        offerInAllForums: "on",
       }),
     ),
   );
@@ -385,7 +429,13 @@ test("a prefix is created with every field the form showed", async () => {
     icon: "circle-check",
     position: 1,
     isActive: true,
+    offerInAllForums: true,
   });
+  // The box left unticked keeps the prefix out of the forums until each one picks it.
+  await redirectedTo(() =>
+    savePrefix(null, form({ label: "Quiet", colorId: "4" })),
+  );
+  expect(backend.asked[1].body).toMatchObject({ offerInAllForums: false });
 });
 
 test("a prefix without a colour is refused before the backend is asked", async () => {

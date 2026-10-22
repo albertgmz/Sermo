@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 const realFetch = globalThis.fetch;
 const asked: { method: string; url: string; body: unknown }[] = [];
 let answer: { status: number; body: unknown } = { status: 200, body: {} };
+// Answers for the requests whose address holds the key, ahead of `answer`.
+const answers = new Map<string, { status: number; body: unknown }>();
 
 mock.module("server-only", () => ({}));
 mock.module("next/cache", () => ({ refresh: () => {} }));
@@ -23,13 +25,16 @@ const ROOT = "http://127.0.0.1:8787/api/v1";
 beforeEach(() => {
   asked.length = 0;
   answer = { status: 200, body: {} };
+  answers.clear();
   globalThis.fetch = (async (url: string, init: RequestInit) => {
     asked.push({
       method: init.method ?? "GET",
       url,
       body: init.body ? JSON.parse(String(init.body)) : undefined,
     });
-    return Response.json(answer.body, { status: answer.status });
+    const given =
+      [...answers].find(([path]) => String(url).includes(path))?.[1] ?? answer;
+    return Response.json(given.body, { status: given.status });
   }) as unknown as typeof fetch;
 });
 afterEach(() => {
@@ -137,7 +142,19 @@ test("the tags field is sent as a list of names, without the # and without repea
   assert.deepEqual(sent.tags, ["Rust", "tutorial", "rust", "café"]);
 });
 
-const forumAnswer = (uploads: boolean, poll = false) => ({
+const prefix = (id: number, isActive: boolean) => ({
+  id,
+  label: `Prefix ${id}`,
+  color: "#22aa66",
+  icon: "",
+  colorId: 1,
+  position: id,
+  isActive,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+});
+
+const forumAnswer = (uploads: boolean, poll = false, required = false) => ({
   node: {
     id: 4,
     parentId: null,
@@ -161,6 +178,7 @@ const forumAnswer = (uploads: boolean, poll = false) => ({
       countsPosts: true,
       minAccountAgeDays: 0,
       minPostCount: 0,
+      requirePrefix: required,
     },
   },
   watching: null,
@@ -179,27 +197,49 @@ const forumAnswer = (uploads: boolean, poll = false) => ({
   },
 });
 
-test("a forum says whether files and a poll may be added to a thread there", async () => {
-  answer = { status: 200, body: forumAnswer(true, true) };
-  assert.deepEqual(await actions.forumComposeAccessAction(4), {
+test("a forum says whether files and a poll may be added to a thread there, which prefixes it offers and whether it asks for one", async () => {
+  const ask = async (uploads: boolean, poll: boolean, required = false) => {
+    answer = { status: 200, body: forumAnswer(uploads, poll, required) };
+    answers.set("/thread-prefixes", {
+      status: 200,
+      body: { items: [prefix(7, true), prefix(8, false)] },
+    });
+    const access = await actions.forumComposeAccessAction(4);
+    return access && { ...access, prefixes: access.prefixes.map((p) => p.id) };
+  };
+  assert.deepEqual(await ask(true, true), {
     attach: true,
     poll: true,
+    prefixes: [7],
+    requirePrefix: false,
   });
   assert.equal(asked[0].url, `${ROOT}/nodes/4`);
-  answer = { status: 200, body: forumAnswer(false, true) };
-  assert.deepEqual(await actions.forumComposeAccessAction(4), {
+  assert.equal(asked[1].url, `${ROOT}/thread-prefixes?nodeId=4`);
+  assert.deepEqual(await ask(false, true), {
     attach: false,
     poll: true,
+    prefixes: [7],
+    requirePrefix: false,
   });
-  answer = { status: 200, body: forumAnswer(true, false) };
-  assert.deepEqual(await actions.forumComposeAccessAction(4), {
+  assert.deepEqual(await ask(true, false), {
     attach: true,
     poll: false,
+    prefixes: [7],
+    requirePrefix: false,
   });
+  assert.equal((await ask(true, true, true))?.requirePrefix, true);
+  // A forum that offers no active prefix asks for none, whatever its setting says.
+  answers.set("/thread-prefixes", {
+    status: 200,
+    body: { items: [prefix(8, false)] },
+  });
+  const none = await actions.forumComposeAccessAction(4);
+  assert.deepEqual([none?.prefixes, none?.requirePrefix], [[], false]);
   answer = {
     status: 403,
     body: { error: { code: "forbidden", message: "No." } },
   };
+  answers.clear();
   assert.equal(await actions.forumComposeAccessAction(4), null);
   await assert.rejects(() => actions.forumComposeAccessAction(0));
 });

@@ -1,4 +1,9 @@
-import { forumTabsList, nodesGet, nodesList } from "@sermo/core/contracts";
+import {
+  forumTabsList,
+  nodesGet,
+  nodesList,
+  threadPrefixesList,
+} from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -37,7 +42,16 @@ async function Node({ params, searchParams }: Props) {
       read(forumTabsList, {}),
       searchParams,
     ]);
+  // The prefixes are a forum's alone: a category reads none.
+  const [{ items: prefixes }, { items: offered }] =
+    node.type === "forum"
+      ? await Promise.all([
+          read(threadPrefixesList, {}),
+          read(threadPrefixesList, { nodeId }),
+        ])
+      : [{ items: [] }, { items: [] }];
   const permissions = hrefFor(viewer, "forumsPermissions");
+  const managePrefixes = hrefFor(viewer, "forumsPrefixes");
   const q = Array.isArray(query.q) ? query.q[0] : query.q;
   return (
     <ScreenFrame
@@ -56,6 +70,11 @@ async function Node({ params, searchParams }: Props) {
               {t("permissions")}
             </HeaderLink>
           )}
+          {node.type === "forum" && managePrefixes && (
+            <HeaderLink href="/admin/forums/prefixes">
+              {t("managePrefixes")}
+            </HeaderLink>
+          )}
           {node.type === "forum" && (
             <HeaderLink href={`/forums/${node.id}`}>
               {t("publicPage")}
@@ -71,7 +90,13 @@ async function Node({ params, searchParams }: Props) {
         searchParams={searchParams}
         shown={["created", "saved", "pictures", "moderated", "unmoderated"]}
       />
-      <NodeForm node={node} nodes={nodes} tabs={tabs} />
+      <NodeForm
+        node={node}
+        nodes={nodes}
+        tabs={tabs}
+        prefixes={prefixes}
+        offered={new Set(offered.map((prefix) => prefix.id))}
+      />
       <PicturesForm node={node} />
       {viewer.resolvedPermissions["admin.permissions"] === true && (
         <Moderators nodeId={node.id} query={q} />
