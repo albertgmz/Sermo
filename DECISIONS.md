@@ -6013,3 +6013,13 @@ Known limits: a restore that keeps failing is retried on every full page load.
 
 Why: the thread route was at its JS budget (297.8 of 297.9 KB), which blocked every change to the
 thread page; budgets are not raised.
+
+### The home page and What's new draw widgets in positions
+
+- The home page and What's new draw the widgets placed in their positions (sidebar, above and
+  below the content, global top and bottom) through one `WidgetArea` and a registry of widget
+  types; the feed's side blocks (trending, latest threads, members to follow, forums) and the
+  forum statistics became widget types. On phones the sidebar goes below the content. A widget of
+  a type the web app does not draw opens no column.
+
+Why: XenForo's widget positions (handover B3), so the sidebar is configured, not coded per page.
