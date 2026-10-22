@@ -72,10 +72,11 @@ export function WallItemSummary(props: ReactionsProps) {
 }
 
 // The footer of a wall post or of a comment on one, as XenForo draws them (`ContentActions`
-// `layout="wall"`): a comment's date, report and the "•••" menu (share, edit, delete) on the left,
+// `layout="wall"`): a comment's date, report, share and the "•••" menu (edit, delete) on the left,
 // react on the right, who reacted under it. The same on the profile wall as in the feed. What the
 // viewer may edit, delete or report is the backend's word (`canEdit`, `canDelete`, `canReport`);
-// editing happens in place. A post's summary goes in the block under it where there is one (`summary` false).
+// editing happens in place. A post's summary goes in the block under it where there is one
+// (`summary` false).
 export function WallItemActions({
   kind,
   item,
