@@ -107,6 +107,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         "layout.guestMenu",
         "layout.headerPanel",
         "layout.headerPanels",
+        "layout.languageSwitcher",
         "layout.lazyPopup",
         "layout.mobileNav",
         "layout.narrowToggle",
