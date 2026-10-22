@@ -49,6 +49,17 @@ export function shortcodeStarted(typed: EmojiTyped | null) {
   return typed !== null && /[\p{L}\p{N}]/u.test(typed.query);
 }
 
+// Calls `start` when a shortcode starts: what is before the caret reads as one, and did not at the
+// change before. More keys or caret moves in the same shortcode call nothing.
+export function onShortcodeStart(start: () => void) {
+  let started = false;
+  return (typed: EmojiTyped | null) => {
+    const now = shortcodeStarted(typed);
+    if (now && !started) start();
+    started = now;
+  };
+}
+
 // Calls `load` when asked, one load at a time, and hands what it gives to `done`. A load that fails
 // (a connection that drops, a page opened before the site was updated and whose files are gone) is
 // asked for again on the next call.
@@ -76,9 +87,10 @@ export function EmojiPlugin() {
       () => import("@/components/forum/emoji-suggest"),
       (loaded) => setSuggest(() => loaded.default),
     );
-    return editor.registerUpdateListener(({ editorState }) => {
-      if (shortcodeStarted(editorState.read($emojiTyped))) ask();
-    });
+    const typed = onShortcodeStart(ask);
+    return editor.registerUpdateListener(({ editorState }) =>
+      typed(editorState.read($emojiTyped)),
+    );
   }, [editor, Suggest]);
   return Suggest ? <Suggest /> : null;
 }

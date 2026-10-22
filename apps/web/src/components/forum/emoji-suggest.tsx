@@ -56,9 +56,9 @@ export function registerEmojiTyping(
   editor: LexicalEditor,
   onTyped: (typed: EmojiTyped | null) => void,
 ) {
-  const read = (state: EditorState, tags: Set<string>) => {
+  const read = (state: EditorState, tags: Set<string>, away = false) => {
     const now = state.read($emojiTyped);
-    onTyped(now?.closed ? null : now);
+    onTyped(now?.closed || away ? null : now);
     if (now?.closed && !tags.has(HISTORIC_TAG) && !editor.isComposing()) {
       editor.update($convertClosed);
     }
@@ -66,7 +66,13 @@ export function registerEmojiTyping(
   const unregister = editor.registerUpdateListener(({ editorState, tags }) =>
     read(editorState, tags),
   );
-  read(editor.getEditorState(), new Set());
+  // A member who left the text while the list was on its way is not shown it there.
+  const root = editor.getRootElement();
+  read(
+    editor.getEditorState(),
+    new Set(),
+    root !== null && !root.contains(document.activeElement),
+  );
   return unregister;
 }
 
@@ -78,9 +84,10 @@ function pick(
   if (typed) editor.update(() => $replaceTyped(typed.length, hit.emoji, true));
 }
 
-// The emoji list of the editor's composers (`EmojiPlugin` loads it when a shortcode is first typed): ":" and two
-// characters offer the emoji whose shortcode, name or keywords hold them, in English and Spanish;
-// the arrow keys move, Enter or Tab picks, Escape closes it until something else is typed, and a
+// The emoji list of the editor's composers (`EmojiPlugin` loads it when a shortcode is first
+// typed): ":" and two characters offer the emoji with a shortcode or a word of one that starts with
+// them, three or more also those whose shortcode, name or keywords hold them, in English and
+// Spanish (`findEmoji`); the arrow keys move, Enter or Tab picks, Escape closes it until something else is typed, and a
 // press picks too. The picked emoji takes the place of the ":" and what follows.
 export default function EmojiSuggest() {
   const t = useTranslations("editor.editor");

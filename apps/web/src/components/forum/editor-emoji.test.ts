@@ -15,6 +15,7 @@ import {
   $emojiTyped,
   emojiTyped,
   loader,
+  onShortcodeStart,
   shortcodeStarted,
 } from "./editor-emoji";
 import { $replaceTyped, registerEmojiTyping } from "./emoji-suggest";
@@ -205,4 +206,32 @@ test("a load that fails is asked for again on the next call, and one that worked
   ask();
   expect(calls).toBe(2);
   expect(done).toEqual(["list"]);
+});
+
+test("after a failed load, more keys in the same shortcode ask nothing, and a new shortcode asks once", async () => {
+  let calls = 0;
+  const ask = loader(
+    () => {
+      calls++;
+      return Promise.reject(new Error("gone"));
+    },
+    () => {},
+  );
+  const typed = onShortcodeStart(ask);
+  const settle = async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  };
+  typed(emojiTyped("hola :t"));
+  await settle();
+  for (const more of [":th", ":thi", ":thin", ":think", ":thinking"]) {
+    typed(emojiTyped(`hola ${more}`));
+    await settle();
+  }
+  expect(calls).toBe(1);
+  typed(emojiTyped("hola :thinking "));
+  typed(emojiTyped("hola :thinking :f"));
+  await settle();
+  typed(emojiTyped("hola :thinking :fi"));
+  expect(calls).toBe(2);
 });
