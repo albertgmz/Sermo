@@ -6259,3 +6259,17 @@ no widget page yet; the loading screens have no sidebar skeleton.
 Why: the forum list as XenForo's node list (F3's known limit). Known limits: older unread threads
 behind a fully read newest hundred are not reported; in a forum where a member sees only their own
 threads, a reply by someone else in one of them does not mark the forum unread.
+
+### A script places fcuba's widgets as on its XenForo
+
+- `scripts/fcuba-widgets.ts` plans Sermo's widgets from a committed snapshot of fcuba's XenForo
+  widget rows and node tree (ids and parents only): the forum statistics panel and featured
+  threads in `overview_top`, members online in the last 15 minutes below the forum list, the
+  forum-list sidebar as fcuba's (visitor card first), month standings and recent members in the
+  novedades sidebar (no Trending or Latest threads), site totals at the bottom; and it adds the
+  archive roots (65, 433, 441, 620, 634, with their subforums) to `feedExcludedForumIds`. A dry
+  run is the default; `--apply` writes through the admin API (key from `SERMO_API_KEY`), disables
+  the starting widgets it replaces and leaves others alone; a second run changes nothing.
+
+Why: handover B9; run by the owner on the production site. Known limit: the statistics panel also
+leads /novedades, since `overview_top` is the only full-width position.
