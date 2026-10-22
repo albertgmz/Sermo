@@ -681,6 +681,9 @@ html.show--consent {
 .bb-content .bb-media-audio {
   height: 10.5rem;
 }
+.bb-content .bb-media-post {
+  height: 34rem;
+}
 /* An embedded player until the visitor loads it (EmbedLoader), when the embeds category is off. */
 .bb-content .bb-embed {
   display: flex;

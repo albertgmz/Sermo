@@ -7,6 +7,7 @@ import { withEmbedGate } from "@/lib/consent/embed-gate";
 import { placeInlineAttachments } from "@/lib/inline-attachments";
 import { stripHtmlMedia } from "@/lib/lite-content";
 import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
+import { withMediaPlayers } from "@/lib/media-links";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
@@ -58,7 +59,9 @@ export async function revealSpoiler(
     ]);
     const gated = withColorGuard(
       withSpoilerButtons(
-        await withEmbedGate(stripHtmlMedia(html, state, origin, label)),
+        await withEmbedGate(
+          stripHtmlMedia(withMediaPlayers(html, origin), state, origin, label),
+        ),
         true,
       ),
     );

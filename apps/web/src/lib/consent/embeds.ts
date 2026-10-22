@@ -12,6 +12,11 @@ export const EMBED_PROVIDERS: Record<string, string> = {
   spotify: "Spotify",
   soundcloud: "SoundCloud",
   applemusic: "Apple Music",
+  instagram: "Instagram",
+  twitter: "X",
+  facebook: "Facebook",
+  reddit: "Reddit",
+  twitch: "Twitch",
 };
 
 // The hosts a player is served from, the iframe sandbox and the permissions it asks for: the same
@@ -25,6 +30,12 @@ export const EMBED_HOSTS: readonly string[] = [
   "embed.music.apple.com",
   "giphy.com",
   "www.tiktok.com",
+  "www.instagram.com",
+  "platform.twitter.com",
+  "www.facebook.com",
+  "embed.reddit.com",
+  "player.twitch.tv",
+  "clips.twitch.tv",
 ];
 export const EMBED_SANDBOX =
   "allow-scripts allow-same-origin allow-presentation allow-popups";
@@ -57,7 +68,12 @@ const IFRAME = /<iframe(?=\s)((?:"[^"]*"|'[^']*'|[^'">])*)>\s*<\/iframe>/gi;
 const ATTRIBUTE = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
 // An opening or closing iframe tag that is still there: up to its `>`, or the end of the text.
 const LEFTOVER = /<\/?iframe\b[^>]*(?:>|$)/gi;
-const SHAPES = new Set(["bb-media", "bb-media-video", "bb-media-audio"]);
+const SHAPES = new Set([
+  "bb-media",
+  "bb-media-video",
+  "bb-media-audio",
+  "bb-media-post",
+]);
 
 const escapeText = (text: string) =>
   text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -81,7 +97,11 @@ export function gateEmbeds(
     const src = embedSource(decode(values.src));
     if (!src) return "";
     const classes = (values.class ?? "").split(/\s+/);
-    const shape = classes.includes("bb-media-audio") ? "audio" : "video";
+    const shape = classes.includes("bb-media-audio")
+      ? "audio"
+      : classes.includes("bb-media-post")
+        ? "post"
+        : "video";
     const site = classes
       .find((name) => name.startsWith("bb-media-") && !SHAPES.has(name))
       ?.slice("bb-media-".length);

@@ -12,6 +12,7 @@ import { withEmbedGate } from "@/lib/consent/embed-gate";
 import { placeInlineAttachments } from "@/lib/inline-attachments";
 import { stripHtmlMedia } from "@/lib/lite-content";
 import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
+import { withMediaPlayers } from "@/lib/media-links";
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +58,14 @@ export async function HtmlContent(props: {
   ]);
   let html = withColorGuard(
     withSpoilerButtons(
-      await withEmbedGate(stripHtmlMedia(props.children, state, origin, label)),
+      await withEmbedGate(
+        stripHtmlMedia(
+          withMediaPlayers(props.children, origin),
+          state,
+          origin,
+          label,
+        ),
+      ),
       props.content !== undefined,
     ),
   );

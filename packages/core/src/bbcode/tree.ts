@@ -1,6 +1,8 @@
 import { ValidationError } from "../errors";
 import type { Deadline } from "./deadline";
 import { HASHTAG_SOURCE, normalizeTag } from "./hashtag";
+import { mediaHtml, resolveMedia } from "./media";
+import { mediaRefOf } from "./media-url";
 import { ADDRESS_CHAR, type Tok, URL_PATTERN } from "./scan";
 
 const MAX_QUOTE_DEPTH = 10;
@@ -172,6 +174,36 @@ export function quoteTag(author: string, pairs?: string): string {
   return `[QUOTE="${name}${pairs ? `, ${pairs}` : ""}"]`;
 }
 
+/**
+ * The player of an address that is alone on its line, as XenForo embeds a pasted link; null for any
+ * other address or place. A text run's end counts as a line end.
+ */
+function lineMedia(
+  frame: { kids: Node[] },
+  text: string,
+  from: number,
+  address: string,
+): Tok | null {
+  const lineStart = from === 0 ? 0 : text.lastIndexOf("\n", from - 1) + 1;
+  if (lineStart === 0 && frame.kids.length > 0) return null;
+  if (!/^[ \t]*$/.test(text.slice(lineStart, from))) return null;
+  if (!/^[ \t]*(?:\r?\n|$)/.test(text.slice(from + address.length))) return null;
+  const ref = mediaRefOf(address);
+  const media = ref && resolveMedia(ref.site, ref.id);
+  if (!ref || !media) return null;
+  return {
+    kind: "atom",
+    start: 0,
+    end: 0,
+    name: "MEDIA",
+    live: true,
+    html: mediaHtml(ref.site, media),
+    href: media.url,
+    id: ref.site,
+    embed: media.kind,
+  };
+}
+
 interface Frame {
   el: El | null;
   kids: Node[];
@@ -242,8 +274,10 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
       const address = trimAddress(found[0]);
       const href = /^www\./i.test(address) ? `https://${address}` : address;
       if (!URL_PATTERN.test(href)) continue;
+      const media = lineMedia(frame, text, from, address);
       if (from > last) frame.kids.push({ t: "text", text: text.slice(last, from) });
-      frame.kids.push({ t: "link", href, text: address });
+      if (media) frame.kids.push({ t: "atom", tok: media, inline: false });
+      else frame.kids.push({ t: "link", href, text: address });
       last = from + address.length;
       INLINE_MARKS.lastIndex = last;
     }

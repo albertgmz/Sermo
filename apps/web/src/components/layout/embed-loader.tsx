@@ -9,13 +9,15 @@ import { EMBED_ALLOW, EMBED_SANDBOX, embedSource } from "@/lib/consent/embeds";
 function load(placeholder: HTMLElement) {
   const src = embedSource(placeholder.dataset.embedSrc);
   if (!src) return;
-  const shape = placeholder.dataset.embedShape === "audio" ? "audio" : "video";
+  const shape = ["audio", "post"].includes(placeholder.dataset.embedShape ?? "")
+    ? placeholder.dataset.embedShape
+    : "video";
   const frame = document.createElement("iframe");
   frame.className = `bb-media bb-media-${shape}`;
   frame.src = src;
   frame.loading = "lazy";
   frame.setAttribute("sandbox", EMBED_SANDBOX);
-  frame.allow = EMBED_ALLOW[shape];
+  frame.allow = EMBED_ALLOW[shape === "audio" ? "audio" : "video"];
   frame.referrerPolicy = "strict-origin-when-cross-origin";
   frame.allowFullscreen = true;
   placeholder.replaceWith(frame);

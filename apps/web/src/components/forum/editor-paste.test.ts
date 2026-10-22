@@ -480,3 +480,35 @@ test("a composer with no form, or whose list is not listening, takes nothing", (
   expect(offerFiles(undefined, [picture()])).toBe(false);
   expect(onFilesOffered(null, () => {})).toBeInstanceOf(Function);
 });
+
+test("a supported address pasted in an empty line becomes its media tag", () => {
+  const { editor, bb } = setup();
+  paste(
+    editor,
+    transfer({ data: { "text/plain": "https://youtu.be/dQw4w9WgXcQ?t=5\n" } }),
+  );
+  expect(bb()).toBe("[MEDIA=youtube]dQw4w9WgXcQ[/MEDIA]");
+});
+
+test("a supported address pasted among words stays the address", () => {
+  const { editor, bb } = setup();
+  editor.update(
+    () => {
+      const node = $createTextNode("watch ");
+      $getRoot().clear().append($createParagraphNode().append(node));
+      node.selectEnd();
+    },
+    { discrete: true },
+  );
+  paste(
+    editor,
+    transfer({ data: { "text/plain": "https://youtu.be/dQw4w9WgXcQ" } }),
+  );
+  expect(bb()).toBe("watch https://youtu.be/dQw4w9WgXcQ");
+});
+
+test("an address of a site that is not embedded is pasted as it is", () => {
+  const { editor, bb } = setup();
+  paste(editor, transfer({ data: { "text/plain": "https://example.com/a" } }));
+  expect(bb()).toBe("https://example.com/a");
+});

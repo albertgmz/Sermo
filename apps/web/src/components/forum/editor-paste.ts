@@ -1,5 +1,7 @@
 import { DRAG_DROP_PASTE } from "@lexical/rich-text";
 import {
+  $getSelection,
+  $isRangeSelection,
   COMMAND_PRIORITY_HIGH,
   DROP_COMMAND,
   type LexicalEditor,
@@ -9,6 +11,7 @@ import {
 } from "lexical";
 import { $insertBb } from "@/components/forum/bb-lexical";
 import { htmlToBb } from "@/components/forum/html-to-bb";
+import { mediaTagOf } from "@/components/forum/media-url";
 import { pastedFiles } from "@/components/forum/pasted-files";
 
 // What a paste puts in: pasted rich text becomes BB code, so that bold, links, lists and the rest
@@ -23,6 +26,18 @@ function pastedBb(data: DataTransfer): { bb: string; literal: boolean } {
     if (bb) return { bb, literal: false };
   }
   return { bb: data.getData("text/plain"), literal: true };
+}
+
+// Whether the caret stands in an empty line: a link pasted there is the whole line, which is what
+// makes it a player (as XenForo embeds a pasted link).
+function $inEmptyLine() {
+  const selection = $getSelection();
+  return (
+    $isRangeSelection(selection) &&
+    selection.isCollapsed() &&
+    selection.anchor.getNode().getTopLevelElement()?.getTextContent().trim() ===
+      ""
+  );
 }
 
 const EXTENSIONS: Record<string, string> = {
@@ -142,6 +157,17 @@ export function registerPaste(
           return false;
         }
         const { bb, literal } = pastedBb(data);
+        const media = mediaTagOf(data.getData("text/plain").trim());
+        if (media) {
+          editor.update(
+            () => {
+              if ($inEmptyLine()) $insertBb(media, true, media);
+              else $insertBb(bb, literal, data.getData("text/plain") || bb);
+            },
+            { tag: PASTE_TAG },
+          );
+          return true;
+        }
         if (bb) {
           const plain = data.getData("text/plain") || bb;
           editor.update(() => $insertBb(bb, literal, plain), {
