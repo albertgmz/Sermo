@@ -6428,3 +6428,19 @@ Why: the owner asked for XenForo-style dropdowns and System as the default for b
 
 Why: the owner asked to see pasted pictures and resize them instead of `[ATTACH]` text. Known
 limit: imported posts carry no widths (the importer dropped them).
+
+### The editor has XenForo's look and default sizes
+
+- Every composer's editor follows fcuba's XenForo at its default sizes, with Sermo's icons and
+  colour tokens: box 1px border, 9px radius, muted at rest and card-filled while typing; toolbar
+  55px with 6px padding (a band at rest, clear while typing); segments 42px (padding 2px 6px,
+  radius 9px, 1px border); buttons 30x32px, radius 4px; text area at least 100px with padding
+  10px 20px 20px, 15px/21px text (16px/22.4px on phones); placeholder at 40% of the text colour;
+  Attach files and the submit button 44px tall, radius 9px, 13px text. The loading skeleton draws
+  the same box. One shared module (`composer-box.ts`) holds these.
+- At XenForo's sizes the phone toolbar no longer fits a 270px comment column, so a fifth,
+  narrowest size moves Image behind the insert ⋮ (Attach files sits under the editor).
+- The placeholder (2.7:1 light, 3.4:1 dark) is a deliberate exception to 4.5:1, as XenForo; the
+  box keeps its label. Focus shows through the caret, the fill change and the bar, with no ring.
+
+Why: the owner asked for the same editor as their XenForo, at its default sizes, without its icons.
