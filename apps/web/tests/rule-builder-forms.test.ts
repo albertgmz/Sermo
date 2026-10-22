@@ -27,6 +27,7 @@ const FORMS = {
   postLinks: ["settings/antispam/antispam-form.tsx", "settings/actions.ts"],
   postApproval: ["settings/antispam/antispam-form.tsx", "settings/actions.ts"],
   signature: ["settings/antispam/antispam-form.tsx", "settings/actions.ts"],
+  standing: ["settings/levels/levels-form.tsx", "settings/actions.ts"],
   homeTab: ["settings/home/home-form.tsx", "settings/actions.ts"],
   memberBatch: ["users/batch/batch-screen.tsx", "users/batch/actions.ts"],
 } as const;
