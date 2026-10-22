@@ -5986,3 +5986,21 @@ three lists); every forum page reads the cached node list once more.
 Why: member feedback (the comment editor got smaller under a profile post); at 360 px the avatar
 left the editor 240 px and the 266 px formatting bar wrapped, without it the bar fits on one line.
 Known limit: at 320 px the row is 236 px and the bar still wraps.
+
+### A push subscription ends with the session that saved it
+
+- `push_subscriptions.session_id` (nullable, `ON DELETE CASCADE` to `auth_session`, partial index):
+  `push.subscribe` links the actor's session (API keys stay unlinked; a gone or expired session is
+  refused). Every way a session ends (sign-out, revoke, revoke others, staff revoke, password change
+  or reset, ban, the purge of expired sessions) deletes its devices; `push.send` skips and forgets a
+  device whose session expired but is not yet purged. Rows from before this release keep NULL and
+  keep working until their push service refuses them.
+- `auth.me` returns `user.sessionId` (the session row id, never the token). The browser keeps it as
+  `sermo-push-session` beside `sermo-push-owner` and, once per new session, saves its held
+  subscription again (or moves a listed device's link to the new session): a device removed on
+  purpose in the same session stays removed, nothing is asked when the session is unchanged, and a
+  restore never evicts another device at the limit.
+- Supersedes the earlier note that a remotely revoked session keeps sending pushes.
+
+Why: backlog leftovers app-install-push 2 and 11.
+Known limits: a restore that keeps failing is retried on every full page load.
