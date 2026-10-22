@@ -117,6 +117,36 @@ describe("nodes.delete: moving the threads", () => {
     expect(JSON.parse(log[1]!.details)).toMatchObject({ forums: 1, movedThreads: 3 });
   });
 
+  test("a thread keeps a prefix the target offers and loses one it does not", async () => {
+    const s = await scene();
+    const { w } = s;
+    const color = scalar(w, "SELECT id AS n FROM palette_colors WHERE kind = 'prefix' LIMIT 1");
+    const prefix = (label: string) =>
+      w.ctx.sqlite
+        .prepare<{ id: number }, [string, number]>(
+          "INSERT INTO thread_prefixes (label, color_id, created_at, updated_at) VALUES (?1, ?2, 1, 1) RETURNING id",
+        )
+        .get(label, color)!.id;
+    const offered = prefix("Offered");
+    const other = prefix("Other");
+    w.ctx.sqlite
+      .prepare("INSERT INTO forum_prefixes (node_id, prefix_id) VALUES (?1, ?2)")
+      .run(s.target, offered);
+    const set = w.ctx.sqlite.prepare("UPDATE threads SET prefix_id = ?1 WHERE id = ?2");
+    set.run(offered, s.threads.first);
+    set.run(other, s.threads.second);
+    await del(s, { threads: { action: "move", nodeId: s.target } });
+    await finish(w);
+    const read = (id: number) =>
+      w.ctx.sqlite
+        .prepare<{ prefix_id: number | null }, [number]>(
+          "SELECT prefix_id FROM threads WHERE id = ?1",
+        )
+        .get(id)!.prefix_id;
+    expect(read(s.threads.first)).toBe(offered);
+    expect(read(s.threads.second)).toBeNull();
+  });
+
   test("a merged thread's old address moves with the rest and still leads on", async () => {
     const s = await scene();
     const { w } = s;

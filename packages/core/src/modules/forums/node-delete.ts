@@ -159,6 +159,13 @@ function moveChunk(ctx: Ctx, nodeId: number, targetId: number, scope: number[]):
     targetId,
     ids,
   );
+  // As moving one thread does, a prefix the target forum does not offer is dropped.
+  run(
+    ctx,
+    "UPDATE threads SET prefix_id = NULL WHERE id IN (SELECT value FROM json_each(?2)) AND prefix_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM forum_prefixes WHERE node_id = ?1 AND prefix_id = threads.prefix_id)",
+    targetId,
+    ids,
+  );
   // What names the forum of a thread's content follows it, as moving one thread does.
   for (const table of ["report_groups", "moderator_log"]) {
     run(
