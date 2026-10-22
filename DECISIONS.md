@@ -5895,3 +5895,19 @@ Known limits: the feed card's own footer is unchanged (shared with thread cards)
   and, in the compact row, sits above the row's stretched link.
 
 Why: backlog C3 and forum-feel findings §4 (XenForo shows `Author ▸ Owner`).
+
+### Widgets: the backend
+
+- Table `widgets` (migration 0066): one position per widget, an order, a phone switch, typed options
+  per type (13 types), optional viewer rules from the criteria engine; at most 100 widgets.
+  Operations `widgets.current` (public, cached under the `widgets` key, rules evaluated per viewer,
+  `private, no-store`), `list`, `create`, `update`, `duplicate`, `reorder` and `delete` (permission
+  `admin.widgets`, checked before input). A stored row whose options no longer parse reads as its
+  type's defaults.
+- The migration seeds today's blocks into an empty table only: the four `/novedades` side blocks,
+  `featured` above the feed (`novedades_above`) and `forumStats` above the forum list
+  (`forum_list_above`, enabled only if `forumStatsEnabled` was on). The side blocks show under the
+  feed on phones, as decided.
+
+Why: owner decisions on widget areas (one position per widget with Duplicate, sidebars below
+content on phones); the web drawing comes next (B3).
