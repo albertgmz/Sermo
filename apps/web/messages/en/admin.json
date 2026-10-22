@@ -429,6 +429,7 @@
       "awards_revokeUnqualified_failed": "Taking back awards from those who no longer qualify stopped on an error",
       "awards_rebuild_start": "Rebuilding levels and awards started",
       "awards_rebuild_done": "Levels and awards rebuilt",
+      "awards_rebuild_stopped": "Rebuilding levels and awards stopped by an administrator",
       "awards_rebuild_failed": "Rebuilding levels and awards stopped on an error",
       "ban_add": "Ban added",
       "ban_lift": "Ban lifted",

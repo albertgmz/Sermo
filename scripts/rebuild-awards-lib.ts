@@ -3,6 +3,7 @@ import {
   rebuildAdministrator,
   rebuildRunValue,
   startRebuild,
+  stopRebuild,
   writeTx,
 } from "@sermo/core";
 
@@ -12,6 +13,10 @@ import {
 export interface Options {
   /** The administrator the run is logged under; by default the first who may manage awards. */
   admin?: number;
+  /** Count what a real run would change, writing nothing that stays. */
+  dryRun: boolean;
+  /** Ask the run under way to stop, and nothing else. */
+  stop: boolean;
   /** How long to wait between looks at the run. */
   pollMs: number;
 }
@@ -26,7 +31,7 @@ export type Summary = ReturnType<typeof rebuildRunValue>;
 const STALLED_POLLS = 30;
 
 export function parseArgs(argv: string[]): Options {
-  const options: Options = { pollMs: 2000 };
+  const options: Options = { dryRun: false, stop: false, pollMs: 2000 };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     const value = () => {
@@ -34,7 +39,9 @@ export function parseArgs(argv: string[]): Options {
       if (!next) throw new Error(`${arg} needs a value.`);
       return next;
     };
-    if (arg === "--admin") {
+    if (arg === "--dry-run") options.dryRun = true;
+    else if (arg === "--stop") options.stop = true;
+    else if (arg === "--admin") {
       const id = Number(value());
       if (!Number.isSafeInteger(id) || id < 1) throw new Error("--admin takes a member id.");
       options.admin = id;
@@ -48,13 +55,24 @@ export function parseArgs(argv: string[]): Options {
 }
 
 export function formatSummary(run: Summary): string {
-  return [
+  const lines = [
     `Members processed: ${run.members}`,
-    `Members whose XP or award count was corrected: ${run.xpCorrected}`,
-    `Levels changed: ${run.levelsChanged}`,
-    `Awards granted: ${run.granted}`,
-    `Awards taken back: ${run.takenBack}`,
-  ].join("\n");
+    `Members whose XP or award counters were corrected: ${run.xpCorrected}`,
+    `Members whose XP ${run.dryRun ? "would change" : "changed"}: ${run.xpChanged}`,
+    `Levels ${run.dryRun ? "that would go up" : "that went up"}: ${run.levelsUp}`,
+    `Levels ${run.dryRun ? "that would go down" : "that went down"}: ${run.levelsDown}`,
+    `Awards ${run.dryRun ? "that would be granted" : "granted"}: ${run.granted}`,
+    `Awards ${run.dryRun ? "that would be taken back" : "taken back"}: ${run.takenBack}`,
+    `Credits ${run.dryRun ? "that would be paid" : "paid"}: ${run.creditsPaid}`,
+    `Credits ${run.dryRun ? "that would be taken back" : "taken back"}: ${run.creditsRemoved}`,
+    `Members ${run.dryRun ? "who would end" : "who ended"} with a negative balance they did not have: ${run.newlyNegative}`,
+  ];
+  if (run.awards.length > 0) {
+    lines.push("By award (most affected first, up to 20): granted / taken back");
+    for (const award of run.awards)
+      lines.push(`  ${award.name}: ${award.granted} / ${award.takenBack}`);
+  }
+  return lines.join("\n");
 }
 
 /**
@@ -62,6 +80,10 @@ export function formatSummary(run: Summary): string {
  * error, or joins one under way), then follows it. Returns the final state; throws when the run
  * fails, in which case calling it again resumes from the member it stopped at.
  */
+export function stopRun(ctx: Ctx): boolean {
+  return writeTx(ctx, () => stopRebuild(ctx));
+}
+
 export async function rebuildAwards(
   ctx: Ctx,
   options: Options,
@@ -74,15 +96,17 @@ export async function rebuildAwards(
         ? "No member may manage awards."
         : `Member ${options.admin} may not manage awards.`,
     );
-  const queued = writeTx(ctx, () => startRebuild(ctx, admin));
+  const queued = writeTx(ctx, () => startRebuild(ctx, admin, options.dryRun));
   log(queued ? "Run started." : "A run is already under way; following it.");
   let shown = "";
   let still = 0;
   for (;;) {
     const run = rebuildRunValue(ctx);
     if (run.state === "failed") throw new Error(`The run stopped: ${run.error}`);
+    if (run.state === "stopped")
+      throw new Error("The run was stopped. Run the command again to resume it.");
     if (run.state === "done") return run;
-    const line = `${Math.floor(run.progress * 100)}%, ${run.members} members, ${run.granted} granted, ${run.takenBack} taken back`;
+    const line = `${Math.floor(run.progress * 100)}%, ${run.members} members, ${run.granted} ${options.dryRun ? "to grant" : "granted"}, ${run.takenBack} ${options.dryRun ? "to take back" : "taken back"}`;
     still = line === shown ? still + 1 : 0;
     if (line !== shown) log(line);
     else if (still % STALLED_POLLS === 0)

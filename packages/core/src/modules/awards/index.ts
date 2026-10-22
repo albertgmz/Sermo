@@ -27,7 +27,7 @@ import { registerAwardJobs as registerSweepJobs, sweepAgainAfterCurrent } from "
 import { assertCategory, categoryOperations } from "./categories";
 import { grantAward, revokeAward } from "./grants";
 import { AWARD_ICON_KEYS } from "./icons";
-import { rebuildRunValue, registerRebuildJobs, startRebuild } from "./rebuild";
+import { rebuildRunValue, registerRebuildJobs, startRebuild, stopRebuild } from "./rebuild";
 import { registerRevokeJobs, revokeRunValue, startRevoke } from "./revoke";
 import {
   type AwardRow,
@@ -279,10 +279,17 @@ export const operations = [
   implement(contracts.awardsRebuild, async (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
     const admin = requireAuthenticated(actor);
-    await confirmActorPassword(ctx, actor, input.actorPassword);
+    if (!input.dryRun) await confirmActorPassword(ctx, actor, input.actorPassword);
     return writeTx(ctx, () => {
       requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
-      return { queued: startRebuild(ctx, admin.userId) };
+      return { queued: startRebuild(ctx, admin.userId, input.dryRun) };
+    });
+  }),
+  implement(contracts.awardsRebuildStop, (ctx, actor) => {
+    requirePermission(ctx, actor, "admin.awards");
+    return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
+      return { stopped: stopRebuild(ctx) };
     });
   }),
   implement(contracts.awardsRebuildStatus, (ctx, actor) => {

@@ -49,6 +49,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["POST", "/awards/revoke-unqualified", "awards.revokeUnqualified", 201],
   ["GET", "/awards/rebuild", "awards.rebuildStatus"],
   ["POST", "/awards/rebuild", "awards.rebuild", 201],
+  ["POST", "/awards/rebuild/stop", "awards.rebuildStop", 201],
   ["GET", "/awards/categories", "awardCategories.list"],
   ["POST", "/awards/categories", "awardCategories.create", 201],
   ["PATCH", "/awards/categories/{categoryId}", "awardCategories.update"],

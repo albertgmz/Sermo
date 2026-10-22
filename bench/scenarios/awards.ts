@@ -375,10 +375,11 @@ const rebuildWork: ScaleWork = {
         "SELECT value FROM site_settings WHERE key = 'awards.rebuild'",
       )
       .get();
-    const { granted, takenBack, levelsChanged, members } = JSON.parse(
-      record?.value ?? "{}",
-    ) as Record<string, number>;
-    return `${members} members seen, ${granted} grants made, ${takenBack} taken back, ${levelsChanged} levels changed`;
+    const { granted, takenBack, levelsDown, members } = JSON.parse(record?.value ?? "{}") as Record<
+      string,
+      number
+    >;
+    return `${members} members seen, ${granted} grants made, ${takenBack} taken back, ${levelsDown} levels down`;
   },
 };
 

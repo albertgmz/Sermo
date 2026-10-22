@@ -72,6 +72,8 @@ export function evaluate(
   plans: Plans,
   facts: Map<number, Facts>,
   budget = Number.POSITIVE_INFINITY,
+  /** Awards not to give in this pass (the rebuild does not give back what it just took). */
+  skip: ReadonlySet<number> = new Set(),
 ): { granted: number; judged: number } {
   if (plans.length === 0 || members.length === 0) return { granted: 0, judged: members.length };
   const totals = all<TotalRow>(
@@ -90,7 +92,7 @@ export function evaluate(
     // A member who joined after the facts were read waits for the next pass.
     const memberFacts = facts.get(member.id);
     if (!memberFacts) continue;
-    const decided = new Set<number>();
+    const decided = new Set<number>(skip);
     // Again until a round grants nothing: an award may need one that comes after it, and its
     // grant's own events are not judged again (`onEvent`).
     for (let round = true; round; ) {

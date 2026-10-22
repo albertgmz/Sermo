@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createTestContext, insertUser, tokenActor, userActor } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { closeContext } from "../../context";
-import { ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
+import { assertInvariants } from "../../economy/helpers";
+import { ConflictError, ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
 import { dispatchEvents } from "../../events";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
@@ -10,7 +11,7 @@ import { levelFor } from "../../shared/levels";
 import { runDueJobs } from "../jobs/queue";
 import { evaluateMember } from "./automatic";
 import { registerAwardJobs } from "./index";
-import { REBUILD_CHUNK, REBUILD_JOB } from "./rebuild";
+import { REBUILD_BUDGET, REBUILD_CHUNK, REBUILD_JOB } from "./rebuild";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
 afterEach(() => {
@@ -77,7 +78,7 @@ describe("rebuilding levels and awards", () => {
     expect(status).toMatchObject({ state: "done", progress: 1, granted: 0, takenBack: 0 });
     // Only the first member changed level (950 XP is level 4, 5 XP level 1); 40 XP and 0 are both level 1.
     expect(levelFor(40, 100).level).toBe(levelFor(0, 100).level);
-    expect(status.levelsChanged).toBe(1);
+    expect(status).toMatchObject({ levelsDown: 1, levelsUp: 0, xpCorrected: 2, xpChanged: 2 });
   });
 
   test("a met award is granted, an unmet automatic one taken back, a hand grant kept", async () => {
@@ -159,7 +160,8 @@ describe("rebuilding levels and awards", () => {
       state: "done",
       granted: 0,
       takenBack: 0,
-      levelsChanged: 0,
+      levelsUp: 0,
+      levelsDown: 0,
     });
   });
 
@@ -241,5 +243,225 @@ describe("rebuilding levels and awards", () => {
     expect(done).toMatchObject({ state: "done", granted: members.length, takenBack: 0 });
     expect(done.members).toBeGreaterThanOrEqual(members.length);
     for (const id of members) expect(user(id)).toMatchObject({ award_xp: 1, award_count: 1 });
+  });
+
+  test("every member corrected is counted, also when the budget ends a chunk early", async () => {
+    const { ctx, call, posts, drain, events, user } = setup();
+    const awards = 5;
+    for (let i = 0; i < awards; i++)
+      await call("create", {
+        name: `Posts ${i}`,
+        tier: "bronze",
+        xp: 1,
+        credits: 0,
+        rule: postRule,
+      });
+    const members: number[] = [];
+    const total = Math.floor(REBUILD_BUDGET / awards) + 11;
+    for (let i = 0; i < total; i++) members.push(insertUser(ctx).id);
+    posts(members, 1);
+    // The budget ends the first page after REBUILD_BUDGET / awards members; these come after it.
+    const late = members.slice(Math.floor(REBUILD_BUDGET / awards) + 2, REBUILD_CHUNK);
+    expect(late.length).toBeGreaterThan(0);
+    ctx.sqlite
+      .prepare("UPDATE users SET award_xp = 5000 WHERE id IN (SELECT value FROM json_each(?1))")
+      .run(JSON.stringify(late));
+
+    await call("rebuild");
+    await drain();
+    await events();
+
+    expect(await call("rebuildStatus")).toMatchObject({
+      state: "done",
+      xpCorrected: late.length,
+      levelsDown: late.length,
+      granted: total * awards,
+    });
+    for (const id of late) expect(user(id)).toMatchObject({ award_xp: awards });
+  });
+
+  test("the award counters are set to what the grants held add up to", async () => {
+    const { ctx, call, posts, drain, events, sql } = setup();
+    const member = insertUser(ctx);
+    const award = await call("create", { name: "Posts", tier: "bronze", xp: 1, rule: postRule });
+    posts([member.id], 1);
+    evaluateMember(ctx, member.id);
+    await events();
+    ctx.sqlite.prepare("UPDATE member_award_totals SET count = 4").run();
+    ctx.sqlite.prepare("UPDATE awards SET grant_count = 77").run();
+
+    await call("rebuild");
+    await drain();
+    await events();
+
+    expect(sql("SELECT count FROM member_award_totals")).toEqual([{ count: 1 }]);
+    expect(sql("SELECT grant_count FROM awards WHERE id = ?1", award.id)).toEqual([
+      { grant_count: 1 },
+    ]);
+    assertInvariants(ctx);
+  });
+
+  test("an award taken back in a pass is not given again in the same pass", async () => {
+    const { ctx, call, posts, drain, events, sql } = setup();
+    const member = insertUser(ctx);
+    // Held while the member has at least 10 credits; the other pays 10 credits once it is held.
+    const needs = await call("create", {
+      name: "Rich",
+      tier: "bronze",
+      xp: 1,
+      credits: 0,
+      rule: { match: "all", conditions: [{ criterion: "credits_at_least", value: 10 }] },
+    });
+    await call("create", { name: "Pays", tier: "bronze", xp: 1, credits: 10, rule: postRule });
+    ctx.sqlite.prepare("UPDATE users SET credits = 10 WHERE id = ?1").run(member.id);
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO credit_transactions (user_id, amount, balance_after, type, created_at) VALUES (?1, 10, 10, 'adjustment', 0)",
+      )
+      .run(member.id);
+    await call("grant", { userId: member.id, awardId: needs.id });
+    ctx.sqlite.prepare("UPDATE member_award_totals SET auto_granted = 1, count = 1").run();
+    ctx.sqlite.prepare("UPDATE member_awards SET granted_by = NULL").run();
+    ctx.sqlite
+      .prepare("UPDATE credit_transactions SET amount = 0, balance_after = 0 WHERE user_id = ?1")
+      .run(member.id);
+    ctx.sqlite.prepare("UPDATE users SET credits = 0 WHERE id = ?1").run(member.id);
+    posts([member.id], 1);
+    await call("rebuild");
+    await drain();
+    await events();
+    const grants = sql(
+      "SELECT award_id FROM member_awards WHERE user_id = ?1 AND award_id = ?2",
+      member.id,
+      needs.id,
+    );
+    // Taken back once, and not given back although the other award's credits would qualify it.
+    expect(grants).toHaveLength(1);
+    expect(
+      sql(
+        "SELECT revoked_at IS NOT NULL AS revoked FROM member_awards WHERE award_id = ?1",
+        needs.id,
+      ),
+    ).toEqual([{ revoked: 1 }]);
+  });
+
+  test("a preview writes nothing and reports what a real run then does", async () => {
+    const { ctx, call, posts, drain, events, sql } = setup();
+    const gets = insertUser(ctx);
+    const loses = insertUser(ctx);
+    const drifted = insertUser(ctx);
+    const award = await call("create", {
+      name: "Posts",
+      tier: "gold",
+      xp: 150,
+      credits: 10,
+      rule: postRule,
+    });
+    posts([loses.id], 1);
+    evaluateMember(ctx, loses.id);
+    await events();
+    // Spent already: taking the award back leaves the balance below zero.
+    ctx.sqlite.prepare("UPDATE users SET credits = 0 WHERE id = ?1").run(loses.id);
+    posts([loses.id], 0);
+    posts([gets.id], 1);
+    ctx.sqlite.prepare("UPDATE users SET award_xp = 950 WHERE id = ?1").run(drifted.id);
+    const snapshot = () => ({
+      users: sql("SELECT id, award_xp, award_count, credits FROM users ORDER BY id"),
+      grants: sql("SELECT * FROM member_awards ORDER BY id"),
+      totals: sql("SELECT * FROM member_award_totals ORDER BY id"),
+      ledger: sql("SELECT * FROM credit_transactions ORDER BY id"),
+      awards: sql("SELECT * FROM awards ORDER BY id"),
+      events: sql("SELECT id FROM domain_events ORDER BY id"),
+    });
+    const before = snapshot();
+    // A browser session needs no password to preview.
+    const session = {
+      ...userActor(
+        ctx.sqlite
+          .prepare("SELECT id, group_id AS groupId FROM users WHERE group_id = 4")
+          .get() as never,
+      ),
+      interactive: true,
+    };
+
+    expect(await call("rebuild", { dryRun: true }, session as never)).toEqual({ queued: true });
+    await drain();
+    await events();
+
+    expect(snapshot()).toEqual(before);
+    const preview = await call("rebuildStatus");
+    expect(preview).toMatchObject({
+      state: "done",
+      dryRun: true,
+      granted: 1,
+      takenBack: 1,
+      creditsPaid: 10,
+      creditsRemoved: 10,
+      newlyNegative: 1,
+      xpCorrected: 1,
+      levelsDown: 2,
+      levelsUp: 1,
+      awards: [{ awardId: award.id, name: "Posts", granted: 1, takenBack: 1 }],
+    });
+    expect(
+      sql("SELECT action, details FROM moderator_log ORDER BY id").map(
+        (row) => (row as { action: string }).action,
+      ),
+    ).toEqual(["awards.rebuild.start", "awards.rebuild.done"]);
+
+    await call("rebuild");
+    await drain();
+    await events();
+    const real = await call("rebuildStatus");
+    expect(real.dryRun).toBe(false);
+    for (const key of [
+      "members",
+      "xpCorrected",
+      "xpChanged",
+      "levelsUp",
+      "levelsDown",
+      "granted",
+      "takenBack",
+      "creditsPaid",
+      "creditsRemoved",
+      "newlyNegative",
+      "awards",
+    ] as const)
+      expect(real[key], key).toEqual(preview[key]);
+    expect(snapshot()).not.toEqual(before);
+  });
+
+  test("a run is stopped before its next chunk, resumes when started again, and a preview waits for it", async () => {
+    const { ctx, call, posts, drain, events, sql } = setup();
+    const member = userActor(insertUser(ctx));
+    await call("create", { name: "Posts", tier: "bronze", xp: 1, rule: postRule });
+    const members: number[] = [];
+    for (let i = 0; i < REBUILD_CHUNK * 2; i++) members.push(insertUser(ctx).id);
+    posts(members, 1);
+    expect(await call("rebuildStop")).toEqual({ stopped: false });
+    await expect(call("rebuildStop", {}, member)).rejects.toThrow(ForbiddenError);
+
+    await call("rebuild");
+    expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
+    expect(await call("rebuildStop")).toEqual({ stopped: true });
+    await drain();
+
+    const stopped = await call("rebuildStatus");
+    expect(stopped.state).toBe("stopped");
+    expect(stopped.members).toBeLessThan(members.length);
+    expect(
+      sql("SELECT id FROM jobs WHERE type = ?1 AND status IN ('pending','running')", REBUILD_JOB),
+    ).toEqual([]);
+    expect(
+      sql("SELECT action FROM moderator_log ORDER BY id").map(
+        (row) => (row as { action: string }).action,
+      ),
+    ).toEqual(["awards.rebuild.start", "awards.rebuild.stopped"]);
+    await expect(call("rebuild", { dryRun: true })).rejects.toThrow(ConflictError);
+
+    expect(await call("rebuild")).toEqual({ queued: true });
+    await drain();
+    await events();
+    expect(await call("rebuildStatus")).toMatchObject({ state: "done", granted: members.length });
   });
 });

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { type Ctx, closeContext, registerAwardJobs, startRebuild, writeTx } from "@sermo/core";
 import { createTestContext, insertUser } from "@sermo/core/testing";
 import { runDueJobs } from "../packages/core/src/modules/jobs/queue";
-import { formatSummary, parseArgs, rebuildAwards } from "./rebuild-awards-lib";
+import { formatSummary, parseArgs, rebuildAwards, stopRun } from "./rebuild-awards-lib";
 
 const contexts: Ctx[] = [];
 afterEach(() => {
@@ -20,7 +20,7 @@ function setup() {
   };
   return { ctx, lines, deps };
 }
-const options = { pollMs: 1 };
+const options = { dryRun: false, stop: false, pollMs: 1 };
 
 describe("rebuild-awards", () => {
   test("starts the run, follows it to the end and summarises what it changed", async () => {
@@ -34,7 +34,7 @@ describe("rebuild-awards", () => {
     const run = await rebuildAwards(ctx, options, deps);
 
     expect(run).toMatchObject({ state: "done", xpCorrected: 1, granted: 0, takenBack: 0 });
-    expect(formatSummary(run)).toContain("Members whose XP or award count was corrected: 1");
+    expect(formatSummary(run)).toContain("Members whose XP or award counters were corrected: 1");
     expect(lines[0]).toBe("Run started.");
     expect(ctx.sqlite.prepare("SELECT actor_id FROM moderator_log ORDER BY id").get()).toEqual({
       actor_id: admin.id,
@@ -68,9 +68,38 @@ describe("rebuild-awards", () => {
     ).toHaveLength(1);
   });
 
+  test("a preview leaves the site as it was and says what a run would do; a stop ends the run under way", async () => {
+    const { ctx, lines, deps } = setup();
+    const admin = insertUser(ctx, { groupId: 4 });
+    const member = insertUser(ctx);
+    ctx.sqlite
+      .prepare("UPDATE users SET award_xp = 40, award_count = 2 WHERE id = ?1")
+      .run(member.id);
+
+    const run = await rebuildAwards(ctx, { ...options, dryRun: true }, deps);
+
+    expect(run).toMatchObject({ state: "done", dryRun: true, xpCorrected: 1 });
+    expect(formatSummary(run)).toContain("Members whose XP would change: 1");
+    expect(ctx.sqlite.prepare("SELECT award_xp FROM users WHERE id = ?1").get(member.id)).toEqual({
+      award_xp: 40,
+    });
+    expect(lines[0]).toBe("Run started.");
+
+    expect(stopRun(ctx)).toBe(false);
+    writeTx(ctx, () => startRebuild(ctx, admin.id));
+    expect(stopRun(ctx)).toBe(true);
+    await expect(rebuildAwards(ctx, options, deps)).rejects.toThrow("The run was stopped.");
+  });
+
   test("arguments", () => {
-    expect(parseArgs([])).toEqual({ pollMs: 2000 });
-    expect(parseArgs(["--admin", "7", "--poll-ms", "50"])).toEqual({ admin: 7, pollMs: 50 });
+    expect(parseArgs([])).toEqual({ dryRun: false, stop: false, pollMs: 2000 });
+    expect(parseArgs(["--admin", "7", "--poll-ms", "50"])).toEqual({
+      admin: 7,
+      dryRun: false,
+      stop: false,
+      pollMs: 50,
+    });
+    expect(parseArgs(["--dry-run", "--stop"])).toMatchObject({ dryRun: true, stop: true });
     expect(() => parseArgs(["--admin", "x"])).toThrow("--admin takes a member id.");
     expect(() => parseArgs(["--nope"])).toThrow("Unknown option --nope.");
   });

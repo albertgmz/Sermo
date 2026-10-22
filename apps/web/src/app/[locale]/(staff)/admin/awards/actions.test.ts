@@ -49,7 +49,9 @@ async function redirectedTo(run: () => Promise<unknown>) {
 const {
   countUnqualified,
   deleteAward,
+  previewRebuild,
   rebuildLevelsAndAwards,
+  stopRebuild,
   revokeUnqualified,
   runAwards,
   saveAward,
@@ -232,4 +234,20 @@ test("the rebuild asks for the password first, sends it, refreshes the page and 
   ).toEqual({
     error: words.notQueued,
   });
+});
+
+test("the preview asks for no password and sends dryRun, and the stop reports whether a run was under way", async () => {
+  const words = messages.adminEconomy.awards.rebuild;
+  backend = fakeBackend({
+    "awards.rebuild": () => Response.json({ queued: true }),
+    "awards.rebuildStop": () => Response.json({ stopped: true }),
+  });
+  expect(await previewRebuild(null)).toEqual({ notice: words.previewQueued });
+  expect(backend.asked.map((call) => call.body)).toEqual([{ dryRun: true }]);
+  expect(await stopRebuild(null)).toEqual({ notice: words.stopRequested });
+  backend.restore();
+  backend = fakeBackend({
+    "awards.rebuildStop": () => Response.json({ stopped: false }),
+  });
+  expect(await stopRebuild(null)).toEqual({ error: words.nothingToStop });
 });

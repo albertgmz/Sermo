@@ -3,6 +3,7 @@ import type { Ctx } from "../../context";
 import type { AwardRebuildRun } from "../../contracts/awards";
 import { holdCheckpoints, paceWal } from "../../db/checkpointer";
 import { writeTx } from "../../db/tx";
+import { ConflictError } from "../../errors";
 import {
   creditsEarnedKeys,
   type Facts,
@@ -15,7 +16,7 @@ import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } f
 import { readSiteSettings } from "../settings";
 import { activePlans, confirmed, evaluate, nextTurn } from "./automatic";
 import { type HeldGrant, heldBy, judge, mayManage } from "./revoke";
-import { all, one, run } from "./store";
+import { type AwardRow, all, awardSql, one, run } from "./store";
 
 /** The queue's job and the key that lets one run be under way at a time. */
 export const REBUILD_JOB = "awards.rebuild";
@@ -28,9 +29,33 @@ export const REBUILD_CHUNK = 25;
  * (one member always, whatever they need): each is a dozen statements and two events.
  */
 export const REBUILD_BUDGET = 100;
+/** Awards listed in the status of a run, the ones most affected first. */
+const LISTED_AWARDS = 20;
 
-type RunRecord = {
-  state: "running" | "done" | "failed";
+type Tally = { granted: number; takenBack: number };
+type Totals = {
+  members: number;
+  /** Members whose stored XP or award count differed from the grants they hold. */
+  xpCorrected: number;
+  /** Members whose XP at the end differs from the XP they had. */
+  xpChanged: number;
+  levelsUp: number;
+  levelsDown: number;
+  granted: number;
+  takenBack: number;
+  creditsPaid: number;
+  creditsRemoved: number;
+  /** Members whose balance was not negative and is at the end. */
+  newlyNegative: number;
+  /** Per-member award counters (`member_award_totals.count`) that were repaired. */
+  totalsCorrected: number;
+};
+type RunRecord = Totals & {
+  state: "running" | "done" | "failed" | "stopped";
+  /** True: the chunks run and are undone, so the figures are what a real run would do. */
+  dryRun: boolean;
+  /** Set by the administrator: the next chunk ends the run as stopped. */
+  stopRequested: boolean;
   /** The administrator who started it. */
   by: number;
   startedAt: number;
@@ -39,26 +64,50 @@ type RunRecord = {
   after: number;
   /** The highest member id when it started: how far there is to go. */
   through: number;
-  members: number;
-  xpCorrected: number;
-  levelsChanged: number;
-  granted: number;
-  takenBack: number;
+  byAward: { [awardId: string]: Tally };
   error: string | null;
 };
 
+const NO_TOTALS: Totals = {
+  members: 0,
+  xpCorrected: 0,
+  xpChanged: 0,
+  levelsUp: 0,
+  levelsDown: 0,
+  granted: 0,
+  takenBack: 0,
+  creditsPaid: 0,
+  creditsRemoved: 0,
+  newlyNegative: 0,
+  totalsCorrected: 0,
+};
+
+const HELD = "g.user_id = ?1 AND g.revoked_at IS NULL";
 export const rebuildSql = {
-  members: "SELECT id, award_xp FROM users WHERE id > ?1 ORDER BY id LIMIT ?2",
+  members: "SELECT id FROM users WHERE id > ?1 ORDER BY id LIMIT ?2",
   top: "SELECT max(id) AS id FROM users",
+  stored: "SELECT id, award_xp, credits FROM users WHERE id IN (SELECT value FROM json_each(?1))",
   // The grants a member holds are the source of truth for both counters (the economy invariant).
   correct:
-    "UPDATE users SET " +
-    "award_xp = (SELECT COALESCE(SUM(g.xp), 0) FROM member_awards g WHERE g.user_id = users.id AND g.revoked_at IS NULL), " +
-    "award_count = (SELECT COUNT(*) FROM member_awards g WHERE g.user_id = users.id AND g.revoked_at IS NULL) " +
-    "WHERE id IN (SELECT value FROM json_each(?1)) AND (" +
-    "award_xp != (SELECT COALESCE(SUM(g.xp), 0) FROM member_awards g WHERE g.user_id = users.id AND g.revoked_at IS NULL) OR " +
-    "award_count != (SELECT COUNT(*) FROM member_awards g WHERE g.user_id = users.id AND g.revoked_at IS NULL)) RETURNING id",
-  xp: "SELECT award_xp FROM users WHERE id = ?1",
+    `UPDATE users SET award_xp = (SELECT COALESCE(SUM(g.xp), 0) FROM member_awards g WHERE ${HELD}), ` +
+    `award_count = (SELECT COUNT(*) FROM member_awards g WHERE ${HELD}) ` +
+    `WHERE id = ?1 AND (award_xp != (SELECT COALESCE(SUM(g.xp), 0) FROM member_awards g WHERE ${HELD}) OR ` +
+    `award_count != (SELECT COUNT(*) FROM member_awards g WHERE ${HELD})) RETURNING award_xp, award_count`,
+  // The count of a member's grants of one award decides whether a non-stackable award is given.
+  correctTotals:
+    "UPDATE member_award_totals SET count = (SELECT COUNT(*) FROM member_awards g WHERE g.user_id = member_award_totals.user_id " +
+    "AND g.award_id = member_award_totals.award_id AND g.revoked_at IS NULL) WHERE user_id = ?1 AND count != " +
+    "(SELECT COUNT(*) FROM member_awards g WHERE g.user_id = member_award_totals.user_id " +
+    "AND g.award_id = member_award_totals.award_id AND g.revoked_at IS NULL)",
+  correctAwards:
+    "UPDATE awards SET grant_count = (SELECT COUNT(*) FROM member_awards g WHERE g.award_id = awards.id AND g.revoked_at IS NULL) " +
+    "WHERE grant_count != (SELECT COUNT(*) FROM member_awards g WHERE g.award_id = awards.id AND g.revoked_at IS NULL)",
+  xp: "SELECT award_xp, credits FROM users WHERE id = ?1",
+  lastGrant: "SELECT COALESCE(MAX(id), 0) AS id FROM member_awards",
+  lastEntry: "SELECT COALESCE(MAX(id), 0) AS id FROM credit_transactions",
+  madeSince: "SELECT award_id, COUNT(*) AS n FROM member_awards WHERE id > ?1 GROUP BY award_id",
+  paidSince:
+    "SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END), 0) AS paid, COALESCE(SUM(CASE WHEN amount < 0 THEN -amount END), 0) AS removed FROM credit_transactions WHERE id > ?1",
   record: `SELECT value FROM site_settings WHERE key = '${RECORD_KEY}'`,
   setRecord: `INSERT INTO site_settings (key, value, updated_at) VALUES ('${RECORD_KEY}', ?1, ?2) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
   log: "INSERT INTO moderator_log (actor_id, action, target_type, target_id, reason, details, created_at, node_id) VALUES (?1, ?2, 'awards', 0, '', ?3, ?4, NULL)",
@@ -73,43 +122,63 @@ function writeRecord(ctx: Ctx, record: RunRecord): void {
 }
 /** The administrator's trail: the start and the end of a run, with its totals. */
 function logRun(ctx: Ctx, record: RunRecord, action: string, details: object): void {
-  run(ctx, "rebuildLog", rebuildSql.log, record.by, action, JSON.stringify(details), ctx.now());
+  run(
+    ctx,
+    "rebuildLog",
+    rebuildSql.log,
+    record.by,
+    action,
+    JSON.stringify({ ...details, dryRun: record.dryRun }),
+    ctx.now(),
+  );
 }
-const totalsOf = (record: RunRecord) => ({
-  members: record.members,
-  xpCorrected: record.xpCorrected,
-  levelsChanged: record.levelsChanged,
-  granted: record.granted,
-  takenBack: record.takenBack,
-});
+function totalsOf(record: Totals): Totals {
+  const totals = { ...NO_TOTALS };
+  for (const key of Object.keys(totals) as (keyof Totals)[]) totals[key] = record[key];
+  return totals;
+}
 
 /**
- * Starts a run, or resumes the one that stopped on an error. Returns false, changing nothing,
- * when a run is under way. Call it in a write transaction.
+ * Starts a run, or resumes the one that stopped (on an error or by the administrator) when it is
+ * the same kind. Returns false, changing nothing, when a run is under way. A preview is refused
+ * while a real run is stopped, as it would replace the place to resume from. Call it in a write
+ * transaction.
  */
-export function startRebuild(ctx: Ctx, adminId: number): boolean {
+export function startRebuild(ctx: Ctx, adminId: number, dryRun = false): boolean {
   const previous = readRecord(ctx);
-  const resumed = previous !== null && previous.state !== "done";
+  const open = previous !== null && previous.state !== "done";
+  const resumed = open && previous.dryRun === dryRun;
   const after = resumed ? previous.after : 0;
   if (enqueueJob(ctx, REBUILD_JOB, { after }, { uniqueKey: REBUILD_JOB }) === null) return false;
+  // This throws inside the caller's transaction, which undoes the job just queued.
+  if (open && !previous.dryRun && dryRun)
+    throw new ConflictError("A rebuild stopped; resume it before previewing another.");
   const record: RunRecord = resumed
-    ? { ...previous, state: "running", by: adminId, error: null }
+    ? { ...previous, state: "running", by: adminId, stopRequested: false, error: null }
     : {
+        ...NO_TOTALS,
         state: "running",
+        dryRun,
+        stopRequested: false,
         by: adminId,
         startedAt: ctx.now(),
         finishedAt: null,
         after: 0,
         through: one<{ id: number | null }>(ctx, "rebuildTop", rebuildSql.top)?.id ?? 0,
-        members: 0,
-        xpCorrected: 0,
-        levelsChanged: 0,
-        granted: 0,
-        takenBack: 0,
+        byAward: {},
         error: null,
       };
   writeRecord(ctx, record);
   logRun(ctx, record, "awards.rebuild.start", { resumed });
+  return true;
+}
+
+/** Asks the run under way to end after the chunk it is on; false when none is under way. */
+export function stopRebuild(ctx: Ctx): boolean {
+  const record = readRecord(ctx);
+  if (record?.state !== "running") return false;
+  record.stopRequested = true;
+  writeRecord(ctx, record);
   return true;
 }
 
@@ -134,18 +203,18 @@ export function rebuildRunValue(ctx: Ctx): z.infer<typeof AwardRebuildRun> {
   if (!record)
     return {
       state: "idle",
+      dryRun: false,
       startedAt: null,
       finishedAt: null,
       progress: 0,
-      members: 0,
-      xpCorrected: 0,
-      levelsChanged: 0,
-      granted: 0,
-      takenBack: 0,
+      ...NO_TOTALS,
+      awards: [],
       error: null,
     };
+  const names = new Map(all<AwardRow>(ctx, "catalog", awardSql.catalog).map((a) => [a.id, a.name]));
   return {
     state: record.state,
+    dryRun: record.dryRun,
     startedAt: iso(record.startedAt),
     finishedAt: isoOrNull(record.finishedAt),
     progress:
@@ -153,37 +222,176 @@ export function rebuildRunValue(ctx: Ctx): z.infer<typeof AwardRebuildRun> {
         ? Number(record.state === "done")
         : Math.min(1, record.after / record.through),
     ...totalsOf(record),
+    awards: Object.entries(record.byAward)
+      .map(([awardId, tally]) => ({
+        awardId: Number(awardId),
+        name: names.get(Number(awardId)) ?? "",
+        ...tally,
+      }))
+      .sort((a, b) => b.granted + b.takenBack - (a.granted + a.takenBack) || a.awardId - b.awardId)
+      .slice(0, LISTED_AWARDS),
     error: record.error,
   };
 }
 
 /** Ends the run as failed, in the transaction that completes its job: starting it again resumes it. */
-function stop(ctx: Ctx, record: RunRecord, error: string): void {
+function fail(ctx: Ctx, record: RunRecord, error: string): void {
   record.state = "failed";
   record.error = error;
   writeRecord(ctx, record);
   logRun(ctx, record, "awards.rebuild.failed", { error });
 }
 
+/** What a page of members came to: the figures to add to the run's, and the member it ended at. */
+type PageResult = { last: number; totals: Totals; byAward: Map<number, Tally> };
+
+/**
+ * Rebuilds the members of a page, in order, until the changes they need reach `REBUILD_BUDGET`.
+ * For each: sets XP, award count and the per-award counters to what the held grants add up to
+ * (so the figures count every member corrected, and the facts the judging reads are right), takes
+ * back the automatic grants they no longer qualify for (as `revoke.ts` does), then grants those
+ * they qualify for (as the sweep does), except an award it just took back.
+ */
+function rebuildPage(
+  ctx: Ctx,
+  after: number,
+  ids: number[],
+  facts: Map<number, Facts>,
+  seen: ReturnType<typeof activePlans>,
+  by: number,
+): PageResult {
+  const plans = confirmed(ctx, seen);
+  const rules = plans.map((plan) => plan.rule);
+  const step = readSiteSettings(ctx).levelStep;
+  // The members as they are now: one who was deleted since the page was read is not there.
+  const stored = new Map(
+    all<{ id: number; award_xp: number; credits: number }>(
+      ctx,
+      "rebuildStored",
+      rebuildSql.stored,
+      JSON.stringify(ids),
+    ).map((row) => [row.id, row]),
+  );
+  rereadMemberFacts(ctx, facts, rules);
+  const byAward = new Map(plans.map((plan) => [plan.award.id, plan]));
+  const earned = creditsEarnedKeys(rules);
+  const held = new Map<number, HeldGrant[]>();
+  for (const grant of heldBy(ctx, [...stored.keys()]))
+    held.set(grant.user_id, [...(held.get(grant.user_id) ?? []), grant]);
+  const lastGrant = one<{ id: number }>(ctx, "rebuildLastGrant", rebuildSql.lastGrant)!.id;
+  const lastEntry = one<{ id: number }>(ctx, "rebuildLastEntry", rebuildSql.lastEntry)!.id;
+  const totals = { ...NO_TOTALS };
+  const tally = new Map<number, Tally>();
+  const tallyOf = (awardId: number) => {
+    const entry = tally.get(awardId) ?? { granted: 0, takenBack: 0 };
+    tally.set(awardId, entry);
+    return entry;
+  };
+  let work = 0;
+  let last = after;
+  for (const id of ids) {
+    const was = stored.get(id);
+    if (!was) continue;
+    if (last !== after && work >= REBUILD_BUDGET) break;
+    const memberFacts = facts.get(id);
+    const corrected = one<{ award_xp: number; award_count: number }>(
+      ctx,
+      "rebuildCorrect",
+      rebuildSql.correct,
+      id,
+    );
+    if (corrected) {
+      totals.xpCorrected++;
+      if (memberFacts) {
+        memberFacts.awardXp = corrected.award_xp;
+        memberFacts.awardCount = corrected.award_count;
+      }
+    }
+    totals.totalsCorrected += run(
+      ctx,
+      "rebuildCorrectTotals",
+      rebuildSql.correctTotals,
+      id,
+    ).changes;
+    const taken = memberFacts
+      ? judge(ctx, held.get(id) ?? [], byAward, memberFacts, earned, by)
+      : [];
+    const { granted } = evaluate(
+      ctx,
+      [{ id }],
+      plans,
+      facts,
+      Number.POSITIVE_INFINITY,
+      new Set(taken.map((grant) => grant.award_id)),
+    );
+    for (const grant of taken) tallyOf(grant.award_id).takenBack++;
+    work += taken.length + granted;
+    totals.takenBack += taken.length;
+    totals.granted += granted;
+    totals.members++;
+    const now = one<{ award_xp: number; credits: number }>(ctx, "rebuildXp", rebuildSql.xp, id)!;
+    if (now.award_xp !== was.award_xp) totals.xpChanged++;
+    const before = levelFor(was.award_xp, step).level;
+    const after_ = levelFor(now.award_xp, step).level;
+    if (after_ > before) totals.levelsUp++;
+    if (after_ < before) totals.levelsDown++;
+    if (was.credits >= 0 && now.credits < 0) totals.newlyNegative++;
+    last = id;
+  }
+  for (const row of all<{ award_id: number; n: number }>(
+    ctx,
+    "rebuildMadeSince",
+    rebuildSql.madeSince,
+    lastGrant,
+  ))
+    tallyOf(row.award_id).granted += row.n;
+  const paid = one<{ paid: number; removed: number }>(
+    ctx,
+    "rebuildPaid",
+    rebuildSql.paidSince,
+    lastEntry,
+  )!;
+  totals.creditsPaid = paid.paid;
+  totals.creditsRemoved = paid.removed;
+  return { last, totals, byAward: tally };
+}
+
+class Undone extends Error {}
+
+/** Runs the page and, for a preview, undoes everything it wrote (not the figures it returns). */
+function pageOf(ctx: Ctx, dryRun: boolean, work: () => PageResult): PageResult {
+  if (!dryRun) return work();
+  let result: PageResult | undefined;
+  ctx.sqlite.run("SAVEPOINT rebuild_preview");
+  try {
+    result = work();
+    throw new Undone();
+  } catch (error) {
+    ctx.sqlite.run("ROLLBACK TO rebuild_preview");
+    if (!(error instanceof Undone)) throw error;
+  } finally {
+    ctx.sqlite.run("RELEASE rebuild_preview");
+  }
+  return result!;
+}
+
 /**
  * Rebuilds one page of members. The facts are read first, a statement at a time with a turn of
  * the event loop after each; then one transaction, which commits together with the job's
- * completion and its successor, sets each member's XP and award count to what their grants add
- * up to, takes back the automatic grants they no longer qualify for (as `revoke.ts` does) and
- * grants the automatic awards they qualify for (as the sweep does). A run that no longer owns the
- * job, or that is not the one the record describes, does nothing.
+ * completion and its successor, rebuilds the members (`rebuildPage`). A preview does the same and
+ * undoes it, keeping only the figures. A run that no longer owns the job, or that is not the one
+ * the record describes, does nothing; one the administrator stopped ends before it.
  */
 export async function rebuildChunk(ctx: Ctx, after: number, job: ClaimedJob): Promise<void> {
   if (!Number.isSafeInteger(after) || after < 0)
     throw new TypeError("Invalid award rebuild progress.");
-  const page = all<{ id: number; award_xp: number }>(
+  const ids = all<{ id: number }>(
     ctx,
     "rebuildMembers",
     rebuildSql.members,
     after,
     REBUILD_CHUNK,
-  );
-  const ids = page.map((row) => row.id);
+  ).map((row) => row.id);
   const seen = activePlans(ctx);
   const facts =
     seen.length === 0 || ids.length === 0
@@ -202,49 +410,36 @@ export async function rebuildChunk(ctx: Ctx, after: number, job: ClaimedJob): Pr
       const record = readRecord(ctx);
       if (record?.state !== "running") return;
       // A run the record does not describe would otherwise leave it "running" for ever.
-      if (record.after !== after) return stop(ctx, record, "The run does not match its record.");
+      if (record.after !== after) return fail(ctx, record, "The run does not match its record.");
+      if (record.stopRequested) {
+        record.state = "stopped";
+        record.stopRequested = false;
+        writeRecord(ctx, record);
+        return logRun(ctx, record, "awards.rebuild.stopped", totalsOf(record));
+      }
       if (!mayManage(ctx, record.by))
-        return stop(
+        return fail(
           ctx,
           record,
           "The administrator who started the run can no longer manage awards.",
         );
-      const plans = confirmed(ctx, seen);
-      const rules = plans.map((plan) => plan.rule);
-      const step = readSiteSettings(ctx).levelStep;
-      const wrong = new Set(
-        all<{ id: number }>(ctx, "rebuildCorrect", rebuildSql.correct, JSON.stringify(ids)).map(
-          (row) => row.id,
-        ),
+      const page = pageOf(ctx, record.dryRun, () =>
+        rebuildPage(ctx, after, ids, facts, seen, record.by),
       );
-      rereadMemberFacts(ctx, facts, rules);
-      const byAward = new Map(plans.map((plan) => [plan.award.id, plan]));
-      const earned = creditsEarnedKeys(rules);
-      const held = new Map<number, HeldGrant[]>();
-      for (const grant of heldBy(ctx, ids))
-        held.set(grant.user_id, [...(held.get(grant.user_id) ?? []), grant]);
-      let work = 0;
-      let last = after;
-      for (const { id, award_xp } of page) {
-        if (last !== after && work >= REBUILD_BUDGET) break;
-        const memberFacts = facts.get(id);
-        const taken = memberFacts
-          ? judge(ctx, held.get(id) ?? [], byAward, memberFacts, earned, record.by)
-          : [];
-        const { granted } = evaluate(ctx, [{ id }], plans, facts);
-        work += taken.length + granted;
-        record.takenBack += taken.length;
-        record.granted += granted;
-        record.members++;
-        if (wrong.has(id)) record.xpCorrected++;
-        const now = one<{ award_xp: number }>(ctx, "rebuildXp", rebuildSql.xp, id)!.award_xp;
-        if (levelFor(award_xp, step).level !== levelFor(now, step).level) record.levelsChanged++;
-        last = id;
+      for (const key of Object.keys(page.totals) as (keyof Totals)[])
+        record[key] += page.totals[key];
+      for (const [awardId, add] of page.byAward) {
+        const entry = record.byAward[awardId] ?? { granted: 0, takenBack: 0 };
+        entry.granted += add.granted;
+        entry.takenBack += add.takenBack;
+        record.byAward[awardId] = entry;
       }
-      record.after = last;
-      if (last < (ids.at(-1) ?? 0) || ids.length === REBUILD_CHUNK)
-        enqueueJob(ctx, REBUILD_JOB, { after: last }, { uniqueKey: REBUILD_JOB });
+      record.after = page.last;
+      if (page.last < (ids.at(-1) ?? 0) || ids.length === REBUILD_CHUNK)
+        enqueueJob(ctx, REBUILD_JOB, { after: page.last }, { uniqueKey: REBUILD_JOB });
       else {
+        // The holder count of each award, shown on the awards pages, from the grants held.
+        if (!record.dryRun) run(ctx, "rebuildCorrectAwards", rebuildSql.correctAwards);
         record.state = "done";
         record.finishedAt = ctx.now();
         logRun(ctx, record, "awards.rebuild.done", totalsOf(record));
@@ -268,7 +463,7 @@ export function registerRebuildJobs(ctx: Ctx): void {
       // The run stays where it stopped; calling it again resumes it.
       onFailed: (context, { error }) => {
         const record = readRecord(context);
-        if (record?.state === "running") stop(context, record, error);
+        if (record?.state === "running") fail(context, record, error);
       },
     },
   );

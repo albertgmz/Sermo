@@ -25,6 +25,7 @@ const IDS = [
   "awards.rebuild.start",
   "awards.rebuild.done",
   "awards.rebuild.failed",
+  "awards.rebuild.stopped",
   "ban.add",
   "ban.lift",
   "ban.threshold",

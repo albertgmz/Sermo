@@ -476,21 +476,29 @@ an error resumes from where it stopped when started again with the same `apply` 
 refused until a stopped revoking run is resumed); credit rules that paid for a grant reverse
 afterwards, so a second run settles what that changes.
 
-To recompute every member's levels and awards from scratch, an administrator presses "Reconstruir
-niveles y trofeos" on `/admin/awards` (the administrator's password confirms it). XP comes only from
-the awards a member holds, so the run sets each member's award XP and award count to what their
-held grants add up to (the level follows from the XP, so nothing else is stored), takes back the
-automatic grants whose rule they no longer meet exactly as the run above does (XP and credits taken
-back, balances may go below zero), and grants the automatic awards they meet and do not hold, as
-the sweep does (XP and credits paid). Grants made by hand are never touched, an automatic grant a
-moderator revoked is not given again, and nobody is notified. It runs in chunks of 25 members, one
-run at a time, resumes after an error when started again, is written to the moderator log
-(`awards.rebuild.start`, `.done`, `.failed`), and changes nothing when run a second time. Without the
-web app, inside the backend container with the server running (its job worker runs the chunks):
-`docker compose exec sermo bun run awards:rebuild [--admin <member id>]` starts the run,
-resumes a stopped one or follows one under way, prints its progress and ends with the members
-processed, the members whose XP was corrected, the levels changed and the awards granted and
-taken back.
+To make levels and awards match the rules at this moment, an administrator presses "Reconstruir
+niveles y trofeos" on `/admin/awards` (the administrator's password confirms it). XP comes only
+from the awards a member holds, so the run sets each member's award XP, award count and per-award
+counters (and, at the end, each award's holder count) to what the held grants add up to (the level
+follows from the XP, so nothing else is stored), takes back the automatic grants whose rule they no
+longer meet exactly as the run above does (XP and credits taken back, balances may go below zero),
+and grants the automatic awards they meet and do not hold, as the sweep does (XP and credits paid;
+an award taken back in a pass is not given again in the same pass). Grants made by hand are never
+touched, an automatic grant a moderator revoked is not given again, and nobody is notified. It runs
+in chunks of 25 members, one run at a time, ends before its next chunk when stopped (the Stop
+button, `awards.rebuildStop`), resumes after an error or a stop when started again, and is written
+to the moderator log (`awards.rebuild.start`, `.done`, `.stopped`, `.failed`). A second run changes
+nothing unless rules depend on time, credits or XP, or credit rules pay for awards.
+
+"Ver qué cambiaría" (`awards.rebuild` with `dryRun: true`, no password) does the same chunk by
+chunk and undoes each chunk, so only the figures stay: members whose XP or counters would change,
+levels up and down, grants and take-backs by award (the twenty most affected), credits paid and
+taken back, and members who would end with a negative balance. Each chunk holds the write lock
+for as long as a real chunk does. Run it before a real run. Without the web app, inside the
+backend container with the server running (its job worker runs the chunks):
+`docker compose exec sermo bun run awards:rebuild -- --dry-run` previews, `... awards:rebuild`
+runs (`--admin <member id>` names who the log shows), `... awards:rebuild -- --stop` stops the run
+under way. It prints progress and ends with the figures above.
 
 | Task | REST | Operation |
 | --- | --- | --- |
@@ -506,7 +514,8 @@ taken back.
 | Count, or take back, automatic grants whose rule is no longer met | `POST /awards/revoke-unqualified` | `awards.revokeUnqualified` |
 | Where that run stands and what it counted or took back | `GET /awards/revoke-unqualified` | `awards.revokeStatus` |
 | Rebuild levels and awards (needs the administrator's password) | `POST /awards/rebuild` | `awards.rebuild` |
-| Where the rebuild stands and what it changed | `GET /awards/rebuild` | `awards.rebuildStatus` |
+| Where the rebuild stands and what it changed or would change | `GET /awards/rebuild` | `awards.rebuildStatus` |
+| Stop the rebuild under way | `POST /awards/rebuild/stop` | `awards.rebuildStop` |
 | List categories, in order, with their award counts | `GET /awards/categories` | `awardCategories.list` |
 | Create, change (title, description, position), delete a category | `POST /awards/categories`, `PATCH`/`DELETE /awards/categories/{categoryId}` | `awardCategories.create`, `awardCategories.update`, `awardCategories.delete` |
 

@@ -429,6 +429,7 @@
       "awards_revokeUnqualified_failed": "La retirada de trofeos a quien ya no cumple se detuvo por un error",
       "awards_rebuild_start": "Empezó la reconstrucción de niveles y trofeos",
       "awards_rebuild_done": "Niveles y trofeos reconstruidos",
+      "awards_rebuild_stopped": "Un administrador detuvo la reconstrucción de niveles y trofeos",
       "awards_rebuild_failed": "La reconstrucción de niveles y trofeos se detuvo por un error",
       "ban_add": "Expulsión añadida",
       "ban_lift": "Expulsión levantada",

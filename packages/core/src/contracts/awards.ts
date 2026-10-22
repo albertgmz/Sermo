@@ -255,11 +255,16 @@ export const awardsRevokeStatus = defineContract({
   output: AwardRevokeRun,
 });
 
-/** The administrator's run that recomputes every member's XP and levels and judges every automatic award again. */
+/**
+ * The administrator's run that sets every member's XP and award counters to what their grants add
+ * up to and judges every automatic award again; with `dryRun` the figures a real run would give.
+ */
 export const AwardRebuildRun = z
   .object({
-    /** Idle: nothing was run yet. Failed: stopped by an error; starting it again resumes it. */
-    state: z.enum(["idle", "running", "failed", "done"]),
+    /** Idle: nothing was run yet. Failed or stopped: starting the same kind of run again resumes it. */
+    state: z.enum(["idle", "running", "failed", "stopped", "done"]),
+    /** True: a preview. Everything was undone chunk by chunk and the figures are what a real run would do. */
+    dryRun: z.boolean(),
     startedAt: Timestamp.nullable(),
     finishedAt: Timestamp.nullable(),
     /** How far through the members the run is, from 0 to 1. */
@@ -268,11 +273,30 @@ export const AwardRebuildRun = z
     members: z.number().int().nonnegative(),
     /** Members whose stored XP or award count differed from the grants they hold. */
     xpCorrected: z.number().int().nonnegative(),
-    /** Members whose level is not the one they had when the run began. */
-    levelsChanged: z.number().int().nonnegative(),
-    /** Automatic grants made, and taken back, by the run. */
+    /** Members whose XP at the end differs from what they had. */
+    xpChanged: z.number().int().nonnegative(),
+    /** Members whose level goes up, and whose goes down. */
+    levelsUp: z.number().int().nonnegative(),
+    levelsDown: z.number().int().nonnegative(),
+    /** Per-member award counters that were repaired. */
+    totalsCorrected: z.number().int().nonnegative(),
+    /** Automatic grants made, and taken back. */
     granted: z.number().int().nonnegative(),
     takenBack: z.number().int().nonnegative(),
+    /** Credits paid by the grants, and taken back with the revoked ones. */
+    creditsPaid: z.number().int().nonnegative(),
+    creditsRemoved: z.number().int().nonnegative(),
+    /** Members whose balance was not below zero and is at the end. */
+    newlyNegative: z.number().int().nonnegative(),
+    /** The twenty awards most affected, most first. */
+    awards: z.array(
+      z.object({
+        awardId: Id,
+        name: z.string(),
+        granted: z.number().int().nonnegative(),
+        takenBack: z.number().int().nonnegative(),
+      }),
+    ),
     error: z.string().nullable(),
   })
   .meta({ id: "AwardRebuildRun" });
@@ -280,30 +304,49 @@ export const AwardRebuildRun = z
 export const awardsRebuild = defineContract({
   name: "awards.rebuild",
   summary:
-    "Start a background run over every member that rebuilds levels and awards: it sets each " +
-    "member's award XP and award count to what the grants they hold add up to (the level follows " +
-    "from the XP), takes back the automatic grants whose rule the member no longer meets (like " +
-    "awards.revokeUnqualified: their XP and credits are taken back, balances may go below zero) " +
-    "and grants the automatic awards the member meets and does not hold, with their XP and " +
-    "credits. Grants made by hand are never touched, and a grant revoked by hand is not given " +
-    "again. Members are not notified. It runs in small chunks, only when called; a run that " +
-    "stopped on an error resumes from where it stopped when called again, and running it again " +
-    "after it finished changes nothing. Returns queued false when a run is under way. Requires " +
-    "admin.awards. `actorPassword` is the acting administrator's own password: a browser " +
-    "session must send it, and an API key or token cannot start the run.",
+    "Start a background run over every member that makes the site match the awards' rules at " +
+    "this moment: it sets each member's award XP, award count and per-award counters to what the " +
+    "grants they hold add up to (the level follows from the XP), takes back the automatic grants " +
+    "whose rule the member no longer meets (like awards.revokeUnqualified: their XP and credits " +
+    "are taken back, balances may go below zero) and grants the automatic awards the member meets " +
+    "and does not hold, with their XP and credits. Grants made by hand are never touched, and a " +
+    "grant revoked by hand is not given again. Members are not notified. With dryRun true it " +
+    "does all this chunk by chunk and undoes each chunk, so that awards.rebuildStatus reports " +
+    "what a real run would change (levels up and down, grants by award, credits, balances that " +
+    "would go negative) and nothing stays changed. A second run changes nothing unless rules " +
+    "depend on time, credits or XP, or credit rules pay for awards. It runs in small chunks, " +
+    "only when called; a run that stopped (on an error, or by awards.rebuildStop) resumes from " +
+    "where it stopped when called again with the same dryRun. Returns queued false when a run is " +
+    "under way. Requires admin.awards. A real run needs `actorPassword`, the acting " +
+    "administrator's own password: a browser session must send it, and an API key or token " +
+    "cannot start it; a dry run needs none.",
   kind: "write",
-  input: z.object({ actorPassword: ActorPassword.optional() }),
+  input: z.object({
+    dryRun: z.boolean().default(false),
+    actorPassword: ActorPassword.optional(),
+  }),
   output: z.object({ queued: z.boolean() }),
 });
 
 export const awardsRebuildStatus = defineContract({
   name: "awards.rebuildStatus",
   summary:
-    "The latest run of awards.rebuild: where it stands and what it changed so far. Requires " +
-    "admin.awards.",
+    "The latest run of awards.rebuild, real or dry: where it stands and what it changed (or would " +
+    "change) so far. Requires admin.awards.",
   kind: "read",
   input: Empty,
   output: AwardRebuildRun,
+});
+
+export const awardsRebuildStop = defineContract({
+  name: "awards.rebuildStop",
+  summary:
+    "Ask the rebuild under way to end before its next chunk, leaving what is done as it is. " +
+    "Calling awards.rebuild again resumes it. Returns stopped false when none is under way. " +
+    "Requires admin.awards.",
+  kind: "write",
+  input: Empty,
+  output: z.object({ stopped: z.boolean() }),
 });
 
 export const awardsGrant = defineContract({

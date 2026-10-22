@@ -19,7 +19,12 @@ export {
   type SermoAuth,
 } from "./modules/auth";
 export { registerAwardJobs } from "./modules/awards";
-export { rebuildAdministrator, rebuildRunValue, startRebuild } from "./modules/awards/rebuild";
+export {
+  rebuildAdministrator,
+  rebuildRunValue,
+  startRebuild,
+  stopRebuild,
+} from "./modules/awards/rebuild";
 export { registerCreditRuleJobs } from "./modules/credit-events";
 export { registerCreditJobs } from "./modules/credits";
 export {

@@ -4,6 +4,7 @@ import {
   awardsCreate,
   awardsDelete,
   awardsRebuild,
+  awardsRebuildStop,
   awardsRevokeUnqualified,
   awardsRun,
   awardsUpdate,
@@ -186,5 +187,37 @@ export async function rebuildLevelsAndAwards(
     return { notice: t("queued") };
   } catch (error) {
     return formFailure(error, ["actorPassword"]);
+  }
+}
+
+// Count what a rebuild would change, undoing every chunk; it asks for no password as it changes
+// nothing that stays.
+export async function previewRebuild(
+  _previous: StaffFormState,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminEconomy.awards.rebuild");
+  try {
+    const { queued } = await call(awardsRebuild, { dryRun: true });
+    if (!queued) return { error: t("notQueued") };
+    revalidatePath("/[locale]/admin/awards", "page");
+    return { notice: t("previewQueued") };
+  } catch (error) {
+    return formFailure(error, []);
+  }
+}
+
+// End the run under way before its next chunk.
+export async function stopRebuild(
+  _previous: StaffFormState,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminEconomy.awards.rebuild");
+  try {
+    const { stopped } = await call(awardsRebuildStop, {});
+    revalidatePath("/[locale]/admin/awards", "page");
+    return stopped
+      ? { notice: t("stopRequested") }
+      : { error: t("nothingToStop") };
+  } catch (error) {
+    return formFailure(error, []);
   }
 }

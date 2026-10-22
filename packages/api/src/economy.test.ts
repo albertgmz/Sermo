@@ -213,7 +213,7 @@ const cases: RouteCase[] = [
     status: 200,
     url: () => "/awards/rebuild",
     denied: {},
-    expected: () => ({ state: "idle", granted: 0, takenBack: 0 }),
+    expected: () => ({ state: "idle", dryRun: false, granted: 0, takenBack: 0, awards: [] }),
   },
   {
     contract: c.awardsRebuild,
@@ -226,6 +226,16 @@ const cases: RouteCase[] = [
     denied: {},
     invalid: { body: { actorPassword: 5 }, issue: "actorPassword" },
     expected: () => ({ queued: true }),
+  },
+  {
+    contract: c.awardsRebuildStop,
+    method: "POST",
+    path: "/awards/rebuild/stop",
+    status: 201,
+    url: () => "/awards/rebuild/stop",
+    body: () => ({}),
+    denied: {},
+    expected: () => ({ stopped: false }),
   },
   {
     contract: c.awardsList,
@@ -607,13 +617,13 @@ const cases: RouteCase[] = [
   },
 ];
 
-test("economy has exactly the 43 documented route mappings", () => {
-  expect(cases).toHaveLength(43);
-  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(43);
+test("economy has exactly the 44 documented route mappings", () => {
+  expect(cases).toHaveLength(44);
+  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(44);
   const actual = routes.filter(({ operation }) =>
     /^(credits|creditRules|awards|awardCategories|shopCategories|shopItems|shop)\./.test(operation),
   );
-  expect(actual).toHaveLength(43);
+  expect(actual).toHaveLength(44);
   for (const row of cases)
     expect(actual.find(({ operation }) => operation === row.contract.name)).toMatchObject({
       method: row.method,
@@ -712,7 +722,7 @@ for (const mode of ["cookie", "key"] as const) {
   });
 }
 
-test("OpenAPI over HTTP documents all 37 economy operations and references shared schemas", async () => {
+test("OpenAPI over HTTP documents all 38 economy operations and references shared schemas", async () => {
   const f = await setup();
   const response = await f.request("/api/v1/openapi.json");
   expect(response.status).toBe(200);
