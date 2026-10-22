@@ -36,7 +36,11 @@ import {
   oldestFirst,
   WallComments,
 } from "@/components/forum/wall-comments";
-import { WallOwner, wallPlace } from "@/components/forum/wall-owner";
+import {
+  UnnamedWall,
+  WallOwner,
+  wallPlace,
+} from "@/components/forum/wall-owner";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import type { FeedView } from "@/lib/feed-view";
 import { formatCompact } from "@/lib/format";
@@ -273,20 +277,17 @@ export function FeedItem({
         author={author(profilePost.author.id)}
         createdAt={item.createdAt}
         attribution={
-          place.kind === "other" && <WallOwner owner={place.owner} />
+          place.kind === "other" && (
+            <WallOwner
+              owner={place.owner}
+              className="[overflow-wrap:anywhere]"
+            />
+          )
         }
         context={
-          place.kind === "unnamed" &&
-          t.rich("profileContext", {
-            profile: (chunks) => (
-              <Link
-                href={`/members/${profilePost.profileUserId}`}
-                className={contextLinkClass}
-              >
-                {chunks}
-              </Link>
-            ),
-          })
+          place.kind === "unnamed" && (
+            <UnnamedWall ownerId={profilePost.profileUserId} />
+          )
         }
         reaction={
           <Reactions

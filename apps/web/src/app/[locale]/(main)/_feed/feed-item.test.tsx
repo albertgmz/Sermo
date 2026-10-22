@@ -461,6 +461,10 @@ test("a wall post made on another member's wall reads Author, a muted caret, Own
   expect(line).toMatch(/<svg[^>]*text-muted-foreground[^>]*aria-hidden="true"/);
   // The owner is no longer a second line.
   expect(html).not.toContain("posted on");
+  // A long name wraps like the author's, so the card does not clip it.
+  expect(line.match(/<a[^>]*href="\/members\/5"[^>]*>/)?.[0]).toContain(
+    "[overflow-wrap:anywhere]",
+  );
 });
 
 test("a wall post on its author's own wall has no caret, no owner and no second line", async () => {

@@ -1,7 +1,9 @@
 import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { UserLink } from "@/components/forum/user-link";
 import type { MemberView } from "@/lib/sermo/views";
+import { cn } from "@/lib/utils";
 
 // Where a wall post stands for the feed: on its author's own wall, on another member's wall whose
 // owner is known by name, or on a wall whose owner the lookup could not name (a member who is
@@ -36,4 +38,28 @@ export function WallOwner({
       <UserLink user={owner} className={className} />
     </>
   );
+}
+
+// "posted on a profile", linked to the wall: for a wall whose owner has no name.
+export function UnnamedWall({
+  ownerId,
+  className,
+}: {
+  ownerId: number;
+  className?: string;
+}) {
+  const t = useTranslations("home.feedItem");
+  return t.rich("profileContext", {
+    profile: (chunks) => (
+      <Link
+        href={`/members/${ownerId}`}
+        className={cn(
+          "font-medium text-foreground underline-offset-4 hover:underline",
+          className,
+        )}
+      >
+        {chunks}
+      </Link>
+    ),
+  });
 }

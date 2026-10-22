@@ -13,7 +13,11 @@ import { RelativeTime } from "@/components/forum/relative-time";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
-import { WallOwner, wallPlace } from "@/components/forum/wall-owner";
+import {
+  UnnamedWall,
+  WallOwner,
+  wallPlace,
+} from "@/components/forum/wall-owner";
 import { threadCard } from "@/lib/sermo/threads";
 import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -74,16 +78,7 @@ export function CompactFeedItem({
             {place.kind === "unnamed" && (
               <span className="font-normal text-muted-foreground">
                 {" "}
-                {t.rich("profileContext", {
-                  profile: (chunks) => (
-                    <Link
-                      href={`/members/${profilePost.profileUserId}`}
-                      className={cn(contextLinkClass, "relative z-10")}
-                    >
-                      {chunks}
-                    </Link>
-                  ),
-                })}
+                <UnnamedWall ownerId={profilePost.profileUserId} />
               </span>
             )}
           </>

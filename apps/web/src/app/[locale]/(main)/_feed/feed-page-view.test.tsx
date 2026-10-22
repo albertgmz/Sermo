@@ -111,16 +111,17 @@ const wallEntry = {
   }),
 };
 
-// The query of every call for authors.
-const asked: string[] = [];
+// The ids asked for in every call for authors.
+const asked: number[] = [];
+const userIdsOf = (url: string): number[] =>
+  new URL(url).searchParams.getAll("userIds").map(Number);
 
 // The viewer, one thread entry (or `item`), and empty answers for everything else.
 function backend(member: { feedView: string } | null, item: object = entry) {
   asked.length = 0;
-  globalThis.fetch = (async (url: string, init?: RequestInit) => {
-    const { pathname, search } = new URL(url);
-    if (pathname === "/api/v1/member-authors")
-      asked.push(`${search}${String(init?.body ?? "")}`);
+  globalThis.fetch = (async (url: string) => {
+    const { pathname } = new URL(url);
+    if (pathname === "/api/v1/member-authors") asked.push(...userIdsOf(url));
     if (pathname === "/api/v1/me") {
       const body = viewerBody(member !== null);
       if (body.user && member) Object.assign(body.user, member);
@@ -183,5 +184,5 @@ test("the owner of the wall a post was made on is looked up with the authors, so
   backend({ feedView: "cards" }, wallEntry);
   await firstRow();
   // The author is member 4, the wall is member 9's, the viewer is the one signed in.
-  expect(asked.join("&")).toMatch(/(^|[^0-9])9([^0-9]|$)/);
+  expect(asked.sort()).toEqual([1, 4, 9]);
 });
