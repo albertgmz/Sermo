@@ -6491,3 +6491,11 @@ its writes, so the real run's write load is only seen in the real run.
   change are put back.
 
 Why: with a freshly built seed the widget scenarios sent `undefined` ids and stopped the bench.
+
+### The reply end-to-end tests follow the narrowest toolbar
+
+- At the narrowest toolbar (an iPhone SE) Image sits behind the insert "⋮", as the editor's
+  XenForo sizes decided; the reply tests reach it there, and still require Bold, Italic, Link and
+  Undo as buttons at every width.
+
+Why: the WebKit run on the iPhone SE had these two failures after the editor took XenForo's sizes.
