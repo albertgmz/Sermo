@@ -390,3 +390,19 @@ test("the top posters are read only where the panel can span the page", async ()
   expect(on(stats("novedades_sidebar"))).toBe(false);
   expect(on(stats("sidebar_top"))).toBe(false);
 });
+
+test("the statistics at the top of the home page span the page, so they show the top posters", async () => {
+  const { spansPage } = await import("@/components/widgets/forum-stats-widget");
+  const { widgetBody } = await import("@/lib/test-bodies");
+  const stats = widgetBody({
+    id: 1,
+    position: "forum_list_top",
+    type: "forumStats",
+  });
+  const side = widgetBody({
+    id: 2,
+    position: "forum_list_sidebar",
+    type: "forumLinks",
+  });
+  expect(spansPage(stats as never, [stats, side] as never)).toBe(true);
+});

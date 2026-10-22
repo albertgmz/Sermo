@@ -135,10 +135,11 @@ const parseJson = (text: string): Record<string, unknown> => {
 
 /**
  * The forum statistics panel is no XenForo widget: an add-on drew it full width above the forum
- * list. It opens `overview_top` (above the featured threads), with the members who post most.
+ * list. It opens `forum_list_top` (the home page only, not Novedades: the owner), with the members
+ * who post most.
  */
 const STATISTICS: PlannedWidget = {
-  position: "overview_top",
+  position: "forum_list_top",
   type: "forumStats",
   options: { limit: 10, topPosters: true },
   title: null,

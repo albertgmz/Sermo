@@ -21,14 +21,17 @@ const inSidebar = (position: string) =>
   position.startsWith("sidebar_") ||
   position === "members_sidenav";
 
+// The positions drawn above both columns of their page.
+const LEADS = new Set(["overview_top", "forum_list_top"]);
+
 // Whether the panel can be wide enough for the top posters column (72rem): only across the whole
-// page, as the lead above both columns or in a main column with no sidebar beside it. Elsewhere the
+// page, as a lead above both columns or in a main column with no sidebar beside it. Elsewhere the
 // column would never show, so its members are not read.
 export function spansPage(
   widget: WidgetBodyProps<"forumStats">["widget"],
   widgets: WidgetBodyProps<"forumStats">["context"]["widgets"],
 ) {
-  if (widget.position === "overview_top") return true;
+  if (LEADS.has(widget.position)) return true;
   if (inSidebar(widget.position)) return false;
   return !widgets.some((each) => inSidebar(each.position));
 }

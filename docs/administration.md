@@ -1116,7 +1116,7 @@ the featured threads are drawn on the first three tabs only, and the featured th
 list a filter narrowed.
 
 Both pages draw the widgets of their positions (`widgets.current`, asked with the visitor's session
-once per page): `overview_top` spans both columns above them; `forum_list_above` and
+once per page): `overview_top` spans both columns above them, after `forum_list_top` (`/` only); `forum_list_above` and
 `forum_list_below` (`/`) or `novedades_above` (`/novedades`) sit in the main column above and below
 the page's own content, `overview_bottom` after them; the sidebar holds `sidebar_top`, then
 `forum_list_sidebar` (`/`) or `novedades_sidebar` (`/novedades`), then `sidebar_bottom`. A page

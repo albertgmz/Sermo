@@ -2754,6 +2754,7 @@ export const navigationEntries = sqliteTable(
 
 /** Where a widget can sit, in the order the pages draw them. */
 export const WIDGET_POSITIONS = [
+  "forum_list_top",
   "overview_top",
   "forum_list_above",
   "forum_list_below",

@@ -6271,8 +6271,14 @@ threads, a reply by someone else in one of them does not mark the forum unread.
   run is the default; `--apply` writes through the admin API (key from `SERMO_API_KEY`), disables
   the starting widgets it replaces and leaves others alone; a second run changes nothing.
 
-Why: handover B9; run by the owner on the production site. Known limit: the statistics panel also
-leads /novedades, since `overview_top` is the only full-width position.
+Why: handover B9; run by the owner on the production site.
+
+### The home page has its own full-width top position
+
+- `forum_list_top` leads the home page only, above `overview_top`; the fcuba script places the
+  forum statistics panel there (with its top posters, as the lead spans the page).
+
+Why: the owner wanted the statistics off /novedades, which `overview_top` also leads.
 
 ### Permissions, built-in groups and backend refusals speak Spanish too
 

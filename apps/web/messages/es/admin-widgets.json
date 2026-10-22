@@ -30,6 +30,7 @@
     "members": "Páginas de miembros"
   },
   "positions": {
+    "forum_list_top": "Parte superior del inicio",
     "overview_top": "Parte superior de la página",
     "forum_list_above": "Encima de la lista de foros",
     "forum_list_below": "Debajo de la lista de foros",

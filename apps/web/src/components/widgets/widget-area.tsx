@@ -22,7 +22,7 @@ type Position = z.output<typeof WidgetPosition>;
 // and closes with the two global positions.
 const AREAS = {
   home: {
-    lead: ["overview_top"],
+    lead: ["forum_list_top", "overview_top"],
     above: ["forum_list_above"],
     below: ["forum_list_below", "overview_bottom"],
     aside: ["sidebar_top", "forum_list_sidebar", "sidebar_bottom"],

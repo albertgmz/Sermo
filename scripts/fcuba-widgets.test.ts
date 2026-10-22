@@ -71,7 +71,7 @@ describe("the plan from XenForo's rows", () => {
 
   test("each placed widget lands in the Sermo position of its XenForo one, in display order, ties by id", () => {
     expect(placement(plan)).toEqual([
-      "overview_top:forumStats",
+      "forum_list_top:forumStats",
       "novedades_above:text",
       "forum_list_sidebar:visitorCard",
       "forum_list_sidebar:topReferrers",
@@ -121,9 +121,9 @@ describe("fcuba's real snapshot", () => {
 
   test("places the widgets of fcuba's layout, statistics first at the top and no Trending or Latest threads in the feed sidebar", () => {
     expect(placement(plan)).toEqual([
-      "overview_top:forumStats",
-      "overview_top:featured",
+      "forum_list_top:forumStats",
       "novedades_above:text",
+      "overview_top:featured",
       "forum_list_below:recentlyActive",
       "forum_list_sidebar:visitorCard",
       "forum_list_sidebar:monthStandings",

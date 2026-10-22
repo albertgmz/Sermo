@@ -406,6 +406,17 @@ test("the areas of a page take its positions in order, and other pages' are left
   });
 });
 
+test("the top of the home page spans the home page, before the top of every page, and Novedades leaves it out", () => {
+  const list = [
+    widgetBody({ id: 1, position: "forum_list_top", type: "featured" }),
+    widgetBody({ id: 2, position: "overview_top", type: "featured" }),
+  ] as never;
+  const lead = (page: "home" | "novedades") =>
+    widgetAreas(page, list).lead.map(({ id }: { id: number }) => id);
+  expect(lead("home")).toEqual([1, 2]);
+  expect(lead("novedades")).toEqual([2]);
+});
+
 test("the global sidebar positions open and close the sidebar, though the backend lists them last", () => {
   // widgets.current orders by position as `WIDGET_PAGE_POSITIONS` lists them, global ones last, and
   // then by display order.

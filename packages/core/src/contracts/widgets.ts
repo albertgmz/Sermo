@@ -25,6 +25,7 @@ export const WidgetPage = z.enum(WIDGET_PAGES);
  */
 export const WIDGET_PAGE_POSITIONS = {
   home: [
+    "forum_list_top",
     "overview_top",
     "forum_list_above",
     "forum_list_below",

@@ -109,6 +109,14 @@ describe("the default widgets", () => {
 });
 
 describe("widgets.current", () => {
+  test("the top of the home page is drawn on the home page only", async () => {
+    const { clear, create, current } = setup();
+    clear();
+    await create({ position: "forum_list_top", type: "forumStats" });
+    expect((await current("home")).map((i) => i.position)).toEqual(["forum_list_top"]);
+    expect(await current("novedades")).toEqual([]);
+  });
+
   test("a page draws its own positions and the global ones, in drawing order", async () => {
     const { clear, create, current } = setup();
     clear();

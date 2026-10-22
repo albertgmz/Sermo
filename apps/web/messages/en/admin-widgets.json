@@ -30,6 +30,7 @@
     "members": "Members pages"
   },
   "positions": {
+    "forum_list_top": "Top of the home page",
     "overview_top": "Top of the page",
     "forum_list_above": "Above the forum list",
     "forum_list_below": "Below the forum list",
