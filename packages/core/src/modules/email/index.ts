@@ -778,6 +778,17 @@ export function mailboxRejected(error: unknown): boolean {
   return !!enhanced && (enhanced.startsWith("5.1.") || enhanced === "5.2.1");
 }
 
+/** What may be logged of a send error: SMTP error text embeds recipient addresses, so only codes. */
+function transportFields(error: unknown): Record<string, string | number> {
+  const fields: Record<string, unknown> = error && typeof error === "object" ? error : {};
+  const out: Record<string, string | number> = {};
+  for (const name of ["code", "responseCode", "command"]) {
+    const value = fields[name];
+    if (typeof value === "string" || typeof value === "number") out[name] = value;
+  }
+  return out;
+}
+
 export function registerEmailJobs(
   ctx: Ctx,
   config: MailConfig,
@@ -843,7 +854,7 @@ export function registerEmailJobs(
         type: row.type,
         notificationId: row.id,
         rejectedAddress,
-        error: (error instanceof Error ? error.message : String(error)).slice(0, 200),
+        ...transportFields(error),
       });
       recordFailure(
         ctx,

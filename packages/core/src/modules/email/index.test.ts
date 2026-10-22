@@ -300,12 +300,25 @@ describe("email channel", () => {
         notificationId: f.id,
       });
       const g = fixture();
-      g.ctx.config.auth!.secret = "";
+      g.capture.send = async () => {
+        throw Object.assign(new Error("550 <jane@example.com>: Recipient address rejected"), {
+          code: "EENVELOPE",
+          responseCode: 550,
+          command: "RCPT TO",
+        });
+      };
       deliverEmail(g.ctx, [g.item], registry);
       await runDueJobs(g.ctx);
       const failed = warn.mock.calls.find((call) => call[0] === "[email.send]");
-      expect(failed?.[1]).toMatchObject({ outcome: "failed", type: "watch.thread" });
+      expect(failed?.[1]).toMatchObject({
+        outcome: "failed",
+        type: "watch.thread",
+        code: "EENVELOPE",
+        responseCode: 550,
+        command: "RCPT TO",
+      });
       expect(JSON.stringify(warn.mock.calls)).not.toContain("@");
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("jane");
     } finally {
       info.mockRestore();
       warn.mockRestore();
