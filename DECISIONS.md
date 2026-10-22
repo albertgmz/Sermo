@@ -6221,3 +6221,16 @@ as a hand grant (never taken back by the rules), as it already was.
 
 Why: member feedback (matched members were hard to tell apart; an administrator should show in
 bold with the group colour). fcuba's XenForo draws no bold; the member's request was followed.
+
+### Composer and message buttons follow XenForo's
+
+- Every composer ends in one row: "Attach files" (outline, paperclip) on the left and the send
+  button on the right, tinted with a faint accent border and an icon per action (reply arrow,
+  pen for a new thread, conversation icon for a new conversation, save on edit pages).
+- Message footers draw their buttons as small filled pills with gaps, level with the text; a
+  pressed pill keeps its fill under the pointer so its tint stays readable in every preset.
+- In a comment footer on a phone the date takes its own line above the buttons; Report is
+  icon-only there, with its label for screen readers.
+
+Why: the owner asked for XenForo's button grouping, send and attach buttons (reference captures of
+fcuba's XenForo).
