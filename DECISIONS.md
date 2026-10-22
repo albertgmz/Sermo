@@ -6404,3 +6404,13 @@ transparency drew fcuba's transparent logo on a black box.
 
 Why: the owner asked for an emoji selector and smilies like `:like:`. fcuba's smilies have no
 image files (its XenForo drew them as emoji), so they are emoji here too.
+
+### Theme and language are dropdowns that default to System
+
+- The theme and the language are each one dropdown (a native select: footer, account menu,
+  appearance page), as XenForo's choosers. With nothing chosen the theme follows the device
+  (System), replacing "no choice means Light"; a saved account theme still wins. Language
+  "System" clears the `forum_locale` cookie and a member's saved language, so the browser's
+  language (then the site default) applies.
+
+Why: the owner asked for XenForo-style dropdowns and System as the default for both.
