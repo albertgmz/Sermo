@@ -362,18 +362,11 @@ test("the scoring line follows the site's weights, a single reaction included", 
   );
 });
 
-test("the picker is a form that opens the standing of the month chosen, from the oldest month with something to show", async () => {
+test("the picker is a form that opens the standing of the month chosen, from the last complete month, with no read of the winners", async () => {
   backend(false, {
     "/api/v1/standings": byMonth({
       current: standing(2026, 10, [entry(3, "ana", 5)]),
     }),
-    "/api/v1/standings/winners": () =>
-      Response.json({
-        items: [
-          { ...entry(3, "ana", 22), year: 2026, month: 9 },
-          { ...entry(4, "ben", 18), year: 2025, month: 3 },
-        ],
-      }),
   });
   const { html } = await draw(month());
   expect(html).toContain('action="/members/month"');
@@ -381,8 +374,16 @@ test("the picker is a form that opens the standing of the month chosen, from the
   expect(html).toContain('name="month"');
   expect(html).toContain('value="2026-10"');
   expect(html).toContain(messages.widgetTypes.monthPicker.submit);
-  // The oldest winner on record to the running month, with what an older month shows.
-  expect(html).toContain('min="2025-03"');
+  // From the last complete month to the running one, with what an older month shows.
+  const now = new Date();
+  const last = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
+  );
+  expect(html).toContain(
+    `min="${last.getUTCFullYear()}-${String(last.getUTCMonth() + 1).padStart(2, "0")}"`,
+  );
+  // The widget is on hot pages: it reads the standing and nothing else about the month.
+  expect(asked.map((call) => call.path)).toEqual(["/api/v1/standings"]);
   expect(html).toContain('max="');
   expect(html).toContain(messages.widgetTypes.monthPicker.hint);
   // Turned off, the standing has no form.

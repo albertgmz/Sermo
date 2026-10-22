@@ -1,4 +1,4 @@
-import { standingsMonth, standingsWinners } from "@sermo/core/contracts";
+import { standingsMonth } from "@sermo/core/contracts";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { monthHref } from "@/app/[locale]/(main)/members/month-page";
 import { SectionCard } from "@/components/forum/section-card";
@@ -22,13 +22,9 @@ export async function MonthStandings({
   title,
 }: WidgetBodyProps<"monthStandings">) {
   const { limit, picker } = widget.options;
-  const [{ user }, running, winners] = await Promise.all([
+  const [{ user }, running] = await Promise.all([
     getViewer(),
     readIfAllowed(standingsMonth, { month: "current", limit }),
-    // The oldest month the picker offers is the oldest winner on record.
-    picker
-      ? readIfAllowed(standingsWinners, { limit: 24 })
-      : Promise.resolve(null),
   ]);
   if (!running) return null;
   // A first page can be empty while the month has rows further on (members hidden from this
@@ -43,7 +39,8 @@ export async function MonthStandings({
     getTranslations("widgetTypes.monthStandings"),
     getFormatter(),
   ]);
-  const range = pickableMonths(winners?.items ?? [], new Date());
+  // The field offers the months whose whole standing is kept; the page it leads to offers more.
+  const range = pickableMonths([], new Date());
   return (
     <SectionCard
       title={title}
