@@ -35,8 +35,10 @@ const EMISSION_GATES: Record<string, string> = {
     "Draws the reaction picture that src/lib/sermo/reactions.ts left in the data: the address is dropped there when the reactions category is blocked, so there is nothing to emit.",
   "src/components/forum/picture-image.tsx":
     "Draws the picture of the media viewer that src/lib/sermo/media-pictures.ts left in the data: the address is dropped there when post pictures are blocked, so there is nothing to emit.",
+  "src/components/forum/mention-suggest.tsx":
+    "Draws the avatar address src/components/forum/mention-find.ts left in the data: the address is dropped there when avatars are blocked, so there is nothing to emit.",
   "src/components/ui/avatar.tsx":
-    "Low-level image primitive, used only by the reviewed UserAvatar gate.",
+    "Low-level image primitive, used only by the reviewed gates UserAvatar and the mention list.",
   "src/lib/sermo/seo.ts":
     "Writes the Open Graph and Twitter card tags; a picture appears in them only when a caller passes `image`, which src/lib/sermo/share.ts leaves out when LITE blocks any category.",
   "src/lib/og/card-image.tsx":

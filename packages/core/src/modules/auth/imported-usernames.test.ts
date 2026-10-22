@@ -82,7 +82,7 @@ describe("imported accounts keep the username they came with", () => {
     const [card] = (await w.run("users.cards", GUEST, { userIds: [bishop.id] })).items;
     expect(card.username).toBe("#Bishop");
     expect((await w.run("users.search", reader, { prefix: "#bis" })).items).toEqual([
-      { id: bishop.id, username: "#Bishop" },
+      { id: bishop.id, username: "#Bishop", staff: false },
     ]);
     const rendered = renderContent(
       w.ctx,

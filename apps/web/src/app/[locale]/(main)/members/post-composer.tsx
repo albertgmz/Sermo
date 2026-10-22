@@ -3,9 +3,9 @@
 import { ImagePlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type RefObject, useRef, useState } from "react";
-import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
 import type { WallState } from "@/app/[locale]/(main)/members/actions";
 import { ComposerForm, ComposerSheet } from "@/components/forum/composer";
+import { findMentions } from "@/components/forum/mention-find";
 import { messageActionClass } from "@/components/forum/message-action";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
@@ -52,7 +52,7 @@ export function WallPostForm({
       submitLabel={t("post")}
       pending={pending}
       placeholder={placeholder}
-      findMembers={findRecipients}
+      findMembers={findMentions}
       error={state.error}
       top={
         <div className="flex items-center gap-3 px-3 pt-3">

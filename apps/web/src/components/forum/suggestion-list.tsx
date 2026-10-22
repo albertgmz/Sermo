@@ -161,15 +161,22 @@ export function SuggestionList<T>({
 }
 
 // `text` with the first place it holds `query` (any case) in bold: what was typed, in a suggestion.
-export function Matched({ text, query }: { text: string; query: string }) {
+// `mark` draws it another way (the member list underlines it, as a name's weight means staff).
+export function Matched({
+  text,
+  query,
+  mark = "font-semibold text-foreground",
+}: {
+  text: string;
+  query: string;
+  mark?: string;
+}) {
   const at = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;
   if (at < 0) return text;
   return (
     <>
       {text.slice(0, at)}
-      <strong className="font-semibold text-foreground">
-        {text.slice(at, at + query.length)}
-      </strong>
+      <strong className={mark}>{text.slice(at, at + query.length)}</strong>
       {text.slice(at + query.length)}
     </>
   );

@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { use, useEffect, useRef, useState } from "react";
-import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
 import {
   ActionForm,
   type ActionFormState,
@@ -10,6 +9,7 @@ import {
 import { ClosePanel } from "@/components/forum/content-actions";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
+import { findMentions } from "@/components/forum/mention-find";
 import { landOn } from "@/components/layout/land-on";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -75,7 +75,7 @@ export function InlineEditForm({
         placeholder={placeholder}
         defaultValue={source}
         minHeight={80}
-        findMembers={findRecipients}
+        findMembers={findMentions}
       />
     </ActionForm>
   );

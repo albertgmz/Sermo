@@ -35,7 +35,8 @@ import { storeContentReferences, storeSpoilers } from "../../render";
 import { iso, isoOrNull } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { renameStanding } from "../auth/rename-limit";
-import { loadMemberDetails } from "../members/cards";
+import { groupIdsOf, loadMemberDetails } from "../members/cards";
+import { staffSql } from "../members/directory";
 import {
   appendModeratorLog,
   moderateEditedContent,
@@ -275,8 +276,12 @@ export const profilesSelfOp = implement(profilesSelf, (ctx, actor) => {
   };
 });
 // An account that waits in the sign-up queue is not found.
-export const USER_SEARCH_SQL = `SELECT u.id, u.username FROM users u WHERE u.username_key >= ?1 AND u.username_key < ?2 AND NOT (${AWAITING_SQL}) ORDER BY u.username_key LIMIT ?3`;
-export const USER_SEARCH_TAIL_SQL = `SELECT u.id, u.username FROM users u WHERE u.username_key >= ?1 AND NOT (${AWAITING_SQL}) ORDER BY u.username_key LIMIT ?2`;
+// With the groups each member holds (their stored combination), to tell staff apart.
+const USER_SEARCH_COLUMNS =
+  "u.id, u.username, u.group_id, c.group_ids FROM users u LEFT JOIN permission_combinations c ON c.id = u.permission_combination_id";
+export const USER_SEARCH_SQL = `SELECT ${USER_SEARCH_COLUMNS} WHERE u.username_key >= ?1 AND u.username_key < ?2 AND NOT (${AWAITING_SQL}) ORDER BY u.username_key LIMIT ?3`;
+export const USER_SEARCH_TAIL_SQL = `SELECT ${USER_SEARCH_COLUMNS} WHERE u.username_key >= ?1 AND NOT (${AWAITING_SQL}) ORDER BY u.username_key LIMIT ?2`;
+type UserSearchRow = { id: number; username: string; group_id: number; group_ids: string | null };
 export function prefixSuccessor(prefix: string): string | null {
   const points = Array.from(prefix);
   while (points.length) {
@@ -290,16 +295,28 @@ export const usersSearchOp = implement(usersSearch, (ctx, actor, input) => {
   requireView(ctx, actor);
   const prefix = input.prefix.toLowerCase();
   const end = prefixSuccessor(prefix);
-  if (end === null) {
-    const items = prepared(ctx, "profiles.userSearchTail", () =>
-      ctx.sqlite.prepare<{ id: number; username: string }, [string, number]>(USER_SEARCH_TAIL_SQL),
-    ).all(prefix, input.limit);
-    return { items };
-  }
-  const items = prepared(ctx, "profiles.userSearch", () =>
-    ctx.sqlite.prepare<{ id: number; username: string }, [string, string, number]>(USER_SEARCH_SQL),
-  ).all(prefix, end, input.limit);
-  return { items };
+  const rows =
+    end === null
+      ? prepared(ctx, "profiles.userSearchTail", () =>
+          ctx.sqlite.prepare<UserSearchRow, [string, number]>(USER_SEARCH_TAIL_SQL),
+        ).all(prefix, input.limit)
+      : prepared(ctx, "profiles.userSearch", () =>
+          ctx.sqlite.prepare<UserSearchRow, [string, string, number]>(USER_SEARCH_SQL),
+        ).all(prefix, end, input.limit);
+  const staff = new Set(
+    prepared(ctx, "members.staffGroups", () =>
+      ctx.sqlite.prepare<{ id: number }, []>(staffSql.groups),
+    )
+      .all()
+      .map((group) => group.id),
+  );
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      username: row.username,
+      staff: groupIdsOf(row).some((id) => staff.has(id)),
+    })),
+  };
 });
 export const profilePostsListOp = implement(profilePostsList, (ctx, actor, input) => {
   requireProfileView(ctx, actor, input.userId);

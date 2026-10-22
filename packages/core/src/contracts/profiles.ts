@@ -230,7 +230,14 @@ export const usersSearch = defineContract({
     prefix: z.string().trim().min(1).max(32),
     limit: z.number().int().min(1).max(25).default(10),
   }),
-  output: z.object({ items: z.array(UserSummary) }),
+  output: z.object({
+    items: z.array(
+      UserSummary.extend({
+        /** In a group marked as staff (primary, by hand, by promotion or bought). */
+        staff: z.boolean(),
+      }),
+    ),
+  }),
 });
 
 // Profile posts ------------------------------------------------------------

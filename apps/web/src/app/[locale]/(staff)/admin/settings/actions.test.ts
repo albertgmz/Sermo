@@ -752,9 +752,9 @@ test("a Matomo site id that is not a number stays on the form", async () => {
 const MEMBERS = () =>
   Response.json({
     items: [
-      { id: 7, username: "Ada" },
-      { id: 8, username: "Adam" },
-      { id: 9, username: "Mary Jane" },
+      { id: 7, username: "Ada", staff: false },
+      { id: 8, username: "Adam", staff: false },
+      { id: 9, username: "Mary Jane", staff: false },
     ],
   });
 

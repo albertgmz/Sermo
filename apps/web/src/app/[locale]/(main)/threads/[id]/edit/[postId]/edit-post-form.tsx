@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
 import { editPostAction } from "@/app/[locale]/(main)/threads/actions";
 import {
   type AttachedFile,
@@ -10,6 +9,7 @@ import {
 } from "@/components/forum/attachment-field";
 import { FormFooter } from "@/components/forum/form-footer";
 import { LazyEditor } from "@/components/forum/lazy-editor";
+import { findMentions } from "@/components/forum/mention-find";
 import { ThreadFields } from "@/components/forum/thread-fields";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Input } from "@/components/ui/input";
@@ -69,7 +69,7 @@ export function EditPostForm({
         placeholder={tEditor("placeholder")}
         defaultValue={source}
         minHeight={200}
-        findMembers={findRecipients}
+        findMembers={findMentions}
       />
       {attachIn !== null && (
         <AttachmentField

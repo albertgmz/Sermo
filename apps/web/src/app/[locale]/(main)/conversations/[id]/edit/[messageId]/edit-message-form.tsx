@@ -2,16 +2,14 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import {
-  editMessageAction,
-  findRecipients,
-} from "@/app/[locale]/(main)/conversations/actions";
+import { editMessageAction } from "@/app/[locale]/(main)/conversations/actions";
 import {
   type AttachedFile,
   AttachmentField,
 } from "@/components/forum/attachment-field";
 import { FormFooter } from "@/components/forum/form-footer";
 import { LazyEditor } from "@/components/forum/lazy-editor";
+import { findMentions } from "@/components/forum/mention-find";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 
 export function EditMessageForm({
@@ -47,7 +45,7 @@ export function EditMessageForm({
         placeholder={tEditor("placeholder")}
         defaultValue={source}
         minHeight={200}
-        findMembers={findRecipients}
+        findMembers={findMentions}
       />
       {(canAttach || attached.length > 0) && (
         <AttachmentField initial={attached} onBusy={setUploading} />

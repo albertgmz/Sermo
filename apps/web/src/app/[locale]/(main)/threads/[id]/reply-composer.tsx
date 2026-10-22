@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
 import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import { replyAction } from "@/app/[locale]/(main)/threads/actions";
 import { replyInPlace } from "@/app/[locale]/(main)/threads/reply-in-place";
@@ -10,6 +9,7 @@ import { AttachmentField } from "@/components/forum/attachment-field";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
+import { findMentions } from "@/components/forum/mention-find";
 import { useTailForm } from "@/components/forum/use-tail-form";
 
 export function ReplyComposer({
@@ -41,7 +41,7 @@ export function ReplyComposer({
         name="body"
         compact={false}
         placeholder={t("placeholder")}
-        findMembers={findRecipients}
+        findMembers={findMentions}
         insertEvent={QUOTE_EVENT}
       />
       {state.error && <FormError>{state.error}</FormError>}

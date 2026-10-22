@@ -76,7 +76,7 @@ interface HeldAward {
 const TIER_ORDER = { legendary: 3, gold: 2, silver: 1, bronze: 0 } as const;
 
 /** The groups a member holds: primary, by hand, by promotion or bought (their stored combination). */
-function groupIdsOf(row: MemberRow): number[] {
+export function groupIdsOf(row: Pick<MemberRow, "group_id" | "group_ids">): number[] {
   const ids = (row.group_ids ?? "")
     .split(",")
     .map(Number)

@@ -3,7 +3,6 @@
 import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
 import {
   createThreadAction,
   forumComposeAccessAction,
@@ -12,6 +11,7 @@ import { ComposerForm, ComposerPage } from "@/components/forum/composer";
 import type { ThreadKind } from "@/components/forum/create-kinds";
 import { ForumChoicePanel } from "@/components/forum/forum-choice-panel";
 import { type ForumChoice, forumTitle } from "@/components/forum/forum-choices";
+import { findMentions } from "@/components/forum/mention-find";
 import { PollField } from "@/components/forum/poll-field";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import {
@@ -394,7 +394,7 @@ export function ThreadComposer({
         kind === "question" ? "questionBodyPlaceholder" : "bodyPlaceholder",
       )}
       minHeight={200}
-      findMembers={findRecipients}
+      findMembers={findMentions}
       onBodyChange={changeBody}
       error={state.error}
       attach={attach}

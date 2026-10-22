@@ -474,6 +474,29 @@ describe("profiles", () => {
       ForbiddenError,
     );
   });
+  test("prefix search says which members are in a staff group, primary or held", async () => {
+    const f = fixture();
+    const helper = insertUser(f.ctx, { username: "Mhelper" });
+    const lead = f.ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank, is_staff) VALUES ('Lead', 50, 1) RETURNING id",
+      )
+      .get()!.id;
+    f.ctx.sqlite.run(
+      `INSERT INTO user_groups (user_id, group_id, created_at) VALUES (${helper.id}, ${lead}, 0)`,
+    );
+    invalidate(f.ctx, "permissions");
+    const found = await execute(f.ctx, usersSearchOp, GUEST, { prefix: "m" });
+    expect(found.items.map(({ username, staff }) => [username, staff])).toEqual([
+      ["Mhelper", true],
+      ["Mod", true],
+    ]);
+    const plain = await execute(f.ctx, usersSearchOp, GUEST, { prefix: "a" });
+    expect(plain.items.map(({ username, staff }) => [username, staff])).toEqual([
+      ["Admin", true],
+      ["Author", false],
+    ]);
+  });
   test("post ownership, moderation, hidden states, and wall paging", async () => {
     const f = fixture();
     await expect(
