@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
-import { Readable, Transform } from "node:stream";
+import { Readable, Transform, Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileTypeFromFile } from "file-type";
 import sharp from "sharp";
@@ -176,6 +176,30 @@ const heifRefusal = () =>
  * What a file picker sends for a file whose type it does not know: `application/octet-stream`, or
  * no type at all (`text/plain`, the multipart default). The bytes decide what such a file is.
  */
+/** How much of a body that is refused by its declared type is kept on the disk. */
+const REFUSED_PREFIX_BYTES = 64 * 1024;
+
+/** A file that takes the first `limit` bytes it is given and drops the rest. */
+function prefixWriter(path: string, limit: number) {
+  const file = createWriteStream(path, { flags: "wx" });
+  let taken = 0;
+  return new Writable({
+    write(chunk: Buffer, _encoding, callback) {
+      const part = chunk.subarray(0, Math.max(0, limit - taken));
+      taken += part.byteLength;
+      if (part.byteLength === 0) return callback();
+      file.write(part, callback);
+    },
+    final(callback) {
+      file.end(callback);
+    },
+    destroy(error, callback) {
+      file.destroy();
+      callback(error);
+    },
+  });
+}
+
 const unnamedTypes = new Set(["", "application/octet-stream", "text/plain"]);
 const maxBytesDefault = 25 * 1024 * 1024;
 /** Catalog and site pictures take these types whatever the site settings say for members. */
@@ -500,6 +524,17 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       await mkdir(tempDir, { recursive: true });
       const tempPath = join(tempDir, `sermo-${randomUUID()}`);
       const hash = createHash("sha256");
+      const typeAllowed = (type: string) =>
+        allowedTypes.has(type) &&
+        (catalog
+          ? typesOfCatalogPurpose(purpose).includes(type)
+          : !config.allowedTypesByPurpose ||
+            !!config.allowedTypesByPurpose[purpose as UploadSettingPurpose]?.includes(type));
+      // A body whose declared type is refused whatever its bytes are is still read to its end, so
+      // the refusal arrives as words, but only a prefix (enough to sniff a HEIC) reaches the disk.
+      const refusedAtOnce =
+        !unnamedTypes.has(declaredType) &&
+        (heifTypes.has(declaredType) || !typeAllowed(declaredType));
       let size = 0;
       let processed: {
         path: string;
@@ -530,7 +565,9 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
         await pipeline(
           Readable.fromWeb(source as never),
           meter,
-          createWriteStream(tempPath, { flags: "wx" }),
+          refusedAtOnce
+            ? prefixWriter(tempPath, REFUSED_PREFIX_BYTES)
+            : createWriteStream(tempPath, { flags: "wx" }),
         );
         if (size === 0) throw uploadRefusal("empty", "File is empty.");
         const detected = await fileTypeFromFile(tempPath);
@@ -539,16 +576,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
         if (unnamedTypes.has(declaredType) && detected) declaredType = typeName(detected.mime);
         // Checked once the file is read to its end: a refusal answered while a large body still
         // streams in reaches the browser as a broken connection, not as words.
-        if (
-          !allowedTypes.has(declaredType) ||
-          (catalog
-            ? !typesOfCatalogPurpose(purpose).includes(declaredType)
-            : config.allowedTypesByPurpose &&
-              !config.allowedTypesByPurpose[purpose as UploadSettingPurpose]?.includes(
-                declaredType,
-              ))
-        )
-          throw uploadRefusal("type", "File type is not allowed.");
+        if (!typeAllowed(declaredType)) throw uploadRefusal("type", "File type is not allowed.");
         if (detected && typeName(detected.mime) !== declaredType)
           throw uploadRefusal("unreadable", "File type does not match its content.");
         if (!detected && !knownText.has(declaredType))

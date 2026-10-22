@@ -111,13 +111,17 @@ describe("decoding many pictures at once", () => {
   // many are inside it at once while several pictures are uploaded together.
   test("at most two decodes run together, however many uploads arrive", async () => {
     const real = await import("../images/decode-slots");
+    // Taken before the mock: the module object is patched in place, so `real.withDecodeSlot`
+    // would point at the wrapper itself and the wrapper would call itself without end.
+    const original = { ...real };
+    const realSlot = original.withDecodeSlot;
     let inside = 0;
     let peak = 0;
     let total = 0;
     mock.module("../images/decode-slots", () => ({
-      ...real,
+      ...original,
       withDecodeSlot: <T>(run: () => Promise<T>) =>
-        real.withDecodeSlot(async () => {
+        realSlot(async () => {
           inside += 1;
           total += 1;
           peak = Math.max(peak, inside);
@@ -159,7 +163,7 @@ describe("decoding many pictures at once", () => {
       // ... and never more than two ran.
       expect(peak).toBe(2);
     } finally {
-      mock.module("../images/decode-slots", () => real);
+      mock.module("../images/decode-slots", () => original);
     }
   });
 });
