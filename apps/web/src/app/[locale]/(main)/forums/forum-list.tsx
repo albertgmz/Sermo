@@ -2,6 +2,7 @@ import { forumTabsList, nodesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import type { StatsTab } from "@/app/[locale]/(main)/forums/forum-stats";
+import { ForumMarkRead } from "@/app/[locale]/(main)/forums/[id]/forum-mark-read";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { bannerOf } from "@/components/forum/forum-banner";
 import { ForumCardGrid } from "@/components/forum/forum-card-grid";
@@ -14,6 +15,7 @@ import { TabLinks } from "@/components/forum/tab-links";
 import { read } from "@/lib/sermo/client";
 import { childrenByParent, nodeMembers } from "@/lib/sermo/forums";
 import { membersFor } from "@/lib/sermo/members";
+import { getViewer } from "@/lib/sermo/session";
 
 // The forum list: the categories under the section tabs, drawn by the home page; it says where its
 // section links go. The statistics panel is a widget the page draws around it.
@@ -55,9 +57,10 @@ async function ForumCategories({
   stats: StatsTab;
   hrefFor: (section: string | null, stats: StatsTab) => string;
 }) {
-  const [{ items: nodes }, { items: tabs }, t] = await Promise.all([
+  const [{ items: nodes }, { items: tabs }, { user }, t] = await Promise.all([
     read(nodesList, {}),
     read(forumTabsList, {}),
+    getViewer(),
     getTranslations("forums.forums"),
   ]);
   const member = await membersFor(nodeMembers(nodes));
@@ -95,6 +98,11 @@ async function ForumCategories({
           label={t("aria.sections")}
           variant="segmented"
         />
+      )}
+      {user && (
+        <div className="flex justify-end">
+          <ForumMarkRead />
+        </div>
       )}
       {categories.map((category, index) => (
         <CollapsiblePanel

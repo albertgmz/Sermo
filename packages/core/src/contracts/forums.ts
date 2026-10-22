@@ -400,6 +400,48 @@ export const threadPrefixesDelete = defineContract({
   output: z.object({ ok: z.literal(true), deactivated: z.boolean() }),
 });
 
+export const nodesDelete = defineContract({
+  name: "nodes.delete",
+  summary:
+    "Delete a category or forum. Admins only (admin.nodes). `threads` says what happens to the " +
+    "threads in the node (and in the nodes deleted with it): `move` puts all of them, hidden or " +
+    "not, in another forum, which must not be one being deleted; `delete` removes them for good, " +
+    "with their posts, reactions, attachments, polls and the credits they paid. `children` says " +
+    "what happens to the nodes under it: `moveUp` (default) puts them under the deleted node's " +
+    "parent (each takes a copy of the deleted node's permission entries it has none of its own " +
+    "for, and an own view entry more open than what the same group or member had on the deleted " +
+    "node is lowered to that, so nothing becomes visible to anyone who could not see it; a member " +
+    "who saw it only through two layers that no longer meet gets an allow entry of their own; " +
+    "they go after the deleted node's siblings; a category " +
+    "that moves to the top level keeps the deleted one's tab; the forums of a top-level " +
+    "category cannot move up to the top level (a validation error, and the default `children` " +
+    "is `moveUp`, so say `delete` or move them first); `delete` deletes the whole subtree the " +
+    "same way. Nothing is refused for its size: the call only checks and queues a background " +
+    "job, which works through the threads in bounded chunks and removes the node when none is " +
+    "left. The forum the threads go to is judged again at every chunk: if it is gone or no longer " +
+    "a forum the job stops, the nodes stay read-only and the log gets `node.delete.failed`; " +
+    "calling again with an existing forum carries on, and so does a job that finds a forum under " +
+    "a top-level category at the end. While the deletion is queued nothing can be created or " +
+    "moved under the node (a conflict), and a forum another running deletion moves its threads " +
+    "into cannot be deleted (a conflict). Until then the nodes concerned are read-only and the job survives a restart. The call " +
+    "is logged as `node.delete` and the end as `node.delete.completed`, with the counts. A " +
+    "credit rule or reaction type limited to one of the forums, and a deletion already under " +
+    "way for the node, are conflicts. `actorPassword` is the acting administrator's own " +
+    "password, verified as for nodes.setModerator (a browser session must send it; an API key " +
+    "or token cannot delete a node).",
+  kind: "write",
+  input: z.object({
+    nodeId: Id,
+    threads: z.discriminatedUnion("action", [
+      z.object({ action: z.literal("move"), nodeId: Id }),
+      z.object({ action: z.literal("delete") }),
+    ]),
+    children: z.enum(["moveUp", "delete"]).default("moveUp"),
+    actorPassword: ActorPassword.optional(),
+  }),
+  output: Ok,
+});
+
 // Threads ------------------------------------------------------------------
 
 export const threadsList = defineContract({
@@ -678,6 +720,34 @@ export const threadsMarkRead = defineContract({
   kind: "write",
   input: z.object({ threadId: Id, position: z.number().int().nonnegative() }),
   output: z.object({ readPosition: z.number().int().nonnegative() }),
+});
+
+const ForumMarkedRead = z.object({
+  /** When the viewer marked it: threads whose last post is not newer count as read. */
+  readAt: Timestamp,
+  /** How many forums were marked (the forum, the forums under it, those the viewer can see). */
+  forums: z.number().int().nonnegative(),
+});
+export const nodesMarkRead = defineContract({
+  name: "nodes.markRead",
+  summary:
+    "Mark a forum and the forums under it read for the viewer (a category marks the forums under " +
+    "it): every thread whose last post is not newer than now counts as read, however many the " +
+    "forum holds, because one marker per forum is stored, not a row per thread. A later post " +
+    "makes its thread unread again. Forums the viewer cannot see are skipped. Signed-in only.",
+  kind: "write",
+  input: z.object({ nodeId: Id }),
+  output: ForumMarkedRead,
+});
+export const nodesMarkAllRead = defineContract({
+  name: "nodes.markAllRead",
+  summary:
+    "Mark the forums the viewer can see read, as nodes.markRead does for one: only those with a " +
+    "post inside the 30 days a thread can count as unread get a marker, and `forums` counts " +
+    "them. Signed-in only.",
+  kind: "write",
+  input: Empty,
+  output: ForumMarkedRead,
 });
 
 // Posts --------------------------------------------------------------------

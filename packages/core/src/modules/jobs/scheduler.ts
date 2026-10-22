@@ -5,6 +5,7 @@ import { writeTx } from "../../db/tx";
 import { dispatchEvents } from "../../events";
 import { purgeExpiredCredentialsBatch } from "../auth";
 import { pruneSignInFailures } from "../auth/sign-in-limit";
+import { expireReadMarks } from "../forums/read-marks";
 import { flushSessionActivity } from "../security/session";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
@@ -93,6 +94,8 @@ export async function runHourlyTasks(
     await yieldToEventLoop();
     after = batch.at(-1)!.id;
   }
+  // A forum marker past the same window holds nothing: every thread older than it counts as read.
+  while (expireReadMarks(ctx, cutoff)) await yieldToEventLoop();
   const doneCutoff = ctx.now() - 7 * DAY_MS;
   const doneBatch = prepared(ctx, "jobs.oldDone", () =>
     ctx.sqlite.prepare<{ id: number }, [number]>(purgeSql.done),

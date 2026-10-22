@@ -115,5 +115,10 @@
     "aria": {
       "loading": "Cargando hilos…"
     }
+  },
+  "markRead": {
+    "forum": "Marcar foro como leído",
+    "allForums": "Marcar foros como leídos",
+    "done": "Marcado como leído."
   }
 }

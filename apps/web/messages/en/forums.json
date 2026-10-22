@@ -115,5 +115,10 @@
     "aria": {
       "loading": "Loading threads…"
     }
+  },
+  "markRead": {
+    "forum": "Mark forum read",
+    "allForums": "Mark forums read",
+    "done": "Marked as read."
   }
 }

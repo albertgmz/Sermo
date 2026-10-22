@@ -966,6 +966,8 @@ export const posts = sqliteTable(
   (t) => [
     // posts.list: WHERE thread_id = ? AND position BETWEEN ? AND ? ORDER BY position
     index("posts_thread_position").on(t.threadId, t.position),
+    // The first post after a "mark forum read" marker: one seek per thread.
+    index("posts_thread_created").on(t.threadId, t.createdAt),
     // Counter rebuild: a user's visible posts (joined to their thread's state), index-only.
     index("posts_user").on(t.userId, t.state, t.threadId),
     index("posts_state_id").on(t.state, t.id),
@@ -1016,6 +1018,31 @@ export const threadReads = sqliteTable(
     uniqueIndex("thread_reads_user_thread").on(t.userId, t.threadId),
     // Readers of one thread (thread merges and splits).
     index("thread_reads_thread").on(t.threadId, t.userId),
+  ],
+);
+
+/**
+ * "Mark forum read": one row per member and forum, written once however many threads the forum
+ * holds. A thread of the forum whose last post is not newer than `read_at` counts as read for
+ * the member, on top of what `thread_reads` says. Rows older than the 30 days after which every
+ * thread counts as read are purged hourly.
+ */
+export const nodeReads = sqliteTable(
+  "node_reads",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    nodeId: integer("node_id")
+      .notNull()
+      .references(() => nodes.id),
+    readAt: integer("read_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("node_reads_user_node").on(t.userId, t.nodeId),
+    // The hourly purge of rows past the unread window.
+    index("node_reads_read_at").on(t.readAt),
   ],
 );
 

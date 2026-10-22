@@ -17,6 +17,7 @@ import { getViewer } from "@/lib/sermo/session";
 import { hrefFor } from "../../../registry";
 import { FormSkeleton } from "../../../skeletons";
 import { staffTrail } from "../../../trail";
+import { DeleteNode } from "./delete-node";
 import Loading from "./loading";
 import { Moderators } from "./moderators";
 import { NodeForm } from "./node-form";
@@ -101,6 +102,7 @@ async function Node({ params, searchParams }: Props) {
       {viewer.resolvedPermissions["admin.permissions"] === true && (
         <Moderators nodeId={node.id} query={q} />
       )}
+      <DeleteNode node={node} nodes={nodes} />
     </ScreenFrame>
   );
 }

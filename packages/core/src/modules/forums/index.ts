@@ -103,8 +103,10 @@ import {
   requirePrefixChosen,
   setOfferedPrefixes,
 } from "./prefixes";
+import { nodesDeleteOp, registerNodeDeleteJob, requireNotBeingDeleted } from "./node-delete";
 import { nodeTabs, threadPresenter } from "./presentation";
 import { type ReadGates, readGates } from "./read-gates";
+import { nodesMarkAllReadOp, nodesMarkReadOp, positionBeforeMark, readMarksOf } from "./read-marks";
 
 export { type ReadGates, readGates } from "./read-gates";
 
@@ -639,6 +641,11 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
     actor,
     rows.map((r) => r.id),
   );
+  const marks = readMarksOf(
+    ctx,
+    actorUserId(actor),
+    rows.map((r) => r.node_id),
+  );
   const cutoff = ctx.now() - 30 * 86400000;
   const present = threadPresenter(ctx);
   const gates = readGates(ctx, actor);
@@ -678,6 +685,7 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
       isUnread:
         actorUserId(actor) != null &&
         row.last_post_at > cutoff &&
+        row.last_post_at > (marks.get(row.node_id) ?? 0) &&
         row.last_post_id > (read?.last_read_post_id ?? 0),
       pollKind: polls.get(row.id) ?? null,
     };
@@ -1008,6 +1016,7 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
   const id = writeTx(ctx, () => {
     requirePermission(ctx, currentActor(ctx, actor), "admin.nodes");
     if (input.parentId != null && !getNodeTree(ctx).get(input.parentId)) throw new NotFoundError();
+    requireNotBeingDeleted(ctx, input.parentId);
     requireTabFor(ctx, input.tabId, input.parentId, input.type);
     const row = forumDb(ctx)
       .prepare<
@@ -1048,6 +1057,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
     if (input.parentId != null && tree.subtreeIds(input.nodeId).includes(input.parentId))
       throw new ValidationError("A node cannot be its own descendant.");
     const parentId = input.parentId === undefined ? current.parentId : input.parentId;
+    if (parentId !== current.parentId) requireNotBeingDeleted(ctx, parentId);
     requireTabFor(ctx, input.tabId, parentId, current.type);
     const stored = forumDb(ctx)
       .prepare<{ tab_id: number | null; icon_key: string | null }, [number]>(
@@ -1232,7 +1242,17 @@ export const threadsLocateUnreadOp = implement(
             ctx,
             "firstUnreadPost",
             firstUnreadPostSql,
-          ).get(row.id, thread.readPosition ?? -1)
+          ).get(
+            row.id,
+            Math.max(
+              thread.readPosition ?? -1,
+              positionBeforeMark(
+                ctx,
+                row.id,
+                readMarksOf(ctx, actorUserId(actor), [row.node_id]).get(row.node_id),
+              ),
+            ),
+          )
         : null;
     return first
       ? { threadId: row.id, postId: first.id, position: first.position }
@@ -1576,7 +1596,7 @@ export const reactablePost = markPublic(
   },
 );
 
-function updateNodeLast(ctx: Ctx, nodeId: number): void {
+export function updateNodeLast(ctx: Ctx, nodeId: number): void {
   const stmt = prepared(ctx, "forums.nodeLast", () =>
     forumDb(ctx).prepare<
       Pick<ThreadRow, "id" | "title" | "last_post_at" | "last_post_id" | "last_poster_id">,
@@ -1641,7 +1661,12 @@ export function nodeCountsPosts(ctx: Ctx, nodeId: number): boolean {
   ).get(nodeId)?.counts_posts;
 }
 /** Adds delta to the authors of a thread's visible posts, if the forum the thread is in counts them. */
-function adjustThreadAuthors(ctx: Ctx, threadId: number, nodeId: number, delta: number): void {
+export function adjustThreadAuthors(
+  ctx: Ctx,
+  threadId: number,
+  nodeId: number,
+  delta: number,
+): void {
   forumDb(ctx).prepare(forumSql.authorAdjustment).run(delta, threadId, nodeId);
 }
 /**
@@ -1657,7 +1682,7 @@ export function adjustAuthorsForMove(
   const delta = Number(nodeCountsPosts(ctx, toNodeId)) - Number(nodeCountsPosts(ctx, fromNodeId));
   if (delta) adjustThreadAuthors(ctx, threadId, delta > 0 ? toNodeId : fromNodeId, delta);
 }
-function changeThreadState(ctx: Ctx, id: number, state: State): boolean {
+export function changeThreadState(ctx: Ctx, id: number, state: State): boolean {
   const row = threadRow(ctx, id)!;
   if (row.state === state) return false;
   const before = row.state === "visible";
@@ -2696,6 +2721,7 @@ function retryFailedJob(ctx: Ctx, key: string): void {
  * the running job, so a replayed or superseded run no longer owns its job and does nothing.
  */
 export function registerForumTransferJobs(ctx: Ctx): void {
+  registerNodeDeleteJob(ctx);
   registerJobHandler(
     ctx,
     "forums.merge",
@@ -3715,6 +3741,48 @@ function requireNotReported(ctx: Ctx, postIds: number[], threadId?: number): voi
     throw new ConflictError("This has been reported. Hide it, or ask staff to delete it.");
 }
 
+/**
+ * The next posts of a thread being deleted for good, newest first with the opening post left for
+ * the end: up to `limit`, and one more when there are more, which tells the caller to come back.
+ */
+export function threadPostsToPurge(
+  ctx: Ctx,
+  thread: Pick<ThreadRow, "id" | "first_post_id">,
+  limit: number,
+) {
+  return forumDb(ctx)
+    .prepare<{ id: number; state: State; user_id: number }, [number, number, number]>(
+      "SELECT id, state, user_id FROM posts WHERE thread_id = ?1 AND id != ?2 ORDER BY position DESC, id DESC LIMIT ?3",
+    )
+    .all(thread.id, thread.first_post_id ?? 0, limit + 1);
+}
+/**
+ * Removes `chunk`, posts `threadPostsToPurge` returned for the thread, and the opening post and the
+ * thread itself with the last of them (`more` false). Returns how many posts went. Callers
+ * authorize and have hidden the thread. A thread that stays keeps its own figures true for the
+ * staff who can still open it.
+ */
+export function purgeThreadChunk(
+  ctx: Ctx,
+  thread: Pick<ThreadRow, "id" | "first_post_id">,
+  chunk: { id: number; state: State }[],
+  more: boolean,
+): number {
+  const ids = chunk.map((post) => post.id);
+  if (!more && thread.first_post_id) ids.push(thread.first_post_id);
+  purgeContent(ctx, "post", ids);
+  if (more) {
+    const visibleGone = chunk.filter((post) => post.state === "visible").length;
+    forumDb(ctx)
+      .prepare("UPDATE threads SET reply_count = max(0, reply_count - ?1) WHERE id = ?2")
+      .run(visibleGone, thread.id);
+    settleThreadAfterPurge(ctx, thread.id, thread.first_post_id);
+  } else {
+    purgeThread(ctx, thread.id);
+  }
+  return ids.length;
+}
+
 export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
   assertTransferIdle(ctx, input.threadId);
@@ -3759,12 +3827,7 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
       );
       return { completed: false, removedPosts: 0 };
     }
-    // Newest posts first, the opening post with the last of them.
-    const found = forumDb(ctx)
-      .prepare<{ id: number; state: State; user_id: number }, [number, number, number]>(
-        "SELECT id, state, user_id FROM posts WHERE thread_id = ?1 AND id != ?2 ORDER BY position DESC, id DESC LIMIT ?3",
-      )
-      .all(current.id, current.first_post_id ?? 0, PURGE_CHUNK + 1);
+    const found = threadPostsToPurge(ctx, current, PURGE_CHUNK);
     const more = found.length > PURGE_CHUNK;
     if (path === "own") {
       // An author takes back their own thread, not other members' words, and only what one call
@@ -3795,20 +3858,7 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
       requireNotWarnedAbout(ctx, current.user_id, posts);
       requireNotReported(ctx, posts, current.id);
     }
-    const chunk = found.slice(0, PURGE_CHUNK);
-    const ids = chunk.map((post) => post.id);
-    if (!more && current.first_post_id) ids.push(current.first_post_id);
-    purgeContent(ctx, "post", ids);
-    if (more) {
-      // The thread stays, deleted: keep its own figures true for the staff who can still open it.
-      const visibleGone = chunk.filter((post) => post.state === "visible").length;
-      forumDb(ctx)
-        .prepare("UPDATE threads SET reply_count = max(0, reply_count - ?1) WHERE id = ?2")
-        .run(visibleGone, current.id);
-      settleThreadAfterPurge(ctx, current.id, current.first_post_id);
-    } else {
-      purgeThread(ctx, current.id);
-    }
+    const removedPosts = purgeThreadChunk(ctx, current, found.slice(0, PURGE_CHUNK), more);
     // The title and author stay in the log: the thread itself will not. An author's own delete
     // is not a moderator action and is not logged.
     if (path === "staff")
@@ -3822,12 +3872,12 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
         {
           title: current.title,
           authorId: current.user_id,
-          removedPosts: ids.length,
+          removedPosts,
           completed: !more,
         },
         current.node_id,
       );
-    return { completed: !more, removedPosts: ids.length };
+    return { completed: !more, removedPosts };
   });
 });
 export const postsHardDeleteOp = implement(contracts.postsHardDelete, (ctx, actor, input) => {
@@ -3879,6 +3929,7 @@ export const operations = [
   nodesGetOp,
   nodesCreateOp,
   nodesUpdateOp,
+  nodesDeleteOp,
   nodesSetModeratorOp,
   threadsListOp,
   threadsGetOp,
@@ -3895,6 +3946,8 @@ export const operations = [
   threadsHardDeleteOp,
   threadsBatchUpdateOp,
   threadsMarkReadOp,
+  nodesMarkReadOp,
+  nodesMarkAllReadOp,
   threadsMergeOp,
   threadsSplitOp,
   postsListOp,

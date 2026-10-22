@@ -28,6 +28,7 @@ const {
   saveNodePictures,
   setModerator,
   saveTab,
+  deleteNode,
   deleteTab,
   savePrefix,
   deletePrefix,
@@ -375,6 +376,110 @@ test("the backend's refusal of a moderator is shown", async () => {
   ).toEqual({
     error: "You may not change permissions.",
   });
+});
+
+test("deleting a node sends where its threads go, what happens to the nodes below, and the password", async () => {
+  backend = fakeBackend({ "nodes.delete": () => Response.json({ ok: true }) });
+  const moved = await redirectedTo(() =>
+    deleteNode(
+      null,
+      form({ id: "9", threads: "move", forumId: "4", actorPassword: "secret" }),
+    ),
+  );
+  expect(moved).toMatch(/;\/admin\/forums\?notice=nodeDeleted;/);
+  await redirectedTo(() =>
+    deleteNode(
+      null,
+      form({
+        id: "9",
+        threads: "delete",
+        children: "delete",
+        actorPassword: "secret",
+      }),
+    ),
+  );
+  expect(backend.asked.map((call) => [call.path, call.body])).toEqual([
+    [
+      "/api/v1/nodes/9/delete",
+      {
+        threads: { action: "move", nodeId: 4 },
+        children: "moveUp",
+        actorPassword: "secret",
+      },
+    ],
+    [
+      "/api/v1/nodes/9/delete",
+      {
+        threads: { action: "delete" },
+        children: "delete",
+        actorPassword: "secret",
+      },
+    ],
+  ]);
+  expect(renewed).toContain("/");
+});
+
+test("a node is not deleted before the choices and the password are given", async () => {
+  backend = fakeBackend({});
+  expect(await deleteNode(null, form({ id: "x" }))).toEqual({
+    error: messages.adminForums.errors.id,
+  });
+  expect(
+    await deleteNode(null, form({ id: "9", actorPassword: "secret" })),
+  ).toEqual({ fields: { threads: messages.adminForums.errors.choice } });
+  expect(
+    await deleteNode(
+      null,
+      form({ id: "9", threads: "move", actorPassword: "secret" }),
+    ),
+  ).toEqual({ fields: { forumId: messages.adminForums.errors.choice } });
+  expect(await deleteNode(null, form({ id: "9", threads: "delete" }))).toEqual({
+    fields: { actorPassword: messages.adminGroups.errors.password },
+  });
+  expect(backend.asked).toEqual([]);
+});
+
+test("a node with nodes below it is never deleted without a choice for them", async () => {
+  backend = fakeBackend({ "nodes.delete": () => Response.json({ ok: true }) });
+  const base = {
+    id: "9",
+    threads: "delete",
+    hasChildren: "1",
+    actorPassword: "secret",
+  };
+  expect(await deleteNode(null, form(base))).toEqual({
+    error: messages.adminForums.errors.choice,
+  });
+  expect(await deleteNode(null, form({ ...base, children: "up" }))).toEqual({
+    error: messages.adminForums.errors.choice,
+  });
+  expect(backend.asked).toEqual([]);
+  await redirectedTo(() =>
+    deleteNode(null, form({ ...base, children: "moveUp" })),
+  );
+  expect(backend.asked).toHaveLength(1);
+});
+
+test("a wrong password, or the backend's refusal, is shown and nothing is redrawn", async () => {
+  backend = fakeBackend({ "nodes.delete": () => wrongPassword() });
+  expect(
+    await deleteNode(
+      null,
+      form({ id: "9", threads: "delete", actorPassword: "nope" }),
+    ),
+  ).toEqual({ fields: { actorPassword: "That is not your password." } });
+  backend.restore();
+  backend = fakeBackend({
+    "nodes.delete": () =>
+      refusal(409, "conflict", "This forum is already being deleted."),
+  });
+  expect(
+    await deleteNode(
+      null,
+      form({ id: "9", threads: "delete", actorPassword: "secret" }),
+    ),
+  ).toEqual({ error: "This forum is already being deleted." });
+  expect(renewed).toEqual([]);
 });
 
 test("a tab is added without an id and changed with one", async () => {

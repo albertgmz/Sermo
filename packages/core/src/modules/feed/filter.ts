@@ -7,6 +7,7 @@ import { markPublic } from "../../operation";
 import { getNodeTree } from "../../permissions";
 import { readGates, type ThreadRow, threadColumns, threadRowsByIds } from "../forums";
 import { activeFeatures, featureKinds, kindsOf } from "../forums/features";
+import { readMarksOf } from "../forums/read-marks";
 import { readSiteSettings } from "../settings";
 import { hubSql, VIS_VISIBLE } from "../tags/hub";
 import { tagIdOf } from "../tags/store";
@@ -421,7 +422,16 @@ function threadPredicate(
           .all(viewer, idsOf(rows))
           .map((row) => [row.thread_id, row.last_read_post_id] as const),
       );
-      rows = rows.filter((thread) => thread.last_post_id > (reads.get(thread.id) ?? 0));
+      const marks = readMarksOf(
+        ctx,
+        viewer,
+        rows.map((thread) => thread.node_id),
+      );
+      rows = rows.filter(
+        (thread) =>
+          thread.last_post_id > (reads.get(thread.id) ?? 0) &&
+          thread.last_post_at > (marks.get(thread.node_id) ?? 0),
+      );
     }
     if (filter.watched && rows.length > 0) {
       const watched = new Set(

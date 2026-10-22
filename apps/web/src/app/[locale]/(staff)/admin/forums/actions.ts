@@ -7,6 +7,7 @@ import {
   imagesSetNodeCover,
   imagesSetNodeIcon,
   nodesCreate,
+  nodesDelete,
   nodesSetModerator,
   nodesUpdate,
   threadPrefixesCreate,
@@ -281,6 +282,48 @@ export async function setModerator(
   redirect(
     `/admin/forums/${nodeId}?notice=${remove ? "unmoderated" : "moderated"}#moderators`,
   );
+}
+
+// Deletes a category or forum: what becomes of its threads and of the nodes under it is chosen in
+// the confirmation. The backend only queues the work; the node is read-only until it is done.
+export async function deleteNode(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminForums.errors");
+  const nodeId = parseId(text(formData, "id"));
+  if (nodeId === null) return { error: t("id") };
+  const fields: Fields = {};
+  const choice = text(formData, "threads");
+  const target = parseId(text(formData, "forumId"));
+  if (choice === "move" && target === null) fields.forumId = t("choice");
+  if (choice !== "move" && choice !== "delete") fields.threads = t("choice");
+  if (Object.keys(fields).length > 0) return { fields };
+  // With nodes below it a choice for them is always made: none is never taken for "move up".
+  const children = text(formData, "children");
+  if (
+    text(formData, "hasChildren") !== "" &&
+    children !== "moveUp" &&
+    children !== "delete"
+  )
+    return { error: t("choice") };
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
+  try {
+    await call(nodesDelete, {
+      nodeId,
+      threads:
+        choice === "move"
+          ? { action: "move", nodeId: target as number }
+          : { action: "delete" },
+      children: children === "delete" ? "delete" : "moveUp",
+      actorPassword: text(formData, "actorPassword"),
+    });
+  } catch (error) {
+    return formFailure(error, ["actorPassword"]);
+  }
+  renewPublic();
+  redirect("/admin/forums?notice=nodeDeleted");
 }
 
 // Forum list tabs ---------------------------------------------------------------------------

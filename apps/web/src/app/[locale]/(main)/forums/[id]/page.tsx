@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
+import { ForumMarkRead } from "@/app/[locale]/(main)/forums/[id]/forum-mark-read";
 import { ForumWatch } from "@/app/[locale]/(main)/forums/[id]/forum-watch";
 import { moreThreads } from "@/app/[locale]/(main)/forums/[id]/more-threads";
 import { threadsPage } from "@/app/[locale]/(main)/forums/[id]/thread-page";
@@ -205,9 +206,10 @@ export default async function ForumPage({
         </div>
         {newThread}
       </div>
-      {user && isForum && (
-        <div className="mt-3">
-          <ForumWatch nodeId={node.id} watching={watching} />
+      {user && (
+        <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-2">
+          {isForum && <ForumWatch nodeId={node.id} watching={watching} />}
+          <ForumMarkRead nodeId={node.id} />
         </div>
       )}
 

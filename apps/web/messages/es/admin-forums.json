@@ -38,7 +38,8 @@
     "tabSaved": "Se guardó la pestaña.",
     "tabDeleted": "Se eliminó la pestaña.",
     "deleted": "Se eliminó el prefijo.",
-    "deactivated": "Aún hay temas con este prefijo, así que se desactiva en su lugar: los temas lo conservan y ningún tema nuevo puede usarlo."
+    "deactivated": "Aún hay temas con este prefijo, así que se desactiva en su lugar: los temas lo conservan y ningún tema nuevo puede usarlo.",
+    "nodeDeleted": "La eliminación está en marcha. El foro queda en solo lectura hasta que sus temas se muevan o se eliminen; el proceso continúa en segundo plano."
   },
   "tree": {
     "metaTitle": "Foros",
@@ -162,6 +163,24 @@
     "threadApprovalHelp": "Los temas nuevos esperan a que un moderador los apruebe.",
     "replyApproval": "Respuestas nuevas",
     "replyApprovalHelp": "Las respuestas nuevas esperan a que un moderador las apruebe."
+  },
+  "delete": {
+    "heading": "Eliminar",
+    "submit": "{type, select, category {Eliminar categoría} other {Eliminar foro}}",
+    "pending": "Eliminando…",
+    "warning": "¿Eliminar {title}? Contiene {threads, plural, one {# tema} other {# temas}}, contando los nodos que tiene debajo. Nada se elimina de inmediato: el trabajo se hace en segundo plano y el nodo queda en solo lectura hasta que termine. Eliminar temas no se puede deshacer.",
+    "threads": "Qué se hace con los temas",
+    "move": "Moverlos a otro foro",
+    "moveTo": "Foro al que mover los temas",
+    "remove": "Eliminarlos definitivamente",
+    "threadsHelp": "Se incluyen los temas ocultos y los que esperan aprobación. Los temas que se eliminan se van con sus mensajes, archivos adjuntos, reacciones y encuestas.",
+    "children": "Qué se hace con {count, plural, one {el nodo que tiene} other {los # nodos que tiene}} debajo",
+    "moveUp": "Subirlos a {title}",
+    "moveUpRoot": "Subirlos al nivel superior",
+    "removeChildren": "Eliminarlos también",
+    "moveHelp": "Los miembros que marcaron el foro anterior como leído volverán a ver estos temas como no leídos. Si el foro que elijas está abierto a más personas que este, ellas también podrán leer estos temas.",
+    "moveUpHelp": "Conservan los permisos que les daba este nodo, así que nada pasa a ser visible para quien no podía verlo.",
+    "moveUpStuck": "Los foros de una categoría de nivel superior no pueden subir al nivel superior. Muévelos antes a otra categoría, o elimínalos con ella."
   },
   "pictures": {
     "heading": "Imágenes",

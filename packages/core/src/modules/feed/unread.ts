@@ -9,10 +9,13 @@ export const unreadSql = {
   /**
    * The first `?3` posts the viewer may see after the last one they read, for each thread of the
    * list `?1`: one seek of `posts_thread_position` per thread, from the position stored in the
-   * viewer's `thread_reads` row (one seek of its unique index; no row means from the start).
+   * viewer's `thread_reads` row (one seek of its unique index; no row means from the start), and
+   * from the first post made after the viewer marked the thread's forum read (`node_reads`, then one
+   * seek of `posts_thread_created` for it: positions follow creation order). Both starts are
+   * worked out once per thread, in materialized tables, never once per post examined.
    */
   firstUnread:
-    "SELECT p.thread_id, p.id, p.position FROM json_each(?1) AS j CROSS JOIN posts p WHERE p.id IN (SELECT p2.id FROM posts p2 WHERE p2.thread_id = j.value AND p2.state = 'visible' AND p2.position > COALESCE((SELECT r.last_read_position FROM thread_reads r WHERE r.user_id = ?2 AND r.thread_id = j.value), -1) ORDER BY p2.position LIMIT ?3)",
+    "SELECT p.thread_id, p.id, p.position FROM (SELECT m.thread_id AS thread_id, max(COALESCE((SELECT r.last_read_position FROM thread_reads r WHERE r.user_id = ?2 AND r.thread_id = m.thread_id), -1), CASE WHEN m.mark IS NULL THEN -1 ELSE COALESCE((SELECT q.position FROM posts q WHERE q.thread_id = m.thread_id AND q.created_at > m.mark ORDER BY q.created_at LIMIT 1) - 1, 1000000000000) END) AS start FROM (SELECT j.value AS thread_id, (SELECT n.read_at FROM node_reads n WHERE n.user_id = ?2 AND n.node_id = (SELECT t.node_id FROM threads t WHERE t.id = j.value)) AS mark FROM json_each(?1) AS j LIMIT -1) AS m LIMIT -1) AS s CROSS JOIN posts p WHERE p.id IN (SELECT p2.id FROM posts p2 WHERE p2.thread_id = s.thread_id AND p2.state = 'visible' AND p2.position > s.start ORDER BY p2.position LIMIT ?3)",
 };
 
 type UnreadValue = z.infer<typeof FeedUnread>;

@@ -2,6 +2,8 @@
 
 import {
   nodesGet,
+  nodesMarkAllRead,
+  nodesMarkRead,
   nodesUnwatch,
   nodesWatch,
   threadPrefixesList,
@@ -128,6 +130,30 @@ export async function unwatchForumAction(
   if (!done.ok) return { error: done.error };
   refresh();
   redirect(`/forums/${nodeId}`);
+}
+
+// "Mark forum read" and "Mark forums read": the backend stores one marker, however many threads
+// there are. The page stays where it is and is drawn again, so the unread marks are gone from it.
+export async function markForumReadAction(
+  nodeId: number,
+  _previous: FormState,
+): Promise<FormState> {
+  requireIds(nodeId);
+  const done = await attempt(`/forums/${nodeId}`, () =>
+    call(nodesMarkRead, { nodeId }),
+  );
+  if (!done.ok) return { error: done.error };
+  refresh();
+  return { done: true };
+}
+
+export async function markAllForumsReadAction(
+  _previous: FormState,
+): Promise<FormState> {
+  const done = await attempt("/", () => call(nodesMarkAllRead, {}));
+  if (!done.ok) return { error: done.error };
+  refresh();
+  return { done: true };
 }
 
 type BatchUpdate = z.input<typeof threadsBatchUpdate.input>["update"];

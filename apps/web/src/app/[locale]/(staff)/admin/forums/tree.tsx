@@ -38,7 +38,7 @@ export async function ForumTree({
       <Notice
         namespace="adminForums.notices"
         searchParams={searchParams}
-        shown={["ordered", "tabAdded", "tabSaved", "tabDeleted"]}
+        shown={["ordered", "tabAdded", "tabSaved", "tabDeleted", "nodeDeleted"]}
       />
       <ItemList
         label={t("listLabel")}

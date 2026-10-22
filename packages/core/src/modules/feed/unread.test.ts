@@ -175,7 +175,10 @@ describe("feed.list unread", () => {
 
   test("the statement reads indexes only", () => {
     const w = world();
-    expectNoTableScan(w.ctx, unreadSql.firstUnread, ["[1,2]", 1, FEED_UNREAD_CAP + 1]);
+    // `m` and `s` are the page's own derived tables (one row per thread), read once each.
+    expectNoTableScan(w.ctx, unreadSql.firstUnread, ["[1,2]", 1, FEED_UNREAD_CAP + 1], {
+      allow: ["m", "s"],
+    });
   });
 });
 

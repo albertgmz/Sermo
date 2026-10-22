@@ -26,6 +26,7 @@ afterAll(() => {
 });
 
 const { NodeCreateForm } = await import("./node-create-form");
+const { DeleteNode } = await import("./[id]/delete-node");
 const { NodeForm } = await import("./[id]/node-form");
 const { PicturesForm } = await import("./[id]/pictures-form");
 const { TabForm } = await import("./tabs/tab-form");
@@ -269,4 +270,78 @@ test("the prefix form sends every field, a new prefix starting active", async ()
   expect(names(change).has("id")).toBe(true);
   expect(names(change).has("offerInAllForums")).toBe(false);
   expect(change).not.toMatch(/<input[^>]*name="isActive"[^>]*checked/);
+});
+
+// A tree: category 1 holds forum 2 (with forum 3 below it) and forum 4; forum 5 is on its own.
+const at = (
+  id: number,
+  parentId: number | null,
+  type: "category" | "forum",
+  depth: number,
+) => ({ ...NODE, id, parentId, type, depth, title: `Node ${id}` });
+const CATEGORY = at(1, null, "category", 0);
+const WITH_CHILD = at(2, 1, "forum", 1);
+const TREE = [
+  CATEGORY,
+  WITH_CHILD,
+  at(3, 2, "forum", 2),
+  at(4, 1, "forum", 1),
+  at(5, null, "forum", 0),
+];
+const ALONE = at(5, null, "forum", 0);
+
+test("the delete card of a forum offers the forums outside it, and what to do with the forum below it", async () => {
+  const html = await draw(
+    DeleteNode({ node: WITH_CHILD, nodes: TREE }) as Promise<never>,
+  );
+  expect([...names(html)].sort()).toEqual(
+    [
+      "actorPassword",
+      "children",
+      "forumId",
+      "hasChildren",
+      "id",
+      "threads",
+    ].sort(),
+  );
+  // Forums 4 and 5 only: not the forum itself, nor the one below it, nor the category.
+  const options = [...html.matchAll(/<option value="(\d+)"/g)].map(
+    (match) => match[1],
+  );
+  expect(options).toEqual(["4", "5"]);
+  expect(html).toContain("Move them up under");
+});
+
+test("the delete card of a forum with nothing below it asks nothing about children, and without another forum only offers to delete", async () => {
+  const html = await draw(
+    DeleteNode({ node: ALONE, nodes: [ALONE] }) as Promise<never>,
+  );
+  expect(names(html).has("children")).toBe(false);
+  expect(names(html).has("forumId")).toBe(false);
+  expect(html).not.toContain('value="move"');
+  expect(html).toContain('name="threads" checked="" value="delete"');
+});
+
+test("the delete card of a top-level category with forums offers no move up", async () => {
+  const html = await draw(
+    DeleteNode({ node: CATEGORY, nodes: TREE }) as Promise<never>,
+  );
+  expect(html).not.toContain('value="moveUp"');
+  expect(html).toContain("cannot move up to the top level");
+  // The one choice left must be made: it is not preselected and the form does not go without it.
+  expect(html).toMatch(/required=""[^>]*name="children"[^>]*value="delete"/);
+  expect(html).not.toMatch(/name="children" checked/);
+  expect(names(html).has("hasChildren")).toBe(true);
+});
+
+test("the delete card of a top-level category that holds only categories moves them up to the top level", async () => {
+  const outer = at(1, null, "category", 0);
+  const html = await draw(
+    DeleteNode({
+      node: outer,
+      nodes: [outer, at(2, 1, "category", 1)],
+    }) as Promise<never>,
+  );
+  expect(html).toContain('value="moveUp"');
+  expect(html).toContain("Move them up to the top level");
 });

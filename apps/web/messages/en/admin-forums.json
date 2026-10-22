@@ -38,7 +38,8 @@
     "tabSaved": "The tab is saved.",
     "tabDeleted": "The tab is deleted.",
     "deleted": "The prefix is deleted.",
-    "deactivated": "Threads still carry this prefix, so it is deactivated instead: they keep it and no thread can newly take it."
+    "deactivated": "Threads still carry this prefix, so it is deactivated instead: they keep it and no thread can newly take it.",
+    "nodeDeleted": "The deletion is under way. The forum stays read-only until its threads are moved or removed; this goes on in the background."
   },
   "tree": {
     "metaTitle": "Forums",
@@ -162,6 +163,24 @@
     "threadApprovalHelp": "New threads wait for a moderator to approve them.",
     "replyApproval": "New replies",
     "replyApprovalHelp": "New replies wait for a moderator to approve them."
+  },
+  "delete": {
+    "heading": "Delete",
+    "submit": "{type, select, category {Delete category} other {Delete forum}}",
+    "pending": "Deleting…",
+    "warning": "Delete {title}? It holds {threads, plural, one {# thread} other {# threads}}, counting the nodes under it. Nothing goes at once: the work is done in the background, and the node is read-only until it ends. Deleting threads cannot be undone.",
+    "threads": "What happens to the threads",
+    "move": "Move them to another forum",
+    "moveTo": "Forum to move the threads to",
+    "remove": "Delete them for good",
+    "threadsHelp": "Hidden threads and threads awaiting approval are included. Threads that are deleted go with their posts, attachments, reactions and polls.",
+    "children": "What happens to the {count, plural, one {node} other {# nodes}} under it",
+    "moveUp": "Move them up under {title}",
+    "moveUpRoot": "Move them up to the top level",
+    "removeChildren": "Delete them too",
+    "moveHelp": "Members who marked the old forum read will see these threads as unread again. If the forum you choose is open to more people than this one, they can read these threads too.",
+    "moveUpHelp": "They keep the permissions this node gave them, so nothing becomes visible to those who could not see it.",
+    "moveUpStuck": "The forums under a top-level category cannot move up to the top level. Move them to another category first, or delete them with it."
   },
   "pictures": {
     "heading": "Pictures",
