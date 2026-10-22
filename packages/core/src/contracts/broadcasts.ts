@@ -37,8 +37,8 @@ export const BroadcastContent = z
 
 export const BroadcastRun = z
   .object({
-    /** Idle: nothing was run yet. Failed or stopped: starting the same kind of run again resumes it. */
-    state: z.enum(["idle", "running", "failed", "stopped", "done"]),
+    /** Idle: nothing was run yet. Failed or stopped: broadcasts.resume continues it, broadcasts.discard gives it up. */
+    state: z.enum(["idle", "running", "failed", "stopped", "done", "discarded"]),
     kind: z.enum(["message", "alert"]).nullable(),
     /** True: a count. Nothing was sent. */
     dryRun: z.boolean(),
@@ -52,6 +52,8 @@ export const BroadcastRun = z
     members: z.number().int().nonnegative(),
     /** Members who are in the audience and may be written to (not banned, erased or unconfirmed). */
     matched: z.number().int().nonnegative(),
+    /** Members a send would reach, from the counts so far: matched less skipped. */
+    reachable: z.number().int().nonnegative(),
     /** Messages or alerts sent (0 for a count). */
     sent: z.number().int().nonnegative(),
     /** Matched members who cannot be reached: they may not receive conversations, or turned this alert off. */
@@ -60,34 +62,66 @@ export const BroadcastRun = z
   })
   .meta({ id: "BroadcastRun" });
 
-export const broadcastsStart = defineContract({
-  name: "broadcasts.start",
+const COUNT_FIRST =
+  "Every send comes from a count: count the recipients of the message or alert, then send what was counted.";
+
+export const broadcastsCount = defineContract({
+  name: "broadcasts.count",
   summary:
-    "Start a background run that sends a private message (one conversation per member, never one " +
-    "conversation with many participants) or an alert to every member the rule names, in small " +
-    "chunks. `rule` is the audience: the criteria engine's rule (an empty rule is every member), " +
-    "any criterion. Members who are banned, erased, unconfirmed or awaiting approval are never " +
-    "written to. A message ignores the members' ignore lists, as staff messages do, but a member " +
-    "without `conversation.receive` is skipped; each member is alerted that they were added to " +
-    "the conversation, as their preferences say. An alert (notification type `admin.alert`) " +
-    "follows each member's preferences for that type: in the alert list, pushed to their devices " +
-    "by default and e-mailed only if they opted in. With dryRun true nothing is sent and the run " +
-    "only counts the members it would reach. A run that stopped (on an error, or by " +
-    "broadcasts.stop) resumes from where it stopped, with the content and audience it started " +
-    "with, when called again with the same dryRun: leave `content` and `rule` out to resume " +
-    "(giving them to a stopped run does not change it). Returns queued false when a run is under way. Sending as " +
-    "another member needs admin.members over that member. Requires admin.announcements. A real " +
-    "send needs `actorPassword`, the acting administrator's own password: a browser session must " +
-    "send it, and an API key cannot start it; a count needs none.",
+    "Start a background count of the members a message or alert would reach: `rule` is the " +
+    "audience, the criteria engine's rule (an empty rule is every member), any criterion. Members " +
+    "who are banned, erased, unconfirmed or awaiting approval are never written to. The count runs " +
+    "the delivery chunk by chunk and undoes it, so nothing is sent, queued or alerted, and " +
+    "broadcasts.status reports how many would be reached and how many skipped (a member without " +
+    "`conversation.receive`, or who turned the alert off). Returns queued false when a run is " +
+    "under way, and a conflict while a run is stopped or failed: resume it (broadcasts.resume) or " +
+    "discard it (broadcasts.discard) first. Sending as another member needs admin.members over " +
+    "that member. Requires admin.announcements; no password. " +
+    COUNT_FIRST,
   kind: "write",
-  input: z.object({
-    /** Left out together with `rule` to resume the run that stopped. */
-    content: BroadcastContent.optional(),
-    rule: CriteriaRule.optional(),
-    dryRun: z.boolean().default(false),
-    actorPassword: ActorPassword.optional(),
-  }),
+  input: z.object({ content: BroadcastContent, rule: CriteriaRule }),
   output: z.object({ queued: z.boolean() }),
+});
+
+export const broadcastsSend = defineContract({
+  name: "broadcasts.send",
+  summary:
+    "Send the content and audience of the latest run, which must be a finished count " +
+    "(broadcasts.count then broadcasts.status says done): a private message (one conversation per " +
+    "member, never one conversation with many participants; the members' ignore lists are not " +
+    "read, and each member is alerted that they were added) or an alert (notification type " +
+    "`admin.alert`; in the alert list, pushed by default, e-mailed only if the member opted in). " +
+    "It runs in small chunks in the background; broadcasts.stop ends it and broadcasts.resume " +
+    "continues it. Returns queued false when a run is under way, and a validation error when the " +
+    "latest run is not a finished count. Requires admin.announcements and, for a message sent as " +
+    "another member, admin.members over them. Needs `actorPassword`, the acting administrator's " +
+    "own password: a browser session must send it, and an API key or token cannot send.",
+  kind: "write",
+  input: z.object({ actorPassword: ActorPassword.optional() }),
+  output: z.object({ queued: z.boolean() }),
+});
+
+export const broadcastsResume = defineContract({
+  name: "broadcasts.resume",
+  summary:
+    "Continue the run that stopped (by broadcasts.stop or an error) from the member it stopped at, " +
+    "with its own content and audience. A send needs `actorPassword` as broadcasts.send does; a " +
+    "count needs none. Returns queued false when a run is under way, and a validation error when " +
+    "none is stopped or failed. Requires admin.announcements.",
+  kind: "write",
+  input: z.object({ actorPassword: ActorPassword.optional() }),
+  output: z.object({ queued: z.boolean() }),
+});
+
+export const broadcastsDiscard = defineContract({
+  name: "broadcasts.discard",
+  summary:
+    "Give up the run that stopped or failed, so another can start: what a send already sent stays " +
+    "sent. Needs `actorPassword` for a send, none for a count. Logged. Returns discarded false when " +
+    "none is stopped or failed. Requires admin.announcements.",
+  kind: "write",
+  input: z.object({ actorPassword: ActorPassword.optional() }),
+  output: z.object({ discarded: z.boolean() }),
 });
 
 export const broadcastsTest = defineContract({
@@ -111,7 +145,7 @@ export const broadcastsTest = defineContract({
 export const broadcastsStatus = defineContract({
   name: "broadcasts.status",
   summary:
-    "The latest run of broadcasts.start, real or count: where it stands and how many members it " +
+    "The latest run, real or count: where it stands and how many members it " +
     "reached or would reach so far. Requires admin.announcements.",
   kind: "read",
   input: Empty,
@@ -122,7 +156,7 @@ export const broadcastsStop = defineContract({
   name: "broadcasts.stop",
   summary:
     "Ask the run under way to end before its next chunk, leaving what is sent as it is. Calling " +
-    "broadcasts.start again resumes it. Returns stopped false when none is under way. Requires " +
+    "broadcasts.resume continues it. Returns stopped false when none is under way. Requires " +
     "admin.announcements.",
   kind: "write",
   input: Empty,

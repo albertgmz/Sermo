@@ -37,9 +37,15 @@ function form(fields: Record<string, string | string[]>) {
   return data;
 }
 
-const { resumeCount, resumeSend, runBroadcast, stopRun } = await import(
-  "./actions"
-);
+const {
+  discardCount,
+  discardSend,
+  resumeCount,
+  resumeSend,
+  runBroadcast,
+  sendCounted,
+  stopRun,
+} = await import("./actions");
 const words = messages.adminCommunication.broadcasts;
 const message = {
   kind: "message",
@@ -108,9 +114,9 @@ test("the test goes to the member the name picks, or to the administrator when i
   ).toEqual([]);
 });
 
-test("a count asks for no password and sends dryRun with the audience as a rule", async () => {
+test("a count asks for no password and sends the audience as a rule", async () => {
   backend = fakeBackend({
-    "broadcasts.start": () => Response.json({ queued: true }),
+    "broadcasts.count": () => Response.json({ queued: true }),
   });
   renewed.length = 0;
   expect(
@@ -133,7 +139,6 @@ test("a count asks for no password and sends dryRun with the audience as a rule"
         match: "all",
         conditions: [{ criterion: "in_group", ids: [3, 5] }],
       },
-      dryRun: true,
     },
   ]);
   expect(renewed).toEqual([
@@ -149,33 +154,42 @@ test("a count asks for no password and sends dryRun with the audience as a rule"
   ).toEqual({ fields: { groups: words.errors.noGroups } });
 });
 
-test("the send needs the confirmation and the password first, then sends them with the rule", async () => {
+test("a rule audience with no condition is refused, not taken for everyone", async () => {
   backend = fakeBackend({
-    "broadcasts.start": () => Response.json({ queued: true }),
+    "broadcasts.count": () => Response.json({ queued: true }),
+  });
+  const empty = JSON.stringify({ match: "all", conditions: [] });
+  expect(
+    await runBroadcast(
+      null,
+      form({ ...message, step: "count", audience: "rule", rule: empty }),
+    ),
+  ).toEqual({ fields: { rule: words.errors.emptyRule } });
+  expect(backend.asked).toEqual([]);
+  // Every member stays the way to reach everyone.
+  await runBroadcast(null, form({ ...message, step: "count" }));
+  expect(
+    backend.asked.map((call) => (call.body as { rule: unknown }).rule),
+  ).toEqual([{ match: "all", conditions: [] }]);
+});
+
+test("the count sends the rule it was given", async () => {
+  backend = fakeBackend({
+    "broadcasts.count": () => Response.json({ queued: true }),
   });
   const rule = {
     match: "any",
     conditions: [{ criterion: "post_count", value: 5 }],
   };
-  const base = {
-    ...message,
-    step: "send",
-    audience: "rule",
-    rule: JSON.stringify(rule),
-  };
-  expect(await runBroadcast(null, form(base))).toEqual({
-    error: words.errors.confirm,
-  });
-  expect(await runBroadcast(null, form({ ...base, confirm: "on" }))).toEqual({
-    fields: { actorPassword: messages.adminGroups.errors.password },
-  });
-  expect(backend.asked).toEqual([]);
-  expect(
-    await runBroadcast(
-      null,
-      form({ ...base, confirm: "on", actorPassword: "secret" }),
-    ),
-  ).toEqual({ notice: words.result.sendQueued });
+  await runBroadcast(
+    null,
+    form({
+      ...message,
+      step: "count",
+      audience: "rule",
+      rule: JSON.stringify(rule),
+    }),
+  );
   expect(backend.asked.map((call) => call.body)).toEqual([
     {
       content: {
@@ -186,42 +200,67 @@ test("the send needs the confirmation and the password first, then sends them wi
         removeFromSender: false,
       },
       rule,
-      actorPassword: "secret",
     },
+  ]);
+});
+
+test("the send of the counted members asks for the password first and sends only that", async () => {
+  backend = fakeBackend({
+    "broadcasts.send": () => Response.json({ queued: true }),
+  });
+  expect(await sendCounted(null, form({}))).toEqual({
+    fields: { actorPassword: messages.adminGroups.errors.password },
+  });
+  expect(backend.asked).toEqual([]);
+  expect(await sendCounted(null, form({ actorPassword: "secret" }))).toEqual({
+    notice: words.run.sendQueued,
+  });
+  expect(backend.asked.map((call) => call.body)).toEqual([
+    { actorPassword: "secret" },
   ]);
 });
 
 test("a refusal of the backend, and a run already under way, come back as the form's state", async () => {
   backend = fakeBackend({
-    "broadcasts.start": () => refusal(403, "forbidden", "Not allowed."),
+    "broadcasts.count": () => refusal(403, "forbidden", "Not allowed."),
   });
   expect(await runBroadcast(null, form({ ...message, step: "count" }))).toEqual(
     { error: "Not allowed." },
   );
   backend.restore();
   backend = fakeBackend({
-    "broadcasts.start": () => Response.json({ queued: false }),
+    "broadcasts.count": () => Response.json({ queued: false }),
   });
   expect(await runBroadcast(null, form({ ...message, step: "count" }))).toEqual(
     { error: words.result.notQueued },
   );
 });
 
-test("resuming sends no content, the send with the password and the count without", async () => {
+test("resuming and discarding send no content: the send with the password, the count without", async () => {
   backend = fakeBackend({
-    "broadcasts.start": () => Response.json({ queued: true }),
+    "broadcasts.resume": () => Response.json({ queued: true }),
+    "broadcasts.discard": () => Response.json({ discarded: true }),
     "broadcasts.stop": () => Response.json({ stopped: true }),
   });
   expect(await resumeSend(null, form({}))).toEqual({
+    fields: { actorPassword: messages.adminGroups.errors.password },
+  });
+  expect(await discardSend(null, form({}))).toEqual({
     fields: { actorPassword: messages.adminGroups.errors.password },
   });
   expect(await resumeSend(null, form({ actorPassword: "secret" }))).toEqual({
     notice: words.run.queued,
   });
   expect(await resumeCount(null)).toEqual({ notice: words.run.countResumed });
+  expect(await discardSend(null, form({ actorPassword: "secret" }))).toEqual({
+    notice: words.run.discarded,
+  });
+  expect(await discardCount(null)).toEqual({ notice: words.run.discarded });
   expect(backend.asked.map((call) => call.body)).toEqual([
     { actorPassword: "secret" },
-    { dryRun: true },
+    {},
+    { actorPassword: "secret" },
+    {},
   ]);
   expect(await stopRun(null)).toEqual({ notice: words.run.stopRequested });
   backend.restore();

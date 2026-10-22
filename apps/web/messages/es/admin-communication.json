@@ -178,7 +178,7 @@
     "loading": "Cargando…",
     "form": {
       "messageHeading": "Mensaje",
-      "messageDescription": "El mismo mensaje va a una conversación por miembro, nunca a una sola conversación con todos.",
+      "messageDescription": "El mismo mensaje va a una conversación por miembro, nunca a una sola conversación con todos. Cada miembro recibe además un aviso de que lo añadieron, y los dispositivos que permitieron notificaciones también lo reciben.",
       "alertHeading": "Alerta",
       "alertDescription": "Los miembros ven el texto en sus alertas y, si lo permitieron, en sus dispositivos.",
       "sender": "Enviado desde",
@@ -204,7 +204,7 @@
       "groups": "Grupos",
       "groupsHelp": "Miembros de cualquiera de los grupos marcados, como grupo principal o secundario.",
       "countHeading": "Cuántos son",
-      "countHelp": "Cuenta, en segundo plano, los miembros a los que llegaría el envío, sin enviar nada.",
+      "countHelp": "Cuenta, en segundo plano, los miembros a los que llegaría el envío, sin enviar nada. Después envía lo contado desde «Última ejecución», más abajo.",
       "count": "Contar los destinatarios",
       "counting": "Contando…",
       "testHeading": "Pruébalo primero",
@@ -212,13 +212,7 @@
       "recipient": "Destinatario de la prueba",
       "recipientHelp": "El nombre de usuario de un miembro. Déjalo vacío para enviarte la prueba a ti.",
       "test": "Enviar la prueba",
-      "testing": "Enviando…",
-      "sendHeading": "Enviar a los destinatarios",
-      "sendDescription": "Se ejecuta en segundo plano, unos pocos miembros cada vez. Puedes detenerlo y reanudarlo. Lo que ya se envió no se puede retirar.",
-      "confirm": "Confirmar",
-      "confirmBox": "Entiendo que esto llega a todos los miembros de los destinatarios que elegí",
-      "send": "Enviar a los destinatarios",
-      "sending": "Iniciando…"
+      "testing": "Enviando…"
     },
     "result": {
       "tested": "Enviado a {name}.",
@@ -232,8 +226,8 @@
     "errors": {
       "noGroups": "Marca al menos un grupo.",
       "noMember": "Ningún miembro tiene ese nombre.",
-      "confirm": "Marca la confirmación para enviar.",
-      "sender": "Ningún miembro tiene ese nombre."
+      "sender": "Ningún miembro tiene ese nombre.",
+      "emptyRule": "Añade al menos una condición, o elige Todos los miembros."
     },
     "run": {
       "heading": "Última ejecución",
@@ -256,11 +250,22 @@
       "nothingToStop": "No hay ninguna ejecución en curso.",
       "resume": "Reanudar el envío",
       "resumeNow": "Reanudar ahora",
-      "resumeWarning": "Continúa el envío detenido con el mismo contenido y los mismos destinatarios. Pide tu contraseña.",
+      "resumeWarning": "Continúa el envío detenido con el mismo contenido y los mismos destinatarios (para cambiarlos, descártalo y vuelve a contar). Pide tu contraseña.",
       "resumeCount": "Reanudar el recuento",
       "queued": "Se reanudó el envío.",
       "countResumed": "Se reanudó el recuento.",
-      "notQueued": "Ya hay una ejecución en curso."
+      "notQueued": "Ya hay una ejecución en curso.",
+      "sendCounted": "Enviar a los miembros contados",
+      "sendNow": "Enviar ahora",
+      "sendWarning": "Esto envía «{summary}» a {reachable} miembros, según el recuento del {when}. No se puede retirar. Pide tu contraseña.",
+      "sendQueued": "Se inició el envío.",
+      "discard": "Descartar el envío detenido",
+      "discardNow": "Descartar ahora",
+      "discardCount": "Descartar el recuento",
+      "discardWarning": "Abandona «{summary}», detenido al {percent} con {sent} enviados: lo enviado queda enviado y el resto no se envía. Después se puede contar y enviar otro. Pide tu contraseña.",
+      "discarded": "Se descartó la ejecución.",
+      "nothingToDiscard": "No hay ninguna ejecución detenida.",
+      "discardedRun": "«{summary}» se descartó al {percent} con {sent} enviados."
     }
   }
 }

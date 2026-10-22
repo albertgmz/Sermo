@@ -29,13 +29,13 @@ test("a message asks for sender, title and text, and has the three steps", async
   expect(html).toContain('name="body"');
   expect(html).toContain('name="removeFromSender"');
   expect(html).not.toContain('name="text"');
-  for (const step of ["test", "count", "send"])
+  for (const step of ["test", "count"])
     expect(html).toMatch(
       new RegExp(`<button[^>]*value="${step}"[^>]*name="step"`),
     );
-  // The password and the confirmation belong to the send alone.
-  expect(html).toContain('name="actorPassword"');
-  expect(html).toContain('name="confirm"');
+  // The send is made from the count, in the run panel: the form has no send step or password.
+  expect(html).not.toContain('name="actorPassword"');
+  expect(html).not.toMatch(/value="send"/);
   expect(html).toContain('name="groupIds"');
   expect(html).toContain("rule builder");
 });

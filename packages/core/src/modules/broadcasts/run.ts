@@ -26,7 +26,7 @@ export const MESSAGE_CHUNK = 50;
 export const ALERT_CHUNK = 200;
 
 type RunRecord = {
-  state: "running" | "done" | "failed" | "stopped";
+  state: "running" | "done" | "failed" | "stopped" | "discarded";
   /** True: the chunks run and are undone, so the figures are what a real send would do. */
   dryRun: boolean;
   /** Set by the administrator: the next chunk ends the run as stopped. */
@@ -91,57 +91,100 @@ function mayBroadcast(ctx: Ctx, adminId: number): boolean {
   }
 }
 
+/** The latest run's kind and content, for the checks an operation makes before it writes. */
+export function latestRun(ctx: Ctx): Pick<RunRecord, "state" | "dryRun" | "content" | "by"> | null {
+  return readRecord(ctx);
+}
+
+const blank = (ctx: Ctx) => ({
+  stopRequested: false,
+  startedAt: ctx.now(),
+  finishedAt: null,
+  after: 0,
+  through: ctx.sqlite.prepare<{ id: number | null }, []>(broadcastSql.top).get()?.id ?? 0,
+  members: 0,
+  matched: 0,
+  sent: 0,
+  skipped: 0,
+  error: null,
+});
+
 /**
- * Starts a run, or resumes the one that stopped (on an error or by the administrator) when it is
- * the same kind of run (a count or a send), with the content it started with. Returns false,
- * changing nothing, when a run is under way. A count is refused while a real send is stopped, as
- * it would replace the place to resume from. Call it in a write transaction.
+ * Queues a run that starts at the first member: false, changing nothing, when one is under way.
+ * A run that stopped or failed must be resumed or discarded first, never replaced.
  */
-export function startBroadcast(
-  ctx: Ctx,
-  adminId: number,
-  content: StoredContent | undefined,
-  rule: Rule | undefined,
-  dryRun: boolean,
-): boolean {
+function queueNew(ctx: Ctx, adminId: number, content: StoredContent, rule: Rule, dryRun: boolean) {
   const previous = readRecord(ctx);
-  const open = previous !== null && previous.state !== "done";
-  const resumed = open && previous.dryRun === dryRun;
-  if (!resumed && (content === undefined || rule === undefined))
+  if (previous?.state === "stopped" || previous?.state === "failed")
+    throw new ConflictError("A run is stopped: resume it or discard it before starting another.");
+  if (enqueueJob(ctx, BROADCAST_JOB, { after: 0 }, { uniqueKey: BROADCAST_JOB }) === null)
+    return false;
+  const record: RunRecord = {
+    ...blank(ctx),
+    state: "running",
+    dryRun,
+    by: adminId,
+    content,
+    rule,
+  };
+  writeRecord(ctx, record);
+  logRun(ctx, record, "start", { rule });
+  return true;
+}
+
+/** Starts a count of who the content would reach. Call it in a write transaction. */
+export const countBroadcast = (ctx: Ctx, adminId: number, content: StoredContent, rule: Rule) =>
+  queueNew(ctx, adminId, content, rule, true);
+
+/**
+ * Starts the send of the latest run's content and audience, which must be a finished count.
+ * Call it in a write transaction.
+ */
+export function sendCounted(ctx: Ctx, adminId: number): boolean {
+  const previous = readRecord(ctx);
+  if (previous?.state === "running") return false;
+  if (previous?.state !== "done" || !previous.dryRun)
+    throw new ValidationError("Count the recipients of this message or alert first, then send.");
+  return queueNew(ctx, adminId, previous.content, previous.rule, false);
+}
+
+/**
+ * Continues the run that stopped, with its own content and audience. False when one is under
+ * way. Call it in a write transaction.
+ */
+export function resumeBroadcast(ctx: Ctx, adminId: number): boolean {
+  const previous = readRecord(ctx);
+  if (previous?.state === "running") return false;
+  if (previous?.state !== "stopped" && previous?.state !== "failed")
     throw new ValidationError("There is no stopped run to resume.");
   if (
-    enqueueJob(
-      ctx,
-      BROADCAST_JOB,
-      { after: resumed ? previous.after : 0 },
-      { uniqueKey: BROADCAST_JOB },
-    ) === null
+    enqueueJob(ctx, BROADCAST_JOB, { after: previous.after }, { uniqueKey: BROADCAST_JOB }) === null
   )
     return false;
-  // This throws inside the caller's transaction, which undoes the job just queued.
-  if (open && !previous.dryRun && dryRun)
-    throw new ConflictError("A send stopped; resume it before counting another.");
-  const record: RunRecord = resumed
-    ? { ...previous, state: "running", by: adminId, stopRequested: false, error: null }
-    : {
-        state: "running",
-        dryRun,
-        stopRequested: false,
-        by: adminId,
-        startedAt: ctx.now(),
-        finishedAt: null,
-        content: content!,
-        rule: rule!,
-        after: 0,
-        through: ctx.sqlite.prepare<{ id: number | null }, []>(broadcastSql.top).get()?.id ?? 0,
-        members: 0,
-        matched: 0,
-        sent: 0,
-        skipped: 0,
-        error: null,
-      };
+  const record: RunRecord = {
+    ...previous,
+    state: "running",
+    by: adminId,
+    stopRequested: false,
+    error: null,
+  };
   writeRecord(ctx, record);
-  logRun(ctx, record, "start", { resumed, rule: record.rule });
+  logRun(ctx, record, "start", { resumed: true, after: record.after });
+  return true;
+}
+
+/** Gives up the run that stopped, logged; false when none is stopped. Call it in a write transaction. */
+export function discardBroadcast(ctx: Ctx, adminId: number): boolean {
+  const previous = readRecord(ctx);
+  if (previous?.state !== "stopped" && previous?.state !== "failed") return false;
+  previous.state = "discarded";
+  previous.finishedAt = ctx.now();
+  writeRecord(ctx, previous);
+  logBroadcast(ctx, adminId, `broadcast.${previous.dryRun ? "count." : ""}discarded`, {
+    kind: previous.content.kind,
+    members: previous.members,
+    sent: previous.sent,
+  });
   return true;
 }
 
@@ -168,6 +211,7 @@ export function broadcastRunValue(ctx: Ctx): z.infer<typeof BroadcastRun> {
       progress: 0,
       members: 0,
       matched: 0,
+      reachable: 0,
       sent: 0,
       skipped: 0,
       error: null,
@@ -185,6 +229,7 @@ export function broadcastRunValue(ctx: Ctx): z.infer<typeof BroadcastRun> {
         : Math.min(1, record.after / record.through),
     members: record.members,
     matched: record.matched,
+    reachable: Math.max(0, record.matched - record.skipped),
     sent: record.sent,
     skipped: record.skipped,
     error: record.error,
@@ -220,8 +265,8 @@ function deliveryOf(ctx: Ctx, dryRun: boolean, work: () => Outcome): Outcome {
 
 function deliver(ctx: Ctx, record: RunRecord, matched: Recipient[]): Outcome {
   return record.content.kind === "message"
-    ? deliverMessages(ctx, record.content, matched)
-    : deliverAlerts(ctx, record.content, matched, record.startedAt);
+    ? deliverMessages(ctx, record.content, matched, record.dryRun)
+    : deliverAlerts(ctx, record.content, matched, record.startedAt, record.dryRun);
 }
 
 const nextTurn = () => new Promise<void>((resolve) => setImmediate(resolve));

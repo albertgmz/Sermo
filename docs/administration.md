@@ -1027,15 +1027,21 @@ and awaiting-approval accounts are never written to.
   (turning it off skips the member), push on by default, email only if the member opted in.
 - **Test.** `broadcasts.test` sends the same thing at once to the administrator, or to one chosen
   member, with no password and without touching the run. Use it before the real send.
-- **Count.** `broadcasts.start` with `dryRun` runs the same chunks, undoes each and reports how
-  many members would be reached and how many skipped. It needs no password.
-- **Send.** `broadcasts.start` needs the administrator's own password (a browser session sends it;
-  an API key is refused). It runs in the background, 50 members per chunk for a message and 200 for
-  an alert, one run at a time, with the checkpoint holds and WAL pacing of the other long jobs. Stop
-  it with `broadcasts.stop`; calling `broadcasts.start` with no `content` and no `rule` resumes it
-  from the member it stopped at, with its first content and audience. A run whose administrator
-  loses `admin.announcements` ends as failed. The start, end, stop and every test are in the
-  moderator log.
+- **Count.** `broadcasts.count` runs the same chunks, undoes each (nothing is sent, queued or
+  alerted) and reports how many members would be reached and how many skipped. It needs no
+  password. A rule audience with no condition is refused by the form; "Every member" is the way to
+  reach everyone.
+- **Send.** `broadcasts.send` sends exactly what the latest finished count counted (the status panel
+  names the figure and the effect), so a send always follows a count of the same content and
+  audience. It needs the administrator's own password (a browser session sends it; an API key is
+  refused). It runs in the background, 50 members per chunk for a message and 200 for an alert, one
+  run at a time, with the checkpoint holds and WAL pacing of the other long jobs.
+- **Stop, resume, discard.** `broadcasts.stop` ends a run before its next chunk. `broadcasts.resume`
+  continues it from the member it stopped at with its own content and audience; a new count or
+  send is refused while a run is stopped, so a correction is made by `broadcasts.discard` (password
+  for a send; what was sent stays sent) and a new count. A run whose administrator loses
+  `admin.announcements` ends as failed. The start, end, stop, discard and every test are in the
+  moderator log. Attachments cannot go in a mass message.
 
 ### Node moderators and node rules
 

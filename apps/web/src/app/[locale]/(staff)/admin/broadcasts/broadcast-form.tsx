@@ -1,17 +1,16 @@
 "use client";
 
 // BroadcastForm: the one form of a message or alert to members. The content, then who gets it (all
-// members, the members of some groups, or the members a rule picks), then three steps that go to
+// members, the members of some groups, or the members a rule picks), then two steps that go to
 // one server action (`runBroadcast`), told apart by the button pressed: send the test to one
-// member at once, count who a send would reach, and send to the audience (password and a
-// confirmation). The form keeps what was typed so a refused step can be corrected.
+// member at once, count who a send would reach (the send is then made of what was counted, from the run
+// panel). The form keeps what was typed so a refused step can be corrected.
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { FormError } from "@/components/forum/form-error";
-import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { Field } from "@/components/staff/edit-form";
 import { FieldErrors } from "@/components/staff/form-rows";
 import { Section } from "@/components/staff/rows";
@@ -55,8 +54,6 @@ function StepButton({
       value={step}
       variant={variant}
       disabled={pending}
-      // The password and the confirmation belong to the send alone; the backend judges the rest.
-      formNoValidate={step !== "send"}
       className="min-h-10 px-4"
     >
       {running ? pendingLabel : label}
@@ -320,32 +317,6 @@ export function BroadcastView({
           </div>
           <div className="space-y-3 border-t p-4">
             <p className="text-xs text-muted-foreground">{t("countHelp")}</p>
-            <StepButton
-              step="count"
-              variant="outline"
-              label={t("count")}
-              pendingLabel={t("counting")}
-            />
-          </div>
-        </Section>
-
-        <Section heading={t("sendHeading")} description={t("sendDescription")}>
-          <div className="divide-y">
-            <ConfirmPassword id="broadcast-password" />
-            <Field name="confirm" label={t("confirm")}>
-              <label className="flex min-h-10 items-start gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  name="confirm"
-                  className="mt-0.5 size-5 shrink-0"
-                />
-                <span className="min-w-0 font-medium text-pretty">
-                  {t("confirmBox")}
-                </span>
-              </label>
-            </Field>
-          </div>
-          <div className="space-y-3 border-t p-4">
             {state?.error && <FormError>{state.error}</FormError>}
             {state?.notice && (
               <p role="status" className="text-sm font-medium text-success">
@@ -353,9 +324,10 @@ export function BroadcastView({
               </p>
             )}
             <StepButton
-              step="send"
-              label={t("send")}
-              pendingLabel={t("sending")}
+              step="count"
+              variant="outline"
+              label={t("count")}
+              pendingLabel={t("counting")}
             />
           </div>
         </Section>

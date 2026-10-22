@@ -18,7 +18,7 @@ export type BroadcastState = {
   test?: TestResult;
 } | null;
 
-export const STEPS = ["test", "count", "send"] as const;
+export const STEPS = ["test", "count"] as const;
 export type Step = (typeof STEPS)[number];
 export const isStep = (value: string): value is Step =>
   (STEPS as readonly string[]).includes(value);

@@ -1,7 +1,10 @@
 "use server";
 
 import {
-  broadcastsStart,
+  broadcastsCount,
+  broadcastsDiscard,
+  broadcastsResume,
+  broadcastsSend,
   broadcastsStop,
   broadcastsTest,
 } from "@sermo/core/contracts";
@@ -24,7 +27,7 @@ import {
 import { ticked } from "../users/action-helpers";
 import { type BroadcastState, isStep } from "./state";
 
-type Content = NonNullable<z.input<typeof broadcastsStart.input>["content"]>;
+type Content = z.input<typeof broadcastsCount.input>["content"];
 
 // The pages show the latest run, so every write renews both.
 function renew() {
@@ -83,7 +86,13 @@ async function audienceOf(
   const audience = text(formData, "audience");
   if (audience === "rule") {
     const rule = ruleOf(formData);
-    return rule === null ? { refused: await ruleRefusal(formData) } : { rule };
+    if (rule === null) return { refused: await ruleRefusal(formData) };
+    // A rule with no condition would reach everyone: that is the other choice, not this one.
+    if (rule.conditions.length === 0) {
+      const t = await getTranslations("adminCommunication.broadcasts.errors");
+      return { refused: { fields: { rule: t("emptyRule") } } };
+    }
+    return { rule };
   }
   if (audience === "groups") {
     const ids = formData
@@ -104,11 +113,11 @@ async function audienceOf(
   return { rule: { match: "all", conditions: [] } };
 }
 
-const KNOWN = ["title", "body", "text", "url", "sender", "actorPassword"];
+const KNOWN = ["title", "body", "text", "url", "sender"];
 
 // One step of the form of a message or alert to members, told apart by the button that was
-// pressed: "test" sends it to one member at once, "count" counts who a send would reach, and
-// "send" starts the send (it asks for the administrator's password and a confirmation).
+// pressed: "test" sends it to one member at once, and "count" counts who a send would reach (the
+// send is then made of what was counted, from the run panel).
 export async function runBroadcast(
   _previous: BroadcastState,
   formData: FormData,
@@ -140,31 +149,35 @@ export async function runBroadcast(
     }
     const chosen = await audienceOf(formData);
     if ("refused" in chosen) return chosen.refused;
-    if (step === "count") {
-      const { queued } = await call(broadcastsStart, {
-        content,
-        rule: chosen.rule,
-        dryRun: true,
-      });
-      renew();
-      return queued
-        ? { notice: t("result.countQueued") }
-        : { error: t("result.notQueued") };
-    }
-    if (!ticked(formData, "confirm")) return { error: t("errors.confirm") };
-    const absent = await missingPassword(formData);
-    if (absent) return absent;
-    const { queued } = await call(broadcastsStart, {
+    const { queued } = await call(broadcastsCount, {
       content,
       rule: chosen.rule,
-      actorPassword: text(formData, "actorPassword"),
     });
     renew();
     return queued
-      ? { notice: t("result.sendQueued") }
+      ? { notice: t("result.countQueued") }
       : { error: t("result.notQueued") };
   } catch (error) {
     return formFailure(error, KNOWN);
+  }
+}
+
+// Send what the latest count counted; asks for the password.
+export async function sendCounted(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminCommunication.broadcasts.run");
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
+  try {
+    const { queued } = await call(broadcastsSend, {
+      actorPassword: text(formData, "actorPassword"),
+    });
+    renew();
+    return queued ? { notice: t("sendQueued") } : { error: t("notQueued") };
+  } catch (error) {
+    return formFailure(error, ["actorPassword"]);
   }
 }
 
@@ -177,7 +190,7 @@ export async function resumeSend(
   const absent = await missingPassword(formData);
   if (absent) return absent;
   try {
-    const { queued } = await call(broadcastsStart, {
+    const { queued } = await call(broadcastsResume, {
       actorPassword: text(formData, "actorPassword"),
     });
     renew();
@@ -193,9 +206,46 @@ export async function resumeCount(
 ): Promise<StaffFormState> {
   const t = await getTranslations("adminCommunication.broadcasts.run");
   try {
-    const { queued } = await call(broadcastsStart, { dryRun: true });
+    const { queued } = await call(broadcastsResume, {});
     renew();
     return queued ? { notice: t("countResumed") } : { error: t("notQueued") };
+  } catch (error) {
+    return formFailure(error, []);
+  }
+}
+
+// Give up the send that stopped (what it sent stays sent); asks for the password.
+export async function discardSend(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminCommunication.broadcasts.run");
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
+  try {
+    const { discarded } = await call(broadcastsDiscard, {
+      actorPassword: text(formData, "actorPassword"),
+    });
+    renew();
+    return discarded
+      ? { notice: t("discarded") }
+      : { error: t("nothingToDiscard") };
+  } catch (error) {
+    return formFailure(error, ["actorPassword"]);
+  }
+}
+
+// Give up the count that stopped.
+export async function discardCount(
+  _previous: StaffFormState,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminCommunication.broadcasts.run");
+  try {
+    const { discarded } = await call(broadcastsDiscard, {});
+    renew();
+    return discarded
+      ? { notice: t("discarded") }
+      : { error: t("nothingToDiscard") };
   } catch (error) {
     return formFailure(error, []);
   }

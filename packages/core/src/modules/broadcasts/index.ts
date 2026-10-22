@@ -26,7 +26,16 @@ import {
   reachable,
   type StoredContent,
 } from "./deliver";
-import { broadcastRunValue, logBroadcast, startBroadcast, stopBroadcast } from "./run";
+import {
+  broadcastRunValue,
+  countBroadcast,
+  discardBroadcast,
+  latestRun,
+  logBroadcast,
+  resumeBroadcast,
+  sendCounted,
+  stopBroadcast,
+} from "./run";
 
 export { ALERT_CHUNK, BROADCAST_JOB, MESSAGE_CHUNK, registerBroadcastJobs } from "./run";
 
@@ -55,6 +64,11 @@ function prepareContent(ctx: Ctx, actor: Actor, content: Content): StoredContent
     requireNotErased(ctx, senderId);
     requirePermission(ctx, actor, "admin.members", { target: principalOf(ctx, senderId) });
   }
+  // The files of a message are attached to that message, which a mass message cannot do.
+  if (/\[ATTACH/i.test(content.body))
+    throw new ValidationError("Attachments cannot be sent in a message to many members.", [
+      { path: ["body"], message: "Remove the [ATTACH] tags." },
+    ]);
   const rendered = renderContent(ctx, actor, content.body);
   return {
     kind: "message",
@@ -70,19 +84,70 @@ function prepareContent(ctx: Ctx, actor: Actor, content: Content): StoredContent
   };
 }
 
-const start = implement(contracts.broadcastsStart, async (ctx, actor, input) => {
+/** Sending as another member needs `admin.members` over them (the administrator is always allowed as themselves). */
+function requireMaySendAs(ctx: Ctx, actor: Actor, content: StoredContent): void {
+  if (content.kind !== "message" || content.senderId === requireAuthenticated(actor).userId) return;
+  requireNotErased(ctx, content.senderId);
+  requirePermission(ctx, actor, "admin.members", { target: principalOf(ctx, content.senderId) });
+}
+
+const count = implement(contracts.broadcastsCount, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.announcements");
   const admin = requireAuthenticated(actor);
-  if ((input.content === undefined) !== (input.rule === undefined))
-    throw new ValidationError("Give both the content and the audience, or neither to resume.");
-  if (input.rule) assertRule(ctx, input.rule, "background");
-  const content = input.content && prepareContent(ctx, actor, input.content);
-  if (!input.dryRun) await confirmActorPassword(ctx, actor, input.actorPassword);
+  assertRule(ctx, input.rule, "background");
+  const content = prepareContent(ctx, actor, input.content);
   return writeTx(ctx, () => {
     requirePermission(ctx, currentActor(ctx, actor), "admin.announcements");
-    return {
-      queued: startBroadcast(ctx, admin.userId, content, input.rule, input.dryRun),
-    };
+    return { queued: countBroadcast(ctx, admin.userId, content, input.rule) };
+  });
+});
+
+/** The latest run, for the checks made before the password is asked for. */
+function pending(ctx: Ctx, wanted: (run: NonNullable<ReturnType<typeof latestRun>>) => boolean) {
+  const run = latestRun(ctx);
+  return run && wanted(run) ? run : null;
+}
+
+const send = implement(contracts.broadcastsSend, async (ctx, actor, input) => {
+  requirePermission(ctx, actor, "admin.announcements");
+  const admin = requireAuthenticated(actor);
+  const counted = pending(ctx, (run) => run.state === "done" && run.dryRun);
+  if (counted) requireMaySendAs(ctx, actor, counted.content);
+  await confirmActorPassword(ctx, actor, input.actorPassword);
+  return writeTx(ctx, () => {
+    const current = currentActor(ctx, actor);
+    requirePermission(ctx, current, "admin.announcements");
+    const latest = latestRun(ctx);
+    if (latest) requireMaySendAs(ctx, current, latest.content);
+    return { queued: sendCounted(ctx, admin.userId) };
+  });
+});
+
+const resume = implement(contracts.broadcastsResume, async (ctx, actor, input) => {
+  requirePermission(ctx, actor, "admin.announcements");
+  const admin = requireAuthenticated(actor);
+  const stopped = pending(ctx, (run) => run.state === "stopped" || run.state === "failed");
+  if (stopped) {
+    requireMaySendAs(ctx, actor, stopped.content);
+    if (!stopped.dryRun) await confirmActorPassword(ctx, actor, input.actorPassword);
+  }
+  return writeTx(ctx, () => {
+    const current = currentActor(ctx, actor);
+    requirePermission(ctx, current, "admin.announcements");
+    const latest = latestRun(ctx);
+    if (latest) requireMaySendAs(ctx, current, latest.content);
+    return { queued: resumeBroadcast(ctx, admin.userId) };
+  });
+});
+
+const discard = implement(contracts.broadcastsDiscard, async (ctx, actor, input) => {
+  requirePermission(ctx, actor, "admin.announcements");
+  const admin = requireAuthenticated(actor);
+  if (pending(ctx, (run) => (run.state === "stopped" || run.state === "failed") && !run.dryRun))
+    await confirmActorPassword(ctx, actor, input.actorPassword);
+  return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.announcements");
+    return { discarded: discardBroadcast(ctx, admin.userId) };
   });
 });
 
@@ -139,4 +204,4 @@ const stop = implement(contracts.broadcastsStop, (ctx, actor) => {
   });
 });
 
-export const operations = [start, test, status, stop];
+export const operations = [count, send, resume, discard, test, status, stop];

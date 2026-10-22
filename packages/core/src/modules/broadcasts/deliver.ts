@@ -60,6 +60,7 @@ export function deliverMessages(
   ctx: Ctx,
   content: MessageContent,
   recipients: readonly Recipient[],
+  dryRun = false,
 ): Outcome {
   const versions = currentVersions(ctx);
   const now = ctx.now();
@@ -127,6 +128,7 @@ export function deliverMessages(
       contentId: conversationId,
       data: {},
     })),
+    dryRun,
   );
   return {
     sent: conversationIds.size,
@@ -141,6 +143,7 @@ export function deliverAlerts(
   content: AlertContent,
   recipients: readonly Recipient[],
   runId: number,
+  dryRun = false,
 ): Outcome {
   const alerted = deliverDirect(
     ctx,
@@ -152,6 +155,7 @@ export function deliverAlerts(
       contentId: runId,
       data: { message: content.text, ...(content.url === null ? {} : { url: content.url }) },
     })),
+    dryRun,
   );
   return {
     sent: alerted.size,

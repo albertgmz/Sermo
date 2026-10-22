@@ -449,6 +449,8 @@
       "broadcast_count_failed": "Recipient count stopped by an error",
       "broadcast_count_stopped": "Recipient count stopped",
       "broadcast_test": "Message or alert test sent",
+      "broadcast_discarded": "Message or alert send discarded",
+      "broadcast_count_discarded": "Recipient count discarded",
       "awards_rebuild_failed": "Rebuilding levels and awards stopped on an error",
       "ban_add": "Ban added",
       "ban_lift": "Ban lifted",

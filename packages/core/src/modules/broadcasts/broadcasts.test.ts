@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createTestContext, insertUser, tokenActor, userActor } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { closeContext } from "../../context";
-import { ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
+import { ConflictError, ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { runDueJobs } from "../jobs/queue";
@@ -25,7 +25,13 @@ function setup() {
   const drain = async () => {
     while (await runDueJobs(ctx, { limit: 1 })) {}
   };
-  return { ctx, adminUser, admin, call, sql, drain };
+  // What a send is: count the audience, wait for the count, then send what was counted.
+  const go = async (input: { content: unknown; rule: unknown }, actor = admin) => {
+    await call("count", input, actor);
+    await drain();
+    return call("send", {}, actor);
+  };
+  return { ctx, adminUser, admin, call, sql, drain, go };
 }
 const everyone = { match: "all", conditions: [] };
 const message = {
@@ -37,7 +43,7 @@ const alert = { kind: "alert", text: "The forum moves tonight", url: "/pages/mov
 
 describe("messages to members", () => {
   test("every reachable member gets a conversation of their own, and the others none", async () => {
-    const { ctx, adminUser, call, sql, drain } = setup();
+    const { ctx, adminUser, call, sql, drain, go } = setup();
     const a = insertUser(ctx);
     const b = insertUser(ctx);
     const banned = insertUser(ctx);
@@ -48,7 +54,7 @@ describe("messages to members", () => {
     const waiting = insertUser(ctx);
     ctx.sqlite.prepare("UPDATE users SET signup_review = 'pending' WHERE id = ?1").run(waiting.id);
 
-    expect(await call("start", { content: message, rule: everyone })).toEqual({ queued: true });
+    expect(await go({ content: message, rule: everyone })).toEqual({ queued: true });
     await drain();
 
     const conversations = sql(
@@ -92,10 +98,10 @@ describe("messages to members", () => {
   });
 
   test("locked conversations, another sender and the sender's list", async () => {
-    const { ctx, call, sql, drain } = setup();
+    const { ctx, sql, drain, go } = setup();
     const sender = insertUser(ctx, { groupId: 3 });
     const member = insertUser(ctx);
-    await call("start", {
+    await go({
       content: { ...message, senderId: sender.id, locked: true, removeFromSender: true },
       rule: { match: "all", conditions: [{ criterion: "is_member", ids: [member.id] }] },
     });
@@ -112,13 +118,13 @@ describe("messages to members", () => {
   });
 
   test("a rule picks the audience, over several chunks", async () => {
-    const { ctx, call, sql, drain } = setup();
+    const { ctx, call, sql, drain, go } = setup();
     const inside: number[] = [];
     for (let i = 0; i < MESSAGE_CHUNK * 2 + 5; i++) {
       const member = insertUser(ctx, i % 2 === 0 ? { groupId: 3 } : {});
       if (i % 2 === 0) inside.push(member.id);
     }
-    await call("start", {
+    await go({
       content: message,
       rule: { match: "all", conditions: [{ criterion: "in_group", ids: [3] }] },
     });
@@ -139,7 +145,7 @@ describe("messages to members", () => {
     insertUser(ctx);
     const noReceive = insertUser(ctx);
     ctx.sqlite.prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1").run(noReceive.id);
-    await call("start", { content: message, rule: everyone, dryRun: true });
+    await call("count", { content: message, rule: everyone });
     await drain();
     expect(await call("status")).toMatchObject({
       state: "done",
@@ -151,49 +157,98 @@ describe("messages to members", () => {
     expect(sql("SELECT id FROM notifications")).toEqual([]);
   });
 
-  test("a run that stopped resumes, and one under way is not started twice", async () => {
-    const { ctx, call, sql, drain } = setup();
+  test("a send under way is not started twice", async () => {
+    const { ctx, call, go } = setup();
     for (let i = 0; i < MESSAGE_CHUNK * 2; i++) insertUser(ctx);
-    await call("start", { content: message, rule: everyone });
-    expect(await call("start", { content: message, rule: everyone })).toEqual({ queued: false });
-    expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
-    expect(await call("stop")).toEqual({ stopped: true });
-    await drain();
-    const stopped = await call("status");
-    expect(stopped.state).toBe("stopped");
-    const before = sql("SELECT id FROM conversations").length;
-    expect(before).toBe(MESSAGE_CHUNK);
-    expect(await call("start", { content: alert, rule: everyone })).toEqual({ queued: true });
-    await drain();
-    // It resumed the message it had started, not the alert the second call carried.
-    expect(await call("status")).toMatchObject({
-      state: "done",
-      kind: "message",
-      sent: MESSAGE_CHUNK * 2 + 1,
-    });
-    expect(sql("SELECT id FROM notifications WHERE type = 'admin.alert'")).toEqual([]);
+    expect(await go({ content: message, rule: everyone })).toEqual({ queued: true });
+    expect(await call("count", { content: message, rule: everyone })).toEqual({ queued: false });
+    expect(await call("send", {})).toEqual({ queued: false });
   });
 });
 
-describe("resuming", () => {
-  test("a stopped run resumes without content, and with nothing stopped there is nothing to resume", async () => {
-    const { ctx, call, drain } = setup();
-    await expect(call("start", {})).rejects.toThrow(ValidationError);
-    await expect(call("start", { content: message })).rejects.toThrow(ValidationError);
-    for (let i = 0; i < MESSAGE_CHUNK * 2; i++) insertUser(ctx);
-    await call("start", { content: message, rule: everyone });
-    expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
-    await call("stop");
+describe("a stopped run", () => {
+  async function stopped() {
+    const world = setup();
+    for (let i = 0; i < MESSAGE_CHUNK * 2; i++) insertUser(world.ctx);
+    await world.go({ content: message, rule: everyone });
+    expect(await runDueJobs(world.ctx, { limit: 1 })).toBe(1);
+    expect(await world.call("stop")).toEqual({ stopped: true });
+    await world.drain();
+    expect((await world.call("status")).state).toBe("stopped");
+    expect(world.sql("SELECT id FROM conversations").length).toBe(MESSAGE_CHUNK);
+    return world;
+  }
+  const fixed = { content: { ...message, title: "Fixed" }, rule: everyone };
+
+  test("new content while it is stopped is refused, never taken for the old run", async () => {
+    const { call, sql, drain } = await stopped();
+    await expect(call("count", fixed)).rejects.toThrow(ConflictError);
+    await expect(call("send", {})).rejects.toThrow(ValidationError);
     await drain();
-    expect(await call("start", {})).toEqual({ queued: true });
+    expect(sql("SELECT id FROM conversations WHERE title = 'Fixed'")).toEqual([]);
+    expect((await call("status")).state).toBe("stopped");
+  });
+
+  test("resuming continues the old run with its own content", async () => {
+    const { call, sql, drain } = await stopped();
+    expect(await call("resume", {})).toEqual({ queued: true });
     await drain();
     expect(await call("status")).toMatchObject({ state: "done", sent: MESSAGE_CHUNK * 2 + 1 });
+    expect(sql("SELECT DISTINCT title FROM conversations")).toEqual([{ title: "Welcome back" }]);
+  });
+
+  test("discarding it frees the slot, and the corrected content goes out", async () => {
+    const { call, sql, drain, go } = await stopped();
+    expect(await call("discard", {})).toEqual({ discarded: true });
+    expect((await call("status")).state).toBe("discarded");
+    expect(await call("discard", {})).toEqual({ discarded: false });
+    await expect(call("resume", {})).rejects.toThrow(ValidationError);
+    await go(fixed);
+    await drain();
+    expect(sql("SELECT count(*) AS n FROM conversations WHERE title = 'Fixed'")).toEqual([
+      { n: MESSAGE_CHUNK * 2 + 1 },
+    ]);
+    expect(sql("SELECT action FROM moderator_log WHERE action LIKE '%discarded'")).toEqual([
+      { action: "broadcast.discarded" },
+    ]);
+  });
+
+  test("resuming or discarding a send needs the password, and a key cannot", async () => {
+    const { adminUser, call } = await stopped();
+    const session = { ...userActor(adminUser), interactive: true } as never;
+    await expect(call("resume", {}, session)).rejects.toThrow(ValidationError);
+    await expect(call("discard", {}, session)).rejects.toThrow(ValidationError);
+    await expect(call("resume", {}, tokenActor(adminUser))).rejects.toThrow(ForbiddenError);
+  });
+});
+
+describe("a count comes before a send", () => {
+  test("a send needs a finished count, and sends what was counted", async () => {
+    const { ctx, call, drain } = setup();
+    insertUser(ctx);
+    await expect(call("send", {})).rejects.toThrow(ValidationError);
+    await call("count", { content: alert, rule: everyone });
+    expect(await call("send", {})).toEqual({ queued: false });
+    await drain();
+    expect(await call("status")).toMatchObject({ state: "done", dryRun: true, reachable: 2 });
+    expect(await call("send", {})).toEqual({ queued: true });
+    await drain();
+    expect(await call("status")).toMatchObject({ kind: "alert", dryRun: false, sent: 2 });
+    // The send is done: another needs a new count.
+    await expect(call("send", {})).rejects.toThrow(ValidationError);
+  });
+
+  test("attachments cannot go in a mass message", async () => {
+    const { call } = setup();
+    await expect(
+      call("count", { content: { ...message, body: "see [ATTACH]1[/ATTACH]" }, rule: everyone }),
+    ).rejects.toThrow(ValidationError);
   });
 });
 
 describe("alerts to members", () => {
   test("an alert is written to each reachable member, honouring their preference", async () => {
-    const { ctx, adminUser, call, sql, drain } = setup();
+    const { ctx, adminUser, call, sql, drain, go } = setup();
     const a = insertUser(ctx);
     const off = insertUser(ctx);
     const banned = insertUser(ctx);
@@ -204,7 +259,7 @@ describe("alerts to members", () => {
       )
       .run(off.id);
 
-    await call("start", { content: alert, rule: everyone });
+    await go({ content: alert, rule: everyone });
     await drain();
 
     const rows = sql(
@@ -239,9 +294,9 @@ describe("alerts to members", () => {
   });
 
   test("an alert reaches every member over several chunks, in a handful of statements each", async () => {
-    const { ctx, call, sql, drain } = setup();
+    const { ctx, sql, drain, go } = setup();
     for (let i = 0; i < ALERT_CHUNK + 5; i++) insertUser(ctx);
-    await call("start", { content: alert, rule: everyone });
+    await go({ content: alert, rule: everyone });
     await drain();
     expect(sql("SELECT count(*) AS n FROM notifications WHERE type = 'admin.alert'")).toEqual([
       { n: ALERT_CHUNK + 6 },
@@ -253,9 +308,9 @@ describe("alerts to members", () => {
   });
 
   test("the alert reaches the notification list with its text and address", async () => {
-    const { ctx, call, drain } = setup();
+    const { ctx, drain, go } = setup();
     const member = insertUser(ctx);
-    await call("start", { content: alert, rule: everyone });
+    await go({ content: alert, rule: everyone });
     await drain();
     const list = await execute(ctx, getOperation("notifications.list"), userActor(member), {});
     expect(list.items[0]).toMatchObject({
@@ -311,28 +366,22 @@ describe("test sends", () => {
 
 describe("who may send", () => {
   test("guests, members and moderators are refused before the input is read; a key cannot start a send", async () => {
-    const { ctx, call, sql, adminUser } = setup();
+    const { ctx, call, sql, adminUser, drain } = setup();
     const member = userActor(insertUser(ctx));
     const moderator = userActor(insertUser(ctx, { groupId: 3 }));
     const bad = { content: 12 };
     for (const actor of [member, moderator])
-      for (const name of ["start", "test", "status", "stop"])
+      for (const name of ["count", "send", "resume", "discard", "test", "status", "stop"])
         await expect(call(name, bad, actor)).rejects.toThrow(ForbiddenError);
-    for (const name of ["start", "test", "status", "stop"])
+    for (const name of ["count", "send", "resume", "discard", "test", "status", "stop"])
       await expect(call(name, bad, GUEST)).rejects.toThrow(UnauthenticatedError);
-    // A browser session confirms with its password; a key cannot start a real send at all.
+    // A browser session confirms a send with its password; a key cannot send at all; a count needs none.
     const input = { content: message, rule: everyone };
-    await expect(
-      call("start", input, { ...userActor(adminUser), interactive: true } as never),
-    ).rejects.toThrow(ValidationError);
-    await expect(call("start", input, tokenActor(adminUser))).rejects.toThrow(ForbiddenError);
-    // A count needs no password.
-    expect(
-      await call("start", { ...input, dryRun: true }, {
-        ...userActor(adminUser),
-        interactive: true,
-      } as never),
-    ).toEqual({ queued: true });
+    const session = { ...userActor(adminUser), interactive: true } as never;
+    expect(await call("count", input, session)).toEqual({ queued: true });
+    await drain();
+    await expect(call("send", {}, session)).rejects.toThrow(ValidationError);
+    await expect(call("send", {}, tokenActor(adminUser))).rejects.toThrow(ForbiddenError);
     expect(sql("SELECT id FROM conversations")).toEqual([]);
     expect(BROADCAST_JOB).toBe("broadcasts.run");
   });
@@ -346,9 +395,9 @@ describe("who may send", () => {
   });
 
   test("a run ends as failed when the administrator who started it can no longer send", async () => {
-    const { ctx, adminUser, call, sql, drain } = setup();
+    const { ctx, adminUser, sql, drain, go } = setup();
     for (let i = 0; i < MESSAGE_CHUNK * 2; i++) insertUser(ctx);
-    await call("start", { content: message, rule: everyone });
+    await go({ content: message, rule: everyone });
     expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
     ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE id = ?1").run(adminUser.id);
     await drain();
@@ -367,12 +416,17 @@ describe("who may send", () => {
   });
 
   test("the moderator log keeps the start and the end of a run", async () => {
-    const { ctx, call, sql, drain } = setup();
+    const { ctx, sql, drain, go } = setup();
     insertUser(ctx);
-    await call("start", { content: alert, rule: everyone });
+    await go({ content: alert, rule: everyone });
     await drain();
     expect(
       sql("SELECT action FROM moderator_log WHERE action LIKE 'broadcast.%' ORDER BY id"),
-    ).toEqual([{ action: "broadcast.start" }, { action: "broadcast.done" }]);
+    ).toEqual([
+      { action: "broadcast.count.start" },
+      { action: "broadcast.count.done" },
+      { action: "broadcast.start" },
+      { action: "broadcast.done" },
+    ]);
   });
 });

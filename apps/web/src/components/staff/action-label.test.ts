@@ -39,6 +39,8 @@ const IDS = [
   "broadcast.count.failed",
   "broadcast.count.stopped",
   "broadcast.test",
+  "broadcast.discarded",
+  "broadcast.count.discarded",
   "ban.add",
   "ban.lift",
   "ban.threshold",

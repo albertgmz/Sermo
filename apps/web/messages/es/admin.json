@@ -449,6 +449,8 @@
       "broadcast_count_failed": "El recuento de destinatarios se detuvo por un error",
       "broadcast_count_stopped": "Se detuvo el recuento de destinatarios",
       "broadcast_test": "Se envió la prueba de un mensaje o alerta",
+      "broadcast_discarded": "Se descartó un envío de mensaje o alerta",
+      "broadcast_count_discarded": "Se descartó un recuento de destinatarios",
       "awards_rebuild_failed": "La reconstrucción de niveles y trofeos se detuvo por un error",
       "ban_add": "Expulsión añadida",
       "ban_lift": "Expulsión levantada",

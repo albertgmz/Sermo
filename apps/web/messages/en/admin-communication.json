@@ -178,7 +178,7 @@
     "loading": "Loading…",
     "form": {
       "messageHeading": "Message",
-      "messageDescription": "The same message goes into one conversation per member, never one conversation with all of them.",
+      "messageDescription": "The same message goes into one conversation per member, never one conversation with all of them. Each member is also alerted that they were added, and devices that allowed pushes get that alert too.",
       "alertHeading": "Alert",
       "alertDescription": "Members see the text in their alerts and, if they allowed it, on their devices.",
       "sender": "Sent from",
@@ -204,7 +204,7 @@
       "groups": "Groups",
       "groupsHelp": "Members of any of the groups ticked, as their primary or a secondary group.",
       "countHeading": "How many",
-      "countHelp": "Counts the members the send would reach, in the background, without sending anything.",
+      "countHelp": "Counts the members the send would reach, in the background, without sending anything. Then send what was counted from “Latest run” below.",
       "count": "Count the recipients",
       "counting": "Counting…",
       "testHeading": "Try it first",
@@ -212,13 +212,7 @@
       "recipient": "Test recipient",
       "recipientHelp": "A member's username. Leave empty to send the test to yourself.",
       "test": "Send the test",
-      "testing": "Sending…",
-      "sendHeading": "Send to the audience",
-      "sendDescription": "Runs in the background, a few members at a time. You can stop it and resume it. What was already sent cannot be recalled.",
-      "confirm": "Confirm",
-      "confirmBox": "I understand this goes to every member of the audience I chose",
-      "send": "Send to the audience",
-      "sending": "Starting…"
+      "testing": "Sending…"
     },
     "result": {
       "tested": "Sent to {name}.",
@@ -232,8 +226,8 @@
     "errors": {
       "noGroups": "Tick at least one group.",
       "noMember": "No member has that name.",
-      "confirm": "Tick the confirmation to send.",
-      "sender": "No member has that name."
+      "sender": "No member has that name.",
+      "emptyRule": "Add at least one condition, or choose Every member."
     },
     "run": {
       "heading": "Latest run",
@@ -256,11 +250,22 @@
       "nothingToStop": "No run is under way.",
       "resume": "Resume the send",
       "resumeNow": "Resume now",
-      "resumeWarning": "Continues the stopped send with the same content and audience. It asks for your password.",
+      "resumeWarning": "Continues the stopped send with the same content and audience (to change them, discard it and count again). It asks for your password.",
       "resumeCount": "Resume the count",
       "queued": "The send was resumed.",
       "countResumed": "The count was resumed.",
-      "notQueued": "A run is already under way."
+      "notQueued": "A run is already under way.",
+      "sendCounted": "Send to the counted members",
+      "sendNow": "Send now",
+      "sendWarning": "This sends “{summary}” to {reachable} members, as counted on {when}. It cannot be recalled. It asks for your password.",
+      "sendQueued": "Sending started.",
+      "discard": "Discard the stopped send",
+      "discardNow": "Discard now",
+      "discardCount": "Discard the count",
+      "discardWarning": "Gives up “{summary}”, stopped at {percent} with {sent} sent: what was sent stays sent and the rest is not sent. Then another can be counted and sent. It asks for your password.",
+      "discarded": "The run was discarded.",
+      "nothingToDiscard": "No run is stopped.",
+      "discardedRun": "“{summary}” was discarded at {percent} with {sent} sent."
     }
   }
 }

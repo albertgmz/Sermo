@@ -323,7 +323,7 @@ test("the rebuild of levels and awards needs the session's password, and a key c
   expect(jobs()).toBe(1);
 });
 
-test("a real send to members needs the session's password, a key cannot start it, and a count needs none", async () => {
+test("a send to members needs the session's password, a key cannot send, and a count needs none", async () => {
   const { ctx, asSession, asKey } = await setup();
   const jobs = () =>
     ctx.sqlite
@@ -333,15 +333,13 @@ test("a real send to members needs the session's password, a key cannot start it
     content: { kind: "alert", text: "Tonight" },
     rule: { match: "all", conditions: [] },
   };
-  expect((await asSession("POST", "/broadcasts", body)).status).toBe(400);
+  expect((await asSession("POST", "/broadcasts/send", {})).status).toBe(400);
   expect(
-    (await asSession("POST", "/broadcasts", { ...body, actorPassword: "nope-nope-1" })).status,
+    (await asSession("POST", "/broadcasts/send", { actorPassword: "nope-nope-1" })).status,
   ).toBe(403);
-  expect((await asKey("POST", "/broadcasts", { ...body, actorPassword: PASSWORD })).status).toBe(
-    403,
-  );
+  expect((await asKey("POST", "/broadcasts/send", { actorPassword: PASSWORD })).status).toBe(403);
   expect(jobs()).toBe(0);
-  const counted = await asSession("POST", "/broadcasts", { ...body, dryRun: true });
+  const counted = await asSession("POST", "/broadcasts/count", body);
   expect(counted.status).toBe(201);
   expect(await counted.json()).toEqual({ queued: true });
   expect(jobs()).toBe(1);

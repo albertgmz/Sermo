@@ -31,6 +31,7 @@ const IDLE = {
   progress: 0,
   members: 0,
   matched: 0,
+  reachable: 0,
   sent: 0,
   skipped: 0,
   error: null,
@@ -74,7 +75,7 @@ test("a send under way shows its progress and the stop button", async () => {
   expect(html).toContain(text.stop);
 });
 
-test("a stopped send is resumed behind the password; a stopped count has no password", async () => {
+test("a stopped send is resumed or discarded behind the password; a stopped count has no password", async () => {
   const stopped = {
     ...IDLE,
     state: "stopped",
@@ -86,9 +87,11 @@ test("a stopped send is resumed behind the password; a stopped count has no pass
   };
   const send = await render(stopped);
   expect(send).toContain(text.resume);
+  expect(send).toContain(text.discard);
   expect(send).toContain('name="actorPassword"');
   const count = await render({ ...stopped, dryRun: true });
   expect(count).toContain(text.resumeCount);
+  expect(count).toContain(text.discardCount);
   expect(count).not.toContain('name="actorPassword"');
 });
 
@@ -114,4 +117,38 @@ test("a finished count says how many would be reached", async () => {
       skipped: "3",
     }),
   );
+});
+
+test("a finished count offers the send, naming the effect and the counted figure", async () => {
+  const html = await render({
+    ...IDLE,
+    state: "done",
+    kind: "alert",
+    dryRun: true,
+    summary: "Tonight",
+    startedAt: "2026-10-21T10:00:00.000Z",
+    finishedAt: "2026-10-21T10:05:00.000Z",
+    progress: 1,
+    members: 1000,
+    matched: 900,
+    reachable: 897,
+    skipped: 3,
+  });
+  expect(html).toContain(text.sendCounted);
+  expect(html).toContain(
+    words(text.sendWarning, {
+      summary: "Tonight",
+      reachable: "897",
+      when: "Oct 21, 2026, 10:05 AM",
+    }),
+  );
+  expect(html).toContain('name="actorPassword"');
+  // A finished real send offers nothing more.
+  const sent = await render({
+    ...IDLE,
+    state: "done",
+    kind: "alert",
+    dryRun: false,
+  });
+  expect(sent).not.toContain(text.sendCounted);
 });

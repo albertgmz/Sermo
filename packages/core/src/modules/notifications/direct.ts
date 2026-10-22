@@ -35,13 +35,16 @@ type Recipient = PrincipalRow & {
  * the unread counter follows, and e-mail and push are handed on where the member (or the type's
  * default) has them on. Banned members and members who may not view alerts get none. One batch is
  * three statements however many members it holds, and publishes one `notification.created`
- * event. Call it in the caller's write transaction. Returns the ids of the members alerted.
+ * event. With `dryRun` (a count that the caller undoes) e-mail and push are not handed on, so
+ * nothing is logged as queued. Call it in the caller's write transaction. Returns the ids of the
+ * members alerted.
  */
 export function deliverDirect(
   ctx: Ctx,
   type: string,
   actorId: number | null,
   notices: readonly DirectNotice[],
+  dryRun = false,
 ): Set<number> {
   const alerted = new Set<number>();
   if (!notices.length) return alerted;
@@ -112,6 +115,7 @@ export function deliverDirect(
       userIds: created.map((row) => row.user_id),
     },
   });
+  if (dryRun) return alerted;
   const byUser = new Map(wanted.map((notice) => [notice.userId, notice]));
   const emailItems: EmailItem[] = [];
   const pushItems: PushItem[] = [];
