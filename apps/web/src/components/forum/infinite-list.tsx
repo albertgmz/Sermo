@@ -94,7 +94,7 @@ export function mergeRefreshed(
     ...redrawn.filter((row) => !place.has(row.key)),
     ...redrawn
       .filter((row) => place.has(row.key))
-      .sort((a, b) => place.get(a.key)! - place.get(b.key)!),
+      .sort((a, b) => (place.get(a.key) ?? 0) - (place.get(b.key) ?? 0)),
   ];
   let taken = 0;
   const pages = fresh.map((page) => {
