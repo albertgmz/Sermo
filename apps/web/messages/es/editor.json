@@ -71,6 +71,21 @@
       "objects": "Objetos",
       "symbols": "Símbolos",
       "flags": "Banderas"
+    },
+    "image": {
+      "picture": "Imagen",
+      "uploading": "Subiendo la imagen…",
+      "failed": "No se pudo subir la imagen",
+      "hidden": "Imagen oculta por el ahorro de datos",
+      "attachment": "Archivo adjunto {id}",
+      "remove": "Eliminar la imagen",
+      "resize": "Cambiar tamaño",
+      "width": "{width} píxeles de ancho",
+      "options": "Opciones de la imagen",
+      "small": "Pequeña",
+      "medium": "Mediana",
+      "full": "Completa",
+      "alt": "Texto alternativo"
     }
   }
 }

@@ -18,7 +18,9 @@ import {
   attachTag,
   insertIntoComposer,
   onImagePick,
+  placedKey,
   removeFromComposer,
+  requestOnComposer,
 } from "@/components/forum/composer-insert";
 import { FormError } from "@/components/forum/form-error";
 import { useUploadLimit } from "@/components/forum/upload-limit";
@@ -153,6 +155,16 @@ export function AttachmentField({
     createIntake<AttachedFile>({
       send: (file) => latest.current.send(file),
       place: (file) => latest.current.place(file, "full", true),
+      // A picture the editor already shows: it learns how its upload ended.
+      settle: (file, stored) => {
+        const key = placedKey(file);
+        if (key === undefined) return false;
+        requestOnComposer(listed.current?.form, {
+          uploaded: key,
+          id: stored?.id,
+        });
+        return true;
+      },
       clearError: () => latest.current.setError(undefined),
     }),
   );
@@ -163,8 +175,8 @@ export function AttachmentField({
     [allowed, intake],
   );
 
-  // The editor's Image button opens a picker of pictures, which go in at the caret once they are
-  // uploaded, as pasted ones do.
+  // The editor's Image button opens a picker of pictures, which go to the editor as pasted ones do:
+  // they show at the caret at once and upload.
   useEffect(
     () =>
       allowed
@@ -173,12 +185,14 @@ export function AttachmentField({
     [allowed],
   );
 
-  // Takes the files a picker chose, and empties it so the same file can be chosen again.
+  // Takes the files a picker chose, and empties it so the same file can be chosen again. The
+  // pictures of the editor's Image button go to the editor, which shows them and offers them back.
   const choose =
     (inText: boolean) => (event: React.ChangeEvent<HTMLInputElement>) => {
       const chosen = Array.from(event.currentTarget.files ?? []);
       event.currentTarget.value = "";
-      void intake(chosen, inText);
+      if (inText) requestOnComposer(listed.current?.form, { drop: chosen });
+      else void intake(chosen);
     };
 
   const trigger = (

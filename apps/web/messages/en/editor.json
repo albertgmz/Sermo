@@ -71,6 +71,21 @@
       "objects": "Objects",
       "symbols": "Symbols",
       "flags": "Flags"
+    },
+    "image": {
+      "picture": "Picture",
+      "uploading": "Uploading the picture…",
+      "failed": "The picture could not be uploaded",
+      "hidden": "Picture hidden by the data saver",
+      "attachment": "Attachment {id}",
+      "remove": "Remove the picture",
+      "resize": "Change size",
+      "width": "{width} pixels wide",
+      "options": "Picture options",
+      "small": "Small",
+      "medium": "Medium",
+      "full": "Full",
+      "alt": "Alt text"
     }
   }
 }

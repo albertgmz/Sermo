@@ -21,10 +21,21 @@ import {
 
 export type Mark = "bold" | "italic" | "underline" | "strikethrough" | "code";
 
+// A picture attached to the text (`[ATTACH]`), with XenForo's size and alt text; `raw` is the tag
+// as it is written.
+export type Picture = {
+  id: number;
+  full: boolean;
+  width: string | null;
+  alt: string;
+  raw: string;
+};
+
 export type Inline =
   | { t: "text"; text: string; marks: Mark[] }
   | { t: "br" }
-  | { t: "link"; url: string; kids: Inline[] };
+  | { t: "link"; url: string; kids: Inline[] }
+  | ({ t: "image" } & Picture);
 
 export type ListSpec = {
   t: "list";
@@ -44,6 +55,7 @@ type Tree =
   | { k: "icode"; s: string; raw: string }
   | { k: "code"; s: string; raw: string; language?: string }
   | { k: "link"; href: string; label: string; raw: string }
+  | ({ k: "attach" } & Picture)
   | {
       k: "el";
       name: string;
@@ -97,6 +109,8 @@ const INLINE_TAGS = new Set([
   "ISPOILER",
 ]);
 const TAG_LIKE = /\[\/?[A-Za-z*]/;
+// The widths of a picture the renderer draws (`300px`, `50%`).
+const PICTURE_WIDTH = /^(?:[1-9]\d{0,3}px|(?:[1-9]\d?|100)%)$/i;
 
 // Whether the editor writes something between the pieces of text around this: a break, a blank
 // line or a link.
@@ -107,12 +121,13 @@ const cutsText = (kid: Tree): boolean =>
       ? kid.s.includes("\n")
       : kid.k === "link" ||
         (kid.k === "el" && (kid.name === "URL" || kid.kids.some(cutsText)));
+// A picture is a tag, too: a format around one stays as it was written.
 const hasTagText = (kid: Tree): boolean =>
   kid.k === "text"
     ? TAG_LIKE.test(kid.s)
     : kid.k === "icode"
       ? kid.s.includes("\n")
-      : kid.k === "el" && kid.kids.some(hasTagText);
+      : kid.k === "attach" || (kid.k === "el" && kid.kids.some(hasTagText));
 
 function parseTree(
   source: string,
@@ -178,6 +193,7 @@ function parseTree(
     const end = m.index + head.length;
     pos = end;
     const { closing, name, option } = tag;
+    const attrs = "attrs" in tag ? tag.attrs : undefined;
 
     if (closing) {
       const at = stack.findLastIndex((frame) => frame.name === name);
@@ -262,6 +278,17 @@ function parseTree(
         }
       } else if (name === "ICODE") {
         top().kids.push({ k: "icode", s: inner, raw });
+      } else if (name === "ATTACH") {
+        // XenForo's width is kept when the renderer takes it; the tag is written back as it was.
+        const width = attrs?.width ?? "";
+        top().kids.push({
+          k: "attach",
+          id: Number(inner.trim()),
+          full: option?.toLowerCase() === "full",
+          width: PICTURE_WIDTH.test(width) ? width.toLowerCase() : null,
+          alt: attrs?.alt ?? "",
+          raw,
+        });
       } else if (name === "URL") {
         // A bare address is a link to https://, as the renderer takes it.
         const label = inner.trim();
@@ -468,6 +495,13 @@ function walk(kids: Tree[], sink: Sink, marks: Mark[], link: boolean) {
           addText(sink, kid.raw, marks);
         }
         break;
+      case "attach": {
+        // In a link or a format the picture stays its tag, which the editor writes as it was.
+        const { k: _, ...picture } = kid;
+        if (link || marks.length) addText(sink, kid.raw, marks);
+        else sink.line.push({ t: "image", ...picture });
+        break;
+      }
       case "el":
         element(kid, sink, marks, link);
         break;

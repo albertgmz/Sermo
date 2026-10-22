@@ -42,8 +42,10 @@ import {
   $exportBb,
   $replaceWithBb,
   BB_NODES,
+  TEXT_NODES,
 } from "@/components/forum/bb-lexical";
 import {
+  attachTag,
   insertAtCaret,
   offerFiles,
   onComposerRequest,
@@ -68,6 +70,13 @@ import { prepareFiles, registerPaste } from "@/components/forum/editor-paste";
 import { Toolbar } from "@/components/forum/editor-toolbar";
 import { sentText } from "@/components/forum/editor-value";
 import { FormError } from "@/components/forum/form-error";
+import {
+  $insertImage,
+  attachOf,
+  finishUpload,
+  placeUploads,
+  settleUpload,
+} from "@/components/forum/image-node";
 import { prose } from "@/components/forum/prose";
 import { cn } from "@/lib/utils";
 
@@ -103,7 +112,7 @@ function registerStyleTransforms(editor: LexicalEditor) {
   // Transforms run before reconciliation. Register concrete classes because
   // TextNode transforms do not cover TabNode or CodeHighlightNode subclasses.
   return mergeRegister(
-    ...[RootNode, ParagraphNode, TextNode, TabNode, ...BB_NODES].map((node) =>
+    ...[RootNode, ParagraphNode, TextNode, TabNode, ...TEXT_NODES].map((node) =>
       editor.registerNodeTransform<TextNode | ElementNode>(node, (node) => {
         if (node.getStyle()) node.setStyle("");
         // Empty blocks can carry styles into later typing and list markers.
@@ -256,6 +265,18 @@ function FormField({
       const box = shown.current.active ? shown.current.field.current : null;
       if ("drop" in request) {
         onFiles(request.drop, form ?? null, request.pasted ?? false);
+      } else if ("uploaded" in request) {
+        // A picture shown while it uploaded: in the source its tag goes in at the caret, as it
+        // would have before.
+        if (!box) {
+          finishUpload(editor, request.uploaded, request.id);
+        } else {
+          settleUpload(request.uploaded, request.id);
+          if (request.id) {
+            insertAtCaret(box, attachTag(request.id, "full"), true, false);
+            commit(box.value);
+          }
+        }
       } else if (box) {
         if ("insert" in request) {
           insertAtCaret(box, request.insert, true, !request.background);
@@ -267,9 +288,12 @@ function FormField({
         const away =
           request.background &&
           !editor.getRootElement()?.contains(document.activeElement);
-        editor.update(() => $insertText(request.insert), {
-          tag: away ? SKIP_DOM_SELECTION_TAG : undefined,
-        });
+        // A tag of the attachment list goes in as its picture.
+        const picture = attachOf(request.insert);
+        editor.update(
+          () => (picture ? $insertImage(picture) : $insertText(request.insert)),
+          { tag: away ? SKIP_DOM_SELECTION_TAG : undefined },
+        );
         if (!request.background) editor.focus();
       } else {
         editor.update(() => $removeAttachTags(request.remove));
@@ -391,6 +415,9 @@ export function Editor({
   // Files go to the upload the composer around the editor has, by the same way its attach button
   // sends them; an editor with none refuses them and says so.
   const named = useRef(new Set<string>());
+  const editorRef = useRef<LexicalEditor>(null);
+  // Whether the source shows instead of the rich text.
+  const sourceRef = useRef(false);
   const takeFiles = useCallback(
     async (files: File[], form: HTMLFormElement | null, pasted: boolean) => {
       const sent = await prepareFiles(files, {
@@ -400,7 +427,14 @@ export function Editor({
         used: named.current,
       });
       // A refusal stays on show while more files are being taken, until the text changes.
-      if (!offerFiles(form, sent)) setNotice(t("errors.noUpload"));
+      if (!offerFiles(form, sent)) {
+        setNotice(t("errors.noUpload"));
+        return;
+      }
+      // The pictures show in the text at once, while they upload (in the source, their tags go in
+      // once they are stored).
+      const editor = editorRef.current;
+      if (editor && !sourceRef.current) placeUploads(editor, sent);
     },
     [t],
   );
@@ -421,9 +455,7 @@ export function Editor({
   const [sourceShown, setSourceShown] = useState(false);
   const valueRef = useRef(value);
   valueRef.current = value;
-  const sourceRef = useRef(false);
   const field = useRef<HTMLTextAreaElement>(null);
-  const editorRef = useRef<LexicalEditor>(null);
   const changed = useRef(onChange);
   changed.current = onChange;
   const lastValue = useRef<string>(undefined);

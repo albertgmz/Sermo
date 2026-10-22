@@ -8,10 +8,12 @@ type Stored = { id: number; type?: string };
 // files go up and into the text in the order they were given, and a refusal is not wiped by the
 // batch that follows it: the error is cleared only when a batch starts with nothing else in flight.
 // `inText`: the files came into the text (pasted or dropped), so each picture goes in at the caret
-// once it is stored, as the member would have done with its button.
+// once it is stored, as the member would have done with its button, unless the editor already shows
+// it there: `settle` then tells the editor how its upload ended and says it did so.
 export function createIntake<T extends Stored>(deps: {
   send: (file: File) => Promise<T | undefined>;
   place: (file: T) => void;
+  settle?: (file: File, stored: T | undefined) => boolean;
   clearError: () => void;
 }) {
   let last: Promise<void> = Promise.resolve();
@@ -23,7 +25,8 @@ export function createIntake<T extends Stored>(deps: {
       .then(async () => {
         for (const file of files) {
           const stored = await deps.send(file);
-          if (inText && stored?.type?.startsWith("image/")) deps.place(stored);
+          if (!inText || deps.settle?.(file, stored)) continue;
+          if (stored?.type?.startsWith("image/")) deps.place(stored);
         }
       })
       .finally(() => {

@@ -21,6 +21,8 @@ const EMISSION_GATES: Record<string, string> = {
     "Checks avatars and frames independently before passing src to AvatarImage.",
   "src/lib/attachment-tags.ts":
     "Draws the attachments a text places inline only when HtmlContent found postImages allowed (liteImages); a blocked picture becomes the placeholder and its address is never written, and blocked video or audio is a plain row with no player.",
+  "src/components/forum/image-view.tsx":
+    "Draws a picture in the member's own editor: a stored one only when the forum_lite cookie leaves postImages allowed (otherwise a labelled box and no address), and one still uploading from the member's own file read locally as a data: address, which fetches nothing.",
   "src/components/forum/attachment-player.tsx":
     "Checks postImages before drawing a video or audio player; when blocked it draws nothing and the caller lists the file as a plain row.",
   "src/components/layout/site-icon.tsx":

@@ -130,3 +130,31 @@ test("a list that does not allow files leaves the offer alone, and one that is g
   expect(offerFiles(form, [file("a.png")])).toBe(false);
   expect(taken).toEqual([]);
 });
+
+test("a picture the editor holds a place for ends that place, stored or refused, and is not put in again", async () => {
+  const settled: [string, number | undefined][] = [];
+  const placed: number[] = [];
+  const held = new Map<File, string>();
+  const intake = createIntake<Stored>({
+    send: async (sent) =>
+      sent.name === "refused.png" ? undefined : { id: 8, type: "image/png" },
+    place: (stored) => placed.push(stored.id),
+    settle: (sent, stored) => {
+      const key = held.get(sent);
+      if (key === undefined) return false;
+      settled.push([key, stored?.id]);
+      return true;
+    },
+    clearError: () => {},
+  });
+  const shown = file("shown.png", "image/png");
+  const refused = file("refused.png", "image/png");
+  held.set(shown, "k1");
+  held.set(refused, "k2");
+  await intake([shown, refused, file("other.png", "image/png")], true);
+  expect(settled).toEqual([
+    ["k1", 8],
+    ["k2", undefined],
+  ]);
+  expect(placed).toEqual([8]);
+});

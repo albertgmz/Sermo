@@ -23,6 +23,15 @@ test("the tags are the ones the renderer reads", () => {
   expect(attachTag(7, "full")).toBe("[ATTACH=full]7[/ATTACH]");
 });
 
+test("an attachment's tags come out of the text in XenForo's form too", () => {
+  expect(
+    withoutAttachTag(
+      'a [ATTACH type="full" width="300px" alt="Mapa de Cuba"]4[/ATTACH] b [attach width="50%"] 4 [/attach] c [ATTACH]5[/ATTACH]',
+      4,
+    ),
+  ).toBe("a  b  c [ATTACH]5[/ATTACH]");
+});
+
 test("a request reaches the box of its own composer only", () => {
   const mine = composer();
   const other = composer();

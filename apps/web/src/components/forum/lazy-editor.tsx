@@ -103,7 +103,7 @@ export function LazyEditor({
         // Files are the editor's to take: it is asked for, and gets them when it is there.
         queue.current.push(request);
         load();
-      } else if (!box) queue.current.push(request);
+      } else if (!box || "uploaded" in request) queue.current.push(request);
       else if ("insert" in request) {
         insertAtCaret(box, request.insert, asked.current);
         changed.current?.(box.value);

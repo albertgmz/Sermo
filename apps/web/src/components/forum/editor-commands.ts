@@ -38,6 +38,7 @@ import {
   type TextNode,
 } from "lexical";
 import { withoutAttachTag } from "@/components/forum/composer-insert";
+import { $allImages } from "@/components/forum/image-node";
 
 export type BlockKind =
   | "paragraph"
@@ -137,8 +138,9 @@ export function $wrapSelection(open: string, close: string) {
   at(start).insertText(open);
 }
 
-// Takes the tags that place attachment `id` out of the text.
+// Takes the tags that place attachment `id` out of the text, and its pictures.
 export function $removeAttachTags(id: number) {
+  for (const image of $allImages()) if (image.getId() === id) image.remove();
   for (const node of $getRoot().getAllTextNodes()) {
     // Code shows a tag as text and is not a place for an attachment: it stays as written.
     if ($isCodeNode(node.getTopLevelElement()) || node.hasFormat("code"))

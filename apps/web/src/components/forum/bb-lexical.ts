@@ -47,12 +47,14 @@ import {
   isLinkAddress,
   richCode,
 } from "@/components/forum/bb-scan";
+import { $createImageNode, ImageNode } from "@/components/forum/image-node";
 
 // The editor holds BB code as rich text and writes it back. `bb-parse.ts` says what is shown as
 // formatting; this file builds the editor's nodes from that and writes the nodes as BB code.
 // Whatever is not formatting is text in the editor and is written exactly as it is.
 
-export const BB_NODES = [
+// The nodes that are or hold text, and with them the attached pictures.
+export const TEXT_NODES = [
   HeadingNode,
   QuoteNode,
   ListNode,
@@ -61,12 +63,14 @@ export const BB_NODES = [
   CodeNode,
   CodeHighlightNode,
 ];
+export const BB_NODES = [...TEXT_NODES, ImageNode];
 
 // ---- BB code to nodes ----
 
 function inlineNodes(items: Inline[]): LexicalNode[] {
   return items.map((item) => {
     if (item.t === "br") return $createLineBreakNode();
+    if (item.t === "image") return $createImageNode(item);
     if (item.t === "link") {
       return $createLinkNode(item.url).append(...inlineNodes(item.kids));
     }

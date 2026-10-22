@@ -9,30 +9,39 @@ const EVENT = "sermo:composer-request";
 // `background`: the text is not the member's doing at this moment (a picture that finished
 // uploading), so the editor does not take the focus for it. `drop`: files dropped on the composer
 // outside the editor's own text, for the editor to take as it takes those pasted or dropped on it
-// (`pasted`: they came off the clipboard).
+// (`pasted`: they came off the clipboard). `uploaded`: the upload of a picture the editor shows
+// while it goes up ended, with the id it was stored under or none when it was refused.
 export type ComposerRequest =
   | { insert: string; background?: boolean }
   | { remove: number }
-  | { drop: File[]; pasted?: boolean };
+  | { drop: File[]; pasted?: boolean }
+  | { uploaded: string; id?: number };
+
+// A picture the editor shows at once, while it uploads, carries the key of its place there to the
+// attachment list, which says by that key how the upload ended.
+const places = new WeakMap<File, string>();
+export const placeFile = (file: File, key: string) => places.set(file, key);
+export const placedKey = (file: File) => places.get(file);
 
 export const attachTag = (id: number, size: "thumb" | "full") =>
   size === "full" ? `[ATTACH=full]${id}[/ATTACH]` : `[ATTACH]${id}[/ATTACH]`;
 
-// The text without the tags that place attachment `id`, in every form the renderer reads: either
-// size (`full`, `thumb`, quoted or not), any case, and space around the option and the id.
+// An attachment's opening tag in every form the renderer reads: either size (`full`, `thumb`,
+// quoted or not), any case, space around the option, or XenForo's attributes (`type`, `width`,
+// `alt`...).
+const ATTACH_OPEN = String.raw`\[ATTACH(?:=(?:"\s*(?:full|thumb)\s*"|\s*(?:full|thumb)\s*)|(?: {1,10}[A-Za-z]{1,10}="[^"\n\]\[]{0,200}"){1,8})?\]`;
+
+// The text without the tags that place attachment `id`, with space around the id too.
 export const withoutAttachTag = (text: string, id: number) =>
   text.replace(
-    new RegExp(
-      String.raw`\[ATTACH(?:=(?:"\s*(?:full|thumb)\s*"|\s*(?:full|thumb)\s*))?\]\s*${id}\s*\[/ATTACH\]`,
-      "gi",
-    ),
+    new RegExp(String.raw`${ATTACH_OPEN}\s*${id}\s*\[/ATTACH\]`, "gi"),
     "",
   );
 
 // The text without any attachment tag.
 export const withoutAttachTags = (text: string) =>
   text.replace(
-    /\[ATTACH(?:=(?:"\s*(?:full|thumb)\s*"|\s*(?:full|thumb)\s*))?\]\s*\d+\s*\[\/ATTACH\]/gi,
+    new RegExp(String.raw`${ATTACH_OPEN}\s*\d+\s*\[/ATTACH\]`, "gi"),
     "",
   );
 
