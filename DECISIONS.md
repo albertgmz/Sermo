@@ -5870,7 +5870,7 @@ would make moderation import conversations).
 ### Wall posts and their comments are drawn as on fcuba's XenForo
 
 - Under a wall post, one bordered block of rows in XenForo's order: who reacted, "Ver comentarios
-  previos…", the comments oldest first, and the composer with the viewer's small avatar. A comment is
+  previos…", the comments oldest first, and the composer (with the viewer's small avatar from md up). A comment is
   a 24 px avatar, the bold name, the text and one footer: date, Report and the "•••" menu on the
   left, react on the right. On a phone the post's avatar sits small in its header line, so the block
   spans the full width.
