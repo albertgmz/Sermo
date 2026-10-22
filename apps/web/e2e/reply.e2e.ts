@@ -58,7 +58,7 @@ test("the reply editor's toolbar fits a phone without scrolling and its strips w
   ).toBe(true);
 
   // XenForo's sizes at every width: 30 x 32 px buttons and a 24 px "⋮", each in view inside the
-  // bar; the common commands are always buttons.
+  // bar; Bold, Italic, Link and Undo are always buttons.
   const buttons = toolbar.getByRole("button");
   const count = await buttons.count();
   for (let index = 0; index < count; index += 1) {
@@ -71,11 +71,15 @@ test("the reply editor's toolbar fits a phone without scrolling and its strips w
     expect(button.x).toBeGreaterThanOrEqual(frame.x);
     expect(button.x + button.width).toBeLessThanOrEqual(frame.x + frame.width);
   }
-  for (const command of ["Bold", "Italic", "Link", "Image", "Undo"]) {
+  for (const command of ["Bold", "Italic", "Link", "Undo"]) {
     await expect(
       toolbar.getByRole("button", { name: command, exact: true }),
     ).toBeVisible();
   }
+  // Image is a button too, except at the narrowest size, where it waits behind the insert "⋮"
+  // (DECISIONS "The editor has XenForo's look and default sizes").
+  await expect(await reveal(toolbar, "Image")).toBeVisible();
+  await page.keyboard.press("Escape");
 
   // Bold wraps the typed word, and the editor keeps the focus and the selection.
   const editor = replyBox(page);
@@ -202,9 +206,10 @@ test("where a composer takes no files, Image asks for a picture's address and pu
   await expect(box).toBeFocused();
   const form = page.locator("form").filter({ has: box });
   await editorReady(form);
-  const image = form
-    .getByRole("toolbar", { name: "Formatting" })
-    .getByRole("button", { name: "Image", exact: true });
+  const image = await reveal(
+    form.getByRole("toolbar", { name: "Formatting" }),
+    "Image",
+  );
 
   page.once("dialog", (question) => question.accept("javascript:alert(1)"));
   await image.click();
@@ -213,7 +218,9 @@ test("where a composer takes no files, Image asks for a picture's address and pu
   ).toBeVisible();
 
   page.once("dialog", (question) => question.accept("https://x.test/a.png"));
-  await image.click();
+  await (
+    await reveal(form.getByRole("toolbar", { name: "Formatting" }), "Image")
+  ).click();
   await expect(box).toContainText("[IMG]https://x.test/a.png[/IMG]");
   await expect(
     form.getByText("That is not the address of a picture on the web."),
