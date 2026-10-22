@@ -86,7 +86,7 @@ function draw(
   );
   const menu = menus[0];
   const held = menu
-    ? [menu.edit && "Edit", menu.onDelete && "Delete"].filter(Boolean)
+    ? [menu.onEdit && "Edit", menu.onDelete && "Delete"].filter(Boolean)
     : [];
   return `${html}${held.map((label) => ` aria-label="${label}"`).join("")}`;
 }
@@ -147,8 +147,8 @@ test("a comment's footer: its date, report and the menu on the left, react on th
   );
   expect(at('aria-label="More options"')).toBeLessThan(at("ml-auto"));
   expect(at("ml-auto")).toBeLessThan(at("lucide-heart"));
-  // The word, also on a phone, as XenForo's "Denunciar".
-  expect(html).toContain('<span class="inline">Report</span>');
+  // With the menu beside it report keeps to its icon on a phone, so the footer stays one line.
+  expect(html).toContain('<span class="hidden sm:inline">Report</span>');
   // No rule above the bar.
   expect(html).not.toContain("border-dashed");
 });
@@ -169,9 +169,10 @@ test("the share link names the item: the post, or the comment on it", () => {
   expect(shares[0]?.href).toContain("comment=12");
 });
 
-test("a member who may only report and share gets no menu", () => {
+test("a member who may only report and share gets no menu, and report's word on a phone", () => {
   const html = draw("comment", {}, 5);
   expect(has(html, "Report")).toBe(true);
   expect(has(html, "Share")).toBe(true);
   expect(html).not.toContain("More options");
+  expect(html).toContain('<span class="inline">Report</span>');
 });

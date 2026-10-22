@@ -536,7 +536,7 @@ test("avatar and frame gates are independent and preserve the outer box at every
     },
     frame,
   };
-  for (const size of ["xs", "sm", "md", "lg", "xl", "2xl"] as const) {
+  for (const size of ["xs", "sm", "md", "lg", "xl", "2xl", "sm-lg"] as const) {
     cookie = undefined;
     const visible = renderToStaticMarkup(
       await UserAvatar({ user, size, link: false }),
@@ -551,6 +551,16 @@ test("avatar and frame gates are independent and preserve the outer box at every
       await UserAvatar({ user, size, link: false }),
     );
     noArtwork(hidden);
+    // The placeholder's word shows only where the box has room for it: never at 20 or 24 px, from
+    // md up for the avatar that is 24 px on a phone and 40 px there.
+    const label = /<span class="([^"]*)">Data saver<\/span>/i.exec(hidden);
+    expect(label?.[1], size).toBe(
+      size === "xs" || size === "sm"
+        ? "sr-only"
+        : size === "sm-lg"
+          ? "max-md:sr-only"
+          : "",
+    );
     const sizeClasses = rootClasses(visible).filter((value) =>
       /^(?:size-|shrink-|relative$)/.test(value),
     );

@@ -68,7 +68,13 @@ export async function UserAvatar({
       {hideAvatar ? (
         <span className="size-full" style={inner}>
           <LitePlaceholder
-            compact={size === "xs" || size === "sm"}
+            compact={
+              size === "xs" || size === "sm"
+                ? true
+                : size === "sm-lg"
+                  ? "below-md"
+                  : false
+            }
             className="size-full rounded-full"
           />
         </span>

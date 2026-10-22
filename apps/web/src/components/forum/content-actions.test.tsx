@@ -143,6 +143,7 @@ test("the split bar leaves share and bookmark to the post's header row", () => {
 test("the wall bar: the date, report, the menu and moderation on the left, react and the rest on the right, the summary under it", () => {
   const html = draw({
     ...full,
+    edit: { panel: <i data-mark="form" /> },
     quote: undefined,
     reply: undefined,
     start: <i data-mark="start" />,
@@ -160,13 +161,18 @@ test("the wall bar: the date, report, the menu and moderation on the left, react
   expect(at('data-mark="moderation"')).toBeLessThan(at('data-mark="react"'));
   expect(at('data-mark="react"')).toBeLessThan(at('data-mark="start"'));
   expect(at('data-mark="start"')).toBeLessThan(at('data-mark="summary"'));
-  // Report keeps its word on a phone, as XenForo's "Denunciar"; no rule above the bar.
-  expect(html).toContain('<span class="inline">Report</span>');
+  // With the menu and moderator tools beside it report keeps to its icon on a phone, so the bar
+  // stays one line; no rule above the bar.
+  expect(html).toContain('<span class="hidden sm:inline">Report</span>');
   expect(html).not.toContain("border-t");
 });
 
 test("the wall bar folds edit and delete into its menu and keeps share as an icon beside report", () => {
-  const html = draw({ ...full, layout: "wall" });
+  const html = draw({
+    ...full,
+    edit: { panel: <i data-mark="form" /> },
+    layout: "wall",
+  });
   for (const label of ["Edit", "Delete"]) {
     expect(html).not.toContain(`aria-label="${label}"`);
   }
@@ -178,11 +184,12 @@ test("the wall bar folds edit and delete into its menu and keeps share as an ico
   // An icon: no word beside it.
   expect(html).not.toContain(">Share</span>");
   expect(menus).toHaveLength(1);
-  expect(menus[0]?.edit).toBe("/threads/3/edit/1");
+  expect(typeof menus[0]?.onEdit).toBe("function");
   expect(typeof menus[0]?.onDelete).toBe("function");
-  // An edit panel is opened from the menu.
-  draw({ edit: { panel: <i data-mark="form" /> }, layout: "wall" });
-  expect(typeof menus[0]?.edit).toBe("function");
+  // An edit page is a link beside the menu, not in it.
+  const page = draw({ edit: { href: "/edit/1" }, layout: "wall" });
+  expect(page).toContain('href="/edit/1"');
+  expect(menus).toHaveLength(0);
 });
 
 test("the wall bar has no menu when it would hold nothing: a member who may only report and share sees both at once", () => {
@@ -190,6 +197,8 @@ test("the wall bar has no menu when it would hold nothing: a member who may only
   expect(html).not.toContain("More options");
   expect(html).toContain('aria-label="Report"');
   expect(html).toContain('aria-label="Share"');
+  // Report's word shows on a phone too, as XenForo's "Denunciar".
+  expect(html).toContain('<span class="inline">Report</span>');
 });
 
 test("the default bar keeps the plain Quote word", () => {

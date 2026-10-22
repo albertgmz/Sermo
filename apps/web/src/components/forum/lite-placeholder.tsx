@@ -6,7 +6,9 @@ export function LitePlaceholder({
   compact = false,
 }: {
   className?: string;
-  compact?: boolean;
+  // Too small for the word, which only screen readers then get; `below-md` for a box that is small
+  // on a phone only (an avatar of 24 px growing to 40 px).
+  compact?: boolean | "below-md";
 }) {
   const t = useTranslations("lite.litePlaceholder");
   return (
@@ -19,7 +21,13 @@ export function LitePlaceholder({
         className,
       )}
     >
-      <span className={compact ? "sr-only" : ""}>{t("label")}</span>
+      <span
+        className={
+          compact === "below-md" ? "max-md:sr-only" : compact ? "sr-only" : ""
+        }
+      >
+        {t("label")}
+      </span>
     </span>
   );
 }

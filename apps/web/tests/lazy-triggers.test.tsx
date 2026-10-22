@@ -229,7 +229,7 @@ const cases: [string, () => React.ReactNode, boolean][] = [
   ],
   [
     "the more options button of a wall post or comment",
-    () => <ContentMenu className="x" edit="/a" onDelete={() => {}} />,
+    () => <ContentMenu className="x" onEdit={() => {}} onDelete={() => {}} />,
     true,
   ],
   [

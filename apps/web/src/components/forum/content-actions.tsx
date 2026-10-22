@@ -57,9 +57,10 @@ function PanelButton({
 }
 
 // The footer of every item that can be answered or acted on (a post, a message, a wall post or a
-// comment), the same on each. A soft rule parts it from the body. Above the bar: the summary of
-// who reacted. In the bar: what the viewer does with the item on the left (react, quote, reply)
-// and what they do to it on the right (share, edit, delete, report, then moderator tools). Every
+// comment). In the default layout a soft rule parts it from the body; above the bar is the summary
+// of who reacted; in the bar, what the viewer does with the item is on the left (react, quote,
+// reply) and what they do to it on the right (share, edit, delete, report, then moderator tools).
+// `layout` (below) gives a thread post and a wall item XenForo's arrangement instead. Every
 // control is optional and draws only when given; the backend decides which the viewer gets.
 // Below buttons are icons with a label from `sm` up, 40 px wide so the bar fits a phone.
 //
@@ -84,9 +85,10 @@ function PanelButton({
 //               left (an ordinary member's bar), the words show on a phone too: they fit 360 px
 //               on one line; with edit, delete or moderator tools the bar keeps to icons there.
 //               `wall` is a wall post's or comment's footer as XenForo draws it: laid out as
-//               `split`: report (its word shown on a phone too), share as an icon and a "•••"
-//               menu that holds edit and delete (choosing one opens its panel), then the
-//               moderator tools; on the right, react and `start`.
+//               `split`: report (its word on a phone too, as `split` decides), share as an
+//               icon and a "•••" menu that holds edit and delete (choosing one opens its
+//               panel; an edit page is a link beside it instead), then the moderator tools; on
+//               the right, react and `start`.
 export function ContentActions({
   summary,
   react,
@@ -148,12 +150,20 @@ export function ContentActions({
 
   const wall = layout === "wall";
   const split = layout === "split" || wall;
-  // In the wall bar edit and delete are in the menu: report is alone there but for the rare
-  // moderator tool, which keeps its own label.
+  // An ordinary member's bar shows report's word on a phone too; with edit, delete (the wall's
+  // "•••") or moderator tools beside it, the bar keeps to icons there, so it stays one line.
   const labelClass =
-    wall || (split && !edit && !remove && !moderation)
-      ? "inline"
-      : actionLabelClass;
+    split && !edit && !remove && !moderation ? "inline" : actionLabelClass;
+  const editLink = edit && "href" in edit && (
+    <Link
+      href={edit.href}
+      aria-label={t("edit")}
+      className={messageActionClass}
+    >
+      <Pencil />
+      <span className={actionLabelClass}>{t("edit")}</span>
+    </Link>
+  );
   const answers = (
     <>
       {react}
@@ -193,9 +203,10 @@ export function ContentActions({
     <>
       {reportButton}
       {share && <ShareButton href={share} className={messageActionClass} />}
+      {editLink}
       <ContentMenu
         className={messageActionClass}
-        edit={edit && ("href" in edit ? edit.href : () => setOpen("edit"))}
+        onEdit={edit && "panel" in edit ? () => setOpen("edit") : undefined}
         onDelete={remove && (() => setOpen("delete"))}
       />
       {moderation}
@@ -217,16 +228,7 @@ export function ContentActions({
         </>
       )}
       {edit &&
-        ("href" in edit ? (
-          <Link
-            href={edit.href}
-            aria-label={t("edit")}
-            className={messageActionClass}
-          >
-            <Pencil />
-            <span className={actionLabelClass}>{t("edit")}</span>
-          </Link>
-        ) : (
+        (editLink || (
           <PanelButton
             icon={<Pencil />}
             label={t("edit")}

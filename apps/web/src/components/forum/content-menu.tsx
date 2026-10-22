@@ -12,7 +12,7 @@ const loadPopup = () => import("@/components/forum/content-menu-popup");
 // fetched when the button is first reached for. Draws nothing when there is nothing to hold.
 export function ContentMenu(popup: ContentMenuPopupProps) {
   const t = useTranslations("forum.contentActions");
-  if (!popup.edit && !popup.onDelete) return null;
+  if (!popup.onEdit && !popup.onDelete) return null;
   return (
     <LazyPopup
       load={loadPopup}
