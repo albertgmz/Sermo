@@ -33,7 +33,7 @@ export function PostNote({
 
 // The frame of a post in a thread or a message in a conversation: the author on the left (above
 // the text on a phone), then the header row (the time, `trailing` at its right, a dashed rule
-// under it, as XenForo's message attribution), the content, the signature and the actions. What
+// under it, as XenForo's message attribution), the content, the signature and the actions (pushed to the bottom of the cell). What
 // differs is passed in.
 export function PostFrame({
   id,
@@ -83,7 +83,7 @@ export function PostFrame({
         className="max-md:mb-2 md:border-r md:pr-4"
       />
 
-      <div className="min-w-0">
+      <div className="flex min-w-0 flex-col">
         {/* The rule spans the column exactly; only the row inside reaches into the padding on a
             phone, so the 40 px controls at its right line up with the card's edge. */}
         <div className="mb-2 border-b border-dashed pb-0.5 md:mb-3 md:pb-1.5">
@@ -110,7 +110,9 @@ export function PostFrame({
           </SignatureHtml>
         )}
 
-        {actions}
+        {/* As XenForo's message footer: at the bottom of the cell, level with the bottom of the
+            author column, however short the text. */}
+        <div className="mt-auto">{actions}</div>
       </div>
     </article>
   );

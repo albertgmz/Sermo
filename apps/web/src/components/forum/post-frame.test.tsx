@@ -229,3 +229,14 @@ test("the postbit has no actions: Follow and Message are in the member card only
   }>;
   expect(bare.props.actions).toBeUndefined();
 });
+
+test("the footer is pushed to the bottom of the message cell, level with the author column", () => {
+  const html = JSON.stringify(
+    PostFrame({ ...base, actions: <i data-mark="actions" /> }),
+    (key, value) => (key === "author" ? undefined : value),
+  );
+  expect(html).toContain('"className":"flex min-w-0 flex-col"');
+  expect(html).toMatch(
+    /"className":"mt-auto","children":\{[^}]*"data-mark":"actions"/,
+  );
+});
