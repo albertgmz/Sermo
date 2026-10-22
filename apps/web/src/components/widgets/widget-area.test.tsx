@@ -134,6 +134,7 @@ const forum = (id: number, title: string) => ({
     countsPosts: true,
     minAccountAgeDays: 0,
     minPostCount: 0,
+    requirePrefix: false,
   },
 });
 
