@@ -1,4 +1,4 @@
-import { copyFileSync, rmSync, statSync } from "node:fs";
+import { closeSync, copyFileSync, openSync, readSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import {
@@ -155,6 +155,19 @@ type ScaleWork = {
 };
 
 /**
+ * Reads the copy once so the OS page cache holds it, as `bench/run.ts` does for its own copy: a
+ * server that has been running has its database in memory, and a fresh copy (a new file to the
+ * file system, even when it shares the seed's blocks) is read from disk on first use, so a run
+ * over every member would otherwise measure disk reads of pages nothing has touched yet.
+ */
+function warmFileCache(path: string): void {
+  const fd = openSync(path, "r");
+  const buffer = Buffer.allocUnsafe(8 * 1024 * 1024);
+  while (readSync(fd, buffer, 0, buffer.length, null) > 0) {}
+  closeSync(fd);
+}
+
+/**
  * Runs a background job over every member against about a hundred awards as the server does: the
  * job worker polls the queue and events are dispatched every second, on the thread that serves
  * requests. It runs on its own copy of the seed, so the awards, the grants, the events, the
@@ -165,6 +178,7 @@ async function startScale(env: BenchEnv, work: ScaleWork): Promise<void> {
   const path = join(benchDir(), `award-sweep-${process.pid}.db`);
   for (const suffix of ["", "-wal", "-shm"]) rmSync(path + suffix, { force: true });
   copyFileSync(seedPaths().db, path);
+  warmFileCache(path);
   const ctx: Ctx = createContext({ path, config: env.ctx.config });
   const stopCheckpointer = startCheckpointer(ctx);
   const copy = await createEnv(ctx, env.meta, new Rng(42));
@@ -361,7 +375,7 @@ const rebuildWork: ScaleWork = {
     grantAtLiveScale(copy, awardIds);
   },
   start: async (copy) => {
-    await copy.call("awards.rebuild", copy.actors.admin, {});
+    await copy.callInProcess("awards.rebuild", copy.actors.admin, {});
   },
   finished: (copy) =>
     copy.ctx.sqlite

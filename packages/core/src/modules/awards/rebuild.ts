@@ -22,13 +22,28 @@ import { type AwardRow, all, awardSql, one, run } from "./store";
 export const REBUILD_JOB = "awards.rebuild";
 /** The settings row that holds the run's progress and totals. */
 const RECORD_KEY = "awards.rebuild";
-/** Members taken in order per chunk. */
-export const REBUILD_CHUNK = 25;
+/**
+ * Members taken in order per chunk. Each statement that reads their facts covers them all, and
+ * one statement runs on the thread that serves requests without a break: a page of members with
+ * long histories, read for the first time, kept it for a quarter of a second at 25.
+ */
+export const REBUILD_CHUNK = 10;
 /**
  * A chunk's transaction ends with the member that takes its grants and revocations to this many
  * (one member always, whatever they need): each is a dozen statements and two events.
  */
-export const REBUILD_BUDGET = 100;
+export const REBUILD_BUDGET = 30;
+/**
+ * A chunk's transaction also ends with the member it passes this many milliseconds on (one member
+ * always): whatever the members need, it holds the thread and the write lock about this long.
+ */
+export const REBUILD_TIME_MS = 25;
+/**
+ * After a chunk the run rests as long as the chunk took, up to this many milliseconds: it then
+ * has at most half of the thread that serves requests, and writes at most half as fast, so the
+ * checkpoints that copy what it wrote stay short (a commit that overlaps a long one waits).
+ */
+const REBUILD_REST_MS = 50;
 /** Awards listed in the status of a run, the ones most affected first. */
 const LISTED_AWARDS = 20;
 
@@ -111,7 +126,9 @@ export const rebuildSql = {
   xp: "SELECT award_xp, credits FROM users WHERE id = ?1",
   lastGrant: "SELECT COALESCE(MAX(id), 0) AS id FROM member_awards",
   lastEntry: "SELECT COALESCE(MAX(id), 0) AS id FROM credit_transactions",
-  madeSince: "SELECT award_id, COUNT(*) AS n FROM member_awards WHERE id > ?1 GROUP BY award_id",
+  // By the grant id: the award index would be walked once per award and per revocation time.
+  madeSince:
+    "SELECT award_id, COUNT(*) AS n FROM member_awards NOT INDEXED WHERE id > ?1 GROUP BY award_id",
   paidSince:
     "SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END), 0) AS paid, COALESCE(SUM(CASE WHEN amount < 0 THEN -amount END), 0) AS removed FROM credit_transactions WHERE id > ?1",
   record: `SELECT value FROM site_settings WHERE key = '${RECORD_KEY}'`,
@@ -253,7 +270,8 @@ function fail(ctx: Ctx, record: RunRecord, error: string): void {
 type PageResult = { last: number; totals: Totals; byAward: Map<number, Tally> };
 
 /**
- * Rebuilds the members of a page, in order, until the changes they need reach `REBUILD_BUDGET`.
+ * Rebuilds the members of a page, in order, until the changes they need reach `REBUILD_BUDGET`
+ * or the time passes `REBUILD_TIME_MS`.
  * For each: sets XP, award count and the per-award counters to what the held grants add up to
  * (so the figures count every member corrected, and the facts the judging reads are right), takes
  * back the automatic grants they no longer qualify for (as `revoke.ts` does), then grants those
@@ -267,6 +285,7 @@ function rebuildPage(
   seen: ReturnType<typeof activePlans>,
   by: number,
 ): PageResult {
+  const started = ctx.now();
   const plans = confirmed(ctx, seen);
   const rules = plans.map((plan) => plan.rule);
   const step = readSiteSettings(ctx).levelStep;
@@ -299,7 +318,7 @@ function rebuildPage(
   for (const id of ids) {
     const was = stored.get(id);
     if (!was) continue;
-    if (last !== after && work >= REBUILD_BUDGET) break;
+    if (last !== after && (work >= REBUILD_BUDGET || ctx.now() - started >= REBUILD_TIME_MS)) break;
     const memberFacts = facts.get(id);
     const corrected = one<{ award_xp: number; award_count: number }>(
       ctx,
@@ -393,6 +412,7 @@ function pageOf(ctx: Ctx, dryRun: boolean, work: () => PageResult): PageResult {
 export async function rebuildChunk(ctx: Ctx, after: number, job: ClaimedJob): Promise<void> {
   if (!Number.isSafeInteger(after) || after < 0)
     throw new TypeError("Invalid award rebuild progress.");
+  const began = performance.now();
   const ids = all<{ id: number }>(
     ctx,
     "rebuildMembers",
@@ -457,6 +477,8 @@ export async function rebuildChunk(ctx: Ctx, after: number, job: ClaimedJob): Pr
   } finally {
     release();
   }
+  const rest = Math.min(REBUILD_REST_MS, performance.now() - began);
+  await new Promise((resolve) => setTimeout(resolve, rest));
 }
 
 export function registerRebuildJobs(ctx: Ctx): void {

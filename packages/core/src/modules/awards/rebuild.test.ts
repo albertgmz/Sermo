@@ -11,7 +11,7 @@ import { levelFor } from "../../shared/levels";
 import { runDueJobs } from "../jobs/queue";
 import { evaluateMember } from "./automatic";
 import { registerAwardJobs } from "./index";
-import { REBUILD_BUDGET, REBUILD_CHUNK, REBUILD_JOB } from "./rebuild";
+import { REBUILD_BUDGET, REBUILD_CHUNK, REBUILD_JOB, REBUILD_TIME_MS } from "./rebuild";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
 afterEach(() => {
@@ -278,6 +278,32 @@ describe("rebuilding levels and awards", () => {
       granted: total * awards,
     });
     for (const id of late) expect(user(id)).toMatchObject({ award_xp: awards });
+  });
+
+  test("a chunk ends with the member it passes its time on, and the next one carries on", async () => {
+    const { ctx, call, posts, drain, events, user } = setup();
+    await call("create", { name: "Posts", tier: "bronze", xp: 1, credits: 0, rule: postRule });
+    const members: number[] = [];
+    for (let i = 0; i < 3; i++) members.push(insertUser(ctx).id);
+    posts(members, 1);
+    await call("rebuild");
+    // Every reading of the clock is a member's worth of time and more.
+    const read = ctx.now;
+    let at = read();
+    ctx.now = () => (at += REBUILD_TIME_MS + 1);
+    expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
+    // Well within the page and the change budget, but over the time.
+    expect(members.length).toBeLessThan(REBUILD_CHUNK);
+    expect(members.length).toBeLessThan(REBUILD_BUDGET);
+    expect(await call("rebuildStatus")).toMatchObject({ state: "running", members: 1 });
+    // The clock as it was, at the time the chunk ended (its successor is due then).
+    ctx.now = read;
+    ctx.clock.advance(at - read());
+
+    await drain();
+    await events();
+    expect(await call("rebuildStatus")).toMatchObject({ state: "done", granted: 3 });
+    for (const id of members) expect(user(id)).toMatchObject({ award_xp: 1, award_count: 1 });
   });
 
   test("the award counters are set to what the grants held add up to", async () => {
