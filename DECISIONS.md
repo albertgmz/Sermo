@@ -5928,3 +5928,20 @@ content on phones); the web drawing comes next (B3).
 Why: the award sweep stalled request writes for up to 0.8 s and the categories-and-unread feed bench
 ran near its 20 ms budget.
 Known limits: the importer change for `xf_user.visible` lives in the separate importer repository.
+
+### Thread prefixes per forum
+
+- Table `forum_prefixes` and `nodes.require_prefix` (migration 0067). Each forum offers a set of
+  the global prefixes and may require one (only while it offers at least one active prefix).
+  `threads.create`, `threads.update` and the batch prefix tool refuse a prefix the forum does not
+  offer; a thread keeps a prefix its forum stopped offering; moving a thread to a forum that does
+  not offer its prefix drops it (XenForo's `Thread::_preSave` does the same).
+- The migration offers every prefix in every forum, so nothing changes at deploy; a new prefix is
+  offered everywhere unless the admin unticks "offer in all forums", and a new forum offers every
+  active prefix. The forum edit page has the checklist and the "require a prefix" switch; the
+  composer, new-thread page and edit form show only the forum's prefixes (Post waits while they
+  load); the forum filter keeps prefixes that threads still carry.
+
+Why: backlog E2 (per-forum prefixes were a known gap); XenForo defines prefixes globally and lets
+each forum pick.
+Known limits: no per-prefix group restriction and no forum default prefix.
