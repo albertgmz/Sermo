@@ -170,6 +170,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["GET", "/media", "media.list"],
   ["GET", "/site/home-tab", "site.homeTab"],
   ["GET", "/site/stats", "site.stats"],
+  ["GET", "/smilies", "smilies.list"],
   ["GET", "/thread-rankings", "threads.ranked"],
   ["GET", "/featured-threads", "threads.featured"],
   ["GET", "/users/{userId}/threads", "threads.byAuthor"],

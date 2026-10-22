@@ -39,6 +39,7 @@ const LABELS: Record<CommandId, string> = {
   quote: text.quoteLabel,
   link: text.linkLabel,
   image: text.imageLabel,
+  emoji: text.emojiPickerLabel,
   spoiler: text.spoilerLabel,
   codeBlock: text.codeBlockLabel,
   media: text.mediaLabel,
@@ -149,7 +150,7 @@ test("each size has XenForo's groups, with its buttons and what each strip holds
     {
       id: "insert",
       direct: ["link", "image"],
-      more: ["media", "quote", "spoiler", "codeBlock"],
+      more: ["emoji", "media", "quote", "spoiler", "codeBlock"],
     },
     {
       id: "misc",
@@ -166,7 +167,7 @@ test("each size has XenForo's groups, with its buttons and what each strip holds
     { id: "paragraph", direct: ["bullet"], more: ["number", "heading"] },
     {
       id: "insert",
-      direct: ["link", "image", "media"],
+      direct: ["link", "image", "emoji", "media"],
       more: ["quote", "spoiler", "codeBlock"],
     },
     {
@@ -184,7 +185,7 @@ test("each size has XenForo's groups, with its buttons and what each strip holds
     { id: "paragraph", direct: ["bullet", "number", "heading"], more: [] },
     {
       id: "insert",
-      direct: ["link", "image", "media"],
+      direct: ["link", "image", "emoji", "media"],
       more: ["quote", "spoiler", "codeBlock"],
     },
     {
@@ -208,7 +209,15 @@ test("each size has XenForo's groups, with its buttons and what each strip holds
     { id: "paragraph", direct: ["bullet", "number", "heading"], more: [] },
     {
       id: "insert",
-      direct: ["link", "image", "media", "quote", "spoiler", "codeBlock"],
+      direct: [
+        "link",
+        "image",
+        "emoji",
+        "media",
+        "quote",
+        "spoiler",
+        "codeBlock",
+      ],
       more: [],
     },
     { id: "misc", direct: ["undo", "redo", "source"], more: [] },

@@ -21,8 +21,11 @@ import {
   findEmoji,
   fold,
 } from "@/components/forum/emoji-find";
+import { listSmilies } from "@/components/forum/smilie-action";
+import { knownSmilies, loadSmilies } from "@/components/forum/smilie-store";
 import { registerSuggestionKeys } from "@/components/forum/suggestion-keys";
 import { Matched, SuggestionList } from "@/components/forum/suggestion-list";
+import type { Smilie } from "@/lib/smilies";
 
 // XenForo asks from the second character on.
 const MIN_LENGTH = 2;
@@ -40,11 +43,15 @@ export function $replaceTyped(length: number, text: string, spaced: boolean) {
   node.spliceText(offset - length, length, `${text}${space}`, true);
 }
 
-// A whole shortcode just closed with its ":" (":thinking:") becomes its emoji.
-export function $convertClosed() {
+// A whole shortcode just closed with its ":" (":thinking:") becomes its emoji, unless it is the code
+// of one of the site's smilies (":cool:"), which stays for the smilie.
+export function $convertClosed(smilies: Smilie[]) {
   const typed = $emojiTyped();
-  const emoji = typed?.closed && emojiOfCode(typed.query);
-  if (typed && emoji) $replaceTyped(typed.length, emoji, false);
+  if (!typed?.closed) return;
+  const code = `:${typed.query}:`;
+  if (smilies.some((smilie) => smilie.codes.includes(code))) return;
+  const emoji = emojiOfCode(typed.query);
+  if (emoji) $replaceTyped(typed.length, emoji, false);
 }
 
 // Tells `onTyped` what shortcode is being typed before the caret after each change (null for none,
@@ -52,15 +59,17 @@ export function $convertClosed() {
 // back (Undo after the change gives the shortcode back, and it stays), nor in the middle of a
 // composition, which a phone's keyboard is still writing (it is turned when the composition ends).
 // What is in the text when it starts (typed while the list was on its way) is read at once.
+// `smilies` gives the site's smilies known so far.
 export function registerEmojiTyping(
   editor: LexicalEditor,
   onTyped: (typed: EmojiTyped | null) => void,
+  smilies: () => Smilie[] = () => [],
 ) {
   const read = (state: EditorState, tags: Set<string>, away = false) => {
     const now = state.read($emojiTyped);
     onTyped(now?.closed || away ? null : now);
     if (now?.closed && !tags.has(HISTORIC_TAG) && !editor.isComposing()) {
-      editor.update($convertClosed);
+      editor.update(() => $convertClosed(smilies()));
     }
   };
   const unregister = editor.registerUpdateListener(({ editorState, tags }) =>
@@ -81,14 +90,18 @@ function pick(
   typed: { length: number } | undefined,
   hit: EmojiHit,
 ) {
-  if (typed) editor.update(() => $replaceTyped(typed.length, hit.emoji, true));
+  if (typed)
+    editor.update(() =>
+      $replaceTyped(typed.length, hit.smilie ? hit.code : hit.emoji, true),
+    );
 }
 
 // The emoji list of the editor's composers (`EmojiPlugin` loads it when a shortcode is first
 // typed): ":" and two characters offer the emoji with a shortcode or a word of one that starts with
 // them, three or more also those whose shortcode, name or keywords hold them, in English and
-// Spanish (`findEmoji`); the arrow keys move, Enter or Tab picks, Escape closes it until something else is typed, and a
-// press picks too. The picked emoji takes the place of the ":" and what follows.
+// Spanish (`findEmoji`), and the site's smilies with them; the arrow keys move, Enter or Tab
+// picks, Escape closes it until something else is typed, and a press picks too. The picked emoji
+// (or a smilie's code) takes the place of the ":" and what follows.
 export default function EmojiSuggest() {
   const t = useTranslations("editor.editor");
   const locale = useLocale();
@@ -97,23 +110,32 @@ export default function EmojiSuggest() {
   const [active, setActive] = useState(0);
   // The query Escape closed the list on: it stays closed until the query changes.
   const [closedOn, setClosedOn] = useState<string>();
+  const [smilies, setSmilies] = useState(knownSmilies);
   const query = typed?.query ?? "";
   const hits =
     typed && query.length >= MIN_LENGTH && query !== closedOn
-      ? findEmoji(query, locale)
+      ? findEmoji(query, locale, undefined, smilies)
       : [];
   const latest = useRef({ hits, active, typed });
   latest.current = { hits, active, typed };
 
+  useEffect(() => {
+    loadSmilies(listSmilies).then(setSmilies);
+  }, []);
+
   useEffect(
     () =>
       mergeRegister(
-        registerEmojiTyping(editor, (now) => {
-          setTyped(now ?? undefined);
-          setActive(0);
-          // Escape closes the list on one shortcode, not on the next one that is the same.
-          if (!now) setClosedOn(undefined);
-        }),
+        registerEmojiTyping(
+          editor,
+          (now) => {
+            setTyped(now ?? undefined);
+            setActive(0);
+            // Escape closes the list on one shortcode, not on the next one that is the same.
+            if (!now) setClosedOn(undefined);
+          },
+          knownSmilies,
+        ),
         // Gone when the text loses the focus (a press on the list keeps it), as XenForo's is.
         editor.registerCommand(
           BLUR_COMMAND,
@@ -152,7 +174,7 @@ export default function EmojiSuggest() {
       status={hits.length > 0 ? t("emojiFound", { count: hits.length }) : ""}
       options={hits}
       active={active}
-      optionKey={(hit) => hit.emoji}
+      optionKey={(hit) => (hit.smilie ? hit.code : hit.emoji)}
       renderOption={(hit) => (
         <>
           <span
@@ -163,7 +185,13 @@ export default function EmojiSuggest() {
           </span>
           <span className="min-w-0">
             <span className="block truncate">
-              :<Matched text={hit.code} query={fold(query)} />:
+              {hit.smilie ? (
+                <Matched text={hit.code} query={query} />
+              ) : (
+                <>
+                  :<Matched text={hit.code} query={fold(query)} />:
+                </>
+              )}
             </span>
             <span className="block truncate text-xs text-muted-foreground">
               {hit.name}

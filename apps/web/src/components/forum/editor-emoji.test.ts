@@ -116,6 +116,25 @@ test("closing a known shortcode turns it into its emoji, and an unknown one stay
   expect(textOf(editor)).toBe("mira 🤔 y :nada:");
 });
 
+test("closing a code of one of the site's smilies leaves it, for the smilie, not the emoji", async () => {
+  const smilies = [{ id: 6, title: "Cool", codes: [":cool:"], emoji: "😎" }];
+  const editor = editorWith("mira :cool");
+  registerEmojiTyping(
+    editor,
+    () => {},
+    () => smilies,
+  );
+  type(editor, ":");
+  await Promise.resolve();
+  expect(textOf(editor)).toBe("mira :cool:");
+  // Without the smilie, the same code is the emoji's.
+  const plain = editorWith("mira :cool");
+  registerEmojiTyping(plain, () => {});
+  type(plain, ":");
+  await Promise.resolve();
+  expect(textOf(plain)).toBe("mira 🆒");
+});
+
 test("a shortcode Undo puts back is left as it is", async () => {
   const editor = editorWith("mira :thinking");
   registerEmojiTyping(editor, () => {});

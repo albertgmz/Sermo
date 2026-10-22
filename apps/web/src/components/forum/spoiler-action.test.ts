@@ -40,6 +40,11 @@ function backend(response: () => Response) {
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     // The site is asked for too (the cookie policy version), when a player has to be gated.
     if (String(input).includes("/site")) return Response.json(siteBody());
+    // And the smilies, which the spoiler's text is shown with.
+    if (String(input).includes("/smilies"))
+      return Response.json({
+        items: [{ id: 17, title: "Laugh", codes: [":LOL:"], emoji: "😆" }],
+      });
     urls.push(String(input));
     return response();
   }) as unknown as typeof fetch;
@@ -198,4 +203,15 @@ test("a colour typed inside a spoiler is guarded like one in the body", async ()
   const result = await revealSpoiler("post", 5, 0);
   expect(result?.html).toContain('class="bb-color" style="--ink:#fff"');
   expect(result?.html).not.toContain('style="color:');
+});
+
+test("the smilie codes of a spoiler show as the site's smilies, as in the body", async () => {
+  backend(() =>
+    Response.json({ html: "<p>jaja :LOL:</p><p><code>:LOL:</code></p>" }),
+  );
+  const result = await revealSpoiler("post", 5, 1);
+  expect(result?.html).toContain(
+    'jaja <span class="smilie" role="img" aria-label="Laugh" title="Laugh :LOL:">😆</span>',
+  );
+  expect(result?.html).toContain("<code>:LOL:</code>");
 });

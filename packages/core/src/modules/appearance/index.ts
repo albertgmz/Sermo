@@ -25,6 +25,7 @@ import { readSiteSettings } from "../settings";
 import { resolveHomeTab } from "../settings/home-tab";
 import { publicTurnstile } from "../settings/turnstile";
 import { publicPicture } from "../storage/url";
+import { smilieOperations } from "./smilies";
 import {
   CATALOG_LIMIT,
   type CatalogImageKind,
@@ -358,5 +359,6 @@ export const operations = [
     },
   ),
 
+  ...smilieOperations,
   ...wearingOperations,
 ];

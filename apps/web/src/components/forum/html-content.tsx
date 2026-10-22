@@ -14,6 +14,8 @@ import { stripHtmlMedia } from "@/lib/lite-content";
 import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
 import { withMediaPlayers } from "@/lib/media-links";
 import { publicUrl } from "@/lib/sermo/config";
+import { getSmilies } from "@/lib/sermo/smilies";
+import { withSmilies } from "@/lib/smilies";
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 import { cn } from "@/lib/utils";
 
@@ -38,8 +40,8 @@ const elements = cn(
 );
 
 // Renders HTML the backend produced and sanitised. The text is not edited, only its placeholders
-// are filled: LITE mode removes its pictures on the server first, `[color=…]` spans go through the
-// colour guard, spoilers become buttons and `[ATTACH]` tags become the item's files. A mention in
+// are filled: smilie codes become the site's smilies, LITE mode removes its pictures on the server,
+// `[color=…]` spans go through the colour guard, spoilers become buttons and `[ATTACH]` tags become the item's files. A mention in
 // it shows the member's card on hover.
 // The words BB code shows (a code block's header, "said:", "Spoiler") are not in the HTML: they are
 // CSS variables set here in the visitor's language. A body with spoilers needs the `content` it
@@ -51,17 +53,18 @@ export async function HtmlContent(props: {
   content?: SpoilerContent;
   attachments?: TaggedAttachment[];
 }) {
-  const [state, origin, label, t] = await Promise.all([
+  const [state, origin, label, t, smilies] = await Promise.all([
     getLiteState(),
     getLiteOrigin(),
     getLiteLabel(),
     getTranslations("forum.bbCode"),
+    getSmilies(),
   ]);
   let html = withColorGuard(
     withSpoilerButtons(
       await withEmbedGate(
         stripHtmlMedia(
-          withMediaPlayers(props.children, publicUrl()),
+          withMediaPlayers(withSmilies(props.children, smilies), publicUrl()),
           state,
           origin,
           label,

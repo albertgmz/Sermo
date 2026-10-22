@@ -42,6 +42,35 @@
     "linkUnsupported": "Eso no es una dirección web. Usa una que empiece por http:// o https://, o una página de este sitio que empiece por /.",
     "mediaUnsupported": "Esa dirección no es de un sitio que se pueda insertar.",
     "emojiLabel": "Emoji",
-    "emojiFound": "{count, plural, one {# emoji encontrado} other {# emojis encontrados}}"
+    "emojiFound": "{count, plural, one {# emoji encontrado} other {# emojis encontrados}}",
+    "emojiPickerLabel": "Emojis y emoticonos",
+    "emojiSearch": "Buscar",
+    "emojiClose": "Cerrar",
+    "emojiRecent": "Usado recientemente",
+    "emojiSmilies": "Emoticonos",
+    "emojiResults": "Resultados",
+    "emojiNone": "No se encontró ningún emoji.",
+    "emojiTone": "Tono de piel",
+    "emojiCategories": "Categorías",
+    "emojiLoadFailed": "No se pudieron cargar los emojis. Pulsa el botón otra vez para volver a intentarlo.",
+    "emojiTones": {
+      "default": "Predeterminado",
+      "light": "Claro",
+      "mediumLight": "Medio claro",
+      "medium": "Medio",
+      "mediumDark": "Medio oscuro",
+      "dark": "Oscuro"
+    },
+    "emojiGroups": {
+      "smileys-emotion": "Caras y emociones",
+      "people-body": "Personas y cuerpo",
+      "animals-nature": "Animales y naturaleza",
+      "food-drink": "Comida y bebida",
+      "travel-places": "Viajes y lugares",
+      "activities": "Actividades",
+      "objects": "Objetos",
+      "symbols": "Símbolos",
+      "flags": "Banderas"
+    }
   }
 }

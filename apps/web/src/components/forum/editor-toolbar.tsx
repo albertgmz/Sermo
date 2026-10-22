@@ -38,6 +38,7 @@ import {
   ListOrdered,
   type LucideIcon,
   Redo2,
+  Smile,
   SquareCode,
   Strikethrough,
   TextQuote,
@@ -46,6 +47,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
+  type ComponentType,
   useCallback,
   useContext,
   useEffect,
@@ -64,6 +66,7 @@ import {
   $wrapSelection,
   type BlockKind,
 } from "@/components/forum/editor-commands";
+import { loader } from "@/components/forum/editor-emoji";
 import { SourceContext } from "@/components/forum/editor-extras";
 import {
   entryOf,
@@ -132,8 +135,10 @@ type Command = {
   disabled?: boolean;
   // Stays usable while the BB code source is shown (the command that switches to and from it).
   always?: boolean;
-  run: () => void;
+  run: (event: React.MouseEvent) => void;
 };
+
+type PickerProps = { focusSearch: boolean; onClose: () => void };
 
 // XenForo's sizes: 30 x 32 px buttons, the same on a phone and on a desktop, and a "⋮" of 24 px
 // (WCAG's least target; XenForo's is 22). Eight buttons in three boxes fit the 270 px comment
@@ -175,8 +180,8 @@ function ToolbarButton({
       aria-pressed={active}
       aria-disabled={unavailable || undefined}
       onMouseDown={(event) => event.preventDefault()}
-      onClick={() => {
-        if (!unavailable) run();
+      onClick={(event) => {
+        if (!unavailable) run(event);
       }}
       className={cn(BUTTON, className)}
     >
@@ -200,6 +205,23 @@ export function Toolbar() {
   // The button whose address was refused.
   const [refused, setRefused] = useState<"media" | "link" | "image" | null>(
     null,
+  );
+  // The emoji picker: its code, fetched on the first press (no part of the editor's first load),
+  // whether it is open (and was opened from the keyboard, which puts the focus in its search box),
+  // and whether its code could not be fetched (a later press asks again).
+  const [Picker, setPicker] = useState<ComponentType<PickerProps>>();
+  const [picker, setPickerOpen] = useState<"pointer" | "keyboard" | null>(null);
+  const [pickerFailed, setPickerFailed] = useState(false);
+  const [askPicker] = useState(() =>
+    loader(
+      () =>
+        import("@/components/forum/emoji-picker").catch((error) => {
+          setPickerFailed(true);
+          setPickerOpen(null);
+          throw error;
+        }),
+      (loaded) => setPicker(() => loaded.default),
+    ),
   );
   // The group whose strip is open, one at a time, as in XenForo.
   const [open, setOpen] = useState<GroupId | null>(null);
@@ -395,6 +417,20 @@ export function Toolbar() {
       run: toggleLink,
     },
     image: { label: t("imageLabel"), icon: ImageIcon, run: addImage },
+    emoji: {
+      label: t("emojiPickerLabel"),
+      icon: Smile,
+      active: picker !== null,
+      run: (event) => {
+        if (picker) {
+          setPickerOpen(null);
+          return;
+        }
+        setPickerFailed(false);
+        setPickerOpen(fromKeyboard(event) ? "keyboard" : "pointer");
+        askPicker();
+      },
+    },
     spoiler: {
       label: t("spoilerLabel"),
       icon: EyeOff,
@@ -551,6 +587,15 @@ export function Toolbar() {
           ))}
         </div>
       </div>
+      {picker && Picker && !source?.active && (
+        <Picker
+          focusSearch={picker === "keyboard"}
+          onClose={() => setPickerOpen(null)}
+        />
+      )}
+      {pickerFailed && (
+        <FormError className="px-3 py-1.5">{t("emojiLoadFailed")}</FormError>
+      )}
       {refused && (
         <FormError className="px-3 py-1.5">
           {t(

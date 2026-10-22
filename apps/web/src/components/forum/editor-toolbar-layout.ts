@@ -32,6 +32,7 @@ export type CommandId =
   | "quote"
   | "link"
   | "image"
+  | "emoji"
   | "spoiler"
   | "codeBlock"
   | "media"
@@ -123,17 +124,19 @@ export const GROUPS: Group[] = [
   {
     id: "insert",
     shown: "all",
-    // XenForo's insert group reads link, image, emoji, quote, table, line: an emoji button goes
+    // XenForo's insert group reads link, image, emoji, quote, table, line: the emoji picker is
     // right after Image (behind the "⋮" on a phone, which shows link and image only).
     direct: [
       slot("link"),
       slot("image"),
+      slot("emoji", "sm md lg"),
       slot("media", "sm md lg"),
       slot("quote", "lg"),
       slot("spoiler", "lg"),
       slot("codeBlock", "lg"),
     ],
     more: [
+      slot("emoji", "xs"),
       slot("media", "xs"),
       slot("quote", "xs sm md"),
       slot("spoiler", "xs sm md"),

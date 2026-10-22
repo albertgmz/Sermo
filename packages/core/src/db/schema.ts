@@ -1222,6 +1222,19 @@ export const reactionTypes = sqliteTable("reaction_types", {
   hideWhenLocked: bool("hide_when_locked").notNull().default(false),
 });
 
+/**
+ * Smilies, as XenForo's: text codes (`:LOL:`, `(y)`) that posts show as their emoji. Bodies keep the
+ * codes; clients replace them where the text is shown, so a change here needs no re-render.
+ */
+export const smilies = sqliteTable("smilies", {
+  id: integer("id").primaryKey(),
+  title: text("title").notNull(),
+  /** JSON array of the codes, the first one the code a picker inserts. Matched case-sensitively. */
+  codes: text("codes").notNull(),
+  emoji: text("emoji").notNull(),
+  position: integer("position").notNull().default(0),
+});
+
 export const reactions = sqliteTable(
   "reactions",
   {

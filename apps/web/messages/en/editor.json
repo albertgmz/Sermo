@@ -42,6 +42,35 @@
     "linkUnsupported": "That is not a web address. Use one that starts with http:// or https://, or a page of this site that starts with /.",
     "mediaUnsupported": "That address is not from a site that can be embedded.",
     "emojiLabel": "Emoji",
-    "emojiFound": "{count, plural, one {# emoji found} other {# emoji found}}"
+    "emojiFound": "{count, plural, one {# emoji found} other {# emoji found}}",
+    "emojiPickerLabel": "Emoji and smilies",
+    "emojiSearch": "Search",
+    "emojiClose": "Close",
+    "emojiRecent": "Recently used",
+    "emojiSmilies": "Smilies",
+    "emojiResults": "Results",
+    "emojiNone": "No emoji found.",
+    "emojiTone": "Skin tone",
+    "emojiCategories": "Categories",
+    "emojiLoadFailed": "The emoji could not be loaded. Press the button again to try once more.",
+    "emojiTones": {
+      "default": "Default",
+      "light": "Light",
+      "mediumLight": "Medium-light",
+      "medium": "Medium",
+      "mediumDark": "Medium-dark",
+      "dark": "Dark"
+    },
+    "emojiGroups": {
+      "smileys-emotion": "Smileys & emotion",
+      "people-body": "People & body",
+      "animals-nature": "Animals & nature",
+      "food-drink": "Food & drink",
+      "travel-places": "Travel & places",
+      "activities": "Activities",
+      "objects": "Objects",
+      "symbols": "Symbols",
+      "flags": "Flags"
+    }
   }
 }

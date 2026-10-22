@@ -498,6 +498,13 @@
       "when": 1792638043544,
       "tag": "0070_user_theme",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1792640114457,
+      "tag": "0071_smilies",
+      "breakpoints": true
     }
   ]
 }

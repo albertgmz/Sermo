@@ -197,3 +197,18 @@ test("a Twitch player names the configured site as its parent, whatever Host the
     else process.env.SERMO_PUBLIC_URL = before;
   }
 });
+
+test("smilie codes show as the site's smilies, and LITE leaves them, being text", async () => {
+  globalThis.fetch = (async (input: RequestInfo | URL) =>
+    String(input).includes("/api/v1/smilies")
+      ? Response.json({
+          items: [{ id: 17, title: "Laugh", codes: [":LOL:"], emoji: "😆" }],
+        })
+      : Response.json(siteBody())) as unknown as typeof fetch;
+  cookie = JSON.stringify({ master: true, blocked: [] });
+  const html = await render("<p>jaja :LOL:</p><p><code>:LOL:</code></p>");
+  expect(html).toContain(
+    'jaja <span class="smilie" role="img" aria-label="Laugh" title="Laugh :LOL:">😆</span>',
+  );
+  expect(html).toContain("<code>:LOL:</code>");
+});

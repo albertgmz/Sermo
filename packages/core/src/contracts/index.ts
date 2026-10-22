@@ -31,6 +31,7 @@ export * from "./settings";
 export * from "./shop";
 export * from "./signups";
 export * from "./site";
+export * from "./smilies";
 export * from "./social";
 export * from "./spoilers";
 export * from "./storage";

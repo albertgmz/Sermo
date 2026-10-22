@@ -11,6 +11,8 @@ import { withMediaPlayers } from "@/lib/media-links";
 import { call } from "@/lib/sermo/client";
 import { publicUrl } from "@/lib/sermo/config";
 import { SermoError } from "@/lib/sermo/errors";
+import { getSmilies } from "@/lib/sermo/smilies";
+import { withSmilies } from "@/lib/smilies";
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 
 // The files of the item, as its page drew them, which the tags inside the spoiler place. They come
@@ -35,8 +37,8 @@ const Files = z
   .max(30);
 
 // The HTML of one spoiler for the visitor who pressed it, filtered like the body it came from
-// (LITE mode), with the item's attachments in the place of its `[ATTACH]` tags and with buttons for
-// any spoiler inside it. Null when the backend refuses.
+// (smilies, LITE mode), with the item's attachments in the place of its `[ATTACH]` tags and with
+// buttons for any spoiler inside it. Null when the backend refuses.
 export async function revealSpoiler(
   contentType: string,
   contentId: number,
@@ -52,17 +54,18 @@ export async function revealSpoiler(
   });
   if (!input.success) return null;
   try {
-    const [{ html }, state, origin, label] = await Promise.all([
+    const [{ html }, state, origin, label, smilies] = await Promise.all([
       call(spoilersGet, input.data),
       getLiteState(),
       getLiteOrigin(),
       getLiteLabel(),
+      getSmilies(),
     ]);
     const gated = withColorGuard(
       withSpoilerButtons(
         await withEmbedGate(
           stripHtmlMedia(
-            withMediaPlayers(html, publicUrl()),
+            withMediaPlayers(withSmilies(html, smilies), publicUrl()),
             state,
             origin,
             label,
