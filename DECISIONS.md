@@ -5975,3 +5975,14 @@ Known limits: the upload picker does not filter by the site's allowed types (nee
 Why: member feedback (entering "Música" showed only threads, not Rock, Pop, Hip hop).
 Known limits: the shared card shows no message count or unread state yet (one follow-up for all
 three lists); every forum page reads the cached node list once more.
+
+### On a phone the wall comment composer spans the block's row
+
+- Below `md` the comment composer under a wall post spans the whole row of the comment block,
+  without the viewer's avatar beside it; from `md` up the avatar stays beside it as on XenForo.
+  Applies wherever `WallComments` is drawn (wall, feed card, styleguide). The comment block itself
+  was already flat at XenForo's offsets (phone 16 px vs 15; desktop 68 px vs 97, never deeper).
+
+Why: member feedback (the comment editor got smaller under a profile post); at 360 px the avatar
+left the editor 240 px and the 266 px formatting bar wrapped, without it the bar fits on one line.
+Known limit: at 320 px the row is 236 px and the bar still wraps.
