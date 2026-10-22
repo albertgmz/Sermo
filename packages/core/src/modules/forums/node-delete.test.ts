@@ -921,13 +921,13 @@ describe("nodes.delete: moving nodes up keeps who sees them", () => {
       const carol = w.carolUser.id;
       w.ctx.sqlite
         .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
-        .run(carol, id.second);
+        .run(carol, id.second!);
       viewEntry(w, w.open.id, { userId: carol }, 1);
       if (!keepsEntry)
         w.ctx.sqlite.prepare("DELETE FROM permission_entries WHERE user_id = ?1").run(carol);
       w.ctx.sqlite
         .prepare("DELETE FROM user_groups WHERE user_id = ?1 AND group_id = ?2")
-        .run(carol, id.second);
+        .run(carol, id.second!);
       for (const group of [1, 2]) viewEntry(w, n.staff!, { groupId: group }, 0);
       viewEntry(w, n.staff!, { groupId: id.second }, 1);
       viewEntry(w, n.direct!, { groupId: id.second }, 0);
