@@ -6315,3 +6315,23 @@ owner, subscribed on a device, received nothing. Open: whether watched threads p
   pages load about 40 KB less up front, the feed about 5 KB.
 
 Why: the feed page was at its JS budget, which blocked approved items; budgets are not raised.
+
+### Feed edge cases follow XenForo
+
+A wall post keeps its place in the feed (ordered by its id)
+when it is commented on: comments are not activity of the post, and moving it would need an index
+on the latest comment. A thread whose newest post is by a member the viewer ignores stays in
+`latest`, at the thread's own activity time, showing the newest post by anyone the viewer does
+not ignore (and may read); a thread with no such post is left out. `feed.newCount` agrees. A
+reply from the feed redraws the loaded pages, and the list keeps every row it already held in its
+place, drawn again, so the card does not jump to the top while the member is on that page;
+entries new to the list go in front, and the next visit shows the true order. Why: a thread
+vanishing because of one ignored reply hid the whole conversation, and a card that moves away
+from under a reader who just answered it loses their place.
+
+A thread whose ignored posts reach back more than 100 posts is left out, to keep the work per
+request bounded. No InfiniteList re-sorts the rows it holds on a redraw (feed, conversation list,
+notifications, bookmarks, staff queues, members): a held row keeps its place with fresh content,
+new rows go in front.
+
+Why: the undecided feed behaviours in the handover (E10), decided as XenForo does.
