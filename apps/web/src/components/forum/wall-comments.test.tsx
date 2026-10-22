@@ -237,7 +237,7 @@ test("on a phone the composer spans the row: the viewer's avatar sits beside it 
   expect(composer).toMatch(/<form[^>]*class="[^"]*\bflex-1\b/);
 });
 
-test("a comment's footer: on a phone the whole date on a line of its own under the text, the buttons on the next; from sm one line with the date giving way; report an icon on a phone, small gaps, pills on the card", async () => {
+test("a comment's footer: on a phone the whole date on a line of its own under the text, the buttons on the next; from sm one line with the date giving way; report's word kept without a menu, small gaps, pills on the card", async () => {
   const edited = {
     ...comment(1),
     editedAt: "2026-01-03T00:00:00.000Z",
@@ -274,5 +274,6 @@ test("a comment's footer: on a phone the whole date on a line of its own under t
     expect(date).not.toContain("px-2");
   }
   const member = await render({ comments: [comment(1)] });
-  expect(member).toContain('<span class="hidden sm:inline">Report</span>');
+  // Its buttons have a line of their own on a phone: with no "•••" beside it, report keeps its word.
+  expect(member).toContain('<span class="inline">Report</span>');
 });

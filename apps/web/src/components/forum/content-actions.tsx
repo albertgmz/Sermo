@@ -176,15 +176,12 @@ export function ContentActions({
   const split = layout === "split" || wall;
   // A comment's bar (a wall bar led by the comment's date) sits in a narrow column. On a phone the
   // whole date is a line of its own under the text and the buttons follow on the next; from `sm`
-  // it is one line, the date giving way first. Report is an icon on a phone, as XenForo's compact
-  // comment footer.
+  // it is one line, the date giving way first.
   const comment = wall && Boolean(leading);
   // An ordinary member's bar shows report's word on a phone too; with edit, delete (the wall's
   // "•••") or moderator tools beside it, the bar keeps to icons there, so it stays one line.
   const labelClass =
-    split && !comment && !edit && !remove && !moderation
-      ? "inline"
-      : actionLabelClass;
+    split && !edit && !remove && !moderation ? "inline" : actionLabelClass;
   const gap = wall ? "gap-1" : "gap-1.5";
   const editLink = edit && "href" in edit && (
     <Link
