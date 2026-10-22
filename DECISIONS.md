@@ -6153,3 +6153,17 @@ Known limits: the member count is a full count, cold about 260 ms on a 60k-membe
 
 Why: the owner asked for better sign-in pages with the Cuban flag (fcuba.net is a Cuban
 community). The flag counts as brand artwork for LITE (a same-size placeholder when blocked).
+
+### A conversation reads like a private thread
+
+- A conversation message is answered as a thread post: its footer is the post's (Report, Edit and
+  Delete on the left; react and Reply on the right), and Reply quotes it into the quick reply,
+  which is the thread's own composer (Attach files left, send right). No multi-quote, as threads.
+- A quote of a message is stored as XenForo writes it (`convMessage: N, member: M`) and links to
+  the message only inside its own conversation and while it is visible; anywhere else it is a
+  plain quote under the typed name, with no message read and no id kept. `conversations.quoteMessage`
+  gives the source to participants only, for visible messages.
+
+Why: the owner wants conversations to read like a private thread with quote and reply, and a link
+must never tell a non-participant about a private message. Known limit: a message that arrives by
+the live poll shows Reply even where the viewer cannot reply, until the page reloads.
