@@ -185,7 +185,10 @@
       "previewQueued": "La vista previa se puso en cola y empezará en breve.",
       "stop": "Detener",
       "stopRequested": "La ejecución se detendrá antes de su siguiente tramo.",
-      "nothingToStop": "No hay ninguna ejecución en curso."
+      "nothingToStop": "No hay ninguna ejecución en curso.",
+      "stoppedPreview": "La vista previa se detuvo en {percent}. No se cambió nada. \"Ver qué cambiaría\" la continúa.",
+      "failedPreview": "La vista previa se detuvo en {percent} por un error: {error} No se cambió nada. \"Ver qué cambiaría\" la continúa.",
+      "previewResume": "Continuar la vista previa"
     },
     "notices": {
       "created": "Trofeo creado.",

@@ -185,7 +185,10 @@
       "previewQueued": "The preview was queued and will start shortly.",
       "stop": "Stop",
       "stopRequested": "The run will stop before its next chunk.",
-      "nothingToStop": "No run is under way."
+      "nothingToStop": "No run is under way.",
+      "stoppedPreview": "The preview was stopped at {percent}. Nothing was changed. \"Preview what it would change\" continues it.",
+      "failedPreview": "The preview stopped at {percent} on an error: {error} Nothing was changed. \"Preview what it would change\" continues it.",
+      "previewResume": "Continue the preview"
     },
     "notices": {
       "created": "Award created.",

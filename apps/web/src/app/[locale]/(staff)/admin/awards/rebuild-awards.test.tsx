@@ -150,3 +150,19 @@ test("a run that stopped shows the error and offers to resume it", async () => {
   );
   expect(html).toContain(text.resume);
 });
+
+test("a stopped or failed preview says nothing was changed and offers to continue the preview, not a real run", async () => {
+  for (const state of ["stopped", "failed"]) {
+    const html = await render({
+      ...IDLE,
+      state,
+      dryRun: true,
+      progress: 0.4,
+      error: "disk full",
+    });
+    expect(html).toContain("Nothing was changed.");
+    expect(html).toContain(text.previewResume);
+    expect(html).not.toContain(text.resume);
+    expect(html).not.toContain("Nothing is lost");
+  }
+});

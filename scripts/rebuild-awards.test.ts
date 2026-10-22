@@ -91,6 +91,38 @@ describe("rebuild-awards", () => {
     await expect(rebuildAwards(ctx, options, deps)).rejects.toThrow("The run was stopped.");
   });
 
+  test("a run of the other kind is not followed as if it were the one asked for", async () => {
+    const { ctx, deps } = setup();
+    const admin = insertUser(ctx, { groupId: 4 });
+    const member = insertUser(ctx);
+    ctx.sqlite.prepare("UPDATE users SET award_xp = 40 WHERE id = ?1").run(member.id);
+    writeTx(ctx, () => startRebuild(ctx, admin.id, true));
+    await expect(rebuildAwards(ctx, options, deps)).rejects.toThrow("A preview is under way");
+    expect(ctx.sqlite.prepare("SELECT award_xp FROM users WHERE id = ?1").get(member.id)).toEqual({
+      award_xp: 40,
+    });
+    // The preview goes on to its end, and then a real run is started.
+    await rebuildAwards(ctx, { ...options, dryRun: true }, deps);
+    const real = await rebuildAwards(ctx, options, deps);
+    expect(real.dryRun).toBe(false);
+    expect(ctx.sqlite.prepare("SELECT award_xp FROM users WHERE id = ?1").get(member.id)).toEqual({
+      award_xp: 0,
+    });
+
+    writeTx(ctx, () => startRebuild(ctx, admin.id, false));
+    await expect(rebuildAwards(ctx, { ...options, dryRun: true }, deps)).rejects.toThrow(
+      "A real rebuild is under way",
+    );
+  });
+
+  test("a preview's summary says what it leaves out", async () => {
+    const { ctx, deps } = setup();
+    insertUser(ctx, { groupId: 4 });
+    const run = await rebuildAwards(ctx, { ...options, dryRun: true }, deps);
+    expect(formatSummary(run)).toContain("credit rules");
+    expect(formatSummary({ ...run, dryRun: false })).not.toContain("credit rules");
+  });
+
   test("arguments", () => {
     expect(parseArgs([])).toEqual({ dryRun: false, stop: false, pollMs: 2000 });
     expect(parseArgs(["--admin", "7", "--poll-ms", "50"])).toEqual({

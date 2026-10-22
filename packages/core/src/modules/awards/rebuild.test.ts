@@ -407,7 +407,7 @@ describe("rebuilding levels and awards", () => {
       sql("SELECT action, details FROM moderator_log ORDER BY id").map(
         (row) => (row as { action: string }).action,
       ),
-    ).toEqual(["awards.rebuild.start", "awards.rebuild.done"]);
+    ).toEqual(["awards.rebuildPreview.start", "awards.rebuildPreview.done"]);
 
     await call("rebuild");
     await drain();
@@ -463,5 +463,71 @@ describe("rebuilding levels and awards", () => {
     await drain();
     await events();
     expect(await call("rebuildStatus")).toMatchObject({ state: "done", granted: members.length });
+  });
+
+  test("a held grant with no counter row is counted, so a non-stackable award is not given twice", async () => {
+    const { ctx, call, posts, drain, events, sql, user } = setup();
+    const member = insertUser(ctx);
+    const award = await call("create", {
+      name: "Posts",
+      tier: "bronze",
+      xp: 3,
+      credits: 0,
+      rule: postRule,
+    });
+    posts([member.id], 1);
+    evaluateMember(ctx, member.id);
+    await events();
+    // As an import or hand-written SQL would leave it: the grant, no counter row.
+    ctx.sqlite.prepare("DELETE FROM member_award_totals").run();
+
+    await call("rebuild", { dryRun: true });
+    await drain();
+    expect(await call("rebuildStatus")).toMatchObject({
+      dryRun: true,
+      granted: 0,
+      takenBack: 0,
+      totalsCorrected: 1,
+    });
+    expect(sql("SELECT id FROM member_award_totals")).toEqual([]);
+
+    await call("rebuild");
+    await drain();
+    await events();
+
+    expect(await call("rebuildStatus")).toMatchObject({ granted: 0, totalsCorrected: 1 });
+    expect(
+      sql("SELECT count, auto_granted FROM member_award_totals WHERE award_id = ?1", award.id),
+    ).toEqual([{ count: 1, auto_granted: 0 }]);
+    expect(sql("SELECT id FROM member_awards WHERE revoked_at IS NULL")).toHaveLength(1);
+    expect(user(member.id)).toMatchObject({ award_xp: 3, award_count: 1 });
+    assertInvariants(ctx);
+  });
+
+  test("a stopped preview is logged as a preview and a real run after it starts from the first member", async () => {
+    const { ctx, call, posts, drain, events, sql } = setup();
+    await call("create", { name: "Posts", tier: "bronze", xp: 1, rule: postRule });
+    const members: number[] = [];
+    for (let i = 0; i < REBUILD_CHUNK * 2; i++) members.push(insertUser(ctx).id);
+    posts(members, 1);
+    await call("rebuild", { dryRun: true });
+    await runDueJobs(ctx, { limit: 1 });
+    await call("rebuildStop");
+    await drain();
+    expect(await call("rebuildStatus")).toMatchObject({ state: "stopped", dryRun: true });
+    expect(
+      sql("SELECT action FROM moderator_log ORDER BY id").map(
+        (row) => (row as { action: string }).action,
+      ),
+    ).toEqual(["awards.rebuildPreview.start", "awards.rebuildPreview.stopped"]);
+
+    await call("rebuild");
+    await drain();
+    await events();
+    expect(await call("rebuildStatus")).toMatchObject({
+      state: "done",
+      dryRun: false,
+      granted: members.length,
+    });
   });
 });

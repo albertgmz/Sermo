@@ -67,6 +67,8 @@ export function formatSummary(run: Summary): string {
     `Credits ${run.dryRun ? "that would be taken back" : "taken back"}: ${run.creditsRemoved}`,
     `Members ${run.dryRun ? "who would end" : "who ended"} with a negative balance they did not have: ${run.newlyNegative}`,
   ];
+  if (run.dryRun)
+    lines.push("Not included: credits that credit rules paying for awards move after a real run.");
   if (run.awards.length > 0) {
     lines.push("By award (most affected first, up to 20): granted / taken back");
     for (const award of run.awards)
@@ -98,6 +100,12 @@ export async function rebuildAwards(
     );
   const queued = writeTx(ctx, () => startRebuild(ctx, admin, options.dryRun));
   log(queued ? "Run started." : "A run is already under way; following it.");
+  if (!queued && rebuildRunValue(ctx).dryRun !== options.dryRun)
+    throw new Error(
+      options.dryRun
+        ? "A real rebuild is under way: --dry-run would not preview it. Follow it without --dry-run, or stop it with --stop."
+        : "A preview is under way: wait for it, or stop it with --stop, then run again.",
+    );
   let shown = "";
   let still = 0;
   for (;;) {

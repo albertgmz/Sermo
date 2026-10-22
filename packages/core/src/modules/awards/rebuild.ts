@@ -93,6 +93,12 @@ export const rebuildSql = {
     `award_count = (SELECT COUNT(*) FROM member_awards g WHERE ${HELD}) ` +
     `WHERE id = ?1 AND (award_xp != (SELECT COALESCE(SUM(g.xp), 0) FROM member_awards g WHERE ${HELD}) OR ` +
     `award_count != (SELECT COUNT(*) FROM member_awards g WHERE ${HELD})) RETURNING award_xp, award_count`,
+  // A held grant with no counter row would count as not held and a non-stackable award be given
+  // again. Whether the rules made it is unknown, so it is kept like a hand grant (`auto_granted` 0).
+  insertTotals:
+    "INSERT INTO member_award_totals (user_id, award_id, count, auto_granted, last_granted_at) " +
+    "SELECT g.user_id, g.award_id, COUNT(*), 0, MAX(g.created_at) FROM member_awards g " +
+    "WHERE g.user_id = ?1 AND g.revoked_at IS NULL GROUP BY g.award_id ON CONFLICT (user_id, award_id) DO NOTHING",
   // The count of a member's grants of one award decides whether a non-stackable award is given.
   correctTotals:
     "UPDATE member_award_totals SET count = (SELECT COUNT(*) FROM member_awards g WHERE g.user_id = member_award_totals.user_id " +
@@ -127,7 +133,8 @@ function logRun(ctx: Ctx, record: RunRecord, action: string, details: object): v
     "rebuildLog",
     rebuildSql.log,
     record.by,
-    action,
+    // A preview has actions of its own, so the log never reads as a rebuild that happened.
+    record.dryRun ? action.replace("awards.rebuild.", "awards.rebuildPreview.") : action,
     JSON.stringify({ ...details, dryRun: record.dryRun }),
     ctx.now(),
   );
@@ -307,6 +314,7 @@ function rebuildPage(
         memberFacts.awardCount = corrected.award_count;
       }
     }
+    totals.totalsCorrected += run(ctx, "rebuildInsertTotals", rebuildSql.insertTotals, id).changes;
     totals.totalsCorrected += run(
       ctx,
       "rebuildCorrectTotals",

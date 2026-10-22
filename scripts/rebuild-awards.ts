@@ -30,7 +30,7 @@ try {
         log: (line) => console.log(line),
       });
       console.log(
-        `${options.dryRun ? "Preview (nothing was changed)" : "Done"}\n${formatSummary(summary)}`,
+        `${summary.dryRun ? "Preview (nothing was changed)" : "Done"}\n${formatSummary(summary)}`,
       );
     }
   } finally {

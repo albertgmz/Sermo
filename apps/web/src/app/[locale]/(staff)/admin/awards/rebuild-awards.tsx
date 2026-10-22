@@ -37,11 +37,13 @@ export async function RebuildAwards() {
   const status = {
     idle: t("idle"),
     running: t(run.dryRun ? "progressPreview" : "progress", figures),
-    failed: t("failed", figures),
-    stopped: t("stopped", figures),
+    failed: t(run.dryRun ? "failedPreview" : "failed", figures),
+    stopped: t(run.dryRun ? "stoppedPreview" : "stopped", figures),
     done: t(run.dryRun ? "donePreview" : "done", figures),
   }[run.state];
   // A stopped or failed real run is resumed by the same button; a preview has its own.
+  const stoppedPreview =
+    (run.state === "failed" || run.state === "stopped") && run.dryRun;
   const resumable =
     (run.state === "failed" || run.state === "stopped") && !run.dryRun;
   const when = (value: string) =>
@@ -94,7 +96,10 @@ export async function RebuildAwards() {
             <RunNow
               action={previewRebuild}
               namespace="adminEconomy.awards"
-              labels={{ run: t("preview"), running: t("starting") }}
+              labels={{
+                run: stoppedPreview ? t("previewResume") : t("preview"),
+                running: t("starting"),
+              }}
             />
             <ConfirmStep
               action={rebuildLevelsAndAwards}
