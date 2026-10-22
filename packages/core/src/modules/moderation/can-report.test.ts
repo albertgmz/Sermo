@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createTestContext, insertNode, insertUser, userActor } from "@sermo/core/testing";
 import { actorUserId, GUEST } from "../../actor";
 import { closeContext, invalidate } from "../../context";
-import { ForbiddenError } from "../../errors";
+import { ForbiddenError, NotFoundError } from "../../errors";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 
@@ -24,7 +24,7 @@ async function world() {
     execute(ctx, getOperation(name), actor as never, input) as Promise<any>;
   const conversation = await call("conversations.create", author, {
     title: "Hello",
-    recipientIds: [actorUserId(reader)!],
+    recipientIds: [actorUserId(reader)!, actorUserId(admin)!],
     body: "First",
   });
   const message = await call("conversations.reply", author, {
@@ -85,6 +85,27 @@ describe("canReport on messages, wall posts and comments", () => {
         reason: "Spam",
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  test("a hidden message a viewer sees is not reportable by them, as reports.create refuses it", async () => {
+    const w = await world();
+    await w.call("conversations.deleteMessage", w.author, { messageId: w.message.id });
+    const seen = await w.call("conversations.listMessages", w.admin, {
+      conversationId: w.conversationId,
+    });
+    const hidden = seen.items.find((item: { id: number }) => item.id === w.message.id);
+    expect(hidden.state).toBe("deleted");
+    expect(hidden.canReport).toBe(false);
+    await expect(
+      w.call("reports.create", w.admin, {
+        target: { type: "conversation_message", id: w.message.id },
+        reason: "Spam",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    // The visible message beside it stays reportable.
+    expect(seen.items.find((item: { id: number }) => item.id === w.firstMessage.id).canReport).toBe(
+      true,
+    );
   });
 
   test("a wall post and its comments carry it, and it follows report.create", async () => {

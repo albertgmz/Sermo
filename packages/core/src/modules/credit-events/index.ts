@@ -5,7 +5,7 @@ import { writeTx } from "../../db/tx";
 import { NotFoundError, ValidationError } from "../../errors";
 import { registerEventSubscriber } from "../../events";
 import { implement } from "../../operation";
-import { requirePermission } from "../../permissions";
+import { currentActor, requirePermission } from "../../permissions";
 import { iso } from "../../time";
 import { query, type RuleRow, type Trigger } from "./storage";
 import { handleCreditRuleEvent } from "./subscriber";
@@ -57,6 +57,7 @@ export const creditRulesListOp = implement(contracts.creditRulesList, (ctx, acto
 export const creditRulesCreateOp = implement(contracts.creditRulesCreate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.creditRules");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.creditRules");
     const nodeIds = validateNodes(ctx, input.trigger, input.nodeIds);
     return value(
       query<RuleRow>(ctx, "create").get(
@@ -75,6 +76,7 @@ export const creditRulesCreateOp = implement(contracts.creditRulesCreate, (ctx, 
 export const creditRulesUpdateOp = implement(contracts.creditRulesUpdate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.creditRules");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.creditRules");
     const row = rule(ctx, input.ruleId);
     const current = value(row);
     const limit = input.limit === undefined ? current.limit : input.limit;
@@ -96,6 +98,7 @@ export const creditRulesUpdateOp = implement(contracts.creditRulesUpdate, (ctx, 
 export const creditRulesDeleteOp = implement(contracts.creditRulesDelete, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.creditRules");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.creditRules");
     rule(ctx, input.ruleId);
     query(ctx, "delete").run(input.ruleId);
     return { ok: true };

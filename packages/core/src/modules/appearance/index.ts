@@ -16,7 +16,7 @@ import { siteGet, siteHomeTab } from "../../contracts/site";
 import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
-import { can, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { signupFields } from "../auth/registration";
 import { attachUploadedFile, releaseFile } from "../images/attach";
 import { type FrameOpening, frameGeometry } from "../images/frame-geometry";
@@ -131,6 +131,7 @@ export const operations = [
     if (input.kind !== "frame" && input.placement !== undefined)
       throw new ValidationError("Only a frame has a placement.");
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.appearance");
       requireRoom(ctx, "catalog_images", input.kind);
       attachUploadedFile(ctx, user.userId, input.fileId, PURPOSE_OF_KIND[input.kind]);
       const placement =
@@ -161,6 +162,7 @@ export const operations = [
     requirePermission(ctx, actor, "admin.appearance");
     const user = requireAuthenticated(actor);
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.appearance");
       const row = imageRow(ctx, input.imageId);
       if (row.kind !== "frame" && input.placement != null)
         throw new ValidationError("Only a frame has a placement.");
@@ -203,6 +205,7 @@ export const operations = [
   implement(catalogImagesDelete, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.appearance");
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.appearance");
       const row = imageRow(ctx, input.imageId);
       const deactivated = catalogImageInUse(ctx, row.kind, row.id);
       if (deactivated)
@@ -239,6 +242,7 @@ export const operations = [
     requirePermission(ctx, actor, "admin.appearance");
     requireForeground(input.kind, input.foreground);
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.appearance");
       requireRoom(ctx, "palette_colors", input.kind);
       const row = ctx.sqlite
         .prepare<PaletteColorRow, (string | number | null)[]>(
@@ -264,6 +268,7 @@ export const operations = [
   implement(paletteColorsUpdate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.appearance");
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.appearance");
       const row = colorRow(ctx, input.colorId);
       const foreground = input.foreground ?? row.foreground;
       requireForeground(row.kind, foreground ?? undefined);
@@ -291,6 +296,7 @@ export const operations = [
   implement(paletteColorsDelete, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.appearance");
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.appearance");
       const row = colorRow(ctx, input.colorId);
       const deactivated = paletteColorInUse(ctx, row.kind, row.id);
       if (deactivated)

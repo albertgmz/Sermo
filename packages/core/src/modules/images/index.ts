@@ -30,6 +30,11 @@ function setImage(ctx: Ctx, actor: Actor, fileId: number | null, slot: ImageSlot
   if (fileId !== null && slot === "avatar") requirePermission(ctx, actor, "profile.uploadAvatar");
   if (fileId !== null && slot === "cover") requirePermission(ctx, actor, "profile.uploadCover");
   return writeTx(ctx, () => {
+    const current = currentActor(ctx, actor);
+    if (nodeId !== undefined) requirePermission(ctx, current, "admin.nodes");
+    if (fileId !== null && slot === "avatar")
+      requirePermission(ctx, current, "profile.uploadAvatar");
+    if (fileId !== null && slot === "cover") requirePermission(ctx, current, "profile.uploadCover");
     if (fileId !== null) attachUploadedFile(ctx, user.userId, fileId, slot);
     let previous: number | null;
     if (nodeId === undefined) {
@@ -106,9 +111,12 @@ function setArtwork(
 ) {
   const user = requireAuthenticated(actor);
   return writeTx(ctx, () => {
-    // Shop administration re-checks inside its transaction, as the rest of the shop does.
-    if (target.table === "shop_items")
-      requirePermission(ctx, currentActor(ctx, actor), "admin.shop");
+    // The administration re-checks inside its transaction, as the rest of the shop does.
+    requirePermission(
+      ctx,
+      currentActor(ctx, actor),
+      target.table === "shop_items" ? "admin.shop" : "admin.awards",
+    );
     const row = ctx.sqlite
       .prepare<{ previous: number | null }, [number]>(
         `SELECT image_file_id AS previous FROM ${target.table} WHERE id = ?1`,

@@ -8,7 +8,7 @@ import { ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { renderBbCode } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
@@ -373,6 +373,7 @@ export const announcementsCreateOp = implement(
     const userId = requireAuthenticated(actor).userId;
     const html = renderBbCode(input.body);
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.announcements");
       const audience = input.audience;
       let groupId: number | null = null;
       let userIds: number[] = [];

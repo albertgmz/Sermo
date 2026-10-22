@@ -17,7 +17,7 @@ import { publishEvent } from "../../events";
 import type { Language } from "../../i18n";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, getNodeTree, requirePermission } from "../../permissions";
+import { can, currentActor, getNodeTree, requirePermission } from "../../permissions";
 import {
   actorFacts,
   assertRule,
@@ -329,6 +329,7 @@ export const reactionTypesCreateOp = implement(reactionTypesCreate, (ctx, actor,
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.reactionTypes");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.reactionTypes");
     const fileId = input.fileId ?? null;
     if (fileId !== null) attachUploadedFile(ctx, user.userId, fileId, "reaction_image");
     const frames = checkedFrames(
@@ -382,6 +383,7 @@ export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor,
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.reactionTypes");
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.reactionTypes");
     const old = typeRow(ctx, input.reactionTypeId);
     if (!old) throw new NotFoundError();
     const fileId = input.fileId === undefined ? old.image_file_id : input.fileId;

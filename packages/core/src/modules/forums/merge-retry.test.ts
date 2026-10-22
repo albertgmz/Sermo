@@ -467,3 +467,81 @@ test("a post the merge has not renumbered yet is told, and read up to, at the pl
       .get(target.thread.id, readerRow.id)!.last_read_position,
   ).toBe(final.position);
 });
+
+for (const phase of ["flip", "reads"] as const)
+  test(`a thread being merged is read up to a post at its final place while the merge is in its ${phase} step`, async () => {
+    const ctx = createTestContext();
+    const node = insertNode(ctx, {});
+    invalidate(ctx, "node_tree");
+    const author = insertUser(ctx);
+    const readerRow = insertUser(ctx);
+    const reader = userActor(readerRow);
+    const moderator = userActor(insertUser(ctx, { groupId: 3 }));
+    registerModerationJobs(ctx);
+    const target = await execute(ctx, threadsCreateOp, userActor(author), {
+      nodeId: node.id,
+      title: "Target",
+      body: "Body",
+    });
+    const source = await execute(ctx, threadsCreateOp, userActor(author), {
+      nodeId: node.id,
+      title: "Source",
+      body: "Body",
+    });
+    const start = ctx.now() + 1000;
+    addPosts(ctx, target.thread.id, author.id, 100, start);
+    addPosts(ctx, source.thread.id, author.id, 600, start + 5);
+    await execute(ctx, threadsMergeOp, moderator, {
+      threadId: target.thread.id,
+      sourceThreadIds: [source.thread.id],
+    });
+
+    let reached = false;
+    for (let i = 0; i < 60 && !reached; i++) {
+      const job = nextJob(ctx)!;
+      reached =
+        job.type === "forums.mergeFinalize" &&
+        (JSON.parse(job.payload).phase ?? "streams") === phase;
+      if (!reached) await runDueJobs(ctx, { limit: 1 });
+    }
+    expect(reached).toBe(true);
+    // One step of the phase: the posts it has flipped hold their final position, the others the
+    // negative stored one.
+    if (phase === "flip") await runDueJobs(ctx, { limit: 1 });
+    const stored = ctx.sqlite
+      .prepare<{ id: number; position: number }, [number]>(
+        "SELECT id, position FROM posts WHERE thread_id = ?1 ORDER BY position",
+      )
+      .all(target.thread.id);
+    // A post that is still stored as negative in the flip step, the newest place of all otherwise.
+    const probe =
+      phase === "flip"
+        ? stored[0]!
+        : stored.reduce((best, post) => (post.position > best.position ? post : best));
+    if (phase === "flip") expect(probe.position).toBeLessThan(0);
+    const place = probe.position < 0 ? -probe.position - 1 : probe.position;
+
+    await execute(ctx, threadsMarkReadOp, reader, {
+      threadId: target.thread.id,
+      position: place,
+    });
+    const marked = ctx.sqlite
+      .prepare<{ last_read_post_id: number }, [number, number]>(
+        "SELECT last_read_post_id FROM thread_reads WHERE thread_id = ?1 AND user_id = ?2",
+      )
+      .get(target.thread.id, readerRow.id)!;
+    expect(marked.last_read_post_id).toBe(probe.id);
+
+    await runDueJobs(ctx);
+    const final = ctx.sqlite
+      .prepare<{ position: number }, [number]>("SELECT position FROM posts WHERE id = ?1")
+      .get(probe.id)!;
+    expect(final.position).toBe(place);
+    expect(
+      ctx.sqlite
+        .prepare<{ last_read_position: number }, [number, number]>(
+          "SELECT last_read_position FROM thread_reads WHERE thread_id = ?1 AND user_id = ?2",
+        )
+        .get(target.thread.id, readerRow.id)!.last_read_position,
+    ).toBe(place);
+  });

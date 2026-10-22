@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestContext, insertNode, insertUser, userActor } from "@sermo/core/testing";
 import type { Actor } from "../../actor";
 import { type Ctx, invalidate } from "../../context";
+import { CREDIT_TRIGGERS } from "../../db/schema";
 import { ForbiddenError } from "../../errors";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
@@ -23,6 +24,10 @@ const PERMISSIONS = [
   "admin.prefixes",
   "admin.nodes",
   "admin.permissions",
+  "admin.appearance",
+  "admin.reactionTypes",
+  "admin.creditRules",
+  "admin.awards",
 ];
 const entries = (value: "allow" | "unset") =>
   PERMISSIONS.map((permission) => ({ permission, value }));
@@ -124,6 +129,41 @@ const attempts: Record<string, (ctx: Ctx, actor: Actor, s: Scenario) => Promise<
     run(ctx, "nodes.setModerator", actor, { nodeId: s.forumId, userId: s.member.id }),
 };
 
+// Writes whose success needs rows or files the scenario does not set up: they are refused before
+// any of that is read, so arbitrary ids are enough to show the refusal.
+const refusals: Record<string, (ctx: Ctx, actor: Actor, s: Scenario) => Promise<unknown>> = {
+  "catalogImages.create": (ctx, actor) =>
+    run(ctx, "catalogImages.create", actor, { kind: "frame", name: "Frame", fileId: 1 }),
+  "catalogImages.update": (ctx, actor) =>
+    run(ctx, "catalogImages.update", actor, { imageId: 1, name: "Changed" }),
+  "catalogImages.delete": (ctx, actor) => run(ctx, "catalogImages.delete", actor, { imageId: 1 }),
+  "paletteColors.create": (ctx, actor) =>
+    run(ctx, "paletteColors.create", actor, { kind: "name", name: "Teal", color: "#112233" }),
+  "paletteColors.update": (ctx, actor, s) =>
+    run(ctx, "paletteColors.update", actor, { colorId: s.color, name: "Changed" }),
+  "paletteColors.delete": (ctx, actor, s) =>
+    run(ctx, "paletteColors.delete", actor, { colorId: s.color }),
+  "reactionTypes.create": (ctx, actor) =>
+    run(ctx, "reactionTypes.create", actor, { title: "Cheer", emoji: "!" }),
+  "reactionTypes.update": (ctx, actor) =>
+    run(ctx, "reactionTypes.update", actor, { reactionTypeId: 1, title: "Changed" }),
+  "creditRules.create": (ctx, actor) =>
+    run(ctx, "creditRules.create", actor, {
+      title: "Rule",
+      trigger: CREDIT_TRIGGERS[0],
+      amount: 5,
+    }),
+  "creditRules.update": (ctx, actor) =>
+    run(ctx, "creditRules.update", actor, { ruleId: 1, title: "Changed" }),
+  "creditRules.delete": (ctx, actor) => run(ctx, "creditRules.delete", actor, { ruleId: 1 }),
+  "announcements.create": (ctx, actor) =>
+    run(ctx, "announcements.create", actor, { title: "Hello", body: "Everyone" }),
+  "images.setNodeIcon": (ctx, actor, s) =>
+    run(ctx, "images.setNodeIcon", actor, { nodeId: s.forumId, fileId: null }),
+  "images.setAwardImage": (ctx, actor) =>
+    run(ctx, "images.setAwardImage", actor, { awardId: 1, fileId: null }),
+};
+
 const snapshot = (ctx: Ctx) =>
   JSON.stringify(
     [
@@ -135,10 +175,14 @@ const snapshot = (ctx: Ctx) =>
       "SELECT id, parent_id, title FROM nodes ORDER BY id",
       "SELECT id, user_id, permission_id, node_id FROM permission_entries ORDER BY id",
       "SELECT id, action FROM moderator_log ORDER BY id",
+      "SELECT id, name FROM palette_colors ORDER BY id",
+      "SELECT id, title FROM reaction_types ORDER BY id",
+      "SELECT id, title FROM credit_rules ORDER BY id",
+      "SELECT id, title FROM announcements ORDER BY id",
     ].map((sql) => ctx.sqlite.prepare(sql).all()),
   );
 
-for (const [name, attempt] of Object.entries(attempts))
+for (const [name, attempt] of Object.entries({ ...attempts, ...refusals }))
   test(`${name} is refused to an administrator whose permission was withdrawn meanwhile`, async () => {
     const s = await scenario();
     try {

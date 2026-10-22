@@ -6,7 +6,8 @@ export type PostDeletionRow = { actorId: number | null; reason: string; at: numb
 /**
  * The newest `content.deleted` event of each given post, from one indexed lookup. An event
  * carries the actor and the reason only when someone other than the author acted, so a missing
- * actor means the author hid their own post.
+ * actor means the author hid their own post. That holds only while every delete driven by
+ * someone else (a moderator, a bulk action, a spam cleanup) publishes its actor.
  */
 export function loadPostDeletions(ctx: Ctx, postIds: number[]): Map<number, PostDeletionRow> {
   const found = new Map<number, PostDeletionRow>();

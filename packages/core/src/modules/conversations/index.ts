@@ -243,6 +243,7 @@ function fullConversation(ctx: Ctx, actor: Actor, row: ConversationRow) {
 
 function messages(ctx: Ctx, actor: Actor, conversation: ConversationRow, rows: MessageRow[]) {
   const permissions = permissionsOf(ctx, actor);
+  const viewerId = actorUserId(actor);
   const first = rows.length ? firstMessageId(ctx, conversation.id) : null;
   const user = loadUserSummaries(
     ctx,
@@ -272,7 +273,9 @@ function messages(ctx: Ctx, actor: Actor, conversation: ConversationRow, rows: M
     reactions: reactionSummary(r.reaction_counts, viewer.get(r.id)),
     canEdit: mayEdit(permissions, conversation, r),
     canDelete: mayDelete(permissions, conversation, r, first),
-    canReport: permissions.can("report.create"),
+    // reports.create takes a message the viewer sees only when it is visible or their own.
+    canReport:
+      permissions.can("report.create") && (r.state === "visible" || r.user_id === viewerId),
   }));
 }
 

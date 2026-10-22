@@ -6,10 +6,11 @@ import {
   insertUser,
   userActor,
 } from "@sermo/core/testing";
-import { GUEST } from "../../actor";
+import { actorUserId, GUEST } from "../../actor";
 import { closeContext, invalidate } from "../../context";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
+import { resumeSpamCleanup } from "../moderation";
 import { traceStatements } from "../statement-trace";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
@@ -110,6 +111,17 @@ describe("posts: who hid a deleted post, and why", () => {
     });
     const deletion = await w.deletionOf(w.moderator);
     expect(deletion.by.id).toBe(w.moderatorId);
+    expect(deletion.reason).toBe("Spam");
+  });
+
+  test("a post hidden by a spam cleanup names the moderator who ran it, never its author", async () => {
+    const w = await world();
+    const admin = userActor(insertUser(w.ctx, { groupId: 4 }));
+    resumeSpamCleanup(w.ctx, admin, w.authorId, null, 100, "Spam");
+    const deletion = await w.deletionOf(w.moderator);
+    expect(deletion).not.toBeNull();
+    expect(deletion.by.id).toBe(actorUserId(admin));
+    expect(deletion.by.id).not.toBe(w.authorId);
     expect(deletion.reason).toBe("Spam");
   });
 

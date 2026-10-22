@@ -2105,7 +2105,9 @@ export function resumeSpamCleanup(
     for (const target of targets) {
       const row = targetRow(ctx, target);
       if (row.user_id !== userId) throw new ConflictError("Spam cleanup target changed.");
-      if (stateChange(ctx, target, "deleted", row)) changed++;
+      // The event names the moderator: a deleted post is read as hidden by its author when its
+      // event carries no actor.
+      if (stateChange(ctx, target, "deleted", row, { actor, reason, notify: false })) changed++;
       appendModeratorLog(
         ctx,
         actor,

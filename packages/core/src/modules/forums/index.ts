@@ -2496,13 +2496,20 @@ export const postsRestoreOp = implement(contracts.postsRestore, (ctx, actor, inp
 export const threadsMarkReadOp = implement(contracts.threadsMarkRead, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
+  // The places of a merge target's posts are worked out before the write lock is taken: they do
+  // not change while the merge runs.
+  const merging = row.transfer_role === "merge_target";
+  const placed = merging
+    ? ctx.db.transaction(() => mergingReadPost(ctx, row.id, input.position), {
+        behavior: "deferred",
+      })
+    : undefined;
   return writeTx(ctx, () => {
-    const post =
-      row.transfer_role === "merge_target"
-        ? mergingReadPost(ctx, row.id, input.position)
-        : forumDb(ctx)
-            .prepare<{ id: number; position: number }, [number, number]>(forumSql.readPost)
-            .get(row.id, input.position);
+    const post = merging
+      ? placed
+      : forumDb(ctx)
+          .prepare<{ id: number; position: number }, [number, number]>(forumSql.readPost)
+          .get(row.id, input.position);
     if (!post) throw new Error("Visible post missing at read position.");
     const cleared = statement<unknown, [number, number, number, number]>(
       ctx,
