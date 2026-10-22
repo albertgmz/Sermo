@@ -6471,3 +6471,15 @@ conversations ignore ignore-lists; so do these.
   "default"), since headless Chromium reports "denied" and the card is never offered then.
 
 Why: the full end-to-end run after tonight's merges had these four failures.
+
+### The award rebuild works in time-bounded chunks
+
+- A rebuild chunk takes up to 50 members and 200 changes but ends after the member that passes
+  about 25 ms (at least one member); facts are read ten members per statement with a yield
+  between statements; the per-award tally reads new grants by id; after each chunk the job rests
+  as long as the chunk took (at most 50 ms). On the bench's 60,000 members the whole run took
+  about three minutes, and requests running alongside stayed under 50 ms.
+
+Why: at live scale the first version stalled requests for up to a second. Known limit: the
+timings assume the database in memory (read it first when memory allows); a preview rolls back
+its writes, so the real run's write load is only seen in the real run.
