@@ -16,6 +16,7 @@ const {
   OFFER_LOADING,
   offerFrom,
   prefixBlocks,
+  previewControl,
 } = await import("./thread-composer");
 const { ComposerForm } = await import("./composer");
 const { panelKey } = await import("./forum-choice-panel");
@@ -522,7 +523,7 @@ test("the options offer to watch the thread, ticked as the member's preference s
   );
 });
 
-test("Preview sits just before Post thread, a toggle that waits for some text", () => {
+test("Preview sits just before Post thread, off without taking the focus away while there is no text", () => {
   const html = composerWith();
   const preview = html.indexOf(">Preview<");
   const submit = html.indexOf('type="submit"');
@@ -532,8 +533,28 @@ test("Preview sits just before Post thread, a toggle that waits for some text", 
   expect(preview).toBeLessThan(submit);
   const button = openingTag(html, html.lastIndexOf("<button", preview));
   expect(button).toContain('type="button"');
-  expect(button).toContain('aria-pressed="false"');
-  expect(button).toContain('disabled=""');
+  // Off is said, not enforced by `disabled`, which would drop a keyboard user's focus.
+  expect(button).toContain('aria-disabled="true"');
+  expect(button).not.toMatch(/\sdisabled=""/);
+});
+
+test("Preview toggles: once shown it reads Back to editing, and it is off while a preview is on its way", () => {
+  expect(previewControl({ shown: false, pending: false, body: "" })).toEqual({
+    label: "preview",
+    off: true,
+  });
+  expect(
+    previewControl({ shown: false, pending: false, body: "Text" }),
+  ).toEqual({ label: "preview", off: false });
+  expect(
+    previewControl({ shown: false, pending: true, body: "Text" }).off,
+  ).toBe(true);
+  // Going back is always possible, whatever the text.
+  expect(previewControl({ shown: true, pending: false, body: "" })).toEqual({
+    label: "backToEditing",
+    off: false,
+  });
+  expect(messages.forum.threadComposer.backToEditing).toBe("Back to editing");
 });
 
 test("a preview takes the text's place in a box of the same size, and the text stays in the form", () => {

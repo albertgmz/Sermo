@@ -270,3 +270,33 @@ test("in the Create dialog a press below the text puts the caret at its end, and
   );
   await expectFits(page, "grown wall composer");
 });
+
+test("Preview shows the post as it will be posted, Back to editing brings the text back as written", async ({
+  page,
+}) => {
+  const { forumId } = seed();
+  await visit(page, `/forums/${forumId}/new`);
+  await editorReady(page);
+  const body = page.getByRole("textbox", { name: /^Write the first post/ });
+  await body.click();
+  await body.pressSequentially("Text to preview before posting.");
+
+  const toggle = page.getByRole("button", { name: "Preview", exact: true });
+  await toggle.click();
+  const preview = page.getByRole("region", { name: "Preview" });
+  await expect(preview).toContainText("Text to preview before posting.");
+  // The preview is where the focus goes, and the editor gives it its place.
+  await expect(preview).toBeFocused();
+  await expect(body).toBeHidden();
+  await expectFits(page, "preview");
+
+  await page.getByRole("button", { name: "Back to editing" }).click();
+  await expect(preview).toBeHidden();
+  await expect(body).toBeVisible();
+  await expect(body).toBeFocused();
+  await expect(body).toContainText("Text to preview before posting.");
+  // The text is still what the form sends.
+  await expect(page.locator('input[type="hidden"][name="body"]')).toHaveValue(
+    /Text to preview before posting\./,
+  );
+});

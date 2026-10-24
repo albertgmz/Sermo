@@ -98,6 +98,15 @@ test("a preview is refused wherever posting is", async () => {
   await expect(
     preview(member, { type: "message", conversationId: conversation.id }),
   ).rejects.toBeInstanceOf(NotFoundError);
+  // A new conversation needs conversation.start.
+  expect((await preview(member, { type: "message" })).html).toContain("Text");
+  ctx.sqlite
+    .prepare(
+      "INSERT OR REPLACE INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES ((SELECT id FROM permission_definitions WHERE key = 'conversation.start'), 0, ?1, 0, -1)",
+    )
+    .run(GROUP_IDS.member);
+  invalidate(ctx, "permissions");
+  await expect(preview(member, { type: "message" })).rejects.toBeInstanceOf(ForbiddenError);
 });
 
 test("the author's choice of watching a new thread is applied with it, and without one the preference is", async () => {

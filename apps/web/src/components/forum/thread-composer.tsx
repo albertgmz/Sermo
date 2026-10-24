@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Eye, SquarePen } from "lucide-react";
+import { ChevronDown, Eye, PenLine, SquarePen } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   useCallback,
@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { PrefixView } from "@/lib/sermo/views";
+import { cn } from "@/lib/utils";
 
 // How the member watches the threads they start (their preference), which the composer's watch
 // options start from, as XenForo's do.
@@ -60,6 +61,20 @@ export function sendUnlessPicking(
 ) {
   if (picking) event.preventDefault();
   else send();
+}
+
+// What the Preview button says and whether it is off. It toggles: while the preview is shown it
+// goes back to the text. Off while a preview is on its way, and before there is any text to show;
+// off is `aria-disabled`, never `disabled`, which would drop the keyboard focus it holds.
+export function previewControl(state: {
+  shown: boolean;
+  pending: boolean;
+  body: string;
+}) {
+  return {
+    label: state.shown ? ("backToEditing" as const) : ("preview" as const),
+    off: state.pending || (!state.shown && state.body.trim() === ""),
+  };
 }
 
 // What a forum offers as prefixes, as the composer knows it: still being asked for (after a change
@@ -179,12 +194,13 @@ export function ThreadComposer({
   const [prefixId, setPrefixId] = useState("");
   const [watching, setWatching] = useState(watchDefault !== "none");
   const [emailed, setEmailed] = useState(watchDefault === "watch_email");
-  // The text as the backend renders it (or its refusal), shown in the text's place while it is
-  // asked for again by the same button.
-  const [preview, setPreview] = useState<
-    { html: React.ReactNode } | { error: string } | null
-  >(null);
+  // The text as the backend renders it, shown in the text's place until the same button goes
+  // back; a refusal is said under the text, which stays.
+  const [preview, setPreview] = useState<React.ReactNode | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewing, startPreview] = useTransition();
+  const previewBox = useRef<HTMLElement>(null);
+  const backToText = useRef(false);
   const optionsId = useId();
   const [offered, setOffered] = useState<Offer>({
     status: "ready",
@@ -227,6 +243,7 @@ export function ThreadComposer({
   const changeBody = useCallback(
     (text: string) => {
       setBody(text);
+      setPreviewError(null);
       keep({ body: text });
     },
     [keep],
@@ -272,23 +289,50 @@ export function ThreadComposer({
       send(event);
     });
 
+  // The preview is read where it appears; going back puts the caret in the text again.
+  useEffect(() => {
+    if (preview) previewBox.current?.focus();
+    else if (backToText.current) {
+      backToText.current = false;
+      form.current
+        ?.querySelector<HTMLElement>("textarea, [contenteditable]")
+        ?.focus();
+    }
+  }, [preview]);
+
+  function closePreview(focusText: boolean) {
+    backToText.current = focusText;
+    setPreview(null);
+    setPreviewError(null);
+  }
+
   function togglePreview() {
+    const control = previewControl({
+      shown: preview !== null,
+      pending: previewing,
+      body,
+    });
+    if (control.off) return;
     if (preview) {
-      setPreview(null);
+      closePreview(true);
       return;
     }
+    setPreviewError(null);
     startPreview(async () => {
       const answer = await previewAction(
         { type: "thread", nodeId: target.current },
         body,
       );
-      setPreview("preview" in answer ? { html: answer.preview } : answer);
+      if ("preview" in answer) setPreview(answer.preview);
+      else setPreviewError(answer.error);
     });
   }
 
   function choose(id: number) {
     setPicking(false);
     if (id === target.current) return;
+    // A preview is the forum's rendering: another forum draws it again when asked.
+    closePreview(false);
     target.current = id;
     setForum(id);
     onForum?.(id);
@@ -354,6 +398,11 @@ export function ThreadComposer({
           // Enter ends the title and goes on to the text; it does not send the thread.
           if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
           event.preventDefault();
+          // While the preview stands in for the text, the text comes back first.
+          if (preview) {
+            closePreview(true);
+            return;
+          }
           form.current
             ?.querySelector<HTMLElement>("textarea, [contenteditable]")
             ?.focus();
@@ -390,6 +439,7 @@ export function ThreadComposer({
   // Under the text, as XenForo's page has them: the poll, the tags, then the options.
   const below = (
     <div className="space-y-4 px-3 pt-3 pb-4 md:px-4">
+      {previewError && <FormError>{previewError}</FormError>}
       {poll && (
         <PollField
           wanted={kind === "poll"}
@@ -439,30 +489,36 @@ export function ThreadComposer({
     </div>
   );
 
-  // XenForo's Preview: the text as it will be posted, in its place, until pressed again.
+  // XenForo's Preview: the text as it will be posted, in its place, until "Back to editing".
+  const control = previewControl({
+    shown: preview !== null,
+    pending: previewing,
+    body,
+  });
   const previewButton = (
     <Button
       type="button"
       variant="outline"
-      className={rowButtonClass}
-      aria-pressed={preview !== null}
-      disabled={previewing || (!preview && body.trim() === "")}
+      className={cn(rowButtonClass, "aria-disabled:opacity-50")}
+      aria-disabled={control.off || undefined}
+      aria-busy={previewing || undefined}
       onClick={togglePreview}
     >
-      <Eye aria-hidden="true" />
-      {t("preview")}
+      {preview ? <PenLine aria-hidden="true" /> : <Eye aria-hidden="true" />}
+      {t(control.label)}
     </Button>
   );
   const shown = preview && (
-    <section aria-label={t("preview")} className="px-3 py-2.5 md:px-5 md:py-3">
+    <section
+      ref={previewBox}
+      tabIndex={-1}
+      aria-label={t("preview")}
+      className="px-3 py-2.5 outline-none md:px-5 md:py-3"
+    >
       <h2 className="mb-2 text-xs font-semibold text-muted-foreground">
         {t("preview")}
       </h2>
-      {"html" in preview ? (
-        preview.html
-      ) : (
-        <FormError>{preview.error}</FormError>
-      )}
+      {preview}
     </section>
   );
 
