@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Dialog } from "@/components/ui/dialog";
 import { messages } from "@/i18n/messages";
 import { withIntl } from "@/lib/test-intl";
-import { CodeDialogBody } from "./code-dialog";
+import { CodeDialogBody, textFocus } from "./code-dialog";
 import { Toolbar } from "./editor-toolbar";
 
 const text = messages.editor.editor;
@@ -101,4 +101,13 @@ test("the bar fetches the dialog's code when the code button is pressed, and imp
   expect(bar).not.toMatch(
     /^import (?!type)[^;]*from "@\/components\/forum\/code-(dialog|languages)"/m,
   );
+});
+
+test("however the dialog is closed, the focus goes back to the text and not to the button that opened it", () => {
+  let restored = 0;
+  const finalFocus = textFocus(() => restored++);
+  // Base UI moves the focus itself unless the answer is false.
+  expect(finalFocus()).toBe(false);
+  expect(finalFocus()).toBe(false);
+  expect(restored).toBe(2);
 });

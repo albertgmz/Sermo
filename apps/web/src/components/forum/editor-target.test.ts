@@ -6,6 +6,8 @@ import {
   $createParagraphNode,
   $createTextNode,
   $getRoot,
+  $getSelection,
+  $isRangeSelection,
   CAN_UNDO_COMMAND,
   COMMAND_PRIORITY_LOW,
   createEditor,
@@ -223,4 +225,24 @@ test("code in the middle of a paragraph splits it around the block; a block read
   targetOf(read).run({ codeLanguage: "python" });
   expect(await bbOf(read)).toBe("[CODE=python]\necho 1;\n[/CODE]");
   expect(seen.at(-1)).toMatchObject({ block: "code", codeLanguage: "python" });
+});
+
+test("code put into an empty box or a blank line takes the empty paragraph's place and leaves a paragraph after it for the caret", async () => {
+  const editor = editorWith("");
+  targetOf(editor).run({ code: { language: "php", text: "echo 1;" } });
+  await bbOf(editor);
+  const { kinds, caretIn } = editor.getEditorState().read(() => {
+    const selection = $getSelection();
+    return {
+      kinds: $getRoot()
+        .getChildren()
+        .map((node) => `${node.getType()}:${node.getTextContent()}`),
+      caretIn: $isRangeSelection(selection)
+        ? selection.anchor.getNode().getTopLevelElement()?.getType()
+        : null,
+    };
+  });
+  expect(kinds).toEqual(["code:echo 1;", "paragraph:"]);
+  expect(caretIn).toBe("paragraph");
+  expect(await bbOf(editor)).toBe("[CODE=php]\necho 1;\n[/CODE]");
 });

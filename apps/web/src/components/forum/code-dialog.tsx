@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import {
   COMMON_LANGUAGES,
   OTHER_LANGUAGES,
@@ -28,13 +28,19 @@ export type CodeDialogProps = {
   onChange: (language: string) => void;
   onRemove: () => void;
   onClose: () => void;
-  // Puts the focus back in the text, as the caret was left (after a choice; a dialog that is
-  // cancelled gives it back to what had it).
+  // Puts the focus back in the text, as the caret was left.
   onRestoreFocus: () => void;
 };
 
 const known = (language: string) =>
   [...COMMON_LANGUAGES, ...OTHER_LANGUAGES].some(({ id }) => id === language);
+
+// What closing the dialog does with the focus, however it is closed (a choice, Cancel, Escape, the
+// X): it goes back to the text at the caret, not to the button that opened the dialog.
+export const textFocus = (restore: () => void) => () => {
+  restore();
+  return false;
+};
 
 // XenForo's "Insert code" dialog: the language to pick (General code first, then the common
 // languages, then the others) and the code itself. Over a code block that is already there it
@@ -42,8 +48,6 @@ const known = (language: string) =>
 // (`Toolbar` fetches it on the first press of the code button).
 export default function CodeDialog(props: CodeDialogProps) {
   const [open, setOpen] = useState(true);
-  // Whether a choice closed it (cancelling gives the focus back to what had it).
-  const chosen = useRef(false);
   return (
     <Dialog
       open={open}
@@ -52,21 +56,14 @@ export default function CodeDialog(props: CodeDialogProps) {
     >
       <DialogContent
         className="sm:max-w-lg"
-        finalFocus={() => {
-          if (!chosen.current) return true;
-          props.onRestoreFocus();
-          return false;
-        }}
+        finalFocus={textFocus(props.onRestoreFocus)}
       >
         <CodeDialogBody
           current={props.current}
           onInsert={props.onInsert}
           onChange={props.onChange}
           onRemove={props.onRemove}
-          onFinish={() => {
-            chosen.current = true;
-            setOpen(false);
-          }}
+          onFinish={() => setOpen(false)}
         />
       </DialogContent>
     </Dialog>

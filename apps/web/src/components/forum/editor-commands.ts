@@ -84,9 +84,19 @@ export function $insertCode(language: string, text: string) {
   }
   if (!$isRangeSelection(selection)) return;
   selection.removeText();
+  const code = codeNode(text, option);
+  const here = selection.anchor.getNode().getTopLevelElement();
+  if ($isParagraphNode(here) && here.isEmpty()) {
+    // An empty paragraph (the empty box, a blank line) gives its place to the block, and a
+    // paragraph after it keeps the caret.
+    const after = $createParagraphNode();
+    here.replace(code);
+    code.insertAfter(after);
+    after.select();
+    return;
+  }
   selection.insertParagraph();
   const block = selection.anchor.getNode().getTopLevelElement();
-  const code = codeNode(text, option);
   if (block?.isEmpty() && $isParagraphNode(block)) block.replace(code);
   else block?.insertBefore(code);
   code.selectEnd();

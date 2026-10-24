@@ -247,6 +247,16 @@ test("the Code block button asks for the language, and the language of the block
   await expect(replyBox(page)).toBeFocused();
   await expect(replyBox(page)).toContainText("echo 1;");
 
+  // The caret waits in the paragraph after the block; in the block, the button changes its language.
+  await replyBox(page).getByText("echo 1;").click();
+  // Cancelling gives the focus back to the text too, not to the button.
+  await (await reveal(toolbar, "Code block")).click();
+  await page
+    .getByRole("dialog", { name: "Code language" })
+    .getByRole("button", { name: "Cancel" })
+    .click();
+  await expect(replyBox(page)).toBeFocused();
+
   // Over the block the dialog changes its language.
   await (await reveal(toolbar, "Code block")).click();
   const change = page.getByRole("dialog", { name: "Code language" });
