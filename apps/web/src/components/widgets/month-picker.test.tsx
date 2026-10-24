@@ -88,3 +88,15 @@ test("a month outside the range named by the address stays in the list, chosen",
     "2019-03",
   ]);
 });
+
+// The select is uncontrolled: only a new key makes the browser show the month of a new address
+// (back, forward, a link to another month) while the picker stays mounted.
+test("the select is remade when the month shown changes", () => {
+  const keyed = (value: string) =>
+    find(
+      MonthPicker({ id: "m", value, min: "2026-08", max: "2026-10" }),
+      "select",
+    )?.key;
+  expect(keyed("2026-09")).toBe("2026-09");
+  expect(keyed("2026-08")).not.toBe(keyed("2026-09"));
+});

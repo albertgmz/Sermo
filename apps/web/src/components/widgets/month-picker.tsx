@@ -47,6 +47,7 @@ export function MonthPicker({
           {t("label")}
         </Label>
         <select
+          key={value}
           id={id}
           name="month"
           defaultValue={value}
