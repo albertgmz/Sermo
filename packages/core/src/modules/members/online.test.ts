@@ -86,7 +86,7 @@ describe("page views are noted per request and written by the flush", () => {
     await s.guestView(`forum:${s.forum.id}`);
     // The request path wrote nothing.
     expect(rows(s.ctx)).toBe(0);
-    expect(flushVisits(s.ctx)).toBe(1);
+    expect(await flushVisits(s.ctx)).toBe(1);
     expect(rows(s.ctx)).toBe(1);
     const row = s.ctx.sqlite
       .prepare<{ visitor_key: string; place_kind: string; place_id: number; ip: string }, []>(
@@ -98,14 +98,14 @@ describe("page views are noted per request and written by the flush", () => {
     expect(row.visitor_key).toMatch(/^g:[0-9a-f]{32}$/);
     // Another browser on the same address is another visitor.
     await s.guestView("forumList", "203.0.113.7", `${FIREFOX} Other`);
-    flushVisits(s.ctx);
+    await flushVisits(s.ctx);
     expect(rows(s.ctx)).toBe(2);
   });
 
   test("a request that names no page is not noted", async () => {
     const s = setup();
     await resolveActor(s.ctx, new Headers({ [CLIENT_IP_HEADER]: "203.0.113.7" }));
-    expect(flushVisits(s.ctx)).toBe(0);
+    expect(await flushVisits(s.ctx)).toBe(0);
   });
 
   test("the place header names a kind and an id, never more; anything else is a page", () => {
@@ -115,7 +115,7 @@ describe("page views are noted per request and written by the flush", () => {
       expect(parsePlace(value)).toEqual({ kind: "page", id: null });
   });
 
-  test("a flood of new guests keeps the notes and the table bounded, and members are still noted", () => {
+  test("a flood of new guests keeps the notes and the table bounded, and members are still noted", async () => {
     const s = setup();
     const member = s.user();
     const guests = () =>
@@ -139,10 +139,10 @@ describe("page views are noted per request and written by the flush", () => {
     // A member's page view is still noted with the guests' share full.
     s.memberView(member.id, `forum:${s.forum.id}`);
     expect(pendingVisits(s.ctx).has(`u:${member.id}`)).toBe(true);
-    flushVisits(s.ctx);
+    await flushVisits(s.ctx);
     for (let round = 0; round < 3; round++) {
       flood();
-      flushVisits(s.ctx);
+      await flushVisits(s.ctx);
     }
     expect(guests()).toBe(MAX_STORED_GUESTS);
     // A guest already stored is still moved on; the member's row is there.
@@ -153,7 +153,7 @@ describe("page views are noted per request and written by the flush", () => {
       userAgent: `${FIREFOX} 0`,
       place: "search",
     });
-    flushVisits(s.ctx);
+    await flushVisits(s.ctx);
     expect(guests()).toBe(MAX_STORED_GUESTS);
     expect(
       s.ctx.sqlite
@@ -171,7 +171,7 @@ describe("page views are noted per request and written by the flush", () => {
     ).toBe(1);
   });
 
-  test("the flush writes in chunks: a failed chunk keeps the ones before and notes the rest again", () => {
+  test("the flush writes in chunks: a failed chunk keeps the ones before and notes the rest again", async () => {
     const s = setup();
     const count = FLUSH_CHUNK * 2 + 200;
     for (let i = 0; i < count; i++)
@@ -182,25 +182,46 @@ describe("page views are noted per request and written by the flush", () => {
         place: "forumList",
       });
     // A row of the second chunk cannot be written.
-    const failing = [...pendingVisits(s.ctx).keys()][FLUSH_CHUNK + 200]!;
+    const failing = [...pendingVisits(s.ctx).keys()][FLUSH_CHUNK + FLUSH_CHUNK / 2]!;
     s.ctx.sqlite.run(
       `CREATE TEMP TRIGGER refuse BEFORE INSERT ON online_visitors WHEN NEW.visitor_key = '${failing}' BEGIN SELECT RAISE(ABORT, 'refused'); END`,
     );
-    expect(() => flushVisits(s.ctx)).toThrow("refused");
+    await expect(flushVisits(s.ctx)).rejects.toThrow("refused");
     expect(rows(s.ctx)).toBe(FLUSH_CHUNK);
     expect(pendingVisits(s.ctx).size).toBe(count - FLUSH_CHUNK);
     s.ctx.sqlite.run("DROP TRIGGER refuse");
-    expect(flushVisits(s.ctx)).toBe(count - FLUSH_CHUNK);
+    expect(await flushVisits(s.ctx)).toBe(count - FLUSH_CHUNK);
+    expect(rows(s.ctx)).toBe(count);
+  });
+
+  test("the flush yields to the event loop between chunks, so a request runs before it ends", async () => {
+    const s = setup();
+    const count = FLUSH_CHUNK * 3;
+    for (let i = 0; i < count; i++)
+      noteVisit(s.ctx, {
+        userId: null,
+        ip: "198.51.100.1",
+        userAgent: `${FIREFOX} ${i}`,
+        place: "forumList",
+      });
+    const flushing = flushVisits(s.ctx);
+    let seen = -1;
+    setImmediate(() => {
+      seen = rows(s.ctx);
+    });
+    expect(await flushing).toBe(count);
+    expect(seen).toBeGreaterThanOrEqual(FLUSH_CHUNK);
+    expect(seen).toBeLessThan(count);
     expect(rows(s.ctx)).toBe(count);
   });
 
   test("rows unseen for an hour are pruned, newer ones kept", async () => {
     const s = setup();
     await s.guestView("forumList", "203.0.113.1");
-    flushVisits(s.ctx);
+    await flushVisits(s.ctx);
     s.ctx.clock.advance(VISIT_KEEP_MS - MINUTE);
     await s.guestView("forumList", "203.0.113.2");
-    flushVisits(s.ctx);
+    await flushVisits(s.ctx);
     s.ctx.clock.advance(2 * MINUTE);
     expect(await pruneOnlineVisitors(s.ctx)).toBe(1);
     expect(rows(s.ctx)).toBe(1);
@@ -242,7 +263,7 @@ describe("online.list", () => {
     const s = setup();
     const visitor = s.user();
     s.memberView(visitor.id, `forum:${s.forum.id}`);
-    flushVisits(s.ctx);
+    await flushVisits(s.ctx);
     s.ctx.clock.advance(VISIT_KEEP_MS + MINUTE);
     // Still within the day: listed with the time alone.
     s.ctx.sqlite

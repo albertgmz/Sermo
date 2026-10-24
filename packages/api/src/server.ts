@@ -538,12 +538,12 @@ async function main(): Promise<void> {
     stopping = true;
     void shutdown({
       stopAccepting: () => server.stop(),
-      flushViewCounts: () => {
+      flushViewCounts: async () => {
         flushViewCounts(ctx);
         flushDownloadCounts(ctx);
         flushActivity(ctx);
         flushSessionActivity(ctx);
-        flushVisits(ctx);
+        await flushVisits(ctx);
       },
       stopScheduler,
       stopWorker,

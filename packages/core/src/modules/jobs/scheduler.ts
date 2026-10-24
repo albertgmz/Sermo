@@ -40,7 +40,6 @@ export function runViewsTask(ctx: Ctx): number {
   flushDownloadCounts(ctx);
   flushActivity(ctx);
   flushSessionActivity(ctx);
-  flushVisits(ctx);
   return views;
 }
 
@@ -169,8 +168,9 @@ export function startScheduler(ctx: Ctx): () => void {
     new Cron(SCHEDULES.events, { name: "jobs.events", protect: true, catch: onError }, async () => {
       await dispatchEvents(ctx);
     }),
-    new Cron(SCHEDULES.views, { name: "jobs.views", protect: true, catch: onError }, () => {
+    new Cron(SCHEDULES.views, { name: "jobs.views", protect: true, catch: onError }, async () => {
       runViewsTask(ctx);
+      await flushVisits(ctx);
     }),
     new Cron(SCHEDULES.minute, { name: "jobs.minute", protect: true, catch: onError }, async () => {
       runMinuteTasks(ctx);

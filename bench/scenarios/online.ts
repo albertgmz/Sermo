@@ -61,9 +61,9 @@ function visitors(env: BenchEnv) {
   forgetOnlineList(ctx);
 }
 
-function back(env: BenchEnv) {
+async function back(env: BenchEnv) {
   const { ctx } = env;
-  flushVisits(ctx);
+  await flushVisits(ctx);
   const activity = ctx.sqlite.prepare("UPDATE users SET last_activity_at = ?1 WHERE id = ?2");
   ctx.sqlite.transaction(() => {
     for (const row of seeded) activity.run(row.last_activity_at, row.id);

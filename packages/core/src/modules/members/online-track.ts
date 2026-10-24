@@ -27,9 +27,12 @@ export const MAX_PENDING_GUESTS = 5_000;
  * so the table, and the list read from it, stay bounded whatever arrives.
  */
 export const MAX_STORED_GUESTS = 10_000;
-/** Rows the flush and the prune write per transaction. */
+/**
+ * Rows the prune and the flush write per transaction. The flush's chunk is small so a request
+ * between two of them waits about a millisecond, not for the whole flush.
+ */
 export const PRUNE_CHUNK = 500;
-export const FLUSH_CHUNK = 500;
+export const FLUSH_CHUNK = 100;
 
 export type PlaceKind = (typeof PLACE_KINDS)[number];
 export interface RawPlace {
@@ -162,12 +165,15 @@ function writeChunk(ctx: Ctx, chunk: [string, Visit][]): void {
   });
 }
 
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 /**
  * Writes the noted page views, `FLUSH_CHUNK` to a transaction, each holding checkpoints so a
- * commit never meets one; the checkpointer may run between them. What a failed chunk and the
- * ones after it held is noted again for the next flush.
+ * commit never meets one, and yields to the event loop between them, so requests (and the
+ * checkpointer) run while a large flush is in progress. What a failed chunk and the ones after
+ * it held is noted again for the next flush.
  */
-export function flushVisits(ctx: Ctx): number {
+export async function flushVisits(ctx: Ctx): Promise<number> {
   const state = pending.get(ctx);
   if (!state?.visits.size) return 0;
   const batch = [...state.visits];
@@ -176,6 +182,7 @@ export function flushVisits(ctx: Ctx): number {
   let written = 0;
   try {
     while (written < batch.length) {
+      if (written > 0) await yieldToEventLoop();
       const chunk = batch.slice(written, written + FLUSH_CHUNK);
       const release = holdCheckpoints(ctx);
       try {
@@ -195,8 +202,6 @@ export function flushVisits(ctx: Ctx): number {
   }
   return batch.length;
 }
-
-const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 /**
  * Deletes visitors unseen for `VISIT_KEEP_MS`, oldest first, `PRUNE_CHUNK` rows per transaction,

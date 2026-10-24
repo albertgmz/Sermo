@@ -37,7 +37,7 @@ test("a page view through the app is noted without a write, and written by the f
   });
   expect(view.status).toBe(200);
   expect(visitors()).toEqual([]);
-  expect(flushVisits(ctx)).toBe(1);
+  expect(await flushVisits(ctx)).toBe(1);
   expect(visitors()).toEqual([
     {
       visitor_key: expect.stringMatching(/^g:/),
@@ -70,13 +70,13 @@ test("a signed-in member's page view is noted under their account, not their add
     .getSetCookie()
     .map((line) => line.split(";")[0])
     .join("; ");
-  flushVisits(ctx);
+  await flushVisits(ctx);
   const view = await request("/api/v1/online", {
     headers: { cookie, "x-sermo-place": "members", "x-forwarded-for": "198.51.100.9" },
   });
   expect(view.status).toBe(200);
   expect(visitors()).toEqual([]);
-  flushVisits(ctx);
+  await flushVisits(ctx);
   const userId = ctx.sqlite.prepare<{ id: number }, []>("SELECT id FROM users").get()!.id;
   expect(visitors()).toEqual([
     { visitor_key: `u:${userId}`, user_id: userId, robot: null, ip: null },
