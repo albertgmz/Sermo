@@ -665,6 +665,27 @@ describe("past months follow the current rules", () => {
     expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
   });
 
+  test("a winner left out before past months followed the rules is replaced when the jobs start", async () => {
+    const { w, m1 } = staff();
+    refreshStandings(w.ctx);
+    expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
+    await w.call("settings.update", w.adminActor, { standingExcludeStaff: true });
+    // The exclusion was saved before past months followed the rules: no run was queued for it.
+    w.ctx.sqlite.prepare("DELETE FROM jobs WHERE type LIKE 'standings.redecide%'").run();
+    expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
+    await settle(w);
+    const decided = ids((await winners(w)).items);
+    expect(decided).toEqual([m1.id]);
+    expect(ids((await month(w, "previous")).items).slice(0, 1)).toEqual(decided);
+  });
+
+  test("starting the jobs queues no run when every stored winner is still eligible", async () => {
+    const { w } = staff();
+    refreshStandings(w.ctx);
+    registerAllStandingJobs(w.ctx);
+    expect(jobs(w)).toBe(0);
+  });
+
   test("listing a member, or changing a point weight, decides past months again", async () => {
     const { w, m1 } = staff();
     refreshStandings(w.ctx);
@@ -936,6 +957,7 @@ describe("past months follow the current rules", () => {
   test("every statement of the decision reads an index or a bounded key range", () => {
     const { w } = scenario();
     expectNoTableScan(w.ctx, redecideSql.firstWinner, []);
+    expectNoTableScan(w.ctx, redecideSql.winnerIds, []);
     expectNoTableScan(w.ctx, redecideSql.eligible, ["[1,2]"]);
     expectNoTableScan(w.ctx, redecideSql.setWinner, [202512, 1, 1, 0, 0, 10, 0]);
     expectNoTableScan(w.ctx, redecideSql.clearWinner, [202512]);

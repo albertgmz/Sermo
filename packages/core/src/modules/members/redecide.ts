@@ -24,6 +24,8 @@ const CANDIDATES = 50;
 
 export const redecideSql = {
   firstWinner: "SELECT min(month) AS month FROM month_winners",
+  // One row per decided month, a few hundred at most: read by the primary key.
+  winnerIds: "SELECT user_id FROM month_winners WHERE month > 0",
   // Not banned for good and not erased: the same test as `standingSql.top`, for a batch of
   // members. A temporary ban does not disqualify; the reads hide the winner while it lasts.
   eligible:
@@ -158,6 +160,24 @@ export async function redecideChunk(ctx: Ctx, month: number, job: ClaimedJob): P
   } finally {
     release();
   }
+}
+
+/**
+ * Starts a run when a stored winner is left out by today's rules. A change of the rules queues a
+ * run by itself; this catches the winners decided before that rule held, or under permissions that
+ * have changed since, so the next start puts them right without anyone saving the settings again.
+ */
+export function redecideStaleWinners(ctx: Ctx): void {
+  if (redecideUnderWay(ctx)) return;
+  const owners = prepared(ctx, "members.standingWinnerIds", () =>
+    ctx.sqlite.prepare<{ user_id: number }, []>(redecideSql.winnerIds),
+  ).all();
+  if (owners.length === 0) return;
+  const left = excluderFor(
+    ctx,
+    currentVersions(ctx),
+  )([...new Set(owners.map((row) => row.user_id))]);
+  if (left.size > 0) enqueueJob(ctx, REDECIDE_JOB, { month: 0 }, { uniqueKey: REDECIDE_JOB });
 }
 
 export function registerRedecideJobs(ctx: Ctx): void {

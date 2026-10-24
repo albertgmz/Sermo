@@ -5,7 +5,7 @@ import { usersChangeUsernameOp } from "../auth/username";
 import { loadViewerAuthors, loadViewerCards } from "./cards";
 import { usersBirthdaysOp, usersListOp, usersStaffOp } from "./directory";
 import { usersRecentlyActiveOp } from "./recently-active";
-import { registerRedecideJobs } from "./redecide";
+import { redecideStaleWinners, registerRedecideJobs } from "./redecide";
 import { requireSiteViewForCards } from "./site-access";
 import { siteStatsOp } from "./site-stats";
 import {
@@ -18,10 +18,11 @@ export { loadMemberAuthors, loadMemberCards } from "./cards";
 export { forgetRecentlyActive } from "./recently-active-cache";
 export { refreshStandings } from "./standings";
 
-/** The standings refresh, and the job that decides past months again when their rules change. */
+/** The standings refresh, and the job that decides past months again when their rules change or a stored winner is now left out. */
 export function registerStandingJobs(ctx: Ctx): void {
   registerRefreshJob(ctx);
   registerRedecideJobs(ctx);
+  redecideStaleWinners(ctx);
 }
 
 export const usersCardsOp = implement(
