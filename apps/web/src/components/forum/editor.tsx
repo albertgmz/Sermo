@@ -86,6 +86,7 @@ import {
   settleUpload,
 } from "@/components/forum/image-node";
 import { prose } from "@/components/forum/prose";
+import { registerQuoteBlocks } from "@/components/forum/quote-node";
 import { cn } from "@/lib/utils";
 
 const CONFIG: InitialConfigType = {
@@ -149,6 +150,7 @@ function ContentSafetyPlugin({
     () =>
       mergeRegister(
         registerStyleTransforms(editor),
+        registerQuoteBlocks(editor),
         registerPaste(editor, (files, pasted) =>
           latest.current(
             files,
@@ -169,7 +171,10 @@ function ContentSafetyPlugin({
 // synchronously, so both sides agree.
 function initialEditorState(bb: string): string | undefined {
   const scratch = createEditor({ nodes: BB_NODES });
-  const unregister = registerStyleTransforms(scratch);
+  const unregister = mergeRegister(
+    registerStyleTransforms(scratch),
+    registerQuoteBlocks(scratch),
+  );
   scratch.update(() => $replaceWithBb(bb), { discrete: true });
   const state = scratch.getEditorState();
   unregister();

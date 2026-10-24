@@ -86,6 +86,10 @@
       "medium": "Mediana",
       "full": "Completa",
       "alt": "Texto alternativo"
+    },
+    "quote": {
+      "remove": "Quitar la cita",
+      "said": "dijo:"
     }
   }
 }

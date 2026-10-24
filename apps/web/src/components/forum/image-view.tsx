@@ -41,7 +41,7 @@ export function picturesBlocked(cookies: string) {
 
 // Buttons drawn here rather than with the shared button: a module the editor's lazy chunk shares
 // with the pages' first scripts changes how those scripts are split, and every page grows.
-const ICON_BUTTON =
+export const ICON_BUTTON =
   "inline-flex size-7 shrink-0 items-center justify-center rounded-md outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-4";
 const TEXT_BUTTON =
   "inline-flex h-7 shrink-0 items-center rounded-md px-2.5 text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:bg-muted aria-pressed:font-medium";
@@ -57,7 +57,7 @@ const STEP = 10;
 // Events from the picture's own controls that the editor must not take as typing in its text: the
 // alt text field gets its keys and the buttons their presses (Backspace there deletes a character,
 // not the picture).
-const OWN_EVENTS = [
+export const OWN_EVENTS = [
   "keydown",
   "keyup",
   "beforeinput",

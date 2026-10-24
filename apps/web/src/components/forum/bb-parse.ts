@@ -9,10 +9,11 @@ import {
 } from "@/components/forum/bb-scan";
 
 // BB code read into what the rich editor can hold. The editor shows bold, italic, underline,
-// strikethrough, inline code, links, headings, quotes, lists and code blocks as formatting; every
-// other tag (colour, size, alignment, spoilers, tables, media, attachments, quotes of a post...)
-// and every tag that is unpaired or in the wrong place stays in the text as typed, so that
-// writing it back gives the same source. No text is ever dropped.
+// strikethrough, inline code, links, headings, lists and code blocks as formatting, and a quote
+// as a block that holds its source as it was written; every other tag (colour, size, alignment,
+// spoilers, tables, media, attachments...) and every tag that is unpaired or in the wrong place
+// stays in the text as typed, so that writing it back gives the same source. No text is ever
+// dropped.
 //
 // The reading follows the backend's (packages/core/src/bbcode): a closing tag pairs with the
 // nearest open tag of its name and leaves the tags opened after it as text, an unclosed tag is
@@ -44,7 +45,10 @@ export type ListSpec = {
 };
 
 export type Block =
-  | { t: "p" | "quote"; kids: Inline[] }
+  | { t: "p"; kids: Inline[] }
+  // A whole quote, from its opening tag to its closing one, as it was written, and where it
+  // begins in the source.
+  | { t: "quote"; raw: string; at: number }
   | { t: "h"; level: 1 | 2 | 3; kids: Inline[] }
   | { t: "code"; text: string; language?: string }
   | ListSpec;
@@ -70,6 +74,8 @@ type Tree =
       // the renderer would read them differently.
       holdsTags: boolean;
       cutsText: boolean;
+      // A quote: the source from its opening tag to its closing one, and where that begins.
+      quote?: { raw: string; at: number };
     };
 
 type El = Extract<Tree, { k: "el" }>;
@@ -77,6 +83,8 @@ type Frame = {
   name: string;
   option?: string;
   open: string;
+  // Where the opening tag begins in the source.
+  start: number;
   kids: Tree[];
   // A tag the editor does not show as formatting but the renderer pairs: it is text when it closes.
   opaque?: true;
@@ -135,7 +143,7 @@ function parseTree(
   unclosed?: (names: string[]) => void,
 ): Tree[] {
   const find = closerFinder(source);
-  const root: Frame = { name: "", open: "", kids: [] };
+  const root: Frame = { name: "", open: "", start: 0, kids: [] };
   const stack: Frame[] = [root];
   const top = () => stack[stack.length - 1];
   const addText = (s: string) => {
@@ -151,7 +159,7 @@ function parseTree(
       else top().kids.push(kid);
     }
   };
-  const finish = (close: string) => {
+  const finish = (close: string, end: number) => {
     const frame = stack.pop() as Frame;
     // A format or a link around nothing is nothing: what it holds (spaces) stays.
     if (
@@ -171,6 +179,9 @@ function parseTree(
       holdsBlock: frame.kids.some(isBlock),
       holdsTags: frame.kids.some(hasTagText),
       cutsText: frame.kids.some(cutsText),
+      ...(frame.name === "QUOTE" && {
+        quote: { raw: source.slice(frame.start, end), at: frame.start },
+      }),
     });
   };
   const literalize = () => {
@@ -204,18 +215,19 @@ function parseTree(
       // Tags opened after it that are still open are text, but the items of a list belong to it.
       while (stack.length - 1 > at) {
         if (top().name === "*" && stack[stack.length - 2].name === "LIST") {
-          finish("");
+          finish("", end);
         } else {
           literalize();
         }
       }
-      if (top().opaque) {
+      // A quote with an option is paired like the rest, but is a quote all the same.
+      if (top().opaque && name !== "QUOTE") {
         const frame = stack.pop() as Frame;
         addText(frame.open);
         addAll(frame.kids);
         addText(head);
       } else {
-        finish(head);
+        finish(head, end);
       }
       continue;
     }
@@ -312,8 +324,8 @@ function parseTree(
         continue;
       }
       while (stack.length - 1 > holder) literalize();
-      if (list === "*") finish("");
-      stack.push({ name, open: head, kids: [] });
+      if (list === "*") finish("", m.index);
+      stack.push({ name, open: head, start: m.index, kids: [] });
       continue;
     }
 
@@ -329,9 +341,16 @@ function parseTree(
               ? option === undefined || option === "1"
               : name === "QUOTE" && option === undefined);
     if (supported) {
-      stack.push({ name, option, open: head, kids: [] });
+      stack.push({ name, option, open: head, start: m.index, kids: [] });
     } else if (stack.length <= MAX_DEPTH && isOtherTag(name, option)) {
-      stack.push({ name, option, open: head, kids: [], opaque: true });
+      stack.push({
+        name,
+        option,
+        open: head,
+        start: m.index,
+        kids: [],
+        opaque: true,
+      });
     } else {
       addText(head);
     }
@@ -555,22 +574,24 @@ function element(el: El, sink: Sink, marks: Mark[], link: boolean) {
     }
     return;
   }
+  // A quote is kept whole, with whatever is in it (other quotes too) as it was written.
+  if (el.quote && !el.kids.every(isBlank)) {
+    endParagraph(sink);
+    sink.blocks.push({ t: "quote", ...el.quote });
+    return;
+  }
   if (el.holdsBlock) {
     asText(el, sink, marks, link);
     return;
   }
   const kids = inlineOf(el.kids, [], false);
-  if (!kids.length) {
+  if (!kids.length || el.name !== "HEADING") {
     // Nothing to show: the tags stay as they are.
     asText(el, sink, marks, link);
     return;
   }
   endParagraph(sink);
-  if (el.name === "HEADING") {
-    sink.blocks.push({ t: "h", level: Number(el.option) as 1 | 2 | 3, kids });
-  } else {
-    sink.blocks.push({ t: "quote", kids });
-  }
+  sink.blocks.push({ t: "h", level: Number(el.option) as 1 | 2 | 3, kids });
 }
 
 // The closing tags of the formats a text leaves open at its end, innermost first.
@@ -612,7 +633,9 @@ export function textChars(blocks: Block[]): number {
         ? countNonSpace(block.text)
         : block.t === "list"
           ? listChars(block)
-          : inlineChars(block.kids)),
+          : block.t === "quote"
+            ? 0
+            : inlineChars(block.kids)),
     0,
   );
 }

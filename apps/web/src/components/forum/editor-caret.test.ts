@@ -71,11 +71,14 @@ const REPLY =
 
 test("a caret after a quote with an attribution is after the quote's tags, not inside them", () => {
   expect(placed(REPLY, REPLY.length)?.before).toBe("my reply here");
-  // In the middle of the reply, and in the quoted words.
+  // In the middle of the reply.
   expect(placed(REPLY, REPLY.indexOf("ply") + 1)?.before).toBe("my rep");
-  expect(
-    placed(REPLY, REPLY.indexOf("words") + 2)?.before.endsWith("quoted wo"),
-  ).toBe(true);
+});
+
+test("a caret in a quote, which cannot be entered, is after the quote", () => {
+  expect(placed(REPLY, REPLY.indexOf("words") + 2)?.before).toBe("");
+  const text = `Hi\n\n[QUOTE]quoted words[/QUOTE]\n\nmy reply`;
+  expect(placed(text, text.indexOf("words") + 2)?.before).toBe("");
 });
 
 test("a caret at the start of a line is before its first character", () => {

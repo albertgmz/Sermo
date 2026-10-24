@@ -289,7 +289,9 @@ test("a reply is posted from the phone and the quote and r key reach the editor"
   // The quote button puts the post into the box.
   await page.getByRole("button", { name: "Quote" }).first().click();
   await editorReady(page.getByRole("region", { name: "Reply" }));
-  await expect(replyBox(page)).toContainText("[QUOTE=");
+  // It arrives as a quote block with its author, not as BB code.
+  await expect(replyBox(page).locator("blockquote cite")).toHaveCount(1);
+  await expect(replyBox(page)).not.toContainText("[QUOTE=");
 
   const text = unique("Reply from the phone");
   await replyBox(page).press("Control+End");

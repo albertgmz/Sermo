@@ -23,9 +23,9 @@ const SPACE = /\s/;
 const SHOWN_CONTENT = new Set(["CODE", "ICODE", "URL"]);
 
 // The characters that are not space in the text the editor shows before `offset` of `source`. The
-// editor's own reading counts them: a tag it shows as text (a quote with an attribution, a colour,
-// a spoiler...) is counted, one it shows as formatting is not, and a format still open at the offset
-// is closed so that its tag is not read as text.
+// editor's own reading counts them: a tag it shows as text (a colour, a spoiler...) is counted, one it
+// shows as formatting is not, and a format still open at the offset is closed so that its tag is not
+// read as text.
 export function charsBefore(source: string, offset: number): number {
   // Not in the middle of a tag.
   let end = Math.min(offset, source.length);
@@ -92,17 +92,31 @@ function pointAfter(
   return { node: last, offset: last.getTextContentSize() };
 }
 
+// A quote is a block the caret cannot enter: a place in one is the place after it.
+function afterQuote(source: string, offset: number): number {
+  for (const block of parseBb(source)) {
+    if (block.t === "quote" && block.at < offset) {
+      const end = block.at + block.raw.length;
+      if (offset < end) return end;
+    }
+  }
+  return offset;
+}
+
 // Puts the selection of the editor where the box had its own: `start` and `end` are the offsets of
 // its selection in `source`, the text the editor was made from.
-export function $placeSelection(source: string, start: number, end: number) {
-  const from = pointAfter(
+export function $placeSelection(source: string, from: number, to: number) {
+  const start = afterQuote(source, from);
+  const end = afterQuote(source, to);
+  const anchor = pointAfter(
     charsBefore(source, start),
     start > 0 && (source[start - 1] === "\n" || source[start - 1] === "]"),
   );
-  const to = end === start ? from : pointAfter(charsBefore(source, end), false);
-  if (!from || !to) return;
+  const focus =
+    end === start ? anchor : pointAfter(charsBefore(source, end), false);
+  if (!anchor || !focus) return;
   const selection = $createRangeSelection();
-  selection.anchor.set(from.node.getKey(), from.offset, "text");
-  selection.focus.set(to.node.getKey(), to.offset, "text");
+  selection.anchor.set(anchor.node.getKey(), anchor.offset, "text");
+  selection.focus.set(focus.node.getKey(), focus.offset, "text");
   $setSelection(selection);
 }

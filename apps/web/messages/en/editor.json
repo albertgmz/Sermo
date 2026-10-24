@@ -86,6 +86,10 @@
       "medium": "Medium",
       "full": "Full",
       "alt": "Alt text"
+    },
+    "quote": {
+      "remove": "Remove the quote",
+      "said": "said:"
     }
   }
 }

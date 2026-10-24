@@ -15,7 +15,6 @@ import {
 } from "@lexical/list";
 import {
   $createHeadingNode,
-  $createQuoteNode,
   $isHeadingNode,
   $isQuoteNode,
   HeadingNode,
@@ -48,6 +47,11 @@ import {
   richCode,
 } from "@/components/forum/bb-scan";
 import { $createImageNode, ImageNode } from "@/components/forum/image-node";
+import {
+  $createQuoteBlockNode,
+  $isQuoteBlockNode,
+  QuoteBlockNode,
+} from "@/components/forum/quote-node";
 
 // The editor holds BB code as rich text and writes it back. `bb-parse.ts` says what is shown as
 // formatting; this file builds the editor's nodes from that and writes the nodes as BB code.
@@ -63,7 +67,7 @@ export const TEXT_NODES = [
   CodeNode,
   CodeHighlightNode,
 ];
-export const BB_NODES = [...TEXT_NODES, ImageNode];
+export const BB_NODES = [...TEXT_NODES, ImageNode, QuoteBlockNode];
 
 // ---- BB code to nodes ----
 
@@ -104,7 +108,7 @@ function codeNode(text: string, language?: string) {
   return code;
 }
 
-function blockNode(block: Block): ElementNode {
+function blockNode(block: Block): ElementNode | QuoteBlockNode {
   switch (block.t) {
     case "p":
       return $createParagraphNode().append(...inlineNodes(block.kids));
@@ -113,7 +117,7 @@ function blockNode(block: Block): ElementNode {
         ...inlineNodes(block.kids),
       );
     case "quote":
-      return $createQuoteNode().append(...inlineNodes(block.kids));
+      return $createQuoteBlockNode(block.raw);
     case "code":
       return codeNode(block.text, block.language);
     case "list":
@@ -305,6 +309,7 @@ function codeBb(code: ElementNode): string {
 }
 
 function blockBb(node: LexicalNode): string {
+  if ($isQuoteBlockNode(node)) return node.getRaw();
   if ($isHeadingNode(node)) {
     const level = Math.min(Number(node.getTag().slice(1)), 3);
     const text = inlineBb(node).trim();
