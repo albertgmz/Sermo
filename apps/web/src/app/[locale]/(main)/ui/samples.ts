@@ -404,6 +404,7 @@ export const FORUMS: (ForumCardData & { description: string })[] = [
     postCount: 168,
     lastPost: {
       threadId: 1,
+      href: "/threads/1",
       threadTitle: "Welcome to the forum",
       prefix: PREFIXES[3],
       createdAt: "2026-10-01T09:00:00.000Z",
@@ -422,6 +423,7 @@ export const FORUMS: (ForumCardData & { description: string })[] = [
     postCount: 9170,
     lastPost: {
       threadId: 2,
+      href: "/threads/2",
       threadTitle: "What are you reading?",
       prefix: PREFIXES[0],
       createdAt: "2026-10-10T18:20:00.000Z",

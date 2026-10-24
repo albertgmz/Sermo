@@ -23,18 +23,21 @@ function holdsUnread(
 //   member       The author of a last post, by id (`membersFor`).
 //   unread       The ids of the forums with an unread thread (`unreadForums`); a card is unread
 //                when its forum or one under it is.
+//   signedIn     Whether the viewer is a member: the last post's thread opens where they left off.
 //   className    Spacing of the list.
 export function ForumCardGrid({
   forums,
   childrenOf,
   member,
   unread,
+  signedIn,
   className,
 }: {
   forums: ApiNode[];
   childrenOf: (parentId: number) => ApiNode[];
   member: (id: number) => MemberView;
   unread?: ReadonlySet<number>;
+  signedIn: boolean;
   className?: string;
 }) {
   return (
@@ -47,6 +50,7 @@ export function ForumCardGrid({
             childrenOf,
             member,
             unread !== undefined && holdsUnread(forum.id, childrenOf, unread),
+            signedIn,
           )}
           className="md:last:odd:col-span-2"
         />

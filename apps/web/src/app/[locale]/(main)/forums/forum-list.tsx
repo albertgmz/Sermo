@@ -123,6 +123,7 @@ async function ForumCategories({
             childrenOf={childrenOf}
             member={member}
             unread={unread}
+            signedIn={user !== null}
             className="p-2"
           />
         </CollapsiblePanel>

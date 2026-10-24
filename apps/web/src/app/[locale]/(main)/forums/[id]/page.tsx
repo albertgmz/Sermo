@@ -267,10 +267,11 @@ export default async function ForumPage({
 
 // A category holds no threads: its forums are what the page lists.
 async function CategoryForums({ nodeId }: { nodeId: number }) {
-  const [{ items: nodes }, unread, t] = await Promise.all([
+  const [{ items: nodes }, unread, t, { user }] = await Promise.all([
     read(nodesList, {}),
     unreadForums(),
     getTranslations("forums.forum"),
+    getViewer(),
   ]);
   const childrenOf = childrenByParent(nodes);
   const forums = childrenOf(nodeId);
@@ -292,6 +293,7 @@ async function CategoryForums({ nodeId }: { nodeId: number }) {
       childrenOf={childrenOf}
       member={member}
       unread={unread}
+      signedIn={user !== null}
       className="mt-4"
     />
   );
@@ -299,9 +301,10 @@ async function CategoryForums({ nodeId }: { nodeId: number }) {
 
 // The forums inside a forum, above its threads (nothing when it has none).
 async function Subforums({ nodeId }: { nodeId: number }) {
-  const [{ items: nodes }, unread] = await Promise.all([
+  const [{ items: nodes }, unread, { user }] = await Promise.all([
     read(nodesList, {}),
     unreadForums(),
+    getViewer(),
   ]);
   const childrenOf = childrenByParent(nodes);
   const forums = childrenOf(nodeId);
@@ -313,6 +316,7 @@ async function Subforums({ nodeId }: { nodeId: number }) {
       childrenOf={childrenOf}
       member={member}
       unread={unread}
+      signedIn={user !== null}
       className="mt-4"
     />
   );

@@ -9,19 +9,21 @@ import { UserLink } from "@/components/forum/user-link";
 import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
+import { conversationOpenHref, threadOpenHref } from "@/lib/sermo/open-links";
 
 export type BookmarkItem = z.output<
   typeof bookmarksList.output
 >["items"][number];
 type Item = BookmarkItem;
 
-// Where a bookmark leads: a post by its place in the thread, a thread, a conversation.
+// Where a bookmark leads: a post by its place in the thread, a thread or a conversation where the
+// member left off (bookmarks are a member's own).
 export function bookmarkHref(item: Item) {
   if (item.contentType === "conversation")
-    return `/conversations/${item.contentId}`;
+    return conversationOpenHref(item.contentId);
   if (item.contentType === "post" && item.threadId !== null)
     return threadHref(item.threadId, item.postPosition ?? 0, item.contentId);
-  return `/threads/${item.threadId ?? item.contentId}`;
+  return threadOpenHref(item.threadId ?? item.contentId, true);
 }
 
 // One page of the member's bookmarks, newest first, drawn: the list's first page and each page the

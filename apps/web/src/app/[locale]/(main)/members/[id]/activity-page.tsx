@@ -8,6 +8,8 @@ import { HtmlContent } from "@/components/forum/html-content";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
+import { threadOpenHref } from "@/lib/sermo/open-links";
+import { getViewer } from "@/lib/sermo/session";
 import { prefixView } from "@/lib/sermo/threads";
 
 const titleLinkClass =
@@ -96,10 +98,11 @@ export async function threadsPage(
   cursor?: string,
   reader: typeof read = read,
 ): Promise<ListPage> {
-  const [{ items, nextCursor }, t, format] = await Promise.all([
+  const [{ items, nextCursor }, t, format, viewer] = await Promise.all([
     reader(threadsByAuthor, { userId, cursor }),
     getTranslations("members.profile"),
     getFormatter(),
+    getViewer(),
   ]);
   // The clock is read after the request data.
   const now = await getNow();
@@ -110,7 +113,7 @@ export async function threadsPage(
       node: (
         <article className="px-4 py-3">
           <ActivityTitle
-            href={`/threads/${thread.id}`}
+            href={threadOpenHref(thread.id, viewer.user !== null)}
             prefix={prefixView(thread.prefix)}
           >
             {thread.title}

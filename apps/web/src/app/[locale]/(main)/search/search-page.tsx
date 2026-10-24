@@ -10,6 +10,8 @@ import type { ListPage } from "@/lib/list-pages";
 import { call, errorMessage } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { membersFor } from "@/lib/sermo/members";
+import { threadOpenHref } from "@/lib/sermo/open-links";
+import { getViewer } from "@/lib/sermo/session";
 import type { Filters } from "./filters";
 
 export type MemberMatch = z.output<typeof usersSearch.output>["items"][number];
@@ -35,6 +37,8 @@ export async function refusal<T>(
 }
 
 // One page of search results, drawn: the results' first page and each page the browser asks for.
+// A result that is a reply opens that post; one that is a thread's first post opens the thread
+// where the member left off.
 // `matches` are the members the first page also shows; their cards come from the same lookup as
 // the authors' ones.
 export async function searchPage(
@@ -44,7 +48,7 @@ export async function searchPage(
   matches: Promise<MemberMatch[]> = Promise.resolve([]),
 ) {
   const t = await getTranslations("search.search");
-  const [found, matched] = await Promise.all([
+  const [found, matched, viewer] = await Promise.all([
     refusal(
       call(searchQuery, {
         q: filters.query,
@@ -56,9 +60,11 @@ export async function searchPage(
       }),
     ),
     matches,
+    getViewer(),
   ]);
   if ("message" in found) return found;
   const { items, nextCursor } = found.value;
+  const signedIn = viewer.user !== null;
   const member = await membersFor([
     ...items.map(({ post }) => post.author),
     ...matched,
@@ -72,7 +78,11 @@ export async function searchPage(
           <h3 className="flex flex-wrap items-center gap-x-2">
             {thread.prefix && <PrefixTag prefix={thread.prefix} />}
             <Link
-              href={threadHref(thread.id, post.position, post.id)}
+              href={
+                post.position === 0
+                  ? threadOpenHref(thread.id, signedIn)
+                  : threadHref(thread.id, post.position, post.id)
+              }
               className={titleLinkClass}
             >
               {thread.title}

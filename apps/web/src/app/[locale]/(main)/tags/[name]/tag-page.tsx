@@ -3,6 +3,7 @@ import { ThreadRow } from "@/app/[locale]/(main)/forums/[id]/thread-row";
 import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
+import { getViewer } from "@/lib/sermo/session";
 import { threadMembers } from "@/lib/sermo/threads";
 
 // One page of the threads carrying a tag, drawn: the tag page's first page and each page the
@@ -12,7 +13,10 @@ export async function tagThreadsPage(
   cursor?: string,
   reader: typeof read = read,
 ): Promise<ListPage> {
-  const list = await reader(tagsThreads, { name, cursor });
+  const [list, viewer] = await Promise.all([
+    reader(tagsThreads, { name, cursor }),
+    getViewer(),
+  ]);
   const member = await membersFor(list.items.flatMap(threadMembers));
   const now = Date.now();
   return {
@@ -23,6 +27,7 @@ export async function tagThreadsPage(
         <ThreadRow
           thread={thread}
           member={member}
+          signedIn={viewer.user !== null}
           highlighted={
             thread.highlightedUntil !== null &&
             Date.parse(thread.highlightedUntil) > now

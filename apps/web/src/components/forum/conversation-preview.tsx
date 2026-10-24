@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
+import { conversationOpenHref } from "@/lib/sermo/open-links";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -14,15 +15,6 @@ export type ConversationItem = {
   isUnread: boolean;
   lastMessage: { sentAt: string; user: { id: number } };
 };
-
-// Where a tap on a conversation's row goes: its first unread message while it has one, else its
-// newest message, as the backend places them among those the viewer may see. The summary's last
-// message is not used: it can be one the viewer may not see (a first message held for approval).
-export function conversationRowHref(
-  conversation: Pick<ConversationItem, "id">,
-) {
-  return `/conversations/${conversation.id}/unread`;
-}
 
 // Linked previews need a positioned row, without an enclosing link: the title's link covers the
 // whole row, which is one target (the avatar and the name inside are neither links nor cards).
@@ -60,7 +52,7 @@ export function ConversationPreview({
           >
             {linked ? (
               <Link
-                href={conversationRowHref(conversation)}
+                href={conversationOpenHref(conversation.id)}
                 className="after:absolute after:inset-0"
               >
                 {conversation.title}

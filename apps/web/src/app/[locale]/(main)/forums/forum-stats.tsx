@@ -30,7 +30,9 @@ import { drawnOrNothing } from "@/components/widgets/drawn-or-nothing";
 import { formatCompact, formatNumber } from "@/lib/format";
 import { readIfAllowed } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
+import { threadOpenHref } from "@/lib/sermo/open-links";
 import { onlineMembers } from "@/lib/sermo/presence";
+import { getViewer } from "@/lib/sermo/session";
 import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
 
@@ -104,17 +106,19 @@ const CELL = "shrink-0 items-center border-l pl-2";
 // One thread of a tab, on one line. As the panel narrows the columns go in XenForo's order (the
 // panel's own width, not the window's): the date and the rank below 48rem, the replies and views
 // below 42rem, the last poster below 36rem and the forum below 28rem, leaving the starter's
-// avatar and the title. An unread thread's title is bold and opens at its first unread post.
+// avatar and the title. An unread thread's title is bold; a member's link opens where they left off.
 function ThreadRow({
   thread,
   member,
   rank,
   online,
+  signedIn,
 }: {
   thread: ApiThread;
   member: Awaited<ReturnType<typeof membersFor>>;
   rank: number;
   online: ReadonlySet<number> | null;
+  signedIn: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations("forums.forumStats");
@@ -134,11 +138,7 @@ function ThreadRow({
       <span className="flex min-w-0 flex-1 items-center py-1">
         <ThreadHoverCard
           thread={card}
-          href={
-            thread.isUnread
-              ? `/threads/${thread.id}/unread`
-              : `/threads/${thread.id}`
-          }
+          href={threadOpenHref(thread.id, signedIn)}
           className={cn(
             // `relative` keeps the absolutely placed unread label inside the cut title.
             "relative block max-w-full truncate hover:underline",
@@ -275,9 +275,10 @@ async function StatsRows({
   limit: number;
 }) {
   return drawnOrNothing("The forum statistics rows", async () => {
-    const [ranked, online] = await Promise.all([
+    const [ranked, online, viewer] = await Promise.all([
       readIfAllowed(threadsRanked, { by: tab.by, limit, feed: true }),
       onlineMembers(),
+      getViewer(),
     ]);
     if (!ranked) return null;
     const member = await membersFor(ranked.items.flatMap(threadMembers));
@@ -290,6 +291,7 @@ async function StatsRows({
             member={member}
             rank={index + 1}
             online={online}
+            signedIn={viewer.user !== null}
           />
         ))}
       </ol>

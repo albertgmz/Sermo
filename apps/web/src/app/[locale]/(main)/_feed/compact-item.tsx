@@ -19,6 +19,7 @@ import {
   WallOwner,
   wallPlace,
 } from "@/components/forum/wall-owner";
+import { threadOpenHref } from "@/lib/sermo/open-links";
 import { threadCard } from "@/lib/sermo/threads";
 import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -33,11 +34,14 @@ export function CompactFeedItem({
   item,
   author,
   now,
+  signedIn,
 }: {
   item: Item;
   author: (id: number) => AuthorView;
   // The clock, read by the page after its request data.
   now: number;
+  // Whether the viewer is a member: a thread opens where they left off (`threadOpenHref`).
+  signedIn: boolean;
 }) {
   const t = useTranslations("home.feedItem");
   const format = useFormatter();
@@ -105,7 +109,7 @@ export function CompactFeedItem({
   const { thread, post } = item;
   const isThread = item.type === "thread";
   const href = isThread
-    ? `/threads/${thread.id}`
+    ? threadOpenHref(thread.id, signedIn)
     : threadHref(thread.id, post.position, post.id);
   const card = threadCard(thread, (id) => author(id).member);
   const count = thread.replyCount;
@@ -127,6 +131,7 @@ export function CompactFeedItem({
       title={
         <ThreadHoverCard
           thread={card}
+          href={threadOpenHref(thread.id, signedIn)}
           className="relative z-10 hover:underline"
         />
       }

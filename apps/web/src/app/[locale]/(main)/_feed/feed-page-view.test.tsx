@@ -171,6 +171,17 @@ test("a guest's cookie decides, and a guest has cards without one", async () => 
   expect(await firstRow()).not.toContain("the opening text");
 });
 
+test("a member's thread title opens where they left off, on cards and rows, and a guest's opens its start", async () => {
+  for (const feedView of ["cards", "compact"]) {
+    backend({ feedView });
+    expect(await firstRow()).toContain('href="/threads/7/unread"');
+  }
+  backend(null);
+  const html = await firstRow();
+  expect(html).toContain('href="/threads/7"');
+  expect(html).not.toContain("/threads/7/unread");
+});
+
 test("the composer under a wall post carries the viewer's avatar, so the viewer is looked up too", async () => {
   backend({ feedView: "cards" }, wallEntry);
   const html = await firstRow();

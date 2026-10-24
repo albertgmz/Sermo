@@ -86,13 +86,29 @@ async function draw(node: ReactNode) {
   return new Response(stream).text();
 }
 
-const row = (pollKind: "poll" | "quiz" | null) =>
+const row = (pollKind: "poll" | "quiz" | null, signedIn = false) =>
   draw(
-    <ThreadRow thread={thread(pollKind)} member={member} highlighted={false} />,
+    <ThreadRow
+      thread={thread(pollKind)}
+      member={member}
+      highlighted={false}
+      signedIn={signedIn}
+    />,
   );
 
 test("a thread with a poll or a quiz carries the badge in the forum's list", async () => {
   expect(await row("poll")).toContain("Poll");
   expect(await row("quiz")).toContain("Quiz");
   expect(await row(null)).not.toMatch(/>Poll<|>Quiz</);
+});
+
+test("a member's links to a thread open where they left off and a guest's open its start", async () => {
+  const hrefs = (html: string) =>
+    [...html.matchAll(/href="(\/threads\/[^"]*)"/g)].map((found) => found[1]);
+  expect(new Set(hrefs(await row(null, true)))).toEqual(
+    new Set(["/threads/7/unread"]),
+  );
+  expect(new Set(hrefs(await row(null, false)))).toEqual(
+    new Set(["/threads/7"]),
+  );
 });

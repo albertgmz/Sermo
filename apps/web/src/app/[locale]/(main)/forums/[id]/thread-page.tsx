@@ -3,6 +3,7 @@ import { ThreadRow } from "@/app/[locale]/(main)/forums/[id]/thread-row";
 import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
+import { getViewer } from "@/lib/sermo/session";
 import { threadMembers } from "@/lib/sermo/threads";
 
 // One page of a forum's threads, drawn: the forum page's first page (the sticky threads come first
@@ -13,7 +14,10 @@ export async function threadsPage(
   cursor?: string,
   reader: typeof read = read,
 ): Promise<ListPage> {
-  const list = await reader(threadsList, { nodeId, prefixId, cursor });
+  const [list, viewer] = await Promise.all([
+    reader(threadsList, { nodeId, prefixId, cursor }),
+    getViewer(),
+  ]);
   const threads = [...list.sticky, ...list.items];
   const member = await membersFor(threads.flatMap(threadMembers));
   const now = Date.now();
@@ -25,6 +29,7 @@ export async function threadsPage(
         <ThreadRow
           thread={thread}
           member={member}
+          signedIn={viewer.user !== null}
           highlighted={
             thread.highlightedUntil !== null &&
             Date.parse(thread.highlightedUntil) > now

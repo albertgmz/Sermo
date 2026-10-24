@@ -138,7 +138,8 @@ function backend(answers: Record<string, Answer> = {}) {
   globalThis.fetch = (async (url: string) => {
     const { pathname, searchParams } = new URL(url);
     asked.set(pathname, searchParams);
-    if (pathname === "/api/v1/me") return Response.json(viewerBody(true));
+    if (pathname === "/api/v1/me" && !answers[pathname])
+      return Response.json(viewerBody(true));
     const answer = answers[pathname] ?? DEFAULT[pathname];
     if (answer) return answer(searchParams);
     return Response.json({ items: [], nextCursor: null });
@@ -184,7 +185,7 @@ test("the tab lists what the feed shows, ten threads by default", async () => {
   expect(search?.get("limit")).toBe("10");
 });
 
-test("an unread thread's title is bold and opens at its first unread post; a read one opens the thread", async () => {
+test("an unread thread's title is bold; a member's links open where they left off, read or not", async () => {
   backend();
   const html = await panel();
   const unread = titleOf(html, "Unread thread");
@@ -192,8 +193,17 @@ test("an unread thread's title is bold and opens at its first unread post; a rea
   expect(unread).toContain("font-bold");
   expect(unread).toMatch(/class="sr-only"> \((<!-- -->)?Unread/);
   const read = titleOf(html, "Read one");
-  expect(read).toContain('href="/threads/11"');
+  expect(read).toContain('href="/threads/11/unread"');
   expect(read).not.toContain("font-bold");
+});
+
+test("a guest's links open the thread at its start", async () => {
+  backend({
+    "/api/v1/me": () => Response.json(viewerBody(false)),
+  });
+  const html = await panel();
+  expect(titleOf(html, "Unread thread")).toContain('href="/threads/10"');
+  expect(titleOf(html, "Read one")).toContain('href="/threads/11"');
 });
 
 // The unread label is absolutely placed: without a positioned link it sits at the end of the

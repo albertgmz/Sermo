@@ -11,6 +11,7 @@ import { UserLink } from "@/components/forum/user-link";
 import { ThreadTick } from "@/components/staff/thread-batch";
 import { formatCompact } from "@/lib/format";
 import type { membersFor } from "@/lib/sermo/members";
+import { threadOpenHref } from "@/lib/sermo/open-links";
 import { type ApiThread, threadCard } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
 
@@ -19,11 +20,14 @@ export function ThreadRow({
   thread,
   member,
   highlighted,
+  signedIn,
   showForum = false,
 }: {
   thread: ApiThread;
   member: Awaited<ReturnType<typeof membersFor>>;
   highlighted: boolean;
+  // Whether the viewer is a member: the thread opens where they left off (`threadOpenHref`).
+  signedIn: boolean;
   // Threads of several forums share the list (a tag's page): the forum is named.
   showForum?: boolean;
 }) {
@@ -32,6 +36,7 @@ export function ThreadRow({
   const format = useFormatter();
   const now = useNow();
   const card = threadCard(thread, member);
+  const href = threadOpenHref(thread.id, signedIn);
   return (
     <div
       data-shortcut-item=""
@@ -56,13 +61,14 @@ export function ThreadRow({
       />
       <div className="min-w-0 flex-1">
         <Link
-          href={`/threads/${thread.id}`}
+          href={href}
           aria-hidden="true"
           tabIndex={-1}
           className="absolute inset-0"
         />
         <ThreadHoverCard
           thread={card}
+          href={href}
           className={cn(
             "relative z-10 flex w-fit max-w-full items-start gap-1.5 text-sm hover:underline",
             thread.isUnread ? "font-bold" : "font-medium",

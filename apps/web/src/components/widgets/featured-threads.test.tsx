@@ -87,9 +87,9 @@ async function html(node: ReactNode) {
   return new Response(stream).text();
 }
 
-const serve = (items: unknown[]) =>
+const serve = (items: unknown[], signedIn = false) =>
   fakeBackend({
-    "auth.me": () => Response.json(viewerBody(false)),
+    "auth.me": () => Response.json(viewerBody(signedIn)),
     "threads.featured": () => Response.json({ items }),
     "users.cards": () => Response.json({ items: [] }),
   });
@@ -112,6 +112,12 @@ test("the home block lists the featured threads with their mark, and asks for a 
   // Each row says why it is there.
   expect(text).toContain("Promoted");
   expect(text).toContain('href="/threads/7"');
+});
+
+test("a member's links open where they left off", async () => {
+  backend = serve([featured(7, "staff", "Picked thread")], true);
+  const text = await html(await FeaturedThreads({ title: "Featured" }));
+  expect(text).toContain('href="/threads/7/unread"');
 });
 
 test("nothing is drawn when nothing is featured", async () => {

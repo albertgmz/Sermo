@@ -10,6 +10,7 @@ import type { WidgetBodyProps } from "@/components/widgets/widget-types";
 import { formatCompact } from "@/lib/format";
 import { readIfAllowed } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
+import { getViewer } from "@/lib/sermo/session";
 import { threadMembers } from "@/lib/sermo/threads";
 
 // The lists by date say who and when: the newest threads by the date they were started (the feed's
@@ -24,19 +25,21 @@ export async function RankedThreads({
   const ranked = await readIfAllowed(threadsRanked, { by, limit, feed: true });
   if (!ranked || ranked.items.length === 0) return null;
   const { items } = ranked;
-  const [member, locale, format, t] = await Promise.all([
+  const [member, locale, format, t, viewer] = await Promise.all([
     membersFor(items.flatMap(threadMembers)),
     getLocale(),
     getFormatter(),
     getTranslations("widgets.rankedThreads"),
+    getViewer(),
   ]);
+  const signedIn = viewer.user !== null;
 
   if (by === "latestThreads" || by === "latestPosts")
     return (
       <SectionCard title={title}>
         {items.map((thread) => (
           <div key={thread.id} className="px-4 py-2.5">
-            <ThreadTitle thread={thread} member={member} />
+            <ThreadTitle thread={thread} member={member} signedIn={signedIn} />
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
               {by === "latestThreads" ? (
                 <>
@@ -70,7 +73,11 @@ export async function RankedThreads({
               {format.number(index + 1)}
             </span>
             <div className="min-w-0 flex-1">
-              <ThreadTitle thread={thread} member={member} />
+              <ThreadTitle
+                thread={thread}
+                member={member}
+                signedIn={signedIn}
+              />
               <p className="mt-0.5 truncate text-xs text-muted-foreground">
                 {t("replies", {
                   count: thread.replyCount,

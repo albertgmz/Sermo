@@ -26,6 +26,8 @@ export type ForumCardData = {
   postCount: number;
   lastPost: {
     threadId: number;
+    /** Where the thread opens for this viewer (`threadOpenHref`). */
+    href: string;
     threadTitle: string;
     prefix: PrefixView | null;
     createdAt: string;
@@ -121,7 +123,7 @@ export function ForumCard({
             className="relative after:absolute after:-inset-2"
           />
           <Link
-            href={`/threads/${last.threadId}`}
+            href={last.href}
             className="flex h-10 min-w-0 flex-1 items-center gap-1.5 text-xs font-medium hover:underline"
           >
             {last.prefix && <PrefixTag prefix={last.prefix} />}

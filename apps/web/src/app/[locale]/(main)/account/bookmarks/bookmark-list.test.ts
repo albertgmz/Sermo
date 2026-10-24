@@ -109,8 +109,8 @@ function backend() {
   }) as unknown as typeof fetch;
 }
 
-test("a bookmark leads to its thread, its post by position or its conversation", () => {
-  expect(bookmarkHref(item({}))).toBe("/threads/9");
+test("a bookmark leads to its thread or conversation where the member left off, or to its post by position", () => {
+  expect(bookmarkHref(item({}))).toBe("/threads/9/unread");
   expect(
     bookmarkHref(
       item({
@@ -135,7 +135,7 @@ test("a bookmark leads to its thread, its post by position or its conversation",
     bookmarkHref(
       item({ contentType: "conversation", contentId: 3, threadId: null }),
     ),
-  ).toBe("/conversations/3");
+  ).toBe("/conversations/3/unread");
 });
 
 // The `details` line takes its author and time as tags: a function in their place is dropped by

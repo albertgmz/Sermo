@@ -879,6 +879,21 @@ test("where a reader picks up a thread or a conversation is a private redirect t
   isNotFound(await ask("/conversations/6/unread", { cookie: SESSION }));
 });
 
+test("a thread that has been read to its end opens on the page and post of its newest post", async () => {
+  backend({
+    "/api/v1/threads/7/unread": Response.json({
+      threadId: 7,
+      postId: 412,
+      position: POSTS_PER_PAGE * 3 + 7,
+    }),
+    "/api/v1/seo/threads/7": seoOf("http://localhost/threads/7-news", true),
+  });
+  redirectsTo(
+    await ask("/threads/7/unread", { cookie: SESSION }),
+    "/threads/7-news?page=4#post-412",
+  );
+});
+
 test("an award is a 404 when the backend says it is not found, and only then", async () => {
   const asked = backend({
     "/api/v1/awards/2": Response.json(AWARD),

@@ -45,6 +45,7 @@ import {
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import type { FeedView } from "@/lib/feed-view";
 import { formatCompact } from "@/lib/format";
+import { threadOpenHref } from "@/lib/sermo/open-links";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import { threadCard } from "@/lib/sermo/threads";
 import type { AuthorView, PictureView } from "@/lib/sermo/views";
@@ -244,7 +245,14 @@ export function FeedItem({
 }) {
   const t = useTranslations("home.feedItem");
   if (view === "compact") {
-    return <CompactFeedItem item={item} author={author} now={now} />;
+    return (
+      <CompactFeedItem
+        item={item}
+        author={author}
+        now={now}
+        signedIn={viewerId !== null}
+      />
+    );
   }
   if (item.type === "profilePost") {
     const { profilePost } = item;
@@ -426,6 +434,7 @@ export function FeedItem({
       >
         <ThreadHoverCard
           thread={card}
+          href={threadOpenHref(thread.id, viewerId !== null)}
           className="underline-offset-4 hover:underline"
         />
       </h2>

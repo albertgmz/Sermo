@@ -27,6 +27,7 @@ import { Help, Row, Section, selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { languageName } from "@/lib/language-name";
 import { read } from "@/lib/sermo/client";
+import { threadOpenHref } from "@/lib/sermo/open-links";
 
 const PATH = "/account/preferences";
 
@@ -183,7 +184,7 @@ export async function ThreadWatches({
           {page.items.map((watch) => (
             <WatchRow
               key={watch.threadId}
-              href={`/threads/${watch.threadId}`}
+              href={threadOpenHref(watch.threadId, true)}
               title={watch.title}
               stop={t("stop")}
               action={stopWatchingThread.bind(null, watch.threadId)}
