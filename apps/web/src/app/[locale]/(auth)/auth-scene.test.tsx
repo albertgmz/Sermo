@@ -104,3 +104,7 @@ test("a visitor whose LITE mode leaves out brand artwork gets the plain night, w
   expect(await markup("forum_lite=all")).toBe("");
   expect(await markup("forum_lite=avatars")).toContain("auth-bubble");
 });
+
+test("the flag is never drawn in 3D, which browsers render from a blurred low-resolution copy", () => {
+  expect(css).not.toMatch(/perspective|rotate[XY]\(|rotate3d|matrix3d/);
+});

@@ -201,12 +201,11 @@
 }
 
 /*
- * The side panel of a wide screen: the flag flutters a little on top of the light that already
- * moves over it (components/brand/cuban-flag.tsx).
+ * The flag stays flat: a 3D transform makes browsers draw it from a low-resolution copy, with
+ * jagged edges. The light that moves over it comes from components/brand/cuban-flag.tsx.
  */
 .auth-flag {
   display: block;
-  transform-origin: left center;
 }
 
 /*
@@ -259,10 +258,6 @@
   .auth-wave:nth-child(3) {
     animation-duration: 8s;
   }
-
-  .auth-flag {
-    animation: auth-flutter 6s ease-in-out infinite alternate;
-  }
 }
 
 @keyframes auth-rise {
@@ -306,14 +301,5 @@
   }
   to {
     translate: -50% 0;
-  }
-}
-
-@keyframes auth-flutter {
-  from {
-    transform: perspective(40rem) rotateY(-12deg) rotateZ(-1deg);
-  }
-  to {
-    transform: perspective(40rem) rotateY(6deg) rotateZ(1deg);
   }
 }
