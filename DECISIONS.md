@@ -169,7 +169,8 @@ non-null.
 session, so a leaked key cannot mint more credentials.
 
 **Guests can never post or react**, regardless of permission overrides, since content needs an
-author.
+author. (Posting superseded by "Guest authors and guest posting" in the New requests round;
+guests still never react.)
 
 **One group per user.** Guest, Member, Moderator and Administrator are fixed groups whose
 permissions admins can edit. Secondary groups and custom groups can be added later without
@@ -7054,3 +7055,29 @@ draws what is left, as reaction and media pictures do.
 
 Why: the owner disliked how the chooser looked on desktop and asked for forum pictures in it, and
 for only the forums one can actually post in; a heading with nothing under it is noise.
+
+### Guest authors and guest posting
+
+**Shape:** a thread or post author is `ContentAuthor`: `{ kind: "member", id, username }` or
+`{ kind: "guest", name }` (name null when none is kept, for deleted members). Member-only outputs
+keep `UserSummary`. **Breaking rename:** `approvals.list` items carry `author: ContentAuthor`
+instead of `authorId` (only the web read it, adapted in the same change). **Storage:**
+`threads`/`posts` keep `user_id NOT NULL`, pointing at a reserved account,
+`GUEST_ACCOUNT_ID = -2`, made by migration 0074 with no credentials; the guest's name is the new
+nullable `guest_name` column (added, no rebuild). **Posting:** `threads.createAsGuest` and
+`posts.createAsGuest`, only for guests, where the forum grants the Guest group `forum.guestPost`
+(off everywhere by default), and only while Turnstile is configured and guards the `guestPost`
+form (not ticked by default). The name is normalised (NFC, single spaces, no control, invisible or
+direction characters), 2-50 characters and no member's username in any case. Everything is stored
+`moderated`; the flood interval and the Guest group's daily limits count per address from the IP
+log (an IPv6 /64 counts as one). No attachments, polls, tags, watching, alerts to the guest or
+credits (a guest reply pays nobody). Forums that are read-only or ask a minimum account age or post
+count refuse guests. **Quotes:** a quote of a guest post cites the guest's name with no member
+reference. **Invisible account:** the guest account is left out of every member list, search,
+ranking, count, award, promotion and standing, and alerts about guest content name no actor.
+
+Why: the owner wants guests to post where staff allow it, without accounts, with every guest post
+reviewed first. A reserved account keeps the NOT NULL author columns and every counter and join
+working without rebuilding the two largest tables; a negative id cannot be named by any request
+and does not collide with the 0 and -1 that queries use for "no viewer"; the union makes every
+client decide how to draw a guest instead of linking a profile that does not exist.
