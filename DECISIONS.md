@@ -6683,3 +6683,16 @@ Why: the owner wanted to send a message with that shortcut.
 
 Why: the owner found the edit button odd because it loaded a whole page, and the prefix
 selector odd too.
+
+### One delete dialog, with permanent delete for those allowed
+
+- Posts, threads, wall posts, wall comments and conversation messages are deleted through one
+  dialog, as XenForo's: "Remove from public view" or "Permanently delete", with a reason. The
+  permanent choice shows only to holders of the hard-delete permission (administrators by
+  default); an item already removed from view offers "Delete permanently" to them. Permanent
+  delete uses the existing purge, so attachments, reactions and notifications go and the
+  counters are put right. New: the `conversation.hardDelete` permission (administrators) with
+  `conversations.hardDeleteMessage`, and `profileComments.hardDelete`. Staff's permanent delete
+  of a visible item removes it from view first, without telling the author, then erases it.
+
+Why: the owner found no way to really delete a post or a conversation message.
