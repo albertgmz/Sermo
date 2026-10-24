@@ -6988,3 +6988,19 @@ Why: the README mixed a front page with an operator manual, and several facts ha
   logo; a site keeps its own logo and icon from the administration panel.
 
 Why: the repository had no identity of its own, and fcuba's red flag mark belongs to that site.
+
+## New requests round
+
+### Nested quotes fold from the second level
+
+**What:** in a rendered post, a quote directly in the post stays open; a quote inside another quote
+is shown folded in a `<details>`: the quote's header (author, link to the quoted post, "said:") and
+a "Show quote" / "Ver cita" hint ("Hide quote" / "Ocultar cita" when open). **Where:**
+`apps/web/src/lib/quote-fold.ts`, applied by `HtmlContent`; the hint words are CSS variables set
+there (`forum.bbCode.showQuote`, `hideQuote`). **Not changed:** the stored HTML, the backend
+renderer, emails and plain text. **Known limit:** a quote inside a spoiler the visitor reveals is
+loaded client-side and stays unfolded.
+
+Why: the owner found nested quotes "excellent but too long after 2 comments". Folding when the
+post is drawn needs no migration (stored posts have the same markup) and no JavaScript, and keeps
+the first quote, the one the reply answers, fully visible.
