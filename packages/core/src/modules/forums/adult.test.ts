@@ -14,6 +14,7 @@ import { world } from "../feed/fixtures.test";
 import { adultFreeRankingSql } from "../feed/rankings";
 import { runDueJobs } from "../jobs";
 import { registerNotificationJobs } from "../notifications";
+import { setEntry } from "../permissions/group-fixture";
 import { atomFeed, sitemapEntries } from "../seo";
 import { updateSiteSettings } from "../settings";
 import { adultFreeThreadSql } from "./index";
@@ -532,12 +533,19 @@ describe("+18 mode: staff screens", () => {
       null,
       "noindex,follow",
     ]);
+    // Without admin.nodes the flag changes nothing: the forum is still refused and left out.
+    for (const [, actor, reason] of w.blocked) {
+      expect(await w.refusal("nodes.get", actor, { nodeId: w.lounge.id, manage: true })).toBe(
+        reason,
+      );
+      const listed = (await w.call("nodes.list", actor, { manage: true })).items.map(
+        (node: { id: number }) => node.id,
+      );
+      expect(listed).not.toContain(w.lounge.id);
+    }
+    // The administrator can take the mark off from the staff screen.
     await w.call("nodes.update", w.admin, { nodeId: w.lounge.id, settings: { isAdult: false } });
-    // Without admin.nodes the flag changes nothing.
-    expect(await w.refusal("nodes.get", w.minor.actor, { nodeId: w.back.id, manage: true })).toBe(
-      "none",
-    );
-    w.mode(false);
+    expect(await w.refusal("nodes.get", w.minor.actor, { nodeId: w.lounge.id })).toBe("none");
   });
 
   test("the moderator log keeps the title of a removed +18 thread from staff who may not see it", async () => {
@@ -550,5 +558,46 @@ describe("+18 mode: staff screens", () => {
         .title;
     expect(await titleFor(staff)).toBe("Marked");
     expect(await titleFor(w.mod)).toBeUndefined();
+  });
+});
+
+describe("+18 mode: who may mark", () => {
+  test("starting a thread marked needs the permission to mark it", async () => {
+    const w = await adultWorld();
+    setEntry(w.ctx, 2, "forum.editOwnThreadTitle", -1, w.open.id);
+    const input = { nodeId: w.open.id, title: "Try", body: "Try body", isAdult: true };
+    await expect(w.call("threads.create", w.bob, input)).rejects.toThrow(ForbiddenError);
+    const made = await w.call("threads.create", w.bob, { ...input, isAdult: false });
+    expect(made.thread.isAdult).toBe(false);
+  });
+
+  test("the author of a thread a merge or a split marked cannot take the mark off; staff can", async () => {
+    const w = await adultWorld();
+    const staff = makeEligible(w, w.admin);
+    const unmark = (actor: Actor, threadId: number) =>
+      w.call("threads.update", actor, { ...notice, threadId, isAdult: false });
+    // Merge: the marked thread into the author's plain one.
+    await w.call("threads.merge", staff, {
+      ...notice,
+      threadId: w.plain.thread.id,
+      sourceThreadIds: [w.marked.thread.id],
+    });
+    await runDueJobs(w.ctx);
+    await expect(unmark(w.author.actor, w.plain.thread.id)).rejects.toThrow(ForbiddenError);
+    // Split: the author's reply out of the thread in the +18 forum, into the plain forum.
+    const reply = await w.reply(w.author.actor, w.inLounge.thread.id, "a lounge reply");
+    const split = await w.call("threads.split", staff, {
+      ...notice,
+      threadId: w.inLounge.thread.id,
+      postIds: [reply.id],
+      title: "Split out",
+      nodeId: w.open.id,
+    });
+    expect(split.thread.author).toMatchObject({ kind: "member", id: w.author.user.id });
+    await expect(unmark(w.author.actor, split.thread.id)).rejects.toThrow(ForbiddenError);
+    for (const threadId of [w.plain.thread.id, split.thread.id]) {
+      await unmark(staff, threadId);
+      expect((await w.call("threads.get", w.minor.actor, { threadId })).thread.isAdult).toBe(false);
+    }
   });
 });

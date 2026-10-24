@@ -2929,6 +2929,24 @@ function effectivelyAdult(ctx: Ctx, row: Pick<ThreadRow, "is_adult" | "node_id">
 function carryAdultMark(ctx: Ctx, threadId: number): void {
   forumDb(ctx).prepare("UPDATE threads SET is_adult = 1 WHERE id = ?1").run(threadId);
 }
+/**
+ * Records that a moderator's merge or split left a thread marked +18: the same change of the mark
+ * an edit records, with the moderator as its actor, so the thread's author cannot take it off.
+ */
+function recordCarriedMark(
+  ctx: Ctx,
+  moderator: Actor,
+  threadId: number,
+  ownerId: number,
+  notice: Notice,
+): void {
+  publishEvent(ctx, {
+    type: "content.edited",
+    targetType: "thread",
+    targetId: threadId,
+    payload: { ...moderationPayload(moderator, ownerId, notice), isAdult: true },
+  });
+}
 function moveThread(ctx: Ctx, moderator: Actor, id: number, nodeId: number, notice: Notice) {
   assertTransferIdle(ctx, id);
   const current = requireThread(ctx, moderator, id).row;
@@ -3925,6 +3943,8 @@ export const threadsSplitOp = implement(contracts.threadsSplit, (ctx, actor, inp
         // Posts split out of +18 content stay +18.
         Number(effectivelyAdult(ctx, current)),
       )!;
+    if (effectivelyAdult(ctx, current))
+      recordCarriedMark(ctx, actor, target.id, first.user_id, input);
     // Members banned from the source stay banned from the posts that leave it.
     forumDb(ctx)
       .prepare(
@@ -4049,8 +4069,10 @@ export const threadsMergeOp = implement(contracts.threadsMerge, (ctx, actor, inp
         const source = threadRow(ctx, id);
         return source !== undefined && effectivelyAdult(ctx, source);
       })
-    )
+    ) {
       carryAdultMark(ctx, target.id);
+      recordCarriedMark(ctx, actor, target.id, currentTarget.user_id, input);
+    }
     // A thread whose removal for good has begun is not merged either way.
     for (const id of [target.id, ...input.sourceThreadIds])
       if (threadRow(ctx, id)?.state === "deleted") assertRemovalNotBegun(ctx, "thread", id);

@@ -23,9 +23,9 @@ export function adultModeOn(ctx: Ctx): boolean {
 }
 
 /**
- * The instant (epoch ms) a member born on that date turns 18, by US rules in UTC: 18 years after
- * the birth date (someone born on 29 February turns 18 on 1 March of a year that has none). Null
- * without a full date.
+ * The instant (epoch ms) a member born on that date turns 18: 18 calendar years after the birth
+ * date, in UTC (the site has no time zone setting); someone born on 29 February turns 18 on 1 March
+ * of a year that has none. Null without a full date.
  */
 export function adultFrom(birthYear: number | null, monthDay: string | null): number | null {
   if (birthYear === null || monthDay === null) return null;
