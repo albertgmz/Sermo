@@ -37,6 +37,7 @@ import {
   type PointType,
   type TextNode,
 } from "lexical";
+import { codeNode } from "@/components/forum/bb-lexical";
 import { withoutAttachTag } from "@/components/forum/composer-insert";
 import { $allImages } from "@/components/forum/image-node";
 
@@ -64,6 +65,39 @@ export function $setBlock(
   } else {
     $setBlocksType(selection, () => $createQuoteNode());
   }
+}
+
+// What the code dialog asks for. Without text the selected blocks become a code block of
+// `language` (General code is the empty one), as the button alone did before. With text, a code
+// block holding it goes in at the caret: the paragraph is split there, and the block takes the
+// place of an empty paragraph or goes before the rest of the text.
+export function $insertCode(language: string, text: string) {
+  const option = language || undefined;
+  if (!text) {
+    $setBlocksType($getSelection(), () => $createCodeNode(option));
+    return;
+  }
+  let selection = $getSelection();
+  if (!$isRangeSelection(selection)) {
+    $getRoot().selectEnd();
+    selection = $getSelection();
+  }
+  if (!$isRangeSelection(selection)) return;
+  selection.removeText();
+  selection.insertParagraph();
+  const block = selection.anchor.getNode().getTopLevelElement();
+  const code = codeNode(text, option);
+  if (block?.isEmpty() && $isParagraphNode(block)) block.replace(code);
+  else block?.insertBefore(code);
+  code.selectEnd();
+}
+
+// Sets the language of the code block the caret is in (General code is the empty one).
+export function $setCodeLanguage(language: string) {
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection)) return;
+  const block = selection.anchor.getNode().getTopLevelElement();
+  if ($isCodeNode(block)) block.setLanguage(language);
 }
 
 // `text` with the "@" and what follows it, up to the caret, replaced by the mention. A space goes

@@ -13,7 +13,7 @@ import {
   REDO_COMMAND,
   UNDO_COMMAND,
 } from "lexical";
-import { $exportBb, BB_NODES } from "./bb-lexical";
+import { $exportBb, $replaceWithBb, BB_NODES } from "./bb-lexical";
 import { replay, toolbarTarget } from "./editor-target";
 import type { ToolbarAction, ToolbarState } from "./toolbar-context";
 
@@ -157,4 +157,70 @@ test("presses kept while the editor was on its way are applied in order, once", 
   expect(pressed).toEqual([]);
   replay(targetOf(editor), pressed);
   expect(await bbOf(editor)).toBe("[LIST]\n[*][B]word[/B]\n[/LIST]");
+});
+
+test("the code dialog turns the selected text into a code block of the chosen language, or of none", async () => {
+  const cases: [string, string][] = [
+    ["php", "[CODE=php]\nword\n[/CODE]"],
+    ["c++", "[CODE=c++]\nword\n[/CODE]"],
+    ["", "[CODE]\nword\n[/CODE]"],
+  ];
+  for (const [language, bb] of cases) {
+    const editor = editorWith("word");
+    targetOf(editor).run({ code: { language, text: "" } });
+    expect({ language, bb: await bbOf(editor) }).toEqual({ language, bb });
+  }
+});
+
+test("code typed in the code dialog goes in after the text it was pressed in, as a block of its language", async () => {
+  const editor = editorWith("word", 4, 4);
+  targetOf(editor).run({
+    code: { language: "python", text: "print(1)\nprint(2)" },
+  });
+  expect(await bbOf(editor)).toBe(
+    "word\n\n[CODE=python]\nprint(1)\nprint(2)\n[/CODE]",
+  );
+});
+
+test("the language of a code block changes from the dialog, and General code takes the option off", async () => {
+  const editor = editorWith("word");
+  const target = targetOf(editor);
+  target.run({ code: { language: "php", text: "" } });
+  await bbOf(editor);
+  target.run({ codeLanguage: "sql" });
+  expect(await bbOf(editor)).toBe("[CODE=sql]\nword\n[/CODE]");
+  target.run({ codeLanguage: "" });
+  expect(await bbOf(editor)).toBe("[CODE]\nword\n[/CODE]");
+});
+
+test("the bar is told the language of the code block the caret is in", async () => {
+  const editor = editorWith("word");
+  const seen: Partial<ToolbarState>[] = [];
+  targetOf(editor).watch((state) => seen.push(state));
+  targetOf(editor).run({ code: { language: "php", text: "" } });
+  await bbOf(editor);
+  expect(seen.at(-1)).toMatchObject({ block: "code", codeLanguage: "php" });
+  targetOf(editor).run({ block: "code" });
+  await bbOf(editor);
+  expect(seen.at(-1)?.block).toBe("paragraph");
+  expect(seen.at(-1)?.codeLanguage).toBeUndefined();
+});
+
+test("code in the middle of a paragraph splits it around the block; a block read from BB code reports its language and takes a new one", async () => {
+  const split = editorWith("hello world", 5, 5);
+  targetOf(split).run({ code: { language: "", text: "x = 1" } });
+  expect(await bbOf(split)).toBe("hello\n\n[CODE]\nx = 1\n[/CODE]\n\nworld");
+
+  const read = editorWith("");
+  read.update(() => $replaceWithBb("[CODE=php]\necho 1;\n[/CODE]"), {
+    discrete: true,
+  });
+  read.update(() => $getRoot().getFirstChild()?.selectStart(), {
+    discrete: true,
+  });
+  const seen: Partial<ToolbarState>[] = [];
+  targetOf(read).watch((state) => seen.push(state));
+  targetOf(read).run({ codeLanguage: "python" });
+  expect(await bbOf(read)).toBe("[CODE=python]\necho 1;\n[/CODE]");
+  expect(seen.at(-1)).toMatchObject({ block: "code", codeLanguage: "python" });
 });

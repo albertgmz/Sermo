@@ -96,7 +96,7 @@ function listNode(spec: ListSpec): ListNode {
   return list;
 }
 
-function codeNode(text: string, language?: string) {
+export function codeNode(text: string, language?: string) {
   const code = $createCodeNode(language);
   text.split("\n").forEach((line, index) => {
     if (index > 0) code.append($createLineBreakNode());

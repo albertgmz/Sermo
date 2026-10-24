@@ -142,6 +142,7 @@ export function LazyEditor({
   const memory = useRef<ToolbarMemory>({
     strip: null,
     picker: null,
+    code: null,
     focus: null,
   });
 

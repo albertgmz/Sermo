@@ -36,6 +36,7 @@ import {
   useState,
 } from "react";
 import { linkAddressOf } from "@/components/forum/bb-scan";
+import type { CodeDialogProps } from "@/components/forum/code-dialog";
 import { pickImage } from "@/components/forum/composer-insert";
 import { SourceContext } from "@/components/forum/editor-source";
 import {
@@ -58,6 +59,7 @@ import {
 import { FormError } from "@/components/forum/form-error";
 import { loader } from "@/components/forum/load-once";
 import {
+  type CodeAsk,
   type PickerMode,
   ToolbarContext,
   type ToolbarState,
@@ -190,6 +192,26 @@ export function Toolbar() {
   useEffect(() => {
     if (picker) askPicker();
   }, [picker, askPicker]);
+  // The code dialog, the same way: its code, whether it is open (over the code block the caret is
+  // in, or for a new one), and whether its code could not be fetched.
+  const [CodeDialog, setCodeDialog] =
+    useState<ComponentType<CodeDialogProps>>();
+  const [codeAsk, setCodeAsk] = useState<CodeAsk | null>(memory?.code ?? null);
+  const [codeFailed, setCodeFailed] = useState(false);
+  const [askCodeDialog] = useState(() =>
+    loader(
+      () =>
+        import("@/components/forum/code-dialog").catch((error) => {
+          setCodeFailed(true);
+          setCodeAsk(null);
+          throw error;
+        }),
+      (loaded) => setCodeDialog(() => loaded.default),
+    ),
+  );
+  useEffect(() => {
+    if (codeAsk) askCodeDialog();
+  }, [codeAsk, askCodeDialog]);
   // The group whose strip is open, one at a time, as in XenForo.
   const [open, setOpen] = useState<GroupId | null>(memory?.strip ?? null);
   // What a bar that takes this one's place starts from.
@@ -197,7 +219,8 @@ export function Toolbar() {
     if (!memory) return;
     memory.strip = open;
     memory.picker = picker;
-  }, [memory, open, picker]);
+    memory.code = codeAsk;
+  }, [memory, open, picker, codeAsk]);
   const stripId = useId();
   const strips = useRef<Partial<Record<GroupId, HTMLFieldSetElement | null>>>(
     {},
@@ -392,7 +415,13 @@ export function Toolbar() {
       // Turning a list item or a quote into a code block would pull it out of its list or quote
       // and leave the rest broken, so the command waits until the caret is somewhere else.
       disabled: ["bullet", "number", "quote"].includes(state.block),
-      run: () => target.run({ block: "code" }),
+      // The dialog puts a code block in, or changes the language of the one the caret is in.
+      run: () => {
+        setCodeFailed(false);
+        setCodeAsk({
+          current: state.block === "code" ? (state.codeLanguage ?? "") : null,
+        });
+      },
     },
     media: { label: t("mediaLabel"), icon: Clapperboard, run: addMedia },
     source: {
@@ -547,6 +576,21 @@ export function Toolbar() {
           focusSearch={picker === "keyboard"}
           onClose={() => setPickerOpen(null)}
         />
+      )}
+      {codeAsk && CodeDialog && target.ready && !source?.active && (
+        <CodeDialog
+          current={codeAsk.current}
+          onInsert={(language, text) =>
+            target.run({ code: { language, text } })
+          }
+          onChange={(language) => target.run({ codeLanguage: language })}
+          onRemove={() => target.run({ block: "code" })}
+          onClose={() => setCodeAsk(null)}
+          onRestoreFocus={() => target.run({ run: "focus" })}
+        />
+      )}
+      {codeFailed && (
+        <FormError className="px-3 py-1.5">{t("codeLoadFailed")}</FormError>
       )}
       {pickerFailed && (
         <FormError className="px-3 py-1.5">{t("emojiLoadFailed")}</FormError>

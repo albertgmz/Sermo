@@ -21,9 +21,11 @@ import {
 } from "lexical";
 import {
   $applyLink,
+  $insertCode,
   $insertText,
   $removeFormatting,
   $setBlock,
+  $setCodeLanguage,
   $wrapSelection,
   type BlockKind,
 } from "@/components/forum/editor-commands";
@@ -53,10 +55,12 @@ function $caretState(): Partial<ToolbarState> | null {
   const selection = $getSelection();
   if (!$isRangeSelection(selection)) return null;
   const anchor = selection.anchor.getNode();
+  const top = anchor.getTopLevelElement();
   return {
     formats: TEXT_FORMATS.filter((format) => selection.hasFormat(format)),
     block: $caretBlock(),
     link: $isLinkNode(anchor) || $isLinkNode(anchor.getParent()),
+    codeLanguage: $isCodeNode(top) ? (top.getLanguage() ?? "") : undefined,
   };
 }
 
@@ -79,6 +83,10 @@ function run(
     editor.dispatchCommand(FORMAT_TEXT_COMMAND, action.format);
   } else if ("block" in action) {
     editor.update(() => $setBlock($caretBlock(), action.block));
+  } else if ("code" in action) {
+    editor.update(() => $insertCode(action.code.language, action.code.text));
+  } else if ("codeLanguage" in action) {
+    editor.update(() => $setCodeLanguage(action.codeLanguage));
   } else if ("list" in action) {
     toggleList(editor, action.list);
   } else if ("link" in action) {
@@ -93,6 +101,8 @@ function run(
     editor.update(() => $removeFormatting());
   } else if (action.run === "source") {
     toggleSource();
+  } else if (action.run === "focus") {
+    editor.focus();
   } else {
     editor.dispatchCommand(
       action.run === "undo" ? UNDO_COMMAND : REDO_COMMAND,

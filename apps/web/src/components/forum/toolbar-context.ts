@@ -14,6 +14,8 @@ export type ToolbarState = {
   link: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  // The language of the code block the caret is in ("" for General code).
+  codeLanguage?: string;
 };
 
 // What a press of the bar asks of the text. A block or a list that is on already is turned off; a
@@ -21,11 +23,13 @@ export type ToolbarState = {
 export type ToolbarAction =
   | { format: TextFormatType }
   | { block: "heading" | "quote" | "code" }
+  | { code: { language: string; text: string } }
+  | { codeLanguage: string }
   | { list: "bullet" | "number" }
   | { link: string | null }
   | { insert: string }
   | { wrap: [open: string, close: string] }
-  | { run: "removeFormatting" | "undo" | "redo" | "source" };
+  | { run: "removeFormatting" | "undo" | "redo" | "source" | "focus" };
 
 // What the bar acts on: the editor (`editor-target.ts`), or, until the editor is in, the plain box
 // drawn in its place, which keeps the presses for it (`LazyEditor`). `ready` is false until then:
@@ -41,11 +45,16 @@ export type ToolbarTarget = {
 
 export type PickerMode = "pointer" | "keyboard";
 
+// The code dialog, open: over the code block the caret is in (its language, "" for General code),
+// or null to put a new one in.
+export type CodeAsk = { current: string | null };
+
 // How a bar leaves things for the bar that takes its place when the editor comes in: the strip
-// that is open, the emoji picker, and the control that had the focus (its `data-control`).
+// that is open, the emoji picker, the code dialog, and the control that had the focus (its `data-control`).
 export type ToolbarMemory = {
   strip: GroupId | null;
   picker: PickerMode | null;
+  code: CodeAsk | null;
   focus: string | null;
 };
 

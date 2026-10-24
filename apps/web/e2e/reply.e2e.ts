@@ -228,6 +228,38 @@ test("where a composer takes no files, Image asks for a picture's address and pu
   ).toBeHidden();
 });
 
+test("the Code block button asks for the language, and the language of the block can be changed", async ({
+  page,
+}) => {
+  const { threadId } = seed();
+  await visit(page, `/threads/${threadId}`);
+  await replyBox(page).click();
+  const region = page.getByRole("region", { name: "Reply" });
+  await editorReady(region);
+  const toolbar = region.getByRole("toolbar", { name: "Formatting" });
+
+  await (await reveal(toolbar, "Code block")).click();
+  const insert = page.getByRole("dialog", { name: "Insert code" });
+  await insert.getByLabel("Programming language").selectOption("php");
+  await insert.getByLabel("Code", { exact: true }).fill("echo 1;");
+  await insert.getByRole("button", { name: "Insert" }).click();
+  await expect(insert).toBeHidden();
+  await expect(replyBox(page)).toBeFocused();
+  await expect(replyBox(page)).toContainText("echo 1;");
+
+  // Over the block the dialog changes its language.
+  await (await reveal(toolbar, "Code block")).click();
+  const change = page.getByRole("dialog", { name: "Code language" });
+  const language = change.getByLabel("Programming language");
+  await expect(language).toHaveValue("php");
+  await language.selectOption("sql");
+  await change.getByRole("button", { name: "Apply" }).click();
+  await expect(change).toBeHidden();
+
+  await (await reveal(toolbar, "BB code source")).click();
+  await expect(replyBox(page)).toHaveValue(/\[CODE=sql\]\necho 1;\n\[\/CODE\]/);
+});
+
 // The "@" list after the first two letters of the other member's name.
 const typeMention = (page: Page) => page.keyboard.type(`@${PEER.slice(0, 2)}`);
 const offered = (page: Page) =>
