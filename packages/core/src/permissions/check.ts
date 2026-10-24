@@ -275,7 +275,8 @@ function evaluate(
   id: FlagPermissionId,
   context: PermissionContext,
   known?: Resolved,
-  adult: AdultCheck = adultCheck(ctx, actor),
+  /** Resolves the +18 refusal once for a set of checks; a lone check asks only when it must. */
+  adult?: AdultCheck,
 ): {
   granted: boolean;
   denial?: Denial;
@@ -326,7 +327,7 @@ function evaluate(
   // Last, so the denial means "granted but for the +18 mark": a node marked +18 (or under one)
   // holds nothing for a viewer who may not see adult content while the mode is on.
   if (nodeIndex >= 0 && resolved.state.tree.entries[nodeIndex]?.adult) {
-    const refusal = adult();
+    const refusal = adult ? adult() : adultRefusalFor(ctx, actor);
     if (refusal) return { granted: false, denial: "adult", adult: refusal, resolved, nodeIndex };
   }
   return { granted: true, resolved, nodeIndex };
@@ -416,11 +417,15 @@ export function permissionsOf(ctx: Ctx, actor: Actor, options: AdultOption = {})
 export function viewableNodeIds(ctx: Ctx, actor: Actor, options: AdultOption = {}): number[] {
   const resolved = resolve(ctx, actor);
   if (isBanned(resolved.principal, ctx.now())) return [];
-  const adult = options.ignoreAdult ? () => null : adultCheck(ctx, actor);
+  // Resolved at the first +18 node only: a tree without one costs nothing more.
+  let refusal: AdultRefusal | null | undefined = options.ignoreAdult ? null : undefined;
   const ids: number[] = [];
   resolved.state.tree.entries.forEach((entry, i) => {
     if (!flagAt(resolved.combination, "node.view", i)) return;
-    if (entry.adult && adult()) return;
+    if (entry.adult) {
+      if (refusal === undefined) refusal = adultRefusalFor(ctx, actor);
+      if (refusal) return;
+    }
     ids.push(entry.id);
   });
   return ids;

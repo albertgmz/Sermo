@@ -273,6 +273,8 @@ export const forumSql = {
    */
   newestLock:
     "SELECT json_extract(payload, '$.isLocked') AS locked, json_extract(payload, '$.actorId') AS actor_id FROM domain_events WHERE target_type = 'thread' AND target_id = ?1 AND type = 'content.edited' AND json_extract(payload, '$.isLocked') IS NOT NULL ORDER BY id DESC LIMIT 1",
+  /** Whether any node is marked +18 (the node table is small). */
+  anyAdultNode: "SELECT 1 AS n FROM nodes WHERE is_adult = 1 LIMIT 1",
   /** The newest change of a thread's +18 mark, and who made it when that was not the author. */
   newestAdultMark:
     "SELECT json_extract(payload, '$.actorId') AS actor_id FROM domain_events WHERE target_type = 'thread' AND target_id = ?1 AND type = 'content.edited' AND json_extract(payload, '$.isAdult') IS NOT NULL ORDER BY id DESC LIMIT 1",
@@ -2924,7 +2926,10 @@ export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, ac
  * the mark as its own (a moderator may take it off afterwards).
  */
 function effectivelyAdult(ctx: Ctx, row: Pick<ThreadRow, "is_adult" | "node_id">): boolean {
-  return row.is_adult === 1 || !!getNodeTree(ctx).get(row.node_id)?.adult;
+  if (row.is_adult === 1) return true;
+  // Inside the write transaction the tree is built afresh: ask first whether any node is marked.
+  if (!statement<{ n: number }, []>(ctx, "anyAdultNode", forumSql.anyAdultNode).get()) return false;
+  return !!getNodeTree(ctx).get(row.node_id)?.adult;
 }
 function carryAdultMark(ctx: Ctx, threadId: number): void {
   forumDb(ctx).prepare("UPDATE threads SET is_adult = 1 WHERE id = ?1").run(threadId);
