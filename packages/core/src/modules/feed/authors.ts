@@ -1,7 +1,7 @@
 import * as z from "zod";
 import type { Actor } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { postsByAuthor, threadsByAuthor } from "../../contracts/feed";
+import { AUTHOR_PAGES_MAX, postsByAuthor, threadsByAuthor } from "../../contracts/feed";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
@@ -28,6 +28,39 @@ export const authorSql = {
 const cursorSchema = z.tuple([z.number().int().positive()]);
 const FIRST_PAGE = Number.MAX_SAFE_INTEGER;
 
+/** Rows one numbered page examines: it places the newest `AUTHOR_PAGES_MAX` the viewer may open. */
+const NUMBERED_SCAN_CAP = 3000;
+const NUMBERED_BATCH = 100;
+
+/**
+ * The pages of a member's list, as numbered pages cut them: `scan` keeps the newest
+ * `AUTHOR_PAGES_MAX` items the viewer may open (one more, to know whether any lie beyond), and the
+ * page is a slice of them. A cursor walk keeps the page it was asked for and carries no count.
+ */
+function pageOf<Row extends { id: number }>(
+  input: { page?: number; cursor?: string; limit: number },
+  scan: (
+    limit: number,
+    options: { batch?: number; cap?: number },
+  ) => { items: Row[]; next: number | null },
+) {
+  if (input.page === undefined || input.cursor) {
+    const { items, next } = scan(input.limit, {});
+    return { items, nextCursor: next === null ? null : encodeCursor([next]), total: null };
+  }
+  const { items, next } = scan(AUTHOR_PAGES_MAX + 1, {
+    batch: NUMBERED_BATCH,
+    cap: NUMBERED_SCAN_CAP,
+  });
+  const total = Math.min(items.length, AUTHOR_PAGES_MAX);
+  const from = (input.page - 1) * input.limit;
+  const shown = items.slice(from, Math.min(from + input.limit, total));
+  const last = shown.at(-1);
+  // Something may follow the page: an item the numbered pages left out, or rows not examined.
+  const more = from + input.limit < items.length || next !== null;
+  return { items: shown, nextCursor: last && more ? encodeCursor([last.id]) : null, total };
+}
+
 /** The forums' content rule, with the forums the viewer can open resolved once. */
 function feedRule(ctx: Ctx, actor: Actor) {
   const nodes = visibleNodes(ctx, actor);
@@ -42,17 +75,17 @@ export const threadsByAuthorOp = implement(threadsByAuthor, (ctx, actor, input) 
   const query = prepared(ctx, "feed.threadsByAuthor", () =>
     ctx.sqlite.prepare<ThreadRow, [number, number, number]>(authorSql.threads),
   );
-  const { items, next } = scanKeyset<ThreadRow, number>({
-    before: input.cursor ? decodeCursor(input.cursor, cursorSchema)[0] : null,
-    limit: input.limit,
-    fetch: (before, count) => query.all(input.userId, before ?? FIRST_PAGE, count),
-    keyOf: (row) => row.id,
-    accept: (rows) => new Set(rows.filter((row) => threadReadable(rule, row))),
-  });
-  return {
-    items: threadValuesFor(ctx, actor, items),
-    nextCursor: next === null ? null : encodeCursor([next]),
-  };
+  const { items, nextCursor, total } = pageOf(input, (limit, options) =>
+    scanKeyset<ThreadRow, number>({
+      before: input.cursor ? decodeCursor(input.cursor, cursorSchema)[0] : null,
+      limit,
+      ...options,
+      fetch: (before, count) => query.all(input.userId, before ?? FIRST_PAGE, count),
+      keyOf: (row) => row.id,
+      accept: (rows) => new Set(rows.filter((row) => threadReadable(rule, row))),
+    }),
+  );
+  return { items: threadValuesFor(ctx, actor, items), nextCursor, total };
 });
 
 export const postsByAuthorOp = implement(postsByAuthor, (ctx, actor, input) => {
@@ -62,27 +95,27 @@ export const postsByAuthorOp = implement(postsByAuthor, (ctx, actor, input) => {
     ctx.sqlite.prepare<PostCandidate, [number, number, number]>(authorSql.posts),
   );
   const threads = new Map<number, ThreadRow>();
-  const { items, next } = scanKeyset<PostCandidate, number>({
-    before: input.cursor ? decodeCursor(input.cursor, cursorSchema)[0] : null,
-    limit: input.limit,
-    fetch: (before, count) => query.all(input.userId, before ?? FIRST_PAGE, count),
-    keyOf: (row) => row.id,
-    accept: (rows) => {
-      loadThreads(ctx, rows, threads);
-      return new Set(
-        rows.filter((row) => {
-          const thread = threads.get(row.thread_id);
-          return (
-            thread !== undefined && postReadable(rule, thread, { ...row, user_id: input.userId })
-          );
-        }),
-      );
-    },
-  });
-  return {
-    items: postsInThreads(ctx, actor, items, threads),
-    nextCursor: next === null ? null : encodeCursor([next]),
-  };
+  const { items, nextCursor, total } = pageOf(input, (limit, options) =>
+    scanKeyset<PostCandidate, number>({
+      before: input.cursor ? decodeCursor(input.cursor, cursorSchema)[0] : null,
+      limit,
+      ...options,
+      fetch: (before, count) => query.all(input.userId, before ?? FIRST_PAGE, count),
+      keyOf: (row) => row.id,
+      accept: (rows) => {
+        loadThreads(ctx, rows, threads);
+        return new Set(
+          rows.filter((row) => {
+            const thread = threads.get(row.thread_id);
+            return (
+              thread !== undefined && postReadable(rule, thread, { ...row, user_id: input.userId })
+            );
+          }),
+        );
+      },
+    }),
+  );
+  return { items: postsInThreads(ctx, actor, items, threads), nextCursor, total };
 });
 
 /** Loads the threads of a batch of posts into `into` (one query for the ones not loaded yet). */

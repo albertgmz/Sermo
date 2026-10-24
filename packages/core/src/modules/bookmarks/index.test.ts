@@ -206,7 +206,7 @@ describe("bookmarks.list", () => {
     expect(t).toMatchObject({ contentId: made.thread.id, threadId: made.thread.id });
     expect(t!.excerpt).toContain("Opening words");
     expect(t!.excerpt).not.toContain("secret");
-    expect(await list(f, f.other)).toEqual({ items: [], nextCursor: null });
+    expect(await list(f, f.other)).toEqual({ items: [], nextCursor: null, total: null });
   });
 
   test("pages by keyset", async () => {

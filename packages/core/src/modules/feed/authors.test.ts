@@ -83,6 +83,7 @@ describe("threads.byAuthor", () => {
     expect(await w.call("threads.byAuthor", w.bob, { userId: w.carolUser.id })).toEqual({
       items: [],
       nextCursor: null,
+      total: null,
     });
   });
 

@@ -39,6 +39,17 @@ export const listSql =
 export const listUnreadSql =
   "SELECT id, type, content_type, content_id, thread_id, actor_ids, actor_count, data, created_at, updated_at, read_at, epoch FROM notifications WHERE user_id = ?1 AND epoch = ?2 AND read_at IS NULL AND (updated_at, id) < (?3, ?4) ORDER BY updated_at DESC, id DESC LIMIT ?5";
 
+// Numbered pages: the place of the last alert of the page before (offset from 0) and how many
+// alerts the list holds, each read from one covering index (`notifications_user_recent`, and
+// `notifications_user_unread_recent` for unread only).
+export const pageKeySql =
+  "SELECT updated_at, id FROM notifications WHERE user_id = ?1 ORDER BY updated_at DESC, id DESC LIMIT 1 OFFSET ?2";
+export const pageCountSql = "SELECT count(*) AS n FROM notifications WHERE user_id = ?1";
+export const unreadPageKeySql =
+  "SELECT updated_at, id FROM notifications WHERE user_id = ?1 AND epoch = ?2 AND read_at IS NULL ORDER BY updated_at DESC, id DESC LIMIT 1 OFFSET ?3";
+export const unreadPageCountSql =
+  "SELECT count(*) AS n FROM notifications WHERE user_id = ?1 AND epoch = ?2 AND read_at IS NULL";
+
 function readState(
   ctx: Ctx,
   userId: number,
@@ -149,9 +160,38 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
   requirePermission(ctx, actor, "notification.view");
   const userId = requireAuthenticated(actor).userId;
   const state = readState(ctx, userId);
+  const numbered = input.cursor ? undefined : input.page;
+  const total =
+    numbered === undefined
+      ? null
+      : input.unreadOnly
+        ? prepared(ctx, "notifications.unreadPageCount", () =>
+            ctx.sqlite.prepare<{ n: number }, [number, number]>(unreadPageCountSql),
+          ).get(userId, state.notification_epoch)!.n
+        : prepared(ctx, "notifications.pageCount", () =>
+            ctx.sqlite.prepare<{ n: number }, [number]>(pageCountSql),
+          ).get(userId)!.n;
+  // A numbered page past the first goes on from the last alert of the page before it.
+  const offset = numbered === undefined ? 0 : (numbered - 1) * input.limit;
+  const start =
+    offset === 0
+      ? null
+      : input.unreadOnly
+        ? prepared(ctx, "notifications.unreadPageKey", () =>
+            ctx.sqlite.prepare<{ updated_at: number; id: number }, [number, number, number]>(
+              unreadPageKeySql,
+            ),
+          ).get(userId, state.notification_epoch, offset - 1)
+        : prepared(ctx, "notifications.pageKey", () =>
+            ctx.sqlite.prepare<{ updated_at: number; id: number }, [number, number]>(pageKeySql),
+          ).get(userId, offset - 1);
+  if (offset > 0 && !start)
+    return { items: [], nextCursor: null, unreadCount: state.unread_notification_count, total };
   const [at, id] = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
-    : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
+    : start
+      ? [start.updated_at, start.id]
+      : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
   const rows = input.unreadOnly
     ? prepared(ctx, "notifications.listUnread", () =>
         ctx.sqlite.prepare<Row, [number, number, number, number, number]>(listUnreadSql),
@@ -213,6 +253,7 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
     nextCursor:
       rows.length > input.limit ? encodeCursor([page.at(-1)!.updated_at, page.at(-1)!.id]) : null,
     unreadCount: state.unread_notification_count,
+    total,
   };
 });
 

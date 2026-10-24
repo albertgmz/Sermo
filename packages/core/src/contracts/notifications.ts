@@ -58,10 +58,19 @@ export const notificationsList = defineContract({
   name: "notifications.list",
   summary:
     "Your notifications, most recently updated first, optionally unread only, with your unread " +
-    "count. Requires notification.view.",
+    "count. `page` (from 1; a `cursor` takes precedence over it) is the page of `limit` " +
+    "notifications at that place in the list; with it, `total` is how many the list holds " +
+    "(`ceil(total / limit)` pages), null without it. Requires notification.view.",
   kind: "read",
-  input: z.object({ unreadOnly: z.boolean().default(false), ...pageInput }),
-  output: Page(Notification).extend({ unreadCount: z.number().int().nonnegative() }),
+  input: z.object({
+    unreadOnly: z.boolean().default(false),
+    page: z.number().int().min(1).optional(),
+    ...pageInput,
+  }),
+  output: Page(Notification).extend({
+    unreadCount: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative().nullable(),
+  }),
 });
 
 export const notificationsMarkRead = defineContract({

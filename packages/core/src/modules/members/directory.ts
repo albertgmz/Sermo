@@ -12,6 +12,7 @@ import { scanKeyset } from "../feed/scan";
 import { readSiteSettings } from "../settings";
 import { isBanned, openableProfiles } from "./access";
 import { loadMemberCards } from "./cards";
+import { numberedStart } from "./directory-pages";
 import { requireSiteView } from "./site-access";
 
 type Sort = (typeof MEMBER_SORTS)[number];
@@ -88,6 +89,18 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
   };
 
   const floor = input.ranked ? 0 : NO_FLOOR;
+  // A numbered page goes on from the last member of the page before it (the cursor's place).
+  const numbered =
+    input.page !== undefined && !input.cursor
+      ? numberedStart(ctx, actor, {
+          column: sort === "newest" ? null : SORT_COLUMN[sort],
+          ranked: input.ranked,
+          page: input.page,
+          limit: input.limit,
+        })
+      : null;
+  const total = numbered?.total ?? null;
+  if (numbered && input.page! > 1 && !numbered.start) return { items: [], nextCursor: null, total };
   let items: ListRow[];
   let next: number[] | null;
   if (sort === "newest") {
@@ -95,7 +108,9 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
       ctx.sqlite.prepare<ListRow, [number, number]>(listSql.newest),
     );
     const scan = scanKeyset<ListRow, [number]>({
-      before: input.cursor ? [decodeCursor(input.cursor, NewestCursor)[0]] : null,
+      before: input.cursor
+        ? [decodeCursor(input.cursor, NewestCursor)[0]]
+        : ((numbered?.start as [number] | null | undefined) ?? null),
       limit: input.limit,
       fetch: (before, count) => statement.all(before ? before[0] : Number.MAX_SAFE_INTEGER, count),
       keyOf: (row) => [row.id],
@@ -112,7 +127,9 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
       ctx.sqlite.prepare<ListRow, [number, number, number]>(listSql.below(sort)),
     );
     const scan = scanKeyset<ListRow, [number, number]>({
-      before: input.cursor ? decodeCursor(input.cursor, NumericCursor) : null,
+      before: input.cursor
+        ? decodeCursor(input.cursor, NumericCursor)
+        : ((numbered?.start as [number, number] | null | undefined) ?? null),
       limit: input.limit,
       fetch: (before, count) => {
         if (!before) return below.all(Number.MAX_SAFE_INTEGER, count, floor);
@@ -151,6 +168,7 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
         : [];
     }),
     nextCursor: next ? encodeCursor(next) : null,
+    total,
   };
 });
 

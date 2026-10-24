@@ -301,24 +301,40 @@ export const threadsFeatured = defineContract({
   output: z.object({ items: z.array(FeaturedThread) }),
 });
 
+/**
+ * The most items the numbered pages of a member's threads or posts hold, as XenForo's postings
+ * tab (its maximumSearchResults): the newest ones the viewer may open.
+ */
+export const AUTHOR_PAGES_MAX = 500;
+
+const authorPagesNote =
+  "`page` (from 1; a `cursor` takes precedence over it) is the page of `limit` items at that " +
+  "place in the list; with it, `total` is how many items the numbered pages hold, only those " +
+  `the viewer may open (\`ceil(total / limit)\` pages), null without it. They hold at most the ` +
+  `newest ${AUTHOR_PAGES_MAX}, and fewer where one request examined as many of the member's ` +
+  "items as it may before finding that many; a cursor walks on past both. ";
+
 export const threadsByAuthor = defineContract({
   name: "threads.byAuthor",
   summary:
     "The threads a member started, newest first, limited to what the viewer may open. " +
+    authorPagesNote +
     "Requires profile.view; a member whose profile the viewer cannot see is not found.",
   kind: "read",
-  input: z.object({ userId: Id, ...pageInput }),
-  output: Page(Thread),
+  input: z.object({ userId: Id, page: z.number().int().min(1).optional(), ...pageInput }),
+  output: Page(Thread).extend({ total: z.number().int().nonnegative().nullable() }),
 });
 
 export const postsByAuthor = defineContract({
   name: "posts.byAuthor",
   summary:
     "The posts a member wrote, newest first, each with its thread, limited to what the viewer " +
-    "may open. Requires profile.view; a member whose profile the viewer cannot see is not found.",
+    "may open. " +
+    authorPagesNote +
+    "Requires profile.view; a member whose profile the viewer cannot see is not found.",
   kind: "read",
-  input: z.object({ userId: Id, ...pageInput }),
-  output: Page(PostInThread),
+  input: z.object({ userId: Id, page: z.number().int().min(1).optional(), ...pageInput }),
+  output: Page(PostInThread).extend({ total: z.number().int().nonnegative().nullable() }),
 });
 
 /**

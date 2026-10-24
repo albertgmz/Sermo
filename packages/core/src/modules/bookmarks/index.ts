@@ -1,7 +1,12 @@
 import * as z from "zod";
 import { type Actor, actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { bookmarksList, bookmarksSet, bookmarksStatus } from "../../contracts/bookmarks";
+import {
+  BOOKMARK_PAGES_MAX,
+  bookmarksList,
+  bookmarksSet,
+  bookmarksStatus,
+} from "../../contracts/bookmarks";
 import { writeTx } from "../../db/tx";
 import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
@@ -20,6 +25,8 @@ import { excerptFromMarkdown } from "../seo/excerpt";
 
 /** Bookmark rows examined by one `bookmarks.list` request, whatever the page size. */
 const SCAN_CAP = 300;
+/** Bookmark rows examined by one numbered page: it places the newest `BOOKMARK_PAGES_MAX` visible ones. */
+const NUMBERED_SCAN_CAP = 3000;
 /** Rows read per round trip; the items of a round are loaded per type. */
 const BATCH_SIZE = 100;
 /** Merges followed to the thread that holds a merged thread, as `threads.get` does. */
@@ -290,48 +297,112 @@ function loadVisible(ctx: Ctx, actor: Actor, userId: number, rows: Row[]): Map<s
   return items;
 }
 
+/** The values of a page of accepted bookmarks. */
+function listValues(ctx: Ctx, accepted: { row: Row; item: Item }[]) {
+  const users = loadUserSummaries(
+    ctx,
+    accepted.map(({ item }) => item.authorId),
+  );
+  return accepted.map(({ row, item }) => ({
+    id: row.id,
+    contentType: row.content_type,
+    contentId: row.content_id,
+    createdAt: iso(row.created_at),
+    title: item.title,
+    threadId: item.threadId,
+    postPosition: item.postPosition,
+    author: users(item.authorId),
+    excerpt: item.excerpt,
+  }));
+}
+
+/**
+ * Walks the member's bookmarks newest first, in batches, keeping the ones the viewer can see,
+ * until `want` are kept or `cap` rows have been examined. `exhausted` says the member has no
+ * bookmark left below the last one examined.
+ */
+function walk(ctx: Ctx, actor: Actor, userId: number, start: number, want: number, cap: number) {
+  const page = statement<Row, [number, number, number]>(ctx, "page", bookmarksSql.page);
+  const accepted: { row: Row; item: Item }[] = [];
+  let cursor = start;
+  let examined = 0;
+  let exhausted = false;
+  while (accepted.length < want && examined < cap) {
+    const count = Math.min(BATCH_SIZE, cap - examined);
+    const rows = page.all(userId, cursor, count);
+    if (rows.length === 0) {
+      exhausted = true;
+      break;
+    }
+    const items = loadVisible(ctx, actor, userId, rows);
+    for (const row of rows) {
+      cursor = row.id;
+      examined++;
+      const item = items.get(`${row.content_type}:${row.content_id}`);
+      if (item) accepted.push({ row, item });
+      if (accepted.length === want) break;
+    }
+    if (accepted.length < want && rows.length < count) exhausted = true;
+    if (exhausted) break;
+  }
+  return { accepted, cursor, exhausted };
+}
+
+/**
+ * A numbered page: the newest `BOOKMARK_PAGES_MAX` bookmarks the viewer can see are placed in one
+ * walk (fewer where `NUMBERED_SCAN_CAP` rows were examined first), and the page is its slice.
+ * Removing the rows the viewer cannot see is the only way to know how many pages there are, as
+ * the count of stored rows would include them.
+ */
+function numberedPage(
+  ctx: Ctx,
+  actor: Actor,
+  userId: number,
+  input: { page: number; limit: number },
+) {
+  const { accepted, exhausted } = walk(
+    ctx,
+    actor,
+    userId,
+    Number.MAX_SAFE_INTEGER,
+    BOOKMARK_PAGES_MAX + 1,
+    NUMBERED_SCAN_CAP,
+  );
+  const total = Math.min(accepted.length, BOOKMARK_PAGES_MAX);
+  const from = (input.page - 1) * input.limit;
+  const shown = accepted.slice(from, Math.min(from + input.limit, total));
+  const last = shown.at(-1);
+  // Something may follow the page: a kept bookmark after it, or rows the walk did not examine.
+  const more = from + input.limit < accepted.length || !exhausted;
+  return {
+    items: listValues(ctx, shown),
+    nextCursor: last && more ? encodeCursor([last.row.id]) : null,
+    total,
+  };
+}
+
 export const bookmarksListOp = implement(
   bookmarksList,
   (ctx, actor, input) => {
     const { userId } = requireAuthenticated(actor);
     // A viewer who may not open the site reads none of its content, their bookmarks included.
-    if (!can(ctx, actor, "site.view")) return { items: [], nextCursor: null };
-    let cursor = input.cursor
+    if (!can(ctx, actor, "site.view"))
+      return { items: [], nextCursor: null, total: input.page ? 0 : null };
+    if (input.page !== undefined && !input.cursor)
+      return numberedPage(ctx, actor, userId, { page: input.page, limit: input.limit });
+    const start = input.cursor
       ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
       : Number.MAX_SAFE_INTEGER;
-    const page = statement<Row, [number, number, number]>(ctx, "page", bookmarksSql.page);
-    const accepted: { row: Row; item: Item }[] = [];
-    let examined = 0;
-    while (accepted.length < input.limit && examined < SCAN_CAP) {
-      const rows = page.all(userId, cursor, Math.min(BATCH_SIZE, SCAN_CAP - examined));
-      if (rows.length === 0) break;
-      const items = loadVisible(ctx, actor, userId, rows);
-      for (const row of rows) {
-        cursor = row.id;
-        examined++;
-        const item = items.get(`${row.content_type}:${row.content_id}`);
-        if (item) accepted.push({ row, item });
-        if (accepted.length === input.limit) break;
-      }
-    }
-    const more = page.get(userId, cursor, 1) != null;
-    const users = loadUserSummaries(
-      ctx,
-      accepted.map(({ item }) => item.authorId),
+    const { accepted, cursor } = walk(ctx, actor, userId, start, input.limit, SCAN_CAP);
+    const more = statement<Row, [number, number, number]>(ctx, "page", bookmarksSql.page).get(
+      userId,
+      cursor,
+      1,
     );
     return {
-      items: accepted.map(({ row, item }) => ({
-        id: row.id,
-        contentType: row.content_type,
-        contentId: row.content_id,
-        createdAt: iso(row.created_at),
-        title: item.title,
-        threadId: item.threadId,
-        postPosition: item.postPosition,
-        author: users(item.authorId),
-        excerpt: item.excerpt,
-      })),
-      nextCursor: more ? encodeCursor([cursor]) : null,
+      items: listValues(ctx, accepted),
+      nextCursor: more != null ? encodeCursor([cursor]) : null,
+      total: null,
     };
   },
   { public: "A member lists only their own bookmarks; each item is checked against its own read." },

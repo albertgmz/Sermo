@@ -27,15 +27,22 @@ export const Bookmark = z
   })
   .meta({ id: "Bookmark" });
 
+/** The most bookmarks the numbered pages hold: the newest ones the viewer can still see. */
+export const BOOKMARK_PAGES_MAX = 500;
+
 export const bookmarksList = defineContract({
   name: "bookmarks.list",
   summary:
     "The viewer's bookmarks, newest first. Items the viewer can no longer see are left out, so " +
     "a page may be short while `nextCursor` is set. Signed-in members; empty for a viewer without " +
-    "`site.view`.",
+    "`site.view`. `page` (from 1; a `cursor` takes precedence over it) is the page of `limit` " +
+    "bookmarks at that place in the list; with it, `total` is how many bookmarks the numbered " +
+    "pages hold, only those the viewer can see (`ceil(total / limit)` pages), null without it. " +
+    `They hold at most the newest ${BOOKMARK_PAGES_MAX}, and fewer where one request examined as ` +
+    "many bookmarks as it may before finding that many; a cursor walks on past both.",
   kind: "read",
-  input: z.object({ ...pageInput }),
-  output: Page(Bookmark),
+  input: z.object({ page: z.number().int().min(1).optional(), ...pageInput }),
+  output: Page(Bookmark).extend({ total: z.number().int().nonnegative().nullable() }),
 });
 
 export const bookmarksStatus = defineContract({

@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { prepared } from "../../context";
-import { searchQuery } from "../../contracts/search";
+import { SEARCH_PAGES_MAX, searchQuery } from "../../contracts/search";
 import { NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -69,6 +69,10 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
             .subtreeIds(input.nodeId)
             .filter((id) => viewable.has(id)),
         );
+  // A numbered page is cut from one walk that keeps the newest `SEARCH_PAGES_MAX` results (one
+  // more, to know whether any lie beyond them); a cursor walk keeps one page.
+  const numbered = input.page !== undefined && !input.cursor;
+  const want = numbered ? SEARCH_PAGES_MAX + 1 : input.limit;
   let cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
     : Number.MAX_SAFE_INTEGER;
@@ -81,7 +85,7 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
   const details = prepared(ctx, "search.details", () =>
     ctx.sqlite.prepare<Detail, [string]>(searchSql.details),
   );
-  while (examined < CANDIDATE_CAP && accepted.length < input.limit) {
+  while (examined < CANDIDATE_CAP && accepted.length < want) {
     const remaining = CANDIDATE_CAP - examined;
     const batch = candidates.all(match, cursor, Math.min(BATCH_SIZE, remaining) + 1);
     if (batch.length === 0) break;
@@ -103,26 +107,30 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
         (input.prefixId === undefined || detail.prefix_id === input.prefixId)
       )
         accepted.push(detail);
-      if (accepted.length === input.limit) break;
+      if (accepted.length === want) break;
     }
-    if (accepted.length === input.limit || examined === CANDIDATE_CAP) {
+    if (accepted.length === want || examined === CANDIDATE_CAP) {
       hasMore =
         batch.some((row) => row.rowid < cursor) || Boolean(candidates.get(match, cursor, 1));
       break;
     }
     if (batch.length <= rows.length) break;
   }
+  const total = numbered ? Math.min(accepted.length, SEARCH_PAGES_MAX) : null;
+  const from = numbered ? (input.page! - 1) * input.limit : 0;
+  const shown = numbered ? accepted.slice(from, Math.min(from + input.limit, total!)) : accepted;
   const users = loadUserSummaries(
     ctx,
-    accepted.map((row) => row.user_id),
+    shown.map((row) => row.user_id),
   );
   const bodies = prepared(ctx, "search.bodies", () =>
     ctx.sqlite.prepare<{ post_id: number; body_source: string }, [string]>(searchSql.bodies),
-  ).all(JSON.stringify(accepted.map((row) => row.id)));
+  ).all(JSON.stringify(shown.map((row) => row.id)));
   const source = new Map(bodies.map((row) => [row.post_id, row.body_source]));
   const present = threadPresenter(ctx);
+  const last = shown.at(-1);
   return {
-    items: accepted.map((row) => ({
+    items: shown.map((row) => ({
       post: {
         id: row.id,
         position: row.position,
@@ -138,7 +146,15 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
         prefix: present.prefix(row.prefix_id),
       },
     })),
-    nextCursor: hasMore ? encodeCursor([cursor]) : null,
+    // A numbered page goes on from its last result while any result follows it, kept or not.
+    nextCursor: numbered
+      ? last && (from + input.limit < accepted.length || hasMore)
+        ? encodeCursor([last.id])
+        : null
+      : hasMore
+        ? encodeCursor([cursor])
+        : null,
+    total,
   };
 });
 

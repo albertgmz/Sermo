@@ -153,15 +153,22 @@ export const usersList = defineContract({
     "and members whose profile the viewer may not open are left out, so a page can hold fewer " +
     "than `limit` items while `nextCursor` is non-null. With `ranked` the list is a ranking: " +
     "erased members and members whose figure for the sort is zero or less (not for " +
-    "`newest`) are left out too, so a sort nobody has earned anything on is empty. Requires " +
+    "`newest`) are left out too, so a sort nobody has earned anything on is empty. `page` " +
+    "(from 1; a `cursor` takes precedence over it) is the page of `limit` members at that " +
+    "place in the list; with it, `total` is how many members the list holds for the viewer " +
+    "(`ceil(total / limit)` pages) and a page holds `limit` members, none left out of it; " +
+    "without it `total` is null. Members whose profile privacy is about to change, or who " +
+    "were just banned, may be placed by a figure up to a minute old, so a page boundary can " +
+    "be off by that member; no member the viewer may not open is ever returned. Requires " +
     "profile.view and member.viewList.",
   kind: "read",
   input: z.object({
     sort: z.enum(MEMBER_SORTS).default("newest"),
     ranked: z.boolean().default(false),
+    page: z.number().int().min(1).optional(),
     ...pageInput,
   }),
-  output: Page(MemberListItem),
+  output: Page(MemberListItem).extend({ total: z.number().int().nonnegative().nullable() }),
 });
 
 export const usersStaff = defineContract({
