@@ -99,7 +99,13 @@ test("Delete opens the delete dialog over the page, and deletes from it", async 
   await reason.fill("Checking the dialog");
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByText(words)).toHaveCount(0);
+  // The page it was on can stay in the document, hidden (Next keeps the route left behind in a
+  // hidden <Activity>): what counts is that the reply is shown nowhere and is deleted.
+  await expect(page.getByText(words)).toBeHidden();
+  const after = await page.request.get(`/api/v1/posts/${id}`);
+  if (after.ok())
+    expect(((await after.json()) as { state: string }).state).toBe("deleted");
+  else expect(after.status()).toBe(404);
 });
 
 test("Edit tags and the poll editor open in place on their first field, one at a time, and close on Escape", async ({
