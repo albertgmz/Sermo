@@ -233,8 +233,8 @@ describe("notification channels", () => {
     expect(f.rendered.map((entry) => entry.phrase)).toEqual([
       {
         title: "Nueva respuesta en Topic",
-        bodyHtml: "Un miembro respondió en un tema que sigues: Topic.",
-        bodyWithoutContentHtml: "Un miembro respondió en un tema que sigues: Topic.",
+        bodyHtml: `${f.author.username} respondió en el tema «Topic».`,
+        bodyWithoutContentHtml: `${f.author.username} respondió en el tema «Topic».`,
       },
     ]);
     await f.reply(f.replier, "Second reply");
