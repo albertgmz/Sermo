@@ -299,6 +299,7 @@ export const acceptPosts = markPublic(
           // A thread the viewer may not open, or a post whose text is closed to them, is left out.
           gates.opens(thread.node_id, thread.user_id) &&
           gates.reads(thread.node_id, row.user_id) &&
+          !gates.hidesAdult(thread) &&
           (once === "newest"
             ? row.id === thread.last_post_id &&
               (!ignored.has(row.user_id) ||

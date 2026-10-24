@@ -256,7 +256,8 @@
       "notGranted": "no entry grants it",
       "timeLimit": "the time limit has passed",
       "hierarchy": "the target member ranks at or above the actor",
-      "viewRequired": "the member cannot view the forum"
+      "viewRequired": "the member cannot view the forum",
+      "adult": "the forum is marked +18 and the member may not see adult content"
     },
     "layersHeading": "Layers, in the order applied",
     "layersHelp": "One row per group of the member, then the entries set on the member.",

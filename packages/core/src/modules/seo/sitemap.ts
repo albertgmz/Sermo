@@ -76,10 +76,12 @@ export function* sitemapEntries(
           created_at: number;
           content_updated_at: number | null;
           last_post_at: number;
+          user_id: number;
+          is_adult: number;
         },
         [number]
       >(
-        "SELECT id,node_id,title,created_at,content_updated_at,last_post_at FROM threads WHERE id>?1 AND state='visible' AND first_post_id IS NOT NULL ORDER BY id LIMIT 500",
+        "SELECT id,node_id,title,created_at,content_updated_at,last_post_at,user_id,is_adult FROM threads WHERE id>?1 AND state='visible' AND first_post_id IS NOT NULL ORDER BY id LIMIT 500",
       ),
     );
     for (;;) {
@@ -90,7 +92,8 @@ export function* sitemapEntries(
         if (
           guest.can("node.view", { nodeId: row.node_id }) &&
           gates.opensOthers(row.node_id) &&
-          gates.readsOthers(row.node_id)
+          gates.readsOthers(row.node_id) &&
+          !gates.hidesAdult(row)
         )
           yield {
             id: row.id,
@@ -135,17 +138,21 @@ export function* sitemapEntries(
         content_updated_at: number | null;
         has_public_wall: number;
         about: string;
+        profile_adult: number;
       },
       [number]
     >(
-      "SELECT id,username,created_at,content_updated_at,about,EXISTS(SELECT 1 FROM profile_posts WHERE profile_user_id=users.id AND state='visible' LIMIT 1) AS has_public_wall FROM users WHERE id>?1 AND profile_view_privacy='everyone' ORDER BY id LIMIT 500",
+      "SELECT id,username,created_at,content_updated_at,about,profile_adult,EXISTS(SELECT 1 FROM profile_posts WHERE profile_user_id=users.id AND state='visible' LIMIT 1) AS has_public_wall FROM users WHERE id>?1 AND profile_view_privacy='everyone' ORDER BY id LIMIT 500",
     ),
   );
+  // A profile marked +18 is never public while the mode is on: guests may not see it.
+  const adultHidden = gates.adult() !== null;
   for (;;) {
     const batch = rows.all(after);
     if (!batch.length) return;
     for (const row of batch) {
       after = row.id;
+      if (row.profile_adult === 1 && adultHidden) continue;
       if (row.has_public_wall === 1 || row.about.trim().length > 0)
         yield {
           id: row.id,

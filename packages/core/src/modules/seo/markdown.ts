@@ -30,7 +30,7 @@ export const MARKDOWN_SQL = {
     "SELECT position FROM posts WHERE thread_id=?1 AND position<?2 AND state='visible' ORDER BY position DESC LIMIT 1",
   positionAfter:
     "SELECT position FROM posts WHERE thread_id=?1 AND position>?2 AND state='visible' ORDER BY position LIMIT 1",
-  forumThreads: `SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2`,
+  forumThreads: `SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,t.user_id,t.is_adult,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2`,
 } as const;
 
 /** A Markdown page, or the address it now lives at (a renamed or merged thread). */
@@ -52,6 +52,8 @@ type ListedThread = {
   excerpt: string;
   reply_count: number;
   last_post_at: number;
+  user_id: number;
+  is_adult: number;
   username: string | null;
 };
 
@@ -176,9 +178,12 @@ function forumBody(ctx: Ctx, baseURL: string, node: NodeTreeEntry, limit: number
   const gates = readGates(ctx, GUEST);
   const guest = guestAuthorLabel(ctx);
   if (node.type === "forum" && gates.opensOthers(node.id) && gates.readsOthers(node.id)) {
+    // Threads marked +18 are left out while the mode is on: guests may not see them.
     const threads = prepared(ctx, "seo.markdownForumThreads", () =>
       ctx.sqlite.prepare<ListedThread, [number, number]>(MARKDOWN_SQL.forumThreads),
-    ).all(node.id, limit);
+    )
+      .all(node.id, limit)
+      .filter((thread) => !gates.hidesAdult(thread));
     if (threads.length)
       parts.push(
         `## Threads\n\nThe ${threads.length === limit ? `${limit} ` : ""}threads with the newest posts.\n\n${threads

@@ -328,6 +328,7 @@ export const operations = [
         socialLinks: settings.socialLinks,
         maxUploadBytes: settings.maxUploadBytes,
         forumStatsEnabled: settings.forumStatsEnabled,
+        adultMode: settings.adultMode,
         analytics: settings.analytics,
         cookiePolicyVersion: settings.cookiePolicyVersion,
         matomoCookieless: settings.matomoCookieless,

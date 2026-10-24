@@ -8,6 +8,8 @@ export interface NodeTreeEntry {
   description: string;
   position: number;
   depth: number;
+  /** Marked +18, by itself or by a parent node. */
+  adult: boolean;
 }
 export interface NodeTree {
   /** Depth-first, parents before children, siblings by position. */
@@ -19,11 +21,27 @@ export interface NodeTree {
 
 export function getNodeTree(ctx: Ctx): NodeTree {
   return cached(ctx, "node_tree", () => {
+    // The whole row, so the tree also builds on a database migrated only part of the way (the
+    // upgrade tests check permissions between migrations): a node from before the +18 mode has
+    // no mark.
     const rows = ctx.sqlite
-      .prepare<Omit<NodeTreeEntry, "depth">, []>(
-        "SELECT id, parent_id AS parentId, type, title, description, position FROM nodes ORDER BY position, id",
-      )
-      .all();
+      .prepare<
+        Omit<NodeTreeEntry, "depth" | "adult" | "parentId"> & {
+          parent_id: number | null;
+          is_adult?: number;
+        },
+        []
+      >("SELECT * FROM nodes ORDER BY position, id")
+      .all()
+      .map(({ id, parent_id, type, title, description, position, is_adult }) => ({
+        id,
+        parentId: parent_id,
+        type,
+        title,
+        description,
+        position,
+        isAdult: is_adult ?? 0,
+      }));
     const children = new Map<number | null, typeof rows>();
     for (const row of rows) {
       const list = children.get(row.parentId) ?? [];
@@ -32,15 +50,15 @@ export function getNodeTree(ctx: Ctx): NodeTree {
     }
     const entries: NodeTreeEntry[] = [];
     const byId = new Map<number, NodeTreeEntry>();
-    const walk = (parent: number | null, depth: number) => {
-      for (const row of children.get(parent) ?? []) {
-        const entry = { ...row, depth };
+    const walk = (parent: number | null, depth: number, parentAdult: boolean) => {
+      for (const { isAdult, ...row } of children.get(parent) ?? []) {
+        const entry = { ...row, depth, adult: parentAdult || isAdult === 1 };
         entries.push(entry);
         byId.set(entry.id, entry);
-        walk(entry.id, depth + 1);
+        walk(entry.id, depth + 1, entry.adult);
       }
     };
-    walk(null, 0);
+    walk(null, 0, false);
     return {
       entries,
       get: (id: number) => byId.get(id),

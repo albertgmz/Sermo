@@ -145,12 +145,13 @@ function visibleContent(ctx: Ctx, actor: Actor, item: PushItem): Content | null 
               state: string;
               post_state: string | null;
               post_user_id: number | null;
+              is_adult: number;
             },
             [number]
           >(
             ctx,
             "threadContent",
-            "SELECT id,title,node_id,user_id,state,NULL AS post_state,NULL AS post_user_id FROM threads WHERE id = ?1",
+            "SELECT id,title,node_id,user_id,state,NULL AS post_state,NULL AS post_user_id,is_adult FROM threads WHERE id = ?1",
           ).get(item.contentId)
         : query<
             {
@@ -161,15 +162,17 @@ function visibleContent(ctx: Ctx, actor: Actor, item: PushItem): Content | null 
               state: string;
               post_state: string | null;
               post_user_id: number | null;
+              is_adult: number;
             },
             [number]
           >(
             ctx,
             "postContent",
-            "SELECT t.id,t.title,t.node_id,t.user_id,t.state,p.state AS post_state,p.user_id AS post_user_id FROM posts p JOIN threads t ON t.id=p.thread_id WHERE p.id = ?1",
+            "SELECT t.id,t.title,t.node_id,t.user_id,t.state,p.state AS post_state,p.user_id AS post_user_id,t.is_adult FROM posts p JOIN threads t ON t.id=p.thread_id WHERE p.id = ?1",
           ).get(item.contentId);
     if (!row || !can(ctx, actor, "node.view", { nodeId: row.node_id })) return null;
-    if (!readGates(ctx, actor).opens(row.node_id, row.user_id)) return null;
+    const gates = readGates(ctx, actor);
+    if (!gates.opens(row.node_id, row.user_id) || gates.hidesAdult(row)) return null;
     if (!stateVisible(ctx, actor, row.state, row.user_id, row.node_id)) return null;
     if (row.post_state && !stateVisible(ctx, actor, row.post_state, row.post_user_id!, row.node_id))
       return null;

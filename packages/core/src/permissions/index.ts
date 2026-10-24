@@ -1,4 +1,14 @@
 export {
+  type AdultFacts,
+  adultEligibility,
+  adultFacts,
+  adultFrom,
+  adultModeOn,
+  adultRefusalFor,
+  memberAdultRefusal,
+  requireAdultView,
+} from "./adult";
+export {
   AWAITING_SQL,
   can,
   combinationsGranting,

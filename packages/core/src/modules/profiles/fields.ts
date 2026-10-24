@@ -35,6 +35,7 @@ export interface ProfileFieldsInput {
   socials?: { discord?: string; telegram?: string; x?: string };
   customTitle?: string | null;
   signature?: string | null;
+  isAdult?: boolean;
 }
 
 /**
@@ -69,6 +70,7 @@ export function profileFieldChanges(
       changes.birth_year = input.birthday.year ?? null;
     }
   }
+  if (input.isAdult !== undefined) changes.profile_adult = input.isAdult ? 1 : 0;
   if (input.socials?.discord !== undefined) changes.social_discord = input.socials.discord;
   if (input.socials?.telegram !== undefined) changes.social_telegram = input.socials.telegram;
   if (input.socials?.x !== undefined) changes.social_x = input.socials.x;

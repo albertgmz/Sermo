@@ -64,3 +64,25 @@ export class RateLimitedError extends SermoError {
     super("rate_limited", message, issues);
   }
 }
+
+/** The `path` of the issue that marks a refusal as "+18 content the viewer may not see". */
+export const ADULT_REFUSAL_PATH = "adult";
+
+/**
+ * Why a viewer may not see +18 content: `guest` (sign in first), `minor` (under 18 by the stored
+ * birth date: no way in), `birthDate` (no full birth date stored: profiles.setBirthDate) or
+ * `acceptance` (old enough, the warning not yet confirmed: profiles.acceptAdult).
+ */
+export const ADULT_REFUSALS = ["guest", "minor", "birthDate", "acceptance"] as const;
+export type AdultRefusal = (typeof ADULT_REFUSALS)[number];
+
+/**
+ * A direct request for +18 content the viewer may not see, while the site's +18 mode is on. It is
+ * a refusal (403), told apart from any other by its one issue: path `["adult"]`, the reason as the
+ * message. It carries no part of the content.
+ */
+export class AdultContentError extends ForbiddenError {
+  constructor(readonly reason: AdultRefusal) {
+    super("This content is for adults (18+).", [{ path: [ADULT_REFUSAL_PATH], message: reason }]);
+  }
+}

@@ -10,6 +10,8 @@ type Content = {
   node_id?: number;
   thread_state?: string;
   thread_user_id?: number;
+  /** The thread's own +18 mark. */
+  is_adult: number;
 };
 
 function one(ctx: Ctx, name: string, sql: string, id: number): Content | null {
@@ -24,7 +26,10 @@ function forumVisible(ctx: Ctx, actor: Actor, row: Content): boolean {
   const nodeId = row.node_id;
   if (nodeId === undefined || !can(ctx, actor, "node.view", { nodeId })) return false;
   // Threads of other members may be closed to the recipient in this forum.
-  if (!readGates(ctx, actor).opens(nodeId, row.thread_user_id ?? row.user_id)) return false;
+  const gates = readGates(ctx, actor);
+  const threadUserId = row.thread_user_id ?? row.user_id;
+  if (!gates.opens(nodeId, threadUserId)) return false;
+  if (gates.hidesAdult({ is_adult: row.is_adult, user_id: threadUserId })) return false;
   if (row.thread_state && row.thread_state !== "visible") {
     const threadAllowed =
       (row.thread_state === "moderated" && row.thread_user_id === actorUserId(actor)) ||
@@ -55,7 +60,7 @@ export function visibleTo(
     const row = one(
       ctx,
       "thread",
-      "SELECT state, user_id, node_id FROM threads WHERE id = ?1",
+      "SELECT state, user_id, node_id, is_adult FROM threads WHERE id = ?1",
       contentId,
     );
     return !!row && forumVisible(ctx, actor, row);
@@ -64,7 +69,7 @@ export function visibleTo(
     const row = one(
       ctx,
       "post",
-      "SELECT p.state, p.user_id, t.node_id, t.state AS thread_state, t.user_id AS thread_user_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
+      "SELECT p.state, p.user_id, t.node_id, t.state AS thread_state, t.user_id AS thread_user_id, t.is_adult FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
       contentId,
     );
     return !!row && forumVisible(ctx, actor, row);
@@ -125,7 +130,7 @@ export function visibleTo(
     const row = one(
       ctx,
       "relatedThread",
-      "SELECT state, user_id, node_id FROM threads WHERE id = ?1",
+      "SELECT state, user_id, node_id, is_adult FROM threads WHERE id = ?1",
       threadId,
     );
     return !!row && forumVisible(ctx, actor, row);

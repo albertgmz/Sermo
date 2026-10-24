@@ -8,7 +8,14 @@ import type { Actor, PermissionVersions, Principal } from "../actor";
 import { approvalPending } from "../approval";
 import type { Ctx } from "../context";
 import { GROUP_IDS, RESTRICTION_PERMANENT, type RestrictionKind } from "../db/schema";
-import { ForbiddenError, NotFoundError, UnauthenticatedError } from "../errors";
+import {
+  AdultContentError,
+  type AdultRefusal,
+  ForbiddenError,
+  NotFoundError,
+  UnauthenticatedError,
+} from "../errors";
+import { adultRefusalFor } from "./adult";
 import {
   type FlagDefinition,
   type FlagPermissionId,
@@ -242,7 +249,19 @@ type Denial =
   | "notOwner"
   | "notGranted"
   | "timeLimit"
-  | "hierarchy";
+  | "hierarchy"
+  | "adult";
+
+/** Why the actor may not see +18 content, resolved at most once for a set of checks. */
+type AdultCheck = () => AdultRefusal | null;
+
+function adultCheck(ctx: Ctx, actor: Actor): AdultCheck {
+  let refusal: AdultRefusal | null | undefined;
+  return () => {
+    if (refusal === undefined) refusal = adultRefusalFor(ctx, actor);
+    return refusal;
+  };
+}
 
 function evaluate(
   ctx: Ctx,
@@ -250,7 +269,14 @@ function evaluate(
   id: FlagPermissionId,
   context: PermissionContext,
   known?: Resolved,
-): { granted: boolean; denial?: Denial; resolved: Resolved; nodeIndex: number } {
+  adult: AdultCheck = adultCheck(ctx, actor),
+): {
+  granted: boolean;
+  denial?: Denial;
+  adult?: AdultRefusal;
+  resolved: Resolved;
+  nodeIndex: number;
+} {
   const def = PERMISSIONS[id] as FlagDefinition;
   requireContext(id, def, context);
   const keeps = AWAITING_KEEPS.has(id);
@@ -291,6 +317,12 @@ function evaluate(
       if (resolved.combination.maxRank <= target.combination.maxRank) return deny("hierarchy");
     }
   }
+  // Last, so the denial means "granted but for the +18 mark": a node marked +18 (or under one)
+  // holds nothing for a viewer who may not see adult content while the mode is on.
+  if (nodeIndex >= 0 && resolved.state.tree.entries[nodeIndex]?.adult) {
+    const refusal = adult();
+    if (refusal) return { granted: false, denial: "adult", adult: refusal, resolved, nodeIndex };
+  }
   return { granted: true, resolved, nodeIndex };
 }
 
@@ -318,7 +350,8 @@ export function can(
 /**
  * Throws unless `actor` has the permission. Guests denied a permission that requires an account
  * get UnauthenticatedError; others get ForbiddenError, or NotFoundError with `notFound` (when
- * the denial must not reveal that the target exists).
+ * the denial must not reveal that the target exists). A permission held but for the +18 mark of
+ * its node throws AdultContentError either way: the +18 page, not the content.
  */
 export function requirePermission(
   ctx: Ctx,
@@ -329,6 +362,7 @@ export function requirePermission(
 ): void {
   const result = evaluate(ctx, actor, id, context);
   if (result.granted) return;
+  if (result.denial === "adult") throw new AdultContentError(result.adult!);
   if (options.notFound) throw new NotFoundError();
   if (result.denial === "account") throw new UnauthenticatedError();
   if (result.denial === "awaiting") throw approvalPending();
@@ -357,9 +391,10 @@ export function permissionValue(
  */
 export function permissionsOf(ctx: Ctx, actor: Actor) {
   const resolved = resolve(ctx, actor);
+  const adult = adultCheck(ctx, actor);
   return {
     can: (id: FlagPermissionId, context: PermissionContext = {}) =>
-      evaluate(ctx, actor, id, context, resolved).granted,
+      evaluate(ctx, actor, id, context, resolved, adult).granted,
     value: (id: IntegerPermissionId, context: { nodeId?: number } = {}) => {
       const def = PERMISSIONS[id];
       requireContext(id, def, context);
@@ -371,13 +406,16 @@ export function permissionsOf(ctx: Ctx, actor: Actor) {
   };
 }
 
-/** Node ids `actor` may view, in tree order. */
+/** Node ids `actor` may view, in tree order (+18 nodes only for a viewer who may see them). */
 export function viewableNodeIds(ctx: Ctx, actor: Actor): number[] {
   const resolved = resolve(ctx, actor);
   if (isBanned(resolved.principal, ctx.now())) return [];
+  const adult = adultCheck(ctx, actor);
   const ids: number[] = [];
   resolved.state.tree.entries.forEach((entry, i) => {
-    if (flagAt(resolved.combination, "node.view", i)) ids.push(entry.id);
+    if (!flagAt(resolved.combination, "node.view", i)) return;
+    if (entry.adult && adult()) return;
+    ids.push(entry.id);
   });
   return ids;
 }

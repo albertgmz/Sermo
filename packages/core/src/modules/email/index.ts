@@ -10,6 +10,7 @@ import { CaptureMailer, noneMailer, smtpMailer } from "../../mail";
 import { type Brand, renderEmail } from "../../mail/template";
 import { implement } from "../../operation";
 import {
+  adultRefusalFor,
   currentVersions,
   memberActor,
   PRINCIPAL_COLUMNS,
@@ -68,7 +69,7 @@ type Notification = {
   email_sent_at: number | null;
 };
 type Thread = { id: number; title: string; node_id: number; state: string; reply_count: number };
-type DigestCandidate = Thread & { last_post_at: number };
+type DigestCandidate = Thread & { last_post_at: number; user_id: number; is_adult: number };
 type DigestRecipient = Recipient & {
   last_activity_at: number | null;
   last_digest_at: number | null;
@@ -84,7 +85,8 @@ type DigestRun = {
   startedAt: number;
   candidates: DigestCandidate[];
   candidateNodes: ReadonlySet<number>;
-  visibleNodes: Map<number, ReadonlySet<number>>;
+  /** Keyed by the combination and whether the member may see +18 content. */
+  visibleNodes: Map<string, ReadonlySet<number>>;
 };
 
 const DAY_MS = 86_400_000;
@@ -154,7 +156,7 @@ export const emailSql = {
     "SELECT email FROM undeliverable_emails WHERE email IN (SELECT value FROM json_each(?1))",
   sent: "SELECT id FROM notifications WHERE id IN (SELECT value FROM json_each(?1)) AND email_sent_at IS NOT NULL",
   digestCandidates:
-    "SELECT id, title, node_id, state, reply_count, last_post_at FROM threads WHERE state = 'visible' AND last_post_at >= ?1 ORDER BY last_post_at DESC, id DESC LIMIT 2000",
+    "SELECT id, title, node_id, state, reply_count, last_post_at, user_id, is_adult FROM threads WHERE state = 'visible' AND last_post_at >= ?1 ORDER BY last_post_at DESC, id DESC LIMIT 2000",
 };
 
 /** Stored email preferences of each (member, type) pair, keyed `${userId}:${type}`. */
@@ -319,9 +321,18 @@ function digestRun(ctx: Ctx, startedAt: number, now: number): DigestRun {
   return run;
 }
 
-/** Candidate nodes the member's permission combination may view, computed once per run. */
-function digestNodes(ctx: Ctx, run: DigestRun, user: DigestRecipient, actor: Actor) {
-  const combinationId = user.permission_combination_id || -user.id;
+/**
+ * Candidate nodes the member's permission combination may view, computed once per run for each
+ * combination and +18 standing (`hidesAdult`: +18 forums are not viewable for such a member).
+ */
+function digestNodes(
+  ctx: Ctx,
+  run: DigestRun,
+  user: DigestRecipient,
+  actor: Actor,
+  hidesAdult: boolean,
+) {
+  const combinationId = `${user.permission_combination_id || -user.id}:${Number(hidesAdult)}`;
   let nodes = run.visibleNodes.get(combinationId);
   if (!nodes) {
     // Forums whose other members' threads are closed to the member are left out of their digest.
@@ -403,12 +414,14 @@ export async function runWeeklyDigest(
     if (banned(user, now) || blocked.has(user.email.toLowerCase())) continue;
     if (!enabled(registry, settings, preferences, user.id, "digest.weekly")) continue;
     const actor = memberActor(user.id, user.group_id, user, currentVersions(ctx));
-    const nodes = digestNodes(ctx, run, user, actor);
+    const hidesAdult = adultRefusalFor(ctx, actor) !== null;
+    const nodes = digestNodes(ctx, run, user, actor, hidesAdult);
     const since = Math.max(user.last_activity_at ?? 0, user.last_digest_at ?? 0);
     const chosen: number[] = [];
     for (const candidate of run.candidates) {
       if (candidate.last_post_at <= since || chosen.length === 10) break;
-      if (nodes.has(candidate.node_id)) chosen.push(candidate.id);
+      const adult = hidesAdult && candidate.is_adult === 1 && candidate.user_id !== user.id;
+      if (nodes.has(candidate.node_id) && !adult) chosen.push(candidate.id);
     }
     if (chosen.length) due.push({ user, chosen, previous });
   }

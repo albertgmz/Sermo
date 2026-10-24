@@ -1,7 +1,8 @@
 import { type Actor, actorUserId } from "../../actor";
 import type { Ctx } from "../../context";
+import type { AdultRefusal } from "../../errors";
 import { markPublic } from "../../operation";
-import { permissionsOf } from "../../permissions";
+import { adultRefusalFor, permissionsOf } from "../../permissions";
 
 /**
  * The two read gates of a forum, resolved once for a viewer: `forum.viewOthers` (threads other
@@ -20,6 +21,13 @@ export interface ReadGates {
   opensOthers(nodeId: number): boolean;
   /** Posts of other members may be read in the forum. */
   readsOthers(nodeId: number): boolean;
+  /** Why the viewer may not see +18 content (resolved when first asked); null when they may. */
+  adult(): AdultRefusal | null;
+  /**
+   * A thread's own +18 mark keeps it from the viewer: it is marked, it is not theirs, and they may
+   * not see +18 content. (A forum's mark is decided by node.view.)
+   */
+  hidesAdult(thread: { is_adult: number; user_id: number }): boolean;
 }
 
 export const readGates = markPublic(
@@ -45,12 +53,20 @@ export const readGates = markPublic(
       }
       return allowed;
     };
+    let refusal: AdultRefusal | null | undefined;
+    const adult = () => {
+      if (refusal === undefined) refusal = adultRefusalFor(ctx, actor);
+      return refusal;
+    };
     return {
       viewerId,
       opens: (nodeId, ownerId) => ownerId === viewerId || opensOthers(nodeId),
       reads: (nodeId, ownerId) => ownerId === viewerId || readsOthers(nodeId),
       opensOthers,
       readsOthers,
+      adult,
+      hidesAdult: (thread) =>
+        thread.is_adult === 1 && thread.user_id !== viewerId && adult() !== null,
     };
   },
 );

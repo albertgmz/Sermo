@@ -8,6 +8,7 @@ import { isReservedUsername } from "../../db/auth-options";
 import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import {
+  AdultContentError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -20,6 +21,7 @@ import { MAX_THREAD_TAGS } from "../../limits";
 import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
+  adultRefusalFor,
   can,
   currentActor,
   currentVersions,
@@ -148,6 +150,8 @@ export type ThreadRow = {
   highlighted_until: number | null;
   bumped_at: number | null;
   sort_at: number;
+  /** The thread's own +18 mark (its forum's is the node tree's). */
+  is_adult: number;
   thread_banned?: number;
   transfer_role?: string | null;
   transfer_failed_at?: number | null;
@@ -175,6 +179,7 @@ type NodeRow = {
   counts_posts: number;
   min_account_age_days: number;
   min_post_count: number;
+  is_adult: number;
   icon_file_id: number | null;
   icon_key: string | null;
   cover_file_id: number | null;
@@ -202,7 +207,7 @@ function moderationPayload(
       };
 }
 export const threadColumns =
-  "id, node_id, user_id, title, state, is_sticky, is_locked, created_at, reply_count, view_count, first_post_id, last_post_at, last_post_id, last_poster_id, guest_name, merged_into_id, excerpt, prefix_id, cover_id, highlighted_until, bumped_at, sort_at";
+  "id, node_id, user_id, title, state, is_sticky, is_locked, created_at, reply_count, view_count, first_post_id, last_post_at, last_post_id, last_poster_id, guest_name, merged_into_id, excerpt, prefix_id, cover_id, highlighted_until, bumped_at, sort_at, is_adult";
 const threadDetailColumns = threadColumns
   .split(", ")
   .map((column) => `t.${column}`)
@@ -216,7 +221,7 @@ const postVisibleBy = (moderated: number, deleted: number, viewer: number) =>
 const postVisible = postVisibleBy(4, 5, 6);
 const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count, p.guest_name`;
 const nodeColumns =
-  "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, require_prefix, is_read_only, counts_posts, min_account_age_days, min_post_count";
+  "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, require_prefix, is_read_only, counts_posts, min_account_age_days, min_post_count, is_adult";
 // The thread at a place in a forum's list (?5, from 0), for numbered pages (see `forumSql`).
 const threadKeySql = `SELECT sort_at, id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC LIMIT 1 OFFSET ?5`;
 const threadKeyByPrefixSql = `SELECT sort_at, id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?6 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC LIMIT 1 OFFSET ?5`;
@@ -313,6 +318,33 @@ export const ownThreadSql = {
   threadKeyByPrefixFromOldest: ownOnly(forumSql.threadKeyByPrefixFromOldest, 4),
   threadCount: ownOnly(forumSql.threadCount, 4),
   threadCountByPrefix: ownOnly(forumSql.threadCountByPrefix, 4),
+} as const;
+/**
+ * The same listing statements for a viewer who may not see +18 content: a thread marked +18 is
+ * left out unless it is the viewer's own (parameter `viewer`). Only own lists need no variant.
+ */
+const adultFree = (sql: string, viewer: number) =>
+  sql.replace(
+    "merged_into_id IS NULL",
+    `merged_into_id IS NULL AND (is_adult = 0 OR user_id = ?${viewer})`,
+  );
+export const adultFreeThreadSql = {
+  sticky: adultFree(forumSql.sticky, 4),
+  stickyByPrefix: adultFree(forumSql.stickyByPrefix, 4),
+  threadPage: adultFree(forumSql.threadPage, 7),
+  threadPageByPrefix: adultFree(forumSql.threadPageByPrefix, 7),
+  threadKey: adultFree(forumSql.threadKey, 4),
+  threadKeyByPrefix: adultFree(forumSql.threadKeyByPrefix, 4),
+  threadKeyFromOldest: adultFree(forumSql.threadKeyFromOldest, 4),
+  threadKeyByPrefixFromOldest: adultFree(forumSql.threadKeyByPrefixFromOldest, 4),
+  threadCount: adultFree(forumSql.threadCount, 4),
+  threadCountByPrefix: adultFree(forumSql.threadCountByPrefix, 4),
+  /**
+   * The non-sticky threads marked +18 that the plain list holds but such a viewer is not shown
+   * (?2 the viewer, ?3 view-moderated, ?4 view-deleted): the few rows of the partial index.
+   */
+  hiddenAdultCount:
+    "SELECT count(*) AS n FROM threads INDEXED BY threads_adult WHERE node_id = ?1 AND is_sticky = 0 AND is_adult = 1 AND merged_into_id IS NULL AND user_id <> ?2 AND (state = 'visible' OR (state = 'moderated' AND ?3 = 1) OR (state = 'deleted' AND ?4 = 1))",
 } as const;
 function statement<Row, Params extends SQLQueryBindings[]>(ctx: Ctx, name: string, sql: string) {
   return prepared(ctx, `forums.${name}`, () => ctx.sqlite.prepare<Row, Params>(sql));
@@ -491,9 +523,12 @@ export const contentRule = markPublic(
 );
 /**
  * A thread that was not merged away, in an open forum, in a state the viewer may see, that the
- * viewer started or may open (`forum.viewOthers`).
+ * viewer started or may open (`forum.viewOthers`), and that its +18 mark does not keep from them.
  */
 export function threadReadable(rule: ContentRule, thread: ThreadRow): boolean {
+  return threadOpens(rule, thread) && !rule.gates.hidesAdult(thread);
+}
+function threadOpens(rule: ContentRule, thread: ThreadRow): boolean {
   return (
     thread.merged_into_id === null &&
     rule(thread.node_id, thread.state, thread.user_id) &&
@@ -527,13 +562,10 @@ export function requireThread(ctx: Ctx, actor: Actor, id: number) {
   if (!row || row.merged_into_id != null) throw new NotFoundError();
   const { node } = requireNode(ctx, actor, row.node_id);
   // The forum is open to the caller; the rest is the shared rule.
-  if (
-    !threadReadable(
-      contentRule(ctx, actor, () => true),
-      row,
-    )
-  )
-    throw new NotFoundError();
+  const rule = contentRule(ctx, actor, () => true);
+  if (!threadOpens(rule, row)) throw new NotFoundError();
+  // A thread the viewer would see but for its +18 mark: the +18 page, not the thread.
+  if (rule.gates.hidesAdult(row)) throw new AdultContentError(rule.gates.adult()!);
   return { row, node };
 }
 export function requirePost(ctx: Ctx, actor: Actor, id: number, withBody = false) {
@@ -705,6 +737,7 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
   const cutoff = ctx.now() - 30 * 86400000;
   const present = threadPresenter(ctx);
   const gates = readGates(ctx, actor);
+  const tree = getNodeTree(ctx);
   // One statement for the page; a poll is shown only where the thread's posts are open.
   const polls = pollKindsOf(
     ctx,
@@ -744,6 +777,8 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
         row.last_post_at > (marks.get(row.node_id) ?? 0) &&
         row.last_post_id > (read?.last_read_post_id ?? 0),
       pollKind: polls.get(row.id) ?? null,
+      isAdult: row.is_adult === 1,
+      adultByForum: tree.get(row.node_id)?.adult ?? false,
     };
   });
 }
@@ -857,6 +892,22 @@ function nodeRows(ctx: Ctx, id?: number): Map<number, NodeRow> {
     ).map((r) => [r.id, r]),
   );
 }
+/**
+ * Which of these threads (the newest of some forums) a viewer who may not see +18 content must
+ * not be shown: the ones marked +18 that are not theirs. Empty, with no query, for anyone else.
+ */
+function adultLastThreads(ctx: Ctx, actor: Actor, threadIds: number[]): Set<number> {
+  if (threadIds.length === 0 || adultRefusalFor(ctx, actor) === null) return new Set();
+  return new Set(
+    statement<{ id: number }, [string, number]>(
+      ctx,
+      "adultAmong",
+      "SELECT id FROM threads WHERE id IN (SELECT value FROM json_each(?1)) AND is_adult = 1 AND user_id <> ?2",
+    )
+      .all(JSON.stringify(threadIds), actorUserId(actor) ?? 0)
+      .map((row) => row.id),
+  );
+}
 function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
   const tree = getNodeTree(ctx);
   const tabs = nodeTabs(ctx);
@@ -877,12 +928,24 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
   );
   const permissions = permissionsOf(ctx, actor);
   const gates = readGates(ctx, actor);
+  const adultLast = adultLastThreads(
+    ctx,
+    actor,
+    ids.flatMap((id) => {
+      const thread = rows.get(id)!.last_thread_id;
+      return thread == null ? [] : [thread];
+    }),
+  );
   return ids.map((id) => {
-    const entry = tree.get(id)!;
+    const { adult: _adult, ...entry } = tree.get(id)!;
     const row = rows.get(id)!;
-    // The newest post is some member's thread: not shown where others' threads are closed.
+    const parentAdult = entry.parentId !== null && !!tree.get(entry.parentId)?.adult;
+    // The newest post is some member's thread: not shown where others' threads are closed, nor
+    // when that thread is marked +18 and the viewer may not see it.
     const lastPost =
-      row.last_post_id == null || !gates.opensOthers(id)
+      row.last_post_id == null ||
+      !gates.opensOthers(id) ||
+      (row.last_thread_id != null && adultLast.has(row.last_thread_id))
         ? null
         : {
             postId: row.last_post_id,
@@ -924,7 +987,9 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
         minAccountAgeDays: row.min_account_age_days,
         minPostCount: row.min_post_count,
         requirePrefix: !!row.require_prefix,
+        isAdult: !!row.is_adult,
       },
+      adultByParent: parentAdult,
     };
   });
 }
@@ -1024,6 +1089,7 @@ function writeNodeSettings(
     ["minAccountAgeDays", "min_account_age_days"],
     ["minPostCount", "min_post_count"],
     ["requirePrefix", "require_prefix"],
+    ["isAdult", "is_adult"],
   ];
   for (const [key, column] of columns) {
     const value = settings[key];
@@ -1209,7 +1275,15 @@ type ThreadListFilter = {
   viewDeleted: number;
   userId: number;
   own: boolean;
+  /** The viewer may not see threads marked +18 (other than their own). */
+  hideAdult: boolean;
 };
+/** The statements of a forum's list for the filter, and the prefix of their prepared keys. */
+function listStatements(filter: ThreadListFilter) {
+  if (filter.own) return { sql: ownThreadSql, prefix: "own." };
+  if (filter.hideAdult) return { sql: adultFreeThreadSql, prefix: "adultFree." };
+  return { sql: forumSql, prefix: "" };
+}
 /**
  * How many non-sticky threads a forum's list holds for the viewer. The plain list is the forum's
  * stored count of visible threads, less its visible sticky ones, plus the held and deleted ones
@@ -1217,11 +1291,11 @@ type ThreadListFilter = {
  * viewer's own threads, is counted over its own index range.
  */
 function threadListTotal(ctx: Ctx, filter: ThreadListFilter): number {
-  const { nodeId, prefixId, viewModerated, viewDeleted, userId, own } = filter;
+  const { nodeId, prefixId, viewModerated, viewDeleted, userId, own, hideAdult } = filter;
   type Count = { n: number };
   if (own || prefixId !== undefined) {
-    const sql = own ? ownThreadSql : forumSql;
-    const key = (name: string) => (own ? `own.${name}` : name);
+    const { sql, prefix } = listStatements(filter);
+    const key = (name: string) => `${prefix}${name}`;
     return prefixId === undefined
       ? statement<Count, [number, number, number, number]>(
           ctx,
@@ -1248,10 +1322,19 @@ function threadListTotal(ctx: Ctx, filter: ThreadListFilter): number {
     "visibleStickyCount",
     forumSql.visibleStickyCount,
   ).get(nodeId)!.n;
-  return (
+  const adult = hideAdult
+    ? statement<Count, [number, number, number, number]>(
+        ctx,
+        "hiddenAdultCount",
+        adultFreeThreadSql.hiddenAdultCount,
+      ).get(nodeId, userId, viewModerated, viewDeleted)!.n
+    : 0;
+  return Math.max(
+    0,
     Math.max(0, stored - sticky) +
-    hidden("moderated", viewModerated) +
-    (viewDeleted ? hidden("deleted", 1) : 0)
+      hidden("moderated", viewModerated) +
+      (viewDeleted ? hidden("deleted", 1) : 0) -
+      adult,
   );
 }
 /**
@@ -1265,14 +1348,14 @@ function threadPageStart(
   offset: number,
   total: number,
 ): { sort_at: number; id: number } | null {
-  const { nodeId, prefixId, viewModerated, viewDeleted, userId, own } = filter;
+  const { nodeId, prefixId, viewModerated, viewDeleted, userId } = filter;
   const fromNewest = offset - 1;
   const fromOldest = total - 1 - fromNewest;
   if (fromOldest < 0) return null;
   const oldest = fromOldest < fromNewest;
   const place = oldest ? fromOldest : fromNewest;
-  const sql = own ? ownThreadSql : forumSql;
-  const key = (name: string) => `${own ? "own." : ""}${name}${oldest ? "FromOldest" : ""}`;
+  const { sql, prefix } = listStatements(filter);
+  const key = (name: string) => `${prefix}${name}${oldest ? "FromOldest" : ""}`;
   const read = (name: "threadKey" | "threadKeyByPrefix") =>
     oldest ? sql[`${name}FromOldest`] : sql[name];
   type Key = { sort_at: number; id: number };
@@ -1299,7 +1382,16 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
   const prefixId = input.prefixId;
   // Where threads of other members are closed to the viewer, only theirs are listed.
   const own = !permissions.can("forum.viewOthers", { nodeId: input.nodeId });
-  const filter = { nodeId: input.nodeId, prefixId, viewModerated, viewDeleted, userId, own };
+  const hideAdult = adultRefusalFor(ctx, actor) !== null;
+  const filter = {
+    nodeId: input.nodeId,
+    prefixId,
+    viewModerated,
+    viewDeleted,
+    userId,
+    own,
+    hideAdult,
+  };
   // A numbered page past the first starts after the last thread of the page before it.
   const page = input.cursor ? undefined : input.page;
   const offset = page === undefined ? 0 : (page - 1) * input.limit;
@@ -1311,8 +1403,8 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
     : start
       ? ([start.sort_at, start.id] as const)
       : null;
-  const sql = own ? ownThreadSql : forumSql;
-  const key = (name: string) => (own ? `own.${name}` : name);
+  const { sql, prefix: keyPrefix } = listStatements(filter);
+  const key = (name: string) => `${keyPrefix}${name}`;
   const sticky = cursor
     ? []
     : prefixId === undefined
@@ -2328,10 +2420,16 @@ export const postsCreateAsGuestOp = implement(
 export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
-  if (input.title === undefined && input.prefixId === undefined && input.tags === undefined)
-    throw new ValidationError("Send a title, a prefix, tags, or any of them.");
-  // The title and prefix are the author's while unlocked; tags are the author's or staff's.
-  const editsThread = input.title !== undefined || input.prefixId !== undefined;
+  if (
+    input.title === undefined &&
+    input.prefixId === undefined &&
+    input.tags === undefined &&
+    input.isAdult === undefined
+  )
+    throw new ValidationError("Send a title, a prefix, tags, the +18 mark, or any of them.");
+  // The title, prefix and +18 mark are the author's while unlocked; tags the author's or staff's.
+  const editsThread =
+    input.title !== undefined || input.prefixId !== undefined || input.isAdult !== undefined;
   const wantedTags = input.tags === undefined ? undefined : tagKeys(input.tags);
   if (editsThread && !mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
   if (wantedTags) requireTagChange(ctx, actor, row, wantedTags);
@@ -2367,6 +2465,10 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
     forumDb(ctx)
       .prepare("UPDATE threads SET prefix_id = ?1, content_updated_at = ?2 WHERE id = ?3")
       .run(prefixId, ctx.now(), row.id);
+    if (input.isAdult !== undefined)
+      forumDb(ctx)
+        .prepare("UPDATE threads SET is_adult = ?1 WHERE id = ?2")
+        .run(Number(input.isAdult), row.id);
     if (input.title !== undefined) {
       forumDb(ctx).prepare("UPDATE threads SET title = ?1 WHERE id = ?2").run(input.title, row.id);
       forumDb(ctx)
@@ -2393,6 +2495,7 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
         {
           ...(input.prefixId === undefined ? {} : { prefixId: input.prefixId }),
           ...(wantedTags ? { tags: wantedTags } : {}),
+          ...(input.isAdult === undefined ? {} : { isAdult: input.isAdult }),
         },
         current.node_id,
       );

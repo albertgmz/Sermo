@@ -81,6 +81,12 @@ export const NodeSettings = z
      * an active prefix, and moderators editing a thread are exempt.
      */
     requirePrefix: z.boolean(),
+    /**
+     * Marked +18: the node, the nodes under it and all their threads are adult content. While
+     * the site's +18 mode is on, a viewer who may not see adult content is not shown them
+     * anywhere, and opening one gets the +18 refusal (see `settings.adultMode`).
+     */
+    isAdult: z.boolean(),
   })
   .meta({ id: "NodeSettings" });
 
@@ -119,6 +125,8 @@ export const Node = z
     /** What the viewer may do here. */
     permissions: z.object({ canPost: z.boolean(), canModerate: z.boolean() }),
     settings: NodeSettings,
+    /** A node above this one is marked +18, which makes this one +18 too (`settings.isAdult`). */
+    adultByParent: z.boolean(),
   })
   .meta({ id: "Node" });
 
@@ -169,6 +177,14 @@ export const Thread = z
      * where the posts are closed to the viewer (a titles-only reader is not told it is there).
      */
     pollKind: PollKind.nullable(),
+    /**
+     * The thread's own +18 mark (its author or a moderator sets it with threads.update). While
+     * the site's +18 mode is on, a viewer who may not see adult content is not shown it anywhere
+     * (but their own), and opening it gets the +18 refusal.
+     */
+    isAdult: z.boolean(),
+    /** Its forum (or a node above it) is marked +18, which makes the thread +18 whatever `isAdult` says. */
+    adultByForum: z.boolean(),
   })
   .meta({ id: "Thread" });
 
@@ -554,7 +570,8 @@ export const threadsUpdate = defineContract({
     "(at most 10; an empty list clears it): only the thread's author (while unlocked) or " +
     "staff may set it, with tag.apply, and a tag nobody used before needs tag.create. A " +
     "moderator may set the title and prefix (forum.editAny) or the tags (forum.editAny or " +
-    "tag.manage). Author (while unlocked) or moderator.",
+    "tag.manage). `isAdult` marks the thread +18 or takes the mark off (`Thread.isAdult`), as " +
+    "the title is changed. Author (while unlocked) or moderator.",
   kind: "write",
   input: z.object({
     ...moderationNotice,
@@ -562,6 +579,7 @@ export const threadsUpdate = defineContract({
     title: Title.optional(),
     prefixId: Id.nullable().optional(),
     tags: z.array(TagInput).max(MAX_THREAD_TAGS).optional(),
+    isAdult: z.boolean().optional(),
   }),
   output: Thread,
 });

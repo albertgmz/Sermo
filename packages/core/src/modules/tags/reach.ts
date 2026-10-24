@@ -17,6 +17,8 @@ export interface HubReach {
   readable: ReadonlySet<number>;
   /** The viewer's member id, -1 for a guest. */
   viewer: number;
+  /** The viewer may not see threads marked +18 (other than their own). */
+  hidesAdult: boolean;
 }
 
 /**
@@ -51,6 +53,7 @@ export const hubReach = markPublic(
       deleted,
       readable: options.indexable ? open : readable,
       viewer: actorUserId(actor) ?? -1,
+      hidesAdult: gates.adult() !== null,
     };
   },
 );

@@ -55,6 +55,7 @@ import { logIp } from "../security/log";
 import { profileSeo } from "../seo/pages";
 import { readSiteSettings } from "../settings";
 import { resolvedFileUrl } from "../storage/url";
+import { requireBirthDateOpen } from "./adult";
 import { profileFieldChanges, storeProfileChanges } from "./fields";
 import {
   latestComments,
@@ -98,6 +99,7 @@ type ProfileRow = PrincipalRow & {
   referral_count: number;
   last_activity_at: number | null;
   show_online: number;
+  profile_adult: number;
 };
 function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
   const display = memberDisplay(
@@ -113,7 +115,7 @@ function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
     }
   );
 }
-export const PROFILE_SQL = `SELECT u.id, u.username, u.group_id, g.title AS group_title, g.builtin AS group_builtin, u.about, u.avatar_file_id, u.custom_title, u.signature_source, u.location, u.website, u.birthday_md, u.birth_year, u.social_discord, u.social_telegram, u.social_x, u.follower_count, u.following_count, u.credits, u.referral_count, u.last_activity_at, u.show_online, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`;
+export const PROFILE_SQL = `SELECT u.id, u.username, u.group_id, g.title AS group_title, g.builtin AS group_builtin, u.about, u.avatar_file_id, u.custom_title, u.signature_source, u.location, u.website, u.birthday_md, u.birth_year, u.social_discord, u.social_telegram, u.social_x, u.follower_count, u.following_count, u.credits, u.referral_count, u.last_activity_at, u.show_online, u.profile_adult, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`;
 const MINUTE_MS = 60_000;
 function readProfileRow(ctx: Ctx, userId: number): ProfileRow {
   const row = prepared(ctx, "profiles.profile", () =>
@@ -190,6 +192,7 @@ function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileA
         "SELECT 1 FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
       ),
     },
+    isAdult: row.profile_adult === 1,
   };
 }
 function readProfile(ctx: Ctx, actor: Actor, userId: number, access?: ProfileAccess) {
@@ -247,6 +250,7 @@ export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) =>
         requirePermission(ctx, current, "profile.signature");
         requireSignatureRule(ctx, current, readSiteSettings(ctx).signatureRule);
       }
+      if (input.birthday !== undefined) requireBirthDateOpen(ctx, user.userId, input.birthday);
       storeProfileChanges(ctx, user.userId, changes);
     });
   return readProfile(ctx, actor, user.userId);

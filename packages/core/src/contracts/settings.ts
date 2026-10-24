@@ -206,6 +206,13 @@ export const SiteSettings = z
     profilePostsEnabled: z.boolean().default(true),
     /** On: the forum list shows the forum statistics panel (the ranked thread lists). */
     forumStatsEnabled: z.boolean().default(false),
+    /**
+     * The +18 mode. On: content marked +18 (a forum with everything under it, a thread, a
+     * profile) reaches only members 18 or older by their stored birth date (UTC) who confirmed
+     * the warning; nothing else returns it, and a direct request gets the +18 refusal
+     * (`forbidden` with the issue path `adult`). Off: the marks are kept and change nothing.
+     */
+    adultMode: z.boolean().default(false),
     /** Read notifications older than this are purged. */
     notificationRetentionDays: z.number().int().min(1).max(3650).default(90),
     /** Admin defaults per notification type and channel; types not listed use their registry defaults. */

@@ -248,6 +248,8 @@ export const usersAdminUpdateProfile = defineContract({
     socials: z.object({ discord: Handle, telegram: Handle, x: Handle }).partial().optional(),
     customTitle: z.string().trim().max(100).nullable().optional(),
     signature: z.string().trim().max(2000).nullable().optional(),
+    /** Mark the member's profile +18, or take the mark off (profiles.update's `isAdult`). */
+    isAdult: z.boolean().optional(),
     accentId: Id.nullable().optional(),
     nameColorId: Id.nullable().optional(),
     frameId: Id.nullable().optional(),

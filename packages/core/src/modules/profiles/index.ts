@@ -1,3 +1,4 @@
+import { profilesAcceptAdultOp, profilesSetBirthDateOp } from "./adult";
 import {
   profileCommentsCreateOp,
   profileCommentsDeleteOp,
@@ -61,6 +62,8 @@ export const operations = [
   profilesGetOp,
   profilesUpdateOp,
   profilesSelfOp,
+  profilesSetBirthDateOp,
+  profilesAcceptAdultOp,
   usersSearchOp,
   profilePostsListOp,
   profilePostsGetOp,

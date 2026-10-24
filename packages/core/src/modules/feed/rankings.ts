@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { threadsRanked } from "../../contracts/feed";
 import { writeTx } from "../../db/tx";
@@ -91,6 +92,18 @@ export const rankingSql = {
   replace: "DELETE FROM rankings WHERE kind = ?1",
   insert:
     "INSERT INTO rankings (kind, node_id, position, target_id, score) VALUES (?1, ?2, ?3, ?4, ?5)",
+};
+/** The four walks of `newestThreads` without threads marked +18 but the viewer's own (last parameter). */
+const adultFreeWalk = (sql: string, alias: string, viewer: number) =>
+  sql.replace(
+    `${alias}state = 'visible'`,
+    `${alias}state = 'visible' AND (${alias}is_adult = 0 OR ${alias}user_id = ?${viewer})`,
+  );
+export const adultFreeRankingSql = {
+  latestPosts: adultFreeWalk(rankingSql.latestPosts, "", 4),
+  latestThreads: adultFreeWalk(rankingSql.latestThreads, "", 3),
+  latestPostsIn: adultFreeWalk(rankingSql.latestPostsIn, "t2.", 3),
+  latestThreadsIn: adultFreeWalk(rankingSql.latestThreadsIn, "t2.", 3),
 };
 
 type Scored = { id: number; score: number };
@@ -320,22 +333,27 @@ function newestThreads(
   nodes: Set<number>,
   by: "latestPosts" | "latestThreads",
   limit: number,
+  /** For a viewer who may not see +18 content: their id (0 for a guest); threads marked +18 but theirs are left out. */
+  adultViewer: number | null,
 ): ThreadRow[] {
+  const free = adultViewer === null ? [] : [adultViewer];
+  const sql = adultViewer === null ? rankingSql : adultFreeRankingSql;
+  const key = (name: string) => `feed.${adultViewer === null ? "" : "adultFree."}${name}`;
   if (nodes.size === getNodeTree(ctx).entries.length) {
     if (by === "latestPosts")
-      return prepared(ctx, "feed.latestPosts", () =>
-        ctx.sqlite.prepare<ThreadRow, [number, number, number]>(rankingSql.latestPosts),
-      ).all(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, limit);
-    return prepared(ctx, "feed.latestThreads", () =>
-      ctx.sqlite.prepare<ThreadRow, [number, number]>(rankingSql.latestThreads),
-    ).all(Number.MAX_SAFE_INTEGER, limit);
+      return prepared(ctx, key("latestPosts"), () =>
+        ctx.sqlite.prepare<ThreadRow, number[]>(sql.latestPosts),
+      ).all(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, limit, ...free);
+    return prepared(ctx, key("latestThreads"), () =>
+      ctx.sqlite.prepare<ThreadRow, number[]>(sql.latestThreads),
+    ).all(Number.MAX_SAFE_INTEGER, limit, ...free);
   }
   if (nodes.size === 0) return [];
-  const rows = prepared(ctx, `feed.${by}In`, () =>
-    ctx.sqlite.prepare<ThreadRow, [string, number]>(
-      by === "latestPosts" ? rankingSql.latestPostsIn : rankingSql.latestThreadsIn,
+  const rows = prepared(ctx, key(`${by}In`), () =>
+    ctx.sqlite.prepare<ThreadRow, (string | number)[]>(
+      by === "latestPosts" ? sql.latestPostsIn : sql.latestThreadsIn,
     ),
-  ).all(JSON.stringify([...nodes]), limit);
+  ).all(JSON.stringify([...nodes]), limit, ...free);
   rows.sort(
     by === "latestPosts"
       ? (a, b) => b.last_post_at - a.last_post_at || b.id - a.id
@@ -352,7 +370,17 @@ export const threadsRankedOp = implement(threadsRanked, (ctx, actor, input) => {
   const nodes = input.feed ? feedNodes(ctx, actor, visible) : visible;
   if (input.by === "latestPosts" || input.by === "latestThreads")
     return {
-      items: threadValuesFor(ctx, actor, newestThreads(ctx, nodes, input.by, input.limit)),
+      items: threadValuesFor(
+        ctx,
+        actor,
+        newestThreads(
+          ctx,
+          nodes,
+          input.by,
+          input.limit,
+          gates.adult() === null ? null : (actorUserId(actor) ?? 0),
+        ),
+      ),
     };
   const kind = z.enum(["mostReplied", "mostReacted", "mostViewed"]).parse(input.by);
   const rows = firstSurvivors(storedRanking(ctx, kind, nodes), input.limit, (chunk) => {
@@ -372,6 +400,7 @@ export const threadsRankedOp = implement(threadsRanked, (ctx, actor, input) => {
       return thread &&
         thread.state === "visible" &&
         nodes.has(thread.node_id) &&
+        !gates.hidesAdult(thread) &&
         !ignored.has(thread.user_id)
         ? [thread]
         : [];

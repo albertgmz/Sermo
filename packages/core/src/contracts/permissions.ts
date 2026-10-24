@@ -304,6 +304,8 @@ export const PermissionExplanation = z
         "timeLimit",
         "hierarchy",
         "viewRequired",
+        // The node is marked +18 and the member may not see adult content (the +18 mode is on).
+        "adult",
       ])
       .nullable(),
     /** One row per group of the member (and their member-specific entries): the deciding entry. */

@@ -182,6 +182,9 @@ type QueueTarget = {
   node_id?: number | null;
   conversation_id?: number | null;
   target_exists?: number | null;
+  /** The thread of a forum target is marked +18, and who started it. */
+  adult?: number | null;
+  adult_owner?: number | null;
 };
 
 function filterModeratable<T extends QueueTarget>(
@@ -191,11 +194,14 @@ function filterModeratable<T extends QueueTarget>(
   queue: "reports" | "approvals",
 ): T[] {
   const grants = permissionsOf(ctx, actor);
+  const gates = readGates(ctx, actor);
   return rows.filter((row) => {
     if (row.target_exists === null) return false;
     if (row.type === "thread" || row.type === "post")
       return (
         row.node_id != null &&
+        // A thread marked +18 stays out of the queue of a moderator who may not see it.
+        !gates.hidesAdult({ is_adult: row.adult ?? 0, user_id: row.adult_owner ?? 0 }) &&
         grants.can(queue === "reports" ? "forum.manageReports" : "forum.approve", {
           nodeId: row.node_id,
         })
@@ -269,10 +275,10 @@ function visibleTarget(ctx: Ctx, actor: Actor, target: Target): Row {
   const row = targetRow(ctx, target);
   const viewer = actorUserId(actor);
   if (target.type === "post") {
-    const thread = read<{ state: ContentStateValue; user_id: number }>(
+    const thread = read<{ state: ContentStateValue; user_id: number; is_adult: number }>(
       ctx,
       "threadVisibility",
-      "SELECT state, user_id FROM threads WHERE id = ?1",
+      "SELECT state, user_id, is_adult FROM threads WHERE id = ?1",
       row.thread_id,
     );
     const grants = permissionsOf(ctx, actor);
@@ -287,6 +293,7 @@ function visibleTarget(ctx: Ctx, actor: Actor, target: Target): Row {
       !visible(thread.state, thread.user_id) ||
       // A thread other members started may be closed to the viewer in this forum.
       !readGates(ctx, actor).opens(row.node_id!, thread.user_id) ||
+      readGates(ctx, actor).hidesAdult(thread) ||
       // So may the text of a post: a post the viewer cannot read cannot be reported by them.
       !readGates(ctx, actor).reads(row.node_id!, row.user_id)
     )
@@ -465,7 +472,7 @@ export function createReport(ctx: Ctx, actor: Actor, target: Target, reason: str
 
 /** The report queue, newest activity first; `scoped` limits it to one forum (`?5`). */
 export const reportQueueSql = (scoped: boolean) =>
-  `SELECT g.id, g.target_type, g.target_id, g.state, g.assigned_to_id, g.report_count, g.created_at, g.updated_at, g.resolved_at, g.target_type AS type, coalesce(g.node_id, pt.node_id) AS node_id, cm.conversation_id, coalesce(p.id, pp.id, pc.id, cm.id, u.id) AS target_exists FROM report_groups g LEFT JOIN posts p ON g.target_type = 'post' AND p.id = g.target_id LEFT JOIN threads pt ON pt.id = p.thread_id LEFT JOIN profile_posts pp ON g.target_type = 'profile_post' AND pp.id = g.target_id LEFT JOIN profile_post_comments pc ON g.target_type = 'profile_post_comment' AND pc.id = g.target_id LEFT JOIN conversation_messages cm ON g.target_type = 'conversation_message' AND cm.id = g.target_id LEFT JOIN users u ON g.target_type = 'user' AND u.id = g.target_id WHERE ${scoped ? "g.node_id = ?5 AND g.state = ?1" : "g.state = ?1"} AND (g.updated_at, g.id) < (?2, ?3) ORDER BY g.updated_at DESC, g.id DESC LIMIT ?4`;
+  `SELECT g.id, g.target_type, g.target_id, g.state, g.assigned_to_id, g.report_count, g.created_at, g.updated_at, g.resolved_at, g.target_type AS type, coalesce(g.node_id, pt.node_id) AS node_id, pt.is_adult AS adult, pt.user_id AS adult_owner, cm.conversation_id, coalesce(p.id, pp.id, pc.id, cm.id, u.id) AS target_exists FROM report_groups g LEFT JOIN posts p ON g.target_type = 'post' AND p.id = g.target_id LEFT JOIN threads pt ON pt.id = p.thread_id LEFT JOIN profile_posts pp ON g.target_type = 'profile_post' AND pp.id = g.target_id LEFT JOIN profile_post_comments pc ON g.target_type = 'profile_post_comment' AND pc.id = g.target_id LEFT JOIN conversation_messages cm ON g.target_type = 'conversation_message' AND cm.id = g.target_id LEFT JOIN users u ON g.target_type = 'user' AND u.id = g.target_id WHERE ${scoped ? "g.node_id = ?5 AND g.state = ?1" : "g.state = ?1"} AND (g.updated_at, g.id) < (?2, ?3) ORDER BY g.updated_at DESC, g.id DESC LIMIT ?4`;
 export function listReports(
   ctx: Ctx,
   actor: Actor,
@@ -751,9 +758,9 @@ export function setReportState(
 }
 
 export const approvalSql =
-  "SELECT p.id, p.thread_id, p.user_id, p.guest_name, p.created_at, t.node_id FROM posts p INDEXED BY posts_state_id JOIN threads t ON t.id = p.thread_id WHERE p.state = 'moderated' AND p.id <= ?1 ORDER BY p.id DESC LIMIT ?2";
+  "SELECT p.id, p.thread_id, p.user_id, p.guest_name, p.created_at, t.node_id, t.is_adult AS adult, t.user_id AS adult_owner FROM posts p INDEXED BY posts_state_id JOIN threads t ON t.id = p.thread_id WHERE p.state = 'moderated' AND p.id <= ?1 ORDER BY p.id DESC LIMIT ?2";
 export const approvalThreadsSql =
-  "SELECT id, user_id, guest_name, node_id, created_at, state FROM threads INDEXED BY threads_state_id WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2";
+  "SELECT id, user_id, guest_name, node_id, created_at, state, is_adult AS adult, user_id AS adult_owner FROM threads INDEXED BY threads_state_id WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2";
 export const approvalProfilePostsSql =
   "SELECT id, user_id, created_at, state FROM profile_posts WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2";
 export const approvalProfileCommentsSql =

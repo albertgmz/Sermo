@@ -362,6 +362,10 @@ export const users = sqliteTable(
      * grant or remove this flag. There is always at least one.
      */
     isSuperAdmin: bool("is_super_admin").notNull().default(false),
+    /** The member (or staff) marked the profile +18: only adult viewers see it while the mode is on. */
+    profileAdult: bool("profile_adult").notNull().default(false),
+    /** When the member confirmed the +18 warning; null if never. */
+    adultAcceptedAt: integer("adult_accepted_at"),
   },
   (t) => [
     uniqueIndex("users_username_key").on(t.usernameKey),
@@ -844,6 +848,8 @@ export const nodes = sqliteTable(
     tabId: integer("tab_id"),
     /** A new thread must carry one of the forum's prefixes (when the forum has any usable). */
     requirePrefix: bool("require_prefix").notNull().default(false),
+    /** Marked +18 by an administrator: the node, its sub-forums and all their threads are adult. */
+    isAdult: bool("is_adult").notNull().default(false),
   },
   (t) => [index("nodes_parent_position").on(t.parentId, t.position)],
 );
@@ -912,6 +918,11 @@ export const threads = sqliteTable(
     /** Set when the author bumps the thread: it sorts as if it had a post at that time. */
     bumpedAt: integer("bumped_at"),
     /**
+     * The thread's own +18 mark (its author or a moderator). A thread in a +18 forum is adult
+     * whatever this says: the forum's mark is decided by the node, never copied here.
+     */
+    isAdult: bool("is_adult").notNull().default(false),
+    /**
      * What forum lists sort by: the later of the last post and the last bump. Generated, so
      * everything that maintains last_post_at keeps working unchanged.
      */
@@ -949,6 +960,9 @@ export const threads = sqliteTable(
     index("threads_locked_feed")
       .on(t.state, desc(t.lastPostAt), desc(t.id))
       .where(sql`is_locked = 1`),
+    // The few threads marked +18 on their own: how many a forum's list leaves out for a viewer who
+    // may not see them (WHERE node_id = ? AND is_adult = 1 AND is_sticky = 0 AND state = ?).
+    index("threads_adult").on(t.nodeId, t.isSticky, t.state).where(sql`is_adult = 1`),
   ],
 );
 

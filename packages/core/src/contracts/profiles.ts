@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { ADULT_REFUSALS } from "../errors";
 import { defineContract } from "../operation";
 import { Attachment, AttachmentIds } from "./attachments";
 import {
@@ -75,6 +76,11 @@ export const Profile = z
     lastActivityAt: Timestamp.nullable(),
     /** The signed-in viewer's relation to this member; both false for guests and for oneself. */
     viewer: z.object({ isFollowing: z.boolean(), isIgnoring: z.boolean() }),
+    /**
+     * Marked +18 by the member or by staff. While the site's +18 mode is on, only adult viewers
+     * (and the member) get the profile and its wall; others get the +18 refusal.
+     */
+    isAdult: z.boolean(),
   })
   .meta({ id: "Profile" });
 
@@ -190,8 +196,46 @@ export const profilesUpdate = defineContract({
     socials: z.object({ discord: Handle, telegram: Handle, x: Handle }).partial().optional(),
     customTitle: z.string().trim().max(100).nullable().optional(),
     signature: z.string().trim().max(2000).nullable().optional(),
+    /** Mark the profile +18 (see `Profile.isAdult`), or take the mark off. */
+    isAdult: z.boolean().optional(),
   }),
   output: Profile,
+});
+
+/**
+ * Whether the signed-in member may see +18 content, by their stored birth date and the warning,
+ * whatever the site's mode: null when they may, else why not (as the +18 refusal names it).
+ */
+export const AdultStanding = z
+  .object({ refusal: z.enum(ADULT_REFUSALS).nullable() })
+  .meta({ id: "AdultStanding" });
+
+export const profilesSetBirthDate = defineContract({
+  name: "profiles.setBirthDate",
+  summary:
+    "Store the signed-in member's full date of birth when none is stored yet (the +18 warning " +
+    "asks for it). Once a full date is stored it is refused (forbidden): staff change it with " +
+    "users.adminUpdateProfile. A date that does not exist or lies in the future is refused. " +
+    "Answers the member's +18 standing. Needs profile.editOwn.",
+  kind: "write",
+  input: z.object({
+    year: z.number().int().min(1900).max(2100),
+    month: z.number().int().min(1).max(12),
+    day: z.number().int().min(1).max(31),
+  }),
+  output: AdultStanding,
+});
+
+export const profilesAcceptAdult = defineContract({
+  name: "profiles.acceptAdult",
+  summary:
+    "Confirm the +18 warning: the signed-in member, 18 or older by their stored date of birth, " +
+    "chooses to see +18 content. Refused (forbidden) for a minor, and without a full date of " +
+    "birth (a conflict: profiles.setBirthDate first). Confirming again keeps the first time. " +
+    "Answers the member's +18 standing. Requires an account.",
+  kind: "write",
+  input: z.object({}),
+  output: AdultStanding,
 });
 
 export const profilesSelf = defineContract({

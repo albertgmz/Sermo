@@ -1,9 +1,15 @@
 import type { Actor } from "../../actor";
 import { actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { NotFoundError } from "../../errors";
+import { AdultContentError, type AdultRefusal, NotFoundError } from "../../errors";
 import { markPublic } from "../../operation";
-import { AWAITING_SQL, can, permissionsOf, requirePermission } from "../../permissions";
+import {
+  AWAITING_SQL,
+  adultRefusalFor,
+  can,
+  permissionsOf,
+  requirePermission,
+} from "../../permissions";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
@@ -22,12 +28,14 @@ export type ProfileAccess = {
   profile_view_privacy: "everyone" | "members" | "followed" | "self";
   profile_post_privacy: "members" | "followed" | "self";
   follows: number;
+  /** The profile is marked +18. */
+  profile_adult: number;
 };
 /**
- * The privacy settings of one member and whether that member follows the viewer, as
- * `profileAccessMany` reads them for a page.
+ * The privacy settings of one member, their +18 mark and whether that member follows the viewer,
+ * as `profileAccessMany` reads them for a page.
  */
-export const PROFILE_ACCESS_SQL = `SELECT u.id, CASE WHEN ${AWAITING_SQL} THEN 'self' ELSE u.profile_view_privacy END AS profile_view_privacy, u.profile_post_privacy, EXISTS(SELECT 1 FROM user_follows WHERE user_id = u.id AND followed_id = ?1) AS follows FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))`;
+export const PROFILE_ACCESS_SQL = `SELECT u.id, CASE WHEN ${AWAITING_SQL} THEN 'self' ELSE u.profile_view_privacy END AS profile_view_privacy, u.profile_post_privacy, u.profile_adult, EXISTS(SELECT 1 FROM user_follows WHERE user_id = u.id AND followed_id = ?1) AS follows FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))`;
 export const profileAccess = markPublic(
   "Callers enforce profile visibility before returning content.",
   function profileAccess(ctx: Ctx, actor: Actor, userId: number): ProfileAccess {
@@ -55,18 +63,40 @@ export const profileAccessMany = markPublic(
     );
   },
 );
+/**
+ * Whether the viewer may see a member's profile: true, false (privacy), or why its +18 mark keeps
+ * it from them (it would be visible otherwise). A member always sees their own.
+ */
+function profileVerdict(
+  ctx: Ctx,
+  actor: Actor,
+  userId: number,
+  access?: ProfileAccess,
+): boolean | AdultRefusal {
+  const viewerId = actorUserId(actor);
+  if (viewerId === userId) return true;
+  let row = access;
+  if (can(ctx, actor, "profile.bypassPrivacy"))
+    row ??= profileAccessMany(ctx, actor, [userId]).get(userId);
+  else {
+    row ??= profileAccess(ctx, actor, userId);
+    if (!profileModeAllows(row, viewerId)) return false;
+  }
+  return (row?.profile_adult === 1 && adultRefusalFor(ctx, actor)) || true;
+}
 export function mayViewProfile(
   ctx: Ctx,
   actor: Actor,
   userId: number,
   access?: ProfileAccess,
 ): boolean {
-  const viewerId = actorUserId(actor);
-  if (viewerId === userId || can(ctx, actor, "profile.bypassPrivacy")) return true;
-  return profileModeAllows(access ?? profileAccess(ctx, actor, userId), viewerId);
+  return profileVerdict(ctx, actor, userId, access) === true;
 }
 /** A member's profile privacy against a viewer who is neither them nor allowed to bypass it. */
-export function profileModeAllows(row: ProfileAccess, viewerId: number | null): boolean {
+export function profileModeAllows(
+  row: Omit<ProfileAccess, "profile_adult">,
+  viewerId: number | null,
+): boolean {
   const mode = row.profile_view_privacy;
   return (
     mode === "everyone" ||
@@ -80,7 +110,9 @@ export function requireProfileView(
   access?: ProfileAccess,
 ): void {
   requireView(ctx, actor);
-  if (!mayViewProfile(ctx, actor, userId, access)) throw new NotFoundError();
+  const verdict = profileVerdict(ctx, actor, userId, access);
+  if (verdict === false) throw new NotFoundError();
+  if (verdict !== true) throw new AdultContentError(verdict);
 }
 function wallAllows(ctx: Ctx, actor: Actor, ownerId: number, access?: ProfileAccess): boolean {
   const viewerId = actorUserId(actor);

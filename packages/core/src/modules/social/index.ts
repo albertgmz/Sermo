@@ -35,6 +35,7 @@ type Thread = {
   title: string;
   state: string;
   last_post_at: number;
+  is_adult: number;
 };
 type Watch = {
   id: number;
@@ -83,7 +84,7 @@ function thread(ctx: Ctx, id: number): Thread {
   const row = query<Thread, [number]>(
     ctx,
     "thread",
-    "SELECT id, node_id, user_id, title, state, last_post_at FROM threads WHERE id = ?1",
+    "SELECT id, node_id, user_id, title, state, last_post_at, is_adult FROM threads WHERE id = ?1",
   ).get(id);
   if (!row) throw new NotFoundError();
   return row;
@@ -95,7 +96,8 @@ function visibleThread(
 ): boolean {
   if (!can(ctx, actor, "node.view", { nodeId: row.node_id })) return false;
   // Threads of other members may be closed to the viewer in this forum.
-  if (!readGates(ctx, actor).opens(row.node_id, row.user_id)) return false;
+  const gates = readGates(ctx, actor);
+  if (!gates.opens(row.node_id, row.user_id) || gates.hidesAdult(row)) return false;
   if (row.state === "visible") return true;
   if (row.state === "moderated")
     return (
@@ -205,7 +207,7 @@ export const watchesListThreadsOp = implement(contracts.watchesListThreads, (ctx
     ? query<Thread, [string]>(
         ctx,
         "threadBatch",
-        "SELECT id, node_id, user_id, title, state, last_post_at FROM threads WHERE id IN (SELECT value FROM json_each(?1))",
+        "SELECT id, node_id, user_id, title, state, last_post_at, is_adult FROM threads WHERE id IN (SELECT value FROM json_each(?1))",
       ).all(JSON.stringify(selected.map((r) => r.thread_id)))
     : [];
   const byId = new Map(details.map((r) => [r.id, r]));
@@ -607,7 +609,7 @@ function autoWatch(ctx: Ctx, event: DomainEvent): void {
     const threadRow = query<Thread, [number]>(
       ctx,
       "thread",
-      "SELECT id, node_id, user_id, title, state, last_post_at FROM threads WHERE id = ?1",
+      "SELECT id, node_id, user_id, title, state, last_post_at, is_adult FROM threads WHERE id = ?1",
     ).get(row.thread_id);
     if (!threadRow) return;
     const author = query<PrincipalRow & { group_id: number }, [number]>(

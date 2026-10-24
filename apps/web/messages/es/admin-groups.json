@@ -256,7 +256,8 @@
       "notGranted": "ninguna entrada lo concede",
       "timeLimit": "el límite de tiempo ha pasado",
       "hierarchy": "el miembro objetivo tiene un rango igual o superior al de quien actúa",
-      "viewRequired": "el miembro no puede ver el foro"
+      "viewRequired": "el miembro no puede ver el foro",
+      "adult": "el foro está marcado +18 y el miembro no puede ver contenido para adultos"
     },
     "layersHeading": "Capas, en el orden aplicado",
     "layersHelp": "Una fila por cada grupo del miembro, y después las entradas definidas en el miembro.",

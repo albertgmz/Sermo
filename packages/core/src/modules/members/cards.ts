@@ -4,6 +4,7 @@ import { type Ctx, prepared } from "../../context";
 import type { MemberAuthor, MemberCard } from "../../contracts/members";
 import { languageFor } from "../../i18n";
 import {
+  adultRefusalFor,
   can,
   memberActor,
   PRINCIPAL_COLUMNS,
@@ -324,8 +325,8 @@ function lastActivityOf(
 
 /**
  * Of a batch of members, those whose profile the viewer may not open: all of them (except
- * themselves) without profile.view, else by each member's profile privacy, in one query for the
- * whole batch.
+ * themselves) without profile.view, else by each member's profile privacy and +18 mark, in one
+ * query for the whole batch.
  */
 export function restrictedFor(
   ctx: Ctx,
@@ -338,10 +339,17 @@ export function restrictedFor(
   if (!permitted.can("profile.view")) return new Set(ids.filter((id) => id !== self));
   const bypass = permitted.can("profile.bypassPrivacy");
   const access = profileAccessMany(ctx, viewer, ids);
+  let hidesAdult: boolean | undefined;
+  const adultHidden = () => {
+    hidesAdult ??= adultRefusalFor(ctx, viewer) !== null;
+    return hidesAdult;
+  };
   return new Set(
     ids.filter((id) => {
+      if (id === self) return false;
       const row = access.get(id);
-      return !(id === self || bypass || (row !== undefined && profileModeAllows(row, self)));
+      if (row?.profile_adult === 1 && adultHidden()) return true;
+      return !(bypass || (row !== undefined && profileModeAllows(row, self)));
     }),
   );
 }

@@ -59,6 +59,7 @@ export const threadsFeaturedOp = implement(threadsFeatured, (ctx, actor, input) 
         openings.get(thread.first_post_id ?? 0) === "visible" &&
         nodes.has(thread.node_id) &&
         gates.opens(thread.node_id, thread.user_id) &&
+        !gates.hidesAdult(thread) &&
         !ignored.has(thread.user_id)
         ? [{ feature, thread }]
         : [];

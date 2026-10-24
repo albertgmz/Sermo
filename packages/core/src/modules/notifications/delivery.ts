@@ -11,6 +11,7 @@ import {
   registerEventSubscriber,
 } from "../../events";
 import {
+  adultRefusalFor,
   can,
   currentVersions,
   memberActor,
@@ -41,6 +42,8 @@ type Content = {
   position: number | null;
   /** Who started the thread a forum post is in: the forum's read gate looks at them. */
   threadUserId?: number;
+  /** The thread (or the profile of a wall post) is marked +18; its forum's mark is node.view's. */
+  adult?: boolean;
 };
 type Stage = {
   name: string;
@@ -106,9 +109,15 @@ function content(ctx: Ctx, event: DomainEvent): Content | null {
     case "thread": {
       const row = prepared(ctx, "notifications.content.thread", () =>
         ctx.sqlite.prepare<
-          { user_id: number; state: string; node_id: number; first_post_id: number | null },
+          {
+            user_id: number;
+            state: string;
+            node_id: number;
+            first_post_id: number | null;
+            is_adult: number;
+          },
           [number]
-        >("SELECT user_id, state, node_id, first_post_id FROM threads WHERE id = ?1"),
+        >("SELECT user_id, state, node_id, first_post_id, is_adult FROM threads WHERE id = ?1"),
       ).get(id);
       return (
         row && {
@@ -124,6 +133,7 @@ function content(ctx: Ctx, event: DomainEvent): Content | null {
           conversationId: null,
           position: 0,
           threadUserId: row.user_id,
+          adult: row.is_adult === 1,
         }
       );
     }
@@ -139,10 +149,11 @@ function content(ctx: Ctx, event: DomainEvent): Content | null {
             thread_user_id: number;
             first_post_id: number | null;
             position: number;
+            is_adult: number;
           },
           [number]
         >(
-          "SELECT p.user_id, p.state, p.thread_id, p.position, t.node_id, t.state AS thread_state, t.user_id AS thread_user_id, t.first_post_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
+          "SELECT p.user_id, p.state, p.thread_id, p.position, t.node_id, t.state AS thread_state, t.user_id AS thread_user_id, t.first_post_id, t.is_adult FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
         ),
       ).get(id);
       return (
@@ -159,13 +170,17 @@ function content(ctx: Ctx, event: DomainEvent): Content | null {
           conversationId: null,
           position: row.position,
           threadUserId: row.thread_user_id,
+          adult: row.is_adult === 1,
         }
       );
     }
     case "profile_post": {
       const row = prepared(ctx, "notifications.content.profilePost", () =>
-        ctx.sqlite.prepare<{ user_id: number; profile_user_id: number; state: string }, [number]>(
-          "SELECT user_id, profile_user_id, state FROM profile_posts WHERE id = ?1",
+        ctx.sqlite.prepare<
+          { user_id: number; profile_user_id: number; state: string; profile_adult: number },
+          [number]
+        >(
+          "SELECT p.user_id, p.profile_user_id, p.state, u.profile_adult FROM profile_posts p JOIN users u ON u.id = p.profile_user_id WHERE p.id = ?1",
         ),
       ).get(id);
       return (
@@ -181,6 +196,7 @@ function content(ctx: Ctx, event: DomainEvent): Content | null {
           firstPostId: null,
           conversationId: null,
           position: null,
+          adult: row.profile_adult === 1,
         }
       );
     }
@@ -194,10 +210,11 @@ function content(ctx: Ctx, event: DomainEvent): Content | null {
             parent_state: string;
             parent_user_id: number;
             profile_user_id: number;
+            profile_adult: number;
           },
           [number]
         >(
-          "SELECT c.user_id, c.profile_post_id, c.state, p.state AS parent_state, p.user_id AS parent_user_id, p.profile_user_id FROM profile_post_comments c JOIN profile_posts p ON p.id = c.profile_post_id WHERE c.id = ?1",
+          "SELECT c.user_id, c.profile_post_id, c.state, p.state AS parent_state, p.user_id AS parent_user_id, p.profile_user_id, u.profile_adult FROM profile_post_comments c JOIN profile_posts p ON p.id = c.profile_post_id JOIN users u ON u.id = p.profile_user_id WHERE c.id = ?1",
         ),
       ).get(id);
       return (
@@ -213,6 +230,7 @@ function content(ctx: Ctx, event: DomainEvent): Content | null {
           firstPostId: null,
           conversationId: null,
           position: null,
+          adult: row.profile_adult === 1,
         }
       );
     }
@@ -747,6 +765,10 @@ function visible(ctx: Ctx, actor: Actor, item: Content | null, type: string): bo
       : can(ctx, actor, "profilePost.approve");
   }
   if (item.state !== "visible") return false;
+  // Content marked +18 reaches only those who may see it, and the member whose thread or profile it is.
+  const owner = item.nodeId !== null ? (item.threadUserId ?? item.userId) : item.profileUserId;
+  if (item.adult && owner !== actorUserId(actor) && adultRefusalFor(ctx, actor) !== null)
+    return false;
   if (item.nodeId !== null)
     return (
       can(ctx, actor, "node.view", { nodeId: item.nodeId }) &&

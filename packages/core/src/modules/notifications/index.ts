@@ -95,16 +95,24 @@ function titles(
   );
   for (const row of prepared(ctx, "notifications.titles.threads", () =>
     ctx.sqlite.prepare<
-      { id: number; title: string; node_id: number; state: string; user_id: number },
+      {
+        id: number;
+        title: string;
+        node_id: number;
+        state: string;
+        user_id: number;
+        is_adult: number;
+      },
       [string]
     >(
-      "SELECT id, title, node_id, state, user_id FROM threads WHERE id IN (SELECT value FROM json_each(?1))",
+      "SELECT id, title, node_id, state, user_id, is_adult FROM threads WHERE id IN (SELECT value FROM json_each(?1))",
     ),
   ).all(threadIds))
     if (
       row.state === "visible" &&
       can(ctx, actor, "node.view", { nodeId: row.node_id }) &&
-      gates.opens(row.node_id, row.user_id)
+      gates.opens(row.node_id, row.user_id) &&
+      !gates.hidesAdult(row)
     )
       result.set(`thread:${row.id}`, row.title);
   const messageConversationIds = rows

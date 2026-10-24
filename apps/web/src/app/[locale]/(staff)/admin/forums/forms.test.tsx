@@ -56,7 +56,9 @@ const NODE = {
     minPostCount: 0,
     countsPosts: true,
     requirePrefix: false,
+    isAdult: false,
   },
+  adultByParent: false,
 };
 const PREFIXES = [
   {

@@ -79,7 +79,7 @@ export const onlineSql = {
   visitorsByKey:
     "SELECT visitor_key, user_id, robot, place_kind, place_id, ip, seen_at FROM online_visitors WHERE visitor_key IN (SELECT value FROM json_each(?1))",
   threads:
-    "SELECT id, node_id, user_id, title, state FROM threads WHERE id IN (SELECT value FROM json_each(?1))",
+    "SELECT id, node_id, user_id, title, state, is_adult FROM threads WHERE id IN (SELECT value FROM json_each(?1))",
 };
 
 const visitOf = (row: VisitorRow): Visit => ({
@@ -129,14 +129,22 @@ function resolvePlaces(ctx: Ctx, actor: Actor, raws: RawPlace[]): (raw: RawPlace
       const gates = readGates(ctx, actor);
       for (const thread of prepared(ctx, "members.onlineThreads", () =>
         ctx.sqlite.prepare<
-          { id: number; node_id: number; user_id: number; title: string; state: string },
+          {
+            id: number;
+            node_id: number;
+            user_id: number;
+            title: string;
+            state: string;
+            is_adult: number;
+          },
           [string]
         >(onlineSql.threads),
       ).all(JSON.stringify(threadIds)))
         if (
           thread.state === "visible" &&
           viewable.has(thread.node_id) &&
-          gates.opens(thread.node_id, thread.user_id)
+          gates.opens(thread.node_id, thread.user_id) &&
+          !gates.hidesAdult(thread)
         )
           titles.set(`thread:${thread.id}`, thread.title);
     }

@@ -4,7 +4,7 @@ import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { NotFoundError } from "../../errors";
-import { can, getNodeTree, permissionsOf } from "../../permissions";
+import { adultModeOn, can, getNodeTree, permissionsOf } from "../../permissions";
 import { guestAuthorLabel } from "../forums/guest-author";
 import { readGates } from "../forums/read-gates";
 import { mayViewProfile, type ProfileAccess, profileAccess } from "../profiles/shared";
@@ -50,6 +50,7 @@ type Thread = {
   reply_count: number;
   view_count: number;
   first_post_id: number | null;
+  is_adult: number;
 };
 type Post = {
   id: number;
@@ -148,7 +149,7 @@ export function threadSeo(
   }
   const thread = prepared(ctx, "seo.thread", () =>
     ctx.sqlite.prepare<Thread, [number]>(
-      "SELECT id,node_id,user_id,title,state,created_at,last_post_at,content_updated_at,excerpt,reply_count,view_count,first_post_id FROM threads WHERE id=?1",
+      "SELECT id,node_id,user_id,title,state,created_at,last_post_at,content_updated_at,excerpt,reply_count,view_count,first_post_id,is_adult FROM threads WHERE id=?1",
     ),
   ).get(id);
   if (!thread || !can(ctx, actor, "node.view", { nodeId: thread.node_id }))
@@ -168,7 +169,8 @@ export function threadSeo(
   // A thread the viewer may not open does not exist for them; one whose text is closed to them
   // gives a title and no description. A public page needs both gates open to guests.
   const gates = readGates(ctx, actor);
-  if (!gates.opens(thread.node_id, thread.user_id)) throw new NotFoundError();
+  if (!gates.opens(thread.node_id, thread.user_id) || gates.hidesAdult(thread))
+    throw new NotFoundError();
   const guestGates = readGates(ctx, GUEST);
   const baseCanonical = canonicalUrl(baseURL, "thread", id, thread.title);
   const pageCanonical = page === 1 ? baseCanonical : `${baseCanonical}?page=${page}`;
@@ -190,7 +192,8 @@ export function threadSeo(
     thread.state === "visible" &&
     can(ctx, GUEST, "node.view", { nodeId: thread.node_id }) &&
     guestGates.opensOthers(thread.node_id) &&
-    guestGates.readsOthers(thread.node_id);
+    guestGates.readsOthers(thread.node_id) &&
+    !guestGates.hidesAdult(thread);
   const indexable =
     guestVisible && rows.length >= (page === 1 ? 1 : Math.min(pageSize, 2)) && !!first;
   const description = !gates.reads(thread.node_id, thread.user_id)
@@ -274,6 +277,8 @@ export function profileSeo(
   const indexable =
     can(ctx, GUEST, "profile.view") &&
     relation.profile_view_privacy === "everyone" &&
+    // Guests never see a profile marked +18 while the mode is on.
+    !(relation.profile_adult === 1 && adultModeOn(ctx)) &&
     (profile.has_public_wall === 1 || profile.about.trim().length > 0);
   const values = {
     siteName: templates.siteName,

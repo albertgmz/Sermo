@@ -11,8 +11,15 @@ import { readSiteSettings } from "../settings";
 import { indexNowBatches, sendIndexNow } from "./indexnow";
 import { canonicalUrl } from "./paths";
 
-type ThreadUrl = { id: number; title: string; node_id: number; state: string; user_id: number };
-type ProfileUrl = { id: number; username: string };
+type ThreadUrl = {
+  id: number;
+  title: string;
+  node_id: number;
+  state: string;
+  user_id: number;
+  is_adult: number;
+};
+type ProfileUrl = { id: number; username: string; profile_adult: number };
 type EventRow = { state: string; thread_id: number; profile_user_id: number };
 
 function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null {
@@ -35,18 +42,20 @@ function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null
       event.targetType === "thread"
         ? prepared(ctx, "seo.eventThread", () =>
             ctx.sqlite.prepare<ThreadUrl, [number]>(
-              "SELECT id,title,node_id,state,user_id FROM threads WHERE id=?1",
+              "SELECT id,title,node_id,state,user_id,is_adult FROM threads WHERE id=?1",
             ),
           ).get(event.targetId)
         : prepared(ctx, "seo.eventPostThread", () =>
             ctx.sqlite.prepare<ThreadUrl & { post_state: string }, [number]>(
-              "SELECT t.id,t.title,t.node_id,t.state,t.user_id,p.state AS post_state FROM posts p JOIN threads t ON t.id=p.thread_id WHERE p.id=?1",
+              "SELECT t.id,t.title,t.node_id,t.state,t.user_id,t.is_adult,p.state AS post_state FROM posts p JOIN threads t ON t.id=p.thread_id WHERE p.id=?1",
             ),
           ).get(event.targetId);
     if (!thread || !guest.can("node.view", { nodeId: thread.node_id })) return null;
     // Only threads whose text is open to guests are announced.
     const gates = readGates(ctx, GUEST);
     if (!gates.opensOthers(thread.node_id) || !gates.readsOthers(thread.node_id)) return null;
+    // Nor a thread marked +18 while the mode is on: guests may not see it.
+    if (gates.hidesAdult(thread)) return null;
     if (thread.state !== "visible" && event.targetType !== "thread") return null;
     if (thread.state !== "visible" && event.type !== "content.deleted") return null;
     if (
@@ -80,9 +89,13 @@ function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null
   }
   if (userId === null) return null;
   const profile = prepared(ctx, "seo.eventProfile", () =>
-    ctx.sqlite.prepare<ProfileUrl, [number]>("SELECT id,username FROM users WHERE id=?1"),
+    ctx.sqlite.prepare<ProfileUrl, [number]>(
+      "SELECT id,username,profile_adult FROM users WHERE id=?1",
+    ),
   ).get(userId);
-  return profile ? canonicalUrl(baseURL, "profile", profile.id, profile.username) : null;
+  if (!profile || (profile.profile_adult === 1 && readGates(ctx, GUEST).adult() !== null))
+    return null;
+  return canonicalUrl(baseURL, "profile", profile.id, profile.username);
 }
 
 export function queueSeoEvents(ctx: Ctx): number | null {

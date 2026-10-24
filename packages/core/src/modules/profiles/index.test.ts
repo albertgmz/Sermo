@@ -389,8 +389,10 @@ describe("profiles", () => {
   test("all contracts are registered", () => {
     expect(operations.map((op) => op.name).sort()).toEqual(
       [
+        "profiles.acceptAdult",
         "profiles.get",
         "profiles.self",
+        "profiles.setBirthDate",
         "profiles.update",
         "users.search",
         "profilePosts.list",

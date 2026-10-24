@@ -44,18 +44,20 @@ export function atomFeed(
   if (nodeId != null && (!node || !can(ctx, GUEST, "node.view", { nodeId }) || !open(nodeId)))
     throw new NotFoundError();
   const publicNodeIds = nodeId == null ? viewableNodeIds(ctx, GUEST).filter(open) : [];
+  // Threads marked +18 stay out while the +18 mode is on (?3 = 1): guests may not see them.
+  const hideAdult = Number(gates.adult() !== null);
   const rows =
     nodeId == null
       ? prepared(ctx, "seo.atomSite", () =>
-          ctx.sqlite.prepare<Row, [string, number]>(
-            `SELECT t.id,t.node_id,t.title,t.excerpt,t.created_at,t.last_post_at,t.content_updated_at,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.state='visible' AND t.node_id IN (SELECT value FROM json_each(?1)) ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2`,
+          ctx.sqlite.prepare<Row, [string, number, number]>(
+            `SELECT t.id,t.node_id,t.title,t.excerpt,t.created_at,t.last_post_at,t.content_updated_at,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.state='visible' AND t.node_id IN (SELECT value FROM json_each(?1)) AND NOT (t.is_adult = 1 AND ?3 = 1) ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2`,
           ),
-        ).all(JSON.stringify(publicNodeIds), limit)
+        ).all(JSON.stringify(publicNodeIds), limit, hideAdult)
       : prepared(ctx, "seo.atomNode", () =>
-          ctx.sqlite.prepare<Row, [number, number]>(
-            `SELECT t.id,t.node_id,t.title,t.excerpt,t.created_at,t.last_post_at,t.content_updated_at,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.state='visible' AND t.node_id=?1 ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2`,
+          ctx.sqlite.prepare<Row, [number, number, number]>(
+            `SELECT t.id,t.node_id,t.title,t.excerpt,t.created_at,t.last_post_at,t.content_updated_at,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.state='visible' AND t.node_id=?1 AND NOT (t.is_adult = 1 AND ?3 = 1) ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2`,
           ),
-        ).all(nodeId, limit);
+        ).all(nodeId, limit, hideAdult);
   const visible = rows;
   const feedUrl = new URL(
     node ? `${canonicalPath("node", node.id, node.title)}/feed.atom` : "/feed.atom",

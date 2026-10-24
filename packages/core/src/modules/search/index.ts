@@ -21,7 +21,7 @@ export const searchSql = {
   details:
     // A merge stores position p as -(p + 1) while it renumbers; results return the real position.
     "SELECT p.id, CASE WHEN p.position < 0 THEN -p.position - 1 ELSE p.position END AS position, p.created_at, p.user_id, p.guest_name, p.state AS post_state, " +
-    "t.id AS thread_id, t.title, t.node_id, t.prefix_id, t.state AS thread_state, t.user_id AS thread_user_id, t.first_post_id " +
+    "t.id AS thread_id, t.title, t.node_id, t.prefix_id, t.state AS thread_state, t.user_id AS thread_user_id, t.first_post_id, t.is_adult " +
     "FROM posts p JOIN threads t ON t.id = p.thread_id " +
     "WHERE p.id IN (SELECT value FROM json_each(?1))",
   bodies:
@@ -41,6 +41,7 @@ type Detail = {
   thread_state: string;
   thread_user_id: number;
   first_post_id: number | null;
+  is_adult: number;
 };
 
 /** The start of a post's text; a spoiler leaves nothing, as in XenForo's search results. */
@@ -105,6 +106,7 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
         detail.thread_state === "visible" &&
         nodes.has(detail.node_id) &&
         gates.opens(detail.node_id, detail.thread_user_id) &&
+        !gates.hidesAdult({ is_adult: detail.is_adult, user_id: detail.thread_user_id }) &&
         (gates.reads(detail.node_id, detail.user_id) || titleOnly(detail)) &&
         (input.authorId === undefined || detail.user_id === input.authorId) &&
         (input.prefixId === undefined || detail.prefix_id === input.prefixId)

@@ -33,6 +33,8 @@ export const Site = z
     maxUploadBytes: z.number().int().positive(),
     /** Whether the forum list shows the forum statistics panel (the site setting). */
     forumStatsEnabled: z.boolean(),
+    /** Whether the +18 mode is on (the site setting): content marked +18 reaches only adults. */
+    adultMode: z.boolean(),
     /** The analytics tag public pages carry (the site setting); provider `none` adds nothing. */
     analytics: Analytics,
     /**
