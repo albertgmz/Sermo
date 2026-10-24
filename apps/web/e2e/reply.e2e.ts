@@ -346,6 +346,10 @@ test("selecting text inside one post offers to quote only that part, and a selec
   const one = { text: "Reply number 43 of", word: "number 43" };
   const next = { text: "Reply number 44 of", word: "number 44" };
 
+  // The text is in view, so its place and the button's are in the same viewport coordinates.
+  await page
+    .locator("article p", { hasText: one.text })
+    .evaluate((paragraph) => paragraph.scrollIntoView({ block: "center" }));
   await select(page, one, one);
   await expect(selectionQuote(page)).toBeVisible();
   // It sits below the selection, so it never fights the native menu above it.

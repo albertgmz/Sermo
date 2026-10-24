@@ -27,7 +27,9 @@ function offerOf(selection: Selection | null): Offer | null {
     inside.setEnd(body, body.childNodes.length);
   const source = bbOf(inside.cloneContents());
   const end = Array.from(inside.getClientRects()).at(-1);
-  if (!source || !end || end.bottom < 0) return null;
+  // Nothing is offered for a selection whose end is out of view: the button stays with it.
+  if (!source || !end || end.bottom < 0 || end.top > window.innerHeight)
+    return null;
   // Below the selection: a phone's own menu sits above it, and its handles hang just under it.
   const touch = window.matchMedia("(pointer: coarse)").matches;
   const top = Math.min(
