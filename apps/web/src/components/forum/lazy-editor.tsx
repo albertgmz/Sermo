@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import {
   EDITOR_BOX,
@@ -17,22 +17,84 @@ import {
   withoutAttachTag,
 } from "@/components/forum/composer-insert";
 import type { Editor, EditorProps } from "@/components/forum/editor";
+import {
+  Toolbar,
+  type ToolbarAction,
+  ToolbarContext,
+  type ToolbarMemory,
+  type ToolbarTarget,
+} from "@/components/forum/editor-toolbar";
 import { quoteInbox } from "@/components/forum/lazy-quotes";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { whenIdle } from "@/lib/when-idle";
 
-type Loaded = {
-  Editor: typeof Editor;
-  text: string;
-  focused: boolean;
-  // Where the caret or selection of the box was in `text`.
-  selection: { start: number; end: number };
-};
+type Field = Pick<
+  HTMLTextAreaElement,
+  "value" | "selectionStart" | "selectionEnd"
+>;
 
-// A plain box that becomes the editor, formatting bar included, when the member goes to write
-// in it. The editor's code is asked for only then, so it is no part of the page's first load. The
-// box is a field of the form like the editor is: what is typed while the editor is on its way is
-// handed to it, and a form sent before it arrives carries the text all the same.
+// What the editor takes over from the box it replaces: the text, whether it takes the focus, the
+// caret or selection of the box in `text` (once the box has been written in), and the control of
+// the bar that had the focus, which the editor's bar gives it back. A press on the bar that waits
+// for the editor puts the member in the text, at the box's caret or at the end.
+export function handOver({
+  field,
+  entered,
+  inField,
+  control,
+  pressed,
+}: {
+  field: Field | null;
+  // The box has had the focus.
+  entered: boolean;
+  // It has it now.
+  inField: boolean;
+  control: string | null;
+  pressed: number;
+}) {
+  const focused = inField || pressed > 0;
+  return {
+    text: field?.value ?? "",
+    focused,
+    selection:
+      entered && field
+        ? { start: field.selectionStart, end: field.selectionEnd }
+        : undefined,
+    control: focused ? null : control,
+  };
+}
+
+// What the bar of the box acts on until the editor is in: a press asks for the editor at once and
+// is kept, in order, for the editor to apply (`pressed`). Nothing is on where the caret is.
+export function keptPresses(
+  load: () => void,
+  form: () => HTMLFormElement | null,
+) {
+  const pressed: ToolbarAction[] = [];
+  const target: ToolbarTarget = {
+    ready: false,
+    run: (action) => {
+      pressed.push(action);
+      load();
+    },
+    watch: () => () => {},
+    form,
+  };
+  return { target, pressed };
+}
+
+type Loaded = ReturnType<typeof handOver> & { Editor: typeof Editor };
+
+// The editor's box, with its formatting bar, over a plain field that the editor takes the place
+// of once the page is idle, or at once when the member goes to write in it or presses the bar.
+// The editor's code is no part of the page's first load. The field is a field of the form like
+// the editor is: what is typed while the editor is on its way is handed to it, with the caret,
+// and a form sent before it arrives (or without JavaScript) carries the text all the same. The
+// bar is the editor's own (`Toolbar`); its presses wait for the editor, which applies them, and the
+// editor's bar opens with the strip, the emoji picker and the focus this one had, so nothing
+// changes on the screen when the editor comes in. `line`: the one-line box of a line composer, a
+// plain field until it is entered (as XenForo's "Write a comment…"), then the bar while the editor
+// comes.
 export function LazyEditor({
   name,
   placeholder,
@@ -43,6 +105,7 @@ export function LazyEditor({
   insertEvent,
   onChange,
   className,
+  line = false,
 }: {
   name: string;
   placeholder: string;
@@ -59,13 +122,34 @@ export function LazyEditor({
   // The text as it is written, in the plain field and in the editor alike.
   onChange?: (text: string) => void;
   className?: string;
+  line?: boolean;
 }) {
   const field = useRef<HTMLTextAreaElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const asked = useRef(false);
+  const entered = useRef(false);
   const [waiting, setWaiting] = useState(false);
   const [loaded, setLoaded] = useState<Loaded>();
   const changed = useRef(onChange);
   changed.current = onChange;
+  const memory = useRef<ToolbarMemory>({
+    strip: null,
+    picker: null,
+    focus: null,
+  });
+
+  // The presses on the bar while the editor is on its way, which ask for it (`load`, below).
+  const loadNow = useRef(() => {});
+  const [kept] = useState(() =>
+    keptPresses(
+      () => loadNow.current(),
+      () => field.current?.form ?? null,
+    ),
+  );
+  const toolbar = useMemo(
+    () => ({ target: kept.target, memory: memory.current }),
+    [kept],
+  );
 
   const load = useCallback(() => {
     if (asked.current) return;
@@ -75,24 +159,48 @@ export function LazyEditor({
       // The text is read and the editor put in its place in one go: a key pressed in between
       // would be typed into a box that is about to go.
       ({ Editor }) =>
-        flushSync(() =>
-          setLoaded({
-            Editor,
-            text: field.current?.value ?? "",
-            focused: document.activeElement === field.current,
-            selection: {
-              start: field.current?.selectionStart ?? 0,
-              end: field.current?.selectionEnd ?? 0,
-            },
-          }),
-        ),
-      // The box keeps working as it is, and asks again the next time it is entered.
+        flushSync(() => {
+          const active = document.activeElement;
+          const control =
+            active instanceof HTMLElement && box.current?.contains(active)
+              ? (active.dataset.control ?? null)
+              : null;
+          const taken = handOver({
+            field: field.current,
+            entered: entered.current,
+            inField: active === field.current,
+            control,
+            pressed: kept.pressed.length,
+          });
+          memory.current.focus = taken.control;
+          setLoaded({ ...taken, Editor });
+        }),
+      // The box keeps working as it is, and asks again the next time it is entered or pressed.
       () => {
         asked.current = false;
-        setWaiting(false);
       },
     );
-  }, []);
+  }, [kept]);
+  loadNow.current = load;
+
+  // The editor comes once the page is idle, before anyone needs it; the one-line box of a line
+  // composer asks for it only when it is entered.
+  useEffect(() => {
+    if (line) return;
+    return whenIdle(load);
+  }, [line, load]);
+  // It is asked for at once when the box is entered (its field, or a button of the bar from the
+  // keyboard) or pressed anywhere: a ⋮ or the emoji picker too, which need no editor to open.
+  useEffect(() => {
+    const element = box.current;
+    if (!element) return;
+    element.addEventListener("focusin", load);
+    element.addEventListener("click", load);
+    return () => {
+      element.removeEventListener("focusin", load);
+      element.removeEventListener("click", load);
+    };
+  }, [load]);
 
   // Requests from elsewhere in the composer (an attachment's tag to put in or take out) are taken
   // by the plain field until the editor is there. Those that arrive after the field is gone and
@@ -111,7 +219,7 @@ export function LazyEditor({
         load();
       } else if (!box || "uploaded" in request) queue.current.push(request);
       else if ("insert" in request) {
-        insertAtCaret(box, request.insert, asked.current);
+        insertAtCaret(box, request.insert, entered.current);
         changed.current?.(box.value);
       } else {
         box.value = withoutAttachTag(box.value, request.remove);
@@ -183,19 +291,18 @@ export function LazyEditor({
         insertEvent={insertEvent}
         onChange={onChange}
         onInsertReady={editorReady}
+        pressed={kept.pressed}
+        toolbarMemory={memory.current}
         className={className}
       />
     );
   }
   return (
-    <div className={cn(EDITOR_BOX, className)}>
-      {/* The room the formatting bar takes, from the first tap, so nothing moves when it comes:
-          its padding and a group's box (a 32 px button between 2 px margins, 2 px of padding and
-          a border). The box has the focus then, so the bar is clear, as the editor's. */}
-      {waiting && (
-        <div className="rounded-t-[inherit] border-b p-1.5">
-          <Skeleton className="h-[42px] w-48 max-w-full rounded-[9px]" />
-        </div>
+    <div ref={box} className={cn("group/editor", EDITOR_BOX, className)}>
+      {(!line || waiting) && (
+        <ToolbarContext.Provider value={toolbar}>
+          <Toolbar />
+        </ToolbarContext.Provider>
       )}
       <textarea
         ref={field}
@@ -204,7 +311,9 @@ export function LazyEditor({
         rows={1}
         placeholder={placeholder}
         aria-label={placeholder}
-        onFocus={load}
+        onFocus={() => {
+          entered.current = true;
+        }}
         onPaste={takePastedFiles}
         onInput={(event) => {
           load();

@@ -1539,8 +1539,9 @@ export default async function StyleguidePage() {
 
         <Section title="Lazy editor">
           <p className="text-sm text-muted-foreground">
-            A one-line box that loads the editor, with its formatting bar, when
-            it is entered. Used by the wall, comment and conversation composers.
+            The editor's box and formatting bar over a plain field, drawn with
+            the page; the editor takes its place once the page is idle. Used by
+            every composer (the line composer keeps one line until entered).
           </p>
           <LazyEditor
             name="body"

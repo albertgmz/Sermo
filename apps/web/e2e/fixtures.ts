@@ -318,11 +318,12 @@ export async function box(locator: Locator) {
   return rect;
 }
 
-// The lazily loaded editor is in: its formatting bar is drawn.
+// The lazily loaded editor is in: its text is drawn (its formatting bar is drawn before it comes).
 export async function editorReady(scope: Page | Locator) {
   await expect(
     scope.getByRole("toolbar", { name: "Formatting" }),
   ).toBeVisible();
+  await expect(scope.locator('[contenteditable="true"]').first()).toBeVisible();
 }
 
 export const unique = (prefix: string) =>

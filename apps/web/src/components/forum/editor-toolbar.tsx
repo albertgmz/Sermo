@@ -1,27 +1,6 @@
 "use client";
 
-import { $isCodeNode } from "@lexical/code";
-import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
-import {
-  $isListNode,
-  INSERT_ORDERED_LIST_COMMAND,
-  INSERT_UNORDERED_LIST_COMMAND,
-  REMOVE_LIST_COMMAND,
-} from "@lexical/list";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $isHeadingNode, $isQuoteNode } from "@lexical/rich-text";
-import {
-  $getSelection,
-  $isRangeSelection,
-  CAN_REDO_COMMAND,
-  CAN_UNDO_COMMAND,
-  COMMAND_PRIORITY_LOW,
-  FORMAT_TEXT_COMMAND,
-  mergeRegister,
-  REDO_COMMAND,
-  type TextFormatType,
-  UNDO_COMMAND,
-} from "lexical";
+import type { TextFormatType } from "lexical";
 import {
   Bold,
   Brackets,
@@ -48,6 +27,7 @@ import {
 import { useTranslations } from "next-intl";
 import {
   type ComponentType,
+  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -58,16 +38,8 @@ import {
 } from "react";
 import { linkAddressOf } from "@/components/forum/bb-scan";
 import { pickImage } from "@/components/forum/composer-insert";
-import {
-  $applyLink,
-  $insertText,
-  $removeFormatting,
-  $setBlock,
-  $wrapSelection,
-  type BlockKind,
-} from "@/components/forum/editor-commands";
-import { loader } from "@/components/forum/editor-emoji";
-import { SourceContext } from "@/components/forum/editor-extras";
+import type { BlockKind } from "@/components/forum/editor-commands";
+import { SourceContext } from "@/components/forum/editor-source";
 import {
   entryOf,
   fromKeyboard,
@@ -86,14 +58,72 @@ import {
   toggleStrip,
 } from "@/components/forum/editor-toolbar-layout";
 import { FormError } from "@/components/forum/form-error";
+import { loader } from "@/components/forum/load-once";
 import { mediaTagOf } from "@/components/forum/media-url";
 import { cn } from "@/lib/utils";
 
-type ToolbarState = {
+// Where the caret is, as the bar shows it: the formats and the kind of block that are on there,
+// whether it is in a link, and whether there is something to undo or redo.
+export type ToolbarState = {
   formats: TextFormatType[];
   block: BlockKind;
   link: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
 };
+
+const AT_REST: ToolbarState = {
+  formats: [],
+  block: "paragraph",
+  link: false,
+  canUndo: false,
+  canRedo: false,
+};
+
+// What a press of the bar asks of the text. A block or a list that is on already is turned off; a
+// null link takes the link off.
+export type ToolbarAction =
+  | { format: TextFormatType }
+  | { block: "heading" | "quote" | "code" }
+  | { list: "bullet" | "number" }
+  | { link: string | null }
+  | { insert: string }
+  | { wrap: [open: string, close: string] }
+  | { run: "removeFormatting" | "undo" | "redo" | "source" };
+
+// What the bar acts on: the editor (`editor-target.ts`), or, until the editor is in, the plain box
+// drawn in its place, which keeps the presses for it (`LazyEditor`). `ready` is false until then:
+// what needs the editor itself (the emoji picker) waits for it.
+export type ToolbarTarget = {
+  ready: boolean;
+  run: (action: ToolbarAction) => void;
+  // Tells `show` what changed where the caret is, until the function it answers is called.
+  watch: (show: (state: Partial<ToolbarState>) => void) => () => void;
+  // The form of the text, where the composer's picture picker is.
+  form: () => HTMLFormElement | null;
+};
+
+type PickerMode = "pointer" | "keyboard";
+
+// How a bar leaves things for the bar that takes its place when the editor comes in: the strip
+// that is open, the emoji picker, and the control that had the focus (its `data-control`).
+export type ToolbarMemory = {
+  strip: GroupId | null;
+  picker: PickerMode | null;
+  focus: string | null;
+};
+
+const NO_TARGET: ToolbarTarget = {
+  ready: false,
+  run: () => {},
+  watch: () => () => {},
+  form: () => null,
+};
+
+export const ToolbarContext = createContext<{
+  target: ToolbarTarget;
+  memory?: ToolbarMemory;
+}>({ target: NO_TARGET });
 
 const FORMATS = [
   { format: "bold", label: "boldLabel", icon: Bold },
@@ -107,24 +137,8 @@ const FORMATS = [
   icon: LucideIcon;
 }[];
 
-function $readToolbarState(): ToolbarState | null {
-  const selection = $getSelection();
-  if (!$isRangeSelection(selection)) return null;
-  const anchor = selection.anchor.getNode();
-  const top = anchor.getTopLevelElement();
-  let block: BlockKind = "paragraph";
-  if ($isHeadingNode(top)) block = "heading";
-  else if ($isQuoteNode(top)) block = "quote";
-  else if ($isCodeNode(top)) block = "code";
-  else if ($isListNode(top)) {
-    block = top.getListType() === "number" ? "number" : "bullet";
-  }
-  return {
-    formats: FORMATS.map((f) => f.format).filter((f) => selection.hasFormat(f)),
-    block,
-    link: $isLinkNode(anchor) || $isLinkNode(anchor.getParent()),
-  };
-}
+// The formats a button turns on and off, in the bar's order.
+export const TEXT_FORMATS: TextFormatType[] = FORMATS.map((f) => f.format);
 
 // One thing the bar does, drawn as a button of a group or of its strip.
 type Command = {
@@ -135,7 +149,8 @@ type Command = {
   disabled?: boolean;
   // Stays usable while the BB code source is shown (the command that switches to and from it).
   always?: boolean;
-  run: (event: React.MouseEvent) => void;
+  // `detail` is 0 for a press from the keyboard (`fromKeyboard`).
+  run: (press: { detail: number }) => void;
 };
 
 type PickerProps = { focusSearch: boolean; onClose: () => void };
@@ -163,9 +178,12 @@ function useUnavailable() {
 // phone keeps its keyboard up; a command that moves the selection puts the focus back in the
 // editor itself (Lexical does), and the BB code source puts it in its own field.
 function ToolbarButton({
+  control,
   command,
   className,
 }: {
+  // Which command it is (`ToolbarMemory.focus`).
+  control: CommandId;
   command: Command;
   className?: string;
 }) {
@@ -180,6 +198,7 @@ function ToolbarButton({
       title={label}
       aria-pressed={active}
       aria-disabled={unavailable || undefined}
+      data-control={control}
       onMouseDown={(event) => event.preventDefault()}
       onClick={(event) => {
         if (!unavailable) run(event);
@@ -193,16 +212,10 @@ function ToolbarButton({
 
 export function Toolbar() {
   const t = useTranslations("editor.editor");
-  const [editor] = useLexicalComposerContext();
+  const { target, memory } = useContext(ToolbarContext);
   const source = useContext(SourceContext);
   const unavailable = useUnavailable();
-  const [state, setState] = useState<ToolbarState>({
-    formats: [],
-    block: "paragraph",
-    link: false,
-  });
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
+  const [state, setState] = useState<ToolbarState>(AT_REST);
   // The button whose address was refused.
   const [refused, setRefused] = useState<"media" | "link" | "image" | null>(
     null,
@@ -211,7 +224,9 @@ export function Toolbar() {
   // whether it is open (and was opened from the keyboard, which puts the focus in its search box),
   // and whether its code could not be fetched (a later press asks again).
   const [Picker, setPicker] = useState<ComponentType<PickerProps>>();
-  const [picker, setPickerOpen] = useState<"pointer" | "keyboard" | null>(null);
+  const [picker, setPickerOpen] = useState<PickerMode | null>(
+    memory?.picker ?? null,
+  );
   const [pickerFailed, setPickerFailed] = useState(false);
   const [askPicker] = useState(() =>
     loader(
@@ -224,8 +239,18 @@ export function Toolbar() {
       (loaded) => setPicker(() => loaded.default),
     ),
   );
+  // Asked for when it opens, and again when it was open in the bar this one takes the place of.
+  useEffect(() => {
+    if (picker) askPicker();
+  }, [picker, askPicker]);
   // The group whose strip is open, one at a time, as in XenForo.
-  const [open, setOpen] = useState<GroupId | null>(null);
+  const [open, setOpen] = useState<GroupId | null>(memory?.strip ?? null);
+  // What a bar that takes this one's place starts from.
+  useEffect(() => {
+    if (!memory) return;
+    memory.strip = open;
+    memory.picker = picker;
+  }, [memory, open, picker]);
   const stripId = useId();
   const strips = useRef<Partial<Record<GroupId, HTMLFieldSetElement | null>>>(
     {},
@@ -264,6 +289,17 @@ export function Toolbar() {
     return () => observer.disconnect();
   }, [placeTabStop]);
 
+  // The control that had the focus in the bar this one takes the place of has it here.
+  useLayoutEffect(() => {
+    const control = memory?.focus;
+    if (!memory || !control) return;
+    memory.focus = null;
+    controls()
+      .filter(inView)
+      .find((button) => button.dataset.control === control)
+      ?.focus();
+  }, [memory, controls]);
+
   useEffect(() => {
     if (!bar.current) return;
     return registerStripEscape(
@@ -277,30 +313,8 @@ export function Toolbar() {
   }, []);
 
   useEffect(
-    () =>
-      mergeRegister(
-        editor.registerUpdateListener(({ editorState }) => {
-          const next = editorState.read($readToolbarState);
-          if (next) setState(next);
-        }),
-        editor.registerCommand(
-          CAN_UNDO_COMMAND,
-          (payload) => {
-            setCanUndo(payload);
-            return false;
-          },
-          COMMAND_PRIORITY_LOW,
-        ),
-        editor.registerCommand(
-          CAN_REDO_COMMAND,
-          (payload) => {
-            setCanRedo(payload);
-            return false;
-          },
-          COMMAND_PRIORITY_LOW,
-        ),
-      ),
-    [editor],
+    () => target.watch((next) => setState((last) => ({ ...last, ...next }))),
+    [target],
   );
 
   useEffect(() => {
@@ -314,20 +328,6 @@ export function Toolbar() {
     )?.focus();
   }, [enterStrip, open]);
 
-  function setBlock(block: "heading" | "quote" | "code") {
-    editor.update(() => $setBlock(state.block, block));
-  }
-
-  function toggleList(block: "bullet" | "number") {
-    if (state.block === block) {
-      editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined);
-    } else if (block === "bullet") {
-      editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
-    } else {
-      editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
-    }
-  }
-
   // Asks for an address; empty or cancelled asks nothing more.
   function ask(prompt: string) {
     const input = window.prompt(prompt, "https://");
@@ -337,14 +337,14 @@ export function Toolbar() {
 
   function toggleLink() {
     if (state.link) {
-      editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
+      target.run({ link: null });
       return;
     }
     const input = ask(t("linkPrompt"));
     if (!input) return;
     const url = linkAddressOf(input);
     setRefused(url ? null : "link");
-    if (url) editor.update(() => $applyLink(url));
+    if (url) target.run({ link: url });
   }
 
   function addMedia() {
@@ -352,20 +352,20 @@ export function Toolbar() {
     if (!address) return;
     const media = mediaTagOf(address);
     setRefused(media ? null : "media");
-    if (media) editor.update(() => $insertText(media));
+    if (media) target.run({ insert: media });
   }
 
   // The composer's own picture picker, whose pictures go in at the caret once they are uploaded
   // (`[ATTACH=full]`); where the composer takes no files, a picture on the web by its address.
   function addImage() {
-    if (pickImage(editor.getRootElement()?.closest("form"))) {
+    if (pickImage(target.form())) {
       setRefused(null);
       return;
     }
     const tag = imageTag(ask(t("imagePrompt")));
     if (!tag) return;
     setRefused(tag === "refused" ? "image" : null);
-    if (tag !== "refused") editor.update(() => $insertText(tag));
+    if (tag !== "refused") target.run({ insert: tag });
   }
 
   const [bold, italic, underline, strikethrough, code] = FORMATS.map(
@@ -373,7 +373,7 @@ export function Toolbar() {
       label: t(label),
       icon,
       active: state.formats.includes(format),
-      run: () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format),
+      run: () => target.run({ format }),
     }),
   );
   const commands: Record<CommandId, Command> = {
@@ -385,31 +385,31 @@ export function Toolbar() {
     removeFormatting: {
       label: t("removeFormattingLabel"),
       icon: Eraser,
-      run: () => editor.update(() => $removeFormatting()),
+      run: () => target.run({ run: "removeFormatting" }),
     },
     heading: {
       label: t("headingLabel"),
       icon: Heading,
       active: state.block === "heading",
-      run: () => setBlock("heading"),
+      run: () => target.run({ block: "heading" }),
     },
     bullet: {
       label: t("bulletListLabel"),
       icon: List,
       active: state.block === "bullet",
-      run: () => toggleList("bullet"),
+      run: () => target.run({ list: "bullet" }),
     },
     number: {
       label: t("numberedListLabel"),
       icon: ListOrdered,
       active: state.block === "number",
-      run: () => toggleList("number"),
+      run: () => target.run({ list: "number" }),
     },
     quote: {
       label: t("quoteLabel"),
       icon: TextQuote,
       active: state.block === "quote",
-      run: () => setBlock("quote"),
+      run: () => target.run({ block: "quote" }),
     },
     link: {
       label: t("linkLabel"),
@@ -422,20 +422,19 @@ export function Toolbar() {
       label: t("emojiPickerLabel"),
       icon: Smile,
       active: picker !== null,
-      run: (event) => {
+      run: (press) => {
         if (picker) {
           setPickerOpen(null);
           return;
         }
         setPickerFailed(false);
-        setPickerOpen(fromKeyboard(event) ? "keyboard" : "pointer");
-        askPicker();
+        setPickerOpen(fromKeyboard(press) ? "keyboard" : "pointer");
       },
     },
     spoiler: {
       label: t("spoilerLabel"),
       icon: EyeOff,
-      run: () => editor.update(() => $wrapSelection("[SPOILER]", "[/SPOILER]")),
+      run: () => target.run({ wrap: ["[SPOILER]", "[/SPOILER]"] }),
     },
     codeBlock: {
       label: t("codeBlockLabel"),
@@ -444,7 +443,7 @@ export function Toolbar() {
       // Turning a list item or a quote into a code block would pull it out of its list or quote
       // and leave the rest broken, so the command waits until the caret is somewhere else.
       disabled: ["bullet", "number", "quote"].includes(state.block),
-      run: () => setBlock("code"),
+      run: () => target.run({ block: "code" }),
     },
     media: { label: t("mediaLabel"), icon: Clapperboard, run: addMedia },
     source: {
@@ -452,25 +451,26 @@ export function Toolbar() {
       icon: Brackets,
       active: source?.active ?? false,
       always: true,
-      run: () => source?.toggle(),
+      run: () => target.run({ run: "source" }),
     },
     undo: {
       label: t("undoLabel"),
       icon: Undo2,
-      disabled: !canUndo,
-      run: () => editor.dispatchCommand(UNDO_COMMAND, undefined),
+      disabled: !state.canUndo,
+      run: () => target.run({ run: "undo" }),
     },
     redo: {
       label: t("redoLabel"),
       icon: Redo2,
-      disabled: !canRedo,
-      run: () => editor.dispatchCommand(REDO_COMMAND, undefined),
+      disabled: !state.canRedo,
+      run: () => target.run({ run: "redo" }),
     },
   };
 
   const draw = (slot: Slot) => (
     <ToolbarButton
       key={`${slot.id}-${slot.shown}`}
+      control={slot.id}
       command={commands[slot.id]}
       className={SHOWN[slot.shown]}
     />
@@ -545,6 +545,7 @@ export function Toolbar() {
                   aria-expanded={expanded}
                   aria-controls={`${stripId}-${group.id}`}
                   aria-disabled={disabled || undefined}
+                  data-control={`more-${group.id}`}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={(event) => {
                     if (disabled) return;
@@ -592,7 +593,7 @@ export function Toolbar() {
           ))}
         </div>
       </div>
-      {picker && Picker && !source?.active && (
+      {picker && Picker && target.ready && !source?.active && (
         <Picker
           focusSearch={picker === "keyboard"}
           onClose={() => setPickerOpen(null)}

@@ -101,11 +101,13 @@ test("the text area has XenForo's padding, type and least height, and the placeh
 
 test("the plain box before the editor loads looks the same, so nothing moves", () => {
   const html = renderToStaticMarkup(
-    <LazyEditor
-      name="body"
-      placeholder="Escribe la respuesta…"
-      compact={false}
-    />,
+    withIntl(
+      <LazyEditor
+        name="body"
+        placeholder="Escribe la respuesta…"
+        compact={false}
+      />,
+    ),
   );
   expectClasses(tagWith(html, /<div[^>]*>/), BOX);
   const field = tagWith(html, /<textarea[^>]*>/);
@@ -130,7 +132,7 @@ test("the whole-screen composer keeps its frameless box clear while written in",
     ),
   );
   const box =
-    html.match(/<div class="([^"]*)"><textarea/)?.[1].split(" ") ?? [];
+    html.match(/<div class="(group\/editor[^"]*)"/)?.[1].split(" ") ?? [];
   for (const name of [
     "border-0",
     "bg-transparent",

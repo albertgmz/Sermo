@@ -4,7 +4,6 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $getSelection, $isRangeSelection, $isTextNode } from "lexical";
 import {
   type ComponentType,
-  createContext,
   type RefObject,
   useContext,
   useEffect,
@@ -13,6 +12,10 @@ import {
 } from "react";
 import { $appendBb } from "@/components/forum/bb-lexical";
 import { loader } from "@/components/forum/editor-emoji";
+import {
+  SourceContext,
+  type SourceMode,
+} from "@/components/forum/editor-source";
 import type { MentionHit } from "@/components/forum/mention-find";
 
 export type MemberHit = MentionHit;
@@ -27,18 +30,7 @@ type SourceSuggestProps = SuggestProps & {
 // imported accounts hold names such as "#Bishop" or "$kyw".
 export const TYPING = /(?:^|[\s(])@([^\s@]{1,32})$/u;
 
-// The BB code source field the editor shows in place of its rich text. `active` says whether it is
-// shown; the rest is for what the rest of the composer asks of the text (a quote, an attachment's
-// tag), which goes to the field while it is the one showing.
-export type SourceMode = {
-  active: boolean;
-  field: RefObject<HTMLTextAreaElement | null>;
-  // The text of the field changed.
-  commit: (text: string) => void;
-  toggle: () => void;
-};
-
-export const SourceContext = createContext<SourceMode | null>(null);
+export { SourceContext, type SourceMode };
 
 // Adds BB code at the end of the editor when the page asks for it with a window event whose
 // detail is the BB code (the quote button of a post does).

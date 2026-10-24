@@ -472,7 +472,7 @@ test("in the Create dialog the text of a thread or a wall post takes the rest of
       /class="min-h-0 flex-1 overflow-y-auto flex flex-col"/,
     );
     expect(html).toMatch(
-      /data-composer-grow=""[^>]*class="flex flex-1 cursor-text flex-col"><div class="[^"]*\bflex-1\b[^"]*"><textarea name="body"/,
+      /data-composer-grow=""[^>]*class="flex flex-1 cursor-text flex-col"><div class="group\/editor[^"]*\bflex-1\b[^"]*"><div class="@container[\s\S]*?<textarea name="body"/,
     );
   }
   const sheet = wall(false);

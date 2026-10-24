@@ -4,6 +4,9 @@ import { $isCodeNode } from "@lexical/code";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $getSelection, $isRangeSelection, $isTextNode } from "lexical";
 import { type ComponentType, useEffect, useState } from "react";
+import { loader } from "@/components/forum/load-once";
+
+export { loader };
 
 // A ":" that starts a word (after a space, a bracket or another emoji, or at the start of the
 // text), then what is typed after it up to the caret, then the ":" that closes a whole shortcode.
@@ -57,20 +60,6 @@ export function onShortcodeStart(start: () => void) {
     const now = shortcodeStarted(typed);
     if (now && !started) start();
     started = now;
-  };
-}
-
-// Calls `load` when asked, one load at a time, and hands what it gives to `done`. A load that fails
-// (a connection that drops, a page opened before the site was updated and whose files are gone) is
-// asked for again on the next call.
-export function loader<T>(load: () => Promise<T>, done: (loaded: T) => void) {
-  let asked = false;
-  return () => {
-    if (asked) return;
-    asked = true;
-    load().then(done, () => {
-      asked = false;
-    });
   };
 }
 

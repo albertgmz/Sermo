@@ -31,6 +31,7 @@ import {
 import { useTranslations } from "next-intl";
 import {
   useCallback,
+  useContext,
   useEffect,
   useId,
   useLayoutEffect,
@@ -74,7 +75,13 @@ import {
   type SourceMode,
 } from "@/components/forum/editor-extras";
 import { prepareFiles, registerPaste } from "@/components/forum/editor-paste";
-import { Toolbar } from "@/components/forum/editor-toolbar";
+import { replay, toolbarTarget } from "@/components/forum/editor-target";
+import {
+  Toolbar,
+  type ToolbarAction,
+  ToolbarContext,
+  type ToolbarMemory,
+} from "@/components/forum/editor-toolbar";
 import { sentText } from "@/components/forum/editor-value";
 import { FormError } from "@/components/forum/form-error";
 import {
@@ -198,6 +205,39 @@ function FocusAt({
     });
     editor.focus();
   }, [editor, source, start, end]);
+  return null;
+}
+
+// The formatting bar, acting on this editor. `memory`: how the bar drawn before the editor was in
+// left things (`LazyEditor`).
+function EditorToolbar({ memory }: { memory?: ToolbarMemory }) {
+  const [editor] = useLexicalComposerContext();
+  const toggle = useContext(SourceContext)?.toggle;
+  const value = useMemo(
+    () => ({
+      target: toolbarTarget(editor, () => toggle?.()),
+      memory,
+    }),
+    [editor, toggle, memory],
+  );
+  return (
+    <ToolbarContext.Provider value={value}>
+      <Toolbar />
+    </ToolbarContext.Provider>
+  );
+}
+
+// Applies the presses of the bar that were kept while the editor was on its way, once the caret is
+// where the box it replaces had it (`FocusAt`, drawn before this).
+function Replay({ pressed }: { pressed: ToolbarAction[] }) {
+  const [editor] = useLexicalComposerContext();
+  const toggle = useContext(SourceContext)?.toggle;
+  useEffect(() => {
+    replay(
+      toolbarTarget(editor, () => toggle?.()),
+      pressed,
+    );
+  }, [editor, toggle, pressed]);
   return null;
 }
 
@@ -401,6 +441,10 @@ export type EditorProps = {
   insertEvent?: string;
   // Called once the editor takes requests from the rest of its composer (see `LazyEditor`).
   onInsertReady?: () => void;
+  // From the bar drawn before the editor was in (`LazyEditor`): the presses that wait for the
+  // editor, and how that bar left things.
+  pressed?: ToolbarAction[];
+  toolbarMemory?: ToolbarMemory;
 };
 
 export function Editor({
@@ -423,6 +467,8 @@ export function Editor({
   findMembers,
   insertEvent,
   onInsertReady,
+  pressed,
+  toolbarMemory,
 }: EditorProps) {
   const t = useTranslations("editor.editor");
   const placeholder =
@@ -536,7 +582,7 @@ export function Editor({
       <LexicalComposer initialConfig={initialConfig}>
         <ContentSafetyPlugin onFiles={takeFiles} />
         <div className={cn("group/editor", EDITOR_BOX, className)}>
-          {toolbar && <Toolbar />}
+          {toolbar && <EditorToolbar memory={toolbarMemory} />}
           <div className="relative" hidden={sourceShown}>
             <RichTextPlugin
               contentEditable={
@@ -640,6 +686,7 @@ export function Editor({
             <AutoFocusPlugin />
           ))}
         {insertEvent && <InsertPlugin event={insertEvent} />}
+        {pressed && <Replay pressed={pressed} />}
       </LexicalComposer>
     </SourceContext.Provider>
   );

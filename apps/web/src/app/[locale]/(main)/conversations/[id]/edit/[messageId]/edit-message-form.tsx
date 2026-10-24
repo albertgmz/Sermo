@@ -38,7 +38,7 @@ export function EditMessageForm({
   const [uploading, setUploading] = useState(false);
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      {/* The editor's code is asked for when the member goes to write in the box. */}
+      {/* The editor's code comes once the page is idle, or when the box is entered. */}
       <LazyEditor
         name="body"
         compact={false}

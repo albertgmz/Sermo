@@ -58,6 +58,7 @@ export function LineComposer({
         placeholder={placeholder}
         findMembers={findMentions}
         minHeight={entered ? 100 : 40}
+        line
       />
       {state.error && <FormError>{state.error}</FormError>}
       <ComposerButtons
