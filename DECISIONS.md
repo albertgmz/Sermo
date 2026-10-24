@@ -6792,3 +6792,20 @@ Why: the owner wanted XenForo's page numbers with a jump to any page instead of 
   staff lists keep "load more".
 
 Why: the owner wanted numbered pages wherever a list is paged, except the feeds.
+
+### Tabs, filters and Load more change only their part of the page
+
+- The profile's tabs, the feed's tabs and filters, the forum list's sections, the forum
+  statistics, the members views with their sorts and month, the current visitors' filters, and
+  the credits tabs and shop categories redraw in place under the page's header with the address
+  and Back kept, and still work as plain links without JavaScript. The profile wall's, the
+  feed's and the shop's Load more put the next posts under those shown: new rows are swapped in
+  through a deferred value, so the rows shown stay until all new ones are ready and no page
+  placeholder appears. Buying, wearing or using an item and commenting on a wall update in place
+  with a floating notice under the header. A static check lists every tab bar, load-more link
+  and whole-page redraw with its reason, and fails on a new one.
+- "Who reacted" never redraws the page locally; on fcuba.net it most likely reloads after a
+  deploy, when an open tab cannot load the old popover code (left for the owner: keep the old
+  build's files across a deploy).
+
+Why: the owner saw the whole page refresh with an animation instead of the one element.
