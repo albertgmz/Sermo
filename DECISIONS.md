@@ -6569,3 +6569,14 @@ member search to the editor.
   and security notices stay anonymous, and emails are unchanged.
 
 Why: the owner wanted "Fulano te mencionó" instead of "un usuario te mencionó".
+
+### A quote in the editor is a fixed block
+
+- In the visual editor a `[QUOTE]` (plain, attributed or nested) is one block drawn like the quote
+  in a post, with its "Fulano dijo:" line: its text cannot be edited, a × button or
+  Backspace/Delete on the selected block removes it whole, a paragraph is kept before and after
+  it for the caret, and the BB code it came from is written back unchanged. The source mode shows
+  the BB code. The toolbar's Quote button still makes an editable quote, which becomes a block
+  when the post is reopened or the source mode is toggled.
+
+Why: the owner wanted the quoted part shown as a quote and kept as it was, not edited by accident.
