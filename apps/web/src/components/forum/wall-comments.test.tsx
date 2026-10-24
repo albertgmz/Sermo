@@ -277,3 +277,18 @@ test("a comment's footer: on a phone the whole date on a line of its own under t
   // Its buttons have a line of their own on a phone: with no "•••" beside it, report keeps its word.
   expect(member).toContain('<span class="inline">Report</span>');
 });
+
+test("a deleted comment is folded to its name and notice, with Restore and Delete permanently for the staff allowed", async () => {
+  const deleted = { ...comment(1, "deleted"), canHardDelete: true } as Comment;
+  const staff = await render({ comments: [deleted], mayUndelete: true });
+  expect(staff).not.toContain("comment 1");
+  expect(staff).toContain("member21");
+  expect(staff).toContain('id="profile-comment-1"');
+  expect(staff).toMatch(/aria-expanded="false"[^>]*>Show…</);
+  expect(staff).toContain(">Restore<");
+  expect(staff).toContain('aria-label="Delete permanently"');
+
+  const member = await render({ comments: [comment(1, "deleted")] });
+  expect(member).not.toContain(">Restore<");
+  expect(member).not.toContain("Delete permanently");
+});

@@ -17,6 +17,7 @@ import {
 import { earlierComments } from "@/app/[locale]/(main)/members/earlier-comments";
 import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { DeletedItem } from "@/components/forum/deleted-item";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
@@ -32,6 +33,7 @@ import {
   hasWallComments,
   oldestFirst,
   WallComments,
+  WallDeletionNotice,
   WallStateNote,
 } from "@/components/forum/wall-comments";
 import {
@@ -83,6 +85,7 @@ function WallPost({
   viewList,
   returnTo,
   mayHardDelete,
+  mayUndelete,
 }: {
   post: ApiWallPost;
   // The newest few, or one page of them where the post is open.
@@ -98,6 +101,7 @@ function WallPost({
   viewList: boolean;
   returnTo: string;
   mayHardDelete: boolean;
+  mayUndelete: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations("members.wall");
@@ -116,28 +120,40 @@ function WallPost({
   const label = t("aria.comments", { count: post.commentCount });
   // Who reacted heads the block of comments, as on XenForo; with no block, it sits under the bar.
   const block = hasWallComments(post, comments, earlier);
-  return (
+  const actions = {
+    kind: "post" as const,
+    item: post,
+    address: { profileUserId: post.profileUserId, postId: post.id },
+    viewerId,
+    picker,
+    reactionTypes,
+    viewList,
+    mayHardDelete,
+    mayUndelete,
+  };
+  // A deleted post folds to its deletion notice (`DeletedItem`), its comments with it.
+  const folded = post.state === "deleted";
+  const notice = folded && (
+    <WallDeletionNotice
+      tools={<WallItemActions {...actions} part="tools" />}
+      className="mt-0 mb-1"
+    />
+  );
+  const time = (
+    <>
+      <RelativeTime date={post.createdAt} />
+      {post.editedAt && <EditedMark date={post.editedAt} className="ml-1.5" />}
+    </>
+  );
+  const full = (
     <MessageRow
       id={anchor}
       author={member(post.author.id)}
-      time={
-        <>
-          <RelativeTime date={post.createdAt} />
-          {post.editedAt && (
-            <EditedMark date={post.editedAt} className="ml-1.5" />
-          )}
-        </>
-      }
+      time={time}
       actions={
         <WallItemActions
-          kind="post"
-          item={post}
-          address={{ profileUserId: post.profileUserId, postId: post.id }}
-          viewerId={viewerId}
-          picker={picker}
-          reactionTypes={reactionTypes}
-          viewList={viewList}
-          mayHardDelete={mayHardDelete}
+          {...actions}
+          part={folded ? "footer" : undefined}
           summary={!block}
           start={
             commentsHref ? (
@@ -192,11 +208,12 @@ function WallPost({
             picker={picker}
             reactionTypes={reactionTypes}
             viewList={viewList}
+            mayUndelete={mayUndelete}
           />
         )
       }
     >
-      <WallStateNote state={post.state} />
+      {notice || <WallStateNote state={post.state} />}
       <HtmlContent
         content={{ type: "profile_post", id: post.id }}
         attachments={post.attachments}
@@ -208,6 +225,18 @@ function WallPost({
         inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}
       />
     </MessageRow>
+  );
+  if (!folded) return full;
+  return (
+    <DeletedItem
+      collapsed={
+        <MessageRow id={anchor} author={member(post.author.id)} time={time}>
+          {notice}
+        </MessageRow>
+      }
+    >
+      {full}
+    </DeletedItem>
   );
 }
 
@@ -394,6 +423,9 @@ export async function Wall({
                 returnTo={returnTo}
                 mayHardDelete={
                   viewer.resolvedPermissions["profilePost.hardDelete"] === true
+                }
+                mayUndelete={
+                  viewer.resolvedPermissions["profilePost.undelete"] === true
                 }
               />
             );

@@ -57,6 +57,9 @@ const asked: string[] = [];
 let edited: number[] = [];
 // The posts the fake backend says two members reacted to, with its one reaction type.
 let reacted: number[] = [];
+// The posts the fake backend says were deleted, and what the viewer may do about them.
+let deleted: number[] = [];
+let viewerCan: Record<string, boolean> = {};
 const like = {
   id: 1,
   title: "Like",
@@ -85,10 +88,16 @@ function backend(signedIn = true) {
   asked.length = 0;
   edited = [];
   reacted = [];
+  deleted = [];
+  viewerCan = {};
   globalThis.fetch = (async (url: string) => {
     const { pathname, searchParams } = new URL(url);
     asked.push(`${pathname}?${searchParams}`);
-    if (pathname === "/api/v1/me") return Response.json(viewerBody(signedIn));
+    if (pathname === "/api/v1/me")
+      return Response.json({
+        ...viewerBody(signedIn),
+        resolvedPermissions: viewerCan,
+      });
     if (pathname === "/api/v1/reaction-types")
       return Response.json({ items: reacted.length > 0 ? [like] : [] });
     if (pathname === "/api/v1/member-cards")
@@ -100,6 +109,7 @@ function backend(signedIn = true) {
           id,
           bodyHtml: `<p>wall post ${id}</p>`,
           editedAt: edited.includes(id) ? "2026-01-02T00:00:00.000Z" : null,
+          state: deleted.includes(id) ? "deleted" : "visible",
           reactions: reacted.includes(id)
             ? { counts: { "1": 2 }, total: 2, mine: null }
             : { counts: {}, total: 0, mine: null },
@@ -315,4 +325,28 @@ test("on a phone a wall post's one avatar sits small in its header, so the comme
   expect(head).toContain("size-6 md:size-10");
   expect(head).toContain("md:row-span-2");
   expect(head).toContain("col-span-2 min-w-0 md:col-span-1 md:col-start-2");
+});
+
+test("a deleted wall post is folded to its author, time and notice, its comments with it", async () => {
+  backend();
+  deleted = [5];
+  viewerCan = { "profilePost.undelete": true, "profilePost.hardDelete": true };
+  const html = await wall({ cursor: "p3" });
+  const five = html.indexOf('id="profile-post-5"');
+  const four = html.indexOf('id="profile-post-4"');
+  const folded = html.slice(five, four);
+  expect(folded).not.toContain("wall post 5");
+  expect(folded).not.toContain("comment 103");
+  expect(folded).toContain("This was deleted.");
+  expect(folded).toMatch(/aria-expanded="false"[^>]*>Show…</);
+  expect(folded).toContain(">Restore<");
+  expect(folded).toContain('aria-label="Delete permanently"');
+  // The others are drawn in full.
+  expect(html).toContain("wall post 4");
+
+  backend();
+  deleted = [5];
+  const member = await wall({ cursor: "p3" });
+  expect(member).not.toContain(">Restore<");
+  expect(member).not.toContain("Delete permanently");
 });

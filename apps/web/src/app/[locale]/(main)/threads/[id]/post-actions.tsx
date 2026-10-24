@@ -13,6 +13,7 @@ import {
 import { ActionForm } from "@/components/forum/action-form";
 import { ContentActions } from "@/components/forum/content-actions";
 import { deleteMode } from "@/components/forum/delete-mode";
+import { DeletionTools } from "@/components/forum/deletion-notice";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
@@ -22,6 +23,8 @@ import type { ApiPost } from "@/lib/sermo/threads";
 // tools on the left; react, "+ Quote" and reply on the right; who reacted under it. Share and
 // bookmark sit in the post's header row (`PostItem`). Edit, delete and report are the backend's
 // word for the viewer (`canEdit`, `canDelete`, `canReport`); quoting needs the right to reply.
+// A deleted post's restore and delete sit on its deletion notice instead (`part`: "tools" there,
+// "footer" for the rest).
 export function PostActions({
   post,
   viewerId,
@@ -31,6 +34,7 @@ export function PostActions({
   noteState,
   canQuote,
   viewList,
+  part,
 }: {
   post: ApiPost;
   viewerId: number | null;
@@ -42,6 +46,8 @@ export function PostActions({
   noteState: boolean;
   canQuote: boolean;
   viewList?: boolean;
+  // Only the restore and delete ("tools"), or all but them ("footer"); all when left out.
+  part?: "tools" | "footer";
 }) {
   const t = useTranslations("threads.page");
   const actions = useTranslations("forum.contentActions");
@@ -57,6 +63,24 @@ export function PostActions({
   };
   const live = viewerId !== null && post.state !== "deleted";
   const removal = deleteMode(post, may.hardDeleteAny);
+  const remove =
+    viewerId !== null && removal.show
+      ? {
+          action: deletePostAction.bind(null, post.threadId, post.id),
+          permanent: removal.permanent,
+          warning: actions("deleteWarning"),
+          permanentHint: actions("hardDeletePostWarning"),
+        }
+      : undefined;
+  const moderation = noteState && mayRestore(may, post.state) && (
+    <ActionForm
+      action={restorePostAction.bind(null, post.threadId, post.id)}
+      submit={post.state === "moderated" ? t("approve") : t("restore")}
+    />
+  );
+  if (part === "tools")
+    return <DeletionTools remove={remove} moderation={moderation} />;
+  const tools = part !== "footer";
   return (
     <ContentActions
       layout="split"
@@ -73,30 +97,13 @@ export function PostActions({
           ? { href: `/threads/${post.threadId}/edit/${post.id}` }
           : undefined
       }
-      remove={
-        viewerId !== null && removal.show
-          ? {
-              action: deletePostAction.bind(null, post.threadId, post.id),
-              permanent: removal.permanent,
-              warning: actions("deleteWarning"),
-              permanentHint: actions("hardDeletePostWarning"),
-            }
-          : undefined
-      }
+      remove={tools ? remove : undefined}
       report={
         live && post.canReport
           ? { action: reportContent.bind(null, "post", post.id) }
           : undefined
       }
-      moderation={
-        noteState &&
-        mayRestore(may, post.state) && (
-          <ActionForm
-            action={restorePostAction.bind(null, post.threadId, post.id)}
-            submit={post.state === "moderated" ? t("approve") : t("restore")}
-          />
-        )
-      }
+      moderation={tools && moderation}
     />
   );
 }

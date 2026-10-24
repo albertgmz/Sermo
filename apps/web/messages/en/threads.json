@@ -23,8 +23,6 @@
     },
     "awaitingApproval": "This post is awaiting approval. Only you and the moderators can see it.",
     "deleted": "This post was deleted. Only moderators can see it.",
-    "deletedBy": "This post was deleted by {name}. Only moderators can see it.",
-    "deletedReason": "Reason: {reason}",
     "threadAwaitingApproval": "This thread is awaiting approval. Only you and the moderators can see it.",
     "threadDeleted": "This thread was deleted. Only moderators can see it.",
     "locked": "This thread is locked. It no longer accepts replies.",
@@ -34,7 +32,6 @@
     "openPicture": "Attached picture {position} of {total}",
     "restore": "Restore",
     "approve": "Approve",
-    "showDeleted": "Show the deleted post",
     "selectPost": "Select post {number}"
   },
   "replyComposer": {

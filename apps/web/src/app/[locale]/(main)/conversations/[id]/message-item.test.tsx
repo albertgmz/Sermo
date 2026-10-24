@@ -143,3 +143,16 @@ test("a message that is not visible is not quotable", async () => {
     expect(html).not.toContain("+ Quote");
   }
 });
+
+test("a deleted message is folded to its notice, as a thread's post, with Delete permanently for those allowed", async () => {
+  const folded = await drawn({ state: "deleted", canHardDelete: true });
+  expect(folded).not.toContain("<p>hi</p>");
+  expect(folded).toContain('id="message-11"');
+  expect(folded).toContain("This message was deleted.");
+  expect(folded).toMatch(/aria-expanded="false"[^>]*>Show…</);
+  expect(has(folded, "Delete permanently")).toBe(true);
+
+  const plain = await drawn({ state: "deleted" });
+  expect(has(plain, "Delete permanently")).toBe(false);
+  expect(plain).toContain("Show…");
+});

@@ -26,8 +26,13 @@ mock.module("next/cache", () => ({
   },
 }));
 
-const { deleteWallItem, editWallItem, hardDeleteWallPost, wallItemSource } =
-  await import("./actions");
+const {
+  deleteWallItem,
+  editWallItem,
+  hardDeleteWallPost,
+  restoreWallItem,
+  wallItemSource,
+} = await import("./actions");
 const { reportContent } = await import("../actions");
 const { deleteMessageAction, editMessageAction } = await import(
   "../conversations/actions"
@@ -114,6 +119,27 @@ test("deleting a wall post or a comment names the right record and refreshes", a
       ["DELETE", "/api/v1/profile-comments/44"],
     ],
   );
+  assert.equal(refreshed, 2);
+});
+
+test("restoring a deleted wall post or comment names the right record and refreshes; a refusal is shown", async () => {
+  answer = Response.json(profilePostBody());
+  assert.deepEqual(await restoreWallItem("post", 12, {}), {});
+  answer = Response.json(profileCommentBody());
+  assert.deepEqual(await restoreWallItem("comment", 44, {}), {});
+  assert.deepEqual(
+    asked.map(({ method, url }) => [method, new URL(url).pathname]),
+    [
+      ["POST", "/api/v1/profile-posts/12/restore"],
+      ["POST", "/api/v1/profile-comments/44/restore"],
+    ],
+  );
+  assert.equal(refreshed, 2);
+
+  answer = refusal();
+  assert.deepEqual(await restoreWallItem("post", 12, {}), {
+    error: "You may not do that.",
+  });
   assert.equal(refreshed, 2);
 });
 

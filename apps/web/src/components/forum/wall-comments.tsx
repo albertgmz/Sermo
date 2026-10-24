@@ -1,9 +1,11 @@
 import type { profilePostsList } from "@sermo/core/contracts";
-import { Hourglass, Trash2 } from "lucide-react";
+import { Hourglass } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type * as z from "zod";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { DeletedItem } from "@/components/forum/deleted-item";
+import { DeletionNotice } from "@/components/forum/deletion-notice";
 import {
   EarlierComments,
   type EarlierPage,
@@ -36,15 +38,34 @@ const linkRowClass = cn(
   "flex min-h-10 w-full items-center text-left font-medium underline-offset-4 hover:underline md:min-h-8",
 );
 
-// Says that a wall post or a comment is not visible to everyone; nothing for a visible one.
+// Says that a wall post or a comment is waiting for approval; a deleted one carries its deletion
+// notice instead (`WallDeletionNotice`).
 export function WallStateNote({ state }: { state: ApiWallPost["state"] }) {
   const t = useTranslations("forum.wallComments");
-  if (state === "visible") return null;
-  const Icon = state === "moderated" ? Hourglass : Trash2;
+  if (state !== "moderated") return null;
   return (
-    <PostNote icon={Icon} className="mt-0 mb-1">
-      {t(state === "moderated" ? "awaitingApproval" : "deleted")}
+    <PostNote icon={Hourglass} className="mt-0 mb-1">
+      {t("awaitingApproval")}
     </PostNote>
+  );
+}
+
+// The deletion notice of a deleted wall post or comment, holding its restore and delete (`tools`).
+export function WallDeletionNotice({
+  tools,
+  className,
+}: {
+  tools: React.ReactNode;
+  className?: string;
+}) {
+  const t = useTranslations("forum.wallComments");
+  return (
+    <DeletionNotice
+      deletion={null}
+      fallback={t("deleted")}
+      tools={tools}
+      className={className}
+    />
   );
 }
 
@@ -71,6 +92,8 @@ type RowProps = {
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
   viewList?: boolean;
+  // Bringing back a deleted comment (`profilePost.undelete`).
+  mayUndelete?: boolean;
 };
 
 // Comments in the order they were written, oldest first.
@@ -79,7 +102,8 @@ export const oldestFirst = (comments: ApiWallComment[]) =>
 
 // The rows of comments, oldest first: those a list is drawn with, and each batch of older ones
 // loaded into it. A comment is drawn as XenForo draws one: a small avatar, then the author's name,
-// the text and one quiet footer (date, report, "•••" | react), who reacted under it.
+// the text and one quiet footer (date, report, "•••" | react), who reacted under it. A deleted one
+// folds to the name and its deletion notice (`DeletedItem`).
 export function WallCommentRows({
   comments,
   profileUserId,
@@ -88,14 +112,36 @@ export function WallCommentRows({
   picker,
   reactionTypes,
   viewList,
+  mayUndelete,
 }: RowProps & { comments: ApiWallComment[] }) {
   return oldestFirst(comments).map((comment) => {
     const author = member(comment.author.id);
-    return (
+    const actions = {
+      kind: "comment" as const,
+      item: comment,
+      address: { profileUserId, postId: comment.profilePostId },
+      viewerId,
+      picker,
+      reactionTypes,
+      viewList,
+      mayUndelete,
+    };
+    const folded = comment.state === "deleted";
+    const notice = folded && (
+      <WallDeletionNotice
+        tools={<WallItemActions {...actions} part="tools" />}
+        className="mt-0 mb-1"
+      />
+    );
+    const row = (content: React.ReactNode, className?: string) => (
       <article
         key={comment.id}
         id={`profile-comment-${comment.id}`}
-        className={cn(rowClass, "flex scroll-mt-landing-gap gap-3 pt-2")}
+        className={cn(
+          rowClass,
+          "flex scroll-mt-landing-gap gap-3 pt-2",
+          className,
+        )}
       >
         <UserAvatar
           user={author}
@@ -106,29 +152,32 @@ export function WallCommentRows({
           <p className="leading-6 font-semibold [overflow-wrap:anywhere]">
             <UserLink user={author} />
           </p>
-          <WallStateNote state={comment.state} />
-          <HtmlContent
-            className="text-(length:--text-compact)"
-            content={{ type: "profile_post_comment", id: comment.id }}
-            attachments={comment.attachments}
-          >
-            {comment.bodyHtml}
-          </HtmlContent>
-          <PostAttachments
-            attachments={comment.attachments}
-            inline={inlineAttachmentIds(comment.bodyHtml, comment.attachments)}
-          />
-          <WallItemActions
-            kind="comment"
-            item={comment}
-            address={{ profileUserId, postId: comment.profilePostId }}
-            viewerId={viewerId}
-            picker={picker}
-            reactionTypes={reactionTypes}
-            viewList={viewList}
-          />
+          {content}
         </div>
       </article>
+    );
+    const full = row(
+      <>
+        {notice || <WallStateNote state={comment.state} />}
+        <HtmlContent
+          className="text-(length:--text-compact)"
+          content={{ type: "profile_post_comment", id: comment.id }}
+          attachments={comment.attachments}
+        >
+          {comment.bodyHtml}
+        </HtmlContent>
+        <PostAttachments
+          attachments={comment.attachments}
+          inline={inlineAttachmentIds(comment.bodyHtml, comment.attachments)}
+        />
+        <WallItemActions {...actions} part={folded ? "footer" : undefined} />
+      </>,
+    );
+    if (!folded) return full;
+    return (
+      <DeletedItem key={comment.id} collapsed={row(notice, "pb-1")}>
+        {full}
+      </DeletedItem>
     );
   });
 }

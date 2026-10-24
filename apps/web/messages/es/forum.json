@@ -400,10 +400,17 @@
     "deletePermanentlyHint": "Si eliges esta opción, el elemento se eliminará de forma permanente e irreversible.",
     "hardDelete": "Eliminar permanentemente",
     "hardDeleteConfirm": "Eliminar permanentemente",
+    "restore": "Restaurar",
     "hardDeletePostWarning": "El mensaje y sus reacciones, archivos y denuncias se borran para siempre. No se puede deshacer.",
     "hardDeleteCommentWarning": "El comentario y sus reacciones, archivos y denuncias se borran para siempre. No se puede deshacer.",
     "hardDeleteWallWarning": "La publicación del muro, sus comentarios, reacciones y denuncias se borran para siempre. No se puede deshacer.",
     "hardDeleteMessageWarning": "El mensaje y sus reacciones, archivos y denuncias se borran para siempre, también para los demás participantes. No se puede deshacer."
+  },
+  "deletionNotice": {
+    "by": "Eliminado por {name}",
+    "reason": "Razón: {reason}",
+    "show": "Mostrar…",
+    "hide": "Ocultar"
   },
   "editedMark": {
     "label": "Editado <time></time>"

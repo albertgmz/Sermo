@@ -80,6 +80,7 @@ export async function earlierComments(
     picker,
     reactionTypes,
     viewList: viewer.resolvedPermissions["reaction.viewList"] !== false,
+    mayUndelete: viewer.resolvedPermissions["profilePost.undelete"] === true,
   };
   return {
     rows: oldestFirst(comments).map((comment) => ({

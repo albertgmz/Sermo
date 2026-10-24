@@ -1,5 +1,5 @@
 import { threadsGet } from "@sermo/core/contracts";
-import { Hourglass, PenLine, Sparkles, Trash2 } from "lucide-react";
+import { Hourglass, PenLine, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SPLIT_FORM } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import { isNewPost } from "@/app/[locale]/(main)/threads/[id]/new-posts";
@@ -16,9 +16,15 @@ import {
   PostEditScope,
 } from "@/app/[locale]/(main)/threads/[id]/post-edit-scope";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
+import { DeletedItem } from "@/components/forum/deleted-item";
+import { DeletionNotice } from "@/components/forum/deletion-notice";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { attributionGadgetClass } from "@/components/forum/message-action";
-import { PostFrame, PostNote } from "@/components/forum/post-frame";
+import {
+  FoldedPostFrame,
+  PostFrame,
+  PostNote,
+} from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { quotable } from "@/components/forum/selection-bb";
 import { ShareButton } from "@/components/forum/share-button";
@@ -91,6 +97,69 @@ export function PostItem({
       ? quotable("post", post.id, post.author)
       : undefined;
 
+  const actionProps = {
+    post,
+    viewerId,
+    picker,
+    reactionTypes,
+    may,
+    noteState,
+    canQuote,
+    viewList,
+  };
+  // A deleted post folds to its deletion notice (`DeletedItem`), unless the thread itself says it
+  // is deleted; the notice then holds its restore and delete.
+  const folded = noteState && post.state === "deleted";
+  const notice = folded && (
+    <DeletionNotice
+      deletion={post.deletion}
+      fallback={t("deleted")}
+      tools={<PostActions {...actionProps} part="tools" />}
+    />
+  );
+  const trailing = (
+    <>
+      {/* On a phone the two marks are icons, their words for screen readers only, so the
+          row keeps room for the time. */}
+      {highlighted && (
+        <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">
+          <Sparkles aria-hidden="true" className="size-3 shrink-0" />
+          <span className={LABEL}>{t("highlightedLabel")}</span>
+        </span>
+      )}
+      {byThreadAuthor && (
+        <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium">
+          <PenLine aria-hidden="true" className="size-3 shrink-0" />
+          <span className={LABEL}>
+            {t.rich("authorLabel", {
+              hidden: (chunks) => <span className="sr-only">{chunks}</span>,
+            })}
+          </span>
+        </span>
+      )}
+      {isNew && <Badge className="mr-1">{t("newBadge")}</Badge>}
+      {post.state !== "deleted" && (
+        <ShareButton href={href} className={attributionGadgetClass} />
+      )}
+      {bookmarked !== null && (
+        <BookmarkButton
+          contentType="post"
+          contentId={post.id}
+          bookmarked={bookmarked}
+          className={attributionGadgetClass}
+          labelClassName="hidden"
+          floatingError
+        />
+      )}
+      <HashLink
+        href={href}
+        className={`${attributionGadgetClass} tabular-nums`}
+      >
+        {t("postNumber", { number })}
+      </HashLink>
+    </>
+  );
+
   const frame = (
     <PostFrame
       id={`post-${post.id}`}
@@ -98,60 +167,10 @@ export function PostItem({
       createdAt={post.createdAt}
       highlighted={highlighted}
       edited={inPlace ? <EditedStamp>{edited}</EditedStamp> : edited}
-      trailing={
-        <>
-          {/* On a phone the two marks are icons, their words for screen readers only, so the
-              row keeps room for the time. */}
-          {highlighted && (
-            <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">
-              <Sparkles aria-hidden="true" className="size-3 shrink-0" />
-              <span className={LABEL}>{t("highlightedLabel")}</span>
-            </span>
-          )}
-          {byThreadAuthor && (
-            <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium">
-              <PenLine aria-hidden="true" className="size-3 shrink-0" />
-              <span className={LABEL}>
-                {t.rich("authorLabel", {
-                  hidden: (chunks) => <span className="sr-only">{chunks}</span>,
-                })}
-              </span>
-            </span>
-          )}
-          {isNew && <Badge className="mr-1">{t("newBadge")}</Badge>}
-          {post.state !== "deleted" && (
-            <ShareButton href={href} className={attributionGadgetClass} />
-          )}
-          {bookmarked !== null && (
-            <BookmarkButton
-              contentType="post"
-              contentId={post.id}
-              bookmarked={bookmarked}
-              className={attributionGadgetClass}
-              labelClassName="hidden"
-              floatingError
-            />
-          )}
-          <HashLink
-            href={href}
-            className={`${attributionGadgetClass} tabular-nums`}
-          >
-            {t("postNumber", { number })}
-          </HashLink>
-        </>
-      }
+      trailing={trailing}
       signed={signed}
       actions={
-        <PostActions
-          post={post}
-          viewerId={viewerId}
-          picker={picker}
-          reactionTypes={reactionTypes}
-          may={may}
-          noteState={noteState}
-          canQuote={canQuote}
-          viewList={viewList}
-        />
+        <PostActions {...actionProps} part={folded ? "footer" : undefined} />
       }
     >
       {/* The first post cannot be split off: a hint that copies the backend's threads.split rule,
@@ -172,27 +191,8 @@ export function PostItem({
       {noteState && post.state === "moderated" && (
         <PostNote icon={Hourglass}>{t("awaitingApproval")}</PostNote>
       )}
-      {noteState && post.state === "deleted" && (
-        <PostNote icon={Trash2}>
-          {post.deletion ? (
-            <span>
-              {t("deletedBy", { name: post.deletion.by.username })}
-              {post.deletion.reason &&
-                ` ${t("deletedReason", { reason: post.deletion.reason })}`}
-            </span>
-          ) : (
-            t("deleted")
-          )}
-        </PostNote>
-      )}
-      {post.state === "deleted" ? (
-        <details className="mt-2">
-          <summary className="flex min-h-10 cursor-pointer items-center text-sm text-muted-foreground">
-            {t("showDeleted")}
-          </summary>
-          <PostBody post={post} />
-        </details>
-      ) : inPlace ? (
+      {notice}
+      {inPlace ? (
         <EditablePostBody canQuote={quote !== undefined}>
           <PostBody post={post} className="md:mt-1" quote={quote} />
         </EditablePostBody>
@@ -201,6 +201,22 @@ export function PostItem({
       )}
     </PostFrame>
   );
+  if (folded)
+    return (
+      <DeletedItem
+        collapsed={
+          <FoldedPostFrame
+            id={`post-${post.id}`}
+            author={author}
+            createdAt={post.createdAt}
+            trailing={trailing}
+            notice={notice}
+          />
+        }
+      >
+        {frame}
+      </DeletedItem>
+    );
   return inPlace ? (
     <PostEditScope
       target={{ kind: "post", threadId: post.threadId, postId: post.id }}

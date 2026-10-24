@@ -1,5 +1,5 @@
 import type { conversationsListMessages } from "@sermo/core/contracts";
-import { Hourglass, Trash2 } from "lucide-react";
+import { Hourglass } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type * as z from "zod";
 import { MessageActions } from "@/app/[locale]/(main)/conversations/[id]/message-actions";
@@ -9,8 +9,14 @@ import {
   EditedStamp,
   PostEditScope,
 } from "@/app/[locale]/(main)/threads/[id]/post-edit-scope";
+import { DeletedItem } from "@/components/forum/deleted-item";
+import { DeletionNotice } from "@/components/forum/deletion-notice";
 import { EditedMark } from "@/components/forum/edited-mark";
-import { PostFrame, PostNote } from "@/components/forum/post-frame";
+import {
+  FoldedPostFrame,
+  PostFrame,
+  PostNote,
+} from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { quotable } from "@/components/forum/selection-bb";
 import { authorsFor } from "@/lib/sermo/members";
@@ -65,6 +71,23 @@ export function MessageItem({
       quote={quote}
     />
   );
+  const actionProps = {
+    message,
+    viewerId,
+    picker,
+    reactionTypes,
+    viewList,
+    canQuote,
+  };
+  // A deleted message folds to its deletion notice (`DeletedItem`), as a thread's post does.
+  const folded = message.state === "deleted";
+  const notice = folded && (
+    <DeletionNotice
+      deletion={null}
+      fallback={t("deleted")}
+      tools={<MessageActions {...actionProps} part="tools" />}
+    />
+  );
   const frame = (
     <PostFrame
       id={`message-${message.id}`}
@@ -73,22 +96,13 @@ export function MessageItem({
       edited={inPlace ? <EditedStamp>{edited}</EditedStamp> : edited}
       signed={signed}
       actions={
-        <MessageActions
-          message={message}
-          viewerId={viewerId}
-          picker={picker}
-          reactionTypes={reactionTypes}
-          viewList={viewList}
-          canQuote={canQuote}
-        />
+        <MessageActions {...actionProps} part={folded ? "footer" : undefined} />
       }
     >
       {message.state === "moderated" && (
         <PostNote icon={Hourglass}>{t("awaitingApproval")}</PostNote>
       )}
-      {message.state === "deleted" && (
-        <PostNote icon={Trash2}>{t("deleted")}</PostNote>
-      )}
+      {notice}
       {inPlace ? (
         <EditablePostBody canQuote={quote !== undefined}>
           {body}
@@ -98,6 +112,21 @@ export function MessageItem({
       )}
     </PostFrame>
   );
+  if (folded)
+    return (
+      <DeletedItem
+        collapsed={
+          <FoldedPostFrame
+            id={`message-${message.id}`}
+            author={author}
+            createdAt={message.createdAt}
+            notice={notice}
+          />
+        }
+      >
+        {frame}
+      </DeletedItem>
+    );
   return inPlace ? (
     <PostEditScope
       target={{

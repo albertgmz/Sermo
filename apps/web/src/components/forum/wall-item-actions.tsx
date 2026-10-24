@@ -4,11 +4,14 @@ import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import {
   deleteWallItem,
   editWallItem,
+  restoreWallItem,
   wallItemSource,
 } from "@/app/[locale]/(main)/members/actions";
+import { ActionForm } from "@/components/forum/action-form";
 import { ContentActions } from "@/components/forum/content-actions";
 import { ContentMenu } from "@/components/forum/content-menu";
 import { deleteMode } from "@/components/forum/delete-mode";
+import { DeletionTools } from "@/components/forum/deletion-notice";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { InlineEditForm } from "@/components/forum/inline-edit-form";
 import { messageActionClass } from "@/components/forum/message-action";
@@ -77,7 +80,8 @@ export function WallItemSummary(props: ReactionsProps) {
 // react on the right, who reacted under it. The same on the profile wall as in the feed. What the
 // viewer may edit, delete or report is the backend's word (`canEdit`, `canDelete`, `canReport`);
 // editing happens in place. A post's summary goes in the block under it where there is one
-// (`summary` false).
+// (`summary` false). A deleted item's restore and delete sit on its deletion notice instead
+// (`part`: "tools" there, "footer" for the rest).
 export function WallItemActions({
   kind,
   item,
@@ -88,7 +92,9 @@ export function WallItemActions({
   start,
   viewList,
   mayHardDelete = false,
+  mayUndelete = false,
   summary = true,
+  part,
 }: {
   kind: "post" | "comment";
   item: Item;
@@ -101,8 +107,12 @@ export function WallItemActions({
   viewList?: boolean;
   // Deleting a wall post for good (`profilePost.hardDelete`), live or deleted.
   mayHardDelete?: boolean;
+  // Bringing a deleted one back (`profilePost.undelete`).
+  mayUndelete?: boolean;
   // Whether who reacted is drawn under the bar.
   summary?: boolean;
+  // Only the restore and delete ("tools"), or all but them ("footer"); all when left out.
+  part?: "tools" | "footer";
 }) {
   const t = useTranslations("forum.contentActions");
   const isComment = kind === "comment";
@@ -111,6 +121,25 @@ export function WallItemActions({
   // A comment says it itself; a wall post's right comes from the wall's resolved permissions.
   const hard = isComment ? item.canHardDelete === true : mayHardDelete;
   const removal = deleteMode({ ...item, canHardDelete: hard && !live }, hard);
+  const remove = removal.show
+    ? {
+        action: deleteWallItem.bind(null, kind, item.id),
+        permanent: removal.permanent,
+        warning: t("deleteWarning"),
+        permanentHint: t(
+          isComment ? "hardDeleteCommentWarning" : "hardDeleteWallWarning",
+        ),
+      }
+    : undefined;
+  const moderation = !live && mayUndelete && (
+    <ActionForm
+      action={restoreWallItem.bind(null, kind, item.id)}
+      submit={t("restore")}
+    />
+  );
+  if (part === "tools")
+    return <DeletionTools remove={remove} moderation={moderation} />;
+  const tools = part !== "footer";
   return (
     <ContentActions
       layout="wall"
@@ -151,20 +180,8 @@ export function WallItemActions({
             }
           : undefined
       }
-      remove={
-        removal.show
-          ? {
-              action: deleteWallItem.bind(null, kind, item.id),
-              permanent: removal.permanent,
-              warning: t("deleteWarning"),
-              permanentHint: t(
-                isComment
-                  ? "hardDeleteCommentWarning"
-                  : "hardDeleteWallWarning",
-              ),
-            }
-          : undefined
-      }
+      remove={tools ? remove : undefined}
+      moderation={tools && moderation}
       report={
         item.canReport &&
         viewerId !== null &&

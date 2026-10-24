@@ -5,6 +5,8 @@ import { HiddenWhileEditing } from "@/components/forum/in-place-edit";
 import { POSTBIT_FRAME, Postbit } from "@/components/forum/postbit";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SignatureHtml } from "@/components/forum/signature-html";
+import { UserAvatar } from "@/components/forum/user-avatar";
+import { UserLink } from "@/components/forum/user-link";
 import { formatDateTime } from "@/lib/format";
 import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -32,11 +34,45 @@ export function PostNote({
   );
 }
 
+// The header row of a post: the time, `after` it (the edited mark, or the author's name on a folded
+// post) and `trailing` at its right, a dashed rule under it, as XenForo's message attribution. A
+// plain function, so its markup stays part of the frame's own.
+function postHeader({
+  createdAt,
+  locale,
+  after,
+  trailing,
+}: {
+  createdAt: string;
+  locale: string;
+  after?: React.ReactNode;
+  trailing?: React.ReactNode;
+}) {
+  return (
+    // The rule spans the column exactly; only the row inside reaches into the padding on a phone,
+    // so the 40 px controls at its right line up with the card's edge.
+    <div className="mb-2 border-b border-dashed pb-0.5 md:mb-3 md:pb-1.5">
+      <div className="-mr-2.5 flex items-center justify-between gap-2 text-xs text-muted-foreground md:mr-0">
+        {/* The time is never cut short: what follows it gives way instead. */}
+        <div className="flex min-w-0 items-center gap-2">
+          <RelativeTime date={createdAt} className="shrink-0 md:hidden" />
+          <time dateTime={createdAt} className="hidden shrink-0 md:inline">
+            {formatDateTime(createdAt, locale)}
+          </time>
+          {after && <span className="min-w-0 truncate">{after}</span>}
+        </div>
+        {trailing && (
+          <div className="flex shrink-0 items-center">{trailing}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // The frame of a post in a thread or a message in a conversation: the author on the left (above
-// the text on a phone), then the header row (the time, `trailing` at its right, a dashed rule
-// under it, as XenForo's message attribution), the content, the signature and the actions (pushed to the bottom of the cell). What
-// differs is passed in. While the post is edited in place the editor is its content, and the
-// signature and the actions step aside.
+// the text on a phone), then the header row (`postHeader`), the content, the signature and the
+// actions (pushed to the bottom of the cell). What differs is passed in. While the post is edited
+// in place the editor is its content, and the signature and the actions step aside.
 export function PostFrame({
   id,
   author,
@@ -86,23 +122,7 @@ export function PostFrame({
       />
 
       <div className="flex min-w-0 flex-col">
-        {/* The rule spans the column exactly; only the row inside reaches into the padding on a
-            phone, so the 40 px controls at its right line up with the card's edge. */}
-        <div className="mb-2 border-b border-dashed pb-0.5 md:mb-3 md:pb-1.5">
-          <div className="-mr-2.5 flex items-center justify-between gap-2 text-xs text-muted-foreground md:mr-0">
-            {/* The time is never cut short: the edited mark gives way instead. */}
-            <div className="flex min-w-0 items-center gap-2">
-              <RelativeTime date={createdAt} className="shrink-0 md:hidden" />
-              <time dateTime={createdAt} className="hidden shrink-0 md:inline">
-                {formatDateTime(createdAt, locale)}
-              </time>
-              {edited && <span className="min-w-0 truncate">{edited}</span>}
-            </div>
-            {trailing && (
-              <div className="flex shrink-0 items-center">{trailing}</div>
-            )}
-          </div>
-        </div>
+        {postHeader({ createdAt, locale, after: edited, trailing })}
 
         {children}
 
@@ -117,6 +137,51 @@ export function PostFrame({
         {/* As XenForo's message footer: at the bottom of the cell, level with the bottom of the
             author column, however short the text. */}
         <div className="mt-auto">{actions}</div>
+      </div>
+    </article>
+  );
+}
+
+// A deleted post or message folded to one line inside a `DeletedItem`, as XenForo draws one: the
+// author's small avatar where the postbit stands (before the header on a phone), the header row
+// with the time and the author's name, and the deletion notice (`notice`) under it.
+export function FoldedPostFrame({
+  id,
+  author,
+  createdAt,
+  trailing,
+  notice,
+}: {
+  id: string;
+  author: AuthorView;
+  createdAt: string;
+  trailing?: React.ReactNode;
+  notice: React.ReactNode;
+}) {
+  const locale = useLocale();
+  return (
+    <article
+      id={id}
+      data-shortcut-item=""
+      className={cn(
+        "grid scroll-mt-landing-gap grid-cols-[auto_minmax(0,1fr)] gap-x-2 p-3 md:gap-x-4 md:p-4",
+        POSTBIT_FRAME.grid,
+      )}
+      style={POSTBIT_FRAME.style}
+    >
+      <UserAvatar
+        user={author.member}
+        size="sm-lg"
+        className="md:row-span-2 md:justify-self-center"
+      />
+      {postHeader({
+        createdAt,
+        locale,
+        after: <UserLink user={author.member} />,
+        trailing,
+      })}
+      <div className="col-span-2 min-w-0 md:col-span-1 md:col-start-2">
+        {notice}
       </div>
     </article>
   );

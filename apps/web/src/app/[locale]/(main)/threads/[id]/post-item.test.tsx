@@ -51,7 +51,10 @@ afterEach(() => {
 
 const ember = { id: 7, username: "ember" };
 
-function threadBody(readPosition: number | null) {
+function threadBody(
+  readPosition: number | null,
+  resolvedPermissions: Record<string, boolean> = {},
+) {
   return {
     thread: {
       id: 7,
@@ -106,11 +109,15 @@ function threadBody(readPosition: number | null) {
       canRemoveCover: false,
       canWatch: true,
     },
-    resolvedPermissions: {},
+    resolvedPermissions,
   };
 }
 
-function backend({ signedIn = true, readPosition = null as number | null }) {
+function backend({
+  signedIn = true,
+  readPosition = null as number | null,
+  resolved = {} as Record<string, boolean>,
+}) {
   globalThis.fetch = (async (input: string) => {
     const path = new URL(input).pathname;
     if (path === "/api/v1/member-authors")
@@ -146,7 +153,7 @@ function backend({ signedIn = true, readPosition = null as number | null }) {
     if (path === "/api/v1/bookmarks/status")
       return Response.json({ bookmarked: [] });
     if (path === "/api/v1/threads/7")
-      return Response.json(threadBody(readPosition));
+      return Response.json(threadBody(readPosition, resolved));
     if (path === "/api/v1/me") return Response.json(viewerBody(signedIn));
     return Response.json(
       { error: { code: "not_found", message: path } },
@@ -233,7 +240,8 @@ test("a deleted post has no share in its header", async () => {
       bodyHtml: "<p>hi</p>",
     }) as Parameters<typeof postRows>[0][number],
   ]);
-  expect(headerOf(html)).not.toContain('aria-label="Share"');
+  // Folded to its deletion notice, its text is not drawn until Show: no share anywhere on it.
+  expect(html).not.toContain('aria-label="Share"');
 });
 
 const deletedPost = (deletion: unknown) =>
@@ -255,7 +263,7 @@ test("a deleted post says who deleted it and why, to the moderators who see it",
       at: "2026-01-02T00:00:00.000Z",
     }),
   ]);
-  expect(html).toContain("This post was deleted by warden.");
+  expect(html).toContain("Deleted by warden");
   expect(html).toContain("Reason: Off topic");
   expect(html).not.toContain("This post was deleted. Only");
 });
@@ -270,7 +278,45 @@ test("a deleted post with no reason names only who deleted it, and one without a
     }),
     deletedPost(null),
   ]);
-  expect(named).toContain("This post was deleted by ember.");
+  expect(named).toContain("Deleted by ember");
   expect(named).not.toContain("Reason:");
   expect(plain).toContain("This post was deleted. Only moderators can see it.");
+});
+
+test("a deleted post is folded to one line until Show: who deleted it, when and why, none of its text", async () => {
+  backend({ readPosition: 3 });
+  const [html] = await drawn([
+    deletedPost({
+      by: { id: 4, username: "warden" },
+      reason: "Off topic",
+      at: "2026-01-02T00:00:00.000Z",
+    }),
+  ]);
+  expect(html).not.toContain("<p>hi</p>");
+  expect(html).toContain('id="post-33"');
+  expect(html).toContain('dateTime="2026-01-02T00:00:00.000Z"');
+  expect(html).toMatch(/aria-expanded="false"[^>]*>Show…</);
+  // The author and the post number stay on the line.
+  expect(html).toContain("ember");
+  expect(html).toContain(">#4<");
+});
+
+test("the folded line offers Restore and Delete permanently to the staff allowed, and neither to others", async () => {
+  backend({
+    readPosition: 3,
+    resolved: { "forum.undelete": true, "forum.hardDelete": true },
+  });
+  const deleted = {
+    ...(deletedPost(null) as object),
+    canHardDelete: true,
+  } as Parameters<typeof postRows>[0][number];
+  const [staff] = await drawn([deleted]);
+  expect(staff).toContain(">Restore<");
+  expect(staff).toContain('aria-label="Delete permanently"');
+
+  backend({ readPosition: 3 });
+  const [member] = await drawn([deletedPost(null)]);
+  expect(member).not.toContain(">Restore<");
+  expect(member).not.toContain("Delete permanently");
+  expect(member).toContain("Show…");
 });

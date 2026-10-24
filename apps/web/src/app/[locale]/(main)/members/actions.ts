@@ -5,11 +5,13 @@ import {
   profileCommentsDelete,
   profileCommentsGet,
   profileCommentsHardDelete,
+  profileCommentsRestore,
   profileCommentsUpdate,
   profilePostsCreate,
   profilePostsDelete,
   profilePostsGet,
   profilePostsHardDelete,
+  profilePostsRestore,
   profilePostsUpdate,
   usersFollow,
   usersUnfollow,
@@ -148,6 +150,24 @@ export async function deleteWallItem(
     else await call(profileCommentsDelete, { commentId: id, reason });
   });
   if (!deleted.ok) return { error: deleted.error };
+  refresh();
+  return {};
+}
+
+// Brings back a deleted wall post or comment (a moderator, as the backend allows) and draws the
+// page again.
+export async function restoreWallItem(
+  kind: WallItemKind,
+  id: number,
+  _previous: WallState,
+): Promise<WallState> {
+  if (!isKind(kind)) return {};
+  requireIds(id);
+  const restored = await attempt("/", async () => {
+    if (kind === "post") await call(profilePostsRestore, { profilePostId: id });
+    else await call(profileCommentsRestore, { commentId: id });
+  });
+  if (!restored.ok) return { error: restored.error };
   refresh();
   return {};
 }

@@ -400,10 +400,17 @@
     "deletePermanentlyHint": "Selecting this option will permanently and irreversibly delete the item.",
     "hardDelete": "Delete permanently",
     "hardDeleteConfirm": "Delete permanently",
+    "restore": "Restore",
     "hardDeletePostWarning": "The post and its reactions, files and reports are erased for good. This cannot be undone.",
     "hardDeleteCommentWarning": "The comment and its reactions, files and reports are erased for good. This cannot be undone.",
     "hardDeleteWallWarning": "The wall post, its comments, reactions and reports are erased for good. This cannot be undone.",
     "hardDeleteMessageWarning": "The message and its reactions, files and reports are erased for good, for the other participants too. This cannot be undone."
+  },
+  "deletionNotice": {
+    "by": "Deleted by {name}",
+    "reason": "Reason: {reason}",
+    "show": "Show…",
+    "hide": "Hide"
   },
   "editedMark": {
     "label": "Edited <time></time>"

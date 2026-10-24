@@ -10,6 +10,7 @@ import {
 import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import { ContentActions } from "@/components/forum/content-actions";
 import { deleteMode } from "@/components/forum/delete-mode";
+import { DeletionTools } from "@/components/forum/deletion-notice";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
@@ -23,7 +24,8 @@ type Message = z.output<
 // delete on the left; react, "+ Quote" and Reply on the right; who reacted under it. A private
 // message has no share. Edit, delete and report are the backend's word for the viewer (`canEdit`,
 // `canDelete`, `canHardDelete`, `canReport`); quoting and Reply need the right to reply here
-// (`canQuote`), and quoting a message everyone in the conversation sees.
+// (`canQuote`), and quoting a message everyone in the conversation sees. A deleted message's
+// delete sits on its deletion notice instead (`part`: "tools" there, "footer" for the rest).
 export function MessageActions({
   message,
   viewerId,
@@ -31,6 +33,7 @@ export function MessageActions({
   reactionTypes,
   viewList,
   canQuote,
+  part,
 }: {
   message: Message;
   viewerId: number | null;
@@ -39,9 +42,24 @@ export function MessageActions({
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
   viewList?: boolean;
   canQuote: boolean;
+  // Only the delete ("tools"), or all but it ("footer"); all when left out.
+  part?: "tools" | "footer";
 }) {
   const actions = useTranslations("forum.contentActions");
   const removal = deleteMode(message, false);
+  const remove = removal.show
+    ? {
+        action: deleteMessageAction.bind(
+          null,
+          message.conversationId,
+          message.id,
+        ),
+        permanent: removal.permanent,
+        warning: actions("deleteWarning"),
+        permanentHint: actions("hardDeleteMessageWarning"),
+      }
+    : undefined;
+  if (part === "tools") return <DeletionTools remove={remove} />;
   const reactions = {
     target: "message" as const,
     id: message.id,
@@ -73,20 +91,7 @@ export function MessageActions({
           ? { href: messageEditHref(message.conversationId, message.id) }
           : undefined
       }
-      remove={
-        removal.show
-          ? {
-              action: deleteMessageAction.bind(
-                null,
-                message.conversationId,
-                message.id,
-              ),
-              permanent: removal.permanent,
-              warning: actions("deleteWarning"),
-              permanentHint: actions("hardDeleteMessageWarning"),
-            }
-          : undefined
-      }
+      remove={part === "footer" ? undefined : remove}
       report={
         message.canReport &&
         viewerId !== null &&
