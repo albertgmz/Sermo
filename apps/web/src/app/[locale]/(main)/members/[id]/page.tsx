@@ -20,7 +20,6 @@ import {
 } from "@/components/forum/skeletons";
 import { TabSwitch } from "@/components/forum/tab-switch";
 import { activitiesFor } from "@/lib/sermo/activity";
-import { isRouterRequest } from "@/lib/sermo/request-page";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
@@ -95,12 +94,7 @@ export default async function ProfilePage({
         stamp={Date.now()}
         load={profileSections.bind(null, profile.id)}
       >
-        <ProfileSections
-          profile={profile}
-          query={query}
-          viewer={viewer}
-          inPlace={await isRouterRequest()}
-        />
+        <ProfileSections profile={profile} query={query} viewer={viewer} />
       </TabSwitch>
     </>
   );

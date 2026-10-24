@@ -3,7 +3,6 @@ import { Coins } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { Suspense } from "react";
 import { Content } from "@/app/[locale]/(main)/credits/content";
 import { creditsContent } from "@/app/[locale]/(main)/credits/credits-content";
 import { Ways } from "@/app/[locale]/(main)/credits/ways";
@@ -17,6 +16,7 @@ import {
   ShopSkeleton,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
+import { Streamed } from "@/components/forum/streamed";
 import { TabSwitch } from "@/components/forum/tab-switch";
 import { Container } from "@/components/layout/container";
 import { PageHero } from "@/components/layout/page-hero";
@@ -132,7 +132,7 @@ export default async function CreditsPage({
     <>
       <PageHero title={t("title")} subtitle={t("subtitle")} />
       <Container>
-        <Suspense
+        <Streamed
           fallback={
             <LoadingRegion label={t("aria.loadingBalance")}>
               <BalanceSkeleton />
@@ -140,14 +140,14 @@ export default async function CreditsPage({
           }
         >
           <Balance />
-        </Suspense>
+        </Streamed>
       </Container>
       <PageLayout
         className="pt-6"
         mainClassName="space-y-4"
         aside={
           <>
-            <Suspense
+            <Streamed
               fallback={
                 <LoadingRegion label={t("aria.loadingWays")}>
                   <MemberListSkeleton rows={3} />
@@ -155,8 +155,8 @@ export default async function CreditsPage({
               }
             >
               <Ways />
-            </Suspense>
-            <Suspense
+            </Streamed>
+            <Streamed
               fallback={
                 <LoadingRegion label={t("aria.loadingLeaders")}>
                   <MemberListSkeleton rows={10} />
@@ -164,11 +164,11 @@ export default async function CreditsPage({
               }
             >
               <Leaders />
-            </Suspense>
+            </Streamed>
           </>
         }
       >
-        <Suspense
+        <Streamed
           fallback={
             <LoadingRegion label={t("aria.loadingShop")}>
               <TabsSkeleton />
@@ -177,7 +177,7 @@ export default async function CreditsPage({
           }
         >
           <SwitchedContent searchParams={searchParams} />
-        </Suspense>
+        </Streamed>
       </PageLayout>
     </>
   );
