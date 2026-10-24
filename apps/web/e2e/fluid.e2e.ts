@@ -156,7 +156,10 @@ test.describe("signed in", () => {
 
     await summary.click();
     const popover = page.getByRole("dialog");
-    await expect(popover.getByRole("link", { name: PEER })).toBeVisible();
+    // The member's avatar and name are two links to the same page: either one shows who reacted.
+    await expect(
+      popover.getByRole("link", { name: PEER }).first(),
+    ).toBeVisible();
     await expectInPlace(page, "who reacted");
     expect(await scrollY(page)).toBe(before);
     // The list came from its own action, which drew nothing else again.
@@ -204,7 +207,9 @@ async function loadMoreAppends(page: Page, path: string) {
         Math.max(...rows.map((row) => Number(row.getAttribute("data-index")))),
       );
   const firstRow = page.locator('main [data-index="0"]');
-  const first = await firstRow.innerText();
+  // The row itself, not its text: the text moves on (a relative time, a comment box that draws
+  // once its code is in) while the page is read.
+  const first = await firstRow.getAttribute("data-key");
   const shown = await lastRow();
   await watch(page);
   const loads = screenLoads(page);
@@ -216,7 +221,7 @@ async function loadMoreAppends(page: Page, path: string) {
   );
   await expect.poll(lastRow).toBeGreaterThan(shown);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(firstRow).toHaveText(first);
+  await expect(firstRow).toHaveAttribute("data-key", first ?? "");
   await expectInPlace(page, `${path} load more`);
   expect(loads).toEqual([]);
 }
