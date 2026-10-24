@@ -272,6 +272,7 @@
   "That date does not exist.": "Esa fecha no existe.",
   "A birthday cannot be in the future.": "Un cumpleaños no puede estar en el futuro.",
   "Delete the profile post first; only a deleted one can be removed for good.": "Elimina primero la publicación de perfil; solo una eliminada se puede quitar para siempre.",
+  "Delete the comment first; only a deleted one can be removed for good.": "Elimina primero el comentario; solo uno eliminado se puede quitar para siempre.",
   "A promotion's rule cannot depend on a group it grants.": "La regla de una promoción no puede depender de un grupo que ella concede.",
   "A promotion's rule cannot depend on a group another promotion grants.": "La regla de una promoción no puede depender de un grupo que concede otra promoción.",
   "A promotion cannot grant a group another promotion's rule depends on.": "Una promoción no puede conceder un grupo del que depende la regla de otra promoción.",
