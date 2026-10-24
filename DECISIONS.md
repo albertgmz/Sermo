@@ -6956,3 +6956,22 @@ button and phone bars of bare icons.
 
 Why: the UI audit (A1, A38) found post quotes with an inline "wrote:" unlike every other quote,
 and spoiler labels in search results.
+
+### Documentation refreshed
+
+- The README is the project's front page: what Sermo is, its features by area, fcuba.net as the
+  live site, a Docker quick start, local development with the web app, the repository layout, the
+  test and benchmark commands, and a table of the guides. Operator detail moved out of it.
+- `docs/deployment.md` gathers what the README held for operators: every environment variable,
+  storage and moving files, the older pictures' WebP copies, both backup forms, and how a push to
+  `main` deploys the site. `docs/api.md` is new and holds registration, credentials, API keys and
+  MCP clients.
+- `docs/administration.md` gained a table of contents; its links point at the deployment guide,
+  and "Installing the forum" says the service worker shows Web Push messages (it has since "App
+  install and push notifications").
+- `apps/web/README.md` describes the hidden `[locale]` segment, the routes outside it and the
+  checks; `load/README.md` drops the Windows-only commands; the starter README counts 127 shop
+  items.
+
+Why: the README mixed a front page with an operator manual, and several facts had gone stale
+(the benchmark seed's size, the worker's push handling, Windows paths, routes outside `[locale]`).

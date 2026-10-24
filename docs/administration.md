@@ -5,7 +5,32 @@ tools moderators have, and how the economy, notifications, email and Web Push be
 REST API call (under `/api/v1`) and the operation name for each task. MCP clients call the same operations as
 tools, with dots replaced by underscores (`users.setGroups` becomes `users_setGroups`). Every
 operation is listed with its request and response schemas in `/api/v1/openapi.json`. Server
-installation and configuration are in the [README](../README.md).
+installation and configuration are in [deployment.md](deployment.md); sign-in, API keys and MCP
+clients are in [api.md](api.md).
+
+## Contents
+
+- [Groups](#groups)
+- [Permissions](#permissions)
+- [Promotions](#promotions)
+- [Economy](#economy): credits, credit rules, awards, the shop
+- [Moderation tools](#moderation-tools): reports, approval, warnings, bans, restrictions, IP
+  addresses, thread bans, merge and split
+- [Home page and What's new](#home-page-and-whats-new)
+- [Notifications](#notifications)
+- [Email](#email)
+- [Referrals](#referrals)
+- [Registration](#registration)
+- [Sign-up approval](#sign-up-approval)
+- [Batch update members](#batch-update-members)
+- [Deleting an account](#deleting-an-account)
+- [Cookie banner and consent](#cookie-banner-and-consent)
+- [Web Push](#web-push)
+- [Installing the forum](#installing-the-forum)
+- [Formatting for members](#formatting-for-members)
+- [Tags](#tags)
+- [Polls and quizzes](#polls-and-quizzes)
+- [Operations](#operations)
 
 ## Groups
 
@@ -1294,7 +1319,8 @@ The weekly digest uses the type id `digest.weekly` here (email on by default).
 
 ### Configuration
 
-Email is configured with environment variables (details in the README and `.env.example`):
+Email is configured with environment variables (see [deployment.md](deployment.md#variables) and
+`.env.example`):
 
 | Variable | Purpose |
 | --- | --- |
@@ -1650,7 +1676,7 @@ change, but a device that already installed it keeps what it had until the syste
 manifest.
 
 A small service worker (`/sw.js`, a file `bun run build` bundles with the app) is registered by
-production builds on `https` and `localhost`, once a page has loaded. It does two things only:
+production builds on `https` and `localhost`, once a page has loaded. It does three things:
 
 - It keeps the scripts, styles and fonts of the build (`/_next/static/`, named by their content, so
   they never change; pictures are left out, the data saver decides those) and serves them from the
@@ -1658,10 +1684,15 @@ production builds on `https` and `localhost`, once a page has loaded. It does tw
 - When a page cannot be loaded because the device has no connection, it shows a short page in
   English and Spanish with a button to try again. This page is kept from the first visit
   (`/offline.html`).
+- It shows the [Web Push](#web-push) messages: the title and body with the site's icon, one
+  notification per group (a followed thread, the reactions to one post). A tap opens the item's
+  address in a window of the site, or the home page for an address of another origin. When the
+  browser replaces a subscription, the worker sends the new one to `/push/subscription`, which saves
+  it on the account of the session cookie. A member turns pushes on per device in the account's
+  notification settings; on iOS only the installed app can receive them.
 
 Pages, the API, files, uploads and everything a member writes always go to the network and are
-never kept: there is no offline reading, no background sync and no push (the worker has no handler
-for the Web Push messages described above). A new deploy takes effect on the next visit: the
+never kept: there is no offline reading and no background sync. A new deploy takes effect on the next visit: the
 browser checks the worker script every time, a new worker replaces the old one at once, and it
 drops the caches of an older version.
 
@@ -1881,4 +1912,4 @@ The single server process runs everything; there is no separate worker to deploy
 - **Shutdown.** On `SIGTERM` or `SIGINT` the server stops accepting connections, finishes the
   requests in progress, writes buffered views, stops the scheduler and the job worker (waiting up
   to 30 seconds for the current job), closes the mail connection, and closes the database.
-- **Backups.** See [Backups](../README.md#backups) in the README.
+- **Backups.** See [Backup and restore](deployment.md#backup-and-restore) in the deployment guide.

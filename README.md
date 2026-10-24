@@ -1,62 +1,123 @@
 # Sermo
 
-Sermo is forum software: a backend with a REST API and an MCP tool endpoint, and a web app that is the forum people use, with its administration and moderation panel. The backend runs on Bun, TypeScript, SQLite, Hono, and Better Auth; the web app is Next.js and React.
+[![Bun 1.4.2](https://img.shields.io/badge/Bun-1.4.2-000000?logo=bun)](https://bun.sh)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs)](https://nextjs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## What is in the repository
+Sermo is forum software in the tradition of XenForo and Invision: forums and threads, profile
+walls, direct messages, reactions, an economy of credits, awards and a shop, and a full staff
+panel for moderation and administration. The backend is one Bun process over a single SQLite file
+that serves a REST API and an MCP endpoint from the same operation registry; the web app is a
+Next.js site that keeps no data and talks to the backend only over REST. It is built to stay fast
+on a large forum: every read and write is held to a latency budget on a seeded database of a
+million posts.
 
-| Path | What it is |
-| --- | --- |
-| `packages/core` | Business rules, every permission check, the schema and its migrations. |
-| `packages/api` | The HTTP server: REST under `/api/v1`, Better Auth under `/api/auth`, `/mcp`. |
-| `packages/mcp` | The MCP adapter: one tool per operation. |
-| `apps/web` | The web app. It keeps no data and reaches the backend only over REST ([apps/web/README.md](apps/web/README.md)). |
-| `scripts/starter` | Starter content for a fresh site ([scripts/starter/README.md](scripts/starter/README.md)). |
-| `bench` | The benchmark: its seed generator and scenarios. |
-| `docs` | Guides for deployment and for forum operators. |
-| `DECISIONS.md` | Every design decision and its reason. |
+**Live:** [fcuba.net](https://fcuba.net), a community of about 67,000 members, runs on Sermo.
 
-REST routes, the OpenAPI document and MCP tools are all derived from one operation registry in core. The OpenAPI document also covers every `/api/auth/*` endpoint. The single server process also runs migrations, the job worker, scheduler, and WAL checkpointer.
+## Contents
 
-## Run it
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Local development](#local-development)
+- [Repository layout](#repository-layout)
+- [Testing and benchmark](#testing-and-benchmark)
+- [Documentation](#documentation)
+- [License](#license)
 
-1. Copy the configuration: `cp .env.example .env`.
-2. Put a random secret in `BETTER_AUTH_SECRET` and set the three `SERMO_ADMIN_*` values for the first administrator.
-3. Run `docker compose up --build -d`.
-4. Open `http://localhost:8080` and sign in as that administrator. The API description is at `http://localhost:8080/api/v1/openapi.json`.
-5. A new site is empty. `docker compose exec sermo bun run starter:load --admin <username>` fills it with the starter forums, pictures, shop, awards and pages; everything it loads can be changed afterwards in the administration panel.
+## Features
 
-Three containers run: the backend, the web app and an ingress that is the only published port. [docs/deployment.md](docs/deployment.md) covers the layout, configuration, first run, upgrades, backups, the upload limit and TLS.
+**Forum and threads**
+- Categories, forums and sub-forums under section tabs; thread prefixes, sticky and locked threads,
+  thread covers, polls and quizzes, hashtags.
+- Stable post positions and keyset pagination, so a link to page 40 stays right while posts are
+  hidden or restored. Unread tracking per thread, bookmarks, watched threads and forums.
+- Full-text search (SQLite FTS5), Atom feeds, sitemaps, `llms.txt`, a Markdown copy of public
+  threads, IndexNow and structured data.
+- What's new (`/novedades`): Latest, Hot, Following and Media tabs beside the forum list on `/`.
 
-Compose mounts a named volume at `/data`; the database is `/data/sermo.db` and local uploads are under `/data/files`. Startup applies migrations to a new volume. `docker compose down` keeps the volume; `docker compose down -v` removes it and its data. Set `SERMO_STORAGE_DRIVER=s3` and the `SERMO_S3_*` values in `.env` to use Amazon S3 or Cloudflare R2 on a new installation; no image change is needed.
+**Editor**
+- A rich editor (Lexical) that reads and writes BB code, XenForo's tag set: quotes with their
+  author, spoilers, code, tables, lists, headings, colours and fonts.
+- Mentions, attachments with WebP copies for narrow screens, and embeds from YouTube, Vimeo,
+  Spotify, SoundCloud, TikTok, Instagram, X, Facebook, Reddit and Twitch.
+- Drafts kept while writing; BB code is rendered and sanitized once, at write time.
 
-To verify SQLite FTS5 in the image, run:
+**Members and community**
+- Profiles with walls and comments, follow and ignore, a member card on hover, who is online,
+  monthly standings, birthdays and referrals.
+- Direct messages with several participants, reactions on every kind of content.
+- An economy: credits with a ledger, credit rules, awards with XP and levels, and a shop of name
+  colours, frames, covers, perks and ranks.
+- English and Spanish interface, chosen per visitor; light and dark themes; a data saver that
+  stops pictures from loading.
+
+**Notifications and the app**
+- Alerts for replies, quotes, mentions, reactions, follows and messages, with per-type
+  preferences for the site, email and push.
+- Email through SMTP with one-click unsubscribe and a weekly digest for members who stay away.
+- Installable as an app (web manifest and a small service worker) with Web Push notifications.
+
+**Moderation and administration**
+- Groups, a permission engine with node and member-specific entries, and automatic promotions
+  driven by one shared criteria engine.
+- Reports, an approval queue, word filters, Cloudflare Turnstile, new-member limits, warnings,
+  bans, restrictions, thread bans, spam cleanup, thread merge and split, and a moderator log.
+- A staff panel for forums, groups, permissions, appearance, widgets, notices, broadcasts, static
+  pages, sign-up approval, batch member updates, account erasure and the cookie banner.
+
+**API and MCP**
+- A REST API under `/api/v1` with an OpenAPI document and a public reference page at `/developer`.
+- An MCP endpoint (`/mcp`, Streamable HTTP) with one tool per operation, authorized by the
+  member's API key and their own permissions.
+- Authentication by Better Auth: sessions, email verification, password reset and API keys;
+  XenForo bcrypt hashes from an import are accepted and upgraded on first sign-in.
+
+**Performance and security**
+- Budgets enforced by the benchmark: reads p95 at or below 20 ms, writes p95 at or below 50 ms,
+  nothing above 200 ms, on 1 million posts and 2 million reactions.
+- Denormalized counters, covering indexes checked by tests, no `OFFSET`, no N+1 queries, and a
+  background WAL checkpointer so requests never pay for it.
+- Every permission decision goes through one engine, with a static test that every operation
+  checks one. CSRF checks, JSON-only cookie writes, secure headers and per-bucket rate limits.
+- Uploads on the local disk or in Amazon S3 or Cloudflare R2.
+
+## Quick start
+
+Sermo runs in Docker as three containers: the backend, the web app and a Caddy ingress, which is
+the only published port.
 
 ```sh
-docker compose exec sermo bun -e "new (require('bun:sqlite').Database)(':memory:').run('create virtual table t using fts5(x)')"
+cp .env.example .env
+# Set BETTER_AUTH_SECRET (the command to make one is in .env.example) and the three
+# SERMO_ADMIN_* values for the first administrator.
+docker compose up --build -d
 ```
+
+Open `http://localhost:8080` and sign in as that administrator; the panel is at `/admin`. If port
+8080 is taken, set `INGRESS_PORT` and change `BETTER_AUTH_URL` with it.
+
+A new site is empty. To load the starter forums, pictures, shop, awards and pages:
+
+```sh
+docker compose exec sermo bun run starter:load --admin <username>
+```
+
+Everything it loads can be changed in the panel afterwards
+([scripts/starter/README.md](scripts/starter/README.md)). Configuration, upgrades, backups, TLS
+and the upload limit are in [docs/deployment.md](docs/deployment.md).
 
 ## Local development
 
-Install Bun 1.4.2, copy `.env.example` to `.env`, and set `BETTER_AUTH_SECRET` as above (or generate it with local Bun). Bun reads `.env` when the server starts. Then run:
+Install [Bun](https://bun.sh) 1.4.2, the version the images and CI use.
 
 ```sh
 bun install
-bun run start
+cp .env.example .env            # set BETTER_AUTH_SECRET
 ```
 
-The local database defaults to `./data/sermo.db`. `bun run check:fast` runs typecheck, lint and the tests of the backend, then the web app's typecheck, tests and production build. `bun run check` adds the full benchmark.
-
-The benchmark seeds a deterministic database with about 1 million posts and 2 million reactions in `SERMO_BENCH_DIR` (default `~/.cache/sermo-bench`), outside the repository. The seed is about 2.6 GB; each checkout keeps a working copy beside it, so the first run needs about 5.4 GB. Seeding takes about 45 seconds and repeats when migrations or the seed version change. Every scenario goes through the HTTP app and its middleware. Reads must have p95 at or below 20 ms, writes p95 at or below 50 ms, and no request may exceed 200 ms; password hashing is exempt. To run a subset:
-
-```sh
-bun run bench --only "threads.get"
-```
-
-Add `--reuse` on later runs to retain the scratch database between runs.
-
-## Development with the web app
-
-To run the API on port 8787 behind the web app on `http://localhost:3000`, set these in `.env` (or the shell) next to `BETTER_AUTH_SECRET`:
+To work on the web app, run the API on port 8787 behind it. Add these to `.env`:
 
 ```sh
 PORT=8787
@@ -65,142 +126,78 @@ SERMO_TRUSTED_PROXY_HEADER=x-forwarded-for
 SERMO_SESSION_COOKIE_CACHE=false
 ```
 
-`BETTER_AUTH_URL` is the web app's public origin. The web app resolves the visitor while rendering, where it cannot write cookies, so the session cookie cache stays off and every request checks the session table. Then load a small site into an empty database and start the API:
+`BETTER_AUTH_URL` is the web app's public origin. The web app resolves the visitor while
+rendering, where it cannot write cookies, so the session cookie cache stays off. Then:
 
 ```sh
-bun run dev:fixture
-bun run start
+bun run dev:fixture             # a small site in ./data/sermo.db
+bun run start                   # the API
+cd apps/web && bun run dev      # the web app on http://localhost:3000
 ```
 
-The fixture creates the members `nova` (administrator), `kestrel` (moderator), `ember` and `wren`, with two categories, four forums, six threads, a few reactions and one conversation. All four share the password in `SERMO_DEV_PASSWORD` (default `sermo-dev-password`). It refuses to run with `NODE_ENV=production` and does nothing when `nova` already exists.
+The fixture creates `nova` (administrator), `kestrel` (moderator), `ember` and `wren`, with two
+categories, four forums, six threads, a few reactions and one conversation. All four share the
+password in `SERMO_DEV_PASSWORD` (default `sermo-dev-password`). It refuses to run with
+`NODE_ENV=production` and does nothing when `nova` already exists.
+`bun run starter:load --admin nova` adds the starter content on top.
 
-Once the API is up, start the web app with `bun run dev` in `apps/web`; it reads the site's name and pictures from the API. `bun run starter:load --admin nova` adds the starter forums, shop, awards and pages to the fixture's site.
+The web app's own setup is in [apps/web/README.md](apps/web/README.md). Every interface string
+lives in both `apps/web/messages/en` and `apps/web/messages/es`; a test keeps them in step.
 
-## Authentication and clients
+## Repository layout
 
-Better Auth handles registration, sign-in, sessions, and API keys under `/api/auth`. Register with `POST /api/auth/sign-up/email` and a JSON body containing `email`, `password`, `name`, and `username`. The username is required, 3–32 characters long, and may contain letters, numbers, spaces, `.`, `-`, and `_`; use a letter or number at either end. An optional `displayUsername` must match the username apart from letter case; `name` is free text. Passwords must be 8–256 characters. Sign in with `POST /api/auth/sign-in/email` (email and password) or `POST /api/auth/sign-in/username` (username and password).
-
-When `SERMO_MAIL_DRIVER` is `capture` or `smtp`, new accounts join the Unconfirmed group. Better Auth emails a link to verify the address; following it moves the account to Member and sends a welcome email. Unconfirmed permissions determine what the account can do. With `SERMO_MAIL_DRIVER=none`, registration joins Member directly. Existing accounts keep their groups when email delivery is enabled. Better Auth also provides `POST /api/auth/send-verification-email`, `POST /api/auth/request-password-reset`, `POST /api/auth/reset-password`, `POST /api/auth/change-password`, and `POST /api/auth/change-email`. Email changes require confirmation at the new address. Password and email changes, API key creation, and bans send security notices. These messages cannot be unsubscribed from and do not count against the notification email cap. Verification, reset, and change-email requests are limited per client IP.
-
-Clients requesting a password reset must pass `redirectTo` in the `POST /api/auth/request-password-reset` body, using a trusted origin. Better Auth embeds it in the reset link and redirects there after the token is checked. A successful reset revokes the account's existing sessions.
-
-Browser clients use the session cookie. REST and MCP clients can send an API key as `Authorization: Bearer <key>` or `x-api-key: <key>`. Keys have the same permissions as their owner. The exception is changing groups, permissions, moderators and promotions (`groups.create`, `groups.update`, `groups.delete`, `users.setGroups`, `users.setSuperAdmin`, `permissions.set`, `nodes.setModerator`, `promotions.create`, `promotions.update`, `promotions.delete`, `promotions.apply`): a key is refused there, whether or not it sends a password, and a signed-in session must send the administrator's own password as `actorPassword`. Requests without credentials run as a guest. Cookie-carrying POST requests to `/api/auth/*`, including API key creation, need an `Origin` header equal to `BETTER_AUTH_URL`; Better Auth rejects a missing origin. Cookie-authenticated REST writes also need `Content-Type: application/json`.
-
-To create a key for an MCP client, sign in with an account (the bootstrapped admin is one option), then call the key creation endpoint with that session. For example, after setting `SERMO_USERNAME` and `SERMO_PASSWORD` in a POSIX shell with the default `BETTER_AUTH_URL`:
-
-```sh
-cookie_file=$(mktemp)
-curl -sS -c "$cookie_file" -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' -d "{\"username\":\"$SERMO_USERNAME\",\"password\":\"$SERMO_PASSWORD\"}" http://localhost:3000/api/auth/sign-in/username
-curl -sS -b "$cookie_file" -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' -d '{"name":"mcp-client"}' http://localhost:3000/api/auth/api-key/create
-rm -f "$cookie_file"
-```
-
-The shell-built JSON in the sign-in example needs proper JSON escaping if a username or password contains `"` or `\`. Copy the returned `key` immediately. A member has one key: a second request is refused with 409 (`API_KEY_EXISTS`) unless its body also has `"replace": true`, which ends the member's other keys once the new one exists. Signed-in members can also create, replace and revoke their key on the API and agents page of their account (`/account/api`). API keys cannot create or revoke other keys; manage them with a session. MCP uses stateless Streamable HTTP at `/mcp`. Tool names replace dots in operation names with underscores, for example `posts_create`. A raw tool-list request is:
-
-```sh
-curl -sS http://localhost:3000/mcp -H 'Authorization: Bearer sermo_your_key_here' -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-```
-
-A client configuration that supports Streamable HTTP can use the following shape; the `type` value varies by client:
-
-```json
-{
-  "mcpServers": {
-    "sermo": {
-      "type": "streamable-http",
-      "url": "http://localhost:3000/mcp",
-      "headers": { "Authorization": "Bearer sermo_your_key_here" }
-    }
-  }
-}
-```
-
-REST routes and their request and response schemas are documented at `/api/v1/openapi.json`.
-
-## Administration
-
-[docs/administration.md](docs/administration.md) is the guide for forum operators: groups,
-permissions and promotions, moderation tools, notifications, email, Web Push, member formatting,
-and background jobs.
-
-## Security and configuration
-
-BB code is rendered and sanitized before storage. Cookie-authenticated REST writes enforce origin based CSRF checks and JSON content type. The HTTP adapter sets secure headers and applies 60-second, in-memory limits: 300 reads (GET/HEAD), 60 writes, 30 searches, and 60 MCP requests. Buckets are per API key, per signed-in user, or per IP for guests. Better Auth limits its own sign-in and sign-up endpoints separately. The adapter discards client-supplied `x-sermo-client-ip` and sets that header from the socket or configured proxy header.
-
-| Variable | Purpose |
+| Path | What it is |
 | --- | --- |
-| `BETTER_AUTH_SECRET` | Required signing secret; generate at least 32 random bytes as shown above. |
-| `BETTER_AUTH_URL` | Required public server URL and trusted origin; use HTTPS for a public deployment. |
-| `SERMO_SITE_URL` | Public site origin for canonical links, sitemaps and feeds; defaults to `BETTER_AUTH_URL`. |
-| `SERMO_TRUSTED_ORIGINS` | Additional comma-separated origins allowed for cookie requests. |
-| `SERMO_TRUSTED_PROXY_HEADER` | Client IP header, such as `x-forwarded-for`; the adapter uses its last comma-separated value. Set it only with exactly one trusted proxy in front of Sermo that appends to this header; leave empty for direct connections. |
-| `SERMO_SESSION_COOKIE_CACHE` | `true` (default) keeps a signed copy of the session in a cookie for five minutes; `false` checks the session table on every request, for callers that cannot store refreshed cookies. |
-| `SERMO_ADMIN_USERNAME`, `SERMO_ADMIN_EMAIL`, `SERMO_ADMIN_PASSWORD` | Optional administrator bootstrap; set all three together. |
-| `PORT` | Listening port; Compose fixes it at `3000` inside the container. |
-| `SERMO_DB_PATH` | SQLite file path; Compose sets `/data/sermo.db`, local default is `./data/sermo.db`. |
-| `SERMO_FILES_DIR` | Local upload directory. Keep it under `/data` with Compose so the named volume persists files. |
-| `SERMO_STORAGE_DRIVER` | `local` (default) or `s3`. |
-| `SERMO_S3_BUCKET`, `SERMO_S3_ENDPOINT`, `SERMO_S3_REGION`, `SERMO_S3_ACCESS_KEY_ID`, `SERMO_S3_SECRET_ACCESS_KEY` | Bucket configuration. Use the R2 endpoint for Cloudflare R2; the endpoint is optional for Amazon S3. |
-| `SERMO_PUBLIC_FILES_URL` | Optional proxy or CDN origin for public profile and node images; it must forward Sermo file paths to this API. |
-| `SERMO_MAIL_DRIVER` | `none` (default), `capture` (in-memory development), or `smtp`. |
-| `SERMO_MAIL_FROM`, `SERMO_MAIL_REPLY_TO` | Sender address (required for SMTP) and optional reply-to address. |
-| `SERMO_SMTP_HOST`, `SERMO_SMTP_PORT`, `SERMO_SMTP_SECURE` | SMTP host, port (default 587), and TLS-on-connect flag (default false). |
-| `SERMO_SMTP_REQUIRE_TLS` | `true` or `false`. By default STARTTLS is required unless `SERMO_SMTP_SECURE=true` or the host is loopback (`localhost`, `127.0.0.0/8`, `::1`). Set `false` only for a plain-text relay on a private network, such as a sidecar container. |
-| `SERMO_SMTP_USER`, `SERMO_SMTP_PASSWORD` | Optional SMTP authentication credentials. |
-| `SERMO_BENCH_DIR` | Optional benchmark seed directory; default is `~/.cache/sermo-bench`. |
+| `packages/core` | Business rules, every permission check, the schema and its migrations, the Zod contracts of every operation. |
+| `packages/api` | The HTTP server (Hono): REST under `/api/v1`, Better Auth under `/api/auth`, `/mcp`, `/health`, feeds and sitemaps. |
+| `packages/mcp` | The MCP adapter: one tool per operation. |
+| `apps/web` | The web app: the forum, the account pages and the staff panel. |
+| `scripts` | The development fixture, the starter content loader, storage and maintenance commands, the staging site. |
+| `bench` | The benchmark: seed generator, harness and scenarios. |
+| `load` | k6 load tests against the staging site ([load/README.md](load/README.md)). |
+| `deploy`, `.github/workflows` | The production deployment: every push to `main` is checked, built and deployed. |
+| `docs` | Guides for deployment, administration and API clients. |
+| `DECISIONS.md` | Every design decision and its reason. |
 
-## Moving stored files
+REST routes, the OpenAPI document and the MCP tools all come from one operation registry in core.
+The single server process also runs migrations, the job worker, the scheduler and the WAL
+checkpointer; there is no separate worker to deploy.
 
-Stop the API before a driver migration. The command streams and hashes each live file, verifies the destination bytes, then switches that file's database record. It keeps the source bytes for rollback. If interrupted, rerun the same command; records already switched are skipped and a completed destination copy is reused.
+## Testing and benchmark
 
-For a Compose installation moving from local files to a bucket, set the `SERMO_S3_*` values in `.env`, then run:
+| Command | What it runs |
+| --- | --- |
+| `bun run check:fast` | Typecheck, lint (Biome), the backend tests, then the web app's typecheck, tests, production build and JavaScript budgets. CI runs this on every push to `main`. |
+| `bun run check` | All of the above plus the full benchmark. |
+| `bun test <path>` | The tests of one file or folder. |
+| `bun run bench --only "threads.get"` | The benchmark scenarios whose name starts with the prefix. Add `--reuse` to keep the scratch database between runs. |
+| `bun run e2e` (in `apps/web`) | The Playwright suite. |
 
-```sh
-docker compose stop sermo
-docker compose run --rm sermo bun run storage:migrate --from local --to s3
-```
+Tests use `bun:test` and sit next to the code. Backend tests run against a real in-memory SQLite
+database with every migration applied.
 
-When it reports completion, set `SERMO_STORAGE_DRIVER=s3` in `.env` and run `docker compose up -d`. Keep the API stopped until the command completes. Use `--from s3 --to local` to reverse the move. Local installations can run `bun run storage:migrate --from local --to s3` with the same environment variables. The command refuses unfinished file deletions; let the jobs worker finish those before stopping the API. Back up the database and local files before a move.
+The benchmark seeds a deterministic database (10,000 members, 1 million posts, 2 million reactions)
+in `SERMO_BENCH_DIR` (default `~/.cache/sermo-bench`), outside the repository. The seed is about
+3.4 GB and each checkout keeps a working copy beside it, so check free disk space before the first
+run; the seed is made again when the migrations or the seed version change. Every scenario goes
+through the HTTP app and its middleware. Reads must have p95 at or below 20 ms, writes p95 at or
+below 50 ms, and no request may exceed 200 ms; password hashing is exempt. Run it on an idle
+machine: other work on the same machine shows up as single slow requests.
 
-## Smaller copies of older pictures
+## Documentation
 
-Attachment pictures get WebP copies 640 and 1280 pixels wide when uploaded, which pages offer to narrower screens. Pictures uploaded before Sermo made them have none until this runs once after the upgrade, with the server's environment and the server running (`docker compose exec sermo bun run images:widths`, or `bun run images:widths` locally). It takes about 2.5 minutes per 1,000 pictures; run it at a quiet hour, with the server running (its checkpointer keeps the database log small; with the server stopped the log grows for the whole run and is folded back only when it ends). A picture whose stored bytes are missing or cannot be decoded is reported, passed over and makes the command exit non-zero; any other failure (storage, disk, memory), or a run in which most pictures cannot be read, stops it. If interrupted, run it again; pictures already done are skipped.
+| Document | For |
+| --- | --- |
+| [docs/deployment.md](docs/deployment.md) | Running a site: containers, configuration, first run, upgrades, backups, storage, TLS. |
+| [docs/administration.md](docs/administration.md) | Forum operators: groups, permissions, promotions, the economy, moderation, notifications, email, Web Push. |
+| [docs/api.md](docs/api.md) | API and MCP clients: registration, sign-in, API keys, MCP configuration. |
+| [apps/web/README.md](apps/web/README.md) | Working on the web app. |
+| [scripts/starter/README.md](scripts/starter/README.md) | The starter content loader. |
+| [load/README.md](load/README.md) | Load testing with k6. |
+| [DECISIONS.md](DECISIONS.md) | Why things are the way they are. |
 
-## Deliverability
+The version of the whole repository is in [VERSION](VERSION).
 
-For public email delivery, use a dedicated sending domain and configure SPF, DKIM, DMARC, and reverse DNS with the SMTP provider. Monitor rejections and the `email_failures` and `undeliverable_emails` tables. Only synchronous SMTP rejections are recorded; asynchronous bounces after SMTP acceptance are not processed. Unsubscribe-all writes explicit preferences for the notification types registered at that time. Types added later follow the site defaults and can be changed in notification preferences.
+## License
 
-Each email is marked as sent before it is handed to the SMTP server, so a crash can lose an email (delivery is at most once as far as the process is concerned; a server reply lost after the server accepted the message can still cause a resend); a graceful stop (`SIGTERM`, `docker compose stop`) waits up to 30 seconds for the job in progress. If the process crashes or is killed between marking and sending, those emails are not sent: a notification email is lost, and up to 5 members (the group of the digest batch being sent) miss that week's digest. Failures the server reports are recorded in `email_failures`. An address is marked undeliverable only when the server refuses it at `RCPT TO` with 550, 551 or 553 and an enhanced status of 5.1.x or 5.2.1; a bare 550 (for example "Relaying denied") is not enough. A notification email is otherwise retried up to five times. In the weekly digest, failures are classified: a connection, authentication or sender failure, or any temporary (4xx) reply, resumes the digest from that member later, and a member whose delivery still fails that way after five attempts is skipped so the digest reaches everyone else. A policy refusal (any 5.7.x status, or a refused message without a 5.1.x or 5.2.x status, such as a DMARC failure) concerns the sending account, so the digest is resumed later in the same way but nobody is skipped: if it persists, the digest stops after five attempts. A member whose message cannot be built, or whose address or message the server refuses for their own reasons (5.1.x, 5.2.x, or a bare 5xx reply to the recipient), is recorded and skipped. Digests are not counted against the hourly email cap.
-
-## Backups
-
-SQLite uses WAL mode. The image has no `sqlite3` executable. For a live backup, use Bun's SQLite binding to write a consistent copy with `VACUUM INTO`, copy it off the volume, then remove the temporary copy there:
-
-```sh
-docker compose exec sermo bun -e "new (require('bun:sqlite').Database)('/data/sermo.db').run(\"VACUUM INTO '/data/sermo-backup.db'\")"
-docker compose cp sermo:/data/sermo-backup.db ./sermo-backup.db
-docker compose exec sermo bun -e "require('node:fs').unlinkSync('/data/sermo-backup.db')"
-```
-
-For an offline backup, stop the service and copy the main database file from the stopped container:
-
-```sh
-docker compose stop
-docker compose cp sermo:/data/sermo.db ./sermo.db
-docker compose start
-```
-
-A graceful stop folds the WAL into the main file. After a crash, also copy `sermo.db-wal` before starting the service. Keep backups outside the Compose volume and protect them like the live database.
-
-## Web Push
-
-Web Push is disabled until all three VAPID settings are set. Generate a permanent key pair with
-`bunx web-push generate-vapid-keys --json`, then set `SERMO_VAPID_PUBLIC_KEY` and
-`SERMO_VAPID_PRIVATE_KEY` from the output. Set `SERMO_VAPID_SUBJECT` to a contact URI such as
-`mailto:admin@example.com` (or an HTTPS URL). Keep the private key secret and retain the same
-pair across restarts so existing browser subscriptions stay valid. Clients can read the public key
-from `GET /api/v1/push/public-key`, register devices with `PUT /api/v1/push/subscriptions`,
-list their devices with `GET /api/v1/push/subscriptions`, and remove one with
-`DELETE /api/v1/push/subscriptions`. Subscriptions are limited to ten per member; the oldest is
-replaced when an eleventh device is registered. Endpoints must belong to the supported Google,
-Mozilla, Microsoft, or Apple push services.
+[MIT](LICENSE).

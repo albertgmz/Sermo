@@ -20,6 +20,12 @@ export BETTER_AUTH_SECRET=... BETTER_AUTH_URL=http://localhost:3000
 bun run starter:load --admin nova
 ```
 
+On a Docker installation the backend container already has that environment:
+
+```sh
+docker compose exec sermo bun run starter:load --admin <username>
+```
+
 The environment is the one the server and `dev:fixture` read. `--admin` must name an existing
 member with administration rights; otherwise the loader says so and stops.
 
@@ -71,7 +77,7 @@ is already in use, apart from the re-creations described above.
 | 10 profile covers, 8 thread covers | `data/covers.json`, `assets/covers`, `assets/thread-covers` |
 | 3 forum tabs, 7 categories, 20 forums, 2 sub-forums, their icon and cover; 8 thread prefixes | `data/forums.json`, `assets/forums` |
 | 3 groups for the paid ranks (Ember, Blaze, Inferno) with name colour, badge and perks | `data/shop.json` |
-| 7 shop categories and 126 items (frames, name colours, name icons, thread covers, boosts, perks, ranks) with prices, effects and pictures | `data/shop.json`, `assets/shop` |
+| 7 shop categories and 127 items (frames, name colours, name icons, thread covers, boosts, perks, ranks) with prices, effects and pictures | `data/shop.json`, `assets/shop` |
 | 17 awards with tier, XP, criteria where one exists, and picture | `data/awards.json`, `assets/awards` |
 | Logo and icon | `assets/site` |
 | Level titles and step, signature and title limits, standing weights, 4 credit rules, reaction types | `data/settings.json` |
