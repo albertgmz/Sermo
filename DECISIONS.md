@@ -6733,3 +6733,15 @@ the background.
 
 Why: the owner wanted conversations and threads in exactly the same interface, with only the
 private rules different.
+
+### A deleted item is folded to one line
+
+- For staff who may see deleted content, a deleted post, conversation message, wall post or
+  comment is one line, as XenForo draws it: the author, the time and "Eliminado por X · fecha ·
+  Motivo: Y"; "Mostrar…" opens it in place and "Ocultar" folds it again; Restore and Delete
+  permanently sit beside the line for those allowed (conversation messages have no restore).
+  `Message`, `ProfilePost` and `ProfileComment` now carry the deletion (`PostDeletion`, moved to
+  `contracts/common.ts`), filled only for viewers allowed to see the deleted item and read in
+  one batch per page; everyone else gets null.
+
+Why: the owner wanted a deleted message minimised so it does not interrupt reading.
