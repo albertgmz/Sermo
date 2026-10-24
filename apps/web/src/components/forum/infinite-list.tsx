@@ -16,6 +16,7 @@ import { useTranslations } from "next-intl";
 import {
   type ReactNode,
   useCallback,
+  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -309,7 +310,14 @@ export function InfiniteList({
     () => true,
     () => false,
   );
-  const shown = live ? loaded : loaded.slice(0, 1);
+  // The pages drawn, behind the pages held: rows that arrive (Load more, the newest entries, a
+  // redraw) are drawn in the background and swapped in once all of them can be, the rows shown
+  // staying until then. A row still on its way (a part the server streams, a component's code not
+  // yet fetched) would otherwise suspend the list in an urgent render, and the nearest boundary
+  // above it is the page's own: its loading placeholder would take the place of the whole list.
+  const shown = useDeferredValue(live ? loaded : loaded.slice(0, 1));
+  // Rows that came and are not drawn yet: the button says it is still loading.
+  const settling = live && shown !== loaded;
   const rows = useMemo(() => flattenRows(shown), [shown]);
   const nextCursor = shown[shown.length - 1]?.nextCursor ?? null;
   const newest = newestAt(rows);
@@ -553,15 +561,15 @@ export function InfiniteList({
                   return;
                 if (event.shiftKey || event.altKey) return;
                 event.preventDefault();
-                if (!isFetching) void fetchNextPage();
+                if (!isFetching && !settling) void fetchNextPage();
               }}
             >
-              {isFetching ? (
+              {isFetching || settling ? (
                 <LoaderCircle className="animate-spin" />
               ) : (
                 <ChevronDown />
               )}
-              {isFetching ? t("loading") : moreLabel}
+              {isFetching || settling ? t("loading") : moreLabel}
             </a>
           </div>
         )

@@ -117,7 +117,9 @@ export function EarlierComments({
       focus: document.activeElement === button.current,
     };
     current.current = next;
-    setPage(next);
+    // A transition: comments still on their way keep the ones shown instead of suspending the page's
+    // boundary behind the post (an update after an await is no longer the press's transition).
+    startTransition(() => setPage(next));
   };
 
   // A new `load` is the list drawn again: what was loaded is read again.

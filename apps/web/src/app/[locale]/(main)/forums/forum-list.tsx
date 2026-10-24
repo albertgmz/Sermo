@@ -1,5 +1,6 @@
 import { forumTabsList, nodesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 import { ForumMarkRead } from "@/app/[locale]/(main)/forums/[id]/forum-mark-read";
 import { forumSection } from "@/app/[locale]/(main)/forums/forum-list-page";
 import {
@@ -15,7 +16,6 @@ import {
   LoadingRegion,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
-import { Streamed } from "@/components/forum/streamed";
 import { TabLinks } from "@/components/forum/tab-links";
 import { TabSwitch } from "@/components/forum/tab-switch";
 import { read } from "@/lib/sermo/client";
@@ -78,7 +78,7 @@ export async function ForumList({ params }: { params: Query }) {
       load={forumSection}
       className="space-y-(--page-gap)"
     >
-      <Streamed
+      <Suspense
         fallback={
           <LoadingRegion label={t("aria.loadingCategories")}>
             <TabsSkeleton />
@@ -87,7 +87,7 @@ export async function ForumList({ params }: { params: Query }) {
         }
       >
         <ForumCategories section={section} stats={stats} />
-      </Streamed>
+      </Suspense>
     </TabSwitch>
   );
 }

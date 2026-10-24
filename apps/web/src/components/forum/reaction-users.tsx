@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // The list of who reacted, asked for when the popover opens (it mounts only then).
@@ -14,8 +14,13 @@ export function ReactionUsers({
   const [list, setList] = useState<React.ReactNode>();
   const [failed, setFailed] = useState(false);
 
+  // The list goes in as a transition: a row still on its way (a member link's code not fetched yet)
+  // keeps the placeholder rows a moment instead of suspending the page's boundary behind the post.
   useEffect(() => {
-    load().then(setList, () => setFailed(true));
+    load().then(
+      (found) => startTransition(() => setList(found)),
+      () => setFailed(true),
+    );
   }, [load]);
 
   if (failed) {

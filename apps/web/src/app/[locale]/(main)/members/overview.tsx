@@ -9,7 +9,7 @@ import { Cake, Crown, Flag } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { cache } from "react";
+import { cache, Suspense } from "react";
 import { MemberSearch } from "@/app/[locale]/(main)/members/member-search";
 import { staffUser } from "@/app/[locale]/(main)/members/staff-list";
 import {
@@ -36,7 +36,6 @@ import {
   StandingList,
   WinnerList,
 } from "@/components/forum/standing";
-import { Streamed } from "@/components/forum/streamed";
 import { read } from "@/lib/sermo/client";
 
 const TOP = 5;
@@ -228,7 +227,7 @@ export function Overview({ viewerId }: { viewerId?: number }) {
   const views = useTranslations("members.views");
   return (
     <>
-      <Streamed
+      <Suspense
         fallback={
           <LoadingRegion label={t("loadingMonth")}>
             <MonthHeroSkeleton />
@@ -236,9 +235,9 @@ export function Overview({ viewerId }: { viewerId?: number }) {
         }
       >
         <MemberOfTheMonth />
-      </Streamed>
+      </Suspense>
 
-      <Streamed
+      <Suspense
         fallback={
           <LoadingRegion label={t("loadingRace")}>
             <RaceWinnersSkeleton />
@@ -246,7 +245,7 @@ export function Overview({ viewerId }: { viewerId?: number }) {
         }
       >
         <RaceAndWinners viewerId={viewerId} />
-      </Streamed>
+      </Suspense>
 
       <section aria-labelledby="notable-members" className="space-y-3">
         <h2
@@ -262,7 +261,7 @@ export function Overview({ viewerId }: { viewerId?: number }) {
               title={views(view.label)}
               action={<ViewLink view={view.value}>{t("viewMore")}</ViewLink>}
             >
-              <Streamed
+              <Suspense
                 fallback={
                   index === 0 ? (
                     <LoadingRegion label={t("loadingNotable")}>
@@ -274,7 +273,7 @@ export function Overview({ viewerId }: { viewerId?: number }) {
                 }
               >
                 <NotablePodium view={view} viewerId={viewerId} />
-              </Streamed>
+              </Suspense>
             </SectionCard>
           ))}
         </div>
@@ -289,7 +288,7 @@ export function Overview({ viewerId }: { viewerId?: number }) {
             title={t("staffHeading")}
             action={<ViewLink view="staff">{t("viewMore")}</ViewLink>}
           >
-            <Streamed
+            <Suspense
               fallback={
                 <LoadingRegion label={t("loadingCommunity")}>
                   <StaffRowsSkeleton />
@@ -297,7 +296,7 @@ export function Overview({ viewerId }: { viewerId?: number }) {
               }
             >
               <StaffRows />
-            </Streamed>
+            </Suspense>
           </SectionCard>
 
           <div className="grid gap-3">
@@ -305,9 +304,9 @@ export function Overview({ viewerId }: { viewerId?: number }) {
               title={t("newestHeading")}
               action={<ViewLink view="all">{t("viewMore")}</ViewLink>}
             >
-              <Streamed fallback={<NewestMembersSkeleton />}>
+              <Suspense fallback={<NewestMembersSkeleton />}>
                 <NewestMembersList />
-              </Streamed>
+              </Suspense>
               <section
                 aria-labelledby="find-member-heading"
                 className="px-4 py-3"
@@ -323,9 +322,9 @@ export function Overview({ viewerId }: { viewerId?: number }) {
             </SectionCard>
 
             <SectionCard title={t("birthdaysHeading")}>
-              <Streamed fallback={<BirthdaysSkeleton />}>
+              <Suspense fallback={<BirthdaysSkeleton />}>
                 <Birthdays />
-              </Streamed>
+              </Suspense>
             </SectionCard>
           </div>
         </div>
