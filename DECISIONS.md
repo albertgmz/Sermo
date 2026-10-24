@@ -6763,3 +6763,20 @@ Why: the owner wanted a deleted message minimised so it does not interrupt readi
 
 Why: the owner wanted to see guests and where everyone is, the place only for the last hour,
 and later asked for the viewed page in the profile, the member card and the online widget.
+
+### Thread lists, tag pages and conversations are numbered pages
+
+- Forum and tag thread lists, the conversation list and the messages of a conversation use the
+  shared numbered pager: pages turn in place with the address and Back kept, and a page past the
+  last goes to the last. Sticky threads are on page one only and not counted. Members' totals
+  come from the stored thread count; moderators' also count held and deleted threads. Tag pages
+  number at most the newest 500 threads the viewer may see, as XenForo's tag page. A
+  conversation now opens at page one with its oldest messages, like a thread; its unread and
+  message links land on the page that holds the message, and only its last page marks it read.
+  Totals (nullable, null on reads without a page) are counted only when a page is asked for.
+- The one exception to the no-OFFSET rule: a forum page is found by a bounded walk of the
+  thread rows from the nearer end of the list (worst case the middle page, about 5,600 rows on
+  production's biggest forum; under 2 ms warm on the bench seed). Indexes would not make it
+  index-only, because `sort_at` is a virtual generated column.
+
+Why: the owner wanted XenForo's page numbers with a jump to any page instead of "load more".
