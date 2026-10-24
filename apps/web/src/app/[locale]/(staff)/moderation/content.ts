@@ -160,7 +160,8 @@ export async function describe(
     );
     if (!post) return nothing;
     return {
-      author: post.author,
+      author: memberOf(post.author),
+      guest: guestOf(post.author),
       bodyHtml: post.bodyHtml,
       attachments: post.attachments,
       excerpt: plainExcerpt(post.bodyHtml),
@@ -180,7 +181,8 @@ export async function describe(
       call(profilePostsGet, { profilePostId: comment.profilePostId }),
     );
     return {
-      author: comment.author,
+      author: memberOf(comment.author),
+      guest: guestOf(comment.author),
       bodyHtml: comment.bodyHtml,
       attachments: comment.attachments,
       excerpt: plainExcerpt(comment.bodyHtml),

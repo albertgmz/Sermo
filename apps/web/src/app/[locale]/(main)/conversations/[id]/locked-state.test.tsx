@@ -45,7 +45,7 @@ const conversation = {
   lastMessage: {
     messageId: 9,
     sentAt: stamp,
-    user: { id: 1, username: "ember" },
+    user: { kind: "member" as const, id: 1, username: "ember" },
   },
   messageCount: 4,
   participantCount: 2,

@@ -11,6 +11,7 @@ import { type Ctx, prepared } from "./context";
 import { GUEST_ACCOUNT_ID } from "./db/schema";
 import { ValidationError } from "./errors";
 import { MAX_BODY_LENGTH } from "./limits";
+import { guestAuthorLabel } from "./modules/forums/guest-author";
 import { readGates } from "./modules/forums/read-gates";
 import { knownTagNames } from "./modules/tags/store";
 import {
@@ -519,10 +520,10 @@ function renderOnce(
         if (!guestPost)
           quotes.push({ postId: row.id, userId: previous.quotes.get(row.id) ?? row.user_id });
       }
-      // A guest's post is cited by the name the guest gave (else the one typed), with no member
+      // A guest's post is cited by the name the guest gave (else the site's word for a guest), with no member
       // and no quote reference: the guest account is nobody to name or to alert.
       if (guestPost) {
-        quote.resolvedAuthor = row.guest_name ?? quote.author ?? undefined;
+        quote.resolvedAuthor = row.guest_name ?? guestAuthorLabel(ctx);
         continue;
       }
       quote.resolvedAuthor = previous.quoteAuthors.get(row.id) ?? row.username;
@@ -575,6 +576,11 @@ function resolveMessageQuotes(ctx: Ctx, conversationId: number, quotes: El[]): v
   for (const el of messageQuotes) {
     const row = byMessage.get(el.quote!.messageId!);
     if (!row) continue;
+    // A message a deleted member left is cited by the site's word for a guest, with no member.
+    if (row.user_id === GUEST_ACCOUNT_ID) {
+      el.quote!.resolvedAuthor = guestAuthorLabel(ctx);
+      continue;
+    }
     el.quote!.resolvedAuthor = row.username;
     el.quote!.userId = row.user_id;
   }

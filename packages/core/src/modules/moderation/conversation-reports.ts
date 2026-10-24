@@ -6,6 +6,7 @@ import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { can, currentActor, requirePermission } from "../../permissions";
 import { iso } from "../../time";
+import { contentAuthor } from "../forums/guest-author";
 import { appendModeratorLog } from "./index";
 
 type Message = {
@@ -69,8 +70,11 @@ export const reportsViewConversationMessageOp = implement(
         title: report.title,
         messages: [...before, center, ...after].map((m) => ({
           id: m.id,
-          authorId: m.author_id,
-          authorUsername: m.author_username,
+          author: contentAuthor(
+            () => ({ id: m.author_id, username: m.author_username }),
+            m.author_id,
+            null,
+          ),
           bodyHtml: m.body_html,
           createdAt: iso(m.created_at),
           reported: m.id === report.message_id,

@@ -45,6 +45,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { formatNumber } from "@/lib/format";
 import { type ListPage, type ListRow, pagesParam } from "@/lib/list-pages";
+import type { Lookup } from "@/lib/sermo/authors";
 import { call, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { membersFor } from "@/lib/sermo/members";
@@ -96,7 +97,7 @@ function WallPost({
   earlier?: EarlierLoad;
   // Back to the newest few, where the post is open at an older page.
   links: { fewer?: string };
-  member: (id: number) => MemberView;
+  member: Lookup<MemberView>;
   viewerId: number | null;
   picker: ReactionType[];
   reactionTypes: ReactionTypes;
@@ -151,7 +152,7 @@ function WallPost({
   const full = (
     <MessageRow
       id={anchor}
-      author={member(post.author.id)}
+      author={member(post.author)}
       time={time}
       actions={
         <WallItemActions
@@ -233,7 +234,7 @@ function WallPost({
   return (
     <DeletedItem
       collapsed={
-        <MessageRow id={anchor} author={member(post.author.id)} time={time}>
+        <MessageRow id={anchor} author={member(post.author)} time={time}>
           {notice}
         </MessageRow>
       }

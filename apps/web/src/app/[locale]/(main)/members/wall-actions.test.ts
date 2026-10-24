@@ -329,7 +329,7 @@ test("editing a message sends its text, leaves its files alone and returns to it
   answer = Response.json({
     id: 11,
     conversationId: 5,
-    author: { id: 3, username: "ember" },
+    author: { kind: "member", id: 3, username: "ember" },
     state: "visible",
     createdAt: "2026-01-01T00:00:00.000Z",
     editedAt: "2026-01-02T00:00:00.000Z",

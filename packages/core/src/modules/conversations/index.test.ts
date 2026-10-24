@@ -567,7 +567,7 @@ describe("conversations", () => {
     const afterReply = await execute(ctx, conversationsGetOp, a, { conversationId: id });
     expect(afterReply.messageCount).toBe(2);
     expect(afterReply.lastMessage.messageId).toBe(bReply.id);
-    expect(afterReply.lastMessage.user.id).toBe(idOf(b));
+    expect(afterReply.lastMessage.user).toMatchObject({ kind: "member", id: idOf(b) });
     expect(afterReply.lastMessage.sentAt).toBe(new Date(ctx.now()).toISOString());
     await execute(ctx, conversationsMarkReadOp, a, { conversationId: id });
     expect(await unread()).toEqual([false, false, true]);

@@ -44,7 +44,11 @@ const conversation = {
   title: "Plans for the weekend",
   starter: person(1, "ember"),
   createdAt: stamp,
-  lastMessage: { messageId: 9, sentAt: stamp, user: person(1, "ember") },
+  lastMessage: {
+    messageId: 9,
+    sentAt: stamp,
+    user: { kind: "member" as const, ...person(1, "ember") },
+  },
   messageCount: 4,
   participantCount: 2,
   isUnread: false,

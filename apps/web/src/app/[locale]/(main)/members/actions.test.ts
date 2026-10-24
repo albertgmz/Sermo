@@ -93,7 +93,7 @@ test("a comment's attachment id that is not a record id never reaches the backen
 const WALL_POST = {
   id: 9,
   profileUserId: 5,
-  author: { id: 3, username: "ember" },
+  author: { kind: "member", id: 3, username: "ember" },
   state: "visible",
   createdAt: "2026-10-13T03:57:31.497Z",
   editedAt: null,
@@ -176,7 +176,7 @@ test("a refused wall post answers the form it came from and goes nowhere", async
 const COMMENT = {
   id: 12,
   profilePostId: 8,
-  author: { id: 3, username: "ember" },
+  author: { kind: "member", id: 3, username: "ember" },
   state: "visible",
   createdAt: "2026-10-13T03:57:31.497Z",
   editedAt: null,

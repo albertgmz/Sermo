@@ -50,7 +50,7 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-const ember = { id: 3, username: "ember" };
+const ember = { kind: "member", id: 3, username: "ember" };
 
 function backend() {
   globalThis.fetch = (async (input: string) => {
@@ -126,6 +126,13 @@ test("its text is quotable by selection as a conversation message, with the auth
   expect(html).toContain('data-quote-ref="convMessage"');
   expect(html).toContain('data-quote-id="11"');
   expect(html).toContain('data-quote-author="ember"');
+});
+
+test("a message a deleted member left is the guest word, with no link to a profile", async () => {
+  const html = await drawn({ author: { kind: "guest", name: null } });
+  expect(html).toContain(">Guest<");
+  expect(html).not.toContain('href="/members/');
+  expect(html).toContain('data-quote-author=""');
 });
 
 test("a message its viewer may edit has Edit, whose address is the message's edit page", async () => {

@@ -29,7 +29,7 @@ export async function viewReportedMessage(
         title={title}
         messages={messages.map((message) => ({
           id: message.id,
-          author: { id: message.authorId, username: message.authorUsername },
+          author: message.author,
           bodyHtml: message.bodyHtml,
           createdAt: message.createdAt,
           target: message.reported,

@@ -11,6 +11,7 @@ import {
 } from "@/components/forum/conversation-preview";
 import { NotificationRow } from "@/components/forum/notification-row";
 import { RelativeTime } from "@/components/forum/relative-time";
+import type { Lookup } from "@/lib/sermo/authors";
 import type { MemberView } from "@/lib/sermo/views";
 
 const emptyClass = "px-4 py-8 text-center text-sm text-muted-foreground";
@@ -23,7 +24,7 @@ export function MessageRows({
   member,
 }: {
   conversations: ConversationItem[];
-  member: (id: number) => MemberView;
+  member: Lookup<MemberView>;
 }) {
   const t = useTranslations("layout.headerPanels.messages");
   return conversations.length > 0 ? (
@@ -34,7 +35,7 @@ export function MessageRows({
             <ConversationPreview
               linked
               conversation={conversation}
-              member={member(conversation.lastMessage.user.id)}
+              member={member(conversation.lastMessage.user)}
               ringClassName="ring-popover"
             />
           </div>

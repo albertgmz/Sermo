@@ -61,7 +61,7 @@ describe("the source of a message to quote", () => {
     const got = await s.quote(s.b, s.first);
     expect(got).toEqual({
       messageId: s.first,
-      author: { id: s.aUser.id, username: s.aUser.username },
+      author: { kind: "member", id: s.aUser.id, username: s.aUser.username },
       bodySource: "first [B]words[/B]",
     });
   });

@@ -19,7 +19,7 @@ import {
   WallOwner,
   wallPlace,
 } from "@/components/forum/wall-owner";
-import type { Lookup } from "@/lib/sermo/authors";
+import { type Lookup, memberIdOf } from "@/lib/sermo/authors";
 import { threadOpenHref } from "@/lib/sermo/open-links";
 import { threadCard } from "@/lib/sermo/threads";
 import type { AuthorView } from "@/lib/sermo/views";
@@ -52,7 +52,7 @@ export function CompactFeedItem({
     const href = wallTargetHref(profilePost.profileUserId, profilePost.id);
     const count = profilePost.commentCount;
     const place = wallPlace(
-      profilePost.author.id,
+      memberIdOf(profilePost.author),
       profilePost.profileUserId,
       (id) => author(id).member,
     );
@@ -62,14 +62,14 @@ export function CompactFeedItem({
         href={href}
         avatar={
           <UserAvatar
-            user={author(profilePost.author.id).member}
+            user={author(profilePost.author).member}
             className="relative z-10"
           />
         }
         title={
           <>
             <UserLink
-              user={author(profilePost.author.id).member}
+              user={author(profilePost.author).member}
               className="relative z-10"
             />
             {place.kind === "other" && (

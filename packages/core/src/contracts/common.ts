@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { CONTENT_STATES, GUEST_ACCOUNT_ID, REACTION_CONTENT_TYPES } from "../db/schema";
+import { CONTENT_STATES, REACTION_CONTENT_TYPES } from "../db/schema";
 import { MAX_BODY_LENGTH } from "../limits";
 
 export const Id = z.number().int().positive();
@@ -29,15 +29,7 @@ export const Body = z
 
 export const Title = z.string().trim().min(1).max(150);
 
-/**
- * A member's id and username. The id is -2, the reserved guest account (`GUEST_ACCOUNT_ID`), for
- * what a member who deleted their account left on other members' walls and in conversations;
- * the username is then "Guest" in English whatever the site's language. A client shows the word
- * for its language and links no profile, avatar or card.
- */
-export const UserSummary = z
-  .object({ id: Id.or(z.literal(GUEST_ACCOUNT_ID)), username: z.string() })
-  .meta({ id: "UserSummary" });
+export const UserSummary = z.object({ id: Id, username: z.string() }).meta({ id: "UserSummary" });
 
 /**
  * Who wrote a thread or a post: a member (`kind: "member"`, with their id and username), or a

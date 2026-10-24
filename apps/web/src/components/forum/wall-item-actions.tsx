@@ -18,11 +18,12 @@ import { messageActionClass } from "@/components/forum/message-action";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
+import { type AuthorRef, memberIdOf, sameMember } from "@/lib/sermo/authors";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 
 type Item = {
   id: number;
-  author: { id: number };
+  author: AuthorRef;
   state: "visible" | "moderated" | "deleted";
   createdAt: string;
   editedAt: string | null;
@@ -58,7 +59,7 @@ function reactionsOf(
       target={isComment ? "profileComment" : "profilePost"}
       id={item.id}
       reactions={item.reactions}
-      authorId={item.author.id}
+      authorId={memberIdOf(item.author)}
       viewerId={viewerId}
       picker={item.state === "visible" ? picker : []}
       reactionTypes={reactionTypes}
@@ -185,7 +186,7 @@ export function WallItemActions({
       report={
         item.canReport &&
         viewerId !== null &&
-        viewerId !== item.author.id &&
+        !sameMember(item.author, viewerId) &&
         item.state === "visible"
           ? {
               action: reportContent.bind(

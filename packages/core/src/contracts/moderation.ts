@@ -546,8 +546,7 @@ export const restrictionsList = defineContract({
 export const ReportedMessage = z
   .object({
     id: Id,
-    authorId: Id,
-    authorUsername: z.string(),
+    author: ContentAuthor,
     bodyHtml: z.string(),
     createdAt: Timestamp,
     /** The reported message itself (the others are context around it). */

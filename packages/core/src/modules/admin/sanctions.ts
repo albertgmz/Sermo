@@ -14,6 +14,7 @@ import { currentActor, requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { scanKeyset } from "../feed/scan";
+import { contentAuthor } from "../forums/guest-author";
 import { appendModeratorLog } from "../moderation";
 import { requireHeld } from "./shared";
 
@@ -193,7 +194,7 @@ export const approvalsViewConversationMessageOp = implement(
         title: target.title,
         messages: messages.map((m) => ({
           id: m.id,
-          author: name(m.user_id),
+          author: contentAuthor(name, m.user_id, null),
           bodyHtml: m.body_html,
           createdAt: iso(m.created_at),
           isTarget: m.id === input.messageId,

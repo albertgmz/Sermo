@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 // owner is known by name, or on a wall whose owner the lookup could not name (a member who is
 // gone), which the item words as "posted on a profile".
 export function wallPlace(
-  authorId: number,
+  authorId: number | null,
   ownerId: number,
   member: (id: number) => MemberView,
 ): { kind: "own" | "unnamed" } | { kind: "other"; owner: MemberView } {

@@ -14,6 +14,7 @@ import type { MonthWinner, StandingEntry } from "@/components/forum/standing";
 import type { ThreadCardData } from "@/components/forum/thread-hover-card";
 import type { MemberBadgeView } from "@/components/forum/user-badges";
 import type { ApiWallComment } from "@/components/forum/wall-comments";
+import { type AuthorRef, memberIdOf } from "@/lib/sermo/authors";
 import type {
   AuthorView,
   MemberView,
@@ -500,7 +501,7 @@ export const SAMPLE_WALL_COMMENTS: ApiWallComment[] = [
 ].map(({ author, bodyHtml, state }, index) => ({
   id: index + 1,
   profilePostId: 1,
-  author: { id: author.id, username: author.username },
+  author: { kind: "member" as const, id: author.id, username: author.username },
   state: state as ApiWallComment["state"],
   createdAt: SAMPLE_DATE,
   editedAt: null,
@@ -560,11 +561,16 @@ export const CONVERSATIONS = [
   lastMessage: {
     messageId: id + 1,
     sentAt: SAMPLE_DATE,
-    user: { id: MODERATOR.id, username: MODERATOR.username },
+    user: {
+      kind: "member" as const,
+      id: MODERATOR.id,
+      username: MODERATOR.username,
+    },
   },
 }));
 
-export function memberOf(id: number): MemberView {
+export function memberOf(ref: number | AuthorRef): MemberView {
+  const id = typeof ref === "number" ? ref : memberIdOf(ref);
   return MEMBERS.find((entry) => entry.id === id) ?? ADMIN;
 }
 

@@ -18,6 +18,7 @@ import { redirect } from "next/navigation";
 import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
 import { saveMessageEdit } from "@/app/[locale]/(main)/conversations/save-message-edit";
 import { sendMessage } from "@/app/[locale]/(main)/conversations/send-message";
+import { authorName, memberIdOf } from "@/lib/sermo/authors";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, requireIds } from "@/lib/sermo/ids";
@@ -44,7 +45,11 @@ export async function quoteMessageSource(messageId: number) {
     const { author, bodySource } = await call(conversationsQuoteMessage, {
       messageId,
     });
-    return { author: author.username, authorId: author.id, source: bodySource };
+    return {
+      author: authorName(author),
+      authorId: memberIdOf(author),
+      source: bodySource,
+    };
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
     return null;

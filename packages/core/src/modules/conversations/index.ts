@@ -43,6 +43,7 @@ import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
+import { contentAuthor } from "../forums/guest-author";
 import {
   appendModeratorLog,
   moderateEditedContent,
@@ -156,7 +157,7 @@ function summary(row: ConversationRow, user: ReturnType<typeof loadUserSummaries
     lastMessage: {
       messageId: row.last_message_id,
       sentAt: iso(row.last_message_at),
-      user: user(row.last_message_user_id),
+      user: contentAuthor(user, row.last_message_user_id, null),
     },
     messageCount: row.message_count,
     participantCount: row.participant_count,
@@ -294,7 +295,7 @@ function messages(ctx: Ctx, actor: Actor, conversation: ConversationRow, rows: M
   return rows.map((r) => ({
     id: r.id,
     conversationId: r.conversation_id,
-    author: user(r.user_id),
+    author: contentAuthor(user, r.user_id, null),
     state: r.state,
     createdAt: iso(r.created_at),
     editedAt: isoOrNull(r.edited_at),
@@ -331,7 +332,7 @@ function newMessage(
   return {
     id,
     conversationId,
-    author: author(authorId),
+    author: contentAuthor(author, authorId, null),
     state,
     createdAt: iso(now),
     editedAt: null,
@@ -1226,7 +1227,7 @@ export const conversationsQuoteMessageOp = implement(
     ).get(message.id)!;
     return {
       messageId: message.id,
-      author: loadUserSummaries(ctx, [message.user_id])(message.user_id),
+      author: contentAuthor(loadUserSummaries(ctx, [message.user_id]), message.user_id, null),
       bodySource: body_source,
     };
   },

@@ -26,7 +26,7 @@ const held = { id: 20, mark: 20 };
 const message = (id: number) => ({
   id,
   conversationId: 4,
-  author: { id: 3, username: "ember" },
+  author: { kind: "member", id: 3, username: "ember" },
   state: "visible",
   createdAt: "2026-01-01T00:00:00.000Z",
   editedAt: null,

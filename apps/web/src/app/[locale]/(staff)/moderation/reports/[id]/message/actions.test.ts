@@ -32,8 +32,7 @@ const VIEW = {
   messages: [
     {
       id: 11,
-      authorId: 2,
-      authorUsername: "ember",
+      author: { kind: "member", id: 2, username: "ember" },
       bodyHtml: "<p>hi</p>",
       createdAt: "2026-01-01T00:00:00.000Z",
       reported: true,

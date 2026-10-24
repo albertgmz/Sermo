@@ -8,6 +8,7 @@ import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { loadAttachments } from "../attachments";
+import { contentAuthor } from "../forums/guest-author";
 import { requireSiteView } from "../members/site-access";
 import {
   type DeletionRow,
@@ -357,7 +358,7 @@ export function commentValues(
   return rows.map((row) => ({
     id: row.id,
     profilePostId: row.profile_post_id,
-    author: user(row.user_id),
+    author: contentAuthor(user, row.user_id, null),
     state: row.state,
     createdAt: iso(row.created_at),
     editedAt: isoOrNull(row.edited_at),
@@ -419,7 +420,7 @@ export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: Comm
   return rows.map((row) => ({
     id: row.id,
     profileUserId: row.profile_user_id,
-    author: user(row.user_id),
+    author: contentAuthor(user, row.user_id, null),
     state: row.state,
     createdAt: iso(row.created_at),
     editedAt: isoOrNull(row.edited_at),

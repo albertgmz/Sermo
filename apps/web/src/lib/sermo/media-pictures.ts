@@ -187,7 +187,11 @@ async function wallDetails(
   return {
     status: "ready",
     details: {
-      author: { id: post.author.id, username: post.author.username },
+      author: {
+        id: memberIdOf(post.author),
+        username: authorName(post.author),
+        ...(guestNameOf(post.author) === undefined ? {} : { guest: true }),
+      },
       createdAt: post.createdAt,
       where: {
         href: wallTargetHref(post.profileUserId, post.id),
@@ -196,7 +200,11 @@ async function wallDetails(
       picture,
       viewerId: viewer.user?.id ?? null,
       reactions: reactionsData(
-        { target: "profilePost", id: post.id, authorId: post.author.id },
+        {
+          target: "profilePost",
+          id: post.id,
+          authorId: memberIdOf(post.author),
+        },
         post.reactions,
         picker,
         types,

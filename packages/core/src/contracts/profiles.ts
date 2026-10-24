@@ -3,6 +3,7 @@ import { defineContract } from "../operation";
 import { Attachment, AttachmentIds } from "./attachments";
 import {
   Body,
+  ContentAuthor,
   ContentState,
   DisplayGroup,
   Id,
@@ -81,7 +82,7 @@ export const ProfileComment = z
   .object({
     id: Id,
     profilePostId: Id,
-    author: UserSummary,
+    author: ContentAuthor,
     state: ContentState,
     createdAt: Timestamp,
     editedAt: Timestamp.nullable(),
@@ -111,7 +112,7 @@ export const ProfilePost = z
   .object({
     id: Id,
     profileUserId: Id,
-    author: UserSummary,
+    author: ContentAuthor,
     state: ContentState,
     createdAt: Timestamp,
     editedAt: Timestamp.nullable(),

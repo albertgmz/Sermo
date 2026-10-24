@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { GuestName } from "@/components/forum/guest-name";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
+import type { AuthorRef } from "@/lib/sermo/authors";
 import { conversationOpenHref } from "@/lib/sermo/open-links";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -13,7 +15,7 @@ export type ConversationItem = {
   title: string;
   participantCount: number;
   isUnread: boolean;
-  lastMessage: { sentAt: string; user: { id: number } };
+  lastMessage: { sentAt: string; user: AuthorRef };
 };
 
 // Linked previews need a positioned row, without an enclosing link: the title's link covers the
@@ -70,7 +72,12 @@ export function ConversationPreview({
           <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
             {t.rich("summary", {
               participants: conversation.participantCount,
-              author: () => member.username,
+              author: () =>
+                member.guest ? (
+                  <GuestName name={member.username || null} />
+                ) : (
+                  member.username
+                ),
             })}
           </span>
           {conversation.isUnread && <UnreadDot />}

@@ -148,7 +148,7 @@ test("a confirmed preview reads the message once and an invalid id reads nothing
         messages: [
           {
             id: 8,
-            author: { id: 2, username: "ember" },
+            author: { kind: "member", id: 2, username: "ember" },
             bodyHtml: "<p>hi</p>",
             createdAt: "2026-01-01T00:00:00.000Z",
             isTarget: true,

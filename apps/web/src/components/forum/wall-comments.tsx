@@ -24,6 +24,7 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { WallItemActions } from "@/components/forum/wall-item-actions";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
+import type { Lookup } from "@/lib/sermo/authors";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -91,7 +92,7 @@ export type EarlierLoad = {
 type RowProps = {
   // The wall the post is on, for the comments' permalinks.
   profileUserId: number;
-  member: (id: number) => MemberView;
+  member: Lookup<MemberView>;
   viewerId: number | null;
   // What the picker offers; none when the viewer may not react.
   picker: ReactionType[];
@@ -120,7 +121,7 @@ export function WallCommentRows({
   mayUndelete,
 }: RowProps & { comments: ApiWallComment[] }) {
   return oldestFirst(comments).map((comment) => {
-    const author = member(comment.author.id);
+    const author = member(comment.author);
     const actions = {
       kind: "comment" as const,
       item: comment,

@@ -204,9 +204,9 @@ describe("a member who deletes their account", () => {
     // Their wall post and comment on the fan's wall stay under the reserved account.
     const wall = await w.run("profilePosts.list", w.fan.actor, { userId: w.fan.id });
     const posted = wall.items.find((post: { id: number }) => post.id === w.onFanWall.id);
-    expect(posted.author.id).toBe(GUEST_ACCOUNT_ID);
+    expect(posted.author).toEqual(GUEST_WITHOUT_NAME);
     const commented = wall.items.find((post: { id: number }) => post.id === w.fanWall.id);
-    expect(commented.latestComments[0].author.id).toBe(GUEST_ACCOUNT_ID);
+    expect(commented.latestComments[0].author).toEqual(GUEST_WITHOUT_NAME);
     for (const table of ["profile_posts", "profile_post_comments"])
       expect(w.count(`SELECT count(*) AS n FROM ${table} WHERE user_id = ?1`, w.leaver.id)).toBe(0);
   });
@@ -218,13 +218,68 @@ describe("a member who deletes their account", () => {
     const messages = await w.run("conversations.listMessages", w.fan.actor, {
       conversationId: w.talk.conversation.id,
     });
-    expect(messages.items.map((message: { author: { id: number } }) => message.author.id)).toEqual([
-      GUEST_ACCOUNT_ID,
+    expect(messages.items.map((message: { author: unknown }) => message.author)).toEqual([
+      GUEST_WITHOUT_NAME,
     ]);
     const talk = await w.run("conversations.get", w.fan.actor, {
       conversationId: w.talk.conversation.id,
     });
-    expect(talk.lastMessage.user.id).toBe(GUEST_ACCOUNT_ID);
+    expect(talk.lastMessage.user).toEqual(GUEST_WITHOUT_NAME);
+  });
+
+  test("a moderator reading a reported message of a deleted member sees a guest", async () => {
+    const w = await world();
+    await w.deleteAccount();
+    await settle(w.ctx);
+    const reported = await w.run("reports.create", w.fan.actor, {
+      target: { type: "conversation_message", id: w.talk.message.id },
+      reason: "Rude",
+    });
+    const read = await w.run("reports.viewConversationMessage", w.founder.actor, {
+      groupId: reported.groupId,
+    });
+    expect(read.messages.map((message: { author: unknown }) => message.author)).toEqual([
+      GUEST_WITHOUT_NAME,
+    ]);
+  });
+
+  test("a new quote of their post cites the site's word for a guest, with no member reference", async () => {
+    const w = await world();
+    storeSiteSettings(w.ctx, { ...readSiteSettings(w.ctx), defaultLanguage: "es" });
+    await w.deleteAccount();
+    await settle(w.ctx);
+    const quoting = await w.run("posts.create", w.fan.actor, {
+      threadId: w.theirs.thread.id,
+      body: `[QUOTE="someone, post: ${w.answer.id}"]Leaver answer[/QUOTE] Agreed`,
+    });
+    expect(quoting.bodySource).toBe(
+      `[QUOTE="Invitado, post: ${w.answer.id}"]Leaver answer[/QUOTE] Agreed`,
+    );
+    expect(quoting.bodyHtml).toMatch(
+      new RegExp(`<a href="/posts/${w.answer.id}"[^>]*>Invitado</a></cite>`),
+    );
+    expect(
+      w.count("SELECT count(*) AS n FROM content_quotes WHERE content_id = ?1", quoting.id),
+    ).toBe(0);
+  });
+
+  test("a new quote of their conversation message cites the site's word for a guest, with no member", async () => {
+    const w = await world();
+    storeSiteSettings(w.ctx, { ...readSiteSettings(w.ctx), defaultLanguage: "es" });
+    await w.deleteAccount();
+    await settle(w.ctx);
+    const reply = await w.run("conversations.reply", w.fan.actor, {
+      conversationId: w.talk.conversation.id,
+      body: `[QUOTE="someone, convMessage: ${w.talk.message.id}"]First message[/QUOTE] Agreed`,
+    });
+    const source = w.ctx.sqlite
+      .prepare<{ body_source: string }, [number]>(
+        "SELECT body_source FROM conversation_messages WHERE id = ?1",
+      )
+      .get(reply.id)!.body_source;
+    expect(source).toContain(`"Invitado, convMessage: ${w.talk.message.id}"`);
+    expect(source).not.toContain("member:");
+    expect(reply.bodyHtml).toContain("Invitado");
   });
 
   test("frees the username and the address for a new sign-up", async () => {

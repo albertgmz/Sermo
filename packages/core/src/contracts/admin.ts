@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { defineContract } from "../operation";
-import { Empty, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
+import { ContentAuthor, Empty, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
 import { MemberCard } from "./members";
 import { AnnouncementAudience } from "./notifications";
 import { BirthdayInput, Handle } from "./profiles";
@@ -454,7 +454,7 @@ export const approvalsViewConversationMessage = defineContract({
     messages: z.array(
       z.object({
         id: Id,
-        author: UserSummary,
+        author: ContentAuthor,
         bodyHtml: z.string(),
         createdAt: Timestamp,
         /** The message under review. */

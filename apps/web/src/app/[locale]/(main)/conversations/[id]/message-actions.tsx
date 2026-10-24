@@ -13,6 +13,7 @@ import { deleteMode } from "@/components/forum/delete-mode";
 import { DeletionTools } from "@/components/forum/deletion-notice";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
+import { memberIdOf, sameMember } from "@/lib/sermo/authors";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 
 type Message = z.output<
@@ -65,7 +66,7 @@ export function MessageActions({
     target: "message" as const,
     id: message.id,
     reactions: message.reactions,
-    authorId: message.author.id,
+    authorId: memberIdOf(message.author),
     viewerId,
     picker: message.state === "visible" ? picker : [],
     reactionTypes,
@@ -98,7 +99,7 @@ export function MessageActions({
       report={
         message.canReport &&
         viewerId !== null &&
-        viewerId !== message.author.id &&
+        !sameMember(message.author, viewerId) &&
         message.state === "visible"
           ? {
               action: reportContent.bind(

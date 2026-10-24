@@ -1,7 +1,9 @@
 import { useFormatter, useTranslations } from "next-intl";
+import { GuestName } from "@/components/forum/guest-name";
 import { HtmlContent } from "@/components/forum/html-content";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
+import type { ContentAuthorRef as AuthorRef } from "@/lib/sermo/authors";
 import { cn } from "@/lib/utils";
 import { MemberLink } from "../admin/logs/links";
 
@@ -9,7 +11,7 @@ import { MemberLink } from "../admin/logs/links";
 // the server (the HTML goes through the lite gate), whether the page or an action asks for it.
 export type ContextMessage = {
   id: number;
-  author: { id: number; username: string };
+  author: AuthorRef;
   bodyHtml: string;
   createdAt: string;
   target: boolean;
@@ -37,10 +39,17 @@ export function ConversationContext({
               )}
             >
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <MemberLink
-                  id={message.author.id}
-                  name={message.author.username}
-                />
+                {message.author.kind === "guest" ? (
+                  <GuestName
+                    name={message.author.name}
+                    className="font-normal"
+                  />
+                ) : (
+                  <MemberLink
+                    id={message.author.id}
+                    name={message.author.username}
+                  />
+                )}
                 <time dateTime={message.createdAt}>
                   {format.dateTime(new Date(message.createdAt), {
                     dateStyle: "medium",

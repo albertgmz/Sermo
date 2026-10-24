@@ -3,6 +3,7 @@ import { defineContract } from "../operation";
 import { Attachment, AttachmentIds } from "./attachments";
 import {
   Body,
+  ContentAuthor,
   ContentState,
   Id,
   Limit,
@@ -23,7 +24,7 @@ export const ConversationSummary = z
     title: z.string(),
     starter: UserSummary,
     createdAt: Timestamp,
-    lastMessage: z.object({ messageId: Id, sentAt: Timestamp, user: UserSummary }),
+    lastMessage: z.object({ messageId: Id, sentAt: Timestamp, user: ContentAuthor }),
     messageCount: z.number().int().nonnegative(),
     participantCount: z.number().int().nonnegative(),
     /** True when the newest message is newer than what the viewer has read. */
@@ -49,7 +50,7 @@ export const Message = z
   .object({
     id: Id,
     conversationId: Id,
-    author: UserSummary,
+    author: ContentAuthor,
     state: ContentState,
     createdAt: Timestamp,
     editedAt: Timestamp.nullable(),
@@ -283,7 +284,7 @@ export const conversationsQuoteMessage = defineContract({
   kind: "read",
   input: z.object({ messageId: Id }),
   output: z
-    .object({ messageId: Id, author: UserSummary, bodySource: z.string() })
+    .object({ messageId: Id, author: ContentAuthor, bodySource: z.string() })
     .meta({ id: "MessageQuote" }),
 });
 

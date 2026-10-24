@@ -25,7 +25,7 @@ const conversation = (isUnread: boolean) => ({
   lastMessage: {
     messageId: 61,
     sentAt: "2026-01-01T00:00:00.000Z",
-    user: { id: 3 },
+    user: { kind: "member", id: 3, username: "ember" },
   },
 });
 

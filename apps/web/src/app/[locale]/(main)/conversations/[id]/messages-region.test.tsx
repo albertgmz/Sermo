@@ -76,7 +76,7 @@ const user = { id: 3, username: "ember" };
 const message = (id: number) => ({
   id,
   conversationId: 5,
-  author: user,
+  author: { kind: "member", ...user },
   state: "visible",
   createdAt: when,
   editedAt: null,
@@ -95,7 +95,11 @@ const conversation = {
   title: "Long",
   starter: user,
   createdAt: when,
-  lastMessage: { messageId: 50, sentAt: when, user },
+  lastMessage: {
+    messageId: 50,
+    sentAt: when,
+    user: { kind: "member", ...user },
+  },
   messageCount: 50,
   participantCount: 2,
   isUnread: false,

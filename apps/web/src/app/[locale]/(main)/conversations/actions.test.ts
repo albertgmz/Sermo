@@ -120,7 +120,11 @@ test("starting a conversation refreshes the list in the layout before going to t
         title: "T",
         starter: user,
         createdAt: stamp,
-        lastMessage: { messageId: 3, sentAt: stamp, user },
+        lastMessage: {
+          messageId: 3,
+          sentAt: stamp,
+          user: { kind: "member", ...user },
+        },
         messageCount: 1,
         participantCount: 2,
         isUnread: false,
@@ -134,7 +138,7 @@ test("starting a conversation refreshes the list in the layout before going to t
       message: {
         id: 3,
         conversationId: 3,
-        author: user,
+        author: { kind: "member", ...user },
         state: "visible",
         createdAt: stamp,
         bodyHtml: "<p>hi</p>",
@@ -164,7 +168,7 @@ test("a reply and a new conversation name the files attached to them", async () 
   const message = {
     id: 9,
     conversationId: 3,
-    author: user,
+    author: { kind: "member", ...user },
     state: "visible",
     createdAt: stamp,
     bodyHtml: "<p>hi</p>",
@@ -229,7 +233,11 @@ const conversationAnswer = {
   title: "T",
   starter: ember,
   createdAt: stamp,
-  lastMessage: { messageId: 3, sentAt: stamp, user: ember },
+  lastMessage: {
+    messageId: 3,
+    sentAt: stamp,
+    user: { kind: "member", ...ember },
+  },
   messageCount: 1,
   participantCount: 2,
   isUnread: false,
@@ -411,7 +419,7 @@ test("a message is quoted from the source the backend gives a participant, and a
     asked.push({ method: init.method ?? "GET", url });
     return Response.json({
       messageId: 11,
-      author: { id: 3, username: "ember" },
+      author: { kind: "member", id: 3, username: "ember" },
       bodySource: "[B]hi[/B]",
     });
   }) as unknown as typeof fetch;

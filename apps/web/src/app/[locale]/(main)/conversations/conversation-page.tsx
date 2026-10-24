@@ -28,7 +28,7 @@ export async function conversationsPage(
       node: (
         <ConversationRow
           conversation={conversation}
-          member={member(conversation.lastMessage.user.id)}
+          member={member(conversation.lastMessage.user)}
         />
       ),
     })),

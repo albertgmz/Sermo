@@ -290,7 +290,7 @@ export function FeedItem({
     const href = wallTargetHref(profilePost.profileUserId, profilePost.id);
     const anchor = `feed-profile-post-${profilePost.id}`;
     const place = wallPlace(
-      profilePost.author.id,
+      memberIdOf(profilePost.author),
       profilePost.profileUserId,
       (id) => author(id).member,
     );
@@ -323,7 +323,7 @@ export function FeedItem({
     return (
       <Card
         id={anchor}
-        author={author(profilePost.author.id)}
+        author={author(profilePost.author)}
         createdAt={item.createdAt}
         attribution={
           place.kind === "other" && (

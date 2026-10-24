@@ -66,7 +66,7 @@ const conversation = {
   lastMessage: {
     messageId: 1,
     sentAt: "2026-01-01T00:00:00.000Z",
-    user: { id: 1, username: "ann" },
+    user: { kind: "member", id: 1, username: "ann" },
   },
   messageCount: 1,
   participantCount: 2,

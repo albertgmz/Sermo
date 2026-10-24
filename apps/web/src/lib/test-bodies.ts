@@ -148,7 +148,7 @@ export function profileCommentBody(over: Record<string, unknown> = {}) {
   return {
     id: 44,
     profilePostId: 12,
-    author: { id: 3, username: "ember" },
+    author: { kind: "member", id: 3, username: "ember" },
     state: "visible",
     createdAt: "2026-01-01T00:00:00.000Z",
     editedAt: null,
@@ -171,7 +171,7 @@ export function messageBody(over: Record<string, unknown> = {}) {
   return {
     id: 11,
     conversationId: 5,
-    author: { id: 3, username: "ember" },
+    author: { kind: "member", id: 3, username: "ember" },
     state: "visible",
     createdAt: "2026-01-01T00:00:00.000Z",
     editedAt: null,
@@ -194,7 +194,7 @@ export function profilePostBody(over: Record<string, unknown> = {}) {
   return {
     id: 12,
     profileUserId: 9,
-    author: { id: 3, username: "ember" },
+    author: { kind: "member", id: 3, username: "ember" },
     state: "visible",
     createdAt: "2026-01-01T00:00:00.000Z",
     editedAt: null,

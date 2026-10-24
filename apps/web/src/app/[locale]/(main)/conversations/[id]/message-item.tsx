@@ -162,7 +162,7 @@ export async function messageRows(messages: ApiMessage[]): Promise<TailRow[]> {
     node: (
       <MessageItem
         message={message}
-        author={author(message.author.id)}
+        author={author(message.author)}
         signed={false}
         viewerId={user?.id ?? null}
         picker={picker}

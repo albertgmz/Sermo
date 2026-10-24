@@ -12,6 +12,7 @@ import { pagesOf } from "@/components/forum/page-window";
 import { PostFrame } from "@/components/forum/post-frame";
 import { getCounters } from "@/components/layout/header-data";
 import { POLL_MS } from "@/lib/poll-intervals";
+import { memberIdOf } from "@/lib/sermo/authors";
 import type { read } from "@/lib/sermo/client";
 import { authorsFor } from "@/lib/sermo/members";
 import { MESSAGES_PER_PAGE } from "@/lib/sermo/page-sizes";
@@ -96,11 +97,12 @@ export async function MessagesRegion({
     ...(user ? [user] : []),
   ]);
   // One signature per member on the page: under their first message.
-  const seen = new Set<number>();
+  const seen = new Set<number | null>();
   const firstOfAuthor = new Set(
     messages.flatMap((message) => {
-      if (seen.has(message.author.id)) return [];
-      seen.add(message.author.id);
+      const id = memberIdOf(message.author);
+      if (seen.has(id)) return [];
+      seen.add(id);
       return [message.id];
     }),
   );
@@ -124,7 +126,7 @@ export async function MessagesRegion({
           <li key={message.id}>
             <MessageItem
               message={message}
-              author={author(message.author.id)}
+              author={author(message.author)}
               signed={firstOfAuthor.has(message.id)}
               viewerId={user?.id ?? null}
               picker={picker}

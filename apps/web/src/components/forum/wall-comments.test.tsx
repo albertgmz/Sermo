@@ -1,6 +1,7 @@
 import { afterAll, expect, mock, test } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server";
+import { type AuthorRef, memberIdOf } from "@/lib/sermo/authors";
 import type { MemberView } from "@/lib/sermo/views";
 import { translator, withIntl } from "@/lib/test-intl";
 
@@ -39,24 +40,35 @@ const { WallComments, hasWallComments } = await import("./wall-comments");
 
 type Comment = Parameters<typeof WallComments>[0]["comments"][number];
 
-const member = (id: number): MemberView => ({
-  id,
-  username: `member${id}`,
-  avatar: null,
-  frame: null,
-  nameColor: null,
-  nameIcon: null,
-  title: "",
-  badges: [],
-  level: 1,
-  restricted: false,
-});
+const member = (ref: number | AuthorRef): MemberView => {
+  const id = typeof ref === "number" ? ref : (memberIdOf(ref) ?? 0);
+  return {
+    id,
+    username: `member${id}`,
+    avatar: null,
+    frame: null,
+    nameColor: null,
+    nameIcon: null,
+    title: "",
+    badges: [],
+    level: 1,
+    restricted: false,
+  };
+};
 
-const comment = (id: number, state = "visible") =>
+const comment = (
+  id: number,
+  state = "visible",
+  author: unknown = {
+    kind: "member",
+    id: 20 + id,
+    username: `member${20 + id}`,
+  },
+) =>
   ({
     id,
     profilePostId: 9,
-    author: { id: 20 + id, username: `member${20 + id}` },
+    author,
     state,
     createdAt: "2026-01-02T00:00:00.000Z",
     editedAt: null,
@@ -99,6 +111,18 @@ test("the comments are drawn oldest first, each with its author and its own anch
   expect(html).toContain("member21");
   expect(html).toContain('id="profile-comment-1"');
   expect(html).toContain('id="profile-comment-2"');
+});
+
+test("a comment left by a deleted member is the guest word, with no link to a profile", async () => {
+  const { membersFor } = await import("@/lib/sermo/members");
+  const guest = { kind: "guest", name: null } as const;
+  const html = await render({
+    comments: [comment(1, "visible", guest)],
+    member: await membersFor([guest]),
+  });
+  expect(html).toContain("comment 1");
+  expect(html).toContain(">Guest<");
+  expect(html).not.toContain("<a ");
 });
 
 test("the composer is there only with an action, at the post's comment anchor", async () => {
