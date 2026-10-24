@@ -6658,3 +6658,14 @@ Why: the owner found the editor odd because it appeared only when touched, as an
   opened.
 
 Why: the owner wanted to choose the language of inserted code.
+
+### Ctrl+Enter sends a message
+
+- Ctrl+Enter, or Cmd+Enter on a Mac, sends every composer (replies, new threads, edits,
+  direct messages, wall posts and comments, feed replies) from the editor, its BB code source
+  and the plain box drawn before the editor loads. It submits the form as a click would, and
+  does nothing while the text is empty, the send button is off, a suggestion list (mentions,
+  emoji) or the code dialog is open, or during IME composition. The send button's tooltip names
+  the keys.
+
+Why: the owner wanted to send a message with that shortcut.
