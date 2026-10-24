@@ -92,10 +92,21 @@ function render(
 const shown = (html: string, n: number) =>
   html.split(new RegExp(`>${n}<`)).length - 1;
 
-test("a guest gets the sign-in link with the count, and the summary without a number", () => {
+// The button's own text: what lies between its tag and the picker's trigger or its end.
+const buttonText = (html: string) =>
+  (
+    html.match(
+      /<(?:button|a)[^>]*(?:aria-pressed|href="\/login)[^>]*>(.*?)<\/(?:button|a)>/,
+    )?.[1] ?? ""
+  )
+    .replace(/<svg.*?<\/svg>/g, "<svg/>")
+    .replace(/<[^>]+>/g, (tag) => (tag === "<svg/>" ? "♡" : ""));
+
+test("a guest gets the sign-in link named for the first reaction, and the summary carries the number", () => {
   const html = render(null, some);
   expect(html).toContain('href="/login?next=%2Fthreads%2F3"');
   expect(html).toContain("Log in to react, 4 reactions");
+  expect(buttonText(html)).toBe("♡Like");
   expect(html).toContain("4 reactions, show who reacted");
   expect(shown(html, 4)).toBe(1);
 });
@@ -122,12 +133,39 @@ test("an item that takes no reactions and has none draws nothing", () => {
   expect(render(9, none, 7, [])).toBe("");
 });
 
-test("another member's item with reactions shows the number once, on the button", () => {
+test("another member's item with reactions: the button says what a press gives, the number is in the summary once", () => {
   const html = render(9, some);
   expect(html).toContain("Like, 4 reactions");
   expect(html).toContain("Choose a reaction");
+  expect(buttonText(html)).toBe("♡Like");
   expect(html).toContain("4 reactions, show who reacted");
   expect(shown(html, 4)).toBe(1);
+});
+
+test("the viewer's own reaction shows on the button as its picture and its name, without a count", () => {
+  const html = render(
+    9,
+    { counts: { "2": 3 }, total: 3, mine: 2 },
+    7,
+    picker,
+    "button",
+  );
+  expect(html).toContain('aria-pressed="true"');
+  expect(buttonText(html)).toBe("❤️Love");
+  expect(shown(html, 3)).toBe(0);
+});
+
+test("the button's name is a word from sm up; on a phone it is the icon alone", () => {
+  const html = render(9, none, 7, picker, "button");
+  expect(html).toContain('<span class="hidden sm:inline">Like</span>');
+});
+
+test("under a bar the summary is XenForo's reactions bar: a full-width row with the faces and the total in words", () => {
+  const html = render(9, some, 7, picker, "summary");
+  const bar = html.match(/<button[^>]*>/)?.[0] ?? "";
+  expect(bar).toContain("w-full");
+  expect(html).toContain(">4 reactions<");
+  expect(html.indexOf("👍")).toBeLessThan(html.indexOf(">4 reactions<"));
 });
 
 test("another member's item without reactions has the button only", () => {
@@ -210,7 +248,7 @@ test("a bar draws the button and the summary apart, each once", () => {
 });
 
 test("the summary alone shows the number where there is no button, and nothing without reactions", () => {
-  expect(shown(render(7, some, 7, picker, "summary"), 4)).toBe(1);
+  expect(render(7, some, 7, picker, "summary")).toContain(">4 reactions<");
   expect(render(9, none, 7, picker, "summary")).toBe("");
   expect(render(7, some, 7, picker, "button")).toBe("");
 });

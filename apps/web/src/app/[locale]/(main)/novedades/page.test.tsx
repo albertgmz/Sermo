@@ -361,22 +361,16 @@ test("on a phone Media open is on the bar and there is no More", async () => {
   expect(phone).not.toContain("<button");
 });
 
-test("every tab of the phone bar has an icon and its label as its name; only the open one shows it", async () => {
+test("every tab of the phone bar shows its word, as the wider bar does: no icon stands in for one", async () => {
   backend({ member: true });
   const { phone, wide } = bars(await render({ tab: "hot" }));
   const links = [...phone.matchAll(/<a [^>]*>(.*?)<\/a>/g)].map(
     ([, inner]) => inner,
   );
-  expect(links).toHaveLength(3);
-  for (const inner of links)
-    expect(inner).toMatch(/^<svg [^>]*aria-hidden="true"/);
-  const shown = links.map((inner) => inner.replace(/^<svg.*?<\/svg>/, ""));
-  expect(shown).toEqual([
-    '<span class="max-sm:sr-only">Latest</span>',
-    "Trending",
-    '<span class="max-sm:sr-only">Following</span>',
-  ]);
-  // The wider screens' bar is drawn as before: labels, no icons.
+  expect(links).toEqual(["Latest", "Trending", "Following"]);
+  // The menu at the end says "More" too.
+  expect(phone).toContain(">More<");
+  expect(phone).not.toContain("sr-only");
   expect(wide).not.toMatch(/<a [^>]*><svg/);
   expect(wide).toContain(">Trending<");
 });

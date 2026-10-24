@@ -886,7 +886,6 @@ export default async function StyleguidePage() {
                 <ReactionSummary
                   reactions={REACTIONS}
                   members={reactionMembers}
-                  showTotal={false}
                 />
               }
             />
@@ -897,7 +896,6 @@ export default async function StyleguidePage() {
                 <ReactionSummary
                   reactions={REACTIONS}
                   members={reactionMembers}
-                  showTotal={false}
                 />
               }
               initial={REACTION_TYPES[1].id}
@@ -910,7 +908,6 @@ export default async function StyleguidePage() {
                   reactions={REACTIONS}
                   members={reactionMembers}
                   size="sm"
-                  showTotal={false}
                 />
               }
               size="sm"
@@ -991,9 +988,9 @@ export default async function StyleguidePage() {
                 <ContentActions
                   summary={
                     <ReactionSummary
+                      bar
                       reactions={REACTIONS}
                       members={reactionMembers}
-                      showTotal={false}
                     />
                   }
                   react={
@@ -1020,9 +1017,9 @@ export default async function StyleguidePage() {
                 <ContentActions
                   summary={
                     <ReactionSummary
+                      bar
                       reactions={REACTIONS}
                       members={reactionMembers}
-                      showTotal={false}
                     />
                   }
                   quote={{
@@ -1067,9 +1064,9 @@ export default async function StyleguidePage() {
                   }
                   summary={
                     <ReactionSummary
+                      bar
                       reactions={REACTIONS}
                       members={reactionMembers}
-                      showTotal={false}
                       size="sm"
                     />
                   }

@@ -36,7 +36,7 @@ export function MarkUnreadForm({
         }
       >
         {children}
-        <span className="max-sm:sr-only">{label}</span>
+        <span>{label}</span>
       </Button>
       {error && (
         <FormError className="basis-full px-2 text-xs">{error}</FormError>

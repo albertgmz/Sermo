@@ -5,7 +5,10 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ComponentType, useEffect, useRef, useState } from "react";
-import { messageActionClass } from "@/components/forum/message-action";
+import {
+  actionLabelClass,
+  messageActionClass,
+} from "@/components/forum/message-action";
 import type { ReactionPickerProps } from "@/components/forum/reaction-picker";
 import {
   ReactionPicture,
@@ -253,6 +256,9 @@ export function ReactionButton(props: {
   const first = types.find((type) => type.locked === undefined && !type.kept);
   const count =
     total - Number(viewerTypeId !== null) + Number(current !== null);
+  // What a press gives, as XenForo's button says it: the viewer's own reaction, or the first one
+  // they may give. The number is the summary's.
+  const named = active ?? first ?? types[0];
   const content = (
     <>
       {active ? (
@@ -264,7 +270,7 @@ export function ReactionButton(props: {
       ) : (
         <Heart />
       )}
-      {count > 0 && count}
+      {named && <span className={actionLabelClass}>{named.label}</span>}
     </>
   );
 
@@ -341,10 +347,7 @@ export function ReactionButton(props: {
         ref={gesture.buttonRef}
         type="button"
         aria-pressed={current !== null}
-        aria-label={t("aria.state", {
-          label: (active ?? first ?? types[0]).label,
-          count,
-        })}
+        aria-label={t("aria.state", { label: named.label, count })}
         className={buttonClass}
         {...control.handlers}
         {...gesture.handlers}

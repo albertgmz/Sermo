@@ -28,24 +28,33 @@ const SIZES = {
 
 export type SummarySize = keyof typeof SIZES;
 
-// The summary's button, the same plain or inside the popover: the faces of the first types and,
-// when asked, the total.
-export const summaryTriggerClass = (size: SummarySize, className?: string) =>
+// The summary's button, the same plain or inside the popover: the faces of the first types and the
+// total. Inline (beside the react button of a feed card) it is a compact pill with the number;
+// under an item's bar (`bar`) it is XenForo's reactions bar, a row across the item with the total
+// in words, whose ground the bar's place gives it.
+export const summaryTriggerClass = (
+  size: SummarySize,
+  bar: boolean,
+  className?: string,
+) =>
   cn(
-    "inline-flex h-10 items-center justify-center gap-1.5 rounded-md px-1 font-medium tabular-nums text-muted-foreground transition-colors hover:text-foreground",
-    SIZES[size].trigger,
+    "items-center gap-1.5 rounded-md font-medium tabular-nums text-muted-foreground transition-colors hover:text-foreground",
+    bar
+      ? "flex min-h-10 w-full justify-start px-2 text-left text-xs md:min-h-8"
+      : cn("inline-flex h-10 justify-center px-1", SIZES[size].trigger),
     className,
   );
 
 export function SummaryFaces({
   reactions,
   size,
-  showTotal,
+  bar,
 }: {
   reactions: ReactionsSummary;
   size: SummarySize;
-  showTotal: boolean;
+  bar: boolean;
 }) {
+  const t = useTranslations("forum.reactionSummary");
   return (
     <>
       <span aria-hidden="true" className="flex -space-x-1">
@@ -61,7 +70,13 @@ export function SummaryFaces({
           </span>
         ))}
       </span>
-      {showTotal && reactions.total}
+      {bar ? (
+        <span className="min-w-0 truncate">
+          {t("total", { count: reactions.total })}
+        </span>
+      ) : (
+        reactions.total
+      )}
     </>
   );
 }
@@ -75,7 +90,7 @@ export function ReactionSummary({
   loadUsers,
   members,
   size = "default",
-  showTotal = true,
+  bar = false,
   className,
 }: {
   reactions: ReactionsSummary;
@@ -84,8 +99,8 @@ export function ReactionSummary({
   members?: React.ReactNode;
   loadUsers?: () => Promise<React.ReactNode>;
   size?: SummarySize;
-  // False where the button beside it already shows the number.
-  showTotal?: boolean;
+  // Under an item's bar of actions rather than beside its react button.
+  bar?: boolean;
   className?: string;
 }) {
   const t = useTranslations("forum.reactionSummary");
@@ -95,7 +110,7 @@ export function ReactionSummary({
     loadUsers,
     members,
     size,
-    showTotal,
+    bar,
     className,
   };
   return (
@@ -112,14 +127,10 @@ export function ReactionSummary({
             members || loadUsers ? "aria.trigger" : "aria.triggerCounts",
             { total: t("total", { count: reactions.total }) },
           )}
-          className={summaryTriggerClass(size, className)}
+          className={summaryTriggerClass(size, bar, className)}
           {...lazy}
         >
-          <SummaryFaces
-            reactions={reactions}
-            size={size}
-            showTotal={showTotal}
-          />
+          <SummaryFaces reactions={reactions} size={size} bar={bar} />
         </button>
       )}
     />

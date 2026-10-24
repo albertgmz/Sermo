@@ -128,16 +128,17 @@ function PanelButton({
 //               `MenuPanels`. The caller brings it, so the pages without wall items do not load it.
 //   layout      `split` is a thread post's footer as XenForo draws it: what the viewer does to the
 //               item on the left (report first, then edit, delete and the moderator tools), how
-//               they answer it on the right (react, "+ Quote", reply), the summary under the bar
-//               and no rule above it (the post's header row carries one). Share and bookmark are
-//               not drawn: the post's header row has them. When nothing but report is on the
-//               left (an ordinary member's bar), the words show on a phone too: they fit 360 px
-//               on one line; with edit, delete or moderator tools the bar keeps to icons there.
+//               they answer it on the right (react, "+ Quote", reply), XenForo's reactions bar
+//               under the bar and no rule above it (the post's header row carries one). Share and
+//               bookmark are not drawn: the post's header row has them. On a phone "+ Quote" and
+//               "Reply" keep their words and the tools on the left are icons, the same for every
+//               viewer, so the bar of a member's post fits 360 px on one line.
 //               `wall` is a wall post's or comment's footer as XenForo draws it: laid out as
-//               `split`: report (its word on a phone too, as `split` decides), share as an
-//               icon and a "•••" menu that holds edit and delete (choosing one opens its
-//               panel or dialog; an edit page is a link beside it instead), then the moderator tools; on
-//               the right, react and `start`.
+//               `split`: report (its word on a phone too unless the menu or moderator tools sit
+//               beside it), share as an icon and a "•••" menu that holds edit and delete
+//               (choosing one opens its panel or dialog; an edit page is a link beside it
+//               instead), then the moderator tools; on the right, react (its word from `sm` up, as
+//               XenForo's "Me gusta") and `start`.
 export function ContentActions({
   summary,
   react,
@@ -238,10 +239,12 @@ export function ContentActions({
   // whole date is a line of its own under the text and the buttons follow on the next; from `sm`
   // it is one line, the date giving way first.
   const comment = wall && Boolean(leading);
-  // An ordinary member's bar shows report's word on a phone too; with edit, delete (the wall's
-  // "•••") or moderator tools beside it, the bar keeps to icons there, so it stays one line.
+  // On a phone a post's bar keeps the words of "+ Quote" and "Reply" and draws its tools as icons,
+  // whoever looks at it, so it stays one line. A wall bar shows report's word there too unless the
+  // "•••" menu or moderator tools sit beside it.
+  const answerLabelClass = split ? "inline" : actionLabelClass;
   const labelClass =
-    split && !edit && !remove && !moderation ? "inline" : actionLabelClass;
+    wall && !edit && !remove && !moderation ? "inline" : actionLabelClass;
   const gap = wall ? "gap-1" : "gap-1.5";
   const inPlace = use(InPlaceEdit);
   const editLink = edit && "href" in edit && (
@@ -277,7 +280,7 @@ export function ContentActions({
           reference={quote.reference}
           label={t("quote")}
           text={split ? t("addQuote") : undefined}
-          labelClassName={labelClass}
+          labelClassName={answerLabelClass}
         />
       )}
       {reply && (
@@ -287,7 +290,7 @@ export function ContentActions({
           className={messageActionClass}
         >
           <Reply />
-          <span className={labelClass}>{t("reply")}</span>
+          <span className={answerLabelClass}>{t("reply")}</span>
         </HashLink>
       )}
       {start}
@@ -359,7 +362,23 @@ export function ContentActions({
       {moderation}
     </>
   );
-  const summaryRow = summary && <div className="-mx-2 flex">{summary}</div>;
+  // Who reacted: above a plain bar, the compact summary; under a post's or a wall item's bar,
+  // XenForo's reactions bar, a row of its own on the quieter ground (a comment's row is already
+  // muted: it takes the card). The row goes while nobody reacted.
+  const summaryRow =
+    summary &&
+    (split ? (
+      <div
+        className={cn(
+          "mt-1.5 flex w-full rounded-md empty:hidden",
+          comment ? "bg-card" : "bg-muted/60",
+        )}
+      >
+        {summary}
+      </div>
+    ) : (
+      <div className="-mx-2 flex">{summary}</div>
+    ));
   if (inPlace?.editing) return null;
 
   return (

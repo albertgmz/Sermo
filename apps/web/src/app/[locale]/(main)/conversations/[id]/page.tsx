@@ -90,8 +90,6 @@ function Header({
             contentType="conversation"
             contentId={conversation.id}
             bookmarked={bookmarked}
-            className="max-sm:min-w-10"
-            labelClassName="max-sm:sr-only"
           />
         )}
         <MarkUnreadForm

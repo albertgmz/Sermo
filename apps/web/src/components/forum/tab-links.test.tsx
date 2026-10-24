@@ -60,39 +60,7 @@ test("a segmented bar wider than the screen scrolls sideways instead of pushing 
   expect(classes).toContain("max-w-full");
 });
 
-test("narrow, only the open tab shows its label on a phone; the others keep it as their name", () => {
-  const html = draw({
-    tabs: [
-      { ...tab("latest"), icon: <svg aria-hidden="true" /> },
-      { ...tab("hot"), icon: <svg aria-hidden="true" /> },
-    ],
-    narrow: true,
-  });
-  // The open tab's label is plain text; the other one's is for assistive technology below `sm`.
-  expect(html).toContain('<span class="max-sm:sr-only">LATEST</span>');
-  expect(html).not.toContain('<span class="max-sm:sr-only">HOT</span>');
-  expect(html).toMatch(
-    /aria-current="page"[^>]*><svg aria-hidden="true"><\/svg>HOT<\/a>/,
-  );
-  // A label inside a link that hides it is placed against the link.
-  expect(html.match(/class="[^"]*\brelative\b/g)).toHaveLength(2);
-  // A tab drawn as its icon names itself on hover; the open one shows its label already.
-  expect(html).toContain('title="LATEST"');
-  expect(html).not.toContain('title="HOT"');
-  expect(draw()).not.toContain("title=");
-});
-
-test("narrow, the menu button is an icon named by its label on a phone", () => {
-  const html = draw({
-    more: [tab("media")],
-    moreLabel: "More",
-    narrow: true,
-  });
-  const button = html.slice(html.lastIndexOf("<button"));
-  expect(button).toContain('<span class="max-sm:sr-only">More</span>');
-  expect(button).toContain("lucide-ellipsis");
-  expect(button).toContain('title="More"');
-  // Not narrow, the label is plain text and there is no icon.
+test("the menu button at the bar's end shows its label as plain text, with no icon", () => {
   const wide = draw({ more: [tab("media")], moreLabel: "More" });
   expect(wide).toContain(">More<");
   expect(wide).not.toContain("lucide-ellipsis");

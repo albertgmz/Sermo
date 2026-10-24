@@ -31,14 +31,9 @@ const VARIANTS = {
 const TAB_CLASS =
   "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:text-foreground [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
 
-// A narrow tab: tighter below `sm`, and the frame of the label it hides there (`sr-only` is
-// positioned).
-const NARROW_TAB = "relative max-sm:px-2.5";
-
 // Props
 //   tabs   The tabs of the bar.
 //   more   Tabs that do not fit the bar: a menu at its end, named `moreLabel`, holds them.
-//   narrow Below `sm` every tab but the open one, and the menu button, shows only its icon.
 //   arrow  A ">" over the bar's right end while tabs lie beyond it; a press scrolls the bar on.
 export function TabLinks({
   tabs,
@@ -48,7 +43,6 @@ export function TabLinks({
   className,
   more,
   moreLabel,
-  narrow = false,
   arrow = false,
 }: {
   tabs: TabLink[];
@@ -58,47 +52,33 @@ export function TabLinks({
   className?: string;
   more?: TabLink[];
   moreLabel?: string;
-  narrow?: boolean;
   arrow?: boolean;
 }) {
-  const tabClass = cn(TAB_CLASS, VARIANTS[variant].link, narrow && NARROW_TAB);
+  const tabClass = cn(TAB_CLASS, VARIANTS[variant].link);
   const bar = (
     <nav
       aria-label={label}
       className={cn("flex", VARIANTS[variant].nav, className)}
     >
-      {tabs.map((tab) => {
-        const iconOnly = narrow && tab.value !== active;
-        return (
-          <TabAnchor
-            key={tab.value}
-            href={tab.href}
-            scroll={false}
-            current={tab.value === active}
-            title={iconOnly ? tab.label : undefined}
-            className={tabClass}
-          >
-            {tab.icon}
-            {iconOnly ? (
-              <span className="max-sm:sr-only">{tab.label}</span>
-            ) : (
-              tab.label
-            )}
-            {tab.count !== undefined && (
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {tab.count}
-              </span>
-            )}
-          </TabAnchor>
-        );
-      })}
-      {more && more.length > 0 && moreLabel && (
-        <TabMore
-          tabs={more}
-          label={moreLabel}
+      {tabs.map((tab) => (
+        <TabAnchor
+          key={tab.value}
+          href={tab.href}
+          scroll={false}
+          current={tab.value === active}
           className={tabClass}
-          narrow={narrow}
-        />
+        >
+          {tab.icon}
+          {tab.label}
+          {tab.count !== undefined && (
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {tab.count}
+            </span>
+          )}
+        </TabAnchor>
+      ))}
+      {more && more.length > 0 && moreLabel && (
+        <TabMore tabs={more} label={moreLabel} className={tabClass} />
       )}
     </nav>
   );

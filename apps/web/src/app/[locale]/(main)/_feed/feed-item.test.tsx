@@ -223,6 +223,28 @@ test("a wall post is drawn with its latest comments and a composer for the next 
   expect(html).not.toContain("View previous comments");
 });
 
+test("a wall post has the same bar in the feed as on the profile wall: report, share and the menu on the left, the count of comments on the right", async () => {
+  const html = await render(wallItem(), MEMBER);
+  // The post's own bar: after its text, before its comments.
+  const bar = html.slice(
+    html.indexOf("the wall post"),
+    html.indexOf("first comment"),
+  );
+  expect(bar).toContain('data-slot="content-actions"');
+  const at = (text: string) => bar.indexOf(text);
+  expect(at('aria-label="Report"')).toBeGreaterThan(-1);
+  expect(at('aria-label="Report"')).toBeLessThan(at('aria-label="Share"'));
+  expect(at('aria-label="Share"')).toBeLessThan(at('aria-label="2 comments"'));
+  // A guest has nothing to report.
+  const guest = await render(wallItem(), null);
+  const guestBar = guest.slice(
+    guest.indexOf("the wall post"),
+    guest.indexOf("first comment"),
+  );
+  expect(guestBar).toContain('data-slot="content-actions"');
+  expect(guestBar).not.toContain('aria-label="Report"');
+});
+
 test("a wall post with more comments than the card holds has a button that loads them in place", async () => {
   const html = await render(wallItem({ commentCount: 6 }), MEMBER);
   expect(html).toMatch(/<button type="button"[^>]*>View previous comments…</);

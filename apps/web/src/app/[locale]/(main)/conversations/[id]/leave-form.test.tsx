@@ -28,6 +28,8 @@ test("the header button only opens the step: no form, no radios until it is pres
     </LeaveForm>,
   );
   expect(html).toContain('aria-label="Leave direct message"');
+  // Its word shows on a phone too.
+  expect(html).toContain("<span>Leave</span>");
   expect(html).toContain('aria-expanded="false"');
   expect(html).not.toContain("<form");
   expect(html).not.toContain('type="radio"');

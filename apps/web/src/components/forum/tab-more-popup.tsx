@@ -17,7 +17,6 @@ export type TabMorePopupProps = {
   tabs: Pick<TabLink, "value" | "label" | "href" | "icon">[];
   label: string;
   className: string;
-  narrow: boolean;
 };
 
 // The button and the menu of the tabs that do not fit, which Base UI draws. It is loaded when the
@@ -26,19 +25,14 @@ export default function TabMorePopup({
   tabs,
   label,
   className,
-  narrow,
   openedBy,
   openKey,
 }: TabMorePopupProps & OpenedProps) {
   const { defaultOpen, trigger } = useMenuOpening(openedBy, openKey);
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
-      <DropdownMenuTrigger
-        ref={trigger}
-        title={narrow ? label : undefined}
-        className={cn("group", className)}
-      >
-        <TabMoreFace label={label} narrow={narrow} />
+      <DropdownMenuTrigger ref={trigger} className={cn("group", className)}>
+        <TabMoreFace label={label} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         {tabs.map((tab) => (

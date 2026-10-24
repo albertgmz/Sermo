@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { AcceptanceGate } from "@/components/forum/acceptance-gate";
 import { AwaitingNotice } from "@/components/forum/awaiting-notice";
 import { NoticeBanner } from "@/components/forum/notice-banner";
+import { ShareNotice } from "@/components/forum/share-notice";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { AnalyticsTag } from "@/components/layout/analytics-tag";
 import { AppPromptsGate } from "@/components/layout/app-prompts-gate";
@@ -221,6 +222,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         <Suspense>
           <AppPromptsGate />
         </Suspense>
+        <ShareNotice />
       </div>
     </ClientMessages>
   );

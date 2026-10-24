@@ -6,7 +6,7 @@ mock.module("@/app/[locale]/(main)/conversations/actions", () => ({
 }));
 const { MarkUnreadForm } = await import("./mark-unread-form");
 
-test("the button is named after its label, with the text kept for screen readers on phones", () => {
+test("the button is named after its label, and shows it on a phone too", () => {
   const html = renderToStaticMarkup(
     <MarkUnreadForm conversationId={4} label="Mark as unread">
       <svg />
@@ -14,5 +14,5 @@ test("the button is named after its label, with the text kept for screen readers
   );
   expect(html).toContain("<button");
   expect(html).toContain('aria-label="Mark as unread"');
-  expect(html).toContain('<span class="max-sm:sr-only">Mark as unread</span>');
+  expect(html).toContain("<span>Mark as unread</span>");
 });

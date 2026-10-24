@@ -74,7 +74,7 @@ export function ReactionsView({
                 : undefined
             }
             size={size}
-            showTotal={!pressable}
+            bar={part === "summary"}
           />
         )
       }

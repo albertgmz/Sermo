@@ -37,6 +37,10 @@ import {
   WallComments,
 } from "@/components/forum/wall-comments";
 import {
+  WallItemActions,
+  WallItemSummary,
+} from "@/components/forum/wall-item-actions";
+import {
   contextLinkClass,
   UnnamedWall,
   WallOwner,
@@ -84,6 +88,32 @@ function Body({
   );
 }
 
+// The count of answers, a link to where they are: the card's own composer when the viewer may answer
+// there, otherwise the item itself.
+function AnswerCount({
+  href,
+  count,
+  noun,
+}: {
+  href: string;
+  count: number;
+  noun: "comments" | "replies";
+}) {
+  const t = useTranslations("home.feedItem");
+  const format = useFormatter();
+  const formattedCount = format.number(count, { useGrouping: false });
+  return (
+    <Link
+      href={href}
+      aria-label={t(noun, { count, value: formattedCount })}
+      className={messageActionClass}
+    >
+      <MessageCircle />
+      {formattedCount}
+    </Link>
+  );
+}
+
 function Card({
   id,
   author,
@@ -93,14 +123,7 @@ function Card({
   highlighted = false,
   featured = null,
   cover,
-  reaction,
-  href,
-  answerHref,
-  count,
-  noun,
-  views,
-  hideForum,
-  actions,
+  footer,
   answers,
   children,
 }: {
@@ -114,26 +137,14 @@ function Card({
   // Why the thread is featured: a moderator picked it, or its author paid for a promotion.
   featured?: "staff" | "paid" | null;
   cover?: PictureView | null;
-  reaction: React.ReactNode;
-  href: string;
-  // Where the count of answers leads: the card's own composer when the viewer may answer there,
-  // otherwise the item itself.
-  answerHref: string;
-  count: number;
-  noun: "comments" | "replies";
-  views?: number;
-  // The forum a member may keep out of their own feed from the card.
-  hideForum?: { id: number; title: string };
-  // More actions after the count of answers: the unread count, the Reply button.
-  actions?: React.ReactNode;
+  // The card's actions: a thread's `Footer`, or a wall post's own bar, the same as on the profile
+  // wall (`WallItemActions`).
+  footer: React.ReactNode;
   // What sits under the card's actions: the comments, the composer.
   answers?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const locale = useLocale();
   const t = useTranslations("home.feedItem");
-  const format = useFormatter();
-  const formattedCount = format.number(count, { useGrouping: false });
   const { member } = author;
   return (
     <article
@@ -186,38 +197,57 @@ function Card({
         )}
       </header>
       <div className="px-4 pt-3">{children}</div>
-      <footer className="flex flex-wrap items-center gap-1 px-2 pt-1 pb-2">
-        {reaction}
-        <Link
-          href={answerHref}
-          aria-label={t(noun, { count, value: formattedCount })}
-          className={messageActionClass}
-        >
-          <MessageCircle />
-          {formattedCount}
-        </Link>
-        {actions}
-        {views !== undefined && (
-          <span className="inline-flex h-10 items-center gap-1.5 px-2 text-xs font-medium tabular-nums text-muted-foreground md:h-8">
-            <Eye aria-hidden="true" className="size-4" />
-            {t.rich("views", {
-              count: views,
-              value: formatCompact(views, locale),
-              label: (chunks) => <span className="sr-only">{chunks}</span>,
-            })}
-          </span>
-        )}
-        <ShareButton href={href} className={messageActionClass} />
-        {hideForum && (
-          <HideForumButton
-            nodeId={hideForum.id}
-            title={hideForum.title}
-            className={messageActionClass}
-          />
-        )}
-      </footer>
+      {footer}
       {answers && <div className="px-4 pb-4">{answers}</div>}
     </article>
+  );
+}
+
+// A thread card's footer: react, the count of answers, its own actions (the unread count, the
+// Reply button), the views, share and the button that keeps the forum out of the member's feed.
+function Footer({
+  reaction,
+  count,
+  actions,
+  views,
+  href,
+  hideForum,
+}: {
+  reaction: React.ReactNode;
+  count: React.ReactNode;
+  actions: React.ReactNode;
+  views?: number;
+  // The address the card shares.
+  href: string;
+  // The forum a member may keep out of their own feed from the card.
+  hideForum?: { id: number; title: string };
+}) {
+  const locale = useLocale();
+  const t = useTranslations("home.feedItem");
+  return (
+    <footer className="flex flex-wrap items-center gap-1 px-2 pt-1 pb-2">
+      {reaction}
+      {count}
+      {actions}
+      {views !== undefined && (
+        <span className="inline-flex h-10 items-center gap-1.5 px-2 text-xs font-medium tabular-nums text-muted-foreground md:h-8">
+          <Eye aria-hidden="true" className="size-4" />
+          {t.rich("views", {
+            count: views,
+            value: formatCompact(views, locale),
+            label: (chunks) => <span className="sr-only">{chunks}</span>,
+          })}
+        </span>
+      )}
+      <ShareButton href={href} className={messageActionClass} />
+      {hideForum && (
+        <HideForumButton
+          nodeId={hideForum.id}
+          title={hideForum.title}
+          className={messageActionClass}
+        />
+      )}
+    </footer>
   );
 }
 
@@ -264,6 +294,7 @@ export function FeedItem({
       (id) => author(id).member,
     );
     const comments = profilePost.latestComments;
+    const answerHref = profilePost.canComment ? `#${anchor}-comment` : href;
     const oldest = oldestFirst(comments)[0];
     const earlier =
       oldest && profilePost.commentCount > comments.length
@@ -277,6 +308,17 @@ export function FeedItem({
             ),
           }
         : undefined;
+    // Who reacted heads the block of comments, as on the profile wall; with no block, it sits under
+    // the bar.
+    const block = hasWallComments(profilePost, comments, earlier);
+    const reactions = {
+      kind: "post" as const,
+      item: profilePost,
+      viewerId,
+      picker,
+      reactionTypes,
+      viewList,
+    };
     return (
       <Card
         id={anchor}
@@ -295,29 +337,33 @@ export function FeedItem({
             <UnnamedWall ownerId={profilePost.profileUserId} />
           )
         }
-        reaction={
-          <Reactions
-            target="profilePost"
-            id={profilePost.id}
-            reactions={profilePost.reactions}
-            authorId={profilePost.author.id}
-            viewerId={viewerId}
-            picker={profilePost.state === "visible" ? picker : []}
-            reactionTypes={reactionTypes}
-            viewList={viewList}
-          />
+        footer={
+          <footer className="px-4 pb-2">
+            <WallItemActions
+              {...reactions}
+              address={{
+                profileUserId: profilePost.profileUserId,
+                postId: profilePost.id,
+              }}
+              summary={!block}
+              start={
+                <AnswerCount
+                  href={answerHref}
+                  count={profilePost.commentCount}
+                  noun="comments"
+                />
+              }
+            />
+          </footer>
         }
-        href={href}
-        answerHref={profilePost.canComment ? `#${anchor}-comment` : href}
-        count={profilePost.commentCount}
-        noun="comments"
         answers={
-          hasWallComments(profilePost, comments, earlier) && (
+          block && (
             <WallComments
               anchor={anchor}
               profileUserId={profilePost.profileUserId}
               comments={comments}
               earlier={earlier}
+              summary={<WallItemSummary {...reactions} />}
               action={
                 profilePost.canComment
                   ? commentOnWallPost.bind(null, profilePost.id, undefined)
@@ -383,51 +429,59 @@ export function FeedItem({
       }
       featured={item.featured}
       cover={isThread ? card.coverPicture : null}
-      reaction={
-        <Reactions
-          target="post"
-          id={post.id}
-          reactions={post.reactions}
-          authorId={post.author.id}
-          viewerId={viewerId}
-          picker={picker}
-          reactionTypes={reactionTypes}
-          viewList={viewList}
-        />
-      }
-      href={href}
-      answerHref={answersHref}
-      count={thread.replyCount}
-      noun="replies"
-      views={isThread ? thread.viewCount : undefined}
-      hideForum={
-        viewerId === null
-          ? undefined
-          : { id: thread.node.id, title: thread.node.title }
-      }
-      actions={
-        <>
-          {item.unread && (
-            <FirstUnreadLink
-              href={threadHref(
-                thread.id,
-                item.unread.firstPosition,
-                item.unread.firstPostId,
+      footer={
+        <Footer
+          reaction={
+            <Reactions
+              target="post"
+              id={post.id}
+              reactions={post.reactions}
+              authorId={post.author.id}
+              viewerId={viewerId}
+              picker={picker}
+              reactionTypes={reactionTypes}
+              viewList={viewList}
+            />
+          }
+          count={
+            <AnswerCount
+              href={answersHref}
+              count={thread.replyCount}
+              noun="replies"
+            />
+          }
+          views={isThread ? thread.viewCount : undefined}
+          href={href}
+          hideForum={
+            viewerId === null
+              ? undefined
+              : { id: thread.node.id, title: thread.node.title }
+          }
+          actions={
+            <>
+              {item.unread && (
+                <FirstUnreadLink
+                  href={threadHref(
+                    thread.id,
+                    item.unread.firstPosition,
+                    item.unread.firstPostId,
+                  )}
+                  count={item.unread.count}
+                  more={item.unread.more}
+                />
               )}
-              count={item.unread.count}
-              more={item.unread.more}
-            />
-          )}
-          {item.canReply && (
-            <InlineReply
-              action={replyFromFeed.bind(null, thread.id)}
-              label={t("reply")}
-              placeholder={t("replyPlaceholder")}
-              submitLabel={t("replySubmit")}
-              anchor={`${anchor}-comment`}
-            />
-          )}
-        </>
+              {item.canReply && (
+                <InlineReply
+                  action={replyFromFeed.bind(null, thread.id)}
+                  label={t("reply")}
+                  placeholder={t("replyPlaceholder")}
+                  submitLabel={t("replySubmit")}
+                  anchor={`${anchor}-comment`}
+                />
+              )}
+            </>
+          }
+        />
       }
     >
       <h2

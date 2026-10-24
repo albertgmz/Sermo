@@ -52,7 +52,7 @@ export function LeaveForm({
         }}
       >
         {children}
-        <span className="max-sm:sr-only">{label}</span>
+        <span>{label}</span>
       </Button>
       {opened && (
         <LeaveStep

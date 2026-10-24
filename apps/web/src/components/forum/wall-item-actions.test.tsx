@@ -22,10 +22,8 @@ mock.module("next-intl", () => ({
   useLocale: () => "en",
   useTranslations,
 }));
-// The stand-in records what the "•••" menu and the share button would open with; the bar draws
-// only their plain buttons.
+// The stand-in records what the "•••" menu would open with; the bar draws only its plain button.
 let menus: Record<string, unknown>[] = [];
-let shares: Record<string, unknown>[] = [];
 const realPopup = { ...(await import("@/components/ui/lazy-popup")) };
 mock.module("@/components/ui/lazy-popup", () => ({
   ...realPopup,
@@ -34,7 +32,6 @@ mock.module("@/components/ui/lazy-popup", () => ({
     trigger: (lazy: object) => React.ReactElement;
   }) => {
     if ("onDelete" in props.popup) menus.push(props.popup);
-    if ("href" in props.popup) shares.push(props.popup);
     return props.trigger({});
   },
 }));
@@ -70,7 +67,6 @@ function draw(
   props: Partial<Props> = {},
 ) {
   menus = [];
-  shares = [];
   const html = renderToStaticMarkup(
     withIntl(
       <WallItemActions
@@ -163,10 +159,12 @@ test("a wall post's date stays in its header: its footer starts with report", ()
 });
 
 test("the share link names the item: the post, or the comment on it", () => {
-  draw("post", {}, null);
-  expect(shares[0]?.href).toBe("/members/9?post=12#profile-post-12");
-  draw("comment", {}, null);
-  expect(shares[0]?.href).toContain("comment=12");
+  const share = (html: string) =>
+    html.match(/<a href="([^"]*)" aria-label="Share"/)?.[1];
+  expect(share(draw("post", {}, null))).toBe(
+    "/members/9?post=12#profile-post-12",
+  );
+  expect(share(draw("comment", {}, null))).toContain("comment=12");
 });
 
 test("a member who may only report and share gets no menu, and report's word on a phone", () => {

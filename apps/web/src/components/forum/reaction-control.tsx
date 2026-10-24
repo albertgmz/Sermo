@@ -15,9 +15,8 @@ export function canReact(
 }
 
 // The reaction control of one item, free of the backend: `Reactions` binds the actions, the
-// styleguide fakes them. The button sets the viewer's own reaction and shows the count; the
-// summary beside it (drawn on the server, it lists members) opens who reacted and shows the
-// number only where there is no button (see `canReact`), so the number appears once.
+// styleguide fakes them. The button sets the viewer's own reaction and names it; the summary
+// beside it (drawn on the server, it lists members) shows the number and opens who reacted.
 export function ReactionControl({
   stateKey,
   action,
@@ -39,7 +38,7 @@ export function ReactionControl({
   picker: ReactionType[];
   viewerId: number | null;
   authorId: number;
-  // A `ReactionSummary` with `showTotal` off exactly when `canReact`; none when nobody reacted.
+  // A `ReactionSummary`; none when nobody reacted.
   summary: React.ReactNode;
   size?: "default" | "sm";
   // Where a bar keeps the button and the summary apart, each is drawn on its own.

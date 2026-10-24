@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Ellipsis } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type { TabLink } from "@/components/forum/tab-links";
 import type { TabMorePopupProps } from "@/components/forum/tab-more-popup";
 import { LazyPopup } from "@/components/ui/lazy-popup";
@@ -8,25 +8,12 @@ import { cn } from "@/lib/utils";
 
 const loadPopup = () => import("@/components/forum/tab-more-popup");
 
-// What the menu button shows, before and after its menu is loaded. Narrow, below `sm` it is an icon
-// named by its label.
-export function TabMoreFace({
-  label,
-  narrow,
-}: {
-  label: string;
-  narrow: boolean;
-}) {
+// What the menu button shows, before and after its menu is loaded.
+export function TabMoreFace({ label }: { label: string }) {
   return (
     <>
-      {narrow && <Ellipsis className="sm:hidden" />}
-      {narrow ? <span className="max-sm:sr-only">{label}</span> : label}
-      <ChevronDown
-        className={cn(
-          "size-3.5 transition-transform group-data-popup-open:rotate-180",
-          narrow && "max-sm:hidden",
-        )}
-      />
+      {label}
+      <ChevronDown className="size-3.5 transition-transform group-data-popup-open:rotate-180" />
     </>
   );
 }
@@ -38,14 +25,12 @@ export function TabMore({
   tabs,
   label,
   className,
-  narrow = false,
 }: {
   tabs: Pick<TabLink, "value" | "label" | "href" | "icon">[];
   label: string;
   className: string;
-  narrow?: boolean;
 }) {
-  const popup: TabMorePopupProps = { tabs, label, className, narrow };
+  const popup: TabMorePopupProps = { tabs, label, className };
   return (
     <LazyPopup
       load={loadPopup}
@@ -57,11 +42,10 @@ export function TabMore({
           data-slot="dropdown-menu-trigger"
           aria-haspopup="menu"
           aria-expanded="false"
-          title={narrow ? label : undefined}
           className={cn("group", className)}
           {...lazy}
         >
-          <TabMoreFace label={label} narrow={narrow} />
+          <TabMoreFace label={label} />
         </button>
       )}
     />

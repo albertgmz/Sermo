@@ -24,7 +24,7 @@ export type ReactionSummaryPopupProps = {
   members?: React.ReactNode;
   loadUsers?: () => Promise<React.ReactNode>;
   size: SummarySize;
-  showTotal: boolean;
+  bar: boolean;
   className?: string;
 };
 
@@ -35,7 +35,7 @@ export default function ReactionSummaryPopup({
   loadUsers,
   members,
   size,
-  showTotal,
+  bar,
   className,
   openedBy,
 }: ReactionSummaryPopupProps & OpenedProps) {
@@ -50,9 +50,9 @@ export default function ReactionSummaryPopup({
           members || loadUsers ? "aria.trigger" : "aria.triggerCounts",
           { total },
         )}
-        className={summaryTriggerClass(size, className)}
+        className={summaryTriggerClass(size, bar, className)}
       >
-        <SummaryFaces reactions={reactions} size={size} showTotal={showTotal} />
+        <SummaryFaces reactions={reactions} size={size} bar={bar} />
       </PopoverTrigger>
       <PopoverContent
         align="start"

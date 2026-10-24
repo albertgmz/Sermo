@@ -1,12 +1,4 @@
-import {
-  Clock,
-  Images,
-  type LucideIcon,
-  PenLine,
-  Rss,
-  TrendingUp,
-  UserCheck,
-} from "lucide-react";
+import { Images, PenLine, Rss } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import {
@@ -231,15 +223,8 @@ export async function openingOf(params: Params) {
 
 export type Opened = Awaited<ReturnType<typeof openingOf>>;
 
-const TAB_ICONS: Record<HomeTab, LucideIcon> = {
-  latest: Clock,
-  hot: TrendingUp,
-  following: UserCheck,
-  media: Images,
-};
-
-// Two bars, one per screen size: a phone has every tab but Media on its bar, with icons and only
-// the open tab's label on the narrowest screens; a wider screen pins three (`barOf`).
+// Two bars, one per screen size: a phone has every tab but Media on its bar, each with its word
+// (the strip scrolls sideways where they do not fit); a wider screen pins three (`barOf`).
 async function HomeTabs({ opened }: { opened: Opened }) {
   const { params, signedIn, home, tab } = opened;
   const t = await getTranslations("home.page");
@@ -250,21 +235,16 @@ async function HomeTabs({ opened }: { opened: Opened }) {
     label: t(`tabs.${value}`),
     href: homeHref(value),
   });
-  const phoneLink = (value: HomeTab) => {
-    const Icon = TAB_ICONS[value];
-    return { ...link(value), icon: <Icon /> };
-  };
 
   return (
     <>
       <TabLinks
-        tabs={phone.bar.map(phoneLink)}
-        more={phone.more.map(phoneLink)}
+        tabs={phone.bar.map(link)}
+        more={phone.more.map(link)}
         moreLabel={t("tabs.more")}
         active={tab}
         label={t("aria.feed")}
         variant="segmented"
-        narrow
         className="md:hidden"
       />
       <TabLinks
