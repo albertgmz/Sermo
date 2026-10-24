@@ -6866,3 +6866,13 @@ Why: the UI audit (A2, A7, A8) found these three controls reloading or doubling 
 
 Why: the UI audit (A18) found the conversation's sidebar crowded with cards XenForo keeps in a
 dialog.
+
+### Wording and labels from the audit
+
+- No "private message" is left in either language: the messages, the permission texts and
+  the broadcasts say direct message ("mensaje directo") everywhere, and a test keeps it so.
+- The other wording and label fixes from the audit (A10, A11, A16, A17, A23, A27, A31, A39)
+  name controls by what they do, as XenForo's phrases do, in English and Spanish.
+
+Why: the UI audit found mixed names for the same thing and controls labelled by their place
+rather than their action.
