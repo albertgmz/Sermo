@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
-import { FormError } from "@/components/forum/form-error";
 import {
   type Watch,
   WatchIcon,
@@ -11,7 +10,7 @@ import {
   watchOf,
   watchText,
 } from "@/components/forum/watch-button";
-import { Button } from "@/components/ui/button";
+import { WatchForm } from "@/components/forum/watch-form";
 import type { OpenedProps } from "@/components/ui/lazy-popup";
 import { usePopupFocus } from "@/components/ui/lazy-popup-focus";
 import {
@@ -31,8 +30,6 @@ export type WatchPopupProps = {
   modes: boolean;
   save: (watch: Watch) => Promise<ChangeResult>;
 };
-
-const choice = "flex min-h-10 items-center gap-2.5 text-sm";
 
 // The watch button and its popover, which Base UI draws. It is loaded when the plain button of
 // `WatchButton` is pressed and mounts open. The form starts from what is shown each time it opens;
@@ -98,86 +95,5 @@ export default function WatchPopup({
         />
       </PopoverContent>
     </Popover>
-  );
-}
-
-// The popover's form: a forum's choice between new threads and every new post, the email box, and
-// Follow (or Save and Unfollow while the member watches). `current` is what is shown now.
-export function WatchForm({
-  current,
-  modes,
-  pending,
-  error,
-  send,
-}: {
-  current: Watch;
-  modes: boolean;
-  pending: boolean;
-  error: string | undefined;
-  send: (next: Watch) => void;
-}) {
-  const t = useTranslations("forum.watchButton");
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        const data = new FormData(event.currentTarget);
-        send({
-          mode: data.get("mode") === "posts" ? "posts" : "threads",
-          email: data.get("email") === "on",
-        });
-      }}
-      className="space-y-2"
-    >
-      {modes && (
-        <fieldset>
-          <legend className="mb-1 text-sm font-medium">{t("notifyFor")}</legend>
-          {(["threads", "posts"] as const).map((mode) => (
-            <label key={mode} className={choice}>
-              <input
-                type="radio"
-                name="mode"
-                value={mode}
-                defaultChecked={(current?.mode ?? "threads") === mode}
-                className="size-4 accent-primary"
-              />
-              {t(mode === "posts" ? "optionPosts" : "optionThreads")}
-            </label>
-          ))}
-        </fieldset>
-      )}
-      <label className={choice}>
-        <input
-          type="checkbox"
-          name="email"
-          defaultChecked={current?.email ?? false}
-          className="size-4 accent-primary"
-        />
-        {t("email")}
-      </label>
-      {error && <FormError>{error}</FormError>}
-      <div className="flex flex-wrap gap-2 pt-1">
-        <Button
-          type="submit"
-          disabled={pending}
-          focusableWhenDisabled
-          className="h-10 px-3 aria-disabled:opacity-50"
-        >
-          {current ? t("save") : t("watch")}
-        </Button>
-        {current && (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending}
-            focusableWhenDisabled
-            className="h-10 px-3 aria-disabled:opacity-50"
-            onClick={() => send(null)}
-          >
-            {t("stop")}
-          </Button>
-        )}
-      </div>
-    </form>
   );
 }

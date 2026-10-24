@@ -286,6 +286,25 @@ test("watching a thread from its popover sends the email choice and draws nothin
   assert.equal(refreshed, 0);
 });
 
+test("without scripts the watch form is posted and the thread is shown again", async () => {
+  byUrl = (url, method) =>
+    url.endsWith("/watch")
+      ? {
+          status: 200,
+          body:
+            method === "PUT" ? { watching: true, email: true } : { ok: true },
+        }
+      : undefined;
+  const digest = await redirectedTo(() =>
+    actions.watchThreadForm(7, form({ email: "on" })),
+  );
+  assert.match(digest ?? "", /;\/threads\/7;/);
+  assert.equal(asked[0].method, "PUT");
+  assert.equal((asked[0].body as { email: boolean }).email, true);
+  await redirectedTo(() => actions.watchThreadForm(7, form({ stop: "1" })));
+  assert.equal(asked[1].method, "DELETE");
+});
+
 test("the backend's refusal of a thread watch is what the popover shows", async () => {
   answer = {
     status: 403,
@@ -422,6 +441,7 @@ test("an id that is not a record id never becomes a path", async () => {
     await assert.rejects(() => actions.setLockedAction(id, true, {}));
     await assert.rejects(() => actions.removeCoverAction(id, {}));
     await assert.rejects(() => actions.setThreadWatch(id, null));
+    await assert.rejects(() => actions.watchThreadForm(id, form({})));
     await assert.rejects(() => actions.quoteSource(id));
     await assert.rejects(() => actions.markRead(id, 0));
     await assert.rejects(() =>

@@ -7,6 +7,8 @@
 @import "vanilla-cookieconsent/dist/cookieconsent.css";
 
 @custom-variant dark (&:is(.dark *));
+/* A browser that runs no scripts: the plain forms and links that stand in for scripted controls. */
+@custom-variant unscripted (@media (scripting: none));
 
 @theme inline {
   /* Surfaces. */

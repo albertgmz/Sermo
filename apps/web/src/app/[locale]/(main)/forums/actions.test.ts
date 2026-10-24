@@ -47,6 +47,15 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
+async function redirectedTo(run: () => Promise<unknown>) {
+  try {
+    await run();
+  } catch (error) {
+    return String((error as { digest?: unknown }).digest);
+  }
+  return undefined;
+}
+
 const form = (fields: Record<string, string | string[]>) => {
   const data = new FormData();
   for (const [name, value] of Object.entries(fields))
@@ -68,6 +77,23 @@ test("watching a forum from its popover sends the mode and the email choice and 
   assert.equal(asked[0].url, `${ROOT}/nodes/4/watch`);
   assert.deepEqual(asked[0].body, { mode: "posts", email: true });
   assert.equal(refreshed, 0);
+});
+
+test("without scripts the watch form is posted and the forum is shown again", async () => {
+  answer = {
+    status: 200,
+    body: { watching: true, mode: "posts", email: true },
+  };
+  const digest = await redirectedTo(() =>
+    actions.watchForumForm(4, form({ mode: "posts", email: "on" })),
+  );
+  assert.match(digest ?? "", /;\/forums\/4;/);
+  assert.equal(asked[0].method, "PUT");
+  assert.deepEqual(asked[0].body, { mode: "posts", email: true });
+  answer = { status: 200, body: { ok: true } };
+  await redirectedTo(() => actions.watchForumForm(4, form({ stop: "1" })));
+  assert.equal(asked[1].method, "DELETE");
+  assert.equal(asked[1].url, `${ROOT}/nodes/4/watch`);
 });
 
 test("an unknown mode watches new threads only", async () => {
@@ -293,6 +319,7 @@ test("a forum says whether files and a poll may be added to a thread there, whic
 test("an id that is not a record id never becomes a path", async () => {
   for (const id of [".." as unknown as number, 0, -3, Number.NaN]) {
     await assert.rejects(() => actions.setForumWatch(id, null));
+    await assert.rejects(() => actions.watchForumForm(id, form({})));
     await assert.rejects(() => actions.createThreadAction(id, {}, form({})));
   }
   assert.equal(asked.length, 0);

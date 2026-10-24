@@ -137,6 +137,21 @@ export async function setForumWatch(
   return {};
 }
 
+// The watch popover's form posted by a browser that runs no scripts: the same change, then the
+// forum is shown again with it (a refusal leaves it as it was).
+export async function watchForumForm(nodeId: number, formData: FormData) {
+  const done = await setForumWatch(
+    nodeId,
+    formData.get("stop") === null
+      ? {
+          mode: formData.get("mode") === "posts" ? "posts" : "threads",
+          email: formData.get("email") === "on",
+        }
+      : null,
+  );
+  redirect(done.signIn ?? `/forums/${nodeId}`);
+}
+
 // "Mark forum read" and "Mark forums read": the backend stores one marker, however many threads
 // there are. The page stays where it is and is drawn again, so the unread marks are gone from it.
 export async function markForumReadAction(

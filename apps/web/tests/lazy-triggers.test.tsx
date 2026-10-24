@@ -250,6 +250,7 @@ const cases: [string, () => React.ReactNode, boolean][] = [
         label="Follow forum"
         modes
         save={async () => ({})}
+        post={async () => {}}
       />
     ),
     true,
@@ -262,8 +263,8 @@ const cases: [string, () => React.ReactNode, boolean][] = [
         start={null}
         watch={null}
         bookmark={null}
-        edit
-        tags={null}
+        edit={null}
+        tags={["a"]}
         poll={null}
         moderation={null}
         selecting={false}

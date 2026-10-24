@@ -397,6 +397,18 @@ export async function setThreadWatch(
   return {};
 }
 
+// The watch popover's form posted by a browser that runs no scripts: the same change, then the
+// thread is shown again with it (a refusal leaves it as it was).
+export async function watchThreadForm(threadId: number, formData: FormData) {
+  const done = await setThreadWatch(
+    threadId,
+    formData.get("stop") === null
+      ? { email: formData.get("email") === "on" }
+      : null,
+  );
+  redirect(done.signIn ?? `/threads/${threadId}`);
+}
+
 // The BB code source of a post, for the quote button: the list only carries rendered HTML.
 export async function quoteSource(postId: number) {
   requireIds(postId);

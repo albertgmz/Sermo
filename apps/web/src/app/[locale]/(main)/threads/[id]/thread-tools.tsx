@@ -2,7 +2,10 @@ import { getTranslations } from "next-intl/server";
 import { ModerationPanel } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import type { PostsContext } from "@/app/[locale]/(main)/threads/[id]/thread-posts";
 import { ThreadToolbar } from "@/app/[locale]/(main)/threads/[id]/thread-toolbar";
-import { setThreadWatch } from "@/app/[locale]/(main)/threads/actions";
+import {
+  setThreadWatch,
+  watchThreadForm,
+} from "@/app/[locale]/(main)/threads/actions";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { WatchButton } from "@/components/forum/watch-button";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
@@ -26,7 +29,6 @@ export async function ThreadTools({
     getTranslations("threads.tools"),
     bookmarkedAmong("thread", [thread.id]),
   ]);
-  const moderate = may.any || tools.mayRemoveCover;
   // Null when the bookmark state could not be read, or the member may not add one: no toggle.
   const bookmarked = bookmarks ? bookmarks.toggle(thread.id) : null;
   return (
@@ -45,6 +47,7 @@ export async function ThreadTools({
             }
             label={t("watch")}
             save={setThreadWatch.bind(null, thread.id)}
+            post={watchThreadForm.bind(null, thread.id)}
           />
         )
       }
@@ -58,11 +61,11 @@ export async function ThreadTools({
           />
         )
       }
-      edit={tools.canEditTitle}
+      edit={tools.edit}
       tags={tools.tags}
       poll={tools.addPoll}
       moderation={
-        moderate && (
+        tools.moderate && (
           <ModerationPanel
             thread={thread}
             may={may}

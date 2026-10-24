@@ -47,7 +47,8 @@ afterAll(() => {
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { ThreadTools } = await import("./thread-tools");
-const { ThreadToolbar } = await import("./thread-toolbar");
+const { ThreadToolbar, focusAfter } = await import("./thread-toolbar");
+const { postsContext } = await import("./thread-posts");
 
 beforeEach(() => {
   menu = undefined;
@@ -108,9 +109,10 @@ function context(tools: Record<string, unknown> | null) {
     tools: tools && {
       watching: null,
       canWatch: true,
-      canEditTitle: false,
+      edit: null,
       tags: null,
       addPoll: null,
+      moderate: false,
       staffPick: false,
       mayRemoveCover: false,
       ...tools,
@@ -130,7 +132,7 @@ test("a guest's row is the pager alone", async () => {
 test("a member's row holds the pager, Follow, the bookmark and the menu, in that order", async () => {
   const out = await html(
     <ThreadTools
-      context={context({ canEditTitle: true, tags: ["a"] })}
+      context={context({ edit: "/threads/7/edit/1", tags: ["a"] })}
       start={<nav>pager</nav>}
     />,
   );
@@ -144,9 +146,20 @@ test("a member's row holds the pager, Follow, the bookmark and the menu, in that
   // The bookmark is boxed like the buttons beside it.
   const bookmark = out.slice(out.lastIndexOf("<button", at("Remove bookmark")));
   expect(bookmark.slice(0, bookmark.indexOf(">"))).toContain("border-border");
-  expect(out).not.toContain("Edit thread");
+  // "Edit thread" is in the menu; the plain link to the edit page shows only without scripts.
+  const edit = out.slice(out.lastIndexOf("<a", out.indexOf("Edit thread")));
+  expect(edit).toStartWith('<a href="/threads/7/edit/1"');
+  expect(edit.slice(0, edit.indexOf(">"))).toMatch(
+    / hidden .*unscripted:inline-flex/,
+  );
   expect(out).not.toContain("Edit tags");
-  expect(out).not.toContain("Email me");
+  // The email box is in Follow's popover; on the page only in the disclosure shown without scripts.
+  expect(out.indexOf("Email me")).toBeGreaterThan(
+    out.indexOf('<details class="relative hidden unscripted:block"'),
+  );
+  expect(
+    out.indexOf('<details class="relative hidden unscripted:block"'),
+  ).toBeGreaterThan(-1);
 });
 
 test("a member who watches the thread reads Following", async () => {
@@ -167,7 +180,7 @@ test("the menu offers edit, the tags, the poll and moderation in XenForo's order
       start={null}
       watch={null}
       bookmark={null}
-      edit
+      edit="/threads/7/edit/1"
       tags={[]}
       poll={{ attachIn: null }}
       moderation={<p>panel</p>}
@@ -187,7 +200,7 @@ test("the menu offers edit, the tags, the poll and moderation in XenForo's order
       start={null}
       watch={null}
       bookmark={null}
-      edit={false}
+      edit={null}
       tags={["a"]}
       poll={null}
       moderation={false}
@@ -198,6 +211,7 @@ test("the menu offers edit, the tags, the poll and moderation in XenForo's order
   expect(none).not.toContain("panel");
 });
 
+// The panel is a disclosure: the "•••" menu opens it, and without scripts its own button does.
 test("the moderation panel is open from the start while posts are picked for a split", async () => {
   const toolbar = (selecting: boolean) => (
     <ThreadToolbar
@@ -205,13 +219,110 @@ test("the moderation panel is open from the start while posts are picked for a s
       start={null}
       watch={null}
       bookmark={null}
-      edit={false}
+      edit={null}
       tags={null}
       poll={null}
       moderation={<p>moderation panel</p>}
       selecting={selecting}
     />
   );
-  expect(await html(toolbar(true))).toContain("moderation panel");
-  expect(await html(toolbar(false))).not.toContain("moderation panel");
+  const open = await html(toolbar(true));
+  expect(open).toMatch(/<details[^>]* open=""[^>]*>/);
+  expect(open).toContain("moderation panel");
+  const closed = await html(toolbar(false));
+  expect(closed).not.toMatch(/<details[^>]* open=""/);
+  const summary = closed.slice(closed.indexOf("<summary"));
+  expect(summary.slice(0, summary.indexOf(">"))).toMatch(
+    / hidden .*unscripted:flex/,
+  );
+  expect(summary).toContain("Moderate");
+});
+
+test("closing a panel or the edit dialog gives the focus back to the menu button; Tags and Poll take it to their first field", () => {
+  for (const panel of ["edit", "tags", "poll", "moderate"] as const)
+    expect(focusAfter(panel, null)).toBe("trigger");
+  expect(focusAfter(null, "tags")).toBe("field");
+  expect(focusAfter(null, "poll")).toBe("field");
+  expect(focusAfter("tags", "poll")).toBe("field");
+  // The dialog takes the focus itself; the moderation panel is a list of tools under the row.
+  expect(focusAfter(null, "edit")).toBeNull();
+  expect(focusAfter(null, "moderate")).toBeNull();
+  expect(focusAfter(null, null)).toBeNull();
+});
+
+// What `threads.get` says the member may do, as the row's tools.
+function found(over: {
+  permissions?: Record<string, boolean>;
+  resolved?: Record<string, boolean>;
+  canAdd?: boolean;
+  cover?: boolean;
+}) {
+  return {
+    thread: {
+      id: 7,
+      firstPostId: 3,
+      cover: over.cover ? { url: "/c.png" } : null,
+      highlightedUntil: null,
+    },
+    tags: ["a"],
+    poll: { exists: false, canAdd: over.canAdd ?? false },
+    featured: null,
+    node: { id: 2, title: "Forum" },
+    watching: { email: true },
+    permissions: {
+      canReply: true,
+      canEditTitle: false,
+      canEditTags: false,
+      canRemoveCover: false,
+      canWatch: true,
+      ...over.permissions,
+    },
+    resolvedPermissions: over.resolved ?? {},
+  } as never;
+}
+
+test("the row's tools follow the thread's permissions", () => {
+  expect(postsContext(found({}), null, false).tools).toBeNull();
+  const plain = postsContext(found({}), 1, false).tools;
+  expect(plain).toMatchObject({
+    watching: { email: true },
+    canWatch: true,
+    edit: null,
+    tags: null,
+    addPoll: null,
+    moderate: false,
+  });
+  const all = postsContext(
+    found({
+      permissions: { canEditTitle: true, canEditTags: true },
+      canAdd: true,
+      resolved: { "forum.uploadAttachments": true },
+    }),
+    1,
+    false,
+  ).tools;
+  expect(all).toMatchObject({
+    edit: "/threads/7/edit/3",
+    tags: ["a"],
+    addPoll: { attachIn: 2 },
+  });
+  // A poll is offered only where the posts are open to the member.
+  const closed = postsContext(
+    found({ canAdd: true, resolved: { "forum.viewContent": false } }),
+    1,
+    false,
+  ).tools;
+  expect(closed?.addPoll).toBeNull();
+  // Moderation: any moderator tool, or a cover to remove.
+  expect(
+    postsContext(found({ resolved: { "forum.lock": true } }), 1, false).tools
+      ?.moderate,
+  ).toBe(true);
+  expect(
+    postsContext(
+      found({ cover: true, permissions: { canRemoveCover: true } }),
+      1,
+      false,
+    ).tools?.moderate,
+  ).toBe(true);
 });

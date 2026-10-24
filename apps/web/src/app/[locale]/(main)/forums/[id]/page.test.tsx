@@ -200,6 +200,12 @@ test("a member's forum header holds Mark forum read and one Follow button beside
   expect(at("Mark forum read")).toBeGreaterThan(-1);
   expect(at("Following")).toBeGreaterThan(at("Mark forum read"));
   expect(at("New thread")).toBeGreaterThan(at("Following"));
-  expect(html).not.toContain('name="mode"');
-  expect(html).not.toContain("Email me");
+  // The choices are in Follow's popover; on the page only in the disclosure shown without
+  // scripts.
+  const fallback = html.indexOf(
+    '<details class="relative hidden unscripted:block"',
+  );
+  expect(fallback).toBeGreaterThan(-1);
+  expect(html.indexOf('name="mode"')).toBeGreaterThan(fallback);
+  expect(html.indexOf("Email me")).toBeGreaterThan(fallback);
 });

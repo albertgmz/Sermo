@@ -1,7 +1,10 @@
 import type { nodesGet } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
-import { setForumWatch } from "@/app/[locale]/(main)/forums/actions";
+import {
+  setForumWatch,
+  watchForumForm,
+} from "@/app/[locale]/(main)/forums/actions";
 import { WatchButton } from "@/components/forum/watch-button";
 
 // Watching a forum, from its header: one button whose popover holds new threads or every new post
@@ -22,6 +25,7 @@ export async function ForumWatch({
       label={t("watch")}
       modes
       save={setForumWatch.bind(null, nodeId)}
+      post={watchForumForm.bind(null, nodeId)}
     />
   );
 }

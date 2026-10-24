@@ -7,6 +7,7 @@ import { MarkRead } from "@/app/[locale]/(main)/threads/[id]/mark-read";
 import { isNewPost } from "@/app/[locale]/(main)/threads/[id]/new-posts";
 import {
   pageCount,
+  postEditHref,
   threadPageHref,
 } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { threadMay } from "@/app/[locale]/(main)/threads/[id]/permissions";
@@ -62,13 +63,19 @@ export function postsContext(
         : {
             watching: found.watching,
             canWatch: permissions.canWatch,
-            canEditTitle: permissions.canEditTitle,
+            // Its author and the moderators edit the title: the full edit page, which the menu's
+            // dialog stands in for.
+            edit: permissions.canEditTitle
+              ? postEditHref(thread.id, thread.firstPostId)
+              : null,
             // The tags to edit, for whoever may edit them.
             tags: permissions.canEditTags ? found.tags : null,
             addPoll:
               contentOpen && poll.canAdd
                 ? { attachIn: may.attach ? node.id : null }
                 : null,
+            moderate:
+              may.any || (thread.cover !== null && permissions.canRemoveCover),
             staffPick: found.featured === "staff",
             mayRemoveCover: thread.cover !== null && permissions.canRemoveCover,
           },

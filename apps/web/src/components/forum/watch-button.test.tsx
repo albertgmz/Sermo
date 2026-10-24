@@ -2,10 +2,11 @@ import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 import { WatchButton, watchOf, watchText } from "./watch-button";
-import { WatchForm } from "./watch-popup";
+import { WatchForm } from "./watch-form";
 
 const draw = (node: React.ReactNode) => renderToStaticMarkup(withIntl(node));
 const save = async () => ({});
+const post = async () => {};
 
 test("a watch is kept as text and read back as it was", () => {
   for (const watch of [
@@ -24,6 +25,7 @@ test("the button names what it does until the member watches, then says Followin
       label="Follow forum"
       modes
       save={save}
+      post={post}
     />,
   );
   expect(off).toContain("Follow forum");
@@ -35,6 +37,7 @@ test("the button names what it does until the member watches, then says Followin
       label="Follow forum"
       modes
       save={save}
+      post={post}
     />,
   );
   expect(on).toContain("Following");
@@ -74,4 +77,29 @@ test("a thread's popover holds the email box alone, and Follow for a member who 
   expect(html).toContain(">Follow<");
   expect(html).not.toContain("Unfollow");
   expect(html).toContain("Not for you.");
+});
+
+// Without scripts the popover cannot open: a disclosure with the same form, posted to the server
+// (`post`), takes the button's place, as the forms before it did.
+test("without scripts the button is a disclosure whose form is posted to the server", () => {
+  const html = draw(
+    <WatchButton
+      item="forum:6"
+      watching={{ mode: "posts", email: false }}
+      label="Follow forum"
+      modes
+      save={save}
+      post={async () => {}}
+    />,
+  );
+  const trigger = html.slice(0, html.indexOf(">"));
+  expect(trigger).toContain('aria-haspopup="dialog"');
+  expect(trigger).toContain("unscripted:hidden");
+  expect(html).toMatch(/<details class="[^"]*hidden unscripted:block/);
+  const fallback = html.slice(html.indexOf("<details"));
+  expect(fallback).toContain("<summary");
+  expect(fallback).toContain("<form");
+  expect(fallback).toMatch(/checked="" value="posts"/);
+  expect(fallback).toMatch(/type="submit"[^>]*name="stop"/);
+  expect(fallback).toContain(">Unfollow<");
 });
