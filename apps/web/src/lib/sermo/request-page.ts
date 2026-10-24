@@ -12,3 +12,11 @@ export async function pageOfRequest(): Promise<string> {
   if (host !== (sent.get("x-forwarded-host") ?? sent.get("host"))) return "/";
   return safeReturnPath(pathname + search);
 }
+
+// Whether the router asked for this page (it draws a page again for a refresh), as the `rsc` header
+// says, rather than a browser opening it. A part that streams in behind a placeholder on a page
+// load is drawn whole for the router: its placeholder would take the place of what the screen
+// already shows.
+export async function isRouterRequest(): Promise<boolean> {
+  return (await headers()).has("rsc");
+}
