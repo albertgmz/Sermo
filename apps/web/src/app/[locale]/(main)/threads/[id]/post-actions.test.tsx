@@ -95,7 +95,7 @@ test("as on XenForo, report, edit and delete sit on the left and react, + Quote 
   expect(at("Edit")).toBeLessThan(at("Delete"));
   expect(at("Delete")).toBeLessThan(at("Quote"));
   expect(at("Quote")).toBeLessThan(at("Reply"));
-  expect(html).toContain('<span class="hidden sm:inline">+ Quote</span>');
+  expect(html).toContain('<span class="inline">+ Quote</span>');
 });
 
 test("share and bookmark are not in the footer: the post's header row has them", () => {
