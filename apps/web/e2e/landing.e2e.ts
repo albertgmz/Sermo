@@ -189,17 +189,18 @@ const visibleLink = (scope: Page | Locator, selector: string) =>
   scope.locator(selector).filter({ visible: true }).first();
 
 // The link to an item on a long list, wherever the list has it: posts written by the tests that
-// ran before push it past the first page, so the list is scrolled and its pages loaded (the
-// "Load more" button) until the link is drawn.
+// ran before push it past the first page, so the list is followed until the link is drawn. A
+// list with a "Load more" button is scrolled a screen at a time (every row on the way is drawn)
+// and the button pressed once it is on the screen; a numbered pager is followed by its next-page
+// link. The wait is bounded by the poll's timeout.
 async function reachLink(page: Page, selector: string) {
   const link = visibleLink(page, selector);
   const more = page.getByRole("link", { name: "Load more", exact: true });
+  const next = page.locator('a[rel="next"]').filter({ visible: true }).first();
   await expect
     .poll(
       async () => {
         if (await link.count()) return true;
-        // Scrolled to a screen at a time, so that every row on the way is drawn; the button is
-        // pressed only once it is on the screen.
         const inView =
           (await more.count()) > 0 &&
           (await more
@@ -207,9 +208,18 @@ async function reachLink(page: Page, selector: string) {
             .evaluate(
               (a) => a.getBoundingClientRect().top < window.innerHeight,
             ));
-        if (inView) await more.click();
-        else
+        if (inView) {
+          await more.click();
+        } else if (await next.count()) {
+          // Followed once: the next poll waits for the address to name that page.
+          const href = await next.getAttribute("href");
+          await next.click();
+          await page.waitForURL(
+            (url) => `${url.pathname}${url.search}` === href,
+          );
+        } else {
           await page.evaluate(() => window.scrollBy(0, window.innerHeight / 2));
+        }
         return false;
       },
       { message: `a link to ${selector} on the list`, timeout: 60_000 },
