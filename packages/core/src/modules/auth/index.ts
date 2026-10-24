@@ -1658,13 +1658,13 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
  * Unviewed notifications, and unread conversations among the 100 most recently active ones: one
  * statement, the inbox index (user, state, last message) in order, stopped after 100 rows, then a
  * primary-key lookup of each conversation's last message. The notifications are the member's
- * counter until they open their alerts; after that, the unread ones updated since (the recent
- * index from the opening on, stopped after 100), never more than the counter.
+ * counter until they open their alerts; after that, the unread ones updated since (a covering range
+ * of the unread-only index from the opening on, stopped after 100), never more than the counter.
  */
 export const countersSql =
   "SELECT CASE WHEN u.alerts_viewed_at = 0 OR u.unread_notification_count = 0 THEN u.unread_notification_count " +
-  "ELSE min(u.unread_notification_count, (SELECT count(*) FROM (SELECT 1 FROM notifications n INDEXED BY notifications_user_recent " +
-  "WHERE n.user_id = u.id AND n.updated_at > u.alerts_viewed_at AND n.read_at IS NULL AND n.epoch = u.notification_epoch LIMIT 100))) END AS notifications, " +
+  "ELSE min(u.unread_notification_count, (SELECT count(*) FROM (SELECT 1 FROM notifications n INDEXED BY notifications_user_unread_recent " +
+  "WHERE n.user_id = u.id AND n.epoch = u.notification_epoch AND n.updated_at > u.alerts_viewed_at AND n.read_at IS NULL LIMIT 100))) END AS notifications, " +
   "(SELECT count(*) FROM (SELECT cp.conversation_id, cp.last_read_message_id FROM conversation_participants cp " +
   "WHERE cp.user_id = ?1 AND cp.state = 'active' ORDER BY cp.last_message_at DESC, cp.conversation_id DESC LIMIT 100) AS recent " +
   "JOIN conversations c ON c.id = recent.conversation_id WHERE c.last_message_id > recent.last_read_message_id) AS conversations " +

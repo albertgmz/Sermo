@@ -3,6 +3,7 @@ import type { BenchEnv, Scenario } from "../harness";
 
 let heavy = 0;
 let viewedHeavy = 0;
+let readHeavy = 0;
 let deepCursor = "";
 let hotAuthor = 0;
 let background: Promise<void> | null = null;
@@ -116,6 +117,27 @@ export const scenarios: Scenario[] = [
     },
     run(env) {
       return env.call("auth.counters", env.actors.user(viewedHeavy), {});
+    },
+  },
+  {
+    name: "auth.counters after the alerts were opened (many read alerts since, a few unread)",
+    kind: "read",
+    setup(env) {
+      readHeavy = env.meta.notificationHeavyUserIds[2]!;
+      const now = env.ctx.now();
+      env.ctx.sqlite
+        .prepare(
+          "WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 5000) INSERT INTO notifications (user_id, epoch, type, content_type, content_id, created_at, updated_at, read_at) SELECT ?1, (SELECT notification_epoch FROM users WHERE id = ?1), 'member.followed', 'user', ?1, ?2 - n, ?2 - n, ?2 FROM seq",
+        )
+        .run(readHeavy, now);
+      env.ctx.sqlite
+        .prepare(
+          "UPDATE users SET alerts_viewed_at = ?2 - 10000, unread_notification_count = max(unread_notification_count, 1) WHERE id = ?1",
+        )
+        .run(readHeavy, now);
+    },
+    run(env) {
+      return env.call("auth.counters", env.actors.user(readHeavy), {});
     },
   },
   {

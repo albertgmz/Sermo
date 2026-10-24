@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
+import { createTestContext, expectNoTableScan, insertUser, userActor } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { writeTx } from "../../db/tx";
 import { UnauthenticatedError } from "../../errors";
 import { dispatchEvents, publishEvent } from "../../events";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
+import { countersSql } from "../auth";
 import { runDueJobs } from "../jobs";
 import {
   notificationsListOp,
@@ -94,5 +95,29 @@ describe("alerts viewed", () => {
     await expect(execute(f.ctx, notificationsMarkViewedOp, GUEST, {})).rejects.toBeInstanceOf(
       UnauthenticatedError,
     );
+  });
+
+  test("the badge reads only unread alerts, from the unread-only index, never the read ones", async () => {
+    const f = fixture();
+    const plan = f.ctx.sqlite
+      .prepare<{ detail: string }, [number]>(`EXPLAIN QUERY PLAN ${countersSql}`)
+      .all(f.recipient.id)
+      .map((row) => row.detail)
+      .join("\n");
+    expect(plan).toContain(
+      "SEARCH n USING INDEX notifications_user_unread_recent (user_id=? AND epoch=? AND updated_at>?)",
+    );
+    expectNoTableScan(f.ctx, countersSql, [f.recipient.id], { allow: ["recent"] });
+    // Thousands of alerts read since the opening, three unread: the count is the three.
+    const insert = f.ctx.sqlite.prepare(
+      "WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < ?3) INSERT INTO notifications (user_id, epoch, type, content_type, content_id, created_at, updated_at, read_at) SELECT ?1, 0, 'member.followed', 'user', n, ?2 + n, ?2 + n, ?4 FROM seq",
+    );
+    f.ctx.sqlite.prepare("UPDATE users SET alerts_viewed_at = 1 WHERE id = ?1").run(f.recipient.id);
+    insert.run(f.recipient.id, 1000, 3000, 5);
+    insert.run(f.recipient.id, 10_000_000, 3, null);
+    f.ctx.sqlite
+      .prepare("UPDATE users SET unread_notification_count = 3 WHERE id = ?1")
+      .run(f.recipient.id);
+    expect(await badge(f)).toBe(3);
   });
 });
