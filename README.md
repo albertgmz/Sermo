@@ -1,4 +1,9 @@
-# Sermo
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/sermo-logo-dark.svg">
+    <img src="docs/assets/sermo-logo.svg" alt="Sermo" width="300">
+  </picture>
+</h1>
 
 [![Bun 1.4.2](https://img.shields.io/badge/Bun-1.4.2-000000?logo=bun)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)

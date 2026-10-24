@@ -6975,3 +6975,16 @@ and spoiler labels in search results.
 
 Why: the README mixed a front page with an operator manual, and several facts had gone stale
 (the benchmark seed's size, the worker's push handling, Windows paths, routes outside `[locale]`).
+
+### A logo for Sermo
+
+- The mark is a speech bubble holding one dot, the interpunct Roman inscriptions set between
+  words (SERMO·VVLGARIS): conversation and the Latin name in one shape. Its bottom-left corner
+  runs on into the tail, so it needs no separate tail and keeps its shape at 16 px.
+- Indigo `#5b5fe0` (3:1 as a graphic on white and on `#151521`) with a white dot; the wordmark is
+  "sermo" in Inter SemiBold drawn as outlines (OFL, already shipped for the share cards), in the
+  theme's text colour. Files in `docs/assets`: `sermo-mark.svg`, `sermo-mark-mono.svg`
+  (`currentColor`, dot cut out), `sermo-logo.svg` and `sermo-logo-dark.svg`. It is the project's
+  logo; a site keeps its own logo and icon from the administration panel.
+
+Why: the repository had no identity of its own, and fcuba's red flag mark belongs to that site.

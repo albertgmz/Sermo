@@ -85,6 +85,12 @@ docker compose exec sermo bun run starter:load --admin <username>
 It prints one line per item and a total, and exits non-zero if anything failed. Running it again
 creates nothing that is already there (see [scripts/starter/README.md](../scripts/starter/README.md)).
 
+Search uses SQLite's FTS5, which Bun's SQLite includes. To confirm it in a built image:
+
+```sh
+docker compose exec sermo bun -e "new (require('bun:sqlite').Database)(':memory:').run('create virtual table t using fts5(x)')"
+```
+
 ## Configuration
 
 Everything is in `.env`, grouped and commented in `.env.example`. Compose fixes the values that
