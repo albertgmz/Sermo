@@ -4,6 +4,7 @@ import { Save } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { messageEditHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
 import {
   messageEditorAction,
   saveMessageInPlace,
@@ -13,9 +14,9 @@ import { keepEditDraft } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/
 import {
   draftOf,
   type EditTarget,
-  editPageHref,
   savedKey,
 } from "@/app/[locale]/(main)/threads/[id]/edit-target";
+import { postEditHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import {
   EDITOR_HEIGHT,
   EditorPlaceholder,
@@ -43,6 +44,12 @@ const buttonClass = "h-11 rounded-[9px] px-5 text-(length:--text-compact)";
 
 // What the editor of a post opens with, once asked: the fields, or why they could not be had.
 type Opened = { fields: PostEditFields } | { error: string };
+
+// The page that edits it, the fallback of the edit made in place ("More options…").
+const editPageHref = (target: EditTarget) =>
+  target.kind === "post"
+    ? postEditHref(target.threadId, target.postId)
+    : messageEditHref(target.conversationId, target.messageId);
 
 const openEditor = (target: EditTarget): Promise<Opened> =>
   target.kind === "post"
