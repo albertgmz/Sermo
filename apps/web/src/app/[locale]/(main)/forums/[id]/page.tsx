@@ -193,7 +193,11 @@ export default async function ForumPage({
           >
             <ForumThreads
               nodeId={node.id}
-              prefix={typeof prefix === "string" ? prefix : undefined}
+              prefix={
+                typeof prefix === "string" && /^[1-9]\d*$/.test(prefix)
+                  ? prefix
+                  : undefined
+              }
               page={pageParam(page)}
               newThread={newThread}
               signedIn={user !== null}
