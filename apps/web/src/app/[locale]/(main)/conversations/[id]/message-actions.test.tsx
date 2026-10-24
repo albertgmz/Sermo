@@ -56,7 +56,8 @@ afterAll(() => {
 });
 
 const { MessageActions } = await import("./message-actions");
-const { DeleteDialog } = await import("@/components/forum/delete-dialog");
+const { DeleteDialogBody } = await import("@/components/forum/delete-dialog");
+const { Dialog } = await import("@/components/ui/dialog");
 
 type Props = Parameters<typeof MessageActions>[0];
 
@@ -177,15 +178,18 @@ test("Delete opens the one delete dialog, saying what each deletion of a message
   // Set by the stand-in while drawing, which the compiler cannot follow.
   const remove = (barProps as BarProps | undefined)?.remove;
   if (!remove) throw new Error("the bar was given no delete");
+  // What the dialog holds: its box over the page is drawn in a portal, which markup rendered on
+  // the server does not hold.
   const html = renderToStaticMarkup(
     withIntl(
-      <DeleteDialog
-        open
-        action={remove.action}
-        permanent={remove.permanent}
-        warning={remove.warning}
-        permanentHint={remove.permanentHint}
-      />,
+      <Dialog open>
+        <DeleteDialogBody
+          action={remove.action}
+          permanent={remove.permanent}
+          warning={remove.warning}
+          permanentHint={remove.permanentHint}
+        />
+      </Dialog>,
     ),
   );
   expect(html).toContain("Remove from public view");
@@ -228,4 +232,10 @@ test("Quote puts the message in the editor quoted as a conversation message, not
   expect(sent).toEqual([
     '[QUOTE="ember, convMessage: 11, member: 3"]Hi[/QUOTE]',
   ]);
+});
+
+test("a deleted message opened by the staff offers no reply", () => {
+  const html = draw({ state: "deleted", canDelete: true }, 9);
+  expect(has(html, "Reply")).toBe(false);
+  expect(has(draw({}, 9), "Reply")).toBe(true);
 });

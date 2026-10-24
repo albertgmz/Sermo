@@ -22,7 +22,8 @@ import type { ApiPost } from "@/lib/sermo/threads";
 // The footer of a post in a thread, laid out as XenForo's: report, edit, delete and the moderator
 // tools on the left; react, "+ Quote" and reply on the right; who reacted under it. Share and
 // bookmark sit in the post's header row (`PostItem`). Edit, delete and report are the backend's
-// word for the viewer (`canEdit`, `canDelete`, `canReport`); quoting needs the right to reply.
+// word for the viewer (`canEdit`, `canDelete`, `canReport`), and as on XenForo nobody reports their
+// own post; quoting needs the right to reply, and a deleted post is not answered.
 // A deleted post's restore and delete sit on its deletion notice instead (`part`: "tools" there,
 // "footer" for the rest).
 export function PostActions({
@@ -91,7 +92,7 @@ export function PostActions({
           ? { postId: post.id, event: QUOTE_EVENT, load: quoteSource }
           : undefined
       }
-      reply={{ href: "#reply" }}
+      reply={post.state === "deleted" ? undefined : { href: "#reply" }}
       edit={
         post.canEdit
           ? { href: `/threads/${post.threadId}/edit/${post.id}` }
@@ -99,7 +100,7 @@ export function PostActions({
       }
       remove={tools ? remove : undefined}
       report={
-        live && post.canReport
+        live && post.canReport && viewerId !== post.author.id
           ? { action: reportContent.bind(null, "post", post.id) }
           : undefined
       }

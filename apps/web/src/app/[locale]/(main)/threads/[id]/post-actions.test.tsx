@@ -164,3 +164,19 @@ test("deleting a reply for good follows the backend's flag: a deleted one for st
     "Delete permanently",
   );
 });
+
+test("as on XenForo, nobody is offered to report their own post, even where the backend would take it", () => {
+  // The fixture's post is by member 3.
+  const own = draw({ canReport: true }, { viewerId: 3 });
+  expect(has(own, "Report")).toBe(false);
+  expect(has(draw({ canReport: true }, { viewerId: 9 }), "Report")).toBe(true);
+});
+
+test("a deleted post opened by the staff offers no reply", () => {
+  const html = draw(
+    { state: "deleted", canDelete: true, canReport: true },
+    { noteState: true, part: "footer" },
+  );
+  expect(has(html, "Reply")).toBe(false);
+  expect(has(draw({}), "Reply")).toBe(true);
+});

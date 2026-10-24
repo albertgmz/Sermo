@@ -4,7 +4,14 @@ import { Flag, Pencil, Reply, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { createContext, use, useMemo, useState } from "react";
+import {
+  createContext,
+  use,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import type { ActionFormState } from "@/components/forum/action-form";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { InPlaceEdit } from "@/components/forum/in-place-edit";
@@ -18,14 +25,16 @@ import { HashLink } from "@/components/layout/hash-link";
 import { isPlainClick } from "@/components/ui/lazy-popup-intent";
 import { cn } from "@/lib/utils";
 
-// The delete dialog and the report form come with the first press of their buttons.
+// The delete and report dialogs come with the first press of their buttons.
 const DeleteDialog = dynamic(() =>
   import("@/components/forum/delete-dialog").then(
     (module) => module.DeleteDialog,
   ),
 );
-const ReportForm = dynamic(() =>
-  import("@/components/forum/report-form").then((module) => module.ReportForm),
+const ReportDialog = dynamic(() =>
+  import("@/components/forum/report-form").then(
+    (module) => module.ReportDialog,
+  ),
 );
 
 type FormAction = (
@@ -35,7 +44,8 @@ type FormAction = (
 
 type Panel = "edit" | "delete" | "report";
 
-// What a panel calls to close itself: the cancel button of a form in the `edit` panel.
+// What a panel calls to close itself: the cancel button of a form in the `edit` panel. Delete and
+// report are dialogs over the page, which close themselves.
 export const ClosePanel = createContext<() => void>(() => undefined);
 
 // What the wall bar's "•••" menu (`ContentMenu`, given as `menu`) reads from the bar: which of its
@@ -52,18 +62,23 @@ export const MenuPanels = createContext<{
   remove: false,
 });
 
-// A bar button that opens its panel under the bar.
+// A bar button that opens its panel under the bar, or its dialog (`dialog`). `short` is a word
+// shown on a phone, where the label shows only from `sm` up.
 function PanelButton({
   icon,
   label,
+  short,
   open,
+  dialog,
   onClick,
   labelClassName = actionLabelClass,
 }: {
   icon: React.ReactNode;
   label: string;
+  short?: string;
   open: boolean;
-  onClick: () => void;
+  dialog?: boolean;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   labelClassName?: string;
 }) {
   return (
@@ -71,10 +86,12 @@ function PanelButton({
       type="button"
       aria-label={label}
       aria-expanded={open}
+      aria-haspopup={dialog ? "dialog" : undefined}
       className={messageActionClass}
       onClick={onClick}
     >
       {icon}
+      {short && <span className="sm:hidden">{short}</span>}
       <span className={labelClassName}>{label}</span>
     </button>
   );
@@ -100,10 +117,11 @@ function PanelButton({
 //   edit        Either a page to edit on, or a `panel` that opens under the bar. Inside a post that
 //               is edited in place (`InPlaceEdit`), the page's link opens the editor there instead,
 //               and the bar steps aside while it is open.
-//   remove      Deleting, through `DeleteDialog`: the action (it reads `hardDelete` and `reason`),
-//               `permanent` when the viewer may delete for good ("choice" next to the soft delete,
-//               "only" for an item already deleted), and the lines saying what each does.
-//   report      Reporting: the action that files it.
+//   remove      Deleting, through `DeleteDialog` over the page: the action (it reads `hardDelete`
+//               and `reason`), `permanent` when the viewer may delete for good ("choice" next to
+//               the soft delete, "only" for an item already deleted, whose button keeps the word
+//               "Delete" on a phone), and the lines saying what each does.
+//   report      Reporting, through `ReportDialog` over the page: the action that files it.
 //   moderation  Moderator tools that exist for the item (approve, restore), after the rest.
 //   leading     The first thing on the left: a comment's date, a conversation message's share.
 //   menu        The wall bar's "•••" menu (`ContentMenu`), which reads the panels it may open from
@@ -118,7 +136,7 @@ function PanelButton({
 //               `wall` is a wall post's or comment's footer as XenForo draws it: laid out as
 //               `split`: report (its word on a phone too, as `split` decides), share as an
 //               icon and a "•••" menu that holds edit and delete (choosing one opens its
-//               panel; an edit page is a link beside it instead), then the moderator tools; on
+//               panel or dialog; an edit page is a link beside it instead), then the moderator tools; on
 //               the right, react and `start`.
 export function ContentActions({
   summary,
@@ -167,9 +185,36 @@ export function ContentActions({
 }) {
   const t = useTranslations("forum.contentActions");
   const [open, setOpen] = useState<Panel | null>(null);
-  const toggle = (panel: Panel) =>
-    setOpen((current) => (current === panel ? null : panel));
+  // The dialogs pressed for once stay drawn, closed, so they close as dialogs do and hand the
+  // focus back to the button that opened one (`opener`), or to the wall's "•••" menu it was chosen
+  // from.
+  const [drawn, draw] = useReducer(
+    (panels: ReadonlySet<Panel>, panel: Panel) =>
+      panels.has(panel) ? panels : new Set(panels).add(panel),
+    new Set<Panel>(),
+  );
+  const opener = useRef<HTMLElement | null>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  const show = (panel: Panel, from: HTMLElement | null = null) => {
+    opener.current = from;
+    draw(panel);
+    setOpen(panel);
+  };
+  const toggle = (panel: Panel, event: React.MouseEvent<HTMLButtonElement>) => {
+    if (open === panel) setOpen(null);
+    else show(panel, event.currentTarget);
+  };
   const close = () => setOpen(null);
+  const dialogProps = (panel: Panel) => ({
+    open: open === panel,
+    onOpenChange: (next: boolean) => !next && close(),
+    finalFocus: () =>
+      opener.current ??
+      bar.current?.querySelector<HTMLElement>(
+        '[data-slot="dropdown-menu-trigger"]',
+      ) ??
+      null,
+  });
   // The bookmark button is told how old its markup is by its props object (`lib/item-state`), which
   // must therefore be the server's: this bar re-renders whenever a panel opens or closes, and a
   // button element built again each time would look like markup drawn just now and show the
@@ -253,7 +298,8 @@ export function ContentActions({
       icon={<Flag />}
       label={t("report")}
       open={open === "report"}
-      onClick={() => toggle("report")}
+      dialog
+      onClick={(event) => toggle("report", event)}
       labelClassName={labelClass}
     />
   );
@@ -264,7 +310,7 @@ export function ContentActions({
       {editLink}
       <MenuPanels
         value={{
-          open: setOpen,
+          open: show,
           edit: !!edit && "panel" in edit,
           remove: !!remove,
           permanentOnly: remove?.permanent === "only",
@@ -296,15 +342,17 @@ export function ContentActions({
             icon={<Pencil />}
             label={t("edit")}
             open={open === "edit"}
-            onClick={() => toggle("edit")}
+            onClick={(event) => toggle("edit", event)}
           />
         ))}
       {remove && (
         <PanelButton
           icon={<Trash2 />}
           label={remove.permanent === "only" ? t("hardDelete") : t("delete")}
+          short={remove.permanent === "only" ? t("delete") : undefined}
           open={open === "delete"}
-          onClick={() => toggle("delete")}
+          dialog
+          onClick={(event) => toggle("delete", event)}
         />
       )}
       {!split && reportButton}
@@ -316,6 +364,7 @@ export function ContentActions({
 
   return (
     <div
+      ref={bar}
       data-slot="content-actions"
       className={cn(
         wall ? "mt-1" : split ? "mt-3" : "mt-3 border-t border-dashed pt-1",
@@ -362,22 +411,17 @@ export function ContentActions({
           <ClosePanel value={close}>{edit.panel}</ClosePanel>
         </div>
       )}
-      {remove && open === "delete" && (
-        <div className="mt-2">
-          <DeleteDialog
-            open
-            onOpenChange={close}
-            action={remove.action}
-            permanent={remove.permanent}
-            warning={remove.warning}
-            permanentHint={remove.permanentHint}
-          />
-        </div>
+      {remove && drawn.has("delete") && (
+        <DeleteDialog
+          {...dialogProps("delete")}
+          action={remove.action}
+          permanent={remove.permanent}
+          warning={remove.warning}
+          permanentHint={remove.permanentHint}
+        />
       )}
-      {report && open === "report" && (
-        <div className="mt-2">
-          <ReportForm action={report.action} onCancel={close} />
-        </div>
+      {report && drawn.has("report") && (
+        <ReportDialog {...dialogProps("report")} action={report.action} />
       )}
       {split && summaryRow}
     </div>

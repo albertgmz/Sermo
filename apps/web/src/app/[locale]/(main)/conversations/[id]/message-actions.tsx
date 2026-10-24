@@ -24,8 +24,9 @@ type Message = z.output<
 // delete on the left; react, "+ Quote" and Reply on the right; who reacted under it. A private
 // message has no share. Edit, delete and report are the backend's word for the viewer (`canEdit`,
 // `canDelete`, `canHardDelete`, `canReport`); quoting and Reply need the right to reply here
-// (`canQuote`), and quoting a message everyone in the conversation sees. A deleted message's
-// delete sits on its deletion notice instead (`part`: "tools" there, "footer" for the rest).
+// (`canQuote`), and quoting a message everyone in the conversation sees; a deleted message is not
+// answered. A deleted message's delete sits on its deletion notice instead (`part`: "tools" there,
+// "footer" for the rest).
 export function MessageActions({
   message,
   viewerId,
@@ -85,7 +86,9 @@ export function MessageActions({
             }
           : undefined
       }
-      reply={canQuote ? { href: "#reply" } : undefined}
+      reply={
+        canQuote && message.state !== "deleted" ? { href: "#reply" } : undefined
+      }
       edit={
         message.canEdit
           ? { href: messageEditHref(message.conversationId, message.id) }

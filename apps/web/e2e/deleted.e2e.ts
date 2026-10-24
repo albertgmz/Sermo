@@ -68,6 +68,18 @@ async function opensInPlace(admin: Page, item: Locator, text: string) {
   await expect(item.getByText(text)).toHaveCount(0);
   await expect(show).toBeFocused();
   expect(admin.url()).toBe(address);
+
+  // Deleting for good asks in the delete dialog over the page, not in a form beside the line.
+  const hard = item.getByRole("button", { name: "Delete permanently" });
+  await hard.click();
+  const dialog = admin.getByRole("dialog", { name: "Delete permanently" });
+  await expect(
+    dialog.getByRole("textbox", { name: "Reason (optional)" }),
+  ).toBeFocused();
+  await expectFits(admin, "the permanent delete dialog");
+  await admin.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(hard).toBeFocused();
 }
 
 test("a deleted reply is one line for the staff, opened and folded in place", async ({

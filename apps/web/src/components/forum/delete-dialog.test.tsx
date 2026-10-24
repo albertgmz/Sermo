@@ -13,13 +13,20 @@ mock.module("next-intl", () => ({
 afterAll(() => {
   mock.module("next-intl", () => intl);
 });
-const { DeleteDialog } = await import("./delete-dialog");
+const { Dialog } = await import("@/components/ui/dialog");
+const { DeleteDialogBody } = await import("./delete-dialog");
 const { deleteMode } = await import("./delete-mode");
 
 const action = async () => ({});
+// What the dialog holds. The box that keeps it over the page is drawn in a portal, which markup
+// rendered on the server does not hold.
 const draw = (permanent?: "choice" | "only") =>
   renderToStaticMarkup(
-    withIntl(<DeleteDialog open action={action} permanent={permanent} />),
+    withIntl(
+      <Dialog open>
+        <DeleteDialogBody action={action} permanent={permanent} />
+      </Dialog>,
+    ),
   );
 
 test("without the permission the dialog is the soft delete and a reason, with no choice", () => {
@@ -112,4 +119,36 @@ test("the dialog is one component for every kind of content: each screen reaches
   expect(read("app/[locale]/(main)/threads/[id]/moderation.tsx")).toContain(
     "DeleteDialog",
   );
+});
+
+test("the dialog is titled, its reason is labelled on screen, and Cancel and the confirming button close its foot", () => {
+  const html = draw();
+  expect(html).toMatch(/<h2[^>]*>Delete content<\/h2>/);
+  const reason = html.match(/<input[^>]*name="reason"[^>]*>/)?.[0] ?? "";
+  const id = reason.match(/id="([^"]+)"/)?.[1];
+  expect(id).toBeTruthy();
+  expect(html).toContain(`for="${id}">Reason (optional)</label>`);
+  const foot = html.slice(html.indexOf('data-slot="dialog-footer"'));
+  expect(foot.indexOf(">Cancel<")).toBeGreaterThan(0);
+  expect(foot.indexOf(">Cancel<")).toBeLessThan(foot.indexOf('type="submit"'));
+  expect(foot).toMatch(/<button[^>]*type="submit"[^>]*>Delete<\/button>/);
+  // An item already out of public view is deleted for good: the title says so.
+  expect(draw("only")).toMatch(/<h2[^>]*>Delete permanently<\/h2>/);
+});
+
+test("delete and report open over the page in the app's modal dialog, which puts the focus on the reason", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const read = (file: string) =>
+    readFileSync(join(import.meta.dir, file), "utf8");
+  const shell = read("action-dialog.tsx");
+  expect(shell).toContain('from "@/components/ui/dialog"');
+  expect(shell).toContain("<DialogContent");
+  expect(shell).toMatch(/initialFocus=\{[^}]*reason/);
+  for (const file of ["delete-dialog.tsx", "report-form.tsx"]) {
+    const source = read(file);
+    expect(source, file).toContain("ActionDialog");
+    expect(source, file).not.toContain("DeleteControl");
+    expect(source, file).not.toContain("ActionForm");
+  }
 });

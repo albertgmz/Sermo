@@ -398,3 +398,34 @@ test("a pill darkens under the pointer, and a pressed pill lays its tint over th
     "aria-pressed:hover:bg-[color:var(--action-fill,transparent)]",
   );
 });
+
+test("deleting for good keeps a short word on a phone, the whole label from sm up", () => {
+  const html = draw({
+    layout: "split",
+    remove: { action, permanent: "only" },
+    moderation: <i data-mark="moderation" />,
+  });
+  expect(html).toContain('aria-label="Delete permanently"');
+  expect(html).toContain('<span class="sm:hidden">Delete</span>');
+  expect(html).toContain(
+    '<span class="hidden sm:inline">Delete permanently</span>',
+  );
+});
+
+test("the report dialog asks for the reason, labelled and required, under XenForo's title", async () => {
+  const { Dialog } = await import("@/components/ui/dialog");
+  const { ReportDialogBody } = await import("./report-form");
+  const html = renderToStaticMarkup(
+    withIntl(
+      <Dialog open>
+        <ReportDialogBody action={action} onDone={() => {}} />
+      </Dialog>,
+    ),
+  );
+  expect(html).toMatch(/<h2[^>]*>Report content<\/h2>/);
+  const reason = html.match(/<input[^>]*name="reason"[^>]*>/)?.[0] ?? "";
+  expect(reason).toContain('required=""');
+  const id = reason.match(/id="([^"]+)"/)?.[1];
+  expect(html).toContain(`for="${id}">Why are you reporting this?</label>`);
+  expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Send report<\/button>/);
+});

@@ -3,7 +3,7 @@
 import { ChartBar } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useInlinePanel } from "@/components/forum/inline-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -16,7 +16,8 @@ const PollEditor = dynamic(
 );
 
 // Adds a poll or quiz to a thread that has none, for whoever `threads.get` says may
-// (`poll.canAdd`). The form is asked for when the button is pressed.
+// (`poll.canAdd`). The form is asked for when the button is pressed and opens in place
+// (`useInlinePanel`).
 export function PollAdder({
   threadId,
   attachIn,
@@ -25,14 +26,15 @@ export function PollAdder({
   attachIn: number | null;
 }) {
   const t = useTranslations("forum.poll");
-  const [open, setOpen] = useState(false);
-  if (!open)
+  const panel = useInlinePanel();
+  if (!panel.open)
     return (
       <Button
+        ref={panel.button}
         type="button"
         variant="ghost"
         className="h-10 px-3 text-muted-foreground md:h-8"
-        onClick={() => setOpen(true)}
+        onClick={panel.show}
       >
         <ChartBar aria-hidden="true" />
         {t("add")}
@@ -40,6 +42,7 @@ export function PollAdder({
     );
   return (
     <section
+      {...panel.panel}
       aria-label={t("sectionLabel")}
       className="mt-4 rounded-lg border bg-card p-3 md:p-4"
     >
@@ -47,7 +50,7 @@ export function PollAdder({
         threadId={threadId}
         pollId={null}
         attachIn={attachIn}
-        onClose={() => setOpen(false)}
+        onClose={panel.close}
       />
     </section>
   );

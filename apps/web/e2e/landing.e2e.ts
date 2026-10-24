@@ -841,7 +841,13 @@ test("the comments loaded in place follow an edit, a deletion and a new comment 
   // One of the newest few, drawn by the server, deleted: the loaded ones close up, with no copy.
   const gone = drawn(page, doomed);
   await fromMenu(page, gone, "Delete");
-  await gone.locator('button[type="submit"]', { hasText: "Delete" }).click();
+  // The delete dialog opens over the page, the focus on its reason.
+  const dialog = page.getByRole("dialog", { name: "Delete content" });
+  await expect(
+    dialog.getByRole("textbox", { name: "Reason (optional)" }),
+  ).toBeFocused();
+  await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(dialog).toBeHidden();
   await expect
     .poll(() => commentIds(post), { timeout: 30_000 })
     .toEqual(all.filter((id) => id !== doomed));
