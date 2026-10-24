@@ -15,6 +15,8 @@ type Author = {
   nextLevelXp: number;
   awards: { id: number; name: string; icon: string; tier: string; image: unknown }[];
   signatureHtml: string | null;
+  lastActivityAt: string | null;
+  lastActivityHidden: boolean;
 };
 const authors = async (w: World, ids: number[], actor: object = w.memberActor) =>
   (await w.call("users.authors", actor, { userIds: ids })).items as Author[];
@@ -235,5 +237,67 @@ describe("users.authors: the rest of the block", () => {
     expect(many - single).toBe(0);
     // The test actor carries no principal, so the site.view check reads it once more.
     expect(many).toBeLessThanOrEqual(11);
+  });
+});
+
+describe("users.authors: the last activity", () => {
+  const stamp = Date.UTC(2026, 0, 1, 10, 30, 45);
+  const seen = async (w: World, id: number, actor: object) => {
+    const author = (await authors(w, [id], actor))[0]!;
+    return { at: author.lastActivityAt, hidden: author.lastActivityHidden };
+  };
+  const selfActor = (id: number) => ({ kind: "user", userId: id, groupId: 2, sessionId: 0 });
+
+  test("a member who shows their online status: everyone sees it, to the minute", async () => {
+    const w = world();
+    const shown = w.user();
+    w.set(shown.id, { last_activity_at: stamp });
+    const visible = { at: "2026-01-01T10:30:00.000Z", hidden: false };
+    expect(await seen(w, shown.id, GUEST)).toEqual(visible);
+    expect(await seen(w, shown.id, w.memberActor)).toEqual(visible);
+    expect(await seen(w, shown.id, w.moderatorActor)).toEqual(visible);
+    // The time buffered by running requests counts, as on the profile.
+    w.ctx.activity.set(shown.id, stamp + 60_000);
+    expect((await seen(w, shown.id, GUEST)).at).toBe("2026-01-01T10:31:00.000Z");
+  });
+
+  test("a member who hides it: null to members and guests, marked hidden for staff", async () => {
+    const w = world();
+    const hidden = w.user();
+    w.set(hidden.id, { last_activity_at: stamp, show_online: 0 });
+    w.ctx.activity.set(hidden.id, stamp + 60_000);
+    const none = { at: null, hidden: false };
+    expect(await seen(w, hidden.id, GUEST)).toEqual(none);
+    expect(await seen(w, hidden.id, w.memberActor)).toEqual(none);
+    const forStaff = { at: "2026-01-01T10:31:00.000Z", hidden: true };
+    expect(await seen(w, hidden.id, w.moderatorActor)).toEqual(forStaff);
+    expect(await seen(w, hidden.id, w.adminActor)).toEqual(forStaff);
+  });
+
+  test("the member themself sees their own, marked hidden while they hide it", async () => {
+    const w = world();
+    const self = w.user();
+    w.set(self.id, { last_activity_at: stamp, show_online: 0 });
+    expect(await seen(w, self.id, selfActor(self.id))).toEqual({
+      at: "2026-01-01T10:30:00.000Z",
+      hidden: true,
+    });
+    w.set(self.id, { show_online: 1 });
+    expect(await seen(w, self.id, selfActor(self.id))).toEqual({
+      at: "2026-01-01T10:30:00.000Z",
+      hidden: false,
+    });
+  });
+
+  test("never active, erased, or a profile the viewer may not open: null for everyone", async () => {
+    const w = world();
+    const never = w.user();
+    expect(await seen(w, never.id, w.adminActor)).toEqual({ at: null, hidden: false });
+    const erased = w.user();
+    w.set(erased.id, { last_activity_at: stamp, erased_at: stamp });
+    expect(await seen(w, erased.id, w.adminActor)).toEqual({ at: null, hidden: false });
+    const closed = w.user();
+    w.set(closed.id, { last_activity_at: stamp, profile_view_privacy: "self" });
+    expect(await seen(w, closed.id, w.memberActor)).toEqual({ at: null, hidden: false });
   });
 });

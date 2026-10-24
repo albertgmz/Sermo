@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 
 // `compact`: two 40px icon buttons (a phone header). `labelled`: icon and text (a column, a card).
 // `responsive`: compact below `md`, labelled from `md` up, like the postbit around it.
-export type MemberActionsForm = "compact" | "labelled" | "responsive";
+// `row`: icon and text on one line that wraps (the member's card).
+export type MemberActionsForm = "compact" | "labelled" | "responsive" | "row";
 
 export type FollowAction = (
   userId: number,
@@ -20,16 +21,19 @@ const BUTTON: Record<MemberActionsForm, string> = {
   compact: "size-10 px-0",
   labelled: "h-10 md:h-8",
   responsive: "max-md:size-10 max-md:px-0 md:h-8",
+  row: "h-10 md:h-8",
 };
 const WRAPPER: Record<MemberActionsForm, string> = {
   compact: "flex items-center gap-1",
   labelled: "flex flex-col items-stretch gap-1.5",
   responsive: "flex items-center gap-1 md:flex-col md:items-stretch md:gap-1.5",
+  row: "flex flex-wrap items-center gap-1.5",
 };
 const LABEL: Record<MemberActionsForm, string | undefined> = {
   compact: "sr-only",
   labelled: undefined,
   responsive: "max-md:sr-only",
+  row: undefined,
 };
 // A refusal never widens the row of buttons: it hangs under it, right-aligned, inside the viewport.
 const FLOATING =
@@ -38,6 +42,7 @@ const ERROR: Record<MemberActionsForm, string> = {
   compact: FLOATING,
   labelled: "",
   responsive: `${FLOATING} md:static md:z-auto md:mt-0 md:w-auto md:max-w-none md:border-0 md:bg-transparent md:p-0`,
+  row: FLOATING,
 };
 
 // Whether there is anything to offer for a member: a guest has no relation, and yourself, a

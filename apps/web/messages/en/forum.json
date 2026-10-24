@@ -125,7 +125,12 @@
     "postsLabel": "Posts",
     "reactionsLabel": "Reactions",
     "joinedLabel": "Joined",
-    "profile": "View profile"
+    "profile": "View profile",
+    "registeredLabel": "Joined",
+    "lastSeenLabel": "Last seen",
+    "hiddenActivity": "(hidden)",
+    "pointsLabel": "Points",
+    "pointsTitle": "Award XP"
   },
   "memberActions": {
     "message": "Message",

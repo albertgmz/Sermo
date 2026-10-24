@@ -103,6 +103,8 @@ const author = (id: number, username: string) => ({
   nextLevelXp: 100,
   awards: [],
   signatureHtml: null,
+  lastActivityAt: null,
+  lastActivityHidden: false,
 });
 
 const entry = (id: number, username: string, points: number) => ({

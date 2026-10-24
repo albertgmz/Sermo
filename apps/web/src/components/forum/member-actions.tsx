@@ -1,6 +1,7 @@
 import { followFromPage } from "@/app/[locale]/(main)/actions";
 import {
   hasMemberActions,
+  type MemberActionsForm,
   MemberActionsView,
 } from "@/components/forum/member-actions-view";
 import type { MemberRelation } from "@/lib/sermo/members";
@@ -18,7 +19,7 @@ export function MemberActions({
 }: {
   member: Pick<MemberView, "id" | "username" | "restricted">;
   relation: MemberRelation | null;
-  form?: "compact" | "labelled" | "responsive";
+  form?: MemberActionsForm;
 }) {
   return (
     <MemberActionsView
@@ -30,13 +31,13 @@ export function MemberActions({
   );
 }
 
-// The member card's actions: nothing at all (not an empty box) when there is nothing to offer,
-// so the column keeps its spacing.
+// The member card's actions, in one wrapping row: nothing at all (not an empty box) when there is
+// nothing to offer.
 export function memberActionsOf(
   member: Pick<MemberView, "id" | "username" | "restricted">,
   relation: MemberRelation | null,
 ): React.ReactNode {
   return hasMemberActions(member, relation) ? (
-    <MemberActions member={member} relation={relation} />
+    <MemberActions member={member} relation={relation} form="row" />
   ) : undefined;
 }

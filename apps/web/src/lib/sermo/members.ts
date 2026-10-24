@@ -58,6 +58,7 @@ export function plainAuthor(ref: MemberRef): AuthorView {
     nextLevelXp: 0,
     awards: [],
     signatureHtml: null,
+    lastActivity: null,
   };
 }
 
@@ -80,6 +81,9 @@ function authorView(author: Author): AuthorView {
       tier,
     })),
     signatureHtml: author.signatureHtml,
+    lastActivity: author.lastActivityAt
+      ? { at: author.lastActivityAt, hidden: author.lastActivityHidden }
+      : null,
   };
 }
 

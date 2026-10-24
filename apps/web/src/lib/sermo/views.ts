@@ -60,4 +60,6 @@ export type AuthorView = {
     tier: "bronze" | "silver" | "gold" | "legendary";
   }[];
   signatureHtml: string | null;
+  /** When the member was last active, if the viewer may know; `hidden` when the member hides it. */
+  lastActivity: { at: string; hidden: boolean } | null;
 };

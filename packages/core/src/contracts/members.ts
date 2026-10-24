@@ -88,6 +88,14 @@ export const MemberAuthor = z
     ),
     /** Rendered signature; null when there is none or the member may not show one. */
     signatureHtml: z.string().nullable(),
+    /**
+     * When the member was last active, to the minute. Null when they never were, for an erased
+     * member, and when they hide their online status (`showOnline` off) from this viewer: the
+     * member themself and holders of profile.bypassPrivacy still get it.
+     */
+    lastActivityAt: Timestamp.nullable(),
+    /** True when `lastActivityAt` is given although the member hides their online status. */
+    lastActivityHidden: z.boolean(),
   })
   .meta({ id: "MemberAuthor" });
 
@@ -95,12 +103,15 @@ export const usersAuthors = defineContract({
   name: "users.authors",
   summary:
     "Up to 50 members as authors, in one call and in no particular order: each one's card, " +
-    "profile cover, counters, level bounds, the awards they show and their signature. Unknown " +
-    "ids are left out. Open to everyone, like users.cards: it holds only what is drawn around " +
-    "that member's content wherever the content is visible. For a member whose profile the " +
+    "profile cover, counters, level bounds, the awards they show, their signature and when " +
+    "they were last active. Unknown ids are left out. Open to everyone, like users.cards: it " +
+    "holds only what is drawn around that member's content wherever the content is visible; " +
+    "the last activity follows the member's online status privacy (null to others while " +
+    "they hide it, given with `lastActivityHidden` to themselves and to holders of " +
+    "profile.bypassPrivacy). For a member whose profile the " +
     "viewer may not open the card is the minimal one (`card.restricted` true) and the cover is " +
     "null, the join date is the epoch, the counters are zero, the next level bound is 1, the " +
-    "awards are empty and the signature is null: a client shows only the card.",
+    "awards are empty and the signature and last activity are null: a client shows only the card.",
   kind: "read",
   input: z.object({ userIds: z.array(Id).min(1).max(50) }),
   output: z.object({ items: z.array(MemberAuthor) }),

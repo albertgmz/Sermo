@@ -78,7 +78,7 @@ export function useMemberCard(id: number, name: string) {
 // What the card shows when the member could not be read: the name and the way to the profile.
 function MemberCardFallback({ id, name }: { id: number; name: string }) {
   return (
-    <div className="flex flex-col items-stretch gap-3 text-center">
+    <div className="flex flex-col items-stretch gap-3 p-4 text-center">
       <p className="text-sm font-semibold [overflow-wrap:anywhere]">{name}</p>
       <MemberCardProfileLink id={id} />
     </div>
@@ -99,7 +99,7 @@ export function MemberCardPopup({
   return (
     <PopoverContent
       aria-label={t("aria.label", { name })}
-      className="relative isolate max-h-(--available-height) w-56 max-w-[calc(100vw-2rem)] overflow-y-auto p-3"
+      className="relative isolate max-h-(--available-height) w-96 max-w-[calc(100vw-2rem)] overflow-y-auto p-0"
       {...props}
     >
       <CardBody card={card} reload={reload} />
@@ -163,7 +163,7 @@ export function MemberCardSurface({
           ref={popupRef}
           side="bottom"
           finalFocus={finalFocus}
-          className="max-h-[85dvh] overflow-y-auto p-4 pt-10 pb-[max(1rem,env(safe-area-inset-bottom))]"
+          className="max-h-[85dvh] overflow-y-auto p-0 pt-10 pb-[env(safe-area-inset-bottom)]"
         >
           <SheetTitle className="sr-only">
             {t("aria.label", { name })}
@@ -175,7 +175,11 @@ export function MemberCardSurface({
   );
 }
 
-export const CardSkeleton = () => <Skeleton className="h-56 w-full" />;
+export const CardSkeleton = () => (
+  <div className="p-3">
+    <Skeleton className="h-48 w-full" />
+  </div>
+);
 
 // The loaded card, or its skeleton before the first read. The card can suspend (its client parts
 // load lazily); inside a portal a suspend reaches the nearest boundary of the trigger in the

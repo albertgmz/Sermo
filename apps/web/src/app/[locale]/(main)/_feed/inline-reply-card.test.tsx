@@ -103,6 +103,7 @@ const author = (id: number): AuthorView => ({
   nextLevelXp: 100,
   awards: [],
   signatureHtml: null,
+  lastActivity: null,
 });
 
 const item = (threadId: number, canReply: boolean) =>

@@ -28,7 +28,7 @@ type Catalogs = ReturnType<typeof catalogs>;
 
 export const MEMBER_ROWS_SQL =
   "SELECT u.id, u.username, u.group_id, u.avatar_file_id, u.frame_id, u.name_color_id, u.name_icon_item_id, u.custom_title, u.award_xp, " +
-  `u.cover_file_id, u.cover_preset_id, u.reaction_score, u.signature_html, c.group_ids, ${PRINCIPAL_COLUMNS} ` +
+  `u.cover_file_id, u.cover_preset_id, u.reaction_score, u.signature_html, u.last_activity_at, u.show_online, u.erased_at, c.group_ids, ${PRINCIPAL_COLUMNS} ` +
   "FROM users u LEFT JOIN permission_combinations c ON c.id = u.permission_combination_id " +
   "WHERE u.id IN (SELECT value FROM json_each(?1))";
 export const MEMBER_GROUPS_SQL =
@@ -55,6 +55,9 @@ export interface MemberRow extends PrincipalRow {
   cover_preset_id: number | null;
   reaction_score: number;
   signature_html: string | null;
+  last_activity_at: number | null;
+  show_online: number;
+  erased_at: number | null;
   group_ids: string | null;
 }
 interface GroupRow {
@@ -77,6 +80,7 @@ interface HeldAward {
 }
 
 const TIER_ORDER = { legendary: 3, gold: 2, silver: 1, bronze: 0 } as const;
+const MINUTE_MS = 60_000;
 
 /** The groups a member holds: primary, by hand, by promotion or bought (their stored combination). */
 export function groupIdsOf(row: Pick<MemberRow, "group_id" | "group_ids">): number[] {
@@ -281,7 +285,28 @@ function minimalAuthor(author: Author): Author {
     nextLevelXp: 1,
     awards: [],
     signatureHtml: null,
+    lastActivityAt: null,
+    lastActivityHidden: false,
   };
+}
+
+/**
+ * When a member was last active, as the viewer may know it: the stored time or the one buffered by
+ * running requests, to the minute. A member who hides their online status keeps it from everyone
+ * but themselves and `bypass` (profile.bypassPrivacy), who see it marked hidden.
+ */
+function lastActivityOf(
+  ctx: Ctx,
+  row: MemberRow,
+  self: number | null,
+  bypass: boolean,
+): Pick<Author, "lastActivityAt" | "lastActivityHidden"> {
+  const hidden = row.show_online !== 1;
+  const allowed = row.erased_at === null && (!hidden || row.id === self || bypass);
+  const seen = allowed ? Math.max(row.last_activity_at ?? 0, ctx.activity.get(row.id) ?? 0) : 0;
+  return seen > 0
+    ? { lastActivityAt: iso(seen - (seen % MINUTE_MS)), lastActivityHidden: hidden }
+    : { lastActivityAt: null, lastActivityHidden: false };
 }
 
 /**
@@ -289,10 +314,14 @@ function minimalAuthor(author: Author): Author {
  * themselves) without profile.view, else by each member's profile privacy, in one query for the
  * whole batch.
  */
-function restrictedFor(ctx: Ctx, viewer: Actor, ids: number[]): Set<number> {
-  const self = actorUserId(viewer);
+function restrictedFor(
+  ctx: Ctx,
+  viewer: Actor,
+  ids: number[],
   // The viewer is resolved once, so the number of statements does not depend on the batch.
-  const permitted = permissionsOf(ctx, viewer);
+  permitted = permissionsOf(ctx, viewer),
+): Set<number> {
+  const self = actorUserId(viewer);
   if (!permitted.can("profile.view")) return new Set(ids.filter((id) => id !== self));
   const bypass = permitted.can("profile.bypassPrivacy");
   const access = profileAccessMany(ctx, viewer, ids);
@@ -314,8 +343,11 @@ export function loadViewerCards(ctx: Ctx, viewer: Actor, ids: Iterable<number>) 
 
 /** `loadMemberAuthors` for what the viewer may see: minimal authors for profiles they may not open. */
 export function loadViewerAuthors(ctx: Ctx, viewer: Actor, ids: Iterable<number>) {
-  const authors = loadMemberAuthors(ctx, viewer, ids);
-  const hidden = restrictedFor(ctx, viewer, [...authors.keys()]);
+  const permitted = permissionsOf(ctx, viewer);
+  const authors = loadMemberAuthors(ctx, viewer, ids, {
+    bypassPrivacy: permitted.can("profile.bypassPrivacy"),
+  });
+  const hidden = restrictedFor(ctx, viewer, [...authors.keys()], permitted);
   for (const id of hidden) authors.set(id, minimalAuthor(authors.get(id)!));
   return authors;
 }
@@ -333,20 +365,22 @@ export function loadMemberAuthors(
   ctx: Ctx,
   viewer: Actor,
   ids: Iterable<number>,
-  options: { awards?: boolean } = {},
+  options: { awards?: boolean; bypassPrivacy?: boolean } = {},
 ): Map<number, Author> {
   return loadMemberDetails(ctx, viewer, ids, options).authors;
 }
 
 /**
  * `loadMemberAuthors` plus what the loader resolved on the way: each member's own
- * `profile.awardSlots` (-1 = all) and whether they may show a custom title.
+ * `profile.awardSlots` (-1 = all) and whether they may show a custom title. Unlike the cards, the
+ * last activity depends on the viewer: themselves, and `bypassPrivacy` when the viewer holds
+ * profile.bypassPrivacy (see `lastActivityOf`).
  */
 export function loadMemberDetails(
   ctx: Ctx,
   viewer: Actor,
   ids: Iterable<number>,
-  options: { awards?: boolean } = {},
+  options: { awards?: boolean; bypassPrivacy?: boolean } = {},
 ) {
   const loaded = loadMembers(ctx, viewer, ids);
   const held = new Map<number, HeldAward[]>();
@@ -358,6 +392,8 @@ export function loadMemberDetails(
       list.push(award);
       held.set(award.user_id, list);
     }
+  const self = actorUserId(viewer);
+  const bypass = options.bypassPrivacy ?? false;
   const authors = new Map<number, Author>();
   for (const [id, row] of loaded.rows) {
     const level = levelFor(row.award_xp, loaded.levelStep);
@@ -382,6 +418,7 @@ export function loadMemberDetails(
         tier: award.tier,
       })),
       signatureHtml: loaded.mayShowSignature.get(id) ? row.signature_html : null,
+      ...lastActivityOf(ctx, row, self, bypass),
     });
   }
   return { authors, awardSlots: loaded.awardSlots, mayShowTitle: loaded.mayShowTitle };

@@ -125,7 +125,12 @@
     "postsLabel": "Mensajes",
     "reactionsLabel": "Reacciones",
     "joinedLabel": "Se unió el",
-    "profile": "Ver perfil"
+    "profile": "Ver perfil",
+    "registeredLabel": "Registrado",
+    "lastSeenLabel": "Última visita",
+    "hiddenActivity": "(oculto)",
+    "pointsLabel": "Puntos",
+    "pointsTitle": "XP de trofeos"
   },
   "memberActions": {
     "message": "Mensaje privado",

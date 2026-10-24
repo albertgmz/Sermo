@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 // Client Manifest" (error #441). The server modules that render a card trigger (`user-link`, `user-avatar`,
 // `html-content` for mentions) import this module, so exactly the routes that can open a card list them.
 //
-// Every client module (`"use client"`) reachable from `Postbit`, `MemberActions` and
+// Every client module (`"use client"`) reachable from `MemberTooltip`, `MemberActions` and
 // `MemberCardMinimal` must be listed; `member-card-parts.test.ts` walks the imports from `member-card-action.tsx`
 // and fails when a client module is not imported here, or is imported here and missing from the array. The call to `Object.freeze` keeps the imports from being dropped.
 export const CARD_CLIENT_PARTS = Object.freeze([

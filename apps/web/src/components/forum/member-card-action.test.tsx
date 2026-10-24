@@ -17,9 +17,8 @@ const source = "./member-card-action.tsx?card";
 const { loadMemberCard } = (await import(
   source
 )) as typeof import("./member-card-action");
-const { Postbit } = await import("./postbit");
+const { MemberTooltip } = await import("./member-tooltip");
 const { MemberCardScope } = await import("./member-card-scope");
-const { MemberCardProfileLink } = await import("./member-card-profile-link");
 const { MemberActions } = await import("./member-actions");
 const { MemberCardMinimal } = await import("./member-card");
 
@@ -51,6 +50,8 @@ const author = (restricted: boolean) => ({
   nextLevelXp: 100,
   awards: [],
   signatureHtml: null,
+  lastActivityAt: null,
+  lastActivityHidden: false,
 });
 
 // Answers each read by its path and records which were made.
@@ -95,7 +96,6 @@ const reads = (paths: string[]) =>
 
 type Props = {
   author?: unknown;
-  layout?: string;
   actions?: ReactNode;
   name?: string;
   children?: ReactNode;
@@ -106,38 +106,32 @@ function element(node: unknown) {
   return node as ReactElement<Props>;
 }
 
-// The card of a member: the postbit a post draws (with the member's actions, if any) and then the
-// link to the profile, inside a scope that keeps names and avatars plain links.
+// The card of a member: the tooltip (with the member's actions, if any, and the link to the
+// profile), inside a scope that keeps names and avatars plain links.
 function cardOf(node: unknown) {
   const scope = element(node);
   expect(scope.type).toBe(MemberCardScope);
   expect(scope.props.disabled).toBe(true);
-  const [postbit, profile] = element(scope.props.children).props
-    .children as ReactElement<Props>[];
+  const tooltip = element(scope.props.children);
   return {
-    postbit,
-    actions: postbit.props.actions ? element(postbit.props.actions) : undefined,
-    profile,
+    tooltip,
+    actions: tooltip.props.actions ? element(tooltip.props.actions) : undefined,
   };
 }
 
-test("a member: the thread's postbit with its actions, then the profile link, from two reads", async () => {
+test("a member: the tooltip with its actions in a row, from two reads", async () => {
   const paths = backend({ signedIn: true });
-  const { postbit, actions, profile } = cardOf(
-    await loadMemberCard(7, "ember"),
+  const { tooltip, actions } = cardOf(await loadMemberCard(7, "ember"));
+  expect(tooltip.type).toBe(MemberTooltip);
+  expect((tooltip.props.author as { member: { id: number } }).member.id).toBe(
+    7,
   );
-  expect(postbit.type).toBe(Postbit);
-  // the layout a post frame uses: the compact header in the phone sheet, the column in the popover
-  expect(postbit.props.layout).toBeUndefined();
   expect(actions?.type).toBe(MemberActions);
-  expect(profile.type).toBe(MemberCardProfileLink);
-  expect((profile.props as unknown as { id: number }).id).toBe(7);
   const given = actions?.props as unknown as {
     form?: string;
     relation: unknown;
   };
-  // the same form as everywhere else: the default, compact below md and labelled from md
-  expect(given.form).toBeUndefined();
+  expect(given.form).toBe("row");
   expect(given.relation).toEqual({
     following: false,
     canFollow: true,
@@ -146,11 +140,11 @@ test("a member: the thread's postbit with its actions, then the profile link, fr
   expect(reads(paths)).toHaveLength(2);
 });
 
-test("a guest: one read, no actions, still the profile link", async () => {
+test("a guest: one read, no actions", async () => {
   const paths = backend({ signedIn: false });
-  const { actions, profile } = cardOf(await loadMemberCard(7, "ember"));
+  const { tooltip, actions } = cardOf(await loadMemberCard(7, "ember"));
+  expect(tooltip.type).toBe(MemberTooltip);
   expect(actions).toBeUndefined();
-  expect(profile.type).toBe(MemberCardProfileLink);
   expect(reads(paths)).toHaveLength(1);
   expect(reads(paths)[0]).toContain("authors");
 });

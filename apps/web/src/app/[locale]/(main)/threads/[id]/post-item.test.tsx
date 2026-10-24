@@ -137,6 +137,8 @@ function backend({ signedIn = true, readPosition = null as number | null }) {
             nextLevelXp: 100,
             awards: [],
             signatureHtml: null,
+            lastActivityAt: null,
+            lastActivityHidden: false,
           },
         ],
       });

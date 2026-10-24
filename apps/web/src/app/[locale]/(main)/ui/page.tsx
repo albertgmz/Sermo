@@ -58,9 +58,9 @@ import { LevelBadge, XpBar } from "@/components/forum/level";
 import { LineComposer } from "@/components/forum/line-composer";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { MemberCard } from "@/components/forum/member-card";
-import { MemberCardProfileLink } from "@/components/forum/member-card-profile-link";
 import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { MemberRow } from "@/components/forum/member-row";
+import { MemberTooltip } from "@/components/forum/member-tooltip";
 import {
   MessageBody,
   MessageRow,
@@ -1256,12 +1256,12 @@ export default async function StyleguidePage() {
             Thread links preview on hover and keyboard focus, and navigate on
             touch. On the forum, a member avatar, a member name and an @mention
             open the member card on mouse hover (an avatar and a mention only
-            then; a name also on keyboard focus). The card is the postbit column
-            with the follow and message actions. On touch and pen a tap goes to
-            the profile. The avatar and name inside a card, a thread preview, a
-            reaction list or a post&apos;s own postbit are plain links. The
-            samples here are plain links and a static card: the styleguide reads
-            and writes no member data.
+            then; a name also on keyboard focus). The card is laid out as
+            XenForo&apos;s member tooltip, with the follow and message actions.
+            On touch and pen a tap goes to the profile. The avatar and name
+            inside a card, a thread preview, a reaction list or a post&apos;s
+            own postbit are plain links. The samples here are plain links and a
+            static card: the styleguide reads and writes no member data.
           </p>
           <MemberCardScope disabled>
             <div className="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 text-sm">
@@ -1279,17 +1279,19 @@ export default async function StyleguidePage() {
               <HtmlContent className="text-sm">{MENTION_HTML}</HtmlContent>
             </div>
           </MemberCardScope>
-          <div className="relative isolate flex w-56 flex-col gap-3 rounded-lg bg-popover p-3 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
-            <Postbit
-              author={SAMPLE_AUTHOR}
-              actions={
-                <MemberActionsDemo
-                  member={SAMPLE_AUTHOR.member}
-                  relation={RELATION.notFollowing}
-                />
-              }
-            />
-            <MemberCardProfileLink id={SAMPLE_AUTHOR.member.id} />
+          <div className="w-96 max-w-full overflow-hidden rounded-lg bg-popover text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
+            <MemberCardScope disabled>
+              <MemberTooltip
+                author={SAMPLE_AUTHOR}
+                actions={
+                  <MemberActionsDemo
+                    member={SAMPLE_AUTHOR.member}
+                    relation={RELATION.notFollowing}
+                    form="row"
+                  />
+                }
+              />
+            </MemberCardScope>
           </div>
         </Section>
 

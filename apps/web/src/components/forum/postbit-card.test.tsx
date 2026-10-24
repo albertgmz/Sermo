@@ -7,9 +7,10 @@ import { postBody } from "@/lib/test-bodies";
 import { formattedTranslator, withIntl } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
 
-// The postbit beside a post and the member's card draw one block: the same parts in the same
-// order. Both are rendered here for one member, from the same backend answers, the post the way
-// the thread page draws it (the rows it adds while open go through the same `PostItem` and reads).
+// The member's card, laid out as XenForo's member tooltip, and the postbit beside a post: the card
+// carries the viewer's actions and the last activity, posts and messages carry neither. Both are
+// rendered here for one member, from the same backend answers, the post the way the thread page
+// draws it (the rows it adds while open go through the same `PostItem` and reads).
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
@@ -157,6 +158,7 @@ function backend(
     awards?: unknown[];
     relation?: typeof ALL;
     signedIn?: boolean;
+    lastActivity?: { at: string | null; hidden: boolean };
   } = {},
 ) {
   const asked: string[] = [];
@@ -187,6 +189,11 @@ function backend(
             nextLevelXp: 300,
             awards: options.awards ?? AWARDS,
             signatureHtml: null,
+            lastActivityAt:
+              options.lastActivity === undefined
+                ? "2026-01-01T09:00:00.000Z"
+                : options.lastActivity.at,
+            lastActivityHidden: options.lastActivity?.hidden ?? false,
           },
         ],
       });
@@ -233,96 +240,90 @@ function postbitOf(out: string) {
   return divFrom(out, start);
 }
 
-// The same markup without the viewer's actions: only the card carries them.
-function withoutActions(block: string) {
-  const start = block.indexOf('<div data-slot="postbit-actions"');
-  expect(start).toBeGreaterThanOrEqual(0);
-  return block.replace(divFrom(block, start), "");
-}
+const card = async () => html(await loadMemberCard(7, "ember"));
 
-// The frame places the block in its grid (a border and a margin on the block itself): only those
-// classes, on the block's own element, may differ. The cover, the parts and their classes may not.
-// The card's block has the viewer's actions as well, and the post's block never does.
-const FRAME_PLACEMENT = " max-md:mb-2 md:border-r md:pr-4";
-const placedByFrame = (block: string) => {
-  const end = block.indexOf(">");
-  const tag = block.slice(0, end);
-  expect(tag).toContain(FRAME_PLACEMENT);
-  return tag.replace(FRAME_PLACEMENT, "") + block.slice(end);
-};
-
-// A post of the member as the thread draws it, and the member's card. The post's own postbit opens
-// a card and the card's does not, so the post is drawn in the scope that keeps names plain links,
-// as the card is: the comparison proves the parts, their order and their classes, not the card
-// trigger around the post's name and avatar (`postbit.test.tsx` covers that).
-async function both() {
-  const card = await html(await loadMemberCard(7, "ember"));
+// A post of the member as the thread draws it.
+async function post() {
   const [row] = await postRows([
     postBody({ id: 32, position: 26, author: ember }) as Parameters<
       typeof postRows
     >[0][number],
   ]);
-  const post = await html(
-    <MemberCardScope disabled>{row.node}</MemberCardScope>,
-  );
-  return { card, post };
+  return html(<MemberCardScope disabled>{row.node}</MemberCardScope>);
 }
 
-test("a member with a cover and awards: the card's block is the post's block, part for part, and only the card has the actions", async () => {
+test("a member with a cover and awards: every part of XenForo's tooltip, in its order", async () => {
   backend();
-  const { card, post } = await both();
-  const block = postbitOf(card);
-  expect(post).not.toContain("member-actions");
-  expect(post).not.toContain("postbit-actions");
-  expect(placedByFrame(postbitOf(post))).toBe(withoutActions(block));
-  // and the card holds every part, in order: cover, avatar, name, badge, actions, title, level, awards, facts
+  const out = await card();
+  expect(out).toContain('data-slot="member-tooltip"');
+  // header: cover, avatar, name, badges and level, title, awards, joined, last seen; then the
+  // counts, the actions and the way to the profile
   const order = [
     COVER.url,
     'data-slot="avatar"',
     ">ember<",
     "Moderator",
-    'data-slot="member-actions"',
+    "LVL",
     ">Senior member</p>",
-    'data-slot="postbit-level"',
     'href="/awards"',
     ">Joined</dt>",
-  ].map((part) => block.indexOf(part));
+    'dateTime="2025-03-14T10:00:00.000Z"',
+    ">Last seen</dt>",
+    'dateTime="2026-01-01T09:00:00.000Z"',
+    ">Posts</dt>",
+    ">1,280</dd>",
+    ">Reactions</dt>",
+    ">940</dd>",
+    ">Points</dt>",
+    ">150</dd>",
+    'data-slot="member-actions"',
+    "View profile",
+  ].map((part) => out.indexOf(part));
   expect(order).not.toContain(-1);
   expect(order).toEqual([...order].sort((a, b) => a - b));
-  // the cover has the column's shape from md in both, as wide as the holder says
-  expect(block).toContain("md:w-[var(--postbit-cover-width,100%)]");
-  expect(post).toContain(
-    "--postbit-cover-width:calc(var(--postbit-width) + 1rem)",
-  );
-  // the card adds only the way to the profile, after the block
-  const rest = card.slice(card.indexOf(block) + block.length);
-  expect(rest).toContain("View profile");
-  expect(card.split("View profile").length - 1).toBe(1);
-  expect(post).not.toContain("View profile");
+  expect(out.split("View profile").length - 1).toBe(1);
+  // the card is not the post's column any more
+  expect(out).not.toContain('data-slot="postbit"');
+  expect(out).not.toContain('data-slot="activity-hidden"');
 });
 
-test("a member without a cover: no cover in either, and still the same block", async () => {
-  backend({ cover: null });
-  const { card, post } = await both();
-  expect(card).not.toContain("background-image");
-  expect(postbitOf(post)).not.toContain("background-image");
-  expect(placedByFrame(postbitOf(post))).toBe(withoutActions(postbitOf(card)));
+test("a member who hides their online status, seen by staff: the time with the hidden mark", async () => {
+  backend({ lastActivity: { at: "2026-01-01T09:00:00.000Z", hidden: true } });
+  const out = await card();
+  const seen = out.indexOf(">Last seen</dt>");
+  const mark = out.indexOf('data-slot="activity-hidden"');
+  expect(seen).toBeGreaterThanOrEqual(0);
+  expect(mark).toBeGreaterThan(seen);
+  expect(out.slice(mark)).toContain("(hidden)");
 });
 
-test("a member without awards: no awards row in either, and still the same block", async () => {
-  backend({ awards: [] });
-  const { card, post } = await both();
-  expect(card).not.toContain('href="/awards"');
-  expect(postbitOf(post)).not.toContain('href="/awards"');
-  expect(placedByFrame(postbitOf(post))).toBe(withoutActions(postbitOf(card)));
+test("no last activity for the viewer: no line for it", async () => {
+  backend({ lastActivity: { at: null, hidden: false } });
+  const out = await card();
+  expect(out).not.toContain("Last seen");
+  expect(out).toContain(">Joined</dt>");
 });
 
-test("yourself, or a member nothing is allowed for: neither the post nor the card has actions", async () => {
+test("a member without a cover or awards: neither is drawn", async () => {
+  backend({ cover: null, awards: [] });
+  const out = await card();
+  expect(out).not.toContain("background-image");
+  expect(out).not.toContain('href="/awards"');
+  expect(out).toContain('data-slot="member-tooltip"');
+});
+
+test("yourself, or a member nothing is allowed for: the card has no actions, the profile link stays", async () => {
   backend({ relation: NOTHING });
-  const { card, post } = await both();
-  expect(card).not.toContain("postbit-actions");
-  expect(post).not.toContain("postbit-actions");
-  expect(placedByFrame(postbitOf(post))).toBe(postbitOf(card));
+  const out = await card();
+  expect(out).not.toContain("member-actions");
+  expect(out).toContain("View profile");
+});
+
+test("the post's own postbit carries neither the actions nor the last activity", async () => {
+  backend();
+  const out = postbitOf(await post());
+  expect(out).not.toContain("member-actions");
+  expect(out).not.toContain("Last seen");
 });
 
 test("a guest: no actions on the post, and no relations asked", async () => {
