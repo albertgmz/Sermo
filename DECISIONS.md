@@ -6557,3 +6557,15 @@ one marker per member is cheap on 67,000 members, where marking every alert woul
 
 Why: the owner found the list did nothing in conversations; those composers never passed the
 member search to the editor.
+
+### Push notifications name who acted and where
+
+- A push names the newest actor and the place, in the recipient's language, with XenForo's
+  Spanish wording ("Fulano te mencionó en el perfil de Menganito", "Fulano y 2 más respondieron
+  en el tema «X»"), for the 13 notification types that have a member actor. The text is built
+  only after the visibility check; a thread, wall post or direct message the recipient can no
+  longer see, or that is gone, gives the old generic wording. A direct message title is shown
+  to its participants; message text never is. Moderation, report, staff, announcement, group
+  and security notices stay anonymous, and emails are unchanged.
+
+Why: the owner wanted "Fulano te mencionó" instead of "un usuario te mencionó".
