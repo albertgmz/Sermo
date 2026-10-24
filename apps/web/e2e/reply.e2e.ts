@@ -418,3 +418,42 @@ test("selecting text inside one post offers to quote only that part, and a selec
   await page.waitForTimeout(400);
   await expect(selectionQuote(page)).toHaveCount(0);
 });
+
+test("Ctrl+Enter sends the reply from the rich text and from the BB code source, and an empty box sends nothing", async ({
+  page,
+}) => {
+  const { threadId } = seed();
+  await visit(page, `/threads/${threadId}`);
+  const send = page.getByRole("button", { name: "Post reply" });
+  await expect(send).toHaveAttribute(
+    "title",
+    /^Post reply \((Ctrl|⌘)\+Enter\)$/,
+  );
+  await replyBox(page).click();
+  const reply = page.getByRole("region", { name: "Reply" });
+  await editorReady(reply);
+  const articles = page.getByRole("article");
+  const before = await articles.count();
+
+  // Nothing is written: the key does nothing.
+  await page.keyboard.press("Control+Enter");
+  await expect(articles).toHaveCount(before);
+
+  const rich = unique("Sent with the keys");
+  await replyBox(page).pressSequentially(rich);
+  await page.keyboard.press("Control+Enter");
+  await expect(articles.filter({ hasText: rich })).toHaveCount(1);
+  await expect(replyBox(page)).not.toContainText(rich);
+
+  // The same from the source field.
+  await ready(page);
+  await replyBox(page).click();
+  await editorReady(reply);
+  const toolbar = reply.getByRole("toolbar", { name: "Formatting" });
+  await (await reveal(toolbar, "BB code source")).click();
+  const source = reply.locator("textarea").first();
+  const text = unique("Sent from the source");
+  await source.fill(`[B]${text}[/B]`);
+  await page.keyboard.press("Control+Enter");
+  await expect(articles.filter({ hasText: text })).toHaveCount(1);
+});

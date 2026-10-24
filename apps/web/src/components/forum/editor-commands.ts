@@ -29,9 +29,11 @@ import {
   $isRootNode,
   $isTextNode,
   COMMAND_PRIORITY_LOW,
+  COMMAND_PRIORITY_NORMAL,
   type ElementNode,
   IS_APPLE,
   KEY_DOWN_COMMAND,
+  KEY_ENTER_COMMAND,
   type LexicalEditor,
   type LexicalNode,
   type PointType,
@@ -39,6 +41,7 @@ import {
 } from "lexical";
 import { codeNode } from "@/components/forum/bb-lexical";
 import { withoutAttachTag } from "@/components/forum/composer-insert";
+import { isSubmitShortcut } from "@/components/forum/composer-submit";
 import { $allImages } from "@/components/forum/image-node";
 
 export type BlockKind =
@@ -490,5 +493,24 @@ export function registerRemoveFormattingShortcut(editor: LexicalEditor) {
       return true;
     },
     COMMAND_PRIORITY_LOW,
+  );
+}
+
+// Ctrl+Enter (Cmd+Enter on a Mac) calls `send`. A suggestion list that is showing options has
+// Enter first (`registerSuggestionKeys`, one priority above), and the key does not reach the
+// block that would take it for a new paragraph.
+export function registerSubmitShortcut(
+  editor: LexicalEditor,
+  send: () => void,
+) {
+  return editor.registerCommand(
+    KEY_ENTER_COMMAND,
+    (event) => {
+      if (!event || !isSubmitShortcut(event)) return false;
+      event.preventDefault();
+      send();
+      return true;
+    },
+    COMMAND_PRIORITY_NORMAL,
   );
 }

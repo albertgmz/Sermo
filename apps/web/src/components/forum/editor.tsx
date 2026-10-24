@@ -59,11 +59,16 @@ import {
   takePastedFiles,
   withoutAttachTag,
 } from "@/components/forum/composer-insert";
+import {
+  submitComposer,
+  submitOnShortcut,
+} from "@/components/forum/composer-submit";
 import { $placeSelection } from "@/components/forum/editor-caret";
 import {
   $insertText,
   $removeAttachTags,
   registerRemoveFormattingShortcut,
+  registerSubmitShortcut,
 } from "@/components/forum/editor-commands";
 import { EmojiPlugin } from "@/components/forum/editor-emoji";
 import {
@@ -244,6 +249,22 @@ function Replay({ pressed }: { pressed: ToolbarAction[] }) {
 function RemoveFormattingShortcut() {
   const [editor] = useLexicalComposerContext();
   useEffect(() => registerRemoveFormattingShortcut(editor), [editor]);
+  return null;
+}
+
+// `text`: the BB code as it is sent, which must not be empty.
+function SubmitShortcut({ text }: { text: () => string }) {
+  const [editor] = useLexicalComposerContext();
+  useEffect(
+    () =>
+      registerSubmitShortcut(editor, () =>
+        submitComposer(
+          editor.getRootElement()?.closest("form") ?? null,
+          text(),
+        ),
+      ),
+    [editor, text],
+  );
   return null;
 }
 
@@ -519,6 +540,7 @@ export function Editor({
   const [sourceShown, setSourceShown] = useState(false);
   const valueRef = useRef(value);
   valueRef.current = value;
+  const sentValue = useCallback(() => valueRef.current, []);
   const field = useRef<HTMLTextAreaElement>(null);
   const changed = useRef(onChange);
   changed.current = onChange;
@@ -627,6 +649,7 @@ export function Editor({
                 value={value}
                 onChange={(event) => commit(event.target.value)}
                 onPaste={takePastedFiles}
+                onKeyDown={submitOnShortcut}
                 aria-label={fieldLabel}
                 aria-labelledby={labelledBy}
                 aria-required={required}
@@ -672,6 +695,7 @@ export function Editor({
         {invalid && <FormError id={errorId}>{t("errors.required")}</FormError>}
         <HistoryPlugin />
         <RemoveFormattingShortcut />
+        <SubmitShortcut text={sentValue} />
         <ListPlugin />
         <LinkPlugin />
         <ClearEditorPlugin />

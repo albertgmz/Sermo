@@ -110,3 +110,7 @@ test("the submit's tint has a faint border of the accent, as XenForo's primary b
   expect(classes).toContain("border");
   expect(classes).toContain("border-primary/10");
 });
+
+test("the submit's tooltip names the keys that send the form", () => {
+  expect(submitOf(draw({}))?.[0]).toContain('title="Responder (Ctrl+Enter)"');
+});

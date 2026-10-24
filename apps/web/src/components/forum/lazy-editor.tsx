@@ -16,6 +16,7 @@ import {
   takePastedFiles,
   withoutAttachTag,
 } from "@/components/forum/composer-insert";
+import { submitOnShortcut } from "@/components/forum/composer-submit";
 import type { Editor, EditorProps } from "@/components/forum/editor";
 import type { Toolbar } from "@/components/forum/editor-toolbar";
 import { quoteInbox } from "@/components/forum/lazy-quotes";
@@ -352,6 +353,7 @@ export function LazyEditor({
           load();
         }}
         onPaste={takePastedFiles}
+        onKeyDown={submitOnShortcut}
         onInput={(event) => {
           load();
           onChange?.(event.currentTarget.value);

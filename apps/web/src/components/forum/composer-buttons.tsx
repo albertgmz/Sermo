@@ -1,4 +1,7 @@
+"use client";
+
 import { type LucideIcon, Reply } from "lucide-react";
+import { useSubmitTitle } from "@/components/forum/composer-submit";
 import { PendingButton } from "@/components/forum/pending-button";
 import { cn } from "@/lib/utils";
 
@@ -32,11 +35,13 @@ export function ComposerButtons({
   files?: React.ReactNode;
   className?: string;
 }) {
+  const title = useSubmitTitle(submitLabel);
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
       {files}
       <PendingButton
         disabled={disabled}
+        title={title}
         className={cn(
           submitClass,
           // The files' Attach button is `order-last` too (`AttachmentField`): with the same

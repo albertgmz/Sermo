@@ -1,6 +1,9 @@
+"use client";
+
 import { Save } from "lucide-react";
 import Link from "next/link";
 import { submitClass } from "@/components/forum/composer-buttons";
+import { useSubmitTitle } from "@/components/forum/composer-submit";
 import { FormError } from "@/components/forum/form-error";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,6 +23,7 @@ export function FormFooter({
   submit: string;
   disabled: boolean;
 }) {
+  const title = useSubmitTitle(submit);
   return (
     <>
       {error && <FormError>{error}</FormError>}
@@ -33,7 +37,12 @@ export function FormFooter({
         >
           {cancel}
         </Link>
-        <Button type="submit" disabled={disabled} className={submitClass}>
+        <Button
+          type="submit"
+          disabled={disabled}
+          title={title}
+          className={submitClass}
+        >
           <Save aria-hidden="true" />
           {submit}
         </Button>
