@@ -1,8 +1,15 @@
-import type { Browser, Locator, Page } from "@playwright/test";
+import {
+  type Browser,
+  type Locator,
+  type Page,
+  request,
+} from "@playwright/test";
 import {
   box,
   expect,
   MEMBER_STATE,
+  PASSWORD,
+  PEER,
   PICTURE_HOST,
   phoneWidth,
   ready,
@@ -11,6 +18,7 @@ import {
   servePicture,
   test,
 } from "./fixtures";
+import { BASE_URL } from "./target";
 
 // A link to an item, from wherever it is followed, opens the page that holds it with the item's top
 // just under the sticky header, at once, and keeps it there while the pictures above it load,
@@ -185,6 +193,61 @@ async function openAlerts(page: Page) {
   return '[role="dialog"]';
 }
 
+// The header's panel lists only the newest few alerts, and the tests that ran before this one
+// leave newer alerts (deleted content, replies) above the ones the setup raised. So the other
+// member takes the reaction back and gives it again: the alert for the item is raised anew, and
+// the list is read until the panel's few rows hold it.
+const PANEL_ALERTS = 6;
+async function raiseAlert(page: Page, key: string) {
+  const [contentType, contentId] = key.split(":");
+  const peer = await request.newContext({
+    baseURL: BASE_URL,
+    extraHTTPHeaders: { origin: new URL(BASE_URL).origin },
+  });
+  try {
+    const signIn = await peer.post("/api/auth/sign-in/username", {
+      data: { username: PEER, password: PASSWORD },
+    });
+    expect(signIn.ok(), `${PEER} signs in`).toBe(true);
+    const path = `/api/v1/reactions/${contentType}/${contentId}`;
+    const types = (await (await peer.get("/api/v1/reaction-types")).json()) as {
+      items: {
+        id: number;
+        isActive: boolean;
+        access: string;
+        forumIds?: number[] | null;
+      }[];
+    };
+    const like = types.items.find(
+      (type) =>
+        type.isActive && type.access === "open" && !type.forumIds?.length,
+    );
+    expect(like, "an open reaction type").toBeTruthy();
+    expect((await peer.delete(path)).ok(), `${PEER} takes ${key} back`).toBe(
+      true,
+    );
+    const given = await peer.put(path, {
+      data: { reactionTypeId: like?.id },
+    });
+    expect(given.ok(), `${PEER} reacts to ${key}`).toBe(true);
+  } finally {
+    await peer.dispose();
+  }
+  await expect
+    .poll(
+      async () => {
+        const list = (await (
+          await page.request.get(`/api/v1/notifications?limit=${PANEL_ALERTS}`)
+        ).json()) as { items: { contentType: string; contentId: number }[] };
+        return list.items.map(
+          (item) => `${item.contentType}:${item.contentId}`,
+        );
+      },
+      { message: `the alert for ${key} is among the newest`, timeout: 30_000 },
+    )
+    .toContain(key);
+}
+
 const visibleLink = (scope: Page | Locator, selector: string) =>
   scope.locator(selector).filter({ visible: true }).first();
 
@@ -241,6 +304,7 @@ test("an alert in the header's panel or the phone's alerts lands on its post, wa
     expect(landing.alerted, `an alert for the ${target.kind}`).toContain(
       target.key,
     );
+    await raiseAlert(page, target.key);
     await page.goto("/");
     await ready(page);
     const rows = await openAlerts(page);
@@ -400,7 +464,10 @@ test("a quote's link to its post, from another thread, lands on the post @landin
   const { peerThreadId, landing } = seed();
   await page.goto(`/threads/${peerThreadId}`);
   await ready(page);
-  await visibleLink(page, `main a[href="/posts/${landing.post.id}"]`).click();
+  // Replies written by earlier tests can push the quote off the thread's first page.
+  await (
+    await reachLink(page, `main a[href="/posts/${landing.post.id}"]`)
+  ).click();
   await expectLandedAt(page, drawn(page, `post-${landing.post.id}`));
 });
 
@@ -579,6 +646,7 @@ test("a wall post on a wall left earlier lands on the drawn copy, not a hidden o
   await page.goto(`/members/${landing.memberId}`);
   await ready(page);
   await expect(drawn(page, `profile-post-${id}`)).toBeVisible();
+  await raiseAlert(page, `profile_post:${id}`);
   await visibleLink(page, 'a[href="/"]').click();
   await expect(page).toHaveURL((url) => url.pathname === "/");
   await ready(page);

@@ -199,7 +199,10 @@ test("the pages of the search results turn in place and keep the query @all", as
   const current = pages.locator('[aria-current="page"]');
   await expect(current).toHaveText("1");
   const firstResult = page.locator("main article").first();
-  const one = await firstResult.innerText();
+  // The result's first link, not its text: the text holds a time ("39 seconds ago") that moves on.
+  const resultLink = () =>
+    firstResult.locator("a[href]").first().getAttribute("href");
+  const one = await resultLink();
   await page.evaluate(() => {
     (window as unknown as { kept: boolean }).kept = true;
   });
@@ -212,11 +215,11 @@ test("the pages of the search results turn in place and keep the query @all", as
       url.searchParams.get("q") === "Pager" &&
       url.searchParams.get("page") === "2",
   );
-  expect(await firstResult.innerText()).not.toBe(one);
+  expect(await resultLink()).not.toBe(one);
   await expect(page.locator("#search-query")).toHaveValue("Pager");
   await page.goBack();
   await expect(current).toHaveText("1");
-  expect(await firstResult.innerText()).toBe(one);
+  expect(await resultLink()).toBe(one);
   // Nothing of it loaded the screen again.
   expect(
     await page.evaluate(() => (window as unknown as { kept?: boolean }).kept),
