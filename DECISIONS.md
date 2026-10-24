@@ -6505,3 +6505,15 @@ Why: with a freshly built seed the widget scenarios sent `undefined` ids and sto
   Undo as buttons at every width.
 
 Why: the WebKit run on the iPhone SE had these two failures after the editor took XenForo's sizes.
+
+## UI/UX round
+
+### Stored month winners are decided again when they no longer qualify
+
+- When the jobs start, a stored member-of-the-month winner whom the standing rules now leave out
+  (an excluded member, or staff when staff are excluded) queues the normal re-decide run, so the
+  member of the month page, profile badges and the standing widget name the same member. Saving
+  the standing settings unchanged queues nothing.
+
+Why: fcuba.net named an excluded member on /members while the widget, which applies the rules at
+read time, named the real winner; those winners were stored before the re-decide run existed.
