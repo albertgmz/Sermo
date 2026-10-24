@@ -288,6 +288,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["POST", "/profile-posts/{profilePostId}/hard-delete", "profilePosts.hardDelete"],
   ["GET", "/profile-posts/{profilePostId}/comments", "profileComments.list"],
   ["POST", "/profile-posts/{profilePostId}/comments", "profileComments.create", 201],
+  ["POST", "/profile-comments/{commentId}/hard-delete", "profileComments.hardDelete"],
   ["GET", "/profile-comments/{commentId}", "profileComments.get"],
   ["GET", "/profile-comments/{commentId}/location", "profileComments.locate"],
   ["PATCH", "/profile-comments/{commentId}", "profileComments.update"],

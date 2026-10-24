@@ -407,6 +407,7 @@ describe("profiles", () => {
         "profileComments.create",
         "profileComments.update",
         "profileComments.delete",
+        "profileComments.hardDelete",
         "profileComments.restore",
       ].sort(),
     );

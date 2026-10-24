@@ -5,6 +5,7 @@ import {
   profileCommentsCreate,
   profileCommentsDelete,
   profileCommentsGet,
+  profileCommentsHardDelete,
   profileCommentsList,
   profileCommentsRestore,
   profileCommentsUpdate,
@@ -28,6 +29,7 @@ import {
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
 import { requireTermsAccepted } from "../pages/acceptance";
+import { purgeContent } from "../purge/purge";
 import { logIp } from "../security/log";
 import {
   COMMENTS_SQL,
@@ -231,6 +233,39 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
   });
   return commentValue(ctx, actor, { ...comment, state: "deleted" }, post.profile_user_id);
 });
+export const profileCommentsHardDeleteOp = implement(
+  profileCommentsHardDelete,
+  (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    requirePermission(ctx, actor, "profilePost.hardDelete");
+    const { comment } = requireComment(ctx, actor, input.commentId);
+    writeTx(ctx, () => {
+      const fresh = currentActor(ctx, actor);
+      const { post } = requireComment(ctx, fresh, comment.id);
+      requirePermission(ctx, fresh, "profilePost.hardDelete");
+      const current = prepared(ctx, "profiles.commentState", () =>
+        ctx.sqlite.prepare<{ state: CommentRow["state"] }, [number]>(
+          "SELECT state FROM profile_post_comments WHERE id = ?1",
+        ),
+      ).get(comment.id)!;
+      if (current.state !== "deleted")
+        throw new ConflictError(
+          "Delete the comment first; only a deleted one can be removed for good.",
+        );
+      purgeContent(ctx, "profile_post_comment", [comment.id]);
+      appendModeratorLog(
+        ctx,
+        actor,
+        "profile_comment.hardDelete",
+        "profile_post_comment",
+        comment.id,
+        input.reason,
+        { authorId: comment.user_id, profilePostId: post.id, profileUserId: post.profile_user_id },
+      );
+    });
+    return { ok: true as const };
+  },
+);
 export const profileCommentsRestoreOp = implement(profileCommentsRestore, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { comment, post } = requireComment(ctx, actor, input.commentId);

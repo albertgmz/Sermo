@@ -93,6 +93,7 @@ const IDS = [
   "profile_comment.edit",
   "profile_comment.delete",
   "profile_comment.restore",
+  "profile_comment.hardDelete",
   "profile_post.edit",
   "profile_post.delete",
   "profile_post.restore",

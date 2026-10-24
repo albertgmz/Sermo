@@ -25,6 +25,8 @@ type Item = {
   editedAt: string | null;
   canEdit: boolean;
   canDelete: boolean;
+  // Comments only: the viewer may delete a deleted one for good.
+  canHardDelete?: boolean;
   canReport: boolean;
   reactions: {
     counts: Record<string, number>;
@@ -106,8 +108,8 @@ export function WallItemActions({
   const isComment = kind === "comment";
   const reactions = { kind, item, viewerId, picker, reactionTypes, viewList };
   const live = item.state !== "deleted";
-  // A comment has no deletion for good yet.
-  const hard = mayHardDelete && kind === "post";
+  // A comment says it itself; a wall post's right comes from the wall's resolved permissions.
+  const hard = isComment ? item.canHardDelete === true : mayHardDelete;
   const removal = deleteMode({ ...item, canHardDelete: hard && !live }, hard);
   return (
     <ContentActions
@@ -155,7 +157,11 @@ export function WallItemActions({
               action: deleteWallItem.bind(null, kind, item.id),
               permanent: removal.permanent,
               warning: t("deleteWarning"),
-              permanentHint: t("hardDeleteWallWarning"),
+              permanentHint: t(
+                isComment
+                  ? "hardDeleteCommentWarning"
+                  : "hardDeleteWallWarning",
+              ),
             }
           : undefined
       }

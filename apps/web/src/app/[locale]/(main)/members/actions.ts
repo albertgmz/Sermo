@@ -4,6 +4,7 @@ import {
   profileCommentsCreate,
   profileCommentsDelete,
   profileCommentsGet,
+  profileCommentsHardDelete,
   profileCommentsUpdate,
   profilePostsCreate,
   profilePostsDelete,
@@ -136,9 +137,10 @@ export async function deleteWallItem(
 ): Promise<WallState> {
   if (!isKind(kind)) return {};
   requireIds(id);
-  // A comment has no deletion for good yet: the dialog offers none, and a forged field is ignored.
-  if (kind === "post" && formData.get("hardDelete") === "1")
-    return hardDeleteWallPost(id, _previous, formData);
+  if (formData.get("hardDelete") === "1")
+    return kind === "post"
+      ? hardDeleteWallPost(id, _previous, formData)
+      : hardDeleteWallComment(id, formData);
   const reason = String(formData.get("reason") ?? "");
   const deleted = await attempt("/", async () => {
     if (kind === "post")
@@ -187,6 +189,32 @@ export async function hardDeleteWallPost(
   return {
     error: (await getTranslations("threads.moderation"))("hardDeleteMore"),
   };
+}
+
+// Erases a wall comment for good (a live one is hidden first).
+async function hardDeleteWallComment(
+  id: number,
+  formData: FormData,
+): Promise<WallState> {
+  const reason = String(formData.get("reason") ?? "");
+  const erased = await attempt("/", () =>
+    eraseHidingFirst(
+      () => call(profileCommentsHardDelete, { commentId: id, reason }),
+      async () => {
+        const { state } = await call(profileCommentsGet, { commentId: id });
+        if (state === "deleted") return false;
+        await call(profileCommentsDelete, {
+          commentId: id,
+          reason,
+          notify: false,
+        });
+        return true;
+      },
+    ),
+  );
+  if (!erased.ok) return { error: erased.error };
+  refresh();
+  return {};
 }
 
 // The form says which state it wants (`following` is "true" or "false"), so a second click on a

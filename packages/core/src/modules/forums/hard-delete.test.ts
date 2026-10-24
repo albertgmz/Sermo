@@ -583,6 +583,105 @@ describe("profilePosts.hardDelete", () => {
   });
 });
 
+describe("profileComments.hardDelete", () => {
+  test("removes one deleted comment with its reactions, reports, alerts and files, and leaves the post and the other comments", async () => {
+    const w = world();
+    const post = await w.wall(w.alice, w.bobUser.id, "On the wall");
+    const comment = await w.call("profileComments.create", w.carol, {
+      profilePostId: post.id,
+      body: "Nice",
+    });
+    const kept = await w.call("profileComments.create", w.bob, {
+      profilePostId: post.id,
+      body: "Kept",
+    });
+    await w.call("reactions.set", w.bob, {
+      contentType: "profile_post_comment",
+      contentId: comment.id,
+      reactionTypeId: 1,
+    });
+    await w.call("reports.create", w.bob, {
+      target: { type: "profile_post_comment", id: comment.id },
+      reason: "rude",
+    });
+    const sql = w.ctx.sqlite;
+    sql
+      .prepare(
+        "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, uploader_id, purpose, visibility, created_at) VALUES ('local', 'k', 1, 'image/png', 'x', ?1, 'attachment', 'public', 1)",
+      )
+      .run(w.carolUser.id);
+    sql
+      .prepare(
+        "INSERT INTO attachments (file_id, content_type, content_id, created_at) VALUES (1, 'profile_post_comment', ?1, 1)",
+      )
+      .run(comment.id);
+    sql
+      .prepare(
+        "INSERT INTO notifications (user_id, epoch, type, content_type, content_id, created_at, updated_at, read_at) VALUES (?1, 0, 'mention', 'profile_post_comment', ?2, 1, 1, NULL)",
+      )
+      .run(w.aliceUser.id, comment.id);
+    sql.prepare("UPDATE users SET unread_notification_count = 1 WHERE id = ?1").run(w.aliceUser.id);
+    const commentCount = () =>
+      count(sql, "SELECT comment_count AS n FROM profile_posts WHERE id = ?1", post.id);
+    expect(commentCount()).toBe(2);
+    expect(user(w, w.carolUser.id).reaction_score).toBe(1);
+
+    await expect(
+      w.call("profileComments.hardDelete", w.admin, { commentId: comment.id }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    await w.call("profileComments.delete", w.admin, { commentId: comment.id });
+    expect(commentCount()).toBe(1);
+    // The wall's owner and a moderator may hide it, not erase it; the author sees nothing.
+    await expect(
+      w.call("profileComments.hardDelete", w.bob, { commentId: comment.id }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      w.call("profileComments.hardDelete", w.mod, { commentId: comment.id }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      w.call("profileComments.hardDelete", GUEST, { commentId: comment.id }),
+    ).rejects.toBeInstanceOf(UnauthenticatedError);
+    expect(count(sql, "SELECT count(*) AS n FROM profile_post_comments")).toBe(2);
+
+    await w.call("profileComments.hardDelete", w.admin, { commentId: comment.id, reason: "x" });
+
+    for (const [table, where] of [
+      ["profile_post_comments", `id = ${comment.id}`],
+      ["reactions", "content_type = 'profile_post_comment'"],
+      ["report_groups", "target_type = 'profile_post_comment'"],
+      ["attachments", "content_type = 'profile_post_comment'"],
+      ["notifications", "content_type = 'profile_post_comment'"],
+    ])
+      expect(count(sql, `SELECT count(*) AS n FROM ${table} WHERE ${where}`), table).toBe(0);
+    expect(commentCount()).toBe(1);
+    expect(user(w, w.carolUser.id).reaction_score).toBe(0);
+    expect(user(w, w.aliceUser.id).unread_notification_count).toBe(0);
+    expect(count(sql, "SELECT count(*) AS n FROM profile_posts WHERE id = ?1", post.id)).toBe(1);
+    expect(
+      count(sql, "SELECT count(*) AS n FROM profile_post_comments WHERE id = ?1", kept.id),
+    ).toBe(1);
+    expect(
+      (await w.call("moderatorLog.list", w.admin, { action: "profile_comment.hardDelete" }))
+        .items[0],
+    ).toMatchObject({ targetId: comment.id, details: { authorId: w.carolUser.id } });
+  });
+
+  test("a visible comment's count is lowered once, by the soft delete, and erasing a hidden one leaves it alone", async () => {
+    const w = world();
+    const post = await w.wall(w.alice, w.bobUser.id, "On the wall");
+    const first = await w.call("profileComments.create", w.carol, {
+      profilePostId: post.id,
+      body: "One",
+    });
+    await w.call("profileComments.create", w.carol, { profilePostId: post.id, body: "Two" });
+    await w.call("profileComments.delete", w.admin, { commentId: first.id });
+    await w.call("profileComments.hardDelete", w.admin, { commentId: first.id });
+    expect(
+      count(w.ctx.sqlite, "SELECT comment_count AS n FROM profile_posts WHERE id = ?1", post.id),
+    ).toBe(1);
+  });
+});
+
 describe("hard delete and credits, through the real event pipeline", () => {
   const paid = async () => {
     const w = world();

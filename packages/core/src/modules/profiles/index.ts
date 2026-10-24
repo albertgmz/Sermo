@@ -2,6 +2,7 @@ import {
   profileCommentsCreateOp,
   profileCommentsDeleteOp,
   profileCommentsGetOp,
+  profileCommentsHardDeleteOp,
   profileCommentsListOp,
   profileCommentsRestoreOp,
   profileCommentsUpdateOp,
@@ -37,6 +38,7 @@ export {
   profileCommentsCreateOp,
   profileCommentsDeleteOp,
   profileCommentsGetOp,
+  profileCommentsHardDeleteOp,
   profileCommentsListOp,
   profileCommentsLocateOp,
   profileCommentsRestoreOp,
@@ -74,5 +76,6 @@ export const operations = [
   profileCommentsCreateOp,
   profileCommentsUpdateOp,
   profileCommentsDeleteOp,
+  profileCommentsHardDeleteOp,
   profileCommentsRestoreOp,
 ];

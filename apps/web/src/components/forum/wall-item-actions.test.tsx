@@ -176,3 +176,17 @@ test("a member who may only report and share gets no menu, and report's word on 
   expect(html).not.toContain("More options");
   expect(html).toContain('<span class="inline">Report</span>');
 });
+
+test("a deleted comment or wall post gets only the permanent delete, from whoever may erase it", () => {
+  draw("comment", { state: "deleted", canHardDelete: true }, 9);
+  expect(menus[0]).toMatchObject({ permanentOnly: true });
+  draw("post", { state: "deleted" }, 9, { mayHardDelete: true });
+  expect(menus[0]).toMatchObject({ permanentOnly: true });
+  draw("comment", { state: "deleted" }, 9);
+  expect(menus[0]).toBeUndefined();
+});
+
+test("a live comment stays one Delete, whose dialog holds the permanent choice", () => {
+  draw("comment", { canDelete: true, canHardDelete: true }, 9);
+  expect(menus[0]).toMatchObject({ permanentOnly: false });
+});

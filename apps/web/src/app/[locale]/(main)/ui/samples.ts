@@ -503,6 +503,7 @@ export const SAMPLE_WALL_COMMENTS: ApiWallComment[] = [
   reactions: { counts: {}, total: 0, mine: null },
   canEdit: false,
   canDelete: false,
+  canHardDelete: false,
   canReport: true,
 }));
 

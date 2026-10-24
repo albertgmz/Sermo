@@ -155,6 +155,7 @@ const COMMENT = {
   reactions: { counts: {}, total: 0, mine: null },
   canEdit: true,
   canDelete: true,
+  canHardDelete: false,
   canReport: true,
 };
 

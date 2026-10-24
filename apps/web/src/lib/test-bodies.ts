@@ -158,6 +158,7 @@ export function profileCommentBody(over: Record<string, unknown> = {}) {
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: false,
     canDelete: false,
+    canHardDelete: false,
     canReport: true,
     bodySource: "",
     ...over,

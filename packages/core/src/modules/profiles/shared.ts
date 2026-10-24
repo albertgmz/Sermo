@@ -351,6 +351,7 @@ export function commentValues(
         ownerId:
           typeof wallOwnerId === "number" ? wallOwnerId : wallOwnerId.get(row.profile_post_id),
       }),
+    canHardDelete: permissions.can("profilePost.hardDelete"),
     canReport: permissions.can("report.create"),
   }));
 }

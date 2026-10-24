@@ -224,13 +224,45 @@ test("the delete dialog asks for a permanent delete of a wall post: a live one i
   assert.deepEqual(asked[2].body, { reason: "abuse", notify: false });
 });
 
-test("a comment is only hidden, whatever the form says: it has no permanent delete", async () => {
-  answer = Response.json(profileCommentBody({ state: "deleted" }));
-  await deleteWallItem("comment", 44, {}, form({ hardDelete: "1" }));
+test("the delete dialog asks for a permanent delete of a wall comment: a live one is hidden first, then erased", async () => {
+  let erasing = 0;
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    asked.push({
+      method: init.method ?? "GET",
+      url,
+      body: init.body ? JSON.parse(String(init.body)) : undefined,
+    });
+    if (url.endsWith("/profile-comments/44/hard-delete")) {
+      erasing += 1;
+      return erasing === 1
+        ? Response.json(
+            { error: { code: "conflict", message: "Delete it first." } },
+            { status: 409 },
+          )
+        : Response.json({ ok: true });
+    }
+    return Response.json(profileCommentBody({ id: 44, state: "visible" }));
+  }) as unknown as typeof fetch;
   assert.deepEqual(
-    asked.map(({ method, url }) => [method, url]),
-    [["DELETE", `${ROOT}/profile-comments/44`]],
+    await deleteWallItem(
+      "comment",
+      44,
+      {},
+      form({ hardDelete: "1", reason: "abuse" }),
+    ),
+    {},
   );
+  assert.deepEqual(
+    asked.map(({ method, url }) => [method, url.replace(ROOT, "")]),
+    [
+      ["POST", "/profile-comments/44/hard-delete"],
+      ["GET", "/profile-comments/44"],
+      ["DELETE", "/profile-comments/44"],
+      ["POST", "/profile-comments/44/hard-delete"],
+    ],
+  );
+  assert.deepEqual(asked[2].body, { reason: "abuse", notify: false });
+  assert.equal(refreshed, 1);
 });
 
 test("the delete dialog asks for a permanent delete of a conversation message, with its reason", async () => {

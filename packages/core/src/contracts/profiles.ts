@@ -8,6 +8,7 @@ import {
   Id,
   Limit,
   moderationNotice,
+  Ok,
   Page,
   pageInput,
   ReactionSummary,
@@ -89,6 +90,8 @@ export const ProfileComment = z
     reactions: ReactionSummary,
     canEdit: z.boolean(),
     canDelete: z.boolean(),
+    /** The viewer holds profilePost.hardDelete: `profileComments.hardDelete` on a deleted comment. */
+    canHardDelete: z.boolean(),
     /** The viewer may report it (reports.create would accept it). */
     canReport: z.boolean(),
   })
@@ -389,6 +392,18 @@ export const profileCommentsDelete = defineContract({
   kind: "write",
   input: z.object({ ...moderationNotice, commentId: Id }),
   output: ProfileComment,
+});
+
+export const profileCommentsHardDelete = defineContract({
+  name: "profileComments.hardDelete",
+  summary:
+    "Delete a comment for good, with its reactions, attachments, alerts and reports; the wall " +
+    "post's comment count follows. Only a soft-deleted comment can be deleted for good (a " +
+    "conflict otherwise). Requires profilePost.hardDelete (administrators by default) and the " +
+    "right to see deleted comments. Logged as `profile_comment.hardDelete`.",
+  kind: "write",
+  input: z.object({ commentId: Id, reason: moderationNotice.reason }),
+  output: Ok,
 });
 
 export const profileCommentsRestore = defineContract({

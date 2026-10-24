@@ -547,6 +547,7 @@
       "thread_hardDelete": "Thread deleted permanently",
       "post_hardDelete": "Post deleted permanently",
       "conversation_message_hardDelete": "Direct message deleted permanently",
+      "profile_comment_hardDelete": "Profile comment deleted permanently",
       "profile_post_hardDelete": "Profile post deleted permanently",
       "signup_approve": "Sign-up approved",
       "signup_reject": "Sign-up rejected",

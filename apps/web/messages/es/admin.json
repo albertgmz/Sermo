@@ -547,6 +547,7 @@
       "thread_hardDelete": "Tema eliminado para siempre",
       "post_hardDelete": "Mensaje eliminado para siempre",
       "conversation_message_hardDelete": "Mensaje directo eliminado permanentemente",
+      "profile_comment_hardDelete": "Comentario de perfil eliminado permanentemente",
       "profile_post_hardDelete": "Publicación de perfil eliminada para siempre",
       "signup_approve": "Alta aprobada",
       "signup_reject": "Alta rechazada",
