@@ -7024,7 +7024,8 @@ button on wide screens, and each forum can still be marked read on its own.
 reset password, verify email, not me) draw the flag over a night sky with stars, a sunset on the
 horizon and a moving sea, from which speech bubbles rise and sway: Cuban emoji (cafecito, royal
 palm, trumpet, bongó, baseball, mojito, caimán...) and two chat bubbles, "¿Qué bolá?" and
-"¡Dale!". The flag flutters gently. On a phone the band ends in a wave of the page's own colour
+"¡Dale!". The flag stays flat (a 3D flutter was tried and removed: browsers drew the tilted
+flag from a low-resolution copy, jagged and blurred; a test forbids 3D transforms in the scene). On a phone the band ends in a wave of the page's own colour
 that runs into the form; from `md` the form sits on a card. **How:** `(auth)/auth-scene.tsx` and
 `auth-scene.css`, a server component and plain CSS (transforms and opacity), no animation library
 and no client JS; the stylesheet loads only on the auth pages. Colours come from the flag tokens
