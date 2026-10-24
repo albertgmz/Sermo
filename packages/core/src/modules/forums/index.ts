@@ -214,6 +214,22 @@ export const forumSql = {
   stickyByPrefix: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND prefix_id = ?5 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC`,
   threadPage: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?7)) OR (state = 'deleted' AND ?3 = 1)) AND (sort_at, id) < (?4, ?5) ORDER BY sort_at DESC, id DESC LIMIT ?6`,
   threadPageByPrefix: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?8 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?7)) OR (state = 'deleted' AND ?3 = 1)) AND (sort_at, id) < (?4, ?5) ORDER BY sort_at DESC, id DESC LIMIT ?6`,
+  /**
+   * Numbered pages of threads.list: the key of the thread at a place in the list (?5, from 0), the
+   * last one of the page before (the page then goes on from it as a cursor's would), and how many
+   * threads the list holds where no counter says it (a prefix, or only the viewer's own threads).
+   */
+  threadKey: `SELECT sort_at, id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC LIMIT 1 OFFSET ?5`,
+  threadKeyByPrefix: `SELECT sort_at, id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?6 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC LIMIT 1 OFFSET ?5`,
+  threadCount: `SELECT count(*) AS n FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1))`,
+  threadCountByPrefix: `SELECT count(*) AS n FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?5 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1))`,
+  /** The forum's stored count of visible threads, and the visible sticky ones in it (a few rows). */
+  nodeThreadCount: "SELECT thread_count AS n FROM nodes WHERE id = ?1",
+  visibleStickyCount:
+    "SELECT count(*) AS n FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND state = 'visible'",
+  /** Non-sticky threads of one hidden state ?2 in a forum, all of them (?3 = 1) or the viewer's (?4). */
+  hiddenThreadCount:
+    "SELECT count(*) AS n FROM threads INDEXED BY threads_node_state_id WHERE node_id = ?1 AND state = ?2 AND is_sticky = 0 AND merged_into_id IS NULL AND (?3 = 1 OR user_id = ?4)",
   postPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND p.position BETWEEN ?2 AND ?3 AND (p.state = 'visible' OR (p.state = 'moderated' AND (?4 = 1 OR p.user_id = ?6)) OR (p.state = 'deleted' AND ?5 = 1)) ORDER BY p.position`,
   // A merge's target while its posts are renumbered: positions are stored as -(p + 1) or as p.
   decodedPostPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND (p.position BETWEEN ?2 AND ?3 OR p.position BETWEEN -?3 - 1 AND -?2 - 1) AND ${postVisible} ORDER BY ${storedPosition("p.position")}`,
@@ -271,6 +287,10 @@ export const ownThreadSql = {
   stickyByPrefix: ownOnly(forumSql.stickyByPrefix, 4),
   threadPage: ownOnly(forumSql.threadPage, 7),
   threadPageByPrefix: ownOnly(forumSql.threadPageByPrefix, 7),
+  threadKey: ownOnly(forumSql.threadKey, 4),
+  threadKeyByPrefix: ownOnly(forumSql.threadKeyByPrefix, 4),
+  threadCount: ownOnly(forumSql.threadCount, 4),
+  threadCountByPrefix: ownOnly(forumSql.threadCountByPrefix, 4),
 } as const;
 function statement<Row, Params extends SQLQueryBindings[]>(ctx: Ctx, name: string, sql: string) {
   return prepared(ctx, `forums.${name}`, () => ctx.sqlite.prepare<Row, Params>(sql));
@@ -1139,6 +1159,80 @@ export const nodesSetModeratorOp = implement(
   },
 );
 
+type ThreadListFilter = {
+  nodeId: number;
+  prefixId: number | undefined;
+  viewModerated: number;
+  viewDeleted: number;
+  userId: number;
+  own: boolean;
+};
+/**
+ * How many non-sticky threads a forum's list holds for the viewer. The plain list is the forum's
+ * stored count of visible threads, less its visible sticky ones, plus the held and deleted ones
+ * the viewer may see (index ranges of those states, a few rows); a prefix, or a list of only the
+ * viewer's own threads, is counted over its own index range.
+ */
+function threadListTotal(ctx: Ctx, filter: ThreadListFilter): number {
+  const { nodeId, prefixId, viewModerated, viewDeleted, userId, own } = filter;
+  type Count = { n: number };
+  if (own || prefixId !== undefined) {
+    const sql = own ? ownThreadSql : forumSql;
+    const key = (name: string) => (own ? `own.${name}` : name);
+    return prefixId === undefined
+      ? statement<Count, [number, number, number, number]>(
+          ctx,
+          key("threadCount"),
+          sql.threadCount,
+        ).get(nodeId, viewModerated, viewDeleted, userId)!.n
+      : statement<Count, [number, number, number, number, number]>(
+          ctx,
+          key("threadCountByPrefix"),
+          sql.threadCountByPrefix,
+        ).get(nodeId, viewModerated, viewDeleted, userId, prefixId)!.n;
+  }
+  const hidden = (state: "moderated" | "deleted", all: number) =>
+    statement<Count, [number, string, number, number]>(
+      ctx,
+      "hiddenThreadCount",
+      forumSql.hiddenThreadCount,
+    ).get(nodeId, state, all, userId)!.n;
+  const stored =
+    statement<Count, [number]>(ctx, "nodeThreadCount", forumSql.nodeThreadCount).get(nodeId)?.n ??
+    0;
+  const sticky = statement<Count, [number]>(
+    ctx,
+    "visibleStickyCount",
+    forumSql.visibleStickyCount,
+  ).get(nodeId)!.n;
+  return (
+    Math.max(0, stored - sticky) +
+    hidden("moderated", viewModerated) +
+    (viewDeleted ? hidden("deleted", 1) : 0)
+  );
+}
+/** Where page `page` of the list starts: after the key of the last thread of the page before. */
+function threadPageStart(
+  ctx: Ctx,
+  filter: ThreadListFilter,
+  offset: number,
+): { sort_at: number; id: number } | null {
+  const { nodeId, prefixId, viewModerated, viewDeleted, userId, own } = filter;
+  const sql = own ? ownThreadSql : forumSql;
+  const key = (name: string) => (own ? `own.${name}` : name);
+  type Key = { sort_at: number; id: number };
+  return prefixId === undefined
+    ? statement<Key, [number, number, number, number, number]>(
+        ctx,
+        key("threadKey"),
+        sql.threadKey,
+      ).get(nodeId, viewModerated, viewDeleted, userId, offset - 1)
+    : statement<Key, [number, number, number, number, number, number]>(
+        ctx,
+        key("threadKeyByPrefix"),
+        sql.threadKeyByPrefix,
+      ).get(nodeId, viewModerated, viewDeleted, userId, offset - 1, prefixId);
+}
 export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input) => {
   const { node } = requireNode(ctx, actor, input.nodeId);
   requireSiteView(ctx, actor);
@@ -1147,10 +1241,21 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
   const permissions = permissionsOf(ctx, actor);
   const viewModerated = Number(permissions.can("forum.viewModerated", { nodeId: input.nodeId }));
   const viewDeleted = Number(permissions.can("forum.viewDeleted", { nodeId: input.nodeId }));
-  const cursor = input.cursor ? decodeCursor(input.cursor, threadCursor) : null;
   const prefixId = input.prefixId;
   // Where threads of other members are closed to the viewer, only theirs are listed.
   const own = !permissions.can("forum.viewOthers", { nodeId: input.nodeId });
+  const filter = { nodeId: input.nodeId, prefixId, viewModerated, viewDeleted, userId, own };
+  // A numbered page past the first starts after the last thread of the page before it.
+  const page = input.cursor ? undefined : input.page;
+  const offset = page === undefined ? 0 : (page - 1) * input.limit;
+  const start = offset > 0 ? threadPageStart(ctx, filter, offset) : null;
+  const total = page === undefined ? null : threadListTotal(ctx, filter);
+  if (offset > 0 && !start) return { sticky: [], items: [], nextCursor: null, total };
+  const cursor = input.cursor
+    ? decodeCursor(input.cursor, threadCursor)
+    : start
+      ? ([start.sort_at, start.id] as const)
+      : null;
   const sql = own ? ownThreadSql : forumSql;
   const key = (name: string) => (own ? `own.${name}` : name);
   const sticky = cursor
@@ -1188,11 +1293,16 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
           key("threadPageByPrefix"),
           sql.threadPageByPrefix,
         ).all(...pageParams, prefixId);
-  const page = rows.slice(0, input.limit);
-  const values = threadValues(ctx, actor, [...sticky, ...page]);
+  const listed = rows.slice(0, input.limit);
+  const values = threadValues(ctx, actor, [...sticky, ...listed]);
   const nextCursor =
-    rows.length > input.limit ? encodeCursor([page.at(-1)!.sort_at, page.at(-1)!.id]) : null;
-  return { sticky: values.slice(0, sticky.length), items: values.slice(sticky.length), nextCursor };
+    rows.length > input.limit ? encodeCursor([listed.at(-1)!.sort_at, listed.at(-1)!.id]) : null;
+  return {
+    sticky: values.slice(0, sticky.length),
+    items: values.slice(sticky.length),
+    nextCursor,
+    total,
+  };
 });
 /** Whether the viewer may read a poll of the thread, and whether they may add one. */
 function threadPollFacts(

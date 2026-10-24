@@ -12,7 +12,11 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { visibleMessagesSql } from "./index";
 
-type Listed = { items: { id: number; bodyHtml: string }[]; nextCursor: string | null };
+type Listed = {
+  items: { id: number; bodyHtml: string }[];
+  nextCursor: string | null;
+  total: number | null;
+};
 const plain = (html: string) => html.replace(/<[^>]+>/g, "").trim();
 
 /** a starts the conversation with b; the admin (a holder of conversation.moderate) is in too. */
@@ -70,8 +74,12 @@ describe("conversations.listMessages afterMessageId", () => {
       expect(bodies(page)).toEqual(["one", "two"]);
       expect(page.nextCursor).toBeNull();
       expect(bodies(await s.since(actor, one.id))).toEqual(["two"]);
-      expect(await s.since(actor, two.id)).toEqual({ items: [], nextCursor: null });
-      expect(await s.since(actor, two.id + 100)).toEqual({ items: [], nextCursor: null });
+      expect(await s.since(actor, two.id)).toEqual({ items: [], nextCursor: null, total: null });
+      expect(await s.since(actor, two.id + 100)).toEqual({
+        items: [],
+        nextCursor: null,
+        total: null,
+      });
     }
     // The order does not turn the poll around.
     expect(bodies(await s.since(s.a, s.first, { order: "newest" }))).toEqual(["one", "two"]);

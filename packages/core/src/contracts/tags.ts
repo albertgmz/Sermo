@@ -4,6 +4,9 @@ import { Id, Ok, Page, pageInput, TagInput, Timestamp } from "./common";
 import { Thread } from "./forums";
 import { SeoMetadata } from "./seo";
 
+/** The most threads a tag's numbered pages hold, as XenForo's tag page (its maximumSearchResults). */
+export const TAG_PAGES_MAX = 500;
+
 const TagName = z.string().max(120).describe("A tag name, as typed (with or without the #).");
 
 export const TagAdmin = z
@@ -35,14 +38,20 @@ export const tagsThreads = defineContract({
   name: "tags.threads",
   summary:
     "The threads carrying a tag, newest activity first (the later of the last post and the " +
-    "last bump), cursor-paged. It applies the rules of a forum's thread list: forums the " +
+    "last bump), paged by cursor or by number. It applies the rules of a forum's thread list: forums the " +
     "viewer cannot open, other members' threads where forum.viewOthers is closed, hidden " +
     "states (moderated, deleted) only to those who may see them, merged threads out. Threads " +
     "hold the tag; hashtags typed in replies and private conversations do not. Not found like " +
-    "tags.get. Requires site.view.",
+    "tags.get. Requires site.view. `page` (from 1; a `cursor` takes precedence over it) is " +
+    "the page of `limit` threads at that place in the list; with it, `total` is how many threads " +
+    "the numbered pages hold for the viewer (`ceil(total / limit)` pages), null without it. " +
+    "As on XenForo's tag " +
+    `page, they hold at most the newest ${TAG_PAGES_MAX} threads the viewer may see, and they ` +
+    "end sooner where placing the next thread would cost more than one request may spend (a " +
+    "long run of threads the viewer may not see); a cursor walks on past both.",
   kind: "read",
-  input: z.object({ name: TagName, ...pageInput }),
-  output: Page(Thread),
+  input: z.object({ name: TagName, page: z.number().int().min(1).optional(), ...pageInput }),
+  output: Page(Thread).extend({ total: z.number().int().nonnegative().nullable() }),
 });
 
 export const tagsList = defineContract({

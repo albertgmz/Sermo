@@ -79,10 +79,14 @@ export const MessageDetail = Message.extend({ bodySource: z.string() }).meta({
 
 export const conversationsList = defineContract({
   name: "conversations.list",
-  summary: "The viewer's active conversations, most recent activity first.",
+  summary:
+    "The viewer's active conversations, most recent activity first. `page` (from 1; a " +
+    "`cursor` takes precedence over it) is the page of `limit` conversations at that place in " +
+    "the list; with `page`, `total` is how many the list holds (`ceil(total / limit)` pages), " +
+    "null without it.",
   kind: "read",
-  input: z.object({ ...pageInput }),
-  output: Page(ConversationSummary),
+  input: z.object({ page: z.number().int().min(1).optional(), ...pageInput }),
+  output: Page(ConversationSummary).extend({ total: z.number().int().nonnegative().nullable() }),
 });
 
 export const conversationsGet = defineContract({
@@ -129,20 +133,33 @@ export const conversationsListMessages = defineContract({
     "`order`, so a client can poll for replies: the answer is empty when there is nothing " +
     "new. A `cursor` takes precedence over it. A message approved after newer ones were " +
     "posted keeps its old id and is not returned this way, and edits or removals of messages " +
-    "the client already holds are not shown by it: they need a reload.",
+    "the client already holds are not shown by it: they need a reload. `page` (from 1, the " +
+    "oldest messages first, as a thread's pages; a `cursor` or `afterMessageId` takes " +
+    "precedence over it, and it over `order`) is the page of `limit` messages at that place " +
+    "among the ones the viewer may see; with it, `total` is how many messages the viewer may " +
+    "see (`ceil(total / limit)` pages), null without it (a poll costs no count).",
   kind: "read",
   input: z.object({
     conversationId: Id,
     order: z.enum(["oldest", "newest"]).default("oldest"),
     afterMessageId: Id.optional(),
+    page: z.number().int().min(1).optional(),
     ...pageInput,
   }),
-  output: Page(Message),
+  output: Page(Message).extend({ total: z.number().int().nonnegative().nullable() }),
 });
 
-/** Where a message is: the `conversations.listMessages` page (order `newest`) that holds it. */
+/**
+ * Where a message is: the `conversations.listMessages` page that holds it, as a cursor (order
+ * `newest`) and as a page number (`page`, counted from the oldest message).
+ */
 export const MessageLocation = z
-  .object({ conversationId: Id, messageId: Id, cursor: z.string().nullable() })
+  .object({
+    conversationId: Id,
+    messageId: Id,
+    cursor: z.string().nullable(),
+    page: z.number().int().min(1),
+  })
   .meta({ id: "MessageLocation" });
 
 export const conversationsLocateMessage = defineContract({
@@ -150,7 +167,8 @@ export const conversationsLocateMessage = defineContract({
   summary:
     "Where a message is: its conversation, and the `conversations.listMessages` cursor (order " +
     "`newest`) that opens the page of `limit` messages holding it, the pages counted from the " +
-    "newest message the viewer may see (null for the first page). Active participants only; " +
+    "newest message the viewer may see (null for the first page), and the number of that page " +
+    "of `limit` messages counted from the oldest one (`page`). Active participants only; " +
     "anyone else, or a message the viewer may not see, gets not found.",
   kind: "read",
   input: z.object({ messageId: Id, limit: Limit }),

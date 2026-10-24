@@ -440,10 +440,25 @@ export const threadsList = defineContract({
   summary:
     "Threads in a forum, newest activity first (the later of the last post and the last bump). " +
     "Sticky threads are returned separately in `sticky` on the first page only (when no cursor " +
-    "is given). With `prefixId`, only the threads carrying that prefix.",
+    "is given and `page` is 1 or left out). With `prefixId`, only the threads carrying that " +
+    "prefix. `page` (from 1; a `cursor` takes precedence over it) is the page of `limit` " +
+    "threads at that place in the list, as XenForo numbers a forum's pages: sticky threads are " +
+    "not on it and not counted. With `page`, `total` is how many threads the list holds for " +
+    "the viewer (null without it), " +
+    "sticky ones left out: the ones they may see (held and deleted ones only to those who may " +
+    "see them, their own held ones to their author), with `prefixId` the ones carrying it; " +
+    "`ceil(total / limit)` is the number of pages.",
   kind: "read",
-  input: z.object({ nodeId: Id, prefixId: Id.optional(), ...pageInput }),
-  output: Page(Thread).extend({ sticky: z.array(Thread) }),
+  input: z.object({
+    nodeId: Id,
+    prefixId: Id.optional(),
+    page: z.number().int().min(1).optional(),
+    ...pageInput,
+  }),
+  output: Page(Thread).extend({
+    sticky: z.array(Thread),
+    total: z.number().int().nonnegative().nullable(),
+  }),
 });
 
 export const threadsLocateUnread = defineContract({

@@ -94,6 +94,12 @@ const LINK_HASHTAGS = { hashtags: { create: false, slots: 0 } };
 
 export const inboxSql =
   "SELECT c.*, cp.last_read_message_id FROM conversation_participants cp JOIN conversations c ON c.id = cp.conversation_id WHERE cp.user_id = ?1 AND cp.state = 'active' AND (cp.last_message_at, cp.conversation_id) < (?2, ?3) ORDER BY cp.last_message_at DESC, cp.conversation_id DESC LIMIT ?4";
+// Numbered pages of the inbox: the place of the last conversation of the page before (?2, from 0)
+// and how many the inbox holds, both read from `conversation_participants_inbox` alone.
+export const inboxKeySql =
+  "SELECT last_message_at, conversation_id FROM conversation_participants WHERE user_id = ?1 AND state = 'active' ORDER BY last_message_at DESC, conversation_id DESC LIMIT 1 OFFSET ?2";
+export const inboxCountSql =
+  "SELECT count(*) AS n FROM conversation_participants WHERE user_id = ?1 AND state = 'active'";
 export const participantsSql =
   "SELECT user_id, state FROM conversation_participants WHERE conversation_id = ?1 ORDER BY user_id";
 export const messagesSql =
@@ -342,9 +348,30 @@ export const conversationsListOp = implement(
   conversationsList,
   (ctx, actor, input) => {
     const user = requireAuthenticated(actor);
+    const number = input.cursor ? undefined : input.page;
+    const total =
+      number === undefined
+        ? null
+        : prepared(ctx, "conversations.inboxCount", () =>
+            ctx.sqlite.prepare<{ n: number }, [number]>(inboxCountSql),
+          ).get(user.userId)!.n;
+    // A numbered page past the first goes on from the last conversation of the page before it.
+    const offset = number === undefined ? 0 : (number - 1) * input.limit;
+    const start =
+      offset > 0
+        ? prepared(ctx, "conversations.inboxKey", () =>
+            ctx.sqlite.prepare<
+              { last_message_at: number; conversation_id: number },
+              [number, number]
+            >(inboxKeySql),
+          ).get(user.userId, offset - 1)
+        : null;
+    if (offset > 0 && !start) return { items: [], nextCursor: null, total };
     const [at, id] = input.cursor
       ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
-      : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
+      : start
+        ? [start.last_message_at, start.conversation_id]
+        : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
     const rows = prepared(ctx, "conversations.inbox", () =>
       ctx.sqlite.prepare<ConversationRow, [number, number, number, number]>(inboxSql),
     ).all(user.userId, at, id, input.limit + 1);
@@ -358,6 +385,7 @@ export const conversationsListOp = implement(
       items: page.map((r) => summary(r, users)),
       nextCursor:
         rows.length > input.limit && last ? encodeCursor([last.last_message_at, last.id]) : null,
+      total,
     };
   },
   { public: "A member's inbox is limited to active participation." },
@@ -696,14 +724,27 @@ export const conversationsListMessagesOp = implement(
     requireAuthenticated(actor);
     const conversation = activeConversation(ctx, actor, input.conversationId);
     const polling = input.cursor === undefined && input.afterMessageId !== undefined;
-    const newest = input.order === "newest" && !polling;
+    const page = input.cursor === undefined && !polling ? input.page : undefined;
+    const newest = input.order === "newest" && !polling && page === undefined;
+    const seen = [
+      actorUserId(actor) ?? 0,
+      Number(can(ctx, actor, "conversation.viewHidden")),
+    ] as const;
+    const numbered =
+      page === undefined
+        ? null
+        : messagePageStart(ctx, input.conversationId, seen, page, input.limit);
+    if (numbered && numbered.after === null)
+      return { items: [], nextCursor: null, total: numbered.total };
     const id = input.cursor
       ? decodeCursor(input.cursor, z.tuple([z.number().int().nonnegative()]))[0]
       : polling
         ? input.afterMessageId!
-        : newest
-          ? Number.MAX_SAFE_INTEGER
-          : 0;
+        : numbered
+          ? numbered.after!
+          : newest
+            ? Number.MAX_SAFE_INTEGER
+            : 0;
     const rows = prepared(
       ctx,
       newest ? "conversations.messagesNewest" : "conversations.messages",
@@ -711,30 +752,52 @@ export const conversationsListMessagesOp = implement(
         ctx.sqlite.prepare<MessageRow, [number, number, number, number, number]>(
           newest ? visibleMessagesNewestSql : visibleMessagesSql,
         ),
-    ).all(
-      input.conversationId,
-      id,
-      input.limit + 1,
-      actorUserId(actor) ?? 0,
-      Number(can(ctx, actor, "conversation.viewHidden")),
-    );
-    const page = rows.slice(0, input.limit);
-    const last = page.at(-1);
+    ).all(input.conversationId, id, input.limit + 1, ...seen);
+    const listed = rows.slice(0, input.limit);
+    const last = listed.at(-1);
     return {
-      items: messages(ctx, actor, conversation, page),
+      items: messages(ctx, actor, conversation, listed),
       nextCursor: rows.length > input.limit && last ? encodeCursor([last.id]) : null,
+      total: numbered?.total ?? null,
     };
   },
 );
 
+/**
+ * A numbered page of the messages the viewer may see (`seen`: the viewer, and
+ * `conversation.viewHidden`), oldest first: the id the page goes on after (0 for the first page;
+ * null past the last one) and how many messages there are, both read from the index alone.
+ */
+function messagePageStart(
+  ctx: Ctx,
+  conversationId: number,
+  seen: readonly [number, number],
+  page: number,
+  limit: number,
+): { after: number | null; total: number } {
+  const total = prepared(ctx, "conversations.locateAbove", () =>
+    ctx.sqlite.prepare<{ n: number }, [number, number, number, number]>(locateMessageSql.above),
+  ).get(conversationId, 0, ...seen)!.n;
+  const offset = (page - 1) * limit;
+  if (offset === 0) return { after: 0, total };
+  const before = prepared(ctx, "conversations.locateNth", () =>
+    ctx.sqlite.prepare<{ id: number }, [number, number, number, number, number]>(
+      locateMessageSql.nth,
+    ),
+  ).get(conversationId, 0, ...seen, offset - 1);
+  return { after: before?.id ?? null, total };
+}
+
 // The messages of a conversation the viewer may see, as `visibleMessagesSql` filters them (?3 the
 // viewer, ?4 `conversation.viewHidden`): how many are newer than one message (one range of
 // `conversation_messages_conv`), the id of the one `?5` places above it (nearest first), which
-// closes the page before that message's page, and the first unread and the newest message.
+// closes the page before that message's page, how many are older than it (its page counted from
+// the oldest), and the first unread and the newest message.
 const seenMessage = "(state = 'visible' OR (state = 'moderated' AND user_id = ?3) OR ?4 = 1)";
 export const locateMessageSql = {
   above: `SELECT count(*) AS n FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND ${seenMessage}`,
   nth: `SELECT id FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND ${seenMessage} ORDER BY id LIMIT 1 OFFSET ?5`,
+  below: `SELECT count(*) AS n FROM conversation_messages WHERE conversation_id = ?1 AND id < ?2 AND ${seenMessage}`,
   firstAfter: `SELECT id FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND ${seenMessage} ORDER BY id LIMIT 1`,
   newest: `SELECT id FROM conversation_messages WHERE conversation_id = ?1 AND id < ?2 AND ${seenMessage} ORDER BY id DESC LIMIT 1`,
 };
@@ -765,7 +828,16 @@ function messageLocation(
             locateMessageSql.nth,
           ),
         ).get(...params, above % limit);
-  return { conversationId, messageId, cursor: closing ? encodeCursor([closing.id]) : null };
+  // Counted from the oldest message, the page is the one after every full page below it.
+  const below = prepared(ctx, "conversations.locateBelow", () =>
+    ctx.sqlite.prepare<{ n: number }, [number, number, number, number]>(locateMessageSql.below),
+  ).get(...params)!.n;
+  return {
+    conversationId,
+    messageId,
+    cursor: closing ? encodeCursor([closing.id]) : null,
+    page: Math.floor(below / limit) + 1,
+  };
 }
 
 export const conversationsLocateMessageOp = implement(

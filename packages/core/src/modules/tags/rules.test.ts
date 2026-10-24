@@ -149,6 +149,7 @@ describe("aliases outlive the threads of their tag", () => {
     expect(await w.call("tags.threads", w.mod, { name: "js" })).toEqual({
       items: [],
       nextCursor: null,
+      total: null,
     });
     for (const viewer of [w.alice, GUEST]) {
       await expect(w.call("tags.get", viewer, { name: "javascript" })).rejects.toBeInstanceOf(

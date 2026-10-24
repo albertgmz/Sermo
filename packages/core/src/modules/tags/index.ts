@@ -3,6 +3,7 @@ import { GUEST } from "../../actor";
 import { foldTagText, normalizeTag } from "../../bbcode/hashtag";
 import { type Ctx, prepared } from "../../context";
 import * as contracts from "../../contracts/tags";
+import { TAG_PAGES_MAX } from "../../contracts/tags";
 import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
@@ -109,6 +110,7 @@ const tagsGetOp = implement(contracts.tagsGet, (ctx, actor, input) => {
 const tagsThreadsOp = implement(contracts.tagsThreads, (ctx, actor, input) => {
   requireSiteView(ctx, actor);
   const tag = pageTag(ctx, input.name);
+  if (input.page !== undefined && !input.cursor) return numberedTagPage(ctx, actor, tag, input);
   const cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
     : null;
@@ -128,8 +130,35 @@ const tagsThreadsOp = implement(contracts.tagsThreads, (ctx, actor, input) => {
         : resume
           ? encodeCursor(resume)
           : null,
+    total: null,
   };
 });
+
+/**
+ * A numbered page of a tag's threads, as XenForo's tag page: the newest `TAG_PAGES_MAX` threads
+ * the viewer may see (fewer where a stream spent its budget first) are placed in one walk, and the
+ * page is its slice. The cursor goes on from the page's last thread while anything may follow it.
+ */
+function numberedTagPage(
+  ctx: Ctx,
+  actor: Parameters<typeof can>[1],
+  tag: { id: number; threads: number },
+  input: { page?: number; limit: number },
+) {
+  const { rows, resume } = hubPage(ctx, hubReach(ctx, actor), tag.id, null, TAG_PAGES_MAX + 1);
+  const total = Math.min(rows.length, TAG_PAGES_MAX);
+  if (total === 0 && resume === null && !emptyShown(ctx, actor, tag.threads))
+    throw new NotFoundError();
+  const from = (input.page! - 1) * input.limit;
+  const page = rows.slice(from, Math.min(from + input.limit, total));
+  const last = page.at(-1);
+  const more = from + input.limit < rows.length || resume !== null;
+  return {
+    items: threadValuesFor(ctx, actor, page),
+    nextCursor: last && more ? encodeCursor([last.sort_at, last.id]) : null,
+    total,
+  };
+}
 
 const tagsListOp = implement(contracts.tagsList, (ctx, actor, input) => {
   requirePermission(ctx, actor, "tag.manage");

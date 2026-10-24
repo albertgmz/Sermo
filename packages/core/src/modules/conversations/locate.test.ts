@@ -121,7 +121,13 @@ describe("conversations.locateUnread", () => {
       conversationId: f.conversationId,
       limit: 4,
     });
-    expect(next).toEqual({ conversationId: f.conversationId, messageId: reply.id, cursor: null });
+    // Eleven messages, four to a page: the newest is on page 3 counted from the oldest.
+    expect(next).toEqual({
+      conversationId: f.conversationId,
+      messageId: reply.id,
+      cursor: null,
+      page: 3,
+    });
     const read = await execute(f.ctx, conversationsLocateUnreadOp, f.a, {
       conversationId: f.conversationId,
       limit: 4,

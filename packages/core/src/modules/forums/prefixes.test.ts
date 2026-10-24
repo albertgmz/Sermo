@@ -496,7 +496,7 @@ describe("threads.list order and prefix filter", () => {
     const unused = await s.prefix("Nobody");
     for (const prefixId of [unused.id, 99_999]) {
       const empty = await list(s, { prefixId });
-      expect(empty).toEqual({ items: [], sticky: [], nextCursor: null });
+      expect(empty).toEqual({ items: [], sticky: [], nextCursor: null, total: null });
     }
     s.ctx.sqlite.prepare("UPDATE threads SET is_sticky = 1 WHERE id = ?1").run(s.ids[0]);
     const filtered = await list(s, { prefixId: s.made.id });
