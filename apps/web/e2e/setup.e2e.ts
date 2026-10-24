@@ -90,12 +90,30 @@ setup("sign in, seed and warm up", async ({ page }) => {
   // Tests open `?page=3`, which needs 41 posts at 20 a page.
   if (posts < 41)
     throw new Error(`only ${posts} posts could be written to the long thread`);
+  // Six pages of short posts: a skip, and with it "go to page", shows on the pager from there.
+  const pager = await api(`/nodes/${forum.id}/threads`, {
+    method: "POST",
+    data: { title: unique("Pager check thread"), body: "Six pages." },
+  });
+  if (!pager.ok())
+    throw new Error(`the pager thread was refused (${pager.status()})`);
+  const pagerThreadId = ((await pager.json()) as { thread: { id: number } })
+    .thread.id;
+  for (let index = 0; index < 100; index += 1) {
+    const reply = await api(`/threads/${pagerThreadId}/posts`, {
+      method: "POST",
+      data: { body: `Pager reply ${index + 1}.` },
+    });
+    if (!reply.ok())
+      throw new Error(`the pager thread stopped at ${index + 1} posts`);
+  }
   const peer = await peerSession(origin);
   let seed: Seed;
   try {
     const peerThreadId = await peerThread(peer, forum.id);
     seed = {
       threadId,
+      pagerThreadId,
       peerThreadId,
       forumId: forum.id,
       landing: await seedLanding(api, peer, {

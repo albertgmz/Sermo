@@ -124,3 +124,12 @@ test("the page an address names", () => {
   expect(pageOfSearch("?page=abc")).toBe(1);
   expect(pageOfSearch("?select=1&page=2")).toBe(2);
 });
+
+test("each screen's skip opens at the page next to its own window", () => {
+  const skips = (screen: "wide" | "narrow") =>
+    pagerEntries(10, 68)
+      .filter((entry) => entry[screen] && entry.kind === "skip")
+      .map((entry) => (entry.kind === "skip" ? entry.jump : 0));
+  expect(skips("wide")).toEqual([7, 13]);
+  expect(skips("narrow")).toEqual([8, 12]);
+});

@@ -43,10 +43,14 @@ export function pagerEntries(current: number, total: number): PagerEntry[] {
     [WIDE_RANGE, "wide"],
     [NARROW_RANGE, "narrow"],
   ] as const) {
-    // A page sits at its number, a skip just after the page before it.
+    // A page sits at its number, a skip just after the page before it. The two windows' skips
+    // never share a place: each opens at the page next to its own window.
     let before = 0;
     for (const entry of pageWindow(current, total, range)) {
-      const place = entry.kind === "page" ? entry.page : before + 0.5;
+      const place =
+        entry.kind === "page"
+          ? entry.page
+          : before + (screen === "wide" ? 0.5 : 0.25);
       if (entry.kind === "page") before = entry.page;
       const held = placed.get(place) ?? {
         ...entry,

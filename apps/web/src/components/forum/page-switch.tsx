@@ -7,6 +7,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useTransition,
 } from "react";
 import { jumpPage, pageOfSearch } from "@/components/forum/page-window";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,9 @@ export function PageSwitch({
 }) {
   const [shown, setShown] = useState<Shown | null>(null);
   const [busy, setBusy] = useState(false);
+  // The page that came in is shown in a transition: the old one stays on screen (dimmed) until
+  // every part of the new one has arrived, so no placeholder shows in between.
+  const [arriving, startTransition] = useTransition();
   const box = useRef<HTMLDivElement>(null);
   // The page on screen, for the history listener; the newest request, so an answer that comes
   // after a later press is dropped; whether the next page drawn is to be scrolled to.
@@ -53,8 +57,9 @@ export function PageSwitch({
   const asked = useRef(0);
   const arrived = useRef(false);
 
+  // Before the first paint of a new draw, so a page loaded here is not shown over it for a frame.
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new draw of the screen resets
-  useEffect(() => {
+  useLayoutEffect(() => {
     asked.current += 1;
     setShown(null);
     setBusy(false);
@@ -64,9 +69,11 @@ export function PageSwitch({
     async (target: number) => {
       const ticket = ++asked.current;
       if (target === page) {
-        setShown(null);
-        setBusy(false);
         arrived.current = true;
+        startTransition(() => {
+          setShown(null);
+          setBusy(false);
+        });
         return;
       }
       setBusy(true);
@@ -83,8 +90,10 @@ export function PageSwitch({
         return;
       }
       arrived.current = true;
-      setShown({ page: target, node });
-      setBusy(false);
+      startTransition(() => {
+        setShown({ page: target, node });
+        setBusy(false);
+      });
     },
     [page, load],
   );
@@ -121,7 +130,13 @@ export function PageSwitch({
       box.current?.scrollIntoView({ block: "start" });
       return;
     }
-    window.history.pushState(null, "", href);
+    // The address keeps the path the screen is at (a thread's is the slugged one the server sent it
+    // to); only the query changes.
+    window.history.pushState(
+      null,
+      "",
+      `${location.pathname}${new URL(href, location.href).search}`,
+    );
     void show(target);
   }
 
@@ -144,6 +159,8 @@ export function PageSwitch({
     const field = form.elements.namedItem(param) as HTMLInputElement | null;
     const wanted = jumpPage(field?.value ?? "", Number(submit.dataset.pageGo));
     if (wanted === null) {
+      // The browser says what is wrong with it, as it would for the form sent without scripts.
+      field?.reportValidity();
       field?.focus();
       return;
     }
@@ -155,7 +172,8 @@ export function PageSwitch({
     go(wanted, `${url.pathname}${url.search}`);
   }
 
-  // "Go to page" opens with its box ready to type in, and closes on Escape or a press elsewhere.
+  // "Go to page" opens with its box ready to type in, and closes on Escape, a press elsewhere or
+  // the keyboard leaving it.
   useEffect(() => {
     const node = box.current;
     if (!node) return;
@@ -183,11 +201,21 @@ export function PageSwitch({
         details.querySelector("summary")?.focus();
       }
     };
+    const onFocusOut = (event: FocusEvent) => {
+      const details = (event.target as Element).closest?.(
+        "details[data-page-jump][open]",
+      ) as HTMLDetailsElement | null;
+      // Only a move to somewhere else: a press on Go in Safari moves the focus nowhere.
+      const to = event.relatedTarget as Node | null;
+      if (details && to && !details.contains(to)) details.open = false;
+    };
     node.addEventListener("toggle", onToggle, true);
+    node.addEventListener("focusout", onFocusOut);
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
     return () => {
       node.removeEventListener("toggle", onToggle, true);
+      node.removeEventListener("focusout", onFocusOut);
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
@@ -199,11 +227,11 @@ export function PageSwitch({
     <div
       ref={box}
       tabIndex={-1}
-      aria-busy={busy || undefined}
+      aria-busy={busy || arriving || undefined}
       onClick={onClick}
       className={cn(
         "scroll-mt-4 outline-none transition-opacity",
-        busy && "opacity-60",
+        (busy || arriving) && "opacity-60",
         className,
       )}
     >

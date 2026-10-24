@@ -14,10 +14,11 @@ export const MEMBER_STATE = "test-results/.state/member.json";
 export const SEED_FILE = "test-results/.state/seed.json";
 
 // What the setup made: a long thread by the member, a thread by another member (reactions and the
-// member card need content that is not the member's own), a forum the member may post in, and what
-// the landing flows aim at.
+// member card need content that is not the member's own), a forum the member may post in, what
+// the landing flows aim at, and a thread of six pages (the pager's "go to page" shows from there).
 export type Seed = {
   threadId: number;
+  pagerThreadId: number;
   peerThreadId: number;
   forumId: number;
   landing: LandingSeed;

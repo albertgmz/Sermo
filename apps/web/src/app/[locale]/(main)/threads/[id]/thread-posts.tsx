@@ -99,31 +99,40 @@ export function PostsRegion({
   page,
   cursor,
   posts,
+  inPlace = false,
 }: {
   context: PostsContext;
   page: number;
   cursor: string | undefined;
   posts: PostsRead | Promise<PostsRead>;
+  // Drawn for `PageSwitch`: no placeholders, the switch keeps the page shown until all of it is in.
+  inPlace?: boolean;
 }) {
+  const poll = context.poll && page === 1 && (
+    <ThreadPoll
+      threadId={context.thread.id}
+      signedIn={context.viewerId !== null}
+      attachIn={context.poll.attachIn}
+    />
+  );
+  const list = (
+    <ThreadPosts context={context} page={page} cursor={cursor} posts={posts} />
+  );
+  if (inPlace)
+    return (
+      <>
+        {poll}
+        {list}
+      </>
+    );
   return (
     <>
-      {context.poll && page === 1 && (
+      {poll && (
         <Suspense fallback={<Skeleton className="mt-4 h-48 w-full" />}>
-          <ThreadPoll
-            threadId={context.thread.id}
-            signedIn={context.viewerId !== null}
-            attachIn={context.poll.attachIn}
-          />
+          {poll}
         </Suspense>
       )}
-      <Suspense fallback={<PostsSkeleton />}>
-        <ThreadPosts
-          context={context}
-          page={page}
-          cursor={cursor}
-          posts={posts}
-        />
-      </Suspense>
+      <Suspense fallback={<PostsSkeleton />}>{list}</Suspense>
     </>
   );
 }

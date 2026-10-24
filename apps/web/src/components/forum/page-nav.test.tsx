@@ -51,29 +51,34 @@ test("the list's other parameters stay on every page's address and in the jump f
 test("a skip opens 'go to page', a form that works without scripts", () => {
   const html = draw();
   const forms = [...html.matchAll(/<form[^>]* action="([^"]*)" method="get"/g)];
-  // One before the window, shared by both screens, and one after it for each: a phone's window
-  // ends a page earlier.
+  // One before the window and one after it for each screen: a phone's window is a page narrower
+  // on each side.
   expect(forms.map((form) => form[1])).toEqual([
     "/threads/7",
     "/threads/7",
     "/threads/7",
+    "/threads/7",
   ]);
-  expect(html.match(/<details/g)).toHaveLength(3);
+  expect(html.match(/<details/g)).toHaveLength(4);
   expect(html).toContain('title="Go to page"');
   const boxes = [...html.matchAll(/<input[^>]*type="number"[^>]*>/g)].map(
     (box) => box[0],
   );
-  expect(boxes).toHaveLength(3);
+  expect(boxes).toHaveLength(4);
   for (const box of boxes) {
     expect(box).toContain('name="page"');
     expect(box).toContain('min="1"');
     expect(box).toContain('max="68"');
     expect(box).toContain("required");
   }
-  // Filled with the page next to the window on its side.
-  expect(boxes[0]).toContain('value="31"');
-  expect(boxes[1]).toContain('value="36"');
-  expect(boxes[2]).toContain('value="37"');
+  // Filled with the page next to the window on its side: the phone's (32, 36), the wide one's
+  // (31, 37).
+  expect(boxes.map((box) => box.match(/value="(\d+)"/)?.[1])).toEqual([
+    "32",
+    "31",
+    "36",
+    "37",
+  ]);
   expect(html).toContain('data-page-go="68"');
 });
 

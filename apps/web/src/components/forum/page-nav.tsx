@@ -237,14 +237,14 @@ export function ThreadPageLinks({
   const links = lastPages(pages);
   if (links.length === 0) return null;
   return (
-    <span className={cn("flex shrink-0 items-center gap-1", className)}>
+    <span className={cn("flex shrink-0 items-center gap-1.5", className)}>
       {links.map((page) => (
         <Link
           key={page}
           href={threadPageHref(threadId, page)}
           prefetch={false}
           aria-label={t("page", { page })}
-          className="relative z-10 inline-flex h-5 min-w-5 items-center justify-center rounded border border-border bg-card px-1 text-[0.6875rem] leading-none font-medium tabular-nums text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="relative z-10 inline-flex h-6 min-w-6 items-center justify-center rounded border border-border bg-card px-1 text-[0.6875rem] leading-none font-medium tabular-nums text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           {page}
         </Link>

@@ -126,6 +126,10 @@ test("a thread of three pages: the first page, the last page and back @all", asy
   await expectFits(page, "previous page");
 });
 
+// A thread's address as the server settles it: the id, then its slug.
+const threadAt = (threadId: number, query = "") =>
+  new RegExp(`/threads/${threadId}(-[^/?]+)?${query.replace("?", "\\?")}$`);
+
 // The pager turns the posts in place: the screen is not loaded again (what the page holds in
 // memory stays), the address names the page, and Back and Forward show the page they name.
 test("a page number changes the posts in place, and Back and Forward follow the address @all", async ({
@@ -136,44 +140,114 @@ test("a page number changes the posts in place, and Back and Forward follow the 
   await rejectCookies(page);
   const pages = page.getByRole("navigation", { name: "Pages" }).last();
   const current = pages.locator('[aria-current="page"]');
-  const firstPost = await page.getByRole("article").first().innerText();
+  const firstPost = page.getByRole("article").first();
+  // The pager is part of what changes: once it names the page, the posts are that page's.
+  const onPage = async (number: number) => {
+    await expect(current).toHaveText(String(number));
+    await expect(page).toHaveURL(
+      threadAt(threadId, number > 1 ? `?page=${number}` : ""),
+    );
+    return firstPost.innerText();
+  };
+  const one = await onPage(1);
   await page.evaluate(() => {
     (window as unknown as { kept: boolean }).kept = true;
   });
 
   await pages.getByRole("link", { name: "2", exact: true }).click();
-  await expect(current).toHaveText("2");
-  await expect(page).toHaveURL(new RegExp(`/threads/${threadId}\\?page=2$`));
-  await expect(page.getByRole("article").first()).not.toHaveText(firstPost);
-  // The posts start at the top of the screen.
-  const top = await page
-    .getByRole("article")
-    .first()
-    .evaluate((element) => element.getBoundingClientRect().top);
+  const two = await onPage(2);
+  expect(two).not.toBe(one);
+  // The posts start on the screen, not where the pager below them was.
+  const top = await firstPost.evaluate(
+    (element) => element.getBoundingClientRect().top,
+  );
   expect(top).toBeLessThan(screen(page).height);
   await expectFits(page, "page two in place");
+  await pages.getByRole("link", { name: "3", exact: true }).click();
+  const three = await onPage(3);
+  expect(three).not.toBe(two);
 
   await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`/threads/${threadId}$`));
-  await expect(current).toHaveText("1");
-  await expect(page.getByRole("article").first()).toHaveText(firstPost);
+  expect(await onPage(2)).toBe(two);
+  await page.goBack();
+  expect(await onPage(1)).toBe(one);
   await page.goForward();
-  await expect(current).toHaveText("2");
+  expect(await onPage(2)).toBe(two);
+  await page.goForward();
+  expect(await onPage(3)).toBe(three);
   // Nothing of it loaded the screen again.
   expect(
     await page.evaluate(() => (window as unknown as { kept?: boolean }).kept),
   ).toBe(true);
 });
 
-test.describe("without scripts", () => {
-  test.use({ javaScriptEnabled: false });
+// "Go to page" sits behind the "…" of a thread of six pages: a number within the pages opens that
+// page, one past them the last page, and what is not a number opens nothing.
+test("go to page takes a page number, brings one out of range to the last page and refuses the rest @all", async ({
+  page,
+}) => {
+  const { pagerThreadId } = seed();
+  await visit(page, `/threads/${pagerThreadId}`);
+  await rejectCookies(page);
+  const pages = page.getByRole("navigation", { name: "Pages" }).last();
+  const current = pages.locator('[aria-current="page"]');
+  const total = Number(await pages.getByRole("listitem").last().innerText());
+  expect(total).toBeGreaterThanOrEqual(6);
+  const open = async () => {
+    await pages.locator("summary:visible").first().click();
+    const box = pages.getByRole("spinbutton", { name: "Go to page" });
+    await expect(box).toBeFocused();
+    return box;
+  };
 
-  test("the pager's page numbers are plain links @all", async ({ page }) => {
-    const { threadId } = seed();
+  // Not a number: the page stays and the box stays open.
+  let box = await open();
+  await box.fill("");
+  await box.press("Enter");
+  await expect(box).toBeVisible();
+  await expect(current).toHaveText("1");
+  await expect(page).toHaveURL(threadAt(pagerThreadId));
+
+  // Past the last page: the last page.
+  await box.fill("999");
+  await pages.getByRole("button", { name: "Go", exact: true }).click();
+  await expect(current).toHaveText(String(total));
+  await expect(page).toHaveURL(threadAt(pagerThreadId, `?page=${total}`));
+  await expect(box).toBeHidden();
+
+  // A page within them.
+  box = await open();
+  await box.fill("3");
+  await box.press("Enter");
+  await expect(current).toHaveText("3");
+  await expect(page).toHaveURL(threadAt(pagerThreadId, "?page=3"));
+});
+
+// The pager works before the page's scripts have run (a slow phone) and without them: the inline
+// scripts that draw the streamed page still run, the page's own are kept from loading (see
+// native-forms.e2e.ts).
+test.describe("without the page's scripts", () => {
+  test.use({ allowConsoleErrors: true, serviceWorkers: "block" });
+
+  test("the pager's page numbers are plain links and go to page is a form @all", async ({
+    page,
+  }) => {
+    await page
+      .context()
+      .route("**/_next/static/chunks/*.js", (route) => route.abort());
+    const { threadId, pagerThreadId } = seed();
     await page.goto(`/threads/${threadId}`);
     const pages = page.getByRole("navigation", { name: "Pages" }).last();
     await pages.getByRole("link", { name: "2", exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/threads/${threadId}\\?page=2$`));
+    await expect(page).toHaveURL(threadAt(threadId, "?page=2"));
     await expect(pages.locator('[aria-current="page"]')).toHaveText("2");
+
+    await page.goto(`/threads/${pagerThreadId}`);
+    await pages.locator("summary:visible").first().click();
+    const box = pages.getByRole("spinbutton", { name: "Go to page" });
+    await box.fill("4");
+    await box.press("Enter");
+    await expect(page).toHaveURL(threadAt(pagerThreadId, "?page=4"));
+    await expect(pages.locator('[aria-current="page"]')).toHaveText("4");
   });
 });

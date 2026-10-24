@@ -39,6 +39,7 @@ export async function postsPage(
         page={page}
         cursor={undefined}
         posts={posts}
+        inPlace
       />
     );
   } catch (error) {
