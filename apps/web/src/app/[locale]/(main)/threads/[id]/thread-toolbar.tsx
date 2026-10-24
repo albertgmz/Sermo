@@ -27,34 +27,14 @@ const outline = buttonVariants({ variant: "outline" });
 // and the moderation panel's own button.
 const moreClass = cn(outline, "size-10 px-0 unscripted:hidden");
 
-// Where the focus goes when the open panel changes: back to the "•••" button when a panel or the
-// edit dialog closes, into the first field of the tags or the poll form when one opens. The dialog
-// takes it itself, and the moderation panel is a list of tools under the row.
+// Whether the focus goes back to the "•••" button: when a panel or the edit dialog it opened
+// closes. An opening one takes the focus itself (the tags and the poll form their first field,
+// through `useInlinePanel`; the dialog its title).
 export function focusAfter(
   was: ThreadPanel | null,
   now: ThreadPanel | null,
-): "trigger" | "field" | null {
-  if (now === "tags" || now === "poll") return "field";
-  if (now === null && was !== null) return "trigger";
-  return null;
-}
-
-const FIELD = "input:not([type=hidden]), textarea, select";
-
-// Focuses the first field of `box`, now or once it arrives (the poll's form is fetched when the
-// panel opens). Returns what stops waiting.
-function focusFirstField(box: HTMLElement) {
-  const take = () => {
-    const field = box.querySelector<HTMLElement>(FIELD);
-    field?.focus();
-    return field !== null;
-  };
-  if (take()) return () => {};
-  const watcher = new MutationObserver(() => {
-    if (take()) watcher.disconnect();
-  });
-  watcher.observe(box, { childList: true, subtree: true });
-  return () => watcher.disconnect();
+): "trigger" | null {
+  return now === null && was !== null ? "trigger" : null;
 }
 
 // The thread's action row, as XenForo's: `start` (the pager, from a wide screen up) on the left,
@@ -98,14 +78,11 @@ export function ThreadToolbar({
   );
   const close = () => setPanel(null);
   const more = useRef<HTMLDivElement>(null);
-  const panels = useRef<HTMLDivElement>(null);
   const was = useRef(panel);
   useEffect(() => {
-    const target = focusAfter(was.current, panel);
+    if (focusAfter(was.current, panel) === "trigger")
+      more.current?.querySelector("button")?.focus();
     was.current = panel;
-    if (target === "trigger") more.current?.querySelector("button")?.focus();
-    if (target === "field" && panels.current)
-      return focusFirstField(panels.current);
   }, [panel]);
   const entries: ThreadMenuPopupProps["entries"] = [];
   if (edit) entries.push({ id: "edit", label: tEdit("editThread") });
@@ -164,7 +141,7 @@ export function ThreadToolbar({
           )}
         </div>
       </div>
-      <div ref={panels}>
+      <div>
         {panel === "tags" && tags && (
           <div className="mt-3">
             <ThreadTagsEditor threadId={threadId} tags={tags} onClose={close} />

@@ -238,13 +238,13 @@ test("the moderation panel is open from the start while posts are picked for a s
   expect(summary).toContain("Moderate");
 });
 
-test("closing a panel or the edit dialog gives the focus back to the menu button; Tags and Poll take it to their first field", () => {
+test("closing a panel or the edit dialog gives the focus back to the menu button; an opening one takes it itself", () => {
   for (const panel of ["edit", "tags", "poll", "moderate"] as const)
     expect(focusAfter(panel, null)).toBe("trigger");
-  expect(focusAfter(null, "tags")).toBe("field");
-  expect(focusAfter(null, "poll")).toBe("field");
-  expect(focusAfter("tags", "poll")).toBe("field");
-  // The dialog takes the focus itself; the moderation panel is a list of tools under the row.
+  // Tags and Poll focus their first field (`useInlinePanel`), the dialog its title; the moderation
+  // panel is a list of tools under the row.
+  expect(focusAfter(null, "tags")).toBeNull();
+  expect(focusAfter("tags", "poll")).toBeNull();
   expect(focusAfter(null, "edit")).toBeNull();
   expect(focusAfter(null, "moderate")).toBeNull();
   expect(focusAfter(null, null)).toBeNull();

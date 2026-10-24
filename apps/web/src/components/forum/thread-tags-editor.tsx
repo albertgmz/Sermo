@@ -13,7 +13,8 @@ import { tagsToText } from "@/lib/sermo/tags";
 
 // Changes the tags of a thread where they are read: the field with the whole list, saved at once.
 // The thread's "•••" menu opens it under the thread's action row, for whoever `threads.get` says
-// may edit them (`permissions.canEditTags`); it takes the focus, and saving, Cancel or Escape closes it (`onClose`, `useInlinePanel`).
+// may edit them (`permissions.canEditTags`). It takes the focus, and saving, Cancel or Escape
+// closes it (`onClose`, `useInlinePanel`).
 export function ThreadTagsEditor({
   threadId,
   tags,
