@@ -85,7 +85,8 @@ export const QueueCount = z
 export const authCounters = defineContract({
   name: "auth.counters",
   summary:
-    "What the signed-in member has not seen yet: unread notifications, and unread " +
+    "What the signed-in member has not seen yet: unread alerts that arrived since they last " +
+    "opened their alerts (at most 100), and unread " +
     "conversations among their 100 most recently active ones (so at most 100). Zeros for guests. " +
     "For staff who may open the queues, `openReports`, `pendingApprovals` and `pendingSignups` (accounts " +
     "waiting for approval, for those who hold member.approveRegistrations) count what they " +
