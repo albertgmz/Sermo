@@ -7,6 +7,7 @@ import {
   type ThreadEditFields,
   threadEditFields,
 } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-data";
+import { threadPageHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { PostBody } from "@/app/[locale]/(main)/threads/[id]/post-item";
 import { saveEdit } from "@/app/[locale]/(main)/threads/save-edit";
 import { EditedMark } from "@/components/forum/edited-mark";
@@ -46,7 +47,7 @@ export async function postEditorAction(
   postId: number,
 ): Promise<{ fields: PostEditFields } | Refused> {
   requireIds(threadId, postId);
-  const loaded = await attempt(`/threads/${threadId}`, () =>
+  const loaded = await attempt(threadPageHref(threadId, 1), () =>
     loadPostEdit(call, threadId, postId),
   );
   if (!loaded.ok) return { error: loaded.error };
@@ -102,7 +103,7 @@ export async function threadEditorAction(
   threadId: number,
 ): Promise<{ fields: ThreadEditFields } | Refused> {
   requireIds(threadId);
-  const loaded = await attempt(`/threads/${threadId}`, async () => {
+  const loaded = await attempt(threadPageHref(threadId, 1), async () => {
     const found = await call(threadsGet, { threadId, countView: false });
     return found.permissions.canEditTitle
       ? threadEditFields(call, found)
@@ -129,7 +130,7 @@ export async function saveThreadInPlace(
   }
   const prefixId = prefix ? parseId(prefix) : null;
   if (prefix) requireIds(prefixId);
-  const saved = await attempt(`/threads/${threadId}`, () =>
+  const saved = await attempt(threadPageHref(threadId, 1), () =>
     call(threadsUpdate, { threadId, title, prefixId }),
   );
   if (!saved.ok) return { error: saved.error };

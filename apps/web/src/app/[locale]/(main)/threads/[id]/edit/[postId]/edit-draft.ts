@@ -13,7 +13,9 @@ export type EditDraft = {
   attached?: AttachedFile[];
 };
 
-const draftKey = (postId: number) => `sermo-edit-draft:${postId}`;
+// One per post, for this tab only (the cookie policy lists it: `editDraft`).
+const DRAFT_PREFIX = "sermo-edit-draft:";
+const draftKey = (postId: number) => `${DRAFT_PREFIX}${postId}`;
 
 export function keepEditDraft(
   postId: number,
@@ -31,7 +33,7 @@ export function keepEditDraft(
     attached: attached ?? undefined,
   };
   try {
-    sessionStorage.setItem(draftKey(postId), JSON.stringify(draft));
+    sessionStorage.setItem(`${DRAFT_PREFIX}${postId}`, JSON.stringify(draft));
   } catch {
     // Nothing is kept; the page opens with the saved post.
   }

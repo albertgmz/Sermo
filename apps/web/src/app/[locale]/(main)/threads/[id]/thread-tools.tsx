@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { EditThreadButton } from "@/app/[locale]/(main)/threads/[id]/edit-thread-button";
 import { ModerationMenu } from "@/app/[locale]/(main)/threads/[id]/moderation";
+import { postEditHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import type { ThreadMay } from "@/app/[locale]/(main)/threads/[id]/permissions";
 import {
   unwatchThreadAction,
@@ -89,7 +90,7 @@ export async function ThreadTools({
       {canEditTitle && (
         <EditThreadButton
           threadId={thread.id}
-          href={`/threads/${thread.id}/edit/${thread.firstPostId}`}
+          href={postEditHref(thread.id, thread.firstPostId)}
         />
       )}
       {moderate && (

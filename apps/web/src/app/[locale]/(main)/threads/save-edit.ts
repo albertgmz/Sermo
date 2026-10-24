@@ -1,6 +1,7 @@
 import "server-only";
 
 import { postsUpdate, threadsUpdate } from "@sermo/core/contracts";
+import { postEditHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { call } from "@/lib/sermo/client";
 import { formIds, parseId, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
@@ -19,7 +20,7 @@ export async function saveEdit(
   formData: FormData,
 ) {
   requireIds(threadId, postId);
-  const returnTo = `/threads/${threadId}/edit/${postId}`;
+  const returnTo = postEditHref(threadId, postId);
   const title = formData.get("title");
   const prefix = textOf(formData, "prefixId");
   let renamed = null;

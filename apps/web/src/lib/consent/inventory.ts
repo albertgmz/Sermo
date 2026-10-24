@@ -171,6 +171,15 @@ export const INVENTORY: readonly InventoryItem[] = [
     party: "first",
   },
   {
+    // What a post's editor in a thread held when "More options" opened the edit page, read once
+    // by that page.
+    id: "editDraft",
+    category: "necessary",
+    storage: "sessionStorage",
+    names: ["sermo-edit-draft:*"],
+    party: "first",
+  },
+  {
     // The member who turned on notifications in this browser, so no one else who signs in here
     // receives theirs, and the session that device was last saved under (a number, no secret).
     id: "pushOwner",

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PostEditFields } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-data";
 import { keepEditDraft } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-draft";
+import { postEditHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import {
   EDITOR_HEIGHT,
   EditorPlaceholder,
@@ -182,7 +183,7 @@ export default function InlinePostEditor({
           {t("save")}
         </Button>
         <Link
-          href={`/threads/${threadId}/edit/${postId}`}
+          href={postEditHref(threadId, postId)}
           onClick={() => {
             if (form.current) {
               keepEditDraft(postId, new FormData(form.current), files.current);

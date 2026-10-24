@@ -164,6 +164,11 @@
       "purpose": "Counts the pages of this visit and remembers which offer it showed, so a visit shows one offer at a time and never on the first page after you sign up.",
       "lifetime": "Until you close the tab."
     },
+    "editDraft": {
+      "title": "Edit carried to the edit page",
+      "purpose": "Keeps what you wrote in a post's editor in a thread when you press “More options…”, so the edit page opens with it; the edit page reads it once and removes it.",
+      "lifetime": "Until the edit page opens, or you close the tab."
+    },
     "pushOwner": {
       "title": "Notifications on this device",
       "purpose": "Remembers which member turned on notifications in this browser, so that when someone else uses it they stop and no one receives another member's alerts.",

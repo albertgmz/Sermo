@@ -164,6 +164,11 @@
       "purpose": "Cuenta las páginas de esta visita y recuerda qué oferta mostró, para que cada visita muestre una sola oferta y nunca en la primera página después de registrarte.",
       "lifetime": "Hasta que cierres la pestaña."
     },
+    "editDraft": {
+      "title": "Edición llevada a la página de edición",
+      "purpose": "Guarda lo que escribiste en el editor de un mensaje del tema al pulsar «Más opciones…», para que la página de edición se abra con ello; esa página lo lee una vez y lo borra.",
+      "lifetime": "Hasta que se abre la página de edición o cierras la pestaña."
+    },
     "pushOwner": {
       "title": "Avisos en este dispositivo",
       "purpose": "Recuerda qué miembro activó los avisos en este navegador, para que dejen de llegar cuando otra persona lo use y nadie reciba los avisos de otro miembro.",

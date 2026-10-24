@@ -98,20 +98,17 @@ test("forced colours fill what is pressed, checked or selected with the highligh
   expect(rules.match(/forced-color-adjust: none/g)).toHaveLength(3);
   // No rule draws a border on every toggle: that undid deliberate `border-0` / `border-l-0`.
   expect(rules).not.toMatch(/\[aria-pressed\] \{/);
-  // The composer's toggles carry the state the rule reads: the toolbar, the poll kind, the prefix.
+  // The composer's toggles carry the state the rule reads: the toolbar, the poll kind. (The prefix
+  // is a menu now, whose chosen item Base UI marks `aria-checked`.)
   for (const file of [
     "components/forum/editor-toolbar.tsx",
     "components/forum/poll-form.tsx",
-    "components/forum/thread-composer.tsx",
   ])
     expect(source(file)).toContain("aria-pressed={");
 });
 
 test("chips whose edge is a ring draw a border in forced colours", () => {
-  for (const file of [
-    "components/forum/poll-form.tsx",
-    "components/forum/thread-composer.tsx",
-  ])
+  for (const file of ["components/forum/poll-form.tsx"])
     expect(source(file)).toMatch(
       /aria-pressed=\{[\s\S]*?"inline-flex min-h-10 items-center rounded-full[^"]*forced-colors:border[^"]*"/,
     );

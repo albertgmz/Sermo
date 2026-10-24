@@ -22,3 +22,8 @@ export function threadHref(
 ) {
   return `${threadPageHref(threadId, pageOf(position))}${postId === undefined ? "" : `#post-${postId}`}`;
 }
+
+// The page that edits a post, the fallback of the edit made in place.
+export function postEditHref(threadId: number, postId: number) {
+  return `${threadPageHref(threadId, 1)}/edit/${postId}`;
+}
