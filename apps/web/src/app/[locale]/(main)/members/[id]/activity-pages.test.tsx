@@ -42,6 +42,8 @@ afterEach(() => backend?.restore());
 const when = "2026-01-01T00:00:00.000Z";
 const author = { id: 5, username: "ann" };
 const profile = { id: 5, username: "ann", card: author } as never;
+// The author of the threads and posts, as their contracts give it.
+const writer = { kind: "member" as const, ...author };
 const thread = (id: number, title: string) => ({
   id,
   nodeId: 2,
@@ -52,7 +54,7 @@ const thread = (id: number, title: string) => ({
   cover: null,
   highlightedUntil: null,
   bumpedAt: null,
-  author,
+  author: writer,
   state: "visible",
   isSticky: false,
   isLocked: false,
@@ -60,7 +62,7 @@ const thread = (id: number, title: string) => ({
   replyCount: 0,
   viewCount: 1,
   firstPostId: 30,
-  lastPost: { postId: 30, position: 0, postedAt: when, user: author },
+  lastPost: { postId: 30, position: 0, postedAt: when, user: writer },
   readPosition: null,
   isUnread: false,
   pollKind: null,
@@ -70,7 +72,7 @@ const entry = (id: number, title: string) => ({
     id,
     threadId: id,
     position: 0,
-    author,
+    author: writer,
     bodyHtml: "<p>Body</p>",
   }),
   thread: thread(id, title),

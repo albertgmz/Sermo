@@ -247,6 +247,8 @@
   "permission.forum.createThread.description": "Abrir temas nuevos en el foro.",
   "permission.forum.reply": "Responder en temas",
   "permission.forum.reply.description": "Responder en los temas del foro.",
+  "permission.forum.guestPost": "Publicar como invitado",
+  "permission.forum.guestPost.description": "Crear temas y responder sin cuenta, con el nombre que indique el invitado. Todo lo que publica un invitado espera aprobación. Solo lo usa el grupo Invitado.",
   "permission.forum.editOwn": "Editar el contenido propio",
   "permission.forum.editOwn.description": "Editar los propios mensajes y temas del foro, dentro del plazo.",
   "permission.forum.editOwnTimeLimit": "Plazo para editar el contenido propio",

@@ -49,7 +49,7 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-const ember = { id: 7, username: "ember" };
+const ember = { kind: "member" as const, id: 7, username: "ember" };
 
 function threadBody(
   readPosition: number | null,

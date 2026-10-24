@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { BOOKMARK_CONTENT_TYPES } from "../db/schema";
 import { defineContract } from "../operation";
-import { Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
+import { ContentAuthor, Id, Ok, Page, pageInput, Timestamp } from "./common";
 
 export const BookmarkContentType = z.enum(BOOKMARK_CONTENT_TYPES);
 
@@ -20,8 +20,8 @@ export const Bookmark = z
     /** The thread of a post or a thread; null for conversations. */
     threadId: Id.nullable(),
     postPosition: z.number().int().nonnegative().nullable(),
-    /** Author of the post, thread starter, or conversation starter. */
-    author: UserSummary,
+    /** Author of the post, thread starter (either may be a guest), or conversation starter. */
+    author: ContentAuthor,
     /** Plain-text start of the post or first post (spoilers left out); empty for conversations. */
     excerpt: z.string(),
   })

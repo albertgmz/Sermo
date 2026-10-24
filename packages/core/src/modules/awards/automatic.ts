@@ -1,5 +1,6 @@
 import type { Ctx } from "../../context";
 import { holdCheckpoints, paceWal } from "../../db/checkpointer";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { type DomainEvent, registerEventSubscriber } from "../../events";
 import {
@@ -116,6 +117,8 @@ export function evaluate(
 }
 
 export function evaluateMember(ctx: Ctx, userId: number): number {
+  // The guest account is no member: it earns no award.
+  if (userId === GUEST_ACCOUNT_ID) return 0;
   // With no automatic award there is nothing to look up (this runs after most activity).
   const seen = activePlans(ctx);
   if (seen.length === 0) return 0;

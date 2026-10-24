@@ -124,7 +124,7 @@ export function postBody(over: Record<string, unknown> = {}) {
     id: 31,
     threadId: 7,
     position: 25,
-    author: { id: 3, username: "ember" },
+    author: { kind: "member", id: 3, username: "ember" },
     state: "visible",
     createdAt: "2026-01-01T00:00:00.000Z",
     editedAt: null,

@@ -6,6 +6,7 @@ import { Attachment, AttachmentIds } from "./attachments";
 import {
   ActorPassword,
   Body,
+  ContentAuthor,
   ContentState,
   Empty,
   IconKey,
@@ -20,7 +21,6 @@ import {
   TagInput,
   Timestamp,
   Title,
-  UserSummary,
 } from "./common";
 import { ImageReference } from "./images";
 import { PollInput, PollKind } from "./polls";
@@ -113,7 +113,7 @@ export const Node = z
         threadId: Id,
         threadTitle: z.string(),
         postedAt: Timestamp,
-        user: UserSummary,
+        user: ContentAuthor,
       })
       .nullable(),
     /** What the viewer may do here. */
@@ -138,7 +138,7 @@ export const Thread = z
     highlightedUntil: Timestamp.nullable(),
     /** When the author last bumped it; a bump sorts like a new post. */
     bumpedAt: Timestamp.nullable(),
-    author: UserSummary,
+    author: ContentAuthor,
     state: ContentState,
     isSticky: z.boolean(),
     isLocked: z.boolean(),
@@ -155,7 +155,7 @@ export const Thread = z
       postId: Id,
       position: z.number().int().nonnegative(),
       postedAt: Timestamp,
-      user: UserSummary,
+      user: ContentAuthor,
     }),
     /** Position of the newest post the viewer marked read, or null if never read / guest. */
     readPosition: z.number().int().nonnegative().nullable(),
@@ -181,7 +181,7 @@ export const Post = z
      * [(n-1)*limit, n*limit). Posts the viewer may not see leave gaps in that range.
      */
     position: z.number().int().nonnegative(),
-    author: UserSummary,
+    author: ContentAuthor,
     state: ContentState,
     createdAt: Timestamp,
     editedAt: Timestamp.nullable(),
@@ -826,6 +826,47 @@ export const postsCreate = defineContract({
   kind: "write",
   input: z.object({ threadId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: PostDetail,
+});
+
+/** What a guest gives besides the text: the name to post under and the security check's token. */
+const GuestPoster = {
+  /**
+   * Shown as the author (trimmed): 2 to 50 characters, and not the username of a member, in any
+   * letter case.
+   */
+  name: z.string().trim().min(2).max(50),
+  /** The Turnstile widget's token for the `guestPost` form. */
+  turnstileToken: z.string().max(4096).optional(),
+};
+const guestPostingRules =
+  "Only for guests (members use their account), in a forum that allows it (forum.guestPost) and " +
+  "is not read-only or limited to members by account age or post count, and only while the " +
+  "site's Turnstile check guards the `guestPost` form: the token must pass it. Everything a " +
+  "guest posts is stored `moderated`, into the approval queue, and shown once staff approve " +
+  "it; the guest cannot see, edit or delete it. Guests are held to the site's flood interval " +
+  "and the Guest group's daily limits, counted per address. No attachments, polls, tags, " +
+  "watching, alerts or credits.";
+
+export const threadsCreateAsGuest = defineContract({
+  name: "threads.createAsGuest",
+  summary: `Start a thread as a guest, under \`name\`. ${guestPostingRules}`,
+  kind: "write",
+  input: z.object({
+    nodeId: Id,
+    title: Title,
+    body: Body,
+    prefixId: Id.nullable().default(null),
+    ...GuestPoster,
+  }),
+  output: z.object({ threadId: Id, postId: Id }),
+});
+
+export const postsCreateAsGuest = defineContract({
+  name: "posts.createAsGuest",
+  summary: `Reply to a thread that is not locked, as a guest, under \`name\`. ${guestPostingRules}`,
+  kind: "write",
+  input: z.object({ threadId: Id, body: Body, ...GuestPoster }),
+  output: z.object({ postId: Id }),
 });
 
 /** Where a previewed text would be posted, which decides who may preview it and how it is rendered. */

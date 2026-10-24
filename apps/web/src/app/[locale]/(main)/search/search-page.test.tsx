@@ -45,7 +45,7 @@ const result = (threadId: number, postId: number, position: number) => ({
     id: postId,
     position,
     createdAt: when,
-    author: { id: 4, username: "ana" },
+    author: { kind: "member", id: 4, username: "ana" },
     excerpt: "garden hose",
   },
   thread: {

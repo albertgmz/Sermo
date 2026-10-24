@@ -2,6 +2,7 @@ import { expect, mock, test } from "bun:test";
 import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
+import { byMemberId } from "@/lib/test-members";
 
 mock.module("server-only", () => ({}));
 // The avatar reads the visitor's LITE preference from the request.
@@ -25,7 +26,7 @@ const { ConversationWidgets } = await import("./conversation-widgets");
 const { MarkReadContext } = await import("./mark-read-state");
 
 const person = (id: number, username: string) => ({ id, username });
-const member = (id: number) => ({
+const member = byMemberId((id: number) => ({
   id,
   username: id === 1 ? "ember" : `member${id}`,
   avatar: null,
@@ -36,7 +37,7 @@ const member = (id: number) => ({
   title: "Member",
   badges: [],
   level: 1,
-});
+}));
 const stamp = "2026-03-04T10:00:00.000Z";
 const conversation = {
   id: 7,

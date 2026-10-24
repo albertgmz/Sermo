@@ -1,5 +1,6 @@
 import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { can } from "../../permissions";
 import { profileModeAllows } from "../profiles/shared";
 import { isBanned } from "./access";
@@ -43,7 +44,8 @@ export const pageSql = {
 /** The members the viewer is not shown in this list, by the cheap rules; the page re-checks each. */
 function unlisted(ctx: Ctx, actor: Actor, ranked: boolean): number[] {
   const now = ctx.now();
-  const hidden = new Set<number>();
+  // The guest account is never listed.
+  const hidden = new Set<number>([GUEST_ACCOUNT_ID]);
   for (const row of prepared(ctx, "members.pageBanned", () =>
     ctx.sqlite.prepare<{ id: number; banned_until: number | null; banned_permanently: number }, []>(
       pageSql.banned,

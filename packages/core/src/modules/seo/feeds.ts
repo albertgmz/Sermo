@@ -45,12 +45,12 @@ export function atomFeed(
     nodeId == null
       ? prepared(ctx, "seo.atomSite", () =>
           ctx.sqlite.prepare<Row, [string, number]>(
-            "SELECT t.id,t.node_id,t.title,t.excerpt,t.created_at,t.last_post_at,t.content_updated_at,u.username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.state='visible' AND t.node_id IN (SELECT value FROM json_each(?1)) ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
+            "SELECT t.id,t.node_id,t.title,t.excerpt,t.created_at,t.last_post_at,t.content_updated_at,COALESCE(t.guest_name,u.username) AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.state='visible' AND t.node_id IN (SELECT value FROM json_each(?1)) ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
           ),
         ).all(JSON.stringify(publicNodeIds), limit)
       : prepared(ctx, "seo.atomNode", () =>
           ctx.sqlite.prepare<Row, [number, number]>(
-            "SELECT t.id,t.node_id,t.title,t.excerpt,t.created_at,t.last_post_at,t.content_updated_at,u.username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.state='visible' AND t.node_id=?1 ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
+            "SELECT t.id,t.node_id,t.title,t.excerpt,t.created_at,t.last_post_at,t.content_updated_at,COALESCE(t.guest_name,u.username) AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.state='visible' AND t.node_id=?1 ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
           ),
         ).all(nodeId, limit);
   const visible = rows;

@@ -6,6 +6,7 @@ import { cursorFrom } from "@/components/staff/cursor-list";
 import { RowLink } from "@/components/staff/item-list";
 import { PagedList } from "@/components/staff/paged-list";
 import { Badge } from "@/components/ui/badge";
+import { authorName, memberIdOf } from "@/lib/sermo/authors";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { MemberLink, memberNames } from "../../admin/logs/links";
@@ -25,7 +26,9 @@ export async function ApprovalList({ searchParams }: { searchParams: Params }) {
     forumOptions({ moderated: true }),
     read(approvalsList, { nodeId, cursor: cursorFrom(params), limit: 20 }),
   ]);
-  const name = await memberNames(page.items.map((item) => item.authorId));
+  const name = await memberNames(
+    page.items.flatMap((item) => memberIdOf(item.author) ?? []),
+  );
   return (
     <PagedList
       items={page.items.map((item) => ({
@@ -40,7 +43,11 @@ export async function ApprovalList({ searchParams }: { searchParams: Params }) {
         description: (
           <p className="flex flex-wrap items-center gap-x-3">
             <QueuePlace where={item.where} />
-            <MemberLink id={item.authorId} name={name(item.authorId)} />
+            {item.author.kind === "member" ? (
+              <MemberLink id={item.author.id} name={name(item.author.id)} />
+            ) : (
+              <span>{authorName(item.author)}</span>
+            )}
             <span>
               {t("added")} <RelativeTime date={item.createdAt} />
             </span>

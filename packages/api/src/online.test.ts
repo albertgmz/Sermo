@@ -77,7 +77,9 @@ test("a signed-in member's page view is noted under their account, not their add
   expect(view.status).toBe(200);
   expect(visitors()).toEqual([]);
   await flushVisits(ctx);
-  const userId = ctx.sqlite.prepare<{ id: number }, []>("SELECT id FROM users").get()!.id;
+  const userId = ctx.sqlite
+    .prepare<{ id: number }, []>("SELECT id FROM users WHERE id > 0")
+    .get()!.id;
   expect(visitors()).toEqual([
     { visitor_key: `u:${userId}`, user_id: userId, robot: null, ip: null },
   ]);

@@ -107,7 +107,7 @@ test("a form with two rules names each field and offers the cheap criteria only"
 });
 
 const when = "2026-01-01T00:00:00.000Z";
-const someone = { id: 3, username: "ember" };
+const someone = { kind: "member" as const, id: 3, username: "ember" };
 const THREAD_ANSWER = {
   thread: {
     id: 31,

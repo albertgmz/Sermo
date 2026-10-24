@@ -134,7 +134,7 @@ describe("new names keep the registration rule", () => {
         } as never,
       }),
     ).rejects.toMatchObject({ body: { code: "INVALID_DISPLAY_USERNAME" } });
-    expect(w.ctx.sqlite.prepare("SELECT id FROM auth_user").all()).toEqual([]);
+    expect(w.ctx.sqlite.prepare("SELECT id FROM auth_user WHERE id > 0").all()).toEqual([]);
   });
 
   test("the Deleted member names stay reserved for new names", async () => {

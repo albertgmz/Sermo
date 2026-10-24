@@ -99,10 +99,7 @@ export async function searchPage(
             {t.rich("details", {
               number: post.position + 1,
               author: () => (
-                <UserLink
-                  user={member(post.author.id)}
-                  className="font-medium"
-                />
+                <UserLink user={member(post.author)} className="font-medium" />
               ),
               forum: () => (
                 <Link

@@ -1,4 +1,5 @@
 import { ForumCard } from "@/components/forum/forum-card";
+import type { Lookup } from "@/lib/sermo/authors";
 import { type ApiNode, forumCard } from "@/lib/sermo/forums";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,7 @@ export function ForumCardGrid({
 }: {
   forums: ApiNode[];
   childrenOf: (parentId: number) => ApiNode[];
-  member: (id: number) => MemberView;
+  member: Lookup<MemberView>;
   unread?: ReadonlySet<number>;
   signedIn: boolean;
   className?: string;

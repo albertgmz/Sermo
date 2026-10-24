@@ -111,10 +111,12 @@ function balanced(source: string) {
 export function quoteOf(
   postId: number,
   author: string,
-  authorId: number,
+  authorId: number | null,
   source: string,
   reference: "post" | "convMessage" = "post",
 ) {
   const name = author.replace(/["[\],\s]+/g, " ").trim() || "member";
-  return `[QUOTE="${name}, ${reference}: ${postId}, member: ${authorId}"]${balanced(source.trim())}[/QUOTE]`;
+  // A guest has no member to name.
+  const member = authorId === null ? "" : `, member: ${authorId}`;
+  return `[QUOTE="${name}, ${reference}: ${postId}${member}"]${balanced(source.trim())}[/QUOTE]`;
 }

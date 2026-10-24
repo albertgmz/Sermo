@@ -295,12 +295,18 @@ function Details({ details }: { details: PictureDetails }) {
   return (
     <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <Link
-          href={`/members/${author.id}`}
-          className="inline-flex min-h-10 items-center font-medium underline-offset-4 hover:underline"
-        >
-          {author.username}
-        </Link>
+        {author.id === null ? (
+          <span className="inline-flex min-h-10 items-center font-medium">
+            {author.username}
+          </span>
+        ) : (
+          <Link
+            href={`/members/${author.id}`}
+            className="inline-flex min-h-10 items-center font-medium underline-offset-4 hover:underline"
+          >
+            {author.username}
+          </Link>
+        )}
         <time
           dateTime={details.createdAt}
           className="text-xs text-muted-foreground"

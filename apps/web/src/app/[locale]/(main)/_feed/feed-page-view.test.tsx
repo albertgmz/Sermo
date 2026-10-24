@@ -71,7 +71,7 @@ const thread = {
   cover: null,
   highlightedUntil: null,
   bumpedAt: null,
-  author: { id: 4, username: "member4" },
+  author: { kind: "member", id: 4, username: "member4" },
   state: "visible",
   isSticky: false,
   isLocked: false,
@@ -83,7 +83,7 @@ const thread = {
     postId: 30,
     position: 0,
     postedAt: "2026-01-01T00:00:00.000Z",
-    user: { id: 4, username: "member4" },
+    user: { kind: "member", id: 4, username: "member4" },
   },
   readPosition: null,
   isUnread: true,
@@ -106,7 +106,7 @@ const wallEntry = {
   following: false,
   featured: null,
   profilePost: profilePostBody({
-    author: { id: 4, username: "member4" },
+    author: { kind: "member", id: 4, username: "member4" },
     canComment: true,
   }),
 };

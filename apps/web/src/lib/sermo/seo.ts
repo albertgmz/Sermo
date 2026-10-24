@@ -87,8 +87,8 @@ export type ShareKind =
       type: "article";
       publishedTime: string;
       modifiedTime: string;
-      // The address of the author's page, which is a profile in turn.
-      author: string;
+      // The address of the author's page, which is a profile in turn; none for a guest.
+      author: string | undefined;
       // The forum the thread is in, and the thread's tags.
       section: string;
       tags: string[];
@@ -140,7 +140,7 @@ export function shareMetadata(share: Share): Metadata {
             type: "article",
             publishedTime: kind.publishedTime,
             modifiedTime: kind.modifiedTime,
-            authors: [kind.author],
+            authors: kind.author === undefined ? [] : [kind.author],
             section: kind.section,
             tags: kind.tags,
           }

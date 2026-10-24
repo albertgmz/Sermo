@@ -53,7 +53,7 @@ const result = (threadId: number, title: string) => ({
     id: threadId * 10,
     position: 0,
     createdAt: when,
-    author: { id: 4, username: "ana" },
+    author: { kind: "member", id: 4, username: "ana" },
     excerpt: "garden hose",
   },
   thread: {

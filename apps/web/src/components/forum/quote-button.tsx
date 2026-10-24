@@ -22,9 +22,11 @@ export function QuoteButton({
 }: {
   postId: number;
   event: string;
-  load: (
-    postId: number,
-  ) => Promise<{ author: string; authorId: number; source: string } | null>;
+  load: (postId: number) => Promise<{
+    author: string;
+    authorId: number | null;
+    source: string;
+  } | null>;
   label: string;
   text?: string;
   // How the word is hidden where only the icon fits.

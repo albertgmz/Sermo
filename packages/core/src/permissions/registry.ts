@@ -445,6 +445,19 @@ export const PERMISSIONS = {
     threadBan: true,
     legacy: "can_post",
   },
+  /**
+   * Start threads and reply here without an account, under a name the guest gives
+   * (`threads.createAsGuest`, `posts.createAsGuest`); everything a guest posts waits for
+   * approval. Only the Guest group uses it: members post under their account, so the
+   * administrators' default (they hold every flag) changes nothing. Off for guests everywhere
+   * until an administrator allows it in a forum.
+   */
+  "forum.guestPost": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: ADMINS,
+  },
   "forum.editOwn": {
     scope: "node",
     category: "forum",

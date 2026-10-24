@@ -16,7 +16,7 @@ let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
 
 const when = "2026-01-01T00:00:00.000Z";
-const someone = { id: 3, username: "ember" };
+const someone = { kind: "member" as const, id: 3, username: "ember" };
 const hit = (threadId: number, title: string, postId: number) => ({
   post: {
     id: postId,

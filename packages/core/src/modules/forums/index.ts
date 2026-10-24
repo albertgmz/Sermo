@@ -4,6 +4,8 @@ import type { Actor } from "../../actor";
 import { actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, invalidate, prepared } from "../../context";
 import * as contracts from "../../contracts/forums";
+import { isReservedUsername } from "../../db/auth-options";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import {
   ConflictError,
@@ -49,9 +51,11 @@ import { requireSiteView } from "../members/site-access";
 import {
   appendModeratorLog,
   moderateEditedContent,
+  prepareGuestContent,
   prepareModeratedContent,
   recordPostRevision,
   renderModeratedContent,
+  requireGuestWriteRoom,
   requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
@@ -75,10 +79,12 @@ import {
   purgeContent,
   purgeThread,
 } from "../purge/purge";
+import { type ClientAddress, parseAddress } from "../security/address";
 import { isBotAgent } from "../security/device";
-import { logIp } from "../security/log";
+import { logIp, logMemberIp } from "../security/log";
 import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
+import { checkTurnstile, publicTurnstile, TurnstileRefusal } from "../settings/turnstile";
 import { resolvedFileUrl } from "../storage/url";
 import {
   hashtagRules,
@@ -97,6 +103,7 @@ import {
   threadTagNames,
 } from "../tags/store";
 import { addFeature, endStaffFeature, featureKinds } from "./features";
+import { contentAuthor, isGuestAuthor } from "./guest-author";
 import { nodesDeleteOp, registerNodeDeleteJob, requireNotBeingDeleted } from "./node-delete";
 import {
   forumPrefixOperations,
@@ -133,6 +140,7 @@ export type ThreadRow = {
   last_post_at: number;
   last_post_id: number;
   last_poster_id: number;
+  guest_name: string | null;
   merged_into_id: number | null;
   excerpt: string;
   prefix_id: number | null;
@@ -154,6 +162,7 @@ export type PostRow = {
   edited_at: number | null;
   reaction_counts: string;
   attachment_count: number;
+  guest_name: string | null;
   body_html?: string;
   body_source?: string;
 };
@@ -193,7 +202,7 @@ function moderationPayload(
       };
 }
 export const threadColumns =
-  "id, node_id, user_id, title, state, is_sticky, is_locked, created_at, reply_count, view_count, first_post_id, last_post_at, last_post_id, last_poster_id, merged_into_id, excerpt, prefix_id, cover_id, highlighted_until, bumped_at, sort_at";
+  "id, node_id, user_id, title, state, is_sticky, is_locked, created_at, reply_count, view_count, first_post_id, last_post_at, last_post_id, last_poster_id, guest_name, merged_into_id, excerpt, prefix_id, cover_id, highlighted_until, bumped_at, sort_at";
 const threadDetailColumns = threadColumns
   .split(", ")
   .map((column) => `t.${column}`)
@@ -205,7 +214,7 @@ const storedPosition = (column: string) =>
 const postVisibleBy = (moderated: number, deleted: number, viewer: number) =>
   `(p.state = 'visible' OR (p.state = 'moderated' AND (?${moderated} = 1 OR p.user_id = ?${viewer})) OR (p.state = 'deleted' AND ?${deleted} = 1))`;
 const postVisible = postVisibleBy(4, 5, 6);
-const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
+const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count, p.guest_name`;
 const nodeColumns =
   "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, require_prefix, is_read_only, counts_posts, min_account_age_days, min_post_count";
 // The thread at a place in a forum's list (?5, from 0), for numbered pages (see `forumSql`).
@@ -261,7 +270,8 @@ export const forumSql = {
   threadsByIds: `SELECT ${threadColumns} FROM threads WHERE id IN (SELECT value FROM json_each(?1))`,
   postsByIds: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
-  lastPostPositions: `SELECT id, ${storedPosition("position")} AS position FROM posts WHERE id IN (SELECT value FROM json_each(?1))`,
+  guestNameTaken: "SELECT id FROM users WHERE username_key = ?1",
+  lastPostPositions: `SELECT id, ${storedPosition("position")} AS position, guest_name FROM posts WHERE id IN (SELECT value FROM json_each(?1))`,
   readBatch:
     "SELECT thread_id, last_read_post_id, last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2))",
   nodeLast:
@@ -659,17 +669,24 @@ function readRows(ctx: Ctx, actor: Actor, ids: number[]): Map<number, ReadRow> {
   for (const row of rows) result.set(row.thread_id, row);
   return result;
 }
-function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
-  const positions = new Map(
-    rows.length === 0
+/** The position and guest name of these last posts, in one statement. */
+function lastPostsOf(ctx: Ctx, ids: number[]) {
+  return new Map(
+    ids.length === 0
       ? []
-      : statement<{ id: number; position: number }, [string]>(
+      : statement<{ id: number; position: number; guest_name: string | null }, [string]>(
           ctx,
           "lastPostPositions",
           forumSql.lastPostPositions,
         )
-          .all(JSON.stringify(rows.map((r) => r.last_post_id)))
-          .map((r) => [r.id, r.position] as const),
+          .all(JSON.stringify(ids))
+          .map((r) => [r.id, r] as const),
+  );
+}
+function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
+  const lastPosts = lastPostsOf(
+    ctx,
+    rows.map((r) => r.last_post_id),
   );
   const users = loadUserSummaries(
     ctx,
@@ -706,7 +723,7 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
       cover: gates.reads(row.node_id, row.user_id) ? present.cover(row.cover_id) : null,
       highlightedUntil: isoOrNull(row.highlighted_until),
       bumpedAt: isoOrNull(row.bumped_at),
-      author: users(row.user_id),
+      author: contentAuthor(users, row.user_id, row.guest_name),
       state: row.state,
       isSticky: !!row.is_sticky,
       isLocked: !!row.is_locked,
@@ -716,9 +733,9 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
       firstPostId: row.first_post_id,
       lastPost: {
         postId: row.last_post_id,
-        position: positions.get(row.last_post_id)!,
+        position: lastPosts.get(row.last_post_id)!.position,
         postedAt: iso(row.last_post_at),
-        user: users(row.last_poster_id),
+        user: contentAuthor(users, row.last_poster_id, lastPosts.get(row.last_post_id)?.guest_name),
       },
       readPosition: read?.last_read_position ?? null,
       isUnread:
@@ -788,7 +805,7 @@ export function postValuesMixed(
     id: row.id,
     threadId: row.thread_id,
     position: row.position,
-    author: users(row.user_id),
+    author: contentAuthor(users, row.user_id, row.guest_name),
     state: row.state,
     createdAt: iso(row.created_at),
     editedAt: isoOrNull(row.edited_at),
@@ -848,6 +865,16 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
     ctx,
     [...rows.values()].flatMap((r) => (r.last_poster_id == null ? [] : [r.last_poster_id])),
   );
+  // A guest's name is on the post itself: read only where a guest posted last.
+  const guestLastPosts = lastPostsOf(
+    ctx,
+    ids.flatMap((id) => {
+      const row = rows.get(id)!;
+      return row.last_post_id != null && isGuestAuthor(row.last_poster_id!)
+        ? [row.last_post_id]
+        : [];
+    }),
+  );
   const permissions = permissionsOf(ctx, actor);
   const gates = readGates(ctx, actor);
   return ids.map((id) => {
@@ -862,7 +889,11 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
             threadId: row.last_thread_id!,
             threadTitle: row.last_thread_title!,
             postedAt: iso(row.last_post_at!),
-            user: users(row.last_poster_id!),
+            user: contentAuthor(
+              users,
+              row.last_poster_id!,
+              guestLastPosts.get(row.last_post_id)?.guest_name,
+            ),
           };
     return {
       ...entry,
@@ -2083,6 +2114,200 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
     return postValue(ctx, actor, id, true) as z.infer<typeof contracts.PostDetail>;
   });
 });
+// Guests -----------------------------------------------------------------------------------------
+// A guest's thread or reply belongs to the reserved guest account and carries the name the guest
+// gave. It is always held for approval, so none of a member's follow-ups (counters, read marks,
+// watching, the author's alerts and credits) apply until staff approve it.
+
+/** The guest's address, which their limits are counted by; members post under their account. */
+function requireGuestPoster(actor: Actor): ClientAddress {
+  if (actor.kind !== "guest")
+    throw new ForbiddenError("You are signed in: post under your account instead.");
+  const address = parseAddress(actor.clientIp);
+  if (!address) throw new ValidationError("A client IP is required for guest posting.");
+  return address;
+}
+
+/**
+ * What a forum asks of a guest posting in it: forum.guestPost there, and none of the forum's
+ * posting rules, which only an account could meet (read-only, minimum account age or posts).
+ */
+function requireGuestForum(ctx: Ctx, actor: Actor, nodeId: number): void {
+  requirePermission(ctx, actor, "forum.guestPost", { nodeId });
+  const settings = nodeRows(ctx, nodeId).get(nodeId);
+  if (!settings) throw new NotFoundError();
+  if (settings.is_read_only) throw new ForbiddenError("This forum is read-only.");
+  if (settings.min_account_age_days || settings.min_post_count)
+    throw new ForbiddenError("Only members can post in this forum.");
+}
+
+/** A guest's name may not pass for a member's: no member's username, nor one kept for erased accounts. */
+function requireGuestName(ctx: Ctx, name: string): void {
+  const taken =
+    isReservedUsername(name) ||
+    statement<{ id: number }, [string]>(ctx, "guestNameTaken", forumSql.guestNameTaken).get(
+      name.toLowerCase(),
+    );
+  if (taken) {
+    const message = "That name belongs to a member. Choose another one, or sign in.";
+    throw new ConflictError(message, [{ path: ["name"], message }]);
+  }
+}
+
+/**
+ * Guest posting is open only while Turnstile guards it, and the token must pass. Asked last, after
+ * every check the request can fail without it: a token is good for one answer.
+ */
+async function passGuestTurnstile(
+  ctx: Ctx,
+  token: string | undefined,
+  address: ClientAddress,
+): Promise<void> {
+  if (!publicTurnstile(ctx)?.forms.includes("guestPost"))
+    throw new ForbiddenError("Guests cannot post until the site's security check guards it.");
+  try {
+    await checkTurnstile(ctx, "guestPost", token, address.ip);
+  } catch (error) {
+    if (!(error instanceof TurnstileRefusal)) throw error;
+    throw new ValidationError(error.message, [
+      { path: ["turnstileToken"], message: error.message },
+    ]);
+  }
+}
+
+/** Starting a thread as a guest, before anything of it is written; again inside the transaction. */
+function requireGuestThreadStart(ctx: Ctx, actor: Actor, nodeId: number, prefixId: number | null) {
+  const { node } = requireNode(ctx, actor, nodeId);
+  requireGuestForum(ctx, actor, nodeId);
+  if (node.type !== "forum") throw new ValidationError("Categories cannot hold threads.");
+  if (prefixId !== null) requireActivePrefix(ctx, prefixId, nodeId);
+  else requirePrefixChosen(ctx, nodeId);
+}
+
+/** Replying as a guest: a thread the guest can read, in such a forum, and not locked. */
+function requireGuestReplyRoom(ctx: Ctx, actor: Actor, threadId: number): ThreadRow {
+  const { row } = requireThread(ctx, actor, threadId);
+  if (!readGates(ctx, actor).readsOthers(row.node_id)) throw new ForbiddenError(CONTENT_CLOSED);
+  requireGuestForum(ctx, actor, row.node_id);
+  if (row.is_locked) throw new ForbiddenError("This thread is locked.");
+  return row;
+}
+
+/** The guest post's address in the IP log, under the guest account: staff see it, limits count it. */
+function logGuestIp(ctx: Ctx, actor: Actor, action: "thread" | "post", postId: number): void {
+  if (actor.kind !== "guest") return;
+  logMemberIp(
+    ctx,
+    GUEST_ACCOUNT_ID,
+    actor.clientIp,
+    actor.userAgent,
+    action,
+    { type: "post", id: postId },
+    actor.clientLocation,
+  );
+}
+
+export const threadsCreateAsGuestOp = implement(
+  contracts.threadsCreateAsGuest,
+  async (ctx, actor, input) => {
+    const address = requireGuestPoster(actor);
+    requireGuestThreadStart(ctx, actor, input.nodeId, input.prefixId);
+    requireGuestName(ctx, input.name);
+    const content = prepareGuestContent(ctx, input.body);
+    const refs = renderModeratedContent(ctx, actor, content, {
+      hashtags: hashtagRules(ctx, actor, 0),
+    });
+    await passGuestTurnstile(ctx, input.turnstileToken, address);
+    return writeTx(ctx, () => {
+      requireGuestThreadStart(ctx, actor, input.nodeId, input.prefixId);
+      requireGuestName(ctx, input.name);
+      requireGuestWriteRoom(ctx, actor, address.net, "thread", content.floodSeconds);
+      const now = ctx.now();
+      const thread = forumDb(ctx)
+        .prepare<{ id: number }, [number, number, string, number, string, number | null, string]>(
+          "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at, excerpt, prefix_id, guest_name) VALUES (?1, ?2, ?3, 'moderated', ?4, ?4, ?2, ?4, ?5, ?6, ?7) RETURNING id",
+        )
+        .get(
+          input.nodeId,
+          GUEST_ACCOUNT_ID,
+          input.title,
+          now,
+          excerptFromMarkdown(content.source),
+          input.prefixId,
+          input.name,
+        )!;
+      const post = forumDb(ctx)
+        .prepare<{ id: number }, [number, number, number, string]>(
+          "INSERT INTO posts (thread_id, user_id, position, created_at, guest_name) VALUES (?1, ?2, 0, ?3, ?4) RETURNING id",
+        )
+        .get(thread.id, GUEST_ACCOUNT_ID, now, input.name)!;
+      forumDb(ctx)
+        .prepare(
+          "INSERT INTO post_bodies (post_id, body_source, body_html, body_text) VALUES (?1, ?2, ?3, ?4)",
+        )
+        .run(post.id, refs.source, refs.html, bbCodeText(refs.source));
+      storeContentReferences(ctx, "post", post.id, refs);
+      storeSpoilers(ctx, "post", post.id, refs.spoilers);
+      validateEmbeddedAttachments(ctx, "post", post.id, refs.html);
+      forumDb(ctx)
+        .prepare("UPDATE threads SET first_post_id = ?1, last_post_id = ?1 WHERE id = ?2")
+        .run(post.id, thread.id);
+      logGuestIp(ctx, actor, "thread", post.id);
+      // `watch: "none"`: nobody's watching preference applies to a guest's thread.
+      publishEvent(ctx, {
+        type: "content.created",
+        targetType: "thread",
+        targetId: thread.id,
+        payload: { watch: "none" },
+      });
+      publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
+      return { threadId: thread.id, postId: post.id };
+    });
+  },
+);
+
+export const postsCreateAsGuestOp = implement(
+  contracts.postsCreateAsGuest,
+  async (ctx, actor, input) => {
+    const address = requireGuestPoster(actor);
+    const row = requireGuestReplyRoom(ctx, actor, input.threadId);
+    requireGuestName(ctx, input.name);
+    const content = prepareGuestContent(ctx, input.body);
+    const refs = renderModeratedContent(ctx, actor, content, REPLY_HASHTAGS);
+    await passGuestTurnstile(ctx, input.turnstileToken, address);
+    return writeTx(ctx, () => {
+      const current = requireGuestReplyRoom(ctx, actor, row.id);
+      if (current.node_id !== row.node_id || current.state !== row.state)
+        throw new ConflictError("Thread changed; retry.");
+      if (current.transfer_role === "merge_target" || current.transfer_role === "split_target")
+        throw new ConflictError(REORGANIZING);
+      requireGuestName(ctx, input.name);
+      requireGuestWriteRoom(ctx, actor, address.net, "reply", content.floodSeconds);
+      const position =
+        (statement<{ position: number }, [number]>(
+          ctx,
+          "maxPostPosition",
+          forumSql.maxPostPosition,
+        ).get(row.id)?.position ?? -1) + 1;
+      const post = forumDb(ctx)
+        .prepare<{ id: number }, [number, number, number, number, string]>(
+          "INSERT INTO posts (thread_id, user_id, position, state, created_at, guest_name) VALUES (?1, ?2, ?3, 'moderated', ?4, ?5) RETURNING id",
+        )
+        .get(row.id, GUEST_ACCOUNT_ID, position, ctx.now(), input.name)!;
+      forumDb(ctx)
+        .prepare(
+          "INSERT INTO post_bodies (post_id, body_source, body_html, body_text) VALUES (?1, ?2, ?3, ?4)",
+        )
+        .run(post.id, refs.source, refs.html, bbCodeText(refs.source));
+      storeContentReferences(ctx, "post", post.id, refs);
+      storeSpoilers(ctx, "post", post.id, refs.spoilers);
+      validateEmbeddedAttachments(ctx, "post", post.id, refs.html);
+      logGuestIp(ctx, actor, "post", post.id);
+      publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
+      return { postId: post.id };
+    });
+  },
+);
 export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
@@ -4107,6 +4332,7 @@ export const operations = [
   threadsGetOp,
   threadsLocateUnreadOp,
   threadsCreateOp,
+  threadsCreateAsGuestOp,
   postsPreviewOp,
   threadsUpdateOp,
   threadsRemoveCoverOp,
@@ -4127,6 +4353,7 @@ export const operations = [
   postsListOp,
   postsGetOp,
   postsCreateOp,
+  postsCreateAsGuestOp,
   postsUpdateOp,
   postsDeleteOp,
   postsRestoreOp,

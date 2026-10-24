@@ -33,6 +33,7 @@ import {
 } from "../../permissions";
 import { renderContent } from "../../render";
 import { viewerLanguage } from "../../shared/language";
+import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
 import { requireHeld } from "../admin/held";
@@ -49,6 +50,7 @@ import {
   requirePost,
   takeOverLock,
 } from "../forums";
+import { contentAuthor } from "../forums/guest-author";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import { forgetRecentlyActive } from "../members/recently-active-cache";
 import { requestStandingsRedecide } from "../members/redecide-request";
@@ -89,7 +91,7 @@ import {
   warningTypesUpdateOp,
 } from "./warning-config";
 
-export { requireNegativeReactionRoom, requireWriteRoom } from "./limits";
+export { requireGuestWriteRoom, requireNegativeReactionRoom, requireWriteRoom } from "./limits";
 export type { SpamChecker, SpamFetch, SpamSubmission, SpamVerdict } from "./spam";
 export { akismetChecker, disabledSpamChecker, stopForumSpamChecker } from "./spam";
 
@@ -149,6 +151,8 @@ type Content = { type: ContentType; id: number };
 type Row = {
   id: number;
   user_id: number;
+  /** Threads and posts: the name a guest gave. */
+  guest_name?: string | null;
   state: ContentStateValue;
   node_id?: number;
   thread_id?: number;
@@ -747,9 +751,9 @@ export function setReportState(
 }
 
 export const approvalSql =
-  "SELECT p.id, p.thread_id, p.user_id, p.created_at, t.node_id FROM posts p INDEXED BY posts_state_id JOIN threads t ON t.id = p.thread_id WHERE p.state = 'moderated' AND p.id <= ?1 ORDER BY p.id DESC LIMIT ?2";
+  "SELECT p.id, p.thread_id, p.user_id, p.guest_name, p.created_at, t.node_id FROM posts p INDEXED BY posts_state_id JOIN threads t ON t.id = p.thread_id WHERE p.state = 'moderated' AND p.id <= ?1 ORDER BY p.id DESC LIMIT ?2";
 export const approvalThreadsSql =
-  "SELECT id, user_id, node_id, created_at, state FROM threads INDEXED BY threads_state_id WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2";
+  "SELECT id, user_id, guest_name, node_id, created_at, state FROM threads INDEXED BY threads_state_id WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2";
 export const approvalProfilePostsSql =
   "SELECT id, user_id, created_at, state FROM profile_posts WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2";
 export const approvalProfileCommentsSql =
@@ -1409,6 +1413,23 @@ export const prepareModeratedContent = markPublic(
     };
   },
 );
+
+/**
+ * `prepareModeratedContent` for a guest's thread or reply: the word filter replaces words as for
+ * anyone, and the content is always held for approval, whatever the rules would decide.
+ */
+export function prepareGuestContent(
+  ctx: Ctx,
+  source: string,
+): ReturnType<typeof prepareModeratedContent> {
+  const settings = readSiteSettings(ctx);
+  return {
+    source: applyWordFilters(ctx, source).source,
+    floodSeconds: settings.floodSeconds,
+    linksRule: settings.linksRule,
+    moderated: true,
+  };
+}
 
 /** The author of text being edited, as an actor (the editor's own actor when they are the author). */
 function authorOf(ctx: Ctx, editor: Actor, authorId: number | undefined): Actor {
@@ -2423,11 +2444,15 @@ export const operations = [
       actor,
       result.items.map((row) => ({ type: row.type, id: row.id })),
     );
+    const users = loadUserSummaries(
+      ctx,
+      result.items.map((row) => row.user_id),
+    );
     return contracts.approvalsList.output.parse({
       items: result.items.map((row) => ({
         type: row.type,
         id: row.id,
-        authorId: row.user_id,
+        author: contentAuthor(users, row.user_id, row.guest_name),
         createdAt: iso(row.created_at!),
         ...(context.get(queueContextKey(row.type, row.id)) ?? NO_CONTEXT),
       })),

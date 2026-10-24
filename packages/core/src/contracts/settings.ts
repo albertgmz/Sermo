@@ -80,6 +80,8 @@ export const TURNSTILE_FORMS = [
   "login",
   "passwordReset",
   "resendConfirmation",
+  /** A guest's new thread or reply (`threads.createAsGuest`, `posts.createAsGuest`). */
+  "guestPost",
 ] as const;
 export type TurnstileForm = (typeof TURNSTILE_FORMS)[number];
 

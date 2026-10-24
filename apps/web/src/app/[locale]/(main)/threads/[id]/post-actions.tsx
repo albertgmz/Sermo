@@ -16,6 +16,7 @@ import { deleteMode } from "@/components/forum/delete-mode";
 import { DeletionTools } from "@/components/forum/deletion-notice";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
+import { memberIdOf } from "@/lib/sermo/authors";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import type { ApiPost } from "@/lib/sermo/threads";
 
@@ -56,7 +57,7 @@ export function PostActions({
     target: "post" as const,
     id: post.id,
     reactions: post.reactions,
-    authorId: post.author.id,
+    authorId: memberIdOf(post.author),
     viewerId,
     picker,
     reactionTypes,
@@ -100,7 +101,7 @@ export function PostActions({
       }
       remove={tools ? remove : undefined}
       report={
-        live && post.canReport && viewerId !== post.author.id
+        live && post.canReport && viewerId !== memberIdOf(post.author)
           ? { action: reportContent.bind(null, "post", post.id) }
           : undefined
       }

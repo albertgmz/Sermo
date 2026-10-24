@@ -66,7 +66,7 @@ export async function bookmarksPage(
                 type: t(`types.${item.contentType}`),
                 author: () => (
                   <UserLink
-                    user={member(item.author.id)}
+                    user={member(item.author)}
                     className="font-medium"
                   />
                 ),

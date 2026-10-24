@@ -23,15 +23,15 @@ export const LLMS_FULL_CAP = 1_048_576;
 /** The queries of these pages (the index test runs them as they are). */
 export const MARKDOWN_SQL = {
   thread:
-    "SELECT t.title,t.node_id,t.created_at,t.last_post_at,t.content_updated_at,u.username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.id=?1",
+    "SELECT t.title,t.node_id,t.created_at,t.last_post_at,t.content_updated_at,COALESCE(t.guest_name,u.username) AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.id=?1",
   posts:
-    "SELECT p.id,b.body_html,p.created_at,u.username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position",
+    "SELECT p.id,b.body_html,p.created_at,COALESCE(p.guest_name,u.username) AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position",
   positionBefore:
     "SELECT position FROM posts WHERE thread_id=?1 AND position<?2 AND state='visible' ORDER BY position DESC LIMIT 1",
   positionAfter:
     "SELECT position FROM posts WHERE thread_id=?1 AND position>?2 AND state='visible' ORDER BY position LIMIT 1",
   forumThreads:
-    "SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,u.username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
+    "SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,COALESCE(t.guest_name,u.username) AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
 } as const;
 
 /** A Markdown page, or the address it now lives at (a renamed or merged thread). */

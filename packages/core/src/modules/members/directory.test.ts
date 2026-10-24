@@ -58,7 +58,9 @@ describe("users.list", () => {
       const column = COLUMN[sort as keyof typeof COLUMN];
       // Credits include negative balances; the three fixture members hold 0.
       const expected = w.ctx.sqlite
-        .prepare<{ id: number }, []>(`SELECT id FROM users ORDER BY ${column} DESC, id ASC`)
+        .prepare<{ id: number }, []>(
+          `SELECT id FROM users WHERE id > 0 ORDER BY ${column} DESC, id ASC`,
+        )
         .all()
         .map((row) => row.id);
       for (const limit of [1, 3, 100]) expect(await walk(w, sort, limit)).toEqual(expected);

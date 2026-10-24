@@ -23,7 +23,7 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-const user = { id: 3, username: "ember" };
+const user = { kind: "member" as const, id: 3, username: "ember" };
 const threadBody = {
   thread: {
     id: 7,

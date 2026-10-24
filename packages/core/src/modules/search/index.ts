@@ -8,6 +8,7 @@ import { decodeCursor, encodeCursor } from "../../pagination";
 import { getNodeTree, requirePermission, viewableNodeIds } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
+import { contentAuthor } from "../forums/guest-author";
 import { threadPresenter } from "../forums/presentation";
 import { readGates } from "../forums/read-gates";
 import { requireSiteView } from "../members/site-access";
@@ -19,7 +20,7 @@ export const searchSql = {
     "SELECT rowid FROM search_fts WHERE search_fts MATCH ?1 AND rowid < ?2 ORDER BY rowid DESC LIMIT ?3",
   details:
     // A merge stores position p as -(p + 1) while it renumbers; results return the real position.
-    "SELECT p.id, CASE WHEN p.position < 0 THEN -p.position - 1 ELSE p.position END AS position, p.created_at, p.user_id, p.state AS post_state, " +
+    "SELECT p.id, CASE WHEN p.position < 0 THEN -p.position - 1 ELSE p.position END AS position, p.created_at, p.user_id, p.guest_name, p.state AS post_state, " +
     "t.id AS thread_id, t.title, t.node_id, t.prefix_id, t.state AS thread_state, t.user_id AS thread_user_id, t.first_post_id " +
     "FROM posts p JOIN threads t ON t.id = p.thread_id " +
     "WHERE p.id IN (SELECT value FROM json_each(?1))",
@@ -31,6 +32,7 @@ type Detail = {
   position: number;
   created_at: number;
   user_id: number;
+  guest_name: string | null;
   post_state: string;
   thread_id: number;
   title: string;
@@ -136,7 +138,7 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
         id: row.id,
         position: row.position,
         createdAt: iso(row.created_at),
-        author: users(row.user_id),
+        author: contentAuthor(users, row.user_id, row.guest_name),
         excerpt: gates.reads(row.node_id, row.user_id) ? excerpt(source.get(row.id) ?? "") : "",
       },
       thread: {

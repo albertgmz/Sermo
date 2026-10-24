@@ -4,6 +4,7 @@ import { renderToReadableStream } from "react-dom/server";
 import type { AuthorView } from "@/lib/sermo/views";
 import { postBody } from "@/lib/test-bodies";
 import { translator, withIntl } from "@/lib/test-intl";
+import { byMemberId } from "@/lib/test-members";
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
@@ -51,30 +52,32 @@ type Item = Parameters<typeof FeedItem>[0]["item"];
 
 const MEMBER = 3;
 
-const author = (id: number): AuthorView => ({
-  member: {
-    id,
-    username: `member${id}`,
-    avatar: null,
-    frame: null,
-    nameColor: null,
-    nameIcon: null,
-    title: "",
-    badges: [],
-    level: 1,
-    restricted: false,
-  },
-  cover: null,
-  joinedAt: "2026-01-01T00:00:00.000Z",
-  postCount: 0,
-  reactionScore: 0,
-  xp: 0,
-  currentLevelXp: 0,
-  nextLevelXp: 100,
-  awards: [],
-  signatureHtml: null,
-  lastActivity: null,
-});
+const author = byMemberId(
+  (id: number): AuthorView => ({
+    member: {
+      id,
+      username: `member${id}`,
+      avatar: null,
+      frame: null,
+      nameColor: null,
+      nameIcon: null,
+      title: "",
+      badges: [],
+      level: 1,
+      restricted: false,
+    },
+    cover: null,
+    joinedAt: "2026-01-01T00:00:00.000Z",
+    postCount: 0,
+    reactionScore: 0,
+    xp: 0,
+    currentLevelXp: 0,
+    nextLevelXp: 100,
+    awards: [],
+    signatureHtml: null,
+    lastActivity: null,
+  }),
+);
 
 const comment = (id: number, bodyHtml: string) => ({
   id,
@@ -185,7 +188,7 @@ async function render(
   item: Item,
   viewerId: number | null,
   view: "cards" | "compact" = "cards",
-  lookup: (id: number) => AuthorView = author,
+  lookup: typeof author = author,
 ) {
   return html(
     withIntl(
@@ -464,12 +467,12 @@ test("a compact row for a new thread leads its count to the thread", async () =>
 });
 
 // A wall's owner the lookup could not name: the author lookup gives the ref's empty name back.
-const nameless = (id: number): AuthorView => {
+const nameless = byMemberId((id: number): AuthorView => {
   const view = author(id);
   return id === 5
     ? { ...view, member: { ...view.member, username: "" } }
     : view;
-};
+});
 const ownWall = () => wallItem({ author: { id: 5, username: "member5" } });
 
 // The header's first line: the author, `▸`, the owner.

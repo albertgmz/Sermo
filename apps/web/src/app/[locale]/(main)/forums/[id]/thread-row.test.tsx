@@ -2,6 +2,7 @@ import { afterAll, expect, mock, test } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import { translator, withIntl } from "@/lib/test-intl";
+import { byMemberId } from "@/lib/test-members";
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
@@ -37,7 +38,7 @@ afterAll(() => {
 });
 const { ThreadRow } = await import("./thread-row");
 
-const member = (id: number) => ({
+const member = byMemberId((id: number) => ({
   id,
   username: `member${id}`,
   avatar: null,
@@ -48,7 +49,7 @@ const member = (id: number) => ({
   badges: [],
   level: 1,
   restricted: false,
-});
+}));
 
 const thread = (pollKind: "poll" | "quiz" | null) =>
   ({

@@ -71,7 +71,7 @@ const item = (fields: Record<string, unknown>) =>
     title: "Title",
     threadId: 9,
     postPosition: null,
-    author: { id: 1, username: "ana" },
+    author: { kind: "member", id: 1, username: "ana" },
     excerpt: "",
     ...fields,
   }) as never;

@@ -29,7 +29,7 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-const user = { id: 3, username: "ember" };
+const user = { kind: "member" as const, id: 3, username: "ember" };
 const file = (id: number, over: Record<string, unknown> = {}) => ({
   fileId: id,
   url: `/api/v1/files/${id}`,

@@ -22,6 +22,7 @@ import { PostFrame } from "@/components/forum/post-frame";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { POLL_MS } from "@/lib/poll-intervals";
+import { memberIdOf, sameMember } from "@/lib/sermo/authors";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import type { read } from "@/lib/sermo/client";
 import { authorsFor } from "@/lib/sermo/members";
@@ -217,8 +218,9 @@ async function ThreadPosts({
   const seen = new Set<number>();
   const firstOfAuthor = new Set(
     posts.flatMap((post) => {
-      if (seen.has(post.author.id)) return [];
-      seen.add(post.author.id);
+      const id = memberIdOf(post.author);
+      if (id === null || seen.has(id)) return [];
+      seen.add(id);
       return [post.id];
     }),
   );
@@ -271,8 +273,8 @@ async function ThreadPosts({
           <PostItem
             key={post.id}
             post={post}
-            author={author(post.author.id)}
-            byThreadAuthor={post.author.id === thread.author.id}
+            author={author(post.author)}
+            byThreadAuthor={sameMember(post.author, memberIdOf(thread.author))}
             noteState={
               post.state !== "visible" &&
               !(post.id === thread.firstPostId && thread.state === post.state)

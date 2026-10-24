@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { defineContract } from "../operation";
-import { Id, Page, Timestamp, UserSummary } from "./common";
+import { ContentAuthor, Id, Page, Timestamp } from "./common";
 import { ThreadPrefixTag } from "./forums";
 
 export const SearchResult = z
@@ -9,7 +9,7 @@ export const SearchResult = z
       id: Id,
       position: z.number().int().nonnegative(),
       createdAt: Timestamp,
-      author: UserSummary,
+      author: ContentAuthor,
       /** Plain-text excerpt of the post source (at most ~200 characters). */
       excerpt: z.string(),
     }),

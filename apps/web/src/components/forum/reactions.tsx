@@ -26,7 +26,7 @@ export function Reactions({
     total: number;
     mine: number | null;
   };
-  authorId: number;
+  authorId: number | null;
   viewerId: number | null;
   // What the picker offers; none when the viewer may not react to this item.
   picker: ReactionType[];

@@ -28,7 +28,8 @@ const IpAction = z.enum(IP_ACTIONS);
 
 /** One address a content item or a member was seen at, as the log recorded it. */
 const IpEntry = z.object({
-  userId: Id,
+  /** The member; null for a guest's post (guests have no account). */
+  userId: Id.nullable(),
   ip: z.string().describe("Normalised: IPv4-mapped IPv6 addresses appear as IPv4."),
   action: IpAction,
   createdAt: Timestamp,
@@ -41,7 +42,8 @@ export const ipsContent = defineContract({
     "The address a piece of content was made from, with the device and the member: `entry` is " +
     "null when the log holds none (content from before the log, or made by an internal " +
     "caller), when the content is not visible to the caller, or when its author ranks at or " +
-    "above the caller (a super admin is bound by neither). A thread's address is its first " +
+    "above the caller (a super admin is bound by neither; a guest ranks below everyone). A " +
+    "thread's address is its first " +
     "post's. Private messages are not offered. Requires member.viewIps.",
   kind: "read",
   // Private messages are read only through the audited report view, so they are not here.

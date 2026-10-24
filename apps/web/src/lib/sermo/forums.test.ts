@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { memberIdOf } from "./authors";
 import {
   type ApiNode,
   cardMembers,
@@ -50,7 +51,10 @@ test("the members a sub-forum card needs include the author of a last post in a 
   ) =>
     ({
       ...node(id, parentId, 0, 0),
-      lastPost: { postedAt: at, user: { id: userId, username: `u${userId}` } },
+      lastPost: {
+        postedAt: at,
+        user: { kind: "member", id: userId, username: `u${userId}` },
+      },
     }) as unknown as ApiNode;
   // The child's own newest post is old (member 1); the grandchild's is newer (member 2).
   const child = withPost(2, 1, 1, "2026-01-01T00:00:00.000Z");
@@ -60,13 +64,12 @@ test("the members a sub-forum card needs include the author of a last post in a 
     withPost(3, 2, 2, "2026-02-01T00:00:00.000Z"),
   ];
   const childrenOf = childrenByParent(nodes);
-  const known = new Set(
-    cardMembers([child], childrenOf).map((user) => user.id),
-  );
+  const known = new Set(cardMembers([child], childrenOf).map(memberIdOf));
   const card = forumCard(
     child,
     childrenOf,
-    (id) => {
+    (ref) => {
+      const id = typeof ref === "number" ? ref : memberIdOf(ref);
       if (!known.has(id)) throw new Error(`The member ${id} was not collected`);
       return {} as never;
     },

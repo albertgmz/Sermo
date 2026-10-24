@@ -6,6 +6,12 @@ import {
   usersRelations,
 } from "@sermo/core/contracts";
 import type * as z from "zod";
+import {
+  type AuthorRef,
+  type ContentAuthorRef,
+  type Lookup,
+  memberIdOf,
+} from "./authors";
 import { call } from "./client";
 import { SermoError } from "./errors";
 import type { AuthorView, MemberView } from "./views";
@@ -15,13 +21,17 @@ import type { AuthorView, MemberView } from "./views";
 // here once per render. A member the backend no longer knows keeps the name the item carried.
 
 export type MemberRef = { id: number; username: string };
+type GuestRef = Extract<ContentAuthorRef, { kind: "guest" }>;
+type Ref = AuthorRef;
+
+const isGuest = (ref: Ref): ref is GuestRef => memberIdOf(ref) === null;
 
 type Card = z.output<typeof usersCards.output>["items"][number];
 type Author = z.output<typeof usersAuthors.output>["items"][number];
 
-function unique(refs: Iterable<MemberRef>): Map<number, MemberRef> {
+function unique(refs: Iterable<Ref>): Map<number, MemberRef> {
   const byId = new Map<number, MemberRef>();
-  for (const ref of refs) byId.set(ref.id, ref);
+  for (const ref of refs) if (!isGuest(ref)) byId.set(ref.id, ref);
   return byId;
 }
 
@@ -91,8 +101,14 @@ function authorView(author: Author): AuthorView {
   };
 }
 
-function lookup<T>(views: Map<number, T>, what: string): (id: number) => T {
-  return (id) => {
+function lookup<T>(
+  views: Map<number, T>,
+  what: string,
+  guest: (ref: GuestRef) => T,
+): Lookup<T> {
+  return (ref) => {
+    if (typeof ref !== "number" && isGuest(ref)) return guest(ref);
+    const id = typeof ref === "number" ? ref : ref.id;
     const view = views.get(id);
     if (!view)
       throw new Error(`The ${what} ${id} was not collected for this page.`);
@@ -100,9 +116,13 @@ function lookup<T>(views: Map<number, T>, what: string): (id: number) => T {
   };
 }
 
+// A guest has no picture and no facts to show (`restricted`).
+const guestMember = (ref: GuestRef): MemberView =>
+  plainMember({ id: 0, username: ref.name ?? "" });
+
 export async function membersFor(
-  refs: Iterable<MemberRef>,
-): Promise<(id: number) => MemberView> {
+  refs: Iterable<Ref>,
+): Promise<Lookup<MemberView>> {
   const wanted = unique(refs);
   const views = new Map<number, MemberView>();
   for (const [id, ref] of wanted) views.set(id, plainMember(ref));
@@ -113,12 +133,12 @@ export async function membersFor(
   );
   for (const { items } of pages)
     for (const card of items) views.set(card.id, memberView(card));
-  return lookup(views, "member");
+  return lookup(views, "member", guestMember);
 }
 
 export async function authorsFor(
-  refs: Iterable<MemberRef>,
-): Promise<(id: number) => AuthorView> {
+  refs: Iterable<Ref>,
+): Promise<Lookup<AuthorView>> {
   const wanted = unique(refs);
   const views = new Map<number, AuthorView>();
   for (const [id, ref] of wanted) views.set(id, plainAuthor(ref));
@@ -129,7 +149,9 @@ export async function authorsFor(
   );
   for (const { items } of pages)
     for (const author of items) views.set(author.card.id, authorView(author));
-  return lookup(views, "author");
+  return lookup(views, "author", (ref) =>
+    plainAuthor({ id: 0, username: ref.name ?? "" }),
+  );
 }
 
 // What the viewer can do about a member: follow or unfollow them, start a conversation with them,

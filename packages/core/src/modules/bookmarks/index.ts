@@ -21,6 +21,7 @@ import {
   threadReadable,
   threadRowsByIds,
 } from "../forums";
+import { contentAuthor } from "../forums/guest-author";
 import { excerptFromMarkdown } from "../seo/excerpt";
 
 /** Bookmark rows examined by one `bookmarks.list` request, whatever the page size. */
@@ -43,6 +44,7 @@ type PostItem = {
   id: number;
   thread_id: number;
   user_id: number;
+  guest_name: string | null;
   position: number;
   state: State;
   body_source: string;
@@ -53,6 +55,7 @@ type Item = {
   threadId: number | null;
   postPosition: number | null;
   authorId: number;
+  guestName: string | null;
   excerpt: string;
 };
 
@@ -71,7 +74,7 @@ export const bookmarksSql = {
   mergedTarget: "SELECT merged_into_id FROM threads WHERE id = ?1",
   postOne: "SELECT thread_id, user_id, state FROM posts WHERE id = ?1",
   posts:
-    "SELECT p.id, p.thread_id, p.user_id, CASE WHEN p.position < 0 THEN -p.position - 1 ELSE p.position END AS position, p.state, b.body_source FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))",
+    "SELECT p.id, p.thread_id, p.user_id, p.guest_name, CASE WHEN p.position < 0 THEN -p.position - 1 ELSE p.position END AS position, p.state, b.body_source FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))",
   conversationOne:
     "SELECT 1 AS found FROM conversation_participants WHERE conversation_id = ?1 AND user_id = ?2 AND state = 'active'",
   conversations:
@@ -272,6 +275,7 @@ function loadVisible(ctx: Ctx, actor: Actor, userId: number, rows: Row[]): Map<s
         threadId: thread.id,
         postPosition: null,
         authorId: thread.user_id,
+        guestName: thread.guest_name,
         excerpt: rule.gates.reads(thread.node_id, thread.user_id) ? thread.excerpt : "",
       });
   }
@@ -283,6 +287,7 @@ function loadVisible(ctx: Ctx, actor: Actor, userId: number, rows: Row[]): Map<s
         threadId: thread.id,
         postPosition: post.position,
         authorId: post.user_id,
+        guestName: post.guest_name,
         excerpt: excerptFromMarkdown(post.body_source, 200, EXCERPT_SOURCE),
       });
   }
@@ -292,6 +297,7 @@ function loadVisible(ctx: Ctx, actor: Actor, userId: number, rows: Row[]): Map<s
       threadId: null,
       postPosition: null,
       authorId: conversation.user_id,
+      guestName: null,
       excerpt: "",
     });
   return items;
@@ -311,7 +317,7 @@ function listValues(ctx: Ctx, accepted: { row: Row; item: Item }[]) {
     title: item.title,
     threadId: item.threadId,
     postPosition: item.postPosition,
-    author: users(item.authorId),
+    author: contentAuthor(users, item.authorId, item.guestName),
     excerpt: item.excerpt,
   }));
 }

@@ -55,5 +55,7 @@ test("a rejected sign-up publishes nothing and leaves no member row", async () =
     auth.api.signUpEmail({ body: { ...identity(2), username: identity(1).username } }),
   ).rejects.toThrow();
   expect(registered(ctx)).toHaveLength(before);
-  expect(ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM users").get()!.n).toBe(1);
+  expect(
+    ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM users WHERE id > 0").get()!.n,
+  ).toBe(1);
 });

@@ -700,7 +700,7 @@ describe("sign-in, registration and failed sign-ins", () => {
   test("resolveActor carries the user agent of the request", async () => {
     const w = await accounts();
     const guest = await resolveActor(w.ctx, headers("203.0.113.40", GOOGLEBOT));
-    expect(guest.actor).toEqual({ kind: "guest", userAgent: GOOGLEBOT });
+    expect(guest.actor).toEqual({ kind: "guest", clientIp: "203.0.113.40", userAgent: GOOGLEBOT });
     expect((await resolveActor(w.ctx, new Headers())).actor).toEqual(GUEST);
   });
 });

@@ -30,6 +30,7 @@ import { quotable } from "@/components/forum/selection-bb";
 import { ShareButton } from "@/components/forum/share-button";
 import { HashLink } from "@/components/layout/hash-link";
 import { Badge } from "@/components/ui/badge";
+import { memberIdOf, sameMember } from "@/lib/sermo/authors";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { call } from "@/lib/sermo/client";
 import { authorsFor } from "@/lib/sermo/members";
@@ -241,7 +242,7 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
     call(threadsGet, { threadId: posts[0].threadId, countView: false }),
   ]);
   const context = {
-    threadAuthorId: found.thread.author.id,
+    threadAuthorId: memberIdOf(found.thread.author),
     may: threadMay(found.resolvedPermissions, found.permissions),
     canQuote: found.permissions.canReply,
   };
@@ -272,8 +273,8 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
     node: (
       <PostItem
         post={post}
-        author={author(post.author.id)}
-        byThreadAuthor={post.author.id === context.threadAuthorId}
+        author={author(post.author)}
+        byThreadAuthor={sameMember(post.author, context.threadAuthorId)}
         noteState={post.state !== "visible"}
         highlighted={false}
         signed={false}

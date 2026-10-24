@@ -623,7 +623,7 @@ for (const mode of ["cookie", "key"] as const) {
       balance: 30,
       items: [{ amount: 30, type: "event", actor: null }],
     });
-    expect(reply.author.id).toBe(f.member.id);
+    expect(reply.author).toMatchObject({ kind: "member", id: f.member.id });
     await dispatchEvents(f.ctx);
     expect(await f.api(c.creditsHistory, "GET", "/credits", f.member.auth)).toEqual(earned);
     const grant = await f.api(

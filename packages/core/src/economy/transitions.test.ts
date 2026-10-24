@@ -442,7 +442,7 @@ test("balance repair completes multiple chunks without altering any ledger row",
   }
   const expected = balances(ctx);
   const ledger = rows(ctx, "SELECT * FROM credit_transactions ORDER BY id");
-  ctx.sqlite.exec("UPDATE users SET credits = credits + 12345");
+  ctx.sqlite.exec("UPDATE users SET credits = credits + 12345 WHERE id > 0");
   expect(await act("credits.recalculate")).toEqual({ queued: true });
   await drainJobs(ctx);
   expect(balances(ctx)).toEqual(expected);

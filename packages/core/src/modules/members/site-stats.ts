@@ -2,7 +2,7 @@ import { GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { siteStats } from "../../contracts/members";
-import { GROUP_IDS } from "../../db/schema";
+import { GROUP_IDS, GUEST_ACCOUNT_ID } from "../../db/schema";
 import { implement } from "../../operation";
 import { can, viewableNodeIds } from "../../permissions";
 import { loadViewerCards } from "./cards";
@@ -12,8 +12,8 @@ import { siteStatsCache as kept, type SiteTotals } from "./site-stats-cache";
 /** How long the totals are kept: they are the same for every viewer. */
 export const SITE_STATS_CACHE_MS = 10 * 60_000;
 
-/** An account that counts as a member: confirmed, approved and not erased. */
-const COUNTED = `u.erased_at IS NULL AND u.group_id <> ${GROUP_IDS.unconfirmed} AND u.signup_review IS NULL`;
+/** An account that counts as a member: confirmed, approved, not erased and not the guest account. */
+const COUNTED = `u.erased_at IS NULL AND u.group_id <> ${GROUP_IDS.unconfirmed} AND u.signup_review IS NULL AND u.id <> ${GUEST_ACCOUNT_ID}`;
 
 /** Not banned at the time `?1`. */
 const NOT_BANNED = "u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?1)";

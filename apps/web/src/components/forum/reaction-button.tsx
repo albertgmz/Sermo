@@ -160,7 +160,7 @@ export function ReactionButton(props: {
   viewerTypeId: number | null;
   types: ReactionType[];
   viewerId: number | null;
-  authorId: number;
+  authorId: number | null;
   size?: keyof typeof SIZES;
   className?: string;
 }) {

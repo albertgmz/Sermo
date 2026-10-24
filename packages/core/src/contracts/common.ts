@@ -31,6 +31,20 @@ export const Title = z.string().trim().min(1).max(150);
 
 export const UserSummary = z.object({ id: Id, username: z.string() }).meta({ id: "UserSummary" });
 
+/**
+ * Who wrote a thread or a post: a member (`kind: "member"`, with their id and username), or a
+ * guest (`kind: "guest"`), who has no account, so no id, profile, avatar or card; `name` is the
+ * name they gave, null when none was kept.
+ */
+export const ContentAuthor = z
+  .discriminatedUnion("kind", [
+    z
+      .object({ kind: z.literal("member"), id: Id, username: z.string() })
+      .meta({ id: "MemberAuthor" }),
+    z.object({ kind: z.literal("guest"), name: z.string().nullable() }).meta({ id: "GuestAuthor" }),
+  ])
+  .meta({ id: "ContentAuthor" });
+
 /** Who hid a deleted post, message, profile post or comment, why and when. */
 export const PostDeletion = z
   .object({

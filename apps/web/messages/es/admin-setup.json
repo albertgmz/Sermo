@@ -372,7 +372,8 @@
     "register": "Registro",
     "login": "Inicio de sesión",
     "passwordReset": "Solicitud de restablecer la contraseña",
-    "resendConfirmation": "Reenviar el correo de confirmación"
+    "resendConfirmation": "Reenviar el correo de confirmación",
+    "guestPost": "Mensajes de invitados (temas nuevos y respuestas)"
   },
   "purposes": {
     "attachment": "Adjuntos",

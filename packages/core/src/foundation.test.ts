@@ -77,7 +77,9 @@ describe("database connection", () => {
         throw new Error("boom");
       }),
     ).toThrow("boom");
-    const row = ctx.sqlite.query("SELECT count(*) AS n FROM users").get() as { n: number };
+    const row = ctx.sqlite.query("SELECT count(*) AS n FROM users WHERE id > 0").get() as {
+      n: number;
+    };
     expect(row.n).toBe(0);
   });
 });
@@ -310,7 +312,9 @@ describe("review regressions", () => {
         await Promise.resolve();
       }) as unknown as () => void),
     ).toThrow("synchronous");
-    const row = ctx.sqlite.query("SELECT count(*) AS n FROM users").get() as { n: number };
+    const row = ctx.sqlite.query("SELECT count(*) AS n FROM users WHERE id > 0").get() as {
+      n: number;
+    };
     expect(row.n).toBe(0);
   });
 

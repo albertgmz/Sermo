@@ -1,4 +1,5 @@
 import type { Ctx } from "../../context";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import type { DomainEvent } from "../../events";
 import { moveCredits } from "../../shared/credits";
@@ -46,6 +47,8 @@ function apply(
   userId: number,
   source: Source,
 ): void {
+  // The guest account earns nothing (a reaction to a guest's post, for one).
+  if (userId === GUEST_ACCOUNT_ID) return;
   for (const rule of query<RuleRow>(ctx, "active").all(trigger, event.id)) {
     if (
       RECEIVED.includes(trigger) &&
@@ -124,6 +127,8 @@ function reconcile(
 function creation(ctx: Ctx, event: DomainEvent, row: Content): void {
   if (!["thread", "post", "profile_post"].includes(event.targetType)) return;
   if (event.type !== "content.created" && event.type !== "content.state_changed") return;
+  // A guest's post pays no one: neither its author nor the member it replies to.
+  if (row.user_id === GUEST_ACCOUNT_ID) return;
   // The first transition involving visibility distinguishes initial approval from restores
   // and re-approval after an edit. It also identifies creation events delivered after approval.
   // Only events from the content's own life count: a removed row's id can be given to a new one.

@@ -68,7 +68,7 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-const ember = { id: 7, username: "ember" };
+const ember = { kind: "member" as const, id: 7, username: "ember" };
 const COVER = { fileId: 40, url: "/api/v1/files/40/cover.webp" };
 const AWARDS = [
   { id: 1, name: "First post", icon: "star", image: null, tier: "gold" },

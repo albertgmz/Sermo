@@ -44,7 +44,7 @@ export async function RankedThreads({
               {by === "latestThreads" ? (
                 <>
                   <UserLink
-                    user={member(thread.author.id)}
+                    user={member(thread.author)}
                     className="font-medium"
                   />{" "}
                   · <RelativeTime date={thread.createdAt} />
@@ -52,7 +52,7 @@ export async function RankedThreads({
               ) : (
                 <>
                   <UserLink
-                    user={member(thread.lastPost.user.id)}
+                    user={member(thread.lastPost.user)}
                     className="font-medium"
                   />{" "}
                   · <RelativeTime date={thread.lastPost.postedAt} />

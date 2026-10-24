@@ -2,6 +2,7 @@ import type { nodesList } from "@sermo/core/contracts";
 import { subtreeTotals } from "@sermo/core/subtree-totals";
 import type * as z from "zod";
 import type { ForumCardData } from "@/components/forum/forum-card";
+import { authorName, type Lookup } from "./authors";
 import { threadOpenHref } from "./open-links";
 import type { MemberView } from "./views";
 
@@ -40,7 +41,7 @@ export function cardMembers(
 export function forumCard(
   node: ApiNode,
   childrenOf: (parentId: number) => ApiNode[],
-  member: (id: number) => MemberView,
+  member: Lookup<MemberView>,
   unread: boolean,
   signedIn: boolean,
 ): ForumCardData {
@@ -61,8 +62,8 @@ export function forumCard(
       prefix: null,
       createdAt: lastPost.postedAt,
       author: {
-        username: lastPost.user.username,
-        member: member(lastPost.user.id),
+        username: authorName(lastPost.user),
+        member: member(lastPost.user),
       },
     },
   };

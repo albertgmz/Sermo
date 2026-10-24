@@ -10,6 +10,7 @@ import {
   privacyLogRetention,
   usersIps,
 } from "../../contracts/security";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { type AnyOperation, implement } from "../../operation";
@@ -134,12 +135,16 @@ export const ipsContentOp = implement(ipsContent, (ctx, actor, input) => {
     : undefined;
   // Content the actor cannot see, and the address of a member the actor does not outrank, are
   // not shown: as if none were logged.
+  // A guest's post has no member behind it to outrank.
+  const guest = found?.user_id === GUEST_ACCOUNT_ID;
   const row =
-    found && readableMembers(ctx, actor, [found.user_id]).has(found.user_id) ? found : null;
+    found && (guest || readableMembers(ctx, actor, [found.user_id]).has(found.user_id))
+      ? found
+      : null;
   return {
     entry: row
       ? {
-          userId: row.user_id,
+          userId: guest ? null : row.user_id,
           ip: row.ip,
           action: row.action,
           createdAt: iso(row.created_at),
@@ -206,7 +211,8 @@ export const ipsMembersOp = implement(ipsMembers, (ctx, actor, input) => {
     actor,
     raw.map((row) => row.user_id),
   );
-  const page = raw.filter((row) => readable.has(row.user_id));
+  // Nor is the guest account a member: the addresses of guest posts are found through the posts.
+  const page = raw.filter((row) => readable.has(row.user_id) && row.user_id !== GUEST_ACCOUNT_ID);
   const user = loadUserSummaries(
     ctx,
     page.map((row) => row.user_id),

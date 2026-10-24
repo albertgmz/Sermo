@@ -121,7 +121,7 @@ function backend(staff: Record<string, unknown> = {}, nodes: unknown[] = []) {
             ["thread", "post", "profile_post", "conversation_message"] as const
           )[index % 4],
           id: 100 + index,
-          authorId: 9,
+          author: { kind: "member", id: 9, username: "member9" },
           createdAt: at,
           ...context(index),
         })),

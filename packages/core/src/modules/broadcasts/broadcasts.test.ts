@@ -153,7 +153,7 @@ describe("messages to members", () => {
     expect((await call("status")).state).toBe("running");
     await drain();
     const reached = sql(
-      "SELECT user_id FROM conversation_participants WHERE state = 'active' AND user_id != (SELECT MIN(id) FROM users) ORDER BY user_id",
+      "SELECT user_id FROM conversation_participants WHERE state = 'active' AND user_id != (SELECT MIN(id) FROM users WHERE id > 0) ORDER BY user_id",
     ).map((row) => (row as { user_id: number }).user_id);
     expect(reached).toEqual(inside);
     expect(await call("status")).toMatchObject({ state: "done", sent: inside.length });

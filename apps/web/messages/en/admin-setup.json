@@ -372,7 +372,8 @@
     "register": "Registration",
     "login": "Sign-in",
     "passwordReset": "Password reset request",
-    "resendConfirmation": "Resend the confirmation email"
+    "resendConfirmation": "Resend the confirmation email",
+    "guestPost": "Guest posts (new threads and replies)"
   },
   "purposes": {
     "attachment": "Attachments",

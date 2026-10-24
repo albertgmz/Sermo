@@ -109,7 +109,7 @@ test("opening the bookmarks tab hands the listed bookmarks to its rows", async (
           title: "Seed swap",
           threadId: 8,
           postPosition: null,
-          author: { id: 1, username: "ann" },
+          author: { kind: "member", id: 1, username: "ann" },
           excerpt: "",
         },
       ],

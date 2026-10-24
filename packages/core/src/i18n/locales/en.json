@@ -247,6 +247,8 @@
   "permission.forum.createThread.description": "Start new threads in the forum.",
   "permission.forum.reply": "Reply to threads",
   "permission.forum.reply.description": "Reply to threads in the forum.",
+  "permission.forum.guestPost": "Post as a guest",
+  "permission.forum.guestPost.description": "Start threads and reply without an account, under a name the guest gives. Everything a guest posts waits for approval. Only the Guest group uses it.",
   "permission.forum.editOwn": "Edit own content",
   "permission.forum.editOwn.description": "Edit one's own posts and threads in the forum, within the time limit.",
   "permission.forum.editOwnTimeLimit": "Time limit to edit own content",

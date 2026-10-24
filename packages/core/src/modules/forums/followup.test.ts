@@ -82,13 +82,14 @@ describe("forum follow-up coverage", () => {
       title: "Token",
       body: "Body",
     });
-    expect(t.thread.author.id).toBe(actorUserId(member)!);
-    expect(t.post.author.id).toBe(actorUserId(member)!);
+    expect(t.thread.author).toMatchObject({ kind: "member", id: actorUserId(member)! });
+    expect(t.post.author).toMatchObject({ kind: "member", id: actorUserId(member)! });
     expect(
       (await call(ctx, threadsGetOp, admin, { threadId: t.thread.id })).permissions.canModerate,
     ).toBe(true);
     const p = await call(ctx, postsCreateOp, admin, { threadId: t.thread.id, body: "Admin" });
-    expect([p.author.id, p.position]).toEqual([actorUserId(admin)!, 1]);
+    expect(p.author).toMatchObject({ kind: "member", id: actorUserId(admin)! });
+    expect(p.position).toBe(1);
     const tokenPost = await call(ctx, postsCreateOp, token, {
       threadId: t.thread.id,
       body: "Token reply",
@@ -538,7 +539,7 @@ describe("forum follow-up coverage", () => {
     const t = await call(ctx, threadsCreateOp, member, { nodeId: forum.id, title: "T", body: "B" });
     const p = await call(ctx, postsCreateOp, member, { threadId: t.thread.id, body: "R" });
     expect(reactablePost(ctx, other, p.id)).toEqual({
-      authorId: p.author.id,
+      authorId: actorUserId(member)!,
       isVisible: true,
       nodeId: forum.id,
     });

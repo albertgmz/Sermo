@@ -1,4 +1,5 @@
 import { quoteOf } from "@/components/forum/bb-text";
+import { type AuthorRef, authorName, memberIdOf } from "@/lib/sermo/authors";
 
 // Quoting only the part of a post the member selected, as XenForo's "Quote" tooltip does. The
 // pieces here read the page and build BB code; `selection-quote.tsx` draws the button.
@@ -11,16 +12,13 @@ type Reference = "post" | "convMessage";
 
 // The attributes that make the body of a post or message quotable by selection: what the quote's
 // attribution needs. A post the viewer may not quote carries none.
-export function quotable(
-  reference: Reference,
-  id: number,
-  author: { id: number; username: string },
-) {
+export function quotable(reference: Reference, id: number, author: AuthorRef) {
   return {
     "data-quote-ref": reference,
     "data-quote-id": id,
-    "data-quote-author": author.username,
-    "data-quote-author-id": author.id,
+    "data-quote-author": authorName(author),
+    // A guest has no member id: the quote names none.
+    "data-quote-author-id": memberIdOf(author) ?? undefined,
   };
 }
 
@@ -46,10 +44,11 @@ export function selectedBody(
 
 // The attribution the body carries, around BB code `source`.
 export function partialQuote(body: Element, source: string) {
+  const authorId = body.getAttribute("data-quote-author-id");
   return quoteOf(
     Number(body.getAttribute("data-quote-id")),
     body.getAttribute("data-quote-author") ?? "",
-    Number(body.getAttribute("data-quote-author-id")),
+    authorId === null ? null : Number(authorId),
     source,
     body.getAttribute("data-quote-ref") === "convMessage"
       ? "convMessage"

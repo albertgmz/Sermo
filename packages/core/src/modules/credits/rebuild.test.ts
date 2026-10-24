@@ -20,7 +20,7 @@ afterEach(() => {
 const enqueue = (ctx: ReturnType<typeof setup>) =>
   enqueueJob(ctx, "credits.recalculate", { after: 0 }, { uniqueKey: "credits.recalculate" });
 const balances = (ctx: ReturnType<typeof setup>) =>
-  ctx.sqlite.prepare("SELECT id, credits FROM users ORDER BY id").all();
+  ctx.sqlite.prepare("SELECT id, credits FROM users WHERE id > 0 ORDER BY id").all();
 const ledger = (ctx: ReturnType<typeof setup>) =>
   ctx.sqlite.prepare("SELECT * FROM credit_transactions ORDER BY id").all();
 
@@ -39,7 +39,9 @@ describe("credit balance rebuild", () => {
     const expected = balances(ctx);
     const before = ledger(ctx);
     const eventsBefore = ctx.sqlite.prepare("SELECT * FROM domain_events").all();
-    ctx.sqlite.prepare("UPDATE users SET credits = 123 WHERE id != ?1").run(members[1]!.id);
+    ctx.sqlite
+      .prepare("UPDATE users SET credits = 123 WHERE id != ?1 AND id > 0")
+      .run(members[1]!.id);
     ctx.sqlite.exec(
       "CREATE TEMP TABLE balance_updates (user_id INTEGER); CREATE TEMP TRIGGER track_balance_updates AFTER UPDATE OF credits ON users BEGIN INSERT INTO balance_updates VALUES (new.id); END",
     );
@@ -93,14 +95,14 @@ describe("credit balance rebuild", () => {
     const ctx = setup();
     writeTx(ctx, () => {
       for (let i = 0; i < 205; i++) insertUser(ctx);
-      ctx.sqlite.exec("UPDATE users SET credits = 42");
+      ctx.sqlite.exec("UPDATE users SET credits = 42 WHERE id > 0");
     });
     const id = enqueue(ctx)!;
     ctx.sqlite.exec(
       "CREATE TEMP TRIGGER reject_credit_continuation BEFORE INSERT ON jobs WHEN new.type = 'credits.recalculate' BEGIN SELECT RAISE(ABORT, 'continuation failed'); END",
     );
     await runDueJobs(ctx, { limit: 1 });
-    expect(ctx.sqlite.prepare("SELECT DISTINCT credits FROM users").all()).toEqual([
+    expect(ctx.sqlite.prepare("SELECT DISTINCT credits FROM users WHERE id > 0").all()).toEqual([
       { credits: 42 },
     ]);
     expect(
@@ -117,7 +119,7 @@ describe("credit balance rebuild", () => {
     ctx.sqlite.exec("DROP TRIGGER reject_credit_continuation");
     ctx.clock.advance(30_000);
     while (await runDueJobs(ctx, { limit: 1 })) {}
-    expect(ctx.sqlite.prepare("SELECT DISTINCT credits FROM users").all()).toEqual([
+    expect(ctx.sqlite.prepare("SELECT DISTINCT credits FROM users WHERE id > 0").all()).toEqual([
       { credits: 0 },
     ]);
     expect(ledger(ctx)).toEqual([]);

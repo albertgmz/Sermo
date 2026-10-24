@@ -58,6 +58,8 @@ export type Actor =
   | {
       readonly kind: "guest";
       readonly versions?: PermissionVersions;
+      /** Trusted client IP supplied by the HTTP actor resolver when available (guest posting). */
+      readonly clientIp?: string;
       /** The request's user agent, supplied by the HTTP actor resolver when available. */
       readonly userAgent?: string;
       /** Location the trusted proxy reported for the request, when it did. */

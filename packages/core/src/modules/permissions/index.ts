@@ -14,7 +14,7 @@ import {
   usersGetGroups,
   usersSetGroups,
 } from "../../contracts/permissions";
-import { GROUP_IDS } from "../../db/schema";
+import { GROUP_IDS, GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
@@ -89,8 +89,8 @@ const groupValue = (g: GroupRow & { member_count?: number | null }) => ({
 export const groupsSql = {
   plain:
     "SELECT id, title, description, rank, user_title, badge, builtin, name_color_id, is_staff FROM groups",
-  counted:
-    "SELECT id, title, description, rank, user_title, badge, builtin, name_color_id, is_staff, (SELECT count(*) FROM users u WHERE u.group_id = groups.id) + (SELECT count(*) FROM user_groups ug WHERE ug.group_id = groups.id AND NOT EXISTS (SELECT 1 FROM users p WHERE p.id = ug.user_id AND p.group_id = groups.id)) AS member_count FROM groups",
+  // The guest account is in the Guest group, but no member of it.
+  counted: `SELECT id, title, description, rank, user_title, badge, builtin, name_color_id, is_staff, (SELECT count(*) FROM users u WHERE u.group_id = groups.id AND u.id <> ${GUEST_ACCOUNT_ID}) + (SELECT count(*) FROM user_groups ug WHERE ug.group_id = groups.id AND NOT EXISTS (SELECT 1 FROM users p WHERE p.id = ug.user_id AND p.group_id = groups.id)) AS member_count FROM groups`,
 };
 /** A group's name colour must be an active colour of the `name` catalog. */
 const requireNameColor = (ctx: Ctx, id: number) => {

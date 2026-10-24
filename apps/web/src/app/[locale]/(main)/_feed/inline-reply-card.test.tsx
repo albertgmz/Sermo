@@ -4,6 +4,7 @@ import { renderToReadableStream } from "react-dom/server";
 import type { AuthorView } from "@/lib/sermo/views";
 import { postBody } from "@/lib/test-bodies";
 import { translator, withIntl } from "@/lib/test-intl";
+import { byMemberId } from "@/lib/test-members";
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
@@ -81,30 +82,32 @@ const { FeedItem } = await import("./feed-item");
 
 type Item = Parameters<typeof FeedItem>[0]["item"];
 
-const author = (id: number): AuthorView => ({
-  member: {
-    id,
-    username: `member${id}`,
-    avatar: null,
-    frame: null,
-    nameColor: null,
-    nameIcon: null,
-    title: "",
-    badges: [],
-    level: 1,
-    restricted: false,
-  },
-  cover: null,
-  joinedAt: "2026-01-01T00:00:00.000Z",
-  postCount: 0,
-  reactionScore: 0,
-  xp: 0,
-  currentLevelXp: 0,
-  nextLevelXp: 100,
-  awards: [],
-  signatureHtml: null,
-  lastActivity: null,
-});
+const author = byMemberId(
+  (id: number): AuthorView => ({
+    member: {
+      id,
+      username: `member${id}`,
+      avatar: null,
+      frame: null,
+      nameColor: null,
+      nameIcon: null,
+      title: "",
+      badges: [],
+      level: 1,
+      restricted: false,
+    },
+    cover: null,
+    joinedAt: "2026-01-01T00:00:00.000Z",
+    postCount: 0,
+    reactionScore: 0,
+    xp: 0,
+    currentLevelXp: 0,
+    nextLevelXp: 100,
+    awards: [],
+    signatureHtml: null,
+    lastActivity: null,
+  }),
+);
 
 const item = (threadId: number, canReply: boolean) =>
   ({

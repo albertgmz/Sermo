@@ -2,6 +2,7 @@ import * as z from "zod";
 import { defineContract } from "../operation";
 import {
   ActorPassword,
+  ContentAuthor,
   ContentState,
   Id,
   moderationNotice,
@@ -97,7 +98,8 @@ export const approvalsList = defineContract({
     z.object({
       type: ModerationTarget.shape.type,
       id: Id,
-      authorId: Id,
+      /** A member, or for a guest's thread or post the name the guest gave. */
+      author: ContentAuthor,
       createdAt: Timestamp,
       ...QueueContext,
     }),

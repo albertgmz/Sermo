@@ -1,6 +1,7 @@
 import type { postsList, threadsGet } from "@sermo/core/contracts";
 import type * as z from "zod";
 import type { ThreadCardData } from "@/components/forum/thread-hover-card";
+import type { Lookup } from "./authors";
 import type { MemberView, PrefixView } from "./views";
 
 export type ApiThread = z.output<typeof threadsGet.output>["thread"];
@@ -40,7 +41,7 @@ export function prefixChoices(
 // A backend thread in the shape the shared thread components take.
 export function threadCard(
   thread: ApiThread,
-  member: (id: number) => MemberView,
+  member: Lookup<MemberView>,
 ): ThreadCardData {
   return {
     id: thread.id,
@@ -52,10 +53,10 @@ export function threadCard(
     replyCount: thread.replyCount,
     coverPicture: thread.cover && { url: thread.cover.url },
     forum: thread.node,
-    author: { member: member(thread.author.id) },
+    author: { member: member(thread.author) },
     lastPost: {
       createdAt: thread.lastPost.postedAt,
-      author: { member: member(thread.lastPost.user.id) },
+      author: { member: member(thread.lastPost.user) },
     },
   };
 }

@@ -49,6 +49,7 @@ import {
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import type { FeedView } from "@/lib/feed-view";
 import { formatCompact } from "@/lib/format";
+import { type Lookup, memberIdOf } from "@/lib/sermo/authors";
 import { threadOpenHref } from "@/lib/sermo/open-links";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import { threadCard } from "@/lib/sermo/threads";
@@ -262,7 +263,7 @@ export function FeedItem({
   view = "cards",
 }: {
   item: ApiFeedItem;
-  author: (id: number) => AuthorView;
+  author: Lookup<AuthorView>;
   // The clock, read by the page after its request data.
   now: number;
   viewerId: number | null;
@@ -407,12 +408,12 @@ export function FeedItem({
   const answersHref = isThread
     ? threadOpenHref(thread.id, viewerId !== null)
     : href;
-  const card = threadCard(thread, (id) => author(id).member);
+  const card = threadCard(thread, (ref) => author(ref).member);
   const anchor = `feed-post-${post.id}`;
   return (
     <Card
       id={anchor}
-      author={author(post.author.id)}
+      author={author(post.author)}
       createdAt={item.createdAt}
       context={t.rich(isThread ? "threadContext" : "replyContext", {
         title: thread.node.title,
@@ -436,7 +437,7 @@ export function FeedItem({
               target="post"
               id={post.id}
               reactions={post.reactions}
-              authorId={post.author.id}
+              authorId={memberIdOf(post.author)}
               viewerId={viewerId}
               picker={picker}
               reactionTypes={reactionTypes}

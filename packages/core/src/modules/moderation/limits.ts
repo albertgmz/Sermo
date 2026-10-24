@@ -1,6 +1,7 @@
 import type { Actor } from "../../actor";
 import { actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { RateLimitedError } from "../../errors";
 import { markPublic } from "../../operation";
 import { can, type IntegerPermissionId, permissionValue } from "../../permissions";
@@ -110,5 +111,64 @@ export const requireNegativeReactionRoom = markPublic(
   function requireNegativeReactionRoom(ctx: Ctx, actor: Actor): void {
     const userId = actorUserId(actor);
     if (userId !== null) requireDailyRoom(ctx, actor, userId, "antispam.negativeReactionsPerDay");
+  },
+);
+
+/**
+ * The same limits for guests, who have no account to count by: they are counted per address (an
+ * IPv6 /64 as one), from the `ip_log` rows guest posts leave under the guest account. `?3`
+ * places from the newest: 0 is the flood clock, `limit - 1` a daily limit. Through
+ * `ip_log_net_member` (the `action <> 'sign_in_failed'` term matches its partial index).
+ */
+export const guestRoomSql = {
+  posts:
+    "SELECT created_at FROM ip_log WHERE ip_net = ?1 AND user_id = ?2 AND action <> 'sign_in_failed' AND action IN ('post', 'thread') ORDER BY created_at DESC LIMIT 1 OFFSET ?3",
+  threads:
+    "SELECT created_at FROM ip_log WHERE ip_net = ?1 AND user_id = ?2 AND action <> 'sign_in_failed' AND action = 'thread' ORDER BY created_at DESC LIMIT 1 OFFSET ?3",
+} as const;
+
+function guestRow(ctx: Ctx, which: keyof typeof guestRoomSql, net: string, place: number) {
+  return prepared(ctx, `moderation.guestRoom.${which}`, () =>
+    ctx.sqlite.prepare<{ created_at: number }, [string, number, number]>(guestRoomSql[which]),
+  ).get(net, GUEST_ACCOUNT_ID, place);
+}
+
+/**
+ * Call inside the write transaction of a guest's thread or reply, before the insert: the site's
+ * flood interval and the Guest group's daily limits (`antispam.postsPerDay`,
+ * `antispam.threadsPerDay`), counted for the guest's address network `net`.
+ */
+export const requireGuestWriteRoom = markPublic(
+  "Callers authorize the guest post first; this only limits how fast an address posts.",
+  function requireGuestWriteRoom(
+    ctx: Ctx,
+    actor: Actor,
+    net: string,
+    kind: "thread" | "reply",
+    floodSeconds: number,
+  ): void {
+    const newest = guestRow(ctx, "posts", net, 0)?.created_at ?? 0;
+    const wait = newest + floodSeconds * 1000 - ctx.now();
+    const left = Math.ceil(wait / 1000);
+    if (floodSeconds > 0 && wait > 0)
+      throw new RateLimitedError(
+        `Please wait ${left} second${left === 1 ? "" : "s"} before posting again.`,
+      );
+    // As for members: 0 (no entry) and -1 are unlimited. A new thread also counts as a post.
+    const reached = (permission: IntegerPermissionId, which: keyof typeof guestRoomSql) => {
+      const limit = permissionValue(ctx, actor, permission);
+      const oldest = limit > 0 ? guestRow(ctx, which, net, limit - 1) : null;
+      return oldest && oldest.created_at >= ctx.now() - DAY ? limit : null;
+    };
+    const threads = kind === "thread" ? reached("antispam.threadsPerDay", "threads") : null;
+    if (threads !== null)
+      throw new RateLimitedError(
+        `This address has reached its limit of ${threads} threads in 24 hours. Try again later.`,
+      );
+    const posts = reached("antispam.postsPerDay", "posts");
+    if (posts !== null)
+      throw new RateLimitedError(
+        `This address has reached its limit of ${posts} posts in 24 hours. Try again later.`,
+      );
   },
 );

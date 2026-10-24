@@ -519,6 +519,13 @@
       "when": 1792818530368,
       "tag": "0073_online_visitors",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "6",
+      "when": 1792873837614,
+      "tag": "0074_guest_authors",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { criteriaList } from "../../contracts/criteria";
 import * as contracts from "../../contracts/promotions";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { type DomainEvent, publishEvent, registerEventSubscriber } from "../../events";
@@ -374,6 +375,8 @@ function evaluate(
  */
 const unchanged = (seen: Map<number, string>) => (p: PromotionRow) => seen.get(p.id) === p.rule;
 export function evaluateMember(ctx: Ctx, userId: number): number {
+  // The guest account is no member: it is never promoted.
+  if (userId === GUEST_ACCOUNT_ID) return 0;
   const first = one<MemberRow>(ctx, "member", memberSql, userId);
   if (!first) return 0;
   const seenRows = evaluationRows(ctx);

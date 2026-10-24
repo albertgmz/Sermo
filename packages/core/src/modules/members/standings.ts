@@ -2,6 +2,7 @@ import * as z from "zod";
 import type { Actor, PermissionVersions } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { standingsMonth, standingsWinners } from "../../contracts/members";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ValidationError } from "../../errors";
 import { implement } from "../../operation";
@@ -235,6 +236,8 @@ export function* computeMonth(
     lastId = rows.at(-1)!.id;
     yield;
   }
+  // Guests' posts, and reactions to them, belong to the guest account, which is no member.
+  stats.delete(GUEST_ACCOUNT_ID);
   return stats;
 }
 

@@ -2,6 +2,7 @@ import { feedList } from "@sermo/core/contracts";
 import { FeedItem } from "@/app/[locale]/(main)/_feed/feed-item";
 import type { FeedFilterValue } from "@/lib/feed-filters";
 import type { ListPage } from "@/lib/list-pages";
+import type { AuthorRef } from "@/lib/sermo/authors";
 import { read } from "@/lib/sermo/client";
 import { getFeedView } from "@/lib/sermo/feed-view";
 import { authorsFor } from "@/lib/sermo/members";
@@ -41,7 +42,7 @@ export async function feedPage(
         ? [{ id: item.profilePost.profileUserId, username: "" }]
         : [],
     ),
-    ...feed.items.flatMap((item) =>
+    ...feed.items.flatMap<AuthorRef>((item) =>
       item.type === "profilePost"
         ? [
             item.profilePost.author,

@@ -1,6 +1,7 @@
 import * as z from "zod";
 import { type Ctx, prepared } from "../../context";
 import { type MEMBER_SORTS, usersBirthdays, usersList, usersStaff } from "../../contracts/members";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { languageFor } from "../../i18n";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -80,10 +81,14 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
       rows.map((row) => row.id),
     );
     // A ranking also checks the erased mark; the plain directory goes by the ban alone, as before.
+    // The guest account is no member.
     return new Set(
       rows.filter(
         (row) =>
-          (!input.ranked || row.erased_at === null) && !isBanned(row, now) && open.has(row.id),
+          row.id !== GUEST_ACCOUNT_ID &&
+          (!input.ranked || row.erased_at === null) &&
+          !isBanned(row, now) &&
+          open.has(row.id),
       ),
     );
   };

@@ -355,9 +355,10 @@ test("usernames whose lowercase form is not a valid username are refused", async
   await expect(
     auth.api.signUpEmail({ body: body("İpek", "ipek@example.test") }),
   ).rejects.toMatchObject({ body: { code: "INVALID_USERNAME" } });
-  expect(ctx.sqlite.query<{ n: number }, []>("SELECT count(*) AS n FROM auth_user").get()?.n).toBe(
-    0,
-  );
+  expect(
+    ctx.sqlite.query<{ n: number }, []>("SELECT count(*) AS n FROM auth_user WHERE id > 0").get()
+      ?.n,
+  ).toBe(0);
 
   const signedUp = await auth.api.signUpEmail({ body: body("Éloise", "eloise@example.test") });
   const normalized = (signedUp.user as { username?: string }).username;
@@ -393,11 +394,11 @@ test("authenticated username changes reject names whose lowercase form is invali
       body: { username: "İpek" },
     }),
   ).rejects.toMatchObject({ statusCode: 400, body: { code: "INVALID_USERNAME" } });
-  expect(ctx.sqlite.query<{ username: string }, []>("SELECT username FROM users").all()).toEqual([
-    { username: "ipek" },
-  ]);
   expect(
-    ctx.sqlite.query<{ username: string }, []>("SELECT username FROM auth_user").all(),
+    ctx.sqlite.query<{ username: string }, []>("SELECT username FROM users WHERE id > 0").all(),
+  ).toEqual([{ username: "ipek" }]);
+  expect(
+    ctx.sqlite.query<{ username: string }, []>("SELECT username FROM auth_user WHERE id > 0").all(),
   ).toEqual([{ username: "ipek" }]);
 });
 

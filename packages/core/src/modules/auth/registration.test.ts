@@ -71,7 +71,8 @@ async function world(options: { mail?: boolean } = {}) {
       )
       .get(id);
   const members = () =>
-    w.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM users").get()!.n;
+    w.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM users WHERE id > 0").get()!
+      .n;
   return { ...w, founder, settings, join, resend, row, members };
 }
 

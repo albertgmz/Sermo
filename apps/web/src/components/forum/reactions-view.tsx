@@ -19,7 +19,7 @@ const CONTENT_TYPE = {
 export type ReactionsData = {
   target: ReactionTarget;
   id: number;
-  authorId: number;
+  authorId: number | null;
   total: number;
   mine: number | null;
   // The counts by type, as the summary lists them.

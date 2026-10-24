@@ -17,6 +17,7 @@ import type {
   PictureResult,
 } from "@/components/forum/picture-types";
 import { liteBlocks } from "@/lib/lite-mode";
+import { authorName, memberIdOf } from "@/lib/sermo/authors";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import {
@@ -140,7 +141,10 @@ async function postDetails(
   return {
     status: "ready",
     details: {
-      author: { id: post.author.id, username: post.author.username },
+      author: {
+        id: memberIdOf(post.author),
+        username: authorName(post.author),
+      },
       createdAt: post.createdAt,
       where: {
         href: threadHref(post.threadId, post.position, post.id),
@@ -149,7 +153,7 @@ async function postDetails(
       picture,
       viewerId: viewer.user?.id ?? null,
       reactions: reactionsData(
-        { target: "post", id: post.id, authorId: post.author.id },
+        { target: "post", id: post.id, authorId: memberIdOf(post.author) },
         post.reactions,
         picker,
         types,

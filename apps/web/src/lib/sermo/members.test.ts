@@ -6,7 +6,7 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {}, toString: () => "" }),
 }));
 
-const { relationsFor } = await import("./members");
+const { membersFor, relationsFor } = await import("./members");
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -99,4 +99,22 @@ test("an answer that breaks the contract is not hidden", async () => {
   } finally {
     console.error = log;
   }
+});
+
+test("a guest author is drawn by the name given, and no member is asked for it", async () => {
+  const asked = backend(() => Response.json({ items: [] }));
+  const member = await membersFor([
+    { kind: "guest", name: "Wanderer" },
+    { kind: "member", id: 2, username: "ana" },
+  ]);
+  expect(asked).toEqual([["/api/v1/member-cards", "2"]]);
+  expect(member({ kind: "guest", name: "Wanderer" })).toMatchObject({
+    username: "Wanderer",
+    avatar: null,
+    restricted: true,
+  });
+  expect(member({ kind: "member", id: 2, username: "ana" }).username).toBe(
+    "ana",
+  );
+  expect(member(2).username).toBe("ana");
 });

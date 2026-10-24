@@ -12,6 +12,7 @@ import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import type { ContentRef } from "@/components/staff/content-ip";
 import type { TaggedAttachment } from "@/lib/attachment-tags";
+import { memberOf } from "@/lib/sermo/authors";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 
@@ -108,7 +109,7 @@ export async function describe(
       call(threadsGet, { threadId: post.threadId, countView: false }),
     );
     return {
-      author: post.author,
+      author: memberOf(post.author),
       bodyHtml: post.bodyHtml,
       attachments: post.attachments,
       excerpt: plainExcerpt(post.bodyHtml),
@@ -133,7 +134,7 @@ export async function describe(
       call(postsGet, { postId: thread.firstPostId }),
     );
     return {
-      author: thread.author,
+      author: memberOf(thread.author),
       bodyHtml: first?.bodyHtml ?? null,
       attachments: first?.attachments ?? [],
       excerpt: thread.excerpt,

@@ -29,6 +29,7 @@ import { parseThreadRef } from "@/app/[locale]/(main)/threads/[id]/thread-ref";
 import { saveEdit } from "@/app/[locale]/(main)/threads/save-edit";
 import { sendReply } from "@/app/[locale]/(main)/threads/send-reply";
 import type { ChangeResult } from "@/lib/item-state";
+import { authorName, memberIdOf } from "@/lib/sermo/authors";
 import { call } from "@/lib/sermo/client";
 import { eraseHidingFirst } from "@/lib/sermo/erase";
 import { SermoError } from "@/lib/sermo/errors";
@@ -414,7 +415,11 @@ export async function quoteSource(postId: number) {
   requireIds(postId);
   try {
     const { author, bodySource } = await call(postsGet, { postId });
-    return { author: author.username, authorId: author.id, source: bodySource };
+    return {
+      author: authorName(author),
+      authorId: memberIdOf(author),
+      source: bodySource,
+    };
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
     return null;

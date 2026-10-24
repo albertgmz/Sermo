@@ -31,6 +31,7 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { drawnOrNothing } from "@/components/widgets/drawn-or-nothing";
 import { formatCompact, formatNumber } from "@/lib/format";
+import { type AuthorRef, memberIdOf } from "@/lib/sermo/authors";
 import { readIfAllowed } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { threadOpenHref } from "@/lib/sermo/open-links";
@@ -110,6 +111,12 @@ const CELL = "shrink-0 items-center border-l pl-2";
 // panel's own width, not the window's): the date and the rank below 48rem, the replies and views
 // below 42rem, the last poster below 36rem and the forum below 28rem, leaving the starter's
 // avatar and the title. An unread thread's title is bold; a member's link opens where they left off.
+// A guest is never shown online.
+const isOnline = (online: { has(id: number): boolean }, author: AuthorRef) => {
+  const id = memberIdOf(author);
+  return id !== null && online.has(id);
+};
+
 function ThreadRow({
   thread,
   member,
@@ -135,7 +142,7 @@ function ThreadRow({
       <span className="flex shrink-0 items-center py-1">
         <span className="relative">
           <UserAvatar user={card.author.member} size="sm" />
-          {online && <PresenceDot online={online.has(thread.author.id)} />}
+          {online && <PresenceDot online={isOnline(online, thread.author)} />}
         </span>
       </span>
       <span className="flex min-w-0 flex-1 items-center py-1">

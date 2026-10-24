@@ -2,6 +2,7 @@ import type { BreadcrumbList, DiscussionForumPosting, ProfilePage, WithContext }
 import type { Actor } from "../../actor";
 import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { NotFoundError } from "../../errors";
 import { can, getNodeTree, permissionsOf } from "../../permissions";
 import { readGates } from "../forums/read-gates";
@@ -76,10 +77,11 @@ const fill = (template: string, values: Record<string, string>) =>
       (_, key: string) => values[key === "site" ? "siteName" : key] ?? "",
     )
     .trim();
+// A guest has a name and no profile to point to.
 const person = (baseURL: string, id: number, username: string) => ({
   "@type": "Person" as const,
   name: username,
-  url: canonicalUrl(baseURL, "profile", id, username),
+  ...(id === GUEST_ACCOUNT_ID ? {} : { url: canonicalUrl(baseURL, "profile", id, username) }),
 });
 
 export function nodeSeo(
@@ -171,7 +173,7 @@ export function threadSeo(
   const requested = new URL(requestedPath, baseURL);
   const rows = prepared(ctx, "seo.threadPosts", () =>
     ctx.sqlite.prepare<Post, [number, number, number]>(
-      "SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,u.username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position",
+      "SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,COALESCE(p.guest_name,u.username) AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position",
     ),
   ).all(id, (page - 1) * pageSize, page * pageSize - 1);
   const first =
@@ -179,7 +181,7 @@ export function threadSeo(
       ? rows.find((row) => row.id === thread.first_post_id)
       : prepared(ctx, "seo.firstPost", () =>
           ctx.sqlite.prepare<Post, [number]>(
-            "SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,u.username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.id=?1 AND p.state='visible'",
+            "SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,COALESCE(p.guest_name,u.username) AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.id=?1 AND p.state='visible'",
           ),
         ).get(thread.first_post_id ?? 0);
   const guestVisible =

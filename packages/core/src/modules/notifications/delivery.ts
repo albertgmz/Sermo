@@ -2,6 +2,7 @@ import { type Actor, actorUserId, GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { paceWal } from "../../db/checkpointer";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import {
   CONTENT_EVENT_TYPES,
@@ -913,7 +914,7 @@ function deliverBatch(
           .map((row) => row.user_id)
       : [],
   );
-  const actorId =
+  const author =
     item && event.type.startsWith("content.") && stage.type !== "moderation.content"
       ? item.userId
       : typeof event.payload.actorId === "number"
@@ -927,6 +928,8 @@ function deliverBatch(
               : typeof event.payload.moderatorId === "number"
                 ? event.payload.moderatorId
                 : (item?.userId ?? null);
+  // A guest's content names no actor: the guest account is nobody to show.
+  const actorId = author === GUEST_ACCOUNT_ID ? null : author;
   // Moderator duty notices reach moderators even when they ignore the member involved.
   const duty =
     stage.type === "moderator.report" ||

@@ -1400,9 +1400,10 @@ export async function resolveActor(
     if (place !== null) noteVisit(ctx, { userId: null, ip: clientIp, userAgent, place });
     return {
       actor:
-        userAgent || clientLocation
+        clientIp || userAgent || clientLocation
           ? Object.freeze({
               kind: "guest" as const,
+              ...(clientIp ? { clientIp } : {}),
               ...(userAgent ? { userAgent } : {}),
               ...(clientLocation ? { clientLocation } : {}),
             })

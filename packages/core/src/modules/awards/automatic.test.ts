@@ -686,7 +686,9 @@ describe("award sweeps", () => {
     expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
     // The sweep is past its first page when the award is made.
     const made = await call("create", { name: "During", tier: "bronze", rule: postRule });
-    const total = (ctx.sqlite.prepare("SELECT count(*) AS n FROM users").get() as { n: number }).n;
+    const total = (
+      ctx.sqlite.prepare("SELECT count(*) AS n FROM users WHERE id > 0").get() as { n: number }
+    ).n;
     for (let round = 0; round < 10; round++) {
       while (await runDueJobs(ctx)) {}
       ctx.clock.advance(30_000);
@@ -706,7 +708,7 @@ describe("award sweeps", () => {
     for (let i = 0; i < awards; i++)
       await call("create", { name: `Rung ${i}`, tier: "bronze", rule: postRule });
     const members = (
-      ctx.sqlite.prepare("SELECT id FROM users ORDER BY id").all() as { id: number }[]
+      ctx.sqlite.prepare("SELECT id FROM users WHERE id > 0 ORDER BY id").all() as { id: number }[]
     ).map((row) => row.id);
     const judged = Math.ceil(SWEEP_GRANTS / awards);
     expect(judged).toBeLessThan(SWEEP_CHUNK);
@@ -778,7 +780,9 @@ describe("award sweeps", () => {
     for (let i = 0; i < SWEEP_CHUNK * 2 + 7; i++) insertUser(ctx);
     ctx.sqlite.prepare("UPDATE users SET post_count = 1").run();
     const award = await call("create", { name: "Sweep", tier: "bronze", rule: postRule });
-    const total = (ctx.sqlite.prepare("SELECT count(*) AS n FROM users").get() as { n: number }).n;
+    const total = (
+      ctx.sqlite.prepare("SELECT count(*) AS n FROM users WHERE id > 0").get() as { n: number }
+    ).n;
     let visited = 0;
     registerJobHandler(ctx, "awards.sweep", async (context, payload, job) => {
       visited += await sweepChunk(context, (payload as { after: number }).after, job);

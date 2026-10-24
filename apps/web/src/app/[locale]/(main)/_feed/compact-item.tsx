@@ -19,6 +19,7 @@ import {
   WallOwner,
   wallPlace,
 } from "@/components/forum/wall-owner";
+import type { Lookup } from "@/lib/sermo/authors";
 import { threadOpenHref } from "@/lib/sermo/open-links";
 import { threadCard } from "@/lib/sermo/threads";
 import type { AuthorView } from "@/lib/sermo/views";
@@ -37,7 +38,7 @@ export function CompactFeedItem({
   signedIn,
 }: {
   item: Item;
-  author: (id: number) => AuthorView;
+  author: Lookup<AuthorView>;
   // The clock, read by the page after its request data.
   now: number;
   // Whether the viewer is a member: a thread opens where they left off (`threadOpenHref`).
@@ -111,7 +112,7 @@ export function CompactFeedItem({
   const href = isThread
     ? threadOpenHref(thread.id, signedIn)
     : threadHref(thread.id, post.position, post.id);
-  const card = threadCard(thread, (id) => author(id).member);
+  const card = threadCard(thread, (ref) => author(ref).member);
   const count = thread.replyCount;
   return (
     <Row
@@ -119,7 +120,7 @@ export function CompactFeedItem({
       href={href}
       avatar={
         <UserAvatar
-          user={author(post.author.id).member}
+          user={author(post.author).member}
           className="relative z-10"
         />
       }
@@ -152,7 +153,7 @@ export function CompactFeedItem({
           )}
           <span className="min-w-0 truncate">
             <UserLink
-              user={author(post.author.id).member}
+              user={author(post.author).member}
               className="relative z-10"
             />
             <span aria-hidden="true"> · </span>

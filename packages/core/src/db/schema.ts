@@ -178,6 +178,14 @@ const reactionCounts = () => text("reaction_counts").notNull().default("{}");
 
 /** Fixed ids of the built-in groups created by the migrations. */
 export const GROUP_IDS = { guest: 1, member: 2, moderator: 3, admin: 4, unconfirmed: 5 } as const;
+/**
+ * The reserved account that guest content belongs to (`threads.user_id`, `posts.user_id`); the
+ * name the guest typed is the content's `guest_name`. Made by the migration, in the Guest group,
+ * with no credentials: it never signs in. No operation input can name it (ids are positive) and
+ * no output shows it: lists, search, counts and the event subscribers leave it out. Not 0 or -1:
+ * queries use those for "no viewer" (a guest's own moderated posts would match).
+ */
+export const GUEST_ACCOUNT_ID = -2;
 export const BUILTIN_GROUPS = ["guest", "unconfirmed", "registered", "moderator", "admin"] as const;
 export type BuiltinGroup = (typeof BUILTIN_GROUPS)[number];
 
@@ -890,6 +898,8 @@ export const threads = sqliteTable(
     lastPostAt: integer("last_post_at").notNull(),
     lastPostId: integer("last_post_id"),
     lastPosterId: integer("last_poster_id").notNull(),
+    /** The name a guest gave (the thread's `user_id` is then GUEST_ACCOUNT_ID); null for a member's. */
+    guestName: text("guest_name"),
     excerpt: text("excerpt").notNull().default(""),
     contentUpdatedAt: integer("content_updated_at"),
     /** Set on a merged thread's tombstone (state 'deleted'): the thread its id resolves to. */
@@ -1002,6 +1012,8 @@ export const posts = sqliteTable(
     /** The sum of `reaction_counts`, kept equal to it in the same transaction. */
     reactionTotal: counter("reaction_total"),
     attachmentCount: counter("attachment_count"),
+    /** The name a guest gave (the post's `user_id` is then GUEST_ACCOUNT_ID); null for a member's. */
+    guestName: text("guest_name"),
   },
   (t) => [
     // posts.list: WHERE thread_id = ? AND position BETWEEN ? AND ? ORDER BY position

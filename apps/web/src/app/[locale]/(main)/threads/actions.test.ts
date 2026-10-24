@@ -29,7 +29,7 @@ const { postBody } = await import("@/lib/test-bodies");
 const actions = await import("./actions");
 
 const when = "2026-01-01T00:00:00.000Z";
-const someone = { id: 3, username: "ember" };
+const someone = { kind: "member" as const, id: 3, username: "ember" };
 const thread = {
   id: 7,
   nodeId: 2,

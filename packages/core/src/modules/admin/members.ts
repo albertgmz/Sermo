@@ -3,7 +3,7 @@ import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import type { AdminMember } from "../../contracts/admin";
 import { usersAdminGet, usersAdminList } from "../../contracts/admin";
-import { GROUP_IDS } from "../../db/schema";
+import { GROUP_IDS, GUEST_ACCOUNT_ID } from "../../db/schema";
 import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -39,21 +39,22 @@ export interface AdminRow extends PrincipalRow {
 
 export const adminSql = {
   rows: `SELECT u.id, u.group_id, u.username_key, u.erased_at, u.last_activity_at, u.username_changed_at, u.credits, a.email, a.email_verified, ${PRINCIPAL_COLUMNS} FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id IN (SELECT value FROM json_each(?1))`,
-  /** Ids newest first below a cursor; each source serves one filter through its index. */
-  all: "SELECT id FROM users WHERE id < ?1 ORDER BY id DESC LIMIT ?2",
+  /**
+   * Ids newest first below a cursor; each source serves one filter through its index. The guest
+   * account is no member: the sources that could reach it leave it out.
+   */
+  all: `SELECT id FROM users WHERE id < ?1 AND id <> ${GUEST_ACCOUNT_ID} ORDER BY id DESC LIMIT ?2`,
   banned:
     "SELECT id FROM users WHERE (banned_permanently = 1 OR banned_until IS NOT NULL) AND id < ?1 ORDER BY id DESC LIMIT ?2",
   erased: "SELECT id FROM users WHERE erased_at IS NOT NULL AND id < ?1 ORDER BY id DESC LIMIT ?2",
   awaiting: `SELECT u.id FROM users u WHERE ${AWAITING_SQL} AND u.id < ?1 ORDER BY u.id DESC LIMIT ?2`,
   /** A group's members: those with it as primary group, and those who hold it by hand. */
-  groupPrimary: "SELECT id FROM users WHERE group_id = ?3 AND id < ?1 ORDER BY id DESC LIMIT ?2",
+  groupPrimary: `SELECT id FROM users WHERE group_id = ?3 AND id < ?1 AND id <> ${GUEST_ACCOUNT_ID} ORDER BY id DESC LIMIT ?2`,
   groupSecondary:
     "SELECT user_id AS id FROM user_groups WHERE group_id = ?3 AND user_id < ?1 ORDER BY user_id DESC LIMIT ?2",
   /** The prefix, by username key then by email, each after the key the last page ended at. */
-  prefixName:
-    "SELECT id, username_key AS at FROM users WHERE username_key > ?1 AND username_key >= ?3 AND username_key < ?4 ORDER BY username_key LIMIT ?2",
-  prefixEmail:
-    "SELECT id, email AS at FROM auth_user WHERE email > ?1 AND email >= ?3 AND email < ?4 ORDER BY email LIMIT ?2",
+  prefixName: `SELECT id, username_key AS at FROM users WHERE username_key > ?1 AND username_key >= ?3 AND username_key < ?4 AND id <> ${GUEST_ACCOUNT_ID} ORDER BY username_key LIMIT ?2`,
+  prefixEmail: `SELECT id, email AS at FROM auth_user WHERE email > ?1 AND email >= ?3 AND email < ?4 AND id <> ${GUEST_ACCOUNT_ID} ORDER BY email LIMIT ?2`,
   secondary:
     "SELECT user_id FROM user_groups WHERE group_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
 };

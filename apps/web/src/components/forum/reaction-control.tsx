@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 // button unless the item is their own or takes no reactions.
 export function canReact(
   viewerId: number | null,
-  authorId: number,
+  authorId: number | null,
   picker: ReactionType[],
 ) {
   return viewerId === null || (viewerId !== authorId && picker.length > 0);
@@ -37,7 +37,7 @@ export function ReactionControl({
   viewerTypeId: number | null;
   picker: ReactionType[];
   viewerId: number | null;
-  authorId: number;
+  authorId: number | null;
   // A `ReactionSummary`; none when nobody reacted.
   summary: React.ReactNode;
   size?: "default" | "sm";

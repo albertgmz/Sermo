@@ -162,9 +162,11 @@ export function ContentActions({
   quote?: {
     postId: number;
     event: string;
-    load: (
-      postId: number,
-    ) => Promise<{ author: string; authorId: number; source: string } | null>;
+    load: (postId: number) => Promise<{
+      author: string;
+      authorId: number | null;
+      source: string;
+    } | null>;
     reference?: "post" | "convMessage";
   };
   reply?: { href: string };

@@ -29,6 +29,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { canonicalPathOf, canonicalUrlOf } from "@/lib/sermo/addresses";
+import { memberIdOf } from "@/lib/sermo/authors";
 import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
@@ -72,12 +73,18 @@ function threadIdOf(raw: string) {
 
 // The thread starter's page on the canonical's origin: the slugged address the structured data
 // names, or their plain one (which leads there) when the text is closed to the viewer.
-function authorUrl(seo: { canonical: string; jsonLd: unknown[] }, id: number) {
+// A guest author has no profile to point to.
+function authorUrl(
+  seo: { canonical: string; jsonLd: unknown[] },
+  id: number | null,
+) {
   for (const item of seo.jsonLd) {
     const url = (item as { author?: { url?: unknown } }).author?.url;
     if (typeof url === "string") return canonicalUrlOf(url);
   }
-  return new URL(`/members/${id}`, new URL(seo.canonical).origin).href;
+  return id === null
+    ? undefined
+    : new URL(`/members/${id}`, new URL(seo.canonical).origin).href;
 }
 
 export async function generateMetadata({
@@ -100,7 +107,7 @@ export async function generateMetadata({
       type: "article",
       publishedTime: thread.createdAt,
       modifiedTime: thread.lastPost.postedAt,
-      author: authorUrl(seo, thread.author.id),
+      author: authorUrl(seo, memberIdOf(thread.author)),
       section: node.title,
       tags,
     },

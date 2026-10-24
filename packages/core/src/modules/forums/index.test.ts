@@ -6,7 +6,7 @@ import {
   insertUser,
   userActor,
 } from "@sermo/core/testing";
-import { GUEST } from "../../actor";
+import { actorUserId, GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { ForbiddenError, NotFoundError, UnauthenticatedError, ValidationError } from "../../errors";
 import { execute } from "../../operation";
@@ -161,7 +161,7 @@ describe("forums", () => {
     expect(
       ctx.sqlite
         .prepare<{ post_count: number }, [number]>("SELECT post_count FROM users WHERE id = ?1")
-        .get(created.post.author.id)!.post_count,
+        .get(actorUserId(author)!)!.post_count,
     ).toBe(2);
   });
 

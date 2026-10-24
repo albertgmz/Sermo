@@ -6,7 +6,7 @@ import {
   insertUser,
   userActor,
 } from "@sermo/core/testing";
-import { GUEST } from "../../actor";
+import { actorUserId, GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { NotFoundError } from "../../errors";
 import { execute } from "../../operation";
@@ -96,11 +96,11 @@ test("SEO uses node, profile, and state-specific thread permissions", async () =
     "Reviewable",
   );
   await expect(
-    execute(ctx, getOperation("seo.profile"), viewer, { userId: made.thread.author.id }),
+    execute(ctx, getOperation("seo.profile"), viewer, { userId: actorUserId(author)! }),
   ).rejects.toBeInstanceOf(NotFoundError);
   setPermission(ctx, groupId, "profile.view", 1);
   expect(
-    (await execute(ctx, getOperation("seo.profile"), viewer, { userId: made.thread.author.id }))
+    (await execute(ctx, getOperation("seo.profile"), viewer, { userId: actorUserId(author)! }))
       .title,
   ).toBeTruthy();
   const visible = await execute(ctx, threadsCreateOp, author, {
@@ -157,7 +157,7 @@ test("accented slugs are cosmetic and detail responses include complete structur
   const thread = await execute(ctx, threadsGetOp, GUEST, { threadId: made.thread.id });
   const nodeDetail = await execute(ctx, nodesGetOp, GUEST, { nodeId: node.id });
   const profile = await execute(ctx, profilesGetOp, GUEST, {
-    userId: made.thread.author.id,
+    userId: actorUserId(author)!,
   });
   expect(canonicalPath("node", node.id, nodeDetail.node.title)).toBe(
     `/forums/${node.id}-discusion-espanola`,
@@ -334,7 +334,7 @@ test("sitemap lastmod advances on public node, thread, and profile changes", asy
     [...sitemapEntries(ctx, base, "thread")].find((row) => row.id === made.thread.id)?.lastmod,
   ).toBe(expected);
   expect(
-    [...sitemapEntries(ctx, base, "profile")].find((row) => row.id === made.thread.author.id)
+    [...sitemapEntries(ctx, base, "profile")].find((row) => row.id === actorUserId(author)!)
       ?.lastmod,
   ).toBe(expected);
 });

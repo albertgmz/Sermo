@@ -31,7 +31,7 @@ const inPlace = await import("./edit-in-place");
 
 const STAMP = "2026-01-01T00:00:00.000Z";
 const solved = { id: 4, label: "Solved", color: "#22aa66", icon: "" };
-const someone = { id: 3, username: "ember" };
+const someone = { kind: "member" as const, id: 3, username: "ember" };
 const thread = (over: Record<string, unknown> = {}) => ({
   id: 7,
   nodeId: 2,
