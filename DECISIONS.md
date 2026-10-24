@@ -6621,3 +6621,14 @@ Why: the owner wanted page numbers with a jump to any page instead of a next but
 
 Why: the owner found the card too rectangular and wanted XenForo's, with when the member was
 last online, always visible to staff.
+
+### Selected text in a post can be quoted on its own
+
+- Selecting text inside one post or conversation message offers a Quote button below the
+  selection, as XenForo does (only Quote, no Reply); it puts a `[QUOTE="Name, post: N,
+  member: M"]` of just that text into the reply editor as a quote block and moves to it. Bold,
+  italic, underline, strike, links with safe addresses, line breaks, nested quotes and code are
+  kept; other markup becomes plain text. A selection across two posts, outside post bodies,
+  inside a quote already shown in the post, or ending off screen offers nothing.
+
+Why: the owner wanted to quote only part of a post.
