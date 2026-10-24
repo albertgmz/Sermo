@@ -112,17 +112,19 @@ export const GROUPS: Group[] = [
       slot("italic"),
       slot("underline", "md lg"),
       slot("strikethrough", "lg"),
+      slot("code", "lg"),
     ],
     more: [
       slot("underline", "xxs xs sm"),
       slot("strikethrough", "xxs xs sm md"),
-      slot("code"),
+      slot("code", "xxs xs sm md"),
       // Extra small has no paragraph group: its commands join the text strip.
       slot("heading", "xxs xs"),
       slot("bullet", "xxs xs"),
       slot("number", "xxs xs"),
     ],
-    moreShown: "all",
+    // Large holds nothing behind it: the inline code is a button there.
+    moreShown: "xxs xs sm md",
   },
   {
     id: "paragraph",

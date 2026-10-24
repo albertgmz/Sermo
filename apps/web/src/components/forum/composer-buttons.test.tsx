@@ -81,12 +81,12 @@ test("the submit waits while a file is on its way", () => {
   expect(submitOf(draw({}))?.[0]).not.toContain('disabled=""');
 });
 
-test("the submit is a soft tint of the accent, its text in the accent's ink", () => {
+test("the submit is the solid accent button, its text the accent's foreground", () => {
   const classes = classesOf(submitOf(draw({}))?.[0] ?? "");
-  expect(classes).toContain("bg-primary/10");
-  expect(classes).toContain("text-primary-ink");
-  expect(classes).not.toContain("text-primary");
-  expect(classes).not.toContain("bg-primary");
+  expect(classes).toContain("bg-primary");
+  expect(classes).toContain("text-primary-foreground");
+  expect(classes).not.toContain("bg-primary/10");
+  expect(classes).not.toContain("text-primary-ink");
 });
 
 test("a composer with no files has the submit alone", () => {
@@ -103,12 +103,6 @@ test("the submit's icon says what it does, as XenForo's: a reply unless the comp
   expect(submitOf(draw({ icon: MessagesSquare }))?.[1]).toContain(
     "lucide-messages-square",
   );
-});
-
-test("the submit's tint has a faint border of the accent, as XenForo's primary button: 10 % of it", () => {
-  const classes = classesOf(submitOf(draw({}))?.[0] ?? "");
-  expect(classes).toContain("border");
-  expect(classes).toContain("border-primary/10");
 });
 
 test("the submit's tooltip names the keys that send the form", () => {

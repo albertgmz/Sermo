@@ -506,8 +506,8 @@ export function Toolbar() {
                 aria-label={t(`groups.${group.id}`)}
                 className={cn(
                   "flex min-w-0 items-center rounded-[9px] border bg-card px-1.5 py-0.5",
-                  // The misc group keeps to the right and takes what is left of the line.
-                  group.id === "misc" && "flex-1 justify-end",
+                  // The misc group is as wide as its buttons and keeps to the right of the line.
+                  group.id === "misc" && "ml-auto",
                   SHOWN[group.shown],
                 )}
               >

@@ -267,9 +267,7 @@ export function ComposerForm({
       onChange={onBodyChange}
       bar={bar}
       className={cn(
-        boxed
-          ? "mx-3 md:mx-4"
-          : "rounded-none border-0 bg-transparent focus-within:bg-transparent",
+        boxed ? "mx-3 md:mx-4" : "rounded-none border-0 bg-transparent",
         grow && "flex-1",
         textCover && !grow && "hidden",
       )}
@@ -351,7 +349,6 @@ export function ComposerForm({
               style={{ minHeight }}
               className={cn(
                 EDITOR_BOX,
-                "bg-card",
                 boxed && "mx-3 md:mx-4",
                 grow && "flex-1",
               )}

@@ -229,8 +229,9 @@ test("each size has XenForo's groups, with its buttons and what each strip holds
         "italic",
         "underline",
         "strikethrough",
+        "code",
       ],
-      more: ["code"],
+      more: [],
     },
     { id: "paragraph", direct: ["bullet", "number", "heading"], more: [] },
     {
@@ -582,12 +583,14 @@ test("a ⋮ looks active only at the widths where its strip holds the command th
       at: [419, 420, 575, 900].map((w) => activeAt(classes, w)),
     }).toEqual({ id, at: [true, false, false, false] });
   }
-  // Inline code is in the text strip at every width.
+  // Inline code is in the text strip up to medium, a button at large (a strip of one command is
+  // not drawn).
   const code = activeMore(text.more, on(["code"])).split(" ");
-  expect([300, 600, 1200].map((w) => activeAt(code, w))).toEqual([
+  expect([300, 600, 899, 900].map((w) => activeAt(code, w))).toEqual([
     true,
     true,
     true,
+    false,
   ]);
   // Strikethrough up to medium, a button at large.
   const strike = activeMore(text.more, on(["strikethrough"])).split(" ");
@@ -635,4 +638,12 @@ test("with nothing on, no ⋮ is drawn active, and the bar takes no classes from
   expect(source).toMatch(
     /activeMore\(\s*group\.more,\s*\(id\) => commands\[id\]\.active === true,?\s*\)/,
   );
+});
+
+test("the misc group is as wide as its buttons and sits at the right of the line", () => {
+  const group = parts(editorHtml(), "group").find((part) => part.id === "misc");
+  const misc = classesOf(group?.tag ?? "");
+  expect(misc).toContain("ml-auto");
+  expect(misc).not.toContain("flex-1");
+  expect(misc).not.toContain("justify-end");
 });

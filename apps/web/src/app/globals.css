@@ -112,6 +112,11 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+  /* One colour for every native checkbox and radio, as the shared Checkbox draws its own. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--primary);
+  }
   @media (width < 48rem) {
     [data-slot="button"],
     [data-slot="toggle"] {

@@ -3,7 +3,7 @@
 // Sermo's tokens in the roles XenForo gives its own: the box is the muted fill and turns the card's
 // while it is written in; its border keeps its colour (the formatting bar shows the focus too).
 export const EDITOR_BOX =
-  "min-w-0 rounded-[9px] border bg-muted transition-colors focus-within:bg-card";
+  "min-w-0 rounded-[9px] border bg-card transition-colors";
 
 // The text: 16 px / 22.4 px on a phone (iOS zooms into anything smaller) and XenForo's 15 px / 21 px
 // from a tablet up, with its padding of 10 px 20 px 20 px. A one-line composer keeps a tighter box.

@@ -6,8 +6,8 @@ import { LazyEditor } from "./lazy-editor";
 import { EditorSkeleton } from "./skeletons";
 
 // XenForo's editor (fcuba's style), as measured on the forum's quick reply. The
-// colours are Sermo's tokens in the roles XenForo gives its own: the box is the muted fill and
-// turns the card's while it is written in, the bar is a band of the border colour that clears on
+// colours are Sermo's tokens in the roles XenForo gives its own: the box is the card's fill, as
+// the inputs beside it are, focused or not, the bar is a band of the border colour that clears on
 // focus, and its groups are card-filled segments whose border shows only then.
 
 const classesOf = (tag: string) =>
@@ -25,14 +25,16 @@ const editorHtml = () =>
     withIntl(<Editor name="body" placeholder="Escribe la respuesta…" />),
   );
 
-// The box: a 1 px border and a 9 px radius; muted at rest, the card's fill while the caret is in it;
-// its border keeps its colour (XenForo's focus is the fill and the groups' borders).
-const BOX = ["rounded-[9px]", "border", "bg-muted", "focus-within:bg-card"];
+// The box: a 1 px border and a 9 px radius; the card's fill at rest and while the caret is in it, as
+// every text input has; its border keeps its colour (XenForo's focus is the groups' borders).
+const BOX = ["rounded-[9px]", "border", "bg-card"];
 
 test("the editor's box has XenForo's border, radius and fills", () => {
   const html = editorHtml();
   const box = tagWith(html, /<div class="group\/editor[^"]*"/);
   expectClasses(box, BOX);
+  expect(classesOf(box)).not.toContain("bg-muted");
+  expect(classesOf(box)).not.toContain("focus-within:bg-card");
   expect(classesOf(box)).not.toContain("focus-within:border-ring");
   expect(classesOf(box)).not.toContain("rounded-lg");
 });
@@ -133,13 +135,9 @@ test("the whole-screen composer keeps its frameless box clear while written in",
   );
   const box =
     html.match(/<div class="(group\/editor[^"]*)"/)?.[1].split(" ") ?? [];
-  for (const name of [
-    "border-0",
-    "bg-transparent",
-    "focus-within:bg-transparent",
-  ])
+  for (const name of ["border-0", "bg-transparent"])
     expect(box).toContain(name);
-  expect(box).not.toContain("bg-muted");
+  expect(box).not.toContain("bg-card");
   expect(box).not.toContain("focus-within:bg-card");
 });
 
