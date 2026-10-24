@@ -136,3 +136,37 @@ test("the live region is in the page before there is anything to say, and takes 
   expect(shown).toContain('aria-label="Dismiss notice"');
   expect(shown).toMatch(/^<div class="[^"]*pointer-events-none/);
 });
+
+test("the box holds the notice while the pointer is on it or focus is in it, each on its own", () => {
+  const [card] = withProp(box("Bought."), "onMouseEnter");
+  if (!card) throw new Error("no notice box");
+  const call = (name: string) => (card.props[name] as () => void)();
+  const survives = () => {
+    jest.advanceTimersByTime(SHOWN_MS * 2);
+    return saidNotice() !== null;
+  };
+  const goes = () => {
+    jest.advanceTimersByTime(SHOWN_MS);
+    return saidNotice() === null;
+  };
+
+  announce("bought");
+  call("onMouseEnter");
+  expect(survives()).toBe(true);
+  call("onMouseLeave");
+  expect(goes()).toBe(true);
+
+  announce("bought");
+  call("onFocus");
+  expect(survives()).toBe(true);
+  call("onBlur");
+  expect(goes()).toBe(true);
+
+  announce("bought");
+  call("onMouseEnter");
+  call("onFocus");
+  call("onMouseLeave");
+  expect(survives()).toBe(true);
+  call("onBlur");
+  expect(goes()).toBe(true);
+});
