@@ -1,15 +1,25 @@
 "use client";
 
-import { ChevronDown, SquarePen } from "lucide-react";
+import { ChevronDown, Eye, SquarePen } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   createThreadAction,
   forumComposeAccessAction,
 } from "@/app/[locale]/(main)/forums/actions";
+import { previewAction } from "@/app/[locale]/(main)/forums/preview";
 import { ComposerForm, ComposerPage } from "@/components/forum/composer";
+import { rowButtonClass } from "@/components/forum/composer-buttons";
 import type { ThreadKind } from "@/components/forum/create-kinds";
 import { Toolbar } from "@/components/forum/editor-toolbar";
+import { FormError } from "@/components/forum/form-error";
 import { ForumChoicePanel } from "@/components/forum/forum-choice-panel";
 import { type ForumChoice, forumTitle } from "@/components/forum/forum-choices";
 import { findMentions } from "@/components/forum/mention-find";
@@ -23,7 +33,14 @@ import {
 import { TitleField } from "@/components/forum/thread-fields";
 import { ThreadTagsField } from "@/components/forum/thread-tags-field";
 import { useKeptForm } from "@/components/forum/use-kept-form";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import type { PrefixView } from "@/lib/sermo/views";
+
+// How the member watches the threads they start (their preference), which the composer's watch
+// options start from, as XenForo's do.
+export type WatchMode = "none" | "watch" | "watch_email";
 
 // A thread can be sent once it has a title and a first post, and a prefix where the forum asks
 // for one.
@@ -116,6 +133,7 @@ export function ThreadComposer({
   onPending,
   onForum,
   pollAsk = 0,
+  watchDefault = "watch",
 }: {
   forumId: number;
   // The forums the member may start a thread in, under the categories that hold them.
@@ -147,6 +165,8 @@ export function ThreadComposer({
   onForum?: (id: number) => void;
   // Counts the times a poll was asked for; each opens the poll section if it was closed.
   pollAsk?: number;
+  // The member's preference for the threads they start: where the watch options start.
+  watchDefault?: WatchMode;
 }) {
   const t = useTranslations("forum.threadComposer");
   const tFields = useTranslations("forum.threadFields");
@@ -157,6 +177,15 @@ export function ThreadComposer({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [prefixId, setPrefixId] = useState("");
+  const [watching, setWatching] = useState(watchDefault !== "none");
+  const [emailed, setEmailed] = useState(watchDefault === "watch_email");
+  // The text as the backend renders it (or its refusal), shown in the text's place while it is
+  // asked for again by the same button.
+  const [preview, setPreview] = useState<
+    { html: React.ReactNode } | { error: string } | null
+  >(null);
+  const [previewing, startPreview] = useTransition();
+  const optionsId = useId();
   const [offered, setOffered] = useState<Offer>({
     status: "ready",
     prefixes: firstPrefixes,
@@ -242,6 +271,20 @@ export function ThreadComposer({
       clearThreadDraft(memberId);
       send(event);
     });
+
+  function togglePreview() {
+    if (preview) {
+      setPreview(null);
+      return;
+    }
+    startPreview(async () => {
+      const answer = await previewAction(
+        { type: "thread", nodeId: target.current },
+        body,
+      );
+      setPreview("preview" in answer ? { html: answer.preview } : answer);
+    });
+  }
 
   function choose(id: number) {
     setPicking(false);
@@ -344,8 +387,8 @@ export function ThreadComposer({
     </div>
   );
 
-  // Under the text, as XenForo's page has them: the poll, then the tags.
-  const below = (poll || kind === "poll" || canTag) && (
+  // Under the text, as XenForo's page has them: the poll, the tags, then the options.
+  const below = (
     <div className="space-y-4 px-3 pt-3 pb-4 md:px-4">
       {poll && (
         <PollField
@@ -360,7 +403,67 @@ export function ThreadComposer({
         </p>
       )}
       {canTag && <ThreadTagsField />}
+      <fieldset className="space-y-1">
+        <legend className="mb-1 text-xs text-muted-foreground">
+          {t("options")}
+        </legend>
+        {/* The form offers the choice: the action sends it, unticked boxes included. */}
+        <input type="hidden" name="watchChoice" value="1" />
+        <div className="flex min-h-10 items-center gap-2 md:min-h-8">
+          <Checkbox
+            id={`${optionsId}-watch`}
+            name="watch"
+            checked={watching}
+            onCheckedChange={setWatching}
+          />
+          <Label htmlFor={`${optionsId}-watch`} className="font-normal">
+            {t("watch")}
+          </Label>
+        </div>
+        <div className="flex min-h-10 items-center gap-2 pl-6 md:min-h-8">
+          <Checkbox
+            id={`${optionsId}-email`}
+            name="watchEmail"
+            checked={watching && emailed}
+            disabled={!watching}
+            onCheckedChange={setEmailed}
+          />
+          <Label
+            htmlFor={`${optionsId}-email`}
+            className="font-normal peer-data-disabled:opacity-50"
+          >
+            {t("watchEmail")}
+          </Label>
+        </div>
+      </fieldset>
     </div>
+  );
+
+  // XenForo's Preview: the text as it will be posted, in its place, until pressed again.
+  const previewButton = (
+    <Button
+      type="button"
+      variant="outline"
+      className={rowButtonClass}
+      aria-pressed={preview !== null}
+      disabled={previewing || (!preview && body.trim() === "")}
+      onClick={togglePreview}
+    >
+      <Eye aria-hidden="true" />
+      {t("preview")}
+    </Button>
+  );
+  const shown = preview && (
+    <section aria-label={t("preview")} className="px-3 py-2.5 md:px-5 md:py-3">
+      <h2 className="mb-2 text-xs font-semibold text-muted-foreground">
+        {t("preview")}
+      </h2>
+      {"html" in preview ? (
+        preview.html
+      ) : (
+        <FormError>{preview.error}</FormError>
+      )}
+    </section>
   );
 
   const composer = (
@@ -379,6 +482,8 @@ export function ThreadComposer({
       top={top}
       below={below}
       boxed
+      textCover={shown}
+      beforeSubmit={previewButton}
       placeholder={t(
         kind === "question" ? "questionBodyPlaceholder" : "bodyPlaceholder",
       )}

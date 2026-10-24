@@ -19,9 +19,12 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {}, get: () => undefined }),
 }));
+// The thread composer's Preview is a server action that draws a body, which reads cached data.
 mock.module("next/cache", () => ({
   refresh: () => {},
   revalidatePath: () => {},
+  cacheLife: () => {},
+  cacheTag: () => {},
 }));
 
 const { CreateChooser, CreateFlow, wallPostAction } = await import(
@@ -45,6 +48,7 @@ const DATA: CreateData = {
   ],
   canTag: false,
   canWall: true,
+  watchOnCreate: "watch",
 };
 
 // The flow as it is drawn once its one read has answered (`data`) or before it has.

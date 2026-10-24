@@ -354,6 +354,7 @@ export function CreateFlow({
             canPoll={access.poll}
             canTag={data.canTag}
             memberId={data.memberId}
+            watchDefault={data.watchOnCreate}
             onDraft={keepDraft}
             onPending={keepPending}
             pollAsk={pollAsk}

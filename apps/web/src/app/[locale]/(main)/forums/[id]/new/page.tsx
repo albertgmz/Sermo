@@ -1,4 +1,9 @@
-import { nodesGet, nodesList, threadPrefixesList } from "@sermo/core/contracts";
+import {
+  nodesGet,
+  nodesList,
+  preferencesGet,
+  threadPrefixesList,
+} from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -73,12 +78,15 @@ async function ThreadForm({
       </div>
     );
   }
-  const [{ items: prefixItems }, { items: nodes }] = await Promise.all([
-    read(threadPrefixesList, { nodeId: id }),
-    read(nodesList, {}),
-  ]);
-  const prefixes = activePrefixViews(prefixItems);
   const viewer = await getViewer();
+  const [{ items: prefixItems }, { items: nodes }, preferences] =
+    await Promise.all([
+      read(threadPrefixesList, { nodeId: id }),
+      read(nodesList, {}),
+      // A member's own; a guest who may post has none.
+      viewer.user ? read(preferencesGet, {}) : null,
+    ]);
+  const prefixes = activePrefixViews(prefixItems);
   const forums = nodes.map(({ id, parentId, title, type, permissions }) => ({
     id,
     parentId,
@@ -97,6 +105,7 @@ async function ThreadForm({
       canTag={viewer.resolvedPermissions["tag.apply"] === true}
       canPoll={canPoll}
       memberId={viewer.user?.id ?? null}
+      watchDefault={preferences?.watchOnCreate}
     />
   );
 }

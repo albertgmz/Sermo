@@ -19,12 +19,18 @@ import { cn } from "@/lib/utils";
 export const submitClass =
   "h-11 gap-2 rounded-[9px] border border-primary/10 bg-primary/10 px-5 text-(length:--text-compact) text-primary-ink hover:bg-primary/15";
 
+// The look of the row's other buttons ("Attach files", "Preview") over `buttonVariants` outline:
+// XenForo's, the card's fill edged by the border colour, the size of the submit.
+export const rowButtonClass =
+  "h-11 gap-2 rounded-[9px] border-border bg-card px-5 text-(length:--text-compact) dark:border-border dark:bg-card";
+
 export function ComposerButtons({
   submitLabel,
   icon: Icon = Reply,
   order,
   disabled,
   files,
+  beforeSubmit,
   className,
 }: {
   submitLabel: string;
@@ -33,12 +39,19 @@ export function ComposerButtons({
   // While a file is on its way, or until what the post needs is written.
   disabled?: boolean;
   files?: React.ReactNode;
+  // A button of the composer's own, just before the submit (a new thread's Preview).
+  beforeSubmit?: React.ReactNode;
   className?: string;
 }) {
   const title = useSubmitTitle(submitLabel);
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
       {files}
+      {beforeSubmit && (
+        <span className={cn(order === "reply" && "order-last ml-auto")}>
+          {beforeSubmit}
+        </span>
+      )}
       <PendingButton
         disabled={disabled}
         title={title}
@@ -47,7 +60,8 @@ export function ComposerButtons({
           // The files' Attach button is `order-last` too (`AttachmentField`): with the same
           // order the page's order decides, so the submit follows it at the end of the row. A
           // comment's submit keeps the default order and comes before it.
-          order === "reply" && "order-last ml-auto",
+          order === "reply" && "order-last",
+          order === "reply" && !beforeSubmit && "ml-auto",
         )}
       >
         <Icon aria-hidden="true" />

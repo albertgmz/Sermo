@@ -20,6 +20,7 @@ const data = (over: Partial<CreateData>): CreateData => ({
   forums: [forum(1, null, "category", false), forum(2, 1, "forum", true)],
   canTag: false,
   canWall: true,
+  watchOnCreate: "watch",
   ...over,
 });
 

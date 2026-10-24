@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, mock, test } from "bun:test";
+import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import assert from "node:assert/strict";
 
 const realFetch = globalThis.fetch;
@@ -405,4 +405,27 @@ test("a poll written with the thread travels with it, and a form without one sen
     { error: "invalid", title: "T", prefixId: "" },
   );
   assert.equal(asked.length, 0);
+});
+
+test("the watch options of a new thread are sent as the author's choice, and a form without them leaves it to the preference", async () => {
+  answer = {
+    status: 403,
+    body: { error: { code: "forbidden", message: "No." } },
+  };
+  const sent = async (fields: Record<string, string>) => {
+    asked.length = 0;
+    await actions.createThreadAction(
+      4,
+      {},
+      form({ title: "T", body: "B", ...fields }),
+    );
+    return (asked[0].body as { watch?: string }).watch;
+  };
+  expect(await sent({ watchChoice: "1", watch: "on", watchEmail: "on" })).toBe(
+    "watch_email",
+  );
+  expect(await sent({ watchChoice: "1", watch: "on" })).toBe("watch");
+  // Unticked boxes send nothing; the choice is still made: not watching.
+  expect(await sent({ watchChoice: "1" })).toBe("none");
+  expect(await sent({})).toBeUndefined();
 });

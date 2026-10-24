@@ -58,6 +58,16 @@ export async function createThreadAction(
       prefixId,
     };
 
+  // How the author watches the thread, where the form offers the choice (`watchChoice`); a form
+  // without it leaves it to the member's preference.
+  const watch = formData.has("watchChoice")
+    ? formData.get("watch") !== "on"
+      ? "none"
+      : formData.get("watchEmail") === "on"
+        ? "watch_email"
+        : "watch"
+    : undefined;
+
   const created = await attempt(`/forums/${nodeId}/new`, () =>
     call(threadsCreate, {
       nodeId,
@@ -67,6 +77,7 @@ export async function createThreadAction(
       prefixId: prefixId ? (parseId(prefixId) as number) : null,
       tags: tagsFromText(String(formData.get("tags") ?? "")),
       poll: poll ?? undefined,
+      watch,
     }),
   );
   if (!created.ok) return { error: created.error, title, prefixId };

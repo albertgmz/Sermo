@@ -19,6 +19,9 @@ export type CreateData = {
   canTag: boolean;
   // The member may post on their own wall (profilePost.postOwn).
   canWall: boolean;
+  // How the member watches the threads they start (their preference): the composer's watch
+  // options start from it.
+  watchOnCreate: "none" | "watch" | "watch_email";
 };
 
 export type CreateLoad = { ok: true; data: CreateData } | { ok: false };

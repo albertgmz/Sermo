@@ -318,7 +318,11 @@
     "bodyPlaceholder": "Write the first post…",
     "questionTitlePlaceholder": "What is your question?",
     "questionBodyPlaceholder": "Describe your question…",
-    "noPollHere": "Polls and quizzes are not allowed in this forum. Choose another forum to add one."
+    "noPollHere": "Polls and quizzes are not allowed in this forum. Choose another forum to add one.",
+    "preview": "Preview",
+    "options": "Options",
+    "watch": "Watch this thread…",
+    "watchEmail": "and receive email notifications"
   },
   "forumChoicePanel": {
     "heading": "Choose a forum",

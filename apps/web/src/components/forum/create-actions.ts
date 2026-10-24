@@ -1,6 +1,6 @@
 "use server";
 
-import { nodesList } from "@sermo/core/contracts";
+import { nodesList, preferencesGet } from "@sermo/core/contracts";
 import type { CreateLoad } from "@/components/forum/create-kinds";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -14,7 +14,10 @@ export async function loadCreateAction(): Promise<CreateLoad> {
   const viewer = await getViewer();
   if (!viewer.user) return { ok: false };
   try {
-    const { items: nodes } = await call(nodesList, {});
+    const [{ items: nodes }, preferences] = await Promise.all([
+      call(nodesList, {}),
+      call(preferencesGet, {}),
+    ]);
     return {
       ok: true,
       data: {
@@ -28,6 +31,7 @@ export async function loadCreateAction(): Promise<CreateLoad> {
         })),
         canTag: viewer.resolvedPermissions["tag.apply"] === true,
         canWall: viewer.permissions.canPostProfile,
+        watchOnCreate: preferences.watchOnCreate,
       },
     };
   } catch (error) {

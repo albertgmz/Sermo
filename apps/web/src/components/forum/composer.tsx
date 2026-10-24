@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { type RefObject, useEffect, useState } from "react";
 import { AttachmentField } from "@/components/forum/attachment-field";
+import { EDITOR_BOX } from "@/components/forum/composer-box";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { COMPOSER_PAGE_CLASS } from "@/components/forum/composer-page";
 import type { EditorProps } from "@/components/forum/editor";
@@ -202,6 +203,8 @@ export function ComposerForm({
   top,
   below,
   boxed = false,
+  textCover,
+  beforeSubmit,
   placeholder,
   minHeight = 160,
   findMembers,
@@ -228,6 +231,11 @@ export function ComposerForm({
   // The text in XenForo's editor box, inset like the fields around it, where the composer has
   // fields of its own (a new thread); otherwise it runs from edge to edge of the sheet.
   boxed?: boolean;
+  // Drawn in the text's place, in a box of the same size (a Preview); the text stays in the page
+  // and in the form, as written, until it is back.
+  textCover?: React.ReactNode;
+  // A button of the caller's own, just before the submit (`ComposerButtons`).
+  beforeSubmit?: React.ReactNode;
   placeholder: string;
   minHeight?: number;
   findMembers?: EditorProps["findMembers"];
@@ -263,6 +271,7 @@ export function ComposerForm({
           ? "mx-3 md:mx-4"
           : "rounded-none border-0 bg-transparent focus-within:bg-transparent",
         grow && "flex-1",
+        textCover && !grow && "hidden",
       )}
     />
   );
@@ -327,12 +336,28 @@ export function ComposerForm({
             <div
               data-composer-grow=""
               onClick={caretToEnd}
-              className="flex flex-1 cursor-text flex-col"
+              className={cn(
+                "flex flex-1 cursor-text flex-col",
+                textCover && "hidden",
+              )}
             >
               {editor}
             </div>
           ) : (
             editor
+          )}
+          {textCover && (
+            <div
+              style={{ minHeight }}
+              className={cn(
+                EDITOR_BOX,
+                "bg-card",
+                boxed && "mx-3 md:mx-4",
+                grow && "flex-1",
+              )}
+            >
+              {textCover}
+            </div>
           )}
           {error && (
             <FormError className={cn("px-3 pb-3", boxed && "pt-3 md:px-4")}>
@@ -359,6 +384,7 @@ export function ComposerForm({
             icon={submitIcon}
             order="reply"
             disabled={pending || uploading || !canSubmit}
+            beforeSubmit={beforeSubmit}
             files={
               <AttachmentField
                 compact

@@ -14,6 +14,7 @@ import {
   createIntake,
   receiveOffers,
 } from "@/components/forum/attachment-intake";
+import { rowButtonClass } from "@/components/forum/composer-buttons";
 import {
   attachTag,
   insertIntoComposer,
@@ -213,7 +214,7 @@ export function AttachmentField({
           // XenForo's button with its paperclip, the card's fill edged by the border colour, the
           // size of a composer's submit; in a composer's row it goes last (`ComposerButtons`).
           buttonVariants({ variant: "outline" }),
-          "h-11 gap-2 rounded-[9px] border-border bg-card px-5 text-(length:--text-compact) dark:border-border dark:bg-card",
+          rowButtonClass,
           compact && "order-last",
         )}
       >

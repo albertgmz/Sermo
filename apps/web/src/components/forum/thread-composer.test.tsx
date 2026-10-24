@@ -465,3 +465,103 @@ test("the poll and the tags come under the text, as on XenForo's page", () => {
     html.indexOf('type="submit"'),
   );
 });
+
+test("the options offer to watch the thread, ticked as the member's preference says, the email choice only while watching", () => {
+  const draw = (watchDefault: "none" | "watch" | "watch_email") =>
+    renderToStaticMarkup(
+      withIntl(
+        <ThreadComposer
+          forumId={2}
+          forums={[...FORUMS]}
+          prefixes={[]}
+          requirePrefix={false}
+          canAttach={false}
+          canTag={false}
+          canPoll={false}
+          memberId={1}
+          watchDefault={watchDefault}
+        />,
+      ),
+    );
+  // A box by its form name: whether it is ticked, and whether it can be changed.
+  const box = (html: string, name: string) => {
+    const input = html.match(
+      new RegExp(`<input[^>]*name="${name}"[^>]*>`),
+    )?.[0];
+    const root = openingTag(
+      html,
+      html.lastIndexOf('data-slot="checkbox"', html.indexOf(`name="${name}"`)),
+    );
+    return {
+      ticked: /\sdata-checked=""/.test(root),
+      disabled:
+        /\sdata-disabled=""/.test(root) || /\sdisabled=""/.test(input ?? ""),
+    };
+  };
+  const watching = draw("watch");
+  expect(watching).toContain("Options");
+  expect(watching).toContain("Watch this thread…");
+  expect(watching).toContain("and receive email notifications");
+  // The form says it offers the choice, so unticked boxes still decide.
+  expect(watching).toContain('type="hidden" name="watchChoice" value="1"');
+  expect(box(watching, "watch")).toEqual({ ticked: true, disabled: false });
+  expect(box(watching, "watchEmail")).toEqual({
+    ticked: false,
+    disabled: false,
+  });
+  expect(box(draw("watch_email"), "watchEmail").ticked).toBe(true);
+  const none = draw("none");
+  expect(box(none, "watch").ticked).toBe(false);
+  expect(box(none, "watchEmail")).toEqual({ ticked: false, disabled: true });
+  // Under the text and above the bottom row, as on XenForo's page.
+  expect(watching.indexOf("Watch this thread…")).toBeGreaterThan(
+    watching.indexOf('name="body"'),
+  );
+  expect(watching.indexOf("Watch this thread…")).toBeLessThan(
+    watching.indexOf('type="submit"'),
+  );
+});
+
+test("Preview sits just before Post thread, a toggle that waits for some text", () => {
+  const html = composerWith();
+  const preview = html.indexOf(">Preview<");
+  const submit = html.indexOf('type="submit"');
+  expect(preview).toBeGreaterThan(
+    html.indexOf(messages.forum.attachmentField.attach),
+  );
+  expect(preview).toBeLessThan(submit);
+  const button = openingTag(html, html.lastIndexOf("<button", preview));
+  expect(button).toContain('type="button"');
+  expect(button).toContain('aria-pressed="false"');
+  expect(button).toContain('disabled=""');
+});
+
+test("a preview takes the text's place in a box of the same size, and the text stays in the form", () => {
+  const draw = (textCover?: React.ReactNode) =>
+    renderToStaticMarkup(
+      withIntl(
+        <ComposerForm
+          onSubmit={() => {}}
+          frame={{ kind: "page", closeHref: "/forums/2" }}
+          submitLabel="Post"
+          pending={false}
+          placeholder="Write"
+          boxed
+          textCover={textCover}
+        />,
+      ),
+    );
+  const editorBox = (html: string) =>
+    openingTag(
+      html,
+      html.lastIndexOf('class="group/editor', html.indexOf('name="body"')),
+    );
+  expect(editorBox(draw())).not.toMatch(/\bhidden\b/);
+  const covered = draw(<p>Rendered post</p>);
+  expect(covered).toContain("Rendered post");
+  expect(covered).toContain('name="body"');
+  expect(editorBox(covered)).toMatch(/\bhidden\b/);
+  expect(covered.indexOf("Rendered post")).toBeGreaterThan(
+    covered.indexOf('name="body"'),
+  );
+});

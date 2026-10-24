@@ -15,6 +15,21 @@ mock.module("next/headers", () => ({
 
 const { loadCreateAction } = await import("./create-actions");
 
+// The member's preferences as the backend answers them.
+const PREFERENCES = {
+  watchOnCreate: "watch_email",
+  watchOnReply: "watch",
+  language: null,
+  profileViewPrivacy: "everyone",
+  profilePostPrivacy: "members",
+  keyboardShortcuts: true,
+  homeTab: null,
+  feedView: "cards",
+  theme: null,
+  showOnline: true,
+};
+let preferencesBody = PREFERENCES;
+
 const node = (id: number, parentId: number | null, canPost: boolean) => ({
   id,
   parentId,
@@ -44,6 +59,7 @@ const node = (id: number, parentId: number | null, canPost: boolean) => ({
 
 beforeEach(() => {
   asked.length = 0;
+  preferencesBody = PREFERENCES;
   signedIn = true;
   wall = true;
   nodesStatus = 200;
@@ -54,6 +70,9 @@ beforeEach(() => {
       body.permissions.canPostProfile = wall;
       body.resolvedPermissions = { "tag.apply": true };
       return Response.json(body);
+    }
+    if (String(url).endsWith("/me/preferences")) {
+      return Response.json(preferencesBody);
     }
     if (String(url).endsWith("/nodes")) {
       if (nodesStatus !== 200) {
@@ -104,4 +123,12 @@ test("a guest gets nothing and no forum is asked for", async () => {
 test("a refused read is an answer that says so, not a thrown error", async () => {
   nodesStatus = 403;
   expect(await loadCreateAction()).toEqual({ ok: false });
+});
+
+test("the flow starts the watch options from the member's preference for threads they start", async () => {
+  const loaded = await loadCreateAction();
+  expect(loaded.ok && loaded.data.watchOnCreate).toBe("watch_email");
+  preferencesBody = { ...preferencesBody, watchOnCreate: "none" };
+  const again = await loadCreateAction();
+  expect(again.ok && again.data.watchOnCreate).toBe("none");
 });
