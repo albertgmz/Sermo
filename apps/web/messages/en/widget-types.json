@@ -18,7 +18,6 @@
   },
   "monthPicker": {
     "label": "Month",
-    "placeholder": "YYYY-MM",
     "submit": "Show",
     "hint": "Every member is listed for this month and the last one; an earlier month shows only its winner.",
     "notKept": "The standing of {month} is no longer kept."

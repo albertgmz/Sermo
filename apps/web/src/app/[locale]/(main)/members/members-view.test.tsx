@@ -9,6 +9,11 @@ import { viewerBody } from "@/lib/test-viewer";
 const realFetch = globalThis.fetch;
 
 mock.module("server-only", () => ({}));
+const navigation = await import("next/navigation");
+mock.module("next/navigation", () => ({
+  ...navigation,
+  useRouter: () => ({ push: () => {} }),
+}));
 const intlServer = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
@@ -24,6 +29,7 @@ const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { MembersView } = await import("./members-view");
 
 afterAll(() => {
+  mock.module("next/navigation", () => navigation);
   mock.module("next-intl/server", () => intlServer);
 });
 beforeEach(() => {
@@ -120,7 +126,9 @@ test("the month view lists the month in the address, with its winner and the pic
   expect(html).toContain("member-of-the-month");
   expect(html).toContain("ben");
   expect(html).toContain('action="/members/month"');
-  expect(html).toContain('value="2025-06"');
+  expect(html).toContain(
+    '<option value="2025-06" selected="">June 2025</option>',
+  );
   // More of the list is asked for the same month, and the plain links go to its address.
   expect(html).toContain("/members/month?month=2025-06&amp;cursor=");
 });
@@ -142,7 +150,7 @@ test("a month that nothing is kept for but has a winner shows the winner, not an
 test("the picker starts at the oldest winner on record, and an older month says its standing is not kept", async () => {
   backend();
   const picked = await draw({ view: "month", month: "2025-06" });
-  expect(picked.html).toContain('min="2025-05"');
+  expect(picked.html).toContain('<option value="2025-05"');
   // April 2025 has no standing and no winner, and is older than the last complete month.
   const { html } = await draw({ view: "month", month: "2025-04" });
   expect(html).toContain("The standing of April 2025 is no longer kept.");

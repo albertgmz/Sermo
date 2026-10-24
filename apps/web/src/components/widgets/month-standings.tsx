@@ -4,11 +4,8 @@ import { monthHref } from "@/app/[locale]/(main)/members/month-page";
 import { SectionCard } from "@/components/forum/section-card";
 import { MemberListSkeleton } from "@/components/forum/skeletons";
 import { monthLabel, StandingList } from "@/components/forum/standing";
-import {
-  MonthPicker,
-  monthValue,
-  pickableMonths,
-} from "@/components/widgets/month-picker";
+import { MonthPicker } from "@/components/widgets/month-picker";
+import { monthValue, pickableMonths } from "@/components/widgets/month-range";
 import { ViewAllLink } from "@/components/widgets/view-all-link";
 import type { WidgetBodyProps } from "@/components/widgets/widget-types";
 import { readIfAllowed } from "@/lib/sermo/client";

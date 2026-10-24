@@ -22,6 +22,11 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
+const navigation = await import("next/navigation");
+mock.module("next/navigation", () => ({
+  ...navigation,
+  useRouter: () => ({ push: () => {} }),
+}));
 const intlServer = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
@@ -41,6 +46,7 @@ const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { WidgetArea } = await import("./widget-area");
 
 afterAll(() => {
+  mock.module("next/navigation", () => navigation);
   mock.module("next-intl/server", () => intlServer);
   mock.module("next-intl", () => intl);
 });
@@ -371,21 +377,28 @@ test("the picker is a form that opens the standing of the month chosen, from the
   });
   const { html } = await draw(month());
   expect(html).toContain('action="/members/month"');
-  expect(html).toContain('type="month"');
+  expect(html).not.toContain('type="month"');
+  expect(html).toContain("<select");
   expect(html).toContain('name="month"');
-  expect(html).toContain('value="2026-10"');
+  expect(html).toContain(
+    '<option value="2026-10" selected="">October 2026</option>',
+  );
   expect(html).toContain(messages.widgetTypes.monthPicker.submit);
   // From the last complete month to the running one, with what an older month shows.
   const now = new Date();
   const last = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
   );
-  expect(html).toContain(
-    `min="${last.getUTCFullYear()}-${String(last.getUTCMonth() + 1).padStart(2, "0")}"`,
+  const lastValue = `${last.getUTCFullYear()}-${String(last.getUTCMonth() + 1).padStart(2, "0")}`;
+  expect(html).toContain(`<option value="${lastValue}"`);
+  const oldest = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1),
+  );
+  expect(html).not.toContain(
+    `<option value="${oldest.getUTCFullYear()}-${String(oldest.getUTCMonth() + 1).padStart(2, "0")}"`,
   );
   // The widget is on hot pages: it reads the standing and nothing else about the month.
   expect(asked.map((call) => call.path)).toEqual(["/api/v1/standings"]);
-  expect(html).toContain('max="');
   expect(html).toContain(messages.widgetTypes.monthPicker.hint);
   // Turned off, the standing has no form.
   backend(false, {

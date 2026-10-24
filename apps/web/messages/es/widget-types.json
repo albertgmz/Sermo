@@ -18,7 +18,6 @@
   },
   "monthPicker": {
     "label": "Mes",
-    "placeholder": "AAAA-MM",
     "submit": "Ver",
     "hint": "Se listan todos los miembros de este mes y del anterior; de un mes anterior solo se muestra su ganador.",
     "notKept": "La clasificación de {month} ya no se conserva."

@@ -115,6 +115,7 @@ export const CLIENT_NAMESPACES = [
   "ui.iconPicker",
   "ui.sheet",
   "upgrade.rankForm",
+  "widgetTypes.monthPicker",
 ] as const;
 
 export type ClientNamespace = (typeof CLIENT_NAMESPACES)[number];

@@ -1,34 +1,29 @@
-import { useTranslations } from "next-intl";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { monthValue } from "@/components/widgets/month-range";
 
-// A month as the value of a month field: `YYYY-MM`.
-export const monthValue = (year: number, month: number) =>
-  `${year}-${String(month).padStart(2, "0")}`;
-
-// The months worth asking for, as `YYYY-MM`: from the oldest month with something to show (the last
-// complete month, which keeps its whole standing, or the oldest winner on record) to the running
-// one. `previous` is the last complete month: the oldest whose standing is kept.
-export function pickableMonths(
-  winners: readonly { year: number; month: number }[],
-  now: Date,
-) {
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth() + 1;
-  const previous =
-    month === 1 ? monthValue(year - 1, 12) : monthValue(year, month - 1);
-  const oldest = winners.map((entry) => monthValue(entry.year, entry.month));
-  return {
-    min: [previous, ...oldest].sort()[0],
-    max: monthValue(year, month),
-    previous,
-  };
+// The months from `max` back to `min`, newest first, with `value` kept in the list when it is
+// outside them (an address can name any month).
+function monthOptions(min: string, max: string, value?: string) {
+  const months: string[] = [];
+  const [minYear, minMonth] = min.split("-").map(Number);
+  let [year, month] = max.split("-").map(Number);
+  while (year > minYear || (year === minYear && month >= minMonth)) {
+    months.push(monthValue(year, month));
+    [year, month] = month === 1 ? [year - 1, 12] : [year, month - 1];
+  }
+  if (value && !months.includes(value)) months.push(value);
+  return months.sort().reverse();
 }
 
-// Asks for the standing of a month: a plain form that opens `/members/month?month=YYYY-MM`, so it
-// needs no script. Where the browser has no month field it is a text field that takes the same
-// `YYYY-MM`. `value`, `min` and `max` are months in that form. Under it, what an older month shows.
+// Asks for the standing of a month: a select of the months by name. It is a plain form that opens
+// `/members/month?month=YYYY-MM`, so it needs no script; with script, choosing a month opens it at
+// once, in place (only the standing changes; the address and the history follow). `value`, `min`
+// and `max` are months in that form. Under it, what an older month shows.
 export function MonthPicker({
   id,
   value,
@@ -43,25 +38,37 @@ export function MonthPicker({
   className?: string;
 }) {
   const t = useTranslations("widgetTypes.monthPicker");
+  const format = useFormatter();
+  const router = useRouter();
   return (
     <search className={className}>
       <form action="/members/month" className="flex gap-2">
         <Label htmlFor={id} className="sr-only">
           {t("label")}
         </Label>
-        <Input
+        <select
           id={id}
-          type="month"
           name="month"
           defaultValue={value}
-          min={min}
-          max={max}
-          required
-          pattern="[0-9]{4}-[0-9]{2}"
-          placeholder={t("placeholder")}
           aria-describedby={`${id}-hint`}
-          className="min-w-0 flex-1"
-        />
+          onChange={(event) =>
+            router.push(`/members/month?month=${event.currentTarget.value}`)
+          }
+          className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-8 md:text-sm dark:bg-input/30"
+        >
+          {monthOptions(min, max, value).map((month) => {
+            const [year, number] = month.split("-").map(Number);
+            return (
+              <option key={month} value={month}>
+                {format.dateTime(new Date(Date.UTC(year, number - 1, 1)), {
+                  month: "long",
+                  year: "numeric",
+                  timeZone: "UTC",
+                })}
+              </option>
+            );
+          })}
+        </select>
         <Button type="submit" className="h-10 md:h-8">
           {t("submit")}
         </Button>

@@ -127,6 +127,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         "ui.dialog",
         "ui.sheet",
         "upgrade.rankForm",
+        "widgetTypes.monthPicker",
       ]}
     >
       <div

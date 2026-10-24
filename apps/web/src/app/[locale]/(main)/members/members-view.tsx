@@ -38,11 +38,8 @@ import {
 import { MonthHero, WinnerList } from "@/components/forum/standing";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  MonthPicker,
-  monthValue,
-  pickableMonths,
-} from "@/components/widgets/month-picker";
+import { MonthPicker } from "@/components/widgets/month-picker";
+import { monthValue, pickableMonths } from "@/components/widgets/month-range";
 import { widgetAreas, widgetAside } from "@/components/widgets/widget-area";
 import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
