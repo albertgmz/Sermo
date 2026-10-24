@@ -7081,3 +7081,27 @@ reviewed first. A reserved account keeps the NOT NULL author columns and every c
 working without rebuilding the two largest tables; a negative id cannot be named by any request
 and does not collide with the 0 and -1 that queries use for "no viewer"; the union makes every
 client decide how to draw a guest instead of linking a profile that does not exist.
+
+### Guest posting on the web
+
+**Offer:** a guest is offered the forms only where `forum.guestPost` is held for them, the forum is
+not read-only and asks no account age or post count, the thread is not locked, and the site guards
+the `guestPost` Turnstile form (`guestPostKey`, one rule for the forum page, the new-thread page
+and, through `guestReplyKey`, the thread page); everywhere else the sign-in links and redirects
+stay as they were. `/forums/N/new` is `noindex`. **Forms:** the reply box and the new-thread page
+take the text, the name and the Turnstile widget and nothing else (no forum chooser, files, poll,
+tags, watching or draft; the forum's prefix is kept); after a send the form is replaced by one
+notice that the post awaits approval, with a link back, because the guest cannot open what they
+posted. A refused name is said under the name, any other refusal under the form, in the language
+the backend answered. **Drawing a guest:** `MemberView.guest` and one `GuestName` ("<name> ·
+Guest" / "<name> · Invitado", the word alone with no name) are used by `UserLink` and
+`UserAvatar`, so every surface that draws an author through them (postbit, thread lists and cards,
+feeds, search, bookmarks, last posts, hover cards) shows a guest the same way with no profile link,
+no avatar link and no member card; the approval queue, report detail and picture viewer use the
+same component. `TurnstileField` moved to `components/forum/` for the auth and guest forms.
+
+Why: the owner wants guests to post where staff allow it, with every post reviewed first. Drawing
+the guest in the two components every author already goes through fixes all screens at once and
+removes the `/members/0` link a guest got from the id-0 stand-in; the permission, read-only and
+Turnstile checks sit in one function so a page never offers a form the backend would refuse for a
+reason it already knows.
