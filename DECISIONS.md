@@ -6647,3 +6647,14 @@ Why: the owner wanted to quote only part of a post.
   drawn with the page (measured 285.2 KB); first-load budgets of the other pages did not grow.
 
 Why: the owner found the editor odd because it appeared only when touched, as an empty box.
+
+### The code button asks for the language
+
+- The editor's code button opens a small dialog, as XenForo's, with a language select (General
+  code first, then the common languages the renderer highlights) and the code text; it inserts
+  `[CODE=lang]`, or plain `[CODE]` for General code. On an existing code block the dialog
+  changes its language or removes the block. Code put into an empty paragraph takes its place,
+  and closing the dialog returns focus to the editor at its caret. The dialog loads only when
+  opened.
+
+Why: the owner wanted to choose the language of inserted code.
