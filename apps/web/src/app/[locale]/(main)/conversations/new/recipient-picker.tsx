@@ -1,18 +1,12 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
-import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
-import { type Choice, IdPicker } from "@/components/forum/id-picker";
+import { useEffect, useId, useState } from "react";
+import { IdPicker } from "@/components/forum/id-picker";
+import { findMemberChoices } from "@/components/forum/member-picker-field";
+import { Label } from "@/components/ui/label";
 
 type Recipient = { id: number; username: string };
-
-async function findMembers(prefix: string): Promise<Choice[]> {
-  return (await findRecipients(prefix)).map((user) => ({
-    id: user.id,
-    label: user.username,
-  }));
-}
 
 // Recipients are found by the start of their username as the visitor types; the backend answers
 // with at most 25 and decides who is in the list. Members in `exclude` are never offered. The
@@ -28,25 +22,28 @@ export function RecipientPicker({
   onCount?: (count: number) => void;
 }) {
   const t = useTranslations("conversations.recipientPicker");
+  const inputId = useId();
   const [ids, setIds] = useState<number[]>(initial ? [initial.id] : []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a change of the count is told
   useEffect(() => onCount?.(ids.length), [ids.length]);
 
   return (
-    <fieldset className="space-y-2">
-      <legend className="mb-2 text-sm font-medium">{t("label")}</legend>
+    <fieldset aria-labelledby={`${inputId}-label`} className="space-y-2">
+      <Label id={`${inputId}-label`} htmlFor={inputId}>
+        {t("label")}
+      </Label>
       {ids.map((id) => (
         <input key={id} type="hidden" name="recipientIds" value={id} />
       ))}
       <IdPicker
         ids={ids}
         known={initial ? [{ id: initial.id, label: initial.username }] : []}
-        search={findMembers}
+        search={findMemberChoices}
+        inputId={inputId}
         exclude={exclude}
         text={{
           chosen: t("aria.chosen"),
-          search: t("aria.search"),
           placeholder: t("placeholder"),
           noMatch: t("noMatch"),
           remove: (name) => t("aria.remove", { name }),

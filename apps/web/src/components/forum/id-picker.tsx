@@ -94,8 +94,11 @@ export const isFull = (
 //   exclude   Ids that are never offered.
 //   single    One id at most: choosing replaces it, and the search hides while one is chosen.
 //   limit     The most ids that can be chosen (default: no limit).
-//   text      The words: the chosen list's label, the search field's label and placeholder, the
-//             line for no match, and the remove button's label for a name.
+//   inputId   The search box's id, for a visible `<label htmlFor>` that names it.
+//   inputName The search box's field name: what was typed and not chosen goes with the form.
+//   text      The words: the chosen list's label, the search field's label (left out when a
+//             visible label names it) and placeholder, the line for no match, and the remove
+//             button's label for a name.
 //   onChange  Told the new ids.
 export function IdPicker({
   ids,
@@ -105,6 +108,8 @@ export function IdPicker({
   exclude,
   single = false,
   limit = Number.POSITIVE_INFINITY,
+  inputId,
+  inputName,
   text,
   onChange,
 }: {
@@ -115,9 +120,11 @@ export function IdPicker({
   exclude?: readonly number[];
   single?: boolean;
   limit?: number;
+  inputId?: string;
+  inputName?: string;
   text: {
     chosen: string;
-    search: string;
+    search?: string;
     placeholder: string;
     noMatch: string;
     remove: (name: string) => string;
@@ -187,6 +194,8 @@ export function IdPicker({
         <>
           <Input
             type="search"
+            id={inputId}
+            name={inputName}
             value={query}
             autoComplete="off"
             placeholder={text.placeholder}
@@ -194,8 +203,9 @@ export function IdPicker({
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key !== "Enter") return;
-              event.preventDefault();
               const choice = settled ? enterChoice(query, shown) : undefined;
+              // A box that sends its text lets Enter submit the form when nothing is offered.
+              if (choice || inputName === undefined) event.preventDefault();
               if (choice) choose(choice);
             }}
             className="h-10 md:h-8"

@@ -58,7 +58,6 @@
       "placeholder": "Search...",
       "titlesOnly": "Search titles only",
       "byAuthor": "By member",
-      "exactUsername": "Exact username",
       "advanced": "Advanced search",
       "submit": "Search",
       "aria": {

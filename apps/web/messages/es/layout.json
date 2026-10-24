@@ -58,7 +58,6 @@
       "placeholder": "Buscar...",
       "titlesOnly": "Buscar solo en títulos",
       "byAuthor": "Por miembro",
-      "exactUsername": "Nombre de usuario exacto",
       "advanced": "Búsqueda avanzada",
       "submit": "Buscar",
       "aria": {

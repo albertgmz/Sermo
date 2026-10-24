@@ -2,6 +2,7 @@ import type { nodesList, threadPrefixesList } from "@sermo/core/contracts";
 import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type * as z from "zod";
+import { MemberField } from "@/components/forum/member-field";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectFieldLabel,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -57,18 +59,12 @@ export function SearchForm({
             {t("hint")}
           </p>
         </div>
+        <MemberField
+          name="author"
+          label={t("authorLabel")}
+          initial={author || undefined}
+        />
         <div className="space-y-2">
-          <Label htmlFor="search-author">{t("authorLabel")}</Label>
-          <Input
-            id="search-author"
-            name="author"
-            defaultValue={author}
-            placeholder={t("authorPlaceholder")}
-            autoComplete="off"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label id="search-forum-label">{t("forumLabel")}</Label>
           <Select
             name="forum"
             items={[
@@ -80,10 +76,8 @@ export function SearchForm({
             ]}
             defaultValue={forum === undefined ? ANY : String(forum)}
           >
-            <SelectTrigger
-              aria-labelledby="search-forum-label"
-              className={selectTriggerClass}
-            >
+            <SelectFieldLabel>{t("forumLabel")}</SelectFieldLabel>
+            <SelectTrigger className={selectTriggerClass}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -105,7 +99,6 @@ export function SearchForm({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label id="search-prefix-label">{t("prefixLabel")}</Label>
           <Select
             name="prefix"
             items={[
@@ -117,10 +110,8 @@ export function SearchForm({
             ]}
             defaultValue={prefix === undefined ? ANY : String(prefix)}
           >
-            <SelectTrigger
-              aria-labelledby="search-prefix-label"
-              className={selectTriggerClass}
-            >
+            <SelectFieldLabel>{t("prefixLabel")}</SelectFieldLabel>
+            <SelectTrigger className={selectTriggerClass}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

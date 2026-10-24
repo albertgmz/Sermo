@@ -108,6 +108,23 @@ function SelectLabel({
   );
 }
 
+// The visible name of a select, which names its trigger and focuses it when pressed.
+function SelectFieldLabel({
+  className,
+  ...props
+}: SelectPrimitive.Label.Props) {
+  return (
+    <SelectPrimitive.Label
+      data-slot="select-field-label"
+      className={cn(
+        "flex items-center gap-2 text-sm leading-none font-medium select-none",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 function SelectItem({
   className,
   children,
@@ -191,6 +208,7 @@ export {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectFieldLabel,
   SelectScrollDownButton,
   SelectScrollUpButton,
   SelectSeparator,

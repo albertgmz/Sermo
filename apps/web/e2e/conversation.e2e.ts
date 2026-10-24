@@ -25,9 +25,7 @@ test("a conversation is started with another member and a message is sent in it"
   await expect(page).toHaveURL(/\/conversations\/new/);
   await ready(page);
 
-  await page
-    .getByRole("searchbox", { name: "Search members by username" })
-    .fill(PEER);
+  await page.getByRole("searchbox", { name: "Recipients" }).fill(PEER);
   await page
     .getByRole("group", { name: "Recipients" })
     .getByRole("button", { name: PEER, exact: true })

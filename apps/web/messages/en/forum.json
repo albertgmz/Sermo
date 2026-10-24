@@ -119,6 +119,12 @@
     "unread": "Unread",
     "empty": "No posts yet"
   },
+  "memberField": {
+    "placeholder": "Search members by username",
+    "noMatch": "No member found.",
+    "chosen": "Chosen member",
+    "remove": "Remove {name}"
+  },
   "memberCard": {
     "emptyAwards": "No awards yet",
     "awardCount": "{count, plural, one {# award} other {# awards}}",

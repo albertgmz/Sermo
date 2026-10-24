@@ -105,7 +105,6 @@
     "placeholder": "Buscar miembros por nombre de usuario",
     "noMatch": "No se encontró ningún miembro.",
     "aria": {
-      "search": "Buscar miembros por nombre de usuario",
       "chosen": "Destinatarios elegidos",
       "remove": "Quitar a {name}"
     }

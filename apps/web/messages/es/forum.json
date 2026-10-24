@@ -119,6 +119,12 @@
     "unread": "No leído",
     "empty": "Todavía no hay mensajes"
   },
+  "memberField": {
+    "placeholder": "Buscar miembros por nombre de usuario",
+    "noMatch": "No se encontró ningún miembro.",
+    "chosen": "Miembro elegido",
+    "remove": "Quitar a {name}"
+  },
   "memberCard": {
     "emptyAwards": "Todavía no hay trofeos",
     "awardCount": "{count, plural, one {# trofeo} other {# trofeos}}",

@@ -152,3 +152,23 @@ test("a search with nothing found says so; a fixed list with no match does too",
   // A search says nothing until it has answered.
   expect(draw({ search: async () => found })).not.toContain("No match.");
 });
+
+test("a picker with a visible label gives its box that label's id and no label of its own", () => {
+  const { search: _unused, ...withoutSearch } = text;
+  const html = draw({ inputId: "who", text: withoutSearch, options: found });
+  const box = html.match(/<input[^>]*>/)?.[0] ?? "";
+  expect(box).toContain('id="who"');
+  expect(box).not.toContain("aria-label");
+});
+
+test("a picker without a visible label still names its box", () => {
+  const box = draw({ options: found }).match(/<input[^>]*>/)?.[0] ?? "";
+  expect(box).toContain('aria-label="Search"');
+});
+
+test("the box carries the field name, so what was typed is sent when nothing was chosen", () => {
+  const box =
+    draw({ inputName: "author", options: found }).match(/<input[^>]*>/)?.[0] ??
+    "";
+  expect(box).toContain('name="author"');
+});

@@ -105,7 +105,6 @@
     "placeholder": "Search members by username",
     "noMatch": "No member found.",
     "aria": {
-      "search": "Search members by username",
       "chosen": "Chosen recipients",
       "remove": "Remove {name}"
     }
