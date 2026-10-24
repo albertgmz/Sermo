@@ -6876,3 +6876,18 @@ dialog.
 
 Why: the UI audit found mixed names for the same thing and controls labelled by their place
 rather than their action.
+
+### Delete and Report open as dialogs over the page
+
+- Delete and Report open in the app's modal dialog, as XenForo's overlays ("Eliminar
+  contenido", "Denunciar contenido"): the reason field takes the focus; Escape, Cancel or a
+  press outside closes it and hands the focus back to the button; one is open at a time, and a
+  sent report closes the dialog with the floating notice. One shell serves both
+  (`components/forum/action-dialog.tsx`).
+- Edit tags and Add poll stay in place but open on their first field, one at a time, and close
+  on Escape pressed inside them (a popup drawn outside the form keeps it open).
+- A deleted post or message offers no Reply; nobody is offered to report their own post; the
+  permanent delete keeps the word "Eliminar" on a phone.
+
+Why: the UI audit (A5, A6, A9, A37) found delete and report drawn as inline forms that pushed
+the page down and could not be closed by keyboard.
