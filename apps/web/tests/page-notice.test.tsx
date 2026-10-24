@@ -1,14 +1,15 @@
 import { afterEach, beforeEach, expect, jest, test } from "bun:test";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { NoticeBox } from "@/components/forum/notice-card";
 import {
   announce,
   closeOnEscape,
   holdNotice,
-  NoticeBox,
   noticeText,
   saidNotice,
-} from "@/components/forum/page-notice";
+} from "@/components/forum/notice-store";
+import { NoticeStatus, PageNotice } from "@/components/forum/page-notice";
 
 // The notice that floats over the page after a form answered in place: how long it stays, what
 // keeps it, how it goes, and that a screen reader hears it.
@@ -34,8 +35,7 @@ function withProp(node: ReactNode, prop: string): ReactElement<Props>[] {
   ];
 }
 
-const box = (text: string | null, seq = 1) =>
-  NoticeBox({ text, seq, closeLabel: "Dismiss notice" });
+const box = () => NoticeBox({ text: "Bought.", closeLabel: "Dismiss notice" });
 
 test("a notice said in place is shown, and goes after a few seconds", () => {
   announce("bought");
@@ -64,7 +64,7 @@ test("a notice stays while the pointer is on it and again while it holds focus",
 
 test("the close button hides the notice", () => {
   announce("bought");
-  const [close] = withProp(box("Bought."), "aria-label");
+  const [close] = withProp(box(), "aria-label");
   if (!close) throw new Error("no close button");
   expect(close.props["aria-label"]).toBe("Dismiss notice");
   (close.props.onClick as () => void)();
@@ -121,24 +121,30 @@ test("a notice said again restarts the time and is written again for the screen 
   jest.advanceTimersByTime(2000);
   expect(saidNotice()).toBeNull();
   const textKey = (seq: number) =>
-    withProp(box("Bought.", seq), "children").find((el) => el.type === "span")
-      ?.key;
+    withProp(NoticeStatus({ text: "Bought.", seq }), "children").find(
+      (el) => el.type === "span",
+    )?.key;
   expect(textKey(2)).not.toBe(textKey(1));
 });
 
-test("the live region is in the page before there is anything to say, and takes no taps", () => {
-  const empty = renderToStaticMarkup(box(null));
-  expect(empty).toContain("<output");
-  expect(empty).not.toContain("<button");
-  expect(empty).not.toContain("pointer-events-auto");
-  const shown = renderToStaticMarkup(box("Bought."));
-  expect(shown).toMatch(/<output[^>]*>.*Bought\./);
+test("the live region is in the page before there is anything to say", () => {
+  const page = renderToStaticMarkup(<PageNotice texts={texts} />);
+  expect(page).toMatch(/<output aria-live="polite"[^>]*><\/output>/);
+  expect(page).not.toContain("<button");
+  const said = renderToStaticMarkup(<NoticeStatus text="Bought." seq={1} />);
+  expect(said).toMatch(/<output[^>]*><span>Bought\.<\/span><\/output>/);
+});
+
+test("the card shows the words, can be closed, and takes no taps outside its own box", () => {
+  const shown = renderToStaticMarkup(box());
+  expect(shown).toContain("Bought.");
   expect(shown).toContain('aria-label="Dismiss notice"');
   expect(shown).toMatch(/^<div class="[^"]*pointer-events-none/);
+  expect(shown).toContain("pointer-events-auto");
 });
 
 test("the box holds the notice while the pointer is on it or focus is in it, each on its own", () => {
-  const [card] = withProp(box("Bought."), "onMouseEnter");
+  const [card] = withProp(box(), "onMouseEnter");
   if (!card) throw new Error("no notice box");
   const call = (name: string) => (card.props[name] as () => void)();
   const survives = () => {

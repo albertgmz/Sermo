@@ -51,15 +51,13 @@ function titleOf(node: HTMLElement | null) {
   );
 }
 
-// The element an address's anchor names, if the page holds it (a malformed one names none).
-function anchorOf(hash: string) {
-  if (!hash) return null;
-  try {
-    return document.getElementById(decodeURIComponent(hash.slice(1)));
-  } catch {
-    return null;
-  }
-}
+// What comes once a part is on screen (`arriveAt`) is fetched with the first press, in step with
+// the part itself: the part is not shown before it is there.
+let arriveAt: typeof import("@/components/forum/tab-switch-arrive").arriveAt;
+const loadArrive = () =>
+  import("@/components/forum/tab-switch-arrive").then((found) => {
+    arriveAt = found.arriveAt;
+  });
 
 export function TabSwitch({
   place,
@@ -85,7 +83,8 @@ export function TabSwitch({
     [owned],
   );
   const loadPlace = useCallback(
-    (_place: string, search: string) => load(search),
+    async (_place: string, search: string) =>
+      (await Promise.all([load(search), loadArrive()]))[0],
     [load],
   );
   // The link pressed, which keeps the keyboard when the part drawn anew replaces it.
@@ -103,34 +102,10 @@ export function TabSwitch({
     stamp,
     load: loadPlace,
     placeOf,
-    // The scroll position stays, unless the top of the part is above the screen (a press further
-    // down): then it starts at its top. An anchor in the address is gone to once it is there.
     arrive: (node) => {
-      const part = titleOf(node);
-      if (part && titled.current)
-        document.title = titled.current.title.replace(
-          titled.current.part,
-          part,
-        );
       const href = pressed.current;
       pressed.current = null;
-      const active = document.activeElement;
-      // The link drawn anew in its place: the one on screen, where a page draws a bar per screen
-      // size (the feed's phone bar is hidden on a wider screen).
-      if (href && (!active || active === document.body))
-        [...node.querySelectorAll<HTMLElement>(`a[href="${CSS.escape(href)}"]`)]
-          .find((link) => link.getClientRects().length > 0)
-          ?.focus({ preventScroll: true });
-      const target = anchorOf(location.hash);
-      if (target) {
-        target.scrollIntoView({ block: "start" });
-        return;
-      }
-      const header = Number.parseFloat(
-        getComputedStyle(document.documentElement).scrollPaddingTop,
-      );
-      if (node.getBoundingClientRect().top < (header || 0))
-        node.scrollIntoView({ block: "start" });
+      arriveAt?.(node, href, titleOf(node), titled.current);
     },
     pushed: (url) =>
       `${location.pathname}${pushedSearch(

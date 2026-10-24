@@ -6,7 +6,7 @@ import {
   buyItem,
   type CreditsState,
 } from "@/app/[locale]/(main)/credits/actions";
-import { useAnnounce } from "@/components/forum/page-notice";
+import { useAnnounce } from "@/components/forum/notice-store";
 import { PendingButton } from "@/components/forum/pending-button";
 import { Input } from "@/components/ui/input";
 

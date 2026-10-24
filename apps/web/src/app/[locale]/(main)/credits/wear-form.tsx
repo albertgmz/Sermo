@@ -6,7 +6,7 @@ import {
   type CreditsState,
   wearItem,
 } from "@/app/[locale]/(main)/credits/actions";
-import { useAnnounce } from "@/components/forum/page-notice";
+import { useAnnounce } from "@/components/forum/notice-store";
 import { PendingButton } from "@/components/forum/pending-button";
 
 export function WearForm({
