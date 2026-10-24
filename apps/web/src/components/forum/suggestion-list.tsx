@@ -48,8 +48,10 @@ function clipping(element: Element | null) {
   return bands;
 }
 
+type Caret = { top: number; bottom: number; left: number };
+
 // The caret's rectangle on the screen, if the page has one.
-function caretRect() {
+function caretRect(): Caret | null {
   const selection = window.getSelection();
   if (!selection?.rangeCount) return null;
   const range = selection.getRangeAt(0);
@@ -71,6 +73,7 @@ export function SuggestionList<T>({
   optionKey,
   renderOption,
   onPick,
+  caretAt = caretRect,
 }: {
   owner: HTMLElement | null;
   label: string;
@@ -80,6 +83,8 @@ export function SuggestionList<T>({
   optionKey: (option: T) => string;
   renderOption: (option: T) => ReactNode;
   onPick: (option: T) => void;
+  // Where the caret is, when the text is not the page's selection (a text field).
+  caretAt?: () => Caret | null;
 }) {
   const list = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -100,7 +105,7 @@ export function SuggestionList<T>({
   useLayoutEffect(() => {
     const element = list.current;
     const box = element?.offsetParent;
-    const caret = caretRect();
+    const caret = caretAt();
     if (!element || !box || !caret) return;
     const view = window.visualViewport;
     const shownTop = view?.offsetTop ?? 0;

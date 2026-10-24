@@ -77,6 +77,7 @@ async function setup() {
     bUser,
     cUser,
     adminUser,
+    outsiderUser,
     a,
     b,
     c,
@@ -374,6 +375,22 @@ describe("editing a message", () => {
     await dispatchEvents(s.ctx);
     await runDueJobs(s.ctx);
     expect(mentions(s.cUser.id)).toBe(1);
+  });
+
+  test("a message alerts the participant it mentions, never a member outside the conversation", async () => {
+    const s = await setup();
+    registerNotificationJobs(s.ctx);
+    await s.reply(s.b, `@${s.cUser.username} and @${s.outsiderUser.username}, look`);
+    await dispatchEvents(s.ctx);
+    await runDueJobs(s.ctx);
+    const alerts = (userId: number) =>
+      s.ctx.sqlite
+        .prepare<{ n: number }, [number]>(
+          "SELECT count(*) AS n FROM notifications WHERE type = 'content.mentioned' AND user_id = ?1",
+        )
+        .get(userId)!.n;
+    expect(alerts(s.cUser.id)).toBe(1);
+    expect(alerts(s.outsiderUser.id)).toBe(0);
   });
 
   test("attachments: omitted keeps them, a list replaces them", async () => {

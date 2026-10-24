@@ -9,6 +9,7 @@ import { AttachmentField } from "@/components/forum/attachment-field";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
+import { findMentions } from "@/components/forum/mention-find";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,7 @@ export function NewConversationForm({
           name="body"
           compact={false}
           placeholder={t("messagePlaceholder")}
+          findMembers={findMentions}
         />
       </div>
       {state.error && <FormError>{state.error}</FormError>}

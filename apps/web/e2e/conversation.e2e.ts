@@ -5,6 +5,7 @@ import {
   MEMBER_STATE,
   PEER,
   ready,
+  seed,
   test,
   unique,
   visit,
@@ -60,4 +61,27 @@ test("a conversation is started with another member and a message is sent in it"
   await ready(page);
   await expect(page.getByRole("link", { name: title })).toBeVisible();
   await expectFits(page, "conversation list");
+});
+
+test("the @ list offers members in a conversation's reply and in a new conversation", async ({
+  page,
+}) => {
+  const mention = `@${PEER.slice(0, 2)}`;
+  const offered = page
+    .getByRole("listbox", { name: "Members" })
+    .getByRole("option", { name: new RegExp(PEER) });
+
+  await visit(page, `/conversations/${seed().landing.conversation.id}`);
+  const writer = page.getByRole("textbox", { name: "Write a message…" });
+  await writer.click();
+  await editorReady(page);
+  await page.keyboard.type(mention);
+  await expect(offered).toBeVisible();
+
+  await visit(page, "/conversations/new");
+  const body = page.getByRole("textbox", { name: /^Write your message/ });
+  await body.click();
+  await editorReady(page);
+  await page.keyboard.type(mention);
+  await expect(offered).toBeVisible();
 });

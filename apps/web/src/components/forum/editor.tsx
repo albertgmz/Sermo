@@ -70,6 +70,7 @@ import {
   type MemberHit,
   MentionPlugin,
   SourceContext,
+  SourceMentionPlugin,
   type SourceMode,
 } from "@/components/forum/editor-extras";
 import { prepareFiles, registerPaste } from "@/components/forum/editor-paste";
@@ -568,26 +569,35 @@ export function Editor({
             <EmojiPlugin />
           </div>
           {sourceShown && (
-            <textarea
-              ref={field}
-              id={id}
-              value={value}
-              onChange={(event) => commit(event.target.value)}
-              onPaste={takePastedFiles}
-              aria-label={fieldLabel}
-              aria-labelledby={labelledBy}
-              aria-required={required}
-              aria-invalid={invalid || ariaInvalid || undefined}
-              aria-describedby={describedByIds}
-              spellCheck={false}
-              autoCapitalize="off"
-              className={cn(
-                "block field-sizing-content w-full resize-none bg-transparent font-mono outline-none",
-                EDITOR_TEXT,
-                padding,
+            <div className="relative">
+              <textarea
+                ref={field}
+                id={id}
+                value={value}
+                onChange={(event) => commit(event.target.value)}
+                onPaste={takePastedFiles}
+                aria-label={fieldLabel}
+                aria-labelledby={labelledBy}
+                aria-required={required}
+                aria-invalid={invalid || ariaInvalid || undefined}
+                aria-describedby={describedByIds}
+                spellCheck={false}
+                autoCapitalize="off"
+                className={cn(
+                  "block field-sizing-content w-full resize-none bg-transparent font-mono outline-none",
+                  EDITOR_TEXT,
+                  padding,
+                )}
+                style={{ minHeight: minHeight ?? editorMinHeight(compact) }}
+              />
+              {findMembers && (
+                <SourceMentionPlugin
+                  find={findMembers}
+                  field={field}
+                  commit={commit}
+                />
               )}
-              style={{ minHeight: minHeight ?? editorMinHeight(compact) }}
-            />
+            </div>
           )}
           <FormField
             name={name}

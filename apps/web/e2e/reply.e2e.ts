@@ -5,6 +5,7 @@ import {
   expect,
   expectFits,
   MEMBER_STATE,
+  PEER,
   ready,
   screen,
   seed,
@@ -225,6 +226,53 @@ test("where a composer takes no files, Image asks for a picture's address and pu
   await expect(
     form.getByText("That is not the address of a picture on the web."),
   ).toBeHidden();
+});
+
+// The "@" list after the first two letters of the other member's name.
+const typeMention = (page: Page) => page.keyboard.type(`@${PEER.slice(0, 2)}`);
+const offered = (page: Page) =>
+  page.getByRole("listbox", { name: "Members" }).getByRole("option", {
+    name: new RegExp(PEER),
+  });
+
+test("the @ list offers members in the thread reply and in its BB code source, and a pick is written as the mention", async ({
+  page,
+}) => {
+  const { threadId } = seed();
+  await visit(page, `/threads/${threadId}`);
+  await replyBox(page).click();
+  const region = page.getByRole("region", { name: "Reply" });
+  await editorReady(region);
+  await typeMention(page);
+  await expect(offered(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(offered(page)).toBeHidden();
+
+  const toolbar = region.getByRole("toolbar", { name: "Formatting" });
+  await (await reveal(toolbar, "BB code source")).click();
+  const source = region.getByRole("textbox", { name: "BB code source" });
+  await expect(source).toBeFocused();
+  await source.fill("");
+  await typeMention(page);
+  await expect(offered(page)).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(source).toHaveValue(new RegExp(`^@${PEER} $`));
+  await expect(offered(page)).toBeHidden();
+});
+
+test("the @ list offers members in a feed card's reply box @all", async ({
+  page,
+}) => {
+  await visit(page, "/novedades");
+  await page
+    .getByRole("button", { name: "Reply", exact: true })
+    .first()
+    .click();
+  const box = page.getByRole("textbox", { name: "Write a reply…" }).first();
+  await expect(box).toBeFocused();
+  await editorReady(page.locator("form").filter({ has: box }));
+  await typeMention(page);
+  await expect(offered(page)).toBeVisible();
 });
 
 test("a reply is posted from the phone and the quote and r key reach the editor", async ({

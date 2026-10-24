@@ -10,7 +10,8 @@ import {
   type TextNode,
 } from "lexical";
 import { renderToStaticMarkup } from "react-dom/server";
-import { onMentionStart } from "./editor-extras";
+import { mentionInText } from "./editor-commands";
+import { mentionBefore, onMentionStart } from "./editor-extras";
 import type { MentionHit } from "./mention-find";
 import { MentionOption, registerMentionTyping } from "./mention-suggest";
 
@@ -144,4 +145,29 @@ test("the member list is not part of the editor's first load", () => {
   expect(read("editor-extras.tsx")).toContain(
     '() => import("@/components/forum/mention-suggest")',
   );
+});
+
+test("in the source field the name typed is read from the text before the caret", () => {
+  expect(mentionBefore("hola @Lu")).toBe("Lu");
+  expect(mentionBefore("@ab")).toBe("ab");
+  expect(mentionBefore("(@ab")).toBe("ab");
+  expect(mentionBefore("mail@ab")).toBeNull();
+  expect(mentionBefore("hola @")).toBeNull();
+  expect(mentionBefore("hola @Lucien y")).toBeNull();
+});
+
+test("a member picked in the source field replaces the @ and the name typed, with a space after", () => {
+  expect(mentionInText("hola @ab", 8, "@abel")).toEqual({
+    text: "hola @abel ",
+    caret: 11,
+  });
+  // The text that goes on after the caret is kept, and a space there is not doubled.
+  expect(mentionInText("hola @ab y más", 8, "@abel")).toEqual({
+    text: "hola @abel y más",
+    caret: 10,
+  });
+  expect(mentionInText("@ab\nfin", 3, '@"Abel Ruiz"')).toEqual({
+    text: '@"Abel Ruiz"\nfin',
+    caret: 12,
+  });
 });

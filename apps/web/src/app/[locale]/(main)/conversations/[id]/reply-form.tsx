@@ -9,6 +9,7 @@ import { AttachmentField } from "@/components/forum/attachment-field";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
+import { findMentions } from "@/components/forum/mention-find";
 import { useTailForm } from "@/components/forum/use-tail-form";
 
 // Whether a message is on its way to a page that will be drawn anew (the form is gone with it): the
@@ -75,6 +76,7 @@ export function ReplyForm({
         name="body"
         compact={false}
         placeholder={placeholder}
+        findMembers={findMentions}
         insertEvent={QUOTE_EVENT}
       />
       {state.error && <FormError>{state.error}</FormError>}

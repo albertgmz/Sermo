@@ -66,8 +66,22 @@ export function $setBlock(
   }
 }
 
+// `text` with the "@" and what follows it, up to the caret, replaced by the mention. A space goes
+// after it unless the text already goes on with one. The caret ends after the mention.
+export function mentionInText(text: string, caret: number, mention: string) {
+  const start = text.slice(0, caret).lastIndexOf("@");
+  if (start < 0) return { text, caret };
+  const next = text[caret];
+  const space = next === undefined || !/\s/.test(next) ? " " : "";
+  const inserted = `${mention}${space}`;
+  return {
+    text: text.slice(0, start) + inserted + text.slice(caret),
+    caret: start + mention.length + space.length,
+  };
+}
+
 // Replaces the "@" and what follows it, up to the caret, with the mention. A space goes after it
-// unless the text already goes on with one.
+// unless the text already goes on with one (`mentionInText` does the same on plain text).
 export function $insertMention(mention: string) {
   const selection = $getSelection();
   if (!$isRangeSelection(selection)) return;

@@ -5,6 +5,7 @@ import { AttachmentField } from "@/components/forum/attachment-field";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
+import { findMentions } from "@/components/forum/mention-find";
 import { landOn } from "@/components/layout/land-on";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +56,7 @@ export function LineComposer({
         key={sent}
         name="body"
         placeholder={placeholder}
+        findMembers={findMentions}
         minHeight={entered ? 100 : 40}
       />
       {state.error && <FormError>{state.error}</FormError>}
