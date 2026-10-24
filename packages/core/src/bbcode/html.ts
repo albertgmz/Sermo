@@ -257,6 +257,15 @@ function hashtag(hashtagNode: HashtagNode): string {
 
 const WRAP: Record<string, string> = { B: "strong", I: "em", U: "u", S: "del" };
 
+/**
+ * The start of a quote of a post, up to its header: the author (`author`, HTML), to whom the page
+ * adds "said:" in the reader's language, as for every attributed quote. The `quote` class marks
+ * the quote as a reference to the post, whose author a later edit keeps.
+ */
+export function postQuoteStart(postId: number | string, author: string): string {
+  return `<blockquote class="bb-quote quote" data-post-id="${postId}"><cite class="bb-quote-author">${author}</cite>`;
+}
+
 function quote(el: El, env: Env, inLink: boolean): string {
   const body = blocks(el.kids, env, inLink, "tight");
   const data = el.quote!;
@@ -264,7 +273,7 @@ function quote(el: El, env: Env, inLink: boolean): string {
     const name = escapeHtml(data.resolvedAuthor);
     // No link inside a link: the author is only named.
     const author = inLink ? name : `<a href="/posts/${data.postId}">${name}</a>`;
-    return `<blockquote class="quote" data-post-id="${data.postId}"><cite>${author} wrote:</cite>${body}</blockquote>`;
+    return `${postQuoteStart(data.postId, author)}${body}</blockquote>`;
   }
   // A message of the conversation the text is written in: its author, linked to it, "said:".
   if (data.resolvedAuthor && data.messageId) {

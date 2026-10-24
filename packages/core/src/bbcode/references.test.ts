@@ -287,6 +287,37 @@ describe("BB code references", () => {
     ).toEqual([{ content_type: "conversation_message" }, { content_type: "conversation_message" }]);
   });
 
+  test("a quote of a post has the header every attributed quote has, with no English words", async () => {
+    const ctx = createTestContext();
+    const admin = userActor(insertUser(ctx, { groupId: 4 }));
+    const author = userActor(insertUser(ctx, { username: "Alice" }));
+    const forum = await execute(ctx, nodesCreateOp, admin, {
+      parentId: null,
+      type: "forum",
+      title: "Forum",
+    });
+    const thread = await execute(ctx, threadsCreateOp, author, {
+      nodeId: forum.id,
+      title: "Topic",
+      body: "Original",
+    });
+    const id = thread.post.id;
+    const linked = renderContent(ctx, author, `[QUOTE="post: ${id}"]quoted[/QUOTE]`).html;
+    expect(linked).toBe(
+      `<blockquote class="bb-quote quote" data-post-id="${id}"><cite class="bb-quote-author"><a href="/posts/${id}" rel="nofollow ugc noopener">Alice</a></cite>quoted</blockquote>`,
+    );
+    // Inside a link the author is only named.
+    const inLink = renderContent(
+      ctx,
+      author,
+      `[URL=https://a.example][QUOTE="post: ${id}"]q[/QUOTE][/URL]`,
+    ).html;
+    expect(inLink).toContain(
+      `<blockquote class="bb-quote quote" data-post-id="${id}"><cite class="bb-quote-author">Alice</cite>q</blockquote>`,
+    );
+    expect(linked + inLink).not.toContain("wrote");
+  });
+
   test("quotes validate visibility and store real attribution", async () => {
     const ctx = createTestContext();
     const admin = userActor(insertUser(ctx, { groupId: 4 }));
@@ -309,7 +340,7 @@ describe("BB code references", () => {
     const result = renderContent(ctx, other, quote);
     expect(result.quotes).toEqual([{ postId, userId: authorUser.id }]);
     expect(result.html).toContain(`data-post-id="${postId}"`);
-    expect(result.html).toContain("Alice</a> wrote:");
+    expect(result.html).toContain("Alice</a></cite>");
     expect(result.html).not.toContain("Fake");
     expect(result.source).toBe(`${canonical}[B]quoted[/B][/QUOTE]`);
     // XenForo's other spellings of a quote of a post.
@@ -322,7 +353,7 @@ describe("BB code references", () => {
     ]) {
       const spelled = renderContent(ctx, other, `[quote=${option}]text[/quote]`);
       expect(spelled.source).toBe(`${canonical}text[/quote]`);
-      expect(spelled.html).toContain("Alice</a> wrote:");
+      expect(spelled.html).toContain("Alice</a></cite>");
     }
     const nested = renderContent(
       ctx,
@@ -548,7 +579,7 @@ describe("BB code references", () => {
     const checks = view.mock.calls.filter(([, , id]) => id === "node.view").length;
     view.mockRestore();
     expect(result.quotes).toHaveLength(1);
-    expect(result.html.match(/Alice<\/a> wrote:/g)).toHaveLength(200);
+    expect(result.html.match(/Alice<\/a><\/cite>/g)).toHaveLength(200);
     expect(checks).toBe(1);
   });
 

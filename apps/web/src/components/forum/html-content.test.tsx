@@ -4,6 +4,7 @@ import { CONSENT_COOKIE } from "@/lib/consent/inventory";
 import { LITE_COOKIE } from "@/lib/lite-preferences";
 import { siteBody } from "@/lib/test-bodies";
 import { blocksInParagraphs } from "@/lib/test-paragraphs";
+import { postQuoteStart } from "../../../../../packages/core/src/bbcode/html";
 import {
   mediaHtml,
   resolveMedia,
@@ -142,6 +143,18 @@ test("a hashtag link in a body is drawn as the link the backend wrote, with data
       '<a href="/tags/caf%C3%A9" class="hashtag" rel="nofollow ugc noopener">#café</a>',
     );
   }
+});
+
+test("a quote of a post is headed like every quote: its author, then the page's own 'said:'", async () => {
+  const out = await render(
+    `${postQuoteStart(7, '<a href="/posts/7" rel="nofollow ugc noopener">Alice</a>')}<p>quoted</p></blockquote>`,
+  );
+  // The class whose ::after the stylesheet fills with --bb-said, in the reader's language.
+  expect(out).toContain(
+    '<cite class="bb-quote-author"><a href="/posts/7" rel="nofollow ugc noopener">Alice</a></cite>',
+  );
+  expect(out).toContain("--bb-said:&quot;said&quot;");
+  expect(out).not.toContain("wrote");
 });
 
 test("a colour typed in the body is drawn through the guard", async () => {

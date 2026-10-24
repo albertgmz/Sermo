@@ -12,6 +12,7 @@ import { flushSessionActivity } from "../security/session";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
 import { enqueueJob, flushActivity, flushDownloadCounts, flushViewCounts } from "./queue";
+import { scheduleQuoteHeaders } from "./quote-headers";
 import { registerJobHandlers } from "./rebuild";
 
 export const SCHEDULES = {
@@ -165,6 +166,8 @@ export function startScheduler(ctx: Ctx): () => void {
   registerJobHandlers(ctx);
   // The members directory's list of closed profiles is read here, never on a request's way.
   refreshClosedProfiles(ctx);
+  // Stored quotes of posts still headed in English get the current header, in the background.
+  scheduleQuoteHeaders(ctx);
   const onError = (error: unknown, job: Cron) => console.error(`[cron:${job.name}]`, error);
   const jobs = [
     // Prompt delivery of domain events to registered subscribers (promotions, notifications).

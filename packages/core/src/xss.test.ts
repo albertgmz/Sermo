@@ -344,7 +344,7 @@ describe("stored content HTML rejects XSS", () => {
     });
     const html = storedHtml(ctx, "post_bodies", "post_id", post.id);
     expectSafeHtml(html);
-    expect(html).toContain("Alice</a> wrote:");
+    expect(html).toContain("Alice</a></cite>");
     expect(html).not.toContain("onerror=");
   });
 });

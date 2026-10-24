@@ -3,6 +3,7 @@ import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { reactionSummary } from "../../shared/reactions";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "./queue";
+import { registerQuoteHeadersJob } from "./quote-headers";
 
 export const REBUILD_CHUNK_SIZES = {
   threads: 50,
@@ -436,4 +437,5 @@ export function registerJobHandlers(ctx: Ctx): void {
   registerJobHandler(ctx, "rebuild-counters", (context, payload, job) => {
     rebuildCountersChunk(context, payload as RebuildProgress, {}, job);
   });
+  registerQuoteHeadersJob(ctx);
 }

@@ -53,7 +53,7 @@ describe("canonical source length", () => {
       .run(renamed, renamed.toLowerCase(), quotedUser.id);
     await execute(ctx, postsUpdateOp, author, { postId: reply.id, body });
     expect(storedBody().body_source).toBe(body);
-    expect(storedBody().body_html).toContain("Alice</a> wrote:");
+    expect(storedBody().body_html).toContain("Alice</a></cite>");
     const options = {
       edit: { contentType: "post" as const, contentId: reply.id, authorId: authorUser.id },
     };
@@ -62,7 +62,7 @@ describe("canonical source length", () => {
     );
     const fresh = renderContent(ctx, author, quote);
     expect(fresh.source).toContain(`[QUOTE="${renamed}, post: `);
-    expect(fresh.html).toContain(`${renamed}</a> wrote:`);
+    expect(fresh.html).toContain(`${renamed}</a></cite>`);
 
     // Neither deleting nor forging an attribution can change a saved quote's label.
     for (const option of ["", "Forged, "]) {
@@ -73,7 +73,7 @@ describe("canonical source length", () => {
         options,
       );
       expect(edited.source).toContain('[QUOTE="Alice, post: ');
-      expect(edited.html).toContain("Alice</a> wrote:");
+      expect(edited.html).toContain("Alice</a></cite>");
     }
   });
 
@@ -153,11 +153,11 @@ describe("canonical source length", () => {
     expect(result.source.match(/\[QUOTE="Alice, post: /g)).toHaveLength(3);
     // The quote inside the spoiler is in the spoiler's own HTML, not in the body's.
     const shown = [result.html, ...result.spoilers].join("");
-    expect(shown.match(/Alice<\/a> wrote:/g)).toHaveLength(3);
+    expect(shown.match(/Alice<\/a><\/cite>/g)).toHaveLength(3);
     expect(result.source).toContain(
       `[QUOTE="Mary Jane, post: ${newer.id}, member: ${quotedUser.id}"]`,
     );
-    expect(result.html).toContain("Mary Jane</a> wrote:");
+    expect(result.html).toContain("Mary Jane</a></cite>");
   });
 });
 
