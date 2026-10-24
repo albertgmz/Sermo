@@ -3,6 +3,7 @@ import {
   expectFits,
   MEMBER_STATE,
   PEER,
+  phoneWidth,
   ready,
   test,
   visit,
@@ -48,6 +49,10 @@ test("the search page filters by a member picked from suggestions, and its label
 });
 
 test("the header search finds a member too", async ({ page }) => {
+  test.skip(
+    phoneWidth(page),
+    "on a phone the header's search is a link to the search page, tested above",
+  );
   await visit(page, "/");
   await ready(page);
   await page.getByRole("button", { name: "Search" }).first().click();
