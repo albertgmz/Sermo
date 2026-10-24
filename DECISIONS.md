@@ -6517,3 +6517,12 @@ Why: the WebKit run on the iPhone SE had these two failures after the editor too
 
 Why: fcuba.net named an excluded member on /members while the widget, which applies the rules at
 read time, named the real winner; those winners were stored before the re-decide run existed.
+
+### The standing month is chosen from a select of month names
+
+- The month of the member standing (the widget and /members) is a select of the months in the
+  locale's names, newest first, instead of a month text box; choosing one opens that month in
+  place, the address and back/forward follow it, and the form still works without JavaScript.
+
+Why: Firefox, the owner's browser, shows `<input type="month">` as a plain text box, so the month
+had to be typed by hand.
