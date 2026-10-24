@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { AuthScene } from "@/app/[locale]/(auth)/auth-scene";
 import { CubanFlag } from "@/components/brand/cuban-flag";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSite } from "@/lib/sermo/site";
 
-// The frame every sign-in page shares: the Cuban flag with the site's name and a welcome, as a
-// slim band above the form on a phone and a panel beside it from `md` up; the form in a narrow
-// column, its heading the page's only h1.
+// The frame every sign-in page shares: the Cuban flag with the site's name and a welcome over a
+// night at the Malecón whose sea gives off bubbles of talk (auth-scene.tsx), as a band above the
+// form on a phone (the bubbles rise right of the name) and a panel beside it from `md` up; the form in a narrow column, on a card from
+// `md` up, its heading the page's only h1.
 function AuthFrame({
   site,
   heading,
@@ -20,16 +22,18 @@ function AuthFrame({
 }) {
   return (
     <div className="grid min-h-dvh flex-1 grid-rows-[auto_1fr] md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:grid-rows-1">
-      <header className="relative isolate flex items-center gap-3 overflow-hidden bg-flag-night px-4 py-3 text-flag-white md:flex-col md:justify-center md:gap-8 md:px-10 md:text-center">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_90%_60%_at_50%_0%,color-mix(in_oklab,var(--flag-blue)_70%,transparent),transparent_70%)]"
-        />
-        <CubanFlag className="h-7 shrink-0 rounded-detail md:h-auto md:w-full md:max-w-72 md:rounded-md md:shadow-2xl" />
-        <div className="min-w-0 md:space-y-2">{site}</div>
+      <header className="relative isolate grid grid-cols-[auto_minmax(0,1fr)] content-center items-center gap-x-3 gap-y-2 overflow-hidden bg-flag-night px-4 pt-5 pb-12 text-flag-white md:flex md:flex-col md:justify-center md:gap-8 md:px-10 md:pb-28 md:text-center">
+        <AuthScene />
+        <span className="auth-flag h-9 md:h-auto md:w-full md:max-w-72">
+          <CubanFlag className="h-full rounded-detail shadow-lg md:h-auto md:w-full md:rounded-md md:shadow-2xl" />
+        </span>
+        <div className="contents [text-shadow:0_1px_0.75rem_var(--flag-night)] md:block md:w-full md:space-y-2">
+          {site}
+        </div>
       </header>
-      <main className="flex items-start justify-center px-4 py-8 md:items-center md:py-10">
-        <div className="w-full max-w-sm">
+      <main className="relative isolate flex items-start justify-center px-4 py-8 md:items-center md:py-10">
+        <div aria-hidden="true" className="auth-backdrop max-md:hidden" />
+        <div className="w-full max-w-sm md:max-w-[26rem] md:rounded-2xl md:border md:bg-card md:p-8 md:shadow-xl">
           <h1 className="mb-6 text-center text-2xl font-bold tracking-tight md:mb-8 md:text-3xl">
             {heading}
           </h1>
@@ -60,11 +64,11 @@ export async function AuthShell({
           <Link
             href="/"
             aria-label={t("aria.home", { site: site.name })}
-            className="block truncate rounded-sm text-lg leading-tight font-bold tracking-tight focus-visible:outline-flag-white md:text-3xl md:whitespace-normal"
+            className="block w-fit max-w-full truncate rounded-sm text-xl leading-tight font-bold tracking-tight focus-visible:outline-flag-white md:mx-auto md:text-4xl md:whitespace-normal"
           >
             {site.name}
           </Link>
-          <p className="truncate text-xs text-flag-mist md:text-base md:whitespace-normal">
+          <p className="col-span-2 max-w-[56%] text-xs text-flag-mist md:max-w-none md:text-base">
             {shell("welcome")}
           </p>
         </>
@@ -86,9 +90,9 @@ export function AuthShellSkeleton({
     <AuthFrame
       heading={heading}
       site={
-        <div className="space-y-1.5 md:flex md:flex-col md:items-center md:space-y-3">
-          <Skeleton className="h-5 w-32 bg-flag-white/15 md:h-8 md:w-48" />
-          <Skeleton className="h-3 w-44 bg-flag-white/10 md:h-4 md:w-60" />
+        <div className="flex flex-col items-start space-y-1.5 md:items-center md:space-y-3">
+          <Skeleton className="h-6 w-32 bg-flag-white/15 md:h-10 md:w-56" />
+          <Skeleton className="h-3 w-44 bg-flag-white/10 md:h-5 md:w-64" />
         </div>
       }
     >

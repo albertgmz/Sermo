@@ -75,6 +75,11 @@ const INLINE_ART: Record<string, { category: string; reason: string }> = {
     category: "brand",
     reason: "The drawn Cuban flag of the sign-in pages is brand artwork.",
   },
+  "src/app/[locale]/(auth)/auth-scene.tsx": {
+    category: "brand",
+    reason:
+      "The drawn night, sea and bubbles behind the sign-in pages' flag are brand artwork.",
+  },
   "src/components/layout/logo.tsx": {
     category: "brand",
     reason: "The inline logo is brand artwork.",
