@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
+import { FIELD_SURFACE } from "@/components/ui/field-surface";
 import { Input } from "@/components/ui/input";
 import {
   blankAnswer,
@@ -18,8 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const FIELD = "h-10 md:h-8";
-const SELECT =
-  "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-8";
+const SELECT = `${FIELD_SURFACE} h-10 w-full rounded-lg px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-8`;
 const ICON_BUTTON = "size-10 shrink-0 px-0 text-muted-foreground md:size-8";
 
 // One picture for a question or an answer: the file is sent to the attachment route as soon as it

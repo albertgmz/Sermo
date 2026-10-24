@@ -1,6 +1,7 @@
 // The label / control / help rows and the panel around them: the form layout of the account
 // pages and of the administration panel. Server-safe; `FormRows` (form-rows.tsx) adds the form.
 
+import { FIELD_SURFACE } from "@/components/ui/field-surface";
 import { cn } from "@/lib/utils";
 
 // The label / control / help row of the account forms.
@@ -10,8 +11,7 @@ export const rowClass =
 export const linkClass =
   "inline-flex min-h-10 items-center text-primary-ink underline-offset-4 hover:underline";
 
-export const selectClass =
-  "h-10 w-full min-w-0 rounded-lg border border-input bg-card px-2.5 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-8 md:text-sm";
+export const selectClass = `${FIELD_SURFACE} h-10 w-full min-w-0 rounded-lg px-2.5 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-8 md:text-sm`;
 
 export function Section({
   id,

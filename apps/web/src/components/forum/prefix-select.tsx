@@ -3,6 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import type { PrefixSelectPopupProps } from "@/components/forum/prefix-select-popup";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import { FIELD_SURFACE } from "@/components/ui/field-surface";
 import { LazyPopup } from "@/components/ui/lazy-popup";
 import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -26,8 +27,7 @@ export type PrefixSelectProps = {
   className?: string;
 };
 
-export const prefixTriggerClass =
-  "group inline-flex h-10 max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-input bg-transparent px-2 text-sm outline-none transition-colors select-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 data-loading:cursor-progress md:h-8 dark:bg-input/30 dark:hover:bg-input/50";
+export const prefixTriggerClass = `${FIELD_SURFACE} group inline-flex h-10 max-w-full shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm outline-none transition-colors select-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 data-loading:cursor-progress md:h-8 dark:hover:bg-input/50`;
 
 export function chosenPrefix(prefixes: PrefixView[], value: string) {
   return prefixes.find((prefix) => String(prefix.id) === value) ?? null;

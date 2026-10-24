@@ -45,3 +45,34 @@ test("checkboxes and radios take the accent, in both themes", () => {
     /input\[type="checkbox"\],\s*input\[type="radio"\]\s*\{\s*accent-color: var\(--primary\);\s*\}/,
   );
 });
+
+// A text field or select drawn by hand with its own edge and fill (`border-input` with
+// `bg-transparent` or `dark:bg-input/30`) is a surface that drifts from the shared controls: it
+// takes `FIELD_SURFACE` instead. Left out, and why: buttons, checkboxes, toggles and the colour
+// swatch are not text fields; the new thread's title field (`thread-fields.tsx`) keeps the well of
+// its own tokens (`bg-field`, `border-field-border`, an edge held at 3:1 by theme-contrast, as the
+// owner found it did not stand out), and its unused `default` look keeps the old fill.
+const NOT_FIELDS = [
+  "components/ui/button.tsx",
+  "components/ui/checkbox.tsx",
+  "components/ui/toggle.tsx",
+  "components/forum/thread-fields.tsx",
+  "app/[locale]/(staff)/admin/appearance/colour-rows.tsx",
+];
+
+test("no text field or select is drawn by hand with its own fill", () => {
+  const root = new URL("../../", import.meta.url).pathname;
+  const found: string[] = [];
+  for (const path of new Bun.Glob("**/*.{ts,tsx}").scanSync(root)) {
+    if (/\.test\.tsx?$/.test(path) || NOT_FIELDS.includes(path)) continue;
+    const source = readFileSync(`${root}${path}`, "utf8");
+    for (const [text] of source.matchAll(
+      /["`][^"`\n]*border-input[^"`\n]*["`]/g,
+    )) {
+      if (/\bbg-transparent\b|dark:bg-input\/30/.test(text)) {
+        found.push(`${path}: ${text.slice(0, 70)}`);
+      }
+    }
+  }
+  expect(found).toEqual([]);
+});
