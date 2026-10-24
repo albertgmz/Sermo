@@ -160,7 +160,8 @@ async function RankingView({
   // A page past the last one goes to the last one, as XenForo does.
   const pages = pagesOf(first.total, MEMBERS_PER_PAGE);
   if (page > pages) redirect(pageAddress(MEMBERS_PATH, { view }, pages));
-  if (first.total === 0)
+  // Nobody to show: no one is ranked, or the figure the pages were counted by is out of date.
+  if (first.total === 0 || first.rows.length === 0)
     return (
       <div className="rounded-lg border bg-card">
         <EmptyState

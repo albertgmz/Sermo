@@ -48,6 +48,9 @@ function crowd() {
   w.set(users[2]!.id, { profile_view_privacy: "members" });
   w.set(users[3]!.id, { profile_view_privacy: "followed" });
   w.set(users[4]!.id, { erased_at: w.ctx.now() });
+  // An account awaiting approval counts as a closed profile for everyone but staff and itself.
+  const awaiting = w.user();
+  w.set(awaiting.id, { post_count: 6, credits: 4, signup_review: "pending" });
   w.ctx.sqlite
     .prepare("INSERT INTO user_follows (user_id, followed_id, created_at) VALUES (?1, ?2, 0)")
     .run(users[3]!.id, w.member.id);

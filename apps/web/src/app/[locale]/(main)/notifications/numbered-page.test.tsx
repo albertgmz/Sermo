@@ -16,6 +16,10 @@ mock.module("next/navigation", () => ({
   ...navigation,
   useRouter: () => ({ refresh: () => {} }),
 }));
+// The marker draws nothing: a stand-in shows whether the page includes it.
+mock.module("@/app/[locale]/(main)/notifications/alerts-viewed", () => ({
+  AlertsViewed: () => <i data-alerts-viewed="" />,
+}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
@@ -111,4 +115,12 @@ test("the in-place switch gets the page drawn, and nothing for a page with no al
   expect(html).toContain('href="/notifications?page=3"');
   alerts([]);
   expect(await notificationsPageAction(5)).toBeNull();
+});
+
+test("only the first page marks the alerts viewed", async () => {
+  alerts();
+  const first = await draw({});
+  const later = await draw({ page: "2" });
+  expect(first.html).toContain("data-alerts-viewed");
+  expect(later.html).not.toContain("data-alerts-viewed");
 });

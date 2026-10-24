@@ -44,7 +44,9 @@ export default async function NotificationsPage({
 
   return (
     <PageLayout>
-      <AlertsViewed />
+      {/* Only the newest alerts are what opening the page shows: a later page, reached by an address,
+          marks none viewed. */}
+      {page === 1 && <AlertsViewed />}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
