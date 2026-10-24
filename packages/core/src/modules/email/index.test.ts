@@ -2,6 +2,7 @@ import { describe, expect, spyOn, test } from "bun:test";
 import { createTestContext, expectNoTableScan, insertNode, insertUser } from "@sermo/core/testing";
 import { SMTPServer } from "smtp-server";
 import { GUEST } from "../../actor";
+import { postQuoteStart } from "../../bbcode/html";
 import { invalidate } from "../../context";
 import { writeTx } from "../../db/tx";
 import { ValidationError } from "../../errors";
@@ -394,6 +395,60 @@ describe("email channel", () => {
     );
     await runDueJobs(f.ctx);
     expect(f.capture.messages.at(-1)?.text).toContain("secret phrase");
+  });
+
+  test("a message quoting a post reads in its email with the author apart from the quoted text", async () => {
+    const f = fixture();
+    const registryWithConversation = {
+      ...registry,
+      defaults: { ...defaults, "conversation.new": { inApp: true, email: true, push: false } },
+    };
+    storeSiteSettings(f.ctx, { ...readSiteSettings(f.ctx), conversationEmailIncludesBody: true });
+    const conversationId = f.ctx.sqlite
+      .prepare<{ id: number }, [number, number]>(
+        "INSERT INTO conversations (title, user_id, created_at, last_message_at, last_message_user_id) VALUES ('Private', ?1, ?2, ?2, ?1) RETURNING id",
+      )
+      .get(f.author.id, f.ctx.now())!.id;
+    f.ctx.sqlite
+      .prepare(
+        "INSERT INTO conversation_participants (conversation_id, user_id, joined_at, last_message_at) VALUES (?1, ?2, ?3, ?3)",
+      )
+      .run(conversationId, f.reader.id, f.ctx.now());
+    // The HTML a render stores for `[QUOTE="Alice, post: 7, member: 3"]quoted text[/QUOTE] reply`.
+    const html = `${postQuoteStart(7, '<a href="/posts/7" rel="nofollow ugc noopener">Alice</a>')}quoted text</blockquote><p>reply</p>`;
+    const messageId = f.ctx.sqlite
+      .prepare<{ id: number }, [number, number, number, string]>(
+        "INSERT INTO conversation_messages (conversation_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, ?3, 'q', ?4) RETURNING id",
+      )
+      .get(conversationId, f.author.id, f.ctx.now(), html)!.id;
+    for (const language of ["en", "es"]) {
+      f.ctx.sqlite
+        .prepare("UPDATE users SET language = ?1 WHERE id = ?2")
+        .run(language, f.reader.id);
+      const notificationId = f.ctx.sqlite
+        .prepare<{ id: number }, [number, number, number]>(
+          "INSERT INTO notifications (user_id, type, content_type, content_id, created_at, updated_at) VALUES (?1, 'conversation.new', 'conversation_message', ?2, ?3, ?3) RETURNING id",
+        )
+        .get(f.reader.id, messageId, f.ctx.now())!.id;
+      deliverEmail(
+        f.ctx,
+        [
+          {
+            ...f.item,
+            notificationId,
+            type: "conversation.new",
+            contentType: "conversation_message",
+            contentId: messageId,
+            threadId: null,
+          },
+        ],
+        registryWithConversation,
+      );
+      await runDueJobs(f.ctx);
+      const text = f.capture.messages.at(-1)!.text;
+      expect(text, language).toContain("> Alice\n> quoted text");
+      expect(text, language).not.toContain("Alicequoted");
+    }
   });
 
   test("security email bypasses opt-out and cap and has no unsubscribe headers", async () => {

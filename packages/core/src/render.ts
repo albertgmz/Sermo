@@ -671,6 +671,11 @@ export function renderPlainText(html: string, maxLength?: number): string {
       { selector: "a.mention", format: "inline" },
       { selector: "a.hashtag", format: "inline" },
       { selector: "cite > a", format: "inline" },
+      {
+        selector: "cite.bb-quote-author",
+        format: "block",
+        options: { leadingLineBreaks: 1, trailingLineBreaks: 1 },
+      },
       { selector: 'a[href^="mailto:"]', format: "mailto" },
       ...["h1", "h2", "h3", "h4", "h5", "h6"].map((selector) => ({
         selector,
