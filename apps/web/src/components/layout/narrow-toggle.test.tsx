@@ -87,7 +87,7 @@ test("the page is wide until the visitor chooses", () => {
   expect(isNarrow()).toBe(false);
   const html = renderToStaticMarkup(withIntl(<NarrowToggle />));
   expect(html).toContain('aria-pressed="false"');
-  expect(html).toContain('aria-label="Use a narrower page"');
+  expect(html).toMatch(/<button[^>]*>.*Use a narrower page<\/span><\/button>/);
   expect(html).toContain("min-[1100px]:inline-flex");
   expect(attributes.size).toBe(0);
 });
@@ -95,7 +95,7 @@ test("the page is wide until the visitor chooses", () => {
 test("a narrow page draws a pressed button with the same label", () => {
   const html = draw(true);
   expect(html).toContain('aria-pressed="true"');
-  expect(html).toContain('aria-label="Use a narrower page"');
+  expect(html).toContain("Use a narrower page</span>");
 });
 
 test("a click stores the choice and sets the attribute, a second click clears both", () => {

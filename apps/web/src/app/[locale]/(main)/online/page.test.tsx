@@ -133,6 +133,17 @@ test("current visitors: a member with what they view, a guest with the address s
   expect(html).not.toContain('aria-label="Pages"');
 });
 
+test("a guest's IPv4-mapped address is shown as plain IPv4, a real IPv6 address as it is", async () => {
+  backend([
+    { ...guest, ip: "::ffff:127.0.0.1" },
+    { ...guest, ip: "2001:db8::1" },
+  ]);
+  const html = await page();
+  expect(html).toContain(">127.0.0.1<");
+  expect(html).not.toContain("::ffff:");
+  expect(html).toContain(">2001:db8::1<");
+});
+
 test("a filter and a page are asked for as the address names them, with a pager in place", async () => {
   const asked = backend([guest], 60);
   const html = await page({ type: "guest", page: "2" });

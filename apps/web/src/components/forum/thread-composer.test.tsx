@@ -175,7 +175,7 @@ test("the field for tags is part of the form of a member who may tag threads", (
     ),
   );
   expect(html).toContain('name="tags"');
-  expect(html).toContain("#rust #tutorial");
+  expect(html).toContain("#news #cuba");
 });
 
 test("the address follows the forum", () => {

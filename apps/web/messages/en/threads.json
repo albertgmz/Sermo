@@ -6,7 +6,7 @@
   },
   "page": {
     "highlightedLabel": "Highlighted",
-    "authorLabel": "<hidden>Thread </hidden>Author",
+    "authorLabel": "OP<hidden> (thread author)</hidden>",
     "postNumber": "#{number}",
     "newBadge": "New",
     "home": "Home",

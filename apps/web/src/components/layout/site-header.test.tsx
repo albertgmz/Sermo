@@ -102,3 +102,16 @@ test("the header sticks to the top of the window, opaque and above the page", as
     expect(classes).toContain(name);
   }
 });
+
+test("the header has no narrow-page button: it lives in the footer", async () => {
+  backend = fakeBackend({
+    "auth.me": () => Response.json(viewerBody(false)),
+    "site.get": () => Response.json(siteBody({ name: "Garden Club" })),
+    "navigation.get": () =>
+      Response.json({ header: [], mobile: [], account: [], footer: [] }),
+  });
+  const stream = await renderToReadableStream(withIntl(<SiteHeader />));
+  const html = await new Response(stream).text();
+  expect(html).not.toContain("narrower page");
+  expect(html).not.toContain("aria-pressed");
+});

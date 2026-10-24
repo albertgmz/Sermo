@@ -143,7 +143,7 @@
       "forumList": "Viewing forum list",
       "latest": "Viewing latest content",
       "members": "Viewing members",
-      "online": "Viewing list of online members",
+      "online": "Viewing current visitors",
       "conversations": "Viewing direct messages",
       "search": "Searching",
       "page": "Viewing a page"
@@ -368,7 +368,7 @@
   "threadTags": {
     "list": "Tags",
     "label": "Tags",
-    "placeholder": "#rust #tutorial",
+    "placeholder": "#news #cuba",
     "help": "Words separated by spaces. Letters, numbers and _ only.",
     "edit": "Edit tags",
     "add": "Add tags",

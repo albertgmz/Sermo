@@ -9,6 +9,11 @@ import { UserLink } from "@/components/forum/user-link";
 
 export type Visitor = z.output<typeof OnlineVisitor>;
 
+// An IPv4 address that arrived through a dual-stack socket reads "::ffff:203.0.113.7": staff want
+// the plain address.
+const plainAddress = (ip: string) =>
+  ip.replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, "");
+
 // One current visitor, as XenForo's online list draws it: the avatar, the member's name (with
 // their badges and title), "Guest", or the robot's name linked to its page; staff who may see
 // addresses get a guest's on the right; then when, and within the hour where.
@@ -70,7 +75,7 @@ export function OnlineRow({ visitor }: { visitor: Visitor }) {
           title={t("ipLabel")}
           className="shrink-0 text-xs text-muted-foreground tabular-nums"
         >
-          {visitor.ip}
+          {plainAddress(visitor.ip)}
         </span>
       )}
     </li>

@@ -16,7 +16,7 @@
       "nodePost": "<actors></actors> posted in {titled, select, yes {“{title}”} other {a forum you follow}}",
       "contentQuoted": "<actors></actors> quoted you{titled, select, yes { in “{title}”} other {}}",
       "contentMentioned": "<actors></actors> mentioned you{titled, select, yes { in “{title}”} other {}}",
-      "contentReaction": "<actors></actors> gave your {kind, select, post {post} profile_post {wall post} profile_post_comment {comment} conversation_message {message} other {content}} {named, select, yes {the {reaction} reaction} other {a reaction}} {emoji}{titled, select, yes { in “{title}”} other {}}",
+      "contentReaction": "<actors></actors> {count, plural, one {gave} other {gave}} your {kind, select, post {post} profile_post {wall post} profile_post_comment {comment} conversation_message {message} other {content}} {named, select, yes {the {reaction} reaction} other {a reaction}} {emoji}{titled, select, yes { in “{title}”} other {}}",
       "profilePost": "<actors></actors> wrote on your profile",
       "profileComment": "<actors></actors> commented on your wall post",
       "profileCommented": "<actors></actors> also commented on a wall post you commented on",

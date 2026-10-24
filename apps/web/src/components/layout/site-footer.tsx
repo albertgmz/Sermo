@@ -7,6 +7,7 @@ import { SocialIcon } from "@/components/forum/social-icon";
 import { Container } from "@/components/layout/container";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { Logo } from "@/components/layout/logo";
+import { NarrowToggle } from "@/components/layout/narrow-toggle";
 import { hasHref, type LinkItem, linkProps } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";
 import { toNavItems } from "@/components/layout/nav-server";
@@ -83,6 +84,7 @@ export function SiteFooter() {
           <div className="flex flex-wrap items-center gap-3">
             <LanguageSwitcher />
             <ThemeControl />
+            <NarrowToggle />
           </div>
           <ul className="flex basis-full flex-wrap gap-x-4">
             <li>

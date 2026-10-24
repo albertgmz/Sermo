@@ -19,7 +19,6 @@ import {
   REGISTER_BUTTON,
 } from "@/components/layout/header-widths";
 import { Logo, LogoPlaceholder } from "@/components/layout/logo";
-import { NarrowToggle } from "@/components/layout/narrow-toggle";
 import { toNavItems } from "@/components/layout/nav-server";
 import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
 import { buttonVariants } from "@/components/ui/button";
@@ -103,7 +102,6 @@ export function SiteHeader() {
             <Search />
           </IconLink>
           <SearchPanel className={PANEL} />
-          <NarrowToggle />
           <Suspense
             fallback={
               <LoadingRegion label={t("loadingAccount")}>

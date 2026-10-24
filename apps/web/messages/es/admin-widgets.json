@@ -61,7 +61,7 @@
       "help": "La tarjeta del propio miembro: avatar, título, mensajes y reacciones. Solo para miembros."
     },
     "monthStandings": {
-      "name": "Miembros del mes",
+      "name": "Miembro del mes",
       "help": "Los mejores miembros del mes por puntos, con un selector para otros meses."
     },
     "referralLink": {

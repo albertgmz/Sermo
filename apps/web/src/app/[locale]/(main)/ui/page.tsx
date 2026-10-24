@@ -422,10 +422,10 @@ export default async function StyleguidePage() {
 
         <Section title="Narrow layout toggle">
           <p className="max-w-prose text-sm text-muted-foreground">
-            The header button that narrows the page to 1100px. The choice is
-            kept in the visitor's browser only. It is hidden below 1100px, where
-            the page is not wider than the narrow width anyway, so it shows here
-            only on a wide window.
+            The footer button, beside the theme choice, that narrows the page to
+            1100px. The choice is kept in the visitor's browser only. It is
+            hidden below 1100px, where the page is not wider than the narrow
+            width anyway, so it shows here only on a wide window.
           </p>
           <div className="flex items-center gap-2">
             <NarrowToggle />

@@ -388,7 +388,7 @@ test("a refused save leaves the language cookie alone", async () => {
   expect(cookieWrites).toEqual([]);
 });
 
-test("the keyboard shortcuts choice is sent as a yes or a no, and left on when the field is missing", async () => {
+test("the keyboard shortcuts box is sent as a yes when ticked and a no when left out of the form", async () => {
   const asked = backend(() => Response.json(PREFERENCES));
   const send = (shortcuts?: string) =>
     redirectedTo(() =>
@@ -402,13 +402,11 @@ test("the keyboard shortcuts choice is sent as a yes or a no, and left on when t
         }),
       ),
     );
-  await send("off");
   await send("on");
   await send();
   expect(asked.map((call) => call.body)).toMatchObject([
+    { keyboardShortcuts: true },
     { keyboardShortcuts: false },
-    { keyboardShortcuts: true },
-    { keyboardShortcuts: true },
   ]);
 });
 

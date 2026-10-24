@@ -129,7 +129,7 @@
     "handleCopied": "Copiado",
     "postsLabel": "Mensajes",
     "creditsLabel": "Créditos",
-    "reputationLabel": "Reputación",
+    "reputationLabel": "Reacciones",
     "followersLabel": "Seguidores",
     "followingLabel": "Siguiendo",
     "referralsLabel": "Referidos",
@@ -140,7 +140,7 @@
     "lastSeen": "Última vez <time></time>",
     "birthday": "Cumpleaños: {date}",
     "editProfile": "Editar perfil",
-    "message": "Mensaje privado"
+    "message": "Mensaje directo"
   },
   "wall": {
     "aria": {

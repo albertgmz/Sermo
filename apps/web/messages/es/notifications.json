@@ -16,7 +16,7 @@
       "nodePost": "Nuevo mensaje de <actors></actors> en {titled, select, yes {«{title}»} other {un foro que sigues}}",
       "contentQuoted": "Cita de <actors></actors>{titled, select, yes { en «{title}»} other {}}",
       "contentMentioned": "Mención de <actors></actors>{titled, select, yes { en «{title}»} other {}}",
-      "contentReaction": "<actors></actors> dio a tu {kind, select, post {mensaje} profile_post {publicación del muro} profile_post_comment {comentario} conversation_message {mensaje} other {contenido}} {named, select, yes {la reacción «{reaction}»} other {una reacción}} {emoji}{titled, select, yes { en «{title}»} other {}}",
+      "contentReaction": "<actors></actors> {count, plural, one {dio} other {dieron}} a tu {kind, select, post {mensaje} profile_post {publicación del muro} profile_post_comment {comentario} conversation_message {mensaje} other {contenido}} {named, select, yes {la reacción «{reaction}»} other {una reacción}} {emoji}{titled, select, yes { en «{title}»} other {}}",
       "profilePost": "Nueva publicación de <actors></actors> en tu perfil",
       "profileComment": "Nuevo comentario de <actors></actors> en tu publicación del muro",
       "profileCommented": "Otro comentario de <actors></actors> en una publicación del muro que también comentaste",

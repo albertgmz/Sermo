@@ -143,7 +143,7 @@
       "forumList": "Viendo la lista de foros",
       "latest": "Viendo el contenido más reciente",
       "members": "Viendo los miembros",
-      "online": "Viendo la lista de usuarios conectados",
+      "online": "Viendo los visitantes actuales",
       "conversations": "Viendo mensajes directos",
       "search": "Buscando",
       "page": "Viendo una página"
@@ -155,7 +155,7 @@
     }
   },
   "memberActions": {
-    "message": "Mensaje privado",
+    "message": "Mensaje directo",
     "ignore": "Ignorar",
     "unignore": "Dejar de ignorar",
     "aria": {
@@ -368,7 +368,7 @@
   "threadTags": {
     "list": "Etiquetas",
     "label": "Etiquetas",
-    "placeholder": "#rust #tutorial",
+    "placeholder": "#cuba #noticias",
     "help": "Palabras separadas por espacios. Solo letras, números y _.",
     "edit": "Editar etiquetas",
     "add": "Añadir etiquetas",

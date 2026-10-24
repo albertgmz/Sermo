@@ -293,7 +293,7 @@ export async function savePreferences(
       watchOnCreate: text(formData, "watchOnCreate") as "none",
       watchOnReply: text(formData, "watchOnReply") as "none",
       language,
-      keyboardShortcuts: text(formData, "keyboardShortcuts") !== "off",
+      keyboardShortcuts: formData.get("keyboardShortcuts") === "on",
       homeTab: (text(formData, "homeTab") || null) as HomeTab | null,
     }),
   );

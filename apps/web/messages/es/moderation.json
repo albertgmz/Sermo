@@ -121,8 +121,8 @@
     "loading": "Cargando el caso…"
   },
   "message": {
-    "metaTitle": "Mensaje privado denunciado",
-    "heading": "Mensaje privado denunciado",
+    "metaTitle": "Mensaje directo denunciado",
+    "heading": "Mensaje directo denunciado",
     "loading": "Cargando…"
   },
   "auditedRead": {

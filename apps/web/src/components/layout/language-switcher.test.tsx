@@ -47,8 +47,8 @@ const options = (html: string) =>
 
 test("System comes first, then each language in its own name and marked with it, in either page language", async () => {
   for (const [locale, system] of [
-    ["en", "System"],
-    ["es", "Sistema"],
+    ["en", "Automatic (browser language)"],
+    ["es", "Automático (idioma del navegador)"],
   ] as const) {
     expect(
       options(await drawn(locale)).map(({ value, name, lang }) => ({

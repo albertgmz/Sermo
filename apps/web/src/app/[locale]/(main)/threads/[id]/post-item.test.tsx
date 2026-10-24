@@ -206,6 +206,16 @@ test("the header row reads time, then New, share, bookmark and the post number, 
   expect(header).toContain("flex-col relative shrink-0");
 });
 
+test("the thread starter's mark is a text pill at every width, with no pencil beside share and bookmark", async () => {
+  backend({});
+  const [html] = await drawn([post(33, 3)]);
+  const header = headerOf(html);
+  expect(header).toMatch(/<span[^>]*>OP<span class="sr-only">/);
+  expect(header).not.toContain("lucide-pen-line");
+  // The words are not hidden on a phone, where the mark used to be a bare icon.
+  expect(header).not.toMatch(/sr-only sm:not-sr-only">OP/);
+});
+
 test("only the posts after the viewer's read position are new", async () => {
   backend({ readPosition: 2 });
   const [read, unread] = await drawn([post(32, 2), post(33, 3)]);

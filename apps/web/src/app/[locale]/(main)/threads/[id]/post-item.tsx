@@ -1,5 +1,5 @@
 import { threadsGet } from "@sermo/core/contracts";
-import { Hourglass, PenLine, Sparkles } from "lucide-react";
+import { Hourglass, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SPLIT_FORM } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import { isNewPost } from "@/app/[locale]/(main)/threads/[id]/new-posts";
@@ -119,7 +119,7 @@ export function PostItem({
   );
   const trailing = (
     <>
-      {/* On a phone the two marks are icons, their words for screen readers only, so the
+      {/* On a phone the highlighted mark is an icon, its words for screen readers only, so the
           row keeps room for the time. */}
       {highlighted && (
         <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">
@@ -128,14 +128,11 @@ export function PostItem({
         </span>
       )}
       {byThreadAuthor && (
-        <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium">
-          <PenLine aria-hidden="true" className="size-3 shrink-0" />
-          <span className={LABEL}>
-            {t.rich("authorLabel", {
-              hidden: (chunks) => <span className="sr-only">{chunks}</span>,
-            })}
-          </span>
-        </span>
+        <Badge variant="outline" className="mr-1">
+          {t.rich("authorLabel", {
+            hidden: (chunks) => <span className="sr-only">{chunks}</span>,
+          })}
+        </Badge>
       )}
       {isNew && <Badge className="mr-1">{t("newBadge")}</Badge>}
       {post.state !== "deleted" && (

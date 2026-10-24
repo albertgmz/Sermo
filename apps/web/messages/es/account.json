@@ -1,6 +1,6 @@
 {
   "layout": {
-    "notifications": "Notificaciones",
+    "notifications": "Alertas",
     "logout": "Cerrar sesión",
     "loading": "Cargando tu cuenta…",
     "heading": "Tu cuenta",
@@ -393,7 +393,7 @@
       "watch_email": "Seguir y avisarme por correo"
     },
     "languageLabel": "Idioma",
-    "languageDefault": "Sistema",
+    "languageDefault": "Automático (idioma del navegador)",
     "homeTabLabel": "Novedades se abre en",
     "homeTabHelp": "La pestaña con la que entras a Novedades. Todas las pestañas están a un clic, elijas la que elijas.",
     "homeTabDefault": "Predeterminada del sitio",
@@ -405,10 +405,7 @@
     },
     "shortcutsLabel": "Atajos de teclado",
     "shortcutsHelp": "Teclas como ? para la lista, / para buscar, j y k para moverte entre mensajes y g luego h para ir al inicio.",
-    "shortcuts": {
-      "on": "Activados",
-      "off": "Desactivados"
-    },
+    "shortcutsCheckbox": "Usar atajos de teclado",
     "submit": "Guardar preferencias",
     "threadsHeading": "Temas que sigues",
     "threadsDescription": "Se te avisa cuando alguien responde en estos.",

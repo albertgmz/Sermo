@@ -61,7 +61,7 @@
       "help": "The member's own card: avatar, title, messages and reactions. Members only."
     },
     "monthStandings": {
-      "name": "Members of the month",
+      "name": "Member of the month",
       "help": "The top members of the month by points, with a picker for other months."
     },
     "referralLink": {

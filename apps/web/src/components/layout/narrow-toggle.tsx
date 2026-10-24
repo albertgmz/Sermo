@@ -3,7 +3,6 @@
 import { FoldHorizontal, UnfoldHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useLayoutEffect, useSyncExternalStore } from "react";
-import { headerIconClass } from "@/components/layout/header-icon-class";
 import {
   isNarrow,
   restoreNarrow,
@@ -12,8 +11,9 @@ import {
 } from "@/components/layout/narrow-width";
 import { cn } from "@/lib/utils";
 
-// One label whatever the state: the pressed state says the rest. Shown only where the narrow
-// width differs from the wide one (above 1100px).
+// One label whatever the state: the pressed state says the rest. Drawn like the footer's theme and
+// language choices, and shown only where the narrow width differs from the wide one (above
+// 1100px).
 export function NarrowButton({
   narrow,
   onToggle,
@@ -28,16 +28,18 @@ export function NarrowButton({
     <button
       type="button"
       aria-pressed={narrow}
-      aria-label={t("label")}
-      title={t("label")}
       onClick={onToggle}
       className={cn(
-        headerIconClass,
-        "hidden min-[1100px]:inline-flex",
+        "hidden min-h-10 cursor-pointer items-center gap-2 rounded-lg border bg-background px-2.5 py-1 text-sm font-medium text-foreground min-[1100px]:inline-flex md:min-h-8 [&_svg]:size-4 [&_svg]:text-muted-foreground aria-pressed:bg-muted",
         className,
       )}
     >
-      {narrow ? <UnfoldHorizontal /> : <FoldHorizontal />}
+      {narrow ? (
+        <UnfoldHorizontal aria-hidden="true" />
+      ) : (
+        <FoldHorizontal aria-hidden="true" />
+      )}
+      <span>{t("label")}</span>
     </button>
   );
 }

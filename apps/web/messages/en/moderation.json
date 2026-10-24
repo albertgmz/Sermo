@@ -121,8 +121,8 @@
     "loading": "Loading the case…"
   },
   "message": {
-    "metaTitle": "Reported private message",
-    "heading": "Reported private message",
+    "metaTitle": "Reported direct message",
+    "heading": "Reported direct message",
     "loading": "Loading…"
   },
   "auditedRead": {

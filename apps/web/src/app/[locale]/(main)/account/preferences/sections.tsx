@@ -103,20 +103,21 @@ export async function PreferencesSection({
           </select>
           <Help>{t("homeTabHelp")}</Help>
         </Row>
-        <Row label={t("shortcutsLabel")} htmlFor="pref-keyboardShortcuts">
-          <select
-            id="pref-keyboardShortcuts"
-            name="keyboardShortcuts"
-            defaultValue={preferences.keyboardShortcuts ? "on" : "off"}
-            className={selectClass}
-          >
-            {(["on", "off"] as const).map((state) => (
-              <option key={state} value={state}>
-                {t(`shortcuts.${state}`)}
-              </option>
-            ))}
-          </select>
-          <Help>{t("shortcutsHelp")}</Help>
+        <Row label={t("shortcutsLabel")}>
+          <label className="flex min-h-10 items-start gap-3 py-2">
+            <input
+              type="checkbox"
+              name="keyboardShortcuts"
+              defaultChecked={preferences.keyboardShortcuts}
+              className="mt-0.5 size-4 shrink-0 accent-primary"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">
+                {t("shortcutsCheckbox")}
+              </span>
+              <Help>{t("shortcutsHelp")}</Help>
+            </span>
+          </label>
         </Row>
       </ActionForm>
     </Section>

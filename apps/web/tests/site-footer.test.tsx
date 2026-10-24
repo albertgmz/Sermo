@@ -177,3 +177,11 @@ test("the footer's last row holds the language choices beside the theme choices,
   // The copyright, which waits for the site, is not.
   expect(html).not.toContain(">copyright<");
 });
+
+test("the narrow-page button sits in the footer's last row after the theme choice, with its words", async () => {
+  backend({ ...none, footer: [] });
+  const html = renderToStaticMarkup(withIntl(<SiteFooter />));
+  const button = html.indexOf('aria-pressed="false"');
+  expect(button).toBeGreaterThan(html.indexOf('aria-label="Theme"'));
+  expect(html).toContain("Use a narrower page</span>");
+});

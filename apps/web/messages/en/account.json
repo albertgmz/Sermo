@@ -1,6 +1,6 @@
 {
   "layout": {
-    "notifications": "Notifications",
+    "notifications": "Alerts",
     "logout": "Log out",
     "loading": "Loading your account…",
     "heading": "Your account",
@@ -393,7 +393,7 @@
       "watch_email": "Follow and email me"
     },
     "languageLabel": "Language",
-    "languageDefault": "System",
+    "languageDefault": "Automatic (browser language)",
     "homeTabLabel": "What's new opens on",
     "homeTabHelp": "The tab you land on in What's new. Every tab is one click away whichever you pick.",
     "homeTabDefault": "Site default",
@@ -405,10 +405,7 @@
     },
     "shortcutsLabel": "Keyboard shortcuts",
     "shortcutsHelp": "Keys such as ? for the list, / to search, j and k to move between posts and g then h to go home.",
-    "shortcuts": {
-      "on": "On",
-      "off": "Off"
-    },
+    "shortcutsCheckbox": "Use keyboard shortcuts",
     "submit": "Save preferences",
     "threadsHeading": "Followed threads",
     "threadsDescription": "You are told when someone replies in these.",
