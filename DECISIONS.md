@@ -6721,3 +6721,15 @@ added posts first), which would have blocked the final end-to-end run.
 
 Why: the owner wanted the page rebuilt after XenForo's; the title field did not stand out from
 the background.
+
+### Conversations use the thread's interface
+
+- A conversation message is drawn, quoted, quoted in part, edited in place, reported and
+  deleted with the thread post's components and the same reply form; only the rules differ:
+  only participants see anything (every message path answers not-found to anyone else,
+  moderators and administrators included), there is no share button or public permalink,
+  mentions alert only participants, and a draft kept for a message's edit page is stored apart
+  from post drafts. The conversation-only copies are removed.
+
+Why: the owner wanted conversations and threads in exactly the same interface, with only the
+private rules different.
