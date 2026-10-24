@@ -6809,3 +6809,14 @@ Why: the owner wanted numbered pages wherever a list is paged, except the feeds.
   build's files across a deploy).
 
 Why: the owner saw the whole page refresh with an animation instead of the one element.
+
+### The floating notice can be closed and is announced
+
+- The notice that confirms an in-place action has a close button, closes with Escape, pauses
+  while hovered or focused, and is said by one live region that is always in the page, so
+  screen readers announce it and focus stays put; its card loads only when a notice appears.
+  To keep first loads within their budgets, the app and notification prompts load after the
+  page is interactive, the credits select loads on first use, and the wall composer loads when
+  first hovered, touched or focused (its attach icon opens the composer).
+
+Why: the review of the in-place loading work found the notice could not be dismissed or heard.
