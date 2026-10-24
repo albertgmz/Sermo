@@ -38,6 +38,7 @@ import { iso, isoOrNull } from "../../time";
 import { requireNotErased } from "../admin/erased";
 import { confirmActorPassword } from "../admin/shared";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
+import { requireMessageRoom } from "../conversations";
 import {
   completeRunningJob,
   enqueueJob,
@@ -1709,13 +1710,35 @@ export function changeThreadState(ctx: Ctx, id: number, state: State): boolean {
   return true;
 }
 
-export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, input) => {
-  const user = requireAuthenticated(actor);
-  const { node } = requireNode(ctx, actor, input.nodeId);
-  requirePermission(ctx, actor, "forum.createThread", { nodeId: input.nodeId });
+/** What starting a thread in a forum needs, before anything of the thread is read. */
+function requireThreadStart(ctx: Ctx, actor: Actor, nodeId: number) {
+  const { node } = requireNode(ctx, actor, nodeId);
+  requirePermission(ctx, actor, "forum.createThread", { nodeId });
   requireTermsAccepted(ctx, actor);
   if (node.type !== "forum") throw new ValidationError("Categories cannot hold threads.");
-  checkNodePostingRules(ctx, actor, input.nodeId);
+  checkNodePostingRules(ctx, actor, nodeId);
+}
+
+/** What replying in a thread needs, before anything of the reply is read. */
+function requireReplyRoom(ctx: Ctx, actor: Actor, threadId: number) {
+  const { row } = requireThread(ctx, actor, threadId);
+  if (!readGates(ctx, actor).readsOthers(row.node_id)) throw new ForbiddenError(CONTENT_CLOSED);
+  requirePermission(ctx, actor, "forum.reply", {
+    nodeId: row.node_id,
+    threadBanned: !!row.thread_banned,
+  });
+  if (row.is_locked) requirePermission(ctx, actor, "forum.replyLocked", { nodeId: row.node_id });
+  requireTermsAccepted(ctx, actor);
+  checkNodePostingRules(ctx, actor, row.node_id);
+  return row;
+}
+
+// A reply's hashtags link to tags that exist; they never tag the thread or make a tag.
+const REPLY_HASHTAGS = { hashtags: { create: false, slots: 0 } };
+
+export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, input) => {
+  const user = requireAuthenticated(actor);
+  requireThreadStart(ctx, actor, input.nodeId);
   if (input.attachmentIds?.length)
     requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: input.nodeId });
   // The tags listed, then the hashtags of the opening post as far as the cap leaves room.
@@ -1823,7 +1846,20 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
       }
       markRead(ctx, user.userId, thread.id, post.id, 0);
       logIp(ctx, actor, "thread", { type: "post", id: post.id });
-      publishEvent(ctx, { type: "content.created", targetType: "thread", targetId: thread.id });
+      // The author's choice of watching is applied here, and the event says it was made, so the
+      // watch that follows the author's preference (the social module's) leaves it alone.
+      if (input.watch && input.watch !== "none")
+        forumDb(ctx)
+          .prepare(
+            "INSERT INTO thread_watches (user_id, thread_id, email, created_at) VALUES (?1, ?2, ?3, ?4)",
+          )
+          .run(user.userId, thread.id, Number(input.watch === "watch_email"), now);
+      publishEvent(ctx, {
+        type: "content.created",
+        targetType: "thread",
+        targetId: thread.id,
+        payload: input.watch ? { watch: input.watch } : undefined,
+      });
       publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
       return { threadId: thread.id, postId: post.id };
     });
@@ -1833,25 +1869,34 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
     };
   });
 });
+// The composer's Preview: the text rendered as posting it at the target would store it, after the
+// checks posting there makes, and nothing written. A thread's hashtags are rendered as the opening
+// post's (they may become tags), a reply's and a message's as links to tags that exist.
+export const postsPreviewOp = implement(contracts.postsPreview, (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  const { target } = input;
+  let options: Parameters<typeof renderModeratedContent>[3];
+  if (target.type === "thread") {
+    requireThreadStart(ctx, actor, target.nodeId);
+    options = {
+      hashtags: hashtagRules(ctx, actor, can(ctx, actor, "tag.apply") ? MAX_THREAD_TAGS : 0),
+    };
+  } else if (target.type === "reply") {
+    requireReplyRoom(ctx, actor, target.threadId);
+    options = REPLY_HASHTAGS;
+  } else options = requireMessageRoom(ctx, actor, target.conversationId);
+  const content = prepareModeratedContent(ctx, actor, input.body, target.type !== "message");
+  return { html: renderModeratedContent(ctx, actor, content, options).html };
+});
+
 export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
-  const { row } = requireThread(ctx, actor, input.threadId);
-  if (!readGates(ctx, actor).readsOthers(row.node_id)) throw new ForbiddenError(CONTENT_CLOSED);
-  requirePermission(ctx, actor, "forum.reply", {
-    nodeId: row.node_id,
-    threadBanned: !!row.thread_banned,
-  });
-  if (row.is_locked) requirePermission(ctx, actor, "forum.replyLocked", { nodeId: row.node_id });
-  requireTermsAccepted(ctx, actor);
-  checkNodePostingRules(ctx, actor, row.node_id);
+  const row = requireReplyRoom(ctx, actor, input.threadId);
   if (input.attachmentIds?.length)
     requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: row.node_id });
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, true);
-    // A reply's hashtags link to tags that exist; they never tag the thread or make a tag.
-    const refs = renderModeratedContent(ctx, actor, content, {
-      hashtags: { create: false, slots: 0 },
-    });
+    const refs = renderModeratedContent(ctx, actor, content, REPLY_HASHTAGS);
     const html = refs.html;
     const id = writeTx(ctx, () => {
       const decision = prepareModeratedContent(ctx, actor, input.body, true);
@@ -3941,6 +3986,7 @@ export const operations = [
   threadsGetOp,
   threadsLocateUnreadOp,
   threadsCreateOp,
+  postsPreviewOp,
   threadsUpdateOp,
   threadsRemoveCoverOp,
   threadsSetStickyOp,

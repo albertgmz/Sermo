@@ -585,6 +585,8 @@ function autoWatch(ctx: Ctx, event: DomainEvent): void {
     (event.targetType !== "thread" && event.targetType !== "post")
   )
     return;
+  // The author chose how to watch the thread when starting it, and that choice was applied then.
+  if (event.payload.watch !== undefined) return;
   writeTx(ctx, () => {
     const row =
       event.targetType === "thread"

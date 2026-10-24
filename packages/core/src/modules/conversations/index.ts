@@ -559,13 +559,34 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
   });
 });
 
+/** What replying in a conversation needs, before anything of the message is read. */
+function requireReplyRoom(ctx: Ctx, actor: Actor, conversationId: number) {
+  const row = activeConversation(ctx, actor, conversationId);
+  requirePermission(ctx, actor, "conversation.reply");
+  if (row.is_locked === 1) requirePermission(ctx, actor, "conversation.moderate");
+  requireTermsAccepted(ctx, actor);
+  return row;
+}
+
+/**
+ * What a preview of a message needs (`posts.preview`): the checks of writing it, in the
+ * conversation or (without an id) in a new one, then how it is rendered.
+ */
+export function requireMessageRoom(ctx: Ctx, actor: Actor, conversationId: number | undefined) {
+  requireAuthenticated(actor);
+  if (conversationId === undefined) {
+    if (!permissionsOf(ctx, actor).can("conversation.start")) throw new ForbiddenError();
+    requireTermsAccepted(ctx, actor);
+    return LINK_HASHTAGS;
+  }
+  requireReplyRoom(ctx, actor, conversationId);
+  return { ...LINK_HASHTAGS, conversationId };
+}
+
 export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
-  const before = activeConversation(ctx, actor, input.conversationId);
+  const before = requireReplyRoom(ctx, actor, input.conversationId);
   const permissions = permissionsOf(ctx, actor);
-  requirePermission(ctx, actor, "conversation.reply");
-  if (before.is_locked === 1) requirePermission(ctx, actor, "conversation.moderate");
-  requireTermsAccepted(ctx, actor);
   requireAttach(ctx, actor, input.attachmentIds);
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);

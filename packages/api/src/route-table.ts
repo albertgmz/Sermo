@@ -254,6 +254,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["PUT", "/threads/{threadId}/read", "threads.markRead"],
   ["GET", "/threads/{threadId}/posts", "posts.list"],
   ["POST", "/threads/{threadId}/posts", "posts.create", 201],
+  ["POST", "/posts/preview", "posts.preview"],
   ["GET", "/posts/{postId}", "posts.get"],
   ["PATCH", "/posts/{postId}", "posts.update"],
   ["DELETE", "/posts/{postId}", "posts.delete"],

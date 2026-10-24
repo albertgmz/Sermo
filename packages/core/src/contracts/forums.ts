@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { FEATURE_KINDS, NODE_TYPES, NODE_WATCH_MODES } from "../db/schema";
+import { AUTO_WATCH_MODES, FEATURE_KINDS, NODE_TYPES, NODE_WATCH_MODES } from "../db/schema";
 import { MAX_THREAD_TAGS } from "../limits";
 import { defineContract } from "../operation";
 import { Attachment, AttachmentIds } from "./attachments";
@@ -521,7 +521,9 @@ export const threadsCreate = defineContract({
     "link). Putting tags on a thread needs tag.apply; a tag nobody used before needs " +
     "tag.create (without it a typed `#word` that is no tag stays plain text, and a listed one " +
     "is refused). Tags beyond 10 are refused. `poll` writes a poll or a quiz with the thread " +
-    "(poll.create; see polls.create); its text goes through the word filter with the post.",
+    "(poll.create; see polls.create); its text goes through the word filter with the post. " +
+    "`watch` sets how the author watches the new thread (`none`, `watch`, or `watch_email` with " +
+    "emails), applied with the thread; omitted, the author's watchOnCreate preference applies.",
   kind: "write",
   input: z.object({
     nodeId: Id,
@@ -531,6 +533,7 @@ export const threadsCreate = defineContract({
     prefixId: Id.nullable().default(null),
     tags: z.array(TagInput).max(MAX_THREAD_TAGS).default([]),
     poll: PollInput.optional(),
+    watch: z.enum(AUTO_WATCH_MODES).optional(),
   }),
   output: z.object({ thread: Thread, post: PostDetail }),
 });
@@ -817,6 +820,33 @@ export const postsCreate = defineContract({
   kind: "write",
   input: z.object({ threadId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: PostDetail,
+});
+
+/** Where a previewed text would be posted, which decides who may preview it and how it is rendered. */
+export const PreviewTarget = z
+  .discriminatedUnion("type", [
+    /** The opening post of a new thread in this forum. */
+    z.object({ type: z.literal("thread"), nodeId: Id }),
+    /** A reply in this thread. */
+    z.object({ type: z.literal("reply"), threadId: Id }),
+    /** A message in this conversation, or the first one of a new conversation without an id. */
+    z.object({ type: z.literal("message"), conversationId: Id.optional() }),
+  ])
+  .meta({ id: "PreviewTarget" });
+
+export const postsPreview = defineContract({
+  name: "posts.preview",
+  summary:
+    "Render BB code as it would be shown once posted at `target`, storing nothing (the " +
+    "composer's Preview; a POST, because the text is a body): the same renderer, word filter, " +
+    "links rule, mentions, smilies and media as the post, message or thread itself. A file " +
+    "placed in the text ([ATTACH]) comes back as the placeholder a saved body holds, which the " +
+    "client draws from the files it has. Requires what posting there " +
+    "requires: starting a thread in the forum, replying in the thread, or writing in the " +
+    "conversation (starting one when no id is given).",
+  kind: "read",
+  input: z.object({ target: PreviewTarget, body: Body }),
+  output: z.object({ html: z.string() }),
 });
 
 export const postsUpdate = defineContract({
