@@ -1,10 +1,10 @@
 import type { AttachedFile } from "@/components/forum/attachment-field";
 
-// What the editor of a post had in it when "More options" took the member to the edit page, kept in
-// the tab for that page to open with, once: the text, the title row of an opening post, and the
-// files as the editor listed them (uploaded, removed), so a file placed in the text is still the
-// post's. Storage can be refused (a private window): then the page opens with the post as it is
-// saved.
+// What the editor of a post (or a conversation message) had in it when "More options" took the
+// member to the edit page, kept in the tab for that page to open with, once: the text, the title
+// row of an opening post, and the files as the editor listed them (uploaded, removed), so a file
+// placed in the text is still the post's. Storage can be refused (a private window): then the
+// page opens with the post as it is saved.
 export type EditDraft = {
   body: string;
   title?: string;
@@ -13,12 +13,14 @@ export type EditDraft = {
   attached?: AttachedFile[];
 };
 
-// One per post, for this tab only (the cookie policy lists it: `editDraft`).
+// One per post or message (`draftOf`), for this tab only (the cookie policy lists it:
+// `editDraft`).
 const DRAFT_PREFIX = "sermo-edit-draft:";
-const draftKey = (postId: number) => `${DRAFT_PREFIX}${postId}`;
+type DraftOf = number | `message:${number}`;
+const draftKey = (item: DraftOf) => `${DRAFT_PREFIX}${item}`;
 
 export function keepEditDraft(
-  postId: number,
+  item: DraftOf,
   data: FormData,
   attached: AttachedFile[] | null,
 ) {
@@ -33,7 +35,7 @@ export function keepEditDraft(
     attached: attached ?? undefined,
   };
   try {
-    sessionStorage.setItem(`${DRAFT_PREFIX}${postId}`, JSON.stringify(draft));
+    sessionStorage.setItem(`${DRAFT_PREFIX}${item}`, JSON.stringify(draft));
   } catch {
     // Nothing is kept; the page opens with the saved post.
   }
@@ -45,10 +47,10 @@ const isFile = (file: unknown): file is AttachedFile =>
   typeof (file as AttachedFile).id === "number" &&
   typeof (file as AttachedFile).name === "string";
 
-export function takeEditDraft(postId: number): EditDraft | null {
+export function takeEditDraft(item: DraftOf): EditDraft | null {
   try {
-    const raw = sessionStorage.getItem(draftKey(postId));
-    sessionStorage.removeItem(draftKey(postId));
+    const raw = sessionStorage.getItem(draftKey(item));
+    sessionStorage.removeItem(draftKey(item));
     const draft: unknown = raw ? JSON.parse(raw) : null;
     if (
       !draft ||

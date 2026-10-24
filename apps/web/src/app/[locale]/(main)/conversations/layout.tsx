@@ -20,7 +20,6 @@ export default function ConversationsLayout({
     <ClientMessages
       namespaces={[
         "conversations.conversation",
-        "conversations.editForm",
         "conversations.newConversationForm",
         "conversations.recipientPicker",
       ]}

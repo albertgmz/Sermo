@@ -11,12 +11,12 @@ import {
   conversationsQuoteMessage,
   conversationsRename,
   conversationsSetLocked,
-  conversationsUpdateMessage,
   usersSearch,
 } from "@sermo/core/contracts";
 import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
+import { saveMessageEdit } from "@/app/[locale]/(main)/conversations/save-message-edit";
 import { sendMessage } from "@/app/[locale]/(main)/conversations/send-message";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -77,26 +77,14 @@ export async function markReadAction(
   return marked.ok ? {} : { error: marked.error };
 }
 
-// Saves an edited message and goes back to it. A form without the file list leaves the files as
-// they are.
+// Saves an edited message (`saveMessageEdit`) and goes back to it.
 export async function editMessageAction(
   conversationId: number,
   messageId: number,
   _previous: ReplyState,
   formData: FormData,
 ): Promise<ReplyState> {
-  requireIds(conversationId, messageId);
-  const saved = await attempt(
-    `/conversations/${conversationId}/edit/${messageId}`,
-    () =>
-      call(conversationsUpdateMessage, {
-        messageId,
-        body: String(formData.get("body") ?? ""),
-        attachmentIds: formData.has("attachments")
-          ? formIds(formData, "attachmentIds")
-          : undefined,
-      }),
-  );
+  const saved = await saveMessageEdit(conversationId, messageId, formData);
   if (!saved.ok) return { error: saved.error };
   redirect(conversationHref(conversationId, messageId));
 }

@@ -14,7 +14,8 @@
   "conversation": {
     "aria": {
       "leave": "Leave direct message",
-      "loadingMessages": "Loading messages…"
+      "loadingMessages": "Loading messages…",
+      "reply": "Reply"
     },
     "home": "Home",
     "conversations": "Direct messages",
@@ -117,9 +118,5 @@
     "home": "Home",
     "conversations": "Direct messages",
     "heading": "Edit message"
-  },
-  "editForm": {
-    "cancel": "Cancel",
-    "submit": "Save changes"
   }
 }

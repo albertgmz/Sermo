@@ -24,7 +24,6 @@ const ALLOWED: Record<string, string> = {
   "src/components/forum/poll-block.tsx": "sign-in return address",
   "src/components/forum/quiz-player.tsx": "sign-in return address",
   // A conversation's and a thread's own pages: their pager, edit, select and sign-in links.
-  "src/app/[locale]/(main)/conversations/[id]/message-actions.tsx": "edit link",
   "src/app/[locale]/(main)/conversations/[id]/message-target.ts":
     "a message's address",
   "src/app/[locale]/(main)/conversations/[id]/page.tsx":

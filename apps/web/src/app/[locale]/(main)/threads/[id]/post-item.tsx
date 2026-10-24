@@ -9,7 +9,7 @@ import {
   threadMay,
 } from "@/app/[locale]/(main)/threads/[id]/permissions";
 import { PostActions } from "@/app/[locale]/(main)/threads/[id]/post-actions";
-import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { PostBody } from "@/app/[locale]/(main)/threads/[id]/post-body";
 import {
   EditablePostBody,
   EditedStamp,
@@ -17,7 +17,6 @@ import {
 } from "@/app/[locale]/(main)/threads/[id]/post-edit-scope";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { EditedMark } from "@/components/forum/edited-mark";
-import { HtmlContent } from "@/components/forum/html-content";
 import { attributionGadgetClass } from "@/components/forum/message-action";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
@@ -25,7 +24,6 @@ import { quotable } from "@/components/forum/selection-bb";
 import { ShareButton } from "@/components/forum/share-button";
 import { HashLink } from "@/components/layout/hash-link";
 import { Badge } from "@/components/ui/badge";
-import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { call } from "@/lib/sermo/client";
 import { authorsFor } from "@/lib/sermo/members";
@@ -99,9 +97,7 @@ export function PostItem({
       author={author}
       createdAt={post.createdAt}
       highlighted={highlighted}
-      edited={
-        inPlace ? <EditedStamp postId={post.id}>{edited}</EditedStamp> : edited
-      }
+      edited={inPlace ? <EditedStamp>{edited}</EditedStamp> : edited}
       trailing={
         <>
           {/* On a phone the two marks are icons, their words for screen readers only, so the
@@ -197,7 +193,7 @@ export function PostItem({
           <PostBody post={post} />
         </details>
       ) : inPlace ? (
-        <EditablePostBody postId={post.id} canQuote={quote !== undefined}>
+        <EditablePostBody canQuote={quote !== undefined}>
           <PostBody post={post} className="md:mt-1" quote={quote} />
         </EditablePostBody>
       ) : (
@@ -206,41 +202,13 @@ export function PostItem({
     </PostFrame>
   );
   return inPlace ? (
-    <PostEditScope threadId={post.threadId} postId={post.id}>
+    <PostEditScope
+      target={{ kind: "post", threadId: post.threadId, postId: post.id }}
+    >
       {frame}
     </PostEditScope>
   ) : (
     frame
-  );
-}
-
-// The text of a post and its files, on the page and as an edit made in place answers with it.
-// `quote` makes the text quotable by selection (`quotable`), for a viewer who may quote it.
-export function PostBody({
-  post,
-  className,
-  quote,
-}: {
-  post: Pick<ApiPost, "id" | "bodyHtml" | "attachments">;
-  className?: string;
-  quote?: ReturnType<typeof quotable>;
-}) {
-  return (
-    <>
-      <div {...quote}>
-        <HtmlContent
-          className={className}
-          content={{ type: "post", id: post.id }}
-          attachments={post.attachments}
-        >
-          {post.bodyHtml}
-        </HtmlContent>
-      </div>
-      <PostAttachments
-        attachments={post.attachments}
-        inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}
-      />
-    </>
   );
 }
 

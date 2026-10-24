@@ -5,3 +5,8 @@ export function conversationHref(conversationId: number, messageId?: number) {
     ? `/conversations/${conversationId}`
     : `/conversations/${conversationId}?message=${messageId}#message-${messageId}`;
 }
+
+// The page that edits a message, the fallback of the edit made in place.
+export function messageEditHref(conversationId: number, messageId: number) {
+  return `/conversations/${conversationId}/edit/${messageId}`;
+}

@@ -402,7 +402,8 @@
     "hardDeleteConfirm": "Delete permanently",
     "hardDeletePostWarning": "The post and its reactions, files and reports are erased for good. This cannot be undone.",
     "hardDeleteCommentWarning": "The comment and its reactions, files and reports are erased for good. This cannot be undone.",
-    "hardDeleteWallWarning": "The wall post, its comments, reactions and reports are erased for good. This cannot be undone."
+    "hardDeleteWallWarning": "The wall post, its comments, reactions and reports are erased for good. This cannot be undone.",
+    "hardDeleteMessageWarning": "The message and its reactions, files and reports are erased for good, for the other participants too. This cannot be undone."
   },
   "editedMark": {
     "label": "Edited <time></time>"

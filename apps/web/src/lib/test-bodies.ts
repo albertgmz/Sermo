@@ -165,6 +165,28 @@ export function profileCommentBody(over: Record<string, unknown> = {}) {
   };
 }
 
+// A conversation message, as conversations.listMessages and conversations.getMessage answer.
+export function messageBody(over: Record<string, unknown> = {}) {
+  return {
+    id: 11,
+    conversationId: 5,
+    author: { id: 3, username: "ember" },
+    state: "visible",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    editedAt: null,
+    bodyHtml: "",
+    attachmentCount: 0,
+    attachments: [],
+    reactions: { counts: {}, total: 0, mine: null },
+    canEdit: false,
+    canDelete: false,
+    canHardDelete: false,
+    canReport: true,
+    bodySource: "",
+    ...over,
+  };
+}
+
 // A wall post, as profilePosts.list and profilePosts.get answer.
 export function profilePostBody(over: Record<string, unknown> = {}) {
   return {

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { draftOf } from "../../edit-target";
 import { keepEditDraft, takeEditDraft } from "./edit-draft";
 
 // "More options" carries what the post's editor in the thread had to the edit page: the text and
@@ -59,4 +60,21 @@ test("a kept list that is not a list of files is dropped, the text kept", () => 
     JSON.stringify({ body: "b", attached: [{ id: "x" }] }),
   );
   expect(takeEditDraft(31)).toEqual({ body: "b", attached: undefined });
+});
+
+// A conversation is private: what its message's editor kept must never open in the edit page of a
+// thread's post that has the same number, nor a post's in a message's.
+test("a message's draft is kept apart from the post with the same number", () => {
+  const message = draftOf({
+    kind: "message",
+    conversationId: 5,
+    messageId: 31,
+  });
+  const post = draftOf({ kind: "post", threadId: 7, postId: 31 });
+  keepEditDraft(message, form({ body: "Private words" }), null);
+  expect(takeEditDraft(post)).toBeNull();
+  expect(takeEditDraft(message)?.body).toBe("Private words");
+  keepEditDraft(post, form({ body: "Public words" }), null);
+  expect(takeEditDraft(message)).toBeNull();
+  expect(takeEditDraft(post)?.body).toBe("Public words");
 });

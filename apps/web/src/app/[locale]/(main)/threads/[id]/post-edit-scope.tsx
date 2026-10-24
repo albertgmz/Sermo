@@ -10,6 +10,10 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  type EditTarget,
+  savedKey,
+} from "@/app/[locale]/(main)/threads/[id]/edit-target";
 import { EDITOR_BOX, editorPadding } from "@/components/forum/composer-box";
 import { InPlaceEdit } from "@/components/forum/in-place-edit";
 import { setItemState, useItemState } from "@/lib/item-state";
@@ -44,25 +48,21 @@ const InlinePostEditor = dynamic(loadEditor, {
 // What a save answered with: the post's text and files and its edited mark, drawn on the server.
 export type SavedPost = { body: React.ReactNode; edited: React.ReactNode };
 
-const savedKey = (postId: number) => `post-edit:${postId}`;
-
 const PostEditing = createContext<{
-  threadId: number;
-  postId: number;
+  target: EditTarget;
   editing: boolean;
   close: (saved?: SavedPost) => void;
 } | null>(null);
 
-// A post of a thread that its viewer may edit, edited where it is read (XenForo's quick edit):
-// Edit puts the editor in place of the text and the footer, Save draws the saved post there, and
-// Cancel puts the post back as it was. Either gives the focus back to Edit.
+// A post of a thread or a message of a conversation that its viewer may edit, edited where it is
+// read (XenForo's quick edit): Edit puts the editor in place of the text and the footer, Save
+// draws the saved post there, and Cancel puts the post back as it was. Either gives the focus
+// back to Edit.
 export function PostEditScope({
-  threadId,
-  postId,
+  target,
   children,
 }: {
-  threadId: number;
-  postId: number;
+  target: EditTarget;
   children: React.ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
@@ -73,13 +73,14 @@ export function PostEditScope({
     closed.current = false;
     trigger.current?.focus();
   }, [editing]);
+  const key = savedKey(target);
   const close = useCallback(
     (saved?: SavedPost) => {
-      if (saved) setItemState(savedKey(postId), null, saved);
+      if (saved) setItemState(key, null, saved);
       closed.current = true;
       setEditing(false);
     },
-    [postId],
+    [key],
   );
   const inPlace = useMemo(
     () => ({
@@ -92,8 +93,8 @@ export function PostEditScope({
     [editing],
   );
   const scope = useMemo(
-    () => ({ threadId, postId, editing, close }),
-    [threadId, postId, editing, close],
+    () => ({ target, editing, close }),
+    [target, editing, close],
   );
   return (
     <InPlaceEdit value={inPlace}>
@@ -104,23 +105,18 @@ export function PostEditScope({
 
 // The post's text: the editor while it is edited, the saved text once it was (until the server
 // draws the post again, with it), the text the page was drawn with before.
+// Inside its `PostEditScope`.
 export function EditablePostBody(props: {
-  postId: number;
   // The viewer may quote the post by selection: the saved text is drawn quotable too.
   canQuote: boolean;
   children: React.ReactNode;
 }) {
   const scope = use(PostEditing);
-  const saved = useItemState<SavedPost | null>(
-    savedKey(props.postId),
-    null,
-    props,
-  );
+  const saved = useSaved(props);
   if (scope?.editing) {
     return (
       <InlinePostEditor
-        threadId={scope.threadId}
-        postId={scope.postId}
+        target={scope.target}
         canQuote={props.canQuote}
         onClose={scope.close}
       />
@@ -129,15 +125,19 @@ export function EditablePostBody(props: {
   return saved ? saved.body : props.children;
 }
 
-// The post's edited mark, as the page drew it or as the last save answered.
-export function EditedStamp(props: {
-  postId: number;
-  children: React.ReactNode;
-}) {
-  const saved = useItemState<SavedPost | null>(
-    savedKey(props.postId),
+// The post's edited mark, as the page drew it or as the last save answered; inside its
+// `PostEditScope`.
+export function EditedStamp(props: { children: React.ReactNode }) {
+  const saved = useSaved(props);
+  return saved ? saved.edited : props.children;
+}
+
+// The last save of the item of the scope around, told how old the page's drawing is by `props`.
+function useSaved(props: object) {
+  const scope = use(PostEditing);
+  return useItemState<SavedPost | null>(
+    scope ? savedKey(scope.target) : "",
     null,
     props,
   );
-  return saved ? saved.edited : props.children;
 }

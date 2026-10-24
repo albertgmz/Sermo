@@ -44,7 +44,6 @@ export const CLIENT_NAMESPACES = [
   "auth.resetPassword",
   "auth.turnstile",
   "conversations.conversation",
-  "conversations.editForm",
   "conversations.newConversationForm",
   "conversations.recipientPicker",
   "credits.buyForm",

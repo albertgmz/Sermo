@@ -186,7 +186,11 @@ export default async function ConversationPage({
         </div>
 
         {/* Where a message's Reply takes the member, with the message quoted in the editor. */}
-        <section id="reply" className="mt-4 scroll-mt-4">
+        <section
+          id="reply"
+          aria-label={t("aria.reply")}
+          className="mt-4 scroll-mt-4"
+        >
           <ReplyArea
             conversation={conversation}
             tailKey={tailKey(conversation.id)}

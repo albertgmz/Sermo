@@ -35,13 +35,28 @@ mock.module("@/components/forum/quote-button", () => ({
     return realQuote.QuoteButton(props);
   },
 }));
+// The bar's props as the footer handed them, so the delete dialog it opens can be drawn here.
+type BarProps = Parameters<
+  typeof import("@/components/forum/content-actions").ContentActions
+>[0];
+let barProps: BarProps | undefined;
+const realBar = { ...(await import("@/components/forum/content-actions")) };
+mock.module("@/components/forum/content-actions", () => ({
+  ...realBar,
+  ContentActions: (props: BarProps) => {
+    barProps = props;
+    return realBar.ContentActions(props);
+  },
+}));
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
   mock.module("next-intl", () => intl);
   mock.module("@/components/forum/quote-button", () => realQuote);
+  mock.module("@/components/forum/content-actions", () => realBar);
 });
 
 const { MessageActions } = await import("./message-actions");
+const { DeleteDialog } = await import("@/components/forum/delete-dialog");
 
 type Props = Parameters<typeof MessageActions>[0];
 
@@ -89,7 +104,8 @@ test("the author can delete a message where the backend allows it, and cannot re
   const html = draw({ canDelete: true }, 3);
   expect(has(html, "Delete")).toBe(true);
   expect(has(html, "Report")).toBe(false);
-  expect(has(html, "Share")).toBe(true);
+  // A private message has no share, as no permalink of it leaves the conversation.
+  expect(has(html, "Share")).toBe(false);
 });
 
 test("the conversation's first message, which the backend will not delete, has no delete", () => {
@@ -128,23 +144,53 @@ test("edit follows the backend's flag and opens the message's edit page", () => 
   expect(has(draw({ canEdit: false }, 3), "Edit")).toBe(false);
 });
 
-test("a visible message has Reply, which quotes it, on the right of report and edit", () => {
+test('a visible message has a thread post\'s "+ Quote" and Reply, on the right of report and edit', () => {
   const html = draw({ canEdit: true }, 9);
+  expect(has(html, "Quote")).toBe(true);
+  expect(html).toContain("+ Quote");
   expect(has(html, "Reply")).toBe(true);
-  expect(has(html, "Quote")).toBe(false);
+  expect(html).toContain('href="#reply"');
   // As XenForo's footer: what the viewer does to the message first, how they answer it last.
   expect(html.indexOf('aria-label="Report"')).toBeLessThan(
-    html.indexOf('aria-label="Reply"'),
+    html.indexOf('aria-label="Quote"'),
   );
   expect(html.indexOf('aria-label="Edit"')).toBeLessThan(
+    html.indexOf('aria-label="Quote"'),
+  );
+  expect(html.indexOf('aria-label="Quote"')).toBeLessThan(
     html.indexOf('aria-label="Reply"'),
   );
 });
 
-test("a message has no Reply where the viewer cannot reply, nor when it is not visible", () => {
-  expect(has(draw({ canEdit: true }, 9, false), "Reply")).toBe(false);
+test("a message has neither Quote nor Reply where the viewer cannot reply, and no Quote when it is not visible", () => {
+  const closed = draw({ canEdit: true }, 9, false);
+  expect(has(closed, "Quote")).toBe(false);
+  expect(has(closed, "Reply")).toBe(false);
   for (const state of ["moderated", "deleted"])
-    expect(has(draw({ state }, 9), "Reply")).toBe(false);
+    expect(has(draw({ state }, 9), "Quote")).toBe(false);
+});
+
+test("Delete opens the one delete dialog, saying what each deletion of a message does", () => {
+  barProps = undefined;
+  draw({ canDelete: true, canHardDelete: true }, 9);
+  // Set by the stand-in while drawing, which the compiler cannot follow.
+  const remove = (barProps as BarProps | undefined)?.remove;
+  if (!remove) throw new Error("the bar was given no delete");
+  const html = renderToStaticMarkup(
+    withIntl(
+      <DeleteDialog
+        open
+        action={remove.action}
+        permanent={remove.permanent}
+        warning={remove.warning}
+        permanentHint={remove.permanentHint}
+      />,
+    ),
+  );
+  expect(html).toContain("Remove from public view");
+  expect(html).toContain("Delete permanently");
+  expect(html).toContain("for the other participants too");
+  expect(html).toContain('name="reason"');
 });
 
 test("a deleted message offers neither share, delete nor report", () => {
@@ -154,7 +200,7 @@ test("a deleted message offers neither share, delete nor report", () => {
   }
 });
 
-test("Reply puts the message in the editor quoted as a conversation message, not a post", async () => {
+test("Quote puts the message in the editor quoted as a conversation message, not a post", async () => {
   quoteProps = undefined;
   draw({}, 9);
   // Set by the stand-in while drawing, which the compiler cannot follow.

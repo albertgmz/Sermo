@@ -93,8 +93,7 @@ function PanelButton({
 //   react       The reaction button (`Reactions` with `part="button"`).
 //   start       More controls on the left, after reply.
 //   quote       A post to quote into the reply editor: the post id, the event and the loader. A
-//               conversation message gives `reference: "convMessage"` and `asReply`: its Reply
-//               quotes it, as XenForo's, in place of "+ Quote".
+//               conversation message gives `reference: "convMessage"`.
 //   reply       Where the reply editor is.
 //   share       The permalink of the item.
 //   bookmark    The item and whether the viewer bookmarked it; only for signed-in viewers.
@@ -148,7 +147,6 @@ export function ContentActions({
       postId: number,
     ) => Promise<{ author: string; authorId: number; source: string } | null>;
     reference?: "post" | "convMessage";
-    asReply?: boolean;
   };
   reply?: { href: string };
   share?: string;
@@ -232,9 +230,8 @@ export function ContentActions({
           event={quote.event}
           load={quote.load}
           reference={quote.reference}
-          icon={quote.asReply ? <Reply /> : undefined}
-          label={quote.asReply ? t("reply") : t("quote")}
-          text={split && !quote.asReply ? t("addQuote") : undefined}
+          label={t("quote")}
+          text={split ? t("addQuote") : undefined}
           labelClassName={labelClass}
         />
       )}

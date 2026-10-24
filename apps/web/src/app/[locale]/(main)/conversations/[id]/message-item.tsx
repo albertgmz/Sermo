@@ -3,13 +3,16 @@ import { Hourglass, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type * as z from "zod";
 import { MessageActions } from "@/app/[locale]/(main)/conversations/[id]/message-actions";
-import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { PostBody } from "@/app/[locale]/(main)/threads/[id]/post-body";
+import {
+  EditablePostBody,
+  EditedStamp,
+  PostEditScope,
+} from "@/app/[locale]/(main)/threads/[id]/post-edit-scope";
 import { EditedMark } from "@/components/forum/edited-mark";
-import { HtmlContent } from "@/components/forum/html-content";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { quotable } from "@/components/forum/selection-bb";
-import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { authorsFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
@@ -21,7 +24,9 @@ export type ApiMessage = z.output<
 >["items"][number];
 
 // One message of a conversation as it is drawn in the list, on the page and in what is added to it
-// while the page is open.
+// while the page is open: a thread's post (`PostItem`), drawn with the same frame, body, footer and
+// quick edit. Only the rules of a private conversation differ: no share, no bookmark and no post
+// number in its header row, and what it links to stays inside the conversation.
 export function MessageItem({
   message,
   author,
@@ -40,16 +45,32 @@ export function MessageItem({
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
   viewList?: boolean;
-  // Whether the viewer may reply here, so a message's Reply has an editor to quote it into.
+  // Whether the viewer may reply here, so a message's Quote has an editor to quote it into.
   canQuote: boolean;
 }) {
   const t = useTranslations("conversations.conversation");
-  return (
+  // Its Edit opens the editor in place of the text (a deleted message's goes to the edit page).
+  const inPlace = message.canEdit && message.state !== "deleted";
+  const edited = message.editedAt && <EditedMark date={message.editedAt} />;
+  // What a selection inside the text needs to quote only that part (`SelectionQuote`).
+  const quote =
+    canQuote && message.state === "visible"
+      ? quotable("convMessage", message.id, message.author)
+      : undefined;
+  const body = (
+    <PostBody
+      post={message}
+      type="conversation_message"
+      className="md:mt-1"
+      quote={quote}
+    />
+  );
+  const frame = (
     <PostFrame
       id={`message-${message.id}`}
       author={author}
       createdAt={message.createdAt}
-      edited={message.editedAt && <EditedMark date={message.editedAt} />}
+      edited={inPlace ? <EditedStamp>{edited}</EditedStamp> : edited}
       signed={signed}
       actions={
         <MessageActions
@@ -68,25 +89,27 @@ export function MessageItem({
       {message.state === "deleted" && (
         <PostNote icon={Trash2}>{t("deleted")}</PostNote>
       )}
-      {/* What a selection inside the text needs to quote only that part (`SelectionQuote`). */}
-      <div
-        {...(canQuote && message.state === "visible"
-          ? quotable("convMessage", message.id, message.author)
-          : {})}
-      >
-        <HtmlContent
-          className="md:mt-1"
-          content={{ type: "conversation_message", id: message.id }}
-          attachments={message.attachments}
-        >
-          {message.bodyHtml}
-        </HtmlContent>
-      </div>
-      <PostAttachments
-        attachments={message.attachments}
-        inline={inlineAttachmentIds(message.bodyHtml, message.attachments)}
-      />
+      {inPlace ? (
+        <EditablePostBody canQuote={quote !== undefined}>
+          {body}
+        </EditablePostBody>
+      ) : (
+        body
+      )}
     </PostFrame>
+  );
+  return inPlace ? (
+    <PostEditScope
+      target={{
+        kind: "message",
+        conversationId: message.conversationId,
+        messageId: message.id,
+      }}
+    >
+      {frame}
+    </PostEditScope>
+  ) : (
+    frame
   );
 }
 

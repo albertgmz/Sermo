@@ -180,7 +180,6 @@ test("only the boxes in view with the page bring the bar's code with it", () => 
   for (const path of [
     "components/forum/quick-reply-editor.tsx",
     "app/[locale]/(main)/threads/[id]/edit/[postId]/edit-post-form.tsx",
-    "app/[locale]/(main)/conversations/[id]/edit/[messageId]/edit-message-form.tsx",
     "app/[locale]/(main)/conversations/new/new-conversation-form.tsx",
     "components/forum/thread-composer.tsx",
   ])
@@ -230,7 +229,6 @@ test("the edit pages and the new conversation page load the editor only after th
     readFileSync(join(import.meta.dir, "../..", path), "utf8");
   for (const path of [
     "app/[locale]/(main)/threads/[id]/edit/[postId]/edit-post-form.tsx",
-    "app/[locale]/(main)/conversations/[id]/edit/[messageId]/edit-message-form.tsx",
     "app/[locale]/(main)/conversations/new/new-conversation-form.tsx",
   ]) {
     const text = source(path);

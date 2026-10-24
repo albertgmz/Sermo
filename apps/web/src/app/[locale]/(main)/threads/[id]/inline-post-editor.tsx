@@ -4,9 +4,18 @@ import { Save } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  messageEditorAction,
+  saveMessageInPlace,
+} from "@/app/[locale]/(main)/conversations/edit-in-place";
 import type { PostEditFields } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-data";
 import { keepEditDraft } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-draft";
-import { postEditHref } from "@/app/[locale]/(main)/threads/[id]/pages";
+import {
+  draftOf,
+  type EditTarget,
+  editPageHref,
+  savedKey,
+} from "@/app/[locale]/(main)/threads/[id]/edit-target";
 import {
   EDITOR_HEIGHT,
   EditorPlaceholder,
@@ -16,6 +25,7 @@ import { showThreadHeading } from "@/app/[locale]/(main)/threads/[id]/thread-hea
 import {
   postEditorAction,
   savePostInPlace,
+  type ThreadHeadingValue,
 } from "@/app/[locale]/(main)/threads/edit-in-place";
 import type { AttachedFile } from "@/components/forum/attachment-field";
 import { AttachmentField } from "@/components/forum/attachment-field";
@@ -34,19 +44,43 @@ const buttonClass = "h-11 rounded-[9px] px-5 text-(length:--text-compact)";
 // What the editor of a post opens with, once asked: the fields, or why they could not be had.
 type Opened = { fields: PostEditFields } | { error: string };
 
-// The editor that takes the place of a post's text while it is edited in place, as XenForo's quick
-// edit: the title row of an opening post, the text in the editor (its box and bar at once, Lexical
-// once the page is idle or the text entered), the files, then Save, "More options…" (the edit page,
-// with what was written here) and Cancel. It asks for the post's BB code when it opens (the page
-// holds only the drawn text) and puts the member at the end of it.
+const openEditor = (target: EditTarget): Promise<Opened> =>
+  target.kind === "post"
+    ? postEditorAction(target.threadId, target.postId)
+    : messageEditorAction(target.conversationId, target.messageId);
+
+// What a save answered: the item as drawn now, or a refusal; with the thread's title when an
+// opening post's save changed it (also before a refusal of the post).
+type Saved = (SavedPost | { error: string }) & { thread?: ThreadHeadingValue };
+
+// The save of the editor: a post's, which may also retitle its thread, or a message's.
+async function saveEditor(
+  target: EditTarget,
+  canQuote: boolean,
+  data: FormData,
+): Promise<Saved> {
+  if (target.kind === "message")
+    return saveMessageInPlace(
+      target.conversationId,
+      target.messageId,
+      canQuote,
+      data,
+    );
+  return savePostInPlace(target.threadId, target.postId, canQuote, data);
+}
+
+// The editor that takes the place of a post's (or a conversation message's) text while it is
+// edited in place, as XenForo's quick edit: the title row of an opening post, the text in the
+// editor (its box and bar at once, Lexical once the page is idle or the text entered), the files,
+// then Save, "More options…" (the edit page, with what was written here) and Cancel. It asks for
+// the BB code when it opens (the page holds only the drawn text) and puts the member at the end of
+// it.
 export default function InlinePostEditor({
-  threadId,
-  postId,
+  target,
   canQuote,
   onClose,
 }: {
-  threadId: number;
-  postId: number;
+  target: EditTarget;
   canQuote: boolean;
   onClose: (saved?: SavedPost) => void;
 }) {
@@ -62,18 +96,20 @@ export default function InlinePostEditor({
     files.current = listed;
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `asks` asks again (Try again).
+  // The item, by its name: a drawing of the page anew hands over the same target as a new object.
+  const item = savedKey(target);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `asks` asks again (Try again); `item` stands for `target`.
   useEffect(() => {
     let current = true;
     setOpened(null);
-    postEditorAction(threadId, postId).then(
+    openEditor(target).then(
       (answer) => current && setOpened(answer),
       () => current && setOpened({ error: "" }),
     );
     return () => {
       current = false;
     };
-  }, [threadId, postId, asks]);
+  }, [item, asks]);
 
   const fields = opened && "fields" in opened ? opened.fields : null;
   // The member is put at the end of the text, as XenForo's quick edit does; entering the box
@@ -89,11 +125,10 @@ export default function InlinePostEditor({
   }, [fields]);
 
   const { state, pending, onSubmit } = useKeptForm(async (_previous, data) => {
-    const saved = await savePostInPlace(threadId, postId, canQuote, data);
+    const saved = await saveEditor(target, canQuote, data);
     // A title saved before a refused post is the thread's now, either way.
-    if (saved.thread && fields?.thread) {
-      showThreadHeading(threadId, fields.thread.title, saved.thread);
-    }
+    if (target.kind === "post" && saved.thread && fields?.thread)
+      showThreadHeading(target.threadId, fields.thread.title, saved.thread);
     if ("error" in saved) return { error: saved.error };
     onClose({ body: saved.body, edited: saved.edited });
     return { done: true };
@@ -163,9 +198,9 @@ export default function InlinePostEditor({
         minHeight={EDITOR_HEIGHT}
         findMembers={findMentions}
       />
-      {fields.attachIn !== null && (
+      {fields.files && (
         <AttachmentField
-          nodeId={fields.attachIn}
+          nodeId={fields.files.nodeId}
           initial={fields.attached}
           onBusy={setUploading}
           onFiles={listFiles}
@@ -183,10 +218,14 @@ export default function InlinePostEditor({
           {t("save")}
         </Button>
         <Link
-          href={postEditHref(threadId, postId)}
+          href={editPageHref(target)}
           onClick={() => {
             if (form.current) {
-              keepEditDraft(postId, new FormData(form.current), files.current);
+              keepEditDraft(
+                draftOf(target),
+                new FormData(form.current),
+                files.current,
+              );
             }
           }}
           className={cn(buttonVariants({ variant: "outline" }), buttonClass)}

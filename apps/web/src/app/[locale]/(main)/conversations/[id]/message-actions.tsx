@@ -1,7 +1,8 @@
 import type { conversationsListMessages } from "@sermo/core/contracts";
+import { useTranslations } from "next-intl";
 import type * as z from "zod";
 import { reportContent } from "@/app/[locale]/(main)/actions";
-import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
+import { messageEditHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
 import {
   deleteMessageAction,
   quoteMessageSource,
@@ -9,22 +10,20 @@ import {
 import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import { ContentActions } from "@/components/forum/content-actions";
 import { deleteMode } from "@/components/forum/delete-mode";
-import { messageActionClass } from "@/components/forum/message-action";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
-import { ShareButton } from "@/components/forum/share-button";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 
 type Message = z.output<
   typeof conversationsListMessages.output
 >["items"][number];
 
-// The footer of a message in a conversation, laid out as a thread post's (XenForo draws a
-// conversation message with the thread's message macros): share (a message has no header row to
-// hold it, as a post has), report, edit and delete on the left; react and Reply on the right, and Reply quotes the message into the reply editor, as
-// XenForo's. Edit (`canEdit`, which opens the edit page) and delete (`canDelete`) and report
-// (`canReport`) are the backend's word for the viewer; Reply needs the right to reply here
-// (`canQuote`) and a message everyone in the conversation sees.
+// The footer of a message in a conversation: a thread post's (`PostActions`), as XenForo draws a
+// conversation message with the thread's message macros. Report, edit (in place, as a post's) and
+// delete on the left; react, "+ Quote" and Reply on the right; who reacted under it. A private
+// message has no share. Edit, delete and report are the backend's word for the viewer (`canEdit`,
+// `canDelete`, `canHardDelete`, `canReport`); quoting and Reply need the right to reply here
+// (`canQuote`), and quoting a message everyone in the conversation sees.
 export function MessageActions({
   message,
   viewerId,
@@ -41,6 +40,7 @@ export function MessageActions({
   viewList?: boolean;
   canQuote: boolean;
 }) {
+  const actions = useTranslations("forum.contentActions");
   const removal = deleteMode(message, false);
   const reactions = {
     target: "message" as const,
@@ -54,6 +54,7 @@ export function MessageActions({
   };
   return (
     <ContentActions
+      layout="split"
       summary={<Reactions {...reactions} part="summary" />}
       react={<Reactions {...reactions} part="button" />}
       quote={
@@ -63,23 +64,13 @@ export function MessageActions({
               event: QUOTE_EVENT,
               load: quoteMessageSource,
               reference: "convMessage",
-              asReply: true,
             }
           : undefined
       }
-      leading={
-        message.state !== "deleted" && (
-          <ShareButton
-            href={conversationHref(message.conversationId, message.id)}
-            className={messageActionClass}
-          />
-        )
-      }
+      reply={canQuote ? { href: "#reply" } : undefined}
       edit={
         message.canEdit
-          ? {
-              href: `/conversations/${message.conversationId}/edit/${message.id}`,
-            }
+          ? { href: messageEditHref(message.conversationId, message.id) }
           : undefined
       }
       remove={
@@ -91,6 +82,8 @@ export function MessageActions({
                 message.id,
               ),
               permanent: removal.permanent,
+              warning: actions("deleteWarning"),
+              permanentHint: actions("hardDeleteMessageWarning"),
             }
           : undefined
       }
@@ -108,7 +101,6 @@ export function MessageActions({
             }
           : undefined
       }
-      layout="split"
     />
   );
 }

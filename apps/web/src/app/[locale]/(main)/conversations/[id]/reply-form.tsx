@@ -68,10 +68,11 @@ export function ReplyForm({
           sending = true;
           onSubmit(event);
         }}
-        className="space-y-3 rounded-lg border bg-card p-3 md:p-4"
+        data-shortcut="reply"
+        className="space-y-3"
       >
-        {/* The thread's quick reply: the editor takes what a message's Reply quotes; under it,
-          "Attach files" and the submit on one row, as XenForo's. */}
+        {/* The thread's quick reply, drawn as the thread draws it: the editor takes what a
+          message's Quote sends; under it, "Attach files" and the submit on one row, as XenForo's. */}
         <QuickReplyEditor generation={generation} placeholder={placeholder} />
         {state.error && <FormError>{state.error}</FormError>}
         <ComposerButtons

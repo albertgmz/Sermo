@@ -402,7 +402,8 @@
     "hardDeleteConfirm": "Eliminar permanentemente",
     "hardDeletePostWarning": "El mensaje y sus reacciones, archivos y denuncias se borran para siempre. No se puede deshacer.",
     "hardDeleteCommentWarning": "El comentario y sus reacciones, archivos y denuncias se borran para siempre. No se puede deshacer.",
-    "hardDeleteWallWarning": "La publicación del muro, sus comentarios, reacciones y denuncias se borran para siempre. No se puede deshacer."
+    "hardDeleteWallWarning": "La publicación del muro, sus comentarios, reacciones y denuncias se borran para siempre. No se puede deshacer.",
+    "hardDeleteMessageWarning": "El mensaje y sus reacciones, archivos y denuncias se borran para siempre, también para los demás participantes. No se puede deshacer."
   },
   "editedMark": {
     "label": "Editado <time></time>"

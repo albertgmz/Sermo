@@ -1,13 +1,10 @@
-import {
-  conversationsGet,
-  conversationsGetMessage,
-} from "@sermo/core/contracts";
+import { conversationsGet } from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { EditMessageForm } from "@/app/[locale]/(main)/conversations/[id]/edit/[messageId]/edit-message-form";
+import { loadMessageEdit } from "@/app/[locale]/(main)/conversations/[id]/edit/[messageId]/edit-data";
 import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
-import { fileName } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { EditPostForm } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-post-form";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
@@ -31,11 +28,16 @@ export default async function EditMessagePage({
     getTranslations("conversations.edit"),
   ]);
   // The backend gives the source only to someone who may edit the message: anyone else gets a 404.
-  const [message, conversation] = await Promise.all([
-    read(conversationsGetMessage, { messageId }),
+  const [loaded, conversation] = await Promise.all([
+    loadMessageEdit(
+      read,
+      conversationId,
+      messageId,
+      resolvedPermissions["conversation.attach"] !== false,
+    ),
     read(conversationsGet, { conversationId }),
   ]);
-  if (message.conversationId !== conversationId) notFound();
+  if (!loaded) notFound();
   const back = conversationHref(conversationId, messageId);
 
   return (
@@ -51,18 +53,10 @@ export default async function EditMessagePage({
         {t("heading")}
       </h1>
       <div className="mt-4">
-        <EditMessageForm
-          conversationId={conversationId}
-          messageId={messageId}
-          source={message.bodySource}
+        <EditPostForm
+          target={{ kind: "message", conversationId, messageId }}
           back={back}
-          canAttach={resolvedPermissions["conversation.attach"] !== false}
-          attached={message.attachments.map((file) => ({
-            id: file.fileId,
-            name: fileName(file),
-            size: file.byteSize,
-            type: file.contentType,
-          }))}
+          {...loaded.fields}
         />
       </div>
     </PageLayout>

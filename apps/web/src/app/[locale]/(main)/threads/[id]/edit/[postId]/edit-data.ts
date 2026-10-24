@@ -23,15 +23,30 @@ export type ThreadEditFields = {
   mustHavePrefix: boolean;
 };
 
-// What a form that edits a post opens with: the BB code it was written in, where to attach files
-// (when the viewer may), the files it has, and the thread's title and prefix for its opening post
-// when the viewer may change them.
+// What a form that edits a post or a conversation message opens with: the BB code it was written
+// in, where files are uploaded (a thread's forum by its `nodeId`, a conversation's without one;
+// null when the form shows no files), the files it has, and the thread's title and prefix for an
+// opening post when the viewer may change them.
 export type PostEditFields = {
   source: string;
-  attachIn: number | null;
+  files: { nodeId?: number } | null;
   attached: AttachedFile[];
   thread: ThreadEditFields | null;
 };
+
+// The files of a post or message as an edit form lists them.
+export const attachedFiles = (
+  files: (Parameters<typeof fileName>[0] & {
+    byteSize: number;
+    contentType: string;
+  })[],
+): AttachedFile[] =>
+  files.map((file) => ({
+    id: file.fileId,
+    name: fileName(file),
+    size: file.byteSize,
+    type: file.contentType,
+  }));
 
 // The title and prefix of a thread for a form that changes them: the prefixes its forum offers,
 // the thread's own kept when it is no longer one of them.
@@ -83,15 +98,10 @@ export async function loadPostEdit(
     post.id === found.thread.firstPostId && found.permissions.canEditTitle;
   const fields: PostEditFields = {
     source: post.bodySource,
-    attachIn: threadMay(found.resolvedPermissions).attach
-      ? found.node.id
+    files: threadMay(found.resolvedPermissions).attach
+      ? { nodeId: found.node.id }
       : null,
-    attached: post.attachments.map((file) => ({
-      id: file.fileId,
-      name: fileName(file),
-      size: file.byteSize,
-      type: file.contentType,
-    })),
+    attached: attachedFiles(post.attachments),
     thread: opening ? await threadEditFields(ask, found) : null,
   };
   return { post, found, fields };

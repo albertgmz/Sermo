@@ -53,8 +53,7 @@ export default async function EditPostPage({
       <div className="mt-4">
         {post.canEdit ? (
           <EditPostForm
-            threadId={threadId}
-            postId={postId}
+            target={{ kind: "post", threadId, postId }}
             back={back}
             {...fields}
           />

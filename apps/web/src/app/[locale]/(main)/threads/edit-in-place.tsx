@@ -8,7 +8,7 @@ import {
   threadEditFields,
 } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-data";
 import { threadPageHref } from "@/app/[locale]/(main)/threads/[id]/pages";
-import { PostBody } from "@/app/[locale]/(main)/threads/[id]/post-item";
+import { PostBody } from "@/app/[locale]/(main)/threads/[id]/post-body";
 import { saveEdit } from "@/app/[locale]/(main)/threads/save-edit";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { quotable } from "@/components/forum/selection-bb";
