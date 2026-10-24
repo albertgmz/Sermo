@@ -48,8 +48,11 @@ export const ContentAuthor = z
 /** Who hid a deleted post, message, profile post or comment, why and when. */
 export const PostDeletion = z
   .object({
-    /** Who hid it: the moderator, or the author when they hid their own post. */
-    by: UserSummary,
+    /**
+     * Who hid it: the moderator, or the author when they hid their own post (a guest author when
+     * that was a member who has since deleted their account).
+     */
+    by: ContentAuthor,
     /** The reason given; empty when none was. */
     reason: z.string(),
     at: Timestamp,

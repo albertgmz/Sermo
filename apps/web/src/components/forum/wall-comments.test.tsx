@@ -307,7 +307,7 @@ test("a deleted comment is folded to its name and notice, with Restore and Delet
     ...comment(1, "deleted"),
     canHardDelete: true,
     deletion: {
-      by: { id: 4, username: "kestrel" },
+      by: { kind: "member", id: 4, username: "kestrel" },
       reason: "Rude",
       at: "2026-01-02T00:00:00.000Z",
     },

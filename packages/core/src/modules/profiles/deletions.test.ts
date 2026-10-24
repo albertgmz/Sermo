@@ -64,18 +64,22 @@ describe("profiles: who hid a deleted wall post or comment, and why", () => {
     try {
       const page = await execute(f.ctx, profilePostsListOp, f.modActor, { userId: f.wall.id });
       const post = page.items.find((item) => item.id === f.gone.id)!;
-      expect(post.deletion?.by).toEqual({ id: f.moderator.id, username: "Mod" });
+      expect(post.deletion?.by).toEqual({
+        kind: "member",
+        id: f.moderator.id,
+        username: "Mod",
+      });
       expect(post.deletion?.reason).toBe("Spam");
       expect(Number.isNaN(Date.parse(post.deletion?.at ?? ""))).toBe(false);
       const live = page.items.find((item) => item.id === f.live.id)!;
       expect(live.deletion).toBeNull();
       // The newest comments shown with the post, and the comment list itself.
       expect(live.latestComments[0]?.deletion?.reason).toBe("Rude");
-      expect(live.latestComments[0]?.deletion?.by.username).toBe("Mod");
+      expect(live.latestComments[0]?.deletion?.by).toMatchObject({ username: "Mod" });
       const comments = await execute(f.ctx, profileCommentsListOp, f.modActor, {
         profilePostId: f.live.id,
       });
-      expect(comments.items[0]?.deletion?.by.username).toBe("Mod");
+      expect(comments.items[0]?.deletion?.by).toMatchObject({ username: "Mod" });
       const single = await execute(f.ctx, profilePostsGetOp, f.modActor, {
         profilePostId: f.gone.id,
       });

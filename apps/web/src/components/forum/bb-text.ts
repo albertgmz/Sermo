@@ -115,8 +115,9 @@ export function quoteOf(
   source: string,
   reference: "post" | "convMessage" = "post",
 ) {
-  const name = author.replace(/["[\],\s]+/g, " ").trim() || "member";
+  // A name with nothing left (a guest whose name was not kept) is left out: the renderer names the author.
+  const name = author.replace(/["[\],\s]+/g, " ").trim();
   // A guest has no member to name.
   const member = authorId === null ? "" : `, member: ${authorId}`;
-  return `[QUOTE="${name}, ${reference}: ${postId}${member}"]${balanced(source.trim())}[/QUOTE]`;
+  return `[QUOTE="${name ? `${name}, ` : ""}${reference}: ${postId}${member}"]${balanced(source.trim())}[/QUOTE]`;
 }

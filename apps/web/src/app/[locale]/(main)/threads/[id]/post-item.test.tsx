@@ -275,7 +275,7 @@ test("a deleted post says who deleted it and why, to the moderators who see it",
   backend({ readPosition: 3 });
   const [html] = await drawn([
     deletedPost({
-      by: { id: 4, username: "warden" },
+      by: { kind: "member", id: 4, username: "warden" },
       reason: "Off topic",
       at: "2026-01-02T00:00:00.000Z",
     }),
@@ -304,7 +304,7 @@ test("a deleted post is folded to one line until Show: who deleted it, when and 
   backend({ readPosition: 3 });
   const [html] = await drawn([
     deletedPost({
-      by: { id: 4, username: "warden" },
+      by: { kind: "member", id: 4, username: "warden" },
       reason: "Off topic",
       at: "2026-01-02T00:00:00.000Z",
     }),

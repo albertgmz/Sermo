@@ -50,12 +50,16 @@ describe("conversations: who hid a deleted message, and why", () => {
       });
       const seen = (await s.list(s.admin)).items;
       const one = seen.find((message) => message.id === byAdmin.id)!;
-      expect(one.deletion?.by).toEqual({ id: s.adminUser.id, username: s.adminUser.username });
+      expect(one.deletion?.by).toEqual({
+        kind: "member",
+        id: s.adminUser.id,
+        username: s.adminUser.username,
+      });
       expect(one.deletion?.reason).toBe("Rude");
       expect(Number.isNaN(Date.parse(one.deletion?.at ?? ""))).toBe(false);
       // Hidden by its author: the author is named, with no reason.
       const own = seen.find((message) => message.id === byAuthor.id)!;
-      expect(own.deletion?.by.id).toBe(s.bUser.id);
+      expect(own.deletion?.by).toMatchObject({ kind: "member", id: s.bUser.id });
       expect(own.deletion?.reason).toBe("");
       // A live message has none.
       expect(

@@ -69,7 +69,7 @@ describe("posts: who hid a deleted post, and why", () => {
       notify: false,
     });
     const deletion = await w.deletionOf(w.moderator);
-    expect(deletion.by.id).toBe(w.moderatorId);
+    expect(deletion.by).toMatchObject({ kind: "member", id: w.moderatorId });
     expect(deletion.reason).toBe("Off topic");
     expect(Number.isNaN(Date.parse(deletion.at))).toBe(false);
     const single = await w.call("posts.get", w.moderator, { postId: w.reply.id });
@@ -80,7 +80,7 @@ describe("posts: who hid a deleted post, and why", () => {
     const w = await world();
     await w.call("posts.delete", w.author, { postId: w.reply.id, reason: "", notify: false });
     const deletion = await w.deletionOf(w.moderator);
-    expect(deletion.by.id).toBe(w.authorId);
+    expect(deletion.by).toMatchObject({ kind: "member", id: w.authorId });
     expect(deletion.reason).toBe("");
   });
 
@@ -97,7 +97,7 @@ describe("posts: who hid a deleted post, and why", () => {
     expect(await w.deletionOf(w.moderator)).toBeNull();
     await hide(w.author, "");
     const deletion = await w.deletionOf(w.moderator);
-    expect(deletion.by.id).toBe(w.authorId);
+    expect(deletion.by).toMatchObject({ kind: "member", id: w.authorId });
     expect(deletion.reason).toBe("");
   });
 
@@ -110,7 +110,7 @@ describe("posts: who hid a deleted post, and why", () => {
       notify: false,
     });
     const deletion = await w.deletionOf(w.moderator);
-    expect(deletion.by.id).toBe(w.moderatorId);
+    expect(deletion.by).toMatchObject({ kind: "member", id: w.moderatorId });
     expect(deletion.reason).toBe("Spam");
   });
 
@@ -120,8 +120,8 @@ describe("posts: who hid a deleted post, and why", () => {
     resumeSpamCleanup(w.ctx, admin, w.authorId, null, 100, "Spam");
     const deletion = await w.deletionOf(w.moderator);
     expect(deletion).not.toBeNull();
-    expect(deletion.by.id).toBe(actorUserId(admin));
-    expect(deletion.by.id).not.toBe(w.authorId);
+    expect(deletion.by).toMatchObject({ kind: "member", id: actorUserId(admin) });
+    expect(deletion.by).not.toMatchObject({ id: w.authorId });
     expect(deletion.reason).toBe("Spam");
   });
 

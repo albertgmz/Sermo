@@ -496,6 +496,8 @@ function renderOnce(
           guestGates.reads(row.node_id, row.user_id)));
     // A post is checked once, however many times it is quoted.
     const checked = new Set<number>();
+    // The site's word for a guest, read once however many guest posts are quoted.
+    let guestLabel: string | undefined;
     for (const el of postQuotes) {
       const quote = el.quote!;
       const row = byPost.get(quote.postId!);
@@ -523,7 +525,8 @@ function renderOnce(
       // A guest's post is cited by the name the guest gave (else the site's word for a guest), with no member
       // and no quote reference: the guest account is nobody to name or to alert.
       if (guestPost) {
-        quote.resolvedAuthor = row.guest_name ?? guestAuthorLabel(ctx);
+        if (row.guest_name === null) guestLabel ??= guestAuthorLabel(ctx);
+        quote.resolvedAuthor = row.guest_name ?? guestLabel;
         continue;
       }
       quote.resolvedAuthor = previous.quoteAuthors.get(row.id) ?? row.username;
@@ -563,6 +566,7 @@ function renderOnce(
  */
 function resolveMessageQuotes(ctx: Ctx, conversationId: number, quotes: El[]): void {
   const messageQuotes = quotes.filter((el) => el.quote!.messageId);
+  let guestLabel: string | undefined;
   if (messageQuotes.length === 0) return;
   const rows = prepared(ctx, "markdown.quoteMessages", () =>
     ctx.sqlite.prepare<{ id: number; user_id: number; username: string }, [string, number]>(
@@ -578,7 +582,8 @@ function resolveMessageQuotes(ctx: Ctx, conversationId: number, quotes: El[]): v
     if (!row) continue;
     // A message a deleted member left is cited by the site's word for a guest, with no member.
     if (row.user_id === GUEST_ACCOUNT_ID) {
-      el.quote!.resolvedAuthor = guestAuthorLabel(ctx);
+      guestLabel ??= guestAuthorLabel(ctx);
+      el.quote!.resolvedAuthor = guestLabel;
       continue;
     }
     el.quote!.resolvedAuthor = row.username;

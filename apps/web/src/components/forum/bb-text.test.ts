@@ -22,11 +22,14 @@ test("a guest's post is quoted with the name given and no member", () => {
   );
 });
 
-test("a name the tag cannot hold is cleaned and one with nothing left is a placeholder", () => {
+test("a name the tag cannot hold is cleaned and one with nothing left is left out for the renderer to fill", () => {
   expect(quoteOf(1, 'a"b], c\nd', 2, "x")).toBe(
     '[QUOTE="a b c d, post: 1, member: 2"]x[/QUOTE]',
   );
-  expect(quoteOf(1, '"]', 2, "x")).toContain('[QUOTE="member, post: 1');
+  expect(quoteOf(1, '"]', 2, "x")).toBe(
+    '[QUOTE="post: 1, member: 2"]x[/QUOTE]',
+  );
+  expect(quoteOf(1, "", null, "x")).toBe('[QUOTE="post: 1"]x[/QUOTE]');
 });
 
 test("a closing quote tag in the body no longer ends the quote", () => {

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 // Who deleted an item, when and why (a `PostDeletion` of the backend).
 export type Deletion = {
-  by: { username: string };
+  by: { username: string } | { kind: "guest"; name: string | null };
   reason: string;
   at: string;
 };
@@ -31,6 +31,7 @@ export function DeletionNotice({
   className?: string;
 }) {
   const t = useTranslations("forum.deletionNotice");
+  const guest = useTranslations("forum.guestAuthor");
   return (
     <div
       className={cn(
@@ -42,7 +43,12 @@ export function DeletionNotice({
         <span className="min-w-0 [overflow-wrap:anywhere]">
           {deletion ? (
             <>
-              {t("by", { name: deletion.by.username })}
+              {t("by", {
+                name:
+                  "username" in deletion.by
+                    ? deletion.by.username
+                    : (deletion.by.name ?? guest("label")),
+              })}
               {dot}
               <RelativeTime date={deletion.at} />
               {deletion.reason && (

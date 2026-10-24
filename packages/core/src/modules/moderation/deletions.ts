@@ -1,5 +1,6 @@
 import { type Ctx, prepared } from "../../context";
 import { iso } from "../../time";
+import { contentAuthor } from "../forums/guest-author";
 
 /** The kinds of content whose deletion is shown to the staff who may see it deleted. */
 export type DeletionTarget =
@@ -63,6 +64,10 @@ export function deletionValue(
   authorId: number,
 ) {
   return deletion
-    ? { by: users(deletion.actorId ?? authorId), reason: deletion.reason, at: iso(deletion.at) }
+    ? {
+        by: contentAuthor(users, deletion.actorId ?? authorId, null),
+        reason: deletion.reason,
+        at: iso(deletion.at),
+      }
     : null;
 }

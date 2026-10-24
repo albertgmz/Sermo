@@ -114,7 +114,7 @@ function backend(signedIn = true) {
           state: deleted.includes(id) ? "deleted" : "visible",
           deletion: deleted.includes(id)
             ? {
-                by: { id: 4, username: "kestrel" },
+                by: { kind: "member", id: 4, username: "kestrel" },
                 reason: "Spam",
                 at: "2026-01-02T00:00:00.000Z",
               }

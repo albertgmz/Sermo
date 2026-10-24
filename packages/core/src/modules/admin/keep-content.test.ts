@@ -81,7 +81,7 @@ async function world() {
     userId: fan.id,
     body: "Leaver on the fan wall",
   });
-  await w.run("profileComments.create", leaver.actor, {
+  const onFanWallComment = await w.run("profileComments.create", leaver.actor, {
     profilePostId: fanWall.id,
     body: "Leaver comment on the fan wall",
   });
@@ -112,6 +112,7 @@ async function world() {
     ownWall,
     fanWall,
     onFanWall,
+    onFanWallComment,
     talk,
     count,
     nodeRow,
@@ -250,7 +251,7 @@ describe("a member who deletes their account", () => {
     await settle(w.ctx);
     const quoting = await w.run("posts.create", w.fan.actor, {
       threadId: w.theirs.thread.id,
-      body: `[QUOTE="someone, post: ${w.answer.id}"]Leaver answer[/QUOTE] Agreed`,
+      body: `[QUOTE="post: ${w.answer.id}"]Leaver answer[/QUOTE] Agreed`,
     });
     expect(quoting.bodySource).toBe(
       `[QUOTE="Invitado, post: ${w.answer.id}"]Leaver answer[/QUOTE] Agreed`,
@@ -280,6 +281,21 @@ describe("a member who deletes their account", () => {
     expect(source).toContain(`"Invitado, convMessage: ${w.talk.message.id}"`);
     expect(source).not.toContain("member:");
     expect(reply.bodyHtml).toContain("Invitado");
+  });
+
+  test("what they hid themselves names a guest, not the reserved account, as the one who hid it", async () => {
+    const w = await world();
+    await w.run("profileComments.delete", w.leaver.actor, { commentId: w.onFanWallComment.id });
+    await w.run("profilePosts.delete", w.leaver.actor, { profilePostId: w.onFanWall.id });
+    await w.deleteAccount();
+    await settle(w.ctx);
+    const wall = await w.run("profilePosts.list", w.founder.actor, { userId: w.fan.id });
+    const post = wall.items.find((item: { id: number }) => item.id === w.onFanWall.id);
+    const comment = wall.items.find((item: { id: number }) => item.id === w.fanWall.id)
+      .latestComments[0];
+    expect(post.deletion.by).toEqual(GUEST_WITHOUT_NAME);
+    expect(comment.deletion.by).toEqual(GUEST_WITHOUT_NAME);
+    expect(JSON.stringify([post.deletion, comment.deletion])).not.toMatch(/-2|"Guest"/);
   });
 
   test("frees the username and the address for a new sign-up", async () => {
@@ -421,6 +437,8 @@ describe("the queries of one chunk", () => {
     expectNoTableScan(w.ctx, keepContentSql.postsMoved, [-2, JSON.stringify([1])]);
     expectNoTableScan(w.ctx, keepContentSql.lastPosters, [-2, JSON.stringify([1]), 1]);
     expectNoTableScan(w.ctx, keepContentSql.tagAuthors, [-2, JSON.stringify([1])]);
+    expectNoTableScan(w.ctx, keepContentSql.profilePostsMoved, [-2, JSON.stringify([1])]);
+    expectNoTableScan(w.ctx, keepContentSql.commentsMoved, [-2, JSON.stringify([1])]);
     expectNoTableScan(w.ctx, keepContentSql.messagesMoved, [-2, JSON.stringify([1])]);
     expectNoTableScan(w.ctx, keepContentSql.lastMessageUsers, [-2, JSON.stringify([1]), 1]);
   });

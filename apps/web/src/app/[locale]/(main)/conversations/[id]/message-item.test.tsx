@@ -168,7 +168,7 @@ test("a deleted message names who deleted it, when and why, for the staff the ba
   const html = await drawn({
     state: "deleted",
     deletion: {
-      by: { id: 4, username: "nova" },
+      by: { kind: "member", id: 4, username: "nova" },
       reason: "Spam",
       at: "2026-01-02T00:00:00.000Z",
     },

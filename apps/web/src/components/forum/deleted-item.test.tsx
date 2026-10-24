@@ -37,7 +37,7 @@ const deletion = {
 
 async function drawn(
   pressed: number,
-  record: typeof deletion | null = deletion,
+  record: Parameters<typeof DeletionNotice>[0]["deletion"] = deletion,
 ) {
   presses = pressed;
   const notice = (
@@ -71,6 +71,14 @@ test("a deleted item is drawn folded: who deleted it, when, why, Show… and its
   expect(html).toMatch(/<button type="button"[^>]*aria-expanded="false"/);
   expect(html).toContain("Show…");
   expect(html).toContain(">Restore<");
+});
+
+test("an item a deleted member hid themselves is deleted by the guest word", async () => {
+  const html = await drawn(0, {
+    ...deletion,
+    by: { kind: "guest", name: null },
+  });
+  expect(html).toContain("Deleted by Guest");
 });
 
 test("Show opens the whole item in its place, and Hide folds it again", async () => {
