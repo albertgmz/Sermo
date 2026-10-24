@@ -154,20 +154,48 @@ test.describe("signed in", () => {
 
     const more = page.getByRole("link", { name: "Load more", exact: true });
     await more.scrollIntoViewIfNeeded();
-    // The last post drawn is the reader's place: where it is on the screen when the button is
-    // pressed. (The page's own scroll offset is not: the posts above it are measured as they are
-    // drawn, and the offset moves by what they differ from their guess while the place stays.)
-    const anchor = page.locator(`[data-index="${await lastRow()}"]`);
-    const anchorTop = () =>
-      anchor.evaluate((row) => row.getBoundingClientRect().top);
+    // The reader's place is the post just above the button: where it is on the screen when the
+    // button is pressed. (The page's own scroll offset is not: the posts above are measured as they
+    // are drawn, and the offset moves by what they differ from their guess while the place stays.)
+    // The list draws the posts near the screen, so after the jump to the button the window takes a
+    // moment to arrive at the bottom: the place is read once the post above the button is the same
+    // post, at the same height, twice.
+    const place = () =>
+      page.evaluate(() => {
+        const rows = [
+          ...document.querySelectorAll<HTMLElement>("[data-index]"),
+        ];
+        const last = rows.reduce((a, b) =>
+          Number(b.dataset.index) > Number(a.dataset.index) ? b : a,
+        );
+        const button = document.querySelector("a[data-list-more]");
+        const top = last.getBoundingClientRect().top;
+        return {
+          key: last.dataset.key ?? "",
+          top,
+          gap:
+            (button?.getBoundingClientRect().top ?? 1e9) -
+            last.getBoundingClientRect().bottom,
+        };
+      });
+    let settled = await place();
     await expect
       .poll(async () => {
-        const first = await anchorTop();
-        await page.waitForTimeout(200);
-        return Math.abs((await anchorTop()) - first) < 1;
+        const first = await place();
+        await page.waitForTimeout(250);
+        settled = await place();
+        return (
+          first.key === settled.key &&
+          Math.abs(first.top - settled.top) < 1 &&
+          settled.gap > -1 &&
+          settled.gap < 300
+        );
       })
       .toBe(true);
-    const before = await anchorTop();
+    const anchor = page.locator(`[data-key="${settled.key}"]`);
+    const anchorTop = () =>
+      anchor.evaluate((row) => row.getBoundingClientRect().top);
+    const before = settled.top;
     await more.click();
     await expect(page).toHaveURL(/[?&]pages=2(&|$)/);
     await expect.poll(lastRow).toBeGreaterThan(shown);
