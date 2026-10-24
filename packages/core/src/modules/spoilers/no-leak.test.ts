@@ -71,8 +71,14 @@ describe("spoiler text stays out of every plain-text path", () => {
     });
     const result = await execute(w.ctx, searchQueryOp, w.author, { q: "needle" });
     expect(result.items.length).toBeGreaterThan(1);
-    for (const item of result.items) expectMasked(item.post.excerpt);
-    expect(result.items.find((item) => item.post.id === reply.id)?.post.excerpt).toContain("after");
+    // As in XenForo's results, a spoiler leaves nothing in a snippet: no English "[spoiler]".
+    for (const item of result.items) {
+      expect(item.post.excerpt).not.toMatch(/secret|Why/);
+      expect(item.post.excerpt).not.toContain("spoiler");
+    }
+    expect(result.items.find((item) => item.post.id === reply.id)?.post.excerpt).toBe(
+      "needle reply after",
+    );
   });
 
   test("the moderation queue", async () => {

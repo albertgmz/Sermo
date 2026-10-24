@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { BB_SPOILER_MARK, maskBbCode } from "../../bbcode/mask";
 import { prepared } from "../../context";
 import { SEARCH_PAGES_MAX, searchQuery } from "../../contracts/search";
 import { NotFoundError, ValidationError } from "../../errors";
@@ -10,7 +11,6 @@ import { iso } from "../../time";
 import { threadPresenter } from "../forums/presentation";
 import { readGates } from "../forums/read-gates";
 import { requireSiteView } from "../members/site-access";
-import { maskMarkupForExcerpt } from "../seo/excerpt";
 
 const CANDIDATE_CAP = 1000;
 const BATCH_SIZE = 100;
@@ -41,8 +41,9 @@ type Detail = {
   first_post_id: number | null;
 };
 
+/** The start of a post's text; a spoiler leaves nothing, as in XenForo's search results. */
 function excerpt(source: string): string {
-  const plain = maskMarkupForExcerpt(source).replace(/\s+/g, " ").trim();
+  const plain = maskBbCode(source).replaceAll(BB_SPOILER_MARK, " ").replace(/\s+/g, " ").trim();
   return Array.from(plain).slice(0, 200).join("");
 }
 
