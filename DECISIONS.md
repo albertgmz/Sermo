@@ -6845,3 +6845,13 @@ looking inactive.
   by their labels, and pressing a label focuses its control.
 
 Why: the UI audit (A12, A13) found two different member filters and controls without labels.
+
+### The prefix filter, the month widget and the month page stay in place
+
+- A forum's prefix filter narrows its thread list in place, as its tabs do, with no page
+  skeleton; the address keeps `?prefix=` and a prefix id of any length is accepted.
+- The member-of-the-month widget draws the chosen month in its own card instead of leaving the
+  page. The month page keeps one compact picker; its Go button is drawn only for browsers
+  without scripts.
+
+Why: the UI audit (A2, A7, A8) found these three controls reloading or doubling up.
