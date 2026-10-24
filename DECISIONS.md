@@ -6833,3 +6833,15 @@ Why: the review of the in-place loading work found the notice could not be dismi
 
 Why: the UI audit (A14, A20, A21, A33) found the main action looking disabled and fields
 looking inactive.
+
+### One member picker in every member filter, and every field has a label
+
+- The header's "By member" search and the search page's "From member" use the shared member
+  picker (suggestions, a chip, the username sent as `author`), as the direct message's
+  recipients do. The header loads the picker only when its search popup opens, so pages keep
+  their first-load size; without scripts the box is a plain labelled field. On a phone the
+  header's search is a link to the search page, which has the same picker.
+- The search page's forum and prefix selects, the recipients box and the member boxes are named
+  by their labels, and pressing a label focuses its control.
+
+Why: the UI audit (A12, A13) found two different member filters and controls without labels.
