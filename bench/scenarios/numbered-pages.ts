@@ -1,12 +1,15 @@
 import type { Actor } from "@sermo/core";
 import type { BenchEnv, Scenario } from "../harness";
 
-// The last numbered page of the longest lists: the place every page before it is skipped to, so
-// the dearest read of each list. The page is worked out once in setup from the list's own total.
+// The dearest numbered page of the longest lists, worked out once in setup from the list's own
+// total. A conversation and an inbox are placed from their first page, so their last page skips
+// the most. A forum's threads are placed from the nearer end of the list, so its last page is
+// cheap and its middle page skips the most: both are measured.
 
 type Target = { actor: Actor; input: Record<string, unknown> };
 
-async function lastPage(
+async function pageAt(
+  where: "last" | "middle",
   env: BenchEnv,
   operation: string,
   actor: Actor,
@@ -18,8 +21,10 @@ async function lastPage(
   const limit = (input.limit as number | undefined) ?? 20;
   const pages = Math.ceil((first.total ?? 0) / limit);
   if (pages < 10) throw new Error(`${operation}: only ${pages} pages to skip over.`);
-  return { actor, input: { ...input, page: pages } };
+  return { actor, input: { ...input, page: where === "last" ? pages : Math.ceil(pages / 2) } };
 }
+const lastPage = pageAt.bind(null, "last");
+const middlePage = pageAt.bind(null, "middle");
 
 const targets = new Map<string, Target[]>();
 const scenario = (
@@ -51,6 +56,16 @@ export const scenarios: Scenario[] = [
   ]),
   scenario("threads.list last page (moderator)", "threads.list", async (env) => [
     await lastPage(env, "threads.list", env.actors.moderator(0), {
+      nodeId: env.meta.bigForumIds[0],
+    }),
+  ]),
+  scenario("threads.list middle page (member)", "threads.list", async (env) => [
+    await middlePage(env, "threads.list", env.actors.member(0), {
+      nodeId: env.meta.bigForumIds[0],
+    }),
+  ]),
+  scenario("threads.list middle page (moderator)", "threads.list", async (env) => [
+    await middlePage(env, "threads.list", env.actors.moderator(0), {
       nodeId: env.meta.bigForumIds[0],
     }),
   ]),
