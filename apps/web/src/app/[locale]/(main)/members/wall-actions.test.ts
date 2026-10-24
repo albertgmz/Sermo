@@ -183,6 +183,74 @@ test("a refused report shows the reason, and a made-up kind or a bad id goes now
   assert.equal(asked.length, 0);
 });
 
+test("the delete dialog asks for a permanent delete of a wall post: a live one is hidden first, then erased", async () => {
+  let erasing = 0;
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    const method = init.method ?? "GET";
+    asked.push({
+      method,
+      url,
+      body: init.body ? JSON.parse(String(init.body)) : undefined,
+    });
+    if (url.endsWith("/profile-posts/9/hard-delete")) {
+      erasing += 1;
+      return erasing === 1
+        ? Response.json(
+            { error: { code: "conflict", message: "Delete it first." } },
+            { status: 409 },
+          )
+        : Response.json({ completed: true, removedComments: 0 });
+    }
+    return Response.json(profilePostBody({ id: 9, state: "visible" }));
+  }) as unknown as typeof fetch;
+  assert.deepEqual(
+    await deleteWallItem(
+      "post",
+      9,
+      {},
+      form({ hardDelete: "1", reason: "abuse" }),
+    ),
+    {},
+  );
+  assert.deepEqual(
+    asked.map(({ method, url }) => [method, url.replace(ROOT, "")]),
+    [
+      ["POST", "/profile-posts/9/hard-delete"],
+      ["GET", "/profile-posts/9"],
+      ["DELETE", "/profile-posts/9"],
+      ["POST", "/profile-posts/9/hard-delete"],
+    ],
+  );
+  assert.deepEqual(asked[2].body, { reason: "abuse", notify: false });
+});
+
+test("a comment is only hidden, whatever the form says: it has no permanent delete", async () => {
+  answer = Response.json(profileCommentBody({ state: "deleted" }));
+  await deleteWallItem("comment", 44, {}, form({ hardDelete: "1" }));
+  assert.deepEqual(
+    asked.map(({ method, url }) => [method, url]),
+    [["DELETE", `${ROOT}/profile-comments/44`]],
+  );
+});
+
+test("the delete dialog asks for a permanent delete of a conversation message, with its reason", async () => {
+  answer = Response.json({ ok: true });
+  assert.deepEqual(
+    await deleteMessageAction(
+      5,
+      11,
+      {},
+      form({ hardDelete: "1", reason: "x" }),
+    ),
+    {},
+  );
+  assert.deepEqual(
+    asked.map(({ method, url, body }) => [method, url, body]),
+    [["POST", `${ROOT}/conversation-messages/11/hard-delete`, { reason: "x" }]],
+  );
+  assert.equal(refreshed, 1);
+});
+
 test("deleting a conversation message asks for that message and refreshes the page", async () => {
   answer = Response.json({ ok: true });
   assert.deepEqual(await deleteMessageAction(5, 11, {}), {});
@@ -213,6 +281,7 @@ test("editing a message sends its text, leaves its files alone and returns to it
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: true,
     canDelete: false,
+    canHardDelete: false,
     canReport: true,
   });
   const digest = await editMessageAction(5, 11, {}, form({ body: "new" })).then(

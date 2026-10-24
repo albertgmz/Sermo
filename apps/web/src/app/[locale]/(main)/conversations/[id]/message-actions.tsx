@@ -8,6 +8,7 @@ import {
 } from "@/app/[locale]/(main)/conversations/actions";
 import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import { ContentActions } from "@/components/forum/content-actions";
+import { deleteMode } from "@/components/forum/delete-mode";
 import { messageActionClass } from "@/components/forum/message-action";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
@@ -40,6 +41,7 @@ export function MessageActions({
   viewList?: boolean;
   canQuote: boolean;
 }) {
+  const removal = deleteMode(message, false);
   const reactions = {
     target: "message" as const,
     id: message.id,
@@ -81,13 +83,14 @@ export function MessageActions({
           : undefined
       }
       remove={
-        message.canDelete && message.state !== "deleted"
+        removal.show
           ? {
               action: deleteMessageAction.bind(
                 null,
                 message.conversationId,
                 message.id,
               ),
+              permanent: removal.permanent,
             }
           : undefined
       }

@@ -13,6 +13,9 @@ export type ThreadMay = {
   delete: boolean;
   // Deleting a deleted thread or post for good.
   hardDelete: boolean;
+  // Holding forum.hardDelete here, whatever the state of the item: staff delete a live one for
+  // good by hiding it first.
+  hardDeleteAny: boolean;
   attach: boolean;
   // Bringing back a deleted, or approving a waiting, post or thread.
   restoreDeleted: boolean;
@@ -41,6 +44,7 @@ export function threadMay(resolved: Resolved, own: OwnMay = {}): ThreadMay {
     split: flag("forum.split"),
     delete: own.canDelete ?? flag("forum.deleteAny"),
     hardDelete: own.canHardDelete ?? flag("forum.hardDelete"),
+    hardDeleteAny: flag("forum.hardDelete"),
     attach: flag("forum.uploadAttachments"),
     restoreDeleted: flag("forum.undelete"),
     restoreWaiting: flag("forum.approve"),

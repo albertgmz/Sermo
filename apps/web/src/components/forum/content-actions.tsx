@@ -18,10 +18,10 @@ import { HashLink } from "@/components/layout/hash-link";
 import { isPlainClick } from "@/components/ui/lazy-popup-intent";
 import { cn } from "@/lib/utils";
 
-// The delete step and the report form come with the first press of their buttons.
-const DeleteControl = dynamic(() =>
-  import("@/components/forum/delete-control").then(
-    (module) => module.DeleteControl,
+// The delete dialog and the report form come with the first press of their buttons.
+const DeleteDialog = dynamic(() =>
+  import("@/components/forum/delete-dialog").then(
+    (module) => module.DeleteDialog,
   ),
 );
 const ReportForm = dynamic(() =>
@@ -39,12 +39,18 @@ type Panel = "edit" | "delete" | "report";
 export const ClosePanel = createContext<() => void>(() => undefined);
 
 // What the wall bar's "•••" menu (`ContentMenu`, given as `menu`) reads from the bar: which of its
-// panels the viewer may open from it, and how to open one.
+// panels the viewer may open from it, and how to open one. `permanentOnly` is an item that is
+// already deleted, whose delete is the permanent one.
 export const MenuPanels = createContext<{
   open: (panel: "edit" | "delete") => void;
   edit: boolean;
   remove: boolean;
-}>({ open: () => undefined, edit: false, remove: false });
+  permanentOnly?: boolean;
+}>({
+  open: () => undefined,
+  edit: false,
+  remove: false,
+});
 
 // A bar button that opens its panel under the bar.
 function PanelButton({
@@ -95,7 +101,9 @@ function PanelButton({
 //   edit        Either a page to edit on, or a `panel` that opens under the bar. Inside a post that
 //               is edited in place (`InPlaceEdit`), the page's link opens the editor there instead,
 //               and the bar steps aside while it is open.
-//   remove      Deleting: the action, whether to ask for a reason, and a line saying what it does.
+//   remove      Deleting, through `DeleteDialog`: the action (it reads `hardDelete` and `reason`),
+//               `permanent` when the viewer may delete for good ("choice" next to the soft delete,
+//               "only" for an item already deleted), and the lines saying what each does.
 //   report      Reporting: the action that files it.
 //   moderation  Moderator tools that exist for the item (approve, restore), after the rest.
 //   leading     The first thing on the left: a comment's date, a conversation message's share.
@@ -146,7 +154,12 @@ export function ContentActions({
   share?: string;
   bookmark?: { contentType: "post"; contentId: number; bookmarked: boolean };
   edit?: { href: string } | { panel: React.ReactNode };
-  remove?: { action: FormAction; withReason?: boolean; warning?: string };
+  remove?: {
+    action: FormAction;
+    permanent?: "choice" | "only";
+    warning?: string;
+    permanentHint?: string;
+  };
   report?: { action: FormAction };
   moderation?: React.ReactNode;
   leading?: React.ReactNode;
@@ -257,6 +270,7 @@ export function ContentActions({
           open: setOpen,
           edit: !!edit && "panel" in edit,
           remove: !!remove,
+          permanentOnly: remove?.permanent === "only",
         }}
       >
         {menu}
@@ -291,7 +305,7 @@ export function ContentActions({
       {remove && (
         <PanelButton
           icon={<Trash2 />}
-          label={t("delete")}
+          label={remove.permanent === "only" ? t("hardDelete") : t("delete")}
           open={open === "delete"}
           onClick={() => toggle("delete")}
         />
@@ -353,15 +367,13 @@ export function ContentActions({
       )}
       {remove && open === "delete" && (
         <div className="mt-2">
-          <DeleteControl
+          <DeleteDialog
             open
             onOpenChange={close}
             action={remove.action}
-            label={t("delete")}
-            confirm={t("confirmDelete")}
-            cancel={t("cancel")}
-            reasonLabel={remove.withReason ? t("deleteReason") : undefined}
+            permanent={remove.permanent}
             warning={remove.warning}
+            permanentHint={remove.permanentHint}
           />
         </div>
       )}

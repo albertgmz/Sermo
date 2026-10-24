@@ -329,6 +329,8 @@
   "permission.conversation.maxRecipients.description": "Most members one conversation may have besides its starter. 0 allows none; -1 is no limit.",
   "permission.conversation.viewHidden": "View hidden conversations",
   "permission.conversation.viewHidden.description": "See deleted and unapproved messages in the conversations one takes part in.",
+  "permission.conversation.hardDelete": "Delete conversation messages for good",
+  "permission.conversation.hardDelete.description": "Remove a message of a conversation you take part in permanently. It cannot be restored.",
   "permission.conversation.moderate": "Moderate conversations",
   "permission.conversation.moderate.description": "Moderate messages in private conversations, handle reports about them, and reply in locked ones.",
   "permission.moderation.access": "Access moderation",

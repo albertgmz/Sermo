@@ -59,6 +59,7 @@ const message = (over: Record<string, unknown> = {}) =>
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: false,
     canDelete: false,
+    canHardDelete: false,
     canReport: true,
     ...over,
   }) as Props["message"];
@@ -101,6 +102,18 @@ test("another participant can report a message, and a moderator can also delete 
   const moderator = draw({ canDelete: true }, 9);
   expect(has(moderator, "Delete")).toBe(true);
   expect(has(moderator, "Report")).toBe(true);
+});
+
+test("an administrator may delete a message for good, also one that is already deleted", () => {
+  // Live: the one Delete opens the dialog that holds both deletions.
+  const live = draw({ canDelete: true, canHardDelete: true }, 9);
+  expect(has(live, "Delete")).toBe(true);
+  expect(has(live, "Delete permanently")).toBe(false);
+  // Deleted: only the permanent delete is left.
+  const deleted = draw({ state: "deleted", canHardDelete: true }, 9);
+  expect(has(deleted, "Delete permanently")).toBe(true);
+  expect(has(deleted, "Delete")).toBe(false);
+  expect(has(draw({ state: "deleted" }, 9), "Delete permanently")).toBe(false);
 });
 
 test("report follows the backend's word, not the viewer being another participant", () => {

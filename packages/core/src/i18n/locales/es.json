@@ -329,6 +329,8 @@
   "permission.conversation.maxRecipients.description": "Máximo de miembros que una conversación puede tener además de quien la inicia. 0 no permite ninguno; -1 es sin límite.",
   "permission.conversation.viewHidden": "Ver conversaciones privadas ocultas",
   "permission.conversation.viewHidden.description": "Ver los mensajes eliminados y sin aprobar en las conversaciones en las que se participa.",
+  "permission.conversation.hardDelete": "Eliminar mensajes de conversaciones para siempre",
+  "permission.conversation.hardDelete.description": "Quitar de forma permanente un mensaje de una conversación en la que participas. No se puede restaurar.",
   "permission.conversation.moderate": "Moderar conversaciones privadas",
   "permission.conversation.moderate.description": "Moderar los mensajes de las conversaciones privadas, gestionar las denuncias sobre ellos y responder en las cerradas.",
   "permission.moderation.access": "Acceder a la moderación",

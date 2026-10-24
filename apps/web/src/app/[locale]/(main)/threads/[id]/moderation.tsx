@@ -10,7 +10,6 @@ import {
 } from "@/app/[locale]/(main)/threads/[id]/permissions";
 import {
   deleteThreadAction,
-  hardDeleteThreadAction,
   mergeThreadAction,
   moveThreadAction,
   previewMergeAction,
@@ -23,6 +22,8 @@ import {
 } from "@/app/[locale]/(main)/threads/actions";
 import { ActionForm } from "@/components/forum/action-form";
 import { DeleteControl } from "@/components/forum/delete-control";
+import { DeleteDialog } from "@/components/forum/delete-dialog";
+import { deleteMode } from "@/components/forum/delete-mode";
 import { type ForumOption, ForumPicker } from "@/components/forum/forum-picker";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,6 +89,14 @@ export async function ModerationMenu({
   const id = thread.id;
   // Only a visible thread can be featured; a pick that is already made can always be ended.
   const mayFeature = may.feature && (staffPick || thread.state === "visible");
+  const removal = deleteMode(
+    {
+      state: thread.state,
+      canDelete: may.delete,
+      canHardDelete: may.hardDelete,
+    },
+    may.hardDeleteAny,
+  );
   return (
     <details className="group w-full" open={selecting || undefined}>
       <summary
@@ -183,7 +192,7 @@ export async function ModerationMenu({
           </Section>
         )}
 
-        {(may.delete || may.hardDelete || mayRestore(may, thread.state)) && (
+        {(removal.show || mayRestore(may, thread.state)) && (
           <Section title={t("stateHeading")}>
             {mayRestore(may, thread.state) && (
               <ActionForm
@@ -193,23 +202,17 @@ export async function ModerationMenu({
                 }
               />
             )}
-            {may.delete && thread.state !== "deleted" && (
-              <DeleteControl
+            {removal.show && (
+              <DeleteDialog
                 action={deleteThreadAction.bind(null, id)}
-                label={t("delete")}
-                confirm={t("confirmDelete")}
-                cancel={t("cancel")}
-                reasonLabel={t("reason")}
-              />
-            )}
-            {may.hardDelete && (
-              <DeleteControl
-                action={hardDeleteThreadAction.bind(null, id)}
-                label={t("hardDelete")}
-                confirm={t("hardDeleteConfirm")}
-                cancel={t("cancel")}
-                reasonLabel={t("reason")}
-                warning={t("hardDeleteWarning")}
+                permanent={removal.permanent}
+                label={removal.permanent === "only" ? undefined : t("delete")}
+                confirm={
+                  removal.permanent === "only"
+                    ? t("hardDeleteConfirm")
+                    : t("confirmDelete")
+                }
+                permanentHint={t("hardDeleteWarning")}
               />
             )}
           </Section>

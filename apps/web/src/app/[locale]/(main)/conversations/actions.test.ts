@@ -145,6 +145,7 @@ test("starting a conversation refreshes the list in the layout before going to t
         reactions: { counts: {}, total: 0, mine: null },
         canEdit: true,
         canDelete: false,
+        canHardDelete: false,
         canReport: true,
       },
     })) as unknown as typeof fetch;
@@ -173,6 +174,7 @@ test("a reply and a new conversation name the files attached to them", async () 
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: true,
     canDelete: true,
+    canHardDelete: false,
     canReport: true,
   };
   const sent: unknown[] = [];

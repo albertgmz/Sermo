@@ -391,8 +391,11 @@
     "editPlaceholder": "Edita tu texto…",
     "sourceFailed": "No se pudo cargar el texto para editarlo.",
     "deleteWarning": "Nadie salvo los moderadores volverá a verlo. Los moderadores pueden verlo y restaurarlo.",
-    "hardDelete": "Eliminar para siempre",
-    "hardDeleteConfirm": "Eliminar para siempre",
+    "deleteType": "Tipo de eliminación",
+    "removeFromView": "Eliminar de la vista pública",
+    "deletePermanentlyHint": "Si eliges esta opción, el elemento se eliminará de forma permanente e irreversible.",
+    "hardDelete": "Eliminar permanentemente",
+    "hardDeleteConfirm": "Eliminar permanentemente",
     "hardDeletePostWarning": "El mensaje y sus reacciones, archivos y denuncias se borran para siempre. No se puede deshacer.",
     "hardDeleteWallWarning": "La publicación del muro, sus comentarios, reacciones y denuncias se borran para siempre. No se puede deshacer."
   },

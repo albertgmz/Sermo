@@ -310,6 +310,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["GET", "/conversation-messages/{messageId}/quote", "conversations.quoteMessage"],
   ["PATCH", "/conversation-messages/{messageId}", "conversations.updateMessage"],
   ["DELETE", "/conversation-messages/{messageId}", "conversations.deleteMessage"],
+  ["POST", "/conversation-messages/{messageId}/hard-delete", "conversations.hardDeleteMessage"],
   ["GET", "/reaction-types", "reactionTypes.list"],
   ["POST", "/reaction-types", "reactionTypes.create", 201],
   ["PATCH", "/reaction-types/{reactionTypeId}", "reactionTypes.update"],

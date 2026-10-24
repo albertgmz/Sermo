@@ -29,6 +29,7 @@ import { parseThreadRef } from "@/app/[locale]/(main)/threads/[id]/thread-ref";
 import { saveEdit } from "@/app/[locale]/(main)/threads/save-edit";
 import { sendReply } from "@/app/[locale]/(main)/threads/send-reply";
 import { call } from "@/lib/sermo/client";
+import { eraseHidingFirst } from "@/lib/sermo/erase";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, parseId, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
@@ -58,6 +59,10 @@ function backToPost(href: string): never {
 
 const textOf = (formData: FormData, name: string) =>
   String(formData.get(name) ?? "");
+
+// The delete dialog says which deletion it wants (`DeleteDialog`).
+const wantsHardDelete = (formData: FormData) =>
+  formData.get("hardDelete") === "1";
 
 export async function replyAction(
   threadId: number,
@@ -89,6 +94,8 @@ export async function deletePostAction(
   formData: FormData,
 ): Promise<FormState> {
   requireIds(threadId, postId);
+  if (wantsHardDelete(formData))
+    return hardDeletePostAction(threadId, postId, _previous, formData);
   const deleted = await attempt(`/threads/${threadId}`, () =>
     call(postsDelete, { postId, reason: textOf(formData, "reason") }),
   );
@@ -115,6 +122,8 @@ export async function deleteThreadAction(
   formData: FormData,
 ): Promise<FormState> {
   requireIds(threadId);
+  if (wantsHardDelete(formData))
+    return hardDeleteThreadAction(threadId, _previous, formData);
   const deleted = await attempt(`/threads/${threadId}`, () =>
     call(threadsDelete, { threadId, reason: textOf(formData, "reason") }),
   );
@@ -151,9 +160,21 @@ export async function hardDeleteThreadAction(
     call(threadsGet, { threadId, countView: false }),
   );
   if (!found.ok) return { error: found.error };
+  let hidden = false;
+  const hideFirst = async () => {
+    // A staff member's live thread is hidden first; an author's own is refused as it is.
+    if (hidden || found.value.thread.state === "deleted") return false;
+    if (found.value.permissions.canHardDelete) return false;
+    await call(threadsDelete, { threadId, reason, notify: false });
+    hidden = true;
+    return true;
+  };
   for (let step = 0; step < HARD_DELETE_CALLS; step++) {
     const erased = await attempt(`/threads/${threadId}`, () =>
-      call(threadsHardDelete, { threadId, reason }),
+      eraseHidingFirst(
+        () => call(threadsHardDelete, { threadId, reason }),
+        hideFirst,
+      ),
     );
     if (!erased.ok) return { error: erased.error };
     if (erased.value.completed) {
@@ -174,8 +195,18 @@ export async function hardDeletePostAction(
   formData: FormData,
 ): Promise<FormState> {
   requireIds(threadId, postId);
+  const reason = textOf(formData, "reason");
   const erased = await attempt(`/threads/${threadId}`, () =>
-    call(postsHardDelete, { postId, reason: textOf(formData, "reason") }),
+    eraseHidingFirst(
+      () => call(postsHardDelete, { postId, reason }),
+      async () => {
+        // A staff member's live reply is hidden first; an author's own is refused as it is.
+        const { state, canHardDelete } = await call(postsGet, { postId });
+        if (state === "deleted" || canHardDelete) return false;
+        await call(postsDelete, { postId, reason, notify: false });
+        return true;
+      },
+    ),
   );
   if (!erased.ok) return { error: erased.error };
   backToThread(threadId);

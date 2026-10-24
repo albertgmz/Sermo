@@ -6,6 +6,7 @@ import {
   ContentState,
   Id,
   Limit,
+  moderationNotice,
   Ok,
   Page,
   pageInput,
@@ -59,6 +60,8 @@ export const Message = z
     canEdit: z.boolean(),
     /** As canEdit with `conversation.deleteOwn`; never the conversation's first message. */
     canDelete: z.boolean(),
+    /** `conversations.hardDeleteMessage` would accept it: `conversation.hardDelete`, never the first message. */
+    canHardDelete: z.boolean(),
     /** The viewer may report it (reports.create would accept it). */
     canReport: z.boolean(),
   })
@@ -265,8 +268,21 @@ export const conversationsDeleteMessage = defineContract({
   summary:
     "Soft-delete a message (state `deleted`). Its author holding `conversation.deleteOwn` while " +
     "an active participant, or a holder of `conversation.moderate` taking part in the " +
-    "conversation. The first message cannot be deleted on its own.",
+    "conversation. The first message cannot be deleted on its own. A reason may be given.",
   kind: "write",
-  input: z.object({ messageId: Id }),
+  input: z.object({ ...moderationNotice, messageId: Id }),
+  output: Ok,
+});
+
+export const conversationsHardDeleteMessage = defineContract({
+  name: "conversations.hardDeleteMessage",
+  summary:
+    "Delete a message for good, in whatever state it is, with its reactions, attachments, " +
+    "alerts and reports. Requires `conversation.hardDelete` (administrators by default) and a " +
+    "seat in the conversation with the right to see the message. The first message cannot be " +
+    "deleted on its own. Logged as `conversation_message.hardDelete` with the conversation and " +
+    "the author.",
+  kind: "write",
+  input: z.object({ messageId: Id, reason: moderationNotice.reason }),
   output: Ok,
 });

@@ -57,6 +57,7 @@ const IDS = [
   "forumTab.create",
   "forumTab.update",
   "forumTab.delete",
+  "conversation_message.hardDelete",
   "group.create",
   "group.update",
   "group.delete",

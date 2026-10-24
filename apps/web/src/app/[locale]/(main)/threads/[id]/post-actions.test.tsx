@@ -39,6 +39,7 @@ const may = {
   split: false,
   delete: false,
   hardDelete: false,
+  hardDeleteAny: false,
   attach: false,
   restoreDeleted: false,
   restoreWaiting: false,
@@ -150,7 +151,16 @@ test("deleting a reply for good follows the backend's flag: a deleted one for st
   expect(
     draw({ ...deleted, canHardDelete: false }, { noteState: true }),
   ).not.toContain("Delete permanently");
-  // The author's own live reply carries no note, and still offers it.
-  expect(draw({ canHardDelete: true })).toContain("Delete permanently");
-  expect(draw({ canHardDelete: false })).not.toContain("Delete permanently");
+  // The author's own live reply carries no note. With the right to hide it too, deleting for good
+  // is a choice inside the delete dialog; without, it is the only delete.
+  const live = { canDelete: false };
+  expect(draw({ ...live, canHardDelete: true })).toContain(
+    "Delete permanently",
+  );
+  expect(draw({ ...live, canHardDelete: false })).not.toContain(
+    "Delete permanently",
+  );
+  expect(draw({ canDelete: true, canHardDelete: true })).not.toContain(
+    "Delete permanently",
+  );
 });

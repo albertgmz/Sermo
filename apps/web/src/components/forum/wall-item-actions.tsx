@@ -4,12 +4,11 @@ import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import {
   deleteWallItem,
   editWallItem,
-  hardDeleteWallPost,
   wallItemSource,
 } from "@/app/[locale]/(main)/members/actions";
 import { ContentActions } from "@/components/forum/content-actions";
 import { ContentMenu } from "@/components/forum/content-menu";
-import { DeleteControl } from "@/components/forum/delete-control";
+import { deleteMode } from "@/components/forum/delete-mode";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { InlineEditForm } from "@/components/forum/inline-edit-form";
 import { messageActionClass } from "@/components/forum/message-action";
@@ -98,7 +97,7 @@ export function WallItemActions({
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
   start?: React.ReactNode;
   viewList?: boolean;
-  // Deleting a deleted wall post for good (`profilePost.hardDelete`).
+  // Deleting a wall post for good (`profilePost.hardDelete`), live or deleted.
   mayHardDelete?: boolean;
   // Whether who reacted is drawn under the bar.
   summary?: boolean;
@@ -107,6 +106,9 @@ export function WallItemActions({
   const isComment = kind === "comment";
   const reactions = { kind, item, viewerId, picker, reactionTypes, viewList };
   const live = item.state !== "deleted";
+  // A comment has no deletion for good yet.
+  const hard = mayHardDelete && kind === "post";
+  const removal = deleteMode({ ...item, canHardDelete: hard && !live }, hard);
   return (
     <ContentActions
       layout="wall"
@@ -148,26 +150,14 @@ export function WallItemActions({
           : undefined
       }
       remove={
-        item.canDelete && live
+        removal.show
           ? {
               action: deleteWallItem.bind(null, kind, item.id),
+              permanent: removal.permanent,
               warning: t("deleteWarning"),
+              permanentHint: t("hardDeleteWallWarning"),
             }
           : undefined
-      }
-      moderation={
-        mayHardDelete &&
-        kind === "post" &&
-        item.state === "deleted" && (
-          <DeleteControl
-            action={hardDeleteWallPost.bind(null, item.id)}
-            label={t("hardDelete")}
-            confirm={t("hardDeleteConfirm")}
-            cancel={t("cancel")}
-            reasonLabel={t("deleteReason")}
-            warning={t("hardDeleteWallWarning")}
-          />
-        )
       }
       report={
         item.canReport &&

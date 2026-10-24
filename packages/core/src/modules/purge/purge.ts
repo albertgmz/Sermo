@@ -7,9 +7,10 @@ import { enqueueJob } from "../jobs";
 import { purgeThreadTags } from "../tags/store";
 
 /**
- * Removing content for good: the rows that hang off a post, a profile post or a wall comment,
- * and the content row itself. Callers authorize, check the content is soft-deleted, bound the
- * number of ids (a few hundred) and run this inside their write transaction.
+ * Removing content for good: the rows that hang off a post, a profile post, a wall comment or a
+ * conversation message, and the content row itself. Callers authorize, check the content is
+ * soft-deleted (a conversation message may be in any state), bound the number of ids (a few
+ * hundred) and run this inside their write transaction.
  *
  * Per table, what happens and why:
  * - Deleted with the content: bodies, revisions, reactions (the author's `reaction_score` gives
@@ -35,7 +36,7 @@ import { purgeThreadTags } from "../tags/store";
  * only at their own row's life (`created_at`): the credit rules and the report alerts do. A read
  * marker is clamped by the caller. What cannot be reached is listed in the task notes.
  */
-export type PurgeType = "post" | "profile_post" | "profile_post_comment";
+export type PurgeType = "post" | "profile_post" | "profile_post_comment" | "conversation_message";
 
 /** Posts or comments removed by one call of a hard delete. */
 export const PURGE_CHUNK = 500;
@@ -44,6 +45,7 @@ const TABLES: Record<PurgeType, string> = {
   post: "posts",
   profile_post: "profile_posts",
   profile_post_comment: "profile_post_comments",
+  conversation_message: "conversation_messages",
 };
 
 function statement<Row = unknown>(ctx: Ctx, key: string, sql: string) {

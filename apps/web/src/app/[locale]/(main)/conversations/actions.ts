@@ -4,6 +4,7 @@ import {
   conversationsAddParticipants,
   conversationsCreate,
   conversationsDeleteMessage,
+  conversationsHardDeleteMessage,
   conversationsLeave,
   conversationsMarkRead,
   conversationsMarkUnread,
@@ -101,14 +102,19 @@ export async function editMessageAction(
 }
 
 // Deletes a message (its author or a moderator, as the backend allows) and draws the page again.
+// The delete dialog's `hardDelete` field asks for erasing it for good, in whatever state it is.
 export async function deleteMessageAction(
   conversationId: number,
   messageId: number,
   _previous: ReplyState,
+  formData?: FormData,
 ): Promise<ReplyState> {
   requireIds(conversationId, messageId);
+  const reason = String(formData?.get("reason") ?? "");
   const deleted = await attempt(`/conversations/${conversationId}`, () =>
-    call(conversationsDeleteMessage, { messageId }),
+    formData?.get("hardDelete") === "1"
+      ? call(conversationsHardDeleteMessage, { messageId, reason })
+      : call(conversationsDeleteMessage, { messageId, reason }),
   );
   if (!deleted.ok) return { error: deleted.error };
   refresh();

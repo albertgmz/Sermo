@@ -91,7 +91,6 @@
     "confirmDelete": "Eliminar tema",
     "cancel": "Cancelar",
     "reason": "Motivo (opcional)",
-    "hardDelete": "Eliminar para siempre",
     "hardDeleteConfirm": "Eliminar el tema para siempre",
     "hardDeleteWarning": "El tema, sus mensajes, reacciones, archivos y denuncias se borran para siempre. Solo su título y su autor quedan en el registro de moderación. No se puede deshacer.",
     "hardDeleteMore": "Algo grande se borra por pasos. Aún queda parte: pulsa el botón otra vez para seguir."

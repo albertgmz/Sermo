@@ -510,6 +510,122 @@ test("deleting a post for good shows the thread, and a refusal is shown as it is
   });
 });
 
+const conflict = {
+  status: 409,
+  body: {
+    error: {
+      code: "conflict",
+      message: "Delete the post first; only a deleted post can be removed.",
+    },
+  },
+};
+
+test("the delete dialog asks for a permanent delete: the post is erased, and a plain delete still only hides it", async () => {
+  answer = { status: 200, body: { ok: true } };
+  const digest = await redirectedTo(() =>
+    actions.deletePostAction(
+      7,
+      31,
+      {},
+      form({ hardDelete: "1", reason: "doxxing" }),
+    ),
+  );
+  assert.match(digest ?? "", /;\/threads\/7;/);
+  assert.deepEqual(
+    asked.map((request) => [request.method, request.url]),
+    [["POST", `${ROOT}/posts/31/hard-delete`]],
+  );
+  asked.length = 0;
+  answer = { status: 200, body: { ...post, state: "deleted" } };
+  await redirectedTo(() =>
+    actions.deletePostAction(7, 31, {}, form({ hardDelete: "0" })),
+  );
+  assert.deepEqual(
+    asked.map((request) => [request.method, request.url]),
+    [["DELETE", `${ROOT}/posts/31`]],
+  );
+});
+
+test("a live post chosen for permanent delete by staff is hidden first, without telling its author, and then erased", async () => {
+  let erasing = 0;
+  byUrl = (url, method) => {
+    if (url.endsWith("/posts/31/hard-delete")) {
+      erasing += 1;
+      return erasing === 1 ? conflict : { status: 200, body: { ok: true } };
+    }
+    if (method === "GET")
+      return { status: 200, body: { ...post, canHardDelete: false } };
+    return { status: 200, body: { ...post, state: "deleted" } };
+  };
+  const digest = await redirectedTo(() =>
+    actions.deletePostAction(
+      7,
+      31,
+      {},
+      form({ hardDelete: "1", reason: "spam" }),
+    ),
+  );
+  assert.match(digest ?? "", /;\/threads\/7;/);
+  assert.deepEqual(
+    asked.map((request) => [request.method, request.url]),
+    [
+      ["POST", `${ROOT}/posts/31/hard-delete`],
+      ["GET", `${ROOT}/posts/31`],
+      ["DELETE", `${ROOT}/posts/31`],
+      ["POST", `${ROOT}/posts/31/hard-delete`],
+    ],
+  );
+  assert.deepEqual(asked[2].body, { reason: "spam", notify: false });
+});
+
+test("an author whose permanent delete is refused keeps the post as it was: nothing is hidden for them", async () => {
+  byUrl = (url, method) => {
+    if (url.endsWith("/posts/31/hard-delete")) return conflict;
+    if (method === "GET")
+      return { status: 200, body: { ...post, canHardDelete: true } };
+    return undefined;
+  };
+  assert.deepEqual(
+    await actions.deletePostAction(7, 31, {}, form({ hardDelete: "1" })),
+    { error: conflict.body.error.message },
+  );
+  assert.equal(
+    asked.filter((request) => request.method === "DELETE").length,
+    0,
+  );
+});
+
+test("a live thread chosen for permanent delete by staff is hidden first, then erased in steps, and the forum is shown", async () => {
+  let erasing = 0;
+  byUrl = (url, method) => {
+    if (method === "GET") return { status: 200, body: readable };
+    if (url.endsWith("/threads/7/hard-delete")) {
+      erasing += 1;
+      if (erasing === 1) return conflict;
+      return { status: 200, body: { completed: true, removedPosts: 3 } };
+    }
+    return { status: 200, body: { ...thread, state: "deleted" } };
+  };
+  const digest = await redirectedTo(() =>
+    actions.deleteThreadAction(
+      7,
+      {},
+      form({ hardDelete: "1", reason: "spam" }),
+    ),
+  );
+  assert.match(digest ?? "", /;\/forums\/4;/);
+  assert.deepEqual(
+    asked
+      .filter((request) => request.method !== "GET")
+      .map((request) => [request.method, request.url]),
+    [
+      ["POST", `${ROOT}/threads/7/hard-delete`],
+      ["DELETE", `${ROOT}/threads/7`],
+      ["POST", `${ROOT}/threads/7/hard-delete`],
+    ],
+  );
+});
+
 test("setting the tags of a thread sends the whole list, is done on success and shows a refusal", async () => {
   answer = { status: 200, body: { ...thread } };
   assert.deepEqual(

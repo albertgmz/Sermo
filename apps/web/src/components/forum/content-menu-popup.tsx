@@ -17,6 +17,8 @@ export type ContentMenuPopupProps = {
   onEdit?: () => void;
   // What opens the delete panel under the bar.
   onDelete?: () => void;
+  // The item is already deleted: its delete is the permanent one.
+  permanentOnly?: boolean;
 };
 
 // What the menu holds, in XenForo's order: edit, then delete; each opens its panel under the bar.
@@ -38,6 +40,7 @@ export default function ContentMenuPopup({
   className,
   onEdit,
   onDelete,
+  permanentOnly,
   openedBy,
   openKey,
 }: ContentMenuPopupProps & OpenedProps) {
@@ -62,7 +65,11 @@ export default function ContentMenuPopup({
               onClick={entry.select}
             >
               <Icon />
-              {t(entry.id)}
+              {t(
+                entry.id === "delete" && permanentOnly
+                  ? "hardDelete"
+                  : entry.id,
+              )}
             </DropdownMenuItem>
           );
         })}

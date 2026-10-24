@@ -8,6 +8,7 @@ import {
   conversationsDeleteMessage,
   conversationsGet,
   conversationsGetMessage,
+  conversationsHardDeleteMessage,
   conversationsLeave,
   conversationsList,
   conversationsListMessages,
@@ -52,6 +53,7 @@ import {
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
 import { requireTermsAccepted } from "../pages/acceptance";
+import { purgeContent } from "../purge/purge";
 import { logIp } from "../security/log";
 
 interface ConversationRow {
@@ -222,6 +224,14 @@ function mayDelete(
   );
 }
 
+function mayHardDelete(
+  permissions: ReturnType<typeof permissionsOf>,
+  message: { id: number },
+  firstId: number | null,
+): boolean {
+  return message.id !== firstId && permissions.can("conversation.hardDelete");
+}
+
 function firstMessageId(ctx: Ctx, conversationId: number): number | null {
   return (
     prepared(ctx, "conversations.firstMessage", () =>
@@ -282,6 +292,7 @@ function messages(ctx: Ctx, actor: Actor, conversation: ConversationRow, rows: M
     reactions: reactionSummary(r.reaction_counts, viewer.get(r.id)),
     canEdit: mayEdit(permissions, conversation, r),
     canDelete: mayDelete(permissions, conversation, r, first),
+    canHardDelete: mayHardDelete(permissions, r, first),
     // reports.create takes a message the viewer sees only when it is visible or their own.
     canReport:
       permissions.can("report.create") && (r.state === "visible" || r.user_id === viewerId),
@@ -297,7 +308,12 @@ function newMessage(
   html: string,
   state: "visible" | "moderated",
   attachments: ReturnType<typeof loadAttachments>,
-  abilities: { canEdit: boolean; canDelete: boolean; canReport: boolean },
+  abilities: {
+    canEdit: boolean;
+    canDelete: boolean;
+    canHardDelete: boolean;
+    canReport: boolean;
+  },
 ) {
   return {
     id,
@@ -535,6 +551,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
             { id: messageId, user_id: starter.userId, state: messageState },
             messageId,
           ),
+          canHardDelete: mayHardDelete(permissions, { id: messageId }, messageId),
           canReport: permissions.can("report.create"),
         },
       ),
@@ -637,6 +654,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
           { id: messageId, user_id: user.userId, state: messageState },
           null,
         ),
+        canHardDelete: mayHardDelete(permissions, { id: messageId }, null),
         canReport: permissions.can("report.create"),
       },
     );
@@ -1140,7 +1158,7 @@ export const conversationsDeleteMessageOp = implement(
         payload: {
           previousState: current.state,
           state: "deleted",
-          ...noticeForOther(actor, current.user_id, { notify: true, reason: "" }),
+          ...noticeForOther(actor, current.user_id, input),
         },
       });
       if (current.user_id !== user.userId && can(ctx, fresh, "conversation.moderate"))
@@ -1150,11 +1168,67 @@ export const conversationsDeleteMessageOp = implement(
   },
 );
 
-/** The conversation counters of a message leaving `visible`, as the moderation path keeps them. */
+export const conversationsHardDeleteMessageOp = implement(
+  conversationsHardDeleteMessage,
+  (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    const { message } = visibleTarget(ctx, actor, input.messageId);
+    const first = firstMessageId(ctx, message.conversation_id);
+    if (message.id === first) throw new ValidationError("Delete the conversation instead.");
+    requirePermission(ctx, actor, "conversation.hardDelete");
+    writeTx(ctx, () => {
+      // Judged again on the current rights: a seat or the permission may have gone since the read.
+      const fresh = currentActor(ctx, actor);
+      const { message: current } = visibleTarget(ctx, fresh, message.id);
+      requirePermission(ctx, fresh, "conversation.hardDelete");
+      purgeContent(ctx, "conversation_message", [current.id]);
+      leaveVisible(ctx, current);
+      clampReadMarkers(ctx, current.conversation_id);
+      appendModeratorLog(
+        ctx,
+        actor,
+        "conversation_message.hardDelete",
+        "conversation_message",
+        current.id,
+        input.reason,
+        {
+          authorId: current.user_id,
+          conversationId: current.conversation_id,
+          state: current.state,
+        },
+      );
+    });
+    return { ok: true as const };
+  },
+);
+
+/** A read marker cannot point past the newest message left: SQLite hands a freed id to the next. */
+function clampReadMarkers(ctx: Ctx, conversationId: number) {
+  const newest =
+    prepared(ctx, "conversations.newestMessage", () =>
+      ctx.sqlite.prepare<{ id: number | null }, [number]>(
+        "SELECT max(id) AS id FROM conversation_messages WHERE conversation_id = ?1",
+      ),
+    ).get(conversationId)?.id ?? 0;
+  prepared(ctx, "conversations.clampRead", () =>
+    ctx.sqlite.prepare(
+      "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND last_read_message_id > ?1",
+    ),
+  ).run(newest, conversationId);
+}
+
 function deleteMessageState(ctx: Ctx, message: TargetMessage) {
   prepared(ctx, "conversations.deleteMessage", () =>
     ctx.sqlite.prepare("UPDATE conversation_messages SET state = 'deleted' WHERE id = ?1"),
   ).run(message.id);
+  leaveVisible(ctx, message);
+}
+
+/**
+ * The conversation counters of a message that is no longer visible (hidden or gone), as the
+ * moderation path keeps them. Run after the message's own row has changed.
+ */
+function leaveVisible(ctx: Ctx, message: TargetMessage) {
   if (message.state !== "visible") return;
   prepared(ctx, "conversations.decrementMessages", () =>
     ctx.sqlite.prepare("UPDATE conversations SET message_count = message_count - 1 WHERE id = ?1"),
@@ -1183,6 +1257,7 @@ export const operations = [
   conversationsGetMessageOp,
   conversationsQuoteMessageOp,
   conversationsDeleteMessageOp,
+  conversationsHardDeleteMessageOp,
   conversationsListOp,
   conversationsGetOp,
   conversationsCreateOp,

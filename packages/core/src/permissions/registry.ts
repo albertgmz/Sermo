@@ -809,6 +809,14 @@ export const PERMISSIONS = {
     requiresAccount: true,
     own: true,
   },
+  /** Delete a message of a conversation you take part in for good, deleted or not. */
+  "conversation.hardDelete": {
+    scope: "global",
+    category: "conversation",
+    type: "flag",
+    defaults: ADMINS,
+    requiresAccount: true,
+  },
   /** See deleted and unapproved messages in conversations you take part in. */
   "conversation.viewHidden": globalAdmin("conversation"),
   /** Moderate messages and handle reports on them. */

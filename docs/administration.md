@@ -674,7 +674,7 @@ moderation (deleting, approving, editing posts) is not rank-checked.
 | Permission | What it allows | Default |
 | --- | --- | --- |
 | `forum.manageReports`, `forum.approve`, `forum.deleteAny`, `forum.undelete`, `forum.editAny`, `forum.viewModerated`, `forum.viewDeleted`, `forum.viewHistory`, `forum.lock`, `forum.replyLocked`, `forum.stick`, `forum.feature`, `forum.move`, `forum.merge`, `forum.split`, `forum.threadBan`, `forum.bypassNodeRules`, `forum.viewLog` | Moderation inside a node (and the nodes beneath it) | Moderator, Administrator |
-| `forum.hardDelete`, `profilePost.hardDelete` | Deleting soft-deleted threads, posts and profile posts for good (see Changing content state) | Administrator |
+| `forum.hardDelete`, `profilePost.hardDelete`, `conversation.hardDelete` | Deleting threads, posts, profile posts and conversation messages for good (see Changing content state) | Administrator |
 | `profilePost.approve`, `profilePost.deleteAny`, `profilePost.undelete`, `profilePost.editAny`, `profilePost.viewModerated`, `profilePost.viewDeleted` | Moderating profile posts and comments | Moderator, Administrator |
 | `report.manageProfiles` | Handling reports on profile content and on members | Moderator, Administrator |
 | `member.warn`, `member.restrict`, `warning.view` | Warnings and restrictions; reading anyone's warnings and restrictions | Moderator, Administrator |
@@ -840,12 +840,18 @@ the queue; edited content sent back to the queue notifies nobody.
   smaller batch"); the first is always taken. The forum's thread list offers it to staff as ticks and a bar.
 
 A member's own delete (a reply, a wall post or a comment) is a soft delete too: moderators can see
-and restore it. Only staff delete for good, and only content that is already soft-deleted:
+and restore it. Only staff delete for good, and only content that is already soft-deleted (a
+conversation message may be deleted for good in any state). The web app's delete dialog, the same
+for posts, threads, wall posts and conversation messages, offers "Remove from public view" or
+"Permanently delete" to holders of the permission, with a reason (a live item is hidden first). The routes:
 
 - `POST /threads/{threadId}/hard-delete` (`threads.hardDelete`, `forum.hardDelete` in the
-  thread's forum), `POST /posts/{postId}/hard-delete` (`posts.hardDelete`, not the opening post)
-  and `POST /profile-posts/{profilePostId}/hard-delete` (`profilePosts.hardDelete`,
-  `profilePost.hardDelete`). They erase the content with its reactions, attachments, alerts,
+  thread's forum), `POST /posts/{postId}/hard-delete` (`posts.hardDelete`, not the opening post),
+  `POST /profile-posts/{profilePostId}/hard-delete` (`profilePosts.hardDelete`,
+  `profilePost.hardDelete`) and `POST /conversation-messages/{messageId}/hard-delete`
+  (`conversations.hardDeleteMessage`, `conversation.hardDelete`, in whatever state the message is,
+  never the conversation's first message; the administrator must take part in the conversation).
+  They erase the content with its reactions, attachments, alerts,
   bookmarks, reports and the credits it paid. A thread goes 500 posts per call (a wall post 500
   comments), newest first, and stays deleted until a call answers `completed: true`; until then it
   cannot be restored (a wall post likewise). Merging such a thread into another is not blocked: its

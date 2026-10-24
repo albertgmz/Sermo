@@ -21,6 +21,7 @@ export function ContentMenu({ className }: { className: string }) {
     className,
     onEdit: panels.edit ? () => panels.open("edit") : undefined,
     onDelete: panels.remove ? () => panels.open("delete") : undefined,
+    permanentOnly: panels.permanentOnly,
   };
   return (
     <LazyPopup

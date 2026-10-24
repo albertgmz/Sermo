@@ -7,13 +7,12 @@ import {
 import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import {
   deletePostAction,
-  hardDeletePostAction,
   quoteSource,
   restorePostAction,
 } from "@/app/[locale]/(main)/threads/actions";
 import { ActionForm } from "@/components/forum/action-form";
 import { ContentActions } from "@/components/forum/content-actions";
-import { DeleteControl } from "@/components/forum/delete-control";
+import { deleteMode } from "@/components/forum/delete-mode";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
@@ -57,6 +56,7 @@ export function PostActions({
     viewList,
   };
   const live = viewerId !== null && post.state !== "deleted";
+  const removal = deleteMode(post, may.hardDeleteAny);
   return (
     <ContentActions
       layout="split"
@@ -74,11 +74,12 @@ export function PostActions({
           : undefined
       }
       remove={
-        live && post.canDelete
+        viewerId !== null && removal.show
           ? {
               action: deletePostAction.bind(null, post.threadId, post.id),
-              withReason: true,
+              permanent: removal.permanent,
               warning: actions("deleteWarning"),
+              permanentHint: actions("hardDeletePostWarning"),
             }
           : undefined
       }
@@ -88,27 +89,12 @@ export function PostActions({
           : undefined
       }
       moderation={
-        (noteState || post.canHardDelete) && (
-          <>
-            {mayRestore(may, post.state) && (
-              <ActionForm
-                action={restorePostAction.bind(null, post.threadId, post.id)}
-                submit={
-                  post.state === "moderated" ? t("approve") : t("restore")
-                }
-              />
-            )}
-            {post.canHardDelete && (
-              <DeleteControl
-                action={hardDeletePostAction.bind(null, post.threadId, post.id)}
-                label={actions("hardDelete")}
-                confirm={actions("hardDeleteConfirm")}
-                cancel={actions("cancel")}
-                reasonLabel={actions("deleteReason")}
-                warning={actions("hardDeletePostWarning")}
-              />
-            )}
-          </>
+        noteState &&
+        mayRestore(may, post.state) && (
+          <ActionForm
+            action={restorePostAction.bind(null, post.threadId, post.id)}
+            submit={post.state === "moderated" ? t("approve") : t("restore")}
+          />
         )
       }
     />

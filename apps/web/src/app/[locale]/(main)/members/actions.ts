@@ -18,6 +18,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { call } from "@/lib/sermo/client";
+import { eraseHidingFirst } from "@/lib/sermo/erase";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
@@ -135,6 +136,9 @@ export async function deleteWallItem(
 ): Promise<WallState> {
   if (!isKind(kind)) return {};
   requireIds(id);
+  // A comment has no deletion for good yet: the dialog offers none, and a forged field is ignored.
+  if (kind === "post" && formData.get("hardDelete") === "1")
+    return hardDeleteWallPost(id, _previous, formData);
   const reason = String(formData.get("reason") ?? "");
   const deleted = await attempt("/", async () => {
     if (kind === "post")
@@ -146,9 +150,9 @@ export async function deleteWallItem(
   return {};
 }
 
-// Erases a deleted wall post and its comments for good. The backend does a large wall in steps
-// of 500 comments, one call each; one request makes at most this many calls and the button can be
-// pressed again to go on.
+// Erases a wall post and its comments for good (a live one is hidden first). The backend does a
+// large wall in steps of 500 comments, one call each; one request makes at most this many calls
+// and the button can be pressed again to go on.
 const HARD_DELETE_CALLS = 20;
 export async function hardDeleteWallPost(
   id: number,
@@ -159,7 +163,19 @@ export async function hardDeleteWallPost(
   const reason = String(formData.get("reason") ?? "");
   for (let step = 0; step < HARD_DELETE_CALLS; step++) {
     const erased = await attempt("/", () =>
-      call(profilePostsHardDelete, { profilePostId: id, reason }),
+      eraseHidingFirst(
+        () => call(profilePostsHardDelete, { profilePostId: id, reason }),
+        async () => {
+          const { state } = await call(profilePostsGet, { profilePostId: id });
+          if (state === "deleted") return false;
+          await call(profilePostsDelete, {
+            profilePostId: id,
+            reason,
+            notify: false,
+          });
+          return true;
+        },
+      ),
     );
     if (!erased.ok) return { error: erased.error };
     if (erased.value.completed) {

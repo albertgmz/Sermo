@@ -1033,7 +1033,7 @@ export default async function StyleguidePage() {
                   reply={{ href: "#" }}
                   share="/ui"
                   edit={{ href: "/ui" }}
-                  remove={{ action: discardForm, withReason: true }}
+                  remove={{ action: discardForm, permanent: "choice" }}
                   report={{ action: discardForm }}
                 />
               </div>
