@@ -6891,3 +6891,13 @@ rather than their action.
 
 Why: the UI audit (A5, A6, A9, A37) found delete and report drawn as inline forms that pushed
 the page down and could not be closed by keyboard.
+
+### Layout polish from the audit
+
+- Member names are cut only when they do not fit; the thread and create dialogs, the shared
+  Edit dialog (wide enough for a title), the profile and account headers, the widget row
+  actions, the pending-work cards, the referral field, the repeated group title and the filter
+  and robot rows are tidied to XenForo's spacing.
+
+Why: the UI audit (A3, A4, A19, A29, A30, A32, A35, A36, A40, A41, A42, A43) found these
+layouts cramped, cut or doubled.
