@@ -198,9 +198,9 @@ export default function InlinePostEditor({
         minHeight={EDITOR_HEIGHT}
         findMembers={findMentions}
       />
-      {fields.files && (
+      {fields.withFiles && (
         <AttachmentField
-          nodeId={fields.files.nodeId}
+          nodeId={fields.attachIn ?? undefined}
           initial={fields.attached}
           onBusy={setUploading}
           onFiles={listFiles}

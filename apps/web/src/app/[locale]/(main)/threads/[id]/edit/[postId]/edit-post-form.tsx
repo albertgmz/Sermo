@@ -30,7 +30,8 @@ export function EditPostForm({
   target,
   source,
   back,
-  files,
+  attachIn,
+  withFiles,
   attached,
   thread,
 }: PostEditFields & {
@@ -84,9 +85,9 @@ export function EditPostForm({
         minHeight={200}
         findMembers={findMentions}
       />
-      {files && (
+      {withFiles && (
         <AttachmentField
-          nodeId={files.nodeId}
+          nodeId={attachIn ?? undefined}
           initial={kept?.attached ?? attached}
           onBusy={setUploading}
         />

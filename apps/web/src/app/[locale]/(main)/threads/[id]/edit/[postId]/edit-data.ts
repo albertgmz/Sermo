@@ -24,12 +24,14 @@ export type ThreadEditFields = {
 };
 
 // What a form that edits a post or a conversation message opens with: the BB code it was written
-// in, where files are uploaded (a thread's forum by its `nodeId`, a conversation's without one;
-// null when the form shows no files), the files it has, and the thread's title and prefix for an
+// in, the forum its files are uploaded to (`attachIn`: a post's when the viewer may attach files
+// there; null for a message, whose files go to the conversations' upload route), whether the form
+// has the file field (`withFiles`), the files it has, and the thread's title and prefix for an
 // opening post when the viewer may change them.
 export type PostEditFields = {
   source: string;
-  files: { nodeId?: number } | null;
+  attachIn: number | null;
+  withFiles: boolean;
   attached: AttachedFile[];
   thread: ThreadEditFields | null;
 };
@@ -96,11 +98,11 @@ export async function loadPostEdit(
   if (post.threadId !== threadId) return null;
   const opening =
     post.id === found.thread.firstPostId && found.permissions.canEditTitle;
+  const attach = threadMay(found.resolvedPermissions).attach;
   const fields: PostEditFields = {
     source: post.bodySource,
-    files: threadMay(found.resolvedPermissions).attach
-      ? { nodeId: found.node.id }
-      : null,
+    attachIn: attach ? found.node.id : null,
+    withFiles: attach,
     attached: attachedFiles(post.attachments),
     thread: opening ? await threadEditFields(ask, found) : null,
   };

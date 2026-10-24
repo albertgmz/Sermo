@@ -23,7 +23,8 @@ export async function loadMessageEdit(
   const attached = attachedFiles(message.attachments);
   const fields: PostEditFields = {
     source: message.bodySource,
-    files: canAttach || attached.length > 0 ? {} : null,
+    attachIn: null,
+    withFiles: canAttach || attached.length > 0,
     attached,
     thread: null,
   };

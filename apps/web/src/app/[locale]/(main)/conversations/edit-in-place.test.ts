@@ -83,11 +83,17 @@ test("the editor opens with the message's BB code and its files, with no thread 
   if ("error" in opened) throw new Error(opened.error);
   expect(opened.fields).toEqual({
     source: "[b]hi[/b]",
-    // Conversation files are uploaded without a forum.
-    files: {},
+    // Conversation files are uploaded without a forum, to the conversations' own route.
+    attachIn: null,
+    withFiles: true,
     attached: [{ id: 6, name: "notes.txt", size: 12, type: "text/plain" }],
     thread: null,
   });
+  // The quick editor's file field sends there, as the message's edit page does.
+  const { uploadAddress } = await import("@/components/forum/attachment-field");
+  expect(uploadAddress(opened.fields.attachIn ?? undefined)).toBe(
+    "/attachments",
+  );
 });
 
 test("without the right to attach, a message with no files opens with no file field", async () => {
@@ -97,7 +103,7 @@ test("without the right to attach, a message with no files opens with no file fi
   };
   const opened = await inPlace.messageEditorAction(5, 11);
   if ("error" in opened) throw new Error(opened.error);
-  expect(opened.fields.files).toBeNull();
+  expect(opened.fields.withFiles).toBe(false);
 });
 
 test("a member outside the conversation, or one who may not edit the message, opens nothing", async () => {
