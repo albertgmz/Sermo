@@ -7105,3 +7105,35 @@ the guest in the two components every author already goes through fixes all scre
 removes the `/members/0` link a guest got from the id-0 stand-in; the permission, read-only and
 Turnstile checks sit in one function so a page never offers a form the backend would refuse for a
 reason it already knows.
+
+### A member who deletes their account leaves their content as a guest's
+
+**What stays:** the member's threads, posts, writing on other members' walls and conversation
+messages stay and belong to the reserved guest account (`user_id = -2`, no `guest_name`), so every
+client draws them as a guest with no name kept ("Guest" / "Invitado"); backend texts (Atom feed,
+Markdown pages, structured data, push texts) use the site language's word (`author.guest`). Forum
+counts do not change; the last-poster pointers of threads, forums and conversations and the tag
+author copy follow. **What goes:** the profile answers not found (privacy set to `self` on the
+erased row, so it also leaves the sitemap) and the wall posts and comments on that wall are purged
+with it; the username and address were already freed by the erasure. The ledger, warnings, moderator
+log, reactions and follows stay as the erasure leaves them. **How:** `users.deleteOwnAccount` closes
+the account as before, closes the profile and queues the job `members.keepContent`; the job moves at
+most 200 rows per transaction (paced against the WAL like the other background jobs), finds what is
+left from the database each time, and is safe to stop and rerun. A server start queues it for
+self-deleted accounts that are not done (deleted before this existed, or interrupted), recognised by
+the `member.erase` log entry whose actor is the account itself. **Staff erase** (`users.adminErase`,
+batch delete, sign-up rejection) is unchanged: its content keeps the `Deleted member <id>` name and
+is not converted. **Contracts:** wall posts and comments, conversation messages and their
+last-message fields, the staff views of conversation messages (`approvals.viewConversationMessage`,
+`reports.viewConversationMessage`, where `authorId` + `authorUsername` became `author`) and
+`PostDeletion.by` carry a `ContentAuthor` like threads and posts; `UserSummary` stays member-only. A
+new quote of a moved post or message cites the site-language word for a guest, with no member
+reference; a quote with no name stores no placeholder word. **Left as is:** a conversation's starter
+and participants still show the erased row ("Deleted member <id>").
+
+Why: the owner wants a leaving member's writing to stay (threads would lose their answers otherwise)
+without keeping a name or a profile. Moving rows to the reserved account and giving walls and
+conversations the same `ContentAuthor` as threads reuses the guest author in every output, and a job
+in short transactions keeps an account with tens of thousands of posts from stalling the site. Staff
+erasures are kept apart because the move cannot be undone and the request was about the member's own
+deletion.
