@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { ForumList } from "@/app/[locale]/(main)/forums/forum-list";
 import {
-  STATS_TABS,
-  type StatsTab,
-} from "@/app/[locale]/(main)/forums/forum-stats";
+  ForumList,
+  forumListChoice,
+  withQuery,
+} from "@/app/[locale]/(main)/forums/forum-list";
 import { WebSiteJsonLd } from "@/components/forum/json-ld";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
@@ -44,29 +44,6 @@ export async function generateMetadata({
   return publicHead({ ...head, title: { absolute: site.name } }, {});
 }
 
-// The forum list's address of a section (null is the first) with `query` set on it.
-function withQuery(
-  path: string,
-  section: string | null,
-  query: [string, string][],
-) {
-  const params = new URLSearchParams(
-    section === null ? [] : [["section", section]],
-  );
-  for (const [key, value] of query) params.set(key, value);
-  const search = params.toString();
-  return search ? `${path}?${search}` : path;
-}
-
-// The address of a section with a statistics tab.
-function forumsHref(section: string | null, stats: StatsTab) {
-  return withQuery(
-    "/",
-    section,
-    stats === STATS_TABS[0].value ? [] : [["stats", stats]],
-  );
-}
-
 async function GuestHero() {
   const t = await getTranslations("forums.forums");
   return (
@@ -93,11 +70,7 @@ export default async function HomePage(props: PageProps<"/[locale]">) {
     getWidgets("home"),
     getTranslations("forums.forums"),
   ]);
-  const { section: sectionParam, stats: statsParam } = params;
-  const section = typeof sectionParam === "string" ? sectionParam : null;
-  const stats: StatsTab =
-    STATS_TABS.find((entry) => entry.value === statsParam)?.value ??
-    STATS_TABS[0].value;
+  const { section } = forumListChoice(params);
   const areas = widgetAreas("home", widgets);
   const context = {
     params,
@@ -119,7 +92,7 @@ export default async function HomePage(props: PageProps<"/[locale]">) {
         {forumListAddress(params).index && <WebSiteJsonLd />}
         <HomeNotice notice={params.notice} />
         <WidgetArea widgets={areas.above} context={context} />
-        <ForumList section={section} stats={stats} hrefFor={forumsHref} />
+        <ForumList params={params} />
         <WidgetArea widgets={areas.below} context={context} />
       </PageLayout>
     </>

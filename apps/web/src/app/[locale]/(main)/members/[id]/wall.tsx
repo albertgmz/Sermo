@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { moreWall } from "@/app/[locale]/(main)/members/[id]/more-wall";
 import type { Profile } from "@/app/[locale]/(main)/members/[id]/profile";
 import {
   commentOnWallPost,
@@ -21,8 +22,8 @@ import { DeletedItem } from "@/components/forum/deleted-item";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
-import { LoadMore } from "@/components/forum/load-more";
 import { MessageRow, messageActionClass } from "@/components/forum/message-row";
+import { PagedList } from "@/components/forum/paged-list";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
@@ -43,6 +44,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { formatNumber } from "@/lib/format";
+import { type ListPage, type ListRow, pagesParam } from "@/lib/list-pages";
 import { call, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { membersFor } from "@/lib/sermo/members";
@@ -269,14 +271,144 @@ async function locate(profileId: number, focus: WallFocus) {
     : null;
 }
 
+// What every row of a wall needs about the viewer, read once for each page drawn.
+async function wallViewer() {
+  const [viewer, reactionTypes] = await Promise.all([
+    getViewer(),
+    getReactionTypes(),
+  ]);
+  return {
+    viewer,
+    reactionTypes,
+    viewerId: viewer.user?.id ?? null,
+    picker:
+      viewer.permissions.canReact &&
+      viewer.resolvedPermissions["profilePost.react"] !== false
+        ? pickerTypes(reactionTypes, null)
+        : [],
+    viewList: viewer.resolvedPermissions["reaction.viewList"] !== false,
+    mayHardDelete:
+      viewer.resolvedPermissions["profilePost.hardDelete"] === true,
+    mayUndelete: viewer.resolvedPermissions["profilePost.undelete"] === true,
+  };
+}
+
+// The posts of one page of a wall as rows of the shared list (`PagedList`): the page the wall opens
+// at, and each page after it that "Load more" asks for (`moreWall`), which go below it in place.
+// `open` is the post of this page whose comments are read in full, from its own page of them.
+async function wallRows({
+  profileId,
+  posts,
+  cursor,
+  open,
+  reader,
+}: {
+  profileId: number;
+  posts: ApiWallPost[];
+  // Where the page began: the address its links come back to.
+  cursor?: string;
+  open?: OpenComments;
+  reader: typeof read;
+}) {
+  const shared = await wallViewer();
+  const { viewer, viewerId } = shared;
+  const openPost = open && posts.find((post) => post.id === open.postId);
+  const openPage = openPost
+    ? await reader(profileCommentsList, {
+        profilePostId: openPost.id,
+        cursor: open?.cursor,
+      })
+    : null;
+  const member = await membersFor([
+    ...posts.flatMap((post) => [
+      post.author,
+      ...post.latestComments.map((comment) => comment.author),
+    ]),
+    ...(openPage?.items.map((comment) => comment.author) ?? []),
+    ...(viewer.user ? [viewer.user] : []),
+  ]);
+  // The page as it is drawn, which the links on it keep.
+  const returnTo = wallHref(profileId, { cursor });
+  const rows: ListRow[] = posts.map((post) => {
+    const isOpen = openPage !== null && post.id === openPost?.id;
+    const oldest = oldestFirst(post.latestComments)[0];
+    return {
+      key: String(post.id),
+      node: (
+        <WallPost
+          post={post}
+          comments={isOpen ? openPage.items : post.latestComments}
+          earlier={
+            isOpen
+              ? openPage.nextCursor === null
+                ? undefined
+                : {
+                    load: earlierComments.bind(
+                      null,
+                      post.id,
+                      profileId,
+                      null,
+                      openPage.nextCursor,
+                    ),
+                  }
+              : oldest && post.commentCount > post.latestComments.length
+                ? {
+                    load: earlierComments.bind(
+                      null,
+                      post.id,
+                      profileId,
+                      oldest.id,
+                      null,
+                    ),
+                  }
+                : undefined
+          }
+          links={isOpen ? { fewer: `${returnTo}#profile-post-${post.id}` } : {}}
+          member={member}
+          viewerId={viewerId}
+          picker={shared.picker}
+          reactionTypes={shared.reactionTypes}
+          viewList={shared.viewList}
+          returnTo={returnTo}
+          mayHardDelete={shared.mayHardDelete}
+          mayUndelete={shared.mayUndelete}
+        />
+      ),
+    };
+  });
+  return { rows, member, returnTo };
+}
+
+// A page of a wall after the first, as rows: what "Load more" puts under the posts shown.
+export async function wallPage(
+  profileId: number,
+  cursor: string | null,
+  reader: typeof read,
+): Promise<ListPage> {
+  const { items, nextCursor } = await reader(profilePostsList, {
+    userId: profileId,
+    cursor: cursor ?? undefined,
+  });
+  const { rows } = await wallRows({
+    profileId,
+    posts: items,
+    cursor: cursor ?? undefined,
+    reader,
+  });
+  return { rows, nextCursor };
+}
+
 export async function Wall({
   profile,
   cursor: requested,
+  pages,
   open: requestedOpen,
   focus,
 }: {
   profile: Profile;
   cursor?: string;
+  // How many pages the address asks for (`?pages=N`, the list's place).
+  pages?: string | string[];
   open?: OpenComments;
   focus?: WallFocus;
 }) {
@@ -298,13 +430,11 @@ export async function Wall({
       ? await locate(profile.id, focus)
       : null;
   const cursor = located ? (located.cursor ?? undefined) : requested;
-  const [{ items: posts, nextCursor }, reactionTypes, t, loadMore] =
-    await Promise.all([
-      read(profilePostsList, { userId: profile.id, cursor }),
-      getReactionTypes(),
-      getTranslations("members.wall"),
-      getTranslations("members.loadMore"),
-    ]);
+  const [{ items: posts, nextCursor }, t, loadMore] = await Promise.all([
+    read(profilePostsList, { userId: profile.id, cursor }),
+    getTranslations("members.wall"),
+    getTranslations("members.loadMore"),
+  ]);
   // A named comment that is not among the newest few opens the page of comments that holds it.
   const focused =
     located && focus?.commentId !== undefined && !requestedOpen
@@ -318,45 +448,30 @@ export async function Wall({
           cursor: located?.commentsCursor ?? undefined,
         }
       : requestedOpen;
-  const openPost = open && posts.find((post) => post.id === open.postId);
-  const openPage = openPost
-    ? await read(profileCommentsList, {
-        profilePostId: openPost.id,
-        cursor: open?.cursor,
-      })
-    : null;
-  const member = await membersFor([
-    ...posts.flatMap((post) => [
-      post.author,
-      ...post.latestComments.map((comment) => comment.author),
-    ]),
-    ...(openPage?.items.map((comment) => comment.author) ?? []),
-    ...(viewer.user ? [viewer.user] : []),
-  ]);
-  const viewerId = viewer.user?.id ?? null;
-  const picker =
-    viewer.permissions.canReact &&
-    viewer.resolvedPermissions["profilePost.react"] !== false
-      ? pickerTypes(reactionTypes, null)
-      : [];
-  const viewList = viewer.resolvedPermissions["reaction.viewList"] !== false;
-  // The page as it is drawn, which the links on it keep.
-  const here = { cursor };
-  const returnTo = wallHref(profile.id, here);
+  const { rows, member, returnTo } = await wallRows({
+    profileId: profile.id,
+    posts,
+    cursor,
+    open,
+    reader: read,
+  });
+  const heading = <h2 className="sr-only">{t("heading")}</h2>;
+  const composer = viewer.user && profile.canPostOnWall && (
+    <PostComposer
+      action={postToWall.bind(null, profile.id, returnTo)}
+      avatar={<UserAvatar user={member(viewer.user.id)} size="lg" />}
+      name={viewer.user.username}
+      placeholder={t("placeholder", { username: profile.username })}
+      className="border-b p-4"
+    />
+  );
+  const card = "overflow-hidden rounded-lg border bg-card";
 
-  return (
-    <section className="overflow-hidden rounded-lg border bg-card">
-      <h2 className="sr-only">{t("heading")}</h2>
-      {viewer.user && profile.canPostOnWall && (
-        <PostComposer
-          action={postToWall.bind(null, profile.id, returnTo)}
-          avatar={<UserAvatar user={member(viewer.user.id)} size="lg" />}
-          name={viewer.user.username}
-          placeholder={t("placeholder", { username: profile.username })}
-          className="border-b p-4"
-        />
-      )}
-      {posts.length === 0 ? (
+  if (posts.length === 0) {
+    return (
+      <section className={card}>
+        {heading}
+        {composer}
         <EmptyState
           icon={PenLine}
           title={t("emptyTitle")}
@@ -374,72 +489,28 @@ export async function Wall({
             </Link>
           )}
         </EmptyState>
-      ) : (
-        <div className="divide-y divide-border">
-          {posts.map((post) => {
-            const isOpen = openPage !== null && post.id === openPost?.id;
-            const oldest = oldestFirst(post.latestComments)[0];
-            return (
-              <WallPost
-                key={post.id}
-                post={post}
-                comments={isOpen ? openPage.items : post.latestComments}
-                earlier={
-                  isOpen
-                    ? openPage.nextCursor === null
-                      ? undefined
-                      : {
-                          load: earlierComments.bind(
-                            null,
-                            post.id,
-                            profile.id,
-                            null,
-                            openPage.nextCursor,
-                          ),
-                        }
-                    : oldest && post.commentCount > post.latestComments.length
-                      ? {
-                          load: earlierComments.bind(
-                            null,
-                            post.id,
-                            profile.id,
-                            oldest.id,
-                            null,
-                          ),
-                        }
-                      : undefined
-                }
-                links={
-                  isOpen
-                    ? {
-                        fewer: `${wallHref(profile.id, here)}#profile-post-${post.id}`,
-                      }
-                    : {}
-                }
-                member={member}
-                viewerId={viewerId}
-                picker={picker}
-                reactionTypes={reactionTypes}
-                viewList={viewList}
-                returnTo={returnTo}
-                mayHardDelete={
-                  viewer.resolvedPermissions["profilePost.hardDelete"] === true
-                }
-                mayUndelete={
-                  viewer.resolvedPermissions["profilePost.undelete"] === true
-                }
-              />
-            );
-          })}
-        </div>
-      )}
-      {nextCursor && (
-        <div className="border-t p-3">
-          <LoadMore href={wallHref(profile.id, { cursor: nextCursor })}>
-            {loadMore("label")}
-          </LoadMore>
-        </div>
-      )}
-    </section>
+      </section>
+    );
+  }
+  return (
+    <PagedList
+      first={{ rows, nextCursor }}
+      more={moreWall.bind(null, profile.id)}
+      pages={pagesParam(pages)}
+      start={cursor}
+      listKey={["wall", profile.id]}
+      hrefBase={wallHref(profile.id)}
+      moreLabel={loadMore("label")}
+      estimateSize={240}
+      as="div"
+      className={card}
+      header={
+        <>
+          {heading}
+          {composer}
+        </>
+      }
+      moreClassName="mt-3"
+    />
   );
 }

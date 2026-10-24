@@ -2,10 +2,10 @@ import { standingsWinners, usersStaff } from "@sermo/core/contracts";
 import { Crown } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { Suspense } from "react";
 import { Directory } from "@/app/[locale]/(main)/members/directory";
 import { MembersNav } from "@/app/[locale]/(main)/members/members-nav";
 import { rankingPageAction } from "@/app/[locale]/(main)/members/members-page-actions";
+import { membersSection } from "@/app/[locale]/(main)/members/members-section";
 import {
   monthHref,
   monthPage,
@@ -34,6 +34,7 @@ import {
   pagesOf,
 } from "@/components/forum/page-window";
 import { PagedList } from "@/components/forum/paged-list";
+import { placeOfQuery, type Query } from "@/components/forum/places";
 import { SectionCard, SectionHeader } from "@/components/forum/section-card";
 import {
   HeadingSkeleton,
@@ -44,6 +45,8 @@ import {
   TabsSkeleton,
 } from "@/components/forum/skeletons";
 import { MonthHero, WinnerList } from "@/components/forum/standing";
+import { Streamed } from "@/components/forum/streamed";
+import { TabSwitch } from "@/components/forum/tab-switch";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MonthPicker } from "@/components/widgets/month-picker";
@@ -187,12 +190,49 @@ async function StaffView() {
   return <StaffList staff={items} />;
 }
 
+// The parameters of the address the views, the directory's sorts and search, and the month picker
+// change in place.
+const MEMBERS_SWITCH_PARAMS = ["view", "q", "sort", "month"];
+
+// The pages that draw the members section: the month's standing has an address of its own.
+export type MembersPath = "/members" | "/members/month";
+
+// The parameters the section is drawn from, on one of its pages.
+export function membersParams(query: Query, path: MembersPath): Query {
+  return path === "/members/month" ? { ...query, view: "month" } : query;
+}
+
+// The members section as its pages draw it: the views, a sort or a search, and a month change it in
+// place (`TabSwitch`), the whole of it under the site's header. `query` is the page's address
+// parameters, as they are.
+export function MembersScreen({
+  query,
+  path,
+}: {
+  query: Query;
+  path: MembersPath;
+}) {
+  return (
+    <TabSwitch
+      place={placeOfQuery(query, MEMBERS_SWITCH_PARAMS)}
+      params={MEMBERS_SWITCH_PARAMS}
+      stamp={Date.now()}
+      load={membersSection.bind(null, path)}
+    >
+      <MembersView params={membersParams(query, path)} />
+    </TabSwitch>
+  );
+}
+
 // The members section, one view at a time: the view and its options come from the page's address
-// parameters (`/members` and `/members/month` both draw it).
+// parameters (`/members` and `/members/month` both draw it). `inPlace`: drawn for a view changed in
+// place, with no placeholders.
 export async function MembersView({
   params,
+  inPlace = false,
 }: {
-  params: Record<string, string | string[] | undefined>;
+  params: Query;
+  inPlace?: boolean;
 }) {
   const t = await getTranslations("members.members");
   const views = await getTranslations("members.views");
@@ -251,76 +291,82 @@ export async function MembersView({
 
       <MembersNav active={view.value} variant="chips" className="lg:hidden" />
 
-      {view.value === "overview" && <Overview viewerId={viewerId} />}
-      {view.value === "month" && (
-        <Suspense
-          fallback={
-            <LoadingRegion label={t("loading")}>
-              <div className="rounded-lg border bg-card p-6">
-                <HeadingSkeleton />
-              </div>
-              <MemberListSkeleton rows={10} />
-              <MemberListSkeleton rows={3} />
-            </LoadingRegion>
-          }
-        >
-          <MonthView
-            month={monthParam(first(params.month))}
-            cursor={cursor}
-            pages={pages}
-          />
-        </Suspense>
-      )}
-      {"sort" in view && (
-        <Suspense
-          fallback={
-            <LoadingRegion label={t("loading")}>
-              <MemberListSkeleton rows={10} />
-            </LoadingRegion>
-          }
-        >
-          <RankingView
-            view={view.value}
-            sort={view.sort}
-            by={view.ranking}
-            page={page}
-          />
-        </Suspense>
-      )}
-      {view.value === "staff" && (
-        <Suspense
-          fallback={
-            <LoadingRegion label={t("loading")}>
-              <div className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
-                {[1, 2, 3].map((member) => (
-                  <MemberRowSkeleton key={member} />
-                ))}
-              </div>
-            </LoadingRegion>
-          }
-        >
-          <StaffView />
-        </Suspense>
-      )}
-      {view.value === "all" && (
-        <Suspense
-          fallback={
-            <LoadingRegion label={t("loading")}>
-              <div className="rounded-lg border bg-card p-3">
-                <Skeleton className="h-10 w-full" />
-              </div>
-              <TabsSkeleton />
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {[1, 2, 3, 4, 5, 6].map((member) => (
-                  <MemberCardSkeleton key={member} />
-                ))}
-              </div>
-            </LoadingRegion>
-          }
-        >
-          <Directory query={query} sort={sort} page={page} />
-        </Suspense>
-      )}
+      <div data-switch-panel="" className="space-y-(--page-gap)">
+        {view.value === "overview" && <Overview viewerId={viewerId} />}
+        {view.value === "month" && (
+          <Streamed
+            inPlace={inPlace}
+            fallback={
+              <LoadingRegion label={t("loading")}>
+                <div className="rounded-lg border bg-card p-6">
+                  <HeadingSkeleton />
+                </div>
+                <MemberListSkeleton rows={10} />
+                <MemberListSkeleton rows={3} />
+              </LoadingRegion>
+            }
+          >
+            <MonthView
+              month={monthParam(first(params.month))}
+              cursor={cursor}
+              pages={pages}
+            />
+          </Streamed>
+        )}
+        {"sort" in view && (
+          <Streamed
+            inPlace={inPlace}
+            fallback={
+              <LoadingRegion label={t("loading")}>
+                <MemberListSkeleton rows={10} />
+              </LoadingRegion>
+            }
+          >
+            <RankingView
+              view={view.value}
+              sort={view.sort}
+              by={view.ranking}
+              page={page}
+            />
+          </Streamed>
+        )}
+        {view.value === "staff" && (
+          <Streamed
+            inPlace={inPlace}
+            fallback={
+              <LoadingRegion label={t("loading")}>
+                <div className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
+                  {[1, 2, 3].map((member) => (
+                    <MemberRowSkeleton key={member} />
+                  ))}
+                </div>
+              </LoadingRegion>
+            }
+          >
+            <StaffView />
+          </Streamed>
+        )}
+        {view.value === "all" && (
+          <Streamed
+            inPlace={inPlace}
+            fallback={
+              <LoadingRegion label={t("loading")}>
+                <div className="rounded-lg border bg-card p-3">
+                  <Skeleton className="h-10 w-full" />
+                </div>
+                <TabsSkeleton />
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {[1, 2, 3, 4, 5, 6].map((member) => (
+                    <MemberCardSkeleton key={member} />
+                  ))}
+                </div>
+              </LoadingRegion>
+            }
+          >
+            <Directory query={query} sort={sort} page={page} />
+          </Streamed>
+        )}
+      </div>
     </PageLayout>
   );
 }

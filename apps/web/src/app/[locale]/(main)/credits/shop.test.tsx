@@ -1,4 +1,5 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToReadableStream } from "react-dom/server";
 import { messages } from "@/i18n/messages";
 import { translator, withIntl } from "@/lib/test-intl";
@@ -103,7 +104,16 @@ async function shop(category: string, viewer: boolean) {
     category,
     viewer: viewer ? { id: 1, username: "ember" } : null,
   });
-  return new Response(await renderToReadableStream(withIntl(element))).text();
+  // The items are rows of the shared list, which keeps its pages in the query client.
+  return new Response(
+    await renderToReadableStream(
+      withIntl(
+        <QueryClientProvider client={new QueryClient()}>
+          {element}
+        </QueryClientProvider>,
+      ),
+    ),
+  ).text();
 }
 
 const cards = (html: string) => html.split("<li ").slice(1);

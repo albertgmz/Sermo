@@ -123,9 +123,7 @@ async function html(node: React.ReactNode) {
   return new Response(stream).text();
 }
 const list = async () =>
-  html(
-    await ForumList({ section: null, stats: "threads", hrefFor: () => "/" }),
-  );
+  html(await ForumList({ params: { stats: "threads" } }));
 const forumPage = async (id: string) =>
   html(
     await ForumPage({

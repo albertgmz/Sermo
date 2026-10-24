@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
+import { type ReactNode, useCallback, useEffect, useRef } from "react";
 import { jumpPage, pageOfSearch } from "@/components/forum/page-window";
+import { usePlaceSwitch } from "@/components/forum/use-place-switch";
 import { cn } from "@/lib/utils";
 
 // PageSwitch: the part of a screen that a numbered pager (`PageNav`) turns the pages of, changed in
@@ -27,8 +20,6 @@ import { cn } from "@/lib/utils";
 //             (the address is then opened as a page of its own, which says what is the matter).
 //   param     Name of the page parameter. Default "page".
 
-type Shown = { page: number; node: ReactNode };
-
 export function PageSwitch({
   page,
   stamp,
@@ -44,100 +35,35 @@ export function PageSwitch({
   children: ReactNode;
   className?: string;
 }) {
-  const [shown, setShown] = useState<Shown | null>(null);
-  const [busy, setBusy] = useState(false);
-  // The page that came in is shown in a transition: the old one stays on screen (dimmed) until
-  // every part of the new one has arrived, so no placeholder shows in between.
-  const [arriving, startTransition] = useTransition();
-  const box = useRef<HTMLDivElement>(null);
-  // The page on screen, for the history listener; the newest request, so an answer that comes
-  // after a later press is dropped; whether the next page drawn is to be scrolled to.
-  const showing = useRef(page);
-  showing.current = shown?.page ?? page;
-  const asked = useRef(0);
-  const arrived = useRef(false);
-
-  // Before the first paint of a new draw, so a page loaded here is not shown over it for a frame.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new draw of the screen resets
-  useLayoutEffect(() => {
-    asked.current += 1;
-    setShown(null);
-    setBusy(false);
-  }, [stamp]);
-
-  const show = useCallback(
-    async (target: number) => {
-      const ticket = ++asked.current;
-      if (target === page) {
-        arrived.current = true;
-        startTransition(() => {
-          setShown(null);
-          setBusy(false);
-        });
-        return;
-      }
-      setBusy(true);
-      let node: ReactNode | null = null;
-      try {
-        node = await load(target);
-      } catch {
-        node = null;
-      }
-      if (ticket !== asked.current) return;
-      if (node === null) {
-        // The address is already the page's: opened as a page of its own.
-        location.reload();
-        return;
-      }
-      arrived.current = true;
-      startTransition(() => {
-        setShown({ page: target, node });
-        setBusy(false);
-      });
-    },
-    [page, load],
+  const placeOf = useCallback(
+    (search: string) => String(pageOfSearch(search, param)),
+    [param],
   );
+  const loadPlace = useCallback((place: string) => load(Number(place)), [load]);
+  const box = useRef<HTMLDivElement>(null);
+  const switched = usePlaceSwitch({
+    box,
+    place: String(page),
+    stamp,
+    load: loadPlace,
+    placeOf,
+    // A page that came in starts at its top, as a page loaded anew would; the keyboard goes there
+    // too.
+    arrive: (node) => {
+      const header = Number.parseFloat(
+        getComputedStyle(document.documentElement).scrollPaddingTop,
+      );
+      if (node.getBoundingClientRect().top < (header || 0))
+        node.scrollIntoView({ block: "start" });
+      node.focus({ preventScroll: true });
+    },
+    // The address keeps the path the screen is at (a thread's is the slugged one the server sent
+    // it to); only the query changes.
+    pushed: (url) => `${location.pathname}${url.search}`,
+  });
 
-  // Back, Forward, and coming back to this screen from another: the address names the page to show.
-  useEffect(() => {
-    const path = location.pathname;
-    const follow = () => {
-      if (location.pathname !== path) return;
-      const wanted = pageOfSearch(location.search, param);
-      if (wanted !== showing.current) void show(wanted);
-    };
-    follow();
-    window.addEventListener("popstate", follow);
-    return () => window.removeEventListener("popstate", follow);
-  }, [param, show]);
-
-  // A page that came in starts at its top, as a page loaded anew would; the keyboard goes there too.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs for each page shown
-  useLayoutEffect(() => {
-    const node = box.current;
-    if (!arrived.current || !node) return;
-    arrived.current = false;
-    const header = Number.parseFloat(
-      getComputedStyle(document.documentElement).scrollPaddingTop,
-    );
-    if (node.getBoundingClientRect().top < (header || 0))
-      node.scrollIntoView({ block: "start" });
-    node.focus({ preventScroll: true });
-  }, [shown]);
-
-  function go(target: number, href: string) {
-    if (target === showing.current) {
-      box.current?.scrollIntoView({ block: "start" });
-      return;
-    }
-    // The address keeps the path the screen is at (a thread's is the slugged one the server sent it
-    // to); only the query changes.
-    window.history.pushState(
-      null,
-      "",
-      `${location.pathname}${new URL(href, location.href).search}`,
-    );
-    void show(target);
+  function go(href: string) {
+    if (!switched.go(href)) box.current?.scrollIntoView({ block: "start" });
   }
 
   function onClick(event: React.MouseEvent<HTMLDivElement>) {
@@ -148,7 +74,7 @@ export function PageSwitch({
     const link = target.closest<HTMLAnchorElement>("a[data-page]");
     if (link && box.current?.contains(link)) {
       event.preventDefault();
-      go(Number(link.dataset.page), link.href);
+      go(link.href);
       return;
     }
     // "Go to page": pressing Go, or Enter in the box (the browser presses Go for it).
@@ -169,7 +95,7 @@ export function PageSwitch({
     for (const [key, value] of new FormData(form))
       if (key !== param) url.searchParams.append(key, String(value));
     if (wanted > 1) url.searchParams.set(param, String(wanted));
-    go(wanted, `${url.pathname}${url.search}`);
+    go(`${url.pathname}${url.search}`);
   }
 
   // "Go to page" opens with its box ready to type in, and closes on Escape, a press elsewhere or
@@ -227,15 +153,15 @@ export function PageSwitch({
     <div
       ref={box}
       tabIndex={-1}
-      aria-busy={busy || arriving || undefined}
+      aria-busy={switched.busy || undefined}
       onClick={onClick}
       className={cn(
         "scroll-mt-4 outline-none transition-opacity",
-        (busy || arriving) && "opacity-60",
+        switched.busy && "opacity-60",
         className,
       )}
     >
-      {shown ? shown.node : children}
+      {switched.node ?? children}
     </div>
   );
 }

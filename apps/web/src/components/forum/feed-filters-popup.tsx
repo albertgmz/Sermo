@@ -14,6 +14,7 @@ import {
 } from "@/app/[locale]/(main)/_feed/filter-actions";
 import { FILTERS_BUTTON } from "@/components/forum/feed-filters-button";
 import { ForumChecks } from "@/components/forum/forum-checks";
+import { useTabSwitch } from "@/components/forum/tab-switch-context";
 import { selectClass } from "@/components/staff/rows";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +80,7 @@ export default function FeedFiltersPopup({
 }: FeedFiltersPopupProps & OpenedProps) {
   const t = useTranslations("forum.feedFilters");
   const router = useRouter();
+  const switching = useTabSwitch();
   const focus = usePopupFocus(openedBy);
   const [open, setOpen] = useState(true);
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
@@ -123,10 +125,12 @@ export default function FeedFiltersPopup({
     }
   }
 
+  // Inside the feed's switch the filter changes the feed in place; elsewhere the address is opened.
   function go(href: string) {
     changedHidden.current = false;
     setOpen(false);
-    router.push(href);
+    if (switching) switching.go(href);
+    else router.push(href);
   }
 
   return (

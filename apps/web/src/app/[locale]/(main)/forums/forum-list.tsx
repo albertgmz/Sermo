@@ -2,61 +2,104 @@ import { forumTabsList, nodesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { ForumMarkRead } from "@/app/[locale]/(main)/forums/[id]/forum-mark-read";
-import type { StatsTab } from "@/app/[locale]/(main)/forums/forum-stats";
+import { forumSection } from "@/app/[locale]/(main)/forums/forum-list-page";
+import {
+  STATS_TABS,
+  type StatsTab,
+} from "@/app/[locale]/(main)/forums/forum-stats";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { bannerOf } from "@/components/forum/forum-banner";
 import { ForumCardGrid } from "@/components/forum/forum-card-grid";
+import { placeOfQuery, type Query } from "@/components/forum/places";
 import {
   ForumCategoriesSkeleton,
   LoadingRegion,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
+import { TabSwitch } from "@/components/forum/tab-switch";
 import { read } from "@/lib/sermo/client";
 import { childrenByParent, nodeMembers } from "@/lib/sermo/forums";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { unreadForums } from "@/lib/sermo/unread-forums";
 
-// The forum list: the categories under the section tabs, drawn by the home page; it says where its
-// section links go. The statistics panel is a widget the page draws around it.
-//
-// Props
-//   section  The section tab chosen in the address (the id of a forum tab), or null for the first.
-//   stats    The statistics tab chosen in the address, which a section link keeps.
-//   hrefFor  The address of a section (null is the first) with a statistics tab.
-export async function ForumList({
-  section,
-  stats,
-  hrefFor,
-}: {
-  section: string | null;
-  stats: StatsTab;
-  hrefFor: (section: string | null, stats: StatsTab) => string;
-}) {
-  const t = await getTranslations("forums.forums");
-  return (
-    <Suspense
-      fallback={
-        <LoadingRegion label={t("aria.loadingCategories")}>
-          <TabsSkeleton />
-          <ForumCategoriesSkeleton />
-        </LoadingRegion>
-      }
-    >
-      <ForumCategories section={section} stats={stats} hrefFor={hrefFor} />
-    </Suspense>
+// The forum list's address of a section (null is the first) with `query` set on it.
+export function withQuery(
+  path: string,
+  section: string | null,
+  query: [string, string][],
+) {
+  const params = new URLSearchParams(
+    section === null ? [] : [["section", section]],
+  );
+  for (const [key, value] of query) params.set(key, value);
+  const search = params.toString();
+  return search ? `${path}?${search}` : path;
+}
+
+// The address of a section with a statistics tab.
+export function forumsHref(section: string | null, stats: StatsTab) {
+  return withQuery(
+    "/",
+    section,
+    stats === STATS_TABS[0].value ? [] : [["stats", stats]],
   );
 }
 
-async function ForumCategories({
+// The parameter of the address the section tabs change in place.
+export const FORUM_SECTION_PARAMS = ["section"];
+
+// The section and the statistics tab an address chooses.
+export function forumListChoice(params: Query) {
+  const { section, stats } = params;
+  return {
+    section: typeof section === "string" ? section : null,
+    stats:
+      STATS_TABS.find((entry) => entry.value === stats)?.value ??
+      STATS_TABS[0].value,
+  };
+}
+
+// The forum list: the categories under the section tabs, drawn by the home page. The section tabs
+// change it in place (`TabSwitch`). The statistics panel is a widget the page draws around it.
+//
+// Props
+//   params   The page's address parameters: the section tab (the id of a forum tab; none is the
+//            first) and the statistics tab, which a section link keeps.
+export async function ForumList({ params }: { params: Query }) {
+  const t = await getTranslations("forums.forums");
+  const { section, stats } = forumListChoice(params);
+  return (
+    <TabSwitch
+      place={placeOfQuery(params, FORUM_SECTION_PARAMS)}
+      params={FORUM_SECTION_PARAMS}
+      stamp={Date.now()}
+      load={forumSection}
+      className="space-y-(--page-gap)"
+    >
+      <Suspense
+        fallback={
+          <LoadingRegion label={t("aria.loadingCategories")}>
+            <TabsSkeleton />
+            <ForumCategoriesSkeleton />
+          </LoadingRegion>
+        }
+      >
+        <ForumCategories section={section} stats={stats} />
+      </Suspense>
+    </TabSwitch>
+  );
+}
+
+// The section tabs and the categories of the open section; also what a section tab pressed brings
+// in place (`forumSection`).
+export async function ForumCategories({
   section: param,
   stats,
-  hrefFor,
 }: {
   section: string | null;
   stats: StatsTab;
-  hrefFor: (section: string | null, stats: StatsTab) => string;
 }) {
   const [{ items: nodes }, { items: tabs }, { user }, unread, t] =
     await Promise.all([
@@ -95,7 +138,7 @@ async function ForumCategories({
           tabs={tabs.map((entry, index) => ({
             value: String(entry.id),
             label: entry.title,
-            href: hrefFor(index === 0 ? null : String(entry.id), stats),
+            href: forumsHref(index === 0 ? null : String(entry.id), stats),
           }))}
           active={String(active.id)}
           label={t("aria.sections")}
@@ -107,27 +150,29 @@ async function ForumCategories({
           <ForumMarkRead />
         </div>
       )}
-      {categories.map((category, index) => (
-        <CollapsiblePanel
-          key={category.id}
-          title={category.title}
-          storageKey={`forum-category-${category.id}-open`}
-          banner={banners[index]}
-        >
-          <ForumCardGrid
-            forums={
-              category.type === "category"
-                ? childrenOf(category.id)
-                : [category]
-            }
-            childrenOf={childrenOf}
-            member={member}
-            unread={unread}
-            signedIn={user !== null}
-            className="p-2"
-          />
-        </CollapsiblePanel>
-      ))}
+      <div data-switch-panel="" className="space-y-(--page-gap)">
+        {categories.map((category, index) => (
+          <CollapsiblePanel
+            key={category.id}
+            title={category.title}
+            storageKey={`forum-category-${category.id}-open`}
+            banner={banners[index]}
+          >
+            <ForumCardGrid
+              forums={
+                category.type === "category"
+                  ? childrenOf(category.id)
+                  : [category]
+              }
+              childrenOf={childrenOf}
+              member={member}
+              unread={unread}
+              signedIn={user !== null}
+              className="p-2"
+            />
+          </CollapsiblePanel>
+        ))}
+      </div>
     </>
   );
 }

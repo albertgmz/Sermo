@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToReadableStream } from "react-dom/server";
 import { profileCommentBody, profilePostBody } from "@/lib/test-bodies";
 import { translator, withIntl } from "@/lib/test-intl";
@@ -35,6 +36,7 @@ mock.module("next-intl", () => ({
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { Wall } = await import("./wall");
+const { moreWall } = await import("./more-wall");
 
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
@@ -184,7 +186,14 @@ async function wall(props: Record<string, unknown>) {
     profile: profile as never,
     ...props,
   });
-  const stream = await renderToReadableStream(withIntl(element));
+  // The posts are rows of the shared list, which keeps its pages in the query client.
+  const stream = await renderToReadableStream(
+    withIntl(
+      <QueryClientProvider client={new QueryClient()}>
+        {element}
+      </QueryClientProvider>,
+    ),
+  );
   await stream.allReady;
   return new Response(stream).text();
 }
@@ -357,4 +366,37 @@ test("a deleted wall post is folded to its author, time and notice, its comments
   const member = await wall({ cursor: "p3" });
   expect(member).not.toContain(">Restore<");
   expect(member).not.toContain("Delete permanently");
+});
+
+test("Load more on the wall is the shared list's button, which puts the next posts under those shown", async () => {
+  backend();
+  const html = await wall({});
+  // Without scripts the button is a link to the page after; with them it loads that page in place.
+  const more = html.match(/<a href="\/members\/9\?cursor=p3"[^>]*>/)?.[0];
+  expect(more).toBeDefined();
+  // The rows are the list's, under the composer and heading the list puts on top.
+  expect(html).toContain('data-key="9"');
+  expect(html).toContain('data-key="7"');
+});
+
+test("the posts Load more brings are drawn on the server as rows, with their comments, from the cursor", async () => {
+  backend();
+  const page = await moreWall(9, "p3");
+  expect(page.rows.map((row) => row.key)).toEqual(["6", "5", "4"]);
+  expect(page.nextCursor).toBe("p6");
+  const stream = await renderToReadableStream(
+    withIntl(
+      <div>
+        {page.rows.map((row) => (
+          <div key={row.key}>{row.node}</div>
+        ))}
+      </div>,
+    ),
+  );
+  await stream.allReady;
+  const html = await new Response(stream).text();
+  expect(html).toContain("wall post 5");
+  expect(html).toContain("comment 103");
+  // The posts' links come back to the page they were drawn for.
+  expect(html).not.toContain("?cursor=p6");
 });

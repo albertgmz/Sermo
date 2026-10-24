@@ -1,14 +1,14 @@
 import { creditsHistory, usersList } from "@sermo/core/contracts";
-import { Check, Coins } from "lucide-react";
+import { Coins } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { History } from "@/app/[locale]/(main)/credits/history";
-import { Inventory } from "@/app/[locale]/(main)/credits/inventory";
-import { Shop } from "@/app/[locale]/(main)/credits/shop";
+import { Content } from "@/app/[locale]/(main)/credits/content";
+import { creditsContent } from "@/app/[locale]/(main)/credits/credits-content";
 import { Ways } from "@/app/[locale]/(main)/credits/ways";
 import { Leaderboard } from "@/components/forum/leaderboard";
+import { placeOfQuery } from "@/components/forum/places";
 import { SectionCard } from "@/components/forum/section-card";
 import {
   BalanceSkeleton,
@@ -17,13 +17,12 @@ import {
   ShopSkeleton,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
-import { TabLinks } from "@/components/forum/tab-links";
+import { TabSwitch } from "@/components/forum/tab-switch";
 import { Container } from "@/components/layout/container";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCredits } from "@/lib/format";
-import { pagesParam } from "@/lib/list-pages";
 import { read, readIfAllowed } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -31,13 +30,6 @@ import { cn } from "@/lib/utils";
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("credits.credits");
   return { title: t("metaTitle") };
-}
-
-const TABS = ["shop", "inventory", "history"] as const;
-const NOTICES = ["bought", "worn", "removed", "used"] as const;
-
-function first(value: string | string[] | undefined) {
-  return (Array.isArray(value) ? value[0] : (value ?? "")).trim();
 }
 
 async function Balance() {
@@ -104,72 +96,31 @@ async function Leaders() {
   );
 }
 
-async function Content({
+// The parameters of the address the tabs, the shop's categories and the inventory's lists change in
+// place.
+const CREDITS_SWITCH_PARAMS = [
+  "tab",
+  "category",
+  "active",
+  "unused",
+  "threads",
+];
+
+// The tabs and the open one, which they change in place (`TabSwitch`).
+async function SwitchedContent({
   searchParams,
 }: Pick<PageProps<"/[locale]/credits">, "searchParams">) {
-  const [t, query, { user }] = await Promise.all([
-    getTranslations("credits.credits"),
-    searchParams,
-    getViewer(),
-  ]);
-  const notice = NOTICES.find((entry) => entry === first(query.notice));
-  const requested = TABS.find((entry) => entry === first(query.tab));
-  const tab = user && requested ? requested : "shop";
-  const labels = {
-    shop: t("shopTab"),
-    inventory: t("inventoryTab"),
-    history: t("historyTab"),
-  };
+  const query = await searchParams;
   return (
-    <>
-      {user ? (
-        <TabLinks
-          tabs={TABS.map((value) => ({
-            value,
-            label: labels[value],
-            href: value === "shop" ? "/credits" : `/credits?tab=${value}`,
-          }))}
-          active={tab}
-          label={t("aria.sections")}
-        />
-      ) : (
-        <h2 className="border-b pb-2 text-lg font-semibold tracking-tight">
-          {t("shopTab")}
-        </h2>
-      )}
-      {notice && (
-        <output className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-pretty">
-          <Check
-            aria-hidden="true"
-            className="mt-0.5 size-4 shrink-0 text-success"
-          />
-          {t(`notices.${notice}`)}
-        </output>
-      )}
-      {tab === "shop" && (
-        <Shop
-          category={first(query.category)}
-          cursor={first(query.cursor) || undefined}
-          viewer={user && { id: user.id, username: user.username }}
-        />
-      )}
-      {tab === "inventory" && user && (
-        <Inventory
-          viewer={{ id: user.id, username: user.username }}
-          cursors={{
-            active: first(query.active) || undefined,
-            unused: first(query.unused) || undefined,
-            threads: first(query.threads) || undefined,
-          }}
-        />
-      )}
-      {tab === "history" && user && (
-        <History
-          cursor={first(query.cursor) || undefined}
-          pages={pagesParam(query.pages)}
-        />
-      )}
-    </>
+    <TabSwitch
+      place={placeOfQuery(query, CREDITS_SWITCH_PARAMS)}
+      params={CREDITS_SWITCH_PARAMS}
+      stamp={Date.now()}
+      load={creditsContent}
+      className="space-y-4"
+    >
+      <Content query={query} />
+    </TabSwitch>
   );
 }
 
@@ -225,7 +176,7 @@ export default async function CreditsPage({
             </LoadingRegion>
           }
         >
-          <Content searchParams={searchParams} />
+          <SwitchedContent searchParams={searchParams} />
         </Suspense>
       </PageLayout>
     </>

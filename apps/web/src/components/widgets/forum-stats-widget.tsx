@@ -2,6 +2,7 @@ import {
   ForumStats,
   STATS_TABS,
 } from "@/app/[locale]/(main)/forums/forum-stats";
+import { placeOfQuery } from "@/components/forum/places";
 import type { WidgetBodyProps } from "@/components/widgets/widget-types";
 
 // The address parameter that keeps a forum statistics widget's tab: `stats` for the first one the
@@ -58,6 +59,9 @@ export function ForumStatsWidget({
         context.href(tab === STATS_TABS[0].value ? [] : [[param, tab]])
       }
       instance={param === "stats" ? null : widget.id}
+      param={param}
+      place={placeOfQuery(context.params, [param])}
+      path={new URL(context.href([]), "http://page.invalid").pathname}
     />
   );
 }

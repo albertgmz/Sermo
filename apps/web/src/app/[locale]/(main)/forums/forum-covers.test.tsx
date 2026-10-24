@@ -164,13 +164,7 @@ const header = (page: string, title: string) => {
 };
 
 const list = async () =>
-  html(
-    await ForumList({
-      section: null,
-      stats: "threads",
-      hrefFor: () => "/",
-    }),
-  );
+  html(await ForumList({ params: { stats: "threads" } }));
 
 test("the first category header, even after a forum, draws its cover at once and a later one lazily", async () => {
   backend();

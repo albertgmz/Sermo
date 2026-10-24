@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { MembersView } from "@/app/[locale]/(main)/members/members-view";
+import { MembersScreen } from "@/app/[locale]/(main)/members/members-view";
 import { publicHead } from "@/lib/sermo/share";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -13,5 +13,5 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function MonthPage({
   searchParams,
 }: PageProps<"/[locale]/members/month">) {
-  return <MembersView params={{ ...(await searchParams), view: "month" }} />;
+  return <MembersScreen query={await searchParams} path="/members/month" />;
 }

@@ -12,16 +12,18 @@ import {
   catalogsFor,
   type ShopItemData,
 } from "@/app/[locale]/(main)/credits/items";
+import { moreShop } from "@/app/[locale]/(main)/credits/more-shop";
 import { getLadder } from "@/app/[locale]/(main)/upgrade/ladder";
 import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
-import { LoadMore } from "@/components/forum/load-more";
+import { PagedList } from "@/components/forum/paged-list";
 import { buttonVariants } from "@/components/ui/button";
+import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { cn } from "@/lib/utils";
 
-type Viewer = { id: number; username: string } | null;
+export type Viewer = { id: number; username: string } | null;
 
 function shopHref(categoryId: number, cursor?: string) {
   const params = new URLSearchParams({ category: String(categoryId) });
@@ -40,10 +42,13 @@ async function wearerOf(viewer: Viewer, sample: string): Promise<Wearer> {
 export async function Shop({
   category,
   cursor,
+  pages = 1,
   viewer,
 }: {
   category: string;
   cursor?: string;
+  // How many pages the address asks for (`?pages=N`, the list's place).
+  pages?: number;
   viewer: Viewer;
 }) {
   const [t, loadMore, categories] = await Promise.all([
@@ -64,19 +69,7 @@ export async function Shop({
       </div>
     );
   }
-  const listing = await read(shopItemsList, {
-    categoryId: current.id,
-    cursor,
-  });
-  const items = listing.items.filter(({ isActive }) => isActive);
-  // The ranks are bought on /upgrade, where the price already paid for one is taken off the
-  // next. Only a category with a group item can be (part of) the ladder.
-  const [catalogs, wearer, ladder] = await Promise.all([
-    catalogsFor(items),
-    wearerOf(viewer, t("sampleUsername")),
-    items.some(({ effect }) => effect.type === "group") ? getLadder() : null,
-  ]);
-  const returnTo = shopHref(current.id, cursor);
+  const first = await shopPage(current.id, cursor, viewer);
 
   return (
     <div className="space-y-4">
@@ -96,44 +89,89 @@ export async function Shop({
           </Link>
         ))}
       </nav>
-      {current.description && (
-        <p className="max-w-prose text-sm text-pretty text-muted-foreground [overflow-wrap:anywhere]">
-          {current.description}
-        </p>
-      )}
-      {items.length === 0 ? (
-        <div className="rounded-lg border bg-card">
-          <EmptyState
-            icon={Store}
-            title={t("emptyCategoryTitle")}
-            description={t("emptyCategoryDescription")}
-          />
-        </div>
-      ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              wearer={wearer}
-              catalogs={catalogs}
-              signedIn={Boolean(viewer)}
-              returnTo={returnTo}
-              ranked={
-                item.effect.type === "group" &&
-                item.categoryId === ladder?.category.id
-              }
+      <div data-switch-panel="" className="space-y-4">
+        {current.description && (
+          <p className="max-w-prose text-sm text-pretty text-muted-foreground [overflow-wrap:anywhere]">
+            {current.description}
+          </p>
+        )}
+        {first.rows.length === 0 && !first.nextCursor ? (
+          <div className="rounded-lg border bg-card">
+            <EmptyState
+              icon={Store}
+              title={t("emptyCategoryTitle")}
+              description={t("emptyCategoryDescription")}
             />
-          ))}
-        </ul>
-      )}
-      {listing.nextCursor && (
-        <LoadMore href={shopHref(current.id, listing.nextCursor)}>
-          {loadMore("label")}
-        </LoadMore>
-      )}
+          </div>
+        ) : (
+          <PagedList
+            first={first}
+            more={moreShop.bind(null, current.id)}
+            pages={pages}
+            start={cursor}
+            listKey={["shop", current.id]}
+            hrefBase={shopHref(current.id)}
+            moreLabel={loadMore("label")}
+            // One row is a page of cards: about 1500 px in three columns.
+            estimateSize={1500}
+            spacing="spaced"
+          />
+        )}
+      </div>
     </div>
   );
+}
+
+// One page of a category's items, as one row of the shop's list (the grid of their cards): the
+// page the shop opens at, and each page "Load more" puts under it in place (`moreShop`).
+export async function shopPage(
+  categoryId: number,
+  cursor: string | undefined,
+  viewer: Viewer,
+  reader: typeof read = read,
+): Promise<ListPage> {
+  const [t, listing] = await Promise.all([
+    getTranslations("credits.shop"),
+    reader(shopItemsList, { categoryId, cursor }),
+  ]);
+  const items = listing.items.filter(({ isActive }) => isActive);
+  // The ranks are bought on /upgrade, where the price already paid for one is taken off the
+  // next. Only a category with a group item can be (part of) the ladder.
+  const [catalogs, wearer, ladder] = await Promise.all([
+    catalogsFor(items),
+    wearerOf(viewer, t("sampleUsername")),
+    items.some(({ effect }) => effect.type === "group") ? getLadder() : null,
+  ]);
+  const returnTo = shopHref(categoryId, cursor);
+  return {
+    nextCursor: listing.nextCursor,
+    rows:
+      items.length === 0
+        ? []
+        : [
+            {
+              key: cursor ?? "",
+              node: (
+                <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {items.map((item) => (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      wearer={wearer}
+                      catalogs={catalogs}
+                      signedIn={Boolean(viewer)}
+                      returnTo={returnTo}
+                      ranked={
+                        item.effect.type === "group" &&
+                        item.categoryId === ladder?.category.id
+                      }
+                    />
+                  ))}
+                </ul>
+              ),
+            },
+          ],
+  };
 }
 
 async function ItemCard({

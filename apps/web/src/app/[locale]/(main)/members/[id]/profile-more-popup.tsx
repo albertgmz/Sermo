@@ -2,6 +2,8 @@
 
 import { Ellipsis, MessagesSquare } from "lucide-react";
 import Link from "next/link";
+import type { ComponentProps } from "react";
+import { goInPlace } from "@/components/forum/tab-switch-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +20,22 @@ export type ProfileMorePopupProps = {
   findPosts: string;
   findThreads: string;
 };
+
+// A link to a tab of the profile: the profile's tabs show it in place (`goInPlace`).
+function TabLink(props: ComponentProps<typeof Link> & { href: string }) {
+  return (
+    <Link
+      {...props}
+      onClick={(event) => {
+        props.onClick?.(event);
+        if (event.defaultPrevented || event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+          return;
+        if (goInPlace(props.href)) event.preventDefault();
+      }}
+    />
+  );
+}
 
 // The button and its menu, which Base UI draws. It is loaded when the plain button of
 // `ProfileMore` is pressed and mounts open.
@@ -43,14 +61,14 @@ export default function ProfileMorePopup({
       <DropdownMenuContent align="start" className="w-48">
         <DropdownMenuItem
           className="min-h-10 md:min-h-8"
-          render={<Link href={`${profileHref}?tab=posts`} />}
+          render={<TabLink href={`${profileHref}?tab=posts`} />}
         >
           <MessagesSquare />
           {findPosts}
         </DropdownMenuItem>
         <DropdownMenuItem
           className="min-h-10 md:min-h-8"
-          render={<Link href={`${profileHref}?tab=threads`} />}
+          render={<TabLink href={`${profileHref}?tab=threads`} />}
         >
           <MessagesSquare />
           {findThreads}

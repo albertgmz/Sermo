@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { TabAnchor } from "@/components/forum/tab-anchor";
 import { TabMore } from "@/components/forum/tab-more";
 import { TabStripWithArrow } from "@/components/forum/tab-strip-arrow";
 import { cn } from "@/lib/utils";
@@ -70,11 +70,11 @@ export function TabLinks({
       {tabs.map((tab) => {
         const iconOnly = narrow && tab.value !== active;
         return (
-          <Link
+          <TabAnchor
             key={tab.value}
             href={tab.href}
             scroll={false}
-            aria-current={tab.value === active ? "page" : undefined}
+            current={tab.value === active}
             title={iconOnly ? tab.label : undefined}
             className={tabClass}
           >
@@ -89,7 +89,7 @@ export function TabLinks({
                 {tab.count}
               </span>
             )}
-          </Link>
+          </TabAnchor>
         );
       })}
       {more && more.length > 0 && moreLabel && (

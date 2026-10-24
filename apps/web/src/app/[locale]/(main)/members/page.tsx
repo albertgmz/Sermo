@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { MembersView } from "@/app/[locale]/(main)/members/members-view";
+import { MembersScreen } from "@/app/[locale]/(main)/members/members-view";
 import { pageParam } from "@/components/forum/page-window";
 import { publicHead } from "@/lib/sermo/share";
 
@@ -33,5 +33,5 @@ export default async function MembersPage({
     ).toString();
     permanentRedirect(`/members/month${query ? `?${query}` : ""}`);
   }
-  return <MembersView params={params} />;
+  return <MembersScreen query={params} path="/members" />;
 }

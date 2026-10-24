@@ -1,5 +1,6 @@
 import { afterAll, afterEach, expect, mock, spyOn, test } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
+import { placeOfQuery } from "@/components/forum/places";
 import { translator, withIntl } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
 
@@ -157,6 +158,9 @@ async function panel(topPosters = false, active = "posts") {
         active={active as "posts"}
         hrefFor={(tab) => `/?stats=${tab}`}
         instance={null}
+        param="stats"
+        place={placeOfQuery({ stats: active }, ["stats"])}
+        path="/"
       />,
     ),
   );

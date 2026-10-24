@@ -6,7 +6,11 @@ const source = (path: string) =>
   readFileSync(join(import.meta.dir, "..", "src", path), "utf8");
 
 const SCREENS = [
-  ["feed", "app/[locale]/(main)/novedades/page.tsx", "_feed/feed-actions.ts"],
+  [
+    "feed",
+    "app/[locale]/(main)/novedades/feed-column.tsx",
+    "_feed/feed-actions.ts",
+  ],
   [
     "award holders",
     "app/[locale]/(main)/awards/[id]/page.tsx",
@@ -22,6 +26,12 @@ const SCREENS = [
     "app/[locale]/(main)/members/members-view.tsx",
     "members/more-members.ts",
   ],
+  [
+    "profile wall",
+    "app/[locale]/(main)/members/[id]/wall.tsx",
+    "members/[id]/more-wall.ts",
+  ],
+  ["shop", "app/[locale]/(main)/credits/shop.tsx", "credits/more-shop.ts"],
 ] as const;
 
 // The pager of these screens is the one shared list: a screen that still draws its own link to
