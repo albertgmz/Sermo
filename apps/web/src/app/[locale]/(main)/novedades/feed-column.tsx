@@ -224,7 +224,8 @@ export async function openingOf(params: Params) {
 export type Opened = Awaited<ReturnType<typeof openingOf>>;
 
 // Two bars, one per screen size: a phone has every tab but Media on its bar, each with its word,
-// drawn a size smaller and closer together below `sm` so the four fit one line of a 360 px phone
+// drawn a size smaller, with less padding and no gap between tabs below `sm`, so four of them
+// ("Recientes, Tendencias, Siguiendo, Multimedia" with Media open) fit one line of a 320 px phone
 // in either language; a wider screen pins three (`barOf`).
 async function HomeTabs({ opened }: { opened: Opened }) {
   const { params, signedIn, home, tab } = opened;
@@ -246,7 +247,7 @@ async function HomeTabs({ opened }: { opened: Opened }) {
         active={tab}
         label={t("aria.feed")}
         variant="segmented"
-        className="md:hidden max-sm:[&>*]:px-1.5 max-sm:[&>*]:text-xs"
+        className="md:hidden max-sm:gap-0 max-sm:[&>*]:px-1 max-sm:[&>*]:text-xs"
       />
       <TabLinks
         tabs={bar.map(link)}
