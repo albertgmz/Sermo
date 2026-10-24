@@ -109,7 +109,7 @@ test("a heading that holds only read-only forums is left out", () => {
 });
 
 test("a row carries the forum's picture", () => {
-  const image = "/files/9" as ForumArtUrl;
+  const image = { url: "/files/9" as ForumArtUrl, kind: "cover" } as const;
   const [row] = choiceRows([{ ...forum(1, null, "Chat"), image }]);
   expect(row?.image).toBe(image);
 });

@@ -1,7 +1,7 @@
 // What the forum picker of a composer lists: the forums a member may start a thread in, under the
 // categories (and forums) that hold them. Pure, so the rules are held by tests.
 
-import type { ForumArtUrl } from "@/components/forum/forum-choice-art";
+import type { ForumArt } from "@/components/forum/forum-choice-art";
 
 export type ForumChoice = {
   id: number;
@@ -13,7 +13,7 @@ export type ForumChoice = {
   // administrator, whose permissions would let them post there.
   readOnly: boolean;
   // The forum's picture (its cover, else its icon) as LITE let it through; null for none.
-  image: ForumArtUrl | null;
+  image: ForumArt | null;
 };
 
 export type ChoiceRow = {
@@ -23,7 +23,7 @@ export type ChoiceRow = {
   // A forum the member may post in; the rest are headings that hold some.
   selectable: boolean;
   hasChildren: boolean;
-  image: ForumArtUrl | null;
+  image: ForumArt | null;
   // The titles above it, for a result that is shown out of its place.
   trail: string[];
 };

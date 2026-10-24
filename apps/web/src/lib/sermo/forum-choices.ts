@@ -1,6 +1,9 @@
 import "server-only";
 
-import type { ForumArtUrl } from "@/components/forum/forum-choice-art";
+import type {
+  ForumArt,
+  ForumArtUrl,
+} from "@/components/forum/forum-choice-art";
 import type { ForumChoice } from "@/components/forum/forum-choices";
 import { liteBlocks } from "@/lib/lite-mode";
 import { liteCategoryOfPurpose } from "@/lib/lite-preferences";
@@ -13,8 +16,13 @@ export async function forumChoices(nodes: ApiNode[]): Promise<ForumChoice[]> {
   const coverBlocked = await liteBlocks(liteCategoryOfPurpose("node_cover"));
   const iconBlocked = await liteBlocks(liteCategoryOfPurpose("node_icon"));
   return nodes.map((node) => {
-    const picture =
-      (coverBlocked ? null : node.cover) ?? (iconBlocked ? null : node.icon);
+    const cover = coverBlocked ? null : node.cover;
+    const icon = iconBlocked ? null : node.icon;
+    const image: ForumArt | null = cover
+      ? { url: cover.url as ForumArtUrl, kind: "cover" }
+      : icon
+        ? { url: icon.url as ForumArtUrl, kind: "icon" }
+        : null;
     return {
       id: node.id,
       parentId: node.parentId,
@@ -22,7 +30,7 @@ export async function forumChoices(nodes: ApiNode[]): Promise<ForumChoice[]> {
       type: node.type,
       canPost: node.permissions.canPost,
       readOnly: node.settings.isReadOnly,
-      image: picture ? (picture.url as ForumArtUrl) : null,
+      image,
     };
   });
 }

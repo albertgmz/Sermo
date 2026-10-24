@@ -41,8 +41,8 @@ test("a forum's picture is its cover, else its icon, else none", async () => {
     node(3),
   ]);
   expect(choices.map((choice) => choice.image)).toEqual([
-    "/api/v1/files/10",
-    "/api/v1/files/21",
+    { url: "/api/v1/files/10", kind: "cover" },
+    { url: "/api/v1/files/21", kind: "icon" },
     null,
   ]);
 });

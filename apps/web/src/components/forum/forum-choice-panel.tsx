@@ -20,13 +20,14 @@ import { cn } from "@/lib/utils";
 // page; by the width of the list itself, which differs between the two.
 const GRID = "grid gap-2 @lg:grid-cols-2 @4xl:grid-cols-3";
 
-// What a forum without a picture shows instead: its first letter, large and cropped by the tile.
+// What a forum without a picture shows in its place: its first letter.
 export const monogram = (title: string) =>
   Array.from(title.trim())[0]?.toLocaleUpperCase() ?? "";
 
-// A forum to choose, drawn as a small banner: its picture behind the title, darkened (or lightened,
-// in the light theme) under the text by a scrim of the page's own background, so the title reads
-// on any picture in both themes. Without a picture, a wash of the accent and the forum's letter.
+// A forum to choose, drawn as a small banner. A cover lies behind the title, faded into the tile
+// under the text by a scrim of the tile's own colour, so the title reads on any picture in both
+// themes. An icon, or without a picture the forum's letter, sits in a square at the end, over a
+// light wash of the accent.
 export function ForumTile({
   row,
   chosen,
@@ -39,40 +40,38 @@ export function ForumTile({
   trail: boolean;
   onChoose: (id: number) => void;
 }) {
+  const cover = row.image?.kind === "cover" ? row.image.url : null;
+  const icon = row.image?.kind === "icon" ? row.image.url : null;
   return (
     <li className="min-w-0">
       <button
         type="button"
         aria-current={chosen || undefined}
-        data-forum-tile={row.image ? "picture" : "plain"}
+        data-forum-tile={row.image?.kind ?? "plain"}
         onClick={() => onChoose(row.id)}
         className={cn(
           "group/tile relative isolate flex h-16 w-full min-w-0 items-center gap-3 overflow-hidden rounded-lg border bg-card px-3 text-left outline-none transition-colors hover:border-ring focus-visible:ring-2 focus-visible:ring-ring",
           chosen && "border-primary",
         )}
       >
-        {row.image ? (
+        {cover ? (
           <>
             <ForumChoiceArt
-              url={row.image}
+              url={cover}
               className="absolute inset-0 -z-20 size-full transition-transform duration-300 motion-safe:group-hover/tile:scale-[1.04]"
             />
             <span
               aria-hidden="true"
-              className="absolute inset-0 -z-10 bg-linear-to-r from-background/95 from-30% via-background/75 via-60% to-background/5"
+              className="absolute inset-0 -z-10 bg-linear-to-r from-card from-30% via-card/80 via-55% to-card/0"
             />
           </>
         ) : (
           <span
             aria-hidden="true"
-            className="absolute inset-0 -z-10 overflow-hidden bg-linear-to-br from-primary/15 via-primary/5 to-transparent"
-          >
-            <span className="absolute -right-1 -bottom-3 text-6xl leading-none font-black tracking-tighter text-primary-ink/15 select-none">
-              {monogram(row.title)}
-            </span>
-          </span>
+            className="absolute inset-0 -z-10 bg-linear-to-l from-primary/10 to-transparent to-70%"
+          />
         )}
-        <span className="max-w-[72%] min-w-0 flex-1">
+        <span className={cn("min-w-0 flex-1", cover && "max-w-[64%]")}>
           <span className="block truncate text-sm font-semibold">
             {row.title}
           </span>
@@ -82,8 +81,28 @@ export function ForumTile({
             </span>
           )}
         </span>
+        {icon ? (
+          <ForumChoiceArt
+            url={icon}
+            className="size-10 shrink-0 rounded-md border"
+          />
+        ) : (
+          !cover && (
+            <span
+              aria-hidden="true"
+              className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-lg font-bold text-primary-ink"
+            >
+              {monogram(row.title)}
+            </span>
+          )
+        )}
         {chosen && (
-          <span className="ml-auto flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <span
+            className={cn(
+              "flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground",
+              cover && "ml-auto",
+            )}
+          >
             <Check aria-hidden="true" className="size-3.5" />
           </span>
         )}
@@ -197,7 +216,7 @@ export function ForumChoicePanel({
             {searching ? t("noMatches") : t("noForums")}
           </p>
         ) : (
-          sections.map((section) => {
+          sections.map((section, index) => {
             const heading = section.heading;
             const open = !heading || !collapsed.has(heading.id);
             return (
@@ -231,8 +250,13 @@ export function ForumChoicePanel({
                     </button>
                   </h3>
                 )}
+                {!heading && index > 0 && (
+                  <h3 className="flex min-h-9 items-center px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                    {t("moreForums")}
+                  </h3>
+                )}
                 {section.items.length > 0 && (
-                  <ul className={cn(GRID, heading && "mt-1")}>
+                  <ul className={cn(GRID, (heading || index > 0) && "mt-1")}>
                     {section.items.map((row) => (
                       <ForumTile
                         key={row.id}

@@ -5,10 +5,12 @@ declare const gated: unique symbol;
 // one, on the server, and it is null when the visitor blocks forum art: the chooser draws what it
 // is given and never decides, so the address of a blocked picture does not exist in the browser.
 export type ForumArtUrl = string & { readonly [gated]: true };
+// A forum's picture: a cover is drawn behind the title, an icon (square, small) beside it.
+export type ForumArt = { url: ForumArtUrl; kind: "cover" | "icon" };
 
 // The one place the forum chooser emits a forum's picture (see EMISSION_GATES in
 // tests/lite-static.test.ts): fetched when it comes near the screen, so a long list does not load
-// every file at once. Decoration behind the forum's title: the caller gives the box its size.
+// every file at once. Decoration next to the forum's title: the caller gives the box its size.
 export function ForumChoiceArt({
   url,
   className,

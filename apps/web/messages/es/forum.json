@@ -352,6 +352,7 @@
     "searchPlaceholder": "Buscar foros…",
     "noMatches": "Ningún foro coincide.",
     "noForums": "No hay ningún foro en el que puedas publicar.",
+    "moreForums": "Más foros",
     "aria": {
       "back": "Volver"
     }
