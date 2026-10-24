@@ -5,30 +5,50 @@ import { expect, MEMBER_STATE, PEER, seed, test, visit } from "./fixtures";
 // themselves: the screen is not loaded again, the rest of it stays the same elements, no
 // placeholder takes the place of what was there, and the scroll position stays.
 
-type Watch = { kept?: boolean; skeletons?: number; header?: Element | null };
+type Watch = {
+  kept?: boolean;
+  skeletons?: number;
+  where?: string[];
+  header?: Element | null;
+};
 
 // Marks the screen as it is now: a flag in its memory, the site header's element, and a count of
-// the placeholders drawn from here on.
-async function watch(page: Page) {
-  await page.evaluate(() => {
+// the placeholders drawn from here on. A placeholder inside `within` (the element being updated:
+// the rows of a list, a popover that loads its own list) is that element's own loading row and is
+// not counted; any other (a route's skeleton, the header's, the side column's) is, and where it
+// sits is kept to say so.
+async function watch(page: Page, within?: string) {
+  await page.evaluate((local) => {
     const own = window as unknown as Watch;
     own.kept = true;
     own.skeletons = 0;
+    own.where = [];
     own.header = document.querySelector("body header");
+    const named = (element: Element) =>
+      [element, element.parentElement, element.parentElement?.parentElement]
+        .map((e) =>
+          e ? `${e.tagName.toLowerCase()}.${e.className}`.slice(0, 60) : "",
+        )
+        .join(" < ");
     new MutationObserver((changes) => {
       for (const change of changes)
-        for (const node of change.addedNodes)
-          if (
-            node instanceof Element &&
-            (node.matches('[data-slot="skeleton"]') ||
-              node.querySelector('[data-slot="skeleton"]'))
-          )
+        for (const node of change.addedNodes) {
+          if (!(node instanceof Element)) continue;
+          const found = node.matches('[data-slot="skeleton"]')
+            ? [node]
+            : [...node.querySelectorAll('[data-slot="skeleton"]')];
+          for (const skeleton of found) {
+            if (local && skeleton.closest(local)) continue;
             own.skeletons = (own.skeletons ?? 0) + 1;
+            own.where?.push(named(skeleton));
+          }
+        }
     }).observe(document.body, { childList: true, subtree: true });
-  });
+  }, within ?? null);
 }
 
-// The screen is the one `watch` marked, its header the same element, and no placeholder showed.
+// The screen is the one `watch` marked, its header the same element, and no placeholder showed
+// outside what was being updated.
 async function expectInPlace(page: Page, label: string) {
   const state = await page.evaluate(() => {
     const own = window as unknown as Watch;
@@ -36,9 +56,15 @@ async function expectInPlace(page: Page, label: string) {
       kept: own.kept === true,
       header: own.header?.isConnected === true,
       skeletons: own.skeletons ?? -1,
+      where: own.where ?? [],
     };
   });
-  expect(state, label).toEqual({ kept: true, header: true, skeletons: 0 });
+  expect(state, label).toEqual({
+    kept: true,
+    header: true,
+    skeletons: 0,
+    where: [],
+  });
 }
 
 // The requests that draw a whole screen again: a page's own data (Next asks for it with the `rsc`
@@ -145,7 +171,7 @@ test.describe("signed in", () => {
       .getByRole("button", { name: /show who reacted/ })
       .first();
     await summary.scrollIntoViewIfNeeded();
-    await watch(page);
+    await watch(page, '[role="dialog"]');
     const loads = screenLoads(page);
     const redrawn: string[] = [];
     page.on("response", (response) => {
@@ -211,7 +237,7 @@ async function loadMoreAppends(page: Page, path: string) {
   // once its code is in) while the page is read.
   const first = await firstRow.getAttribute("data-key");
   const shown = await lastRow();
-  await watch(page);
+  await watch(page, "[data-index]");
   const loads = screenLoads(page);
   const more = page.getByRole("link", { name: "Load more", exact: true });
   await more.scrollIntoViewIfNeeded();
