@@ -1,7 +1,6 @@
 import { forumTabsList, nodesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { ForumMarkRead } from "@/app/[locale]/(main)/forums/[id]/forum-mark-read";
 import { forumSection } from "@/app/[locale]/(main)/forums/forum-list-page";
 import {
   STATS_TABS,
@@ -144,11 +143,6 @@ export async function ForumCategories({
           label={t("aria.sections")}
           variant="segmented"
         />
-      )}
-      {user && (
-        <div className="flex justify-end">
-          <ForumMarkRead />
-        </div>
       )}
       <div data-switch-panel="" className="space-y-(--page-gap)">
         {categories.map((category, index) => (

@@ -6,6 +6,7 @@ import {
   expect,
   expectFits,
   MEMBER_STATE,
+  phoneWidth,
   ready,
   seed,
   test,
@@ -34,6 +35,10 @@ async function pickForum(page: Page) {
 test("the Create dialog offers four choices, Esc closes it and Back closes it @all", async ({
   page,
 }) => {
+  test.skip(
+    !phoneWidth(page),
+    "the + is the phone bar's; a wide screen has none",
+  );
   await visit(page, "/members");
   await visit(page, "/");
   await openCreate(page);
@@ -180,6 +185,10 @@ test("a wall post is written from the dialog and lands on the member's wall", as
 test("in the wall post sheet Escape in a ⋮ strip closes the strip and not the sheet, and Image opens the picture picker @all", async ({
   page,
 }) => {
+  test.skip(
+    !phoneWidth(page),
+    "the + is the phone bar's; a wide screen has none",
+  );
   await visit(page, "/");
   await openCreate(page);
   await dialog(page)

@@ -9,7 +9,6 @@ import {
   AccountMenuSkeleton,
 } from "@/components/layout/account-menu";
 import { Container } from "@/components/layout/container";
-import { CreateButton } from "@/components/layout/create-button";
 import { GuestMenu } from "@/components/layout/guest-menu";
 import { getViewerCard } from "@/components/layout/header-data";
 import { headerIconClass } from "@/components/layout/header-icon-class";
@@ -117,7 +116,7 @@ export function SiteHeader() {
   );
 }
 
-// A member's header holds three more buttons (Create, Messages, Alerts), so between `md` and `lg`
+// A member's header holds two more buttons (Messages, Alerts), so between `md` and `lg`
 // their logo gives up its name, or a picture logo gets narrower; a guest's keeps it.
 export async function HeaderLogo() {
   const { user } = await getViewer();
@@ -154,11 +153,10 @@ export async function AccountTools() {
   const [viewer, card] = await Promise.all([getViewer(), getViewerCard()]);
   const t = await getTranslations("layout.siteHeader");
   if (viewer.user && card) {
-    // A member's Create, Messages, Alerts and avatar sit closer together below `lg`, where the
+    // A member's Messages, Alerts and avatar sit closer together below `lg`, where the
     // header needs the room. The viewer is known here: the corner waits in its own shape.
     return (
       <span className="flex items-center gap-1 lg:gap-2">
-        <CreateButton variant="header" member />
         <Suspense
           fallback={
             <LoadingRegion label={t("loadingAccount")}>
@@ -175,10 +173,6 @@ export async function AccountTools() {
     // The marker lets the tools row close up on a phone for a guest only (`HEADER_TOOLS`);
     // `contents` leaves the three controls direct children of that row.
     <span data-guest-tools className="contents">
-      {/* A guest's Create only leads to sign-in: on a tablet that room goes to the sign-in buttons. */}
-      <span className="hidden lg:contents">
-        <CreateButton variant="header" member={false} />
-      </span>
       <GuestMenu lite={await getLiteState()} />
       <Link
         href="/login"

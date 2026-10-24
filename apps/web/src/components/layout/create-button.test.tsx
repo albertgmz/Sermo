@@ -21,20 +21,17 @@ const source = (file: string) =>
   readFileSync(join(import.meta.dir, file), "utf8");
 
 test("for a guest the button is a link to sign in that comes back to the page", () => {
-  for (const variant of ["header", "bar"] as const) {
-    const html = render(<CreateButton variant={variant} member={false} />);
-    expect(html).toContain('href="/login?next=%2Fforums%2F3-help"');
-    expect(html).toContain('aria-label="Create"');
-    expect(html).not.toContain("aria-haspopup");
-  }
+  const html = render(<CreateButton member={false} />);
+  expect(html).toContain('href="/login?next=%2Fforums%2F3-help"');
+  expect(html).toContain('aria-label="Create"');
+  expect(html).not.toContain("aria-haspopup");
 });
 
 test("for a member it is a plain button until it is reached for, and it carries no dialog code", () => {
-  const html = render(<CreateButton variant="header" member />);
+  const html = render(<CreateButton member />);
   expect(html).toMatch(
     /<button[^>]*aria-haspopup="dialog"[^>]*aria-expanded="false"/,
   );
-  expect(html).toContain(">Create<");
   // The dialog, the chooser and the composer come with the import made on first use.
   const src = source("create-button.tsx");
   expect(src).toContain('import("@/components/layout/create-popup")');
@@ -44,10 +41,8 @@ test("for a member it is a plain button until it is reached for, and it carries 
   expect(src).not.toMatch(/from "@\/components\/forum\//);
 });
 
-test("on a wide screen the button is in the header with its label, on a phone it is the round + of the bar", () => {
-  const header = render(<CreateButton variant="header" member />);
-  expect(header).toMatch(/class="[^"]*\bhidden\b[^"]*md:inline-flex/);
-  const bar = render(<CreateButton variant="bar" member />);
+test("the button is the round + of the phone's bar and is not drawn from md up", () => {
+  const bar = render(<CreateButton member />);
   expect(bar).toMatch(/class="[^"]*rounded-full[^"]*md:hidden/);
   // Icon only, so the button is named by its label; the touch target is at least 40 px.
   expect(bar).toContain('aria-label="Create"');
@@ -103,15 +98,10 @@ test("the bottom bar holds the + in the middle of its entries: an even count spl
   expect(empty).toContain('href="/login?next=%2Fforums%2F3-help"');
 });
 
-// A member's header holds the navigation, Search, Create, Messages, Alerts and the avatar from
-// 768 px up; between `md` and `lg` it has no room for words it can spare (measured: with the label
-// and the site's name the member's corner ran 68 px past a 768 px screen). A guest's Create is not
-// drawn below `lg` at all. The logo's part is in `site-header.test.tsx`.
-test("between md and lg Create is a square +, and the navigation scrolls, without a bar, before the page does", () => {
-  const header = render(<CreateButton variant="header" member />);
-  expect(header).toMatch(/class="[^"]*max-lg:w-10[^"]*max-lg:px-0/);
-  expect(header).toContain('<span class="max-lg:sr-only">Create</span>');
-  expect(header).toContain('aria-label="Create"');
+// A member's header holds the navigation, Search, Messages, Alerts and the avatar from 768 px up;
+// between `md` and `lg` it has no room for words it can spare. The logo's part is in
+// `site-header.test.tsx`.
+test("between md and lg the navigation scrolls, without a bar, before the page does", () => {
   const site = source("site-header.tsx");
   expect(site).toMatch(
     /<HeaderNav[\s\S]*?className="[^"]*\bmin-w-0\b[^"]*\boverflow-x-auto\b[^"]*\bwhitespace-nowrap\b[^"]*\[scrollbar-width:none\][^"]*\[&::-webkit-scrollbar\]:hidden/,

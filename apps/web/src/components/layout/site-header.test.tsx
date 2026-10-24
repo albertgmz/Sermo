@@ -30,7 +30,7 @@ mock.module("next/cache", () => ({
 }));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
-const { HeaderLogo, SiteHeader } = await import("./site-header");
+const { AccountTools, HeaderLogo, SiteHeader } = await import("./site-header");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intlServer);
@@ -114,4 +114,22 @@ test("the header has no narrow-page button: it lives in the footer", async () =>
   const html = await new Response(stream).text();
   expect(html).not.toContain("narrower page");
   expect(html).not.toContain("aria-pressed");
+});
+
+// Members start a thread from the forum's own New thread button; the round + of the phone's
+// bottom bar (`mobile-nav.tsx`) is the one Create entry left.
+test("the header has no Create control, for a member or for a guest", async () => {
+  for (const signedIn of [true, false]) {
+    backend = fakeBackend({
+      "auth.me": () => Response.json(viewerBody(signedIn)),
+      "site.get": () => Response.json(siteBody({ name: "Garden Club" })),
+      "users.cards": () => Response.json({ items: [] }),
+    });
+    const stream = await renderToReadableStream(withIntl(await AccountTools()));
+    await stream.allReady;
+    const html = await new Response(stream).text();
+    expect(html, String(signedIn)).not.toContain('aria-label="Create"');
+    expect(html, String(signedIn)).not.toContain('aria-haspopup="dialog"');
+    backend.restore();
+  }
 });

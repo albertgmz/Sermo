@@ -4,9 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  type CreateVariant,
+  TRIGGER_CLASS,
   TriggerContent,
-  triggerClass,
 } from "@/components/layout/create-trigger";
 import { LazyPopup } from "@/components/ui/lazy-popup";
 
@@ -17,13 +16,7 @@ const loadPopup = () => import("@/components/layout/create-popup");
 // The one entry point for writing something new: a discussion, a question, a poll or quiz, or a wall
 // post. For a member it opens the dialog; for a guest it is a link to sign in, which comes back to
 // the page it was pressed on.
-export function CreateButton({
-  variant,
-  member,
-}: {
-  variant: CreateVariant;
-  member: boolean;
-}) {
+export function CreateButton({ member }: { member: boolean }) {
   const t = useTranslations("layout.createButton");
   const pathname = usePathname();
   const label = t("label");
@@ -32,26 +25,26 @@ export function CreateButton({
       <Link
         href={`/login?next=${encodeURIComponent(pathname)}`}
         aria-label={label}
-        className={triggerClass(variant)}
+        className={TRIGGER_CLASS}
       >
-        <TriggerContent variant={variant} label={label} />
+        <TriggerContent />
       </Link>
     );
   }
   return (
     <LazyPopup
       load={loadPopup}
-      popup={{ variant, label }}
+      popup={{ label }}
       trigger={(lazy) => (
         <button
           type="button"
           aria-haspopup="dialog"
           aria-expanded="false"
           aria-label={label}
-          className={triggerClass(variant)}
+          className={TRIGGER_CLASS}
           {...lazy}
         >
-          <TriggerContent variant={variant} label={label} />
+          <TriggerContent />
         </button>
       )}
     />

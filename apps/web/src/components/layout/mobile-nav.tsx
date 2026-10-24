@@ -31,7 +31,7 @@ export function MobileNav(props: {
 
   const create = (
     <li key="create" className="flex items-center justify-center">
-      <CreateButton variant="bar" member={member} />
+      <CreateButton member={member} />
     </li>
   );
 

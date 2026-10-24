@@ -153,25 +153,12 @@ test("marking a forum read asks for that forum's marker and stays on the page", 
   assert.equal(asked.length, 1);
 });
 
-test("marking every forum read asks for the marker of all of them", async () => {
-  answer = {
-    status: 200,
-    body: { readAt: "2026-01-01T00:00:00.000Z", forums: 9 },
-  };
-  assert.deepEqual(await actions.markAllForumsReadAction({}), { done: true });
-  assert.equal(asked[0].method, "PUT");
-  assert.equal(asked[0].url, `${ROOT}/nodes/read`);
-});
-
 test("the backend's refusal of a mark read is what the form shows", async () => {
   answer = {
     status: 404,
     body: { error: { code: "not_found", message: "No such forum." } },
   };
   assert.deepEqual(await actions.markForumReadAction(4, {}), {
-    error: "No such forum.",
-  });
-  assert.deepEqual(await actions.markAllForumsReadAction({}), {
     error: "No such forum.",
   });
 });

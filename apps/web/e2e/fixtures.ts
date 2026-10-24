@@ -307,7 +307,8 @@ export async function signInWith(
   throw new Error(`the sign-in form did not let the member in: ${message}`);
 }
 
-// The button that opens the Create dialog: the bottom bar's on a phone, the header's on a tablet.
+// The button that opens the Create dialog: the bottom bar's round + (a phone only; from 768 px up the
+// forum's own New thread button starts a thread).
 export const createButton = (page: Page) =>
   page.getByRole("button", { name: "Create", exact: true }).first();
 

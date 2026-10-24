@@ -132,11 +132,11 @@ const forumPage = async (id: string) =>
     }),
   );
 
-test("a member sees Mark forums read on the forum list, a guest does not", async () => {
-  backend(true);
-  expect(await list()).toContain("Mark forums read");
-  backend(false);
-  expect(await list()).not.toContain("Mark forums read");
+test("the forum list has no mark-all control, for a member or for a guest", async () => {
+  for (const signedIn of [true, false]) {
+    backend(signedIn);
+    expect(await list(), String(signedIn)).not.toMatch(/Mark forums? read/);
+  }
 });
 
 test("a member sees Mark forum read on a forum and on a category, a guest does not", async () => {

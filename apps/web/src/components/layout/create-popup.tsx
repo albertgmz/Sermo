@@ -5,21 +5,20 @@ import { useEffect, useRef, useState } from "react";
 import { ComposerSheet } from "@/components/forum/composer";
 import { CreateFlow } from "@/components/forum/create-flow";
 import {
-  type CreateVariant,
+  TRIGGER_CLASS,
   TriggerContent,
-  triggerClass,
 } from "@/components/layout/create-trigger";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import type { OpenedProps } from "@/components/ui/lazy-popup";
 
-export type CreatePopupProps = { variant: CreateVariant; label: string };
+export type CreatePopupProps = { label: string };
 
 // The button and the dialog it opens (the whole screen, at every size), loaded when the plain
 // button of `CreateButton` is pressed and mounted open. It stays mounted when it is closed, so what
 // was written is there when it is opened again, and closing returns focus to the button. A post that was taken redirects, which draws the
 // layout anew and with it the dialog, empty and closed; a navigation of any other kind closes it.
 export default function CreatePopup(props: CreatePopupProps & OpenedProps) {
-  const { variant, label } = props;
+  const { label } = props;
   const [open, setOpen] = useState(true);
   // Counts the times the dialog was opened: each one starts at the choice of what to write.
   const [visit, setVisit] = useState(1);
@@ -41,8 +40,8 @@ export default function CreatePopup(props: CreatePopupProps & OpenedProps) {
 
   return (
     <Dialog open={open} onOpenChange={change}>
-      <DialogTrigger aria-label={label} className={triggerClass(variant)}>
-        <TriggerContent variant={variant} label={label} />
+      <DialogTrigger aria-label={label} className={TRIGGER_CLASS}>
+        <TriggerContent />
       </DialogTrigger>
       <ComposerSheet open={open} screen>
         <CreateFlow visit={visit} />
