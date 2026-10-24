@@ -1,7 +1,7 @@
 // What the Create button offers to post, decided from what the member may do. Pure, so the rules are
 // held by tests.
 
-import type { ForumChoice } from "@/components/forum/forum-choices";
+import { type ForumChoice, postable } from "@/components/forum/forum-choices";
 
 // A discussion, a question and a poll or quiz are threads; a wall post is a post on the member's own
 // wall. The backend has no thread type for a question, so it is a discussion worded as one.
@@ -26,9 +26,9 @@ export type CreateData = {
 
 export type CreateLoad = { ok: true; data: CreateData } | { ok: false };
 
-// The forums a member may start a thread in; categories take none.
+// The forums a member may start a thread in; categories and read-only forums take none.
 export function postableForums(forums: ForumChoice[]) {
-  return forums.filter((forum) => forum.type === "forum" && forum.canPost);
+  return forums.filter(postable);
 }
 
 export type CreateStep = "kind" | "forum" | "compose";

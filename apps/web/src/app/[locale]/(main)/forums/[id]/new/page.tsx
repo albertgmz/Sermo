@@ -13,6 +13,7 @@ import { ComposerSkeleton, LoadingRegion } from "@/components/forum/skeletons";
 import { ThreadComposer } from "@/components/forum/thread-composer";
 import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
+import { forumChoices } from "@/lib/sermo/forum-choices";
 import { parsePageId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { activePrefixViews } from "@/lib/sermo/threads";
@@ -87,13 +88,7 @@ async function ThreadForm({
       viewer.user ? read(preferencesGet, {}) : null,
     ]);
   const prefixes = activePrefixViews(prefixItems);
-  const forums = nodes.map(({ id, parentId, title, type, permissions }) => ({
-    id,
-    parentId,
-    title,
-    type,
-    canPost: permissions.canPost,
-  }));
+  const forums = await forumChoices(nodes);
   return (
     <ThreadComposer
       forumId={id}

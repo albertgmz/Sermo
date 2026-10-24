@@ -37,6 +37,8 @@ const EMISSION_GATES: Record<string, string> = {
     "Draws the reaction picture that src/lib/sermo/reactions.ts left in the data: the address is dropped there when the reactions category is blocked, so there is nothing to emit.",
   "src/components/forum/picture-image.tsx":
     "Draws the picture of the media viewer that src/lib/sermo/media-pictures.ts left in the data: the address is dropped there when post pictures are blocked, so there is nothing to emit.",
+  "src/components/forum/forum-choice-art.tsx":
+    "Draws the forum picture that src/lib/sermo/forum-choices.ts left in the data of the forum chooser: the address is dropped there when forum art is blocked, so there is nothing to emit.",
   "src/components/forum/mention-suggest.tsx":
     "Draws the avatar address src/components/forum/mention-find.ts left in the data: the address is dropped there when avatars are blocked, so there is nothing to emit.",
   "src/components/ui/avatar.tsx":
@@ -165,6 +167,8 @@ const BACKEND_PICTURE_GATES: Record<string, string[]> = {
   "src/components/layout/site-icon.tsx": ["site_icon"],
   "src/app/manifest.ts": ["site_icon"],
   "src/components/layout/page-backdrop.tsx": ["site_backdrop"],
+  // Where the pictures reach the data the forum chooser's gate draws from.
+  "src/lib/sermo/forum-choices.ts": ["node_cover", "node_icon"],
   // Where the pictures reach the data the reaction gate draws from.
   "src/lib/sermo/reactions.ts": ["reaction_image"],
 };

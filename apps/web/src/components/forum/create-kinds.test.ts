@@ -13,7 +13,15 @@ const forum = (
   parentId: number | null,
   type: ForumChoice["type"],
   canPost: boolean,
-): ForumChoice => ({ id, parentId, title: `Node ${id}`, type, canPost });
+): ForumChoice => ({
+  id,
+  parentId,
+  title: `Node ${id}`,
+  type,
+  canPost,
+  readOnly: false,
+  image: null,
+});
 
 const data = (over: Partial<CreateData>): CreateData => ({
   memberId: 5,
@@ -71,6 +79,15 @@ test("a category takes no thread, whatever it says about posting", () => {
   expect(
     createOptions(data({ forums: [forum(1, null, "category", true)] })),
   ).toEqual(["wall"]);
+});
+
+test("an administrator whose only forum is read-only is offered no thread", () => {
+  const forums = [
+    forum(1, null, "category", true),
+    { ...forum(2, 1, "forum", true), readOnly: true },
+  ];
+  expect(postableForums(forums)).toEqual([]);
+  expect(createOptions(data({ forums }))).toEqual(["wall"]);
 });
 
 test("three kinds are threads and the wall post is not", () => {

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { messages } from "@/i18n/messages";
 import { withIntl } from "@/lib/test-intl";
+import type { ForumChoice } from "./forum-choices";
 
 // The composer hands on server actions.
 mock.module("server-only", () => ({}));
@@ -22,11 +23,26 @@ const { ComposerForm } = await import("./composer");
 const { panelKey } = await import("./forum-choice-panel");
 const { AttachmentField } = await import("./attachment-field");
 
+const choice = (
+  id: number,
+  parentId: number | null,
+  title: string,
+  type: ForumChoice["type"],
+  canPost: boolean,
+): ForumChoice => ({
+  id,
+  parentId,
+  title,
+  type,
+  canPost,
+  readOnly: false,
+  image: null,
+});
 const FORUMS = [
-  { id: 1, parentId: null, title: "Support", type: "category", canPost: false },
-  { id: 2, parentId: 1, title: "Help", type: "forum", canPost: true },
-  { id: 3, parentId: 1, title: "Bugs", type: "forum", canPost: true },
-] as const;
+  choice(1, null, "Support", "category", false),
+  choice(2, 1, "Help", "forum", true),
+  choice(3, 1, "Bugs", "forum", true),
+];
 const PREFIXES = [
   { id: 7, label: "Solved", color: "#22aa66", icon: "circle-check" },
 ];

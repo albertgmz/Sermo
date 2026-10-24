@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { choiceRows, type ForumChoice, searchChoices } from "./forum-choices";
+import type { ForumArtUrl } from "./forum-choice-art";
+import {
+  choiceRows,
+  choiceSections,
+  type ForumChoice,
+  searchChoices,
+} from "./forum-choices";
 
 const forum = (
   id: number,
@@ -7,7 +13,15 @@ const forum = (
   title: string,
   canPost = true,
   type: ForumChoice["type"] = "forum",
-): ForumChoice => ({ id, parentId, title, type, canPost });
+): ForumChoice => ({
+  id,
+  parentId,
+  title,
+  type,
+  canPost,
+  readOnly: false,
+  image: null,
+});
 
 // Support (category) > Help (forum) > Billing (sub-forum); Lounge (category) > Chat (forum);
 // Archive (category) > Old (forum the member may not post in); News (forum, root).
@@ -68,5 +82,70 @@ test("a search never offers a heading or a forum the member may not post in", ()
   expect(searchChoices(NODES, "")).toEqual([]);
   expect(searchChoices(NODES, "b").map((row) => row.title)).toEqual([
     "Billing",
+  ]);
+});
+
+test("a read-only forum is never offered, not even to an administrator who may post there", () => {
+  const nodes = [
+    forum(1, null, "Support", false, "category"),
+    forum(2, 1, "Help"),
+    { ...forum(3, 1, "Announcements"), readOnly: true },
+  ];
+  expect(choiceRows(nodes).map((row) => row.title)).toEqual([
+    "Support",
+    "Help",
+  ]);
+  expect(searchChoices(nodes, "announce")).toEqual([]);
+});
+
+test("a heading that holds only read-only forums is left out", () => {
+  const nodes = [
+    forum(1, null, "News", false, "category"),
+    { ...forum(2, 1, "Announcements"), readOnly: true },
+    forum(3, null, "Lounge", false, "category"),
+    forum(4, 3, "Chat"),
+  ];
+  expect(choiceRows(nodes).map((row) => row.title)).toEqual(["Lounge", "Chat"]);
+});
+
+test("a row carries the forum's picture", () => {
+  const image = "/files/9" as ForumArtUrl;
+  const [row] = choiceRows([{ ...forum(1, null, "Chat"), image }]);
+  expect(row?.image).toBe(image);
+});
+
+test("the list is drawn in sections: each heading with the forums right under it, after its parent's", () => {
+  const sections = choiceSections(
+    choiceRows([
+      ...NODES,
+      forum(9, 2, "Feedback"),
+      forum(10, 1, "Guides"),
+      forum(11, null, "Rules"),
+    ]),
+  );
+  expect(
+    sections.map((section) => [
+      section.heading?.title ?? null,
+      section.items.map((row) => row.title),
+    ]),
+  ).toEqual([
+    ["Support", ["Help", "Guides"]],
+    ["Help", ["Billing", "Feedback"]],
+    ["Lounge", ["Chat"]],
+    [null, ["News", "Rules"]],
+  ]);
+});
+
+test("a folded heading keeps its section, empty", () => {
+  const sections = choiceSections(choiceRows(NODES, new Set([1])));
+  expect(
+    sections.map((section) => [
+      section.heading?.title ?? null,
+      section.items.length,
+    ]),
+  ).toEqual([
+    ["Support", 0],
+    ["Lounge", 1],
+    [null, 1],
   ]);
 });

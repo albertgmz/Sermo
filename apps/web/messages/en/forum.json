@@ -353,9 +353,7 @@
     "noMatches": "No forum matches that.",
     "noForums": "There is no forum you can post in.",
     "aria": {
-      "back": "Back",
-      "collapse": "Collapse {title}",
-      "expand": "Expand {title}"
+      "back": "Back"
     }
   },
   "threadFields": {

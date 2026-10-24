@@ -353,9 +353,7 @@
     "noMatches": "Ningún foro coincide.",
     "noForums": "No hay ningún foro en el que puedas publicar.",
     "aria": {
-      "back": "Volver",
-      "collapse": "Contraer {title}",
-      "expand": "Expandir {title}"
+      "back": "Volver"
     }
   },
   "threadFields": {

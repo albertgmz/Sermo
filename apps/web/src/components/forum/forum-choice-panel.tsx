@@ -3,9 +3,12 @@
 import { Check, ChevronDown, ChevronLeft, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { ForumChoiceArt } from "@/components/forum/forum-choice-art";
 import {
   type ChoiceRow,
+  type ChoiceSection,
   choiceRows,
+  choiceSections,
   type ForumChoice,
   searchChoices,
 } from "@/components/forum/forum-choices";
@@ -13,8 +16,81 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const ROW =
-  "flex min-h-10 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
+// One column on a phone, two from a card as wide as the Create dialog's, three in the composer's
+// page; by the width of the list itself, which differs between the two.
+const GRID = "grid gap-2 @lg:grid-cols-2 @4xl:grid-cols-3";
+
+// What a forum without a picture shows instead: its first letter, large and cropped by the tile.
+export const monogram = (title: string) =>
+  Array.from(title.trim())[0]?.toLocaleUpperCase() ?? "";
+
+// A forum to choose, drawn as a small banner: its picture behind the title, darkened (or lightened,
+// in the light theme) under the text by a scrim of the page's own background, so the title reads
+// on any picture in both themes. Without a picture, a wash of the accent and the forum's letter.
+export function ForumTile({
+  row,
+  chosen,
+  trail,
+  onChoose,
+}: {
+  row: ChoiceRow;
+  chosen: boolean;
+  // The titles above it, for a result shown out of its place.
+  trail: boolean;
+  onChoose: (id: number) => void;
+}) {
+  return (
+    <li className="min-w-0">
+      <button
+        type="button"
+        aria-current={chosen || undefined}
+        data-forum-tile={row.image ? "picture" : "plain"}
+        onClick={() => onChoose(row.id)}
+        className={cn(
+          "group/tile relative isolate flex h-16 w-full min-w-0 items-center gap-3 overflow-hidden rounded-lg border bg-card px-3 text-left outline-none transition-colors hover:border-ring focus-visible:ring-2 focus-visible:ring-ring",
+          chosen && "border-primary",
+        )}
+      >
+        {row.image ? (
+          <>
+            <ForumChoiceArt
+              url={row.image}
+              className="absolute inset-0 -z-20 size-full transition-transform duration-300 motion-safe:group-hover/tile:scale-[1.04]"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 -z-10 bg-linear-to-r from-background/95 from-30% via-background/75 via-60% to-background/5"
+            />
+          </>
+        ) : (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 overflow-hidden bg-linear-to-br from-primary/15 via-primary/5 to-transparent"
+          >
+            <span className="absolute -right-1 -bottom-3 text-6xl leading-none font-black tracking-tighter text-primary-ink/15 select-none">
+              {monogram(row.title)}
+            </span>
+          </span>
+        )}
+        <span className="max-w-[72%] min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold">
+            {row.title}
+          </span>
+          {trail && row.trail.length > 0 && (
+            <span className="block truncate text-xs text-foreground/75">
+              {row.trail.join(" › ")}
+            </span>
+          )}
+        </span>
+        {chosen && (
+          <span className="ml-auto flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <Check aria-hidden="true" className="size-3.5" />
+          </span>
+        )}
+      </button>
+    </li>
+  );
+}
 
 // The keys of the panel. Enter in the search box would send the form the panel stands in, so it
 // does nothing; Escape goes back to the composer.
@@ -41,7 +117,7 @@ export function panelKey(
 }
 
 // A composer's choice of forum, drawn in place of the composer itself: a search box and the forums
-// the member may post in, under their categories, which fold. Choosing one hands its id on.
+// the member may post in, as tiles under their categories, which fold. Choosing one hands its id on.
 export function ForumChoicePanel({
   forums,
   current,
@@ -59,9 +135,13 @@ export function ForumChoicePanel({
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set());
   const searching = query.trim() !== "";
-  const rows = searching
-    ? searchChoices(forums, query)
-    : choiceRows(forums, collapsed);
+  const sections: ChoiceSection[] = searching
+    ? [{ heading: null, items: searchChoices(forums, query) }]
+    : choiceSections(choiceRows(forums, collapsed));
+  // Folded headings still show; only a search without a match, or no forum at all, is empty.
+  const empty = sections.every(
+    (section) => !section.heading && section.items.length === 0,
+  );
 
   useEffect(() => {
     search.current?.focus();
@@ -73,30 +153,6 @@ export function ForumChoicePanel({
       if (!next.delete(id)) next.add(id);
       return next;
     });
-  }
-
-  function choice(row: ChoiceRow) {
-    const chosen = row.id === current;
-    return (
-      <button
-        type="button"
-        aria-current={chosen || undefined}
-        onClick={() => onChoose(row.id)}
-        className={cn(ROW, "flex-1 hover:bg-muted", chosen && "font-semibold")}
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block truncate">{row.title}</span>
-          {searching && row.trail.length > 0 && (
-            <span className="block truncate text-xs font-normal text-muted-foreground">
-              {row.trail.join(" › ")}
-            </span>
-          )}
-        </span>
-        {chosen && (
-          <Check aria-hidden="true" className="size-4 text-primary-ink" />
-        )}
-      </button>
-    );
   }
 
   return (
@@ -135,62 +191,62 @@ export function ForumChoicePanel({
           className="pl-8"
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2 md:min-h-72">
-        {rows.length === 0 ? (
+      <div className="@container min-h-0 flex-1 overflow-y-auto px-2 pt-1 pb-3 md:min-h-72 md:px-3">
+        {empty ? (
           <p className="px-2 py-6 text-center text-sm text-muted-foreground">
             {searching ? t("noMatches") : t("noForums")}
           </p>
         ) : (
-          <ul className="space-y-0.5">
-            {rows.map((row) => (
-              <li
-                key={row.id}
-                style={
-                  searching
-                    ? undefined
-                    : { paddingLeft: `${row.depth * 1.25}rem` }
-                }
-                className="flex items-center"
+          sections.map((section) => {
+            const heading = section.heading;
+            const open = !heading || !collapsed.has(heading.id);
+            return (
+              <section
+                key={heading?.id ?? `root-${section.items[0]?.id}`}
+                className="pt-2"
               >
-                {row.hasChildren && !searching ? (
-                  <button
-                    type="button"
-                    aria-expanded={!collapsed.has(row.id)}
-                    aria-label={t(
-                      collapsed.has(row.id) ? "aria.expand" : "aria.collapse",
-                      { title: row.title },
-                    )}
-                    onClick={() => toggle(row.id)}
-                    className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <ChevronDown
-                      aria-hidden="true"
-                      className={cn(
-                        "size-4 transition-transform",
-                        collapsed.has(row.id) && "-rotate-90",
-                      )}
-                    />
-                  </button>
-                ) : (
-                  !searching && (
-                    <span aria-hidden="true" className="size-10 shrink-0" />
-                  )
+                {heading && (
+                  <h3>
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      onClick={() => toggle(heading.id)}
+                      className="flex min-h-9 w-full min-w-0 items-center gap-1.5 rounded-md px-1 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <ChevronDown
+                        aria-hidden="true"
+                        className={cn(
+                          "size-4 shrink-0 transition-transform",
+                          !open && "-rotate-90",
+                        )}
+                      />
+                      <span className="min-w-0 truncate">
+                        {heading.trail.length > 0 && (
+                          <span className="font-normal">
+                            {heading.trail.join(" › ")} ›{" "}
+                          </span>
+                        )}
+                        {heading.title}
+                      </span>
+                    </button>
+                  </h3>
                 )}
-                {row.selectable ? (
-                  choice(row)
-                ) : (
-                  <span
-                    className={cn(
-                      ROW,
-                      "flex-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase",
-                    )}
-                  >
-                    <span className="truncate">{row.title}</span>
-                  </span>
+                {section.items.length > 0 && (
+                  <ul className={cn(GRID, heading && "mt-1")}>
+                    {section.items.map((row) => (
+                      <ForumTile
+                        key={row.id}
+                        row={row}
+                        chosen={row.id === current}
+                        trail={searching}
+                        onChoose={onChoose}
+                      />
+                    ))}
+                  </ul>
                 )}
-              </li>
-            ))}
-          </ul>
+              </section>
+            );
+          })
         )}
       </div>
     </fieldset>

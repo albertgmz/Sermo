@@ -4,6 +4,7 @@ import { nodesList, preferencesGet } from "@sermo/core/contracts";
 import type { CreateLoad } from "@/components/forum/create-kinds";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
+import { forumChoices } from "@/lib/sermo/forum-choices";
 import { getViewer } from "@/lib/sermo/session";
 
 // What the Create flow needs when it opens, asked once for the member who pressed the button: the
@@ -22,13 +23,7 @@ export async function loadCreateAction(): Promise<CreateLoad> {
       ok: true,
       data: {
         memberId: viewer.user.id,
-        forums: nodes.map(({ id, parentId, title, type, permissions }) => ({
-          id,
-          parentId,
-          title,
-          type,
-          canPost: permissions.canPost,
-        })),
+        forums: await forumChoices(nodes),
         canTag: viewer.resolvedPermissions["tag.apply"] === true,
         canWall: viewer.permissions.canPostProfile,
         watchOnCreate: preferences.watchOnCreate,
