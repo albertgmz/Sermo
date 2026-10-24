@@ -35,6 +35,8 @@ const ALLOWED: Record<string, string> = {
   "src/app/[locale]/(main)/threads/[id]/pages.ts": "a post's address",
   "src/app/[locale]/(main)/threads/[id]/page.tsx": "the thread's own addresses",
   "src/app/[locale]/(main)/threads/[id]/post-actions.tsx": "edit link",
+  // Who is online: the page another member is viewing, linked as XenForo's user_activity links it.
+  "src/components/forum/activity-line.tsx": "the page a visitor is viewing",
   // Alerts name the exact item they are about.
   "src/app/[locale]/(main)/notifications/href.ts": "alerts point at the item",
   // Staff panels link the content a moderator is looking at.

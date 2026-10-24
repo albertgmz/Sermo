@@ -8,11 +8,15 @@ import { threadsCreateOp } from "../forums";
 import { world } from "./fixtures.test";
 import { ONLINE_CACHE_MS, ONLINE_NOW_MS, onlineSql } from "./online";
 import {
+  FLUSH_CHUNK,
   flushVisits,
+  MAX_PENDING_GUESTS,
+  MAX_STORED_GUESTS,
   noteVisit,
   onlineVisitSql,
   PLACE_HEADER,
   parsePlace,
+  pendingVisits,
   pruneOnlineVisitors,
   VISIT_KEEP_MS,
 } from "./online-track";
@@ -109,6 +113,85 @@ describe("page views are noted per request and written by the flush", () => {
     expect(parsePlace("members")).toEqual({ kind: "members", id: null });
     for (const value of ["thread", "thread:0", "thread:12-title", "/threads/12", "forum:1?x", ""])
       expect(parsePlace(value)).toEqual({ kind: "page", id: null });
+  });
+
+  test("a flood of new guests keeps the notes and the table bounded, and members are still noted", () => {
+    const s = setup();
+    const member = s.user();
+    const guests = () =>
+      s.ctx.sqlite
+        .prepare<{ n: number }, []>(
+          "SELECT count(*) AS n FROM online_visitors WHERE user_id IS NULL",
+        )
+        .get()!.n;
+    let next = 0;
+    const flood = () => {
+      for (let i = 0; i < MAX_PENDING_GUESTS + 500; i++)
+        noteVisit(s.ctx, {
+          userId: null,
+          ip: "198.51.100.1",
+          userAgent: `${FIREFOX} ${next++}`,
+          place: "forumList",
+        });
+    };
+    flood();
+    expect(pendingVisits(s.ctx).size).toBe(MAX_PENDING_GUESTS);
+    // A member's page view is still noted with the guests' share full.
+    s.memberView(member.id, `forum:${s.forum.id}`);
+    expect(pendingVisits(s.ctx).has(`u:${member.id}`)).toBe(true);
+    flushVisits(s.ctx);
+    for (let round = 0; round < 3; round++) {
+      flood();
+      flushVisits(s.ctx);
+    }
+    expect(guests()).toBe(MAX_STORED_GUESTS);
+    // A guest already stored is still moved on; the member's row is there.
+    s.ctx.clock.advance(MINUTE);
+    noteVisit(s.ctx, {
+      userId: null,
+      ip: "198.51.100.1",
+      userAgent: `${FIREFOX} 0`,
+      place: "search",
+    });
+    flushVisits(s.ctx);
+    expect(guests()).toBe(MAX_STORED_GUESTS);
+    expect(
+      s.ctx.sqlite
+        .prepare<{ n: number }, []>(
+          "SELECT count(*) AS n FROM online_visitors WHERE place_kind = 'search'",
+        )
+        .get()!.n,
+    ).toBe(1);
+    expect(
+      s.ctx.sqlite
+        .prepare<{ n: number }, [string]>(
+          "SELECT count(*) AS n FROM online_visitors WHERE visitor_key = ?1",
+        )
+        .get(`u:${member.id}`)!.n,
+    ).toBe(1);
+  });
+
+  test("the flush writes in chunks: a failed chunk keeps the ones before and notes the rest again", () => {
+    const s = setup();
+    const count = FLUSH_CHUNK * 2 + 200;
+    for (let i = 0; i < count; i++)
+      noteVisit(s.ctx, {
+        userId: null,
+        ip: "198.51.100.1",
+        userAgent: `${FIREFOX} ${i}`,
+        place: "forumList",
+      });
+    // A row of the second chunk cannot be written.
+    const failing = [...pendingVisits(s.ctx).keys()][FLUSH_CHUNK + 200]!;
+    s.ctx.sqlite.run(
+      `CREATE TEMP TRIGGER refuse BEFORE INSERT ON online_visitors WHEN NEW.visitor_key = '${failing}' BEGIN SELECT RAISE(ABORT, 'refused'); END`,
+    );
+    expect(() => flushVisits(s.ctx)).toThrow("refused");
+    expect(rows(s.ctx)).toBe(FLUSH_CHUNK);
+    expect(pendingVisits(s.ctx).size).toBe(count - FLUSH_CHUNK);
+    s.ctx.sqlite.run("DROP TRIGGER refuse");
+    expect(flushVisits(s.ctx)).toBe(count - FLUSH_CHUNK);
+    expect(rows(s.ctx)).toBe(count);
   });
 
   test("rows unseen for an hour are pruned, newer ones kept", async () => {
@@ -275,7 +358,10 @@ describe("online.list", () => {
 
   test("the hot reads use their indexes", () => {
     const s = setup();
-    expectNoTableScan(s.ctx, onlineSql.visitors, [0]);
+    expectNoTableScan(s.ctx, onlineSql.memberVisits, [0]);
+    expectNoTableScan(s.ctx, onlineSql.guestVisits, [0, 1]);
+    expectNoTableScan(s.ctx, onlineVisitSql.guestCount, []);
+    expectNoTableScan(s.ctx, onlineVisitSql.guestTouch, ["g:x", null, "page", null, null, 0]);
     expectNoTableScan(s.ctx, onlineSql.visitorsByKey, ["[]"]);
     expectNoTableScan(s.ctx, onlineSql.members, [0]);
     expectNoTableScan(s.ctx, onlineSql.membersById, ["[]"]);

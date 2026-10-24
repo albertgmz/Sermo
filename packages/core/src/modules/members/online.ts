@@ -24,6 +24,7 @@ import { isBanned } from "./access";
 import { activityShown, loadViewerCards, restrictedFor } from "./cards";
 import { robotInfo } from "./online-robots";
 import {
+  MAX_STORED_GUESTS,
   memberVisitKey,
   pendingVisits,
   type RawPlace,
@@ -69,8 +70,12 @@ export const onlineSql = {
     "SELECT id, last_activity_at, show_online, erased_at, banned_until, banned_permanently FROM users INDEXED BY users_last_activity WHERE last_activity_at >= ?1 AND erased_at IS NULL ORDER BY last_activity_at DESC, id DESC",
   membersById:
     "SELECT id, last_activity_at, show_online, erased_at, banned_until, banned_permanently FROM users WHERE id IN (SELECT value FROM json_each(?1))",
-  visitors:
-    "SELECT visitor_key, user_id, robot, place_kind, place_id, ip, seen_at FROM online_visitors WHERE seen_at >= ?1",
+  // Members' places: bounded by the accounts in use.
+  memberVisits:
+    "SELECT visitor_key, user_id, robot, place_kind, place_id, ip, seen_at FROM online_visitors WHERE user_id IS NOT NULL AND seen_at >= ?1",
+  // Guests and robots, newest first; the flush caps them, and so does this read.
+  guestVisits:
+    "SELECT visitor_key, user_id, robot, place_kind, place_id, ip, seen_at FROM online_visitors WHERE user_id IS NULL AND seen_at >= ?1 ORDER BY seen_at DESC LIMIT ?2",
   visitorsByKey:
     "SELECT visitor_key, user_id, robot, place_kind, place_id, ip, seen_at FROM online_visitors WHERE visitor_key IN (SELECT value FROM json_each(?1))",
   threads:
@@ -247,15 +252,18 @@ function readSnapshot(ctx: Ctx, now: number): Snapshot {
       ctx.sqlite.prepare<MemberRow, [string]>(onlineSql.membersById),
     ).all(JSON.stringify(buffered)))
       if (row.erased_at === null) keep(row);
-  const visits = withPending(
-    ctx,
-    prepared(ctx, "members.onlineVisitors", () =>
-      ctx.sqlite.prepare<VisitorRow, [number]>(onlineSql.visitors),
-    ).all(now - VISIT_KEEP_MS),
-  );
+  const hour = now - VISIT_KEEP_MS;
+  const visits = withPending(ctx, [
+    ...prepared(ctx, "members.onlineMemberVisits", () =>
+      ctx.sqlite.prepare<VisitorRow, [number]>(onlineSql.memberVisits),
+    ).all(hour),
+    ...prepared(ctx, "members.onlineGuestVisits", () =>
+      ctx.sqlite.prepare<VisitorRow, [number, number]>(onlineSql.guestVisits),
+    ).all(hour, MAX_STORED_GUESTS),
+  ]);
   const guests: ListedGuest[] = [];
   for (const [key, visit] of visits)
-    if (visit.userId === null && visit.at >= now - VISIT_KEEP_MS) guests.push({ key, visit });
+    if (visit.userId === null && visit.at >= hour) guests.push({ key, visit });
   return {
     at: now,
     members: [...seen.values()].sort((a, b) => b.at - a.at || b.id - a.id),

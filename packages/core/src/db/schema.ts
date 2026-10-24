@@ -532,8 +532,8 @@ export const sessionActivity = sqliteTable("session_activity", {
  * (`visitor_key` `u:<id>`) and per guest or robot (`g:<hash>`, a salted hash of the address and
  * user agent). The place is a kind and, for a forum, a thread or a member, its id: never an
  * address. `ip` is kept for guests and robots only, for staff who may see addresses. Written by a
- * scheduled flush of what requests buffered (never per request); rows unseen for an hour are
- * pruned in bounded chunks.
+ * scheduled flush of what requests buffered (never per request), in bounded chunks; guests and
+ * robots are capped (`MAX_STORED_GUESTS`); rows unseen for an hour are pruned in bounded chunks.
  */
 export const onlineVisitors = sqliteTable(
   "online_visitors",
@@ -550,8 +550,11 @@ export const onlineVisitors = sqliteTable(
   },
   (t) => [
     uniqueIndex("online_visitors_key").on(t.visitorKey),
-    // online.list (guests and robots of the last hour) and the prune, oldest first
+    // the prune, oldest first
     index("online_visitors_seen").on(t.seenAt),
+    // online.list's guests and robots (user_id IS NULL), newest first and capped, the count of
+    // stored guests the flush caps, and deleting a member (the foreign key)
+    index("online_visitors_user").on(t.userId, t.seenAt),
   ],
 );
 
