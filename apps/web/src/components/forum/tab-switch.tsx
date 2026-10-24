@@ -29,7 +29,9 @@ import { cn } from "@/lib/utils";
 //   load    The part as the address with that search draws it; null when there is nothing to show
 //           in place (the address is then opened as a page of its own).
 //
-// Inside, an element with `data-switch-panel` is what dims while the next part is on its way.
+// Inside, an element with `data-switch-panel` is what dims while the next part is on its way, and
+// one with `data-switch-title` names the part where the page's title does (a tab with a title of
+// its own): the title follows it.
 
 // A link or a form to this page: the address it opens, or null for anything else (another page,
 // a new tab, a download).
@@ -38,6 +40,15 @@ function sameScreen(href: string) {
   if (url.origin !== location.origin || url.pathname !== location.pathname)
     return null;
   return url;
+}
+
+// The name of the part shown, where it has one of its own (`data-switch-title`).
+function titleOf(node: HTMLElement | null) {
+  return (
+    node
+      ?.querySelector("[data-switch-title]")
+      ?.getAttribute("data-switch-title") ?? null
+  );
 }
 
 // The element an address's anchor names, if the page holds it (a malformed one names none).
@@ -80,6 +91,12 @@ export function TabSwitch({
   // The link pressed, which keeps the keyboard when the part drawn anew replaces it.
   const pressed = useRef<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  // The page's title as the server drew it, and the name of the part in it.
+  const titled = useRef<{ title: string; part: string } | null>(null);
+  useEffect(() => {
+    const part = titleOf(box.current);
+    if (part) titled.current = { title: document.title, part };
+  }, []);
   const switched = usePlaceSwitch({
     box,
     place,
@@ -89,6 +106,12 @@ export function TabSwitch({
     // The scroll position stays, unless the top of the part is above the screen (a press further
     // down): then it starts at its top. An anchor in the address is gone to once it is there.
     arrive: (node) => {
+      const part = titleOf(node);
+      if (part && titled.current)
+        document.title = titled.current.title.replace(
+          titled.current.part,
+          part,
+        );
       const href = pressed.current;
       pressed.current = null;
       const active = document.activeElement;

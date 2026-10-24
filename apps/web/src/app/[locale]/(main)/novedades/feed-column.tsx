@@ -122,11 +122,16 @@ export async function FeedColumn({
   widgets: ApiWidget[];
   inPlace?: boolean;
 }) {
-  const t = await getTranslations("home.page");
+  const [t, seo] = await Promise.all([
+    getTranslations("home.page"),
+    getTranslations("home.seo"),
+  ]);
   const { tab, params } = opened;
   const { areas, context } = feedWidgets(tab, params, widgets);
   return (
     <>
+      {/* The tab's name in the page's title, which follows a tab opened in place. */}
+      <span hidden data-switch-title={seo(`${tab}.title`)} />
       {/* No fallback: only members get a composer, and the shell cannot tell them from guests
           without reading the cookie. The composer settles on the session alone, ahead of the
           feed. */}

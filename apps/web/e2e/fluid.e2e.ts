@@ -190,11 +190,14 @@ test.describe("signed in", () => {
     await expect(bar.locator('[aria-current="page"]')).toContainText(
       "Trending",
     );
+    // The page's title names the tab, as a page load of the address would.
+    await expect(page).toHaveTitle(/^Trending threads/);
     await expectInPlace(page, "trending");
 
     await page.goBack();
     await expect(page).toHaveURL((url) => url.search === "?tab=latest");
     await expect(bar.locator('[aria-current="page"]')).toContainText("Latest");
+    await expect(page).toHaveTitle(/^Latest threads and posts/);
     await expectInPlace(page, "back to latest");
     expect(loads).toEqual([]);
   });
