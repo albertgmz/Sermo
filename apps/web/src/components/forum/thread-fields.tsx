@@ -41,13 +41,15 @@ export function ThreadFields({
             className="max-w-[45%] rounded-r-none border-0 border-r bg-muted/60 focus-visible:border-input focus-visible:bg-muted focus-visible:ring-0 dark:bg-input/40"
           />
         )}
+        {/* `w-full`: an input's own width (its `size`) would otherwise hold the row, and a grid or
+            flex parent with it (the thread's dialog), wider than a phone. */}
         <input
           id={id}
           name="title"
           defaultValue={title}
           placeholder={placeholder ?? t("titlePlaceholder")}
           autoComplete="off"
-          className="h-10 min-w-0 flex-1 bg-transparent px-2.5 text-base outline-none placeholder:text-muted-foreground md:h-8 md:text-sm"
+          className="h-10 w-full min-w-0 flex-1 bg-transparent px-2.5 text-base outline-none placeholder:text-muted-foreground md:h-8 md:text-sm"
         />
       </div>
       <input type="hidden" name="prefixId" value={prefix} />

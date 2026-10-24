@@ -115,7 +115,9 @@ function ThreadEditor({
     );
   }
   return (
-    <form ref={form} onSubmit={onSubmit} className="grid gap-4">
+    // `min-w-0`: an item of the dialog's grid, it may be narrower than what it holds, so it keeps
+    // to a phone's width.
+    <form ref={form} onSubmit={onSubmit} className="grid min-w-0 gap-4">
       <ThreadFields
         prefixes={fields.prefixes}
         prefixId={fields.prefixId}

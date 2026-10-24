@@ -2,6 +2,7 @@ import { type APIRequestContext, type Page, request } from "@playwright/test";
 import {
   editorReady,
   expect,
+  expectFits,
   MEMBER_STATE,
   PASSWORD,
   seed,
@@ -192,6 +193,19 @@ test("the thread's title and prefix change in a dialog, the prefix chosen from t
     const field = dialog.getByRole("textbox", { name: "Title" });
     await expect(field).toHaveValue(title);
     await expect(field).toBeFocused();
+    // The dialog keeps to the phone: nothing in it runs past its edge or the screen's.
+    expect(
+      await dialog.evaluate(
+        (box) =>
+          box.scrollWidth <= box.clientWidth &&
+          [...box.querySelectorAll("*")].every(
+            (part) =>
+              part.getBoundingClientRect().right <=
+              box.getBoundingClientRect().right + 1,
+          ),
+      ),
+    ).toBe(true);
+    await expectFits(page, "the thread's edit dialog");
     await field.fill(`${title} renamed`);
 
     // The prefix menu, from the keyboard: "(No prefix)" first, then the coloured labels.

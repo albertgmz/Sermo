@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 import { ThreadFields } from "./thread-fields";
@@ -50,4 +52,21 @@ test("a forum that offers no prefix draws the title alone, and the form keeps se
   expect(html).not.toContain('aria-haspopup="menu"');
   expect(html).toContain('type="hidden" name="prefixId" value=""');
   expect(html).toContain('placeholder="Title…"');
+});
+
+// An input is as wide as its `size` (20 characters) unless told otherwise, and a grid or flex item
+// is never narrower than what it holds: the thread's edit dialog ran past a 320 px phone with it.
+test("the title row shrinks to its container, however narrow, in the thread's dialog too", () => {
+  const input =
+    draw(false, "7").match(/<input[^>]*name="title"[^>]*>/)?.[0] ?? "";
+  for (const name of ["w-full", "min-w-0", "flex-1"])
+    expect(input).toMatch(new RegExp(`class="[^"]*\\b${name}\\b`));
+  const dialog = readFileSync(
+    join(
+      import.meta.dir,
+      "../../app/[locale]/(main)/threads/[id]/edit-thread-popup.tsx",
+    ),
+    "utf8",
+  );
+  expect(dialog).toMatch(/<form[^>]*className="grid min-w-0 gap-4"/);
 });
