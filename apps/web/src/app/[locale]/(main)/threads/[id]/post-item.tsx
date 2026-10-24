@@ -16,6 +16,7 @@ import { HtmlContent } from "@/components/forum/html-content";
 import { attributionGadgetClass } from "@/components/forum/message-action";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
+import { quotable } from "@/components/forum/selection-bb";
 import { ShareButton } from "@/components/forum/share-button";
 import { HashLink } from "@/components/layout/hash-link";
 import { Badge } from "@/components/ui/badge";
@@ -191,13 +192,20 @@ export function PostItem({
         </details>
       ) : (
         <>
-          <HtmlContent
-            className="md:mt-1"
-            content={{ type: "post", id: post.id }}
-            attachments={post.attachments}
+          {/* What a selection inside the text needs to quote only that part (`SelectionQuote`). */}
+          <div
+            {...(canQuote && post.state === "visible"
+              ? quotable("post", post.id, post.author)
+              : {})}
           >
-            {post.bodyHtml}
-          </HtmlContent>
+            <HtmlContent
+              className="md:mt-1"
+              content={{ type: "post", id: post.id }}
+              attachments={post.attachments}
+            >
+              {post.bodyHtml}
+            </HtmlContent>
+          </div>
           <PostAttachments
             attachments={post.attachments}
             inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}

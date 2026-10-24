@@ -8,6 +8,7 @@ import { EditedMark } from "@/components/forum/edited-mark";
 import { HtmlContent } from "@/components/forum/html-content";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
+import { quotable } from "@/components/forum/selection-bb";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { authorsFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
@@ -67,13 +68,20 @@ export function MessageItem({
       {message.state === "deleted" && (
         <PostNote icon={Trash2}>{t("deleted")}</PostNote>
       )}
-      <HtmlContent
-        className="md:mt-1"
-        content={{ type: "conversation_message", id: message.id }}
-        attachments={message.attachments}
+      {/* What a selection inside the text needs to quote only that part (`SelectionQuote`). */}
+      <div
+        {...(canQuote && message.state === "visible"
+          ? quotable("convMessage", message.id, message.author)
+          : {})}
       >
-        {message.bodyHtml}
-      </HtmlContent>
+        <HtmlContent
+          className="md:mt-1"
+          content={{ type: "conversation_message", id: message.id }}
+          attachments={message.attachments}
+        >
+          {message.bodyHtml}
+        </HtmlContent>
+      </div>
       <PostAttachments
         attachments={message.attachments}
         inline={inlineAttachmentIds(message.bodyHtml, message.attachments)}

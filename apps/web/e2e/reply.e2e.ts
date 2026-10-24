@@ -304,3 +304,71 @@ test("a reply is posted from the phone and the quote and r key reach the editor"
   await ready(page);
   await expectFits(page, "after the reply");
 });
+
+// Selects, in the page, the text from the start of `from.word` (in the first paragraph holding
+// `from.text`) to the end of `to.word` (in the first holding `to.text`), as the member's hand does.
+async function select(
+  page: Page,
+  from: { text: string; word: string },
+  to: { text: string; word: string },
+) {
+  await page.evaluate(
+    ([start, end]) => {
+      const point = (found: { text: string; word: string }, after: boolean) => {
+        const paragraph = [...document.querySelectorAll("article p")].find(
+          (candidate) => candidate.textContent?.includes(found.text),
+        );
+        const node = paragraph?.firstChild;
+        if (!node) throw new Error(`no text holds ${found.text}`);
+        const at = (node.textContent ?? "").indexOf(found.word);
+        return { node, offset: at + (after ? found.word.length : 0) };
+      };
+      const first = point(start, false);
+      const last = point(end, true);
+      const range = document.createRange();
+      range.setStart(first.node, first.offset);
+      range.setEnd(last.node, last.offset);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    },
+    [from, to],
+  );
+}
+
+const selectionQuote = (page: Page) => page.locator("[data-selection-quote]");
+
+test("selecting text inside one post offers to quote only that part, and a selection across posts or none offers nothing", async ({
+  page,
+}) => {
+  const { threadId } = seed();
+  await visit(page, `/threads/${threadId}?page=3`);
+  const one = { text: "Reply number 43 of", word: "number 43" };
+  const next = { text: "Reply number 44 of", word: "number 44" };
+
+  await select(page, one, one);
+  await expect(selectionQuote(page)).toBeVisible();
+  // It sits below the selection, so it never fights the native menu above it.
+  const selected = await page.evaluate(
+    () => window.getSelection()?.getRangeAt(0).getBoundingClientRect().bottom,
+  );
+  expect((await box(selectionQuote(page))).y).toBeGreaterThan(selected ?? 0);
+
+  await selectionQuote(page).click();
+  await editorReady(page.getByRole("region", { name: "Reply" }));
+  const quoted = replyBox(page).locator("blockquote");
+  await expect(quoted).toHaveCount(1);
+  await expect(quoted).toContainText("number 43");
+  await expect(quoted).not.toContainText("Reply");
+  await expect(quoted.locator("cite")).toHaveCount(1);
+  await expect(replyBox(page)).toBeFocused();
+  await expect(selectionQuote(page)).toHaveCount(0);
+
+  await select(page, one, next);
+  await page.waitForTimeout(400);
+  await expect(selectionQuote(page)).toHaveCount(0);
+
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  await page.waitForTimeout(400);
+  await expect(selectionQuote(page)).toHaveCount(0);
+});

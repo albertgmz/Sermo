@@ -10,6 +10,7 @@ import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { findMentions } from "@/components/forum/mention-find";
+import { SelectionQuote } from "@/components/forum/selection-quote";
 import { useTailForm } from "@/components/forum/use-tail-form";
 
 export function ReplyComposer({
@@ -35,31 +36,34 @@ export function ReplyComposer({
   });
   const [uploading, setUploading] = useState(false);
   return (
-    <form onSubmit={onSubmit} data-shortcut="reply" className="space-y-3">
-      <LazyEditor
-        key={`editor-${generation}`}
-        name="body"
-        compact={false}
-        placeholder={t("placeholder")}
-        findMembers={findMentions}
-        insertEvent={QUOTE_EVENT}
-      />
-      {state.error && <FormError>{state.error}</FormError>}
-      <ComposerButtons
-        submitLabel={t("submit")}
-        order="reply"
-        disabled={pending || uploading}
-        files={
-          attachIn !== null && (
-            <AttachmentField
-              key={`files-${generation}`}
-              compact
-              nodeId={attachIn}
-              onBusy={setUploading}
-            />
-          )
-        }
-      />
-    </form>
+    <>
+      <form onSubmit={onSubmit} data-shortcut="reply" className="space-y-3">
+        <LazyEditor
+          key={`editor-${generation}`}
+          name="body"
+          compact={false}
+          placeholder={t("placeholder")}
+          findMembers={findMentions}
+          insertEvent={QUOTE_EVENT}
+        />
+        {state.error && <FormError>{state.error}</FormError>}
+        <ComposerButtons
+          submitLabel={t("submit")}
+          order="reply"
+          disabled={pending || uploading}
+          files={
+            attachIn !== null && (
+              <AttachmentField
+                key={`files-${generation}`}
+                compact
+                nodeId={attachIn}
+                onBusy={setUploading}
+              />
+            )
+          }
+        />
+      </form>
+      <SelectionQuote event={QUOTE_EVENT} />
+    </>
   );
 }

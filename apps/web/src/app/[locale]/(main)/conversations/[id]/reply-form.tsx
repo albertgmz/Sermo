@@ -10,6 +10,7 @@ import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { findMentions } from "@/components/forum/mention-find";
+import { SelectionQuote } from "@/components/forum/selection-quote";
 import { useTailForm } from "@/components/forum/use-tail-form";
 
 // Whether a message is on its way to a page that will be drawn anew (the form is gone with it): the
@@ -61,39 +62,42 @@ export function ReplyForm({
   }, [generation]);
 
   return (
-    <form
-      ref={form}
-      onSubmit={(event) => {
-        sending = true;
-        onSubmit(event);
-      }}
-      className="space-y-3 rounded-lg border bg-card p-3 md:p-4"
-    >
-      {/* The thread's quick reply: the editor takes what a message's Reply quotes; under it,
+    <>
+      <form
+        ref={form}
+        onSubmit={(event) => {
+          sending = true;
+          onSubmit(event);
+        }}
+        className="space-y-3 rounded-lg border bg-card p-3 md:p-4"
+      >
+        {/* The thread's quick reply: the editor takes what a message's Reply quotes; under it,
           "Attach files" and the submit on one row, as XenForo's. */}
-      <LazyEditor
-        key={`editor-${generation}`}
-        name="body"
-        compact={false}
-        placeholder={placeholder}
-        findMembers={findMentions}
-        insertEvent={QUOTE_EVENT}
-      />
-      {state.error && <FormError>{state.error}</FormError>}
-      <ComposerButtons
-        submitLabel={submitLabel}
-        order="reply"
-        disabled={pending || uploading}
-        files={
-          canAttach && (
-            <AttachmentField
-              key={`files-${generation}`}
-              compact
-              onBusy={setUploading}
-            />
-          )
-        }
-      />
-    </form>
+        <LazyEditor
+          key={`editor-${generation}`}
+          name="body"
+          compact={false}
+          placeholder={placeholder}
+          findMembers={findMentions}
+          insertEvent={QUOTE_EVENT}
+        />
+        {state.error && <FormError>{state.error}</FormError>}
+        <ComposerButtons
+          submitLabel={submitLabel}
+          order="reply"
+          disabled={pending || uploading}
+          files={
+            canAttach && (
+              <AttachmentField
+                key={`files-${generation}`}
+                compact
+                onBusy={setUploading}
+              />
+            )
+          }
+        />
+      </form>
+      <SelectionQuote event={QUOTE_EVENT} />
+    </>
   );
 }
