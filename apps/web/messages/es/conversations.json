@@ -48,18 +48,11 @@
       "submit": "Añadir",
       "cancel": "Cancelar"
     },
-    "lock": {
-      "title": "Bloquear",
-      "submit": "Bloquear mensaje directo"
-    },
-    "unlock": {
-      "title": "Desbloquear",
-      "submit": "Desbloquear mensaje directo"
-    },
-    "rename": {
-      "title": "Renombrar",
-      "label": "Nombre del mensaje directo",
-      "submit": "Renombrar"
+    "edit": {
+      "open": "Editar",
+      "title": "Editar mensaje directo",
+      "lock": "Bloquear mensaje directo",
+      "lockHint": "No se permiten respuestas"
     },
     "unread": {
       "title": "Sin leer"

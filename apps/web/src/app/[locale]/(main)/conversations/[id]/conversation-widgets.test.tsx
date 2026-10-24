@@ -16,8 +16,6 @@ mock.module("next/navigation", () => ({
 }));
 mock.module("@/app/[locale]/(main)/conversations/actions", () => ({
   addParticipantsAction: async () => ({}),
-  renameAction: async () => ({}),
-  setLockedAction: async () => ({}),
   markRead: async () => true,
   markReadAction: async () => ({}),
   findRecipients: async () => [],
@@ -102,22 +100,14 @@ test("the add-people action is drawn only when the viewer may invite", async () 
   expect(await draw({ canInvite: false })).not.toContain("Add people");
 });
 
-test("the rename form is drawn only when the viewer may rename, with the current title", async () => {
-  const html = await draw();
-  expect(html).toContain('value="Plans for the weekend"');
-  const without = await draw({ canRename: false });
-  expect(without).not.toContain('value="Plans for the weekend"');
-  expect(without).not.toContain("Conversation name");
-});
-
-test("the lock control is drawn only when the viewer may lock, and offers the opposite of the current state", async () => {
-  const open = await draw();
-  expect(open).toContain("Lock direct message");
-  expect(open).not.toContain("Unlock direct message");
-  const locked = await draw({ isLocked: true });
-  expect(locked).toContain("Unlock direct message");
-  const without = await draw({ canLock: false });
-  expect(without).not.toContain("Lock direct message");
+// Renaming and locking are in the header's Edit dialog, as XenForo's, not in cards of their own.
+test("the widgets hold no rename or lock card, whatever the viewer may change", async () => {
+  for (const html of [await draw(), await draw({ isLocked: true })]) {
+    expect(html).not.toContain('value="Plans for the weekend"');
+    expect(html).not.toContain("Rename");
+    expect(html).not.toContain("Lock direct message");
+    expect(html).not.toContain("Unlock direct message");
+  }
 });
 
 test("mark as read is not drawn while the page's own mark is running or when nothing is unread", async () => {

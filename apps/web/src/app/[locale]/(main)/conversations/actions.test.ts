@@ -19,14 +19,13 @@ mock.module("next/cache", () => ({
 
 const {
   addParticipantsAction,
+  editConversationAction,
   leaveAction,
   markRead,
   markReadAction,
   markUnreadAction,
   quoteMessageSource,
-  renameAction,
   replyAction,
-  setLockedAction,
   startConversation,
 } = await import("./actions");
 const { markOneRead } = await import("../notifications/actions");
@@ -289,38 +288,104 @@ test("an id that is not a member id never reaches the backend when people are ad
   assert.equal(asked.length, 0);
 });
 
-test("renaming sends the new title and returns to the conversation", async () => {
-  const sent: { method: string; url: string; body: unknown }[] = [];
-  globalThis.fetch = (async (url: string, init: RequestInit) => {
-    sent.push({
-      method: init.method ?? "GET",
-      url,
-      body: JSON.parse(String(init.body)),
-    });
-    return Response.json({ ...conversationAnswer, title: "New name" });
-  }) as unknown as typeof fetch;
+// What the Edit dialog sends: the title and the lock as they are now, and as the dialog opened
+// with them; one it does not offer is not sent.
+const edit = (fields: Record<string, string>) => {
   const form = new FormData();
-  form.set("title", "New name");
-  const digest = await redirectedTo(() => renameAction(3, {}, form));
-  assert.match(digest ?? "", /^NEXT_REDIRECT;[a-z]+;\/conversations\/3;/);
+  for (const [name, value] of Object.entries(fields)) form.set(name, value);
+  return form;
+};
+
+function recordSends() {
+  const sent: [string, string, unknown][] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    sent.push([init.method ?? "GET", url, JSON.parse(String(init.body))]);
+    return Response.json(conversationAnswer);
+  }) as unknown as typeof fetch;
+  return sent;
+}
+
+test("the edit dialog saves a new title, stays on the page and draws it and the list again", async () => {
+  const sent = recordSends();
+  const form = edit({ title: "New name", titleWas: "T", lockedWas: "" });
+  assert.deepEqual(await editConversationAction(3, {}, form), { done: true });
   assert.deepEqual(sent, [
-    {
-      method: "PATCH",
-      url: "http://127.0.0.1:8787/api/v1/conversations/3",
-      body: { title: "New name" },
-    },
+    [
+      "PATCH",
+      "http://127.0.0.1:8787/api/v1/conversations/3",
+      { title: "New name" },
+    ],
   ]);
   assert.deepEqual(revalidated, [["/[locale]/conversations", "layout"]]);
 });
 
-test("a refused rename shows the backend's reason", async () => {
+test("the edit dialog locks and unlocks when its box changed, and leaves an unchanged title alone", async () => {
+  const sent = recordSends();
+  const locking = edit({
+    title: "T",
+    titleWas: "T",
+    locked: "1",
+    lockedWas: "",
+  });
+  assert.deepEqual(await editConversationAction(3, {}, locking), {
+    done: true,
+  });
+  const unlocking = edit({ lockedWas: "1" });
+  assert.deepEqual(await editConversationAction(3, {}, unlocking), {
+    done: true,
+  });
+  assert.deepEqual(sent, [
+    [
+      "PUT",
+      "http://127.0.0.1:8787/api/v1/conversations/3/lock",
+      { locked: true },
+    ],
+    [
+      "PUT",
+      "http://127.0.0.1:8787/api/v1/conversations/3/lock",
+      { locked: false },
+    ],
+  ]);
+});
+
+test("the edit dialog sends nothing when nothing changed, and nothing it does not offer", async () => {
+  const sent = recordSends();
+  // A starter who may not lock: the box is not in the form.
+  assert.deepEqual(
+    await editConversationAction(3, {}, edit({ title: "T", titleWas: "T" })),
+    { done: true },
+  );
+  // A moderator who may not rename: the title is not in the form.
+  assert.deepEqual(
+    await editConversationAction(3, {}, edit({ lockedWas: "" })),
+    { done: true },
+  );
+  assert.deepEqual(sent, []);
+  assert.deepEqual(revalidated, []);
+});
+
+test("a refused edit shows the backend's reason; a title saved before a refused lock is drawn", async () => {
   globalThis.fetch = (async () => refusal.clone()) as unknown as typeof fetch;
-  const form = new FormData();
-  form.set("title", "New name");
-  assert.deepEqual(await renameAction(3, {}, form), {
+  const renaming = edit({ title: "New name", titleWas: "T", lockedWas: "" });
+  assert.deepEqual(await editConversationAction(3, {}, renaming), {
     error: "Only the starter may do that.",
   });
-  await assert.rejects(() => renameAction(-1, {}, form));
+  assert.deepEqual(revalidated, []);
+  globalThis.fetch = (async (_url: string, init: RequestInit) =>
+    init.method === "PATCH"
+      ? Response.json(conversationAnswer)
+      : refusal.clone()) as unknown as typeof fetch;
+  const both = edit({
+    title: "New",
+    titleWas: "T",
+    locked: "1",
+    lockedWas: "",
+  });
+  assert.deepEqual(await editConversationAction(3, {}, both), {
+    error: "Only the starter may do that.",
+  });
+  assert.deepEqual(revalidated, [["/[locale]/conversations", "layout"]]);
+  await assert.rejects(() => editConversationAction(-1, {}, renaming));
 });
 
 test("the page's own mark says whether it worked, and the card's mark says why not", async () => {
@@ -339,42 +404,6 @@ test("the page's own mark says whether it worked, and the card's mark says why n
     error: "Only the starter may do that.",
   });
   await assert.rejects(() => markReadAction(0));
-});
-
-test("locking and unlocking ask the backend for that state and return to the conversation", async () => {
-  const sent: { method: string; url: string; body: unknown }[] = [];
-  globalThis.fetch = (async (url: string, init: RequestInit) => {
-    sent.push({
-      method: init.method ?? "GET",
-      url,
-      body: JSON.parse(String(init.body)),
-    });
-    return Response.json(conversationAnswer);
-  }) as unknown as typeof fetch;
-  for (const locked of [true, false]) {
-    const digest = await redirectedTo(() => setLockedAction(3, locked, {}));
-    assert.match(digest ?? "", /^NEXT_REDIRECT;[a-z]+;\/conversations\/3;/);
-  }
-  assert.deepEqual(
-    sent.map((call) => [call.method, call.url, call.body]),
-    [
-      [
-        "PUT",
-        "http://127.0.0.1:8787/api/v1/conversations/3/lock",
-        { locked: true },
-      ],
-      [
-        "PUT",
-        "http://127.0.0.1:8787/api/v1/conversations/3/lock",
-        { locked: false },
-      ],
-    ],
-  );
-  globalThis.fetch = (async () => refusal.clone()) as unknown as typeof fetch;
-  assert.deepEqual(await setLockedAction(3, true, {}), {
-    error: "Only the starter may do that.",
-  });
-  await assert.rejects(() => setLockedAction(-1, true, {}));
 });
 
 test("a message is quoted from the source the backend gives a participant, and a refusal quotes nothing", async () => {

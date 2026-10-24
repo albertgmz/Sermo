@@ -144,7 +144,7 @@ export async function markUnreadAction(
   redirect("/conversations");
 }
 
-export type PanelState = { error?: string };
+export type PanelState = { error?: string; done?: boolean };
 
 // The conversations list shows each conversation's title and head count, and the router keeps a
 // copy of that page for a while: without this, going back to it after a change would show the old
@@ -168,32 +168,36 @@ export async function addParticipantsAction(
   return backToConversation(conversationId);
 }
 
-export async function renameAction(
+// The header's Edit dialog: the title and the lock, each saved only when it changed (a field the
+// dialog does not offer is not in the form). The page is drawn again where it is, with the list in
+// the frame, once anything was saved, even when a later change was refused.
+export async function editConversationAction(
   conversationId: number,
   _previous: PanelState,
   formData: FormData,
 ): Promise<PanelState> {
   requireIds(conversationId);
-  const title = String(formData.get("title") ?? "");
-  const renamed = await attempt(`/conversations/${conversationId}`, () =>
-    call(conversationsRename, { conversationId, title }),
-  );
-  if (!renamed.ok) return { error: renamed.error };
-  return backToConversation(conversationId);
-}
-
-// Locks or unlocks the conversation; the page that follows shows the new state.
-export async function setLockedAction(
-  conversationId: number,
-  locked: boolean,
-  _previous: PanelState,
-): Promise<PanelState> {
-  requireIds(conversationId);
-  const changed = await attempt(`/conversations/${conversationId}`, () =>
-    call(conversationsSetLocked, { conversationId, locked }),
-  );
-  if (!changed.ok) return { error: changed.error };
-  return backToConversation(conversationId);
+  const here = `/conversations/${conversationId}`;
+  const title = formData.get("title");
+  const renaming =
+    typeof title === "string" && title !== formData.get("titleWas");
+  const locked = formData.get("locked") === "1";
+  const relocking =
+    formData.has("lockedWas") && locked !== (formData.get("lockedWas") === "1");
+  if (renaming) {
+    const renamed = await attempt(here, () =>
+      call(conversationsRename, { conversationId, title }),
+    );
+    if (!renamed.ok) return { error: renamed.error };
+  }
+  const relocked = relocking
+    ? await attempt(here, () =>
+        call(conversationsSetLocked, { conversationId, locked }),
+      )
+    : null;
+  if (renaming || relocked?.ok)
+    revalidatePath("/[locale]/conversations", "layout");
+  return relocked && !relocked.ok ? { error: relocked.error } : { done: true };
 }
 
 export type StartState = {

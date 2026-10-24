@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { ConversationWidgets } from "@/app/[locale]/(main)/conversations/[id]/conversation-widgets";
+import { EditConversationButton } from "@/app/[locale]/(main)/conversations/[id]/edit-conversation-button";
 import { LeaveForm } from "@/app/[locale]/(main)/conversations/[id]/leave-form";
 import {
   LockedBadge,
@@ -83,6 +84,7 @@ function Header({
         >
           <ConversationWidgets conversation={conversation} member={member} />
         </WidgetsSheet>
+        <EditConversationButton conversation={conversation} />
         {bookmarked !== null && (
           <BookmarkButton
             contentType="conversation"

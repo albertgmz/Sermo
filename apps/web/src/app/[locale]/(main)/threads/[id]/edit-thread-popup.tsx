@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Save } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import type { ThreadEditFields } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-data";
@@ -10,23 +10,18 @@ import {
   saveThreadInPlace,
   threadEditorAction,
 } from "@/app/[locale]/(main)/threads/edit-in-place";
-import { submitClass } from "@/components/forum/composer-buttons";
+import {
+  EditDialog,
+  EditDialogFooter,
+  EditDialogSave,
+  focusTitleAtEnd,
+} from "@/components/forum/edit-dialog";
 import { FormError } from "@/components/forum/form-error";
 import { ThreadFields } from "@/components/forum/thread-fields";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import type { OpenedProps } from "@/components/ui/lazy-popup";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 
 export type EditThreadPopupProps = { threadId: number; label: string };
 
@@ -60,14 +55,8 @@ function ThreadEditor({
   }, [threadId, asks]);
 
   const fields = opened && "fields" in opened ? opened.fields : null;
-  // As XenForo's: the member is put in the title, at its end.
   useEffect(() => {
-    if (!fields) return;
-    const title = form.current?.querySelector<HTMLInputElement>(
-      'input[name="title"]',
-    );
-    title?.focus();
-    title?.setSelectionRange(title.value.length, title.value.length);
+    if (fields) focusTitleAtEnd(form.current);
   }, [fields]);
 
   const { state, pending, onSubmit } = useKeptForm(async (_previous, data) => {
@@ -80,11 +69,6 @@ function ThreadEditor({
     return { done: true };
   });
 
-  const cancel = (
-    <DialogClose render={<Button variant="outline" className="h-10 px-4" />}>
-      {t("cancel")}
-    </DialogClose>
-  );
   // The title row's room while it is asked for.
   if (!opened) {
     return (
@@ -100,8 +84,7 @@ function ThreadEditor({
         <FormError>
           {("error" in opened && opened.error) || t("failed")}
         </FormError>
-        <DialogFooter>
-          {cancel}
+        <EditDialogFooter>
           <Button
             type="button"
             variant="outline"
@@ -110,7 +93,7 @@ function ThreadEditor({
           >
             {t("retry")}
           </Button>
-        </DialogFooter>
+        </EditDialogFooter>
       </>
     );
   }
@@ -127,17 +110,9 @@ function ThreadEditor({
       <input type="hidden" name="titleWas" value={fields.title} />
       <input type="hidden" name="prefixWas" value={fields.prefixId} />
       {state.error && <FormError>{state.error}</FormError>}
-      <DialogFooter>
-        {cancel}
-        <Button
-          type="submit"
-          disabled={pending}
-          className={cn(submitClass, "h-10")}
-        >
-          <Save aria-hidden="true" />
-          {t("save")}
-        </Button>
-      </DialogFooter>
+      <EditDialogFooter>
+        <EditDialogSave pending={pending} />
+      </EditDialogFooter>
     </form>
   );
 }
@@ -150,17 +125,19 @@ export default function EditThreadPopup({
 }: EditThreadPopupProps & OpenedProps) {
   const [open, setOpen] = useState(true);
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className={editThreadClass}>
-        <Pencil aria-hidden="true" />
-        {label}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{label}</DialogTitle>
-        </DialogHeader>
-        <ThreadEditor threadId={threadId} onDone={() => setOpen(false)} />
-      </DialogContent>
-    </Dialog>
+    <EditDialog
+      title={label}
+      trigger={
+        <>
+          <Pencil aria-hidden="true" />
+          {label}
+        </>
+      }
+      triggerClassName={editThreadClass}
+      open={open}
+      onOpenChange={setOpen}
+    >
+      <ThreadEditor threadId={threadId} onDone={() => setOpen(false)} />
+    </EditDialog>
   );
 }

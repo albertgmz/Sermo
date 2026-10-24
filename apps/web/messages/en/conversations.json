@@ -48,18 +48,11 @@
       "submit": "Add",
       "cancel": "Cancel"
     },
-    "lock": {
-      "title": "Lock",
-      "submit": "Lock direct message"
-    },
-    "unlock": {
-      "title": "Unlock",
-      "submit": "Unlock direct message"
-    },
-    "rename": {
-      "title": "Rename",
-      "label": "Direct message name",
-      "submit": "Rename"
+    "edit": {
+      "open": "Edit",
+      "title": "Edit direct message",
+      "lock": "Lock direct message",
+      "lockHint": "No replies are allowed"
     },
     "unread": {
       "title": "Unread"
