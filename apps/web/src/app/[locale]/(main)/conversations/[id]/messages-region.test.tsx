@@ -41,6 +41,15 @@ mock.module("@/components/forum/live-tail", () => ({
   LiveTail: () => <li data-goes-on="" />,
 }));
 
+// Whether the page records the conversation as read, shown on the page.
+const sync = await import("./conversation-sync");
+mock.module("./conversation-sync", () => ({
+  ...sync,
+  ConversationSync: ({ mark }: { mark: boolean }) => (
+    <div data-marks-read={String(mark)} />
+  ),
+}));
+
 const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { MessagesRegion, readMessages } = await import("./messages-region");
 const { messagesPage } = await import("./messages-page");
@@ -51,6 +60,7 @@ afterAll(() => {
   mock.module("next/cache", () => nextCache);
   mock.module("@/components/forum/live-tail", () => liveTail);
   mock.module("next/navigation", () => navigation);
+  mock.module("./conversation-sync", () => sync);
 });
 beforeEach(() => {
   mock.module("@/lib/sermo/session", () => ({
@@ -144,4 +154,32 @@ test("the in-place switch gets the page drawn, and nothing for a page past the e
   expect(await html(drawn)).toContain("Message 21.");
   talk([]);
   expect(await messagesPage(5, 9)).toBeNull();
+});
+
+// XenForo marks a conversation read up to the newest message on the page viewed: the backend marks
+// it read to its newest message, so only the page that holds that message may ask.
+test("only the last page of an unread conversation records it as read", async () => {
+  const unread = {
+    conversation: { ...conversation, isUnread: true },
+    canReact: false,
+    viewList: true,
+  } as never;
+  talk([message(21), message(22)]);
+  const middle = await html(
+    await MessagesRegion({
+      context: unread,
+      page: 2,
+      list: await readMessages(5, 2, read),
+    }),
+  );
+  expect(middle).toContain('data-marks-read="false"');
+  talk([message(41), message(50)]);
+  const last = await html(
+    await MessagesRegion({
+      context: unread,
+      page: 3,
+      list: await readMessages(5, 3, read),
+    }),
+  );
+  expect(last).toContain('data-marks-read="true"');
 });

@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { GUEST } from "../../actor";
+import { type Actor, GUEST } from "../../actor";
 import { foldTagText, normalizeTag } from "../../bbcode/hashtag";
 import { type Ctx, prepared } from "../../context";
 import * as contracts from "../../contracts/tags";
@@ -141,7 +141,7 @@ const tagsThreadsOp = implement(contracts.tagsThreads, (ctx, actor, input) => {
  */
 function numberedTagPage(
   ctx: Ctx,
-  actor: Parameters<typeof can>[1],
+  actor: Actor,
   tag: { id: number; threads: number },
   input: { page?: number; limit: number },
 ) {

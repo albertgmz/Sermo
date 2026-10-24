@@ -208,6 +208,9 @@ const postVisible = postVisibleBy(4, 5, 6);
 const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
 const nodeColumns =
   "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, require_prefix, is_read_only, counts_posts, min_account_age_days, min_post_count";
+// The thread at a place in a forum's list (?5, from 0), for numbered pages (see `forumSql`).
+const threadKeySql = `SELECT sort_at, id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC LIMIT 1 OFFSET ?5`;
+const threadKeyByPrefixSql = `SELECT sort_at, id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?6 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC LIMIT 1 OFFSET ?5`;
 /** SQL shared by the hot paths and their query-plan tests. */
 export const forumSql = {
   sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC`,
@@ -219,8 +222,11 @@ export const forumSql = {
    * last one of the page before (the page then goes on from it as a cursor's would), and how many
    * threads the list holds where no counter says it (a prefix, or only the viewer's own threads).
    */
-  threadKey: `SELECT sort_at, id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC LIMIT 1 OFFSET ?5`,
-  threadKeyByPrefix: `SELECT sort_at, id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?6 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC LIMIT 1 OFFSET ?5`,
+  threadKey: threadKeySql,
+  threadKeyByPrefix: threadKeyByPrefixSql,
+  /** The same places counted from the oldest thread: the nearer end of a long forum. */
+  threadKeyFromOldest: fromOldest(threadKeySql),
+  threadKeyByPrefixFromOldest: fromOldest(threadKeyByPrefixSql),
   threadCount: `SELECT count(*) AS n FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1))`,
   threadCountByPrefix: `SELECT count(*) AS n FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?5 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1))`,
   /** The forum's stored count of visible threads, and the visible sticky ones in it (a few rows). */
@@ -273,6 +279,10 @@ export const forumSql = {
   clearThreadNotices:
     "UPDATE notifications INDEXED BY notifications_user_thread SET read_at = ?1 WHERE user_id = ?2 AND thread_id = ?3 AND epoch = (SELECT notification_epoch FROM users WHERE id = ?2) AND read_at IS NULL AND type IN ('thread.watched', 'node.thread', 'node.post', 'content.quoted', 'content.mentioned', 'member.thread') AND (content_type = 'thread' OR (content_type = 'post' AND content_id <= ?4))",
 } as const;
+/** A positional read of the thread list walked from its oldest end. */
+function fromOldest(sql: string): string {
+  return sql.replace("ORDER BY sort_at DESC, id DESC", "ORDER BY sort_at, id");
+}
 /**
  * The same listing statements for a viewer who may open only their own threads in the forum:
  * the author comes first, through the index on authors, then the forum.
@@ -289,6 +299,8 @@ export const ownThreadSql = {
   threadPageByPrefix: ownOnly(forumSql.threadPageByPrefix, 7),
   threadKey: ownOnly(forumSql.threadKey, 4),
   threadKeyByPrefix: ownOnly(forumSql.threadKeyByPrefix, 4),
+  threadKeyFromOldest: ownOnly(forumSql.threadKeyFromOldest, 4),
+  threadKeyByPrefixFromOldest: ownOnly(forumSql.threadKeyByPrefixFromOldest, 4),
   threadCount: ownOnly(forumSql.threadCount, 4),
   threadCountByPrefix: ownOnly(forumSql.threadCountByPrefix, 4),
 } as const;
@@ -1211,27 +1223,39 @@ function threadListTotal(ctx: Ctx, filter: ThreadListFilter): number {
     (viewDeleted ? hidden("deleted", 1) : 0)
   );
 }
-/** Where page `page` of the list starts: after the key of the last thread of the page before. */
+/**
+ * Where a numbered page starts: after the key of the last thread of the page before, the thread at
+ * place `offset - 1` from the newest. It is read from whichever end of the list is nearer (the list
+ * holds `total` threads), so a positional read walks at most half of the forum's threads.
+ */
 function threadPageStart(
   ctx: Ctx,
   filter: ThreadListFilter,
   offset: number,
+  total: number,
 ): { sort_at: number; id: number } | null {
   const { nodeId, prefixId, viewModerated, viewDeleted, userId, own } = filter;
+  const fromNewest = offset - 1;
+  const fromOldest = total - 1 - fromNewest;
+  if (fromOldest < 0) return null;
+  const oldest = fromOldest < fromNewest;
+  const place = oldest ? fromOldest : fromNewest;
   const sql = own ? ownThreadSql : forumSql;
-  const key = (name: string) => (own ? `own.${name}` : name);
+  const key = (name: string) => `${own ? "own." : ""}${name}${oldest ? "FromOldest" : ""}`;
+  const read = (name: "threadKey" | "threadKeyByPrefix") =>
+    oldest ? sql[`${name}FromOldest`] : sql[name];
   type Key = { sort_at: number; id: number };
   return prefixId === undefined
     ? statement<Key, [number, number, number, number, number]>(
         ctx,
         key("threadKey"),
-        sql.threadKey,
-      ).get(nodeId, viewModerated, viewDeleted, userId, offset - 1)
+        read("threadKey"),
+      ).get(nodeId, viewModerated, viewDeleted, userId, place)
     : statement<Key, [number, number, number, number, number, number]>(
         ctx,
         key("threadKeyByPrefix"),
-        sql.threadKeyByPrefix,
-      ).get(nodeId, viewModerated, viewDeleted, userId, offset - 1, prefixId);
+        read("threadKeyByPrefix"),
+      ).get(nodeId, viewModerated, viewDeleted, userId, place, prefixId);
 }
 export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input) => {
   const { node } = requireNode(ctx, actor, input.nodeId);
@@ -1248,8 +1272,8 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
   // A numbered page past the first starts after the last thread of the page before it.
   const page = input.cursor ? undefined : input.page;
   const offset = page === undefined ? 0 : (page - 1) * input.limit;
-  const start = offset > 0 ? threadPageStart(ctx, filter, offset) : null;
   const total = page === undefined ? null : threadListTotal(ctx, filter);
+  const start = offset > 0 ? threadPageStart(ctx, filter, offset, total!) : null;
   if (offset > 0 && !start) return { sticky: [], items: [], nextCursor: null, total };
   const cursor = input.cursor
     ? decodeCursor(input.cursor, threadCursor)

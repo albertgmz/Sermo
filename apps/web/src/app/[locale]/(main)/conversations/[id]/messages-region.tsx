@@ -67,9 +67,10 @@ export const messagePages = (list: MessagesRead) =>
 
 // The part of the conversation page that turns with its pages (`PageSwitch`): the pager above the
 // messages (from a wide screen up, as XenForo's), the messages, the pager below. The last page goes
-// on while it is open: what is sent or arrives ends it. Opening any page records the conversation
-// as read; a page loaded anew opens at its end when it is the last one, a page turned in place at
-// its top.
+// on while it is open: what is sent or arrives ends it. Only the last page records the
+// conversation as read: the backend marks it read to its newest message, and XenForo marks read up
+// to the newest message on the page viewed, so an earlier page leaves the later messages unread. A
+// page loaded anew opens at its end when it is the last one, a page turned in place at its top.
 export async function MessagesRegion({
   context,
   page,
@@ -156,7 +157,7 @@ export async function MessagesRegion({
       <ConversationSync
         key={newest?.id}
         id={conversation.id}
-        mark={conversation.isUnread || notifications > 0}
+        mark={last && (conversation.isUnread || notifications > 0)}
         scroll={last && !inPlace}
       />
     </>

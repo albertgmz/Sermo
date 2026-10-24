@@ -73,6 +73,24 @@ describe("threads.list numbered pages", () => {
     expect(next.total).toBeNull();
   });
 
+  test("every numbered page, placed from the nearer end of the list, is the cursor walk's page", async () => {
+    const f = await forum();
+    await execute(f.ctx, threadsDeleteOp, f.mod, { threadId: f.t[1]! });
+    for (const actor of [f.other, f.mod]) {
+      const walked: number[][] = [];
+      let cursor: string | undefined;
+      do {
+        const step = await f.list(actor, { limit: 2, cursor });
+        walked.push(f.ids(step));
+        cursor = step.nextCursor ?? undefined;
+      } while (cursor);
+      const numbered: number[][] = [];
+      for (let number = 1; number <= walked.length; number++)
+        numbered.push(f.ids(await f.list(actor, { limit: 2, page: number })));
+      expect(numbered).toEqual(walked);
+    }
+  });
+
   test("deleted threads are counted and listed only for those who may see them", async () => {
     const f = await forum();
     await execute(f.ctx, threadsDeleteOp, f.mod, { threadId: f.t[5]! });
@@ -140,6 +158,10 @@ describe("threads.list numbered pages", () => {
     const ctx = createTestContext();
     expectNoTableScan(ctx, forumSql.threadKey, [1, 0, 0, 1, 40]);
     expectNoTableScan(ctx, forumSql.threadKeyByPrefix, [1, 0, 0, 1, 40, 3]);
+    // The pages nearer the oldest thread are placed from that end, through the same index.
+    expectNoTableScan(ctx, forumSql.threadKeyFromOldest, [1, 0, 0, 1, 40]);
+    expectNoTableScan(ctx, forumSql.threadKeyByPrefixFromOldest, [1, 0, 0, 1, 40, 3]);
+    expect(forumSql.threadKeyFromOldest).toContain("ORDER BY sort_at, id LIMIT 1 OFFSET ?5");
     expectNoTableScan(ctx, forumSql.threadCount, [1, 0, 0, 1]);
     expectNoTableScan(ctx, forumSql.threadCountByPrefix, [1, 0, 0, 1, 3]);
     expectNoTableScan(ctx, forumSql.nodeThreadCount, [1]);
