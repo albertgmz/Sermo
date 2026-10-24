@@ -6943,3 +6943,16 @@ and a scatter of buttons where XenForo has one row.
 
 Why: the UI audit (A22, A24, A25, A26) found share needing two presses, counts on the react
 button and phone bars of bare icons.
+
+### A quoted post shows its author as a header, also in stored content
+
+- A post quote renders as the other attributed quotes do: a `cite` with the author's link above
+  the quoted text, and the page's style adds "said:" / "dijo:" (`forum.bbCode.said`). A
+  background job (`bbcode.quoteHeaders`, queued at start, in chunks) gives every stored old quote
+  the same header: posts, revisions, messages, wall posts, comments and spoilers. A bench
+  scenario measures its chunk. The plain text of a quote (emails) puts the author on a line of
+  its own.
+- Search snippets drop spoilers, as XenForo does, so no "[spoiler]" label shows.
+
+Why: the UI audit (A1, A38) found post quotes with an inline "wrote:" unlike every other quote,
+and spoiler labels in search results.
