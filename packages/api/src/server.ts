@@ -12,6 +12,7 @@ import {
   flushDownloadCounts,
   flushSessionActivity,
   flushViewCounts,
+  flushVisits,
   isLoopbackHost,
   localDriver,
   notificationChannels,
@@ -542,6 +543,7 @@ async function main(): Promise<void> {
         flushDownloadCounts(ctx);
         flushActivity(ctx);
         flushSessionActivity(ctx);
+        flushVisits(ctx);
       },
       stopScheduler,
       stopWorker,

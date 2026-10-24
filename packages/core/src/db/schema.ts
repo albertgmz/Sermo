@@ -528,6 +528,34 @@ export const sessionActivity = sqliteTable("session_activity", {
 });
 
 /**
+ * Who viewed a page in the last hour and which (online.list, users.activity): one row per member
+ * (`visitor_key` `u:<id>`) and per guest or robot (`g:<hash>`, a salted hash of the address and
+ * user agent). The place is a kind and, for a forum, a thread or a member, its id: never an
+ * address. `ip` is kept for guests and robots only, for staff who may see addresses. Written by a
+ * scheduled flush of what requests buffered (never per request); rows unseen for an hour are
+ * pruned in bounded chunks.
+ */
+export const onlineVisitors = sqliteTable(
+  "online_visitors",
+  {
+    id: integer("id").primaryKey(),
+    visitorKey: text("visitor_key").notNull(),
+    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+    /** The robot's key in the robot list; null for people. */
+    robot: text("robot"),
+    placeKind: text("place_kind").notNull(),
+    placeId: integer("place_id"),
+    ip: text("ip"),
+    seenAt: integer("seen_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("online_visitors_key").on(t.visitorKey),
+    // online.list (guests and robots of the last hour) and the prune, oldest first
+    index("online_visitors_seen").on(t.seenAt),
+  ],
+);
+
+/**
  * One row per username change a member made themselves (`users.changeUsername`), counted against
  * `profile.renameLimit` within `profile.renameWindowDays`. Changes by staff and erasures are not
  * recorded.

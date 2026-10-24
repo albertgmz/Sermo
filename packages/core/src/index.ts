@@ -53,7 +53,7 @@ export {
   startJobWorker,
   startScheduler,
 } from "./modules/jobs";
-export { refreshStandings, registerStandingJobs } from "./modules/members";
+export { flushVisits, refreshStandings, registerStandingJobs } from "./modules/members";
 export { registerModerationJobs } from "./modules/moderation";
 export {
   notificationChannels,

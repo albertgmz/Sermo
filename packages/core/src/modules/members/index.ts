@@ -4,6 +4,7 @@ import { implement } from "../../operation";
 import { usersChangeUsernameOp } from "../auth/username";
 import { loadViewerAuthors, loadViewerCards } from "./cards";
 import { usersBirthdaysOp, usersListOp, usersStaffOp } from "./directory";
+import { onlineCountsOp, onlineListOp, usersActivityOp } from "./online";
 import { usersRecentlyActiveOp } from "./recently-active";
 import { redecideStaleWinners, registerRedecideJobs } from "./redecide";
 import { requireSiteViewForCards } from "./site-access";
@@ -15,6 +16,7 @@ import {
 } from "./standings";
 
 export { loadMemberAuthors, loadMemberCards } from "./cards";
+export { flushVisits, pruneOnlineVisitors } from "./online-track";
 export { forgetRecentlyActive } from "./recently-active-cache";
 export { refreshStandings } from "./standings";
 
@@ -58,6 +60,9 @@ export const operations = [
   usersStaffOp,
   usersBirthdaysOp,
   usersRecentlyActiveOp,
+  usersActivityOp,
+  onlineListOp,
+  onlineCountsOp,
   siteStatsOp,
   standingsMonthOp,
   standingsWinnersOp,

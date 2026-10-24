@@ -206,6 +206,121 @@ export const usersRecentlyActive = defineContract({
   }),
 });
 
+// Who is online, and where ------------------------------------------------------------------------
+
+/**
+ * The kinds of page a visitor can be on. `forum`, `thread` and `member` name one (a target);
+ * `page` is any other page, and stands for a forum, thread or member the viewer may not see.
+ */
+export const PLACE_KINDS = [
+  "forumList",
+  "latest",
+  "forum",
+  "thread",
+  "member",
+  "members",
+  "online",
+  "conversations",
+  "search",
+  "page",
+] as const;
+
+/** The page a visitor last viewed, as the viewer may know it. */
+export const ActivityPlace = z
+  .object({
+    kind: z.enum(PLACE_KINDS),
+    /**
+     * The forum, thread or member of a `forum`, `thread` or `member` place, with its title (the
+     * member's name); null for the other kinds. A forum, thread or member the viewer may not see
+     * is never named: the place is then `page`.
+     */
+    target: z.object({ id: Id, title: z.string() }).nullable(),
+  })
+  .meta({ id: "ActivityPlace" });
+
+/** When a visitor was last seen and, within the last hour, where. */
+export const VisitorActivity = z
+  .object({
+    /** The last request (a member) or page view (a guest), to the minute. */
+    at: Timestamp,
+    /** True for a member who hides their online status, shown to themselves and to staff. */
+    hidden: z.boolean(),
+    /** The page last viewed, when that was within the last hour; null otherwise. */
+    place: ActivityPlace.nullable(),
+  })
+  .meta({ id: "VisitorActivity" });
+
+export const usersActivity = defineContract({
+  name: "users.activity",
+  summary:
+    "When each of up to 100 members was last active and, when they viewed a page in the last " +
+    "hour, which, in one call and in no particular order. The rules of users.authors apply: a " +
+    "member who hides their online status is left out except for themselves and holders of " +
+    "profile.bypassPrivacy (who get `hidden` true), and so are members never seen, erased " +
+    "members, unknown ids and members whose profile the viewer may not open. A forum, thread " +
+    "or member profile is named only when the viewer may see it (a thread: visible, in a " +
+    "forum they may view, and theirs or one they may open there); otherwise the place is " +
+    "`page`. A conversation is never named.",
+  kind: "read",
+  input: z.object({ userIds: z.array(Id).min(1).max(100) }),
+  output: z.object({ items: z.array(z.object({ userId: Id, activity: VisitorActivity })) }),
+});
+
+export const ONLINE_TYPES = ["all", "member", "guest", "robot"] as const;
+export const ONLINE_PAGE_SIZE = 25;
+
+export const OnlineVisitor = z
+  .object({
+    type: z.enum(["member", "guest", "robot"]),
+    /** The member's card (minimal when the viewer may not open the profile); null otherwise. */
+    card: MemberCard.nullable(),
+    /** The robot's name and page, from the robot list; `name` is null for an unknown robot. */
+    robot: z.object({ name: z.string().nullable(), url: z.string().nullable() }).nullable(),
+    /** A guest's or robot's address, to holders of member.viewIps; null otherwise. */
+    ip: z.string().nullable(),
+    /** No place for a member whose profile the viewer may not open. */
+    activity: VisitorActivity,
+  })
+  .meta({ id: "OnlineVisitor" });
+
+export const onlineList = defineContract({
+  name: "online.list",
+  summary:
+    "The current visitors, most recently seen first, 25 to a page: members seen " +
+    "in the last 24 hours, and guests and robots that viewed a page in the last hour (robots " +
+    "are told apart by their user agent). `type` keeps one kind. The place follows the rules " +
+    "of users.activity. Members who hide their online status are left out except for " +
+    "themselves and holders of profile.bypassPrivacy (`activity.hidden` true); banned and " +
+    "erased members are left out. The list may be up to half a minute old. `total` counts the " +
+    "visitors of the type for this viewer; a page past the last one is empty. Requires " +
+    "site.view and member.viewList.",
+  kind: "read",
+  input: z.object({
+    type: z.enum(ONLINE_TYPES).default("all"),
+    page: z.number().int().min(1).max(10_000).default(1),
+  }),
+  output: z.object({
+    items: z.array(OnlineVisitor),
+    page: z.number().int().positive(),
+    perPage: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+  }),
+});
+
+export const onlineCounts = defineContract({
+  name: "online.counts",
+  summary:
+    "How many guests and robots viewed a page in the last 15 minutes (the online window). The " +
+    "numbers are the same for every viewer and may be up to half a minute old. Requires " +
+    "site.view and member.viewList.",
+  kind: "read",
+  input: Empty,
+  output: z.object({
+    guests: z.number().int().nonnegative(),
+    robots: z.number().int().nonnegative(),
+  }),
+});
+
 export const siteStats = defineContract({
   name: "site.stats",
   summary:

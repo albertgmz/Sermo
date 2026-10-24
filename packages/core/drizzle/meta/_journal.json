@@ -512,6 +512,13 @@
       "when": 1792811413380,
       "tag": "0072_alerts_viewed",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "6",
+      "when": 1792816962825,
+      "tag": "0073_online_visitors",
+      "breakpoints": true
     }
   ]
 }

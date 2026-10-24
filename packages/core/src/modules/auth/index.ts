@@ -46,6 +46,7 @@ import {
   takePasswordGuess,
 } from "../admin/password-guesses";
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
+import { noteVisit, PLACE_HEADER } from "../members/online-track";
 import {
   parseReferrer,
   referOnRegistration,
@@ -1392,8 +1393,11 @@ export async function resolveActor(
       setCookies: [],
     };
   }
+  // A page view of the web app names its page; only those are noted for who is online.
+  const place = headers.get(PLACE_HEADER);
   const cookie = headers.get("cookie");
-  if (!cookie || !/(?:^|;\s*)(?:__Secure-)?sermo\.session_token=/.test(cookie))
+  if (!cookie || !/(?:^|;\s*)(?:__Secure-)?sermo\.session_token=/.test(cookie)) {
+    if (place !== null) noteVisit(ctx, { userId: null, ip: clientIp, userAgent, place });
     return {
       actor:
         userAgent || clientLocation
@@ -1405,6 +1409,7 @@ export async function resolveActor(
           : GUEST,
       setCookies: [],
     };
+  }
   const result = await getAuth(ctx).api.getSession({ headers, returnHeaders: true });
   const session = result.response;
   if (!session) throw new UnauthenticatedError();
@@ -1427,6 +1432,7 @@ export async function resolveActor(
     throw new UnauthenticatedError();
   // Buffered and throttled, never written during the request (see flushSessionActivity).
   noteSessionActive(ctx, sessionId);
+  if (place !== null) noteVisit(ctx, { userId, place });
   return {
     actor: {
       kind: "user",

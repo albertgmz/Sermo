@@ -291,6 +291,19 @@ function minimalAuthor(author: Author): Author {
 }
 
 /**
+ * Whether the viewer may know when a member was last active (and, within the hour, where): not
+ * for an erased member, and for one who hides their online status only for themselves and
+ * `bypass` (profile.bypassPrivacy).
+ */
+export function activityShown(
+  row: { id: number; show_online: number; erased_at: number | null },
+  self: number | null,
+  bypass: boolean,
+): boolean {
+  return row.erased_at === null && (row.show_online === 1 || row.id === self || bypass);
+}
+
+/**
  * When a member was last active, as the viewer may know it: the stored time or the one buffered by
  * running requests, to the minute. A member who hides their online status keeps it from everyone
  * but themselves and `bypass` (profile.bypassPrivacy), who see it marked hidden.
@@ -302,7 +315,7 @@ function lastActivityOf(
   bypass: boolean,
 ): Pick<Author, "lastActivityAt" | "lastActivityHidden"> {
   const hidden = row.show_online !== 1;
-  const allowed = row.erased_at === null && (!hidden || row.id === self || bypass);
+  const allowed = activityShown(row, self, bypass);
   const seen = allowed ? Math.max(row.last_activity_at ?? 0, ctx.activity.get(row.id) ?? 0) : 0;
   return seen > 0
     ? { lastActivityAt: iso(seen - (seen % MINUTE_MS)), lastActivityHidden: hidden }
@@ -314,7 +327,7 @@ function lastActivityOf(
  * themselves) without profile.view, else by each member's profile privacy, in one query for the
  * whole batch.
  */
-function restrictedFor(
+export function restrictedFor(
   ctx: Ctx,
   viewer: Actor,
   ids: number[],

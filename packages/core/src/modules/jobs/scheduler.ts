@@ -6,6 +6,7 @@ import { dispatchEvents } from "../../events";
 import { purgeExpiredCredentialsBatch } from "../auth";
 import { pruneSignInFailures } from "../auth/sign-in-limit";
 import { expireReadMarks } from "../forums/read-marks";
+import { flushVisits, pruneOnlineVisitors } from "../members/online-track";
 import { flushSessionActivity } from "../security/session";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
@@ -39,6 +40,7 @@ export function runViewsTask(ctx: Ctx): number {
   flushDownloadCounts(ctx);
   flushActivity(ctx);
   flushSessionActivity(ctx);
+  flushVisits(ctx);
   return views;
 }
 
@@ -170,9 +172,10 @@ export function startScheduler(ctx: Ctx): () => void {
     new Cron(SCHEDULES.views, { name: "jobs.views", protect: true, catch: onError }, () => {
       runViewsTask(ctx);
     }),
-    new Cron(SCHEDULES.minute, { name: "jobs.minute", protect: true, catch: onError }, () =>
-      runMinuteTasks(ctx),
-    ),
+    new Cron(SCHEDULES.minute, { name: "jobs.minute", protect: true, catch: onError }, async () => {
+      runMinuteTasks(ctx);
+      await pruneOnlineVisitors(ctx);
+    }),
     new Cron(SCHEDULES.hourly, { name: "jobs.hourly", protect: true, catch: onError }, () =>
       runHourlyTasks(ctx),
     ),
