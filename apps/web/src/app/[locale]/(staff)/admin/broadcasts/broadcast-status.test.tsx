@@ -87,12 +87,12 @@ test("a stopped send is resumed or discarded behind the password; a stopped coun
   expect(send).toContain('name="actorPassword"');
   // The texts name the run, and the buttons post which one it is.
   expect(send).toContain(
-    "The send of the private message “Hello” stopped at 50% with 10 sent.",
+    "The send of the direct message “Hello” stopped at 50% with 10 sent.",
   );
   expect(send).toContain(
-    "Continues the stopped send of the private message “Hello”, started Oct 21, 2026, 10:00 AM,",
+    "Continues the stopped send of the direct message “Hello”, started Oct 21, 2026, 10:00 AM,",
   );
-  expect(send).toContain("Gives up the send of the private message “Hello”");
+  expect(send).toContain("Gives up the send of the direct message “Hello”");
   expect(send).toContain('name="runAt" value="2026-10-21T10:00:00.000Z"');
   expect(send).toContain('name="kind" value="message"');
   const count = await render({ ...stopped, dryRun: true });
@@ -100,7 +100,7 @@ test("a stopped send is resumed or discarded behind the password; a stopped coun
   expect(count).toContain(text.discardCount);
   expect(count).not.toContain('name="actorPassword"');
   expect(count).toContain(
-    "The count for the private message “Hello” stopped at 50%.",
+    "The count for the direct message “Hello” stopped at 50%.",
   );
   expect(count).toContain('name="runAt" value="2026-10-21T10:00:00.000Z"');
 });
@@ -125,7 +125,7 @@ test("a stopped run is resumed or discarded only from the page of its kind", asy
     ])
       expect(html).not.toContain(label);
     expect(html).toContain(
-      "The run that is stopped is a private message: resume or discard it from the message page.",
+      "The run that is stopped is a direct message: resume or discard it from the message page.",
     );
   }
 });
@@ -156,7 +156,7 @@ test("a finished count says how many would be reached", async () => {
     skipped: 3,
   });
   expect(html).toContain(
-    "The private message “Hello” would reach 900 of 1,000 members; 3 of them could not receive it.",
+    "The direct message “Hello” would reach 900 of 1,000 members; 3 of them could not receive it.",
   );
 });
 
@@ -211,7 +211,7 @@ test("a page offers only the send of a count of its own kind, and says whose it 
   };
   const own = await render(counted, "message");
   expect(own).toContain(text.sendCounted);
-  expect(own).toContain("This sends the private message “Hello” to 5 members");
+  expect(own).toContain("This sends the direct message “Hello” to 5 members");
   expect(own).toContain("Started by Ana.");
   expect(own).toContain("Sent as Staff.");
   const other = await render(counted, "alert");
