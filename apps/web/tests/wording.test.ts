@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createTranslator } from "use-intl";
 import { messagesFor } from "../src/i18n/messages";
 
@@ -78,4 +80,31 @@ test("each concept has one name in Spanish", () => {
     "Viendo los visitantes actuales",
   );
   expect(en.forum.activity.places.online).toBe("Viewing current visitors");
+});
+
+test("no message file calls a direct message a private message, in either language", () => {
+  const roots = [
+    join(import.meta.dir, "..", "messages"),
+    join(
+      import.meta.dir,
+      "..",
+      "..",
+      "..",
+      "packages",
+      "core",
+      "src",
+      "i18n",
+      "locales",
+    ),
+  ];
+  const files = roots.flatMap((root) =>
+    readdirSync(root, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map((entry) => join(entry.parentPath, entry.name)),
+  );
+  expect(files.length).toBeGreaterThan(70);
+  for (const file of files)
+    expect(readFileSync(file, "utf8"), file).not.toMatch(
+      /mensajes? privados?|private messages?/i,
+    );
 });

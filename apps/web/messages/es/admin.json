@@ -197,7 +197,7 @@
       "forumsTree": "Crea, ordena y edita categorías y foros.",
       "forumsPrefixes": "Etiquetas que un tema puede llevar delante del título.",
       "communicationAnnouncements": "Envía una alerta a todos, a un grupo o a miembros concretos.",
-      "communicationBroadcastMessage": "Envía un mensaje privado a todos los miembros, a algunos grupos o a los miembros que elija una regla.",
+      "communicationBroadcastMessage": "Envía un mensaje directo a todos los miembros, a algunos grupos o a los miembros que elija una regla.",
       "communicationBroadcastAlert": "Envía una alerta a todos los miembros, a algunos grupos o a los miembros que elija una regla.",
       "communicationNotices": "Avisos que se muestran bajo la cabecera de cada página.",
       "communicationNotifications": "Lo que reciben los miembros hasta que elijan por sí mismos.",

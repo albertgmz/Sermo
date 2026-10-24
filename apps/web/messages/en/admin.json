@@ -197,7 +197,7 @@
       "forumsTree": "Create, arrange and edit categories and forums.",
       "forumsPrefixes": "Labels a thread can carry in front of its title.",
       "communicationAnnouncements": "Send an alert to everyone, a group or named members.",
-      "communicationBroadcastMessage": "Send a private message to all members, some groups or the members a rule picks.",
+      "communicationBroadcastMessage": "Send a direct message to all members, some groups or the members a rule picks.",
       "communicationBroadcastAlert": "Send an alert to all members, some groups or the members a rule picks.",
       "communicationNotices": "Banners shown under the header of every page.",
       "communicationNotifications": "What members get until they choose for themselves.",
