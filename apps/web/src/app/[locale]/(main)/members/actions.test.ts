@@ -90,28 +90,30 @@ test("a comment's attachment id that is not a record id never reaches the backen
 // The wall composer keeps what was written by not letting React reset its form, so what empties
 // and closes it is the redirect alone: Next draws the page's forms anew when an action ends in
 // one. A refusal must therefore come back as a state, and a post that was taken must redirect.
+const WALL_POST = {
+  id: 9,
+  profileUserId: 5,
+  author: { id: 3, username: "ember" },
+  state: "visible",
+  createdAt: "2026-10-13T03:57:31.497Z",
+  editedAt: null,
+  bodyHtml: "<p>hi</p>",
+  bodySource: "hi",
+  attachmentCount: 0,
+  attachments: [],
+  reactions: { counts: {}, total: 0, mine: null },
+  commentCount: 0,
+  latestComments: [],
+  canEdit: true,
+  canDelete: true,
+  canReport: true,
+  canComment: true,
+  deletion: null,
+};
+
 test("a wall post that was taken ends in a redirect to the page it was written on, on the wall at the post", async () => {
   globalThis.fetch = (async () =>
-    Response.json({
-      id: 9,
-      profileUserId: 5,
-      author: { id: 3, username: "ember" },
-      state: "visible",
-      createdAt: "2026-10-13T03:57:31.497Z",
-      editedAt: null,
-      bodyHtml: "<p>hi</p>",
-      bodySource: "hi",
-      attachmentCount: 0,
-      attachments: [],
-      reactions: { counts: {}, total: 0, mine: null },
-      commentCount: 0,
-      latestComments: [],
-      canEdit: true,
-      canDelete: true,
-      canReport: true,
-      canComment: true,
-      deletion: null,
-    })) as unknown as typeof fetch;
+    Response.json(WALL_POST)) as unknown as typeof fetch;
   for (const [page, to] of [
     ["/", "/"],
     ["/members/5", "/members/5?post=9#profile-post-9"],
@@ -124,6 +126,35 @@ test("a wall post that was taken ends in a redirect to the page it was written o
     );
     assert.equal(digest?.split(";")[0], "NEXT_REDIRECT");
     assert.equal(digest?.split(";")[2], to);
+  }
+});
+
+// The browser shows the wall at the profile's slugged address. Going to the plain one would be a
+// navigation to another route (its placeholder over the whole page), which the proxy sends on to
+// the slugged address again: the wall at the post keeps the address the browser is at.
+test("a wall post written on the wall goes to the post at the wall's own slugged address", async () => {
+  globalThis.fetch = (async () =>
+    Response.json(WALL_POST)) as unknown as typeof fetch;
+  for (const [referer, to] of [
+    ["/members/5-ember?tab=wall", "/members/5-ember?post=9#profile-post-9"],
+    ["/members/5-ember", "/members/5-ember?post=9#profile-post-9"],
+    // Another member's page is not this wall: its plain address.
+    ["/members/51-wren", "/members/5?post=9#profile-post-9"],
+  ]) {
+    incoming = new Headers({
+      referer: `http://localhost:3105${referer}`,
+      host: "localhost:3105",
+    });
+    const digest = await postToWall(
+      5,
+      "/members/5",
+      {},
+      form({ body: "hi" }),
+    ).then(
+      () => undefined,
+      (error: { digest?: unknown }) => String(error.digest),
+    );
+    assert.equal(digest?.split(";")[2], to, referer);
   }
 });
 

@@ -23,12 +23,22 @@ import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { call } from "@/lib/sermo/client";
 import { eraseHidingFirst } from "@/lib/sermo/erase";
 import { SermoError } from "@/lib/sermo/errors";
-import { formIds, requireIds } from "@/lib/sermo/ids";
+import { formIds, parsePageId, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 import { pageOfRequest } from "@/lib/sermo/request-page";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 
 export type WallState = { error?: string; done?: boolean };
+
+// The path of a member's wall as the browser has it: the page the action was called from when it
+// is that wall, else the wall's plain address.
+async function wallPathOf(profileUserId: number) {
+  const page = (await pageOfRequest()).split(/[?#]/)[0];
+  const segment = /^\/members\/([^/]+)$/.exec(page)?.[1];
+  return segment !== undefined && parsePageId(segment) === profileUserId
+    ? page
+    : `/members/${profileUserId}`;
+}
 
 // Posts on the wall of `profileUserId` and goes back to the page the form was on: on that wall,
 // to its first page at the new post, which the page lands on.
@@ -46,11 +56,17 @@ export async function postToWall(
   );
   if (!created.ok) return { error: created.error };
   const back = safeReturnPath(returnTo);
+  if (
+    back !== `/members/${profileUserId}` &&
+    !back.startsWith(`/members/${profileUserId}?`)
+  )
+    redirect(back);
+  // The wall at the post, at the address the browser shows the wall by (the profile's slugged
+  // one): another path would be another route, whose placeholder covers the page while it loads,
+  // and the proxy would send it on to the slugged one again.
+  const target = wallTargetHref(profileUserId, created.value.id);
   redirect(
-    back === `/members/${profileUserId}` ||
-      back.startsWith(`/members/${profileUserId}?`)
-      ? wallTargetHref(profileUserId, created.value.id)
-      : back,
+    `${await wallPathOf(profileUserId)}${target.slice(target.indexOf("?"))}`,
   );
 }
 
