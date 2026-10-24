@@ -154,12 +154,25 @@ test.describe("signed in", () => {
 
     const more = page.getByRole("link", { name: "Load more", exact: true });
     await more.scrollIntoViewIfNeeded();
-    const before = await scrollY(page);
+    // The last post drawn is the reader's place: where it is on the screen when the button is
+    // pressed. (The page's own scroll offset is not: the posts above it are measured as they are
+    // drawn, and the offset moves by what they differ from their guess while the place stays.)
+    const anchor = page.locator(`[data-index="${await lastRow()}"]`);
+    const anchorTop = () =>
+      anchor.evaluate((row) => row.getBoundingClientRect().top);
+    await expect
+      .poll(async () => {
+        const first = await anchorTop();
+        await page.waitForTimeout(200);
+        return Math.abs((await anchorTop()) - first) < 1;
+      })
+      .toBe(true);
+    const before = await anchorTop();
     await more.click();
     await expect(page).toHaveURL(/[?&]pages=2(&|$)/);
     await expect.poll(lastRow).toBeGreaterThan(shown);
-    // The screen did not move up to the top, and the posts shown before are still above.
-    expect(await scrollY(page)).toBeGreaterThanOrEqual(before);
+    // The screen did not move: the post the reader was at is where it was, the new ones under it.
+    expect(Math.abs((await anchorTop()) - before)).toBeLessThanOrEqual(48);
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(newest).toBeVisible();
     await expectInPlace(page, "wall load more");
