@@ -389,6 +389,8 @@
     "codeLabel": "Code:",
     "richCodeLabel": "Rich (BB code):",
     "said": "said:",
+    "showQuote": "Show quote",
+    "hideQuote": "Hide quote",
     "spoiler": "Spoiler",
     "spoilerFailed": "That spoiler could not be loaded.",
     "attachment": "Attachment",

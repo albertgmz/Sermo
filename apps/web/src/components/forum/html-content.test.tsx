@@ -157,6 +157,36 @@ test("a quote of a post is headed like every quote: its author, then the page's 
   expect(out).not.toContain("wrote");
 });
 
+test("a quote inside a quote is folded, with its header, its link and the hint's words in CSS; the first level stays open", async () => {
+  const link = (id: number, name: string) =>
+    `<a href="/posts/${id}" rel="nofollow ugc noopener">${name}</a>`;
+  const out = await render(
+    `${postQuoteStart(1, link(1, "Ann"))}<p>one</p>` +
+      `${postQuoteStart(2, link(2, "Bob"))}<p>two</p>` +
+      `${postQuoteStart(3, link(3, "Cy"))}<p>three</p></blockquote></blockquote></blockquote>`,
+  );
+  // Two folds (levels 2 and 3), none for level 1, which holds the first of them.
+  expect(out.match(/<details class="bb-quote-fold">/g)?.length).toBe(2);
+  expect(out).toContain(
+    `<blockquote class="bb-quote quote" data-post-id="1"><cite class="bb-quote-author">${link(1, "Ann")}</cite><p>one</p>`,
+  );
+  for (const [id, name] of [
+    [2, "Bob"],
+    [3, "Cy"],
+  ] as const)
+    expect(out).toContain(
+      `<summary class="bb-quote-fold-summary"><cite class="bb-quote-author">${link(id, name)}</cite><span class="bb-quote-fold-hint"></span></summary>`,
+    );
+  expect(out).toContain("--bb-quote-show:&quot;showQuote&quot;");
+});
+
+test("a quote directly in the body is not folded", async () => {
+  const out = await render(
+    `${postQuoteStart(7, "Alice")}<p>quoted</p></blockquote>`,
+  );
+  expect(out).not.toContain("<details");
+});
+
 test("a colour typed in the body is drawn through the guard", async () => {
   const out = await render('<p><span style="color:#000">dark</span></p>');
   expect(out).toContain('class="bb-color" style="--ink:#000"');

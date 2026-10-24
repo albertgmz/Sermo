@@ -13,6 +13,7 @@ import { placeInlineAttachments } from "@/lib/inline-attachments";
 import { stripHtmlMedia } from "@/lib/lite-content";
 import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
 import { withMediaPlayers } from "@/lib/media-links";
+import { foldNestedQuotes } from "@/lib/quote-fold";
 import { publicUrl } from "@/lib/sermo/config";
 import { getSmilies } from "@/lib/sermo/smilies";
 import { withSmilies } from "@/lib/smilies";
@@ -41,9 +42,9 @@ const elements = cn(
 
 // Renders HTML the backend produced and sanitised. The text is not edited, only its placeholders
 // are filled: smilie codes become the site's smilies, LITE mode removes its pictures on the server,
-// `[color=…]` spans go through the colour guard, spoilers become buttons and `[ATTACH]` tags become the item's files. A mention in
+// quotes from the second level fold, `[color=…]` spans go through the colour guard, spoilers become buttons and `[ATTACH]` tags become the item's files. A mention in
 // it shows the member's card on hover.
-// The words BB code shows (a code block's header, "said:", "Spoiler") are not in the HTML: they are
+// The words BB code shows (a code block's header, "said:", "Spoiler", a folded quote's hint) are not in the HTML: they are
 // CSS variables set here in the visitor's language. A body with spoilers needs the `content` it
 // belongs to, to ask for them; without it their buttons are disabled. The `attachments` of the item
 // take the place of its `[ATTACH]` tags, drawn through the same LITE gate as the list under the body.
@@ -64,7 +65,10 @@ export async function HtmlContent(props: {
     withSpoilerButtons(
       await withEmbedGate(
         stripHtmlMedia(
-          withMediaPlayers(withSmilies(props.children, smilies), publicUrl()),
+          withMediaPlayers(
+            withSmilies(foldNestedQuotes(props.children), smilies),
+            publicUrl(),
+          ),
           state,
           origin,
           label,
@@ -86,6 +90,8 @@ export async function HtmlContent(props: {
           "--bb-code-label": JSON.stringify(t("codeLabel")),
           "--bb-code-rich-label": JSON.stringify(t("richCodeLabel")),
           "--bb-said": JSON.stringify(t("said")),
+          "--bb-quote-show": JSON.stringify(t("showQuote")),
+          "--bb-quote-hide": JSON.stringify(t("hideQuote")),
           "--bb-spoiler": JSON.stringify(t("spoiler")),
         } as React.CSSProperties
       }

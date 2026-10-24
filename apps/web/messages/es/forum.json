@@ -389,6 +389,8 @@
     "codeLabel": "Código:",
     "richCodeLabel": "Enriquecido (código BB):",
     "said": "dijo:",
+    "showQuote": "Ver cita",
+    "hideQuote": "Ocultar cita",
     "spoiler": "Spoiler",
     "spoilerFailed": "No se pudo cargar ese spoiler.",
     "attachment": "Adjunto",
