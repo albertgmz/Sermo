@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { type ApiNode, childrenByParent, forumCard } from "./forums";
+import {
+  type ApiNode,
+  cardMembers,
+  childrenByParent,
+  forumCard,
+} from "./forums";
 
 const node = (
   id: number,
@@ -28,4 +33,34 @@ test("a forum card counts the forums under it, and its sub-forum links are the d
   expect(card.threadCount).toBe(9);
   expect(card.postCount).toBe(60);
   expect(card.subforums).toEqual([{ id: 2, title: "Forum 2" }]);
+});
+
+test("the members a sub-forum card needs include the author of a last post in a forum under it", () => {
+  const withPost = (
+    id: number,
+    parentId: number | null,
+    userId: number,
+    at: string,
+  ) =>
+    ({
+      ...node(id, parentId, 0, 0),
+      lastPost: { postedAt: at, user: { id: userId, username: `u${userId}` } },
+    }) as unknown as ApiNode;
+  // The child's own newest post is old (member 1); the grandchild's is newer (member 2).
+  const child = withPost(2, 1, 1, "2026-01-01T00:00:00.000Z");
+  const nodes = [
+    node(1, null, 0, 0),
+    child,
+    withPost(3, 2, 2, "2026-02-01T00:00:00.000Z"),
+  ];
+  const childrenOf = childrenByParent(nodes);
+  const known = new Set(
+    cardMembers([child], childrenOf).map((user) => user.id),
+  );
+  const card = forumCard(child, childrenOf, (id) => {
+    if (!known.has(id)) throw new Error(`The member ${id} was not collected`);
+    return {} as never;
+  });
+  expect(card.lastPost?.author.username).toBe("u2");
+  expect([...known]).toEqual([2]);
 });

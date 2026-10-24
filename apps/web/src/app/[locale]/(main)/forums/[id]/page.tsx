@@ -32,7 +32,7 @@ import { widgetAreas, widgetAside } from "@/components/widgets/widget-area";
 import { pagesParam } from "@/lib/list-pages";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
-import { childrenByParent, nodeMembers } from "@/lib/sermo/forums";
+import { cardMembers, childrenByParent, nodeMembers } from "@/lib/sermo/forums";
 import { parsePageId } from "@/lib/sermo/ids";
 import { membersFor } from "@/lib/sermo/members";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
@@ -306,7 +306,7 @@ async function Subforums({ nodeId }: { nodeId: number }) {
   const childrenOf = childrenByParent(nodes);
   const forums = childrenOf(nodeId);
   if (forums.length === 0) return null;
-  const member = await membersFor(nodeMembers(forums));
+  const member = await membersFor(cardMembers(forums, childrenOf));
   return (
     <ForumCardGrid
       forums={forums}

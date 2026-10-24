@@ -77,3 +77,21 @@ test("a viewer who cannot open a child forum does not get its counts or last pos
   const asStaff = await totalsAs(ctx, admin, parent.id);
   expect(asStaff).toMatchObject({ threadCount: 4, postCount: 9 + 5, lastTitle: "Private thread" });
 });
+
+test("a forum under one the viewer may not open adds nothing to the forum above", async () => {
+  const { ctx, parent, child, grandchild } = await forumTree();
+  for (const groupId of [1, 2])
+    ctx.sqlite
+      .prepare("INSERT INTO node_permissions (node_id, group_id, can_view) VALUES (?1, ?2, 0)")
+      .run(child.id, groupId);
+  invalidate(ctx, "permissions");
+  const viewer = userActor(insertUser(ctx));
+  const listed = (await execute(ctx, nodesListOp, viewer, {})).items.map((node) => node.id);
+  expect(listed).not.toContain(child.id);
+  expect(listed).not.toContain(grandchild.id);
+  expect(await totalsAs(ctx, viewer, parent.id)).toMatchObject({
+    threadCount: 1,
+    postCount: 2,
+    lastTitle: "Parent thread",
+  });
+});

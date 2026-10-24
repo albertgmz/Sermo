@@ -22,6 +22,18 @@ export function nodeMembers(nodes: ApiNode[]) {
   return nodes.flatMap((node) => (node.lastPost ? [node.lastPost.user] : []));
 }
 
+// The members the cards of these forums show: the authors of their shown last posts, which may
+// lie in a forum under them.
+export function cardMembers(
+  forums: ApiNode[],
+  childrenOf: (parentId: number) => ApiNode[],
+) {
+  return forums.flatMap((forum) => {
+    const { lastPost } = subtreeTotals(forum, childrenOf);
+    return lastPost ? [lastPost.user] : [];
+  });
+}
+
 // A node from the backend in the shape of the forum card. Its direct children are the forum's
 // sub-forums; its totals include every forum under it.
 export function forumCard(
