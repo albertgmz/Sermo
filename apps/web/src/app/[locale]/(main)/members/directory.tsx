@@ -1,19 +1,27 @@
 import { usersSearch } from "@sermo/core/contracts";
 import { SearchX } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { directoryPage } from "@/app/[locale]/(main)/members/directory-page";
+import {
+  DirectoryPages,
+  directoryPage,
+  directoryParams,
+} from "@/app/[locale]/(main)/members/directory-page";
 import { MemberSearch } from "@/app/[locale]/(main)/members/member-search";
-import { moreDirectory } from "@/app/[locale]/(main)/members/more-members";
+import { directoryPageAction } from "@/app/[locale]/(main)/members/members-page-actions";
+import { MEMBERS_PATH } from "@/app/[locale]/(main)/members/ranking-page";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LevelBadge } from "@/components/forum/level";
 import { MemberRow } from "@/components/forum/member-row";
-import { PagedList } from "@/components/forum/paged-list";
+import { PageSwitch } from "@/components/forum/page-switch";
+import { pageAddress, pagesOf } from "@/components/forum/page-window";
 import { SectionCard } from "@/components/forum/section-card";
 import { TabLinks } from "@/components/forum/tab-links";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
+import { MEMBERS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { cn } from "@/lib/utils";
 
 // The sorts of the directory, in the order of its tabs; the backend does the sorting.
@@ -83,43 +91,35 @@ async function Found({ query, everyone }: { query: string; everyone: string }) {
 
 async function Everyone({
   sort,
-  cursor,
-  pages,
+  page,
 }: {
   sort: (typeof SORTS)[number]["value"];
-  cursor?: string;
-  pages: number;
+  page: number;
 }) {
-  const [first, loadMore] = await Promise.all([
-    directoryPage(sort, cursor),
-    getTranslations("members.loadMore"),
-  ]);
+  const first = await directoryPage(sort, page);
+  // A page past the last one goes to the last one, as XenForo does.
+  const pages = pagesOf(first.total, MEMBERS_PER_PAGE);
+  if (page > pages)
+    redirect(pageAddress(MEMBERS_PATH, directoryParams(sort), pages));
   return (
-    <PagedList
-      first={first}
-      more={moreDirectory.bind(null, sort)}
-      pages={pages}
-      start={cursor}
-      listKey={["members", "all", sort]}
-      hrefBase={directoryHref(sort, "")}
-      moreLabel={loadMore("label")}
-      // A page is a grid of about twenty cards, one or three to a line.
-      estimateSize={2000}
-      spacing="spaced"
-    />
+    <PageSwitch
+      page={page}
+      stamp={Date.now()}
+      load={directoryPageAction.bind(null, sort)}
+    >
+      <DirectoryPages sort={sort} page={page} list={first} />
+    </PageSwitch>
   );
 }
 
 export async function Directory({
   query,
   sort: sortParam,
-  cursor,
-  pages,
+  page,
 }: {
   query: string;
   sort: string;
-  cursor?: string;
-  pages: number;
+  page: number;
 }) {
   const t = await getTranslations("members.directory");
   const sort = SORTS.find((entry) => entry.value === sortParam) ?? SORTS[0];
@@ -148,7 +148,7 @@ export async function Directory({
             active={sort.value}
             label={t("aria.sort")}
           />
-          <Everyone sort={sort.value} cursor={cursor} pages={pages} />
+          <Everyone sort={sort.value} page={page} />
         </>
       )}
     </>

@@ -255,6 +255,7 @@ test("top referrers ranks by referrals at its own size and leaves out members no
       Response.json({
         items: [listed(3, "ana", 41), listed(4, "ben", 7), listed(5, "cleo")],
         nextCursor: null,
+        total: null,
       }),
   });
   const { html, errors } = await draw(referrers(3));
@@ -273,7 +274,11 @@ test("top referrers ranks by referrals at its own size and leaves out members no
 test("top referrers draws nothing when nobody has referrals, or listing members is refused", async () => {
   backend(false, {
     "/api/v1/members": () =>
-      Response.json({ items: [listed(5, "cleo")], nextCursor: null }),
+      Response.json({
+        items: [listed(5, "cleo")],
+        nextCursor: null,
+        total: null,
+      }),
   });
   expect((await draw(referrers())).html).not.toContain("<section");
   backend(false, { "/api/v1/members": refused });

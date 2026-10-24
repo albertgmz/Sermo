@@ -1,23 +1,22 @@
 import { usersSearch } from "@sermo/core/contracts";
 import { Search, SearchX, TriangleAlert } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LevelBadge } from "@/components/forum/level";
 import { MemberRow } from "@/components/forum/member-row";
-import { PagedList } from "@/components/forum/paged-list";
-import { SectionCard, SectionHeader } from "@/components/forum/section-card";
+import { PageSwitch } from "@/components/forum/page-switch";
+import { pageAddress, pagesOf } from "@/components/forum/page-window";
+import { SectionCard } from "@/components/forum/section-card";
 import { call } from "@/lib/sermo/client";
+import { SEARCH_RESULTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { cn } from "@/lib/utils";
-import { type Filters, searchHref } from "./filters";
-import { moreResults } from "./more-results";
-import { refusal, searchPage } from "./search-page";
+import { type Filters, SEARCH_PATH, searchHref, searchParams } from "./filters";
+import { refusal, SearchPages, searchPage } from "./search-page";
+import { searchPageAction } from "./search-page-action";
 
 const card = "rounded-lg border bg-card";
-
-// A search is the backend's costliest and most limited read (30 a minute per visitor, and each
-// page also looks up its members), so an address that asks for more pages gets two.
-const RESTORED_PAGES = 2;
 
 // The member the visitor typed: the backend finds usernames by their start, the exact one is ours
 // to pick.
@@ -28,7 +27,7 @@ async function authorId(username: string) {
   return items.find((item) => item.username.toLowerCase() === wanted)?.id;
 }
 
-// Members whose username starts with the query: a single word, on the first page, without filters.
+// Members whose username starts with the query: a single word, without filters.
 function memberPrefix({ query, titlesOnly, forum, prefix, author }: Filters) {
   const unfiltered = !titlesOnly && !forum && !prefix && !author;
   return unfiltered && /^\S{1,32}$/.test(query) ? query : undefined;
@@ -36,13 +35,10 @@ function memberPrefix({ query, titlesOnly, forum, prefix, author }: Filters) {
 
 export async function Results({
   filters,
-  cursor,
-  pages,
+  page,
 }: {
   filters: Filters;
-  cursor?: string;
-  // How many pages the address asks for.
-  pages: number;
+  page: number;
 }) {
   const t = await getTranslations("search.search");
   const { query, titlesOnly, forum, prefix, author } = filters;
@@ -70,14 +66,14 @@ export async function Results({
     );
   }
 
-  const startsWith = cursor ? undefined : memberPrefix(filters);
+  const startsWith = memberPrefix(filters);
   const matches =
     startsWith === undefined
       ? undefined
       : refusal(call(usersSearch, { prefix: startsWith })).then((answer) =>
           "value" in answer ? answer.value.items : [],
         );
-  const found = await searchPage(filters, wanted, cursor, matches);
+  const found = await searchPage(filters, wanted, page, matches);
 
   if ("message" in found) {
     return (
@@ -94,7 +90,7 @@ export async function Results({
           <p className="text-muted-foreground [overflow-wrap:anywhere]">
             {found.message}
           </p>
-          {cursor && (
+          {page > 1 && (
             <Link
               href={searchHref(filters)}
               className="inline-flex min-h-10 items-center font-medium underline-offset-4 hover:underline md:min-h-0"
@@ -107,8 +103,11 @@ export async function Results({
     );
   }
 
-  const { page, member, matches: matched } = found;
-  const listed = page.rows.length > 0;
+  const { results, member, matches: matched } = found;
+  // A page past the last one goes to the last one, as XenForo does.
+  const pages = pagesOf(results.total, SEARCH_RESULTS_PER_PAGE);
+  if (page > pages)
+    redirect(pageAddress(SEARCH_PATH, searchParams(filters), pages));
 
   return (
     <>
@@ -128,7 +127,7 @@ export async function Results({
         </SectionCard>
       )}
 
-      {!listed && !page.nextCursor ? (
+      {results.total === 0 ? (
         <EmptyState
           icon={SearchX}
           title={t(matched.length > 0 ? "noPostsTitle" : "noResultsTitle", {
@@ -142,19 +141,13 @@ export async function Results({
           className={card}
         />
       ) : (
-        // A page may be short, or empty, while the backend still has more to look through.
-        <PagedList
-          first={page}
-          more={moreResults.bind(null, filters, wanted)}
-          pages={Math.min(pages, RESTORED_PAGES)}
-          start={cursor}
-          listKey={["search", searchHref(filters)]}
-          hrefBase={searchHref(filters)}
-          moreLabel={t("loadMore")}
-          estimateSize={120}
-          className={card}
-          header={<SectionHeader title={t("postsHeading")} />}
-        />
+        <PageSwitch
+          page={page}
+          stamp={Date.now()}
+          load={searchPageAction.bind(null, filters, wanted)}
+        >
+          <SearchPages filters={filters} page={page} list={results} />
+        </PageSwitch>
       )}
     </>
   );

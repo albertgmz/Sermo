@@ -156,7 +156,9 @@ const member = (id: number) => ({
 
 test("the ranking is there when the backend gives it, and asks for members who have earned XP", async () => {
   const asked: string[] = [];
-  backend(() => Response.json({ items: [member(7)], nextCursor: null }));
+  backend(() =>
+    Response.json({ items: [member(7)], nextCursor: null, total: null }),
+  );
   const inner = globalThis.fetch;
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
     const { pathname, search } = new URL(url);
@@ -173,7 +175,7 @@ test("the ranking is there when the backend gives it, and asks for members who h
 });
 
 test("nobody has earned XP: the ranking card is left out", async () => {
-  backend(() => Response.json({ items: [], nextCursor: null }));
+  backend(() => Response.json({ items: [], nextCursor: null, total: null }));
   const { html, errors } = await page();
   expect(errors).toEqual([]);
   expect(html).not.toContain(messages.awards.awards.leadersHeading);

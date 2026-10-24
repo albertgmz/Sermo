@@ -27,8 +27,7 @@
     "membersHeading": "Miembros",
     "membersDescription": "Nombres de usuario que empiezan por «{query}»",
     "postsHeading": "Mensajes",
-    "details": "<author></author> en <forum></forum> · Mensaje #{number} · <time></time>",
-    "loadMore": "Cargar más"
+    "details": "<author></author> en <forum></forum> · Mensaje #{number} · <time></time>"
   },
   "loading": {
     "label": "Cargando la búsqueda…",

@@ -45,6 +45,7 @@ test("words are searched in titles, and a thread that matches through several po
           hit(9, "House rules, again", 90),
         ],
         nextCursor: null,
+        total: null,
       }),
   });
   expect(await findThreads("  rules house ")).toEqual([

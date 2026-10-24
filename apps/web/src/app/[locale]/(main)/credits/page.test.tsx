@@ -60,7 +60,7 @@ function backend(members: unknown[]) {
     if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
     if (pathname === "/api/v1/members") {
       asked.push(search);
-      return Response.json({ items: members, nextCursor: null });
+      return Response.json({ items: members, nextCursor: null, total: null });
     }
     return Response.json(
       { error: { code: "not_found", message: "?" } },

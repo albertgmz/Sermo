@@ -99,7 +99,7 @@ function backend() {
     const { pathname } = new URL(url);
     if (pathname === "/api/v1/me") return Response.json(viewerBody(true));
     if (pathname === "/api/v1/bookmarks")
-      return Response.json({ items: rows, nextCursor: null });
+      return Response.json({ items: rows, nextCursor: null, total: 3 });
     if (pathname === "/api/v1/member-cards")
       return Response.json({ items: [] });
     return Response.json(
@@ -152,4 +152,55 @@ test("every bookmark line shows its type, author and time", async () => {
   expect(html.match(/<time /g)).toHaveLength(3);
   for (const type of ["Thread", "Post", "Direct message"])
     expect(html).toContain(`${type} by `);
+});
+
+// Numbered pages: 45 bookmarks in all (three pages of 20), the page asked for on the screen.
+function pagesBackend(items: unknown[]) {
+  globalThis.fetch = (async (url: string) => {
+    const { pathname } = new URL(url);
+    if (pathname === "/api/v1/me") return Response.json(viewerBody(true));
+    if (pathname === "/api/v1/bookmarks")
+      return Response.json({ items, nextCursor: null, total: 45 });
+    return Response.json({ items: [] });
+  }) as unknown as typeof fetch;
+}
+
+async function html(element: unknown) {
+  const stream = await renderToReadableStream(
+    withIntl(withQuery(element as never)),
+  );
+  await stream.allReady;
+  return new Response(stream).text();
+}
+
+test("the bookmarks are numbered pages, plain links that work without scripts", async () => {
+  pagesBackend([item({ id: 8, title: "On page two" })]);
+  const page = await html(
+    await BookmarkList({ searchParams: Promise.resolve({ page: "2" }) }),
+  );
+  expect(page).toContain("On page two");
+  expect(page).toContain('aria-current="page"');
+  expect(page).toContain('href="/account/bookmarks?page=3"');
+  expect(page).toContain('href="/account/bookmarks"');
+  expect(page).not.toContain("cursor=");
+});
+
+test("a page past the last one goes to the last one, as XenForo does", async () => {
+  pagesBackend([]);
+  const error = await BookmarkList({
+    searchParams: Promise.resolve({ page: "9" }),
+  }).catch((thrown: unknown) => thrown);
+  expect(String((error as { digest?: string }).digest)).toContain(
+    ";/account/bookmarks?page=3;",
+  );
+});
+
+test("the in-place switch gets the page drawn, and nothing for a page with no bookmarks", async () => {
+  const { bookmarksPageAction } = await import("./bookmarks-page-action");
+  pagesBackend([item({ id: 8, title: "On page two" })]);
+  const drawn = await html(await bookmarksPageAction(2));
+  expect(drawn).toContain("On page two");
+  expect(drawn).toContain('href="/account/bookmarks?page=3"');
+  pagesBackend([]);
+  expect(await bookmarksPageAction(5)).toBeNull();
 });

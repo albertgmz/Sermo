@@ -370,7 +370,6 @@
     "loading": "Cargando tus marcadores…",
     "emptyTitle": "Aún no tienes marcadores",
     "emptyDescription": "Marca un tema, un mensaje o un mensaje directo para encontrarlo aquí más tarde.",
-    "loadMore": "Cargar más",
     "details": "{type} de <author></author>, <time></time>",
     "types": {
       "thread": "Tema",

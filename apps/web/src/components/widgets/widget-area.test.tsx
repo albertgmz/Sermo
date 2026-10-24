@@ -216,7 +216,7 @@ test("the widgets are drawn in the order given, each under its type's title", as
   backend({
     ...rankings,
     "/api/v1/members": () =>
-      Response.json({ items: [memberCard], nextCursor: null }),
+      Response.json({ items: [memberCard], nextCursor: null, total: null }),
     "/api/v1/nodes": () =>
       Response.json({ items: [forum(5, "Garden"), forum(6, "Kitchen")] }),
   });
@@ -299,7 +299,7 @@ test("a viewer who may not list members gets no suggested members, and no error"
 test("the suggested members are there when the backend lists them", async () => {
   backend({
     "/api/v1/members": () =>
-      Response.json({ items: [memberCard], nextCursor: null }),
+      Response.json({ items: [memberCard], nextCursor: null, total: null }),
   });
   const { html } = await draw(area([members]));
   expect(html).toContain(titles.suggestedMembers);

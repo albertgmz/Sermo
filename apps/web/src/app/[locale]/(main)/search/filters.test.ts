@@ -7,19 +7,14 @@ test("a search with no filters carries only the query", () => {
   );
 });
 
-test("every filter and the cursor travel in the address", () => {
+test("every filter travels in the address", () => {
   expect(
-    searchHref(
-      {
-        query: "a b&c",
-        titlesOnly: true,
-        forum: 3,
-        prefix: 1,
-        author: "ember",
-      },
-      "WzI4XQ",
-    ),
-  ).toBe(
-    "/search?q=a+b%26c&titles=1&forum=3&prefix=1&author=ember&cursor=WzI4XQ",
-  );
+    searchHref({
+      query: "a b&c",
+      titlesOnly: true,
+      forum: 3,
+      prefix: 1,
+      author: "ember",
+    }),
+  ).toBe("/search?q=a+b%26c&titles=1&forum=3&prefix=1&author=ember");
 });

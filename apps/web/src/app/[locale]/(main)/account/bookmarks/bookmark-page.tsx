@@ -1,15 +1,24 @@
 import { bookmarksList } from "@sermo/core/contracts";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
+import { NumberedList } from "@/components/forum/numbered-list";
+import { pagesOf } from "@/components/forum/page-window";
 import { RelativeTime } from "@/components/forum/relative-time";
+import { SectionHeader } from "@/components/forum/section-card";
 import { UserLink } from "@/components/forum/user-link";
-import type { ListPage } from "@/lib/list-pages";
+import type { ListRow } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { conversationOpenHref, threadOpenHref } from "@/lib/sermo/open-links";
+import { BOOKMARKS_PER_PAGE } from "@/lib/sermo/page-sizes";
+
+export const BOOKMARKS_PATH = "/account/bookmarks";
+
+export type BookmarksPage = { rows: ListRow[]; total: number };
 
 export type BookmarkItem = z.output<
   typeof bookmarksList.output
@@ -26,20 +35,19 @@ export function bookmarkHref(item: Item) {
   return threadOpenHref(item.threadId ?? item.contentId, true);
 }
 
-// One page of the member's bookmarks, newest first, drawn: the list's first page and each page the
-// browser asks for. A page may be short, or empty, while the backend still has more to look
-// through (it skips what the member can no longer see).
+// One numbered page of the member's bookmarks, newest first, drawn, with how many bookmarks the
+// numbered pages hold (only those the member can still see), which numbers them.
 export async function bookmarksPage(
-  cursor?: string,
+  page: number,
   reader: typeof read = read,
-): Promise<ListPage> {
-  const [t, { items, nextCursor }] = await Promise.all([
+): Promise<BookmarksPage> {
+  const [t, { items, total }] = await Promise.all([
     getTranslations("account.bookmarks"),
-    reader(bookmarksList, { cursor }),
+    reader(bookmarksList, { page }),
   ]);
   const member = await membersFor(items.map((item) => item.author));
   return {
-    nextCursor,
+    total: total ?? 0,
     rows: items.map((item) => ({
       key: String(item.id),
       node: (
@@ -82,4 +90,26 @@ export async function bookmarksPage(
       ),
     })),
   };
+}
+
+// The part of the bookmarks page that turns with its pages (`PageSwitch`): the pagers and the card
+// of bookmarks.
+export function BookmarkPages({
+  page,
+  list,
+}: {
+  page: number;
+  list: BookmarksPage;
+}) {
+  const t = useTranslations("account.bookmarks");
+  return (
+    <NumberedList
+      page={page}
+      pages={pagesOf(list.total, BOOKMARKS_PER_PAGE)}
+      path={BOOKMARKS_PATH}
+      rows={list.rows}
+      header={<SectionHeader title={t("sectionHeading")} />}
+      className="overflow-hidden rounded-lg border bg-card"
+    />
+  );
 }

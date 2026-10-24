@@ -14,10 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function BookmarksPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    cursor?: string | string[];
-    pages?: string | string[];
-  }>;
+  searchParams: Promise<{ page?: string | string[] }>;
 }) {
   const t = useTranslations("account.bookmarks");
   return (

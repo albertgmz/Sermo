@@ -18,6 +18,7 @@ import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { JsonLd } from "@/components/forum/json-ld";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
+import { pageParam } from "@/components/forum/page-window";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
@@ -71,6 +72,7 @@ function seoOf(profile: Profile, query: Record<string, unknown>) {
     query.tab !== undefined ||
     query.cursor !== undefined ||
     query.pages !== undefined ||
+    query.page !== undefined ||
     query.comments !== undefined ||
     query.commentsCursor !== undefined ||
     query.post !== undefined ||
@@ -443,7 +445,7 @@ export default async function ProfilePage({
               profile={profile}
               tab={tab}
               cursor={first(query.cursor)}
-              pages={query.pages}
+              page={pageParam(query.page)}
               comments={first(query.comments)}
               commentsCursor={first(query.commentsCursor)}
               post={first(query.post)}
@@ -483,7 +485,7 @@ function ProfileActivity({
   profile,
   tab,
   cursor,
-  pages,
+  page,
   comments,
   commentsCursor,
   post,
@@ -492,7 +494,7 @@ function ProfileActivity({
   profile: Profile;
   tab: Tab;
   cursor?: string;
-  pages?: string | string[];
+  page: number;
   comments?: string;
   commentsCursor?: string;
   post?: string;
@@ -502,9 +504,7 @@ function ProfileActivity({
   const focusId = parseId(post ?? "");
   const commentId = parseId(comment ?? "");
   if (tab === "posts" || tab === "threads") {
-    return (
-      <ActivityTab tab={tab} profile={profile} cursor={cursor} pages={pages} />
-    );
+    return <ActivityTab tab={tab} profile={profile} page={page} />;
   }
   return (
     <Wall

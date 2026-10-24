@@ -1,21 +1,23 @@
 import { standingsWinners, usersStaff } from "@sermo/core/contracts";
 import { Crown } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { Directory } from "@/app/[locale]/(main)/members/directory";
 import { MembersNav } from "@/app/[locale]/(main)/members/members-nav";
+import { rankingPageAction } from "@/app/[locale]/(main)/members/members-page-actions";
 import {
   monthHref,
   monthPage,
   monthParam,
 } from "@/app/[locale]/(main)/members/month-page";
-import {
-  moreMonth,
-  moreRanking,
-} from "@/app/[locale]/(main)/members/more-members";
+import { moreMonth } from "@/app/[locale]/(main)/members/more-members";
 import { Overview } from "@/app/[locale]/(main)/members/overview";
-import { rankingPage } from "@/app/[locale]/(main)/members/ranking-page";
+import {
+  MEMBERS_PATH,
+  RankingPages,
+  rankingPage,
+} from "@/app/[locale]/(main)/members/ranking-page";
 import { StaffList } from "@/app/[locale]/(main)/members/staff-list";
 import {
   type MemberSort,
@@ -25,6 +27,12 @@ import {
 } from "@/app/[locale]/(main)/members/views";
 import { EmptyState } from "@/components/forum/empty-state";
 import type { LeaderboardKind } from "@/components/forum/leaderboard";
+import { PageSwitch } from "@/components/forum/page-switch";
+import {
+  pageAddress,
+  pageParam,
+  pagesOf,
+} from "@/components/forum/page-window";
 import { PagedList } from "@/components/forum/paged-list";
 import { SectionCard, SectionHeader } from "@/components/forum/section-card";
 import {
@@ -43,6 +51,7 @@ import { monthValue, pickableMonths } from "@/components/widgets/month-range";
 import { widgetAreas, widgetAside } from "@/components/widgets/widget-area";
 import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
+import { MEMBERS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { getViewer } from "@/lib/sermo/session";
 import { getWidgets } from "@/lib/sermo/widgets";
 
@@ -135,25 +144,23 @@ async function MonthView({
 
 async function RankingView({
   view,
-  title,
   sort,
   by,
-  cursor,
-  pages,
+  page,
 }: {
   view: ViewValue;
-  title: string;
   sort: MemberSort;
   by: LeaderboardKind;
-  cursor?: string;
-  pages: number;
+  page: number;
 }) {
-  const [first, loadMore, t] = await Promise.all([
-    rankingPage(sort, by, cursor),
-    getTranslations("members.loadMore"),
+  const [first, t] = await Promise.all([
+    rankingPage(sort, by, page),
     getTranslations("members.members"),
   ]);
-  if (first.rows.length === 0 && first.nextCursor === null && !cursor)
+  // A page past the last one goes to the last one, as XenForo does.
+  const pages = pagesOf(first.total, MEMBERS_PER_PAGE);
+  if (page > pages) redirect(pageAddress(MEMBERS_PATH, { view }, pages));
+  if (first.total === 0)
     return (
       <div className="rounded-lg border bg-card">
         <EmptyState
@@ -164,19 +171,13 @@ async function RankingView({
       </div>
     );
   return (
-    <PagedList
-      first={first}
-      more={moreRanking.bind(null, view)}
-      pages={pages}
-      start={cursor}
-      listKey={["members", view]}
-      hrefBase={viewHref(view)}
-      moreLabel={loadMore("label")}
-      estimateSize={56}
-      as="ul"
-      className="overflow-hidden rounded-lg border bg-card"
-      header={<SectionHeader title={title} />}
-    />
+    <PageSwitch
+      page={page}
+      stamp={Date.now()}
+      load={rankingPageAction.bind(null, view)}
+    >
+      <RankingPages view={view} page={page} list={first} />
+    </PageSwitch>
   );
 }
 
@@ -198,6 +199,7 @@ export async function MembersView({
   const sort = first(params.sort);
   const cursor = first(params.cursor) || undefined;
   const pages = pagesParam(params.pages);
+  const page = pageParam(params.page);
   // A search or a sort without a view is a link to the directory.
   const param = first(params.view) || (query || sort ? "all" : "");
   const view = VIEWS.find((entry) => entry.value === param) ?? VIEWS[0];
@@ -278,11 +280,9 @@ export async function MembersView({
         >
           <RankingView
             view={view.value}
-            title={views(view.label)}
             sort={view.sort}
             by={view.ranking}
-            cursor={cursor}
-            pages={pages}
+            page={page}
           />
         </Suspense>
       )}
@@ -317,7 +317,7 @@ export async function MembersView({
             </LoadingRegion>
           }
         >
-          <Directory query={query} sort={sort} cursor={cursor} pages={pages} />
+          <Directory query={query} sort={sort} page={page} />
         </Suspense>
       )}
     </PageLayout>

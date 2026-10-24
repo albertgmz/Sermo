@@ -8,26 +8,6 @@ const source = (path: string) =>
 const SCREENS = [
   ["feed", "app/[locale]/(main)/novedades/page.tsx", "_feed/feed-actions.ts"],
   [
-    "search results",
-    "app/[locale]/(main)/search/results.tsx",
-    "search/more-results.ts",
-  ],
-  [
-    "profile activity",
-    "app/[locale]/(main)/members/[id]/activity.tsx",
-    "members/[id]/more-activity.ts",
-  ],
-  [
-    "bookmarks",
-    "app/[locale]/(main)/account/bookmarks/bookmark-list.tsx",
-    "account/bookmarks/more-bookmarks.ts",
-  ],
-  [
-    "notifications",
-    "app/[locale]/(main)/notifications/page.tsx",
-    "notifications/more-notifications.ts",
-  ],
-  [
     "award holders",
     "app/[locale]/(main)/awards/[id]/page.tsx",
     "awards/[id]/more-holders.ts",
@@ -40,11 +20,6 @@ const SCREENS = [
   [
     "member rankings and the month's standing",
     "app/[locale]/(main)/members/members-view.tsx",
-    "members/more-members.ts",
-  ],
-  [
-    "member directory",
-    "app/[locale]/(main)/members/directory.tsx",
     "members/more-members.ts",
   ],
 ] as const;

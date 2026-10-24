@@ -64,19 +64,20 @@ async function links(signedIn: boolean) {
       Response.json({
         items: [result(7, 70, 0), result(8, 81, 5)],
         nextCursor: null,
+        total: 2,
       }),
     "users.cards": () => Response.json({ items: [] }),
   });
   const found = await searchPage(
     { query: "garden", titlesOnly: false, author: "" } as never,
     undefined,
-    undefined,
+    1,
   );
   if ("message" in found) throw new Error(found.message);
   const stream = await renderToReadableStream(
     withIntl(
       <div>
-        {found.page.rows.map((row) => (
+        {found.results.rows.map((row) => (
           <Fragment key={row.key}>{row.node}</Fragment>
         ))}
       </div>,

@@ -128,6 +128,7 @@ const DEFAULT: Record<string, Answer> = {
         },
       ],
       nextCursor: null,
+      total: null,
     }),
 };
 

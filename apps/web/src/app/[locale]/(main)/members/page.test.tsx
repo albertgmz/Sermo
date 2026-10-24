@@ -52,12 +52,12 @@ const member = (id: number) => ({
   referralCount: 0,
 });
 
-function backend(members: unknown[], nextCursor: string | null = null) {
+function backend(members: unknown[], total = members.length) {
   globalThis.fetch = (async (url: string) => {
     const { pathname } = new URL(url);
     if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
     if (pathname === "/api/v1/members")
-      return Response.json({ items: members, nextCursor });
+      return Response.json({ items: members, nextCursor: null, total });
     return Response.json(
       { error: { code: "not_found", message: "?" } },
       { status: 404 },
@@ -65,7 +65,10 @@ function backend(members: unknown[], nextCursor: string | null = null) {
   }) as unknown as typeof fetch;
 }
 
-async function page(params: Record<string, string>) {
+async function page(
+  params: Record<string, string>,
+  onError: (error: unknown) => void = () => {},
+) {
   const stream = await renderToReadableStream(
     withIntl(
       await MembersPage({
@@ -73,7 +76,7 @@ async function page(params: Record<string, string>) {
         searchParams: Promise.resolve(params),
       } as never),
     ),
-    { onError: () => {} },
+    { onError },
   );
   await stream.allReady;
   return new Response(stream).text();
@@ -91,16 +94,30 @@ test("a ranking with members has no empty state", async () => {
   expect(await page({ view: "credits" })).not.toContain(emptyTitle);
 });
 
-test("a first page that is empty while the backend has more is not an empty ranking", async () => {
-  backend([], "c1");
-  expect(await page({ view: "credits" })).not.toContain(emptyTitle);
+test("a ranking page past the last one goes to the last one, not to an empty state", async () => {
+  backend([], 45);
+  const errors: { digest?: string }[] = [];
+  await page({ view: "credits", page: "9" }, (error) =>
+    errors.push(error as { digest?: string }),
+  );
+  expect(errors).toHaveLength(1);
+  expect(errors[0]?.digest).toContain(";/members?view=credits&page=3;");
 });
 
-test("a page after the first that holds nobody is not the empty state either", async () => {
-  backend([]);
-  expect(await page({ view: "credits", cursor: "21.c1" })).not.toContain(
-    emptyTitle,
-  );
+test("the pages of a ranking are plain links that keep the view", async () => {
+  backend([member(7)], 45);
+  const html = await page({ view: "credits", page: "2" });
+  expect(html).toContain('aria-current="page"');
+  expect(html).toContain('href="/members?view=credits&amp;page=3"');
+  expect(html).toContain('href="/members?view=credits"');
+  expect(html).not.toContain("cursor=");
+});
+
+test("the pages of the directory are plain links that keep the sort", async () => {
+  backend([member(7)], 45);
+  const html = await page({ view: "all", sort: "posts", page: "2" });
+  expect(html).toContain('href="/members?view=all&amp;sort=posts&amp;page=3"');
+  expect(html).toContain('href="/members?view=all&amp;sort=posts"');
 });
 
 test("the old address of the month's standing goes to its own page, keeping the rest of the query", async () => {

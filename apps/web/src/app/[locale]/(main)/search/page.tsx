@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { pageParam } from "@/components/forum/page-window";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
-import { pagesParam } from "@/lib/list-pages";
 import { call } from "@/lib/sermo/client";
 import { searchedTag, tagHref } from "@/lib/sermo/tags";
 import { SearchBody } from "./search-body";
@@ -58,8 +58,7 @@ export default async function SearchPage({
           forum={idOf(first(params.forum))}
           prefix={idOf(first(params.prefix))}
           author={first(params.author)}
-          cursor={first(params.cursor) || undefined}
-          pages={pagesParam(params.pages)}
+          page={pageParam(params.page)}
         />
       </Suspense>
     </PageLayout>

@@ -8,14 +8,20 @@ export type Filters = {
   author: string;
 };
 
-// The address of a search, with the filters that are set and optionally the cursor of a page.
-export function searchHref(filters: Filters, cursor?: string) {
-  const params = new URLSearchParams({ q: filters.query });
-  if (filters.titlesOnly) params.set("titles", "1");
-  if (filters.forum !== undefined) params.set("forum", String(filters.forum));
-  if (filters.prefix !== undefined)
-    params.set("prefix", String(filters.prefix));
-  if (filters.author) params.set("author", filters.author);
-  if (cursor) params.set("cursor", cursor);
-  return `/search?${params}`;
+// The parameters of a search's address: the query and the filters that are set. The pager adds the
+// page to them.
+export function searchParams(filters: Filters) {
+  const params: Record<string, string> = { q: filters.query };
+  if (filters.titlesOnly) params.titles = "1";
+  if (filters.forum !== undefined) params.forum = String(filters.forum);
+  if (filters.prefix !== undefined) params.prefix = String(filters.prefix);
+  if (filters.author) params.author = filters.author;
+  return params;
+}
+
+export const SEARCH_PATH = "/search";
+
+// The address of a search, with the filters that are set.
+export function searchHref(filters: Filters) {
+  return `${SEARCH_PATH}?${new URLSearchParams(searchParams(filters))}`;
 }

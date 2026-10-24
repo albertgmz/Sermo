@@ -12,9 +12,8 @@ export async function SearchBody({
   forum,
   prefix,
   author,
-  cursor,
-  pages,
-}: Filters & { cursor?: string; pages: number }) {
+  page,
+}: Filters & { page: number }) {
   const [{ items: nodes }, { items: allPrefixes }] = await Promise.all([
     read(nodesList, {}),
     read(threadPrefixesList, {}),
@@ -33,7 +32,7 @@ export async function SearchBody({
     <>
       <SearchForm filters={filters} nodes={nodes} prefixes={prefixes} />
       <Suspense fallback={<ResultsSkeleton />}>
-        <Results filters={filters} cursor={cursor} pages={pages} />
+        <Results filters={filters} page={page} />
       </Suspense>
     </>
   );

@@ -182,6 +182,47 @@ test("a page number changes the posts in place, and Back and Forward follow the 
   ).toBe(true);
 });
 
+// The search results are numbered pages like a thread's: a page number turns them in place, the
+// query stays in the box, and the address names the page.
+test("the pages of the search results turn in place and keep the query @all", async ({
+  page,
+}) => {
+  seed();
+  // The pager thread's hundred replies all say "Pager"; the search index is written by a background
+  // job, so look again until the first page has a pager.
+  const pages = page.getByRole("navigation", { name: "Pages" }).last();
+  await expect(async () => {
+    await page.goto("/search?q=Pager");
+    await expect(pages).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 60_000 });
+  await rejectCookies(page);
+  const current = pages.locator('[aria-current="page"]');
+  await expect(current).toHaveText("1");
+  const firstResult = page.locator("main article").first();
+  const one = await firstResult.innerText();
+  await page.evaluate(() => {
+    (window as unknown as { kept: boolean }).kept = true;
+  });
+
+  await pages.getByRole("link", { name: "2", exact: true }).click();
+  await expect(current).toHaveText("2");
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === "/search" &&
+      url.searchParams.get("q") === "Pager" &&
+      url.searchParams.get("page") === "2",
+  );
+  expect(await firstResult.innerText()).not.toBe(one);
+  await expect(page.locator("#search-query")).toHaveValue("Pager");
+  await page.goBack();
+  await expect(current).toHaveText("1");
+  expect(await firstResult.innerText()).toBe(one);
+  // Nothing of it loaded the screen again.
+  expect(
+    await page.evaluate(() => (window as unknown as { kept?: boolean }).kept),
+  ).toBe(true);
+});
+
 // "Go to page" sits behind the "…" of a thread of six pages: a number within the pages opens that
 // page, one past them the last page, and what is not a number opens nothing.
 test("go to page takes a page number, brings one out of range to the last page and refuses the rest @all", async ({

@@ -27,8 +27,7 @@
     "membersHeading": "Members",
     "membersDescription": "Usernames that start with “{query}”",
     "postsHeading": "Posts",
-    "details": "<author></author> in <forum></forum> · Post #{number} · <time></time>",
-    "loadMore": "Load more"
+    "details": "<author></author> in <forum></forum> · Post #{number} · <time></time>"
   },
   "loading": {
     "label": "Loading search…",

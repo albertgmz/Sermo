@@ -114,6 +114,7 @@ test("opening the bookmarks tab hands the listed bookmarks to its rows", async (
         },
       ],
       nextCursor: null,
+      total: null,
     }),
   );
   const rows = (await loadBookmarks()) as ReactElement<{

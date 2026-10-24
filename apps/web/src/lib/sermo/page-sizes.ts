@@ -1,8 +1,14 @@
 import {
+  bookmarksList,
   conversationsListMessages,
+  notificationsList,
+  postsByAuthor,
   postsList,
+  searchQuery,
   tagsThreads,
+  threadsByAuthor,
   threadsList,
+  usersList,
 } from "@sermo/core/contracts";
 
 // The contract exports no page size. Every list takes the default `limit` of its input, so the
@@ -22,4 +28,20 @@ export const TAG_THREADS_PER_PAGE = tagsThreads.input.parse({
 // `conversations.locateMessage` names).
 export const MESSAGES_PER_PAGE = conversationsListMessages.input.parse({
   conversationId: 1,
+}).limit;
+
+// Results in a page of a search (`search.query`), alerts in a page of the alerts list, bookmarks in
+// a page of the bookmarks, members in a page of the directory and of a ranking (`users.list`), and
+// threads and posts in a page of a member's profile lists.
+export const SEARCH_RESULTS_PER_PAGE = searchQuery.input.parse({
+  q: "a",
+}).limit;
+export const NOTIFICATIONS_PER_PAGE = notificationsList.input.parse({}).limit;
+export const BOOKMARKS_PER_PAGE = bookmarksList.input.parse({}).limit;
+export const MEMBERS_PER_PAGE = usersList.input.parse({}).limit;
+export const AUTHOR_THREADS_PER_PAGE = threadsByAuthor.input.parse({
+  userId: 1,
+}).limit;
+export const AUTHOR_POSTS_PER_PAGE = postsByAuthor.input.parse({
+  userId: 1,
 }).limit;

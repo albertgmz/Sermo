@@ -1,30 +1,37 @@
 import { Bookmark } from "lucide-react";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { bookmarksPage } from "@/app/[locale]/(main)/account/bookmarks/bookmark-page";
-import { moreBookmarks } from "@/app/[locale]/(main)/account/bookmarks/more-bookmarks";
-import { cursorOf } from "@/app/[locale]/(main)/account/notice";
+import {
+  BOOKMARKS_PATH,
+  BookmarkPages,
+  bookmarksPage,
+} from "@/app/[locale]/(main)/account/bookmarks/bookmark-page";
+import { bookmarksPageAction } from "@/app/[locale]/(main)/account/bookmarks/bookmarks-page-action";
 import { EmptyState } from "@/components/forum/empty-state";
-import { PagedList } from "@/components/forum/paged-list";
-import { SectionHeader } from "@/components/forum/section-card";
-import { pagesParam } from "@/lib/list-pages";
+import { PageSwitch } from "@/components/forum/page-switch";
+import {
+  pageAddress,
+  pageParam,
+  pagesOf,
+} from "@/components/forum/page-window";
+import { BOOKMARKS_PER_PAGE } from "@/lib/sermo/page-sizes";
 
-// The member's bookmarks, newest first.
+// The member's bookmarks, newest first, in numbered pages.
 export async function BookmarkList({
   searchParams,
 }: {
-  searchParams: Promise<{
-    cursor?: string | string[];
-    pages?: string | string[];
-  }>;
+  searchParams: Promise<{ page?: string | string[] }>;
 }) {
-  const params = await searchParams;
-  const cursor = cursorOf(params.cursor);
+  const page = pageParam((await searchParams).page);
   const [t, first] = await Promise.all([
     getTranslations("account.bookmarks"),
-    bookmarksPage(cursor),
+    bookmarksPage(page),
   ]);
+  // A page past the last one goes to the last one, as XenForo does.
+  const pages = pagesOf(first.total, BOOKMARKS_PER_PAGE);
+  if (page > pages) redirect(pageAddress(BOOKMARKS_PATH, {}, pages));
 
-  if (first.rows.length === 0 && !first.nextCursor) {
+  if (first.total === 0) {
     return (
       <EmptyState
         icon={Bookmark}
@@ -35,17 +42,8 @@ export async function BookmarkList({
     );
   }
   return (
-    <PagedList
-      first={first}
-      more={moreBookmarks}
-      pages={pagesParam(params.pages)}
-      start={cursor}
-      listKey={["bookmarks"]}
-      hrefBase="/account/bookmarks"
-      moreLabel={t("loadMore")}
-      estimateSize={104}
-      className="overflow-hidden rounded-lg border bg-card"
-      header={<SectionHeader title={t("sectionHeading")} />}
-    />
+    <PageSwitch page={page} stamp={Date.now()} load={bookmarksPageAction}>
+      <BookmarkPages page={page} list={first} />
+    </PageSwitch>
   );
 }

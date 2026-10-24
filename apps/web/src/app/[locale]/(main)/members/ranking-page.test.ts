@@ -15,7 +15,9 @@ mock.module("next-intl/server", () => ({
 const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { rankingPage } = await import("./ranking-page");
 const { directoryPage } = await import("./directory-page");
-const { moreRanking, moreDirectory } = await import("./more-members");
+const { rankingPageAction, directoryPageAction } = await import(
+  "./members-page-actions"
+);
 
 beforeEach(() => {
   mock.module("@/lib/sermo/session", () => ({ getViewer: viewerOfRequest }));
@@ -47,18 +49,18 @@ const item = (id: number) => ({
   referralCount: 0,
 });
 
-// The directory answers three members per page, whatever is asked, and the visitor is a guest.
+// The members list answers three members of a list of 45, whatever page is asked, and the visitor is
+// a guest.
 function backend() {
   const asked: string[] = [];
   globalThis.fetch = (async (url: string) => {
     const { pathname, search } = new URL(url);
     asked.push(`${pathname}${search}`);
     if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
-    const cursor = new URLSearchParams(search).get("cursor");
-    const first = cursor === null ? 1 : Number(cursor.replace("c", "")) * 3 + 1;
     return Response.json({
-      items: [item(first), item(first + 1), item(first + 2)],
-      nextCursor: `c${(cursor === null ? 0 : Number(cursor.replace("c", ""))) + 1}`,
+      items: [item(1), item(2), item(3)],
+      nextCursor: null,
+      total: 45,
     });
   }) as unknown as typeof fetch;
   return asked;
@@ -67,18 +69,26 @@ function backend() {
 const ranks = (rows: { node: unknown }[]) =>
   rows.map((row) => (row.node as ReactElement<{ rank: number }>).props.rank);
 
-test("the first page numbers its rows from one and hands on the rank of the next", async () => {
+test("the first page numbers its rows from one and says how many members the ranking holds", async () => {
   backend();
-  const page = await rankingPage("posts", "posts");
+  const page = await rankingPage("posts", "posts", 1);
   expect(ranks(page.rows)).toEqual([1, 2, 3]);
   expect(page.rows.map((row) => row.key)).toEqual(["1", "2", "3"]);
-  expect(page.nextCursor).toBe("4.c1");
+  expect(page.total).toBe(45);
+});
+
+test("a page after the first continues the numbers and asks the backend for its own page", async () => {
+  const asked = backend();
+  const page = await rankingPage("posts", "posts", 3);
+  expect(ranks(page.rows)).toEqual([41, 42, 43]);
+  expect(asked.some((request) => request.includes("page=3"))).toBe(true);
+  expect(asked.some((request) => request.includes("cursor="))).toBe(false);
 });
 
 test("the ranking asks for the members who scored only, the directory for everyone", async () => {
   const asked = backend();
-  await rankingPage("credits", "credits");
-  await directoryPage("credits");
+  await rankingPage("credits", "credits", 1);
+  await directoryPage("credits", 1);
   const [ranking, directory] = asked.filter((request) =>
     request.includes("/members?"),
   );
@@ -86,43 +96,37 @@ test("the ranking asks for the members who scored only, the directory for everyo
   expect(directory).not.toContain("ranked");
 });
 
-test("the page after it continues the numbers and asks the backend for its own cursor", async () => {
-  const asked = backend();
-  const page = await rankingPage("posts", "posts", "4.c1");
-  expect(ranks(page.rows)).toEqual([4, 5, 6]);
-  expect(page.nextCursor).toBe("7.c2");
-  expect(asked.some((request) => request.includes("cursor=c1"))).toBe(true);
-  expect(asked.some((request) => request.includes("cursor=4"))).toBe(false);
-});
-
 test("the action that the browser calls draws the same page", async () => {
   backend();
-  const page = await moreRanking("posts", "4.c1");
-  expect(ranks(page.rows)).toEqual([4, 5, 6]);
+  const drawn = (await rankingPageAction("posts", 2)) as ReactElement<{
+    view: string;
+    page: number;
+    list: { rows: { node: unknown }[] };
+  }>;
+  expect(drawn.props.view).toBe("posts");
+  expect(drawn.props.page).toBe(2);
+  expect(ranks(drawn.props.list.rows)).toEqual([21, 22, 23]);
+  const cards = (await directoryPageAction("newest", 2)) as ReactElement<{
+    sort: string;
+    page: number;
+  }>;
+  expect(cards.props.sort).toBe("newest");
+  expect(cards.props.page).toBe(2);
 });
 
-test("a view that is not a ranking, or a sort that is not one, is an empty page and asks nothing", async () => {
+test("a view that is not a ranking, or a sort that is not one, is no page and asks nothing", async () => {
   const asked = backend();
-  expect(await moreRanking("overview", null)).toEqual({
-    rows: [],
-    nextCursor: null,
-  });
-  expect(await moreRanking("nonsense", null)).toEqual({
-    rows: [],
-    nextCursor: null,
-  });
-  expect(await moreDirectory("password", null)).toEqual({
-    rows: [],
-    nextCursor: null,
-  });
+  expect(await rankingPageAction("overview", 2)).toBeNull();
+  expect(await rankingPageAction("nonsense", 2)).toBeNull();
+  expect(await directoryPageAction("password", 2)).toBeNull();
   expect(asked).toHaveLength(0);
 });
 
-test("a directory page is one row, keyed by its cursor so that two pages never share a key", async () => {
+test("a directory page is one row, keyed by its page so that two pages never share a key", async () => {
   backend();
-  const first = await directoryPage("newest");
-  const second = await directoryPage("newest", "c1");
+  const first = await directoryPage("newest", 1);
+  const second = await directoryPage("newest", 2);
   expect(first.rows).toHaveLength(1);
   expect(first.rows[0].key).not.toBe(second.rows[0].key);
-  expect(first.nextCursor).toBe("c1");
+  expect(first.total).toBe(45);
 });

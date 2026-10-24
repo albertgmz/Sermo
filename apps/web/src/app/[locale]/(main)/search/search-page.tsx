@@ -1,18 +1,23 @@
 import { searchQuery, type usersSearch } from "@sermo/core/contracts";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
+import { NumberedList } from "@/components/forum/numbered-list";
+import { pagesOf } from "@/components/forum/page-window";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
+import { SectionHeader } from "@/components/forum/section-card";
 import { UserLink } from "@/components/forum/user-link";
-import type { ListPage } from "@/lib/list-pages";
+import type { ListRow } from "@/lib/list-pages";
 import { call, errorMessage } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { membersFor } from "@/lib/sermo/members";
 import { threadOpenHref } from "@/lib/sermo/open-links";
+import { SEARCH_RESULTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { getViewer } from "@/lib/sermo/session";
-import type { Filters } from "./filters";
+import { type Filters, SEARCH_PATH, searchParams } from "./filters";
 
 export type MemberMatch = z.output<typeof usersSearch.output>["items"][number];
 
@@ -36,15 +41,17 @@ export async function refusal<T>(
   }
 }
 
-// One page of search results, drawn: the results' first page and each page the browser asks for.
-// A result that is a reply opens that post; one that is a thread's first post opens the thread
-// where the member left off.
+export type SearchResults = { rows: ListRow[]; total: number };
+
+// One numbered page of search results, drawn, with how many results the numbered pages hold. A
+// result that is a reply opens that post; one that is a thread's first post opens the thread where
+// the member left off.
 // `matches` are the members the first page also shows; their cards come from the same lookup as
 // the authors' ones.
 export async function searchPage(
   filters: Filters,
   authorId: number | undefined,
-  cursor: string | undefined,
+  page: number,
   matches: Promise<MemberMatch[]> = Promise.resolve([]),
 ) {
   const t = await getTranslations("search.search");
@@ -56,21 +63,21 @@ export async function searchPage(
         nodeId: filters.forum,
         prefixId: filters.prefix,
         authorId,
-        cursor,
+        page,
       }),
     ),
     matches,
     getViewer(),
   ]);
   if ("message" in found) return found;
-  const { items, nextCursor } = found.value;
+  const { items, total } = found.value;
   const signedIn = viewer.user !== null;
   const member = await membersFor([
     ...items.map(({ post }) => post.author),
     ...matched,
   ]);
-  const page: ListPage = {
-    nextCursor,
+  const results: SearchResults = {
+    total: total ?? 0,
     rows: items.map(({ post, thread }) => ({
       key: String(post.id),
       node: (
@@ -115,5 +122,30 @@ export async function searchPage(
       ),
     })),
   };
-  return { page, member, matches: matched };
+  return { results, member, matches: matched };
+}
+
+// The part of the results that turns with its pages (`PageSwitch`): the pagers and the card of
+// results.
+export function SearchPages({
+  filters,
+  page,
+  list,
+}: {
+  filters: Filters;
+  page: number;
+  list: SearchResults;
+}) {
+  const t = useTranslations("search.search");
+  return (
+    <NumberedList
+      page={page}
+      pages={pagesOf(list.total, SEARCH_RESULTS_PER_PAGE)}
+      path={SEARCH_PATH}
+      params={searchParams(filters)}
+      rows={list.rows}
+      header={<SectionHeader title={t("postsHeading")} />}
+      className="rounded-lg border bg-card"
+    />
+  );
 }

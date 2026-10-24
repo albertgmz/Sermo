@@ -6,9 +6,9 @@ import type { BenchEnv, Scenario } from "../harness";
 // the most. A forum's threads are placed from the nearer end of the list, so its last page is
 // cheap and its middle page skips the most: both are measured.
 
-type Target = { actor: Actor; input: Record<string, unknown> };
+export type Target = { actor: Actor; input: Record<string, unknown> };
 
-async function pageAt(
+export async function pageAt(
   where: "last" | "middle",
   env: BenchEnv,
   operation: string,
@@ -23,11 +23,11 @@ async function pageAt(
   if (pages < 10) throw new Error(`${operation}: only ${pages} pages to skip over.`);
   return { actor, input: { ...input, page: where === "last" ? pages : Math.ceil(pages / 2) } };
 }
-const lastPage = pageAt.bind(null, "last");
-const middlePage = pageAt.bind(null, "middle");
+export const lastPage = pageAt.bind(null, "last");
+export const middlePage = pageAt.bind(null, "middle");
 
 const targets = new Map<string, Target[]>();
-const scenario = (
+export const scenario = (
   name: string,
   operation: string,
   setup: (env: BenchEnv) => Promise<Target[]>,
@@ -47,7 +47,7 @@ const scenario = (
 });
 
 // The one row a query finds; a seed without it stops the scenario with a reason.
-function one<T>(env: BenchEnv, sql: string, missing: string): T {
+export function one<T>(env: BenchEnv, sql: string, missing: string): T {
   const row = env.ctx.sqlite.prepare<T, []>(sql).get();
   if (!row) throw new Error(`The seed has ${missing}.`);
   return row;
