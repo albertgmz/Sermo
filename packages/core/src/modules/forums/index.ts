@@ -55,6 +55,7 @@ import {
   requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
+import { deleterIds, deletionValue, loadDeletions } from "../moderation/deletions";
 import { requireTermsAccepted } from "../pages/acceptance";
 import { enqueuePollPurge } from "../polls/jobs";
 import { mayAddPoll } from "../polls/policy";
@@ -97,7 +98,6 @@ import {
 } from "../tags/store";
 import { addFeature, endStaffFeature, featureKinds } from "./features";
 import { nodesDeleteOp, registerNodeDeleteJob, requireNotBeingDeleted } from "./node-delete";
-import { loadPostDeletions, type PostDeletionRow } from "./post-deletions";
 import {
   forumPrefixOperations,
   offerEveryActivePrefix,
@@ -698,15 +698,6 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
     };
   });
 }
-function deletionOf(
-  deletion: PostDeletionRow | undefined,
-  users: ReturnType<typeof loadUserSummaries>,
-  authorId: number,
-) {
-  return deletion
-    ? { by: users(deletion.actorId ?? authorId), reason: deletion.reason, at: iso(deletion.at) }
-    : null;
-}
 function postValues(
   ctx: Ctx,
   actor: Actor,
@@ -733,8 +724,9 @@ export function postValuesMixed(
   const rows = entries.map((entry) => entry.row);
   const permissions = permissionsOf(ctx, actor);
   // Who hid a post is for those who may see deleted posts in its forum.
-  const deletions = loadPostDeletions(
+  const deletions = loadDeletions(
     ctx,
+    "post",
     entries
       .filter(
         (entry) =>
@@ -743,12 +735,7 @@ export function postValuesMixed(
       )
       .map((entry) => entry.row.id),
   );
-  const users = loadUserSummaries(ctx, [
-    ...rows.map((r) => r.user_id),
-    ...[...deletions.values()].flatMap((deletion) =>
-      deletion.actorId === null ? [] : [deletion.actorId],
-    ),
-  ]);
+  const users = loadUserSummaries(ctx, [...rows.map((r) => r.user_id), ...deleterIds(deletions)]);
   const reactions = loadViewerReactions(
     ctx,
     actor,
@@ -791,7 +778,7 @@ export function postValuesMixed(
           permissions.can("forum.hardDeleteOwn", { nodeId, ownerId: row.user_id })),
     canReact: permissions.can("forum.react", { nodeId }),
     canReport: permissions.can("report.create"),
-    deletion: deletionOf(deletions.get(row.id), users, row.user_id),
+    deletion: deletionValue(deletions.get(row.id), users, row.user_id),
     ...(detail ? { bodySource: row.body_source } : {}),
   }));
 }

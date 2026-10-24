@@ -83,7 +83,7 @@ export function MessageItem({
   const folded = message.state === "deleted";
   const notice = folded && (
     <DeletionNotice
-      deletion={null}
+      deletion={message.deletion}
       fallback={t("deleted")}
       tools={<MessageActions {...actionProps} part="tools" />}
     />

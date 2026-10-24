@@ -13,6 +13,7 @@ import {
   moderationNotice,
   Ok,
   Page,
+  PostDeletion,
   pageInput,
   ReactionSummary,
   ResolvedPermissions,
@@ -170,16 +171,6 @@ export const Thread = z
     pollKind: PollKind.nullable(),
   })
   .meta({ id: "Thread" });
-
-export const PostDeletion = z
-  .object({
-    /** Who hid it: the moderator, or the author when they hid their own post. */
-    by: UserSummary,
-    /** The reason given; empty when none was. */
-    reason: z.string(),
-    at: Timestamp,
-  })
-  .meta({ id: "PostDeletion" });
 
 export const Post = z
   .object({

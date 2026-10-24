@@ -38,6 +38,7 @@ const message = (id: number) => ({
   canDelete: false,
   canHardDelete: false,
   canReport: true,
+  deletion: null,
 });
 
 function backend(messages: Response) {

@@ -10,6 +10,7 @@ import {
   moderationNotice,
   Ok,
   Page,
+  PostDeletion,
   pageInput,
   ReactionSummary,
   Timestamp,
@@ -94,6 +95,11 @@ export const ProfileComment = z
     canHardDelete: z.boolean(),
     /** The viewer may report it (reports.create would accept it). */
     canReport: z.boolean(),
+    /**
+     * Who hid a deleted comment and why, for viewers who may see deleted profile posts and comments
+     * (profilePost.viewDeleted); null for everyone else and for one that is not deleted.
+     */
+    deletion: PostDeletion.nullable(),
   })
   .meta({ id: "ProfileComment" });
 
@@ -121,6 +127,11 @@ export const ProfilePost = z
     /** The viewer may report it (reports.create would accept it). */
     canReport: z.boolean(),
     canComment: z.boolean(),
+    /**
+     * Who hid a deleted profile post and why, for viewers who may see deleted profile posts and comments
+     * (profilePost.viewDeleted); null for everyone else and for one that is not deleted.
+     */
+    deletion: PostDeletion.nullable(),
   })
   .meta({ id: "ProfilePost" });
 

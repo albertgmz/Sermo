@@ -162,6 +162,7 @@ const message = (id: number) => ({
   canDelete: false,
   canHardDelete: false,
   canReport: true,
+  deletion: null,
 });
 
 // Answers each read by its path and keeps every path asked.

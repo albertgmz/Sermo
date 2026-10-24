@@ -9,6 +9,12 @@ import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { loadAttachments } from "../attachments";
 import { requireSiteView } from "../members/site-access";
+import {
+  type DeletionRow,
+  deleterIds,
+  deletionValue,
+  loadDeletions,
+} from "../moderation/deletions";
 import { readSiteSettings } from "../settings";
 
 export type ProfileAccess = {
@@ -310,6 +316,20 @@ export function latestComments(ctx: Ctx, actor: Actor, rows: PostRow[]): Comment
     actorUserId(actor) ?? 0,
   );
 }
+/** Who hid the deleted ones among `rows`, for a viewer who may see deleted wall content. */
+function wallDeletions(
+  ctx: Ctx,
+  permissions: ReturnType<typeof permissionsOf>,
+  targetType: "profile_post" | "profile_post_comment",
+  rows: { id: number; state: State }[],
+) {
+  if (!permissions.can("profilePost.viewDeleted")) return new Map<number, DeletionRow>();
+  return loadDeletions(
+    ctx,
+    targetType,
+    rows.filter((row) => row.state === "deleted").map((row) => row.id),
+  );
+}
 export function commentValues(
   ctx: Ctx,
   actor: Actor,
@@ -318,6 +338,10 @@ export function commentValues(
   user: ReturnType<typeof loadUserSummaries>,
 ) {
   const permissions = permissionsOf(ctx, actor);
+  // The deleters' names in one read, only where a page holds deleted comments for the staff.
+  const deletions = wallDeletions(ctx, permissions, "profile_post_comment", rows);
+  const deleters = deleterIds(deletions);
+  const by = deleters.length ? loadUserSummaries(ctx, deleters) : user;
   const reactions = loadViewerReactions(
     ctx,
     actor,
@@ -353,6 +377,11 @@ export function commentValues(
       }),
     canHardDelete: permissions.can("profilePost.hardDelete"),
     canReport: permissions.can("report.create"),
+    deletion: deletionValue(
+      deletions.get(row.id),
+      (id) => (id === row.user_id ? user(id) : by(id)),
+      row.user_id,
+    ),
   }));
 }
 export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: CommentRow[] = []) {
@@ -362,9 +391,11 @@ export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: Comm
     rows.map((row) => row.id),
   );
   const permissions = permissionsOf(ctx, actor);
+  const deletions = wallDeletions(ctx, permissions, "profile_post", rows);
   const user = loadUserSummaries(ctx, [
     ...rows.map((row) => row.user_id),
     ...latest.map((row) => row.user_id),
+    ...deleterIds(deletions),
   ]);
   const commentsByPost = new Map<number, ReturnType<typeof commentValues>>();
   const ownerByPost = new Map(rows.map((row) => [row.id, row.profile_user_id]));
@@ -407,6 +438,7 @@ export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: Comm
       permissions.can("profilePost.manageOwnWall", { ownerId: row.profile_user_id }),
     canReport: permissions.can("report.create"),
     canComment: commentAccess.get(row.profile_user_id) === true && row.state === "visible",
+    deletion: deletionValue(deletions.get(row.id), user, row.user_id),
   }));
 }
 export function postValue(ctx: Ctx, actor: Actor, row: PostRow) {

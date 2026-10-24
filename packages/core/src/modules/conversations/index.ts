@@ -51,6 +51,7 @@ import {
   requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
+import { deleterIds, deletionValue, loadDeletions } from "../moderation/deletions";
 import { noticeForOther } from "../moderation/notify";
 import { requireTermsAccepted } from "../pages/acceptance";
 import { purgeContent } from "../purge/purge";
@@ -264,10 +265,15 @@ function messages(ctx: Ctx, actor: Actor, conversation: ConversationRow, rows: M
   const permissions = permissionsOf(ctx, actor);
   const viewerId = actorUserId(actor);
   const first = rows.length ? firstMessageId(ctx, conversation.id) : null;
-  const user = loadUserSummaries(
-    ctx,
-    rows.map((r) => r.user_id),
-  );
+  // Who hid a message is for those who may see deleted messages.
+  const deletions = permissions.can("conversation.viewHidden")
+    ? loadDeletions(
+        ctx,
+        "conversation_message",
+        rows.filter((r) => r.state === "deleted").map((r) => r.id),
+      )
+    : new Map();
+  const user = loadUserSummaries(ctx, [...rows.map((r) => r.user_id), ...deleterIds(deletions)]);
   const viewer = loadViewerReactions(
     ctx,
     actor,
@@ -296,6 +302,7 @@ function messages(ctx: Ctx, actor: Actor, conversation: ConversationRow, rows: M
     // reports.create takes a message the viewer sees only when it is visible or their own.
     canReport:
       permissions.can("report.create") && (r.state === "visible" || r.user_id === viewerId),
+    deletion: deletionValue(deletions.get(r.id), user, r.user_id),
   }));
 }
 
@@ -327,6 +334,7 @@ function newMessage(
     attachments: attachments.get(id) ?? [],
     reactions: { counts: {}, total: 0, mine: null },
     ...abilities,
+    deletion: null,
   };
 }
 

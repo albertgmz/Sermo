@@ -279,11 +279,21 @@ test("a comment's footer: on a phone the whole date on a line of its own under t
 });
 
 test("a deleted comment is folded to its name and notice, with Restore and Delete permanently for the staff allowed", async () => {
-  const deleted = { ...comment(1, "deleted"), canHardDelete: true } as Comment;
+  const deleted = {
+    ...comment(1, "deleted"),
+    canHardDelete: true,
+    deletion: {
+      by: { id: 4, username: "kestrel" },
+      reason: "Rude",
+      at: "2026-01-02T00:00:00.000Z",
+    },
+  } as Comment;
   const staff = await render({ comments: [deleted], mayUndelete: true });
   expect(staff).not.toContain("comment 1");
   expect(staff).toContain("member21");
   expect(staff).toContain('id="profile-comment-1"');
+  expect(staff).toContain("Deleted by kestrel");
+  expect(staff).toContain("Reason: Rude");
   expect(staff).toMatch(/aria-expanded="false"[^>]*>Show…</);
   expect(staff).toContain(">Restore<");
   expect(staff).toContain('aria-label="Delete permanently"');

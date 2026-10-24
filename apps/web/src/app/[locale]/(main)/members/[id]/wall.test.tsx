@@ -110,6 +110,13 @@ function backend(signedIn = true) {
           bodyHtml: `<p>wall post ${id}</p>`,
           editedAt: edited.includes(id) ? "2026-01-02T00:00:00.000Z" : null,
           state: deleted.includes(id) ? "deleted" : "visible",
+          deletion: deleted.includes(id)
+            ? {
+                by: { id: 4, username: "kestrel" },
+                reason: "Spam",
+                at: "2026-01-02T00:00:00.000Z",
+              }
+            : null,
           reactions: reacted.includes(id)
             ? { counts: { "1": 2 }, total: 2, mine: null }
             : { counts: {}, total: 0, mine: null },
@@ -337,7 +344,8 @@ test("a deleted wall post is folded to its author, time and notice, its comments
   const folded = html.slice(five, four);
   expect(folded).not.toContain("wall post 5");
   expect(folded).not.toContain("comment 103");
-  expect(folded).toContain("This was deleted.");
+  expect(folded).toContain("Deleted by kestrel");
+  expect(folded).toContain("Reason: Spam");
   expect(folded).toMatch(/aria-expanded="false"[^>]*>Show…</);
   expect(folded).toContain(">Restore<");
   expect(folded).toContain('aria-label="Delete permanently"');

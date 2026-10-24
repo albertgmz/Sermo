@@ -505,6 +505,7 @@ export const SAMPLE_WALL_COMMENTS: ApiWallComment[] = [
   canDelete: false,
   canHardDelete: false,
   canReport: true,
+  deletion: null,
 }));
 
 export const NOTIFICATIONS = [

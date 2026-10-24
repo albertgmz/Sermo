@@ -341,6 +341,7 @@ test("editing a message sends its text, leaves its files alone and returns to it
     canDelete: false,
     canHardDelete: false,
     canReport: true,
+    deletion: null,
   });
   const digest = await editMessageAction(5, 11, {}, form({ body: "new" })).then(
     () => "",

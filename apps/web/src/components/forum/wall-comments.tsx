@@ -5,7 +5,10 @@ import { useTranslations } from "next-intl";
 import type * as z from "zod";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { DeletedItem } from "@/components/forum/deleted-item";
-import { DeletionNotice } from "@/components/forum/deletion-notice";
+import {
+  type Deletion,
+  DeletionNotice,
+} from "@/components/forum/deletion-notice";
 import {
   EarlierComments,
   type EarlierPage,
@@ -52,16 +55,18 @@ export function WallStateNote({ state }: { state: ApiWallPost["state"] }) {
 
 // The deletion notice of a deleted wall post or comment, holding its restore and delete (`tools`).
 export function WallDeletionNotice({
+  deletion,
   tools,
   className,
 }: {
+  deletion: Deletion | null;
   tools: React.ReactNode;
   className?: string;
 }) {
   const t = useTranslations("forum.wallComments");
   return (
     <DeletionNotice
-      deletion={null}
+      deletion={deletion}
       fallback={t("deleted")}
       tools={tools}
       className={className}
@@ -129,6 +134,7 @@ export function WallCommentRows({
     const folded = comment.state === "deleted";
     const notice = folded && (
       <WallDeletionNotice
+        deletion={comment.deletion}
         tools={<WallItemActions {...actions} part="tools" />}
         className="mt-0 mb-1"
       />

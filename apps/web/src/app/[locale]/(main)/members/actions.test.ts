@@ -110,6 +110,7 @@ test("a wall post that was taken ends in a redirect to the page it was written o
       canDelete: true,
       canReport: true,
       canComment: true,
+      deletion: null,
     })) as unknown as typeof fetch;
   for (const [page, to] of [
     ["/", "/"],
@@ -157,6 +158,7 @@ const COMMENT = {
   canDelete: true,
   canHardDelete: false,
   canReport: true,
+  deletion: null,
 };
 
 // On the wall the page goes to the wall at the new comment, which lands on it whatever page of

@@ -9,6 +9,7 @@ import {
   moderationNotice,
   Ok,
   Page,
+  PostDeletion,
   pageInput,
   ReactionSummary,
   Timestamp,
@@ -64,6 +65,11 @@ export const Message = z
     canHardDelete: z.boolean(),
     /** The viewer may report it (reports.create would accept it). */
     canReport: z.boolean(),
+    /**
+     * Who hid a deleted message and why, for viewers who may see deleted messages
+     * (conversation.viewHidden); null for everyone else and for a message that is not deleted.
+     */
+    deletion: PostDeletion.nullable(),
   })
   .meta({ id: "Message" });
 

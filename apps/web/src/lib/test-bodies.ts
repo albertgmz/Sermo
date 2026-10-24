@@ -160,6 +160,7 @@ export function profileCommentBody(over: Record<string, unknown> = {}) {
     canDelete: false,
     canHardDelete: false,
     canReport: true,
+    deletion: null,
     bodySource: "",
     ...over,
   };
@@ -182,6 +183,7 @@ export function messageBody(over: Record<string, unknown> = {}) {
     canDelete: false,
     canHardDelete: false,
     canReport: true,
+    deletion: null,
     bodySource: "",
     ...over,
   };
@@ -206,6 +208,7 @@ export function profilePostBody(over: Record<string, unknown> = {}) {
     canDelete: false,
     canReport: true,
     canComment: false,
+    deletion: null,
     bodySource: "",
     ...over,
   };

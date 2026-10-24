@@ -31,6 +31,17 @@ export const Title = z.string().trim().min(1).max(150);
 
 export const UserSummary = z.object({ id: Id, username: z.string() }).meta({ id: "UserSummary" });
 
+/** Who hid a deleted post, message, profile post or comment, why and when. */
+export const PostDeletion = z
+  .object({
+    /** Who hid it: the moderator, or the author when they hid their own post. */
+    by: UserSummary,
+    /** The reason given; empty when none was. */
+    reason: z.string(),
+    at: Timestamp,
+  })
+  .meta({ id: "PostDeletion" });
+
 export const ReactionSummary = z
   .object({
     /** Count per reaction type id (as a string key). Types with zero reactions are omitted. */

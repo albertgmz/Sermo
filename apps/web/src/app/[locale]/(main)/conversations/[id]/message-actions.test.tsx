@@ -76,6 +76,7 @@ const message = (over: Record<string, unknown> = {}) =>
     canDelete: false,
     canHardDelete: false,
     canReport: true,
+    deletion: null,
     ...over,
   }) as Props["message"];
 

@@ -156,3 +156,18 @@ test("a deleted message is folded to its notice, as a thread's post, with Delete
   expect(has(plain, "Delete permanently")).toBe(false);
   expect(plain).toContain("Show…");
 });
+
+test("a deleted message names who deleted it, when and why, for the staff the backend tells", async () => {
+  const html = await drawn({
+    state: "deleted",
+    deletion: {
+      by: { id: 4, username: "nova" },
+      reason: "Spam",
+      at: "2026-01-02T00:00:00.000Z",
+    },
+  });
+  expect(html).toContain("Deleted by nova");
+  expect(html).toContain("Reason: Spam");
+  expect(html).toContain('dateTime="2026-01-02T00:00:00.000Z"');
+  expect(html).not.toContain("This message was deleted.");
+});

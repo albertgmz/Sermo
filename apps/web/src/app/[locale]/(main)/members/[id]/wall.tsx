@@ -135,6 +135,7 @@ function WallPost({
   const folded = post.state === "deleted";
   const notice = folded && (
     <WallDeletionNotice
+      deletion={post.deletion}
       tools={<WallItemActions {...actions} part="tools" />}
       className="mt-0 mb-1"
     />
