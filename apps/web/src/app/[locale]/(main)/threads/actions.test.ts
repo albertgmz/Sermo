@@ -14,7 +14,12 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {} }),
 }));
-mock.module("next/cache", () => ({ refresh: () => {} }));
+let refreshed = 0;
+mock.module("next/cache", () => ({
+  refresh: () => {
+    refreshed += 1;
+  },
+}));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async () => (key: string) => key,
@@ -243,8 +248,25 @@ test("deleting asks for the reason and restoring needs none", async () => {
   assert.equal(asked[1].url, `${ROOT}/posts/31/restore`);
 });
 
-test("sticking, locking and watching go back to the thread", async () => {
+test("sticking and locking go back to the thread", async () => {
   answer = { status: 200, body: thread };
+  for (const run of [
+    () => actions.setStickyAction(7, true, {}),
+    () => actions.setFeaturedAction(7, true, {}),
+    () => actions.setLockedAction(7, false, {}),
+    () => actions.removeCoverAction(7, {}),
+    () => actions.restoreThreadAction(7, {}),
+    () => actions.deleteThreadAction(7, {}, form({ reason: "" })),
+  ]) {
+    assert.match((await redirectedTo(run)) ?? "", /;\/threads\/7;/);
+  }
+  assert.equal(asked.length, 6);
+  assert.equal((asked[0].body as { isSticky: boolean }).isSticky, true);
+  assert.equal(asked[1].url, `${ROOT}/threads/7/feature`);
+  assert.equal((asked[1].body as { isFeatured: boolean }).isFeatured, true);
+});
+
+test("watching a thread from its popover sends the email choice and draws nothing again", async () => {
   byUrl = (url, method) =>
     url.endsWith("/watch")
       ? {
@@ -253,23 +275,24 @@ test("sticking, locking and watching go back to the thread", async () => {
             method === "PUT" ? { watching: true, email: true } : { ok: true },
         }
       : undefined;
-  for (const run of [
-    () => actions.setStickyAction(7, true, {}),
-    () => actions.setFeaturedAction(7, true, {}),
-    () => actions.setLockedAction(7, false, {}),
-    () => actions.watchThreadAction(7, {}, form({ email: "on" })),
-    () => actions.unwatchThreadAction(7, {}),
-    () => actions.removeCoverAction(7, {}),
-    () => actions.restoreThreadAction(7, {}),
-    () => actions.deleteThreadAction(7, {}, form({ reason: "" })),
-  ]) {
-    assert.match((await redirectedTo(run)) ?? "", /;\/threads\/7;/);
-  }
-  assert.equal(asked.length, 8);
-  assert.equal((asked[0].body as { isSticky: boolean }).isSticky, true);
-  assert.equal(asked[1].url, `${ROOT}/threads/7/feature`);
-  assert.equal((asked[1].body as { isFeatured: boolean }).isFeatured, true);
-  assert.equal((asked[3].body as { email: boolean }).email, true);
+  refreshed = 0;
+  assert.deepEqual(await actions.setThreadWatch(7, { email: true }), {});
+  assert.deepEqual(await actions.setThreadWatch(7, null), {});
+  assert.equal(asked[0].method, "PUT");
+  assert.equal(asked[0].url, `${ROOT}/threads/7/watch`);
+  assert.equal((asked[0].body as { email: boolean }).email, true);
+  assert.equal(asked[1].method, "DELETE");
+  assert.equal(asked[1].url, `${ROOT}/threads/7/watch`);
+  assert.equal(refreshed, 0);
+});
+
+test("the backend's refusal of a thread watch is what the popover shows", async () => {
+  answer = {
+    status: 403,
+    body: { error: { code: "forbidden", message: "No." } },
+  };
+  const answered = await actions.setThreadWatch(7, { email: false });
+  assert.equal(answered.error, "No.");
 });
 
 test("moving needs a forum, and sends its id", async () => {
@@ -398,8 +421,7 @@ test("an id that is not a record id never becomes a path", async () => {
     await assert.rejects(() => actions.setStickyAction(id, true, {}));
     await assert.rejects(() => actions.setLockedAction(id, true, {}));
     await assert.rejects(() => actions.removeCoverAction(id, {}));
-    await assert.rejects(() => actions.watchThreadAction(id, {}, form({})));
-    await assert.rejects(() => actions.unwatchThreadAction(id, {}));
+    await assert.rejects(() => actions.setThreadWatch(id, null));
     await assert.rejects(() => actions.quoteSource(id));
     await assert.rejects(() => actions.markRead(id, 0));
     await assert.rejects(() =>

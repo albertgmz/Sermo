@@ -65,12 +65,22 @@ const CATEGORY = {
   },
 };
 
+const FORUM = {
+  ...CATEGORY,
+  id: 2,
+  parentId: 1,
+  type: "forum",
+  title: "Forum 2",
+  depth: 1,
+  permissions: { canPost: true, canModerate: false },
+};
+
 const widgetsAsked: (string | null)[] = [];
-function backend(widgets: unknown[]) {
+function backend(widgets: unknown[], member = false) {
   widgetsAsked.length = 0;
   globalThis.fetch = (async (url: string) => {
     const { pathname, searchParams } = new URL(url);
-    if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
+    if (pathname === "/api/v1/me") return Response.json(viewerBody(member));
     if (pathname === "/api/v1/site") return Response.json(siteBody({}));
     if (pathname === "/api/v1/widgets") {
       widgetsAsked.push(searchParams.get("page"));
@@ -91,6 +101,23 @@ function backend(widgets: unknown[]) {
         ],
         nextCursor: null,
       });
+    if (pathname === "/api/v1/nodes/unread")
+      return Response.json({ nodeIds: [] });
+    if (pathname === "/api/v1/nodes/2")
+      return Response.json({
+        node: FORUM,
+        watching: { mode: "posts", email: false },
+        seo: {
+          title: "Forum 2",
+          description: "",
+          canonical: "http://localhost/forums/2",
+          robots: "noindex,follow",
+          redirect: false,
+          jsonLd: [],
+        },
+        breadcrumbs: [],
+        resolvedPermissions: {},
+      });
     if (pathname === "/api/v1/nodes/1")
       return Response.json({
         node: CATEGORY,
@@ -110,11 +137,11 @@ function backend(widgets: unknown[]) {
   }) as unknown as typeof fetch;
 }
 
-async function draw() {
+async function draw(id = "1") {
   const stream = await renderToReadableStream(
     withIntl(
       await ForumPage({
-        params: Promise.resolve({ locale: "en", id: "1" }),
+        params: Promise.resolve({ locale: "en", id }),
         searchParams: Promise.resolve({}),
       }),
     ),
@@ -160,4 +187,19 @@ test("a forum with no widgets has no sidebar column", async () => {
   const html = await draw();
   expect(html).not.toContain("<aside");
   expect(html).not.toContain("lg:grid-cols-");
+});
+
+// As XenForo's forum header: "Mark read" and "Follow" are buttons beside the one that starts a
+// thread, and what to follow is asked in Follow's popover, not laid out on the page.
+test("a member's forum header holds Mark forum read and one Follow button beside New thread", async () => {
+  backend([], true);
+  const html = await draw("2");
+  // The first of each after the heading: the header's own buttons.
+  const header = html.slice(html.indexOf("<h1"));
+  const at = (words: string) => header.indexOf(words);
+  expect(at("Mark forum read")).toBeGreaterThan(-1);
+  expect(at("Following")).toBeGreaterThan(at("Mark forum read"));
+  expect(at("New thread")).toBeGreaterThan(at("Following"));
+  expect(html).not.toContain('name="mode"');
+  expect(html).not.toContain("Email me");
 });

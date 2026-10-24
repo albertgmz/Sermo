@@ -188,7 +188,11 @@ test("the thread's title and prefix change in a dialog, the prefix chosen from t
     const heading = page.getByRole("heading", { level: 1 });
     await expect(heading).toHaveText(title);
 
-    await page.getByRole("link", { name: "Edit thread" }).click();
+    // "Edit thread" is in the thread's "•••" menu, as XenForo's.
+    await page
+      .getByRole("button", { name: "More options", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Edit thread" }).click();
     const dialog = page.getByRole("dialog", { name: "Edit thread" });
     const field = dialog.getByRole("textbox", { name: "Title" });
     await expect(field).toHaveValue(title);

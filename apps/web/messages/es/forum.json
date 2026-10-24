@@ -588,5 +588,15 @@
     "moreOptions": "Más opciones…",
     "retry": "Reintentar",
     "save": "Guardar"
+  },
+  "watchButton": {
+    "watching": "Siguiendo",
+    "notifyFor": "Enviar notificaciones para",
+    "optionThreads": "Nuevos temas",
+    "optionPosts": "Nuevos mensajes",
+    "email": "Avisarme por correo",
+    "watch": "Seguir",
+    "save": "Guardar",
+    "stop": "Dejar de seguir"
   }
 }

@@ -45,8 +45,7 @@
   },
   "tools": {
     "watch": "Follow thread",
-    "unwatch": "Unfollow thread",
-    "email": "Email me"
+    "more": "More options"
   },
   "moderation": {
     "menu": "Moderate",

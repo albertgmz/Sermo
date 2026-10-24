@@ -350,12 +350,19 @@ test("the composer section is a button until it is opened; the voters list one t
   const field = draw(<PollField attachIn={null} />);
   expect(field).toContain("Add a poll or quiz");
   expect(field).not.toContain('name="poll"');
-  expect(draw(<PollAdder threadId={3} attachIn={null} />)).toContain(
-    "Add a poll or quiz",
-  );
   expect(draw(<PollVoters threadId={3} pollId={5} answerId={11} />)).toContain(
     "Show who voted",
   );
+});
+
+// The thread's "•••" menu offers "Add a poll or quiz" (`ThreadToolbar`) and opens the adder: the
+// poll's own section, which asks for the form at once.
+test("the poll adder is the poll's section, opened from the thread's menu", () => {
+  const html = draw(
+    <PollAdder threadId={3} attachIn={null} onClose={() => {}} />,
+  );
+  expect(html).toContain('aria-label="Poll or quiz"');
+  expect(html).not.toContain("Add a poll or quiz");
 });
 
 test("no picture is emitted by the poll components: they take the ones the server drew", () => {

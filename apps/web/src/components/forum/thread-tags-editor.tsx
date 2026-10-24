@@ -1,6 +1,5 @@
 "use client";
 
-import { Tag } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { setThreadTagsAction } from "@/app/[locale]/(main)/threads/actions";
 import {
@@ -12,42 +11,30 @@ import { ThreadTagsField } from "@/components/forum/thread-tags-field";
 import { Button } from "@/components/ui/button";
 import { tagsToText } from "@/lib/sermo/tags";
 
-// Changes the tags of a thread where they are read: a button that opens the field and saves the
-// whole list, in place (`useInlinePanel`). Shown to whoever `threads.get` says may edit them
-// (`permissions.canEditTags`).
+// Changes the tags of a thread where they are read: the field with the whole list, saved at once.
+// The thread's "•••" menu opens it under the thread's action row, for whoever `threads.get` says
+// may edit them (`permissions.canEditTags`); it takes the focus, and saving, Cancel or Escape closes it (`onClose`, `useInlinePanel`).
 export function ThreadTagsEditor({
   threadId,
   tags,
+  onClose,
 }: {
   threadId: number;
   tags: readonly string[];
+  onClose: () => void;
 }) {
   const t = useTranslations("forum.threadTags");
-  const panel = useInlinePanel();
-  if (!panel.open) {
-    return (
-      <Button
-        ref={panel.button}
-        type="button"
-        variant="ghost"
-        className="h-10 px-3 text-muted-foreground md:h-8"
-        onClick={panel.show}
-      >
-        <Tag aria-hidden="true" />
-        {tags.length > 0 ? t("edit") : t("add")}
-      </Button>
-    );
-  }
+  const panel = useInlinePanel(onClose);
   const save = async (
     previous: ActionFormState,
     formData: FormData,
   ): Promise<ActionFormState> => {
     const state = await setThreadTagsAction(threadId, previous, formData);
-    if (state.done) panel.close();
+    if (state.done) onClose();
     return state;
   };
   return (
-    <div {...panel.panel} className="w-full max-w-xl">
+    <div {...panel} className="w-full max-w-xl">
       <ActionForm
         action={save}
         submit={t("save")}
@@ -57,7 +44,7 @@ export function ThreadTagsEditor({
             type="button"
             variant="ghost"
             className="h-10 px-3"
-            onClick={panel.close}
+            onClick={onClose}
           >
             {t("cancel")}
           </Button>

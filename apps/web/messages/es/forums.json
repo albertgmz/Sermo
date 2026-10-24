@@ -92,13 +92,7 @@
     "batchRefused": "{count, plural, one {# tema fue rechazado} other {# temas fueron rechazados}}: {reasons}"
   },
   "watch": {
-    "watch": "Seguir foro",
-    "unwatch": "Dejar de seguir foro",
-    "mode": "Qué seguir",
-    "optionThreads": "Temas nuevos",
-    "optionPosts": "Cada mensaje nuevo",
-    "email": "Avisarme por correo",
-    "status": "{mode, select, posts {Siguiendo cada mensaje nuevo} other {Siguiendo temas nuevos}}{email, select, true {, por correo} other {}}"
+    "watch": "Seguir foro"
   },
   "tagPage": {
     "home": "Inicio",

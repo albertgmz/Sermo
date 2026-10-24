@@ -12,7 +12,7 @@ mock.module("next-intl/server", () => ({
 afterAll(() => {
   mock.module("next-intl/server", () => intlServer);
 });
-const { forumOptions, ModerationMenu } = await import("./moderation");
+const { forumOptions, ModerationPanel } = await import("./moderation");
 
 const node = (id: number, type: string) => ({
   id,
@@ -51,7 +51,7 @@ async function menu(
     any: true,
     ...extra,
   };
-  const node = await ModerationMenu({
+  const node = await ModerationPanel({
     thread: {
       id: 7,
       nodeId: 2,

@@ -47,6 +47,8 @@ export function BookmarkButton(props: {
   // In a row of small controls (a post's header row) the refusal floats under the button, over
   // what follows, instead of widening the row; elsewhere it takes its own line under it.
   floatingError?: boolean;
+  // `outline` is a button among the boxed ones of an action row (a thread's).
+  variant?: "ghost" | "outline";
 }) {
   const {
     contentType,
@@ -55,6 +57,7 @@ export function BookmarkButton(props: {
     className,
     labelClassName,
     floatingError = false,
+    variant = "ghost",
   } = props;
   const t = useTranslations("ui.bookmark");
   const tFailed = useTranslations("lib.errors");
@@ -73,13 +76,14 @@ export function BookmarkButton(props: {
     >
       <Button
         type="button"
-        variant="ghost"
+        variant={variant}
         // Kept focusable while the write runs: a disabled button hands its focus to the page.
         disabled={pending}
         focusableWhenDisabled
         aria-label={label}
         className={cn(
-          "h-10 px-2 text-xs text-muted-foreground aria-disabled:opacity-50",
+          "h-10 aria-disabled:opacity-50",
+          variant === "ghost" ? "px-2 text-xs text-muted-foreground" : "px-3",
           className,
         )}
         onClick={() =>

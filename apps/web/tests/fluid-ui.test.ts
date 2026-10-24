@@ -114,9 +114,9 @@ const REDRAWS: Record<string, string> = {
   "src/components/layout/status-action.ts": "the wall and the feed list it",
   // The acceptance or approval notice is the layout's.
   "src/lib/sermo/outcome.ts": "the acceptance or approval notice",
-  // A forum watched or marked read changes its marks in every list on the page; moderation moves
-  // threads between lists.
-  [`${MAIN}/forums/actions.ts`]: "watching, marks read, moderation",
+  // A forum marked read changes its marks in every list on the page; moderation moves threads
+  // between lists. (Watching is saved in place: its button shows it.)
+  [`${MAIN}/forums/actions.ts`]: "marks read, moderation",
   // A wall comment is drawn in its post's block and the post's count, on the wall, in the feed and
   // in a picture's viewer; the composer lands on it. Edits and deletions likewise.
   [`${MAIN}/members/actions.ts`]: "wall comments, edits and deletions",

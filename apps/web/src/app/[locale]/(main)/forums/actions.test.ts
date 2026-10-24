@@ -8,7 +8,12 @@ let answer: { status: number; body: unknown } = { status: 200, body: {} };
 const answers = new Map<string, { status: number; body: unknown }>();
 
 mock.module("server-only", () => ({}));
-mock.module("next/cache", () => ({ refresh: () => {} }));
+let refreshed = 0;
+mock.module("next/cache", () => ({
+  refresh: () => {
+    refreshed += 1;
+  },
+}));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async () => (key: string) => key,
@@ -23,6 +28,7 @@ const actions = await import("./actions");
 const ROOT = "http://127.0.0.1:8787/api/v1";
 
 beforeEach(() => {
+  refreshed = 0;
   asked.length = 0;
   answer = { status: 200, body: {} };
   answers.clear();
@@ -41,15 +47,6 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-async function redirectedTo(run: () => Promise<unknown>) {
-  try {
-    await run();
-  } catch (error) {
-    return String((error as { digest?: unknown }).digest);
-  }
-  return undefined;
-}
-
 const form = (fields: Record<string, string | string[]>) => {
   const data = new FormData();
   for (const [name, value] of Object.entries(fields))
@@ -58,18 +55,19 @@ const form = (fields: Record<string, string | string[]>) => {
   return data;
 };
 
-test("watching a forum sends the mode and the email choice, then shows the forum", async () => {
+test("watching a forum from its popover sends the mode and the email choice and draws nothing again", async () => {
   answer = {
     status: 200,
     body: { watching: true, mode: "posts", email: true },
   };
-  const digest = await redirectedTo(() =>
-    actions.watchForumAction(4, {}, form({ mode: "posts", email: "on" })),
+  assert.deepEqual(
+    await actions.setForumWatch(4, { mode: "posts", email: true }),
+    {},
   );
-  assert.match(digest ?? "", /;\/forums\/4;/);
   assert.equal(asked[0].method, "PUT");
   assert.equal(asked[0].url, `${ROOT}/nodes/4/watch`);
   assert.deepEqual(asked[0].body, { mode: "posts", email: true });
+  assert.equal(refreshed, 0);
 });
 
 test("an unknown mode watches new threads only", async () => {
@@ -77,31 +75,44 @@ test("an unknown mode watches new threads only", async () => {
     status: 200,
     body: { watching: true, mode: "threads", email: false },
   };
-  await redirectedTo(() =>
-    actions.watchForumAction(4, {}, form({ mode: "everything" })),
-  );
+  await actions.setForumWatch(4, {
+    mode: "everything" as "threads",
+    email: false,
+  });
   assert.deepEqual(asked[0].body, { mode: "threads", email: false });
 });
 
-test("stopping watching a forum", async () => {
+test("stopping watching a forum draws nothing again", async () => {
   answer = { status: 200, body: { ok: true } };
-  const digest = await redirectedTo(() => actions.unwatchForumAction(4, {}));
-  assert.match(digest ?? "", /;\/forums\/4;/);
+  assert.deepEqual(await actions.setForumWatch(4, null), {});
   assert.equal(asked[0].method, "DELETE");
   assert.equal(asked[0].url, `${ROOT}/nodes/4/watch`);
+  assert.equal(refreshed, 0);
 });
 
-test("the backend's refusal of a watch is what the form shows", async () => {
+test("the backend's refusal of a watch is what the popover shows", async () => {
   answer = {
     status: 403,
     body: { error: { code: "forbidden", message: "Not for you." } },
   };
-  assert.deepEqual(await actions.watchForumAction(4, {}, form({})), {
-    error: "Not for you.",
+  const watched = await actions.setForumWatch(4, {
+    mode: "threads",
+    email: false,
   });
-  assert.deepEqual(await actions.unwatchForumAction(4, {}), {
-    error: "Not for you.",
-  });
+  assert.equal(watched.error, "Not for you.");
+  assert.equal((await actions.setForumWatch(4, null)).error, "Not for you.");
+});
+
+test("a visitor whose session ended is told where to sign in", async () => {
+  answer = {
+    status: 401,
+    body: { error: { code: "unauthenticated", message: "Sign in." } },
+  };
+  const answered = await actions.setForumWatch(4, null);
+  assert.equal(
+    answered.signIn,
+    `/login?next=${encodeURIComponent("/forums/4")}`,
+  );
 });
 
 test("marking a forum read asks for that forum's marker and stays on the page", async () => {
@@ -281,8 +292,7 @@ test("a forum says whether files and a poll may be added to a thread there, whic
 
 test("an id that is not a record id never becomes a path", async () => {
   for (const id of [".." as unknown as number, 0, -3, Number.NaN]) {
-    await assert.rejects(() => actions.watchForumAction(id, {}, form({})));
-    await assert.rejects(() => actions.unwatchForumAction(id, {}));
+    await assert.rejects(() => actions.setForumWatch(id, null));
     await assert.rejects(() => actions.createThreadAction(id, {}, form({})));
   }
   assert.equal(asked.length, 0);

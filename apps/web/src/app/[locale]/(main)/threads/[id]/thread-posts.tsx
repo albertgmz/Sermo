@@ -12,6 +12,7 @@ import {
 import { threadMay } from "@/app/[locale]/(main)/threads/[id]/permissions";
 import { PostItem } from "@/app/[locale]/(main)/threads/[id]/post-item";
 import { ThreadPoll } from "@/app/[locale]/(main)/threads/[id]/thread-poll";
+import { ThreadTools } from "@/app/[locale]/(main)/threads/[id]/thread-tools";
 import { pollPosts } from "@/app/[locale]/(main)/threads/poll-posts";
 import { LiveTail, PendingBody } from "@/components/forum/live-tail";
 import { PageNav } from "@/components/forum/page-nav";
@@ -40,12 +41,13 @@ export function postsContext(
 ) {
   const { thread, permissions, resolvedPermissions, poll, node } = found;
   const may = threadMay(resolvedPermissions, permissions);
+  // Where only titles are open to the viewer, the posts are not asked for at all.
+  const contentOpen = resolvedPermissions["forum.viewContent"] !== false;
   return {
     thread,
     may,
     viewerId,
-    // Where only titles are open to the viewer, the posts are not asked for at all.
-    contentOpen: resolvedPermissions["forum.viewContent"] !== false,
+    contentOpen,
     canReactHere: resolvedPermissions["forum.react"] !== false,
     canQuote: permissions.canReply,
     selecting: select && may.split,
@@ -53,6 +55,23 @@ export function postsContext(
       thread.highlightedUntil !== null &&
       Date.parse(thread.highlightedUntil) > Date.now(),
     poll: poll.exists ? { attachIn: may.attach ? node.id : null } : null,
+    // What a signed-in member's action row holds (`ThreadTools`); none for a guest.
+    tools:
+      viewerId === null
+        ? null
+        : {
+            watching: found.watching,
+            canWatch: permissions.canWatch,
+            canEditTitle: permissions.canEditTitle,
+            // The tags to edit, for whoever may edit them.
+            tags: permissions.canEditTags ? found.tags : null,
+            addPoll:
+              contentOpen && poll.canAdd
+                ? { attachIn: may.attach ? node.id : null }
+                : null,
+            staffPick: found.featured === "staff",
+            mayRemoveCover: thread.cover !== null && permissions.canRemoveCover,
+          },
   };
 }
 
@@ -93,7 +112,8 @@ function pagePath(threadId: number, selecting: boolean) {
 }
 
 // The part of the thread page that turns with its pages (`PageSwitch`): the poll on the first page,
-// the pager above the posts (from a wide screen up, as XenForo's), the posts, the pager below.
+// the action row above the posts (the pager from a wide screen up and, for a member, the thread's
+// tools, as XenForo's), the posts, the pager below.
 export function PostsRegion({
   context,
   page,
@@ -234,7 +254,11 @@ async function ThreadPosts({
       {viewerId !== null && lastPosition !== undefined && (
         <MarkRead threadId={thread.id} position={lastPosition} />
       )}
-      {pager("mt-4 max-sm:hidden")}
+      {context.tools ? (
+        <ThreadTools context={context} start={pager("max-sm:hidden")} />
+      ) : (
+        pager("mt-4 max-sm:hidden")
+      )}
       <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border bg-card">
         {posts.map((post) => (
           <PostItem

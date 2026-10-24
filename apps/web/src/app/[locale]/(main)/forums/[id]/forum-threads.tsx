@@ -36,7 +36,7 @@ export function NewThreadButton({ nodeId }: { nodeId: number }) {
     <Link
       href={`/forums/${nodeId}/new`}
       data-shortcut="create"
-      className={cn(buttonVariants(), "h-10 px-3 md:h-8")}
+      className={cn(buttonVariants(), "h-10 px-3")}
     >
       <Plus />
       {t("newThread")}

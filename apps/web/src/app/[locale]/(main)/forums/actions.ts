@@ -19,9 +19,10 @@ import {
   BATCH_LIMIT,
   type BatchState,
 } from "@/components/staff/thread-batch-state";
+import type { ChangeResult } from "@/lib/item-state";
 import { call } from "@/lib/sermo/client";
 import { formIds, parseId, requireIds } from "@/lib/sermo/ids";
-import { attempt } from "@/lib/sermo/outcome";
+import { attempt, attemptInPlace } from "@/lib/sermo/outcome";
 import { pollFromJson } from "@/lib/sermo/polls";
 import { tagsFromText } from "@/lib/sermo/tags";
 import { activePrefixViews } from "@/lib/sermo/threads";
@@ -115,32 +116,25 @@ export async function forumComposeAccessAction(nodeId: number): Promise<{
   };
 }
 
-export async function watchForumAction(
+// Watches a forum, changes how, or stops watching it (`null`), from the watch popover, which has
+// already shown the change: nothing on the page is drawn again. The caller says the state it
+// wants, so a second press on a stale page cannot flip it back.
+export async function setForumWatch(
   nodeId: number,
-  _previous: FormState,
-  formData: FormData,
-): Promise<FormState> {
+  watch: { mode: "threads" | "posts"; email: boolean } | null,
+): Promise<ChangeResult> {
   requireIds(nodeId);
-  const mode = formData.get("mode") === "posts" ? "posts" : "threads";
-  const done = await attempt(`/forums/${nodeId}`, () =>
-    call(nodesWatch, { nodeId, mode, email: formData.get("email") === "on" }),
+  const done = await attemptInPlace<unknown>(`/forums/${nodeId}`, () =>
+    watch
+      ? call(nodesWatch, {
+          nodeId,
+          mode: watch.mode === "posts" ? "posts" : "threads",
+          email: watch.email === true,
+        })
+      : call(nodesUnwatch, { nodeId }),
   );
-  if (!done.ok) return { error: done.error };
-  refresh();
-  redirect(`/forums/${nodeId}`);
-}
-
-export async function unwatchForumAction(
-  nodeId: number,
-  _previous: FormState,
-): Promise<FormState> {
-  requireIds(nodeId);
-  const done = await attempt(`/forums/${nodeId}`, () =>
-    call(nodesUnwatch, { nodeId }),
-  );
-  if (!done.ok) return { error: done.error };
-  refresh();
-  redirect(`/forums/${nodeId}`);
+  if (!done.ok) return { error: done.error, signIn: done.signIn };
+  return {};
 }
 
 // "Mark forum read" and "Mark forums read": the backend stores one marker, however many threads

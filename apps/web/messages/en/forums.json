@@ -92,13 +92,7 @@
     "batchRefused": "{count, plural, one {# thread was refused} other {# threads were refused}}: {reasons}"
   },
   "watch": {
-    "watch": "Follow forum",
-    "unwatch": "Unfollow forum",
-    "mode": "What to follow",
-    "optionThreads": "New threads",
-    "optionPosts": "Every new post",
-    "email": "Email me",
-    "status": "{mode, select, posts {Following every new post} other {Following new threads}}{email, select, true {, by email} other {}}"
+    "watch": "Follow forum"
   },
   "tagPage": {
     "home": "Home",

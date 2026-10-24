@@ -34,6 +34,7 @@ test("the buttons that send them do not draw the page again either", () => {
     "components/forum/bookmark-button.tsx",
     "components/forum/member-follow-button.tsx",
     "components/forum/reaction-summary-live.tsx",
+    "components/forum/watch-popup.tsx",
   ]) {
     const code = source(file);
     // They may go to the sign-in page (`router.push`) but never draw the page again.
@@ -46,6 +47,7 @@ test("the buttons that send them do not draw the page again either", () => {
     "components/forum/reaction-button.tsx",
     "components/forum/bookmark-button.tsx",
     "components/forum/member-follow-button.tsx",
+    "components/forum/watch-popup.tsx",
   ]) {
     expect(source(file), file).toContain("changeItem(");
   }
@@ -59,6 +61,7 @@ test("every follow button of a member and every control of an item shares one ke
     "`bookmark:",
   );
   expect(source("components/forum/reactions-view.tsx")).toContain("`reaction:");
+  expect(source("components/forum/watch-button.tsx")).toContain("`watch:");
 });
 
 test("the reply forms show the text at once through the tail and keep a refused one", () => {

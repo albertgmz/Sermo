@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef } from "react";
 
-// A form that opens in place under its button (a thread's tags, adding a poll): the focus goes to
-// its first field when it opens (also one drawn later, as the poll editor's once its code is
-// there), Escape closes it and hands the focus back to the button, as Cancel does, and opening one
-// closes any other, so one is open at a time.
+// A form that opens in place under the control that opened it (a thread's tags, adding a poll, both
+// opened from the thread's "•••" menu): the focus goes to its first field when it opens (also one
+// drawn later, as the poll editor's once its code is there), Escape closes it as Cancel does, and
+// opening one closes any other, so one is open at a time. The opener keeps whether it is open and
+// takes the focus back when it closes.
 
 const closers = new Map<string, () => void>();
 
@@ -52,41 +53,26 @@ function focusFirstField(box: HTMLElement) {
   return () => drawn.disconnect();
 }
 
-// `button` goes on the opening button, `panel` on the box of the open form.
-export function useInlinePanel() {
+// For the box of an open form, drawn while it is open: `onClose` closes it (Escape, or another
+// form opening).
+export function useInlinePanel(onClose: () => void) {
   const id = useId();
-  const [open, setOpen] = useState(false);
   const box = useRef<HTMLElement>(null);
-  // Closed by the member (not by another form opening): the button drawn again takes the focus.
-  const back = useRef(false);
-  useEffect(() => watchPanel(id, () => setOpen(false)), [id]);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => watchPanel(id, () => close.current()), [id]);
   useEffect(() => {
-    if (!open || !box.current) return;
     claimPanel(id);
-    return focusFirstField(box.current);
-  }, [open, id]);
-  const close = () => {
-    back.current = true;
-    setOpen(false);
-  };
+    return box.current ? focusFirstField(box.current) : undefined;
+  }, [id]);
   return {
-    open,
-    show: () => setOpen(true),
-    close,
-    button: (node: HTMLButtonElement | null) => {
-      if (!node || !back.current) return;
-      back.current = false;
-      node.focus();
+    ref: (node: HTMLElement | null) => {
+      box.current = node;
     },
-    panel: {
-      ref: (node: HTMLElement | null) => {
-        box.current = node;
-      },
-      onKeyDown: (event: React.KeyboardEvent) => {
-        if (!escapeCloses(event)) return;
-        event.preventDefault();
-        close();
-      },
+    onKeyDown: (event: React.KeyboardEvent) => {
+      if (!escapeCloses(event)) return;
+      event.preventDefault();
+      close.current();
     },
   };
 }

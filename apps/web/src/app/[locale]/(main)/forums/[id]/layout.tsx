@@ -6,7 +6,9 @@ export default function ForumLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClientMessages namespaces={["forums.forum", "threads.moderation"]}>
+    <ClientMessages
+      namespaces={["forums.forum", "threads.moderation", "forum.watchButton"]}
+    >
       {children}
     </ClientMessages>
   );

@@ -28,11 +28,12 @@ import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { parseThreadRef } from "@/app/[locale]/(main)/threads/[id]/thread-ref";
 import { saveEdit } from "@/app/[locale]/(main)/threads/save-edit";
 import { sendReply } from "@/app/[locale]/(main)/threads/send-reply";
+import type { ChangeResult } from "@/lib/item-state";
 import { call } from "@/lib/sermo/client";
 import { eraseHidingFirst } from "@/lib/sermo/erase";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, parseId, requireIds } from "@/lib/sermo/ids";
-import { attempt } from "@/lib/sermo/outcome";
+import { attempt, attemptInPlace } from "@/lib/sermo/outcome";
 import { tagsFromText } from "@/lib/sermo/tags";
 
 export type ReplyState = {
@@ -379,29 +380,21 @@ export async function splitThreadAction(
   redirect(`/threads/${done.value.thread.id}`);
 }
 
-export async function watchThreadAction(
+// Watches a thread, changes its email choice, or stops watching it (`null`), from the watch
+// popover, which has already shown the change: nothing on the page is drawn again (the page and
+// the reply being typed stay as they are).
+export async function setThreadWatch(
   threadId: number,
-  _previous: FormState,
-  formData: FormData,
-): Promise<FormState> {
+  watch: { email: boolean } | null,
+): Promise<ChangeResult> {
   requireIds(threadId);
-  const done = await attempt(`/threads/${threadId}`, () =>
-    call(threadsWatch, { threadId, email: formData.get("email") === "on" }),
+  const done = await attemptInPlace<unknown>(`/threads/${threadId}`, () =>
+    watch
+      ? call(threadsWatch, { threadId, email: watch.email === true })
+      : call(threadsUnwatch, { threadId }),
   );
-  if (!done.ok) return { error: done.error };
-  backToThread(threadId);
-}
-
-export async function unwatchThreadAction(
-  threadId: number,
-  _previous: FormState,
-): Promise<FormState> {
-  requireIds(threadId);
-  const done = await attempt(`/threads/${threadId}`, () =>
-    call(threadsUnwatch, { threadId }),
-  );
-  if (!done.ok) return { error: done.error };
-  backToThread(threadId);
+  if (!done.ok) return { error: done.error, signIn: done.signIn };
+  return {};
 }
 
 // The BB code source of a post, for the quote button: the list only carries rendered HTML.

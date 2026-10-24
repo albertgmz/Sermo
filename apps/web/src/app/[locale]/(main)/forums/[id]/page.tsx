@@ -157,14 +157,17 @@ export default async function ForumPage({
             </p>
           )}
         </div>
-        {newThread}
+        {(user || newThread) && (
+          // As XenForo's: mark read and follow beside the button that starts a thread.
+          <div className="flex flex-wrap items-end gap-2">
+            {user && <ForumMarkRead nodeId={node.id} />}
+            {user && isForum && (
+              <ForumWatch nodeId={node.id} watching={watching} />
+            )}
+            {newThread}
+          </div>
+        )}
       </div>
-      {user && (
-        <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-2">
-          {isForum && <ForumWatch nodeId={node.id} watching={watching} />}
-          <ForumMarkRead nodeId={node.id} />
-        </div>
-      )}
 
       {isForum && (
         <Suspense fallback={null}>

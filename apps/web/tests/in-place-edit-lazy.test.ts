@@ -26,7 +26,7 @@ test("the in-place editors and the prefix menu are loaded when they are reached 
     /const loadEditor = \(\) =>\s*import\("@\/app\/\[locale\]\/\(main\)\/threads\/\[id\]\/inline-post-editor"\)/,
   );
   expect(holdersOf("edit-thread-popup")).toEqual([]);
-  expect(source(`${dir}/edit-thread-button.tsx`)).toContain(
+  expect(source(`${dir}/thread-toolbar.tsx`)).toContain(
     'import("@/app/[locale]/(main)/threads/[id]/edit-thread-popup")',
   );
   expect(holdersOf("prefix-select-popup")).toEqual([]);

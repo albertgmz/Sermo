@@ -1,107 +1,78 @@
-import type { threadsGet } from "@sermo/core/contracts";
-import { Bell, BellOff } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import type * as z from "zod";
-import { EditThreadButton } from "@/app/[locale]/(main)/threads/[id]/edit-thread-button";
-import { ModerationMenu } from "@/app/[locale]/(main)/threads/[id]/moderation";
-import { postEditHref } from "@/app/[locale]/(main)/threads/[id]/pages";
-import type { ThreadMay } from "@/app/[locale]/(main)/threads/[id]/permissions";
-import {
-  unwatchThreadAction,
-  watchThreadAction,
-} from "@/app/[locale]/(main)/threads/actions";
-import { ActionForm } from "@/components/forum/action-form";
+import { ModerationPanel } from "@/app/[locale]/(main)/threads/[id]/moderation";
+import type { PostsContext } from "@/app/[locale]/(main)/threads/[id]/thread-posts";
+import { ThreadToolbar } from "@/app/[locale]/(main)/threads/[id]/thread-toolbar";
+import { setThreadWatch } from "@/app/[locale]/(main)/threads/actions";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
-import { Label } from "@/components/ui/label";
+import { WatchButton } from "@/components/forum/watch-button";
+import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 
-type Found = z.output<typeof threadsGet.output>;
-type Thread = Found["thread"];
-
-// The row of buttons under the title: watching and bookmarking, for any signed-in member, "Edit
-// thread" for its author and the moderators (`canEditTitle`), and the moderation menu for those it
-// applies to. Whether the member watches the thread comes with it (`threads.get`).
+// A signed-in member's action row of the thread, as XenForo's: `start` (the pager) on the left; on
+// the right "Follow" (its popover holds the email choice), the bookmark, and a "•••" menu with
+// "Edit thread" for its author and the moderators (`canEditTitle`), the tags and the poll for
+// whoever may change them, and the moderation panel for those it applies to. The watch and
+// bookmark buttons are drawn here, on the server, so their props say how old their state is
+// (`lib/item-state`). Whether the member watches the thread comes with it (`threads.get`).
 export async function ThreadTools({
-  thread,
-  watching,
-  bookmarked,
-  canWatch,
-  canEditTitle,
-  may,
-  mayRemoveCover,
-  staffPick,
-  selecting,
+  context,
+  start,
 }: {
-  thread: Thread;
-  watching: Found["watching"];
-  // Null when the bookmark state could not be read: no toggle is drawn.
-  bookmarked: boolean | null;
-  canWatch: boolean;
-  canEditTitle: boolean;
-  may: ThreadMay;
-  mayRemoveCover: boolean;
-  // A moderator has picked the thread: the menu offers to end the pick.
-  staffPick: boolean;
-  selecting: boolean;
+  context: PostsContext;
+  start: React.ReactNode;
 }) {
-  const t = await getTranslations("threads.tools");
-  const moderate = may.any || mayRemoveCover;
+  const { thread, may, selecting, tools } = context;
+  if (!tools) return start;
+  const [t, bookmarks] = await Promise.all([
+    getTranslations("threads.tools"),
+    bookmarkedAmong("thread", [thread.id]),
+  ]);
+  const moderate = may.any || tools.mayRemoveCover;
+  // Null when the bookmark state could not be read, or the member may not add one: no toggle.
+  const bookmarked = bookmarks ? bookmarks.toggle(thread.id) : null;
   return (
-    <div className="mt-3 flex flex-wrap items-start gap-2">
-      {watching ? (
-        <ActionForm
-          action={unwatchThreadAction.bind(null, thread.id)}
-          submit={
-            <>
-              <BellOff aria-hidden="true" />
-              {t("unwatch")}
-            </>
-          }
-        />
-      ) : (
-        canWatch && (
-          <ActionForm
-            action={watchThreadAction.bind(null, thread.id)}
-            className="flex flex-wrap items-center gap-x-3 space-y-0"
-            submit={
-              <>
-                <Bell aria-hidden="true" />
-                {t("watch")}
-              </>
+    <ThreadToolbar
+      threadId={thread.id}
+      start={start}
+      watch={
+        (tools.watching || tools.canWatch) && (
+          <WatchButton
+            item={`thread:${thread.id}`}
+            watching={
+              tools.watching && {
+                mode: "threads",
+                email: tools.watching.email,
+              }
             }
-          >
-            <Label className="min-h-10 text-sm font-normal text-muted-foreground">
-              <input
-                type="checkbox"
-                name="email"
-                className="size-4 accent-primary"
-              />
-              {t("email")}
-            </Label>
-          </ActionForm>
+            label={t("watch")}
+            save={setThreadWatch.bind(null, thread.id)}
+          />
         )
-      )}
-      {bookmarked !== null && (
-        <BookmarkButton
-          contentType="thread"
-          contentId={thread.id}
-          bookmarked={bookmarked}
-        />
-      )}
-      {canEditTitle && (
-        <EditThreadButton
-          threadId={thread.id}
-          href={postEditHref(thread.id, thread.firstPostId)}
-        />
-      )}
-      {moderate && (
-        <ModerationMenu
-          thread={thread}
-          may={may}
-          mayRemoveCover={mayRemoveCover}
-          staffPick={staffPick}
-          selecting={selecting}
-        />
-      )}
-    </div>
+      }
+      bookmark={
+        bookmarked !== null && (
+          <BookmarkButton
+            contentType="thread"
+            contentId={thread.id}
+            bookmarked={bookmarked}
+            variant="outline"
+          />
+        )
+      }
+      edit={tools.canEditTitle}
+      tags={tools.tags}
+      poll={tools.addPoll}
+      moderation={
+        moderate && (
+          <ModerationPanel
+            thread={thread}
+            may={may}
+            mayRemoveCover={tools.mayRemoveCover}
+            staffPick={tools.staffPick}
+            selecting={selecting}
+          />
+        )
+      }
+      selecting={selecting}
+    />
   );
 }

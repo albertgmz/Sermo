@@ -16,7 +16,8 @@ import {
 import { cn } from "@/lib/utils";
 
 // The "Edit" dialog of a thread or a direct message, as XenForo's edit overlay: the button, drawn
-// as the lazy one that stood in for it, and the form over the page under the dialog's title.
+// as the lazy one that stood in for it, and the form over the page under the dialog's title. A
+// dialog opened from a menu (the thread's "•••") has no button of its own: `trigger` is left out.
 export function EditDialog({
   title,
   trigger,
@@ -27,15 +28,17 @@ export function EditDialog({
 }: {
   title: string;
   // What the button holds: its icon and its label.
-  trigger: React.ReactNode;
-  triggerClassName: string;
+  trigger?: React.ReactNode;
+  triggerClassName?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger className={triggerClassName}>{trigger}</DialogTrigger>
+      {trigger && (
+        <DialogTrigger className={triggerClassName}>{trigger}</DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

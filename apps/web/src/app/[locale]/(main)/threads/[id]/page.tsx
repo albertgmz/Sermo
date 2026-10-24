@@ -23,15 +23,12 @@ import { EmptyState } from "@/components/forum/empty-state";
 import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PageSwitch } from "@/components/forum/page-switch";
-import { PollAdder } from "@/components/forum/poll-adder";
 import { PostNote } from "@/components/forum/post-frame";
 import { ThreadTags } from "@/components/forum/thread-tags";
-import { ThreadTagsEditor } from "@/components/forum/thread-tags-editor";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { canonicalPathOf, canonicalUrlOf } from "@/lib/sermo/addresses";
-import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
@@ -119,23 +116,18 @@ export default async function ThreadPage({
     searchParams,
   ]);
   const id = threadIdOf(raw);
-  const [found, { user }, bookmarks, t, tReply] = await Promise.all([
+  const [found, { user }, t, tReply] = await Promise.all([
     getThread(id),
     getViewer(),
-    // Settled by the same request-wide viewer read; guests ask nothing.
-    getViewer().then(({ user: viewer }) =>
-      viewer ? bookmarkedAmong("thread", [id]) : null,
-    ),
     getTranslations("threads.page"),
     getTranslations("threads.replyComposer"),
   ]);
-  const { thread, tags, poll, node, permissions, watching, featured } = found;
+  const { thread, tags, node, permissions } = found;
   const page = pageNumber(pageParam);
   const seo = await getSeo(id, page, cursor !== undefined);
   const posts = postsContext(found, user?.id ?? null, select === "1");
   const { may, contentOpen, selecting } = posts;
   const postsCursor = typeof cursor === "string" ? cursor : undefined;
-  const mayRemoveCover = thread.cover !== null && permissions.canRemoveCover;
 
   return (
     <PageLayout className="pt-2">
@@ -174,37 +166,15 @@ export default async function ThreadPage({
         </div>
       </header>
 
-      {(tags.length > 0 || permissions.canEditTags) && (
+      {tags.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <ThreadTags tags={tags} />
-          {permissions.canEditTags && (
-            <ThreadTagsEditor threadId={thread.id} tags={tags} />
-          )}
         </div>
       )}
 
-      {contentOpen && poll.canAdd && (
-        <div className="mt-2">
-          <PollAdder
-            threadId={thread.id}
-            attachIn={may.attach ? node.id : null}
-          />
-        </div>
-      )}
-
-      {user && (
-        <ThreadTools
-          thread={thread}
-          watching={watching}
-          bookmarked={bookmarks ? bookmarks.toggle(thread.id) : null}
-          canWatch={permissions.canWatch}
-          canEditTitle={permissions.canEditTitle}
-          may={may}
-          mayRemoveCover={mayRemoveCover}
-          staffPick={featured === "staff"}
-          selecting={selecting}
-        />
-      )}
+      {/* The member's action row is drawn above the posts (`PostsRegion`); where the posts are
+          closed to them, it stands alone. */}
+      {!contentOpen && <ThreadTools context={posts} start={null} />}
       {selecting && (
         <Suspense fallback={<Skeleton className="mt-3 h-40 w-full" />}>
           <SplitPanel thread={thread} />

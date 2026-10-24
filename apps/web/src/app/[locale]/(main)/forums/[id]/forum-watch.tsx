@@ -1,16 +1,12 @@
 import type { nodesGet } from "@sermo/core/contracts";
-import { Bell, BellOff } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
-import {
-  unwatchForumAction,
-  watchForumAction,
-} from "@/app/[locale]/(main)/forums/actions";
-import { ActionForm } from "@/components/forum/action-form";
-import { Label } from "@/components/ui/label";
+import { setForumWatch } from "@/app/[locale]/(main)/forums/actions";
+import { WatchButton } from "@/components/forum/watch-button";
 
-// Watching a forum: for new threads only or for every new post, and by email if wanted. What the
-// member has chosen comes with the forum (`nodes.get`).
+// Watching a forum, from its header: one button whose popover holds new threads or every new post
+// and the email choice, saved in place. What the member has chosen comes with the forum
+// (`nodes.get`).
 export async function ForumWatch({
   nodeId,
   watching,
@@ -19,59 +15,13 @@ export async function ForumWatch({
   watching: z.output<typeof nodesGet.output>["watching"];
 }) {
   const t = await getTranslations("forums.watch");
-  if (watching) {
-    return (
-      <ActionForm
-        action={unwatchForumAction.bind(null, nodeId)}
-        submit={
-          <>
-            <BellOff aria-hidden="true" />
-            {t("unwatch")}
-          </>
-        }
-      >
-        <p className="text-sm text-muted-foreground">
-          {t("status", { mode: watching.mode, email: String(watching.email) })}
-        </p>
-      </ActionForm>
-    );
-  }
   return (
-    <ActionForm
-      action={watchForumAction.bind(null, nodeId)}
-      submit={
-        <>
-          <Bell aria-hidden="true" />
-          {t("watch")}
-        </>
-      }
-    >
-      <fieldset className="flex flex-wrap gap-x-4">
-        <legend className="sr-only">{t("mode")}</legend>
-        <Label className="min-h-10 text-sm font-normal">
-          <input
-            type="radio"
-            name="mode"
-            value="threads"
-            defaultChecked
-            className="size-4 accent-primary"
-          />
-          {t("optionThreads")}
-        </Label>
-        <Label className="min-h-10 text-sm font-normal">
-          <input
-            type="radio"
-            name="mode"
-            value="posts"
-            className="size-4 accent-primary"
-          />
-          {t("optionPosts")}
-        </Label>
-      </fieldset>
-      <Label className="min-h-10 text-sm font-normal text-muted-foreground">
-        <input type="checkbox" name="email" className="size-4 accent-primary" />
-        {t("email")}
-      </Label>
-    </ActionForm>
+    <WatchButton
+      item={`forum:${nodeId}`}
+      watching={watching}
+      label={t("watch")}
+      modes
+      save={setForumWatch.bind(null, nodeId)}
+    />
   );
 }

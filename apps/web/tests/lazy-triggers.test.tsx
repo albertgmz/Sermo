@@ -67,6 +67,10 @@ const { MenuPanels } = await import("@/components/forum/content-actions");
 const { FeedFiltersButton } = await import(
   "@/components/forum/feed-filters-button"
 );
+const { WatchButton } = await import("@/components/forum/watch-button");
+const { ThreadToolbar } = await import(
+  "@/app/[locale]/(main)/threads/[id]/thread-toolbar"
+);
 
 type Tag = { name: string; attributes: Record<string, string> };
 
@@ -234,6 +238,36 @@ const cases: [string, () => React.ReactNode, boolean][] = [
       <MenuPanels value={{ open: () => {}, edit: true, remove: true }}>
         <ContentMenu className="x" />
       </MenuPanels>
+    ),
+    true,
+  ],
+  [
+    "the follow button of a forum",
+    () => (
+      <WatchButton
+        item="forum:4"
+        watching={{ mode: "posts", email: false }}
+        label="Follow forum"
+        modes
+        save={async () => ({})}
+      />
+    ),
+    true,
+  ],
+  [
+    "the more options button of a thread",
+    () => (
+      <ThreadToolbar
+        threadId={7}
+        start={null}
+        watch={null}
+        bookmark={null}
+        edit
+        tags={null}
+        poll={null}
+        moderation={null}
+        selecting={false}
+      />
     ),
     true,
   ],

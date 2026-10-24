@@ -1,5 +1,5 @@
 import { nodesList, type threadsGet } from "@sermo/core/contracts";
-import { ChevronDown, ListChecks, Shield } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
@@ -67,9 +67,10 @@ export async function forumsOtherThan(nodeId: number) {
   return forumOptions(items, nodeId);
 }
 
-// Everything a moderator can do to the thread as a whole, behind one button. The caller shows it
-// only when at least one item applies.
-export async function ModerationMenu({
+// Everything a moderator can do to the thread as a whole, in one panel that the thread's "•••" menu
+// opens under its action row (open from the start while posts are being picked for a split). The
+// caller draws it only when at least one item applies.
+export async function ModerationPanel({
   thread,
   may,
   mayRemoveCover,
@@ -98,127 +99,112 @@ export async function ModerationMenu({
     may.hardDeleteAny,
   );
   return (
-    <details className="group w-full" open={selecting || undefined}>
-      <summary
-        className={cn(
-          buttonVariants({ variant: "outline" }),
-          "h-10 cursor-pointer list-none px-3 [&::-webkit-details-marker]:hidden",
-        )}
-      >
-        <Shield aria-hidden="true" />
-        {t("menu")}
-        <ChevronDown
-          aria-hidden="true"
-          className="transition-transform group-open:rotate-180"
-        />
-      </summary>
-      <div className="mt-2 space-y-4 rounded-lg border bg-card p-3">
-        {(may.stick || mayFeature || may.lock || mayRemoveCover) && (
-          <div className="flex flex-wrap gap-2">
-            {may.stick && (
-              <ActionForm
-                action={setStickyAction.bind(null, id, !thread.isSticky)}
-                submit={thread.isSticky ? t("unstick") : t("stick")}
-              />
-            )}
-            {mayFeature && (
-              <ActionForm
-                action={setFeaturedAction.bind(null, id, !staffPick)}
-                submit={staffPick ? t("unfeature") : t("feature")}
-              />
-            )}
-            {may.lock && (
-              <ActionForm
-                action={setLockedAction.bind(null, id, !thread.isLocked)}
-                submit={thread.isLocked ? t("unlock") : t("lock")}
-              />
-            )}
-            {mayRemoveCover && (
-              <DeleteControl
-                action={removeCoverAction.bind(null, id)}
-                label={t("removeCover")}
-                confirm={t("removeCoverConfirm")}
-                cancel={t("cancel")}
-                warning={t("removeCoverWarning")}
-              />
-            )}
-          </div>
-        )}
-
-        {may.move && forums.length > 0 && (
-          <Section title={t("moveHeading")}>
-            <DeleteControl
-              action={moveThreadAction.bind(null, id)}
-              label={t("move")}
-              confirm={t("moveConfirm")}
-              cancel={t("cancel")}
-              variant="outline"
-            >
-              <Label id="move-forum" className="sr-only">
-                {t("moveLabel")}
-              </Label>
-              <ForumPicker
-                name="nodeId"
-                forums={forums}
-                labelledBy="move-forum"
-                placeholder={t("movePlaceholder")}
-              />
-            </DeleteControl>
-          </Section>
-        )}
-
-        {may.merge && (
-          <Section title={t("mergeHeading")}>
-            <MergeControl
-              preview={previewMergeAction.bind(null, id)}
-              merge={mergeThreadAction.bind(null, id)}
+    <section
+      aria-label={t("menu")}
+      className="space-y-4 rounded-lg border bg-card p-3"
+    >
+      {(may.stick || mayFeature || may.lock || mayRemoveCover) && (
+        <div className="flex flex-wrap gap-2">
+          {may.stick && (
+            <ActionForm
+              action={setStickyAction.bind(null, id, !thread.isSticky)}
+              submit={thread.isSticky ? t("unstick") : t("stick")}
             />
-          </Section>
-        )}
+          )}
+          {mayFeature && (
+            <ActionForm
+              action={setFeaturedAction.bind(null, id, !staffPick)}
+              submit={staffPick ? t("unfeature") : t("feature")}
+            />
+          )}
+          {may.lock && (
+            <ActionForm
+              action={setLockedAction.bind(null, id, !thread.isLocked)}
+              submit={thread.isLocked ? t("unlock") : t("lock")}
+            />
+          )}
+          {mayRemoveCover && (
+            <DeleteControl
+              action={removeCoverAction.bind(null, id)}
+              label={t("removeCover")}
+              confirm={t("removeCoverConfirm")}
+              cancel={t("cancel")}
+              warning={t("removeCoverWarning")}
+            />
+          )}
+        </div>
+      )}
 
-        {may.split && (
-          <Section title={t("splitHeading")}>
-            <p className="text-sm text-muted-foreground">{t("splitHint")}</p>
-            <Link
-              href={selecting ? `/threads/${id}` : `/threads/${id}?select=1`}
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "h-10 px-3",
-              )}
-            >
-              <ListChecks aria-hidden="true" />
-              {selecting ? t("selectDone") : t("select")}
-            </Link>
-          </Section>
-        )}
+      {may.move && forums.length > 0 && (
+        <Section title={t("moveHeading")}>
+          <DeleteControl
+            action={moveThreadAction.bind(null, id)}
+            label={t("move")}
+            confirm={t("moveConfirm")}
+            cancel={t("cancel")}
+            variant="outline"
+          >
+            <Label id="move-forum" className="sr-only">
+              {t("moveLabel")}
+            </Label>
+            <ForumPicker
+              name="nodeId"
+              forums={forums}
+              labelledBy="move-forum"
+              placeholder={t("movePlaceholder")}
+            />
+          </DeleteControl>
+        </Section>
+      )}
 
-        {(removal.show || mayRestore(may, thread.state)) && (
-          <Section title={t("stateHeading")}>
-            {mayRestore(may, thread.state) && (
-              <ActionForm
-                action={restoreThreadAction.bind(null, id)}
-                submit={
-                  thread.state === "moderated" ? t("approve") : t("restore")
-                }
-              />
-            )}
-            {removal.show && (
-              <DeleteDialog
-                action={deleteThreadAction.bind(null, id)}
-                permanent={removal.permanent}
-                label={removal.permanent === "only" ? undefined : t("delete")}
-                confirm={
-                  removal.permanent === "only"
-                    ? t("hardDeleteConfirm")
-                    : t("confirmDelete")
-                }
-                permanentHint={t("hardDeleteWarning")}
-              />
-            )}
-          </Section>
-        )}
-      </div>
-    </details>
+      {may.merge && (
+        <Section title={t("mergeHeading")}>
+          <MergeControl
+            preview={previewMergeAction.bind(null, id)}
+            merge={mergeThreadAction.bind(null, id)}
+          />
+        </Section>
+      )}
+
+      {may.split && (
+        <Section title={t("splitHeading")}>
+          <p className="text-sm text-muted-foreground">{t("splitHint")}</p>
+          <Link
+            href={selecting ? `/threads/${id}` : `/threads/${id}?select=1`}
+            className={cn(buttonVariants({ variant: "outline" }), "h-10 px-3")}
+          >
+            <ListChecks aria-hidden="true" />
+            {selecting ? t("selectDone") : t("select")}
+          </Link>
+        </Section>
+      )}
+
+      {(removal.show || mayRestore(may, thread.state)) && (
+        <Section title={t("stateHeading")}>
+          {mayRestore(may, thread.state) && (
+            <ActionForm
+              action={restoreThreadAction.bind(null, id)}
+              submit={
+                thread.state === "moderated" ? t("approve") : t("restore")
+              }
+            />
+          )}
+          {removal.show && (
+            <DeleteDialog
+              action={deleteThreadAction.bind(null, id)}
+              permanent={removal.permanent}
+              label={removal.permanent === "only" ? undefined : t("delete")}
+              confirm={
+                removal.permanent === "only"
+                  ? t("hardDeleteConfirm")
+                  : t("confirmDelete")
+              }
+              permanentHint={t("hardDeleteWarning")}
+            />
+          )}
+        </Section>
+      )}
+    </section>
   );
 }
 

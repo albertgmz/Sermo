@@ -1,10 +1,8 @@
 "use client";
 
-import { Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import type { ThreadEditFields } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-data";
-import { editThreadClass } from "@/app/[locale]/(main)/threads/[id]/edit-thread-button";
 import { showThreadHeading } from "@/app/[locale]/(main)/threads/[id]/thread-heading";
 import {
   saveThreadInPlace,
@@ -20,10 +18,13 @@ import { FormError } from "@/components/forum/form-error";
 import { ThreadFields } from "@/components/forum/thread-fields";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Button } from "@/components/ui/button";
-import type { OpenedProps } from "@/components/ui/lazy-popup";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export type EditThreadPopupProps = { threadId: number; label: string };
+export type EditThreadPopupProps = {
+  threadId: number;
+  label: string;
+  onClose: () => void;
+};
 
 type Opened = { fields: ThreadEditFields } | { error: string };
 
@@ -117,27 +118,23 @@ function ThreadEditor({
   );
 }
 
-// The button and the dialog of "Edit thread", which Base UI draws: loaded when the plain link of
-// `EditThreadButton` is pressed, mounted open. What it opens with is asked for each time it opens.
+// The dialog of "Edit thread", which Base UI draws: loaded when the thread's "•••" menu first offers
+// it, mounted open. What it opens with is asked for each time it opens; closing it (Cancel, Escape,
+// a press outside, a save) calls `onClose`.
 export default function EditThreadPopup({
   threadId,
   label,
-}: EditThreadPopupProps & OpenedProps) {
-  const [open, setOpen] = useState(true);
+  onClose,
+}: EditThreadPopupProps) {
   return (
     <EditDialog
       title={label}
-      trigger={
-        <>
-          <Pencil aria-hidden="true" />
-          {label}
-        </>
-      }
-      triggerClassName={editThreadClass}
-      open={open}
-      onOpenChange={setOpen}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <ThreadEditor threadId={threadId} onDone={() => setOpen(false)} />
+      <ThreadEditor threadId={threadId} onDone={onClose} />
     </EditDialog>
   );
 }

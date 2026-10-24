@@ -32,14 +32,16 @@ test("the field is named tags and holds the current ones as hashtags", () => {
   expect(html).toContain("Letters, numbers and _ only.");
 });
 
-test("the editor starts as one button that says what it does", () => {
-  const edit = renderToStaticMarkup(
-    withIntl(<ThreadTagsEditor threadId={4} tags={["a"]} />),
+// The thread's "•••" menu offers "Edit tags" or "Add tags" (`ThreadToolbar`) and opens the editor:
+// the field with the thread's tags, saved or cancelled at once.
+test("the editor is the field with the thread's tags, Save and Cancel", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <ThreadTagsEditor threadId={4} tags={["a", "b"]} onClose={() => {}} />,
+    ),
   );
-  expect(edit).toContain("Edit tags");
-  expect(edit).not.toContain('name="tags"');
-  const add = renderToStaticMarkup(
-    withIntl(<ThreadTagsEditor threadId={4} tags={[]} />),
-  );
-  expect(add).toContain("Add tags");
+  expect(html).toContain('name="tags"');
+  expect(html).toContain('value="#a #b"');
+  expect(html).toContain("Save tags");
+  expect(html).toContain("Cancel");
 });
