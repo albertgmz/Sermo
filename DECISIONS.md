@@ -6537,3 +6537,14 @@ had to be typed by hand.
 
 Why: the owner saw a forum with sub-forums show only its own totals; summing the visible tree
 needs no migration and no extra read.
+
+### Opening the alerts marks them viewed, as in XenForo
+
+- An alert is viewed or read. Opening the alerts menu or the alerts page stores the time on the
+  member (`users.alerts_viewed_at`, one column, migration 0072) and empties the badge in place;
+  the badge counts unread alerts newer than that time (read through the unread-only index, at
+  most 100). An alert stays unread, and highlighted, until it is opened or "mark all read" is
+  used. The header's "mark all read" no longer greys out when the badge is 0.
+
+Why: the owner wanted the counter to clear when alerts are opened, without visiting each one;
+one marker per member is cheap on 67,000 members, where marking every alert would rewrite rows.
