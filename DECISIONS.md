@@ -6526,3 +6526,14 @@ read time, named the real winner; those winners were stored before the re-decide
 
 Why: Firefox, the owner's browser, shows `<input type="month">` as a plain text box, so the month
 had to be typed by hand.
+
+### A forum's totals include its sub-forums
+
+- On the forum list and on a parent forum's page, a forum shows the threads and posts of every
+  forum under it and the newest last post among them, as XenForo does. The sum is made at read
+  time over the forum tree the page already loads, which holds only the forums the viewer may
+  see, so a private sub-forum adds nothing for a viewer who cannot see it. The forum-links widget
+  and the admin forum tree keep each forum's own counts.
+
+Why: the owner saw a forum with sub-forums show only its own totals; summing the visible tree
+needs no migration and no extra read.
