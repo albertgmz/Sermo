@@ -161,20 +161,15 @@ const COMMENT = {
   deletion: null,
 };
 
-// On the wall the page goes to the wall at the new comment, which lands on it whatever page of
-// the wall or of the comments was shown.
-test("a comment written on a wall goes to the wall at the comment", async () => {
+// On the wall, as in the feed, the page stays where it is: drawn again with the new comment, which
+// the composer lands on. Opening the wall's address at the comment would put the route's
+// placeholder over the whole page.
+test("a comment written on a wall draws the page again and names the comment to land on", async () => {
   globalThis.fetch = (async () =>
     Response.json(COMMENT)) as unknown as typeof fetch;
-  const digest = await commentOnWallPost(8, 5, {}, form({ body: "hi" })).then(
-    () => undefined,
-    (error: { digest?: unknown }) => String(error.digest),
-  );
-  assert.equal(digest?.split(";")[0], "NEXT_REDIRECT");
-  assert.equal(
-    digest?.split(";")[2],
-    "/members/5?post=8&comment=12#profile-comment-12",
-  );
+  const state = await commentOnWallPost(8, 5, {}, form({ body: "hi" }));
+  assert.deepEqual(state, { landOn: "#profile-comment-12" });
+  assert.equal(refreshed, 1);
 });
 
 test("a refused comment answers its form and refreshes nothing", async () => {

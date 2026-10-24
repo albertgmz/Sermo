@@ -6,6 +6,7 @@ import {
   type CreditsState,
   wearItem,
 } from "@/app/[locale]/(main)/credits/actions";
+import { useAnnounce } from "@/components/forum/page-notice";
 import { PendingButton } from "@/components/forum/pending-button";
 
 export function WearForm({
@@ -26,6 +27,7 @@ export function WearForm({
     wearItem.bind(null, look, worn ? null : catalogId, returnTo),
     {},
   );
+  useAnnounce(state.notice, state);
   return (
     <form action={action} className="basis-full sm:w-32 sm:basis-auto">
       <PendingButton

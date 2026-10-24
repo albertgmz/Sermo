@@ -4,14 +4,11 @@ import { cache } from "react";
 import {
   FEED_SWITCH_PARAMS,
   FeedColumn,
-  feedWidgets,
   openingOf,
 } from "@/app/[locale]/(main)/novedades/feed-column";
 import { feedColumn } from "@/app/[locale]/(main)/novedades/feed-column-page";
 import { placeOfQuery } from "@/components/forum/places";
 import { TabSwitch } from "@/components/forum/tab-switch";
-import { PageLayout } from "@/components/layout/page-layout";
-import { widgetAside, widgetLead } from "@/components/widgets/widget-area";
 import { homeAddress, homeMetadata } from "@/lib/home-seo";
 import { publicUrl } from "@/lib/sermo/config";
 import { getGuestTab } from "@/lib/sermo/home-tab";
@@ -42,33 +39,24 @@ export async function generateMetadata(
 
 // The feed: the wall composer and the feed tabs, with the widgets of the page's positions (the
 // featured threads above the tabs and the side blocks, by default). The home page (`/`) is the
-// forum list. The main column is what the tabs and the filters change in place (`TabSwitch`).
+// forum list. All of it under the site's header is what the tabs and the filters change in place
+// (`TabSwitch`).
 export default async function NovedadesPage(
   props: PageProps<"/[locale]/novedades">,
 ) {
-  const [opened, widgets, t] = await Promise.all([
+  const [opened, widgets] = await Promise.all([
     opening(props.searchParams),
     getWidgets("novedades"),
-    getTranslations("home.page"),
   ]);
-  const { areas, context } = feedWidgets(opened.tab, opened.params, widgets);
   return (
-    <PageLayout
-      mainClassName="space-y-(--page-gap)"
-      {...widgetLead(areas.lead, context)}
-      {...widgetAside(areas.aside, context)}
+    <TabSwitch
+      place={placeOfQuery(opened.params, FEED_SWITCH_PARAMS)}
+      params={FEED_SWITCH_PARAMS}
+      stamp={Date.now()}
+      load={feedColumn}
     >
-      <h1 className="sr-only">{t("heading")}</h1>
-      <TabSwitch
-        place={placeOfQuery(opened.params, FEED_SWITCH_PARAMS)}
-        params={FEED_SWITCH_PARAMS}
-        stamp={Date.now()}
-        load={feedColumn}
-        className="space-y-(--page-gap)"
-      >
-        <FeedColumn opened={opened} widgets={widgets} />
-      </TabSwitch>
-    </PageLayout>
+      <FeedColumn opened={opened} widgets={widgets} />
+    </TabSwitch>
   );
 }
 

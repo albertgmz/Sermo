@@ -54,11 +54,12 @@ export async function postToWall(
   );
 }
 
-// Comments on a wall post, and the page lands on the new comment. On the wall (`wall`, the id of
-// its member) it goes to the wall at the comment, which opens the page that holds it whatever the
-// wall showed. Elsewhere (the feed, a picture's viewer) the page is drawn again where it is and
-// the composer lands on the comment (`landOn`): a redirect to the same address would only change
-// its hash, which the router answers by scrolling to the top of the page.
+// Comments on a wall post. The page is drawn again where it is, in the action's answer, and the
+// composer lands on the new comment (`landOn`), on the wall as in the feed or a picture's viewer:
+// opening the wall's address at the comment would put the route's placeholder over the whole page
+// for one line, and a redirect to the same address would only change its hash, which the router
+// answers by scrolling to the top. `wall` is the id of the wall's member when it is written there:
+// a visitor whose session ended signs in and comes back to the wall at the post.
 export async function commentOnWallPost(
   profilePostId: number,
   wall: number | undefined,
@@ -77,8 +78,6 @@ export async function commentOnWallPost(
     call(profileCommentsCreate, { profilePostId, body, attachmentIds }),
   );
   if (!created.ok) return { error: created.error };
-  if (wall !== undefined)
-    redirect(wallTargetHref(wall, profilePostId, created.value.id));
   refresh();
   return { landOn: `#profile-comment-${created.value.id}` };
 }

@@ -118,10 +118,12 @@ export default function FeedFiltersPopup({
   function close(next: boolean) {
     setOpen(next);
     if (next) read();
-    // Forums hidden or shown in the sheet change what the feed lists: draw it again.
+    // Forums hidden or shown in the sheet change what the feed lists: draw it again, in place
+    // inside the feed's switch.
     if (!next && changedHidden.current) {
       changedHidden.current = false;
-      router.refresh();
+      if (switching) switching.reload();
+      else router.refresh();
     }
   }
 

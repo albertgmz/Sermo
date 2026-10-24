@@ -32,3 +32,19 @@ export function publishCounters(
     setItemState(keyOf(kind), drawn[kind], found[kind]);
   }
 }
+
+// The header's poll, which reads the counts again at once when something on the page asks.
+let readAgain: (() => void) | null = null;
+
+export function onCountersAsked(read: () => void) {
+  readAgain = read;
+  return () => {
+    if (readAgain === read) readAgain = null;
+  };
+}
+
+// Something on the page changed a count (an alert read): the badges read it again, and nothing
+// else on the page is drawn anew.
+export function countersChanged() {
+  readAgain?.();
+}

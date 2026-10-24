@@ -1,8 +1,8 @@
-import { Check } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { History } from "@/app/[locale]/(main)/credits/history";
 import { Inventory } from "@/app/[locale]/(main)/credits/inventory";
 import { Shop } from "@/app/[locale]/(main)/credits/shop";
+import { PageNotice } from "@/components/forum/page-notice";
 import type { Query } from "@/components/forum/places";
 import { TabLinks } from "@/components/forum/tab-links";
 import { pagesParam } from "@/lib/list-pages";
@@ -48,15 +48,12 @@ export async function Content({ query }: { query: Query }) {
         </h2>
       )}
       <div data-switch-panel="" className="space-y-4">
-        {notice && (
-          <output className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-pretty">
-            <Check
-              aria-hidden="true"
-              className="mt-0.5 size-4 shrink-0 text-success"
-            />
-            {t(`notices.${notice}`)}
-          </output>
-        )}
+        <PageNotice
+          drawn={notice}
+          texts={Object.fromEntries(
+            NOTICES.map((key) => [key, t(`notices.${key}`)]),
+          )}
+        />
         {tab === "shop" && (
           <Shop
             category={first(query.category)}

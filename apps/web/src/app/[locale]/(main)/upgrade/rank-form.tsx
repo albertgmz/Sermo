@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { buyRank, type RankState } from "@/app/[locale]/(main)/upgrade/actions";
+import { useAnnounce } from "@/components/forum/page-notice";
 import { PendingButton } from "@/components/forum/pending-button";
 
 export function RankForm({
@@ -23,6 +24,7 @@ export function RankForm({
     buyRank.bind(null, itemId),
     {},
   );
+  useAnnounce(state.notice, state);
   return (
     <form action={action}>
       <PendingButton

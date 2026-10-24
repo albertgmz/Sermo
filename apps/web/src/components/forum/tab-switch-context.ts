@@ -10,6 +10,8 @@ export type Switching = {
   placeOf: (search: string) => string;
   // Shows the part an address on this page names; false when the switch shows it already.
   go: (href: string) => boolean;
+  // Draws the part on screen again, in place: what it shows has changed.
+  reload: () => void;
 };
 
 export const SwitchContext = createContext<Switching | null>(null);

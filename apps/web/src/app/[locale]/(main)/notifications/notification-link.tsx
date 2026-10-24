@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { markOneRead } from "@/app/[locale]/(main)/notifications/actions";
+import { countersChanged } from "@/lib/counters";
 
 // Whether an address leads off this site once a browser has read it (`/\evil.com` is a host to
 // a browser). Judged against a fixed base, so the server and the browser agree.
@@ -16,9 +16,9 @@ function leavesSite(href: string) {
 }
 
 // The link of a notification row: following it marks the notification read. The unread counts are
-// drawn by the layout, which a soft navigation does not render again, so the route is refreshed
-// once the answer is in. A thread page is not: rendering it again would count another view. An
-// address outside the site (an alert with a link) opens in a new tab.
+// drawn by the layout, which a soft navigation does not render again, so the badges read them
+// again once the answer is in (`countersChanged`); nothing else is drawn anew. An address outside
+// the site (an alert with a link) opens in a new tab.
 export function NotificationLink({
   id,
   href,
@@ -32,14 +32,9 @@ export function NotificationLink({
   className?: string;
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const markRead = () => {
     if (read) return;
-    void markOneRead(id).then(() => {
-      if (!window.location.pathname.startsWith("/threads/")) {
-        router.refresh();
-      }
-    });
+    void markOneRead(id).then(countersChanged);
   };
   if (leavesSite(href)) {
     return (

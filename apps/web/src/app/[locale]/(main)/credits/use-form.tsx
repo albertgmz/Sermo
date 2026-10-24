@@ -6,6 +6,7 @@ import {
   type CreditsState,
   spendItem,
 } from "@/app/[locale]/(main)/credits/actions";
+import { useAnnounce } from "@/components/forum/page-notice";
 import { PendingButton } from "@/components/forum/pending-button";
 import {
   Select,
@@ -32,6 +33,7 @@ export function UseForm({
     spendItem.bind(null, inventoryId, returnTo),
     {},
   );
+  useAnnounce(state.notice, state);
   return (
     <form action={action} className="min-w-0 basis-full">
       <div className="flex gap-2">

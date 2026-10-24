@@ -2,25 +2,21 @@
 
 import { appearanceSet, shopBuy, shopUse } from "@sermo/core/contracts";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
 import { isRecordId, parseId } from "@/lib/sermo/ids";
 import { attempt, invalidArgument } from "@/lib/sermo/outcome";
-import { safeReturnPath } from "@/lib/sermo/return-path";
 
-export type CreditsState = { error?: string };
+// `notice` says what was done, for the page's notice (`PageNotice`): the item's card and the
+// balance are drawn again where they are, and the page stays where it is.
+export type CreditsState = { error?: string; notice?: CreditsNotice };
 
-// The page a mutation came from, with the notice that says what happened. The path is the one
-// that was checked, kept as written (a URL parser would resolve dot segments in it); only its
-// query is rewritten, and it keeps the cursor of the list the member was on.
-function back(returnTo: string, notice: string): never {
-  const [target] = safeReturnPath(returnTo).split("#");
-  const mark = target.indexOf("?");
-  const pathname = mark < 0 ? target : target.slice(0, mark);
-  const query = new URLSearchParams(mark < 0 ? "" : target.slice(mark + 1));
-  query.set("notice", notice);
+export type CreditsNotice = "bought" | "worn" | "removed" | "used";
+
+// A mutation that worked: the pages that show the balance and what the member wears (the header,
+// the shop's cards, the inventory) are read again, in the action's own answer.
+function done(notice: CreditsNotice): CreditsState {
   revalidatePath("/", "layout");
-  redirect(`${pathname}?${query}`);
+  return { notice };
 }
 
 // The parts of the appearance an item unlocks, which are the only ones the shop pages wear.
@@ -38,7 +34,7 @@ export async function buyItem(
     call(shopBuy, { itemId, quantity }),
   );
   if (!bought.ok) return { error: bought.error };
-  return back(returnTo, "bought");
+  return done("bought");
 }
 
 // `look` is the part of the appearance the item unlocks; `id` is the catalog entry to wear, or
@@ -56,7 +52,7 @@ export async function wearItem(
     call(appearanceSet, { [look]: id }),
   );
   if (!worn.ok) return { error: worn.error };
-  return back(returnTo, id === null ? "removed" : "worn");
+  return done(id === null ? "removed" : "worn");
 }
 
 export async function spendItem(
@@ -74,5 +70,5 @@ export async function spendItem(
     call(shopUse, { inventoryId, threadId }),
   );
   if (!used.ok) return { error: used.error };
-  return back(returnTo, "used");
+  return done("used");
 }

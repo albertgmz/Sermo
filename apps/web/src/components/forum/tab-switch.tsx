@@ -115,9 +115,11 @@ export function TabSwitch({
       const href = pressed.current;
       pressed.current = null;
       const active = document.activeElement;
+      // The link drawn anew in its place: the one on screen, where a page draws a bar per screen
+      // size (the feed's phone bar is hidden on a wider screen).
       if (href && (!active || active === document.body))
-        node
-          .querySelector<HTMLElement>(`a[href="${CSS.escape(href)}"]`)
+        [...node.querySelectorAll<HTMLElement>(`a[href="${CSS.escape(href)}"]`)]
+          .find((link) => link.getClientRects().length > 0)
           ?.focus({ preventScroll: true });
       const target = anchorOf(location.hash);
       if (target) {
@@ -155,8 +157,13 @@ export function TabSwitch({
   }, [owned, placeOf, go, showing]);
 
   const context = useMemo<Switching>(
-    () => ({ pending: switched.pending, placeOf, go: switched.go }),
-    [switched.pending, placeOf, switched.go],
+    () => ({
+      pending: switched.pending,
+      placeOf,
+      go: switched.go,
+      reload: switched.reload,
+    }),
+    [switched.pending, placeOf, switched.go, switched.reload],
   );
 
   // Before the link's own handler, which would open the address as a page.
@@ -168,6 +175,8 @@ export function TabSwitch({
       "a[href]",
     );
     if (!link || link.target || link.hasAttribute("download")) return;
+    // A list's "Load more" puts its next page under the rows it holds, whatever the address names.
+    if (link.closest("[data-list-more]")) return;
     const url = sameScreen(link.href);
     if (!url || placeOf(url.search) === switched.showing()) return;
     event.preventDefault();

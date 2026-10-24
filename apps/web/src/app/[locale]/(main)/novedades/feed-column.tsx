@@ -35,8 +35,14 @@ import {
 import { Streamed } from "@/components/forum/streamed";
 import { TabLinks } from "@/components/forum/tab-links";
 import { UserAvatar } from "@/components/forum/user-avatar";
+import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { WidgetArea, widgetAreas } from "@/components/widgets/widget-area";
+import {
+  WidgetArea,
+  widgetAreas,
+  widgetAside,
+  widgetLead,
+} from "@/components/widgets/widget-area";
 import {
   feedHref,
   filterFromParams,
@@ -63,8 +69,8 @@ import type { ApiWidget } from "@/lib/sermo/widgets";
 import { getWidgets } from "@/lib/sermo/widgets";
 import { cn } from "@/lib/utils";
 
-// The main column of the feed (`/novedades`): the wall composer, the widgets around the tabs, the
-// tabs and the open tab's list. It is one part, which the tabs and the filters change in place
+// The feed (`/novedades`) under the site's header: the wall composer, the widgets of its positions,
+// the tabs and the open tab's list. It is one part, which the tabs and the filters change in place
 // (`TabSwitch`): the page draws it, and so does `feedColumn` for a tab or a filter changed.
 
 // The parameters of the address the feed's tabs and filters change in place.
@@ -80,11 +86,7 @@ export const FEED_SWITCH_PARAMS = [
 
 // The widgets the feed draws for a tab and its filter, sorted into the page's areas, and what they
 // are drawn with.
-export function feedWidgets(
-  tab: HomeTab,
-  params: Params,
-  widgets: ApiWidget[],
-) {
+function feedWidgets(tab: HomeTab, params: Params, widgets: ApiWidget[]) {
   // The featured threads belong to the feed: on its tabs only, and not above a list a filter
   // narrowed, which may leave them out.
   const featured =
@@ -128,8 +130,16 @@ export async function FeedColumn({
   ]);
   const { tab, params } = opened;
   const { areas, context } = feedWidgets(tab, params, widgets);
+  // The lead and the sidebar follow the tab too: a featured widget placed there leaves a tab or a
+  // filter that a page load of the address draws without it, and every widget's links keep the
+  // tab and the filter shown.
   return (
-    <>
+    <PageLayout
+      mainClassName="space-y-(--page-gap)"
+      {...widgetLead(areas.lead, context)}
+      {...widgetAside(areas.aside, context)}
+    >
+      <h1 className="sr-only">{t("heading")}</h1>
       {/* The tab's name in the page's title, which follows a tab opened in place. */}
       <span hidden data-switch-title={seo(`${tab}.title`)} />
       {/* No fallback: only members get a composer, and the shell cannot tell them from guests
@@ -153,7 +163,7 @@ export async function FeedColumn({
         <HomeTabs opened={opened} />
       </Streamed>
       <WidgetArea widgets={areas.below} context={context} />
-    </>
+    </PageLayout>
   );
 }
 

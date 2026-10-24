@@ -74,10 +74,11 @@ export function usePlaceSwitch({
     setPending(null);
   }, [stamp]);
 
+  // `fresh`: asked for again even where the server's draw shows it (what it shows has changed).
   const show = useCallback(
-    async (target: string, search: string) => {
+    async (target: string, search: string, fresh = false) => {
       const ticket = ++asked.current;
-      if (target === place) {
+      if (target === place && !fresh) {
         arrived.current = true;
         startTransition(() => {
           setShown(null);
@@ -144,6 +145,11 @@ export function usePlaceSwitch({
     [placeOf, show],
   );
   const shownPlace = useCallback(() => showing.current, []);
+  // Draws the place on screen again, in place: what it shows changed (a forum hidden from a list).
+  const reload = useCallback(
+    () => void show(placeOf(location.search), location.search, true),
+    [placeOf, show],
+  );
 
   return {
     node: shown ? shown.node : null,
@@ -151,5 +157,6 @@ export function usePlaceSwitch({
     busy: busy || arriving,
     pending,
     go,
+    reload,
   };
 }

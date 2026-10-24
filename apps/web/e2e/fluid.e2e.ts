@@ -193,6 +193,8 @@ test.describe("signed in", () => {
     // The page's title names the tab, as a page load of the address would.
     await expect(page).toHaveTitle(/^Trending threads/);
     await expectInPlace(page, "trending");
+    // The keyboard stays on the tab pressed, in the bar this screen shows.
+    await expect(bar.getByRole("link", { name: "Trending" })).toBeFocused();
 
     await page.goBack();
     await expect(page).toHaveURL((url) => url.search === "?tab=latest");
@@ -200,6 +202,57 @@ test.describe("signed in", () => {
     await expect(page).toHaveTitle(/^Latest threads and posts/);
     await expectInPlace(page, "back to latest");
     expect(loads).toEqual([]);
+  });
+});
+
+// A list's Load more inside a switch is the list's: on an address that names no tab or category
+// (the feed's and the shop's bare addresses), it still puts the next page under the rows shown.
+async function loadMoreAppends(page: Page, path: string) {
+  await visit(page, path);
+  await rejectCookies(page);
+  const lastRow = () =>
+    page
+      .locator("main [data-index]")
+      .evaluateAll((rows) =>
+        Math.max(...rows.map((row) => Number(row.getAttribute("data-index")))),
+      );
+  const firstRow = page.locator('main [data-index="0"]');
+  const first = await firstRow.innerText();
+  const shown = await lastRow();
+  await watch(page);
+  const loads = screenLoads(page);
+  const more = page.getByRole("link", { name: "Load more", exact: true });
+  await more.scrollIntoViewIfNeeded();
+  await more.click();
+  await expect(page).toHaveURL(
+    (url) => url.pathname === path && url.searchParams.get("pages") === "2",
+  );
+  await expect.poll(lastRow).toBeGreaterThan(shown);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(firstRow).toHaveText(first);
+  await expectInPlace(page, `${path} load more`);
+  expect(loads).toEqual([]);
+}
+
+test.describe("signed in, lists on bare addresses", () => {
+  test.use({ storageState: MEMBER_STATE });
+
+  test("Load more on the bare feed address appends in place @all", async ({
+    page,
+  }) => {
+    await loadMoreAppends(page, "/novedades");
+  });
+
+  test("Load more on the bare credits address appends shop items in place @all", async ({
+    page,
+  }) => {
+    await visit(page, "/credits");
+    const more = page.getByRole("link", { name: "Load more", exact: true });
+    test.skip(
+      (await more.count()) === 0,
+      "the shop's first category fits one page in this data",
+    );
+    await loadMoreAppends(page, "/credits");
   });
 });
 

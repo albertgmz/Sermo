@@ -11,7 +11,13 @@ mock.module("next-intl/server", () => ({
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 const nextCache = await import("next/cache");
-mock.module("next/cache", () => ({ ...nextCache, revalidatePath: () => {} }));
+const revalidated: string[] = [];
+mock.module("next/cache", () => ({
+  ...nextCache,
+  revalidatePath: (path: string, type?: string) => {
+    revalidated.push(`${path} ${type}`);
+  },
+}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {} }),
@@ -24,6 +30,7 @@ afterAll(() => {
 });
 afterEach(() => {
   globalThis.fetch = realFetch;
+  revalidated.length = 0;
 });
 
 const generic = messages.lib.errors.generic;
@@ -91,47 +98,28 @@ async function redirectedTo(run: () => Promise<unknown>) {
   return null;
 }
 
-test("a purchase goes back to the page it came from, cursor included, with the notice", async () => {
+// A purchase changes the item's card, the balance in the header and the inventory: they are drawn
+// again where they are, in the action's answer, and the page says what was done in place. The
+// page is not opened again (a navigation would put the route's placeholder over all of it).
+test("a purchase is answered in place with its notice, the pages that show the balance drawn again", async () => {
   const asked = backend();
-  const to = await redirectedTo(() =>
-    buyItem(5, "/credits?category=2&cursor=abc", {}, form({ quantity: "2" })),
-  );
-  expect(to).toBe("/credits?category=2&cursor=abc&notice=bought");
+  const state = await redirectedTo(async () => {
+    expect(
+      await buyItem(
+        5,
+        "/credits?category=2&cursor=abc",
+        {},
+        form({ quantity: "2" }),
+      ),
+    ).toEqual({ notice: "bought" });
+  });
+  expect(state).toBeNull();
+  expect(revalidated).toEqual(["/ layout"]);
   expect(asked[0]).toMatchObject({
     method: "POST",
     path: "/api/v1/shop/items/5/buy",
   });
   expect(asked[0].body).toEqual({ quantity: 2 });
-});
-
-test("the notice replaces one the page already carried and the fragment is dropped", async () => {
-  backend();
-  expect(
-    await redirectedTo(() =>
-      buyItem(5, "/credits?tab=inventory&notice=used#top", {}, form()),
-    ),
-  ).toBe("/credits?tab=inventory&notice=bought");
-});
-
-test("a return path that would leave the site, or resolve to another host, is not followed", async () => {
-  backend();
-  for (const returnTo of [
-    "/.//evil.com",
-    "//evil.com",
-    "/./",
-    "/a/../b",
-    "/%2e//evil.com",
-    "https://evil.com",
-    "evil.com",
-    `/${String.fromCharCode(92)}evil.com`,
-    undefined,
-    42,
-  ]) {
-    const to = await redirectedTo(() =>
-      buyItem(5, returnTo as string, {}, form()),
-    );
-    expect(to, String(returnTo)).toBe("/?notice=bought");
-  }
 });
 
 test("a refusal is the backend's message, and nothing is redirected", async () => {
@@ -188,20 +176,20 @@ test("only the frame, the name colour and the name icon are worn from the shop, 
   }
   expect(asked).toEqual([]);
 
-  expect(
-    await redirectedTo(() => wearItem("nameColorId", 4, "/credits", {})),
-  ).toBe("/credits?notice=worn");
+  expect(await wearItem("nameColorId", 4, "/credits", {})).toEqual({
+    notice: "worn",
+  });
   expect(asked[0].body).toEqual({ nameColorId: 4 });
-  expect(
-    await redirectedTo(() => wearItem("frameId", null, "/credits", {})),
-  ).toBe("/credits?notice=removed");
+  expect(await wearItem("frameId", null, "/credits", {})).toEqual({
+    notice: "removed",
+  });
   expect(asked[1].body).toEqual({ frameId: null });
-  expect(
-    await redirectedTo(() => wearItem("nameIconItemId", 12, "/credits", {})),
-  ).toBe("/credits?notice=worn");
+  expect(await wearItem("nameIconItemId", 12, "/credits", {})).toEqual({
+    notice: "worn",
+  });
   expect(asked[2].body).toEqual({ nameIconItemId: 12 });
-  expect(
-    await redirectedTo(() => wearItem("nameIconItemId", null, "/credits", {})),
-  ).toBe("/credits?notice=removed");
+  expect(await wearItem("nameIconItemId", null, "/credits", {})).toEqual({
+    notice: "removed",
+  });
   expect(asked[3].body).toEqual({ nameIconItemId: null });
 });

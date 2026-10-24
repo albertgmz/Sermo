@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { hideFeedForum } from "@/app/[locale]/(main)/_feed/filter-actions";
+import { useTabSwitch } from "@/components/forum/tab-switch-context";
 
-// Keeps the forum of a feed card out of the member's own feed. The page is drawn again, so the
-// forum's cards leave the pages it draws (pages loaded earlier keep theirs until a reload); the
-// filters sheet shows the forum again.
+// Keeps the forum of a feed card out of the member's own feed. The feed is drawn again in place
+// (its switch, `TabSwitch`), so the forum's cards leave every page of it held; elsewhere the page
+// is drawn again. The filters sheet shows the forum again.
 export function HideForumButton({
   nodeId,
   title,
@@ -21,6 +22,7 @@ export function HideForumButton({
 }) {
   const t = useTranslations("forum.hideForumButton");
   const router = useRouter();
+  const switching = useTabSwitch();
   const [pending, start] = useTransition();
   const [failed, setFailed] = useState(false);
   const label = t("label", { title });
@@ -34,8 +36,10 @@ export function HideForumButton({
         start(async () => {
           setFailed(false);
           const answer = await hideFeedForum(nodeId, true).catch(() => null);
-          if (answer?.ok) router.refresh();
-          else if (answer && "signIn" in answer && answer.signIn)
+          if (answer?.ok) {
+            if (switching) switching.reload();
+            else router.refresh();
+          } else if (answer && "signIn" in answer && answer.signIn)
             router.push(answer.signIn);
           else setFailed(true);
         })

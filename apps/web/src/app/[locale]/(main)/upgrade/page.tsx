@@ -18,6 +18,7 @@ import {
 import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
+import { PageNotice } from "@/components/forum/page-notice";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { Container } from "@/components/layout/container";
 import {
@@ -202,15 +203,12 @@ async function Notice({
     searchParams,
     getTranslations("upgrade.upgrade"),
   ]);
-  if (notice !== "upgraded") return null;
   return (
-    <output className="mb-6 flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-pretty">
-      <Check
-        aria-hidden="true"
-        className="mt-0.5 size-4 shrink-0 text-success"
-      />
-      {t("upgraded")}
-    </output>
+    <PageNotice
+      drawn={notice === "upgraded" ? notice : undefined}
+      texts={{ upgraded: t("upgraded") }}
+      className="mb-6"
+    />
   );
 }
 

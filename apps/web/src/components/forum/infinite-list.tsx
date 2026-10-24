@@ -526,6 +526,8 @@ export function InfiniteList({
               )}
             <a
               href={cursorHref(hrefBase, nextCursor)}
+              // The list's own: a switch around the list leaves it to the list (`TabSwitch`).
+              data-list-more=""
               className={cn(
                 buttonVariants({ variant: "outline" }),
                 "h-10 w-full",

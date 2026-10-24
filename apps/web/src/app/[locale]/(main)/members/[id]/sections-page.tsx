@@ -24,14 +24,13 @@ export async function profileSections(
       call(profilesGet, { userId }),
       getViewer(),
     ]);
-    return (
-      <ProfileSections
-        profile={profile}
-        query={queryOfSearch(search)}
-        viewer={viewer}
-        inPlace
-      />
-    );
+    // Awaited here, so that a refusal is this answer's and not a broken part of the page.
+    return await ProfileSections({
+      profile,
+      query: queryOfSearch(search),
+      viewer,
+      inPlace: true,
+    });
   } catch (error) {
     if (error instanceof SermoError) return null;
     throw error;

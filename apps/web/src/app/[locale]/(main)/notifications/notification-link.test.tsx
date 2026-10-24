@@ -20,6 +20,12 @@ mock.module("@/app/[locale]/(main)/notifications/actions", () => ({
 }));
 
 const { NotificationLink } = await import("./notification-link");
+const { onCountersAsked } = await import("@/lib/counters");
+// The header's badges, asked to read the counts again.
+let countsAsked = 0;
+onCountersAsked(() => {
+  countsAsked += 1;
+});
 
 const realWindow = globalThis.window;
 afterAll(() => {
@@ -30,6 +36,7 @@ afterEach(() => {
   globalThis.window = realWindow;
   marked.length = 0;
   refreshed = 0;
+  countsAsked = 0;
 });
 
 async function click(read: boolean, pathname: string, href = "/x") {
@@ -46,22 +53,23 @@ async function click(read: boolean, pathname: string, href = "/x") {
   await Promise.resolve();
 }
 
-test("following an unread notification marks it and refreshes the route behind it", async () => {
-  await click(false, "/notifications");
-  expect(marked).toEqual([4]);
-  expect(refreshed).toBe(1);
-});
-
-test("a thread page is not rendered again, which would count another view", async () => {
-  await click(false, "/threads/9");
-  expect(marked).toEqual([4]);
-  expect(refreshed).toBe(0);
+// The counts are the layout's; the badges read them again and nothing else is drawn anew (a
+// thread page drawn again would count another view).
+test("following an unread notification marks it and has the badges read the counts again", async () => {
+  for (const page of ["/notifications", "/threads/9"]) {
+    await click(false, page);
+    expect(marked, page).toEqual([4]);
+    expect(countsAsked, page).toBe(1);
+    expect(refreshed, page).toBe(0);
+    marked.length = 0;
+    countsAsked = 0;
+  }
 });
 
 test("a notification that is already read is left alone", async () => {
   await click(true, "/notifications");
   expect(marked).toEqual([]);
-  expect(refreshed).toBe(0);
+  expect(countsAsked).toBe(0);
 });
 
 test("an address outside the site opens in a new tab without the opener, and still marks read", async () => {

@@ -6,6 +6,7 @@ import {
   buyItem,
   type CreditsState,
 } from "@/app/[locale]/(main)/credits/actions";
+import { useAnnounce } from "@/components/forum/page-notice";
 import { PendingButton } from "@/components/forum/pending-button";
 import { Input } from "@/components/ui/input";
 
@@ -29,6 +30,7 @@ export function BuyForm({
     buyItem.bind(null, itemId, returnTo),
     {},
   );
+  useAnnounce(state.notice, state);
   return (
     <form action={action}>
       <div className="flex gap-2">
