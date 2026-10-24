@@ -6593,3 +6593,15 @@ Why: the owner wanted the quoted part shown as a quote and kept as it was, not e
 
 Why: the owner wanted an opened thread to continue where the member stopped reading, as in
 XenForo.
+
+### Threads get XenForo's numbered pager
+
+- A thread's posts have XenForo's page navigation above and below them: previous and next, the
+  first and last page, a window of pages around the current one, and a "…" that opens a
+  go-to-page box. Changing page swaps only the posts in place, once the new page has fully
+  arrived, keeps `?page=` and the thread's slugged address, follows Back and Forward, and works
+  as plain links without JavaScript. Thread rows in forum and tag lists link to their last three
+  pages, as XenForo does. Other paged lists keep their paging until their reads can number pages
+  (they page by cursor today).
+
+Why: the owner wanted page numbers with a jump to any page instead of a next button.
