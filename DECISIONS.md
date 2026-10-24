@@ -6780,3 +6780,15 @@ and later asked for the viewed page in the profile, the member card and the onli
   index-only, because `sort_at` is a virtual generated column.
 
 Why: the owner wanted XenForo's page numbers with a jump to any page instead of "load more".
+
+### Search, members, alerts, bookmarks and profile lists are numbered pages
+
+- Search results, the member directory and rankings, the alerts page, bookmarks and the
+  profile's posts and threads use the numbered pager. Search, bookmarks and the profile lists
+  number at most the newest 500 items the viewer may see, as XenForo caps its search results;
+  only the first alerts page marks alerts viewed. The members directory's page start is a
+  bounded walk of half the list at most, and its list of closed profiles is read at startup and
+  every minute by the scheduler, never on a request's way. The member-of-the-month standing and
+  staff lists keep "load more".
+
+Why: the owner wanted numbered pages wherever a list is paged, except the feeds.
