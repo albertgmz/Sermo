@@ -6901,3 +6901,14 @@ the page down and could not be closed by keyboard.
 
 Why: the UI audit (A3, A4, A19, A29, A30, A32, A35, A36, A40, A41, A42, A43) found these
 layouts cramped, cut or doubled.
+
+### The e2e tests no longer depend on which tests ran before them
+
+- The alerts tests raise their own alert afresh (the other member takes a reaction back and
+  gives it again, signed in once per test) and wait until the header's few rows hold it, then
+  click it and land as before. The quote-link test follows the list's pages until its link is
+  drawn; the search pager compares the results' links rather than their text, which carries a
+  relative time. No assertion was removed or loosened.
+
+Why: a whole run (phone then desktop) failed tests that passed alone, because earlier tests
+pushed the alert or post they looked for out of the first page.
