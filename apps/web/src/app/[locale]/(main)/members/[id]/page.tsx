@@ -13,6 +13,7 @@ import {
 } from "@/app/[locale]/(main)/members/[id]/sections";
 import { profileSections } from "@/app/[locale]/(main)/members/[id]/sections-page";
 import { JsonLd } from "@/components/forum/json-ld";
+import { pageParam } from "@/components/forum/page-window";
 import { placeOfQuery } from "@/components/forum/places";
 import {
   LoadingRegion,
@@ -94,7 +95,12 @@ export default async function ProfilePage({
         stamp={Date.now()}
         load={profileSections.bind(null, profile.id)}
       >
-        <ProfileSections profile={profile} query={query} viewer={viewer} />
+        <ProfileSections
+          profile={profile}
+          query={query}
+          viewer={viewer}
+          page={pageParam(query.page)}
+        />
       </TabSwitch>
     </>
   );

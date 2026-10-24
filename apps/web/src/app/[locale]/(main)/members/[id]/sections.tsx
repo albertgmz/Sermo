@@ -12,7 +12,6 @@ import { Wall } from "@/app/[locale]/(main)/members/[id]/wall";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
-import { pageParam } from "@/components/forum/page-window";
 import type { Query } from "@/components/forum/places";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -335,11 +334,14 @@ export async function ProfileSections({
   profile,
   query,
   viewer,
+  page,
   inPlace = false,
 }: {
   profile: Profile;
   query: Query;
   viewer: Awaited<ReturnType<typeof getViewer>>;
+  // The page of the posts or threads tab the address names (`?page=N`), read by the caller.
+  page: number;
   inPlace?: boolean;
 }) {
   const t = await getTranslations("members.profile");
@@ -400,7 +402,7 @@ export async function ProfileSections({
                 tab={tab}
                 cursor={first(query.cursor)}
                 pages={query.pages}
-                page={pageParam(query.page)}
+                page={page}
                 comments={first(query.comments)}
                 commentsCursor={first(query.commentsCursor)}
                 post={first(query.post)}

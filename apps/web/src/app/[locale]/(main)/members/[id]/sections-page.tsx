@@ -3,6 +3,7 @@
 import { profilesGet } from "@sermo/core/contracts";
 import type { ReactNode } from "react";
 import { ProfileSections } from "@/app/[locale]/(main)/members/[id]/sections";
+import { pageParam } from "@/components/forum/page-window";
 import { queryOfSearch } from "@/components/forum/places";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -25,10 +26,12 @@ export async function profileSections(
       getViewer(),
     ]);
     // Awaited here, so that a refusal is this answer's and not a broken part of the page.
+    const query = queryOfSearch(search);
     return await ProfileSections({
       profile,
-      query: queryOfSearch(search),
+      query,
       viewer,
+      page: pageParam(query.page),
       inPlace: true,
     });
   } catch (error) {
