@@ -2,7 +2,7 @@ import { CheckCheck, Search } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { MarkAllReadForm } from "@/app/[locale]/(main)/notifications/mark-all-read";
-import { MemberField } from "@/components/forum/member-field";
+import { LazyMemberField } from "@/components/forum/lazy-member-field";
 import { headerIconClass } from "@/components/layout/header-icon-class";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { Button } from "@/components/ui/button";
@@ -87,7 +87,7 @@ export function SearchPanel({ className }: { className?: string }) {
                 {t("titlesOnly")}
               </Label>
             </div>
-            <MemberField name="author" label={t("byAuthor")} lazy />
+            <LazyMemberField name="author" label={t("byAuthor")} />
           </div>
           <div className={footerClass}>
             <Link href="/search" className={footerLinkClass}>
