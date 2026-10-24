@@ -147,7 +147,8 @@ test("a page number changes the posts in place, and Back and Forward follow the 
     await expect(page).toHaveURL(
       threadAt(threadId, number > 1 ? `?page=${number}` : ""),
     );
-    return firstPost.innerText();
+    // The post's own id, not its text: the text holds a time ("39 seconds ago") that moves on.
+    return firstPost.getAttribute("id");
   };
   const one = await onPage(1);
   await page.evaluate(() => {

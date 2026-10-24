@@ -188,6 +188,36 @@ async function openAlerts(page: Page) {
 const visibleLink = (scope: Page | Locator, selector: string) =>
   scope.locator(selector).filter({ visible: true }).first();
 
+// The link to an item on a long list, wherever the list has it: posts written by the tests that
+// ran before push it past the first page, so the list is scrolled and its pages loaded (the
+// "Load more" button) until the link is drawn.
+async function reachLink(page: Page, selector: string) {
+  const link = visibleLink(page, selector);
+  const more = page.getByRole("link", { name: "Load more", exact: true });
+  await expect
+    .poll(
+      async () => {
+        if (await link.count()) return true;
+        // Scrolled to a screen at a time, so that every row on the way is drawn; the button is
+        // pressed only once it is on the screen.
+        const inView =
+          (await more.count()) > 0 &&
+          (await more
+            .first()
+            .evaluate(
+              (a) => a.getBoundingClientRect().top < window.innerHeight,
+            ));
+        if (inView) await more.click();
+        else
+          await page.evaluate(() => window.scrollBy(0, window.innerHeight / 2));
+        return false;
+      },
+      { message: `a link to ${selector} on the list`, timeout: 60_000 },
+    )
+    .toBe(true);
+  return link;
+}
+
 test.beforeEach(async ({ page }) => {
   await slowPictures(page);
 });
@@ -423,7 +453,7 @@ test("a bookmark and the profile's posts land on the post @landing", async ({
   ]) {
     await page.goto(list);
     await ready(page);
-    await visibleLink(page, toPost).click();
+    await (await reachLink(page, toPost)).click();
     await expectLandedAt(page, drawn(page, `post-${landing.post.id}`));
   }
 });
