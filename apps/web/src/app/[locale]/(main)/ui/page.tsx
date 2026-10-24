@@ -43,6 +43,7 @@ import { ConversationPreview } from "@/components/forum/conversation-preview";
 import { CopyButton } from "@/components/forum/copy-button";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { Credits } from "@/components/forum/credits";
+import { Toolbar } from "@/components/forum/editor-toolbar";
 import { EmptyState } from "@/components/forum/empty-state";
 import { FirstUnreadLink } from "@/components/forum/first-unread-link";
 import { ForumCard } from "@/components/forum/forum-card";
@@ -1544,6 +1545,7 @@ export default async function StyleguidePage() {
             every composer (the line composer keeps one line until entered).
           </p>
           <LazyEditor
+            bar={Toolbar}
             name="body"
             placeholder="Write a message…"
             className="max-w-xl"

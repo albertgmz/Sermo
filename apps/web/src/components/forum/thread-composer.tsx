@@ -9,6 +9,7 @@ import {
 } from "@/app/[locale]/(main)/forums/actions";
 import { ComposerForm, ComposerPage } from "@/components/forum/composer";
 import type { ThreadKind } from "@/components/forum/create-kinds";
+import { Toolbar } from "@/components/forum/editor-toolbar";
 import { ForumChoicePanel } from "@/components/forum/forum-choice-panel";
 import { type ForumChoice, forumTitle } from "@/components/forum/forum-choices";
 import { findMentions } from "@/components/forum/mention-find";
@@ -397,6 +398,7 @@ export function ThreadComposer({
       minHeight={200}
       findMembers={findMentions}
       onBodyChange={changeBody}
+      bar={Toolbar}
       error={state.error}
       attach={attach}
       attachNodeId={forum}

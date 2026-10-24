@@ -7,6 +7,7 @@ import { startConversation } from "@/app/[locale]/(main)/conversations/actions";
 import { RecipientPicker } from "@/app/[locale]/(main)/conversations/new/recipient-picker";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
+import { Toolbar } from "@/components/forum/editor-toolbar";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { findMentions } from "@/components/forum/mention-find";
@@ -42,6 +43,7 @@ export function NewConversationForm({
       <div className="space-y-2">
         <p className="text-sm leading-none font-medium">{t("messageLabel")}</p>
         <LazyEditor
+          bar={Toolbar}
           name="body"
           compact={false}
           placeholder={t("messagePlaceholder")}

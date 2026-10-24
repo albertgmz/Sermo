@@ -7,6 +7,7 @@ import {
   type AttachedFile,
   AttachmentField,
 } from "@/components/forum/attachment-field";
+import { Toolbar } from "@/components/forum/editor-toolbar";
 import { FormFooter } from "@/components/forum/form-footer";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { findMentions } from "@/components/forum/mention-find";
@@ -40,6 +41,7 @@ export function EditMessageForm({
     <form onSubmit={onSubmit} className="space-y-4">
       {/* The editor's code comes once the page is idle, or when the box is entered. */}
       <LazyEditor
+        bar={Toolbar}
         name="body"
         compact={false}
         placeholder={tEditor("placeholder")}

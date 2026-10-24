@@ -8,8 +8,7 @@ import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
-import { LazyEditor } from "@/components/forum/lazy-editor";
-import { findMentions } from "@/components/forum/mention-find";
+import { QuickReplyEditor } from "@/components/forum/quick-reply-editor";
 import { SelectionQuote } from "@/components/forum/selection-quote";
 import { useTailForm } from "@/components/forum/use-tail-form";
 
@@ -73,14 +72,7 @@ export function ReplyForm({
       >
         {/* The thread's quick reply: the editor takes what a message's Reply quotes; under it,
           "Attach files" and the submit on one row, as XenForo's. */}
-        <LazyEditor
-          key={`editor-${generation}`}
-          name="body"
-          compact={false}
-          placeholder={placeholder}
-          findMembers={findMentions}
-          insertEvent={QUOTE_EVENT}
-        />
+        <QuickReplyEditor generation={generation} placeholder={placeholder} />
         {state.error && <FormError>{state.error}</FormError>}
         <ComposerButtons
           submitLabel={submitLabel}

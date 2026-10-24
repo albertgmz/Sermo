@@ -18,7 +18,8 @@
     {
       "name": "editor",
       "match": "^/\\[locale\\]/\\(main\\)/(threads/\\[id\\]/edit/|conversations/new$|conversations/\\[id\\]/edit/)",
-      "maxBytes": 286000
+      "maxBytes": 293500,
+      "why": "The editor's formatting bar is drawn with the page (owner, 2026-10-23: no empty box until the editor loads), so its code (buttons, icons, sizes, keys) loads with these pages; Lexical still comes after the page is idle."
     },
     {
       "name": "forum",

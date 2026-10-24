@@ -76,12 +76,7 @@ import {
 } from "@/components/forum/editor-extras";
 import { prepareFiles, registerPaste } from "@/components/forum/editor-paste";
 import { replay, toolbarTarget } from "@/components/forum/editor-target";
-import {
-  Toolbar,
-  type ToolbarAction,
-  ToolbarContext,
-  type ToolbarMemory,
-} from "@/components/forum/editor-toolbar";
+import { Toolbar } from "@/components/forum/editor-toolbar";
 import { sentText } from "@/components/forum/editor-value";
 import { FormError } from "@/components/forum/form-error";
 import {
@@ -94,6 +89,11 @@ import {
 } from "@/components/forum/image-node";
 import { prose } from "@/components/forum/prose";
 import { registerQuoteBlocks } from "@/components/forum/quote-node";
+import {
+  type ToolbarAction,
+  ToolbarContext,
+  type ToolbarMemory,
+} from "@/components/forum/toolbar-context";
 import { cn } from "@/lib/utils";
 
 const CONFIG: InitialConfigType = {

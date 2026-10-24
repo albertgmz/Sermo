@@ -27,7 +27,6 @@ import {
 import { useTranslations } from "next-intl";
 import {
   type ComponentType,
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -38,7 +37,6 @@ import {
 } from "react";
 import { linkAddressOf } from "@/components/forum/bb-scan";
 import { pickImage } from "@/components/forum/composer-insert";
-import type { BlockKind } from "@/components/forum/editor-commands";
 import { SourceContext } from "@/components/forum/editor-source";
 import {
   entryOf,
@@ -59,18 +57,12 @@ import {
 } from "@/components/forum/editor-toolbar-layout";
 import { FormError } from "@/components/forum/form-error";
 import { loader } from "@/components/forum/load-once";
-import { mediaTagOf } from "@/components/forum/media-url";
+import {
+  type PickerMode,
+  ToolbarContext,
+  type ToolbarState,
+} from "@/components/forum/toolbar-context";
 import { cn } from "@/lib/utils";
-
-// Where the caret is, as the bar shows it: the formats and the kind of block that are on there,
-// whether it is in a link, and whether there is something to undo or redo.
-export type ToolbarState = {
-  formats: TextFormatType[];
-  block: BlockKind;
-  link: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
-};
 
 const AT_REST: ToolbarState = {
   formats: [],
@@ -79,51 +71,6 @@ const AT_REST: ToolbarState = {
   canUndo: false,
   canRedo: false,
 };
-
-// What a press of the bar asks of the text. A block or a list that is on already is turned off; a
-// null link takes the link off.
-export type ToolbarAction =
-  | { format: TextFormatType }
-  | { block: "heading" | "quote" | "code" }
-  | { list: "bullet" | "number" }
-  | { link: string | null }
-  | { insert: string }
-  | { wrap: [open: string, close: string] }
-  | { run: "removeFormatting" | "undo" | "redo" | "source" };
-
-// What the bar acts on: the editor (`editor-target.ts`), or, until the editor is in, the plain box
-// drawn in its place, which keeps the presses for it (`LazyEditor`). `ready` is false until then:
-// what needs the editor itself (the emoji picker) waits for it.
-export type ToolbarTarget = {
-  ready: boolean;
-  run: (action: ToolbarAction) => void;
-  // Tells `show` what changed where the caret is, until the function it answers is called.
-  watch: (show: (state: Partial<ToolbarState>) => void) => () => void;
-  // The form of the text, where the composer's picture picker is.
-  form: () => HTMLFormElement | null;
-};
-
-type PickerMode = "pointer" | "keyboard";
-
-// How a bar leaves things for the bar that takes its place when the editor comes in: the strip
-// that is open, the emoji picker, and the control that had the focus (its `data-control`).
-export type ToolbarMemory = {
-  strip: GroupId | null;
-  picker: PickerMode | null;
-  focus: string | null;
-};
-
-const NO_TARGET: ToolbarTarget = {
-  ready: false,
-  run: () => {},
-  watch: () => () => {},
-  form: () => null,
-};
-
-export const ToolbarContext = createContext<{
-  target: ToolbarTarget;
-  memory?: ToolbarMemory;
-}>({ target: NO_TARGET });
 
 const FORMATS = [
   { format: "bold", label: "boldLabel", icon: Bold },
@@ -347,9 +294,11 @@ export function Toolbar() {
     if (url) target.run({ link: url });
   }
 
-  function addMedia() {
+  async function addMedia() {
     const address = ask(t("mediaPrompt"));
     if (!address) return;
+    // What reads a video's address is fetched only here: it is no part of the page's first load.
+    const { mediaTagOf } = await import("@/components/forum/media-url");
     const media = mediaTagOf(address);
     setRefused(media ? null : "media");
     if (media) target.run({ insert: media });

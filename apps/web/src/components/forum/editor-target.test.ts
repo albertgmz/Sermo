@@ -15,7 +15,7 @@ import {
 } from "lexical";
 import { $exportBb, BB_NODES } from "./bb-lexical";
 import { replay, toolbarTarget } from "./editor-target";
-import type { ToolbarAction, ToolbarState } from "./editor-toolbar";
+import type { ToolbarAction, ToolbarState } from "./toolbar-context";
 
 // An editor holding one paragraph of `text`, with `from`..`to` selected, wired like the real one.
 function editorWith(text: string, from = 0, to = text.length) {

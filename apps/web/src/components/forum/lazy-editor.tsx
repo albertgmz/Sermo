@@ -17,14 +17,14 @@ import {
   withoutAttachTag,
 } from "@/components/forum/composer-insert";
 import type { Editor, EditorProps } from "@/components/forum/editor";
+import type { Toolbar } from "@/components/forum/editor-toolbar";
+import { quoteInbox } from "@/components/forum/lazy-quotes";
 import {
-  Toolbar,
   type ToolbarAction,
   ToolbarContext,
   type ToolbarMemory,
   type ToolbarTarget,
-} from "@/components/forum/editor-toolbar";
-import { quoteInbox } from "@/components/forum/lazy-quotes";
+} from "@/components/forum/toolbar-context";
 import { cn } from "@/lib/utils";
 import { whenIdle } from "@/lib/when-idle";
 
@@ -95,6 +95,11 @@ type Loaded = ReturnType<typeof handOver> & { Editor: typeof Editor };
 // changes on the screen when the editor comes in. `line`: the one-line box of a line composer, a
 // plain field until it is entered (as XenForo's "Write a comment…"), then the bar while the editor
 // comes.
+//
+// The bar's code is part of the first load only where the caller hands it over (`bar`): the boxes
+// that are in view when the page is (a reply form, an edit page). Elsewhere (a box in a dialog,
+// an inline edit, a line composer, on pages such as the feed that hold many of them) it is
+// fetched when the box is drawn or entered, and its band holds its room until it is there.
 export function LazyEditor({
   name,
   placeholder,
@@ -106,6 +111,7 @@ export function LazyEditor({
   onChange,
   className,
   line = false,
+  bar,
 }: {
   name: string;
   placeholder: string;
@@ -123,6 +129,7 @@ export function LazyEditor({
   onChange?: (text: string) => void;
   className?: string;
   line?: boolean;
+  bar?: typeof Toolbar;
 }) {
   const field = useRef<HTMLTextAreaElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -189,6 +196,23 @@ export function LazyEditor({
     if (line) return;
     return whenIdle(load);
   }, [line, load]);
+  // The bar, where the caller did not hand it over: fetched with the box, or with its entering.
+  const [fetched, setFetched] = useState<typeof Toolbar>();
+  const Bar = bar ?? fetched;
+  const barShown = !line || waiting;
+  useEffect(() => {
+    if (Bar || !barShown) return;
+    let current = true;
+    import("@/components/forum/editor-toolbar").then(
+      (module) => current && setFetched(() => module.Toolbar),
+      // The band stays; the editor brings its own bar.
+      () => {},
+    );
+    return () => {
+      current = false;
+    };
+  }, [Bar, barShown]);
+
   // It is asked for at once when the box is entered (its field, or a button of the bar from the
   // keyboard) or pressed anywhere: a ⋮ or the emoji picker too, which need no editor to open.
   useEffect(() => {
@@ -299,11 +323,20 @@ export function LazyEditor({
   }
   return (
     <div ref={box} className={cn("group/editor", EDITOR_BOX, className)}>
-      {(!line || waiting) && (
-        <ToolbarContext.Provider value={toolbar}>
-          <Toolbar />
-        </ToolbarContext.Provider>
-      )}
+      {barShown &&
+        (Bar ? (
+          <ToolbarContext.Provider value={toolbar}>
+            <Bar />
+          </ToolbarContext.Provider>
+        ) : (
+          // The bar's band at rest, as tall as the bar (its padding round a 42 px group).
+          <div
+            aria-hidden="true"
+            className="rounded-t-[inherit] border-b bg-border p-1.5 group-focus-within/editor:bg-transparent"
+          >
+            <div className="h-[42px]" />
+          </div>
+        ))}
       <textarea
         ref={field}
         name={name}

@@ -8,8 +8,7 @@ import { replyInPlace } from "@/app/[locale]/(main)/threads/reply-in-place";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { FormError } from "@/components/forum/form-error";
-import { LazyEditor } from "@/components/forum/lazy-editor";
-import { findMentions } from "@/components/forum/mention-find";
+import { QuickReplyEditor } from "@/components/forum/quick-reply-editor";
 import { SelectionQuote } from "@/components/forum/selection-quote";
 import { useTailForm } from "@/components/forum/use-tail-form";
 
@@ -38,13 +37,9 @@ export function ReplyComposer({
   return (
     <>
       <form onSubmit={onSubmit} data-shortcut="reply" className="space-y-3">
-        <LazyEditor
-          key={`editor-${generation}`}
-          name="body"
-          compact={false}
+        <QuickReplyEditor
+          generation={generation}
           placeholder={t("placeholder")}
-          findMembers={findMentions}
-          insertEvent={QUOTE_EVENT}
         />
         {state.error && <FormError>{state.error}</FormError>}
         <ComposerButtons

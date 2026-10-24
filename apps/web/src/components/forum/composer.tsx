@@ -8,6 +8,7 @@ import { AttachmentField } from "@/components/forum/attachment-field";
 import { ComposerButtons } from "@/components/forum/composer-buttons";
 import { COMPOSER_PAGE_CLASS } from "@/components/forum/composer-page";
 import type { EditorProps } from "@/components/forum/editor";
+import type { Toolbar } from "@/components/forum/editor-toolbar";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -207,6 +208,7 @@ export function ComposerForm({
   attach = true,
   attachNodeId,
   cover,
+  bar,
 }: {
   formRef?: RefObject<HTMLFormElement | null>;
   onSubmit: React.FormEventHandler<HTMLFormElement>;
@@ -233,6 +235,8 @@ export function ComposerForm({
   // Drawn instead of the composer (a choice the member makes on the way), which stays in the
   // page, text and all, until it is back.
   cover?: React.ReactNode;
+  // The formatting bar, for a composer in view with the page (`LazyEditor`).
+  bar?: typeof Toolbar;
 }) {
   const t = useTranslations("forum.composer");
   const [uploading, setUploading] = useState(false);
@@ -246,6 +250,7 @@ export function ComposerForm({
       minHeight={minHeight}
       findMembers={findMembers}
       onChange={onBodyChange}
+      bar={bar}
       className={cn(
         "rounded-none border-0 bg-transparent focus-within:bg-transparent",
         grow && "flex-1",

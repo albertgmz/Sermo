@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { messages } from "@/i18n/messages";
 import { withIntl } from "@/lib/test-intl";
 import { Editor } from "./editor";
+import { Toolbar } from "./editor-toolbar";
 import { handOver, keptPresses, LazyEditor } from "./lazy-editor";
 
 test("the one-line box of a line composer is a plain field of the form, with no formatting bar, until it is entered", () => {
@@ -20,7 +21,9 @@ test("the one-line box of a line composer is a plain field of the form, with no 
 
 test("before the editor's code is there the box already has the editor's formatting bar, over a plain field of the form", () => {
   const html = renderToStaticMarkup(
-    withIntl(<LazyEditor name="body" placeholder="Write a message…" />),
+    withIntl(
+      <LazyEditor name="body" placeholder="Write a message…" bar={Toolbar} />,
+    ),
   );
   expect(html).toMatch(
     new RegExp(
@@ -68,7 +71,14 @@ test("the bar drawn first is the editor's own bar, button for button, in the edi
   ]) {
     const shell = frameOf(
       renderToStaticMarkup(
-        withIntl(<LazyEditor name="body" placeholder="Write" {...props} />),
+        withIntl(
+          <LazyEditor
+            name="body"
+            placeholder="Write"
+            bar={Toolbar}
+            {...props}
+          />,
+        ),
       ),
     );
     const editor = frameOf(
@@ -107,9 +117,8 @@ test("the composers reach the editor's code only through the import made once th
   }
 });
 
-// Everything the box draws before the editor is in (its bar included) is in the page's first load:
-// none of it may bring Lexical or the editor with it.
-test("nothing the box loads with the page reaches Lexical or the editor", () => {
+// What a page loads with it, by static imports only.
+function staticGraph(entry: string) {
   const src = resolve(import.meta.dir, "../..");
   const fileOf = (spec: string, from: string) => {
     const base = spec.startsWith("@/")
@@ -133,13 +142,72 @@ test("nothing the box loads with the page reaches Lexical or the editor", () => 
       } else packages.add(spec);
     }
   };
-  visit(join(src, "components/forum/lazy-editor.tsx"));
-  const files = [...seen].map((file) => relative(src, file));
-  expect(files).toContain("components/forum/editor-toolbar.tsx");
-  expect(files).not.toContain("components/forum/editor.tsx");
-  expect(
-    [...packages].filter((name) => /^(lexical|@lexical\/)/.test(name)),
-  ).toEqual([]);
+  visit(join(src, entry));
+  return {
+    files: [...seen].map((file) => relative(src, file)),
+    lexical: [...packages].filter((name) => /^(lexical|@lexical\/)/.test(name)),
+  };
+}
+
+// The bar is in the first load of the pages whose box is in view with the page, and neither it nor
+// the box brings Lexical or the editor with it.
+test("nothing the box or its bar loads with the page reaches Lexical or the editor", () => {
+  for (const entry of [
+    "components/forum/lazy-editor.tsx",
+    "components/forum/editor-toolbar.tsx",
+  ]) {
+    const { files, lexical } = staticGraph(entry);
+    expect(files, entry).not.toContain("components/forum/editor.tsx");
+    expect(lexical, entry).toEqual([]);
+  }
+});
+
+// The feed holds many boxes that are not in view with the page (a wall post's composer in its
+// dialog, inline edits, the line composers of comments): they fetch the bar when they are drawn.
+test("only the boxes in view with the page bring the bar's code with it", () => {
+  const bar = "components/forum/editor-toolbar.tsx";
+  for (const entry of [
+    "components/forum/lazy-editor.tsx",
+    "components/forum/composer.tsx",
+    "components/forum/line-composer.tsx",
+    "components/forum/inline-edit-form.tsx",
+    "app/[locale]/(main)/members/post-composer.tsx",
+    "app/[locale]/(main)/_feed/feed-page.tsx",
+  ])
+    expect(staticGraph(entry).files, entry).not.toContain(bar);
+  const source = (path: string) =>
+    readFileSync(join(import.meta.dir, "../..", path), "utf8");
+  for (const path of [
+    "components/forum/quick-reply-editor.tsx",
+    "app/[locale]/(main)/threads/[id]/edit/[postId]/edit-post-form.tsx",
+    "app/[locale]/(main)/conversations/[id]/edit/[messageId]/edit-message-form.tsx",
+    "app/[locale]/(main)/conversations/new/new-conversation-form.tsx",
+    "components/forum/thread-composer.tsx",
+  ])
+    expect(source(path), path).toContain("bar={Toolbar}");
+  expect(source("components/forum/lazy-editor.tsx")).toContain(
+    'import("@/components/forum/editor-toolbar")',
+  );
+});
+
+test("a box with no bar handed over keeps the bar's band, as tall as the bar, until its code is there", () => {
+  const html = renderToStaticMarkup(
+    withIntl(<LazyEditor name="body" placeholder="Write" />),
+  );
+  expect(html).not.toContain('role="toolbar"');
+  const band = html.match(
+    /<div aria-hidden="true" class="([^"]*)"><div class="h-\[42px\]"><\/div><\/div><textarea/,
+  );
+  expect(band).not.toBeNull();
+  // The bar's own band: its padding and border round a 42 px group, the same fills.
+  const toolbar =
+    renderToStaticMarkup(
+      withIntl(<LazyEditor name="body" placeholder="Write" bar={Toolbar} />),
+    )
+      .match(/<div role="toolbar"[^>]*class="([^"]*)"/)?.[1]
+      .split(" ") ?? [];
+  for (const name of band?.[1].split(" ") ?? [])
+    expect(toolbar).toContain(name);
 });
 
 test("the roomy plain field keeps the editor's padding and height, so the page does not move", () => {

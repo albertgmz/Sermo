@@ -27,12 +27,12 @@ import {
   $wrapSelection,
   type BlockKind,
 } from "@/components/forum/editor-commands";
-import {
-  TEXT_FORMATS,
-  type ToolbarAction,
-  type ToolbarState,
-  type ToolbarTarget,
-} from "@/components/forum/editor-toolbar";
+import { TEXT_FORMATS } from "@/components/forum/editor-toolbar";
+import type {
+  ToolbarAction,
+  ToolbarState,
+  ToolbarTarget,
+} from "@/components/forum/toolbar-context";
 
 // The formatting bar's hold on the editor (`ToolbarTarget`): what a press does to the text, and
 // what the bar shows of where the caret is.
