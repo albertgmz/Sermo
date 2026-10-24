@@ -7004,3 +7004,15 @@ loaded client-side and stays unfolded.
 Why: the owner found nested quotes "excellent but too long after 2 comments". Folding when the
 post is drawn needs no migration (stored posts have the same markup) and no JavaScript, and keeps
 the first quote, the one the reply answers, fully visible.
+
+### No Create button in the desktop header, no "Mark forums read" on the forum list
+
+**Header:** the desktop header (member and guest) no longer has a Create button. A member on a wide
+screen starts a thread from the forum's own New thread button; the phone's bottom bar keeps its
+round + (the Create dialog, or sign-in for a guest). The trigger's `header` look is gone; the
+trigger is only the bar's. **Forum list:** the "Marcar foros como leídos" / "Mark forums read"
+button and the web action behind it are removed. The per-forum "Mark forum read" on forum and
+category pages stays, and so does the backend `nodes.markAllRead` operation for API users.
+
+Why: the owner asked for both to go. The header Create repeated the forum's own New thread
+button on wide screens, and each forum can still be marked read on its own.
