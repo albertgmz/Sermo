@@ -6745,3 +6745,21 @@ private rules different.
   one batch per page; everyone else gets null.
 
 Why: the owner wanted a deleted message minimised so it does not interrupt reading.
+
+### Current visitors, and what page each member is viewing
+
+- `/online` ("Visitantes actuales") lists members active in the last 24 hours and guests and
+  robots of the last hour, filtered as XenForo does (all, members, guests, robots), with the
+  shared pager. A visit in the last hour shows the place ("Viendo el tema «X»") resolved with the
+  viewer's permissions ("Viendo una página" for a place they may not see); an older one shows only
+  the time. Members who hide their online status are left out for everyone but staff (marked);
+  guest addresses are shown to staff only. The same activity line appears on the profile, the
+  member card and the online widget, which also counts members and guests and links to `/online`.
+- Visits are buffered in memory (bounded, also under a flood of guests) and flushed by a job in
+  100-row chunks that yield between them, one flush at a time, holding WAL checkpoints; guests
+  and robots are kept by a salted hash of address and browser for an hour. Robots are told apart
+  with `isbot` 5.2.2 and named from XenForo's list. Only the web app names a page: the ingress
+  drops a client-sent `X-Sermo-Place`. Migration 0073 adds the visitors table.
+
+Why: the owner wanted to see guests and where everyone is, the place only for the last hour,
+and later asked for the viewed page in the profile, the member card and the online widget.
