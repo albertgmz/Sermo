@@ -192,6 +192,22 @@ test("saving a post in place sends the text and answers with the post as drawn n
   expect(edited.props.date).toBe("2026-02-01T00:00:00.000Z");
   // The thread's title was not in the form: the heading stays as it is.
   expect(saved.thread).toBeUndefined();
+  // Not quotable unless the page drew the post quotable.
+  expect(
+    (saved.body as { props: { quote?: unknown } }).props.quote,
+  ).toBeUndefined();
+});
+
+test("a post the page drew quotable by selection is drawn quotable after the save", async () => {
+  answers["PATCH /posts/31"] = { body: postBody() };
+  const saved = await inPlace.savePostInPlace(7, 31, true, form({ body: "b" }));
+  if ("error" in saved) throw new Error(saved.error);
+  expect((saved.body as { props: { quote?: unknown } }).props.quote).toEqual({
+    "data-quote-ref": "post",
+    "data-quote-id": 31,
+    "data-quote-author": "ember",
+    "data-quote-author-id": 3,
+  });
 });
 
 test("an opening post saved in place with a new title saves the title first and answers with the heading", async () => {
@@ -325,4 +341,29 @@ test("a refused title is the backend's word", async () => {
       form({ title: "T", titleWas: "T", prefixId: "", prefixWas: "4" }),
     ),
   ).toEqual({ error: "This forum needs a prefix." });
+});
+
+test("a title saved before the post is refused comes back with the refusal, so the heading shows it", async () => {
+  answers["PATCH /threads/7"] = { body: thread({ title: "Ripe tomatoes" }) };
+  answers["PATCH /posts/31"] = {
+    status: 403,
+    body: { error: { code: "forbidden", message: "The thread is locked." } },
+  };
+  expect(
+    await inPlace.savePostInPlace(
+      7,
+      31,
+      false,
+      form({
+        body: "b",
+        title: "Ripe tomatoes",
+        titleWas: "Tomatoes",
+        prefixId: "",
+        prefixWas: "",
+      }),
+    ),
+  ).toEqual({
+    error: "The thread is locked.",
+    thread: { title: "Ripe tomatoes", prefix: null },
+  });
 });

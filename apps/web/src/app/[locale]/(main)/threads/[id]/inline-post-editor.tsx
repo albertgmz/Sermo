@@ -3,7 +3,7 @@
 import { Save } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PostEditFields } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-data";
 import { keepEditDraft } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-draft";
 import {
@@ -16,6 +16,7 @@ import {
   postEditorAction,
   savePostInPlace,
 } from "@/app/[locale]/(main)/threads/edit-in-place";
+import type { AttachedFile } from "@/components/forum/attachment-field";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { submitClass } from "@/components/forum/composer-buttons";
 import { Toolbar } from "@/components/forum/editor-toolbar";
@@ -54,6 +55,11 @@ export default function InlinePostEditor({
   const [asks, setAsks] = useState(0);
   const [uploading, setUploading] = useState(false);
   const form = useRef<HTMLFormElement>(null);
+  // The files as the editor lists them now, for "More options" to carry.
+  const files = useRef<AttachedFile[] | null>(null);
+  const listFiles = useCallback((listed: AttachedFile[]) => {
+    files.current = listed;
+  }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `asks` asks again (Try again).
   useEffect(() => {
@@ -83,10 +89,11 @@ export default function InlinePostEditor({
 
   const { state, pending, onSubmit } = useKeptForm(async (_previous, data) => {
     const saved = await savePostInPlace(threadId, postId, canQuote, data);
-    if ("error" in saved) return { error: saved.error };
+    // A title saved before a refused post is the thread's now, either way.
     if (saved.thread && fields?.thread) {
       showThreadHeading(threadId, fields.thread.title, saved.thread);
     }
+    if ("error" in saved) return { error: saved.error };
     onClose({ body: saved.body, edited: saved.edited });
     return { done: true };
   });
@@ -160,6 +167,7 @@ export default function InlinePostEditor({
           nodeId={fields.attachIn}
           initial={fields.attached}
           onBusy={setUploading}
+          onFiles={listFiles}
         />
       )}
       {state.error && <FormError>{state.error}</FormError>}
@@ -176,7 +184,9 @@ export default function InlinePostEditor({
         <Link
           href={`/threads/${threadId}/edit/${postId}`}
           onClick={() => {
-            if (form.current) keepEditDraft(postId, form.current);
+            if (form.current) {
+              keepEditDraft(postId, new FormData(form.current), files.current);
+            }
           }}
           className={cn(buttonVariants({ variant: "outline" }), buttonClass)}
         >

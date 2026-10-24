@@ -38,6 +38,6 @@ export function showThreadHeading(
 ) {
   setItemState(headingKey(threadId), null, saved);
   if (was && document.title.includes(was)) {
-    document.title = document.title.replace(was, saved.title);
+    document.title = document.title.replace(was, () => saved.title);
   }
 }

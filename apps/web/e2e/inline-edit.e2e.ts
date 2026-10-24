@@ -100,6 +100,53 @@ test("a reply is edited where it is read: Cancel puts it back, Save draws it ane
   );
 });
 
+// A one-pixel PNG, to attach.
+const PIXEL = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+test("More options takes what the quick editor holds to the edit page: the text and a file uploaded there", async ({
+  page,
+}) => {
+  const { threadId, replyId } = await ownThread(page);
+  await visit(page, `/threads/${threadId}`);
+  const post = page.locator(`#post-${replyId}`);
+  await post.getByRole("link", { name: "Edit" }).click();
+  const editor = post.getByRole("form", { name: "Editing the post" });
+  await editorReady(editor);
+  const text = editor.locator('[contenteditable="true"]');
+  await text.click();
+  await text.press("ControlOrMeta+A");
+  await text.pressSequentially("Written in the quick editor.");
+  await editor.locator("input[type=file]").first().setInputFiles({
+    name: "pixel.png",
+    mimeType: "image/png",
+    buffer: PIXEL,
+  });
+  await expect(editor.getByText("pixel.png")).toBeVisible();
+  await editor.getByRole("link", { name: "More options…" }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/threads/${threadId}/edit/${replyId}$`),
+  );
+  const form = page
+    .locator("form")
+    .filter({ has: page.locator('[name="reason"]') });
+  await editorReady(form);
+  await expect(form.locator('[contenteditable="true"]')).toContainText(
+    "Written in the quick editor.",
+  );
+  await expect(form.getByText("pixel.png")).toBeVisible();
+  // Saved from the page, the file is the post's.
+  await form.getByRole("button", { name: "Save changes" }).click();
+  await expect(page).toHaveURL(new RegExp(`/threads/${threadId}`));
+  const saved = (await (
+    await page.request.get(`/api/v1/posts/${replyId}`)
+  ).json()) as { bodySource: string; attachments: unknown[] };
+  expect(saved.bodySource).toContain("Written in the quick editor.");
+  expect(saved.attachments).toHaveLength(1);
+});
+
 // An administrator of the local fixture, who adds the prefix the flow chooses.
 async function adminSession(page: Page): Promise<APIRequestContext | null> {
   if (new URL(page.url()).origin !== new URL(DEFAULT_BASE_URL).origin)

@@ -11,7 +11,8 @@ const textOf = (formData: FormData, name: string) =>
 // Saves an edited post: the one write of the edit page and of the edit made where the post is
 // read. When the form also carries a title, that is saved first, as the title is the more likely
 // of the two to be refused; it is only saved when it is not what the form was opened with. The
-// answer is the saved post, and the thread when its title or prefix was saved.
+// answer is the saved post, and the thread when its title or prefix was saved (also with a refusal
+// of the post that came after it).
 export async function saveEdit(
   threadId: number,
   postId: number,
@@ -46,7 +47,8 @@ export async function saveEdit(
         : undefined,
     }),
   );
-  if (!saved.ok) return saved;
+  // A title saved before a refused post stays saved: the refusal says so.
+  if (!saved.ok) return { ...saved, thread: renamed };
   return {
     ok: true as const,
     value: { post: saved.value, thread: renamed },

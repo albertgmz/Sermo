@@ -28,6 +28,9 @@ export type ThreadHeadingValue = { title: string; prefix: PrefixView | null };
 // A refusal comes with the backend's words; an empty one is said by the editor in its own.
 type Refused = { error: string };
 
+// What a refused save of an opening post still changed: the title saved before the post was refused.
+type Retitled = { thread?: ThreadHeadingValue };
+
 const headingOf = (thread: {
   title: string;
   prefix: Parameters<typeof prefixView>[0];
@@ -66,10 +69,16 @@ export async function savePostInPlace(
       edited: React.ReactNode;
       thread?: ThreadHeadingValue;
     }
-  | Refused
+  | (Refused & Retitled)
 > {
   const saved = await saveEdit(threadId, postId, formData);
-  if (!saved.ok) return { error: saved.error };
+  if (!saved.ok) {
+    return {
+      error: saved.error,
+      thread:
+        "thread" in saved && saved.thread ? headingOf(saved.thread) : undefined,
+    };
+  }
   const { post, thread } = saved.value;
   return {
     body: (

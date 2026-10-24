@@ -93,7 +93,7 @@ export function EditPostForm({
       {attachIn !== null && (
         <AttachmentField
           nodeId={attachIn}
-          initial={attached}
+          initial={kept?.attached ?? attached}
           onBusy={setUploading}
         />
       )}

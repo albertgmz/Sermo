@@ -47,6 +47,7 @@ export function AttachmentField({
   compact = false,
   allowed = true,
   onBusy,
+  onFiles,
 }: {
   // The forum the post is for. A message or a profile post has none.
   nodeId?: number;
@@ -60,6 +61,8 @@ export function AttachmentField({
   allowed?: boolean;
   // Told whether a file is still on its way, so the form can wait for it.
   onBusy?: (busy: boolean) => void;
+  // Told the files listed now, each time the list changes.
+  onFiles?: (files: AttachedFile[]) => void;
 }) {
   const t = useTranslations("forum.attachmentField");
   const format = useFormatter();
@@ -86,6 +89,7 @@ export function AttachmentField({
   const first = useRef(initial);
 
   useEffect(() => onBusy?.(busy > 0), [busy, onBusy]);
+  useEffect(() => onFiles?.(files), [files, onFiles]);
 
   // A form that is reset (React does it once a form's action has answered) starts over, with the
   // files it began with.
