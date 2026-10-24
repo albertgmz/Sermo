@@ -25,7 +25,7 @@ import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { readGates } from "../forums/read-gates";
 import { forgetRecentlyActive } from "../members/recently-active-cache";
-import { forgetRestrictedProfiles } from "../members/restricted-cache";
+import { markClosedProfilesStale } from "../members/restricted-cache";
 import { requireSiteView } from "../members/site-access";
 
 type Thread = {
@@ -577,8 +577,8 @@ export const preferencesUpdateOp = implement(contracts.preferencesUpdate, (ctx, 
   });
   // A member who hides their online status leaves the shared presence list at once.
   if (input.showOnline === false) forgetRecentlyActive(ctx);
-  // The members directory places its numbered pages by the list of closed profiles.
-  if (input.profileViewPrivacy !== undefined) forgetRestrictedProfiles(ctx);
+  // The members directory places its numbered pages by a kept list of closed profiles: renew it.
+  if (input.profileViewPrivacy !== undefined) markClosedProfilesStale(ctx);
   return readPreferences(ctx, user.userId);
 });
 

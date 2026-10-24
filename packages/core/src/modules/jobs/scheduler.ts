@@ -7,6 +7,7 @@ import { purgeExpiredCredentialsBatch } from "../auth";
 import { pruneSignInFailures } from "../auth/sign-in-limit";
 import { expireReadMarks } from "../forums/read-marks";
 import { flushVisits, pruneOnlineVisitors } from "../members/online-track";
+import { refreshClosedProfiles } from "../members/restricted-cache";
 import { flushSessionActivity } from "../security/session";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
@@ -162,6 +163,8 @@ export function runWeeklyTasks(ctx: Ctx): void {
 
 export function startScheduler(ctx: Ctx): () => void {
   registerJobHandlers(ctx);
+  // The members directory's list of closed profiles is read here, never on a request's way.
+  refreshClosedProfiles(ctx);
   const onError = (error: unknown, job: Cron) => console.error(`[cron:${job.name}]`, error);
   const jobs = [
     // Prompt delivery of domain events to registered subscribers (promotions, notifications).
@@ -174,6 +177,7 @@ export function startScheduler(ctx: Ctx): () => void {
     }),
     new Cron(SCHEDULES.minute, { name: "jobs.minute", protect: true, catch: onError }, async () => {
       runMinuteTasks(ctx);
+      refreshClosedProfiles(ctx);
       await pruneOnlineVisitors(ctx);
     }),
     new Cron(SCHEDULES.hourly, { name: "jobs.hourly", protect: true, catch: onError }, () =>

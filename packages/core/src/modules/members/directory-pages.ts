@@ -1,9 +1,9 @@
 import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { AWAITING_SQL, can } from "../../permissions";
+import { can } from "../../permissions";
 import { profileModeAllows } from "../profiles/shared";
 import { isBanned } from "./access";
-import { type RestrictedProfile, restrictedProfiles } from "./restricted-cache";
+import { closedProfiles } from "./restricted-cache";
 
 // Numbered pages of the members directory and its rankings. The place of a page is found without
 // opening a member's row: the members the viewer is not shown (banned, erased in a ranking,
@@ -11,9 +11,6 @@ import { type RestrictedProfile, restrictedProfiles } from "./restricted-cache";
 // sort's index (value and id both in it; the primary key for `newest`) skips them in SQL and
 // stops at the last member of the page before. It runs from the nearer end of the list, so it
 // passes at most half of it.
-
-/** How long the list of closed profiles is kept: a 67,000-member table is scanned to build it. */
-export const RESTRICTED_PROFILES_MS = 60_000;
 
 const NO_FLOOR = -Number.MAX_SAFE_INTEGER;
 
@@ -23,8 +20,6 @@ export const pageSql = {
     "SELECT id, banned_until, banned_permanently FROM users WHERE banned_permanently = 1 OR banned_until IS NOT NULL",
   /** Erased members: `users_erased`. */
   erased: "SELECT id FROM users WHERE erased_at IS NOT NULL",
-  /** Members whose profile is closed to someone: the whole table, once a minute. */
-  restricted: `SELECT u.id, CASE WHEN ${AWAITING_SQL} THEN 'self' ELSE u.profile_view_privacy END AS mode FROM users u WHERE (${AWAITING_SQL}) OR u.profile_view_privacy <> 'everyone'`,
   /** Which of the members in `?2` follow the viewer `?1`. */
   followers:
     "SELECT user_id FROM user_follows WHERE followed_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
@@ -44,18 +39,6 @@ export const pageSql = {
       ? `SELECT id FROM users WHERE id NOT IN (SELECT value FROM json_each(?2)) ORDER BY id ${fromEnd ? "ASC" : "DESC"} LIMIT 1 OFFSET ?3`
       : `SELECT ${column} AS value, id FROM users WHERE ${column} > ?1 AND id NOT IN (SELECT value FROM json_each(?2)) ORDER BY ${column} ${fromEnd ? "ASC" : "DESC"}, id ${fromEnd ? "DESC" : "ASC"} LIMIT 1 OFFSET ?3`,
 };
-
-/** The members with a closed profile, scanned at most once in `RESTRICTED_PROFILES_MS`. */
-function closedProfiles(ctx: Ctx): RestrictedProfile[] {
-  const now = ctx.now();
-  const kept = restrictedProfiles.get(ctx);
-  if (kept && now >= kept.at && now - kept.at < RESTRICTED_PROFILES_MS) return kept.rows;
-  const rows = prepared(ctx, "members.restrictedProfiles", () =>
-    ctx.sqlite.prepare<RestrictedProfile, []>(pageSql.restricted),
-  ).all();
-  restrictedProfiles.set(ctx, { at: now, rows });
-  return rows;
-}
 
 /** The members the viewer is not shown in this list, by the cheap rules; the page re-checks each. */
 function unlisted(ctx: Ctx, actor: Actor, ranked: boolean): number[] {

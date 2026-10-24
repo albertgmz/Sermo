@@ -4,7 +4,7 @@ import { MEMBER_SORTS } from "../../contracts/members";
 import { userActor } from "../../testing";
 import { pageSql } from "./directory-pages";
 import { type World, world } from "./fixtures.test";
-import { forgetRestrictedProfiles } from "./restricted-cache";
+import { RESTRICTED_PROFILES_MS, refreshClosedProfiles } from "./restricted-cache";
 
 type Page = { items: { card: { id: number } }[]; nextCursor: string | null; total: number | null };
 const read = (w: World, input: object, actor: object) =>
@@ -54,7 +54,6 @@ function crowd() {
   w.ctx.sqlite
     .prepare("INSERT INTO user_follows (user_id, followed_id, created_at) VALUES (?1, ?2, 0)")
     .run(users[3]!.id, w.member.id);
-  forgetRestrictedProfiles(w.ctx);
   return { w, users };
 }
 
@@ -110,12 +109,35 @@ describe("users.list numbered pages", () => {
     expect(idsOf(after)).not.toContain(target);
   });
 
-  test("the list of private profiles is read again when a member changes their privacy", async () => {
+  // The background read runs after the response: a turn of the event loop.
+  const afterResponse = () => new Promise((done) => setImmediate(done));
+
+  test("the list of private profiles is renewed in the background when a member changes their privacy", async () => {
     const { w, users } = crowd();
     const target = userActor(users[6]!);
     expect((await read(w, { sort: "newest", page: 1 }, GUEST)).total).toBe(10);
     await w.call("preferences.update", target, { profileViewPrivacy: "self" });
+    await afterResponse();
     expect((await read(w, { sort: "newest", page: 1 }, GUEST)).total).toBe(9);
+  });
+
+  test("a request never reads the table for the list: an old list is served while the new one is read after the response", async () => {
+    const { w, users } = crowd();
+    // Read once (a context with no scheduler reads it on first use), as the scheduler does at startup.
+    expect((await read(w, { sort: "newest", page: 1 }, GUEST)).total).toBe(10);
+    w.set(users[6]!.id, { profile_view_privacy: "self" });
+    w.ctx.clock.advance(RESTRICTED_PROFILES_MS + 1);
+    // Older than a minute and the table has changed: the request still counts by the old list ...
+    const during = await read(w, { sort: "newest", page: 1, limit: 50 }, GUEST);
+    expect(during.total).toBe(10);
+    // ... yet shows nobody who closed their profile.
+    expect(idsOf(during)).not.toContain(users[6]!.id);
+    await afterResponse();
+    expect((await read(w, { sort: "newest", page: 1 }, GUEST)).total).toBe(9);
+    // The scheduler's tick reads it too.
+    w.set(users[7]!.id, { profile_view_privacy: "self" });
+    refreshClosedProfiles(w.ctx);
+    expect((await read(w, { sort: "newest", page: 1 }, GUEST)).total).toBe(8);
   });
 
   test("the placement reads each sort's index, never sorts, and finds the few members it skips by index", () => {
