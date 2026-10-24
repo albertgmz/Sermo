@@ -13,7 +13,7 @@ import { ContentMenu } from "@/components/forum/content-menu";
 import { deleteMode } from "@/components/forum/delete-mode";
 import { DeletionTools } from "@/components/forum/deletion-notice";
 import { EditedMark } from "@/components/forum/edited-mark";
-import { InlineEditForm } from "@/components/forum/inline-edit-form";
+import { LazyInlineEditForm } from "@/components/forum/lazy-inline-edit-form";
 import { messageActionClass } from "@/components/forum/message-action";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
@@ -170,7 +170,7 @@ export function WallItemActions({
         item.canEdit && live
           ? {
               panel: (
-                <InlineEditForm
+                <LazyInlineEditForm
                   load={wallItemSource.bind(null, kind, item.id)}
                   action={editWallItem.bind(null, kind, item.id)}
                   placeholder={t("editPlaceholder")}

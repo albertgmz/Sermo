@@ -2,6 +2,7 @@
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { placeOfSearch, pushedSearch } from "@/components/forum/places";
+import type { Titled } from "@/components/forum/tab-switch-arrive";
 import {
   type Registered,
   SwitchContext,
@@ -42,21 +43,12 @@ function sameScreen(href: string) {
   return url;
 }
 
-// The name of the part shown, where it has one of its own (`data-switch-title`).
-function titleOf(node: HTMLElement | null) {
-  return (
-    node
-      ?.querySelector("[data-switch-title]")
-      ?.getAttribute("data-switch-title") ?? null
-  );
-}
-
 // What comes once a part is on screen (`arriveAt`) is fetched with the first press, in step with
 // the part itself: the part is not shown before it is there.
-let arriveAt: typeof import("@/components/forum/tab-switch-arrive").arriveAt;
-const loadArrive = () =>
+let arrival: typeof import("@/components/forum/tab-switch-arrive") | undefined;
+const loadArrival = () =>
   import("@/components/forum/tab-switch-arrive").then((found) => {
-    arriveAt = found.arriveAt;
+    arrival = found;
   });
 
 export function TabSwitch({
@@ -82,20 +74,20 @@ export function TabSwitch({
     (search: string) => placeOfSearch(search, owned),
     [owned],
   );
-  const loadPlace = useCallback(
-    async (_place: string, search: string) =>
-      (await Promise.all([load(search), loadArrive()]))[0],
-    [load],
-  );
   // The link pressed, which keeps the keyboard when the part drawn anew replaces it.
   const pressed = useRef<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
   // The page's title as the server drew it, and the name of the part in it.
-  const titled = useRef<{ title: string; part: string } | null>(null);
-  useEffect(() => {
-    const part = titleOf(box.current);
-    if (part) titled.current = { title: document.title, part };
-  }, []);
+  const titled = useRef<Titled | null>(null);
+  const loadPlace = useCallback(
+    async (_place: string, search: string) => {
+      const [node] = await Promise.all([load(search), loadArrival()]);
+      // The part on screen is still the one being left.
+      arrival?.rememberTitle(box.current, titled);
+      return node;
+    },
+    [load],
+  );
   const switched = usePlaceSwitch({
     box,
     place,
@@ -105,7 +97,7 @@ export function TabSwitch({
     arrive: (node) => {
       const href = pressed.current;
       pressed.current = null;
-      arriveAt?.(node, href, titleOf(node), titled.current);
+      arrival?.arriveAt(node, href, titled);
     },
     pushed: (url) =>
       `${location.pathname}${pushedSearch(

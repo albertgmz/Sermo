@@ -6,15 +6,9 @@ import {
   type CreditsState,
   spendItem,
 } from "@/app/[locale]/(main)/credits/actions";
+import { ThreadSelect } from "@/app/[locale]/(main)/credits/thread-select";
 import { useAnnounce } from "@/components/forum/notice-store";
 import { PendingButton } from "@/components/forum/pending-button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 // Uses one unit of an item. An item that acts on a thread asks which of the member's own threads.
 export function UseForm({
@@ -38,25 +32,12 @@ export function UseForm({
     <form action={action} className="min-w-0 basis-full">
       <div className="flex gap-2">
         {threads && (
-          <Select name="thread" items={threads}>
-            <SelectTrigger
-              aria-label={t("aria.thread", { itemName })}
-              className="w-full min-w-0 flex-1 data-[size=default]:h-10 md:data-[size=default]:h-8"
-            >
-              <SelectValue placeholder={t("placeholder")} />
-            </SelectTrigger>
-            <SelectContent>
-              {threads.map((thread) => (
-                <SelectItem
-                  key={thread.value}
-                  value={thread.value}
-                  className="min-h-10 md:min-h-8"
-                >
-                  {thread.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ThreadSelect
+            threads={threads}
+            label={t("aria.thread", { itemName })}
+            placeholder={t("placeholder")}
+            triggerClass="w-full min-w-0 flex-1 data-[size=default]:h-10 md:data-[size=default]:h-8"
+          />
         )}
         <PendingButton
           aria-label={t("aria.submit", { itemName })}
