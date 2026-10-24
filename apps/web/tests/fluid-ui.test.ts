@@ -49,6 +49,7 @@ const TAB_BARS: Record<string, { switch: string } | { pages: string }> = {
     switch: `${MAIN}/members/members-view.tsx`,
   },
   [`${MAIN}/credits/content.tsx`]: { switch: `${MAIN}/credits/page.tsx` },
+  [`${MAIN}/online/online-section.tsx`]: { switch: `${MAIN}/online/page.tsx` },
   // The styleguide's samples link to `#`.
   [`${MAIN}/ui/page.tsx`]: { pages: "styleguide samples" },
   // Each tab is a screen of its own, at its own path: the staff panel's layout stays, the screen's

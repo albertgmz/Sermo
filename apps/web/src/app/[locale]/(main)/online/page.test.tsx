@@ -19,7 +19,7 @@ mock.module("next/headers", () => ({
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { default: OnlinePage } = await import("./page");
-const { onlinePage } = await import("./online-page");
+const { onlinePage, onlineSection } = await import("./online-page");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -171,4 +171,29 @@ test("the pager's in-place page is the same region, and nothing to show in place
   expect(await onlinePage("bots" as never, 2)).toBeNull();
   backend([], 10);
   expect(await onlinePage("all", 4)).toBeNull();
+});
+
+// A filter pressed swaps only the tabs and the list (`TabSwitch`): its loader draws them as the
+// page does, for the filter and page the address names, and answers null when the backend refuses.
+test("a filter changed in place draws the tabs and the list of the address, and a refusal is null", async () => {
+  const asked = backend([guest], 60);
+  const node = await onlineSection("?type=guest&page=2");
+  expect(node).not.toBeNull();
+  const stream = await renderToReadableStream(withIntl(node), {
+    onError: () => {},
+  });
+  await stream.allReady;
+  const html = await new Response(stream).text();
+  expect(asked).toEqual(["?type=guest&page=2"]);
+  expect(html).toMatch(
+    /aria-current="page"[^>]*href="\/online\?type=guest">Guests/,
+  );
+  expect(html).toContain(">Guest<");
+  expect(html).toContain('data-switch-panel=""');
+  globalThis.fetch = (async () =>
+    Response.json(
+      { error: { code: "forbidden", message: "No." } },
+      { status: 403 },
+    )) as unknown as typeof fetch;
+  expect(await onlineSection("?type=bot")).toBeNull();
 });

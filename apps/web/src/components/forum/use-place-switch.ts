@@ -65,6 +65,14 @@ export function usePlaceSwitch({
   const addressOf = useRef(pushed);
   addressOf.current = pushed;
 
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   // Before the first paint of a new draw, so a place loaded here is not shown over it for a frame.
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new draw of the screen resets
   useLayoutEffect(() => {
@@ -96,6 +104,9 @@ export function usePlaceSwitch({
         node = null;
       }
       if (ticket !== asked.current) return;
+      // The part is gone (a switch around it drew another one in its place, as a filter pressed
+      // or Back over a filter does): its answer is nobody's, and opening the address is not its to do.
+      if (!mounted.current) return;
       if (node === null) {
         // The address is already the place's: opened as a page of its own.
         location.reload();

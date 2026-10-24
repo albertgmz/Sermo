@@ -6,6 +6,8 @@ import {
   OnlineRegion,
   type OnlineType,
 } from "@/app/[locale]/(main)/online/online-list";
+import { OnlineSection } from "@/app/[locale]/(main)/online/online-section";
+import { queryOfSearch } from "@/components/forum/places";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { requireIds } from "@/lib/sermo/ids";
@@ -23,6 +25,19 @@ export async function onlinePage(
     const answer = await call(onlineList, { type, page });
     if (answer.items.length === 0 && page > 1) return null;
     return <OnlineRegion type={type} answer={answer} />;
+  } catch (error) {
+    if (error instanceof SermoError) return null;
+    throw error;
+  }
+}
+
+// The filter tabs and the list as the address with `search` names them, for a filter pressed
+// (`TabSwitch`): read again as a page load reads them. Null when the backend refuses: the browser
+// then opens the address as a page of its own.
+export async function onlineSection(search: string): Promise<ReactNode | null> {
+  if (typeof search !== "string") return null;
+  try {
+    return await OnlineSection({ query: queryOfSearch(search), reader: call });
   } catch (error) {
     if (error instanceof SermoError) return null;
     throw error;
