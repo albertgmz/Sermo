@@ -26,10 +26,11 @@ import { cn } from "@/lib/utils";
 // plain line. `texts` holds the words of each notice the page knows; any other draws nothing.
 
 // A card that cannot be fetched leaves the live region to say it.
-const NoticeCard = lazy<ComponentType<{ text: string }>>(() =>
-  import("@/components/forum/notice-card").catch(() => ({
-    default: () => null,
-  })),
+export const cardOrNothing = (
+  load: () => Promise<{ default: ComponentType<{ text: string }> }>,
+) => load().catch(() => ({ default: (): null => null }));
+const NoticeCard = lazy(() =>
+  cardOrNothing(() => import("@/components/forum/notice-card")),
 );
 
 // The live region, written again for each notice said (a new element, so a repeat is read out).
@@ -44,6 +45,26 @@ export function NoticeStatus({
     <output aria-live="polite" className="sr-only">
       {text && <span key={seq}>{text}</span>}
     </output>
+  );
+}
+
+// The words said and, once its code is there, the card: the live region speaks first.
+export function NoticeView({
+  text,
+  seq,
+}: {
+  text: string | null;
+  seq: number;
+}) {
+  return (
+    <>
+      <NoticeStatus text={text} seq={seq} />
+      {text && (
+        <Suspense fallback={null}>
+          <NoticeCard text={text} />
+        </Suspense>
+      )}
+    </>
   );
 }
 
@@ -77,12 +98,7 @@ export function PageNotice({
           {inline}
         </output>
       )}
-      <NoticeStatus text={text} seq={now?.seq ?? 0} />
-      {text && (
-        <Suspense fallback={null}>
-          <NoticeCard text={text} />
-        </Suspense>
-      )}
+      <NoticeView text={text} seq={now?.seq ?? 0} />
     </>
   );
 }

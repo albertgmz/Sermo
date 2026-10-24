@@ -20,3 +20,16 @@ test("the inline edit form is loaded lazily and by nothing else", () => {
   expect(lazy).toMatch(/dynamic\(\s*\(\)\s*=>\s*import\(/);
   expect(lazy).not.toMatch(/^import[^;]*inline-edit-form/m);
 });
+
+// What shows while the code comes is what the form itself shows while it asks for the source, so
+// nothing changes size between the two.
+test("the placeholder while the form's code comes is the form's own", () => {
+  const skeleton = (file: string) =>
+    /<Skeleton className="([^"]*)"/.exec(
+      readFileSync(`${root}src/components/forum/${file}`, "utf8"),
+    )?.[1];
+  expect(skeleton("lazy-inline-edit-form.tsx")).toBeDefined();
+  expect(skeleton("lazy-inline-edit-form.tsx")).toBe(
+    skeleton("inline-edit-form.tsx"),
+  );
+});
