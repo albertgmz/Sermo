@@ -70,6 +70,8 @@ const thread = (canReply: boolean, state = "visible") => ({
     readPosition: null,
     isUnread: false,
     pollKind: null,
+    isAdult: false,
+    adultByForum: false,
   },
   seo: {
     title: "t",

@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { expectNoTableScan, insertNode, insertUser, userActor } from "@sermo/core/testing";
-import { type Actor, GUEST } from "../../actor";
+import { type Actor, actorUserId, GUEST } from "../../actor";
 import { invalidate } from "../../context";
-import { AdultContentError, type AdultRefusal, NotFoundError } from "../../errors";
+import {
+  AdultContentError,
+  type AdultRefusal,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../../errors";
 import { dispatchEvents } from "../../events";
 import { world } from "../feed/fixtures.test";
 import { adultFreeRankingSql } from "../feed/rankings";
@@ -367,5 +373,182 @@ describe("+18 mode: query plans", () => {
     expectNoTableScan(w.ctx, adultFreeRankingSql.latestThreads, [big, 20, 1]);
     expectNoTableScan(w.ctx, adultFreeRankingSql.latestPostsIn, ["[1,2]", 20, 1]);
     expectNoTableScan(w.ctx, adultFreeRankingSql.latestThreadsIn, ["[1,2]", 20, 1]);
+  });
+});
+
+/** Gives a world member a full adult birth date and the confirmed warning. */
+function makeEligible(w: Awaited<ReturnType<typeof adultWorld>>, actor: Actor) {
+  w.ctx.sqlite
+    .prepare(
+      "UPDATE users SET birth_year = 1985, birthday_md = '01-01', adult_accepted_at = 1 WHERE id = ?1",
+    )
+    .run(actorUserId(actor));
+  return actor;
+}
+const notice = { reason: "", notify: false };
+
+describe("+18 mode: moving content keeps the mark", () => {
+  test("a thread moved out of a +18 forum, posts split out of +18 content and a merge into an unmarked thread stay +18", async () => {
+    const w = await adultWorld();
+    const staff = makeEligible(w, w.admin);
+    // Move: the thread leaves the +18 forum and carries the mark as its own.
+    const moved = await w.call("threads.move", staff, {
+      ...notice,
+      threadId: w.inBack.thread.id,
+      nodeId: w.open.id,
+    });
+    expect([moved.isAdult, moved.adultByForum]).toEqual([true, false]);
+    // Split: a reply of the thread in the +18 forum, into the plain forum.
+    const reply = await w.reply(w.author.actor, w.inLounge.thread.id, "a lounge reply");
+    const split = await w.call("threads.split", staff, {
+      ...notice,
+      threadId: w.inLounge.thread.id,
+      postIds: [reply.id],
+      title: "Split out",
+      nodeId: w.open.id,
+    });
+    expect(split.thread.isAdult).toBe(true);
+    // Merge: the marked thread into the plain one marks the plain one.
+    await w.call("threads.merge", staff, {
+      ...notice,
+      threadId: w.plain.thread.id,
+      sourceThreadIds: [w.marked.thread.id],
+    });
+    await runDueJobs(w.ctx);
+    expect(
+      (await w.call("threads.get", staff, { threadId: w.plain.thread.id })).thread.isAdult,
+    ).toBe(true);
+    for (const [, actor] of w.blocked) {
+      const page = await w.call("threads.list", actor, { nodeId: w.open.id, page: 1 });
+      expect(page.items).toEqual([]);
+    }
+  });
+});
+
+describe("+18 mode: marking", () => {
+  test("a thread may start marked, and is never alerted to a watcher who may not see it", async () => {
+    const w = await adultWorld();
+    // The world's own threads are delivered first, before anyone watches the forum.
+    await dispatchEvents(w.ctx);
+    await runDueJobs(w.ctx);
+    const watch = w.ctx.sqlite.prepare(
+      "INSERT INTO node_watches (user_id, node_id, mode, created_at) VALUES (?1, ?2, 'threads', 0)",
+    );
+    for (const viewer of [w.minor, w.adult]) watch.run(viewer.user.id, w.open.id);
+    w.ctx.clock.advance(60_000);
+    const made = await w.call("threads.create", w.author.actor, {
+      nodeId: w.open.id,
+      title: "Born marked",
+      body: "Born marked body",
+      isAdult: true,
+    });
+    expect(made.thread.isAdult).toBe(true);
+    await dispatchEvents(w.ctx);
+    await runDueJobs(w.ctx);
+    const alerts = async (actor: Actor) =>
+      (await w.call("notifications.list", actor, { limit: 10 })).items.length;
+    expect(await alerts(w.minor.actor)).toBe(0);
+    expect(await alerts(w.adult.actor)).toBe(1);
+    expect(await w.refusal("threads.get", w.minor.actor, { threadId: made.thread.id })).toBe(
+      "minor",
+    );
+  });
+
+  test("an author takes off their own mark, but not one a moderator put on", async () => {
+    const w = await adultWorld();
+    const mod = makeEligible(w, w.mod);
+    await w.call("threads.update", w.author.actor, {
+      threadId: w.marked.thread.id,
+      isAdult: false,
+    });
+    await w.call("threads.update", mod, { ...notice, threadId: w.marked.thread.id, isAdult: true });
+    await expect(
+      w.call("threads.update", w.author.actor, { threadId: w.marked.thread.id, isAdult: false }),
+    ).rejects.toThrow(ForbiddenError);
+    await w.call("threads.update", mod, {
+      ...notice,
+      threadId: w.marked.thread.id,
+      isAdult: false,
+    });
+    expect(
+      (await w.call("threads.get", w.minor.actor, { threadId: w.marked.thread.id })).thread.isAdult,
+    ).toBe(false);
+  });
+});
+
+describe("+18 mode: the refusal tells only what is visible otherwise", () => {
+  test("deleted and held threads, and hidden posts, in +18 content are not found", async () => {
+    const w = await adultWorld();
+    const staff = makeEligible(w, w.admin);
+    await w.call("threads.delete", staff, { ...notice, threadId: w.inLounge.thread.id });
+    w.ctx.sqlite
+      .prepare("UPDATE threads SET state = 'moderated' WHERE id = ?1")
+      .run(w.inBack.thread.id);
+    const reply = await w.reply(w.author.actor, w.marked.thread.id, "to be hidden");
+    await w.call("posts.delete", staff, { ...notice, postId: reply.id });
+    for (const [, actor] of w.blocked) {
+      for (const threadId of [w.inLounge.thread.id, w.inBack.thread.id])
+        await expect(w.call("threads.get", actor, { threadId })).rejects.toThrow(NotFoundError);
+      await expect(w.call("posts.get", actor, { postId: reply.id })).rejects.toThrow(NotFoundError);
+      await expect(w.call("threads.get", actor, { threadId: 999_999 })).rejects.toThrow(
+        NotFoundError,
+      );
+    }
+    // A visible post of the marked thread still gives the refusal.
+    expect(await w.refusal("posts.get", w.minor.actor, { postId: w.marked.post.id })).toBe("minor");
+  });
+
+  test("a writer who may not see +18 content cannot quote a post of a marked thread", async () => {
+    const w = await adultWorld();
+    const quote = (postId: number) => `[QUOTE="author, post: ${postId}"]words[/QUOTE] reply`;
+    await expect(
+      w.call("posts.create", w.minor.actor, {
+        threadId: w.plain.thread.id,
+        body: quote(w.marked.post.id),
+      }),
+    ).rejects.toThrow(ValidationError);
+    const accepted = await w.call("posts.create", w.adult.actor, {
+      threadId: w.plain.thread.id,
+      body: quote(w.marked.post.id),
+    });
+    expect(accepted.bodyHtml).toContain(`data-post-id="${w.marked.post.id}"`);
+  });
+});
+
+describe("+18 mode: staff screens", () => {
+  test("an administrator who may not see +18 content still manages a marked forum", async () => {
+    const w = await adultWorld();
+    const plainIds = (await w.call("nodes.list", w.admin, {})).items.map(
+      (node: { id: number }) => node.id,
+    );
+    expect(plainIds).not.toContain(w.lounge.id);
+    const managed = (await w.call("nodes.list", w.admin, { manage: true })).items;
+    const lounge = managed.find((node: { id: number }) => node.id === w.lounge.id);
+    expect([lounge.settings.isAdult, lounge.lastPost]).toEqual([true, null]);
+    expect(managed.map((node: { id: number }) => node.id)).toContain(w.back.id);
+    const read = await w.call("nodes.get", w.admin, { nodeId: w.lounge.id, manage: true });
+    expect([read.node.id, read.node.lastPost, read.seo.robots]).toEqual([
+      w.lounge.id,
+      null,
+      "noindex,follow",
+    ]);
+    await w.call("nodes.update", w.admin, { nodeId: w.lounge.id, settings: { isAdult: false } });
+    // Without admin.nodes the flag changes nothing.
+    expect(await w.refusal("nodes.get", w.minor.actor, { nodeId: w.back.id, manage: true })).toBe(
+      "none",
+    );
+    w.mode(false);
+  });
+
+  test("the moderator log keeps the title of a removed +18 thread from staff who may not see it", async () => {
+    const w = await adultWorld();
+    const staff = makeEligible(w, w.admin);
+    await w.call("threads.delete", staff, { ...notice, threadId: w.marked.thread.id });
+    await w.call("threads.hardDelete", staff, { ...notice, threadId: w.marked.thread.id });
+    const titleFor = async (actor: Actor) =>
+      (await w.call("moderatorLog.list", actor, { action: "thread.hardDelete" })).items[0].details
+        .title;
+    expect(await titleFor(staff)).toBe("Marked");
+    expect(await titleFor(w.mod)).toBeUndefined();
   });
 });

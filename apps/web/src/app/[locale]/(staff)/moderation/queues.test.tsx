@@ -215,7 +215,9 @@ const forum = (id: number, title: string) => ({
     minAccountAgeDays: 0,
     minPostCount: 0,
     requirePrefix: false,
+    isAdult: false,
   },
+  adultByParent: false,
 });
 
 test("a moderator of one forum is offered that forum in the report filter, not the others", async () => {

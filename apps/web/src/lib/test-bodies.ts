@@ -36,6 +36,7 @@ export function siteBody(over: Record<string, unknown> = {}) {
     socialLinks: { discord: null, telegram: null, x: null },
     maxUploadBytes: 5 * 1024 * 1024,
     forumStatsEnabled: false,
+    adultMode: false,
     analytics: { provider: "none" },
     cookiePolicyVersion: 1,
     matomoCookieless: false,

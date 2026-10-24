@@ -31,7 +31,7 @@ export async function Explain({
   const [t, definitions, { items: nodes }] = await Promise.all([
     getTranslations("adminGroups.explain"),
     getDefinitions(),
-    read(nodesList, {}),
+    read(nodesList, { manage: true }),
   ]);
   const userRaw = first(params.user);
   const userId = userRaw === undefined ? null : parseId(userRaw);

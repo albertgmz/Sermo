@@ -83,6 +83,8 @@ function threadBody(
       readPosition,
       isUnread: true,
       pollKind: null,
+      isAdult: false,
+      adultByForum: false,
     },
     seo: {
       title: "t",

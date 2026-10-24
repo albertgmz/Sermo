@@ -83,6 +83,8 @@ test("a number finds that thread, without counting a view", async () => {
           readPosition: null,
           isUnread: false,
           pollKind: null,
+          isAdult: false,
+          adultByForum: false,
         },
         seo: {
           title: "t",

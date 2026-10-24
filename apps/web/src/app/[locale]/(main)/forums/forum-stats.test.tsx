@@ -81,6 +81,8 @@ const thread = (
   readPosition: null,
   isUnread,
   pollKind: null,
+  isAdult: false,
+  adultByForum: false,
 });
 
 const minutesAgo = (minutes: number) =>

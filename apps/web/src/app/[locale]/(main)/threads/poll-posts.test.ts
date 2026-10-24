@@ -52,6 +52,8 @@ const threadBody = {
     readPosition: null,
     isUnread: false,
     pollKind: null,
+    isAdult: false,
+    adultByForum: false,
   },
   seo: {
     title: "t",

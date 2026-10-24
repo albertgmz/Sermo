@@ -917,7 +917,15 @@ export function listModeratorLog(
         ),
       ),
   });
-  return { items: scan.items, nextCursor: scan.next ? encodeCursor(scan.next) : null };
+  // The title a removed +18 thread left in the log is kept from staff who may not see +18 content.
+  const hidesAdult = readGates(ctx, actor).adult() !== null;
+  const items = scan.items.map((row) => {
+    const details = (row as { details?: string }).details;
+    if (!hidesAdult || !details?.includes('"adult":true')) return row;
+    const { title: _title, ...kept } = JSON.parse(details) as Record<string, unknown>;
+    return { ...row, details: JSON.stringify(kept) };
+  });
+  return { items, nextCursor: scan.next ? encodeCursor(scan.next) : null };
 }
 
 function refreshThreadLast(ctx: Ctx, threadId: number) {

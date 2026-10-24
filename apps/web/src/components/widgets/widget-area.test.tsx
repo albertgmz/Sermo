@@ -93,6 +93,8 @@ const thread = (id: number, title: string) => ({
   readPosition: null,
   isUnread: false,
   pollKind: null,
+  isAdult: false,
+  adultByForum: false,
 });
 
 const memberCard = {
@@ -141,7 +143,9 @@ const forum = (id: number, title: string) => ({
     minAccountAgeDays: 0,
     minPostCount: 0,
     requirePrefix: false,
+    isAdult: false,
   },
+  adultByParent: false,
 });
 
 type Answer = (search: URLSearchParams) => Response;

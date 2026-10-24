@@ -2,7 +2,7 @@ import { type Actor, actorUserId } from "../../actor";
 import type { Ctx } from "../../context";
 import type { AdultRefusal } from "../../errors";
 import { markPublic } from "../../operation";
-import { adultRefusalFor, permissionsOf } from "../../permissions";
+import { type AdultOption, adultRefusalFor, permissionsOf } from "../../permissions";
 
 /**
  * The two read gates of a forum, resolved once for a viewer: `forum.viewOthers` (threads other
@@ -32,8 +32,8 @@ export interface ReadGates {
 
 export const readGates = markPublic(
   "Resolves forum.viewOthers and forum.viewContent for the viewer; callers reveal nothing before asking.",
-  function readGates(ctx: Ctx, actor: Actor): ReadGates {
-    const permissions = permissionsOf(ctx, actor);
+  function readGates(ctx: Ctx, actor: Actor, options: AdultOption = {}): ReadGates {
+    const permissions = permissionsOf(ctx, actor, options);
     const viewerId = actorUserId(actor);
     const others = new Map<number, boolean>();
     const content = new Map<number, boolean>();

@@ -21,9 +21,9 @@ export interface NodeTree {
 
 export function getNodeTree(ctx: Ctx): NodeTree {
   return cached(ctx, "node_tree", () => {
-    // The whole row, so the tree also builds on a database migrated only part of the way (the
-    // upgrade tests check permissions between migrations): a node from before the +18 mode has
-    // no mark.
+    // The whole row, so the tree also builds on a database migrated only part of the way: the
+    // upgrade tests check permissions between migrations, where a node has no +18 mark yet. A
+    // column list will do again once those tests run on fully migrated databases.
     const rows = ctx.sqlite
       .prepare<
         Omit<NodeTreeEntry, "depth" | "adult" | "parentId"> & {

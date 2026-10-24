@@ -238,7 +238,9 @@ const forumAnswer = (uploads: boolean, poll = false, required = false) => ({
       minAccountAgeDays: 0,
       minPostCount: 0,
       requirePrefix: required,
+      isAdult: false,
     },
+    adultByParent: false,
   },
   watching: null,
   seo: {

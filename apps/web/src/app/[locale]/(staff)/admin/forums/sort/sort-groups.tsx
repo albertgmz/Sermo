@@ -12,7 +12,7 @@ export async function SortGroups() {
   const [t, kind, { items: nodes }] = await Promise.all([
     getTranslations("adminForums.sort"),
     getTranslations("adminForums.tree"),
-    read(nodesList, {}),
+    read(nodesList, { manage: true }),
   ]);
   const titles = new Map(nodes.map((node) => [node.id, node.title]));
   const groups = sortableGroups(nodes);

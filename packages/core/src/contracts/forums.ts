@@ -227,9 +227,12 @@ export const PostDetail = Post.extend({ bodySource: z.string() }).meta({ id: "Po
 
 export const nodesList = defineContract({
   name: "nodes.list",
-  summary: "The node tree the viewer can see, flattened in depth-first display order.",
+  summary:
+    "The node tree the viewer can see, flattened in depth-first display order. With `manage`, " +
+    "for the staff screens that manage forums: a viewer with admin.nodes also gets the nodes " +
+    "marked +18 that they may not see as content (without their last post).",
   kind: "read",
-  input: Empty,
+  input: z.object({ manage: z.boolean().default(false) }),
   output: z.object({ items: z.array(Node) }),
 });
 
@@ -237,9 +240,11 @@ export const nodesGet = defineContract({
   name: "nodes.get",
   summary:
     "One node, with breadcrumbs from the root. For a signed-in viewer, `watching` says whether " +
-    "they watch this forum and how (null when they do not, for guests and for categories).",
+    "they watch this forum and how (null when they do not, for guests and for categories). " +
+    "With `manage` (the staff edit screen), a viewer with admin.nodes gets a node marked +18 " +
+    "they may not see as content, instead of the +18 refusal (without its last post).",
   kind: "read",
-  input: z.object({ nodeId: Id }),
+  input: z.object({ nodeId: Id, manage: z.boolean().default(false) }),
   output: z.object({
     node: Node,
     watching: z.object({ mode: z.enum(NODE_WATCH_MODES), email: z.boolean() }).nullable(),
@@ -545,7 +550,10 @@ export const threadsCreate = defineContract({
     "is refused). Tags beyond 10 are refused. `poll` writes a poll or a quiz with the thread " +
     "(poll.create; see polls.create); its text goes through the word filter with the post. " +
     "`watch` sets how the author watches the new thread (`none`, `watch`, or `watch_email` with " +
-    "emails), applied with the thread; omitted, the author's watchOnCreate preference applies.",
+    "emails), applied with the thread; omitted, the author's watchOnCreate preference applies. " +
+    "`isAdult` starts the thread marked +18 (`Thread.isAdult`), so it is never shown, alerted or " +
+    "announced unmarked; it needs what marking it later needs (forum.editOwnThreadTitle or " +
+    "forum.editAny).",
   kind: "write",
   input: z.object({
     nodeId: Id,
@@ -556,6 +564,7 @@ export const threadsCreate = defineContract({
     tags: z.array(TagInput).max(MAX_THREAD_TAGS).default([]),
     poll: PollInput.optional(),
     watch: z.enum(AUTO_WATCH_MODES).optional(),
+    isAdult: z.boolean().default(false),
   }),
   output: z.object({ thread: Thread, post: PostDetail }),
 });
@@ -571,7 +580,8 @@ export const threadsUpdate = defineContract({
     "staff may set it, with tag.apply, and a tag nobody used before needs tag.create. A " +
     "moderator may set the title and prefix (forum.editAny) or the tags (forum.editAny or " +
     "tag.manage). `isAdult` marks the thread +18 or takes the mark off (`Thread.isAdult`), as " +
-    "the title is changed. Author (while unlocked) or moderator.",
+    "the title is changed; an author cannot take off a mark someone else put on their thread " +
+    "(forbidden), a moderator can. Author (while unlocked) or moderator.",
   kind: "write",
   input: z.object({
     ...moderationNotice,

@@ -21,11 +21,13 @@ import { MAX_THREAD_TAGS } from "../../limits";
 import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
+  type AdultOption,
   adultRefusalFor,
   can,
   currentActor,
   currentVersions,
   getNodeTree,
+  type NodeTreeEntry,
   PERMISSIONS,
   PRINCIPAL_COLUMNS,
   permissionsOf,
@@ -86,6 +88,7 @@ import { isBotAgent } from "../security/device";
 import { logIp, logMemberIp } from "../security/log";
 import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
+import { canonicalUrl } from "../seo/paths";
 import { checkTurnstile, publicTurnstile, TurnstileRefusal } from "../settings/turnstile";
 import { resolvedFileUrl } from "../storage/url";
 import {
@@ -270,6 +273,9 @@ export const forumSql = {
    */
   newestLock:
     "SELECT json_extract(payload, '$.isLocked') AS locked, json_extract(payload, '$.actorId') AS actor_id FROM domain_events WHERE target_type = 'thread' AND target_id = ?1 AND type = 'content.edited' AND json_extract(payload, '$.isLocked') IS NOT NULL ORDER BY id DESC LIMIT 1",
+  /** The newest change of a thread's +18 mark, and who made it when that was not the author. */
+  newestAdultMark:
+    "SELECT json_extract(payload, '$.actorId') AS actor_id FROM domain_events WHERE target_type = 'thread' AND target_id = ?1 AND type = 'content.edited' AND json_extract(payload, '$.isAdult') IS NOT NULL ORDER BY id DESC LIMIT 1",
   warnedAbout:
     "SELECT 1 AS n FROM moderator_log WHERE target_type = 'user' AND target_id = ?1 AND action = 'warning.add' AND json_extract(details, '$.postId') IN (SELECT value FROM json_each(?2)) AND EXISTS (SELECT 1 FROM warnings w WHERE w.id = json_extract(details, '$.warningId')) LIMIT 1",
   threadsByIds: `SELECT ${threadColumns} FROM threads WHERE id IN (SELECT value FROM json_each(?1))`,
@@ -505,8 +511,13 @@ export type ContentRule = ((nodeId: number, state: State, ownerId: number) => bo
  */
 export const contentRule = markPublic(
   "The rule itself decides per forum with node.view, forum.viewModerated, forum.viewDeleted, forum.viewOthers and forum.viewContent.",
-  function contentRule(ctx: Ctx, actor: Actor, canOpen?: (nodeId: number) => boolean): ContentRule {
-    const permissions = permissionsOf(ctx, actor);
+  function contentRule(
+    ctx: Ctx,
+    actor: Actor,
+    canOpen?: (nodeId: number) => boolean,
+    options: AdultOption = {},
+  ): ContentRule {
+    const permissions = permissionsOf(ctx, actor, options);
     const viewerId = actorUserId(actor);
     const open = canOpen ?? ((nodeId: number) => permissions.can("node.view", { nodeId }));
     const rule = (nodeId: number, state: State, ownerId: number) =>
@@ -518,7 +529,7 @@ export const contentRule = markPublic(
         ownerId,
         nodeId,
       );
-    return Object.assign(rule, { gates: readGates(ctx, actor) });
+    return Object.assign(rule, { gates: readGates(ctx, actor, options) });
   },
 );
 /**
@@ -557,21 +568,44 @@ function requireNode(ctx: Ctx, actor: Actor, id: number) {
   requirePermission(ctx, actor, "node.view", { nodeId: id }, { notFound: true });
   return { node };
 }
-export function requireThread(ctx: Ctx, actor: Actor, id: number) {
+/**
+ * A thread as the viewer may reach it: not found unless it would open to them, and with the +18
+ * refusal they get when it would open but for its mark or its forum's (`refusal`). The rule then
+ * answers as if nothing were marked, so the refusal is told only of content that exists and is
+ * otherwise visible to the viewer, never of a deleted or held thread.
+ */
+function threadAccess(ctx: Ctx, actor: Actor, id: number) {
   const row = threadRow(ctx, id, actorUserId(actor) ?? 0);
   if (!row || row.merged_into_id != null) throw new NotFoundError();
-  const { node } = requireNode(ctx, actor, row.node_id);
+  let refusal: AdultContentError | null = null;
+  let node: NodeTreeEntry;
+  try {
+    node = requireNode(ctx, actor, row.node_id).node;
+  } catch (error) {
+    if (!(error instanceof AdultContentError)) throw error;
+    refusal = error;
+    node = getNodeTree(ctx).get(row.node_id)!;
+  }
   // The forum is open to the caller; the rest is the shared rule.
-  const rule = contentRule(ctx, actor, () => true);
+  const rule = contentRule(ctx, actor, () => true, { ignoreAdult: refusal !== null });
   if (!threadOpens(rule, row)) throw new NotFoundError();
+  if (!refusal && rule.gates.hidesAdult(row)) refusal = new AdultContentError(rule.gates.adult()!);
+  return { row, node, rule, refusal };
+}
+export function requireThread(ctx: Ctx, actor: Actor, id: number) {
+  const { row, node, refusal } = threadAccess(ctx, actor, id);
   // A thread the viewer would see but for its +18 mark: the +18 page, not the thread.
-  if (rule.gates.hidesAdult(row)) throw new AdultContentError(rule.gates.adult()!);
+  if (refusal) throw refusal;
   return { row, node };
 }
 export function requirePost(ctx: Ctx, actor: Actor, id: number, withBody = false) {
   const post = postRow(ctx, id, withBody);
   if (!post) throw new NotFoundError();
-  const thread = requireThread(ctx, actor, post.thread_id);
+  const access = threadAccess(ctx, actor, post.thread_id);
+  // A post the viewer could not see in an open thread is not found, +18 or not.
+  if (!access.rule(access.row.node_id, post.state, post.user_id)) throw new NotFoundError();
+  if (access.refusal) throw access.refusal;
+  const thread = { row: access.row, node: access.node };
   const rule = contentRule(ctx, actor, () => true);
   if (!postOpen(rule, thread.row, post)) throw new NotFoundError();
   // The thread is known to the viewer, so its text being closed to them is not a secret.
@@ -594,6 +628,27 @@ function mayEdit(
         createdAt: post.created_at,
       }))
   );
+}
+/** Starting a thread marked +18 needs what marking it later needs: the title's permissions. */
+function requireAdultMarker(ctx: Ctx, actor: Actor, nodeId: number, userId: number): void {
+  if (
+    !can(ctx, actor, "forum.editAny", { nodeId }) &&
+    !can(ctx, actor, "forum.editOwnThreadTitle", { nodeId, ownerId: userId })
+  )
+    throw new ForbiddenError();
+}
+/**
+ * Whether the thread's +18 mark was put on by someone other than its author (a moderator): the
+ * newest change of the mark in the events, which name the actor only when someone acts on
+ * another member's thread. Index seek on the events' target.
+ */
+function markedByOther(ctx: Ctx, threadId: number): boolean {
+  const row = statement<{ actor_id: number | null }, [number]>(
+    ctx,
+    "newestAdultMark",
+    forumSql.newestAdultMark,
+  ).get(threadId);
+  return row?.actor_id != null;
 }
 function mayEditTitle(ctx: Ctx, actor: Actor, row: ThreadRow): boolean {
   return (
@@ -908,7 +963,13 @@ function adultLastThreads(ctx: Ctx, actor: Actor, threadIds: number[]): Set<numb
       .map((row) => row.id),
   );
 }
-function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
+function nodeValues(
+  ctx: Ctx,
+  actor: Actor,
+  ids: number[],
+  /** Nodes whose last post the viewer is not shown (+18 nodes on a staff screen). */
+  withoutLast: ReadonlySet<number> = new Set(),
+) {
   const tree = getNodeTree(ctx);
   const tabs = nodeTabs(ctx);
   const rows = nodeRows(ctx, ids.length === 1 ? ids[0] : undefined);
@@ -944,6 +1005,7 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
     // when that thread is marked +18 and the viewer may not see it.
     const lastPost =
       row.last_post_id == null ||
+      withoutLast.has(id) ||
       !gates.opensOthers(id) ||
       (row.last_thread_id != null && adultLast.has(row.last_thread_id))
         ? null
@@ -1017,14 +1079,30 @@ function postValue(ctx: Ctx, actor: Actor, id: number, detail = false) {
   )[0]!;
 }
 
-export const nodesListOp = implement(contracts.nodesList, (ctx, actor) => {
+/** Whether the call is a staff management read that sees +18 nodes as forums, not content. */
+function managing(ctx: Ctx, actor: Actor, manage: boolean): boolean {
+  return manage && can(ctx, actor, "admin.nodes");
+}
+export const nodesListOp = implement(contracts.nodesList, (ctx, actor, input) => {
   requireSiteView(ctx, actor);
-  return {
-    items: nodeValues(ctx, actor, viewableNodeIds(ctx, actor)),
-  };
+  if (!managing(ctx, actor, input.manage))
+    return { items: nodeValues(ctx, actor, viewableNodeIds(ctx, actor)) };
+  // The +18 nodes the viewer may not see as content are listed without their last post.
+  const content = new Set(viewableNodeIds(ctx, actor));
+  const ids = viewableNodeIds(ctx, actor, { ignoreAdult: true });
+  return { items: nodeValues(ctx, actor, ids, new Set(ids.filter((id) => !content.has(id)))) };
 });
 export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
-  const { node } = requireNode(ctx, actor, input.nodeId);
+  let node: NodeTreeEntry;
+  let withoutLast = new Set<number>();
+  try {
+    node = requireNode(ctx, actor, input.nodeId).node;
+  } catch (error) {
+    // The staff edit screen reads a +18 node it may not see as content as a forum to manage.
+    if (!(error instanceof AdultContentError) || !managing(ctx, actor, input.manage)) throw error;
+    node = getNodeTree(ctx).get(input.nodeId)!;
+    withoutLast = new Set([input.nodeId]);
+  }
   // After the forum check: whoever may not see it, a banned member included, is told only that
   // it is not found.
   requireSiteView(ctx, actor);
@@ -1039,9 +1117,25 @@ export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
           "SELECT mode, email FROM node_watches WHERE node_id = ?1 AND user_id = ?2",
         ).get(input.nodeId, userId);
   return {
-    node: nodeValues(ctx, actor, [input.nodeId])[0]!,
+    node: nodeValues(ctx, actor, [input.nodeId], withoutLast)[0]!,
     watching: watch ? { mode: watch.mode, email: !!watch.email } : null,
-    seo: seoForNode(ctx, actor, input.nodeId),
+    // A staff read of a +18 node is not a public page: no metadata of its content.
+    seo:
+      withoutLast.size > 0
+        ? {
+            title: node.title,
+            description: "",
+            canonical: canonicalUrl(
+              ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000",
+              "node",
+              node.id,
+              node.title,
+            ),
+            robots: "noindex,follow" as const,
+            redirect: false,
+            jsonLd: [],
+          }
+        : seoForNode(ctx, actor, input.nodeId),
     breadcrumbs: getNodeTree(ctx)
       .ancestors(input.nodeId)
       .map(({ id, title, type }) => ({ id, title, type })),
@@ -1983,6 +2077,7 @@ const REPLY_HASHTAGS = { hashtags: { create: false, slots: 0 } };
 export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   requireThreadStart(ctx, actor, input.nodeId);
+  if (input.isAdult) requireAdultMarker(ctx, actor, input.nodeId, user.userId);
   if (input.attachmentIds?.length)
     requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: input.nodeId });
   // The tags listed, then the hashtags of the opening post as far as the cap leaves room.
@@ -2036,8 +2131,11 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
           : "visible";
       const now = ctx.now();
       const thread = forumDb(ctx)
-        .prepare<{ id: number }, [number, number, string, string, number, string, number | null]>(
-          "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at, excerpt, prefix_id) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5, ?6, ?7) RETURNING id",
+        .prepare<
+          { id: number },
+          [number, number, string, string, number, string, number | null, number]
+        >(
+          "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at, excerpt, prefix_id, is_adult) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5, ?6, ?7, ?8) RETURNING id",
         )
         .get(
           input.nodeId,
@@ -2047,6 +2145,7 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
           now,
           excerptFromMarkdown(content.source),
           input.prefixId,
+          Number(input.isAdult),
         )!;
       const post = forumDb(ctx)
         .prepare<{ id: number }, [number, number, number]>(
@@ -2465,10 +2564,19 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
     forumDb(ctx)
       .prepare("UPDATE threads SET prefix_id = ?1, content_updated_at = ?2 WHERE id = ?3")
       .run(prefixId, ctx.now(), row.id);
-    if (input.isAdult !== undefined)
+    if (input.isAdult !== undefined) {
+      // A mark someone else put on the thread is theirs to take off, not the author's.
+      if (
+        !input.isAdult &&
+        current.is_adult === 1 &&
+        !can(ctx, moderator, "forum.editAny", { nodeId: current.node_id }) &&
+        markedByOther(ctx, row.id)
+      )
+        throw new ForbiddenError("A moderator marked this thread +18; only staff can remove it.");
       forumDb(ctx)
         .prepare("UPDATE threads SET is_adult = ?1 WHERE id = ?2")
         .run(Number(input.isAdult), row.id);
+    }
     if (input.title !== undefined) {
       forumDb(ctx).prepare("UPDATE threads SET title = ?1 WHERE id = ?2").run(input.title, row.id);
       forumDb(ctx)
@@ -2479,7 +2587,10 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
       type: "content.edited",
       targetType: "thread",
       targetId: row.id,
-      payload: moderationPayload(actor, row.user_id, input),
+      payload: {
+        ...moderationPayload(actor, row.user_id, input),
+        ...(input.isAdult === undefined ? {} : { isAdult: input.isAdult }),
+      },
     });
     if (
       can(ctx, moderator, "forum.editAny", { nodeId: current.node_id }) ||
@@ -2807,6 +2918,17 @@ export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, ac
   });
   return threadValue(ctx, actor, row.id);
 });
+/**
+ * Whether a thread's content is +18 where it is now: its own mark or its forum's. Moving, merging
+ * and splitting never take +18 content out of the mark: the thread that ends up holding it carries
+ * the mark as its own (a moderator may take it off afterwards).
+ */
+function effectivelyAdult(ctx: Ctx, row: Pick<ThreadRow, "is_adult" | "node_id">): boolean {
+  return row.is_adult === 1 || !!getNodeTree(ctx).get(row.node_id)?.adult;
+}
+function carryAdultMark(ctx: Ctx, threadId: number): void {
+  forumDb(ctx).prepare("UPDATE threads SET is_adult = 1 WHERE id = ?1").run(threadId);
+}
 function moveThread(ctx: Ctx, moderator: Actor, id: number, nodeId: number, notice: Notice) {
   assertTransferIdle(ctx, id);
   const current = requireThread(ctx, moderator, id).row;
@@ -2830,6 +2952,9 @@ function moveThread(ctx: Ctx, moderator: Actor, id: number, nodeId: number, noti
     return false;
   }
   forumDb(ctx).prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2").run(nodeId, id);
+  // A thread leaving a +18 forum stays +18 by its own mark.
+  const carried = current.is_adult === 0 && effectivelyAdult(ctx, current);
+  if (carried) carryAdultMark(ctx, id);
   // As XenForo does, a prefix the new forum does not offer is dropped.
   forumDb(ctx)
     .prepare(
@@ -2870,7 +2995,10 @@ function moveThread(ctx: Ctx, moderator: Actor, id: number, nodeId: number, noti
     type: "content.edited",
     targetType: "thread",
     targetId: id,
-    payload: moderationPayload(moderator, current.user_id, notice),
+    payload: {
+      ...moderationPayload(moderator, current.user_id, notice),
+      ...(carried ? { isAdult: true } : {}),
+    },
   });
   appendModeratorLog(
     ctx,
@@ -3780,8 +3908,11 @@ export const threadsSplitOp = implement(contracts.threadsSplit, (ctx, actor, inp
       "SELECT body_source FROM post_bodies WHERE post_id = ?1",
     ).get(first.id)!;
     const target = forumDb(ctx)
-      .prepare<{ id: number }, [number, number, string, State, number, string, string | null]>(
-        "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at, excerpt, guest_name) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5, ?6, ?7) RETURNING id",
+      .prepare<
+        { id: number },
+        [number, number, string, State, number, string, string | null, number]
+      >(
+        "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at, excerpt, guest_name, is_adult) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5, ?6, ?7, ?8) RETURNING id",
       )
       .get(
         input.nodeId,
@@ -3791,6 +3922,8 @@ export const threadsSplitOp = implement(contracts.threadsSplit, (ctx, actor, inp
         first.created_at ?? ctx.now(),
         excerptFromMarkdown(body.body_source),
         first.guest_name ?? null,
+        // Posts split out of +18 content stay +18.
+        Number(effectivelyAdult(ctx, current)),
       )!;
     // Members banned from the source stay banned from the posts that leave it.
     forumDb(ctx)
@@ -3909,6 +4042,15 @@ export const threadsMergeOp = implement(contracts.threadsMerge, (ctx, actor, inp
     )
       throw new ConflictError("Target thread changed; retry.");
     requireCurrentMerger(ctx, actor, [target.id, ...input.sourceThreadIds]);
+    // Posts merged out of +18 content keep it +18: the target carries the mark.
+    if (
+      !effectivelyAdult(ctx, currentTarget) &&
+      input.sourceThreadIds.some((id) => {
+        const source = threadRow(ctx, id);
+        return source !== undefined && effectivelyAdult(ctx, source);
+      })
+    )
+      carryAdultMark(ctx, target.id);
     // A thread whose removal for good has begun is not merged either way.
     for (const id of [target.id, ...input.sourceThreadIds])
       if (threadRow(ctx, id)?.state === "deleted") assertRemovalNotBegun(ctx, "thread", id);
@@ -4339,6 +4481,8 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
         input.reason,
         {
           title: current.title,
+          // Staff who may not see +18 content are not shown the title of a +18 thread.
+          ...(effectivelyAdult(ctx, current) ? { adult: true } : {}),
           ...loggedAuthor(current),
           removedPosts: 0,
           completed: false,
@@ -4391,6 +4535,8 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
         input.reason,
         {
           title: current.title,
+          // Staff who may not see +18 content are not shown the title of a +18 thread.
+          ...(effectivelyAdult(ctx, current) ? { adult: true } : {}),
           ...loggedAuthor(current),
           removedPosts,
           completed: !more,

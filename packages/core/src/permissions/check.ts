@@ -252,6 +252,12 @@ type Denial =
   | "hierarchy"
   | "adult";
 
+/**
+ * `ignoreAdult` answers as if no node were marked +18: for staff management views (which are not
+ * content), and to tell whether content would be visible but for its mark.
+ */
+export type AdultOption = { ignoreAdult?: boolean };
+
 /** Why the actor may not see +18 content, resolved at most once for a set of checks. */
 type AdultCheck = () => AdultRefusal | null;
 
@@ -389,9 +395,9 @@ export function permissionValue(
  * Resolves the actor once for several checks (a page of items): `can` and `value` behave like
  * the functions of the same name.
  */
-export function permissionsOf(ctx: Ctx, actor: Actor) {
+export function permissionsOf(ctx: Ctx, actor: Actor, options: AdultOption = {}) {
   const resolved = resolve(ctx, actor);
-  const adult = adultCheck(ctx, actor);
+  const adult = options.ignoreAdult ? () => null : adultCheck(ctx, actor);
   return {
     can: (id: FlagPermissionId, context: PermissionContext = {}) =>
       evaluate(ctx, actor, id, context, resolved, adult).granted,
@@ -407,10 +413,10 @@ export function permissionsOf(ctx: Ctx, actor: Actor) {
 }
 
 /** Node ids `actor` may view, in tree order (+18 nodes only for a viewer who may see them). */
-export function viewableNodeIds(ctx: Ctx, actor: Actor): number[] {
+export function viewableNodeIds(ctx: Ctx, actor: Actor, options: AdultOption = {}): number[] {
   const resolved = resolve(ctx, actor);
   if (isBanned(resolved.principal, ctx.now())) return [];
-  const adult = adultCheck(ctx, actor);
+  const adult = options.ignoreAdult ? () => null : adultCheck(ctx, actor);
   const ids: number[] = [];
   resolved.state.tree.entries.forEach((entry, i) => {
     if (!flagAt(resolved.combination, "node.view", i)) return;

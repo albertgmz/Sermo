@@ -54,7 +54,9 @@ const node = (id: number, parentId: number | null, canPost: boolean) => ({
     minAccountAgeDays: 0,
     minPostCount: 0,
     requirePrefix: false,
+    isAdult: false,
   },
+  adultByParent: false,
 });
 
 beforeEach(() => {

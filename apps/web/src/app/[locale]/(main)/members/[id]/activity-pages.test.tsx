@@ -66,6 +66,8 @@ const thread = (id: number, title: string) => ({
   readPosition: null,
   isUnread: false,
   pollKind: null,
+  isAdult: false,
+  adultByForum: false,
 });
 const entry = (id: number, title: string) => ({
   post: postBody({

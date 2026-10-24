@@ -61,7 +61,9 @@ const FORUM = {
     minAccountAgeDays: 0,
     minPostCount: 0,
     requirePrefix: false,
+    isAdult: false,
   },
+  adultByParent: false,
 };
 const thread = (id: number, title: string) => ({
   id,
@@ -90,6 +92,8 @@ const thread = (id: number, title: string) => ({
   readPosition: null,
   isUnread: false,
   pollKind: null,
+  isAdult: false,
+  adultByForum: false,
 });
 
 // A forum of 45 threads (three pages of 20), one of them on the page asked for.

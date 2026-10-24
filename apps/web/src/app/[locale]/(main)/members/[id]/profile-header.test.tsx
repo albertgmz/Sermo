@@ -55,6 +55,7 @@ const profile = (
     referralCount: 0,
     lastActivityAt,
     viewer: { isFollowing: false, isIgnoring: false },
+    isAdult: false,
     canPostOnWall: false,
   }) as never;
 

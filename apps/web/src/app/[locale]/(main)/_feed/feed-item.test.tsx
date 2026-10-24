@@ -168,6 +168,8 @@ const threadItem = (
       readPosition: null,
       isUnread: false,
       pollKind: null,
+      isAdult: false,
+      adultByForum: false,
       ...over.thread,
     },
     post: postBody({

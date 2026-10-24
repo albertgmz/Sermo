@@ -154,7 +154,7 @@
   "Threads can only be listed in forums.": "Los temas solo se pueden listar en foros.",
   "Categories cannot hold threads.": "Las categorías no pueden contener temas.",
   "Thread changed; retry.": "El tema cambió; inténtalo de nuevo.",
-  "Send a title, a prefix, tags, or any of them.": "Envía un título, un prefijo, etiquetas, o cualquiera de ellos.",
+  "Send a title, a prefix, tags, the +18 mark, or any of them.": "Envía un título, un prefijo, etiquetas, la marca +18, o cualquiera de ellos.",
   "Only a visible thread can be featured.": "Solo un tema visible se puede destacar.",
   "Threads can only be moved to forums.": "Los temas solo se pueden mover a foros.",
   "Delete the thread instead.": "Elimina el tema en su lugar.",
@@ -485,5 +485,11 @@
   "A run is stopped: resume it or discard it before starting another.": "Hay un envío detenido: reanúdalo o descártalo antes de empezar otro.",
   "Count the recipients of this message or alert first, then send.": "Cuenta primero los destinatarios de este mensaje o alerta y luego envía.",
   "The count changed since you looked at it; look at it again.": "El recuento cambió desde que lo viste; vuelve a mirarlo.",
-  "There is no stopped run to resume.": "No hay ningún envío detenido que reanudar."
+  "There is no stopped run to resume.": "No hay ningún envío detenido que reanudar.",
+  "A date of birth cannot be in the future.": "Una fecha de nacimiento no puede estar en el futuro.",
+  "Store your date of birth before confirming the +18 warning.": "Guarda tu fecha de nacimiento antes de confirmar el aviso +18.",
+  "+18 content is for adults only.": "El contenido +18 es solo para adultos.",
+  "This content is for adults (18+).": "Este contenido es para adultos (+18).",
+  "Your date of birth is already stored; staff can change it.": "Tu fecha de nacimiento ya está guardada; el personal puede cambiarla.",
+  "A moderator marked this thread +18; only staff can remove it.": "Un moderador marcó este tema como +18; solo el personal puede quitar la marca."
 }

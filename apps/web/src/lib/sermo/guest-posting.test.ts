@@ -106,7 +106,9 @@ function forum(settings: Record<string, unknown>) {
           minPostCount: 0,
           requirePrefix: false,
           ...settings,
+          isAdult: false,
         },
+        adultByParent: false,
       },
       watching: null,
       seo: {

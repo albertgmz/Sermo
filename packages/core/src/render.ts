@@ -464,10 +464,11 @@ function renderOnce(
               thread_state: string;
               thread_user_id: number;
               node_id: number;
+              is_adult: number;
             },
             [string]
           >(
-            "SELECT p.id, p.user_id, u.username, p.guest_name, p.state AS post_state, t.state AS thread_state, t.user_id AS thread_user_id, t.node_id FROM posts p JOIN threads t ON t.id = p.thread_id JOIN users u ON u.id = p.user_id WHERE p.id IN (SELECT value FROM json_each(?1))",
+            "SELECT p.id, p.user_id, u.username, p.guest_name, p.state AS post_state, t.state AS thread_state, t.user_id AS thread_user_id, t.node_id, t.is_adult FROM posts p JOIN threads t ON t.id = p.thread_id JOIN users u ON u.id = p.user_id WHERE p.id IN (SELECT value FROM json_each(?1))",
           ),
         ).all(JSON.stringify(quoteIds))
       : [];
@@ -493,7 +494,8 @@ function renderOnce(
       (!publicQuoting ||
         (can(ctx, guest, "node.view", { nodeId: row.node_id }) &&
           guestGates.opens(row.node_id, row.thread_user_id) &&
-          guestGates.reads(row.node_id, row.user_id)));
+          guestGates.reads(row.node_id, row.user_id) &&
+          !guestGates.hidesAdult({ is_adult: row.is_adult, user_id: row.thread_user_id })));
     // A post is checked once, however many times it is quoted.
     const checked = new Set<number>();
     // The site's word for a guest, read once however many guest posts are quoted.
@@ -514,7 +516,8 @@ function renderOnce(
             !visible(row.thread_state, row.thread_user_id, row.node_id) ||
             !visible(row.post_state, row.user_id, row.node_id) ||
             !gates.opens(row.node_id, row.thread_user_id) ||
-            !gates.reads(row.node_id, row.user_id))
+            !gates.reads(row.node_id, row.user_id) ||
+            gates.hidesAdult({ is_adult: row.is_adult, user_id: row.thread_user_id }))
         ) {
           throw new ValidationError("The quoted post is not visible.");
         }

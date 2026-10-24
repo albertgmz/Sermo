@@ -52,6 +52,8 @@ const thread = {
   readPosition: null,
   isUnread: false,
   pollKind: null,
+  isAdult: false,
+  adultByForum: false,
 };
 const post = postBody();
 const ROOT = "http://127.0.0.1:8787/api/v1";

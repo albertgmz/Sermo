@@ -38,7 +38,7 @@ export async function ForumPermissions({
   const params = await searchParams;
   const [t, { items: nodes }] = await Promise.all([
     getTranslations("adminGroups.permissionForums"),
-    read(nodesList, {}),
+    read(nodesList, { manage: true }),
   ]);
   const nodeRaw = first(params.node);
   const nodeId = nodeRaw === undefined ? null : parseId(nodeRaw);

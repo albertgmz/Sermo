@@ -29,7 +29,7 @@ export async function ForumTree({
     getTranslations("adminForums.tree"),
     getTranslations("adminForums.tabs"),
     getViewer(),
-    read(nodesList, {}),
+    read(nodesList, { manage: true }),
     read(forumTabsList, {}),
   ]);
   const permissions = hrefFor(viewer, "forumsPermissions");

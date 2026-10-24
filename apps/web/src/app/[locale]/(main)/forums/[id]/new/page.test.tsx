@@ -77,7 +77,9 @@ const node = (canPost: boolean) => ({
     minAccountAgeDays: 0,
     minPostCount: 0,
     requirePrefix: false,
+    isAdult: false,
   },
+  adultByParent: false,
 });
 
 async function visit(options: {

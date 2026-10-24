@@ -80,7 +80,9 @@ const node = (
     minAccountAgeDays: 0,
     minPostCount: 0,
     requirePrefix: false,
+    isAdult: false,
   },
+  adultByParent: false,
 });
 
 // 9: a top-level forum before them all. 1: the first category, with a cover. 2: a category with none. 5: a later category with a cover.

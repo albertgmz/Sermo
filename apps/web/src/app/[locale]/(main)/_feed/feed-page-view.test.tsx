@@ -88,6 +88,8 @@ const thread = {
   readPosition: null,
   isUnread: true,
   pollKind: "poll",
+  isAdult: false,
+  adultByForum: false,
 };
 const entry = {
   type: "thread",

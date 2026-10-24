@@ -144,6 +144,8 @@ const item = (threadId: number, canReply: boolean) =>
       readPosition: null,
       isUnread: false,
       pollKind: null,
+      isAdult: false,
+      adultByForum: false,
     },
     post: postBody({ id: 30, bodyHtml: "<p>text</p>" }),
   }) as unknown as Item;

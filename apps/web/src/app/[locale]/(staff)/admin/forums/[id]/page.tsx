@@ -38,8 +38,8 @@ async function Node({ params, searchParams }: Props) {
     await Promise.all([
       getTranslations("adminForums.edit"),
       getViewer(),
-      read(nodesGet, { nodeId }),
-      read(nodesList, {}),
+      read(nodesGet, { nodeId, manage: true }),
+      read(nodesList, { manage: true }),
       read(forumTabsList, {}),
       searchParams,
     ]);

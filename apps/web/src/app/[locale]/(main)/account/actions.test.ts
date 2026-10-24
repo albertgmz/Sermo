@@ -104,6 +104,7 @@ function succeeded(method: string, path: string): unknown {
     referralCount: 0,
     lastActivityAt: null,
     viewer: { isFollowing: false, isIgnoring: false },
+    isAdult: false,
   };
 }
 

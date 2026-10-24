@@ -68,7 +68,9 @@ const NODE = {
     minAccountAgeDays: 0,
     minPostCount: 0,
     requirePrefix: false,
+    isAdult: false,
   },
+  adultByParent: false,
 };
 const TAB = {
   id: 1,

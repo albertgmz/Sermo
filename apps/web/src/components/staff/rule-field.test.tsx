@@ -131,6 +131,8 @@ const THREAD_ANSWER = {
     readPosition: null,
     isUnread: false,
     pollKind: null,
+    isAdult: false,
+    adultByForum: false,
   },
   seo: {
     title: "t",

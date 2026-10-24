@@ -9,6 +9,7 @@ export {
   requireAdultView,
 } from "./adult";
 export {
+  type AdultOption,
   AWAITING_SQL,
   can,
   combinationsGranting,

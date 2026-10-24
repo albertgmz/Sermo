@@ -54,6 +54,8 @@ const thread = (over: Record<string, unknown> = {}) => ({
   readPosition: null,
   isUnread: false,
   pollKind: null,
+  isAdult: false,
+  adultByForum: false,
   ...over,
 });
 const found = (canEditTitle: boolean, over: Record<string, unknown> = {}) => ({
@@ -118,7 +120,9 @@ const forum = (requirePrefix: boolean) => ({
       minAccountAgeDays: 0,
       minPostCount: 0,
       requirePrefix,
+      isAdult: false,
     },
+    adultByParent: false,
   },
   watching: null,
   seo: {

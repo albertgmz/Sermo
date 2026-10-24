@@ -33,7 +33,7 @@ export async function generateMetadata({
 
 async function NewNode({ type }: { type: "category" | "forum" }) {
   const [{ items: nodes }, { items: tabs }] = await Promise.all([
-    read(nodesList, {}),
+    read(nodesList, { manage: true }),
     read(forumTabsList, {}),
   ]);
   return <NodeCreateForm type={type} nodes={nodes} tabs={tabs} />;

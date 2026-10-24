@@ -60,7 +60,9 @@ const node = (type: "forum" | "category") => ({
     minAccountAgeDays: 0,
     minPostCount: 0,
     requirePrefix: false,
+    isAdult: false,
   },
+  adultByParent: false,
 });
 const TAG = { id: 3, label: "Solved", color: "#16a34a", icon: "" };
 const SOLVED = {
@@ -98,6 +100,8 @@ const thread = {
   readPosition: null,
   isUnread: false,
   pollKind: null,
+  isAdult: false,
+  adultByForum: false,
 };
 
 // Every address asked of the backend, with its query.
