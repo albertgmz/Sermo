@@ -312,7 +312,6 @@
     "postingIn": "Publicando en",
     "titleLabel": "Título",
     "titlePlaceholder": "Título del tema",
-    "prefixLabel": "Prefijo",
     "prefixRequired": "Elige un prefijo para publicar en este foro.",
     "prefixesFailed": "No se pudieron cargar los prefijos de este foro.",
     "prefixesRetry": "Reintentar",

@@ -14,13 +14,13 @@ import { ForumChoicePanel } from "@/components/forum/forum-choice-panel";
 import { type ForumChoice, forumTitle } from "@/components/forum/forum-choices";
 import { findMentions } from "@/components/forum/mention-find";
 import { PollField } from "@/components/forum/poll-field";
-import { PrefixSelect } from "@/components/forum/prefix-select";
 import {
   clearThreadDraft,
   readThreadDraft,
   type ThreadDraft,
   writeThreadDraft,
 } from "@/components/forum/thread-draft";
+import { TitleField } from "@/components/forum/thread-fields";
 import { ThreadTagsField } from "@/components/forum/thread-tags-field";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import type { PrefixView } from "@/lib/sermo/views";
@@ -93,10 +93,12 @@ export function addressAfterForumChange(
   return frame === "page" ? composeAddress(forumId) : null;
 }
 
-// Starting a thread, written like a post: close and Post at the top, the forum it goes to as a
-// chip that opens the forum choice, the title as a line of its own, the prefix menu
-// (`PrefixSelect`), then the text in the shared composer. The forum, the title, the prefix and the text are all kept when the
-// forum is changed, when the post is refused and while the choice of forum is open. The title, the
+// Starting a thread, laid out as XenForo's "Post thread" page in the shared composer: the forum it
+// goes to as a chip that opens the forum choice, the title row (`TitleField`: the prefix menu joined
+// to the left of a large bordered title box), the text in the editor's box, then the poll and the
+// tags, and Attach files and Post thread in the bottom row. The forum, the title, the prefix and
+// the text are all kept when the forum is changed, when the post is refused and while the choice
+// of forum is open. The title, the
 // prefix and the text are also kept in the tab (`thread-draft`) when the composer is closed or the
 // page is reloaded, until the thread is sent.
 export function ThreadComposer({
@@ -275,7 +277,7 @@ export function ThreadComposer({
   }
 
   const top = (
-    <div className="space-y-3 px-3 pt-3">
+    <div className="space-y-3 px-3 pt-3 pb-3 md:px-4 md:pt-4">
       <button
         type="button"
         ref={chip}
@@ -291,8 +293,15 @@ export function ThreadComposer({
           className="size-4 shrink-0 text-muted-foreground"
         />
       </button>
-      <input
-        name="title"
+      <TitleField
+        look="large"
+        prefixes={prefixes}
+        prefix={prefix}
+        onPrefix={(next) => {
+          setPrefixId(next);
+          keep({ prefixId: next });
+        }}
+        none={tFields("noPrefix")}
         value={title}
         onChange={(event) => {
           setTitle(event.target.value);
@@ -310,9 +319,13 @@ export function ThreadComposer({
         placeholder={t(
           kind === "question" ? "questionTitlePlaceholder" : "titlePlaceholder",
         )}
-        autoComplete="off"
-        className="block w-full min-w-0 bg-transparent py-1 text-xl font-semibold outline-none placeholder:text-muted-foreground md:text-2xl"
       />
+      {prefixes.length > 0 && (
+        <input type="hidden" name="prefixId" value={prefix} />
+      )}
+      {requirePrefix && !prefix && (
+        <p className="text-xs text-muted-foreground">{t("prefixRequired")}</p>
+      )}
       {offered.status === "failed" && (
         <div
           role="alert"
@@ -328,27 +341,12 @@ export function ThreadComposer({
           </button>
         </div>
       )}
-      {prefixes.length > 0 && (
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <PrefixSelect
-            prefixes={prefixes}
-            value={prefix}
-            none={tFields("noPrefix")}
-            label={t("prefixLabel")}
-            onChange={(next) => {
-              setPrefixId(next);
-              keep({ prefixId: next });
-            }}
-          />
-          {requirePrefix && !prefix && (
-            <p className="text-xs text-muted-foreground">
-              {t("prefixRequired")}
-            </p>
-          )}
-          <input type="hidden" name="prefixId" value={prefix} />
-        </div>
-      )}
-      {canTag && <ThreadTagsField />}
+    </div>
+  );
+
+  // Under the text, as XenForo's page has them: the poll, then the tags.
+  const below = (poll || kind === "poll" || canTag) && (
+    <div className="space-y-4 px-3 pt-3 pb-4 md:px-4">
       {poll && (
         <PollField
           wanted={kind === "poll"}
@@ -361,6 +359,7 @@ export function ThreadComposer({
           {t("noPollHere")}
         </p>
       )}
+      {canTag && <ThreadTagsField />}
     </div>
   );
 
@@ -378,6 +377,8 @@ export function ThreadComposer({
       pending={pending}
       canSubmit={threadReady(title, body, prefixBlocks(offered, prefix))}
       top={top}
+      below={below}
+      boxed
       placeholder={t(
         kind === "question" ? "questionBodyPlaceholder" : "bodyPlaceholder",
       )}

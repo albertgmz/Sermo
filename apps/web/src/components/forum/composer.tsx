@@ -200,6 +200,8 @@ export function ComposerForm({
   pending,
   canSubmit = true,
   top,
+  below,
+  boxed = false,
   placeholder,
   minHeight = 160,
   findMembers,
@@ -221,6 +223,11 @@ export function ComposerForm({
   canSubmit?: boolean;
   // Drawn above the text, inside the scrolling part.
   top?: React.ReactNode;
+  // Drawn under the text, inside the scrolling part, above the button row.
+  below?: React.ReactNode;
+  // The text in XenForo's editor box, inset like the fields around it, where the composer has
+  // fields of its own (a new thread); otherwise it runs from edge to edge of the sheet.
+  boxed?: boolean;
   placeholder: string;
   minHeight?: number;
   findMembers?: EditorProps["findMembers"];
@@ -252,7 +259,9 @@ export function ComposerForm({
       onChange={onBodyChange}
       bar={bar}
       className={cn(
-        "rounded-none border-0 bg-transparent focus-within:bg-transparent",
+        boxed
+          ? "mx-3 md:mx-4"
+          : "rounded-none border-0 bg-transparent focus-within:bg-transparent",
         grow && "flex-1",
       )}
     />
@@ -325,7 +334,12 @@ export function ComposerForm({
           ) : (
             editor
           )}
-          {error && <FormError className="px-3 pb-3">{error}</FormError>}
+          {error && (
+            <FormError className={cn("px-3 pb-3", boxed && "pt-3 md:px-4")}>
+              {error}
+            </FormError>
+          )}
+          {below}
         </div>
         <div
           style={

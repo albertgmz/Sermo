@@ -312,7 +312,6 @@
     "postingIn": "Posting in",
     "titleLabel": "Title",
     "titlePlaceholder": "Thread title",
-    "prefixLabel": "Prefix",
     "prefixRequired": "Choose a prefix to post in this forum.",
     "prefixesFailed": "The prefixes of this forum could not be loaded.",
     "prefixesRetry": "Try again",

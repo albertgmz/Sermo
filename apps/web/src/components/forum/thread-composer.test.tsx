@@ -398,3 +398,70 @@ test("a new thread is posted with XenForo's pen, a wall post with the reply arro
   expect(submit(html)).toContain("lucide-square-pen");
   expect(submit(plainForm())).toContain("lucide-reply");
 });
+
+const composerWith = (props: { canTag?: boolean; canPoll?: boolean } = {}) =>
+  renderToStaticMarkup(
+    withIntl(
+      <ThreadComposer
+        forumId={2}
+        forums={[...FORUMS]}
+        prefixes={PREFIXES}
+        requirePrefix={false}
+        canAttach
+        canTag={props.canTag ?? false}
+        canPoll={props.canPoll ?? false}
+        memberId={1}
+      />,
+    ),
+  );
+
+// The element that opens at `index`, as written in the markup.
+const openingTag = (html: string, index: number) =>
+  html.slice(html.lastIndexOf("<", index), html.indexOf(">", index) + 1);
+
+test("the title is one bordered, filled field with the prefix menu joined to its left, as XenForo's title row", () => {
+  const html = composerWith();
+  const prefix = html.indexOf('aria-label="Prefix: (No prefix)"');
+  const title = html.indexOf('name="title"');
+  // The field that holds both: the last element opened before the prefix button.
+  const frameAt = html.lastIndexOf("<div", prefix);
+  const frame = openingTag(html, frameAt);
+  expect(frame).toMatch(/\bborder-input\b/);
+  // Filled like the editor box under it, so it stands out from the card in both themes.
+  expect(frame).toMatch(/\bbg-muted\b/);
+  expect(frame).toMatch(/focus-within:ring-3/);
+  expect(prefix).toBeGreaterThan(frameAt);
+  expect(title).toBeGreaterThan(prefix);
+  expect(html.slice(frameAt, title)).not.toContain("</div></div>");
+  // XenForo's large title text, never the borderless line it was.
+  const input = openingTag(html, title);
+  expect(input).toMatch(/\btext-lg\b/);
+  expect(input).toMatch(/\bmd:text-xl\b/);
+  expect(input).toContain('aria-label="Title"');
+  // The title comes before the text.
+  expect(title).toBeLessThan(html.indexOf('name="body"'));
+});
+
+test("the text of a new thread is in the editor's box, inset like the title; a wall post's runs edge to edge", () => {
+  const box = (html: string) =>
+    openingTag(
+      html,
+      html.lastIndexOf('class="group/editor', html.indexOf('name="body"')),
+    );
+  expect(box(composerWith())).toMatch(/\bmx-3\b/);
+  expect(box(composerWith())).not.toContain("border-0");
+  expect(box(plainForm())).toContain("border-0");
+});
+
+test("the poll and the tags come under the text, as on XenForo's page", () => {
+  const html = composerWith({ canTag: true, canPoll: true });
+  const body = html.indexOf('name="body"');
+  expect(html.indexOf("Add a poll or quiz")).toBeGreaterThan(body);
+  expect(html.indexOf('name="tags"')).toBeGreaterThan(
+    html.indexOf("Add a poll or quiz"),
+  );
+  // And above the bottom row with Post thread.
+  expect(html.indexOf('name="tags"')).toBeLessThan(
+    html.indexOf('type="submit"'),
+  );
+});

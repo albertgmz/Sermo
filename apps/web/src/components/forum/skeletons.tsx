@@ -183,8 +183,8 @@ export function EditorSkeleton({
   );
 }
 
-// The composer of a thread as a page: close and Post, the forum chip, the title, the text and the
-// bar of tools.
+// The composer of a thread as a page: close, the forum chip, the title row, the editor's box and
+// the bottom row.
 export function ComposerSkeleton() {
   return (
     <div aria-hidden="true" className={COMPOSER_PAGE_CLASS}>
@@ -192,10 +192,10 @@ export function ComposerSkeleton() {
         <Skeleton className="size-10" />
         <Skeleton className="h-10 w-20 rounded-full" />
       </div>
-      <div className="flex-1 space-y-3 p-3">
+      <div className="flex-1 space-y-3 p-3 md:p-4">
         <Skeleton className="h-10 w-44 rounded-full" />
-        <Skeleton className="h-8 w-3/4" />
-        <TextSkeleton />
+        <Skeleton className="h-11 w-full rounded-[9px] md:h-12" />
+        <Skeleton className="h-64 w-full rounded-[9px]" />
       </div>
       <div className="flex items-center gap-2 border-t p-2">
         <Skeleton className="size-10" />
