@@ -89,7 +89,9 @@ function namedBody(
  * module passes the site default when the member has none). The body names the member who acted
  * and the place (thread, direct message or wall) where the notice has them; staff and system
  * notices keep their general text. Phrases receive the thread title, the site name and the
- * notice's actor count (grouped notices pluralize on it).
+ * notice's actor count (grouped notices pluralize on it). The names are not checked against what
+ * the recipient may see: call it only after the push job has confirmed the recipient can see the
+ * content (`visibleContent`), as `registerPushJobs` does.
  */
 export function notificationPushPhrase(ctx: Ctx): PushPhraseRenderer {
   return (item, language) => {

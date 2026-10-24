@@ -474,6 +474,41 @@ describe("push text names the member and the place", () => {
     expect(body).toBe("A member wrote in one of your direct messages.");
   });
 
+  test("a direct message title is not given to a member who left, in Spanish too", async () => {
+    const f = await fixture();
+    await execute(f.ctx, conversationsLeaveOp, userActor(f.recipient), {
+      conversationId: f.conversationId,
+    });
+    const body = render(f, "es", {
+      type: "conversation.added",
+      contentType: "conversation",
+      contentId: f.conversationId,
+      actors: [f.fulano],
+    });
+    expect(body).not.toContain("Plans");
+    expect(body).toBe("Te añadieron a un mensaje directo.");
+  });
+
+  test("a thread that is gone keeps the generic text and names no title, in English and Spanish", async () => {
+    const f = await fixture();
+    const gone = { type: "node.post", contentType: "post", contentId: 999_999, threadId: 999_999 };
+    const notice = { ...gone, actors: [f.zutano] };
+    expect(render(f, "en", notice)).toBe("There is a new post in a forum you follow, in .");
+    expect(render(f, "es", notice)).toBe("Hay una publicación nueva en un foro que sigues, en .");
+  });
+
+  test("a wall post that is gone keeps the generic text and names no wall owner, in English and Spanish", async () => {
+    const f = await fixture();
+    const notice = {
+      type: "content.mentioned",
+      contentType: "profile_post",
+      contentId: 999_999,
+      actors: [f.fulano],
+    };
+    expect(render(f, "en", notice)).toBe("A member mentioned you.");
+    expect(render(f, "es", notice)).toBe("Un miembro te mencionó.");
+  });
+
   test("a notice without a member behind it keeps its generic text", async () => {
     const f = await fixture();
     expect(
