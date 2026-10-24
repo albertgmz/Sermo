@@ -21,6 +21,22 @@ export function claimPanel(id: string) {
   for (const [other, close] of closers) if (other !== id) close();
 }
 
+// Escape closes the form when pressed in it and nothing took it first. A popup of the form drawn in a
+// portal (a Base UI select or menu) still sends its keys through the form in React, so a key whose
+// element is outside the form's box is left to that popup.
+export function escapeCloses(event: {
+  key: string;
+  defaultPrevented: boolean;
+  target: EventTarget | null;
+  currentTarget: { contains: (node: Node | null) => boolean };
+}) {
+  return (
+    event.key === "Escape" &&
+    !event.defaultPrevented &&
+    event.currentTarget.contains(event.target as Node | null)
+  );
+}
+
 const FIELD =
   'input:not([type="hidden"]):not([type="file"]):not([type="radio"]):not([type="checkbox"]), textarea, select';
 
@@ -67,7 +83,7 @@ export function useInlinePanel() {
         box.current = node;
       },
       onKeyDown: (event: React.KeyboardEvent) => {
-        if (event.key !== "Escape" || event.defaultPrevented) return;
+        if (!escapeCloses(event)) return;
         event.preventDefault();
         close();
       },

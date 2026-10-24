@@ -4,13 +4,13 @@ import {
   expectFits,
   MEMBER_STATE,
   ready,
-  rejectCookies,
   seed,
   test,
   unique,
   visit,
 } from "./fixtures";
 
+// The member's saved session has answered the cookie banner already: it does not show.
 test.use({ storageState: MEMBER_STATE });
 
 // Delete and Report open over the page as XenForo's overlays: the focus goes to the reason, Escape,
@@ -28,7 +28,6 @@ test("Report opens a dialog over the page that takes the focus and hands it back
 }) => {
   const { peerThreadId } = seed();
   await visit(page, `/threads/${peerThreadId}`);
-  await rejectCookies(page);
   await ready(page);
   const report = page
     .getByRole("article")
@@ -80,7 +79,6 @@ test("Delete opens the delete dialog over the page, and deletes from it", async 
   expect(reply.ok(), "the reply is posted").toBe(true);
   const { id } = (await reply.json()) as { id: number };
   await visit(page, `/posts/${id}`);
-  await rejectCookies(page);
   await ready(page);
   const remove = page
     .locator(`#post-${id}`)
@@ -116,7 +114,6 @@ test("Edit tags and the poll editor open in place on their first field, one at a
   expect(made.ok(), "the thread is made").toBe(true);
   const { thread } = (await made.json()) as { thread: { id: number } };
   await visit(page, `/threads/${thread.id}`);
-  await rejectCookies(page);
   await ready(page);
   const addTags = page.getByRole("button", { name: "Add tags" });
   const tags = page.getByRole("textbox", { name: "Tags" });
