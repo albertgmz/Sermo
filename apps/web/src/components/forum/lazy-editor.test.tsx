@@ -107,7 +107,6 @@ test("the composers reach the editor's code only through the import made once th
     "components/forum/line-composer.tsx",
     "components/forum/composer-buttons.tsx",
     "app/[locale]/(main)/members/post-composer.tsx",
-    "app/[locale]/(main)/conversations/[id]/reply-form.tsx",
     "app/[locale]/(main)/threads/[id]/reply-composer.tsx",
   ]) {
     const imports = source(path).match(/^import (?!type )[^;]*;/gm) ?? [];

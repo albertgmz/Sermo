@@ -3,12 +3,35 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 
-mock.module("@/app/[locale]/(main)/conversations/[id]/reply-form", () => ({
-  ReplyForm: (props: { canAttach?: boolean }) =>
-    createElement("form", {
+// The conversation's sends, which the page binds to the conversation it answers.
+const sent: string[] = [];
+mock.module("@/app/[locale]/(main)/conversations/actions", () => ({
+  replyAction: async (id: number) => {
+    sent.push(`to conversation ${id}`);
+    return {};
+  },
+}));
+mock.module("@/app/[locale]/(main)/conversations/reply-in-place", () => ({
+  replyInPlace: async (id: number) => {
+    sent.push(`in place to conversation ${id}`);
+    return {};
+  },
+}));
+// The thread's quick reply, which the conversation uses, as it is handed its props.
+type ComposerProps = {
+  files: object | null;
+  replyInPlace: (data: FormData) => Promise<unknown>;
+  replyAction: (previous: object, data: FormData) => Promise<unknown>;
+};
+let composer: ComposerProps | undefined;
+mock.module("@/app/[locale]/(main)/threads/[id]/reply-composer", () => ({
+  ReplyComposer: (props: ComposerProps) => {
+    composer = props;
+    return createElement("form", {
       id: "reply-form",
-      "data-attach": String(props.canAttach),
-    }),
+      "data-attach": String(props.files !== null),
+    });
+  },
 }));
 
 const { LockedBadge, ReplyArea } = await import("./locked-state");
@@ -68,6 +91,18 @@ test("a moderator of a locked conversation sees the note above the form", () => 
 test("the form is told whether files may be attached", () => {
   expect(draw({}, false)).toContain('data-attach="false"');
   expect(draw({}, true)).toContain('data-attach="true"');
+});
+
+test("the form is the thread's quick reply, sending to this conversation", async () => {
+  composer = undefined;
+  sent.length = 0;
+  draw({});
+  // Set by the stand-in while drawing, which the compiler cannot follow.
+  const props = composer as ComposerProps | undefined;
+  if (!props) throw new Error("no reply form was drawn");
+  await props.replyInPlace(new FormData());
+  await props.replyAction({}, new FormData());
+  expect(sent).toEqual(["in place to conversation 7", "to conversation 7"]);
 });
 
 test("anyone else sees the note instead of the form", () => {

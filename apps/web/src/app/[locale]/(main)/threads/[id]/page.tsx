@@ -16,6 +16,8 @@ import {
   tailKey,
 } from "@/app/[locale]/(main)/threads/[id]/thread-posts";
 import { ThreadTools } from "@/app/[locale]/(main)/threads/[id]/thread-tools";
+import { replyAction } from "@/app/[locale]/(main)/threads/actions";
+import { replyInPlace } from "@/app/[locale]/(main)/threads/reply-in-place";
 import { Art } from "@/components/forum/art";
 import { EmptyState } from "@/components/forum/empty-state";
 import { JsonLd } from "@/components/forum/json-ld";
@@ -117,7 +119,7 @@ export default async function ThreadPage({
     searchParams,
   ]);
   const id = threadIdOf(raw);
-  const [found, { user }, bookmarks, t] = await Promise.all([
+  const [found, { user }, bookmarks, t, tReply] = await Promise.all([
     getThread(id),
     getViewer(),
     // Settled by the same request-wide viewer read; guests ask nothing.
@@ -125,6 +127,7 @@ export default async function ThreadPage({
       viewer ? bookmarkedAmong("thread", [id]) : null,
     ),
     getTranslations("threads.page"),
+    getTranslations("threads.replyComposer"),
   ]);
   const { thread, tags, poll, node, permissions, watching, featured } = found;
   const page = pageNumber(pageParam);
@@ -244,9 +247,12 @@ export default async function ThreadPage({
               )}
               <ReplyComposer
                 key={thread.lastPost.postId}
-                threadId={thread.id}
+                replyInPlace={replyInPlace.bind(null, thread.id)}
+                replyAction={replyAction.bind(null, thread.id)}
                 tailKey={tailKey(thread.id)}
-                attachIn={may.attach ? node.id : null}
+                files={may.attach ? { nodeId: node.id } : null}
+                placeholder={tReply("placeholder")}
+                submitLabel={tReply("submit")}
               />
             </>
           ) : user ? (

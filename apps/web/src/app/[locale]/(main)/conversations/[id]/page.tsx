@@ -185,7 +185,7 @@ export default async function ConversationPage({
           </Suspense>
         </div>
 
-        {/* Where a message's Reply takes the member, with the message quoted in the editor. */}
+        {/* Where a message's Reply takes the member, and its Quote puts the message in the editor. */}
         <section
           id="reply"
           aria-label={t("aria.reply")}

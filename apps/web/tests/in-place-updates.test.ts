@@ -62,10 +62,7 @@ test("every follow button of a member and every control of an item shares one ke
 });
 
 test("the reply forms show the text at once through the tail and keep a refused one", () => {
-  for (const file of [
-    "app/[locale]/(main)/conversations/[id]/reply-form.tsx",
-    "app/[locale]/(main)/threads/[id]/reply-composer.tsx",
-  ]) {
+  for (const file of ["app/[locale]/(main)/threads/[id]/reply-composer.tsx"]) {
     const code = source(file);
     expect(code, file).toContain("useTailForm(");
     expect(code, file).toContain("replyInPlace");

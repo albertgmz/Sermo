@@ -109,7 +109,6 @@ export const CLIENT_NAMESPACES = [
   "skeletons.skeletons",
   "threads.editForm",
   "threads.moderation",
-  "threads.replyComposer",
   "ui.bookmark",
   "ui.dialog",
   "ui.iconPicker",

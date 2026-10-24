@@ -2,7 +2,9 @@ import type { conversationsGet } from "@sermo/core/contracts";
 import { Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type * as z from "zod";
-import { ReplyForm } from "@/app/[locale]/(main)/conversations/[id]/reply-form";
+import { replyAction } from "@/app/[locale]/(main)/conversations/actions";
+import { replyInPlace } from "@/app/[locale]/(main)/conversations/reply-in-place";
+import { ReplyComposer } from "@/app/[locale]/(main)/threads/[id]/reply-composer";
 import { PostNote } from "@/components/forum/post-frame";
 
 type Conversation = z.output<typeof conversationsGet.output>;
@@ -23,10 +25,11 @@ export function LockedBadge() {
 export function ReplyArea({
   conversation,
   tailKey,
-  canAttach,
+  canAttach = true,
 }: {
   conversation: Conversation;
   tailKey: string;
+  // Whether the viewer's groups allow attaching files to messages (`conversation.attach`).
   canAttach?: boolean;
 }) {
   const t = useTranslations("conversations.conversation");
@@ -43,12 +46,14 @@ export function ReplyArea({
           {t("lockedNote")}
         </PostNote>
       )}
-      <ReplyForm
-        conversationId={conversation.id}
+      {/* The thread's quick reply; a conversation's files are uploaded without a forum. */}
+      <ReplyComposer
+        replyInPlace={replyInPlace.bind(null, conversation.id)}
+        replyAction={replyAction.bind(null, conversation.id)}
         tailKey={tailKey}
+        files={canAttach ? {} : null}
         placeholder={t("placeholder")}
         submitLabel={t("submit")}
-        canAttach={canAttach}
       />
     </>
   );

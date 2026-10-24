@@ -42,9 +42,6 @@ mock.module("@/components/forum/lazy-editor", () => ({
   },
 }));
 
-const { ReplyForm } = await import(
-  "@/app/[locale]/(main)/conversations/[id]/reply-form"
-);
 const { NewConversationForm } = await import(
   "@/app/[locale]/(main)/conversations/new/new-conversation-form"
 );
@@ -70,17 +67,22 @@ const composers: Array<[string, () => React.ReactElement]> = [
     "a thread's reply",
     () =>
       createElement(ReplyComposer, {
-        threadId: 3,
+        replyInPlace: nothing,
+        replyAction: nothing,
         tailKey: "thread:3",
-        attachIn: null,
+        files: null,
+        placeholder: "Write your reply…",
+        submitLabel: "Post reply",
       }),
   ],
   [
     "a conversation's reply",
     () =>
-      createElement(ReplyForm, {
-        conversationId: 7,
+      createElement(ReplyComposer, {
+        replyInPlace: nothing,
+        replyAction: nothing,
         tailKey: "conversation:7",
+        files: {},
         placeholder: "Write a message…",
         submitLabel: "Send message",
       }),

@@ -6,9 +6,7 @@ export default function ThreadLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClientMessages
-      namespaces={["threads.moderation", "threads.replyComposer"]}
-    >
+    <ClientMessages namespaces={["threads.moderation"]}>
       {children}
     </ClientMessages>
   );

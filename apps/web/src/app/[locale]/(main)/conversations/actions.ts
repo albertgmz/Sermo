@@ -36,7 +36,7 @@ export async function replyAction(
   redirect(`/conversations/${conversationId}`);
 }
 
-// What a message's Reply puts in the editor: its author and its BB code source, which the backend
+// What a message's Quote puts in the editor: its author and its BB code source, which the backend
 // gives a participant for a visible message. A refusal (a message deleted meanwhile) quotes nothing.
 export async function quoteMessageSource(messageId: number) {
   requireIds(messageId);

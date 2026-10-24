@@ -166,7 +166,7 @@
     },
     "editDraft": {
       "title": "Edición llevada a la página de edición",
-      "purpose": "Guarda lo que escribiste en el editor de un mensaje del tema al pulsar «Más opciones…», para que la página de edición se abra con ello; esa página lo lee una vez y lo borra.",
+      "purpose": "Guarda lo que escribiste en el editor de un mensaje de un tema o de un mensaje directo al pulsar «Más opciones…», para que la página de edición se abra con ello; esa página lo lee una vez y lo borra.",
       "lifetime": "Hasta que se abre la página de edición o cierras la pestaña."
     },
     "pushOwner": {

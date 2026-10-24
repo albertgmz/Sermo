@@ -171,8 +171,8 @@ export const INVENTORY: readonly InventoryItem[] = [
     party: "first",
   },
   {
-    // What a post's editor in a thread held when "More options" opened the edit page, read once
-    // by that page.
+    // What the editor of a post in a thread, or of a message in a conversation, held when "More
+    // options" opened the edit page, read once by that page.
     id: "editDraft",
     category: "necessary",
     storage: "sessionStorage",

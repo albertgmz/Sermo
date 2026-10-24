@@ -166,7 +166,7 @@
     },
     "editDraft": {
       "title": "Edit carried to the edit page",
-      "purpose": "Keeps what you wrote in a post's editor in a thread when you press “More options…”, so the edit page opens with it; the edit page reads it once and removes it.",
+      "purpose": "Keeps what you wrote in the editor of a post in a thread, or of a message in a direct message, when you press “More options…”, so the edit page opens with it; the edit page reads it once and removes it.",
       "lifetime": "Until the edit page opens, or you close the tab."
     },
     "pushOwner": {
