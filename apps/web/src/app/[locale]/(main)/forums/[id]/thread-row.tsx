@@ -1,7 +1,9 @@
 import { Eye, Lock, MessageCircle, Pin } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useLocale, useNow, useTranslations } from "next-intl";
+import { pageCount } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { Art } from "@/components/forum/art";
+import { ThreadPageLinks } from "@/components/forum/page-nav";
 import { PollBadge } from "@/components/forum/poll-badge";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
@@ -120,6 +122,10 @@ export function ThreadRow({
               time: format.relativeTime(new Date(thread.createdAt), now),
             })}
           </p>
+          <ThreadPageLinks
+            threadId={thread.id}
+            pages={pageCount(thread.lastPost.position)}
+          />
         </div>
       </div>
       <dl className="flex shrink-0 flex-col items-end gap-1 text-xs text-muted-foreground tabular-nums sm:flex-row sm:gap-0">

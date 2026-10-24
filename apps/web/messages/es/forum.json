@@ -395,6 +395,14 @@
     "retry": "Reintentar",
     "newRows": "{more, select, true {{count}+ publicaciones nuevas} other {{count, plural, one {# publicación nueva} other {# publicaciones nuevas}}}} — mostrar"
   },
+  "pageNav": {
+    "label": "Páginas",
+    "previous": "Ant.",
+    "next": "Sig.",
+    "goTo": "Ir a la página",
+    "go": "Ir",
+    "page": "Página {page}"
+  },
   "poll": {
     "pollLabel": "Encuesta",
     "quizLabel": "Cuestionario",

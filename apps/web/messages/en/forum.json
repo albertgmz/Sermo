@@ -395,6 +395,14 @@
     "retry": "Try again",
     "newRows": "{more, select, true {{count}+ new posts} other {{count, plural, one {# new post} other {# new posts}}}} — show"
   },
+  "pageNav": {
+    "label": "Pages",
+    "previous": "Prev",
+    "next": "Next",
+    "goTo": "Go to page",
+    "go": "Go",
+    "page": "Page {page}"
+  },
   "poll": {
     "pollLabel": "Poll",
     "quizLabel": "Quiz",

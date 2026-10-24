@@ -4,6 +4,7 @@ import {
   expectHeaderOnScreen,
   phoneWidth,
   rejectCookies,
+  screen,
   seed,
   test,
   visit,
@@ -104,21 +105,75 @@ test("a thread of three pages: the first page, the last page and back @all", asy
   const { threadId } = seed();
   await visit(page, `/threads/${threadId}`);
   await rejectCookies(page);
-  const pages = page.getByRole("navigation", { name: "Pages" });
-  await expect(pages.getByText(/Page 1 of \d+/)).toBeVisible();
-  const total = Number((await pages.innerText()).match(/of (\d+)/)?.[1]);
+  // The pager below the posts (a phone shows only that one, as XenForo does).
+  const pages = page.getByRole("navigation", { name: "Pages" }).last();
+  const current = pages.locator('[aria-current="page"]');
+  await expect(current).toHaveText("1");
+  const total = Number(await pages.getByRole("listitem").last().innerText());
   expect(total).toBeGreaterThan(1);
   await expectFits(page, "first page");
 
   for (let step = 1; step < total; step += 1) {
     await pages.getByRole("link", { name: "Next" }).click();
-    await expect(pages.getByText(`Page ${step + 1} of ${total}`)).toBeVisible();
+    await expect(current).toHaveText(String(step + 1));
   }
   await expect(pages.getByRole("link", { name: "Next" })).toHaveCount(0);
   await expect(page.getByRole("article").last()).toBeVisible();
   await expectFits(page, "last page");
 
-  await pages.getByRole("link", { name: "Previous" }).click();
-  await expect(pages.getByText(`Page ${total - 1} of ${total}`)).toBeVisible();
+  await pages.getByRole("link", { name: "Prev" }).click();
+  await expect(current).toHaveText(String(total - 1));
   await expectFits(page, "previous page");
+});
+
+// The pager turns the posts in place: the screen is not loaded again (what the page holds in
+// memory stays), the address names the page, and Back and Forward show the page they name.
+test("a page number changes the posts in place, and Back and Forward follow the address @all", async ({
+  page,
+}) => {
+  const { threadId } = seed();
+  await visit(page, `/threads/${threadId}`);
+  await rejectCookies(page);
+  const pages = page.getByRole("navigation", { name: "Pages" }).last();
+  const current = pages.locator('[aria-current="page"]');
+  const firstPost = await page.getByRole("article").first().innerText();
+  await page.evaluate(() => {
+    (window as unknown as { kept: boolean }).kept = true;
+  });
+
+  await pages.getByRole("link", { name: "2", exact: true }).click();
+  await expect(current).toHaveText("2");
+  await expect(page).toHaveURL(new RegExp(`/threads/${threadId}\\?page=2$`));
+  await expect(page.getByRole("article").first()).not.toHaveText(firstPost);
+  // The posts start at the top of the screen.
+  const top = await page
+    .getByRole("article")
+    .first()
+    .evaluate((element) => element.getBoundingClientRect().top);
+  expect(top).toBeLessThan(screen(page).height);
+  await expectFits(page, "page two in place");
+
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/threads/${threadId}$`));
+  await expect(current).toHaveText("1");
+  await expect(page.getByRole("article").first()).toHaveText(firstPost);
+  await page.goForward();
+  await expect(current).toHaveText("2");
+  // Nothing of it loaded the screen again.
+  expect(
+    await page.evaluate(() => (window as unknown as { kept?: boolean }).kept),
+  ).toBe(true);
+});
+
+test.describe("without scripts", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("the pager's page numbers are plain links @all", async ({ page }) => {
+    const { threadId } = seed();
+    await page.goto(`/threads/${threadId}`);
+    const pages = page.getByRole("navigation", { name: "Pages" }).last();
+    await pages.getByRole("link", { name: "2", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/threads/${threadId}\\?page=2$`));
+    await expect(pages.locator('[aria-current="page"]')).toHaveText("2");
+  });
 });

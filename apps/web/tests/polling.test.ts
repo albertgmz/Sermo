@@ -62,7 +62,7 @@ test("the polling screens use the one hook, at their interval", () => {
   expect(source("app/[locale]/(main)/conversations/[id]/page.tsx")).toContain(
     "intervalMs={POLL_MS.messages}",
   );
-  expect(source("app/[locale]/(main)/threads/[id]/page.tsx")).toContain(
+  expect(source("app/[locale]/(main)/threads/[id]/thread-posts.tsx")).toContain(
     "intervalMs={POLL_MS.thread}",
   );
   expect(source("app/[locale]/(main)/novedades/page.tsx")).toContain(
@@ -82,7 +82,7 @@ test("nothing polls with a timer of its own", () => {
 });
 
 test("the thread asks again only for the last page, and the counters only for a signed-in member", () => {
-  const thread = source("app/[locale]/(main)/threads/[id]/page.tsx");
+  const thread = source("app/[locale]/(main)/threads/[id]/thread-posts.tsx");
   expect(thread).toMatch(/page >= pages/);
   expect(thread).toContain("!cursor");
   expect(source("app/[locale]/(main)/layout.tsx")).toMatch(

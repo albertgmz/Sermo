@@ -18,7 +18,6 @@
       "loadingPosts": "Loading posts…",
       "reply": "Reply",
       "attachments": "Attachments",
-      "pages": "Pages",
       "pictures": "Pictures",
       "media": "Video and audio"
     },
@@ -32,9 +31,6 @@
     "lockedModerators": "This thread is locked. Only moderators can reply.",
     "cannotReply": "You cannot reply to this thread.",
     "contentClosed": "The posts of this forum are not open to you. Only the title is shown.",
-    "pagination": "Page {page} of {pages}",
-    "previous": "Previous",
-    "next": "Next",
     "openPicture": "Attached picture {position} of {total}",
     "restore": "Restore",
     "approve": "Approve",

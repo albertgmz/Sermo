@@ -18,7 +18,6 @@
       "loadingPosts": "Cargando mensajes…",
       "reply": "Responder",
       "attachments": "Adjuntos",
-      "pages": "Páginas",
       "pictures": "Imágenes",
       "media": "Vídeo y audio"
     },
@@ -32,9 +31,6 @@
     "lockedModerators": "Este tema está cerrado. Solo los moderadores pueden responder.",
     "cannotReply": "No puedes responder a este tema.",
     "contentClosed": "Los mensajes de este foro no están abiertos para ti. Solo se muestra el título.",
-    "pagination": "Página {page} de {pages}",
-    "previous": "Anterior",
-    "next": "Siguiente",
     "openPicture": "Imagen adjunta {position} de {total}",
     "restore": "Restaurar",
     "approve": "Aprobar",

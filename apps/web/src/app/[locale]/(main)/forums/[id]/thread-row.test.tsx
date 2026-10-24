@@ -112,3 +112,29 @@ test("a member's links to a thread open where they left off and a guest's open i
     new Set(["/threads/7"]),
   );
 });
+
+test("a thread of several pages links to its last pages beside the title, as XenForo's list does", async () => {
+  const base = thread(null);
+  const long = {
+    ...base,
+    lastPost: { ...base.lastPost, position: 64 },
+  } as typeof base;
+  const html = await draw(
+    <ThreadRow thread={long} member={member} highlighted={false} signedIn />,
+  );
+  const hrefs = [...html.matchAll(/href="(\/threads\/[^"]*)"/g)].map(
+    (found) => found[1],
+  );
+  // The title opens where the member left off; the page links open their page.
+  expect(new Set(hrefs)).toEqual(
+    new Set([
+      "/threads/7/unread",
+      "/threads/7?page=2",
+      "/threads/7?page=3",
+      "/threads/7?page=4",
+    ]),
+  );
+  expect(html).toContain('aria-label="Page 4"');
+  // A thread of one page has none.
+  expect(await row(null, true)).not.toContain("?page=");
+});
