@@ -1,4 +1,4 @@
-import { AppPrompts } from "@/components/layout/app-prompts";
+import { LazyAppPrompts } from "@/components/layout/app-prompts-lazy";
 import { AppIcon } from "@/components/layout/logo";
 import { getPushKey } from "@/lib/sermo/push";
 import { getViewer } from "@/lib/sermo/session";
@@ -16,7 +16,7 @@ export async function AppPromptsGate() {
     getSite(),
   ]);
   return (
-    <AppPrompts
+    <LazyAppPrompts
       member={
         user && !user.awaitingApproval
           ? {
