@@ -255,6 +255,22 @@ export const notificationsMarkReadOp = implement(
   },
 );
 
+export const notificationsMarkViewedOp = implement(
+  contracts.notificationsMarkViewed,
+  (ctx, actor) => {
+    requirePermission(ctx, actor, "notification.view");
+    const userId = requireAuthenticated(actor).userId;
+    return writeTx(ctx, () => {
+      prepared(ctx, "notifications.markViewed", () =>
+        ctx.sqlite.prepare<unknown, [number, number]>(
+          "UPDATE users SET alerts_viewed_at = max(alerts_viewed_at, ?1) WHERE id = ?2",
+        ),
+      ).run(ctx.now(), userId);
+      return { ok: true as const };
+    });
+  },
+);
+
 /**
  * A type's channel defaults as delivery applies them. For watch types, email with no stored
  * preference is on (the watch's own email flag decides), so an admin email default for a watch
@@ -431,6 +447,7 @@ export const announcementsCreateOp = implement(
 export const operations = [
   notificationsListOp,
   notificationsMarkReadOp,
+  notificationsMarkViewedOp,
   notificationsTypesOp,
   notificationsPreferencesOp,
   notificationsSetPreferencesOp,

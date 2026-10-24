@@ -505,6 +505,13 @@
       "when": 1792640114457,
       "tag": "0071_smilies",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1792811413380,
+      "tag": "0072_alerts_viewed",
+      "breakpoints": true
     }
   ]
 }

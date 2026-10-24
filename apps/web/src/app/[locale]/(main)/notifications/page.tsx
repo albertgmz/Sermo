@@ -1,6 +1,7 @@
 import { Bell, CheckCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { AlertsViewed } from "@/app/[locale]/(main)/notifications/alerts-viewed";
 import { MarkAllReadForm } from "@/app/[locale]/(main)/notifications/mark-all-read";
 import { moreNotifications } from "@/app/[locale]/(main)/notifications/more-notifications";
 import { notificationsPage } from "@/app/[locale]/(main)/notifications/notification-page";
@@ -30,6 +31,7 @@ export default async function NotificationsPage({
 
   return (
     <PageLayout>
+      <AlertsViewed />
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">

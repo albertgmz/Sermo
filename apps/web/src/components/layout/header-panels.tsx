@@ -31,7 +31,7 @@ export function ConversationsFooter() {
   );
 }
 
-export function AlertsFooter({ unread }: { unread: number }) {
+export function AlertsFooter() {
   const t = useTranslations("layout.headerPanels.alerts");
   return (
     <div className={footerClass}>
@@ -41,7 +41,6 @@ export function AlertsFooter({ unread }: { unread: number }) {
       <MarkAllReadForm
         variant="ghost"
         size="sm"
-        unread={unread}
         className="h-8 text-xs text-muted-foreground"
       >
         <CheckCheck />

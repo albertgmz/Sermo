@@ -13,6 +13,7 @@ export interface ApiRoute {
 const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["GET", "/notifications", "notifications.list"],
   ["PUT", "/notifications/read", "notifications.markRead"],
+  ["PUT", "/notifications/viewed", "notifications.markViewed"],
   ["GET", "/notifications/preferences", "notifications.preferences"],
   ["PUT", "/notifications/preferences", "notifications.setPreferences"],
   ["GET", "/notifications/types", "notifications.types"],

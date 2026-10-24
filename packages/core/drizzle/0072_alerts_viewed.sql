@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `alerts_viewed_at` integer DEFAULT 0 NOT NULL;

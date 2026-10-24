@@ -1,6 +1,9 @@
 "use server";
 
-import { notificationsMarkRead } from "@sermo/core/contracts";
+import {
+  notificationsMarkRead,
+  notificationsMarkViewed,
+} from "@sermo/core/contracts";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { requireIds } from "@/lib/sermo/ids";
@@ -26,5 +29,17 @@ export async function markOneRead(id: number) {
     await call(notificationsMarkRead, { ids: [id] });
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
+  }
+}
+
+// Called when the alerts are opened. Nothing is revalidated: the badge is emptied in the browser.
+// Whether the backend took it.
+export async function markAlertsViewed() {
+  try {
+    await call(notificationsMarkViewed, {});
+    return true;
+  } catch (error) {
+    if (!(error instanceof SermoError)) throw error;
+    return false;
   }
 }

@@ -10,6 +10,20 @@ const keyOf = (kind: CounterKind) => `counter:${kind}`;
 export const useCounter = (kind: CounterKind, drawn: number, props: object) =>
   useItemState(keyOf(kind), drawn, props);
 
+// What the layout last drew (kept by the counters poll), so a count emptied in the browser is
+// held against the number every badge was drawn with.
+let layoutDrawn: Record<CounterKind, number> | undefined;
+
+export function rememberDrawn(drawn: Record<CounterKind, number>) {
+  layoutDrawn = drawn;
+}
+
+// The alerts were opened: every alerts badge shows none until the server draws a count again.
+export function clearAlertsBadge() {
+  if (layoutDrawn)
+    setItemState(keyOf("notifications"), layoutDrawn.notifications, 0);
+}
+
 export function publishCounters(
   drawn: Record<CounterKind, number>,
   found: Record<CounterKind, number>,

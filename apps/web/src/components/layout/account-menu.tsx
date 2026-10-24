@@ -58,7 +58,7 @@ export async function AccountMenu({
       <InboxPanel
         kind="alerts"
         unread={unread.notifications}
-        footer={<AlertsFooter unread={unread.notifications} />}
+        footer={<AlertsFooter />}
         className={inboxClassName}
       />
       <UserMenu

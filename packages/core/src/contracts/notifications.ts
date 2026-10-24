@@ -1,8 +1,9 @@
 /**
  * Notifications. Routes: GET /notifications (notifications.list), PUT /notifications/read
- * (notifications.markRead), GET /notifications/preferences (notifications.preferences),
- * PUT /notifications/preferences (notifications.setPreferences), GET /notifications/types
- * (notifications.types), POST /announcements (announcements.create).
+ * (notifications.markRead), PUT /notifications/viewed (notifications.markViewed), GET
+ * /notifications/preferences (notifications.preferences), PUT /notifications/preferences
+ * (notifications.setPreferences), GET /notifications/types (notifications.types), POST
+ * /announcements (announcements.create).
  */
 import * as z from "zod";
 import { defineContract } from "../operation";
@@ -72,6 +73,17 @@ export const notificationsMarkRead = defineContract({
     all: z.boolean().default(false),
   }),
   output: z.object({ unreadCount: z.number().int().nonnegative() }),
+});
+
+export const notificationsMarkViewed = defineContract({
+  name: "notifications.markViewed",
+  summary:
+    "Mark your alerts viewed, as opening the alerts menu does: the alerts count of " +
+    "auth.counters drops to zero and counts again only alerts that arrive or change after this. " +
+    "No alert is marked read.",
+  kind: "write",
+  input: z.object({}),
+  output: Ok,
 });
 
 export const ChannelPreference = z

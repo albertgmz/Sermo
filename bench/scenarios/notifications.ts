@@ -2,6 +2,7 @@ import { dispatchEvents, encodeCursor, registerNotificationJobs, runDueJobs } fr
 import type { BenchEnv, Scenario } from "../harness";
 
 let heavy = 0;
+let viewedHeavy = 0;
 let deepCursor = "";
 let hotAuthor = 0;
 let background: Promise<void> | null = null;
@@ -89,6 +90,32 @@ export const scenarios: Scenario[] = [
         .get(id);
       if (!row) throw new Error("Mark-one needs an unread notification.");
       return env.call("notifications.markRead", env.actors.user(id), { ids: [row.id] });
+    },
+  },
+  {
+    name: "notifications.markViewed",
+    kind: "write",
+    run(env) {
+      return env.call(
+        "notifications.markViewed",
+        env.actors.user(env.meta.notificationHeavyUserIds[3]!),
+        {},
+      );
+    },
+  },
+  {
+    name: "auth.counters after the alerts were opened (heavy member, a year of alerts since)",
+    kind: "read",
+    setup(env) {
+      viewedHeavy = env.meta.notificationHeavyUserIds[1]!;
+      env.ctx.sqlite
+        .prepare(
+          "UPDATE users SET alerts_viewed_at = (SELECT min(updated_at) FROM notifications WHERE user_id = ?1) - 1 WHERE id = ?1",
+        )
+        .run(viewedHeavy);
+    },
+    run(env) {
+      return env.call("auth.counters", env.actors.user(viewedHeavy), {});
     },
   },
   {

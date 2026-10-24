@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { readCounters } from "@/components/layout/counters-action";
-import { publishCounters } from "@/lib/counters";
+import { publishCounters, rememberDrawn } from "@/lib/counters";
 import { POLL_MS } from "@/lib/poll-intervals";
 import { usePolling } from "@/lib/polling";
 
@@ -12,6 +13,9 @@ export function CountersPoll({
 }: {
   drawn: { conversations: number; notifications: number };
 }) {
+  useEffect(() => {
+    rememberDrawn(drawn);
+  }, [drawn]);
   usePolling(
     async () => {
       const found = await readCounters();

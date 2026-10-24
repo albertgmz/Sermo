@@ -1275,6 +1275,12 @@ The weekly digest uses the type id `digest.weekly` here (email on by default).
 - **Mark read.** `PUT /notifications/read` (`notifications.markRead`) takes up to 100 `ids`, or
   `{ "all": true }`, which sets the unread count to zero at once and marks older rows in the
   background.
+- **Viewed.** `PUT /notifications/viewed` (`notifications.markViewed`) is what opening the alerts
+  menu or the alerts page does: the count `auth.counters` returns for notifications drops to zero
+  and counts again only alerts that arrive or change afterwards. No alert is marked read; unread
+  alerts stay highlighted until opened or marked read, and `notifications.list` still returns the
+  full unread count. The member's `alerts_viewed_at` marks the moment; nothing is rewritten per
+  alert.
 - **Retention.** Every hour, notifications that were read more than `notificationRetentionDays`
   ago (default 90) are deleted. Unread notifications are kept.
 

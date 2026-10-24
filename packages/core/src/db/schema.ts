@@ -256,6 +256,11 @@ export const users = sqliteTable(
     unreadNotificationCount: counter("unread_notification_count"),
     /** Bumped by "mark all read": unread notifications of older epochs count as read. */
     notificationEpoch: counter("notification_epoch"),
+    /**
+     * When the member last opened their alerts. The alerts badge counts the unread alerts updated
+     * after it; 0 (never opened) counts every unread one.
+     */
+    alertsViewedAt: integer("alerts_viewed_at").notNull().default(0),
     /** BCP 47 language tag; null uses the site default. */
     language: text("language"),
     watchOnCreate: text("watch_on_create", { enum: AUTO_WATCH_MODES }).notNull().default("watch"),
