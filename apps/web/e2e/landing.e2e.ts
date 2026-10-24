@@ -1,4 +1,5 @@
 import {
+  type APIRequestContext,
   type Browser,
   type Locator,
   type Page,
@@ -193,46 +194,50 @@ async function openAlerts(page: Page) {
   return '[role="dialog"]';
 }
 
+// The other member, signed in once per test: Better Auth allows three sign-ins per ten seconds
+// from one address, so one per alert would be refused.
+async function peerSession() {
+  const peer = await request.newContext({
+    baseURL: BASE_URL,
+    extraHTTPHeaders: { origin: new URL(BASE_URL).origin },
+  });
+  const signIn = await peer.post("/api/auth/sign-in/username", {
+    data: { username: PEER, password: PASSWORD },
+  });
+  if (!signIn.ok()) {
+    await peer.dispose();
+    throw new Error(`${PEER} could not sign in (${signIn.status()})`);
+  }
+  return peer;
+}
+
 // The header's panel lists only the newest few alerts, and the tests that ran before this one
 // leave newer alerts (deleted content, replies) above the ones the setup raised. So the other
 // member takes the reaction back and gives it again: the alert for the item is raised anew, and
 // the list is read until the panel's few rows hold it.
 const PANEL_ALERTS = 6;
-async function raiseAlert(page: Page, key: string) {
+async function raiseAlert(page: Page, peer: APIRequestContext, key: string) {
   const [contentType, contentId] = key.split(":");
-  const peer = await request.newContext({
-    baseURL: BASE_URL,
-    extraHTTPHeaders: { origin: new URL(BASE_URL).origin },
-  });
-  try {
-    const signIn = await peer.post("/api/auth/sign-in/username", {
-      data: { username: PEER, password: PASSWORD },
-    });
-    expect(signIn.ok(), `${PEER} signs in`).toBe(true);
-    const path = `/api/v1/reactions/${contentType}/${contentId}`;
-    const types = (await (await peer.get("/api/v1/reaction-types")).json()) as {
-      items: {
-        id: number;
-        isActive: boolean;
-        access: string;
-        forumIds?: number[] | null;
-      }[];
-    };
-    const like = types.items.find(
-      (type) =>
-        type.isActive && type.access === "open" && !type.forumIds?.length,
-    );
-    expect(like, "an open reaction type").toBeTruthy();
-    expect((await peer.delete(path)).ok(), `${PEER} takes ${key} back`).toBe(
-      true,
-    );
-    const given = await peer.put(path, {
-      data: { reactionTypeId: like?.id },
-    });
-    expect(given.ok(), `${PEER} reacts to ${key}`).toBe(true);
-  } finally {
-    await peer.dispose();
-  }
+  const path = `/api/v1/reactions/${contentType}/${contentId}`;
+  const types = (await (await peer.get("/api/v1/reaction-types")).json()) as {
+    items: {
+      id: number;
+      isActive: boolean;
+      access: string;
+      forumIds?: number[] | null;
+    }[];
+  };
+  const like = types.items.find(
+    (type) => type.isActive && type.access === "open" && !type.forumIds?.length,
+  );
+  expect(like, "an open reaction type").toBeTruthy();
+  // A write with a session must be JSON, also a DELETE (else 415): an empty object says so.
+  const taken = await peer.delete(path, { data: {} });
+  expect(taken.ok(), `${PEER} takes ${key} back (${taken.status()})`).toBe(
+    true,
+  );
+  const given = await peer.put(path, { data: { reactionTypeId: like?.id } });
+  expect(given.ok(), `${PEER} reacts to ${key} (${given.status()})`).toBe(true);
   await expect
     .poll(
       async () => {
@@ -300,16 +305,21 @@ test("an alert in the header's panel or the phone's alerts lands on its post, wa
 }) => {
   expectLongLists();
   const { landing } = seed();
-  for (const target of targets()) {
-    expect(landing.alerted, `an alert for the ${target.kind}`).toContain(
-      target.key,
-    );
-    await raiseAlert(page, target.key);
-    await page.goto("/");
-    await ready(page);
-    const rows = await openAlerts(page);
-    await visibleLink(page, `${rows} a[href="${target.href}"]`).click();
-    await expectLandedAt(page, drawn(page, target.id));
+  const peer = await peerSession();
+  try {
+    for (const target of targets()) {
+      expect(landing.alerted, `an alert for the ${target.kind}`).toContain(
+        target.key,
+      );
+      await raiseAlert(page, peer, target.key);
+      await page.goto("/");
+      await ready(page);
+      const rows = await openAlerts(page);
+      await visibleLink(page, `${rows} a[href="${target.href}"]`).click();
+      await expectLandedAt(page, drawn(page, target.id));
+    }
+  } finally {
+    await peer.dispose();
   }
 });
 
@@ -646,7 +656,12 @@ test("a wall post on a wall left earlier lands on the drawn copy, not a hidden o
   await page.goto(`/members/${landing.memberId}`);
   await ready(page);
   await expect(drawn(page, `profile-post-${id}`)).toBeVisible();
-  await raiseAlert(page, `profile_post:${id}`);
+  const peer = await peerSession();
+  try {
+    await raiseAlert(page, peer, `profile_post:${id}`);
+  } finally {
+    await peer.dispose();
+  }
   await visibleLink(page, 'a[href="/"]').click();
   await expect(page).toHaveURL((url) => url.pathname === "/");
   await ready(page);
