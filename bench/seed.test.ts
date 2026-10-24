@@ -94,7 +94,8 @@ test("a scaled profile is written to one complete file the backend opens", async
       ctx.sqlite.query<{ n: number }, []>(`SELECT count(*) AS n FROM ${table}`).get()!.n;
     expect(ctx.sqlite.query("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     expect(ctx.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
-    expect(count("users")).toBe(sizes.users + sizes.lurkers);
+    // The migrations add the reserved guest account (id -2).
+    expect(count("users")).toBe(sizes.users + sizes.lurkers + 1);
     expect(count("posts")).toBe(sizes.posts);
     expect(count("search_fts")).toBe(sizes.posts);
     expect(count("threads")).toBe(sizes.threads);
