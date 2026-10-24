@@ -215,6 +215,26 @@ describe("page views are noted per request and written by the flush", () => {
     expect(rows(s.ctx)).toBe(count);
   });
 
+  test("a flush called while another is in flight (the shutdown's) waits for it, then writes what is left", async () => {
+    const s = setup();
+    const count = FLUSH_CHUNK * 3;
+    const guest = (i: number) =>
+      noteVisit(s.ctx, {
+        userId: null,
+        ip: "198.51.100.1",
+        userAgent: `${FIREFOX} ${i}`,
+        place: "forumList",
+      });
+    for (let i = 0; i < count; i++) guest(i);
+    const scheduled = flushVisits(s.ctx);
+    guest(count);
+    const shutdown = flushVisits(s.ctx);
+    expect(await shutdown).toBe(1);
+    expect(rows(s.ctx)).toBe(count + 1);
+    expect(await scheduled).toBe(count);
+    expect(pendingVisits(s.ctx).size).toBe(0);
+  });
+
   test("rows unseen for an hour are pruned, newer ones kept", async () => {
     const s = setup();
     await s.guestView("forumList", "203.0.113.1");

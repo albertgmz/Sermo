@@ -73,13 +73,15 @@ interface Pending {
   visits: Map<string, Visit>;
   /** How many of `visits` are guests or robots. */
   guests: number;
+  /** The flush in progress, which a later flush waits for. */
+  flushing: Promise<number> | null;
 }
 const pending = new WeakMap<Ctx, Pending>();
 
 function pendingOf(ctx: Ctx): Pending {
   let state = pending.get(ctx);
   if (!state) {
-    state = { visits: new Map(), guests: 0 };
+    state = { visits: new Map(), guests: 0, flushing: null };
     pending.set(ctx, state);
   }
   return state;
@@ -171,11 +173,24 @@ const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resol
  * Writes the noted page views, `FLUSH_CHUNK` to a transaction, each holding checkpoints so a
  * commit never meets one, and yields to the event loop between them, so requests (and the
  * checkpointer) run while a large flush is in progress. What a failed chunk and the ones after
- * it held is noted again for the next flush.
+ * it held is noted again for the next flush. Flushes run one at a time: a call made while one is
+ * in progress (the shutdown's beside the scheduled one) waits for it, then writes what is left.
  */
 export async function flushVisits(ctx: Ctx): Promise<number> {
   const state = pending.get(ctx);
-  if (!state?.visits.size) return 0;
+  if (!state) return 0;
+  while (state.flushing) await state.flushing.catch(() => {});
+  if (!state.visits.size) return 0;
+  const flushing = writeVisits(ctx, state);
+  state.flushing = flushing;
+  try {
+    return await flushing;
+  } finally {
+    if (state.flushing === flushing) state.flushing = null;
+  }
+}
+
+async function writeVisits(ctx: Ctx, state: Pending): Promise<number> {
   const batch = [...state.visits];
   state.visits.clear();
   state.guests = 0;
