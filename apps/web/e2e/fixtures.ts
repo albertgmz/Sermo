@@ -318,12 +318,23 @@ export async function box(locator: Locator) {
   return rect;
 }
 
-// The lazily loaded editor is in: its text is drawn (its formatting bar is drawn before it comes).
+// The lazily loaded editor is in: its text is drawn (its formatting bar is drawn before it comes),
+// and it has taken in what was just done to it. The editor now loads once the page is idle, so a
+// press made right before may land in its text rather than in the box it replaced: the browser
+// reports the caret that press placed a moment later, and the editor, taking it in, puts the focus
+// back in its text (Lexical does). Two frames let that happen before the test moves the focus.
 export async function editorReady(scope: Page | Locator) {
   await expect(
     scope.getByRole("toolbar", { name: "Formatting" }),
   ).toBeVisible();
   await expect(scope.locator('[contenteditable="true"]').first()).toBeVisible();
+  const page = "goto" in scope ? scope : scope.page();
+  await page.evaluate(
+    () =>
+      new Promise((done) =>
+        requestAnimationFrame(() => requestAnimationFrame(done)),
+      ),
+  );
 }
 
 export const unique = (prefix: string) =>
