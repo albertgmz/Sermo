@@ -7,7 +7,7 @@ import {
 import type { MemberRelation } from "@/lib/sermo/members";
 import type { MemberView } from "@/lib/sermo/views";
 
-// The shared member actions with their backend left out: following stores nothing.
+// The shared member actions with their backend left out: following and ignoring store nothing.
 export function MemberActionsDemo({
   member,
   relation,
@@ -23,6 +23,7 @@ export function MemberActionsDemo({
       relation={relation}
       form={form}
       followAction={async () => ({})}
+      ignoreAction={async () => ({})}
     />
   );
 }

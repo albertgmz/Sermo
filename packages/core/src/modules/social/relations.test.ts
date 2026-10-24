@@ -53,7 +53,14 @@ describe("users.relations", () => {
     follow(s.ctx, s.viewer, s.other);
     const { items } = await relations(s.ctx, GUEST, [s.other.id, 999999]);
     expect(items).toEqual([
-      { userId: s.other.id, following: false, canFollow: false, canMessage: false },
+      {
+        userId: s.other.id,
+        following: false,
+        canFollow: false,
+        canMessage: false,
+        ignoring: false,
+        canIgnore: false,
+      },
     ]);
   });
 
@@ -66,12 +73,16 @@ describe("users.relations", () => {
       following: true,
       canFollow: true,
       canMessage: true,
+      ignoring: false,
+      canIgnore: true,
     });
     expect(items.find((i) => i.userId === s.third.id)).toEqual({
       userId: s.third.id,
       following: false,
       canFollow: true,
       canMessage: true,
+      ignoring: false,
+      canIgnore: true,
     });
     expect(items).toHaveLength(2);
     // Someone else's follow does not count.
@@ -85,6 +96,8 @@ describe("users.relations", () => {
       following: false,
       canFollow: false,
       canMessage: false,
+      ignoring: false,
+      canIgnore: false,
     });
   });
 
@@ -159,6 +172,31 @@ describe("users.relations", () => {
       canFollow: true,
       canMessage: true,
     });
+  });
+
+  test("the viewer's own ignore shows as ignoring, someone else's does not", async () => {
+    const s = scene();
+    ignore(s.ctx, s.viewer, s.other);
+    expect(await one(s.ctx, userActor(s.viewer), s.other)).toMatchObject({
+      ignoring: true,
+      canIgnore: true,
+    });
+    // The member ignoring the viewer is not the viewer ignoring them.
+    expect((await one(s.ctx, userActor(s.other), s.viewer))?.ignoring).toBe(false);
+    expect((await one(s.ctx, userActor(s.third), s.other))?.ignoring).toBe(false);
+  });
+
+  test("staff cannot be ignored, and without member.ignore nobody can, but an ignore stays undoable", async () => {
+    const s = scene();
+    const moderator = insertUser(s.ctx, { groupId: 3 });
+    expect((await one(s.ctx, userActor(s.viewer), moderator))?.canIgnore).toBe(false);
+    ignore(s.ctx, s.viewer, s.other);
+    deny(s.ctx, s.viewer, "member.ignore");
+    expect(await one(s.ctx, userActor(s.viewer), s.other)).toMatchObject({
+      ignoring: true,
+      canIgnore: false,
+    });
+    expect((await one(s.ctx, userActor(s.viewer), s.third))?.canIgnore).toBe(false);
   });
 
   test("50 ids are answered in a fixed number of statements and 51 are refused", async () => {

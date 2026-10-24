@@ -1,7 +1,10 @@
 import { Mail } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { MemberFollowButton } from "@/components/forum/member-follow-button";
+import {
+  MemberFollowButton,
+  MemberIgnoreButton,
+} from "@/components/forum/member-follow-button";
 import { buttonVariants } from "@/components/ui/button";
 import type { MemberRelation } from "@/lib/sermo/members";
 import type { MemberView } from "@/lib/sermo/views";
@@ -16,6 +19,7 @@ export type FollowAction = (
   userId: number,
   follow: boolean,
 ) => Promise<{ error?: string; signIn?: string }>;
+export type IgnoreAction = FollowAction;
 
 const BUTTON: Record<MemberActionsForm, string> = {
   compact: "size-10 px-0",
@@ -46,8 +50,8 @@ const ERROR: Record<MemberActionsForm, string> = {
 };
 
 // Whether there is anything to offer for a member: a guest has no relation, and yourself, a
-// restricted member and one nothing is allowed for draw nothing. Unfollowing needs no permission,
-// so a member already followed can always be unfollowed.
+// restricted member and one nothing is allowed for draw nothing. Unfollowing and unignoring need
+// no permission, so a member already followed or ignored can always be let go.
 export function hasMemberActions(
   member: Pick<MemberView, "restricted">,
   relation: MemberRelation | null,
@@ -55,22 +59,29 @@ export function hasMemberActions(
   return (
     relation !== null &&
     !member.restricted &&
-    (relation.canFollow || relation.following || relation.canMessage)
+    (relation.canFollow ||
+      relation.following ||
+      relation.canMessage ||
+      relation.canIgnore ||
+      relation.ignoring)
   );
 }
 
-// The actions with the write they run handed in, so a styleguide can draw them with a write that
-// stores nothing. `MemberActions` is the one pages use.
+// The actions with the writes they run handed in, so a styleguide can draw them with writes that
+// store nothing. `MemberActions` is the one pages use. The order is XenForo's: follow, ignore,
+// then the direct message.
 export function MemberActionsView({
   member,
   relation,
   form = "responsive",
   followAction,
+  ignoreAction,
 }: {
   member: Pick<MemberView, "id" | "username" | "restricted">;
   relation: MemberRelation | null;
   form?: MemberActionsForm;
   followAction: FollowAction;
+  ignoreAction: IgnoreAction;
 }) {
   const t = useTranslations("forum.memberActions");
   if (!hasMemberActions(member, relation)) return null;
@@ -87,6 +98,17 @@ export function MemberActionsView({
           username={username}
           following={relation.following}
           action={followAction.bind(null, id)}
+          className={BUTTON[form]}
+          labelClassName={LABEL[form]}
+          errorClassName={ERROR[form]}
+        />
+      )}
+      {(relation.canIgnore || relation.ignoring) && (
+        <MemberIgnoreButton
+          userId={id}
+          username={username}
+          ignoring={relation.ignoring}
+          action={ignoreAction.bind(null, id)}
           className={BUTTON[form]}
           labelClassName={LABEL[form]}
           errorClassName={ERROR[form]}

@@ -17,7 +17,12 @@ function bodyOf(code: string, name: string) {
 // would read every page of a long list again for one click.
 test("the reaction, bookmark and follow actions draw nothing again", () => {
   const actions = source("app/[locale]/(main)/actions.ts");
-  for (const name of ["react", "setBookmark", "followFromPage"]) {
+  for (const name of [
+    "react",
+    "setBookmark",
+    "followFromPage",
+    "ignoreFromPage",
+  ]) {
     const body = bodyOf(actions, name);
     expect(body, name).not.toMatch(/\brefresh\(|revalidate|redirect\(/);
   }

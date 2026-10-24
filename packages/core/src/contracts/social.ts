@@ -127,6 +127,13 @@ export const MemberRelation = z
     canFollow: z.boolean(),
     /** The viewer may start a conversation with this member. */
     canMessage: z.boolean(),
+    /** The viewer ignores this member. */
+    ignoring: z.boolean(),
+    /**
+     * The viewer may start ignoring this member (member.ignore, the member holds
+     * member.ignorable, and not themselves); unignoring needs no permission.
+     */
+    canIgnore: z.boolean(),
   })
   .meta({ id: "MemberRelation" });
 
@@ -139,10 +146,12 @@ export const usersRelations = defineContract({
     "a conversation.maxRecipients other than 0, not themselves, and the member has not ignored " +
     "the viewer in the sense conversations.create refuses: that rule applies only to a viewer " +
     "holding member.ignorable and not conversation.alwaysInvite; and the member holds " +
-    "conversation.receive). Unknown ids are left out. Open to " +
-    "everyone; a guest gets false for all three. The viewer's own follow list is theirs to " +
-    "read, and the ignore state shows only as `canMessage` false, which starting a " +
-    "conversation already reveals. It does not depend on profile privacy.",
+    "conversation.receive), and whether they ignore each one and may start ignoring them " +
+    "(member.ignore, the member holds member.ignorable, not themselves; unignoring needs no " +
+    "permission). Unknown ids are left out. Open to everyone; a guest gets false for all " +
+    "five. The viewer's own follow and ignore lists are theirs to read; whether a member " +
+    "ignores the viewer shows only as `canMessage` false, which starting a conversation " +
+    "already reveals. It does not depend on profile privacy.",
   kind: "read",
   input: z.object({ userIds: z.array(Id).min(1).max(50) }),
   output: z.object({ items: z.array(MemberRelation) }),

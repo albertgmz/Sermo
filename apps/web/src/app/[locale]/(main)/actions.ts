@@ -10,7 +10,9 @@ import {
   reportsCreate,
   termsAccept,
   usersFollow,
+  usersIgnore,
   usersUnfollow,
+  usersUnignore,
 } from "@sermo/core/contracts";
 import { refresh } from "next/cache";
 import { cookies } from "next/headers";
@@ -203,6 +205,22 @@ export async function followFromPage(
   const done = await attemptInPlace(page, async () => {
     if (follow === true) await call(usersFollow, { userId });
     else await call(usersUnfollow, { userId });
+  });
+  if (!done.ok) return { error: done.error, signIn: done.signIn };
+  return {};
+}
+
+// Ignores or stops ignoring a member from where their name is drawn (their card) and stays on the
+// page, like following.
+export async function ignoreFromPage(
+  userId: number,
+  ignore: boolean,
+): Promise<FollowState> {
+  requireIds(userId);
+  const page = await pageOfRequest();
+  const done = await attemptInPlace(page, async () => {
+    if (ignore === true) await call(usersIgnore, { userId });
+    else await call(usersUnignore, { userId });
   });
   if (!done.ok) return { error: done.error, signIn: done.signIn };
   return {};

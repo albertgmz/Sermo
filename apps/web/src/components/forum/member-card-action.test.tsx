@@ -60,7 +60,13 @@ function backend(options: {
   restricted?: boolean;
   unknown?: boolean;
   authors?: Response;
-  relation?: { following: boolean; canFollow: boolean; canMessage: boolean };
+  relation?: {
+    following: boolean;
+    canFollow: boolean;
+    canMessage: boolean;
+    ignoring: boolean;
+    canIgnore: boolean;
+  };
 }) {
   const paths: string[] = [];
   globalThis.fetch = (async (input: string) => {
@@ -82,6 +88,8 @@ function backend(options: {
               following: false,
               canFollow: true,
               canMessage: true,
+              ignoring: false,
+              canIgnore: true,
             }),
           },
         ],
@@ -136,6 +144,8 @@ test("a member: the tooltip with its actions in a row, from two reads", async ()
     following: false,
     canFollow: true,
     canMessage: true,
+    ignoring: false,
+    canIgnore: true,
   });
   expect(reads(paths)).toHaveLength(2);
 });
@@ -152,7 +162,13 @@ test("a guest: one read, no actions", async () => {
 test("yourself: the backend offers nothing, so no action is drawn", async () => {
   backend({
     signedIn: true,
-    relation: { following: false, canFollow: false, canMessage: false },
+    relation: {
+      following: false,
+      canFollow: false,
+      canMessage: false,
+      ignoring: false,
+      canIgnore: false,
+    },
   });
   const { actions } = cardOf(await loadMemberCard(7, "ember"));
   expect(actions).toBeUndefined();

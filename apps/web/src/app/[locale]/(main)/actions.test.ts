@@ -35,6 +35,7 @@ mock.module("next/cache", () => ({
 const source = "./actions.ts?reactions";
 const {
   followFromPage,
+  ignoreFromPage,
   react,
   replyFromFeed,
   setBookmark,
@@ -315,6 +316,26 @@ test("unfollowing from a page asks to stop and refreshes nothing", async () => {
   expect(refreshed).toBe(0);
   expect(asked[0].method).toBe("DELETE");
   expect(asked[0].path).toBe("/api/v1/users/8/follow");
+});
+
+test("ignoring and unignoring from a page reuse users.ignore and refresh nothing", async () => {
+  onPage("http://localhost:3105/threads/5");
+  let asked = backend(Response.json({ ok: true }));
+  expect(await ignoreFromPage(8, true)).toEqual({});
+  expect(asked.map((call) => [call.method, call.path])).toEqual([
+    ["PUT", "/api/v1/users/8/ignore"],
+  ]);
+  asked = backend(Response.json({ ok: true }));
+  expect(await ignoreFromPage(8, false)).toEqual({});
+  expect(asked.map((call) => [call.method, call.path])).toEqual([
+    ["DELETE", "/api/v1/users/8/ignore"],
+  ]);
+  expect(refreshed).toBe(0);
+  expect(revalidated).toEqual([]);
+  backend(refusal(403, "forbidden", "You may not ignore that member."));
+  expect(await ignoreFromPage(8, true)).toEqual({
+    error: "You may not ignore that member.",
+  });
 });
 
 test("the backend's refusal of a follow goes back to the button and refreshes nothing", async () => {

@@ -134,8 +134,12 @@
   },
   "memberActions": {
     "message": "Message",
+    "ignore": "Ignore",
+    "unignore": "Unignore",
     "aria": {
-      "message": "Send a direct message to {username}"
+      "message": "Send a direct message to {username}",
+      "ignore": "Ignore {username}",
+      "unignore": "Stop ignoring {username}"
     }
   },
   "memberCardTrigger": {

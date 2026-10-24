@@ -345,13 +345,15 @@ export const usersUnfollowOp = implement(
   { public: "A signed-in member can remove only their own follow row." },
 );
 /**
- * One statement for a page of members: which exist, whether the viewer follows each and whether
- * each has ignored the viewer (`user_follows_pair` and `user_ignores_pair`, one probe per member).
+ * One statement for a page of members: which exist, whether the viewer follows and ignores each
+ * and whether each has ignored the viewer (`user_follows_pair` and `user_ignores_pair`, one probe
+ * per member each).
  */
 export const relationsSql =
   `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS}, ` +
   "EXISTS(SELECT 1 FROM user_follows f WHERE f.user_id = ?1 AND f.followed_id = u.id) AS following, " +
-  "EXISTS(SELECT 1 FROM user_ignores i WHERE i.user_id = u.id AND i.ignored_id = ?1) AS ignores_viewer " +
+  "EXISTS(SELECT 1 FROM user_ignores i WHERE i.user_id = u.id AND i.ignored_id = ?1) AS ignores_viewer, " +
+  "EXISTS(SELECT 1 FROM user_ignores j WHERE j.user_id = ?1 AND j.ignored_id = u.id) AS ignoring " +
   "FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))";
 
 export const usersRelationsOp = implement(
@@ -360,6 +362,7 @@ export const usersRelationsOp = implement(
     const viewerId = actorUserId(actor);
     const permissions = permissionsOf(ctx, actor);
     const mayFollow = permissions.can("member.follow");
+    const mayIgnore = permissions.can("member.ignore");
     // The rules conversations.create applies: a limit of zero recipients (-1 is unlimited) refuses
     // everyone, and only a viewer who can be ignored is refused by a member who ignores them.
     const mayStart =
@@ -369,7 +372,13 @@ export const usersRelationsOp = implement(
       permissions.can("member.ignorable") && !permissions.can("conversation.alwaysInvite");
     const versions = requestVersions(ctx, actor);
     const rows = query<
-      PrincipalRow & { id: number; group_id: number; following: number; ignores_viewer: number },
+      PrincipalRow & {
+        id: number;
+        group_id: number;
+        following: number;
+        ignores_viewer: number;
+        ignoring: number;
+      },
       [number, string]
     >(ctx, "relations", relationsSql).all(
       viewerId ?? 0,
@@ -387,6 +396,9 @@ export const usersRelationsOp = implement(
             mayStart &&
             !(ignorable && row.ignores_viewer === 1) &&
             can(ctx, memberActor(row.id, row.group_id, row, versions), "conversation.receive"),
+          ignoring: other && row.ignoring === 1,
+          // The rule users.ignore applies.
+          canIgnore: other && mayIgnore && memberIgnorable(ctx, row, versions),
         };
       }),
     };

@@ -1,7 +1,10 @@
 import { MemberCardProfileLink } from "@/components/forum/member-card-profile-link";
 import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { MemberCardTrigger } from "@/components/forum/member-card-trigger";
-import { MemberFollowButton } from "@/components/forum/member-follow-button";
+import {
+  MemberFollowButton,
+  MemberIgnoreButton,
+} from "@/components/forum/member-follow-button";
 import { Avatar } from "@/components/ui/avatar";
 import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import { Progress } from "@/components/ui/progress";
@@ -24,6 +27,7 @@ export const CARD_CLIENT_PARTS = Object.freeze([
   MemberCardScope,
   MemberCardTrigger,
   MemberFollowButton,
+  MemberIgnoreButton,
   LazyTooltip,
   Progress,
 ]);

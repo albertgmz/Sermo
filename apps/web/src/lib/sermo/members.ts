@@ -128,11 +128,14 @@ export async function authorsFor(
   return lookup(views, "author");
 }
 
-// What the viewer can do about a member: follow or unfollow them, start a conversation with them.
+// What the viewer can do about a member: follow or unfollow them, start a conversation with them,
+// ignore or unignore them.
 export type MemberRelation = {
   following: boolean;
   canFollow: boolean;
   canMessage: boolean;
+  ignoring: boolean;
+  canIgnore: boolean;
 };
 
 const isDrift = (error: SermoError) =>

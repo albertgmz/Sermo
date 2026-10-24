@@ -570,8 +570,32 @@ export const SAMPLE_COUNTS = {
 
 // What the viewer can do about a member, as the postbit actions draw it.
 export const RELATION = {
-  notFollowing: { following: false, canFollow: true, canMessage: true },
-  following: { following: true, canFollow: true, canMessage: true },
-  messageOnly: { following: false, canFollow: false, canMessage: true },
-  none: { following: false, canFollow: false, canMessage: false },
+  notFollowing: {
+    following: false,
+    canFollow: true,
+    canMessage: true,
+    ignoring: false,
+    canIgnore: true,
+  },
+  following: {
+    following: true,
+    canFollow: true,
+    canMessage: true,
+    ignoring: false,
+    canIgnore: true,
+  },
+  messageOnly: {
+    following: false,
+    canFollow: false,
+    canMessage: true,
+    ignoring: false,
+    canIgnore: false,
+  },
+  none: {
+    following: false,
+    canFollow: false,
+    canMessage: false,
+    ignoring: false,
+    canIgnore: false,
+  },
 };

@@ -75,8 +75,20 @@ const AWARDS = [
   { id: 2, name: "Helper", icon: "heart", image: null, tier: "silver" },
   { id: 3, name: "Regular", icon: "flame", image: null, tier: "bronze" },
 ];
-const ALL = { following: false, canFollow: true, canMessage: true };
-const NOTHING = { following: false, canFollow: false, canMessage: false };
+const ALL = {
+  following: false,
+  canFollow: true,
+  canMessage: true,
+  ignoring: false,
+  canIgnore: true,
+};
+const NOTHING = {
+  following: false,
+  canFollow: false,
+  canMessage: false,
+  ignoring: false,
+  canIgnore: false,
+};
 
 const threadBody = {
   thread: {
@@ -277,6 +289,9 @@ test("a member with a cover and awards: every part of XenForo's tooltip, in its 
     ">Points</dt>",
     ">150</dd>",
     'data-slot="member-actions"',
+    'aria-label="Follow ember"',
+    'aria-label="Ignore ember"',
+    'aria-label="Send a direct message to ember"',
     "View profile",
   ].map((part) => out.indexOf(part));
   expect(order).not.toContain(-1);
