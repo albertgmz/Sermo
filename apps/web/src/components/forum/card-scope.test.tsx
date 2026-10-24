@@ -70,7 +70,7 @@ test("the thread preview draws its author and last replier without cards", () =>
     author: { member },
     lastPost: { createdAt: "2026-01-02T00:00:00.000Z", author: { member } },
   };
-  const tree = ThreadHoverCard({ thread });
+  const tree = ThreadHoverCard({ thread, href: "/threads/1" });
   expect(below(tree, UserAvatar)).toBe(true);
   expect(below(tree, UserLink)).toBe(true);
 });

@@ -262,13 +262,19 @@ test("a thread card has a Reply button when the viewer may reply, and nothing of
     // The box is not drawn, so its code is not loaded either.
     expect(html).not.toContain("Write a reply…");
     expect(html).not.toContain(`id="feed-post-${postId}-comment"`);
-    // The count of replies leads to the thread: the replies are read there.
+    // The count of replies leads to the thread, where the member left off: the replies are read
+    // there.
     expect(countHref(html, "4 replies")).toContain(
       type === "thread"
-        ? 'href="/threads/7"'
+        ? 'href="/threads/7/unread"'
         : 'href="/threads/7?page=2#post-31"',
     );
   }
+});
+
+test("a guest's count of replies on a thread card leads to the start of the thread", async () => {
+  const html = await render(threadItem("thread", false), null);
+  expect(countHref(html, "4 replies")).toContain('href="/threads/7"');
 });
 
 test("a featured thread is marked Featured, a promoted one Promoted, and others not at all", async () => {

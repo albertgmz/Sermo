@@ -172,10 +172,13 @@ test("a guest's cookie decides, and a guest has cards without one", async () => 
 });
 
 test("a member's thread title opens where they left off, on cards and rows, and a guest's opens its start", async () => {
-  for (const feedView of ["cards", "compact"]) {
-    backend({ feedView });
-    expect(await firstRow()).toContain('href="/threads/7/unread"');
-  }
+  const opens = (html: string) => html.match(/href="\/threads\/7\/unread"/g);
+  // The card: its title and its count of replies. The row: the link over the row, the title and
+  // the count.
+  backend({ feedView: "cards" });
+  expect(opens(await firstRow())).toHaveLength(2);
+  backend({ feedView: "compact" });
+  expect(opens(await firstRow())).toHaveLength(3);
   backend(null);
   const html = await firstRow();
   expect(html).toContain('href="/threads/7"');

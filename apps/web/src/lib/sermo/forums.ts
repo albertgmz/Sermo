@@ -41,8 +41,8 @@ export function forumCard(
   node: ApiNode,
   childrenOf: (parentId: number) => ApiNode[],
   member: (id: number) => MemberView,
-  unread = false,
-  signedIn = false,
+  unread: boolean,
+  signedIn: boolean,
 ): ForumCardData {
   const { threadCount, postCount, lastPost } = subtreeTotals(node, childrenOf);
   return {

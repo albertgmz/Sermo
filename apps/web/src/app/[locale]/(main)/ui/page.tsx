@@ -135,6 +135,7 @@ import {
 } from "@/lib/format";
 import { getLiteState } from "@/lib/lite-mode";
 import { blocks, serializeLiteCookie } from "@/lib/lite-preferences";
+import { threadOpenHref } from "@/lib/sermo/open-links";
 import { NOINDEX } from "@/lib/sermo/seo";
 import { cn } from "@/lib/utils";
 import {
@@ -1268,6 +1269,7 @@ export default async function StyleguidePage() {
                 <ThreadHoverCard
                   key={thread.id}
                   thread={thread}
+                  href={threadOpenHref(thread.id, false)}
                   className="font-medium underline-offset-4 hover:underline"
                 />
               ))}

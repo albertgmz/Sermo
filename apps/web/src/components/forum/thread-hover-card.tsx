@@ -36,12 +36,13 @@ export type ThreadCardData = {
 // devices get the plain link.
 export function ThreadHoverCard({
   thread,
-  href = `/threads/${thread.id}`,
+  href,
   className,
   children,
 }: {
   thread: ThreadCardData;
-  href?: string;
+  // Where the link leads, from `threadOpenHref`.
+  href: string;
   className?: string;
   children?: React.ReactNode;
 }) {

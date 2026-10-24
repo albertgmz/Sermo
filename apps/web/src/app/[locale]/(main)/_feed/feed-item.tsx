@@ -353,10 +353,14 @@ export function FeedItem({
 
   const { thread, post } = item;
   const isThread = item.type === "thread";
-  const threadPath = `/threads/${thread.id}`;
+  // The address the card shares and its text expands to: no reading position in it.
   const href = isThread
-    ? threadPath
+    ? threadHref(thread.id, 0)
     : threadHref(thread.id, post.position, post.id);
+  // Where the count of answers leads: a thread opens where the member left off.
+  const answersHref = isThread
+    ? threadOpenHref(thread.id, viewerId !== null)
+    : href;
   const card = threadCard(thread, (id) => author(id).member);
   const anchor = `feed-post-${post.id}`;
   return (
@@ -392,7 +396,7 @@ export function FeedItem({
         />
       }
       href={href}
-      answerHref={href}
+      answerHref={answersHref}
       count={thread.replyCount}
       noun="replies"
       views={isThread ? thread.viewCount : undefined}
