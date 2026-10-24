@@ -64,8 +64,6 @@ const TAB_BARS: Record<string, { switch: string } | { pages: string }> = {
 
 // Each file with a "Load more" link (a navigation to the list's next page), and why.
 const LOAD_MORE: Record<string, string> = {
-  // The conversation's earlier and newer messages: its own pages, which get the numbered pager.
-  [`${MAIN}/conversations/[id]/page.tsx`]: "the conversation's own pages",
   // Inside the credits page's switch, which owns its lists' cursors: the next page of a list comes
   // in place.
   [`${MAIN}/credits/inventory.tsx`]: "in the credits switch",
