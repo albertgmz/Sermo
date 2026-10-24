@@ -86,7 +86,9 @@ const message = (id: number) => ({
   reactions: { counts: {}, total: 0, mine: null },
   canEdit: false,
   canDelete: false,
+  canHardDelete: false,
   canReport: true,
+  deletion: null,
 });
 const conversation = {
   id: 5,
