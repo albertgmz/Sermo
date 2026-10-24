@@ -6820,3 +6820,16 @@ Why: the owner saw the whole page refresh with an animation instead of the one e
   first hovered, touched or focused (its attach icon opens the composer).
 
 Why: the review of the in-place loading work found the notice could not be dismissed or heard.
+
+### The main button looks enabled, and fields share one fill
+
+- The submit and the confirming destructive buttons are solid (the faint tint read as disabled
+  next to Cancel); disabled and pending states stay clearly different. Inputs, textareas,
+  select triggers and the editor box share one fill and edge (`FIELD_SURFACE`, `FIELD_FILL`),
+  so an unfocused editor no longer reads as a disabled grey well; a static scan fails on a field
+  with its own fill (the new-thread title keeps its stronger edge on purpose). Native checkboxes
+  and radios use the accent colour in Firefox too, and the editor toolbar's last group fits its
+  buttons instead of drawing an empty box.
+
+Why: the UI audit (A14, A20, A21, A33) found the main action looking disabled and fields
+looking inactive.
