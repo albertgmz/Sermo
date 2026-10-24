@@ -329,10 +329,10 @@ export function ForumCategoriesSkeleton() {
 export function ProfileHeaderSkeleton() {
   return (
     <div aria-hidden="true" className="relative">
-      <Skeleton className="absolute inset-x-0 top-0 h-36 rounded-none md:h-56" />
-      <Container className="relative pt-20 md:pt-44">
-        <Skeleton className="size-24 rounded-full ring-4 ring-background" />
-        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+      {/* The shape of a member without a cover, the usual one: no band above the avatar. */}
+      <Container className="relative flex flex-col gap-3 pt-4 md:flex-row md:items-start md:gap-6 md:pt-6">
+        <Skeleton className="size-24 shrink-0 rounded-full ring-4 ring-background" />
+        <div className="flex flex-col gap-4 md:min-w-0 md:flex-1 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
           <div className="min-w-0 space-y-2">
             <div className="flex h-10 items-center">
               <Skeleton className="h-7 w-44" />
@@ -359,7 +359,7 @@ export function AccountHeaderSkeleton() {
   return (
     <div
       aria-hidden="true"
-      className="flex min-h-40 flex-wrap items-end gap-4 rounded-lg border bg-card p-4 sm:min-h-48 sm:p-6"
+      className="flex flex-wrap items-end gap-4 rounded-lg border bg-card p-4 sm:p-6"
     >
       <Skeleton className="size-16 rounded-full" />
       <div className="min-w-0 flex-1 basis-36 space-y-2">

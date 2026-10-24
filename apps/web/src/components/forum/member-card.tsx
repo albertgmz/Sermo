@@ -11,7 +11,7 @@ import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
 import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { NameWithIcon } from "@/components/forum/name-icon";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserBadges } from "@/components/forum/user-badges";
+import { titleBesideBadges, UserBadges } from "@/components/forum/user-badges";
 import { userNameProps } from "@/components/forum/user-name";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCompact, formatDate } from "@/lib/format";
@@ -92,7 +92,7 @@ export function MemberCard({
               <UserBadges user={user.card} />
             </p>
             <p className="truncate text-xs text-muted-foreground">
-              {user.card.title}
+              {titleBesideBadges(user.card)}
             </p>
           </div>
         </div>

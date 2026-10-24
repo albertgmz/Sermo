@@ -88,3 +88,16 @@ test("a moderator who also holds the permission sees all three tiles", async () 
   expect(html).toContain(p.reports);
   expect(html).toContain(p.signups);
 });
+
+test("each tile is one link to its queue, holding its count and the words that open it", async () => {
+  backend({ "member.approveRegistrations": true });
+  const html = await draw();
+  const card = /<a [^>]*href="\/moderation\/signups"[^>]*>(.*?)<\/a>/.exec(
+    html,
+  )?.[1];
+  expect(card).toContain(p.signups);
+  expect(card).toContain(">3<");
+  expect(card).toContain(p.open);
+  // The words are not left outside the card, under it.
+  expect(html.split(p.open)).toHaveLength(2);
+});

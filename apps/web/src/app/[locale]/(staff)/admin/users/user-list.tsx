@@ -121,10 +121,8 @@ export async function UserList({
                 type="search"
                 name="q"
                 defaultValue={prefix}
+                aria-describedby="users-prefix-help"
               />
-              <span className="font-normal text-muted-foreground">
-                {t("prefixHelp")}
-              </span>
             </label>
             <label className={field}>
               {t("state")}
@@ -157,6 +155,12 @@ export async function UserList({
               </select>
             </label>
           </div>
+          <p
+            id="users-prefix-help"
+            className="mt-2 text-xs text-muted-foreground"
+          >
+            {t("prefixHelp")}
+          </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button type="submit" className="min-h-10 px-4">
               {t("apply")}

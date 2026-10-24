@@ -201,6 +201,7 @@
   },
   "row": {
     "edit": "Editar {title}",
+    "editText": "Editar",
     "off": "Apagado",
     "noPhones": "Oculto en móviles",
     "notShown": "Aún no se muestra"

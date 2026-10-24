@@ -208,3 +208,14 @@ test("a filter changed in place draws the tabs and the list of the address, and 
     )) as unknown as typeof fetch;
   expect(await onlineSection("?type=bot")).toBeNull();
 });
+
+test("a robot's name follows its label as one run of text, so the heading's flex gap does not double the space", async () => {
+  backend([robot]);
+  const html = await page();
+  const heading =
+    [...html.matchAll(/<h3[^>]*>(.*?)<\/h3>/g)]
+      .map((match) => match[1])
+      .find((inner) => inner.includes("Robot:")) ?? "";
+  // One element holds "Robot: " and the link: a flex container would put its gap between the two.
+  expect(heading).toMatch(/^<span>Robot: <a [^>]*>Google<\/a><\/span>$/);
+});

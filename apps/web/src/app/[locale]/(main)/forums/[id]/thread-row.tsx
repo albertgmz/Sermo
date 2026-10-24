@@ -6,6 +6,7 @@ import { Art } from "@/components/forum/art";
 import { ThreadPageLinks } from "@/components/forum/page-nav";
 import { PollBadge } from "@/components/forum/poll-badge";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import { RelativeTime } from "@/components/forum/relative-time";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
@@ -144,17 +145,18 @@ export function ThreadRow({
           <dd>{formatCompact(card.views, locale)}</dd>
         </div>
       </dl>
-      <p className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground md:block">
-        {t.rich("lastPost", {
-          time: format.relativeTime(new Date(card.lastPost.createdAt), now),
-          author: () => (
-            <UserLink
-              user={card.lastPost.author.member}
-              className="relative z-10"
-            />
-          ),
-        })}
-      </p>
+      <div className="hidden w-52 shrink-0 text-right text-xs text-muted-foreground md:block">
+        <RelativeTime
+          date={card.lastPost.createdAt}
+          className="block truncate"
+        />
+        <span className="block truncate">
+          <UserLink
+            user={card.lastPost.author.member}
+            className="relative z-10"
+          />
+        </span>
+      </div>
     </div>
   );
 }

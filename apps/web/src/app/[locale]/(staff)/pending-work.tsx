@@ -1,14 +1,10 @@
 import { ClipboardCheck, Flag, UserCheck } from "lucide-react";
-import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { StatTile } from "@/components/forum/stat";
 import { getCounters } from "@/components/layout/header-data";
 import { getViewer } from "@/lib/sermo/session";
 import { pendingCount } from "./pending-count";
 import { canOpen, hrefFor, screenByKey } from "./registry";
-
-const LINK =
-  "mt-3 inline-flex min-h-10 items-center text-xs text-primary-ink underline-offset-4 hover:underline";
 
 // Open reports, the approval queue and the sign-ups waiting, each shown only to a member who may open its screen and
 // linked to it once that screen is built.
@@ -64,14 +60,14 @@ export async function PendingWork({ heading }: { heading?: boolean }) {
             ? t("capped", { count: format.number(shown.count) })
             : format.number(shown.count);
           return (
-            <div key={key}>
-              <StatTile label={label} value={value} icon={icon} />
-              {href && (
-                <Link href={href} className={LINK}>
-                  {t("open")}
-                </Link>
-              )}
-            </div>
+            <StatTile
+              key={key}
+              label={label}
+              value={value}
+              icon={icon}
+              href={href ?? undefined}
+              action={t("open")}
+            />
           );
         })}
       </div>

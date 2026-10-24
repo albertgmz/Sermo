@@ -3,6 +3,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import type * as z from "zod";
 import { AddPeople } from "@/app/[locale]/(main)/conversations/[id]/add-people";
 import { MarkReadCard } from "@/app/[locale]/(main)/conversations/[id]/mark-read-button";
+import { Fact, FactList } from "@/components/forum/fact-list";
 import { MemberRow } from "@/components/forum/member-row";
 import { SectionCard } from "@/components/forum/section-card";
 import { UserLink } from "@/components/forum/user-link";
@@ -28,27 +29,23 @@ export function ConversationWidgets({
     .map((participant) => participant.user.id);
   return (
     <>
-      <SectionCard title={t("info.title")} contentClassName="divide-y-0">
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-sm">
-          <dt className="text-muted-foreground">{t("info.startedBy")}</dt>
-          <dd className="min-w-0 truncate text-right">
+      <SectionCard title={t("info.title")}>
+        <FactList>
+          <Fact label={t("info.startedBy")}>
             <UserLink user={member(conversation.starter.id)} />
-          </dd>
-          <dt className="text-muted-foreground">{t("info.startedOn")}</dt>
-          <dd className="text-right">
+          </Fact>
+          <Fact label={t("info.startedOn")}>
             {format.dateTime(new Date(conversation.createdAt), {
               dateStyle: "medium",
             })}
-          </dd>
-          <dt className="text-muted-foreground">{t("info.messages")}</dt>
-          <dd className="text-right">
+          </Fact>
+          <Fact label={t("info.messages")}>
             {format.number(conversation.messageCount)}
-          </dd>
-          <dt className="text-muted-foreground">{t("info.participants")}</dt>
-          <dd className="text-right">
+          </Fact>
+          <Fact label={t("info.participants")}>
             {format.number(conversation.participantCount)}
-          </dd>
-        </dl>
+          </Fact>
+        </FactList>
       </SectionCard>
       <SectionCard title={t("participants")}>
         {conversation.participants.map((participant) => (

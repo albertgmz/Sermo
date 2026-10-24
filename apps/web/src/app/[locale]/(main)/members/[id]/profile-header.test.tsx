@@ -23,11 +23,12 @@ afterAll(() => {
 const profile = (
   socials: Record<string, string>,
   lastActivityAt: string | null = null,
+  cover: { url: string } | null = null,
 ) =>
   ({
     id: 5,
     username: "wren",
-    cover: null,
+    cover,
     card: {
       id: 5,
       username: "wren",
@@ -60,12 +61,13 @@ const profile = (
 async function header(
   socials: Record<string, string>,
   lastActivityAt: string | null = null,
+  cover: { url: string } | null = null,
 ) {
   return new Response(
     await renderToReadableStream(
       withIntl(
         createElement(ProfileHeader, {
-          profile: profile(socials, lastActivityAt),
+          profile: profile(socials, lastActivityAt, cover),
           viewerId: null,
           canMessage: false,
         }),
@@ -113,4 +115,22 @@ test("the last seen line names the page the member viewed within the hour, and m
     /Viewing thread “<a[^>]*href="\/threads\/9"[^>]*>News<\/a>”/,
   );
   expect(html).toContain("(hidden)");
+});
+
+test("without a cover the header is compact: no empty band above the avatar, which sits beside the name from md", async () => {
+  const bare = await header({});
+  expect(bare).not.toContain("md:h-56");
+  expect(bare).not.toContain("md:pt-44");
+  expect(bare).not.toContain("pt-20");
+  expect(bare).toMatch(/data-slot="container" class="[^"]*md:flex-row/);
+  // With one the band is drawn and the avatar overlaps its foot, as before.
+  const covered = await header({}, null, { url: "/covers/a.jpg" });
+  expect(covered).toContain("md:h-56");
+  expect(covered).toContain("md:pt-44");
+});
+
+test("the divider after the name is drawn only when a social link follows it", async () => {
+  const divider = 'class="h-5 w-px bg-border"';
+  expect(await header({})).not.toContain(divider);
+  expect(await header({ x: "wren_x" })).toContain(divider);
 });

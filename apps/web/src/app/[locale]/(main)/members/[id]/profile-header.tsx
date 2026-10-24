@@ -92,32 +92,47 @@ export function ProfileHeader({
     },
   ];
 
+  // With a cover the avatar overlaps its foot; without one there is no band: the avatar sits at the
+  // top, beside the name from `md`.
+  const covered = profile.cover !== null;
   return (
     <header className="relative">
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-36 overflow-hidden bg-background md:h-56"
-      >
-        {profile.cover && (
+      {profile.cover && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-36 overflow-hidden bg-background md:h-56"
+        >
           <Art
             category="profileCovers"
             className="absolute inset-0 bg-cover bg-center opacity-60"
             src={profile.cover.url}
           />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background" />
-      </div>
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background" />
+        </div>
+      )}
 
-      <Container className="relative pt-20 md:pt-44">
+      <Container
+        className={cn(
+          "relative",
+          covered
+            ? "pt-20 md:pt-44"
+            : "flex flex-col gap-3 pt-4 md:flex-row md:items-start md:gap-6 md:pt-6",
+        )}
+      >
         <UserAvatar
           user={card}
           size="2xl"
           link={false}
           eager
-          className="ring-4 ring-background"
+          className="shrink-0 ring-4 ring-background"
         />
 
-        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+        <div
+          className={cn(
+            "flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8",
+            covered ? "mt-3" : "md:min-w-0 md:flex-1",
+          )}
+        >
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-3">
               <h1
@@ -131,7 +146,9 @@ export function ProfileHeader({
                   {profile.username}
                 </NameWithIcon>
               </h1>
-              <span aria-hidden="true" className="h-5 w-px bg-border" />
+              {socials.length > 0 && (
+                <span aria-hidden="true" className="h-5 w-px bg-border" />
+              )}
               <div className="-ml-2 flex items-center md:ml-0 md:gap-1">
                 {socials.map(({ network, label, url }) => {
                   const handle = profile.socials[network];

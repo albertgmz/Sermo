@@ -1,13 +1,12 @@
 import { siteStats } from "@sermo/core/contracts";
 import { getFormatter, getTranslations } from "next-intl/server";
+import { Fact, FactList } from "@/components/forum/fact-list";
 import { SectionCard } from "@/components/forum/section-card";
 import { CardSkeleton } from "@/components/forum/skeletons";
 import { UserLink } from "@/components/forum/user-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { WidgetBodyProps } from "@/components/widgets/widget-types";
 import { readIfAllowed } from "@/lib/sermo/client";
-
-const rowClass = "flex items-baseline justify-between gap-3 px-4 py-2 text-sm";
 
 // The site's threads, messages and members, and its newest member (a name the visitor may not see
 // is left out). Nothing when the site is closed to the visitor.
@@ -20,24 +19,18 @@ export async function SiteTotals({ title }: WidgetBodyProps<"siteTotals">) {
   ]);
   return (
     <SectionCard title={title}>
-      <dl className="divide-y divide-border">
+      <FactList>
         {(["threads", "posts", "members"] as const).map((key) => (
-          <div key={key} className={rowClass}>
-            <dt className="text-muted-foreground">{t(key)}</dt>
-            <dd className="font-medium tabular-nums">
-              {format.number(stats[key])}
-            </dd>
-          </div>
+          <Fact key={key} label={t(key)}>
+            {format.number(stats[key])}
+          </Fact>
         ))}
         {stats.latestMember && (
-          <div className={rowClass}>
-            <dt className="text-muted-foreground">{t("latestMember")}</dt>
-            <dd className="min-w-0 truncate font-medium">
-              <UserLink user={stats.latestMember} />
-            </dd>
-          </div>
+          <Fact label={t("latestMember")}>
+            <UserLink user={stats.latestMember} />
+          </Fact>
         )}
-      </dl>
+      </FactList>
     </SectionCard>
   );
 }

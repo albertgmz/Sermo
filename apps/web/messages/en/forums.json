@@ -51,7 +51,6 @@
     "allThreads": "All threads",
     "created": "<author></author> · {time}",
     "createdIn": "<forum></forum> · <author></author> · {time}",
-    "lastPost": "{time} · <author></author>",
     "newThread": "New thread",
     "home": "Home",
     "empty": "No threads yet",

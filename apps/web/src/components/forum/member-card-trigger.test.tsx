@@ -64,6 +64,23 @@ test("outside a scope a name is a card trigger with the hit area around its line
   expect(out).toContain(HIT_AREA);
 });
 
+test("the hit area grows the line upward and downward only, so a name inside a truncating cell is not cut while it fits", async () => {
+  // A hit area that sticks out sideways is scrollable overflow of the cell, and Firefox then draws
+  // the ellipsis over a name that fits ("wr…" for "wren").
+  for (const scope of [false, true]) {
+    const link = (
+      <MemberCardTrigger id={3} href="/members/3" name="ember">
+        ember
+      </MemberCardTrigger>
+    );
+    const out = await html(
+      scope ? <MemberCardScope disabled>{link}</MemberCardScope> : link,
+    );
+    expect(out).not.toMatch(/after:-inset-x/);
+    expect(out).toContain("after:inset-x-0");
+  }
+});
+
 test("the trigger is a link that opens its card on click, not on hover", async () => {
   const out = await html(
     <MemberCardTrigger id={3} href="/members/3" name="ember">

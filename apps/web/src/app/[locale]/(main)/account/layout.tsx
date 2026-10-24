@@ -95,7 +95,13 @@ async function AccountHeader() {
   const name = userNameProps(member);
 
   return (
-    <header className="relative isolate flex min-h-40 flex-wrap items-end gap-4 overflow-hidden rounded-lg border bg-card p-4 sm:min-h-48 sm:p-6">
+    <header
+      className={cn(
+        "relative isolate flex flex-wrap items-end gap-4 overflow-hidden rounded-lg border bg-card p-4 sm:p-6",
+        // The cover needs room to show; without one the card is only as tall as its content.
+        author.cover && "min-h-40 sm:min-h-48",
+      )}
+    >
       <CoverBackdrop
         cover={author.cover}
         variant="full"

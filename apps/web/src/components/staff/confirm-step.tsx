@@ -17,6 +17,8 @@
 //   reason        Label of an optional reason field (sent as `reason`), or undefined for none.
 //   danger        true (default) draws the summary and the button as destructive, false as a
 //                 plain action.
+//   summaryClassName  Optional classes added to the summary, after its own (a row's text actions
+//                 give it room around it and a colour of their own).
 //   heading       Optional. Wraps the step in a panel with this heading and a destructive border,
 //                 for the one delete of a record's page.
 //   password      true asks for the administrator's own password (the field `actorPassword`),
@@ -40,6 +42,7 @@ export function ConfirmStep({
   pendingLabel,
   reason,
   danger = true,
+  summaryClassName,
   heading,
   password = false,
   children,
@@ -55,6 +58,7 @@ export function ConfirmStep({
   pendingLabel?: string;
   reason?: string;
   danger?: boolean;
+  summaryClassName?: string;
   heading?: string;
   password?: boolean;
   children?: React.ReactNode;
@@ -76,6 +80,7 @@ export function ConfirmStep({
           "inline-flex min-h-10 cursor-pointer items-center text-sm font-medium",
           panel && "flex px-4",
           danger ? "text-destructive" : "text-primary-ink",
+          summaryClassName,
         )}
       >
         {shown}

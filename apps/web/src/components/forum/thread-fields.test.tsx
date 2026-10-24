@@ -70,3 +70,11 @@ test("the title row shrinks to its container, however narrow, in the thread's di
   );
   expect(dialog).toMatch(/<form[^>]*className="grid min-w-0 gap-4"/);
 });
+
+test("the thread's edit dialog is wide enough for a whole title, and its prefix button stays compact", () => {
+  // The shell the thread's and the conversation's Edit dialogs share.
+  const shell = readFileSync(join(import.meta.dir, "edit-dialog.tsx"), "utf8");
+  expect(shell).toContain('<DialogContent className="sm:max-w-2xl">');
+  // The prefix button never takes more than 12rem of the row, whatever the dialog's width.
+  expect(draw(false, "7")).toContain("max-w-[min(45%,12rem)]");
+});

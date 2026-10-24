@@ -252,6 +252,27 @@ test("the site totals show threads, messages, members and the newest member", as
   expect(html).toContain("nova");
 });
 
+test("the newest member's name is shown whole, never cut by an ellipsis, beside its label", async () => {
+  backend({
+    [STATS]: () =>
+      Response.json({
+        threads: 1,
+        posts: 2,
+        members: 3,
+        latestMember: card(7, "nova"),
+      }),
+  });
+  const { html } = await draw(totals);
+  const row =
+    html
+      .split("<div")
+      .find((part) =>
+        part.includes(messages.widgets.siteTotals.latestMember),
+      ) ?? "";
+  expect(row).toContain("nova");
+  expect(row).not.toContain("truncate");
+});
+
 test("the site totals leave out the newest member when the backend gives none, and draw nothing when refused", async () => {
   backend({
     [STATS]: () =>

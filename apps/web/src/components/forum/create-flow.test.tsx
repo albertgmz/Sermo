@@ -439,6 +439,25 @@ test("each step is a column in the middle of the screen: the choices narrow, the
   );
 });
 
+test("from md the choice steps are a centred card sized to their content, and the composers keep the whole height", () => {
+  const choice = classes(STEP_COLUMN.choice);
+  for (const name of [
+    "md:flex-none",
+    "md:my-auto",
+    "md:max-h-[min(44rem,88dvh)]",
+    "md:rounded-xl",
+    "md:border-y",
+  ])
+    expect(choice).toContain(name);
+  // A phone keeps the full-height sheet: nothing above `md` changes it.
+  expect(choice).toContain("flex-1");
+  const writing = classes(STEP_COLUMN.writing);
+  expect(writing).not.toContain("md:flex-none");
+  expect(writing).not.toContain("md:my-auto");
+  // The forum list keeps a height of its own, so the card does not jump while a search narrows it.
+  expect(source("forum-choice-panel.tsx")).toContain("md:min-h-72");
+});
+
 test("in the Create dialog the text of a thread or a wall post takes the rest of the screen; the wall page's sheet keeps its own", () => {
   const thread = renderToStaticMarkup(
     withIntl(

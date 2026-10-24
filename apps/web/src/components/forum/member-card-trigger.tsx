@@ -29,7 +29,7 @@ const classes = (avatar: boolean | undefined, className?: string) =>
   avatar
     ? className
     : cn(
-        "relative rounded-sm after:absolute after:-inset-x-1 after:-inset-y-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        "relative rounded-sm after:absolute after:inset-x-0 after:-inset-y-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         className,
       );
 

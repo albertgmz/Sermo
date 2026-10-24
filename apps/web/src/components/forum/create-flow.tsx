@@ -55,9 +55,14 @@ type Access = {
 
 // The dialog is the whole screen; each step is a column in its middle: as wide as the forum's own
 // for writing, narrower for a choice. On a phone the column is the screen; from `md` it is a
-// surface of its own, edged on both sides, over the screen's background.
+// surface of its own, edged on both sides, over the screen's background. A choice is a card sized
+// to its content, centred (`md:my-auto`) and scrolling inside past `md:max-h`; the composers keep
+// the whole height.
 const COLUMN = "mx-auto min-h-0 w-full flex-1 flex-col md:border-x md:bg-card";
-const CHOICE = cn(COLUMN, "max-w-2xl");
+const CHOICE = cn(
+  COLUMN,
+  "max-w-2xl md:my-auto md:max-h-[min(44rem,88dvh)] md:flex-none md:rounded-xl md:border-y",
+);
 const WRITING = cn(COLUMN, "max-w-(--container-width)");
 export const STEP_COLUMN = { choice: CHOICE, writing: WRITING };
 

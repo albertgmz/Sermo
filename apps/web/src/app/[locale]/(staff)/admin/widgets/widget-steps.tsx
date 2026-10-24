@@ -8,7 +8,13 @@ import { widgetName } from "./labels";
 
 // The two steps behind a widget, on its row of the list and on its own page: a copy to the end of
 // a position, and the delete.
-export async function DuplicateStep({ widget }: { widget: WidgetItem }) {
+export async function DuplicateStep({
+  widget,
+  summaryClassName,
+}: {
+  widget: WidgetItem;
+  summaryClassName?: string;
+}) {
   const t = await getTranslations("adminWidgets");
   const id = `widget-${widget.id}-copy`;
   return (
@@ -19,6 +25,7 @@ export async function DuplicateStep({ widget }: { widget: WidgetItem }) {
       warning={t("steps.duplicateWarning")}
       submit={t("steps.duplicateConfirm")}
       danger={false}
+      summaryClassName={summaryClassName}
     >
       <div className="grid gap-1.5">
         <label htmlFor={id} className="text-xs font-medium">
@@ -44,9 +51,11 @@ export async function DuplicateStep({ widget }: { widget: WidgetItem }) {
 export async function DeleteStep({
   widget,
   heading,
+  summaryClassName,
 }: {
   widget: WidgetItem;
   heading?: string;
+  summaryClassName?: string;
 }) {
   const t = await getTranslations("adminWidgets");
   return (
@@ -59,6 +68,7 @@ export async function DeleteStep({
         title: widget.title ?? widgetName(t, widget),
       })}
       submit={t("steps.deleteConfirm")}
+      summaryClassName={summaryClassName}
     />
   );
 }

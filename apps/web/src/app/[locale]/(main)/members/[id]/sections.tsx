@@ -16,7 +16,6 @@ import type { Query } from "@/components/forum/places";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
-import { ShareButton } from "@/components/forum/share-button";
 import { SignatureHtml } from "@/components/forum/signature-html";
 import {
   FeedSkeleton,
@@ -39,6 +38,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ReferralField } from "@/components/widgets/referral-link";
 import { formatDate, formatNumber } from "@/lib/format";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
@@ -265,7 +265,7 @@ function Detail({
   );
 }
 
-function About({
+export function About({
   profile,
   isOwn,
   cards,
@@ -276,7 +276,6 @@ function About({
 }) {
   const locale = useLocale();
   const t = useTranslations("members.profile");
-  const referral = `/register?ref=${profile.id}`;
   return (
     <div className="space-y-4">
       <SectionCard title={t("aboutHeading")}>
@@ -309,18 +308,7 @@ function About({
           </Detail>
           {isOwn && (
             <Detail icon={Link2} label={t("referralLabel")}>
-              <span className="flex items-center gap-1">
-                <Link
-                  href={referral}
-                  className="min-w-0 font-medium text-primary-ink underline underline-offset-4 hover:no-underline"
-                >
-                  {referral}
-                </Link>
-                <ShareButton
-                  href={referral}
-                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground md:size-8 [&_svg]:size-4"
-                />
-              </span>
+              <ReferralField userId={profile.id} />
             </Detail>
           )}
         </dl>

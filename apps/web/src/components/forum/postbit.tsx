@@ -3,7 +3,7 @@ import { AwardRow } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserBadges } from "@/components/forum/user-badges";
+import { titleBesideBadges, UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
 import { formatCompact, formatDate } from "@/lib/format";
@@ -81,7 +81,8 @@ export function Postbit({
   // to show: the counts and the date would be placeholders.
   const facts = !member.restricted;
   const joined = Number.isFinite(new Date(author.joinedAt).getTime());
-  const hasTitle = Boolean(member.title);
+  const title = titleBesideBadges(member);
+  const hasTitle = Boolean(title);
   const titleRow = hasTitle || (compact && facts);
   const level = levelWithBounds(
     member.level,
@@ -190,7 +191,7 @@ export function Postbit({
         >
           {hasTitle && (
             <p
-              title={member.title}
+              title={title}
               className={cn(
                 "min-w-0 text-xs text-muted-foreground",
                 pick(
@@ -200,7 +201,7 @@ export function Postbit({
                 ),
               )}
             >
-              {member.title}
+              {title}
             </p>
           )}
           {compact && facts && (

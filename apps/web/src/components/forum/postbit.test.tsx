@@ -194,6 +194,27 @@ test("a member without a title leaves no empty row in the column", async () => {
   expect(rows(bare)).toBe(rows(titled) - 1);
 });
 
+test("a title that only repeats the group's badge is shown once, as the badge", async () => {
+  const badge = { label: "Moderator", color: null, style: "tint" };
+  const withTitle = (title: string) => ({
+    ...author,
+    member: { ...author.member, title, badges: [badge] },
+  });
+  for (const layout of LAYOUTS) {
+    const repeated = await html(
+      <Postbit author={withTitle("Moderator") as never} layout={layout} />,
+    );
+    expect(repeated.match(/Moderator/g), layout).toHaveLength(1);
+    const added = await html(
+      <Postbit
+        author={withTitle("Garden moderator") as never}
+        layout={layout}
+      />,
+    );
+    expect(added, layout).toContain("Garden moderator");
+  }
+});
+
 test("the actions sit under the name and before the title, in every layout", async () => {
   for (const layout of LAYOUTS) {
     const out = await html(

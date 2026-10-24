@@ -138,3 +138,15 @@ test("a thread of several pages links to its last pages beside the title, as Xen
   // A thread of one page has none.
   expect(await row(null, true)).not.toContain("?page=");
 });
+
+test("the last post stacks the time over the poster, both at the end of the cell, so a name is not cut beside the time", async () => {
+  const html = await row(null);
+  const cell = /<div class="hidden w-52[^"]*"[^>]*>(.*?)<\/div>/.exec(
+    html,
+  )?.[1];
+  expect(cell).toBeDefined();
+  // The time first, then the poster on a line of its own; no dot joins them.
+  expect(cell).not.toContain("·");
+  expect(cell?.indexOf("<time")).toBeLessThan(cell?.indexOf("member3") ?? -1);
+  expect(cell).toMatch(/<\/time><span class="block[^"]*">.*member3/);
+});

@@ -83,3 +83,23 @@ test("every member is a row with their details, both ways in, and the filters st
     'href="/admin/users?state=valid&amp;group=7&amp;q=a&amp;cursor=after-bob"',
   );
 });
+
+test("the prefix's helper text sits under the whole filter row, so the three controls line up on their labels", async () => {
+  backend = fakeBackend({
+    "groups.list": () => Response.json({ items: [groupBody()] }),
+    "users.adminList": () => Response.json({ items: [], nextCursor: null }),
+  });
+  const html = await draw();
+  const help = html.indexOf('id="users-prefix-help"');
+  expect(help).toBeGreaterThan(-1);
+  // After the last control of the row, and not inside any of the labels.
+  expect(help).toBeGreaterThan(html.indexOf('name="group"'));
+  const labels = [...html.matchAll(/<label[^>]*>[\s\S]*?<\/label>/g)].map(
+    (match) => match[0],
+  );
+  expect(labels.some((label) => label.includes(`id="users-prefix-help"`))).toBe(
+    false,
+  );
+  // The field still names it as its description.
+  expect(html).toMatch(/<input[^>]*aria-describedby="users-prefix-help"/);
+});

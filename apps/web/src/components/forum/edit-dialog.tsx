@@ -36,7 +36,7 @@ export function EditDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger className={triggerClassName}>{trigger}</DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

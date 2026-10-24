@@ -18,6 +18,10 @@ import { widgetName } from "./labels";
 import { type Position, pagesOf } from "./positions";
 import { DeleteStep, DuplicateStep } from "./widget-steps";
 
+// A row's text actions are plain words with room around them; only the delete is red (the site's
+// accent is red too, so the duplicate step cannot take the accent's colour).
+const ROW_ACTION = "px-2 text-foreground";
+
 // The widgets, one list for each position in the order the pages draw them in (the home page's
 // positions, then What's new's, then those no page draws yet); a position with none is a row of the list at the end, to add the first.
 export async function WidgetList({
@@ -75,9 +79,10 @@ export async function WidgetList({
           <RowLink
             href={`/admin/widgets/${widget.id}`}
             label={t("row.edit", { title })}
+            text={t("row.editText")}
           />
-          <DuplicateStep widget={widget} />
-          <DeleteStep widget={widget} />
+          <DuplicateStep widget={widget} summaryClassName={ROW_ACTION} />
+          <DeleteStep widget={widget} summaryClassName="px-2" />
         </>
       ),
     };

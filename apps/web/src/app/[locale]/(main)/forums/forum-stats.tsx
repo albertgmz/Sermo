@@ -183,9 +183,7 @@ function ThreadRow({
           </div>
         ))}
       </dl>
-      <span
-        className={cn(CELL, "hidden w-22.5 text-muted-foreground @3xl:flex")}
-      >
+      <span className={cn(CELL, "hidden w-30 text-muted-foreground @3xl:flex")}>
         <span className="sr-only">{t("aria.lastPost")}</span>
         <RelativeTime date={card.lastPost.createdAt} className="truncate" />
       </span>

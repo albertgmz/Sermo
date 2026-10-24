@@ -16,7 +16,7 @@ const LOOK = {
   default: {
     frame: "border-input dark:bg-input/30",
     prefix:
-      "max-w-[45%] rounded-r-none border-0 border-r bg-muted/60 focus-visible:border-input focus-visible:bg-muted focus-visible:ring-0 dark:bg-input/40",
+      "max-w-[min(45%,12rem)] rounded-r-none border-0 border-r bg-muted/60 focus-visible:border-input focus-visible:bg-muted focus-visible:ring-0 dark:bg-input/40",
     input: "h-10 px-2.5 text-base md:h-8 md:text-sm",
   },
   large: {

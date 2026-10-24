@@ -127,3 +127,15 @@ export function UserBadges({
     .slice(0, limit)
     .map((badge) => <MemberBadge key={badge.label} badge={badge} />);
 }
+
+// The member's title, or nothing where a badge beside it already says the same (a group's banner
+// and the title it gives are one word: "Moderator" twice), as XenForo shows the banner alone.
+export function titleBesideBadges(
+  user: Pick<MemberView, "title" | "badges">,
+): string {
+  const same = (a: string, b: string) =>
+    a.trim().toLowerCase() === b.trim().toLowerCase();
+  return user.badges.some((badge) => same(badge.label, user.title))
+    ? ""
+    : user.title;
+}

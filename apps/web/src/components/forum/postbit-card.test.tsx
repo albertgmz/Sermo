@@ -173,6 +173,7 @@ function backend(
     relation?: typeof ALL;
     signedIn?: boolean;
     lastActivity?: { at: string | null; hidden: boolean };
+    title?: string;
   } = {},
 ) {
   const asked: string[] = [];
@@ -189,7 +190,7 @@ function backend(
               frame: null,
               nameColor: null,
               nameIcon: null,
-              title: "Senior member",
+              title: options.title ?? "Senior member",
               badges: [{ label: "Moderator", color: null, style: "solid" }],
               level: 3,
               restricted: false,
@@ -265,6 +266,16 @@ async function post() {
   ]);
   return html(<MemberCardScope disabled>{row.node}</MemberCardScope>);
 }
+
+test("a title that only repeats the group's badge is left out of the member card, and one that adds something stays", async () => {
+  backend({ title: "moderator " });
+  const repeated = await card();
+  expect(repeated).toContain("Moderator");
+  expect(repeated).not.toContain("moderator <");
+  expect(repeated).not.toMatch(/text-muted-foreground[^>]*>\s*moderator/i);
+  backend({ title: "Garden moderator" });
+  expect(await card()).toContain(">Garden moderator</p>");
+});
 
 test("a member with a cover and awards: every part of XenForo's tooltip, in its order", async () => {
   backend();

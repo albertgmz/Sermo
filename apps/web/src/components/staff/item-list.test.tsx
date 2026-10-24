@@ -131,6 +131,14 @@ test("the switch shows the state it has and the row link its own icon", () => {
   expect(link).toContain('title="Open"');
 });
 
+test("a row link given a text shows it as a plain link, and keeps the longer label for assistive technology", () => {
+  const link = render(<RowLink href="/x" label="Edit Like" text="Edit" />);
+  expect(link).toContain(">Edit</a>");
+  expect(link).toContain('aria-label="Edit Like"');
+  expect(link).not.toContain("<svg");
+  expect(link).not.toContain("size-10");
+});
+
 test("the switch sends the flipped state itself, under the field the action reads", () => {
   const on = render(
     <RowToggle action={action} fields={{ id: "2" }} checked label="Shown" />,

@@ -240,6 +240,24 @@ test("each widget can be edited, duplicated into a position and deleted from its
   expect(html).toContain("Delete “Forum statistics”?");
 });
 
+test("a widget's row reads Edit, Duplicate, Delete as text, and only Delete is drawn as dangerous", async () => {
+  serve([STATS]);
+  const row = rowOf(await listed(), "Forum statistics");
+  // Each is a word with room around it, not a pencil and two words run together.
+  expect(row).toMatch(
+    /<a [^>]*aria-label="Edit Forum statistics"[^>]*>Edit<\/a>/,
+  );
+  const summary = (word: string) =>
+    new RegExp(`<summary class="([^"]*)">${word}</summary>`).exec(row)?.[1];
+  expect(summary("Duplicate")).toContain("px-2");
+  expect(summary("Delete")).toContain("px-2");
+  // The accent is red on this site: Duplicate is plain text, and Delete alone is destructive.
+  expect(summary("Duplicate")).not.toMatch(/destructive|primary/);
+  expect(summary("Delete")).toContain("text-destructive");
+  expect(row.match(/text-destructive/g)?.length).toBeGreaterThanOrEqual(1);
+  expect(row).not.toMatch(/<a [^>]*class="[^"]*(destructive|primary)/);
+});
+
 test("a position with two or more widgets offers its order, and every position offers an add", async () => {
   serve();
   const html = await listed();

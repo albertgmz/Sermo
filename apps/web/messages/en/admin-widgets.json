@@ -201,6 +201,7 @@
   },
   "row": {
     "edit": "Edit {title}",
+    "editText": "Edit",
     "off": "Off",
     "noPhones": "Hidden on phones",
     "notShown": "Not shown yet"

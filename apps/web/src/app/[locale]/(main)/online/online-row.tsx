@@ -41,22 +41,25 @@ export function OnlineRow({ visitor }: { visitor: Visitor }) {
               <UserBadges user={card} limit={1} />
             </>
           ) : robot ? (
-            t.rich("robot", {
-              name: robot.name ?? t("unknownRobot"),
-              link: (chunks) =>
-                robot.url ? (
-                  <a
-                    href={robot.url}
-                    target="_blank"
-                    rel="nofollow noopener noreferrer"
-                    className="text-primary-ink hover:underline"
-                  >
-                    {chunks}
-                  </a>
-                ) : (
-                  chunks
-                ),
-            })
+            // One element: as loose text and a link the flex heading would put its gap between them.
+            <span>
+              {t.rich("robot", {
+                name: robot.name ?? t("unknownRobot"),
+                link: (chunks) =>
+                  robot.url ? (
+                    <a
+                      href={robot.url}
+                      target="_blank"
+                      rel="nofollow noopener noreferrer"
+                      className="text-primary-ink hover:underline"
+                    >
+                      {chunks}
+                    </a>
+                  ) : (
+                    chunks
+                  ),
+              })}
+            </span>
           ) : (
             t("guest")
           )}

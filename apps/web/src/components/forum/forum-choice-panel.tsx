@@ -135,7 +135,7 @@ export function ForumChoicePanel({
           className="pl-8"
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 overflow-y-auto p-2 md:min-h-72">
         {rows.length === 0 ? (
           <p className="px-2 py-6 text-center text-sm text-muted-foreground">
             {searching ? t("noMatches") : t("noForums")}

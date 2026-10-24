@@ -50,7 +50,8 @@
 // The action's refusal or notice shows under the row.
 //
 // RowLink: an icon button that is a link: the row's "Edit" (`icon`, an element such as
-// `<Eye />`, defaults to a pencil).
+// `<Eye />`, defaults to a pencil). With `text` it is a plain text link instead, beside the row's
+// other text actions; `label` is still what assistive technology reads.
 
 import { Pencil, Search } from "lucide-react";
 import Link from "next/link";
@@ -360,11 +361,25 @@ export function RowLink({
   href,
   label,
   icon = <Pencil />,
+  text,
 }: {
   href: string;
   label: string;
   icon?: React.ReactNode;
+  text?: string;
 }) {
+  if (text) {
+    return (
+      <Link
+        href={href}
+        aria-label={label}
+        title={label}
+        className="inline-flex min-h-10 items-center px-2 text-sm font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        {text}
+      </Link>
+    );
+  }
   return (
     <Link
       href={href}

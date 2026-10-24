@@ -88,6 +88,14 @@ test("the information widget tells who started the conversation, when, and how b
   expect(html).toContain("Messages");
 });
 
+test("the starter's name in the information widget is shown whole, never cut by an ellipsis", async () => {
+  const html = await draw();
+  const value = html.slice(html.indexOf("Started by"));
+  const cell = /<dd class="([^"]*)">/.exec(value)?.[1] ?? "";
+  expect(cell).not.toBe("");
+  expect(cell).not.toContain("truncate");
+});
+
 test("every participant is listed and one who left is marked", async () => {
   const html = await draw();
   expect(html).toContain("member2");

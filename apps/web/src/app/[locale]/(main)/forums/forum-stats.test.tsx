@@ -232,6 +232,18 @@ test("each row is one line whose columns leave as the panel narrows, the title l
   expect(row).toContain("truncate");
 });
 
+test('the date column is wide enough for a whole relative time, so it is not cut to "hace 13 mi…"', async () => {
+  backend();
+  const row = rowOf(await panel(), "Read one");
+  const cell =
+    /<span class="([^"]*)"><span class="sr-only">[^<]*<\/span><time/.exec(
+      row,
+    )?.[1] ?? "";
+  const width = Number(/\bw-([\d.]+)\b/.exec(cell)?.[1]);
+  // 4 px a step: "hace 13 minutos" and "hace 3 semanas" need about 112 px with the column's padding.
+  expect(width * 4).toBeGreaterThanOrEqual(120);
+});
+
 test("the starter's avatar is marked online when they were seen in the last 15 minutes, offline otherwise", async () => {
   backend();
   const html = await panel();

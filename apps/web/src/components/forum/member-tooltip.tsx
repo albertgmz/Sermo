@@ -5,7 +5,7 @@ import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { LevelBadge } from "@/components/forum/level";
 import { MemberCardProfileLink } from "@/components/forum/member-card-profile-link";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserBadges } from "@/components/forum/user-badges";
+import { titleBesideBadges, UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { AuthorView } from "@/lib/sermo/views";
@@ -24,6 +24,7 @@ export function MemberTooltip({
   const locale = useLocale();
   const t = useTranslations("forum.memberCard");
   const { member, lastActivity } = author;
+  const title = titleBesideBadges(member);
   const joined = Number.isFinite(new Date(author.joinedAt).getTime());
   return (
     <article data-slot="member-tooltip" className="flex min-w-0 flex-col">
@@ -42,9 +43,9 @@ export function MemberTooltip({
             <UserBadges user={member} />
             <LevelBadge level={member} />
           </div>
-          {member.title && (
+          {title && (
             <p className="max-w-full text-xs text-muted-foreground [overflow-wrap:anywhere]">
-              {member.title}
+              {title}
             </p>
           )}
           <AwardRow awards={author.awards} />
