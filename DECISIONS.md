@@ -6912,3 +6912,17 @@ layouts cramped, cut or doubled.
 
 Why: a whole run (phone then desktop) failed tests that passed alone, because earlier tests
 pushed the alert or post they looked for out of the first page.
+
+### One Follow button and one thread action row
+
+- A forum's header holds New thread, Mark forum read and one Follow button; Follow opens a small
+  popover (new threads or every post, and email), saves in place and then reads Following,
+  which reopens it with Save and Unfollow. Threads use the same button.
+- A thread has one action row: its pager on the left; Follow, a boxed bookmark and a "•••" menu
+  (Edit thread in the shared Edit dialog, Edit or Add tags, Add poll, Moderate) on the right.
+  Closing a panel or the dialog hands the focus back to "•••".
+- Without scripts (`@media (scripting: none)`), Follow is a plain form that saves and reloads,
+  Edit thread is a link to the full edit page and moderation is the `<details>` panel.
+
+Why: the UI audit (A15, A28) found the forum and thread headers holding several watch cards
+and a scatter of buttons where XenForo has one row.
