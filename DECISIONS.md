@@ -6855,3 +6855,14 @@ Why: the UI audit (A12, A13) found two different member filters and controls wit
   without scripts.
 
 Why: the UI audit (A2, A7, A8) found these three controls reloading or doubling up.
+
+### A direct message's title and lock are edited in a dialog in its header
+
+- An Edit button in the direct message's header opens a dialog with its title and the lock
+  ("No replies allowed"), as XenForo's conversation edit, in place of the rename and lock cards
+  beside the messages. The thread's Edit dialog and it share one dialog shell. Who may change
+  each field is unchanged (title: the starter who may reply; lock: the starter or a moderator),
+  and saving keeps the address and page.
+
+Why: the UI audit (A18) found the conversation's sidebar crowded with cards XenForo keeps in a
+dialog.
