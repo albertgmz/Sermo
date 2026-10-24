@@ -101,9 +101,9 @@ test("a reply is edited where it is read: Cancel puts it back, Save draws it ane
   );
 });
 
-// A one-pixel PNG, to attach.
+// A 4 x 4 PNG, to attach. It must decode: the backend refuses a picture it cannot read (400).
 const PIXEL = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==",
+  "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGNQ6kiDIwbiOAC2AxEBzP3FAAAAAABJRU5ErkJggg==",
   "base64",
 );
 

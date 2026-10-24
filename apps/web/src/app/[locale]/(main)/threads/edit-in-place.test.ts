@@ -367,3 +367,46 @@ test("a title saved before the post is refused comes back with the refusal, so t
     thread: { title: "Ripe tomatoes", prefix: null },
   });
 });
+
+test("the post's editor sends files to its forum's upload route and lists the files the post has", async () => {
+  const { uploadAddress } = await import("@/components/forum/attachment-field");
+  answers["GET /posts/31"] = {
+    body: postBody({
+      attachments: [
+        {
+          fileId: 5,
+          url: "/files/5",
+          contentType: "image/png",
+          byteSize: 120,
+          width: 4,
+          height: 4,
+          filename: "kept.png",
+          thumbnailUrl: null,
+          widths: [],
+        },
+      ],
+    }),
+  };
+  answers["GET /threads/7"] = {
+    body: {
+      ...found(false),
+      resolvedPermissions: { "forum.uploadAttachments": true },
+    },
+  };
+  const opened = await inPlace.postEditorAction(7, 31);
+  if ("error" in opened) throw new Error(opened.error);
+  // The forum the post is in, not the thread or the post: the route takes the forum.
+  expect(opened.fields.attachIn).toBe(2);
+  expect(uploadAddress(opened.fields.attachIn ?? undefined)).toBe(
+    "/threads/2/uploads",
+  );
+  expect(opened.fields.attached).toEqual([
+    { id: 5, name: "kept.png", size: 120, type: "image/png" },
+  ]);
+
+  // Without the right to attach files there is no field to send them from.
+  answers["GET /threads/7"] = { body: found(false) };
+  const plain = await inPlace.postEditorAction(7, 31);
+  if ("error" in plain) throw new Error(plain.error);
+  expect(plain.fields.attachIn).toBeNull();
+});

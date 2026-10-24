@@ -85,3 +85,9 @@ test("Attach files is XenForo's outline button with its paperclip in a form's ow
   expect(own).toEqual(row.filter((name) => name !== "order-last"));
   expect(own).toContain("border");
 });
+
+test("a chosen file goes to the upload route of the post's forum, or to the plain one where there is none", async () => {
+  const { uploadAddress } = await import("./attachment-field");
+  expect(uploadAddress(2)).toBe("/threads/2/uploads");
+  expect(uploadAddress(undefined)).toBe("/attachments");
+});

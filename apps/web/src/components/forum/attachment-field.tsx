@@ -36,6 +36,12 @@ export type AttachedFile = {
   type?: string;
 };
 
+// Where a chosen file is sent: the upload route of the forum the post is for, or the one of a
+// message or a profile post, which has none.
+export function uploadAddress(nodeId: number | undefined) {
+  return nodeId === undefined ? "/attachments" : `/threads/${nodeId}/uploads`;
+}
+
 const INSERT_BUTTON =
   "inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground";
 
@@ -114,10 +120,10 @@ export function AttachmentField({
     body.append("file", file, file.name);
     setBusy((count) => count + 1);
     try {
-      const response = await fetch(
-        nodeId === undefined ? "/attachments" : `/threads/${nodeId}/uploads`,
-        { method: "POST", body },
-      );
+      const response = await fetch(uploadAddress(nodeId), {
+        method: "POST",
+        body,
+      });
       const payload: {
         id?: number;
         error?: string;
