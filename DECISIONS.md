@@ -6696,3 +6696,13 @@ selector odd too.
   of a visible item removes it from view first, without telling the author, then erases it.
 
 Why: the owner found no way to really delete a post or a conversation message.
+
+### Two end-to-end tests no longer depend on timing or run order
+
+- The pager test compares each page's first post by its element id instead of its text, which
+  held a relative time ("39 seconds ago"); the bookmark and profile-posts landing test finds
+  the link to its post on whatever page it is (Load more or the numbered pager) instead of
+  assuming page one. What each test proves is unchanged.
+
+Why: both failed on some runs only (a second ticking between reads, or other test files having
+added posts first), which would have blocked the final end-to-end run.
