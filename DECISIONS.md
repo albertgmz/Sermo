@@ -6669,3 +6669,17 @@ Why: the owner wanted to choose the language of inserted code.
   the keys.
 
 Why: the owner wanted to send a message with that shortcut.
+
+### Posts and threads are edited in place, with one prefix menu
+
+- Edit on a post turns its text into the editor in place, with Save, More options… and Cancel,
+  as XenForo's quick edit; Save redraws only that post, Cancel restores it, and More options…
+  opens the full edit page with the unsaved text and the files uploaded or removed meanwhile.
+  The full page stays the fallback without JavaScript.
+- "Edit thread" opens a dialog for the title and prefix and updates the heading in place.
+- One prefix menu, XenForo-style, attached to the title field and showing prefixes as their
+  coloured labels with "(No prefix)" first, serves the edit forms, the new-thread composer and
+  the forum filter.
+
+Why: the owner found the edit button odd because it loaded a whole page, and the prefix
+selector odd too.
