@@ -6548,3 +6548,12 @@ needs no migration and no extra read.
 
 Why: the owner wanted the counter to clear when alerts are opened, without visiting each one;
 one marker per member is cheap on 67,000 members, where marking every alert would rewrite rows.
+
+### The @ member list works in every composer
+
+- The @ member list is offered in conversation replies and new conversations, wall posts and
+  comments, feed replies, and in the BB code source field as XenForo's source box offers it; a
+  mention in a conversation alerts only its participants, whoever the list suggested.
+
+Why: the owner found the list did nothing in conversations; those composers never passed the
+member search to the editor.
