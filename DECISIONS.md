@@ -6926,3 +6926,20 @@ pushed the alert or post they looked for out of the first page.
 
 Why: the UI audit (A15, A28) found the forum and thread headers holding several watch cards
 and a scatter of buttons where XenForo has one row.
+
+### Share copies at once, reactions get their own bar, and phones keep the main words
+
+- Share is a button that copies the link in one press and shows the floating "Link copied"
+  notice; on a touch screen it opens the share sheet. It keeps the address it shares in
+  `data-href`, so a post's own number stays its first link to itself. The layout loads only the
+  small notice view; the card loads on the first copy.
+- The react button names the reaction (emoji and word) with no count; the count moves to a
+  XenForo-style reactions bar under posts, messages and wall items, which opens who reacted.
+- On phones "+ Quote", "Reply", the Novedades tabs (smaller type to fit one line) and the
+  direct message's header buttons keep their words; the other post tools are icons with their
+  names. Feed wall posts use the profile wall's bar; the comment like reads "Me gusta".
+- Not done: reactor names in the bar ("kestrel, wren and 3 more") need a stored column and a
+  contract field; the phone "⋯" menu for report, edit and delete is left for later.
+
+Why: the UI audit (A22, A24, A25, A26) found share needing two presses, counts on the react
+button and phone bars of bare icons.
