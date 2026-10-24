@@ -213,8 +213,8 @@ export function LazyEditor({
     };
   }, [Bar, barShown]);
 
-  // It is asked for at once when the box is entered (its field, or a button of the bar from the
-  // keyboard) or pressed anywhere: a ⋮ or the emoji picker too, which need no editor to open.
+  // It is asked for at once when the box is entered (its field, above, or a button of the bar from
+  // the keyboard) or pressed anywhere: a ⋮ or the emoji picker too, which need no editor to open.
   useEffect(() => {
     const element = box.current;
     if (!element) return;
@@ -344,8 +344,11 @@ export function LazyEditor({
         rows={1}
         placeholder={placeholder}
         aria-label={placeholder}
+        // Its own handler, there from the first draw: a composer that focuses the field as soon as
+        // it is drawn (a feed card's Reply) does so before the box's listeners below are added.
         onFocus={() => {
           entered.current = true;
+          load();
         }}
         onPaste={takePastedFiles}
         onInput={(event) => {

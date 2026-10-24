@@ -261,7 +261,12 @@ test("a box that edits what was written is a field that holds its BB code", () =
 test("the editor is asked for once the page is idle, except by the one-line box, which waits to be entered", () => {
   const lazy = readFileSync(join(import.meta.dir, "lazy-editor.tsx"), "utf8");
   expect(lazy).toMatch(/if \(line\) return;\s*return whenIdle\(load\);/);
-  // Entering the box or pressing anything in it asks at once.
+  // Entering the box or pressing anything in it asks at once. The field asks from its own focus
+  // handler, which is there as soon as the field is: a composer that puts the focus in the field
+  // the moment it is drawn (a feed card's Reply) does so before the box's listeners are added.
+  expect(lazy).toMatch(
+    /onFocus=\{\(\) => \{\s*entered\.current = true;\s*load\(\);\s*\}\}/,
+  );
   expect(lazy).toContain('element.addEventListener("focusin", load);');
   expect(lazy).toContain('element.addEventListener("click", load);');
 });
