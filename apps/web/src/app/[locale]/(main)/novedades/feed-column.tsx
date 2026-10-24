@@ -223,8 +223,9 @@ export async function openingOf(params: Params) {
 
 export type Opened = Awaited<ReturnType<typeof openingOf>>;
 
-// Two bars, one per screen size: a phone has every tab but Media on its bar, each with its word
-// (the strip scrolls sideways where they do not fit); a wider screen pins three (`barOf`).
+// Two bars, one per screen size: a phone has every tab but Media on its bar, each with its word,
+// drawn a size smaller and closer together below `sm` so the four fit one line of a 360 px phone
+// in either language; a wider screen pins three (`barOf`).
 async function HomeTabs({ opened }: { opened: Opened }) {
   const { params, signedIn, home, tab } = opened;
   const t = await getTranslations("home.page");
@@ -245,7 +246,7 @@ async function HomeTabs({ opened }: { opened: Opened }) {
         active={tab}
         label={t("aria.feed")}
         variant="segmented"
-        className="md:hidden"
+        className="md:hidden max-sm:[&>*]:px-1.5 max-sm:[&>*]:text-xs"
       />
       <TabLinks
         tabs={bar.map(link)}

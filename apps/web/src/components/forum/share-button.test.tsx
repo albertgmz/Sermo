@@ -131,13 +131,17 @@ test("where the clipboard refuses, the link is handed over to copy by hand", asy
   expect(said()).toEqual({ copied: false, failed: [URL_] });
 });
 
-test("Share is a link to the item named Share, which opens no menu", () => {
+test("Share is a button named Share that carries the address it shares and opens no menu", () => {
   const html = renderToStaticMarkup(
     withIntl(<ShareButton href="/threads/3#post-1" label="Share" />),
   );
-  expect(html).toMatch(/^<a href="\/threads\/3#post-1" aria-label="Share"/);
+  expect(html).toMatch(
+    /^<button type="button" data-href="\/threads\/3#post-1" aria-label="Share"/,
+  );
+  // Not a link: the post's number is its permalink, and a link to the same post would be found
+  // first by anything looking for one.
+  expect(html).not.toContain("<a ");
   expect(html).not.toContain("aria-haspopup");
-  expect(html).not.toContain("Copy link");
   expect(html).toContain('<span class="hidden sm:inline">Share</span>');
 });
 

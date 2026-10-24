@@ -206,6 +206,13 @@ test("the header row reads time, then New, share, bookmark and the post number, 
   expect(header).toContain("flex-col relative shrink-0");
 });
 
+test("the first link in a post to itself is its number: share is a button, not another link there", async () => {
+  backend({ readPosition: 2 });
+  const [html] = await drawn([post(33, 3)]);
+  const first = html.match(/<a [^>]*href="[^"]*#post-33"[^>]*>(.*?)<\/a>/)?.[1];
+  expect(first).toBe("#4");
+});
+
 test("the thread starter's mark is a text pill at every width, with no pencil beside share and bookmark", async () => {
   backend({});
   const [html] = await drawn([post(33, 3)]);

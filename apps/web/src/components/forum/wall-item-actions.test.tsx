@@ -160,7 +160,7 @@ test("a wall post's date stays in its header: its footer starts with report", ()
 
 test("the share link names the item: the post, or the comment on it", () => {
   const share = (html: string) =>
-    html.match(/<a href="([^"]*)" aria-label="Share"/)?.[1];
+    html.match(/data-href="([^"]*)" aria-label="Share"/)?.[1];
   expect(share(draw("post", {}, null))).toBe(
     "/members/9?post=12#profile-post-12",
   );
