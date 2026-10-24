@@ -8,16 +8,6 @@ const source = (path: string) =>
 const SCREENS = [
   ["feed", "app/[locale]/(main)/novedades/page.tsx", "_feed/feed-actions.ts"],
   [
-    "forum thread lists",
-    "app/[locale]/(main)/forums/[id]/page.tsx",
-    "forums/[id]/more-threads.ts",
-  ],
-  [
-    "conversations",
-    "app/[locale]/(main)/conversations/page.tsx",
-    "conversations/more-conversations.ts",
-  ],
-  [
     "search results",
     "app/[locale]/(main)/search/results.tsx",
     "search/more-results.ts",

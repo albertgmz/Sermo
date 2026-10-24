@@ -1,19 +1,28 @@
 import { MessagesSquare, Plus } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { conversationsPage } from "@/app/[locale]/(main)/conversations/conversation-page";
-import { moreConversations } from "@/app/[locale]/(main)/conversations/more-conversations";
+import {
+  CONVERSATIONS_PER_PAGE,
+  ConversationPages,
+  conversationsPage,
+} from "@/app/[locale]/(main)/conversations/conversation-page";
+import { conversationsPageAction } from "@/app/[locale]/(main)/conversations/conversations-page-action";
 import { EmptyState } from "@/components/forum/empty-state";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
-import { PagedList } from "@/components/forum/paged-list";
+import { PageSwitch } from "@/components/forum/page-switch";
+import {
+  pageAddress,
+  pageParam,
+  pagesOf,
+} from "@/components/forum/page-window";
 import {
   ConversationListSkeleton,
   LoadingRegion,
 } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { pagesParam } from "@/lib/list-pages";
 import { cn } from "@/lib/utils";
 
 export default async function ConversationsPage({
@@ -35,11 +44,13 @@ export default async function ConversationsPage({
           {t("newConversation")}
         </Link>
       </div>
-      <div className="mt-4 overflow-hidden rounded-lg border bg-card">
+      <div className="mt-4">
         <Suspense
           fallback={
             <LoadingRegion label={t("loadingConversations")}>
-              <ConversationListSkeleton />
+              <div className="overflow-hidden rounded-lg border bg-card">
+                <ConversationListSkeleton />
+              </div>
             </LoadingRegion>
           }
         >
@@ -57,30 +68,26 @@ async function ConversationList({
     searchParams,
     getTranslations("conversations.list"),
   ]);
-  const cursor = typeof params.cursor === "string" ? params.cursor : undefined;
-  const first = await conversationsPage(cursor);
+  const page = pageParam(params.page);
+  const first = await conversationsPage(page);
+  // A page past the last one goes to the last one, as XenForo does.
+  const pages = pagesOf(first.total, CONVERSATIONS_PER_PAGE);
+  if (page > pages) redirect(pageAddress("/conversations", {}, pages));
 
-  if (!first.rows.length && !first.nextCursor) {
+  if (first.rows.length === 0) {
     return (
-      <EmptyState
-        icon={MessagesSquare}
-        title={t("emptyTitle")}
-        description={t("emptyDescription")}
-      />
+      <div className="overflow-hidden rounded-lg border bg-card">
+        <EmptyState
+          icon={MessagesSquare}
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
+        />
+      </div>
     );
   }
   return (
-    <PagedList
-      first={first}
-      more={moreConversations}
-      pages={pagesParam(params.pages)}
-      start={cursor}
-      listKey={["conversations"]}
-      hrefBase="/conversations"
-      moreLabel={t("loadMore")}
-      estimateSize={72}
-      as="ul"
-      moreClassName="p-2"
-    />
+    <PageSwitch page={page} stamp={Date.now()} load={conversationsPageAction}>
+      <ConversationPages page={page} list={first} />
+    </PageSwitch>
   );
 }

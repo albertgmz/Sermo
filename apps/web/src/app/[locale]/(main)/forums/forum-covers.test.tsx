@@ -138,7 +138,7 @@ function backend() {
         resolvedPermissions: {},
       });
     }
-    return Response.json({ items: [], sticky: [], nextCursor: null });
+    return Response.json({ items: [], sticky: [], nextCursor: null, total: 0 });
   }) as unknown as typeof fetch;
 }
 

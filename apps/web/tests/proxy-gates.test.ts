@@ -836,12 +836,14 @@ test("a message's address goes to its conversation at the message, for a member 
         conversationId: 5,
         messageId: 9,
         cursor: "abc",
+        page: 2,
       }),
     });
   answer();
+  // At the page that holds it, counted from the oldest message.
   redirectsTo(
     await ask("/conversations/messages/9", { cookie: SESSION }),
-    "/conversations/5?message=9#message-9",
+    "/conversations/5?page=2#message-9",
   );
   answer();
   isNotFound(await ask("/conversations/messages/10", { cookie: SESSION }));
@@ -865,6 +867,7 @@ test("where a reader picks up a thread or a conversation is a private redirect t
       conversationId: 5,
       messageId: 61,
       cursor: null,
+      page: 4,
     }),
   });
   redirectsTo(
@@ -873,7 +876,7 @@ test("where a reader picks up a thread or a conversation is a private redirect t
   );
   redirectsTo(
     await ask("/conversations/5/unread", { cookie: SESSION }),
-    "/conversations/5?message=61#message-61",
+    "/conversations/5?page=4#message-61",
   );
   isNotFound(await ask("/threads/8/unread"));
   isNotFound(await ask("/conversations/6/unread", { cookie: SESSION }));

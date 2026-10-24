@@ -66,7 +66,6 @@
       "loadingThreads": "Cargando temas…",
       "locked": "Cerrado"
     },
-    "loadMore": "Cargar más",
     "emptyCategory": "Aún no hay foros aquí",
     "emptyCategoryDescription": "Los foros que se añadan a esta categoría aparecerán aquí.",
     "batchSelect": "Seleccionar el tema {title}",
@@ -108,10 +107,6 @@
     "metaDescription": "Hilos con la etiqueta #{name}",
     "emptyTitle": "Sin hilos",
     "emptyDescription": "Todavía no hay nada con esta etiqueta.",
-    "noMoreTitle": "No hay más hilos",
-    "noMoreDescription": "No hay nada más allá de este punto de la lista.",
-    "backToStart": "Volver al principio",
-    "loadMore": "Cargar más",
     "aria": {
       "loading": "Cargando hilos…"
     }

@@ -125,11 +125,11 @@ async function page(name = "caf%C3%A9", query: Record<string, string> = {}) {
   return { html: await new Response(stream).text(), errors };
 }
 
-const found = (items: unknown[], nextCursor: string | null = null) => ({
+const found = (items: unknown[], total = items.length) => ({
   "auth.me": () => Response.json(viewerBody(false)),
   "tags.get": () =>
     Response.json({ name: "café", redirect: false, seo: seo() }),
-  "tags.threads": () => Response.json({ items, nextCursor }),
+  "tags.threads": () => Response.json({ items, nextCursor: null, total }),
   "users.cards": () => Response.json({ items: [] }),
   "site.get": () => Response.json(siteBody()),
 });
@@ -182,28 +182,31 @@ test("a refused list does not take the page down: the heading is there and the l
   expect(html).not.toContain("Coffee");
 });
 
-test("a page past the last one says there is nothing, not an error", async () => {
-  backend = fakeBackend(found([]));
-  const { html, errors } = await page("caf%C3%A9", { cursor: "abc" });
+test("the list is numbered: the page asked for, and links to the others by their number", async () => {
+  backend = fakeBackend(found([thread(8, "Coffee on a budget")], 45));
+  const { html, errors } = await page("caf%C3%A9", { page: "2" });
   expect(errors).toEqual([]);
-  expect(html).toContain(messages.forums.tagPage.noMoreTitle);
+  expect(html).toContain("Coffee on a budget");
+  expect(html).toContain('aria-current="page"');
+  expect(html).toContain('href="/tags/caf%C3%A9?page=3"');
+  expect(html).toContain('href="/tags/caf%C3%A9"');
 });
 
-test("an empty page that says where to go on is still the list, with its button", async () => {
-  backend = fakeBackend(found([], "next-key"));
+test("a page past the last one goes to the last one, as XenForo does", async () => {
+  backend = fakeBackend(found([], 45));
+  // The list is drawn after the page's head is sent: the redirect is the list's to give.
+  const { errors } = await page("caf%C3%A9", { page: "9" });
+  expect(errors).toHaveLength(1);
+  expect(String((errors[0] as { digest?: string }).digest)).toContain(
+    ";/tags/caf%C3%A9?page=3;",
+  );
+});
+
+test("a tag with nothing the visitor may open says so", async () => {
+  backend = fakeBackend(found([]));
   const { html, errors } = await page();
   expect(errors).toEqual([]);
-  expect(html).toContain(messages.forums.tagPage.loadMore);
-  expect(html).not.toContain(messages.forums.tagPage.emptyTitle);
-});
-
-test("a link into the list that lands past its end says so and leads back to the start", async () => {
-  backend = fakeBackend(found([]));
-  const { html } = await page("caf%C3%A9", { cursor: "abc" });
-  expect(html).toContain(messages.forums.tagPage.noMoreTitle);
-  expect(html).toContain(messages.forums.tagPage.backToStart);
-  expect(html).toContain('href="/tags/caf%C3%A9"');
-  expect(html).not.toContain(messages.forums.tagPage.emptyTitle);
+  expect(html).toContain(messages.forums.tagPage.emptyTitle);
 });
 
 test("the head comes from the backend, with a description in the visitor's language", async () => {
@@ -220,10 +223,10 @@ test("the head comes from the backend, with a description in the visitor's langu
   expect(meta.robots).toEqual({ index: true, follow: true });
   expect(meta.openGraph?.title).toBe("#café");
   expect(meta.openGraph?.url).toBe("http://localhost:3000/tags/caf%C3%A9");
-  // A list continued by cursor is a copy of the page.
+  // A later page of the list is a copy of the page.
   const copy = await generateMetadata({
     params: Promise.resolve({ locale: "en", name: "caf%C3%A9" }),
-    searchParams: Promise.resolve({ cursor: "abc" }),
+    searchParams: Promise.resolve({ page: "2" }),
   } as unknown as Parameters<typeof generateMetadata>[0]);
   expect(copy.robots).toEqual({ index: false, follow: true });
 });

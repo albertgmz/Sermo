@@ -32,8 +32,8 @@ export async function replyAction(
 ): Promise<ReplyState> {
   const sent = await sendMessage(conversationId, formData);
   if (!sent.ok) return { error: sent.error };
-  // The page the member lands on is rendered afresh, with their message on it.
-  redirect(`/conversations/${conversationId}`);
+  // The member lands on their message, on the page that holds it, rendered afresh.
+  redirect(conversationHref(conversationId, sent.value.id));
 }
 
 // What a message's Quote puts in the editor: its author and its BB code source, which the backend

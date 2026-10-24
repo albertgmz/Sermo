@@ -8,8 +8,7 @@
     "newConversation": "Enviar mensaje directo",
     "loadingConversations": "Cargando mensajes directos…",
     "emptyTitle": "No hay mensajes directos para mostrar.",
-    "emptyDescription": "Envía uno para hablar en privado con otros miembros.",
-    "loadMore": "Cargar más"
+    "emptyDescription": "Envía uno para hablar en privado con otros miembros."
   },
   "conversation": {
     "aria": {
@@ -30,8 +29,6 @@
     "cannotReply": "No puedes responder a este mensaje directo.",
     "locked": "Bloqueado",
     "lockedNote": "Este mensaje directo está cerrado para nuevas respuestas.",
-    "earlier": "Mensajes anteriores",
-    "newest": "Mensajes más recientes",
     "markRead": "Marcar como leído",
     "markUnread": "Marcar como no leído",
     "details": {

@@ -1,24 +1,29 @@
 import { tagsGet } from "@sermo/core/contracts";
 import { Tag } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
-import { permanentRedirect } from "next/navigation";
+import { permanentRedirect, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
-import { moreTagThreads } from "@/app/[locale]/(main)/tags/[name]/more-threads";
-import { tagThreadsPage } from "@/app/[locale]/(main)/tags/[name]/tag-page";
+import {
+  TagThreadPages,
+  tagThreadsPage,
+} from "@/app/[locale]/(main)/tags/[name]/tag-page";
+import { tagThreadsPageAction } from "@/app/[locale]/(main)/tags/[name]/threads-page-action";
 import { EmptyState } from "@/components/forum/empty-state";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
-import { PagedList } from "@/components/forum/paged-list";
+import { PageSwitch } from "@/components/forum/page-switch";
+import {
+  pageAddress,
+  pageParam,
+  pagesOf,
+} from "@/components/forum/page-window";
 import { LoadingRegion, ThreadRowSkeleton } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
-import { buttonVariants } from "@/components/ui/button";
-import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
+import { TAG_THREADS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { publicHead } from "@/lib/sermo/share";
 import { tagHref } from "@/lib/sermo/tags";
-import { cn } from "@/lib/utils";
 
 // A tag is addressed by its name: letters, numbers and `_` never need percent-encoding to mean
 // themselves, but the router may hand over the encoded form of an accented one.
@@ -38,19 +43,18 @@ const getTag = cache(async (name: string) => {
   return found;
 });
 
-// The backend has one address for a tag; a list continued by cursor is a copy of it.
+// The backend has one address for a tag; a later page of its list is a copy of it.
 export async function generateMetadata({
   params,
   searchParams,
 }: PageProps<"/[locale]/tags/[name]">): Promise<Metadata> {
-  const [{ name }, { cursor, pages }, t] = await Promise.all([
+  const [{ name }, { page }, t] = await Promise.all([
     params,
     searchParams,
     getTranslations("forums.tagPage"),
   ]);
   const tag = await getTag(nameOf(name));
-  const seo =
-    cursor !== undefined || pages !== undefined ? copyOf(tag.seo) : tag.seo;
+  const seo = pageParam(page) > 1 ? copyOf(tag.seo) : tag.seo;
   const head = seoMetadata({
     ...seo,
     description: t("metaDescription", { name: tag.name }),
@@ -64,10 +68,7 @@ export default async function TagPage({
   params,
   searchParams,
 }: PageProps<"/[locale]/tags/[name]">) {
-  const [{ name: raw }, { cursor, pages }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
+  const [{ name: raw }, { page }] = await Promise.all([params, searchParams]);
   const [tag, t] = await Promise.all([
     getTag(nameOf(raw)),
     getTranslations("forums.tagPage"),
@@ -96,68 +97,40 @@ export default async function TagPage({
           </LoadingRegion>
         }
       >
-        <TagThreads
-          name={tag.name}
-          cursor={typeof cursor === "string" ? cursor : undefined}
-          pages={pagesParam(pages)}
-        />
+        <TagThreads name={tag.name} page={pageParam(page)} />
       </Suspense>
     </PageLayout>
   );
 }
 
-async function TagThreads({
-  name,
-  cursor,
-  pages,
-}: {
-  name: string;
-  cursor: string | undefined;
-  pages: number;
-}) {
+async function TagThreads({ name, page }: { name: string; page: number }) {
   const [first, t] = await Promise.all([
-    tagThreadsPage(name, cursor),
+    tagThreadsPage(name, page),
     getTranslations("forums.tagPage"),
   ]);
-  // Nothing here and nowhere to go on: a tag with no thread yet, or a link into the list that
-  // lands past its end (with a way back to the start). An empty page that says where to go on
-  // (the walk stopped at hidden rows) is still the list, with its button.
-  if (first.rows.length === 0 && first.nextCursor === null) {
+  // A page past the last one goes to the last one, as XenForo does.
+  const pages = pagesOf(first.total, TAG_THREADS_PER_PAGE);
+  if (page > pages) redirect(pageAddress(tagHref(name), {}, pages));
+  // Nothing here: a tag with no thread yet the viewer may open.
+  if (first.rows.length === 0) {
     return (
       <div className="mt-4 overflow-hidden rounded-lg border bg-card">
         <EmptyState
           icon={Tag}
-          title={cursor ? t("noMoreTitle") : t("emptyTitle")}
-          description={cursor ? t("noMoreDescription") : t("emptyDescription")}
-        >
-          {cursor && (
-            <Link
-              href={tagHref(name)}
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "h-10 px-4",
-              )}
-            >
-              {t("backToStart")}
-            </Link>
-          )}
-        </EmptyState>
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
+        />
       </div>
     );
   }
   return (
-    <PagedList
-      first={first}
-      more={moreTagThreads.bind(null, name)}
-      pages={pages}
-      start={cursor}
-      listKey={["tag", name]}
-      hrefBase={tagHref(name)}
-      moreLabel={t("loadMore")}
-      estimateSize={72}
-      as="ul"
-      className="mt-4 overflow-hidden rounded-lg border bg-card"
-      moreClassName="mt-3"
-    />
+    <PageSwitch
+      page={page}
+      stamp={Date.now()}
+      load={tagThreadsPageAction.bind(null, name)}
+      className="mt-4"
+    >
+      <TagThreadPages name={name} page={page} list={first} />
+    </PageSwitch>
   );
 }

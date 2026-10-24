@@ -22,6 +22,7 @@ test("a page size is not written out where a page is counted", () => {
   for (const file of [
     "src/app/[locale]/(main)/threads/[id]/pages.ts",
     "src/app/[locale]/(main)/conversations/[id]/page.tsx",
+    "src/app/[locale]/(main)/conversations/[id]/messages-region.tsx",
   ]) {
     const source = readFileSync(join(import.meta.dir, "..", file), "utf8");
     expect(source, file).not.toMatch(/PER_PAGE\s*=\s*\d/);

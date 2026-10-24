@@ -7,16 +7,16 @@ mock.module("next/headers", () => ({
 }));
 const { conversationsPage } = await import("./conversation-page");
 
-test("the list asks for 40 conversations a page, from the cursor it was given", async () => {
+test("the list asks for 40 conversations a page, by the page's number", async () => {
   const asked: unknown[] = [];
   const reader = (async (_contract: unknown, input: unknown) => {
     asked.push(input);
-    return { items: [], nextCursor: null };
+    return { items: [], nextCursor: null, total: 0 };
   }) as unknown as Parameters<typeof conversationsPage>[1];
-  await conversationsPage(undefined, reader);
-  await conversationsPage("next", reader);
+  await conversationsPage(1, reader);
+  await conversationsPage(3, reader);
   expect(asked).toEqual([
-    { cursor: undefined, limit: 40 },
-    { cursor: "next", limit: 40 },
+    { page: 1, limit: 40 },
+    { page: 3, limit: 40 },
   ]);
 });

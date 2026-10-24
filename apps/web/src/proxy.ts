@@ -262,7 +262,11 @@ const messagePage = heldBy(async (messageId, forward) => {
   const message = await callWith(forward, conversationsLocateMessage, {
     messageId,
   });
-  return conversationHref(message.conversationId, message.messageId);
+  return conversationHref(
+    message.conversationId,
+    message.messageId,
+    message.page,
+  );
 });
 
 // Where a reader picks a thread or a conversation up (`/threads/5/unread`, `/threads/5/latest`,
@@ -289,7 +293,11 @@ const conversationUnread = heldBy(async (conversationId, forward) => {
   const message = await callWith(forward, conversationsLocateUnread, {
     conversationId,
   });
-  return conversationHref(message.conversationId, message.messageId);
+  return conversationHref(
+    message.conversationId,
+    message.messageId,
+    message.page,
+  );
 });
 
 // The finder of a sub-address that names where to land rather than a page of its own.

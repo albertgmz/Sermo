@@ -481,6 +481,39 @@ test("a conversation row opens at its newest message when all is read @landing",
   expect(await expectLandedAtHash(page)).toMatch(/^message-\d+$/);
 });
 
+// A conversation is paged as a thread is: page 1 holds its first messages, the pager's numbers are
+// plain links to `?page=`, and pressing one changes the messages in place, with Back following it.
+test("a conversation's numbered pages turn in place, page 1 its oldest messages @landing", async ({
+  page,
+}) => {
+  const { landing } = seed();
+  const id = landing.conversation.id;
+  await page.goto(`/conversations/${id}`);
+  await ready(page);
+  const pages = page.getByRole("navigation", { name: "Pages" }).last();
+  const current = pages.locator('[aria-current="page"]');
+  await expect(current).toHaveText("1");
+  await expect(page.getByText("Message 3.", { exact: true })).toBeVisible();
+  await expect(
+    pages.getByRole("link", { name: "2", exact: true }),
+  ).toHaveAttribute("href", `/conversations/${id}?page=2`);
+  await page.evaluate(() => {
+    (window as unknown as { kept: boolean }).kept = true;
+  });
+  await pages.getByRole("link", { name: "2", exact: true }).click();
+  await expect(current).toHaveText("2");
+  await expect(page).toHaveURL(new RegExp(`/conversations/${id}\\?page=2$`));
+  await expect(page.getByText("Message 21.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Message 3.", { exact: true })).toHaveCount(0);
+  await page.goBack();
+  await expect(current).toHaveText("1");
+  await expect(page.getByText("Message 3.", { exact: true })).toBeVisible();
+  // Nothing of it loaded the screen again.
+  expect(
+    await page.evaluate(() => (window as unknown as { kept?: boolean }).kept),
+  ).toBe(true);
+});
+
 test("a post's number on its own page lands on it @landing", async ({
   page,
 }) => {

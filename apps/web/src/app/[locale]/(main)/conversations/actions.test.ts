@@ -197,7 +197,11 @@ test("a reply and a new conversation name the files attached to them", async () 
   reply.append("attachmentIds", "4");
   reply.append("attachmentIds", "5");
   const digest = await redirectedTo(() => replyAction(3, {}, reply));
-  assert.match(digest ?? "", /^NEXT_REDIRECT;[a-z]+;\/conversations\/3;/);
+  // Page 1 is the oldest messages: the member lands on their reply, on the page that holds it.
+  assert.match(
+    digest ?? "",
+    /^NEXT_REDIRECT;[a-z]+;\/conversations\/3\?message=9#message-9;/,
+  );
   assert.deepEqual(sent, [{ body: "hi", attachmentIds: [4, 5] }]);
 
   const start = new FormData();

@@ -27,6 +27,8 @@ const ALLOWED: Record<string, string> = {
   "src/app/[locale]/(main)/conversations/[id]/message-target.ts":
     "a message's address",
   "src/app/[locale]/(main)/conversations/[id]/page.tsx":
+    "the conversation's own addresses",
+  "src/app/[locale]/(main)/conversations/[id]/messages-region.tsx":
     "the conversation's own pager",
   "src/app/[locale]/(main)/threads/[id]/edit/[postId]/page.tsx":
     "sign-in return address",

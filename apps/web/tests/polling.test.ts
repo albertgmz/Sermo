@@ -59,9 +59,9 @@ test("the polling screens use the one hook, at their interval", () => {
   expect(source("components/layout/counters-poll.tsx")).toContain(
     "intervalMs: POLL_MS.counters",
   );
-  expect(source("app/[locale]/(main)/conversations/[id]/page.tsx")).toContain(
-    "intervalMs={POLL_MS.messages}",
-  );
+  expect(
+    source("app/[locale]/(main)/conversations/[id]/messages-region.tsx"),
+  ).toContain("intervalMs={POLL_MS.messages}");
   expect(source("app/[locale]/(main)/threads/[id]/thread-posts.tsx")).toContain(
     "intervalMs={POLL_MS.thread}",
   );

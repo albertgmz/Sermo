@@ -68,7 +68,9 @@ const refusal = (status: number, code: string) =>
   Response.json({ error: { code, message: code } }, { status });
 
 test("a poll with nothing new is one backend request, after the newest message held", async () => {
-  const asked = backend(Response.json({ items: [], nextCursor: null }));
+  const asked = backend(
+    Response.json({ items: [], nextCursor: null, total: null }),
+  );
   expect(await pollMessages(4, held)).toEqual({ rows: [] });
   expect(asked).toEqual([
     {
@@ -81,7 +83,11 @@ test("a poll with nothing new is one backend request, after the newest message h
 
 test("new messages are drawn as rows in id order and the conversation is marked read", async () => {
   const asked = backend(
-    Response.json({ items: [message(21), message(22)], nextCursor: null }),
+    Response.json({
+      items: [message(21), message(22)],
+      nextCursor: null,
+      total: null,
+    }),
   );
   const answer = await pollMessages(4, held);
   expect(
@@ -108,7 +114,9 @@ test("a rate limit is raised, so the poll backs off", async () => {
 });
 
 test("an id that cannot be a record never reaches the backend", async () => {
-  const asked = backend(Response.json({ items: [], nextCursor: null }));
+  const asked = backend(
+    Response.json({ items: [], nextCursor: null, total: null }),
+  );
   await expect(pollMessages(0, held)).rejects.toThrow();
   await expect(pollMessages(4, { id: 0, mark: 0 })).rejects.toThrow();
   expect(asked).toHaveLength(0);

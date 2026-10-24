@@ -1,15 +1,12 @@
 import {
   conversationsGet,
-  conversationsListMessages,
   conversationsLocateMessage,
 } from "@sermo/core/contracts";
-import { ChevronUp, LogOut, Mail } from "lucide-react";
-import { notFound } from "next/navigation";
+import { LogOut, Mail } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import type * as z from "zod";
-import { ConversationSync } from "@/app/[locale]/(main)/conversations/[id]/conversation-sync";
 import { ConversationWidgets } from "@/app/[locale]/(main)/conversations/[id]/conversation-widgets";
 import { LeaveForm } from "@/app/[locale]/(main)/conversations/[id]/leave-form";
 import {
@@ -18,33 +15,34 @@ import {
 } from "@/app/[locale]/(main)/conversations/[id]/locked-state";
 import { MarkReadProvider } from "@/app/[locale]/(main)/conversations/[id]/mark-read-state";
 import { MarkUnreadForm } from "@/app/[locale]/(main)/conversations/[id]/mark-unread-form";
-import { MessageItem } from "@/app/[locale]/(main)/conversations/[id]/message-item";
+import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
+import { messagesPage } from "@/app/[locale]/(main)/conversations/[id]/messages-page";
+import {
+  type Conversation,
+  type MessagesContext,
+  MessagesRegion,
+  messagePages,
+  messagesContext,
+  readMessages,
+  tailKey,
+} from "@/app/[locale]/(main)/conversations/[id]/messages-region";
 import { MessagesSkeleton } from "@/app/[locale]/(main)/conversations/[id]/messages-skeleton";
 import { WidgetsSheet } from "@/app/[locale]/(main)/conversations/[id]/widgets-sheet";
-import { pollMessages } from "@/app/[locale]/(main)/conversations/poll-messages";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
-import { LiveTail, PendingBody } from "@/components/forum/live-tail";
-import { LoadMore } from "@/components/forum/load-more";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
-import { PostFrame } from "@/components/forum/post-frame";
+import { PageSwitch } from "@/components/forum/page-switch";
+import { pageAddress, pageParam } from "@/components/forum/page-window";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserLink } from "@/components/forum/user-link";
-import { getCounters } from "@/components/layout/header-data";
 import { PageLayout } from "@/components/layout/page-layout";
-import { POLL_MS } from "@/lib/poll-intervals";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { call, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
-import { authorsFor, membersFor } from "@/lib/sermo/members";
-import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
+import { membersFor } from "@/lib/sermo/members";
 import { getMember } from "@/lib/sermo/session";
 
-type Conversation = z.output<typeof conversationsGet.output>;
 type Members = Awaited<ReturnType<typeof membersFor>>;
-
-// What the end of this conversation is kept under while the page is open.
-const tailKey = (conversationId: number) => `conversation:${conversationId}`;
 
 function conversationIdOf(raw: string) {
   const id = parseId(raw);
@@ -134,21 +132,26 @@ export default async function ConversationPage({
   params,
   searchParams,
 }: PageProps<"/[locale]/conversations/[id]">) {
-  const [{ id: raw }, { cursor, message }] = await Promise.all([
+  const [{ id: raw }, { page: pageParamValue, message }] = await Promise.all([
     params,
     searchParams,
   ]);
   const conversationId = conversationIdOf(raw);
-  const [conversation, { permissions, resolvedPermissions }, bookmarks, t] =
-    await Promise.all([
-      read(conversationsGet, { conversationId }),
-      getMember(),
-      bookmarkedAmong("conversation", [conversationId]),
-      getTranslations("conversations.conversation"),
-    ]);
-  const member = await membersFor(
+  const [conversation, member, bookmarks, t] = await Promise.all([
+    read(conversationsGet, { conversationId }),
+    getMember(),
+    bookmarkedAmong("conversation", [conversationId]),
+    getTranslations("conversations.conversation"),
+  ]);
+  // A message's own address goes on to the address of the page that holds it; one the backend
+  // cannot place in this conversation opens the first page.
+  if (typeof message === "string" && pageParamValue === undefined)
+    await goToMessage(conversation.id, parseId(message));
+  const page = pageParam(pageParamValue);
+  const people = await membersFor(
     conversation.participants.map((participant) => participant.user),
   );
+  const context = messagesContext(conversation, member);
 
   return (
     <MarkReadProvider>
@@ -156,12 +159,12 @@ export default async function ConversationPage({
         className="pt-2"
         asideOnMobile="hidden"
         aside={
-          <ConversationWidgets conversation={conversation} member={member} />
+          <ConversationWidgets conversation={conversation} member={people} />
         }
       >
         <Header
           conversation={conversation}
-          member={member}
+          member={people}
           bookmarked={bookmarks ? bookmarks.toggle(conversation.id) : null}
         />
         <div className="mt-4">
@@ -172,16 +175,7 @@ export default async function ConversationPage({
               </LoadingRegion>
             }
           >
-            <Messages
-              conversation={conversation}
-              cursor={typeof cursor === "string" ? cursor : undefined}
-              focus={typeof message === "string" ? parseId(message) : null}
-              canReact={
-                permissions.canReact &&
-                resolvedPermissions["conversation.react"] !== false
-              }
-              viewList={resolvedPermissions["reaction.viewList"] !== false}
-            />
+            <Messages context={context} page={page} />
           </Suspense>
         </div>
 
@@ -194,7 +188,9 @@ export default async function ConversationPage({
           <ReplyArea
             conversation={conversation}
             tailKey={tailKey(conversation.id)}
-            canAttach={resolvedPermissions["conversation.attach"] !== false}
+            canAttach={
+              member.resolvedPermissions["conversation.attach"] !== false
+            }
           />
         </section>
       </PageLayout>
@@ -202,135 +198,37 @@ export default async function ConversationPage({
   );
 }
 
-async function Messages({
-  conversation,
-  cursor: requested,
-  focus,
-  canReact,
-  viewList,
-}: {
-  conversation: Conversation;
-  cursor: string | undefined;
-  // A message an address names, which the page of messages that holds it is opened at.
-  focus: number | null;
-  canReact: boolean;
-  viewList: boolean;
-}) {
-  const readPage = (at: string | undefined) =>
-    read(conversationsListMessages, {
-      conversationId: conversation.id,
-      order: "newest",
-      cursor: at,
-    });
-  // A named message opens the page that holds it; one the backend cannot place in this
-  // conversation leaves the newest page.
-  const located =
-    focus !== null && requested === undefined
-      ? await call(conversationsLocateMessage, { messageId: focus }).catch(
-          (error: unknown) => {
-            if (error instanceof SermoError && error.status < 500) return null;
-            throw error;
-          },
-        )
-      : null;
-  const cursor =
-    located?.conversationId === conversation.id
-      ? (located.cursor ?? undefined)
-      : requested;
-  const [
-    { items: newestFirst, nextCursor },
-    { user },
-    reactionTypes,
-    t,
-    { notifications },
-  ] = await Promise.all([
-    readPage(cursor),
-    getMember(),
-    getReactionTypes(),
-    getTranslations("conversations.conversation"),
-    getCounters(),
-  ]);
-  // The backend lists from the newest end; the page reads from the oldest of its messages down.
-  const messages = newestFirst.toReversed();
-  // The viewer is among the authors: the row drawn for a message they are sending is theirs.
-  const author = await authorsFor([
-    ...messages.map((message) => message.author),
-    ...(user ? [user] : []),
-  ]);
-  // One signature per member on the page: under their first message.
-  const seen = new Set<number>();
-  const firstOfAuthor = new Set(
-    messages.flatMap((message) => {
-      if (seen.has(message.author.id)) return [];
-      seen.add(message.author.id);
-      return [message.id];
-    }),
+async function goToMessage(conversationId: number, messageId: number | null) {
+  if (messageId === null) return;
+  const located = await call(conversationsLocateMessage, { messageId }).catch(
+    (error: unknown) => {
+      if (error instanceof SermoError && error.status < 500) return null;
+      throw error;
+    },
   );
-  const picker = canReact ? pickerTypes(reactionTypes, null) : [];
-  const newest = messages.at(-1);
+  if (located?.conversationId === conversationId)
+    redirect(conversationHref(conversationId, messageId, located.page));
+}
+
+async function Messages({
+  context,
+  page,
+}: {
+  context: MessagesContext;
+  page: number;
+}) {
+  const id = context.conversation.id;
+  const list = await readMessages(id, page, read);
+  // A page past the last one goes to the last one, as XenForo does.
+  const pages = messagePages(list);
+  if (page > pages) redirect(pageAddress(`/conversations/${id}`, {}, pages));
   return (
-    <>
-      {nextCursor && (
-        <LoadMore
-          href={`/conversations/${conversation.id}?cursor=${encodeURIComponent(nextCursor)}`}
-          className="mb-3"
-          icon={ChevronUp}
-          scroll
-        >
-          {t("earlier")}
-        </LoadMore>
-      )}
-      <ol className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
-        {messages.map((message) => (
-          <li key={message.id}>
-            <MessageItem
-              message={message}
-              author={author(message.author.id)}
-              signed={firstOfAuthor.has(message.id)}
-              viewerId={user?.id ?? null}
-              picker={picker}
-              reactionTypes={reactionTypes}
-              viewList={viewList}
-              canQuote={conversation.canReply}
-            />
-          </li>
-        ))}
-        {/* Only the newest page goes on: what is sent or arrives while it is open ends it. */}
-        {!cursor && user && newest && (
-          <LiveTail
-            tailKey={tailKey(conversation.id)}
-            drawn={{ id: newest.id, mark: newest.id }}
-            as="li"
-            poll={pollMessages.bind(null, conversation.id)}
-            intervalMs={POLL_MS.messages}
-            pendingRow={
-              <PostFrame
-                author={author(user.id)}
-                createdAt={new Date().toISOString()}
-                actions={null}
-              >
-                <PendingBody />
-              </PostFrame>
-            }
-          />
-        )}
-      </ol>
-      {cursor && (
-        <LoadMore
-          href={`/conversations/${conversation.id}`}
-          className="mt-3"
-          scroll
-        >
-          {t("newest")}
-        </LoadMore>
-      )}
-      {/* Opening the conversation at any page records it as read; only the newest page scrolls. */}
-      <ConversationSync
-        key={messages.at(-1)?.id}
-        id={conversation.id}
-        mark={conversation.isUnread || notifications > 0}
-        scroll={!cursor}
-      />
-    </>
+    <PageSwitch
+      page={page}
+      stamp={Date.now()}
+      load={messagesPage.bind(null, id)}
+    >
+      <MessagesRegion context={context} page={page} list={list} />
+    </PageSwitch>
   );
 }

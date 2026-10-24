@@ -107,6 +107,15 @@ export function pageAddress(
 
 // The page an address (its search part) names, 1 when it names none or nonsense.
 export function pageOfSearch(search: string, param = "page") {
-  const raw = new URLSearchParams(search).get(param);
+  return pageParam(new URLSearchParams(search).get(param) ?? undefined);
+}
+
+// The page a search parameter of the server's page names, 1 when it names none or nonsense.
+export function pageParam(raw: string | string[] | null | undefined) {
   return Math.max(1, Math.floor(Number(raw)) || 1);
+}
+
+// How many pages a list of `total` items has at `perPage` to a page: one, empty, at the least.
+export function pagesOf(total: number, perPage: number) {
+  return Math.max(1, Math.ceil(total / perPage));
 }

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ListPage } from "@/lib/list-pages";
 import { SermoError } from "@/lib/sermo/errors";
 
@@ -22,6 +23,20 @@ export async function endQuietly(
     if (error instanceof SermoError && endsTheList(error.code)) {
       return { rows: [], nextCursor: null };
     }
+    throw error;
+  }
+}
+
+// A page of a list drawn for `PageSwitch`, or null when the backend refuses it (a session that
+// ended, a list closed meanwhile): the browser then opens the page's address as a page of its own,
+// which says what is the matter.
+export async function drawnOrNull(
+  draw: () => Promise<ReactNode | null>,
+): Promise<ReactNode | null> {
+  try {
+    return await draw();
+  } catch (error) {
+    if (error instanceof SermoError) return null;
     throw error;
   }
 }

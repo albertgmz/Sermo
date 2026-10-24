@@ -13,5 +13,7 @@ export default async function MessagePage({
   const messageId = parseId((await params).id);
   if (messageId === null) notFound();
   const message = await read(conversationsLocateMessage, { messageId });
-  redirect(conversationHref(message.conversationId, message.messageId));
+  redirect(
+    conversationHref(message.conversationId, message.messageId, message.page),
+  );
 }

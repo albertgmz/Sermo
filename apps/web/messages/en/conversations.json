@@ -8,8 +8,7 @@
     "newConversation": "Send direct message",
     "loadingConversations": "Loading direct messages…",
     "emptyTitle": "No direct messages to show.",
-    "emptyDescription": "Send one to talk privately with other members.",
-    "loadMore": "Load more"
+    "emptyDescription": "Send one to talk privately with other members."
   },
   "conversation": {
     "aria": {
@@ -30,8 +29,6 @@
     "cannotReply": "You cannot reply to this direct message.",
     "locked": "Locked",
     "lockedNote": "This direct message is closed to new replies.",
-    "earlier": "Earlier messages",
-    "newest": "Newest messages",
     "markRead": "Mark as read",
     "markUnread": "Mark as unread",
     "details": {

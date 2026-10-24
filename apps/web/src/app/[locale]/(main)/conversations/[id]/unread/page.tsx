@@ -12,5 +12,7 @@ export default async function ConversationUnreadPage({
   const conversationId = parseId((await params).id);
   if (conversationId === null) notFound();
   const message = await read(conversationsLocateUnread, { conversationId });
-  redirect(conversationHref(message.conversationId, message.messageId));
+  redirect(
+    conversationHref(message.conversationId, message.messageId, message.page),
+  );
 }

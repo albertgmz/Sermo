@@ -2,14 +2,18 @@ import { nodesGet, nodesList, threadPrefixesList } from "@sermo/core/contracts";
 import { MessagesSquare, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
 import { ForumMarkRead } from "@/app/[locale]/(main)/forums/[id]/forum-mark-read";
 import { ForumWatch } from "@/app/[locale]/(main)/forums/[id]/forum-watch";
-import { moreThreads } from "@/app/[locale]/(main)/forums/[id]/more-threads";
-import { threadsPage } from "@/app/[locale]/(main)/forums/[id]/thread-page";
+import {
+  ForumThreadPages,
+  forumListAddress,
+  threadsPage,
+} from "@/app/[locale]/(main)/forums/[id]/thread-page";
+import { forumThreadsPage } from "@/app/[locale]/(main)/forums/[id]/threads-page-action";
 import { batchUpdateThreadsAction } from "@/app/[locale]/(main)/forums/actions";
 import { forumsOtherThan } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import { EmptyState } from "@/components/forum/empty-state";
@@ -17,7 +21,12 @@ import { bannerOf } from "@/components/forum/forum-banner";
 import { ForumCardGrid } from "@/components/forum/forum-card-grid";
 import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
-import { PagedList } from "@/components/forum/paged-list";
+import { PageSwitch } from "@/components/forum/page-switch";
+import {
+  pageAddress,
+  pageParam,
+  pagesOf,
+} from "@/components/forum/page-window";
 import { PrefixSelect } from "@/components/forum/prefix-select";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import {
@@ -30,12 +39,12 @@ import { ThreadBatch } from "@/components/staff/thread-batch";
 import { batchActionsFor } from "@/components/staff/thread-batch-state";
 import { buttonVariants } from "@/components/ui/button";
 import { widgetAreas, widgetAside } from "@/components/widgets/widget-area";
-import { pagesParam } from "@/lib/list-pages";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
 import { cardMembers, childrenByParent, nodeMembers } from "@/lib/sermo/forums";
 import { parsePageId } from "@/lib/sermo/ids";
 import { membersFor } from "@/lib/sermo/members";
+import { THREADS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
@@ -111,19 +120,17 @@ function PrefixFilter({
   );
 }
 
-// The backend has one address for a forum; a list continued by cursor or narrowed by prefix is a
-// copy of it.
+// The backend has one address for a forum; a later page of its list, or the list narrowed by
+// prefix, is a copy of it.
 async function seoOf(
   id: string,
   searchParams: PageProps<"/[locale]/forums/[id]">["searchParams"],
 ) {
-  const [{ seo }, { prefix, cursor, pages }] = await Promise.all([
+  const [{ seo }, { prefix, page }] = await Promise.all([
     getNode(nodeIdOf(id)),
     searchParams,
   ]);
-  return prefix !== undefined || cursor !== undefined || pages !== undefined
-    ? copyOf(seo)
-    : seo;
+  return prefix !== undefined || pageParam(page) > 1 ? copyOf(seo) : seo;
 }
 
 export async function generateMetadata({
@@ -153,7 +160,7 @@ export default async function ForumPage({
   params,
   searchParams,
 }: PageProps<"/[locale]/forums/[id]">) {
-  const [{ id: raw }, { prefix, cursor, pages }] = await Promise.all([
+  const [{ id: raw }, { prefix, page }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -261,8 +268,7 @@ export default async function ForumPage({
           <ForumThreads
             nodeId={node.id}
             prefix={typeof prefix === "string" ? prefix : undefined}
-            cursor={typeof cursor === "string" ? cursor : undefined}
-            pages={pagesParam(pages)}
+            page={pageParam(page)}
             newThread={newThread}
             signedIn={user !== null}
             resolved={resolvedPermissions}
@@ -335,16 +341,14 @@ async function Subforums({ nodeId }: { nodeId: number }) {
 async function ForumThreads({
   nodeId,
   prefix,
-  cursor,
-  pages,
+  page,
   newThread,
   signedIn,
   resolved,
 }: {
   nodeId: number;
   prefix: string | undefined;
-  cursor: string | undefined;
-  pages: number;
+  page: number;
   newThread: React.ReactNode;
   signedIn: boolean;
   // The viewer's permissions in the forum, for the staff tools on its list.
@@ -353,7 +357,7 @@ async function ForumThreads({
   const prefixId = /^[1-9]\d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
   const [first, { items: allPrefixes }, { items: carried }, t] =
     await Promise.all([
-      threadsPage(nodeId, prefixId, cursor),
+      threadsPage(nodeId, prefixId, page),
       read(threadPrefixesList, { nodeId }),
       read(threadPrefixesList, { nodeId, carried: true }),
       getTranslations("forums.forum"),
@@ -362,6 +366,12 @@ async function ForumThreads({
   // stopped offering while threads still carry it.
   const prefixes = activePrefixViews(allPrefixes);
   const filterPrefixes = activePrefixViews(carried);
+  // A page past the last one goes to the last one, as XenForo does.
+  const pages = pagesOf(first.total, THREADS_PER_PAGE);
+  if (page > pages) {
+    const { path, params } = forumListAddress(nodeId, prefixId);
+    redirect(pageAddress(path, params, pages));
+  }
   const listed = first.rows.length > 0;
   // Staff who may change threads tick them in the list and apply one change to all.
   const batchActions = listed ? batchActionsFor(resolved) : [];
@@ -385,22 +395,19 @@ async function ForumThreads({
           forums={batchForums}
           prefixes={prefixes.map(({ id, label }) => ({ id, label }))}
         >
-          <PagedList
-            first={first}
-            more={moreThreads.bind(null, nodeId, prefixId)}
-            pages={pages}
-            start={cursor}
-            listKey={["forum", nodeId, prefixId ?? 0]}
-            hrefBase={`/forums/${nodeId}${prefixId === undefined ? "" : `?prefix=${prefixId}`}`}
-            moreLabel={t("loadMore")}
-            estimateSize={72}
-            as="ul"
-            className={cn(
-              "overflow-hidden rounded-lg border bg-card",
-              filterPrefixes.length > 0 ? "mt-1" : "mt-4",
-            )}
-            moreClassName="mt-3"
-          />
+          <PageSwitch
+            page={page}
+            stamp={Date.now()}
+            load={forumThreadsPage.bind(null, nodeId, prefixId)}
+            className={filterPrefixes.length > 0 ? "mt-1" : "mt-4"}
+          >
+            <ForumThreadPages
+              nodeId={nodeId}
+              prefixId={prefixId}
+              page={page}
+              list={first}
+            />
+          </PageSwitch>
         </ThreadBatch>
       ) : (
         <div
