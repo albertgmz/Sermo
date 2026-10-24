@@ -427,9 +427,10 @@ test("the title is one bordered, filled field with the prefix menu joined to its
   // The field that holds both: the last element opened before the prefix button.
   const frameAt = html.lastIndexOf("<div", prefix);
   const frame = openingTag(html, frameAt);
-  expect(frame).toMatch(/\bborder-input\b/);
-  // Filled like the editor box under it, so it stands out from the card in both themes.
-  expect(frame).toMatch(/\bbg-muted\b/);
+  // The page's main field: a well with an edge of 3:1 against the card in both themes (the tokens'
+  // values are held by tests/theme-contrast.test.ts).
+  expect(frame).toMatch(/\bbg-field\b/);
+  expect(frame).toMatch(/\bborder-field-border\b/);
   expect(frame).toMatch(/focus-within:ring-3/);
   expect(prefix).toBeGreaterThan(frameAt);
   expect(title).toBeGreaterThan(prefix);
@@ -584,5 +585,16 @@ test("a preview takes the text's place in a box of the same size, and the text s
   expect(editorBox(covered)).toMatch(/\bhidden\b/);
   expect(covered.indexOf("Rendered post")).toBeGreaterThan(
     covered.indexOf('name="body"'),
+  );
+});
+
+test("on a phone Post thread takes a line of its own, full width, below Attach files and Preview", () => {
+  const html = composerWith();
+  const submit = openingTag(html, html.indexOf('type="submit"'));
+  expect(submit).toMatch(/\bmax-sm:basis-full\b/);
+  // A composer without a button of its own keeps the submit at the end of the one row.
+  const plain = plainForm();
+  expect(openingTag(plain, plain.indexOf('type="submit"'))).not.toContain(
+    "basis-full",
   );
 });

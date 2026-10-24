@@ -364,6 +364,37 @@ test("skeletons show against the card on the light theme", () => {
   ).toBeGreaterThanOrEqual(1.2);
 });
 
+// A new thread's title row (`TitleField` look "large", components/forum/thread-fields.tsx): the
+// page's main field. Its edge is a UI component boundary (WCAG 1.4.11: 3:1) against the card it
+// sits on, the page behind a dialog's column and the well it encloses; the well differs from the
+// card; its text and placeholder read on it.
+test("the main field's edge stands out at 3:1 from the card and from its own fill, in both themes", () => {
+  const failures: string[] = [];
+  for (const [theme, tokens] of [
+    ["dark", dark],
+    ["light", light],
+  ] as const) {
+    const edge = resolve(tokens, "field-border");
+    const fill = resolve(tokens, "field");
+    for (const surface of ["card", "background", "field"]) {
+      const ratio = contrast(edge, resolve(tokens, surface));
+      if (ratio < 3)
+        failures.push(
+          `${theme} field-border on ${surface}: ${ratio.toFixed(2)}`,
+        );
+    }
+    const well = contrast(fill, resolve(tokens, "card"));
+    if (well < 1.12)
+      failures.push(`${theme} field on card: ${well.toFixed(2)}`);
+    for (const text of ["foreground", "muted-foreground"]) {
+      const ratio = contrast(resolve(tokens, text), fill);
+      if (ratio < 4.5)
+        failures.push(`${theme} ${text} on field: ${ratio.toFixed(2)}`);
+    }
+  }
+  expect(failures).toEqual([]);
+});
+
 test("a raised surface (the member card) stands apart from the posts it floats over in the dark theme", () => {
   expect(
     contrast(resolve(dark, "raised"), resolve(dark, "card")),

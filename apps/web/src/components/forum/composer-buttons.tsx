@@ -39,7 +39,8 @@ export function ComposerButtons({
   // While a file is on its way, or until what the post needs is written.
   disabled?: boolean;
   files?: React.ReactNode;
-  // A button of the composer's own, just before the submit (a new thread's Preview).
+  // A button of the composer's own, just before the submit (a new thread's Preview); below `sm`
+  // the submit then has a line of its own.
   beforeSubmit?: React.ReactNode;
   className?: string;
 }) {
@@ -62,6 +63,9 @@ export function ComposerButtons({
           // comment's submit keeps the default order and comes before it.
           order === "reply" && "order-last",
           order === "reply" && !beforeSubmit && "ml-auto",
+          // With a button of the composer's own beside it, a phone's row has no room for the
+          // three: the submit takes a line of its own, full width, as XenForo's stays prominent.
+          beforeSubmit && "max-sm:basis-full",
         )}
       >
         <Icon aria-hidden="true" />

@@ -19,6 +19,8 @@
   --color-accent: var(--accent);
   --color-overlay: var(--overlay);
   --color-skeleton: var(--skeleton);
+  --color-field: var(--field);
+  --color-field-border: var(--field-border);
 
   /* Text. */
   --color-foreground: var(--foreground);
@@ -140,6 +142,10 @@
   /* What dims the page behind a dialog or a sheet. */
   --overlay: rgb(0 0 0 / 0.1);
   --skeleton: var(--muted);
+  /* A page's main field (a new thread's title): a well set into the card, edged at 3:1 or more
+     against the card and against the well. */
+  --field: #11111a;
+  --field-border: #70708e;
   /* What dims the page around the element an address names. */
   --spotlight-dim: color-mix(in srgb, var(--background) 60%, transparent);
 
@@ -242,6 +248,8 @@
   --accent: #ececef;
   --overlay: rgb(0 0 0 / 0.3);
   --skeleton: #dcdce0;
+  --field: #ececf0;
+  --field-border: #80808f;
 
   --foreground: #09090b;
   --card-foreground: #09090b;

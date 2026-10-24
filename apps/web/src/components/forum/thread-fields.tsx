@@ -8,20 +8,22 @@ import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 // How the title row is drawn. `default`: a form's field, as the edit forms draw theirs. `large`:
-// the title of a new thread, XenForo's `input--title`: taller, larger text, filled like the editor
-// box under it (`EDITOR_BOX`), so it stands out from the card in both themes.
+// the title of a new thread, the page's main field as XenForo's `input--title`: taller, larger
+// text, set into the card as a well (`field`) and edged at 3:1 or more against the card in both
+// themes (`field-border`, held by tests/theme-contrast.test.ts); the prefix menu is the card's
+// colour inside it.
 const LOOK = {
   default: {
-    frame: "dark:bg-input/30",
+    frame: "border-input dark:bg-input/30",
     prefix:
       "max-w-[45%] rounded-r-none border-0 border-r bg-muted/60 focus-visible:border-input focus-visible:bg-muted focus-visible:ring-0 dark:bg-input/40",
     input: "h-10 px-2.5 text-base md:h-8 md:text-sm",
   },
   large: {
-    frame: "rounded-[9px] bg-muted focus-within:bg-card",
+    frame: "rounded-[9px] border-field-border bg-field",
     prefix:
-      "h-auto max-w-[45%] self-stretch rounded-r-none border-0 border-r bg-input/40 px-2.5 text-base hover:bg-input/60 focus-visible:border-input focus-visible:bg-input/60 focus-visible:ring-0 md:h-auto md:px-3 md:text-[15px] dark:bg-input/40 dark:hover:bg-input/60",
-    input: "h-11 px-3 text-lg md:h-12 md:text-xl",
+      "h-auto max-w-[45%] self-stretch rounded-r-none border-0 border-r border-field-border bg-card px-2.5 text-base hover:bg-muted focus-visible:border-field-border focus-visible:bg-muted focus-visible:ring-0 md:h-auto md:px-3 md:text-[15px] dark:bg-card dark:hover:bg-muted",
+    input: "h-11 px-3 text-lg font-medium md:h-12 md:text-xl",
   },
 } as const;
 
@@ -50,7 +52,7 @@ export function TitleField({
   return (
     <div
       className={cn(
-        "flex min-w-0 rounded-lg border border-input transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
+        "flex min-w-0 rounded-lg border transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
         style.frame,
       )}
     >
