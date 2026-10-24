@@ -7035,3 +7035,22 @@ whose LITE mode leaves out brand art gets the plain night panel, as with the fla
 Why: the owner wanted the entry pages to be striking. A conversation rising from the Malecón says
 "forum" and "Cuba" at once and echoes the speech-bubble logo. CSS alone gives the effect at no
 JavaScript cost, which keeps first paint fast on the phones most members use.
+
+### The forum chooser shows forum pictures and never offers a read-only forum
+
+**What it lists:** both forum choosers (the Create dialog's and the thread composer's) offer only
+forums the viewer may post in that are not read-only; a read-only forum is left out even for an
+administrator, who can still post there from the forum's own page. A category, or a forum holding
+forums, shows only when a listed forum lies under it. One rule (`postable` in
+`components/forum/forum-choices.ts`) decides it for both choosers and for the Create options, fed
+by one server mapping (`forumChoices` in `lib/sermo/forum-choices.ts`). **How it looks:** each
+forum is a tile: its cover behind the title under a scrim of the tile colour, or its icon (or,
+without a picture, its first letter) in a small square beside the title over a light accent wash.
+Tiles sit in sections under their category (a sub-forum section names its parents; root forums
+after a category come under "More forums"), one column on a phone and two or three by the width
+of the list. **Pictures and LITE:** the chooser is a client component, so the server mapping drops
+the address when the visitor blocks forum art, and one client gate (`forum-choice-art.tsx`, lazy)
+draws what is left, as reaction and media pictures do.
+
+Why: the owner disliked how the chooser looked on desktop and asked for forum pictures in it, and
+for only the forums one can actually post in; a heading with nothing under it is noise.
