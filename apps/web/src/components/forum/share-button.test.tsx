@@ -17,8 +17,8 @@ afterAll(() => {
   mock.module("next-intl", () => intl);
 });
 const { ShareButton } = await import("./share-button");
-const { LINK_COPIED, shareLink } = await import("./share-link");
-const { announce, saidNotice } = await import("./notice-store");
+const { shareLink } = await import("./share-link");
+const { announce, LINK_COPIED, saidNotice } = await import("./notice-store");
 
 const URL_ = "https://forum.test/threads/3#post-1";
 const settle = () => new Promise((done) => setTimeout(done, 0));

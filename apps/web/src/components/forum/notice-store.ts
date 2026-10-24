@@ -4,6 +4,10 @@ import { useEffect } from "react";
 // words and the box (`PageNotice`, `NoticeCard`), so a form that says a notice brings only this to
 // the page.
 
+// The notice a Share button says once its link is on the clipboard (`shareLink`), drawn by the
+// main layout (`ShareNotice`). Kept here, so that the layout reads it without the share code.
+export const LINK_COPIED = "linkCopied";
+
 // How long a notice said in place stays.
 const SHOWN_MS = 6000;
 

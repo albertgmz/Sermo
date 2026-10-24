@@ -9,7 +9,8 @@ import {
   noticeText,
   saidNotice,
 } from "@/components/forum/notice-store";
-import { NoticeStatus, PageNotice } from "@/components/forum/page-notice";
+import { NoticeStatus } from "@/components/forum/notice-view";
+import { PageNotice } from "@/components/forum/page-notice";
 
 // The notice that floats over the page after a form answered in place: how long it stays, what
 // keeps it, how it goes, and that a screen reader hears it.

@@ -1,10 +1,7 @@
-import { announce } from "@/components/forum/notice-store";
+import { announce, LINK_COPIED } from "@/components/forum/notice-store";
 import { copyText } from "@/lib/clipboard";
 import { shareAddress } from "@/lib/referral/link";
 import { currentViewer } from "@/lib/session-epoch";
-
-// The floating notice said once a link is on the clipboard (`PageNotice` in the main layout).
-export const LINK_COPIED = "linkCopied";
 
 // A signed-in member's copy of the link carries their id, so those who register through it are
 // credited to them.

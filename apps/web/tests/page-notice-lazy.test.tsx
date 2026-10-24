@@ -12,7 +12,7 @@ afterAll(() => {
 });
 
 const { cardOrNothing, NoticeView } = await import(
-  "@/components/forum/page-notice"
+  "@/components/forum/notice-view"
 );
 const settle = () => new Promise((done) => setTimeout(done, 20));
 

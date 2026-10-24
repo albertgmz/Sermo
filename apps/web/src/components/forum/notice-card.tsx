@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 // The visible card of a notice said in place, floating under the header. It is drawn only while a
-// notice is shown, and its code comes with the first one (`PageNotice` loads it), not with the
+// notice is shown, and its code comes with the first one (`NoticeView` loads it), not with the
 // page. The words are read out by the page's live region; here they are only drawn. The wrapper
 // takes no taps, only the card does, so nothing outside the card is covered for the few seconds it
 // stays; the pointer on it or focus in it keeps it, and its button and Escape close it.
