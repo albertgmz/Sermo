@@ -400,3 +400,16 @@ test("the posts Load more brings are drawn on the server as rows, with their com
   // The posts' links come back to the page they were drawn for.
   expect(html).not.toContain("?cursor=p6");
 });
+
+test("each row names the post and the comments it draws, so an address can land on them in a long wall", async () => {
+  backend();
+  const page = await moreWall(9, "p3");
+  const held = Object.fromEntries(page.rows.map((row) => [row.key, row.holds]));
+  expect(held["6"]).toEqual(["profile-post-6"]);
+  expect(held["5"]).toEqual([
+    "profile-post-5",
+    "profile-comment-105",
+    "profile-comment-104",
+    "profile-comment-103",
+  ]);
+});

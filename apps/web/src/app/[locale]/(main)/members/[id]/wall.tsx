@@ -332,12 +332,18 @@ async function wallRows({
   const rows: ListRow[] = posts.map((post) => {
     const isOpen = openPage !== null && post.id === openPost?.id;
     const oldest = oldestFirst(post.latestComments)[0];
+    const shownComments = isOpen ? openPage.items : post.latestComments;
     return {
       key: String(post.id),
+      // What an address can land on in this row: the post and the comments drawn under it.
+      holds: [
+        `profile-post-${post.id}`,
+        ...shownComments.map((comment) => `profile-comment-${comment.id}`),
+      ],
       node: (
         <WallPost
           post={post}
-          comments={isOpen ? openPage.items : post.latestComments}
+          comments={shownComments}
           earlier={
             isOpen
               ? openPage.nextCursor === null

@@ -637,9 +637,11 @@ test("a comment written on the wall, on a later page of it too, lands on the com
       text,
       "Post comment",
     );
-    await expect(page).toHaveURL(/#profile-comment-\d+$/, { timeout: 30_000 });
-    const id = await expectLandedAtHash(page);
-    await expect(drawn(page, id)).toContainText(text);
+    // The comment is drawn in place and the page lands on it; the address is left as it is.
+    const comment = page
+      .locator('[id^="profile-comment-"]')
+      .filter({ hasText: text });
+    await expectLandedAt(page, comment);
   }
 });
 
@@ -801,14 +803,18 @@ test("the comments loaded in place follow an edit, a deletion and a new comment 
   // A comment of the member's own to delete later, so the seed keeps its count.
   await page.goto(`/members/${landing.memberId}`);
   await ready(page);
+  const doomedText = `Doomed comment ${Date.now().toString(36)}`;
   await write(
     page.locator(`[id="profile-post-${postId}-comment"]`),
     "Write a comment…",
-    `Doomed comment ${Date.now().toString(36)}`,
+    doomedText,
     "Post comment",
   );
-  await expect(page).toHaveURL(/#profile-comment-\d+$/, { timeout: 30_000 });
-  const doomed = new URL(page.url()).hash.slice(1);
+  const written = page
+    .locator('[id^="profile-comment-"]')
+    .filter({ hasText: doomedText });
+  await expect(written).toBeVisible({ timeout: 30_000 });
+  const doomed = (await written.getAttribute("id")) ?? "";
 
   await page.goto(`/members/${landing.memberId}`);
   await ready(page);

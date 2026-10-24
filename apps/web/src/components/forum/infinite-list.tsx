@@ -172,6 +172,19 @@ export function newestAt(rows: ListRow[]) {
   );
 }
 
+// The indexes of the rows that hold the element an address's hash names (none for a hash that is
+// empty, names nothing a row holds, or is not a valid encoding).
+export function rowsNamedBy(rows: ListRow[], hash: string) {
+  let id: string;
+  try {
+    id = decodeURIComponent(hash.slice(1));
+  } catch {
+    return [];
+  }
+  if (!id) return [];
+  return rows.flatMap((row, index) => (row.holds?.includes(id) ? [index] : []));
+}
+
 // The indexes the window shows plus those of the rows to keep, in order.
 export function withKept(shown: number[], kept: number[]) {
   return [...new Set([...shown, ...kept])].sort((a, b) => a - b);
@@ -271,7 +284,9 @@ export function InfiniteList({
   const query = useInfiniteQuery(options);
   const loaded = query.data.pages;
   const client = useQueryClient();
-  const drawn = useRef(stamp);
+  // Null until the effect below has seen this draw: a list that mounts while the query still holds
+  // an earlier draw of itself (the router kept it a moment) takes the new draw in as well.
+  const drawn = useRef<number | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new draw of the screen refreshes
   useEffect(() => {
     if (drawn.current === stamp) return;
@@ -371,6 +386,7 @@ export function InfiniteList({
       const index = current.current.findIndex((entry) => entry.key === key);
       if (index >= 0) kept.push(index);
     }
+    kept.push(...rowsNamedBy(current.current, location.hash));
     return withKept(defaultRangeExtractor(range), kept);
   }, []);
   const virtualizer = useWindowVirtualizer({

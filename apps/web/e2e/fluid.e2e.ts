@@ -1,13 +1,5 @@
 import type { Page } from "@playwright/test";
-import {
-  expect,
-  MEMBER_STATE,
-  PEER,
-  rejectCookies,
-  seed,
-  test,
-  visit,
-} from "./fixtures";
+import { expect, MEMBER_STATE, PEER, seed, test, visit } from "./fixtures";
 
 // The parts of a page that change in place (tabs, a list's next posts, a popover) change only
 // themselves: the screen is not loaded again, the rest of it stays the same elements, no
@@ -76,7 +68,6 @@ test.describe("signed in", () => {
   }) => {
     const { landing } = seed();
     await visit(page, `/members/${landing.memberId}`);
-    await rejectCookies(page);
     const profile = new URL(page.url()).pathname;
     const tabs = page.getByRole("navigation", { name: "Profile sections" });
     await expect(tabs.locator('[aria-current="page"]')).toHaveText(/Wall/);
@@ -116,7 +107,6 @@ test.describe("signed in", () => {
   }) => {
     const { landing } = seed();
     await visit(page, `/members/${landing.memberId}`);
-    await rejectCookies(page);
     const newest = page.locator(`#profile-post-${landing.wall.newestPostId}`);
     await expect(newest).toBeVisible();
     // The rows of the list are numbered; the list draws those near the screen.
@@ -151,7 +141,6 @@ test.describe("signed in", () => {
   }) => {
     const { landing } = seed();
     await visit(page, `/members/${landing.memberId}`);
-    await rejectCookies(page);
     const summary = page
       .getByRole("button", { name: /show who reacted/ })
       .first();
@@ -179,7 +168,6 @@ test.describe("signed in", () => {
     page,
   }) => {
     await visit(page, "/novedades?tab=latest");
-    await rejectCookies(page);
     const bar = page
       .getByRole("navigation", { name: "What's new tabs" })
       .and(page.locator(":visible"));
@@ -209,7 +197,6 @@ test.describe("signed in", () => {
 // (the feed's and the shop's bare addresses), it still puts the next page under the rows shown.
 async function loadMoreAppends(page: Page, path: string) {
   await visit(page, path);
-  await rejectCookies(page);
   const lastRow = () =>
     page
       .locator("main [data-index]")
