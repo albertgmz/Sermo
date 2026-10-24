@@ -5,7 +5,6 @@ import {
   postsGet,
   postsHardDelete,
   postsRestore,
-  postsUpdate,
   threadsDelete,
   threadsGet,
   threadsHardDelete,
@@ -27,6 +26,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import { parseThreadRef } from "@/app/[locale]/(main)/threads/[id]/thread-ref";
+import { saveEdit } from "@/app/[locale]/(main)/threads/save-edit";
 import { sendReply } from "@/app/[locale]/(main)/threads/send-reply";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -70,44 +70,16 @@ export async function replyAction(
   backToPost(threadHref(threadId, position, id));
 }
 
-// Saves an edited post; when the form also carries a title, that is saved first, as the title is
-// the more likely of the two to be refused.
+// Saves an edited post (`saveEdit`) and goes back to it.
 export async function editPostAction(
   threadId: number,
   postId: number,
   _previous: ReplyState,
   formData: FormData,
 ): Promise<ReplyState> {
-  requireIds(threadId, postId);
-  const returnTo = `/threads/${threadId}/edit/${postId}`;
-  // The title is only saved when it is not what the form was opened with.
-  const title = formData.get("title");
-  const prefix = textOf(formData, "prefixId");
-  if (
-    title !== null &&
-    (String(title) !== textOf(formData, "titleWas") ||
-      prefix !== textOf(formData, "prefixWas"))
-  ) {
-    const prefixId = prefix ? parseId(prefix) : null;
-    if (prefix) requireIds(prefixId);
-    const renamed = await attempt(returnTo, () =>
-      call(threadsUpdate, { threadId, title: String(title), prefixId }),
-    );
-    if (!renamed.ok) return { error: renamed.error };
-  }
-  const saved = await attempt(returnTo, () =>
-    call(postsUpdate, {
-      postId,
-      body: textOf(formData, "body"),
-      reason: textOf(formData, "reason"),
-      // A form without the file list leaves the files as they are.
-      attachmentIds: formData.has("attachments")
-        ? formIds(formData, "attachmentIds")
-        : undefined,
-    }),
-  );
+  const saved = await saveEdit(threadId, postId, formData);
   if (!saved.ok) return { error: saved.error };
-  redirect(threadHref(threadId, saved.value.position, postId));
+  redirect(threadHref(threadId, saved.value.post.position, postId));
 }
 
 export async function deletePostAction(

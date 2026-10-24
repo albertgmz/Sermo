@@ -334,9 +334,10 @@
     }
   },
   "threadFields": {
-    "noPrefix": "No prefix",
+    "noPrefix": "(No prefix)",
     "prefixLabel": "Prefix",
-    "titleLabel": "Title"
+    "titleLabel": "Title",
+    "titlePlaceholder": "Title…"
   },
   "threadTags": {
     "list": "Tags",
@@ -538,5 +539,14 @@
       }
     },
     "accessFailed": "Could not check what you can add in that forum."
+  },
+  "inPlaceEdit": {
+    "cancel": "Cancel",
+    "editThread": "Edit thread",
+    "editing": "Editing the post",
+    "failed": "It could not be opened for editing.",
+    "moreOptions": "More options…",
+    "retry": "Try again",
+    "save": "Save"
   }
 }

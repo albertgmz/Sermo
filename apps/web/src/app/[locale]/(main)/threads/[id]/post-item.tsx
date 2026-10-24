@@ -10,6 +10,11 @@ import {
 } from "@/app/[locale]/(main)/threads/[id]/permissions";
 import { PostActions } from "@/app/[locale]/(main)/threads/[id]/post-actions";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import {
+  EditablePostBody,
+  EditedStamp,
+  PostEditScope,
+} from "@/app/[locale]/(main)/threads/[id]/post-edit-scope";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { HtmlContent } from "@/components/forum/html-content";
@@ -79,14 +84,24 @@ export function PostItem({
   const t = useTranslations("threads.page");
   const number = post.position + 1;
   const href = threadHref(post.threadId, post.position, post.id);
+  // Its Edit opens the editor in place of the text (a deleted post's goes to the edit page).
+  const inPlace = post.canEdit && post.state !== "deleted";
+  const edited = post.editedAt && <EditedMark date={post.editedAt} />;
+  // What a selection inside the text needs to quote only that part (`SelectionQuote`).
+  const quote =
+    canQuote && post.state === "visible"
+      ? quotable("post", post.id, post.author)
+      : undefined;
 
-  return (
+  const frame = (
     <PostFrame
       id={`post-${post.id}`}
       author={author}
       createdAt={post.createdAt}
       highlighted={highlighted}
-      edited={post.editedAt && <EditedMark date={post.editedAt} />}
+      edited={
+        inPlace ? <EditedStamp postId={post.id}>{edited}</EditedStamp> : edited
+      }
       trailing={
         <>
           {/* On a phone the two marks are icons, their words for screen readers only, so the
@@ -179,40 +194,53 @@ export function PostItem({
           <summary className="flex min-h-10 cursor-pointer items-center text-sm text-muted-foreground">
             {t("showDeleted")}
           </summary>
-          <HtmlContent
-            content={{ type: "post", id: post.id }}
-            attachments={post.attachments}
-          >
-            {post.bodyHtml}
-          </HtmlContent>
-          <PostAttachments
-            attachments={post.attachments}
-            inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}
-          />
+          <PostBody post={post} />
         </details>
+      ) : inPlace ? (
+        <EditablePostBody postId={post.id} canQuote={quote !== undefined}>
+          <PostBody post={post} className="md:mt-1" quote={quote} />
+        </EditablePostBody>
       ) : (
-        <>
-          {/* What a selection inside the text needs to quote only that part (`SelectionQuote`). */}
-          <div
-            {...(canQuote && post.state === "visible"
-              ? quotable("post", post.id, post.author)
-              : {})}
-          >
-            <HtmlContent
-              className="md:mt-1"
-              content={{ type: "post", id: post.id }}
-              attachments={post.attachments}
-            >
-              {post.bodyHtml}
-            </HtmlContent>
-          </div>
-          <PostAttachments
-            attachments={post.attachments}
-            inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}
-          />
-        </>
+        <PostBody post={post} className="md:mt-1" quote={quote} />
       )}
     </PostFrame>
+  );
+  return inPlace ? (
+    <PostEditScope threadId={post.threadId} postId={post.id}>
+      {frame}
+    </PostEditScope>
+  ) : (
+    frame
+  );
+}
+
+// The text of a post and its files, on the page and as an edit made in place answers with it.
+// `quote` makes the text quotable by selection (`quotable`), for a viewer who may quote it.
+export function PostBody({
+  post,
+  className,
+  quote,
+}: {
+  post: Pick<ApiPost, "id" | "bodyHtml" | "attachments">;
+  className?: string;
+  quote?: ReturnType<typeof quotable>;
+}) {
+  return (
+    <>
+      <div {...quote}>
+        <HtmlContent
+          className={className}
+          content={{ type: "post", id: post.id }}
+          attachments={post.attachments}
+        >
+          {post.bodyHtml}
+        </HtmlContent>
+      </div>
+      <PostAttachments
+        attachments={post.attachments}
+        inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}
+      />
+    </>
   );
 }
 

@@ -8,6 +8,7 @@ import { cache, Suspense } from "react";
 import { SplitPanel } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import { postsPage } from "@/app/[locale]/(main)/threads/[id]/posts-page";
 import { ReplyComposer } from "@/app/[locale]/(main)/threads/[id]/reply-composer";
+import { ThreadHeading } from "@/app/[locale]/(main)/threads/[id]/thread-heading";
 import {
   PostsRegion,
   postsContext,
@@ -22,7 +23,6 @@ import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PageSwitch } from "@/components/forum/page-switch";
 import { PollAdder } from "@/components/forum/poll-adder";
 import { PostNote } from "@/components/forum/post-frame";
-import { PrefixTag } from "@/components/forum/prefix-tag";
 import { ThreadTags } from "@/components/forum/thread-tags";
 import { ThreadTagsEditor } from "@/components/forum/thread-tags-editor";
 import { PageLayout } from "@/components/layout/page-layout";
@@ -133,7 +133,6 @@ export default async function ThreadPage({
   const { may, contentOpen, selecting } = posts;
   const postsCursor = typeof cursor === "string" ? cursor : undefined;
   const mayRemoveCover = thread.cover !== null && permissions.canRemoveCover;
-  const prefix = prefixView(thread.prefix);
 
   return (
     <PageLayout className="pt-2">
@@ -163,10 +162,11 @@ export default async function ThreadPage({
             ]}
           />
           <h1 className="mt-1 text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">
-            {prefix && (
-              <PrefixTag prefix={prefix} className="mr-2 align-[0.1875rem]" />
-            )}
-            {thread.title}
+            <ThreadHeading
+              threadId={thread.id}
+              title={thread.title}
+              prefix={prefixView(thread.prefix)}
+            />
           </h1>
         </div>
       </header>
@@ -195,6 +195,7 @@ export default async function ThreadPage({
           watching={watching}
           bookmarked={bookmarks ? bookmarks.toggle(thread.id) : null}
           canWatch={permissions.canWatch}
+          canEditTitle={permissions.canEditTitle}
           may={may}
           mayRemoveCover={mayRemoveCover}
           staffPick={featured === "staff"}

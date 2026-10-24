@@ -37,6 +37,7 @@ afterAll(() => {
   mock.module("@/components/ui/lazy-popup", () => realPopup);
 });
 const { ContentActions } = await import("./content-actions");
+const { InPlaceEdit } = await import("./in-place-edit");
 const { ContentMenu } = await import("./content-menu");
 const { ShareButton, ShareMenuBody, shareNatively } = await import(
   "./share-button"
@@ -233,6 +234,29 @@ test("edit is a link to the edit page, or a button that opens a panel", () => {
   expect(html).toContain('aria-expanded="false"');
   // Closed, the panel is not in the page.
   expect(html).not.toContain('data-mark="form"');
+});
+
+test("in a post edited in place, Edit keeps the edit page as its address, and the bar steps aside while the editor is open", () => {
+  const inPlace = (editing: boolean) =>
+    renderToStaticMarkup(
+      withIntl(
+        <InPlaceEdit
+          value={{
+            editing,
+            open: () => {},
+            warm: () => {},
+            trigger: { current: null },
+          }}
+        >
+          <ContentActions {...full} layout="split" />
+        </InPlaceEdit>,
+      ),
+    );
+  // Without JavaScript, and for a new tab, it is still the edit page.
+  expect(inPlace(false)).toContain('href="/threads/3/edit/1"');
+  expect(inPlace(false)).toContain('aria-label="Edit"');
+  // The editor has its own Save and Cancel: nothing of the bar is drawn.
+  expect(inPlace(true)).toBe("");
 });
 
 test("delete and report keep their forms closed until pressed", () => {

@@ -1,23 +1,15 @@
-import {
-  nodesGet,
-  postsGet,
-  threadPrefixesList,
-  threadsGet,
-} from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { loadPostEdit } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-data";
 import { EditPostForm } from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-post-form";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
-import { threadMay } from "@/app/[locale]/(main)/threads/[id]/permissions";
-import { fileName } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { EmptyState } from "@/components/forum/empty-state";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { parseId, parsePageId } from "@/lib/sermo/ids";
 import { getMember } from "@/lib/sermo/session";
-import { activePrefixViews, prefixChoices } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("threads.edit");
@@ -40,27 +32,11 @@ export default async function EditPostPage({
       `/login?next=${encodeURIComponent(`/threads/${threadId}/edit/${postId}`)}`,
     );
   }
-  const [post, found] = await Promise.all([
-    read(postsGet, { postId }),
-    read(threadsGet, { threadId, countView: false }),
-  ]);
-  if (post.threadId !== threadId) notFound();
-  const { thread, node, permissions, resolvedPermissions } = found;
+  const loaded = await loadPostEdit(read, threadId, postId);
+  if (!loaded) notFound();
+  const { post, found, fields } = loaded;
+  const { thread, node } = found;
   const back = threadHref(threadId, post.position, post.id);
-  const opening = post.id === thread.firstPostId && permissions.canEditTitle;
-  const [prefixes, requirePrefix] = opening
-    ? await Promise.all([
-        read(threadPrefixesList, { nodeId: node.id }).then(({ items }) =>
-          activePrefixViews(items),
-        ),
-        // Only a thread that has a prefix can be kept from losing it.
-        thread.prefix
-          ? read(nodesGet, { nodeId: node.id }).then(
-              (found) => found.node.settings.requirePrefix,
-            )
-          : false,
-      ])
-    : [[], false];
 
   return (
     <PageLayout className="pt-2">
@@ -79,32 +55,8 @@ export default async function EditPostPage({
           <EditPostForm
             threadId={threadId}
             postId={postId}
-            source={post.bodySource}
             back={back}
-            attachIn={threadMay(resolvedPermissions).attach ? node.id : null}
-            attached={post.attachments.map((file) => ({
-              id: file.fileId,
-              name: fileName(file),
-              size: file.byteSize,
-              type: file.contentType,
-            }))}
-            thread={
-              opening
-                ? {
-                    title: thread.title,
-                    prefixId: thread.prefix ? String(thread.prefix.id) : "",
-                    prefixes: prefixChoices(prefixes, thread.prefix, (label) =>
-                      t("inactivePrefix", { label }),
-                    ),
-                    // As the backend applies it: the author may not take the prefix off where the
-                    // forum requires one it offers; a moderator may.
-                    mustHavePrefix:
-                      requirePrefix &&
-                      prefixes.length > 0 &&
-                      resolvedPermissions["forum.editAny"] !== true,
-                  }
-                : null
-            }
+            {...fields}
           />
         ) : (
           <div className="rounded-lg border bg-card">

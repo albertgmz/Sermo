@@ -63,6 +63,7 @@ export const CLIENT_NAMESPACES = [
   "forum.forumChoicePanel",
   "forum.hideForumButton",
   "forum.framing",
+  "forum.inPlaceEdit",
   "forum.infiniteList",
   "forum.memberActions",
   "forum.memberCard",

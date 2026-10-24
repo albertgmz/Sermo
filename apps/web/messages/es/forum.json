@@ -334,9 +334,10 @@
     }
   },
   "threadFields": {
-    "noPrefix": "Sin prefijo",
+    "noPrefix": "(Sin prefijo)",
     "prefixLabel": "Prefijo",
-    "titleLabel": "Título"
+    "titleLabel": "Título",
+    "titlePlaceholder": "Título…"
   },
   "threadTags": {
     "list": "Etiquetas",
@@ -538,5 +539,14 @@
       }
     },
     "accessFailed": "No se pudo comprobar qué puedes añadir en ese foro."
+  },
+  "inPlaceEdit": {
+    "cancel": "Cancelar",
+    "editThread": "Editar tema",
+    "editing": "Editando el mensaje",
+    "failed": "No se pudo abrir para editarlo.",
+    "moreOptions": "Más opciones…",
+    "retry": "Reintentar",
+    "save": "Guardar"
   }
 }

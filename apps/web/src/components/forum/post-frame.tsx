@@ -1,6 +1,7 @@
 import type { Hourglass } from "lucide-react";
 import { useLocale } from "next-intl";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
+import { HiddenWhileEditing } from "@/components/forum/in-place-edit";
 import { POSTBIT_FRAME, Postbit } from "@/components/forum/postbit";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SignatureHtml } from "@/components/forum/signature-html";
@@ -34,7 +35,8 @@ export function PostNote({
 // The frame of a post in a thread or a message in a conversation: the author on the left (above
 // the text on a phone), then the header row (the time, `trailing` at its right, a dashed rule
 // under it, as XenForo's message attribution), the content, the signature and the actions (pushed to the bottom of the cell). What
-// differs is passed in.
+// differs is passed in. While the post is edited in place the editor is its content, and the
+// signature and the actions step aside.
 export function PostFrame({
   id,
   author,
@@ -105,9 +107,11 @@ export function PostFrame({
         {children}
 
         {signed && author.signatureHtml && (
-          <SignatureHtml className="mt-3 border-t pt-2">
-            {author.signatureHtml}
-          </SignatureHtml>
+          <HiddenWhileEditing>
+            <SignatureHtml className="mt-3 border-t pt-2">
+              {author.signatureHtml}
+            </SignatureHtml>
+          </HiddenWhileEditing>
         )}
 
         {/* As XenForo's message footer: at the bottom of the cell, level with the bottom of the

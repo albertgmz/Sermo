@@ -18,6 +18,7 @@ import { ForumCardGrid } from "@/components/forum/forum-card-grid";
 import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PagedList } from "@/components/forum/paged-list";
+import { PrefixSelect } from "@/components/forum/prefix-select";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import {
   LoadingRegion,
@@ -56,6 +57,9 @@ function nodeIdOf(raw: string) {
   return id;
 }
 
+// The forum's threads narrowed to one prefix, through the shared prefix menu: "All threads" first,
+// then the prefixes its threads carry, each choice a link to its list. Without JavaScript the
+// choices are the links themselves.
 function PrefixFilter({
   id,
   prefixes,
@@ -66,37 +70,43 @@ function PrefixFilter({
   active: number | undefined;
 }) {
   const t = useTranslations("forums.forum");
+  const tFields = useTranslations("forum.threadFields");
+  const hrefOf = (prefix: number | undefined) =>
+    prefix === undefined ? `/forums/${id}` : `/forums/${id}?prefix=${prefix}`;
+  const hrefs: Record<string, string> = { "": hrefOf(undefined) };
+  for (const prefix of prefixes) hrefs[String(prefix.id)] = hrefOf(prefix.id);
   return (
-    <nav
-      aria-label={t("aria.prefixFilter")}
-      className="-mx-1 mt-3 flex overflow-x-auto [scrollbar-width:none]"
-    >
-      <Link
-        href={`/forums/${id}`}
-        scroll={false}
-        aria-current={active === undefined ? "true" : undefined}
-        className={cn(
-          filterClass,
-          "px-2 text-xs font-medium text-muted-foreground hover:text-foreground aria-[current=true]:text-foreground",
-        )}
-      >
-        {t("allThreads")}
-      </Link>
-      {prefixes.map((prefix) => (
-        <Link
-          key={prefix.id}
-          href={`/forums/${id}?prefix=${prefix.id}`}
-          scroll={false}
-          aria-current={prefix.id === active ? "true" : undefined}
-          className={cn(
-            filterClass,
-            active !== undefined &&
-              "opacity-70 hover:opacity-100 aria-[current=true]:opacity-100",
-          )}
-        >
-          <PrefixTag prefix={prefix} />
-        </Link>
-      ))}
+    <nav aria-label={t("aria.prefixFilter")} className="mt-3 flex">
+      <PrefixSelect
+        prefixes={prefixes}
+        value={active === undefined ? "" : String(active)}
+        none={t("allThreads")}
+        label={tFields("prefixLabel")}
+        hrefs={hrefs}
+      />
+      <noscript>
+        <span className="-mx-1 flex flex-wrap">
+          <Link
+            href={hrefOf(undefined)}
+            className={cn(
+              filterClass,
+              "px-2 text-xs font-medium text-muted-foreground",
+            )}
+          >
+            {t("allThreads")}
+          </Link>
+          {prefixes.map((prefix) => (
+            <Link
+              key={prefix.id}
+              href={hrefOf(prefix.id)}
+              aria-current={prefix.id === active ? "true" : undefined}
+              className={filterClass}
+            >
+              <PrefixTag prefix={prefix} />
+            </Link>
+          ))}
+        </span>
+      </noscript>
     </nav>
   );
 }

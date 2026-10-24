@@ -109,7 +109,7 @@ test("a forum that asks for a prefix says so above the chips until one is chosen
   expect(draw(false)).not.toContain("Choose a prefix to post in this forum.");
 });
 
-test("a thread starts out unsendable: Post is disabled, beside the forum chip, the title line and the prefix chips", () => {
+test("a thread starts out unsendable: Post is disabled, beside the forum chip, the title line and the prefix menu", () => {
   const html = renderToStaticMarkup(
     withIntl(
       <ThreadComposer
@@ -129,7 +129,8 @@ test("a thread starts out unsendable: Post is disabled, beside the forum chip, t
   expect(html).toContain("Posting in");
   expect(html).toContain(">Help<");
   expect(html).toContain('name="title"');
-  expect(html).toContain("Solved");
+  // The prefix menu's button, showing that none is chosen; its labels come with the menu.
+  expect(html).toContain('aria-label="Prefix: (No prefix)"');
   expect(html).toContain('name="prefixId"');
   // The text is the shared composer's: a plain field that becomes the editor when it is entered.
   expect(html).toContain('name="body"');

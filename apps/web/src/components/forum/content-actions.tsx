@@ -4,9 +4,10 @@ import { Flag, Pencil, Reply, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { createContext, useMemo, useState } from "react";
+import { createContext, use, useMemo, useState } from "react";
 import type { ActionFormState } from "@/components/forum/action-form";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
+import { InPlaceEdit } from "@/components/forum/in-place-edit";
 import {
   actionLabelClass,
   messageActionClass,
@@ -14,6 +15,7 @@ import {
 import { QuoteButton } from "@/components/forum/quote-button";
 import { ShareButton } from "@/components/forum/share-button";
 import { HashLink } from "@/components/layout/hash-link";
+import { isPlainClick } from "@/components/ui/lazy-popup-intent";
 import { cn } from "@/lib/utils";
 
 // The delete step and the report form come with the first press of their buttons.
@@ -90,7 +92,9 @@ function PanelButton({
 //   reply       Where the reply editor is.
 //   share       The permalink of the item.
 //   bookmark    The item and whether the viewer bookmarked it; only for signed-in viewers.
-//   edit        Either a page to edit on, or a `panel` that opens under the bar.
+//   edit        Either a page to edit on, or a `panel` that opens under the bar. Inside a post that
+//               is edited in place (`InPlaceEdit`), the page's link opens the editor there instead,
+//               and the bar steps aside while it is open.
 //   remove      Deleting: the action, whether to ask for a reason, and a line saying what it does.
 //   report      Reporting: the action that files it.
 //   moderation  Moderator tools that exist for the item (approve, restore), after the rest.
@@ -183,11 +187,24 @@ export function ContentActions({
   const labelClass =
     split && !edit && !remove && !moderation ? "inline" : actionLabelClass;
   const gap = wall ? "gap-1" : "gap-1.5";
+  const inPlace = use(InPlaceEdit);
   const editLink = edit && "href" in edit && (
     <Link
       href={edit.href}
       aria-label={t("edit")}
       className={messageActionClass}
+      ref={inPlace?.trigger}
+      onPointerEnter={inPlace?.warm}
+      onFocus={inPlace?.warm}
+      onClick={
+        inPlace
+          ? (event) => {
+              if (!isPlainClick(event)) return;
+              event.preventDefault();
+              inPlace.open();
+            }
+          : undefined
+      }
     >
       <Pencil />
       <span className={actionLabelClass}>{t("edit")}</span>
@@ -284,6 +301,7 @@ export function ContentActions({
     </>
   );
   const summaryRow = summary && <div className="-mx-2 flex">{summary}</div>;
+  if (inPlace?.editing) return null;
 
   return (
     <div

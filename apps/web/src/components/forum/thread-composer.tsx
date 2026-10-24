@@ -14,7 +14,7 @@ import { ForumChoicePanel } from "@/components/forum/forum-choice-panel";
 import { type ForumChoice, forumTitle } from "@/components/forum/forum-choices";
 import { findMentions } from "@/components/forum/mention-find";
 import { PollField } from "@/components/forum/poll-field";
-import { PrefixTag } from "@/components/forum/prefix-tag";
+import { PrefixSelect } from "@/components/forum/prefix-select";
 import {
   clearThreadDraft,
   readThreadDraft,
@@ -24,7 +24,6 @@ import {
 import { ThreadTagsField } from "@/components/forum/thread-tags-field";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import type { PrefixView } from "@/lib/sermo/views";
-import { cn } from "@/lib/utils";
 
 // A thread can be sent once it has a title and a first post, and a prefix where the forum asks
 // for one.
@@ -95,8 +94,8 @@ export function addressAfterForumChange(
 }
 
 // Starting a thread, written like a post: close and Post at the top, the forum it goes to as a
-// chip that opens the forum choice, the title as a line of its own, the prefix as chips, then the
-// text in the shared composer. The forum, the title, the prefix and the text are all kept when the
+// chip that opens the forum choice, the title as a line of its own, the prefix menu
+// (`PrefixSelect`), then the text in the shared composer. The forum, the title, the prefix and the text are all kept when the
 // forum is changed, when the post is refused and while the choice of forum is open. The title, the
 // prefix and the text are also kept in the tab (`thread-draft`) when the composer is closed or the
 // page is reloaded, until the thread is sent.
@@ -148,6 +147,7 @@ export function ThreadComposer({
   pollAsk?: number;
 }) {
   const t = useTranslations("forum.threadComposer");
+  const tFields = useTranslations("forum.threadFields");
   const [forum, setForum] = useState(forumId);
   const [attach, setAttach] = useState(canAttach);
   const [poll, setPoll] = useState(canPoll);
@@ -329,38 +329,24 @@ export function ThreadComposer({
         </div>
       )}
       {prefixes.length > 0 && (
-        <fieldset className="flex min-w-0 flex-wrap gap-2">
-          <legend className="sr-only">{t("prefixLabel")}</legend>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <PrefixSelect
+            prefixes={prefixes}
+            value={prefix}
+            none={tFields("noPrefix")}
+            label={t("prefixLabel")}
+            onChange={(next) => {
+              setPrefixId(next);
+              keep({ prefixId: next });
+            }}
+          />
           {requirePrefix && !prefix && (
-            <p className="w-full text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {t("prefixRequired")}
             </p>
           )}
           <input type="hidden" name="prefixId" value={prefix} />
-          {prefixes.map((item) => {
-            const chosen = String(item.id) === prefix;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={chosen}
-                onClick={() => {
-                  const next = chosen ? "" : String(item.id);
-                  setPrefixId(next);
-                  keep({ prefixId: next });
-                }}
-                className={cn(
-                  "inline-flex min-h-10 items-center rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring forced-colors:border md:min-h-8",
-                  chosen
-                    ? "ring-2 ring-ring"
-                    : "ring-1 ring-border hover:ring-ring",
-                )}
-              >
-                <PrefixTag prefix={item} />
-              </button>
-            );
-          })}
-        </fieldset>
+        </div>
       )}
       {canTag && <ThreadTagsField />}
       {poll && (

@@ -1,7 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  type EditDraft,
+  takeEditDraft,
+} from "@/app/[locale]/(main)/threads/[id]/edit/[postId]/edit-draft";
 import { editPostAction } from "@/app/[locale]/(main)/threads/actions";
 import {
   type AttachedFile,
@@ -49,14 +53,27 @@ export function EditPostForm({
     editPostAction.bind(null, threadId, postId),
   );
   const [uploading, setUploading] = useState(false);
+  // What the editor in the thread had when "More options" brought the member here: the form is
+  // drawn again with it, once the page is on the screen (storage is not read while drawing, which
+  // would differ from what the server drew).
+  const [kept, setKept] = useState<EditDraft | null>(null);
+  useEffect(() => {
+    // Taken once: a second run of the effect (React's development check) finds nothing.
+    const draft = takeEditDraft(postId);
+    if (draft) setKept(draft);
+  }, [postId]);
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form
+      key={kept ? "kept" : "saved"}
+      onSubmit={onSubmit}
+      className="space-y-4"
+    >
       {thread && (
         <>
           <ThreadFields
             prefixes={thread.prefixes}
-            prefixId={thread.prefixId}
-            title={thread.title}
+            prefixId={kept?.prefixId ?? thread.prefixId}
+            title={kept?.title ?? thread.title}
             mustHavePrefix={thread.mustHavePrefix}
           />
           <input type="hidden" name="titleWas" value={thread.title} />
@@ -69,7 +86,7 @@ export function EditPostForm({
         name="body"
         compact={false}
         placeholder={tEditor("placeholder")}
-        defaultValue={source}
+        defaultValue={kept?.body ?? source}
         minHeight={200}
         findMembers={findMentions}
       />

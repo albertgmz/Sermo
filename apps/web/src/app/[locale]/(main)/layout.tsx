@@ -89,6 +89,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         "forum.feedViewToggle",
         "forum.forumChoicePanel",
         "forum.hideForumButton",
+        "forum.inPlaceEdit",
         "forum.infiniteList",
         "forum.memberActions",
         "forum.memberCard",
