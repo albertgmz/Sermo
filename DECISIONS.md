@@ -6580,3 +6580,16 @@ Why: the owner wanted "Fulano te mencionó" instead of "un usuario te mencionó"
   when the post is reopened or the source mode is toggled.
 
 Why: the owner wanted the quoted part shown as a quote and kept as it was, not edited by accident.
+
+### A member's thread and conversation links open at the first unread post
+
+- For a signed-in member, thread and conversation links in the forum and tag lists, the feed,
+  the forum statistics, thread widgets, search (a hit on a thread's first post), bookmarks,
+  watched threads, the profile thread list and the conversation list go to `/unread`: the
+  first unread post, or the newest post when all is read. A guest's links stay on the plain
+  thread, so guest pages stay cacheable. Alerts keep pointing at their exact post, and a search
+  hit on a reply opens that reply. One link helper builds them, and a test fails on a new link
+  outside it.
+
+Why: the owner wanted an opened thread to continue where the member stopped reading, as in
+XenForo.
