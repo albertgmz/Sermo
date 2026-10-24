@@ -21,7 +21,7 @@ import {
 } from "@/app/[locale]/(main)/_feed/feed-page";
 import { mediaPage } from "@/app/[locale]/(main)/_feed/media-page";
 import { postToWall } from "@/app/[locale]/(main)/members/actions";
-import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
+import { LazyPostComposer } from "@/app/[locale]/(main)/members/lazy-post-composer";
 import { EmptyState } from "@/components/forum/empty-state";
 import { FeedFilterBar } from "@/components/forum/feed-filter-bar";
 import { PagedList } from "@/components/forum/paged-list";
@@ -192,7 +192,7 @@ async function HomeComposer() {
       aria-label={t("aria.newPost")}
       className="overflow-hidden rounded-lg border bg-card max-md:hidden"
     >
-      <PostComposer
+      <LazyPostComposer
         action={postToWall.bind(null, user.id, NOVEDADES_PATH)}
         avatar={<UserAvatar user={member(user.id)} size="lg" />}
         name={user.username}

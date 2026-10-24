@@ -4,9 +4,13 @@ import { ImagePlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type RefObject, useRef, useState } from "react";
 import type { WallState } from "@/app/[locale]/(main)/members/actions";
+import {
+  POST_ATTACH,
+  POST_LINE,
+  POST_PILL,
+} from "@/app/[locale]/(main)/members/post-composer-line";
 import { ComposerForm, ComposerSheet } from "@/components/forum/composer";
 import { findMentions } from "@/components/forum/mention-find";
-import { messageActionClass } from "@/components/forum/message-action";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -64,9 +68,19 @@ export function WallPostForm({
   );
 }
 
+export type PostComposerProps = {
+  action: WallAction;
+  placeholder: string;
+  // Drawn by the page: the avatar is a Server Component.
+  avatar: React.ReactNode;
+  name: string;
+  className?: string;
+};
+
 // The composer of a wall post. On the page it is a line: the avatar, a pill that opens the
-// composer and a button that opens it on choosing a file; none of it loads the editor. Opened, it
-// is the shared composer in its sheet (`components/forum/composer`).
+// composer and a button that opens it; none of it loads the editor. Opened, it is the shared
+// composer in its sheet (`components/forum/composer`). The pages draw `LazyPostComposer`, which
+// loads this when the line is first reached for.
 //
 // The composer stays in the page while it is closed, so closing it loses nothing: the text and
 // the files are there when it is opened again. A refused post keeps them too.
@@ -76,37 +90,27 @@ export function PostComposer({
   avatar,
   name,
   className,
-}: {
-  action: WallAction;
-  placeholder: string;
-  // Drawn by the page: the avatar is a Server Component.
-  avatar: React.ReactNode;
-  name: string;
-  className?: string;
+  opened = false,
+}: PostComposerProps & {
+  // Mounted open: the member reached for the closed line (`LazyPostComposer`) and this arrived.
+  opened?: boolean;
 }) {
   const t = useTranslations("members.postComposer");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(opened);
   const form = useRef<HTMLFormElement>(null);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <div className={cn("flex items-center gap-2", className)}>
+      <div className={cn(POST_LINE, className)}>
         <div className="mr-1">{avatar}</div>
-        <DialogTrigger
-          render={
-            <button
-              type="button"
-              className="h-10 min-w-0 flex-1 truncate rounded-full border bg-card px-4 text-left text-base text-muted-foreground transition-colors hover:border-ring md:text-sm"
-            />
-          }
-        >
+        <DialogTrigger render={<button type="button" className={POST_PILL} />}>
           {placeholder}
         </DialogTrigger>
         <button
           type="button"
           aria-label={t("aria.attach")}
           title={t("aria.attach")}
-          className={cn(messageActionClass, "size-10 shrink-0 px-0 md:size-10")}
+          className={POST_ATTACH}
           onClick={() => {
             setOpen(true);
             // The composer's own file field, which is in the page while the composer is closed.
@@ -129,4 +133,9 @@ export function PostComposer({
       </ComposerSheet>
     </Dialog>
   );
+}
+
+// What `LazyPostComposer` loads when the closed line is first reached for.
+export default function OpenedPostComposer(props: PostComposerProps) {
+  return <PostComposer {...props} opened />;
 }

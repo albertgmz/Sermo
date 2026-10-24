@@ -16,7 +16,7 @@ import {
   postToWall,
 } from "@/app/[locale]/(main)/members/actions";
 import { earlierComments } from "@/app/[locale]/(main)/members/earlier-comments";
-import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
+import { LazyPostComposer } from "@/app/[locale]/(main)/members/lazy-post-composer";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { DeletedItem } from "@/components/forum/deleted-item";
 import { EditedMark } from "@/components/forum/edited-mark";
@@ -457,7 +457,7 @@ export async function Wall({
   });
   const heading = <h2 className="sr-only">{t("heading")}</h2>;
   const composer = viewer.user && profile.canPostOnWall && (
-    <PostComposer
+    <LazyPostComposer
       action={postToWall.bind(null, profile.id, returnTo)}
       avatar={<UserAvatar user={member(viewer.user.id)} size="lg" />}
       name={viewer.user.username}
