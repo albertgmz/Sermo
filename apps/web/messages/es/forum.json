@@ -408,7 +408,7 @@
   },
   "deletionNotice": {
     "by": "Eliminado por {name}",
-    "reason": "Razón: {reason}",
+    "reason": "Motivo: {reason}",
     "show": "Mostrar…",
     "hide": "Ocultar"
   },
