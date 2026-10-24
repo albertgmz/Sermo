@@ -383,6 +383,16 @@ export function InfiniteList({
   const [remembered] = useState(() => drawnHeights.get(memory));
   const current = useRef(rows);
   current.current = rows;
+  // An address that names an element a row holds (`#profile-post-5`) lands on it, and a window of
+  // rows whose heights are guesses until they are drawn moves what is above the row as the reader
+  // scrolls, on some engines past the place the reader chose. So while the address names a row the
+  // list holds, all its rows stay in the page as plain flow, as the server drew the first page.
+  const landing = useSyncExternalStore(
+    subscribeNever,
+    () => rowsNamedBy(rows, location.hash).length > 0,
+    () => false,
+  );
+  const windowed = live && !landing;
   const keepMounted = useCallback((range: Range) => {
     const root = box.current;
     if (!root) return defaultRangeExtractor(range);
@@ -394,7 +404,6 @@ export function InfiniteList({
       const index = current.current.findIndex((entry) => entry.key === key);
       if (index >= 0) kept.push(index);
     }
-    kept.push(...rowsNamedBy(current.current, location.hash));
     return withKept(defaultRangeExtractor(range), kept);
   }, []);
   const virtualizer = useWindowVirtualizer({
@@ -488,21 +497,24 @@ export function InfiniteList({
         <div
           ref={box}
           style={
-            live
+            windowed
               ? { height: virtualizer.getTotalSize(), position: "relative" }
               : undefined
           }
         >
           <List>
-            {items.map((item) => (
+            {(landing
+              ? rows.map((row, index) => ({ key: row.key, index, start: 0 }))
+              : items
+            ).map((item) => (
               <Row
                 key={item.key}
                 data-index={item.index}
                 data-key={item.key}
-                ref={virtualizer.measureElement}
+                ref={windowed ? virtualizer.measureElement : undefined}
                 className={SPACING[spacing]}
                 style={
-                  live
+                  windowed
                     ? {
                         position: "absolute",
                         top: 0,

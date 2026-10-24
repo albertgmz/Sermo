@@ -99,9 +99,13 @@ test.describe("signed in", () => {
     await expect(tabs.locator('[aria-current="page"]')).toHaveText(/Wall/);
     await watch(page);
     const loads = screenLoads(page);
+    // On a phone the tab bar can sit below the first screen: the press itself would scroll it into
+    // view, so the reader's place is taken once it is in view.
+    const about = tabs.getByRole("link", { name: "About", exact: true });
+    await about.scrollIntoViewIfNeeded();
     const before = await scrollY(page);
 
-    await tabs.getByRole("link", { name: "About", exact: true }).click();
+    await about.click();
     await expect(page).toHaveURL(
       (url) => url.pathname === profile && url.search === "?tab=about",
     );
