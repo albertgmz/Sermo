@@ -6706,3 +6706,18 @@ Why: the owner found no way to really delete a post or a conversation message.
 
 Why: both failed on some runs only (a second ticking between reads, or other test files having
 added posts first), which would have blocked the final end-to-end run.
+
+### The new-thread page is rebuilt as XenForo's
+
+- The new-thread page and the in-app Create dialog share one composer: a clear, bordered title
+  field (its edge at least 3:1 against the card in both themes, held by the contrast test) with
+  the prefix menu joined at its left, the editor below, then poll, tags and the options
+  "Watch this thread" and "and receive email notifications" (ticked from the member's
+  preference and saved in the same request), and Attach files, Preview and Post thread. On a
+  phone, Post thread takes its own full-width line.
+- Preview shows the post as it will look, rendered by the backend exactly like a saved post
+  (`posts.preview`: same permissions as posting, nothing saved), and "Back to editing" returns
+  to the text.
+
+Why: the owner wanted the page rebuilt after XenForo's; the title field did not stand out from
+the background.
