@@ -57,6 +57,15 @@ export const scenarios: Scenario[] = [
         reason: "Benchmark restriction",
         notify: false,
       }),
+    // The seeded members must be able to post again: later scenarios (the composer's preview)
+    // write as them.
+    teardown(env) {
+      const db = env.ctx.sqlite;
+      db.prepare(
+        "UPDATE users SET restricted_posting_until = NULL WHERE id IN (SELECT user_id FROM user_restrictions WHERE reason = 'Benchmark restriction')",
+      ).run();
+      db.prepare("DELETE FROM user_restrictions WHERE reason = 'Benchmark restriction'").run();
+    },
   },
   {
     name: "moderation.reportQueue20k",
@@ -145,5 +154,8 @@ export const scenarios: Scenario[] = [
         userId: env.meta.memberIds[i],
         reason: "Benchmark",
       }),
+    // The banned members must be able to reply in the huge thread again for later scenarios.
+    teardown: (env) =>
+      void env.ctx.sqlite.prepare("DELETE FROM thread_bans WHERE reason = 'Benchmark'").run(),
   },
 ];
