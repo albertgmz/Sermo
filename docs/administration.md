@@ -1581,9 +1581,14 @@ A member with `profile.deleteAccount` can close their own account from **Securit
 `/account/security` (`POST /me/delete-account`, `users.deleteOwnAccount`). It runs the same
 erasure as `users.adminErase`: the account is marked erased and banned for good, sessions and API
 keys end, and the address, password, profile details, pictures, push devices, saved cookie choice,
-accepted-terms record, logged addresses, follows and referral links are removed. What the member
-wrote stays under the name `Deleted member <id>`, and the ledger, warnings and moderator log keep
-their entries (the log's `member.erase` entry names the member as the actor). The member types
+accepted-terms record, logged addresses, follows and referral links are removed. The profile
+answers not found and its wall goes with it. What the member wrote (threads, posts, writing on
+other members' walls, conversation messages) stays, shown as written by a guest with no name
+("Guest" or "Invitado", by the reader's language), and moves to the reserved guest account in the
+background, a few hundred rows per transaction; a server start finishes any such account that is
+not done. The ledger, warnings and moderator log keep their entries (the log's `member.erase`
+entry names the member as the actor). An administrator's erasure (`users.adminErase`) keeps the
+content under `Deleted member <id>`. The member types
 their username and their password to confirm, and an API key is refused. A super admin cannot
 delete their own account (the flag is handed on first) and neither can the last
 administrator. If a deletion is interrupted part way, the account stays closed (erased and banned)

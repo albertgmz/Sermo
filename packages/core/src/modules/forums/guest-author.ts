@@ -1,5 +1,8 @@
+import type { Ctx } from "../../context";
 import { GUEST_ACCOUNT_ID } from "../../db/schema";
+import { languageFor, phrase } from "../../i18n";
 import type { UserSummaryRow } from "../../shared/users";
+import { readSiteSettings } from "../settings";
 
 /** A thread's or post's author as the contracts give it (`ContentAuthor`). */
 export type ContentAuthorValue =
@@ -21,6 +24,14 @@ export function contentAuthor(
   if (isGuestAuthor(userId)) return { kind: "guest", name: guestName ?? null };
   const { id, username } = users(userId);
   return { kind: "member", id, username };
+}
+
+/**
+ * The word for a guest whose name is not kept (a member who deleted their account), in the site's
+ * language: for the text the backend writes itself, where there is no client to choose the word.
+ */
+export function guestAuthorLabel(ctx: Ctx): string {
+  return phrase(languageFor(null, readSiteSettings(ctx).defaultLanguage), "author.guest");
 }
 
 /** Control, format (zero-width, direction marks and overrides), surrogate, private and unassigned. */

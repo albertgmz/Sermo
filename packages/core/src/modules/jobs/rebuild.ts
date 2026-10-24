@@ -2,6 +2,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { reactionSummary } from "../../shared/reactions";
+import { registerKeepContentJob } from "../admin/keep-content";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "./queue";
 import { registerQuoteHeadersJob } from "./quote-headers";
 
@@ -438,4 +439,5 @@ export function registerJobHandlers(ctx: Ctx): void {
     rebuildCountersChunk(context, payload as RebuildProgress, {}, job);
   });
   registerQuoteHeadersJob(ctx);
+  registerKeepContentJob(ctx);
 }

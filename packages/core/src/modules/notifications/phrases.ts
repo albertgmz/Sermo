@@ -1,5 +1,6 @@
 import { escapeHtml } from "../../bbcode/escape";
 import { type Ctx, prepared } from "../../context";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { type Language, languageFor, phrase, phraseOr } from "../../i18n";
 import type { PushPhraseRenderer } from "../push/delivery";
 import { readSiteSettings } from "../settings";
@@ -11,6 +12,7 @@ type PhraseValues = {
   conversation_title: string | null;
   profile: string | null;
   poster: string | null;
+  poster_id: number | null;
   own: "yes" | "no";
 };
 
@@ -34,7 +36,7 @@ function phraseValues(ctx: Ctx, notificationId: number): PhraseValues | null {
     ctx.sqlite.prepare<PhraseValues, [number]>(
       `SELECT n.actor_count, a.username AS actor, t.title,
          CASE WHEN cp.user_id IS NOT NULL THEN c.title END AS conversation_title,
-         owner.username AS profile, poster.username AS poster,
+         owner.username AS profile, poster.username AS poster, pp.user_id AS poster_id,
          CASE WHEN pp.profile_user_id = n.user_id THEN 'yes' ELSE 'no' END AS own
        FROM notifications n
        LEFT JOIN users a ON a.id = n.actor_id
@@ -76,7 +78,9 @@ function namedBody(
     count: row.actor_count,
     title: title ?? "",
     profile: row.profile ?? "",
-    poster: row.poster ?? "",
+    // A wall post a member left behind when they deleted their account belongs to the guest account.
+    poster:
+      row.poster_id === GUEST_ACCOUNT_ID ? phrase(language, "author.guest") : (row.poster ?? ""),
     own: row.own,
   };
   const key = `notification.${type}.push`;

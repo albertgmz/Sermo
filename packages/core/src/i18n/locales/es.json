@@ -591,6 +591,7 @@
   "permission.category.moderation": "Moderación",
   "permission.category.economy": "Economía",
   "permission.category.admin": "Administración",
+  "author.guest": "Invitado",
   "group.guest.title": "Invitado",
   "group.registered.title": "Miembro",
   "group.registered.userTitle": "Miembro",

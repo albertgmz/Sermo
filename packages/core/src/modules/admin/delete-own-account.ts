@@ -5,6 +5,7 @@ import { ConflictError } from "../../errors";
 import { implement } from "../../operation";
 import { requirePermission } from "../../permissions";
 import { eraseMember } from "./erase";
+import { startKeepingContent } from "./keep-content";
 import { verifyActorPassword } from "./shared";
 import { isSuperAdminRow } from "./super-admin";
 
@@ -18,7 +19,8 @@ function refuseSuperAdmin(ctx: Ctx, userId: number): void {
 
 /**
  * A member closes their own account. The erasure is the administrators' one (`eraseMember`), so
- * the account ends up marked erased and banned for good exactly as that path leaves it. The
+ * the account ends up marked erased and banned for good exactly as that path leaves it; what they
+ * wrote stays, as a guest's (`keep-content.ts`). The
  * permission and the super admin rule are decided before the password is asked for and again
  * inside the first transaction; the last-administrator rule is the ban's own, which the same
  * transaction runs.
@@ -34,6 +36,7 @@ export const usersDeleteOwnAccountOp = implement(
       requirePermission(ctx, current, "profile.deleteAccount");
       refuseSuperAdmin(ctx, userId);
     });
+    startKeepingContent(ctx, userId);
     return { ok: true as const };
   },
 );

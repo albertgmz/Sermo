@@ -1,8 +1,10 @@
 import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { postsList } from "../../contracts/forums";
+import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { NotFoundError } from "../../errors";
 import { can, getNodeTree, type NodeTreeEntry, viewableNodeIds } from "../../permissions";
+import { guestAuthorLabel } from "../forums/guest-author";
 import { readGates } from "../forums/read-gates";
 import { requireSiteOpenToGuests } from "../members/site-access";
 import { readSiteSettings } from "../settings";
@@ -22,16 +24,13 @@ export const LLMS_FULL_CAP = 1_048_576;
 
 /** The queries of these pages (the index test runs them as they are). */
 export const MARKDOWN_SQL = {
-  thread:
-    "SELECT t.title,t.node_id,t.created_at,t.last_post_at,t.content_updated_at,COALESCE(t.guest_name,u.username) AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.id=?1",
-  posts:
-    "SELECT p.id,b.body_html,p.created_at,COALESCE(p.guest_name,u.username) AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position",
+  thread: `SELECT t.title,t.node_id,t.created_at,t.last_post_at,t.content_updated_at,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.id=?1`,
+  posts: `SELECT p.id,b.body_html,p.created_at,CASE WHEN p.user_id=${GUEST_ACCOUNT_ID} THEN p.guest_name ELSE u.username END AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position`,
   positionBefore:
     "SELECT position FROM posts WHERE thread_id=?1 AND position<?2 AND state='visible' ORDER BY position DESC LIMIT 1",
   positionAfter:
     "SELECT position FROM posts WHERE thread_id=?1 AND position>?2 AND state='visible' ORDER BY position LIMIT 1",
-  forumThreads:
-    "SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,COALESCE(t.guest_name,u.username) AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2",
+  forumThreads: `SELECT t.id,t.title,t.excerpt,t.reply_count,t.last_post_at,CASE WHEN t.user_id=${GUEST_ACCOUNT_ID} THEN t.guest_name ELSE u.username END AS username FROM threads t JOIN users u ON u.id=t.user_id WHERE t.node_id=?1 AND t.state='visible' AND t.first_post_id IS NOT NULL ORDER BY t.last_post_at DESC,t.id DESC LIMIT ?2`,
 } as const;
 
 /** A Markdown page, or the address it now lives at (a renamed or merged thread). */
@@ -43,16 +42,17 @@ type ThreadRow = {
   created_at: number;
   last_post_at: number;
   content_updated_at: number | null;
-  username: string;
+  /** Null, here and below, for a guest whose name is not kept. */
+  username: string | null;
 };
-type PostRow = { id: number; body_html: string; created_at: number; username: string };
+type PostRow = { id: number; body_html: string; created_at: number; username: string | null };
 type ListedThread = {
   id: number;
   title: string;
   excerpt: string;
   reply_count: number;
   last_post_at: number;
-  username: string;
+  username: string | null;
 };
 
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -110,11 +110,13 @@ export function threadMarkdown(
   const next = after.get(id, page * perPage - 1);
   const pages = pageOf(before.get(id, Number.MAX_SAFE_INTEGER)?.position ?? 0);
   const origin = requireBaseURL(baseURL).origin;
+  const guest = guestAuthorLabel(ctx);
+  const author = thread.username ?? guest;
   const canonical = withPage(seo.canonical, page);
   const forumUrl = markdownUrl(canonicalUrl(baseURL, "node", node.id, node.title));
   const parts = [
     `# ${plain(thread.title)}`,
-    `In [${plain(node.title)}](${forumUrl}), started by ${plain(thread.username)} on ${iso(thread.created_at)}.${pages > 1 ? ` Page ${page} of ${pages}.` : ""}`,
+    `In [${plain(node.title)}](${forumUrl}), started by ${plain(author)} on ${iso(thread.created_at)}.${pages > 1 ? ` Page ${page} of ${pages}.` : ""}`,
   ];
   for (const post of posts) {
     // The body is a block quote: whatever block a post opens (a list, a fence, a heading) ends
@@ -123,7 +125,7 @@ export function threadMarkdown(
       .split("\n")
       .map((line) => (line ? `> ${line}` : ">"))
       .join("\n");
-    const heading = `## ${plain(post.username)}, [${iso(post.created_at)}](${canonical}#post-${post.id})`;
+    const heading = `## ${plain(post.username ?? guest)}, [${iso(post.created_at)}](${canonical}#post-${post.id})`;
     parts.push(body !== ">" ? `${heading}\n\n${body}` : heading);
   }
   const links = [];
@@ -135,7 +137,7 @@ export function threadMarkdown(
     title: thread.title,
     url: canonical,
     forum: node.title,
-    author: thread.username,
+    author,
     published: iso(thread.created_at),
     updated: iso(thread.content_updated_at ?? thread.last_post_at),
     page,
@@ -172,6 +174,7 @@ function forumBody(ctx: Ctx, baseURL: string, node: NodeTreeEntry, limit: number
         .join("\n")}`,
     );
   const gates = readGates(ctx, GUEST);
+  const guest = guestAuthorLabel(ctx);
   if (node.type === "forum" && gates.opensOthers(node.id) && gates.readsOthers(node.id)) {
     const threads = prepared(ctx, "seo.markdownForumThreads", () =>
       ctx.sqlite.prepare<ListedThread, [number, number]>(MARKDOWN_SQL.forumThreads),
@@ -183,7 +186,7 @@ function forumBody(ctx: Ctx, baseURL: string, node: NodeTreeEntry, limit: number
             const url = markdownUrl(canonicalUrl(baseURL, "thread", thread.id, thread.title));
             const replies = `${thread.reply_count} ${thread.reply_count === 1 ? "reply" : "replies"}`;
             const excerpt = note(thread.excerpt);
-            return `- [${plain(thread.title)}](${url}) by ${plain(thread.username)}, ${replies}, last post ${iso(thread.last_post_at)}${excerpt ? `: ${excerpt}` : ""}`;
+            return `- [${plain(thread.title)}](${url}) by ${plain(thread.username ?? guest)}, ${replies}, last post ${iso(thread.last_post_at)}${excerpt ? `: ${excerpt}` : ""}`;
           })
           .join("\n")}`,
       );

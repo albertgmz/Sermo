@@ -5,6 +5,7 @@ import { type Ctx, prepared } from "../../context";
 import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { NotFoundError } from "../../errors";
 import { can, getNodeTree, permissionsOf } from "../../permissions";
+import { guestAuthorLabel } from "../forums/guest-author";
 import { readGates } from "../forums/read-gates";
 import { mayViewProfile, type ProfileAccess, profileAccess } from "../profiles/shared";
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "./excerpt";
@@ -57,7 +58,8 @@ type Post = {
   body_source: string;
   created_at: number;
   edited_at: number | null;
-  username: string;
+  /** Null for a guest whose name is not kept. */
+  username: string | null;
 };
 type Profile = {
   id: number;
@@ -173,7 +175,7 @@ export function threadSeo(
   const requested = new URL(requestedPath, baseURL);
   const rows = prepared(ctx, "seo.threadPosts", () =>
     ctx.sqlite.prepare<Post, [number, number, number]>(
-      "SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,COALESCE(p.guest_name,u.username) AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position",
+      `SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,CASE WHEN p.user_id=${GUEST_ACCOUNT_ID} THEN p.guest_name ELSE u.username END AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.thread_id=?1 AND p.position BETWEEN ?2 AND ?3 AND p.state='visible' ORDER BY p.position`,
     ),
   ).all(id, (page - 1) * pageSize, page * pageSize - 1);
   const first =
@@ -181,7 +183,7 @@ export function threadSeo(
       ? rows.find((row) => row.id === thread.first_post_id)
       : prepared(ctx, "seo.firstPost", () =>
           ctx.sqlite.prepare<Post, [number]>(
-            "SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,COALESCE(p.guest_name,u.username) AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.id=?1 AND p.state='visible'",
+            `SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,CASE WHEN p.user_id=${GUEST_ACCOUNT_ID} THEN p.guest_name ELSE u.username END AS username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.id=?1 AND p.state='visible'`,
           ),
         ).get(thread.first_post_id ?? 0);
   const guestVisible =
@@ -197,6 +199,7 @@ export function threadSeo(
       (first && excerptFromMarkdown(first.body_source, 200, SEO_TEXT_LIMIT)) ||
       "";
   const values = { siteName: templates.siteName, title: thread.title, description, username: "" };
+  const guest = guestAuthorLabel(ctx);
   const breadcrumb: WithContext<BreadcrumbList> = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -218,7 +221,7 @@ export function threadSeo(
           mainEntityOfPage: baseCanonical,
           headline: thread.title,
           text: maskMarkupForExcerpt(first.body_source, SEO_TEXT_LIMIT),
-          author: person(baseURL, first.user_id, first.username),
+          author: person(baseURL, first.user_id, first.username ?? guest),
           datePublished: iso(first.created_at),
           dateModified: iso(thread.content_updated_at ?? first.edited_at ?? first.created_at),
           commentCount: thread.reply_count,
@@ -233,7 +236,7 @@ export function threadSeo(
               "@type": "Comment" as const,
               "@id": `${baseCanonical}#post-${row.id}`,
               text: maskMarkupForExcerpt(row.body_source, SEO_TEXT_LIMIT),
-              author: person(baseURL, row.user_id, row.username),
+              author: person(baseURL, row.user_id, row.username ?? guest),
               datePublished: iso(row.created_at),
               ...(row.edited_at ? { dateModified: iso(row.edited_at) } : {}),
             })),

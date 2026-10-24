@@ -3,6 +3,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { dispatchEvents } from "../../events";
+import { scheduleKeptContent } from "../admin/keep-content";
 import { purgeExpiredCredentialsBatch } from "../auth";
 import { pruneSignInFailures } from "../auth/sign-in-limit";
 import { expireReadMarks } from "../forums/read-marks";
@@ -168,6 +169,8 @@ export function startScheduler(ctx: Ctx): () => void {
   refreshClosedProfiles(ctx);
   // Stored quotes of posts still headed in English get the current header, in the background.
   scheduleQuoteHeaders(ctx);
+  // Members who deleted their own account keep their content as a guest's: finish any that did not.
+  scheduleKeptContent(ctx);
   const onError = (error: unknown, job: Cron) => console.error(`[cron:${job.name}]`, error);
   const jobs = [
     // Prompt delivery of domain events to registered subscribers (promotions, notifications).
