@@ -176,12 +176,8 @@
     "unknownRobot": "Unknown",
     "ipLabel": "IP address",
     "empty": "No results.",
-    "pagination": "Page {page} of {pages}",
-    "previous": "Previous",
-    "next": "Next",
     "aria": {
-      "filter": "Show",
-      "pages": "Pages"
+      "filter": "Show"
     }
   }
 }

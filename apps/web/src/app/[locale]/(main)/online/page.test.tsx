@@ -19,6 +19,7 @@ mock.module("next/headers", () => ({
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { default: OnlinePage } = await import("./page");
+const { onlinePage } = await import("./online-page");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -129,7 +130,7 @@ test("current visitors: a member with what they view, a guest with the address s
   );
   expect(html).toContain("Viewing forum list");
   // One page: no pager.
-  expect(html).not.toContain("Page 1 of");
+  expect(html).not.toContain('aria-label="Pages"');
 });
 
 test("a filter and a page are asked for as the address names them, with a pager in place", async () => {
@@ -139,11 +140,35 @@ test("a filter and a page are asked for as the address names them, with a pager 
   expect(html).toMatch(
     /aria-current="page"[^>]*href="\/online\?type=guest">Guests/,
   );
-  expect(html).toContain("Page 2 of 3");
-  expect(html).toContain('href="/online?type=guest"');
-  expect(html).toContain('href="/online?type=guest&amp;page=3"');
+  // The shared numbered pager, above and below the list, keeping the filter on every page.
+  expect(html.match(/<nav aria-label="Pages"/g)).toHaveLength(2);
+  expect(html).toMatch(
+    /href="\/online\?type=guest&amp;page=2" data-page="2" aria-current="page"/,
+  );
+  expect(html).toContain('href="/online?type=guest" data-page="1" rel="prev"');
+  expect(html).toContain(
+    'href="/online?type=guest&amp;page=3" data-page="3" rel="next"',
+  );
   // Something the list does not know is the first page of everyone.
   const fallback = backend([]);
   expect(await page({ type: "bots", page: "x" })).toContain("No results.");
   expect(fallback).toEqual(["?type=all&page=1"]);
+});
+
+test("the pager's in-place page is the same region, and nothing to show in place is null", async () => {
+  const asked = backend([guest], 60);
+  const node = await onlinePage("guest", 2);
+  expect(node).not.toBeNull();
+  const stream = await renderToReadableStream(withIntl(node), {
+    onError: () => {},
+  });
+  await stream.allReady;
+  const html = await new Response(stream).text();
+  expect(html).toContain(">Guest<");
+  expect(html).toContain('data-page="3" rel="next"');
+  expect(asked).toEqual(["?type=guest&page=2"]);
+  // A made-up filter is never asked for; an empty page past the last opens as a page of its own.
+  expect(await onlinePage("bots" as never, 2)).toBeNull();
+  backend([], 10);
+  expect(await onlinePage("all", 4)).toBeNull();
 });
