@@ -9,7 +9,8 @@
     "./contracts": "./src/contracts/index.ts",
     "./icon-keys": "./src/modules/awards/icons.ts",
     "./media-url": "./src/bbcode/media-url.ts",
-    "./media": "./src/bbcode/media.ts"
+    "./media": "./src/bbcode/media.ts",
+    "./subtree-totals": "./src/modules/forums/subtree-totals.ts"
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.7",

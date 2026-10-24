@@ -44,7 +44,7 @@ export function ForumCardGrid({
           key={forum.id}
           forum={forumCard(
             forum,
-            childrenOf(forum.id),
+            childrenOf,
             member,
             unread !== undefined && holdsUnread(forum.id, childrenOf, unread),
           )}

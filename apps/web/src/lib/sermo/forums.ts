@@ -1,4 +1,5 @@
 import type { nodesList } from "@sermo/core/contracts";
+import { subtreeTotals } from "@sermo/core/subtree-totals";
 import type * as z from "zod";
 import type { ForumCardData } from "@/components/forum/forum-card";
 import type { MemberView } from "./views";
@@ -22,22 +23,22 @@ export function nodeMembers(nodes: ApiNode[]) {
 }
 
 // A node from the backend in the shape of the forum card. Its direct children are the forum's
-// sub-forums.
+// sub-forums; its totals include every forum under it.
 export function forumCard(
   node: ApiNode,
-  children: ApiNode[],
+  childrenOf: (parentId: number) => ApiNode[],
   member: (id: number) => MemberView,
   unread = false,
 ): ForumCardData {
-  const { lastPost } = node;
+  const { threadCount, postCount, lastPost } = subtreeTotals(node, childrenOf);
   return {
     id: node.id,
     title: node.title,
     icon: node.iconKey ?? "",
     image: (node.cover ?? node.icon)?.url ?? null,
-    subforums: children.map(({ id, title }) => ({ id, title })),
-    threadCount: node.threadCount,
-    postCount: node.postCount,
+    subforums: childrenOf(node.id).map(({ id, title }) => ({ id, title })),
+    threadCount,
+    postCount,
     unread,
     lastPost: lastPost && {
       threadId: lastPost.threadId,
