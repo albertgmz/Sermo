@@ -831,10 +831,11 @@ export const postsCreate = defineContract({
 /** What a guest gives besides the text: the name to post under and the security check's token. */
 const GuestPoster = {
   /**
-   * Shown as the author (trimmed): 2 to 50 characters, and not the username of a member, in any
-   * letter case.
+   * Shown as the author: kept in NFC with white space collapsed and trimmed, then 2 to 50
+   * characters, none of them control, invisible (zero-width) or direction characters, and not the
+   * username of a member, in any letter case.
    */
-  name: z.string().trim().min(2).max(50),
+  name: z.string().min(2).max(50),
   /** The Turnstile widget's token for the `guestPost` form. */
   turnstileToken: z.string().max(4096).optional(),
 };

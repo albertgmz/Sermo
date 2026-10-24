@@ -8,6 +8,7 @@ import { MEDIA_ALLOW, MEDIA_IFRAME_HOSTS, MEDIA_SANDBOX } from "./bbcode/media";
 import { COLOR_STYLE, lex, pair } from "./bbcode/scan";
 import { build, type El, type HashtagNode, quoteTag } from "./bbcode/tree";
 import { type Ctx, prepared } from "./context";
+import { GUEST_ACCOUNT_ID } from "./db/schema";
 import { ValidationError } from "./errors";
 import { MAX_BODY_LENGTH } from "./limits";
 import { readGates } from "./modules/forums/read-gates";
@@ -191,8 +192,10 @@ function canonicalSource(source: string, quotes: El[]): string {
     // keeps only its author's name, so the stored text, the HTML and a later edit agree that it
     // is not a reference.
     const reference = quote.postId ? `post: ${quote.postId}` : `convMessage: ${quote.messageId}`;
+    // A guest's post names the guest and no member.
+    const member = quote.userId === undefined ? "" : `, member: ${quote.userId}`;
     const tag = quote.resolvedAuthor
-      ? quoteTag(quote.resolvedAuthor, `${reference}, member: ${quote.userId}`)
+      ? quoteTag(quote.resolvedAuthor, `${reference}${member}`)
       : quote.author
         ? quoteTag(quote.author)
         : "[QUOTE]";
@@ -455,6 +458,7 @@ function renderOnce(
               id: number;
               user_id: number;
               username: string;
+              guest_name: string | null;
               post_state: string;
               thread_state: string;
               thread_user_id: number;
@@ -462,7 +466,7 @@ function renderOnce(
             },
             [string]
           >(
-            "SELECT p.id, p.user_id, u.username, p.state AS post_state, t.state AS thread_state, t.user_id AS thread_user_id, t.node_id FROM posts p JOIN threads t ON t.id = p.thread_id JOIN users u ON u.id = p.user_id WHERE p.id IN (SELECT value FROM json_each(?1))",
+            "SELECT p.id, p.user_id, u.username, p.guest_name, p.state AS post_state, t.state AS thread_state, t.user_id AS thread_user_id, t.node_id FROM posts p JOIN threads t ON t.id = p.thread_id JOIN users u ON u.id = p.user_id WHERE p.id IN (SELECT value FROM json_each(?1))",
           ),
         ).all(JSON.stringify(quoteIds))
       : [];
@@ -497,10 +501,12 @@ function renderOnce(
       if (importing) {
         if (!row || !linkable(row)) continue;
       } else if (!row) throw new ValidationError("The quoted post is not visible.");
+      const guestPost = row.user_id === GUEST_ACCOUNT_ID;
       if (!checked.has(row.id)) {
         if (
           !importing &&
           !previous.quotes.has(row.id) &&
+          !(guestPost && previous.quoteAuthors.has(row.id)) &&
           (!can(ctx, actor, "node.view", { nodeId: row.node_id }) ||
             !visible(row.thread_state, row.thread_user_id, row.node_id) ||
             !visible(row.post_state, row.user_id, row.node_id) ||
@@ -510,7 +516,14 @@ function renderOnce(
           throw new ValidationError("The quoted post is not visible.");
         }
         checked.add(row.id);
-        quotes.push({ postId: row.id, userId: previous.quotes.get(row.id) ?? row.user_id });
+        if (!guestPost)
+          quotes.push({ postId: row.id, userId: previous.quotes.get(row.id) ?? row.user_id });
+      }
+      // A guest's post is cited by the name the guest gave (else the one typed), with no member
+      // and no quote reference: the guest account is nobody to name or to alert.
+      if (guestPost) {
+        quote.resolvedAuthor = row.guest_name ?? quote.author ?? undefined;
+        continue;
       }
       quote.resolvedAuthor = previous.quoteAuthors.get(row.id) ?? row.username;
       quote.userId = previous.quotes.get(row.id) ?? row.user_id;

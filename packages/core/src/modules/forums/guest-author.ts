@@ -22,3 +22,20 @@ export function contentAuthor(
   const { id, username } = users(userId);
   return { kind: "member", id, username };
 }
+
+/** Control, format (zero-width, direction marks and overrides), surrogate, private and unassigned. */
+const HIDDEN = /\p{C}/u;
+
+/**
+ * The name a guest gave as it is kept: in NFC, every run of white space one space, trimmed. Null
+ * when it holds a control character (tabs and line breaks included), one nobody can see or one
+ * that turns text around (so a guest cannot look like a member, and feeds stay valid XML), or is
+ * not then 2 to 50 characters long.
+ */
+export function cleanGuestName(raw: string): string | null {
+  const normal = raw.normalize("NFC");
+  // Checked before spaces are collapsed: `\s` also takes some invisible characters (U+FEFF).
+  if (HIDDEN.test(normal)) return null;
+  const name = normal.replace(/\s+/gu, " ").trim();
+  return name.length < 2 || name.length > 50 ? null : name;
+}

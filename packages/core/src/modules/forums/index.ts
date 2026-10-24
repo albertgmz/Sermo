@@ -103,7 +103,7 @@ import {
   threadTagNames,
 } from "../tags/store";
 import { addFeature, endStaffFeature, featureKinds } from "./features";
-import { contentAuthor, isGuestAuthor } from "./guest-author";
+import { cleanGuestName, contentAuthor, isGuestAuthor } from "./guest-author";
 import { nodesDeleteOp, registerNodeDeleteJob, requireNotBeingDeleted } from "./node-delete";
 import {
   forumPrefixOperations,
@@ -2119,6 +2119,13 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
 // gave. It is always held for approval, so none of a member's follow-ups (counters, read marks,
 // watching, the author's alerts and credits) apply until staff approve it.
 
+/** Who wrote removed content, for the moderator log: a member's id, or the name a guest gave. */
+function loggedAuthor(row: { user_id: number; guest_name: string | null }) {
+  return isGuestAuthor(row.user_id)
+    ? { authorId: null, guestName: row.guest_name }
+    : { authorId: row.user_id };
+}
+
 /** The guest's address, which their limits are counted by; members post under their account. */
 function requireGuestPoster(actor: Actor): ClientAddress {
   if (actor.kind !== "guest")
@@ -2141,8 +2148,17 @@ function requireGuestForum(ctx: Ctx, actor: Actor, nodeId: number): void {
     throw new ForbiddenError("Only members can post in this forum.");
 }
 
-/** A guest's name may not pass for a member's: no member's username, nor one kept for erased accounts. */
-function requireGuestName(ctx: Ctx, name: string): void {
+/**
+ * The name a guest posts under, cleaned (`cleanGuestName`), which may not pass for a member's: no
+ * member's username, nor one kept for erased accounts, in any letter case.
+ */
+function requireGuestName(ctx: Ctx, raw: string): string {
+  const name = cleanGuestName(raw);
+  if (name === null) {
+    const message =
+      "A name is 2 to 50 characters, with no control, invisible or direction characters.";
+    throw new ValidationError(message, [{ path: ["name"], message }]);
+  }
   const taken =
     isReservedUsername(name) ||
     statement<{ id: number }, [string]>(ctx, "guestNameTaken", forumSql.guestNameTaken).get(
@@ -2152,6 +2168,7 @@ function requireGuestName(ctx: Ctx, name: string): void {
     const message = "That name belongs to a member. Choose another one, or sign in.";
     throw new ConflictError(message, [{ path: ["name"], message }]);
   }
+  return name;
 }
 
 /**
@@ -2212,7 +2229,7 @@ export const threadsCreateAsGuestOp = implement(
   async (ctx, actor, input) => {
     const address = requireGuestPoster(actor);
     requireGuestThreadStart(ctx, actor, input.nodeId, input.prefixId);
-    requireGuestName(ctx, input.name);
+    const name = requireGuestName(ctx, input.name);
     const content = prepareGuestContent(ctx, input.body);
     const refs = renderModeratedContent(ctx, actor, content, {
       hashtags: hashtagRules(ctx, actor, 0),
@@ -2220,7 +2237,7 @@ export const threadsCreateAsGuestOp = implement(
     await passGuestTurnstile(ctx, input.turnstileToken, address);
     return writeTx(ctx, () => {
       requireGuestThreadStart(ctx, actor, input.nodeId, input.prefixId);
-      requireGuestName(ctx, input.name);
+      requireGuestName(ctx, name);
       requireGuestWriteRoom(ctx, actor, address.net, "thread", content.floodSeconds);
       const now = ctx.now();
       const thread = forumDb(ctx)
@@ -2234,13 +2251,13 @@ export const threadsCreateAsGuestOp = implement(
           now,
           excerptFromMarkdown(content.source),
           input.prefixId,
-          input.name,
+          name,
         )!;
       const post = forumDb(ctx)
         .prepare<{ id: number }, [number, number, number, string]>(
           "INSERT INTO posts (thread_id, user_id, position, created_at, guest_name) VALUES (?1, ?2, 0, ?3, ?4) RETURNING id",
         )
-        .get(thread.id, GUEST_ACCOUNT_ID, now, input.name)!;
+        .get(thread.id, GUEST_ACCOUNT_ID, now, name)!;
       forumDb(ctx)
         .prepare(
           "INSERT INTO post_bodies (post_id, body_source, body_html, body_text) VALUES (?1, ?2, ?3, ?4)",
@@ -2271,7 +2288,7 @@ export const postsCreateAsGuestOp = implement(
   async (ctx, actor, input) => {
     const address = requireGuestPoster(actor);
     const row = requireGuestReplyRoom(ctx, actor, input.threadId);
-    requireGuestName(ctx, input.name);
+    const name = requireGuestName(ctx, input.name);
     const content = prepareGuestContent(ctx, input.body);
     const refs = renderModeratedContent(ctx, actor, content, REPLY_HASHTAGS);
     await passGuestTurnstile(ctx, input.turnstileToken, address);
@@ -2281,7 +2298,7 @@ export const postsCreateAsGuestOp = implement(
         throw new ConflictError("Thread changed; retry.");
       if (current.transfer_role === "merge_target" || current.transfer_role === "split_target")
         throw new ConflictError(REORGANIZING);
-      requireGuestName(ctx, input.name);
+      requireGuestName(ctx, name);
       requireGuestWriteRoom(ctx, actor, address.net, "reply", content.floodSeconds);
       const position =
         (statement<{ position: number }, [number]>(
@@ -2293,7 +2310,7 @@ export const postsCreateAsGuestOp = implement(
         .prepare<{ id: number }, [number, number, number, number, string]>(
           "INSERT INTO posts (thread_id, user_id, position, state, created_at, guest_name) VALUES (?1, ?2, ?3, 'moderated', ?4, ?5) RETURNING id",
         )
-        .get(row.id, GUEST_ACCOUNT_ID, position, ctx.now(), input.name)!;
+        .get(row.id, GUEST_ACCOUNT_ID, position, ctx.now(), name)!;
       forumDb(ctx)
         .prepare(
           "INSERT INTO post_bodies (post_id, body_source, body_html, body_text) VALUES (?1, ?2, ?3, ?4)",
@@ -3000,6 +3017,8 @@ type TransferPost = {
   user_id: number;
   state: State;
   created_at: number;
+  /** Read by a split: the new thread's author is its first post's, a guest's name included. */
+  guest_name?: string | null;
 };
 
 /** One bounded transaction. A tombstone can retain posts until its queued chunks finish. */
@@ -3638,12 +3657,12 @@ export const threadsSplitOp = implement(contracts.threadsSplit, (ctx, actor, inp
       ? statement<TransferPost, [number, string]>(
           ctx,
           "splitSelected",
-          "SELECT id, position, user_id, state, created_at FROM posts WHERE thread_id = ?1 AND id IN (SELECT value FROM json_each(?2)) ORDER BY position",
+          "SELECT id, position, user_id, state, created_at, guest_name FROM posts WHERE thread_id = ?1 AND id IN (SELECT value FROM json_each(?2)) ORDER BY position",
         ).all(source.id, JSON.stringify(input.postIds))
       : statement<TransferPost, [number, number, number]>(
           ctx,
           "splitRange",
-          "SELECT id, position, user_id, state, created_at FROM posts WHERE thread_id = ?1 AND position >= ?2 ORDER BY position LIMIT ?3",
+          "SELECT id, position, user_id, state, created_at, guest_name FROM posts WHERE thread_id = ?1 AND position >= ?2 ORDER BY position LIMIT ?3",
         ).all(source.id, input.fromPosition!, 1);
     if (!posts.length || (input.postIds && posts.length !== new Set(input.postIds).size))
       throw new NotFoundError();
@@ -3658,8 +3677,8 @@ export const threadsSplitOp = implement(contracts.threadsSplit, (ctx, actor, inp
       "SELECT body_source FROM post_bodies WHERE post_id = ?1",
     ).get(first.id)!;
     const target = forumDb(ctx)
-      .prepare<{ id: number }, [number, number, string, State, number, string]>(
-        "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at, excerpt) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5, ?6) RETURNING id",
+      .prepare<{ id: number }, [number, number, string, State, number, string, string | null]>(
+        "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at, excerpt, guest_name) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5, ?6, ?7) RETURNING id",
       )
       .get(
         input.nodeId,
@@ -3668,6 +3687,7 @@ export const threadsSplitOp = implement(contracts.threadsSplit, (ctx, actor, inp
         source.state,
         first.created_at ?? ctx.now(),
         excerptFromMarkdown(body.body_source),
+        first.guest_name ?? null,
       )!;
     // Members banned from the source stay banned from the posts that leave it.
     forumDb(ctx)
@@ -4216,7 +4236,7 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
         input.reason,
         {
           title: current.title,
-          authorId: current.user_id,
+          ...loggedAuthor(current),
           removedPosts: 0,
           completed: false,
         },
@@ -4268,7 +4288,7 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
         input.reason,
         {
           title: current.title,
-          authorId: current.user_id,
+          ...loggedAuthor(current),
           removedPosts,
           completed: !more,
         },
@@ -4314,7 +4334,7 @@ export const postsHardDeleteOp = implement(contracts.postsHardDelete, (ctx, acto
         "post",
         post.id,
         input.reason,
-        { threadId: current.thread.row.id, authorId: post.user_id },
+        { threadId: current.thread.row.id, ...loggedAuthor(post) },
         current.thread.row.node_id,
       );
     return { ok: true as const };

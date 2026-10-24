@@ -304,7 +304,7 @@ function grantAtLiveScale(copy: BenchEnv, awardIds: number[]): void {
   const ids = JSON.stringify(awardIds);
   const { first, last } = db
     .prepare<{ first: number; last: number }, []>(
-      "SELECT min(id) AS first, max(id) AS last FROM users",
+      "SELECT min(id) AS first, max(id) AS last FROM users WHERE id > 0",
     )
     .get()!;
   const insert = db.prepare(

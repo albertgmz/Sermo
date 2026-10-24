@@ -238,6 +238,67 @@ describe("guest posting", () => {
     expect(address.entry).toMatchObject({ userId: null, ip: "203.0.113.7", action: "post" });
   });
 
+  test("a quote of a guest's post cites the guest's name, with no member and no quote reference", async () => {
+    const s = await site();
+    cloudflare();
+    const reply = await s.guestReply(guestFrom("203.0.113.7"));
+    await s.approve("post", reply.postId);
+    const quoting = await s.call("posts.create", s.member, {
+      threadId: s.memberThread.thread.id,
+      body: `[QUOTE="someone, post: ${reply.postId}"]A guest's reply[/QUOTE] Agreed`,
+    });
+    expect(quoting.bodySource).toBe(
+      `[QUOTE="Wanderer, post: ${reply.postId}"]A guest's reply[/QUOTE] Agreed`,
+    );
+    expect(quoting.bodyHtml).toMatch(
+      new RegExp(`<a href="/posts/${reply.postId}"[^>]*>Wanderer</a></cite>`),
+    );
+    expect(JSON.stringify(quoting)).not.toContain("Guest");
+    expect(JSON.stringify(quoting)).not.toContain(`${GUEST_ACCOUNT_ID}`);
+    expect(s.rows("SELECT * FROM content_quotes WHERE content_id = ?1", quoting.id)).toEqual([]);
+    // An edit keeps the citation as it was.
+    const edited = await s.call("posts.update", s.member, {
+      postId: quoting.id,
+      body: `${quoting.bodySource}!`,
+    });
+    expect(edited.bodySource).toBe(
+      `[QUOTE="Wanderer, post: ${reply.postId}"]A guest's reply[/QUOTE] Agreed!`,
+    );
+  });
+
+  test("a guest's post split into a new thread keeps the guest's name as its author", async () => {
+    const s = await site();
+    cloudflare();
+    const reply = await s.guestReply(guestFrom("203.0.113.7"));
+    await s.approve("post", reply.postId);
+    const split = await s.call("threads.split", s.moderator, {
+      threadId: s.memberThread.thread.id,
+      postIds: [reply.postId],
+      title: "Split off",
+      nodeId: s.forum.id,
+    });
+    expect(split.thread.author).toEqual(AUTHOR);
+    expect(s.rows("SELECT guest_name FROM threads WHERE id = ?1", split.thread.id)).toEqual([
+      { guest_name: "Wanderer" },
+    ]);
+  });
+
+  test("removing a guest's post for good logs the guest's name, not the guest account", async () => {
+    const s = await site();
+    cloudflare();
+    const reply = await s.guestReply(guestFrom("203.0.113.7"));
+    await s.approve("post", reply.postId);
+    await s.call("posts.delete", s.admin, { postId: reply.postId, reason: "" });
+    await s.call("posts.hardDelete", s.admin, { postId: reply.postId, reason: "spam" });
+    const logged = s.rows(
+      "SELECT details FROM moderator_log WHERE action = 'post.hardDelete' AND target_id = ?1",
+      reply.postId,
+    );
+    expect(logged.map((row) => JSON.parse(String(row.details)))).toEqual([
+      { threadId: s.memberThread.thread.id, authorId: null, guestName: "Wanderer" },
+    ]);
+  });
+
   test("refused where the forum does not allow guests, which is every forum by default", async () => {
     const s = await site({ allow: false });
     const verified = cloudflare();
@@ -293,6 +354,30 @@ describe("guest posting", () => {
     // Refused before the security check spends the token.
     expect(verified).toEqual([]);
     expect((await s.guestReply(guest, { name: "Carla the guest" })).postId).toBeGreaterThan(0);
+  });
+
+  test("the name is kept clean: no control, invisible or direction characters, in NFC, single spaces", async () => {
+    const s = await site();
+    const verified = cloudflare();
+    const guest = guestFrom("203.0.113.7");
+    for (const name of [
+      "Wan\u0001derer",
+      "Wan\tderer",
+      "Car\u200Bla",
+      "\u202Ealrac",
+      "Wan\uFEFFderer",
+    ])
+      await expect(s.guestReply(guest, { name }), JSON.stringify(name)).rejects.toBeInstanceOf(
+        ValidationError,
+      );
+    // A decomposed accent is the same name once in NFC: it is a member's.
+    insertUser(s.ctx, { username: "Jos\u00e9" });
+    await expect(s.guestReply(guest, { name: "Jose\u0301" })).rejects.toBeInstanceOf(ConflictError);
+    expect(verified).toEqual([]);
+    const made = await s.guestReply(guest, { name: " Wan    derer\u00a0 " });
+    expect(s.rows("SELECT guest_name FROM posts WHERE id = ?1", made.postId)).toEqual([
+      { guest_name: "Wan derer" },
+    ]);
   });
 
   test("members, locked threads and read-only forums are refused", async () => {
@@ -400,6 +485,21 @@ describe("guest posting", () => {
     const alerts = await s.call("notifications.list", s.moderator, {});
     const watched = alerts.items.find((item: { type: string }) => item.type === "thread.watched");
     expect(watched.actors).toEqual([]);
+    // Even an account in a group that may read alerts is never sent one when its id is not a
+    // member's: put the guest account in the Member group, and react to its post.
+    s.ctx.sqlite
+      .prepare("UPDATE users SET group_id = ?2 WHERE id = ?1")
+      .run(GUEST_ACCOUNT_ID, GROUP_IDS.member);
+    await s.call("reactions.set", s.moderator, {
+      contentType: "post",
+      contentId: reply.postId,
+      reactionTypeId: 1,
+    });
+    for (let round = 0; round < 3; round++) {
+      await dispatchEvents(s.ctx);
+      await runDueJobs(s.ctx);
+    }
+    expect(s.rows("SELECT id FROM notifications WHERE user_id = ?1", GUEST_ACCOUNT_ID)).toEqual([]);
   });
 });
 

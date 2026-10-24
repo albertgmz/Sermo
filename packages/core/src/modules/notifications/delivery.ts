@@ -1074,6 +1074,8 @@ function deliverBatch(
   for (const row of recipients) {
     // An announcement is not a reaction to someone's content: its sender gets it when addressed.
     if ((row.id === actorId && stage.type !== "announcement") || delivered.has(row.id)) continue;
+    // Accounts no one signs in to (the guest account, id -2) read nothing, whatever they hold.
+    if (row.id <= 0) continue;
     // In-app off for a type turns off every channel of it: email and push need the notice row.
     if (!(prefs.get(row.id)?.in_app ?? defaultInApp)) continue;
     const recipient = memberActor(row.id, row.group_id, row, versions);
