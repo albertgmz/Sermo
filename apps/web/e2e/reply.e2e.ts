@@ -250,7 +250,8 @@ test("the @ list offers members in the thread reply and in its BB code source, a
 
   const toolbar = region.getByRole("toolbar", { name: "Formatting" });
   await (await reveal(toolbar, "BB code source")).click();
-  const source = region.getByRole("textbox", { name: "BB code source" });
+  // The source field is named as the editor is, by its placeholder; the rich text is hidden.
+  const source = replyBox(page);
   await expect(source).toBeFocused();
   await source.fill("");
   await typeMention(page);
