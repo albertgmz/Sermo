@@ -1254,14 +1254,15 @@ export default async function StyleguidePage() {
         <Section title="Hover cards">
           <p className="max-w-prose text-sm text-muted-foreground">
             Thread links preview on hover and keyboard focus, and navigate on
-            touch. On the forum, a member avatar, a member name and an @mention
-            open the member card on mouse hover (an avatar and a mention only
-            then; a name also on keyboard focus). The card is laid out as
-            XenForo&apos;s member tooltip, with the follow and message actions.
-            On touch and pen a tap goes to the profile. The avatar and name
-            inside a card, a thread preview, a reaction list or a post&apos;s
-            own postbit are plain links. The samples here are plain links and a
-            static card: the styleguide reads and writes no member data.
+            touch. On the forum, a plain click, a tap, Enter or Space on a
+            member avatar, a member name or an @mention opens the member card (a
+            popover from the medium breakpoint, a sheet below it); a modified
+            click goes to the profile. The card is laid out as XenForo&apos;s
+            member tooltip, with the follow, ignore and message actions. The
+            avatar and name inside a card, a thread preview, a reaction list or
+            a post&apos;s own postbit are plain links. The samples here are
+            plain links and a static card: the styleguide reads and writes no
+            member data.
           </p>
           <MemberCardScope disabled>
             <div className="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 text-sm">

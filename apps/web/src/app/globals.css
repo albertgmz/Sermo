@@ -13,6 +13,7 @@
   --color-background: var(--background);
   --color-card: var(--card);
   --color-popover: var(--popover);
+  --color-raised: var(--raised);
   --color-secondary: var(--secondary);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
@@ -131,6 +132,8 @@
   --background: #151521;
   --card: #1e1e2d;
   --popover: #1e1e2d;
+  /* A layer that floats over the posts and must read as one (the member card). */
+  --raised: #2a2a3d;
   --secondary: #262638;
   --muted: #262638;
   --accent: #262638;
@@ -233,6 +236,7 @@
   --background: #fafafa;
   --card: #ffffff;
   --popover: #ffffff;
+  --raised: #ffffff;
   --secondary: #f0f0f2;
   --muted: #f0f0f2;
   --accent: #ececef;

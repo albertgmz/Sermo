@@ -20,7 +20,6 @@ export default function StyleguideLayout({
         "auth.passwordField",
         "forum.autosave",
         "forum.framing",
-        "forum.memberActions",
         "forums.forum",
         "lite.liteMenuDemo",
         "lite.navigation",

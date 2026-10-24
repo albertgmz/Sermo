@@ -68,6 +68,7 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
         "auth.passwordField",
         "forum.bbCode",
         "forum.copyButton",
+        "forum.memberActions",
         "forum.memberCard",
         "forum.memberCardTrigger",
         "forum.shareButton",

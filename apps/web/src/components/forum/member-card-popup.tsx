@@ -99,7 +99,7 @@ export function MemberCardPopup({
   return (
     <PopoverContent
       aria-label={t("aria.label", { name })}
-      className="relative isolate max-h-(--available-height) w-96 max-w-[calc(100vw-2rem)] overflow-y-auto p-0"
+      className="relative isolate max-h-(--available-height) w-96 max-w-[calc(100vw-2rem)] overflow-y-auto bg-raised p-0 shadow-lg"
       {...props}
     >
       <CardBody card={card} reload={reload} />

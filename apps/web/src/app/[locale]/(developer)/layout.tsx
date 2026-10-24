@@ -37,6 +37,7 @@ export default function DeveloperLayout({
   return (
     <ClientMessages
       namespaces={[
+        "forum.memberActions",
         "forum.memberCard",
         "forum.memberCardTrigger",
         "layout.headerPanel",

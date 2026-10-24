@@ -123,6 +123,12 @@ test("the forms: icons with hidden text, text below md only, or text always", as
   );
   expect(labelled).toContain('data-form="labelled"');
   expect(labelled).not.toContain("sr-only");
+  const row = await html(
+    <MemberActions member={ember} relation={ALL} form="row" />,
+  );
+  expect(row).toContain('data-form="row"');
+  expect(row).toContain("[&amp;_svg]:hidden");
+  expect(row).not.toContain("sr-only");
 });
 
 test("a member already followed can be unfollowed without permission to follow", async () => {

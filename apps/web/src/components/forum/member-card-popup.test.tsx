@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { Suspense } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CardBody } from "./member-card-popup";
@@ -26,4 +27,13 @@ test("before the first read the skeleton is drawn, afterwards the card", () => {
   expect(
     renderToStaticMarkup(<CardBody card={<b>card</b>} reload={() => {}} />),
   ).toBe("<b>card</b>");
+});
+
+test("the card's popover is drawn on the raised surface, a layer above the posts", () => {
+  const source = readFileSync(
+    new URL("./member-card-popup.tsx", import.meta.url),
+    "utf8",
+  );
+  const popover = source.slice(source.indexOf("<PopoverContent"));
+  expect(popover.slice(0, popover.indexOf(">"))).toContain("bg-raised");
 });

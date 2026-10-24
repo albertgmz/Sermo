@@ -126,7 +126,7 @@ function contrast(a: string, b: string) {
   return (high + 0.05) / (low + 0.05);
 }
 
-const SURFACES = ["background", "card", "popover"];
+const SURFACES = ["background", "card", "popover", "raised"];
 const TEXT = [
   "foreground",
   "card-foreground",
@@ -364,13 +364,20 @@ test("skeletons show against the card on the light theme", () => {
   ).toBeGreaterThanOrEqual(1.2);
 });
 
+test("a raised surface (the member card) stands apart from the posts it floats over in the dark theme", () => {
+  expect(
+    contrast(resolve(dark, "raised"), resolve(dark, "card")),
+  ).toBeGreaterThanOrEqual(1.12);
+  expect(resolve(light, "raised")).toBeDefined();
+});
+
 test("the light theme gives every colour token a value of its own", () => {
   const lightOnly = declarations(
     /^:root\[data-theme="light"\]\s*\{([^}]*)\}/gm,
   );
   const missing = [...dark.keys()].filter(
     (name) =>
-      /^--(background|card|popover|secondary|muted|accent|overlay|skeleton|foreground|card-foreground|popover-foreground|secondary-foreground|muted-foreground|accent-foreground|border|input|destructive|success|consent-.+|chart-[1345]|tier-.+|code-.+)$/.test(
+      /^--(background|card|popover|raised|secondary|muted|accent|overlay|skeleton|foreground|card-foreground|popover-foreground|secondary-foreground|muted-foreground|accent-foreground|border|input|destructive|success|consent-.+|chart-[1345]|tier-.+|code-.+)$/.test(
         name,
       ) && !lightOnly.has(name),
   );

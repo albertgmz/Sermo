@@ -90,6 +90,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         "forum.forumChoicePanel",
         "forum.hideForumButton",
         "forum.infiniteList",
+        "forum.memberActions",
         "forum.memberCard",
         "forum.memberCardTrigger",
         "forum.mentionMenu",

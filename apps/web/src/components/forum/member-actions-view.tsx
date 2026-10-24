@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 // `compact`: two 40px icon buttons (a phone header). `labelled`: icon and text (a column, a card).
 // `responsive`: compact below `md`, labelled from `md` up, like the postbit around it.
-// `row`: icon and text on one line that wraps (the member's card).
+// `row`: text on one line that wraps (the member's card).
 export type MemberActionsForm = "compact" | "labelled" | "responsive" | "row";
 
 export type FollowAction = (
@@ -25,7 +25,8 @@ const BUTTON: Record<MemberActionsForm, string> = {
   compact: "size-10 px-0",
   labelled: "h-10 md:h-8",
   responsive: "max-md:size-10 max-md:px-0 md:h-8",
-  row: "h-10 md:h-8",
+  // Text only, as XenForo's tooltip buttons, so follow, ignore and the message fit one line.
+  row: "h-10 px-3 md:h-8 [&_svg]:hidden",
 };
 const WRAPPER: Record<MemberActionsForm, string> = {
   compact: "flex items-center gap-1",
