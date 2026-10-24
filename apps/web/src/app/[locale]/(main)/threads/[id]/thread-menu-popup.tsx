@@ -1,6 +1,7 @@
 "use client";
 
 import { ChartBar, Ellipsis, Pencil, Shield, Tag } from "lucide-react";
+import { useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,12 @@ export type ThreadMenuPopupProps = {
 
 const ICONS = { edit: Pencil, tags: Tag, poll: ChartBar, moderate: Shield };
 
+// Whether the menu hands the focus back to its button as it closes: not after an entry whose form
+// or dialog takes the focus itself (Base UI would take it away from the field as the menu leaves).
+export function menuReturnsFocus(chosen: ThreadPanel | null) {
+  return chosen === null || chosen === "moderate";
+}
+
 // The button and its menu, which Base UI draws. It is loaded when the plain button of
 // `ThreadToolbar` is pressed and mounts open.
 export default function ThreadMenuPopup({
@@ -34,8 +41,14 @@ export default function ThreadMenuPopup({
   openKey,
 }: ThreadMenuPopupProps & OpenedProps) {
   const { defaultOpen, trigger } = useMenuOpening(openedBy, openKey);
+  const chosen = useRef<ThreadPanel | null>(null);
   return (
-    <DropdownMenu defaultOpen={defaultOpen}>
+    <DropdownMenu
+      defaultOpen={defaultOpen}
+      onOpenChange={(open) => {
+        if (open) chosen.current = null;
+      }}
+    >
       <DropdownMenuTrigger
         ref={trigger}
         aria-label={label}
@@ -43,14 +56,21 @@ export default function ThreadMenuPopup({
       >
         <Ellipsis />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-auto min-w-48">
+      <DropdownMenuContent
+        align="end"
+        className="w-auto min-w-48"
+        finalFocus={() => menuReturnsFocus(chosen.current)}
+      >
         {entries.map((entry) => {
           const Icon = ICONS[entry.id];
           return (
             <DropdownMenuItem
               key={entry.id}
               className="min-h-10 md:min-h-8"
-              onClick={() => onSelect(entry.id)}
+              onClick={() => {
+                chosen.current = entry.id;
+                onSelect(entry.id);
+              }}
             >
               <Icon />
               {entry.label}

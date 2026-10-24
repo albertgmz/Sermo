@@ -49,6 +49,7 @@ const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { ThreadTools } = await import("./thread-tools");
 const { ThreadToolbar, focusAfter } = await import("./thread-toolbar");
 const { postsContext } = await import("./thread-posts");
+const { menuReturnsFocus } = await import("./thread-menu-popup");
 
 beforeEach(() => {
   menu = undefined;
@@ -325,4 +326,11 @@ test("the row's tools follow the thread's permissions", () => {
       false,
     ).tools?.moderate,
   ).toBe(true);
+});
+
+test("the menu leaves the focus to what Edit thread, the tags and the poll open, and takes it back otherwise", () => {
+  for (const chosen of ["edit", "tags", "poll"] as const)
+    expect(menuReturnsFocus(chosen)).toBe(false);
+  expect(menuReturnsFocus("moderate")).toBe(true);
+  expect(menuReturnsFocus(null)).toBe(true);
 });

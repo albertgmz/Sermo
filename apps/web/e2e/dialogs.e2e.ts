@@ -121,26 +121,31 @@ test("Edit tags and the poll editor open in place on their first field, one at a
   const { thread } = (await made.json()) as { thread: { id: number } };
   await visit(page, `/threads/${thread.id}`);
   await ready(page);
-  const addTags = page.getByRole("button", { name: "Add tags" });
+  // Both are entries of the thread's "•••" menu (A28), which takes the focus back when they close.
+  const more = page.getByRole("button", { name: "More options", exact: true });
+  const addTags = page.getByRole("menuitem", { name: "Add tags" });
   const tags = page.getByRole("textbox", { name: "Tags" });
-  const addPoll = page.getByRole("button", { name: "Add a poll or quiz" });
+  const addPoll = page.getByRole("menuitem", { name: "Add a poll or quiz" });
   const question = page
     .getByRole("region", { name: "Poll or quiz" })
     .getByRole("textbox", { name: "Question" });
 
+  await more.click();
   await addTags.click();
   await expect(tags).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(tags).toHaveCount(0);
-  await expect(addTags).toBeFocused();
+  await expect(more).toBeFocused();
 
   // Opening the poll editor closes the tags.
   await page.keyboard.press("Enter");
+  await addTags.click();
   await expect(tags).toBeFocused();
+  await more.click();
   await addPoll.click();
   await expect(question).toBeFocused();
   await expect(tags).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(question).toHaveCount(0);
-  await expect(addPoll).toBeFocused();
+  await expect(more).toBeFocused();
 });
