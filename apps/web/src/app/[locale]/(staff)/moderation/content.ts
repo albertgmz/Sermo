@@ -12,7 +12,7 @@ import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
 import type { ContentRef } from "@/components/staff/content-ip";
 import type { TaggedAttachment } from "@/lib/attachment-tags";
-import { memberOf } from "@/lib/sermo/authors";
+import { guestNameOf, memberOf } from "@/lib/sermo/authors";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 
@@ -28,6 +28,8 @@ export type TargetType =
 
 export type Described = {
   author: { id: number; username: string } | null;
+  // The name a guest gave to what is a guest's (null: none was kept); unset for a member's.
+  guest?: { name: string | null };
   // The backend's sanitised HTML, or null when the target has none to show.
   bodyHtml: string | null;
   // The files attached to the content (a thread by its first post).
@@ -85,6 +87,11 @@ export async function orGone<T>(run: () => Promise<T>): Promise<T | null> {
   }
 }
 
+const guestOf = (author: Parameters<typeof guestNameOf>[0]) => {
+  const name = guestNameOf(author);
+  return name === undefined ? undefined : { name };
+};
+
 const nothing: Described = {
   author: null,
   bodyHtml: null,
@@ -110,6 +117,7 @@ export async function describe(
     );
     return {
       author: memberOf(post.author),
+      guest: guestOf(post.author),
       bodyHtml: post.bodyHtml,
       attachments: post.attachments,
       excerpt: plainExcerpt(post.bodyHtml),
@@ -135,6 +143,7 @@ export async function describe(
     );
     return {
       author: memberOf(thread.author),
+      guest: guestOf(thread.author),
       bodyHtml: first?.bodyHtml ?? null,
       attachments: first?.attachments ?? [],
       excerpt: thread.excerpt,

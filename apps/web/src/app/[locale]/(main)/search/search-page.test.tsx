@@ -58,13 +58,19 @@ const result = (threadId: number, postId: number, position: number) => ({
 });
 
 async function links(signedIn: boolean) {
+  return rendered(signedIn, [result(7, 70, 0), result(8, 81, 5)]).then((html) =>
+    [...html.matchAll(/href="(\/threads\/[^"]*)"/g)].map((m) => m[1]),
+  );
+}
+
+async function rendered(signedIn: boolean, items: unknown[]) {
   backend = fakeBackend({
     "auth.me": () => Response.json(viewerBody(signedIn)),
     "search.query": () =>
       Response.json({
-        items: [result(7, 70, 0), result(8, 81, 5)],
+        items,
         nextCursor: null,
-        total: 2,
+        total: items.length,
       }),
     "users.cards": () => Response.json({ items: [] }),
   });
@@ -84,8 +90,7 @@ async function links(signedIn: boolean) {
     ),
   );
   await stream.allReady;
-  const html = await new Response(stream).text();
-  return [...html.matchAll(/href="(\/threads\/[^"]*)"/g)].map((m) => m[1]);
+  return new Response(stream).text();
 }
 
 test("a member's search result for a thread opens where they left off; a reply opens that post", async () => {
@@ -97,4 +102,19 @@ test("a member's search result for a thread opens where they left off; a reply o
 
 test("a guest's search result for a thread opens its start", async () => {
   expect(await links(false)).toEqual(["/threads/7", "/threads/8#post-81"]);
+});
+
+test("a result by a guest names the guest, with no member link or card", async () => {
+  const guest = (name: string | null) => {
+    const found = result(9, 90, 2);
+    return {
+      ...found,
+      post: { ...found.post, author: { kind: "guest", name } },
+    };
+  };
+  const html = await rendered(false, [guest("Wanderer"), guest(null)]);
+  const text = html.replace(/<[^>]*>/g, "");
+  expect(text).toContain("Wanderer · Guest");
+  expect(text).toMatch(/Guest(?! ·)/);
+  expect(html).not.toContain("/members/");
 });

@@ -946,7 +946,11 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
     if (!viewer || !mayOpenStyleguide(viewer))
       return notFound(request, locale, security);
   }
-  const membersOnly = MEMBERS_ONLY.includes(section) || action === "new";
+  // A forum's new-thread form is the page's to guard: a guest may start a thread where the forum
+  // allows it, and the page sends every other guest to sign in.
+  const membersOnly =
+    MEMBERS_ONLY.includes(section) ||
+    (action === "new" && section !== "forums");
   if (membersOnly && !hasSession) {
     const login = new URL("/login", request.url);
     login.searchParams.set(

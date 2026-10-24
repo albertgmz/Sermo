@@ -1,4 +1,5 @@
 import "@/components/forum/member-card-parts";
+import { GuestName } from "@/components/forum/guest-name";
 import { MemberCardTrigger } from "@/components/forum/member-card-trigger";
 import { NameWithIcon } from "@/components/forum/name-icon";
 import { userLinkClass, userNameProps } from "@/components/forum/user-name";
@@ -7,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 export type LinkUser = Pick<
   MemberView,
-  "id" | "username" | "nameColor" | "nameIcon"
+  "id" | "username" | "nameColor" | "nameIcon" | "guest"
 >;
 
 export function UserLink({
@@ -22,6 +23,8 @@ export function UserLink({
   wrap?: boolean | "md";
   children?: React.ReactNode;
 }) {
+  if (user.guest)
+    return <GuestName name={user.username || null} className={className} />;
   const name = userNameProps(user);
   return (
     <MemberCardTrigger

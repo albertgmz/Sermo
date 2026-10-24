@@ -17,7 +17,7 @@ import type {
   PictureResult,
 } from "@/components/forum/picture-types";
 import { liteBlocks } from "@/lib/lite-mode";
-import { authorName, memberIdOf } from "@/lib/sermo/authors";
+import { authorName, guestNameOf, memberIdOf } from "@/lib/sermo/authors";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import {
@@ -144,6 +144,7 @@ async function postDetails(
       author: {
         id: memberIdOf(post.author),
         username: authorName(post.author),
+        ...(guestNameOf(post.author) === undefined ? {} : { guest: true }),
       },
       createdAt: post.createdAt,
       where: {

@@ -29,6 +29,7 @@ import { widgetAreas, widgetAside } from "@/components/widgets/widget-area";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
 import { cardMembers, childrenByParent, nodeMembers } from "@/lib/sermo/forums";
+import { guestPostKey } from "@/lib/sermo/guest-posting";
 import { parsePageId } from "@/lib/sermo/ids";
 import { membersFor } from "@/lib/sermo/members";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
@@ -112,7 +113,10 @@ export default async function ForumPage({
 
   const isForum = node.type === "forum";
   const banner = await bannerOf(node.cover);
-  const newThread = isForum && node.permissions.canPost && (
+  const guestKey = isForum
+    ? await guestPostKey(user !== null, resolvedPermissions, node.settings)
+    : null;
+  const newThread = isForum && (node.permissions.canPost || guestKey) && (
     <NewThreadButton nodeId={node.id} />
   );
   const trail =

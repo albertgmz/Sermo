@@ -76,6 +76,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
   return (
     <ClientMessages
       namespaces={[
+        "auth.turnstile",
         "credits.buyForm",
         "credits.useForm",
         "credits.wearForm",
@@ -89,6 +90,8 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         "forum.feedFilters",
         "forum.feedViewToggle",
         "forum.forumChoicePanel",
+        "forum.guestAuthor",
+        "forum.guestPosting",
         "forum.hideForumButton",
         "forum.inPlaceEdit",
         "forum.infiniteList",

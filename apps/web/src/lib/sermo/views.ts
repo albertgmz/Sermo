@@ -31,6 +31,11 @@ export type MemberView = {
   level: number;
   /** The viewer may not open this member's profile: no facts about them are shown. */
   restricted: boolean;
+  /**
+   * Not a member but a guest author: `username` is the name they gave ("" when none was kept).
+   * There is no profile, picture or card to open.
+   */
+  guest?: boolean;
 };
 
 /** The label in front of a thread title. */

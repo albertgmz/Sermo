@@ -24,6 +24,10 @@ export const memberOf = (
     ? null
     : { id: author.id, username: author.username };
 
+/** The name a guest author gave (null when none was kept), or undefined for a member. */
+export const guestNameOf = (author: AuthorRef): string | null | undefined =>
+  "kind" in author && author.kind === "guest" ? author.name : undefined;
+
 /** Whether an author is the member `id` (never a guest, nor when `id` is null). */
 export const sameMember = (author: AuthorRef, id: number | null): boolean =>
   id !== null && memberIdOf(author) === id;

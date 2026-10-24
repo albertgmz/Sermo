@@ -10,6 +10,7 @@ import { pageParam } from "@/components/forum/page-window";
 import { queryOfSearch } from "@/components/forum/places";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
+import { guestPostKey } from "@/lib/sermo/guest-posting";
 import { requireIds } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 
@@ -30,11 +31,16 @@ export async function forumThreadsSection(
       getViewer(),
     ]);
     if (node.type !== "forum") return null;
+    const guestKey = await guestPostKey(
+      user !== null,
+      resolvedPermissions,
+      node.settings,
+    );
     return await ForumThreads({
       nodeId,
       prefix: typeof prefix === "string" ? prefix : undefined,
       page: pageParam(page),
-      newThread: node.permissions.canPost && (
+      newThread: (node.permissions.canPost || guestKey) && (
         <NewThreadButton nodeId={nodeId} />
       ),
       signedIn: user !== null,

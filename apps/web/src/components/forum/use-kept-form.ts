@@ -7,6 +7,8 @@ export type KeptState = {
   title?: string;
   prefixId?: string;
   summary?: string;
+  // A guest's post refused for the name it was sent under, said under the name.
+  nameError?: string;
 };
 
 // A form's action state, submitted by hand so that React does not reset the form once the action

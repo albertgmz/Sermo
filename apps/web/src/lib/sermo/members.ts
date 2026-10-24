@@ -116,9 +116,16 @@ function lookup<T>(
   };
 }
 
-// A guest has no picture and no facts to show (`restricted`).
-const guestMember = (ref: GuestRef): MemberView =>
-  plainMember({ id: 0, username: ref.name ?? "" });
+// A guest has no picture and no facts to show (`restricted`), and no account to open (`guest`).
+const guestMember = (ref: GuestRef): MemberView => ({
+  ...plainMember({ id: 0, username: ref.name ?? "" }),
+  guest: true,
+});
+
+const guestAuthor = (ref: GuestRef): AuthorView => ({
+  ...plainAuthor({ id: 0, username: ref.name ?? "" }),
+  member: guestMember(ref),
+});
 
 export async function membersFor(
   refs: Iterable<Ref>,
@@ -149,9 +156,7 @@ export async function authorsFor(
   );
   for (const { items } of pages)
     for (const author of items) views.set(author.card.id, authorView(author));
-  return lookup(views, "author", (ref) =>
-    plainAuthor({ id: 0, username: ref.name ?? "" }),
-  );
+  return lookup(views, "author", guestAuthor);
 }
 
 // What the viewer can do about a member: follow or unfollow them, start a conversation with them,

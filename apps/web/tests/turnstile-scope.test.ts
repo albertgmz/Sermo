@@ -25,6 +25,7 @@ test("only the guest forms draw the widget, and the layouts never do", () => {
     "src/app/[locale]/(auth)/login/login-form.tsx",
     "src/app/[locale]/(auth)/register/register-form.tsx",
     "src/app/[locale]/(auth)/resend-form.tsx",
+    "src/components/forum/guest-fields.tsx",
   ]);
   for (const user of users) expect(read(user)).toContain("turnstileKey &&");
 });
@@ -57,6 +58,7 @@ test("each guest form names its own action, the one the backend requires back", 
       "passwordReset",
     ],
     ["src/app/[locale]/(auth)/resend-form.tsx", "resendConfirmation"],
+    ["src/components/forum/guest-fields.tsx", "guestPost"],
   ];
   for (const [path, action] of forms)
     expect(read(path), path).toMatch(

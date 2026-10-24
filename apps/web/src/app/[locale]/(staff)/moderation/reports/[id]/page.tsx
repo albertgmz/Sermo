@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { GuestName } from "@/components/forum/guest-name";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { ContentIp } from "@/components/staff/content-ip";
 import { Notice } from "@/components/staff/notice";
@@ -138,9 +139,19 @@ async function Case({
         description={t("contentDescription")}
       >
         <div className="space-y-3 p-4">
-          {detail.author && (
+          {(detail.author || detail.guest) && (
             <p className="text-xs text-muted-foreground">
-              <MemberLink id={detail.author.id} name={detail.author.username} />{" "}
+              {detail.author ? (
+                <MemberLink
+                  id={detail.author.id}
+                  name={detail.author.username}
+                />
+              ) : (
+                <GuestName
+                  name={detail.guest?.name ?? null}
+                  className="font-normal"
+                />
+              )}{" "}
               {detail.createdAt && when(detail.createdAt)}
             </p>
           )}

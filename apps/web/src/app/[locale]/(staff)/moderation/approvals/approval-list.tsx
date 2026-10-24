@@ -1,12 +1,13 @@
 import { approvalsList } from "@sermo/core/contracts";
 import { Eye } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { GuestName } from "@/components/forum/guest-name";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { cursorFrom } from "@/components/staff/cursor-list";
 import { RowLink } from "@/components/staff/item-list";
 import { PagedList } from "@/components/staff/paged-list";
 import { Badge } from "@/components/ui/badge";
-import { authorName, memberIdOf } from "@/lib/sermo/authors";
+import { memberIdOf } from "@/lib/sermo/authors";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { MemberLink, memberNames } from "../../admin/logs/links";
@@ -46,7 +47,7 @@ export async function ApprovalList({ searchParams }: { searchParams: Params }) {
             {item.author.kind === "member" ? (
               <MemberLink id={item.author.id} name={name(item.author.id)} />
             ) : (
-              <span>{authorName(item.author)}</span>
+              <GuestName name={item.author.name} className="font-normal" />
             )}
             <span>
               {t("added")} <RelativeTime date={item.createdAt} />

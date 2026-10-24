@@ -25,8 +25,8 @@ export type PictureEntry = {
 
 // What the viewer asks the server for when it opens a picture.
 export type PictureDetails = {
-  /** `id` is null for a guest, who has no profile. */
-  author: { id: number | null; username: string };
+  /** `id` is null for a guest, who has no profile and is drawn by the name they gave (`username`). */
+  author: { id: number | null; username: string; guest?: boolean };
   createdAt: string;
   // The post or the wall post the picture is attached to; `label` is the thread's title (none for
   // a wall post).

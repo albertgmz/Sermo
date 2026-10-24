@@ -598,5 +598,17 @@
     "watch": "Seguir",
     "save": "Guardar",
     "stop": "Dejar de seguir"
+  },
+  "guestAuthor": {
+    "label": "Invitado"
+  },
+  "guestPosting": {
+    "nameLabel": "Nombre",
+    "nameHelp": "Se muestra junto a tu mensaje, de 2 a 50 caracteres.",
+    "reviewHint": "Un moderador revisa lo que publican los invitados antes de que aparezca.",
+    "awaitingTitle": "Tu mensaje espera aprobación",
+    "awaitingBody": "Un moderador lo revisará antes de que aparezca. No lo verás en el foro hasta entonces.",
+    "backToForum": "Volver al foro",
+    "backToThread": "Volver al tema"
   }
 }

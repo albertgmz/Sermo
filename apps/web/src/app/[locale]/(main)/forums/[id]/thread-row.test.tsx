@@ -151,3 +151,27 @@ test("the last post stacks the time over the poster, both at the end of the cell
   expect(cell?.indexOf("<time")).toBeLessThan(cell?.indexOf("member3") ?? -1);
   expect(cell).toMatch(/<\/time><span class="block[^"]*">.*member3/);
 });
+
+test("a thread started and last answered by guests shows them by name as guests, with no member link", async () => {
+  const { membersFor } = await import("@/lib/sermo/members");
+  const base = thread(null);
+  const started = { kind: "guest", name: "Wanderer" } as const;
+  const answered = { kind: "guest", name: null } as const;
+  const guests = {
+    ...base,
+    author: started,
+    lastPost: { ...base.lastPost, user: answered },
+  } as unknown as typeof base;
+  const html = await draw(
+    <ThreadRow
+      thread={guests}
+      member={await membersFor([started, answered])}
+      highlighted={false}
+      signedIn={false}
+    />,
+  );
+  const text = html.replace(/<[^>]*>/g, "");
+  expect(text).toContain("Wanderer · Guest");
+  expect(text).toMatch(/Guest(?! ·)/);
+  expect(html).not.toContain("/members/");
+});

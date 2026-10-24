@@ -25,7 +25,10 @@ const SIZES = {
 
 export type UserAvatarSize = keyof typeof SIZES;
 
-export type AvatarUser = Pick<MemberView, "username" | "avatar" | "frame"> & {
+export type AvatarUser = Pick<
+  MemberView,
+  "username" | "avatar" | "frame" | "guest"
+> & {
   id?: number;
 };
 
@@ -44,7 +47,8 @@ export async function UserAvatar({
   eager?: boolean;
   className?: string;
 }) {
-  const linked = link && user.id !== undefined;
+  // A guest has no profile to open and no card.
+  const linked = link && user.id !== undefined && !user.guest;
   const { box, text, framed } = SIZES[size];
   const { hideAvatar, frame, placement } = liteAvatarLayout(
     await getLiteState(),
@@ -94,7 +98,7 @@ export async function UserAvatar({
         // have a name like "GO" (a search engine audit rejects that as non-descriptive), where its
         // label already says whose avatar it is.
         <AvatarFallback
-          data-initials={user.username.slice(0, 2)}
+          data-initials={user.username.slice(0, 2) || "?"}
           className={cn(
             "font-semibold uppercase after:content-[attr(data-initials)]",
             text,

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { GuestName } from "@/components/forum/guest-name";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { ContentIp } from "@/components/staff/content-ip";
 import { PageHeader } from "@/components/staff/page-header";
@@ -96,6 +97,9 @@ async function Review({ params }: { params: Props["params"] }) {
         >
           <div className="space-y-3 p-4">
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {detail.guest && (
+                <GuestName name={detail.guest.name} className="font-normal" />
+              )}
               {detail.author && (
                 <MemberLink
                   id={detail.author.id}

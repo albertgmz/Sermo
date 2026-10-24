@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { loadPicture } from "@/app/[locale]/(main)/_feed/media-actions";
 import { replyFromFeed } from "@/app/[locale]/(main)/actions";
 import { commentOnWallPost } from "@/app/[locale]/(main)/members/actions";
+import { GuestName } from "@/components/forum/guest-name";
 import { LineComposer } from "@/components/forum/line-composer";
 import { PictureImage } from "@/components/forum/picture-image";
 import {
@@ -295,7 +296,12 @@ function Details({ details }: { details: PictureDetails }) {
   return (
     <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        {author.id === null ? (
+        {author.guest ? (
+          <GuestName
+            name={author.username || null}
+            className="inline-flex min-h-10 items-center font-medium"
+          />
+        ) : author.id === null ? (
           <span className="inline-flex min-h-10 items-center font-medium">
             {author.username}
           </span>

@@ -1159,6 +1159,11 @@ test("a sub-route is held to no slug, and only a merge moves it", async () => {
   );
 });
 
+test("a guest reaches a forum's new-thread form, whose page decides whether they may start a thread", async () => {
+  backend({ "/api/v1/seo/nodes/3": FORUM_3 });
+  passes(await ask("/forums/3/new"));
+});
+
 test("an address under the old name for forums is a 308 to the current one, whatever follows", async () => {
   const asked = backend({});
   for (const [from, to] of [

@@ -271,3 +271,28 @@ test("a cell without the value it showed is not written", async () => {
     "permissions.set",
   );
 });
+
+test("the permission to post as a guest is saved on a forum for the Guest group like any forum permission", async () => {
+  backend = fakeBackend({
+    "permissions.definitions": () =>
+      Response.json({ items: [definition("forum.guestPost", "flag", "node")] }),
+    "permissions.set": () => Response.json(set([], 3)),
+  });
+  await redirectedTo(() =>
+    savePermissions(
+      null,
+      form({
+        group: "1",
+        node: "3",
+        actorPassword: "secret",
+        "perm:forum.guestPost": "allow",
+      }),
+    ),
+  );
+  expect(backend.asked.at(-1)?.body).toEqual({
+    groupId: 1,
+    nodeId: 3,
+    entries: [{ permission: "forum.guestPost", value: "allow" }],
+    actorPassword: "secret",
+  });
+});

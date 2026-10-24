@@ -72,7 +72,11 @@ const TARGETS = [
 // A backend that answers the two queues and counts every request it gets. Anything that names one
 // piece of content is answered "not found" (it still counts), so a page that reads content row
 // by row shows it in the count.
-function backend(staff: Record<string, unknown> = {}, nodes: unknown[] = []) {
+function backend(
+  staff: Record<string, unknown> = {},
+  nodes: unknown[] = [],
+  author: unknown = { kind: "member", id: 9, username: "member9" },
+) {
   const asked: string[] = [];
   globalThis.fetch = (async (input: string) => {
     const { pathname } = new URL(input);
@@ -121,7 +125,7 @@ function backend(staff: Record<string, unknown> = {}, nodes: unknown[] = []) {
             ["thread", "post", "profile_post", "conversation_message"] as const
           )[index % 4],
           id: 100 + index,
-          author: { kind: "member", id: 9, username: "member9" },
+          author,
           createdAt: at,
           ...context(index),
         })),
@@ -255,4 +259,15 @@ test("each approval row links to its review, and a row with no excerpt is named 
     `aria-label="${messages.moderation.approvals.review}"`,
   );
   expect(page).toContain("#103");
+});
+
+test("an approval row by a guest names the guest, with no member link", async () => {
+  backend({}, [], { kind: "guest", name: "Wanderer" });
+  const page = await html(ApprovalList({ searchParams: Promise.resolve({}) }));
+  expect(page.replace(/<[^>]*>/g, "")).toContain("Wanderer · Guest");
+  // The only profile links are the profile places of the rows.
+  const members = [...page.matchAll(/href="(\/members\/[^"]*)"/g)].map(
+    (found) => found[1],
+  );
+  expect(new Set(members)).toEqual(new Set(["/members/4"]));
 });

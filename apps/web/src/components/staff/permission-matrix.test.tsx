@@ -139,3 +139,23 @@ test("on a forum No stays a choice on every yes/no row, and one tab needs no tab
   );
   expect(html.match(/name="perm:/g)?.length).toBe(2);
 });
+
+test("the guest-post permission of a forum is a row with its words and the choice saved for it", () => {
+  const html = render(
+    <PermissionMatrix
+      permissions={[
+        {
+          ...row("forum.guestPost", "forum", "flag", "node"),
+          title: "Post as a guest",
+          help: "Start threads and reply without an account.",
+        },
+      ]}
+      entries={{ "forum.guestPost": "allow" }}
+      allowNo
+    />,
+  );
+  expect(html).toContain("Post as a guest");
+  expect(html).toContain("Start threads and reply without an account.");
+  expect(html).toContain('name="perm:forum.guestPost"');
+  expect(html).toContain('<option value="allow" selected="">Allow</option>');
+});

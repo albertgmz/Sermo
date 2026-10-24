@@ -20,6 +20,7 @@ import { replyAction } from "@/app/[locale]/(main)/threads/actions";
 import { replyInPlace } from "@/app/[locale]/(main)/threads/reply-in-place";
 import { Art } from "@/components/forum/art";
 import { EmptyState } from "@/components/forum/empty-state";
+import { LazyGuestReplyForm } from "@/components/forum/guest-lazy";
 import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PageSwitch } from "@/components/forum/page-switch";
@@ -31,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { canonicalPathOf, canonicalUrlOf } from "@/lib/sermo/addresses";
 import { memberIdOf } from "@/lib/sermo/authors";
 import { read } from "@/lib/sermo/client";
+import { guestPostKey } from "@/lib/sermo/guest-posting";
 import { parsePageId } from "@/lib/sermo/ids";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
@@ -130,6 +132,10 @@ export default async function ThreadPage({
     getTranslations("threads.replyComposer"),
   ]);
   const { thread, tags, node, permissions } = found;
+  // Where guests may reply, and the thread is open to replies: the key of their form.
+  const guestKey = thread.isLocked
+    ? null
+    : await guestPostKey(user !== null, found.resolvedPermissions);
   const page = pageNumber(pageParam);
   const seo = await getSeo(id, page, cursor !== undefined);
   const posts = postsContext(found, user?.id ?? null, select === "1");
@@ -236,6 +242,14 @@ export default async function ThreadPage({
             <PostNote icon={Lock}>
               {thread.isLocked ? t("locked") : t("cannotReply")}
             </PostNote>
+          ) : guestKey ? (
+            <LazyGuestReplyForm
+              threadId={thread.id}
+              backHref={`/threads/${thread.id}`}
+              turnstileKey={guestKey}
+              placeholder={tReply("placeholder")}
+              submitLabel={tReply("submit")}
+            />
           ) : (
             <div className="rounded-lg border bg-card">
               <EmptyState

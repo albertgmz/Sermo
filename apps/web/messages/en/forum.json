@@ -598,5 +598,17 @@
     "watch": "Follow",
     "save": "Save",
     "stop": "Unfollow"
+  },
+  "guestAuthor": {
+    "label": "Guest"
+  },
+  "guestPosting": {
+    "nameLabel": "Name",
+    "nameHelp": "Shown with your post, 2 to 50 characters.",
+    "reviewHint": "A moderator reviews what guests post before it appears.",
+    "awaitingTitle": "Your post is awaiting approval",
+    "awaitingBody": "A moderator will review it before it appears. You will not see it on the forum until then.",
+    "backToForum": "Back to the forum",
+    "backToThread": "Back to the thread"
   }
 }
