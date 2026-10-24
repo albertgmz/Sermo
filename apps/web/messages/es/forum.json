@@ -128,9 +128,25 @@
     "profile": "Ver perfil",
     "registeredLabel": "Registrado",
     "lastSeenLabel": "Última visita",
-    "hiddenActivity": "(oculto)",
     "pointsLabel": "Puntos",
     "pointsTitle": "XP de trofeos"
+  },
+  "activity": {
+    "hidden": "(oculto)",
+    "places": {
+      "forumList": "Viendo la lista de foros",
+      "latest": "Viendo el contenido más reciente",
+      "members": "Viendo los miembros",
+      "online": "Viendo la lista de usuarios conectados",
+      "conversations": "Viendo mensajes directos",
+      "search": "Buscando",
+      "page": "Viendo una página"
+    },
+    "targets": {
+      "forum": "Viendo el foro «<link>{title}</link>»",
+      "thread": "Viendo el tema «<link>{title}</link>»",
+      "member": "Viendo el perfil de «<link>{title}</link>»"
+    }
   },
   "memberActions": {
     "message": "Mensaje privado",

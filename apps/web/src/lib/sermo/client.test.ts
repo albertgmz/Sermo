@@ -261,3 +261,20 @@ test("a refusal for an account waiting for approval is told apart and worded by 
     "x",
   );
 });
+
+test("a page view names its page to the backend, never its address; anything else names none", async () => {
+  const sent: (string | null)[] = [];
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    sent.push(new Headers(init.headers).get("x-sermo-place"));
+    return Response.json({ title: "Hi" });
+  }) as unknown as typeof fetch;
+  incoming = new Headers({ "x-sermo-path": "/threads/12-secret-title?page=2" });
+  await read(contract, { threadId: 12 });
+  // A request the proxy did not mark as a page view (an action, a route handler).
+  incoming = new Headers();
+  await read(contract, { threadId: 12 });
+  // A visitor cannot name a place of their own: only the path is read.
+  incoming = new Headers({ "x-sermo-place": "thread:99" });
+  await read(contract, { threadId: 12 });
+  assert.deepEqual(sent, ["thread:12", null, null]);
+});

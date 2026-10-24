@@ -40,6 +40,7 @@ export const PAGE_ROUTES = [
   "/not-me",
   "/notifications",
   "/novedades",
+  "/online",
   "/pages/[slug]",
   "/posts/[id]",
   "/privacy",

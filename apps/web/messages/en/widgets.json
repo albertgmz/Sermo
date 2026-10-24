@@ -30,7 +30,7 @@
     "threads": "{value}<label>{count, plural, other { threads}}</label>"
   },
   "recentlyActive": {
-    "total": "Total: {value}",
+    "visitors": "{members, plural, one {# member} other {# members}}, {guests, plural, one {# guest} other {# guests}}",
     "more": "and {value} more",
     "nowTitle": "Online now"
   },

@@ -128,9 +128,25 @@
     "profile": "View profile",
     "registeredLabel": "Joined",
     "lastSeenLabel": "Last seen",
-    "hiddenActivity": "(hidden)",
     "pointsLabel": "Points",
     "pointsTitle": "Award XP"
+  },
+  "activity": {
+    "hidden": "(hidden)",
+    "places": {
+      "forumList": "Viewing forum list",
+      "latest": "Viewing latest content",
+      "members": "Viewing members",
+      "online": "Viewing list of online members",
+      "conversations": "Viewing direct messages",
+      "search": "Searching",
+      "page": "Viewing a page"
+    },
+    "targets": {
+      "forum": "Viewing forum “<link>{title}</link>”",
+      "thread": "Viewing thread “<link>{title}</link>”",
+      "member": "Viewing member profile “<link>{title}</link>”"
+    }
   },
   "memberActions": {
     "message": "Message",

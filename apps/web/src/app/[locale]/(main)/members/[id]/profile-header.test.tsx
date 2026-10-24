@@ -90,3 +90,27 @@ test("the last activity shows only when the backend gives it", async () => {
   expect(hidden).not.toContain("Last seen");
   expect(hidden).not.toContain('<time datetime="2026-01-02');
 });
+
+test("the last seen line names the page the member viewed within the hour, and marks a hidden status", async () => {
+  const html = await new Response(
+    await renderToReadableStream(
+      withIntl(
+        createElement(ProfileHeader, {
+          profile: profile({}, "2026-01-02T00:00:00.000Z"),
+          viewerId: null,
+          canMessage: false,
+          activity: {
+            at: "2026-01-02T00:00:00.000Z",
+            hidden: true,
+            place: { kind: "thread", target: { id: 9, title: "News" } },
+          },
+        }),
+      ),
+    ),
+  ).text();
+  expect(html).toContain("Last seen");
+  expect(html).toMatch(
+    /Viewing thread “<a[^>]*href="\/threads\/9"[^>]*>News<\/a>”/,
+  );
+  expect(html).toContain("(hidden)");
+});

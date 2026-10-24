@@ -1,9 +1,9 @@
 import { useLocale, useTranslations } from "next-intl";
+import { ActivityLine } from "@/components/forum/activity-line";
 import { AwardRow } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { LevelBadge } from "@/components/forum/level";
 import { MemberCardProfileLink } from "@/components/forum/member-card-profile-link";
-import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
@@ -12,7 +12,7 @@ import type { AuthorView } from "@/lib/sermo/views";
 
 // The member's card, laid out as XenForo's member tooltip: a header with the avatar on the left and,
 // beside it, the name, the badges and level, the title, the awards, when they joined and when they
-// were last seen; then a row of counts, then the viewer's actions and the way to the profile. The
+// were last seen (and, within the hour, where); then a row of counts, then the viewer's actions and the way to the profile. The
 // cover lies behind the header. `actions` is drawn first on the last line.
 export function MemberTooltip({
   author,
@@ -58,16 +58,7 @@ export function MemberTooltip({
             )}
             {lastActivity && (
               <Pair label={t("lastSeenLabel")}>
-                <RelativeTime date={lastActivity.at} />
-                {lastActivity.hidden && (
-                  <span
-                    data-slot="activity-hidden"
-                    className="text-muted-foreground"
-                  >
-                    {" "}
-                    {t("hiddenActivity")}
-                  </span>
-                )}
+                <ActivityLine activity={lastActivity} />
               </Pair>
             )}
           </dl>

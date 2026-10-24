@@ -314,6 +314,48 @@ test("a member who hides their online status, seen by staff: the time with the h
   expect(out.slice(mark)).toContain("(hidden)");
 });
 
+// The page the member viewed within the hour, as `users.activity` gives it to the viewer.
+function placeAnswer(place: unknown) {
+  const base = globalThis.fetch;
+  globalThis.fetch = (async (input: string, init?: RequestInit) =>
+    new URL(input).pathname === "/api/v1/member-activity"
+      ? Response.json({
+          items: [
+            {
+              userId: 7,
+              activity: {
+                at: "2026-01-01T09:00:00.000Z",
+                hidden: false,
+                place,
+              },
+            },
+          ],
+        })
+      : base(input, init)) as unknown as typeof fetch;
+}
+
+test("the last seen line names the page the member viewed within the hour, linked", async () => {
+  backend();
+  placeAnswer({ kind: "forum", target: { id: 3, title: "General" } });
+  const out = await card();
+  const seen = out.indexOf(">Last seen</dt>");
+  expect(seen).toBeGreaterThanOrEqual(0);
+  expect(out.slice(seen)).toMatch(
+    /dateTime="2026-01-01T09:00:00.000Z"[\s\S]*Viewing forum “<a[^>]*href="\/forums\/3"[^>]*>General<\/a>”/,
+  );
+});
+
+test("a page the viewer may not see is not named on the card, and an hour on only the time shows", async () => {
+  backend();
+  placeAnswer({ kind: "page", target: null });
+  expect(await card()).toContain("Viewing a page");
+  backend();
+  placeAnswer(null);
+  const out = await card();
+  expect(out).toContain(">Last seen</dt>");
+  expect(out).not.toContain("Viewing");
+});
+
 test("no last activity for the viewer: no line for it", async () => {
   backend({ lastActivity: { at: null, hidden: false } });
   const out = await card();

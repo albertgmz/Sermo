@@ -76,7 +76,9 @@ function backend(answers: Record<string, Answer>) {
     if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
     asked.push(pathname);
     const answer = answers[pathname];
-    return answer ? answer() : Response.json({ items: [] });
+    if (answer) return answer();
+    if (pathname === COUNTS) return Response.json({ guests: 3, robots: 1 });
+    return Response.json({ items: [] });
   }) as unknown as typeof fetch;
 }
 
@@ -108,9 +110,11 @@ const totals = widgetBody({
 });
 
 const RECENT = "/api/v1/members/recently-active";
+const COUNTS = "/api/v1/online/counts";
+const ACTIVITY = "/api/v1/member-activity";
 const STATS = "/api/v1/site/stats";
 
-test("the members seen in the last 24 hours are named in the order given, with the total and a link to the members", async () => {
+test("the members seen in the last 24 hours are named in the order given, with the members and guests online and a link to the current visitors", async () => {
   backend({
     [RECENT]: () =>
       Response.json({
@@ -124,16 +128,16 @@ test("the members seen in the last 24 hours are named in the order given, with t
   const { html, errors } = await draw(online());
   expect(errors).toEqual([]);
   expect(html).toContain(titles.recentlyActive);
-  expect(html).toContain('href="/members"');
+  expect(html).toContain('href="/online"');
   expect(html.indexOf("nova")).toBeGreaterThan(-1);
   expect(html.indexOf("nova")).toBeLessThan(html.indexOf("wren"));
   // The backend's total is more than it lists: a comma after each name, then the rest counted.
   expect(html.match(/aria-hidden="true"[^>]*>,</g)).toHaveLength(2);
   expect(html).toContain("and 228 more");
-  expect(html).toContain("Total: 230");
+  expect(html).toContain("230 members, 3 guests");
   // Names, not pictures.
   expect(html).not.toContain("<img");
-  expect(asked).toEqual([RECENT]);
+  expect(asked.sort()).toEqual([ACTIVITY, RECENT, COUNTS].sort());
 });
 
 test("only the first names are listed, the rest are counted", async () => {
@@ -154,7 +158,7 @@ test("only the first names are listed, the rest are counted", async () => {
   expect(html).not.toContain("juniper");
   // 230 in all, two named.
   expect(html).toContain("and 228 more");
-  expect(html).toContain("Total: 230");
+  expect(html).toContain("230 members, 3 guests");
   expect(html.match(/aria-hidden="true"[^>]*>,</g)).toHaveLength(2);
   // Everyone named: no tail.
   backend({
@@ -185,7 +189,7 @@ test("the shorter window lists only those seen in the last 15 minutes, and count
   expect(html).toContain("nova");
   expect(html).toContain("wren");
   expect(html).not.toContain("juniper");
-  expect(html).toContain("Total: 2");
+  expect(html).toContain("2 members, 3 guests");
 });
 
 test("a title given to the widget replaces the default", async () => {
@@ -266,4 +270,40 @@ test("both widgets are in the registry", async () => {
   const { WIDGET_ENTRIES } = await import("./registry");
   expect(Object.hasOwn(WIDGET_ENTRIES, "recentlyActive")).toBe(true);
   expect(Object.hasOwn(WIDGET_ENTRIES, "siteTotals")).toBe(true);
+});
+
+test("a name's tooltip says which page the member viewed within the hour, and the widget grows no line for it", async () => {
+  backend({
+    [RECENT]: () =>
+      Response.json({
+        total: 2,
+        items: [
+          { card: card(7, "nova"), lastActivityAt: minutesAgo(2) },
+          { card: card(8, "wren"), lastActivityAt: minutesAgo(90) },
+        ],
+      }),
+    [ACTIVITY]: () =>
+      Response.json({
+        items: [
+          {
+            userId: 7,
+            activity: {
+              at: minutesAgo(2),
+              hidden: false,
+              place: { kind: "thread", target: { id: 5, title: "Welcome" } },
+            },
+          },
+          {
+            userId: 8,
+            activity: { at: minutesAgo(90), hidden: false, place: null },
+          },
+        ],
+      }),
+  });
+  const { html, errors } = await draw(online());
+  expect(errors).toEqual([]);
+  expect(html).toContain('title="Viewing thread “Welcome”"');
+  // Older than an hour: no place, so no tooltip.
+  expect(html.match(/<li[^>]*title=/g)).toHaveLength(1);
+  expect(html).not.toContain('href="/threads/5"');
 });

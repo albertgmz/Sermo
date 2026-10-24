@@ -11,6 +11,7 @@ import { getTranslations } from "next-intl/server";
 import { cache } from "react";
 import type * as z from "zod";
 import { isSignedOut, SermoError } from "./errors";
+import { placeOfPath } from "./place";
 import { isRead } from "./request";
 import { safeReturnPath } from "./return-path";
 import {
@@ -58,7 +59,10 @@ const visitor = cache(
     viewer: Viewer | null;
     unconfirmed: boolean;
   }> => {
-    const forward = forwardFromHeaders(await headers());
+    const sent = await headers();
+    // The proxy names the path of a page view; the page it renders is noted for who is online.
+    const place = placeOfPath(sent.get("x-sermo-path")) ?? undefined;
+    const forward = { ...forwardFromHeaders(sent), place };
     if (!sermoCookies(forward.cookie)) {
       return { forward, viewer: null, unconfirmed: false };
     }

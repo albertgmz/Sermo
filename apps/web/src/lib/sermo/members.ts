@@ -82,7 +82,11 @@ function authorView(author: Author): AuthorView {
     })),
     signatureHtml: author.signatureHtml,
     lastActivity: author.lastActivityAt
-      ? { at: author.lastActivityAt, hidden: author.lastActivityHidden }
+      ? {
+          at: author.lastActivityAt,
+          hidden: author.lastActivityHidden,
+          place: null,
+        }
       : null,
   };
 }

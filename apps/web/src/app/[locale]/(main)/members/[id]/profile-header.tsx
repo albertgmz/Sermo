@@ -5,9 +5,9 @@ import { CopyHandle } from "@/app/[locale]/(main)/members/[id]/copy-handle";
 import type { Profile } from "@/app/[locale]/(main)/members/[id]/profile";
 import { ProfileMore } from "@/app/[locale]/(main)/members/[id]/profile-more";
 import { FollowButton } from "@/app/[locale]/(main)/members/wall-buttons";
+import { ActivityLine } from "@/components/forum/activity-line";
 import { Art } from "@/components/forum/art";
 import { NameWithIcon } from "@/components/forum/name-icon";
-import { RelativeTime } from "@/components/forum/relative-time";
 import { type Network, SocialIcon } from "@/components/forum/social-icon";
 import { StatInline } from "@/components/forum/stat";
 import { UserAvatar } from "@/components/forum/user-avatar";
@@ -17,6 +17,7 @@ import { Container } from "@/components/layout/container";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCredits, formatDate, formatNumber } from "@/lib/format";
 
+import type { ActivityView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 const SOCIALS = [
@@ -47,12 +48,21 @@ export function ProfileHeader({
   profile,
   viewerId,
   canMessage,
+  activity,
 }: {
   profile: Profile;
   viewerId: number | null;
   // The backend says whether the visitor may start a conversation.
   canMessage: boolean;
+  // When the member was last active and, within the hour, where (`users.activity`); without it
+  // the profile's own time is shown alone.
+  activity?: ActivityView | null;
 }) {
+  const lastSeen =
+    activity ??
+    (profile.lastActivityAt
+      ? { at: profile.lastActivityAt, hidden: false, place: null }
+      : null);
   const locale = useLocale();
   const t = useTranslations("members.profileHeader");
   const format = useFormatter();
@@ -177,13 +187,11 @@ export function ProfileHeader({
                   <time dateTime={profile.createdAt}>{chunks}</time>
                 ),
               })}
-              {profile.lastActivityAt && (
+              {lastSeen && (
                 <>
                   <span aria-hidden="true"> · </span>
                   {t.rich("lastSeen", {
-                    time: () => (
-                      <RelativeTime date={profile.lastActivityAt ?? ""} />
-                    ),
+                    time: () => <ActivityLine activity={lastSeen} />,
                   })}
                 </>
               )}

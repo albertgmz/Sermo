@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatNumber } from "@/lib/format";
+import { activitiesFor } from "@/lib/sermo/activity";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
@@ -368,7 +369,12 @@ export default async function ProfilePage({
     searchParams,
     getViewer(),
   ]);
-  const profile = await getProfile(memberIdOf(raw));
+  const userId = memberIdOf(raw);
+  // The last seen line names the page the member viewed within the hour, read beside the profile.
+  const [profile, activities] = await Promise.all([
+    getProfile(userId),
+    activitiesFor([userId]),
+  ]);
   const t = await getTranslations("members.profile");
   const tab: Tab = TABS.find((value) => value === query.tab) ?? "wall";
   const cards = (className?: string) => (
@@ -401,6 +407,7 @@ export default async function ProfilePage({
           profile={profile}
           viewerId={viewer.user?.id ?? null}
           canMessage={viewer.permissions.canStartConversations}
+          activity={activities.get(profile.id) ?? null}
         />
       </Suspense>
       <Suspense

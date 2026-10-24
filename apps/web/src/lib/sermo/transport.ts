@@ -16,6 +16,10 @@ export const LOCATION_HEADERS = [
 // `TURNSTILE_HEADER` in the backend's auth module).
 export const TURNSTILE_HEADER = "x-sermo-turnstile";
 
+// The header that names the page being rendered, for who is online (the same name as
+// `PLACE_HEADER` in the backend's members module). Only a page view sends it.
+export const PLACE_HEADER = "x-sermo-place";
+
 export type Forward = {
   // The token the visitor's Turnstile widget produced, for the one sign-in or account mail
   // request that needs it.
@@ -28,6 +32,8 @@ export type Forward = {
   locale?: string;
   acceptLanguage?: string;
   location?: Partial<Record<(typeof LOCATION_HEADERS)[number], string>>;
+  // The page a page view renders (`placeOfPath`); absent for anything else.
+  place?: string;
 };
 
 export type Described<I extends z.ZodType, O extends z.ZodType> = {
@@ -88,6 +94,7 @@ export function forwardHeaders(forward: Forward, hasBody: boolean): Headers {
   if (forward.turnstile) headers.set(TURNSTILE_HEADER, forward.turnstile);
   if (forward.userAgent) headers.set("user-agent", forward.userAgent);
   if (forward.clientIp) headers.set("x-forwarded-for", forward.clientIp);
+  if (forward.place) headers.set(PLACE_HEADER, forward.place);
   for (const name of LOCATION_HEADERS) {
     const value = forward.location?.[name];
     if (value) headers.set(name, value);

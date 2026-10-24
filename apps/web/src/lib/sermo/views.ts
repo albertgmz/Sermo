@@ -1,3 +1,7 @@
+import type { PLACE_KINDS } from "@sermo/core/contracts";
+
+type PlaceKind = (typeof PLACE_KINDS)[number];
+
 /** Where a frame sits around the avatar box, in percent of the box, and how far the picture shrinks. */
 export type FramePlacement = {
   width: number;
@@ -61,5 +65,20 @@ export type AuthorView = {
   }[];
   signatureHtml: string | null;
   /** When the member was last active, if the viewer may know; `hidden` when the member hides it. */
-  lastActivity: { at: string; hidden: boolean } | null;
+  lastActivity: ActivityView | null;
+};
+
+/** The page a visitor last viewed, as the viewer may know it (`users.activity`). */
+export type PlaceView = {
+  kind: PlaceKind;
+  /** The forum, thread or member, named only when the viewer may see it. */
+  target: { id: number; title: string } | null;
+};
+
+/** When a visitor was last seen and, within the last hour, where. */
+export type ActivityView = {
+  at: string;
+  /** The member hides their online status; shown to themselves and to staff. */
+  hidden: boolean;
+  place: PlaceView | null;
 };

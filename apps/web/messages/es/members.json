@@ -161,5 +161,27 @@
       "attach": "Añadir una imagen o un archivo"
     }
   },
-  "profileLoading": { "label": "Cargando el perfil…" }
+  "profileLoading": { "label": "Cargando el perfil…" },
+  "online": {
+    "metaTitle": "Visitantes actuales",
+    "heading": "Visitantes actuales",
+    "tabs": {
+      "all": "Todos",
+      "member": "Miembros",
+      "guest": "Invitados",
+      "robot": "Robots"
+    },
+    "guest": "Invitado",
+    "robot": "Robot: <link>{name}</link>",
+    "unknownRobot": "Desconocido",
+    "ipLabel": "Dirección IP",
+    "empty": "Sin resultados.",
+    "pagination": "Página {page} de {pages}",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "aria": {
+      "filter": "Mostrar",
+      "pages": "Páginas"
+    }
+  }
 }

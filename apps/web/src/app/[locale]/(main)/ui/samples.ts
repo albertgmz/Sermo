@@ -331,7 +331,14 @@ export const SAMPLE_AUTHOR: AuthorView = {
   nextLevelXp: 1000,
   awards: AWARDS.slice(0, 4),
   signatureHtml: "<p>Read the pinned post first.</p>",
-  lastActivity: { at: "2026-06-02T08:30:00.000Z", hidden: false },
+  lastActivity: {
+    at: "2026-06-02T08:30:00.000Z",
+    hidden: false,
+    place: {
+      kind: "thread",
+      target: { id: 1, title: "Welcome to the forum" },
+    },
+  },
 };
 
 export const PLAIN_AUTHOR: AuthorView = {

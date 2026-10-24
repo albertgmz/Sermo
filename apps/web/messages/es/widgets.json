@@ -30,7 +30,7 @@
     "threads": "{value}<label>{count, plural, other { temas}}</label>"
   },
   "recentlyActive": {
-    "total": "Total: {value}",
+    "visitors": "{members, plural, one {# miembro} other {# miembros}}, {guests, plural, one {# invitado} other {# invitados}}",
     "more": "y {value} más",
     "nowTitle": "Conectados ahora"
   },
