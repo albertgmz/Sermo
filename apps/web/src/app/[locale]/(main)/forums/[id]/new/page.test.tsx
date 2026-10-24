@@ -163,3 +163,11 @@ test("a member who may post gets the member's composer, and one who may not is t
 function messagesText(key: string) {
   return translator("forums.new")(key);
 }
+
+test("the new-thread form is kept out of search engines", async () => {
+  const { generateMetadata } = await import("./page");
+  expect((await generateMetadata()).robots).toEqual({
+    index: false,
+    follow: false,
+  });
+});

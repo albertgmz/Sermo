@@ -2,8 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { useId } from "react";
-import { TurnstileField } from "@/app/[locale]/(auth)/turnstile-field";
 import { FormError } from "@/components/forum/form-error";
+import { TurnstileField } from "@/components/forum/turnstile-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 

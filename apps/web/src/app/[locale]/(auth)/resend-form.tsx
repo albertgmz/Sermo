@@ -7,8 +7,8 @@ import {
   resendVerification,
 } from "@/app/[locale]/(auth)/actions";
 import { HydrationMark } from "@/app/[locale]/(auth)/hydration-mark";
-import { TurnstileField } from "@/app/[locale]/(auth)/turnstile-field";
 import { FormError } from "@/components/forum/form-error";
+import { TurnstileField } from "@/components/forum/turnstile-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

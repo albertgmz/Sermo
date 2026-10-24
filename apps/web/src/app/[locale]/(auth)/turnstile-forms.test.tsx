@@ -17,7 +17,7 @@ const { LoginForm } = await import("./login/login-form");
 const { RegisterForm } = await import("./register/register-form");
 const { ForgotForm } = await import("./forgot-password/forgot-form");
 const { ResendForm } = await import("./resend-form");
-const { loadTurnstile } = await import("./turnstile-field");
+const { loadTurnstile } = await import("@/components/forum/turnstile-field");
 const { forgetDocumentNonce } = await import("@/lib/document-nonce");
 
 afterAll(() => {

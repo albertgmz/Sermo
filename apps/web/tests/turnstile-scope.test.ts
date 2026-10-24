@@ -7,7 +7,7 @@ import { read, walk } from "./lite-scan";
 const sources = walk("src").filter(
   (path) => /\.tsx?$/.test(path) && !/\.test\./.test(path),
 );
-const FIELD = "src/app/[locale]/(auth)/turnstile-field.tsx";
+const FIELD = "src/components/forum/turnstile-field.tsx";
 
 test("the Cloudflare address is in one file", () => {
   const holders = sources.filter((path) =>

@@ -17,12 +17,13 @@ import { read } from "@/lib/sermo/client";
 import { forumChoices } from "@/lib/sermo/forum-choices";
 import { guestPostKey } from "@/lib/sermo/guest-posting";
 import { parsePageId } from "@/lib/sermo/ids";
+import { NOINDEX } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { activePrefixViews } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("forums.new");
-  return { title: t("metaTitle") };
+  return { title: t("metaTitle"), robots: NOINDEX };
 }
 
 export default async function NewThreadPage({

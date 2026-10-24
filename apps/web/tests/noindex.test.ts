@@ -12,6 +12,8 @@ const COVERED = [
   "src/app/[locale]/(main)/conversations/layout.tsx",
   "src/app/[locale]/(main)/notifications/page.tsx",
   "src/app/[locale]/(main)/data-saver/page.tsx",
+  // The new-thread form of a forum, which a guest reaches where guests may post.
+  "src/app/[locale]/(main)/forums/[id]/new/page.tsx",
   "src/app/[locale]/(main)/ui/page.tsx",
 ];
 

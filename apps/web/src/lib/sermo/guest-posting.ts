@@ -1,5 +1,7 @@
 import "server-only";
 
+import { nodesGet } from "@sermo/core/contracts";
+import { read } from "./client";
 import { turnstileKeyFor } from "./turnstile";
 
 type Resolved = Record<string, boolean | number>;
@@ -27,4 +29,16 @@ export async function guestPostKey(
   )
     return null;
   return turnstileKeyFor("guestPost");
+}
+
+// The same for a thread's reply box. The thread's own answer does not carry its forum's rules, so
+// the forum is read, and only for a guest who holds the permission there.
+export async function guestReplyKey(
+  signedIn: boolean,
+  resolved: Resolved,
+  nodeId: number,
+): Promise<string | null> {
+  if (signedIn || resolved["forum.guestPost"] !== true) return null;
+  const { node } = await read(nodesGet, { nodeId });
+  return guestPostKey(signedIn, resolved, node.settings);
 }
