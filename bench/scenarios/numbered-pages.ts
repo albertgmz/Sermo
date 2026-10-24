@@ -31,12 +31,14 @@ const scenario = (
   name: string,
   operation: string,
   setup: (env: BenchEnv) => Promise<Target[]>,
+  teardown?: (env: BenchEnv) => void,
 ): Scenario => ({
   name,
   kind: "read",
   async setup(env) {
     targets.set(name, await setup(env));
   },
+  teardown,
   run(env, i) {
     const list = targets.get(name)!;
     const target = list[i % list.length]!;
@@ -56,12 +58,15 @@ const biggestForum = (env: BenchEnv) => {
   return id;
 };
 
-// The seed has no tags: the tag's scenarios put one tag on every thread, whatever its state, of
-// the two biggest forums (thousands, more than the 500 the numbered pages hold, with held and
-// deleted ones among them for the moderator). Rows are only added, never changed or removed (no
-// member is credited with the tag, so no tag count a later scenario reads moves), and a
-// second setup on the same database (`--reuse`) finds the tag already there.
+// The seed has no tags: the tag's scenarios put one tag on the newest `TAGGED` threads of the
+// biggest forum, whatever their state (more than the 500 the numbered pages hold, with held and
+// deleted ones among them for the moderator), and take it off again in teardown. No member is
+// credited with the tag (`added_by` NULL), so no member's tag count moves. Later scenarios delete,
+// restore and move these forums' threads; they must find them as the seed left them, without a tag
+// to maintain. A setup on a database that still holds the tag (`--reuse` after a stopped run)
+// adds nothing.
 const BENCH_TAG = "benchpages";
+const TAGGED = 600;
 function benchTag(env: BenchEnv): string {
   const db = env.ctx.sqlite;
   const tagged = db
@@ -70,7 +75,6 @@ function benchTag(env: BenchEnv): string {
     )
     .get(BENCH_TAG)!.n;
   if (tagged > 0) return BENCH_TAG;
-  const forums = JSON.stringify(env.meta.bigForumIds.slice(0, 2));
   db.transaction(() => {
     db.prepare(
       "INSERT INTO tags (name, created_at) SELECT ?1, ?2 WHERE NOT EXISTS (SELECT 1 FROM tags WHERE name = ?1)",
@@ -79,10 +83,20 @@ function benchTag(env: BenchEnv): string {
       "INSERT INTO thread_tags (thread_id, tag_id, added_by, from_post, sort_at, vis, node_id, author_id, created_at) " +
         "SELECT t.id, (SELECT id FROM tags WHERE name = ?1), NULL, 0, t.sort_at, " +
         "CASE WHEN t.merged_into_id IS NOT NULL THEN 3 WHEN t.state = 'visible' THEN 1 WHEN t.state = 'moderated' THEN 2 ELSE 3 END, " +
-        "t.node_id, t.user_id, t.created_at FROM threads t WHERE t.node_id IN (SELECT value FROM json_each(?2))",
-    ).run(BENCH_TAG, forums);
+        "t.node_id, t.user_id, t.created_at FROM threads t WHERE t.node_id = ?2 ORDER BY t.id DESC LIMIT ?3",
+    ).run(BENCH_TAG, biggestForum(env), TAGGED);
   })();
   return BENCH_TAG;
+}
+// Takes the tag off every thread and removes it.
+function removeBenchTag(env: BenchEnv): void {
+  const db = env.ctx.sqlite;
+  db.transaction(() => {
+    db.prepare("DELETE FROM thread_tags WHERE tag_id = (SELECT id FROM tags WHERE name = ?1)").run(
+      BENCH_TAG,
+    );
+    db.prepare("DELETE FROM tags WHERE name = ?1").run(BENCH_TAG);
+  })();
 }
 
 export const scenarios: Scenario[] = [
@@ -108,14 +122,19 @@ export const scenarios: Scenario[] = [
       nodeId: biggestForum(env),
     }),
   ]),
-  // A tag on thousands of threads: the capped walk is the same for every page.
-  scenario("tags.threads last page", "tags.threads", async (env) => {
-    const name = benchTag(env);
-    return [
-      await lastPage(env, "tags.threads", env.actors.member(0), { name }),
-      await lastPage(env, "tags.threads", env.actors.moderator(0), { name }),
-    ];
-  }),
+  // A tag on more threads than its numbered pages hold: the capped walk is the same for every page.
+  scenario(
+    "tags.threads last page",
+    "tags.threads",
+    async (env) => {
+      const name = benchTag(env);
+      return [
+        await lastPage(env, "tags.threads", env.actors.member(0), { name }),
+        await lastPage(env, "tags.threads", env.actors.moderator(0), { name }),
+      ];
+    },
+    removeBenchTag,
+  ),
   // The longest conversation, by an active participant: page 1 is its oldest messages.
   scenario("conversations.listMessages last page", "conversations.listMessages", async (env) => {
     const row = one<{ conversationId: number; userId: number }>(
