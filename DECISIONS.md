@@ -6632,3 +6632,18 @@ last online, always visible to staff.
   inside a quote already shown in the post, or ending off screen offers nothing.
 
 Why: the owner wanted to quote only part of a post.
+
+### The editor is drawn whole from the start and loads on idle
+
+- Every composer opens with the full editor box and formatting bar, drawn with the page by the
+  same toolbar component the editor uses; the editor itself (Lexical) loads when the page is
+  idle, or at once on focus, typing or a bar press, and takes over with no visible change
+  (measured: same boxes and bar before and after, in Chromium and Firefox). Text typed before,
+  the caret, open strips and bar presses carry over. One-line composers (feed and wall
+  comments) stay one line until entered, as XenForo's "Write a comment…" box. Boxes not on
+  screen at first load fetch the bar when drawn; the Media button's address code loads on
+  the press.
+- The edit pages' `editor` JS budget is raised from 286,000 to 293,500 bytes for the bar
+  drawn with the page (measured 285.2 KB); first-load budgets of the other pages did not grow.
+
+Why: the owner found the editor odd because it appeared only when touched, as an empty box.
