@@ -7016,3 +7016,22 @@ category pages stays, and so does the backend `nodes.markAllRead` operation for 
 
 Why: the owner asked for both to go. The header Create repeated the forum's own New thread
 button on wide screens, and each forum can still be marked read on its own.
+
+### Sign-in pages: a night at the Malecón
+
+**What it is:** the sign-in and sign-up pages (and every page in the shared auth frame: forgot and
+reset password, verify email, not me) draw the flag over a night sky with stars, a sunset on the
+horizon and a moving sea, from which speech bubbles rise and sway: Cuban emoji (cafecito, royal
+palm, trumpet, bongó, baseball, mojito, caimán...) and two chat bubbles, "¿Qué bolá?" and
+"¡Dale!". The flag flutters gently. On a phone the band ends in a wave of the page's own colour
+that runs into the form; from `md` the form sits on a card. **How:** `(auth)/auth-scene.tsx` and
+`auth-scene.css`, a server component and plain CSS (transforms and opacity), no animation library
+and no client JS; the stylesheet loads only on the auth pages. Colours come from the flag tokens
+and `--background`/`--primary`. **Motion and LITE:** all motion lives in
+`@media (prefers-reduced-motion: no-preference)`; with less motion asked for, the scene is a still,
+composed picture (each bubble has its own resting place). The scene is brand artwork: a visitor
+whose LITE mode leaves out brand art gets the plain night panel, as with the flag.
+
+Why: the owner wanted the entry pages to be striking. A conversation rising from the Malecón says
+"forum" and "Cuba" at once and echoes the speech-bubble logo. CSS alone gives the effect at no
+JavaScript cost, which keeps first paint fast on the phones most members use.
