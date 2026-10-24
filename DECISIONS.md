@@ -6605,3 +6605,19 @@ XenForo.
   (they page by cursor today).
 
 Why: the owner wanted page numbers with a jump to any page instead of a next button.
+
+### The member card is laid out like XenForo's member tooltip
+
+- The card that opens from a member's name is XenForo's member tooltip: the cover behind the
+  avatar, name, badges with level, title and awards, "Registrado" and "Última visita", then
+  Mensajes / Reacciones / Puntos and the Follow, Ignore, Message and "Ver perfil" actions. It
+  floats on a raised surface so it reads as a layer in both themes. The postbit beside posts is
+  unchanged.
+- Last activity: everyone sees it while the member shows their online status; otherwise only
+  the member and moderators or administrators see it, marked "(oculto)"; erased members show
+  none. The rule is applied by the backend on the author data the card reads.
+- `users.relations` reports `ignoring` and `canIgnore` under the rule `users.ignore` enforces,
+  so the card offers Ignore, through the existing ignore operations.
+
+Why: the owner found the card too rectangular and wanted XenForo's, with when the member was
+last online, always visible to staff.
