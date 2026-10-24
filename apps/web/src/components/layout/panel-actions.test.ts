@@ -88,7 +88,9 @@ function backend(list: Response) {
 }
 
 test("opening the messages panel hands the listed conversations to its rows", async () => {
-  backend(Response.json({ items: [conversation], nextCursor: null }));
+  backend(
+    Response.json({ items: [conversation], nextCursor: null, total: null }),
+  );
   const rows = (await loadConversations()) as ReactElement<{
     conversations: unknown[];
   }>;

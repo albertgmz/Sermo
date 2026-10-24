@@ -56,3 +56,28 @@ test("the newest page of a conversation is a query parameter of its messages rou
     "not_found",
   );
 });
+
+// Every read of the lists answers with `total`: a count for a numbered page, null otherwise (the
+// header's panel and a poll read without a page), never left out.
+test("the inbox and a conversation's messages always answer with their total", async () => {
+  const f = await setup();
+  const started = await f.api(
+    c.conversationsCreate,
+    "POST",
+    "/conversations",
+    f.member.auth,
+    { title: "Counted", recipientIds: [f.other.id], body: "first" },
+    201,
+  );
+  const id = started.conversation.id;
+  const body = async (path: string) =>
+    (await (await f.send("GET", path, f.member.auth)).json()) as Record<string, unknown>;
+  expect(await body("/conversations?limit=5")).toHaveProperty("total", null);
+  expect(await body("/conversations?page=1")).toHaveProperty("total", 1);
+  expect(await body(`/conversations/${id}/messages`)).toHaveProperty("total", null);
+  expect(await body(`/conversations/${id}/messages?afterMessageId=1`)).toHaveProperty(
+    "total",
+    null,
+  );
+  expect(await body(`/conversations/${id}/messages?page=1`)).toHaveProperty("total", 1);
+});
