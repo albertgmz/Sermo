@@ -1,15 +1,10 @@
 import { afterAll, expect, mock, test } from "bun:test";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { createFormatter } from "use-intl";
 
-const pushed: string[] = [];
 let locale: "en" | "es" = "en";
 
-const navigation = await import("next/navigation");
-mock.module("next/navigation", () => ({
-  ...navigation,
-  useRouter: () => ({ push: (href: string) => pushed.push(href) }),
-}));
 const intl = { ...(await import("next-intl")) };
 mock.module("next-intl", () => ({
   ...intl,
@@ -17,7 +12,6 @@ mock.module("next-intl", () => ({
   useFormatter: () => createFormatter({ locale, timeZone: "UTC" }),
 }));
 afterAll(() => {
-  mock.module("next/navigation", () => navigation);
   mock.module("next-intl", () => intl);
 });
 
@@ -36,16 +30,29 @@ function find(node: ReactNode, tag: string): ReactElement | undefined {
   return node.type === tag ? node : find(node.props.children, tag);
 }
 
-const picker = () =>
-  MonthPicker({ id: "m", value: "2026-09", min: "2026-08", max: "2026-10" });
+const picker = (
+  more: { compact?: boolean; onPick?: (month: string) => void } = {},
+) =>
+  MonthPicker({
+    id: "m",
+    value: "2026-09",
+    min: "2026-08",
+    max: "2026-10",
+    ...more,
+  });
 
 type SelectProps = {
   name: string;
   defaultValue: string;
   children: ReactElement<{ value: string; children: string }>[];
-  onChange: (event: { currentTarget: { value: string } }) => void;
+  className: string;
+  ref: (node: { value: string } | null) => void;
+  onChange: (event: {
+    currentTarget: { value: string; form: { requestSubmit: () => void } };
+  }) => void;
 };
-const select = () => find(picker(), "select")?.props as SelectProps;
+const select = (more?: Parameters<typeof picker>[0]) =>
+  find(picker(more), "select")?.props as SelectProps;
 
 test("the picker is a select of the months by name, newest first, set to the month shown", () => {
   locale = "en";
@@ -70,10 +77,44 @@ test("the month names follow the language", () => {
   ]);
 });
 
-test("choosing a month opens its standing, in place", () => {
-  pushed.length = 0;
-  select().onChange({ currentTarget: { value: "2026-08" } });
-  expect(pushed).toEqual(["/members/month?month=2026-08"]);
+// Where the picker sits in a page that changes in place (a switch around it takes the form's
+// submission), choosing a month sends the form; the browser never leaves the page.
+test("choosing a month sends its form, which the page around it answers in place", () => {
+  let sent = 0;
+  select().onChange({
+    currentTarget: {
+      value: "2026-08",
+      form: { requestSubmit: () => sent++ },
+    },
+  });
+  expect(sent).toBe(1);
+});
+
+test("where a picker is given what to do with the month chosen, it does that and sends nothing", () => {
+  const picked: string[] = [];
+  let sent = 0;
+  select({ onPick: (month) => picked.push(month) }).onChange({
+    currentTarget: {
+      value: "2026-08",
+      form: { requestSubmit: () => sent++ },
+    },
+  });
+  expect(picked).toEqual(["2026-08"]);
+  expect(sent).toBe(0);
+});
+
+// "Ver" is for a browser without scripts; with them the month chosen is the answer.
+test("the submit button is drawn only for a browser without scripts", () => {
+  const html = renderToStaticMarkup(picker());
+  expect(html).toMatch(/<noscript><button[^>]*type="submit"/);
+  expect(html.replace(/<noscript>.*?<\/noscript>/, "")).not.toContain(
+    'type="submit"',
+  );
+});
+
+test("a compact picker's select takes its own width instead of the whole row", () => {
+  expect(select().className).toContain("flex-1");
+  expect(select({ compact: true }).className).not.toContain("flex-1");
 });
 
 test("a month outside the range named by the address stays in the list, chosen", () => {
@@ -89,14 +130,19 @@ test("a month outside the range named by the address stays in the list, chosen",
   ]);
 });
 
-// The select is uncontrolled: only a new key makes the browser show the month of a new address
-// (back, forward, a link to another month) while the picker stays mounted.
-test("the select is remade when the month shown changes", () => {
-  const keyed = (value: string) =>
-    find(
+// The select is uncontrolled and stays the same element (the keyboard that chose a month stays on
+// it); it is set to the month shown whenever that is not what it shows (back, forward, a link to
+// another month).
+test("the select is set to the month shown when it shows another", () => {
+  const refOf = (value: string) => {
+    const field = find(
       MonthPicker({ id: "m", value, min: "2026-08", max: "2026-10" }),
       "select",
-    )?.key;
-  expect(keyed("2026-09")).toBe("2026-09");
-  expect(keyed("2026-08")).not.toBe(keyed("2026-09"));
+    );
+    return (field?.props as SelectProps | undefined)?.ref ?? (() => {});
+  };
+  const node = { value: "2026-09" };
+  refOf("2026-08")(node);
+  expect(node.value).toBe("2026-08");
+  refOf("2026-08")(null);
 });

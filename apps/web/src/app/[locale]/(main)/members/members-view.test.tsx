@@ -195,3 +195,36 @@ test("without widgets the side column is for large screens only", async () => {
   const { html } = await draw({ view: "staff" });
   expect(html).toMatch(/<aside[^>]*class="[^"]*hidden lg:grid/);
 });
+
+// One control per choice: the month view has its own picker, so the sidebar's widget (a second
+// picker, on another month) is not drawn beside it; the other views keep it.
+const sidebarMonth = () =>
+  widgetBody({
+    id: 7,
+    position: "members_sidenav",
+    type: "monthStandings",
+    options: {},
+  });
+
+test("the month view draws one month picker: the sidebar widget of the same kind is left out", async () => {
+  backend([sidebarMonth()]);
+  const { html, errors } = await draw({ view: "month", month: "2025-06" });
+  expect(errors).toEqual([]);
+  expect(html.match(/<select/g)).toHaveLength(1);
+  expect(months).toEqual(["2025-06"]);
+});
+
+test("another view of the members still draws the month widget in the sidebar", async () => {
+  backend([sidebarMonth()]);
+  const { html } = await draw({ view: "staff" });
+  expect(html.match(/<select/g)).toHaveLength(1);
+  expect(months).toContain("current");
+});
+
+test("the month view's select is as wide as its months, not the whole row", async () => {
+  backend();
+  const { html } = await draw({ view: "month", month: "2025-06" });
+  const select = /<select[^>]*>/.exec(html)?.[0] ?? "";
+  expect(select).toContain('id="standing-month"');
+  expect(select).not.toContain("flex-1");
+});

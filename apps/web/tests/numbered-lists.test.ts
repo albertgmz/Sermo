@@ -14,9 +14,10 @@ const source = (path: string) =>
 const SCREENS = [
   [
     "a forum's threads",
-    "forums/[id]/page.tsx",
+    "forums/[id]/forum-threads.tsx",
     "forums/[id]/threads-page-action.tsx",
     "forums/[id]/thread-page.tsx",
+    "forums/[id]/page.tsx",
   ],
   [
     "a tag's threads",

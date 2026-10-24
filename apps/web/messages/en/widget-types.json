@@ -19,7 +19,7 @@
   "monthPicker": {
     "label": "Month",
     "submit": "Show",
-    "hint": "Every member is listed for this month and the last one; an earlier month shows only its winner.",
+    "hint": "This month and the last show the full standing; earlier months show only their winner.",
     "notKept": "The standing of {month} is no longer kept."
   }
 }

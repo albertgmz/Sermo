@@ -319,6 +319,81 @@ test.describe("signed in, lists on bare addresses", () => {
   });
 });
 
+// The month pickers: choosing a month changes the standing and nothing else. On the month page the
+// address follows and the keyboard stays on the select; in the home page's widget the address does
+// not change. "Show" is for a browser without scripts only.
+test.describe("signed in, month pickers", () => {
+  test.use({ storageState: MEMBER_STATE });
+
+  test("the month page's picker changes the standing in place and keeps the keyboard on it @all", async ({
+    page,
+  }) => {
+    await visit(page, "/members/month");
+    const picker = page.getByLabel("Month", { exact: true });
+    await expect(picker).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Show" })).toHaveCount(0);
+    const options = await picker
+      .locator("option")
+      .evaluateAll((list) =>
+        (list as HTMLOptionElement[]).map((option) => option.value),
+      );
+    const other = options.find((value) => value !== options[1]) ?? options[0];
+    await watch(page);
+    const loads = screenLoads(page);
+
+    await picker.focus();
+    await picker.selectOption(other);
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname.endsWith("/members/month") &&
+        url.searchParams.get("month") === other,
+    );
+    await expect(picker).toHaveValue(other);
+    await expect(picker).toBeFocused();
+    await expectInPlace(page, "month page picker");
+    expect(loads).toEqual([]);
+    // Only the page's own picker: the sidebar's widget of the same kind is left out here.
+    await expect(page.locator('select[name="month"]')).toHaveCount(1);
+  });
+
+  test("the home page's month widget draws the month chosen in its own card and leaves the address alone @all", async ({
+    page,
+  }) => {
+    await visit(page, "/");
+    const picker = page.locator('select[name="month"]').first();
+    test.skip(
+      (await picker.count()) === 0,
+      "the home page shows no month widget with a picker in this data",
+    );
+    const card = page.locator("section", { has: picker });
+    const options = await picker.locator("option").evaluateAll((list) =>
+      (list as HTMLOptionElement[]).map((option) => ({
+        value: option.value,
+        label: option.textContent ?? "",
+      })),
+    );
+    const shown = await picker.inputValue();
+    const other = options.find((option) => option.value !== shown);
+    test.skip(!other, "the widget offers a single month");
+    if (!other) return;
+    const address = page.url();
+    await watch(page);
+    const loads = screenLoads(page);
+
+    await picker.focus();
+    await picker.selectOption(other.value);
+    await expect(card.getByText(other.label, { exact: true })).toBeVisible();
+    await expect(card.locator(`a[href$="month=${other.value}"]`)).toHaveCount(
+      1,
+    );
+    await expect(picker).toHaveValue(other.value);
+    await expect(picker).toBeFocused();
+    expect(page.url()).toBe(address);
+    await expectInPlace(page, "home month widget");
+    expect(loads).toEqual([]);
+  });
+});
+
 // Without the page's scripts the tabs and Load more are plain links (see native-forms.e2e.ts).
 test.describe("without the page's scripts", () => {
   test.use({

@@ -1,11 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { FIELD_SURFACE } from "@/components/ui/field-surface";
 import { Label } from "@/components/ui/label";
 import { monthValue } from "@/components/widgets/month-range";
+import { cn } from "@/lib/utils";
 
 // The months from `max` back to `min`, newest first, with `value` kept in the list when it is
 // outside them (an address can name any month).
@@ -22,25 +22,30 @@ function monthOptions(min: string, max: string, value?: string) {
 }
 
 // Asks for the standing of a month: a select of the months by name. It is a plain form that opens
-// `/members/month?month=YYYY-MM`, so it needs no script; with script, choosing a month opens it at
-// once, in place (only the standing changes; the address and the history follow). `value`, `min`
-// and `max` are months in that form. Under it, what an older month shows.
+// `/members/month?month=YYYY-MM`, so it needs no script (its button is drawn only without one); with
+// script, choosing a month asks at once: `onPick` is told, or else the form is sent, which the page
+// around it (a `TabSwitch`) answers in place, with the address and the history following. `value`,
+// `min` and `max` are months in that form. `compact`: the select takes the width of its months, not
+// the row. Under it, what an older month shows.
 export function MonthPicker({
   id,
   value,
   min,
   max,
   className,
+  compact,
+  onPick,
 }: {
   id: string;
   value?: string;
   min: string;
   max: string;
   className?: string;
+  compact?: boolean;
+  onPick?: (month: string) => void;
 }) {
   const t = useTranslations("widgetTypes.monthPicker");
   const format = useFormatter();
-  const router = useRouter();
   return (
     <search className={className}>
       <form action="/members/month" className="flex gap-2">
@@ -48,15 +53,25 @@ export function MonthPicker({
           {t("label")}
         </Label>
         <select
-          key={value}
+          // Stays the same element when the month shown changes, so that the keyboard that chose
+          // one stays on it; set to the month shown when it shows another (back, forward).
+          ref={(node) => {
+            if (node && value && node.value !== value) node.value = value;
+          }}
           id={id}
           name="month"
           defaultValue={value}
           aria-describedby={`${id}-hint`}
           onChange={(event) =>
-            router.push(`/members/month?month=${event.currentTarget.value}`)
+            onPick
+              ? onPick(event.currentTarget.value)
+              : event.currentTarget.form?.requestSubmit()
           }
-          className={`${FIELD_SURFACE} h-10 min-w-0 flex-1 rounded-lg px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-8 md:text-sm`}
+          className={cn(
+            FIELD_SURFACE,
+            "h-10 min-w-0 rounded-lg px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-8 md:text-sm",
+            !compact && "flex-1",
+          )}
         >
           {monthOptions(min, max, value).map((month) => {
             const [year, number] = month.split("-").map(Number);
@@ -71,9 +86,11 @@ export function MonthPicker({
             );
           })}
         </select>
-        <Button type="submit" className="h-10 md:h-8">
-          {t("submit")}
-        </Button>
+        <noscript>
+          <Button type="submit" className="h-10 md:h-8">
+            {t("submit")}
+          </Button>
+        </noscript>
       </form>
       <p
         id={`${id}-hint`}

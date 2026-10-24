@@ -152,6 +152,26 @@ test("every tab bar is drawn in a switch that changes it in place, or says why i
   }
 });
 
+// Each file that draws a forum's prefix filter (a `PrefixSelect` whose choices are links to the
+// list narrowed to one prefix), with the file that draws the `TabSwitch` it is in.
+const PREFIX_FILTERS: Record<string, string> = {
+  [`${MAIN}/forums/[id]/forum-threads.tsx`]: `${MAIN}/forums/[id]/page.tsx`,
+};
+
+test("every prefix filter of links is drawn in a switch that narrows the list in place", () => {
+  expect(using(/<PrefixSelect\b[^>]*?\bhrefs=/)).toEqual(
+    Object.keys(PREFIX_FILTERS).sort(),
+  );
+  for (const [filter, where] of Object.entries(PREFIX_FILTERS)) {
+    const code = read(where);
+    expect(code, where).toMatch(/<TabSwitch\b/);
+    expect(code, where).toContain('params={["prefix"]}');
+    expect(code, where).toContain("stamp={Date.now()}");
+    const module = filter.replace(/^src\//, "@/").replace(/\.tsx?$/, "");
+    expect(code, `${where} draws ${filter}`).toContain(`"${module}"`);
+  }
+});
+
 test("each switch asks the server for what it shows through a server action", () => {
   for (const file of using(/<TabSwitch\b/)) {
     const code = read(file);

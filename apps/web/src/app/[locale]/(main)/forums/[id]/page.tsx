@@ -1,61 +1,42 @@
-import { nodesGet, nodesList, threadPrefixesList } from "@sermo/core/contracts";
-import { MessagesSquare, Plus } from "lucide-react";
+import { nodesGet, nodesList } from "@sermo/core/contracts";
+import { MessagesSquare } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
 import { ForumMarkRead } from "@/app/[locale]/(main)/forums/[id]/forum-mark-read";
-import { ForumWatch } from "@/app/[locale]/(main)/forums/[id]/forum-watch";
 import {
-  ForumThreadPages,
-  forumListAddress,
-  threadsPage,
-} from "@/app/[locale]/(main)/forums/[id]/thread-page";
-import { forumThreadsPage } from "@/app/[locale]/(main)/forums/[id]/threads-page-action";
-import { batchUpdateThreadsAction } from "@/app/[locale]/(main)/forums/actions";
-import { forumsOtherThan } from "@/app/[locale]/(main)/threads/[id]/moderation";
+  ForumThreads,
+  NewThreadButton,
+} from "@/app/[locale]/(main)/forums/[id]/forum-threads";
+import { ForumWatch } from "@/app/[locale]/(main)/forums/[id]/forum-watch";
+import { forumThreadsSection } from "@/app/[locale]/(main)/forums/[id]/threads-section-action";
 import { EmptyState } from "@/components/forum/empty-state";
 import { bannerOf } from "@/components/forum/forum-banner";
 import { ForumCardGrid } from "@/components/forum/forum-card-grid";
 import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
-import { PageSwitch } from "@/components/forum/page-switch";
-import {
-  pageAddress,
-  pageParam,
-  pagesOf,
-} from "@/components/forum/page-window";
-import { PrefixSelect } from "@/components/forum/prefix-select";
-import { PrefixTag } from "@/components/forum/prefix-tag";
+import { pageParam } from "@/components/forum/page-window";
+import { placeOfQuery } from "@/components/forum/places";
 import {
   LoadingRegion,
   TabsSkeleton,
   ThreadRowSkeleton,
 } from "@/components/forum/skeletons";
+import { TabSwitch } from "@/components/forum/tab-switch";
 import { PageLayout } from "@/components/layout/page-layout";
-import { ThreadBatch } from "@/components/staff/thread-batch";
-import { batchActionsFor } from "@/components/staff/thread-batch-state";
-import { buttonVariants } from "@/components/ui/button";
 import { widgetAreas, widgetAside } from "@/components/widgets/widget-area";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
 import { cardMembers, childrenByParent, nodeMembers } from "@/lib/sermo/forums";
 import { parsePageId } from "@/lib/sermo/ids";
 import { membersFor } from "@/lib/sermo/members";
-import { THREADS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { publicHead } from "@/lib/sermo/share";
-import { activePrefixViews } from "@/lib/sermo/threads";
 import { unreadForums } from "@/lib/sermo/unread-forums";
-import type { PrefixView } from "@/lib/sermo/views";
 import { getWidgets } from "@/lib/sermo/widgets";
 import { cn } from "@/lib/utils";
-
-const filterClass =
-  "inline-flex h-10 shrink-0 items-center rounded-md px-1 transition-opacity md:h-7";
 
 // The node is asked once for the metadata and the page.
 const getNode = cache((nodeId: number) => read(nodesGet, { nodeId }));
@@ -64,60 +45,6 @@ function nodeIdOf(raw: string) {
   const id = parsePageId(raw);
   if (id === null) notFound();
   return id;
-}
-
-// The forum's threads narrowed to one prefix, through the shared prefix menu: "All threads" first,
-// then the prefixes its threads carry, each choice a link to its list. Without JavaScript the
-// choices are the links themselves.
-function PrefixFilter({
-  id,
-  prefixes,
-  active,
-}: {
-  id: number;
-  prefixes: PrefixView[];
-  active: number | undefined;
-}) {
-  const t = useTranslations("forums.forum");
-  const tFields = useTranslations("forum.threadFields");
-  const hrefOf = (prefix: number | undefined) =>
-    prefix === undefined ? `/forums/${id}` : `/forums/${id}?prefix=${prefix}`;
-  const hrefs: Record<string, string> = { "": hrefOf(undefined) };
-  for (const prefix of prefixes) hrefs[String(prefix.id)] = hrefOf(prefix.id);
-  return (
-    <nav aria-label={t("aria.prefixFilter")} className="mt-3 flex">
-      <PrefixSelect
-        prefixes={prefixes}
-        value={active === undefined ? "" : String(active)}
-        none={t("allThreads")}
-        label={tFields("prefixLabel")}
-        hrefs={hrefs}
-      />
-      <noscript>
-        <span className="-mx-1 flex flex-wrap">
-          <Link
-            href={hrefOf(undefined)}
-            className={cn(
-              filterClass,
-              "px-2 text-xs font-medium text-muted-foreground",
-            )}
-          >
-            {t("allThreads")}
-          </Link>
-          {prefixes.map((prefix) => (
-            <Link
-              key={prefix.id}
-              href={hrefOf(prefix.id)}
-              aria-current={prefix.id === active ? "true" : undefined}
-              className={filterClass}
-            >
-              <PrefixTag prefix={prefix} />
-            </Link>
-          ))}
-        </span>
-      </noscript>
-    </nav>
-  );
 }
 
 // The backend has one address for a forum; a later page of its list, or the list narrowed by
@@ -186,14 +113,7 @@ export default async function ForumPage({
   const isForum = node.type === "forum";
   const banner = await bannerOf(node.cover);
   const newThread = isForum && node.permissions.canPost && (
-    <Link
-      href={`/forums/${node.id}/new`}
-      data-shortcut="create"
-      className={cn(buttonVariants(), "h-10 px-3 md:h-8")}
-    >
-      <Plus />
-      {t("newThread")}
-    </Link>
+    <NewThreadButton nodeId={node.id} />
   );
   const trail =
     breadcrumbs.at(-1)?.id === node.id ? breadcrumbs : [...breadcrumbs, node];
@@ -265,14 +185,21 @@ export default async function ForumPage({
         }
       >
         {isForum ? (
-          <ForumThreads
-            nodeId={node.id}
-            prefix={typeof prefix === "string" ? prefix : undefined}
-            page={pageParam(page)}
-            newThread={newThread}
-            signedIn={user !== null}
-            resolved={resolvedPermissions}
-          />
+          <TabSwitch
+            place={placeOfQuery({ prefix }, ["prefix"])}
+            params={["prefix"]}
+            stamp={Date.now()}
+            load={forumThreadsSection.bind(null, node.id)}
+          >
+            <ForumThreads
+              nodeId={node.id}
+              prefix={typeof prefix === "string" ? prefix : undefined}
+              page={pageParam(page)}
+              newThread={newThread}
+              signedIn={user !== null}
+              resolved={resolvedPermissions}
+            />
+          </TabSwitch>
         ) : (
           <CategoryForums nodeId={node.id} />
         )}
@@ -335,102 +262,5 @@ async function Subforums({ nodeId }: { nodeId: number }) {
       signedIn={user !== null}
       className="mt-4"
     />
-  );
-}
-
-async function ForumThreads({
-  nodeId,
-  prefix,
-  page,
-  newThread,
-  signedIn,
-  resolved,
-}: {
-  nodeId: number;
-  prefix: string | undefined;
-  page: number;
-  newThread: React.ReactNode;
-  signedIn: boolean;
-  // The viewer's permissions in the forum, for the staff tools on its list.
-  resolved: Record<string, boolean | number>;
-}) {
-  const prefixId = /^[1-9]\d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
-  const [first, { items: allPrefixes }, { items: carried }, t] =
-    await Promise.all([
-      threadsPage(nodeId, prefixId, page),
-      read(threadPrefixesList, { nodeId }),
-      read(threadPrefixesList, { nodeId, carried: true }),
-      getTranslations("forums.forum"),
-    ]);
-  // The batch tools set the prefixes the forum offers; the filter also lists a prefix the forum
-  // stopped offering while threads still carry it.
-  const prefixes = activePrefixViews(allPrefixes);
-  const filterPrefixes = activePrefixViews(carried);
-  // A page past the last one goes to the last one, as XenForo does.
-  const pages = pagesOf(first.total, THREADS_PER_PAGE);
-  if (page > pages) {
-    const { path, params } = forumListAddress(nodeId, prefixId);
-    redirect(pageAddress(path, params, pages));
-  }
-  const listed = first.rows.length > 0;
-  // Staff who may change threads tick them in the list and apply one change to all.
-  const batchActions = listed ? batchActionsFor(resolved) : [];
-  const batchForums = batchActions.includes("move")
-    ? (await forumsOtherThan(nodeId)).map(({ id, title }) => ({
-        id,
-        label: title,
-      }))
-    : [];
-
-  return (
-    <>
-      {filterPrefixes.length > 0 && (
-        <PrefixFilter id={nodeId} prefixes={filterPrefixes} active={prefixId} />
-      )}
-
-      {listed ? (
-        <ThreadBatch
-          action={batchUpdateThreadsAction.bind(null, nodeId)}
-          actions={batchActions}
-          forums={batchForums}
-          prefixes={prefixes.map(({ id, label }) => ({ id, label }))}
-        >
-          <PageSwitch
-            page={page}
-            stamp={Date.now()}
-            load={forumThreadsPage.bind(null, nodeId, prefixId)}
-            className={filterPrefixes.length > 0 ? "mt-1" : "mt-4"}
-          >
-            <ForumThreadPages
-              nodeId={nodeId}
-              prefixId={prefixId}
-              page={page}
-              list={first}
-            />
-          </PageSwitch>
-        </ThreadBatch>
-      ) : (
-        <div
-          className={cn(
-            "overflow-hidden rounded-lg border bg-card",
-            filterPrefixes.length > 0 ? "mt-1" : "mt-4",
-          )}
-        >
-          <EmptyState
-            icon={MessagesSquare}
-            title={t("empty")}
-            description={
-              newThread
-                ? t("emptyMemberDescription")
-                : signedIn
-                  ? undefined
-                  : t("emptyGuestDescription")
-            }
-          >
-            {newThread}
-          </EmptyState>
-        </div>
-      )}
-    </>
   );
 }

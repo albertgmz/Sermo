@@ -19,7 +19,7 @@
   "monthPicker": {
     "label": "Mes",
     "submit": "Ver",
-    "hint": "Se listan todos los miembros de este mes y del anterior; de un mes anterior solo se muestra su ganador.",
+    "hint": "Este mes y el anterior muestran la clasificación completa; los meses anteriores, solo el ganador.",
     "notKept": "La clasificación de {month} ya no se conserva."
   }
 }

@@ -44,6 +44,7 @@ mock.module("next-intl", () => ({
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { WidgetArea } = await import("./widget-area");
+const { monthStandingsPart } = await import("./month-standings-action");
 
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
@@ -416,6 +417,38 @@ test("the picker is a form that opens the standing of the month chosen, from the
   const without = await draw(month({ picker: false }));
   expect(without.html).not.toContain("<form");
   expect(without.html).toContain("ana");
+});
+
+// Choosing a month in the widget draws that month's part of the card, not another page.
+test("the widget's action draws the month chosen: its name, its link and its standing", async () => {
+  backend(false, {
+    "/api/v1/standings": byMonth({
+      "2026-09": standing(2026, 9, [entry(5, "cleo", 12)]),
+    }),
+  });
+  const part = await monthStandingsPart(3, "2026-09");
+  const read = asked.find((call) => call.path === "/api/v1/standings");
+  expect(read?.search.get("month")).toBe("2026-09");
+  expect(read?.search.get("limit")).toBe("3");
+  expect(part?.description).toBe("September 2026");
+  expect(part?.href).toBe("/members/month?month=2026-09");
+  const stream = await renderToReadableStream(withIntl(part?.body));
+  await stream.allReady;
+  const html = await new Response(stream).text();
+  expect(html).toContain("cleo");
+  expect(html).toContain("Points: 1 per post");
+});
+
+test("the widget's action gives nothing, and reads nothing, for what is not a month", async () => {
+  backend(false);
+  expect(await monthStandingsPart(3, "next week")).toBeNull();
+  expect(await monthStandingsPart(0, "2026-09")).toBeNull();
+  expect(asked).toEqual([]);
+});
+
+test("the widget's action gives nothing when the backend refuses the month", async () => {
+  backend(false, { "/api/v1/standings": refused });
+  expect(await monthStandingsPart(3, "2026-09")).toBeNull();
 });
 
 test("before anyone has points in the new month, the last month is listed", async () => {

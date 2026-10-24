@@ -98,6 +98,7 @@ async function MonthView({
           value={shown}
           min={range.min}
           max={range.max}
+          compact
         />
       </div>
       {winner && <MonthHero winner={winner} />}
@@ -244,10 +245,15 @@ export async function MembersView({
   // A search or a sort without a view is a link to the directory.
   const param = first(params.view) || (query || sort ? "all" : "");
   const view = VIEWS.find((entry) => entry.value === param) ?? VIEWS[0];
-  const [viewer, widgets] = await Promise.all([
+  const [viewer, listed] = await Promise.all([
     getViewer(),
     getWidgets("members"),
   ]);
+  // The month view has a picker of its own: the sidebar's, on another month, is left out.
+  const widgets =
+    view.value === "month"
+      ? listed.filter((widget) => widget.type !== "monthStandings")
+      : listed;
   // The member list is the backend's to refuse: a viewer without `member.viewList` finds none.
   if (viewer.resolvedPermissions["member.viewList"] === false) notFound();
   const viewerId = viewer.user?.id;
