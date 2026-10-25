@@ -7257,3 +7257,37 @@ once instead of a dead end. One refusal type turned into one error screen covers
 every future read; the window asks for the birth date only when it is missing, which is what the
 backend needs to decide. Shortening the card cache only while the mode is on keeps the year-long
 cache everywhere else.
+
+### Sign-up nudges for guests
+
+**What:** guests are no longer offered the app (members keep the install and notification cards).
+Instead they are invited to create an account, one invitation on screen at a time: a floating card
+("Únete a {site}": Crear cuenta, Entrar, Ahora no) for a visit that came from a search engine
+(Google in any country domain and its Android app, Bing, DuckDuckGo, Yahoo, Yandex, Ecosia, Brave
+Search; remembered for the visit), after the cookie banner and then 6 seconds or half a screen of
+scrolling, put off for 7 days by "Ahora no"; an invitation in threads after the first post (on a
+first page with five or more replies, never on a locked thread) and at the end of every page in the
+reply box, worded for forums where guests may post too ("Responde como invitado o con tu cuenta");
+and one sign-up window that the actions only members can take (react, vote, take a quiz, comment on
+a wall post) open instead of jumping to the log-in page. The card steps aside while the window is
+open, while an invitation in the page is on screen, and on the +18 page; nothing is drawn on the
+log-in and sign-up pages, nor anywhere while registration is closed (the actions then go to the
+log-in page, and the thread's reply box offers only "Entrar"). A locked thread tells a guest it is
+locked, as it tells a member.
+
+**How:** the rules are plain functions in `lib/signup-nudges.ts`; the card and the window are one
+lazily loaded component for guests (`SignupNudges`) next to the app cards, which stay mounted for
+guests without cards because they release a signed-out member's push subscription. A member-only
+action is a link to `/login?next=` that a plain press turns into the window (`JoinLink`,
+`lib/join-window.ts`), so it still works without scripts and in a new tab; the window's code comes
+through the site's lazy-popup path (`lib/join-host.ts`) with the first reach for such an action, and
+when it cannot be fetched the press goes on to the log-in page. The window closes on any move to
+another address. The invitations in the page are one server component (`SignupInvite`) whose frame
+says when it is on screen. Two names are kept in the browser and listed in the cookie inventory
+(`sermo-signup-card`, `sermo-signup-visit`), in a module of their own so the cookie banner does not
+carry the rules.
+
+Why: the install card asked guests for something before they had a reason to come back; an account
+is what turns a reader arriving from a search engine into a member. One invitation at a time, after
+the cookie banner and never on the pages that already ask (log-in, sign-up, +18), keeps it obvious
+without crowding the page.
