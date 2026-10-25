@@ -159,9 +159,12 @@ export function AdultWarningBody({
             startTransition(() => dispatch(data));
           }}
         >
-          {reason === "birthDate" ? (
+          {/* Centred under the centred title on a phone, as the title is; the field stays a field. */}
+          <p className="text-center text-sm text-pretty sm:text-left">
+            {t(reason === "birthDate" ? "birthDateAsk" : "confirmQuestion")}
+          </p>
+          {reason === "birthDate" && (
             <div className="space-y-2">
-              <p className="text-sm text-pretty">{t("birthDateAsk")}</p>
               <Label htmlFor={id}>{t("birthDateLabel")}</Label>
               <Input
                 id={id}
@@ -173,8 +176,6 @@ export function AdultWarningBody({
                 autoComplete="bday"
               />
             </div>
-          ) : (
-            <p className="text-sm text-pretty">{t("confirmQuestion")}</p>
           )}
           {state.error && <FormError>{state.error}</FormError>}
           <DialogFooter>
