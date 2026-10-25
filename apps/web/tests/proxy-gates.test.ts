@@ -771,6 +771,34 @@ test("a post in a forum whose posts are closed to the visitor is a 404, as a mis
   isNotFound(await ask("/posts/61"));
 });
 
+// The backend's +18 refusal: content that exists and is otherwise visible.
+const adultRefusal = (reason: string) =>
+  Response.json(
+    {
+      error: {
+        code: "forbidden",
+        message: "For adults.",
+        issues: [{ path: ["adult"], message: reason }],
+      },
+    },
+    { status: 403 },
+  );
+
+test("content refused as +18 goes on to its page, which draws the +18 page: never a 404", async () => {
+  backend({
+    "/api/v1/seo/threads/7": adultRefusal("guest"),
+    "/api/v1/seo/nodes/3": adultRefusal("guest"),
+    "/api/v1/seo/users/5": adultRefusal("guest"),
+    "/api/v1/posts/63": adultRefusal("guest"),
+    "/api/v1/profile-posts/12": adultRefusal("guest"),
+  });
+  passes(await ask("/threads/7-news"));
+  passes(await ask("/forums/3-general"));
+  passes(await ask("/members/5-wren"));
+  passes(await ask("/posts/63"));
+  passes(await ask("/profile-posts/12"));
+});
+
 test("a guest who must sign in first goes on to the page, as for any record", async () => {
   backend({ "/api/v1/posts/62": refusal(401, "unauthenticated") });
   passes(await ask("/posts/62"));

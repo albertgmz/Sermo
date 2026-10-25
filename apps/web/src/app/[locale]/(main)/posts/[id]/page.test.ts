@@ -132,3 +132,21 @@ test("a post in a forum whose posts are closed to the visitor is a 404, as a mis
   cookie = MEMBER;
   expect(await open("60")).toBe(missing);
 });
+
+test("a post refused as +18 reaches the error screen as the +18 refusal, which draws the +18 page", async () => {
+  globalThis.fetch = (async (url: string) => {
+    const { pathname } = new URL(url);
+    if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
+    return Response.json(
+      {
+        error: {
+          code: "forbidden",
+          message: "For adults.",
+          issues: [{ path: ["adult"], message: "guest" }],
+        },
+      },
+      { status: 403 },
+    );
+  }) as unknown as typeof fetch;
+  expect(await open("70")).toBe("sermo.adult.guest");
+});

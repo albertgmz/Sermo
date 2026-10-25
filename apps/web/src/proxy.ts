@@ -72,7 +72,7 @@ import {
   siteConsentFacts,
   siteDefaultLanguage,
 } from "@/lib/sermo/default-language";
-import { SermoError } from "@/lib/sermo/errors";
+import { isAdultRefusal, SermoError } from "@/lib/sermo/errors";
 import { parseId, parsePageId } from "@/lib/sermo/ids";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import {
@@ -212,7 +212,8 @@ async function withSlug(target: URL, forward: Forward) {
 // An address of content that has no page of its own goes to the page that holds it, at its anchor:
 // a post to the page of its thread, a wall post or a comment to the wall. The backend's read is the
 // visibility check: content the visitor may not see ("not found", or "forbidden" for a forum whose
-// posts are closed to them) is a 404, the same as an id that was never used. A visitor who must
+// posts are closed to them) is a 404, the same as an id that was never used; content refused as
+// +18 goes on to the page, which draws the +18 page. A visitor who must
 // sign in first goes on to the page, as for any record.
 const heldBy =
   (locate: (id: number, forward: Forward) => Promise<string>): Finder =>
@@ -231,10 +232,12 @@ const heldBy =
       response.headers.set("cache-control", "private, no-store");
       return response;
     } catch (error) {
+      // Content refused as +18 exists and is otherwise visible: the page draws the +18 page.
       return lookupFailure(
         error,
         (refusal) =>
-          refusal.code === "not_found" || refusal.code === "forbidden",
+          refusal.code === "not_found" ||
+          (refusal.code === "forbidden" && !isAdultRefusal(refusal)),
       );
     }
   };

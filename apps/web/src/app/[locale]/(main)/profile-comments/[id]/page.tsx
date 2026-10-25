@@ -2,7 +2,7 @@ import { profileCommentsLocate } from "@sermo/core/contracts";
 import { notFound, redirect } from "next/navigation";
 import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { read } from "@/lib/sermo/client";
-import { SermoError } from "@/lib/sermo/errors";
+import { isAdultRefusal, SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
 
 // A comment on a wall post goes to the wall that holds its post, which shows the comment among
@@ -14,7 +14,12 @@ export default async function ProfileCommentPage({
   if (commentId === null) notFound();
   const comment = await read(profileCommentsLocate, { commentId }).catch(
     (error: unknown) => {
-      if (error instanceof SermoError && error.code === "forbidden") notFound();
+      if (
+        error instanceof SermoError &&
+        error.code === "forbidden" &&
+        !isAdultRefusal(error)
+      )
+        notFound();
       throw error;
     },
   );

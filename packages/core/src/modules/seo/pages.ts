@@ -3,11 +3,11 @@ import type { Actor } from "../../actor";
 import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { GUEST_ACCOUNT_ID } from "../../db/schema";
-import { NotFoundError } from "../../errors";
-import { adultModeOn, can, getNodeTree, permissionsOf } from "../../permissions";
+import { AdultContentError, NotFoundError } from "../../errors";
+import { adultModeOn, can, getNodeTree, permissionsOf, requirePermission } from "../../permissions";
 import { guestAuthorLabel } from "../forums/guest-author";
 import { readGates } from "../forums/read-gates";
-import { mayViewProfile, type ProfileAccess, profileAccess } from "../profiles/shared";
+import { type ProfileAccess, profileAccess, requireProfileView } from "../profiles/shared";
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "./excerpt";
 import { canonicalUrl, resolveCanonical, tagUrl } from "./paths";
 
@@ -96,7 +96,9 @@ export function nodeSeo(
   templates: SeoTemplates,
 ): SeoPage {
   const node = getNodeTree(ctx).get(id);
-  if (!node || !can(ctx, actor, "node.view", { nodeId: id })) throw new NotFoundError();
+  if (!node) throw new NotFoundError();
+  // A forum the viewer could open but for its +18 mark (or one above it): the +18 refusal.
+  requirePermission(ctx, actor, "node.view", { nodeId: id }, { notFound: true });
   const canonical = resolveCanonical(requestedPath, baseURL, "node", id, node.title);
   const ancestors = [...getNodeTree(ctx).ancestors(id), node];
   const breadcrumb: WithContext<BreadcrumbList> = {
@@ -152,9 +154,18 @@ export function threadSeo(
       "SELECT id,node_id,user_id,title,state,created_at,last_post_at,content_updated_at,excerpt,reply_count,view_count,first_post_id,is_adult FROM threads WHERE id=?1",
     ),
   ).get(id);
-  if (!thread || !can(ctx, actor, "node.view", { nodeId: thread.node_id }))
-    throw new NotFoundError();
-  const viewer = permissionsOf(ctx, actor);
+  if (!thread) throw new NotFoundError();
+  // A forum closed to the viewer but for its +18 mark is decided after the thread's own state, so
+  // the +18 refusal is told only of a thread that is otherwise visible (never a deleted or held
+  // one); the read gates then answer as if nothing were marked.
+  let refusal: AdultContentError | null = null;
+  try {
+    requirePermission(ctx, actor, "node.view", { nodeId: thread.node_id }, { notFound: true });
+  } catch (error) {
+    if (!(error instanceof AdultContentError)) throw error;
+    refusal = error;
+  }
+  const viewer = permissionsOf(ctx, actor, { ignoreAdult: refusal !== null });
   if (
     thread.state !== "visible" &&
     !(actor.kind !== "guest" && actor.userId === thread.user_id) &&
@@ -168,9 +179,11 @@ export function threadSeo(
   if (!node) throw new NotFoundError();
   // A thread the viewer may not open does not exist for them; one whose text is closed to them
   // gives a title and no description. A public page needs both gates open to guests.
-  const gates = readGates(ctx, actor);
-  if (!gates.opens(thread.node_id, thread.user_id) || gates.hidesAdult(thread))
-    throw new NotFoundError();
+  const gates = readGates(ctx, actor, { ignoreAdult: refusal !== null });
+  if (!gates.opens(thread.node_id, thread.user_id)) throw new NotFoundError();
+  // Open to the viewer but for a +18 mark: the refusal, which carries none of the thread.
+  if (refusal) throw refusal;
+  if (gates.hidesAdult(thread)) throw new AdultContentError(gates.adult()!);
   const guestGates = readGates(ctx, GUEST);
   const baseCanonical = canonicalUrl(baseURL, "thread", id, thread.title);
   const pageCanonical = page === 1 ? baseCanonical : `${baseCanonical}?page=${page}`;
@@ -266,7 +279,8 @@ export function profileSeo(
 ): SeoPage {
   if (!can(ctx, actor, "profile.view")) throw new NotFoundError();
   const relation = access ?? profileAccess(ctx, actor, id);
-  if (!mayViewProfile(ctx, actor, id, relation)) throw new NotFoundError();
+  // A profile closed by its privacy is not found; one closed only by its +18 mark is refused.
+  requireProfileView(ctx, actor, id, relation);
   const profile = prepared(ctx, "seo.profile", () =>
     ctx.sqlite.prepare<Profile, [number]>(
       "SELECT id,username,about,created_at,content_updated_at,post_count,EXISTS(SELECT 1 FROM profile_posts WHERE profile_user_id=users.id AND state='visible' LIMIT 1) AS has_public_wall FROM users WHERE id=?1",

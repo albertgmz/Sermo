@@ -79,6 +79,11 @@ export function adultReasonOfDigest(
   return ADULT_REASONS.find((known) => known === reason) ?? null;
 }
 
+// Whether the backend refused content as +18 (content that exists and is otherwise visible): the
+// +18 page or the warning window, never a 404.
+export const isAdultRefusal = (error: SermoError): boolean =>
+  adultReasonOfDigest(error.digest) !== null;
+
 // The backend refuses the session itself: the cookie is dead (unauthenticated) or the account is
 // banned (forbidden on auth.me). Either way the visitor is shown the site as a guest.
 export function isSignedOut(error: SermoError): boolean {
