@@ -78,6 +78,26 @@ export const creditsRecalculate = defineContract({
 // Rules --------------------------------------------------------------------------------------
 
 /**
+ * Optional filters on the source content of a content trigger (see `CONTENT_CREDIT_TRIGGERS`: the
+ * thread, reply, profile post or reacted-to item the rule pays for); each null = no filter. Content
+ * that fails one pays nothing, and neither does it when it is hidden and restored. Dates are UTC
+ * days, both inclusive; lengths count the characters of the content's plain text (BB code tags
+ * excluded; a thread counts its first post).
+ */
+export const CreditRuleFilters = z
+  .object({
+    createdFrom: z.iso.date().nullable(),
+    createdUntil: z.iso.date().nullable(),
+    minLength: z.number().int().min(1).max(1_000_000).nullable(),
+    maxLength: z.number().int().min(1).max(1_000_000).nullable(),
+  })
+  .meta({ id: "CreditRuleFilters" });
+
+export type CreditRuleFiltersValue = z.output<typeof CreditRuleFilters>;
+
+const NO_FILTERS = { createdFrom: null, createdUntil: null, minLength: null, maxLength: null };
+
+/**
  * "When <trigger> happens, the member gains or loses <amount>." Several rules may share a
  * trigger; each applies on its own. Triggers:
  * - `thread_created`: the member started a thread.
@@ -98,26 +118,6 @@ export const creditsRecalculate = defineContract({
  * processed. What a piece of content paid is taken back when the content stops being visible
  * and paid again when it is restored. Content awaiting approval pays when it is approved.
  */
-/**
- * Optional filters on the source content of a content trigger (see `CONTENT_CREDIT_TRIGGERS`: the
- * thread, reply, profile post or reacted-to item the rule pays for); each null = no filter. Content
- * that fails one pays nothing, and neither does it when it is hidden and restored. Dates are UTC
- * days, both inclusive; lengths count the characters of the content's plain text (BB code tags
- * excluded; a thread counts its first post).
- */
-export const CreditRuleFilters = z
-  .object({
-    createdFrom: z.iso.date().nullable(),
-    createdUntil: z.iso.date().nullable(),
-    minLength: z.number().int().min(1).max(1_000_000).nullable(),
-    maxLength: z.number().int().min(1).max(1_000_000).nullable(),
-  })
-  .meta({ id: "CreditRuleFilters" });
-
-export type CreditRuleFiltersValue = z.output<typeof CreditRuleFilters>;
-
-const NO_FILTERS = { createdFrom: null, createdUntil: null, minLength: null, maxLength: null };
-
 export const CreditRule = z
   .object({
     id: Id,
