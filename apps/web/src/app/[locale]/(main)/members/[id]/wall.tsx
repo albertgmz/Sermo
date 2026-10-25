@@ -41,6 +41,7 @@ import {
   WallItemActions,
   WallItemSummary,
 } from "@/components/forum/wall-item-actions";
+import { JoinLink } from "@/components/layout/join-link";
 import { buttonVariants } from "@/components/ui/button";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { formatNumber } from "@/lib/format";
@@ -109,11 +110,7 @@ function WallPost({
   const locale = useLocale();
   const t = useTranslations("members.wall");
   const anchor = `profile-post-${post.id}`;
-  const commentsHref = post.canComment
-    ? `#${anchor}-comment`
-    : viewerId === null
-      ? `/login?next=${encodeURIComponent(returnTo)}`
-      : null;
+  const commentsHref = post.canComment ? `#${anchor}-comment` : null;
   const count = (
     <>
       <MessageCircle />
@@ -168,6 +165,15 @@ function WallPost({
               >
                 {count}
               </Link>
+            ) : viewerId === null ? (
+              <JoinLink
+                reason="comment"
+                next={returnTo}
+                aria-label={label}
+                className={messageActionClass}
+              >
+                {count}
+              </JoinLink>
             ) : (
               <span
                 role="img"

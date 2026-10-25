@@ -634,5 +634,17 @@
     "awaitingBody": "A moderator will review it before it appears. You will not see it on the forum until then.",
     "backToForum": "Back to the forum",
     "backToThread": "Back to the thread"
+  },
+  "signupInvite": {
+    "register": "Create account",
+    "login": "Log in",
+    "firstPost": {
+      "title": "Join the conversation",
+      "body": "With a free account your name is yours, you react to posts and we let you know when someone replies in this thread."
+    },
+    "guestReply": {
+      "title": "Reply as a guest or with your account",
+      "body": "With a free account your name is yours, you react to posts and we let you know when someone replies."
+    }
   }
 }

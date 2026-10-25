@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronDown, Heart } from "lucide-react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ComponentType, useEffect, useRef, useState } from "react";
@@ -21,6 +20,7 @@ import {
   placePicker,
 } from "@/components/forum/reaction-placement";
 import { useReactionGesture } from "@/components/forum/use-reaction-gesture";
+import { JoinLink } from "@/components/layout/join-link";
 import {
   createOpener,
   type Loader,
@@ -276,13 +276,14 @@ export function ReactionButton(props: {
 
   if (viewerId === null) {
     return (
-      <Link
-        href={`/login?next=${encodeURIComponent(pathname + (search ? `?${search}` : ""))}`}
+      <JoinLink
+        reason="react"
+        next={pathname + (search ? `?${search}` : "")}
         aria-label={t("aria.login", { count })}
         className={cn(buttonClass, className)}
       >
         {content}
-      </Link>
+      </JoinLink>
     );
   }
   if (viewerId === authorId || types.length === 0) return null;

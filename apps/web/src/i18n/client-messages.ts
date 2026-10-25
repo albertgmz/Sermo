@@ -94,6 +94,7 @@ export const CLIENT_NAMESPACES = [
   "layout.noticeBanner",
   "layout.routeError",
   "layout.shortcuts",
+  "layout.signupNudges",
   "layout.siteNav",
   "layout.themeControl",
   "layout.userMenu",

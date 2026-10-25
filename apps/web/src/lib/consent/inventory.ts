@@ -11,6 +11,7 @@ import { FEED_VIEW_COOKIE } from "@/lib/feed-view";
 import { LITE_COOKIE } from "@/lib/lite-preferences";
 import { NOTICES_DISMISSED_COOKIE } from "@/lib/notice-dismissals";
 import { PUSH_OWNER_KEY, PUSH_SESSION_KEY } from "@/lib/push-device";
+import { SEARCH_VISIT_KEY, SNOOZE_KEY } from "@/lib/signup-nudges";
 
 export const CATEGORIES = [
   "necessary",
@@ -168,6 +169,22 @@ export const INVENTORY: readonly InventoryItem[] = [
     category: "necessary",
     storage: "sessionStorage",
     names: [VISIT_KEY],
+    party: "first",
+  },
+  {
+    // When a guest put off the invitation to create an account ("Not now").
+    id: "signupCard",
+    category: "necessary",
+    storage: "localStorage",
+    names: [SNOOZE_KEY],
+    party: "first",
+  },
+  {
+    // That this visit came from a search engine, so the invitation follows the guest through it.
+    id: "signupVisit",
+    category: "necessary",
+    storage: "sessionStorage",
+    names: [SEARCH_VISIT_KEY],
     party: "first",
   },
   {

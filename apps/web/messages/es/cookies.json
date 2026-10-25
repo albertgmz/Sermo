@@ -164,6 +164,16 @@
       "purpose": "Cuenta las páginas de esta visita y recuerda qué oferta mostró, para que cada visita muestre una sola oferta y nunca en la primera página después de registrarte.",
       "lifetime": "Hasta que cierres la pestaña."
     },
+    "signupCard": {
+      "title": "Invitación a crear una cuenta",
+      "purpose": "Recuerda cuándo respondiste «Ahora no» a la invitación a crear una cuenta, para no volver a mostrarla en 7 días.",
+      "lifetime": "Hasta que borres los datos del sitio en tu navegador."
+    },
+    "signupVisit": {
+      "title": "Visita desde un buscador",
+      "purpose": "Recuerda que esta visita llegó desde un buscador, para mostrar la invitación a crear una cuenta mientras sigues en el sitio.",
+      "lifetime": "Hasta que cierres la pestaña."
+    },
     "editDraft": {
       "title": "Edición llevada a la página de edición",
       "purpose": "Guarda lo que escribiste en el editor de un mensaje de un tema o de un mensaje directo al pulsar «Más opciones…», para que la página de edición se abra con ello; esa página lo lee una vez y lo borra.",

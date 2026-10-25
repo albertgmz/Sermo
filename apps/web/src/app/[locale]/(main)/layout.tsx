@@ -120,6 +120,7 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         "layout.narrowToggle",
         "layout.noticeBanner",
         "layout.shortcuts",
+        "layout.signupNudges",
         "layout.siteNav",
         "layout.themeControl",
         "layout.userMenu",

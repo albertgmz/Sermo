@@ -164,6 +164,16 @@
       "purpose": "Counts the pages of this visit and remembers which offer it showed, so a visit shows one offer at a time and never on the first page after you sign up.",
       "lifetime": "Until you close the tab."
     },
+    "signupCard": {
+      "title": "Invitation to create an account",
+      "purpose": "Remembers when you answered “Not now” to the invitation to create an account, so it is not shown again for 7 days.",
+      "lifetime": "Until you clear the site's data in your browser."
+    },
+    "signupVisit": {
+      "title": "Visit from a search engine",
+      "purpose": "Remembers that this visit came from a search engine, to show the invitation to create an account while you stay on the site.",
+      "lifetime": "Until you close the tab."
+    },
     "editDraft": {
       "title": "Edit carried to the edit page",
       "purpose": "Keeps what you wrote in the editor of a post in a thread, or of a message in a direct message, when you press “More options…”, so the edit page opens with it; the edit page reads it once and removes it.",

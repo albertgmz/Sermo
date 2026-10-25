@@ -97,7 +97,8 @@ export const onGateChange = (leave: () => void) => (open: boolean) => {
   if (!open) leave();
 };
 
-// The page under the window, and the whole of it for a guest.
+// The page under the window, and the whole of it for a guest. It has its own ways in, so the
+// floating invitation to create an account steps aside while it is drawn (`data-adult-page`).
 export function AdultPage({ guest }: { guest: boolean }) {
   const t = useTranslations("forum.adultGate");
   const path = usePathname();
@@ -107,6 +108,7 @@ export function AdultPage({ guest }: { guest: boolean }) {
   return (
     <section
       aria-labelledby="adult-page-title"
+      data-adult-page=""
       className="mx-auto flex w-full max-w-md flex-col items-center rounded-xl border bg-card px-5 py-10 text-center sm:px-8"
     >
       {/* Not for search results: the address answers this page, not its content. React puts both

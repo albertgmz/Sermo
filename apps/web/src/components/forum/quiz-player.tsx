@@ -1,12 +1,12 @@
 "use client";
 
 import { Check, X } from "lucide-react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { pollVoteAction } from "@/app/[locale]/(main)/threads/polls-actions";
 import { FormError } from "@/components/forum/form-error";
 import type { PollPictures } from "@/components/forum/poll-block";
+import { JoinLink } from "@/components/layout/join-link";
 import { Button } from "@/components/ui/button";
 import type { PollQuestionView, PollView } from "@/lib/sermo/polls";
 import { cn } from "@/lib/utils";
@@ -87,12 +87,13 @@ export function QuizPlayer({
           <p className="text-sm text-muted-foreground">{t("cannotVote")}</p>
         ) : (
           <p className="text-sm text-muted-foreground">
-            <Link
-              href={`/login?next=${encodeURIComponent(`/threads/${threadId}`)}`}
+            <JoinLink
+              reason="quiz"
+              next={`/threads/${threadId}`}
               className="font-medium text-primary-ink underline underline-offset-4 hover:no-underline"
             >
               {t("signIn")}
-            </Link>{" "}
+            </JoinLink>{" "}
             {t("toTakeQuiz")}
           </p>
         )}

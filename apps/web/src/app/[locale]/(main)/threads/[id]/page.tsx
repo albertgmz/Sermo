@@ -1,7 +1,6 @@
 import { seoThread, threadsGet } from "@sermo/core/contracts";
 import { Hourglass, Lock, Trash2 } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
@@ -20,15 +19,14 @@ import { replyAction } from "@/app/[locale]/(main)/threads/actions";
 import { replyInPlace } from "@/app/[locale]/(main)/threads/reply-in-place";
 import { AdultBadge } from "@/components/forum/adult-badge";
 import { Art } from "@/components/forum/art";
-import { EmptyState } from "@/components/forum/empty-state";
 import { LazyGuestReplyForm } from "@/components/forum/guest-lazy";
 import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PageSwitch } from "@/components/forum/page-switch";
 import { PostNote } from "@/components/forum/post-frame";
+import { SignupInvite } from "@/components/forum/signup-invite";
 import { ThreadTags } from "@/components/forum/thread-tags";
 import { PageLayout } from "@/components/layout/page-layout";
-import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { canonicalPathOf, canonicalUrlOf } from "@/lib/sermo/addresses";
 import { memberIdOf } from "@/lib/sermo/authors";
@@ -127,11 +125,12 @@ export default async function ThreadPage({
     searchParams,
   ]);
   const id = threadIdOf(raw);
-  const [found, { user }, t, tReply, site] = await Promise.all([
+  const [found, { user }, t, tReply, tInvite, site] = await Promise.all([
     getThread(id),
     getViewer(),
     getTranslations("threads.page"),
     getTranslations("threads.replyComposer"),
+    getTranslations("forum.signupInvite"),
     getSite(),
   ]);
   const { thread, tags, node, permissions } = found;
@@ -252,36 +251,36 @@ export default async function ThreadPage({
               {thread.isLocked ? t("locked") : t("cannotReply")}
             </PostNote>
           ) : guestKey ? (
-            <LazyGuestReplyForm
-              threadId={thread.id}
-              backHref={`/threads/${thread.id}`}
-              turnstileKey={guestKey}
-              placeholder={tReply("placeholder")}
-              submitLabel={tReply("submit")}
-            />
-          ) : (
-            <div className="rounded-lg border bg-card">
-              <EmptyState
-                title={t("replyTitle")}
-                description={t("replyDescription")}
-              >
-                <Link
-                  href={`/login?next=${encodeURIComponent(`/threads/${thread.id}`)}`}
-                  className={cn(
-                    buttonVariants({ variant: "outline" }),
-                    "h-10 px-4",
-                  )}
-                >
-                  {t("login")}
-                </Link>
-                <Link
-                  href="/register"
-                  className={cn(buttonVariants(), "h-10 px-4")}
-                >
-                  {t("register")}
-                </Link>
-              </EmptyState>
+            <div className="space-y-4">
+              {site.registration.open && (
+                <SignupInvite
+                  layout="card"
+                  title={tInvite("guestReply.title")}
+                  description={tInvite("guestReply.body")}
+                  next={`/threads/${thread.id}`}
+                  register
+                />
+              )}
+              <LazyGuestReplyForm
+                threadId={thread.id}
+                backHref={`/threads/${thread.id}`}
+                turnstileKey={guestKey}
+                placeholder={tReply("placeholder")}
+                submitLabel={tReply("submit")}
+              />
             </div>
+          ) : (
+            <SignupInvite
+              layout="card"
+              title={t("replyTitle")}
+              description={t(
+                site.registration.open
+                  ? "replyDescription"
+                  : "replyDescriptionClosed",
+              )}
+              next={`/threads/${thread.id}`}
+              register={site.registration.open}
+            />
           )}
         </section>
       )}

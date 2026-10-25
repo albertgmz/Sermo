@@ -10,10 +10,8 @@
     "postNumber": "#{number}",
     "newBadge": "Nuevo",
     "home": "Inicio",
-    "replyTitle": "Inicia sesión para responder",
-    "replyDescription": "Únete a la conversación con tu cuenta.",
-    "login": "Iniciar sesión",
-    "register": "Crear cuenta",
+    "replyTitle": "Únete a la conversación",
+    "replyDescription": "Crea una cuenta gratis para responder, reaccionar y enterarte cuando haya respuestas en este tema.",
     "aria": {
       "loadingPosts": "Cargando mensajes…",
       "reply": "Responder",
@@ -32,7 +30,8 @@
     "openPicture": "Imagen adjunta {position} de {total}",
     "restore": "Restaurar",
     "approve": "Aprobar",
-    "selectPost": "Seleccionar mensaje {number}"
+    "selectPost": "Seleccionar mensaje {number}",
+    "replyDescriptionClosed": "Inicia sesión con tu cuenta para responder."
   },
   "replyComposer": {
     "submit": "Responder",

@@ -76,7 +76,8 @@ export function AppPrompts({
 }: {
   // `session`: the id of the session this page was drawn for (null for an API key).
   member: { id: string; createdAt: string; session: string | null } | null;
-  // False while a member has terms to accept: no card, only the subscription check.
+  // False for a guest, and while a member has terms to accept: no card, only the subscription
+  // check.
   offers: boolean;
   pushKey: string | null;
   appName: string;

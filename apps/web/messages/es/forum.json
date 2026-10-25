@@ -634,5 +634,17 @@
     "awaitingBody": "Un moderador lo revisará antes de que aparezca. No lo verás en el foro hasta entonces.",
     "backToForum": "Volver al foro",
     "backToThread": "Volver al tema"
+  },
+  "signupInvite": {
+    "register": "Crear cuenta",
+    "login": "Entrar",
+    "firstPost": {
+      "title": "Únete a la conversación",
+      "body": "Con una cuenta gratis tu nombre es tuyo, reaccionas a los mensajes y te avisamos cuando alguien responda en este tema."
+    },
+    "guestReply": {
+      "title": "Responde como invitado o con tu cuenta",
+      "body": "Con una cuenta gratis tu nombre es tuyo, reaccionas a los mensajes y te avisamos cuando alguien responda."
+    }
   }
 }

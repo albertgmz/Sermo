@@ -245,5 +245,28 @@
       "enable": "Activar",
       "failed": "No se pudieron activar los avisos aquí. Inténtalo de nuevo desde tus ajustes de notificaciones."
     }
+  },
+  "signupNudges": {
+    "card": {
+      "title": "Únete a {site}",
+      "body": "Crea tu cuenta gratis para opinar, reaccionar y enterarte cuando te respondan."
+    },
+    "register": "Crear cuenta",
+    "login": "Entrar",
+    "notNow": "Ahora no",
+    "window": {
+      "title": {
+        "react": "Únete para reaccionar",
+        "vote": "Únete para votar",
+        "quiz": "Únete para hacer el cuestionario",
+        "comment": "Únete para comentar"
+      },
+      "body": "Crear tu cuenta en {site} es gratis y te toma un minuto. Con ella además:",
+      "perks": {
+        "notify": "Te avisamos cuando te respondan",
+        "name": "Publicas siempre con tu nombre",
+        "keep": "Sigues los temas y guardas lo que te interesa"
+      }
+    }
   }
 }

@@ -151,3 +151,14 @@ test("after logging in or signing up from the +18 page, leaving goes home, not b
   expect(router.back.calls).toHaveLength(0);
   expect(router.replace.calls).toEqual([["/"]]);
 });
+
+test("the +18 page marks itself, so no invitation to create an account floats over it", async () => {
+  for (const guest of [true, false])
+    expect(
+      renderToStaticMarkup(withIntl(<AdultPage guest={guest} />)),
+    ).toContain('data-adult-page=""');
+  const card = await Bun.file(
+    new URL("../layout/signup-nudges.tsx", import.meta.url),
+  ).text();
+  expect(card).toContain("[body:has([data-adult-page])_&]:hidden");
+});

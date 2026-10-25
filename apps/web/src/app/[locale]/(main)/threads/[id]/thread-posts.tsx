@@ -1,7 +1,7 @@
 import { postsList, type threadsGet } from "@sermo/core/contracts";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
+import { Fragment, Suspense } from "react";
 import type { z } from "zod";
 import { MarkRead } from "@/app/[locale]/(main)/threads/[id]/mark-read";
 import { isNewPost } from "@/app/[locale]/(main)/threads/[id]/new-posts";
@@ -19,6 +19,7 @@ import { LiveTail, PendingBody } from "@/components/forum/live-tail";
 import { PageNav } from "@/components/forum/page-nav";
 import { pageAddress } from "@/components/forum/page-window";
 import { PostFrame } from "@/components/forum/post-frame";
+import { SignupInvite } from "@/components/forum/signup-invite";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { POLL_MS } from "@/lib/poll-intervals";
@@ -28,6 +29,8 @@ import type { read } from "@/lib/sermo/client";
 import { authorsFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
+import { threadInvites } from "@/lib/signup-nudges";
 
 type FoundThread = z.output<typeof threadsGet.output>;
 
@@ -202,7 +205,15 @@ async function ThreadPosts({
     { posts, nextCursor, bookmarks },
     reactionTypes,
     { permissions, user, resolvedPermissions: viewerCan },
-  ] = await Promise.all([asked, getReactionTypes(), getViewer()]);
+    site,
+    tInvite,
+  ] = await Promise.all([
+    asked,
+    getReactionTypes(),
+    getViewer(),
+    getSite(),
+    getTranslations("forum.signupInvite"),
+  ]);
   // An empty page past the first is a page that does not exist.
   if (posts.length === 0 && page > 1) notFound();
   // The viewer is among the authors: the row drawn for a reply they are sending is theirs.
@@ -242,6 +253,13 @@ async function ThreadPosts({
     page >= pages &&
     !nextCursor;
   const address = pagePath(thread.id, selecting);
+  // A guest's invitation to join, under the thread's first post (`threadInvites`).
+  const invites = threadInvites({
+    guest: viewerId === null,
+    registrationOpen: site.registration.open,
+    page,
+    postsOnPage: posts.length,
+  });
   // Past the last page a member sees, a moderator's view goes on by the cursor.
   const pastLast =
     page >= pages && nextCursor
@@ -270,28 +288,41 @@ async function ThreadPosts({
       )}
       <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border bg-card">
         {posts.map((post) => (
-          <PostItem
-            key={post.id}
-            post={post}
-            author={author(post.author)}
-            byThreadAuthor={sameMember(post.author, memberIdOf(thread.author))}
-            noteState={
-              post.state !== "visible" &&
-              !(post.id === thread.firstPostId && thread.state === post.state)
-            }
-            highlighted={highlighted && post.id === thread.firstPostId}
-            signed={firstOfAuthor.has(post.id)}
-            viewerId={viewerId}
-            picker={post.state === "visible" ? picker : []}
-            reactionTypes={reactionTypes}
-            viewList={viewerCan["reaction.viewList"] !== false}
-            may={may}
-            isFirst={post.id === thread.firstPostId}
-            selecting={selecting}
-            canQuote={canQuote}
-            bookmarked={bookmarks ? bookmarks.toggle(post.id) : null}
-            isNew={isNewPost(post, reader, now)}
-          />
+          <Fragment key={post.id}>
+            <PostItem
+              post={post}
+              author={author(post.author)}
+              byThreadAuthor={sameMember(
+                post.author,
+                memberIdOf(thread.author),
+              )}
+              noteState={
+                post.state !== "visible" &&
+                !(post.id === thread.firstPostId && thread.state === post.state)
+              }
+              highlighted={highlighted && post.id === thread.firstPostId}
+              signed={firstOfAuthor.has(post.id)}
+              viewerId={viewerId}
+              picker={post.state === "visible" ? picker : []}
+              reactionTypes={reactionTypes}
+              viewList={viewerCan["reaction.viewList"] !== false}
+              may={may}
+              isFirst={post.id === thread.firstPostId}
+              selecting={selecting}
+              canQuote={canQuote}
+              bookmarked={bookmarks ? bookmarks.toggle(post.id) : null}
+              isNew={isNewPost(post, reader, now)}
+            />
+            {invites.afterFirst && post.id === thread.firstPostId && (
+              <SignupInvite
+                layout="row"
+                title={tInvite("firstPost.title")}
+                description={tInvite("firstPost.body")}
+                next={threadPageHref(thread.id, 1)}
+                register
+              />
+            )}
+          </Fragment>
         ))}
         {goesOn && (
           <LiveTail

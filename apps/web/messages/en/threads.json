@@ -10,10 +10,8 @@
     "postNumber": "#{number}",
     "newBadge": "New",
     "home": "Home",
-    "replyTitle": "Log in to reply",
-    "replyDescription": "Join the conversation with your account.",
-    "login": "Log in",
-    "register": "Create Account",
+    "replyTitle": "Join the conversation",
+    "replyDescription": "Create a free account to reply, react and hear when this thread gets replies.",
     "aria": {
       "loadingPosts": "Loading posts…",
       "reply": "Reply",
@@ -32,7 +30,8 @@
     "openPicture": "Attached picture {position} of {total}",
     "restore": "Restore",
     "approve": "Approve",
-    "selectPost": "Select post {number}"
+    "selectPost": "Select post {number}",
+    "replyDescriptionClosed": "Log in with your account to reply."
   },
   "replyComposer": {
     "submit": "Post reply",

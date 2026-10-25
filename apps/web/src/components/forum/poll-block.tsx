@@ -2,7 +2,6 @@
 
 import { Check, Lock, Pencil, Users } from "lucide-react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { type ReactNode, useState, useTransition } from "react";
 import {
@@ -14,6 +13,7 @@ import {
 import { DeleteControl } from "@/components/forum/delete-control";
 import { FormError } from "@/components/forum/form-error";
 import { PollVoters } from "@/components/forum/poll-voters";
+import { JoinLink } from "@/components/layout/join-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -398,12 +398,13 @@ function PollQuestion({
       )}
       {note === "signIn" ? (
         <p className="text-sm text-muted-foreground">
-          <Link
-            href={`/login?next=${encodeURIComponent(`/threads/${threadId}`)}`}
+          <JoinLink
+            reason="vote"
+            next={`/threads/${threadId}`}
             className="font-medium text-primary-ink underline underline-offset-4 hover:no-underline"
           >
             {t("signIn")}
-          </Link>{" "}
+          </JoinLink>{" "}
           {t("toVote")}
         </p>
       ) : (

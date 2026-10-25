@@ -111,6 +111,11 @@ test("a guest gets the sign-in link named for the first reaction, and the summar
   expect(shown(html, 4)).toBe(1);
 });
 
+test("a guest's press on the button opens the sign-up window, a member's does not", () => {
+  expect(render(null, some)).toContain("data-join");
+  expect(render(9, some)).not.toContain("data-join");
+});
+
 test("a guest sees the link even where nobody reacted", () => {
   const html = render(null, none);
   expect(html).toContain("Log in to react");

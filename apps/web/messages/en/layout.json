@@ -245,5 +245,28 @@
       "enable": "Turn on",
       "failed": "Alerts could not be turned on here. Try again from your notification settings."
     }
+  },
+  "signupNudges": {
+    "card": {
+      "title": "Join {site}",
+      "body": "Create your free account to share your view, react and know when someone answers you."
+    },
+    "register": "Create account",
+    "login": "Log in",
+    "notNow": "Not now",
+    "window": {
+      "title": {
+        "react": "Join to react",
+        "vote": "Join to vote",
+        "quiz": "Join to take the quiz",
+        "comment": "Join to comment"
+      },
+      "body": "Creating your account on {site} is free and takes a minute. With it you also:",
+      "perks": {
+        "notify": "Get told when someone answers you",
+        "name": "Always post under your own name",
+        "keep": "Follow threads and keep what interests you"
+      }
+    }
   }
 }
