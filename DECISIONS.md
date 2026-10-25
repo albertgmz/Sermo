@@ -7178,3 +7178,21 @@ in the permission engine reuses the one check every surface already makes, takes
 forum is marked (no batch copying to millions of threads) and costs nothing where nothing is marked;
 a thread's own mark is a column read with rows that are fetched anyway. A typed refusal lets the web
 ask for a birth date or the confirmation instead of a dead end.
+
+### Credit rule filters
+
+**Content rules judge their source:** a credit rule on a content trigger (thread, reply, reply
+received, reaction given or received, profile post created or received) may carry a created-from
+day, a created-until day, and a minimum and a maximum plain-text length of the content it pays for:
+the thread (its first post), the reply, the profile post, or the post or comment reacted to. Content
+outside the filters pays nobody, and being hidden and restored never pays it, because only a
+qualifying source holds an application to take back or pay again. **Details:** dates are UTC days,
+both included, stored as UTC milliseconds (the until bound as the start of the next day). Length
+uses the stored `body_text` of posts (no re-rendering) and strips profile post bodies on demand,
+only for rules with a length filter. A rule's filters change only later events. `creditRules.list`
+tells which triggers accept filters (`acceptsFilters`); the rest refuse them. Migration 0076 adds
+four nullable columns.
+
+Why: fcuba.net holds years of older posts, and a reaction today to a 2015 post should not pay; short
+replies should not either. Filtering the source, not the event, keeps hide and restore consistent
+and cheap.
