@@ -38,7 +38,7 @@ async function expectBarFits(page: Page, label: string) {
 
 async function everyTab(page: Page, tabs: string[], language: string) {
   for (const tab of tabs) {
-    await visit(page, `/novedades?tab=${tab}`);
+    await visit(page, `/whats-new?tab=${tab}`);
     await expectBarFits(page, `${language} ${tab}`);
   }
 }
@@ -56,7 +56,7 @@ test.describe("guest", () => {
     page,
   }) => {
     test.skip(!phoneWidth(page), "the phone bar is drawn below md only");
-    await visit(page, "/novedades");
+    await visit(page, "/whats-new");
     const tabs = ["latest", "hot", "media"];
     await everyTab(page, tabs, "en");
     await inSpanish(page);
@@ -71,7 +71,7 @@ test.describe("member", () => {
     page,
   }) => {
     test.skip(!phoneWidth(page), "the phone bar is drawn below md only");
-    await visit(page, "/novedades?tab=latest");
+    await visit(page, "/whats-new?tab=latest");
     // The member may post on their wall, so the composer is in the page; a phone does not show it.
     const composer = page.locator(
       'section[aria-label="New post"], section[aria-label="Nueva publicación"]',

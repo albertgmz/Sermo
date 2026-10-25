@@ -1,4 +1,4 @@
-import { NOVEDADES_PATH } from "@/lib/home-tabs";
+import { WHATS_NEW_PATH } from "@/lib/home-tabs";
 import { FORUM_PREFIX } from "@/lib/sermo/addresses";
 import { parseId } from "@/lib/sermo/ids";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
@@ -39,9 +39,10 @@ const TARGETS: Record<Exclude<Kind, "forum">, string> = {
   conversation: "conversations",
 };
 
-// Sections whose every address goes to the feed page. `/novedades` itself is this app's own
-// address, so only its sub-pages (`/novedades/posts/`) are rewritten.
-const NOVEDADES_SECTIONS = ["whats-new", "find-new"];
+// Sections whose every address goes to the feed page. `/whats-new` itself is this app's own
+// address, so only its sub-pages (`/whats-new/posts/`) are rewritten.
+const FEED_SECTIONS = ["whats-new", "find-new"];
+const LEGACY_FEED = "novedades";
 const ACCOUNT_PAGES: Record<string, string> = {
   login: "/login",
   register: "/register",
@@ -93,9 +94,13 @@ export function xenforoTarget(pathname: string, search: string) {
   const lowered = segments.map((part) => part.toLowerCase());
   const [first = "", second = ""] = lowered;
   if (segments.length === 0) return viaIndex ? "/" : undefined;
-  if (NOVEDADES_SECTIONS.includes(first)) return NOVEDADES_PATH;
-  if (first === NOVEDADES_PATH.slice(1))
-    return viaIndex || segments.length > 1 ? NOVEDADES_PATH : undefined;
+  if (FEED_SECTIONS.includes(first)) {
+    const own = first === WHATS_NEW_PATH.slice(1);
+    return !own || viaIndex || segments.length > 1 ? WHATS_NEW_PATH : undefined;
+  }
+  // The old forum's Spanish name for the same page, through its index. Written as a path it is
+  // answered by `lib/home-redirects.ts`, which keeps the query.
+  if (viaIndex && first === LEGACY_FEED) return WHATS_NEW_PATH;
   if (first === "forums" && segments.length === 1) {
     // XenForo's forum list is this app's home page. The app's own `/forums` is left to the proxy,
     // which sends it to `/` as well.

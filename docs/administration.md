@@ -1149,17 +1149,17 @@ the "Most messages" column (the ten members with most posts), drawn where the pa
 The home page (`/`) is the forum list: the categories under the section tabs
 (`/?section=<tab id>&stats=<tab>`), with the widgets of its positions around them. It carries the
 site's name as its title, the site's description and its structured data. The feed is on its own
-page, What's new (`/novedades`), with four tabs in this fixed order: Latest, Hot, Following (members
+page, What's new (`/whats-new`), with four tabs in this fixed order: Latest, Hot, Following (members
 only) and Media (the newest pictures attached to posts and wall posts, limited to what the viewer
-may open). Every tab has an address that names it (`/novedades?tab=hot`). The wall composer and
+may open). Every tab has an address that names it (`/whats-new?tab=hot`). The wall composer and
 the featured threads are drawn on the first three tabs only, and the featured threads not above a
 list a filter narrowed.
 
 Both pages draw the widgets of their positions (`widgets.current`, asked with the visitor's session
 once per page): `overview_top` spans both columns above them, after `forum_list_top` (`/` only); `forum_list_above` and
-`forum_list_below` (`/`) or `novedades_above` (`/novedades`) sit in the main column above and below
+`forum_list_below` (`/`) or `whats_new_above` (`/whats-new`) sit in the main column above and below
 the page's own content, `overview_bottom` after them; the sidebar holds `sidebar_top`, then
-`forum_list_sidebar` (`/`) or `novedades_sidebar` (`/novedades`), then `sidebar_bottom`. A page
+`forum_list_sidebar` (`/`) or `whats_new_sidebar` (`/whats-new`), then `sidebar_bottom`. A page
 with no sidebar widget for the viewer (or only widgets of types the web app does not draw yet) has
 no sidebar column. Below `lg` the sidebar is drawn below the content, one block under another; a
 widget whose `phones` is off is not drawn below `md`, and a sidebar with no widget drawn there is
@@ -1206,11 +1206,12 @@ the form come from the backend's schema for the type. A widget of a type, or in 
 app does not draw yet is kept, listed and editable, and marked "Not shown yet".
 
 The old addresses answer with a permanent redirect (308) that keeps the query: a feed tab or a
-feed parameter on `/` (`/?tab=hot`, `/?cursor=...`) goes to `/novedades`, `/?tab=forums` and
-`/forums?tab=<id>` go to `/` with the section, and XenForo's `whats-new`, `find-new` and
-`novedades/...` go to `/novedades`.
+feed parameter on `/` (`/?tab=hot`, `/?cursor=...`) goes to `/whats-new`, `/?tab=forums` and
+`/forums?tab=<id>` go to `/` with the section, XenForo's `find-new` and `whats-new/...` go to
+`/whats-new`, and the feed's earlier Spanish address, `/novedades` and everything under it, goes to
+`/whats-new` with its query.
 
-The header's first entry (Forums) leads to `/` and its second (What's new) to `/novedades`. The
+The header's first entry (Forums) leads to `/` and its second (What's new) to `/whats-new`. The
 phone bar holds Home, What's new, the + button, Messages and Alerts (a guest: Home, What's new, the
 + and Log in); Home is current on the forum list, a forum and a thread. The profile is reached from
 the avatar menu.

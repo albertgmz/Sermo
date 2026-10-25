@@ -4,7 +4,7 @@ import { placeOfPath } from "./place";
 test("a page is named by its kind and, for a forum, thread or member, its id alone", () => {
   expect(placeOfPath("/")).toBe("forumList");
   expect(placeOfPath("/?tab=new")).toBe("forumList");
-  expect(placeOfPath("/novedades")).toBe("latest");
+  expect(placeOfPath("/whats-new")).toBe("latest");
   expect(placeOfPath("/forums/12-general")).toBe("forum:12");
   expect(placeOfPath("/forums/12/new")).toBe("forum:12");
   expect(placeOfPath("/threads/345-a-title?page=3")).toBe("thread:345");

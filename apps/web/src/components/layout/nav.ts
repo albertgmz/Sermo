@@ -36,7 +36,7 @@ export type LinkItem = NavItem & { href: string };
 
 const ICONS: Record<string, LucideIcon> = {
   "mobile.home": House,
-  "mobile.novedades": Newspaper,
+  "mobile.whats_new": Newspaper,
   "mobile.messages": Mail,
   "mobile.alerts": Bell,
   "mobile.login": LogIn,

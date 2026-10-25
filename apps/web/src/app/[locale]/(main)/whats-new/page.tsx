@@ -5,8 +5,8 @@ import {
   FEED_SWITCH_PARAMS,
   FeedColumn,
   openingOf,
-} from "@/app/[locale]/(main)/novedades/feed-column";
-import { feedColumn } from "@/app/[locale]/(main)/novedades/feed-column-page";
+} from "@/app/[locale]/(main)/whats-new/feed-column";
+import { feedColumn } from "@/app/[locale]/(main)/whats-new/feed-column-page";
 import { placeOfQuery } from "@/components/forum/places";
 import { TabSwitch } from "@/components/forum/tab-switch";
 import { homeAddress, homeMetadata } from "@/lib/home-seo";
@@ -18,7 +18,7 @@ import { getWidgets } from "@/lib/sermo/widgets";
 
 // The head of the tab the page opens on. The bare address and the guests' own tab are one page.
 export async function generateMetadata(
-  props: PageProps<"/[locale]/novedades">,
+  props: PageProps<"/[locale]/whats-new">,
 ): Promise<Metadata> {
   const [{ params, tab }, guestTab, site, t] = await Promise.all([
     opening(props.searchParams),
@@ -41,12 +41,12 @@ export async function generateMetadata(
 // featured threads above the tabs and the side blocks, by default). The home page (`/`) is the
 // forum list. All of it under the site's header is what the tabs and the filters change in place
 // (`TabSwitch`).
-export default async function NovedadesPage(
-  props: PageProps<"/[locale]/novedades">,
+export default async function WhatsNewPage(
+  props: PageProps<"/[locale]/whats-new">,
 ) {
   const [opened, widgets] = await Promise.all([
     opening(props.searchParams),
-    getWidgets("novedades"),
+    getWidgets("whats_new"),
   ]);
   return (
     <TabSwitch
@@ -62,6 +62,6 @@ export default async function NovedadesPage(
 
 // Once per request, for the head and the page.
 const opening = cache(
-  async (searchParams: PageProps<"/[locale]/novedades">["searchParams"]) =>
+  async (searchParams: PageProps<"/[locale]/whats-new">["searchParams"]) =>
     openingOf(await searchParams),
 );

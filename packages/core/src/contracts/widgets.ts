@@ -16,7 +16,7 @@ export const WidgetPosition = z.enum(WIDGET_POSITIONS);
 export const WidgetKind = z.enum(WIDGET_TYPES);
 
 /** The pages that draw widgets. */
-export const WIDGET_PAGES = ["home", "novedades", "forum", "members"] as const;
+export const WIDGET_PAGES = ["home", "whats_new", "forum", "members"] as const;
 export const WidgetPage = z.enum(WIDGET_PAGES);
 
 /**
@@ -34,11 +34,11 @@ export const WIDGET_PAGE_POSITIONS = {
     "sidebar_top",
     "sidebar_bottom",
   ],
-  novedades: [
+  whats_new: [
     "overview_top",
-    "novedades_above",
+    "whats_new_above",
     "overview_bottom",
-    "novedades_sidebar",
+    "whats_new_sidebar",
     "sidebar_top",
     "sidebar_bottom",
   ],

@@ -59,8 +59,8 @@ test("the index.php form is read like the path form", () => {
     ["/index.php?conversations/7/", "/conversations/7"],
     ["/index.php?goto/post&id=31", "/posts/31"],
     ["/index.php?forums/", "/"],
-    ["/index.php?whats-new/", "/novedades"],
-    ["/index.php?novedades/", "/novedades"],
+    ["/index.php?whats-new/", "/whats-new"],
+    ["/index.php?novedades/", "/whats-new"],
     ["/index.php?login/", "/login"],
     ["/index.php?register/", "/register"],
     ["/index.php?lost-password/", "/forgot-password"],
@@ -182,12 +182,10 @@ test("wall posts and their comments go to their own addresses", () => {
 
 test("the news pages go to the feed page and the account pages to theirs", () => {
   cases([
-    ["/novedades/posts/", "/novedades"],
-    ["/novedades/latest-activity?x=1", "/novedades"],
-    ["/whats-new/", "/novedades"],
-    ["/whats-new/posts/", "/novedades"],
-    ["/whats-new/latest-activity", "/novedades"],
-    ["/find-new/threads", "/novedades"],
+    ["/whats-new/posts/", "/whats-new"],
+    ["/whats-new/latest-activity", "/whats-new"],
+    ["/find-new/threads", "/whats-new"],
+    ["/find-new", "/whats-new"],
     ["/lost-password/", "/forgot-password"],
   ]);
 });
@@ -196,8 +194,11 @@ test("this site's own addresses and unknown ones are not redirected", () => {
   cases([
     ["/", undefined],
     // The feed page itself.
+    ["/whats-new", undefined],
+    ["/whats-new/", undefined],
+    // The feed's old Spanish address is the home redirects' (it keeps the query).
     ["/novedades", undefined],
-    ["/novedades/", undefined],
+    ["/novedades/posts/", undefined],
     ["/threads/123", undefined],
     ["/threads/123-slug", undefined],
     ["/threads/123-slug?page=2", undefined],

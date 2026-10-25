@@ -1,10 +1,12 @@
 import { PICTURE_PARAM } from "@/components/forum/picture-ref";
-import { NOVEDADES_PATH } from "@/lib/home-tabs";
+import { WHATS_NEW_PATH } from "@/lib/home-tabs";
 import { PAGES_PARAM } from "@/lib/list-pages";
 
 // The home page used to be the feed, with the forum list as its Forums tab and on `/forums`
 // (where `tab` named a section). The home page is now the forum list and the feed is on
-// `/novedades`; the old addresses go to their page for good, with the rest of their query.
+// `/whats-new`; the old addresses go to their page for good, with the rest of their query.
+// The feed was also served for a while under a Spanish name (`/novedades`), still in search
+// results and bookmarks: it and everything under it goes to the feed.
 
 // What only the feed reads on its page: the list's place and the filters of `feed-filters.ts`.
 const FEED_KEYS = [
@@ -19,6 +21,8 @@ const FEED_KEYS = [
   "unread",
 ];
 
+const LEGACY_FEED = "/novedades";
+
 const withQuery = (path: string, params: URLSearchParams) => {
   const query = params.toString();
   return query ? `${path}?${query}` : path;
@@ -31,6 +35,8 @@ export function homeRedirectTarget(
   search: string,
 ): string | undefined {
   const params = new URLSearchParams(search);
+  if (pathname === LEGACY_FEED || pathname.startsWith(`${LEGACY_FEED}/`))
+    return withQuery(WHATS_NEW_PATH, params);
   if (pathname === "/forums" || pathname === "/forums/") {
     // `/forums?tab=x&stats=y` is `/?section=x&stats=y`.
     const section = params.getAll("tab");
@@ -46,6 +52,6 @@ export function homeRedirectTarget(
     return withQuery("/", params);
   }
   if (tab !== null || FEED_KEYS.some((key) => params.has(key)))
-    return withQuery(NOVEDADES_PATH, params);
+    return withQuery(WHATS_NEW_PATH, params);
   return undefined;
 }

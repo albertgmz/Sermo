@@ -51,12 +51,12 @@ describe("the default widgets", () => {
     const { ctx, admin, current } = setup();
     const draws = async (page: string) =>
       (await current(page)).map((item) => [item.position, item.type, item.options]);
-    expect(await draws("novedades")).toEqual([
-      ["novedades_above", "featured", {}],
-      ["novedades_sidebar", "rankedThreads", { by: "mostReacted", limit: 5 }],
-      ["novedades_sidebar", "rankedThreads", { by: "latestThreads", limit: 5 }],
-      ["novedades_sidebar", "suggestedMembers", { limit: 4 }],
-      ["novedades_sidebar", "forumLinks", { limit: 6 }],
+    expect(await draws("whats_new")).toEqual([
+      ["whats_new_above", "featured", {}],
+      ["whats_new_sidebar", "rankedThreads", { by: "mostReacted", limit: 5 }],
+      ["whats_new_sidebar", "rankedThreads", { by: "latestThreads", limit: 5 }],
+      ["whats_new_sidebar", "suggestedMembers", { limit: 4 }],
+      ["whats_new_sidebar", "forumLinks", { limit: 6 }],
     ]);
     // The forum statistics are there, off while the old setting is off, and nothing else is.
     const all = await run(ctx, "widgets.list", admin);
@@ -114,7 +114,7 @@ describe("widgets.current", () => {
     clear();
     await create({ position: "forum_list_top", type: "forumStats" });
     expect((await current("home")).map((i) => i.position)).toEqual(["forum_list_top"]);
-    expect(await current("novedades")).toEqual([]);
+    expect(await current("whats_new")).toEqual([]);
   });
 
   test("a page draws its own positions and the global ones, in drawing order", async () => {
@@ -124,8 +124,8 @@ describe("widgets.current", () => {
     await make("sidebar_bottom");
     await make("forum_list_sidebar");
     await make("overview_top");
-    await make("novedades_above");
-    await make("novedades_sidebar");
+    await make("whats_new_above");
+    await make("whats_new_sidebar");
     await make("forum_view_sidebar");
     await make("members_sidenav");
     await make("sidebar_top");
@@ -139,11 +139,11 @@ describe("widgets.current", () => {
       "sidebar_bottom",
     ]);
     expect((await current("home"))[1]!.type).toBe("birthdays");
-    expect(await positions("novedades")).toEqual([
+    expect(await positions("whats_new")).toEqual([
       "overview_top",
       "overview_top",
-      "novedades_above",
-      "novedades_sidebar",
+      "whats_new_above",
+      "whats_new_sidebar",
       "sidebar_top",
       "sidebar_bottom",
     ]);
@@ -533,9 +533,9 @@ describe("widgets management", () => {
     expect(await ids("home", admin)).toEqual([original.id, other.id, copy.id]);
     const elsewhere = await run(ctx, "widgets.duplicate", admin, {
       widgetId: original.id,
-      position: "novedades_sidebar",
+      position: "whats_new_sidebar",
     });
-    expect(elsewhere).toMatchObject({ position: "novedades_sidebar", displayOrder: 0 });
+    expect(elsewhere).toMatchObject({ position: "whats_new_sidebar", displayOrder: 0 });
     expect(await ids("home", admin)).toEqual([original.id, other.id, copy.id]);
     await expect(run(ctx, "widgets.duplicate", admin, { widgetId: 99999 })).rejects.toMatchObject({
       name: "NotFoundError",

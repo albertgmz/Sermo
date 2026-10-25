@@ -72,7 +72,7 @@ describe("the plan from XenForo's rows", () => {
   test("each placed widget lands in the Sermo position of its XenForo one, in display order, ties by id", () => {
     expect(placement(plan)).toEqual([
       "forum_list_top:forumStats",
-      "novedades_above:text",
+      "whats_new_above:text",
       "forum_list_sidebar:visitorCard",
       "forum_list_sidebar:topReferrers",
       "forum_list_sidebar:referralLink",
@@ -97,11 +97,11 @@ describe("the plan from XenForo's rows", () => {
     expect(byType("forumStats").options).toEqual({ limit: 10, topPosters: true });
   });
 
-  test("trending never lands in novedades_sidebar, and what has no Sermo widget is listed as skipped", () => {
-    expect(plan.widgets.some((w) => w.position === "novedades_sidebar")).toBe(false);
+  test("trending never lands in whats_new_sidebar, and what has no Sermo widget is listed as skipped", () => {
+    expect(plan.widgets.some((w) => w.position === "whats_new_sidebar")).toBe(false);
     const reasons = plan.skipped.map((s) => `${s.source}: ${s.reason}`);
     expect(reasons).toContain(
-      "trending (trending_content) in whats_new_sidebar: no Trending in novedades_sidebar (owner)",
+      "trending (trending_content) in whats_new_sidebar: no Trending in whats_new_sidebar (owner)",
     );
     expect(reasons).toContain("unplaced (birthdays): not placed on any page");
     expect(reasons).toContain("newest (newest_members): no Sermo widget of this kind");
@@ -122,7 +122,7 @@ describe("fcuba's real snapshot", () => {
   test("places the widgets of fcuba's layout, statistics first at the top and no Trending or Latest threads in the feed sidebar", () => {
     expect(placement(plan)).toEqual([
       "forum_list_top:forumStats",
-      "novedades_above:text",
+      "whats_new_above:text",
       "overview_top:featured",
       "forum_list_below:recentlyActive",
       "forum_list_sidebar:visitorCard",
@@ -131,8 +131,8 @@ describe("fcuba's real snapshot", () => {
       "forum_list_sidebar:topReferrers",
       "forum_list_sidebar:rankedThreads",
       "forum_list_sidebar:birthdays",
-      "novedades_sidebar:monthStandings",
-      "novedades_sidebar:recentlyActive",
+      "whats_new_sidebar:monthStandings",
+      "whats_new_sidebar:recentlyActive",
       "overview_bottom:siteTotals",
     ]);
   });
@@ -245,7 +245,7 @@ describe("placing the widgets on a site", () => {
       "birthdays",
     ]);
     expect(
-      all.filter((w) => w.isEnabled && w.position === "novedades_sidebar").map((w) => w.type),
+      all.filter((w) => w.isEnabled && w.position === "whats_new_sidebar").map((w) => w.type),
     ).toEqual(["monthStandings", "recentlyActive"]);
     expect((await s.api("GET", "/settings")).feedExcludedForumIds).toEqual([s.archive.id]);
 

@@ -193,7 +193,7 @@ test("a built-in entry that still has its seeded title is drawn in the visitor's
           : {
               header: [
                 entry(1, "Forums", "header.home"),
-                entry(2, "Start", "header.novedades"),
+                entry(2, "Start", "header.whats_new"),
                 entry(3, "Forums", null),
               ],
               mobile: [entry(4, "Log in", "mobile.login")],
@@ -241,12 +241,13 @@ test("the English titles are the ones the migrations seed", () => {
   // entry to What's new and puts What's new in the phone bar's Profile place.
   seeded.set("header.home", "Forums");
   seeded.delete("header.forums");
-  seeded.set("header.novedades", "What's new");
+  seeded.set("header.whats_new", "What's new");
   seeded.delete("mobile.profile");
-  seeded.set("mobile.novedades", "What's new");
+  seeded.set("mobile.whats_new", "What's new");
   const camel = (key: string) =>
     key
       .split(".")
+      .flatMap((part) => part.split("_"))
       .map((part, index) =>
         index === 0 ? part : (part[0] as string).toUpperCase() + part.slice(1),
       )

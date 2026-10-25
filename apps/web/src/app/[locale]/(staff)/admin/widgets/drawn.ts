@@ -30,6 +30,6 @@ export const POSITIONS_IN_ORDER: readonly Position[] = [
 // The address of each page that draws widgets and has one of its own, to look at one.
 export const PAGE_ADDRESSES: Partial<Record<Page, string>> = {
   home: "/",
-  novedades: "/novedades",
+  whats_new: "/whats-new",
   members: "/members",
 };

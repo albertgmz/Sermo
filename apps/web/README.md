@@ -45,7 +45,7 @@ serves from.
 | Path | What it is |
 | --- | --- |
 | `src/lib/sermo/` | The only code that talks to the API (calls, session, errors, view shapes). |
-| `src/app/[locale]/(main)` | The site: the forum list on `/`, What's new on `/novedades`, forums, threads, members, conversations, the account pages. |
+| `src/app/[locale]/(main)` | The site: the forum list on `/`, What's new on `/whats-new`, forums, threads, members, conversations, the account pages. |
 | `src/app/[locale]/(auth)` | Sign-in, registration, password reset and email verification. |
 | `src/app/[locale]/(staff)` | The administration (`/admin`) and moderation (`/moderation`) panel. |
 | `src/app/[locale]/(developer)` | The public API reference at `/developer`. |

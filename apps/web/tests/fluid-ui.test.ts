@@ -36,8 +36,8 @@ const TAB_BARS: Record<string, { switch: string } | { pages: string }> = {
   [`${MAIN}/members/[id]/sections.tsx`]: {
     switch: `${MAIN}/members/[id]/page.tsx`,
   },
-  [`${MAIN}/novedades/feed-column.tsx`]: {
-    switch: `${MAIN}/novedades/page.tsx`,
+  [`${MAIN}/whats-new/feed-column.tsx`]: {
+    switch: `${MAIN}/whats-new/page.tsx`,
   },
   [`${MAIN}/forums/forum-list.tsx`]: {
     switch: `${MAIN}/forums/forum-list.tsx`,

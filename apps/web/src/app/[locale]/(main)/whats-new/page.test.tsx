@@ -8,7 +8,7 @@ import {
   test,
 } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
-import { NOVEDADES_WIDGETS, widgetBody } from "@/lib/test-bodies";
+import { WHATS_NEW_WIDGETS, widgetBody } from "@/lib/test-bodies";
 import { translator, withIntl } from "@/lib/test-intl";
 import { withQuery } from "@/lib/test-query";
 import { viewerBody } from "@/lib/test-viewer";
@@ -33,7 +33,7 @@ mock.module("next/headers", () => ({
 }));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
-const { default: NovedadesPage } = await import("./page");
+const { default: WhatsNewPage } = await import("./page");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -57,7 +57,7 @@ function backend({
   own = null,
   siteFails = false,
   canPost = false,
-  widgets = NOVEDADES_WIDGETS,
+  widgets = WHATS_NEW_WIDGETS,
 }: {
   member: boolean;
   siteTab?: string;
@@ -92,7 +92,7 @@ async function render(searchParams: Record<string, string> = {}) {
   const stream = await renderToReadableStream(
     withQuery(
       withIntl(
-        <NovedadesPage
+        <WhatsNewPage
           params={Promise.resolve({ locale: "en" })}
           searchParams={Promise.resolve(searchParams)}
         />,
@@ -140,7 +140,7 @@ test("a guest whose default cannot be read gets Latest, not an error page", asyn
   expect(asked.find((entry) => entry.path === FEED)?.search.get("scope")).toBe(
     "latest",
   );
-  expect(html).toContain('href="/novedades?tab=hot"');
+  expect(html).toContain('href="/whats-new?tab=hot"');
 });
 
 test("the featured threads and the wall composer are asked for on the feed tabs only", async () => {
@@ -159,7 +159,7 @@ test("the page asks for its own widgets, and draws the featured threads only whe
   await render({ tab: "latest" });
   expect(
     asked.find((entry) => entry.path === "/api/v1/widgets")?.search.get("page"),
-  ).toBe("novedades");
+  ).toBe("whats_new");
   backend({ member: true, widgets: [] });
   const html = await render({ tab: "latest" });
   expect(paths()).not.toContain(FEATURED);
@@ -180,10 +180,10 @@ test("a forum statistics widget keeps the open tab and its filter on its tab lin
     cursor: "abc",
   });
   expect(html).toContain(
-    'href="/novedades?tab=hot&amp;forums=3&amp;stats=threads"',
+    'href="/whats-new?tab=hot&amp;forums=3&amp;stats=threads"',
   );
   // The first statistics tab is the bare address of the view.
-  expect(html).toContain('href="/novedades?tab=hot&amp;forums=3"');
+  expect(html).toContain('href="/whats-new?tab=hot&amp;forums=3"');
   const rankings = asked.filter(
     (entry) => entry.path === "/api/v1/thread-rankings",
   );
@@ -231,7 +231,7 @@ test("a guest who asks for following, or whose default is it, gets latest", asyn
   expect(asked.find((entry) => entry.path === FEED)?.search.get("scope")).toBe(
     "latest",
   );
-  expect(html).not.toContain('href="/novedades?tab=following"');
+  expect(html).not.toContain('href="/whats-new?tab=following"');
 });
 
 // The two bars of the page: the phone's, hidden from `md`, and the wider screens', hidden below it.
@@ -246,12 +246,12 @@ function bars(html: string) {
   return { phone: of("md:hidden"), wide: of("max-md:hidden") };
 }
 const linked = (bar: string) =>
-  [...bar.matchAll(/href="\/novedades\?tab=(\w+)"/g)].map(([, tab]) => tab);
+  [...bar.matchAll(/href="\/whats-new\?tab=(\w+)"/g)].map(([, tab]) => tab);
 
 test("the bar shows three tabs and the rest are in a More menu; the open tab is always shown", async () => {
   backend({ member: true });
   const html = bars(await render({ tab: "media" })).wide;
-  const bar = (tab: string) => html.includes(`href="/novedades?tab=${tab}"`);
+  const bar = (tab: string) => html.includes(`href="/whats-new?tab=${tab}"`);
   // Latest and Hot stay, Media takes the place of the last one; Following is behind the menu,
   // which is closed.
   expect([bar("latest"), bar("hot"), bar("media")]).toEqual([true, true, true]);
@@ -283,12 +283,12 @@ test("a filter in the address narrows the feed and is shown as chips that take e
   expect(html).toContain("Filters (7)");
   // Each chip leads to the same view without its field.
   expect(html).toContain(
-    'href="/novedades?tab=latest&amp;forums=3%2C4&amp;prefix=2&amp;type=sticky&amp;watched=1&amp;unread=1"',
+    'href="/whats-new?tab=latest&amp;forums=3%2C4&amp;prefix=2&amp;type=sticky&amp;watched=1&amp;unread=1"',
   );
   expect(html).toContain(
-    'href="/novedades?tab=latest&amp;forums=4&amp;prefix=2&amp;type=sticky&amp;tag=rust&amp;watched=1&amp;unread=1"',
+    'href="/whats-new?tab=latest&amp;forums=4&amp;prefix=2&amp;type=sticky&amp;tag=rust&amp;watched=1&amp;unread=1"',
   );
-  expect(html).toContain('href="/novedades?tab=latest"');
+  expect(html).toContain('href="/whats-new?tab=latest"');
   expect(html).toContain("No threads match these filters");
 });
 

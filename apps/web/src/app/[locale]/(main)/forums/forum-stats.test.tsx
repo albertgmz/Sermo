@@ -411,12 +411,12 @@ test("the top posters are read only where the panel can span the page", async ()
   expect(on(stats("forum_list_above"))).toBe(true);
   expect(on(stats("forum_list_above"), [side])).toBe(false);
   expect(
-    on(stats("novedades_above"), [
+    on(stats("whats_new_above"), [
       widgetBody({ id: 3, position: "sidebar_bottom", type: "forumLinks" }),
     ]),
   ).toBe(false);
   // A sidebar is never wide enough.
-  expect(on(stats("novedades_sidebar"))).toBe(false);
+  expect(on(stats("whats_new_sidebar"))).toBe(false);
   expect(on(stats("sidebar_top"))).toBe(false);
 });
 

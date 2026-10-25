@@ -547,6 +547,13 @@
       "when": 1792887510439,
       "tag": "0077_welcome_message",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "6",
+      "when": 1792894287097,
+      "tag": "0078_english_widget_and_menu_keys",
+      "breakpoints": true
     }
   ]
 }

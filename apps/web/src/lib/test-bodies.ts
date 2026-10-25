@@ -251,24 +251,24 @@ export function widgetBody<K extends keyof typeof WIDGET_OPTIONS>({
 
 // The widgets a new site starts with on the feed page: the featured threads above the feed and the
 // four side blocks.
-export const NOVEDADES_WIDGETS = [
-  widgetBody({ id: 2, position: "novedades_above", type: "featured" }),
+export const WHATS_NEW_WIDGETS = [
+  widgetBody({ id: 2, position: "whats_new_above", type: "featured" }),
   widgetBody({
     id: 3,
-    position: "novedades_sidebar",
+    position: "whats_new_sidebar",
     type: "rankedThreads",
     options: { by: "mostReacted", limit: 5 },
   }),
   widgetBody({
     id: 4,
-    position: "novedades_sidebar",
+    position: "whats_new_sidebar",
     type: "rankedThreads",
     options: { by: "latestThreads", limit: 5 },
   }),
   widgetBody({
     id: 5,
-    position: "novedades_sidebar",
+    position: "whats_new_sidebar",
     type: "suggestedMembers",
   }),
-  widgetBody({ id: 6, position: "novedades_sidebar", type: "forumLinks" }),
+  widgetBody({ id: 6, position: "whats_new_sidebar", type: "forumLinks" }),
 ];

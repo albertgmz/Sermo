@@ -31,7 +31,7 @@ const item = (id: number, title: string, builtin: string, href: string) => ({
 // A member's bar: Home, What's new, Messages, Alerts.
 const items = [
   item(1, "Home", "mobile.home", "/"),
-  item(2, "What's new", "mobile.novedades", "/novedades"),
+  item(2, "What's new", "mobile.whats_new", "/whats-new"),
   item(3, "Messages", "mobile.messages", "/conversations"),
   item(4, "Alerts", "mobile.alerts", "/notifications"),
 ];
@@ -82,7 +82,7 @@ test("nothing unread, no number; the other entries never carry one", () => {
   expect(html).not.toContain("unread");
   const busy = bar(4, 4);
   expect(entry(busy, "/")).not.toContain("count-badge");
-  expect(entry(busy, "/novedades")).not.toContain("count-badge");
+  expect(entry(busy, "/whats-new")).not.toContain("count-badge");
 });
 
 test("Messages wears the same envelope as the header's Messages button", () => {
@@ -95,7 +95,7 @@ const shipped = (member: boolean) =>
     toNavItems(
       [
         ["Home", "mobile.home", "/"],
-        ["What's new", "mobile.novedades", "/novedades"],
+        ["What's new", "mobile.whats_new", "/whats-new"],
         ...(member
           ? [
               ["Messages", "mobile.messages", "/conversations"],
@@ -144,14 +144,14 @@ const current = (html: string) =>
 test("a member's bar is Home, What's new, +, Messages and Alerts; a guest's is Home, What's new, + and Log in", () => {
   expect(order(drawn(true))).toEqual([
     "/",
-    "/novedades",
+    "/whats-new",
     "+",
     "/conversations",
     "/notifications",
   ]);
   const guest = order(drawn(false));
   expect(guest[0]).toBe("/");
-  expect(guest[1]).toBe("/novedades");
+  expect(guest[1]).toBe("/whats-new");
   expect(guest.at(-1)).toBe("/login");
   expect(guest).toHaveLength(4);
   expect(drawn(true)).toContain("lucide-newspaper");
@@ -160,7 +160,7 @@ test("a member's bar is Home, What's new, +, Messages and Alerts; a guest's is H
 test("Home is current on the forum list, a forum and a thread; What's new on its own page", () => {
   for (const at of ["/", "/forums/3-garden", "/threads/1-a"])
     expect(current(drawn(true, at)), at).toEqual(["/"]);
-  expect(current(drawn(true, "/novedades"))).toEqual(["/novedades"]);
-  expect(current(drawn(false, "/novedades"))).toEqual(["/novedades"]);
+  expect(current(drawn(true, "/whats-new"))).toEqual(["/whats-new"]);
+  expect(current(drawn(false, "/whats-new"))).toEqual(["/whats-new"]);
   expect(current(drawn(true, "/members"))).toEqual([]);
 });

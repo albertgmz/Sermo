@@ -54,20 +54,20 @@ test("a path is current for itself and its sub-paths; the root only for itself",
 });
 
 test("Home is the forum list: it also matches a forum and a thread; What's new matches its own page", () => {
-  const [mobileHome, novedades] = toNavItems([
+  const [mobileHome, whatsNew] = toNavItems([
     entry("mobile.home", "/"),
-    entry("mobile.novedades", "/novedades"),
+    entry("mobile.whats_new", "/whats-new"),
   ]);
   for (const entry of [home, mobileHome]) {
     expect(isCurrent("/", entry)).toBe(true);
     expect(isCurrent("/forums/3-garden", entry)).toBe(true);
     expect(isCurrent("/threads/1", entry)).toBe(true);
-    expect(isCurrent("/novedades", entry)).toBe(false);
+    expect(isCurrent("/whats-new", entry)).toBe(false);
     expect(isCurrent("/members", entry)).toBe(false);
   }
-  expect(isCurrent("/novedades", novedades)).toBe(true);
-  expect(isCurrent("/", novedades)).toBe(false);
-  expect(isCurrent("/threads/1", novedades)).toBe(false);
+  expect(isCurrent("/whats-new", whatsNew)).toBe(true);
+  expect(isCurrent("/", whatsNew)).toBe(false);
+  expect(isCurrent("/threads/1", whatsNew)).toBe(false);
   expect(isCurrent("/threads/1", custom)).toBe(false);
 });
 

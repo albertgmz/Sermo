@@ -31,7 +31,7 @@ const widget = (id: number) => ({
   id,
   type: "featured",
   options: {},
-  position: "novedades_above",
+  position: "whats_new_above",
   displayOrder: 0,
   title: null,
   phones: true,
@@ -46,7 +46,7 @@ const fields = (extra: [string, string][] = []): [string, string][] => [
   ...(
     [
       ["type", "forumStats"],
-      ["position", "novedades_above"],
+      ["position", "whats_new_above"],
       ["title", "  Busiest  "],
       ["rule", JSON.stringify(NO_RULE)],
       ["isEnabled", "on"],
@@ -63,7 +63,7 @@ test("a new widget is sent with its position, type, typed options, switches and 
   const digest = await redirectedTo(() => createWidget(null, form(fields())));
   expect(digest).toMatch(/;\/admin\/widgets\/9\?notice=added;/);
   expect(backend.asked[0]?.body).toEqual({
-    position: "novedades_above",
+    position: "whats_new_above",
     type: "forumStats",
     options: { limit: 8, topPosters: true },
     title: "Busiest",
@@ -247,7 +247,7 @@ test("the order is the widgets sorted by their numbers, for the position of the 
     saveOrder(
       null,
       form([
-        ["position", "novedades_sidebar"],
+        ["position", "whats_new_sidebar"],
         ["order.5", "30"],
         ["order.7", "10"],
         ["order.6", "20"],
@@ -256,7 +256,7 @@ test("the order is the widgets sorted by their numbers, for the position of the 
   );
   expect(digest).toMatch(/;\/admin\/widgets\?notice=ordered;/);
   expect(backend.asked[0]?.body).toEqual({
-    position: "novedades_sidebar",
+    position: "whats_new_sidebar",
     ids: [7, 6, 5],
   });
 });

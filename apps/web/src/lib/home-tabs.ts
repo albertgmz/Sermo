@@ -7,7 +7,7 @@ export { HOME_TABS };
 export type HomeTab = (typeof HOME_TABS)[number];
 
 // The address of the feed page. The home page (`/`) is the forum list.
-export const NOVEDADES_PATH = "/novedades";
+export const WHATS_NEW_PATH = "/whats-new";
 
 // How many tabs the bar shows; the rest are in the "More" menu.
 export const PINNED_TABS = 3;
@@ -91,5 +91,5 @@ export function phoneBarOf({
 export function homeHref(tab: HomeTab, cursor?: string) {
   const params = new URLSearchParams({ tab });
   if (cursor) params.set("cursor", cursor);
-  return `${NOVEDADES_PATH}?${params.toString()}`;
+  return `${WHATS_NEW_PATH}?${params.toString()}`;
 }

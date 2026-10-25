@@ -90,7 +90,7 @@ describe("site chrome schema matches the migration", () => {
     ]);
     expect(shown).toEqual([
       ["header.home", "header", null, "Forums", "/", 0, "everyone"],
-      ["header.novedades", "header", null, "What's new", "/novedades", 1, "everyone"],
+      ["header.whats_new", "header", null, "What's new", "/whats-new", 1, "everyone"],
       ["header.members", "header", null, "Members", "/members", 2, "everyone"],
       ["account.upgrade", "account", null, "Upgrade", "/upgrade", 2, "members"],
       ["header.awards", "header", null, "Awards", "/awards", 4, "everyone"],
@@ -98,7 +98,7 @@ describe("site chrome schema matches the migration", () => {
       ["mobile.home", "mobile", null, "Home", "/", 0, "everyone"],
       ["mobile.messages", "mobile", null, "Messages", "/conversations", 3, "members"],
       ["mobile.alerts", "mobile", null, "Alerts", "/notifications", 4, "members"],
-      ["mobile.novedades", "mobile", null, "What's new", "/novedades", 1, "everyone"],
+      ["mobile.whats_new", "mobile", null, "What's new", "/whats-new", 1, "everyone"],
       ["mobile.login", "mobile", null, "Log in", "/login", 6, "guests"],
       ["account.profile", "account", null, "Profile", "/account", 0, "members"],
       ["account.settings", "account", null, "Account", "/account", 1, "members"],

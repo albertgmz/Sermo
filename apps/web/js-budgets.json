@@ -6,8 +6,8 @@
       "maxBytes": 317000
     },
     {
-      "name": "novedades",
-      "match": "^/\\[locale\\]/\\(main\\)/novedades$",
+      "name": "whats-new",
+      "match": "^/\\[locale\\]/\\(main\\)/whats-new$",
       "maxBytes": 317000
     },
     {

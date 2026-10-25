@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import {
   type HomeTab,
   homeHref,
-  NOVEDADES_PATH,
   tabParam,
+  WHATS_NEW_PATH,
 } from "@/lib/home-tabs";
 import { REFERRAL_PARAM } from "@/lib/referral/link";
 
@@ -27,7 +27,7 @@ const keysOf = (params: Params) =>
     (key) => params[key] !== undefined && !ignored(key),
   );
 
-// The canonical address of the feed tab `/novedades` shows, and whether the address asked for is
+// The canonical address of the feed tab `/whats-new` shows, and whether the address asked for is
 // the one to index. The bare address is the canonical of the tab guests open on (a guest never
 // opens Following, so Latest stands in for it); every other tab has its named address. An address
 // with anything beyond a valid `tab` (a cursor, `pages`, a feed filter, a picture) or a `tab` the
@@ -44,7 +44,7 @@ export function homeAddress({
   params: Params;
 }): HomeAddress {
   const landing = guestTab === "following" ? "latest" : guestTab;
-  const path = opened === landing ? NOVEDADES_PATH : homeHref(opened);
+  const path = opened === landing ? WHATS_NEW_PATH : homeHref(opened);
   const named = tabParam(params.tab);
   const keys = keysOf(params);
   const plain =

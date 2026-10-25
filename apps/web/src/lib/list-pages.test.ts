@@ -102,7 +102,7 @@ test("the place is written with the browser's own method and the entry's state, 
   Object.assign(history, {
     replaceState: (...args: unknown[]) => restores.push(args),
   });
-  writePlace(history, "/novedades?pages=2");
+  writePlace(history, "/whats-new?pages=2");
   expect(restores).toEqual([]);
-  expect(written).toEqual([[{ __NA: true }, "", "/novedades?pages=2"]]);
+  expect(written).toEqual([[{ __NA: true }, "", "/whats-new?pages=2"]]);
 });

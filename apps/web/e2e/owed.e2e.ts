@@ -269,7 +269,7 @@ test.describe("signed in", () => {
   test("the compact feed list is kept over a reload and every row fits @all", async ({
     page,
   }) => {
-    await visit(page, "/novedades");
+    await visit(page, "/whats-new");
     // The toggle saves the choice with a server action and then loads the page again. A reload of
     // the test's own before that is done would cancel the save, or collide with the page's reload
     // (the large forum answers slowly), so the test waits until the document it marked is gone.
@@ -348,7 +348,7 @@ test.describe("signed in", () => {
   test("the feed filter sheet opens inside the screen, applies a forum and clears @all", async ({
     page,
   }) => {
-    await visit(page, "/novedades");
+    await visit(page, "/whats-new");
     await page.getByRole("button", { name: "Filters" }).click();
     const sheet = page.getByRole("dialog", { name: "Filter the feed" });
     await expect(sheet).toBeVisible();
@@ -490,15 +490,15 @@ test.describe("guest", () => {
         og: /<meta property="og:/.test(html),
       };
     };
-    const latest = await head("/novedades");
-    const hot = await head("/novedades?tab=hot");
+    const latest = await head("/whats-new");
+    const hot = await head("/whats-new?tab=hot");
     expect(hot.title).not.toBe(latest.title);
-    expect(hot.canonical).toBe(`${baseURL}/novedades?tab=hot`);
+    expect(hot.canonical).toBe(`${baseURL}/whats-new?tab=hot`);
     expect(hot.robots).toMatch(/^index/);
-    const paged = await head("/novedades?tab=hot&cursor=x");
+    const paged = await head("/whats-new?tab=hot&cursor=x");
     expect(paged.robots).toMatch(/^noindex/);
-    expect(paged.canonical).toBe(`${baseURL}/novedades?tab=hot`);
-    const following = await head("/novedades?tab=following");
+    expect(paged.canonical).toBe(`${baseURL}/whats-new?tab=hot`);
+    const following = await head("/whats-new?tab=following");
     expect(following.robots).toMatch(/^noindex/);
     // The public tabs carry a share card (`publicHead`). A guest who asks for Following gets a
     // copy of Latest, so it has the card too; only a member's own list has none (unit-tested).
@@ -509,7 +509,7 @@ test.describe("guest", () => {
         following: true,
       },
     );
-    const spanish = await head("/novedades?tab=hot", "es");
+    const spanish = await head("/whats-new?tab=hot", "es");
     expect(spanish.title).not.toBe(hot.title);
   });
 });

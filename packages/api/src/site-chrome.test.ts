@@ -131,10 +131,10 @@ test("pages are read by slug, written with PUT and hidden while unpublished", as
 
 test("widgets are read by page without signing in; the rest needs admin.widgets", async () => {
   const { request, admin, member } = await setup();
-  const guest = await request("/api/v1/widgets?page=novedades");
+  const guest = await request("/api/v1/widgets?page=whats_new");
   expect(guest.status).toBe(200);
   const shown = (await guest.json()) as { items: { position: string; type: string }[] };
-  expect(shown.items.some((item) => item.position === "novedades_sidebar")).toBe(true);
+  expect(shown.items.some((item) => item.position === "whats_new_sidebar")).toBe(true);
   expect((await request("/api/v1/widgets?page=nowhere")).status).toBe(400);
 
   expect((await request("/api/v1/widgets/all")).status).toBe(401);

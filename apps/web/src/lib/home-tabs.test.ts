@@ -23,12 +23,12 @@ test("the address names a tab or none: top and forums are no longer names", () =
 
 test("every tab has a stable address on the feed page that names it", () => {
   expect(HOME_TABS.map((tab) => homeHref(tab))).toEqual([
-    "/novedades?tab=latest",
-    "/novedades?tab=hot",
-    "/novedades?tab=following",
-    "/novedades?tab=media",
+    "/whats-new?tab=latest",
+    "/whats-new?tab=hot",
+    "/whats-new?tab=following",
+    "/whats-new?tab=media",
   ]);
-  expect(homeHref("media", "a b")).toBe("/novedades?tab=media&cursor=a+b");
+  expect(homeHref("media", "a b")).toBe("/whats-new?tab=media&cursor=a+b");
 });
 
 test("a tab in the address wins; otherwise the visitor's default opens", () => {

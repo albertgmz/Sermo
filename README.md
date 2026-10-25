@@ -40,7 +40,7 @@ million posts.
   hidden or restored. Unread tracking per thread, bookmarks, watched threads and forums.
 - Full-text search (SQLite FTS5), Atom feeds, sitemaps, `llms.txt`, a Markdown copy of public
   threads, IndexNow and structured data.
-- What's new (`/novedades`): Latest, Hot, Following and Media tabs beside the forum list on `/`.
+- What's new (`/whats-new`): Latest, Hot, Following and Media tabs beside the forum list on `/`.
 
 **Editor**
 - A rich editor (Lexical) that reads and writes BB code, XenForo's tag set: quotes with their

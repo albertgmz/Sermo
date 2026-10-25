@@ -241,7 +241,7 @@ test.describe("signed in", () => {
   test("a feed tab opens in place: the composer and the side column stay as they are @all", async ({
     page,
   }) => {
-    await visit(page, "/novedades?tab=latest");
+    await visit(page, "/whats-new?tab=latest");
     const bar = page
       .getByRole("navigation", { name: "What's new tabs" })
       .and(page.locator(":visible"));
@@ -303,7 +303,7 @@ test.describe("signed in, lists on bare addresses", () => {
   test("Load more on the bare feed address appends in place @all", async ({
     page,
   }) => {
-    await loadMoreAppends(page, "/novedades");
+    await loadMoreAppends(page, "/whats-new");
   });
 
   test("Load more on the bare credits address appends shop items in place @all", async ({

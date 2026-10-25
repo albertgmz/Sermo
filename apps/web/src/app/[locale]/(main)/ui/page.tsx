@@ -225,7 +225,7 @@ const TOKENS = [
 const NAV_SAMPLES = toNavItems(
   [
     ["header.home", "Forums", "/"],
-    ["header.novedades", "What's new", "/novedades"],
+    ["header.whats_new", "What's new", "/whats-new"],
     ["header.members", "Members", "/members"],
     ["header.awards", "Awards", "/awards"],
     ["header.credits", "Credits", "/credits"],

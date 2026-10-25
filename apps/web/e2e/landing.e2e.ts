@@ -405,7 +405,7 @@ async function scrolledTo(page: Page, link: Locator) {
 // Opens the feed's pages, newest first, until one holds the link: the seed's thread can be below
 // a page of newer items.
 async function feedPageWith(page: Page, link: Locator) {
-  await page.goto("/novedades");
+  await page.goto("/whats-new");
   for (let pages = 0; pages < 10; pages += 1) {
     await ready(page);
     if (await scrolledTo(page, link)) return;

@@ -116,7 +116,7 @@ test("the feed page is shared under the title of its tab, with the site's card a
     type: "website",
     title: "Trending threads",
     description: hot,
-    url: "http://localhost:3000/novedades",
+    url: "http://localhost:3000/whats-new",
     siteName: "Garden Club",
     locale: "en_US",
     images: [card],
@@ -139,11 +139,11 @@ test("the feed page is shared under the title of its tab, with the site's card a
   const latest = await head({ tab: "latest" });
   expect(latest.openGraph?.title).toBe("Últimos temas y publicaciones");
   expect(latest.openGraph?.url).toBe(
-    "http://localhost:3000/novedades?tab=latest",
+    "http://localhost:3000/whats-new?tab=latest",
   );
   expect(latest.openGraph?.locale).toBe("es_ES");
   expect(latest.alternates?.canonical).toBe(
-    "http://localhost:3000/novedades?tab=latest",
+    "http://localhost:3000/whats-new?tab=latest",
   );
 });
 
@@ -169,13 +169,13 @@ test("the texts are in the page language", async () => {
 test("the bare address is the canonical of the guests' tab; the others are named", async () => {
   backend({ siteTab: "hot" });
   expect((await head()).alternates?.canonical).toBe(
-    "http://localhost:3000/novedades",
+    "http://localhost:3000/whats-new",
   );
   expect((await head({ tab: "hot" })).alternates?.canonical).toBe(
-    "http://localhost:3000/novedades",
+    "http://localhost:3000/whats-new",
   );
   expect((await head({ tab: "latest" })).alternates?.canonical).toBe(
-    "http://localhost:3000/novedades?tab=latest",
+    "http://localhost:3000/whats-new?tab=latest",
   );
   expect((await head()).title).toBe("Trending threads");
 });
@@ -196,7 +196,7 @@ test("a paged, filtered or picture address is noindex and points at the tab", as
       follow: true,
     });
     expect(metadata.alternates?.canonical).toBe(
-      "http://localhost:3000/novedades?tab=hot",
+      "http://localhost:3000/whats-new?tab=hot",
     );
   }
   expect((await head({ tab: "hot" })).robots).toEqual({
@@ -210,12 +210,12 @@ test("Following is never indexed, and a guest who asks for it gets a copy of Lat
   const own = await head({ tab: "following" });
   expect(own.robots).toEqual({ index: false, follow: true });
   expect(own.alternates?.canonical).toBe(
-    "http://localhost:3000/novedades?tab=following",
+    "http://localhost:3000/whats-new?tab=following",
   );
   backend();
   const guest = await head({ tab: "following" });
   expect(guest.robots).toEqual({ index: false, follow: true });
-  expect(guest.alternates?.canonical).toBe("http://localhost:3000/novedades");
+  expect(guest.alternates?.canonical).toBe("http://localhost:3000/whats-new");
   expect(guest.title).toBe("Latest threads and posts");
 });
 
@@ -231,12 +231,12 @@ test("a member whose own tab differs gets the head of the tab shown; a guest doe
   const member = await head();
   expect(member.title).toBe("Trending threads");
   expect(member.alternates?.canonical).toBe(
-    "http://localhost:3000/novedades?tab=hot",
+    "http://localhost:3000/whats-new?tab=hot",
   );
   backend({ siteTab: "latest" });
   const guest = await head();
   expect(guest.title).toBe("Latest threads and posts");
-  expect(guest.alternates?.canonical).toBe("http://localhost:3000/novedades");
+  expect(guest.alternates?.canonical).toBe("http://localhost:3000/whats-new");
 });
 
 test("tracking parameters leave a plain tab address indexed", async () => {
@@ -244,6 +244,6 @@ test("tracking parameters leave a plain tab address indexed", async () => {
   const metadata = await head({ utm_source: "news", fbclid: "x", ref: "7" });
   expect(metadata.robots).toEqual({ index: true, follow: true });
   expect(metadata.alternates?.canonical).toBe(
-    "http://localhost:3000/novedades",
+    "http://localhost:3000/whats-new",
   );
 });

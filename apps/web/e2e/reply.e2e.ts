@@ -198,7 +198,7 @@ test("Tab enters the bar on one button and Shift+Tab leaves it, also once the ba
 test("where a composer takes no files, Image asks for a picture's address and puts it in as [IMG] @all", async ({
   page,
 }) => {
-  await visit(page, "/novedades");
+  await visit(page, "/whats-new");
   await page
     .getByRole("button", { name: "Reply", exact: true })
     .first()
@@ -306,7 +306,7 @@ test("the @ list offers members in the thread reply and in its BB code source, a
 test("the @ list offers members in a feed card's reply box @all", async ({
   page,
 }) => {
-  await visit(page, "/novedades");
+  await visit(page, "/whats-new");
   await page
     .getByRole("button", { name: "Reply", exact: true })
     .first()

@@ -50,14 +50,14 @@ export const scenarios: Scenario[] = [
     run: (env, i) => env.call("widgets.current", env.actors.member(i), { page: "home" }),
   },
   {
-    name: "widgets.current guest novedades",
+    name: "widgets.current guest whats-new",
     kind: "read",
-    run: (env) => env.call("widgets.current", env.actors.guest, { page: "novedades" }),
+    run: (env) => env.call("widgets.current", env.actors.guest, { page: "whats_new" }),
   },
   {
-    name: "widgets.current member novedades",
+    name: "widgets.current member whats-new",
     kind: "read",
-    run: (env, i) => env.call("widgets.current", env.actors.member(i), { page: "novedades" }),
+    run: (env, i) => env.call("widgets.current", env.actors.member(i), { page: "whats_new" }),
   },
   {
     name: "widgets.list",

@@ -5,7 +5,7 @@ import { parsePageId } from "./ids";
 // nothing of a direct message. Any page not named here is `page`.
 const BARE: Record<string, string> = {
   "": "forumList",
-  novedades: "latest",
+  "whats-new": "latest",
   online: "online",
   conversations: "conversations",
   search: "search",

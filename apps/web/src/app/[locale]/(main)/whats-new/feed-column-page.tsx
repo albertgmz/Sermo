@@ -1,7 +1,7 @@
 "use server";
 
 import type { ReactNode } from "react";
-import { feedColumnOf } from "@/app/[locale]/(main)/novedades/feed-column";
+import { feedColumnOf } from "@/app/[locale]/(main)/whats-new/feed-column";
 import { SermoError } from "@/lib/sermo/errors";
 
 // The feed's main column as the address with `search` draws it, for a tab or a filter changed in

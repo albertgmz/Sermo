@@ -83,11 +83,11 @@ test("a backend that fails or cannot be reached leaves the page without widgets,
             { error: { code: "internal", message: "Broken." } },
             { status: 500 },
           )) as unknown as typeof fetch;
-    expect(await getWidgets("novedades")).toEqual([]);
+    expect(await getWidgets("whats_new")).toEqual([]);
     globalThis.fetch = (async () => {
       throw new TypeError("fetch failed");
     }) as unknown as typeof fetch;
-    expect(await getWidgets("novedades")).toEqual([]);
+    expect(await getWidgets("whats_new")).toEqual([]);
     expect(
       log.mock.calls.filter(([line]) =>
         String(line).includes("widgets could not be read"),

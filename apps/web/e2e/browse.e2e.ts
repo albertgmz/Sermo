@@ -15,7 +15,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 test("a guest goes from the feed to the forum list, a forum, a thread, a profile and search @all", async ({
   page,
 }) => {
-  await visit(page, "/novedades");
+  await visit(page, "/whats-new");
   await rejectCookies(page);
   await expect(
     page.getByRole("heading", { name: "What's new", level: 1 }),

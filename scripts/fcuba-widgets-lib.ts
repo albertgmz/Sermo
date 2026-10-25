@@ -63,9 +63,9 @@ const POSITIONS: Record<string, string> = {
   forum_list_sidebar: "forum_list_sidebar",
   forum_view_sidebar: "forum_view_sidebar",
   category_view_sidebar: "forum_view_sidebar",
-  forum_new_posts_sidebar: "novedades_sidebar",
-  whats_new_sidebar: "novedades_sidebar",
-  whats_new_overview: "novedades_above",
+  forum_new_posts_sidebar: "whats_new_sidebar",
+  whats_new_sidebar: "whats_new_sidebar",
+  whats_new_overview: "whats_new_above",
   member_wrapper_sidenav: "members_sidenav",
 };
 
@@ -135,7 +135,7 @@ const parseJson = (text: string): Record<string, unknown> => {
 
 /**
  * The forum statistics panel is no XenForo widget: an add-on drew it full width above the forum
- * list. It opens `forum_list_top` (the home page only, not Novedades: the owner), with the members
+ * list. It opens `forum_list_top` (the home page only, not What's new: the owner), with the members
  * who post most.
  */
 const STATISTICS: PlannedWidget = {
@@ -200,12 +200,12 @@ export function planFromXenforo(snapshot: Snapshot): Plan {
         continue;
       }
       const mapped = mapper(parseJson(xf.options), xf, snapshot);
-      if (position === "novedades_sidebar" && mapped.type === "rankedThreads") {
-        skipped.push({ source: where, reason: "no Trending in novedades_sidebar (owner)" });
+      if (position === "whats_new_sidebar" && mapped.type === "rankedThreads") {
+        skipped.push({ source: where, reason: "no Trending in whats_new_sidebar (owner)" });
         continue;
       }
-      if (position === "novedades_above" && mapped.type !== "text") {
-        skipped.push({ source: where, reason: "novedades_above takes the guests' note only" });
+      if (position === "whats_new_above" && mapped.type !== "text") {
+        skipped.push({ source: where, reason: "whats_new_above takes the guests' note only" });
         continue;
       }
       const widget: PlannedWidget = {
@@ -271,11 +271,11 @@ export function widgetKey(w: {
  */
 const SEEDS: [string, string, object][] = [
   ["forum_list_above", "forumStats", { limit: 10, topPosters: false }],
-  ["novedades_above", "featured", {}],
-  ["novedades_sidebar", "rankedThreads", { by: "mostReacted", limit: 5 }],
-  ["novedades_sidebar", "rankedThreads", { by: "latestThreads", limit: 5 }],
-  ["novedades_sidebar", "suggestedMembers", { limit: 4 }],
-  ["novedades_sidebar", "forumLinks", { limit: 6 }],
+  ["whats_new_above", "featured", {}],
+  ["whats_new_sidebar", "rankedThreads", { by: "mostReacted", limit: 5 }],
+  ["whats_new_sidebar", "rankedThreads", { by: "latestThreads", limit: 5 }],
+  ["whats_new_sidebar", "suggestedMembers", { limit: 4 }],
+  ["whats_new_sidebar", "forumLinks", { limit: 6 }],
 ];
 const SEED_KEYS = new Set(
   SEEDS.map(([p, t, o]) =>

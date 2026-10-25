@@ -82,6 +82,8 @@ import {
 } from "@/lib/sermo/transport";
 import { viewerOf } from "@/lib/sermo/viewer";
 import { xenforoTarget } from "@/lib/sermo/xenforo-addresses";
+import enLite from "../messages/en/lite.json";
+import esLite from "../messages/es/lite.json";
 
 // Falsy: there is no such record. A response: answer with it. Anything else: let the page render.
 type Finder = (
@@ -636,10 +638,11 @@ export async function proxy(request: NextRequest) {
   return withoutGuestCache(response);
 }
 
-// What the placeholder of a blocked picture address says, in the visitor's language.
+// What the placeholder of a blocked picture address says, in the visitor's language: the same
+// word the page's own placeholder draws (`litePlaceholder.label` of the messages).
 const PLACEHOLDER_LABEL: Record<Locale, string> = {
-  en: "DATA SAVER",
-  es: "AHORRO DE DATOS",
+  en: enLite.litePlaceholder.label,
+  es: esLite.litePlaceholder.label,
 };
 
 // The 404 page of the visitor's language. Every page is built as a partial prerender whose stored
@@ -810,7 +813,7 @@ function legacyForumRedirect(request: NextRequest) {
 }
 
 // The home page used to be the feed and the forum list was `/forums`: their addresses go to the
-// forum list (`/`) or the feed (`/novedades`) for good (`lib/home-redirects.ts` has the rules).
+// forum list (`/`) or the feed (`/whats-new`) for good (`lib/home-redirects.ts` has the rules).
 function homeRedirect(request: NextRequest) {
   if (request.method !== "GET" && request.method !== "HEAD") return undefined;
   const { pathname, search } = request.nextUrl;
@@ -1047,7 +1050,7 @@ const GUEST_PAGE_CACHE = "private, no-cache";
 // The pages a guest reads the forum through: the home page (the forum list), the feed, and threads,
 // forums, members and tags with their lists. Their sub-pages (an editor, the new-thread form) are
 // not among them.
-const PUBLIC_CONTENT = ["novedades", "threads", "forums", "members", "tags"];
+const PUBLIC_CONTENT = ["whats-new", "threads", "forums", "members", "tags"];
 
 function isPublicContent(
   section: string,

@@ -194,24 +194,24 @@ const area = (widgets: ReturnType<typeof widgetBody>[]) => (
 
 const mostReacted = widgetBody({
   id: 1,
-  position: "novedades_sidebar",
+  position: "whats_new_sidebar",
   type: "rankedThreads",
   options: { by: "mostReacted", limit: 5 },
 });
 const latest = widgetBody({
   id: 2,
-  position: "novedades_sidebar",
+  position: "whats_new_sidebar",
   type: "rankedThreads",
   options: { by: "latestThreads", limit: 5 },
 });
 const members = widgetBody({
   id: 3,
-  position: "novedades_sidebar",
+  position: "whats_new_sidebar",
   type: "suggestedMembers",
 });
 const forums = widgetBody({
   id: 4,
-  position: "novedades_sidebar",
+  position: "whats_new_sidebar",
   type: "forumLinks",
   options: { limit: 1 },
 });
@@ -334,7 +334,7 @@ test("a widget of a type this app does not draw is left out", async () => {
   const visitor = {
     ...widgetBody({
       id: 9,
-      position: "novedades_sidebar",
+      position: "whats_new_sidebar",
       type: "featured",
     }),
     type: "somethingNew",
@@ -381,10 +381,10 @@ test("the areas of a page take its positions in order, and other pages' are left
   const list = [
     at(1, "overview_top"),
     at(2, "forum_list_above"),
-    at(3, "novedades_above"),
+    at(3, "whats_new_above"),
     at(4, "overview_bottom"),
     at(5, "forum_list_sidebar"),
-    at(6, "novedades_sidebar"),
+    at(6, "whats_new_sidebar"),
     at(7, "sidebar_top"),
     at(8, "sidebar_bottom"),
     at(9, "forum_list_below"),
@@ -402,7 +402,7 @@ test("the areas of a page take its positions in order, and other pages' are left
     below: [9, 4],
     aside: [7, 5, 8],
   });
-  expect(ids(widgetAreas("novedades", list))).toEqual({
+  expect(ids(widgetAreas("whats_new", list))).toEqual({
     lead: [1],
     above: [3],
     below: [4],
@@ -410,15 +410,15 @@ test("the areas of a page take its positions in order, and other pages' are left
   });
 });
 
-test("the top of the home page spans the home page, before the top of every page, and Novedades leaves it out", () => {
+test("the top of the home page spans the home page, before the top of every page, and What's new leaves it out", () => {
   const list = [
     widgetBody({ id: 1, position: "forum_list_top", type: "featured" }),
     widgetBody({ id: 2, position: "overview_top", type: "featured" }),
   ] as never;
-  const lead = (page: "home" | "novedades") =>
+  const lead = (page: "home" | "whats_new") =>
     widgetAreas(page, list).lead.map(({ id }: { id: number }) => id);
   expect(lead("home")).toEqual([1, 2]);
-  expect(lead("novedades")).toEqual([2]);
+  expect(lead("whats_new")).toEqual([2]);
 });
 
 test("the global sidebar positions open and close the sidebar, though the backend lists them last", () => {
@@ -516,7 +516,7 @@ test("the drawn positions are exactly those the areas of the pages take widgets 
   const everywhere = WidgetPosition.options.map((position, index) =>
     widgetBody({ id: index + 1, position, type: "forumLinks" }),
   ) as never;
-  for (const page of ["home", "novedades", "forum", "members"] as const) {
+  for (const page of ["home", "whats_new", "forum", "members"] as const) {
     const taken = Object.values(widgetAreas(page, everywhere)).flatMap((area) =>
       area.map((widget: { position: string }) => widget.position),
     );
@@ -530,7 +530,7 @@ test("the drawn positions are exactly those the areas of the pages take widgets 
 test("every page that has a sidebar draws the two global sidebars, around its own position", () => {
   expect(Object.keys(DRAWN_PAGES)).toEqual([
     "home",
-    "novedades",
+    "whats_new",
     "forum",
     "members",
   ]);
@@ -542,8 +542,8 @@ test("every page that has a sidebar draws the two global sidebars, around its ow
   expect(DRAWN_PAGES.members).toContain("members_sidenav");
   expect(DRAWN_POSITIONS).toContain("forum_view_sidebar");
   expect(DRAWN_POSITIONS).toContain("members_sidenav");
-  expect(DRAWN_PAGES.home).not.toContain("novedades_sidebar");
-  expect(DRAWN_PAGES.novedades).not.toContain("forum_list_sidebar");
+  expect(DRAWN_PAGES.home).not.toContain("whats_new_sidebar");
+  expect(DRAWN_PAGES.whats_new).not.toContain("forum_list_sidebar");
   expect(DRAWN_PAGES.forum).not.toContain("members_sidenav");
 });
 

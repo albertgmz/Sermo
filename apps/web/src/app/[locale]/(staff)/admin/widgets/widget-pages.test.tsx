@@ -46,11 +46,11 @@ const DRAWN_PAGES = {
     "sidebar_top",
     "sidebar_bottom",
   ],
-  novedades: [
+  whats_new: [
     "overview_top",
-    "novedades_above",
+    "whats_new_above",
     "sidebar_top",
-    "novedades_sidebar",
+    "whats_new_sidebar",
     "sidebar_bottom",
   ],
   // A page with no address of its own.
@@ -94,7 +94,7 @@ const RANKED = {
   ...base,
   id: 2,
   type: "rankedThreads",
-  position: "novedades_sidebar",
+  position: "whats_new_sidebar",
   displayOrder: 0,
   options: { by: "mostReplied", limit: 5 },
 };
@@ -102,7 +102,7 @@ const MEMBERS = {
   ...base,
   id: 3,
   type: "suggestedMembers",
-  position: "novedades_sidebar",
+  position: "whats_new_sidebar",
   displayOrder: 1,
   title: "Who to follow",
   phones: false,
@@ -262,7 +262,7 @@ test("a position with two or more widgets offers its order, and every position o
   serve();
   const html = await listed();
   expect(html).toContain(
-    'href="/admin/widgets/sort?position=novedades_sidebar"',
+    'href="/admin/widgets/sort?position=whats_new_sidebar"',
   );
   expect(html).not.toContain(
     'href="/admin/widgets/sort?position=forum_list_above"',
@@ -384,13 +384,13 @@ test("the edit page holds the widget's values, its id, its type and the steps", 
   expect(html).toMatch(/<input[^>]*name="id"[^>]*value="3"/);
   expect(html).toMatch(/<input[^>]*name="type"[^>]*value="suggestedMembers"/);
   expect(html).toMatch(/<input[^>]*name="title"[^>]*value="Who to follow"/);
-  expect(html).toMatch(/<option value="novedades_sidebar" selected/);
+  expect(html).toMatch(/<option value="whats_new_sidebar" selected/);
   expect(html).toMatch(/<input[^>]*name="option.limit"[^>]*value="4"/);
   expect(html).not.toMatch(/<input[^>]*name="phones"[^>]*checked/);
   expect(html).not.toMatch(/<input[^>]*name="isEnabled"[^>]*checked/);
   expect(html).toContain("Duplicate");
   expect(html).toContain("Delete widget");
-  expect(html).toContain('href="/novedades"');
+  expect(html).toContain('href="/whats-new"');
 });
 
 test("a text widget is edited through its source", async () => {
@@ -406,7 +406,7 @@ test("a widget of a type or in a position the site does not draw says it is kept
   const { html } = await edit("4");
   expect(html).toContain("does not draw this type of widget yet");
   expect(html).toContain("does not draw this position yet");
-  expect(html).not.toContain('href="/novedades"');
+  expect(html).not.toContain('href="/whats-new"');
   const drawn = await edit("1");
   expect(drawn.html).not.toContain("does not draw");
 });
@@ -432,12 +432,12 @@ test("the sort page orders each position with several widgets, and one position 
   expect(all.html).toMatch(/<input[^>]*name="order.1"/);
   expect(all.html).toMatch(/<input[^>]*name="order.3"/);
   expect(all.html).toMatch(
-    /<input[^>]*name="position"[^>]*value="novedades_sidebar"/,
+    /<input[^>]*name="position"[^>]*value="whats_new_sidebar"/,
   );
   const one = await draw(
     <SortWidgetsPage
       params={Promise.resolve({ locale: "en" })}
-      searchParams={Promise.resolve({ position: "novedades_sidebar" })}
+      searchParams={Promise.resolve({ position: "whats_new_sidebar" })}
     />,
   );
   expect(one.html).toContain("What's new sidebar");

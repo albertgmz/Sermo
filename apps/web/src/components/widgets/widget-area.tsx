@@ -27,11 +27,11 @@ const AREAS = {
     below: ["forum_list_below", "overview_bottom"],
     aside: ["sidebar_top", "forum_list_sidebar", "sidebar_bottom"],
   },
-  novedades: {
+  whats_new: {
     lead: ["overview_top"],
-    above: ["novedades_above"],
+    above: ["whats_new_above"],
     below: ["overview_bottom"],
-    aside: ["sidebar_top", "novedades_sidebar", "sidebar_bottom"],
+    aside: ["sidebar_top", "whats_new_sidebar", "sidebar_bottom"],
   },
   forum: {
     lead: [],
@@ -58,7 +58,7 @@ const positionsOf = (areas: Record<string, readonly Position[]>) =>
 
 export const DRAWN_PAGES: Record<keyof typeof AREAS, readonly Position[]> = {
   home: positionsOf(AREAS.home),
-  novedades: positionsOf(AREAS.novedades),
+  whats_new: positionsOf(AREAS.whats_new),
   forum: positionsOf(AREAS.forum),
   members: positionsOf(AREAS.members),
 };

@@ -1247,7 +1247,7 @@ test("an old XenForo address is a 308 to its page, without the query or a lookup
     // What the server hands the proxy for `/index.php?threads/mi-tema.5721/`.
     ["/index.php?threads%2Fmi-tema.5721%2F=", "/threads/5721"],
     ["/goto/post?id=9", "/posts/9"],
-    ["/whats-new/posts/", "/novedades"],
+    ["/whats-new/posts/", "/whats-new"],
     ["/lost-password/", "/forgot-password"],
   ]) {
     const response = await ask(from);
@@ -1267,20 +1267,23 @@ test("an old XenForo address is a 308 to its page, without the query or a lookup
 test("the old feed and forum list addresses are a 308 to the forum list or to the feed page, keeping the query", async () => {
   const asked = backend({});
   for (const [from, to] of [
-    ["/?tab=latest", "/novedades?tab=latest"],
-    ["/?tab=hot&cursor=abc", "/novedades?tab=hot&cursor=abc"],
-    ["/?tab=following", "/novedades?tab=following"],
-    ["/?tab=media&picture=post-1-2", "/novedades?tab=media&picture=post-1-2"],
-    ["/?forums=3,4&unread=1", "/novedades?forums=3%2C4&unread=1"],
-    ["/?pages=2", "/novedades?pages=2"],
+    ["/?tab=latest", "/whats-new?tab=latest"],
+    ["/?tab=hot&cursor=abc", "/whats-new?tab=hot&cursor=abc"],
+    ["/?tab=following", "/whats-new?tab=following"],
+    ["/?tab=media&picture=post-1-2", "/whats-new?tab=media&picture=post-1-2"],
+    ["/?forums=3,4&unread=1", "/whats-new?forums=3%2C4&unread=1"],
+    ["/?pages=2", "/whats-new?pages=2"],
     ["/?tab=forums", "/"],
     ["/?tab=forums&section=5&stats=threads", "/?section=5&stats=threads"],
     ["/forums", "/"],
     ["/forums/", "/"],
     ["/forums?tab=5&stats=reacted", "/?stats=reacted&section=5"],
-    ["/whats-new/", "/novedades"],
-    ["/find-new/posts/", "/novedades"],
-    ["/whats-new/posts/", "/novedades"],
+    ["/find-new/posts/", "/whats-new"],
+    ["/whats-new/posts/", "/whats-new"],
+    // The feed's old Spanish address keeps its query; so does anything under it.
+    ["/novedades", "/whats-new"],
+    ["/novedades?tab=hot&cursor=abc", "/whats-new?tab=hot&cursor=abc"],
+    ["/novedades/posts/?tab=media", "/whats-new?tab=media"],
   ]) {
     for (const cookie of [undefined, SESSION]) {
       const response = await ask(from, { cookie });
@@ -1299,8 +1302,8 @@ test("the old feed and forum list addresses are a 308 to the forum list or to th
     "/?section=5&stats=threads",
     "/?notice=accountDeleted",
     "/?utm_source=x",
-    "/novedades",
-    "/novedades?tab=hot",
+    "/whats-new",
+    "/whats-new?tab=hot",
   ])
     passes(await ask(path));
   // An action posts to the page it is on: nothing is redirected.
@@ -1783,7 +1786,7 @@ test("pages, the icon, the API, the upload routes, the installed app's files and
   });
   for (const path of [
     "/",
-    "/novedades",
+    "/whats-new",
     "/forums/3-general",
     "/threads/7-news",
     "/members",
@@ -2240,12 +2243,12 @@ const NAVIGATE = { "sec-fetch-mode": "navigate" };
 test("a guest's page load of a public page may be kept by the browser, never by a shared cache", async () => {
   for (const path of [
     "/",
-    "/novedades?tab=latest",
+    "/whats-new?tab=latest",
     "/threads/1-a",
     "/threads/1-a?page=2",
     "/members",
     "/forums/2-b",
-    "/novedades",
+    "/whats-new",
     "/members/1-nova",
     "/tags/x",
   ]) {

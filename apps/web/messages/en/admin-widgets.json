@@ -25,7 +25,7 @@
   },
   "sitePages": {
     "home": "Home",
-    "novedades": "What's new",
+    "whats_new": "What's new",
     "forum": "Forum pages",
     "members": "Members pages"
   },
@@ -34,10 +34,10 @@
     "overview_top": "Top of the page",
     "forum_list_above": "Above the forum list",
     "forum_list_below": "Below the forum list",
-    "novedades_above": "Above the feed",
+    "whats_new_above": "Above the feed",
     "overview_bottom": "Bottom of the page",
     "forum_list_sidebar": "Home sidebar",
-    "novedades_sidebar": "What's new sidebar",
+    "whats_new_sidebar": "What's new sidebar",
     "forum_view_sidebar": "Forum sidebar",
     "members_sidenav": "Members side column",
     "sidebar_top": "Top of every sidebar",

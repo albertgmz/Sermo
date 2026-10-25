@@ -46,10 +46,10 @@ import {
   barOf,
   type HomeTab,
   homeHref,
-  NOVEDADES_PATH,
   openTab,
   phoneBarOf,
   tabParam,
+  WHATS_NEW_PATH,
 } from "@/lib/home-tabs";
 import { pagesParam } from "@/lib/list-pages";
 import { POLL_MS } from "@/lib/poll-intervals";
@@ -61,7 +61,7 @@ import type { ApiWidget } from "@/lib/sermo/widgets";
 import { getWidgets } from "@/lib/sermo/widgets";
 import { cn } from "@/lib/utils";
 
-// The feed (`/novedades`) under the site's header: the wall composer, the widgets of its positions,
+// The feed (`/whats-new`) under the site's header: the wall composer, the widgets of its positions,
 // the tabs and the open tab's list. It is one part, which the tabs and the filters change in place
 // (`TabSwitch`): the page draws it, and so does `feedColumn` for a tab or a filter changed.
 
@@ -88,7 +88,7 @@ function feedWidgets(tab: HomeTab, params: Params, widgets: ApiWidget[]) {
     (widget) => featured || widget.type !== "featured",
   );
   return {
-    areas: widgetAreas("novedades", drawn),
+    areas: widgetAreas("whats_new", drawn),
     context: {
       params,
       widgets: drawn,
@@ -102,7 +102,7 @@ function feedWidgets(tab: HomeTab, params: Params, widgets: ApiWidget[]) {
 export async function feedColumnOf(search: string) {
   const [opened, widgets] = await Promise.all([
     openingOf(queryOfSearch(search)),
-    getWidgets("novedades"),
+    getWidgets("whats_new"),
   ]);
   return <FeedColumn opened={opened} widgets={widgets} inPlace />;
 }
@@ -159,7 +159,7 @@ export async function FeedColumn({
   );
 }
 
-export type Params = Awaited<PageProps<"/[locale]/novedades">["searchParams"]>;
+export type Params = Awaited<PageProps<"/[locale]/whats-new">["searchParams"]>;
 
 // The address of the open tab with its filter, from its first page, with `query` set on it (a
 // widget's choice, such as a statistics tab).
@@ -185,7 +185,7 @@ async function HomeComposer() {
       className="overflow-hidden rounded-lg border bg-card max-md:hidden"
     >
       <LazyPostComposer
-        action={postToWall.bind(null, user.id, NOVEDADES_PATH)}
+        action={postToWall.bind(null, user.id, WHATS_NEW_PATH)}
         avatar={<UserAvatar user={member(user.id)} size="lg" />}
         name={user.username}
         placeholder={t("placeholder")}

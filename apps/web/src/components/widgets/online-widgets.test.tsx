@@ -105,7 +105,7 @@ const online = (options: Record<string, unknown> = {}) =>
   });
 const totals = widgetBody({
   id: 2,
-  position: "novedades_sidebar",
+  position: "whats_new_sidebar",
   type: "siteTotals",
 });
 
