@@ -58,7 +58,7 @@
       "registrationNote": "Quién puede crear una cuenta, qué pide el formulario de registro y cómo entra una cuenta nueva.",
       "welcome": {
         "heading": "Mensaje de bienvenida",
-        "note": "Un mensaje privado del sitio a cada miembro nuevo, que se envía una sola vez cuando la cuenta pasa a ser de un miembro confirmado: tras confirmar su correo y, si los registros esperan aprobación, tras la aprobación del personal. Quien ya tiene cuenta no lo recibe.",
+        "note": "Un mensaje directo del sitio a cada miembro nuevo, que se envía una sola vez cuando la cuenta pasa a ser de un miembro confirmado: tras confirmar su correo y, si los registros esperan aprobación, tras la aprobación del personal. Quien ya tiene cuenta no lo recibe.",
         "enabledLabel": "Mensaje de bienvenida",
         "enabledHelp": "Desactivado por defecto.",
         "enabledSwitch": "Enviar un mensaje de bienvenida a los miembros nuevos",

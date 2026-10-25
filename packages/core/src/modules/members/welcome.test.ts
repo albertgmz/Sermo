@@ -308,6 +308,16 @@ describe("the setting", () => {
     expect((await w.run("settings.get", w.founder.actor, {})).welcomeMessage).toEqual(saved);
   });
 
+  test("turning it off is not blocked by a sender who no longer exists", async () => {
+    const w = await queueWorld();
+    await enable(w, { senderId: w.moderator.id });
+    w.ctx.sqlite.prepare("UPDATE users SET erased_at = 1 WHERE id = ?1").run(w.moderator.id);
+    const saved = await w.run("settings.update", w.founder.actor, {
+      welcomeMessage: { enabled: false, senderId: w.moderator.id, subject: "", body: "" },
+    });
+    expect(saved.welcomeMessage.enabled).toBe(false);
+  });
+
   test("a sender who is not a member, and a text that cannot be sent, are refused when saved", async () => {
     const w = await queueWorld();
     const save = (welcomeMessage: Record<string, unknown>) =>

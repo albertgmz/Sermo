@@ -94,11 +94,13 @@ function contentFor(
 /**
  * Refuses a setting that could not be sent: a sender who is not a member, or a text that does not
  * render as that sender (for instance one that quotes a post that is gone). Runs when the setting
- * is saved, so the administrator hears of it then and not in the log.
+ * is saved, so the administrator hears of it then and not in the log. A message that is off is
+ * not checked: turning it off must work whatever became of its sender.
  */
 export function assertWelcomeMessage(ctx: Ctx, message: Message): void {
   const refuse = (key: "senderId" | "body", text: string) =>
     new ValidationError(text, [{ path: ["welcomeMessage", key], message: text }]);
+  if (!message.enabled) return;
   if (message.senderId !== null && !isUsableSender(ctx, message.senderId))
     throw refuse("senderId", "There is no member with this id.");
   const senderId = senderOf(ctx, message);

@@ -58,7 +58,7 @@
       "registrationNote": "Who may create an account, what the sign-up form asks and how a new account is let in.",
       "welcome": {
         "heading": "Welcome message",
-        "note": "A private message from the site to each new member, sent once when the account becomes a confirmed member: after its email is confirmed and, if sign-ups wait for approval, after staff approve it. People who already have an account are not sent one.",
+        "note": "A direct message from the site to each new member, sent once when the account becomes a confirmed member: after its email is confirmed and, if sign-ups wait for approval, after staff approve it. People who already have an account are not sent one.",
         "enabledLabel": "Welcome message",
         "enabledHelp": "Off by default.",
         "enabledSwitch": "Send a welcome message to new members",
