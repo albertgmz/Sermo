@@ -366,6 +366,11 @@ export const users = sqliteTable(
     profileAdult: bool("profile_adult").notNull().default(false),
     /** When the member confirmed the +18 warning; null if never. */
     adultAcceptedAt: integer("adult_accepted_at"),
+    /**
+     * Set when the account is made by a sign-up and cleared when the welcome message is sent (or
+     * the site sends none): accounts that exist already never get one, whatever changes later.
+     */
+    welcomeDue: bool("welcome_due").notNull().default(false),
   },
   (t) => [
     uniqueIndex("users_username_key").on(t.usernameKey),

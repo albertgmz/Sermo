@@ -206,6 +206,98 @@ const POST_COUNT_RULE = {
   conditions: [{ criterion: "post_count", value: 5 }],
 };
 
+test("the new-member form sends the welcome message whole, its sender as an id, and only when it showed it", async () => {
+  backend = fakeBackend({ "settings.update": read, "users.search": MEMBERS });
+  await redirectedTo(() =>
+    saveMembers(
+      null,
+      form(
+        [
+          ["newMemberDays", "14"],
+          ["welcomeMessage.enabled", "on"],
+          ["welcomeMessage.sender", "ADAM"],
+          ["welcomeMessage.subject", "Hello {name}"],
+          ["welcomeMessage.body", "Welcome, {name}!"],
+        ],
+        "welcomeMessage",
+      ),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    newMemberDays: 14,
+    welcomeMessage: {
+      enabled: true,
+      senderId: 8,
+      subject: "Hello {name}",
+      body: "Welcome, {name}!",
+    },
+  });
+  // No sender is the first administrator, and an unticked box turns the message off.
+  await redirectedTo(() =>
+    saveMembers(
+      null,
+      form(
+        [
+          ["newMemberDays", "14"],
+          ["welcomeMessage.sender", " "],
+          ["welcomeMessage.subject", ""],
+          ["welcomeMessage.body", ""],
+        ],
+        "welcomeMessage",
+      ),
+    ),
+  );
+  expect(sent()?.[1]?.body).toMatchObject({
+    welcomeMessage: { enabled: false, senderId: null, subject: "", body: "" },
+  });
+  // A form that did not show it leaves it alone.
+  await redirectedTo(() => saveMembers(null, form([["newMemberDays", "14"]])));
+  expect(sent()?.[2]?.body).not.toHaveProperty("welcomeMessage");
+});
+
+test("a sender who is no member is refused with nothing saved, and the backend's refusal lands on the sender row", async () => {
+  backend = fakeBackend({ "settings.update": read, "users.search": MEMBERS });
+  const unknown = form(
+    [
+      ["newMemberDays", "14"],
+      ["welcomeMessage.sender", "nobody"],
+    ],
+    "welcomeMessage",
+  );
+  expect(await saveMembers(null, unknown)).toEqual({
+    fields: {
+      "welcomeMessage.sender": messages.adminSetup.errors.unknownMembers,
+    },
+  });
+  expect(sent()).toEqual([]);
+  backend.restore();
+  backend = fakeBackend({
+    "settings.update": () =>
+      refusal(400, "validation", "Not valid.", [
+        {
+          path: ["welcomeMessage", "senderId"],
+          message: "There is no member with this id.",
+        },
+      ]),
+    "users.search": MEMBERS,
+  });
+  expect(
+    await saveMembers(
+      null,
+      form(
+        [
+          ["newMemberDays", "14"],
+          ["welcomeMessage.sender", "ada"],
+        ],
+        "welcomeMessage",
+      ),
+    ),
+  ).toEqual({
+    error: undefined,
+    fields: { "welcomeMessage.sender": "There is no member with this id." },
+  });
+});
+
 test("the anti-spam form sends the flood interval and both rules whole", async () => {
   backend = fakeBackend({ "settings.update": read });
   const digest = await redirectedTo(() =>

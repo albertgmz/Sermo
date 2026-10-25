@@ -494,5 +494,6 @@
   "+18 content is for adults only.": "El contenido +18 es solo para adultos.",
   "This content is for adults (18+).": "Este contenido es para adultos (+18).",
   "Your date of birth is already stored; staff can change it.": "Tu fecha de nacimiento ya está guardada; el personal puede cambiarla.",
-  "A moderator marked this thread +18; only staff can remove it.": "Un moderador marcó este tema como +18; solo el personal puede quitar la marca."
+  "A moderator marked this thread +18; only staff can remove it.": "Un moderador marcó este tema como +18; solo el personal puede quitar la marca.",
+  "There is no member with this id.": "No hay ningún miembro con ese identificador."
 }

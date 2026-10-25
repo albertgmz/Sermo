@@ -16,6 +16,12 @@ export const SETTINGS = {
   minimumAge: 0,
   registrationFields: [],
   requireEmailConfirmation: true,
+  welcomeMessage: {
+    enabled: true,
+    senderId: 7,
+    subject: "Hello {name}",
+    body: "Welcome, {name}!",
+  },
   newMemberDays: 7,
   threadTitleTemplate: "{title} | {site}",
   nodeTitleTemplate: "{title} | {site}",

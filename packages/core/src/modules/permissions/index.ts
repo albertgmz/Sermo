@@ -44,6 +44,7 @@ import { requireNotErased } from "../admin/erased";
 import { confirmActorPassword } from "../admin/shared";
 import { guardSuperAdmins } from "../admin/super-admin";
 import { announceWaiting, isAwaiting } from "../members/signup-review";
+import { welcomeNewMember } from "../members/welcome";
 import { appendModeratorLog } from "../moderation";
 
 export type { NodeTree, NodeTreeEntry } from "../../permissions";
@@ -419,6 +420,8 @@ export function changeMemberGroups(
     keepSuperAdmin();
     // Moving a held account out of Unconfirmed makes it wait for staff: they hear of it.
     if (!wasAwaiting && isAwaiting(ctx, userId)) announceWaiting(ctx, userId);
+    // Moving a held account out of Unconfirmed makes it a member: it is welcomed.
+    welcomeNewMember(ctx, userId);
     appendModeratorLog(ctx, actor, "user.groups", "user", userId);
     const after = memberGroups(ctx, userId);
     const oldIds = new Set([

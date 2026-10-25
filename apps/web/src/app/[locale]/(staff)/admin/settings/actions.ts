@@ -114,9 +114,33 @@ export async function saveMembers(
       ticked.has(field),
     );
   }
+  // The welcome message is one nested setting, replaced whole by a form that showed it. Its
+  // sender is typed as a username and sent as an id; empty is the first administrator.
+  if (shownKeys(formData).has("welcomeMessage")) {
+    const t = await getTranslations("adminSetup.errors");
+    const typed = text(formData, "welcomeMessage.sender").trim();
+    const senderId = typed === "" ? null : await memberId(typed);
+    if (typed !== "" && senderId === null)
+      parsed.fields["welcomeMessage.sender"] = t("unknownMembers", {
+        names: typed,
+      });
+    parsed.body.welcomeMessage = {
+      enabled: formData.get("welcomeMessage.enabled") !== null,
+      senderId,
+      subject: text(formData, "welcomeMessage.subject"),
+      body: text(formData, "welcomeMessage.body"),
+    };
+  }
   return saveSettings(parsed, {
     back: "/admin/settings/members",
-    known: (name) => name in MEMBERS || name === "registrationFields",
+    known: (name) =>
+      name in MEMBERS ||
+      name === "registrationFields" ||
+      /^welcomeMessage\.(sender|subject|body)$/.test(name),
+    rename: (path) =>
+      path[0] === "welcomeMessage" && path[1] === "senderId"
+        ? ["welcomeMessage", "sender"]
+        : path,
     // The sign-up page and the login page read the registration rules from the cached site.
     site: true,
   });

@@ -540,6 +540,13 @@
       "when": 1792886665305,
       "tag": "0076_credit_rule_filters",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "6",
+      "when": 1792887510439,
+      "tag": "0077_welcome_message",
+      "breakpoints": true
     }
   ]
 }

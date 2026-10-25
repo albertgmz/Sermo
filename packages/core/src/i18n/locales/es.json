@@ -606,5 +606,7 @@
   "reaction.default.Haha": "Me divierte",
   "reaction.default.Wow": "Me asombra",
   "reaction.default.Sad": "Me entristece",
-  "reaction.default.Angry": "Me enoja"
+  "reaction.default.Angry": "Me enoja",
+  "welcome.subject": "Te damos la bienvenida a {site}, {name}",
+  "welcome.body": "Hola {name},\n\n¡Te damos la bienvenida a {site}! Tu cuenta ya está lista. Echa un vistazo, preséntate y participa en las conversaciones. Si tienes alguna duda, responde a este mensaje.\n\nTe esperamos en el foro."
 }

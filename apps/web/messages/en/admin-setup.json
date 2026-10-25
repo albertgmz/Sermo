@@ -55,7 +55,20 @@
       "subtitle": "Who may register and what the sign-up asks, how long a member counts as new and what is held back from them.",
       "formHeading": "New-member rules",
       "registration": "Registration",
-      "registrationNote": "Who may create an account, what the sign-up form asks and how a new account is let in."
+      "registrationNote": "Who may create an account, what the sign-up form asks and how a new account is let in.",
+      "welcome": {
+        "heading": "Welcome message",
+        "note": "A private message from the site to each new member, sent once when the account becomes a confirmed member: after its email is confirmed and, if sign-ups wait for approval, after staff approve it. People who already have an account are not sent one.",
+        "enabledLabel": "Welcome message",
+        "enabledHelp": "Off by default.",
+        "enabledSwitch": "Send a welcome message to new members",
+        "senderLabel": "Sender",
+        "senderHelp": "The member the message comes from. Leave it empty to use the first administrator. The sender's conversation limits do not apply and the sender is not alerted.",
+        "subjectLabel": "Subject",
+        "subjectHelp": "Use '{'name'}' for the new member's username. Leave the subject and the message empty to use the site's own text, in the language the member signed up in.",
+        "bodyLabel": "Message",
+        "bodyHelp": "BB code is allowed. Use '{'name'}' for the new member's username."
+      }
     },
     "antispam": {
       "metaTitle": "Anti-spam",

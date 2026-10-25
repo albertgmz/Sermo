@@ -606,5 +606,7 @@
   "reaction.default.Haha": "Haha",
   "reaction.default.Wow": "Wow",
   "reaction.default.Sad": "Sad",
-  "reaction.default.Angry": "Angry"
+  "reaction.default.Angry": "Angry",
+  "welcome.subject": "Welcome to {site}, {name}",
+  "welcome.body": "Hi {name},\n\nWelcome to {site}! Your account is ready. Take a look around, introduce yourself and join the conversation. If you have any question, reply to this message.\n\nSee you in the forum."
 }

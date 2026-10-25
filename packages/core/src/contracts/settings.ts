@@ -117,6 +117,20 @@ export const HomeTabSetting = z
   })
   .meta({ id: "HomeTabSetting" });
 
+/**
+ * The private message a new member gets from the site. `senderId` null means the first
+ * administrator. An empty `subject` or `body` uses the site's default text in the language the
+ * member signed up in; in the text, `{name}` stands for the member's username.
+ */
+export const WelcomeMessage = z
+  .object({
+    enabled: z.boolean(),
+    senderId: Id.nullable(),
+    subject: z.string().trim().max(150),
+    body: z.string().trim().max(5000),
+  })
+  .meta({ id: "WelcomeMessage" });
+
 export const SiteSettings = z
   .object({
     maxUploadBytes: z.number().int().min(1).max(1_073_741_824),
@@ -179,6 +193,17 @@ export const SiteSettings = z
      * On by default, which is how a site with a mail driver behaved before this setting.
      */
     requireEmailConfirmation: z.boolean().default(true),
+    /**
+     * Sent once to each account that becomes a confirmed member (its email confirmed and, on a
+     * site that approves sign-ups, approved). Off by default; accounts that exist already get
+     * nothing when it is turned on.
+     */
+    welcomeMessage: WelcomeMessage.default({
+      enabled: false,
+      senderId: null,
+      subject: "",
+      body: "",
+    }),
     /**
      * Forums (or categories, with everything under them) the home feed leaves out for the whole
      * site: `feed.list` never lists their threads, whoever asks, even when a forum filter names

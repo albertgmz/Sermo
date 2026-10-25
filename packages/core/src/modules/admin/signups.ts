@@ -22,6 +22,7 @@ import { iso } from "../../time";
 import { queueAccountEmail } from "../email/account";
 import { isBanned } from "../members/access";
 import { inQueueSql } from "../members/signup-review";
+import { welcomeNewMember } from "../members/welcome";
 import { appendModeratorLog, insertAuthorizedBan, requireBanLength } from "../moderation";
 import { acceptanceSql } from "../pages/acceptance";
 import { securitySql } from "../security";
@@ -194,6 +195,7 @@ function approve(ctx: Ctx, actor: Actor, userId: number, reason: string) {
     appendModeratorLog(ctx, actor, "signup.approve", "user", userId, reason);
     publishDecided(ctx, actor, userId, "approve");
     queueAccountEmail(ctx, { kind: "signupApproved", userId, email: row.email });
+    welcomeNewMember(ctx, userId);
   });
 }
 

@@ -55,7 +55,20 @@
       "subtitle": "Quién puede registrarse y qué pide el formulario, cuánto tiempo se considera nuevo a un miembro y qué se le restringe.",
       "formHeading": "Reglas para miembros nuevos",
       "registration": "Registro",
-      "registrationNote": "Quién puede crear una cuenta, qué pide el formulario de registro y cómo entra una cuenta nueva."
+      "registrationNote": "Quién puede crear una cuenta, qué pide el formulario de registro y cómo entra una cuenta nueva.",
+      "welcome": {
+        "heading": "Mensaje de bienvenida",
+        "note": "Un mensaje privado del sitio a cada miembro nuevo, que se envía una sola vez cuando la cuenta pasa a ser de un miembro confirmado: tras confirmar su correo y, si los registros esperan aprobación, tras la aprobación del personal. Quien ya tiene cuenta no lo recibe.",
+        "enabledLabel": "Mensaje de bienvenida",
+        "enabledHelp": "Desactivado por defecto.",
+        "enabledSwitch": "Enviar un mensaje de bienvenida a los miembros nuevos",
+        "senderLabel": "Remitente",
+        "senderHelp": "El miembro que envía el mensaje. Déjalo vacío para usar al primer administrador. No se aplican los límites de conversaciones del remitente y no recibe ningún aviso.",
+        "subjectLabel": "Asunto",
+        "subjectHelp": "Usa '{'name'}' para el nombre de usuario del miembro nuevo. Deja el asunto y el mensaje vacíos para usar el texto del sitio, en el idioma con el que se registró el miembro.",
+        "bodyLabel": "Mensaje",
+        "bodyHelp": "Se admite BB code. Usa '{'name'}' para el nombre de usuario del miembro nuevo."
+      }
     },
     "antispam": {
       "metaTitle": "Antispam",

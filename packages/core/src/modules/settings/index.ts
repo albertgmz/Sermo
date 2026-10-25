@@ -10,6 +10,7 @@ import { currentActor, requirePermission } from "../../permissions";
 import { assertRule } from "../../shared/criteria";
 import { attachUploadedFile, releaseFile } from "../images/attach";
 import { requestStandingsRedecide } from "../members/redecide-request";
+import { assertWelcomeMessage } from "../members/welcome";
 import { appendModeratorLog } from "../moderation";
 import { assertHomeTab } from "./home-tab";
 import { storedTurnstileSecret, storeTurnstileSecret } from "./turnstile";
@@ -70,6 +71,7 @@ const defaults: StoredSiteSettingsValue = {
   minimumAge: 0,
   registrationFields: [],
   requireEmailConfirmation: true,
+  welcomeMessage: { enabled: false, senderId: null, subject: "", body: "" },
   feedExcludedForumIds: [],
   homeTab: { rules: [], fallback: "latest" },
   threadTitleTemplate: "{title} | {site}",
@@ -205,6 +207,7 @@ export function updateSiteSettings(
       if (rule) assertCheapRule(ctx, key, rule);
     }
     if (changes.homeTab) assertHomeTab(ctx, changes.homeTab);
+    if (changes.welcomeMessage) assertWelcomeMessage(ctx, changes.welcomeMessage);
     // Lists are sets: a kind or a form named twice counts once.
     const { turnstileSecret, ...settingChanges } = changes;
     if (settingChanges.signatureFormats)

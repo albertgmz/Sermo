@@ -161,9 +161,15 @@ test("the new-member, search engine and cookie forms keep their settings", async
     "registrationFields",
     "registrationOpen",
     "requireEmailConfirmation",
+    "welcomeMessage.body",
+    "welcomeMessage.enabled",
+    "welcomeMessage.sender",
+    "welcomeMessage.subject",
   ]);
-  // The list of required fields is replaced whole, so the form says it showed it.
+  // The list of required fields and the welcome message are replaced whole, so the form says it
+  // showed them.
   expect(members.shown).toContain("registrationFields");
+  expect(members.shown).toContain("welcomeMessage");
   expect(members.html).toContain('value="birthday"');
   expect([...(await controls(SeoForm)).names].sort()).toEqual([
     "indexNowKey",
@@ -233,6 +239,36 @@ test("the uploads and levels forms keep the size, the types, the group storage, 
     "standingExcludeRule",
   ])
     expect(levels.shown, key).toContain(key);
+});
+
+test("the new-member form shows the stored welcome message, its sender by username", async () => {
+  backend = fakeBackend({
+    ...answers,
+    "users.cards": () =>
+      Response.json({
+        items: [
+          {
+            id: 7,
+            username: "Ada",
+            avatar: null,
+            frame: null,
+            nameColor: null,
+            nameIcon: null,
+            title: "",
+            badges: [],
+            level: 1,
+            restricted: false,
+          },
+        ],
+      }),
+  });
+  const html = await new Response(
+    await renderToReadableStream(withIntl(await MembersForm())),
+  ).text();
+  expect(html).toMatch(/<input[^>]*name="welcomeMessage.enabled"[^>]*checked/);
+  expect(html).toMatch(/name="welcomeMessage.sender"[^>]*value="Ada"/);
+  expect(html).toContain('value="Hello {name}"');
+  expect(html).toContain("Welcome, {name}!");
 });
 
 test("the home page form keeps the rules, the fallback and the forums left out", async () => {

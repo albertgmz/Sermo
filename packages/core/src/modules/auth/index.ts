@@ -54,6 +54,7 @@ import {
   settleReferralAtSignIn,
 } from "../members/referrals";
 import { announceWaiting, isAwaiting, signupReviewFor } from "../members/signup-review";
+import { welcomeNewMember } from "../members/welcome";
 import { queueCounts } from "../moderation";
 import {
   acceptanceSql,
@@ -377,6 +378,7 @@ export function promoteVerifiedMember(ctx: Ctx, userId: number): boolean {
     if (changed) settlePendingReferral(ctx, userId);
     // An account the sign-up queue holds starts waiting for staff once its email is confirmed.
     if (changed && isAwaiting(ctx, userId)) announceWaiting(ctx, userId);
+    if (changed) welcomeNewMember(ctx, userId);
     return changed;
   });
 }
@@ -1035,7 +1037,7 @@ function buildAuth(ctx: Ctx) {
                 const headers = (hookContext as { headers?: Headers } | undefined)?.headers;
                 ctx.sqlite
                   .prepare(
-                    "INSERT INTO users (id, username, username_key, group_id, created_at, signup_review, language) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    "INSERT INTO users (id, username, username_key, group_id, created_at, signup_review, language, welcome_due) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1)",
                   )
                   .run(
                     Number(user.id),
@@ -1087,6 +1089,7 @@ function buildAuth(ctx: Ctx) {
                     userId: Number(user.id),
                     email: user.email as string,
                   });
+                welcomeNewMember(ctx, Number(user.id));
               });
             } catch (error) {
               const mapped = userConstraintError(error);
