@@ -13,7 +13,15 @@ import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { formFailure, text, whole } from "../groups/form-errors";
 
-const FIELDS = ["title", "trigger", "amount", "isActive", "limit", "nodeIds"];
+const FIELDS = [
+  "title",
+  "trigger",
+  "amount",
+  "isActive",
+  "limit",
+  "nodeIds",
+  "filters",
+];
 const PATH = "/admin/credit-rules";
 
 // The limit: both numbers empty is no limit, both typed a limit; one alone is not a limit.
@@ -24,6 +32,36 @@ function limitOf(formData: FormData) {
   const typed = [whole(count), whole(hours)];
   if (typed[0] === null || typed[1] === null) return { bad: true as const };
   return { limit: { count: typed[0], windowHours: typed[1] } };
+}
+
+// The filters on the source content: empty fields are no filter. A date is the `YYYY-MM-DD` of a
+// date field, a length a whole number; anything else is not a filter.
+function filtersOf(formData: FormData) {
+  const [createdFrom, createdUntil, minLength, maxLength] = [
+    "createdFrom",
+    "createdUntil",
+    "minLength",
+    "maxLength",
+  ].map((name) => text(formData, name).trim());
+  const lengths = [minLength, maxLength].map((raw) =>
+    raw === "" ? null : whole(raw),
+  );
+  const badDate = [createdFrom, createdUntil].some(
+    (raw) => raw !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(raw),
+  );
+  if (
+    badDate ||
+    [minLength, maxLength].some((raw, i) => raw !== "" && lengths[i] === null)
+  )
+    return { bad: true as const };
+  return {
+    filters: {
+      createdFrom: createdFrom || null,
+      createdUntil: createdUntil || null,
+      minLength: lengths[0],
+      maxLength: lengths[1],
+    },
+  };
 }
 
 // A new rule (no id) or a change of one. The forums are read only for a trigger that takes them
@@ -46,11 +84,12 @@ export async function saveRule(
   const limit = limitOf(formData);
   if ("bad" in limit) return { fields: { limit: t("limit") } };
   let takesForums: boolean;
+  let takesFilters: boolean;
   try {
     const { triggers } = await call(creditRulesList, {});
-    takesForums = triggers.some(
-      (entry) => entry.id === trigger && entry.acceptsForums,
-    );
+    const entry = triggers.find((choice) => choice.id === trigger);
+    takesForums = !!entry?.acceptsForums;
+    takesFilters = !!entry?.acceptsFilters;
   } catch (error) {
     return formFailure(error, []);
   }
@@ -64,12 +103,15 @@ export async function saveRule(
     }
     nodeIds = [...new Set(ids as number[])];
   }
+  const filters = takesFilters ? filtersOf(formData) : {};
+  if ("bad" in filters) return { fields: { filters: t("filters") } };
   const fields = {
     title: text(formData, "title"),
     amount,
     isActive: formData.get("isActive") !== null,
     limit: limit.limit,
     ...(nodeIds && { nodeIds }),
+    ...filters,
   };
   try {
     if (ruleId === null) await call(creditRulesCreate, { trigger, ...fields });

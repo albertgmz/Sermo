@@ -50,7 +50,7 @@ export function siteBody(over: Record<string, unknown> = {}) {
 }
 
 // What creditRules.list answers: the rules and every trigger, `forums` being those that accept a
-// restriction to forums.
+// restriction to forums and `filterable` those that accept source filters.
 export function creditRulesBody(
   items: unknown[] = [],
   forums: string[] = [
@@ -60,12 +60,14 @@ export function creditRulesBody(
     "reaction_given",
     "reaction_received",
   ],
+  filterable: string[] = [],
 ) {
   return {
     items,
     triggers: creditRulesCreate.input.shape.trigger.options.map((id) => ({
       id,
       acceptsForums: forums.includes(id),
+      acceptsFilters: filterable.includes(id),
     })),
   };
 }

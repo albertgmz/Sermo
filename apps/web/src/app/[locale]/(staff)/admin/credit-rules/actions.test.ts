@@ -54,6 +54,12 @@ const RULE = {
   isActive: true,
   limit: null,
   nodeIds: [],
+  filters: {
+    createdFrom: null,
+    createdUntil: null,
+    minLength: null,
+    maxLength: null,
+  },
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
@@ -192,4 +198,87 @@ test("unticking every forum clears the restriction of a trigger that takes forum
     ),
   );
   expect(backend.asked.at(-1)?.body).toMatchObject({ nodeIds: [] });
+});
+
+const FILTERABLE = ["reply_posted", "profile_post_created"];
+
+test("a trigger that accepts filters sends the dates and lengths typed, empty ones as null", async () => {
+  backend = fakeBackend({
+    "creditRules.list": () =>
+      Response.json(creditRulesBody([], [], FILTERABLE)),
+    "creditRules.create": () => Response.json(RULE),
+    "creditRules.update": () => Response.json(RULE),
+  });
+  await redirectedTo(() =>
+    saveRule(
+      null,
+      form({
+        title: "T",
+        trigger: "reply_posted",
+        amount: "1",
+        createdFrom: "2020-01-01",
+        createdUntil: "",
+        minLength: "20",
+        maxLength: "",
+      }),
+    ),
+  );
+  await redirectedTo(() =>
+    saveRule(
+      null,
+      form({ id: "1", title: "T", trigger: "reply_posted", amount: "1" }),
+    ),
+  );
+  const sent = backend.asked.filter(
+    (call) => call.operation !== "creditRules.list",
+  );
+  expect(sent[0].body).toMatchObject({
+    filters: {
+      createdFrom: "2020-01-01",
+      createdUntil: null,
+      minLength: 20,
+      maxLength: null,
+    },
+  });
+  expect(sent[1].body).toMatchObject({
+    filters: {
+      createdFrom: null,
+      createdUntil: null,
+      minLength: null,
+      maxLength: null,
+    },
+  });
+});
+
+test("a trigger that accepts no filters sends none", async () => {
+  backend = fakeBackend({
+    "creditRules.list": () =>
+      Response.json(creditRulesBody([], [], FILTERABLE)),
+    "creditRules.create": () => Response.json(RULE),
+  });
+  await redirectedTo(() =>
+    saveRule(
+      null,
+      form({ title: "T", trigger: "followed", amount: "1", minLength: "20" }),
+    ),
+  );
+  expect(backend.asked.at(-1)?.body).not.toHaveProperty("filters");
+});
+
+test("a bad date or length is refused before the backend", async () => {
+  backend = fakeBackend({
+    "creditRules.list": () =>
+      Response.json(creditRulesBody([], [], FILTERABLE)),
+  });
+  const e = messages.adminEconomy.rules.errors;
+  for (const bad of [
+    { createdFrom: "01/02/2020" },
+    { minLength: "ten" },
+  ] as Record<string, string>[])
+    expect(
+      await saveRule(
+        null,
+        form({ title: "T", trigger: "reply_posted", amount: "1", ...bad }),
+      ),
+    ).toEqual({ fields: { filters: e.filters } });
 });

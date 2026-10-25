@@ -46,3 +46,38 @@ test("the forum picker shows only for a trigger that accepts forums", () => {
   );
   expect(html(triggers, first.id)).toContain(picker);
 });
+
+test("the filter fields show only for a trigger that accepts filters, holding the rule's values", () => {
+  const fields = [
+    'name="createdFrom"',
+    'name="createdUntil"',
+    'name="minLength"',
+    'name="maxLength"',
+  ];
+  const filterable = { ...triggers[0], acceptsFilters: true };
+  const plain = { ...triggers[1], acceptsFilters: false };
+  for (const field of fields) {
+    expect(html([plain])).not.toContain(field);
+    expect(html([filterable])).toContain(field);
+  }
+  const filled = renderToStaticMarkup(
+    withIntl(
+      <RuleFields
+        idPrefix="t"
+        fixedTrigger={filterable.id}
+        triggerChoices={[filterable]}
+        nodes={nodes}
+        chosen={[]}
+        filters={{
+          createdFrom: "2020-01-01",
+          createdUntil: null,
+          minLength: 20,
+          maxLength: null,
+        }}
+      />,
+    ),
+  );
+  expect(filled).toMatch(/name="createdFrom"[^>]*value="2020-01-01"/);
+  expect(filled).toMatch(/name="minLength"[^>]*value="20"/);
+  expect(filled).not.toMatch(/name="createdUntil"[^>]*value=/);
+});

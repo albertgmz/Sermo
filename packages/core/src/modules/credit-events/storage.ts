@@ -12,6 +12,10 @@ export interface RuleRow {
   limit_count: number | null;
   limit_window_hours: number | null;
   node_ids: string;
+  source_from: number | null;
+  source_until: number | null;
+  source_min_length: number | null;
+  source_max_length: number | null;
   created_after_event_id: number;
   created_at: number;
   updated_at: number;
@@ -22,9 +26,9 @@ export const queries = {
   rule: "SELECT * FROM credit_rules WHERE id = ?1",
   forums: "SELECT id, type FROM nodes WHERE id IN (SELECT value FROM json_each(?1))",
   create:
-    "INSERT INTO credit_rules (title, trigger, amount, is_active, limit_count, limit_window_hours, node_ids, created_after_event_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, (SELECT coalesce(max(id), 0) FROM domain_events), ?8, ?8) RETURNING *",
+    "INSERT INTO credit_rules (title, trigger, amount, is_active, limit_count, limit_window_hours, node_ids, source_from, source_until, source_min_length, source_max_length, created_after_event_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, (SELECT coalesce(max(id), 0) FROM domain_events), ?12, ?12) RETURNING *",
   update:
-    "UPDATE credit_rules SET title = ?1, amount = ?2, is_active = ?3, limit_count = ?4, limit_window_hours = ?5, node_ids = ?6, updated_at = ?7 WHERE id = ?8 RETURNING *",
+    "UPDATE credit_rules SET title = ?1, amount = ?2, is_active = ?3, limit_count = ?4, limit_window_hours = ?5, node_ids = ?6, source_from = ?7, source_until = ?8, source_min_length = ?9, source_max_length = ?10, updated_at = ?11 WHERE id = ?12 RETURNING *",
   delete: "DELETE FROM credit_rules WHERE id = ?1",
   active:
     "SELECT * FROM credit_rules WHERE trigger = ?1 AND is_active = 1 AND created_after_event_id < ?2 ORDER BY id",
@@ -38,6 +42,16 @@ export const queries = {
   firstVisibilityChange:
     "SELECT id, json_extract(payload, '$.previousState') AS previous_state FROM domain_events WHERE target_type = ?1 AND target_id = ?2 AND type IN ('content.deleted', 'content.state_changed') AND created_at >= ?3 AND (json_extract(payload, '$.previousState') = 'visible' OR json_extract(payload, '$.state') = 'visible') ORDER BY id LIMIT 1",
   thread: "SELECT user_id, node_id, state, created_at FROM threads WHERE id = ?1",
+  // The plain text length of a source: `body_text` is NULL when it was never computed, then the
+  // source is returned for the caller to strip.
+  threadLength:
+    "SELECT length(b.body_text) AS length, CASE WHEN b.body_text IS NULL THEN b.body_source END AS source FROM threads t JOIN post_bodies b ON b.post_id = t.first_post_id WHERE t.id = ?1",
+  postLength:
+    "SELECT length(body_text) AS length, CASE WHEN body_text IS NULL THEN body_source END AS source FROM post_bodies WHERE post_id = ?1",
+  profile_postLength:
+    "SELECT NULL AS length, body_source AS source FROM profile_posts WHERE id = ?1",
+  profile_post_commentLength:
+    "SELECT NULL AS length, body_source AS source FROM profile_post_comments WHERE id = ?1",
   post: "SELECT p.user_id, p.position, p.state, p.created_at, t.node_id, t.user_id AS recipient_id, t.state AS parent_state FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
   profile_post:
     "SELECT user_id, profile_user_id AS recipient_id, state, created_at FROM profile_posts WHERE id = ?1",

@@ -20,6 +20,12 @@ const RULE = {
   isActive: true,
   limit: { count: 10, windowHours: 24 },
   nodeIds: [3],
+  filters: {
+    createdFrom: null,
+    createdUntil: null,
+    minLength: null,
+    maxLength: null,
+  },
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
@@ -74,4 +80,26 @@ test("the address the editor used to open at goes to the rule's page", async () 
   expect(to).toMatch(/;\/admin\/credit-rules\/1;/);
   const none = await redirectedTo(async () => list([RULE], { edit: "9" }));
   expect(none).toBeUndefined();
+});
+
+test("a rule with filters lists them, and one without lists none", async () => {
+  const html = await htmlOf(
+    await list([
+      {
+        ...RULE,
+        filters: {
+          createdFrom: "2020-01-01",
+          createdUntil: null,
+          minLength: 20,
+          maxLength: 500,
+        },
+      },
+      { ...RULE, id: 2, title: "Plain" },
+    ]),
+  );
+  expect(html).toContain("created from 2020-01-01");
+  expect(html).toContain("at least 20 characters");
+  expect(html).toContain("at most 500 characters");
+  expect(html).not.toContain("created until");
+  expect(html.match(/created from/g)).toHaveLength(1);
 });

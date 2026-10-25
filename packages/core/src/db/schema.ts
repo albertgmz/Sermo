@@ -2184,6 +2184,16 @@ export const creditRules = sqliteTable("credit_rules", {
   /** JSON array of forum ids the rule is restricted to; empty = everywhere. */
   nodeIds: text("node_ids").notNull().default("[]"),
   /**
+   * Filters on the source content of the content triggers; null = no filter. Content created
+   * before `source_from` (UTC ms, inclusive) or at or after `source_until` (UTC ms, exclusive:
+   * the start of the day after the admin's "until" date) does not count, nor does content whose
+   * plain text has fewer than `source_min_length` or more than `source_max_length` characters.
+   */
+  sourceFrom: integer("source_from"),
+  sourceUntil: integer("source_until"),
+  sourceMinLength: integer("source_min_length"),
+  sourceMaxLength: integer("source_max_length"),
+  /**
    * The newest domain event when the rule was created. The rule applies only to later events,
    * so events still waiting to be processed, or replayed, never pay under a rule made after them.
    */

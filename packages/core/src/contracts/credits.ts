@@ -98,6 +98,26 @@ export const creditsRecalculate = defineContract({
  * processed. What a piece of content paid is taken back when the content stops being visible
  * and paid again when it is restored. Content awaiting approval pays when it is approved.
  */
+/**
+ * Optional filters on the source content of a content trigger (see `CONTENT_CREDIT_TRIGGERS`: the
+ * thread, reply, profile post or reacted-to item the rule pays for); each null = no filter. Content
+ * that fails one pays nothing, and neither does it when it is hidden and restored. Dates are UTC
+ * days, both inclusive; lengths count the characters of the content's plain text (BB code tags
+ * excluded; a thread counts its first post).
+ */
+export const CreditRuleFilters = z
+  .object({
+    createdFrom: z.iso.date().nullable(),
+    createdUntil: z.iso.date().nullable(),
+    minLength: z.number().int().min(1).max(1_000_000).nullable(),
+    maxLength: z.number().int().min(1).max(1_000_000).nullable(),
+  })
+  .meta({ id: "CreditRuleFilters" });
+
+export type CreditRuleFiltersValue = z.output<typeof CreditRuleFilters>;
+
+const NO_FILTERS = { createdFrom: null, createdUntil: null, minLength: null, maxLength: null };
+
 export const CreditRule = z
   .object({
     id: Id,
@@ -119,6 +139,8 @@ export const CreditRule = z
      * reaction_given and reaction_received (a restricted rule ignores other reactions).
      */
     nodeIds: z.array(Id),
+    /** Filters on the content the rule pays for; see `CreditRuleFilters`. */
+    filters: CreditRuleFilters,
     createdAt: Timestamp,
     updatedAt: Timestamp,
   })
@@ -162,6 +184,27 @@ const RuleInput = {
   isActive: z.boolean(),
   limit: CreditRule.shape.limit,
   nodeIds: z.array(Id).max(100),
+  filters: z
+    .object({
+      createdFrom: CreditRuleFilters.shape.createdFrom.default(null),
+      createdUntil: CreditRuleFilters.shape.createdUntil.default(null),
+      minLength: CreditRuleFilters.shape.minLength.default(null),
+      maxLength: CreditRuleFilters.shape.maxLength.default(null),
+    })
+    .refine(
+      (filters) =>
+        filters.createdFrom === null ||
+        filters.createdUntil === null ||
+        filters.createdFrom <= filters.createdUntil,
+      "The from date cannot be after the until date.",
+    )
+    .refine(
+      (filters) =>
+        filters.minLength === null ||
+        filters.maxLength === null ||
+        filters.minLength <= filters.maxLength,
+      "The minimum length cannot exceed the maximum length.",
+    ),
 };
 
 /** The triggers about forum content, the only ones that accept a restriction to forums. */
@@ -173,17 +216,34 @@ export const FORUM_CREDIT_TRIGGERS: readonly (typeof CREDIT_TRIGGERS)[number][] 
   "reaction_received",
 ];
 
+/**
+ * The triggers whose source is a piece of content, the only ones that accept `filters`: the forum
+ * triggers and the profile post ones.
+ */
+export const CONTENT_CREDIT_TRIGGERS: readonly (typeof CREDIT_TRIGGERS)[number][] = [
+  ...FORUM_CREDIT_TRIGGERS,
+  "profile_post_created",
+  "profile_post_received",
+];
+
 export const creditRulesList = defineContract({
   name: "creditRules.list",
   summary:
     "All credit rules, and every trigger with whether a rule on it accepts a restriction to " +
-    "forums (`triggers`, `acceptsForums`: `nodeIds` on any other trigger is refused). Requires " +
-    "admin.creditRules.",
+    "forums (`triggers`, `acceptsForums`: `nodeIds` on any other trigger is refused) and to " +
+    "source filters (`acceptsFilters`: non-empty `filters` on any other trigger are refused). " +
+    "Requires admin.creditRules.",
   kind: "read",
   input: Empty,
   output: z.object({
     items: z.array(CreditRule),
-    triggers: z.array(z.object({ id: CreditRule.shape.trigger, acceptsForums: z.boolean() })),
+    triggers: z.array(
+      z.object({
+        id: CreditRule.shape.trigger,
+        acceptsForums: z.boolean(),
+        acceptsFilters: z.boolean(),
+      }),
+    ),
   }),
 });
 
@@ -191,13 +251,16 @@ export const creditRulesCreate = defineContract({
   name: "creditRules.create",
   summary:
     "Create a credit rule. It applies to events from now on, never to past ones. `nodeIds` " +
-    "must be existing forums and is accepted only for forum triggers. Requires admin.creditRules.",
+    "must be existing forums and is accepted only for forum triggers. `filters` (created from or " +
+    "until a UTC day, minimum or maximum plain-text length of the source content) are accepted " +
+    "only for content triggers. Requires admin.creditRules.",
   kind: "write",
   input: z.object({
     ...RuleInput,
     isActive: RuleInput.isActive.default(true),
     limit: RuleInput.limit.default(null),
     nodeIds: RuleInput.nodeIds.default([]),
+    filters: RuleInput.filters.default(NO_FILTERS),
   }),
   output: CreditRule,
 });
@@ -206,7 +269,8 @@ export const creditRulesUpdate = defineContract({
   name: "creditRules.update",
   summary:
     "Change a credit rule (its trigger is fixed). Credits it already paid keep their amount, " +
-    "including when they are later taken back or paid again. Requires admin.creditRules.",
+    "including when they are later taken back or paid again; a change of filters applies to " +
+    "later events only. Requires admin.creditRules.",
   kind: "write",
   input: z.object({
     ruleId: Id,
@@ -215,6 +279,8 @@ export const creditRulesUpdate = defineContract({
     isActive: RuleInput.isActive.optional(),
     limit: RuleInput.limit.optional(),
     nodeIds: RuleInput.nodeIds.optional(),
+    /** Replaces all four filters at once; the ones left out are cleared. Omitted = unchanged. */
+    filters: RuleInput.filters.optional(),
   }),
   output: CreditRule,
 });

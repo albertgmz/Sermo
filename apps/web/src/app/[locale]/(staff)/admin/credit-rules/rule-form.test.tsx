@@ -17,6 +17,12 @@ const RULE: NonNullable<Parameters<typeof RuleFormFields>[0]["rule"]> = {
   isActive: false,
   limit: { count: 10, windowHours: 24 },
   nodeIds: [],
+  filters: {
+    createdFrom: null,
+    createdUntil: null,
+    minLength: null,
+    maxLength: null,
+  },
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
@@ -41,4 +47,30 @@ test("an existing rule posts its id, keeps its trigger and shows what it holds",
   expect(html).toContain('name="limitCount"');
   expect(html).toContain('value="24"');
   expect(html).not.toMatch(/name="isActive"[^>]*checked/);
+});
+
+test("an existing rule's filters are in the form, and a new one has none", async () => {
+  const filterable = triggers.map((trigger) => ({
+    ...trigger,
+    acceptsFilters: trigger.id === "reply_posted",
+  }));
+  const html = await htmlOf(
+    await RuleFormFields({
+      rule: {
+        ...RULE,
+        filters: {
+          createdFrom: "2020-01-01",
+          createdUntil: "2024-12-31",
+          minLength: null,
+          maxLength: 500,
+        },
+      },
+      triggers: filterable,
+      nodes: [],
+    }),
+  );
+  expect(html).toMatch(/name="createdFrom"[^>]*value="2020-01-01"/);
+  expect(html).toMatch(/name="createdUntil"[^>]*value="2024-12-31"/);
+  expect(html).toMatch(/name="maxLength"[^>]*value="500"/);
+  expect(html).not.toMatch(/name="minLength"[^>]*value=/);
 });

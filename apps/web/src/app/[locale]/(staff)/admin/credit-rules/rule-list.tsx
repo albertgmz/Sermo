@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
+import { Fragment } from "react";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { ItemList, RowLink } from "@/components/staff/item-list";
 import { Notice } from "@/components/staff/notice";
@@ -9,6 +10,24 @@ import { parseId } from "@/lib/sermo/ids";
 import { one } from "../credits/shared";
 import { deleteRule } from "./actions";
 import { ruleData } from "./rule-data";
+import type { Rule } from "./rule-form";
+
+// The filters a rule has, as the message key and values of each (none for a rule without).
+function filterParts(filters: Rule["filters"]) {
+  const parts: [
+    "filterFrom" | "filterUntil" | "filterMin" | "filterMax",
+    Record<string, string | number>,
+  ][] = [];
+  if (filters.createdFrom)
+    parts.push(["filterFrom", { date: filters.createdFrom }]);
+  if (filters.createdUntil)
+    parts.push(["filterUntil", { date: filters.createdUntil }]);
+  if (filters.minLength)
+    parts.push(["filterMin", { count: filters.minLength }]);
+  if (filters.maxLength)
+    parts.push(["filterMax", { count: filters.maxLength }]);
+  return parts;
+}
 
 type Search = {
   notice?: string | string[];
@@ -86,6 +105,12 @@ export async function RuleList({
                       .join(", "),
                   })
                 : t("everywhere")}
+              {filterParts(rule.filters).map(([key, values]) => (
+                <Fragment key={key}>
+                  {" · "}
+                  {t(key, values)}
+                </Fragment>
+              ))}
             </>
           ),
           badges: rule.isActive ? (

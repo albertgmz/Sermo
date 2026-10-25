@@ -43,6 +43,7 @@ export async function RuleFormFields({
           triggerChoices={triggers}
           nodes={nodes}
           chosen={rule?.nodeIds ?? []}
+          filters={rule?.filters}
         />
         <Field
           name="amount"

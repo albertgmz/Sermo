@@ -423,6 +423,15 @@ only for `thread_created`, `reply_posted`, `reply_received`, `reaction_given` an
 `reaction_received`. It matches those forums, not their descendants. A restricted reaction rule
 applies only to reactions on posts in those forums and ignores other content types.
 
+`filters` limit a content rule (the forum triggers and `profile_post_created` and
+`profile_post_received`) by its source content: `createdFrom` and `createdUntil` are UTC days
+(`YYYY-MM-DD`, both included) that the content's creation must fall within, and `minLength` and
+`maxLength` bound the characters of its plain text (BB code tags are not counted; a thread counts
+its first post). A reaction or reply today to a 2015 post pays nothing under `createdFrom:
+"2020-01-01"`. Each filter is `null` for none; an update replaces all four, and a change applies
+to later events only. Hiding and restoring content pays back only what qualified when it was
+first judged.
+
 Rules apply only to events recorded after the rule was created, including when older events
 are still waiting to be processed. A rule pays each member only once per source: a thread, reply,
 one member's reaction on one item, profile post, follower, registration, UTC day, warning or award

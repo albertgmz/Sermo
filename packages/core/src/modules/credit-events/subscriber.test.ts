@@ -832,3 +832,199 @@ describe("hiding popular content", () => {
     expect(f.ledger()).toEqual(before);
   });
 });
+
+describe("source filters", () => {
+  const day = (iso: string) => Date.parse(`${iso}T12:00:00Z`);
+  function aged(f: ReturnType<typeof fixture>, postId: number, createdAt: number) {
+    f.ctx.sqlite.prepare("UPDATE posts SET created_at = ?1 WHERE id = ?2").run(createdAt, postId);
+  }
+  function text(f: ReturnType<typeof fixture>, postId: number, body: string | null) {
+    f.ctx.sqlite
+      .prepare("UPDATE post_bodies SET body_source = ?1, body_text = ?2 WHERE post_id = ?3")
+      .run(body ?? "", body, postId);
+  }
+  const react = (f: ReturnType<typeof fixture>, postId: number) =>
+    f.event("reaction.added", "post", postId, {
+      userId: f.third.id,
+      contentUserId: f.other.id,
+    });
+
+  test("a reaction to a post older than the rule's from date pays nobody, one to a newer post does", async () => {
+    const f = fixture();
+    await f.createRule("reaction_given", { filters: { createdFrom: "2020-01-01" } });
+    await f.createRule("reaction_received", { filters: { createdFrom: "2020-01-01" } });
+    const old = f.post(f.thread());
+    aged(f, old, day("2015-06-01"));
+    react(f, old);
+    expect(f.balance(f.third.id)).toBe(0);
+    expect(f.balance(f.other.id)).toBe(0);
+    const recent = f.post(f.thread());
+    aged(f, recent, day("2021-03-01"));
+    react(f, recent);
+    expect(f.balance(f.third.id)).toBe(10);
+    expect(f.balance(f.other.id)).toBe(10);
+    await f.replay();
+  });
+
+  test("the until date counts through its whole day and no later", async () => {
+    const f = fixture();
+    await f.createRule("reply_posted", { filters: { createdUntil: "2022-12-31" } });
+    const last = f.post(f.thread());
+    aged(f, last, Date.parse("2022-12-31T23:59:59Z"));
+    f.event("content.created", "post", last);
+    expect(f.balance(f.other.id)).toBe(10);
+    const after = f.post(f.thread());
+    aged(f, after, Date.parse("2023-01-01T00:00:00Z"));
+    f.event("content.created", "post", after);
+    expect(f.balance(f.other.id)).toBe(10);
+  });
+
+  test("a reply shorter or longer than the rule's lengths pays nobody, in plain text", async () => {
+    const f = fixture();
+    await f.createRule("reply_posted", { filters: { minLength: 5, maxLength: 10 } });
+    await f.createRule("reply_received", { filters: { minLength: 5, maxLength: 10 } });
+    let count = 0;
+    const paidSoFar = (paid: boolean) => (count += paid ? 10 : 0);
+    for (const [body, paid] of [
+      ["hi", false],
+      ["hello", true],
+      ["0123456789", true],
+      ["01234567890", false],
+    ] as const) {
+      const id = f.post(f.thread());
+      text(f, id, body);
+      f.event("content.created", "post", id);
+      expect(f.balance(f.other.id)).toBe(paidSoFar(paid));
+    }
+    expect(f.balance()).toBe(20);
+    await f.replay();
+  });
+
+  test("the length counts the text, not the markup, and falls back to the source when none is stored", async () => {
+    const f = fixture();
+    await f.createRule("reply_posted", { filters: { minLength: 5 } });
+    const marked = f.post(f.thread());
+    f.ctx.sqlite
+      .prepare(
+        "UPDATE post_bodies SET body_source = '[b][i]hi[/i][/b]', body_text = 'hi' WHERE post_id = ?1",
+      )
+      .run(marked);
+    f.event("content.created", "post", marked);
+    expect(f.balance(f.other.id)).toBe(0);
+    const uncomputed = f.post(f.thread());
+    f.ctx.sqlite
+      .prepare(
+        "UPDATE post_bodies SET body_source = '[b]hello there[/b]', body_text = NULL WHERE post_id = ?1",
+      )
+      .run(uncomputed);
+    f.event("content.created", "post", uncomputed);
+    expect(f.balance(f.other.id)).toBe(10);
+  });
+
+  test("a thread is judged by its first post", async () => {
+    const f = fixture();
+    await f.createRule("thread_created", { filters: { minLength: 5 } });
+    const short = f.thread();
+    text(f, f.post(short, 0, "visible", f.author.id), "hi");
+    f.event("content.created", "thread", short);
+    expect(f.balance()).toBe(0);
+    const long = f.thread();
+    text(f, f.post(long, 0, "visible", f.author.id), "a proper opening post");
+    f.event("content.created", "thread", long);
+    expect(f.balance()).toBe(10);
+  });
+
+  test("profile posts honour the filters", async () => {
+    const f = fixture();
+    await f.createRule("profile_post_received", { filters: { createdFrom: "2020-01-01" } });
+    const old = f.profile();
+    f.ctx.sqlite.prepare("UPDATE profile_posts SET created_at = ?1").run(day("2015-01-01"));
+    f.event("content.created", "profile_post", old);
+    expect(f.balance()).toBe(0);
+    f.ctx.sqlite.prepare("UPDATE profile_posts SET created_at = ?1").run(day("2024-01-01"));
+    f.event("content.created", "profile_post", f.profile());
+    expect(f.balance()).toBe(10);
+  });
+
+  test("a rule without filters still pays for old and short content", async () => {
+    const f = fixture();
+    await f.createRule("reply_posted");
+    await f.createRule("reaction_received");
+    const id = f.post(f.thread());
+    aged(f, id, day("2010-01-01"));
+    text(f, id, "x");
+    f.event("content.created", "post", id);
+    react(f, id);
+    expect(f.balance(f.other.id)).toBe(20);
+  });
+
+  test("hiding and restoring takes back and pays again only what qualified", async () => {
+    const f = fixture();
+    await f.createRule("reply_posted", { filters: { minLength: 5 } });
+    const kept = f.post(f.thread());
+    text(f, kept, "long enough");
+    f.event("content.created", "post", kept);
+    const skipped = f.post(f.thread());
+    text(f, skipped, "no");
+    f.event("content.created", "post", skipped);
+    expect(f.balance(f.other.id)).toBe(10);
+    for (const id of [kept, skipped]) f.state("post", id, "deleted");
+    expect(f.balance(f.other.id)).toBe(0);
+    for (const id of [kept, skipped]) f.state("post", id, "visible");
+    expect(f.balance(f.other.id)).toBe(10);
+    await f.replay();
+  });
+
+  test("approving a moderated reply that does not qualify pays nothing", async () => {
+    const f = fixture();
+    await f.createRule("reply_posted", { filters: { minLength: 5 } });
+    const id = f.post(f.thread(), 1, "moderated");
+    text(f, id, "no");
+    f.event("content.created", "post", id);
+    f.state("post", id, "visible");
+    expect(f.balance(f.other.id)).toBe(0);
+  });
+
+  test("filters are refused on triggers that are not about content, and on contradictory ranges", async () => {
+    const f = fixture();
+    await expect(f.createRule("followed", { filters: { minLength: 5 } })).rejects.toThrow(
+      "filters",
+    );
+    await expect(
+      f.createRule("reply_posted", {
+        filters: { createdFrom: "2021-01-01", createdUntil: "2020-01-01" },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      f.createRule("reply_posted", { filters: { minLength: 9, maxLength: 3 } }),
+    ).rejects.toThrow();
+  });
+
+  test("filters round-trip through create and update, and an update without them keeps them", async () => {
+    const f = fixture();
+    const rule = await f.createRule("reply_posted", {
+      filters: { createdFrom: "2020-01-01", createdUntil: "2024-12-31", minLength: 20 },
+    });
+    expect(rule.filters).toEqual({
+      createdFrom: "2020-01-01",
+      createdUntil: "2024-12-31",
+      minLength: 20,
+      maxLength: null,
+    });
+    const renamed = await execute(f.ctx, creditRulesUpdateOp, f.admin, {
+      ruleId: rule.id,
+      title: "Renamed",
+    });
+    expect(renamed.filters).toEqual(rule.filters);
+    const cleared = await execute(f.ctx, creditRulesUpdateOp, f.admin, {
+      ruleId: rule.id,
+      filters: { maxLength: 500 },
+    });
+    expect(cleared.filters).toEqual({
+      createdFrom: null,
+      createdUntil: null,
+      minLength: null,
+      maxLength: 500,
+    });
+  });
+});

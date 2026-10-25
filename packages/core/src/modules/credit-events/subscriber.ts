@@ -2,6 +2,7 @@ import type { Ctx } from "../../context";
 import { GUEST_ACCOUNT_ID } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import type { DomainEvent } from "../../events";
+import { bbCodeText } from "../../render";
 import { moveCredits } from "../../shared/credits";
 import { query, type RuleRow, type Trigger } from "./storage";
 
@@ -25,6 +26,47 @@ interface Source {
   id: number;
   otherUserId?: number;
   nodeId?: number;
+  /** When the content a content trigger pays for was created; what the rules' date filters judge. */
+  createdAt?: number;
+  /** The plain text length of that content, read on first use: only length filters need it. */
+  length?: () => number;
+}
+
+const LENGTH_QUERIES = {
+  thread: "threadLength",
+  post: "postLength",
+  profile_post: "profile_postLength",
+  profile_post_comment: "profile_post_commentLength",
+} as const;
+
+/** What the filters of a rule judge about a source: its creation time and its text length. */
+function judged(ctx: Ctx, type: string, id: number, createdAt: number) {
+  const key = LENGTH_QUERIES[type as keyof typeof LENGTH_QUERIES];
+  let length: number | undefined;
+  return {
+    createdAt,
+    length: () => {
+      if (length !== undefined) return length;
+      const row = key
+        ? query<{ length: number | null; source: string | null }>(ctx, key).get(id)
+        : null;
+      // A thread is judged by its first post. Stored text is measured by SQLite (characters);
+      // only a body whose text was never stored is stripped here.
+      length = row?.length ?? (row?.source != null ? Array.from(bbCodeText(row.source)).length : 0);
+      return length;
+    },
+  };
+}
+
+function qualifies(rule: RuleRow, source: Source): boolean {
+  if (rule.source_from !== null && source.createdAt! < rule.source_from) return false;
+  if (rule.source_until !== null && source.createdAt! >= rule.source_until) return false;
+  if (rule.source_min_length === null && rule.source_max_length === null) return true;
+  const length = source.length!();
+  return (
+    (rule.source_min_length === null || length >= rule.source_min_length) &&
+    (rule.source_max_length === null || length <= rule.source_max_length)
+  );
 }
 
 function content(ctx: Ctx, type: string, id: number): Content | null {
@@ -57,6 +99,7 @@ function apply(
       continue;
     const nodes = JSON.parse(rule.node_ids) as number[];
     if (nodes.length && (source.nodeId === undefined || !nodes.includes(source.nodeId))) continue;
+    if (!qualifies(rule, source)) continue;
     if (rule.limit_count !== null) {
       const cutoff = event.createdAt - rule.limit_window_hours! * 3_600_000;
       if (
@@ -140,7 +183,12 @@ function creation(ctx: Ctx, event: DomainEvent, row: Content): void {
   if (event.type === "content.created") {
     if (first && first.previous_state !== "visible") return;
   } else if (!first || first.id !== event.id || first.previous_state === "visible") return;
-  const source = { type: event.targetType, id: event.targetId, nodeId: row.node_id };
+  const source = {
+    type: event.targetType,
+    id: event.targetId,
+    nodeId: row.node_id,
+    ...judged(ctx, event.targetType, event.targetId, row.created_at),
+  };
   if (event.targetType === "thread") apply(ctx, event, "thread_created", row.user_id, source);
   if (event.targetType === "post" && row.position! > 0) {
     apply(ctx, event, "reply_posted", row.user_id, source);
@@ -205,6 +253,10 @@ export function handleCreditRuleEvent(ctx: Ctx, event: DomainEvent): void | Prom
         (row.parent_state === undefined || row.parent_state === "visible");
       const source = { type: event.targetType, id: event.targetId };
       if (event.type === "reaction.added") {
+        const reacted = {
+          ...source,
+          ...judged(ctx, event.targetType, event.targetId, row.created_at),
+        };
         // A reaction in a private conversation pays nothing: nobody else can see it, so two
         // accounts could trade them unchecked (XenForo does not count these reactions either).
         if (!visible || event.targetType === "conversation_message") return;
@@ -217,9 +269,9 @@ export function handleCreditRuleEvent(ctx: Ctx, event: DomainEvent): void | Prom
         const userId = Number(event.payload.userId);
         const recipientId = Number(event.payload.contentUserId);
         const nodeId = event.targetType === "post" ? row.node_id : undefined;
-        apply(ctx, event, "reaction_given", userId, { ...source, nodeId });
+        apply(ctx, event, "reaction_given", userId, { ...reacted, nodeId });
         apply(ctx, event, "reaction_received", recipientId, {
-          ...source,
+          ...reacted,
           nodeId,
           otherUserId: userId,
         });
