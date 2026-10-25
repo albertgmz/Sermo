@@ -113,14 +113,23 @@ type Unavailable = { unavailable: 429 | 503 };
 const isUnavailable = (found: unknown): found is Unavailable =>
   typeof found === "object" && found !== null && "unavailable" in found;
 
+// The backend refused the record as +18: it exists and the page draws the +18 page, which no
+// search engine should keep (the response says so, `X-Robots-Tag`).
+type AdultRefused = { adult: true };
+const ADULT_REFUSED: AdultRefused = { adult: true };
+
+const isAdultRefused = (found: unknown): found is AdultRefused =>
+  typeof found === "object" && found !== null && "adult" in found;
+
 // What a failed lookup means: false for a missing record, the status for a backend that throttles
-// the visitor (429) or fails (5xx; one that cannot be reached is a 500 too), true for anything else
-// (the page shows its own refusal).
+// the visitor (429) or fails (5xx; one that cannot be reached is a 500 too), the +18 refusal (the
+// page draws the +18 page), true for anything else (the page shows its own refusal).
 function lookupFailure(
   error: unknown,
   missing: (refusal: SermoError) => boolean,
-): boolean | Unavailable {
+): boolean | Unavailable | AdultRefused {
   if (!(error instanceof SermoError)) return true;
+  if (isAdultRefusal(error)) return ADULT_REFUSED;
   if (missing(error)) return false;
   if (error.status === 429) return { unavailable: 429 };
   if (error.status >= 500) return { unavailable: 503 };
@@ -232,12 +241,11 @@ const heldBy =
       response.headers.set("cache-control", "private, no-store");
       return response;
     } catch (error) {
-      // Content refused as +18 exists and is otherwise visible: the page draws the +18 page.
+      // Content refused as +18 exists and is otherwise visible: `lookupFailure` lets it through.
       return lookupFailure(
         error,
         (refusal) =>
-          refusal.code === "not_found" ||
-          (refusal.code === "forbidden" && !isAdultRefusal(refusal)),
+          refusal.code === "not_found" || refusal.code === "forbidden",
       );
     }
   };
@@ -1006,20 +1014,24 @@ async function pageResponse(request: NextRequest, security: PageSecurity) {
     !isMonthStanding(section, id, action)
       ? CONTENT[section]
       : undefined;
+  let adultRefused = false;
   if (landing) {
     const found = await landing.find(landing.id, undefined, request);
     if (found instanceof NextResponse) return found;
     if (isUnavailable(found))
       return unavailable(request, locale, security, found.unavailable);
     if (!found) return notFound(request, locale, security);
+    adultRefused = isAdultRefused(found);
   } else if (find) {
     const found = await find(id, action, request);
     if (found instanceof NextResponse) return found;
     if (isUnavailable(found))
       return unavailable(request, locale, security, found.unavailable);
     if (!found) return notFound(request, locale, security);
+    adultRefused = isAdultRefused(found);
   }
   const response = toPage(request, locale, security);
+  if (adultRefused) response.headers.set("X-Robots-Tag", "noindex");
   // A guest's view of a public page may wait in the browser's back/forward cache, which Next's
   // `no-store` forbids: it holds no member's data, `private` keeps every shared cache out, and a
   // real navigation still fetches it afresh (Next sends no validator for a page drawn per request).

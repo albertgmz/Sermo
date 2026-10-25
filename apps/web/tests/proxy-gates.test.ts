@@ -799,6 +799,29 @@ test("content refused as +18 goes on to its page, which draws the +18 page: neve
   passes(await ask("/profile-posts/12"));
 });
 
+test("a page load of content refused as +18 tells crawlers not to index it; a plain page does not", async () => {
+  backend({
+    "/api/v1/seo/threads/7": adultRefusal("guest"),
+    "/api/v1/seo/nodes/3": adultRefusal("minor"),
+    "/api/v1/seo/users/5": adultRefusal("birthDate"),
+    "/api/v1/posts/63": adultRefusal("acceptance"),
+  });
+  for (const path of [
+    "/threads/7-news",
+    "/forums/3-general",
+    "/members/5-wren",
+    "/posts/63",
+  ]) {
+    const response = await ask(path);
+    passes(response);
+    assert.equal(response?.headers.get("x-robots-tag"), "noindex", path);
+  }
+  backend({ "/api/v1/seo/nodes/3": FORUM_3 });
+  const plain = await ask("/forums/3-general");
+  passes(plain);
+  assert.equal(plain?.headers.get("x-robots-tag"), null);
+});
+
 test("a guest who must sign in first goes on to the page, as for any record", async () => {
   backend({ "/api/v1/posts/62": refusal(401, "unauthenticated") });
   passes(await ask("/posts/62"));

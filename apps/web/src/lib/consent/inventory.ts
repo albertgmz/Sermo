@@ -180,6 +180,15 @@ export const INVENTORY: readonly InventoryItem[] = [
     party: "first",
   },
   {
+    // The address of a +18 page a visitor left to log in or sign up, read once when they leave its
+    // warning window, so that they go home instead of back to the log-in page.
+    id: "adultGateSignIn",
+    category: "necessary",
+    storage: "sessionStorage",
+    names: ["sermo.adult-gate.sign-in"],
+    party: "first",
+  },
+  {
     // The member who turned on notifications in this browser, so no one else who signs in here
     // receives theirs, and the session that device was last saved under (a number, no secret).
     id: "pushOwner",

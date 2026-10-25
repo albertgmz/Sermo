@@ -169,6 +169,11 @@
       "purpose": "Guarda lo que escribiste en el editor de un mensaje de un tema o de un mensaje directo al pulsar «Más opciones…», para que la página de edición se abra con ello; esa página lo lee una vez y lo borra.",
       "lifetime": "Hasta que se abre la página de edición o cierras la pestaña."
     },
+    "adultGateSignIn": {
+      "title": "Vuelta desde una página +18",
+      "purpose": "Recuerda la dirección de una página +18 que dejaste para iniciar sesión o registrarte, para que al salir luego de su aviso vayas al inicio y no de vuelta a la página de inicio de sesión; se lee una vez y se borra.",
+      "lifetime": "Hasta que sales de ese aviso o cierras la pestaña."
+    },
     "pushOwner": {
       "title": "Avisos en este dispositivo",
       "purpose": "Recuerda qué miembro activó los avisos en este navegador, para que dejen de llegar cuando otra persona lo use y nadie reciba los avisos de otro miembro.",
