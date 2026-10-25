@@ -157,7 +157,7 @@
     },
     "adultMode": {
       "label": "+18 mode",
-      "help": "On: forums, threads and profiles can be marked +18. Marked content reaches only members aged 18 or over by their date of birth who confirmed a warning; guests, minors and members without a date of birth do not see it anywhere, and opening it shows a +18 page. Off: marks are kept and change nothing.",
+      "help": "Forums, threads and profiles can be marked +18, and only adults who confirm a warning see them. Off: marks are kept but change nothing.",
       "switch": "Turn on the +18 mode"
     },
     "newMemberDays": {

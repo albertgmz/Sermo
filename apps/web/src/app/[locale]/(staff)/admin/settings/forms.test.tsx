@@ -158,6 +158,15 @@ test("the general form has the +18 mode switch, with its help, as the setting is
   expect(html).not.toMatch(/<input[^>]*name="adultMode"[^>]*checked/);
 });
 
+test("the +18 mode's help is two short sentences in every language: what it does, and what off means", async () => {
+  const { messagesFor } = await import("@/i18n/messages");
+  for (const locale of ["en", "es"] as const) {
+    const help = (await messagesFor(locale)).adminSetup.fields.adultMode.help;
+    expect(help.split(/(?<=\.)\s+/), locale).toHaveLength(2);
+    expect(help.split(/\s+/).length, locale).toBeLessThanOrEqual(30);
+  }
+});
+
 test("the new-member, search engine and cookie forms keep their settings", async () => {
   const members = await controls(MembersForm);
   expect([...members.names].sort()).toEqual([

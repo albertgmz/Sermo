@@ -23,8 +23,14 @@ afterAll(() => {
   mock.module("next/navigation", () => navigation);
 });
 const { Dialog } = await import("@/components/ui/dialog");
-const { AdultGate, AdultPage, AdultWarningBody, leaveGate, onGateChange } =
-  await import("./adult-gate");
+const {
+  AdultGate,
+  AdultPage,
+  AdultWarningBody,
+  leaveGate,
+  onGateChange,
+  signInHref,
+} = await import("./adult-gate");
 
 const g = messages.forum.adultGate;
 
@@ -115,4 +121,33 @@ test("Escape or Back leaves the page: back when the tab has a page to go back to
   expect(leave.calls).toHaveLength(0);
   onGateChange(leave)(false);
   expect(leave.calls).toHaveLength(1);
+});
+
+test("the +18 page keeps itself out of search results and names itself in the tab, for guests and members", () => {
+  for (const reason of ["guest", "acceptance"] as const) {
+    const html = renderToStaticMarkup(
+      withIntl(<AdultGate reason={reason} retry={() => {}} />),
+    );
+    expect(html).toContain('<meta name="robots" content="noindex"/>');
+    expect(html).toContain(`<title>${g.title}</title>`);
+  }
+});
+
+test("logging in from the +18 page comes back to the same address, query and all", () => {
+  expect(signInHref("/threads/12-night-swim", "?page=2")).toBe(
+    `/login?next=${encodeURIComponent("/threads/12-night-swim?page=2")}`,
+  );
+  expect(signInHref("/forums/3", "")).toBe(
+    `/login?next=${encodeURIComponent("/forums/3")}`,
+  );
+});
+
+test("after logging in or signing up from the +18 page, leaving goes home, not back to the log-in page", () => {
+  const router = {
+    back: recorded(() => {}),
+    replace: recorded((_href: string) => {}),
+  };
+  leaveGate(router, 4, true);
+  expect(router.back.calls).toHaveLength(0);
+  expect(router.replace.calls).toEqual([["/"]]);
 });

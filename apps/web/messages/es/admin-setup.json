@@ -157,7 +157,7 @@
     },
     "adultMode": {
       "label": "Modo +18",
-      "help": "Activado: se pueden marcar como +18 foros, temas y perfiles. El contenido marcado solo llega a los miembros mayores de 18 años según su fecha de nacimiento que hayan confirmado un aviso; los invitados, los menores y los miembros sin fecha de nacimiento no lo ven en ningún sitio, y al abrirlo ven una página +18. Desactivado: las marcas se guardan y no cambian nada.",
+      "help": "Se pueden marcar foros, temas y perfiles como +18, y solo los ven los adultos que confirman un aviso. Desactivado: las marcas se guardan pero no cambian nada.",
       "switch": "Activar el modo +18"
     },
     "newMemberDays": {

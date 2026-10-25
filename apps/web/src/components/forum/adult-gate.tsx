@@ -9,6 +9,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
 } from "react";
 import {
   type AdultConfirmState,
@@ -56,13 +57,39 @@ function AdultMark({ className }: { className?: string }) {
 }
 
 // Where leaving the window goes: back, when the tab has a page to go back to; else, for a +18
-// address opened in a tab of its own, the home page.
+// address opened in a tab of its own, the home page. A member who logged in or signed up from this
+// page also goes home: going back would land on the log-in page.
 export function leaveGate(
   router: { back: () => void; replace: (href: string) => void },
   depth: number,
+  signedInHere = false,
 ) {
-  if (depth > 1) router.back();
+  if (depth > 1 && !signedInHere) router.back();
   else router.replace("/");
+}
+
+// The log-in page, coming back to this address, query included (a later page of a thread).
+export const signInHref = (path: string, search: string) =>
+  `/login?next=${encodeURIComponent(path + search)}`;
+
+// The +18 page a guest left to log in or sign up, kept for the tab, so that once back as a member
+// leaving the window skips the log-in page. Storage may be unavailable: then it is simply not kept.
+const SIGNED_IN_HERE = "sermo.adult-gate.sign-in";
+function rememberSignIn(path: string) {
+  try {
+    window.sessionStorage.setItem(SIGNED_IN_HERE, path);
+  } catch {
+    // Not kept: leaving goes back as usual.
+  }
+}
+function takeSignIn(path: string): boolean {
+  try {
+    const kept = window.sessionStorage.getItem(SIGNED_IN_HERE);
+    window.sessionStorage.removeItem(SIGNED_IN_HERE);
+    return kept === path;
+  } catch {
+    return false;
+  }
 }
 
 // The window says it is closing (Escape, its Back button): the member leaves the page.
@@ -74,11 +101,18 @@ export const onGateChange = (leave: () => void) => (open: boolean) => {
 export function AdultPage({ guest }: { guest: boolean }) {
   const t = useTranslations("forum.adultGate");
   const path = usePathname();
+  // The query is the browser's to tell (the page is drawn without it on the server).
+  const [search, setSearch] = useState("");
+  useEffect(() => setSearch(window.location.search), []);
   return (
     <section
       aria-labelledby="adult-page-title"
       className="mx-auto flex w-full max-w-md flex-col items-center rounded-xl border bg-card px-5 py-10 text-center sm:px-8"
     >
+      {/* Not for search results: the address answers this page, not its content. React puts both
+        in the document's head. */}
+      <title>{t("title")}</title>
+      <meta name="robots" content="noindex" />
       <AdultMark />
       <h1
         id="adult-page-title"
@@ -92,12 +126,17 @@ export function AdultPage({ guest }: { guest: boolean }) {
       {guest && (
         <div className="mt-6 flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
           <Link
-            href={`/login?next=${encodeURIComponent(path)}`}
+            href={signInHref(path, search)}
+            onClick={() => rememberSignIn(path)}
             className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
           >
             {t("login")}
           </Link>
-          <Link href="/register" className={cn(buttonVariants(), "h-10 px-4")}>
+          <Link
+            href="/register"
+            onClick={() => rememberSignIn(path)}
+            className={cn(buttonVariants(), "h-10 px-4")}
+          >
             {t("register")}
           </Link>
         </div>
@@ -200,8 +239,10 @@ export function AdultGate({
   retry: () => void;
 }) {
   const router = useRouter();
+  const path = usePathname();
   const popup = useRef<HTMLDivElement>(null);
-  const leave = () => leaveGate(router, window.history.length);
+  const leave = () =>
+    leaveGate(router, window.history.length, takeSignIn(path));
   return (
     <PageLayout className="md:py-16">
       <AdultPage guest={reason === "guest"} />

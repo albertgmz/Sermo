@@ -18,7 +18,8 @@ test("the mark draws the figure and reads out its name", () => {
   const html = renderToStaticMarkup(withIntl(<AdultBadge />));
   expect(html).toContain(`<span aria-hidden="true">${b.label}</span>`);
   expect(html).toContain(`<span class="sr-only">${b.name}</span>`);
-  expect(html).toContain(`title="${b.name}"`);
+  // Read out once: no tooltip repeating the name.
+  expect(html).not.toContain("title=");
   // Its colour is a theme token, never a fixed one.
   expect(html).toContain("text-destructive");
 });
