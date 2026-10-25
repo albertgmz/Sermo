@@ -25,12 +25,14 @@ export type Navigation = {
 
 // The entries the install ships with are stored with their English titles. One that still has its
 // seeded title is drawn with the message of the same entry in the visitor's language; one that was
-// renamed keeps the name it was given. `footer.legal.notice` is the message `footerLegalNotice`.
+// renamed keeps the name it was given. `footer.legal.notice` is the message `footerLegalNotice`
+// and `header.whats_new` is `headerWhatsNew`: each part, split at a dot or an underscore, is
+// capitalised.
 const SEEDED = messages.layout.navigation as Record<string, string>;
 
-const messageKey = (builtin: string) =>
+export const messageKey = (builtin: string) =>
   builtin
-    .split(".")
+    .split(/[._]/)
     .map((part, index) =>
       index === 0 ? part : part[0]?.toUpperCase() + part.slice(1),
     )

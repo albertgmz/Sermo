@@ -32,7 +32,7 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 
-const { getNavigation } = await import("./navigation");
+const { getNavigation, messageKey } = await import("./navigation");
 
 const plain = { icon: null, iconPosition: "before" as const };
 const home = {
@@ -220,6 +220,28 @@ test("a built-in entry that still has its seeded title is drawn in the visitor's
   }
 });
 
+test("the What's new entries of the header and the phone bar are drawn as Novedades in Spanish", async () => {
+  language = "es";
+  try {
+    globalThis.fetch = (async (url: string) =>
+      Response.json(
+        url.endsWith("/api/v1/me")
+          ? me
+          : {
+              header: [entry(1, "What's new", "header.whats_new")],
+              mobile: [entry(2, "What's new", "mobile.whats_new")],
+              account: [],
+              footer: [],
+            },
+      )) as unknown as typeof fetch;
+    const { header, mobile } = await getNavigation();
+    assert.equal(header[0]?.title, "Novedades");
+    assert.equal(mobile[0]?.title, "Novedades");
+  } finally {
+    language = "en";
+  }
+});
+
 test("the English titles are the ones the migrations seed", () => {
   const dir = new URL("../../../../../packages/core/drizzle/", import.meta.url);
   const sql = readFileSync(new URL("0021_site_chrome.sql", dir), "utf8");
@@ -244,16 +266,10 @@ test("the English titles are the ones the migrations seed", () => {
   seeded.set("header.whats_new", "What's new");
   seeded.delete("mobile.profile");
   seeded.set("mobile.whats_new", "What's new");
-  const camel = (key: string) =>
-    key
-      .split(".")
-      .flatMap((part) => part.split("_"))
-      .map((part, index) =>
-        index === 0 ? part : (part[0] as string).toUpperCase() + part.slice(1),
-      )
-      .join("");
   assert.deepEqual(
-    Object.fromEntries([...seeded].map(([key, title]) => [camel(key), title])),
+    Object.fromEntries(
+      [...seeded].map(([key, title]) => [messageKey(key), title]),
+    ),
     english.navigation,
   );
   assert.deepEqual(
