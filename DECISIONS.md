@@ -7291,3 +7291,25 @@ Why: the install card asked guests for something before they had a reason to com
 is what turns a reader arriving from a search engine into a member. One invitation at a time, after
 the cookie banner and never on the pages that already ask (log-in, sign-up, +18), keeps it obvious
 without crowding the page.
+
+### The feed is /whats-new and the code is language agnostic
+
+**Route:** the feed moves from `/novedades` to `/whats-new` (XenForo's own name for the page).
+`/novedades` and every address under it answer a 308 to `/whats-new` that keeps the query
+(`lib/home-redirects.ts`), so links and search results keep working. XenForo's `whats-new/...` and
+`find-new` addresses still go to the page. **Names:** identifiers and stored values are English:
+widget page `whats_new`, positions `whats_new_above` and `whats_new_sidebar`, menu keys
+`header.whats_new` and `mobile.whats_new` (their messages are found by `messageKey`, which splits at
+`.` and `_`), `WHATS_NEW_PATH`, the route folder and the message keys. Migration `0078` renames the
+stored rows in place (widgets, built-in menu entries and any menu target that pointed at the old
+address); nothing reads the old values. During a deploy, between the migration and the new web
+starting, the old web's widget request for the old page is refused and its menu entry shows the
+default icon; both heal when the new web starts. **Words:** every word a visitor reads comes from
+the message files or the backend's localised text; the proxy's blocked-picture placeholder reads
+`litePlaceholder.label`. `tests/no-hardcoded-spanish.test.ts` reads strings, JSX text and
+identifiers with the TypeScript AST and fails on Spanish outside the locale files; its allow-list
+names each exception and why (the static offline page, the legacy XenForo slugs, the old Spanish
+feed address, XenForo import data).
+
+Why: the owner wants the forum language agnostic: no Spanish words in its code, routes or stored
+values, and a new Spanish string must fail a test instead of being found by a later audit.
