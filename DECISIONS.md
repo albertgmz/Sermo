@@ -7138,3 +7138,43 @@ conversations the same `ContentAuthor` as threads reuses the guest author in eve
 in short transactions keeps an account with tens of thousands of posts from stalling the site. Staff
 erasures are kept apart because the move cannot be undone and the request was about the member's own
 deletion.
+
+### +18 mode
+
+**Setting and marks:** `adultMode` (off by default; `site.get` tells it). Administrators mark a
+forum (`NodeSettings.isAdult`; it covers the nodes under it and all their threads), a thread's
+author (while unlocked) or a moderator marks a thread (`threads.update`, or `threads.create` with
+`isAdult`), a member or staff mark a profile (`profiles.update` / `users.adminUpdateProfile`
+`isAdult`). An author cannot take off a mark a moderator put on. Moving a thread out of a +18 forum,
+splitting posts out of +18 content and merging +18 content into an unmarked thread leave the
+receiving thread marked by its own mark, recorded as the moderator's. Migration 0075 adds the
+columns with defaults and one partial index on marked threads. **Who sees it:** a member 18 or older
+by the stored birth date (year and day, UTC; 29 February turns 18 on 1 March) who confirmed the
+warning (`users.adult_accepted_at`). `profiles.setBirthDate` stores a missing full date once (then
+only staff change it; while the mode is on `profiles.update` refuses a change or removal),
+`profiles.acceptAdult` records the confirmation for an adult. Guests, minors and members without a
+full date never see +18 content. **Hiding:** with the mode on a forum's mark is a denial inside the
+permission check (the last one, "adult"), so every list, feed, search, sitemap, alert and card that
+hides private forums hides +18 ones; a thread's mark is read with the row by the read gates and the
+list statements; a profile's mark is part of profile visibility and member cards. A member always
+sees their own thread and profile. With `manage`, administrators list and edit +18 forums they may
+not see as content. **Refusal:** opening +18 content one may not see gives a `forbidden` error with
+one issue, path `adult`, message `guest`, `minor`, `birthDate` or `acceptance`, only for content
+that is otherwise visible (deleted or held content still answers not found), so the web draws the
++18 page or the warning window and never receives the content. With the mode off the marks are kept
+and change nothing.
+
+**Known gaps (follow-ups):** the members directory lists members with a +18 profile with their full
+card, and minimal member cards, recently active and site statistics show such members by name and
+avatar, as for a private profile; tag names and counts, the forum unread dot and node counts include
+marked threads; feed pages can hold fewer items after a run of marked threads; the web's cached
+share cards are the web item's. **Benchmark:** in full benchmark runs `forums.deleteNode delete
+chunk` shows p95 about 130 ms with single chunks up to about 315 ms (about 10 ms without this
+change; 7 ms when run alone, with identical writes measured); accepted by the owner for a rare
+administrator action, to watch in production.
+
+Why: the owner wants adult forums without showing them to minors or guests anywhere. Deciding forums
+in the permission engine reuses the one check every surface already makes, takes effect the moment a
+forum is marked (no batch copying to millions of threads) and costs nothing where nothing is marked;
+a thread's own mark is a column read with rows that are fetched anyway. A typed refusal lets the web
+ask for a birth date or the confirmation instead of a dead end.
