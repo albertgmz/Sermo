@@ -210,13 +210,12 @@ test("a guest where guests may reply gets the guest reply box", async () => {
   expect(await visit({})).toContain("guest reply box for 7 with 0x4AAA-site");
 });
 
-test("a guest gets the sign-in prompt in a read-only forum, one that asks an account's age or posts, a locked thread, or without the permission", async () => {
+test("a guest gets the sign-in prompt in a read-only forum, one that asks an account's age or posts, or without the permission", async () => {
   const prompt = translator("threads.page")("replyTitle");
   const cases: Parameters<typeof visit>[0][] = [
     { forum: { isReadOnly: true } },
     { forum: { minAccountAgeDays: 3 } },
     { forum: { minPostCount: 5 } },
-    { locked: true },
     { guestPost: false },
   ];
   for (const options of cases) {
@@ -263,4 +262,14 @@ test("a member is never invited", async () => {
   const html = await visit({ member: true, guestPost: false });
   expect(html).not.toContain("data-signup-invite");
   expect(html).not.toContain('href="/register"');
+});
+
+test("a guest on a locked thread is told it is locked, not invited to sign up to reply", async () => {
+  for (const guestPost of [true, false]) {
+    const html = await visit({ locked: true, guestPost });
+    expect(html).toContain(page("locked"));
+    expect(html).not.toContain("data-signup-invite");
+    expect(html).not.toContain('href="/register"');
+    expect(html).not.toContain("guest reply box");
+  }
 });

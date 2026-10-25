@@ -1,46 +1,37 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { consentSettled } from "@/components/layout/consent-library";
 import { PromptCard } from "@/components/layout/prompt-card";
+import { loadedCode } from "@/components/ui/lazy-popup-gate";
+import { GRACE_MS } from "@/lib/app-prompts";
 import { useInviteOnScreen } from "@/lib/invites-in-view";
+import { joinHost } from "@/lib/join-host";
 import { hostJoinWindow, type JoinAsk, loginHref } from "@/lib/join-window";
 import { SEARCH_VISIT_KEY, SNOOZE_KEY } from "@/lib/signup-nudge-keys";
 import {
   cardShown,
   DELAY_MS,
-  GRACE_MS,
   readSnooze,
   SEARCH_VISIT,
   scrolledEnough,
   searchVisit,
 } from "@/lib/signup-nudges";
+import { readStored } from "@/lib/stored";
 
 // A guest's invitations to create an account that float over the page (`lib/signup-nudges.ts`
 // decides which and when): the card for a visit that came from a search engine, and the sign-up
 // window that the actions only members can take open (`JoinLink`). Drawn only for guests, and only
-// where registration is open. The window's code comes with the first reach for such an action.
+// where registration is open. The window's code comes with the first reach for such an action,
+// through the site's lazy-popup path (`lib/join-host.ts`): when it cannot be fetched the guest goes
+// to the log-in page instead. A move to another page closes the window (Back while it is open).
 
 const loadJoinWindow = () =>
-  import("@/components/layout/join-window").then((module) => module.JoinWindow);
-const JoinWindow = dynamic(loadJoinWindow);
-
-function readStored(storage: () => Storage, key: string) {
-  try {
-    return storage().getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStored(storage: () => Storage, key: string, value: string) {
-  try {
-    storage().setItem(key, value);
-  } catch {}
-}
+  import("@/components/layout/join-window").then((module) => ({
+    default: module.JoinWindow,
+  }));
 
 export function SignupNudges({
   appName,
@@ -70,7 +61,9 @@ export function SignupNudges({
       window.location.hostname,
     );
     if (search && stored !== SEARCH_VISIT)
-      writeStored(() => sessionStorage, SEARCH_VISIT_KEY, SEARCH_VISIT);
+      try {
+        sessionStorage.setItem(SEARCH_VISIT_KEY, SEARCH_VISIT);
+      } catch {}
     setVisit({
       search,
       snoozedAt: readSnooze(readStored(() => localStorage, SNOOZE_KEY)),
@@ -111,15 +104,21 @@ export function SignupNudges({
   // The actions only members can take open the window from now on.
   useEffect(
     () =>
-      hostJoinWindow({
-        open: (next) => {
-          setAsk(next);
-          setWindowOpen(true);
-        },
-        warm: () => void loadJoinWindow(),
-      }),
+      hostJoinWindow(
+        joinHost(loadJoinWindow, {
+          show: (next) => {
+            setAsk(next);
+            setWindowOpen(true);
+          },
+          follow: (href) => window.location.assign(href),
+        }),
+      ),
     [],
   );
+
+  // Another page (Back while the window is open): the window closes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new page is what closes it
+  useEffect(() => setWindowOpen(false), [pathname]);
 
   const shown =
     visit !== null &&
@@ -134,10 +133,13 @@ export function SignupNudges({
     });
   const putOff = () => {
     const now = Date.now();
-    writeStored(() => localStorage, SNOOZE_KEY, String(now));
+    try {
+      localStorage.setItem(SNOOZE_KEY, String(now));
+    } catch {}
     setVisit({ search: true, snoozedAt: now });
   };
 
+  const JoinWindow = ask && loadedCode(loadJoinWindow);
   return (
     <>
       {shown && (
@@ -153,7 +155,7 @@ export function SignupNudges({
           {t("card.body")}
         </PromptCard>
       )}
-      {ask && (
+      {ask && JoinWindow && (
         <JoinWindow
           ask={ask}
           open={windowOpen}

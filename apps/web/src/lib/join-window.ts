@@ -13,7 +13,8 @@ export type JoinAsk = {
 };
 
 export type JoinHost = {
-  open: (ask: JoinAsk) => void;
+  // `busy` tells the pressed action while the window's code is on its way.
+  open: (ask: JoinAsk, busy?: (busy: boolean) => void) => void;
   // Fetches the window's code ahead of a press (a pointer over an action, a touch, the focus).
   warm: () => void;
 };
@@ -29,9 +30,12 @@ export function hostJoinWindow(next: JoinHost) {
 }
 
 // Opens the window, when the page holds it: false when the link is to be followed instead.
-export function askToJoin(ask: JoinAsk): boolean {
+export function askToJoin(
+  ask: JoinAsk,
+  busy?: (busy: boolean) => void,
+): boolean {
   if (!host) return false;
-  host.open(ask);
+  host.open(ask, busy);
   return true;
 }
 

@@ -14,8 +14,6 @@
 export const SNOOZE_DAYS = 7;
 // How long the card waits on a page before it comes up, unless the guest scrolls first.
 export const DELAY_MS = 6000;
-// After the cookie banner has been answered, a moment before the card, so the two do not seem one.
-export const GRACE_MS = 1500;
 // How far the guest scrolls before the card comes up early: this share of the screen's height.
 export const SCROLL_SHARE = 0.5;
 // The invitation after the first post is drawn only on a first page with at least this many replies

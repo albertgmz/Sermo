@@ -32,19 +32,12 @@ import {
   onPushChange,
   turnOnPush,
 } from "@/lib/push-client";
+import { readStored } from "@/lib/stored";
 
 // The cards that offer the app and notifications (`lib/app-prompts.ts` decides which and when). They
 // wait for the cookie banner, count the pages of the visit, and are decided again on every page.
 // Installing goes through the browser's own dialog where there is one; iOS Safari has none and is
 // shown the steps.
-
-function readStored(storage: () => Storage, key: string) {
-  try {
-    return storage().getItem(key);
-  } catch {
-    return null;
-  }
-}
 
 function snoozeCard(card: Card, now: number) {
   try {

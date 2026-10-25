@@ -6,12 +6,13 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // A card that offers the visitor something the forum cannot do without them: installing it as an
-// app, turning on notifications, or (for a guest) creating an account. It floats above the content at the foot of the screen (above the
-// phone's bottom bar), takes no focus and blocks nothing; "Not now" puts it away, as does Escape
-// from inside it. It steps aside while the notice of a popup that could not load is up (the same
-// corner). One component for every such offer, so they look and behave alike. `inline` sets it in the
-// flow of the page instead, for the styleguide. The main action is a button, or a link to another
-// page (`href`); `secondary` is a second link, drawn as an outlined button before it.
+// app, turning on notifications, or (for a guest) creating an account. It floats above the content
+// at the foot of the screen (above the phone's bottom bar), takes no focus and blocks nothing; "Not
+// now" puts it away, as does Escape from inside it. It steps aside while the notice of a popup that
+// could not load is up (the same corner). One component for every such offer, so they look and
+// behave alike. `inline` sets it in the flow of the page instead, for the styleguide. The main
+// action is a button, or a link to another page (`href`); `secondary` is a second link, drawn as an
+// outlined button before it.
 export function PromptCard({
   icon,
   title,

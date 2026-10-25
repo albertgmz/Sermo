@@ -250,6 +250,9 @@ export default async function ThreadPage({
             <PostNote icon={Lock}>
               {thread.isLocked ? t("locked") : t("cannotReply")}
             </PostNote>
+          ) : thread.isLocked ? (
+            // Nobody replies to a locked thread: no invitation to sign up to reply.
+            <PostNote icon={Lock}>{t("locked")}</PostNote>
           ) : guestKey ? (
             <div className="space-y-4">
               {site.registration.open && (

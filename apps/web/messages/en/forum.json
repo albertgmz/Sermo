@@ -640,11 +640,11 @@
     "login": "Log in",
     "firstPost": {
       "title": "Join the conversation",
-      "body": "With a free account your name is yours, you react to posts and we let you know when someone replies in this thread."
+      "body": "With a free account you post under your own name, react to posts and hear from us when someone replies in this thread."
     },
     "guestReply": {
       "title": "Reply as a guest or with your account",
-      "body": "With a free account your name is yours, you react to posts and we let you know when someone replies."
+      "body": "With a free account you post under your own name, react to posts and hear from us when someone replies."
     }
   }
 }
