@@ -7196,3 +7196,25 @@ four nullable columns.
 Why: fcuba.net holds years of older posts, and a reaction today to a 2015 post should not pay; short
 replies should not either. Filtering the source, not the event, keeps hide and restore consistent
 and cheap.
+
+### Welcome message
+
+**Setting:** `welcomeMessage` in the site settings: `enabled` (off by default), `senderId` (empty:
+the first administrator, the lowest-id member whose primary group is Administrator), `subject` and
+`body` (empty: the site's text in the language the member signed up in, `en`/`es` in the backend
+locale files; `{name}` is the username). It is saved only if the sender exists and the text renders
+as that sender; turning it off is always allowed. **When:** once, when an account is a confirmed
+member: email confirmed (link, change-email link, administrator's manual confirmation), approved
+when the site holds sign-ups, or moved out of Unconfirmed by an administrator; with no confirmation
+and no approval, at sign-up. All of them call `welcomeNewMember`, which reads only the account's
+state. **How:** a direct message delivered with the staff mass-message delivery, so the sender's
+conversation, flood and restriction rules do not apply and only the recipient is alerted. A failure
+is logged and never fails the sign-up or confirmation; it is retried only by the next step that
+calls `welcomeNewMember` for that account. A named sender who is later erased stops the sends
+(logged) until the setting is changed. **Once:** `users.welcome_due` (migration 0077, ADD COLUMN
+default 0): set by a sign-up, cleared by the send or by a confirmation while the message is off;
+accounts that existed before never have it.
+
+Why: one place decides from the state, so no path and no order of steps can send twice or miss; the
+column is the only record needed and a default-0 ADD COLUMN does not rebuild the 67,000-row `users`
+table; reusing the broadcast delivery avoids a second copy of the rules a system message skips.
