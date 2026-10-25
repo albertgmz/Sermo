@@ -180,7 +180,7 @@ export default async function ThreadPage({
               adult={thread.isAdult || thread.adultByForum}
               adultBadge={
                 site.adultMode && (
-                  <AdultBadge className="ml-2 h-6 align-[0.1875rem]" />
+                  <AdultBadge className="ml-1 h-6 align-[0.1875rem]" />
                 )
               }
             />

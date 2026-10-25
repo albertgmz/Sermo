@@ -30,7 +30,13 @@ export function ThreadHeading(props: {
         <PrefixTag prefix={shown.prefix} className="mr-2 align-[0.1875rem]" />
       )}
       {shown.title}
-      {shown.adult && props.adultBadge}
+      {/* Glued to the title's last word, so a wrapped title takes it along to the next line. */}
+      {shown.adult && props.adultBadge && (
+        <>
+          {"\u00a0"}
+          {props.adultBadge}
+        </>
+      )}
     </>
   );
 }

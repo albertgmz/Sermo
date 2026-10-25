@@ -156,7 +156,13 @@ export default async function ForumPage({
               site.adultMode,
               node.settings.isAdult,
               node.adultByParent,
-            ) && <AdultBadge className="ml-2 h-6 align-[0.1875rem]" />}
+            ) && (
+              // Glued to the title's last word, so a wrapped title takes it along.
+              <>
+                {"\u00a0"}
+                <AdultBadge className="ml-1 h-6 align-[0.1875rem]" />
+              </>
+            )}
           </h1>
           {node.description && (
             <p

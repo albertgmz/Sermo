@@ -200,6 +200,7 @@ export function AdultGate({
   retry: () => void;
 }) {
   const router = useRouter();
+  const popup = useRef<HTMLDivElement>(null);
   const leave = () => leaveGate(router, window.history.length);
   return (
     <PageLayout className="md:py-16">
@@ -211,7 +212,17 @@ export function AdultGate({
           disablePointerDismissal
           onOpenChange={onGateChange(leave)}
         >
-          <DialogContent showCloseButton={false} className="sm:max-w-md">
+          <DialogContent
+            ref={popup}
+            showCloseButton={false}
+            className="sm:max-w-md"
+            // The date field when the window asks for it; else the window itself, which reads out its
+            // title and text first and leaves no button looking chosen before the member chose.
+            initialFocus={() =>
+              popup.current?.querySelector<HTMLElement>('[name="birthDate"]') ??
+              popup.current
+            }
+          >
             <AdultWarningBody reason={reason} onConfirmed={retry} />
           </DialogContent>
         </Dialog>
